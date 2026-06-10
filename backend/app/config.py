@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     default_service_fee_rate: float = 0.0  # Сервисный сбор (0% по умолчанию)
     password_min_length: int = 8
 
+    # Интеграции главной админки (ТЗ §8); пустые значения = интеграция выключена
+    devent_base_url: str | None = None
+    devent_api_key: str | None = None
+
     class Config:
         env_file = ".env"
 

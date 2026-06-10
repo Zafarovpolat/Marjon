@@ -27,6 +27,17 @@ import app.modules.audit.models           # noqa: F401
 import app.modules.fiscal.models          # noqa: F401
 import app.modules.subscriptions.models   # noqa: F401
 import app.modules.printers.models        # noqa: F401
+# Главная админка (HQ admin panel)
+import app.modules.handbook.models        # noqa: F401
+import app.modules.organizations.models   # noqa: F401
+import app.modules.departments.models     # noqa: F401
+import app.modules.marketing.models       # noqa: F401
+import app.modules.nomenclature.models    # noqa: F401
+import app.modules.storage.models         # noqa: F401
+import app.modules.finance.models         # noqa: F401
+import app.modules.field_service.models   # noqa: F401
+import app.modules.tasks.models           # noqa: F401
+import app.modules.admin_settings.models  # noqa: F401
 
 # ── Routers ─────────────────────────────────────────────────────────────────
 from app.modules.auth.router          import router as auth_router
@@ -46,6 +57,19 @@ from app.modules.audit.router         import router as audit_router
 from app.modules.fiscal.router        import router as fiscal_router
 from app.modules.subscriptions.router import router as subscriptions_router
 from app.modules.printers.router      import router as printers_router
+# Главная админка (HQ admin panel)
+from app.modules.handbook.router       import router as handbook_router
+from app.modules.organizations.router  import router as organizations_router
+from app.modules.departments.router    import router as departments_router
+from app.modules.marketing.router      import router as marketing_router
+from app.modules.nomenclature.router   import router as nomenclature_router
+from app.modules.storage.router        import router as storage_router
+from app.modules.finance.router        import router as finance_router
+from app.modules.field_service.router  import router as field_service_router
+from app.modules.tasks.router          import router as tasks_router
+from app.modules.ratings.router        import router as ratings_router
+from app.modules.admin_settings.router import router as admin_settings_router
+from app.modules.admin_reports.router  import router as admin_reports_router
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +112,11 @@ for router in [
     delivery_router, hr_router, analytics_router,
     notifications_router, audit_router,
     fiscal_router, subscriptions_router, printers_router,
+    # Главная админка
+    handbook_router, organizations_router, departments_router,
+    marketing_router, nomenclature_router, storage_router,
+    finance_router, field_service_router, tasks_router,
+    ratings_router, admin_settings_router, admin_reports_router,
 ]:
     app.include_router(router, prefix=API)
 
