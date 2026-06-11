@@ -2,6 +2,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/marjon-logo.svg";
 import { logout } from "../api/client";
+import { UserCog, Headphones, Languages, LogOut, ChevronDown as SideChevronDown, ChevronRight as SideChevronRight } from "lucide-react";
 
 const navItems = [
   { key: "dashboard", label: "Дашборд", icon: "bi-bar-chart-line", to: "/" },
@@ -94,6 +95,9 @@ const navItems = [
       { key: "sales-categories", label: "Категория реализации", to: "/nomenclature/sales-categories", icon: "bi-shop" },
     ],
   },
+  { key: "orders", label: "Заказы", icon: "bi-receipt", to: "/orders" },
+  { key: "menu", label: "Меню", icon: "bi-journal-richtext", to: "/menu" },
+  { key: "analytics", label: "Аналитика", icon: "bi-graph-up", to: "/analytics" },
   { key: "store", label: "Магазин", icon: "bi-shop", to: "/store" },
   { key: "reviews", label: "Отзывы", icon: "bi-chat-left", to: "/reviews" },
 ];
@@ -194,10 +198,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
               <div
                 key={item.key}
                 className={`sidebar-nav-item has-submenu ${active ? "is-active" : ""} ${submenuOpen ? "is-open" : ""}`}
-                onMouseEnter={() => setOpenMenu(item.key)}
-                onMouseLeave={() => {
-                  if (pinnedMenu !== item.key) setOpenMenu("");
-                }}
+                /* hover auto-expand disabled — only click/pin toggles submenu */
               >
                 <button
                   className={`sidebar-link sidebar-link--button ${active ? "is-active" : ""}`}
@@ -215,7 +216,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
                 >
                   <span className="sidebar-icon"><i className={`bi ${item.icon}`} /></span>
                   <span>{item.label}</span>
-                  <i className="bi bi-chevron-down sidebar-link__chevron" aria-hidden="true" />
+                  <SideChevronDown size={16} strokeWidth={2.5} className="sidebar-link__chevron" aria-hidden="true" />
                 </button>
                 <div className="sidebar-submenu">
                   {item.children.map((child) => (
@@ -269,17 +270,17 @@ export default function Sidebar({ user, collapsed, onToggle }) {
               </div>
             </div>
             <Link className="sidebar-account__item" to="/settings/profile" role="menuitem" onClick={() => setAccountOpen(false)}>
-              <i className="bi bi-person-gear" />
+              <UserCog size={18} strokeWidth={2} />
               <span>Настройка профиля</span>
             </Link>
             <Link className="sidebar-account__item" to="/settings/support" role="menuitem" onClick={() => setAccountOpen(false)}>
-              <i className="bi bi-headset" />
+              <Headphones size={18} strokeWidth={2} />
               <span>Тех. поддержка</span>
             </Link>
 
             <div className="sidebar-account__lang">
               <span className="sidebar-account__lang-label">
-                <i className="bi bi-translate" />
+                <Languages size={18} strokeWidth={2} />
                 Язык
               </span>
               <div className="sidebar-account__lang-switch" role="group" aria-label="Выбор языка">
@@ -303,7 +304,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
             </div>
 
             <button type="button" className="sidebar-account__item sidebar-account__item--danger" role="menuitem" onClick={handleLogout}>
-              <i className="bi bi-box-arrow-right" />
+              <LogOut size={18} strokeWidth={2} />
               <span>Выйти</span>
             </button>
           </div>
@@ -324,7 +325,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
             <span>{role}</span>
             <em>{user?.company_name || "MARJON"}</em>
           </div>
-          <i className="bi bi-chevron-right sidebar-user__arrow" aria-hidden="true" />
+          <SideChevronRight size={16} strokeWidth={2.5} className="sidebar-user__arrow" aria-hidden="true" />
         </button>
       </div>
     </aside>

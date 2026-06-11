@@ -1166,6 +1166,80 @@
   font-weight: 950;
 }
 
+.login-pro-foot a {
+  color: #ff5f35;
+  font-weight: 950;
+  text-decoration: none;
+  transition: 0.15s ease;
+}
+.login-pro-foot a:hover {
+  color: #e85d2a;
+  text-decoration: underline;
+}
+
+/* Eye icon button for password toggle */
+.login-pro-eye {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0 !important;
+  border-radius: 10px;
+  background: transparent !important;
+  color: #94a3b8;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: 0.15s ease;
+  padding: 0;
+}
+.login-pro-eye:hover {
+  color: #ff6b35;
+  background: rgba(255, 107, 53, 0.08) !important;
+}
+
+/* Screen-reader only (hide native checkbox) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+/* Toggle switch for "Запомнить меня" */
+.login-pro-toggle {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  background: #cbd5e1;
+  border-radius: 12px;
+  transition: 0.2s ease;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.login-pro-toggle.is-on {
+  background: #ff6b35;
+}
+.login-pro-toggle__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+  transition: 0.2s ease;
+}
+.login-pro-toggle.is-on .login-pro-toggle__thumb {
+  left: 21px;
+}
+
 @media (max-width: 1020px) {
   .login-pro-shell {
     grid-template-columns: 1fr;
@@ -2085,8 +2159,8 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open > .sidebar-link,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open > .sidebar-link--button,
 .dashboard-sidebar .sidebar-link.is-active {
-  min-height: 52px !important;
-  border-radius: 14px !important;
+  min-height: 48px !important;
+  border-radius: 13px !important;
 }
 
 .dashboard-sidebar .sidebar-submenu {
@@ -2162,15 +2236,10 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link:hover,
 .dashboard-sidebar .sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link--button:hover {
   min-height: 48px !important;
-  height: 48px !important;
   padding: 0 16px !important;
   border-radius: 13px !important;
   transform: none !important;
-  transition:
-    background 0.22s ease,
-    color 0.18s ease,
-    box-shadow 0.22s ease,
-    border-color 0.22s ease !important;
+  transition: background 0.18s ease, color 0.18s ease !important;
 }
 
 .dashboard-sidebar .sidebar-submenu {
@@ -2812,13 +2881,17 @@ body.dashboard-body,
 }
 
 /* Align period controls and section actions to one common button height */
-.period-switcher .period-dropdown__button,
 .period-switcher__details,
 .section-header .btn-ghost {
   min-height: 48px !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
+}
+.period-switcher .period-dropdown__button {
+  min-height: 48px !important;
+  align-items: center !important;
+  justify-content: space-between !important;
 }
 
 .kpi-grid.kpi-grid--premium {
@@ -9930,3 +10003,765 @@ html body .staff-manager__photo-upload > span > i {
   border-color: #30363d !important;
 }
 
+
+/* ══════════════════════════════════════════════════════
+   FIX BLOCK v7 — Login fit-screen, sidebar smooth,
+   link hover fix, popover arrow, period btn, dark shadows
+   ═══════════════════════════════════════════════════ */
+
+/* 1. Login page — always fits viewport, no scrollbar */
+.login-pro-shell {
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  overflow: hidden !important;
+  grid-template-rows: 1fr !important;
+}
+.login-pro-brand {
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+.login-pro-brand__content {
+  max-height: 100%;
+  overflow: hidden;
+}
+.login-pro-panel {
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+.login-pro-card {
+  padding: clamp(20px, 2.5vh, 54px) clamp(24px, 3vw, 54px) !important;
+}
+.login-pro-mark {
+  width: clamp(56px, 9vh, 120px) !important;
+  height: clamp(56px, 9vh, 120px) !important;
+}
+.login-pro-brand h1 {
+  font-size: clamp(28px, 5vh, 92px) !important;
+  margin: clamp(10px, 2vh, 42px) 0 clamp(6px, 1.5vh, 18px) !important;
+}
+.login-pro-brand p {
+  font-size: clamp(14px, 1.5vw, 28px) !important;
+  margin-bottom: clamp(10px, 2vh, 34px) !important;
+  line-height: 1.3 !important;
+}
+.login-pro-bullets {
+  gap: clamp(6px, 1vh, 18px) !important;
+}
+.login-pro-bullets span {
+  font-size: clamp(13px, 1.3vw, 20px) !important;
+}
+.login-pro-head h2 {
+  font-size: clamp(22px, 3vw, 48px) !important;
+}
+.login-pro-submit {
+  min-height: clamp(44px, 5.5vh, 70px) !important;
+}
+.login-pro-input-wrap {
+  min-height: clamp(44px, 5.5vh, 66px) !important;
+}
+@media (max-height: 640px) {
+  .login-pro-brand p { display: none; }
+  .login-pro-bullets { display: none; }
+  .login-pro-mark { width: 48px !important; height: 48px !important; }
+  .login-pro-brand h1 { font-size: 24px !important; margin: 8px 0 4px !important; }
+}
+@media (max-width: 1020px) {
+  .login-pro-shell {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto 1fr !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 100dvh;
+    overflow-y: auto !important;
+  }
+  .login-pro-brand {
+    height: auto !important;
+    min-height: auto !important;
+    padding: 40px 24px !important;
+  }
+}
+
+/* 2. Sidebar collapse — smooth GPU-accelerated animation */
+.dashboard-sidebar {
+  transition: width 0.22s ease-out, min-width 0.22s ease-out !important;
+  will-change: width;
+  overflow: hidden;
+}
+.dashboard-sidebar .sidebar-link span:not(.sidebar-icon),
+.dashboard-sidebar .sidebar-link__chevron,
+.dashboard-sidebar .sidebar-user__meta,
+.dashboard-sidebar .sidebar-user__arrow,
+.dashboard-sidebar .brand-title,
+.dashboard-sidebar .brand-subtitle {
+  transition: opacity 0.16s ease !important;
+}
+.dashboard-sidebar.is-collapsed .sidebar-link span:not(.sidebar-icon),
+.dashboard-sidebar.is-collapsed .sidebar-link__chevron,
+.dashboard-sidebar.is-collapsed .sidebar-user__meta,
+.dashboard-sidebar.is-collapsed .sidebar-user__arrow,
+.dashboard-sidebar.is-collapsed .brand-title,
+.dashboard-sidebar.is-collapsed .brand-subtitle {
+  opacity: 0 !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+}
+.dashboard-main {
+  transition: margin-left 0.22s ease-out !important;
+}
+
+/* 3. Dashboard topbar — remove border-radius */
+.dashboard-topbar {
+  border-radius: 0 !important;
+}
+.dashboard-main {
+  border-top-left-radius: 0 !important;
+}
+
+/* 3b. Sidebar links — no jiggle on hover */
+.dashboard-sidebar .sidebar-link,
+.dashboard-sidebar .sidebar-link--button,
+.dashboard-sidebar .sidebar-nav-item.has-submenu.is-open > .sidebar-link,
+.dashboard-sidebar .sidebar-nav-item.has-submenu.is-open > .sidebar-link--button,
+.dashboard-sidebar .sidebar-link.is-active,
+.dashboard-sidebar .sidebar-link:hover,
+.dashboard-sidebar .sidebar-link--button:hover,
+.dashboard-sidebar .sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link:hover,
+.dashboard-sidebar .sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link--button:hover {
+  min-height: 48px !important;
+  padding: 0 16px !important;
+  border-radius: 13px !important;
+  transform: none !important;
+  transition: background 0.18s ease, color 0.18s ease !important;
+}
+
+/* 4. Sidebar hover — disable auto-expand of submenus */
+.sidebar-nav-item.has-submenu:hover .sidebar-submenu {
+  grid-template-rows: 0fr !important;
+  opacity: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  transform: translateY(-4px) !important;
+}
+.sidebar-nav-item.has-submenu:hover .sidebar-link__chevron {
+  transform: rotate(0deg) !important;
+}
+.sidebar-nav-item.has-submenu.is-open .sidebar-submenu {
+  grid-template-rows: 1fr !important;
+  opacity: 1 !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  transform: translateY(0) !important;
+}
+.sidebar-nav-item.has-submenu.is-open .sidebar-link__chevron {
+  transform: rotate(180deg) !important;
+  color: #fff !important;
+}
+
+/* 5. Fonts — unified font-family */
+.mj-datepicker,
+.mj-datepicker__trigger,
+.mj-datepicker__value,
+.mj-calendar,
+.mj-calendar *,
+.global-search__input,
+.topbar-icon,
+.dashboard-topbar,
+.dashboard-topbar * {
+  font-family: var(--mj-font-body, Inter, "Plus Jakarta Sans", sans-serif) !important;
+}
+.mj-datepicker__value {
+  font-weight: 700 !important;
+  font-size: 0.92rem !important;
+}
+
+/* 6. Notification popover — arrow visible + triangle */
+.stock-alert-popover {
+  overflow: visible !important;
+}
+.stock-alert-popover__body {
+  overflow-y: auto;
+  max-height: 340px;
+}
+.stock-alert-popover::before {
+  content: "" !important;
+  position: absolute !important;
+  top: -8px !important;
+  right: 22px !important;
+  width: 16px !important;
+  height: 10px !important;
+  transform: none !important;
+  border: none !important;
+  background: #ffffff !important;
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%) !important;
+}
+[data-theme="dark"] .stock-alert-popover::before {
+  background: #161b22 !important;
+}
+
+/* 7. Notification badge — circle, no border */
+.topbar-notification__badge {
+  min-width: 22px !important;
+  width: auto;
+  height: 22px !important;
+  padding: 0 6px !important;
+  border: none !important;
+  border-radius: 999px !important;
+  font-size: 0.72rem !important;
+  line-height: 22px !important;
+}
+
+/* 8. Period dropdown button span — fix color and centering */
+.period-dropdown__button {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+.period-dropdown__button span {
+  display: flex !important;
+  align-items: center !important;
+}
+[data-theme="dark"] .period-dropdown__button span {
+  color: #8b949e !important;
+}
+[data-theme="dark"] .period-dropdown__button strong {
+  color: #e6edf3 !important;
+}
+
+/* 9. Dark theme — remove white inset box-shadow everywhere */
+[data-theme="dark"] .stock-alert-popover {
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.5) !important;
+}
+[data-theme="dark"] .staff-manager__stat-card,
+[data-theme="dark"] .staff-manager__form {
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.3) !important;
+}
+[data-theme="dark"] .period-dropdown__button {
+  box-shadow: none !important;
+}
+
+/* Dark theme: calendar dropdown */
+[data-theme="dark"] .mj-calendar {
+  background: #1c2128 !important;
+  border-color: #30363d !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5) !important;
+}
+[data-theme="dark"] .mj-calendar__nav button,
+[data-theme="dark"] .mj-calendar__year-switch button {
+  background: #21262d !important;
+  border-color: #30363d !important;
+  color: #e6edf3 !important;
+}
+[data-theme="dark"] .mj-calendar__nav button:hover,
+[data-theme="dark"] .mj-calendar__year-switch button:hover {
+  border-color: #ff6b35 !important;
+  color: #ff6b35 !important;
+  background: rgba(255, 107, 61, 0.12) !important;
+}
+[data-theme="dark"] .mj-calendar__title strong { color: #e6edf3 !important; }
+[data-theme="dark"] .mj-calendar__title span { color: #8b949e !important; }
+[data-theme="dark"] .mj-calendar__weekdays span { color: #8b949e !important; }
+[data-theme="dark"] .mj-calendar__day { color: #e6edf3 !important; }
+[data-theme="dark"] .mj-calendar__day.is-outside { color: #484f58 !important; }
+[data-theme="dark"] .mj-calendar__day:hover:not(.is-disabled):not(.is-selected) {
+  background: rgba(255, 107, 61, 0.15) !important;
+}
+[data-theme="dark"] .mj-calendar__footer { border-top-color: #30363d !important; }
+[data-theme="dark"] .mj-calendar__months-grid button {
+  background: #21262d !important;
+  border-color: #30363d !important;
+  color: #e6edf3 !important;
+}
+[data-theme="dark"] .mj-calendar__months-grid button:hover {
+  border-color: #ff6b35 !important;
+  color: #ff6b35 !important;
+}
+[data-theme="dark"] .mj-calendar__action--ghost { color: #8b949e !important; }
+[data-theme="dark"] .mj-calendar__action--accent { color: #ff6b35 !important; }
+
+/* Lucide icon sizing */
+.topbar-icon svg,
+.mj-datepicker__icon svg,
+.global-search__icon svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+}
+
+/* ══════════════════════════════════════════════════════
+   FIX BLOCK v8 — hide brand <1024, calendar weekends,
+   dark inset box-shadow removal
+   ═══════════════════════════════════════════════════ */
+
+/* 1. Hide login brand section on narrow screens */
+@media (max-width: 1024px) {
+  .login-pro-brand {
+    display: none !important;
+  }
+  .login-pro-shell {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* 2. Calendar — future disabled weekend days get same opacity as weekdays */
+.mj-calendar__day.is-disabled {
+  opacity: 0.45 !important;
+  color: #d6dbe3 !important;
+  cursor: not-allowed !important;
+}
+.mj-calendar__day.is-disabled.is-weekend {
+  color: #d6dbe3 !important;
+}
+[data-theme="dark"] .mj-calendar__day.is-disabled {
+  color: #484f58 !important;
+}
+
+/* 3. Dark theme — kill inset box-shadow on toolbar/period controls */
+[data-theme="dark"] .period-chip,
+[data-theme="dark"] .restaurant-pill,
+[data-theme="dark"] .lang-switch,
+[data-theme="dark"] .topbar-icon,
+[data-theme="dark"] .logout-btn,
+[data-theme="dark"] .period-switcher__details,
+[data-theme="dark"] .revenue-period-dropdown__trigger,
+[data-theme="dark"] .section-header .btn-ghost {
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* ══════════════════════════════════════════════════════
+   FIX BLOCK v9 — period span, top-dish palette, badge,
+   btn-ghost unification
+   ═══════════════════════════════════════════════════ */
+
+/* 1. Period dropdown button span — color + line-height */
+.period-dropdown__button span {
+  color: var(--mj-muted, #64748b) !important;
+  line-height: 1.3 !important;
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+}
+[data-theme="dark"] .period-dropdown__button span {
+  color: #8b949e !important;
+}
+
+/* 2. Period dropdown menu — checkmark before text alignment */
+.period-dropdown__menu button {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  text-align: left !important;
+}
+.period-dropdown__menu button i.bi-check2 {
+  order: -1 !important;
+  color: var(--mj-brand, #ff6b35) !important;
+  font-size: 1rem !important;
+}
+
+/* 5. top-dish__rank — MARJON brand palette (orange) */
+.top-dish__rank {
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.22), transparent 25%),
+    linear-gradient(145deg, var(--mj-brand, #ff6b35), var(--mj-brand-dark, #e85d2a)) !important;
+  box-shadow:
+    0 10px 22px rgba(255, 107, 53, 0.30),
+    inset 0 1px 0 rgba(255, 255, 255, 0.20) !important;
+}
+[data-theme="dark"] .top-dish__rank {
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.18), transparent 25%),
+    linear-gradient(145deg, var(--mj-brand, #ff6b35), var(--mj-brand-dark, #e85d2a)) !important;
+  box-shadow:
+    0 10px 22px rgba(255, 107, 53, 0.25) !important;
+}
+
+/* 6. top-dish__line — halve margin-bottom */
+.top-dish__line {
+  margin-bottom: 5px !important;
+}
+
+/* 7. badge-info on top-dish — MARJON orange palette */
+.top-dish .badge-info {
+  color: var(--mj-brand-dark, #e85d2a) !important;
+  background: rgba(255, 107, 53, 0.10) !important;
+}
+[data-theme="dark"] .top-dish .badge-info {
+  color: var(--mj-brand-2, #ff8f5a) !important;
+  background: rgba(255, 107, 53, 0.14) !important;
+}
+
+/* 4. Unified btn-ghost style for "Подробнее" and "Все блюда" */
+.section-header .btn-ghost,
+.period-switcher .btn-ghost {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  color: var(--mj-brand, #ff6b35) !important;
+  font-weight: 800 !important;
+  font-size: 0.85rem !important;
+}
+.section-header .btn-ghost i,
+.period-switcher .btn-ghost i {
+  font-size: 0.75rem !important;
+  transition: transform 0.18s ease !important;
+}
+.section-header .btn-ghost:hover i,
+.period-switcher .btn-ghost:hover i {
+  transform: translateX(3px) !important;
+}
+[data-theme="dark"] .section-header .btn-ghost,
+[data-theme="dark"] .period-switcher .btn-ghost {
+  color: var(--mj-brand-2, #ff8f5a) !important;
+}
+
+/* ══════════════════════════════════════════════════════
+   FIX BLOCK v9b — topbar hover glow (match calendar)
+   ═══════════════════════════════════════════════════ */
+
+/* Search field hover — orange glow like calendar trigger */
+.global-search__field:hover {
+  border-color: rgba(255, 107, 61, 0.5) !important;
+  box-shadow: 0 6px 18px rgba(255, 107, 61, 0.12) !important;
+}
+.global-search__field:focus-within,
+.global-search.is-open .global-search__field {
+  border-color: var(--accent, #ff6b35) !important;
+  box-shadow: 0 0 0 4px rgba(255, 107, 61, 0.14) !important;
+}
+
+/* Topbar icon buttons (theme + notification) — orange glow on hover */
+.topbar-icon:hover {
+  border-color: rgba(255, 107, 61, 0.5) !important;
+  box-shadow: 0 6px 18px rgba(255, 107, 61, 0.12) !important;
+  color: var(--mj-brand, #ff6b35) !important;
+}
+.topbar-icon:hover svg {
+  color: var(--mj-brand, #ff6b35) !important;
+  stroke: var(--mj-brand, #ff6b35) !important;
+}
+
+/* Dark theme hover — same glow, adjusted */
+[data-theme="dark"] .global-search__field:hover {
+  border-color: rgba(255, 107, 61, 0.45) !important;
+  box-shadow: 0 6px 22px rgba(255, 107, 61, 0.15) !important;
+}
+[data-theme="dark"] .topbar-icon:hover {
+  border-color: rgba(255, 107, 61, 0.45) !important;
+  box-shadow: 0 6px 22px rgba(255, 107, 61, 0.15) !important;
+  color: var(--mj-brand, #ff6b35) !important;
+}
+[data-theme="dark"] .topbar-icon:hover svg {
+  color: var(--mj-brand, #ff6b35) !important;
+  stroke: var(--mj-brand, #ff6b35) !important;
+}
+
+/* ══════════════════════════════════════════════════════
+   FIX BLOCK v10 — popover bg, period dot, top-dish
+   restructure, dashboard-content height
+   ═══════════════════════════════════════════════════ */
+
+/* 1. stock-alert-popover — white background, no gradient */
+.stock-alert-popover {
+  background: #fff !important;
+}
+[data-theme="dark"] .stock-alert-popover {
+  background: var(--mj-card-dark, #161b22) !important;
+}
+
+/* 3. Period dropdown dot indicator — kill legacy ::before dot */
+.period-dropdown__menu button::before {
+  display: none !important;
+}
+.period-dropdown__dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #94a3b8;
+  background: transparent;
+  flex-shrink: 0;
+  transition: 0.15s ease;
+}
+/* White dot inside selected (orange gradient) button */
+.period-dropdown__menu button.is-selected .period-dropdown__dot {
+  border-color: #fff;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25);
+}
+.period-dropdown__dot.is-active {
+  border-color: var(--mj-brand, #ff6b35);
+  background: var(--mj-brand, #ff6b35);
+  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.18);
+}
+.period-dropdown__menu button {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+[data-theme="dark"] .period-dropdown__dot {
+  border-color: #30363d;
+}
+[data-theme="dark"] .period-dropdown__dot.is-active {
+  border-color: var(--mj-brand, #ff6b35);
+  background: var(--mj-brand, #ff6b35);
+  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.22);
+}
+
+/* 4. top-dish restructured — line has name + badge, bar below */
+.top-dish__body {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  min-width: 0 !important;
+}
+.top-dish__line {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: start !important;
+  gap: 8px !important;
+  margin-bottom: 0 !important;
+}
+.top-dish__line strong {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+.top-dish__bar {
+  width: 100% !important;
+}
+
+/* 6. period-dropdown__button — remove span styling since span is gone */
+.period-dropdown__button {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+/* 7. dashboard-content shrink */
+.dashboard-content {
+  flex: 1 1 auto !important;
+  flex-shrink: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.dashboard-content > section:last-child {
+  flex: 1 1 auto !important;
+}
+
+/* Fix: top-dish — name shows fully, badge wraps if needed */
+.top-dish__line {
+  flex-wrap: wrap !important;
+  gap: 4px 8px !important;
+}
+.top-dish__line strong {
+  flex: 0 0 auto !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  white-space: nowrap !important;
+}
+.top-dish__line .badge {
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+  font-size: 0.68rem !important;
+  padding: 2px 8px !important;
+}
+
+/* ══════════════════════════════════════════════════════
+   FIX BLOCK v11 — remove gradient backgrounds
+   ═══════════════════════════════════════════════════ */
+
+/* period-dropdown__button — flat white bg */
+.period-dropdown__button {
+  background: #fff !important;
+}
+[data-theme="dark"] .period-dropdown__button {
+  background: #21262d !important;
+}
+
+/* premium-chart — flat white bg */
+.premium-chart {
+  background: #fff !important;
+}
+[data-theme="dark"] .premium-chart {
+  background: var(--mj-card-dark, #161b22) !important;
+}
+
+/* top-dishes-card — flat white bg */
+.top-dishes-card {
+  background: #fff !important;
+}
+[data-theme="dark"] .top-dishes-card {
+  background: var(--mj-card-dark, #161b22) !important;
+}
+
+/* shift-summary-card — flat white bg (both base and --window) */
+.shift-summary-card,
+.shift-summary-card.shift-summary-card--window {
+  background: #fff !important;
+}
+[data-theme="dark"] .shift-summary-card,
+[data-theme="dark"] .shift-summary-card.shift-summary-card--window {
+  background: var(--mj-card-dark, #161b22) !important;
+}
+
+/* quick-actions--command — flat white bg */
+.quick-actions--command {
+  background: #fff !important;
+}
+[data-theme="dark"] .quick-actions--command {
+  background: var(--mj-card-dark, #161b22) !important;
+}
+
+/* ══════════════════════════════════════════════════════
+   FIX BLOCK v12
+   ═══════════════════════════════════════════════════ */
+
+/* 1. Remove premium-chart decorative circle */
+.premium-chart::after {
+  display: none !important;
+}
+
+/* === KPI trend badges — per-variant vivid colors === */
+.premium-kpi--revenue .trend {
+  color: #c2410c !important;
+  border-color: rgba(255, 107, 53, 0.25) !important;
+  background: rgba(255, 237, 213, 0.85) !important;
+}
+.premium-kpi--orders .trend {
+  color: #1d4ed8 !important;
+  border-color: rgba(46, 144, 250, 0.25) !important;
+  background: rgba(219, 234, 254, 0.85) !important;
+}
+.premium-kpi--avg .trend {
+  color: #6d28d9 !important;
+  border-color: rgba(122, 90, 248, 0.25) !important;
+  background: rgba(237, 233, 254, 0.85) !important;
+}
+.premium-kpi--tables .trend {
+  color: #0e7490 !important;
+  border-color: rgba(6, 174, 212, 0.25) !important;
+  background: rgba(207, 250, 254, 0.85) !important;
+}
+
+/* === Quick-actions grid — tighter spacing === */
+.quick-actions--command .quick-actions__grid {
+  gap: 10px !important;
+}
+.quick-actions--command .quick-actions__grid a {
+  padding: 16px !important;
+  min-height: 118px !important;
+}
+
+/* === Lucide SVG icons inherit same styles as <i> icons === */
+.quick-actions__grid svg,
+.quick-actions--command .quick-actions__grid svg {
+  width: 46px !important;
+  height: 46px !important;
+  padding: 12px !important;
+  border-radius: 16px !important;
+  color: #FF6B45 !important;
+  background: rgba(255, 107, 69, 0.11) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72) !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+}
+.premium-kpi__icon svg {
+  color: #ffffff !important;
+  width: 22px !important;
+  height: 22px !important;
+}
+.revenue-insight__icon svg {
+  color: inherit !important;
+}
+.shift-summary-card__alert-icon svg {
+  color: inherit !important;
+}
+.quick-actions__live svg {
+  width: auto !important;
+  height: auto !important;
+  padding: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  color: inherit !important;
+}
+.quick-actions__notice svg {
+  width: auto !important;
+  height: auto !important;
+  padding: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  color: inherit !important;
+}
+
+/* btn-ghost with Lucide icon — hide CSS ::after chevron */
+.btn-ghost--lucide::after {
+  display: none !important;
+}
+.btn-ghost--lucide svg {
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+/* 2. Period button — full width, content spread */
+.period-dropdown__button {
+  width: 100% !important;
+  justify-content: space-between !important;
+}
+
+/* ===== MARJON Custom Loader ===== */
+.mj-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 340px;
+  gap: 20px;
+}
+.mj-loader__ring {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mj-loader__ring::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 107, 53, 0.15);
+  border-top-color: #ff6b35;
+  animation: mjSpin 0.9s linear infinite;
+}
+.mj-loader__logo {
+  width: 36px;
+  height: 36px;
+  animation: mjPulse 1.8s ease-in-out infinite;
+}
+.mj-loader__text {
+  color: var(--mj-muted, #64748b);
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+@keyframes mjSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes mjPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.92); }
+}
+[data-theme="dark"] .mj-loader__ring::before {
+  border-color: rgba(255, 107, 53, 0.1);
+  border-top-color: #ff6b35;
+}
+[data-theme="dark"] .mj-loader__text {
+  color: #94a3b8;
+}

@@ -2,6 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import { api, login } from "../api/client";
 import logo from "../assets/marjon-logo.svg";
+import { User, Lock, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -26,7 +27,12 @@ export default function LoginPage() {
       }
       navigate(target, { replace: true });
     } catch (err) {
-      setError(err.response?.data?.detail || "Не удалось войти. Проверьте email и пароль.");
+      const detail = err.response?.data?.detail || "";
+      if (detail === "Invalid credentials" || detail.toLowerCase().includes("invalid")) {
+        setError("Неверный логин или пароль");
+      } else {
+        setError(detail || "Не удалось войти. Проверьте email и пароль.");
+      }
     } finally {
       setLoading(false);
     }
@@ -65,21 +71,25 @@ export default function LoginPage() {
 
           <label className="login-pro-field">
             <span>ЛОГИН / EMAIL</span>
-            <div className="login-pro-input-wrap"><i className="bi bi-person" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" placeholder="owner@marjon.uz" spellCheck="false" /></div>
+            <div className="login-pro-input-wrap"><User size={18} strokeWidth={2} /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" placeholder="owner@marjon.uz" spellCheck="false" /></div>
           </label>
 
           <label className="login-pro-field">
             <span>ПАРОЛЬ</span>
-            <div className="login-pro-input-wrap"><i className="bi bi-lock" /><input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" placeholder="Marjon2026!" spellCheck="false" /><button type="button" onClick={() => setShowPassword((value) => !value)}>{showPassword ? "Скрыть" : "Показать"}</button></div>
+            <div className="login-pro-input-wrap"><Lock size={18} strokeWidth={2} /><input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" placeholder="Marjon2026!" spellCheck="false" /><button type="button" className="login-pro-eye" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}>{showPassword ? <EyeOff size={18} strokeWidth={2} /> : <Eye size={18} strokeWidth={2} />}</button></div>
           </label>
 
           <div className="login-pro-row login-pro-row--single">
-            <label className="login-pro-check"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> <span>Запомнить меня</span></label>
+            <label className="login-pro-check">
+              <span className={`login-pro-toggle${remember ? " is-on" : ""}`} aria-hidden="true"><span className="login-pro-toggle__thumb" /></span>
+              <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="sr-only" />
+              <span>Запомнить меня</span>
+            </label>
           </div>
 
           <button className="login-pro-submit" type="submit" disabled={loading}>{loading ? "Вход..." : "Войти"}</button>
 
-          <p className="login-pro-foot">Нет аккаунта? <span>Свяжитесь с нами</span></p>
+          <p className="login-pro-foot">Нет аккаунта? <a href="https://t.me/marjon_support" target="_blank" rel="noopener noreferrer">Свяжитесь с нами</a></p>
         </form>
       </section>
     </main>

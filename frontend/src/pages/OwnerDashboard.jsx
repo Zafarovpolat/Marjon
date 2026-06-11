@@ -2,6 +2,8 @@
 import { Chart, Filler, LineController, LineElement, LinearScale, PointElement, CategoryScale, Tooltip } from "chart.js";
 import { Link, useNavigate, useOutletContext } from "react-router-dom";
 import { api, formatMoney, formatNumber } from "../api/client";
+import { ChevronDown, ChevronRight, Store, Clock, AlertTriangle, Zap, PlusCircle, BookPlus, UserPlus, FileSpreadsheet, Sparkles, Banknote, Receipt, TrendingUp, LayoutGrid } from "lucide-react";
+import MarjonLoader from "../components/MarjonLoader";
 import { dateRangeEndingAt, formatDateLabel, todayInputValue, toDateInputValue } from "../utils/date";
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler);
@@ -141,17 +143,19 @@ function RevenueChart({ sales }) {
             padding: 14,
             cornerRadius: 14,
             displayColors: false,
+            titleFont: { family: "'Plus Jakarta Sans', Inter, sans-serif", size: 13, weight: "700" },
+            bodyFont: { family: "'Plus Jakarta Sans', Inter, sans-serif", size: 14, weight: "800" },
             callbacks: { label: (context) => formatMoney(context.parsed.y) },
           },
         },
         scales: {
-          x: { grid: { display: false }, ticks: { color: "#667085", font: { size: 12, weight: "600" } }, border: { display: false } },
+          x: { grid: { display: false }, ticks: { color: "#667085", font: { family: "'Plus Jakarta Sans', Inter, sans-serif", size: 12, weight: "600" } }, border: { display: false } },
           y: {
             beginAtZero: true,
             grid: { color: "rgba(16, 24, 40, 0.08)", drawTicks: false },
             ticks: {
               color: "#667085",
-              font: { size: 12, weight: "600" },
+              font: { family: "'Plus Jakarta Sans', Inter, sans-serif", size: 12, weight: "600" },
               callback: (value) => `${Number(value) / 1000000}M`,
             },
             border: { display: false },
@@ -170,7 +174,7 @@ function EmptyState({ title, text }) {
   return (
     <div className="card dashboard-empty">
       <div>
-        <div className="dashboard-empty__mark"><i className="bi bi-shop" /></div>
+        <div className="dashboard-empty__mark"><Store size={32} strokeWidth={1.8} /></div>
         <h2>{title}</h2>
         <p>{text}</p>
       </div>
@@ -182,8 +186,8 @@ function PeriodDropdown({ value, onChange }) {
   const [open, setOpen] = useState(false);
   const closeTimerRef = useRef(null);
   const options = [
-    { value: 7, label: "7 дней" },
-    { value: 30, label: "30 дней" },
+    { value: 7, label: "7 дн" },
+    { value: 30, label: "30 дн" },
   ];
   const selected = options.find((option) => option.value === value) || options[0];
   const openMenu = () => {
@@ -206,9 +210,8 @@ function PeriodDropdown({ value, onChange }) {
       }}
     >
       <button className="period-dropdown__button" type="button" onClick={() => setOpen((current) => !current)} aria-haspopup="listbox" aria-expanded={open}>
-        <span>Период</span>
         <strong>{selected.label}</strong>
-        <i className="bi bi-chevron-down" aria-hidden="true" />
+        <ChevronDown size={18} strokeWidth={2.5} aria-hidden="true" />
       </button>
       {open ? (
         <div className="period-dropdown__menu" role="listbox">
@@ -224,8 +227,8 @@ function PeriodDropdown({ value, onChange }) {
                 setOpen(false);
               }}
             >
+              <span className={`period-dropdown__dot${option.value === value ? " is-active" : ""}`} aria-hidden="true" />
               {option.label}
-              {option.value === value ? <i className="bi bi-check2" aria-hidden="true" /> : null}
             </button>
           ))}
         </div>
@@ -262,7 +265,7 @@ function ShiftSummaryCard({ dashboard }) {
       </div>
 
       <div className="shift-summary-card__open-time">
-        <i className="bi bi-clock-history" />
+        <Clock size={16} strokeWidth={2} />
         <span>Время открытия</span>
         <strong>09:00</strong>
       </div>
@@ -297,7 +300,7 @@ function ShiftSummaryCard({ dashboard }) {
       </div>
 
       <div className="shift-summary-card__alert">
-        <div className="shift-summary-card__alert-icon"><i className="bi bi-exclamation-triangle" /></div>
+        <div className="shift-summary-card__alert-icon"><AlertTriangle size={18} strokeWidth={2} /></div>
         <p>{warningText}</p>
         <span>Важно</span>
       </div>
@@ -319,14 +322,14 @@ function QuickActionsCard({ productsCount, employeesCount, activeOrders }) {
           <h2>Быстрые действия</h2>
           <p className="quick-actions__subtitle">Самые частые операции владельца в одном месте</p>
         </div>
-        <span className="quick-actions__live"><i className="bi bi-lightning-charge-fill" /> Live</span>
+        <span className="quick-actions__live"><Zap size={14} strokeWidth={2.5} /> Live</span>
       </div>
 
       <div className="quick-actions__grid">
-        <Link to="/orders"><i className="bi bi-plus-circle" /><span>Новый заказ</span><small>Создать продажу</small></Link>
-        <Link to="/menu"><i className="bi bi-journal-plus" /><span>Добавить блюдо</span><small>{productsCount} блюд в меню</small></Link>
-        <Link to="/staff"><i className="bi bi-person-plus" /><span>Сотрудник</span><small>{employeesCount} в команде</small></Link>
-        <Link to="/finance"><i className="bi bi-file-earmark-spreadsheet" /><span>Финансы</span><small>Отчеты и касса</small></Link>
+        <Link to="/orders"><PlusCircle size={22} strokeWidth={1.8} /><span>Новый заказ</span><small>Создать продажу</small></Link>
+        <Link to="/menu"><BookPlus size={22} strokeWidth={1.8} /><span>Добавить блюдо</span><small>{productsCount} блюд в меню</small></Link>
+        <Link to="/staff"><UserPlus size={22} strokeWidth={1.8} /><span>Сотрудник</span><small>{employeesCount} в команде</small></Link>
+        <Link to="/finance"><FileSpreadsheet size={22} strokeWidth={1.8} /><span>Финансы</span><small>Отчеты и касса</small></Link>
       </div>
 
       <div className="quick-actions__insights">
@@ -348,7 +351,7 @@ function QuickActionsCard({ productsCount, employeesCount, activeOrders }) {
       </div>
 
       <div className="quick-actions__notice">
-        <div><i className="bi bi-stars" /></div>
+        <div><Sparkles size={20} strokeWidth={2} /></div>
         <p><strong>Совет смены:</strong> проверьте стоп-лист и остатки перед вечерней загрузкой.</p>
         <Link to="/warehouse">Склад</Link>
       </div>
@@ -405,51 +408,43 @@ export default function OwnerDashboard() {
     [dashboard, displaySales, isDemoDashboard, selectedDate],
   );
   const maxTopQuantity = useMemo(() => Math.max(...displayTopProducts.map((item) => Number(item.quantity_sold || 0)), 1), [displayTopProducts]);
+  const revenueInsightText = useMemo(() => {
+    if (!displaySales.length) return "Нет данных за выбранный период.";
+    const total = displaySales.reduce((sum, d) => sum + Number(d.revenue || 0), 0);
+    const half = Math.floor(displaySales.length / 2);
+    const firstHalf = displaySales.slice(0, half).reduce((s, d) => s + Number(d.revenue || 0), 0);
+    const secondHalf = displaySales.slice(half).reduce((s, d) => s + Number(d.revenue || 0), 0);
+    const trend = firstHalf > 0 ? Math.round(((secondHalf - firstHalf) / firstHalf) * 100) : 0;
+    const trendText = trend > 0 ? `рост +${trend}%` : trend < 0 ? `снижение ${trend}%` : "стабильно";
+    return `Общая выручка за ${displaySales.length} дн: ${formatMoney(total)}. Тренд: ${trendText}.`;
+  }, [displaySales]);
 
-  if (loading) return (
-    <div className="skeleton-loading">
-      <section className="kpi-grid kpi-grid--premium">
-        <div className="skeleton skeleton-card" />
-        <div className="skeleton skeleton-card" />
-        <div className="skeleton skeleton-card" />
-        <div className="skeleton skeleton-card" />
-      </section>
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginTop: 16 }}>
-        <div className="skeleton skeleton-chart" />
-        <div>
-          <div className="skeleton skeleton-row" />
-          <div className="skeleton skeleton-row" />
-          <div className="skeleton skeleton-row" />
-          <div className="skeleton skeleton-row" />
-        </div>
-      </div>
-    </div>
-  );
+  if (loading) return <MarjonLoader text="Загрузка дашборда…" />;
   if (error) return <EmptyState title="Dashboard недоступен" text={error} />;
 
   return (
     <>
       <section className="kpi-grid kpi-grid--premium">
         <article className="kpi-card premium-kpi premium-kpi--revenue kpi-card--clickable" onClick={() => navigate("/finance")} title="Перейти к финансам">
-          <div className="premium-kpi__top"><div className="premium-kpi__icon"><i className="bi bi-currency-exchange" /></div><span className="trend trend--up">{formatDateLabel(selectedDate)}</span></div>
+          <div className="premium-kpi__top"><div className="premium-kpi__icon"><Banknote size={22} strokeWidth={2} /></div><span className="trend trend--up">{formatDateLabel(selectedDate)}</span></div>
           <div className="kpi-label">Выручка за день</div>
           <div className="kpi-value">{formatMoney(displayDashboard?.today_revenue).replace(" UZS", "")} <small>UZS</small></div>
           <div className="kpi-note">Без отмененных заказов</div>
         </article>
         <article className="kpi-card premium-kpi premium-kpi--orders kpi-card--clickable" onClick={() => navigate("/reports/orders")} title="Перейти к отчёту по заказам">
-          <div className="premium-kpi__top"><div className="premium-kpi__icon"><i className="bi bi-receipt" /></div><span className="trend">Live</span></div>
+          <div className="premium-kpi__top"><div className="premium-kpi__icon"><Receipt size={22} strokeWidth={2} /></div><span className="trend">Live</span></div>
           <div className="kpi-label">Заказов</div>
           <div className="kpi-value">{formatNumber(displayDashboard?.today_orders)}</div>
           <div className="kpi-note">Все каналы продаж</div>
         </article>
         <article className="kpi-card premium-kpi premium-kpi--avg kpi-card--clickable" onClick={() => navigate("/reports")} title="Перейти к отчётам">
-          <div className="premium-kpi__top"><div className="premium-kpi__icon"><i className="bi bi-graph-up-arrow" /></div><span className="trend">Среднее</span></div>
+          <div className="premium-kpi__top"><div className="premium-kpi__icon"><TrendingUp size={22} strokeWidth={2} /></div><span className="trend">Среднее</span></div>
           <div className="kpi-label">Средний чек</div>
           <div className="kpi-value">{formatMoney(displayDashboard?.avg_check).replace(" UZS", "")} <small>UZS</small></div>
           <div className="kpi-note">За выбранный день</div>
         </article>
         <article className="kpi-card premium-kpi premium-kpi--tables kpi-card--clickable" onClick={() => navigate("/store")} title="Перейти в магазин">
-          <div className="premium-kpi__top"><div className="premium-kpi__icon"><i className="bi bi-grid-3x3-gap" /></div><span className="trend">Зал</span></div>
+          <div className="premium-kpi__top"><div className="premium-kpi__icon"><LayoutGrid size={22} strokeWidth={2} /></div><span className="trend">Зал</span></div>
           <div className="kpi-label">Активных заказов</div>
           <div className="kpi-value">{formatNumber(displayDashboard?.active_orders)}</div>
           <div className="kpi-note">{employees.length} сотрудников · {products.length} блюд</div>
@@ -462,21 +457,21 @@ export default function OwnerDashboard() {
             <div><span className="eyebrow">Revenue analytics</span><h2>Выручка за {period} дней</h2><p>Период заканчивается {formatDateLabel(selectedDate)}</p></div>
             <div className="period-switcher" aria-label="Период выручки">
               <PeriodDropdown value={period} onChange={setPeriod} />
-              <Link className="period-switcher__details" to="/analytics">Подробнее</Link>
+              <Link className="btn btn-ghost btn-ghost--lucide" to="/analytics">Подробнее <ChevronRight size={16} strokeWidth={2.5} /></Link>
             </div>
           </div>
           <div className="chart-wrap"><RevenueChart sales={displaySales} /></div>
-          <div className="revenue-insight"><div className="revenue-insight__icon"><i className="bi bi-graph-up-arrow" /></div><p><strong>Стабильная динамика.</strong> {isDemoDashboard ? "Показаны предварительные демо-данные до запуска продаж." : "Отслеживайте выручку за 7 или 30 дней без отмененных заказов."}</p><span className="revenue-insight__badge">{sales.length ? "Live" : "Demo"}</span></div>
+          <div className="revenue-insight"><div className="revenue-insight__icon"><TrendingUp size={20} strokeWidth={2} /></div><p>{revenueInsightText}</p></div>
         </div>
 
         <aside className="card card-pad top-dishes-card">
-          <div className="section-header"><div><span className="eyebrow">Menu performance</span><h2>Топ-5 блюд за день</h2></div><Link className="btn btn-ghost" to="/menu">Все блюда</Link></div>
+          <div className="section-header"><div><span className="eyebrow">Menu performance</span><h2>Топ-5 блюд за день</h2></div><Link className="btn btn-ghost btn-ghost--lucide" to="/menu">Все блюда <ChevronRight size={16} strokeWidth={2.5} /></Link></div>
           {displayTopProducts.length ? <div className="top-dishes-list">
             {displayTopProducts.map((item, index) => {
               const quantity = Number(item.quantity_sold || 0);
               return <div className="top-dish" key={item.product_id || item.name}>
                 <div className="top-dish__rank">{index + 1}</div>
-                <div className="top-dish__body"><div className="top-dish__line"><strong>{dishDisplayName(item.name)}</strong></div><div className="top-dish__meta"><span className="badge badge-info">{formatNumber(quantity)} продаж</span><div className="top-dish__bar"><i style={{ width: `${Math.round((quantity / maxTopQuantity) * 100)}%` }} /></div></div></div>
+                <div className="top-dish__body"><div className="top-dish__line"><strong>{dishDisplayName(item.name)}</strong><span className="badge badge-info">{formatNumber(quantity)} продаж</span></div><div className="top-dish__bar"><i style={{ width: `${Math.round((quantity / maxTopQuantity) * 100)}%` }} /></div></div>
                 <div className="top-dish__price">{formatMoney(item.revenue)}</div>
               </div>;
             })}
