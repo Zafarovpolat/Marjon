@@ -1,7 +1,7 @@
 :root {
-  --mj-brand: #ff6b35;
-  --mj-brand-2: #ff8f5a;
-  --mj-brand-dark: #e85d2a;
+  --mj-brand: #00c8c8;
+  --mj-brand-2: #22e0d8;
+  --mj-brand-dark: #00aeb8;
   --mj-navy: #0b1f3f;
   --mj-navy-2: #071428;
   --mj-ink: #0f172a;
@@ -18,7 +18,7 @@
   --mj-radius-xl: 32px;
   --mj-shadow-sm: 0 8px 24px rgba(15, 23, 42, 0.06);
   --mj-shadow-md: 0 20px 50px rgba(15, 23, 42, 0.1);
-  --mj-shadow-glow: 0 16px 40px rgba(255, 107, 53, 0.28);
+  --mj-shadow-glow: 0 16px 40px rgba(0, 200, 200, 0.28);
   --mj-font-display: "Plus Jakarta Sans", "Segoe UI", sans-serif;
   --mj-font-body: "Inter", "Segoe UI", sans-serif;
   --mj-ease: cubic-bezier(0.4, 0, 0.2, 1);

@@ -12,8 +12,8 @@ body {
 :root {
   --primary: #0B1F3A;
   --primary-2: #102A4C;
-  --accent: #FF6B3D;
-  --accent-2: #FF8A5C;
+  --accent: #00C8C8;
+  --accent-2: #22E0D8;
   --bg: #F4F7FB;
   --card: #FFFFFF;
   --text: #101828;
@@ -371,7 +371,7 @@ body.dashboard-body::before {
 .btn-primary {
   color: #fff;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  box-shadow: 0 16px 34px rgba(255, 107, 61, 0.24);
+  box-shadow: 0 16px 34px rgba(0, 200, 200, 0.24);
 }
 
 .btn-secondary {
@@ -5046,7 +5046,6 @@ body,
   font-weight: 900;
   letter-spacing: -0.025em;
 }
-
 .section-window__tile p {
   margin: 6px 0 0;
   color: #64748B;

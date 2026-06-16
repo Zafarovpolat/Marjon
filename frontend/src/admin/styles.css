@@ -2854,3 +2854,102 @@ body {
   color: #f2c76e !important;
   background: rgba(214, 168, 79, 0.14) !important;
 }
+
+/* Admin login: Tashkent photo hero */
+.admin-login {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    linear-gradient(118deg, rgba(4, 12, 18, 0.84) 0%, rgba(8, 23, 32, 0.56) 48%, rgba(4, 12, 18, 0.78) 100%),
+    url("https://images.unsplash.com/photo-1695220858703-4ab11b4caed7?auto=format&fit=crop&fm=jpg&q=82&w=2400") center / cover no-repeat;
+}
+
+.admin-login::before {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background:
+    radial-gradient(circle at 18% 18%, rgba(242, 199, 110, 0.22), transparent 28%),
+    radial-gradient(circle at 84% 78%, rgba(67, 211, 166, 0.16), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(3, 7, 18, 0.14));
+}
+
+.admin-login__panel {
+  position: relative;
+  z-index: 1;
+  width: min(460px, 100%);
+  padding: 38px;
+  border: 1px solid rgba(226, 232, 240, 0.2) !important;
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(14, 28, 36, 0.78), rgba(8, 18, 26, 0.72)) !important;
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(22px) saturate(1.14);
+}
+
+.admin-login__panel::before {
+  position: absolute;
+  top: 0;
+  left: 28px;
+  right: 28px;
+  height: 1px;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(242, 199, 110, 0.76), transparent);
+}
+
+.admin-login__panel img {
+  width: 76px;
+  height: 76px;
+  padding: 10px;
+  border: 1px solid rgba(242, 199, 110, 0.2);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+}
+
+.admin-login__panel h1 {
+  margin-top: 4px;
+  color: #fff8e6;
+  letter-spacing: 0;
+}
+
+.admin-login__panel p {
+  color: rgba(226, 232, 240, 0.78);
+}
+
+.admin-login__panel label {
+  color: rgba(248, 250, 252, 0.82);
+}
+
+.admin-login__panel input {
+  min-height: 52px;
+  color: #f8fafc;
+  border-color: rgba(226, 232, 240, 0.18) !important;
+  background: rgba(3, 10, 16, 0.42) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.admin-login__panel input:focus {
+  border-color: rgba(242, 199, 110, 0.56) !important;
+  box-shadow:
+    0 0 0 4px rgba(242, 199, 110, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.admin-login__panel button {
+  min-height: 52px;
+  color: #122026 !important;
+  border: 1px solid rgba(242, 199, 110, 0.36) !important;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #f2c76e 0%, #e4a93d 55%, #43d3a6 100%) !important;
+  box-shadow: 0 18px 38px rgba(214, 168, 79, 0.24) !important;
+}
+
+.admin-login__panel button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 22px 46px rgba(214, 168, 79, 0.32) !important;
+}

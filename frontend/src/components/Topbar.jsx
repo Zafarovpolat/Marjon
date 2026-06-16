@@ -9,8 +9,6 @@ export default function Topbar({
   subtitle,
   selectedDate,
   onSelectedDateChange,
-  sidebarCollapsed = false,
-  onSidebarToggle,
 }) {
   const notificationsRef = useRef(null);
   const [today] = useState(() => todayInputValue());
@@ -94,15 +92,6 @@ export default function Topbar({
   return (
     <header className="dashboard-topbar">
       <div className="topbar-left">
-        <button
-          className="sidebar-collapse-control"
-          type="button"
-          aria-label={sidebarCollapsed ? "Открыть меню" : "Закрыть меню"}
-          aria-expanded={!sidebarCollapsed}
-          onClick={onSidebarToggle}
-        >
-          {sidebarCollapsed ? "≫" : "≪"}
-        </button>
         <div className="topbar-heading">
           <h1>{title}</h1>
           {subtitle ? <p>{subtitle}</p> : null}
@@ -115,6 +104,10 @@ export default function Topbar({
           onChange={(value) => onSelectedDateChange(clampToToday(value))}
         />
         <GlobalSearch />
+        <button className="topbar-pay-button" type="button">
+          <i className="bi bi-credit-card-2-front" aria-hidden="true" />
+          <span>Оплатить</span>
+        </button>
         <div className="topbar-notification-wrap" ref={notificationsRef}>
           <button
             className={`topbar-icon topbar-notification ${stockOpen ? "is-open" : ""}`}

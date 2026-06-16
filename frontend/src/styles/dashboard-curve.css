@@ -53,9 +53,9 @@ body.dashboard-body::before {
 }
 
 .sidebar-link.is-active {
-  background: linear-gradient(90deg, #ff6b35 0%, #ff8a5c 100%) !important;
+  background: linear-gradient(90deg, #00c8c8 0%, #22e0d8 100%) !important;
   border-color: transparent !important;
-  box-shadow: 0 8px 20px rgba(255, 107, 53, 0.25) !important;
+  box-shadow: 0 8px 20px rgba(0, 200, 200, 0.25) !important;
 }
 
 .sidebar-link.is-active::before {

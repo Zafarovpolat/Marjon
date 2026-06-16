@@ -3,6 +3,16 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/marjon-logo.svg";
 import { logout } from "../api/client";
 
+const PROFILE_STORAGE_KEY = "marjon_profile_settings";
+
+function readStoredProfile() {
+  try {
+    return JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
 const navItems = [
   { key: "dashboard", label: "Дашборд", icon: "bi-bar-chart-line", to: "/" },
   {
@@ -87,7 +97,6 @@ const navItems = [
       { key: "place", label: "Место", to: "/settings/place", icon: "bi-geo-alt" },
       { key: "payment-methods", label: "Способ оплаты", to: "/settings/payment-methods", icon: "bi-credit-card" },
       { key: "units", label: "Единица измерения", to: "/settings/units", icon: "bi-pencil" },
-      { key: "profile", label: "Настройка профиля", to: "/settings/profile", icon: "bi-person" },
       { key: "printers", label: "Настройка принтеров", to: "/settings/printers", icon: "bi-printer" },
       { key: "receipt", label: "Настройка чека", to: "/settings/receipt", icon: "bi-receipt" },
       { key: "chef-receipt", label: "Настройка чека повара", to: "/settings/chef-receipt", icon: "bi-cup-hot" },
@@ -96,18 +105,23 @@ const navItems = [
   },
 ];
 
-export default function Sidebar({ user, collapsed }) {
+export default function Sidebar({ user, collapsed, onToggle }) {
   const location = useLocation();
   const navigate = useNavigate();
   const closePopoverTimer = useRef(null);
+  const closeAccountTimer = useRef(null);
   const [openMenu, setOpenMenu] = useState("");
   const [pinnedMenu, setPinnedMenu] = useState("");
   const [hoverMenu, setHoverMenu] = useState("");
   const [accountOpen, setAccountOpen] = useState(false);
   const [lang, setLang] = useState(() => localStorage.getItem("marjon_lang") || "ru");
+  const [storedProfile, setStoredProfile] = useState(() => readStoredProfile());
   const accountRef = useRef(null);
   const role = user?.role_slugs?.[0] || (user?.is_superadmin ? "superadmin" : "owner");
-  const displayName = user?.full_name || user?.email || "Owner";
+  const displayName = storedProfile.name || user?.full_name || user?.email || "Owner";
+  const profileCardName = storedProfile.name || (user?.email ? `${user.email.slice(0, 14)}...` : "manager@marjon...");
+  const profileCardRole = role === "owner" ? "manager" : role;
+  const profilePhoto = storedProfile.photo || logo;
 
   useEffect(() => {
     const activeParent = navItems.find((item) => item.children?.some((child) => location.pathname === child.to));
@@ -123,8 +137,19 @@ export default function Sidebar({ user, collapsed }) {
   useEffect(() => { setAccountOpen(false); }, [location.pathname]);
   useEffect(() => { setHoverMenu(""); }, [location.pathname]);
 
+  useEffect(() => {
+    const syncStoredProfile = () => setStoredProfile(readStoredProfile());
+    window.addEventListener("storage", syncStoredProfile);
+    window.addEventListener("marjon-profile-updated", syncStoredProfile);
+    return () => {
+      window.removeEventListener("storage", syncStoredProfile);
+      window.removeEventListener("marjon-profile-updated", syncStoredProfile);
+    };
+  }, []);
+
   useEffect(() => () => {
     if (closePopoverTimer.current) clearTimeout(closePopoverTimer.current);
+    if (closeAccountTimer.current) clearTimeout(closeAccountTimer.current);
   }, []);
 
   useEffect(() => {
@@ -161,25 +186,68 @@ export default function Sidebar({ user, collapsed }) {
   }
 
   function openCollapsedPopover(key) {
+    if (collapsed && accountOpen) return;
     if (closePopoverTimer.current) clearTimeout(closePopoverTimer.current);
     setHoverMenu(key);
   }
 
   function closeCollapsedPopover() {
     if (closePopoverTimer.current) clearTimeout(closePopoverTimer.current);
-    closePopoverTimer.current = setTimeout(() => setHoverMenu(""), 130);
+    closePopoverTimer.current = setTimeout(() => setHoverMenu(""), 260);
+  }
+
+  function openCollapsedAccount() {
+    if (closeAccountTimer.current) clearTimeout(closeAccountTimer.current);
+    if (collapsed) {
+      if (closePopoverTimer.current) clearTimeout(closePopoverTimer.current);
+      setHoverMenu("");
+      setAccountOpen(true);
+    }
+  }
+
+  function closeCollapsedAccount() {
+    if (closeAccountTimer.current) clearTimeout(closeAccountTimer.current);
+    if (collapsed) {
+      closeAccountTimer.current = setTimeout(() => setAccountOpen(false), 260);
+    }
   }
 
   return (
     <aside className={`dashboard-sidebar ${collapsed ? "is-collapsed" : ""}`} id="dashboardSidebar">
       <div className="sidebar-brand">
-        <div className="brand-mark">
-          <img src={logo} alt="MARJON" className="marjon-logo" decoding="async" />
+        <div className="sidebar-brand__identity">
+          {collapsed ? (
+            <button
+              className="brand-mark brand-mark--button"
+              type="button"
+              onClick={onToggle}
+              title="Открыть меню"
+              aria-label="Открыть меню"
+            >
+              <img src={logo} alt="MARJON" className="marjon-logo" decoding="async" />
+            </button>
+          ) : (
+            <div className="brand-mark">
+              <img src={logo} alt="MARJON" className="marjon-logo" decoding="async" />
+            </div>
+          )}
+          <div>
+            <div className="brand-title">MARJON</div>
+            <div className="brand-subtitle">Restaurant OS</div>
+          </div>
         </div>
-        <div>
-          <div className="brand-title">MARJON</div>
-          <div className="brand-subtitle">Restaurant OS</div>
-        </div>
+        {!collapsed ? (
+          <button
+            className="sidebar-brand__toggle"
+            type="button"
+            onClick={onToggle}
+            aria-label="Закрыть меню"
+            aria-expanded={!collapsed}
+            title="Закрыть меню"
+          >
+            <i className="bi bi-chevron-left" aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
 
       <nav className="sidebar-nav" aria-label="Навигация">
@@ -287,12 +355,22 @@ export default function Sidebar({ user, collapsed }) {
         })}
       </nav>
 
-      <div className={`sidebar-account ${accountOpen ? "is-open" : ""}`} ref={accountRef}>
+      <div
+        className={`sidebar-account ${accountOpen ? "is-open" : ""}`}
+        ref={accountRef}
+        onMouseEnter={openCollapsedAccount}
+        onMouseLeave={closeCollapsedAccount}
+      >
         {accountOpen ? (
-          <div className="sidebar-account__menu" role="menu">
+          <div
+            className="sidebar-account__menu"
+            role="menu"
+            onMouseEnter={openCollapsedAccount}
+            onMouseLeave={closeCollapsedAccount}
+          >
             <div className="sidebar-account__head">
               <div className="sidebar-account__head-avatar">
-                <img src={logo} alt="MARJON" decoding="async" />
+                <img src={profilePhoto} alt={displayName} decoding="async" />
               </div>
               <div className="sidebar-account__head-meta">
                 <strong>{displayName}</strong>
@@ -350,6 +428,15 @@ export default function Sidebar({ user, collapsed }) {
           </div>
         ) : null}
 
+        {collapsed && accountOpen ? (
+          <div
+            className="sidebar-account__hover-bridge"
+            aria-hidden="true"
+            onMouseEnter={openCollapsedAccount}
+            onMouseLeave={closeCollapsedAccount}
+          />
+        ) : null}
+
         <button
           type="button"
           className="sidebar-user sidebar-user--button"
@@ -357,12 +444,12 @@ export default function Sidebar({ user, collapsed }) {
           aria-haspopup="menu"
           aria-expanded={accountOpen}
         >
-          <div className="sidebar-user__avatar">
-            <img src={logo} alt="MARJON" className="sidebar-user-logo" decoding="async" />
+          <div className={`sidebar-user__avatar ${storedProfile.photo ? "sidebar-user__avatar--photo" : ""}`}>
+            <img src={profilePhoto} alt={displayName} className="sidebar-user-logo" decoding="async" />
           </div>
           <div className="sidebar-user__meta">
-            <strong>{displayName}</strong>
-            <span>{role}</span>
+            <strong>{profileCardName}</strong>
+            <span>{profileCardRole}</span>
             <em>{user?.company_name || "MARJON"}</em>
           </div>
           <i className={`bi ${accountOpen ? "bi-chevron-up" : "bi-chevron-down"} sidebar-user__arrow`} aria-hidden="true" />

@@ -1,6 +1,7 @@
 ﻿import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
+import BackButton from "./BackButton";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import { clampToToday, todayInputValue } from "../utils/date";
@@ -66,6 +67,7 @@ export default function DashboardLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [title, subtitle] = useMemo(() => pageMeta[location.pathname] || ["Dashboard", ""], [location.pathname]);
+  const showBackButton = location.pathname !== "/";
   const selectedDateContext = useMemo(() => ({
     user,
     selectedDate,
@@ -96,17 +98,16 @@ export default function DashboardLayout() {
   return (
     <div>
       <div className="dashboard-shell">
-        <Sidebar user={user} collapsed={sidebarCollapsed} />
+        <Sidebar user={user} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((value) => !value)} />
         <div className={`dashboard-main ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}>
           <Topbar
             title={title}
             subtitle={subtitle}
             selectedDate={selectedDate}
             onSelectedDateChange={setSelectedDate}
-            sidebarCollapsed={sidebarCollapsed}
-            onSidebarToggle={() => setSidebarCollapsed((value) => !value)}
           />
           <main className="dashboard-content">
+            {showBackButton ? <BackButton /> : null}
             {message ? <div className="login-error">{message}</div> : null}
             <Outlet context={selectedDateContext} />
           </main>
