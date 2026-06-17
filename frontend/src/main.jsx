@@ -12,6 +12,8 @@ import "./styles/responsive.css";
 import "./styles/app.css";
 import "./styles/dashboard-curve.css";
 import "./styles/react-overrides.css";
+import "./styles/auth.css";
+import "./styles/login-extras.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

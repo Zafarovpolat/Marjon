@@ -1,7 +1,8 @@
-﻿import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/marjon-logo.svg";
 import { logout } from "../api/client";
+import { filterNavItems } from "../utils/permissions";
 
 const PROFILE_STORAGE_KEY = "marjon_profile_settings";
 
@@ -122,6 +123,9 @@ export default function Sidebar({ user, collapsed, onToggle }) {
   const profileCardName = storedProfile.name || (user?.email ? `${user.email.slice(0, 14)}...` : "manager@marjon...");
   const profileCardRole = role === "owner" ? "manager" : role;
   const profilePhoto = storedProfile.photo || logo;
+
+  // Ролевая фильтрация пунктов меню (ТЗ §2.2)
+  const visibleNavItems = useMemo(() => filterNavItems(navItems, user), [user]);
 
   useEffect(() => {
     const activeParent = navItems.find((item) => item.children?.some((child) => location.pathname === child.to));
@@ -251,7 +255,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
       </div>
 
       <nav className="sidebar-nav" aria-label="Навигация">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const active = item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to);
           const hasChildren = Boolean(item.children?.length);
           const submenuOpen = !collapsed && (openMenu === item.key || pinnedMenu === item.key);

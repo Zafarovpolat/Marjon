@@ -1,6 +1,8 @@
-﻿import { Navigate, RouterProvider, createBrowserRouter } from "react-router-dom";
+import { Navigate, RouterProvider, createBrowserRouter } from "react-router-dom";
 import DashboardLayout from "./components/DashboardLayout";
 import LoginPage from "./pages/LoginPage";
+import StaffLoginPage from "./pages/auth/StaffLoginPage";
+import PinLoginPage from "./pages/auth/PinLoginPage";
 import OwnerDashboard from "./pages/OwnerDashboard";
 import OrdersPage from "./pages/OrdersPage";
 import MenuPage from "./pages/MenuPage";
@@ -15,14 +17,22 @@ import WaiterPage from "./pages/WaiterPage";
 import KitchenPage from "./pages/KitchenPage";
 import ZReportPage from "./pages/ZReportPage";
 import WarehousePage from "./pages/WarehousePage";
-import { isAuthenticated } from "./api/client";
+import { AuthProvider } from "./context/AuthContext";
+import { OrgProvider } from "./context/OrgContext";
+import { ThemeProvider } from "./context/ThemeContext";
+import { useAuth } from "./hooks/useAuth";
 
 function ProtectedRoute({ children }) {
-  return isAuthenticated() ? children : <Navigate to="/login" replace />;
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) return <div className="auth-loading">Загрузка…</div>;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return children;
 }
 
 const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
+  { path: "/login/staff", element: <StaffLoginPage /> },
+  { path: "/login/pin/:employeeId", element: <PinLoginPage /> },
   { path: "/waiter", element: <ProtectedRoute><WaiterPage /></ProtectedRoute> },
   { path: "/waiter/new", element: <ProtectedRoute><WaiterPage mode="new" /></ProtectedRoute> },
   { path: "/waiter/order/:orderId", element: <ProtectedRoute><WaiterPage mode="order" /></ProtectedRoute> },
@@ -90,5 +100,13 @@ const router = createBrowserRouter([
 ]);
 
 export default function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <OrgProvider>
+          <RouterProvider router={router} />
+        </OrgProvider>
+      </AuthProvider>
+    </ThemeProvider>
+  );
 }
