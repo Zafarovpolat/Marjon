@@ -72,6 +72,160 @@ function demoDashboardFromSales(sales, selectedDate) {
   };
 }
 
+function pctChange(curr, prev) {
+  if (!prev) return 0;
+  return Math.round(((curr - prev) / prev) * 100);
+}
+
+function noteClassFor(n) {
+  if (n > 0) return "kpi-note--up";
+  if (n < 0) return "kpi-note--down";
+  return "kpi-note--neutral";
+}
+
+function signed(n) {
+  return n > 0 ? `+${n}` : `${n}`;
+}
+
+function demoKpis(sales, selectedDate) {
+  const seed = dateSeed(selectedDate);
+  const day = sales.at(-1) || { revenue: 0, orders_count: 0, avg_check: 0 };
+  const prev = sales.at(-2) || day;
+  const activeOrders = Math.max(0, Math.round(6 * seededFactor(seed, 11, 0.3, 1.8)));
+  const activeChange = Math.round(seededFactor(seed, 13, -2, 2));
+
+  const revChange = pctChange(day.revenue, prev.revenue);
+  const ordChange = day.orders_count - prev.orders_count;
+  const avgChange = pctChange(day.avg_check, prev.avg_check);
+
+  const plan = Math.round((day.revenue / seededFactor(seed, 3, 0.82, 0.98)) / 10000) * 10000;
+  const cash = Math.round((day.revenue * seededFactor(seed, 4, 0.32, 0.46)) / 10000) * 10000;
+  const card = Math.max(0, day.revenue - cash);
+  const zal = Math.round(day.orders_count * seededFactor(seed, 5, 0.5, 0.66));
+  const delivery = Math.round(day.orders_count * seededFactor(seed, 6, 0.18, 0.3));
+  const pickup = Math.max(0, day.orders_count - zal - delivery);
+  const occupancy = Math.round(seededFactor(seed, 7, 0.12, 0.62) * 100);
+  const avgTime = Math.round(seededFactor(seed, 9, 16, 27));
+
+  return [
+    {
+      className: "premium-kpi--revenue",
+      icon: "bi-currency-exchange",
+      badge: formatDateLabel(selectedDate),
+      label: "Выручка за день",
+      value: formatNumber(day.revenue),
+      suffix: "UZS",
+      note: `${signed(revChange)}% к вчерашнему дню`,
+      noteClass: noteClassFor(revChange),
+      progress: Math.max(8, Math.min(100, Math.round((day.revenue / Math.max(plan, 1)) * 100))),
+      description: "Дневная выручка по всем закрытым заказам за выбранную дату.",
+      details: [
+        ["План на день", `${formatNumber(plan)} UZS`],
+        ["Оплачено наличными", `${formatNumber(cash)} UZS`],
+        ["Оплачено картой", `${formatNumber(card)} UZS`],
+        ["Пиковый час", "13:00 - 14:00"],
+      ],
+      insight: revChange >= 0
+        ? `Темп выше вчерашнего дня на ${Math.abs(revChange)}%.`
+        : `Темп ниже вчерашнего дня на ${Math.abs(revChange)}%.`,
+    },
+    {
+      className: "premium-kpi--orders",
+      icon: "bi-receipt",
+      badge: "Live",
+      label: "Заказов",
+      value: formatNumber(day.orders_count),
+      note: `${signed(ordChange)} к вчерашнему дню`,
+      noteClass: noteClassFor(ordChange),
+      progress: Math.max(8, Math.min(100, Math.round((day.orders_count / Math.max(day.orders_count + 28, 1)) * 100))),
+      description: "Количество заказов за день с учетом зала, доставки и самовывоза.",
+      details: [
+        ["Зал", `${zal} заказов`],
+        ["Доставка", `${delivery} заказов`],
+        ["Самовывоз", `${pickup} заказов`],
+        ["Среднее время", `${avgTime} мин`],
+      ],
+      insight: "Распределение заказов по залу, доставке и самовывозу за день.",
+    },
+    {
+      className: "premium-kpi--avg",
+      icon: "bi-graph-up-arrow",
+      badge: "Среднее",
+      label: "Средний чек",
+      value: formatNumber(day.avg_check),
+      suffix: "UZS",
+      note: `${signed(avgChange)}% к вчерашнему дню`,
+      noteClass: noteClassFor(avgChange),
+      progress: Math.max(8, Math.min(100, Math.round(seededFactor(seed, 10, 0.55, 0.92) * 100))),
+      description: "Средняя сумма одного заказа за выбранный день.",
+      details: [
+        ["Минимальный чек", `${formatNumber(Math.round(day.avg_check * 0.45))} UZS`],
+        ["Максимальный чек", `${formatNumber(Math.round(day.avg_check * 5))} UZS`],
+        ["Зал", `${formatNumber(Math.round(day.avg_check * 1.07))} UZS`],
+        ["Доставка", `${formatNumber(Math.round(day.avg_check * 0.93))} UZS`],
+      ],
+      insight: "Средний чек по всем каналам продаж за выбранный день.",
+    },
+    {
+      className: "premium-kpi--tables",
+      icon: "bi-grid-3x3-gap",
+      badge: "Зал",
+      label: "Активных заказов",
+      value: formatNumber(activeOrders),
+      note: activeChange === 0 ? "Без изменений" : `${signed(activeChange)} к вчерашнему дню`,
+      noteClass: noteClassFor(activeChange),
+      progress: Math.max(8, Math.min(100, occupancy)),
+      description: "Текущие активные заказы, которые еще не закрыты в смене.",
+      details: [
+        ["В работе", `${activeOrders} заказа`],
+        ["Готовы к выдаче", `${Math.max(0, Math.round(activeOrders / 3))} заказов`],
+        ["Занятые столы", `${occupancy}%`],
+        ["Средний возраст", `${avgTime} мин`],
+      ],
+      insight: "Текущая загрузка кухни и зала по активным заказам.",
+    },
+  ];
+}
+
+function demoTopDishes(selectedDate) {
+  const seed = dateSeed(selectedDate);
+  const list = demoTopProductsForDate(selectedDate);
+  const maxRevenue = list[0]?.revenue || 1;
+  return list.map((item, index) => {
+    const change = Math.round(seededFactor(seed, index + 20, -9, 19));
+    return {
+      product_id: item.product_id,
+      name: item.name,
+      quantity: item.quantity_sold,
+      revenue: item.revenue,
+      change: `${change >= 0 ? "+" : ""}${change}%`,
+      positive: change >= 0,
+      progress: Math.max(22, Math.round((item.revenue / maxRevenue) * 100)),
+    };
+  });
+}
+
+function demoRecentOrders(selectedDate) {
+  const seed = dateSeed(selectedDate);
+  const label = formatDateLabel(selectedDate);
+  const base = [
+    { id: "#1257", time: "14:32", place: "Стол 7", ready: true },
+    { id: "#1256", time: "14:28", place: "Доставка", ready: true },
+    { id: "#1255", time: "14:21", place: "Стол 3", ready: false },
+    { id: "#1254", time: "14:15", place: "Доставка", ready: false },
+    { id: "#1253", time: "14:08", place: "Стол 1", ready: true },
+  ];
+  return base.map((order, index) => {
+    const amount = Math.round((90000 + seededFactor(seed, index + 30, 0.4, 3.4) * 80000) / 1000) * 1000;
+    return {
+      ...order,
+      date: `${label} ${order.time}`,
+      amount: `${formatNumber(amount)} UZS`,
+      status: order.ready ? "Готов" : "В работе",
+    };
+  });
+}
+
 function dishDisplayName(name = "") {
   const normalized = name.toLowerCase().replaceAll("'", "").replaceAll("‘", "").replaceAll("’", "");
   const translations = {
@@ -97,109 +251,6 @@ function dishPhotoClass(name = "", index = 0) {
   return `dish-photo--${(index % 5) + 1}`;
 }
 
-const referenceSales = [
-  { date: "2026-06-09", revenue: 1580000 },
-  { date: "2026-06-10", revenue: 2210000 },
-  { date: "2026-06-11", revenue: 2980000 },
-  { date: "2026-06-12", revenue: 3560000 },
-  { date: "2026-06-13", revenue: 3890000 },
-  { date: "2026-06-14", revenue: 3800000 },
-  { date: "2026-06-15", revenue: 4940000 },
-];
-
-const referenceKpis = [
-  {
-    className: "premium-kpi--revenue",
-    icon: "bi-currency-exchange",
-    badge: "15.06.2026",
-    label: "Выручка за день",
-    value: "4 940 000",
-    suffix: "UZS",
-    note: "+12% к вчерашнему дню",
-    noteClass: "kpi-note--up",
-    progress: 92,
-    description: "Дневная выручка по всем закрытым заказам за выбранную дату.",
-    details: [
-      ["План на день", "5 400 000 UZS"],
-      ["Оплачено наличными", "1 860 000 UZS"],
-      ["Оплачено картой", "3 080 000 UZS"],
-      ["Пиковый час", "13:00 - 14:00"],
-    ],
-    insight: "Темп выше вчерашнего дня. До плана осталось 460 000 UZS.",
-  },
-  {
-    className: "premium-kpi--orders",
-    icon: "bi-receipt",
-    badge: "Live",
-    label: "Заказов",
-    value: "79",
-    note: "-3 к вчерашнему дню",
-    noteClass: "kpi-note--down",
-    progress: 66,
-    description: "Количество заказов за день с учетом зала, доставки и самовывоза.",
-    details: [
-      ["Зал", "48 заказов"],
-      ["Доставка", "19 заказов"],
-      ["Самовывоз", "12 заказов"],
-      ["Среднее время", "21 мин"],
-    ],
-    insight: "Заказов немного меньше, но средний чек компенсирует падение трафика.",
-  },
-  {
-    className: "premium-kpi--avg",
-    icon: "bi-graph-up-arrow",
-    badge: "Среднее",
-    label: "Средний чек",
-    value: "62 532",
-    suffix: "UZS",
-    note: "+8% к вчерашнему дню",
-    noteClass: "kpi-note--up",
-    progress: 78,
-    description: "Средняя сумма одного заказа за выбранный день.",
-    details: [
-      ["Минимальный чек", "28 000 UZS"],
-      ["Максимальный чек", "315 000 UZS"],
-      ["Зал", "66 900 UZS"],
-      ["Доставка", "58 400 UZS"],
-    ],
-    insight: "Рост среднего чека связан с продажами плова, шашлыка и комбо-позиций.",
-  },
-  {
-    className: "premium-kpi--tables",
-    icon: "bi-grid-3x3-gap",
-    badge: "Зал",
-    label: "Активных заказов",
-    value: "2",
-    note: "Без изменений",
-    noteClass: "kpi-note--neutral",
-    progress: 18,
-    description: "Текущие активные заказы, которые еще не закрыты в смене.",
-    details: [
-      ["В работе", "2 заказа"],
-      ["Готовы к выдаче", "0 заказов"],
-      ["Занятые столы", "18%"],
-      ["Средний возраст", "14 мин"],
-    ],
-    insight: "Нагрузка спокойная. Кухня работает без очереди по текущим заказам.",
-  },
-];
-
-const referenceTopDishes = [
-  { name: "Плов", quantity: 41, revenue: 2050000, change: "+15%", progress: 100, positive: true },
-  { name: "Шашлык", quantity: 20, revenue: 1200000, change: "+8%", progress: 64, positive: true },
-  { name: "Лагман", quantity: 28, revenue: 1120000, change: "+5%", progress: 58, positive: true },
-  { name: "Салат микс", quantity: 34, revenue: 870000, change: "-3%", progress: 42, positive: false },
-  { name: "Чай чёрный", quantity: 56, revenue: 420000, change: "-2%", progress: 28, positive: false },
-];
-
-const recentOrders = [
-  { id: "#1257", date: "15.06.2026 14:32", place: "Стол 7", amount: "245 000 UZS", status: "Готов", ready: true },
-  { id: "#1256", date: "15.06.2026 14:28", place: "Доставка", amount: "189 000 UZS", status: "Готов", ready: true },
-  { id: "#1255", date: "15.06.2026 14:21", place: "Стол 3", amount: "315 000 UZS", status: "В работе", ready: false },
-  { id: "#1254", date: "15.06.2026 14:15", place: "Доставка", amount: "178 000 UZS", status: "В работе", ready: false },
-  { id: "#1253", date: "15.06.2026 14:08", place: "Стол 1", amount: "92 000 UZS", status: "Готов", ready: true },
-];
-
 function RevenueChart({ sales }) {
   const canvasRef = useRef(null);
 
@@ -207,8 +258,8 @@ function RevenueChart({ sales }) {
     if (!canvasRef.current) return undefined;
     const ctx = canvasRef.current.getContext("2d");
     const gradient = ctx.createLinearGradient(0, 0, 0, 360);
-    gradient.addColorStop(0, "rgba(255, 107, 61, 0.28)");
-    gradient.addColorStop(0.55, "rgba(255, 138, 92, 0.10)");
+    gradient.addColorStop(0, "rgba(29, 181, 181, 0.28)");
+    gradient.addColorStop(0.55, "rgba(31, 202, 194, 0.10)");
     gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
 
     const chart = new Chart(canvasRef.current, {
@@ -217,11 +268,11 @@ function RevenueChart({ sales }) {
         labels: sales.map((item) => new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit" }).format(new Date(item.date))),
         datasets: [{
           data: sales.map((item) => Number(item.revenue || 0)),
-          borderColor: "#FF6B3D",
+          borderColor: "#1db5b5",
           backgroundColor: gradient,
           borderWidth: 4,
           pointBackgroundColor: "#FFFFFF",
-          pointBorderColor: "#FF6B3D",
+          pointBorderColor: "#1db5b5",
           pointBorderWidth: 3,
           pointRadius: 4,
           pointHoverRadius: 7,
@@ -338,7 +389,7 @@ function PeriodDropdown({ value, onChange }) {
   );
 }
 
-function ShiftSummaryCard({ dashboard }) {
+function ShiftSummaryCard({ summary }) {
   return (
     <aside className="card card-pad shift-summary-card shift-summary-card--window">
       <div className="shift-summary-card__header">
@@ -361,29 +412,29 @@ function ShiftSummaryCard({ dashboard }) {
       <div className="shift-summary-card__stats">
         <div>
           <span>Касса</span>
-          <strong>4 940 000 UZS</strong>
+          <strong>{formatMoney(summary.revenue)}</strong>
         </div>
         <div>
           <span>Заказы</span>
-          <strong>79</strong>
+          <strong>{summary.orders}</strong>
         </div>
         <div>
           <span>Зал</span>
-          <strong>18%</strong>
+          <strong>{summary.occupancy}%</strong>
         </div>
         <div>
           <span>Среднее время</span>
-          <strong>21 мин</strong>
+          <strong>{summary.avgTime} мин</strong>
         </div>
       </div>
 
       <div className="shift-summary-card__load">
         <div>
           <span>Загруженность зала</span>
-          <strong>18%</strong>
+          <strong>{summary.occupancy}%</strong>
         </div>
         <div className="shift-summary-card__progress" aria-hidden="true">
-          <i style={{ width: "18%" }} />
+          <i style={{ width: `${summary.occupancy}%` }} />
         </div>
       </div>
 
@@ -401,7 +452,7 @@ function ShiftSummaryCard({ dashboard }) {
   );
 }
 
-function QuickActionsCard({ productsCount, employeesCount, activeOrders }) {
+function QuickActionsCard({ activeOrders, occupancy, avgTime }) {
   return (
     <section className="card card-pad quick-actions quick-actions--command">
       <div className="section-header">
@@ -423,7 +474,7 @@ function QuickActionsCard({ productsCount, employeesCount, activeOrders }) {
       <div className="quick-actions__insights">
         <div className="quick-actions__metric">
           <span>Активные заказы</span>
-          <strong>2</strong>
+          <strong>{activeOrders}</strong>
         </div>
         <div className="quick-actions__metric">
           <span>Меню</span>
@@ -435,18 +486,18 @@ function QuickActionsCard({ productsCount, employeesCount, activeOrders }) {
         </div>
         <div className="quick-actions__metric">
           <span>Столы заняты</span>
-          <strong>18%</strong>
+          <strong>{occupancy}%</strong>
         </div>
         <div className="quick-actions__metric">
           <span>Среднее время</span>
-          <strong>21 мин</strong>
+          <strong>{avgTime} мин</strong>
         </div>
       </div>
     </section>
   );
 }
 
-function RecentOrdersCard() {
+function RecentOrdersCard({ orders }) {
   return (
     <section className="card card-pad recent-orders-card">
       <div className="section-header">
@@ -457,7 +508,7 @@ function RecentOrdersCard() {
         <Link className="btn btn-ghost" to="/reports/orders">Все заказы</Link>
       </div>
       <div className="recent-orders-list">
-        {recentOrders.map((order) => (
+        {orders.map((order) => (
           <div className="recent-order" key={order.id}>
             <strong>{order.id}</strong>
             <span>{order.date}</span>
@@ -568,13 +619,31 @@ export default function OwnerDashboard() {
     return () => { mounted = false; };
   }, [period, selectedDate]);
 
-  const displaySales = useMemo(() => referenceSales, []);
-  const displayTopProducts = useMemo(() => topProducts.length ? topProducts : demoTopProductsForDate(selectedDate), [selectedDate, topProducts]);
-  const isDemoDashboard = !sales.length || !topProducts.length;
-  const displayDashboard = useMemo(
-    () => (isDemoDashboard ? demoDashboardFromSales(displaySales, selectedDate) : dashboard),
-    [dashboard, displaySales, isDemoDashboard, selectedDate],
-  );
+  const displaySales = useMemo(() => demoSales(period, selectedDate), [period, selectedDate]);
+  const kpis = useMemo(() => demoKpis(displaySales, selectedDate), [displaySales, selectedDate]);
+  const displayTopDishes = useMemo(() => demoTopDishes(selectedDate), [selectedDate]);
+  const recentOrdersList = useMemo(() => demoRecentOrders(selectedDate), [selectedDate]);
+  const revenueStats = useMemo(() => {
+    const revenues = displaySales.map((item) => Number(item.revenue || 0));
+    const total = revenues.reduce((acc, value) => acc + value, 0);
+    return {
+      max: revenues.length ? Math.max(...revenues) : 0,
+      min: revenues.length ? Math.min(...revenues) : 0,
+      avg: revenues.length ? Math.round(total / revenues.length) : 0,
+    };
+  }, [displaySales]);
+  const displayDashboard = useMemo(() => demoDashboardFromSales(displaySales, selectedDate), [displaySales, selectedDate]);
+  const daySummary = useMemo(() => {
+    const seed = dateSeed(selectedDate);
+    const day = displaySales.at(-1) || { revenue: 0, orders_count: 0 };
+    return {
+      revenue: day.revenue,
+      orders: day.orders_count,
+      occupancy: Math.round(seededFactor(seed, 7, 0.12, 0.62) * 100),
+      avgTime: Math.round(seededFactor(seed, 9, 16, 27)),
+      activeOrders: displayDashboard.active_orders,
+    };
+  }, [displaySales, selectedDate, displayDashboard]);
 
   if (loading) return <div className="loading-note">Загрузка dashboard...</div>;
   if (error) return <EmptyState title="Dashboard недоступен" text={error} />;
@@ -582,7 +651,7 @@ export default function OwnerDashboard() {
   return (
     <>
       <section className="kpi-grid kpi-grid--premium">
-        {referenceKpis.map((kpi) => (
+        {kpis.map((kpi) => (
           <button
             className={`kpi-card premium-kpi ${kpi.className}`}
             key={kpi.label}
@@ -606,16 +675,16 @@ export default function OwnerDashboard() {
       <section className="owner-main-grid">
         <div className="card card-pad chart-card premium-chart">
           <div className="section-header section-header--stack">
-            <div><span className="eyebrow">Revenue analytics</span><h2>Выручка за 7 дней</h2><p>Период заканчивается 15.06.2026</p></div>
+            <div><span className="eyebrow">Revenue analytics</span><h2>Выручка за {period} дней</h2><p>Период заканчивается {formatDateLabel(selectedDate)}</p></div>
             <div className="period-switcher" aria-label="Период выручки">
               <PeriodDropdown value={period} onChange={setPeriod} />
               <Link className="period-switcher__details" to="/analytics">Подробнее</Link>
             </div>
           </div>
           <div className="revenue-stat-grid">
-            <div><span>Максимум</span><strong>4 940 000 UZS</strong></div>
-            <div><span>Минимум</span><strong>1 580 000 UZS</strong></div>
-            <div><span>Среднее</span><strong>3 280 000 UZS</strong></div>
+            <div><span>Максимум</span><strong>{formatMoney(revenueStats.max)}</strong></div>
+            <div><span>Минимум</span><strong>{formatMoney(revenueStats.min)}</strong></div>
+            <div><span>Среднее</span><strong>{formatMoney(revenueStats.avg)}</strong></div>
           </div>
           <div className="chart-wrap"><RevenueChart sales={displaySales} /></div>
         </div>
@@ -623,7 +692,7 @@ export default function OwnerDashboard() {
         <aside className="card card-pad top-dishes-card">
           <div className="section-header"><div><span className="eyebrow">Menu performance</span><h2>Топ-5 блюд за день</h2></div><Link className="btn btn-ghost" to="/menu">Все блюда</Link></div>
           <div className="top-dishes-list">
-            {referenceTopDishes.map((item, index) => {
+            {displayTopDishes.map((item, index) => {
               return <div className="top-dish" key={item.product_id || item.name}>
                 <div className="top-dish__rank">{index + 1}</div>
                 <div className="top-dish__body">
@@ -644,9 +713,9 @@ export default function OwnerDashboard() {
       </section>
 
       <section className="owner-widgets">
-        <QuickActionsCard productsCount={products.length} employeesCount={employees.length} activeOrders={displayDashboard?.active_orders} />
-        <RecentOrdersCard />
-        <ShiftSummaryCard dashboard={displayDashboard} />
+        <QuickActionsCard activeOrders={daySummary.activeOrders} occupancy={daySummary.occupancy} avgTime={daySummary.avgTime} />
+        <RecentOrdersCard orders={recentOrdersList} />
+        <ShiftSummaryCard summary={daySummary} />
       </section>
     </>
   );

@@ -1,6 +1,13 @@
 /* ─────────────────────────────────────────────────────────
    Custom date picker + calendar (replaces native input[type=date])
    ───────────────────────────────────────────────────────── */
+.mj-datepicker,
+.mj-calendar {
+  /* Локальный бирюзовый акцент вместо глобального оранжевого */
+  --accent: #1db5b5;
+  --accent-2: #1fcac2;
+}
+
 .mj-datepicker {
   position: relative;
 }
@@ -22,13 +29,13 @@
 }
 
 .mj-datepicker__trigger:hover {
-  border-color: rgba(255, 107, 61, 0.5);
-  box-shadow: 0 6px 18px rgba(255, 107, 61, 0.12);
+  border-color: rgba(29, 181, 181, 0.5);
+  box-shadow: 0 6px 18px rgba(29, 181, 181, 0.12);
 }
 
 .mj-datepicker.is-open .mj-datepicker__trigger {
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgba(255, 107, 61, 0.14);
+  box-shadow: 0 0 0 4px rgba(29, 181, 181, 0.14);
 }
 
 .mj-datepicker__icon {
@@ -38,7 +45,7 @@
   width: 28px;
   height: 28px;
   border-radius: 9px;
-  background: linear-gradient(135deg, rgba(255, 107, 61, 0.16), rgba(255, 143, 90, 0.1));
+  background: linear-gradient(135deg, rgba(29, 181, 181, 0.16), rgba(31, 202, 194, 0.1));
   color: var(--accent);
   font-size: 0.95rem;
 }
@@ -46,6 +53,23 @@
 .mj-datepicker__value {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
+}
+
+.mj-datepicker__time {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding-left: 10px;
+  margin-left: 2px;
+  border-left: 1px solid var(--border);
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.mj-datepicker__time .bi {
+  font-size: 0.8rem;
+  opacity: 0.85;
 }
 
 .mj-datepicker__caret {
@@ -99,7 +123,7 @@
 }
 
 .mj-calendar__title:hover {
-  background: rgba(255, 107, 61, 0.08);
+  background: rgba(29, 181, 181, 0.08);
 }
 
 .mj-calendar__title strong {
@@ -144,7 +168,7 @@
 .mj-calendar__year-switch button:hover {
   border-color: var(--accent);
   color: var(--accent);
-  background: rgba(255, 107, 61, 0.08);
+  background: rgba(29, 181, 181, 0.08);
 }
 
 .mj-calendar__weekdays {
@@ -192,7 +216,7 @@
 }
 
 .mj-calendar__day:hover:not(.is-disabled):not(.is-selected) {
-  background: rgba(255, 107, 61, 0.12);
+  background: rgba(29, 181, 181, 0.12);
   color: var(--accent);
   transform: translateY(-1px);
 }
@@ -221,7 +245,7 @@
 .mj-calendar__day.is-selected {
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   color: #fff;
-  box-shadow: 0 8px 18px rgba(255, 107, 61, 0.4);
+  box-shadow: 0 8px 18px rgba(29, 181, 181, 0.4);
 }
 
 .mj-calendar__day.is-disabled {
@@ -308,7 +332,7 @@
 }
 
 .mj-calendar__action--accent:hover {
-  background: rgba(255, 107, 61, 0.12);
+  background: rgba(29, 181, 181, 0.12);
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -335,7 +359,7 @@
 .global-search.is-open .global-search__field,
 .global-search__field:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgba(255, 107, 61, 0.14);
+  box-shadow: 0 0 0 4px rgba(29, 181, 181, 0.14);
   background: #fff;
 }
 
@@ -429,7 +453,7 @@
 }
 
 .global-search__result.is-active {
-  background: rgba(255, 107, 61, 0.1);
+  background: rgba(29, 181, 181, 0.1);
 }
 
 .global-search__result-icon {
@@ -440,7 +464,7 @@
   height: 36px;
   flex-shrink: 0;
   border-radius: 11px;
-  background: linear-gradient(135deg, rgba(255, 107, 61, 0.16), rgba(255, 143, 90, 0.1));
+  background: linear-gradient(135deg, rgba(29, 181, 181, 0.16), rgba(31, 202, 194, 0.1));
   color: var(--accent);
   font-size: 1rem;
 }

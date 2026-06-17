@@ -40,9 +40,15 @@ export default function DatePicker({ value, max, onChange, onClear }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState(() => parseValue(value));
   const [showMonthList, setShowMonthList] = useState(false);
+  const [now, setNow] = useState(() => new Date());
   const wrapRef = useRef(null);
   const popoverRef = useRef(null);
   const [dropUp, setDropUp] = useState(false);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const today = useMemo(() => parseValue(todayInputValue()), []);
   const selected = useMemo(() => parseValue(value), [value]);
@@ -85,6 +91,21 @@ export default function DatePicker({ value, max, onChange, onClear }) {
     setDropUp(rect.bottom > window.innerHeight - 12);
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return undefined;
+    function lockScroll(event) {
+      const pop = popoverRef.current;
+      if (pop && pop.contains(event.target) && pop.scrollHeight > pop.clientHeight) return;
+      event.preventDefault();
+    }
+    window.addEventListener("wheel", lockScroll, { passive: false });
+    window.addEventListener("touchmove", lockScroll, { passive: false });
+    return () => {
+      window.removeEventListener("wheel", lockScroll);
+      window.removeEventListener("touchmove", lockScroll);
+    };
+  }, [open]);
+
   function isDisabled(date) {
     return maxDate ? date > maxDate : false;
   }
@@ -108,6 +129,7 @@ export default function DatePicker({ value, max, onChange, onClear }) {
   }
 
   const label = `${String(selected.getDate()).padStart(2, "0")}.${String(selected.getMonth() + 1).padStart(2, "0")}.${selected.getFullYear()}`;
+  const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
   return (
     <div className={`mj-datepicker ${open ? "is-open" : ""}`} ref={wrapRef}>
@@ -120,7 +142,7 @@ export default function DatePicker({ value, max, onChange, onClear }) {
       >
         <span className="mj-datepicker__icon"><i className="bi bi-calendar3" /></span>
         <span className="mj-datepicker__value">{label}</span>
-        <i className={`bi bi-chevron-${open ? "up" : "down"} mj-datepicker__caret`} aria-hidden="true" />
+        <span className="mj-datepicker__time"><i className="bi bi-clock" aria-hidden="true" />{time}</span>
       </button>
 
       {open ? (

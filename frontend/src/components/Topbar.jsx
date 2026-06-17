@@ -2,7 +2,6 @@
 import { api } from "../api/client";
 import { clampToToday, todayInputValue } from "../utils/date";
 import DatePicker from "./DatePicker";
-import GlobalSearch from "./GlobalSearch";
 
 export default function Topbar({
   title = "Dashboard",
@@ -103,10 +102,9 @@ export default function Topbar({
           max={today}
           onChange={(value) => onSelectedDateChange(clampToToday(value))}
         />
-        <GlobalSearch />
         <button className="topbar-pay-button" type="button">
-          <i className="bi bi-credit-card-2-front" aria-hidden="true" />
-          <span>Оплатить</span>
+          <i className="bi bi-wallet2" aria-hidden="true" />
+          <span>Баланс</span>
         </button>
         <div className="topbar-notification-wrap" ref={notificationsRef}>
           <button

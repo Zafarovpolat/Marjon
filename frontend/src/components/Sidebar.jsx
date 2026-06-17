@@ -289,7 +289,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
                 >
                   <span className="sidebar-icon"><i className={`bi ${item.icon}`} /></span>
                   <span>{item.label}</span>
-                  <i className="bi bi-chevron-down sidebar-link__chevron" aria-hidden="true" />
+                  <i className="bi bi-chevron-right sidebar-link__chevron" aria-hidden="true" />
                 </button>
                 <div className="sidebar-submenu">
                   {item.children.map((child) => (
