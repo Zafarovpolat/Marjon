@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import BackButton from "./BackButton";
 import Sidebar from "./Sidebar";
+import SupportWidget from "./SupportWidget";
 import Topbar from "./Topbar";
 import { clampToToday, todayInputValue } from "../utils/date";
 import { useAuth } from "../hooks/useAuth";
@@ -101,9 +102,14 @@ export default function DashboardLayout() {
             onSelectedDateChange={setSelectedDate}
           />
           <main className="dashboard-content">
-            {showBackButton ? <BackButton /> : null}
+            {showBackButton ? (
+              <div className="dashboard-back-slot">
+                <BackButton />
+              </div>
+            ) : null}
             <Outlet context={selectedDateContext} />
           </main>
+          <SupportWidget />
         </div>
       </div>
     </div>

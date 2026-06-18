@@ -6066,13 +6066,11 @@ body.dashboard-body::before {
     padding-left: 18px !important;
     padding-right: 18px !important;
   }
-
   .marjon-owner-dashboard .kpi-grid,
   .kpi-grid--premium,
   .kpi-grid {
     grid-template-columns: 1fr !important;
   }
-
   .marjon-owner-dashboard .dish-row,
   .top-dish {
     grid-template-columns: 44px minmax(0, 1fr) !important;
