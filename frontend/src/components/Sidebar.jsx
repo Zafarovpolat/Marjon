@@ -250,7 +250,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
             aria-expanded={!collapsed}
             title="Закрыть меню"
           >
-            <Icon name="bi-chevron-left" size={18} aria-hidden="true" />
+            <Icon name="bi-chevron-right" size={18} className="sidebar-brand__toggle-chevron" aria-hidden="true" />
           </button>
         ) : null}
       </div>
@@ -457,7 +457,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
             <span>{profileCardRole}</span>
             <em>{user?.company_name || "MARJON"}</em>
           </div>
-          <Icon name={accountOpen ? "bi-chevron-up" : "bi-chevron-down"} size={16} className="sidebar-user__arrow" />
+          <Icon name="bi-chevron-right" size={16} className="sidebar-user__arrow" />
         </button>
       </div>
     </aside>
