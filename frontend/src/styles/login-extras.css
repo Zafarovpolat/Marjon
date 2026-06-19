@@ -4,36 +4,38 @@
 .login-pro-tabs {
   display: flex;
   gap: 4px;
-  margin-bottom: 16px;
+  margin-bottom: clamp(8px, 1.4vh, 16px);
   padding: 4px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(0, 0, 0, 0.05);
   border-radius: 12px;
 }
 
 .login-pro-tab {
   flex: 1;
-  padding: 10px 12px;
+  padding: clamp(7px, 1vh, 10px) 14px;
   background: transparent;
   border: none;
-  color: var(--marjon-muted, #9aa0a6);
+  color: var(--neutral-500);
+  font-family: inherit;
   font-size: 14px;
-  font-weight: 500;
-  border-radius: 8px;
+  font-weight: 600;
+  border-radius: 9px;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
 .login-pro-tab:hover {
-  color: var(--marjon-text, #e7e8eb);
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--neutral-700);
 }
 
 .login-pro-tab.is-active {
-  background: rgba(244, 162, 97, 0.14);
-  color: var(--marjon-accent, #f4a261);
+  background: rgba(29, 181, 181, 0.12);
+  color: var(--color-brand);
 }
 
 .login-pro-alt {
-  margin-top: 16px;
+  margin-top: clamp(6px, 1vh, 14px);
   text-align: center;
 }
 
@@ -41,10 +43,10 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
+  padding: clamp(7px, 1vh, 10px) 14px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--marjon-text, #e7e8eb);
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--neutral-600);
   text-decoration: none;
   font-size: 14px;
   transition: background 0.15s ease;

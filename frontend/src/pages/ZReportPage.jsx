@@ -1,3 +1,5 @@
+import Icon from '../components/Icon';
+
 const printReports = [
   {
     key: "cashiers",
@@ -46,7 +48,7 @@ function ReportField({ field }) {
           <option value="" disabled>{field.label}</option>
           {field.options.map((option) => <option value={option} key={option}>{option}</option>)}
         </select>
-        <i className="bi bi-chevron-down" />
+        <Icon name="bi-chevron-down" size={20} />
       </label>
     );
   }
@@ -68,7 +70,7 @@ export default function ZReportPage() {
             <h3>Печатные отчеты</h3>
           </div>
           <button className="z-report-print-panel__main" type="button" onClick={() => window.print()}>
-            <i className="bi bi-printer" />
+            <Icon name="bi-printer" size={20} />
             Печать отчета
           </button>
         </div>
@@ -91,7 +93,7 @@ export default function ZReportPage() {
                   <td>
                     <div className="z-report-print-table__report">
                       <span className="z-report-print-table__icon">
-                        <i className={`bi ${reportItem.icon}`} />
+                        <Icon name={reportItem.icon} size={18} />
                       </span>
                       <strong>{reportItem.title}</strong>
                     </div>
@@ -104,7 +106,7 @@ export default function ZReportPage() {
                   </td>
                   <td>
                     <button className="z-report-print-row__action" type="button" onClick={() => window.print()}>
-                      <i className="bi bi-printer" />
+                      <Icon name="bi-printer" size={18} />
                       Печатать отчет
                     </button>
                   </td>

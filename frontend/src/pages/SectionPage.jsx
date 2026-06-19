@@ -1,5 +1,6 @@
 import { useState } from "react";
 import DataTableView from "../components/DataTableView";
+import Icon from '../components/Icon';
 import { getReportTable } from "../data/reportDemo";
 
 export default function SectionPage({ eyebrow, title, description, items = [], sectionKey }) {
@@ -18,7 +19,7 @@ export default function SectionPage({ eyebrow, title, description, items = [], s
             {activeTile.text ? <p className="section-window__description">{activeTile.text}</p> : null}
           </div>
           <button type="button" className="dashboard-back-button" onClick={() => setActiveTile(null)}>
-            <i className="bi bi-arrow-left" aria-hidden="true" />
+            <Icon name="bi-arrow-left" size={18} />
             <span>Назад</span>
           </button>
         </div>
@@ -58,7 +59,7 @@ export default function SectionPage({ eyebrow, title, description, items = [], s
                   : undefined
               }
             >
-              <div className="section-window__icon"><i className={`bi ${item.icon || "bi-grid"}`} /></div>
+              <div className="section-window__icon"><Icon name={item.icon || "bi-grid"} size={20} /></div>
               <div>
                 <h3>{item.title}</h3>
                 <p>{item.text}</p>

@@ -3,6 +3,7 @@ import { Chart, Filler, LineController, LineElement, LinearScale, PointElement, 
 import { Link, useOutletContext } from "react-router-dom";
 import { api, formatMoney, formatNumber } from "../api/client";
 import { dateRangeEndingAt, formatDateLabel, todayInputValue, toDateInputValue } from "../utils/date";
+import Icon from "../components/Icon";
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler);
 
@@ -325,7 +326,7 @@ function EmptyState({ title, text }) {
   return (
     <div className="card dashboard-empty">
       <div>
-        <div className="dashboard-empty__mark"><i className="bi bi-shop" /></div>
+        <div className="dashboard-empty__mark"><Icon name="bi-shop" size={20} /></div>
         <h2>{title}</h2>
         <p>{text}</p>
       </div>
@@ -363,7 +364,7 @@ function PeriodDropdown({ value, onChange }) {
       <button className="period-dropdown__button" type="button" onClick={() => setOpen((current) => !current)} aria-haspopup="listbox" aria-expanded={open}>
         <span>Период</span>
         <strong>{selected.label}</strong>
-        <i className="bi bi-chevron-down" aria-hidden="true" />
+        <Icon name="bi-chevron-down" size={20} />
       </button>
       {open ? (
         <div className="period-dropdown__menu" role="listbox">
@@ -380,7 +381,7 @@ function PeriodDropdown({ value, onChange }) {
               }}
             >
               {option.label}
-              {option.value === value ? <i className="bi bi-check2" aria-hidden="true" /> : null}
+              {option.value === value ? <Icon name="bi-check2" size={20} /> : null}
             </button>
           ))}
         </div>
@@ -404,7 +405,7 @@ function ShiftSummaryCard({ summary }) {
       </div>
 
       <div className="shift-summary-card__open-time">
-        <i className="bi bi-clock-history" />
+        <Icon name="bi-clock-history" size={20} />
         <span>Время открытия</span>
         <strong>09:00</strong>
       </div>
@@ -439,7 +440,7 @@ function ShiftSummaryCard({ summary }) {
       </div>
 
       <div className="shift-summary-card__alert">
-        <div className="shift-summary-card__alert-icon"><i className="bi bi-exclamation-triangle" /></div>
+        <div className="shift-summary-card__alert-icon"><Icon name="bi-exclamation-triangle" size={20} /></div>
         <p>Куриное филе заканчивается — осталось 2 кг</p>
         <span>Важно</span>
       </div>
@@ -461,14 +462,14 @@ function QuickActionsCard({ activeOrders, occupancy, avgTime }) {
           <h2>Быстрые действия</h2>
           <p className="quick-actions__subtitle">Самые частые операции владельца в одном месте</p>
         </div>
-        <span className="quick-actions__live"><i className="bi bi-lightning-charge-fill" /> Live</span>
+        <span className="quick-actions__live"><Icon name="bi-lightning-charge-fill" size={20} /> Live</span>
       </div>
 
       <div className="quick-actions__grid">
-        <Link to="/orders"><i className="bi bi-plus-circle" /><span>Новый заказ</span><small>Создать продажу</small></Link>
-        <Link to="/menu"><i className="bi bi-journal-plus" /><span>Добавить блюдо</span><small>18 блюд в меню</small></Link>
-        <Link to="/staff"><i className="bi bi-person-plus" /><span>Сотрудник</span><small>0 в команде</small></Link>
-        <Link to="/finance"><i className="bi bi-file-earmark-spreadsheet" /><span>Финансы</span><small>Отчеты и касса</small></Link>
+        <Link to="/orders"><Icon name="bi-plus-circle" size={20} /><span>Новый заказ</span><small>Создать продажу</small></Link>
+        <Link to="/menu"><Icon name="bi-journal-plus" size={20} /><span>Добавить блюдо</span><small>18 блюд в меню</small></Link>
+        <Link to="/staff"><Icon name="bi-person-plus" size={20} /><span>Сотрудник</span><small>0 в команде</small></Link>
+        <Link to="/finance"><Icon name="bi-file-earmark-spreadsheet" size={20} /><span>Финансы</span><small>Отчеты и касса</small></Link>
       </div>
 
       <div className="quick-actions__insights">
@@ -544,13 +545,13 @@ function KpiInfoDialog({ kpi, onClose }) {
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="kpi-info-window__head">
-          <div className="kpi-info-window__icon"><i className={`bi ${kpi.icon}`} /></div>
+          <div className="kpi-info-window__icon"><Icon name={kpi.icon} size={20} /></div>
           <div>
             <span>{kpi.badge}</span>
             <h2 id="kpi-info-title">{kpi.label}</h2>
           </div>
           <button type="button" className="kpi-info-window__close" aria-label="Закрыть" onClick={onClose}>
-            <i className="bi bi-x-lg" />
+            <Icon name="bi-x-lg" size={20} />
           </button>
         </div>
 
@@ -570,7 +571,7 @@ function KpiInfoDialog({ kpi, onClose }) {
         </div>
 
         <div className="kpi-info-window__insight">
-          <i className="bi bi-info-circle" />
+          <Icon name="bi-info-circle" size={20} />
           <span>{kpi.insight}</span>
         </div>
       </section>
@@ -660,7 +661,7 @@ export default function OwnerDashboard() {
             aria-haspopup="dialog"
           >
             <div className="premium-kpi__top">
-              <div className="premium-kpi__icon"><i className={`bi ${kpi.icon}`} /></div>
+              <div className="premium-kpi__icon"><Icon name={kpi.icon} size={20} /></div>
               <span className="trend">{kpi.badge}</span>
             </div>
             <div className="kpi-label">{kpi.label}</div>

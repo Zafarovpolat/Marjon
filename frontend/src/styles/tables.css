@@ -31,8 +31,8 @@
 }
 
 .data-table th {
-    background: #F8FAFC;
-    color: #344054;
+    background: var(--neutral-50);
+    color: var(--neutral-600);
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: .02em;

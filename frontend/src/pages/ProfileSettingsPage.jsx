@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import logo from "../assets/marjon-logo.svg";
+import Icon from "../components/Icon";
 
 const PROFILE_STORAGE_KEY = "marjon_profile_settings";
 
@@ -82,12 +83,12 @@ export default function ProfileSettingsPage() {
           <label className="profile-settings-form__upload">
             Фото профиля
             <input type="file" accept="image/*" onChange={handlePhotoChange} />
-            <span><i className="bi bi-image" /> Выбрать фото</span>
+            <span><Icon name="bi-image" size={18} /> Выбрать фото</span>
           </label>
 
           <div className="profile-settings-form__actions">
-            <button type="submit"><i className="bi bi-check2" /> Сохранить</button>
-            <button type="button" onClick={removePhoto}><i className="bi bi-trash3" /> Убрать фото</button>
+            <button type="submit"><Icon name="bi-check2" size={18} /> Сохранить</button>
+            <button type="button" onClick={removePhoto}><Icon name="bi-trash3" size={18} /> Убрать фото</button>
           </div>
 
           {message ? <p className="profile-settings-form__message">{message}</p> : null}

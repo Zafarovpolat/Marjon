@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
+import Icon from '../components/Icon';
 
 const roleConfigs = {
   cashier: {
@@ -227,23 +228,23 @@ export default function StaffRolePage({ role = "all" }) {
         </div>
         <button className="staff-manager__add" type="button" onClick={toggleForm}>
           <span>{showForm ? "Закрыть" : "Добавить"}</span>
-          <i className={`bi ${showForm ? "bi-x-lg" : "bi-plus-lg"}`} />
+          <Icon name={showForm ? "bi-x-lg" : "bi-plus-lg"} size={18} />
         </button>
       </div>
 
       {error ? <div className="message message-info">{error}</div> : null}
 
       <div className="staff-manager__stats staff-manager__stats--next">
-        <div><i className={`bi ${config.accent}`} /><span>Всего</span><strong>{roleEmployees.length}</strong></div>
-        <div><i className="bi bi-check2-circle" /><span>Активные</span><strong>{activeCount}</strong></div>
-        <div><i className="bi bi-archive" /><span>Архив</span><strong>{archiveCount}</strong></div>
+        <div><Icon name={config.accent} size={20} /><span>Всего</span><strong>{roleEmployees.length}</strong></div>
+        <div><Icon name="bi-check2-circle" size={18} /><span>Активные</span><strong>{activeCount}</strong></div>
+        <div><Icon name="bi-archive" size={18} /><span>Архив</span><strong>{archiveCount}</strong></div>
       </div>
 
       {showForm ? (
         <form className="staff-manager__form staff-manager__form--next" onSubmit={handleSubmit}>
           <label className="staff-manager__photo-upload">
             <input type="file" accept="image/*" onChange={handlePhoto} />
-            <span>{form.photo ? <img src={form.photo} alt="Фото сотрудника" /> : <i className="bi bi-camera" />}</span>
+            <span>{form.photo ? <img src={form.photo} alt="Фото сотрудника" /> : <Icon name="bi-camera" size={20} />}</span>
             <em>Фото</em>
           </label>
           <label>
@@ -272,8 +273,8 @@ export default function StaffRolePage({ role = "all" }) {
 
       <div className="staff-manager__toolbar">
         <div className="staff-manager__tabs">
-          <button className={activeTab === "active" ? "is-active" : ""} type="button" onClick={() => setActiveTab("active")}><i className="bi bi-check2" /> Активные</button>
-          <button className={activeTab === "archived" ? "is-active" : ""} type="button" onClick={() => setActiveTab("archived")}><i className="bi bi-archive" /> Архивированные</button>
+          <button className={activeTab === "active" ? "is-active" : ""} type="button" onClick={() => setActiveTab("active")}><Icon name="bi-check2" size={18} /> Активные</button>
+          <button className={activeTab === "archived" ? "is-active" : ""} type="button" onClick={() => setActiveTab("archived")}><Icon name="bi-archive" size={18} /> Архивированные</button>
         </div>
         <span className="staff-manager__hint">Все действия пока сохраняются локально до подключения backend POST.</span>
       </div>
@@ -295,7 +296,7 @@ export default function StaffRolePage({ role = "all" }) {
               <tr key={employee.id}>
                 <td>
                   <div className="staff-manager__person">
-                    <span className="staff-manager__avatar">{employee.photo ? <img src={employee.photo} alt={employee.full_name} /> : <i className="bi bi-person" />}</span>
+                    <span className="staff-manager__avatar">{employee.photo ? <img src={employee.photo} alt={employee.full_name} /> : <Icon name="bi-person" size={18} />}</span>
                     <div><strong>{employee.full_name}</strong><small>ID {employee.id}</small></div>
                   </div>
                 </td>
@@ -305,9 +306,9 @@ export default function StaffRolePage({ role = "all" }) {
                 <td><span className={`staff-manager__status ${employee.status === "archived" ? "is-archived" : ""}`}>{employee.status === "active" ? "#активно" : "#архив"}</span></td>
                 <td>
                   <div className="staff-manager__actions">
-                    <button type="button" onClick={() => editEmployee(employee)} aria-label="Редактировать"><i className="bi bi-pencil" /></button>
-                    <button type="button" onClick={() => toggleArchive(employee)} aria-label="Архив"><i className={`bi ${employee.status === "active" ? "bi-archive" : "bi-arrow-counterclockwise"}`} /></button>
-                    <button type="button" onClick={() => deleteEmployee(employee.id)} aria-label="Удалить"><i className="bi bi-trash3" /></button>
+                    <button type="button" onClick={() => editEmployee(employee)} aria-label="Редактировать"><Icon name="bi-pencil" size={18} /></button>
+                    <button type="button" onClick={() => toggleArchive(employee)} aria-label="Архив"><Icon name={employee.status === "active" ? "bi-archive" : "bi-arrow-counterclockwise"} size={18} /></button>
+                    <button type="button" onClick={() => deleteEmployee(employee.id)} aria-label="Удалить"><Icon name="bi-trash3" size={18} /></button>
                   </div>
                 </td>
               </tr>

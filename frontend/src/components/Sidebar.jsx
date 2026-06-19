@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/marjon-logo.svg";
 import { logout } from "../api/client";
 import { filterNavItems } from "../utils/permissions";
+import Icon from "./Icon";
 
 const PROFILE_STORAGE_KEY = "marjon_profile_settings";
 
@@ -249,7 +250,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
             aria-expanded={!collapsed}
             title="Закрыть меню"
           >
-            <i className="bi bi-chevron-left" aria-hidden="true" />
+            <Icon name="bi-chevron-left" size={18} aria-hidden="true" />
           </button>
         ) : null}
       </div>
@@ -291,9 +292,9 @@ export default function Sidebar({ user, collapsed, onToggle }) {
                   }}
                   aria-expanded={submenuOpen}
                 >
-                  <span className="sidebar-icon"><i className={`bi ${item.icon}`} /></span>
+                  <span className="sidebar-icon"><Icon name={item.icon} size={18} /></span>
                   <span>{item.label}</span>
-                  <i className="bi bi-chevron-right sidebar-link__chevron" aria-hidden="true" />
+                  <Icon name="bi-chevron-right" size={18} className="sidebar-link__chevron" aria-hidden="true" />
                 </button>
                 <div className="sidebar-submenu">
                   {item.children.map((child) => (
@@ -307,7 +308,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
                       }}
                     >
                       <span className="sidebar-submenu__dot" aria-hidden="true" />
-                      <span className="sidebar-submenu__icon"><i className={`bi ${child.icon || "bi-circle"}`} /></span>
+                      <span className="sidebar-submenu__icon"><Icon name={child.icon || "bi-circle"} size={child.icon ? 16 : 8} /></span>
                       {child.label}
                     </Link>
                   ))}
@@ -330,7 +331,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
                         }}
                       >
                         <span className="sidebar-collapsed-popover__icon">
-                          <i className={`bi ${child.icon || "bi-circle"}`} />
+                          <Icon name={child.icon || "bi-circle"} size={16} />
                         </span>
                         <span>{child.label}</span>
                       </Link>
@@ -351,7 +352,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
                   setOpenMenu("");
                 }}
               >
-                <span className="sidebar-icon"><i className={`bi ${item.icon}`} /></span>
+                <span className="sidebar-icon"><Icon name={item.icon} size={18} /></span>
                 <span>{item.label}</span>
               </Link>
             </div>
@@ -380,20 +381,20 @@ export default function Sidebar({ user, collapsed, onToggle }) {
                 <strong>{displayName}</strong>
                 <span>{role} · {user?.company_name || "MARJON"}</span>
               </div>
-              <i className="bi bi-chevron-up sidebar-account__head-arrow" aria-hidden="true" />
+              <Icon name="bi-chevron-up" size={16} className="sidebar-account__head-arrow" />
             </div>
             <Link className="sidebar-account__item" to="/settings/profile" role="menuitem" onClick={() => closeAccountAndSelectMenu("settings")}>
-              <i className="bi bi-person-gear" />
+              <Icon name="bi-person-gear" size={16} />
               <span>Настройка профиля</span>
             </Link>
             <Link className="sidebar-account__item" to="/settings/support" role="menuitem" onClick={() => closeAccountAndSelectMenu("settings")}>
-              <i className="bi bi-headset" />
+              <Icon name="bi-headset" size={16} />
               <span>Тех. поддержка</span>
             </Link>
 
             <div className="sidebar-account__lang">
               <span className="sidebar-account__lang-label">
-                <i className="bi bi-translate" />
+                <Icon name="bi-translate" size={16} />
                 Язык
               </span>
               <div className="sidebar-account__lang-switch" role="group" aria-label="Выбор языка">
@@ -417,16 +418,16 @@ export default function Sidebar({ user, collapsed, onToggle }) {
             </div>
 
             <Link className="sidebar-account__item" to="/store" role="menuitem" onClick={() => closeAccountAndSelectMenu("")}>
-              <i className="bi bi-shop" />
+              <Icon name="bi-shop" size={16} />
               <span>Магазин</span>
             </Link>
             <Link className="sidebar-account__item" to="/reviews" role="menuitem" onClick={() => closeAccountAndSelectMenu("")}>
-              <i className="bi bi-chat-left" />
+              <Icon name="bi-chat-left" size={16} />
               <span>Отзывы</span>
             </Link>
 
             <button type="button" className="sidebar-account__item sidebar-account__item--danger" role="menuitem" onClick={handleLogout}>
-              <i className="bi bi-box-arrow-right" />
+              <Icon name="bi-box-arrow-right" size={16} />
               <span>Выйти</span>
             </button>
           </div>
@@ -456,7 +457,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
             <span>{profileCardRole}</span>
             <em>{user?.company_name || "MARJON"}</em>
           </div>
-          <i className={`bi ${accountOpen ? "bi-chevron-up" : "bi-chevron-down"} sidebar-user__arrow`} aria-hidden="true" />
+          <Icon name={accountOpen ? "bi-chevron-up" : "bi-chevron-down"} size={16} className="sidebar-user__arrow" />
         </button>
       </div>
     </aside>

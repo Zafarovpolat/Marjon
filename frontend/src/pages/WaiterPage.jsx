@@ -2,6 +2,7 @@
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import logo from "../assets/marjon-logo.svg";
 import { api, formatMoney, logout } from "../api/client";
+import Icon from '../components/Icon';
 
 const tableStatuses = ["free", "occupied", "reserved"];
 const TABLE_COUNT = 50;
@@ -90,14 +91,14 @@ function WaiterShell({ children }) {
         <nav className="pos-nav">
           {items.map((item) => {
             const active = item.exact ? location.pathname === item.to : location.pathname.startsWith(item.to);
-            return <Link key={item.to} to={item.to} className={active ? "is-active" : ""}><span className="pos-nav__icon"><i className={`bi ${item.icon}`} /></span><span>{item.label}</span></Link>;
+            return <Link key={item.to} to={item.to} className={active ? "is-active" : ""}><span className="pos-nav__icon"><Icon name={item.icon} size={18} /></span><span>{item.label}</span></Link>;
           })}
-          <button type="button" onClick={handleLogout} className="pos-nav-button"><span className="pos-nav__icon"><i className="bi bi-box-arrow-right" /></span><span>Chiqish</span></button>
+          <button type="button" onClick={handleLogout} className="pos-nav-button"><span className="pos-nav__icon"><Icon name="bi-box-arrow-right" size={18} /></span><span>Chiqish</span></button>
         </nav>
         <button type="button" onClick={handleLogout} className="pos-sidebar-user">
           <span className="pos-sidebar-user__avatar"><img src={logo} alt="MARJON" className="sidebar-user-logo" decoding="async" /></span>
           <span className="pos-sidebar-user__meta"><strong>ofitsiant</strong><small>waiter</small><em>MARJON</em></span>
-          <i className="bi bi-chevron-right" aria-hidden="true" />
+          <Icon name="bi-chevron-right" size={18} />
         </button>
       </aside>
       <main className="pos-main pos-main--warm">{children}</main>

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { ROLE_HOME } from "../utils/permissions";
 import logo from "../assets/marjon-logo.svg";
+import Icon from "../components/Icon";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -95,7 +96,7 @@ export default function LoginPage() {
           <label className="login-pro-field">
             <span>{label}</span>
             <div className="login-pro-input-wrap">
-              <i className={`bi ${inputIcon}`} />
+              <Icon name={inputIcon} size={18} />
               <input
                 type={inputType}
                 value={identity}
@@ -111,7 +112,7 @@ export default function LoginPage() {
           <label className="login-pro-field">
             <span>ПАРОЛЬ</span>
             <div className="login-pro-input-wrap">
-              <i className="bi bi-lock" />
+              <Icon name="bi-lock" size={18} />
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
@@ -140,7 +141,7 @@ export default function LoginPage() {
 
           <div className="login-pro-alt">
             <Link to="/login/staff" className="login-pro-alt__link">
-              <i className="bi bi-people" /> Вход сотрудников (PIN)
+              <Icon name="bi-people" size={18} /> Вход сотрудников (PIN)
             </Link>
           </div>
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import logo from "../assets/marjon-logo.svg";
 import { adminApi, adminLogin, adminLogout, isAdminAuthenticated } from "./api";
+import Icon from '../components/Icon';
 
 const navItems = [
   { key: "dashboard", label: "Дашборд", icon: "bi-grid-1x2-fill" },
@@ -304,14 +305,14 @@ function Sidebar({ active, onSelect }) {
             className={active === item.key ? "is-active" : ""}
             onClick={() => onSelect(item.key)}
           >
-            <i className={`bi ${item.icon}`} />
+            <Icon name={item.icon} size={18} />
             <span>{item.label}</span>
             {item.badge ? <em>{item.badge}</em> : null}
           </button>
         ))}
       </nav>
       <button className="admin-collapse" type="button">
-        <i className="bi bi-layout-sidebar-inset" />
+        <Icon name="bi-layout-sidebar-inset" size={18} />
         <span>Свернуть меню</span>
       </button>
     </aside>
@@ -327,15 +328,15 @@ function Header({ user, onLogout }) {
       </div>
       <div className="admin-header__actions">
         <label className="admin-search">
-          <i className="bi bi-search" />
+          <Icon name="bi-search" size={18} />
           <input placeholder="Поиск по платформе..." />
         </label>
         <button className="admin-date" type="button">
-          <i className="bi bi-calendar3" />
+          <Icon name="bi-calendar3" size={18} />
           11.06.2026 - 11.06.2026
         </button>
         <button className="admin-bell" type="button" aria-label="Уведомления">
-          <i className="bi bi-bell" />
+          <Icon name="bi-bell" size={18} />
           <span>8</span>
         </button>
         <div className="admin-profile">
@@ -346,7 +347,7 @@ function Header({ user, onLogout }) {
           </div>
         </div>
         <button className="admin-logout" type="button" onClick={onLogout}>
-          <i className="bi bi-box-arrow-right" />
+          <Icon name="bi-box-arrow-right" size={18} />
         </button>
       </div>
     </header>
@@ -357,7 +358,7 @@ function KpiCard({ item }) {
   return (
     <article className={`admin-kpi admin-kpi--${item.tone}`}>
       <div className="admin-kpi__top">
-        <span><i className={`bi ${item.icon}`} /></span>
+        <span><Icon name={item.icon} size={20} /></span>
         <small>{item.title}</small>
       </div>
       <strong>{item.value}</strong>
@@ -468,7 +469,7 @@ function OrganizationsTable() {
             <span>{row[3]}</span>
             <span>{row[4]}</span>
             <StatusBadge status={row[5]} />
-            <button type="button"><i className="bi bi-three-dots" /></button>
+            <button type="button"><Icon name="bi-three-dots" size={18} /></button>
           </div>
         ))}
       </div>
@@ -507,7 +508,7 @@ function RightColumn() {
         <div className="admin-alert-list">
           {alertItems.map((item) => (
             <div className={`admin-system-alert admin-system-alert--${item[0]}`} key={item[1]}>
-              <i className={`bi ${item[0] === "success" ? "bi-check-circle" : item[0] === "warning" ? "bi-exclamation-triangle" : "bi-info-circle"}`} />
+              <Icon name={item[0] === "success" ? "bi-check-circle" : item[0] === "warning" ? "bi-exclamation-triangle" : "bi-info-circle"} size={18} />
               <span>{item[1]}</span>
             </div>
           ))}

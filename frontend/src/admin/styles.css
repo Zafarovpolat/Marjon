@@ -13,12 +13,12 @@
   --text: #edf6ff;
   --muted: #8fa4c4;
   --blue: #1e88ff;
-  --blue-2: #2563eb;
-  --green: #22c55e;
-  --orange: #f59e0b;
+  --blue-2: var(--color-interactive);
+  --green: var(--color-success);
+  --orange: var(--color-warning);
   --violet: #8b5cf6;
   --cyan: #22d3ee;
-  --danger: #f43f5e;
+  --danger: var(--color-danger);
 }
 
 html,
@@ -34,8 +34,8 @@ body {
     radial-gradient(circle at 18% -10%, rgba(37, 99, 235, 0.34), transparent 32%),
     radial-gradient(circle at 86% 12%, rgba(34, 211, 238, 0.17), transparent 26%),
     radial-gradient(circle at 58% 102%, rgba(139, 92, 246, 0.14), transparent 34%),
-    linear-gradient(135deg, #020617 0%, #061225 46%, #0b1d39 100%);
-  font-family: Inter, Arial, sans-serif;
+    linear-gradient(135deg, #020617 0%, var(--neutral-950) 46%, #0b1d39 100%);
+  font-family: "Inter", sans-serif;
   overflow-x: hidden;
 }
 
@@ -154,7 +154,7 @@ button {
 
 .admin-login__error,
 .admin-auth-alert {
-  color: #fecdd3;
+  color: var(--color-danger-bg);
   background: rgba(244, 63, 94, 0.12);
 }
 
@@ -409,7 +409,7 @@ button {
   place-items: center;
   width: 21px;
   height: 21px;
-  border: 2px solid #061225;
+  border: 2px solid var(--neutral-950);
   border-radius: 999px;
   color: #fff;
   background: var(--danger);
@@ -673,7 +673,7 @@ button {
 }
 
 .admin-chart-card em {
-  color: #86efac;
+  color: var(--color-success);
   font-style: normal;
   font-weight: 800;
 }
@@ -840,12 +840,12 @@ button {
 }
 
 .admin-status--green {
-  color: #86efac;
+  color: var(--color-success);
   background: rgba(34, 197, 94, 0.12);
 }
 
 .admin-status--orange {
-  color: #fbbf24;
+  color: var(--color-warning);
   background: rgba(245, 158, 11, 0.13);
 }
 
@@ -866,7 +866,7 @@ button {
 }
 
 .admin-side-card__head .is-live {
-  color: #86efac;
+  color: var(--color-success);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
@@ -1359,7 +1359,7 @@ button {
   margin: 0;
   padding: 10px 12px;
   border-radius: 12px;
-  color: #fecdd3;
+  color: var(--color-danger-bg);
   background: rgba(43, 13, 30, 0.82);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.36);
   backdrop-filter: blur(18px);
@@ -1591,7 +1591,7 @@ button {
   padding: 0 12px;
   border: 1px solid rgba(38, 132, 255, 0.22);
   border-radius: 10px;
-  color: #dbeafe;
+  color: var(--color-interactive-subtle);
   background: rgba(38, 132, 255, 0.12);
 }
 
@@ -1678,7 +1678,7 @@ button {
 .admin-approval small {
   display: block;
   margin-top: 4px;
-  color: #64748b;
+  color: var(--neutral-500);
   font-size: 10px;
 }
 
@@ -1720,7 +1720,7 @@ button {
 }
 
 .admin-system-alert span {
-  color: #cbd5e1;
+  color: var(--neutral-300);
   font-size: 11px;
   line-height: 1.28;
 }
@@ -1752,7 +1752,7 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #86efac;
+  color: var(--color-success);
   font-size: 11px;
   font-weight: 800;
   white-space: nowrap;
@@ -1762,8 +1762,8 @@ button {
   width: 7px;
   height: 7px;
   border-radius: 999px;
-  background: #22c55e;
-  box-shadow: 0 0 12px #22c55e;
+  background: var(--color-success);
+  box-shadow: 0 0 12px var(--color-success);
 }
 
 .admin-uptime {
@@ -1787,7 +1787,7 @@ button {
 
 .admin-footer span:nth-child(3) {
   justify-self: auto;
-  color: #86efac;
+  color: var(--color-success);
 }
 
 @media (max-width: 1500px) {
@@ -2285,10 +2285,10 @@ button {
   --blue: #d6a84f;
   --blue-2: #f2c76e;
   --green: #43d3a6;
-  --orange: #f59e0b;
+  --orange: var(--color-warning);
   --violet: #8b5cf6;
   --cyan: #2dd4bf;
-  --danger: #ef4444;
+  --danger: var(--color-danger);
   --gold: #d6a84f;
   --gold-2: #f2c76e;
   --teal: #43d3a6;
@@ -2484,7 +2484,7 @@ body {
 .admin-system-grid > div > span,
 .admin-uptime strong,
 .admin-footer span:nth-child(3) {
-  color: #86efac;
+  color: var(--color-success);
 }
 
 .admin-kpi--orange > p {
@@ -2558,7 +2558,7 @@ body {
 }
 
 .admin-status--green {
-  color: #86efac;
+  color: var(--color-success);
   background: rgba(34, 197, 94, 0.14);
 }
 
@@ -2610,7 +2610,7 @@ body {
 
 .admin-auth-alert,
 .admin-login__error {
-  color: #fca5a5;
+  color: var(--color-danger-bg);
   background: rgba(239, 68, 68, 0.12);
   border-color: rgba(239, 68, 68, 0.22);
 }
@@ -2927,7 +2927,7 @@ body {
 
 .admin-login__panel input {
   min-height: 52px;
-  color: #f8fafc;
+  color: var(--neutral-50);
   border-color: rgba(226, 232, 240, 0.18) !important;
   background: rgba(3, 10, 16, 0.42) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);

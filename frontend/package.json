@@ -12,10 +12,10 @@
     "@vitejs/plugin-react": "latest",
     "axios": "latest",
     "chart.js": "latest",
-    "vite": "latest",
+    "lucide-react": "^1.21.0",
     "react": "latest",
     "react-dom": "latest",
-    "react-router-dom": "latest"
-  },
-  "devDependencies": {}
+    "react-router-dom": "latest",
+    "vite": "latest"
+  }
 }

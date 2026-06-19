@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { fetchStaffUsers } from "../../api/client";
+import Icon from '../../components/Icon';
 
 export default function StaffLoginPage() {
   const navigate = useNavigate();
@@ -31,7 +32,7 @@ export default function StaffLoginPage() {
     <main className="staff-login">
       <header className="staff-login__head">
         <Link to="/login" className="staff-login__back">
-          <i className="bi bi-arrow-left" /> Вход по email
+          <Icon name="bi-arrow-left" size={18} /> Вход по email
         </Link>
         <h1>Выберите сотрудника</h1>
         <p>Нажмите на свой аватар, затем введите PIN-код.</p>

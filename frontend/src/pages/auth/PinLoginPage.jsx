@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { ROLE_HOME } from "../../utils/permissions";
+import Icon from '../../components/Icon';
 
 const PIN_LENGTH = 4;
 
@@ -56,7 +57,7 @@ export default function PinLoginPage() {
     <main className="pin-login">
       <header className="pin-login__head">
         <Link to="/login/staff" className="pin-login__back">
-          <i className="bi bi-arrow-left" /> Назад к списку
+          <Icon name="bi-arrow-left" size={18} /> Назад к списку
         </Link>
         <div className="pin-login__user">
           <div className="pin-login__avatar">
@@ -92,7 +93,7 @@ export default function PinLoginPage() {
           0
         </button>
         <button type="button" className="pin-login__key pin-login__key--ghost" onClick={handleBackspace} disabled={busy} aria-label="Стереть">
-          <i className="bi bi-backspace" />
+          <Icon name="bi-backspace" size={18} />
         </button>
       </div>
 

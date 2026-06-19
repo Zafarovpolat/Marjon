@@ -4,7 +4,7 @@
 .staff-login {
   min-height: 100vh;
   padding: clamp(20px, 4vw, 48px);
-  background: var(--marjon-bg, #0f1115);
+  background: var(--marjon-bg, var(--neutral-950));
   color: var(--marjon-text, #e7e8eb);
 }
 
@@ -17,7 +17,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--marjon-muted, #9aa0a6);
+  color: var(--marjon-muted, var(--neutral-400));
   text-decoration: none;
   font-size: 14px;
   margin-bottom: 16px;
@@ -35,7 +35,7 @@
 
 .staff-login__head p {
   margin: 0;
-  color: var(--marjon-muted, #9aa0a6);
+  color: var(--marjon-muted, var(--neutral-400));
 }
 
 .staff-login__state {
@@ -45,12 +45,12 @@
   text-align: center;
   border: 1px dashed rgba(255, 255, 255, 0.12);
   border-radius: 16px;
-  color: var(--marjon-muted, #9aa0a6);
+  color: var(--marjon-muted, var(--neutral-400));
 }
 
 .staff-login__state--error {
   border-color: rgba(239, 68, 68, 0.4);
-  color: #f87171;
+  color: var(--color-danger);
 }
 
 .staff-login__grid {
@@ -62,7 +62,7 @@
 }
 
 .staff-login__card {
-  background: var(--marjon-card, #1a1d24);
+  background: var(--marjon-card, var(--neutral-950));
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 20px;
   padding: 24px 16px;
@@ -82,7 +82,7 @@
 }
 
 .staff-login__card:focus-visible {
-  outline: 2px solid var(--marjon-accent, #f4a261);
+  outline: 2px solid var(--marjon-accent, var(--color-warning));
   outline-offset: 2px;
 }
 
@@ -91,13 +91,13 @@
   height: 96px;
   border-radius: 50%;
   overflow: hidden;
-  background: linear-gradient(135deg, #2a2f3a, #1a1d24);
+  background: linear-gradient(135deg, var(--neutral-900), var(--neutral-950));
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 36px;
   font-weight: 600;
-  color: var(--marjon-accent, #f4a261);
+  color: var(--marjon-accent, var(--color-warning));
 }
 
 .staff-login__avatar img {
@@ -114,7 +114,7 @@
 
 .staff-login__role {
   font-size: 13px;
-  color: var(--marjon-muted, #9aa0a6);
+  color: var(--marjon-muted, var(--neutral-400));
   text-transform: capitalize;
 }
 
@@ -122,7 +122,7 @@
 .pin-login {
   min-height: 100vh;
   padding: clamp(20px, 4vw, 48px);
-  background: var(--marjon-bg, #0f1115);
+  background: var(--marjon-bg, var(--neutral-950));
   color: var(--marjon-text, #e7e8eb);
   display: flex;
   flex-direction: column;
@@ -139,7 +139,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--marjon-muted, #9aa0a6);
+  color: var(--marjon-muted, var(--neutral-400));
   text-decoration: none;
   font-size: 14px;
   margin-bottom: 24px;
@@ -160,13 +160,13 @@
   height: 72px;
   border-radius: 50%;
   overflow: hidden;
-  background: linear-gradient(135deg, #2a2f3a, #1a1d24);
+  background: linear-gradient(135deg, var(--neutral-900), var(--neutral-950));
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 28px;
   font-weight: 600;
-  color: var(--marjon-accent, #f4a261);
+  color: var(--marjon-accent, var(--color-warning));
   flex: 0 0 72px;
 }
 
@@ -183,7 +183,7 @@
 
 .pin-login__user p {
   margin: 0;
-  color: var(--marjon-muted, #9aa0a6);
+  color: var(--marjon-muted, var(--neutral-400));
   font-size: 14px;
 }
 
@@ -202,13 +202,13 @@
 }
 
 .pin-login__dot.is-filled {
-  background: var(--marjon-accent, #f4a261);
-  border-color: var(--marjon-accent, #f4a261);
+  background: var(--marjon-accent, var(--color-warning));
+  border-color: var(--marjon-accent, var(--color-warning));
   transform: scale(1.1);
 }
 
 .pin-login__error {
-  color: #f87171;
+  color: var(--color-danger);
   margin-bottom: 16px;
   font-size: 14px;
 }
@@ -225,7 +225,7 @@
   height: 88px;
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: var(--marjon-card, #1a1d24);
+  background: var(--marjon-card, var(--neutral-950));
   color: var(--marjon-text, #e7e8eb);
   font-size: 28px;
   font-weight: 500;
@@ -243,7 +243,7 @@
 
 .pin-login__key:active:not(:disabled) {
   transform: scale(0.96);
-  background: #2a2f3a;
+  background: var(--neutral-900);
 }
 
 .pin-login__key:disabled {
@@ -254,7 +254,7 @@
 .pin-login__key--ghost {
   background: transparent;
   border-color: transparent;
-  color: var(--marjon-muted, #9aa0a6);
+  color: var(--marjon-muted, var(--neutral-400));
   font-size: 22px;
 }
 
@@ -265,7 +265,7 @@
 
 .pin-login__busy {
   margin-top: 24px;
-  color: var(--marjon-muted, #9aa0a6);
+  color: var(--marjon-muted, var(--neutral-400));
   font-size: 14px;
 }
 

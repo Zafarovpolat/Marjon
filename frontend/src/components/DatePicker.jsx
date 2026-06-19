@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { todayInputValue } from "../utils/date";
+import Icon from './Icon';
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const MONTHS = [
@@ -140,9 +141,9 @@ export default function DatePicker({ value, max, onChange, onClear }) {
         aria-haspopup="dialog"
         aria-expanded={open}
       >
-        <span className="mj-datepicker__icon"><i className="bi bi-calendar3" /></span>
+        <span className="mj-datepicker__icon"><Icon name="bi-calendar3" size={18} /></span>
         <span className="mj-datepicker__value">{label}</span>
-        <span className="mj-datepicker__time"><i className="bi bi-clock" aria-hidden="true" />{time}</span>
+        <span className="mj-datepicker__time"><Icon name="bi-clock" size={16} />{time}</span>
       </button>
 
       {open ? (
@@ -161,14 +162,14 @@ export default function DatePicker({ value, max, onChange, onClear }) {
             >
               <strong>{MONTHS[viewMonth]}</strong>
               <span>{viewYear}</span>
-              <i className={`bi bi-caret-${showMonthList ? "up" : "down"}-fill`} aria-hidden="true" />
+              <Icon name={showMonthList ? "bi-caret-up-fill" : "bi-caret-down-fill"} size={16} />
             </button>
             <div className="mj-calendar__nav">
               <button type="button" onClick={() => stepMonth(-1)} aria-label="Предыдущий месяц">
-                <i className="bi bi-chevron-left" />
+                <Icon name="bi-chevron-left" size={18} />
               </button>
               <button type="button" onClick={() => stepMonth(1)} aria-label="Следующий месяц">
-                <i className="bi bi-chevron-right" />
+                <Icon name="bi-chevron-right" size={18} />
               </button>
             </div>
           </div>
@@ -177,11 +178,11 @@ export default function DatePicker({ value, max, onChange, onClear }) {
             <div className="mj-calendar__months">
               <div className="mj-calendar__year-switch">
                 <button type="button" onClick={() => setView(new Date(viewYear - 1, viewMonth, 1))} aria-label="Прошлый год">
-                  <i className="bi bi-chevron-left" />
+                  <Icon name="bi-chevron-left" size={18} />
                 </button>
                 <strong>{viewYear}</strong>
                 <button type="button" onClick={() => setView(new Date(viewYear + 1, viewMonth, 1))} aria-label="Следующий год">
-                  <i className="bi bi-chevron-right" />
+                  <Icon name="bi-chevron-right" size={18} />
                 </button>
               </div>
               <div className="mj-calendar__months-grid">

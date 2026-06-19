@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Icon from "./Icon";
 
 const text = {
   title: "\u0421\u0432\u044f\u0437\u044c \u0441 \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u043a\u043e\u0439",
@@ -37,20 +38,20 @@ export default function SupportWidget() {
         <section className="support-widget__panel" aria-label={text.title}>
           <header className="support-widget__header">
             <span className="support-widget__header-icon" aria-hidden="true">
-              <i className="bi bi-headset" />
+              <Icon name="bi-headset" size={18} />
             </span>
             <div>
               <strong>{text.title}</strong>
               <small>{text.subtitle}</small>
             </div>
             <button className="support-widget__close" type="button" aria-label={text.close} onClick={closeWidget}>
-              <i className="bi bi-x-lg" />
+              <Icon name="bi-x-lg" size={18} />
             </button>
           </header>
 
           {sent ? (
             <div className="support-widget__success">
-              <span aria-hidden="true"><i className="bi bi-check2-circle" /></span>
+              <span aria-hidden="true"><Icon name="bi-check2-circle" size={18} /></span>
               <strong>{text.successTitle}</strong>
               <p>{text.successText}</p>
               <button type="button" onClick={() => {
@@ -86,7 +87,7 @@ export default function SupportWidget() {
               </label>
 
               <button className="support-widget__submit" type="submit" disabled={!message.trim()}>
-                <i className="bi bi-send" aria-hidden="true" />
+                <Icon name="bi-send" size={18} />
                 <span>{text.send}</span>
               </button>
             </form>
@@ -101,7 +102,7 @@ export default function SupportWidget() {
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
       >
-        <i className={`bi ${open ? "bi-x-lg" : "bi-headset"}`} aria-hidden="true" />
+        <Icon name={open ? "bi-x-lg" : "bi-headset"} size={18} />
       </button>
     </div>
   );

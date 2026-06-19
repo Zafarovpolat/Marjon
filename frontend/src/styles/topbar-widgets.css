@@ -4,8 +4,8 @@
 .mj-datepicker,
 .mj-calendar {
   /* Локальный бирюзовый акцент вместо глобального оранжевого */
-  --accent: #1db5b5;
-  --accent-2: #1fcac2;
+  --accent: var(--color-brand);
+  --accent-2: var(--color-brand-hover);
 }
 
 .mj-datepicker {

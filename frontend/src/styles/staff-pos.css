@@ -4,7 +4,7 @@
   margin: 0;
   min-height: 100dvh;
   display: flex;
-  background: #0b1220;
+  background: var(--neutral-950);
   color: var(--mj-ink);
   font-family: var(--mj-font-body);
 }
@@ -20,7 +20,7 @@
   padding: 24px 18px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 18%),
-    linear-gradient(180deg, #101827 0%, #111f35 54%, #0b1220 100%);
+    linear-gradient(180deg, #101827 0%, #111f35 54%, var(--neutral-950) 100%);
   color: #fff;
   border-radius: 0;
   box-shadow: none;
@@ -103,7 +103,7 @@
   flex: 1;
   min-width: 0;
   padding: 28px 32px 36px;
-  background: #f4f7fb;
+  background: var(--neutral-50);
   box-shadow: none;
   border-left: 0;
   overflow-y: auto;
@@ -120,7 +120,7 @@
 
 .pos-top--desktop {
   padding: 22px 24px;
-  border: 1px solid #e3e8f0;
+  border: 1px solid var(--neutral-200);
   border-radius: 8px;
   background: #fff;
 }
@@ -190,8 +190,8 @@
   margin-bottom: 14px;
   padding: 12px 16px;
   border-radius: var(--mj-radius-md);
-  background: #ecfdf5;
-  color: #047857;
+  background: var(--color-success-bg);
+  color: var(--color-success);
   font-weight: 600;
 }
 
@@ -213,7 +213,7 @@
   text-decoration: none;
   color: #152033;
   font-weight: 800;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--neutral-200);
   background: #fff;
   transition: transform 0.2s var(--mj-ease), box-shadow 0.2s var(--mj-ease);
 }
@@ -223,17 +223,17 @@
 }
 
 .pos-table--free {
-  border-left: 5px solid #16a34a;
+  border-left: 5px solid var(--color-success);
   box-shadow: 0 12px 28px rgba(22, 163, 74, 0.1);
 }
 
 .pos-table--occupied {
-  border-left: 5px solid #dc2626;
+  border-left: 5px solid var(--color-danger);
   box-shadow: 0 12px 28px rgba(220, 38, 38, 0.12);
 }
 
 .pos-table--reserved {
-  border-left: 5px solid #f59e0b;
+  border-left: 5px solid var(--color-warning);
   box-shadow: 0 12px 28px rgba(245, 158, 11, 0.12);
 }
 
@@ -247,8 +247,8 @@
   align-self: flex-end;
   padding: 4px 8px;
   border-radius: 999px;
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--neutral-50);
+  color: var(--neutral-600);
   font-size: 0.72rem;
 }
 
@@ -268,7 +268,7 @@
 .pos-stat {
   min-height: 74px;
   padding: 13px 16px;
-  border: 1px solid #e3e8f0;
+  border: 1px solid var(--neutral-200);
   border-radius: 8px;
   background: #fff;
 }
@@ -287,9 +287,9 @@
   line-height: 1;
 }
 
-.pos-stat--free strong { color: #16a34a; }
-.pos-stat--occupied strong { color: #dc2626; }
-.pos-stat--reserved strong { color: #d97706; }
+.pos-stat--free strong { color: var(--color-success); }
+.pos-stat--occupied strong { color: var(--color-danger); }
+.pos-stat--reserved strong { color: var(--color-warning); }
 
 .pos-workspace {
   display: grid;
@@ -300,7 +300,7 @@
 
 .pos-filter-panel,
 .pos-table-board {
-  border: 1px solid #e3e8f0;
+  border: 1px solid var(--neutral-200);
   border-radius: 8px;
   background: #fff;
 }
@@ -345,7 +345,7 @@
 
 .pos-filter.is-active {
   border-color: var(--mj-brand);
-  background: #fff4ed;
+  background: var(--color-warning-bg);
   color: var(--mj-brand-dark);
 }
 
@@ -358,7 +358,7 @@
 
 .pos-filter-title {
   margin: 20px 0 -8px;
-  color: #334155;
+  color: var(--neutral-600);
   font-size: 0.88rem;
   font-weight: 800;
 }
@@ -367,8 +367,8 @@
   padding: 7px 9px;
   border: 1px solid transparent;
   border-radius: 999px;
-  background: #eef2f7;
-  color: #475569;
+  background: var(--neutral-100);
+  color: var(--neutral-600);
   font: inherit;
   font-size: 0.78rem;
   font-weight: 800;
@@ -377,7 +377,7 @@
 
 .pos-zone.is-active {
   border-color: var(--mj-brand);
-  background: #fff4ed;
+  background: var(--color-warning-bg);
   color: var(--mj-brand-dark);
 }
 
@@ -408,7 +408,7 @@
 .pos-dish {
   overflow: hidden;
   border-radius: 22px;
-  border: 1px solid #dbe3ef;
+  border: 1px solid var(--neutral-200);
   background: #fff;
   cursor: pointer;
   box-shadow: 0 14px 34px rgba(11, 31, 58, 0.08);
@@ -429,7 +429,7 @@
   width: 100%;
   aspect-ratio: 4/3;
   object-fit: cover;
-  background: #f1f5f9;
+  background: var(--neutral-50);
   display: grid;
   place-items: center;
   color: var(--mj-brand);
@@ -527,8 +527,8 @@
 .kitchen-body {
   margin: 0;
   min-height: 100dvh;
-  background: #0a0e17;
-  color: #f1f5f9;
+  background: var(--neutral-950);
+  color: var(--neutral-50);
   font-family: var(--mj-font-body);
 }
 

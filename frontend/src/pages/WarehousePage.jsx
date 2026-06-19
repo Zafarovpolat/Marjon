@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { api, formatMoney, formatNumber } from "../api/client";
+import Icon from '../components/Icon';
 
 const warehouses = ["Главный склад", "BAR", "KUXNYA"];
 
@@ -68,7 +69,7 @@ function WarehouseStatus({ status, warning = false }) {
 function IconButton({ icon, tone = "blue", label }) {
   return (
     <button type="button" className={`warehouse-icon-button warehouse-icon-button--${tone}`} aria-label={label}>
-      <i className={`bi ${icon}`} />
+      <Icon name={icon} size={18} />
     </button>
   );
 }
@@ -131,12 +132,12 @@ function IncomingTable({ rows }) {
           <div className="warehouse-title-mark" />
           <h3>Поступление товаров</h3>
         </div>
-        <button type="button" className="warehouse-create">Создать <i className="bi bi-plus" /></button>
+        <button type="button" className="warehouse-create">Создать <Icon name="bi-plus" size={18} /></button>
       </div>
       <div className="warehouse-search-line">
         <label>
           <input placeholder="Поиск" />
-          <i className="bi bi-search" />
+          <Icon name="bi-search" size={18} />
         </label>
       </div>
       <div className="warehouse-document-table warehouse-document-table--incoming">
@@ -181,7 +182,7 @@ function TransferTable({ rows }) {
           <div className="warehouse-title-mark" />
           <h3>Перемещение товаров</h3>
         </div>
-        <button type="button" className="warehouse-create">Создать <i className="bi bi-plus" /></button>
+        <button type="button" className="warehouse-create">Создать <Icon name="bi-plus" size={18} /></button>
       </div>
       <div className="warehouse-document-table warehouse-document-table--transfer">
         <div className="warehouse-document-table__head">
@@ -218,12 +219,12 @@ function InventoryTable({ rows }) {
           <div className="warehouse-title-mark" />
           <h3>Инвентаризация</h3>
         </div>
-        <button type="button" className="warehouse-create">Создать <i className="bi bi-plus" /></button>
+        <button type="button" className="warehouse-create">Создать <Icon name="bi-plus" size={18} /></button>
       </div>
       <div className="warehouse-search-line">
         <label>
           <input placeholder="Поиск" />
-          <i className="bi bi-search" />
+          <Icon name="bi-search" size={18} />
         </label>
       </div>
       <div className="warehouse-document-table warehouse-document-table--inventory">
@@ -261,7 +262,7 @@ function WriteOffTable({ rows }) {
           <div className="warehouse-title-mark" />
           <h3>Списание</h3>
         </div>
-        <button type="button" className="warehouse-create">Создать <i className="bi bi-plus" /></button>
+        <button type="button" className="warehouse-create">Создать <Icon name="bi-plus" size={18} /></button>
       </div>
       <div className="warehouse-document-table warehouse-document-table--writeoff">
         <div className="warehouse-document-table__head">
@@ -358,17 +359,17 @@ export default function WarehousePage({ initialSection }) {
     <section className="warehouse-workspace">
       <div className="warehouse-workspace__toolbar">
         <button type="button" className="warehouse-date-button">
-          <i className="bi bi-chevron-left" />
+          <Icon name="bi-chevron-left" size={18} />
           Выберите дату
-          <i className="bi bi-chevron-right" />
+          <Icon name="bi-chevron-right" size={18} />
         </button>
         <div className="warehouse-toolbar__right">
           <label className="warehouse-global-search">
             <input placeholder="Поиск по складу" />
-            <i className="bi bi-search" />
+            <Icon name="bi-search" size={18} />
           </label>
           <button type="button" className="warehouse-filter">
-            <i className="bi bi-sliders" />
+            <Icon name="bi-sliders" size={18} />
             Фильтровать
           </button>
         </div>
@@ -376,7 +377,7 @@ export default function WarehousePage({ initialSection }) {
 
       {error ? (
         <div className="warehouse-alert">
-          <i className="bi bi-exclamation-triangle" />
+          <Icon name="bi-exclamation-triangle" size={18} />
           {error}
         </div>
       ) : null}

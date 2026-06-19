@@ -2,6 +2,7 @@
 import { api } from "../api/client";
 import { clampToToday, todayInputValue } from "../utils/date";
 import DatePicker from "./DatePicker";
+import Icon from "./Icon";
 
 const USD_RATE_URL = "https://cbu.uz/ru/arkhiv-kursov-valyut/json/USD/";
 
@@ -200,13 +201,13 @@ export default function Topbar({
         <div className="topbar-info-widgets" aria-label="Информационные виджеты" ref={rateWidgetRef}>
           <button className={`topbar-info-widget topbar-info-widget--rate ${rateOpen ? "is-open" : ""}`} type="button" onClick={() => setRateOpen((value) => !value)} aria-expanded={rateOpen} aria-haspopup="dialog">
             <span className="topbar-info-widget__icon">
-              <i className="bi bi-cash-coin" aria-hidden="true" />
+              <Icon name="bi-cash-coin" size={18} />
             </span>
             <span className="topbar-info-widget__body">
               <span>Курс USD</span>
               <strong>{usdRate ? `${usdRate.toLocaleString("ru-RU")} UZS` : "..."}</strong>
             </span>
-            {widgetError && !usdRate ? <i className="bi bi-wifi-off topbar-info-widget__trend" aria-hidden="true" /> : <i className="bi bi-arrow-up-short topbar-info-widget__trend" aria-hidden="true" />}
+            {widgetError && !usdRate ? <Icon name="bi-wifi-off" size={16} className="topbar-info-widget__trend" /> : <Icon name="bi-arrow-up-short" size={16} className="topbar-info-widget__trend" />}
           </button>
           {rateOpen ? (
             <div className="usd-rate-popover" role="dialog" aria-label="Курс USD">
@@ -216,7 +217,7 @@ export default function Topbar({
                   <strong>{usdRate ? `${usdRate.toLocaleString("ru-RU")} UZS` : "Загрузка..."}</strong>
                 </div>
                 <button type="button" aria-label="Закрыть" onClick={() => setRateOpen(false)}>
-                  <i className="bi bi-x-lg" aria-hidden="true" />
+                  <Icon name="bi-x-lg" size={18} />
                 </button>
               </div>
               <div className="usd-rate-popover__meta">
@@ -227,7 +228,7 @@ export default function Topbar({
                   aria-label="Поменять направление конвертации"
                 >
                   <span>{converterDirectionLabel}</span>
-                  <i className="bi bi-arrow-left-right" aria-hidden="true" />
+                  <Icon name="bi-arrow-left-right" size={16} />
                 </button>
                 <span>Источник: ЦБ Узбекистана</span>
               </div>
@@ -239,7 +240,7 @@ export default function Topbar({
                     onChange={(event) => setUsdAmount(formatMoneyInput(event.target.value, converterDirection === "usd-to-uzs"))}
                   />
                   <span>{converterSource.label}</span>
-                  <i className="bi bi-chevron-down" aria-hidden="true" />
+                  <Icon name="bi-chevron-down" size={14} />
                 </label>
                 <label>
                   <input value={convertedAmount} inputMode={converterTarget.inputMode} onChange={(event) => {
@@ -255,7 +256,7 @@ export default function Topbar({
                     setUsdAmount(formatMoneyInput(String((value / usdRate).toFixed(2)).replace(".", ","), true));
                   }} />
                   <span>{converterTarget.label}</span>
-                  <i className="bi bi-chevron-down" aria-hidden="true" />
+                  <Icon name="bi-chevron-down" size={14} />
                 </label>
               </div>
             </div>
@@ -271,7 +272,7 @@ export default function Topbar({
               aria-expanded={stockOpen}
               onClick={toggleStockNotifications}
             >
-              <i className="bi bi-bell" />
+              <Icon name="bi-bell" size={18} />
               {notificationCount ? (
                 <span className="topbar-notification__badge" aria-hidden="true">
                   {notificationCount > 99 ? "99+" : notificationCount}
@@ -286,7 +287,7 @@ export default function Topbar({
                     <strong>{notificationCount ? `${notificationCount} ${notificationCount === 1 ? "\u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435" : "\u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0439"}` : "\u041d\u0435\u0442 \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0439"}</strong>
                   </div>
                   <button className={stockLoading ? "is-loading" : ""} type="button" onClick={loadLowStock} disabled={stockLoading} aria-label={"\u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c"}>
-                    <i className="bi bi-arrow-clockwise" aria-hidden="true" />
+                    <Icon name="bi-arrow-clockwise" size={16} />
                   </button>
                 </div>
                 <div className="stock-alert-popover__body">
@@ -295,7 +296,7 @@ export default function Topbar({
                   {!stockLoading && !stockError ? stockNotifications.map((item) => {
                     return (
                       <div className="stock-alert-item" key={item.id}>
-                        <div className="stock-alert-item__icon"><i className="bi bi-exclamation-triangle" /></div>
+                        <div className="stock-alert-item__icon"><Icon name="bi-exclamation-triangle" size={16} /></div>
                         <div>
                           <strong>{item.title}</strong>
                           <span>{item.text}</span>
@@ -316,7 +317,7 @@ export default function Topbar({
               setPaymentStep("method");
               setPaymentOpen(true);
             }}>
-              <i className="bi bi-wallet2" aria-hidden="true" />
+              <Icon name="bi-wallet2" size={18} />
               <span>Баланс</span>
             </button>
           </div>
@@ -333,11 +334,11 @@ export default function Topbar({
                     <h2 id="balance-payment-title">Оплата</h2>
                   </div>
                   <button className="balance-card-back balance-card-back--icon" type="button" aria-label="Закрыть" onClick={() => setPaymentOpen(false)}>
-                    <i className="bi bi-x-lg" aria-hidden="true" />
+                    <Icon name="bi-x-lg" size={18} />
                   </button>
                 </div>
                 <div className="balance-payment-dialog__notice">
-                  <i className="bi bi-credit-card-2-front" aria-hidden="true" />
+                  <Icon name="bi-credit-card-2-front" size={20} />
                   <span>Выберите способ оплаты</span>
                 </div>
                 <label className="balance-payment-dialog__field">
@@ -401,26 +402,26 @@ export default function Topbar({
               <div className="balance-card-step">
                 <aside className="balance-card-step__side">
                   <div className="balance-card-step__badge">
-                    <i className="bi bi-shield-fill-check" aria-hidden="true" />
+                    <Icon name="bi-shield-fill-check" size={20} />
                     <span>Безопасная оплата</span>
                   </div>
                   <h2 id="balance-payment-title">Пополнение баланса</h2>
                   <p>Проверьте данные ресторана перед оплатой</p>
                   <dl className="balance-card-step__details">
                     <div>
-                      <dt><i className="bi bi-building" />Филиал</dt>
+                      <dt><Icon name="bi-building" size={14} />Филиал</dt>
                       <dd>MARJON RESTAURANT</dd>
                     </div>
                     <div>
-                      <dt><i className="bi bi-wallet2" />Баланс</dt>
+                      <dt><Icon name="bi-wallet2" size={14} />Баланс</dt>
                       <dd className="is-positive">0 UZS</dd>
                     </div>
                     <div>
-                      <dt><i className="bi bi-person" />Сотрудник</dt>
+                      <dt><Icon name="bi-person" size={14} />Сотрудник</dt>
                       <dd>Рустам</dd>
                     </div>
                     <div>
-                      <dt><i className="bi bi-telephone" />Телефон</dt>
+                      <dt><Icon name="bi-telephone" size={14} />Телефон</dt>
                       <dd>+998 90 000 00 00</dd>
                     </div>
                   </dl>
@@ -434,7 +435,7 @@ export default function Topbar({
                       <strong>Данные карты</strong>
                     </div>
                     <button className="balance-card-back balance-card-back--icon" type="button" aria-label="Закрыть" onClick={() => setPaymentOpen(false)}>
-                      <i className="bi bi-x-lg" aria-hidden="true" />
+                      <Icon name="bi-x-lg" size={18} />
                     </button>
                   </div>
                   <h3>Введите данные карты</h3>
