@@ -4,7 +4,7 @@ import {
   Calendar, Camera, Check, CheckCircle, CheckCircle2, ChevronDown, ChevronLeft,
   ChevronRight, ChevronUp, Circle, CircleArrowDown, CircleArrowUp, Clock,
   ClipboardCheck, ClipboardList, Coffee, Coins, Columns2, Combine, Contact2, CornerDownLeft,
-  CreditCard, Delete, Droplet, Egg, Eye, FileBarChart, FileSpreadsheet,
+  CreditCard, Delete, Droplet, Egg, Eye, EyeOff, FileBarChart, FileSpreadsheet,
   FilePlus, FileText, Filter, Gauge, Gift, Grid3X3, Hash, Headphones,
   History, Image, Info, Languages, LayoutGrid, LayoutPanelTop, LifeBuoy,
   ListChecks, ListOrdered, Lock, LogOut, MapPin, MessageCircle, MessageSquare,
@@ -14,7 +14,7 @@ import {
   ShieldCheck, ShieldX, ShoppingBasket, SlidersHorizontal, Sparkles, Store,
   Tags, Timer, TrendingDown, TrendingUp, Trash2, User, UserCog, UserPlus,
   Users, Wallet, Wifi, WifiOff, X, Zap, PanelLeft, GitFork, Scissors,
-  FileCheck, Banknote, BookOpen
+  FileCheck, Banknote, BookOpen, Landmark, Layers, Kanban, Megaphone, Star
 } from 'lucide-react'
 
 const ICON_MAP = {
@@ -50,6 +50,7 @@ const ICON_MAP = {
   'bi-bell':                   Bell,
   'bi-backspace':              Delete,
   'bi-eye':                    Eye,
+  'bi-eye-slash':              EyeOff,
   'bi-sort-down':              ListOrdered,
   'bi-layout-sidebar-inset':   PanelLeft,
   'bi-layout-wtf':             LayoutPanelTop,
@@ -161,10 +162,18 @@ const ICON_MAP = {
   'bi-gear':                   Settings,
   'bi-person-fill':            User,
   'bi-geo-alt':                MapPin,
+  'bi-bank':                   Landmark,
+  'bi-buildings':              Building2,
+  'bi-collection':             Layers,
+  'bi-grid-1x2-fill':         LayoutGrid,
+  'bi-journal-bookmark':       BookOpen,
+  'bi-kanban':                 Kanban,
+  'bi-megaphone':              Megaphone,
+  'bi-star':                   Star,
 }
 
-export default function Icon({ name, size = 16, className, style }) {
+export default function Icon({ name, size = 16, strokeWidth, className, style }) {
   const Component = ICON_MAP[name]
   if (!Component) return null
-  return <Component size={size} className={className} style={style} />
+  return <Component size={size} strokeWidth={strokeWidth} className={className} style={style} />
 }

@@ -47,9 +47,20 @@
   --neutral-900: #0b1f3f;
   --neutral-950: #071428;
 
+  /* Purple — акцент (аналитика / premium) */
+  --purple-100: #ede9fe;
+  --purple-200: #ddd6fe;
+  --purple-300: #c4b5fd;
+  --purple-400: #a78bfa;
+  --purple-500: #8b5cf6;
+  --purple-600: #7c3aed;
+  --purple-700: #6d28d9;
+
   /* Semantic primitives */
   --green-100: #dcfce7;
+  --green-300: #86efac;
   --green-500: #16a34a;
+  --green-600: #15803d;
   --amber-100: #fef3c7;
   --amber-500: #f59e0b;
   --red-100:   #fee2e2;
@@ -90,6 +101,11 @@
   --color-border-strong: var(--neutral-300);
   --color-border-focus:  var(--teal-500);
 
+  /* Purple accent */
+  --color-purple:       var(--purple-500);
+  --color-purple-hover: var(--purple-600);
+  --color-purple-bg:    var(--purple-100);
+
   /* Status */
   --color-success:    var(--green-500);
   --color-success-bg: var(--green-100);
@@ -108,8 +124,8 @@
      TYPOGRAPHY
      ──────────────────────────────────── */
 
-  --font-display: "Plus Jakarta Sans", sans-serif;
-  --font-body:    "Inter", sans-serif;
+  --font-display: "Manrope", sans-serif;
+  --font-body:    "Golos Text", "Manrope", sans-serif;
   --font-mono:    "JetBrains Mono", "Fira Code", Consolas, monospace;
 
   /* Размеры (шкала) */
@@ -241,6 +257,10 @@
 
 body {
   font-family: var(--font-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 input,

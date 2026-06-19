@@ -53,7 +53,7 @@
 }
 
 .pos-brand span {
-  font-size: 0.72rem;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.55);
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -74,8 +74,8 @@
   border-radius: 8px;
   color: rgba(255, 255, 255, 0.78);
   text-decoration: none;
-  font-weight: 700;
-  font-size: 0.96rem;
+  font-weight: 500;
+  font-size: 15px;
   transition: 0.2s var(--mj-ease);
 }
 
@@ -88,8 +88,8 @@
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
-  font-size: 0.78rem;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .pos-nav a:hover,
@@ -136,8 +136,8 @@
   display: block;
   margin-bottom: 6px;
   color: var(--mj-brand);
-  font-size: 0.75rem;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 500;
   letter-spacing: 0;
   text-transform: uppercase;
 }
@@ -145,8 +145,8 @@
 .pos-top h1 {
   margin: 0;
   font-family: var(--mj-font-display);
-  font-size: 1.65rem;
-  font-weight: 800;
+  font-size: 26px;
+  font-weight: 700;
 }
 
 .pos-top p {
@@ -165,7 +165,7 @@
   border-radius: 8px;
   background: var(--mj-brand);
   color: #fff;
-  font-weight: 800;
+  font-weight: 700;
   text-decoration: none;
   cursor: pointer;
   box-shadow: var(--mj-shadow-glow);
@@ -211,8 +211,8 @@
   padding: 12px 13px;
   border-radius: 8px;
   text-decoration: none;
-  color: #152033;
-  font-weight: 800;
+  color: var(--neutral-800);
+  font-weight: 700;
   border: 1px solid var(--neutral-200);
   background: #fff;
   transition: transform 0.2s var(--mj-ease), box-shadow 0.2s var(--mj-ease);
@@ -249,13 +249,13 @@
   border-radius: 999px;
   background: var(--neutral-50);
   color: var(--neutral-600);
-  font-size: 0.72rem;
+  font-size: 12px;
 }
 
 .pos-table__meta,
 .pos-table small {
   color: var(--mj-muted);
-  font-size: 0.78rem;
+  font-size: 13px;
 }
 
 .pos-overview {
@@ -276,14 +276,14 @@
 .pos-stat span {
   display: block;
   color: var(--mj-muted);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .pos-stat strong {
   display: block;
   margin-top: 8px;
   font-family: var(--mj-font-display);
-  font-size: 1.65rem;
+  font-size: 26px;
   line-height: 1;
 }
 
@@ -315,14 +315,14 @@
 .pos-board-head h2 {
   margin: 0;
   font-family: var(--mj-font-display);
-  font-size: 1.1rem;
+  font-size: 18px;
 }
 
 .pos-filter-panel p,
 .pos-board-head p {
   margin: 6px 0 0;
   color: var(--mj-muted);
-  font-size: 0.92rem;
+  font-size: 15px;
 }
 
 .pos-filter-list {
@@ -333,12 +333,12 @@
 
 .pos-filter {
   min-height: 42px;
-  border: 1px solid #d9e1ec;
+  border: 1px solid var(--neutral-200);
   border-radius: 8px;
   background: #fff;
-  color: #243044;
+  color: var(--neutral-700);
   font: inherit;
-  font-weight: 800;
+  font-weight: 700;
   text-align: left;
   padding: 0 12px;
 }
@@ -359,8 +359,8 @@
 .pos-filter-title {
   margin: 20px 0 -8px;
   color: var(--neutral-600);
-  font-size: 0.88rem;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .pos-zone {
@@ -370,8 +370,8 @@
   background: var(--neutral-100);
   color: var(--neutral-600);
   font: inherit;
-  font-size: 0.78rem;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -460,8 +460,8 @@
   background: var(--mj-card);
   color: var(--mj-ink);
   text-decoration: none;
-  font-weight: 700;
-  font-size: 0.85rem;
+  font-weight: 500;
+  font-size: 14px;
 }
 
 @media (max-width: 900px) {
@@ -550,14 +550,14 @@
 .kitchen-topbar h1 {
   margin: 0;
   font-family: var(--mj-font-display);
-  font-size: 1.35rem;
-  font-weight: 800;
+  font-size: 22px;
+  font-weight: 700;
 }
 
 .kitchen-topbar .pos-btn {
   min-height: 38px;
   padding: 0 14px;
-  font-size: 0.85rem;
+  font-size: 14px;
 }
 
 .kitchen-board {

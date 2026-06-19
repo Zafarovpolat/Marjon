@@ -198,16 +198,18 @@ export default function Topbar({
             onChange={(value) => onSelectedDateChange(clampToToday(value))}
           />
         </div>
-        <div className="topbar-info-widgets" aria-label="Информационные виджеты" ref={rateWidgetRef}>
+        <div className="topbar-actions">
+          <div className="topbar-info-widgets" aria-label="Информационные виджеты" ref={rateWidgetRef}>
           <button className={`topbar-info-widget topbar-info-widget--rate ${rateOpen ? "is-open" : ""}`} type="button" onClick={() => setRateOpen((value) => !value)} aria-expanded={rateOpen} aria-haspopup="dialog">
             <span className="topbar-info-widget__icon">
-              <Icon name="bi-cash-coin" size={18} />
+              <Icon name="bi-currency-exchange" size={17} />
             </span>
-            <span className="topbar-info-widget__body">
-              <span>Курс USD</span>
-              <strong>{usdRate ? `${usdRate.toLocaleString("ru-RU")} UZS` : "..."}</strong>
-            </span>
-            {widgetError && !usdRate ? <Icon name="bi-wifi-off" size={16} className="topbar-info-widget__trend" /> : <Icon name="bi-arrow-up-short" size={16} className="topbar-info-widget__trend" />}
+            <strong className="topbar-info-widget__body">
+              {usdRate ? `${usdRate.toLocaleString("ru-RU")} UZS/USD` : "—"}
+            </strong>
+            {widgetError && !usdRate
+              ? <Icon name="bi-wifi-off" size={15} className="topbar-info-widget__trend" />
+              : null}
           </button>
           {rateOpen ? (
             <div className="usd-rate-popover" role="dialog" aria-label="Курс USD">
@@ -261,8 +263,7 @@ export default function Topbar({
               </div>
             </div>
           ) : null}
-        </div>
-        <div className="topbar-actions">
+          </div>
           <div className="topbar-notification-wrap" ref={notificationsRef}>
             <button
               className={`topbar-icon topbar-notification ${stockOpen ? "is-open" : ""}`}

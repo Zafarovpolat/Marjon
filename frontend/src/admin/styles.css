@@ -11,13 +11,13 @@
   --line: rgba(255, 255, 255, 0.08);
   --line-strong: rgba(30, 136, 255, 0.42);
   --text: #edf6ff;
-  --muted: #8fa4c4;
-  --blue: #1e88ff;
+  --muted: var(--neutral-400);
+  --blue: var(--blue-500);
   --blue-2: var(--color-interactive);
   --green: var(--color-success);
   --orange: var(--color-warning);
-  --violet: #8b5cf6;
-  --cyan: #22d3ee;
+  --violet: var(--purple-500);
+  --cyan: var(--teal-400);
   --danger: var(--color-danger);
 }
 
@@ -104,7 +104,7 @@ button {
 .admin-login__panel label {
   display: grid;
   gap: 8px;
-  color: #c8d6ec;
+  color: var(--blue-200);
   font-size: 14px;
   font-weight: 700;
 }
@@ -142,7 +142,7 @@ button {
 .admin-login__panel button {
   min-height: 46px;
   border-radius: 12px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .admin-login__panel button:hover,
@@ -241,7 +241,7 @@ button {
 .admin-side-link,
 .admin-table-action {
   border: 1px solid transparent;
-  color: #c5d3ea;
+  color: var(--blue-200);
   background: transparent;
   transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
@@ -261,7 +261,7 @@ button {
 }
 
 .admin-nav button i {
-  color: #7fa8e7;
+  color: var(--blue-300);
 }
 
 .admin-nav button:hover {
@@ -295,7 +295,7 @@ button {
   background: linear-gradient(135deg, var(--blue), var(--violet));
   box-shadow: 0 0 20px rgba(30, 136, 255, 0.32);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .admin-collapse {
@@ -377,7 +377,7 @@ button {
 .admin-search i,
 .admin-date i,
 .admin-bell i {
-  color: #8fb5ef;
+  color: var(--blue-300);
 }
 
 .admin-date,
@@ -414,7 +414,7 @@ button {
   color: #fff;
   background: var(--danger);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .admin-profile {
@@ -436,7 +436,7 @@ button {
   border-radius: 12px;
   background: linear-gradient(135deg, var(--blue), var(--violet));
   box-shadow: 0 0 24px rgba(30, 136, 255, 0.28);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .admin-profile strong,
@@ -540,7 +540,7 @@ button {
 .admin-kpi__value {
   max-width: 100%;
   font-size: clamp(20px, 1.7vw, 29px);
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.06;
   overflow-wrap: anywhere;
 }
@@ -559,13 +559,13 @@ button {
 .admin-kpi__delta {
   display: inline-flex;
   margin-top: 12px;
-  color: #97f4b4;
+  color: var(--green-300);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .admin-kpi--violet .admin-kpi__delta {
-  color: #d8b4fe;
+  color: var(--purple-200);
 }
 
 .admin-kpi--orange .admin-kpi__delta {
@@ -573,7 +573,7 @@ button {
 }
 
 .admin-kpi--cyan .admin-kpi__delta {
-  color: #67e8f9;
+  color: var(--teal-300);
 }
 
 .admin-spark {
@@ -675,7 +675,7 @@ button {
 .admin-chart-card em {
   color: var(--color-success);
   font-style: normal;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .admin-segments {
@@ -695,7 +695,7 @@ button {
   color: var(--muted);
   background: transparent;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .admin-segments button.is-active {
@@ -716,7 +716,7 @@ button {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  color: #6f86a8;
+  color: var(--neutral-400);
   font-size: 12px;
 }
 
@@ -774,7 +774,7 @@ button {
   grid-column: 2;
   display: flex;
   justify-content: space-between;
-  color: #6f86a8;
+  color: var(--neutral-400);
   font-size: 12px;
 }
 
@@ -799,9 +799,9 @@ button {
 
 .admin-org-table__head,
 .admin-category-table__head {
-  color: #7f95b5;
+  color: var(--neutral-400);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
 }
 
@@ -827,7 +827,7 @@ button {
   padding: 0 10px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .admin-status::before {
@@ -850,7 +850,7 @@ button {
 }
 
 .admin-status--violet {
-  color: #c4b5fd;
+  color: var(--purple-300);
   background: rgba(139, 92, 246, 0.14);
 }
 
@@ -868,7 +868,7 @@ button {
 .admin-side-card__head .is-live {
   color: var(--color-success);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
 }
 
@@ -912,7 +912,7 @@ button {
   padding: 0 10px;
   border-radius: 9px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .admin-side-link {
@@ -921,7 +921,7 @@ button {
   margin-top: 12px;
   border-color: var(--line);
   border-radius: 12px;
-  color: #9fc5ff;
+  color: var(--blue-300);
 }
 
 .admin-alert {
@@ -988,7 +988,7 @@ button {
 }
 
 .admin-uptime strong {
-  color: #67e8f9;
+  color: var(--teal-300);
 }
 
 .admin-category-page {
@@ -1013,7 +1013,7 @@ button {
   align-items: center;
   margin-top: 18px;
   padding: 16px 4px 4px;
-  color: #7389aa;
+  color: var(--neutral-400);
   font-size: 13px;
 }
 
@@ -1165,9 +1165,9 @@ button {
   --panel: rgba(8, 18, 38, 0.82);
   --line: rgba(148, 163, 184, 0.12);
   --line-strong: rgba(38, 132, 255, 0.46);
-  --blue: #2684ff;
-  --blue-2: #1e88ff;
-  --cyan: #06b6d4;
+  --blue: var(--blue-500);
+  --blue-2: var(--blue-500);
+  --cyan: var(--teal-400);
 }
 
 .admin-login__panel,
@@ -1261,11 +1261,11 @@ button {
   padding: 0 7px;
   border-radius: 999px;
   color: #fff;
-  background: linear-gradient(135deg, #2684ff, #8b5cf6);
+  background: linear-gradient(135deg, var(--blue-500), var(--purple-500));
   box-shadow: 0 0 16px rgba(38, 132, 255, 0.35);
   font-size: 11px;
   font-style: normal;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .admin-collapse {
@@ -1409,9 +1409,9 @@ button {
 }
 
 .admin-kpi__top small {
-  color: #8fa4c4;
+  color: var(--neutral-400);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.25;
 }
 
@@ -1420,20 +1420,20 @@ button {
   margin-top: 11px;
   color: #fff;
   font-size: clamp(18px, 1.32vw, 23px);
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.1;
   overflow-wrap: anywhere;
 }
 
 .admin-kpi > p {
   margin: 6px 0 0;
-  color: #8ef0b0;
+  color: var(--green-300);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .admin-kpi--violet > p {
-  color: #d8b4fe;
+  color: var(--purple-200);
 }
 
 .admin-kpi--orange > p {
@@ -1441,7 +1441,7 @@ button {
 }
 
 .admin-kpi--cyan > p {
-  color: #67e8f9;
+  color: var(--teal-300);
 }
 
 .admin-spark {
@@ -1480,7 +1480,7 @@ button {
 
 .admin-radar b {
   inset: 4px 27px 27px 27px;
-  background: #67e8f9;
+  background: var(--teal-300);
   transform-origin: 50% 25px;
   transform: rotate(42deg);
 }
@@ -1512,9 +1512,9 @@ button {
 }
 
 .admin-chart-card__head > div:first-child > span {
-  color: #8fa4c4;
+  color: var(--neutral-400);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .admin-chart-card strong {
@@ -1646,9 +1646,9 @@ button {
   padding: 0 7px;
   border-radius: 999px;
   color: #fff;
-  background: linear-gradient(135deg, #2684ff, #8b5cf6);
+  background: linear-gradient(135deg, var(--blue-500), var(--purple-500));
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .admin-approval-list,
@@ -1671,7 +1671,7 @@ button {
 
 .admin-approval p {
   margin: 2px 0 0;
-  color: #8fa4c4;
+  color: var(--neutral-400);
   font-size: 11px;
 }
 
@@ -1693,9 +1693,9 @@ button {
 .admin-side-card a {
   display: inline-flex;
   margin-top: 10px;
-  color: #93c5fd;
+  color: var(--blue-300);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   text-decoration: none;
 }
 
@@ -1754,7 +1754,7 @@ button {
   gap: 6px;
   color: var(--color-success);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -1781,7 +1781,7 @@ button {
 }
 
 .admin-footer a {
-  color: #93c5fd;
+  color: var(--blue-300);
   text-decoration: none;
 }
 
@@ -2286,7 +2286,7 @@ button {
   --blue-2: #f2c76e;
   --green: #43d3a6;
   --orange: var(--color-warning);
-  --violet: #8b5cf6;
+  --violet: var(--purple-500);
   --cyan: #2dd4bf;
   --danger: var(--color-danger);
   --gold: #d6a84f;
@@ -2492,7 +2492,7 @@ body {
 }
 
 .admin-kpi--violet > p {
-  color: #c4b5fd;
+  color: var(--purple-300);
 }
 
 .admin-spark__line {
@@ -2568,7 +2568,7 @@ body {
 }
 
 .admin-status--violet {
-  color: #c4b5fd;
+  color: var(--purple-300);
   background: rgba(139, 92, 246, 0.14);
 }
 

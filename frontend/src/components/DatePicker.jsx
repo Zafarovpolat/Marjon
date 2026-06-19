@@ -141,8 +141,11 @@ export default function DatePicker({ value, max, onChange, onClear }) {
         aria-haspopup="dialog"
         aria-expanded={open}
       >
-        <span className="mj-datepicker__icon"><Icon name="bi-calendar3" size={18} /></span>
-        <span className="mj-datepicker__value">{label}</span>
+        <span className="mj-datepicker__date">
+          <span className="mj-datepicker__icon"><Icon name="bi-calendar3" size={18} /></span>
+          <span className="mj-datepicker__value">{label}</span>
+        </span>
+        <span className="mj-datepicker__divider" aria-hidden="true" />
         <span className="mj-datepicker__time"><Icon name="bi-clock" size={16} />{time}</span>
       </button>
 

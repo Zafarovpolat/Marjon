@@ -78,7 +78,7 @@
 .staff-login__card:hover {
   transform: translateY(-2px);
   border-color: rgba(255, 255, 255, 0.18);
-  background: #20232b;
+  background: var(--neutral-950);
 }
 
 .staff-login__card:focus-visible {
@@ -108,7 +108,7 @@
 
 .staff-login__name {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 500;
   text-align: center;
 }
 
@@ -238,7 +238,7 @@
 }
 
 .pin-login__key:hover:not(:disabled) {
-  background: #232730;
+  background: var(--neutral-900);
 }
 
 .pin-login__key:active:not(:disabled) {
