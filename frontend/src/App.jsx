@@ -18,6 +18,8 @@ import WaiterPage from "./pages/WaiterPage";
 import KitchenPage from "./pages/KitchenPage";
 import ZReportPage from "./pages/ZReportPage";
 import WarehousePage from "./pages/WarehousePage";
+import ReceiptSettingsPage from "./pages/settings/ReceiptSettingsPage";
+import ChefReceiptSettingsPage from "./pages/settings/ChefReceiptSettingsPage";
 import { AuthProvider } from "./context/AuthContext";
 import { OrgProvider } from "./context/OrgContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -75,8 +77,8 @@ const router = createBrowserRouter([
       { path: "settings/units", element: <SectionPage eyebrow="Настройки" title="Единица измерения" description="Единицы измерения для склада, меню и техкарт." items={[{ title: "Вес", text: "Килограмм, грамм и другие весовые единицы.", icon: "bi-speedometer2" }, { title: "Объём", text: "Литр, миллилитр и напитки по объёму.", icon: "bi-droplet" }, { title: "Штуки", text: "Поштучный учёт товаров и полуфабрикатов.", icon: "bi-123" }]} /> },
       { path: "settings/profile", element: <ProfileSettingsPage /> },
       { path: "settings/printers", element: <SectionPage eyebrow="Настройки" title="Настройка принтеров" description="Принтеры чеков, кухни и рабочих станций." items={[{ title: "Кассовый принтер", text: "Печать фискальных и клиентских чеков.", icon: "bi-printer" }, { title: "Кухонный принтер", text: "Маршрутизация заказов по цехам и станциям.", icon: "bi-printer-fill" }, { title: "Проверка связи", text: "Тестовая печать и статус устройств.", icon: "bi-wifi" }]} /> },
-      { path: "settings/receipt", element: <SectionPage eyebrow="Настройки" title="Настройка чека" description="Шаблон клиентского чека и параметры печати." items={[{ title: "Шапка чека", text: "Логотип, ресторан, адрес и контакты.", icon: "bi-card-heading" }, { title: "Состав", text: "Позиции, скидки, сервисный сбор и налоги.", icon: "bi-receipt" }, { title: "Нижний блок", text: "QR, благодарность и дополнительная информация.", icon: "bi-qr-code" }]} /> },
-      { path: "settings/chef-receipt", element: <SectionPage eyebrow="Настройки" title="Настройка чека повара" description="Формат кухонного чека для приготовления заказов." items={[{ title: "Позиции", text: "Блюда, модификаторы и комментарии клиента.", icon: "bi-list-check" }, { title: "Станции", text: "Разделение по горячему цеху, салатам и напиткам.", icon: "bi-columns-gap" }, { title: "Приоритет", text: "Время заказа, стол и срочность приготовления.", icon: "bi-stopwatch" }]} /> },
+      { path: "settings/receipt", element: <ReceiptSettingsPage /> },
+      { path: "settings/chef-receipt", element: <ChefReceiptSettingsPage /> },
       { path: "settings/support", element: <SectionPage eyebrow="Настройки" title="Тех. поддержка" description="Обращения, диагностика и связь с поддержкой Marjon." items={[{ title: "Заявка", text: "Создайте обращение по проблеме или вопросу.", icon: "bi-life-preserver" }, { title: "Диагностика", text: "Проверка соединения, устройств и синхронизации.", icon: "bi-activity" }, { title: "Контакты", text: "Каналы связи и история обращений.", icon: "bi-chat-dots" }]} /> },
       { path: "finance", element: <FinancePage /> },
       { path: "finance/operations", element: <SectionPage eyebrow="Финансы" title="Денежные операции" description="Контроль приходов, расходов и движений денежных средств." items={[{ title: "Новая операция", text: "Добавьте приход, расход или внутреннее движение.", icon: "bi-plus-circle" }, { title: "Касса и счета", text: "Отслеживайте деньги по кассам, картам и счетам.", icon: "bi-wallet2" }, { title: "История", text: "Фильтры по дате, типу операции и ответственному.", icon: "bi-clock-history" }]} /> },
