@@ -1,4 +1,5 @@
 import { Navigate, RouterProvider, createBrowserRouter } from "react-router-dom";
+import { PageLoader } from "./components/Loader";
 import DashboardLayout from "./components/DashboardLayout";
 import LoginPage from "./pages/LoginPage";
 import StaffLoginPage from "./pages/auth/StaffLoginPage";
@@ -24,7 +25,7 @@ import { useAuth } from "./hooks/useAuth";
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
-  if (loading) return <div className="auth-loading">Загрузка…</div>;
+  if (loading) return <PageLoader />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   return children;
 }

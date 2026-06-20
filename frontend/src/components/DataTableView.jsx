@@ -1,3 +1,5 @@
+import { TableLoader } from "./Loader";
+
 export default function DataTableView({
   columns = [],
   rows = [],
@@ -21,7 +23,7 @@ export default function DataTableView({
           {error ? (
             <tr><td colSpan={colCount}>{error}</td></tr>
           ) : loading ? (
-            <tr><td colSpan={colCount}>Загрузка…</td></tr>
+            <TableLoader colSpan={colCount} />
           ) : rows.length ? (
             rows.map((row, index) => (
               <tr key={row.id ?? index}>

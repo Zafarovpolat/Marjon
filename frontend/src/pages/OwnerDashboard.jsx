@@ -4,6 +4,7 @@ import { Link, useOutletContext } from "react-router-dom";
 import { api, formatMoney, formatNumber } from "../api/client";
 import { dateRangeEndingAt, formatDateLabel, todayInputValue, toDateInputValue } from "../utils/date";
 import Icon from "../components/Icon";
+import { PageLoader } from "../components/Loader";
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler);
 
@@ -646,7 +647,7 @@ export default function OwnerDashboard() {
     };
   }, [displaySales, selectedDate, displayDashboard]);
 
-  if (loading) return <div className="loading-note">Загрузка dashboard...</div>;
+  if (loading) return <PageLoader />;
   if (error) return <EmptyState title="Dashboard недоступен" text={error} />;
 
   return (

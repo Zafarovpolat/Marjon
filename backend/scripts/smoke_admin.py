@@ -12,6 +12,11 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 os.environ.setdefault("DEBUG", "true")
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./smoke_admin.db")
 
+SMOKE_ROOT_EMAIL = os.environ.get("SMOKE_ROOT_EMAIL", "root@admin.local")
+SMOKE_ROOT_PASSWORD = os.environ.get("SMOKE_ROOT_PASSWORD", "Smoke_Pass_0!")
+SMOKE_MGR_USERNAME = os.environ.get("SMOKE_MGR_USERNAME", "manager1")
+SMOKE_MGR_PASSWORD = os.environ.get("SMOKE_MGR_PASSWORD", "Smoke_Pass_0!")
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
@@ -30,8 +35,8 @@ async def main() -> None:
 
     async with AsyncSessionLocal() as db:
         db.add(User(
-            email="root@admin.local", username="root", name="Root",
-            password_hash=hash_password("Passw0rd1"), is_superadmin=True,
+            email=SMOKE_ROOT_EMAIL, username="root", name="Root",
+            password_hash=hash_password(SMOKE_ROOT_PASSWORD), is_superadmin=True,
         ))
         await db.commit()
 
@@ -48,7 +53,7 @@ async def main() -> None:
             return response
 
         # login по username
-        r = check("login", await client.post("/auth/login", json={"email": "root", "password": "Passw0rd1"}))
+        r = check("login", await client.post("/auth/login", json={"email": SMOKE_ROOT_EMAIL, "password": SMOKE_ROOT_PASSWORD}))
         headers = {"Authorization": f"Bearer {r.json()['access_token']}"}
 
         # handbook
@@ -65,7 +70,7 @@ async def main() -> None:
 
         # account c M2M
         r = check("create account", await client.post("/accounts", json={
-            "username": "manager1", "password": "Passw0rd1", "name": "Менеджер",
+            "username": SMOKE_MGR_USERNAME, "password": SMOKE_MGR_PASSWORD, "name": "Менеджер",
             "organization_ids": [org_id],
         }, headers=headers), 201)
         assert r.json()["organization_ids"] == [org_id], "M2M организации не сохранились"
@@ -179,7 +184,7 @@ async def main() -> None:
         check("retry offline job", await client.post(f"/offline-jobs/{job_id}/retry", headers=headers))
 
         # ограничение видимости: менеджер видит только свои организации
-        r = await client.post("/auth/login", json={"email": "manager1", "password": "Passw0rd1"})
+        r = await client.post("/auth/login", json={"email": SMOKE_MGR_USERNAME, "password": SMOKE_MGR_PASSWORD})
         mgr_headers = {"Authorization": f"Bearer {r.json()['access_token']}"}
         r = check("manager sees own org", await client.get("/organizations", headers=mgr_headers))
         assert r.json()["total"] == 1, "скоуп менеджера должен видеть 1 организацию"

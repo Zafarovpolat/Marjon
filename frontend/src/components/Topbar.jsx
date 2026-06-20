@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { clampToToday, todayInputValue } from "../utils/date";
 import DatePicker from "./DatePicker";
 import Icon from "./Icon";
+import { InlineLoader } from "./Loader";
 
 const USD_RATE_URL = "https://cbu.uz/ru/arkhiv-kursov-valyut/json/USD/";
 
@@ -83,11 +84,11 @@ export default function Topbar({
     return formatMoneyInput(String(Math.round(amount * usdRate)));
   }, [converterDirection, usdAmount, usdRate]);
   const converterSource = converterDirection === "usd-to-uzs"
-    ? { label: "Доллар США", inputMode: "decimal" }
-    : { label: "Узбекский сум", inputMode: "numeric" };
+    ? { label: "USD", inputMode: "decimal" }
+    : { label: "UZS", inputMode: "numeric" };
   const converterTarget = converterDirection === "usd-to-uzs"
-    ? { label: "Узбекский сум", inputMode: "numeric" }
-    : { label: "Доллар США", inputMode: "decimal" };
+    ? { label: "UZS", inputMode: "numeric" }
+    : { label: "USD", inputMode: "decimal" };
   const converterDirectionLabel = converterDirection === "usd-to-uzs" ? "USD → UZS" : "UZS → USD";
 
   function loadLowStock() {
@@ -292,7 +293,7 @@ export default function Topbar({
                   </button>
                 </div>
                 <div className="stock-alert-popover__body">
-                  {stockLoading ? <p className="stock-alert-popover__empty">{"\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430..."}</p> : null}
+                  {stockLoading ? <div className="stock-alert-popover__empty"><InlineLoader text="Загрузка..." /></div> : null}
                   {stockError ? <p className="stock-alert-popover__error">{stockError}</p> : null}
                   {!stockLoading && !stockError ? stockNotifications.map((item) => {
                     return (
