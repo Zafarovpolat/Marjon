@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿.dashboard-empty {
+.dashboard-empty {
   min-height: 320px;
   display: grid;
   place-items: center;
@@ -16640,6 +16640,217 @@ body.dashboard-body,
   grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
 }
 
+/* Z-report waiters detail block. */
+.z-report-page--print-only .z-report-print-table__detail-row td {
+  height: auto !important;
+  padding: 0 18px 18px !important;
+  background: #ffffff !important;
+}
+
+.z-report-page--print-only .z-report-print-table__detail-row:hover {
+  background: transparent !important;
+}
+
+.z-waiters-report {
+  display: grid !important;
+  gap: 14px !important;
+  padding: 18px !important;
+  border: 1px solid rgba(226, 232, 240, 0.95) !important;
+  border-radius: 18px !important;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.76), #ffffff) !important;
+}
+
+.z-waiters-report__head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 18px !important;
+}
+
+.z-waiters-report__title {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  min-width: 260px !important;
+  color: var(--neutral-900) !important;
+}
+
+.z-waiters-report__title span {
+  width: 10px !important;
+  height: 38px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(180deg, #2563eb, #2dd4bf) !important;
+}
+
+.z-waiters-report__title strong {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  line-height: 1.1 !important;
+}
+
+.z-waiters-report__controls {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+  flex-wrap: wrap !important;
+}
+
+.z-waiters-report__percent,
+.z-waiters-report__select {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.z-waiters-report__percent input,
+.z-waiters-report__select select {
+  height: 46px !important;
+  border: 1px solid rgba(203, 213, 225, 0.95) !important;
+  border-radius: 10px !important;
+  background: #ffffff !important;
+  color: var(--neutral-900) !important;
+  font-size: 15px !important;
+  font-weight: 650 !important;
+  outline: 0 !important;
+}
+
+.z-waiters-report__percent input {
+  width: 112px !important;
+  padding: 0 34px 0 14px !important;
+}
+
+.z-waiters-report__percent span {
+  position: absolute !important;
+  right: 14px !important;
+  color: var(--neutral-600) !important;
+  font-weight: 800 !important;
+  pointer-events: none !important;
+}
+
+.z-waiters-report__select select {
+  width: 250px !important;
+  padding: 0 42px 0 14px !important;
+  appearance: none !important;
+}
+
+.z-waiters-report__select i,
+.z-waiters-report__select svg {
+  position: absolute !important;
+  right: 14px !important;
+  color: var(--neutral-500) !important;
+  pointer-events: none !important;
+}
+
+.z-waiters-report__excel {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  height: 46px !important;
+  padding: 0 20px !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  color: #ffffff !important;
+  background: linear-gradient(90deg, #059669, #16a34a) !important;
+  box-shadow: 0 12px 22px rgba(22, 163, 74, 0.22) !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+}
+
+.z-waiters-report__table {
+  display: grid !important;
+  overflow: hidden !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(203, 213, 225, 0.72) !important;
+  background: #ffffff !important;
+}
+
+.z-waiters-report__row {
+  display: grid !important;
+  grid-template-columns: 1.15fr 1.15fr 1.55fr 1fr 1.1fr 0.7fr !important;
+  align-items: center !important;
+  min-width: 980px !important;
+}
+
+.z-waiters-report__row--head {
+  min-height: 72px !important;
+  background: rgba(203, 213, 225, 0.76) !important;
+}
+
+.z-waiters-report__row--head > div,
+.z-waiters-report__row--head label {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 0 16px !important;
+  color: var(--neutral-900) !important;
+  font-size: 14px !important;
+  font-weight: 750 !important;
+  white-space: nowrap !important;
+}
+
+.z-waiters-report__row--head input {
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 6px !important;
+  accent-color: #2563eb !important;
+}
+
+.z-waiters-report__row--total {
+  min-height: 48px !important;
+  background: rgba(241, 245, 249, 0.82) !important;
+  border-top: 1px solid rgba(226, 232, 240, 0.96) !important;
+}
+
+.z-waiters-report__row--total > * {
+  padding: 0 16px !important;
+  color: var(--neutral-900) !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+}
+
+@media (max-width: 1100px) {
+  .z-waiters-report__head {
+    align-items: stretch !important;
+    flex-direction: column !important;
+  }
+
+  .z-waiters-report__controls {
+    justify-content: flex-start !important;
+  }
+
+  .z-waiters-report__table {
+    overflow-x: auto !important;
+  }
+}
+
+.waiters-report-page {
+  width: 100% !important;
+  padding: 22px 30px 34px !important;
+}
+
+.waiters-report-card {
+  width: 100% !important;
+  min-height: 0 !important;
+  border-radius: 24px !important;
+  background: #ffffff !important;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08) !important;
+}
+
+.dashboard-back-slot + .waiters-report-page {
+  margin-top: 52px !important;
+}
+
+@media (max-width: 900px) {
+  .waiters-report-page {
+    padding: 18px 16px 24px !important;
+  }
+}
+
 .kpi-grid--premium .premium-kpi {
   min-height: 140px !important;
   padding-top: 14px !important;
@@ -16712,7 +16923,11 @@ body.dashboard-body,
 
 /* Warehouse summary replaces the old top-dishes card on owner dashboard. */
 .warehouse-summary-card {
-  padding: 26px !important;
+  padding: 0 !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
 }
 
 .warehouse-summary-list {
@@ -16726,24 +16941,30 @@ body.dashboard-body,
   align-items: center !important;
   gap: 14px !important;
   padding: 18px 20px !important;
+  position: relative !important;
+  overflow: hidden !important;
   text-align: left !important;
   font: inherit !important;
   color: var(--owner-ink, #0f172a) !important;
   border-radius: 16px !important;
-  border: 1px solid rgba(228, 231, 236, 0.9) !important;
+  border: 1px solid rgba(226, 232, 240, 0.92) !important;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98)) !important;
-  box-shadow: 0 10px 24px rgba(15, 35, 70, 0.045) !important;
+    radial-gradient(circle at 92% 8%, rgba(255, 255, 255, 0.82), transparent 34%),
+    linear-gradient(145deg, rgba(248, 250, 252, 0.62), rgba(241, 245, 249, 0.42)) !important;
+  box-shadow:
+    0 18px 40px rgba(15, 23, 42, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.9) inset !important;
   cursor: pointer !important;
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease !important;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
 }
 
 .warehouse-summary-item:hover,
 .warehouse-summary-item:focus-visible {
-  transform: translateY(-1px) !important;
-  border-color: rgba(29, 181, 181, 0.34) !important;
-  background: #ffffff !important;
-  box-shadow: 0 16px 34px rgba(15, 35, 70, 0.08) !important;
+  transform: none !important;
+  border-color: rgba(226, 232, 240, 0.92) !important;
+  box-shadow:
+    0 18px 40px rgba(15, 23, 42, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.9) inset !important;
   outline: 0 !important;
 }
 
@@ -16806,6 +17027,20 @@ body.dashboard-body,
     radial-gradient(circle at top left, color-mix(in srgb, var(--warehouse-report-tone) 9%, transparent), transparent 34%),
     #ffffff !important;
   box-shadow: 0 32px 90px rgba(15, 23, 42, 0.24) !important;
+}
+
+.warehouse-report-backdrop {
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 280px !important;
+  width: calc(100vw - 280px) !important;
+  place-items: center !important;
+}
+
+.dashboard-main.is-sidebar-collapsed .warehouse-report-backdrop {
+  left: 88px !important;
+  width: calc(100vw - 88px) !important;
 }
 
 .warehouse-report-window--red,
@@ -16926,6 +17161,11 @@ body.dashboard-body,
 }
 
 @media (max-width: 560px) {
+  .warehouse-report-backdrop {
+    inset: 0 !important;
+    width: 100vw !important;
+  }
+
   .warehouse-report-window {
     max-height: calc(100vh - 28px) !important;
     padding: 18px !important;
@@ -17111,5 +17351,663 @@ body.dashboard-body,
   .owner-top-sales-card .top-dish__price {
     grid-column: 3 !important;
     text-align: left !important;
+  }
+}
+
+/* Center USD converter popover in the visible workspace, adapting to sidebar width. */
+.dashboard-topbar .topbar-info-widgets {
+  position: static !important;
+}
+
+.dashboard-topbar .usd-rate-popover {
+  position: fixed !important;
+  top: 68px !important;
+  left: calc(var(--mj-sidebar-w, 292px) + ((100vw - var(--mj-sidebar-w, 292px)) / 2)) !important;
+  right: auto !important;
+  transform: translateX(-50%) !important;
+  z-index: 240 !important;
+}
+
+.dashboard-main.is-sidebar-collapsed .dashboard-topbar .usd-rate-popover {
+  left: calc(72px + ((100vw - 72px) / 2)) !important;
+}
+
+@media (max-width: 900px) {
+  .dashboard-topbar .usd-rate-popover {
+    top: 74px !important;
+    left: 50vw !important;
+    width: min(424px, calc(100vw - 28px)) !important;
+  }
+}
+
+/* Final unified table template: matches the warehouse report reference. */
+.data-table {
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  overflow: hidden !important;
+  border: 1px solid #dbe4f0 !important;
+  border-radius: 16px !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+.data-table thead th {
+  position: relative !important;
+  height: 48px !important;
+  padding: 0 38px 0 18px !important;
+  color: #16345d !important;
+  background: #e8eef7 !important;
+  border-bottom: 1px solid #d7e1ee !important;
+  text-align: left !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+}
+
+.data-table thead th::after {
+  right: 14px !important;
+  opacity: 0.62 !important;
+}
+
+.data-table tbody td {
+  height: 50px !important;
+  padding: 0 18px !important;
+  color: #0f2547 !important;
+  background: #ffffff !important;
+  border-bottom: 1px solid #dfe7f1 !important;
+  text-align: left !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  vertical-align: middle !important;
+  white-space: nowrap !important;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: 0 !important;
+}
+
+.data-table tbody tr:hover td {
+  background: #f8fbff !important;
+}
+
+.data-table thead th:first-child,
+.data-table tbody td:first-child {
+  width: 62px !important;
+  text-align: center !important;
+  color: #6f92bd !important;
+  font-weight: 600 !important;
+}
+
+.data-table thead th:first-child::after {
+  display: none !important;
+}
+
+.data-table tbody td:nth-child(3),
+.data-table tbody td:nth-child(4),
+.data-table tbody td:nth-child(5) {
+  font-weight: 700 !important;
+}
+
+.data-table .badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  gap: 8px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+}
+
+.data-table .badge::before {
+  content: "" !important;
+  width: 7px !important;
+  height: 7px !important;
+  flex: 0 0 7px !important;
+  border-radius: 999px !important;
+  background: currentColor !important;
+}
+
+.data-table .badge-success,
+.data-table .badge-info {
+  color: #16a34a !important;
+}
+
+.data-table .badge-warning {
+  color: #f59e0b !important;
+}
+
+.data-table .badge-danger {
+  color: #ef4444 !important;
+}
+
+/* Final back button placement: keep it in page flow and never over cards. */
+.dashboard-back-slot,
+.dashboard-main.is-sidebar-collapsed .dashboard-back-slot {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  z-index: 30 !important;
+  width: fit-content !important;
+  height: auto !important;
+  margin: 0 0 18px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  pointer-events: auto !important;
+}
+
+.dashboard-back-slot .dashboard-back-button {
+  position: static !important;
+  top: auto !important;
+  margin: 0 !important;
+  border: 1px solid rgba(203, 213, 225, 0.86) !important;
+  background: #ffffff !important;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08) !important;
+  pointer-events: auto !important;
+}
+
+/* MARJON Print Center: final Z-report page layout. */
+.z-report-page--print-only {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 22px 30px 34px !important;
+}
+
+.dashboard-back-slot + .z-report-page--print-only {
+  padding-top: 62px !important;
+}
+
+.dashboard-back-slot:has(+ .z-report-page--print-only) {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.dashboard-back-slot:has(+ .z-report-page--print-only) .dashboard-back-button {
+  border: 1px solid rgba(203, 213, 225, 0.86) !important;
+  background: #ffffff !important;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08) !important;
+}
+
+.z-report-page--print-only::before,
+.z-report-page--print-only::after {
+  display: none !important;
+  content: none !important;
+}
+
+.z-report-page--print-only .z-report-print-panel {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 30px !important;
+  overflow: visible !important;
+  border: 1px solid rgba(226, 232, 240, 0.88) !important;
+  border-radius: 24px !important;
+  background: #ffffff !important;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08) !important;
+}
+
+.z-report-page--print-only,
+.z-report-page--print-only .z-report-print-panel,
+.z-report-print-toolbar {
+  overflow: visible !important;
+}
+
+.z-report-page--print-only .z-report-print-panel:hover {
+  transform: none !important;
+  border-color: rgba(226, 232, 240, 0.88) !important;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08) !important;
+}
+
+.z-report-page--print-only .z-report-card::before {
+  display: none !important;
+  content: none !important;
+}
+
+.z-report-page--print-only .z-report-card__head {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 20px !important;
+  margin-bottom: 22px !important;
+}
+
+.z-report-page--print-only .z-report-card__head .eyebrow {
+  color: var(--color-brand) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.02em !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+
+.z-report-page--print-only .z-report-card__head h3 {
+  margin: 7px 0 0 !important;
+  color: var(--neutral-900) !important;
+  font-size: 28px !important;
+  line-height: 1.08 !important;
+  font-weight: 750 !important;
+}
+
+.z-report-page--print-only .z-report-card__head p {
+  max-width: 620px !important;
+  margin: 9px 0 0 !important;
+  color: var(--neutral-500) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+.z-report-page--print-only .z-report-print-panel__main,
+.z-report-page--print-only .z-report-print-row__action {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 9px !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  padding: 0 18px !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  color: #ffffff !important;
+  background: linear-gradient(90deg, #1d4ed8, #2563eb) !important;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.25) !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  transition: filter 0.16s ease, box-shadow 0.16s ease !important;
+}
+
+.z-report-page--print-only .z-report-print-panel__main:hover,
+.z-report-page--print-only .z-report-print-row__action:hover {
+  transform: none !important;
+  filter: brightness(1.05) !important;
+  box-shadow: 0 14px 26px rgba(37, 99, 235, 0.30) !important;
+}
+
+.z-report-print-toolbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  margin-bottom: 18px !important;
+  padding: 14px !important;
+  position: relative !important;
+  z-index: 300 !important;
+  border: 1px solid rgba(226, 232, 240, 0.82) !important;
+  border-radius: 18px !important;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.84), rgba(255, 255, 255, 0.92)) !important;
+}
+
+.z-report-print-toolbar > div:first-child {
+  display: grid !important;
+  gap: 4px !important;
+}
+
+.z-report-print-toolbar > div:first-child span {
+  color: var(--neutral-500) !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+}
+
+.z-report-print-toolbar > div:first-child strong {
+  color: var(--neutral-900) !important;
+  font-size: 17px !important;
+  font-weight: 750 !important;
+}
+
+.z-report-print-toolbar .mj-datepicker {
+  position: relative !important;
+  flex: 0 0 auto !important;
+  z-index: 320 !important;
+}
+
+.z-report-print-toolbar .mj-datepicker__trigger {
+  height: 46px !important;
+  min-height: 46px !important;
+  padding: 0 16px !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(203, 213, 225, 0.95) !important;
+  color: var(--neutral-900) !important;
+  background: #ffffff !important;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05) !important;
+}
+
+.z-report-print-toolbar .mj-datepicker__trigger::before {
+  content: "Выберите дату" !important;
+  margin-right: 12px !important;
+  color: var(--neutral-500) !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+}
+
+.z-report-print-toolbar .mj-datepicker__time,
+.z-report-print-toolbar .mj-datepicker__divider {
+  display: none !important;
+}
+
+.z-report-print-toolbar .mj-calendar {
+  top: calc(100% + 10px) !important;
+  left: auto !important;
+  right: 0 !important;
+  z-index: 500 !important;
+}
+
+.z-report-print-table-wrap {
+  width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  position: relative !important;
+  z-index: 1 !important;
+  border: 1px solid rgba(226, 232, 240, 0.95) !important;
+  border-radius: 18px !important;
+  background: #ffffff !important;
+}
+
+.z-report-print-table {
+  width: 100% !important;
+  min-width: 1080px !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+
+.z-report-print-table th {
+  height: 54px !important;
+  padding: 0 20px !important;
+  color: var(--neutral-500) !important;
+  background: rgba(241, 245, 249, 0.88) !important;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.95) !important;
+  text-align: left !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.02em !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  white-space: nowrap !important;
+}
+
+.z-report-print-table th:first-child,
+.z-report-print-table td:first-child {
+  width: 76px !important;
+  text-align: center !important;
+}
+
+.z-report-print-table th:nth-child(2) {
+  width: 31% !important;
+}
+
+.z-report-print-table th:nth-child(3),
+.z-report-print-table th:nth-child(4) {
+  width: 22% !important;
+}
+
+.z-report-print-table th:last-child,
+.z-report-print-table td:last-child {
+  width: 220px !important;
+  text-align: right !important;
+}
+
+.z-report-print-table td {
+  height: 88px !important;
+  padding: 14px 20px !important;
+  color: var(--neutral-900) !important;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.84) !important;
+  vertical-align: middle !important;
+}
+
+.z-report-print-table tbody tr {
+  transition: background 160ms ease !important;
+}
+
+.z-report-print-table tbody tr:hover {
+  background: var(--neutral-50) !important;
+}
+
+.z-report-print-table tbody tr:last-child td {
+  border-bottom: 0 !important;
+}
+
+.z-report-print-table__number {
+  color: #6f92bd !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+}
+
+.z-report-print-table__report {
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+}
+
+.z-report-print-table__icon {
+  flex: 0 0 46px !important;
+  width: 46px !important;
+  height: 46px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 14px !important;
+  color: var(--color-brand) !important;
+  background: rgba(29, 181, 181, 0.12) !important;
+}
+
+.z-report-print-table__report strong {
+  min-width: 0 !important;
+  color: var(--neutral-900) !important;
+  font-size: 16px !important;
+  font-weight: 750 !important;
+  line-height: 1.25 !important;
+}
+
+.z-report-print-table__field {
+  position: relative !important;
+  width: 100% !important;
+  max-width: 280px !important;
+  margin: 0 !important;
+}
+
+.z-report-print-table__field select,
+.z-report-print-table__field input {
+  width: 100% !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  padding: 0 42px 0 14px !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(203, 213, 225, 0.95) !important;
+  background: #ffffff !important;
+  color: var(--neutral-800) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  outline: 0 !important;
+  appearance: none !important;
+}
+
+.z-report-print-table__field input {
+  padding-right: 14px !important;
+}
+
+.z-report-print-table__field--input input {
+  padding-right: 42px !important;
+}
+
+.z-report-print-table__field > i,
+.z-report-print-table__field > svg {
+  position: absolute !important;
+  right: 13px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  color: var(--neutral-500) !important;
+  pointer-events: none !important;
+}
+
+.z-report-print-table__field--input span {
+  position: absolute !important;
+  right: 14px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  color: var(--neutral-500) !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  pointer-events: none !important;
+}
+
+.z-report-print-table__field select:focus,
+.z-report-print-table__field input:focus {
+  border-color: rgba(29, 181, 181, 0.55) !important;
+  box-shadow: 0 0 0 4px rgba(29, 181, 181, 0.12) !important;
+}
+
+.z-report-print-table__empty {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 46px !important;
+  color: var(--neutral-400) !important;
+  font-size: 18px !important;
+  font-weight: 800 !important;
+}
+
+@media (max-width: 900px) {
+  .z-report-page--print-only {
+    padding: 18px 16px 24px !important;
+  }
+
+  .dashboard-back-slot + .z-report-page--print-only {
+    padding-top: 0 !important;
+  }
+
+  .z-report-page--print-only .z-report-print-panel {
+    padding: 22px !important;
+  }
+
+  .z-report-page--print-only .z-report-card__head,
+  .z-report-print-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .z-report-page--print-only .z-report-print-panel__main,
+  .z-report-print-toolbar .mj-datepicker,
+  .z-report-print-toolbar .mj-datepicker__trigger {
+    width: 100% !important;
+  }
+}
+
+/* Z-report date picker must stay above the print table and its action buttons. */
+.z-report-page--print-only .z-report-print-toolbar {
+  isolation: isolate !important;
+  z-index: 10000 !important;
+}
+
+.z-report-page--print-only .z-report-print-toolbar:has(.mj-datepicker.is-open) {
+  margin-bottom: 360px !important;
+}
+
+.z-report-page--print-only .z-report-print-toolbar .mj-datepicker.is-open {
+  z-index: 10001 !important;
+}
+
+.z-report-page--print-only .z-report-print-toolbar .mj-datepicker.is-open .mj-calendar {
+  z-index: 10002 !important;
+}
+
+.z-report-page--print-only .z-report-print-table-wrap,
+.z-report-page--print-only .z-report-print-table,
+.z-report-page--print-only .z-report-print-table tr,
+.z-report-page--print-only .z-report-print-table th,
+.z-report-page--print-only .z-report-print-table td,
+.z-report-page--print-only .z-report-print-row__action {
+  position: relative !important;
+  z-index: 0 !important;
+}
+
+@media (max-width: 900px) {
+  .z-report-page--print-only .z-report-print-toolbar:has(.mj-datepicker.is-open) {
+    margin-bottom: 340px !important;
+  }
+}
+
+/* Final shared back button behavior: pinned while scrolling, clean white button. */
+.dashboard-back-slot,
+.dashboard-main.is-sidebar-collapsed .dashboard-back-slot {
+  position: fixed !important;
+  top: 108px !important;
+  left: calc(var(--mj-sidebar-w, 280px) + 34px) !important;
+  z-index: 140 !important;
+  width: fit-content !important;
+  height: 40px !important;
+  margin: 0 0 12px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  pointer-events: auto !important;
+}
+
+.dashboard-main.is-sidebar-collapsed .dashboard-back-slot {
+  left: 122px !important;
+}
+
+.dashboard-back-slot + * {
+  margin-top: 52px !important;
+}
+
+.dashboard-back-slot + .z-report-page--print-only {
+  margin-top: 52px !important;
+  padding-top: 0 !important;
+}
+
+.dashboard-back-slot .dashboard-back-button {
+  position: static !important;
+  top: auto !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  margin: 0 !important;
+  padding: 8px 14px 8px 12px !important;
+  border: 1px solid rgba(203, 213, 225, 0.86) !important;
+  border-radius: 12px !important;
+  color: var(--neutral-700) !important;
+  background: #ffffff !important;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08) !important;
+  pointer-events: auto !important;
+}
+
+.dashboard-back-slot .dashboard-back-button:hover,
+.dashboard-back-slot .dashboard-back-button:focus-visible {
+  transform: none !important;
+  border-color: rgba(29, 181, 181, 0.45) !important;
+  background: #ffffff !important;
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.10) !important;
+}
+
+.dashboard-back-slot + .z-report-page--print-only {
+  padding-top: 0 !important;
+}
+
+@media (max-width: 900px) {
+  .dashboard-back-slot,
+  .dashboard-main.is-sidebar-collapsed .dashboard-back-slot {
+    position: fixed !important;
+    top: 86px !important;
+    left: 18px !important;
+    height: 38px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .dashboard-back-slot .dashboard-back-button {
+    height: 38px !important;
+    min-height: 38px !important;
   }
 }

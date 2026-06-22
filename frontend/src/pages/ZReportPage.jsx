@@ -1,4 +1,4 @@
-import Icon from '../components/Icon';
+import Icon from "../components/Icon";
 
 const printReports = [
   {
@@ -12,8 +12,8 @@ const printReports = [
     title: "Отчет по официантам",
     icon: "bi-person-lines-fill",
     fields: [
-      { type: "select", label: "Официант", options: ["Все официанты", "Официант 1", "Официант 2"] },
-      { type: "input", label: "Процент" },
+      { type: "select", label: "Официант", options: ["Все официанты", "Азизбек", "Алишер", "Дилноза", "Сардор"] },
+      { type: "input", label: "Процент", suffix: "%" },
     ],
   },
   {
@@ -48,33 +48,27 @@ function ReportField({ field }) {
           <option value="" disabled>{field.label}</option>
           {field.options.map((option) => <option value={option} key={option}>{option}</option>)}
         </select>
-        <Icon name="bi-chevron-down" size={20} />
+        <Icon name="bi-chevron-down" size={18} />
       </label>
     );
   }
 
   return (
-    <label className="z-report-filter z-report-print-table__field">
+    <label className="z-report-filter z-report-print-table__field z-report-print-table__field--input">
       <input placeholder={field.label} inputMode="decimal" />
+      {field.suffix ? <span>{field.suffix}</span> : null}
     </label>
   );
 }
 
 export default function ZReportPage() {
+  function handlePrint() {
+    window.print();
+  }
+
   return (
     <section className="z-report-page z-report-page--print-only">
       <article className="z-report-card z-report-print-panel">
-        <div className="z-report-card__head">
-          <div>
-            <span className="eyebrow">Print center</span>
-            <h3>Печатные отчеты</h3>
-          </div>
-          <button className="z-report-print-panel__main" type="button" onClick={() => window.print()}>
-            <Icon name="bi-printer" size={20} />
-            Печать отчета
-          </button>
-        </div>
-
         <div className="z-report-print-table-wrap">
           <table className="z-report-print-table">
             <thead>
@@ -105,7 +99,7 @@ export default function ZReportPage() {
                     <ReportField field={reportItem.fields[1]} />
                   </td>
                   <td>
-                    <button className="z-report-print-row__action" type="button" onClick={() => window.print()}>
+                    <button className="z-report-print-row__action" type="button" onClick={handlePrint}>
                       <Icon name="bi-printer" size={18} />
                       Печатать отчет
                     </button>

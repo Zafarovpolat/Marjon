@@ -739,7 +739,7 @@ function WarehouseReportDialog({ report, selectedDate, onClose }) {
   if (!report) return null;
 
   return (
-    <div className="kpi-info-backdrop" role="presentation" onMouseDown={onClose}>
+    <div className="kpi-info-backdrop warehouse-report-backdrop" role="presentation" onMouseDown={onClose}>
       <section
         className={`warehouse-report-window warehouse-report-window--${report.tone}`}
         role="dialog"
@@ -909,11 +909,7 @@ export default function OwnerDashboard() {
           <div className="chart-wrap"><RevenueChart sales={displaySales} /></div>
         </div>
 
-        <aside className="card card-pad warehouse-summary-card">
-          <div className="section-header">
-            <div><span className="eyebrow">Warehouse</span><h2>Информация о складе</h2></div>
-            <Link className="btn btn-ghost" to="/warehouse">Склад</Link>
-          </div>
+        <aside className="warehouse-summary-card">
           <div className="warehouse-summary-list">
             {warehouseSummary.map((item) => (
               <button
