@@ -108,6 +108,10 @@ function demoKpis(sales, selectedDate) {
   const pickup = Math.max(0, day.orders_count - zal - delivery);
   const occupancy = Math.round(seededFactor(seed, 7, 0.12, 0.62) * 100);
   const avgTime = Math.round(seededFactor(seed, 9, 16, 27));
+  const moneyIncome = Math.round((day.revenue * seededFactor(seed, 12, 0.72, 0.9)) / 10000) * 10000;
+  const moneyExpense = Math.round((day.revenue * seededFactor(seed, 14, 0.24, 0.38)) / 10000) * 10000;
+  const incomeChange = pctChange(moneyIncome, Math.round((prev.revenue * 0.82) / 10000) * 10000);
+  const expenseChange = pctChange(moneyExpense, Math.round((prev.revenue * 0.31) / 10000) * 10000);
 
   return [
     {
@@ -170,21 +174,41 @@ function demoKpis(sales, selectedDate) {
     },
     {
       className: "premium-kpi--tables",
-      icon: "bi-grid-3x3-gap",
-      badge: "Зал",
-      label: "Активных заказов",
-      value: formatNumber(activeOrders),
-      note: activeChange === 0 ? "Без изменений" : `${signed(activeChange)} к вчерашнему дню`,
-      noteClass: noteClassFor(activeChange),
-      progress: Math.max(8, Math.min(100, occupancy)),
-      description: "Текущие активные заказы, которые еще не закрыты в смене.",
+      icon: "bi-cash-coin",
+      badge: "Доход",
+      label: "Денежный доход",
+      value: formatNumber(moneyIncome),
+      suffix: "UZS",
+      note: `${signed(incomeChange)}% к вчерашнему дню`,
+      noteClass: noteClassFor(incomeChange),
+      progress: Math.max(8, Math.min(100, Math.round((moneyIncome / Math.max(day.revenue, 1)) * 100))),
+      description: "Фактически полученные деньги за выбранную дату по кассе, картам и оплатам.",
       details: [
-        ["В работе", `${activeOrders} заказа`],
-        ["Готовы к выдаче", `${Math.max(0, Math.round(activeOrders / 3))} заказов`],
-        ["Занятые столы", `${occupancy}%`],
-        ["Средний возраст", `${avgTime} мин`],
+        ["Наличные", `${formatNumber(cash)} UZS`],
+        ["Карта", `${formatNumber(Math.max(0, moneyIncome - cash))} UZS`],
+        ["Оплачено заказов", `${Math.max(0, day.orders_count - activeOrders)} заказов`],
+        ["Активные заказы", `${activeOrders} заказа`],
       ],
-      insight: "Текущая загрузка кухни и зала по активным заказам.",
+      insight: "Денежный доход показывает поступления, которые уже прошли через оплату.",
+    },
+    {
+      className: "premium-kpi--expense",
+      icon: "bi-wallet2",
+      badge: "Расход",
+      label: "Денежный расход",
+      value: formatNumber(moneyExpense),
+      suffix: "UZS",
+      note: `${signed(expenseChange)}% к вчерашнему дню`,
+      noteClass: noteClassFor(-expenseChange),
+      progress: Math.max(8, Math.min(100, Math.round((moneyExpense / Math.max(day.revenue, 1)) * 100))),
+      description: "Денежные расходы за выбранную дату: закупки, операционные списания и прочие выплаты.",
+      details: [
+        ["Закупки", `${formatNumber(Math.round(moneyExpense * 0.58))} UZS`],
+        ["Операционные", `${formatNumber(Math.round(moneyExpense * 0.28))} UZS`],
+        ["Прочие", `${formatNumber(Math.max(0, moneyExpense - Math.round(moneyExpense * 0.86)))} UZS`],
+        ["Среднее время", `${avgTime} мин`],
+      ],
+      insight: "Денежный расход помогает видеть дневную нагрузку на кассу и закупки.",
     },
   ];
 }
@@ -203,6 +227,97 @@ function demoTopDishes(selectedDate) {
       change: `${change >= 0 ? "+" : ""}${change}%`,
       positive: change >= 0,
       progress: Math.max(22, Math.round((item.revenue / maxRevenue) * 100)),
+    };
+  });
+}
+
+function demoWarehouseSummary(selectedDate) {
+  const seed = dateSeed(selectedDate);
+  const stockBalance = Math.round((7200000 * seededFactor(seed, 41, 0.86, 1.18)) / 1000) * 1000;
+  const income = Math.round((stockBalance * seededFactor(seed, 42, 0.0, 0.08)) / 1000) * 1000;
+  const expense = Math.round((stockBalance * seededFactor(seed, 43, 0.0, 0.06)) / 1000) * 1000;
+  const totalCosts = Math.round((expense * seededFactor(seed, 44, 0.7, 1.4)) / 1000) * 1000;
+  const creditor = Math.round((stockBalance * seededFactor(seed, 45, 0.0, 0.05)) / 1000) * 1000;
+  const debtor = Math.round((stockBalance * seededFactor(seed, 46, 0.0, 0.04)) / 1000) * 1000;
+
+  return [
+    { label: "Приход товаров", value: income, icon: "bi-box-arrow-in-down", tone: "blue" },
+    { label: "Расход товаров", value: expense, icon: "bi-arrow-up-right-circle", tone: "red" },
+    { label: "Остаток склада", value: stockBalance, icon: "bi-box-seam", tone: "orange" },
+    { label: "Общие затраты", value: totalCosts, icon: "bi-cash-coin", tone: "rose" },
+    { label: "Кредиторка", value: creditor, icon: "bi-arrow-up-right-circle", tone: "pink" },
+    { label: "Дебиторка", value: debtor, icon: "bi-arrow-down-left-circle", tone: "green" },
+  ];
+}
+
+function demoWarehouseReportRows(report, selectedDate) {
+  if (!report) return [];
+
+  const seed = dateSeed(`${selectedDate}-${report.label}`);
+  const sources = {
+    "Приход товаров": [
+      ["Накладная #PR-128", "Fresh Food"],
+      ["Накладная #PR-129", "Baraka Market"],
+      ["Накладная #PR-130", "Milk House"],
+      ["Накладная #PR-131", "Green Garden"],
+      ["Накладная #PR-132", "Meat Line"],
+    ],
+    "Расход товаров": [
+      ["Списание #EX-220", "Кухня"],
+      ["Списание #EX-221", "Бар"],
+      ["Списание #EX-222", "Заготовки"],
+      ["Списание #EX-223", "Производство"],
+      ["Списание #EX-224", "Возврат"],
+    ],
+    "Остаток склада": [
+      ["Инвентаризация #ST-41", "Склад"],
+      ["Остаток #ST-42", "Кухня"],
+      ["Остаток #ST-43", "Бар"],
+      ["Остаток #ST-44", "Заморозка"],
+      ["Остаток #ST-45", "Овощи"],
+    ],
+    "Общие затраты": [
+      ["Расход #CT-311", "Закупки"],
+      ["Расход #CT-312", "Логистика"],
+      ["Расход #CT-313", "Упаковка"],
+      ["Расход #CT-314", "Хозтовары"],
+      ["Расход #CT-315", "Сервис"],
+    ],
+    "Кредиторка": [
+      ["Долг #CR-17", "Fresh Food"],
+      ["Долг #CR-18", "Meat Line"],
+      ["Долг #CR-19", "Baraka Market"],
+      ["Долг #CR-20", "Green Garden"],
+      ["Долг #CR-21", "Milk House"],
+    ],
+    "Дебиторка": [
+      ["Оплата #DB-51", "Корпоратив"],
+      ["Оплата #DB-52", "Доставка"],
+      ["Оплата #DB-53", "Банкет"],
+      ["Оплата #DB-54", "Партнер"],
+      ["Оплата #DB-55", "Кейтеринг"],
+    ],
+  };
+  const statuses = ["Проведено", "Проведено", "В ожидании", "Проверено", "Закрыто"];
+  const baseRows = sources[report.label] || sources["Остаток склада"];
+  const total = Number(report.value || 0);
+  let used = 0;
+
+  return baseRows.map(([document, category], index) => {
+    const isLast = index === baseRows.length - 1;
+    const amount = isLast
+      ? Math.max(0, total - used)
+      : Math.round((total * seededFactor(seed, index + 70, 0.08, 0.28)) / 1000) * 1000;
+    used += amount;
+
+    return {
+      number: index + 1,
+      document,
+      category,
+      amount,
+      status: statuses[index],
+      statusClass: statuses[index] === "В ожидании" ? "badge-warning" : "badge-success",
+      date: formatDateLabel(selectedDate),
     };
   });
 }
@@ -524,6 +639,35 @@ function RecentOrdersCard({ orders }) {
   );
 }
 
+function TopSalesCard({ dishes }) {
+  return (
+    <section className="card card-pad top-dishes-card owner-top-sales-card">
+      <div className="section-header">
+        <div>
+          <span className="eyebrow">Лучшие продажи</span>
+          <h2>Топ-5 продаж</h2>
+        </div>
+        <Link className="btn btn-ghost" to="/menu">Все блюда</Link>
+      </div>
+      <div className="top-dishes-list">
+        {dishes.map((item, index) => (
+          <div className="top-dish top-dish--compact" key={item.product_id || item.name}>
+            <div className="top-dish__rank">{index + 1}</div>
+            <div className={`top-dish__photo ${dishPhotoClass(item.name, index)}`} aria-hidden="true" />
+            <div className="top-dish__body">
+              <div className="top-dish__line">
+                <strong>{dishDisplayName(item.name)}</strong>
+              </div>
+            </div>
+            <div className="top-dish__qty">{formatNumber(item.quantity)} шт</div>
+            <div className="top-dish__price">{formatMoney(item.revenue)}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function KpiInfoDialog({ kpi, onClose }) {
   useEffect(() => {
     if (!kpi) return undefined;
@@ -580,10 +724,82 @@ function KpiInfoDialog({ kpi, onClose }) {
   );
 }
 
+function WarehouseReportDialog({ report, selectedDate, onClose }) {
+  useEffect(() => {
+    if (!report) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [report, onClose]);
+
+  const rows = useMemo(() => demoWarehouseReportRows(report, selectedDate), [report, selectedDate]);
+
+  if (!report) return null;
+
+  return (
+    <div className="kpi-info-backdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        className={`warehouse-report-window warehouse-report-window--${report.tone}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="warehouse-report-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="warehouse-report-window__head">
+          <div className="warehouse-report-window__icon"><Icon name={report.icon} size={20} /></div>
+          <div>
+            <span>Складской отчёт</span>
+            <h2 id="warehouse-report-title">{report.label}</h2>
+          </div>
+          <button type="button" className="warehouse-report-window__close" aria-label="Закрыть" onClick={onClose}>
+            <Icon name="bi-x-lg" size={20} />
+          </button>
+        </div>
+
+        <div className="warehouse-report-window__value">
+          <strong>{formatNumber(report.value)}</strong>
+          <small>UZS</small>
+        </div>
+        <p>Табличный отчёт по выбранному показателю склада за {formatDateLabel(selectedDate)}.</p>
+
+        <div className="warehouse-report-table-wrap">
+          <table className="data-table warehouse-report-table">
+            <thead>
+              <tr>
+                <th>№</th>
+                <th>Документ</th>
+                <th>Категория / Поставщик</th>
+                <th>Сумма</th>
+                <th>Статус</th>
+                <th>Дата</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.document}>
+                  <td>{row.number}</td>
+                  <td>{row.document}</td>
+                  <td>{row.category}</td>
+                  <td>{formatMoney(row.amount)}</td>
+                  <td><span className={`badge ${row.statusClass}`}>{row.status}</span></td>
+                  <td>{row.date}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function OwnerDashboard() {
   const { selectedDate = todayInputValue() } = useOutletContext();
   const [period, setPeriod] = useState(7);
   const [selectedKpi, setSelectedKpi] = useState(null);
+  const [selectedWarehouseReport, setSelectedWarehouseReport] = useState(null);
   const hasLoadedRef = useRef(false);
   const [dashboard, setDashboard] = useState(null);
   const [sales, setSales] = useState([]);
@@ -624,6 +840,7 @@ export default function OwnerDashboard() {
   const displaySales = useMemo(() => demoSales(period, selectedDate), [period, selectedDate]);
   const kpis = useMemo(() => demoKpis(displaySales, selectedDate), [displaySales, selectedDate]);
   const displayTopDishes = useMemo(() => demoTopDishes(selectedDate), [selectedDate]);
+  const warehouseSummary = useMemo(() => demoWarehouseSummary(selectedDate), [selectedDate]);
   const recentOrdersList = useMemo(() => demoRecentOrders(selectedDate), [selectedDate]);
   const revenueStats = useMemo(() => {
     const revenues = displaySales.map((item) => Number(item.revenue || 0));
@@ -673,6 +890,7 @@ export default function OwnerDashboard() {
         ))}
       </section>
       <KpiInfoDialog kpi={selectedKpi} onClose={() => setSelectedKpi(null)} />
+      <WarehouseReportDialog report={selectedWarehouseReport} selectedDate={selectedDate} onClose={() => setSelectedWarehouseReport(null)} />
 
       <section className="owner-main-grid">
         <div className="card card-pad chart-card premium-chart">
@@ -691,33 +909,34 @@ export default function OwnerDashboard() {
           <div className="chart-wrap"><RevenueChart sales={displaySales} /></div>
         </div>
 
-        <aside className="card card-pad top-dishes-card">
-          <div className="section-header"><div><span className="eyebrow">Menu performance</span><h2>Топ-5 блюд за день</h2></div><Link className="btn btn-ghost" to="/menu">Все блюда</Link></div>
-          <div className="top-dishes-list">
-            {displayTopDishes.map((item, index) => {
-              return <div className="top-dish" key={item.product_id || item.name}>
-                <div className="top-dish__rank">{index + 1}</div>
-                <div className="top-dish__body">
-                  <div className="top-dish__line">
-                    <strong>{dishDisplayName(item.name)}</strong>
-                    <span className={item.positive ? "top-dish__change is-up" : "top-dish__change is-down"}>{item.change}</span>
-                  </div>
-                  <div className="top-dish__meta">
-                    <span className="badge badge-info">{formatNumber(item.quantity)} продаж</span>
-                    <div className="top-dish__bar"><i style={{ width: `${item.progress}%` }} /></div>
-                  </div>
+        <aside className="card card-pad warehouse-summary-card">
+          <div className="section-header">
+            <div><span className="eyebrow">Warehouse</span><h2>Информация о складе</h2></div>
+            <Link className="btn btn-ghost" to="/warehouse">Склад</Link>
+          </div>
+          <div className="warehouse-summary-list">
+            {warehouseSummary.map((item) => (
+              <button
+                className={`warehouse-summary-item warehouse-summary-item--${item.tone}`}
+                key={item.label}
+                type="button"
+                onClick={() => setSelectedWarehouseReport(item)}
+                aria-haspopup="dialog"
+              >
+                <span className="warehouse-summary-item__icon"><Icon name={item.icon} size={18} /></span>
+                <div>
+                  <strong>{item.label}</strong>
+                  <span>{formatMoney(item.value)}</span>
                 </div>
-                <div className="top-dish__price">{formatMoney(item.revenue)}</div>
-              </div>;
-            })}
+              </button>
+            ))}
           </div>
         </aside>
       </section>
 
       <section className="owner-widgets">
-        <QuickActionsCard activeOrders={daySummary.activeOrders} occupancy={daySummary.occupancy} avgTime={daySummary.avgTime} />
+        <TopSalesCard dishes={displayTopDishes} />
         <RecentOrdersCard orders={recentOrdersList} />
-        <ShiftSummaryCard summary={daySummary} />
       </section>
     </>
   );
