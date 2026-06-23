@@ -9,18 +9,33 @@ import OrdersPage from "./pages/OrdersPage";
 import MenuPage from "./pages/MenuPage";
 import StaffPage from "./pages/StaffPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
-import FinancePage from "./pages/FinancePage";
+import FinanceTransactionsPage from "./pages/FinanceTransactionsPage";
+import FinanceIncomeCategoriesPage from "./pages/FinanceIncomeCategoriesPage";
+import FinanceExpenseCategoriesPage from "./pages/FinanceExpenseCategoriesPage";
+import OrdersReportPage from "./pages/OrdersReportPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import SectionPage from "./pages/SectionPage";
-import ProfileSettingsPage from "./pages/ProfileSettingsPage";
 import StaffRolePage from "./pages/StaffRolePage";
+import StaffActivityPage from "./pages/StaffActivityPage";
+import NomenclaturePage from "./pages/NomenclaturePage";
+import CategoriesPage from "./pages/CategoriesPage";
 import WaiterPage from "./pages/WaiterPage";
 import WaitersReportPage from "./pages/WaitersReportPage";
+import TablesReportPage from "./pages/TablesReportPage";
+import DishesReportPage from "./pages/DishesReportPage";
+import CancelledDishesReportPage from "./pages/CancelledDishesReportPage";
+import DebtorsCreditorsReportPage from "./pages/DebtorsCreditorsReportPage";
 import KitchenPage from "./pages/KitchenPage";
 import ZReportPage from "./pages/ZReportPage";
 import WarehousePage from "./pages/WarehousePage";
-import ReceiptSettingsPage from "./pages/settings/ReceiptSettingsPage";
-import ChefReceiptSettingsPage from "./pages/settings/ChefReceiptSettingsPage";
+import SettingsClientsPage from "./pages/settings/SettingsClientsPage";
+import SettingsPlacesPage from "./pages/settings/SettingsPlacesPage";
+import SettingsPaymentMethodsPage from "./pages/settings/SettingsPaymentMethodsPage";
+import SettingsUnitsPage from "./pages/settings/SettingsUnitsPage";
+import SettingsProfilePage from "./pages/settings/SettingsProfilePage";
+import SettingsPrintersPage from "./pages/settings/SettingsPrintersPage";
+import SettingsReceiptPage from "./pages/settings/SettingsReceiptPage";
+import SettingsKitchenReceiptPage from "./pages/settings/SettingsKitchenReceiptPage";
 import { AuthProvider } from "./context/AuthContext";
 import { OrgProvider } from "./context/OrgContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -47,52 +62,66 @@ const router = createBrowserRouter([
     element: <ProtectedRoute><DashboardLayout /></ProtectedRoute>,
     children: [
       { index: true, element: <OwnerDashboard /> },
-      { path: "warehouse", element: <WarehousePage /> },
+      { path: "warehouse", element: <Navigate to="/warehouse/incoming" replace /> },
+      { path: "warehouse/incoming", element: <WarehousePage initialSection="incoming" /> },
+      { path: "warehouse/outgoing", element: <WarehousePage initialSection="outgoing" /> },
+      { path: "warehouse/stock", element: <WarehousePage initialSection="stock" /> },
+      { path: "warehouse/incoming-journal", element: <WarehousePage initialSection="incoming-journal" /> },
       { path: "warehouse/stock-in", element: <WarehousePage initialSection="incoming" /> },
-      { path: "warehouse/stock-out", element: <WarehousePage initialSection="expense" /> },
-      { path: "warehouse/balance", element: <WarehousePage initialSection="balance" /> },
-      { path: "warehouse/income-log", element: <WarehousePage initialSection="incoming-log" /> },
+      { path: "warehouse/stock-out", element: <WarehousePage initialSection="outgoing" /> },
+      { path: "warehouse/balance", element: <WarehousePage initialSection="stock" /> },
+      { path: "warehouse/income-log", element: <WarehousePage initialSection="incoming-journal" /> },
       { path: "warehouse/transfer", element: <WarehousePage initialSection="transfer" /> },
       { path: "warehouse/inventory", element: <WarehousePage initialSection="inventory" /> },
       { path: "warehouse/write-off", element: <WarehousePage initialSection="write-off" /> },
-      { path: "warehouse/write-off-categories", element: <WarehousePage initialSection="write-off" /> },
+      { path: "warehouse/write-off-categories", element: <WarehousePage initialSection="write-off-categories" /> },
       { path: "warehouse/waste", element: <WarehousePage initialSection="waste" /> },
       { path: "reports", element: <AnalyticsPage /> },
       { path: "reports/z-report", element: <ZReportPage /> },
-      { path: "reports/orders", element: <SectionPage sectionKey="orders" eyebrow="Отчеты" title="Отчёт по заказам" description="Аналитика заказов по статусам, каналам и периодам." items={[{ title: "Заказы", text: "Количество, сумма и средний чек по заказам.", icon: "bi-receipt", tableKey: "list" }, { title: "Статусы", text: "Новые, оплаченные, отменённые и завершённые заказы.", icon: "bi-list-check", tableKey: "statuses" }, { title: "Фильтры", text: "Период, филиал, касса, официант и канал продаж.", icon: "bi-funnel", tableKey: "filters" }]} /> },
-      { path: "reports/tables", element: <SectionPage sectionKey="tables" eyebrow="Отчеты" title="Отчёт по столам" description="Загрузка столов, оборот и эффективность посадки." items={[{ title: "Загрузка зала", text: "Процент занятости и пиковые часы.", icon: "bi-grid-3x3-gap", tableKey: "load" }, { title: "Оборот стола", text: "Сколько заказов проходит через каждый стол.", icon: "bi-arrow-repeat", tableKey: "turnover" }, { title: "Выручка", text: "Продажи и средний чек по столам.", icon: "bi-graph-up-arrow", tableKey: "revenue" }]} /> },
+      { path: "reports/orders", element: <OrdersReportPage /> },
+      { path: "reports/tables", element: <TablesReportPage /> },
       { path: "reports/waiters", element: <WaitersReportPage /> },
-      { path: "reports/dishes", element: <SectionPage sectionKey="dishes" eyebrow="Отчеты" title="Отчёт по блюдам" description="Продажи блюд, популярность и вклад в выручку." items={[{ title: "Топ блюд", text: "Самые продаваемые позиции меню.", icon: "bi-stars", tableKey: "top" }, { title: "Количество", text: "Продажи по штукам, категориям и периодам.", icon: "bi-123", tableKey: "quantity" }, { title: "Маржинальность", text: "Выручка и прибыльность блюд.", icon: "bi-pie-chart", tableKey: "margin" }]} /> },
-      { path: "reports/cancelled-dishes", element: <SectionPage sectionKey="cancelled" eyebrow="Отчеты" title="Отчёт по отмененным блюдам" description="Анализ отмен, возвратов и причин списания блюд." items={[{ title: "Отмены", text: "Какие блюда отменяются чаще всего.", icon: "bi-x-octagon", tableKey: "cancellations" }, { title: "Причины", text: "Ошибка заказа, кухня, клиент или отсутствие товара.", icon: "bi-tags", tableKey: "reasons" }, { title: "Потери", text: "Сумма отмен и влияние на выручку.", icon: "bi-graph-down", tableKey: "losses" }]} /> },
-      { path: "reports/debtors-creditors", element: <SectionPage sectionKey="debtors" eyebrow="Отчеты" title="Дебиторы и кредиторы" description="Контроль задолженностей гостей, поставщиков и партнёров." items={[{ title: "Дебиторы", text: "Кто должен ресторану и на какую сумму.", icon: "bi-arrow-down-left-circle", tableKey: "debtors" }, { title: "Кредиторы", text: "Обязательства ресторана перед поставщиками.", icon: "bi-arrow-up-right-circle", tableKey: "creditors" }, { title: "Сроки", text: "Контроль просроченных платежей и оплат.", icon: "bi-calendar-check", tableKey: "terms" }]} /> },
+      { path: "reports/dishes", element: <DishesReportPage /> },
+      { path: "reports/cancelled-dishes", element: <CancelledDishesReportPage /> },
+      { path: "reports/debtors-creditors", element: <DebtorsCreditorsReportPage /> },
       { path: "users", element: <StaffRolePage role="all" /> },
       { path: "users/cashier", element: <StaffRolePage role="cashier" /> },
       { path: "users/waiter", element: <StaffRolePage role="waiter" /> },
+      { path: "users/courier", element: <StaffRolePage role="courier" /> },
+      { path: "users/couriers", element: <StaffRolePage role="courier" /> },
+      { path: "users/kuryer", element: <StaffRolePage role="courier" /> },
+      { path: "users/delivery", element: <StaffRolePage role="courier" /> },
       { path: "users/monoblock", element: <StaffRolePage role="monoblock" /> },
       { path: "users/kitchen", element: <StaffRolePage role="kitchen" /> },
       { path: "users/manager", element: <StaffRolePage role="manager" /> },
-      { path: "settings", element: <PlaceholderPage eyebrow="Settings" title="Настройки" text="Здесь будут параметры ресторана, филиалов и доступа." /> },
-      { path: "settings/clients", element: <SectionPage eyebrow="Настройки" title="Клиенты" description="Настройка клиентской базы и правил обслуживания гостей." items={[{ title: "Карточки клиентов", text: "Контакты, история заказов и заметки по гостям.", icon: "bi-person-vcard" }, { title: "Группы", text: "Сегменты гостей, скидки и условия обслуживания.", icon: "bi-people" }, { title: "Лояльность", text: "Бонусы, накопления и персональные предложения.", icon: "bi-gift" }]} /> },
-      { path: "settings/place", element: <SectionPage eyebrow="Настройки" title="Место" description="Настройка залов, столов и рабочих зон ресторана." items={[{ title: "Залы", text: "Основной зал, летняя зона, VIP и другие пространства.", icon: "bi-grid-3x3-gap" }, { title: "Столы", text: "Номера столов, вместимость и расположение.", icon: "bi-layout-wtf" }, { title: "Зоны", text: "Назначение официантов и зон обслуживания.", icon: "bi-diagram-3" }]} /> },
-      { path: "settings/payment-methods", element: <SectionPage eyebrow="Настройки" title="Способ оплаты" description="Управление доступными способами оплаты заказов." items={[{ title: "Наличные", text: "Приём наличных и правила округления.", icon: "bi-cash-coin" }, { title: "Карта", text: "Терминалы, эквайринг и безналичные оплаты.", icon: "bi-credit-card" }, { title: "Комбинированная оплата", text: "Оплата одним заказом несколькими способами.", icon: "bi-intersect" }]} /> },
-      { path: "settings/units", element: <SectionPage eyebrow="Настройки" title="Единица измерения" description="Единицы измерения для склада, меню и техкарт." items={[{ title: "Вес", text: "Килограмм, грамм и другие весовые единицы.", icon: "bi-speedometer2" }, { title: "Объём", text: "Литр, миллилитр и напитки по объёму.", icon: "bi-droplet" }, { title: "Штуки", text: "Поштучный учёт товаров и полуфабрикатов.", icon: "bi-123" }]} /> },
-      { path: "settings/profile", element: <ProfileSettingsPage /> },
-      { path: "settings/printers", element: <SectionPage eyebrow="Настройки" title="Настройка принтеров" description="Принтеры чеков, кухни и рабочих станций." items={[{ title: "Кассовый принтер", text: "Печать фискальных и клиентских чеков.", icon: "bi-printer" }, { title: "Кухонный принтер", text: "Маршрутизация заказов по цехам и станциям.", icon: "bi-printer-fill" }, { title: "Проверка связи", text: "Тестовая печать и статус устройств.", icon: "bi-wifi" }]} /> },
-      { path: "settings/receipt", element: <ReceiptSettingsPage /> },
-      { path: "settings/chef-receipt", element: <ChefReceiptSettingsPage /> },
+      { path: "users/warehouse", element: <StaffRolePage role="warehouse" /> },
+      { path: "users/login-history", element: <StaffActivityPage type="login-history" /> },
+      { path: "users/attendance", element: <StaffActivityPage type="attendance" /> },
+      { path: "settings", element: <Navigate to="/settings/clients" replace /> },
+      { path: "settings/clients", element: <SettingsClientsPage /> },
+      { path: "settings/places", element: <SettingsPlacesPage /> },
+      { path: "settings/place", element: <SettingsPlacesPage /> },
+      { path: "settings/payment-methods", element: <SettingsPaymentMethodsPage /> },
+      { path: "settings/units", element: <SettingsUnitsPage /> },
+      { path: "settings/profile", element: <SettingsProfilePage /> },
+      { path: "settings/printers", element: <SettingsPrintersPage /> },
+      { path: "settings/receipt", element: <SettingsReceiptPage /> },
+      { path: "settings/kitchen-receipt", element: <SettingsKitchenReceiptPage /> },
+      { path: "settings/chef-receipt", element: <SettingsKitchenReceiptPage /> },
       { path: "settings/support", element: <SectionPage eyebrow="Настройки" title="Тех. поддержка" description="Обращения, диагностика и связь с поддержкой Marjon." items={[{ title: "Заявка", text: "Создайте обращение по проблеме или вопросу.", icon: "bi-life-preserver" }, { title: "Диагностика", text: "Проверка соединения, устройств и синхронизации.", icon: "bi-activity" }, { title: "Контакты", text: "Каналы связи и история обращений.", icon: "bi-chat-dots" }]} /> },
-      { path: "finance", element: <FinancePage /> },
-      { path: "finance/operations", element: <SectionPage eyebrow="Финансы" title="Денежные операции" description="Контроль приходов, расходов и движений денежных средств." items={[{ title: "Новая операция", text: "Добавьте приход, расход или внутреннее движение.", icon: "bi-plus-circle" }, { title: "Касса и счета", text: "Отслеживайте деньги по кассам, картам и счетам.", icon: "bi-wallet2" }, { title: "История", text: "Фильтры по дате, типу операции и ответственному.", icon: "bi-clock-history" }]} /> },
-      { path: "finance/income-categories", element: <SectionPage eyebrow="Финансы" title="Категория приходов" description="Справочник категорий для учета входящих денежных средств." items={[{ title: "Продажи", text: "Выручка ресторана, доставка и дополнительные услуги.", icon: "bi-graph-up-arrow" }, { title: "Прочие приходы", text: "Возвраты от поставщиков, бонусы и компенсации.", icon: "bi-arrow-down-left-circle" }, { title: "Структура", text: "Группировка приходов для отчётов и аналитики.", icon: "bi-diagram-3" }]} /> },
-      { path: "finance/expense-categories", element: <SectionPage eyebrow="Финансы" title="Категория расходов" description="Справочник категорий для контроля затрат ресторана." items={[{ title: "Закупки", text: "Продукты, ингредиенты и складские расходы.", icon: "bi-basket" }, { title: "Операционные расходы", text: "Аренда, зарплата, сервисы и обслуживание.", icon: "bi-receipt" }, { title: "Контроль затрат", text: "Анализ расходов по категориям и периодам.", icon: "bi-pie-chart" }]} /> },
-      { path: "nomenclature", element: <MenuPage /> },
-      { path: "nomenclature/dishes", element: <MenuPage /> },
-      { path: "nomenclature/raw-materials", element: <SectionPage eyebrow="Номенклатура" title="Сырьё" description="Список ингредиентов и товаров для склада и техкарт." items={[{ title: "Ингредиенты", text: "Мясо, овощи, специи, напитки и другие позиции.", icon: "bi-basket" }, { title: "Единицы", text: "Вес, объём и поштучный учёт сырья.", icon: "bi-rulers" }, { title: "Остатки", text: "Связь сырья со складом и минимальными остатками.", icon: "bi-box-seam" }]} /> },
-      { path: "nomenclature/semi-finished", element: <SectionPage eyebrow="Номенклатура" title="Полуфабрикаты" description="Заготовки и производственные позиции для кухни." items={[{ title: "Заготовки", text: "Соусы, тесто, фарш и другие полуфабрикаты.", icon: "bi-cup-hot" }, { title: "Состав", text: "Сырьё и нормы расхода для производства.", icon: "bi-list-check" }, { title: "Производство", text: "Контроль выпуска и списания ингредиентов.", icon: "bi-gear-wide-connected" }]} /> },
-      { path: "nomenclature/dish-categories", element: <SectionPage eyebrow="Номенклатура" title="Категория блюд" description="Группы меню для блюд и продаж." items={[{ title: "Основные группы", text: "Салаты, горячее, напитки, десерты и другие разделы.", icon: "bi-grid" }, { title: "Порядок", text: "Сортировка категорий в меню и POS.", icon: "bi-sort-down" }, { title: "Видимость", text: "Управление отображением категорий для каналов продаж.", icon: "bi-eye" }]} /> },
-      { path: "nomenclature/raw-categories", element: <SectionPage eyebrow="Номенклатура" title="Категория сырья" description="Группы сырья для склада, закупок и аналитики." items={[{ title: "Складские группы", text: "Мясо, молочка, овощи, бакалея и прочие категории.", icon: "bi-boxes" }, { title: "Закупки", text: "Удобная группировка для поставщиков и приходов.", icon: "bi-truck" }, { title: "Контроль", text: "Анализ остатков и расхода по группам сырья.", icon: "bi-graph-up" }]} /> },
-      { path: "nomenclature/semi-finished-categories", element: <SectionPage eyebrow="Номенклатура" title="Категория полуфабрикатов" description="Группы заготовок и производственных позиций." items={[{ title: "Цеха", text: "Горячий цех, холодный цех, выпечка и заготовки.", icon: "bi-columns-gap" }, { title: "Состав", text: "Категории для техкарт и норм производства.", icon: "bi-diagram-3" }, { title: "Учёт", text: "Контроль движения полуфабрикатов по кухне.", icon: "bi-clipboard-data" }]} /> },
-      { path: "nomenclature/sales-categories", element: <SectionPage eyebrow="Номенклатура" title="Категория реализации" description="Категории для продаж, отчётов и каналов реализации." items={[{ title: "Каналы", text: "Зал, доставка, самовывоз и дополнительные продажи.", icon: "bi-shop" }, { title: "Отчёты", text: "Группировка реализации для аналитики и финансов.", icon: "bi-file-earmark-bar-graph" }, { title: "Правила", text: "Настройки видимости и применения категорий.", icon: "bi-sliders" }]} /> },
+      { path: "finance", element: <Navigate to="/finance/transactions" replace /> },
+      { path: "finance/transactions", element: <FinanceTransactionsPage /> },
+      { path: "finance/operations", element: <FinanceTransactionsPage /> },
+      { path: "finance/income-categories", element: <FinanceIncomeCategoriesPage /> },
+      { path: "finance/expense-categories", element: <FinanceExpenseCategoriesPage /> },
+      { path: "nomenclature", element: <Navigate to="/nomenclature/dishes" replace /> },
+      { path: "nomenclature/dishes", element: <NomenclaturePage type="dishes" /> },
+      { path: "nomenclature/raw-materials", element: <NomenclaturePage type="raw" /> },
+      { path: "nomenclature/semi-finished", element: <NomenclaturePage type="semi" /> },
+      { path: "nomenclature/dish-categories", element: <CategoriesPage type="dishes" /> },
+      { path: "nomenclature/raw-categories", element: <CategoriesPage type="raw" /> },
+      { path: "nomenclature/semi-finished-categories", element: <CategoriesPage type="semi" /> },
+      { path: "nomenclature/sales-categories", element: <CategoriesPage type="sales" /> },
       { path: "store", element: <OrdersPage /> },
       { path: "reviews", element: <PlaceholderPage eyebrow="Reviews" title="Отзывы" text="Раздел отзывов будет показывать обратную связь клиентов." /> },
       { path: "orders", element: <OrdersPage /> },

@@ -1,324 +1,589 @@
-﻿import { useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
-import Icon from '../components/Icon';
+import { useMemo, useState } from "react";
+import Icon from "../components/Icon";
 
-const roleConfigs = {
-  cashier: {
-    title: "Кассир",
-    subtitle: "Кассовые смены, доступы и операции кассира.",
-    roleLabel: "Кассир",
+const roleOptions = [
+  { key: "cashier", label: "Кассир", title: "Кассиры" },
+  { key: "waiter", label: "Официант", title: "Официанты" },
+  { key: "courier", label: "Курьер", title: "Курьеры" },
+  { key: "monoblock", label: "Моноблок", title: "Моноблок" },
+  { key: "kitchen", label: "Повар", title: "Повара" },
+  { key: "manager", label: "Менеджер", title: "Менеджеры" },
+  { key: "warehouse", label: "Завсклад", title: "Завсклад" },
+];
+
+const roleMap = roleOptions.reduce((acc, item) => {
+  acc[item.key] = item;
+  return acc;
+}, {});
+
+const initialStaff = [
+  {
+    id: 5439,
+    fullName: "SARDORKASSA",
+    phone: "998770702103",
     roleKey: "cashier",
-    accent: "bi-cash-coin",
+    permission: "Удаления блюд",
+    status: "active",
+    pin: "5439",
+    password: "cashier5439",
+    comment: "Основная касса",
   },
-  waiter: {
-    title: "Официант",
-    subtitle: "Официанты зала, зоны обслуживания и заказы.",
-    roleLabel: "Официант",
+  {
+    id: 5440,
+    fullName: "KACCA 2",
+    phone: "998770702102",
+    roleKey: "cashier",
+    permission: "Удаления блюд",
+    status: "active",
+    pin: "5440",
+    password: "cashier5440",
+    comment: "Вторая касса",
+  },
+  {
+    id: 15349,
+    fullName: "Khusniddin Khusanboyev",
+    phone: "998882229904",
+    roleKey: "cashier",
+    permission: "Удаления блюд",
+    status: "active",
+    pin: "3490",
+    password: "khusniddin",
+    comment: "Дневная смена",
+  },
+  {
+    id: 16751,
+    fullName: "Nurmuxammad",
+    phone: "998943027535",
+    roleKey: "cashier",
+    permission: "Удаления блюд",
+    status: "active",
+    pin: "6751",
+    password: "nurmuxammad",
+    comment: "Вечерняя смена",
+  },
+  {
+    id: 21402,
+    fullName: "Azizbek",
+    phone: "998901112233",
     roleKey: "waiter",
-    accent: "bi-person",
+    permission: "Приём заказов",
+    status: "active",
+    pin: "1402",
+    password: "azizbek",
+    comment: "Зал",
   },
-  monoblock: {
-    title: "Моноблок",
-    subtitle: "Рабочие места, терминалы и устройства обслуживания.",
-    roleLabel: "Моноблок",
+  {
+    id: 21419,
+    fullName: "Dilnoza",
+    phone: "998902224455",
+    roleKey: "waiter",
+    permission: "Приём заказов",
+    status: "archived",
+    pin: "1419",
+    password: "dilnoza",
+    comment: "В архиве",
+  },
+  {
+    id: 23710,
+    fullName: "Javohir Courier",
+    phone: "998933334455",
+    roleKey: "courier",
+    permission: "Доставка",
+    status: "active",
+    pin: "3710",
+    password: "courier",
+    comment: "Центр города",
+  },
+  {
+    id: 24501,
+    fullName: "Terminal 1",
+    phone: "998900001001",
     roleKey: "monoblock",
-    accent: "bi-pc-display",
+    permission: "Кассовый экран",
+    status: "active",
+    pin: "4501",
+    password: "terminal",
+    comment: "Основной моноблок",
   },
-  kitchen: {
-    title: "Кухня",
-    subtitle: "Кухонная команда, KDS и станции приготовления.",
-    roleLabel: "Кухня",
+  {
+    id: 25118,
+    fullName: "Povar Bekzod",
+    phone: "998977778899",
     roleKey: "kitchen",
-    accent: "bi-display",
+    permission: "Кухня",
+    status: "active",
+    pin: "5118",
+    password: "kitchen",
+    comment: "Горячий цех",
   },
-  manager: {
-    title: "Менеджер",
-    subtitle: "Менеджеры, управленческий доступ и контроль смены.",
-    roleLabel: "Менеджер",
+  {
+    id: 26834,
+    fullName: "Rustam Manager",
+    phone: "998944445566",
     roleKey: "manager",
-    accent: "bi-shield-lock",
+    permission: "Отчёты и смены",
+    status: "active",
+    pin: "6834",
+    password: "manager",
+    comment: "Администратор",
   },
-  all: {
-    title: "Все сотрудники",
-    subtitle: "Единый список сотрудников ресторана.",
-    roleLabel: "Сотрудник",
-    roleKey: "all",
-    accent: "bi-people",
+  {
+    id: 27605,
+    fullName: "Omborchi",
+    phone: "998955556677",
+    roleKey: "warehouse",
+    permission: "Склад",
+    status: "active",
+    pin: "7605",
+    password: "warehouse",
+    comment: "Складская зона",
   },
-};
-
-const demoEmployees = [
-  { id: 5439, full_name: "SARDORKASSA", phone: "998770702103", role: "Кассир", access: "Удаление блюд", status: "active", photo: "" },
-  { id: 5440, full_name: "КАССА 2", phone: "998770702102", role: "Кассир", access: "Возвраты и оплата", status: "active", photo: "" },
-  { id: 15349, full_name: "Khusniddin Khusanboyev", phone: "998882229904", role: "Кассир", access: "Удаление блюд", status: "active", photo: "" },
-  { id: 8711, full_name: "Azizbek", phone: "998901112233", role: "Официант", access: "Заказы зала", status: "active", photo: "" },
-  { id: 9012, full_name: "Kitchen station", phone: "998901234567", role: "Кухня", access: "KDS", status: "active", photo: "" },
-  { id: 7112, full_name: "Manager", phone: "998909998877", role: "Менеджер", access: "Управление сменой", status: "active", photo: "" },
 ];
 
 const emptyForm = {
-  full_name: "",
+  fullName: "",
   phone: "",
-  access: "",
-  role: "",
+  roleKey: "cashier",
+  permission: "",
+  pin: "",
+  password: "",
+  status: "active",
+  comment: "",
   photo: "",
 };
 
-const STAFF_STORAGE_KEY = "marjon_staff_employees";
+function StaffRolePage({ role = "all" }) {
+  const routeRole = roleMap[role] ? role : "all";
+  const pageTitle =
+    routeRole === "all" ? "Список сотрудников" : `Список сотрудников: ${roleMap[routeRole].title}`;
 
-function readStoredEmployees() {
-  try {
-    const stored = localStorage.getItem(STAFF_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
-function storeEmployees(employees) {
-  localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(employees));
-}
-
-function normalizeEmployee(employee, index) {
-  return {
-    id: employee.id || 9000 + index,
-    full_name: employee.full_name || employee.name || employee.position || "Сотрудник",
-    phone: employee.phone || employee.phone_number || "998901234567",
-    role: employee.role || employee.position || "Сотрудник",
-    access: employee.access || employee.permissions || "Базовый доступ",
-    status: employee.status || "active",
-    photo: employee.photo || employee.avatar || "",
-  };
-}
-
-function matchesRole(employee, config) {
-  if (config.roleKey === "all") return true;
-  return String(employee.role || "").toLowerCase().includes(config.roleLabel.toLowerCase());
-}
-
-export default function StaffRolePage({ role = "all" }) {
-  const config = roleConfigs[role] || roleConfigs.all;
-  const [employees, setEmployees] = useState([]);
-  const [error, setError] = useState("");
-  const [showForm, setShowForm] = useState(false);
+  const [staff, setStaff] = useState(initialStaff);
   const [activeTab, setActiveTab] = useState("active");
+  const [draftFilters, setDraftFilters] = useState({
+    query: "",
+    roleKey: routeRole === "all" ? "" : routeRole,
+    status: "",
+  });
+  const [filters, setFilters] = useState(draftFilters);
+  const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({ ...emptyForm, role: config.roleKey === "all" ? "Кассир" : config.roleLabel });
+  const [form, setForm] = useState({
+    ...emptyForm,
+    roleKey: routeRole === "all" ? "cashier" : routeRole,
+  });
 
-  useEffect(() => {
-    let mounted = true;
-    const stored = readStoredEmployees();
-    if (stored.length) {
-      setEmployees(stored);
-      return () => { mounted = false; };
-    }
+  const visibleStaff = useMemo(() => {
+    const normalizedQuery = filters.query.trim().toLowerCase();
 
-    api.get("/hr/employees")
-      .then(({ data }) => {
-        if (!mounted) return;
-        const normalized = Array.isArray(data) ? data.map(normalizeEmployee) : [];
-        setEmployees(normalized.length ? normalized : demoEmployees);
-      })
-      .catch((err) => {
-        if (!mounted) return;
-        setError(err.response?.data?.detail || "Backend сотрудников пока недоступен. Данные и действия работают локально в демо-режиме.");
-        setEmployees(demoEmployees);
-      });
-    return () => { mounted = false; };
-  }, []);
+    return staff.filter((employee) => {
+      const matchesRoute = routeRole === "all" || employee.roleKey === routeRole;
+      const matchesTab = employee.status === activeTab;
+      const matchesQuery =
+        !normalizedQuery ||
+        employee.fullName.toLowerCase().includes(normalizedQuery) ||
+        employee.phone.includes(normalizedQuery);
+      const matchesRole = !filters.roleKey || employee.roleKey === filters.roleKey;
+      const matchesStatus = !filters.status || employee.status === filters.status;
 
-  useEffect(() => {
-    if (employees.length) storeEmployees(employees);
-  }, [employees]);
+      return matchesRoute && matchesTab && matchesQuery && matchesRole && matchesStatus;
+    });
+  }, [activeTab, filters, routeRole, staff]);
 
-  useEffect(() => {
-    if (!editingId) {
-      setForm((current) => ({ ...current, role: config.roleKey === "all" ? current.role || "Кассир" : config.roleLabel }));
-    }
-  }, [config.roleKey, config.roleLabel, editingId]);
-
-  const roleEmployees = useMemo(() => employees.filter((employee) => matchesRole(employee, config)), [employees, config]);
-  const visibleEmployees = useMemo(() => roleEmployees.filter((employee) => employee.status === activeTab), [roleEmployees, activeTab]);
-  const activeCount = roleEmployees.filter((employee) => employee.status === "active").length;
-  const archiveCount = roleEmployees.filter((employee) => employee.status === "archived").length;
-
-  function resetForm() {
+  const openAddModal = () => {
     setEditingId(null);
-    setForm({ ...emptyForm, role: config.roleKey === "all" ? "Кассир" : config.roleLabel });
-  }
+    setForm({
+      ...emptyForm,
+      roleKey: routeRole === "all" ? "cashier" : routeRole,
+    });
+    setModalOpen(true);
+  };
 
-  function toggleForm() {
-    if (showForm) resetForm();
-    setShowForm((value) => !value);
-  }
+  const openEditModal = (employee) => {
+    setEditingId(employee.id);
+    setForm({ ...emptyForm, ...employee });
+    setModalOpen(true);
+  };
 
-  function handleChange(event) {
-    const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
-  }
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditingId(null);
+  };
 
-  function handlePhoto(event) {
+  const updateForm = (field, value) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handlePhotoChange = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setForm((current) => ({ ...current, photo: String(reader.result || "") }));
-    reader.readAsDataURL(file);
-  }
 
-  function handleSubmit(event) {
+    const reader = new FileReader();
+    reader.onload = () => updateForm("photo", reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const saveStaff = (event) => {
     event.preventDefault();
-    const name = form.full_name.trim();
-    if (!name) return;
 
     if (editingId) {
-      setEmployees((current) => current.map((employee) => (
-        employee.id === editingId
-          ? { ...employee, ...form, full_name: name, phone: form.phone.trim() || employee.phone, access: form.access.trim() || employee.access }
-          : employee
-      )));
+      setStaff((current) =>
+        current.map((employee) =>
+          employee.id === editingId
+            ? {
+                ...employee,
+                ...form,
+                id: editingId,
+                status: form.status === "archived" ? "archived" : "active",
+              }
+            : employee,
+        ),
+      );
     } else {
-      setEmployees((current) => [
+      setStaff((current) => [
         {
+          ...form,
           id: Date.now(),
-          full_name: name,
-          phone: form.phone.trim() || "998000000000",
-          role: form.role || config.roleLabel,
-          access: form.access.trim() || "Базовый доступ",
-          status: "active",
-          photo: form.photo,
+          status: form.status === "archived" ? "archived" : "active",
         },
         ...current,
       ]);
     }
 
-    resetForm();
-    setShowForm(false);
-    setActiveTab("active");
-  }
+    closeModal();
+  };
 
-  function editEmployee(employee) {
-    setEditingId(employee.id);
-    setForm({
-      full_name: employee.full_name,
-      phone: employee.phone,
-      access: employee.access,
-      role: employee.role,
-      photo: employee.photo || "",
-    });
-    setShowForm(true);
-  }
+  const archiveStaff = (id) => {
+    setStaff((current) =>
+      current.map((employee) =>
+        employee.id === id ? { ...employee, status: "archived" } : employee,
+      ),
+    );
+  };
 
-  function toggleArchive(employee) {
-    setEmployees((current) => current.map((item) => (
-      item.id === employee.id ? { ...item, status: item.status === "active" ? "archived" : "active" } : item
-    )));
-  }
+  const restoreStaff = (id) => {
+    setStaff((current) =>
+      current.map((employee) =>
+        employee.id === id ? { ...employee, status: "active" } : employee,
+      ),
+    );
+  };
 
-  function deleteEmployee(employeeId) {
-    setEmployees((current) => current.filter((employee) => employee.id !== employeeId));
-  }
+  const applyFilters = () => {
+    setFilters(draftFilters);
+  };
+
+  const clearFilters = () => {
+    const resetFilters = {
+      query: "",
+      roleKey: routeRole === "all" ? "" : routeRole,
+      status: "",
+    };
+    setDraftFilters(resetFilters);
+    setFilters(resetFilters);
+  };
 
   return (
-    <section className="staff-manager staff-manager--next card card-pad">
-      <div className="staff-manager__hero staff-manager__hero--next">
-        <div className="staff-manager__title">
-          <span className="eyebrow">Сотрудники</span>
-          <h2>{config.title}</h2>
-          <p>{config.subtitle}</p>
+    <div className="staff-page">
+      <section className="staff-card">
+        <header className="staff-header">
+          <div className="staff-header__title">
+            <span className="staff-header__accent" aria-hidden="true" />
+            <div>
+              <p className="staff-header__eyebrow">Пользователи</p>
+              <h1>{pageTitle}</h1>
+            </div>
+          </div>
+          <button className="staff-add-button" type="button" onClick={openAddModal}>
+            <Icon name="bi-plus" size={18} />
+            Добавить +
+          </button>
+        </header>
+
+        <div className="staff-tabs" role="tablist" aria-label="Статус сотрудников">
+          <button
+            className={activeTab === "active" ? "is-active" : ""}
+            type="button"
+            onClick={() => setActiveTab("active")}
+          >
+            <Icon name="bi-check2-circle" size={17} />
+            Активные
+          </button>
+          <button
+            className={activeTab === "archived" ? "is-active" : ""}
+            type="button"
+            onClick={() => setActiveTab("archived")}
+          >
+            <Icon name="bi-archive" size={17} />
+            Архивированные
+          </button>
         </div>
-        <button className="staff-manager__add" type="button" onClick={toggleForm}>
-          <span>{showForm ? "Закрыть" : "Добавить"}</span>
-          <Icon name={showForm ? "bi-x-lg" : "bi-plus-lg"} size={18} />
-        </button>
-      </div>
 
-      {error ? <div className="message message-info">{error}</div> : null}
-
-      <div className="staff-manager__stats staff-manager__stats--next">
-        <div><Icon name={config.accent} size={20} /><span>Всего</span><strong>{roleEmployees.length}</strong></div>
-        <div><Icon name="bi-check2-circle" size={18} /><span>Активные</span><strong>{activeCount}</strong></div>
-        <div><Icon name="bi-archive" size={18} /><span>Архив</span><strong>{archiveCount}</strong></div>
-      </div>
-
-      {showForm ? (
-        <form className="staff-manager__form staff-manager__form--next" onSubmit={handleSubmit}>
-          <label className="staff-manager__photo-upload">
-            <input type="file" accept="image/*" onChange={handlePhoto} />
-            <span>{form.photo ? <img src={form.photo} alt="Фото сотрудника" /> : <Icon name="bi-camera" size={20} />}</span>
-            <em>Фото</em>
+        <div className="staff-filters">
+          <label>
+            <span>Поиск</span>
+            <div className="staff-filter-control">
+              <Icon name="bi-search" size={17} />
+              <input
+                type="search"
+                value={draftFilters.query}
+                onChange={(event) =>
+                  setDraftFilters((current) => ({ ...current, query: event.target.value }))
+                }
+                placeholder="ФИО или телефон"
+              />
+            </div>
           </label>
           <label>
-            <span>ФИО</span>
-            <input name="full_name" value={form.full_name} onChange={handleChange} placeholder="Например: Sardor Kassa" />
+            <span>Роль</span>
+            <select
+              value={draftFilters.roleKey}
+              onChange={(event) =>
+                setDraftFilters((current) => ({ ...current, roleKey: event.target.value }))
+              }
+              disabled={routeRole !== "all"}
+            >
+              <option value="">Все роли</option>
+              {roleOptions.map((item) => (
+                <option key={item.key} value={item.key}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
-            <span>Номер телефона</span>
-            <input name="phone" value={form.phone} onChange={handleChange} placeholder="998901234567" />
+            <span>Статус</span>
+            <select
+              value={draftFilters.status}
+              onChange={(event) =>
+                setDraftFilters((current) => ({ ...current, status: event.target.value }))
+              }
+            >
+              <option value="">Все статусы</option>
+              <option value="active">Активные</option>
+              <option value="archived">Архивированные</option>
+            </select>
           </label>
-          {config.roleKey === "all" ? (
-            <label>
-              <span>Роль</span>
-              <select name="role" value={form.role} onChange={handleChange}>
-                {Object.values(roleConfigs).filter((item) => item.roleKey !== "all").map((item) => <option key={item.roleKey}>{item.roleLabel}</option>)}
-              </select>
-            </label>
-          ) : null}
-          <label>
-            <span>Доступ</span>
-            <input name="access" value={form.access} onChange={handleChange} placeholder="Например: Удаление блюд" />
-          </label>
-          <button type="submit">{editingId ? "Сохранить изменения" : "Добавить сотрудника"}</button>
-        </form>
-      ) : null}
-
-      <div className="staff-manager__toolbar">
-        <div className="staff-manager__tabs">
-          <button className={activeTab === "active" ? "is-active" : ""} type="button" onClick={() => setActiveTab("active")}><Icon name="bi-check2" size={18} /> Активные</button>
-          <button className={activeTab === "archived" ? "is-active" : ""} type="button" onClick={() => setActiveTab("archived")}><Icon name="bi-archive" size={18} /> Архивированные</button>
+          <div className="staff-filter-buttons">
+            <button type="button" onClick={applyFilters}>
+              <Icon name="bi-funnel" size={16} />
+              Фильтровать
+            </button>
+            <button type="button" className="staff-clear-button" onClick={clearFilters}>
+              <Icon name="bi-arrow-counterclockwise" size={16} />
+              Очистить
+            </button>
+          </div>
         </div>
-        <span className="staff-manager__hint">Все действия пока сохраняются локально до подключения backend POST.</span>
-      </div>
 
-      <div className="staff-manager__table-wrap staff-manager__table-wrap--next">
-        <table className="staff-manager__table staff-manager__table--next">
-          <thead>
-            <tr>
-              <th>Сотрудник</th>
-              <th>Телефон</th>
-              <th>Роль</th>
-              <th>Доступ</th>
-              <th>Статус</th>
-              <th>Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleEmployees.map((employee) => (
-              <tr key={employee.id}>
-                <td>
-                  <div className="staff-manager__person">
-                    <span className="staff-manager__avatar">{employee.photo ? <img src={employee.photo} alt={employee.full_name} /> : <Icon name="bi-person" size={18} />}</span>
-                    <div><strong>{employee.full_name}</strong><small>ID {employee.id}</small></div>
-                  </div>
-                </td>
-                <td>{employee.phone}</td>
-                <td><span className="staff-manager__role">{employee.role}</span></td>
-                <td><span className="staff-manager__access-dot" /> {employee.access}</td>
-                <td><span className={`staff-manager__status ${employee.status === "archived" ? "is-archived" : ""}`}>{employee.status === "active" ? "#активно" : "#архив"}</span></td>
-                <td>
-                  <div className="staff-manager__actions">
-                    <button type="button" onClick={() => editEmployee(employee)} aria-label="Редактировать"><Icon name="bi-pencil" size={18} /></button>
-                    <button type="button" onClick={() => toggleArchive(employee)} aria-label="Архив"><Icon name={employee.status === "active" ? "bi-archive" : "bi-arrow-counterclockwise"} size={18} /></button>
-                    <button type="button" onClick={() => deleteEmployee(employee.id)} aria-label="Удалить"><Icon name="bi-trash3" size={18} /></button>
-                  </div>
-                </td>
+        <div className="staff-table-wrapper">
+          <table className="staff-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Фото</th>
+                <th>ФИО</th>
+                <th>Номер телефона</th>
+                <th>Роль</th>
+                <th>Доступ</th>
+                <th>Статус</th>
+                <th>Действия</th>
               </tr>
-            ))}
-            {!visibleEmployees.length ? (
-              <tr><td colSpan="6">В этом списке пока нет сотрудников.</td></tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
-    </section>
+            </thead>
+            <tbody>
+              {visibleStaff.map((employee) => (
+                <tr key={employee.id}>
+                  <td>{employee.id}</td>
+                  <td>
+                    <div className="staff-avatar">
+                      {employee.photo ? (
+                        <img src={employee.photo} alt={employee.fullName} />
+                      ) : (
+                        <span>{employee.fullName.slice(0, 2).toUpperCase()}</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="staff-name-cell">{employee.fullName}</td>
+                  <td>{employee.phone}</td>
+                  <td>
+                    <span className="staff-role-badge">
+                      {roleMap[employee.roleKey]?.label || employee.roleKey}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="staff-permission">
+                      <span className="staff-permission-dot" aria-hidden="true" />
+                      {employee.permission || "Базовый доступ"}
+                    </span>
+                  </td>
+                  <td>
+                    <span
+                      className={`staff-status-badge ${
+                        employee.status === "archived" ? "is-archived" : ""
+                      }`}
+                    >
+                      {employee.status === "archived" ? "#архив" : "#активно"}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="staff-actions">
+                      <button type="button" onClick={() => openEditModal(employee)}>
+                        <Icon name="bi-pencil" size={15} />
+                        Edit
+                      </button>
+                      {employee.status === "archived" ? (
+                        <button
+                          type="button"
+                          className="staff-restore-action"
+                          onClick={() => restoreStaff(employee.id)}
+                        >
+                          <Icon name="bi-recycle" size={15} />
+                          Restore
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="staff-delete-action"
+                          onClick={() => archiveStaff(employee.id)}
+                        >
+                          <Icon name="bi-trash3" size={15} />
+                          Archive
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {visibleStaff.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="staff-empty-cell">
+                    Сотрудники не найдены
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {modalOpen && (
+        <div className="staff-modal" role="dialog" aria-modal="true">
+          <div className="staff-modal__backdrop" onClick={closeModal} />
+          <form className="staff-form" onSubmit={saveStaff}>
+            <div className="staff-form__header">
+              <div>
+                <p>{editingId ? "Редактирование" : "Новый сотрудник"}</p>
+                <h2>{editingId ? "Изменить сотрудника" : "Добавить сотрудника"}</h2>
+              </div>
+              <button type="button" onClick={closeModal} aria-label="Закрыть">
+                <Icon name="bi-x-lg" size={20} />
+              </button>
+            </div>
+
+            <label className="staff-photo-upload">
+              <span>Фото / avatar upload</span>
+              <div>
+                <div className="staff-avatar staff-avatar--large">
+                  {form.photo ? (
+                    <img src={form.photo} alt="Avatar preview" />
+                  ) : (
+                    <Icon name="bi-person" size={24} />
+                  )}
+                </div>
+                <input type="file" accept="image/*" onChange={handlePhotoChange} />
+              </div>
+            </label>
+
+            <div className="staff-form__grid">
+              <label>
+                <span>ФИО</span>
+                <input
+                  required
+                  value={form.fullName}
+                  onChange={(event) => updateForm("fullName", event.target.value)}
+                  placeholder="Имя сотрудника"
+                />
+              </label>
+              <label>
+                <span>Номер телефона</span>
+                <input
+                  required
+                  value={form.phone}
+                  onChange={(event) => updateForm("phone", event.target.value)}
+                  placeholder="998..."
+                />
+              </label>
+              <label>
+                <span>Роль</span>
+                <select
+                  value={form.roleKey}
+                  onChange={(event) => updateForm("roleKey", event.target.value)}
+                >
+                  {roleOptions.map((item) => (
+                    <option key={item.key} value={item.key}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>PIN-код 4 цифры</span>
+                <input
+                  value={form.pin}
+                  maxLength={4}
+                  inputMode="numeric"
+                  pattern="[0-9]{4}"
+                  onChange={(event) => updateForm("pin", event.target.value.replace(/\D/g, ""))}
+                  placeholder="0000"
+                />
+              </label>
+              <label>
+                <span>Пароль</span>
+                <input
+                  type="password"
+                  value={form.password}
+                  onChange={(event) => updateForm("password", event.target.value)}
+                  placeholder="Пароль"
+                />
+              </label>
+              <label>
+                <span>Доступы / permissions</span>
+                <input
+                  value={form.permission}
+                  onChange={(event) => updateForm("permission", event.target.value)}
+                  placeholder="Например: Удаления блюд"
+                />
+              </label>
+              <label className="staff-form__status">
+                <span>Статус active</span>
+                <select
+                  value={form.status}
+                  onChange={(event) => updateForm("status", event.target.value)}
+                >
+                  <option value="active">Активный</option>
+                  <option value="archived">Архив</option>
+                </select>
+              </label>
+              <label className="staff-form__comment">
+                <span>Комментарий</span>
+                <textarea
+                  value={form.comment}
+                  onChange={(event) => updateForm("comment", event.target.value)}
+                  placeholder="Заметка по сотруднику"
+                />
+              </label>
+            </div>
+
+            <div className="staff-form__footer">
+              <button type="button" onClick={closeModal}>
+                Отмена
+              </button>
+              <button type="submit">{editingId ? "Сохранить" : "Добавить"}</button>
+            </div>
+          </form>
+        </div>
+      )}
+    </div>
   );
 }
+
+export default StaffRolePage;

@@ -18011,3 +18011,329 @@ body.dashboard-body,
     min-height: 38px !important;
   }
 }
+.dc-report-page {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.dc-report-card {
+  overflow: visible !important;
+  max-width: 100% !important;
+}
+
+.dc-report-head {
+  position: relative !important;
+  z-index: 20 !important;
+}
+
+.dc-report-head:has(.mj-datepicker.is-open) {
+  margin-bottom: 374px !important;
+}
+
+.dc-report-head .mj-datepicker {
+  z-index: 1000 !important;
+}
+
+.dc-report-head .mj-datepicker__trigger {
+  min-width: 240px !important;
+  height: 52px !important;
+  min-height: 52px !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(29, 181, 181, 0.36) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  color: var(--mj-text) !important;
+  box-shadow: 0 14px 34px rgba(13, 39, 72, 0.08) !important;
+}
+
+.dc-report-head .mj-datepicker__icon {
+  color: #fff !important;
+  background: linear-gradient(135deg, var(--mj-cyan), var(--mj-cyan-dark)) !important;
+}
+
+.dc-report-head .mj-datepicker__value {
+  color: var(--mj-text) !important;
+  font-weight: 800 !important;
+}
+
+.dc-report-head .mj-datepicker__divider,
+.dc-report-head .mj-datepicker__time {
+  display: none !important;
+}
+
+.dc-report-head .mj-calendar {
+  left: auto !important;
+  right: 0 !important;
+  z-index: 1001 !important;
+  width: 330px !important;
+  border-radius: 22px !important;
+  box-shadow: 0 28px 80px rgba(13, 39, 72, 0.18) !important;
+}
+
+.dc-summary-grid {
+  position: relative !important;
+  z-index: 1 !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) !important;
+}
+
+.dc-summary-card {
+  min-width: 0 !important;
+}
+
+.dc-summary-card strong {
+  max-width: 100% !important;
+  overflow: hidden !important;
+  font-size: clamp(24px, 1.9vw, 34px) !important;
+  line-height: 1.08 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.dc-summary-card--balance strong {
+  font-size: clamp(22px, 1.65vw, 30px) !important;
+}
+
+.dc-tabs button.is-active,
+.dc-currency button.is-active {
+  color: #fff !important;
+  background: linear-gradient(135deg, var(--mj-cyan), var(--mj-cyan-dark)) !important;
+  box-shadow: 0 14px 28px rgba(32, 201, 201, 0.24) !important;
+}
+
+.dc-tabs button:not(.is-active),
+.dc-currency button:not(.is-active) {
+  color: var(--mj-text) !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+}
+
+.dc-toolbar {
+  min-width: 0 !important;
+}
+
+.dc-toolbar__right {
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+}
+
+.dc-search {
+  width: min(360px, 100%) !important;
+  min-width: 220px !important;
+}
+
+.dc-table-wrap {
+  max-width: 100% !important;
+}
+
+.dc-table {
+  min-width: 860px !important;
+}
+
+@media (max-width: 1280px) {
+  .dc-summary-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dc-summary-card strong,
+  .dc-summary-card--balance strong {
+    font-size: clamp(26px, 4vw, 36px) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .dc-report-head:has(.mj-datepicker.is-open) {
+    margin-bottom: 352px !important;
+  }
+
+  .dc-report-head .mj-datepicker,
+  .dc-report-head .mj-datepicker__trigger,
+  .dc-report-head .mj-calendar {
+    width: 100% !important;
+  }
+
+  .dc-toolbar__right {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .dc-search {
+    width: 100% !important;
+  }
+}
+
+.cancelled-report-page {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.cancelled-report-card {
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+.cancelled-report-title h2 {
+  max-width: 100% !important;
+  overflow-wrap: anywhere !important;
+}
+
+.cancelled-filter-panel {
+  grid-template-columns:
+    minmax(138px, 0.72fr)
+    minmax(138px, 0.72fr)
+    minmax(180px, 0.9fr)
+    minmax(160px, 0.82fr)
+    minmax(220px, 1fr)
+    minmax(154px, auto) !important;
+}
+
+.cancelled-report-excel,
+.cancelled-filter-button {
+  color: #fff !important;
+  border: 0 !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+.cancelled-report-excel {
+  background: linear-gradient(135deg, #12b76a, #039855) !important;
+  box-shadow: 0 14px 30px rgba(18, 183, 106, 0.22) !important;
+}
+
+.cancelled-filter-button {
+  background: linear-gradient(135deg, var(--mj-cyan), var(--mj-cyan-dark)) !important;
+  box-shadow: 0 14px 30px rgba(32, 201, 201, 0.24) !important;
+}
+
+.cancelled-filter-button .bi,
+.cancelled-report-excel .bi {
+  color: currentColor !important;
+}
+
+.cancelled-filter-panel input,
+.cancelled-filter-panel select {
+  color: var(--mj-text) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+}
+
+.cancelled-table-wrap {
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(32, 201, 201, 0.55) rgba(226, 232, 240, 0.9) !important;
+}
+
+.cancelled-table-wrap::-webkit-scrollbar {
+  height: 10px !important;
+}
+
+.cancelled-table-wrap::-webkit-scrollbar-track {
+  border-radius: 999px !important;
+  background: rgba(226, 232, 240, 0.9) !important;
+}
+
+.cancelled-table-wrap::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(226, 232, 240, 0.9) !important;
+  border-radius: 999px !important;
+  background: linear-gradient(90deg, var(--mj-cyan), var(--mj-cyan-dark)) !important;
+}
+
+.cancelled-table {
+  min-width: 1320px !important;
+  table-layout: fixed !important;
+}
+
+.cancelled-table th,
+.cancelled-table td {
+  padding: 14px 12px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.cancelled-table th:nth-child(1),
+.cancelled-table td:nth-child(1) { width: 158px !important; }
+.cancelled-table th:nth-child(2),
+.cancelled-table td:nth-child(2) { width: 118px !important; }
+.cancelled-table th:nth-child(3),
+.cancelled-table td:nth-child(3) { width: 112px !important; }
+.cancelled-table th:nth-child(4),
+.cancelled-table td:nth-child(4) { width: 126px !important; }
+.cancelled-table th:nth-child(5),
+.cancelled-table td:nth-child(5) { width: 140px !important; }
+.cancelled-table th:nth-child(6),
+.cancelled-table td:nth-child(6) { width: 136px !important; }
+.cancelled-table th:nth-child(7),
+.cancelled-table td:nth-child(7) { width: 112px !important; }
+.cancelled-table th:nth-child(8),
+.cancelled-table td:nth-child(8) { width: 78px !important; }
+.cancelled-table th:nth-child(9),
+.cancelled-table td:nth-child(9) { width: 82px !important; }
+.cancelled-table th:nth-child(10),
+.cancelled-table td:nth-child(10) { width: 116px !important; }
+.cancelled-table th:nth-child(11),
+.cancelled-table td:nth-child(11) { width: 116px !important; }
+.cancelled-table th:nth-child(12),
+.cancelled-table td:nth-child(12) { width: 112px !important; }
+.cancelled-table th:nth-child(13),
+.cancelled-table td:nth-child(13) { width: 130px !important; }
+
+.cancelled-type-pill {
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.cancelled-pagination button.is-active {
+  color: #fff !important;
+  background: linear-gradient(135deg, var(--mj-cyan), var(--mj-cyan-dark)) !important;
+  box-shadow: 0 10px 24px rgba(32, 201, 201, 0.24) !important;
+}
+
+.cancelled-pagination button:not(.is-active) {
+  color: var(--mj-text) !important;
+  background: transparent !important;
+}
+
+.cancelled-pagination button:disabled {
+  color: var(--neutral-400) !important;
+  background: transparent !important;
+  opacity: 0.5 !important;
+}
+
+@media (max-width: 1320px) {
+  .cancelled-filter-panel {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .cancelled-filter-panel {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.z-waiters-report__row--static-head > div {
+  gap: 0 !important;
+}
+
+.z-waiters-report__row--body {
+  min-height: 54px !important;
+  background: rgba(255, 255, 255, 0.86) !important;
+  border-top: 1px solid rgba(226, 232, 240, 0.96) !important;
+}
+
+.z-waiters-report__row--body:hover > * {
+  background: rgba(29, 181, 181, 0.055) !important;
+}
+
+.z-waiters-report__row--body > * {
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 16px !important;
+  color: var(--neutral-900) !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+}
+
+.z-waiters-report__row--body > span {
+  font-weight: 650 !important;
+}

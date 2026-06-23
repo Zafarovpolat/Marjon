@@ -1,53 +1,128 @@
-import { useEffect, useState } from "react";
-import { api, formatMoney } from "../api/client";
+import { useMemo, useState } from "react";
+import { formatMoney } from "../api/client";
 import Icon from "../components/Icon";
 
-const demoWaiters = [
-  { id: "demo-1", name: "Азизбек" },
-  { id: "demo-2", name: "Алишер" },
-  { id: "demo-3", name: "Дилноза" },
-  { id: "demo-4", name: "Сардор" },
-];
-
 const waiterColumns = [
-  { key: "orders", label: "Сумма заказов", checked: true },
-  { key: "takeaway", label: "Сумма заказов на вынос", checked: false },
-  { key: "service", label: "Сумма услуги", checked: false },
-  { key: "waiterService", label: "Обслуга официанта", checked: false },
-  { key: "dishes", label: "Блюди", checked: false },
+  { key: "orders", label: "Сумма заказов" },
+  { key: "takeaway", label: "Сумма заказов на вынос" },
+  { key: "service", label: "Сумма услуги" },
+  { key: "waiterService", label: "Обслуга официанта" },
+  { key: "dishes", label: "Блюда" },
 ];
 
-function isWaiter(employee) {
-  const role = String(employee.role || employee.position || employee.role_label || "").toLowerCase();
-  return role.includes("официант") || role.includes("waiter");
+const demoWaiters = [
+  {
+    id: "azizbek",
+    name: "Азизбек",
+    orders: 2840000,
+    takeaway: 320000,
+    service: 284000,
+    waiterService: 142000,
+    dishes: 38,
+  },
+  {
+    id: "alisher",
+    name: "Алишер",
+    orders: 1985000,
+    takeaway: 180000,
+    service: 198500,
+    waiterService: 99250,
+    dishes: 27,
+  },
+  {
+    id: "dilnoza",
+    name: "Дилноза",
+    orders: 3260000,
+    takeaway: 540000,
+    service: 326000,
+    waiterService: 163000,
+    dishes: 44,
+  },
+  {
+    id: "sardor",
+    name: "Сардор",
+    orders: 1460000,
+    takeaway: 90000,
+    service: 146000,
+    waiterService: 73000,
+    dishes: 19,
+  },
+];
+
+function cellValue(waiter, key) {
+  if (key === "dishes") return `${waiter.dishes} шт`;
+  return formatMoney(waiter[key], "UZS");
 }
 
-function normalizeWaiter(employee, index) {
-  return {
-    id: employee.id || employee.employee_id || `waiter-${index}`,
-    name: employee.full_name || employee.name || employee.username || employee.phone || `Официант ${index + 1}`,
-  };
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 export default function WaitersReportPage() {
-  const [waiters, setWaiters] = useState(demoWaiters);
+  const [selectedWaiter, setSelectedWaiter] = useState("all");
+  const [percent, setPercent] = useState("0");
 
-  useEffect(() => {
-    let mounted = true;
-    api.get("/hr/employees")
-      .then(({ data }) => {
-        if (!mounted) return;
-        const loaded = Array.isArray(data) ? data.filter(isWaiter).map(normalizeWaiter) : [];
-        setWaiters(loaded.length ? loaded : demoWaiters);
-      })
-      .catch(() => {
-        if (mounted) setWaiters(demoWaiters);
-      });
-    return () => { mounted = false; };
-  }, []);
+  const visibleRows = useMemo(() => {
+    if (selectedWaiter === "all") return demoWaiters;
+    return demoWaiters.filter((waiter) => waiter.id === selectedWaiter);
+  }, [selectedWaiter]);
+
+  const totals = useMemo(() => visibleRows.reduce((acc, waiter) => {
+    acc.orders += waiter.orders;
+    acc.takeaway += waiter.takeaway;
+    acc.service += waiter.service;
+    acc.waiterService += waiter.waiterService;
+    acc.dishes += waiter.dishes;
+    return acc;
+  }, { orders: 0, takeaway: 0, service: 0, waiterService: 0, dishes: 0 }), [visibleRows]);
 
   function handleExport() {
-    window.print();
+    const headers = ["Имя", ...waiterColumns.map((column) => column.label)];
+    const rows = [
+      headers,
+      ...visibleRows.map((waiter) => [waiter.name, ...waiterColumns.map((column) => cellValue(waiter, column.key))]),
+      ["Всего", ...waiterColumns.map((column) => (column.key === "dishes" ? `${totals.dishes} шт` : formatMoney(totals[column.key], "UZS")))],
+    ];
+
+    const htmlRows = rows.map((row, rowIndex) => {
+      const tag = rowIndex === 0 ? "th" : "td";
+      return `<tr>${row.map((cell) => `<${tag}>${escapeHtml(cell)}</${tag}>`).join("")}</tr>`;
+    }).join("");
+
+    const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    body { font-family: Arial, sans-serif; }
+    h1 { font-size: 20px; margin: 0 0 8px; }
+    p { margin: 0 0 14px; }
+    table { border-collapse: collapse; width: 100%; }
+    th { background: #d8e1f1; font-weight: 700; }
+    th, td { border: 1px solid #b7c4d8; padding: 10px; text-align: left; }
+  </style>
+</head>
+<body>
+  <h1>Отчет по официантам</h1>
+  <p>Процент: ${escapeHtml(percent || "0")}%</p>
+  <table>${htmlRows}</table>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const date = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `otchet-po-ofitsiantam-${date}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -60,14 +135,13 @@ export default function WaitersReportPage() {
           </div>
           <div className="z-waiters-report__controls">
             <label className="z-waiters-report__percent">
-              <input defaultValue="0" inputMode="decimal" aria-label="Процент" />
+              <input value={percent} onChange={(event) => setPercent(event.target.value)} inputMode="decimal" aria-label="Процент" />
               <span>%</span>
             </label>
             <label className="z-waiters-report__select">
-              <select defaultValue="">
-                <option value="" disabled>Выберите официанта</option>
+              <select value={selectedWaiter} onChange={(event) => setSelectedWaiter(event.target.value)}>
                 <option value="all">Все официанты</option>
-                {waiters.map((waiter) => <option value={waiter.id} key={waiter.id}>{waiter.name}</option>)}
+                {demoWaiters.map((waiter) => <option value={waiter.id} key={waiter.id}>{waiter.name}</option>)}
               </select>
               <Icon name="bi-chevron-down" size={18} />
             </label>
@@ -79,23 +153,28 @@ export default function WaitersReportPage() {
         </div>
 
         <div className="z-waiters-report__table" role="table" aria-label="Отчет по официантам">
-          <div className="z-waiters-report__row z-waiters-report__row--head" role="row">
+          <div className="z-waiters-report__row z-waiters-report__row--head z-waiters-report__row--static-head" role="row">
             <div role="columnheader">Имя</div>
             {waiterColumns.map((column) => (
-              <label key={column.key} role="columnheader">
-                <input type="checkbox" defaultChecked={column.checked} />
-                <span>{column.label}</span>
-              </label>
+              <div key={column.key} role="columnheader">{column.label}</div>
             ))}
           </div>
           <div className="z-waiters-report__row z-waiters-report__row--total" role="row">
             <strong role="cell">Всего</strong>
-            <strong role="cell">{formatMoney(0)}</strong>
-            <span role="cell">{formatMoney(0)}</span>
-            <strong role="cell">{formatMoney(0)}</strong>
-            <strong role="cell">{formatMoney(0)}</strong>
-            <span role="cell">—</span>
+            <strong role="cell">{formatMoney(totals.orders, "UZS")}</strong>
+            <span role="cell">{formatMoney(totals.takeaway, "UZS")}</span>
+            <strong role="cell">{formatMoney(totals.service, "UZS")}</strong>
+            <strong role="cell">{formatMoney(totals.waiterService, "UZS")}</strong>
+            <span role="cell">{totals.dishes} шт</span>
           </div>
+          {visibleRows.map((waiter) => (
+            <div className="z-waiters-report__row z-waiters-report__row--body" role="row" key={waiter.id}>
+              <strong role="cell">{waiter.name}</strong>
+              {waiterColumns.map((column) => (
+                <span role="cell" key={column.key}>{cellValue(waiter, column.key)}</span>
+              ))}
+            </div>
+          ))}
         </div>
       </article>
     </section>

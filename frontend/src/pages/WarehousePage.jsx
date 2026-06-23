@@ -1,424 +1,564 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { api, formatMoney, formatNumber } from "../api/client";
-import Icon from '../components/Icon';
+import { useMemo, useState } from "react";
+import Icon from "../components/Icon";
 
-const warehouses = ["Главный склад", "BAR", "KUXNYA"];
+const ACTIVE = "active";
+const ARCHIVE = "archive";
 
-const demoStock = [
-  { id: "stock-main", name: "Главный склад", raw: 7313452.36, semi: 25100, sale: 0, status: "active" },
-  { id: "stock-bar", name: "BAR", raw: 59000, semi: 251000, sale: 0, status: "active" },
-  { id: "stock-kitchen", name: "KUXNYA", raw: 0, semi: 0, sale: 0, status: "active" },
+const baseProducts = [
+  { product: "Говядина", quantity: 10, unit: "кг", price: 78000 },
+  { product: "Рис", quantity: 25, unit: "кг", price: 15000 },
+  { product: "", quantity: 0, unit: "кг", price: 0 },
 ];
 
-const demoIncoming = [
-  { id: 66996, supplier: "-", warehouse: "-", date: "30.04.2026", registered: "30.04.2026 / 16:35", accepted: "-", count: 0, total: 0, status: "draft" },
-  { id: 65159, supplier: "BOZOR", warehouse: "Главный склад", date: "23.04.2026", registered: "23.04.2026 / 15:32", accepted: "23.04.2026 / 15:34", count: 2, total: 6150000, status: "accepted" },
-  { id: 64358, supplier: "BOZOR", warehouse: "Главный склад", date: "20.04.2026", registered: "20.04.2026 / 11:43", accepted: "20.04.2026 / 11:44", count: 3, total: 1275000, status: "accepted" },
-  { id: 58794, supplier: "-", warehouse: "-", date: "28.03.2026", registered: "28.03.2026 / 17:49", accepted: "-", count: 3, total: 672500, status: "draft" },
-  { id: 51023, supplier: "BOZOR", warehouse: "Главный склад", date: "02.03.2026", registered: "02.03.2026 / 10:59", accepted: "02.03.2026 / 11:00", count: 1, total: 175000, status: "accepted" },
-];
+const sectionAliases = {
+  "stock-in": "incoming",
+  "stock-out": "outgoing",
+  balance: "stock",
+  "income-log": "incoming-journal",
+  expense: "outgoing",
+};
 
-const demoTransfers = [
-  { date: "20.04.2026", from: "Главный склад", to: "BAR", quantity: 30, created: "20.04.2026 / 11:46", status: "accepted" },
-  { date: "10.09.2025", from: "Главный склад", to: "Главный склад", quantity: 0, created: "10.09.2025 / 14:03", status: "draft" },
-];
+const warehouseConfigs = {
+  incoming: {
+    title: "Приход товаров",
+    primaryAction: "Новый приход +",
+    drawerTitle: "Новый приход",
+    importExcel: true,
+    tabs: true,
+    editable: true,
+    itemDrawer: true,
+    summary: [
+      { label: "Всего приходов", value: "24", icon: "bi-box-arrow-in-down", tone: "blue" },
+      { label: "Сумма прихода", value: "18 450 000 UZS", icon: "bi-cash-stack", tone: "green" },
+      { label: "Поставщиков", value: "7", icon: "bi-people", tone: "purple" },
+      { label: "Черновики", value: "3", icon: "bi-journal-text", tone: "orange" },
+    ],
+    filters: [
+      ["date", "Дата", "01.06.2026 - 23.06.2026"],
+      ["warehouse", "Склад", "Все"],
+      ["supplier", "Поставщик", "Все"],
+      ["status", "Статус", "Все"],
+    ],
+    columns: ["№", "Документ", "Поставщик", "Склад", "Сумма", "Статус", "Дата", "Действия"],
+    rows: [
+      { id: 1, document: "Приход #IN-220", supplier: "Bozor", warehouse: "Основной склад", total: "1 250 000 UZS", status: "Проведено", date: "23.06.2026" },
+      { id: 2, document: "Приход #IN-221", supplier: "Поставщик 1", warehouse: "Кухня", total: "840 000 UZS", status: "Проведено", date: "23.06.2026" },
+      { id: 3, document: "Приход #IN-222", supplier: "Fresh Meat", warehouse: "Основной склад", total: "2 400 000 UZS", status: "Черновик", date: "22.06.2026" },
+      { id: 4, document: "Приход #IN-219", supplier: "Bozor", warehouse: "Бар", total: "560 000 UZS", status: "Проведено", date: "22.06.2026" },
+      { id: 5, document: "Приход #IN-218", supplier: "Поставщик 2", warehouse: "Основной склад", total: "3 750 000 UZS", status: "Проведено", date: "21.06.2026" },
+      { id: 6, document: "Приход #IN-217", supplier: "Green Market", warehouse: "Кухня", total: "1 120 000 UZS", status: "Черновик", date: "20.06.2026" },
+    ],
+  },
+  outgoing: {
+    title: "Расход товаров",
+    primaryAction: "Новый расход +",
+    drawerTitle: "Новый расход",
+    tabs: true,
+    editable: true,
+    summary: [
+      { label: "Всего расходов", value: "18", icon: "bi-box-arrow-up", tone: "blue" },
+      { label: "Сумма расхода", value: "9 720 000 UZS", icon: "bi-cash-stack", tone: "green" },
+      { label: "Проведено", value: "15", icon: "bi-check2-circle", tone: "purple" },
+      { label: "В ожидании", value: "3", icon: "bi-clock-history", tone: "orange" },
+    ],
+    filters: [
+      ["warehouse", "Склад", "Все"],
+      ["receiver", "Получатель", "Все"],
+      ["status", "Статус", "Все"],
+    ],
+    columns: ["№", "Документ", "Получатель / Категория", "Склад", "Сумма", "Статус", "Дата", "Действия"],
+    rows: [
+      { id: 1, document: "Расход #OUT-144", receiver: "Кухня", warehouse: "Основной склад", total: "720 000 UZS", status: "Проведено", date: "23.06.2026" },
+      { id: 2, document: "Расход #OUT-145", receiver: "Бар", warehouse: "Основной склад", total: "310 000 UZS", status: "В ожидании", date: "22.06.2026" },
+      { id: 3, document: "Расход #OUT-146", receiver: "Заготовки", warehouse: "Кухня", total: "1 120 000 UZS", status: "Проведено", date: "21.06.2026" },
+    ],
+  },
+  stock: {
+    title: "Остаток товаров",
+    primaryAction: "",
+    summary: [
+      { label: "Всего позиций", value: "128", icon: "bi-boxes", tone: "blue" },
+      { label: "Общая стоимость", value: "42 700 000 UZS", icon: "bi-cash-stack", tone: "green" },
+      { label: "Низкий остаток", value: "9", icon: "bi-exclamation-triangle", tone: "orange" },
+      { label: "Складов", value: "3", icon: "bi-building", tone: "purple" },
+    ],
+    filters: [
+      ["category", "Категория", "Все"],
+      ["warehouse", "Склад", "Все"],
+      ["status", "Статус", "Все"],
+    ],
+    columns: ["Товар", "Категория", "Склад", "Остаток", "Мин. остаток", "Ед. изм", "Цена", "Сумма", "Статус"],
+    rows: [
+      { product: "Говядина", category: "Мясо", warehouse: "Основной склад", stock: "24.5", minStock: "5", unit: "кг", price: "78 000 UZS", total: "1 911 000 UZS", status: "Норма" },
+      { product: "Рис", category: "Крупы", warehouse: "Кухня", stock: "4", minStock: "10", unit: "кг", price: "15 000 UZS", total: "60 000 UZS", status: "Низкий остаток" },
+      { product: "Лимон", category: "Фрукты", warehouse: "Бар", stock: "0", minStock: "2", unit: "кг", price: "22 000 UZS", total: "0 UZS", status: "Нет в наличии" },
+    ],
+  },
+  "incoming-journal": {
+    title: "Журнал приходов",
+    filters: [
+      ["warehouse", "Склад", "Все"],
+      ["supplier", "Поставщик", "Все"],
+    ],
+    columns: ["Дата", "Документ", "Поставщик", "Товар", "Кол-во", "Цена", "Сумма", "Автор"],
+    rows: [
+      { date: "23.06.2026", document: "Приход #IN-220", supplier: "Bozor", product: "Говядина", quantity: "10 кг", price: "78 000 UZS", total: "780 000 UZS", author: "SARDORKASSA" },
+      { date: "23.06.2026", document: "Приход #IN-221", supplier: "Поставщик 1", product: "Рис", quantity: "25 кг", price: "15 000 UZS", total: "375 000 UZS", author: "KACCA 2" },
+      { date: "22.06.2026", document: "Приход #IN-222", supplier: "Fresh Meat", product: "Говядина", quantity: "30 кг", price: "80 000 UZS", total: "2 400 000 UZS", author: "SARDORKASSA" },
+    ],
+  },
+  transfer: {
+    title: "Перемещение",
+    primaryAction: "Новое перемещение +",
+    drawerTitle: "Новое перемещение",
+    tabs: true,
+    editable: true,
+    filters: [
+      ["from", "Со склада", "Все"],
+      ["to", "На склад", "Все"],
+      ["status", "Статус", "Все"],
+    ],
+    columns: ["№", "Документ", "Со склада", "На склад", "Кол-во позиций", "Сумма", "Статус", "Дата", "Действия"],
+    rows: [
+      { id: 1, document: "Перемещение #TR-81", from: "Основной склад", to: "Кухня", positions: "4", total: "1 040 000 UZS", status: "Проведено", date: "23.06.2026" },
+      { id: 2, document: "Перемещение #TR-82", from: "Бар", to: "Основной склад", positions: "2", total: "220 000 UZS", status: "Черновик", date: "22.06.2026" },
+    ],
+  },
+  inventory: {
+    title: "Инвентаризация",
+    primaryAction: "Новая инвентаризация +",
+    drawerTitle: "Новая инвентаризация",
+    tabs: true,
+    editable: true,
+    filters: [
+      ["warehouse", "Склад", "Все"],
+      ["status", "Статус", "Все"],
+    ],
+    columns: ["№", "Документ", "Склад", "Плановый остаток", "Фактический остаток", "Расхождение", "Статус", "Дата", "Действия"],
+    rows: [
+      { id: 1, document: "Инвентаризация #INV-31", warehouse: "Основной склад", expected: "128", actual: "126", difference: "-2", status: "Завершено", date: "22.06.2026" },
+      { id: 2, document: "Инвентаризация #INV-32", warehouse: "Бар", expected: "45", actual: "45", difference: "0", status: "Черновик", date: "21.06.2026" },
+    ],
+  },
+  "write-off": {
+    title: "Списание",
+    primaryAction: "Новое списание +",
+    drawerTitle: "Новое списание",
+    tabs: true,
+    editable: true,
+    summary: [
+      { label: "Всего списаний", value: "14", icon: "bi-trash3", tone: "blue" },
+      { label: "Сумма списаний", value: "1 801 000 UZS", icon: "bi-cash-stack", tone: "green" },
+      { label: "Проведено", value: "12", icon: "bi-check2-circle", tone: "purple" },
+      { label: "В ожидании", value: "2", icon: "bi-clock-history", tone: "orange" },
+    ],
+    filters: [
+      ["category", "Категория", "Все"],
+      ["warehouse", "Склад", "Все"],
+      ["status", "Статус", "Все"],
+    ],
+    columns: ["№", "Документ", "Категория", "Склад", "Сумма", "Статус", "Дата", "Действия"],
+    rows: [
+      { id: 1, document: "Списание #EX-220", category: "Кухня", warehouse: "Основной склад", total: "39 000 UZS", status: "Проведено", date: "23.06.2026" },
+      { id: 2, document: "Списание #EX-221", category: "Бар", warehouse: "Основной склад", total: "90 000 UZS", status: "Проведено", date: "23.06.2026" },
+      { id: 3, document: "Списание #EX-222", category: "Заготовки", warehouse: "Кухня", total: "63 000 UZS", status: "В ожидании", date: "23.06.2026" },
+    ],
+  },
+  "write-off-categories": {
+    title: "Категории списания",
+    primaryAction: "Добавить категорию +",
+    drawerTitle: "Категория списания",
+    tabs: true,
+    editable: true,
+    filters: [["status", "Статус", "Все"]],
+    columns: ["Название", "Описание", "Кол-во списаний", "Сумма", "Статус", "Действия"],
+    rows: [
+      { id: 1, name: "Кухня", description: "Порча и производство", count: "8", total: "820 000 UZS", status: "Активно" },
+      { id: 2, name: "Бар", description: "Напитки и бой", count: "4", total: "280 000 UZS", status: "Активно" },
+      { id: 3, name: "Заготовки", description: "Полуфабрикаты", count: "2", total: "701 000 UZS", status: "Активно" },
+    ],
+  },
+  waste: {
+    title: "Отход товаров",
+    primaryAction: "Добавить отход +",
+    drawerTitle: "Добавить отход",
+    tabs: true,
+    editable: true,
+    summary: [
+      { label: "Всего отходов", value: "9", icon: "bi-recycle", tone: "blue" },
+      { label: "Сумма отходов", value: "1 801 UZS", icon: "bi-cash-stack", tone: "green" },
+      { label: "Автоотход", value: "6", icon: "bi-gear", tone: "purple" },
+      { label: "Ручной отход", value: "3", icon: "bi-pencil", tone: "orange" },
+    ],
+    filters: [
+      ["category", "Категория", "Все"],
+      ["author", "Автор", "Все"],
+    ],
+    columns: ["Дата", "Категория", "Товар", "Ед. изм", "Кол-во", "Сумма", "Автор", "Причина", "Действия"],
+    rows: [
+      { id: 1, date: "23.06.2026", category: "Кухня", product: "Лук", unit: "кг", quantity: "0.45", total: "1 801 UZS", author: "Povar Bekzod", reason: "Очистка", status: "Активно" },
+      { id: 2, date: "22.06.2026", category: "Бар", product: "Лимон", unit: "кг", quantity: "0.2", total: "4 400 UZS", author: "SARDORKASSA", reason: "Порча", status: "Активно" },
+    ],
+  },
+};
 
-const demoInventory = [
-  { id: 4282, date: "23.12.2025 / 15:09", warehouse: "Главный склад", comment: "-", type: "Приход и расход учтены", status: "accepted" },
-  { id: 4281, date: "23.12.2025 / 15:07", warehouse: "Главный склад", comment: "-", type: "Приход и расход учтены", status: "accepted" },
-  { id: 2330, date: "21.08.2025 / 16:42", warehouse: "Главный склад", comment: "-", type: "Приход и расход не учтены", status: "accepted", warning: true },
-  { id: 2329, date: "21.08.2025 / 16:35", warehouse: "Главный склад", comment: "-", type: "Приход и расход не учтены", status: "accepted", warning: true },
-];
-
-const demoWriteOffs = [
-  { id: 14, date: "10.06.2026 / 18:01", category: "Fcvbb", count: 1, status: "accepted" },
-];
-
-function rowTotal(row) {
-  return Number(row.raw || 0) + Number(row.semi || 0) + Number(row.sale || 0);
+function normalizeSection(section) {
+  return sectionAliases[section] || section || "incoming";
 }
 
-function statusLabel(status) {
-  return status === "accepted" || status === "active" ? "Принято" : "Черновой";
+function parseAmount(value) {
+  return Number(String(value || "").replace(/[^\d.-]/g, "")) || 0;
 }
 
-function normalizeStockItem(item, ingredientById) {
-  const ingredient = ingredientById.get(item.ingredient_id);
-  const name = item.name || ingredient?.name || "Складская позиция";
-  const quantity = Number(item.quantity || 0);
-  const cost = Number(item.cost_price || 0);
+function formatAmount(value) {
+  return `${new Intl.NumberFormat("ru-RU").format(Number(value) || 0)} UZS`;
+}
+
+function defaultForm(section, config) {
+  if (section === "incoming") {
+    return {
+      supplier: "Bozor",
+      warehouse: "Основной склад",
+      date: "23.06.2026",
+      document: "Приход #IN-223",
+      comment: "",
+      items: baseProducts,
+    };
+  }
+
   return {
-    id: item.id || item.ingredient_id || name,
-    name,
-    raw: quantity * cost,
-    semi: 0,
-    sale: 0,
-    status: quantity <= Number(item.min_quantity || 0) ? "draft" : "active",
+    document: `${config.title} #NEW`,
+    date: "23.06.2026",
+    supplier: "Bozor",
+    receiver: "Кухня",
+    warehouse: "Основной склад",
+    from: "Основной склад",
+    to: "Кухня",
+    category: "Кухня",
+    product: "Говядина",
+    quantity: "1",
+    unit: "кг",
+    price: "78 000",
+    total: "78 000 UZS",
+    status: "Черновик",
+    comment: "",
   };
 }
 
-function WarehouseStatus({ status, warning = false }) {
-  return (
-    <span className={`warehouse-status ${status === "draft" ? "is-draft" : "is-accepted"} ${warning ? "is-warning" : ""}`}>
-      {statusLabel(status)}
-    </span>
-  );
+function rowSearchText(row) {
+  return Object.values(row).filter((value) => typeof value !== "object").join(" ").toLowerCase();
 }
 
-function IconButton({ icon, tone = "blue", label }) {
-  return (
-    <button type="button" className={`warehouse-icon-button warehouse-icon-button--${tone}`} aria-label={label}>
-      <Icon name={icon} size={18} />
-    </button>
-  );
+function statusTone(status) {
+  if (["Проведено", "Завершено", "Активно", "Норма"].includes(status)) return "green";
+  if (["Черновик", "В ожидании", "Низкий остаток"].includes(status)) return "orange";
+  if (["Отменено", "Нет в наличии"].includes(status)) return "red";
+  return "gray";
 }
 
-function MoneyCell({ value, muted = false }) {
-  return <span className={muted ? "is-muted" : ""}>{formatMoney(value)}</span>;
-}
+function WarehousePage({ initialSection = "incoming" }) {
+  const section = normalizeSection(initialSection);
+  const config = warehouseConfigs[section] || warehouseConfigs.incoming;
+  const [rows, setRows] = useState(() => config.rows.map((row) => ({ ...row, archiveState: ACTIVE })));
+  const [activeTab, setActiveTab] = useState(ACTIVE);
+  const [draftFilters, setDraftFilters] = useState({ search: "", date: "01.06.2026 - 23.06.2026", warehouse: "", supplier: "", status: "", receiver: "", category: "", author: "", from: "", to: "" });
+  const [filters, setFilters] = useState(draftFilters);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState(() => defaultForm(section, config));
 
-function SummaryTable({ title, rows }) {
-  const totals = rows.reduce(
-    (acc, row) => ({
-      raw: acc.raw + Number(row.raw || 0),
-      semi: acc.semi + Number(row.semi || 0),
-      sale: acc.sale + Number(row.sale || 0),
-    }),
-    { raw: 0, semi: 0, sale: 0 },
-  );
+  const visibleRows = useMemo(() => {
+    const query = filters.search.trim().toLowerCase();
 
-  return (
-    <article className="warehouse-board">
-      <div className="warehouse-title-mark" />
-      <h3>{title}</h3>
-      <div className="warehouse-money-table">
-        <div className="warehouse-money-table__head">
-          <span>№</span>
-          <span>Название</span>
-          <span>Сырьё</span>
-          <span>Полуфабрикат</span>
-          <span>Реализация</span>
-          <span>Сумма</span>
-        </div>
-        <div className="warehouse-money-table__row is-total">
-          <span />
-          <strong>Итого</strong>
-          <MoneyCell value={totals.raw} />
-          <MoneyCell value={totals.semi} />
-          <MoneyCell value={totals.sale} />
-          <MoneyCell value={totals.raw + totals.semi + totals.sale} />
-        </div>
-        {rows.map((row, index) => (
-          <div className="warehouse-money-table__row" key={row.id}>
-            <span>{index + 1}</span>
-            <Link to="/warehouse/balance">{row.name}</Link>
-            <MoneyCell value={row.raw} muted={!row.raw} />
-            <MoneyCell value={row.semi} muted={!row.semi} />
-            <MoneyCell value={row.sale} muted={!row.sale} />
-            <MoneyCell value={rowTotal(row)} muted={!rowTotal(row)} />
-          </div>
-        ))}
-      </div>
-    </article>
-  );
-}
+    return rows.filter((row) => {
+      const matchesTab = !config.tabs || row.archiveState === activeTab;
+      const matchesSearch = !query || rowSearchText(row).includes(query);
+      const matchesFilters = Object.entries(filters).every(([key, value]) => {
+        if (!value || key === "search" || key === "date") return true;
+        return String(row[key] || "").toLowerCase().includes(String(value).toLowerCase());
+      });
+      return matchesTab && matchesSearch && matchesFilters;
+    });
+  }, [activeTab, config.tabs, filters, rows]);
 
-function IncomingTable({ rows }) {
-  return (
-    <article className="warehouse-board">
-      <div className="warehouse-board__head">
-        <div>
-          <div className="warehouse-title-mark" />
-          <h3>Поступление товаров</h3>
-        </div>
-        <button type="button" className="warehouse-create">Создать <Icon name="bi-plus" size={18} /></button>
-      </div>
-      <div className="warehouse-search-line">
-        <label>
-          <input placeholder="Поиск" />
-          <Icon name="bi-search" size={18} />
-        </label>
-      </div>
-      <div className="warehouse-document-table warehouse-document-table--incoming">
-        <div className="warehouse-document-table__head">
-          <span>Номер</span>
-          <span>Поставщик</span>
-          <span>На склад</span>
-          <span>Дата поступление</span>
-          <span>Дата регистрации</span>
-          <span>Дата приема</span>
-          <span>Кол-во наименование</span>
-          <span>Итоговая сумма</span>
-          <span>Действия</span>
-        </div>
-        {rows.map((row) => (
-          <div className="warehouse-document-table__row" key={row.id}>
-            <strong>{row.id}</strong>
-            <span>{row.supplier}</span>
-            <span>{row.warehouse}</span>
-            <span>{row.date}</span>
-            <span>{row.registered}<small>SARDOR AVTO T</small></span>
-            <span>{row.accepted}</span>
-            <span>{formatNumber(row.count)}</span>
-            <MoneyCell value={row.total} muted={!row.total} />
-            <div className="warehouse-row-actions">
-              <WarehouseStatus status={row.status} />
-              <IconButton icon="bi-eye-fill" label="Открыть" />
-              {row.status === "draft" ? <IconButton icon="bi-trash3" tone="red" label="Удалить" /> : null}
-            </div>
-          </div>
-        ))}
-      </div>
-    </article>
-  );
-}
+  const openCreate = () => {
+    setEditingId(null);
+    setForm(defaultForm(section, config));
+    setDrawerOpen(true);
+  };
 
-function TransferTable({ rows }) {
-  return (
-    <article className="warehouse-board">
-      <div className="warehouse-board__head">
-        <div>
-          <div className="warehouse-title-mark" />
-          <h3>Перемещение товаров</h3>
-        </div>
-        <button type="button" className="warehouse-create">Создать <Icon name="bi-plus" size={18} /></button>
-      </div>
-      <div className="warehouse-document-table warehouse-document-table--transfer">
-        <div className="warehouse-document-table__head">
-          <span>Дата перемещения</span>
-          <span>Со склада</span>
-          <span>На склад</span>
-          <span>Количество</span>
-          <span>Дата создания</span>
-          <span>Действия</span>
-        </div>
-        {rows.map((row) => (
-          <div className="warehouse-document-table__row" key={`${row.date}-${row.to}`}>
-            <span>{row.date}</span>
-            <span>{row.from}</span>
-            <span>{row.to}</span>
-            <strong>{formatNumber(row.quantity)}</strong>
-            <span>{row.created}</span>
-            <div className="warehouse-row-actions">
-              <WarehouseStatus status={row.status} />
-              <IconButton icon="bi-trash3" tone="red" label="Удалить" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </article>
-  );
-}
+  const openEdit = (row) => {
+    setEditingId(row.id || row.document || row.name);
+    setForm({
+      ...defaultForm(section, config),
+      ...row,
+      items: row.items || baseProducts,
+      date: row.date || "23.06.2026",
+    });
+    setDrawerOpen(true);
+  };
 
-function InventoryTable({ rows }) {
-  return (
-    <article className="warehouse-board">
-      <div className="warehouse-board__head">
-        <div>
-          <div className="warehouse-title-mark" />
-          <h3>Инвентаризация</h3>
-        </div>
-        <button type="button" className="warehouse-create">Создать <Icon name="bi-plus" size={18} /></button>
-      </div>
-      <div className="warehouse-search-line">
-        <label>
-          <input placeholder="Поиск" />
-          <Icon name="bi-search" size={18} />
-        </label>
-      </div>
-      <div className="warehouse-document-table warehouse-document-table--inventory">
-        <div className="warehouse-document-table__head">
-          <span>ID</span>
-          <span>Дата регистрации</span>
-          <span>Склад</span>
-          <span>Комментарие</span>
-          <span>Тип</span>
-          <span>Действия</span>
-        </div>
-        {rows.map((row) => (
-          <div className="warehouse-document-table__row" key={row.id}>
-            <strong>{row.id}</strong>
-            <span>{row.date}<small>SARDOR AVTO T</small></span>
-            <span>{row.warehouse}</span>
-            <span>{row.comment}</span>
-            <span className={row.warning ? "is-warning-text" : ""}>{row.type}</span>
-            <div className="warehouse-row-actions">
-              <WarehouseStatus status={row.status} />
-              <IconButton icon="bi-pencil" tone="yellow" label="Редактировать" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </article>
-  );
-}
+  const archiveRow = (row) => {
+    const rowId = row.id || row.document || row.name || row.product;
+    setRows((current) => current.map((item) => ((item.id || item.document || item.name || item.product) === rowId ? { ...item, archiveState: ARCHIVE } : item)));
+  };
 
-function WriteOffTable({ rows }) {
-  return (
-    <article className="warehouse-board">
-      <div className="warehouse-board__head">
-        <div>
-          <div className="warehouse-title-mark" />
-          <h3>Списание</h3>
-        </div>
-        <button type="button" className="warehouse-create">Создать <Icon name="bi-plus" size={18} /></button>
-      </div>
-      <div className="warehouse-document-table warehouse-document-table--writeoff">
-        <div className="warehouse-document-table__head">
-          <span>ID</span>
-          <span>Дата регистрации</span>
-          <span>Категория</span>
-          <span>Кол-во позиций</span>
-          <span>Действия</span>
-        </div>
-        {rows.map((row) => (
-          <div className="warehouse-document-table__row" key={row.id}>
-            <strong>{row.id}</strong>
-            <span>{row.date}<small>SARDOR AVTO T</small></span>
-            <span>{row.category}</span>
-            <strong>{formatNumber(row.count)}</strong>
-            <div className="warehouse-row-actions">
-              <WarehouseStatus status={row.status} />
-              <IconButton icon="bi-pencil" tone="yellow" label="Редактировать" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </article>
-  );
-}
+  const restoreRow = (row) => {
+    const rowId = row.id || row.document || row.name || row.product;
+    setRows((current) => current.map((item) => ((item.id || item.document || item.name || item.product) === rowId ? { ...item, archiveState: ACTIVE } : item)));
+  };
 
-const sectionByPath = {
-  "/warehouse": "summary",
-  "/warehouse/stock-in": "incoming",
-  "/warehouse/stock-out": "expense",
-  "/warehouse/balance": "balance",
-  "/warehouse/income-log": "incoming-log",
-  "/warehouse/transfer": "transfer",
-  "/warehouse/inventory": "inventory",
-  "/warehouse/waste": "waste",
-  "/warehouse/write-off": "write-off",
-  "/warehouse/write-off-categories": "write-off",
-};
+  const saveDocument = (status) => {
+    const incomingTotal = section === "incoming" ? form.items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0), 0) : parseAmount(form.total);
+    const nextRow = buildRowFromForm(section, form, status, rows.length + 1, incomingTotal);
 
-export default function WarehousePage({ initialSection }) {
-  const location = useLocation();
-  const [activeSection, setActiveSection] = useState(initialSection || sectionByPath[location.pathname] || "summary");
-  const [stockRows, setStockRows] = useState(demoStock);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    setActiveSection(initialSection || sectionByPath[location.pathname] || "summary");
-  }, [initialSection, location.pathname]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadWarehouse() {
-      try {
-        setLoading(true);
-        setError("");
-        const [stockResponse, ingredientsResponse] = await Promise.all([
-          api.get("/inventory/stock"),
-          api.get("/inventory/ingredients").catch(() => ({ data: [] })),
-        ]);
-        if (!mounted) return;
-
-        const ingredientById = new Map((ingredientsResponse.data || []).map((item) => [item.id, item]));
-        const normalized = (stockResponse.data || []).map((item) => normalizeStockItem(item, ingredientById));
-        setStockRows(normalized.length ? normalized : demoStock);
-      } catch (err) {
-        if (!mounted) return;
-        setError("API склада временно недоступен. Показан рабочий демо-вид.");
-        setStockRows(demoStock);
-      } finally {
-        if (mounted) setLoading(false);
-      }
+    if (editingId) {
+      setRows((current) => current.map((row) => ((row.id || row.document || row.name) === editingId ? { ...row, ...nextRow, id: row.id, archiveState: row.archiveState } : row)));
+    } else {
+      setRows((current) => [{ ...nextRow, id: Date.now(), archiveState: ACTIVE }, ...current]);
     }
+    setDrawerOpen(false);
+  };
 
-    loadWarehouse();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const updateItem = (index, key, value) => {
+    setForm((current) => ({
+      ...current,
+      items: current.items.map((item, itemIndex) => (itemIndex === index ? { ...item, [key]: value } : item)),
+    }));
+  };
 
-  const stats = useMemo(() => {
-    const total = stockRows.reduce((sum, row) => sum + rowTotal(row), 0);
-    const acceptedIncoming = demoIncoming.filter((row) => row.status === "accepted").length;
-    return {
-      total,
-      warehouses: warehouses.length,
-      incoming: acceptedIncoming,
-      draft: demoIncoming.length - acceptedIncoming,
-    };
-  }, [stockRows]);
+  const removeItem = (index) => {
+    setForm((current) => ({ ...current, items: current.items.filter((_, itemIndex) => itemIndex !== index) }));
+  };
+
+  const addItem = () => {
+    setForm((current) => ({ ...current, items: [...current.items, { product: "", quantity: 0, unit: "кг", price: 0 }] }));
+  };
 
   return (
-    <section className="warehouse-workspace">
-      <div className="warehouse-workspace__toolbar">
-        <button type="button" className="warehouse-date-button">
-          <Icon name="bi-chevron-left" size={18} />
-          Выберите дату
-          <Icon name="bi-chevron-right" size={18} />
-        </button>
-        <div className="warehouse-toolbar__right">
-          <label className="warehouse-global-search">
-            <input placeholder="Поиск по складу" />
-            <Icon name="bi-search" size={18} />
-          </label>
-          <button type="button" className="warehouse-filter">
-            <Icon name="bi-sliders" size={18} />
-            Фильтровать
-          </button>
-        </div>
-      </div>
-
-      {error ? (
-        <div className="warehouse-alert">
-          <Icon name="bi-exclamation-triangle" size={18} />
-          {error}
-        </div>
-      ) : null}
-
-      <div className="warehouse-workspace__layout">
-        <div className="warehouse-workspace__content">
-          <div className="warehouse-metrics">
-            <article>
-              <span>Стоимость остатков</span>
-              <strong>{formatMoney(stats.total)}</strong>
-            </article>
-            <article>
-              <span>Складов</span>
-              <strong>{formatNumber(stats.warehouses)}</strong>
-            </article>
-            <article>
-              <span>Принятых приходов</span>
-              <strong>{formatNumber(stats.incoming)}</strong>
-            </article>
-            <article>
-              <span>Черновиков</span>
-              <strong>{formatNumber(stats.draft)}</strong>
-            </article>
+    <div className="warehouse-page">
+      <section className="warehouse-card">
+        <header className="warehouse-header">
+          <div className="warehouse-title-group">
+            <span className="warehouse-accent-bar" />
+            <div>
+              <p>Склад</p>
+              <h1>{config.title}</h1>
+            </div>
           </div>
+          <div className="warehouse-actions">
+            {config.importExcel ? <button type="button" onClick={() => console.log("warehouse excel export")}><Icon name="bi-file-earmark-spreadsheet" size={17} />Импорт Excel</button> : null}
+            {config.primaryAction ? <button type="button" className="warehouse-primary-action" onClick={openCreate}>{config.primaryAction}</button> : null}
+          </div>
+        </header>
 
-          {activeSection === "summary" ? (
-            <>
-              <SummaryTable title="Приход" rows={stockRows} />
-              <SummaryTable title="Инвентаризация" rows={stockRows} />
-            </>
-          ) : null}
+        {config.summary ? (
+          <div className="warehouse-summary-grid">
+            {config.summary.map((item) => (
+              <article className={`warehouse-summary-card warehouse-summary-card--${item.tone}`} key={item.label}>
+                <div>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
+                <i><Icon name={item.icon} size={25} /></i>
+              </article>
+            ))}
+          </div>
+        ) : null}
 
-          {activeSection === "incoming" || activeSection === "incoming-log" ? <IncomingTable rows={demoIncoming} /> : null}
-          {activeSection === "expense" ? <SummaryTable title="Расходы" rows={stockRows.map((row) => ({ ...row, raw: 0, semi: row.semi * 0.4, sale: 0 }))} /> : null}
-          {activeSection === "balance" ? <SummaryTable title="Остаток" rows={stockRows} /> : null}
-          {activeSection === "transfer" ? <TransferTable rows={demoTransfers} /> : null}
-          {activeSection === "inventory" ? <InventoryTable rows={demoInventory} /> : null}
-          {activeSection === "write-off" ? <WriteOffTable rows={demoWriteOffs} /> : null}
-          {activeSection === "waste" ? <IncomingTable rows={demoIncoming.slice(1, 2).map((row) => ({ ...row, id: 64358, supplier: "BOZOR", count: 3 }))} /> : null}
+        {config.tabs ? (
+          <div className="warehouse-tabs">
+            <button type="button" className={activeTab === ACTIVE ? "is-active" : ""} onClick={() => setActiveTab(ACTIVE)}>Активные</button>
+            <button type="button" className={activeTab === ARCHIVE ? "is-active" : ""} onClick={() => setActiveTab(ARCHIVE)}>Архив</button>
+          </div>
+        ) : null}
+
+        <div className="warehouse-filters">
+          <label className="warehouse-search-control">
+            <span>Поиск</span>
+            <input value={draftFilters.search} onChange={(event) => setDraftFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Документ, поставщик, товар..." />
+          </label>
+          {(config.filters || []).map(([key, label, placeholder]) => (
+            <label key={key}>
+              <span>{label}</span>
+              <input value={draftFilters[key] || ""} onChange={(event) => setDraftFilters((current) => ({ ...current, [key]: event.target.value }))} placeholder={placeholder} />
+            </label>
+          ))}
+          <div className="warehouse-filter-actions">
+            <button type="button" onClick={() => setFilters(draftFilters)}><Icon name="bi-funnel" size={15} />Фильтровать</button>
+            <button type="button" className="warehouse-clear-action" onClick={() => {
+              const reset = { search: "", date: "01.06.2026 - 23.06.2026", warehouse: "", supplier: "", status: "", receiver: "", category: "", author: "", from: "", to: "" };
+              setDraftFilters(reset);
+              setFilters(reset);
+            }}>Очистить</button>
+          </div>
         </div>
-      </div>
-    </section>
+
+        <div className="warehouse-table-wrapper">
+          <table className="warehouse-table">
+            <thead>
+              <tr>{config.columns.map((column) => <th key={column}>{column}</th>)}</tr>
+            </thead>
+            <tbody>
+              {visibleRows.map((row, index) => (
+                <tr key={`${row.id || row.document || row.product || row.name}-${index}`}>
+                  {renderWarehouseCells(section, row, index, config.editable, activeTab === ARCHIVE ? restoreRow : archiveRow, openEdit)}
+                </tr>
+              ))}
+              {!visibleRows.length ? <tr><td className="warehouse-empty-cell" colSpan={config.columns.length}>Нет данных</td></tr> : null}
+            </tbody>
+          </table>
+        </div>
+
+        <footer className="warehouse-pagination">
+          <span>Показано 1 - {Math.min(visibleRows.length, 10)} из {section === "incoming" ? 24 : Math.max(visibleRows.length, 18)}</span>
+          <div>
+            {[1, 2, 3, 4].map((page) => <button key={page} type="button" className={page === 1 ? "is-active" : ""}>{page}</button>)}
+          </div>
+          <select defaultValue="10"><option value="10">10 / стр.</option><option value="20">20 / стр.</option></select>
+        </footer>
+      </section>
+
+      {drawerOpen ? (
+        <WarehouseDrawer
+          config={config}
+          form={form}
+          section={section}
+          setForm={setForm}
+          onClose={() => setDrawerOpen(false)}
+          onSave={() => saveDocument("Черновик")}
+          onCommit={() => saveDocument(section === "inventory" ? "Завершено" : "Проведено")}
+          addItem={addItem}
+          removeItem={removeItem}
+          updateItem={updateItem}
+        />
+      ) : null}
+    </div>
   );
 }
+
+function buildRowFromForm(section, form, status, nextIndex, total) {
+  if (section === "incoming") {
+    return {
+      document: form.document || `Приход #IN-${220 + nextIndex}`,
+      supplier: form.supplier,
+      warehouse: form.warehouse,
+      total: formatAmount(total),
+      status,
+      date: form.date,
+      items: form.items,
+    };
+  }
+  if (section === "write-off-categories") return { name: form.category || form.document, description: form.comment || "Новая категория", count: "0", total: "0 UZS", status: "Активно" };
+  if (section === "waste") return { date: form.date, category: form.category, product: form.product, unit: form.unit, quantity: form.quantity, total: form.total, author: "SARDORKASSA", reason: form.comment || "Ручной отход", status: "Активно" };
+  if (section === "transfer") return { document: form.document, from: form.from, to: form.to, positions: "1", total: form.total, status, date: form.date };
+  if (section === "inventory") return { document: form.document, warehouse: form.warehouse, expected: "128", actual: form.quantity || "128", difference: "0", status, date: form.date };
+  if (section === "outgoing") return { document: form.document, receiver: form.receiver, warehouse: form.warehouse, total: form.total, status, date: form.date };
+  return { document: form.document, category: form.category, warehouse: form.warehouse, total: form.total, status, date: form.date };
+}
+
+function renderWarehouseCells(section, row, index, editable, archiveHandler, openEdit) {
+  const actions = editable ? (
+    <td>
+      <div className="warehouse-row-actions">
+        <button type="button" onClick={() => openEdit(row)}><Icon name="bi-pencil" size={15} /></button>
+        <button type="button" className={row.archiveState === ARCHIVE ? "is-restore" : "is-danger"} onClick={() => archiveHandler(row)}>
+          <Icon name={row.archiveState === ARCHIVE ? "bi-recycle" : "bi-trash3"} size={15} />
+        </button>
+      </div>
+    </td>
+  ) : null;
+
+  const status = row.status ? <span className={`warehouse-status-badge warehouse-status-badge--${statusTone(row.status)}`}>{row.status}</span> : null;
+
+  if (section === "stock") return <><td>{row.product}</td><td>{row.category}</td><td>{row.warehouse}</td><td>{row.stock}</td><td>{row.minStock}</td><td>{row.unit}</td><td>{row.price}</td><td>{row.total}</td><td>{status}</td></>;
+  if (section === "incoming-journal") return <><td>{row.date}</td><td>{row.document}</td><td>{row.supplier}</td><td>{row.product}</td><td>{row.quantity}</td><td>{row.price}</td><td>{row.total}</td><td>{row.author}</td></>;
+  if (section === "transfer") return <><td>{index + 1}</td><td>{row.document}</td><td>{row.from}</td><td>{row.to}</td><td>{row.positions}</td><td>{row.total}</td><td>{status}</td><td>{row.date}</td>{actions}</>;
+  if (section === "inventory") return <><td>{index + 1}</td><td>{row.document}</td><td>{row.warehouse}</td><td>{row.expected}</td><td>{row.actual}</td><td>{row.difference}</td><td>{status}</td><td>{row.date}</td>{actions}</>;
+  if (section === "write-off-categories") return <><td>{row.name}</td><td>{row.description}</td><td>{row.count}</td><td>{row.total}</td><td>{status}</td>{actions}</>;
+  if (section === "waste") return <><td>{row.date}</td><td>{row.category}</td><td>{row.product}</td><td>{row.unit}</td><td>{row.quantity}</td><td>{row.total}</td><td>{row.author}</td><td>{row.reason}</td>{actions}</>;
+  if (section === "outgoing") return <><td>{index + 1}</td><td>{row.document}</td><td>{row.receiver}</td><td>{row.warehouse}</td><td>{row.total}</td><td>{status}</td><td>{row.date}</td>{actions}</>;
+  return <><td>{index + 1}</td><td>{row.document}</td><td>{row.supplier}</td><td>{row.warehouse}</td><td>{row.total}</td><td>{status}</td><td>{row.date}</td>{actions}</>;
+}
+
+function WarehouseDrawer({ config, form, section, setForm, onClose, onSave, onCommit, addItem, removeItem, updateItem }) {
+  const documentTotal = section === "incoming" ? form.items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0), 0) : parseAmount(form.total);
+
+  return (
+    <div className="warehouse-drawer" role="dialog" aria-modal="true">
+      <div className="warehouse-drawer__backdrop" onClick={onClose} />
+      <aside className="warehouse-form">
+        <header className="warehouse-form__header">
+          <div>
+            <p>Складской документ</p>
+            <h2>{config.drawerTitle || config.title}</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Закрыть"><Icon name="bi-x-lg" size={20} /></button>
+        </header>
+
+        <div className="warehouse-form__grid">
+          {section === "incoming" ? (
+            <>
+              <label><span>Поставщик *</span><input value={form.supplier} onChange={(event) => setForm((current) => ({ ...current, supplier: event.target.value }))} /></label>
+              <label><span>Склад *</span><input value={form.warehouse} onChange={(event) => setForm((current) => ({ ...current, warehouse: event.target.value }))} /></label>
+            </>
+          ) : section === "transfer" ? (
+            <>
+              <label><span>Со склада</span><input value={form.from} onChange={(event) => setForm((current) => ({ ...current, from: event.target.value }))} /></label>
+              <label><span>На склад</span><input value={form.to} onChange={(event) => setForm((current) => ({ ...current, to: event.target.value }))} /></label>
+            </>
+          ) : (
+            <>
+              <label><span>Получатель / категория</span><input value={form.receiver || form.category || ""} onChange={(event) => setForm((current) => ({ ...current, receiver: event.target.value, category: event.target.value }))} /></label>
+              <label><span>Склад</span><input value={form.warehouse} onChange={(event) => setForm((current) => ({ ...current, warehouse: event.target.value }))} /></label>
+            </>
+          )}
+          <label><span>Дата *</span><input value={form.date} onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} /></label>
+          <label><span>Номер документа *</span><input value={form.document} onChange={(event) => setForm((current) => ({ ...current, document: event.target.value }))} /></label>
+        </div>
+
+        {section === "incoming" ? (
+          <div className="warehouse-products-box">
+            <div className="warehouse-products-box__head">
+              <strong>Товары *</strong>
+              <span>Итого: {formatAmount(documentTotal)}</span>
+            </div>
+            {form.items.map((item, index) => {
+              const lineTotal = Number(item.quantity || 0) * Number(item.price || 0);
+              return (
+                <div className="warehouse-product-row" key={`${item.product}-${index}`}>
+                  <input value={item.product} onChange={(event) => updateItem(index, "product", event.target.value)} placeholder="Выберите товар" />
+                  <input value={item.quantity} onChange={(event) => updateItem(index, "quantity", event.target.value)} />
+                  <input value={item.unit} onChange={(event) => updateItem(index, "unit", event.target.value)} />
+                  <input value={item.price} onChange={(event) => updateItem(index, "price", event.target.value)} />
+                  <strong>{formatAmount(lineTotal)}</strong>
+                  <button type="button" onClick={() => removeItem(index)}><Icon name="bi-trash3" size={14} /></button>
+                </div>
+              );
+            })}
+            <button type="button" className="warehouse-add-product" onClick={addItem}>+ Добавить товар</button>
+          </div>
+        ) : (
+          <div className="warehouse-form__grid">
+            <label><span>Товар</span><input value={form.product || ""} onChange={(event) => setForm((current) => ({ ...current, product: event.target.value }))} /></label>
+            <label><span>Количество</span><input value={form.quantity || ""} onChange={(event) => setForm((current) => ({ ...current, quantity: event.target.value }))} /></label>
+            <label><span>Цена / сумма</span><input value={form.total || ""} onChange={(event) => setForm((current) => ({ ...current, total: event.target.value }))} /></label>
+          </div>
+        )}
+
+        <label className="warehouse-form__comment">
+          <span>Комментарий</span>
+          <textarea value={form.comment || ""} onChange={(event) => setForm((current) => ({ ...current, comment: event.target.value }))} placeholder="Введите комментарий..." />
+        </label>
+
+        <footer className="warehouse-form__footer">
+          <button type="button" onClick={onClose}>Отмена</button>
+          <button type="button" onClick={onSave}>Сохранить</button>
+          <button type="button" className="warehouse-commit-action" onClick={onCommit}>{section === "inventory" ? "Завершить" : "Провести"}</button>
+        </footer>
+      </aside>
+    </div>
+  );
+}
+
+export default WarehousePage;
