@@ -18301,3 +18301,103 @@ body.dashboard-body,
 .z-waiters-report__row--body > span {
   font-weight: 650 !important;
 }
+
+/* Dashboard warehouse quick buttons: stretch cards to the full right column. */
+.owner-main-grid > .warehouse-summary-card {
+  width: 100% !important;
+  min-width: 0 !important;
+  justify-self: stretch !important;
+  align-self: stretch !important;
+}
+
+.warehouse-summary-list {
+  width: 100% !important;
+}
+
+.warehouse-summary-item {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  justify-content: flex-start !important;
+}
+
+.warehouse-summary-item > div {
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+}
+
+.warehouse-summary-item strong,
+.warehouse-summary-item span:not(.warehouse-summary-item__icon) {
+  max-width: 100% !important;
+  overflow-wrap: anywhere !important;
+}
+
+/* Owner dashboard: give the revenue chart more horizontal room and enlarge warehouse cards. */
+@media (min-width: 1191px) {
+  .owner-main-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 360px) !important;
+    gap: 12px !important;
+  }
+}
+
+.warehouse-summary-item {
+  min-height: 92px !important;
+  gap: 16px !important;
+  padding: 20px 22px !important;
+}
+
+.warehouse-summary-item__icon {
+  width: 44px !important;
+  height: 44px !important;
+  flex-basis: 44px !important;
+  border-radius: 12px !important;
+}
+
+.warehouse-summary-item strong {
+  font-size: 16px !important;
+  line-height: 1.22 !important;
+  font-weight: 500 !important;
+}
+
+.warehouse-summary-item span:not(.warehouse-summary-item__icon) {
+  margin-top: 6px !important;
+  font-size: 16px !important;
+  line-height: 1.22 !important;
+  font-weight: 500 !important;
+}
+
+/* Match top KPI typography with the softer enlarged warehouse cards. */
+.kpi-grid--premium .premium-kpi .kpi-label {
+  color: var(--owner-ink, #0f172a) !important;
+  font-size: 12px !important;
+  line-height: 1.22 !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.035em !important;
+}
+
+.kpi-grid--premium .premium-kpi .kpi-value {
+  font-size: clamp(26px, 2vw, 34px) !important;
+  line-height: 1.02 !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+}
+
+.kpi-grid--premium .premium-kpi .kpi-value small {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+}
+
+.kpi-grid--premium .premium-kpi .kpi-note {
+  font-size: 12px !important;
+  line-height: 1.25 !important;
+  font-weight: 500 !important;
+}
+
+.warehouse-summary-item strong,
+.warehouse-summary-item span:not(.warehouse-summary-item__icon),
+.kpi-grid--premium .premium-kpi .kpi-label,
+.kpi-grid--premium .premium-kpi .kpi-value,
+.kpi-grid--premium .premium-kpi .kpi-value small,
+.kpi-grid--premium .premium-kpi .kpi-note {
+  font-family: "Golos Text", Manrope, sans-serif !important;
+  color: #162840 !important;
+}

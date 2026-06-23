@@ -29,7 +29,6 @@ const navItems = [
       { key: "waiters", label: "Отчёт по официантам", to: "/reports/waiters", icon: "bi-person-lines-fill" },
       { key: "dishes", label: "Отчёт по блюдам", to: "/reports/dishes", icon: "bi-stars" },
       { key: "cancelled-dishes", label: "Отчёт по отмененным блюдам", to: "/reports/cancelled-dishes", icon: "bi-x-octagon" },
-      { key: "debtors-creditors", label: "Дебиторы и кредиторы", to: "/reports/debtors-creditors", icon: "bi-wallet2" },
     ],
   },
   {
@@ -51,17 +50,13 @@ const navItems = [
   },
   {
     key: "nomenclature",
-    label: "Номенклатура",
+    label: "Меню",
     icon: "bi-boxes",
     to: "/nomenclature",
     children: [
       { key: "dishes", label: "Блюда", to: "/nomenclature/dishes", icon: "bi-cup-hot" },
-      { key: "raw-materials", label: "Сырьё", to: "/nomenclature/raw-materials", icon: "bi-basket" },
-      { key: "semi-finished", label: "Полуфабрикаты", to: "/nomenclature/semi-finished", icon: "bi-box" },
       { key: "dish-categories", label: "Категория блюд", to: "/nomenclature/dish-categories", icon: "bi-grid" },
-      { key: "raw-categories", label: "Категория сырья", to: "/nomenclature/raw-categories", icon: "bi-boxes" },
-      { key: "semi-finished-categories", label: "Категория полуфабрикатов", to: "/nomenclature/semi-finished-categories", icon: "bi-diagram-3" },
-      { key: "sales-categories", label: "Категория реализации", to: "/nomenclature/sales-categories", icon: "bi-shop" },
+      { key: "menu", label: "Меню", to: "/nomenclature/menu", icon: "bi-journal-bookmark" },
     ],
   },
   {
@@ -79,6 +74,11 @@ const navItems = [
       { key: "write-off", label: "Списание", to: "/warehouse/write-off", icon: "bi-trash3" },
       { key: "write-off-categories", label: "Категории списания", to: "/warehouse/write-off-categories", icon: "bi-tags" },
       { key: "waste", label: "Отход товаров", to: "/warehouse/waste", icon: "bi-recycle" },
+      { key: "raw-materials", label: "Сырьё", to: "/nomenclature/raw-materials", icon: "bi-basket" },
+      { key: "semi-finished", label: "Полуфабрикаты", to: "/nomenclature/semi-finished", icon: "bi-box" },
+      { key: "raw-categories", label: "Категория сырья", to: "/nomenclature/raw-categories", icon: "bi-boxes" },
+      { key: "semi-finished-categories", label: "Категория полуфабрикатов", to: "/nomenclature/semi-finished-categories", icon: "bi-diagram-3" },
+      { key: "sales-categories", label: "Категория реализации", to: "/nomenclature/sales-categories", icon: "bi-shop" },
     ],
   },
   {
@@ -90,6 +90,7 @@ const navItems = [
       { key: "transactions", label: "Денежные операции", to: "/finance/transactions", icon: "bi-cash-stack" },
       { key: "income-categories", label: "Категория приходов", to: "/finance/income-categories", icon: "bi-arrow-down-left-circle" },
       { key: "expense-categories", label: "Категория расходов", to: "/finance/expense-categories", icon: "bi-arrow-up-right-circle" },
+      { key: "debtors-creditors", label: "Дебиторы и кредиторы", to: "/finance/debtors-creditors", icon: "bi-wallet2" },
     ],
   },
   {
@@ -260,8 +261,9 @@ export default function Sidebar({ user, collapsed, onToggle }) {
 
       <nav className="sidebar-nav" aria-label="Навигация">
         {visibleNavItems.map((item) => {
-          const active = item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to);
           const hasChildren = Boolean(item.children?.length);
+          const childActive = hasChildren && item.children.some((child) => location.pathname === child.to);
+          const active = item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to) || childActive;
           const submenuOpen = !collapsed && (openMenu === item.key || pinnedMenu === item.key);
           const popoverOpen = collapsed && hoverMenu === item.key;
 
