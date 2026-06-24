@@ -34,7 +34,7 @@ body.dashboard-body::before {
   border-radius: 0 !important;
   box-shadow: none !important;
   overflow: hidden;
-  background: linear-gradient(180deg, #0e2647 0%, var(--neutral-900) 55%, var(--neutral-950) 100%) !important;
+  background: linear-gradient(180deg, var(--neutral-800) 0%, var(--neutral-900) 55%, var(--neutral-950) 100%) !important;
 }
 
 .dashboard-sidebar::before,

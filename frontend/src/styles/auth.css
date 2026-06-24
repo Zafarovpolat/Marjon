@@ -5,7 +5,7 @@
   min-height: 100vh;
   padding: clamp(20px, 4vw, 48px);
   background: var(--marjon-bg, var(--neutral-950));
-  color: var(--marjon-text, #e7e8eb);
+  color: var(--marjon-text, var(--neutral-100));
 }
 
 .staff-login__head {
@@ -24,7 +24,7 @@
 }
 
 .staff-login__back:hover {
-  color: var(--marjon-text, #e7e8eb);
+  color: var(--marjon-text, var(--neutral-100));
 }
 
 .staff-login__head h1 {
@@ -123,7 +123,7 @@
   min-height: 100vh;
   padding: clamp(20px, 4vw, 48px);
   background: var(--marjon-bg, var(--neutral-950));
-  color: var(--marjon-text, #e7e8eb);
+  color: var(--marjon-text, var(--neutral-100));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -146,7 +146,7 @@
 }
 
 .pin-login__back:hover {
-  color: var(--marjon-text, #e7e8eb);
+  color: var(--marjon-text, var(--neutral-100));
 }
 
 .pin-login__user {
@@ -226,7 +226,7 @@
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: var(--marjon-card, var(--neutral-950));
-  color: var(--marjon-text, #e7e8eb);
+  color: var(--marjon-text, var(--neutral-100));
   font-size: 28px;
   font-weight: 500;
   cursor: pointer;

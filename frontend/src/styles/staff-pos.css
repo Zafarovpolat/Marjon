@@ -568,7 +568,7 @@
 .kitchen-order {
   border-radius: var(--mj-radius-lg);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: #151b28;
+  background: var(--neutral-950);
   overflow: hidden;
   box-shadow: var(--mj-shadow-md);
 }

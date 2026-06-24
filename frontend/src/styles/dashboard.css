@@ -4994,10 +4994,10 @@ body.dashboard-body,
    ====================================================================== */
 
 :root {
-  --mj-shell-start: #06162c;
-  --mj-shell-mid: #082443;
-  --mj-shell-end: #061a33;
-  --mj-shell-deep: #041124;
+  --mj-shell-start: var(--neutral-950);
+  --mj-shell-mid: var(--neutral-900);
+  --mj-shell-end: var(--neutral-950);
+  --mj-shell-deep: var(--neutral-950);
   --mj-shell-border: rgba(255, 255, 255, 0.075);
   --mj-shell-soft: rgba(255, 255, 255, 0.08);
 

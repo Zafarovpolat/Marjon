@@ -613,7 +613,7 @@
 
 .dish-catalog-header h1 {
     margin: 0;
-    color: #102a43;
+    color: var(--neutral-800);
     font-size: 28px;
     font-weight: 800;
 }
@@ -639,11 +639,11 @@
     box-shadow: 0 7px 17px rgba(15, 23, 42, 0.042);
 }
 
-.dish-stat-blue { background: #eff8ff; }
-.dish-stat-green { background: #effdf5; }
+.dish-stat-blue { background: var(--blue-50); }
+.dish-stat-green { background: var(--teal-50); }
 .dish-stat-cyan { background: #ecfeff; }
 .dish-stat-orange { background: #fff7ed; }
-.dish-stat-violet { background: #f5f3ff; }
+.dish-stat-violet { background: var(--neutral-50); }
 
 .dish-stat-top,
 .dish-stat-lines span {
@@ -665,7 +665,7 @@
 .dish-stat-card strong {
     display: block;
     margin: 12px 0;
-    color: #0f172a;
+    color: var(--neutral-950);
     font-size: 31px;
     line-height: 1;
     font-weight: 800;
@@ -677,7 +677,7 @@
 }
 
 .dish-stat-lines span {
-    color: #475569;
+    color: var(--neutral-600);
     font-size: 12px;
 }
 
@@ -686,7 +686,7 @@
 }
 
 .dish-stat-lines b {
-    color: #0f172a;
+    color: var(--neutral-950);
     font-weight: 800;
 }
 
@@ -696,7 +696,7 @@
     margin-bottom: 16px;
     border: 1px solid rgba(148, 163, 184, 0.2);
     border-radius: 18px;
-    background: #f8fbff;
+    background: var(--neutral-50);
 }
 
 .dish-search {
@@ -715,7 +715,7 @@
     align-items: center;
     gap: 9px;
     padding: 0 13px;
-    border: 1px solid #d8e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 12px;
     background: #fff;
     color: #64748b;
@@ -726,16 +726,16 @@
     border: 0;
     outline: none;
     background: transparent;
-    color: #0f172a;
+    color: var(--neutral-950);
 }
 
 .dish-toolbar select {
     min-width: 185px;
     padding: 0 13px;
-    border: 1px solid #d8e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 12px;
     background: #fff;
-    color: #334155;
+    color: var(--neutral-700);
     outline: none;
 }
 
@@ -750,15 +750,15 @@
 
 .dish-more-btn {
     width: 44px;
-    border: 1px solid #d8e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 12px;
     background: #fff;
-    color: #475569;
+    color: var(--neutral-600);
 }
 
 .dish-grid-wrap {
     overflow-x: auto;
-    border: 1px solid #d9e6f2;
+    border: 1px solid var(--blue-100);
     border-radius: 18px;
     background: #fff;
 }
@@ -768,15 +768,15 @@
     min-width: 1540px;
     border-collapse: separate;
     border-spacing: 0;
-    color: #26364a;
+    color: var(--neutral-700);
     font-size: 13px;
 }
 
 .dish-grid-table th,
 .dish-grid-table td {
     padding: 10px 12px;
-    border-right: 1px solid #e4edf5;
-    border-bottom: 1px solid #e4edf5;
+    border-right: 1px solid var(--neutral-100);
+    border-bottom: 1px solid var(--neutral-100);
     vertical-align: middle;
 }
 
@@ -784,15 +784,15 @@
     position: sticky;
     top: 0;
     z-index: 1;
-    background: #eef7fc;
-    color: #38546c;
+    background: var(--blue-50);
+    color: var(--neutral-600);
     font-size: 12px;
     font-weight: 500;
     text-align: left;
 }
 
 .dish-grid-table tbody tr:hover {
-    background: #f8fcff;
+    background: var(--neutral-50);
 }
 
 .dish-row-actions {
@@ -806,7 +806,7 @@
     height: 32px;
     display: inline-grid;
     place-items: center;
-    border: 1px solid #bde1f3;
+    border: 1px solid var(--blue-200);
     border-radius: 9px;
     background: #fff;
     color: #0284c7;
@@ -846,7 +846,7 @@
 .dish-photo-placeholder {
     display: grid;
     place-items: center;
-    background: #e0f2fe;
+    background: var(--blue-100);
     color: #0284c7;
 }
 
@@ -861,10 +861,10 @@
 .dish-mini-input,
 .dish-price-input {
     height: 34px;
-    border: 1px solid #d8e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 9px;
     background: #fff;
-    color: #0f172a;
+    color: var(--neutral-950);
     outline: none;
 }
 
@@ -890,7 +890,7 @@
 }
 
 .dish-type-pill {
-    background: #e0f2fe;
+    background: var(--blue-100);
     color: #0369a1;
 }
 
@@ -900,12 +900,12 @@
 }
 
 .dish-menu-pill {
-    background: #f1f5f9;
-    color: #334155;
+    background: var(--neutral-50);
+    color: var(--neutral-700);
 }
 
 .dish-printer-cell {
-    color: #475569;
+    color: var(--neutral-600);
 }
 
 .dish-stock-box {
@@ -915,9 +915,9 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    border: 1px solid #bae6fd;
+    border: 1px solid var(--blue-200);
     border-radius: 10px;
-    background: #f0f9ff;
+    background: var(--blue-50);
     color: #0369a1;
     font-weight: 700;
 }
@@ -935,7 +935,7 @@
     padding: 2px;
     border: 0;
     border-radius: 999px;
-    background: #cbd5e1;
+    background: var(--neutral-200);
     transition: background 0.18s ease;
 }
 
@@ -1018,7 +1018,7 @@
 
 .dish-photo-modal__header h2 {
     margin: 0;
-    color: #0f172a;
+    color: var(--neutral-950);
     font-size: 22px;
     font-weight: 800;
 }
@@ -1028,10 +1028,10 @@
     height: 40px;
     display: grid;
     place-items: center;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 13px;
     background: #fff;
-    color: #334155;
+    color: var(--neutral-700);
     cursor: pointer;
 }
 
@@ -1042,9 +1042,9 @@
     gap: 10px;
     margin-bottom: 14px;
     padding: 0 14px;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 14px;
-    background: #f8fbff;
+    background: var(--neutral-50);
     color: #0f99b8;
 }
 
@@ -1053,7 +1053,7 @@
     border: 0;
     outline: none;
     background: transparent;
-    color: #0f172a;
+    color: var(--neutral-950);
     font-size: 14px;
     font-weight: 500;
 }
@@ -1073,9 +1073,9 @@
     min-height: 158px;
     overflow: hidden;
     padding: 0;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 18px;
-    background: #f8fbff;
+    background: var(--neutral-50);
     cursor: pointer;
 }
 
@@ -1110,7 +1110,7 @@
 .dish-photo-modal__footer {
     margin-top: 16px;
     padding-top: 14px;
-    border-top: 1px solid #e5edf5;
+    border-top: 1px solid var(--neutral-100);
 }
 
 @media (max-width: 1180px) {
@@ -3149,7 +3149,7 @@
 
 .staff-header h1 {
     margin: 0;
-    color: #0f172a;
+    color: var(--neutral-950);
     font-size: clamp(24px, 2.4vw, 34px);
     font-weight: 800;
     letter-spacing: 0;
@@ -3183,7 +3183,7 @@
     margin-bottom: 18px;
     border: 1px solid rgba(218, 228, 239, .95);
     border-radius: 18px;
-    background: #f4f8fc;
+    background: var(--neutral-50);
 }
 
 .staff-tabs button {
@@ -3234,7 +3234,7 @@
     align-items: center;
     gap: 9px;
     padding: 0 14px;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 14px;
     background: #fff;
     color: #0e7490;
@@ -3247,10 +3247,10 @@
 .staff-form textarea {
     width: 100%;
     min-height: 46px;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 14px;
     background: #fff;
-    color: #0f172a;
+    color: var(--neutral-950);
     font: inherit;
     font-size: 14px;
     font-weight: 500;
@@ -3319,7 +3319,7 @@
 
 .staff-table th {
     padding: 15px 16px;
-    background: #eef8ff;
+    background: var(--blue-50);
     color: #456174;
     font-size: 12px;
     font-weight: 500;
@@ -3340,7 +3340,7 @@
 .staff-table td {
     padding: 15px 16px;
     border-top: 1px solid rgba(226, 234, 244, .95);
-    color: #1f2a37;
+    color: var(--neutral-800);
     font-size: 14px;
     font-weight: 500;
     vertical-align: middle;
@@ -3352,7 +3352,7 @@
 }
 
 .staff-table tbody tr:hover {
-    background: #f8fcff;
+    background: var(--neutral-50);
 }
 
 .staff-avatar {
@@ -3363,7 +3363,7 @@
     overflow: hidden;
     border: 2px solid #fff;
     border-radius: 50%;
-    background: #dbf8ff;
+    background: var(--teal-100);
     color: #0e7490;
     font-weight: 800;
     box-shadow: 0 6px 12px rgba(15, 118, 110, 0.091);
@@ -3399,19 +3399,19 @@
 
 .staff-role-badge {
     border: 1px solid rgba(14, 165, 233, .25);
-    background: #e8f8ff;
+    background: var(--teal-50);
     color: #0369a1;
 }
 
 .staff-status-badge {
     border: 1px solid rgba(34, 197, 94, .27);
-    background: #eafaf0;
+    background: var(--neutral-100);
     color: #15803d;
 }
 
 .staff-status-badge.is-archived {
     border-color: rgba(148, 163, 184, .35);
-    background: #f1f5f9;
+    background: var(--neutral-50);
     color: #64748b;
 }
 
@@ -3515,7 +3515,7 @@
 
 .staff-form__header h2 {
     margin: 0;
-    color: #0f172a;
+    color: var(--neutral-950);
     font-size: 24px;
     font-weight: 800;
 }
@@ -3525,10 +3525,10 @@
     height: 42px;
     display: grid;
     place-items: center;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 14px;
     background: #fff;
-    color: #0f172a;
+    color: var(--neutral-950);
     cursor: pointer;
 }
 
@@ -3566,7 +3566,7 @@
 .staff-form__footer button {
     min-height: 44px;
     padding: 0 18px;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 14px;
     background: #fff;
     color: #64748b;
@@ -3677,7 +3677,7 @@
 
 .nomenclature-title-group h1 {
     margin: 0;
-    color: #0f172a;
+    color: var(--neutral-950);
     font-size: clamp(24px, 2.4vw, 34px);
     font-weight: 800;
     letter-spacing: 0;
@@ -3727,7 +3727,7 @@
     padding: 18px;
     border: 1px solid rgba(218, 228, 239, .88);
     border-radius: 20px;
-    background: #f6fbff;
+    background: var(--neutral-50);
     box-shadow: 0 8px 19px rgba(15, 23, 42, 0.049);
 }
 
@@ -3740,7 +3740,7 @@
 }
 
 .nomenclature-summary-card strong {
-    color: #0f172a;
+    color: var(--neutral-950);
     font-size: 23px;
     font-weight: 800;
 }
@@ -3752,7 +3752,7 @@
     margin-bottom: 18px;
     border: 1px solid rgba(218, 228, 239, .95);
     border-radius: 18px;
-    background: #f4f8fc;
+    background: var(--neutral-50);
 }
 
 .nomenclature-tabs button {
@@ -3806,10 +3806,10 @@
     width: 100%;
     min-height: 46px;
     padding: 0 14px;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 14px;
     background: #fff;
-    color: #0f172a;
+    color: var(--neutral-950);
     font: inherit;
     font-size: 14px;
     font-weight: 500;
@@ -3861,7 +3861,7 @@
 
 .nomenclature-table th {
     padding: 15px 16px;
-    background: #eef8ff;
+    background: var(--blue-50);
     color: #456174;
     font-size: 12px;
     font-weight: 500;
@@ -3882,7 +3882,7 @@
 .nomenclature-table td {
     padding: 15px 16px;
     border-top: 1px solid rgba(226, 234, 244, .95);
-    color: #1f2a37;
+    color: var(--neutral-800);
     font-size: 14px;
     font-weight: 500;
     vertical-align: middle;
@@ -3890,7 +3890,7 @@
 }
 
 .nomenclature-table tbody tr:hover {
-    background: #f8fcff;
+    background: var(--neutral-50);
 }
 
 .nomenclature-name-cell {
@@ -3905,7 +3905,7 @@
     place-items: center;
     overflow: hidden;
     border-radius: 14px;
-    background: #dbf8ff;
+    background: var(--teal-100);
     color: #0e7490;
 }
 
@@ -3929,19 +3929,19 @@
 
 .nomenclature-status-badge {
     border: 1px solid rgba(34, 197, 94, .27);
-    background: #eafaf0;
+    background: var(--neutral-100);
     color: #15803d;
 }
 
 .nomenclature-status-badge.is-archived {
     border-color: rgba(148, 163, 184, .35);
-    background: #f1f5f9;
+    background: var(--neutral-50);
     color: #64748b;
 }
 
 .nomenclature-category-badge {
     border: 1px solid rgba(14, 165, 233, .25);
-    background: #e8f8ff;
+    background: var(--teal-50);
     color: #0369a1;
 }
 
@@ -4030,7 +4030,7 @@
 
 .nomenclature-form__header h2 {
     margin: 0;
-    color: #0f172a;
+    color: var(--neutral-950);
     font-size: 24px;
     font-weight: 800;
 }
@@ -4040,10 +4040,10 @@
     height: 42px;
     display: grid;
     place-items: center;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 14px;
     background: #fff;
-    color: #0f172a;
+    color: var(--neutral-950);
     cursor: pointer;
 }
 
@@ -4070,7 +4070,7 @@
 .nomenclature-form__footer button {
     min-height: 44px;
     padding: 0 18px;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 14px;
     background: #fff;
     color: #64748b;
@@ -4164,7 +4164,7 @@
 .nomenclature-card--reference .nomenclature-actions button {
     min-height: 40px;
     padding: 0 18px;
-    border-color: #dce6f2;
+    border-color: var(--blue-100);
     border-radius: 7px;
     color: #1377f2;
     font-size: 13px;
@@ -4196,22 +4196,22 @@
 
 .nomenclature-summary-card--blue {
     border-color: rgba(59, 130, 246, .18);
-    background: #f8fbff;
+    background: var(--neutral-50);
 }
 
 .nomenclature-summary-card--green {
     border-color: rgba(34, 197, 94, .18);
-    background: #f8fffb;
+    background: var(--neutral-0);
 }
 
 .nomenclature-summary-card--orange {
     border-color: rgba(249, 115, 22, .18);
-    background: #fffaf5;
+    background: var(--neutral-0);
 }
 
 .nomenclature-summary-card--purple {
     border-color: rgba(168, 85, 247, .18);
-    background: #fbf8ff;
+    background: var(--neutral-50);
 }
 
 .nomenclature-card--reference .nomenclature-summary-card span {
@@ -4236,7 +4236,7 @@
 .nomenclature-card--reference .nomenclature-summary-card strong {
     display: block;
     margin-top: 8px;
-    color: #101828;
+    color: var(--neutral-950);
     font-size: 30px;
     line-height: 1;
 }
@@ -4322,9 +4322,9 @@
 .nomenclature-card--reference .nomenclature-filters input,
 .nomenclature-card--reference .nomenclature-filters select {
     min-height: 44px;
-    border-color: #dfe7f2;
+    border-color: var(--neutral-100);
     border-radius: 6px;
-    color: #27364a;
+    color: var(--neutral-700);
     font-size: 12px;
     font-weight: 500;
 }
@@ -4337,7 +4337,7 @@
     min-height: 44px;
     border-color: #19bfd3;
     border-radius: 6px;
-    color: #0f9caf;
+    color: var(--teal-600);
     font-size: 12px;
     background: #fff;
 }
@@ -4359,7 +4359,7 @@
 
 .nomenclature-card--reference .nomenclature-table th {
     padding: 14px 18px;
-    background: #f7f9fc;
+    background: var(--neutral-50);
     color: #667085;
     font-size: 11px;
     letter-spacing: 0;
@@ -4373,7 +4373,7 @@
 
 .nomenclature-card--reference .nomenclature-table td {
     padding: 12px 18px;
-    color: #1f2f46;
+    color: var(--neutral-800);
     font-size: 13px;
     font-weight: 500;
 }
@@ -4382,11 +4382,11 @@
     width: 58px;
     height: 48px;
     border-radius: 7px;
-    background: #eef4fb;
+    background: var(--blue-50);
 }
 
 .nomenclature-card--reference .nomenclature-name-cell {
-    color: #1f2f46 !important;
+    color: var(--neutral-800) !important;
     font-weight: 800 !important;
 }
 
@@ -4400,13 +4400,13 @@
 
 .nomenclature-category-badge.is-blue {
     border-color: rgba(59, 130, 246, .24);
-    background: #eaf3ff;
+    background: var(--blue-50);
     color: #1677ff;
 }
 
 .nomenclature-category-badge.is-green {
     border-color: rgba(34, 197, 94, .24);
-    background: #eafaf0;
+    background: var(--neutral-100);
     color: #16a34a;
 }
 
@@ -4418,19 +4418,19 @@
 
 .nomenclature-category-badge.is-purple {
     border-color: rgba(168, 85, 247, .24);
-    background: #f5ecff;
+    background: var(--neutral-50);
     color: #8b5cf6;
 }
 
 .nomenclature-category-badge.is-red {
     border-color: rgba(239, 68, 68, .24);
-    background: #fff0f0;
+    background: var(--neutral-50);
     color: #ef4444;
 }
 
 .nomenclature-category-badge.is-cyan {
     border-color: rgba(6, 182, 212, .24);
-    background: #e9fbff;
+    background: var(--teal-50);
     color: #0891b2;
 }
 
@@ -4474,7 +4474,7 @@
     height: 34px;
     display: grid;
     place-items: center;
-    border: 1px solid #dfe7f2;
+    border: 1px solid var(--neutral-100);
     border-radius: 7px;
     background: #fff;
     color: #667085;
@@ -4496,10 +4496,10 @@
 .nomenclature-pagination select {
     min-height: 38px;
     padding: 0 12px;
-    border: 1px solid #dfe7f2;
+    border: 1px solid var(--neutral-100);
     border-radius: 7px;
     background: #fff;
-    color: #344054;
+    color: var(--neutral-700);
     font-weight: 800;
 }
 
@@ -4574,7 +4574,7 @@
 
 .warehouse-title-group h1 {
     margin: 0;
-    color: #0f172a;
+    color: var(--neutral-950);
     font-size: clamp(24px, 2.4vw, 34px);
     font-weight: 800;
 }
@@ -4629,19 +4629,19 @@
 }
 
 .warehouse-summary-card--blue {
-    background: #f8fbff;
+    background: var(--neutral-50);
 }
 
 .warehouse-summary-card--green {
-    background: #f8fffb;
+    background: var(--neutral-0);
 }
 
 .warehouse-summary-card--purple {
-    background: #fbf8ff;
+    background: var(--neutral-50);
 }
 
 .warehouse-summary-card--orange {
-    background: #fffaf5;
+    background: var(--neutral-0);
 }
 
 .warehouse-summary-card span {
@@ -4654,7 +4654,7 @@
 .warehouse-summary-card strong {
     display: block;
     margin-top: 9px;
-    color: #0f172a;
+    color: var(--neutral-950);
     font-size: 25px;
     font-weight: 800;
     line-height: 1.1;
@@ -4694,7 +4694,7 @@
     margin-bottom: 16px;
     border: 1px solid rgba(218, 228, 239, .95);
     border-radius: 16px;
-    background: #f4f8fc;
+    background: var(--neutral-50);
 }
 
 .warehouse-tabs button {
@@ -4724,7 +4724,7 @@
     padding: 16px;
     border: 1px solid rgba(218, 228, 239, .95);
     border-radius: 20px;
-    background: #f8fbff;
+    background: var(--neutral-50);
 }
 
 .warehouse-filters label,
@@ -4742,10 +4742,10 @@
     width: 100%;
     min-height: 44px;
     padding: 0 13px;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 12px;
     background: #fff;
-    color: #0f172a;
+    color: var(--neutral-950);
     font: inherit;
     font-size: 14px;
     font-weight: 500;
@@ -4785,7 +4785,7 @@
 
 .warehouse-table th {
     padding: 15px 16px;
-    background: #eef8ff;
+    background: var(--blue-50);
     color: #456174;
     font-size: 12px;
     font-weight: 500;
@@ -4806,7 +4806,7 @@
 .warehouse-table td {
     padding: 15px 16px;
     border-top: 1px solid rgba(226, 234, 244, .95);
-    color: #1f2a37;
+    color: var(--neutral-800);
     font-size: 14px;
     font-weight: 500;
     vertical-align: middle;
@@ -4814,7 +4814,7 @@
 }
 
 .warehouse-table tbody tr:hover {
-    background: #f8fcff;
+    background: var(--neutral-50);
 }
 
 .warehouse-status-badge {
@@ -4830,7 +4830,7 @@
 
 .warehouse-status-badge--green {
     border: 1px solid rgba(34, 197, 94, .27);
-    background: #eafaf0;
+    background: var(--neutral-100);
     color: #15803d;
 }
 
@@ -4842,13 +4842,13 @@
 
 .warehouse-status-badge--red {
     border: 1px solid rgba(239, 68, 68, .28);
-    background: #fff0f0;
+    background: var(--neutral-50);
     color: #dc2626;
 }
 
 .warehouse-status-badge--gray {
     border: 1px solid rgba(148, 163, 184, .35);
-    background: #f1f5f9;
+    background: var(--neutral-50);
     color: #64748b;
 }
 
@@ -4905,7 +4905,7 @@
 .warehouse-pagination button {
     width: 34px;
     height: 34px;
-    border: 1px solid #dfe7f2;
+    border: 1px solid var(--neutral-100);
     border-radius: 9px;
     background: #fff;
     color: #667085;
@@ -4922,10 +4922,10 @@
 .warehouse-pagination select {
     min-height: 38px;
     padding: 0 12px;
-    border: 1px solid #dfe7f2;
+    border: 1px solid var(--neutral-100);
     border-radius: 9px;
     background: #fff;
-    color: #344054;
+    color: var(--neutral-700);
     font-weight: 800;
 }
 
@@ -4979,7 +4979,7 @@
 
 .warehouse-form__header h2 {
     margin: 0;
-    color: #0f172a;
+    color: var(--neutral-950);
     font-size: 24px;
     font-weight: 800;
 }
@@ -4989,10 +4989,10 @@
     height: 42px;
     display: grid;
     place-items: center;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 14px;
     background: #fff;
-    color: #0f172a;
+    color: var(--neutral-950);
     cursor: pointer;
 }
 
@@ -5008,12 +5008,12 @@
     padding: 14px;
     border: 1px solid rgba(218, 228, 239, .95);
     border-radius: 16px;
-    background: #f8fbff;
+    background: var(--neutral-50);
 }
 
 .warehouse-products-box__head strong,
 .warehouse-products-box__head span {
-    color: #0f172a;
+    color: var(--neutral-950);
     font-weight: 800;
 }
 
@@ -5032,7 +5032,7 @@
 }
 
 .warehouse-product-row strong {
-    color: #0f172a;
+    color: var(--neutral-950);
     font-size: 12px;
     font-weight: 500;
 }
@@ -5077,7 +5077,7 @@
 .warehouse-form__footer button {
     min-height: 42px;
     padding: 0 14px;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 12px;
     background: #fff;
     color: #64748b;
@@ -5199,7 +5199,7 @@
 
 .finance-title-group h1 {
     margin: 0;
-    color: #0f172a;
+    color: var(--neutral-950);
     font-size: clamp(24px, 2.4vw, 34px);
     font-weight: 800;
 }
@@ -5244,18 +5244,18 @@
 }
 
 .finance-summary-pill strong {
-    color: #0f172a;
+    color: var(--neutral-950);
     font-size: 20px;
     font-weight: 800;
 }
 
 .finance-income-pill {
-    background: #f8fffb;
+    background: var(--neutral-0);
     color: #15803d;
 }
 
 .finance-expense-pill {
-    background: #fff7f7;
+    background: var(--neutral-0);
     color: #dc2626;
 }
 
@@ -5318,7 +5318,7 @@
     padding: 16px;
     border: 1px solid rgba(218, 228, 239, .95);
     border-radius: 20px;
-    background: #f8fbff;
+    background: var(--neutral-50);
 }
 
 .finance-filters--categories {
@@ -5333,10 +5333,10 @@
     width: 100%;
     min-height: 44px;
     padding: 0 13px;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 12px;
     background: #fff;
-    color: #0f172a;
+    color: var(--neutral-950);
     font: inherit;
     font-size: 14px;
     font-weight: 500;
@@ -5360,7 +5360,7 @@
 
 .finance-table th {
     padding: 15px 16px;
-    background: #eef8ff;
+    background: var(--blue-50);
     color: #456174;
     font-size: 12px;
     font-weight: 500;
@@ -5381,7 +5381,7 @@
 .finance-table td {
     padding: 15px 16px;
     border-top: 1px solid rgba(226, 234, 244, .95);
-    color: #1f2a37;
+    color: var(--neutral-800);
     font-size: 14px;
     font-weight: 500;
     vertical-align: middle;
@@ -5389,7 +5389,7 @@
 }
 
 .finance-table tbody tr:hover {
-    background: #f8fcff;
+    background: var(--neutral-50);
 }
 
 .finance-table td small {
@@ -5445,7 +5445,7 @@
     margin-bottom: 16px;
     border: 1px solid rgba(218, 228, 239, .95);
     border-radius: 16px;
-    background: #f4f8fc;
+    background: var(--neutral-50);
 }
 
 .finance-tabs button {
@@ -5474,7 +5474,7 @@
     padding: 0 11px;
     border: 1px solid rgba(34, 197, 94, .27);
     border-radius: 999px;
-    background: #eafaf0;
+    background: var(--neutral-100);
     color: #15803d;
     font-size: 12px;
     font-weight: 500;
@@ -5482,7 +5482,7 @@
 
 .finance-status-badge.is-archived {
     border-color: rgba(148, 163, 184, .35);
-    background: #f1f5f9;
+    background: var(--neutral-50);
     color: #64748b;
 }
 
@@ -5543,7 +5543,7 @@
 
 .finance-form__header h2 {
     margin: 0;
-    color: #0f172a;
+    color: var(--neutral-950);
     font-size: 24px;
     font-weight: 800;
 }
@@ -5553,10 +5553,10 @@
     height: 42px;
     display: grid;
     place-items: center;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 14px;
     background: #fff;
-    color: #0f172a;
+    color: var(--neutral-950);
     cursor: pointer;
 }
 
@@ -5597,7 +5597,7 @@
 .finance-form__footer button {
     min-height: 42px;
     padding: 0 16px;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 12px;
     background: #fff;
     color: #64748b;
@@ -5703,7 +5703,7 @@
 .settings-title-group h1,
 .settings-form__header h2 {
     margin: 0;
-    color: #0f172a;
+    color: var(--neutral-950);
     font-size: clamp(24px, 2.4vw, 34px);
     font-weight: 800;
 }
@@ -5746,10 +5746,10 @@
     min-height: 42px;
     width: min(260px, 100%);
     padding: 0 13px;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 12px;
     background: #fff;
-    color: #0f172a;
+    color: var(--neutral-950);
     font-weight: 800;
 }
 
@@ -5760,7 +5760,7 @@
     margin-bottom: 18px;
     border: 1px solid rgba(218, 228, 239, .95);
     border-radius: 16px;
-    background: #f4f8fc;
+    background: var(--neutral-50);
 }
 
 .settings-tabs button {
@@ -5797,7 +5797,7 @@
 
 .settings-table th {
     padding: 15px 16px;
-    background: #eef8ff;
+    background: var(--blue-50);
     color: #456174;
     font-size: 12px;
     font-weight: 500;
@@ -5818,7 +5818,7 @@
 .settings-table td {
     padding: 15px 16px;
     border-top: 1px solid rgba(226, 234, 244, .95);
-    color: #1f2a37;
+    color: var(--neutral-800);
     font-size: 14px;
     font-weight: 500;
     vertical-align: middle;
@@ -5826,7 +5826,7 @@
 }
 
 .settings-table tbody tr:hover {
-    background: #f8fcff;
+    background: var(--neutral-50);
 }
 
 .settings-status-badge {
@@ -5842,7 +5842,7 @@
 
 .settings-status-badge.is-active {
     border: 1px solid rgba(34, 197, 94, .27);
-    background: #eafaf0;
+    background: var(--neutral-100);
     color: #15803d;
 }
 
@@ -5854,7 +5854,7 @@
 
 .settings-status-badge.is-inactive {
     border: 1px solid rgba(239, 68, 68, .28);
-    background: #fff0f0;
+    background: var(--neutral-50);
     color: #dc2626;
 }
 
@@ -5887,9 +5887,9 @@
     width: 64px;
     min-height: 34px;
     padding: 0 8px;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 10px;
-    color: #0f172a;
+    color: var(--neutral-950);
     font-weight: 800;
 }
 
@@ -5942,7 +5942,7 @@
     height: 42px;
     display: grid;
     place-items: center;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 14px;
     background: #fff;
     cursor: pointer;
@@ -5975,10 +5975,10 @@
     width: 100%;
     min-height: 44px;
     padding: 0 13px;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 12px;
     background: #fff;
-    color: #0f172a;
+    color: var(--neutral-950);
     font: inherit;
     font-size: 14px;
     font-weight: 500;
@@ -6017,7 +6017,7 @@
     padding: 18px;
     border: 1px solid rgba(218, 228, 239, .95);
     border-radius: 18px;
-    background: #f8fbff;
+    background: var(--neutral-50);
 }
 
 .settings-history-list span,
@@ -6027,7 +6027,7 @@
 
 .settings-profile-grid h2 {
     margin: 0 0 14px;
-    color: #0f172a;
+    color: var(--neutral-950);
     font-size: 18px;
 }
 
@@ -6037,7 +6037,7 @@
     justify-content: space-between;
     min-height: 44px;
     padding: 0 12px;
-    border: 1px solid #d9e5f0;
+    border: 1px solid var(--blue-100);
     border-radius: 12px;
     background: #fff;
 }
@@ -6070,10 +6070,10 @@
     max-width: 280px;
     margin: 0 auto;
     padding: 20px;
-    border: 1px dashed #cbd5e1;
+    border: 1px dashed var(--neutral-200);
     border-radius: 16px;
     background: #fff;
-    color: #111827;
+    color: var(--neutral-950);
     font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
     text-align: center;
 }
@@ -6100,7 +6100,7 @@
     place-items: center;
     margin: 0 auto 10px;
     border-radius: 12px;
-    background: #e8f8ff;
+    background: var(--teal-50);
     color: #0369a1;
     font-weight: 800;
 }
