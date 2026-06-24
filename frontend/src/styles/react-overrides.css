@@ -846,7 +846,10 @@
   overflow: hidden;
   display: grid;
   place-items: center;
-  background: #251922;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(29, 181, 181, 0.22), transparent 28%),
+    radial-gradient(circle at 86% 8%, rgba(59, 130, 246, 0.16), transparent 30%),
+    linear-gradient(140deg, #251922 0%, #0f2747 46%, #091528 100%);
   color: #fff;
 }
 
