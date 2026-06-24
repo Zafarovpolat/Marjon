@@ -1,4 +1,8 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+
+import uzcardLogo from "../assets/paylogos/uzcard.svg";
+import humoLogo from "../assets/paylogos/humo.svg";
+import visaLogo from "../assets/paylogos/visa.svg";
+import mastercardLogo from "../assets/paylogos/mastercard.svg";﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import { clampToToday, todayInputValue } from "../utils/date";
 import DatePicker from "./DatePicker";
@@ -357,8 +361,8 @@ export default function Topbar({
                   >
                     <span className="balance-payment-method__check" aria-hidden="true" />
                     <span className="balance-payment-method__logos">
-                      <strong>UZ</strong>
-                      <em>HUMO</em>
+                      <img src={uzcardLogo} alt="UzCard" />
+                      <img src={humoLogo} alt="Humo" />
                     </span>
                     <span>UzCard / Humo</span>
                   </button>
@@ -371,8 +375,8 @@ export default function Topbar({
                   >
                     <span className="balance-payment-method__check" aria-hidden="true" />
                     <span className="balance-payment-method__logos balance-payment-method__logos--visa">
-                      <strong>VISA</strong>
-                      <em>Mastercard</em>
+                      <img src={visaLogo} alt="Visa" />
+                      <img src={mastercardLogo} alt="Mastercard" />
                     </span>
                     <span>Visa / Mastercard</span>
                   </button>
@@ -478,4 +482,3 @@ export default function Topbar({
     </>
   );
 }
-

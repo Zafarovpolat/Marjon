@@ -17999,3 +17999,49 @@ html,#root{background:var(--neutral-50,#f4f7fc) !important;}
 .badge,.chip,.tag,.status-pill{box-shadow:none !important;font-weight:500 !important;border-radius:var(--radius-full,9999px) !important;}
 .data-table thead th,table thead th{font-weight:500 !important;color:var(--color-text-muted,#64748b) !important;background:var(--neutral-50,var(--neutral-50)) !important;}
 .data-table td,table td{border-color:var(--border-subtle,var(--neutral-100)) !important;}
+
+/* ==================================================================
+   UI/UX FIX PASS — палитра, сайдбар, модалка оплаты
+   ================================================================== */
+
+/* 1) sidebar-brand: убрать нижнюю границу */
+.dashboard-sidebar .sidebar-brand,
+.sidebar-brand { border-bottom: 0 !important; }
+
+/* 2) при активной модалке оплаты — у сайдбара нет тени */
+body:has(.balance-payment-modal) .dashboard-sidebar,
+body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !important; }
+
+/* 3) balance-card-back--icon: нейтральная светлая кнопка как остальные */
+.balance-card-back--icon,
+.balance-payment-dialog__head .balance-card-back--icon {
+  background: #ffffff !important;
+  border: 1px solid var(--neutral-200) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+}
+.balance-card-back--icon i,
+.balance-payment-dialog__head .balance-card-back--icon i { color: var(--neutral-700) !important; }
+.balance-card-back--icon:hover,
+.balance-card-back--icon:focus-visible {
+  background: var(--neutral-50) !important;
+  border-color: var(--neutral-300) !important;
+}
+
+/* 4) notice: в палитру (teal-tint вместо royal-blue) */
+.balance-payment-dialog__notice {
+  background: var(--teal-50, #ecfeff) !important;
+  border: 1px solid rgba(29, 181, 181, 0.22) !important;
+  color: var(--neutral-700) !important;
+}
+.balance-payment-dialog__notice strong { color: var(--neutral-900) !important; }
+.balance-payment-dialog__notice a { color: var(--color-brand-dark, #0e8080) !important; }
+
+/* 5) модалка оплаты — нормализация под палитру */
+.balance-payment-dialog { border: 1px solid var(--neutral-200) !important; border-radius: 18px !important; }
+.balance-payment-dialog h2,
+.balance-payment-dialog h3 { color: var(--neutral-900) !important; }
+.balance-payment-dialog__head { border-bottom: 1px solid var(--neutral-100) !important; }
+
+/* лого банков в методах оплаты */
+.balance-payment-method__logos { display: inline-flex !important; align-items: center !important; gap: 8px !important; }
+.balance-payment-method__logos img { height: 22px !important; width: auto !important; max-width: 64px !important; object-fit: contain !important; display: block !important; }
