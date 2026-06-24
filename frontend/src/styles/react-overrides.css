@@ -18123,3 +18123,36 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .balance-card-step .balance-offer strong {
   color: var(--neutral-900, #0b1f3f) !important;
 }
+
+/* balance-offer: простое согласие без карточки (фон/обводку убрали) */
+.balance-offer,
+.balance-payment-dialog .balance-offer,
+.balance-card-step .balance-offer {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important;
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 4px 0 !important;
+  margin: 0 !important;
+}
+.balance-offer input[type="checkbox"] {
+  width: 16px !important;
+  height: 16px !important;
+  margin: 0 !important;
+  flex: 0 0 auto !important;
+  accent-color: var(--accent, #1db5b5) !important;
+}
+.balance-offer span {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: var(--neutral-600, #475569) !important;
+  line-height: 1.4 !important;
+}
+.balance-offer a {
+  color: var(--accent, #1db5b5) !important;
+  text-decoration: underline !important;
+  font-weight: 500 !important;
+}

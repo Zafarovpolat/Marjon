@@ -442,11 +442,8 @@ export default function Topbar({
                     </label>
                   </div>
                   <label className="balance-offer">
-                    <strong>Публичная оферта</strong>
-                    <span>
-                      <input type="checkbox" />
-                      Я ознакомлен с публичной офертой
-                    </span>
+                    <input type="checkbox" />
+                    <span>Я ознакомлен с <a href="#" onClick={(e) => e.preventDefault()}>публичной офертой</a></span>
                   </label>
                   <button className="balance-payment-submit balance-payment-submit--wide" type="button">
                     Перейти к подтверждению
