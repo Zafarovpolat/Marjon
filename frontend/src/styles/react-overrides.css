@@ -18363,3 +18363,56 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   color: var(--accent, #1db5b5) !important;
   fill: var(--accent, #1db5b5) !important;
 }
+
+/* ===== CORRECTIONS: 4 KPI cards, period dropdown = details, stroke icons ===== */
+
+/* grid обратно на 4 колонки (карт теперь 4) */
+.kpi-grid--premium { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+@media (max-width: 1280px) { .kpi-grid--premium { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+@media (max-width: 560px)  { .kpi-grid--premium { grid-template-columns: 1fr !important; } }
+
+/* кнопка периода: точно как "Подробнее" (teal фон + teal текст, та же высота) */
+.period-switcher .period-dropdown__button,
+.period-switcher .period-dropdown > button,
+.period-switcher button {
+  box-sizing: border-box !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 0 14px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  border-radius: 10px !important;
+  color: var(--accent, #1db5b5) !important;
+  background: rgba(29,181,181,0.10) !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+}
+.period-switcher .period-dropdown__button:hover,
+.period-switcher button:hover { background: rgba(29,181,181,0.16) !important; }
+.period-switcher .period-dropdown__button svg,
+.period-switcher button svg { color: var(--accent, #1db5b5) !important; fill: none !important; stroke: currentColor !important; }
+
+/* ИКОНКИ lucide — stroke-based: только color/stroke, без сплошной заливки */
+.premium-kpi__icon svg,
+.premium-kpi__icon svg * {
+  fill: none !important;
+  stroke: currentColor !important;
+}
+.premium-kpi__icon, .premium-kpi__icon svg { color: #ffffff !important; }
+
+.warehouse-summary-item__icon svg,
+.warehouse-summary-item__icon svg *,
+.warehouse-summary-item--blue .warehouse-summary-item__icon svg *,
+.warehouse-summary-item--green .warehouse-summary-item__icon svg *,
+.warehouse-summary-item--red .warehouse-summary-item__icon svg *,
+.warehouse-summary-item--orange .warehouse-summary-item__icon svg *,
+.warehouse-summary-item--rose .warehouse-summary-item__icon svg *,
+.warehouse-summary-item--pink .warehouse-summary-item__icon svg * {
+  fill: none !important;
+  stroke: currentColor !important;
+}
+.warehouse-summary-item__icon,
+.warehouse-summary-item__icon svg { color: var(--accent, #1db5b5) !important; }

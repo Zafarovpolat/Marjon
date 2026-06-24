@@ -191,25 +191,6 @@ function demoKpis(sales, selectedDate) {
       ],
       insight: "Денежный доход показывает поступления, которые уже прошли через оплату.",
     },
-    {
-      className: "premium-kpi--expense",
-      icon: "bi-wallet2",
-      badge: "Расход",
-      label: "Денежный расход",
-      value: formatNumber(moneyExpense),
-      suffix: "UZS",
-      note: `${signed(expenseChange)}% к вчерашнему дню`,
-      noteClass: noteClassFor(-expenseChange),
-      progress: Math.max(8, Math.min(100, Math.round((moneyExpense / Math.max(day.revenue, 1)) * 100))),
-      description: "Денежные расходы за выбранную дату: закупки, операционные списания и прочие выплаты.",
-      details: [
-        ["Закупки", `${formatNumber(Math.round(moneyExpense * 0.58))} UZS`],
-        ["Операционные", `${formatNumber(Math.round(moneyExpense * 0.28))} UZS`],
-        ["Прочие", `${formatNumber(Math.max(0, moneyExpense - Math.round(moneyExpense * 0.86)))} UZS`],
-        ["Среднее время", `${avgTime} мин`],
-      ],
-      insight: "Денежный расход помогает видеть дневную нагрузку на кассу и закупки.",
-    },
   ];
 }
 
