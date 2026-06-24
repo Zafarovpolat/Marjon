@@ -18105,3 +18105,21 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .balance-payment-dialog .balance-offer a {
   color: var(--accent, #1db5b5) !important;
 }
+
+/* polish v2: контраст заголовка тёмной панели оплаты + оферта */
+.balance-card-step__side h2,
+.balance-payment-dialog .balance-card-step__side h2 {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  background: none !important;
+}
+.balance-card-step__side p,
+.balance-card-step__side li,
+.balance-card-step__side span {
+  color: rgba(255,255,255,0.78) !important;
+}
+.balance-offer strong,
+.balance-payment-dialog .balance-offer strong,
+.balance-card-step .balance-offer strong {
+  color: var(--neutral-900, #0b1f3f) !important;
+}
