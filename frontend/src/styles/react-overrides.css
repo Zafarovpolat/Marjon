@@ -18095,3 +18095,13 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   border-width: 1px !important;
   border-style: solid !important;
 }
+
+/* polish: оферта в палитре (не зелёный) */
+.balance-offer strong,
+.balance-payment-dialog .balance-offer strong {
+  color: var(--neutral-900, #0b1f3f) !important;
+}
+.balance-offer a,
+.balance-payment-dialog .balance-offer a {
+  color: var(--accent, #1db5b5) !important;
+}
