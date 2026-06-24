@@ -18046,21 +18046,52 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .balance-payment-method__logos { display: inline-flex !important; align-items: center !important; gap: 8px !important; }
 .balance-payment-method__logos img { height: 22px !important; width: auto !important; max-width: 64px !important; object-fit: contain !important; display: block !important; }
 
-/* FINAL FIXES sidebar-brand & dashboard-main radius (authoritative) */
+
+/* ==== AUTHORITATIVE FIXES (v2): brand border, content radius, sidebar hover ==== */
+
+/* 1) sidebar-brand: никаких разделительных линий ни в одном состоянии */
 .dashboard-sidebar .sidebar-brand,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-brand,
 .dashboard-sidebar.is-collapsed .sidebar-brand {
   border-bottom: 0 !important;
   box-shadow: none !important;
 }
+
+/* 2) Скругление переносим именно на .dashboard-content (оба верхних угла),
+      во всех состояниях сайдбара; снимаем radius с .dashboard-main */
 .dashboard-shell .dashboard-main,
 .dashboard-shell .dashboard-main:not(.is-sidebar-collapsed),
 .dashboard-shell .dashboard-main.is-sidebar-collapsed {
-  border-top-left-radius: 36px !important;
+  border-top-left-radius: 0 !important;
+}
+.dashboard-shell .dashboard-content,
+.dashboard-shell .dashboard-main:not(.is-sidebar-collapsed) .dashboard-content,
+.dashboard-shell .dashboard-main.is-sidebar-collapsed .dashboard-content {
+  border-top-left-radius: 28px !important;
+  border-top-right-radius: 28px !important;
 }
 @media (max-width: 1024px) {
-  .dashboard-shell .dashboard-main,
-  .dashboard-shell .dashboard-main.is-sidebar-collapsed {
-    border-top-left-radius: 36px !important;
+  .dashboard-shell .dashboard-content,
+  .dashboard-shell .dashboard-main.is-sidebar-collapsed .dashboard-content {
+    border-top-left-radius: 28px !important;
+    border-top-right-radius: 28px !important;
   }
+}
+
+/* 3) Ховер кнопок сайдбара: резервируем бордер в базовом состоянии,
+      чтобы при ховере не прыгала высота (border-box + прозрачный бордер) */
+.dashboard-sidebar .sidebar-link,
+.dashboard-sidebar .sidebar-link--button,
+.dashboard-sidebar .sidebar-nav-item > .sidebar-link,
+.dashboard-sidebar .sidebar-nav-item > .sidebar-link--button {
+  box-sizing: border-box !important;
+  border: 1px solid transparent !important;
+}
+/* при ховере меняем только цвет бордера, не его наличие */
+.dashboard-sidebar .sidebar-link:hover,
+.dashboard-sidebar .sidebar-link--button:hover,
+.dashboard-sidebar .sidebar-nav-item > .sidebar-link:hover,
+.dashboard-sidebar .sidebar-nav-item > .sidebar-link--button:hover {
+  border-width: 1px !important;
+  border-style: solid !important;
 }

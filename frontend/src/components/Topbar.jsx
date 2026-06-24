@@ -1,5 +1,6 @@
 import uzcardLogo from "../assets/paylogos/uzcard.svg";
-import visaLogo from "../assets/paylogos/visa.svg";﻿import { useEffect, useMemo, useRef, useState } from "react";
+import visaLogo from "../assets/paylogos/visa.svg";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import { clampToToday, todayInputValue } from "../utils/date";
 import DatePicker from "./DatePicker";
@@ -376,25 +377,7 @@ export default function Topbar({
                     <span>Visa / Mastercard</span>
                   </button>
                 </div>
-                {paymentMethod === "visa" ? (
-                  <div className="balance-payment-visa-extra">
-                    <label className="balance-payment-dialog__field balance-payment-dialog__field--required">
-                      <span>Сумма</span>
-                      <input type="text" placeholder="Введите сумму" />
-                    </label>
-                    <div className="balance-payment-quick">
-                      <button type="button">390 000</button>
-                      <button type="button">1 000 000</button>
-                    </div>
-                    <label className="balance-payment-offer">
-                      <strong>Публичная оферта</strong>
-                      <span>
-                        <input type="checkbox" />
-                        Я ознакомлен с публичной офертой
-                      </span>
-                    </label>
-                  </div>
-                ) : null}
+                {null}
                 <button className="balance-payment-submit" type="button" onClick={() => setPaymentStep("card")}>
                   Оплатить
                 </button>
