@@ -18444,3 +18444,118 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .period-switcher .period-dropdown__button span { font-size: 13px !important; font-weight: 500 !important; text-transform: none !important; letter-spacing: 0 !important; }
 .period-switcher .period-dropdown__button strong { font-size: 13px !important; font-weight: 600 !important; }
 .period-switcher .period-dropdown__button svg { width: 16px !important; height: 16px !important; flex: 0 0 auto !important; }
+
+/* ===================== ROUND OF FIXES (palette + consistency) ===================== */
+
+/* 1) sidebar-account hover: без бордера и фона */
+.dashboard-sidebar .sidebar-account,
+.dashboard-sidebar .sidebar-account:hover {
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* 2) sidebar-user / --button: без дёрганого transform на hover */
+.dashboard-sidebar .sidebar-user,
+.dashboard-sidebar .sidebar-user--button,
+.dashboard-sidebar .sidebar-user:hover,
+.dashboard-sidebar .sidebar-user--button:hover,
+.dashboard-sidebar .sidebar-user--button:active,
+.dashboard-sidebar .sidebar-user--button:focus {
+  transform: none !important;
+  transition: background .15s ease, border-color .15s ease !important;
+}
+
+/* 3) premium-kpi иконки + glow строго в палитре (teal), единый стиль */
+.kpi-grid--premium .premium-kpi__icon,
+.premium-kpi--revenue .premium-kpi__icon,
+.premium-kpi--orders .premium-kpi__icon,
+.premium-kpi--avg .premium-kpi__icon,
+.premium-kpi--tables .premium-kpi__icon {
+  background: var(--accent, #1db5b5) !important;
+}
+.premium-kpi--revenue::after,
+.premium-kpi--orders::after,
+.premium-kpi--avg::after,
+.premium-kpi--tables::after {
+  background: var(--accent, #1db5b5) !important;
+}
+
+/* 4) period-switcher: без фона/обводки */
+.period-switcher { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
+
+/* 5) period dropdown: аккуратное меню */
+.period-switcher .period-dropdown__menu {
+  margin-top: 6px !important;
+  padding: 6px !important;
+  border: 1px solid var(--neutral-200, #e2e8f0) !important;
+  border-radius: 12px !important;
+  background: #fff !important;
+  box-shadow: 0 8px 24px rgba(16,24,40,0.08) !important;
+}
+.period-switcher .period-dropdown__menu button,
+.period-switcher .period-dropdown__menu [role="option"] {
+  width: 100% !important;
+  height: 34px !important;
+  justify-content: flex-start !important;
+  background: transparent !important;
+  color: var(--neutral-700,#334155) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  font-size: 13px !important; font-weight: 500 !important;
+}
+.period-switcher .period-dropdown__menu button:hover,
+.period-switcher .period-dropdown__menu [role="option"]:hover {
+  background: rgba(29,181,181,0.10) !important; color: var(--accent,#1db5b5) !important;
+}
+
+/* 6) warehouse-summary-item: без бордера, лёгкий фон */
+.warehouse-summary-item,
+.warehouse-summary-item--blue,
+.warehouse-summary-item--green,
+.warehouse-summary-item--red,
+.warehouse-summary-item--orange,
+.warehouse-summary-item--rose,
+.warehouse-summary-item--pink {
+  border: 0 !important;
+  background: var(--neutral-50, #f4f7fc) !important;
+  box-shadow: none !important;
+}
+
+/* 7) единый стиль иконок: warehouse-контейнер как у KPI-чипа (teal-tint, teal-глиф, stroke) */
+.warehouse-summary-item__icon {
+  width: 40px !important; height: 40px !important;
+  display: grid !important; place-items: center !important;
+  border-radius: 12px !important;
+  background: rgba(29,181,181,0.10) !important;
+  color: var(--accent,#1db5b5) !important;
+}
+.warehouse-summary-item__icon svg, .warehouse-summary-item__icon svg * { fill: none !important; stroke: currentColor !important; }
+.premium-kpi__icon svg, .premium-kpi__icon svg * { fill: none !important; stroke: currentColor !important; stroke-width: 2 !important; }
+.warehouse-summary-item__icon svg { stroke-width: 2 !important; }
+
+/* 8) warehouse значения: меньше и аккуратнее */
+.warehouse-summary-item strong { font-size: 13px !important; font-weight: 600 !important; color: var(--neutral-900,#0b1f3f) !important; }
+.warehouse-summary-item span:not(.warehouse-summary-item__icon) { font-size: 13px !important; font-weight: 500 !important; color: var(--neutral-600,#475569) !important; }
+
+/* 9+10) "Все блюда" / "Все заказы" = 1:1 с "Подробнее", без символа › */
+.section-header .btn-ghost,
+.top-dishes-card .section-header .btn-ghost {
+  height: 36px !important; min-height: 36px !important;
+  display: inline-flex !important; align-items: center !important;
+  padding: 0 14px !important; gap: 6px !important;
+  font-size: 13px !important; font-weight: 500 !important;
+  border-radius: 10px !important;
+  color: var(--accent,#1db5b5) !important;
+  background: rgba(29,181,181,0.10) !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+.section-header .btn-ghost:hover,
+.top-dishes-card .section-header .btn-ghost:hover {
+  background: rgba(29,181,181,0.16) !important; transform: none !important;
+}
+.section-header .btn-ghost::after,
+.top-dishes-card .section-header .btn-ghost::after { content: none !important; display: none !important; }
