@@ -462,7 +462,7 @@
   font-size: 14px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .pos-body {
     flex-direction: column;
   }
@@ -498,7 +498,7 @@
   }
 }
 
-@media (max-width: 560px) {
+@media (max-width: 480px) {
   .pos-nav {
     grid-template-columns: 1fr;
   }

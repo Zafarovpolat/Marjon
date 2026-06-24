@@ -109,7 +109,7 @@ body.dashboard-body::before {
   background: var(--neutral-50);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .dashboard-main,
   .dashboard-topbar {
     border-top-left-radius: 0 !important;
