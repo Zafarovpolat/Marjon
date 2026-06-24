@@ -18416,3 +18416,31 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 }
 .warehouse-summary-item__icon,
 .warehouse-summary-item__icon svg { color: var(--accent, #1db5b5) !important; }
+
+/* ===== KPI grid strictly 4 cols + period button exact match ===== */
+.dashboard-content .kpi-grid.kpi-grid--premium,
+.kpi-grid.kpi-grid--premium {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+@media (max-width: 1100px) {
+  .dashboard-content .kpi-grid.kpi-grid--premium,
+  .kpi-grid.kpi-grid--premium { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+@media (max-width: 560px) {
+  .dashboard-content .kpi-grid.kpi-grid--premium,
+  .kpi-grid.kpi-grid--premium { grid-template-columns: 1fr !important; }
+}
+
+/* period dropdown button = точно как .period-switcher__details */
+.period-switcher .period-dropdown__button {
+  height: 36px !important;
+  min-height: 36px !important;
+  line-height: 1 !important;
+  padding: 0 14px !important;
+  gap: 6px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+.period-switcher .period-dropdown__button span { font-size: 13px !important; font-weight: 500 !important; text-transform: none !important; letter-spacing: 0 !important; }
+.period-switcher .period-dropdown__button strong { font-size: 13px !important; font-weight: 600 !important; }
+.period-switcher .period-dropdown__button svg { width: 16px !important; height: 16px !important; flex: 0 0 auto !important; }
