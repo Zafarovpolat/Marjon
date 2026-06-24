@@ -94,7 +94,7 @@
 .pos-nav a.is-active {
   color: #fff;
   background: rgba(29, 181, 181, 0.96);
-  box-shadow: 0 12px 28px rgba(29, 181, 181, 0.2);
+  box-shadow: 0 7px 17px rgba(29, 181, 181, 0.14);
 }
 
 .pos-main {
@@ -222,17 +222,17 @@
 
 .pos-table--free {
   border-left: 5px solid var(--color-success);
-  box-shadow: 0 12px 28px rgba(22, 163, 74, 0.1);
+  box-shadow: 0 7px 17px rgba(22, 163, 74, 0.07);
 }
 
 .pos-table--occupied {
   border-left: 5px solid var(--color-danger);
-  box-shadow: 0 12px 28px rgba(220, 38, 38, 0.12);
+  box-shadow: 0 7px 17px rgba(220, 38, 38, 0.084);
 }
 
 .pos-table--reserved {
   border-left: 5px solid var(--color-warning);
-  box-shadow: 0 12px 28px rgba(245, 158, 11, 0.12);
+  box-shadow: 0 7px 17px rgba(245, 158, 11, 0.084);
 }
 
 .pos-table__num {
@@ -409,7 +409,7 @@
   border: 1px solid var(--neutral-200);
   background: #fff;
   cursor: pointer;
-  box-shadow: 0 14px 34px rgba(11, 31, 58, 0.08);
+  box-shadow: 0 8px 20px rgba(11, 31, 58, 0.056);
   transition:
     transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 280ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -419,7 +419,7 @@
 .pos-dish:hover {
   transform: translateY(-2px);
   border-color: rgba(29, 181, 181, 0.32);
-  box-shadow: 0 22px 48px rgba(11, 31, 58, 0.13);
+  box-shadow: 0 13px 29px rgba(11, 31, 58, 0.091);
 }
 
 .pos-dish img,
@@ -579,6 +579,6 @@
 }
 
 @keyframes kitchenUrgent {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3); }
-  50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.21); }
+  50% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); }
 }

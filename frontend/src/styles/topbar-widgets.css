@@ -30,12 +30,12 @@
 
 .mj-datepicker__trigger:hover {
   border-color: rgba(29, 181, 181, 0.5);
-  box-shadow: 0 6px 18px rgba(29, 181, 181, 0.12);
+  box-shadow: 0 4px 11px rgba(29, 181, 181, 0.084);
 }
 
 .mj-datepicker.is-open .mj-datepicker__trigger {
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgba(29, 181, 181, 0.14);
+  box-shadow: 0 0 0 2px rgba(29, 181, 181, 0.098);
 }
 
 .mj-datepicker__icon {
@@ -87,7 +87,7 @@
   border-radius: 20px;
   background: #fff;
   border: 1px solid var(--border);
-  box-shadow: 0 24px 60px rgba(11, 31, 58, 0.18);
+  box-shadow: 0 14px 36px rgba(11, 31, 58, 0.126);
   transform-origin: top left;
   animation: mjPopIn 0.16s var(--mj-ease);
 }
@@ -248,7 +248,7 @@
   background: var(--accent);
   color: #fff;
   font-weight: 500;
-  box-shadow: 0 4px 12px rgba(29, 181, 181, 0.3);
+  box-shadow: 0 2px 7px rgba(29, 181, 181, 0.21);
 }
 
 .mj-calendar__day.is-disabled {
@@ -362,7 +362,7 @@
 .global-search.is-open .global-search__field,
 .global-search__field:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgba(29, 181, 181, 0.14);
+  box-shadow: 0 0 0 2px rgba(29, 181, 181, 0.098);
   background: #fff;
 }
 
@@ -424,7 +424,7 @@
   border-radius: 18px;
   background: #fff;
   border: 1px solid var(--border);
-  box-shadow: 0 24px 60px rgba(11, 31, 58, 0.18);
+  box-shadow: 0 14px 36px rgba(11, 31, 58, 0.126);
   animation: mjPopIn 0.16s var(--mj-ease);
 }
 
