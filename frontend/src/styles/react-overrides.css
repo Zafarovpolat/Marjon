@@ -18045,3 +18045,22 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 /* лого банков в методах оплаты */
 .balance-payment-method__logos { display: inline-flex !important; align-items: center !important; gap: 8px !important; }
 .balance-payment-method__logos img { height: 22px !important; width: auto !important; max-width: 64px !important; object-fit: contain !important; display: block !important; }
+
+/* FINAL FIXES sidebar-brand & dashboard-main radius (authoritative) */
+.dashboard-sidebar .sidebar-brand,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-brand,
+.dashboard-sidebar.is-collapsed .sidebar-brand {
+  border-bottom: 0 !important;
+  box-shadow: none !important;
+}
+.dashboard-shell .dashboard-main,
+.dashboard-shell .dashboard-main:not(.is-sidebar-collapsed),
+.dashboard-shell .dashboard-main.is-sidebar-collapsed {
+  border-top-left-radius: 36px !important;
+}
+@media (max-width: 1024px) {
+  .dashboard-shell .dashboard-main,
+  .dashboard-shell .dashboard-main.is-sidebar-collapsed {
+    border-top-left-radius: 36px !important;
+  }
+}
