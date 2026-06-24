@@ -663,10 +663,10 @@ body.dashboard-body::before {
   opacity: 0.18;
 }
 
-.premium-kpi--revenue::after { background: var(--accent); }
-.premium-kpi--orders::after { background: var(--color-interactive); }
-.premium-kpi--avg::after { background: var(--purple-500); }
-.premium-kpi--tables::after { background: var(--color-brand); }
+.premium-kpi--revenue::after { background: #1db5b5; }
+.premium-kpi--orders::after { background: #1db5b5; }
+.premium-kpi--avg::after { background: #1db5b5; }
+.premium-kpi--tables::after { background: #1db5b5; }
 
 .premium-kpi__top {
   position: relative;
@@ -688,10 +688,10 @@ body.dashboard-body::before {
   box-shadow: 0 10px 23px rgba(16, 24, 40, 0.112);
 }
 
-.premium-kpi--revenue .premium-kpi__icon { background: var(--color-brand); }
-.premium-kpi--orders .premium-kpi__icon { background: var(--color-interactive); }
-.premium-kpi--avg .premium-kpi__icon { background: var(--purple-500); }
-.premium-kpi--tables .premium-kpi__icon { background: var(--color-brand); }
+.premium-kpi--revenue .premium-kpi__icon { background: #1db5b5; }
+.premium-kpi--orders .premium-kpi__icon { background: #1db5b5; }
+.premium-kpi--avg .premium-kpi__icon { background: #1db5b5; }
+.premium-kpi--tables .premium-kpi__icon { background: #1db5b5; }
 
 .trend {
   display: inline-flex;

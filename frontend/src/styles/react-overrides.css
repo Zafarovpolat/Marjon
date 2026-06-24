@@ -6130,7 +6130,7 @@ body.dashboard-body,
 }
 
 .dashboard-sidebar .sidebar-user.sidebar-user--button:hover {
-  transform: translateY(-1px) !important;
+  transform: none !important;
   border-color: rgba(147, 197, 253, 0.42) !important;
   box-shadow: 0 12px 24px rgba(2, 8, 23, 0.238),
     inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
@@ -18559,3 +18559,25 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 }
 .section-header .btn-ghost::after,
 .top-dishes-card .section-header .btn-ghost::after { content: none !important; display: none !important; }
+
+/* ===== warehouse: белый фон + крупнее шрифты (final) ===== */
+.warehouse-summary-item,
+.warehouse-summary-item--blue,
+.warehouse-summary-item--green,
+.warehouse-summary-item--red,
+.warehouse-summary-item--orange,
+.warehouse-summary-item--rose,
+.warehouse-summary-item--pink {
+  background: #ffffff !important;
+  border: 1px solid var(--neutral-200, #e7ebf2) !important;
+  box-shadow: none !important;
+}
+.warehouse-summary-item strong { font-size: 15px !important; font-weight: 600 !important; color: var(--neutral-900,#0b1f3f) !important; }
+.warehouse-summary-item span:not(.warehouse-summary-item__icon) { font-size: 14px !important; font-weight: 500 !important; color: var(--neutral-600,#475569) !important; }
+
+/* KPI иконки строго teal-500 (палитра) */
+.kpi-grid--premium .premium-kpi__icon,
+.premium-kpi--revenue .premium-kpi__icon,
+.premium-kpi--orders .premium-kpi__icon,
+.premium-kpi--avg .premium-kpi__icon,
+.premium-kpi--tables .premium-kpi__icon { background: #1db5b5 !important; }
