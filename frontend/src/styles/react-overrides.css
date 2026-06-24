@@ -18278,3 +18278,88 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   border-color: rgba(255,255,255,0.10) !important;
   background: rgba(255,255,255,0.04) !important;
 }
+
+/* ============ KPI ICONS / GRID / PERIOD-SWITCHER / WAREHOUSE (palette minimalism) ============ */
+
+/* 1) KPI: иконки-глифы строго белые во всех картах */
+.premium-kpi__icon,
+.premium-kpi__icon i,
+.premium-kpi__icon svg,
+.premium-kpi__icon svg * {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+/* фоны иконок только в палитре (teal/navy), без purple/blue */
+.premium-kpi--revenue .premium-kpi__icon { background: var(--accent, #1db5b5) !important; }
+.premium-kpi--orders  .premium-kpi__icon { background: var(--primary, #0b1f3f) !important; }
+.premium-kpi--avg     .premium-kpi__icon { background: var(--accent, #1db5b5) !important; }
+.premium-kpi--tables  .premium-kpi__icon { background: var(--primary, #0b1f3f) !important; }
+.premium-kpi--expense .premium-kpi__icon { background: var(--accent, #1db5b5) !important; }
+/* угловой "глоу" тоже только в палитре */
+.premium-kpi--avg::after     { background: var(--accent, #1db5b5) !important; }
+.premium-kpi--orders::after  { background: var(--primary, #0b1f3f) !important; }
+.premium-kpi--expense::after { background: var(--accent, #1db5b5) !important; }
+
+/* 2) 5 KPI-карт в один аккуратный ряд (без карты-сироты) */
+.kpi-grid--premium { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
+@media (max-width: 1280px) { .kpi-grid--premium { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
+@media (max-width: 1024px) { .kpi-grid--premium { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+@media (max-width: 560px)  { .kpi-grid--premium { grid-template-columns: 1fr !important; } }
+
+/* 3) period-switcher: одинаковый размер дропдауна и "Подробнее" */
+.period-switcher { display: inline-flex !important; align-items: center !important; gap: 8px !important; }
+.period-switcher > *,
+.period-switcher .period-switcher__details,
+.period-switcher button,
+.period-switcher select {
+  box-sizing: border-box !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 0 14px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  border-radius: 10px !important;
+}
+.period-switcher__details {
+  color: var(--accent, #1db5b5) !important;
+  background: rgba(29,181,181,0.10) !important;
+  border: 1px solid transparent !important;
+  text-decoration: none !important;
+}
+.period-switcher__details:hover { background: rgba(29,181,181,0.16) !important; }
+
+/* 4) warehouse-summary: белый фон, единый teal-значок, без радуги */
+.warehouse-summary-item,
+.warehouse-summary-item--blue,
+.warehouse-summary-item--green,
+.warehouse-summary-item--red,
+.warehouse-summary-item--amber,
+.warehouse-summary-item--orange,
+.warehouse-summary-item--rose,
+.warehouse-summary-item--pink,
+.warehouse-summary-item--purple,
+.warehouse-summary-item--teal {
+  background: #ffffff !important;
+  border: 1px solid var(--neutral-200, #e2e8f0) !important;
+  box-shadow: none !important;
+}
+.warehouse-summary-item__icon,
+.warehouse-summary-item--blue .warehouse-summary-item__icon,
+.warehouse-summary-item--green .warehouse-summary-item__icon,
+.warehouse-summary-item--red .warehouse-summary-item__icon,
+.warehouse-summary-item--orange .warehouse-summary-item__icon,
+.warehouse-summary-item--rose .warehouse-summary-item__icon,
+.warehouse-summary-item--pink .warehouse-summary-item__icon,
+.warehouse-summary-item--purple .warehouse-summary-item__icon,
+.warehouse-summary-item--teal .warehouse-summary-item__icon {
+  background: rgba(29,181,181,0.10) !important;
+  color: var(--accent, #1db5b5) !important;
+}
+.warehouse-summary-item__icon i,
+.warehouse-summary-item__icon svg,
+.warehouse-summary-item__icon svg * {
+  color: var(--accent, #1db5b5) !important;
+  fill: var(--accent, #1db5b5) !important;
+}
