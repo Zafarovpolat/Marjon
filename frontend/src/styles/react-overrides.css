@@ -18156,3 +18156,125 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   text-decoration: underline !important;
   font-weight: 500 !important;
 }
+
+/* ============ UNIFIED FORM CONTROLS + SIDEBAR HOVER STABILITY (master) ============ */
+
+/* ---- Inputs / selects / textareas: единый стиль, не жирный текст ---- */
+.dashboard-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.dashboard-shell select,
+.dashboard-shell textarea,
+.balance-payment-dialog input:not([type="checkbox"]):not([type="radio"]),
+.balance-card-field input,
+.balance-payment-dialog__field input,
+.usd-converter input {
+  box-sizing: border-box !important;
+  height: 42px !important;
+  padding: 0 12px !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 1.4 !important;
+  color: var(--neutral-900, #0b1f3f) !important;
+  background: #ffffff !important;
+  border: 1px solid var(--neutral-200, #e2e8f0) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+  transition: border-color .15s ease, box-shadow .15s ease !important;
+}
+.dashboard-shell textarea { height: auto !important; min-height: 84px !important; padding: 10px 12px !important; }
+.dashboard-shell input:focus,
+.dashboard-shell select:focus,
+.dashboard-shell textarea:focus,
+.balance-payment-dialog input:focus,
+.balance-card-field input:focus {
+  outline: none !important;
+  border-color: var(--accent, #1db5b5) !important;
+  box-shadow: 0 0 0 3px rgba(29,181,181,0.15) !important;
+}
+.dashboard-shell input::placeholder,
+.dashboard-shell textarea::placeholder { color: var(--neutral-400, #94a3b8) !important; font-weight: 400 !important; }
+/* подписи полей — нормальный вес */
+.balance-payment-dialog__field > span,
+.balance-card-field > span { font-weight: 500 !important; font-size: 13px !important; color: var(--neutral-600,#475569) !important; }
+
+/* ---- Кастомный чекбокс (единый по сайту) ---- */
+.dashboard-shell input[type="checkbox"] {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  margin: 0 !important;
+  border: 1.5px solid var(--neutral-300, #cbd5e1) !important;
+  border-radius: 5px !important;
+  background: #ffffff !important;
+  cursor: pointer !important;
+  position: relative !important;
+  flex: 0 0 auto !important;
+  transition: background .15s ease, border-color .15s ease !important;
+}
+.dashboard-shell input[type="checkbox"]:hover { border-color: var(--accent, #1db5b5) !important; }
+.dashboard-shell input[type="checkbox"]:checked {
+  background: var(--accent, #1db5b5) !important;
+  border-color: var(--accent, #1db5b5) !important;
+}
+.dashboard-shell input[type="checkbox"]:checked::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 5px !important;
+  top: 1.5px !important;
+  width: 5px !important;
+  height: 9px !important;
+  border: solid #ffffff !important;
+  border-width: 0 2px 2px 0 !important;
+  transform: rotate(45deg) !important;
+}
+.dashboard-shell input[type="checkbox"]:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(29,181,181,0.2) !important;
+}
+
+/* ---- Радиокнопки в едином стиле ---- */
+.dashboard-shell input[type="radio"] {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  width: 18px !important; height: 18px !important; min-width: 18px !important;
+  border: 1.5px solid var(--neutral-300,#cbd5e1) !important;
+  border-radius: 50% !important; background: #fff !important; cursor: pointer !important;
+  position: relative !important; margin: 0 !important; flex: 0 0 auto !important;
+}
+.dashboard-shell input[type="radio"]:checked { border-color: var(--accent,#1db5b5) !important; }
+.dashboard-shell input[type="radio"]:checked::after {
+  content: "" !important; position: absolute !important; left: 4px !important; top: 4px !important;
+  width: 8px !important; height: 8px !important; border-radius: 50% !important; background: var(--accent,#1db5b5) !important;
+}
+
+/* ---- Sidebar hover stability: одинаковые габариты в base и hover ---- */
+.dashboard-sidebar .sidebar-link,
+.dashboard-sidebar .sidebar-link--button,
+.dashboard-sidebar .sidebar-nav-item > .sidebar-link,
+.dashboard-sidebar .sidebar-nav-item > .sidebar-link--button,
+.dashboard-sidebar .sidebar-link:hover,
+.dashboard-sidebar .sidebar-link--button:hover,
+.dashboard-sidebar .sidebar-nav-item > .sidebar-link:hover,
+.dashboard-sidebar .sidebar-nav-item > .sidebar-link--button:hover {
+  box-sizing: border-box !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  max-height: 44px !important;
+  margin: 2px 0 !important;
+  border: 1px solid transparent !important;
+  transform: none !important;
+}
+
+/* ---- sidebar-account hover stability ---- */
+.dashboard-sidebar .sidebar-account,
+.dashboard-sidebar .sidebar-account:hover {
+  box-sizing: border-box !important;
+  border: 1px solid transparent !important;
+  transform: none !important;
+  margin: 0 !important;
+}
+.dashboard-sidebar .sidebar-account:hover {
+  border-color: rgba(255,255,255,0.10) !important;
+  background: rgba(255,255,255,0.04) !important;
+}
