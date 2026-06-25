@@ -19532,3 +19532,31 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   background: #ffffff !important;
   box-shadow: 0 13px 26px rgba(15,23,42,0.07), 0 5px 10px rgba(15,23,42,0.03) !important;
 }
+
+/* ============ FIX ROUND 7 — price weight, usd-converter border, modal close icon ============ */
+
+/* prices less bold */
+.dashboard-shell .top-dish__price,
+.dashboard-shell .recent-orders-list .recent-order em {
+  font-weight: 500 !important;
+}
+
+/* usd-converter input: drop duplicated border */
+.usd-converter input {
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+  background: transparent !important;
+}
+
+/* payment modal close icon: gray like other dropdowns */
+.balance-card-back--icon,
+.balance-card-back--icon svg {
+  color: #98a2b3 !important;
+  stroke: #98a2b3 !important;
+}
+.balance-card-back--icon:hover,
+.balance-card-back--icon:hover svg {
+  color: #667085 !important;
+  stroke: #667085 !important;
+}
