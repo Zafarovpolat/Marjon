@@ -147,9 +147,27 @@ const emptyForm = {
   permission: "",
   pin: "",
   password: "",
+  printerIp: "",
+  organization: "",
+  nfcId: "",
+  canDeleteDishes: false,
+  canTakeawayAtTable: false,
+  canChangeOrderType: false,
+  canCloseBill: false,
   status: "active",
   comment: "",
   photo: "",
+};
+
+const getPermissionSummary = (values) => {
+  const permissions = [
+    values.canDeleteDishes && "Удаление блюд",
+    values.canTakeawayAtTable && "Заказ на вынос",
+    values.canChangeOrderType && "Изменение типа заказа",
+    values.canCloseBill && "Закрытие счета",
+  ].filter(Boolean);
+
+  return permissions.join(", ") || values.permission || "Базовый доступ";
 };
 
 function StaffRolePage({ role = "all" }) {
@@ -167,6 +185,7 @@ function StaffRolePage({ role = "all" }) {
   const [filters, setFilters] = useState(draftFilters);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({
     ...emptyForm,
     roleKey: routeRole === "all" ? "cashier" : routeRole,
@@ -191,6 +210,7 @@ function StaffRolePage({ role = "all" }) {
 
   const openAddModal = () => {
     setEditingId(null);
+    setShowPassword(false);
     setForm({
       ...emptyForm,
       roleKey: routeRole === "all" ? "cashier" : routeRole,
@@ -200,6 +220,7 @@ function StaffRolePage({ role = "all" }) {
 
   const openEditModal = (employee) => {
     setEditingId(employee.id);
+    setShowPassword(false);
     setForm({ ...emptyForm, ...employee });
     setModalOpen(true);
   };
@@ -207,10 +228,15 @@ function StaffRolePage({ role = "all" }) {
   const closeModal = () => {
     setModalOpen(false);
     setEditingId(null);
+    setShowPassword(false);
   };
 
   const updateForm = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const toggleForm = (field) => {
+    setForm((current) => ({ ...current, [field]: !current[field] }));
   };
 
   const handlePhotoChange = (event) => {
@@ -224,6 +250,10 @@ function StaffRolePage({ role = "all" }) {
 
   const saveStaff = (event) => {
     event.preventDefault();
+    const normalizedForm = {
+      ...form,
+      permission: getPermissionSummary(form),
+    };
 
     if (editingId) {
       setStaff((current) =>
@@ -231,7 +261,7 @@ function StaffRolePage({ role = "all" }) {
           employee.id === editingId
             ? {
                 ...employee,
-                ...form,
+                ...normalizedForm,
                 id: editingId,
                 status: form.status === "archived" ? "archived" : "active",
               }
@@ -241,7 +271,7 @@ function StaffRolePage({ role = "all" }) {
     } else {
       setStaff((current) => [
         {
-          ...form,
+          ...normalizedForm,
           id: Date.now(),
           status: form.status === "archived" ? "archived" : "active",
         },
@@ -479,6 +509,164 @@ function StaffRolePage({ role = "all" }) {
               </button>
             </div>
 
+            <div className="staff-form__grid staff-form__grid--edit">
+              <label className="staff-photo-upload">
+                <span>Фото сотрудника</span>
+                <div>
+                  <div className="staff-avatar staff-avatar--large">
+                    {form.photo ? (
+                      <img src={form.photo} alt="Avatar preview" />
+                    ) : (
+                      <Icon name="bi-person" size={24} />
+                    )}
+                  </div>
+                  <input type="file" accept="image/*" onChange={handlePhotoChange} />
+                </div>
+              </label>
+              <label>
+                <span>Имя *</span>
+                <input
+                  required
+                  value={form.fullName}
+                  onChange={(event) => updateForm("fullName", event.target.value)}
+                  placeholder="Имя сотрудника"
+                />
+              </label>
+              <label>
+                <span>Номер телефона</span>
+                <div className="staff-phone-field">
+                  <span className="staff-phone-flag" aria-hidden="true">
+                    <img
+                      src="https://upload.wikimedia.org/wikipedia/commons/8/84/Flag_of_Uzbekistan.svg"
+                      alt=""
+                    />
+                  </span>
+                  <input
+                    required
+                    value={form.phone}
+                    onChange={(event) => updateForm("phone", event.target.value)}
+                    placeholder="+998"
+                  />
+                </div>
+              </label>
+              <label>
+                <span>Пароль *</span>
+                <div className="staff-password-field">
+                  <input
+                    required
+                    type={showPassword ? "text" : "password"}
+                    value={form.password}
+                    onChange={(event) => updateForm("password", event.target.value)}
+                    placeholder="Пароль"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((value) => !value)}
+                    aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                    aria-pressed={showPassword}
+                  >
+                    <Icon name={showPassword ? "bi-eye-slash" : "bi-eye"} size={18} />
+                  </button>
+                </div>
+              </label>
+              <label>
+                <span>IP адрес принтера *</span>
+                <input
+                  required
+                  value={form.printerIp}
+                  onChange={(event) => updateForm("printerIp", event.target.value)}
+                  placeholder="192.168.0.100"
+                />
+              </label>
+              <label>
+                <span>Организации</span>
+                <select
+                  value={form.roleKey}
+                  onChange={(event) => updateForm("roleKey", event.target.value)}
+                >
+                  {roleOptions.map((item) => (
+                    <option key={item.key} value={item.key}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>NFC-идентификатор</span>
+                <input
+                  value={form.nfcId}
+                  onChange={(event) => updateForm("nfcId", event.target.value)}
+                  placeholder="ID карты"
+                />
+              </label>
+              <label>
+                <span>PIN-код 4 цифры</span>
+                <input
+                  value={form.pin}
+                  maxLength={4}
+                  inputMode="numeric"
+                  pattern="[0-9]{4}"
+                  onChange={(event) => updateForm("pin", event.target.value.replace(/\D/g, ""))}
+                  placeholder="0000"
+                />
+              </label>
+              <div className="staff-permission-switches">
+                <button
+                  className={`staff-permission-switch ${form.status === "active" ? "is-on" : ""}`}
+                  type="button"
+                  onClick={() =>
+                    updateForm("status", form.status === "active" ? "archived" : "active")
+                  }
+                >
+                  <span>Статус</span>
+                  <i>{form.status === "active" ? "Активный" : "Архив"}</i>
+                  <b className="staff-switch" aria-hidden="true" />
+                </button>
+                <button
+                  className={`staff-permission-switch ${form.canDeleteDishes ? "is-on" : ""}`}
+                  type="button"
+                  onClick={() => toggleForm("canDeleteDishes")}
+                >
+                  <span>Удаления блюд</span>
+                  <b className="staff-switch" aria-hidden="true" />
+                </button>
+                <button
+                  className={`staff-permission-switch ${form.canTakeawayAtTable ? "is-on" : ""}`}
+                  type="button"
+                  onClick={() => toggleForm("canTakeawayAtTable")}
+                >
+                  <span>Заказ на вынос за столом</span>
+                  <b className="staff-switch" aria-hidden="true" />
+                </button>
+                <button
+                  className={`staff-permission-switch ${form.canChangeOrderType ? "is-on" : ""}`}
+                  type="button"
+                  onClick={() => toggleForm("canChangeOrderType")}
+                >
+                  <span>Изменить тип заказа</span>
+                  <b className="staff-switch" aria-hidden="true" />
+                </button>
+                <button
+                  className={`staff-permission-switch ${form.canCloseBill ? "is-on" : ""}`}
+                  type="button"
+                  onClick={() => toggleForm("canCloseBill")}
+                >
+                  <span>Может закрыть счет</span>
+                  <b className="staff-switch" aria-hidden="true" />
+                </button>
+              </div>
+              <label className="staff-form__comment">
+                <span>Комментарий</span>
+                <textarea
+                  value={form.comment}
+                  onChange={(event) => updateForm("comment", event.target.value)}
+                  placeholder="Заметка по сотруднику"
+                />
+              </label>
+            </div>
+
+            {false && (
+              <>
             <label className="staff-photo-upload">
               <span>Фото / avatar upload</span>
               <div>
@@ -538,12 +726,22 @@ function StaffRolePage({ role = "all" }) {
               </label>
               <label>
                 <span>Пароль</span>
-                <input
-                  type="password"
-                  value={form.password}
-                  onChange={(event) => updateForm("password", event.target.value)}
-                  placeholder="Пароль"
-                />
+                <div className="staff-password-field">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={form.password}
+                    onChange={(event) => updateForm("password", event.target.value)}
+                    placeholder="Пароль"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((value) => !value)}
+                    aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                    aria-pressed={showPassword}
+                  >
+                    <Icon name={showPassword ? "bi-eye-slash" : "bi-eye"} size={18} />
+                  </button>
+                </div>
               </label>
               <label>
                 <span>Доступы / permissions</span>
@@ -572,6 +770,9 @@ function StaffRolePage({ role = "all" }) {
                 />
               </label>
             </div>
+
+              </>
+            )}
 
             <div className="staff-form__footer">
               <button type="button" onClick={closeModal}>

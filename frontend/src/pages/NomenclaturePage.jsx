@@ -93,10 +93,38 @@ function NomenclaturePage({ type = "dishes" }) {
   return <SimpleNomenclaturePage config={fallbackConfigs[type] || fallbackConfigs.raw} />;
 }
 
+function matchesDishStatFilter(row, filterKey) {
+  switch (filterKey) {
+    case "blue:0":
+      return row.auto === null;
+    case "blue:1":
+      return row.auto !== null;
+    case "green:0":
+      return !String(row.recipe || "").includes("(0");
+    case "green:1":
+      return String(row.recipe || "").includes("(0");
+    case "cyan:0":
+      return false;
+    case "cyan:1":
+      return true;
+    case "orange:0":
+      return row.cost !== "0 UZS";
+    case "orange:1":
+      return row.cost === "0 UZS";
+    case "violet:0":
+      return Boolean(row.printer);
+    case "violet:1":
+      return !row.printer;
+    default:
+      return true;
+  }
+}
+
 function DishesCatalogPage() {
   const [rows, setRows] = useState(initialDishRows);
   const [draftFilters, setDraftFilters] = useState({ search: "", chef: "", category: "" });
   const [filters, setFilters] = useState(draftFilters);
+  const [statFilter, setStatFilter] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [photoPicker, setPhotoPicker] = useState(null);
   const [photoSearch, setPhotoSearch] = useState("");
@@ -108,9 +136,10 @@ function DishesCatalogPage() {
       const searchMatch = !filters.search || row.name.toLowerCase().includes(filters.search.toLowerCase());
       const chefMatch = !filters.chef || row.chef === filters.chef;
       const categoryMatch = !filters.category || row.category === filters.category;
-      return searchMatch && chefMatch && categoryMatch;
+      const statMatch = !statFilter || matchesDishStatFilter(row, statFilter);
+      return searchMatch && chefMatch && categoryMatch && statMatch;
     });
-  }, [rows, filters]);
+  }, [rows, filters, statFilter]);
 
   const updateRow = (id, key, value) => {
     setRows((prev) => prev.map((row) => (row.id === id ? { ...row, [key]: value } : row)));
@@ -177,12 +206,21 @@ function DishesCatalogPage() {
               </div>
               <strong>{stat.value}</strong>
               <div className="dish-stat-lines">
-                {stat.rows.map(([label, value]) => (
-                  <span key={label}>
+                {stat.rows.map(([label, value], lineIndex) => {
+                  const filterKey = `${stat.tone}:${lineIndex}`;
+                  const active = statFilter === filterKey;
+                  return (
+                  <button
+                    type="button"
+                    className={active ? "is-active" : ""}
+                    key={label}
+                    onClick={() => setStatFilter((current) => (current === filterKey ? null : filterKey))}
+                    aria-pressed={active}
+                  >
                     <em>{label}</em>
                     <b>{value}</b>
-                  </span>
-                ))}
+                  </button>
+                )})}
               </div>
             </article>
           ))}
@@ -220,6 +258,7 @@ function DishesCatalogPage() {
               const empty = { search: "", chef: "", category: "" };
               setDraftFilters(empty);
               setFilters(empty);
+              setStatFilter(null);
             }}
           >
             Очистить
@@ -236,7 +275,6 @@ function DishesCatalogPage() {
           <table className="dish-grid-table">
             <thead>
               <tr>
-                <th><input type="checkbox" aria-label="Выбрать все" /></th>
                 <th>Действия</th>
                 <th>Фото</th>
                 <th>Название</th>
@@ -256,7 +294,6 @@ function DishesCatalogPage() {
             <tbody>
               {filteredRows.map((row) => (
                 <tr key={row.id}>
-                  <td><input type="checkbox" aria-label={`Выбрать ${row.name}`} /></td>
                   <td>
                     <div className="dish-row-actions">
                       <button type="button" onClick={() => openDrawer(row)} aria-label="Редактировать">

@@ -413,11 +413,18 @@ export default function Sidebar({ user, collapsed, onToggle }) {
                 </button>
                 <button
                   type="button"
-                  className={lang === "uz" ? "is-active" : ""}
+                  className={`sidebar-account__lang-button--flag ${lang === "uz" ? "is-active" : ""}`}
                   onClick={() => selectLang("uz")}
                   aria-pressed={lang === "uz"}
+                  aria-label="O'zbek tili"
                 >
-                  UZ
+                  <img
+                    className="sidebar-account__flag"
+                    src="https://upload.wikimedia.org/wikipedia/commons/8/84/Flag_of_Uzbekistan.svg"
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                  />
                 </button>
               </div>
             </div>

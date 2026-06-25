@@ -66,7 +66,14 @@ export default function SupportWidget() {
               <label className="support-widget__field">
                 <span>{text.phone}</span>
                 <div className="support-widget__phone">
-                  <span className="support-widget__flag" aria-hidden="true">UZ</span>
+                  <span className="support-widget__flag" aria-hidden="true">
+                    <img
+                      src="https://upload.wikimedia.org/wikipedia/commons/8/84/Flag_of_Uzbekistan.svg"
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </span>
                   <input
                     value={phone}
                     onChange={(event) => setPhone(event.target.value)}
