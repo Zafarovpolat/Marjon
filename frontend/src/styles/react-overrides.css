@@ -15944,8 +15944,8 @@ body.dashboard-body,
 
 /* Sidebar and header visual polish only. */
 :root {
-  --shell-sidebar-bg: var(--neutral-950);
-  --shell-header-bg: var(--neutral-950);
+  --shell-sidebar-bg: var(--neutral-900);
+  --shell-header-bg: var(--neutral-900);
 }
 
 body.dashboard-body,
