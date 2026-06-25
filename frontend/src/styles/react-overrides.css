@@ -19466,3 +19466,25 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   font-style: normal !important;
   font-weight: 600 !important;
 }
+
+/* ============ FIX ROUND 4 (front) ============ */
+
+/* warehouse icon radius = same as KPI icon (18px) */
+.dashboard-shell .warehouse-summary-item__icon { border-radius: 18px !important; }
+
+/* recent-order status badges — consistent tinted pills (both with bg) */
+.dashboard-shell .recent-order small {
+  border-radius: 999px !important;
+  padding: 2px 10px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1.5 !important;
+}
+.dashboard-shell .recent-order small.is-ready {
+  background: rgba(29,181,181,0.14) !important;
+  color: #138a8a !important;
+}
+.dashboard-shell .recent-order small.is-progress {
+  background: rgba(245,158,11,0.16) !important;
+  color: #b45309 !important;
+}

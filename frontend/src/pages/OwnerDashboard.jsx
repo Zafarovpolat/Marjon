@@ -478,7 +478,6 @@ function PeriodDropdown({ value, onChange }) {
               }}
             >
               {option.label}
-              {option.value === value ? <Icon name="bi-check2" size={20} /> : null}
             </button>
           ))}
         </div>
