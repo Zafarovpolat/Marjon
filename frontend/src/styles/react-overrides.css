@@ -18159,7 +18159,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
-  gap: 8px !important;
+  gap: 6px !important;
   background: none !important;
   border: 0 !important;
   box-shadow: none !important;
@@ -19559,4 +19559,171 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .balance-card-back--icon:hover svg {
   color: #667085 !important;
   stroke: #667085 !important;
+}
+
+/* ============ FIX ROUND 8 ============ */
+
+/* warehouse icon — bigger, overrides all previous dashboard-shell rules */
+.dashboard-shell .warehouse-summary-item__icon {
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px !important;
+  max-width: 48px !important;
+  flex: 0 0 48px !important;
+  border-radius: 14px !important;
+}
+
+/* payment logos — bigger */
+.balance-payment-method__logos img {
+  height: 34px !important;
+  max-width: 120px !important;
+  object-fit: contain !important;
+}
+
+/* notice font-weight */
+.balance-payment-dialog__notice {
+  font-weight: 500 !important;
+}
+
+/* warehouse-summary-item: меньше Y-отступы, иконка больше */
+.warehouse-summary-item {
+  padding: 12px 20px !important;
+}
+.warehouse-summary-item__icon {
+  width: 44px !important;
+  height: 44px !important;
+  flex: 0 0 44px !important;
+}
+
+/* dashboard-content: только левый верхний радиус, без фона */
+.dashboard-shell .dashboard-content,
+.dashboard-shell .dashboard-main:not(.is-sidebar-collapsed) .dashboard-content,
+.dashboard-shell .dashboard-main.is-sidebar-collapsed .dashboard-content {
+  border-top-left-radius: 28px !important;
+  border-top-right-radius: 0 !important;
+  background: transparent !important;
+}
+body.dashboard-body, .dashboard-shell, .dashboard-main, .dashboard-content,
+.app-main, .app-content {
+  background: transparent !important;
+}
+
+/* balance-card-quick button font-weight */
+.balance-payment-dialog--card .balance-card-quick button {
+  font-weight: 500 !important;
+}
+
+/* balance-offer gap override (also covers --card context) */
+.balance-offer,
+.balance-payment-dialog .balance-offer,
+.balance-card-step .balance-offer,
+.balance-payment-dialog--card .balance-offer {
+  gap: 4px !important;
+}
+
+/* balance-card-step__details dt/dd font-weight */
+.balance-card-step__details dt,
+.balance-payment-dialog--card .balance-card-step__details dt {
+  font-weight: 500 !important;
+}
+.balance-card-step__details dd,
+.balance-payment-dialog--card .balance-card-step__details dd {
+  font-weight: 500 !important;
+}
+
+/* sidebar white glow when payment modal is open */
+body:has(.balance-payment-modal) .dashboard-sidebar,
+body:has(.balance-payment-modal) .dashboard-sidebar *,
+body:has(.balance-payment-modal) .dashboard-main {
+  box-shadow: none !important;
+}
+
+/* custom checkbox in balance-offer */
+.balance-offer--check input[type="checkbox"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  max-width: 20px !important;
+  border: 2px solid var(--neutral-300) !important;
+  border-radius: 6px !important;
+  background: #fff !important;
+  cursor: pointer !important;
+  position: relative !important;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease !important;
+  flex: 0 0 20px !important;
+  margin: 0 !important;
+}
+.balance-offer--check input[type="checkbox"]::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 4px !important;
+  top: 1px !important;
+  width: 6px !important;
+  height: 11px !important;
+  border: 2.5px solid transparent !important;
+  border-top: 0 !important;
+  border-left: 0 !important;
+  transform: rotate(45deg) scale(0.5) !important;
+  opacity: 0 !important;
+  transition: opacity 0.15s ease, transform 0.15s ease !important;
+}
+.balance-offer--check input[type="checkbox"]:hover {
+  border-color: var(--color-brand) !important;
+  box-shadow: 0 0 0 3px rgba(29, 181, 181, 0.14) !important;
+}
+.balance-offer--check input[type="checkbox"]:checked {
+  background: var(--color-brand) !important;
+  border-color: var(--color-brand) !important;
+  box-shadow: 0 2px 8px rgba(29, 181, 181, 0.32) !important;
+}
+.balance-offer--check input[type="checkbox"]:checked::after {
+  border-color: #ffffff !important;
+  opacity: 1 !important;
+  transform: rotate(45deg) scale(1) !important;
+}
+
+/* submit disabled state */
+.balance-payment-submit:disabled,
+.balance-payment-submit--wide:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+/* === FIX ROUND 9 === */
+
+/* 1) sidebar::after — убирает белую тень рядом с модалкой и мигание при collapse */
+.dashboard-sidebar::after {
+  display: none !important;
+}
+
+/* 2) balance-offer--check span: flex-контейнер с gap 4px + cursor pointer */
+.balance-offer--check > span {
+  display: inline-flex !important;
+  align-items: baseline !important;
+  flex-wrap: wrap !important;
+  gap: 4px !important;
+  cursor: pointer !important;
+}
+
+/* 3) dashboard-main светлый фон: перекрываем neutral-950 строки 10225 для всех состояний */
+.dashboard-shell .dashboard-main,
+.dashboard-shell .dashboard-main.is-sidebar-collapsed {
+  background: var(--neutral-50, #f4f7fc) !important;
+}
+
+/* 4) sidebar-link hover без border — убираем border вообще, нет layout-shift */
+.dashboard-sidebar:not(.is-collapsed) .sidebar-link,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-link--button,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-link:hover,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-link--button:hover {
+  height: var(--sidebar-row-height) !important;
+  min-height: var(--sidebar-row-height) !important;
+  max-height: var(--sidebar-row-height) !important;
+  box-sizing: border-box !important;
+  border: none !important;
+  outline: none !important;
+  transform: none !important;
 }

@@ -1,5 +1,5 @@
-import uzcardLogo from "../assets/paylogos/uzcard.png";
-import visaLogo from "../assets/paylogos/visa.png";
+import uzcardLogo from "../assets/paylogos/uzcard-humo.jpg";
+import visaLogo from "../assets/paylogos/visa-mastercard.jpg";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import { clampToToday, todayInputValue } from "../utils/date";
@@ -43,6 +43,10 @@ export default function Topbar({
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("uzcard");
   const [paymentStep, setPaymentStep] = useState("method");
+  const [cardAmount, setCardAmount] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [offerAccepted, setOfferAccepted] = useState(false);
   const [usdRate, setUsdRate] = useState(null);
   const [rateOpen, setRateOpen] = useState(false);
   const [usdAmount, setUsdAmount] = useState("1");
@@ -119,6 +123,39 @@ export default function Topbar({
       return next;
     });
   }
+
+  function closePayment() {
+    setPaymentOpen(false);
+    setPaymentStep("method");
+    setCardAmount("");
+    setCardNumber("");
+    setCardExpiry("");
+    setOfferAccepted(false);
+  }
+
+  function maskCardNumber(value) {
+    const digits = value.replace(/\D/g, "").slice(0, 16);
+    return digits.replace(/(.{4})/g, "$1 ").trim();
+  }
+
+  function maskExpiry(value) {
+    const prev = cardExpiry;
+    const digits = value.replace(/\D/g, "").slice(0, 4);
+    if (prev.endsWith("/") && value.length < prev.length) return digits.slice(0, 1);
+    if (digits.length >= 3) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    if (digits.length === 2 && !prev.includes("/")) return `${digits}/`;
+    return digits;
+  }
+
+  function formatAmountInput(value) {
+    const digits = value.replace(/\D/g, "");
+    if (!digits) return "";
+    return Number(digits).toLocaleString("ru-RU");
+  }
+
+  const cardAmountDigits = cardAmount.replace(/\D/g, "");
+  const cardNumberDigits = cardNumber.replace(/\s/g, "");
+  const cardValid = cardAmountDigits.length > 0 && cardNumberDigits.length === 16 && cardExpiry.length === 5 && offerAccepted;
 
   function toggleConverterDirection() {
     setUsdAmount(convertedAmount || "1");
@@ -337,7 +374,7 @@ export default function Topbar({
                     <span>Оплата баланса</span>
                     <h2 id="balance-payment-title">Оплата</h2>
                   </div>
-                  <button className="balance-card-back balance-card-back--icon" type="button" aria-label="Закрыть" onClick={() => setPaymentOpen(false)}>
+                  <button className="balance-card-back balance-card-back--icon" type="button" aria-label="Закрыть" onClick={closePayment}>
                     <Icon name="bi-x-lg" size={18} />
                   </button>
                 </div>
@@ -398,7 +435,7 @@ export default function Topbar({
                     </div>
                     <div>
                       <dt><Icon name="bi-wallet2" size={14} />Баланс</dt>
-                      <dd className="is-positive">0 UZS</dd>
+                      <dd>0 UZS</dd>
                     </div>
                     <div>
                       <dt><Icon name="bi-person" size={14} />Сотрудник</dt>
@@ -418,34 +455,52 @@ export default function Topbar({
                       <span>2</span>
                       <strong>Данные карты</strong>
                     </div>
-                    <button className="balance-card-back balance-card-back--icon" type="button" aria-label="Закрыть" onClick={() => setPaymentOpen(false)}>
+                    <button className="balance-card-back balance-card-back--icon" type="button" aria-label="Закрыть" onClick={closePayment}>
                       <Icon name="bi-x-lg" size={18} />
                     </button>
                   </div>
                   <h3>Введите данные карты</h3>
                   <label className="balance-card-field">
                     <span>Сумма</span>
-                    <input type="text" placeholder="Введите сумму" />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="Введите сумму"
+                      value={cardAmount}
+                      onChange={(e) => setCardAmount(formatAmountInput(e.target.value))}
+                    />
                   </label>
                   <div className="balance-card-quick">
-                    <button type="button">390 000</button>
-                    <button type="button">1 000 000</button>
+                    <button type="button" onClick={() => setCardAmount("390 000")}>390 000</button>
+                    <button type="button" onClick={() => setCardAmount("1 000 000")}>1 000 000</button>
                   </div>
                   <div className="balance-card-grid">
                     <label className="balance-card-field">
                       <span>Номер карты</span>
-                      <input type="text" inputMode="numeric" placeholder="0000 0000 0000 0000" />
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="0000 0000 0000 0000"
+                        value={cardNumber}
+                        onChange={(e) => setCardNumber(maskCardNumber(e.target.value))}
+                      />
                     </label>
                     <label className="balance-card-field">
                       <span>Срок действия</span>
-                      <input type="text" inputMode="numeric" placeholder="ММ/ГГ" />
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="ММ/ГГ"
+                        value={cardExpiry}
+                        onChange={(e) => setCardExpiry(maskExpiry(e.target.value))}
+                      />
                     </label>
                   </div>
-                  <label className="balance-offer">
-                    <input type="checkbox" />
+                  <label className="balance-offer balance-offer--check">
+                    <input type="checkbox" checked={offerAccepted} onChange={(e) => setOfferAccepted(e.target.checked)} />
                     <span>Я ознакомлен с <a href="#" onClick={(e) => e.preventDefault()}>публичной офертой</a></span>
                   </label>
-                  <button className="balance-payment-submit balance-payment-submit--wide" type="button">
+                  <button className="balance-payment-submit balance-payment-submit--wide" type="button" disabled={!cardValid}>
                     Перейти к подтверждению
                   </button>
                 </div>
