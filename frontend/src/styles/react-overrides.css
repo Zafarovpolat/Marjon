@@ -19395,3 +19395,43 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 }
 .dashboard-shell .recent-orders-list .recent-order > * { min-width: 0 !important; }
 .dashboard-shell .recent-orders-list .recent-order em { margin-left: auto !important; }
+
+/* ============ FIX ROUND 2 (front) ============ */
+
+/* A) warehouse icon — square (sharp corners) */
+.dashboard-shell .warehouse-summary-item__icon {
+  border-radius: 6px !important;
+}
+
+/* B) KPI icon — light teal tint + teal glyph (lighter, matches warehouse chips) */
+.dashboard-shell .kpi-grid--premium .premium-kpi .premium-kpi__icon,
+.dashboard-shell .kpi-grid .premium-kpi .premium-kpi__icon {
+  background: rgba(29,181,181,0.12) !important;
+  background-image: none !important;
+  color: #1db5b5 !important;
+  box-shadow: none !important;
+}
+.dashboard-shell .kpi-grid--premium .premium-kpi .premium-kpi__icon svg,
+.dashboard-shell .kpi-grid .premium-kpi .premium-kpi__icon svg,
+.dashboard-shell .kpi-grid--premium .premium-kpi .premium-kpi__icon svg * {
+  color: #1db5b5 !important;
+  stroke: #1db5b5 !important;
+  fill: none !important;
+}
+
+/* C) period dropdown — active item: white check, hover keeps teal (not transparent) */
+.dashboard-shell .period-dropdown__menu button.is-selected,
+.dashboard-shell .period-dropdown__menu button.is-selected:hover,
+.dashboard-shell .period-dropdown__menu button.is-selected:focus {
+  background: #1db5b5 !important;
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+.dashboard-shell .period-dropdown__menu button.is-selected svg,
+.dashboard-shell .period-dropdown__menu button.is-selected svg *,
+.dashboard-shell .period-dropdown__menu button.is-selected::after,
+.dashboard-shell .period-dropdown__menu button.is-selected::before {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  border-color: #ffffff !important;
+}
