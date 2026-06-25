@@ -15,8 +15,81 @@ const text = {
   again: "\u041d\u043e\u0432\u0430\u044f \u0437\u0430\u044f\u0432\u043a\u0430",
 };
 
+const phoneCountries = [
+  { key: "UZ", label: "Узбекистан", dialCode: "998" },
+  { key: "TR", label: "Турция", dialCode: "90" },
+  { key: "RU", label: "Россия", dialCode: "7" },
+  { key: "KZ", label: "Казахстан", dialCode: "7" },
+  { key: "KG", label: "Киргизия", dialCode: "996" },
+  { key: "TJ", label: "Таджикистан", dialCode: "992" },
+  { key: "TM", label: "Туркменистан", dialCode: "993" },
+  { key: "US", label: "Америка", dialCode: "1" },
+];
+
+const phoneCountryMap = phoneCountries.reduce((acc, country) => {
+  acc[country.key] = country;
+  return acc;
+}, {});
+
+const getPhoneFlag = (countryKey) =>
+  `https://purecatamphetamine.github.io/country-flag-icons/3x2/${countryKey}.svg`;
+
+const onlyDigits = (value = "") => String(value).replace(/\D/g, "");
+
+const getPhoneLocal = (value = "", countryKey = "UZ") => {
+  const country = phoneCountryMap[countryKey] || phoneCountryMap.UZ;
+  const digits = onlyDigits(value);
+  const limit = getPhoneLocalLimit(country.key);
+  let local = digits.startsWith(country.dialCode) ? digits.slice(country.dialCode.length) : digits;
+
+  while (local.length > limit && local.startsWith(country.dialCode)) {
+    local = local.slice(country.dialCode.length);
+  }
+
+  return local;
+};
+
+const getPhoneLocalLimit = (countryKey = "UZ") => (countryKey === "UZ" ? 9 : 10);
+
+const formatLocalPhone = (local = "", countryKey = "UZ") => {
+  const value = onlyDigits(local).slice(0, getPhoneLocalLimit(countryKey));
+
+  if (countryKey === "UZ") {
+    if (value.length <= 2) return value;
+    if (value.length <= 5) return `${value.slice(0, 2)} ${value.slice(2)}`;
+    if (value.length <= 7) return `${value.slice(0, 2)} ${value.slice(2, 5)}-${value.slice(5)}`;
+    return `${value.slice(0, 2)} ${value.slice(2, 5)}-${value.slice(5, 7)}-${value.slice(7, 9)}`;
+  }
+
+  if (value.length <= 3) return value;
+  if (value.length <= 6) return `${value.slice(0, 3)} ${value.slice(3)}`;
+  if (value.length <= 8) return `${value.slice(0, 3)} ${value.slice(3, 6)}-${value.slice(6)}`;
+  return `${value.slice(0, 3)} ${value.slice(3, 6)}-${value.slice(6, 8)}-${value.slice(8, 10)}`;
+};
+
+const formatSupportPhone = (value = "", countryKey = "UZ") => {
+  const country = phoneCountryMap[countryKey] || phoneCountryMap.UZ;
+  const local = getPhoneLocal(value, country.key).slice(0, getPhoneLocalLimit(country.key));
+  return local ? `+${country.dialCode} ${formatLocalPhone(local, country.key)}` : `+${country.dialCode}`;
+};
+
+const getPhonePlaceholder = (countryKey = "UZ") =>
+  countryKey === "UZ" ? "XX XXX-XX-XX" : "XXX XXX-XX-XX";
+
+const getSupportPhoneLocal = (value = "", countryKey = "UZ") =>
+  getPhoneLocal(value, countryKey).slice(0, getPhoneLocalLimit(countryKey));
+
+const normalizeSupportPhone = (value = "", countryKey = "UZ") => {
+  const country = phoneCountryMap[countryKey] || phoneCountryMap.UZ;
+  const local = getPhoneLocal(value, country.key).slice(0, getPhoneLocalLimit(country.key));
+
+  return local ? `+${country.dialCode}${local}` : `+${country.dialCode}`;
+};
+
 export default function SupportWidget() {
   const [open, setOpen] = useState(false);
+  const [phoneCountry, setPhoneCountry] = useState("UZ");
+  const [phoneCountryOpen, setPhoneCountryOpen] = useState(false);
   const [phone, setPhone] = useState("+998");
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
@@ -29,7 +102,17 @@ export default function SupportWidget() {
 
   function closeWidget() {
     setOpen(false);
+    setPhoneCountryOpen(false);
     setSent(false);
+  }
+
+  function selectPhoneCountry(countryKey) {
+    const country = phoneCountryMap[countryKey] || phoneCountryMap.UZ;
+    const local = getSupportPhoneLocal(phone, phoneCountry).slice(0, getPhoneLocalLimit(country.key));
+
+    setPhoneCountry(country.key);
+    setPhone(local ? `+${country.dialCode}${local}` : `+${country.dialCode}`);
+    setPhoneCountryOpen(false);
   }
 
   return (
@@ -66,17 +149,46 @@ export default function SupportWidget() {
               <label className="support-widget__field">
                 <span>{text.phone}</span>
                 <div className="support-widget__phone">
-                  <span className="support-widget__flag" aria-hidden="true">
+                  <button
+                    className="support-widget__country"
+                    type="button"
+                    onClick={() => setPhoneCountryOpen((value) => !value)}
+                    aria-label="Выбрать страну"
+                    aria-expanded={phoneCountryOpen}
+                  >
                     <img
-                      src="https://upload.wikimedia.org/wikipedia/commons/8/84/Flag_of_Uzbekistan.svg"
-                      alt=""
+                      src={getPhoneFlag(phoneCountry)}
+                      alt={phoneCountryMap[phoneCountry]?.label || ""}
                       loading="lazy"
                       decoding="async"
                     />
+                    <Icon name="bi-chevron-down" size={12} />
+                  </button>
+                  {phoneCountryOpen && (
+                    <div className="support-widget__country-menu">
+                      {phoneCountries.map((country) => (
+                        <button
+                          className={phoneCountry === country.key ? "is-active" : ""}
+                          type="button"
+                          key={country.key}
+                          onClick={() => selectPhoneCountry(country.key)}
+                        >
+                          <img src={getPhoneFlag(country.key)} alt="" loading="lazy" decoding="async" />
+                          <span>{country.label}</span>
+                          <b>+{country.dialCode}</b>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <span className="support-widget__dial-code">
+                    +{phoneCountryMap[phoneCountry]?.dialCode || phoneCountryMap.UZ.dialCode}
                   </span>
                   <input
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
+                    value={formatLocalPhone(getSupportPhoneLocal(phone, phoneCountry), phoneCountry)}
+                    onChange={(event) => {
+                      setPhone(normalizeSupportPhone(event.target.value, phoneCountry));
+                    }}
+                    placeholder={getPhonePlaceholder(phoneCountry)}
                     inputMode="tel"
                     aria-label={text.phone}
                   />

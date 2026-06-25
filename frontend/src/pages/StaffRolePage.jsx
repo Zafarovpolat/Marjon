@@ -16,6 +16,83 @@ const roleMap = roleOptions.reduce((acc, item) => {
   return acc;
 }, {});
 
+const onlyDigits = (value = "") => String(value).replace(/\D/g, "");
+
+const phoneCountries = [
+  { key: "UZ", label: "Узбекистан", dialCode: "998" },
+  { key: "TR", label: "Турция", dialCode: "90" },
+  { key: "RU", label: "Россия", dialCode: "7" },
+  { key: "KZ", label: "Казахстан", dialCode: "7" },
+  { key: "KG", label: "Киргизия", dialCode: "996" },
+  { key: "TJ", label: "Таджикистан", dialCode: "992" },
+  { key: "TM", label: "Туркменистан", dialCode: "993" },
+  { key: "US", label: "Америка", dialCode: "1" },
+];
+
+const phoneCountryMap = phoneCountries.reduce((acc, country) => {
+  acc[country.key] = country;
+  return acc;
+}, {});
+
+const getPhoneFlag = (countryKey) =>
+  `https://purecatamphetamine.github.io/country-flag-icons/3x2/${countryKey}.svg`;
+
+const inferPhoneCountry = (value = "") => {
+  const digits = onlyDigits(value);
+
+  return (
+    phoneCountries
+      .filter((country) => digits.startsWith(country.dialCode))
+      .sort((a, b) => b.dialCode.length - a.dialCode.length)[0]?.key || "UZ"
+  );
+};
+
+const getPhoneLocal = (value = "", countryKey = "UZ") => {
+  const digits = onlyDigits(value);
+  const country = phoneCountryMap[countryKey] || phoneCountryMap.UZ;
+  return digits.startsWith(country.dialCode) ? digits.slice(country.dialCode.length) : digits;
+};
+
+const formatPhoneLocal = (local = "") => {
+  const value = local.slice(0, 10);
+
+  if (value.length <= 3) return value;
+  if (value.length <= 6) return `${value.slice(0, 3)} ${value.slice(3)}`;
+  if (value.length <= 8) return `${value.slice(0, 3)} ${value.slice(3, 6)}-${value.slice(6)}`;
+  return `${value.slice(0, 3)} ${value.slice(3, 6)}-${value.slice(6, 8)}-${value.slice(8, 10)}`;
+};
+
+const formatPhone = (value = "", countryKey = inferPhoneCountry(value)) => {
+  const country = phoneCountryMap[countryKey] || phoneCountryMap.UZ;
+  const local = getPhoneLocal(value, country.key);
+
+  if (country.key === "UZ") {
+    const uzLocal = local.slice(0, 9);
+    const parts = [
+      uzLocal.slice(0, 2),
+      uzLocal.slice(2, 5),
+      uzLocal.slice(5, 7),
+      uzLocal.slice(7, 9),
+    ].filter(Boolean);
+
+    return parts.length
+      ? `+${country.dialCode} ${parts[0]}${parts[1] ? ` ${parts[1]}` : ""}${parts[2] ? `-${parts[2]}` : ""}${parts[3] ? `-${parts[3]}` : ""}`
+      : "";
+  }
+
+  return local ? `+${country.dialCode} ${formatPhoneLocal(local)}` : "";
+};
+
+const normalizePhone = (value = "", countryKey = "UZ") => {
+  const country = phoneCountryMap[countryKey] || phoneCountryMap.UZ;
+  const parts = [
+    country.dialCode,
+    getPhoneLocal(value, country.key).slice(0, country.key === "UZ" ? 9 : 10),
+  ];
+
+  return parts[1] ? parts.join("") : "";
+};
+
 const initialStaff = [
   {
     id: 5439,
@@ -143,7 +220,8 @@ const initialStaff = [
 const emptyForm = {
   fullName: "",
   phone: "",
-  roleKey: "cashier",
+  phoneCountry: "UZ",
+  roleKey: "",
   permission: "",
   pin: "",
   password: "",
@@ -154,9 +232,12 @@ const emptyForm = {
   canTakeawayAtTable: false,
   canChangeOrderType: false,
   canCloseBill: false,
+  canOpenCashDrawerAfterPayment: false,
+  canViewClosedOrders: false,
   status: "active",
   comment: "",
   photo: "",
+  access: {},
 };
 
 const getPermissionSummary = (values) => {
@@ -165,10 +246,79 @@ const getPermissionSummary = (values) => {
     values.canTakeawayAtTable && "Заказ на вынос",
     values.canChangeOrderType && "Изменение типа заказа",
     values.canCloseBill && "Закрытие счета",
+    values.canOpenCashDrawerAfterPayment && "Открытие денежного ящика",
+    values.canViewClosedOrders && "Просмотр закрытых заказов",
   ].filter(Boolean);
 
   return permissions.join(", ") || values.permission || "Базовый доступ";
 };
+
+const staffAccessModules = [
+  { key: "home", label: "Главная" },
+  { key: "warehouse_stock", label: "Склады (Остаток товаров)" },
+  { key: "goods_income", label: "Приход товаров" },
+  { key: "goods_expense", label: "Расход товаров" },
+  { key: "income_log", label: "Журнал приходов" },
+  { key: "transfers", label: "Перемещения" },
+  { key: "supplier_returns", label: "Возврат поставщику" },
+  { key: "inventory", label: "Инвентаризация" },
+  { key: "write_off", label: "Списание" },
+  { key: "write_off_categories", label: "Категории списания" },
+  { key: "z_report", label: "Z-отчет" },
+  { key: "orders_report", label: "Отчет по заказам" },
+  { key: "tables_report", label: "Отчет по столам" },
+  { key: "waiters_report", label: "Отчет по официантам" },
+  { key: "dishes_report", label: "Отчет по блюдам" },
+  { key: "couriers_report", label: "Отчет по курьерам" },
+  { key: "deleted_dishes_report", label: "Отчет по удаленным блюдам" },
+  { key: "debtors_creditors", label: "Дебиторы и Кредиторы" },
+  { key: "cashflow", label: "Денежный поток" },
+  { key: "cashier", label: "Кассир" },
+  { key: "waiter", label: "Официант" },
+  { key: "monoblock", label: "Моноблок" },
+  { key: "cook", label: "Повар" },
+  { key: "manager", label: "Менеджер" },
+  { key: "warehouse_manager", label: "Завсклад" },
+  { key: "attendance", label: "Посещаемость" },
+  { key: "courier", label: "Курьер" },
+  { key: "clients", label: "Клиенты" },
+  { key: "suppliers", label: "Поставщик" },
+  { key: "places", label: "Места" },
+  { key: "payment_methods", label: "Способы оплаты" },
+  { key: "units", label: "Ед. измерения" },
+  { key: "profile_settings", label: "Настройка профиля" },
+  { key: "printer_settings", label: "Настройка принтеров" },
+  { key: "banners", label: "Баннеры" },
+  { key: "playlists", label: "Плейлисты" },
+  { key: "devices", label: "Устройства" },
+  { key: "cash_operations", label: "Денежные операции" },
+  { key: "income_expense_categories", label: "Категории приход-расходов" },
+  { key: "dishes", label: "Блюда" },
+  { key: "dish_categories", label: "Категории блюда (меню)" },
+  { key: "raw_materials", label: "Сырьё" },
+  { key: "raw_categories", label: "Категории сырья" },
+  { key: "semi_finished", label: "Полуфабрикаты" },
+  { key: "semi_finished_categories", label: "Категории полуфабрикатов" },
+  { key: "sales_categories", label: "Категории реализации" },
+  { key: "call_center", label: "Call Center" },
+  { key: "booking", label: "Брон" },
+  { key: "order_edit", label: "Заказы (изменить, удалить)" },
+  { key: "order_types", label: "Заказы (типы)", actions: ["takeaway", "table", "delivery", "new"] },
+];
+
+const staffAccessActions = [
+  { key: "create", label: "Создать" },
+  { key: "read", label: "Читать" },
+  { key: "update", label: "Обновлять" },
+  { key: "delete", label: "Удалить" },
+];
+
+const staffOrderTypeActions = [
+  { key: "takeaway", label: "На вынос" },
+  { key: "table", label: "На стол" },
+  { key: "delivery", label: "Доставка" },
+  { key: "new", label: "Новый" },
+];
 
 function StaffRolePage({ role = "all" }) {
   const routeRole = roleMap[role] ? role : "all";
@@ -186,9 +336,9 @@ function StaffRolePage({ role = "all" }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [phoneCountryOpen, setPhoneCountryOpen] = useState(false);
   const [form, setForm] = useState({
     ...emptyForm,
-    roleKey: routeRole === "all" ? "cashier" : routeRole,
   });
 
   const visibleStaff = useMemo(() => {
@@ -211,17 +361,16 @@ function StaffRolePage({ role = "all" }) {
   const openAddModal = () => {
     setEditingId(null);
     setShowPassword(false);
-    setForm({
-      ...emptyForm,
-      roleKey: routeRole === "all" ? "cashier" : routeRole,
-    });
+    setPhoneCountryOpen(false);
+    setForm({ ...emptyForm, phoneCountry: "UZ", access: {} });
     setModalOpen(true);
   };
 
   const openEditModal = (employee) => {
     setEditingId(employee.id);
     setShowPassword(false);
-    setForm({ ...emptyForm, ...employee });
+    setPhoneCountryOpen(false);
+    setForm({ ...emptyForm, ...employee, phoneCountry: employee.phoneCountry || inferPhoneCountry(employee.phone) });
     setModalOpen(true);
   };
 
@@ -229,6 +378,7 @@ function StaffRolePage({ role = "all" }) {
     setModalOpen(false);
     setEditingId(null);
     setShowPassword(false);
+    setPhoneCountryOpen(false);
   };
 
   const updateForm = (field, value) => {
@@ -237,6 +387,32 @@ function StaffRolePage({ role = "all" }) {
 
   const toggleForm = (field) => {
     setForm((current) => ({ ...current, [field]: !current[field] }));
+  };
+
+  const selectPhoneCountry = (countryKey) => {
+    setForm((current) => ({
+      ...current,
+      phoneCountry: countryKey,
+      phone: current.phone ? normalizePhone(getPhoneLocal(current.phone, current.phoneCountry), countryKey) : "",
+    }));
+    setPhoneCountryOpen(false);
+  };
+
+  const toggleAccess = (moduleKey, actionKey = "enabled") => {
+    setForm((current) => {
+      const moduleAccess = current.access?.[moduleKey] || {};
+
+      return {
+        ...current,
+        access: {
+          ...(current.access || {}),
+          [moduleKey]: {
+            ...moduleAccess,
+            [actionKey]: !moduleAccess[actionKey],
+          },
+        },
+      };
+    });
   };
 
   const handlePhotoChange = (event) => {
@@ -433,7 +609,7 @@ function StaffRolePage({ role = "all" }) {
                     </div>
                   </td>
                   <td className="staff-name-cell">{employee.fullName}</td>
-                  <td>{employee.phone}</td>
+                  <td>{formatPhone(employee.phone, employee.phoneCountry || inferPhoneCountry(employee.phone))}</td>
                   <td>
                     <span className="staff-role-badge">
                       {roleMap[employee.roleKey]?.label || employee.roleKey}
@@ -456,27 +632,34 @@ function StaffRolePage({ role = "all" }) {
                   </td>
                   <td>
                     <div className="staff-actions">
-                      <button type="button" onClick={() => openEditModal(employee)}>
+                      <button
+                        type="button"
+                        className="edit-action-button"
+                        onClick={() => openEditModal(employee)}
+                        aria-label="Edit"
+                        title="Edit"
+                      >
                         <Icon name="bi-pencil" size={15} />
-                        Edit
                       </button>
                       {employee.status === "archived" ? (
                         <button
                           type="button"
                           className="staff-restore-action"
                           onClick={() => restoreStaff(employee.id)}
+                          aria-label="Restore"
+                          title="Restore"
                         >
                           <Icon name="bi-recycle" size={15} />
-                          Restore
                         </button>
                       ) : (
                         <button
                           type="button"
                           className="staff-delete-action"
                           onClick={() => archiveStaff(employee.id)}
+                          aria-label="Archive"
+                          title="Archive"
                         >
                           <Icon name="bi-trash3" size={15} />
-                          Archive
                         </button>
                       )}
                     </div>
@@ -498,7 +681,16 @@ function StaffRolePage({ role = "all" }) {
       {modalOpen && (
         <div className="staff-modal" role="dialog" aria-modal="true">
           <div className="staff-modal__backdrop" onClick={closeModal} />
-          <form className="staff-form" onSubmit={saveStaff}>
+          <form
+            key={editingId ? `staff-edit-${editingId}` : "staff-add-empty"}
+            className="staff-form"
+            onSubmit={saveStaff}
+            autoComplete="off"
+          >
+            <div className="staff-autofill-trap" aria-hidden="true">
+              <input type="text" name="username" tabIndex={-1} autoComplete="username" />
+              <input type="password" name="password" tabIndex={-1} autoComplete="new-password" />
+            </div>
             <div className="staff-form__header">
               <div>
                 <p>{editingId ? "Редактирование" : "Новый сотрудник"}</p>
@@ -517,7 +709,7 @@ function StaffRolePage({ role = "all" }) {
                     {form.photo ? (
                       <img src={form.photo} alt="Avatar preview" />
                     ) : (
-                      <Icon name="bi-person" size={24} />
+                      <Icon name="bi-camera" size={34} />
                     )}
                   </div>
                   <input type="file" accept="image/*" onChange={handlePhotoChange} />
@@ -527,6 +719,7 @@ function StaffRolePage({ role = "all" }) {
                 <span>Имя *</span>
                 <input
                   required
+                  autoComplete="off"
                   value={form.fullName}
                   onChange={(event) => updateForm("fullName", event.target.value)}
                   placeholder="Имя сотрудника"
@@ -535,17 +728,48 @@ function StaffRolePage({ role = "all" }) {
               <label>
                 <span>Номер телефона</span>
                 <div className="staff-phone-field">
-                  <span className="staff-phone-flag" aria-hidden="true">
+                  <button
+                    className="staff-phone-country"
+                    type="button"
+                    onClick={() => setPhoneCountryOpen((value) => !value)}
+                    aria-label="Выбрать страну"
+                    aria-expanded={phoneCountryOpen}
+                  >
                     <img
-                      src="https://upload.wikimedia.org/wikipedia/commons/8/84/Flag_of_Uzbekistan.svg"
-                      alt=""
+                      src={getPhoneFlag(form.phoneCountry || "UZ")}
+                      alt={phoneCountryMap[form.phoneCountry || "UZ"]?.label || ""}
                     />
-                  </span>
+                    <Icon name="bi-chevron-down" size={12} />
+                  </button>
+                  {phoneCountryOpen && (
+                    <div className="staff-phone-country-menu">
+                      {phoneCountries.map((country) => (
+                        <button
+                          className={form.phoneCountry === country.key ? "is-active" : ""}
+                          type="button"
+                          key={country.key}
+                          onClick={() => selectPhoneCountry(country.key)}
+                        >
+                          <img src={getPhoneFlag(country.key)} alt="" />
+                          <span>{country.label}</span>
+                          <b>+{country.dialCode}</b>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <input
                     required
-                    value={form.phone}
-                    onChange={(event) => updateForm("phone", event.target.value)}
-                    placeholder="+998"
+                    autoComplete="off"
+                    inputMode="tel"
+                    value={
+                      form.phone
+                        ? formatPhone(form.phone, form.phoneCountry)
+                        : `+${phoneCountryMap[form.phoneCountry || "UZ"]?.dialCode || "998"}`
+                    }
+                    onChange={(event) =>
+                      updateForm("phone", normalizePhone(event.target.value, form.phoneCountry))
+                    }
+                    placeholder=""
                   />
                 </div>
               </label>
@@ -554,6 +778,7 @@ function StaffRolePage({ role = "all" }) {
                 <div className="staff-password-field">
                   <input
                     required
+                    autoComplete="new-password"
                     type={showPassword ? "text" : "password"}
                     value={form.password}
                     onChange={(event) => updateForm("password", event.target.value)}
@@ -573,6 +798,7 @@ function StaffRolePage({ role = "all" }) {
                 <span>IP адрес принтера *</span>
                 <input
                   required
+                  autoComplete="off"
                   value={form.printerIp}
                   onChange={(event) => updateForm("printerIp", event.target.value)}
                   placeholder="192.168.0.100"
@@ -581,9 +807,11 @@ function StaffRolePage({ role = "all" }) {
               <label>
                 <span>Организации</span>
                 <select
+                  required
                   value={form.roleKey}
                   onChange={(event) => updateForm("roleKey", event.target.value)}
                 >
+                  <option value="">Выберите тип организации</option>
                   {roleOptions.map((item) => (
                     <option key={item.key} value={item.key}>
                       {item.label}
@@ -594,6 +822,7 @@ function StaffRolePage({ role = "all" }) {
               <label>
                 <span>NFC-идентификатор</span>
                 <input
+                  autoComplete="off"
                   value={form.nfcId}
                   onChange={(event) => updateForm("nfcId", event.target.value)}
                   placeholder="ID карты"
@@ -654,6 +883,71 @@ function StaffRolePage({ role = "all" }) {
                   <span>Может закрыть счет</span>
                   <b className="staff-switch" aria-hidden="true" />
                 </button>
+                <button
+                  className={`staff-permission-switch ${
+                    form.canOpenCashDrawerAfterPayment ? "is-on" : ""
+                  }`}
+                  type="button"
+                  onClick={() => toggleForm("canOpenCashDrawerAfterPayment")}
+                >
+                  <span>Открыть денежный ящик после оплаты</span>
+                  <b className="staff-switch" aria-hidden="true" />
+                </button>
+                <button
+                  className={`staff-permission-switch ${form.canViewClosedOrders ? "is-on" : ""}`}
+                  type="button"
+                  onClick={() => toggleForm("canViewClosedOrders")}
+                >
+                  <span>Просмотр закрытых заказов</span>
+                  <b className="staff-switch" aria-hidden="true" />
+                </button>
+              </div>
+              <div className="staff-permission-matrix">
+                {staffAccessModules.map((module) => {
+                  const moduleAccess = form.access?.[module.key] || {};
+                  const actions =
+                    module.key === "order_types" ? staffOrderTypeActions : staffAccessActions;
+
+                  return (
+                    <div
+                      className={`staff-access-row ${moduleAccess.enabled ? "is-open" : ""}`}
+                      key={module.key}
+                    >
+                      <div className="staff-access-toggle">
+                        <button
+                          className={`staff-switch-button ${moduleAccess.enabled ? "is-on" : ""}`}
+                          type="button"
+                          onClick={() => toggleAccess(module.key)}
+                          aria-pressed={Boolean(moduleAccess.enabled)}
+                          aria-label={`${module.label}: ${moduleAccess.enabled ? "выключить" : "включить"}`}
+                        >
+                          <b className="staff-mini-switch" aria-hidden="true" />
+                        </button>
+                        <span>{module.label}</span>
+                      </div>
+                      <div
+                        className="staff-access-actions"
+                        aria-hidden={!moduleAccess.enabled}
+                      >
+                        {actions.map((action) => (
+                          <button
+                            className={`staff-access-action ${
+                              moduleAccess[action.key] ? "is-on" : ""
+                            }`}
+                            type="button"
+                            key={action.key}
+                            onClick={() => toggleAccess(module.key, action.key)}
+                            disabled={!moduleAccess.enabled}
+                            aria-pressed={Boolean(moduleAccess[action.key])}
+                          >
+                            <b className="staff-mini-switch" aria-hidden="true" />
+                            <span>{action.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
               <label className="staff-form__comment">
                 <span>Комментарий</span>

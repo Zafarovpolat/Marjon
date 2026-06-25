@@ -461,7 +461,7 @@ function renderWarehouseCells(section, row, index, editable, archiveHandler, ope
   const actions = editable ? (
     <td>
       <div className="warehouse-row-actions">
-        <button type="button" onClick={() => openEdit(row)}><Icon name="bi-pencil" size={15} /></button>
+        <button type="button" className="edit-action-button" onClick={() => openEdit(row)}><Icon name="bi-pencil" size={15} /></button>
         <button type="button" className={row.archiveState === ARCHIVE ? "is-restore" : "is-danger"} onClick={() => archiveHandler(row)}>
           <Icon name={row.archiveState === ARCHIVE ? "bi-recycle" : "bi-trash3"} size={15} />
         </button>

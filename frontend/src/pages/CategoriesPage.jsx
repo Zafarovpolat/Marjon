@@ -128,8 +128,8 @@ function CategoriesPage({ type = "dishes" }) {
                   <td><span className={`nomenclature-status-badge ${row.status === "Архив" ? "is-archived" : ""}`}>{row.status}</span></td>
                   <td>
                     <div className="nomenclature-row-actions">
-                      <button type="button" onClick={() => openEdit(row)}><Icon name="bi-pencil" size={15} />Edit</button>
-                      <button type="button" className="is-danger" onClick={() => archiveRow(row.id)}><Icon name="bi-trash3" size={15} />Archive</button>
+                      <button type="button" className="edit-action-button" onClick={() => openEdit(row)} aria-label="Edit" title="Edit"><Icon name="bi-pencil" size={15} /></button>
+                      <button type="button" className="is-danger" onClick={() => archiveRow(row.id)} aria-label="Archive" title="Archive"><Icon name="bi-trash3" size={15} /></button>
                     </div>
                   </td>
                 </tr>
