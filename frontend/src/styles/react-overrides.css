@@ -19324,3 +19324,74 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
     margin-inline: 18px !important;
   }
 }
+
+/* ============ FINAL FIXES (front) — win by specificity, appended last ============ */
+
+/* 1) KPI icon background strictly teal-500 (kill cyan/orange/blue/purple/navy leaks) */
+.dashboard-shell .kpi-grid--premium .premium-kpi .premium-kpi__icon,
+.dashboard-shell .kpi-grid .premium-kpi .premium-kpi__icon {
+  background: #1db5b5 !important;
+  background-image: none !important;
+  color: #ffffff !important;
+}
+.dashboard-shell .kpi-grid--premium .premium-kpi::after {
+  background: #1db5b5 !important;
+}
+
+/* 2) period dropdown menu — solid (not transparent) colors */
+.dashboard-shell .period-dropdown__menu { background: #ffffff !important; }
+.dashboard-shell .period-dropdown__menu button {
+  color: #334155 !important;
+  background: #ffffff !important;
+  opacity: 1 !important;
+}
+.dashboard-shell .period-dropdown__menu button:hover {
+  background: rgba(29,181,181,0.10) !important;
+  color: #1db5b5 !important;
+}
+.dashboard-shell .period-dropdown__menu button.is-selected {
+  background: #1db5b5 !important;
+  color: #ffffff !important;
+}
+
+/* 3) warehouse items — uniform hover lift for ALL variants (orange included) */
+.dashboard-shell .warehouse-summary-item,
+.dashboard-shell .warehouse-summary-item--blue,
+.dashboard-shell .warehouse-summary-item--green,
+.dashboard-shell .warehouse-summary-item--red,
+.dashboard-shell .warehouse-summary-item--orange,
+.dashboard-shell .warehouse-summary-item--rose,
+.dashboard-shell .warehouse-summary-item--pink {
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease !important;
+}
+.dashboard-shell .warehouse-summary-item:hover,
+.dashboard-shell .warehouse-summary-item--blue:hover,
+.dashboard-shell .warehouse-summary-item--green:hover,
+.dashboard-shell .warehouse-summary-item--red:hover,
+.dashboard-shell .warehouse-summary-item--orange:hover,
+.dashboard-shell .warehouse-summary-item--rose:hover,
+.dashboard-shell .warehouse-summary-item--pink:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 16px rgba(16,24,40,0.08) !important;
+}
+
+/* 4) top-dish body — vertically centered text against photo height */
+.dashboard-shell .top-dish__body {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-self: stretch !important;
+  min-width: 0 !important;
+}
+.dashboard-shell .top-dish__body .top-dish__line { display: flex !important; align-items: center !important; min-width: 0 !important; }
+
+/* 5) recent-order — don't clip content when space is tight */
+.dashboard-shell .recent-orders-list .recent-order {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 4px 10px !important;
+  overflow: visible !important;
+}
+.dashboard-shell .recent-orders-list .recent-order > * { min-width: 0 !important; }
+.dashboard-shell .recent-orders-list .recent-order em { margin-left: auto !important; }
