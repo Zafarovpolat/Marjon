@@ -19524,3 +19524,11 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   color: #0b1f3f !important;
   font-style: normal !important;
 }
+
+/* ============ FIX ROUND 6 — warehouse blue: drop border, use KPI-style shadow ============ */
+.dashboard-shell .warehouse-summary-item,
+.dashboard-shell .warehouse-summary-item--blue {
+  border: 0 !important;
+  background: #ffffff !important;
+  box-shadow: 0 13px 26px rgba(15,23,42,0.07), 0 5px 10px rgba(15,23,42,0.03) !important;
+}

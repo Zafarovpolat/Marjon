@@ -1,5 +1,5 @@
-import uzcardLogo from "../assets/paylogos/uzcard.svg";
-import visaLogo from "../assets/paylogos/visa.svg";
+import uzcardLogo from "../assets/paylogos/uzcard.png";
+import visaLogo from "../assets/paylogos/visa.png";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import { clampToToday, todayInputValue } from "../utils/date";
