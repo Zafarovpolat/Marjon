@@ -19488,3 +19488,39 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   background: rgba(245,158,11,0.16) !important;
   color: #b45309 !important;
 }
+
+/* ============ FIX ROUND 5 (front) — unify top-dish & recent-order ============ */
+
+/* warehouse icon radius -> 12px */
+.dashboard-shell .warehouse-summary-item__icon { border-radius: 12px !important; }
+
+/* unified base for both list rows */
+.dashboard-shell .top-dish,
+.dashboard-shell .top-dish--compact,
+.dashboard-shell .recent-order {
+  background: #f7f9fc !important;
+  border: 1px solid rgba(15,35,70,0.08) !important;
+  border-radius: 14px !important;
+  padding: 10px 12px !important;
+  box-shadow: none !important;
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease !important;
+}
+
+/* unified hover for both */
+.dashboard-shell .top-dish:hover,
+.dashboard-shell .top-dish--compact:hover,
+.dashboard-shell .recent-order:hover {
+  background: #ffffff !important;
+  border-color: rgba(29,181,181,0.35) !important;
+  box-shadow: 0 4px 12px rgba(16,24,40,0.06) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* unified price style in both blocks */
+.dashboard-shell .top-dish__price,
+.dashboard-shell .recent-orders-list .recent-order em {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: #0b1f3f !important;
+  font-style: normal !important;
+}
