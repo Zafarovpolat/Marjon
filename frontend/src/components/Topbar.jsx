@@ -382,10 +382,10 @@ export default function Topbar({
                   <Icon name="bi-credit-card-2-front" size={20} />
                   <span>Выберите способ оплаты</span>
                 </div>
-                <label className="balance-payment-dialog__field">
+                <div className="balance-payment-dialog__field">
                   <span>Payment ID</span>
-                  <input type="text" value="1001162" readOnly />
-                </label>
+                  <strong>1001162</strong>
+                </div>
                 <div className="balance-payment-methods" role="radiogroup" aria-label="Способ оплаты">
                   <button
                     className={`balance-payment-method ${paymentMethod === "uzcard" ? "is-selected" : ""}`}

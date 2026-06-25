@@ -220,7 +220,7 @@
 .mj-calendar__day:hover:not(.is-disabled):not(.is-selected) {
   background: rgba(29, 181, 181, 0.12);
   color: var(--accent);
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .mj-calendar__day.is-outside {
