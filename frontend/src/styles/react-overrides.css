@@ -19435,3 +19435,34 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   stroke: #ffffff !important;
   border-color: #ffffff !important;
 }
+
+/* ============ FIX ROUND 3 (front) ============ */
+
+/* 1) period active item — remove checkmark entirely */
+.dashboard-shell .period-dropdown__menu button.is-selected svg,
+.dashboard-shell .period-dropdown__menu button.is-selected .lucide,
+.dashboard-shell .period-dropdown__menu button.is-selected svg.lucide-check {
+  display: none !important;
+}
+
+/* 2) warehouse icon — true square 40x40 */
+.dashboard-shell .warehouse-summary-item__icon {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  flex: 0 0 40px !important;
+  aspect-ratio: 1 / 1 !important;
+  padding: 0 !important;
+  border-radius: 6px !important;
+}
+
+/* 3) top-dish line — no bottom margin */
+.dashboard-shell .top-dish__line { margin-bottom: 0 !important; }
+
+/* 4) recent-order price — palette (navy), not green */
+.dashboard-shell .recent-orders-list .recent-order em {
+  color: #0b1f3f !important;
+  font-style: normal !important;
+  font-weight: 600 !important;
+}
