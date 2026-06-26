@@ -269,4 +269,5 @@ select,
 textarea,
 optgroup {
   font-family: inherit;
+  font-size: inherit;
 }

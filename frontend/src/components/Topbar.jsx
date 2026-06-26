@@ -245,7 +245,9 @@ export default function Topbar({
               <Icon name="bi-currency-exchange" size={17} />
             </span>
             <strong className="topbar-info-widget__body">
-              {usdRate ? `${usdRate.toLocaleString("ru-RU")} UZS/USD` : "—"}
+              {usdRate ? (
+                <><span className="topbar-info-widget__num">{usdRate.toLocaleString("ru-RU")} </span>UZS/USD</>
+              ) : "—"}
             </strong>
             {widgetError && !usdRate
               ? <Icon name="bi-wifi-off" size={15} className="topbar-info-widget__trend" />

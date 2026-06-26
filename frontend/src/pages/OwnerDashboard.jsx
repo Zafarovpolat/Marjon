@@ -1,4 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Chart, Filler, LineController, LineElement, LinearScale, PointElement, CategoryScale, Tooltip } from "chart.js";
 import { Link, useOutletContext } from "react-router-dom";
 import { api, formatMoney, formatNumber } from "../api/client";
@@ -662,7 +663,9 @@ function KpiInfoDialog({ kpi, onClose }) {
 
   if (!kpi) return null;
 
-  return (
+  const container = document.querySelector(".dashboard-main") || document.body;
+
+  return createPortal(
     <div className="kpi-info-backdrop" role="presentation" onMouseDown={onClose}>
       <section
         className={`kpi-info-window ${kpi.className}`}
@@ -702,7 +705,8 @@ function KpiInfoDialog({ kpi, onClose }) {
           <span>{kpi.insight}</span>
         </div>
       </section>
-    </div>
+    </div>,
+    container
   );
 }
 
@@ -720,7 +724,9 @@ function WarehouseReportDialog({ report, selectedDate, onClose }) {
 
   if (!report) return null;
 
-  return (
+  const container = document.querySelector(".dashboard-main") || document.body;
+
+  return createPortal(
     <div className="kpi-info-backdrop warehouse-report-backdrop" role="presentation" onMouseDown={onClose}>
       <section
         className={`warehouse-report-window warehouse-report-window--${report.tone}`}
@@ -773,7 +779,8 @@ function WarehouseReportDialog({ report, selectedDate, onClose }) {
           </table>
         </div>
       </section>
-    </div>
+    </div>,
+    container
   );
 }
 
