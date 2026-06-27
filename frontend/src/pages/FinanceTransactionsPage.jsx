@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import Icon from "../components/Icon";
 import FinanceTransactionDrawer from "./FinanceTransactionDrawer";
+import ReportDateRangePicker from "../components/ReportDateRangePicker";
 
 const initialTransactions = [
   { id: 1, date: "22 Jun 2026 / 20:57", amount: 40600, type: "income", paymentType: "CLICK", counterparty: "-", category: "Приход от продаж", comment: "Заказ № 39957057" },
@@ -41,6 +42,7 @@ function FinanceTransactionsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [dateRange, setDateRange] = useState({ preset: "Этот месяц", start: "01.06.2026", end: "30.06.2026", startTime: "", endTime: "" });
 
   const totals = useMemo(() => rows.reduce((acc, row) => {
     acc[row.type] += Number(row.amount || 0);
@@ -93,10 +95,9 @@ function FinanceTransactionsPage() {
     <div className="finance-page">
       <section className="finance-card">
         <header className="finance-header finance-header--transactions">
-          <button type="button" className="finance-date-button">
-            <Icon name="bi-calendar3" size={17} />
-            Выберите дату
-          </button>
+          <div className="report-actions finance-date-range">
+            <ReportDateRangePicker value={dateRange} onChange={setDateRange} />
+          </div>
           <div className="finance-summary-row">
             <article className="finance-summary-pill finance-income-pill">
               <span>Приход</span>

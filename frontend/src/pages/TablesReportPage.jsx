@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import Icon from "../components/Icon";
+import ReportDateRangePicker from "../components/ReportDateRangePicker";
 
 const initialFilters = {
   zone: "all",
@@ -9,6 +10,61 @@ const initialFilters = {
   minAmount: "",
   maxAmount: "",
 };
+
+const datePresets = [
+  "Сегодня",
+  "Вчера",
+  "Эта неделя",
+  "Этот месяц",
+  "Прошлый месяц",
+  "Этот квартал",
+  "Прошлый квартал",
+  "Этот год",
+  "Прошлый год",
+];
+
+function padDate(value) {
+  return String(value).padStart(2, "0");
+}
+
+function formatDate(date) {
+  return `${padDate(date.getDate())}.${padDate(date.getMonth() + 1)}.${date.getFullYear()}`;
+}
+
+function formatPeriodLabel(range) {
+  return range.preset || `${range.start} - ${range.end}`;
+}
+
+function presetRange(label) {
+  const today = new Date(2026, 5, 27);
+  const start = new Date(today);
+  const end = new Date(today);
+
+  if (label === "Вчера") {
+    start.setDate(today.getDate() - 1);
+    end.setDate(today.getDate() - 1);
+  } else if (label === "Эта неделя") {
+    start.setDate(today.getDate() - 6);
+  } else if (label === "Этот месяц") {
+    start.setDate(1);
+  } else if (label === "Прошлый месяц") {
+    start.setMonth(today.getMonth() - 1, 1);
+    end.setMonth(today.getMonth(), 0);
+  } else if (label === "Этот квартал") {
+    start.setMonth(Math.floor(today.getMonth() / 3) * 3, 1);
+  } else if (label === "Прошлый квартал") {
+    const quarterStart = Math.floor(today.getMonth() / 3) * 3;
+    start.setMonth(quarterStart - 3, 1);
+    end.setMonth(quarterStart, 0);
+  } else if (label === "Этот год") {
+    start.setMonth(0, 1);
+  } else if (label === "Прошлый год") {
+    start.setFullYear(today.getFullYear() - 1, 0, 1);
+    end.setFullYear(today.getFullYear() - 1, 11, 31);
+  }
+
+  return { preset: label, start: formatDate(start), end: formatDate(end) };
+}
 
 const tableRows = [
   {
@@ -137,6 +193,7 @@ const summaries = [
 
 export default function TablesReportPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [dateRange, setDateRange] = useState({ preset: "", start: "01.06.2026", end: "01.07.2026" });
   const [filters, setFilters] = useState(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
   const [selectedTable, setSelectedTable] = useState(null);
@@ -182,11 +239,7 @@ export default function TablesReportPage() {
             </div>
           </div>
           <div className="report-actions">
-            <button className="report-period-button" type="button">
-              <Icon name="bi-chevron-left" size={16} />
-              <span>1 May - 31 May 2026</span>
-              <Icon name="bi-chevron-right" size={16} />
-            </button>
+            <ReportDateRangePicker value={dateRange} onChange={setDateRange} />
             <button className="tables-filter-toggle" type="button" onClick={() => setFiltersOpen((value) => !value)}>
               <Icon name="bi-sliders" size={18} />
               Фильтровать

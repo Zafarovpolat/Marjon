@@ -14,7 +14,8 @@ import {
   ShieldCheck, ShieldX, ShoppingBasket, SlidersHorizontal, Sparkles, Store,
   Tags, Timer, TrendingDown, TrendingUp, Trash2, User, UserCog, UserPlus,
   Users, Wallet, Wifi, WifiOff, X, Zap, PanelLeft, GitFork, Scissors,
-  FileCheck, Banknote, BookOpen, Landmark, Layers, Kanban, Megaphone, Star
+  FileCheck, Banknote, BookOpen, Landmark, Layers, Kanban, Megaphone, Star,
+  Inbox
 } from 'lucide-react'
 
 const ICON_MAP = {
@@ -64,6 +65,7 @@ const ICON_MAP = {
   'bi-circle':                 Circle,
   'bi-activity':               Activity,
   'bi-life-preserver':         LifeBuoy,
+  'bi-inbox':                  Inbox,
 
   /* ── People / Auth ──────────────── */
   'bi-person':                 User,
@@ -74,6 +76,7 @@ const ICON_MAP = {
   'bi-person-lines-fill':      ClipboardList,
   'bi-person-vcard':           Contact2,
   'bi-shield-fill-check':      ShieldCheck,
+  'bi-shield-check':           ShieldCheck,
   'bi-shield-lock':            ShieldX,
   'bi-lock':                   Lock,
 

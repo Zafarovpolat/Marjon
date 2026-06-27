@@ -21700,3 +21700,82 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   max-height: var(--sidebar-row-height) !important;
   transform: none !important;
 }
+
+/* Keep active sidebar subcategories in the same cyan style as the reference. */
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-active > .sidebar-link--button,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-active > .sidebar-link--button:hover,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-active > .sidebar-link--button:focus-visible,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-open > .sidebar-link--button.is-active,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-open > .sidebar-link--button.is-active:hover {
+  color: #ffffff !important;
+  background: var(--color-brand, #1db5b5) !important;
+  border-color: rgba(83, 242, 237, 0.38) !important;
+  box-shadow: 0 6px 17px rgba(20, 199, 197, 0.15) !important;
+}
+
+.dashboard-sidebar:not(.is-collapsed) .sidebar-submenu__link.is-active,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-submenu__link.is-active:hover,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-submenu__link.is-active:focus-visible {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.dashboard-sidebar:not(.is-collapsed) .sidebar-submenu__link.is-active .sidebar-submenu__icon,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-submenu__link.is-active:hover .sidebar-submenu__icon,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-submenu__link.is-active svg,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-submenu__link.is-active svg * {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  opacity: 1 !important;
+}
+
+/* Final override: active subcategory uses the same cyan fill as the category
+   button. Highest specificity + last in file so it wins. */
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu .sidebar-submenu__link.is-active,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu .sidebar-submenu__link.is-active:hover,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu .sidebar-submenu__link.is-active:focus,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu .sidebar-submenu__link.is-active:focus-visible,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu .sidebar-submenu__link.is-active:active {
+  color: #ffffff !important;
+  background: var(--color-brand, #1db5b5) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu .sidebar-submenu__link.is-active .sidebar-submenu__icon,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu .sidebar-submenu__link.is-active:hover .sidebar-submenu__icon,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu .sidebar-submenu__link.is-active:focus .sidebar-submenu__icon,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu .sidebar-submenu__link.is-active:focus-visible .sidebar-submenu__icon,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu .sidebar-submenu__link.is-active:active .sidebar-submenu__icon {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+}
+
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu .sidebar-submenu__link.is-active::before,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu .sidebar-submenu__link.is-active:hover::before,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu .sidebar-submenu__link.is-active:focus-visible::before,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu .sidebar-submenu__link.is-active:active::before {
+  background: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: none !important;
+}
+
+/* Header button keeps the cyan fill (reference photo 2). */
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-open > .sidebar-link,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-open > .sidebar-link--button,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-active > .sidebar-link,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-active > .sidebar-link--button {
+  background: var(--color-brand, #1db5b5) !important;
+  color: #ffffff !important;
+}
+
+/* Dropdown panel: solid dark-navy background (reference photo 1), not the lighter fill. */
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-open .sidebar-submenu,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-active .sidebar-submenu,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-open.is-active .sidebar-submenu {
+  background: rgba(10, 27, 58, 0.92) !important;
+}

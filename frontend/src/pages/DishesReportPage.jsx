@@ -1,5 +1,6 @@
 import { Fragment, useMemo, useState } from "react";
 import Icon from "../components/Icon";
+import ReportDateRangePicker from "../components/ReportDateRangePicker";
 
 const initialFilters = {
   query: "",
@@ -71,6 +72,7 @@ function optionLabel(value) {
 }
 
 export default function DishesReportPage() {
+  const [dateRange, setDateRange] = useState({ preset: "", start: "01.04.2026", end: "01.07.2026" });
   const [filters, setFilters] = useState(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
   const [expandedRow, setExpandedRow] = useState("mastava");
@@ -113,11 +115,7 @@ export default function DishesReportPage() {
             </div>
           </div>
           <div className="report-actions">
-            <button className="report-period-button" type="button">
-              <Icon name="bi-chevron-left" size={16} />
-              <span>1 Apr - 1 Jul 2026</span>
-              <Icon name="bi-chevron-right" size={16} />
-            </button>
+            <ReportDateRangePicker value={dateRange} onChange={setDateRange} />
             <button className="report-excel-button" type="button" onClick={downloadExcel}>
               <Icon name="bi-file-earmark-excel" size={18} />
               Скачать Excel

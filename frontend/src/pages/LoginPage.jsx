@@ -14,11 +14,11 @@ function applyPhoneMask(raw) {
   const local = body.slice(0, 9);
   let out = PREFIX;
   if (local.length === 0) return out;
-  if (local.length <= 2)  return out + local;
+  if (local.length <= 2) return out + local;
   out += local.slice(0, 2) + " ";
-  if (local.length <= 5)  return out + local.slice(2);
+  if (local.length <= 5) return out + local.slice(2);
   out += local.slice(2, 5) + "-";
-  if (local.length <= 7)  return out + local.slice(5);
+  if (local.length <= 7) return out + local.slice(5);
   out += local.slice(5, 7) + "-" + local.slice(7);
   return out;
 }
@@ -35,7 +35,7 @@ export default function LoginPage() {
 
   function handlePhoneChange(e) {
     const raw = e.target.value;
-    // не даём удалить префикс
+    // Не даем удалить префикс.
     if (!raw.startsWith("+")) return;
     setPhone(applyPhoneMask(raw));
   }
@@ -78,7 +78,6 @@ export default function LoginPage() {
 
       <section className="login-pro-panel">
         <form className="login-pro-card" onSubmit={handleSubmit}>
-
           <div className="login-pro-head">
             <h2>Добро пожаловать</h2>
             <p>Войдите в рабочее место вашего ресторана.</p>
@@ -96,7 +95,6 @@ export default function LoginPage() {
                 onChange={handlePhoneChange}
                 required
                 autoComplete="tel"
-                placeholder="+998 90 123-45-67"
                 spellCheck="false"
                 inputMode="numeric"
               />
@@ -113,7 +111,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                placeholder="••••••••"
+                placeholder="Введите пароль"
                 spellCheck="false"
               />
               <button type="button" className="login-pro-eye" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}>
@@ -133,7 +131,6 @@ export default function LoginPage() {
           <button className="login-pro-submit" type="submit" disabled={loading}>
             {loading ? "Вход..." : "Войти"}
           </button>
-
         </form>
       </section>
     </main>

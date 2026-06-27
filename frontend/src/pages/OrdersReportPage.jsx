@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import Icon from "../components/Icon";
+import ReportDateRangePicker from "../components/ReportDateRangePicker";
 
 const initialFilters = {
   orderType: "all",
@@ -143,6 +144,7 @@ const orderRows = [
 
 export default function OrdersReportPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [dateRange, setDateRange] = useState({ preset: "", start: "01.06.2026", end: "01.07.2026" });
   const [filters, setFilters] = useState(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -189,11 +191,7 @@ export default function OrdersReportPage() {
             </div>
           </div>
           <div className="report-actions">
-            <button className="report-period-button" type="button">
-              <Icon name="bi-chevron-left" size={16} />
-              <span>1 Jun - 1 Jul 2026</span>
-              <Icon name="bi-chevron-right" size={16} />
-            </button>
+            <ReportDateRangePicker value={dateRange} onChange={setDateRange} />
             <button className="orders-filter-toggle" type="button" onClick={() => setFiltersOpen((value) => !value)}>
               <Icon name="bi-sliders" size={18} />
               Фильтровать
