@@ -21790,12 +21790,23 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     border-top-right-radius: 0 !important;
   }
 
-  /* topbar-left: не растягиваться по column-оси топбара */
+  /* topbar: пусть сам определяет высоту по контенту */
+  .dashboard-topbar {
+    min-height: 0 !important;
+    height: auto !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    padding: 10px 20px !important;
+  }
+
+  /* topbar-left: не растягиваться, убрать padding-left */
   .dashboard-topbar .topbar-left {
-    flex: 0 0 auto !important;
+    flex: 1 1 auto !important;
     height: auto !important;
     min-height: 0 !important;
-    align-self: flex-start !important;
+    align-self: center !important;
+    padding-left: 0 !important;
   }
 
   /* topbar-actions: не растягивать на всю ширину, не переносить */
@@ -21804,5 +21815,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     flex: 0 0 auto !important;
     flex-wrap: nowrap !important;
     justify-content: flex-end !important;
+    margin-left: 0 !important;
   }
 }
