@@ -17003,7 +17003,7 @@ body.dashboard-body,
 
 .owner-top-sales-card .top-dish--compact {
   display: grid !important;
-  grid-template-columns: 32px 52px minmax(0, 1fr) 92px 140px !important;
+  grid-template-columns: 32px 52px minmax(80px, 1fr) auto 140px !important;
   align-items: center !important;
   gap: 12px !important;
   min-height: 58px !important;
@@ -21778,4 +21778,31 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-active .sidebar-submenu,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-open.is-active .sidebar-submenu {
   background: rgba(10, 27, 58, 0.92) !important;
+}
+
+/* ≤1024px: topbar fixes + dashboard-content border-radius */
+@media (max-width: 1024px) {
+  /* dashboard-content: убираем border-radius сверху-слева */
+  .dashboard-shell .dashboard-content,
+  .dashboard-shell .dashboard-main:not(.is-sidebar-collapsed) .dashboard-content,
+  .dashboard-shell .dashboard-main.is-sidebar-collapsed .dashboard-content {
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+  }
+
+  /* topbar-left: не растягиваться по column-оси топбара */
+  .dashboard-topbar .topbar-left {
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    align-self: flex-start !important;
+  }
+
+  /* topbar-actions: не растягивать на всю ширину, не переносить */
+  .dashboard-topbar .topbar-actions {
+    width: auto !important;
+    flex: 0 0 auto !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-end !important;
+  }
 }
