@@ -120,6 +120,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
   const [pinnedMenu, setPinnedMenu] = useState("");
   const [hoverMenu, setHoverMenu] = useState("");
   const [accountOpen, setAccountOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [lang, setLang] = useState(() => localStorage.getItem("marjon_lang") || "ru");
   const [storedProfile, setStoredProfile] = useState(() => readStoredProfile());
   const accountRef = useRef(null);
@@ -145,6 +146,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
 
   useEffect(() => { setAccountOpen(false); }, [location.pathname]);
   useEffect(() => { setHoverMenu(""); }, [location.pathname]);
+  useEffect(() => { setMoreOpen(false); }, [location.pathname]);
 
   useEffect(() => {
     const syncStoredProfile = () => setStoredProfile(readStoredProfile());
@@ -222,6 +224,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
   }
 
   return (
+    <>
     <aside className={`dashboard-sidebar ${collapsed ? "is-collapsed" : ""}`} id="dashboardSidebar">
       <div className="sidebar-brand">
         <div className="sidebar-brand__identity">
@@ -473,5 +476,99 @@ export default function Sidebar({ user, collapsed, onToggle }) {
         </button>
       </div>
     </aside>
+    {/* Mobile bottom nav — вне aside, чтобы transform сайдбара не ломал position:fixed */}
+    <div className={`mobile-bottom-nav${moreOpen ? " is-more-open" : ""}`}>
+        {moreOpen && (
+          <>
+            <div
+              className="mobile-bottom-nav__backdrop"
+              onClick={() => setMoreOpen(false)}
+              aria-hidden="true"
+            />
+            <div className="mobile-bottom-nav__drawer" role="dialog" aria-modal="true" aria-label="Дополнительные разделы">
+              <div className="mobile-bottom-nav__drawer-handle" aria-hidden="true" />
+              <nav className="mobile-bottom-nav__drawer-nav">
+                {visibleNavItems.slice(4).map((item) => {
+                  const active = item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to);
+                  return (
+                    <Link
+                      key={item.key}
+                      to={item.to}
+                      className={`mobile-drawer-item${active ? " is-active" : ""}`}
+                      onClick={() => setMoreOpen(false)}
+                    >
+                      <span className="mobile-drawer-item__icon">
+                        <Icon name={item.icon} size={20} />
+                      </span>
+                      <span className="mobile-drawer-item__label">{item.label}</span>
+                      <Icon name="bi-chevron-right" size={14} className="mobile-drawer-item__chevron" aria-hidden="true" />
+                    </Link>
+                  );
+                })}
+              </nav>
+              <div className="mobile-bottom-nav__drawer-footer">
+                <button
+                  type="button"
+                  className="mobile-drawer-item mobile-drawer-item--user"
+                  onClick={() => { setMoreOpen(false); navigate("/settings/profile"); }}
+                >
+                  <div className="mobile-drawer-item__avatar">
+                    <img src={profilePhoto} alt={displayName} decoding="async" />
+                  </div>
+                  <div className="mobile-drawer-item__user-meta">
+                    <strong>{displayName}</strong>
+                    <span>{profileCardRole}</span>
+                  </div>
+                  <Icon name="bi-chevron-right" size={14} className="mobile-drawer-item__chevron" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="mobile-drawer-item mobile-drawer-item--logout"
+                  onClick={() => { setMoreOpen(false); handleLogout(); }}
+                >
+                  <span className="mobile-drawer-item__icon">
+                    <Icon name="bi-box-arrow-right" size={20} />
+                  </span>
+                  <span className="mobile-drawer-item__label">Выйти</span>
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        <nav className="mobile-bottom-nav__bar" aria-label="Мобильная навигация">
+          {visibleNavItems.slice(0, 4).map((item) => {
+            const active = item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to);
+            return (
+              <Link
+                key={item.key}
+                to={item.to}
+                className={`mobile-nav-item${active ? " is-active" : ""}`}
+                onClick={() => setMoreOpen(false)}
+              >
+                <span className="mobile-nav-item__icon">
+                  <Icon name={item.icon} size={20} />
+                </span>
+                <span className="mobile-nav-item__label">{item.label}</span>
+              </Link>
+            );
+          })}
+          {visibleNavItems.length > 4 && (
+            <button
+              type="button"
+              className={`mobile-nav-item${moreOpen ? " is-active" : ""}`}
+              onClick={() => setMoreOpen((v) => !v)}
+              aria-label="Дополнительные разделы"
+              aria-expanded={moreOpen}
+            >
+              <span className="mobile-nav-item__icon">
+                <Icon name={moreOpen ? "bi-x-lg" : "bi-grid"} size={20} />
+              </span>
+              <span className="mobile-nav-item__label">Ещё</span>
+            </button>
+          )}
+        </nav>
+    </div>
+    </>
   );
 }

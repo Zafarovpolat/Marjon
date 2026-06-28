@@ -6716,3 +6716,13 @@
         display: grid;
     }
 }
+
+/* 1025–1440px: компактные модалки/дравера для небольших ноутбуков */
+@media (min-width: 1025px) and (max-width: 1440px) {
+    .nomenclature-form {
+        width: min(500px, 100%);
+    }
+    .dish-photo-modal__card {
+        width: min(480px, 100%);
+    }
+}
