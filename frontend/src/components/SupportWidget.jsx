@@ -1,46 +1,93 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon";
 
 const text = {
-  title: "\u0421\u0432\u044f\u0437\u044c \u0441 \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u043a\u043e\u0439",
-  subtitle: "\u041e\u0442\u0432\u0435\u0442\u0438\u043c \u043f\u043e \u043a\u0430\u0441\u0441\u0435, \u0441\u043a\u043b\u0430\u0434\u0443 \u0438 \u0434\u043e\u0441\u0442\u0443\u043f\u0430\u043c",
-  close: "\u0417\u0430\u043a\u0440\u044b\u0442\u044c",
-  open: "\u041e\u0442\u043a\u0440\u044b\u0442\u044c \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u043a\u0443",
-  phone: "\u0422\u0435\u043b\u0435\u0444\u043e\u043d",
-  message: "\u0421\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435",
-  placeholder: "\u041a\u043e\u0440\u043e\u0442\u043a\u043e \u043e\u043f\u0438\u0448\u0438\u0442\u0435 \u0432\u043e\u043f\u0440\u043e\u0441...",
-  send: "\u041e\u0442\u043f\u0440\u0430\u0432\u0438\u0442\u044c",
-  successTitle: "\u0417\u0430\u044f\u0432\u043a\u0430 \u043f\u0440\u0438\u043d\u044f\u0442\u0430",
-  successText: "\u0421\u0432\u044f\u0436\u0435\u043c\u0441\u044f \u0441 \u0432\u0430\u043c\u0438 \u043f\u043e \u0443\u043a\u0430\u0437\u0430\u043d\u043d\u043e\u043c\u0443 \u043d\u043e\u043c\u0435\u0440\u0443.",
-  again: "\u041d\u043e\u0432\u0430\u044f \u0437\u0430\u044f\u0432\u043a\u0430",
+  title: "Связь с поддержкой",
+  subtitle: "Ответим по кассе, складу и доступам",
+  close: "Закрыть",
+  open: "Открыть поддержку",
+  phone: "Телефон",
+  message: "Сообщение",
+  placeholder: "Коротко опишите вопрос...",
+  send: "Отправить",
+  successTitle: "Заявка принята",
+  successText: "Свяжемся с вами по указанному номеру.",
+  again: "Новая заявка",
 };
 
-const UZ_DIAL = "998";
+const COUNTRIES = [
+  { code: "uz", name: "Узбекистан",  dial: "998", max: 9 },
+  { code: "ru", name: "Россия",       dial: "7",   max: 10 },
+  { code: "kz", name: "Казахстан",   dial: "7",   max: 10 },
+  { code: "kg", name: "Кыргызстан",  dial: "996", max: 9 },
+  { code: "tj", name: "Таджикистан", dial: "992", max: 9 },
+  { code: "tm", name: "Туркменистан",dial: "993", max: 8 },
+  { code: "az", name: "Азербайджан", dial: "994", max: 9 },
+  { code: "ge", name: "Грузия",      dial: "995", max: 9 },
+  { code: "ua", name: "Украина",     dial: "380", max: 9 },
+  { code: "by", name: "Беларусь",    dial: "375", max: 9 },
+];
 
-const onlyDigits = (value = "") => String(value).replace(/\D/g, "");
+const onlyDigits = (v = "") => String(v).replace(/\D/g, "");
 
-const formatLocalPhone = (local = "") => {
-  const value = onlyDigits(local).slice(0, 9);
-  if (value.length <= 2) return value;
-  if (value.length <= 5) return `${value.slice(0, 2)} ${value.slice(2)}`;
-  if (value.length <= 7) return `${value.slice(0, 2)} ${value.slice(2, 5)}-${value.slice(5)}`;
-  return `${value.slice(0, 2)} ${value.slice(2, 5)}-${value.slice(5, 7)}-${value.slice(7, 9)}`;
-};
+function formatLocal(digits, max) {
+  const v = onlyDigits(digits).slice(0, max);
+  if (max === 10) {
+    if (v.length <= 3) return v;
+    if (v.length <= 6) return `${v.slice(0, 3)} ${v.slice(3)}`;
+    if (v.length <= 8) return `${v.slice(0, 3)} ${v.slice(3, 6)}-${v.slice(6)}`;
+    return `${v.slice(0, 3)} ${v.slice(3, 6)}-${v.slice(6, 8)}-${v.slice(8)}`;
+  }
+  if (v.length <= 2) return v;
+  if (v.length <= 5) return `${v.slice(0, 2)} ${v.slice(2)}`;
+  if (v.length <= 7) return `${v.slice(0, 2)} ${v.slice(2, 5)}-${v.slice(5)}`;
+  return `${v.slice(0, 2)} ${v.slice(2, 5)}-${v.slice(5, 7)}-${v.slice(7)}`;
+}
 
-const getLocalFromFull = (value = "") => {
-  const digits = onlyDigits(value);
-  const local = digits.startsWith(UZ_DIAL) ? digits.slice(UZ_DIAL.length) : digits;
-  return local.slice(0, 9);
-};
+function flagUrl(code) {
+  return `https://flagcdn.com/w40/${code}.png`;
+}
 
 export default function SupportWidget() {
   const [open, setOpen] = useState(false);
-  const [phone, setPhone] = useState("");
+  const [country, setCountry] = useState(COUNTRIES[0]);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [localPhone, setLocalPhone] = useState("");
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
+  const [menuPos, setMenuPos] = useState(null);
+  const menuRef = useRef(null);
+  const btnRef = useRef(null);
 
-  function handleSubmit(event) {
-    event.preventDefault();
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    function onDocClick(e) {
+      if (!menuRef.current?.contains(e.target) && !btnRef.current?.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [menuOpen]);
+
+  function openMenu() {
+    const rect = btnRef.current?.getBoundingClientRect();
+    if (rect) setMenuPos({ top: rect.bottom + 7, left: rect.left });
+    setMenuOpen((v) => !v);
+  }
+
+  function selectCountry(c) {
+    setCountry(c);
+    setLocalPhone("");
+    setMenuOpen(false);
+  }
+
+  function handlePhoneChange(e) {
+    setLocalPhone(onlyDigits(e.target.value).slice(0, country.max));
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
     if (!message.trim()) return;
     setSent(true);
   }
@@ -49,6 +96,8 @@ export default function SupportWidget() {
     setOpen(false);
     setSent(false);
   }
+
+  const phonePlaceholder = country.max === 10 ? "XXX XXX-XX-XX" : "XX XXX-XX-XX";
 
   return (
     <div className={`support-widget ${open ? "is-open" : ""}`}>
@@ -74,7 +123,7 @@ export default function SupportWidget() {
               </span>
               <strong>{text.successTitle}</strong>
               <p>{text.successText}</p>
-              <button type="button" onClick={() => { setMessage(""); setSent(false); }}>
+              <button type="button" onClick={() => { setLocalPhone(""); setMessage(""); setSent(false); }}>
                 {text.again}
               </button>
             </div>
@@ -83,11 +132,46 @@ export default function SupportWidget() {
               <label className="support-widget__field">
                 <span>{text.phone}</span>
                 <div className="support-widget__phone">
-                  <span className="support-widget__dial-code">+{UZ_DIAL}</span>
+                  <button
+                    type="button"
+                    className="support-widget__country"
+                    aria-expanded={menuOpen}
+                    aria-haspopup="listbox"
+                    ref={btnRef}
+                    onClick={openMenu}
+                  >
+                    <img src={flagUrl(country.code)} alt={country.name} />
+                  </button>
+
+                  {menuOpen && menuPos && (
+                    <div
+                      className="support-widget__country-menu"
+                      role="listbox"
+                      ref={menuRef}
+                      style={{ position: "fixed", top: menuPos.top, left: menuPos.left }}
+                    >
+                      {COUNTRIES.map((c) => (
+                        <button
+                          key={c.code}
+                          type="button"
+                          role="option"
+                          aria-selected={c.code === country.code}
+                          className={c.code === country.code ? "is-active" : ""}
+                          onClick={() => selectCountry(c)}
+                        >
+                          <img src={flagUrl(c.code)} alt="" />
+                          <span>{c.name}</span>
+                          <b>+{c.dial}</b>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <span className="support-widget__dial-code">+{country.dial}</span>
                   <input
-                    value={formatLocalPhone(getLocalFromFull(phone))}
-                    onChange={(e) => setPhone(UZ_DIAL + onlyDigits(e.target.value))}
-                    placeholder="XX XXX-XX-XX"
+                    value={formatLocal(localPhone, country.max)}
+                    onChange={handlePhoneChange}
+                    placeholder={phonePlaceholder}
                     inputMode="tel"
                     aria-label={text.phone}
                   />

@@ -150,12 +150,14 @@ export default function DatePicker({ value, max, onChange, onClear }) {
       </button>
 
       {open ? (
-        <div
-          className={`mj-calendar ${dropUp ? "is-dropup" : ""}`}
-          role="dialog"
-          aria-label="Выбор даты"
-          ref={popoverRef}
-        >
+        <>
+          <div className="mj-calendar-overlay" onClick={() => setOpen(false)} />
+          <div
+            className={`mj-calendar ${dropUp ? "is-dropup" : ""}`}
+            role="dialog"
+            aria-label="Выбор даты"
+            ref={popoverRef}
+          >
           <div className="mj-calendar__header">
             <button
               type="button"
@@ -252,6 +254,7 @@ export default function DatePicker({ value, max, onChange, onClear }) {
             </button>
           </div>
         </div>
+        </>
       ) : null}
     </div>
   );

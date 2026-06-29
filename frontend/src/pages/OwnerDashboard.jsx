@@ -401,13 +401,13 @@ function RevenueChart({ sales }) {
           },
         },
         scales: {
-          x: { grid: { display: false }, ticks: { color: "#667085", font: { size: 12, weight: "600" } }, border: { display: false } },
+          x: { grid: { display: false }, ticks: { color: "#667085", font: { size: 12, weight: "600", family: "'Golos Text', Manrope, sans-serif" } }, border: { display: false } },
           y: {
             beginAtZero: true,
             grid: { color: "rgba(16, 24, 40, 0.08)", drawTicks: false },
             ticks: {
               color: "#667085",
-              font: { size: 12, weight: "600" },
+              font: { size: 12, weight: "600", family: "'Golos Text', Manrope, sans-serif" },
               callback: (value) => `${Number(value) / 1000000}M`,
             },
             border: { display: false },

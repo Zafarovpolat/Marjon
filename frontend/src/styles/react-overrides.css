@@ -13633,6 +13633,10 @@ body.dashboard-body,
   .dashboard-topbar .topbar-left .mj-datepicker__time {
     font-size: 14px !important;
   }
+
+  .dashboard-topbar .topbar-left .mj-datepicker__value {
+    font-weight: 400 !important;
+  }
 }
 
 /* Wallet-style balance action. */
@@ -16102,13 +16106,83 @@ body.dashboard-body,
   box-shadow: none !important;
 }
 
-.support-widget__toggle {
-  width: 58px !important;
-  height: 58px !important;
-  font-size: 21px !important;
-  position: relative !important;
-  z-index: 1 !important;
-  margin-top: -58px !important;
+@media (max-width: 1440px) {
+  .support-widget__toggle {
+    width: 58px !important;
+    height: 58px !important;
+    font-size: 21px !important;
+    position: relative !important;
+    z-index: 1 !important;
+    margin-top: -58px !important;
+  }
+}
+
+@media (min-width: 1441px) {
+  body .support-widget .support-widget__toggle {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 17px !important;
+    position: relative !important;
+    z-index: 1 !important;
+    margin-top: -44px !important;
+  }
+
+  .support-widget__panel {
+    width: min(310px, calc(100vw - 32px)) !important;
+    border-radius: 16px !important;
+  }
+
+  .support-widget__header {
+    grid-template-columns: 34px 1fr 30px !important;
+    gap: 10px !important;
+    padding: 13px 14px 11px !important;
+    border-radius: 16px 16px 0 0 !important;
+  }
+
+  .support-widget__header-icon {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 10px !important;
+  }
+
+  .support-widget__header strong {
+    font-size: 13px !important;
+  }
+
+  .support-widget__header small {
+    font-size: 11px !important;
+  }
+
+  .support-widget__close {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .support-widget__form {
+    gap: 10px !important;
+    padding: 13px 14px 14px !important;
+  }
+
+  .support-widget__field > span {
+    font-size: 12px !important;
+  }
+
+  .support-widget__phone {
+    min-height: 40px !important;
+    border-radius: 10px !important;
+  }
+
+  .support-widget__field textarea {
+    min-height: 72px !important;
+    border-radius: 10px !important;
+    padding: 10px 12px !important;
+  }
+
+  .support-widget__submit {
+    min-height: 38px !important;
+    border-radius: 10px !important;
+    font-size: 13px !important;
+  }
 }
 
 /* Sidebar and header visual polish only. */
@@ -21047,14 +21121,14 @@ body:has(.staff-modal) .support-widget {
 }
 
 .support-widget__country {
-  width: 58px !important;
+  width: auto !important;
   height: 34px !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   gap: 3px !important;
   flex: 0 0 auto !important;
-  padding: 0 !important;
+  padding: 0 5px !important;
   border: 0 !important;
   border-radius: 8px !important;
   background: rgba(29, 181, 181, 0.08) !important;
@@ -21093,10 +21167,9 @@ body:has(.staff-modal) .support-widget {
 }
 
 .support-widget__country-menu {
-  position: absolute !important;
   left: 0 !important;
   top: calc(100% + 7px) !important;
-  z-index: 70 !important;
+  z-index: 9999 !important;
   width: min(280px, calc(100vw - 48px)) !important;
   max-height: 265px !important;
   overflow: auto !important;
@@ -21143,13 +21216,13 @@ body:has(.staff-modal) .support-widget {
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
   font-size: 14px !important;
-  font-weight: 800 !important;
+  font-weight: 500 !important;
 }
 
 .support-widget__country-menu b {
   color: #0f8f8f !important;
   font-size: 13px !important;
-  font-weight: 900 !important;
+  font-weight: 500 !important;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch.is-on i,
@@ -21822,6 +21895,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     flex-wrap: nowrap !important;
     justify-content: flex-end !important;
     margin-left: 0 !important;
+    z-index: auto !important;
   }
 
   /* dashboard-content: убираем max-height — flex сам считает оставшуюся высоту */
@@ -21845,10 +21919,13 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     height: 34px !important;
     min-height: 0 !important;
     padding: 0 10px !important;
+    border-radius: 12px !important;
   }
 
   .dashboard-topbar .topbar-icon.topbar-notification {
     width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
     height: 34px !important;
     min-height: 0 !important;
   }
@@ -21998,11 +22075,98 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     width: calc(100vw - 32px) !important;
     max-width: 280px !important;
   }
+
+  /* backdrop-filter на топбаре создаёт containing block для fixed — убираем когда открыт календарь */
+  .dashboard-topbar:has(.mj-datepicker.is-open) {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* z-index: 80 на datepicker создаёт stacking context — calendar внутри него не может быть выше overlay.
+     Убираем stacking context чтобы calendar попал в root context и z-index 9999 работал глобально */
+  .dashboard-topbar .mj-datepicker.is-open {
+    z-index: auto !important;
+  }
+
+  /* Overlay рендерится через React как sibling календаря */
+  .mj-calendar-overlay {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 9998 !important;
+    background: rgba(2, 8, 23, 0.6) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+    pointer-events: auto !important;
+  }
+
+  /* Оверлей выше топбара и bottom nav */
+  .dashboard-topbar {
+    z-index: 9997 !important;
+  }
+
+  .mobile-bottom-nav__bar {
+    z-index: 9997 !important;
+  }
+
+  .dashboard-topbar .mj-datepicker.is-open .mj-calendar {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 9999 !important;
+    box-shadow: 0 20px 60px rgba(7, 20, 40, 0.4) !important;
+    pointer-events: auto !important;
+  }
+
   .kpi-info-window {
     max-height: min(480px, calc(100vh - 60px)) !important;
   }
   .warehouse-report-window {
     max-height: calc(100vh - 28px) !important;
+  }
+
+  /* Бейдж уведомлений: чуть меньше */
+  .dashboard-topbar .topbar-notification__badge {
+    min-width: 16px !important;
+    height: 16px !important;
+    font-size: 9px !important;
+    padding: 0 4px !important;
+    top: -6px !important;
+    right: -6px !important;
+  }
+
+  /* Rate widget: скрываем текст, только иконка, квадрат */
+  .dashboard-topbar .topbar-info-widget--rate .topbar-info-widget__body {
+    display: none !important;
+  }
+  .dashboard-topbar .topbar-info-widget--rate {
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
+    padding: 0 !important;
+    justify-content: center !important;
+  }
+
+  /* Balance pill: скрываем сумму и текст "Баланс", только иконка кошелька, квадрат */
+  .dashboard-topbar .topbar-balance-amount {
+    display: none !important;
+  }
+  .dashboard-topbar .topbar-balance-pill .topbar-pay-button span {
+    display: none !important;
+  }
+  .dashboard-topbar .topbar-balance-pill {
+    padding: 0 !important;
+    gap: 0 !important;
+    background: none !important;
+    border: none !important;
+  }
+  .dashboard-topbar .topbar-balance-pill .topbar-pay-button {
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
+    padding: 0 !important;
+    justify-content: center !important;
+    border-radius: 10px !important;
   }
 }
 
@@ -22044,13 +22208,13 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   /* Drawer — поднимается над баром */
   .mobile-bottom-nav__drawer {
     position: fixed;
-    bottom: 54px;
+    bottom: 44px;
     left: 0;
     right: 0;
     z-index: 200;
     background: var(--neutral-900, #0b1f3f);
     border-radius: 24px 24px 0 0;
-    padding: 6px 0 16px;
+    padding: 6px 0 36px;
     box-shadow: 0 -12px 40px rgba(7, 20, 40, 0.5);
     animation: mobileDrawerUp 0.22s cubic-bezier(0.34, 1.1, 0.64, 1) both;
   }
@@ -22219,7 +22383,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     bottom: 0;
     left: 0;
     right: 0;
-    z-index: 200;
+    z-index: 100;
     padding: 0 4px;
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
@@ -22286,5 +22450,13 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     text-overflow: ellipsis;
     max-width: 100%;
     line-height: 1;
+  }
+}
+
+
+@media (max-width: 430px) {
+  .mj-datepicker__time,
+  .mj-datepicker__divider {
+    display: none !important;
   }
 }
