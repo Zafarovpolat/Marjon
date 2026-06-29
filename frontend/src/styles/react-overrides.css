@@ -22460,3 +22460,89 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     display: none !important;
   }
 }
+
+/* Sidebar profile panel: same navy as the owner platform background. */
+.dashboard-sidebar .sidebar-user.sidebar-user--button,
+.dashboard-sidebar .sidebar-user.sidebar-user--button:hover,
+.dashboard-sidebar .sidebar-user.sidebar-user--button:focus,
+.dashboard-sidebar .sidebar-user.sidebar-user--button:focus-visible,
+.dashboard-sidebar .sidebar-account.is-open .sidebar-user.sidebar-user--button {
+  background: #0b1f3f !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+}
+
+.dashboard-sidebar .sidebar-user__meta strong {
+  color: #ffffff !important;
+}
+
+.dashboard-sidebar .sidebar-user__meta span,
+.dashboard-sidebar .sidebar-user__meta em {
+  color: rgba(226, 236, 255, 0.7) !important;
+}
+
+.dashboard-sidebar .sidebar-user__arrow {
+  background: rgba(255, 255, 255, 0.11) !important;
+  border-radius: 12px !important;
+  color: rgba(226, 236, 255, 0.78) !important;
+}
+
+.dashboard-sidebar .sidebar-account__menu {
+  background: #0b1f3f !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 18px 40px rgba(2, 8, 23, 0.22) !important;
+}
+
+.dashboard-sidebar .sidebar-account__head,
+.dashboard-sidebar .sidebar-account__lang {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dashboard-sidebar .sidebar-account__item,
+.dashboard-sidebar .sidebar-account__lang-label {
+  color: rgba(226, 236, 255, 0.88) !important;
+}
+
+.dashboard-sidebar .sidebar-account__item:hover,
+.dashboard-sidebar .sidebar-account__lang-switch button:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+/* Final guard: keep the profile card on the owner-platform navy in every state. */
+.dashboard-sidebar:not(.is-collapsed) .sidebar-account .sidebar-user.sidebar-user--button,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-account .sidebar-user.sidebar-user--button:hover,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-account .sidebar-user.sidebar-user--button:focus,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-account .sidebar-user.sidebar-user--button:focus-visible,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-account .sidebar-user.sidebar-user--button:active,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-account.is-open .sidebar-user.sidebar-user--button,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-account.is-open .sidebar-user.sidebar-user--button:hover,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-account.is-open .sidebar-user.sidebar-user--button:focus,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-account.is-open .sidebar-user.sidebar-user--button:active {
+  background: #0b1f3f !important;
+  background-color: #0b1f3f !important;
+  background-image: none !important;
+}
+
+.dashboard-sidebar:not(.is-collapsed) .sidebar-account .sidebar-account__menu,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-account.is-open .sidebar-account__menu {
+  background: #0b1f3f !important;
+  background-color: #0b1f3f !important;
+  background-image: none !important;
+}
+
+/* Profile arrow: point up while the profile menu is open. */
+.dashboard-sidebar:not(.is-collapsed) .sidebar-account .sidebar-user__arrow,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-account .sidebar-user:hover .sidebar-user__arrow,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-account .sidebar-user:focus-visible .sidebar-user__arrow {
+  transform: rotate(0deg) !important;
+  transition: transform 180ms ease !important;
+}
+
+.dashboard-sidebar:not(.is-collapsed) .sidebar-account.is-open .sidebar-user__arrow,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-account.is-open .sidebar-user:hover .sidebar-user__arrow,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-account.is-open .sidebar-user:focus-visible .sidebar-user__arrow {
+  transform: rotate(-90deg) !important;
+  transition: transform 180ms ease !important;
+}

@@ -2862,7 +2862,7 @@ body {
   overflow: hidden;
   background:
     linear-gradient(118deg, rgba(4, 12, 18, 0.84) 0%, rgba(8, 23, 32, 0.56) 48%, rgba(4, 12, 18, 0.78) 100%),
-    url("https://images.unsplash.com/photo-1695220858703-4ab11b4caed7?auto=format&fit=crop&fm=jpg&q=82&w=2400") center / cover no-repeat;
+    url("../assets/tashkent-admin-bg.jpg") center / cover no-repeat;
 }
 
 .admin-login::before {
@@ -3749,4 +3749,692 @@ body {
 
 @media (max-width: 560px) {
   .admin-modal__fields > div { grid-template-columns: 1fr; gap: 4px; }
+}
+
+/* Unified admin shell header/sidebar: solid color, no gradient layer. */
+:root {
+  --admin-shell-bar-bg: #141f23;
+  --admin-shell-page-bg: #10191c;
+  --admin-shell-border: rgba(255, 255, 255, 0.1);
+  --admin-shell-control-bg: rgba(255, 255, 255, 0.045);
+}
+
+body,
+body:has(.admin-shell) {
+  background: var(--admin-shell-page-bg) !important;
+}
+
+.admin-shell {
+  background: var(--admin-shell-page-bg) !important;
+}
+
+.admin-sidebar {
+  background: var(--admin-shell-bar-bg) !important;
+  background-image: none !important;
+  border-right: 0 !important;
+  box-shadow: none !important;
+}
+
+.admin-sidebar::after {
+  display: none !important;
+  content: none !important;
+  background: none !important;
+}
+
+.admin-main {
+  padding: 0 18px 14px !important;
+  background: var(--admin-shell-page-bg) !important;
+  background-image: none !important;
+}
+
+.admin-main::before {
+  display: none !important;
+  content: none !important;
+  background: none !important;
+}
+
+.admin-header {
+  position: sticky !important;
+  top: 0;
+  z-index: 50;
+  margin: 0 -18px 18px !important;
+  padding: 14px 18px !important;
+  background: var(--admin-shell-bar-bg) !important;
+  background-image: none !important;
+  border-bottom: 0 !important;
+  box-shadow: none !important;
+}
+
+.admin-header h1 {
+  margin: 0;
+}
+
+.admin-search,
+.admin-date-picker,
+.admin-date,
+.admin-date-step,
+.admin-bell,
+.admin-profile,
+.admin-logout {
+  background: var(--admin-shell-control-bg) !important;
+  background-image: none !important;
+  border-color: var(--admin-shell-border) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.admin-search:hover,
+.admin-date-picker:hover,
+.admin-date:hover,
+.admin-date-step:hover,
+.admin-bell:hover,
+.admin-profile:hover,
+.admin-logout:hover {
+  background: rgba(255, 255, 255, 0.065) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  box-shadow: none !important;
+}
+
+.admin-nav button.is-active {
+  background: rgba(67, 211, 166, 0.14) !important;
+  background-image: none !important;
+  border-color: rgba(67, 211, 166, 0.28) !important;
+  box-shadow: none !important;
+}
+
+.admin-nav button.is-active::before {
+  background: #43d3a6 !important;
+  box-shadow: none !important;
+}
+
+.admin-nav button.is-active i {
+  background: rgba(67, 211, 166, 0.18) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+html,
+body,
+.admin-shell,
+.admin-main,
+.admin-sidebar,
+.admin-nav {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.admin-shell::-webkit-scrollbar,
+.admin-main::-webkit-scrollbar,
+.admin-sidebar::-webkit-scrollbar,
+.admin-nav::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
+@media (max-width: 980px) {
+  .admin-header {
+    margin-inline: -18px !important;
+  }
+}
+
+@media (max-width: 680px) {
+  .admin-main {
+    padding: 0 14px 14px !important;
+  }
+
+  .admin-header {
+    margin-inline: -14px !important;
+    padding-inline: 14px !important;
+  }
+}
+
+/* Login background refresh: local realistic Tashkent photo and cleaner fields. */
+.admin-login {
+  min-height: 100dvh !important;
+  overflow: auto !important;
+  background:
+    linear-gradient(115deg, rgba(4, 12, 14, 0.86) 0%, rgba(7, 19, 24, 0.58) 46%, rgba(4, 12, 14, 0.82) 100%),
+    url("../assets/tashkent-admin-bg.jpg") center / cover no-repeat !important;
+}
+
+.admin-login::before {
+  background:
+    radial-gradient(circle at 50% 38%, rgba(67, 211, 166, 0.11), transparent 34%),
+    linear-gradient(180deg, rgba(4, 12, 14, 0.1), rgba(4, 12, 14, 0.52)) !important;
+}
+
+.admin-login__panel {
+  border-color: rgba(255, 248, 230, 0.18) !important;
+  background: rgba(15, 31, 37, 0.9) !important;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42) !important;
+  backdrop-filter: blur(18px) saturate(1.08) !important;
+}
+
+.admin-login__input {
+  border-color: rgba(226, 232, 240, 0.18) !important;
+  background: rgba(9, 24, 30, 0.78) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
+}
+
+.admin-login__input input:-webkit-autofill,
+.admin-login__input input:-webkit-autofill:hover,
+.admin-login__input input:-webkit-autofill:focus,
+.admin-login__input input:-webkit-autofill:active {
+  -webkit-text-fill-color: #fff8e6 !important;
+  -webkit-box-shadow: 0 0 0 1000px rgba(9, 24, 30, 0.78) inset !important;
+  box-shadow: 0 0 0 1000px rgba(9, 24, 30, 0.78) inset !important;
+  caret-color: #fff8e6 !important;
+}
+
+.admin-login::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
+/* ── Collapsible nav groups (category → subcategories) ───────────────── */
+.admin-nav-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-nav-group__toggle {
+  width: 100%;
+}
+
+.admin-nav-group__chevron {
+  margin-left: auto;
+  opacity: 0.65;
+  transition: transform 0.22s ease;
+}
+
+.admin-nav-group.is-open .admin-nav-group__chevron {
+  transform: rotate(180deg);
+  opacity: 1;
+}
+
+.admin-nav-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 0;
+  margin: 0 0 0 0;
+  padding-left: 14px;
+  overflow: hidden;
+  opacity: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.07);
+  margin-left: 19px;
+  transition: max-height 0.26s ease, opacity 0.2s ease, margin-top 0.2s ease, margin-bottom 0.2s ease;
+}
+
+.admin-nav-group.is-open .admin-nav-sub {
+  max-height: 460px;
+  opacity: 1;
+  margin-top: 3px;
+  margin-bottom: 6px;
+}
+
+.admin-nav .admin-nav-sub__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 12px;
+  color: rgba(245, 245, 250, 0.6);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.admin-nav .admin-nav-sub__item .admin-nav-sub__dot {
+  flex-shrink: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.admin-nav .admin-nav-sub__item:hover {
+  color: #fff;
+  background: rgba(67, 211, 166, 0.08);
+}
+
+.admin-nav .admin-nav-sub__item.is-active {
+  color: #fff;
+  background: linear-gradient(90deg, rgba(214, 168, 79, 0.2), rgba(67, 211, 166, 0.1));
+}
+
+.admin-nav .admin-nav-sub__item.is-active .admin-nav-sub__dot {
+  background: var(--gold-2);
+  opacity: 1;
+}
+
+/* Collapsed sidebar: hide submenus + chevrons entirely */
+.admin-shell.is-sidebar-collapsed .admin-nav-sub {
+  display: none !important;
+}
+
+.admin-shell.is-sidebar-collapsed .admin-nav-group__chevron {
+  display: none !important;
+}
+
+/* ════════ Sidebar — reference layout in admin colors ════════ */
+
+/* Rounded seam between sidebar and content (radius like the reference). */
+.admin-main {
+  border-top-left-radius: 24px !important;
+  border-bottom-left-radius: 24px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.022), rgba(255, 255, 255, 0.008)),
+    var(--admin-shell-page-bg) !important;
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Group chevron points right (›) and rotates down when the group is open. */
+.admin-nav-group .admin-nav-group__chevron {
+  transform: rotate(0deg);
+}
+.admin-nav-group.is-open .admin-nav-group__chevron {
+  transform: rotate(90deg);
+}
+
+/* Active leaf item + active subcategory = solid teal pill (admin teal). */
+.admin-nav > button.is-active,
+.admin-nav .admin-nav-sub__item.is-active {
+  color: #042b27 !important;
+  background: linear-gradient(135deg, var(--teal-400, #43d3a6), var(--teal, #43d3a6)) !important;
+  border-color: transparent !important;
+  box-shadow: 0 10px 26px rgba(67, 211, 166, 0.3) !important;
+}
+.admin-nav > button.is-active i {
+  color: #042b27 !important;
+  background: rgba(255, 255, 255, 0.24) !important;
+  box-shadow: none !important;
+}
+.admin-nav .admin-nav-sub__item.is-active .admin-nav-sub__dot {
+  background: #042b27 !important;
+  opacity: 1 !important;
+}
+
+/* Parent group whose child is active = subtle highlight, not a full pill. */
+.admin-nav-group__toggle.is-active {
+  color: #fff !important;
+  background: rgba(67, 211, 166, 0.1) !important;
+  border-color: rgba(67, 211, 166, 0.2) !important;
+  box-shadow: inset 3px 0 0 var(--teal, #43d3a6) !important;
+}
+.admin-nav-group__toggle.is-active i {
+  color: var(--teal-300, #7de8e2) !important;
+  background: rgba(67, 211, 166, 0.14) !important;
+}
+
+/* ── Collapsed sidebar: hover a category → flyout with its subcategories ── */
+.admin-shell.is-sidebar-collapsed .admin-nav-group {
+  position: relative;
+}
+
+.admin-shell.is-sidebar-collapsed .admin-nav-group__chevron {
+  display: none !important;
+}
+
+.admin-shell.is-sidebar-collapsed .admin-nav-sub {
+  display: flex !important;
+  position: absolute;
+  left: calc(100% + 12px);
+  top: -6px;
+  z-index: 90;
+  min-width: 226px;
+  max-height: none;
+  margin: 0 !important;
+  padding: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(67, 211, 166, 0.12), transparent 60%),
+    linear-gradient(180deg, #16242a, #0f191d);
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(-6px);
+  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease;
+}
+
+.admin-shell.is-sidebar-collapsed .admin-nav-group:hover .admin-nav-sub {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+/* small arrow connector for the flyout */
+.admin-shell.is-sidebar-collapsed .admin-nav-group:hover .admin-nav-sub::before {
+  position: absolute;
+  left: -6px;
+  top: 18px;
+  width: 12px;
+  height: 12px;
+  content: "";
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: #16242a;
+  transform: rotate(45deg);
+}
+
+/* In the flyout the subcategory labels must be visible and left-aligned. */
+.admin-shell.is-sidebar-collapsed .admin-nav-sub .admin-nav-sub__item {
+  justify-content: flex-start !important;
+  padding: 0 12px !important;
+  min-height: 36px;
+}
+.admin-shell.is-sidebar-collapsed .admin-nav-sub .admin-nav-sub__item span {
+  display: inline !important;
+}
+
+/* ════════ Sidebar template: top collapse, sub-icons, profile card ════════ */
+
+/* Brand row holds logo + name + a small collapse button (top-right). */
+.admin-brand {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+}
+.admin-brand > div {
+  flex: 1;
+  min-width: 0;
+}
+.admin-sidebar-collapse {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.72);
+}
+.admin-sidebar-collapse:hover {
+  color: var(--gold-2);
+  border-color: rgba(214, 168, 79, 0.4);
+  background: rgba(214, 168, 79, 0.08);
+}
+
+/* Open group header gets a soft highlight (reference look). */
+.admin-nav-group.is-open .admin-nav-group__toggle {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Expanded submenu becomes an inset, rounded, darker panel with icon rows. */
+.admin-nav-group.is-open .admin-nav-sub {
+  max-height: 540px;
+  opacity: 1;
+  margin: 4px 4px 8px 4px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  background: rgba(3, 10, 14, 0.5);
+}
+.admin-nav .admin-nav-sub__icon {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+.admin-nav .admin-nav-sub__item {
+  border-radius: 9px;
+}
+
+/* Bottom user profile card. */
+.admin-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.admin-profile-card:hover {
+  border-color: rgba(67, 211, 166, 0.3);
+  background: rgba(67, 211, 166, 0.07);
+}
+.admin-profile-card__avatar {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: linear-gradient(135deg, var(--gold-2), var(--teal));
+  color: #06231f;
+  font-weight: 800;
+  font-size: 15px;
+}
+.admin-profile-card__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.admin-profile-card__info strong {
+  font-size: 13px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-profile-card__info small {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+}
+.admin-profile-card__chevron {
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+
+/* Collapsed sidebar: stack brand, hide profile text. */
+.admin-shell.is-sidebar-collapsed .admin-brand {
+  flex-direction: column;
+  gap: 8px;
+}
+.admin-shell.is-sidebar-collapsed .admin-profile-card {
+  justify-content: center;
+  padding: 8px;
+}
+.admin-shell.is-sidebar-collapsed .admin-profile-card__info,
+.admin-shell.is-sidebar-collapsed .admin-profile-card__chevron {
+  display: none;
+}
+
+/* ════════ Light central content (contrast with dark sidebar + header) ════════ */
+.admin-content {
+  --lc-text: #0f172a;
+  --lc-muted: #5b6b82;
+  --lc-card: #ffffff;
+  --lc-line: rgba(15, 23, 42, 0.09);
+  margin-top: 6px;
+  padding: 18px;
+  border-radius: 22px;
+  background: #e8eef5;
+  color: var(--lc-text);
+}
+
+/* Cards → white */
+.admin-content .admin-kpi,
+.admin-content .admin-chart-card,
+.admin-content .admin-table-card,
+.admin-content .admin-side-card,
+.admin-content .admin-category-page {
+  background: var(--lc-card) !important;
+  border: 1px solid var(--lc-line) !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05) !important;
+  color: var(--lc-text) !important;
+}
+.admin-content .admin-kpi:hover,
+.admin-content .admin-chart-card:hover,
+.admin-content .admin-table-card:hover,
+.admin-content .admin-side-card:hover,
+.admin-content .admin-category-page:hover {
+  border-color: rgba(67, 211, 166, 0.45) !important;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.1) !important;
+}
+
+/* Headings + primary values dark */
+.admin-content h2,
+.admin-content h3,
+.admin-content .admin-kpi > strong,
+.admin-content .admin-chart-card__head strong,
+.admin-content .admin-org-table strong,
+.admin-content .admin-category-table strong,
+.admin-content .admin-approval strong,
+.admin-content .admin-side-card__head h3,
+.admin-content .admin-system-grid strong,
+.admin-content .admin-uptime strong {
+  color: var(--lc-text) !important;
+}
+
+/* Secondary / muted text */
+.admin-content p,
+.admin-content small,
+.admin-content .admin-kpi__top small,
+.admin-content .admin-kpi p,
+.admin-content .admin-org-table span:not(.admin-status),
+.admin-content .admin-category-table span:not(.admin-status),
+.admin-content .admin-org-table__head span,
+.admin-content .admin-category-table__head span,
+.admin-content .admin-approval p,
+.admin-content .admin-approval small,
+.admin-content .admin-y-axis span,
+.admin-content .admin-x-axis span,
+.admin-content .admin-chart-card__head > div:first-child > span,
+.admin-content .admin-uptime {
+  color: var(--lc-muted) !important;
+}
+
+/* Chart accent value (+18.6%) */
+.admin-content .admin-chart-card__head em {
+  color: #0f766e !important;
+}
+
+/* KPI icon chips → light teal tint */
+.admin-content .admin-kpi__top span,
+.admin-content .admin-kpi__top i {
+  background: rgba(67, 211, 166, 0.12) !important;
+  color: #0f766e !important;
+  box-shadow: none !important;
+}
+
+/* Chart gridlines + axis on white */
+.admin-content .admin-chart svg line {
+  stroke: rgba(15, 23, 42, 0.08) !important;
+}
+.admin-content .admin-tooltip {
+  background: #0f172a !important;
+  border-color: transparent !important;
+}
+.admin-content .admin-tooltip strong { color: #fff !important; }
+.admin-content .admin-tooltip span { color: rgba(255, 255, 255, 0.82) !important; }
+
+/* Segment toggle */
+.admin-content .admin-segments {
+  background: #eef2f7 !important;
+  border-color: var(--lc-line) !important;
+}
+.admin-content .admin-segments button { color: var(--lc-muted) !important; }
+.admin-content .admin-segments button.is-active {
+  color: #06231f !important;
+  background: linear-gradient(135deg, var(--gold-2), var(--teal)) !important;
+}
+
+/* Tables */
+.admin-content .admin-org-table__head,
+.admin-content .admin-category-table__head {
+  border-color: var(--lc-line) !important;
+}
+.admin-content .admin-org-table__row,
+.admin-content .admin-category-table__row {
+  border-color: var(--lc-line) !important;
+}
+.admin-content .admin-org-table__row:hover,
+.admin-content .admin-category-table__row:hover {
+  background: #f1f5f9 !important;
+}
+
+/* Action pills (Экспорт / Создать) keep accent */
+.admin-content .admin-panel-head button {
+  color: #06231f !important;
+  background: linear-gradient(135deg, var(--gold-2), var(--teal)) !important;
+  border: none !important;
+}
+
+/* Row three-dots button → subtle */
+.admin-content .admin-org-table button {
+  color: var(--lc-muted) !important;
+  background: #eef2f7 !important;
+  border-color: var(--lc-line) !important;
+}
+.admin-content .admin-org-table button:hover {
+  color: #0f766e !important;
+  background: rgba(67, 211, 166, 0.12) !important;
+  border-color: rgba(67, 211, 166, 0.4) !important;
+}
+
+/* Approval action buttons → dark pills on white */
+.admin-content .admin-approval button {
+  color: #fff !important;
+  background: #0f172a !important;
+  border: none !important;
+}
+.admin-content .admin-approval button:hover {
+  background: #1e293b !important;
+}
+
+/* "Показать все" links */
+.admin-content .admin-side-link {
+  color: var(--lc-text) !important;
+  background: #eef2f7 !important;
+  border: 1px solid var(--lc-line) !important;
+}
+.admin-content .admin-side-link:hover {
+  color: #0f766e !important;
+  background: rgba(67, 211, 166, 0.12) !important;
+  border-color: rgba(67, 211, 166, 0.4) !important;
+}
+
+/* Approval / alert rows + system tiles */
+.admin-content .admin-approval:hover,
+.admin-content .admin-system-alert:hover {
+  background: #f1f5f9 !important;
+}
+.admin-content .admin-system-alert span { color: var(--lc-text) !important; }
+.admin-content .admin-system-grid > div {
+  background: #f8fafc !important;
+  border-color: var(--lc-line) !important;
+}
+
+/* Empty state */
+.admin-content .admin-empty {
+  color: var(--lc-muted) !important;
+  background: #f8fafc !important;
+  border-color: var(--lc-line) !important;
+}
+
+/* Content panel: flush to the right edge, rounded only on the side facing the dark frame */
+.admin-content {
+  margin-right: -18px !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+/* Widen the central panel toward the sidebar (smaller left gap, keep the rounded seam) */
+.admin-content {
+  margin-left: -12px !important;
 }

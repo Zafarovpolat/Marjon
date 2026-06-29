@@ -5,20 +5,74 @@ import Icon from '../components/Icon';
 
 const navItems = [
   { key: "dashboard", label: "Дашборд", icon: "bi-grid-1x2-fill" },
-  { key: "organizations", label: "Организации", icon: "bi-buildings" },
-  { key: "branches", label: "Филиал", icon: "bi-diagram-3" },
+  {
+    key: "organizations", label: "Организации", icon: "bi-buildings",
+    children: [
+      { key: "org-list", label: "Организация", icon: "bi-building" },
+      { key: "org-status", label: "Статус организации", icon: "bi-info-circle" },
+    ],
+  },
   { key: "departments", label: "Отделы", icon: "bi-collection" },
-  { key: "reports", label: "Отчеты", icon: "bi-file-earmark-bar-graph" },
-  { key: "storage", label: "Склад", icon: "bi-box-seam" },
-  { key: "nomenclature", label: "Номенклатура", icon: "bi-boxes" },
-  { key: "marketing", label: "Маркетинг", icon: "bi-megaphone" },
-  { key: "handbook", label: "Справочники", icon: "bi-journal-bookmark" },
-  { key: "service", label: "Услуга", icon: "bi-headset" },
-  { key: "hamkorbank", label: "Хамкорбанк", icon: "bi-bank" },
-  { key: "finance", label: "Финансы", icon: "bi-wallet2" },
-  { key: "tasks", label: "Задачи", icon: "bi-kanban", badge: "12" },
-  { key: "rating", label: "Рейтинг", icon: "bi-star" },
-  { key: "settings", label: "Настройки", icon: "bi-gear" },
+  {
+    key: "storage", label: "Склад", icon: "bi-box-seam",
+    children: [
+      { key: "storage-income", label: "Приход товаров", icon: "bi-box-arrow-in-down" },
+      { key: "storage-expense", label: "Расход товаров", icon: "bi-box-arrow-up" },
+      { key: "storage-balance", label: "Остаток", icon: "bi-boxes" },
+      { key: "storage-income-journal", label: "Журнал приходов", icon: "bi-journal-text" },
+      { key: "storage-writeoff", label: "Отход товаров", icon: "bi-trash3" },
+      { key: "storage-inventory", label: "Инвентаризация", icon: "bi-clipboard-check" },
+    ],
+  },
+  {
+    key: "nomenclature", label: "Номенклатура", icon: "bi-boxes",
+    children: [
+      { key: "nom-product", label: "Продукт", icon: "bi-box-seam" },
+      { key: "nom-sale-category", label: "Категория реализации", icon: "bi-tags" },
+      { key: "nom-orders", label: "Заказы", icon: "bi-receipt" },
+      { key: "nom-unit", label: "Единица измерения", icon: "bi-rulers" },
+    ],
+  },
+  {
+    key: "handbook", label: "Справочник", icon: "bi-journal-bookmark",
+    children: [
+      { key: "hb-countries", label: "Страны", icon: "bi-geo-alt" },
+      { key: "hb-regions", label: "Регионы", icon: "bi-collection" },
+      { key: "hb-districts", label: "Районы", icon: "bi-grid" },
+    ],
+  },
+  {
+    key: "service", label: "Услуга", icon: "bi-headset",
+    children: [
+      { key: "srv-employees", label: "Сотрудники", icon: "bi-people" },
+      { key: "srv-source", label: "Источник", icon: "bi-megaphone" },
+    ],
+  },
+  {
+    key: "bank", label: "Банк", icon: "bi-bank",
+    children: [
+      { key: "bank-stats", label: "Статистика банка", icon: "bi-bar-chart-line" },
+      { key: "bank-transactions", label: "Транзакции банка", icon: "bi-currency-exchange" },
+    ],
+  },
+  {
+    key: "finance", label: "Финансы", icon: "bi-wallet2",
+    children: [
+      { key: "fin-operations", label: "Денежные операции", icon: "bi-cash-stack" },
+      { key: "fin-income-cat", label: "Категория приходов", icon: "bi-arrow-down-left-circle" },
+      { key: "fin-expense-cat", label: "Категория расходов", icon: "bi-arrow-up-right-circle" },
+      { key: "fin-payment", label: "Способ оплаты", icon: "bi-credit-card" },
+      { key: "fin-history", label: "История изменений", icon: "bi-clock-history" },
+    ],
+  },
+  {
+    key: "settings", label: "Настройки", icon: "bi-gear",
+    children: [
+      { key: "set-store", label: "Marjon store", icon: "bi-shop" },
+      { key: "set-cashier-bg", label: "Фон для кассира", icon: "bi-image" },
+      { key: "set-languages", label: "Языки", icon: "bi-translate" },
+    ],
+  },
 ];
 
 const kpis = [
@@ -102,140 +156,300 @@ const systemItems = [
 ];
 
 const categoryContent = {
-  organizations: {
+  // 1) Организации
+  "org-list": {
     title: "Организации",
-    text: "Управление клиентами MARJON, статусами подключения, модерацией и блокировкой.",
+    text: "Все организации платформы MARJON: типы, филиалы и администраторы.",
     columns: ["Организация", "Тип", "Филиалов", "Админ", "Статус"],
     rows: organizationRows.map(([name, type, branches, admin, , status]) => [name, type, branches, admin, status]),
   },
-  branches: {
-    title: "Филиал",
-    text: "Контроль филиалов, касс, адресов и состояния ресторанных точек.",
-    columns: ["Филиал", "Организация", "Город", "Касса", "Статус"],
+  "org-status": {
+    title: "Статус организаций",
+    text: "Текущие статусы подключения, модерации и блокировки клиентов.",
+    columns: ["Организация", "Статус", "Изменён", "Ответственный", "Состояние"],
     rows: [
-      ["Ташкент филиал", "Bella Italia Group", "Ташкент", "Активна", "Активна"],
-      ["Хоразм филиал", "Coffee House", "Ургенч", "Активна", "Активна"],
-      ["Денов филиал", "Sushi Master", "Денов", "Проверка", "На модерации"],
+      ["Bella Italia Group", "Активна", "11.06.2026", "Александр П.", "Активна"],
+      ["Coffee House", "Активна", "11.06.2026", "О. Ташматов", "Активна"],
+      ["Sushi Master", "На модерации", "11.06.2026", "Д. Юнусов", "На модерации"],
+      ["Burger Station", "Новый", "10.06.2026", "М. Саидов", "Новый"],
     ],
   },
+
+  // 2) Отделы — управление сотрудниками и привилегиями
   departments: {
-    title: "Отделы",
-    text: "Внутренние отделы платформы: поддержка, продажи, финансы и внедрение.",
-    columns: ["Отдел", "Сотрудников", "Руководитель", "SLA", "Статус"],
+    title: "Отделы — управление сотрудниками",
+    text: "Сотрудники платформы, роли, отделы и настройка привилегий доступа.",
+    columns: ["Сотрудник", "Должность", "Отдел", "Привилегии", "Статус"],
     rows: [
-      ["Поддержка", "8", "Александр П.", "15 мин", "Активна"],
-      ["Продажи", "5", "М. Саидов", "1 день", "Активна"],
-      ["Внедрение", "4", "Д. Юнусов", "2 дня", "Активна"],
+      ["Александр П.", "Суперадмин", "Управление", "Полный доступ", "Активна"],
+      ["М. Саидов", "Менеджер продаж", "Продажи", "Продажи, Отчеты", "Активна"],
+      ["Д. Юнусов", "Внедренец", "Внедрение", "Организации, Склад", "Активна"],
+      ["С. Абдуллаев", "Поддержка", "Поддержка", "Заявки, Чаты", "Активна"],
+      ["О. Ташматов", "Финансист", "Финансы", "Финансы, Банк", "На модерации"],
     ],
   },
-  reports: {
-    title: "Отчеты",
-    text: "Платформенная аналитика по организациям, обороту, филиалам и оплатам.",
-    columns: ["Отчет", "Период", "Обновлен", "Формат", "Статус"],
+
+  // 3) Склад
+  "storage-income": {
+    title: "Приход товаров",
+    text: "Документы прихода товаров от поставщиков на склады организаций.",
+    columns: ["Документ", "Поставщик", "Позиций", "Сумма", "Статус"],
     rows: [
-      ["Оборот платформы", "Месяц", "11.06.2026", "Dashboard", "Активна"],
-      ["Долги клиентов", "Неделя", "11.06.2026", "Excel", "Активна"],
-      ["Подключения", "День", "11.06.2026", "PDF", "Новый"],
+      ["PR-10241", "Bella Foods", "32", "18 420 000 UZS", "Проведен"],
+      ["PR-10238", "Coffee Trade", "12", "4 120 000 UZS", "Проведен"],
+      ["PR-10235", "Fresh Market", "48", "27 800 000 UZS", "Черновик"],
     ],
   },
-  storage: {
-    title: "Склад",
-    text: "Обзор складских интеграций организаций и проблем синхронизации.",
-    columns: ["Организация", "Складов", "Остаток", "Синхронизация", "Статус"],
+  "storage-expense": {
+    title: "Расход товаров",
+    text: "Списание товаров со склада на кухни, бары и точки продаж.",
+    columns: ["Документ", "Получатель", "Позиций", "Сумма", "Статус"],
     rows: [
-      ["Bella Italia Group", "14", "734 764 000 UZS", "2 мин назад", "Активна"],
-      ["Coffee House", "4", "82 420 000 UZS", "5 мин назад", "Активна"],
-      ["Sushi Master", "8", "196 780 000 UZS", "Проверка", "На модерации"],
+      ["RS-8841", "Кухня — Ташкент", "18", "6 240 000 UZS", "Проведен"],
+      ["RS-8836", "Бар — Ургенч", "9", "1 820 000 UZS", "Проведен"],
+      ["RS-8830", "Кухня — Денов", "14", "3 460 000 UZS", "Ожидает"],
     ],
   },
-  nomenclature: {
-    title: "Номенклатура",
-    text: "Глобальный контроль продуктов, категорий, единиц и импортов.",
-    columns: ["Раздел", "Позиций", "Импортов", "Ошибок", "Статус"],
+  "storage-balance": {
+    title: "Остаток",
+    text: "Текущие остатки товаров и сырья по складам организаций.",
+    columns: ["Товар", "Категория", "Остаток", "Ед.", "Статус"],
     rows: [
-      ["Блюда", "18 402", "28", "0", "Активна"],
-      ["Сырье", "42 881", "91", "3", "Новый"],
-      ["Единицы", "128", "4", "0", "Активна"],
+      ["Мука в/с", "Сырьё", "1 240", "кг", "В норме"],
+      ["Оливковое масло", "Сырьё", "86", "л", "Низкий"],
+      ["Кофе зерно", "Сырьё", "410", "кг", "В норме"],
     ],
   },
-  marketing: {
-    title: "Маркетинг",
-    text: "Лиды, источники, теги, статусы и конверсия подключений.",
-    columns: ["Источник", "Лидов", "Конверсия", "Ответственный", "Статус"],
+  "storage-income-journal": {
+    title: "Журнал приходов",
+    text: "История всех приходных документов с датами и суммами.",
+    columns: ["Дата", "Документ", "Поставщик", "Сумма", "Статус"],
     rows: [
-      ["Instagram", "184", "18.4%", "О. Ташматов", "Активна"],
-      ["Telegram", "96", "21.8%", "С. Абдуллаев", "Активна"],
-      ["Рекомендации", "43", "32.2%", "А. Рахимов", "Новый"],
+      ["11.06.2026 09:12", "PR-10241", "Bella Foods", "18 420 000 UZS", "Проведен"],
+      ["10.06.2026 17:40", "PR-10238", "Coffee Trade", "4 120 000 UZS", "Проведен"],
+      ["10.06.2026 11:05", "PR-10235", "Fresh Market", "27 800 000 UZS", "Черновик"],
     ],
   },
-  handbook: {
-    title: "Справочники",
-    text: "Страны, регионы, районы, статусы и платформенные словари.",
-    columns: ["Справочник", "Записей", "Последнее изменение", "Язык", "Статус"],
+  "storage-writeoff": {
+    title: "Отход товаров",
+    text: "Списание товаров по причинам брака, порчи и истечения срока.",
+    columns: ["Документ", "Причина", "Позиций", "Сумма", "Статус"],
     rows: [
-      ["Регионы", "14", "11.06.2026", "RU / UZ", "Активна"],
-      ["Районы", "208", "10.06.2026", "RU / UZ", "Активна"],
-      ["Статусы", "12", "09.06.2026", "RU", "Активна"],
+      ["WO-321", "Истёк срок", "6", "420 000 UZS", "Проведен"],
+      ["WO-318", "Брак", "3", "180 000 UZS", "Проведен"],
+      ["WO-314", "Порча", "8", "640 000 UZS", "Ожидает"],
     ],
   },
-  service: {
-    title: "Услуга",
-    text: "Подключаемые сервисы, техпомощь, интеграции и заявки клиентов.",
-    columns: ["Услуга", "Клиентов", "Цена", "Поддержка", "Статус"],
+  "storage-inventory": {
+    title: "Инвентаризация",
+    text: "Сверка фактических остатков со складским учётом и расхождения.",
+    columns: ["Документ", "Склад", "Расхождений", "Дата", "Статус"],
     rows: [
-      ["QR-меню", "892", "В тарифе", "24/7", "Активна"],
-      ["Фискализация", "421", "Отдельно", "24/7", "Активна"],
-      ["Внедрение", "76", "Индивидуально", "Бизнес часы", "Новый"],
+      ["INV-077", "Главный склад", "4", "11.06.2026", "Завершено"],
+      ["INV-076", "Бар", "0", "08.06.2026", "Завершено"],
+      ["INV-075", "Кухня", "2", "01.06.2026", "Черновик"],
     ],
   },
-  hamkorbank: {
-    title: "Хамкорбанк",
-    text: "Банковские транзакции, статусы интеграций и сверка платежей.",
-    columns: ["Канал", "Операций", "Сумма", "Сверка", "Статус"],
+
+  // 4) Номенклатура
+  "nom-product": {
+    title: "Продукт",
+    text: "Карточки продуктов: категории, цены и единицы измерения.",
+    columns: ["Продукт", "Категория", "Цена", "Ед.", "Статус"],
     rows: [
-      ["Эквайринг", "2 841", "4 820 000 000 UZS", "ОК", "Активна"],
-      ["Выписки", "418", "1 240 000 000 UZS", "ОК", "Активна"],
-      ["Ошибки", "3", "0 UZS", "Проверка", "На модерации"],
+      ["Маргарита 30см", "Пицца", "48 000 UZS", "шт", "Активна"],
+      ["Цезарь с курицей", "Салаты", "36 000 UZS", "шт", "Активна"],
+      ["Латте 0.3", "Напитки", "22 000 UZS", "шт", "Новый"],
     ],
   },
-  finance: {
-    title: "Финансы",
-    text: "Оборот, долги, тарифы, платежи и финансовая история платформы.",
+  "nom-sale-category": {
+    title: "Категория реализации",
+    text: "Категории меню для реализации и их доля в продажах.",
+    columns: ["Категория", "Позиций", "Доля продаж", "Обновлено", "Статус"],
+    rows: [
+      ["Пицца", "42", "28.4%", "11.06.2026", "Активна"],
+      ["Напитки", "36", "19.1%", "11.06.2026", "Активна"],
+      ["Десерты", "18", "7.6%", "10.06.2026", "Новый"],
+    ],
+  },
+  "nom-orders": {
+    title: "Заказы",
+    text: "Заказы по филиалам с суммами, временем и статусом выполнения.",
+    columns: ["Заказ", "Филиал", "Сумма", "Время", "Статус"],
+    rows: [
+      ["№ 39957057", "Ташкент", "240 600 UZS", "20:57", "Завершено"],
+      ["№ 39661785", "Ургенч", "177 100 UZS", "20:56", "Завершено"],
+      ["№ 39382298", "Денов", "110 000 UZS", "17:59", "Ожидает"],
+    ],
+  },
+  "nom-unit": {
+    title: "Единица измерения",
+    text: "Единицы измерения номенклатуры и их точность.",
+    columns: ["Единица", "Сокращение", "Тип", "Точность", "Статус"],
+    rows: [
+      ["Килограмм", "кг", "Вес", "0.001", "Активна"],
+      ["Литр", "л", "Объём", "0.01", "Активна"],
+      ["Штука", "шт", "Количество", "1", "Активна"],
+    ],
+  },
+
+  // 5) Справочник
+  "hb-countries": {
+    title: "Страны",
+    text: "Справочник стран: коды, валюты и количество регионов.",
+    columns: ["Страна", "Код", "Валюта", "Регионов", "Статус"],
+    rows: [
+      ["Узбекистан", "UZ", "UZS", "14", "Активна"],
+      ["Казахстан", "KZ", "KZT", "17", "Активна"],
+      ["Таджикистан", "TJ", "TJS", "4", "Новый"],
+    ],
+  },
+  "hb-regions": {
+    title: "Регионы",
+    text: "Регионы стран с количеством районов и кодами.",
+    columns: ["Регион", "Страна", "Районов", "Код", "Статус"],
+    rows: [
+      ["Ташкент", "Узбекистан", "11", "TAS", "Активна"],
+      ["Хорезм", "Узбекистан", "10", "XOR", "Активна"],
+      ["Сурхандарья", "Узбекистан", "14", "SUR", "Активна"],
+    ],
+  },
+  "hb-districts": {
+    title: "Районы",
+    text: "Районы регионов с кодами и датой последнего изменения.",
+    columns: ["Район", "Регион", "Код", "Обновлён", "Статус"],
+    rows: [
+      ["Юнусабадский", "Ташкент", "TAS-01", "11.06.2026", "Активна"],
+      ["Ургенчский", "Хорезм", "XOR-03", "10.06.2026", "Активна"],
+      ["Денауский", "Сурхандарья", "SUR-05", "09.06.2026", "Новый"],
+    ],
+  },
+
+  // 6) Услуга
+  "srv-employees": {
+    title: "Сотрудники",
+    text: "Сотрудники клиентов: роли, филиалы и контактные данные.",
+    columns: ["Сотрудник", "Роль", "Филиал", "Телефон", "Статус"],
+    rows: [
+      ["И. Каримов", "Менеджер", "Ташкент", "+998 90 123-45-67", "Активна"],
+      ["О. Ташматов", "Кассир", "Ургенч", "+998 91 234-56-78", "Активна"],
+      ["А. Рахимов", "Официант", "Денов", "+998 93 345-67-89", "Новый"],
+    ],
+  },
+  "srv-source": {
+    title: "Источник",
+    text: "Источники привлечения клиентов и их конверсия.",
+    columns: ["Источник", "Тип", "Лидов", "Конверсия", "Статус"],
+    rows: [
+      ["Instagram", "Соцсети", "184", "18.4%", "Активна"],
+      ["Telegram", "Мессенджер", "96", "21.8%", "Активна"],
+      ["Рекомендации", "Партнёры", "43", "32.2%", "Новый"],
+    ],
+  },
+
+  // 7) Банк
+  "bank-stats": {
+    title: "Статистика банка",
+    text: "Сводная статистика банковских операций за период.",
     columns: ["Показатель", "Значение", "Динамика", "Период", "Статус"],
     rows: [
-      ["Оборот", "78 452 340 UZS", "+18.6%", "Месяц", "Активна"],
-      ["Долги", "12 800 000 UZS", "-4.2%", "Месяц", "На модерации"],
-      ["Платежи", "1 284", "+9.1%", "Неделя", "Активна"],
+      ["Эквайринг", "4 820 000 000 UZS", "+12.4%", "Месяц", "В норме"],
+      ["Комиссия", "48 200 000 UZS", "+0.8%", "Месяц", "В норме"],
+      ["Возвраты", "2 140 000 UZS", "-3.1%", "Месяц", "В норме"],
     ],
   },
-  tasks: {
-    title: "Задачи",
-    text: "Рабочая доска команды MARJON: внедрение, поддержка, продажи и проверки.",
-    columns: ["Задача", "Ответственный", "Приоритет", "Срок", "Статус"],
+  "bank-transactions": {
+    title: "Транзакции банка",
+    text: "Банковские транзакции по платежам и возвратам.",
+    columns: ["ID", "Тип", "Сумма", "Время", "Статус"],
     rows: [
-      ["Проверить Bella Italia", "Александр П.", "Высокий", "Сегодня", "Новый"],
-      ["Сверка оплат", "Финансы", "Средний", "12.06.2026", "Активна"],
-      ["Обновить маркетинг", "Product", "Низкий", "14.06.2026", "На модерации"],
+      ["TXN-88421", "Поступление", "240 600 UZS", "20:57", "Завершено"],
+      ["TXN-88417", "Поступление", "177 100 UZS", "20:56", "Завершено"],
+      ["TXN-88410", "Возврат", "110 000 UZS", "17:59", "Ожидает"],
     ],
   },
-  rating: {
-    title: "Рейтинг",
-    text: "Рейтинг сотрудников, организаций, филиалов и качества обслуживания.",
-    columns: ["Объект", "Рейтинг", "Отзывы", "Изменение", "Статус"],
+
+  // 8) Финансы
+  "fin-operations": {
+    title: "Денежные операции",
+    text: "Приходные и расходные денежные операции платформы.",
+    columns: ["Документ", "Тип", "Сумма", "Способ", "Статус"],
     rows: [
-      ["Bella Italia Group", "4.9", "1 284", "+0.2", "Активна"],
-      ["Coffee House", "4.7", "814", "+0.1", "Активна"],
-      ["Sushi Master", "4.4", "406", "-0.1", "На модерации"],
+      ["OP-2241", "Приход", "240 600 UZS", "CLICK", "Проведен"],
+      ["OP-2238", "Расход", "110 000 UZS", "Наличные", "Проведен"],
+      ["OP-2235", "Приход", "177 100 UZS", "Terminal", "Ожидает"],
     ],
   },
-  settings: {
-    title: "Настройки",
-    text: "Глобальные параметры платформы, безопасность, языки и системные правила.",
-    columns: ["Параметр", "Значение", "Область", "Обновлен", "Статус"],
+  "fin-income-cat": {
+    title: "Категория приходов",
+    text: "Категории приходов с долей в общем обороте.",
+    columns: ["Категория", "Операций", "Сумма", "Доля", "Статус"],
     rows: [
-      ["Языки", "RU / UZ", "Платформа", "11.06.2026", "Активна"],
-      ["Автоблокировка", "Включена", "Биллинг", "10.06.2026", "Активна"],
-      ["Уведомления", "Telegram / Email", "Система", "09.06.2026", "Новый"],
+      ["Приход от продаж", "1 284", "742 000 000 UZS", "82.4%", "Активна"],
+      ["Прочие поступления", "96", "41 200 000 UZS", "12.1%", "Активна"],
+      ["Возвраты", "18", "4 800 000 UZS", "5.5%", "Новый"],
+    ],
+  },
+  "fin-expense-cat": {
+    title: "Категория расходов",
+    text: "Категории расходов с долей в общих затратах.",
+    columns: ["Категория", "Операций", "Сумма", "Доля", "Статус"],
+    rows: [
+      ["Закупка сырья", "412", "318 000 000 UZS", "61.2%", "Активна"],
+      ["Зарплата", "58", "142 000 000 UZS", "27.4%", "Активна"],
+      ["Аренда", "12", "38 000 000 UZS", "7.3%", "Активна"],
+    ],
+  },
+  "fin-payment": {
+    title: "Способ оплаты",
+    text: "Способы оплаты, объёмы операций и комиссии.",
+    columns: ["Способ", "Операций", "Сумма", "Комиссия", "Статус"],
+    rows: [
+      ["Наличные", "642", "284 000 000 UZS", "0%", "Активна"],
+      ["CLICK", "418", "196 000 000 UZS", "0.8%", "Активна"],
+      ["Terminal", "224", "162 000 000 UZS", "1.2%", "Активна"],
+    ],
+  },
+  "fin-history": {
+    title: "История изменений",
+    text: "Журнал изменений финансовых настроек и объектов.",
+    columns: ["Дата", "Объект", "Действие", "Автор", "Статус"],
+    rows: [
+      ["11.06.2026 11:42", "Тариф Bella Italia", "Изменён", "Александр П.", "Завершено"],
+      ["10.06.2026 17:40", "Категория расходов", "Создана", "О. Ташматов", "Завершено"],
+      ["09.06.2026 09:18", "Способ оплаты", "Удалён", "Д. Юнусов", "Ожидает"],
+    ],
+  },
+
+  // 9) Настройки
+  "set-store": {
+    title: "Marjon store",
+    text: "Подключённые модули магазина MARJON и их подписки.",
+    columns: ["Модуль", "Версия", "Подписка", "Обновлён", "Статус"],
+    rows: [
+      ["POS Касса", "2.4.7", "Pro", "11.06.2026", "Активна"],
+      ["QR-меню", "1.8.2", "Pro", "10.06.2026", "Активна"],
+      ["Аналитика", "3.1.0", "Trial", "09.06.2026", "Новый"],
+    ],
+  },
+  "set-cashier-bg": {
+    title: "Фон для кассира",
+    text: "Темы и фоны интерфейса кассира по точкам продаж.",
+    columns: ["Тема", "Тип", "Применена к", "Обновлён", "Статус"],
+    rows: [
+      ["Тёмная графитовая", "Системная", "Все кассы", "11.06.2026", "Активна"],
+      ["Светлая", "Системная", "Ургенч", "10.06.2026", "Активна"],
+      ["Брендовая Marjon", "Кастом", "Ташкент", "09.06.2026", "Новый"],
+    ],
+  },
+  "set-languages": {
+    title: "Языки",
+    text: "Языки интерфейса платформы и их покрытие переводами.",
+    columns: ["Язык", "Код", "Покрытие", "Обновлён", "Статус"],
+    rows: [
+      ["Русский", "RU", "100%", "11.06.2026", "Активна"],
+      ["Узбекский", "UZ", "98%", "11.06.2026", "Активна"],
+      ["Английский", "EN", "72%", "10.06.2026", "Новый"],
     ],
   },
 };
@@ -437,7 +651,23 @@ function LoginView({ onLogin }) {
   );
 }
 
-function Sidebar({ active, onSelect, collapsed, onToggle }) {
+function Sidebar({ active, onSelect, collapsed, onToggle, user, onProfile }) {
+  const activeParent = useMemo(
+    () => navItems.find((item) => item.children?.some((child) => child.key === active))?.key || null,
+    [active],
+  );
+  const [openGroups, setOpenGroups] = useState(() => (activeParent ? [activeParent] : []));
+
+  useEffect(() => {
+    if (activeParent) {
+      setOpenGroups((groups) => (groups.includes(activeParent) ? groups : [...groups, activeParent]));
+    }
+  }, [activeParent]);
+
+  function toggleGroup(key) {
+    setOpenGroups((groups) => (groups.includes(key) ? groups.filter((item) => item !== key) : [...groups, key]));
+  }
+
   return (
     <aside className="admin-sidebar">
       <div className="admin-brand">
@@ -446,24 +676,64 @@ function Sidebar({ active, onSelect, collapsed, onToggle }) {
           <strong>MARJON</strong>
           <span>ADMIN</span>
         </div>
+        <button className="admin-sidebar-collapse" type="button" onClick={onToggle} aria-pressed={collapsed} aria-label={collapsed ? "Развернуть меню" : "Свернуть меню"}>
+          <Icon name={collapsed ? "bi-chevron-right" : "bi-chevron-left"} size={18} />
+        </button>
       </div>
       <nav className="admin-nav" aria-label="Admin navigation">
-        {navItems.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={active === item.key ? "is-active" : ""}
-            onClick={() => onSelect(item.key)}
-          >
-            <Icon name={item.icon} size={18} />
-            <span>{item.label}</span>
-            {item.badge ? <em>{item.badge}</em> : null}
-          </button>
-        ))}
+        {navItems.map((item) => {
+          if (!item.children) {
+            return (
+              <button
+                key={item.key}
+                type="button"
+                className={active === item.key ? "is-active" : ""}
+                onClick={() => onSelect(item.key)}
+              >
+                <Icon name={item.icon} size={18} />
+                <span>{item.label}</span>
+                {item.badge ? <em>{item.badge}</em> : null}
+              </button>
+            );
+          }
+          const open = openGroups.includes(item.key);
+          const hasActiveChild = item.children.some((child) => child.key === active);
+          return (
+            <div className={`admin-nav-group ${open ? "is-open" : ""} ${hasActiveChild ? "has-active" : ""}`} key={item.key}>
+              <button
+                type="button"
+                className={`admin-nav-group__toggle ${hasActiveChild ? "is-active" : ""}`}
+                onClick={() => toggleGroup(item.key)}
+                aria-expanded={open}
+              >
+                <Icon name={item.icon} size={18} />
+                <span>{item.label}</span>
+                <Icon name="bi-chevron-right" size={15} className="admin-nav-group__chevron" />
+              </button>
+              <div className="admin-nav-sub" role="group">
+                {item.children.map((child) => (
+                  <button
+                    key={child.key}
+                    type="button"
+                    className={`admin-nav-sub__item ${active === child.key ? "is-active" : ""}`}
+                    onClick={() => onSelect(child.key)}
+                  >
+                    <Icon name={child.icon || "bi-circle"} size={17} className="admin-nav-sub__icon" />
+                    <span>{child.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </nav>
-      <button className="admin-collapse" type="button" onClick={onToggle} aria-pressed={collapsed}>
-        <Icon name="bi-layout-sidebar-inset" size={18} />
-        <span>{collapsed ? "Развернуть меню" : "Свернуть меню"}</span>
+      <button className="admin-profile-card" type="button" onClick={onProfile}>
+        <span className="admin-profile-card__avatar">{(user?.name || "Александр П.").trim().slice(0, 1)}</span>
+        <span className="admin-profile-card__info">
+          <strong>{user?.name || "Александр П."}</strong>
+          <small>{user?.is_superadmin ? "Суперадмин" : "Администратор"}</small>
+        </span>
+        <Icon name="bi-chevron-right" size={16} className="admin-profile-card__chevron" />
       </button>
     </aside>
   );
@@ -639,8 +909,11 @@ function PlatformChart({ segment, onSegmentChange }) {
   );
 }
 
+const STATUS_GREEN = ["Активна", "Активен", "Проведен", "Завершено", "В норме", "Включено", "ОК"];
+const STATUS_VIOLET = ["Новый", "Новая", "Черновик"];
+
 function StatusBadge({ status }) {
-  const key = status === "Активна" ? "green" : status === "Новый" ? "violet" : "orange";
+  const key = STATUS_GREEN.includes(status) ? "green" : STATUS_VIOLET.includes(status) ? "violet" : "orange";
   return <span className={`admin-status admin-status--${key}`}>{status}</span>;
 }
 
@@ -747,7 +1020,7 @@ function RightColumn({ approvals, alerts, onApprovalAction, onShowApprovals, onS
 }
 
 function CategoryPage({ active, rowsOverride, search, onCreate, onRowDetail }) {
-  const content = categoryContent[active] || categoryContent.organizations;
+  const content = categoryContent[active] || categoryContent["org-list"];
   const rows = (rowsOverride || content.rows).filter((row) => {
     const query = search.trim().toLowerCase();
     if (!query) return true;
@@ -917,7 +1190,7 @@ function AdminShell({ onLogout }) {
   }
 
   function handleCreate(section) {
-    const content = categoryContent[section] || categoryContent.organizations;
+    const content = categoryContent[section] || categoryContent["org-list"];
     const nextRow = content.columns.map((column, index) => {
       if (index === 0) return `Новая запись ${Date.now().toString().slice(-4)}`;
       if (index === content.columns.length - 1) return "Новый";
@@ -1024,6 +1297,23 @@ function AdminShell({ onLogout }) {
     });
   }
 
+  function openProfileDetail() {
+    setDetail({
+      title: user?.name || "Александр П.",
+      subtitle: "Профиль администратора",
+      status: "Активна",
+      fields: [
+        { label: "Роль", value: user?.is_superadmin ? "Суперадмин" : "Администратор" },
+        { label: "Телефон", value: user?.phone || "900000777" },
+        { label: "Доступ", value: "Полный доступ" },
+      ],
+      actions: [
+        { label: "Выйти", variant: "primary", onClick: () => { closeDetail(); logout(); } },
+        { label: "Закрыть", variant: "ghost", onClick: closeDetail },
+      ],
+    });
+  }
+
   const page = useMemo(() => (
     active === "dashboard" ? (
       <DashboardPage
@@ -1055,7 +1345,7 @@ function AdminShell({ onLogout }) {
 
   return (
     <div className={`admin-shell ${collapsed ? "is-sidebar-collapsed" : ""}`}>
-      <Sidebar active={active} onSelect={setActive} collapsed={collapsed} onToggle={() => setCollapsed((value) => !value)} />
+      <Sidebar active={active} onSelect={setActive} collapsed={collapsed} onToggle={() => setCollapsed((value) => !value)} user={user} onProfile={openProfileDetail} />
       <section className="admin-main">
         <Header
           user={user}
@@ -1070,7 +1360,9 @@ function AdminShell({ onLogout }) {
         {message ? (
           <div className="admin-auth-alert" role="status" onClick={() => setMessage("")}>{message}</div>
         ) : null}
-        {page}
+        <div className="admin-content">
+          {page}
+        </div>
         <Footer />
       </section>
       <DetailModal data={detail} onClose={closeDetail} />

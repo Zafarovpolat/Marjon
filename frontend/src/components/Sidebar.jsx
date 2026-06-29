@@ -6,6 +6,7 @@ import { filterNavItems } from "../utils/permissions";
 import Icon from "./Icon";
 
 const PROFILE_STORAGE_KEY = "marjon_profile_settings";
+const SIDEBAR_PROFILE_PANEL_BG = "#0B1F3F";
 
 function readStoredProfile() {
   try {
@@ -378,6 +379,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
           <div
             className="sidebar-account__menu"
             role="menu"
+            style={{ background: SIDEBAR_PROFILE_PANEL_BG, backgroundImage: "none" }}
             onMouseEnter={openCollapsedAccount}
             onMouseLeave={closeCollapsedAccount}
           >
@@ -460,6 +462,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
         <button
           type="button"
           className="sidebar-user sidebar-user--button"
+          style={{ background: SIDEBAR_PROFILE_PANEL_BG, backgroundImage: "none" }}
           onClick={() => setAccountOpen((v) => !v)}
           aria-haspopup="menu"
           aria-expanded={accountOpen}
