@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { formatMoney } from "../api/client";
 import Icon from "../components/Icon";
+import ReportDateRangePicker from "../components/ReportDateRangePicker";
 
 const waiterColumns = [
-  { key: "orders", label: "Сумма заказов" },
-  { key: "takeaway", label: "Сумма заказов на вынос" },
-  { key: "service", label: "Сумма услуги" },
+  { key: "orders", label: "Сумма заказов", checkable: true, checked: true },
+  { key: "takeaway", label: "Сумма заказов на вынос", checkable: true },
+  { key: "service", label: "Сумма услуги", checkable: true },
   { key: "waiterService", label: "Обслуга официанта" },
   { key: "dishes", label: "Блюда" },
 ];
@@ -63,10 +64,12 @@ function escapeHtml(value) {
 }
 
 export default function WaitersReportPage() {
-  const [selectedWaiter, setSelectedWaiter] = useState("all");
-  const [percent, setPercent] = useState("0");
+  const [selectedWaiter, setSelectedWaiter] = useState("");
+  const [percent, setPercent] = useState("1");
+  const [dateRange, setDateRange] = useState({});
 
   const visibleRows = useMemo(() => {
+    if (!selectedWaiter) return [];
     if (selectedWaiter === "all") return demoWaiters;
     return demoWaiters.filter((waiter) => waiter.id === selectedWaiter);
   }, [selectedWaiter]);
@@ -134,12 +137,21 @@ export default function WaitersReportPage() {
             <strong>Отчет по официантам</strong>
           </div>
           <div className="z-waiters-report__controls">
+            <div className="z-waiters-report__date-picker report-actions">
+              <ReportDateRangePicker
+                value={dateRange}
+                onChange={setDateRange}
+                buttonClassName="z-waiters-report__date"
+                showChevrons
+              />
+            </div>
             <label className="z-waiters-report__percent">
               <input value={percent} onChange={(event) => setPercent(event.target.value)} inputMode="decimal" aria-label="Процент" />
               <span>%</span>
             </label>
             <label className="z-waiters-report__select">
               <select value={selectedWaiter} onChange={(event) => setSelectedWaiter(event.target.value)}>
+                <option value="" disabled>Выберите официанта</option>
                 <option value="all">Все официанты</option>
                 {demoWaiters.map((waiter) => <option value={waiter.id} key={waiter.id}>{waiter.name}</option>)}
               </select>
@@ -156,7 +168,10 @@ export default function WaitersReportPage() {
           <div className="z-waiters-report__row z-waiters-report__row--head z-waiters-report__row--static-head" role="row">
             <div role="columnheader">Имя</div>
             {waiterColumns.map((column) => (
-              <div key={column.key} role="columnheader">{column.label}</div>
+              <label key={column.key} role="columnheader">
+                {column.checkable ? <input type="checkbox" defaultChecked={Boolean(column.checked)} /> : null}
+                <span>{column.label}</span>
+              </label>
             ))}
           </div>
           <div className="z-waiters-report__row z-waiters-report__row--total" role="row">

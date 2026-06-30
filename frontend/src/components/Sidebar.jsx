@@ -66,20 +66,27 @@ const navItems = [
     icon: "bi-box-seam",
     to: "/warehouse",
     children: [
-      { key: "incoming", label: "Приход товаров", to: "/warehouse/incoming", icon: "bi-box-arrow-in-down" },
-      { key: "outgoing", label: "Расход товаров", to: "/warehouse/outgoing", icon: "bi-box-arrow-up" },
-      { key: "stock", label: "Остаток", to: "/warehouse/stock", icon: "bi-boxes" },
-      { key: "incoming-journal", label: "Журнал приходов", to: "/warehouse/incoming-journal", icon: "bi-clock-history" },
-      { key: "transfer", label: "Перемещение", to: "/warehouse/transfer", icon: "bi-arrow-left-right" },
-      { key: "inventory", label: "Инвентаризация", to: "/warehouse/inventory", icon: "bi-clipboard-check" },
-      { key: "write-off", label: "Списание", to: "/warehouse/write-off", icon: "bi-trash3" },
-      { key: "write-off-categories", label: "Категории списания", to: "/warehouse/write-off-categories", icon: "bi-tags" },
-      { key: "waste", label: "Отход товаров", to: "/warehouse/waste", icon: "bi-recycle" },
       { key: "raw-materials", label: "Сырьё", to: "/nomenclature/raw-materials", icon: "bi-basket" },
-      { key: "semi-finished", label: "Полуфабрикаты", to: "/nomenclature/semi-finished", icon: "bi-box" },
       { key: "raw-categories", label: "Категория сырья", to: "/nomenclature/raw-categories", icon: "bi-boxes" },
+      { key: "semi-finished", label: "Полуфабрикаты", to: "/nomenclature/semi-finished", icon: "bi-box" },
       { key: "semi-finished-categories", label: "Категория полуфабрикатов", to: "/nomenclature/semi-finished-categories", icon: "bi-diagram-3" },
-      { key: "sales-categories", label: "Категория реализации", to: "/nomenclature/sales-categories", icon: "bi-shop" },
+    ],
+  },
+  {
+    key: "warehouse-report",
+    label: "Отчёт по складам",
+    icon: "bi-file-earmark-bar-graph",
+    to: "/stock-report",
+    children: [
+      { key: "incoming", label: "Приход товаров", to: "/stock-report/incoming", icon: "bi-box-arrow-in-down" },
+      { key: "outgoing", label: "Расход товаров", to: "/stock-report/outgoing", icon: "bi-box-arrow-up" },
+      { key: "stock", label: "Остаток", to: "/stock-report/stock", icon: "bi-boxes" },
+      { key: "incoming-journal", label: "Журнал приходов", to: "/stock-report/incoming-journal", icon: "bi-clock-history" },
+      { key: "transfer", label: "Перемещение", to: "/stock-report/transfer", icon: "bi-arrow-left-right" },
+      { key: "inventory", label: "Инвентаризация", to: "/stock-report/inventory", icon: "bi-clipboard-check" },
+      { key: "write-off", label: "Списание", to: "/stock-report/write-off", icon: "bi-trash3" },
+      { key: "write-off-categories", label: "Категории списания", to: "/stock-report/write-off-categories", icon: "bi-tags" },
+      { key: "waste", label: "Отход товаров", to: "/stock-report/waste", icon: "bi-recycle" },
     ],
   },
   {
@@ -229,38 +236,30 @@ export default function Sidebar({ user, collapsed, onToggle }) {
     <aside className={`dashboard-sidebar ${collapsed ? "is-collapsed" : ""}`} id="dashboardSidebar">
       <div className="sidebar-brand">
         <div className="sidebar-brand__identity">
-          {collapsed ? (
-            <button
-              className="brand-mark brand-mark--button"
-              type="button"
-              onClick={onToggle}
-              title="Открыть меню"
-              aria-label="Открыть меню"
-            >
-              <img src={logo} alt="MARJON" className="marjon-logo" decoding="async" />
-            </button>
-          ) : (
-            <div className="brand-mark">
-              <img src={logo} alt="MARJON" className="marjon-logo" decoding="async" />
-            </div>
-          )}
+          <button
+            className="brand-mark brand-mark--button"
+            type="button"
+            onClick={onToggle}
+            title={collapsed ? "Открыть меню" : "Свернуть меню"}
+            aria-label={collapsed ? "Открыть меню" : "Свернуть меню"}
+          >
+            <img src={logo} alt="MARJON" className="marjon-logo" decoding="async" />
+          </button>
           <div>
             <div className="brand-title">MARJON</div>
             <div className="brand-subtitle">Restaurant OS</div>
           </div>
         </div>
-        {!collapsed ? (
-          <button
-            className="sidebar-brand__toggle"
-            type="button"
-            onClick={onToggle}
-            aria-label="Закрыть меню"
-            aria-expanded={!collapsed}
-            title="Закрыть меню"
-          >
-            <Icon name="bi-chevron-right" size={18} className="sidebar-brand__toggle-chevron" aria-hidden="true" />
-          </button>
-        ) : null}
+        <button
+          className="sidebar-brand__toggle sidebar-brand__toggle--bare"
+          type="button"
+          onClick={onToggle}
+          aria-label={collapsed ? "Открыть меню" : "Свернуть меню"}
+          aria-expanded={!collapsed}
+          title={collapsed ? "Открыть меню" : "Свернуть меню"}
+        >
+          <Icon name="bi-sidebar-collapse" size={24} strokeWidth={3.15} className="sidebar-brand__toggle-icon" aria-hidden="true" />
+        </button>
       </div>
 
       <nav className="sidebar-nav" aria-label="Навигация">

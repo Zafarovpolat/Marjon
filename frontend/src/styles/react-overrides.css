@@ -12212,9 +12212,9 @@ html,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-brand {
   position: relative !important;
   box-sizing: border-box !important;
-  height: 86px !important;
-  min-height: 86px !important;
-  margin: 0 0 8px !important;
+  height: 72px !important;
+  min-height: 72px !important;
+  margin: 0 !important;
   padding: 0 !important;
   align-items: flex-start !important;
   justify-content: flex-start !important;
@@ -12923,6 +12923,7 @@ html,
 /* Absolute sidebar hover lock: hover must not change category layout */
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav {
   gap: 12px !important;
+  padding-top: 0 !important;
 }
 
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item,
@@ -13049,6 +13050,50 @@ html,
   background: rgba(255, 255, 255, 0.08) !important;
   border-color: rgba(255, 255, 255, 0.22) !important;
   outline: 0 !important;
+}
+
+.dashboard-sidebar .sidebar-brand__toggle.sidebar-brand__toggle--bare,
+.dashboard-sidebar .sidebar-brand__toggle.sidebar-brand__toggle--bare:hover,
+.dashboard-sidebar .sidebar-brand__toggle.sidebar-brand__toggle--bare:focus-visible {
+  width: 30px !important;
+  height: 30px !important;
+  flex: 0 0 30px !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: rgba(226, 232, 240, 0.84) !important;
+  transform: none !important;
+}
+
+.dashboard-sidebar .sidebar-brand__toggle.sidebar-brand__toggle--bare:hover,
+.dashboard-sidebar .sidebar-brand__toggle.sidebar-brand__toggle--bare:focus-visible {
+  color: #ffffff !important;
+}
+
+.dashboard-sidebar.is-collapsed .sidebar-brand__toggle.sidebar-brand__toggle--collapsed,
+.dashboard-sidebar.is-collapsed .sidebar-brand__toggle.sidebar-brand__toggle--collapsed:hover,
+.dashboard-sidebar.is-collapsed .sidebar-brand__toggle.sidebar-brand__toggle--collapsed:focus-visible {
+  position: absolute !important;
+  top: 13px !important;
+  left: 61px !important;
+  z-index: 8 !important;
+  display: grid !important;
+  place-items: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  flex: 0 0 28px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: rgba(226, 232, 240, 0.86) !important;
+  pointer-events: auto !important;
+}
+
+.dashboard-sidebar.is-collapsed .sidebar-brand__toggle.sidebar-brand__toggle--collapsed:hover,
+.dashboard-sidebar.is-collapsed .sidebar-brand__toggle.sidebar-brand__toggle--collapsed:focus-visible {
+  color: #ffffff !important;
 }
 
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav {
@@ -16375,6 +16420,14 @@ body.dashboard-body,
   transform: rotate(180deg) !important;
 }
 
+.dashboard-sidebar .sidebar-brand__toggle-icon {
+  width: 24px !important;
+  height: 24px !important;
+  flex: 0 0 24px !important;
+  color: currentColor !important;
+  transform: none !important;
+}
+
 .dashboard-sidebar .sidebar-user__arrow,
 .dashboard-sidebar .sidebar-user:hover .sidebar-user__arrow,
 .dashboard-sidebar .sidebar-user:focus-visible .sidebar-user__arrow {
@@ -18460,14 +18513,14 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .dashboard-shell .dashboard-content,
 .dashboard-shell .dashboard-main:not(.is-sidebar-collapsed) .dashboard-content,
 .dashboard-shell .dashboard-main.is-sidebar-collapsed .dashboard-content {
-  border-top-left-radius: 28px !important;
-  border-top-right-radius: 28px !important;
+  border-top-left-radius: 18px !important;
+  border-top-right-radius: 18px !important;
 }
 @media (max-width: 1024px) {
   .dashboard-shell .dashboard-content,
   .dashboard-shell .dashboard-main.is-sidebar-collapsed .dashboard-content {
-    border-top-left-radius: 28px !important;
-    border-top-right-radius: 28px !important;
+    border-top-left-radius: 18px !important;
+    border-top-right-radius: 18px !important;
   }
 }
 
@@ -19988,7 +20041,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .dashboard-shell .dashboard-content,
 .dashboard-shell .dashboard-main:not(.is-sidebar-collapsed) .dashboard-content,
 .dashboard-shell .dashboard-main.is-sidebar-collapsed .dashboard-content {
-  border-top-left-radius: 28px !important;
+  border-top-left-radius: 18px !important;
   border-top-right-radius: 0 !important;
   background: transparent !important;
 }
@@ -22579,6 +22632,223 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   }
 }
 
+/* Waiters report: restore the previous compact table layout. */
+.dashboard-back-slot + .waiters-report-page,
+.waiters-report-page {
+  width: 100% !important;
+  max-width: none !important;
+  margin-top: 0 !important;
+  padding: 0 6px 24px !important;
+}
+
+.waiters-report-card.z-waiters-report,
+.z-waiters-report {
+  display: grid !important;
+  gap: 14px !important;
+  width: 100% !important;
+  min-height: 218px !important;
+  margin: 0 !important;
+  padding: 26px 26px 28px !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+}
+
+.z-waiters-report__head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 18px !important;
+}
+
+.z-waiters-report__title {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  min-width: 260px !important;
+  color: #0f172a !important;
+}
+
+.z-waiters-report__title span {
+  width: 15px !important;
+  height: 31px !important;
+  border-radius: 4px !important;
+  background: #2f80ed !important;
+}
+
+.z-waiters-report__title strong {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+}
+
+.z-waiters-report__controls {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 10px !important;
+  flex-wrap: nowrap !important;
+  min-width: 0 !important;
+}
+
+.z-waiters-report__date,
+.z-waiters-report__percent input,
+.z-waiters-report__select select,
+.z-waiters-report__excel {
+  height: 39px !important;
+  min-height: 39px !important;
+  border-radius: 5px !important;
+  box-shadow: none !important;
+  font-size: 14px !important;
+}
+
+.z-waiters-report__date {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  width: 174px !important;
+  padding: 0 10px !important;
+  color: #0f172a !important;
+  border: 0 !important;
+  background: #d7e0ef !important;
+  font-weight: 500 !important;
+}
+
+.z-waiters-report__percent,
+.z-waiters-report__select {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.z-waiters-report__percent input,
+.z-waiters-report__select select {
+  border: 1px solid #d1d5db !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  outline: 0 !important;
+}
+
+.z-waiters-report__percent input {
+  width: 94px !important;
+  padding: 0 28px 0 14px !important;
+}
+
+.z-waiters-report__percent span {
+  position: absolute !important;
+  right: 14px !important;
+  color: #0f172a !important;
+  font-weight: 500 !important;
+  pointer-events: none !important;
+}
+
+.z-waiters-report__select select {
+  width: 210px !important;
+  padding: 0 42px 0 14px !important;
+  color: #94a3b8 !important;
+  appearance: none !important;
+}
+
+.z-waiters-report__select svg {
+  position: absolute !important;
+  right: 14px !important;
+  color: #c4c9d2 !important;
+  pointer-events: none !important;
+}
+
+.z-waiters-report__excel {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 9px !important;
+  padding: 0 20px !important;
+  color: #ffffff !important;
+  border: 0 !important;
+  background: #00a80f !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+}
+
+.z-waiters-report__table {
+  display: grid !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  background: #ffffff !important;
+}
+
+.z-waiters-report__row {
+  display: grid !important;
+  grid-template-columns: 1.05fr 1.35fr 1.95fr 1.45fr 1.45fr 0.75fr !important;
+  align-items: center !important;
+  min-width: 980px !important;
+}
+
+.z-waiters-report__row--head {
+  min-height: 70px !important;
+  background: #cfd9eb !important;
+}
+
+.z-waiters-report__row--head > div,
+.z-waiters-report__row--head label {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  height: 100% !important;
+  padding: 0 32px !important;
+  color: #020617 !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  white-space: nowrap !important;
+}
+
+.z-waiters-report__row--head input {
+  width: 25px !important;
+  height: 25px !important;
+  margin: 0 !important;
+  border-radius: 5px !important;
+  accent-color: #2f80ed !important;
+}
+
+.z-waiters-report__row--total {
+  min-height: 40px !important;
+  background: #eef2f8 !important;
+  border-top: 4px solid #ffffff !important;
+}
+
+.z-waiters-report__row--total > * {
+  display: flex !important;
+  align-items: center !important;
+  height: 100% !important;
+  padding: 0 32px !important;
+  color: #020617 !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  white-space: nowrap !important;
+}
+
+.z-waiters-report__row--total strong {
+  font-weight: 800 !important;
+}
+
+.z-waiters-report__row--body {
+  min-height: 44px !important;
+  background: #ffffff !important;
+  border-top: 1px solid #e5e7eb !important;
+}
+
+.z-waiters-report__row--body > * {
+  display: flex !important;
+  align-items: center !important;
+  height: 100% !important;
+  padding: 0 32px !important;
+  color: #020617 !important;
+  font-size: 15px !important;
+}
+
 /* Sidebar profile panel: same navy as the owner platform background. */
 .dashboard-sidebar .sidebar-user.sidebar-user--button,
 .dashboard-sidebar .sidebar-user.sidebar-user--button:hover,
@@ -23305,4 +23575,778 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   background: var(--teal-400, #22d3ee) !important;
   box-shadow: 0 4px 16px rgba(29, 181, 181, 0.4) !important;
   transform: none !important;
+}
+
+/* Keep the owner header fixed while only sidebar nav rows collapse. */
+@media (min-width: 1025px) {
+  .dashboard-shell {
+    --owner-sidebar-open-w: 280px;
+    --owner-sidebar-collapsed-w: 88px;
+    --owner-header-lock-offset: calc(var(--owner-sidebar-open-w) - var(--owner-sidebar-collapsed-w));
+  }
+
+  .dashboard-main.is-sidebar-collapsed .dashboard-topbar {
+    margin-left: var(--owner-header-lock-offset) !important;
+    width: calc(100% - var(--owner-header-lock-offset)) !important;
+    max-width: calc(100% - var(--owner-header-lock-offset)) !important;
+  }
+
+  .dashboard-main,
+  .dashboard-main.is-sidebar-collapsed {
+    transition:
+      margin-left 360ms cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 180ms ease,
+      border-radius 360ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 180ms ease !important;
+  }
+
+  /* Топбар двигает margin-left/width СИНХРОННО с dashboard-main той же кривой,
+     иначе календарь "выстреливает" вправо и съезжает обратно во время анимации. */
+  .dashboard-main .dashboard-topbar,
+  .dashboard-main.is-sidebar-collapsed .dashboard-topbar {
+    transition:
+      margin-left 360ms cubic-bezier(0.22, 1, 0.36, 1),
+      width 360ms cubic-bezier(0.22, 1, 0.36, 1),
+      max-width 360ms cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 180ms ease,
+      color 180ms ease,
+      border-color 180ms ease,
+      box-shadow 180ms ease !important;
+  }
+
+  .dashboard-topbar .topbar-left,
+  .dashboard-topbar .topbar-left .mj-datepicker,
+  .dashboard-topbar .topbar-left .mj-datepicker__trigger {
+    transition-property: background-color, color, border-color, box-shadow, opacity !important;
+  }
+
+  .dashboard-sidebar.is-collapsed {
+    overflow: visible !important;
+  }
+
+  .dashboard-sidebar.is-collapsed .sidebar-brand {
+    width: var(--owner-sidebar-open-w) !important;
+    min-width: var(--owner-sidebar-open-w) !important;
+    max-width: var(--owner-sidebar-open-w) !important;
+    overflow: visible !important;
+  }
+
+  .dashboard-sidebar.is-collapsed .sidebar-brand__identity {
+    width: 224px !important;
+    min-width: 224px !important;
+    max-width: 224px !important;
+    display: grid !important;
+    grid-template-columns: var(--sidebar-icon-box, 56px) minmax(0, 1fr) !important;
+    align-items: center !important;
+    justify-content: stretch !important;
+    justify-items: stretch !important;
+  }
+
+  .dashboard-sidebar.is-collapsed .sidebar-brand__identity > div:not(.brand-mark),
+  .dashboard-sidebar.is-collapsed .sidebar-brand__identity > button + div {
+    display: block !important;
+    grid-column: 2 !important;
+    max-width: 150px !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+    pointer-events: auto !important;
+  }
+
+  .dashboard-sidebar.is-collapsed .brand-title,
+  .dashboard-sidebar.is-collapsed .brand-subtitle {
+    display: block !important;
+    max-width: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    white-space: nowrap !important;
+    transform: none !important;
+  }
+
+  /* Логотип не меняет размер/форму при сворачивании — остаётся как в развёрнутом виде (48px). */
+  .dashboard-sidebar.is-collapsed .brand-mark,
+  .dashboard-sidebar.is-collapsed .brand-mark--button {
+    width: 48px !important;
+    min-width: 48px !important;
+    max-width: 48px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 48px !important;
+    flex: 0 0 48px !important;
+    border-radius: 14px !important;
+  }
+
+  /* Кнопка сворачивания остаётся в потоке справа (как развёрнутая --bare),
+     а не absolute left:252px — иначе она прыгает при переключении. */
+  .dashboard-sidebar.is-collapsed .sidebar-brand__toggle.sidebar-brand__toggle--collapsed,
+  .dashboard-sidebar.is-collapsed .sidebar-brand__toggle.sidebar-brand__toggle--collapsed:hover,
+  .dashboard-sidebar.is-collapsed .sidebar-brand__toggle.sidebar-brand__toggle--collapsed:focus-visible {
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    margin-left: auto !important;
+    width: 30px !important;
+    height: 30px !important;
+    flex: 0 0 30px !important;
+  }
+}
+
+/* Back button: place at the content corner and keep only the arrow. */
+@media (min-width: 1025px) {
+  .dashboard-back-slot,
+  .dashboard-main.is-sidebar-collapsed .dashboard-back-slot {
+    position: fixed !important;
+    top: 94px !important;
+    left: calc(var(--mj-sidebar-w, 280px) + 6px) !important;
+    z-index: 160 !important;
+    width: 36px !important;
+    height: 36px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .dashboard-back-slot .dashboard-back-button,
+  .dashboard-main.is-sidebar-collapsed .dashboard-back-slot .dashboard-back-button {
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+    display: grid !important;
+    place-items: center !important;
+    gap: 0 !important;
+    border-radius: 10px !important;
+  }
+
+  .dashboard-back-slot .dashboard-back-button svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+}
+
+/* Final lock: collapsing affects only sidebar category rows, not the brand row. */
+@media (min-width: 1025px) {
+  .dashboard-sidebar .sidebar-brand,
+  .dashboard-sidebar.is-collapsed .sidebar-brand,
+  .dashboard-sidebar:not(.is-collapsed) .sidebar-brand {
+    width: var(--owner-sidebar-open-w, 280px) !important;
+    min-width: var(--owner-sidebar-open-w, 280px) !important;
+    max-width: var(--owner-sidebar-open-w, 280px) !important;
+    height: 72px !important;
+    min-height: 72px !important;
+    display: grid !important;
+    grid-template-columns: 224px 30px !important;
+    align-items: flex-start !important;
+    column-gap: 8px !important;
+    overflow: visible !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .dashboard-sidebar .sidebar-brand__identity,
+  .dashboard-sidebar.is-collapsed .sidebar-brand__identity,
+  .dashboard-sidebar:not(.is-collapsed) .sidebar-brand__identity {
+    width: 224px !important;
+    min-width: 224px !important;
+    max-width: 224px !important;
+    height: 56px !important;
+    min-height: 56px !important;
+    display: grid !important;
+    grid-template-columns: var(--sidebar-icon-box, 56px) minmax(0, 1fr) !important;
+    align-items: center !important;
+    justify-content: stretch !important;
+    justify-items: stretch !important;
+    gap: 8px !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .dashboard-sidebar .brand-mark,
+  .dashboard-sidebar .brand-mark--button,
+  .dashboard-sidebar.is-collapsed .brand-mark,
+  .dashboard-sidebar.is-collapsed .brand-mark--button,
+  .dashboard-sidebar:not(.is-collapsed) .brand-mark,
+  .dashboard-sidebar:not(.is-collapsed) .brand-mark--button {
+    width: 48px !important;
+    min-width: 48px !important;
+    max-width: 48px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 48px !important;
+    flex: 0 0 48px !important;
+    grid-column: 1 !important;
+    justify-self: center !important;
+    margin: 0 !important;
+    border-radius: 14px !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .dashboard-sidebar .sidebar-brand__identity > div:not(.brand-mark),
+  .dashboard-sidebar.is-collapsed .sidebar-brand__identity > div:not(.brand-mark),
+  .dashboard-sidebar:not(.is-collapsed) .sidebar-brand__identity > div:not(.brand-mark),
+  .dashboard-sidebar .sidebar-brand__identity > button + div,
+  .dashboard-sidebar.is-collapsed .sidebar-brand__identity > button + div,
+  .dashboard-sidebar:not(.is-collapsed) .sidebar-brand__identity > button + div {
+    display: block !important;
+    grid-column: 2 !important;
+    width: 150px !important;
+    min-width: 0 !important;
+    max-width: 150px !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    overflow: hidden !important;
+    transform: none !important;
+    transition: none !important;
+    pointer-events: auto !important;
+  }
+
+  .dashboard-sidebar .brand-title,
+  .dashboard-sidebar .brand-subtitle,
+  .dashboard-sidebar.is-collapsed .brand-title,
+  .dashboard-sidebar.is-collapsed .brand-subtitle,
+  .dashboard-sidebar:not(.is-collapsed) .brand-title,
+  .dashboard-sidebar:not(.is-collapsed) .brand-subtitle {
+    display: block !important;
+    max-width: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    white-space: nowrap !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .dashboard-sidebar .sidebar-brand__toggle.sidebar-brand__toggle--bare,
+  .dashboard-sidebar .sidebar-brand__toggle.sidebar-brand__toggle--bare:hover,
+  .dashboard-sidebar .sidebar-brand__toggle.sidebar-brand__toggle--bare:focus-visible,
+  .dashboard-sidebar.is-collapsed .sidebar-brand__toggle.sidebar-brand__toggle--bare,
+  .dashboard-sidebar.is-collapsed .sidebar-brand__toggle.sidebar-brand__toggle--bare:hover,
+  .dashboard-sidebar.is-collapsed .sidebar-brand__toggle.sidebar-brand__toggle--bare:focus-visible {
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    grid-column: 2 !important;
+    align-self: center !important;
+    justify-self: end !important;
+    width: 30px !important;
+    min-width: 30px !important;
+    max-width: 30px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    max-height: 30px !important;
+    flex: 0 0 30px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+    transition: color 120ms ease !important;
+  }
+
+  .dashboard-sidebar .sidebar-brand__toggle-icon,
+  .dashboard-sidebar.is-collapsed .sidebar-brand__toggle-icon {
+    width: 24px !important;
+    height: 24px !important;
+    flex: 0 0 24px !important;
+    transform: none !important;
+  }
+}
+
+/* Hard lock: brand row is fixed to the viewport; only category rows collapse. */
+@media (min-width: 1025px) {
+  body.dashboard-body,
+  body.dashboard-body .dashboard-shell {
+    background: var(--shell-sidebar-bg, #0b1f3f) !important;
+  }
+
+  body.dashboard-body .dashboard-shell::before {
+    content: "" !important;
+    display: block !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    width: var(--owner-sidebar-open-w, 280px) !important;
+    background: var(--shell-sidebar-bg, #0b1f3f) !important;
+    z-index: 0 !important;
+    pointer-events: none !important;
+  }
+
+  .dashboard-sidebar,
+  .dashboard-sidebar.is-collapsed {
+    background: var(--shell-sidebar-bg, #0b1f3f) !important;
+    background-color: var(--shell-sidebar-bg, #0b1f3f) !important;
+  }
+
+  .dashboard-sidebar .sidebar-brand,
+  .dashboard-sidebar.is-collapsed .sidebar-brand,
+  .dashboard-sidebar:not(.is-collapsed) .sidebar-brand {
+    position: fixed !important;
+    top: 18px !important;
+    left: 10px !important;
+    z-index: 90 !important;
+    width: 262px !important;
+    min-width: 262px !important;
+    max-width: 262px !important;
+    height: 56px !important;
+    min-height: 56px !important;
+    max-height: 56px !important;
+    display: grid !important;
+    grid-template-columns: 224px 30px !important;
+    align-items: center !important;
+    column-gap: 8px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: var(--shell-sidebar-bg, #0b1f3f) !important;
+    background-color: var(--shell-sidebar-bg, #0b1f3f) !important;
+    border: 0 !important;
+    overflow: visible !important;
+    transform: none !important;
+    translate: none !important;
+    scale: none !important;
+    transition: none !important;
+  }
+
+  .dashboard-sidebar .sidebar-brand,
+  .dashboard-sidebar .sidebar-brand *,
+  .dashboard-sidebar.is-collapsed .sidebar-brand,
+  .dashboard-sidebar.is-collapsed .sidebar-brand * {
+    animation: none !important;
+  }
+
+  .dashboard-sidebar .sidebar-nav,
+  .dashboard-sidebar.is-collapsed .sidebar-nav,
+  .dashboard-sidebar:not(.is-collapsed) .sidebar-nav {
+    margin-top: 72px !important;
+  }
+}
+
+/* Motion lock: collapsing must not move the owner header or brand row. */
+@media (min-width: 1025px) {
+  body.dashboard-body {
+    background: var(--shell-sidebar-bg, #0b1f3f) !important;
+  }
+
+  body.dashboard-body .dashboard-shell,
+  body.dashboard-body .dashboard-shell.is-sidebar-collapsed,
+  body.dashboard-body .dashboard-shell.is-sidebar-expanded {
+    --owner-sidebar-open-w: 280px;
+    --owner-sidebar-collapsed-w: 88px;
+    background: var(--shell-sidebar-bg, #0b1f3f) !important;
+    overflow: hidden !important;
+  }
+
+  body.dashboard-body .dashboard-shell::before,
+  body.dashboard-body .dashboard-shell.is-sidebar-collapsed::before,
+  body.dashboard-body .dashboard-shell.is-sidebar-expanded::before {
+    content: "" !important;
+    display: block !important;
+    position: fixed !important;
+    inset: 0 auto 0 0 !important;
+    width: var(--owner-sidebar-open-w, 280px) !important;
+    background: var(--shell-sidebar-bg, #0b1f3f) !important;
+    z-index: 0 !important;
+    pointer-events: none !important;
+  }
+
+  .dashboard-main,
+  .dashboard-main.is-sidebar-collapsed,
+  .dashboard-shell.is-sidebar-collapsed .dashboard-main,
+  .dashboard-shell.is-sidebar-expanded .dashboard-main {
+    margin-left: var(--owner-sidebar-open-w, 280px) !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    transform: none !important;
+    translate: none !important;
+    transition:
+      background-color 160ms ease,
+      border-radius 160ms ease,
+      box-shadow 160ms ease !important;
+  }
+
+  .dashboard-main .dashboard-topbar,
+  .dashboard-main.is-sidebar-collapsed .dashboard-topbar,
+  .dashboard-shell.is-sidebar-collapsed .dashboard-topbar,
+  .dashboard-shell.is-sidebar-expanded .dashboard-topbar {
+    box-sizing: border-box !important;
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 auto !important;
+    transform: none !important;
+    translate: none !important;
+    transition:
+      background-color 160ms ease,
+      color 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease !important;
+  }
+
+  .dashboard-topbar .topbar-left,
+  .dashboard-topbar .topbar-actions,
+  .dashboard-topbar .topbar-info-widgets,
+  .dashboard-topbar .topbar-notification-wrap,
+  .dashboard-topbar .topbar-balance-pill {
+    transform: none !important;
+    translate: none !important;
+    transition:
+      background-color 120ms ease,
+      color 120ms ease,
+      border-color 120ms ease,
+      box-shadow 120ms ease,
+      opacity 120ms ease !important;
+  }
+
+  .dashboard-topbar .topbar-left {
+    flex: 0 0 auto !important;
+    margin-right: auto !important;
+  }
+
+  .dashboard-topbar .topbar-actions {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    margin-left: auto !important;
+    justify-content: flex-end !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .dashboard-sidebar,
+  .dashboard-sidebar.is-collapsed {
+    background: var(--shell-sidebar-bg, #0b1f3f) !important;
+    background-color: var(--shell-sidebar-bg, #0b1f3f) !important;
+  }
+
+  .dashboard-sidebar.is-collapsed {
+    width: var(--owner-sidebar-collapsed-w, 88px) !important;
+    min-width: var(--owner-sidebar-collapsed-w, 88px) !important;
+    max-width: var(--owner-sidebar-collapsed-w, 88px) !important;
+  }
+
+  .dashboard-sidebar .sidebar-brand,
+  .dashboard-sidebar.is-collapsed .sidebar-brand,
+  .dashboard-sidebar:not(.is-collapsed) .sidebar-brand {
+    position: fixed !important;
+    top: 18px !important;
+    left: 10px !important;
+    width: 262px !important;
+    min-width: 262px !important;
+    max-width: 262px !important;
+    transform: none !important;
+    translate: none !important;
+    transition: none !important;
+  }
+
+  .dashboard-sidebar .sidebar-brand *,
+  .dashboard-sidebar.is-collapsed .sidebar-brand * {
+    transform: none !important;
+    translate: none !important;
+    transition-property: color, background-color, border-color, box-shadow, opacity !important;
+  }
+}
+
+/* Final override: collapse the sidebar/content seam while keeping topbar controls anchored. */
+@media (min-width: 1025px) {
+  body.dashboard-body .dashboard-shell,
+  body.dashboard-body .dashboard-shell.is-sidebar-expanded,
+  body.dashboard-body .dashboard-shell.is-sidebar-collapsed {
+    --owner-sidebar-open-w: 280px;
+    --owner-sidebar-collapsed-w: 88px;
+    --owner-sidebar-current-w: var(--owner-sidebar-open-w);
+    --owner-sidebar-lock-offset: 0px;
+  }
+
+  body.dashboard-body .dashboard-shell.is-sidebar-collapsed {
+    --owner-sidebar-current-w: var(--owner-sidebar-collapsed-w);
+    --owner-sidebar-lock-offset: calc(var(--owner-sidebar-open-w) - var(--owner-sidebar-collapsed-w));
+  }
+
+  body.dashboard-body .dashboard-shell::before,
+  body.dashboard-body .dashboard-shell.is-sidebar-expanded::before,
+  body.dashboard-body .dashboard-shell.is-sidebar-collapsed::before {
+    width: var(--owner-sidebar-current-w) !important;
+    transition: width 220ms ease !important;
+  }
+
+  .dashboard-shell .dashboard-sidebar,
+  .dashboard-shell .dashboard-sidebar.is-collapsed {
+    width: var(--owner-sidebar-current-w) !important;
+    min-width: var(--owner-sidebar-current-w) !important;
+    max-width: var(--owner-sidebar-current-w) !important;
+    transition: width 220ms ease, min-width 220ms ease, max-width 220ms ease !important;
+  }
+
+  .dashboard-shell .dashboard-main,
+  .dashboard-shell .dashboard-main.is-sidebar-collapsed,
+  .dashboard-shell.is-sidebar-expanded .dashboard-main,
+  .dashboard-shell.is-sidebar-collapsed .dashboard-main {
+    margin-left: var(--owner-sidebar-current-w) !important;
+    transition:
+      margin-left 220ms ease,
+      background-color 160ms ease,
+      border-radius 160ms ease,
+      box-shadow 160ms ease !important;
+  }
+
+  .dashboard-shell .dashboard-topbar,
+  .dashboard-shell .dashboard-main.is-sidebar-collapsed .dashboard-topbar,
+  .dashboard-shell.is-sidebar-collapsed .dashboard-topbar {
+    margin-left: var(--owner-sidebar-lock-offset) !important;
+    width: calc(100% - var(--owner-sidebar-lock-offset)) !important;
+    max-width: calc(100% - var(--owner-sidebar-lock-offset)) !important;
+    transition:
+      margin-left 220ms ease,
+      width 220ms ease,
+      max-width 220ms ease,
+      background-color 160ms ease,
+      color 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease !important;
+  }
+
+  .dashboard-shell .dashboard-topbar .topbar-left,
+  .dashboard-shell .dashboard-topbar .topbar-left .mj-datepicker,
+  .dashboard-shell .dashboard-topbar .topbar-left .mj-datepicker__trigger {
+    transform: none !important;
+    translate: none !important;
+    transition-property: background-color, color, border-color, box-shadow, opacity !important;
+  }
+
+  .dashboard-shell .dashboard-back-slot,
+  .dashboard-shell .dashboard-main.is-sidebar-collapsed .dashboard-back-slot {
+    left: calc(var(--owner-sidebar-current-w) + 6px) !important;
+    transition: left 220ms ease !important;
+  }
+
+  .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar .sidebar-brand,
+  .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar.is-collapsed .sidebar-brand {
+    width: calc(var(--owner-sidebar-collapsed-w) - 20px) !important;
+    min-width: calc(var(--owner-sidebar-collapsed-w) - 20px) !important;
+    max-width: calc(var(--owner-sidebar-collapsed-w) - 20px) !important;
+    grid-template-columns: 1fr !important;
+    left: 10px !important;
+    overflow: hidden !important;
+  }
+
+  .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar .sidebar-brand__identity,
+  .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar.is-collapsed .sidebar-brand__identity {
+    width: 56px !important;
+    min-width: 56px !important;
+    max-width: 56px !important;
+    grid-template-columns: 56px !important;
+  }
+
+  .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar .sidebar-brand__identity > div:not(.brand-mark),
+  .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar .sidebar-brand__identity > button + div,
+  .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar .brand-title,
+  .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar .brand-subtitle,
+  .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar .sidebar-brand__toggle.sidebar-brand__toggle--bare {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar .sidebar-brand__toggle.sidebar-brand__toggle--bare,
+  .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar .sidebar-brand__toggle.sidebar-brand__toggle--bare:hover,
+  .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar .sidebar-brand__toggle.sidebar-brand__toggle--bare:focus-visible {
+    display: grid !important;
+    position: fixed !important;
+    top: 38px !important;
+    left: 270px !important;
+    z-index: 180 !important;
+    width: 30px !important;
+    min-width: 30px !important;
+    max-width: 30px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    max-height: 30px !important;
+    place-items: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: rgba(226, 236, 255, 0.9) !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
+  .dashboard-shell .dashboard-sidebar .sidebar-brand__toggle.sidebar-brand__toggle--bare,
+  .dashboard-shell .dashboard-sidebar .sidebar-brand__toggle.sidebar-brand__toggle--bare:hover,
+  .dashboard-shell .dashboard-sidebar .sidebar-brand__toggle.sidebar-brand__toggle--bare:focus-visible {
+    display: grid !important;
+    position: fixed !important;
+    top: 38px !important;
+    left: 270px !important;
+    z-index: 180 !important;
+    width: 30px !important;
+    min-width: 30px !important;
+    max-width: 30px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    max-height: 30px !important;
+    place-items: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: rgba(226, 236, 255, 0.9) !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: none !important;
+    translate: none !important;
+  }
+}
+
+/* Compact report date/time picker and topbar date trigger. */
+.dashboard-topbar .topbar-left .mj-datepicker__trigger,
+.dashboard-topbar .mj-datepicker__trigger {
+  height: 38px !important;
+  min-height: 38px !important;
+  gap: 8px !important;
+  padding: 0 12px !important;
+  border-radius: 12px !important;
+  font-size: 13px !important;
+}
+
+.dashboard-topbar .topbar-left .mj-datepicker__value,
+.dashboard-topbar .topbar-left .mj-datepicker__time {
+  font-size: 13px !important;
+}
+
+.dashboard-topbar .topbar-left .mj-datepicker__icon svg,
+.dashboard-topbar .topbar-left .mj-datepicker__time svg {
+  width: 15px !important;
+  height: 15px !important;
+}
+
+.report-actions .report-date-calendar-popover {
+  width: min(580px, calc(100vw - 44px)) !important;
+  border-radius: 13px !important;
+}
+
+.report-actions .report-date-picker-body {
+  grid-template-columns: minmax(0, 1fr) 148px !important;
+}
+
+.report-actions .report-date-calendar-panel {
+  padding: 13px 13px 10px !important;
+}
+
+.report-actions .report-date-calendar-toolbar {
+  grid-template-columns: 32px 1fr 1fr 32px !important;
+  gap: 7px !important;
+  margin-bottom: 9px !important;
+}
+
+.report-actions .report-date-calendar-toolbar button,
+.report-actions .report-date-calendar-toolbar select {
+  min-height: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+}
+
+.report-actions .report-date-calendar-week span {
+  padding-bottom: 6px !important;
+  font-size: 10px !important;
+}
+
+.report-actions .report-date-calendar-grid button {
+  min-height: 31px !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+}
+
+.report-actions .report-date-time-panel {
+  padding: 13px 10px 10px !important;
+}
+
+.report-actions .report-date-time-title {
+  min-height: 26px !important;
+  margin-bottom: 8px !important;
+  font-size: 12px !important;
+}
+
+.report-actions .report-date-time-columns {
+  gap: 6px !important;
+}
+
+.report-actions .report-date-time-list {
+  max-height: 224px !important;
+  border-radius: 8px !important;
+}
+
+.report-actions .report-date-time-list button {
+  min-height: 29px !important;
+  font-size: 12px !important;
+}
+
+.report-actions .report-date-calendar-footer {
+  gap: 8px !important;
+  padding: 9px 12px !important;
+}
+
+.report-actions .report-date-today-button,
+.report-actions .report-date-calendar-ok {
+  min-height: 35px !important;
+  height: 35px !important;
+  border-radius: 9px !important;
+  font-size: 12px !important;
+}
+
+/* Waiters report: make the date button open the shared report calendar without changing its layout. */
+.z-waiters-report__date-picker {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  min-width: 174px !important;
+  width: 174px !important;
+  height: 39px !important;
+  min-height: 39px !important;
+  flex: 0 0 174px !important;
+  z-index: 25 !important;
+}
+
+.z-waiters-report__date-picker.report-actions .report-period-picker {
+  display: inline-flex !important;
+  grid-template-columns: none !important;
+  align-items: center !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 39px !important;
+  height: 39px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.z-waiters-report__date-picker.report-actions .report-period-picker .z-waiters-report__date {
+  width: 100% !important;
+  min-width: 0 !important;
+  padding: 0 12px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+
+.z-waiters-report__date-picker.report-actions .report-period-picker .z-waiters-report__date span {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.z-waiters-report__date-picker.report-actions .report-date-menu {
+  top: calc(100% + 8px) !important;
+  left: 0 !important;
+  right: auto !important;
+  z-index: 80 !important;
 }

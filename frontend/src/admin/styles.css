@@ -4438,3 +4438,177 @@ body::-webkit-scrollbar,
 .admin-content {
   margin-left: -12px !important;
 }
+
+/* Match owner shell dimensions on desktop. */
+:root {
+  --admin-owner-sidebar-w: 224px;
+  --admin-owner-header-h: 69px;
+  --admin-owner-content-radius: 13px;
+}
+
+@media (min-width: 981px) and (max-width: 1280px) {
+  :root {
+    --admin-owner-sidebar-w: 204px;
+  }
+}
+
+@media (min-width: 981px) {
+  .admin-shell:not(.is-sidebar-collapsed) {
+    grid-template-columns: var(--admin-owner-sidebar-w) minmax(0, 1fr) !important;
+  }
+
+  .admin-shell:not(.is-sidebar-collapsed) .admin-sidebar {
+    width: var(--admin-owner-sidebar-w) !important;
+    min-width: var(--admin-owner-sidebar-w) !important;
+    padding: 21px 10px 16px !important;
+  }
+
+  .admin-main {
+    padding: 0 0 14px !important;
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+  }
+
+  .admin-header {
+    box-sizing: border-box !important;
+    height: var(--admin-owner-header-h) !important;
+    min-height: var(--admin-owner-header-h) !important;
+    margin: 0 !important;
+    padding: 16px 25px 14px !important;
+  }
+
+  .admin-header h1 {
+    font-size: 24px !important;
+    line-height: 1 !important;
+  }
+
+  .admin-header p {
+    margin-top: 4px !important;
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+  }
+
+  .admin-brand {
+    gap: 10px !important;
+    padding: 0 4px 2px !important;
+    border-bottom: 0 !important;
+  }
+
+  .admin-brand img {
+    width: 39px !important;
+    height: 39px !important;
+  }
+
+  .admin-sidebar-collapse {
+    display: none !important;
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 9px !important;
+  }
+
+  .admin-nav {
+    gap: 8px !important;
+    padding-top: 2px !important;
+  }
+
+  .admin-nav button {
+    min-height: 36px !important;
+    padding: 0 14px !important;
+    border-radius: 10px !important;
+    font-size: 12px !important;
+  }
+
+  .admin-nav button i,
+  .admin-nav button svg:not(.admin-nav-group__chevron) {
+    width: 19px !important;
+    height: 19px !important;
+  }
+
+  .admin-search,
+  .admin-date-picker,
+  .admin-date-step,
+  .admin-date,
+  .admin-bell,
+  .admin-profile,
+  .admin-logout {
+    height: 34px !important;
+    min-height: 34px !important;
+    border-radius: 10px !important;
+  }
+
+  .admin-date-step,
+  .admin-bell,
+  .admin-logout {
+    width: 34px !important;
+  }
+
+  .admin-profile__avatar {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 9px !important;
+  }
+
+  .admin-profile-card {
+    min-height: 66px !important;
+    padding: 8px 10px !important;
+    border-radius: 15px !important;
+  }
+
+  .admin-profile-card--collapse {
+    width: 34px !important;
+    min-height: 34px !important;
+    height: 34px !important;
+    padding: 0 !important;
+    justify-content: center !important;
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+  }
+
+  .admin-profile-card--collapse:hover,
+  .admin-profile-card--collapse:focus-visible {
+    opacity: 1 !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+  }
+
+  .admin-sidebar > .admin-profile-card:not(.admin-profile-card--collapse) {
+    display: none !important;
+  }
+
+  .admin-profile-card__avatar {
+    width: 39px !important;
+    height: 39px !important;
+    border-radius: 12px !important;
+  }
+
+  .admin-profile-card__avatar--collapse svg {
+    width: 19px !important;
+    height: 19px !important;
+  }
+
+  .admin-profile-card--collapse .admin-profile-card__avatar--collapse {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 10px !important;
+    background: transparent !important;
+    color: rgba(226, 232, 240, 0.78) !important;
+  }
+
+  .admin-profile-card--collapse .admin-profile-card__info {
+    display: none !important;
+  }
+
+  .admin-content {
+    margin-top: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding: 26px !important;
+    border-radius: var(--admin-owner-content-radius) 0 0 0 !important;
+  }
+}
+
+.admin-brand .admin-sidebar-collapse,
+.admin-sidebar > .admin-profile-card:not(.admin-profile-card--collapse) {
+  display: none !important;
+}

@@ -16,7 +16,7 @@ export const ROLES = {
 const ROLE_SECTIONS = {
   owner: "*",
   superadmin: "*",
-  manager: ["dashboard", "reports", "users", "nomenclature", "warehouse", "finance", "settings", "orders", "qr", "subscription"],
+  manager: ["dashboard", "reports", "users", "nomenclature", "warehouse", "warehouse-report", "finance", "settings", "orders", "qr", "subscription"],
   cashier: ["dashboard", "orders", "settings.profile"],
   waiter: ["waiter"],
   kitchen: ["kitchen"],

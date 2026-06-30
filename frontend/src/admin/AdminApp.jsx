@@ -727,6 +727,15 @@ function Sidebar({ active, onSelect, collapsed, onToggle, user, onProfile }) {
           );
         })}
       </nav>
+      <button className="admin-profile-card admin-profile-card--collapse" type="button" onClick={onToggle} aria-pressed={collapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
+        <span className="admin-profile-card__avatar admin-profile-card__avatar--collapse">
+          <Icon name={collapsed ? "bi-chevron-right" : "bi-chevron-left"} size={18} />
+        </span>
+        <span className="admin-profile-card__info">
+          <strong>Свернуть</strong>
+          <small>Сайдбар</small>
+        </span>
+      </button>
       <button className="admin-profile-card" type="button" onClick={onProfile}>
         <span className="admin-profile-card__avatar">{(user?.name || "Александр П.").trim().slice(0, 1)}</span>
         <span className="admin-profile-card__info">

@@ -130,7 +130,7 @@ function fromDateInputText(value) {
   };
 }
 
-export default function ReportDateRangePicker({ value, onChange }) {
+export default function ReportDateRangePicker({ value, onChange, buttonClassName = "", showChevrons = false }) {
   const rootRef = useRef(null);
   const hourListRef = useRef(null);
   const minuteListRef = useRef(null);
@@ -283,10 +283,15 @@ export default function ReportDateRangePicker({ value, onChange }) {
     return () => window.cancelAnimationFrame(frame);
   }, [activePicker, activeTime]);
 
+  const periodLabel = formatPeriodLabel(value);
+  const buttonClasses = ["report-period-button", buttonClassName].filter(Boolean).join(" ");
+
   return (
     <div className="report-period-picker" ref={rootRef}>
-      <button className="report-period-button" type="button" onClick={openPicker} aria-expanded={open}>
-        <span>{formatPeriodLabel(value)}</span>
+      <button className={buttonClasses} type="button" onClick={openPicker} aria-expanded={open}>
+        {showChevrons ? <Icon name="bi-chevron-left" size={18} /> : null}
+        <span>{periodLabel}</span>
+        {showChevrons ? <Icon name="bi-chevron-right" size={18} /> : null}
       </button>
       {open ? (
         <div className="report-date-menu">

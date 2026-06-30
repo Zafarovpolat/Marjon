@@ -18,6 +18,27 @@ import {
   Inbox
 } from 'lucide-react'
 
+function SidebarCollapseIcon({ size = 16, strokeWidth = 3.2, className, style }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      style={style}
+      focusable="false"
+    >
+      <path d="M6 6.5H26" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" />
+      <path d="M19 13H26" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" />
+      <path d="M19 19H26" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" />
+      <path d="M6 25.5H26" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" />
+      <path d="M14.5 12L7.5 16L14.5 20V12Z" stroke="currentColor" strokeWidth={strokeWidth} strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 const ICON_MAP = {
   /* ── Navigation ─────────────────── */
   'bi-arrow-left':             ArrowLeft,
@@ -54,6 +75,7 @@ const ICON_MAP = {
   'bi-eye-slash':              EyeOff,
   'bi-sort-down':              ListOrdered,
   'bi-layout-sidebar-inset':   PanelLeft,
+  'bi-sidebar-collapse':       SidebarCollapseIcon,
   'bi-layout-wtf':             LayoutPanelTop,
 
   /* ── Status / Alerts ────────────── */
