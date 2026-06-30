@@ -34,8 +34,8 @@ import SettingsPaymentMethodsPage from "./pages/settings/SettingsPaymentMethodsP
 import SettingsUnitsPage from "./pages/settings/SettingsUnitsPage";
 import SettingsProfilePage from "./pages/settings/SettingsProfilePage";
 import SettingsPrintersPage from "./pages/settings/SettingsPrintersPage";
-import SettingsReceiptPage from "./pages/settings/SettingsReceiptPage";
-import SettingsKitchenReceiptPage from "./pages/settings/SettingsKitchenReceiptPage";
+import SettingsReceiptPage from "./pages/settings/ReceiptSettingsPage";
+import SettingsKitchenReceiptPage from "./pages/settings/ChefReceiptSettingsPage";
 import { AuthProvider } from "./context/AuthContext";
 import { OrgProvider } from "./context/OrgContext";
 import { ThemeProvider } from "./context/ThemeContext";
