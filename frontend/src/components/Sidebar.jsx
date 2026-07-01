@@ -250,16 +250,6 @@ export default function Sidebar({ user, collapsed, onToggle }) {
             <div className="brand-subtitle">Restaurant OS</div>
           </div>
         </div>
-        <button
-          className="sidebar-brand__toggle sidebar-brand__toggle--bare"
-          type="button"
-          onClick={onToggle}
-          aria-label={collapsed ? "Открыть меню" : "Свернуть меню"}
-          aria-expanded={!collapsed}
-          title={collapsed ? "Открыть меню" : "Свернуть меню"}
-        >
-          <Icon name="bi-sidebar-collapse" size={24} strokeWidth={3.15} className="sidebar-brand__toggle-icon" aria-hidden="true" />
-        </button>
       </div>
 
       <nav className="sidebar-nav" aria-label="Навигация">
