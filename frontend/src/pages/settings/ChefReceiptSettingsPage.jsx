@@ -81,21 +81,6 @@ export default function ChefReceiptSettingsPage() {
 
   return (
     <section className="receipt-page">
-      <div className="receipt-page__header receipt-page__header--kitchen">
-        <div>
-          <span className="eyebrow">Настройки</span>
-          <h2>Настройка чека повара</h2>
-          <p>Формат кухонного задания для цехов, комментариев и автоматической печати.</p>
-        </div>
-        <div className="receipt-page__actions">
-          <button className="btn btn-ghost" type="button" onClick={handleTestPrint} disabled={loading || printing}>
-            {printing ? "Печать..." : "Тестовая печать"}
-          </button>
-          <button className="btn btn-primary" type="button" onClick={handleSave} disabled={loading || saving}>
-            {saving ? "Сохранение..." : "Сохранить"}
-          </button>
-        </div>
-      </div>
 
       {error ? <div className="message message-error">{error}</div> : null}
       {message ? <div className="message message-success">{message}</div> : null}

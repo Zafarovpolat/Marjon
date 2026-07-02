@@ -40,7 +40,8 @@ export function OrgProvider({ children }) {
       setOrg(merged);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     } catch {
-      // Тихий фоллбэк: оставляем cached/default
+        console.warn("settings/organization не найден:", err.response?.status);
+  setOrg(null);
     } finally {
       setLoading(false);
     }

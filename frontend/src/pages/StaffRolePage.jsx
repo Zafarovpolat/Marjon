@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { api, fetchStaffUsers } from "../api/client";
 import Icon from "../components/Icon";
 
 const roleOptions = [
@@ -325,7 +326,30 @@ function StaffRolePage({ role = "all" }) {
   const pageTitle =
     routeRole === "all" ? "Список сотрудников" : `Список сотрудников: ${roleMap[routeRole].title}`;
 
-  const [staff, setStaff] = useState(initialStaff);
+  const [staff, setStaff] = useState([]);
+const [staffLoading, setStaffLoading] = useState(true);
+
+useEffect(() => {
+  fetchStaffUsers()
+    .then((data) => {
+      const mapped = (data || []).map((user) => ({
+        id: user.id,
+        fullName: user.role_name || user.email?.split("@")[0] || "—",
+        phone: user.phone || "",
+        roleKey: user.role_slug || "cashier",
+        permission: user.role_slug || "Базовый доступ",
+        status: user.is_active !== false ? "active" : "archived",
+        pin: "",
+        password: "",
+        comment: "",
+        photo: "",
+        access: {},
+      }));
+      setStaff(mapped);
+    })
+    .catch(() => {})
+    .finally(() => setStaffLoading(false));
+}, []);
   const [activeTab, setActiveTab] = useState("active");
   const [draftFilters, setDraftFilters] = useState({
     query: "",
@@ -424,39 +448,51 @@ function StaffRolePage({ role = "all" }) {
     reader.readAsDataURL(file);
   };
 
-  const saveStaff = (event) => {
-    event.preventDefault();
-    const normalizedForm = {
-      ...form,
-      permission: getPermissionSummary(form),
-    };
+const saveStaff = async (event) => {
+  event.preventDefault();
+  const phone = normalizePhone(form.phone, form.phoneCountry);
+  const email = `${phone || Date.now()}@staff.marjon`;
 
-    if (editingId) {
-      setStaff((current) =>
-        current.map((employee) =>
-          employee.id === editingId
-            ? {
-                ...employee,
-                ...normalizedForm,
-                id: editingId,
-                status: form.status === "archived" ? "archived" : "active",
-              }
-            : employee,
-        ),
-      );
+  try {
+    if (!editingId) {
+      const { data: newUser } = await api.post("/auth/users", {
+        email,
+        password: form.password || "Pass1234",
+        phone: phone || null,
+        role_slug: form.roleKey || "cashier",
+        role_name: form.fullName,
+      });
+      setStaff((current) => [{
+        id: newUser.id,
+        fullName: form.fullName,
+        phone,
+        roleKey: form.roleKey,
+        permission: getPermissionSummary(form),
+        status: "active",
+        pin: form.pin,
+        password: form.password,
+        comment: form.comment,
+        photo: form.photo || "",
+        access: form.access || {},
+      }, ...current]);
     } else {
-      setStaff((current) => [
-        {
-          ...normalizedForm,
-          id: Date.now(),
-          status: form.status === "archived" ? "archived" : "active",
-        },
-        ...current,
-      ]);
+      setStaff((current) => current.map((emp) =>
+        emp.id === editingId ? { ...emp, ...form, permission: getPermissionSummary(form) } : emp
+      ));
     }
-
     closeModal();
-  };
+  } catch (err) {
+    console.error("Ошибка сохранения:", err.response?.data?.detail || err.message);
+    // Fallback: save locally
+    const normalized = { ...form, permission: getPermissionSummary(form) };
+    if (editingId) {
+      setStaff((c) => c.map((e) => e.id === editingId ? { ...e, ...normalized } : e));
+    } else {
+      setStaff((c) => [{ ...normalized, id: Date.now(), status: "active" }, ...c]);
+    }
+    closeModal();
+  }
+};
 
   const archiveStaff = (id) => {
     setStaff((current) =>

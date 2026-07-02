@@ -1,176 +1,145 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "../api/client";
 import Icon from "../components/Icon";
 
-const categoryConfigs = {
-  dishes: {
-    title: "Категория блюд",
-    rows: ["Горячие блюда", "Супы", "Напитки", "Выпечка", "Салаты"],
-  },
-  raw: {
-    title: "Категория сырья",
-    rows: ["Мясо", "Овощи", "Крупы", "Напитки", "Специи"],
-  },
-  semi: {
-    title: "Категория полуфабрикатов",
-    rows: ["Заготовки", "Тесто", "Фарш", "Соусы"],
-  },
-  sales: {
-    title: "Категория реализации",
-    rows: ["Основное меню", "Доставка", "Банкет", "Завтрак", "Бар"],
-  },
+const TYPE_CONFIG = {
+  dishes: { label: "Категории блюд", slug_prefix: "dish" },
+  raw: { label: "Категории сырья", slug_prefix: "raw" },
+  semi: { label: "Категории полуфабрикатов", slug_prefix: "semi" },
+  sales: { label: "Категории реализации", slug_prefix: "sales" },
 };
 
-function makeRows(config) {
-  return config.rows.map((name, index) => ({
-    id: index + 1,
-    name,
-    parent: index % 2 === 0 ? "Нет" : "Основная",
-    count: 12 + index * 4,
-    status: "Активно",
-  }));
-}
-
-function CategoriesPage({ type = "dishes" }) {
-  const config = categoryConfigs[type] || categoryConfigs.dishes;
-  const [rows, setRows] = useState(() => makeRows(config));
-  const [activeTab, setActiveTab] = useState("Активно");
+export default function CategoriesPage({ type = "dishes" }) {
+  const config = TYPE_CONFIG[type] || TYPE_CONFIG.dishes;
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ name: "", slug: "", sort_order: 0 });
+  const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({ name: "", parent: "", status: "Активно" });
 
-  const visibleRows = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return rows.filter((row) => row.status === activeTab && (!query || row.name.toLowerCase().includes(query)));
-  }, [activeTab, rows, search]);
-
-  const openAdd = () => {
-    setEditingId(null);
-    setForm({ name: "", parent: "", status: "Активно" });
-    setDrawerOpen(true);
-  };
-
-  const openEdit = (row) => {
-    setEditingId(row.id);
-    setForm({ name: row.name, parent: row.parent, status: row.status });
-    setDrawerOpen(true);
-  };
-
-  const archiveRow = (id) => {
-    setRows((current) => current.map((row) => (row.id === id ? { ...row, status: "Архив" } : row)));
-  };
-
-  const saveRow = (event) => {
-    event.preventDefault();
-    if (editingId) {
-      setRows((current) => current.map((row) => (row.id === editingId ? { ...row, ...form, id: editingId } : row)));
-    } else {
-      setRows((current) => [{ id: Date.now(), ...form, count: 0 }, ...current]);
+  async function load() {
+    setLoading(true);
+    setError("");
+    try {
+      const { data } = await api.get("/inventory/categories");
+      setRows(data);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Не удалось загрузить категории.");
+    } finally {
+      setLoading(false);
     }
-    setDrawerOpen(false);
-  };
+  }
+
+  useEffect(() => { load(); }, [type]);
+
+  async function handleSave() {
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try {
+      const slug = form.slug.trim() ||
+        `${config.slug_prefix}-${form.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}`;
+      await api.post("/inventory/categories", {
+        name: form.name.trim(),
+        slug,
+        sort_order: Number(form.sort_order || 0),
+      });
+      setShowForm(false);
+      setForm({ name: "", slug: "", sort_order: 0 });
+      load();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Не удалось сохранить категорию.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const visible = search.trim()
+    ? rows.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()))
+    : rows;
 
   return (
-    <div className="nomenclature-page">
-      <section className="nomenclature-card">
-        <header className="nomenclature-header">
-          <div className="nomenclature-title-group">
-            <span className="nomenclature-accent-bar" />
+    <section className="nomenclature-page">
+      <div className="nomenclature-card">
+        <div className="nomenclature-header">
+          <div className="report-title-group">
+            <span className="report-accent-bar" />
             <div>
-              <p>Номенклатура</p>
-              <h1>{config.title}</h1>
+              <h1>{config.label}</h1>
+              <p>Управление категориями номенклатуры.</p>
             </div>
           </div>
           <div className="nomenclature-actions">
-            <button type="button" className="nomenclature-primary-action" onClick={openAdd}>
-              <Icon name="bi-plus" size={18} />
-              Добавить +
+            <button type="button" className="btn-primary" onClick={() => setShowForm(true)}>
+              <Icon name="bi-plus" /> Добавить
             </button>
           </div>
-        </header>
-
-        <div className="nomenclature-tabs">
-          {["Активно", "Архив"].map((tab) => (
-            <button key={tab} type="button" className={activeTab === tab ? "is-active" : ""} onClick={() => setActiveTab(tab)}>
-              {tab === "Активно" ? "Активные" : "Архив"}
-            </button>
-          ))}
         </div>
 
-        <div className="nomenclature-filters nomenclature-filters--compact">
-          <label>
-            <span>Поиск</span>
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск категории" />
-          </label>
-          <div className="nomenclature-filter-actions">
-            <button type="button">Фильтровать</button>
-            <button type="button" className="nomenclature-clear-action" onClick={() => setSearch("")}>Очистить</button>
+        {error ? <div className="login-error">{error}</div> : null}
+
+        {showForm ? (
+          <div style={{ background: "var(--neutral-50)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+            <h3 style={{ marginBottom: 12 }}>Новая категория</h3>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+              <div style={{ flex: "1 1 200px" }}>
+                <label style={{ display: "block", marginBottom: 4, fontSize: 12 }}>Название *</label>
+                <input className="pos-search-input" placeholder="Название категории" value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+              </div>
+              <div style={{ flex: "1 1 200px" }}>
+                <label style={{ display: "block", marginBottom: 4, fontSize: 12 }}>Slug (авто)</label>
+                <input className="pos-search-input" placeholder="my-category" value={form.slug}
+                  onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} />
+              </div>
+              <div style={{ flex: "0 1 120px" }}>
+                <label style={{ display: "block", marginBottom: 4, fontSize: 12 }}>Порядок</label>
+                <input className="pos-search-input" type="number" value={form.sort_order}
+                  onChange={(e) => setForm((f) => ({ ...f, sort_order: e.target.value }))} />
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="btn-primary" type="button" disabled={saving || !form.name.trim()} onClick={handleSave}>
+                {saving ? "Сохранение..." : "Сохранить"}
+              </button>
+              <button className="btn-soft" type="button" onClick={() => setShowForm(false)}>Отмена</button>
+            </div>
           </div>
+        ) : null}
+
+        <div className="nomenclature-filters">
+          <label>
+            <Icon name="bi-search" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск по названию" />
+          </label>
         </div>
 
         <div className="nomenclature-table-wrapper">
           <table className="nomenclature-table">
             <thead>
-              <tr>
-                <th>Название</th>
-                <th>Родительская категория</th>
-                <th>Кол-во элементов</th>
-                <th>Статус</th>
-                <th>Действия</th>
-              </tr>
+              <tr><th>Название</th><th>Slug</th><th>Порядок</th><th>Статус</th></tr>
             </thead>
             <tbody>
-              {visibleRows.map((row) => (
+              {loading ? (
+                <tr><td colSpan={4} style={{ textAlign: "center", padding: 24 }}>Загрузка...</td></tr>
+              ) : visible.map((row) => (
                 <tr key={row.id}>
-                  <td className="nomenclature-name-cell">{row.name}</td>
-                  <td>{row.parent || "Нет"}</td>
-                  <td>{row.count}</td>
-                  <td><span className={`nomenclature-status-badge ${row.status === "Архив" ? "is-archived" : ""}`}>{row.status}</span></td>
-                  <td>
-                    <div className="nomenclature-row-actions">
-                      <button type="button" className="edit-action-button" onClick={() => openEdit(row)} aria-label="Edit" title="Edit"><Icon name="bi-pencil" size={15} /></button>
-                      <button type="button" className="is-danger" onClick={() => archiveRow(row.id)} aria-label="Archive" title="Archive"><Icon name="bi-trash3" size={15} /></button>
-                    </div>
-                  </td>
+                  <td><strong>{row.name}</strong></td>
+                  <td><code style={{ fontSize: 12 }}>{row.slug}</code></td>
+                  <td>{row.sort_order}</td>
+                  <td><span className={`nomenclature-status-badge ${row.is_active ? "" : "archived"}`}>
+                    {row.is_active ? "Активно" : "Архив"}
+                  </span></td>
                 </tr>
               ))}
-              {!visibleRows.length ? <tr><td colSpan={5} className="nomenclature-empty">Нет данных</td></tr> : null}
+              {!loading && !visible.length ? (
+                <tr><td colSpan={4} style={{ textAlign: "center", padding: 24 }}>Категорий пока нет.</td></tr>
+              ) : null}
             </tbody>
           </table>
         </div>
-      </section>
-
-      {drawerOpen ? (
-        <div className="nomenclature-drawer" role="dialog" aria-modal="true">
-          <div className="nomenclature-drawer__backdrop" onClick={() => setDrawerOpen(false)} />
-          <form className="nomenclature-form" onSubmit={saveRow}>
-            <div className="nomenclature-form__header">
-              <div>
-                <p>{editingId ? "Редактирование" : "Новая категория"}</p>
-                <h2>{config.title}</h2>
-              </div>
-              <button type="button" onClick={() => setDrawerOpen(false)} aria-label="Закрыть"><Icon name="bi-x-lg" size={20} /></button>
-            </div>
-            <div className="nomenclature-form__grid">
-              <label><span>Название</span><input required value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></label>
-              <label><span>Родительская категория</span><input value={form.parent} onChange={(event) => setForm((current) => ({ ...current, parent: event.target.value }))} /></label>
-              <label>
-                <span>Статус</span>
-                <select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}>
-                  <option value="Активно">Активно</option>
-                  <option value="Архив">Архив</option>
-                </select>
-              </label>
-            </div>
-            <div className="nomenclature-form__footer">
-              <button type="button" onClick={() => setDrawerOpen(false)}>Отмена</button>
-              <button type="submit">Сохранить</button>
-            </div>
-          </form>
-        </div>
-      ) : null}
-    </div>
+      </div>
+    </section>
   );
 }
-
-export default CategoriesPage;

@@ -566,8 +566,8 @@ function QuickActionsCard({ activeOrders, occupancy, avgTime }) {
 
       <div className="quick-actions__grid">
         <Link to="/orders"><Icon name="bi-plus-circle" size={20} /><span>Новый заказ</span><small>Создать продажу</small></Link>
-        <Link to="/menu"><Icon name="bi-journal-plus" size={20} /><span>Добавить блюдо</span><small>18 блюд в меню</small></Link>
-        <Link to="/staff"><Icon name="bi-person-plus" size={20} /><span>Сотрудник</span><small>0 в команде</small></Link>
+        <Link to="/menu"><Icon name="bi-journal-plus" size={20} /><span>Добавить блюдо</span><small>{products.length} блюд в меню</small></Link>
+        <Link to="/staff"><Icon name="bi-person-plus" size={20} /><span>Сотрудник</span><small>{employees.length} в команде</small></Link>
         <Link to="/finance"><Icon name="bi-file-earmark-spreadsheet" size={20} /><span>Финансы</span><small>Отчеты и касса</small></Link>
       </div>
 
@@ -578,11 +578,11 @@ function QuickActionsCard({ activeOrders, occupancy, avgTime }) {
         </div>
         <div className="quick-actions__metric">
           <span>Меню</span>
-          <strong>18</strong>
+          <strong>{products.length}</strong>
         </div>
         <div className="quick-actions__metric">
           <span>Команда</span>
-          <strong>0</strong>
+          <strong>{employees.length}</strong>
         </div>
         <div className="quick-actions__metric">
           <span>Столы заняты</span>
@@ -826,9 +826,26 @@ export default function OwnerDashboard() {
     return () => { mounted = false; };
   }, [period, selectedDate]);
 
-  const displaySales = useMemo(() => demoSales(period, selectedDate), [period, selectedDate]);
+  const displaySales = useMemo(
+  () => (sales.length > 0 ? sales : demoSales(period, selectedDate)),
+  [sales, period, selectedDate]
+);
   const kpis = useMemo(() => demoKpis(displaySales, selectedDate), [displaySales, selectedDate]);
-  const displayTopDishes = useMemo(() => demoTopDishes(selectedDate), [selectedDate]);
+  const displayTopDishes = useMemo(() => {
+  if (topProducts.length > 0) {
+    const maxRevenue = Number(topProducts[0]?.revenue || 1);
+    return topProducts.map((item, index) => ({
+      product_id: item.product_id || `p-${index}`,
+      name: item.name,
+      quantity: item.quantity_sold,
+      revenue: Number(item.revenue || 0),
+      change: "",
+      positive: true,
+      progress: Math.max(22, Math.round((Number(item.revenue || 0) / maxRevenue) * 100)),
+    }));
+  }
+  return demoTopDishes(selectedDate);
+}, [topProducts, selectedDate]);
   const warehouseSummary = useMemo(() => demoWarehouseSummary(selectedDate), [selectedDate]);
   const recentOrdersList = useMemo(() => demoRecentOrders(selectedDate), [selectedDate]);
   const revenueStats = useMemo(() => {

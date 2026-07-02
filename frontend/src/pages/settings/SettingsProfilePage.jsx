@@ -1,62 +1,76 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "../../api/client";
 
-function SettingsProfilePage() {
-  const [form, setForm] = useState({
-    name: "SARDOR AVTO T",
-    logo: "",
-    phone: "+998 90 000 00 00",
-    address: "Tashkent",
-    inn: "123456789",
-    defaultCurrency: "UZS",
-    language: "Русский",
-    timezone: "Asia/Tashkent",
-    dayStart: "09:00",
-    servicePercent: "10%",
-    currency: "UZS",
-    deposit: true,
-  });
+export default function SettingsProfilePage() {
+  const [form, setForm] = useState({ name: "", phone: "", address: "", inn: "", currency: "UZS" });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+  useEffect(() => {
+    api.get("/companies/me")
+      .then(({ data }) => setForm({
+        name: data.name || "",
+        phone: data.phone || "",
+        address: data.address || "",
+        inn: data.inn || "",
+        currency: data.currency || "UZS",
+      }))
+      .catch((err) => setError(err.response?.data?.detail || "Не удалось загрузить профиль."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSave() {
+    setSaving(true); setError(""); setSuccess("");
+    try {
+      await api.patch("/companies/me", form);
+      setSuccess("Профиль сохранён.");
+    } catch (err) {
+      setError(err.response?.data?.detail || "Не удалось сохранить профиль.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+
+  if (loading) return <section className="card card-pad"><p>Загрузка...</p></section>;
 
   return (
-    <div className="settings-page">
-      <section className="settings-card">
-        <header className="settings-header">
-          <div className="settings-title-group">
-            <span className="settings-accent-bar" />
-            <div><p>Настройки</p><h1>Настройка профиля</h1></div>
+    <section className="card card-pad">
+      <div className="section-header">
+        <div><span className="eyebrow">Настройки</span><h2>Профиль компании</h2></div>
+      </div>
+      {error ? <div className="login-error">{error}</div> : null}
+      {success ? <div className="message message-success" style={{ marginBottom: 12 }}>{success}</div> : null}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, marginTop: 16 }}>
+        {[
+          { key: "name", label: "Название компании", placeholder: "MARJON" },
+          { key: "phone", label: "Телефон", placeholder: "+998..." },
+          { key: "address", label: "Адрес", placeholder: "г. Ташкент, ул. ..." },
+          { key: "inn", label: "ИНН", placeholder: "123456789" },
+        ].map(({ key, label, placeholder }) => (
+          <div key={key}>
+            <label style={{ display: "block", marginBottom: 6, fontSize: 13, fontWeight: 600 }}>{label}</label>
+            <input className="pos-search-input" value={form[key]} onChange={(e) => set(key, e.target.value)} placeholder={placeholder} />
           </div>
-        </header>
-
-        <div className="settings-profile-grid">
-          <article>
-            <h2>Информация ресторана</h2>
-            <label><span>Название ресторана</span><input value={form.name} onChange={(event) => update("name", event.target.value)} /></label>
-            <label><span>Логотип</span><input value={form.logo} onChange={(event) => update("logo", event.target.value)} placeholder="URL логотипа" /></label>
-            <label><span>Телефон</span><input value={form.phone} onChange={(event) => update("phone", event.target.value)} /></label>
-            <label><span>Адрес</span><input value={form.address} onChange={(event) => update("address", event.target.value)} /></label>
-            <label><span>ИНН</span><input value={form.inn} onChange={(event) => update("inn", event.target.value)} /></label>
-            <label><span>Валюта по умолчанию</span><select value={form.defaultCurrency} onChange={(event) => update("defaultCurrency", event.target.value)}><option>UZS</option><option>USD</option></select></label>
-            <label><span>Язык интерфейса</span><select value={form.language} onChange={(event) => update("language", event.target.value)}><option>Русский</option><option>Uzbek</option></select></label>
-          </article>
-
-          <article>
-            <h2>Рабочие настройки</h2>
-            <label><span>Часовой пояс</span><input value={form.timezone} onChange={(event) => update("timezone", event.target.value)} /></label>
-            <label><span>Начало рабочего дня</span><input value={form.dayStart} onChange={(event) => update("dayStart", event.target.value)} /></label>
-            <label><span>Сервисный процент</span><input value={form.servicePercent} onChange={(event) => update("servicePercent", event.target.value)} /></label>
-            <label><span>Валюта</span><select value={form.currency} onChange={(event) => update("currency", event.target.value)}><option>UZS</option><option>USD</option></select></label>
-            <label className="settings-toggle-row"><span>Включить депозит</span><input type="checkbox" checked={form.deposit} onChange={(event) => update("deposit", event.target.checked)} /></label>
-          </article>
+        ))}
+        <div>
+          <label style={{ display: "block", marginBottom: 6, fontSize: 13, fontWeight: 600 }}>Валюта</label>
+          <select className="pos-select" value={form.currency} onChange={(e) => set("currency", e.target.value)}>
+            <option value="UZS">UZS — Узбекский сум</option>
+            <option value="USD">USD — Доллар</option>
+          </select>
         </div>
+      </div>
 
-        <footer className="settings-form__footer settings-profile-footer">
-          <button type="button">Отмена</button>
-          <button type="button" onClick={() => console.log("profile settings", form)}>Сохранить настройки</button>
-        </footer>
-      </section>
-    </div>
+      <div style={{ marginTop: 24 }}>
+        <button className="btn btn-primary" type="button" disabled={saving} onClick={handleSave}>
+          {saving ? "Сохранение..." : "Сохранить"}
+        </button>
+      </div>
+    </section>
   );
 }
-
-export default SettingsProfilePage;

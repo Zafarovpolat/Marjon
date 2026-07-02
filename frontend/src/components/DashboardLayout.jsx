@@ -102,11 +102,6 @@ export default function DashboardLayout() {
             onSelectedDateChange={setSelectedDate}
           />
           <main className="dashboard-content">
-            {showBackButton ? (
-              <div className="dashboard-back-slot">
-                <BackButton />
-              </div>
-            ) : null}
             <Outlet context={selectedDateContext} />
           </main>
           <SupportWidget />
