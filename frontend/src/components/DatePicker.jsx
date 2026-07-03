@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { todayInputValue } from "../utils/date";
-import { Calendar, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsUpDown } from "lucide-react";
+import Icon from './Icon';
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const MONTHS = [
@@ -41,9 +41,15 @@ export default function DatePicker({ value, max, onChange, onClear }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState(() => parseValue(value));
   const [showMonthList, setShowMonthList] = useState(false);
+  const [now, setNow] = useState(() => new Date());
   const wrapRef = useRef(null);
   const popoverRef = useRef(null);
   const [dropUp, setDropUp] = useState(false);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const today = useMemo(() => parseValue(todayInputValue()), []);
   const selected = useMemo(() => parseValue(value), [value]);
@@ -86,6 +92,21 @@ export default function DatePicker({ value, max, onChange, onClear }) {
     setDropUp(rect.bottom > window.innerHeight - 12);
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return undefined;
+    function lockScroll(event) {
+      const pop = popoverRef.current;
+      if (pop && pop.contains(event.target) && pop.scrollHeight > pop.clientHeight) return;
+      event.preventDefault();
+    }
+    window.addEventListener("wheel", lockScroll, { passive: false });
+    window.addEventListener("touchmove", lockScroll, { passive: false });
+    return () => {
+      window.removeEventListener("wheel", lockScroll);
+      window.removeEventListener("touchmove", lockScroll);
+    };
+  }, [open]);
+
   function isDisabled(date) {
     return maxDate ? date > maxDate : false;
   }
@@ -109,6 +130,7 @@ export default function DatePicker({ value, max, onChange, onClear }) {
   }
 
   const label = `${String(selected.getDate()).padStart(2, "0")}.${String(selected.getMonth() + 1).padStart(2, "0")}.${selected.getFullYear()}`;
+  const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
   return (
     <div className={`mj-datepicker ${open ? "is-open" : ""}`} ref={wrapRef}>
@@ -119,18 +141,23 @@ export default function DatePicker({ value, max, onChange, onClear }) {
         aria-haspopup="dialog"
         aria-expanded={open}
       >
-        <span className="mj-datepicker__icon"><Calendar size={16} strokeWidth={2.2} /></span>
-        <span className="mj-datepicker__value">{label}</span>
-        <span className="mj-datepicker__caret" aria-hidden="true">{open ? <ChevronUp size={14} strokeWidth={2.5} /> : <ChevronDown size={14} strokeWidth={2.5} />}</span>
+        <span className="mj-datepicker__date">
+          <span className="mj-datepicker__icon"><Icon name="bi-calendar3" size={18} /></span>
+          <span className="mj-datepicker__value">{label}</span>
+        </span>
+        <span className="mj-datepicker__divider" aria-hidden="true" />
+        <span className="mj-datepicker__time"><Icon name="bi-clock" size={16} />{time}</span>
       </button>
 
       {open ? (
-        <div
-          className={`mj-calendar ${dropUp ? "is-dropup" : ""}`}
-          role="dialog"
-          aria-label="Выбор даты"
-          ref={popoverRef}
-        >
+        <>
+          <div className="mj-calendar-overlay" onClick={() => setOpen(false)} />
+          <div
+            className={`mj-calendar ${dropUp ? "is-dropup" : ""}`}
+            role="dialog"
+            aria-label="Выбор даты"
+            ref={popoverRef}
+          >
           <div className="mj-calendar__header">
             <button
               type="button"
@@ -140,14 +167,14 @@ export default function DatePicker({ value, max, onChange, onClear }) {
             >
               <strong>{MONTHS[viewMonth]}</strong>
               <span>{viewYear}</span>
-              {showMonthList ? <ChevronUp size={14} strokeWidth={2.5} /> : <ChevronDown size={14} strokeWidth={2.5} />}
+              <Icon name={showMonthList ? "bi-caret-up-fill" : "bi-caret-down-fill"} size={16} />
             </button>
             <div className="mj-calendar__nav">
               <button type="button" onClick={() => stepMonth(-1)} aria-label="Предыдущий месяц">
-                <ChevronLeft size={16} strokeWidth={2.2} />
+                <Icon name="bi-chevron-left" size={18} />
               </button>
               <button type="button" onClick={() => stepMonth(1)} aria-label="Следующий месяц">
-                <ChevronRight size={16} strokeWidth={2.2} />
+                <Icon name="bi-chevron-right" size={18} />
               </button>
             </div>
           </div>
@@ -156,11 +183,11 @@ export default function DatePicker({ value, max, onChange, onClear }) {
             <div className="mj-calendar__months">
               <div className="mj-calendar__year-switch">
                 <button type="button" onClick={() => setView(new Date(viewYear - 1, viewMonth, 1))} aria-label="Прошлый год">
-                  <ChevronLeft size={16} strokeWidth={2.2} />
+                  <Icon name="bi-chevron-left" size={18} />
                 </button>
                 <strong>{viewYear}</strong>
                 <button type="button" onClick={() => setView(new Date(viewYear + 1, viewMonth, 1))} aria-label="Следующий год">
-                  <ChevronRight size={16} strokeWidth={2.2} />
+                  <Icon name="bi-chevron-right" size={18} />
                 </button>
               </div>
               <div className="mj-calendar__months-grid">
@@ -227,6 +254,7 @@ export default function DatePicker({ value, max, onChange, onClear }) {
             </button>
           </div>
         </div>
+        </>
       ) : null}
     </div>
   );

@@ -38,7 +38,6 @@ import app.modules.finance.models         # noqa: F401
 import app.modules.field_service.models   # noqa: F401
 import app.modules.tasks.models           # noqa: F401
 import app.modules.admin_settings.models  # noqa: F401
-import app.modules.inventory.warehouse_models  # noqa: F401
 
 # ── Routers ─────────────────────────────────────────────────────────────────
 from app.modules.auth.router          import router as auth_router
@@ -71,7 +70,6 @@ from app.modules.tasks.router          import router as tasks_router
 from app.modules.ratings.router        import router as ratings_router
 from app.modules.admin_settings.router import router as admin_settings_router
 from app.modules.admin_reports.router  import router as admin_reports_router
-from app.modules.inventory.warehouse_router import router as warehouse_router
 
 logger = logging.getLogger(__name__)
 
@@ -97,13 +95,22 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+@app.middleware("http")
+async def cors_middleware(request: Request, call_next):
+    if request.method == "OPTIONS":
+        from starlette.responses import Response
+        response = Response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Access-Control-Max-Age"] = "600"
+        return response
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    return response
+
 app.add_middleware(TenantMiddleware)
 
 API = "/api/v1"
@@ -119,7 +126,6 @@ legacy_routers = [
     marketing_router, nomenclature_router, storage_router,
     finance_router, field_service_router, tasks_router,
     ratings_router, admin_settings_router, admin_reports_router,
-    warehouse_router,
 ]
 
 kafe_routers = [
@@ -129,7 +135,6 @@ kafe_routers = [
     delivery_router, hr_router, analytics_router,
     notifications_router, audit_router,
     fiscal_router, printers_router,
-    warehouse_router,
 ]
 
 admin_routers = [

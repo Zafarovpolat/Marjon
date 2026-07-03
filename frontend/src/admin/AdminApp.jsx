@@ -1,23 +1,77 @@
 import { useEffect, useMemo, useState } from "react";
 import logo from "../assets/marjon-logo.svg";
 import { adminApi, adminLogin, adminLogout, isAdminAuthenticated } from "./api";
+import Icon from '../components/Icon';
 
 const navItems = [
   { key: "dashboard", label: "Дашборд", icon: "bi-grid-1x2-fill" },
-  { key: "organizations", label: "Организации", icon: "bi-buildings" },
-  { key: "branches", label: "Филиал", icon: "bi-diagram-3" },
-  { key: "departments", label: "Отделы", icon: "bi-collection" },
-  { key: "reports", label: "Отчеты", icon: "bi-file-earmark-bar-graph" },
-  { key: "storage", label: "Склад", icon: "bi-box-seam" },
-  { key: "nomenclature", label: "Номенклатура", icon: "bi-boxes" },
-  { key: "marketing", label: "Маркетинг", icon: "bi-megaphone" },
-  { key: "handbook", label: "Справочники", icon: "bi-journal-bookmark" },
-  { key: "service", label: "Услуга", icon: "bi-headset" },
-  { key: "hamkorbank", label: "Хамкорбанк", icon: "bi-bank" },
-  { key: "finance", label: "Финансы", icon: "bi-wallet2" },
-  { key: "tasks", label: "Задачи", icon: "bi-kanban", badge: "12" },
-  { key: "rating", label: "Рейтинг", icon: "bi-star" },
-  { key: "settings", label: "Настройки", icon: "bi-gear" },
+  {
+    key: "organizations", label: "Организации", icon: "bi-buildings",
+    children: [
+      { key: "org-list", label: "Организация", icon: "bi-building" },
+      { key: "org-status", label: "Статус организации", icon: "bi-info-circle" },
+    ],
+  },
+  {
+    key: "storage", label: "Склад", icon: "bi-box-seam",
+    children: [
+      { key: "storage-income", label: "Приход товаров", icon: "bi-box-arrow-in-down" },
+      { key: "storage-expense", label: "Расход товаров", icon: "bi-box-arrow-up" },
+      { key: "storage-balance", label: "Остаток", icon: "bi-boxes" },
+      { key: "storage-income-journal", label: "Журнал приходов", icon: "bi-journal-text" },
+      { key: "storage-writeoff", label: "Отход товаров", icon: "bi-trash3" },
+      { key: "storage-inventory", label: "Инвентаризация", icon: "bi-clipboard-check" },
+    ],
+  },
+  {
+    key: "nomenclature", label: "Номенклатура", icon: "bi-boxes",
+    children: [
+      { key: "nom-product", label: "Продукт", icon: "bi-box-seam" },
+      { key: "nom-sale-category", label: "Категория реализации", icon: "bi-tags" },
+      { key: "nom-orders", label: "Заказы", icon: "bi-receipt" },
+      { key: "nom-unit", label: "Единица измерения", icon: "bi-rulers" },
+    ],
+  },
+  {
+    key: "handbook", label: "Справочник", icon: "bi-journal-bookmark",
+    children: [
+      { key: "hb-countries", label: "Страны", icon: "bi-geo-alt" },
+      { key: "hb-regions", label: "Регионы", icon: "bi-collection" },
+      { key: "hb-districts", label: "Районы", icon: "bi-grid" },
+    ],
+  },
+  {
+    key: "service", label: "Услуга", icon: "bi-headset",
+    children: [
+      { key: "srv-employees", label: "Сотрудники", icon: "bi-people" },
+      { key: "srv-source", label: "Источник", icon: "bi-megaphone" },
+    ],
+  },
+  {
+    key: "bank", label: "Банк", icon: "bi-bank",
+    children: [
+      { key: "bank-stats", label: "Статистика банка", icon: "bi-bar-chart-line" },
+      { key: "bank-transactions", label: "Транзакции банка", icon: "bi-currency-exchange" },
+    ],
+  },
+  {
+    key: "finance", label: "Финансы", icon: "bi-wallet2",
+    children: [
+      { key: "fin-operations", label: "Денежные операции", icon: "bi-cash-stack" },
+      { key: "fin-income-cat", label: "Категория приходов", icon: "bi-arrow-down-left-circle" },
+      { key: "fin-expense-cat", label: "Категория расходов", icon: "bi-arrow-up-right-circle" },
+      { key: "fin-payment", label: "Способ оплаты", icon: "bi-credit-card" },
+      { key: "fin-history", label: "История изменений", icon: "bi-clock-history" },
+    ],
+  },
+  {
+    key: "settings", label: "Настройки", icon: "bi-gear",
+    children: [
+      { key: "set-store", label: "Marjon store", icon: "bi-shop" },
+      { key: "set-cashier-bg", label: "Фон для кассира", icon: "bi-image" },
+      { key: "set-languages", label: "Языки", icon: "bi-translate" },
+    ],
+  },
 ];
 
 const kpis = [
@@ -28,6 +82,7 @@ const kpis = [
     icon: "bi-buildings",
     tone: "blue",
     points: [16, 22, 18, 34, 30, 46, 42, 56],
+    desc: "Всего подключённых организаций на платформе MARJON, включая активные и на модерации.",
   },
   {
     title: "Активных филиалов",
@@ -36,6 +91,7 @@ const kpis = [
     icon: "bi-diagram-3",
     tone: "green",
     points: [18, 24, 32, 28, 42, 48, 51, 60],
+    desc: "Филиалы с активной кассой и работающей синхронизацией за выбранный период.",
   },
   {
     title: "Ожидают одобрения",
@@ -44,6 +100,7 @@ const kpis = [
     icon: "bi-inbox",
     tone: "violet",
     points: [58, 48, 52, 42, 39, 35, 30, 26],
+    desc: "Заявки на подключение, изменение тарифа и услуги, ожидающие решения модератора.",
   },
   {
     title: "Оборот за месяц",
@@ -52,6 +109,7 @@ const kpis = [
     icon: "bi-graph-up-arrow",
     tone: "orange",
     points: [20, 26, 31, 44, 40, 55, 63, 72],
+    desc: "Суммарный оборот всех организаций платформы за текущий месяц в узбекских сумах.",
   },
   {
     title: "Платежи и банк",
@@ -60,6 +118,7 @@ const kpis = [
     icon: "bi-shield-check",
     tone: "cyan",
     radar: true,
+    desc: "Состояние платёжного шлюза и интеграции с Хамкорбанком. Аптайм за 30 дней — 99.98%.",
   },
 ];
 
@@ -69,6 +128,328 @@ const organizationRows = [
   ["Sushi Master", "Кафе", "7", "Д. Юнусов", "11.06.2026 09:18", "На модерации"],
   ["Family Kitchen", "Общепит", "2", "С. Абдуллаев", "11.06.2026 08:05", "Активна"],
   ["Burger Station", "Фастфуд", "5", "А. Рахимов", "10.06.2026 23:47", "Новый"],
+];
+
+const organizationDirectoryRows = [
+  {
+    id: "1002945",
+    message: true,
+    service: "Yangi",
+    paymentType: "Без оплаты",
+    name: "MUSTAFO CAFE",
+    clientId: "1002945",
+    terminals: "0",
+    cashboxes: "2",
+    deposit: "0",
+    debt: "2 000 000",
+    overdue: "0",
+    contract: "0",
+    tariff: "300 000",
+    currency: "UZS",
+    contact: "998 88 752 11 10",
+    region: "Andijon",
+    manager: "SAITOV SARVAR",
+    date: "02.07.2026",
+    source: "Diler",
+    version: "15.04",
+    orgStatus: "ISHLA TURGAN",
+    identification: "Проверено",
+    paymentKind: "Тариф платежи",
+    status: "Доступен",
+    onlineMenu: "Активно",
+    warehouse: "Активно",
+    cashboxOnline: "Активно",
+  },
+  {
+    id: "1002944",
+    message: true,
+    service: "Xizmat",
+    paymentType: "Без оплаты",
+    name: "BAYKAL RESTAURANT",
+    clientId: "1002944",
+    terminals: "0",
+    cashboxes: "0",
+    deposit: "0",
+    debt: "0",
+    overdue: "0",
+    contract: "0",
+    tariff: "300 000",
+    currency: "UZS",
+    contact: "998 20 004 62 42",
+    region: "Andijon",
+    manager: "SAITOV SARVAR",
+    date: "02.07.2026",
+    source: "Diler",
+    version: "15.04",
+    orgStatus: "ISHLA TURGAN",
+    identification: "Проверено",
+    paymentKind: "Тариф платежи",
+    status: "Доступен",
+    onlineMenu: "Активно",
+    warehouse: "Активно",
+    cashboxOnline: "Активно",
+  },
+  {
+    id: "1002939",
+    message: true,
+    service: "Xizmat",
+    paymentType: "Без оплаты",
+    name: "Burger",
+    clientId: "1002939",
+    terminals: "0",
+    cashboxes: "0",
+    deposit: "0",
+    debt: "0",
+    overdue: "0",
+    contract: "1 500 000",
+    tariff: "300 000",
+    currency: "UZS",
+    contact: "998 77 103 20 80",
+    region: "Namangan",
+    manager: "HAMZAYEV SARDOR",
+    date: "01.07.2026",
+    source: "Instagram",
+    version: "",
+    orgStatus: "USTANOVKA JARAYONIDA",
+    identification: "Ожидает",
+    paymentKind: "Тариф платежи",
+    status: "Активно",
+    onlineMenu: "Активно",
+    warehouse: "Не активно",
+    cashboxOnline: "Активно",
+  },
+  {
+    id: "1002938",
+    message: true,
+    service: "Xizmat",
+    paymentType: "Без оплаты",
+    name: "Сушихона Мукаммал",
+    clientId: "1002938",
+    terminals: "0",
+    cashboxes: "0",
+    deposit: "0",
+    debt: "0",
+    overdue: "0",
+    contract: "7 880 000",
+    tariff: "300 000",
+    currency: "UZS",
+    contact: "998 90 577 50 20",
+    region: "Andijon",
+    manager: "MIRYEVANOV BOTUV",
+    date: "30.06.2026",
+    source: "Telegram",
+    version: "",
+    orgStatus: "USTANOVKA JARAYONIDA",
+    identification: "Ожидает",
+    paymentKind: "Тариф платежи",
+    status: "Не активно",
+    onlineMenu: "Активно",
+    warehouse: "Активно",
+    cashboxOnline: "Не активно",
+  },
+  {
+    id: "1002937",
+    message: true,
+    service: "Xizmat",
+    paymentType: "Без оплаты",
+    name: "Zarafshon baliqlari",
+    clientId: "1002937",
+    terminals: "1",
+    cashboxes: "0",
+    deposit: "-320 000",
+    debt: "-2 400 000",
+    overdue: "0",
+    contract: "0",
+    tariff: "300 000",
+    currency: "UZS",
+    contact: "998 94 047 37 77",
+    region: "Samarqand",
+    manager: "ALAMAT SOTUV",
+    date: "30.06.2026",
+    source: "Facebook",
+    version: "",
+    orgStatus: "HALI ULANMAGAN",
+    identification: "Ожидает",
+    paymentKind: "Тариф платежи",
+    status: "Не активно",
+    onlineMenu: "Активно",
+    warehouse: "Не активно",
+    cashboxOnline: "Не активно",
+  },
+  {
+    id: "1002936",
+    message: true,
+    service: "Xizmat",
+    paymentType: "Без оплаты",
+    name: "Bek Food 2",
+    clientId: "1002936",
+    terminals: "0",
+    cashboxes: "1",
+    deposit: "0",
+    debt: "-7 514 000",
+    overdue: "0",
+    contract: "0",
+    tariff: "300 000",
+    currency: "UZS",
+    contact: "998 99 176 09 55",
+    region: "JIZZAX",
+    manager: "BOBOMURODOV",
+    date: "29.06.2026",
+    source: "Sarlavha",
+    version: "15.04",
+    orgStatus: "HALI ULANMAGAN",
+    identification: "Проверено",
+    paymentKind: "Тариф платежи",
+    status: "Активно",
+    onlineMenu: "Активно",
+    warehouse: "Активно",
+    cashboxOnline: "Активно",
+  },
+  {
+    id: "1002935",
+    message: true,
+    service: "Xizmat",
+    paymentType: "Без оплаты",
+    name: "AROUVSOT OTA OSHXONASI",
+    clientId: "1002935",
+    terminals: "0",
+    cashboxes: "0",
+    deposit: "0",
+    debt: "0",
+    overdue: "0",
+    contract: "4 480 000",
+    tariff: "300 000",
+    currency: "UZS",
+    contact: "998 90 105 56 28",
+    region: "Fargona",
+    manager: "HAMZAYEV SARDOR",
+    date: "28.06.2026",
+    source: "Facebook",
+    version: "",
+    orgStatus: "HALI ULANMAGAN",
+    identification: "Ожидает",
+    paymentKind: "Тариф платежи",
+    status: "Не активно",
+    onlineMenu: "Активно",
+    warehouse: "Активно",
+    cashboxOnline: "Активно",
+  },
+  {
+    id: "1002934",
+    message: true,
+    service: "Xizmat",
+    paymentType: "Без оплаты",
+    name: "Chickenlar",
+    clientId: "1002934",
+    terminals: "0",
+    cashboxes: "0",
+    deposit: "0",
+    debt: "0",
+    overdue: "0",
+    contract: "3 530 000",
+    tariff: "300 000",
+    currency: "UZS",
+    contact: "998 90 704 67 44",
+    region: "Samarqand",
+    manager: "HAMZAYEV SARDOR",
+    date: "28.06.2026",
+    source: "Facebook",
+    version: "",
+    orgStatus: "HALI ULANMAGAN",
+    identification: "Ожидает",
+    paymentKind: "Тариф платежи",
+    status: "Не активно",
+    onlineMenu: "Активно",
+    warehouse: "Не активно",
+    cashboxOnline: "Не активно",
+  },
+  {
+    id: "1002933",
+    message: true,
+    service: "Xizmat",
+    paymentType: "Без оплаты",
+    name: "Negora",
+    clientId: "1002933",
+    terminals: "0",
+    cashboxes: "0",
+    deposit: "-390 000",
+    debt: "0",
+    overdue: "0",
+    contract: "3 850 000",
+    tariff: "300 000",
+    currency: "UZS",
+    contact: "998 77 103 15 96",
+    region: "Surxondaryo",
+    manager: "HAMZAYEV SARDOR",
+    date: "28.06.2026",
+    source: "Facebook",
+    version: "15.04",
+    orgStatus: "HALI ULANMAGAN",
+    identification: "Ожидает",
+    paymentKind: "Тариф платежи",
+    status: "Не активно",
+    onlineMenu: "Активно",
+    warehouse: "Не активно",
+    cashboxOnline: "Не активно",
+  },
+  {
+    id: "1002932",
+    message: false,
+    service: "Yangi",
+    paymentType: "Тест",
+    name: "Ака-ука Restaurant",
+    clientId: "1002932",
+    terminals: "0",
+    cashboxes: "0",
+    deposit: "-320 000",
+    debt: "-15 000",
+    overdue: "0",
+    contract: "0",
+    tariff: "300 000",
+    currency: "UZS",
+    contact: "998 91 238 90 62",
+    region: "Surxondaryo",
+    manager: "HAMZAYEV SARDOR",
+    date: "27.06.2026",
+    source: "Ko'cha",
+    version: "",
+    orgStatus: "ISHLA TURGAN",
+    identification: "Проверено",
+    paymentKind: "Тест платежи",
+    status: "Доступен",
+    onlineMenu: "Активно",
+    warehouse: "Активно",
+    cashboxOnline: "Активно",
+  },
+  {
+    id: "1002931",
+    message: true,
+    service: "Xizmat",
+    paymentType: "Без оплаты",
+    name: "GOLDEN UZBECHIM",
+    clientId: "1002931",
+    terminals: "0",
+    cashboxes: "0",
+    deposit: "-4 000 000",
+    debt: "-1 440 000",
+    overdue: "0",
+    contract: "0",
+    tariff: "300 000",
+    currency: "UZS",
+    contact: "998 99 056 38 97",
+    region: "Samarqand",
+    manager: "ZARIPOV JASUR",
+    date: "27.06.2026",
+    source: "Sarlavha",
+    version: "15.04",
+    orgStatus: "ISHLA TURGAN",
+    identification: "Проверено",
+    paymentKind: "Тариф платежи",
+    status: "Доступен",
+    onlineMenu: "Активно",
+    warehouse: "Активно",
+    cashboxOnline: "Активно",
+  },
 ];
 
 const approvalItems = [
@@ -95,141 +476,336 @@ const systemItems = [
   ["Очереди", "Работают"],
 ];
 
+const organizationStatusRows = [
+  { id: "closed-bankrupt", name: "JOY YOPILGAN BONKROT", sort: 4, active: true },
+  { id: "installing", name: "USTANOVKA JARAYONIDA", sort: 2, active: true },
+  { id: "install-canceled", name: "USTANOVKA OTMEN BO'LGANI", sort: 8, active: true },
+  { id: "returning", name: "QAYTARISHGA HARAKAT", sort: 7, active: true },
+  { id: "test", name: "TEST", sort: 6, active: true },
+  { id: "duplicate", name: "DUBLIKAT", sort: 5, active: true },
+  { id: "moved-pr", name: "Y-N YOKI B-QA PR-GA O'TGAN", sort: 4, active: true },
+  { id: "unknown", name: "SABABI NOMALUM", sort: 3, active: true },
+  { id: "temporary-paused", name: "VAQTICHALI ISHLAMAYOTGAN", sort: 2, active: true },
+  { id: "not-connected", name: "HALI ULANMAGAN", sort: 3, active: true },
+  { id: "working", name: "ISHLAB TURGAN", sort: 1, active: true },
+];
+
+const productBranchRows = [
+  { branch: "Хоразм филиал", income: 0, inventory: 0 },
+  { branch: "Anqara", income: 0, inventory: 0 },
+  { branch: "Тошкент филиал", income: 0, inventory: 0 },
+  { branch: "Денов филиал", income: 0, inventory: 0 },
+  { branch: "Фарғона филиал", income: 5160000, inventory: 0 },
+  { branch: "Нурафшон филиал", income: 2283000, inventory: 0 },
+  { branch: "Test Fillial", income: 0, inventory: 0 },
+  { branch: "Андижон филиал", income: 0, inventory: 0 },
+  { branch: "Нукус филиал", income: 0, inventory: 0 },
+  { branch: "Сирдарё филиал", income: 0, inventory: 0 },
+  { branch: "Самарканд филиал", income: 8063000, inventory: 0 },
+  { branch: "Бухоро филиал", income: 0, inventory: 0 },
+  { branch: "Жиззах филиал", income: 0, inventory: 0 },
+  { branch: "Навоий филиал", income: 7320000, inventory: 0 },
+  { branch: "Термиз филиал", income: 9020000, inventory: 0 },
+  { branch: "Қарши филиал", income: 0, inventory: 0 },
+  { branch: "Наманган филиал", income: 0, inventory: 0 },
+  { branch: "Бош филиал", income: 34600000, inventory: 0 },
+];
+
 const categoryContent = {
-  organizations: {
+  // 1) Организации
+  "org-list": {
     title: "Организации",
-    text: "Управление клиентами MARJON, статусами подключения, модерацией и блокировкой.",
+    text: "Все организации платформы MARJON: типы, филиалы и администраторы.",
     columns: ["Организация", "Тип", "Филиалов", "Админ", "Статус"],
     rows: organizationRows.map(([name, type, branches, admin, , status]) => [name, type, branches, admin, status]),
   },
-  branches: {
-    title: "Филиал",
-    text: "Контроль филиалов, касс, адресов и состояния ресторанных точек.",
-    columns: ["Филиал", "Организация", "Город", "Касса", "Статус"],
+  "org-status": {
+    title: "Статус организаций",
+    text: "Текущие статусы подключения, модерации и блокировки клиентов.",
+    columns: ["Организация", "Статус", "Изменён", "Ответственный", "Состояние"],
     rows: [
-      ["Ташкент филиал", "Bella Italia Group", "Ташкент", "Активна", "Активна"],
-      ["Хоразм филиал", "Coffee House", "Ургенч", "Активна", "Активна"],
-      ["Денов филиал", "Sushi Master", "Денов", "Проверка", "На модерации"],
+      ["Bella Italia Group", "Активна", "11.06.2026", "Александр П.", "Активна"],
+      ["Coffee House", "Активна", "11.06.2026", "О. Ташматов", "Активна"],
+      ["Sushi Master", "На модерации", "11.06.2026", "Д. Юнусов", "На модерации"],
+      ["Burger Station", "Новый", "10.06.2026", "М. Саидов", "Новый"],
     ],
   },
+
+  // 2) Отделы — управление сотрудниками и привилегиями
   departments: {
-    title: "Отделы",
-    text: "Внутренние отделы платформы: поддержка, продажи, финансы и внедрение.",
-    columns: ["Отдел", "Сотрудников", "Руководитель", "SLA", "Статус"],
+    title: "Отделы — управление сотрудниками",
+    text: "Сотрудники платформы, роли, отделы и настройка привилегий доступа.",
+    columns: ["Сотрудник", "Должность", "Отдел", "Привилегии", "Статус"],
     rows: [
-      ["Поддержка", "8", "Александр П.", "15 мин", "Активна"],
-      ["Продажи", "5", "М. Саидов", "1 день", "Активна"],
-      ["Внедрение", "4", "Д. Юнусов", "2 дня", "Активна"],
+      ["Александр П.", "Суперадмин", "Управление", "Полный доступ", "Активна"],
+      ["М. Саидов", "Менеджер продаж", "Продажи", "Продажи, Отчеты", "Активна"],
+      ["Д. Юнусов", "Внедренец", "Внедрение", "Организации, Склад", "Активна"],
+      ["С. Абдуллаев", "Поддержка", "Поддержка", "Заявки, Чаты", "Активна"],
+      ["О. Ташматов", "Финансист", "Финансы", "Финансы, Банк", "На модерации"],
     ],
   },
-  reports: {
-    title: "Отчеты",
-    text: "Платформенная аналитика по организациям, обороту, филиалам и оплатам.",
-    columns: ["Отчет", "Период", "Обновлен", "Формат", "Статус"],
+
+  // 3) Склад
+  "storage-income": {
+    title: "Приход товаров",
+    text: "Документы прихода товаров от поставщиков на склады организаций.",
+    columns: ["Документ", "Поставщик", "Позиций", "Сумма", "Статус"],
     rows: [
-      ["Оборот платформы", "Месяц", "11.06.2026", "Dashboard", "Активна"],
-      ["Долги клиентов", "Неделя", "11.06.2026", "Excel", "Активна"],
-      ["Подключения", "День", "11.06.2026", "PDF", "Новый"],
+      ["PR-10241", "Bella Foods", "32", "18 420 000 UZS", "Проведен"],
+      ["PR-10238", "Coffee Trade", "12", "4 120 000 UZS", "Проведен"],
+      ["PR-10235", "Fresh Market", "48", "27 800 000 UZS", "Черновик"],
     ],
   },
-  storage: {
-    title: "Склад",
-    text: "Обзор складских интеграций организаций и проблем синхронизации.",
-    columns: ["Организация", "Складов", "Остаток", "Синхронизация", "Статус"],
+  "storage-expense": {
+    title: "Расход товаров",
+    text: "Списание товаров со склада на кухни, бары и точки продаж.",
+    columns: ["Документ", "Получатель", "Позиций", "Сумма", "Статус"],
     rows: [
-      ["Bella Italia Group", "14", "734 764 000 UZS", "2 мин назад", "Активна"],
-      ["Coffee House", "4", "82 420 000 UZS", "5 мин назад", "Активна"],
-      ["Sushi Master", "8", "196 780 000 UZS", "Проверка", "На модерации"],
+      ["RS-8841", "Кухня — Ташкент", "18", "6 240 000 UZS", "Проведен"],
+      ["RS-8836", "Бар — Ургенч", "9", "1 820 000 UZS", "Проведен"],
+      ["RS-8830", "Кухня — Денов", "14", "3 460 000 UZS", "Ожидает"],
     ],
   },
-  nomenclature: {
-    title: "Номенклатура",
-    text: "Глобальный контроль продуктов, категорий, единиц и импортов.",
-    columns: ["Раздел", "Позиций", "Импортов", "Ошибок", "Статус"],
+  "storage-balance": {
+    title: "Остаток",
+    text: "Текущие остатки товаров и сырья по складам организаций.",
+    columns: ["Товар", "Категория", "Остаток", "Ед.", "Статус"],
     rows: [
-      ["Блюда", "18 402", "28", "0", "Активна"],
-      ["Сырье", "42 881", "91", "3", "Новый"],
-      ["Единицы", "128", "4", "0", "Активна"],
+      ["Мука в/с", "Сырьё", "1 240", "кг", "В норме"],
+      ["Оливковое масло", "Сырьё", "86", "л", "Низкий"],
+      ["Кофе зерно", "Сырьё", "410", "кг", "В норме"],
     ],
   },
-  marketing: {
-    title: "Маркетинг",
-    text: "Лиды, источники, теги, статусы и конверсия подключений.",
-    columns: ["Источник", "Лидов", "Конверсия", "Ответственный", "Статус"],
+  "storage-income-journal": {
+    title: "Журнал приходов",
+    text: "История всех приходных документов с датами и суммами.",
+    columns: ["Дата", "Документ", "Поставщик", "Сумма", "Статус"],
     rows: [
-      ["Instagram", "184", "18.4%", "О. Ташматов", "Активна"],
-      ["Telegram", "96", "21.8%", "С. Абдуллаев", "Активна"],
-      ["Рекомендации", "43", "32.2%", "А. Рахимов", "Новый"],
+      ["11.06.2026 09:12", "PR-10241", "Bella Foods", "18 420 000 UZS", "Проведен"],
+      ["10.06.2026 17:40", "PR-10238", "Coffee Trade", "4 120 000 UZS", "Проведен"],
+      ["10.06.2026 11:05", "PR-10235", "Fresh Market", "27 800 000 UZS", "Черновик"],
     ],
   },
-  handbook: {
-    title: "Справочники",
-    text: "Страны, регионы, районы, статусы и платформенные словари.",
-    columns: ["Справочник", "Записей", "Последнее изменение", "Язык", "Статус"],
+  "storage-writeoff": {
+    title: "Отход товаров",
+    text: "Списание товаров по причинам брака, порчи и истечения срока.",
+    columns: ["Документ", "Причина", "Позиций", "Сумма", "Статус"],
     rows: [
-      ["Регионы", "14", "11.06.2026", "RU / UZ", "Активна"],
-      ["Районы", "208", "10.06.2026", "RU / UZ", "Активна"],
-      ["Статусы", "12", "09.06.2026", "RU", "Активна"],
+      ["WO-321", "Истёк срок", "6", "420 000 UZS", "Проведен"],
+      ["WO-318", "Брак", "3", "180 000 UZS", "Проведен"],
+      ["WO-314", "Порча", "8", "640 000 UZS", "Ожидает"],
     ],
   },
-  service: {
-    title: "Услуга",
-    text: "Подключаемые сервисы, техпомощь, интеграции и заявки клиентов.",
-    columns: ["Услуга", "Клиентов", "Цена", "Поддержка", "Статус"],
+  "storage-inventory": {
+    title: "Инвентаризация",
+    text: "Сверка фактических остатков со складским учётом и расхождения.",
+    columns: ["Документ", "Склад", "Расхождений", "Дата", "Статус"],
     rows: [
-      ["QR-меню", "892", "В тарифе", "24/7", "Активна"],
-      ["Фискализация", "421", "Отдельно", "24/7", "Активна"],
-      ["Внедрение", "76", "Индивидуально", "Бизнес часы", "Новый"],
+      ["INV-077", "Главный склад", "4", "11.06.2026", "Завершено"],
+      ["INV-076", "Бар", "0", "08.06.2026", "Завершено"],
+      ["INV-075", "Кухня", "2", "01.06.2026", "Черновик"],
     ],
   },
-  hamkorbank: {
-    title: "Хамкорбанк",
-    text: "Банковские транзакции, статусы интеграций и сверка платежей.",
-    columns: ["Канал", "Операций", "Сумма", "Сверка", "Статус"],
+
+  // 4) Номенклатура
+  "nom-product": {
+    title: "Продукт",
+    text: "Карточки продуктов: категории, цены и единицы измерения.",
+    columns: ["Продукт", "Категория", "Цена", "Ед.", "Статус"],
     rows: [
-      ["Эквайринг", "2 841", "4 820 000 000 UZS", "ОК", "Активна"],
-      ["Выписки", "418", "1 240 000 000 UZS", "ОК", "Активна"],
-      ["Ошибки", "3", "0 UZS", "Проверка", "На модерации"],
+      ["Маргарита 30см", "Пицца", "48 000 UZS", "шт", "Активна"],
+      ["Цезарь с курицей", "Салаты", "36 000 UZS", "шт", "Активна"],
+      ["Латте 0.3", "Напитки", "22 000 UZS", "шт", "Новый"],
     ],
   },
-  finance: {
-    title: "Финансы",
-    text: "Оборот, долги, тарифы, платежи и финансовая история платформы.",
+  "nom-sale-category": {
+    title: "Категория реализации",
+    text: "Категории меню для реализации и их доля в продажах.",
+    columns: ["Категория", "Позиций", "Доля продаж", "Обновлено", "Статус"],
+    rows: [
+      ["Пицца", "42", "28.4%", "11.06.2026", "Активна"],
+      ["Напитки", "36", "19.1%", "11.06.2026", "Активна"],
+      ["Десерты", "18", "7.6%", "10.06.2026", "Новый"],
+    ],
+  },
+  "nom-orders": {
+    title: "Заказы",
+    text: "Заказы по филиалам с суммами, временем и статусом выполнения.",
+    columns: ["Заказ", "Филиал", "Сумма", "Время", "Статус"],
+    rows: [
+      ["№ 39957057", "Ташкент", "240 600 UZS", "20:57", "Завершено"],
+      ["№ 39661785", "Ургенч", "177 100 UZS", "20:56", "Завершено"],
+      ["№ 39382298", "Денов", "110 000 UZS", "17:59", "Ожидает"],
+    ],
+  },
+  "nom-unit": {
+    title: "Единица измерения",
+    text: "Единицы измерения номенклатуры и их точность.",
+    columns: ["Единица", "Сокращение", "Тип", "Точность", "Статус"],
+    rows: [
+      ["Килограмм", "кг", "Вес", "0.001", "Активна"],
+      ["Литр", "л", "Объём", "0.01", "Активна"],
+      ["Штука", "шт", "Количество", "1", "Активна"],
+    ],
+  },
+
+  // 5) Справочник
+  "hb-countries": {
+    title: "Страны",
+    text: "Справочник стран: коды, валюты и количество регионов.",
+    columns: ["Страна", "Код", "Валюта", "Регионов", "Статус"],
+    rows: [
+      ["Узбекистан", "UZ", "UZS", "14", "Активна"],
+      ["Казахстан", "KZ", "KZT", "17", "Активна"],
+      ["Таджикистан", "TJ", "TJS", "4", "Новый"],
+    ],
+  },
+  "hb-regions": {
+    title: "Регионы",
+    text: "Регионы стран с количеством районов и кодами.",
+    columns: ["Регион", "Страна", "Районов", "Код", "Статус"],
+    rows: [
+      ["Ташкент", "Узбекистан", "11", "TAS", "Активна"],
+      ["Хорезм", "Узбекистан", "10", "XOR", "Активна"],
+      ["Сурхандарья", "Узбекистан", "14", "SUR", "Активна"],
+    ],
+  },
+  "hb-districts": {
+    title: "Районы",
+    text: "Районы регионов с кодами и датой последнего изменения.",
+    columns: ["Район", "Регион", "Код", "Обновлён", "Статус"],
+    rows: [
+      ["Юнусабадский", "Ташкент", "TAS-01", "11.06.2026", "Активна"],
+      ["Ургенчский", "Хорезм", "XOR-03", "10.06.2026", "Активна"],
+      ["Денауский", "Сурхандарья", "SUR-05", "09.06.2026", "Новый"],
+    ],
+  },
+
+  // 6) Услуга
+  "srv-employees": {
+    title: "Сотрудники",
+    text: "Сотрудники клиентов: роли, филиалы и контактные данные.",
+    columns: ["Сотрудник", "Роль", "Филиал", "Телефон", "Статус"],
+    rows: [
+      ["И. Каримов", "Менеджер", "Ташкент", "+998 90 123-45-67", "Активна"],
+      ["О. Ташматов", "Кассир", "Ургенч", "+998 91 234-56-78", "Активна"],
+      ["А. Рахимов", "Официант", "Денов", "+998 93 345-67-89", "Новый"],
+    ],
+  },
+  "srv-source": {
+    title: "Источник",
+    text: "Источники привлечения клиентов и их конверсия.",
+    columns: ["Источник", "Тип", "Лидов", "Конверсия", "Статус"],
+    rows: [
+      ["Instagram", "Соцсети", "184", "18.4%", "Активна"],
+      ["Telegram", "Мессенджер", "96", "21.8%", "Активна"],
+      ["Рекомендации", "Партнёры", "43", "32.2%", "Новый"],
+    ],
+  },
+
+  // 7) Банк
+  "bank-stats": {
+    title: "Статистика банка",
+    text: "Сводная статистика банковских операций за период.",
     columns: ["Показатель", "Значение", "Динамика", "Период", "Статус"],
     rows: [
-      ["Оборот", "78 452 340 UZS", "+18.6%", "Месяц", "Активна"],
-      ["Долги", "12 800 000 UZS", "-4.2%", "Месяц", "На модерации"],
-      ["Платежи", "1 284", "+9.1%", "Неделя", "Активна"],
+      ["Эквайринг", "4 820 000 000 UZS", "+12.4%", "Месяц", "В норме"],
+      ["Комиссия", "48 200 000 UZS", "+0.8%", "Месяц", "В норме"],
+      ["Возвраты", "2 140 000 UZS", "-3.1%", "Месяц", "В норме"],
     ],
   },
-  tasks: {
-    title: "Задачи",
-    text: "Рабочая доска команды MARJON: внедрение, поддержка, продажи и проверки.",
-    columns: ["Задача", "Ответственный", "Приоритет", "Срок", "Статус"],
+  "bank-transactions": {
+    title: "Транзакции банка",
+    text: "Банковские транзакции по платежам и возвратам.",
+    columns: ["ID", "Тип", "Сумма", "Время", "Статус"],
     rows: [
-      ["Проверить Bella Italia", "Александр П.", "Высокий", "Сегодня", "Новый"],
-      ["Сверка оплат", "Финансы", "Средний", "12.06.2026", "Активна"],
-      ["Обновить маркетинг", "Product", "Низкий", "14.06.2026", "На модерации"],
+      ["TXN-88421", "Поступление", "240 600 UZS", "20:57", "Завершено"],
+      ["TXN-88417", "Поступление", "177 100 UZS", "20:56", "Завершено"],
+      ["TXN-88410", "Возврат", "110 000 UZS", "17:59", "Ожидает"],
     ],
   },
-  rating: {
-    title: "Рейтинг",
-    text: "Рейтинг сотрудников, организаций, филиалов и качества обслуживания.",
-    columns: ["Объект", "Рейтинг", "Отзывы", "Изменение", "Статус"],
+
+  // 8) Финансы
+  "fin-operations": {
+    title: "Денежные операции",
+    text: "Приходные и расходные денежные операции платформы.",
+    columns: ["Документ", "Тип", "Сумма", "Способ", "Статус"],
     rows: [
-      ["Bella Italia Group", "4.9", "1 284", "+0.2", "Активна"],
-      ["Coffee House", "4.7", "814", "+0.1", "Активна"],
-      ["Sushi Master", "4.4", "406", "-0.1", "На модерации"],
+      ["OP-2241", "Приход", "240 600 UZS", "CLICK", "Проведен"],
+      ["OP-2238", "Расход", "110 000 UZS", "Наличные", "Проведен"],
+      ["OP-2235", "Приход", "177 100 UZS", "Terminal", "Ожидает"],
     ],
   },
-  settings: {
-    title: "Настройки",
-    text: "Глобальные параметры платформы, безопасность, языки и системные правила.",
-    columns: ["Параметр", "Значение", "Область", "Обновлен", "Статус"],
+  "fin-income-cat": {
+    title: "Категория приходов",
+    text: "Категории приходов с долей в общем обороте.",
+    columns: ["Категория", "Операций", "Сумма", "Доля", "Статус"],
     rows: [
-      ["Языки", "RU / UZ", "Платформа", "11.06.2026", "Активна"],
-      ["Автоблокировка", "Включена", "Биллинг", "10.06.2026", "Активна"],
-      ["Уведомления", "Telegram / Email", "Система", "09.06.2026", "Новый"],
+      ["Приход от продаж", "1 284", "742 000 000 UZS", "82.4%", "Активна"],
+      ["Прочие поступления", "96", "41 200 000 UZS", "12.1%", "Активна"],
+      ["Возвраты", "18", "4 800 000 UZS", "5.5%", "Новый"],
+    ],
+  },
+  "fin-expense-cat": {
+    title: "Категория расходов",
+    text: "Категории расходов с долей в общих затратах.",
+    columns: ["Категория", "Операций", "Сумма", "Доля", "Статус"],
+    rows: [
+      ["Закупка сырья", "412", "318 000 000 UZS", "61.2%", "Активна"],
+      ["Зарплата", "58", "142 000 000 UZS", "27.4%", "Активна"],
+      ["Аренда", "12", "38 000 000 UZS", "7.3%", "Активна"],
+    ],
+  },
+  "fin-payment": {
+    title: "Способ оплаты",
+    text: "Способы оплаты, объёмы операций и комиссии.",
+    columns: ["Способ", "Операций", "Сумма", "Комиссия", "Статус"],
+    rows: [
+      ["Наличные", "642", "284 000 000 UZS", "0%", "Активна"],
+      ["CLICK", "418", "196 000 000 UZS", "0.8%", "Активна"],
+      ["Terminal", "224", "162 000 000 UZS", "1.2%", "Активна"],
+    ],
+  },
+  "fin-history": {
+    title: "История изменений",
+    text: "Журнал изменений финансовых настроек и объектов.",
+    columns: ["Дата", "Объект", "Действие", "Автор", "Статус"],
+    rows: [
+      ["11.06.2026 11:42", "Тариф Bella Italia", "Изменён", "Александр П.", "Завершено"],
+      ["10.06.2026 17:40", "Категория расходов", "Создана", "О. Ташматов", "Завершено"],
+      ["09.06.2026 09:18", "Способ оплаты", "Удалён", "Д. Юнусов", "Ожидает"],
+    ],
+  },
+
+  // 9) Настройки
+  "set-store": {
+    title: "Marjon store",
+    text: "Подключённые модули магазина MARJON и их подписки.",
+    columns: ["Модуль", "Версия", "Подписка", "Обновлён", "Статус"],
+    rows: [
+      ["POS Касса", "2.4.7", "Pro", "11.06.2026", "Активна"],
+      ["QR-меню", "1.8.2", "Pro", "10.06.2026", "Активна"],
+      ["Аналитика", "3.1.0", "Trial", "09.06.2026", "Новый"],
+    ],
+  },
+  "set-cashier-bg": {
+    title: "Фон для кассира",
+    text: "Темы и фоны интерфейса кассира по точкам продаж.",
+    columns: ["Тема", "Тип", "Применена к", "Обновлён", "Статус"],
+    rows: [
+      ["Тёмная графитовая", "Системная", "Все кассы", "11.06.2026", "Активна"],
+      ["Светлая", "Системная", "Ургенч", "10.06.2026", "Активна"],
+      ["Брендовая Marjon", "Кастом", "Ташкент", "09.06.2026", "Новый"],
+    ],
+  },
+  "set-languages": {
+    title: "Языки",
+    text: "Языки интерфейса платформы и их покрытие переводами.",
+    columns: ["Язык", "Код", "Покрытие", "Обновлён", "Статус"],
+    rows: [
+      ["Русский", "RU", "100%", "11.06.2026", "Активна"],
+      ["Узбекский", "UZ", "98%", "11.06.2026", "Активна"],
+      ["Английский", "EN", "72%", "10.06.2026", "Новый"],
     ],
   },
 };
@@ -245,18 +821,147 @@ function sparklinePath(points, width = 120, height = 38) {
   }).join(" ");
 }
 
+const datePresets = [
+  "Сегодня",
+  "Вчера",
+  "Эта неделя",
+  "Этот месяц",
+  "Прошлый месяц",
+  "Этот квартал",
+  "Прошлый квартал",
+  "Этот год",
+  "Прошлый год",
+];
+
+function padDate(value) {
+  return String(value).padStart(2, "0");
+}
+
+function formatDate(date) {
+  return `${padDate(date.getDate())}.${padDate(date.getMonth() + 1)}.${date.getFullYear()}`;
+}
+
+function parseDate(value) {
+  const [day, month, year] = value.split(".").map(Number);
+  return new Date(year || 2026, (month || 1) - 1, day || 1);
+}
+
+function rangeLabel(range) {
+  return range.start === range.end ? range.start : `${range.start} - ${range.end}`;
+}
+
+function formatCurrency(value) {
+  return `${Number(value || 0).toLocaleString("ru-RU")} UZS`;
+}
+
+function addMonthsToRange(range, diff) {
+  const start = parseDate(range.start);
+  const end = parseDate(range.end);
+  start.setMonth(start.getMonth() + diff);
+  end.setMonth(end.getMonth() + diff);
+  const next = { start: formatDate(start), end: formatDate(end), preset: "" };
+  return { ...next, label: rangeLabel(next) };
+}
+
+function presetRange(label) {
+  const today = new Date(2026, 5, 11);
+  const start = new Date(today);
+  const end = new Date(today);
+
+  if (label === "Вчера") {
+    start.setDate(today.getDate() - 1);
+    end.setDate(today.getDate() - 1);
+  } else if (label === "Эта неделя") {
+    start.setDate(today.getDate() - 6);
+  } else if (label === "Этот месяц") {
+    start.setDate(1);
+  } else if (label === "Прошлый месяц") {
+    start.setMonth(today.getMonth() - 1, 1);
+    end.setMonth(today.getMonth(), 0);
+  } else if (label === "Этот квартал") {
+    start.setMonth(Math.floor(today.getMonth() / 3) * 3, 1);
+  } else if (label === "Прошлый квартал") {
+    const quarterStart = Math.floor(today.getMonth() / 3) * 3;
+    start.setMonth(quarterStart - 3, 1);
+    end.setMonth(quarterStart, 0);
+  } else if (label === "Этот год") {
+    start.setMonth(0, 1);
+  } else if (label === "Прошлый год") {
+    start.setFullYear(today.getFullYear() - 1, 0, 1);
+    end.setFullYear(today.getFullYear() - 1, 11, 31);
+  }
+
+  const range = { start: formatDate(start), end: formatDate(end), preset: label };
+  return { ...range, label: label === "Сегодня" || label === "Вчера" ? label : rangeLabel(range) };
+}
+
+// Static turnover datasets per period — wired to the chart toggle so switching
+// День/Неделя/Месяц/Год actually redraws the line, value, axes and tooltip.
+const chartData = {
+  "День": {
+    value: "3 184 000 UZS",
+    delta: "+4.2% к прошлому дню",
+    points: [28, 34, 31, 44, 39, 52, 47, 58],
+    xLabels: ["09:00", "12:00", "15:00", "18:00", "21:00", "00:00"],
+    tooltip: { label: "18:00", value: "612 000 UZS" },
+  },
+  "Неделя": {
+    value: "21 940 000 UZS",
+    delta: "+7.8% к прошлой неделе",
+    points: [34, 40, 36, 48, 52, 60, 66],
+    xLabels: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
+    tooltip: { label: "Сб", value: "4 280 000 UZS" },
+  },
+  "Месяц": {
+    value: "78 452 340 UZS",
+    delta: "+18.6% к прошлому месяцу",
+    points: [16, 22, 18, 34, 30, 46, 42, 56, 60, 68, 74, 88],
+    xLabels: ["12.05", "19.05", "26.05", "02.06", "09.06", "11.06"],
+    tooltip: { label: "09.06", value: "83 120 000 UZS" },
+  },
+  "Год": {
+    value: "842 600 000 UZS",
+    delta: "+24.3% к прошлому году",
+    points: [22, 28, 30, 38, 44, 50, 58, 55, 64, 72, 80, 92],
+    xLabels: ["Янв", "Мар", "Май", "Июл", "Сен", "Ноя"],
+    tooltip: { label: "Ноя", value: "92 400 000 UZS" },
+  },
+};
+
+// Smooth (Catmull-Rom → cubic bezier) line + area path for the platform chart.
+function chartGeometry(values, width = 650, top = 30, bottom = 220, maxValue = 100) {
+  const n = values.length;
+  const pts = values.map((value, index) => ({
+    x: n > 1 ? (index / (n - 1)) * width : 0,
+    y: bottom - (Math.max(0, Math.min(maxValue, value)) / maxValue) * (bottom - top),
+  }));
+  const line = pts.map((point, index) => {
+    if (index === 0) return `M ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
+    const prev = pts[index - 1];
+    const beforePrev = pts[index - 2] || prev;
+    const next = pts[index + 1] || point;
+    const cp1x = prev.x + (point.x - beforePrev.x) / 6;
+    const cp1y = prev.y + (point.y - beforePrev.y) / 6;
+    const cp2x = point.x - (next.x - prev.x) / 6;
+    const cp2y = point.y - (next.y - prev.y) / 6;
+    return `C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
+  }).join(" ");
+  return { line, area: `${line} L ${width} ${bottom} L 0 ${bottom} Z`, last: pts[pts.length - 1] };
+}
+
 function LoginView({ onLogin }) {
-  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function submit(event) {
     event.preventDefault();
     setLoading(true);
     setError("");
     try {
-      await adminLogin(email, password);
+      await adminLogin(phone, password);
       onLogin();
     } catch {
       setError("Не удалось войти в Marjon Admin.");
@@ -268,25 +973,62 @@ function LoginView({ onLogin }) {
   return (
     <main className="admin-login">
       <form className="admin-login__panel" onSubmit={submit}>
-        <img src={logo} alt="MARJON" />
-        <h1>Marjon Admin</h1>
-        <p>Вход для команды MARJON.</p>
-        <label>
-          Email
-          <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" required />
+        <div className="admin-login__brand">
+          <img src={logo} alt="MARJON" />
+          <span>SUPER ADMIN</span>
+        </div>
+        <h1>Добро пожаловать</h1>
+        <p className="admin-login__subtitle">Войдите в рабочее место суперадминки.</p>
+        <label className="admin-login__field admin-login__field--phone">
+          <span>НОМЕР ТЕЛЕФОНА</span>
+          <div className="admin-login__input">
+            <Icon name="bi-telephone" size={18} />
+            <strong>+998</strong>
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="numeric" autoComplete="tel" required />
+          </div>
         </label>
-        <label>
-          Пароль
-          <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" autoComplete="current-password" required />
+        <label className="admin-login__field admin-login__field--password">
+          <span>ПАРОЛЬ</span>
+          <div className="admin-login__input">
+            <Icon name="bi-lock" size={18} />
+            <input value={password} onChange={(e) => setPassword(e.target.value)} type={showPassword ? "text" : "password"} autoComplete="current-password" required />
+            <button className="admin-login__eye" type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}>
+              <Icon name={showPassword ? "bi-eye-slash" : "bi-eye"} size={18} />
+            </button>
+          </div>
         </label>
+        <div className="admin-login__options">
+          <label>
+            <input type="checkbox" defaultChecked />
+            <span>Запомнить меня</span>
+          </label>
+          <button type="button">Забыли пароль?</button>
+        </div>
         {error ? <div className="admin-login__error">{error}</div> : null}
-        <button type="submit" disabled={loading}>{loading ? "Входим..." : "Войти"}</button>
+        <button className="admin-login__submit" type="submit" disabled={loading}>{loading ? "Входим..." : "Войти"}</button>
       </form>
     </main>
   );
 }
 
-function Sidebar({ active, onSelect }) {
+function Sidebar({ active, onSelect, collapsed, onToggle, user, onProfile }) {
+  const activeParent = useMemo(
+    () => navItems.find((item) => item.children?.some((child) => child.key === active))?.key || null,
+    [active],
+  );
+  const [openGroups, setOpenGroups] = useState(() => (activeParent ? [activeParent] : []));
+
+  useEffect(() => {
+    if (activeParent) {
+      setOpenGroups((groups) => (groups.length === 1 && groups[0] === activeParent ? groups : [activeParent]));
+    }
+  }, [activeParent]);
+
+  function toggleGroup(key) {
+    // Accordion: only one category open at a time.
+    setOpenGroups((groups) => (groups.includes(key) ? [] : [key]));
+  }
+
   return (
     <aside className="admin-sidebar">
       <div className="admin-brand">
@@ -295,30 +1037,100 @@ function Sidebar({ active, onSelect }) {
           <strong>MARJON</strong>
           <span>ADMIN</span>
         </div>
+        <button className="admin-sidebar-collapse" type="button" onClick={onToggle} aria-pressed={collapsed} aria-label={collapsed ? "Развернуть меню" : "Свернуть меню"}>
+          <Icon name={collapsed ? "bi-chevron-right" : "bi-chevron-left"} size={18} />
+        </button>
       </div>
       <nav className="admin-nav" aria-label="Admin navigation">
-        {navItems.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={active === item.key ? "is-active" : ""}
-            onClick={() => onSelect(item.key)}
-          >
-            <i className={`bi ${item.icon}`} />
-            <span>{item.label}</span>
-            {item.badge ? <em>{item.badge}</em> : null}
-          </button>
-        ))}
+        {navItems.map((item) => {
+          if (!item.children) {
+            return (
+              <button
+                key={item.key}
+                type="button"
+                className={active === item.key ? "is-active" : ""}
+                onClick={() => onSelect(item.key)}
+              >
+                <Icon name={item.icon} size={18} />
+                <span>{item.label}</span>
+                {item.badge ? <em>{item.badge}</em> : null}
+              </button>
+            );
+          }
+          const open = openGroups.includes(item.key);
+          const hasActiveChild = item.children.some((child) => child.key === active);
+          return (
+            <div className={`admin-nav-group ${open ? "is-open" : ""} ${hasActiveChild ? "has-active" : ""}`} key={item.key}>
+              <button
+                type="button"
+                className={`admin-nav-group__toggle ${hasActiveChild ? "is-active" : ""}`}
+                onClick={() => toggleGroup(item.key)}
+                aria-expanded={open}
+              >
+                <Icon name={item.icon} size={18} />
+                <span>{item.label}</span>
+                <Icon name="bi-chevron-right" size={15} className="admin-nav-group__chevron" />
+              </button>
+              <div className="admin-nav-sub" role="group">
+                {item.children.map((child) => (
+                  <button
+                    key={child.key}
+                    type="button"
+                    className={`admin-nav-sub__item ${active === child.key ? "is-active" : ""}`}
+                    onClick={() => onSelect(child.key)}
+                  >
+                    <Icon name={child.icon || "bi-circle"} size={17} className="admin-nav-sub__icon" />
+                    <span>{child.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </nav>
-      <button className="admin-collapse" type="button">
-        <i className="bi bi-layout-sidebar-inset" />
-        <span>Свернуть меню</span>
+      <button className="admin-profile-card admin-profile-card--collapse" type="button" onClick={onToggle} aria-pressed={collapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
+        <span className="admin-profile-card__avatar admin-profile-card__avatar--collapse">
+          <Icon name={collapsed ? "bi-chevron-right" : "bi-chevron-left"} size={18} />
+        </span>
+        <span className="admin-profile-card__info">
+          <strong>Свернуть</strong>
+          <small>Сайдбар</small>
+        </span>
+      </button>
+      <button className="admin-profile-card" type="button" onClick={onProfile}>
+        <span className="admin-profile-card__avatar">{(user?.name || "Александр П.").trim().slice(0, 1)}</span>
+        <span className="admin-profile-card__info">
+          <strong>{user?.name || "Александр П."}</strong>
+          <small>{user?.is_superadmin ? "Суперадмин" : "Администратор"}</small>
+        </span>
+        <Icon name="bi-chevron-right" size={16} className="admin-profile-card__chevron" />
       </button>
     </aside>
   );
 }
 
-function Header({ user, onLogout }) {
+function Header({ user, onLogout, search, onSearchChange, dateRange, onDateRangeChange, onBellClick, notificationCount, onProfile }) {
+  const [dateOpen, setDateOpen] = useState(false);
+  const [draftRange, setDraftRange] = useState(dateRange);
+  const profileName = user?.name || "Александр П.";
+  const profileInitial = profileName.trim().slice(0, 1) || "А";
+  const profileRole = user?.is_superadmin ? "Суперадмин" : "Суперадмин";
+
+  function applyDraft() {
+    onDateRangeChange({ ...draftRange, label: draftRange.preset || rangeLabel(draftRange) });
+    setDateOpen(false);
+  }
+
+  function choosePreset(label) {
+    setDraftRange(presetRange(label));
+  }
+
+  function shiftMonth(diff) {
+    const next = addMonthsToRange(dateRange, diff);
+    onDateRangeChange(next);
+    setDraftRange(next);
+  }
+
   return (
     <header className="admin-header">
       <div>
@@ -327,37 +1139,70 @@ function Header({ user, onLogout }) {
       </div>
       <div className="admin-header__actions">
         <label className="admin-search">
-          <i className="bi bi-search" />
-          <input placeholder="Поиск по платформе..." />
+          <Icon name="bi-search" size={18} />
+          <input value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Поиск по платформе..." />
         </label>
-        <button className="admin-date" type="button">
-          <i className="bi bi-calendar3" />
-          11.06.2026 - 11.06.2026
-        </button>
-        <button className="admin-bell" type="button" aria-label="Уведомления">
-          <i className="bi bi-bell" />
-          <span>8</span>
-        </button>
-        <div className="admin-profile">
-          <div className="admin-profile__avatar">А</div>
-          <div>
-            <strong>Александр П.</strong>
-            <span>{user?.is_superadmin ? "Суперадмин" : "Суперадмин"}</span>
-          </div>
+        <div className="admin-date-picker">
+          <button className="admin-date-step" type="button" onClick={() => shiftMonth(-1)} aria-label="Предыдущий месяц">
+            <Icon name="bi-chevron-left" size={16} />
+          </button>
+          <button className="admin-date" type="button" onClick={() => { setDraftRange(dateRange); setDateOpen((value) => !value); }} aria-expanded={dateOpen}>
+            <Icon name="bi-calendar3" size={18} />
+            <span>{dateRange.label}</span>
+          </button>
+          <button className="admin-date-step" type="button" onClick={() => shiftMonth(1)} aria-label="Следующий месяц">
+            <Icon name="bi-chevron-right" size={16} />
+          </button>
+          {dateOpen ? (
+            <div className="admin-date-menu">
+              <div className="admin-date-menu__title">
+                <Icon name="bi-calendar-week" size={18} />
+                <span>Выберите дату</span>
+              </div>
+              <div className="admin-date-presets">
+                {datePresets.map((preset) => (
+                  <button className={draftRange.preset === preset ? "is-active" : ""} type="button" key={preset} onClick={() => choosePreset(preset)}>{preset}</button>
+                ))}
+              </div>
+              <div className="admin-date-range">
+                <input value={draftRange.start} onChange={(event) => setDraftRange((current) => ({ ...current, start: event.target.value, preset: "" }))} aria-label="Дата начала" />
+                <span>-</span>
+                <input value={draftRange.end} onChange={(event) => setDraftRange((current) => ({ ...current, end: event.target.value, preset: "" }))} aria-label="Дата окончания" />
+                <button type="button" onClick={applyDraft}>OK</button>
+              </div>
+            </div>
+          ) : null}
         </div>
-        <button className="admin-logout" type="button" onClick={onLogout}>
-          <i className="bi bi-box-arrow-right" />
+        <button className="admin-bell" type="button" aria-label="Уведомления" onClick={onBellClick}>
+          <Icon name="bi-bell" size={18} />
+          <span>{notificationCount}</span>
+        </button>
+        <button className="admin-profile" type="button" onClick={onProfile} aria-label="Профиль администратора">
+          <div className="admin-profile__avatar">{profileInitial}</div>
+          <div>
+            <strong>{profileName}</strong>
+            <span>{profileRole}</span>
+          </div>
+        </button>
+        <button className="admin-logout" type="button" onClick={onLogout} aria-label="Выйти">
+          <Icon name="bi-box-arrow-right" size={18} />
         </button>
       </div>
     </header>
   );
 }
 
-function KpiCard({ item }) {
+function KpiCard({ item, onClick }) {
   return (
-    <article className={`admin-kpi admin-kpi--${item.tone}`}>
+    <article
+      className={`admin-kpi admin-kpi--${item.tone}`}
+      role="button"
+      tabIndex={0}
+      onClick={() => onClick(item)}
+      onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onClick(item); } }}
+    >
       <div className="admin-kpi__top">
-        <span><i className={`bi ${item.icon}`} /></span>
+        <span><Icon name={item.icon} size={20} /></span>
         <small>{item.title}</small>
       </div>
       <strong>{item.value}</strong>
@@ -378,20 +1223,22 @@ function KpiCard({ item }) {
   );
 }
 
-function PlatformChart() {
-  const line = "M 0 172 C 68 138 102 148 158 118 C 218 86 252 112 312 82 C 382 48 426 72 486 44 C 558 12 596 36 650 18";
-  const area = `${line} L 650 220 L 0 220 Z`;
+function PlatformChart({ segment, onSegmentChange }) {
+  const data = chartData[segment] || chartData["Месяц"];
+  const geo = chartGeometry(data.points);
+  const tooltipLeft = Math.min(74, Math.max(2, (geo.last.x / 700) * 100 - 8));
+  const tooltipTop = Math.max(4, (geo.last.y / 250) * 100 - 16);
   return (
     <section className="admin-chart-card">
       <div className="admin-chart-card__head">
         <div>
           <span>Динамика оборота платформы</span>
-          <strong>78 452 340 UZS</strong>
-          <em>+18.6%</em>
+          <strong>{data.value}</strong>
+          <em>{data.delta}</em>
         </div>
         <div className="admin-segments">
           {["День", "Неделя", "Месяц", "Год"].map((item) => (
-            <button className={item === "Месяц" ? "is-active" : ""} type="button" key={item}>{item}</button>
+            <button className={item === segment ? "is-active" : ""} type="button" key={item} onClick={() => onSegmentChange(item)}>{item}</button>
           ))}
         </div>
       </div>
@@ -417,30 +1264,585 @@ function PlatformChart() {
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
+            <clipPath id="chartReveal">
+              <rect key={segment} className="admin-chart__reveal" x="0" y="0" width="700" height="250" />
+            </clipPath>
           </defs>
           {[30, 68, 106, 144, 182, 220].map((y) => <line x1="0" x2="700" y1={y} y2={y} key={y} />)}
-          <path className="admin-chart__area" d={area} />
-          <path className="admin-chart__line" d={line} filter="url(#lineGlow)" />
-          <circle cx="596" cy="36" r="6" className="admin-chart__dot" />
+          <g clipPath="url(#chartReveal)">
+            <path className="admin-chart__area" d={geo.area} />
+            <path key={segment} className="admin-chart__line" d={geo.line} filter="url(#lineGlow)" pathLength="1" />
+          </g>
+          <circle key={segment} cx={geo.last.x} cy={geo.last.y} r="6" className="admin-chart__dot" />
         </svg>
-        <div className="admin-tooltip" style={{ left: "76%", top: "16%" }}>
-          <strong>09.06</strong>
-          <span>83 120 000 UZS</span>
+        <div className="admin-tooltip" style={{ left: `${tooltipLeft}%`, top: `${tooltipTop}%` }}>
+          <strong>{data.tooltip.label}</strong>
+          <span>{data.tooltip.value}</span>
         </div>
         <div className="admin-x-axis">
-          {["12.05", "19.05", "26.05", "02.06", "09.06", "11.06"].map((label) => <span key={label}>{label}</span>)}
+          {data.xLabels.map((label) => <span key={label}>{label}</span>)}
         </div>
       </div>
     </section>
   );
 }
 
+const STATUS_GREEN = ["Активна", "Активен", "Проведен", "Завершено", "В норме", "Включено", "ОК"];
+const STATUS_VIOLET = ["Новый", "Новая", "Черновик"];
+
 function StatusBadge({ status }) {
-  const key = status === "Активна" ? "green" : status === "Новый" ? "violet" : "orange";
+  const key = STATUS_GREEN.includes(status) ? "green" : STATUS_VIOLET.includes(status) ? "violet" : "orange";
   return <span className={`admin-status admin-status--${key}`}>{status}</span>;
 }
 
-function OrganizationsTable() {
+const orgDirectoryColumnKeys = [
+  "number", "message", "service", "paymentType", "name", "clientId", "terminals", "cashboxes",
+  "deposit", "debt", "overdue", "contract", "tariff", "currency", "contact", "region",
+  "manager", "date", "source", "version", "orgStatus", "identification", "paymentKind",
+  "status", "onlineMenu", "warehouse", "cashboxOnline", "actions",
+];
+
+function OrgDirectoryFlag({ value, onClick }) {
+  const normalized = String(value).toLowerCase();
+  const tone = normalized.includes("не ") || normalized.includes("hali") ? "danger"
+    : normalized.includes("ожидает") || normalized.includes("jarayon") ? "warning"
+      : "success";
+  const content = <span className={`org-directory-flag org-directory-flag--${tone}`}>{value}</span>;
+  if (!onClick) return content;
+  return (
+    <button type="button" className="org-directory-flag-button" onClick={onClick}>
+      {content}
+    </button>
+  );
+}
+
+function OrganizationMessageScreen({ row, onBack, onSave, onNotify }) {
+  const [form, setForm] = useState({
+    name: row.name,
+    tariff: row.tariff,
+    deposit: row.deposit,
+    country: "Узбекистан",
+    region: row.region,
+    paymentType: row.paymentType,
+    contractDate: row.date,
+    status: row.status,
+    inn: "",
+    phone: row.contact,
+    login: row.contact,
+    currency: row.currency,
+    responsible: row.manager,
+    branch: "Xamidim admin filial",
+    source: row.source,
+    organizationStatus: row.orgStatus,
+    comment: "",
+  });
+  const [settings, setSettings] = useState({
+    warehouse: row.warehouse === "Активно",
+    onlineMenu: row.onlineMenu === "Активно",
+    cashboxOnline: row.cashboxOnline === "Активно",
+    fiscal: false,
+    detailedMenu: true,
+    androidCashier: true,
+  });
+  const [chatText, setChatText] = useState("");
+  const [messages, setMessages] = useState([
+    {
+      id: 1,
+      author: "Система",
+      text: `Открыта карточка сообщений для ${row.name}.`,
+      time: "сейчас",
+      system: true,
+    },
+  ]);
+
+  function updateField(field, value) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function toggleSetting(field) {
+    setSettings((current) => ({ ...current, [field]: !current[field] }));
+  }
+
+  function handleSave() {
+    onSave(row.id, {
+      name: form.name,
+      tariff: form.tariff,
+      deposit: form.deposit,
+      region: form.region,
+      paymentType: form.paymentType,
+      date: form.contractDate,
+      status: form.status,
+      contact: form.phone,
+      currency: form.currency,
+      manager: form.responsible,
+      source: form.source,
+      orgStatus: form.organizationStatus,
+      warehouse: settings.warehouse ? "Активно" : "Не активно",
+      onlineMenu: settings.onlineMenu ? "Активно" : "Не активно",
+      cashboxOnline: settings.cashboxOnline ? "Активно" : "Не активно",
+      message: true,
+    });
+    onNotify?.(`${form.name}: данные сохранены.`);
+  }
+
+  function sendMessage() {
+    const text = chatText.trim();
+    if (!text) return;
+    setMessages((current) => [
+      ...current,
+      { id: Date.now(), author: "Super Admin", text, time: "сейчас" },
+    ]);
+    setChatText("");
+    onNotify?.(`${form.name}: сообщение отправлено.`);
+  }
+
+  const formGroups = [
+    [
+      { key: "name", label: "Название", required: true },
+      { key: "tariff", label: "Цена тарифа", required: true },
+      { key: "deposit", label: "Рабочий счет" },
+    ],
+    [
+      { key: "country", label: "Страна", type: "select", options: ["Узбекистан", "Казахстан", "Кыргызстан"] },
+      { key: "region", label: "Регион", type: "select", options: ["Andijon", "Toshkent", "Samarqand", "Fargona", "Namangan", "Surxondaryo", "JIZZAX"] },
+      { key: "paymentType", label: "Тип оплаты", type: "select", options: ["Без оплаты", "Тариф", "Тест"] },
+      { key: "contractDate", label: "Дата договора", required: true },
+      { key: "status", label: "Выберите статус", type: "select", options: ["Активно", "Доступен", "Не активно"] },
+      { key: "inn", label: "ИНН организации" },
+    ],
+    [
+      { key: "phone", label: "Номер владельца" },
+      { key: "login", label: "Логин владельца" },
+      { key: "currency", label: "Основная валюта", type: "select", options: ["UZS", "USD"] },
+      { key: "responsible", label: "Ответственный" },
+      { key: "branch", label: "Филиал" },
+      { key: "source", label: "Источник" },
+      { key: "organizationStatus", label: "Статус организации" },
+      { key: "comment", label: "Описание" },
+    ],
+  ];
+
+  const settingLabels = [
+    ["warehouse", "Управление складом"],
+    ["fiscal", "Подключение ИНН"],
+    ["onlineMenu", "Онлайн-меню"],
+    ["detailedMenu", "Деталь меню"],
+    ["cashboxOnline", "Касса онлайн"],
+    ["androidCashier", "Android кассир"],
+  ];
+
+  return (
+    <section className="org-message-page">
+      <div className="org-message-header">
+        <button type="button" className="org-message-back" onClick={onBack}>
+          <Icon name="bi-arrow-left" size={16} />
+        </button>
+        <div>
+          <h2>Сообщение: {form.branch}</h2>
+          <p>{form.name} · ID {row.clientId}</p>
+        </div>
+        <button type="button" className="org-message-save-top" onClick={handleSave}>Сохранить</button>
+      </div>
+
+      <div className="org-message-layout">
+        <form className="org-message-form" onSubmit={(event) => { event.preventDefault(); handleSave(); }}>
+          <div className="org-message-form__status">
+            <span>Статус</span>
+            <button
+              type="button"
+              className={`org-message-toggle ${form.status !== "Не активно" ? "is-on" : ""}`}
+              onClick={() => updateField("status", form.status === "Не активно" ? "Активно" : "Не активно")}
+            >
+              <span />
+            </button>
+          </div>
+
+          {formGroups.map((group, groupIndex) => (
+            <div className="org-message-field-grid" key={groupIndex}>
+              {group.map((field) => (
+                <label key={field.key} className={field.key === "comment" ? "is-wide" : ""}>
+                  <span>{field.label}{field.required ? " *" : ""}</span>
+                  {field.type === "select" ? (
+                    <select value={form[field.key]} onChange={(event) => updateField(field.key, event.target.value)}>
+                      {field.options.map((option) => <option value={option} key={option}>{option}</option>)}
+                    </select>
+                  ) : (
+                    <input value={form[field.key]} onChange={(event) => updateField(field.key, event.target.value)} placeholder="Введите значение" />
+                  )}
+                </label>
+              ))}
+            </div>
+          ))}
+
+          <div className="org-message-settings">
+            <h3>Настройки</h3>
+            <div>
+              {settingLabels.map(([key, label]) => (
+                <button
+                  type="button"
+                  className={`org-message-setting ${settings[key] ? "is-on" : ""}`}
+                  key={key}
+                  onClick={() => toggleSetting(key)}
+                >
+                  <span>{label}</span>
+                  <i />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button className="org-message-save" type="submit">Сохранить</button>
+        </form>
+
+        <section className="org-message-chat">
+          <div className="org-message-chat__head">
+            <div className="org-message-chat__avatar">
+              <Icon name="bi-building" size={18} />
+            </div>
+            <div>
+              <strong>Компания {form.name}</strong>
+              <span>ID: {row.clientId}</span>
+            </div>
+            <button type="button" onClick={onBack}>Закрыть</button>
+          </div>
+
+          <div className="org-message-chat__body">
+            {messages.map((message) => (
+              <div className={`org-message-bubble ${message.system ? "is-system" : ""}`} key={message.id}>
+                <small>{message.author} · {message.time}</small>
+                <p>{message.text}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="org-message-chat__composer">
+            <input
+              value={chatText}
+              onChange={(event) => setChatText(event.target.value)}
+              onKeyDown={(event) => { if (event.key === "Enter") sendMessage(); }}
+              placeholder="Написать сообщение..."
+            />
+            <button type="button" onClick={sendMessage}>
+              <Icon name="bi-send" size={16} /> Send
+            </button>
+          </div>
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function OrganizationDirectoryPage({ search, onRowDetail, onNotify }) {
+  const [rows, setRows] = useState(organizationDirectoryRows);
+  const [messageRow, setMessageRow] = useState(null);
+  const [query, setQuery] = useState("");
+  const [serviceFilter, setServiceFilter] = useState("all");
+  const [paymentFilter, setPaymentFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [messageOnly, setMessageOnly] = useState(false);
+  const [yangiOnly, setYangiOnly] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState(orgDirectoryColumnKeys);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, search, serviceFilter, paymentFilter, statusFilter, messageOnly, yangiOnly]);
+
+  const filteredRows = useMemo(() => {
+    const globalQuery = search.trim().toLowerCase();
+    const localQuery = query.trim().toLowerCase();
+    return rows.filter((row) => {
+      const haystack = Object.values(row).join(" ").toLowerCase();
+      if (globalQuery && !haystack.includes(globalQuery)) return false;
+      if (localQuery && !haystack.includes(localQuery)) return false;
+      if (serviceFilter !== "all" && row.service !== serviceFilter) return false;
+      if (paymentFilter !== "all" && row.paymentType !== paymentFilter) return false;
+      if (statusFilter !== "all" && row.status !== statusFilter) return false;
+      if (messageOnly && !row.message) return false;
+      if (yangiOnly && row.service !== "Yangi") return false;
+      return true;
+    });
+  }, [messageOnly, paymentFilter, query, rows, search, serviceFilter, statusFilter, yangiOnly]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * pageSize;
+  const pageRows = filteredRows.slice(startIndex, startIndex + pageSize);
+
+  const totals = useMemo(() => {
+    const active = rows.filter((row) => row.status === "Активно" || row.status === "Доступен").length;
+    const debt = rows.reduce((sum, row) => sum + Number(String(row.debt).replace(/[^\d-]/g, "") || 0), 0);
+    const online = rows.filter((row) => row.onlineMenu === "Активно").length;
+    return { active, debt: debt.toLocaleString("ru-RU"), online };
+  }, [rows]);
+
+  function updateRow(id, patch) {
+    setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  }
+
+  function saveMessageRow(id, patch) {
+    updateRow(id, patch);
+    setMessageRow((current) => (current?.id === id ? { ...current, ...patch } : current));
+  }
+
+  function toggleAvailability(row, key) {
+    const next = row[key] === "Активно" || row[key] === "Доступен" ? "Не активно" : "Активно";
+    updateRow(row.id, { [key]: key === "status" && row[key] === "Доступен" ? "Не активно" : next });
+    onNotify?.(`${row.name}: статус обновлен.`);
+  }
+
+  function addOrganization() {
+    const suffix = Date.now().toString().slice(-5);
+    const next = {
+      ...organizationDirectoryRows[0],
+      id: `10${suffix}`,
+      message: false,
+      name: `NEW ORGANIZATION ${suffix}`,
+      clientId: `10${suffix}`,
+      service: "Yangi",
+      paymentType: "Без оплаты",
+      contact: "998 00 000 00 00",
+      region: "Toshkent",
+      manager: "SUPER ADMIN",
+      date: "03.07.2026",
+      source: "Admin",
+      version: "",
+      orgStatus: "USTANOVKA JARAYONIDA",
+      identification: "Ожидает",
+      status: "Активно",
+    };
+    setRows((current) => [next, ...current]);
+    onNotify?.("Организация добавлена локально.");
+  }
+
+  function openDetail(row) {
+    const detailColumns = [
+      "Название", "ID клиента", "Услуга", "Тип оплаты", "Контакт", "Регион", "Сотрудник",
+      "Дата", "Источник", "Версия", "Статус организации", "Статус", "Онлайн меню",
+      "Управление складом", "Касса онлайн",
+    ];
+    const detailRow = [
+      row.name, row.clientId, row.service, row.paymentType, row.contact, row.region, row.manager,
+      row.date, row.source, row.version || "—", row.orgStatus, row.status, row.onlineMenu,
+      row.warehouse, row.cashboxOnline,
+    ];
+    onRowDetail("Организация", detailColumns, detailRow);
+  }
+
+  function toggleColumn(key) {
+    setVisibleColumns((current) => (
+      current.includes(key)
+        ? current.filter((item) => item !== key)
+        : orgDirectoryColumnKeys.filter((item) => item === key || current.includes(item))
+    ));
+  }
+
+  const columns = [
+    { key: "number", label: "№", width: 54, render: (_, rowIndex) => startIndex + rowIndex + 1 },
+    {
+      key: "message",
+      label: "Msg",
+      width: 62,
+      render: (row) => (
+        <button
+          type="button"
+          className={`org-directory-icon ${row.message ? "is-on" : ""}`}
+          onClick={() => {
+            updateRow(row.id, { message: true });
+            setMessageRow({ ...row, message: true });
+          }}
+          aria-label="Сообщение"
+        >
+          <Icon name={row.message ? "bi-chat-square-text-fill" : "bi-chat-square"} size={15} />
+        </button>
+      ),
+    },
+    {
+      key: "service",
+      label: "Услуга",
+      width: 98,
+      render: (row) => (
+        <select className="org-directory-cell-select" value={row.service} onChange={(event) => updateRow(row.id, { service: event.target.value })}>
+          <option value="Yangi">Yangi</option>
+          <option value="Xizmat">Xizmat</option>
+        </select>
+      ),
+    },
+    {
+      key: "paymentType",
+      label: "Тип оплаты",
+      width: 124,
+      render: (row) => (
+        <select className="org-directory-cell-select" value={row.paymentType} onChange={(event) => updateRow(row.id, { paymentType: event.target.value })}>
+          <option value="Без оплаты">Без оплаты</option>
+          <option value="Тариф">Тариф</option>
+          <option value="Тест">Тест</option>
+        </select>
+      ),
+    },
+    { key: "name", label: "Название", width: 190, render: (row) => <strong className="org-directory-name">{row.name}</strong> },
+    { key: "clientId", label: "ID клиента", width: 110, render: (row) => <span className="org-directory-copy">{row.clientId}<Icon name="bi-copy" size={13} /></span> },
+    { key: "terminals", label: "Э/с", width: 66, render: (row) => row.terminals },
+    { key: "cashboxes", label: "Н/касс", width: 76, render: (row) => row.cashboxes },
+    { key: "deposit", label: "Депозит", width: 112, render: (row) => <span className={String(row.deposit).includes("-") ? "is-negative" : ""}>{row.deposit}</span> },
+    { key: "debt", label: "Долг", width: 112, render: (row) => <span className={String(row.debt).includes("-") ? "is-negative" : ""}>{row.debt}</span> },
+    { key: "overdue", label: "Просроченный долг", width: 150, render: (row) => row.overdue },
+    { key: "contract", label: "Контракт", width: 114, render: (row) => row.contract },
+    { key: "tariff", label: "Цена тарифа", width: 118, render: (row) => row.tariff },
+    { key: "currency", label: "Валюта", width: 82, render: (row) => row.currency },
+    { key: "contact", label: "Контакты", width: 148, render: (row) => <b>{row.contact}</b> },
+    { key: "region", label: "Регион", width: 122, render: (row) => row.region },
+    { key: "manager", label: "Сотрудник", width: 154, render: (row) => <b>{row.manager}</b> },
+    { key: "date", label: "Дата", width: 112, render: (row) => row.date },
+    { key: "source", label: "Источник", width: 116, render: (row) => row.source },
+    { key: "version", label: "Версия", width: 82, render: (row) => row.version ? <span className="org-directory-version">{row.version}</span> : "—" },
+    { key: "orgStatus", label: "Статус организации", width: 162, render: (row) => <span>{row.orgStatus}</span> },
+    { key: "identification", label: "Статус идентификации", width: 158, render: (row) => <Icon name={row.identification === "Проверено" ? "bi-eye" : "bi-hourglass-split"} size={16} /> },
+    { key: "paymentKind", label: "Тип платежей", width: 132, render: (row) => <span className="org-directory-payment-kind">{row.paymentKind}</span> },
+    { key: "status", label: "Статус", width: 116, render: (row) => <OrgDirectoryFlag value={row.status} onClick={() => toggleAvailability(row, "status")} /> },
+    { key: "onlineMenu", label: "Онлайн меню", width: 128, render: (row) => <OrgDirectoryFlag value={row.onlineMenu} onClick={() => toggleAvailability(row, "onlineMenu")} /> },
+    { key: "warehouse", label: "Управление складом", width: 152, render: (row) => <OrgDirectoryFlag value={row.warehouse} onClick={() => toggleAvailability(row, "warehouse")} /> },
+    { key: "cashboxOnline", label: "Касса онлайн", width: 126, render: (row) => <OrgDirectoryFlag value={row.cashboxOnline} onClick={() => toggleAvailability(row, "cashboxOnline")} /> },
+    {
+      key: "actions",
+      label: "",
+      width: 58,
+      render: (row) => (
+        <button type="button" className="org-directory-edit" onClick={() => openDetail(row)} aria-label={`Редактировать ${row.name}`}>
+          <Icon name="bi-pencil-square" size={16} />
+        </button>
+      ),
+    },
+  ].filter((column) => visibleColumns.includes(column.key));
+
+  if (messageRow) {
+    return (
+      <OrganizationMessageScreen
+        row={messageRow}
+        onBack={() => setMessageRow(null)}
+        onSave={saveMessageRow}
+        onNotify={onNotify}
+      />
+    );
+  }
+
+  return (
+    <section className="org-directory-page">
+      <div className="org-directory-topbar">
+        <div>
+          <h2>Организация</h2>
+          <p>Клиенты, тарифы, подключения и доступность сервисов.</p>
+        </div>
+        <button className="org-directory-add" type="button" onClick={addOrganization}>
+          Добавить <Icon name="bi-plus-lg" size={16} />
+        </button>
+      </div>
+
+      <div className="org-directory-metrics">
+        <span><b>{rows.length}</b> всего</span>
+        <span><b>{totals.active}</b> активных</span>
+        <span><b>{totals.online}</b> онлайн меню</span>
+        <span><b>{totals.debt}</b> долг</span>
+      </div>
+
+      <div className="org-directory-toolbar">
+        <label className="org-directory-search">
+          <Icon name="bi-search" size={15} />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск" />
+        </label>
+        <select value={serviceFilter} onChange={(event) => setServiceFilter(event.target.value)}>
+          <option value="all">Все услуги</option>
+          <option value="Yangi">Yangi</option>
+          <option value="Xizmat">Xizmat</option>
+        </select>
+        <select value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value)}>
+          <option value="all">Все типы оплаты</option>
+          <option value="Без оплаты">Без оплаты</option>
+          <option value="Тариф">Тариф</option>
+          <option value="Тест">Тест</option>
+        </select>
+        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+          <option value="all">Все статусы</option>
+          <option value="Активно">Активно</option>
+          <option value="Доступен">Доступен</option>
+          <option value="Не активно">Не активно</option>
+        </select>
+        <button type="button" className="org-directory-soft" onClick={() => onNotify?.("Фильтр сохранен.")}>Сохранить</button>
+        <button type="button" className={`org-directory-switch ${messageOnly ? "is-on" : ""}`} onClick={() => setMessageOnly((value) => !value)}>
+          <span /> Сообщения
+        </button>
+        <button type="button" className={`org-directory-switch ${yangiOnly ? "is-on" : ""}`} onClick={() => setYangiOnly((value) => !value)}>
+          <span /> Yangi
+        </button>
+        <button type="button" className="org-directory-settings" onClick={() => setSettingsOpen((value) => !value)}>
+          <Icon name="bi-sliders" size={15} /> Настройка таблицы
+        </button>
+      </div>
+
+      {settingsOpen ? (
+        <div className="org-directory-column-panel">
+          {orgDirectoryColumnKeys.filter((key) => key !== "number" && key !== "actions").map((key) => {
+            const column = columns.find((item) => item.key === key) || { label: key };
+            const fallback = {
+              message: "Msg", service: "Услуга", paymentType: "Тип оплаты", name: "Название", clientId: "ID клиента",
+              terminals: "Э/с", cashboxes: "Н/касс", deposit: "Депозит", debt: "Долг", overdue: "Просроченный долг",
+              contract: "Контракт", tariff: "Цена тарифа", currency: "Валюта", contact: "Контакты", region: "Регион",
+              manager: "Сотрудник", date: "Дата", source: "Источник", version: "Версия", orgStatus: "Статус организации",
+              identification: "Статус идентификации", paymentKind: "Тип платежей", status: "Статус",
+              onlineMenu: "Онлайн меню", warehouse: "Управление складом", cashboxOnline: "Касса онлайн",
+            };
+            return (
+              <label key={key}>
+                <input type="checkbox" checked={visibleColumns.includes(key)} onChange={() => toggleColumn(key)} />
+                <span>{column.label === key ? fallback[key] : column.label}</span>
+              </label>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <div className="org-directory-table-shell">
+        <table className="org-directory-table">
+          <colgroup>
+            {columns.map((column) => <col key={column.key} style={{ width: column.width }} />)}
+          </colgroup>
+          <thead>
+            <tr>
+              {columns.map((column) => <th key={column.key}>{column.label}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {pageRows.map((row, rowIndex) => (
+              <tr key={row.id}>
+                {columns.map((column) => (
+                  <td key={column.key}>{column.render(row, rowIndex)}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!pageRows.length ? <div className="org-directory-empty">Записей не найдено.</div> : null}
+      </div>
+
+      <div className="org-directory-footer">
+        <span>{filteredRows.length ? `${startIndex + 1}-${Math.min(startIndex + pageSize, filteredRows.length)} из ${filteredRows.length}` : "0 из 0"}</span>
+        <div>
+          <button type="button" disabled={currentPage === 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>
+            <Icon name="bi-chevron-left" size={15} />
+          </button>
+          <b>{currentPage}</b>
+          <button type="button" disabled={currentPage === totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>
+            <Icon name="bi-chevron-right" size={15} />
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function OrganizationsTable({ rows, onExport, onRowAction, onRowClick }) {
   return (
     <section className="admin-table-card">
       <div className="admin-panel-head">
@@ -448,7 +1850,7 @@ function OrganizationsTable() {
           <h2>Недавние организации и филиалы</h2>
           <p>Последние подключения, заявки и изменения по клиентам.</p>
         </div>
-        <button type="button">Экспорт</button>
+        <button type="button" onClick={onExport}>Экспорт</button>
       </div>
       <div className="admin-org-table">
         <div className="admin-org-table__row admin-org-table__head">
@@ -460,15 +1862,15 @@ function OrganizationsTable() {
           <span>Статус</span>
           <span>Действия</span>
         </div>
-        {organizationRows.map((row) => (
-          <div className="admin-org-table__row" key={row[0]}>
+        {rows.map((row) => (
+          <div className="admin-org-table__row" key={row[0]} role="button" tabIndex={0} onClick={() => onRowClick(row)} onKeyDown={(event) => { if (event.key === "Enter") onRowClick(row); }}>
             <strong>{row[0]}</strong>
             <span>{row[1]}</span>
             <span>{row[2]}</span>
             <span>{row[3]}</span>
             <span>{row[4]}</span>
             <StatusBadge status={row[5]} />
-            <button type="button"><i className="bi bi-three-dots" /></button>
+            <button type="button" onClick={(event) => { event.stopPropagation(); onRowAction(row[0]); }} aria-label={`Сменить статус: ${row[0]}`}><Icon name="bi-three-dots" size={18} /></button>
           </div>
         ))}
       </div>
@@ -476,43 +1878,204 @@ function OrganizationsTable() {
   );
 }
 
-function RightColumn() {
+function OrganizationStatusPage({ search, onNotify }) {
+  const [rows, setRows] = useState(organizationStatusRows);
+  const [sortDirection, setSortDirection] = useState("asc");
+  const [editor, setEditor] = useState(null);
+
+  const filteredRows = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const list = query
+      ? rows.filter((row) => row.name.toLowerCase().includes(query) || String(row.sort).includes(query))
+      : rows;
+    return [...list].sort((a, b) => (
+      sortDirection === "asc" ? a.sort - b.sort || a.name.localeCompare(b.name) : b.sort - a.sort || a.name.localeCompare(b.name)
+    ));
+  }, [rows, search, sortDirection]);
+
+  function openCreate() {
+    setEditor({ mode: "create", name: "", sort: rows.length + 1, active: true });
+  }
+
+  function openEdit(row) {
+    setEditor({ mode: "edit", id: row.id, name: row.name, sort: row.sort, active: row.active });
+  }
+
+  function saveEditor() {
+    if (!editor?.name.trim()) {
+      onNotify?.("Введите название статуса.");
+      return;
+    }
+    const payload = {
+      id: editor.id || `status-${Date.now()}`,
+      name: editor.name.trim().toUpperCase(),
+      sort: Number(editor.sort) || 1,
+      active: Boolean(editor.active),
+    };
+    setRows((current) => (
+      editor.mode === "edit"
+        ? current.map((row) => (row.id === editor.id ? payload : row))
+        : [...current, payload]
+    ));
+    setEditor(null);
+    onNotify?.(editor.mode === "edit" ? "Статус обновлен." : "Статус добавлен.");
+  }
+
+  function deleteRow(row) {
+    setRows((current) => current.filter((item) => item.id !== row.id));
+    onNotify?.(`${row.name}: статус удален.`);
+  }
+
+  function refreshRows() {
+    setRows(organizationStatusRows);
+    setEditor(null);
+    onNotify?.("Список статусов обновлен.");
+  }
+
+  function toggleActive(row) {
+    setRows((current) => current.map((item) => (
+      item.id === row.id ? { ...item, active: !item.active } : item
+    )));
+  }
+
+  return (
+    <section className="org-status-page">
+      <div className="org-status-header">
+        <div className="org-status-title">
+          <span aria-hidden="true" />
+          <div>
+            <h2>Статус Организации</h2>
+            <p>Справочник состояний подключения и обслуживания клиентов.</p>
+          </div>
+        </div>
+        <div className="org-status-actions">
+          <button type="button" className="org-status-refresh" onClick={refreshRows}>
+            <Icon name="bi-arrow-repeat" size={15} />
+            Обновить список (devent)
+          </button>
+          <button type="button" className="org-status-add" onClick={openCreate}>
+            Добавить <Icon name="bi-plus-lg" size={15} />
+          </button>
+        </div>
+      </div>
+
+      <div className="org-status-summary">
+        <span><b>{rows.length}</b> всего</span>
+        <span><b>{rows.filter((row) => row.active).length}</b> активно</span>
+        <span><b>{filteredRows.length}</b> найдено</span>
+      </div>
+
+      {editor ? (
+        <div className="org-status-editor">
+          <label>
+            <span>Название</span>
+            <input value={editor.name} onChange={(event) => setEditor((current) => ({ ...current, name: event.target.value }))} placeholder="Название статуса" autoFocus />
+          </label>
+          <label>
+            <span>Sort</span>
+            <input type="number" min="1" value={editor.sort} onChange={(event) => setEditor((current) => ({ ...current, sort: event.target.value }))} />
+          </label>
+          <button type="button" className={`org-status-toggle ${editor.active ? "is-on" : ""}`} onClick={() => setEditor((current) => ({ ...current, active: !current.active }))}>
+            <span /> {editor.active ? "Активно" : "Не активно"}
+          </button>
+          <div>
+            <button type="button" className="org-status-save" onClick={saveEditor}>Сохранить</button>
+            <button type="button" className="org-status-cancel" onClick={() => setEditor(null)}>Отмена</button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="org-status-table-shell">
+        <table className="org-status-table">
+          <thead>
+            <tr>
+              <th>№</th>
+              <th>Название</th>
+              <th>
+                <button type="button" onClick={() => setSortDirection((value) => (value === "asc" ? "desc" : "asc"))}>
+                  Sort <Icon name="bi-sort-down" size={14} />
+                </button>
+              </th>
+              <th>Статус</th>
+              <th aria-label="Действия" />
+            </tr>
+          </thead>
+          <tbody>
+            {filteredRows.map((row, index) => (
+              <tr key={row.id}>
+                <td>{index + 1}</td>
+                <td><strong>{row.name}</strong></td>
+                <td><b>{row.sort}</b></td>
+                <td>
+                  <button type="button" className={`org-status-badge ${row.active ? "is-active" : "is-disabled"}`} onClick={() => toggleActive(row)}>
+                    {row.active ? "#активно" : "#неактивно"}
+                  </button>
+                </td>
+                <td>
+                  <div className="org-status-row-actions">
+                    <button type="button" className="is-edit" onClick={() => openEdit(row)} aria-label={`Редактировать ${row.name}`}>
+                      <Icon name="bi-pencil" size={15} />
+                    </button>
+                    <button type="button" className="is-delete" onClick={() => deleteRow(row)} aria-label={`Удалить ${row.name}`}>
+                      <Icon name="bi-trash3" size={15} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!filteredRows.length ? <div className="org-status-empty">Статусы не найдены.</div> : null}
+      </div>
+    </section>
+  );
+}
+
+function RightColumn({ approvals, alerts, onApprovalAction, onShowApprovals, onShowAlerts, onApprovalClick, onAlertClick, onSystemClick }) {
   return (
     <aside className="admin-right">
       <section className="admin-side-card">
         <div className="admin-side-card__head">
           <h3>Одобрения и заявки</h3>
-          <span>37</span>
+          <span>{approvals.length}</span>
         </div>
         <div className="admin-approval-list">
-          {approvalItems.map((item) => (
-            <div className="admin-approval" key={item[0] + item[1]}>
+          {approvals.length ? approvals.map((item) => (
+            <div className="admin-approval" key={item[0] + item[1]} role="button" tabIndex={0} onClick={() => onApprovalClick(item)} onKeyDown={(event) => { if (event.key === "Enter") onApprovalClick(item); }}>
               <div>
                 <strong>{item[0]}</strong>
                 <p>{item[1]}</p>
                 <small>{item[2]}</small>
               </div>
-              <button type="button">{item[3]}</button>
+              <button type="button" onClick={(event) => { event.stopPropagation(); onApprovalAction(item); }}>{item[3]}</button>
             </div>
-          ))}
+          )) : (
+            <div className="admin-empty">Нет активных заявок — всё обработано.</div>
+          )}
         </div>
-        <a href="#approvals">Показать все заявки</a>
+        {approvals.length ? (
+          <button className="admin-side-link" type="button" onClick={onShowApprovals}>Показать все заявки</button>
+        ) : null}
       </section>
 
       <section className="admin-side-card">
         <div className="admin-side-card__head">
           <h3>Системные оповещения</h3>
-          <span>5</span>
+          <span>{alerts.length}</span>
         </div>
         <div className="admin-alert-list">
-          {alertItems.map((item) => (
-            <div className={`admin-system-alert admin-system-alert--${item[0]}`} key={item[1]}>
-              <i className={`bi ${item[0] === "success" ? "bi-check-circle" : item[0] === "warning" ? "bi-exclamation-triangle" : "bi-info-circle"}`} />
+          {alerts.length ? alerts.map((item) => (
+            <div className={`admin-system-alert admin-system-alert--${item[0]}`} key={item[1]} role="button" tabIndex={0} onClick={() => onAlertClick(item)} onKeyDown={(event) => { if (event.key === "Enter") onAlertClick(item); }}>
+              <Icon name={item[0] === "success" ? "bi-check-circle" : item[0] === "warning" ? "bi-exclamation-triangle" : "bi-info-circle"} size={18} />
               <span>{item[1]}</span>
             </div>
-          ))}
+          )) : (
+            <div className="admin-empty">Новых оповещений нет.</div>
+          )}
         </div>
-        <a href="#alerts">Показать все оповещения</a>
+        {alerts.length ? (
+          <button className="admin-side-link" type="button" onClick={onShowAlerts}>Показать все оповещения</button>
+        ) : null}
       </section>
 
       <section className="admin-side-card">
@@ -522,7 +2085,7 @@ function RightColumn() {
         </div>
         <div className="admin-system-grid">
           {systemItems.map((item) => (
-            <div key={item[0]}>
+            <div key={item[0]} role="button" tabIndex={0} onClick={() => onSystemClick(item)} onKeyDown={(event) => { if (event.key === "Enter") onSystemClick(item); }}>
               <strong>{item[0]}</strong>
               <span><i />{item[1]}</span>
             </div>
@@ -534,8 +2097,128 @@ function RightColumn() {
   );
 }
 
-function CategoryPage({ active }) {
-  const content = categoryContent[active] || categoryContent.organizations;
+function ProductNomenclaturePage({ search, onNotify }) {
+  const [range, setRange] = useState(() => presetRange("Сегодня"));
+  const query = search.trim().toLowerCase();
+  const rows = productBranchRows.filter((row) => !query || row.branch.toLowerCase().includes(query));
+  const totals = rows.reduce(
+    (sum, row) => ({
+      income: sum.income + row.income,
+      inventory: sum.inventory + row.inventory,
+    }),
+    { income: 0, inventory: 0 },
+  );
+  const activeBranches = rows.filter((row) => row.income > 0 || row.inventory > 0).length;
+
+  function shiftDay(diff) {
+    const start = parseDate(range.start);
+    const end = parseDate(range.end);
+    start.setDate(start.getDate() + diff);
+    end.setDate(end.getDate() + diff);
+    const next = { start: formatDate(start), end: formatDate(end), preset: "" };
+    setRange({ ...next, label: rangeLabel(next) });
+  }
+
+  function chooseToday() {
+    setRange(presetRange("Сегодня"));
+    onNotify?.("Период продукта: сегодня.");
+  }
+
+  function openBranch(row) {
+    onNotify?.(`${row.branch}: приход ${formatCurrency(row.income)}, инвентаризация ${formatCurrency(row.inventory)}.`);
+  }
+
+  return (
+    <section className="admin-product-page">
+      <div className="admin-product-head">
+        <div className="admin-product-date">
+          <button type="button" onClick={() => shiftDay(-1)} aria-label="Предыдущая дата">
+            <Icon name="bi-chevron-left" size={15} />
+          </button>
+          <button type="button" className="admin-product-date__current" onClick={chooseToday}>
+            <Icon name="bi-calendar3" size={16} />
+            <span>{range.preset ? "Выберите дату" : range.label}</span>
+          </button>
+          <button type="button" onClick={() => shiftDay(1)} aria-label="Следующая дата">
+            <Icon name="bi-chevron-right" size={15} />
+          </button>
+        </div>
+        <div className="admin-product-title">
+          <h2>Продукт</h2>
+          <p>Сводка прихода продуктов и инвентаризации по филиалам.</p>
+        </div>
+        <button type="button" className="admin-product-action" onClick={() => onNotify?.("Сводка продукта подготовлена к экспорту.")}>
+          <Icon name="bi-download" size={15} />
+          <span>Экспорт</span>
+        </button>
+      </div>
+
+      <div className="admin-product-summary">
+        <span><b>{rows.length}</b> филиалов</span>
+        <span><b>{activeBranches}</b> с приходом</span>
+        <span><b>{formatCurrency(totals.income)}</b> приход</span>
+        <span><b>{formatCurrency(totals.inventory)}</b> инвентаризация</span>
+      </div>
+
+      <div className="admin-product-table-shell">
+        <table className="admin-product-table">
+          <thead>
+            <tr>
+              <th>№</th>
+              <th>Филиал</th>
+              <th>Приход</th>
+              <th>Инвентаризация</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, index) => (
+              <tr key={row.branch} onClick={() => openBranch(row)}>
+                <td>{index + 1}</td>
+                <td>
+                  <button type="button" onClick={(event) => { event.stopPropagation(); openBranch(row); }}>
+                    {row.branch}
+                  </button>
+                </td>
+                <td>{formatCurrency(row.income)}</td>
+                <td>{formatCurrency(row.inventory)}</td>
+              </tr>
+            ))}
+            {!rows.length ? (
+              <tr>
+                <td colSpan="4" className="admin-product-empty">Филиалы не найдены.</td>
+              </tr>
+            ) : null}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td />
+              <td>Итого</td>
+              <td>{formatCurrency(totals.income)}</td>
+              <td>{formatCurrency(totals.inventory)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function CategoryPage({ active, rowsOverride, search, onCreate, onRowDetail, onNotify }) {
+  const content = categoryContent[active] || categoryContent["org-list"];
+  if (active === "org-list") {
+    return <OrganizationDirectoryPage search={search} onRowDetail={onRowDetail} onNotify={onNotify} />;
+  }
+  if (active === "org-status") {
+    return <OrganizationStatusPage search={search} onNotify={onNotify} />;
+  }
+  if (active === "nom-product") {
+    return <ProductNomenclaturePage search={search} onNotify={onNotify} />;
+  }
+  const rows = (rowsOverride || content.rows).filter((row) => {
+    const query = search.trim().toLowerCase();
+    if (!query) return true;
+    return row.some((cell) => String(cell).toLowerCase().includes(query));
+  });
   return (
     <section className="admin-category-page">
       <div className="admin-panel-head">
@@ -543,15 +2226,15 @@ function CategoryPage({ active }) {
           <h2>{content.title}</h2>
           <p>{content.text}</p>
         </div>
-        <button type="button">Создать</button>
+        <button type="button" onClick={() => onCreate(active)}>Создать</button>
       </div>
       <div className="admin-category-table">
         <div className="admin-category-table__row admin-category-table__head" style={{ gridTemplateColumns: `repeat(${content.columns.length}, minmax(0, 1fr))` }}>
           {content.columns.map((column) => <span key={column}>{column}</span>)}
         </div>
-        {content.rows.map((row) => (
-          <div className="admin-category-table__row" style={{ gridTemplateColumns: `repeat(${content.columns.length}, minmax(0, 1fr))` }} key={row.join("-")}>
-            {row.map((cell, index) => index === row.length - 1 ? <StatusBadge status={cell} key={cell} /> : <span key={cell}>{cell}</span>)}
+        {rows.map((row, rowIndex) => (
+          <div className="admin-category-table__row" style={{ gridTemplateColumns: `repeat(${content.columns.length}, minmax(0, 1fr))` }} key={rowIndex} role="button" tabIndex={0} onClick={() => onRowDetail(content.title, content.columns, row)} onKeyDown={(event) => { if (event.key === "Enter") onRowDetail(content.title, content.columns, row); }}>
+            {row.map((cell, index) => index === row.length - 1 ? <StatusBadge status={cell} key={index} /> : <span key={index}>{cell}</span>)}
           </div>
         ))}
       </div>
@@ -559,31 +2242,79 @@ function CategoryPage({ active }) {
   );
 }
 
-function DashboardPage() {
+function DashboardPage({ segment, onSegmentChange, organizationRows, approvals, alerts, onExport, onRowAction, onApprovalAction, onShowApprovals, onShowAlerts, onKpiClick, onOrgClick, onApprovalClick, onAlertClick, onSystemClick }) {
   return (
     <>
       <section className="admin-kpi-grid">
-        {kpis.map((item) => <KpiCard item={item} key={item.title} />)}
+        {kpis.map((item) => <KpiCard item={item} key={item.title} onClick={onKpiClick} />)}
       </section>
       <div className="admin-dashboard-grid">
         <main className="admin-center">
-          <PlatformChart />
-          <OrganizationsTable />
+          <PlatformChart segment={segment} onSegmentChange={onSegmentChange} />
+          <OrganizationsTable rows={organizationRows} onExport={onExport} onRowAction={onRowAction} onRowClick={onOrgClick} />
         </main>
-        <RightColumn />
+        <RightColumn
+          approvals={approvals}
+          alerts={alerts}
+          onApprovalAction={onApprovalAction}
+          onShowApprovals={onShowApprovals}
+          onShowAlerts={onShowAlerts}
+          onApprovalClick={onApprovalClick}
+          onAlertClick={onAlertClick}
+          onSystemClick={onSystemClick}
+        />
       </div>
     </>
   );
 }
 
-function Footer() {
+function DetailModal({ data, onClose }) {
+  useEffect(() => {
+    function onKey(event) { if (event.key === "Escape") onClose(); }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  if (!data) return null;
+  const actions = data.actions && data.actions.length
+    ? data.actions
+    : [{ label: "Закрыть", variant: "ghost", onClick: onClose }];
+
   return (
-    <footer className="admin-footer">
-      <span>© 2026 MARJON. Все права защищены.</span>
-      <span>Версия 2.4.7</span>
-      <span><i />Все системы работают</span>
-      <a href="#support">Центр поддержки</a>
-    </footer>
+    <div className="admin-modal" role="dialog" aria-modal="true" aria-label={data.title} onClick={onClose}>
+      <div className="admin-modal__panel" onClick={(event) => event.stopPropagation()}>
+        <div className="admin-modal__head">
+          <div>
+            <h3>{data.title}</h3>
+            {data.subtitle ? <p>{data.subtitle}</p> : null}
+          </div>
+          {data.status ? <StatusBadge status={data.status} /> : null}
+          <button className="admin-modal__close" type="button" onClick={onClose} aria-label="Закрыть">
+            <Icon name="bi-x-lg" size={18} />
+          </button>
+        </div>
+        <dl className="admin-modal__fields">
+          {data.fields.map((field) => (
+            <div key={field.label}>
+              <dt>{field.label}</dt>
+              <dd>{field.value}</dd>
+            </div>
+          ))}
+        </dl>
+        <div className="admin-modal__actions">
+          {actions.map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              className={`admin-modal__btn ${action.variant === "ghost" ? "is-ghost" : "is-primary"}`}
+              onClick={action.onClick}
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -591,9 +2322,25 @@ function AdminShell({ onLogout }) {
   const [active, setActive] = useState("dashboard");
   const [user, setUser] = useState(null);
   const [message, setMessage] = useState("");
+  const [collapsed, setCollapsed] = useState(false);
+  const [search, setSearch] = useState("");
+  const [segment, setSegment] = useState("Месяц");
+  const [dateRange, setDateRange] = useState(() => presetRange("Сегодня"));
+  const [organizations, setOrganizations] = useState(organizationRows);
+  const [approvals, setApprovals] = useState(approvalItems);
+  const [alerts, setAlerts] = useState(alertItems);
+  const [categoryRows, setCategoryRows] = useState({});
+  const [detail, setDetail] = useState(null);
+
+  const closeDetail = () => setDetail(null);
 
   useEffect(() => {
     let mounted = true;
+    if (localStorage.getItem("admin_local_login") === "true") {
+      setUser({ email: "900000777", phone: "900000777", name: "Super Admin", is_superadmin: true });
+      adminApi.get("/organizations", { params: { size: 5 } }).catch(() => {});
+      return () => { mounted = false; };
+    }
     adminApi.get("/auth/me")
       .then(({ data }) => mounted && setUser(data))
       .catch(() => mounted && setMessage("Профиль не загружен. Проверьте права доступа."));
@@ -601,9 +2348,177 @@ function AdminShell({ onLogout }) {
     return () => { mounted = false; };
   }, []);
 
+  useEffect(() => {
+    if (!message) return undefined;
+    const timer = setTimeout(() => setMessage(""), 3200);
+    return () => clearTimeout(timer);
+  }, [message]);
+
+  const filteredOrganizations = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return organizations;
+    return organizations.filter((row) => row.some((cell) => String(cell).toLowerCase().includes(query)));
+  }, [organizations, search]);
+
+  function downloadCsv(filename, rows) {
+    const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleCreate(section) {
+    const content = categoryContent[section] || categoryContent["org-list"];
+    const nextRow = content.columns.map((column, index) => {
+      if (index === 0) return `Новая запись ${Date.now().toString().slice(-4)}`;
+      if (index === content.columns.length - 1) return "Новый";
+      return "—";
+    });
+    setCategoryRows((current) => ({
+      ...current,
+      [section]: [nextRow, ...(current[section] || content.rows)],
+    }));
+    setMessage("Запись создана локально.");
+  }
+
+  function handleRowAction(name) {
+    setOrganizations((current) => current.map((row) => (
+      row[0] === name
+        ? row.map((cell, index) => (index === row.length - 1 ? (cell === "Активна" ? "На модерации" : "Активна") : cell))
+        : row
+    )));
+    setMessage(`Статус обновлен: ${name}`);
+  }
+
+  function handleApprovalAction(item) {
+    setApprovals((current) => current.filter((entry) => entry !== item));
+    setMessage(`${item[0]}: заявка обработана.`);
+  }
+
+  function openKpiDetail(item) {
+    setDetail({
+      title: item.title,
+      subtitle: "Ключевой показатель платформы",
+      fields: [
+        { label: "Текущее значение", value: item.value },
+        { label: "Динамика", value: item.delta },
+        { label: "Описание", value: item.desc },
+      ],
+    });
+  }
+
+  function openOrgDetail(row) {
+    setDetail({
+      title: row[0],
+      subtitle: row[1],
+      status: row[5],
+      fields: [
+        { label: "Тип", value: row[1] },
+        { label: "Филиалов", value: row[2] },
+        { label: "Администратор", value: row[3] },
+        { label: "Дата регистрации", value: row[4] },
+        { label: "Статус", value: row[5] },
+      ],
+      actions: [
+        { label: "Сменить статус", variant: "primary", onClick: () => { handleRowAction(row[0]); closeDetail(); } },
+        { label: "Закрыть", variant: "ghost", onClick: closeDetail },
+      ],
+    });
+  }
+
+  function openApprovalDetail(item) {
+    setDetail({
+      title: item[0],
+      subtitle: item[1],
+      fields: [
+        { label: "Тип заявки", value: item[1] },
+        { label: "Получено", value: item[2] },
+        { label: "Рекомендуемое действие", value: item[3] },
+      ],
+      actions: [
+        { label: item[3], variant: "primary", onClick: () => { handleApprovalAction(item); closeDetail(); } },
+        { label: "Закрыть", variant: "ghost", onClick: closeDetail },
+      ],
+    });
+  }
+
+  function openAlertDetail(item) {
+    const levelLabel = item[0] === "success" ? "Успешно" : item[0] === "warning" ? "Предупреждение" : "Информация";
+    setDetail({
+      title: levelLabel,
+      subtitle: "Системное оповещение",
+      fields: [
+        { label: "Уровень", value: levelLabel },
+        { label: "Сообщение", value: item[1] },
+      ],
+    });
+  }
+
+  function openSystemDetail(item) {
+    setDetail({
+      title: item[0],
+      subtitle: "Состояние подсистемы",
+      fields: [
+        { label: "Компонент", value: item[0] },
+        { label: "Состояние", value: item[1] },
+        { label: "Аптайм за 30 дней", value: "99.98%" },
+      ],
+    });
+  }
+
+  function openCategoryRowDetail(title, columns, row) {
+    setDetail({
+      title: row[0],
+      subtitle: title,
+      status: row[row.length - 1],
+      fields: columns.map((column, index) => ({ label: column, value: row[index] })),
+    });
+  }
+
+  function openProfileDetail() {
+    setDetail({
+      title: user?.name || "Александр П.",
+      subtitle: "Профиль администратора",
+      status: "Активна",
+      fields: [
+        { label: "Роль", value: user?.is_superadmin ? "Суперадмин" : "Администратор" },
+        { label: "Телефон", value: user?.phone || "900000777" },
+        { label: "Доступ", value: "Полный доступ" },
+      ],
+      actions: [
+        { label: "Выйти", variant: "primary", onClick: () => { closeDetail(); logout(); } },
+        { label: "Закрыть", variant: "ghost", onClick: closeDetail },
+      ],
+    });
+  }
+
   const page = useMemo(() => (
-    active === "dashboard" ? <DashboardPage /> : <CategoryPage active={active} />
-  ), [active]);
+    active === "dashboard" ? (
+      <DashboardPage
+        segment={segment}
+        onSegmentChange={setSegment}
+        organizationRows={filteredOrganizations}
+        approvals={approvals}
+        alerts={alerts}
+        onExport={() => downloadCsv("marjon-organizations.csv", [["Организация", "Тип", "Филиалов", "Админ", "Дата регистрации", "Статус"], ...filteredOrganizations])}
+        onRowAction={handleRowAction}
+        onApprovalAction={handleApprovalAction}
+        onShowApprovals={() => setMessage(`Показаны все заявки: ${approvals.length}.`)}
+        onShowAlerts={() => setMessage(`Показаны все оповещения: ${alerts.length}.`)}
+        onKpiClick={openKpiDetail}
+        onOrgClick={openOrgDetail}
+        onApprovalClick={openApprovalDetail}
+        onAlertClick={openAlertDetail}
+        onSystemClick={openSystemDetail}
+      />
+    ) : (
+      <CategoryPage active={active} rowsOverride={categoryRows[active]} search={search} onCreate={handleCreate} onRowDetail={openCategoryRowDetail} onNotify={setMessage} />
+    )
+  ), [active, alerts, approvals, categoryRows, filteredOrganizations, search, segment]);
 
   function logout() {
     adminLogout();
@@ -611,14 +2526,28 @@ function AdminShell({ onLogout }) {
   }
 
   return (
-    <div className="admin-shell">
-      <Sidebar active={active} onSelect={setActive} />
+    <div className={`admin-shell ${collapsed ? "is-sidebar-collapsed" : ""}`}>
+      <Sidebar active={active} onSelect={setActive} collapsed={collapsed} onToggle={() => setCollapsed((value) => !value)} user={user} onProfile={openProfileDetail} />
       <section className="admin-main">
-        <Header user={user} onLogout={logout} />
-        {message ? <div className="admin-auth-alert">{message}</div> : null}
-        {page}
-        <Footer />
+        <Header
+          user={user}
+          onLogout={logout}
+          search={search}
+          onSearchChange={setSearch}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          onBellClick={() => setMessage(`Непрочитанных уведомлений: ${approvals.length + alerts.length}.`)}
+          notificationCount={approvals.length + alerts.length}
+          onProfile={openProfileDetail}
+        />
+        {message ? (
+          <div className="admin-auth-alert" role="status" onClick={() => setMessage("")}>{message}</div>
+        ) : null}
+        <div className="admin-content">
+          {page}
+        </div>
       </section>
+      <DetailModal data={detail} onClose={closeDetail} />
     </div>
   );
 }

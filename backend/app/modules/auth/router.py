@@ -37,7 +37,8 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
 @router.post("/login", response_model=TokenResponse)
 async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     svc = AuthService(db)
-    _, access_token, refresh_token = await svc.login(data.email, data.password)
+    identifier = data.phone or data.email
+    _, access_token, refresh_token = await svc.login(identifier, data.password)
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 

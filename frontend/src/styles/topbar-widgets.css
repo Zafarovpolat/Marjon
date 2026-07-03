@@ -1,6 +1,13 @@
 /* ─────────────────────────────────────────────────────────
    Custom date picker + calendar (replaces native input[type=date])
    ───────────────────────────────────────────────────────── */
+.mj-datepicker,
+.mj-calendar {
+  /* Локальный бирюзовый акцент вместо глобального оранжевого */
+  --accent: var(--color-brand);
+  --accent-2: var(--color-brand-hover);
+}
+
 .mj-datepicker {
   position: relative;
 }
@@ -15,20 +22,20 @@
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.85);
   color: var(--text);
-  font-weight: 800;
-  font-size: 0.9rem;
+  font-weight: 500;
+  font-size: 14px;
   cursor: pointer;
   transition: border-color 0.18s var(--mj-ease), box-shadow 0.18s var(--mj-ease);
 }
 
 .mj-datepicker__trigger:hover {
-  border-color: rgba(255, 107, 61, 0.5);
-  box-shadow: 0 6px 18px rgba(255, 107, 61, 0.12);
+  border-color: rgba(29, 181, 181, 0.5);
+  box-shadow: 0 4px 11px rgba(29, 181, 181, 0.084);
 }
 
 .mj-datepicker.is-open .mj-datepicker__trigger {
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgba(255, 107, 61, 0.14);
+  box-shadow: 0 0 0 2px rgba(29, 181, 181, 0.098);
 }
 
 .mj-datepicker__icon {
@@ -38,9 +45,9 @@
   width: 28px;
   height: 28px;
   border-radius: 9px;
-  background: linear-gradient(135deg, rgba(255, 107, 61, 0.16), rgba(255, 143, 90, 0.1));
+  background: rgba(29, 181, 181, 0.16);
   color: var(--accent);
-  font-size: 0.95rem;
+  font-size: 15px;
 }
 
 .mj-datepicker__value {
@@ -48,8 +55,25 @@
   letter-spacing: 0.01em;
 }
 
+.mj-datepicker__time {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding-left: 10px;
+  margin-left: 2px;
+  border-left: 1px solid var(--border);
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.mj-datepicker__time .bi {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
 .mj-datepicker__caret {
-  font-size: 0.7rem;
+  font-size: 11px;
   color: var(--muted);
 }
 
@@ -63,7 +87,7 @@
   border-radius: 20px;
   background: #fff;
   border: 1px solid var(--border);
-  box-shadow: 0 24px 60px rgba(11, 31, 58, 0.18);
+  box-shadow: 0 14px 36px rgba(11, 31, 58, 0.126);
   transform-origin: top left;
   animation: mjPopIn 0.16s var(--mj-ease);
 }
@@ -99,24 +123,26 @@
 }
 
 .mj-calendar__title:hover {
-  background: rgba(255, 107, 61, 0.08);
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .mj-calendar__title strong {
-  font-size: 1.02rem;
-  font-weight: 800;
+  font-size: 16px;
+  font-weight: 500;
   color: var(--text);
 }
 
 .mj-calendar__title span {
-  font-size: 0.92rem;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 500;
   color: var(--muted);
 }
 
-.mj-calendar__title i {
+.mj-calendar__title i,
+.mj-calendar__title svg {
   font-size: 0.6rem;
   color: var(--accent);
+  transform: translateY(2px);
 }
 
 .mj-calendar__nav {
@@ -136,7 +162,7 @@
   background: #fff;
   color: var(--text);
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 14px;
   transition: border-color 0.15s var(--mj-ease), color 0.15s var(--mj-ease), background 0.15s var(--mj-ease);
 }
 
@@ -144,7 +170,7 @@
 .mj-calendar__year-switch button:hover {
   border-color: var(--accent);
   color: var(--accent);
-  background: rgba(255, 107, 61, 0.08);
+  background: rgba(29, 181, 181, 0.08);
 }
 
 .mj-calendar__weekdays {
@@ -156,8 +182,8 @@
 
 .mj-calendar__weekdays span {
   text-align: center;
-  font-size: 0.72rem;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted);
@@ -184,21 +210,21 @@
   border-radius: 11px;
   background: transparent;
   color: var(--text);
-  font-size: 0.88rem;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition: background 0.13s var(--mj-ease), color 0.13s var(--mj-ease), transform 0.13s var(--mj-ease);
 }
 
 .mj-calendar__day:hover:not(.is-disabled):not(.is-selected) {
-  background: rgba(255, 107, 61, 0.12);
+  background: rgba(29, 181, 181, 0.12);
   color: var(--accent);
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .mj-calendar__day.is-outside {
-  color: #c4cbd6;
+  color: var(--neutral-300);
   font-weight: 600;
 }
 
@@ -219,13 +245,14 @@
 }
 
 .mj-calendar__day.is-selected {
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  background: var(--accent);
   color: #fff;
-  box-shadow: 0 8px 18px rgba(255, 107, 61, 0.4);
+  font-weight: 500;
+  box-shadow: 0 2px 7px rgba(29, 181, 181, 0.21);
 }
 
 .mj-calendar__day.is-disabled {
-  color: #d6dbe3;
+  color: var(--neutral-300);
   cursor: not-allowed;
 }
 
@@ -242,7 +269,7 @@
 
 .mj-calendar__year-switch strong {
   font-size: 1rem;
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .mj-calendar__months-grid {
@@ -256,8 +283,8 @@
   border-radius: 12px;
   border: 1px solid var(--border);
   background: #fff;
-  font-weight: 700;
-  font-size: 0.85rem;
+  font-weight: 500;
+  font-size: 14px;
   color: var(--text);
   cursor: pointer;
   transition: border-color 0.15s var(--mj-ease), color 0.15s var(--mj-ease);
@@ -269,7 +296,7 @@
 }
 
 .mj-calendar__months-grid button.is-current {
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  background: var(--accent);
   color: #fff;
   border-color: transparent;
 }
@@ -286,8 +313,8 @@
 .mj-calendar__action {
   border: 0;
   background: transparent;
-  font-weight: 800;
-  font-size: 0.85rem;
+  font-weight: 500;
+  font-size: 14px;
   padding: 6px 12px;
   border-radius: 10px;
   cursor: pointer;
@@ -308,7 +335,7 @@
 }
 
 .mj-calendar__action--accent:hover {
-  background: rgba(255, 107, 61, 0.12);
+  background: rgba(29, 181, 181, 0.12);
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -335,13 +362,13 @@
 .global-search.is-open .global-search__field,
 .global-search__field:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgba(255, 107, 61, 0.14);
+  box-shadow: 0 0 0 2px rgba(29, 181, 181, 0.098);
   background: #fff;
 }
 
 .global-search__icon {
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: 15px;
 }
 
 .global-search.is-open .global-search__icon,
@@ -355,8 +382,8 @@
   border: 0;
   outline: 0;
   background: transparent;
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text);
 }
 
@@ -375,7 +402,7 @@
   border-radius: 8px;
   background: rgba(102, 112, 133, 0.12);
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: 11px;
   cursor: pointer;
   transition: background 0.15s var(--mj-ease), color 0.15s var(--mj-ease);
 }
@@ -397,7 +424,7 @@
   border-radius: 18px;
   background: #fff;
   border: 1px solid var(--border);
-  box-shadow: 0 24px 60px rgba(11, 31, 58, 0.18);
+  box-shadow: 0 14px 36px rgba(11, 31, 58, 0.126);
   animation: mjPopIn 0.16s var(--mj-ease);
 }
 
@@ -407,8 +434,8 @@
 
 .global-search__group-title {
   padding: 8px 12px 4px;
-  font-size: 0.7rem;
-  font-weight: 800;
+  font-size: 11px;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
@@ -429,7 +456,7 @@
 }
 
 .global-search__result.is-active {
-  background: rgba(255, 107, 61, 0.1);
+  background: rgba(29, 181, 181, 0.1);
 }
 
 .global-search__result-icon {
@@ -440,7 +467,7 @@
   height: 36px;
   flex-shrink: 0;
   border-radius: 11px;
-  background: linear-gradient(135deg, rgba(255, 107, 61, 0.16), rgba(255, 143, 90, 0.1));
+  background: rgba(29, 181, 181, 0.16);
   color: var(--accent);
   font-size: 1rem;
 }
@@ -453,8 +480,8 @@
 }
 
 .global-search__result-body strong {
-  font-size: 0.9rem;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -462,7 +489,7 @@
 }
 
 .global-search__result-body small {
-  font-size: 0.78rem;
+  font-size: 13px;
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
@@ -470,7 +497,7 @@
 }
 
 .global-search__result-enter {
-  font-size: 0.8rem;
+  font-size: 13px;
   color: var(--muted);
   opacity: 0;
   transition: opacity 0.12s var(--mj-ease);
@@ -497,11 +524,11 @@
 
 .global-search__empty p {
   margin: 0;
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .global-search {
     width: 200px;
   }

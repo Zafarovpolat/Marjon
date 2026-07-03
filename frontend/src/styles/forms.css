@@ -15,8 +15,8 @@
 .form-field label {
     display: block;
     margin-bottom: 7px;
-    color: #344054;
-    font-weight: 800;
+    color: var(--neutral-600);
+    font-weight: 500;
 }
 
 .form-field input,

@@ -2,6 +2,8 @@
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import logo from "../assets/marjon-logo.svg";
 import { api, formatMoney, logout } from "../api/client";
+import { printKitchenReceipt, printOrderReceipt } from "../api/receipt";
+import Icon from '../components/Icon';
 
 const tableStatuses = ["free", "occupied", "reserved"];
 const TABLE_COUNT = 50;
@@ -90,14 +92,14 @@ function WaiterShell({ children }) {
         <nav className="pos-nav">
           {items.map((item) => {
             const active = item.exact ? location.pathname === item.to : location.pathname.startsWith(item.to);
-            return <Link key={item.to} to={item.to} className={active ? "is-active" : ""}><span className="pos-nav__icon"><i className={`bi ${item.icon}`} /></span><span>{item.label}</span></Link>;
+            return <Link key={item.to} to={item.to} className={active ? "is-active" : ""}><span className="pos-nav__icon"><Icon name={item.icon} size={18} /></span><span>{item.label}</span></Link>;
           })}
-          <button type="button" onClick={handleLogout} className="pos-nav-button"><span className="pos-nav__icon"><i className="bi bi-box-arrow-right" /></span><span>Chiqish</span></button>
+          <button type="button" onClick={handleLogout} className="pos-nav-button"><span className="pos-nav__icon"><Icon name="bi-box-arrow-right" size={18} /></span><span>Chiqish</span></button>
         </nav>
         <button type="button" onClick={handleLogout} className="pos-sidebar-user">
           <span className="pos-sidebar-user__avatar"><img src={logo} alt="MARJON" className="sidebar-user-logo" decoding="async" /></span>
           <span className="pos-sidebar-user__meta"><strong>ofitsiant</strong><small>waiter</small><em>MARJON</em></span>
-          <i className="bi bi-chevron-right" aria-hidden="true" />
+          <Icon name="bi-chevron-right" size={18} />
         </button>
       </aside>
       <main className="pos-main pos-main--warm">{children}</main>
@@ -328,6 +330,20 @@ function OrderDetailView({ orders }) {
   const { orderId } = useParams();
   const order = orders.find((item) => String(item.id) === String(orderId));
   const items = order?.items || [];
+  const [printState, setPrintState] = useState({ loading: false, message: "", error: "" });
+
+  async function handlePrint(type) {
+    if (!order?.id) return;
+    setPrintState({ loading: true, message: "", error: "" });
+    const result = type === "kitchen"
+      ? await printKitchenReceipt(order.id)
+      : await printOrderReceipt(order.id);
+    setPrintState({
+      loading: false,
+      message: result.ok ? "Chop etishga yuborildi." : "",
+      error: result.ok ? "" : result.detail,
+    });
+  }
 
   if (!order) {
     return (
@@ -348,9 +364,17 @@ function OrderDetailView({ orders }) {
         </div>
         <div className="pos-top__actions">
           <Link className="pos-btn pos-btn--ghost" to="/waiter">Stollarga qaytish</Link>
+          <button className="pos-btn pos-btn--ghost" type="button" disabled={printState.loading} onClick={() => handlePrint("customer")}>
+            {printState.loading ? "Chop..." : "Печать чека"}
+          </button>
+          <button className="pos-btn pos-btn--ghost" type="button" disabled={printState.loading} onClick={() => handlePrint("kitchen")}>
+            {printState.loading ? "Chop..." : "Печать на кухню"}
+          </button>
           <Link className="pos-btn" to={`/waiter/new?table=${order.table_number}`}>+ Qo'shimcha buyurtma</Link>
         </div>
       </div>
+      {printState.error ? <div className="pos-msg">{printState.error}</div> : null}
+      {printState.message ? <div className="pos-msg">{printState.message}</div> : null}
       <section className="pos-active-order pos-active-order--page">
         <div className="pos-active-order__meta">
           <div><span>Status</span><strong>{orderStatusLabels[order.status] || order.status}</strong></div>

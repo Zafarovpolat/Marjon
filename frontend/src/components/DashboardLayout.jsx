@@ -1,9 +1,11 @@
 ﻿import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
+import BackButton from "./BackButton";
 import Sidebar from "./Sidebar";
+import SupportWidget from "./SupportWidget";
 import Topbar from "./Topbar";
 import { clampToToday, todayInputValue } from "../utils/date";
+import { useAuth } from "../hooks/useAuth";
 
 const pageMeta = {
   "/": ["Дашборд", "Ключевые показатели ресторана"],
@@ -60,19 +62,12 @@ const pageMeta = {
 export default function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [message, setMessage] = useState("");
+  const { user, loading } = useAuth();
   const [selectedDate, setSelectedDate] = useState(() => todayInputValue());
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("marjon_sidebar_collapsed") === "true");
-
-  function toggleSidebar() {
-    setSidebarCollapsed((prev) => {
-      localStorage.setItem("marjon_sidebar_collapsed", !prev);
-      return !prev;
-    });
-  }
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [title, subtitle] = useMemo(() => pageMeta[location.pathname] || ["Dashboard", ""], [location.pathname]);
+  const showBackButton = location.pathname !== "/";
   const selectedDateContext = useMemo(() => ({
     user,
     selectedDate,
@@ -84,32 +79,32 @@ export default function DashboardLayout() {
     return () => document.body.classList.remove("dashboard-body");
   }, []);
 
+  // Редирект waiter/kitchen на их рабочие места
   useEffect(() => {
-    let mounted = true;
-    api.get("/auth/me")
-      .then(({ data }) => {
-        if (!mounted) return;
-        setUser(data);
-        if (data.role_slugs?.[0] === "waiter") {
-          navigate("/waiter", { replace: true });
-        } else if (data.role_slugs?.[0] === "kitchen") {
-          navigate("/kitchen", { replace: true });
-        }
-      })
-      .catch(() => mounted && setMessage("Не удалось загрузить профиль пользователя."));
-    return () => { mounted = false; };
-  }, [navigate]);
+    if (loading || !user) return;
+    const role = user.role_slugs?.[0];
+    if (role === "waiter" && !location.pathname.startsWith("/waiter")) {
+      navigate("/waiter", { replace: true });
+    } else if (role === "kitchen" && !location.pathname.startsWith("/kitchen")) {
+      navigate("/kitchen", { replace: true });
+    }
+  }, [user, loading, location.pathname, navigate]);
 
   return (
     <div>
-      <div className={`dashboard-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-        <Sidebar user={user} collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
-        <div className="dashboard-main">
-          <Topbar title={title} subtitle={subtitle} selectedDate={selectedDate} onSelectedDateChange={setSelectedDate} />
+      <div className={`dashboard-shell ${sidebarCollapsed ? "is-sidebar-collapsed" : "is-sidebar-expanded"}`}>
+        <Sidebar user={user} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((value) => !value)} />
+        <div className={`dashboard-main ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}>
+          <Topbar
+            title={title}
+            subtitle={subtitle}
+            selectedDate={selectedDate}
+            onSelectedDateChange={setSelectedDate}
+          />
           <main className="dashboard-content">
-            {message ? <div className="login-error">{message}</div> : null}
             <Outlet context={selectedDateContext} />
           </main>
+          <SupportWidget />
         </div>
       </div>
     </div>
