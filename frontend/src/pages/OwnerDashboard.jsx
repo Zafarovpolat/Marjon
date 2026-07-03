@@ -176,8 +176,8 @@ function demoKpis(sales, selectedDate) {
     {
       className: "premium-kpi--tables",
       icon: "bi-cash-coin",
-      badge: "Доход",
-      label: "Денежный доход",
+      badge: "Приход",
+      label: "Денежный приход",
       value: formatNumber(moneyIncome),
       suffix: "UZS",
       note: `${signed(incomeChange)}% к вчерашнему дню`,
@@ -190,7 +190,26 @@ function demoKpis(sales, selectedDate) {
         ["Оплачено заказов", `${Math.max(0, day.orders_count - activeOrders)} заказов`],
         ["Активные заказы", `${activeOrders} заказа`],
       ],
-      insight: "Денежный доход показывает поступления, которые уже прошли через оплату.",
+      insight: "Денежный приход показывает поступления, которые уже прошли через оплату.",
+    },
+    {
+      className: "premium-kpi--expense",
+      icon: "bi-arrow-up-right-circle",
+      badge: "Расход",
+      label: "Денежные расходы",
+      value: formatNumber(moneyExpense),
+      suffix: "UZS",
+      note: `${signed(expenseChange)}% к вчерашнему дню`,
+      noteClass: noteClassFor(expenseChange),
+      progress: Math.max(8, Math.min(100, Math.round((moneyExpense / Math.max(day.revenue, 1)) * 100))),
+      description: "Фактические расходы за выбранную дату по закупкам, списаниям и операционным затратам.",
+      details: [
+        ["Закупки", `${formatNumber(Math.round(moneyExpense * 0.54))} UZS`],
+        ["Склад", `${formatNumber(Math.round(moneyExpense * 0.28))} UZS`],
+        ["Операционные", `${formatNumber(Math.round(moneyExpense * 0.18))} UZS`],
+        ["Доля от выручки", `${Math.round((moneyExpense / Math.max(day.revenue, 1)) * 100)}%`],
+      ],
+      insight: "Денежные расходы показывают затраты за выбранную дату.",
     },
   ];
 }
@@ -223,12 +242,12 @@ function demoWarehouseSummary(selectedDate) {
   const debtor = Math.round((stockBalance * seededFactor(seed, 46, 0.0, 0.04)) / 1000) * 1000;
 
   return [
-    { label: "Приход товаров", value: income, icon: "bi-box-arrow-in-down", tone: "blue" },
-    { label: "Расход товаров", value: expense, icon: "bi-arrow-up-right-circle", tone: "red" },
-    { label: "Остаток склада", value: stockBalance, icon: "bi-box-seam", tone: "orange" },
-    { label: "Общие затраты", value: totalCosts, icon: "bi-cash-coin", tone: "rose" },
-    { label: "Кредиторка", value: creditor, icon: "bi-arrow-up-right-circle", tone: "pink" },
-    { label: "Дебиторка", value: debtor, icon: "bi-arrow-down-left-circle", tone: "green" },
+    { label: "Приход товаров", value: income, icon: "bi-download", tone: "income" },
+    { label: "Расход товаров", value: expense, icon: "bi-upload", tone: "expense" },
+    { label: "Остаток склада", value: stockBalance, icon: "bi-box", tone: "stock" },
+    { label: "Общие затраты", value: totalCosts, icon: "bi-wallet2", tone: "costs" },
+    { label: "Кредиторка", value: creditor, icon: "bi-arrow-up-right-circle", tone: "creditor" },
+    { label: "Дебиторка", value: debtor, icon: "bi-arrow-down-left-circle", tone: "debtor" },
   ];
 }
 
@@ -352,10 +371,32 @@ function dishPhotoClass(name = "", index = 0) {
 
 function RevenueChart({ sales }) {
   const canvasRef = useRef(null);
+  const tooltipRef = useRef(null);
 
   useEffect(() => {
     if (!canvasRef.current) return undefined;
     const ctx = canvasRef.current.getContext("2d");
+    const revealState = { progress: 0, didClip: false };
+    const revealDuration = 1200;
+    const easeOutCubic = (value) => 1 - Math.pow(1 - value, 3);
+    const revealPlugin = {
+      id: "revenueChartReveal",
+      beforeDatasetsDraw(chart) {
+        const { chartArea } = chart;
+        revealState.didClip = false;
+        if (!chartArea) return;
+        const width = chartArea.width * revealState.progress;
+        chart.ctx.save();
+        chart.ctx.beginPath();
+        chart.ctx.rect(chartArea.left, chartArea.top, width, chartArea.height);
+        chart.ctx.clip();
+        revealState.didClip = true;
+      },
+      afterDatasetsDraw(chart) {
+        if (revealState.didClip) chart.ctx.restore();
+      },
+    };
+    let revealFrame = 0;
     const gradient = ctx.createLinearGradient(0, 0, 0, 360);
     gradient.addColorStop(0, "rgba(29, 181, 181, 0.28)");
     gradient.addColorStop(0.55, "rgba(31, 202, 194, 0.10)");
@@ -383,20 +424,36 @@ function RevenueChart({ sales }) {
         responsive: true,
         maintainAspectRatio: false,
         interaction: { intersect: false, mode: "index" },
+        animation: false,
+        animations: false,
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: "#FFFFFF",
-            titleColor: "#0B1F3A",
-            bodyColor: "#334155",
-            borderColor: "rgba(15, 35, 70, 0.10)",
-            borderWidth: 1,
-            padding: 16,
-            cornerRadius: 14,
-            boxShadow: "0 18px 45px rgba(15, 35, 70, 0.14)",
-            displayColors: false,
-            titleFont: { size: 14, weight: "600", family: "'Golos Text', Manrope, sans-serif" },
-            bodyFont: { size: 16, weight: "500", family: "'Golos Text', Manrope, sans-serif" },
+            enabled: false,
+            external: ({ chart, tooltip }) => {
+              const tooltipEl = tooltipRef.current;
+              if (!tooltipEl) return;
+
+              if (!tooltip || tooltip.opacity === 0) {
+                tooltipEl.classList.remove("is-visible");
+                return;
+              }
+
+              const titleEl = tooltipEl.querySelector("strong");
+              const valueEl = tooltipEl.querySelector("span");
+              if (titleEl) titleEl.textContent = tooltip.title?.[0] || "";
+              if (valueEl) valueEl.textContent = tooltip.body?.[0]?.lines?.[0] || "";
+
+              const tooltipHalfWidth = tooltipEl.offsetWidth / 2 || 72;
+              const minX = tooltipHalfWidth + 8;
+              const maxX = chart.width - tooltipHalfWidth - 8;
+              const x = Math.min(Math.max(tooltip.caretX, minX), maxX);
+              const y = Math.max(tooltip.caretY - 10, 16);
+
+              tooltipEl.style.left = `${chart.canvas.offsetLeft + x}px`;
+              tooltipEl.style.top = `${chart.canvas.offsetTop + y}px`;
+              tooltipEl.classList.add("is-visible");
+            },
             callbacks: { label: (context) => formatMoney(context.parsed.y) },
           },
         },
@@ -414,12 +471,34 @@ function RevenueChart({ sales }) {
           },
         },
       },
+      plugins: [revealPlugin],
     });
 
-    return () => chart.destroy();
+    const revealStart = performance.now();
+    const runReveal = (timestamp) => {
+      const elapsed = timestamp - revealStart;
+      const progress = Math.min(1, elapsed / revealDuration);
+      revealState.progress = easeOutCubic(progress);
+      chart.draw();
+      if (progress < 1) revealFrame = window.requestAnimationFrame(runReveal);
+    };
+    revealFrame = window.requestAnimationFrame(runReveal);
+
+    return () => {
+      window.cancelAnimationFrame(revealFrame);
+      chart.destroy();
+    };
   }, [sales]);
 
-  return <canvas ref={canvasRef} id="ownerRevenueChart" />;
+  return (
+    <>
+      <canvas ref={canvasRef} id="ownerRevenueChart" />
+      <div className="owner-revenue-tooltip" ref={tooltipRef} aria-hidden="true">
+        <strong />
+        <span />
+      </div>
+    </>
+  );
 }
 
 function EmptyState({ title, text }) {

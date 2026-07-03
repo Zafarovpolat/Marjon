@@ -10,9 +10,9 @@ const datePresets = [
   "Этот год",
 ];
 
-const shortMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const weekDays = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+const shortMonths = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
+const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+const weekDays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const yearOptions = Array.from({ length: 13 }, (_, index) => 2020 + index);
 const hourOptions = Array.from({ length: 24 }, (_, hour) => padDate(hour));
 const minuteOptions = Array.from({ length: 60 }, (_, minute) => padDate(minute));

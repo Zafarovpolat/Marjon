@@ -6,7 +6,7 @@ import { filterNavItems } from "../utils/permissions";
 import Icon from "./Icon";
 
 const PROFILE_STORAGE_KEY = "marjon_profile_settings";
-const SIDEBAR_PROFILE_PANEL_BG = "#0B1F3F";
+const SIDEBAR_PROFILE_PANEL_BG = "#041c18";
 
 function readStoredProfile() {
   try {

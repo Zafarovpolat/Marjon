@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Icon from "../components/Icon";
 
 const printReports = [
@@ -37,219 +37,93 @@ const printReports = [
   },
 ];
 
-const TEST_STATS = {
-  cashiers: [
-    ["Кассир", "Заказов", "Сумма"],
-    ["Administrator", "34", "1 820 000 UZS"],
-    ["Кассир 1", "28", "1 540 000 UZS"],
-    ["ИТОГО", "62", "3 360 000 UZS"],
-  ],
-  waiters: [
-    ["Официант", "Заказов", "Сумма", "% сервис"],
-    ["Азизбек", "18", "920 000 UZS", "46 000"],
-    ["Алишер", "15", "780 000 UZS", "39 000"],
-    ["Дилноза", "12", "540 000 UZS", "27 000"],
-    ["Сардор", "17", "890 000 UZS", "44 500"],
-    ["ИТОГО", "62", "3 130 000 UZS", "156 500"],
-  ],
-  cooks: [
-    ["Повар", "Блюд", "Ср. время"],
-    ["Повар 1", "87", "14 мин"],
-    ["Повар 2", "63", "11 мин"],
-    ["ИТОГО", "150", "12 мин"],
-  ],
-  places: [
-    ["Место", "Заказов", "Сумма"],
-    ["Основной зал", "44", "2 310 000 UZS"],
-    ["Летняя зона", "18", "1 050 000 UZS"],
-    ["ИТОГО", "62", "3 360 000 UZS"],
-  ],
-  menu: [
-    ["Категория", "Позиций", "Кол-во", "Сумма"],
-    ["Горячее", "8", "127", "2 100 000 UZS"],
-    ["Напитки", "5", "94", "640 000 UZS"],
-    ["Салаты", "4", "48", "620 000 UZS"],
-    ["ИТОГО", "17", "269", "3 360 000 UZS"],
-  ],
-};
+function ReportSelect({ field }) {
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState("");
+  const ref = useRef(null);
+  const value = selected || field.label;
 
-function buildReceiptHtml(reportItem, fieldValues) {
-  const now = new Date();
-  const dateStr = now.toLocaleDateString("ru-RU");
-  const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-  const stats = TEST_STATS[reportItem.key] || [];
-  const [header, ...rows] = stats;
+  useEffect(() => {
+    if (!open) return undefined;
 
-  const headerCells = (header || []).map((h) => `<th>${h}</th>`).join("");
-  const bodyRows = rows.map((row) => {
-    const isTotal = row[0] === "ИТОГО";
-    const cells = row.map((cell) => `<td>${cell}</td>`).join("");
-    return `<tr class="${isTotal ? "total-row" : ""}">${cells}</tr>`;
-  }).join("");
+    function handlePointerDown(event) {
+      if (!ref.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    }
 
-  const params = reportItem.fields
-    .map((f, i) => (fieldValues[i] ? `${f.label}: ${fieldValues[i]}` : null))
-    .filter(Boolean)
-    .join(" | ");
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
 
-  return `<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<title>${reportItem.title}</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 12px;
-    color: #000;
-    background: #fff;
-    padding: 20px;
-    max-width: 420px;
-    margin: 0 auto;
-  }
-  .receipt-header {
-    text-align: center;
-    border-bottom: 2px dashed #000;
-    padding-bottom: 10px;
-    margin-bottom: 10px;
-  }
-  .receipt-header h1 {
-    font-size: 18px;
-    font-weight: bold;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-  }
-  .receipt-header p { font-size: 11px; margin-top: 3px; }
-  .receipt-meta {
-    font-size: 11px;
-    margin-bottom: 10px;
-    border-bottom: 1px dashed #000;
-    padding-bottom: 8px;
-    line-height: 1.7;
-  }
-  .receipt-title {
-    font-size: 13px;
-    font-weight: bold;
-    text-align: center;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 8px;
-    border-bottom: 2px solid #000;
-    padding-bottom: 6px;
-  }
-  table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  th {
-    text-align: left;
-    font-weight: bold;
-    padding: 4px 3px;
-    border-bottom: 1px solid #000;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  td {
-    padding: 4px 3px;
-    border-bottom: 1px dashed #bbb;
-    vertical-align: top;
-  }
-  tr.total-row td {
-    border-top: 2px solid #000;
-    border-bottom: none;
-    font-weight: bold;
-    padding-top: 6px;
-    font-size: 12px;
-  }
-  .receipt-footer {
-    margin-top: 12px;
-    border-top: 2px dashed #000;
-    padding-top: 8px;
-    text-align: center;
-    font-size: 10px;
-    color: #444;
-    line-height: 1.8;
-  }
-  @media print {
-    body { padding: 4px; }
-  }
-</style>
-</head>
-<body>
-  <div class="receipt-header">
-    <h1>MARJON</h1>
-    <p>Ресторан • г. Ташкент</p>
-  </div>
-  <div class="receipt-meta">
-    <div>Дата: ${dateStr} ${timeStr}</div>
-    <div>Смена: #0042</div>
-    ${params ? `<div>Параметры: ${params}</div>` : ""}
-  </div>
-  <div class="receipt-title">${reportItem.title}</div>
-  <table>
-    <thead><tr>${headerCells}</tr></thead>
-    <tbody>${bodyRows}</tbody>
-  </table>
-  <div class="receipt-footer">
-    <div>★ MARJON POS — Тестовый отчёт ★</div>
-    <div>${dateStr}</div>
-  </div>
-  <script>
-    window.onload = function () {
-      window.print();
-      window.onafterprint = function () { window.close(); };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
     };
-  </script>
-</body>
-</html>`;
+  }, [open]);
+
+  return (
+    <div className={`z-report-select ${open ? "is-open" : ""}`} ref={ref}>
+      <button
+        className="z-report-select__trigger z-report-filter z-report-print-table__field"
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span>{value}</span>
+        <Icon name="bi-chevron-down" size={18} />
+      </button>
+      {open ? (
+        <div className="z-report-select__menu" role="listbox">
+          {field.options.map((option) => {
+            const active = option === selected || (!selected && option === field.options[0]);
+            return (
+              <button
+                className={active ? "is-active" : ""}
+                type="button"
+                role="option"
+                aria-selected={active}
+                key={option}
+                onClick={() => {
+                  setSelected(option);
+                  setOpen(false);
+                }}
+              >
+                {option}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
-function ReportField({ reportKey, fieldIndex, field, fieldValues, setFieldValues }) {
-  const key = `${reportKey}-${fieldIndex}`;
-
+function ReportField({ field }) {
   if (!field) {
     return <span className="z-report-print-table__empty">—</span>;
   }
 
   if (field.type === "select") {
-    return (
-      <label className="z-report-filter z-report-print-table__field">
-        <select
-          value={fieldValues[key] || ""}
-          onChange={(e) => setFieldValues((prev) => ({ ...prev, [key]: e.target.value }))}
-        >
-          <option value="" disabled>{field.label}</option>
-          {field.options.map((option) => (
-            <option value={option} key={option}>{option}</option>
-          ))}
-        </select>
-        <Icon name="bi-chevron-down" size={18} />
-      </label>
-    );
+    return <ReportSelect field={field} />;
   }
 
   return (
     <label className="z-report-filter z-report-print-table__field z-report-print-table__field--input">
-      <input
-        placeholder={field.label}
-        inputMode="decimal"
-        value={fieldValues[key] || ""}
-        onChange={(e) => setFieldValues((prev) => ({ ...prev, [key]: e.target.value }))}
-      />
+      <input placeholder={field.label} inputMode="decimal" />
       {field.suffix ? <span>{field.suffix}</span> : null}
     </label>
   );
 }
 
 export default function ZReportPage() {
-  const [fieldValues, setFieldValues] = useState({});
-
-  function handlePrint(reportItem) {
-    const values = reportItem.fields.map((_, i) => fieldValues[`${reportItem.key}-${i}`] || "");
-    const html = buildReceiptHtml(reportItem, values);
-    const win = window.open("", "_blank", "width=480,height=600,toolbar=no,menubar=no");
-    if (!win) return;
-    win.document.write(html);
-    win.document.close();
+  function handlePrint() {
+    window.print();
   }
 
   return (
@@ -279,29 +153,13 @@ export default function ZReportPage() {
                     </div>
                   </td>
                   <td>
-                    <ReportField
-                      reportKey={reportItem.key}
-                      fieldIndex={0}
-                      field={reportItem.fields[0]}
-                      fieldValues={fieldValues}
-                      setFieldValues={setFieldValues}
-                    />
+                    <ReportField field={reportItem.fields[0]} />
                   </td>
                   <td>
-                    <ReportField
-                      reportKey={reportItem.key}
-                      fieldIndex={1}
-                      field={reportItem.fields[1]}
-                      fieldValues={fieldValues}
-                      setFieldValues={setFieldValues}
-                    />
+                    <ReportField field={reportItem.fields[1]} />
                   </td>
                   <td>
-                    <button
-                      className="z-report-print-row__action"
-                      type="button"
-                      onClick={() => handlePrint(reportItem)}
-                    >
+                    <button className="z-report-print-row__action" type="button" onClick={handlePrint}>
                       <Icon name="bi-printer" size={18} />
                       Печатать отчет
                     </button>

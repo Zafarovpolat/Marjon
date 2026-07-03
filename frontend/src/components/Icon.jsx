@@ -4,7 +4,7 @@ import {
   Calendar, Camera, Check, CheckCircle, CheckCircle2, ChevronDown, ChevronLeft,
   ChevronRight, ChevronUp, Circle, CircleArrowDown, CircleArrowUp, Clock,
   ClipboardCheck, ClipboardList, Coffee, Coins, Columns2, Combine, Contact2, CornerDownLeft,
-  CreditCard, Delete, Droplet, Egg, Eye, EyeOff, FileBarChart, FileSpreadsheet,
+  CreditCard, Delete, Download, Droplet, Egg, Eye, EyeOff, FileBarChart, FileSpreadsheet,
   FilePlus, FileText, Filter, Gauge, Gift, Grid3X3, Hash, Headphones,
   History, Image, Info, Languages, LayoutGrid, LayoutPanelTop, LifeBuoy,
   ListChecks, ListOrdered, Lock, LogOut, MapPin, MessageCircle, MessageSquare,
@@ -12,7 +12,7 @@ import {
   Pencil, Phone, PieChart, PlusCircle, Plus, Printer, QrCode, Receipt,
   RefreshCcw, RefreshCw, RotateCcw, RotateCw, Ruler, Search, Send, Settings, Settings2,
   ShieldCheck, ShieldX, ShoppingBasket, SlidersHorizontal, Sparkles, Store,
-  Tags, Timer, TrendingDown, TrendingUp, Trash2, User, UserCog, UserPlus,
+  Tags, Timer, TrendingDown, TrendingUp, Trash2, Upload, User, UserCog, UserPlus,
   Users, Wallet, Wifi, WifiOff, X, Zap, PanelLeft, GitFork, Scissors,
   FileCheck, Banknote, BookOpen, Landmark, Layers, Kanban, Megaphone, Star,
   Inbox
@@ -59,6 +59,8 @@ const ICON_MAP = {
   'bi-box-arrow-right':        LogOut,
   'bi-box-arrow-in-down':      PackageOpen,
   'bi-box-arrow-up':           PackageCheck,
+  'bi-download':               Download,
+  'bi-upload':                 Upload,
 
   /* ── UI / Actions ───────────────── */
   'bi-search':                 Search,
@@ -68,6 +70,11 @@ const ICON_MAP = {
   'bi-plus-circle':            PlusCircle,
   'bi-three-dots':             MoreHorizontal,
   'bi-sliders':                SlidersHorizontal,
+  'bi-pencil-square':          Pencil,
+  'bi-copy':                   ClipboardList,
+  'bi-chat-square':            MessageSquare,
+  'bi-chat-square-text-fill':  MessageSquare,
+  'bi-hourglass-split':        Timer,
   'bi-send':                   Send,
   'bi-bell':                   Bell,
   'bi-backspace':              Delete,
