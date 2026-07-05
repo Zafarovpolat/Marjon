@@ -49,6 +49,7 @@ const pageMeta = {
   "/finance/expense-categories": ["Категория расходов", "Справочник затрат"],
   "/nomenclature": ["Номенклатура", "Блюда и доступность"],
   "/nomenclature/dishes": ["Блюда", "Меню и доступность блюд"],
+  "/nomenclature/menu": ["Продажа", "Сколько чего продалось"],
   "/nomenclature/raw-materials": ["Сырьё", "Ингредиенты и складской учёт"],
   "/nomenclature/semi-finished": ["Полуфабрикаты", "Заготовки и производство"],
   "/nomenclature/dish-categories": ["Категория блюд", "Группы меню"],

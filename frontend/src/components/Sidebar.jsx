@@ -57,7 +57,7 @@ const navItems = [
     children: [
       { key: "dishes", label: "Блюда", to: "/nomenclature/dishes", icon: "bi-cup-hot" },
       { key: "dish-categories", label: "Категория блюд", to: "/nomenclature/dish-categories", icon: "bi-grid" },
-      { key: "menu", label: "Меню", to: "/nomenclature/menu", icon: "bi-journal-bookmark" },
+      { key: "menu", label: "Продажа", to: "/nomenclature/menu", icon: "bi-journal-bookmark" },
     ],
   },
   {

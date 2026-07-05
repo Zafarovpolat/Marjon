@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Chart, CategoryScale, Filler, LineController, LineElement, LinearScale, PointElement, Tooltip } from "chart.js";
 import logo from "../assets/marjon-logo.svg";
 import { adminApi, adminLogin, adminLogout, isAdminAuthenticated } from "./api";
 import Icon from '../components/Icon';
+
+Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler);
 
 const navItems = [
   { key: "dashboard", label: "Дашборд", icon: "bi-grid-1x2-fill" },
@@ -895,58 +898,254 @@ function presetRange(label) {
   return { ...range, label: label === "Сегодня" || label === "Вчера" ? label : rangeLabel(range) };
 }
 
+function adminDateLabels(startDay, startMonth, length) {
+  const start = new Date(2026, startMonth - 1, startDay);
+  return Array.from({ length }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    return `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}`;
+  });
+}
+
 // Static turnover datasets per period — wired to the chart toggle so switching
 // День/Неделя/Месяц/Год actually redraws the line, value, axes and tooltip.
 const chartData = {
   "День": {
     value: "3 184 000 UZS",
     delta: "+4.2% к прошлому дню",
-    points: [28, 34, 31, 44, 39, 52, 47, 58],
-    xLabels: ["09:00", "12:00", "15:00", "18:00", "21:00", "00:00"],
+    points: [0.22, 0.28, 0.31, 0.34, 0.3, 0.38, 0.42, 0.48, 0.44, 0.612, 0.56, 0.52, 0.49, 0.46, 0.41, 0.36],
+    labels: ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00"],
+    tickLabels: [[0, "09:00"], [3, "12:00"], [6, "15:00"], [9, "18:00"], [12, "21:00"], [15, "00:00"]],
     tooltip: { label: "18:00", value: "612 000 UZS" },
+    tooltipIndex: 9,
+    yMax: 0.8,
+    yStep: 0.2,
   },
   "Неделя": {
     value: "21 940 000 UZS",
     delta: "+7.8% к прошлой неделе",
-    points: [34, 40, 36, 48, 52, 60, 66],
-    xLabels: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
-    tooltip: { label: "Сб", value: "4 280 000 UZS" },
+    points: [2.8, 3.2, 2.95, 3.62, 3.9, 4.28, 5.1],
+    labels: ["01.06", "02.06", "03.06", "04.06", "05.06", "06.06", "07.06"],
+    tickLabels: [[0, "01.06"], [1, "02.06"], [2, "03.06"], [3, "04.06"], [4, "05.06"], [5, "06.06"], [6, "07.06"]],
+    tooltip: { label: "06.06", value: "4 280 000 UZS" },
+    tooltipIndex: 5,
+    yMax: 6,
+    yStep: 1,
   },
   "Месяц": {
     value: "78 452 340 UZS",
     delta: "+18.6% к прошлому месяцу",
-    points: [16, 22, 18, 34, 30, 46, 42, 56, 60, 68, 74, 88],
-    xLabels: ["12.05", "19.05", "26.05", "02.06", "09.06", "11.06"],
+    points: [
+      26, 28, 29.5, 30.2, 30.7, 31, 31.2, 31, 30, 29, 28, 27.8, 27.5, 27.9, 29,
+      34, 38, 40, 39, 36.5, 37, 49, 48.5, 46.5, 45.5, 47, 51, 56, 83.12, 78, 81,
+    ],
+    labels: adminDateLabels(12, 5, 31),
+    tickLabels: [[0, "12.05"], [7, "19.05"], [14, "26.05"], [21, "02.06"], [28, "09.06"], [30, "11.06"]],
     tooltip: { label: "09.06", value: "83 120 000 UZS" },
+    tooltipIndex: 28,
+    yMax: 100,
+    yStep: 20,
   },
   "Год": {
     value: "842 600 000 UZS",
     delta: "+24.3% к прошлому году",
-    points: [22, 28, 30, 38, 44, 50, 58, 55, 64, 72, 80, 92],
-    xLabels: ["Янв", "Мар", "Май", "Июл", "Сен", "Ноя"],
+    points: [52, 57, 60, 64, 69, 73, 76, 74, 79, 86, 92.4, 88],
+    labels: ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"],
+    tickLabels: [[0, "Янв"], [2, "Мар"], [4, "Май"], [6, "Июл"], [8, "Сен"], [10, "Ноя"]],
     tooltip: { label: "Ноя", value: "92 400 000 UZS" },
+    tooltipIndex: 10,
+    yMax: 100,
+    yStep: 20,
   },
 };
 
-// Smooth (Catmull-Rom → cubic bezier) line + area path for the platform chart.
-function chartGeometry(values, width = 650, top = 30, bottom = 220, maxValue = 100) {
-  const n = values.length;
-  const pts = values.map((value, index) => ({
-    x: n > 1 ? (index / (n - 1)) * width : 0,
-    y: bottom - (Math.max(0, Math.min(maxValue, value)) / maxValue) * (bottom - top),
-  }));
-  const line = pts.map((point, index) => {
-    if (index === 0) return `M ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
-    const prev = pts[index - 1];
-    const beforePrev = pts[index - 2] || prev;
-    const next = pts[index + 1] || point;
-    const cp1x = prev.x + (point.x - beforePrev.x) / 6;
-    const cp1y = prev.y + (point.y - beforePrev.y) / 6;
-    const cp2x = point.x - (next.x - prev.x) / 6;
-    const cp2y = point.y - (next.y - prev.y) / 6;
-    return `C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
-  }).join(" ");
-  return { line, area: `${line} L ${width} ${bottom} L 0 ${bottom} Z`, last: pts[pts.length - 1] };
+const ADMIN_CHART_COLOR = "#4ed3a7";
+const ADMIN_CHART_COLOR_RGB = "78, 211, 167";
+
+function formatAdminChartMoney(value) {
+  return `${Math.round(Number(value || 0) * 1000000).toLocaleString("ru-RU").replace(/\u00a0/g, " ")} UZS`;
+}
+
+function formatAdminAxisTick(value, yMax) {
+  if (Number(value) === 0) return "0";
+  if (yMax <= 1) return `${Math.round(Number(value) * 1000)}K`;
+  if (yMax <= 10) return `${Number(value).toLocaleString("ru-RU", { maximumFractionDigits: 1 }).replace(/\u00a0/g, " ")}M`;
+  return `${Math.round(Number(value))}M`;
+}
+
+function AdminRevenueChart({ data, segment }) {
+  const canvasRef = useRef(null);
+  const tooltipRef = useRef(null);
+
+  useEffect(() => {
+    if (!canvasRef.current) return undefined;
+    const ctx = canvasRef.current.getContext("2d");
+    const tooltipIndex = Math.min(Math.max(data.tooltipIndex ?? data.points.length - 1, 0), data.points.length - 1);
+    const labels = data.labels || data.xLabels || [];
+    const tickLabels = new Map(data.tickLabels || labels.map((label, index) => [index, label]));
+    const yMax = data.yMax || 100;
+    const yStep = data.yStep || 20;
+    const revealState = { progress: 0, didClip: false };
+    const revealDuration = 1200;
+    const easeOutCubic = (value) => 1 - Math.pow(1 - value, 3);
+
+    const fill = ctx.createLinearGradient(0, 0, 0, 340);
+    fill.addColorStop(0, `rgba(${ADMIN_CHART_COLOR_RGB}, 0.28)`);
+    fill.addColorStop(0.58, `rgba(${ADMIN_CHART_COLOR_RGB}, 0.12)`);
+    fill.addColorStop(1, `rgba(${ADMIN_CHART_COLOR_RGB}, 0)`);
+
+    function showTooltip(chart, label, value, caretX, caretY) {
+      const tooltipEl = tooltipRef.current;
+      if (!tooltipEl) return;
+      const titleEl = tooltipEl.querySelector("strong");
+      const valueEl = tooltipEl.querySelector("span");
+      if (titleEl) titleEl.textContent = label || "";
+      if (valueEl) valueEl.textContent = value || "";
+
+      const halfWidth = tooltipEl.offsetWidth / 2 || 78;
+      const height = tooltipEl.offsetHeight || 86;
+      const minX = halfWidth + 8;
+      const maxX = chart.width - halfWidth - 8;
+      const x = Math.min(Math.max(caretX, minX), maxX);
+      const y = Math.min(Math.max(caretY - 12, height + 18), chart.height - 12);
+
+      tooltipEl.style.left = `${chart.canvas.offsetLeft + x}px`;
+      tooltipEl.style.top = `${chart.canvas.offsetTop + y}px`;
+      tooltipEl.classList.add("is-visible");
+    }
+
+    function showDefaultTooltip(chart) {
+      const point = chart.getDatasetMeta(0)?.data?.[tooltipIndex];
+      if (!point) return;
+      const { x, y } = point.tooltipPosition();
+      showTooltip(chart, data.tooltip.label, data.tooltip.value, x, y);
+    }
+
+    const revealPlugin = {
+      id: "adminRevenueChartReveal",
+      beforeDatasetsDraw(chart) {
+        const { chartArea } = chart;
+        revealState.didClip = false;
+        if (!chartArea) return;
+        const width = chartArea.width * revealState.progress;
+        chart.ctx.save();
+        chart.ctx.beginPath();
+        chart.ctx.rect(chartArea.left, chartArea.top, width, chartArea.height);
+        chart.ctx.clip();
+        revealState.didClip = true;
+      },
+      afterDatasetsDraw(chart) {
+        if (revealState.didClip) chart.ctx.restore();
+      },
+      afterRender(chart) {
+        showDefaultTooltip(chart);
+      },
+    };
+
+    const chart = new Chart(canvasRef.current, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          data: data.points,
+          borderColor: ADMIN_CHART_COLOR,
+          backgroundColor: fill,
+          borderWidth: 4,
+          pointBorderColor: ADMIN_CHART_COLOR,
+          pointBorderWidth: 4,
+          pointRadius: (context) => (context.dataIndex === tooltipIndex ? 7 : 4),
+          pointBackgroundColor: (context) => (context.dataIndex === tooltipIndex ? `rgba(${ADMIN_CHART_COLOR_RGB}, 0.18)` : "#ffffff"),
+          pointHoverRadius: 7,
+          pointHitRadius: 14,
+          fill: true,
+          tension: 0.42,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { intersect: false, mode: "index" },
+        animation: false,
+        animations: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            enabled: false,
+            external: ({ chart: activeChart, tooltip }) => {
+              if (!tooltip || tooltip.opacity === 0) {
+                showDefaultTooltip(activeChart);
+                return;
+              }
+              const value = tooltip.body?.[0]?.lines?.[0] || "";
+              showTooltip(activeChart, tooltip.title?.[0] || "", value, tooltip.caretX, tooltip.caretY);
+            },
+            callbacks: {
+              title: (items) => {
+                const index = items[0]?.dataIndex ?? tooltipIndex;
+                return index === tooltipIndex ? data.tooltip.label : labels[index] || "";
+              },
+              label: (context) => (
+                context.dataIndex === tooltipIndex ? data.tooltip.value : formatAdminChartMoney(context.parsed.y)
+              ),
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              color: "#60708a",
+              font: { size: 14, weight: "600", family: "'Inter', sans-serif" },
+              maxRotation: 0,
+              autoSkip: false,
+              callback: (_value, index) => tickLabels.get(index) || "",
+            },
+            border: { display: false },
+          },
+          y: {
+            min: 0,
+            max: yMax,
+            grid: { color: "rgba(15, 23, 42, 0.09)", drawTicks: false },
+            ticks: {
+              stepSize: yStep,
+              color: "#60708a",
+              padding: 8,
+              font: { size: 14, weight: "600", family: "'Inter', sans-serif" },
+              callback: (value) => formatAdminAxisTick(value, yMax),
+            },
+            border: { display: false },
+          },
+        },
+      },
+      plugins: [revealPlugin],
+    });
+
+    let revealFrame = 0;
+    const revealStart = performance.now();
+    const runReveal = (timestamp) => {
+      const elapsed = timestamp - revealStart;
+      const progress = Math.min(1, elapsed / revealDuration);
+      revealState.progress = easeOutCubic(progress);
+      chart.draw();
+      if (progress < 1) revealFrame = window.requestAnimationFrame(runReveal);
+    };
+    revealFrame = window.requestAnimationFrame(runReveal);
+
+    return () => {
+      window.cancelAnimationFrame(revealFrame);
+      chart.destroy();
+    };
+  }, [data, segment]);
+
+  return (
+    <>
+      <canvas ref={canvasRef} />
+      <div className="admin-tooltip admin-chart-tooltip" ref={tooltipRef} aria-hidden="true">
+        <strong>{data.tooltip.label}</strong>
+        <span>{data.tooltip.value}</span>
+      </div>
+    </>
+  );
 }
 
 function LoginView({ onLogin }) {
@@ -1225,9 +1424,6 @@ function KpiCard({ item, onClick }) {
 
 function PlatformChart({ segment, onSegmentChange }) {
   const data = chartData[segment] || chartData["Месяц"];
-  const geo = chartGeometry(data.points);
-  const tooltipLeft = Math.min(74, Math.max(2, (geo.last.x / 700) * 100 - 8));
-  const tooltipTop = Math.max(4, (geo.last.y / 250) * 100 - 16);
   return (
     <section className="admin-chart-card">
       <div className="admin-chart-card__head">
@@ -1243,45 +1439,7 @@ function PlatformChart({ segment, onSegmentChange }) {
         </div>
       </div>
       <div className="admin-chart">
-        <div className="admin-y-axis">
-          {["100M", "80M", "60M", "40M", "20M", "0"].map((label) => <span key={label}>{label}</span>)}
-        </div>
-        <svg viewBox="0 0 700 250" preserveAspectRatio="none" aria-hidden="true">
-          <defs>
-            <linearGradient id="platformArea" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#43d3a6" stopOpacity="0.34" />
-              <stop offset="100%" stopColor="#d6a84f" stopOpacity="0.02" />
-            </linearGradient>
-            <linearGradient id="platformLine" x1="0" x2="1" y1="0" y2="0">
-              <stop offset="0%" stopColor="#d6a84f" />
-              <stop offset="48%" stopColor="#43d3a6" />
-              <stop offset="100%" stopColor="#f2c76e" />
-            </linearGradient>
-            <filter id="lineGlow">
-              <feGaussianBlur stdDeviation="4" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-            <clipPath id="chartReveal">
-              <rect key={segment} className="admin-chart__reveal" x="0" y="0" width="700" height="250" />
-            </clipPath>
-          </defs>
-          {[30, 68, 106, 144, 182, 220].map((y) => <line x1="0" x2="700" y1={y} y2={y} key={y} />)}
-          <g clipPath="url(#chartReveal)">
-            <path className="admin-chart__area" d={geo.area} />
-            <path key={segment} className="admin-chart__line" d={geo.line} filter="url(#lineGlow)" pathLength="1" />
-          </g>
-          <circle key={segment} cx={geo.last.x} cy={geo.last.y} r="6" className="admin-chart__dot" />
-        </svg>
-        <div className="admin-tooltip" style={{ left: `${tooltipLeft}%`, top: `${tooltipTop}%` }}>
-          <strong>{data.tooltip.label}</strong>
-          <span>{data.tooltip.value}</span>
-        </div>
-        <div className="admin-x-axis">
-          {data.xLabels.map((label) => <span key={label}>{label}</span>)}
-        </div>
+        <AdminRevenueChart data={data} segment={segment} />
       </div>
     </section>
   );
@@ -1544,7 +1702,7 @@ function OrganizationDirectoryPage({ search, onRowDetail, onNotify }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState(orgDirectoryColumnKeys);
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 20;
 
   useEffect(() => {
     setPage(1);
@@ -1591,6 +1749,39 @@ function OrganizationDirectoryPage({ search, onRowDetail, onNotify }) {
     const next = row[key] === "Активно" || row[key] === "Доступен" ? "Не активно" : "Активно";
     updateRow(row.id, { [key]: key === "status" && row[key] === "Доступен" ? "Не активно" : next });
     onNotify?.(`${row.name}: статус обновлен.`);
+  }
+
+  function copyClientIdFallback(value) {
+    const textarea = document.createElement("textarea");
+    textarea.value = value;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.top = "0";
+    textarea.style.left = "0";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return copied;
+  }
+
+  async function copyClientId(clientId) {
+    const value = String(clientId);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else if (!copyClientIdFallback(value)) {
+        throw new Error("copy failed");
+      }
+      onNotify?.(`ID клиента ${value} скопирован.`);
+    } catch {
+      if (copyClientIdFallback(value)) {
+        onNotify?.(`ID клиента ${value} скопирован.`);
+      } else {
+        onNotify?.("Не удалось скопировать ID клиента.");
+      }
+    }
   }
 
   function addOrganization() {
@@ -1683,7 +1874,25 @@ function OrganizationDirectoryPage({ search, onRowDetail, onNotify }) {
       ),
     },
     { key: "name", label: "Название", width: 190, render: (row) => <strong className="org-directory-name">{row.name}</strong> },
-    { key: "clientId", label: "ID клиента", width: 110, render: (row) => <span className="org-directory-copy">{row.clientId}<Icon name="bi-copy" size={13} /></span> },
+    {
+      key: "clientId",
+      label: "ID клиента",
+      width: 110,
+      render: (row) => (
+        <button
+          type="button"
+          className="org-directory-copy"
+          onClick={(event) => {
+            event.stopPropagation();
+            copyClientId(row.clientId);
+          }}
+          aria-label={`Скопировать ID клиента ${row.clientId}`}
+        >
+          <span>{row.clientId}</span>
+          <Icon name="bi-copy" size={13} />
+        </button>
+      ),
+    },
     { key: "terminals", label: "Э/с", width: 66, render: (row) => row.terminals },
     { key: "cashboxes", label: "Н/касс", width: 76, render: (row) => row.cashboxes },
     { key: "deposit", label: "Депозит", width: 112, render: (row) => <span className={String(row.deposit).includes("-") ? "is-negative" : ""}>{row.deposit}</span> },
