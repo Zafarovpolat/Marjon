@@ -1522,7 +1522,7 @@ function Sidebar({ active, onSelect, collapsed, onToggle, user, onProfile }) {
   );
 }
 
-function Header({ user, onLogout, search, onSearchChange, dateRange, onDateRangeChange, onBellClick, notificationCount, onProfile }) {
+function Header({ user, onLogout, dateRange, onDateRangeChange, onBellClick, notificationCount, onProfile }) {
   const [dateOpen, setDateOpen] = useState(false);
   const [draftRange, setDraftRange] = useState(dateRange);
   const profileName = user?.name || "Александр П.";
@@ -1551,10 +1551,6 @@ function Header({ user, onLogout, search, onSearchChange, dateRange, onDateRange
         <p>Централизованное управление платформой MARJON</p>
       </div>
       <div className="admin-header__actions">
-        <label className="admin-search">
-          <Icon name="bi-search" size={18} />
-          <input value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Поиск по платформе..." />
-        </label>
         <div className="admin-date-picker">
           <button className="admin-date-step" type="button" onClick={() => shiftMonth(-1)} aria-label="Предыдущий месяц">
             <Icon name="bi-chevron-left" size={16} />
@@ -3799,7 +3795,7 @@ function AdminShell({ onLogout }) {
   const [user, setUser] = useState(null);
   const [message, setMessage] = useState("");
   const [collapsed, setCollapsed] = useState(false);
-  const [search, setSearch] = useState("");
+  const search = "";
   const [segment, setSegment] = useState("Месяц");
   const [dateRange, setDateRange] = useState(() => presetRange("Сегодня"));
   const [organizations, setOrganizations] = useState(organizationRows);
@@ -4008,8 +4004,6 @@ function AdminShell({ onLogout }) {
         <Header
           user={user}
           onLogout={logout}
-          search={search}
-          onSearchChange={setSearch}
           dateRange={dateRange}
           onDateRangeChange={setDateRange}
           onBellClick={() => setMessage(`Непрочитанных уведомлений: ${approvals.length + alerts.length}.`)}

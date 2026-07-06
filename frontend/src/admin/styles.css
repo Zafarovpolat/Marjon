@@ -6718,20 +6718,26 @@ body:has(.admin-shell),
   }
 
   .admin-main {
+    height: 100dvh !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
     padding: 0 0 18px !important;
-    border-top-left-radius: var(--admin-owner-content-radius) !important;
+    border-top-left-radius: 0 !important;
     border-bottom-left-radius: 0 !important;
-    overflow: hidden auto !important;
-    background: #eef6ff !important;
+    overflow: hidden !important;
+    background: var(--admin-shell-bar-bg) !important;
+    background-image: none !important;
     box-shadow: -7px 0 20px rgba(15, 23, 42, 0.04) !important;
   }
 
   .admin-header {
+    flex: 0 0 auto !important;
     height: var(--admin-owner-header-h) !important;
     min-height: var(--admin-owner-header-h) !important;
     margin: 0 !important;
     padding: 18px 28px 16px 30px !important;
-    border-top-left-radius: var(--admin-owner-content-radius) !important;
+    border-top-left-radius: 0 !important;
   }
 
   .admin-header h1 {
@@ -6746,12 +6752,14 @@ body:has(.admin-shell),
   }
 
   .admin-content {
-    min-height: calc(100dvh - var(--admin-owner-header-h)) !important;
+    flex: 1 1 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
     margin: 0 !important;
     padding: 18px !important;
-    /* Радиус только на верхнем углу панели (на .admin-header). Контент лежит
-       ПОД хедером — свой top-left radius давал вырез в середине левого края. */
-    border-radius: 0 !important;
+    border-radius: var(--admin-owner-content-radius) 0 0 0 !important;
+    overflow: auto !important;
+    overscroll-behavior: contain !important;
   }
 
   .admin-brand {
@@ -6871,11 +6879,44 @@ body:has(.admin-shell),
   }
 }
 
+.admin-main {
+  height: 100dvh !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding-bottom: 0 !important;
+  overflow: hidden !important;
+  background: var(--admin-shell-bar-bg) !important;
+  background-image: none !important;
+}
+
+.admin-main > .admin-header,
+.admin-main > .admin-auth-alert {
+  flex: 0 0 auto !important;
+}
+
+.admin-main > .admin-content {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  overflow: auto !important;
+  overscroll-behavior: contain !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.admin-main > .admin-content::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
 @media (max-width: 980px) {
   .admin-main,
-  .admin-header,
-  .admin-content {
+  .admin-header {
     border-radius: 0 !important;
+  }
+
+  .admin-content {
+    border-radius: var(--admin-owner-content-radius) 0 0 0 !important;
   }
 }
 
