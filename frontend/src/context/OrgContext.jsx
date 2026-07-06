@@ -39,9 +39,9 @@ export function OrgProvider({ children }) {
       const merged = { ...DEFAULT_ORG, ...data };
       setOrg(merged);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-    } catch {
-        console.warn("settings/organization не найден:", err.response?.status);
-  setOrg(null);
+    } catch (err) {
+      console.warn("settings/organization не найден:", err.response?.status);
+      setOrg(null);
     } finally {
       setLoading(false);
     }

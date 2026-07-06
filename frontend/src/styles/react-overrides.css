@@ -24217,9 +24217,9 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   .dashboard-shell .dashboard-topbar,
   .dashboard-shell .dashboard-main.is-sidebar-collapsed .dashboard-topbar,
   .dashboard-shell.is-sidebar-collapsed .dashboard-topbar {
-    margin-left: var(--owner-sidebar-lock-offset) !important;
-    width: calc(100% - var(--owner-sidebar-lock-offset)) !important;
-    max-width: calc(100% - var(--owner-sidebar-lock-offset)) !important;
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
     transition:
       margin-left 220ms ease,
       width 220ms ease,
@@ -27399,5 +27399,69 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
   .sales-summary-grid,
   .sales-layout {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Remove left padding from the dashboard topbar */
+.dashboard-shell .dashboard-main .dashboard-topbar {
+  padding-left: 0 !important;
+}
+
+/* Match datepicker trigger height and radius to the rate info widget */
+.dashboard-topbar .topbar-left .mj-datepicker__trigger,
+.dashboard-topbar .mj-datepicker__trigger {
+  height: 44px !important;
+  min-height: 44px !important;
+  border-radius: 14px !important;
+  font-size: 14px !important;
+}
+
+/* Shorter datepicker trigger on wide screens */
+@media (min-width: 1441px) {
+  .dashboard-topbar .topbar-left .mj-datepicker__trigger,
+  .dashboard-topbar .mj-datepicker__trigger {
+    height: 36px !important;
+    min-height: 36px !important;
+  }
+}
+
+.dashboard-topbar .mj-datepicker__trigger .mj-datepicker__value,
+.dashboard-topbar .mj-datepicker__trigger .mj-datepicker__time {
+  font-size: 14px !important;
+}
+
+/* Offset the sidebar brand from the left edge */
+.dashboard-shell .dashboard-sidebar .sidebar-brand,
+.dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-brand,
+.dashboard-shell .dashboard-sidebar:not(.is-collapsed) .sidebar-brand {
+  left: 12px !important;
+}
+
+/* Enlarge the brand button when the sidebar is collapsed */
+.dashboard-shell .dashboard-sidebar.is-collapsed .brand-mark--button {
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px !important;
+  min-height: 56px !important;
+}
+
+/* Offset the collapsed sidebar brand from the left edge */
+.dashboard-shell.is-sidebar-collapsed .dashboard-sidebar .sidebar-brand,
+.dashboard-shell.is-sidebar-collapsed .dashboard-sidebar.is-collapsed .sidebar-brand {
+  left: 16px !important;
+}
+
+/* Sidebar nav top margin: 76px by default, 88px on wide screens */
+.dashboard-sidebar .sidebar-nav,
+.dashboard-sidebar.is-collapsed .sidebar-nav,
+.dashboard-sidebar:not(.is-collapsed) .sidebar-nav {
+  margin-top: 76px !important;
+}
+
+@media (min-width: 1441px) {
+  .dashboard-sidebar .sidebar-nav,
+  .dashboard-sidebar.is-collapsed .sidebar-nav,
+  .dashboard-sidebar:not(.is-collapsed) .sidebar-nav {
+    margin-top: 88px !important;
   }
 }
