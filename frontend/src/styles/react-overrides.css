@@ -22203,8 +22203,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   /* Компактные элементы топбара */
   .dashboard-topbar .mj-datepicker__trigger,
   .dashboard-topbar .topbar-left .mj-datepicker__trigger {
-    height: 34px !important;
-    min-height: 0 !important;
+    height: 36px !important;
+    min-height: 36px !important;
     padding: 0 10px !important;
     font-size: 12px !important;
   }
@@ -22246,7 +22246,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 /* ================================================================
    1025–1440px: компактный топбар для небольших ноутбуков
    ================================================================ */
-@media (min-width: 1025px) and (max-width: 1440px) {
+@media (min-width: 1025px) and (max-width: 1439.98px) {
   .dashboard-topbar {
     height: 64px !important;
     min-height: 64px !important;
@@ -22259,7 +22259,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   .dashboard-topbar .mj-datepicker__trigger,
   .dashboard-topbar .topbar-left .mj-datepicker__trigger {
     height: 36px !important;
-    min-height: 0 !important;
+    min-height: 36px !important;
     padding: 0 12px !important;
     font-size: 13px !important;
   }
@@ -25082,10 +25082,11 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   margin-top: 0 !important;
 }
 
-/* Owner dashboard KPI row: 5 cards, wider and closer to the top edge. */
+/* Owner dashboard KPI row: five cards in one filled grid row after 1280px. */
 @media (min-width: 1281px) {
   .dashboard-content > .kpi-grid.kpi-grid--premium:first-child,
   .kpi-grid.kpi-grid--premium {
+    display: grid !important;
     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
   }
 
@@ -27928,26 +27929,20 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
   }
 }
 
-/* Remove left padding from the dashboard topbar */
-.dashboard-shell .dashboard-main .dashboard-topbar {
-  padding-left: 0 !important;
-}
-
-/* Match datepicker trigger height and radius to the rate info widget */
+/* Datepicker trigger: compact below 1440px, taller at 1440px and wider. */
 .dashboard-topbar .topbar-left .mj-datepicker__trigger,
 .dashboard-topbar .mj-datepicker__trigger {
-  height: 44px !important;
-  min-height: 44px !important;
+  height: 36px !important;
+  min-height: 36px !important;
   border-radius: 14px !important;
   font-size: 14px !important;
 }
 
-/* Shorter datepicker trigger on wide screens */
-@media (min-width: 1441px) {
+@media (min-width: 1440px) {
   .dashboard-topbar .topbar-left .mj-datepicker__trigger,
   .dashboard-topbar .mj-datepicker__trigger {
-    height: 36px !important;
-    min-height: 36px !important;
+    height: 44px !important;
+    min-height: 44px !important;
   }
 }
 
@@ -29126,3 +29121,175 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
     padding: 18px;
   }
 }
+/* Final owner dashboard responsive spacing/grid lock */
+@media (max-width: 1024px) {
+  body.dashboard-body .dashboard-shell .dashboard-main > .dashboard-topbar.dashboard-topbar {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .kpi-grid.kpi-grid--premium {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-auto-flow: row !important;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .kpi-grid.kpi-grid--premium .premium-kpi__top {
+    align-items: flex-start !important;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .kpi-grid.kpi-grid--premium > .premium-kpi:last-child:nth-child(odd) {
+    grid-column: span 2 !important;
+    min-width: 0 !important;
+  }
+
+  body.dashboard-body .dashboard-shell .premium-chart .revenue-stat-grid div,
+  body.dashboard-body .dashboard-shell .revenue-stat-grid div {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    border-radius: 12px !important;
+  }
+}
+
+@media (min-width: 1025px) and (max-width: 1279.98px) {
+  body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .kpi-grid.kpi-grid--premium {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-auto-flow: row !important;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .kpi-grid.kpi-grid--premium > .premium-kpi:last-child:nth-child(5) {
+    grid-column: 1 / -1 !important;
+    min-width: 0 !important;
+  }
+}
+
+@media (max-width: 768px) {
+  body.dashboard-body .dashboard-shell .period-switcher,
+  body.dashboard-body .dashboard-shell .premium-chart .period-switcher {
+    justify-content: space-between !important;
+    overflow: visible !important;
+    overflow-y: visible !important;
+    max-height: none !important;
+    width: 100% !important;
+  }
+
+  body.dashboard-body .dashboard-shell .period-switcher > .period-dropdown,
+  body.dashboard-body .dashboard-shell .premium-chart .period-switcher > .period-dropdown {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: max-content !important;
+    align-self: center !important;
+    padding: 0 !important;
+    padding-inline: 0 !important;
+    padding-block: 0 !important;
+  }
+
+  body.dashboard-body .dashboard-shell .period-switcher .period-dropdown__button,
+  body.dashboard-body .dashboard-shell .premium-chart .period-switcher .period-dropdown__button {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: max-content !important;
+    padding: 0 14px !important;
+    padding-inline: 14px !important;
+    padding-block: 0 !important;
+  }
+
+  body.dashboard-body .dashboard-shell .owner-top-sales-card .top-dish.top-dish--compact {
+    display: grid !important;
+    grid-template-columns: 22px 40px minmax(0, 1fr) auto auto !important;
+    grid-template-areas: "rank photo body qty price" !important;
+    align-items: center !important;
+    gap: 4px 10px !important;
+    min-height: 68px !important;
+    padding: 10px 12px !important;
+    border-radius: 12px !important;
+    background: #ffffff !important;
+    border-color: rgba(15, 35, 70, 0.1) !important;
+    box-shadow: none !important;
+  }
+
+  body.dashboard-body .dashboard-shell .owner-top-sales-card .top-dish__rank {
+    grid-area: rank !important;
+    align-self: center !important;
+    padding-top: 0 !important;
+    text-align: center !important;
+  }
+
+  body.dashboard-body .dashboard-shell .owner-top-sales-card .top-dish__photo {
+    grid-area: photo !important;
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 10px !important;
+  }
+
+  body.dashboard-body .dashboard-shell .owner-top-sales-card .top-dish__body {
+    grid-area: body !important;
+    align-self: center !important;
+    min-width: 0 !important;
+  }
+
+  body.dashboard-body .dashboard-shell .owner-top-sales-card .top-dish__line strong {
+    font-size: 15px !important;
+    font-weight: 500 !important;
+    line-height: 1.25 !important;
+  }
+
+  body.dashboard-body .dashboard-shell .owner-top-sales-card .top-dish__qty {
+    grid-area: qty !important;
+    align-self: center !important;
+    color: var(--neutral-500) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    line-height: 1.2 !important;
+    text-align: right !important;
+    white-space: nowrap !important;
+  }
+
+  body.dashboard-body .dashboard-shell .owner-top-sales-card .top-dish__price {
+    grid-area: price !important;
+    align-self: center !important;
+    color: var(--owner-ink, var(--neutral-950)) !important;
+    font-size: 15px !important;
+    font-weight: 500 !important;
+    line-height: 1.2 !important;
+    text-align: right !important;
+    white-space: nowrap !important;
+  }
+}
+
+@media (max-width: 560px) {
+  body.dashboard-body .dashboard-shell .kpi-grid.kpi-grid--premium .premium-kpi .premium-kpi__icon {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    max-width: 40px !important;
+    max-height: 40px !important;
+    flex: 0 0 40px !important;
+    aspect-ratio: 1 / 1 !important;
+    border-radius: 12px !important;
+  }
+
+  body.dashboard-body .dashboard-shell .kpi-grid.kpi-grid--premium .premium-kpi .premium-kpi__icon svg,
+  body.dashboard-body .dashboard-shell .kpi-grid.kpi-grid--premium .premium-kpi .premium-kpi__icon i {
+    width: 16px !important;
+    height: 16px !important;
+    font-size: 16px !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .kpi-grid.kpi-grid--premium {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    grid-auto-flow: row !important;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .kpi-grid.kpi-grid--premium > .premium-kpi {
+    min-width: 0 !important;
+  }
+}
+/* End final owner dashboard responsive spacing/grid lock */
