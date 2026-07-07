@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { api } from "../api/client";
 import Icon from "../components/Icon";
 import { formatMoney } from "../api/client";
 
@@ -146,13 +147,42 @@ export default function CancelledDishesReportPage() {
   });
   const [appliedFilters, setAppliedFilters] = useState(filters);
   const [page, setPage] = useState(1);
+  const [rows, setRows] = useState(cancelledRows);
+  const [isDemo, setIsDemo] = useState(true);
 
-  const waiters = useMemo(() => Array.from(new Set(cancelledRows.map((row) => row.waiter))), []);
-  const types = useMemo(() => Array.from(new Set(cancelledRows.map((row) => row.type))), []);
+  useEffect(() => {
+    api.get("/reports/cancelled", { params: { start: appliedFilters.from, end: appliedFilters.to } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || [];
+        if (items.length) {
+          setRows(items.map((item) => ({
+            id: item.id,
+            date: item.date || "",
+            time: item.time || "",
+            orderNumber: item.order_number || item.orderNumber || 0,
+            tableNumber: item.table_number || item.tableNumber || 0,
+            name: item.name || item.dish_name || "",
+            comment: item.comment || "-",
+            waiter: item.waiter_name || item.waiter || "",
+            type: item.order_type || item.type || "На стол",
+            unit: item.unit || "шт",
+            quantity: Number(item.quantity || 0),
+            price: Number(item.price || 0),
+            chef: item.station || item.chef || "",
+            author: item.author_name || item.author || "",
+          })));
+          setIsDemo(false);
+        }
+      })
+      .catch(() => {});
+  }, [appliedFilters.from, appliedFilters.to]);
+
+  const waiters = useMemo(() => Array.from(new Set(rows.map((row) => row.waiter))), [rows]);
+  const types = useMemo(() => Array.from(new Set(rows.map((row) => row.type))), [rows]);
 
   const filteredRows = useMemo(() => {
     const query = appliedFilters.query.trim().toLowerCase();
-    return cancelledRows.filter((row) => {
+    return rows.filter((row) => {
       const inRange = row.date >= appliedFilters.from && row.date <= appliedFilters.to;
       const waiterMatch = appliedFilters.waiter === "all" || row.waiter === appliedFilters.waiter;
       const typeMatch = appliedFilters.type === "all" || row.type === appliedFilters.type;
@@ -160,7 +190,7 @@ export default function CancelledDishesReportPage() {
         .some((value) => String(value).toLowerCase().includes(query));
       return inRange && waiterMatch && typeMatch && queryMatch;
     });
-  }, [appliedFilters]);
+  }, [rows, appliedFilters]);
 
   const totalAmount = useMemo(() => filteredRows.reduce((sum, row) => sum + row.price * row.quantity, 0), [filteredRows]);
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage));
@@ -211,6 +241,12 @@ export default function CancelledDishesReportPage() {
   return (
     <section className="cancelled-report-page">
       <article className="cancelled-report-card">
+        {isDemo && (
+          <div className="settings-demo-notice">
+            <Icon name="bi-info-circle" size={16} />
+            Демо-данные — бэкенд пока не подключён, отображаются примеры
+          </div>
+        )}
         <div className="cancelled-report-head">
           <div className="cancelled-report-title">
             <span className="cancelled-report-title__mark" aria-hidden="true" />

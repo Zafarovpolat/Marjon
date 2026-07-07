@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { formatMoney } from "../api/client";
+import { useEffect, useMemo, useState } from "react";
+import { api, formatMoney } from "../api/client";
 import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 
@@ -67,12 +67,34 @@ export default function WaitersReportPage() {
   const [selectedWaiter, setSelectedWaiter] = useState("");
   const [percent, setPercent] = useState("1");
   const [dateRange, setDateRange] = useState({});
+  const [waiters, setWaiters] = useState(demoWaiters);
+  const [isDemo, setIsDemo] = useState(true);
+
+  useEffect(() => {
+    api.get("/reports/waiters")
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || data?.waiters || [];
+        if (items.length) {
+          setWaiters(items.map((item) => ({
+            id: String(item.id || item.waiter_id || ""),
+            name: item.name || item.waiter_name || "",
+            orders: Number(item.orders_total || item.orders || 0),
+            takeaway: Number(item.takeaway_total || item.takeaway || 0),
+            service: Number(item.service_total || item.service || 0),
+            waiterService: Number(item.waiter_service || item.waiterService || 0),
+            dishes: Number(item.dishes_count || item.dishes || 0),
+          })));
+          setIsDemo(false);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const visibleRows = useMemo(() => {
     if (!selectedWaiter) return [];
-    if (selectedWaiter === "all") return demoWaiters;
-    return demoWaiters.filter((waiter) => waiter.id === selectedWaiter);
-  }, [selectedWaiter]);
+    if (selectedWaiter === "all") return waiters;
+    return waiters.filter((waiter) => waiter.id === selectedWaiter);
+  }, [selectedWaiter, waiters]);
 
   const totals = useMemo(() => visibleRows.reduce((acc, waiter) => {
     acc.orders += waiter.orders;
@@ -131,6 +153,12 @@ export default function WaitersReportPage() {
   return (
     <section className="waiters-report-page">
       <article className="waiters-report-card z-waiters-report">
+        {isDemo && (
+          <div className="settings-demo-notice">
+            <Icon name="bi-info-circle" size={16} />
+            Демо-данные — бэкенд пока не подключён, отображаются примеры
+          </div>
+        )}
         <div className="z-waiters-report__head">
           <div className="z-waiters-report__title">
             <span aria-hidden="true" />
@@ -153,7 +181,7 @@ export default function WaitersReportPage() {
               <select value={selectedWaiter} onChange={(event) => setSelectedWaiter(event.target.value)}>
                 <option value="" disabled>Выберите официанта</option>
                 <option value="all">Все официанты</option>
-                {demoWaiters.map((waiter) => <option value={waiter.id} key={waiter.id}>{waiter.name}</option>)}
+                {waiters.map((waiter) => <option value={waiter.id} key={waiter.id}>{waiter.name}</option>)}
               </select>
               <Icon name="bi-chevron-down" size={18} />
             </label>
