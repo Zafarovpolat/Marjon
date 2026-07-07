@@ -28174,6 +28174,20 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
   font-weight: 900 !important;
 }
 
+.settings-demo-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  margin: 0 0 12px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: #b45309;
+  font-size: 13px;
+  font-weight: 500;
+}
+
 @media (max-width: 1024px) {
   .clients-directory-page .settings-directory-toolbar {
     align-items: stretch;

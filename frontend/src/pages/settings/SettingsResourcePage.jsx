@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { formatMoney } from "../../api/client";
+import { useEffect, useMemo, useState } from "react";
+import { api, formatMoney } from "../../api/client";
 import Icon from "../../components/Icon";
 
 const STATUS_ACTIVE = "#активно";
@@ -21,8 +21,13 @@ function SettingsResourcePage({
   compactHeader = false,
   actionsLabel = "Действия",
   statementHistory = false,
+  apiEndpoint,
+  apiMapRow,
+  apiMapFormToPayload,
 }) {
   const [rows, setRows] = useState(initialRows);
+  const [isDemo, setIsDemo] = useState(!apiEndpoint);
+  const [apiLoading, setApiLoading] = useState(!!apiEndpoint);
   const [activeTab, setActiveTab] = useState(tabs?.[0]?.key || "");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("");
@@ -31,6 +36,23 @@ function SettingsResourcePage({
   const [form, setForm] = useState({});
   const [historyRow, setHistoryRow] = useState(null);
   const [historyMode, setHistoryMode] = useState("detailed");
+
+  useEffect(() => {
+    if (!apiEndpoint) return;
+    setApiLoading(true);
+    api.get(apiEndpoint)
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || data?.results || [];
+        if (items.length && apiMapRow) {
+          setRows(items.map(apiMapRow));
+          setIsDemo(false);
+        } else {
+          setIsDemo(true);
+        }
+      })
+      .catch(() => setIsDemo(true))
+      .finally(() => setApiLoading(false));
+  }, [apiEndpoint]);
 
   const visibleRows = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -58,12 +80,39 @@ function SettingsResourcePage({
 
   const save = (event) => {
     event.preventDefault();
+    const payload = apiEndpoint && apiMapFormToPayload ? apiMapFormToPayload(form) : null;
+
+    if (apiEndpoint && !isDemo && payload) {
+      const request = editingId
+        ? api.patch(`${apiEndpoint}/${editingId}`, payload)
+        : api.post(apiEndpoint, payload);
+
+      request
+        .then(({ data }) => {
+          const mapped = apiMapRow ? apiMapRow(data) : data;
+          setRows((current) => editingId
+            ? current.map((row) => row.id === editingId ? mapped : row)
+            : [mapped, ...current]);
+          setDrawerMode(null);
+        })
+        .catch(() => {
+          window.alert("Не удалось сохранить. Попробуйте позже.");
+        });
+      return;
+    }
+
     const next = { ...form, id: editingId || Date.now(), type: form.type || activeTab };
     setRows((current) => editingId ? current.map((row) => row.id === editingId ? next : row) : [next, ...current]);
     setDrawerMode(null);
   };
 
   const archive = (row) => {
+    if (apiEndpoint && !isDemo) {
+      api.delete(`${apiEndpoint}/${row.id}`)
+        .then(() => setRows((current) => current.filter((item) => item.id !== row.id)))
+        .catch(() => window.alert("Не удалось удалить. Попробуйте позже."));
+      return;
+    }
     setRows((current) => current.map((item) => item.id === row.id ? { ...item, status: STATUS_ARCHIVE } : item));
   };
 
@@ -200,6 +249,12 @@ function SettingsResourcePage({
   return (
     <div className={`settings-page ${pageClassName}`.trim()}>
       <section className="settings-card">
+        {isDemo && apiEndpoint ? (
+          <div className="settings-demo-notice">
+            <Icon name="bi-info-circle" size={16} />
+            <span>Демо-данные. Реальные данные загрузятся после настройки сервера.</span>
+          </div>
+        ) : null}
         {compactHeader ? (
           <header className="settings-directory-toolbar">
             {renderTabs()}
@@ -253,7 +308,8 @@ function SettingsResourcePage({
                   </td>
                 </tr>
               ))}
-              {!visibleRows.length ? <tr><td colSpan={columns.length + 1}><div className="settings-empty-state">Нет данных</div></td></tr> : null}
+              {apiLoading ? <tr><td colSpan={columns.length + 1}><div className="settings-empty-state">Загрузка...</div></td></tr> : null}
+              {!apiLoading && !visibleRows.length ? <tr><td colSpan={columns.length + 1}><div className="settings-empty-state">Нет данных</div></td></tr> : null}
             </tbody>
           </table>
         </div>
