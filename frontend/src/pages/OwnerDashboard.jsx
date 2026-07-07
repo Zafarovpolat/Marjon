@@ -909,6 +909,7 @@ export default function OwnerDashboard() {
   () => (sales.length > 0 ? sales : demoSales(period, selectedDate)),
   [sales, period, selectedDate]
 );
+  const isSalesDemo = sales.length === 0;
   const kpis = useMemo(() => demoKpis(displaySales, selectedDate), [displaySales, selectedDate]);
   const displayTopDishes = useMemo(() => {
   if (topProducts.length > 0) {
@@ -936,7 +937,11 @@ export default function OwnerDashboard() {
       avg: revenues.length ? Math.round(total / revenues.length) : 0,
     };
   }, [displaySales]);
-  const displayDashboard = useMemo(() => demoDashboardFromSales(displaySales, selectedDate), [displaySales, selectedDate]);
+  const displayDashboard = useMemo(() => {
+    if (dashboard && dashboard.today_revenue !== undefined) return dashboard;
+    return demoDashboardFromSales(displaySales, selectedDate);
+  }, [dashboard, displaySales, selectedDate]);
+  const isDashboardDemo = !dashboard || dashboard.today_revenue === undefined;
   const daySummary = useMemo(() => {
     const seed = dateSeed(selectedDate);
     const day = displaySales.at(-1) || { revenue: 0, orders_count: 0 };
@@ -954,6 +959,12 @@ export default function OwnerDashboard() {
 
   return (
     <>
+      {isSalesDemo ? (
+        <div className="settings-demo-notice" style={{ margin: "0 0 16px" }}>
+          <Icon name="bi-info-circle" size={16} />
+          <span>Демо-данные. Реальная статистика появится после первых заказов.</span>
+        </div>
+      ) : null}
       <section className="kpi-grid kpi-grid--premium">
         {kpis.map((kpi) => (
           <button
