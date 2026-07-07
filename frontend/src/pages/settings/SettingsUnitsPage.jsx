@@ -9,11 +9,28 @@ const rows = [
   [1, "gramm", "g"],
 ].map(([sort, name, shortName], index) => ({ id: index + 1, sort, name, shortName, status: STATUS_ACTIVE }));
 
+const apiMapRow = (item) => ({
+  id: item.id,
+  sort: item.sort_order ?? item.sort ?? 0,
+  name: item.name || "",
+  shortName: item.short_name || item.shortName || "",
+  status: item.is_active !== false ? STATUS_ACTIVE : STATUS_INACTIVE,
+});
+
+const apiMapFormToPayload = (form) => ({
+  name: form.name,
+  short_name: form.shortName,
+  sort_order: parseInt(form.sort, 10) || 0,
+});
+
 function SettingsUnitsPage() {
   return (
     <SettingsResourcePage
       title="Единица измерения"
       initialRows={rows}
+      apiEndpoint="/settings/units"
+      apiMapRow={apiMapRow}
+      apiMapFormToPayload={apiMapFormToPayload}
       columns={[
         { key: "sort", label: "Сорт", inlineSort: true },
         { key: "name", label: "Название" },

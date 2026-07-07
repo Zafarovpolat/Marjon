@@ -21,12 +21,31 @@ const rows = [
   ["other", "Контрагент 1", "998909999999", STATUS_ACTIVE],
 ].map(([type, name, phone, status], index) => ({ id: index + 1, type, name, phone, status, comment: "" }));
 
+const apiMapRow = (item) => ({
+  id: item.id,
+  type: item.type || item.counterparty_type || "clients",
+  name: item.name || item.full_name || "",
+  phone: item.phone || "",
+  status: item.status === "pending" ? STATUS_PENDING : STATUS_ACTIVE,
+  comment: item.comment || item.note || "",
+});
+
+const apiMapFormToPayload = (form) => ({
+  name: form.name,
+  phone: form.phone,
+  type: form.type,
+  comment: form.comment,
+});
+
 function SettingsClientsPage() {
   return (
     <SettingsResourcePage
       title="Клиенты"
       tabs={tabs}
       initialRows={rows}
+      apiEndpoint="/crm/counterparties"
+      apiMapRow={apiMapRow}
+      apiMapFormToPayload={apiMapFormToPayload}
       transactionHistory
       statementHistory
       compactHeader

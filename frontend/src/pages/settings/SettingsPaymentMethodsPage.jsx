@@ -10,11 +10,28 @@ const rows = [
   [7, "UzumBank", "Карта", STATUS_INACTIVE],
 ].map(([sort, name, typeLabel, status], index) => ({ id: index + 1, sort, name, typeLabel, status }));
 
+const apiMapRow = (item) => ({
+  id: item.id,
+  sort: item.sort_order ?? item.sort ?? 0,
+  name: item.name || "",
+  typeLabel: item.type || item.typeLabel || "",
+  status: item.is_active !== false ? STATUS_ACTIVE : STATUS_INACTIVE,
+});
+
+const apiMapFormToPayload = (form) => ({
+  name: form.name,
+  sort_order: parseInt(form.sort, 10) || 0,
+  type: form.typeLabel,
+});
+
 function SettingsPaymentMethodsPage() {
   return (
     <SettingsResourcePage
       title="Способ оплаты"
       initialRows={rows}
+      apiEndpoint="/settings/payment-methods"
+      apiMapRow={apiMapRow}
+      apiMapFormToPayload={apiMapFormToPayload}
       filterOptions={["Наличные", "Карта", "Онлайн", "VIP"]}
       columns={[
         { key: "sort", label: "Сорт", inlineSort: true },
