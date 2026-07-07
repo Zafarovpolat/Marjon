@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { api } from "../api/client";
 import Icon from "../components/Icon";
 
 const ACTIVE = "Активно";
@@ -141,6 +142,8 @@ function matchesDishStatFilter(row, filterKey) {
 
 function DishesCatalogPage() {
   const [rows, setRows] = useState(initialDishRows);
+  const [isDemo, setIsDemo] = useState(true);
+  const [apiLoading, setApiLoading] = useState(true);
   const [draftFilters, setDraftFilters] = useState({ search: "", chef: "", category: "" });
   const [filters, setFilters] = useState(draftFilters);
   const [statFilter, setStatFilter] = useState(null);
@@ -172,6 +175,53 @@ function DishesCatalogPage() {
     });
   };
 
+  useEffect(() => {
+    setApiLoading(true);
+    api.get("/inventory/products")
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || [];
+        if (items.length) {
+          setRows(items.map((item) => ({
+            id: item.id,
+            name: item.name || "",
+            sort: String(item.sort_order ?? "1"),
+            type: item.product_type === "sale" ? "Реализация" : "Блюда",
+            unit: item.unit || "шт",
+            cost: item.cost_price ? `${Number(item.cost_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            price: String(item.price || "0"),
+            menu: item.category_name || item.menu || "",
+            printer: item.printer_name || "",
+            recipe: `Рецепт (${item.ingredients_count ?? 0} шт)`,
+            stock: item.stock !== undefined ? String(item.stock) : "-",
+            auto: item.auto_write_off ?? false,
+            set: item.is_set ?? false,
+            category: item.category_name || "",
+            chef: item.station || "",
+            photo: item.image_url || "",
+          })));
+          setIsDemo(false);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setApiLoading(false));
+  }, []);
+
+  const computedStats = useMemo(() => {
+    const total = rows.length;
+    const dishes = rows.filter((r) => r.type === "Блюда").length;
+    const realization = total - dishes;
+    const withRecipe = rows.filter((r) => r.recipe && !r.recipe.includes("(0")).length;
+    const withCost = rows.filter((r) => r.cost && r.cost !== "0 UZS").length;
+    const withPrinter = rows.filter((r) => r.printer).length;
+    return [
+      { label: "Кол-во товаров", value: String(total), rows: [["Реализация", String(realization)], ["Блюда", String(dishes)]], icon: "bi-basket", tone: "blue" },
+      { label: "Рецепт", value: String(total), rows: [["С рецептом", String(withRecipe)], ["Без рецепта", String(total - withRecipe)]], icon: "bi-journal-bookmark", tone: "green" },
+      { label: "ИКПУ", value: String(total), rows: [["Заполнен", "0"], ["Не заполнен", String(total)]], icon: "bi-card-heading", tone: "cyan" },
+      { label: "Себестоимость", value: String(total), rows: [["Заполнен", String(withCost)], ["Не заполнен", String(total - withCost)]], icon: "bi-cash-coin", tone: "orange" },
+      { label: "Принтер", value: String(total), rows: [["Подключен", String(withPrinter)], ["Не подключен", String(total - withPrinter)]], icon: "bi-printer", tone: "violet" },
+    ];
+  }, [rows]);
+
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
       const searchMatch = !filters.search || row.name.toLowerCase().includes(filters.search.toLowerCase());
@@ -193,15 +243,36 @@ function DishesCatalogPage() {
   };
 
   const saveDish = () => {
+    const payload = {
+      name: form.name,
+      sort_order: parseInt(form.sort, 10) || 1,
+      product_type: form.type === "Реализация" ? "sale" : "dish",
+      unit: form.unit,
+      price: parseInt(form.price, 10) || 0,
+      category_name: form.menu || form.category,
+      station: form.chef,
+      auto_write_off: form.auto,
+      is_set: form.set,
+    };
+    if (!isDemo && editing) {
+      api.patch(`/inventory/products/${editing.id}`, payload).catch(() => {});
+    } else if (!isDemo) {
+      api.post("/inventory/products", payload)
+        .then(({ data }) => { if (data?.id) form.id = data.id; })
+        .catch(() => {});
+    }
     if (editing) {
       setRows((prev) => prev.map((row) => (row.id === editing.id ? { ...row, ...form } : row)));
     } else {
-      setRows((prev) => [{ ...form, id: Date.now(), photo: "" }, ...prev]);
+      setRows((prev) => [{ ...form, id: form.id || Date.now(), photo: "" }, ...prev]);
     }
     setDrawerOpen(false);
   };
 
   const archiveDish = (id) => {
+    if (!isDemo) {
+      api.delete(`/inventory/products/${id}`).catch(() => {});
+    }
     setRows((prev) => prev.filter((row) => row.id !== id));
   };
 
@@ -220,6 +291,12 @@ function DishesCatalogPage() {
   return (
     <section className="nomenclature-page dish-catalog-page">
       <div className="dish-catalog-card">
+        {isDemo && (
+          <div className="settings-demo-notice">
+            <Icon name="bi-info-circle" size={16} />
+            Демо-данные — бэкенд пока не подключён, отображаются примеры
+          </div>
+        )}
         <div className="dish-catalog-header">
           <div className="report-title-group">
             <span className="report-accent-bar" />
@@ -239,7 +316,7 @@ function DishesCatalogPage() {
         </div>
 
         <div className="dish-stat-grid">
-          {dishStats.map((stat) => (
+          {computedStats.map((stat) => (
             <article className={`dish-stat-card dish-stat-${stat.tone}`} key={stat.label}>
               <div className="dish-stat-top">
                 <span>{stat.label}</span>
@@ -529,11 +606,50 @@ const fieldLabels = {
 
 function SimpleNomenclaturePage({ config }) {
   const [query, setQuery] = useState("");
-  const filteredRows = config.rows.filter((row) => row.join(" ").toLowerCase().includes(query.toLowerCase()));
+  const [rows, setRows] = useState(config.rows);
+  const [isDemo, setIsDemo] = useState(true);
+
+  const apiEndpoint = config.title === "Сырьё" ? "/inventory/ingredients" : config.title === "Полуфабрикаты" ? "/inventory/semi-products" : null;
+
+  useEffect(() => {
+    if (!apiEndpoint) return;
+    api.get(apiEndpoint)
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || [];
+        if (items.length) {
+          const mapped = items.map((item) => {
+            if (config.title === "Сырьё") {
+              return [
+                item.name || "", item.category || "", item.unit || "кг",
+                String(item.stock ?? "0"), String(item.min_stock ?? "0"),
+                item.purchase_price ? `${Number(item.purchase_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
+                item.supplier_name || "", item.is_active !== false ? ACTIVE : ARCHIVED,
+              ];
+            }
+            return [
+              item.name || "", item.category || "", item.unit || "кг",
+              item.cost_price ? `${Number(item.cost_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
+              `${item.ingredients_count ?? 0} ингредиента`, item.is_active !== false ? ACTIVE : ARCHIVED,
+            ];
+          });
+          setRows(mapped);
+          setIsDemo(false);
+        }
+      })
+      .catch(() => {});
+  }, [apiEndpoint]);
+
+  const filteredRows = rows.filter((row) => row.join(" ").toLowerCase().includes(query.toLowerCase()));
 
   return (
     <section className="nomenclature-page">
       <div className="nomenclature-card">
+        {isDemo && apiEndpoint && (
+          <div className="settings-demo-notice">
+            <Icon name="bi-info-circle" size={16} />
+            Демо-данные — бэкенд пока не подключён, отображаются примеры
+          </div>
+        )}
         <div className="nomenclature-header">
           <div className="report-title-group">
             <span className="report-accent-bar" />
