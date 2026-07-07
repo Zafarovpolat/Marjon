@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
+import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 
@@ -262,10 +263,7 @@ export default function TablesReportPage() {
     <section className="tables-report-page">
       <article className="report-page-card">
         {isDemo && (
-          <div className="settings-demo-notice">
-            <Icon name="bi-info-circle" size={16} />
-            Демо-данные — бэкенд пока не подключён, отображаются примеры
-          </div>
+          <DemoNotice />
         )}
         <div className="report-page-header">
           <div className="report-title-group">

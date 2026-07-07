@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
+import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
 import { formatMoney } from "../api/client";
 
@@ -242,10 +243,7 @@ export default function CancelledDishesReportPage() {
     <section className="cancelled-report-page">
       <article className="cancelled-report-card">
         {isDemo && (
-          <div className="settings-demo-notice">
-            <Icon name="bi-info-circle" size={16} />
-            Демо-данные — бэкенд пока не подключён, отображаются примеры
-          </div>
+          <DemoNotice />
         )}
         <div className="cancelled-report-head">
           <div className="cancelled-report-title">

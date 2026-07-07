@@ -63,6 +63,8 @@ const activeRate = activeCurrency === "USD" ? usdRate
   const [usdAmount, setUsdAmount] = useState("1");
   const [converterDirection, setConverterDirection] = useState("usd-to-uzs");
   const [widgetError, setWidgetError] = useState(false);
+  const [balance, setBalance] = useState(12540000);
+  const [balanceLoading, setBalanceLoading] = useState(true);
   const ingredientById = useMemo(() => new Map(ingredients.map((item) => [item.id, item])), [ingredients]);
   const visibleLowStock = useMemo(
     () => lowStock.filter((item) => Number(item.quantity || 0) <= Number(item.min_quantity || 0)).slice(0, 8),
@@ -187,6 +189,16 @@ const converterDirectionLabel = converterDirection === "usd-to-uzs"
 
   useEffect(() => {
     loadLowStock();
+  }, []);
+
+  useEffect(() => {
+    api.get("/billing/balance")
+      .then(({ data }) => {
+        const value = Number(data?.balance ?? data?.amount);
+        if (Number.isFinite(value)) setBalance(value);
+      })
+      .catch(() => {})
+      .finally(() => setBalanceLoading(false));
   }, []);
 
 useEffect(() => {
@@ -385,8 +397,8 @@ useEffect(() => {
               </div>
             ) : null}
           </div>
-          <div className="topbar-balance-pill" aria-label="Баланс 12 540 000 UZS">
-            <span className="topbar-balance-amount">12 540 000 UZS</span>
+          <div className="topbar-balance-pill" aria-label={`Баланс ${balance.toLocaleString("ru-RU")} UZS`}>
+            <span className="topbar-balance-amount">{balanceLoading ? "..." : `${balance.toLocaleString("ru-RU")} UZS`}</span>
             <button className="topbar-pay-button" type="button" onClick={() => {
               setPaymentStep("method");
               setPaymentOpen(true);

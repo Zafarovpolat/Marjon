@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
+import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
 
 const ACTIVE = "active";
@@ -411,10 +412,7 @@ function WarehousePage({ initialSection = "incoming" }) {
     <div className="warehouse-page">
       <section className="warehouse-card">
         {isDemo && (
-          <div className="settings-demo-notice">
-            <Icon name="bi-info-circle" size={16} />
-            Демо-данные — бэкенд пока не подключён, отображаются примеры
-          </div>
+          <DemoNotice />
         )}
         <header className="warehouse-header">
           <div className="warehouse-title-group">

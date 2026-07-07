@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
 
 const loginHistoryRows = [
@@ -128,10 +129,7 @@ function StaffActivityPage({ type = "login-history" }) {
     <div className="staff-page">
       <section className="staff-card">
         {isDemo && (
-          <div className="settings-demo-notice">
-            <Icon name="bi-info-circle" size={16} />
-            Демо-данные — бэкенд пока не подключён, отображаются примеры
-          </div>
+          <DemoNotice />
         )}
         <header className="staff-header">
           <div className="staff-header__title">

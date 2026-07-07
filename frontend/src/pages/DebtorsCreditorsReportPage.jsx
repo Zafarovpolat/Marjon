@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { api } from "../api/client";
+import DemoNotice from "../components/DemoNotice";
 import DatePicker from "../components/DatePicker";
 import Icon from "../components/Icon";
 import { formatMoney } from "../api/client";
@@ -179,10 +180,7 @@ export default function DebtorsCreditorsReportPage() {
     <section className="dc-report-page">
       <article className="dc-report-card">
         {isDemo && (
-          <div className="settings-demo-notice">
-            <Icon name="bi-info-circle" size={16} />
-            Демо-данные — бэкенд пока не подключён, отображаются примеры
-          </div>
+          <DemoNotice />
         )}
         <div className="dc-report-head">
           <div>

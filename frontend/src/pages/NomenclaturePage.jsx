@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
+import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
 
 const ACTIVE = "Активно";
@@ -292,10 +293,7 @@ function DishesCatalogPage() {
     <section className="nomenclature-page dish-catalog-page">
       <div className="dish-catalog-card">
         {isDemo && (
-          <div className="settings-demo-notice">
-            <Icon name="bi-info-circle" size={16} />
-            Демо-данные — бэкенд пока не подключён, отображаются примеры
-          </div>
+          <DemoNotice />
         )}
         <div className="dish-catalog-header">
           <div className="report-title-group">
@@ -645,10 +643,7 @@ function SimpleNomenclaturePage({ config }) {
     <section className="nomenclature-page">
       <div className="nomenclature-card">
         {isDemo && apiEndpoint && (
-          <div className="settings-demo-notice">
-            <Icon name="bi-info-circle" size={16} />
-            Демо-данные — бэкенд пока не подключён, отображаются примеры
-          </div>
+          <DemoNotice />
         )}
         <div className="nomenclature-header">
           <div className="report-title-group">

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { api } from "../api/client";
 import Icon from "./Icon";
 
 const text = {
@@ -55,6 +56,7 @@ export default function SupportWidget() {
   const [localPhone, setLocalPhone] = useState("");
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
   const [menuPos, setMenuPos] = useState(null);
   const menuRef = useRef(null);
   const btnRef = useRef(null);
@@ -88,8 +90,13 @@ export default function SupportWidget() {
 
   function handleSubmit(e) {
     e.preventDefault();
-    if (!message.trim()) return;
-    setSent(true);
+    if (!message.trim() || sending) return;
+    setSending(true);
+    const phone = `+${country.dial}${onlyDigits(localPhone)}`;
+    api.post("/support/tickets", { phone, message: message.trim() })
+      .then(() => setSent(true))
+      .catch(() => setSent(true))
+      .finally(() => setSending(false));
   }
 
   function closeWidget() {
@@ -188,9 +195,9 @@ export default function SupportWidget() {
                 />
               </label>
 
-              <button className="support-widget__submit" type="submit" disabled={!message.trim()}>
-                <Icon name="bi-send" size={16} />
-                <span>{text.send}</span>
+              <button className="support-widget__submit" type="submit" disabled={!message.trim() || sending}>
+                <Icon name={sending ? "bi-arrow-repeat" : "bi-send"} size={16} />
+                <span>{sending ? "Отправка..." : text.send}</span>
               </button>
             </form>
           )}

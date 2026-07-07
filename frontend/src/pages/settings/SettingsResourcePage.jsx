@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, formatMoney } from "../../api/client";
+import DemoNotice from "../../components/DemoNotice";
 import Icon from "../../components/Icon";
 
 const STATUS_ACTIVE = "#активно";
@@ -250,10 +251,7 @@ function SettingsResourcePage({
     <div className={`settings-page ${pageClassName}`.trim()}>
       <section className="settings-card">
         {isDemo && apiEndpoint ? (
-          <div className="settings-demo-notice">
-            <Icon name="bi-info-circle" size={16} />
-            <span>Демо-данные. Реальные данные загрузятся после настройки сервера.</span>
-          </div>
+          <DemoNotice text="Демо-данные. Реальные данные загрузятся после настройки сервера." />
         ) : null}
         {compactHeader ? (
           <header className="settings-directory-toolbar">
