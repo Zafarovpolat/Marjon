@@ -114,15 +114,6 @@ const kpis = [
     points: [20, 26, 31, 44, 40, 55, 63, 72],
     desc: "Суммарный оборот всех организаций платформы за текущий месяц в узбекских сумах.",
   },
-  {
-    title: "Платежи и банк",
-    value: "Все системы работают",
-    delta: "Uptime 99.98%",
-    icon: "bi-shield-check",
-    tone: "cyan",
-    radar: true,
-    desc: "Состояние платёжного шлюза и интеграции с Хамкорбанком. Аптайм за 30 дней — 99.98%.",
-  },
 ];
 
 const organizationRows = [
@@ -461,14 +452,6 @@ const approvalItems = [
   ["Sushi Master", "Изменение тарифного плана", "1 ч назад", "Рассмотреть"],
   ["Family Kitchen", "Подключение услуги", "2 ч назад", "Одобрить"],
   ["Burger Station", "Запрос на скидку", "3 ч назад", "Рассмотреть"],
-];
-
-const alertItems = [
-  ["warning", "Высокая нагрузка на сервер API"],
-  ["warning", "Истекает лицензия у 3 организаций"],
-  ["success", "Резервное копирование завершено"],
-  ["info", "Обновление платформы доступно"],
-  ["info", "Новые фичи в модуле “Маркетинг”"],
 ];
 
 const systemItems = [
@@ -1176,15 +1159,19 @@ const chartData = {
 const ADMIN_CHART_COLOR = "#4ed3a7";
 const ADMIN_CHART_COLOR_RGB = "78, 211, 167";
 
-function formatAdminChartMoney(value) {
-  return `${Math.round(Number(value || 0) * 1000000).toLocaleString("ru-RU").replace(/\u00a0/g, " ")} UZS`;
+function adminChartPointToMoney(value) {
+  return Math.round(Number(value || 0) * 1000000);
 }
 
-function formatAdminAxisTick(value, yMax) {
+function formatAdminRawMoney(value) {
+  return `${Math.round(Number(value || 0)).toLocaleString("ru-RU").replace(/\u00a0/g, " ")} UZS`;
+}
+
+function formatAdminAxisTick(value) {
   if (Number(value) === 0) return "0";
-  if (yMax <= 1) return `${Math.round(Number(value) * 1000)}K`;
-  if (yMax <= 10) return `${Number(value).toLocaleString("ru-RU", { maximumFractionDigits: 1 }).replace(/\u00a0/g, " ")}M`;
-  return `${Math.round(Number(value))}M`;
+  const millions = Number(value) / 1000000;
+  if (millions < 1) return `${Math.round(Number(value) / 1000)}K`;
+  return `${Number(millions).toLocaleString("ru-RU", { maximumFractionDigits: 1 }).replace(/\u00a0/g, " ")}M`;
 }
 
 function AdminRevenueChart({ data, segment }) {
@@ -1196,44 +1183,18 @@ function AdminRevenueChart({ data, segment }) {
     const ctx = canvasRef.current.getContext("2d");
     const tooltipIndex = Math.min(Math.max(data.tooltipIndex ?? data.points.length - 1, 0), data.points.length - 1);
     const labels = data.labels || data.xLabels || [];
+    const chartPoints = data.points.map(adminChartPointToMoney);
     const tickLabels = new Map(data.tickLabels || labels.map((label, index) => [index, label]));
-    const yMax = data.yMax || 100;
-    const yStep = data.yStep || 20;
+    const yMax = data.yMax ? adminChartPointToMoney(data.yMax) : undefined;
+    const yStep = data.yStep ? adminChartPointToMoney(data.yStep) : undefined;
     const revealState = { progress: 0, didClip: false };
     const revealDuration = 1200;
     const easeOutCubic = (value) => 1 - Math.pow(1 - value, 3);
 
-    const fill = ctx.createLinearGradient(0, 0, 0, 340);
+    const fill = ctx.createLinearGradient(0, 0, 0, 360);
     fill.addColorStop(0, `rgba(${ADMIN_CHART_COLOR_RGB}, 0.28)`);
-    fill.addColorStop(0.58, `rgba(${ADMIN_CHART_COLOR_RGB}, 0.12)`);
+    fill.addColorStop(0.55, `rgba(${ADMIN_CHART_COLOR_RGB}, 0.10)`);
     fill.addColorStop(1, `rgba(${ADMIN_CHART_COLOR_RGB}, 0)`);
-
-    function showTooltip(chart, label, value, caretX, caretY) {
-      const tooltipEl = tooltipRef.current;
-      if (!tooltipEl) return;
-      const titleEl = tooltipEl.querySelector("strong");
-      const valueEl = tooltipEl.querySelector("span");
-      if (titleEl) titleEl.textContent = label || "";
-      if (valueEl) valueEl.textContent = value || "";
-
-      const halfWidth = tooltipEl.offsetWidth / 2 || 78;
-      const height = tooltipEl.offsetHeight || 86;
-      const minX = halfWidth + 8;
-      const maxX = chart.width - halfWidth - 8;
-      const x = Math.min(Math.max(caretX, minX), maxX);
-      const y = Math.min(Math.max(caretY - 12, height + 18), chart.height - 12);
-
-      tooltipEl.style.left = `${chart.canvas.offsetLeft + x}px`;
-      tooltipEl.style.top = `${chart.canvas.offsetTop + y}px`;
-      tooltipEl.classList.add("is-visible");
-    }
-
-    function showDefaultTooltip(chart) {
-      const point = chart.getDatasetMeta(0)?.data?.[tooltipIndex];
-      if (!point) return;
-      const { x, y } = point.tooltipPosition();
-      showTooltip(chart, data.tooltip.label, data.tooltip.value, x, y);
-    }
 
     const revealPlugin = {
       id: "adminRevenueChartReveal",
@@ -1251,26 +1212,23 @@ function AdminRevenueChart({ data, segment }) {
       afterDatasetsDraw(chart) {
         if (revealState.didClip) chart.ctx.restore();
       },
-      afterRender(chart) {
-        showDefaultTooltip(chart);
-      },
     };
+    let revealFrame = 0;
 
     const chart = new Chart(canvasRef.current, {
       type: "line",
       data: {
         labels,
         datasets: [{
-          data: data.points,
+          data: chartPoints,
           borderColor: ADMIN_CHART_COLOR,
           backgroundColor: fill,
           borderWidth: 4,
           pointBorderColor: ADMIN_CHART_COLOR,
-          pointBorderWidth: 4,
-          pointRadius: (context) => (context.dataIndex === tooltipIndex ? 7 : 4),
-          pointBackgroundColor: (context) => (context.dataIndex === tooltipIndex ? `rgba(${ADMIN_CHART_COLOR_RGB}, 0.18)` : "#ffffff"),
+          pointBorderWidth: 3,
+          pointRadius: 4,
+          pointBackgroundColor: "#ffffff",
           pointHoverRadius: 7,
-          pointHitRadius: 14,
           fill: true,
           tension: 0.42,
         }],
@@ -1286,12 +1244,28 @@ function AdminRevenueChart({ data, segment }) {
           tooltip: {
             enabled: false,
             external: ({ chart: activeChart, tooltip }) => {
+              const tooltipEl = tooltipRef.current;
+              if (!tooltipEl) return;
+
               if (!tooltip || tooltip.opacity === 0) {
-                showDefaultTooltip(activeChart);
+                tooltipEl.classList.remove("is-visible");
                 return;
               }
-              const value = tooltip.body?.[0]?.lines?.[0] || "";
-              showTooltip(activeChart, tooltip.title?.[0] || "", value, tooltip.caretX, tooltip.caretY);
+
+              const titleEl = tooltipEl.querySelector("strong");
+              const valueEl = tooltipEl.querySelector("span");
+              if (titleEl) titleEl.textContent = tooltip.title?.[0] || "";
+              if (valueEl) valueEl.textContent = tooltip.body?.[0]?.lines?.[0] || "";
+
+              const tooltipHalfWidth = tooltipEl.offsetWidth / 2 || 72;
+              const minX = tooltipHalfWidth + 8;
+              const maxX = activeChart.width - tooltipHalfWidth - 8;
+              const x = Math.min(Math.max(tooltip.caretX, minX), maxX);
+              const y = Math.max(tooltip.caretY - 10, 16);
+
+              tooltipEl.style.left = `${activeChart.canvas.offsetLeft + x}px`;
+              tooltipEl.style.top = `${activeChart.canvas.offsetTop + y}px`;
+              tooltipEl.classList.add("is-visible");
             },
             callbacks: {
               title: (items) => {
@@ -1299,7 +1273,7 @@ function AdminRevenueChart({ data, segment }) {
                 return index === tooltipIndex ? data.tooltip.label : labels[index] || "";
               },
               label: (context) => (
-                context.dataIndex === tooltipIndex ? data.tooltip.value : formatAdminChartMoney(context.parsed.y)
+                context.dataIndex === tooltipIndex ? data.tooltip.value : formatAdminRawMoney(context.parsed.y)
               ),
             },
           },
@@ -1308,8 +1282,8 @@ function AdminRevenueChart({ data, segment }) {
           x: {
             grid: { display: false },
             ticks: {
-              color: "#60708a",
-              font: { size: 14, weight: "600", family: "'Inter', sans-serif" },
+              color: "#667085",
+              font: { size: 12, weight: "600", family: "'Golos Text', Manrope, sans-serif" },
               maxRotation: 0,
               autoSkip: false,
               callback: (_value, index) => tickLabels.get(index) || "",
@@ -1317,15 +1291,15 @@ function AdminRevenueChart({ data, segment }) {
             border: { display: false },
           },
           y: {
-            min: 0,
-            max: yMax,
+            beginAtZero: true,
+            ...(yMax ? { max: yMax } : {}),
             grid: { color: "rgba(15, 23, 42, 0.09)", drawTicks: false },
             ticks: {
-              stepSize: yStep,
-              color: "#60708a",
+              ...(yStep ? { stepSize: yStep } : {}),
+              color: "#667085",
               padding: 8,
-              font: { size: 14, weight: "600", family: "'Inter', sans-serif" },
-              callback: (value) => formatAdminAxisTick(value, yMax),
+              font: { size: 12, weight: "600", family: "'Golos Text', Manrope, sans-serif" },
+              callback: (value) => formatAdminAxisTick(value),
             },
             border: { display: false },
           },
@@ -1334,7 +1308,6 @@ function AdminRevenueChart({ data, segment }) {
       plugins: [revealPlugin],
     });
 
-    let revealFrame = 0;
     const revealStart = performance.now();
     const runReveal = (timestamp) => {
       const elapsed = timestamp - revealStart;
@@ -1355,8 +1328,8 @@ function AdminRevenueChart({ data, segment }) {
     <>
       <canvas ref={canvasRef} />
       <div className="admin-tooltip admin-chart-tooltip" ref={tooltipRef} aria-hidden="true">
-        <strong>{data.tooltip.label}</strong>
-        <span>{data.tooltip.value}</span>
+        <strong />
+        <span />
       </div>
     </>
   );
@@ -2450,7 +2423,7 @@ function OrganizationStatusPage({ search, onNotify }) {
   );
 }
 
-function RightColumn({ approvals, alerts, onApprovalAction, onShowApprovals, onShowAlerts, onApprovalClick, onAlertClick, onSystemClick }) {
+function RightColumn({ approvals, onApprovalAction, onShowApprovals, onApprovalClick, onSystemClick }) {
   return (
     <aside className="admin-right">
       <section className="admin-side-card">
@@ -2474,26 +2447,6 @@ function RightColumn({ approvals, alerts, onApprovalAction, onShowApprovals, onS
         </div>
         {approvals.length ? (
           <button className="admin-side-link" type="button" onClick={onShowApprovals}>Показать все заявки</button>
-        ) : null}
-      </section>
-
-      <section className="admin-side-card">
-        <div className="admin-side-card__head">
-          <h3>Системные оповещения</h3>
-          <span>{alerts.length}</span>
-        </div>
-        <div className="admin-alert-list">
-          {alerts.length ? alerts.map((item) => (
-            <div className={`admin-system-alert admin-system-alert--${item[0]}`} key={item[1]} role="button" tabIndex={0} onClick={() => onAlertClick(item)} onKeyDown={(event) => { if (event.key === "Enter") onAlertClick(item); }}>
-              <Icon name={item[0] === "success" ? "bi-check-circle" : item[0] === "warning" ? "bi-exclamation-triangle" : "bi-info-circle"} size={18} />
-              <span>{item[1]}</span>
-            </div>
-          )) : (
-            <div className="admin-empty">Новых оповещений нет.</div>
-          )}
-        </div>
-        {alerts.length ? (
-          <button className="admin-side-link" type="button" onClick={onShowAlerts}>Показать все оповещения</button>
         ) : null}
       </section>
 
@@ -3713,7 +3666,7 @@ function TransactionsTable() {
   );
 }
 
-function DashboardPage({ segment, onSegmentChange, organizationRows, approvals, alerts, onExport, onRowAction, onApprovalAction, onShowApprovals, onShowAlerts, onKpiClick, onOrgClick, onApprovalClick, onAlertClick, onSystemClick }) {
+function DashboardPage({ segment, onSegmentChange, organizationRows, approvals, onExport, onRowAction, onApprovalAction, onShowApprovals, onKpiClick, onOrgClick, onApprovalClick, onSystemClick }) {
   return (
     <>
       <section className="admin-kpi-grid">
@@ -3726,12 +3679,9 @@ function DashboardPage({ segment, onSegmentChange, organizationRows, approvals, 
         </main>
         <RightColumn
           approvals={approvals}
-          alerts={alerts}
           onApprovalAction={onApprovalAction}
           onShowApprovals={onShowApprovals}
-          onShowAlerts={onShowAlerts}
           onApprovalClick={onApprovalClick}
-          onAlertClick={onAlertClick}
           onSystemClick={onSystemClick}
         />
       </div>
@@ -3800,7 +3750,6 @@ function AdminShell({ onLogout }) {
   const [dateRange, setDateRange] = useState(() => presetRange("Сегодня"));
   const [organizations, setOrganizations] = useState(organizationRows);
   const [approvals, setApprovals] = useState(approvalItems);
-  const [alerts, setAlerts] = useState(alertItems);
   const [categoryRows, setCategoryRows] = useState({});
   const [detail, setDetail] = useState(null);
 
@@ -3918,18 +3867,6 @@ function AdminShell({ onLogout }) {
     });
   }
 
-  function openAlertDetail(item) {
-    const levelLabel = item[0] === "success" ? "Успешно" : item[0] === "warning" ? "Предупреждение" : "Информация";
-    setDetail({
-      title: levelLabel,
-      subtitle: "Системное оповещение",
-      fields: [
-        { label: "Уровень", value: levelLabel },
-        { label: "Сообщение", value: item[1] },
-      ],
-    });
-  }
-
   function openSystemDetail(item) {
     setDetail({
       title: item[0],
@@ -3975,22 +3912,19 @@ function AdminShell({ onLogout }) {
         onSegmentChange={setSegment}
         organizationRows={filteredOrganizations}
         approvals={approvals}
-        alerts={alerts}
         onExport={() => downloadCsv("marjon-organizations.csv", [["Организация", "Тип", "Филиалов", "Админ", "Дата регистрации", "Статус"], ...filteredOrganizations])}
         onRowAction={handleRowAction}
         onApprovalAction={handleApprovalAction}
         onShowApprovals={() => setMessage(`Показаны все заявки: ${approvals.length}.`)}
-        onShowAlerts={() => setMessage(`Показаны все оповещения: ${alerts.length}.`)}
         onKpiClick={openKpiDetail}
         onOrgClick={openOrgDetail}
         onApprovalClick={openApprovalDetail}
-        onAlertClick={openAlertDetail}
         onSystemClick={openSystemDetail}
       />
     ) : (
       <CategoryPage active={active} rowsOverride={categoryRows[active]} search={search} onCreate={handleCreate} onRowDetail={openCategoryRowDetail} onNotify={setMessage} />
     )
-  ), [active, alerts, approvals, categoryRows, filteredOrganizations, search, segment]);
+  ), [active, approvals, categoryRows, filteredOrganizations, search, segment]);
 
   function logout() {
     adminLogout();
@@ -4006,8 +3940,8 @@ function AdminShell({ onLogout }) {
           onLogout={logout}
           dateRange={dateRange}
           onDateRangeChange={setDateRange}
-          onBellClick={() => setMessage(`Непрочитанных уведомлений: ${approvals.length + alerts.length}.`)}
-          notificationCount={approvals.length + alerts.length}
+          onBellClick={() => setMessage(`Непрочитанных уведомлений: ${approvals.length}.`)}
+          notificationCount={approvals.length}
           onProfile={openProfileDetail}
         />
         {message ? (
