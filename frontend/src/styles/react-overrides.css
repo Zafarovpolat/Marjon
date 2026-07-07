@@ -24778,22 +24778,73 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   height: 15px !important;
 }
 
+.report-actions .report-date-menu {
+  width: min(310px, calc(100vw - 32px)) !important;
+  padding: 14px !important;
+  border-radius: 16px !important;
+}
+
+.report-actions .report-date-presets {
+  grid-template-columns: 1fr !important;
+  gap: 4px !important;
+  padding-bottom: 12px !important;
+  margin-bottom: 12px !important;
+}
+
+.report-actions .report-date-presets button {
+  justify-content: center !important;
+  min-height: 32px !important;
+  padding: 0 10px !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+.report-actions .report-date-range {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) 38px !important;
+  gap: 7px !important;
+  padding-top: 0 !important;
+}
+
+.report-actions .report-date-input {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 9px !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+.report-actions .report-date-ok {
+  height: 36px !important;
+  min-height: 36px !important;
+  width: 42px !important;
+  min-width: 42px !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  border-radius: 10px !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  box-shadow: none !important;
+}
+
 .report-actions .report-date-calendar-popover {
-  width: min(580px, calc(100vw - 44px)) !important;
-  border-radius: 13px !important;
+  width: min(410px, calc(100vw - 32px)) !important;
+  border-radius: 16px !important;
 }
 
 .report-actions .report-date-picker-body {
-  grid-template-columns: minmax(0, 1fr) 148px !important;
+  grid-template-columns: minmax(0, 1fr) 124px !important;
 }
 
 .report-actions .report-date-calendar-panel {
-  padding: 13px 13px 10px !important;
+  padding: 12px 12px 10px !important;
 }
 
 .report-actions .report-date-calendar-toolbar {
-  grid-template-columns: 32px 1fr 1fr 32px !important;
-  gap: 7px !important;
+  grid-template-columns: 30px 68px 86px 30px !important;
+  gap: 6px !important;
   margin-bottom: 9px !important;
 }
 
@@ -24801,42 +24852,57 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .report-actions .report-date-calendar-toolbar select {
   min-height: 32px !important;
   height: 32px !important;
-  border-radius: 8px !important;
+  border-radius: 10px !important;
   font-size: 12px !important;
+}
+
+.report-actions .report-date-calendar-toolbar select {
+  padding: 0 8px !important;
 }
 
 .report-actions .report-date-calendar-week span {
-  padding-bottom: 6px !important;
-  font-size: 10px !important;
+  padding-bottom: 7px !important;
+  font-size: 11px !important;
 }
 
 .report-actions .report-date-calendar-grid button {
-  min-height: 31px !important;
-  border-radius: 8px !important;
-  font-size: 12px !important;
+  min-height: 30px !important;
+  border-radius: 9px !important;
+  font-size: 13px !important;
 }
 
 .report-actions .report-date-time-panel {
-  padding: 13px 10px 10px !important;
+  padding: 12px 8px 10px !important;
 }
 
 .report-actions .report-date-time-title {
   min-height: 26px !important;
   margin-bottom: 8px !important;
+  gap: 6px !important;
   font-size: 12px !important;
+}
+
+.report-actions .report-date-time-title svg {
+  width: 15px !important;
+  height: 15px !important;
 }
 
 .report-actions .report-date-time-columns {
   gap: 6px !important;
 }
 
+.report-actions .report-date-time-column-label {
+  margin-bottom: 5px !important;
+  font-size: 10px !important;
+}
+
 .report-actions .report-date-time-list {
-  max-height: 224px !important;
-  border-radius: 8px !important;
+  max-height: 202px !important;
+  border-radius: 9px !important;
 }
 
 .report-actions .report-date-time-list button {
-  min-height: 29px !important;
+  min-height: 28px !important;
   font-size: 12px !important;
 }
 
@@ -24847,10 +24913,21 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 
 .report-actions .report-date-today-button,
 .report-actions .report-date-calendar-ok {
-  min-height: 35px !important;
-  height: 35px !important;
-  border-radius: 9px !important;
+  min-height: 34px !important;
+  height: 34px !important;
+  border-radius: 10px !important;
   font-size: 12px !important;
+}
+
+.report-actions .report-date-today-button {
+  min-width: 78px !important;
+  gap: 5px !important;
+  padding: 0 9px !important;
+}
+
+.report-actions .report-date-today-button svg {
+  width: 13px !important;
+  height: 13px !important;
 }
 
 /* Waiters report: make the date button open the shared report calendar without changing its layout. */
@@ -24928,6 +25005,9 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 
 .orders-report-page .report-period-picker {
   flex: 0 0 auto !important;
+  border-color: transparent !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
 }
 
 .orders-report-page .report-period-button,
@@ -24945,10 +25025,28 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   min-width: 176px !important;
   padding: 0 15px !important;
   color: #0f2a43 !important;
-  border: 1px solid rgba(29, 181, 181, 0.42) !important;
-  background: linear-gradient(180deg, #ffffff 0%, #eef9fb 100%) !important;
+  border: 1px solid rgba(194, 212, 234, 0.78) !important;
+  background: #ffffff !important;
   font-weight: 800 !important;
   font-size: 14px !important;
+}
+
+.orders-report-page .report-period-button:focus,
+.orders-report-page .report-period-button:focus-visible,
+.orders-report-page .report-period-button:active,
+.orders-report-page .report-period-button[aria-expanded="true"] {
+  color: #0f2a43 !important;
+  border-color: rgba(194, 212, 234, 0.78) !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+  transform: none !important;
+}
+
+.orders-report-page .report-period-button:hover {
+  border-color: rgba(29, 181, 181, 0.36) !important;
+  background: #f8fcfd !important;
+  box-shadow: none !important;
 }
 
 .orders-report-page .report-period-button span {
@@ -27891,6 +27989,221 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
   .dashboard-sidebar.is-collapsed .sidebar-nav,
   .dashboard-sidebar:not(.is-collapsed) .sidebar-nav {
     margin-top: 88px !important;
+  }
+}
+
+/* Keep highlighted top controls visually locked while the sidebar collapses. */
+@media (min-width: 1025px) {
+  body.dashboard-body .dashboard-shell,
+  body.dashboard-body .dashboard-shell.is-sidebar-expanded,
+  body.dashboard-body .dashboard-shell.is-sidebar-collapsed {
+    --owner-sidebar-open-w: 280px;
+    --owner-sidebar-collapsed-w: 88px;
+    --owner-sidebar-brand-left: 12px;
+    --owner-sidebar-brand-w: 262px;
+    --owner-sidebar-brand-identity-w: 224px;
+    --owner-sidebar-logo-box: 56px;
+  }
+
+  body.dashboard-body .dashboard-shell::before,
+  body.dashboard-body .dashboard-shell.is-sidebar-expanded::before,
+  body.dashboard-body .dashboard-shell.is-sidebar-collapsed::before {
+    width: var(--owner-sidebar-current-w, var(--owner-sidebar-open-w, 280px)) !important;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-main,
+  body.dashboard-body .dashboard-shell .dashboard-main.is-sidebar-collapsed,
+  body.dashboard-body .dashboard-shell.is-sidebar-expanded .dashboard-main,
+  body.dashboard-body .dashboard-shell.is-sidebar-collapsed .dashboard-main {
+    margin-left: var(--owner-sidebar-current-w, var(--owner-sidebar-open-w, 280px)) !important;
+    width: calc(100% - var(--owner-sidebar-current-w, var(--owner-sidebar-open-w, 280px))) !important;
+    max-width: calc(100% - var(--owner-sidebar-current-w, var(--owner-sidebar-open-w, 280px))) !important;
+    transform: none !important;
+    translate: none !important;
+    transition:
+      margin-left 220ms ease,
+      width 220ms ease,
+      max-width 220ms ease,
+      background-color 160ms ease,
+      border-radius 160ms ease,
+      box-shadow 160ms ease !important;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-content,
+  body.dashboard-body .dashboard-shell .dashboard-main.is-sidebar-collapsed .dashboard-content,
+  body.dashboard-body .dashboard-shell.is-sidebar-collapsed .dashboard-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    transform: none !important;
+    translate: none !important;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-left {
+    transform: translateX(var(--owner-sidebar-lock-offset, 0px)) !important;
+    translate: none !important;
+    transition:
+      transform 220ms ease,
+      background-color 160ms ease,
+      color 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease,
+      opacity 160ms ease !important;
+    will-change: transform;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-left .mj-datepicker,
+  body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-left .mj-datepicker__trigger {
+    transform: none !important;
+    translate: none !important;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-brand,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .sidebar-brand,
+  body.dashboard-body .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar .sidebar-brand,
+  body.dashboard-body .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar.is-collapsed .sidebar-brand {
+    position: fixed !important;
+    top: 18px !important;
+    left: var(--owner-sidebar-brand-left) !important;
+    width: var(--owner-sidebar-brand-w) !important;
+    min-width: var(--owner-sidebar-brand-w) !important;
+    max-width: var(--owner-sidebar-brand-w) !important;
+    height: 72px !important;
+    min-height: 72px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: grid !important;
+    grid-template-columns: var(--owner-sidebar-brand-identity-w) 30px !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    column-gap: 8px !important;
+    overflow: visible !important;
+    transform: none !important;
+    translate: none !important;
+    transition: none !important;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand__identity,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-brand__identity,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .sidebar-brand__identity,
+  body.dashboard-body .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar .sidebar-brand__identity,
+  body.dashboard-body .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar.is-collapsed .sidebar-brand__identity {
+    width: var(--owner-sidebar-brand-identity-w) !important;
+    min-width: var(--owner-sidebar-brand-identity-w) !important;
+    max-width: var(--owner-sidebar-brand-identity-w) !important;
+    height: 56px !important;
+    min-height: 56px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: grid !important;
+    grid-template-columns: 56px minmax(0, 1fr) !important;
+    align-items: center !important;
+    justify-content: stretch !important;
+    justify-items: stretch !important;
+    gap: 8px !important;
+    overflow: visible !important;
+    transform: none !important;
+    translate: none !important;
+    transition: none !important;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .brand-mark,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .brand-mark--button,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .brand-mark,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .brand-mark--button,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .brand-mark,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .brand-mark--button {
+    width: var(--owner-sidebar-logo-box) !important;
+    min-width: var(--owner-sidebar-logo-box) !important;
+    max-width: var(--owner-sidebar-logo-box) !important;
+    height: var(--owner-sidebar-logo-box) !important;
+    min-height: var(--owner-sidebar-logo-box) !important;
+    max-height: var(--owner-sidebar-logo-box) !important;
+    flex: 0 0 var(--owner-sidebar-logo-box) !important;
+    box-sizing: border-box !important;
+    display: grid !important;
+    place-items: center !important;
+    grid-column: 1 !important;
+    justify-self: start !important;
+    margin: 0 0 0 4px !important;
+    padding: 4px !important;
+    border-radius: 17px !important;
+    transform: none !important;
+    translate: none !important;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .brand-mark .marjon-logo,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .brand-mark--button .marjon-logo,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .brand-mark .marjon-logo,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .brand-mark--button .marjon-logo {
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+    object-fit: contain !important;
+    object-position: center !important;
+    margin: 0 !important;
+    transform: none !important;
+    translate: none !important;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand__identity > div:not(.brand-mark),
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand__identity > button + div,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-brand__identity > div:not(.brand-mark),
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-brand__identity > button + div,
+  body.dashboard-body .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar .sidebar-brand__identity > div:not(.brand-mark),
+  body.dashboard-body .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar .sidebar-brand__identity > button + div {
+    display: block !important;
+    grid-column: 2 !important;
+    width: 150px !important;
+    min-width: 0 !important;
+    max-width: 150px !important;
+    margin-left: 8px !important;
+    overflow: hidden !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: none !important;
+    translate: none !important;
+    transition: none !important;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .brand-title,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .brand-subtitle,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .brand-title,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .brand-subtitle,
+  body.dashboard-body .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar .brand-title,
+  body.dashboard-body .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar .brand-subtitle {
+    display: block !important;
+    max-width: none !important;
+    white-space: nowrap !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: none !important;
+    translate: none !important;
+    transition: none !important;
+  }
+
+  body.dashboard-body .dashboard-shell::after,
+  body.dashboard-body .dashboard-shell.is-sidebar-expanded::after,
+  body.dashboard-body .dashboard-shell.is-sidebar-collapsed::after {
+    content: "" !important;
+    display: block !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: var(--owner-sidebar-open-w, 280px) !important;
+    height: 76px !important;
+    background: var(--shell-sidebar-bg, #0b1f3f) !important;
+    z-index: 14 !important;
+    pointer-events: none !important;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-brand,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .sidebar-brand {
+    z-index: 181 !important;
   }
 }
 /* Settings clients directory: compact tabbed table based on the requested layout. */
