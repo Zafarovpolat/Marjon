@@ -119,7 +119,7 @@ function FinanceTransactionsPage() {
           <div className="finance-actions">
             <button type="button" className="finance-income-action" onClick={() => openCreate("income")}><span>+</span> ПРИХОД</button>
             <button type="button" className="finance-expense-action" onClick={() => openCreate("expense")}><span>-</span> РАСХОД</button>
-            <button type="button" className="finance-excel-action" onClick={() => console.log("export")}>Скачать Excel</button>
+            <button type="button" className="finance-excel-action" onClick={() => window.alert("Excel-экспорт будет доступен в следующей версии")}>Скачать Excel</button>
             <button type="button" onClick={() => setFilterOpen((v) => !v)}>Фильтровать</button>
           </div>
         </header>

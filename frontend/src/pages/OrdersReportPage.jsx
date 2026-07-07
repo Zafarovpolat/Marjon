@@ -176,7 +176,7 @@ export default function OrdersReportPage() {
   }
 
   function downloadExcel() {
-    console.log("Orders report Excel export placeholder", { filters: appliedFilters, rows: filteredRows });
+    window.alert("Excel-экспорт будет доступен в следующей версии");
   }
 
   return (

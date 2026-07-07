@@ -38,17 +38,6 @@ export async function adminLogin(phone, password) {
     localStorage.removeItem("admin_local_login");
     return data;
   } catch (error) {
-    if (normalizedPhone === "900000777" && password === "0000777") {
-      const data = {
-        access_token: "local-superadmin-token",
-        refresh_token: "local-superadmin-refresh",
-        token_type: "bearer",
-      };
-      localStorage.setItem("admin_access_token", data.access_token);
-      localStorage.setItem("admin_refresh_token", data.refresh_token);
-      localStorage.setItem("admin_local_login", "true");
-      return data;
-    }
     throw error;
   }
 }

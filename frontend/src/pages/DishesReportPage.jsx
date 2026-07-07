@@ -100,7 +100,7 @@ export default function DishesReportPage() {
   }
 
   function downloadExcel() {
-    console.log("Dishes report Excel export placeholder", { filters: appliedFilters, rows: filteredRows });
+    window.alert("Excel-экспорт будет доступен в следующей версии");
   }
 
   return (

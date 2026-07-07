@@ -42,6 +42,9 @@ function KitchenOrderCard({ order, onRefresh, now, onPrint }) {
   const tone = waiting > 20 ? "urgent" : waiting > 10 ? "waiting" : "";
   const [printing, setPrinting] = useState(false);
   const [printMessage, setPrintMessage] = useState("");
+  const printTimerRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(printTimerRef.current), []);
 
   async function setItemStatus(item, status) {
     await api.patch("/kitchen/orders/items/status", { order_item_id: item.id, status });
@@ -59,7 +62,8 @@ function KitchenOrderCard({ order, onRefresh, now, onPrint }) {
     const result = await onPrint(order.id);
     setPrinting(false);
     setPrintMessage(result.ok ? "Chop etildi" : result.detail);
-    window.setTimeout(() => setPrintMessage(""), 2500);
+    clearTimeout(printTimerRef.current);
+    printTimerRef.current = window.setTimeout(() => setPrintMessage(""), 2500);
   }
 
   const allReady = order.items?.length && order.items.every((item) => item.status === "ready");
@@ -110,6 +114,9 @@ export default function KitchenPage() {
   const seenOrderIdsRef = useRef(new Set());
   const autoPrintedIdsRef = useRef(new Set());
   const initialOrdersSeenRef = useRef(false);
+  const toastTimerRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(toastTimerRef.current), []);
 
   async function loadKitchen() {
     const activeBranch = branch || await ensureBranch();
@@ -118,7 +125,8 @@ export default function KitchenPage() {
     setOrders((prev) => {
       if (prev.length && data.length > prev.length) {
         setToast("Yangi buyurtma oshxonaga keldi");
-        window.setTimeout(() => setToast(""), 3000);
+        clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = window.setTimeout(() => setToast(""), 3000);
       }
       return data;
     });
@@ -128,7 +136,7 @@ export default function KitchenPage() {
   useEffect(() => {
     loadKitchen().catch((err) => setError(err.response?.data?.detail || "Oshxona ma'lumotlarini yuklab bo'lmadi."));
     const timer = window.setInterval(() => {
-      loadKitchen().catch(() => {});
+      loadKitchen().catch((err) => console.warn("Kitchen polling:", err.message));
     }, 2000);
     return () => window.clearInterval(timer);
   }, [branch?.id]);
@@ -162,7 +170,8 @@ export default function KitchenPage() {
       printKitchenReceipt(order.id).then((result) => {
         if (result.ok) {
           setToast(`Чек кухни #${order.order_number} отправлен`);
-          window.setTimeout(() => setToast(""), 3000);
+          clearTimeout(toastTimerRef.current);
+          toastTimerRef.current = window.setTimeout(() => setToast(""), 3000);
         }
       });
     });

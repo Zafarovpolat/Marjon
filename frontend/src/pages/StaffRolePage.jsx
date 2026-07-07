@@ -347,7 +347,7 @@ useEffect(() => {
       }));
       setStaff(mapped);
     })
-    .catch(() => {})
+    .catch((err) => console.warn("Не удалось загрузить сотрудников:", err.message))
     .finally(() => setStaffLoading(false));
 }, []);
   const [activeTab, setActiveTab] = useState("active");

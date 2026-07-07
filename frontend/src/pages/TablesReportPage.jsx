@@ -224,7 +224,7 @@ export default function TablesReportPage() {
   }
 
   function downloadExcel() {
-    console.log("Tables report Excel export placeholder", { filters: appliedFilters, rows: filteredRows });
+    window.alert("Excel-экспорт будет доступен в следующей версии");
   }
 
   return (

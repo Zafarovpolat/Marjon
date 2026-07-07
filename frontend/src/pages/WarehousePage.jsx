@@ -347,7 +347,7 @@ function WarehousePage({ initialSection = "incoming" }) {
             </div>
           </div>
           <div className="warehouse-actions">
-            {config.importExcel ? <button type="button" onClick={() => console.log("warehouse excel export")}><Icon name="bi-file-earmark-spreadsheet" size={17} />Импорт Excel</button> : null}
+            {config.importExcel ? <button type="button" onClick={() => window.alert("Импорт Excel будет доступен в следующей версии")}><Icon name="bi-file-earmark-spreadsheet" size={17} />Импорт Excel</button> : null}
             {config.primaryAction ? <button type="button" className="warehouse-primary-action" onClick={openCreate}>{config.primaryAction}</button> : null}
           </div>
         </header>

@@ -246,7 +246,7 @@ function SettingsResourcePage({
                   ))}
                   <td>
                     <div className="settings-row-actions">
-                      {row.testPrint ? <button type="button" onClick={() => console.log("test print", row.name)}>Тест печати</button> : null}
+                      {row.testPrint ? <button type="button" onClick={() => window.alert("Тест печати будет доступен в следующей версии")}>Тест печати</button> : null}
                       <button type="button" className="settings-action-edit" onClick={() => openEdit(row)}><Icon name="bi-pencil" size={15} /></button>
                       <button type="button" className="settings-action-delete" onClick={() => archive(row)}><Icon name="bi-trash3" size={15} /></button>
                     </div>

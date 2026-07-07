@@ -97,7 +97,7 @@ function StaffActivityPage({ type = "login-history" }) {
           <button
             className="staff-add-button staff-add-button--ghost"
             type="button"
-            onClick={() => console.log(`${title}: export placeholder`)}
+            onClick={() => window.alert("Excel-экспорт будет доступен в следующей версии")}
           >
             <Icon name="bi-file-earmark-spreadsheet" size={18} />
             Скачать Excel
