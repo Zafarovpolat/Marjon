@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
+import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
 
 const TYPE_CONFIG = {
@@ -59,6 +60,7 @@ function sortCategories(a, b) {
 export default function CategoriesPage({ type = "dishes" }) {
   const config = TYPE_CONFIG[type] || TYPE_CONFIG.dishes;
   const [rows, setRows] = useState([]);
+  const [isDemo, setIsDemo] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -74,6 +76,7 @@ export default function CategoriesPage({ type = "dishes" }) {
       const { data } = await api.get("/inventory/categories");
       const loadedCategories = Array.isArray(data) ? data : [];
       setRows(type === "dishes" ? withDefaultDishCategories(loadedCategories) : loadedCategories);
+      if (loadedCategories.length) setIsDemo(false);
     } catch (err) {
       if (type === "dishes") {
         setRows(DEMO_DISH_CATEGORIES);
@@ -165,6 +168,7 @@ export default function CategoriesPage({ type = "dishes" }) {
 
   return (
     <section className="nomenclature-page menu-categories-page">
+      {isDemo && <DemoNotice />}
       <div className="menu-categories-card">
         <div className="menu-categories-header">
           <div className="menu-categories-title">

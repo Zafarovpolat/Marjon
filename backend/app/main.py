@@ -71,6 +71,10 @@ from app.modules.ratings.router        import router as ratings_router
 from app.modules.admin_settings.router import router as admin_settings_router
 from app.modules.admin_reports.router  import router as admin_reports_router
 
+from app.modules.kitchen.websocket import kitchen_ws_endpoint
+
+from app.modules.payments.webhooks import router as payment_webhooks_router
+
 logger = logging.getLogger(__name__)
 
 
@@ -134,7 +138,7 @@ kafe_routers = [
     kitchen_router, crm_router, loyalty_router,
     delivery_router, hr_router, analytics_router,
     notifications_router, audit_router,
-    fiscal_router, printers_router,
+    fiscal_router, printers_router, finance_router,
 ]
 
 admin_routers = [
@@ -159,3 +163,8 @@ for router in admin_routers:
 @app.get("/health", tags=["system"])
 async def health():
     return {"status": "ok", "version": "1.0.1"}
+
+app.add_api_websocket_route("/ws/kitchen", kitchen_ws_endpoint)
+
+# Вебхуки платёжных провайдеров (без JWT, верификация подписей)
+app.include_router(payment_webhooks_router, prefix="/api/v1")

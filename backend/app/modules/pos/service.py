@@ -8,11 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.modules.companies.models import Branch
 from app.modules.inventory.models import Product
-from app.modules.pos.models import Order, OrderItem, PosTerminal
+from app.modules.kitchen.websocket import kitchen_manager
+from app.modules.audit.service import AuditService
+from app.modules.pos.models import Order, OrderItem, PosTerminal, CashierShift
 from app.modules.pos.repository import OrderRepository, OrderItemRepository, TerminalRepository
 from app.modules.pos.schemas import (
     OrderCreate, OrderItemCreate, OrderStatusUpdate,
-    OrderUpdate, TerminalCreate,
+    OrderUpdate, TerminalCreate, ShiftOpen, ShiftClose,
 )
 from app.shared.exceptions import NotFoundError, ValidationError
 
@@ -85,7 +87,20 @@ class OrderService:
         order.subtotal = subtotal
         self._recalculate_totals(order, data.discount_amount, data.service_fee_rate)
         await self.db.commit()
-        return await self.get(company_id, order.id)
+        created_order = await self.get(company_id, order.id)
+        try:
+            await kitchen_manager.broadcast(company_id, "new_order", {"order_id": str(created_order.id)})
+        except Exception:
+            pass
+        try:
+            await AuditService(self.db).log(
+                company_id, waiter_id, "order.create", "order",
+                entity_id=created_order.id,
+                new_data={"order_number": created_order.order_number, "total": str(created_order.total_amount)},
+            )
+        except Exception:
+            pass
+        return created_order
 
     # ── Read ──────────────────────────────────────────────────────────────────
 
@@ -121,7 +136,20 @@ class OrderService:
 
         order.status = target
         await self.repo.save(order)
-        return await self.get(company_id, order_id)
+        updated_order = await self.get(company_id, order_id)
+        try:
+            await kitchen_manager.broadcast(company_id, "order_updated", {"order_id": str(order_id), "status": target})
+        except Exception:
+            pass
+        try:
+            await AuditService(self.db).log(
+                company_id, None, "order.status_change", "order",
+                entity_id=order_id,
+                old_data={"status": current}, new_data={"status": target},
+            )
+        except Exception:
+            pass
+        return updated_order
 
     # ── Cancel ────────────────────────────────────────────────────────────────
 
@@ -130,7 +158,12 @@ class OrderService:
         if order.status in ("completed", "cancelled"):
             raise ValidationError(f"Невозможно отменить заказ в статусе '{order.status}'")
         order.status = "cancelled"
-        return await self.repo.save(order)
+        saved = await self.repo.save(order)
+        try:
+            await kitchen_manager.broadcast(company_id, "order_cancelled", {"order_id": str(order_id)})
+        except Exception:
+            pass
+        return saved
 
     # ── Add item to existing order ────────────────────────────────────────────
 
@@ -281,3 +314,71 @@ class TerminalService:
 
     async def list(self, company_id: UUID) -> list[PosTerminal]:
         return await self.repo.get_all(company_id)
+
+
+class ShiftService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def open_shift(self, company_id: UUID, cashier_id: UUID, data: ShiftOpen) -> CashierShift:
+        existing = await self._get_open_shift(company_id, data.branch_id)
+        if existing:
+            raise ValidationError("Смена уже открыта. Закройте текущую смену перед открытием новой.")
+
+        shift = CashierShift(
+            company_id=company_id,
+            branch_id=data.branch_id,
+            cashier_id=cashier_id,
+            opened_at=datetime.now(timezone.utc),
+            opening_cash=data.opening_cash,
+            status="open",
+        )
+        self.db.add(shift)
+        await self.db.commit()
+        await self.db.refresh(shift)
+        return shift
+
+    async def close_shift(self, company_id: UUID, cashier_id: UUID, data: ShiftClose) -> CashierShift:
+        result = await self.db.execute(
+            select(CashierShift).where(
+                CashierShift.company_id == company_id,
+                CashierShift.cashier_id == cashier_id,
+                CashierShift.status == "open",
+            )
+        )
+        shift = result.scalar_one_or_none()
+        if not shift:
+            raise NotFoundError("Нет открытой смены для закрытия")
+
+        shift.closed_at = datetime.now(timezone.utc)
+        shift.closing_cash = data.closing_cash
+        shift.status = "closed"
+        self.db.add(shift)
+        await self.db.commit()
+        await self.db.refresh(shift)
+        return shift
+
+    async def get_current(self, company_id: UUID, branch_id: UUID) -> CashierShift | None:
+        return await self._get_open_shift(company_id, branch_id)
+
+    async def get_shift_for_date(self, company_id: UUID, selected_date: date) -> CashierShift | None:
+        day_start = datetime.combine(selected_date, datetime.min.time())
+        day_end = datetime.combine(selected_date, datetime.max.time())
+        result = await self.db.execute(
+            select(CashierShift).where(
+                CashierShift.company_id == company_id,
+                CashierShift.opened_at >= day_start,
+                CashierShift.opened_at <= day_end,
+            ).order_by(CashierShift.opened_at.desc())
+        )
+        return result.scalar_one_or_none()
+
+    async def _get_open_shift(self, company_id: UUID, branch_id: UUID) -> CashierShift | None:
+        result = await self.db.execute(
+            select(CashierShift).where(
+                CashierShift.company_id == company_id,
+                CashierShift.branch_id == branch_id,
+                CashierShift.status == "open",
+            )
+        )
+        return result.scalar_one_or_none()

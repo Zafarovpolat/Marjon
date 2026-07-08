@@ -43,6 +43,21 @@ class Settings(BaseSettings):
     devent_base_url: str | None = None
     devent_api_key: str | None = None
 
+    # ОФД фискализация (soliq.uz / ЦОТУ)
+    fiscal_enabled: bool = False
+    ofd_api_url: str = "https://ofd.soliq.uz/api/v1"
+    ofd_api_key: str | None = None
+    ofd_tin: str | None = None
+
+    # Платёжные провайдеры
+    click_merchant_id: str | None = None
+    click_service_id: str | None = None
+    click_secret_key: str | None = None
+    payme_merchant_id: str | None = None
+    payme_secret_key: str | None = None
+    uzum_service_id: str | None = None
+    uzum_secret_key: str | None = None
+
     class Config:
         env_file = ".env"
 

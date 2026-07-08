@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.analytics.schemas import DashboardResponse, PaymentMethodSummary, SalesReport, TopProduct, ZReportResponse
 from app.modules.fiscal.models import FiscalReceipt
 from app.modules.payments.models import Payment
-from app.modules.pos.models import Order, OrderItem
+from app.modules.pos.models import Order, OrderItem, CashierShift
 
 
 class AnalyticsService:
@@ -209,12 +209,24 @@ class AnalyticsService:
         )
         fiscal_receipts_count = fiscal.scalar_one()
 
+        shift_result = await self.db.execute(
+            select(CashierShift).where(
+                CashierShift.company_id == company_id,
+                CashierShift.opened_at >= day_start,
+                CashierShift.opened_at <= day_end,
+            ).order_by(CashierShift.opened_at.desc())
+        )
+        shift = shift_result.scalar_one_or_none()
+        shift_opened = shift.opened_at.strftime("%H:%M") if shift else None
+        shift_closed = shift.closed_at.strftime("%H:%M") if shift and shift.closed_at else None
+        shift_is_closed = shift.status == "closed" if shift else False
+
         net_sales_decimal = Decimal(str(net_sales or 0))
         return ZReportResponse(
             date=selected_date,
-            shift_opened_at="09:00",
-            shift_closed_at=None,
-            is_closed=False,
+            shift_opened_at=shift_opened,
+            shift_closed_at=shift_closed,
+            is_closed=shift_is_closed,
             orders_count=orders_count,
             cancelled_orders_count=cancelled_orders_count,
             payments_count=payments_count,

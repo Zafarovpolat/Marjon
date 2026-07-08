@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
+import { exportToExcel } from "../utils/excel";
 
 const initialFilters = {
   orderType: "all",
@@ -212,7 +213,15 @@ export default function OrdersReportPage() {
   }
 
   function downloadExcel() {
-    window.alert("Excel-экспорт будет доступен в следующей версии");
+    const cols = [
+      { key: "order_number", label: "Номер заказа" },
+      { key: "date", label: "Дата" },
+      { key: "type", label: "Тип" },
+      { key: "place", label: "Место" },
+      { key: "waiter", label: "Официант" },
+      { key: "total", label: "Цена всего" },
+    ];
+    exportToExcel(filteredRows, cols, "orders-report");
   }
 
   return (

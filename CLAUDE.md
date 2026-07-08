@@ -19,14 +19,14 @@ POS-касса, кухонный дисплей (KDS), склад, достав�
 
 ## 2. Границы ответственности
 
-> **КРИТИЧЕСКИ ВАЖНО — прочитай перед любой работой.**
+> **Прочитай перед любой работой.**
 
 | Правило | Значение |
 |---------|----------|
-| Бэкенд делает другой человек | Не трогай файлы в `backend/` без явного разрешения |
-| Работай только с фронтом | `frontend/`, `docs/`, корневые конфиги — твоя зона |
+| Backend + Frontend | Обе части проекта доступны для работы |
 | Не пушь без просьбы | `git push` только когда пользователь явно просит |
 | Не создавай лишнего | Не добавляй фичи, абстракции и файлы сверх задания |
+| Mobile / Desktop | Не трогай (планируются v1.1–v1.2) |
 
 ---
 
@@ -50,6 +50,42 @@ POS-касса, кухонный дисплей (KDS), склад, достав�
 
 FastAPI + Python 3.12 + SQLAlchemy 2.0 async + Alembic + PostgreSQL (Supabase).
 30 модулей в `backend/app/modules/`. Swagger: `localhost:8000/docs`.
+
+### Backend паттерны
+
+**Структура модуля:**
+```
+backend/app/modules/{module}/
+├── models.py      # SQLAlchemy модели (TimeStampedModel base)
+├── schemas.py     # Pydantic v2 (BaseSchema, BaseResponseSchema)
+├── repository.py  # CRUD операции с БД
+├── service.py     # Бизнес-логика
+└── router.py      # FastAPI endpoints
+```
+
+**Три prefix-группы (main.py):**
+- `/api/v1` — legacy (все роутеры)
+- `/api/v1/kafe` — кафе-панель (POS, кухня, склад, аналитика, финансы)
+- `/api/v1/admin` — HQ-админка (организации, маркетинг, справочники)
+
+**Базовая модель:**
+```python
+from app.shared.base_model import TimeStampedModel
+class MyModel(TimeStampedModel):
+    __tablename__ = "my_table"
+    company_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("companies.id"), index=True)
+```
+
+**Авторизация:**
+```python
+from app.modules.auth.dependencies import get_current_user
+@router.get("/")
+async def endpoint(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    # user.company_id — для tenant isolation
+```
+
+**Конфигурация:** `app/config.py` → `pydantic_settings`, читает `.env`.
+**Миграции:** `alembic revision --autogenerate -m "message"`, затем `alembic upgrade head`.
 
 ---
 

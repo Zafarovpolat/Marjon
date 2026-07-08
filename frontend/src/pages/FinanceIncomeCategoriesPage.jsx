@@ -7,7 +7,7 @@ const rows = [
 ];
 
 function FinanceIncomeCategoriesPage() {
-  return <FinanceCategoriesPage title="Категория приходов" initialRows={rows} />;
+  return <FinanceCategoriesPage title="Категория приходов" kind="income" initialRows={rows} />;
 }
 
 export default FinanceIncomeCategoriesPage;

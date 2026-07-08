@@ -11,8 +11,9 @@ from app.modules.pos.schemas import (
     OrderCreate, OrderItemCreate, OrderResponse,
     OrderStatusUpdate, OrderUpdate,
     TerminalCreate, TerminalResponse,
+    ShiftOpen, ShiftClose, ShiftResponse,
 )
-from app.modules.pos.service import OrderService, TerminalService
+from app.modules.pos.service import OrderService, TerminalService, ShiftService
 
 router = APIRouter(prefix="/pos", tags=["pos"])
 
@@ -73,3 +74,23 @@ async def create_terminal(data: TerminalCreate, user: User = Depends(get_current
 @router.get("/terminals", response_model=list[TerminalResponse])
 async def list_terminals(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     return await TerminalService(db).list(user.company_id)
+
+
+# ── Shifts ───────────────────────────────────────────────────────────────────
+
+@router.post("/shifts/open", response_model=ShiftResponse, status_code=status.HTTP_201_CREATED)
+async def open_shift(data: ShiftOpen, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await ShiftService(db).open_shift(user.company_id, user.id, data)
+
+
+@router.post("/shifts/close", response_model=ShiftResponse)
+async def close_shift(data: ShiftClose, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await ShiftService(db).close_shift(user.company_id, user.id, data)
+
+
+@router.get("/shifts/current")
+async def current_shift(branch_id: UUID = Query(...), user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    shift = await ShiftService(db).get_current(user.company_id, branch_id)
+    if not shift:
+        return {"shift": None}
+    return ShiftResponse.model_validate(shift)

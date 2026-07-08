@@ -48,7 +48,19 @@ STAFF = [
     {"email": "manager1@marjon.uz", "password": "Pass1234", "name": "Малика Исмоилова", "role_slug": "manager", "phone": "+998901234571"},
 ]
 
-# ─── 5. Заказы ──────────────────────────────────────────────────────────────
+# ─── 5. Финансовые транзакции ────────────────────────────────────────────────
+TRANSACTIONS = [
+    {"amount": 450000, "direction": "income", "comment": "Выручка за обед — зал"},
+    {"amount": 320000, "direction": "income", "comment": "Выручка — терраса"},
+    {"amount": 1200000, "direction": "expense", "comment": "Закупка овощей — базар Чорсу"},
+    {"amount": 180000, "direction": "income", "comment": "Доставка заказов — вечер"},
+    {"amount": 500000, "direction": "expense", "comment": "Оплата поставщику мяса"},
+    {"amount": 750000, "direction": "income", "comment": "Банкет — предоплата"},
+    {"amount": 85000, "direction": "expense", "comment": "Хозтовары (салфетки, перчатки)"},
+    {"amount": 290000, "direction": "income", "comment": "Выручка — вечерняя смена"},
+]
+
+# ─── 6. Заказы ──────────────────────────────────────────────────────────────
 ORDERS = [
     {"order_type": "dine_in", "table_number": "1", "status": "completed", "products": ["Плов Узбекский", "Зелёный чай", "Нон (1 шт)"]},
     {"order_type": "dine_in", "table_number": "2", "status": "completed", "products": ["Лагман", "Шашлык Куриный", "Кола 0.5л", "Кола 0.5л"]},
@@ -160,7 +172,6 @@ async def seed_staff(client: httpx.AsyncClient):
 async def seed_orders(client: httpx.AsyncClient, product_map: dict):
     """Создаём тестовые заказы."""
     for i, order in enumerate(ORDERS, start=1):
-        # Собираем items
         items = []
         totals: dict[str, int] = {}
         for product_name in order["products"]:
@@ -205,6 +216,56 @@ async def seed_orders(client: httpx.AsyncClient, product_map: dict):
             print(f"  ! Заказ #{i} ошибка ({resp.status_code}): {resp.text[:100]}")
 
 
+async def seed_shift(client: httpx.AsyncClient):
+    """Открываем и закрываем одну кассовую смену."""
+    resp = await client.get(f"{BASE_URL}/companies/me/branches")
+    if resp.status_code != 200:
+        print("  ! Не удалось получить филиалы для смены")
+        return
+
+    branches = resp.json()
+    items = branches if isinstance(branches, list) else branches.get("items", [])
+    if not items:
+        print("  ! Нет филиалов — смена пропущена")
+        return
+
+    branch_id = items[0]["id"]
+
+    resp = await client.post(f"{BASE_URL}/pos/shifts/open", json={
+        "branch_id": branch_id,
+        "opening_cash": 500000,
+    })
+    if resp.status_code in (200, 201):
+        print(f"  + Смена открыта (opening_cash: 500 000)")
+    else:
+        print(f"  ! Смена: {resp.status_code} — {resp.text[:100]}")
+        return
+
+    resp = await client.post(f"{BASE_URL}/pos/shifts/close", json={
+        "closing_cash": 1850000,
+    })
+    if resp.status_code in (200, 201):
+        print(f"  + Смена закрыта (closing_cash: 1 850 000)")
+    else:
+        print(f"  ~ Закрытие смены: {resp.status_code}")
+
+
+async def seed_transactions(client: httpx.AsyncClient):
+    """Создаём финансовые транзакции."""
+    for tx in TRANSACTIONS:
+        payload = {
+            "amount": tx["amount"],
+            "direction": tx["direction"],
+            "comment": tx["comment"],
+        }
+        resp = await client.post(f"{BASE_URL}/finance/transactions", json=payload)
+        if resp.status_code in (200, 201):
+            label = "Приход" if tx["direction"] == "income" else "Расход"
+            print(f"  + {label}: {tx['amount']:,} UZS — {tx['comment']}")
+        else:
+            print(f"  ! Транзакция ({resp.status_code}): {resp.text[:80]}")
+
+
 async def main():
     print("\n🚀 Запуск seed-скрипта Marjon...\n")
 
@@ -228,6 +289,14 @@ async def main():
         # 5. Заказы
         print("\n🧾 Создание заказов...")
         await seed_orders(client, product_map)
+
+        # 6. Кассовая смена
+        print("\n🕐 Кассовая смена...")
+        await seed_shift(client)
+
+        # 7. Финансовые транзакции
+        print("\n💰 Финансовые транзакции...")
+        await seed_transactions(client)
 
     print("\n✅ Seed завершён! Открой http://localhost:5175 и проверь данные.\n")
 

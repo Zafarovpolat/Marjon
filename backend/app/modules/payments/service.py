@@ -7,6 +7,9 @@ from app.modules.payments.models import Payment
 from app.modules.payments.repository import PaymentRepository
 from app.modules.payments.schemas import PaymentCreate
 from app.modules.pos.models import Order
+from app.modules.fiscal.service import FiscalService
+from app.modules.fiscal.schemas import FiscalReceiptCreate
+from app.modules.audit.service import AuditService
 from app.shared.exceptions import NotFoundError, ValidationError
 
 
@@ -58,6 +61,23 @@ class PaymentService:
         order.status = "completed"
         self.db.add(order)
         await self.db.commit()
+
+        try:
+            await FiscalService(self.db).create(
+                company_id, FiscalReceiptCreate(order_id=data.order_id, payment_id=saved.id)
+            )
+        except Exception:
+            pass
+
+        try:
+            await AuditService(self.db).log(
+                company_id, cashier_id, "payment.create", "payment",
+                entity_id=saved.id,
+                new_data={"order_id": str(data.order_id), "amount": str(data.amount), "method": data.method},
+            )
+        except Exception:
+            pass
+
         return saved
 
     async def list_for_order(self, company_id: UUID, order_id: UUID) -> list[Payment]:

@@ -8,7 +8,7 @@ const rows = [
 ];
 
 function FinanceExpenseCategoriesPage() {
-  return <FinanceCategoriesPage title="Категория расходов" initialRows={rows} />;
+  return <FinanceCategoriesPage title="Категория расходов" kind="expense" initialRows={rows} />;
 }
 
 export default FinanceExpenseCategoriesPage;

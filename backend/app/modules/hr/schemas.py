@@ -14,6 +14,13 @@ class EmployeeCreate(BaseSchema):
     salary_amount: Decimal = Decimal("0")
 
 
+class EmployeeUpdate(BaseSchema):
+    position: str | None = None
+    branch_id: UUID | None = None
+    salary_type: str | None = None
+    salary_amount: Decimal | None = None
+
+
 class EmployeeResponse(BaseResponseSchema):
     company_id: UUID
     user_id: UUID

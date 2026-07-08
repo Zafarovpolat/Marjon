@@ -83,3 +83,23 @@ class TerminalResponse(BaseResponseSchema):
     branch_id: UUID
     name: str
     is_active: bool
+
+
+class ShiftOpen(BaseSchema):
+    branch_id: UUID
+    opening_cash: Decimal = Decimal("0")
+
+
+class ShiftClose(BaseSchema):
+    closing_cash: Decimal = Decimal("0")
+
+
+class ShiftResponse(BaseResponseSchema):
+    company_id: UUID
+    branch_id: UUID
+    cashier_id: UUID
+    opened_at: str
+    closed_at: str | None
+    opening_cash: Decimal
+    closing_cash: Decimal | None
+    status: str

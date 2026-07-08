@@ -6,6 +6,7 @@ from sqlalchemy.orm import selectinload
 from app.modules.kitchen.models import KitchenStation
 from app.modules.kitchen.repository import KitchenStationRepository
 from app.modules.kitchen.schemas import KitchenItemStatusUpdate, StationCreate
+from app.modules.kitchen.websocket import kitchen_manager
 from app.modules.pos.models import Order, OrderItem
 from app.shared.exceptions import NotFoundError, ValidationError
 
@@ -71,4 +72,12 @@ class KitchenService:
         self.db.add(item)
         await self.db.commit()
         await self.db.refresh(item)
+        try:
+            await kitchen_manager.broadcast(company_id, "item_status_changed", {
+                "order_item_id": str(item.id),
+                "order_id": str(item.order_id),
+                "status": target,
+            })
+        except Exception:
+            pass
         return item
