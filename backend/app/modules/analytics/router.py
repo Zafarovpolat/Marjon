@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User
-from app.modules.analytics.schemas import DashboardResponse, SalesReport, TopProduct
+from app.modules.analytics.schemas import DashboardResponse, SalesReport, TopProduct, UserActivityRank, ZReportResponse
 from app.modules.analytics.service import AnalyticsService
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -39,3 +39,23 @@ async def top_products(
     db: AsyncSession = Depends(get_db),
 ):
     return await AnalyticsService(db).top_products(user.company_id, limit, date_from, date_to)
+
+
+@router.get("/z-report", response_model=ZReportResponse)
+async def z_report(
+    date: date = Query(...),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await AnalyticsService(db).z_report(user.company_id, date)
+
+
+@router.get("/users/top", response_model=list[UserActivityRank])
+async def top_users_by_activity(
+    limit: int = Query(20),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await AnalyticsService(db).user_activity_ranking(user.company_id, limit, date_from, date_to)

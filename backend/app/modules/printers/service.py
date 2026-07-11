@@ -14,6 +14,7 @@ from app.modules.printers.models import PrintJob, Printer
 from app.modules.printers.printer_client import PrinterError, print_raw
 from app.modules.printers.repository import PrintJobRepository, PrinterRepository
 from app.modules.printers.schemas import PrinterCreate, PrinterUpdate
+from app.modules.printers.ws_manager import printer_ws_manager
 from app.modules.pos.models import Order, OrderItem
 from app.modules.payments.models import Payment
 from app.shared.exceptions import NotFoundError
@@ -150,16 +151,37 @@ class PrinterService:
         )
         job = await self.job_repo.save(job)
 
-        # Try to print immediately via network
+        # Try to print immediately if backend can reach the printer directly
+        # (local deployment or printer exposed on the internet).
+        printed_directly = False
         if printer.connection_type == "network" and printer.ip_address:
             try:
                 for _ in range(copies):
                     await print_raw(printer, raw)
                 job.status = "done"
+                printed_directly = True
             except PrinterError as e:
-                job.status = "failed"
+                # Backend cannot reach the printer (cloud → local network).
+                # Job stays "pending" so the desktop terminal can pick it up.
                 job.error = str(e)
             await self.job_repo.save(job)
+
+        # Broadcast to connected desktop terminals when backend could not print.
+        # USB/serial printers are always handled by the desktop.
+        if not printed_directly:
+            await printer_ws_manager.broadcast(
+                company_id,
+                printer.branch_id,
+                {
+                    "event": "print_job",
+                    "job_id": str(job.id),
+                    "printer_id": str(printer.id),
+                    "printer_type": printer.printer_type,
+                    "job_type": job_type,
+                    "payload": payload,   # base64 ESC/POS — desktop sends directly to printer
+                    "copies": copies,
+                },
+            )
 
         return job
 

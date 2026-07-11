@@ -11,7 +11,7 @@ from app.shared.exceptions import NotFoundError, ValidationError
 
 # Valid item status transitions
 ITEM_TRANSITIONS: dict[str, set[str]] = {
-    "pending":   {"cooking"},
+    "pending":   {"cooking", "ready"},
     "cooking":   {"ready", "cancelled"},
     "ready":     {"served"},
     "served":    set(),

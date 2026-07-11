@@ -1,4 +1,5 @@
 ﻿from __future__ import annotations
+from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
@@ -37,7 +38,11 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
 @router.post("/login", response_model=TokenResponse)
 async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     svc = AuthService(db)
-    _, access_token, refresh_token = await svc.login(data.email, data.password)
+    identifier = data.phone or data.email
+    if not identifier:
+        from app.shared.exceptions import UnauthorizedError
+        raise UnauthorizedError("phone или email обязателен")
+    _, access_token, refresh_token = await svc.login(identifier, data.password)
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
@@ -90,3 +95,45 @@ async def me(current_user: User = Depends(get_current_user), db: AsyncSession = 
     )
     role_slugs = list(result.scalars().all())
     return UserResponse.model_validate(current_user).model_copy(update={"role_slugs": role_slugs})
+
+
+@router.get("/users", response_model=list[CompanyUserResponse])
+async def list_company_users(
+    current_user: User = Depends(require_company_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.modules.auth.repository import UserRepository
+    users = await UserRepository(db).get_company_users(current_user.company_id)
+    result = []
+    for user in users:
+        roles_res = await db.execute(
+            select(Role.slug)
+            .join(UserRole, UserRole.role_id == Role.id)
+            .where(UserRole.user_id == user.id)
+        )
+        slugs = list(roles_res.scalars().all())
+        result.append(
+            CompanyUserResponse.model_validate(user).model_copy(
+                update={"role_slugs": slugs, "role_slug": slugs[0] if slugs else None}
+            )
+        )
+    return result
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_company_user(
+    user_id: UUID,
+    current_user: User = Depends(require_company_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    from sqlalchemy import update as sql_update
+    from app.modules.auth.repository import UserRepository
+    repo = UserRepository(db)
+    user = await repo.get_by_id(user_id)
+    if not user or user.company_id != current_user.company_id:
+        from app.shared.exceptions import NotFoundError
+        raise NotFoundError("User not found")
+    await db.execute(
+        sql_update(User).where(User.id == user_id).values(is_active=False)
+    )
+    await db.commit()

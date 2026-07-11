@@ -41,8 +41,8 @@ class CompanyUserCreate(BaseSchema):
 
 
 class LoginRequest(BaseSchema):
-    # email или username аккаунта главной админки
-    email: str = Field(..., min_length=1, max_length=255)
+    email: str | None = Field(None, min_length=1, max_length=255)
+    phone: str | None = Field(None, min_length=1, max_length=30)
     password: str
 
 
@@ -58,7 +58,8 @@ class TokenResponse(BaseSchema):
 
 class UserResponse(BaseResponseSchema):
     email: str
-    phone: str | None
+    name: str | None = None
+    phone: str | None = None
     is_active: bool
     is_superadmin: bool
     company_id: UUID | None

@@ -1,7 +1,7 @@
 ﻿from __future__ import annotations
 from uuid import UUID, uuid4
 from datetime import datetime
-from sqlalchemy import DateTime, func
+from sqlalchemy import Boolean, DateTime, Integer, func
 from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped
 from sqlalchemy.types import Uuid
 

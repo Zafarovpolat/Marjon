@@ -1,7 +1,7 @@
 from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -27,6 +27,8 @@ import app.modules.audit.models           # noqa: F401
 import app.modules.fiscal.models          # noqa: F401
 import app.modules.subscriptions.models   # noqa: F401
 import app.modules.printers.models        # noqa: F401
+import app.modules.halls.models              # noqa: F401
+import app.modules.inventory.warehouse_models  # noqa: F401
 # Главная админка (HQ admin panel)
 import app.modules.handbook.models        # noqa: F401
 import app.modules.organizations.models   # noqa: F401
@@ -57,6 +59,8 @@ from app.modules.audit.router         import router as audit_router
 from app.modules.fiscal.router        import router as fiscal_router
 from app.modules.subscriptions.router import router as subscriptions_router
 from app.modules.printers.router      import router as printers_router
+from app.modules.halls.router                  import router as halls_router
+from app.modules.inventory.warehouse_router    import router as warehouse_router
 # Главная админка (HQ admin panel)
 from app.modules.handbook.router       import router as handbook_router
 from app.modules.organizations.router  import router as organizations_router
@@ -72,6 +76,13 @@ from app.modules.admin_settings.router import router as admin_settings_router
 from app.modules.admin_reports.router  import router as admin_reports_router
 
 logger = logging.getLogger(__name__)
+
+# ── Support ticket stub ──────────────────────────────────────────────────────
+_support_router = APIRouter(prefix="/support", tags=["support"])
+
+@_support_router.post("/tickets")
+async def create_support_ticket():
+    return {"id": "ticket-stub", "status": "received", "message": "Ваше обращение принято"}
 
 
 @asynccontextmanager
@@ -105,19 +116,23 @@ app.add_middleware(
 app.add_middleware(TenantMiddleware)
 
 API = "/api/v1"
-for router in [
+routers = [
     auth_router, companies_router, rbac_router,
     inventory_router, pos_router, payments_router,
     kitchen_router, crm_router, loyalty_router,
     delivery_router, hr_router, analytics_router,
     notifications_router, audit_router,
     fiscal_router, subscriptions_router, printers_router,
+    halls_router, warehouse_router,
     # Главная админка
     handbook_router, organizations_router, departments_router,
     marketing_router, nomenclature_router, storage_router,
     finance_router, field_service_router, tasks_router,
     ratings_router, admin_settings_router, admin_reports_router,
-]:
+    _support_router,
+]
+
+for router in routers:
     app.include_router(router, prefix=API)
 
 

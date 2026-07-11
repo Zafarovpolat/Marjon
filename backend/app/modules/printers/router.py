@@ -1,19 +1,21 @@
 from __future__ import annotations
 from uuid import UUID
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import asyncio
-from fastapi import Query
 from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import get_current_user, require_company_admin
 from app.modules.auth.models import User
+from app.modules.auth.repository import UserRepository
+from app.modules.auth.security import decode_token
 from app.modules.printers.schemas import (
     PrinterCreate, PrinterResponse, PrinterTestRequest, PrinterUpdate,
     PrintJobResponse, PrintKitchenRequest, PrintReceiptRequest,
 )
 from app.modules.printers.service import PrinterService
 from app.modules.printers.printer_client import send_to_network_printer, PrinterError
+from app.modules.printers.ws_manager import printer_ws_manager
 
 router = APIRouter(prefix="/printers", tags=["printers"])
 
@@ -55,7 +57,7 @@ async def create_printer(
 
 @router.get("", response_model=list[PrinterResponse])
 async def list_printers(
-    user: User = Depends(require_company_admin),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     return await PrinterService(db).list(user.company_id)
@@ -145,3 +147,38 @@ async def mark_done(
 ):
     """POS terminal marks job as printed."""
     return await PrinterService(db).mark_job_done(user.company_id, job_id)
+
+
+# ── WebSocket (desktop terminal push) ─────────────────────────────────────────
+
+@router.websocket("/ws/{branch_id}")
+async def printer_ws_endpoint(
+    ws: WebSocket,
+    branch_id: UUID,
+    token: str = Query(..., description="JWT access token"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Desktop terminal connects here to receive print jobs in real time.
+    URL: ws://host/api/v1/printers/ws/{branch_id}?token=<jwt>
+    """
+    try:
+        from jose import JWTError
+        payload = decode_token(token)
+        user_id = UUID(payload["sub"])
+        user = await UserRepository(db).get_by_id(user_id)
+        if not user or not user.is_active or not user.company_id:
+            await ws.close(code=4001, reason="Unauthorized")
+            return
+    except Exception:
+        await ws.close(code=4001, reason="Unauthorized")
+        return
+
+    await printer_ws_manager.connect(ws, user.company_id, branch_id)
+    try:
+        while True:
+            msg = await ws.receive_text()
+            if msg == "ping":
+                await ws.send_text("pong")
+    except WebSocketDisconnect:
+        printer_ws_manager.disconnect(ws, user.company_id, branch_id)

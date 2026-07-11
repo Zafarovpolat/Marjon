@@ -19,9 +19,11 @@ class UserRepository(BaseRepository[User]):
         return result.scalar_one_or_none()
 
     async def get_by_login(self, login: str) -> Optional[User]:
-        """Логин по email или username (аккаунты главной админки)."""
+        """Login by email, username or phone."""
         result = await self.db.execute(
-            select(User).where((User.email == login) | (User.username == login))
+            select(User).where(
+                (User.email == login) | (User.username == login) | (User.phone == login)
+            ).limit(1)
         )
         return result.scalar_one_or_none()
 

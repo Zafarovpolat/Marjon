@@ -8,7 +8,7 @@
 }
 
 body.dashboard-body {
-  background: #071a33;
+  background: var(--neutral-950);
 }
 
 body.dashboard-body::before {
@@ -19,7 +19,7 @@ body.dashboard-body::before {
   display: flex;
   height: 100vh;
   overflow: hidden;
-  background: #071a33;
+  background: var(--neutral-950);
 }
 
 .dashboard-sidebar {
@@ -34,7 +34,7 @@ body.dashboard-body::before {
   border-radius: 0 !important;
   box-shadow: none !important;
   overflow: hidden;
-  background: linear-gradient(180deg, #0e2647 0%, #0b1f3f 55%, #071a33 100%) !important;
+  background: linear-gradient(180deg, var(--neutral-800) 0%, var(--neutral-900) 55%, var(--neutral-950) 100%) !important;
 }
 
 .dashboard-sidebar::before,
@@ -53,9 +53,9 @@ body.dashboard-body::before {
 }
 
 .sidebar-link.is-active {
-  background: linear-gradient(90deg, #ff6b35 0%, #ff8a5c 100%) !important;
+  background: linear-gradient(90deg, var(--color-brand) 0%, var(--color-brand-hover) 100%) !important;
   border-color: transparent !important;
-  box-shadow: 0 8px 20px rgba(255, 107, 53, 0.25) !important;
+  box-shadow: 0 8px 20px rgba(29, 181, 181, 0.25) !important;
 }
 
 .sidebar-link.is-active::before {
@@ -84,7 +84,7 @@ body.dashboard-body::before {
   overflow: hidden auto;
   border: none !important;
   border-top-left-radius: var(--mj-main-curve) !important;
-  background: #f5f7fb !important;
+  background: var(--neutral-50) !important;
   box-shadow: none !important;
 }
 
@@ -99,17 +99,17 @@ body.dashboard-body::before {
   z-index: 10;
   margin: 0;
   border-top-left-radius: var(--mj-main-curve) !important;
-  border-bottom: 1px solid #e4e7ec !important;
-  background: #f5f7fb !important;
+  border-bottom: 1px solid var(--neutral-200) !important;
+  background: var(--neutral-50) !important;
   backdrop-filter: none !important;
   box-shadow: none !important;
 }
 
 .dashboard-content {
-  background: #f5f7fb;
+  background: var(--neutral-50);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .dashboard-main,
   .dashboard-topbar {
     border-top-left-radius: 0 !important;

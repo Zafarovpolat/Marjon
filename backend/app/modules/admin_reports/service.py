@@ -1,16 +1,24 @@
 from __future__ import annotations
 import io
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Iterable, Sequence
+from uuid import UUID
 
 from fastapi.responses import StreamingResponse
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.admin_reports.schemas import DebtCreditRow, ProductCountRow, ProductReportRow
+from app.modules.admin_reports.schemas import (
+    AttendanceRow, CancelledItemRow, DebtCreditRow,
+    DishReportRow, LoginHistoryRow, OrderReportRow,
+    ProductCountRow, ProductReportRow, TableReportRow, WaiterReportRow,
+)
+from app.modules.auth.models import RefreshToken, User
 from app.modules.finance.models import Counterparty, FinTransaction
+from app.modules.hr.models import Employee, WorkShift
 from app.modules.nomenclature.models import NomProduct
+from app.modules.pos.models import Order, OrderItem
 from app.modules.storage.models import StorageMovement
 
 
@@ -154,3 +162,227 @@ class AdminReportService:
             )
             for r in rows
         ]
+
+    def _order_date_filter(self, query, date_from: date | None, date_to: date | None):
+        if date_from:
+            query = query.where(Order.created_at >= datetime.combine(date_from, datetime.min.time()))
+        if date_to:
+            query = query.where(Order.created_at <= datetime.combine(date_to, datetime.max.time()))
+        return query
+
+    async def orders_report(
+        self, company_id: UUID, date_from: date | None, date_to: date | None
+    ) -> list[OrderReportRow]:
+        query = (
+            select(
+                Order.id, Order.order_number, Order.created_at,
+                Order.status, Order.table_number,
+                User.name.label("waiter_name"),
+                func.count(OrderItem.id).label("items_count"),
+                Order.total_amount,
+            )
+            .outerjoin(User, User.id == Order.waiter_id)
+            .outerjoin(OrderItem, OrderItem.order_id == Order.id)
+            .where(Order.company_id == company_id, Order.status.notin_(["cancelled"]))
+            .group_by(Order.id, Order.order_number, Order.created_at,
+                      Order.status, Order.table_number, User.name, Order.total_amount)
+            .order_by(Order.created_at.desc())
+        )
+        query = self._order_date_filter(query, date_from, date_to)
+        rows = (await self.db.execute(query)).all()
+        return [
+            OrderReportRow(
+                order_id=r.id, order_number=r.order_number,
+                created_at=r.created_at, status=r.status,
+                table_number=r.table_number, waiter_name=r.waiter_name,
+                items_count=r.items_count, total_amount=Decimal(str(r.total_amount or 0)),
+            )
+            for r in rows
+        ]
+
+    async def tables_report(
+        self, company_id: UUID, date_from: date | None, date_to: date | None
+    ) -> list[TableReportRow]:
+        query = (
+            select(
+                Order.table_number,
+                func.count(Order.id).label("cnt"),
+                func.coalesce(func.sum(Order.total_amount), 0).label("rev"),
+            )
+            .where(
+                Order.company_id == company_id,
+                Order.status == "completed",
+                Order.table_number.is_not(None),
+            )
+            .group_by(Order.table_number)
+            .order_by(func.sum(Order.total_amount).desc())
+        )
+        query = self._order_date_filter(query, date_from, date_to)
+        rows = (await self.db.execute(query)).all()
+        return [
+            TableReportRow(
+                table_number=r.table_number, orders_count=r.cnt,
+                revenue=Decimal(str(r.rev)),
+                avg_check=Decimal(str(r.rev)) / r.cnt if r.cnt else Decimal("0"),
+            )
+            for r in rows
+        ]
+
+    async def waiters_report(
+        self, company_id: UUID, date_from: date | None, date_to: date | None
+    ) -> list[WaiterReportRow]:
+        query = (
+            select(
+                Order.waiter_id,
+                User.name.label("waiter_name"),
+                func.count(Order.id).label("orders_count"),
+                func.coalesce(func.sum(Order.total_amount), 0).label("orders_total"),
+                func.coalesce(func.sum(
+                    select(func.count(OrderItem.id))
+                    .where(OrderItem.order_id == Order.id)
+                    .correlate(Order)
+                    .scalar_subquery()
+                ), 0).label("dishes_count"),
+            )
+            .outerjoin(User, User.id == Order.waiter_id)
+            .where(Order.company_id == company_id, Order.status == "completed")
+            .group_by(Order.waiter_id, User.name)
+            .order_by(func.sum(Order.total_amount).desc())
+        )
+        query = self._order_date_filter(query, date_from, date_to)
+        rows = (await self.db.execute(query)).all()
+        return [
+            WaiterReportRow(
+                waiter_id=r.waiter_id, name=r.waiter_name or "—",
+                orders_count=r.orders_count,
+                orders_total=Decimal(str(r.orders_total)),
+                dishes_count=int(r.dishes_count or 0),
+            )
+            for r in rows
+        ]
+
+    async def dishes_report(
+        self, company_id: UUID, date_from: date | None, date_to: date | None
+    ) -> list[DishReportRow]:
+        query = (
+            select(
+                OrderItem.product_id,
+                OrderItem.name,
+                func.sum(OrderItem.quantity).label("qty"),
+                func.avg(OrderItem.price).label("avg_price"),
+                func.sum(OrderItem.total).label("total"),
+            )
+            .join(Order, Order.id == OrderItem.order_id)
+            .where(Order.company_id == company_id, Order.status.notin_(["cancelled"]))
+            .group_by(OrderItem.product_id, OrderItem.name)
+            .order_by(func.sum(OrderItem.total).desc())
+        )
+        query = self._order_date_filter(query, date_from, date_to)
+        rows = (await self.db.execute(query)).all()
+        return [
+            DishReportRow(
+                product_id=r.product_id, name=r.name, unit="Порция",
+                quantity=Decimal(str(r.qty or 0)),
+                price=Decimal(str(r.avg_price or 0)),
+                amount=Decimal(str(r.total or 0)),
+                cost=Decimal("0"), profit=Decimal(str(r.total or 0)),
+                status="Завершено",
+            )
+            for r in rows
+        ]
+
+    async def cancelled_items(
+        self, company_id: UUID, date_from: date | None, date_to: date | None
+    ) -> list[CancelledItemRow]:
+        query = (
+            select(
+                Order.created_at, Order.order_number, Order.table_number,
+                OrderItem.name, OrderItem.quantity, OrderItem.price,
+                User.name.label("waiter_name"),
+            )
+            .join(OrderItem, OrderItem.order_id == Order.id)
+            .outerjoin(User, User.id == Order.waiter_id)
+            .where(Order.company_id == company_id, Order.status == "cancelled")
+            .order_by(Order.created_at.desc())
+        )
+        query = self._order_date_filter(query, date_from, date_to)
+        rows = (await self.db.execute(query)).all()
+        result = []
+        for r in rows:
+            dt = r.created_at
+            result.append(CancelledItemRow(
+                date=dt.strftime("%d.%m.%Y") if dt else "",
+                time=dt.strftime("%H:%M") if dt else "",
+                order_number=r.order_number,
+                table_number=r.table_number,
+                name=r.name,
+                quantity=Decimal(str(r.quantity)),
+                price=Decimal(str(r.price)),
+                waiter_name=r.waiter_name,
+                unit="шт",
+            ))
+        return result
+
+    async def login_history(self, company_id: UUID) -> list[LoginHistoryRow]:
+        query = (
+            select(
+                RefreshToken.created_at,
+                RefreshToken.revoked_at,
+                RefreshToken.device_id,
+                User.name,
+                User.email,
+            )
+            .join(User, User.id == RefreshToken.user_id)
+            .where(User.company_id == company_id)
+            .order_by(RefreshToken.created_at.desc())
+            .limit(200)
+        )
+        rows = (await self.db.execute(query)).all()
+        result = []
+        for r in rows:
+            login_dt = r.created_at
+            logout_dt = r.revoked_at
+            result.append(LoginHistoryRow(
+                date=login_dt.strftime("%d.%m.%Y") if login_dt else "",
+                employee=r.name or r.email or "—",
+                role="Сотрудник",
+                device=r.device_id or "—",
+                login=login_dt.strftime("%H:%M") if login_dt else "",
+                logout=logout_dt.strftime("%H:%M") if logout_dt else "—",
+                status="Успешно",
+            ))
+        return result
+
+    async def attendance_history(self, company_id: UUID) -> list[AttendanceRow]:
+        query = (
+            select(
+                WorkShift.actual_start, WorkShift.actual_end, WorkShift.status,
+                User.name.label("user_name"),
+                Employee.position,
+            )
+            .join(Employee, Employee.id == WorkShift.employee_id)
+            .join(User, User.id == Employee.user_id)
+            .where(WorkShift.company_id == company_id)
+            .order_by(WorkShift.actual_start.desc())
+            .limit(200)
+        )
+        rows = (await self.db.execute(query)).all()
+        result = []
+        for r in rows:
+            start = r.actual_start
+            end = r.actual_end
+            hours = ""
+            if start and end:
+                diff = int((end - start).total_seconds())
+                h, m = divmod(diff // 60, 60)
+                hours = f"{h} ч {m} мин"
+            result.append(AttendanceRow(
+                date=start.strftime("%d.%m.%Y") if start else "",
+                employee=r.user_name or "—",
+                role=r.position or "—",
+                start=start.strftime("%H:%M") if start else "",
+                end=end.strftime("%H:%M") if end else "",
+                hours=hours,
+                status="Закрыта" if r.status == "completed" else r.status,
+            ))
+        return result

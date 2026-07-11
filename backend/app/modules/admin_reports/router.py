@@ -6,6 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
 from app.modules.admin_reports import schemas
+from app.modules.admin_reports.schemas import (
+    AttendanceRow, CancelledItemRow, DishReportRow,
+    LoginHistoryRow, OrderReportRow, TableReportRow, WaiterReportRow,
+)
 from app.modules.admin_reports.service import AdminReportService, xlsx_response
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User
@@ -65,3 +69,53 @@ async def debt_credit_report(
             [(r.counterparty_name, r.opening_balance, r.debit, r.credit, r.closing_balance) for r in rows],
         )
     return [schemas.DebtCreditRow.model_validate(r) for r in rows]
+
+
+@router.get("/orders", response_model=list[OrderReportRow])
+async def orders_report(
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await AdminReportService(db).orders_report(user.company_id, date_from, date_to)
+
+
+@router.get("/tables", response_model=list[TableReportRow])
+async def tables_report(
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await AdminReportService(db).tables_report(user.company_id, date_from, date_to)
+
+
+@router.get("/waiters", response_model=list[WaiterReportRow])
+async def waiters_report(
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await AdminReportService(db).waiters_report(user.company_id, date_from, date_to)
+
+
+@router.get("/dishes", response_model=list[DishReportRow])
+async def dishes_report(
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await AdminReportService(db).dishes_report(user.company_id, date_from, date_to)
+
+
+@router.get("/cancelled", response_model=list[CancelledItemRow])
+async def cancelled_report(
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await AdminReportService(db).cancelled_items(user.company_id, date_from, date_to)
