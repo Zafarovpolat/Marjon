@@ -44,3 +44,9 @@ frontend/dist/
 
 # Print agent config (contains tokens)
 print_agent/agent_config.json
+
+# Large build artifacts
+desktop.zip
+desktop/build/
+mobile/build/
+owner/build/
