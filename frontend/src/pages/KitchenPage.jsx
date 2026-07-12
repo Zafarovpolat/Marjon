@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import logo from "../assets/marjon-logo.svg";
 import { api, logout } from "../api/client";
 import { getKitchenTemplate, printKitchenReceipt } from "../api/receipt";
+import { getWsConnection } from "../api/ws";
 
 async function ensureBranch() {
   const { data } = await api.get("/companies/me/branches");
@@ -135,10 +136,33 @@ export default function KitchenPage() {
 
   useEffect(() => {
     loadKitchen().catch((err) => setError(err.response?.data?.detail || "Oshxona ma'lumotlarini yuklab bo'lmadi."));
-    const timer = window.setInterval(() => {
-      loadKitchen().catch((err) => console.warn("Kitchen polling:", err.message));
-    }, 2000);
-    return () => window.clearInterval(timer);
+
+    const ws = getWsConnection("/ws/kitchen");
+    let fallbackTimer = null;
+
+    const refresh = () => loadKitchen().catch(() => {});
+    ws.on("new_order", refresh);
+    ws.on("order_updated", refresh);
+    ws.on("order_cancelled", refresh);
+    ws.on("item_status_changed", refresh);
+
+    ws.onOpen(() => {
+      if (fallbackTimer) { clearInterval(fallbackTimer); fallbackTimer = null; }
+    });
+
+    ws.onClose(() => {
+      if (!fallbackTimer) {
+        fallbackTimer = window.setInterval(refresh, 5000);
+      }
+    });
+
+    ws.connect();
+    fallbackTimer = window.setInterval(refresh, 5000);
+
+    return () => {
+      ws.disconnect();
+      if (fallbackTimer) clearInterval(fallbackTimer);
+    };
   }, [branch?.id]);
 
   useEffect(() => {

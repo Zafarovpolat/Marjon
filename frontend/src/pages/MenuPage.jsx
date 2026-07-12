@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, formatMoney } from "../api/client";
+import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
 
 const demoSalesRows = [
@@ -80,6 +81,7 @@ function buildSalesRows(orders, products, categories) {
 
 export default function MenuPage() {
   const [rows, setRows] = useState([]);
+  const [isDemo, setIsDemo] = useState(true);
   const [ordersCount, setOrdersCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -105,6 +107,7 @@ export default function MenuPage() {
         const builtRows = buildSalesRows(orders, products, categories);
 
         setRows(builtRows.length ? builtRows : enrichRows(demoSalesRows));
+        if (builtRows.length) setIsDemo(false);
         setOrdersCount(orders.length || 18);
       } finally {
         if (mounted) setLoading(false);
@@ -198,6 +201,7 @@ export default function MenuPage() {
 
   return (
     <section className="sales-page">
+      {isDemo && <DemoNotice />}
       <div className="sales-card">
         <header className="sales-header">
           <div className="sales-title-group">

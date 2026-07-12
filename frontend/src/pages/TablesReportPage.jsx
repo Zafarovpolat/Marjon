@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
+import { exportToExcel } from "../utils/excel";
 
 const initialFilters = {
   zone: "all",
@@ -256,7 +257,15 @@ export default function TablesReportPage() {
   }
 
   function downloadExcel() {
-    window.alert("Excel-экспорт будет доступен в следующей версии");
+    const cols = [
+      { key: "table", label: "Номер стола" },
+      { key: "date", label: "Дата" },
+      { key: "service", label: "Цена обслуживания" },
+      { key: "discount", label: "Скидка" },
+      { key: "dishes", label: "Сумма блюд" },
+      { key: "total", label: "Сумма" },
+    ];
+    exportToExcel(filteredRows, cols, "tables-report");
   }
 
   return (

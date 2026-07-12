@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
+import { exportToExcel } from "../utils/excel";
 
 const loginHistoryRows = [
   {
@@ -142,7 +143,29 @@ function StaffActivityPage({ type = "login-history" }) {
           <button
             className="staff-add-button staff-add-button--ghost"
             type="button"
-            onClick={() => window.alert("Excel-экспорт будет доступен в следующей версии")}
+            onClick={() => {
+              if (isAttendance) {
+                exportToExcel(displayAttendanceRows, [
+                  { key: "date", label: "Дата" },
+                  { key: "employee", label: "Сотрудник" },
+                  { key: "role", label: "Роль" },
+                  { key: "start", label: "Начало смены" },
+                  { key: "end", label: "Конец смены" },
+                  { key: "hours", label: "Часы" },
+                  { key: "status", label: "Статус" },
+                ], "staff-attendance");
+              } else {
+                exportToExcel(displayLoginRows, [
+                  { key: "date", label: "Дата" },
+                  { key: "employee", label: "Сотрудник" },
+                  { key: "role", label: "Роль" },
+                  { key: "device", label: "Устройство" },
+                  { key: "login", label: "Вход" },
+                  { key: "logout", label: "Выход" },
+                  { key: "status", label: "Статус" },
+                ], "staff-login-history");
+              }
+            }}
           >
             <Icon name="bi-file-earmark-spreadsheet" size={18} />
             Скачать Excel

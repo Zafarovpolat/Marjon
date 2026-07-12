@@ -325,6 +325,27 @@ function WarehousePage({ initialSection = "incoming" }) {
       .catch(() => {});
   }, [section]);
 
+  const computedSummary = useMemo(() => {
+    if (isDemo || !config.summary) return config.summary;
+    const activeRows = rows.filter((r) => r.archiveState === ACTIVE);
+    const totalCount = activeRows.length;
+    const totalSum = activeRows.reduce((sum, r) => {
+      const num = Number(String(r.total || "0").replace(/[^\d]/g, ""));
+      return sum + num;
+    }, 0);
+    const uniqueSuppliers = new Set(activeRows.map((r) => r.supplier).filter(Boolean)).size;
+    const drafts = activeRows.filter((r) => (r.status || "").toLowerCase().includes("черновик")).length;
+
+    return config.summary.map((item) => {
+      if (item.label.includes("Всего")) return { ...item, value: String(totalCount) };
+      if (item.label.includes("Сумма")) return { ...item, value: `${totalSum.toLocaleString("ru-RU")} UZS` };
+      if (item.label.includes("Поставщик")) return { ...item, value: String(uniqueSuppliers) };
+      if (item.label.includes("Черновик")) return { ...item, value: String(drafts) };
+      if (item.label.includes("Позиций") || item.label.includes("Товаров") || item.label.includes("Категорий")) return { ...item, value: String(totalCount) };
+      return item;
+    });
+  }, [isDemo, rows, config.summary]);
+
   const visibleRows = useMemo(() => {
     const query = filters.search.trim().toLowerCase();
 
@@ -428,9 +449,9 @@ function WarehousePage({ initialSection = "incoming" }) {
           </div>
         </header>
 
-        {config.summary ? (
+        {computedSummary ? (
           <div className="warehouse-summary-grid">
-            {config.summary.map((item) => (
+            {computedSummary.map((item) => (
               <article className={`warehouse-summary-card warehouse-summary-card--${item.tone}`} key={item.label}>
                 <div>
                   <span>{item.label}</span>

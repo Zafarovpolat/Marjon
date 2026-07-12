@@ -15,6 +15,7 @@ from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User
 
 router = APIRouter(prefix="/reports", tags=["reports"])
+admin_reports_router = APIRouter(prefix="/admin-reports", tags=["admin-reports"])
 
 
 @router.get("/products", summary="Отчёт по продуктам (?export=excel — выгрузка)")
@@ -119,3 +120,26 @@ async def cancelled_report(
     db: AsyncSession = Depends(get_db),
 ):
     return await AdminReportService(db).cancelled_items(user.company_id, date_from, date_to)
+
+
+@admin_reports_router.get("/dashboard-kpis")
+async def dashboard_kpis(db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import func, select
+    from app.modules.companies.models import Company, Branch
+    from app.modules.hr.models import Employee
+    from app.modules.pos.models import Order
+
+    orgs = (await db.execute(select(func.count(Company.id)))).scalar_one()
+    branches = (await db.execute(select(func.count(Branch.id)))).scalar_one()
+    revenue = (await db.execute(
+        select(func.coalesce(func.sum(Order.total_amount), 0)).where(Order.status == "completed")
+    )).scalar_one()
+    employees = (await db.execute(select(func.count(Employee.id)))).scalar_one()
+    return {
+        "organizations": orgs,
+        "branches": branches,
+        "revenue": float(revenue),
+        "subscriptions": 0,
+        "employees": employees,
+        "cashboxes": 0,
+    }

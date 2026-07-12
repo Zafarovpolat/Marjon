@@ -91,11 +91,11 @@ const fallbackConfigs = {
   raw: {
     title: "Сырьё",
     action: "Добавить +",
-    columns: ["Название", "Категория", "Ед. изм", "Остаток", "Мин. остаток", "Цена закупки", "Поставщик", "Статус", "Действия"],
+    columns: ["Название", "Категория", "Подкатегория", "Ед. изм", "Остаток", "Мин. остаток", "Цена закупки", "Поставщик", "Статус", "Действия"],
     rows: [
-      ["Говядина", "Мясо", "кг", "24.5", "5", "78 000 UZS", "Bozor", ACTIVE],
-      ["Рис", "Крупы", "кг", "55", "10", "15 000 UZS", "Поставщик 1", ACTIVE],
-      ["Лук", "Овощи", "кг", "12", "5", "4 000 UZS", "Bozor", ACTIVE],
+      ["Говядина", "Мясо", "Красное мясо", "кг", "24.5", "5", "78 000 UZS", "Bozor", ACTIVE],
+      ["Рис", "Крупы", "Зерновые", "кг", "55", "10", "15 000 UZS", "Поставщик 1", ACTIVE],
+      ["Лук", "Овощи", "Луковые", "кг", "12", "5", "4 000 UZS", "Bozor", ACTIVE],
     ],
   },
   semi: {
@@ -111,7 +111,7 @@ const fallbackConfigs = {
 
 function NomenclaturePage({ type = "dishes" }) {
   if (type === "dishes") return <DishesCatalogPage />;
-  return <SimpleNomenclaturePage config={fallbackConfigs[type] || fallbackConfigs.raw} />;
+  return <SimpleNomenclaturePage key={type} config={fallbackConfigs[type] || fallbackConfigs.raw} />;
 }
 
 function matchesDishStatFilter(row, filterKey) {
@@ -606,8 +606,30 @@ function SimpleNomenclaturePage({ config }) {
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState(config.rows);
   const [isDemo, setIsDemo] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingIndex, setEditingIndex] = useState(null);
+  const [form, setForm] = useState({});
 
+  const isRawMaterials = config.title === "Сырьё";
+  const isSemiProducts = config.title === "Полуфабрикаты";
+  const showSearch = !(isRawMaterials || isSemiProducts);
   const apiEndpoint = config.title === "Сырьё" ? "/inventory/ingredients" : config.title === "Полуфабрикаты" ? "/inventory/semi-products" : null;
+  const editableColumns = useMemo(() => config.columns.filter((column) => column !== "Действия"), [config.columns]);
+
+  const getDefaultCellValue = (column) => {
+    if (column === "Статус") return ACTIVE;
+    if (column === "Ед. изм") return "кг";
+    if (column === "Состав") return "0 ингредиента";
+    if (column.includes("Цена") || column.includes("Себестоимость")) return "0 UZS";
+    if (column.includes("Остаток")) return "0";
+    return "";
+  };
+
+  const makeFormFromRow = (row = []) => Object.fromEntries(
+    editableColumns.map((column, index) => [column, row[index] ?? getDefaultCellValue(column)]),
+  );
+
+  const makeRowFromForm = () => editableColumns.map((column) => String(form[column] ?? getDefaultCellValue(column)).trim());
 
   useEffect(() => {
     if (!apiEndpoint) return;
@@ -618,7 +640,10 @@ function SimpleNomenclaturePage({ config }) {
           const mapped = items.map((item) => {
             if (config.title === "Сырьё") {
               return [
-                item.name || "", item.category || "", item.unit || "кг",
+                item.name || "",
+                item.category || "",
+                item.subcategory_name || item.subcategory || item.specification || "",
+                item.unit || "кг",
                 String(item.stock ?? "0"), String(item.min_stock ?? "0"),
                 item.purchase_price ? `${Number(item.purchase_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
                 item.supplier_name || "", item.is_active !== false ? ACTIVE : ARCHIVED,
@@ -637,10 +662,37 @@ function SimpleNomenclaturePage({ config }) {
       .catch(() => {});
   }, [apiEndpoint]);
 
-  const filteredRows = rows.filter((row) => row.join(" ").toLowerCase().includes(query.toLowerCase()));
+  const openEditor = (row = null, index = null) => {
+    setEditingIndex(index);
+    setForm(makeFormFromRow(row || []));
+    setDrawerOpen(true);
+  };
+
+  const closeEditor = () => {
+    setDrawerOpen(false);
+    setEditingIndex(null);
+  };
+
+  const saveRow = (event) => {
+    event.preventDefault();
+    const nextRow = makeRowFromForm();
+    setRows((currentRows) => {
+      if (editingIndex === null) return [nextRow, ...currentRows];
+      return currentRows.map((row, rowIndex) => (rowIndex === editingIndex ? nextRow : row));
+    });
+    closeEditor();
+  };
+
+  const removeRow = (rowIndex) => {
+    setRows((currentRows) => currentRows.filter((_, index) => index !== rowIndex));
+  };
+
+  const visibleRows = rows
+    .map((row, rowIndex) => ({ row, rowIndex }))
+    .filter(({ row }) => !showSearch || row.join(" ").toLowerCase().includes(query.toLowerCase()));
 
   return (
-    <section className="nomenclature-page">
+    <section className={`nomenclature-page ${isRawMaterials ? "nomenclature-page--raw" : "nomenclature-page--semi"}`}>
       <div className="nomenclature-card">
         {isDemo && apiEndpoint && (
           <DemoNotice />
@@ -654,32 +706,44 @@ function SimpleNomenclaturePage({ config }) {
             </div>
           </div>
           <div className="nomenclature-actions">
-            <button type="button" className="btn-primary"><Icon name="bi-plus" /> {config.action}</button>
+            <button type="button" className="btn-primary" onClick={() => openEditor()}>
+              <Icon name="bi-plus" /> {config.action}
+            </button>
           </div>
         </div>
-        <div className="nomenclature-filters">
-          <label>
-            <Icon name="bi-search" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск" />
-          </label>
-        </div>
+        {showSearch && (
+          <div className="nomenclature-filters">
+            <label>
+              <Icon name="bi-search" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск" />
+            </label>
+          </div>
+        )}
         <div className="nomenclature-table-wrapper">
           <table className="nomenclature-table">
             <thead>
               <tr>{config.columns.map((column) => <th key={column}>{column}</th>)}</tr>
             </thead>
             <tbody>
-              {filteredRows.map((row) => (
-                <tr key={row[0]}>
+              {visibleRows.map(({ row, rowIndex }) => (
+                <tr key={`${row[0]}-${rowIndex}`}>
                   {row.map((cell, index) => (
-                    <td key={`${row[0]}-${cell}`}>
-                      {index === row.length - 1 ? <span className="nomenclature-status-badge">{cell}</span> : cell}
+                    <td key={`${row[0]}-${index}`}>
+                      {index === row.length - 1 ? (
+                        <span className={`nomenclature-status-badge ${cell === ARCHIVED ? "is-archived" : ""}`}>
+                          {cell}
+                        </span>
+                      ) : cell}
                     </td>
                   ))}
                   <td>
-                    <div className="dish-row-actions">
-                      <button type="button"><Icon name="bi-pencil" size={15} /></button>
-                      <button type="button" className="danger"><Icon name="bi-trash3" size={15} /></button>
+                    <div className="nomenclature-row-actions">
+                      <button type="button" className="edit-action-button" onClick={() => openEditor(row, rowIndex)} aria-label="Редактировать">
+                        <Icon name="bi-pencil" size={15} />
+                      </button>
+                      <button type="button" className="is-danger" onClick={() => removeRow(rowIndex)} aria-label="Удалить">
+                        <Icon name="bi-trash3" size={15} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -688,6 +752,51 @@ function SimpleNomenclaturePage({ config }) {
           </table>
         </div>
       </div>
+
+      {drawerOpen && (
+        <div className="nomenclature-drawer" role="dialog" aria-modal="true">
+          <button type="button" className="nomenclature-drawer__backdrop" onClick={closeEditor} aria-label="Закрыть" />
+          <form className="nomenclature-form" onSubmit={saveRow}>
+            <div className="nomenclature-form__header">
+              <div>
+                <p>{config.title}</p>
+                <h2>{editingIndex === null ? "Добавить позицию" : "Редактировать позицию"}</h2>
+              </div>
+              <button type="button" onClick={closeEditor} aria-label="Закрыть">
+                <Icon name="bi-x-lg" />
+              </button>
+            </div>
+
+            <div className="nomenclature-form__grid">
+              {editableColumns.map((column) => (
+                <label key={column}>
+                  <span>{column}</span>
+                  {column === "Статус" ? (
+                    <select value={form[column] || ACTIVE} onChange={(event) => setForm((prev) => ({ ...prev, [column]: event.target.value }))}>
+                      <option value={ACTIVE}>{ACTIVE}</option>
+                      <option value={ARCHIVED}>{ARCHIVED}</option>
+                    </select>
+                  ) : column === "Ед. изм" ? (
+                    <select value={form[column] || "кг"} onChange={(event) => setForm((prev) => ({ ...prev, [column]: event.target.value }))}>
+                      <option>кг</option>
+                      <option>шт</option>
+                      <option>л</option>
+                      <option>порция</option>
+                    </select>
+                  ) : (
+                    <input value={form[column] || ""} onChange={(event) => setForm((prev) => ({ ...prev, [column]: event.target.value }))} />
+                  )}
+                </label>
+              ))}
+            </div>
+
+            <div className="nomenclature-form__footer">
+              <button type="button" onClick={closeEditor}>Отмена</button>
+              <button type="submit">Сохранить</button>
+            </div>
+          </form>
+        </div>
+      )}
     </section>
   );
 }

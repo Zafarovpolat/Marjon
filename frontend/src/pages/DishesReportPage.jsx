@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
+import { exportToExcel } from "../utils/excel";
 
 const initialFilters = {
   query: "",
@@ -128,7 +129,16 @@ export default function DishesReportPage() {
   }
 
   function downloadExcel() {
-    window.alert("Excel-экспорт будет доступен в следующей версии");
+    const cols = [
+      { key: "name", label: "Название" },
+      { key: "unit", label: "Ед изм" },
+      { key: "quantity", label: "Кол-во" },
+      { key: "price", label: "Цена" },
+      { key: "total", label: "Сумма" },
+      { key: "cost", label: "Себестоимость" },
+      { key: "profit", label: "Прибыль" },
+    ];
+    exportToExcel(filteredRows, cols, "dishes-report");
   }
 
   return (

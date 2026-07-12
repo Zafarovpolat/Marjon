@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
+import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
 
 const TYPE_CONFIG = {
@@ -59,13 +60,13 @@ function sortCategories(a, b) {
 export default function CategoriesPage({ type = "dishes" }) {
   const config = TYPE_CONFIG[type] || TYPE_CONFIG.dishes;
   const [rows, setRows] = useState([]);
+  const [isDemo, setIsDemo] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(DEFAULT_FORM);
   const [saving, setSaving] = useState(false);
-  const [search, setSearch] = useState("");
 
   async function load() {
     setLoading(true);
@@ -74,6 +75,7 @@ export default function CategoriesPage({ type = "dishes" }) {
       const { data } = await api.get("/inventory/categories");
       const loadedCategories = Array.isArray(data) ? data : [];
       setRows(type === "dishes" ? withDefaultDishCategories(loadedCategories) : loadedCategories);
+      if (loadedCategories.length) setIsDemo(false);
     } catch (err) {
       if (type === "dishes") {
         setRows(DEMO_DISH_CATEGORIES);
@@ -154,17 +156,11 @@ export default function CategoriesPage({ type = "dishes" }) {
     if (editingId === row.id) closeForm();
   }
 
-  const visible = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    const source = query
-      ? rows.filter((row) => `${row.name || ""} ${row.slug || ""}`.toLowerCase().includes(query))
-      : rows;
-
-    return [...source].sort(sortCategories);
-  }, [rows, search]);
+  const visible = useMemo(() => [...rows].sort(sortCategories), [rows]);
 
   return (
     <section className="nomenclature-page menu-categories-page">
+      {isDemo && <DemoNotice />}
       <div className="menu-categories-card">
         <div className="menu-categories-header">
           <div className="menu-categories-title">
@@ -226,17 +222,6 @@ export default function CategoriesPage({ type = "dishes" }) {
             </div>
           </form>
         ) : null}
-
-        <div className="menu-category-toolbar">
-          <label>
-            <Icon name="bi-search" />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по названию" />
-          </label>
-          <button type="button" className="menu-category-config">
-            <Icon name="bi-sliders" />
-            <span>Настроить таблицу</span>
-          </button>
-        </div>
 
         <div className="menu-category-list" aria-busy={loading}>
           {loading
