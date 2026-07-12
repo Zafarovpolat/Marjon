@@ -14,6 +14,13 @@ class EmployeeCreate(BaseSchema):
     salary_amount: Decimal = Decimal("0")
 
 
+class EmployeeUpdate(BaseSchema):
+    position: str | None = None
+    branch_id: UUID | None = None
+    salary_type: str | None = None
+    salary_amount: Decimal | None = None
+
+
 class EmployeeResponse(BaseResponseSchema):
     company_id: UUID
     user_id: UUID
@@ -22,6 +29,9 @@ class EmployeeResponse(BaseResponseSchema):
     hire_date: date
     salary_type: str
     salary_amount: Decimal
+    name: str | None = None
+    phone: str | None = None
+    email: str | None = None
 
 
 class ShiftCreate(BaseSchema):

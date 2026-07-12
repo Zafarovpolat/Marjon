@@ -48,18 +48,6 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-/* Role-based route guard — redirects non-admin roles to their dedicated pages */
-function RoleGuard({ children, allowed }) {
-  const user = JSON.parse(localStorage.getItem("marjon_user") || "{}");
-  const role = user?.role_slugs?.[0] || (user?.is_superadmin ? "superadmin" : "owner");
-  if (allowed && !allowed.includes(role)) {
-    if (role === "waiter") return <Navigate to="/waiter" replace />;
-    if (role === "kitchen") return <Navigate to="/kitchen" replace />;
-    return <Navigate to="/" replace />;
-  }
-  return children;
-}
-
 const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/login/staff", element: <StaffLoginPage /> },
@@ -71,7 +59,7 @@ const router = createBrowserRouter([
   { path: "/kitchen", element: <ProtectedRoute><KitchenPage /></ProtectedRoute> },
   {
     path: "/",
-    element: <ProtectedRoute><RoleGuard allowed={["owner","superadmin","manager","cashier","monoblock"]}><DashboardLayout /></RoleGuard></ProtectedRoute>,
+    element: <ProtectedRoute><DashboardLayout /></ProtectedRoute>,
     children: [
       { index: true, element: <OwnerDashboard /> },
       { path: "warehouse", element: <Navigate to="/warehouse/incoming" replace /> },

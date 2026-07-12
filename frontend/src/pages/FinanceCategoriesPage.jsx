@@ -1,13 +1,39 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { api, formatMoney } from "../api/client";
+import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
 
-function FinanceCategoriesPage({ title, initialRows }) {
-  const [rows, setRows] = useState(initialRows.map((row, index) => ({ ...row, id: index + 1, status: "Активно" })));
+function FinanceCategoriesPage({ title, kind, initialRows }) {
+  const [rows, setRows] = useState(initialRows.map((row, index) => ({ ...row, id: `demo-${index}`, status: "Активно" })));
+  const [isDemo, setIsDemo] = useState(true);
   const [activeTab, setActiveTab] = useState("Активно");
   const [search, setSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({ name: "", description: "", operations: "0", total: "0 UZS", status: "Активно" });
+  const [form, setForm] = useState({ name: "", description: "" });
+  const [saving, setSaving] = useState(false);
+
+  async function loadCategories() {
+    try {
+      const { data } = await api.get("/finance/transaction-categories", { params: { kind } });
+      const items = Array.isArray(data) ? data : data?.items || [];
+      if (items.length) {
+        setRows(items.map((item) => ({
+          id: item.id,
+          name: item.name,
+          description: item.kind === "income" ? "Приход" : "Расход",
+          operations: "—",
+          total: "—",
+          status: item.status ? "Активно" : "Архив",
+        })));
+        setIsDemo(false);
+      }
+    } catch {
+      // остаёмся на демо-данных
+    }
+  }
+
+  useEffect(() => { loadCategories(); }, [kind]);
 
   const visibleRows = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -16,36 +42,73 @@ function FinanceCategoriesPage({ title, initialRows }) {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ name: "", description: "", operations: "0", total: "0 UZS", status: "Активно" });
+    setForm({ name: "", description: "" });
     setDrawerOpen(true);
   };
 
   const openEdit = (row) => {
     setEditingId(row.id);
-    setForm(row);
+    setForm({ name: row.name, description: row.description });
     setDrawerOpen(true);
   };
 
-  const archive = (row) => {
-    setRows((current) => current.map((item) => item.id === row.id ? { ...item, status: "Архив" } : item));
-  };
-
-  const restore = (row) => {
-    setRows((current) => current.map((item) => item.id === row.id ? { ...item, status: "Активно" } : item));
-  };
-
-  const save = (event) => {
-    event.preventDefault();
-    if (editingId) {
-      setRows((current) => current.map((row) => row.id === editingId ? { ...form, id: editingId } : row));
-    } else {
-      setRows((current) => [{ ...form, id: Date.now(), status: form.status || "Активно" }, ...current]);
+  const archive = async (row) => {
+    if (isDemo) {
+      setRows((current) => current.map((item) => item.id === row.id ? { ...item, status: "Архив" } : item));
+      return;
     }
-    setDrawerOpen(false);
+    try {
+      await api.patch(`/finance/transaction-categories/${row.id}`, { status: false });
+      await loadCategories();
+    } catch {
+      window.alert("Ошибка архивирования");
+    }
+  };
+
+  const restore = async (row) => {
+    if (isDemo) {
+      setRows((current) => current.map((item) => item.id === row.id ? { ...item, status: "Активно" } : item));
+      return;
+    }
+    try {
+      await api.patch(`/finance/transaction-categories/${row.id}`, { status: true });
+      await loadCategories();
+    } catch {
+      window.alert("Ошибка восстановления");
+    }
+  };
+
+  const save = async (event) => {
+    event.preventDefault();
+    if (isDemo) {
+      if (editingId) {
+        setRows((current) => current.map((row) => row.id === editingId ? { ...form, id: editingId, operations: "0", total: "0 UZS", status: "Активно" } : row));
+      } else {
+        setRows((current) => [{ ...form, id: `demo-${Date.now()}`, operations: "0", total: "0 UZS", status: "Активно" }, ...current]);
+      }
+      setDrawerOpen(false);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      if (editingId) {
+        await api.patch(`/finance/transaction-categories/${editingId}`, { name: form.name });
+      } else {
+        await api.post("/finance/transaction-categories", { name: form.name, kind });
+      }
+      await loadCategories();
+      setDrawerOpen(false);
+    } catch (e) {
+      window.alert(e.response?.data?.detail || "Ошибка сохранения");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <div className="finance-page">
+      {isDemo && <DemoNotice />}
       <section className="finance-card">
         <header className="finance-header">
           <div className="finance-title-group">
@@ -121,14 +184,11 @@ function FinanceCategoriesPage({ title, initialRows }) {
             </header>
             <div className="finance-form__grid">
               <label><span>Название</span><input required value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></label>
-              <label><span>Кол-во операций</span><input value={form.operations} onChange={(event) => setForm((current) => ({ ...current, operations: event.target.value }))} /></label>
-              <label><span>Сумма</span><input value={form.total} onChange={(event) => setForm((current) => ({ ...current, total: event.target.value }))} /></label>
-              <label><span>Статус</span><select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}><option>Активно</option><option>Архив</option></select></label>
               <label className="finance-form__wide"><span>Описание</span><textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></label>
             </div>
             <footer className="finance-form__footer">
               <button type="button" onClick={() => setDrawerOpen(false)}>Отмена</button>
-              <button type="submit">Сохранить</button>
+              <button type="submit" disabled={saving}>{saving ? "Сохранение..." : "Сохранить"}</button>
             </footer>
           </form>
         </div>

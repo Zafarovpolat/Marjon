@@ -1,10 +1,8 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Chart, Filler, LineController, LineElement, LinearScale, PointElement, CategoryScale, Tooltip } from "chart.js";
-import { Link, useNavigate, useOutletContext } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import { api, formatMoney, formatNumber } from "../api/client";
-import { ChevronDown, ChevronRight, Store, Clock, AlertTriangle, Zap, PlusCircle, BookPlus, UserPlus, FileSpreadsheet, Sparkles, Banknote, Receipt, TrendingUp, LayoutGrid } from "lucide-react";
-import MarjonLoader from "../components/MarjonLoader";
 import { dateRangeEndingAt, formatDateLabel, todayInputValue, toDateInputValue } from "../utils/date";
 import Icon from "../components/Icon";
 import { PageLoader } from "../components/Loader";
@@ -212,6 +210,112 @@ function demoKpis(sales, selectedDate) {
         ["Доля от выручки", `${Math.round((moneyExpense / Math.max(day.revenue, 1)) * 100)}%`],
       ],
       insight: "Денежные расходы показывают затраты за выбранную дату.",
+    },
+  ];
+}
+
+function buildRealKpis(dash, sales, selectedDate) {
+  const day = sales.at(-1) || { revenue: 0, orders_count: 0, avg_check: 0 };
+  const prev = sales.at(-2) || day;
+
+  const revenue = dash.today_revenue ?? day.revenue;
+  const orders = dash.today_orders ?? day.orders_count;
+  const avgCheck = dash.avg_check ?? day.avg_check;
+  const activeOrders = dash.active_orders ?? 0;
+
+  const revChange = pctChange(revenue, prev.revenue);
+  const ordChange = orders - (prev.orders_count || 0);
+  const avgChange = pctChange(avgCheck, prev.avg_check);
+
+  const cashTotal = dash.cash_total ?? 0;
+  const nonCashTotal = dash.non_cash_total ?? 0;
+  const income = dash.income_total ?? revenue;
+  const expense = dash.expense_total ?? 0;
+  const prevIncome = prev.revenue || 1;
+  const incomeChange = pctChange(income, prevIncome);
+  const expenseChange = expense > 0 ? pctChange(expense, Math.round(prevIncome * 0.31)) : 0;
+
+  return [
+    {
+      className: "premium-kpi--revenue",
+      icon: "bi-currency-exchange",
+      badge: formatDateLabel(selectedDate),
+      label: "Выручка за день",
+      value: formatNumber(revenue),
+      suffix: "UZS",
+      note: `${signed(revChange)}% к вчерашнему дню`,
+      noteClass: noteClassFor(revChange),
+      progress: Math.max(8, Math.min(100, 72)),
+      description: "Дневная выручка по всем закрытым заказам за выбранную дату.",
+      details: [
+        ["Наличные", `${formatNumber(cashTotal)} UZS`],
+        ["Безнал", `${formatNumber(nonCashTotal)} UZS`],
+        ["Активные заказы", `${activeOrders}`],
+      ],
+      insight: revChange >= 0
+        ? `Темп выше вчерашнего дня на ${Math.abs(revChange)}%.`
+        : `Темп ниже вчерашнего дня на ${Math.abs(revChange)}%.`,
+    },
+    {
+      className: "premium-kpi--orders",
+      icon: "bi-receipt",
+      badge: "Live",
+      label: "Заказов",
+      value: formatNumber(orders),
+      note: `${signed(ordChange)} к вчерашнему дню`,
+      noteClass: noteClassFor(ordChange),
+      progress: Math.max(8, Math.min(100, Math.round((orders / Math.max(orders + 28, 1)) * 100))),
+      description: "Количество заказов за день.",
+      details: [
+        ["Активные заказы", `${activeOrders}`],
+        ["Завершённых", `${Math.max(0, orders - activeOrders)}`],
+      ],
+      insight: "Количество заказов за выбранный день.",
+    },
+    {
+      className: "premium-kpi--avg",
+      icon: "bi-graph-up-arrow",
+      badge: "Среднее",
+      label: "Средний чек",
+      value: formatNumber(avgCheck),
+      suffix: "UZS",
+      note: `${signed(avgChange)}% к вчерашнему дню`,
+      noteClass: noteClassFor(avgChange),
+      progress: Math.max(8, 65),
+      description: "Средняя сумма одного заказа за выбранный день.",
+      details: [],
+      insight: "Средний чек по всем каналам продаж.",
+    },
+    {
+      className: "premium-kpi--tables",
+      icon: "bi-cash-coin",
+      badge: "Приход",
+      label: "Денежный приход",
+      value: formatNumber(income),
+      suffix: "UZS",
+      note: `${signed(incomeChange)}% к вчерашнему дню`,
+      noteClass: noteClassFor(incomeChange),
+      progress: Math.max(8, Math.min(100, Math.round((income / Math.max(revenue, 1)) * 100))),
+      description: "Фактически полученные деньги за выбранную дату.",
+      details: [
+        ["Наличные", `${formatNumber(cashTotal)} UZS`],
+        ["Безнал", `${formatNumber(nonCashTotal)} UZS`],
+      ],
+      insight: "Денежный приход показывает поступления, прошедшие через оплату.",
+    },
+    {
+      className: "premium-kpi--expense",
+      icon: "bi-arrow-up-right-circle",
+      badge: "Расход",
+      label: "Денежные расходы",
+      value: formatNumber(expense),
+      suffix: "UZS",
+      note: expense > 0 ? `${signed(expenseChange)}% к вчерашнему дню` : "—",
+      noteClass: expense > 0 ? noteClassFor(expenseChange) : "kpi-note--neutral",
+      progress: Math.max(8, Math.min(100, Math.round((expense / Math.max(revenue, 1)) * 100))),
+      description: "Фактические расходы за выбранную дату.",
+      details: [],
+      insight: "Денежные расходы за выбранную дату.",
     },
   ];
 }
@@ -519,8 +623,8 @@ function PeriodDropdown({ value, onChange }) {
   const [open, setOpen] = useState(false);
   const closeTimerRef = useRef(null);
   const options = [
-    { value: 7, label: "7 дн" },
-    { value: 30, label: "30 дн" },
+    { value: 7, label: "7 дней" },
+    { value: 30, label: "30 дней" },
   ];
   const selected = options.find((option) => option.value === value) || options[0];
   const openMenu = () => {
@@ -543,6 +647,7 @@ function PeriodDropdown({ value, onChange }) {
       }}
     >
       <button className="period-dropdown__button" type="button" onClick={() => setOpen((current) => !current)} aria-haspopup="listbox" aria-expanded={open}>
+        <span>Период</span>
         <strong>{selected.label}</strong>
         <Icon name="bi-chevron-down" size={20} />
       </button>
@@ -560,7 +665,6 @@ function PeriodDropdown({ value, onChange }) {
                 setOpen(false);
               }}
             >
-              <span className={`period-dropdown__dot${option.value === value ? " is-active" : ""}`} aria-hidden="true" />
               {option.label}
             </button>
           ))}
@@ -866,7 +970,6 @@ function WarehouseReportDialog({ report, selectedDate, onClose }) {
 }
 
 export default function OwnerDashboard() {
-  const navigate = useNavigate();
   const { selectedDate = todayInputValue() } = useOutletContext();
   const [period, setPeriod] = useState(7);
   const [selectedKpi, setSelectedKpi] = useState(null);
@@ -877,6 +980,7 @@ export default function OwnerDashboard() {
   const [topProducts, setTopProducts] = useState([]);
   const [products, setProducts] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [recentOrders, setRecentOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -893,13 +997,16 @@ export default function OwnerDashboard() {
       api.get("/analytics/products/top", { params: { limit: 5, ...dayParams } }),
       api.get("/inventory/products"),
       api.get("/hr/employees"),
-    ]).then(([dashboardRes, salesRes, topRes, productsRes, employeesRes]) => {
+      api.get("/pos/orders", { params: { date: selectedDate } }),
+    ]).then(([dashboardRes, salesRes, topRes, productsRes, employeesRes, ordersRes]) => {
       if (!mounted) return;
       setDashboard(dashboardRes.data);
       setSales(salesRes.data);
       setTopProducts(topRes.data);
       setProducts(productsRes.data);
       setEmployees(employeesRes.data);
+      const orderList = Array.isArray(ordersRes.data) ? ordersRes.data : ordersRes.data?.items || [];
+      setRecentOrders(orderList.slice(0, 5));
       hasLoadedRef.current = true;
     }).catch((err) => {
       if (mounted) setError(err.response?.data?.detail || "Не удалось загрузить dashboard данные.");
@@ -912,7 +1019,12 @@ export default function OwnerDashboard() {
   () => (sales.length > 0 ? sales : demoSales(period, selectedDate)),
   [sales, period, selectedDate]
 );
-  const kpis = useMemo(() => demoKpis(displaySales, selectedDate), [displaySales, selectedDate]);
+  const isSalesDemo = sales.length === 0;
+  const isDashboardDemo = !dashboard || dashboard.today_revenue === undefined;
+  const kpis = useMemo(() => {
+    if (!isDashboardDemo && !isSalesDemo) return buildRealKpis(dashboard, displaySales, selectedDate);
+    return demoKpis(displaySales, selectedDate);
+  }, [isDashboardDemo, isSalesDemo, dashboard, displaySales, selectedDate]);
   const displayTopDishes = useMemo(() => {
   if (topProducts.length > 0) {
     const maxRevenue = Number(topProducts[0]?.revenue || 1);
@@ -929,7 +1041,26 @@ export default function OwnerDashboard() {
   return demoTopDishes(selectedDate);
 }, [topProducts, selectedDate]);
   const warehouseSummary = useMemo(() => demoWarehouseSummary(selectedDate), [selectedDate]);
-  const recentOrdersList = useMemo(() => demoRecentOrders(selectedDate), [selectedDate]);
+  const recentOrdersList = useMemo(() => {
+    if (recentOrders.length > 0) {
+      return recentOrders.map((order) => {
+        const created = order.created_at ? new Date(order.created_at) : new Date();
+        const time = created.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+        const dateLabel = created.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
+        const ready = order.status === "completed" || order.status === "ready";
+        return {
+          id: `#${order.order_number || order.id?.slice(0, 6)}`,
+          date: `${dateLabel} ${time}`,
+          place: order.table_number ? `Стол ${order.table_number}` : order.order_type || "—",
+          amount: formatMoney(order.total_amount || 0),
+          status: ready ? "Готов" : order.status === "cancelled" ? "Отменён" : "В работе",
+          ready,
+        };
+      });
+    }
+    return demoRecentOrders(selectedDate);
+  }, [recentOrders, selectedDate]);
+  const isOrdersDemo = recentOrders.length === 0;
   const revenueStats = useMemo(() => {
     const revenues = displaySales.map((item) => Number(item.revenue || 0));
     const total = revenues.reduce((acc, value) => acc + value, 0);
@@ -939,7 +1070,10 @@ export default function OwnerDashboard() {
       avg: revenues.length ? Math.round(total / revenues.length) : 0,
     };
   }, [displaySales]);
-  const displayDashboard = useMemo(() => demoDashboardFromSales(displaySales, selectedDate), [displaySales, selectedDate]);
+  const displayDashboard = useMemo(() => {
+    if (dashboard && dashboard.today_revenue !== undefined) return dashboard;
+    return demoDashboardFromSales(displaySales, selectedDate);
+  }, [dashboard, displaySales, selectedDate]);
   const daySummary = useMemo(() => {
     const seed = dateSeed(selectedDate);
     const day = displaySales.at(-1) || { revenue: 0, orders_count: 0 };
@@ -957,26 +1091,29 @@ export default function OwnerDashboard() {
 
   return (
     <>
-      <section className="kpi-grid kpi-grid--premium">
-        {kpis.map((kpi) => (
-          <button
-            className={`kpi-card premium-kpi ${kpi.className}`}
-            key={kpi.label}
-            type="button"
-            onClick={() => setSelectedKpi(kpi)}
-            aria-haspopup="dialog"
-          >
-            <div className="premium-kpi__top">
-              <div className="premium-kpi__icon"><Icon name={kpi.icon} size={20} /></div>
-              <span className="trend">{kpi.badge}</span>
-            </div>
-            <div className="kpi-label">{kpi.label}</div>
-            <div className="kpi-value">{kpi.value} {kpi.suffix ? <small>{kpi.suffix}</small> : null}</div>
-            <div className={`kpi-note ${kpi.noteClass}`}>{kpi.note}</div>
-            <div className="premium-kpi__progress"><i style={{ width: `${kpi.progress}%` }} /></div>
-          </button>
-        ))}
-      </section>
+      <div className="owner-kpi-band">
+        <section className="kpi-grid kpi-grid--premium">
+          {kpis.map((kpi) => (
+            <button
+              className={`kpi-card premium-kpi ${kpi.className}`}
+              key={kpi.label}
+              type="button"
+              onClick={() => setSelectedKpi(kpi)}
+              aria-haspopup="dialog"
+            >
+              <div className="premium-kpi__top">
+                <div className="premium-kpi__icon"><Icon name={kpi.icon} size={20} /></div>
+                <span className="trend">{kpi.badge}</span>
+              </div>
+              <div className="kpi-label">{kpi.label}</div>
+              <div className="kpi-value">{kpi.value} {kpi.suffix ? <small>{kpi.suffix}</small> : null}</div>
+              <div className={`kpi-note ${kpi.noteClass}`}>{kpi.note}</div>
+              <div className="premium-kpi__progress"><i style={{ width: `${kpi.progress}%` }} /></div>
+            </button>
+          ))}
+        </section>
+        <div className="owner-kpi-band__side" aria-hidden="true" />
+      </div>
       <KpiInfoDialog kpi={selectedKpi} onClose={() => setSelectedKpi(null)} />
       <WarehouseReportDialog report={selectedWarehouseReport} selectedDate={selectedDate} onClose={() => setSelectedWarehouseReport(null)} />
 
@@ -986,7 +1123,7 @@ export default function OwnerDashboard() {
             <div><span className="eyebrow">Revenue analytics</span><h2>Выручка за {period} дней</h2><p>Период заканчивается {formatDateLabel(selectedDate)}</p></div>
             <div className="period-switcher" aria-label="Период выручки">
               <PeriodDropdown value={period} onChange={setPeriod} />
-              <Link className="btn btn-ghost btn-ghost--lucide" to="/analytics">Подробнее <ChevronRight size={16} strokeWidth={2.5} /></Link>
+              <Link className="period-switcher__details" to="/analytics">Подробнее</Link>
             </div>
           </div>
           <div className="revenue-stat-grid">

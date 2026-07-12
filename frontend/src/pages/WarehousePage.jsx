@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { api } from "../api/client";
+import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
 
 const ACTIVE = "active";
@@ -202,6 +204,18 @@ const warehouseConfigs = {
   },
 };
 
+const sectionApiEndpoints = {
+  incoming: "/warehouse/purchases",
+  outgoing: "/warehouse/write-offs",
+  stock: "/warehouse/list",
+  "incoming-journal": "/warehouse/purchases",
+  transfer: "/warehouse/transfers",
+  inventory: "/warehouse/inventory-checks",
+  "write-off": "/warehouse/write-offs",
+  "write-off-categories": "/warehouse/write-offs",
+  waste: "/warehouse/write-offs",
+};
+
 function normalizeSection(section) {
   return sectionAliases[section] || section || "incoming";
 }
@@ -260,12 +274,77 @@ function WarehousePage({ initialSection = "incoming" }) {
   const section = normalizeSection(initialSection);
   const config = warehouseConfigs[section] || warehouseConfigs.incoming;
   const [rows, setRows] = useState(() => config.rows.map((row) => ({ ...row, archiveState: ACTIVE })));
+  const [isDemo, setIsDemo] = useState(true);
   const [activeTab, setActiveTab] = useState(ACTIVE);
   const [draftFilters, setDraftFilters] = useState({ search: "", date: "01.06.2026 - 23.06.2026", warehouse: "", supplier: "", status: "", receiver: "", category: "", author: "", from: "", to: "" });
   const [filters, setFilters] = useState(draftFilters);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(() => defaultForm(section, config));
+
+  useEffect(() => {
+    const endpoint = sectionApiEndpoints[section];
+    if (!endpoint) return;
+    api.get(endpoint)
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || [];
+        if (items.length) {
+          setRows(items.map((item) => ({
+            ...item,
+            id: item.id,
+            document: item.document_number || item.document || "",
+            supplier: item.supplier_name || item.supplier || "",
+            receiver: item.receiver_name || item.receiver || "",
+            warehouse: item.warehouse_name || item.warehouse || "",
+            from: item.from_warehouse || item.from || "",
+            to: item.to_warehouse || item.to || "",
+            category: item.category_name || item.category || "",
+            product: item.product_name || item.product || "",
+            total: item.total ? formatAmount(item.total) : item.total_formatted || "0 UZS",
+            price: item.price ? formatAmount(item.price) : "0 UZS",
+            status: item.status_label || item.status || "",
+            date: item.date || item.created_at?.split("T")[0] || "",
+            name: item.name || "",
+            description: item.description || "",
+            count: String(item.count ?? "0"),
+            unit: item.unit || "кг",
+            quantity: String(item.quantity ?? ""),
+            expected: String(item.expected ?? ""),
+            actual: String(item.actual ?? ""),
+            difference: String(item.difference ?? ""),
+            positions: String(item.positions_count ?? item.positions ?? ""),
+            minStock: String(item.min_stock ?? ""),
+            stock: String(item.stock ?? ""),
+            author: item.author_name || item.author || "",
+            reason: item.reason || "",
+            archiveState: item.is_archived ? ARCHIVE : ACTIVE,
+          })));
+          setIsDemo(false);
+        }
+      })
+      .catch(() => {});
+  }, [section]);
+
+  const computedSummary = useMemo(() => {
+    if (isDemo || !config.summary) return config.summary;
+    const activeRows = rows.filter((r) => r.archiveState === ACTIVE);
+    const totalCount = activeRows.length;
+    const totalSum = activeRows.reduce((sum, r) => {
+      const num = Number(String(r.total || "0").replace(/[^\d]/g, ""));
+      return sum + num;
+    }, 0);
+    const uniqueSuppliers = new Set(activeRows.map((r) => r.supplier).filter(Boolean)).size;
+    const drafts = activeRows.filter((r) => (r.status || "").toLowerCase().includes("черновик")).length;
+
+    return config.summary.map((item) => {
+      if (item.label.includes("Всего")) return { ...item, value: String(totalCount) };
+      if (item.label.includes("Сумма")) return { ...item, value: `${totalSum.toLocaleString("ru-RU")} UZS` };
+      if (item.label.includes("Поставщик")) return { ...item, value: String(uniqueSuppliers) };
+      if (item.label.includes("Черновик")) return { ...item, value: String(drafts) };
+      if (item.label.includes("Позиций") || item.label.includes("Товаров") || item.label.includes("Категорий")) return { ...item, value: String(totalCount) };
+      return item;
+    });
+  }, [isDemo, rows, config.summary]);
 
   const visibleRows = useMemo(() => {
     const query = filters.search.trim().toLowerCase();
@@ -300,6 +379,9 @@ function WarehousePage({ initialSection = "incoming" }) {
 
   const archiveRow = (row) => {
     const rowId = row.id || row.document || row.name || row.product;
+    if (!isDemo && row.id) {
+      api.delete(`${sectionApiEndpoints[section]}/${row.id}`).catch(() => {});
+    }
     setRows((current) => current.map((item) => ((item.id || item.document || item.name || item.product) === rowId ? { ...item, archiveState: ARCHIVE } : item)));
   };
 
@@ -312,10 +394,22 @@ function WarehousePage({ initialSection = "incoming" }) {
     const incomingTotal = section === "incoming" ? form.items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0), 0) : parseAmount(form.total);
     const nextRow = buildRowFromForm(section, form, status, rows.length + 1, incomingTotal);
 
+    const endpoint = sectionApiEndpoints[section];
+    if (!isDemo && endpoint) {
+      const payload = { ...form, status, total: incomingTotal };
+      if (editingId && typeof editingId === "number") {
+        api.patch(`${endpoint}/${editingId}`, payload).catch(() => {});
+      } else {
+        api.post(endpoint, payload)
+          .then(({ data }) => { if (data?.id) nextRow.id = data.id; })
+          .catch(() => {});
+      }
+    }
+
     if (editingId) {
       setRows((current) => current.map((row) => ((row.id || row.document || row.name) === editingId ? { ...row, ...nextRow, id: row.id, archiveState: row.archiveState } : row)));
     } else {
-      setRows((current) => [{ ...nextRow, id: Date.now(), archiveState: ACTIVE }, ...current]);
+      setRows((current) => [{ ...nextRow, id: nextRow.id || Date.now(), archiveState: ACTIVE }, ...current]);
     }
     setDrawerOpen(false);
   };
@@ -338,6 +432,9 @@ function WarehousePage({ initialSection = "incoming" }) {
   return (
     <div className="warehouse-page">
       <section className="warehouse-card">
+        {isDemo && (
+          <DemoNotice />
+        )}
         <header className="warehouse-header">
           <div className="warehouse-title-group">
             <span className="warehouse-accent-bar" />
@@ -347,14 +444,14 @@ function WarehousePage({ initialSection = "incoming" }) {
             </div>
           </div>
           <div className="warehouse-actions">
-            {config.importExcel ? <button type="button" onClick={() => console.log("warehouse excel export")}><Icon name="bi-file-earmark-spreadsheet" size={17} />Импорт Excel</button> : null}
+            {config.importExcel ? <button type="button" onClick={() => window.alert("Импорт Excel будет доступен в следующей версии")}><Icon name="bi-file-earmark-spreadsheet" size={17} />Импорт Excel</button> : null}
             {config.primaryAction ? <button type="button" className="warehouse-primary-action" onClick={openCreate}>{config.primaryAction}</button> : null}
           </div>
         </header>
 
-        {config.summary ? (
+        {computedSummary ? (
           <div className="warehouse-summary-grid">
-            {config.summary.map((item) => (
+            {computedSummary.map((item) => (
               <article className={`warehouse-summary-card warehouse-summary-card--${item.tone}`} key={item.label}>
                 <div>
                   <span>{item.label}</span>
@@ -411,7 +508,7 @@ function WarehousePage({ initialSection = "incoming" }) {
         </div>
 
         <footer className="warehouse-pagination">
-          <span>Показано 1 - {Math.min(visibleRows.length, 10)} из {section === "incoming" ? 24 : Math.max(visibleRows.length, 18)}</span>
+          <span>Показано 1 - {Math.min(visibleRows.length, 10)} из {visibleRows.length}</span>
           <div>
             {[1, 2, 3, 4].map((page) => <button key={page} type="button" className={page === 1 ? "is-active" : ""}>{page}</button>)}
           </div>

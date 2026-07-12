@@ -8,7 +8,7 @@ import { clampToToday, todayInputValue } from "../utils/date";
 import { useAuth } from "../hooks/useAuth";
 
 const pageMeta = {
-  "/": ["Дашборд", "Ключевые показатели ресторана"],
+  "/": ["Owner Dashboard", "Ключевые показатели ресторана"],
   "/warehouse": ["Склад", "Остатки и движение товаров"],
   "/warehouse/stock-in": ["Приход товаров", "Оформление поступлений"],
   "/warehouse/stock-out": ["Расход товаров", "Списание и выдача товаров"],
@@ -49,6 +49,7 @@ const pageMeta = {
   "/finance/expense-categories": ["Категория расходов", "Справочник затрат"],
   "/nomenclature": ["Номенклатура", "Блюда и доступность"],
   "/nomenclature/dishes": ["Блюда", "Меню и доступность блюд"],
+  "/nomenclature/menu": ["Продажа", "Сколько чего продалось"],
   "/nomenclature/raw-materials": ["Сырьё", "Ингредиенты и складской учёт"],
   "/nomenclature/semi-finished": ["Полуфабрикаты", "Заготовки и производство"],
   "/nomenclature/dish-categories": ["Категория блюд", "Группы меню"],
@@ -68,6 +69,7 @@ export default function DashboardLayout() {
 
   const [title, subtitle] = useMemo(() => pageMeta[location.pathname] || ["Dashboard", ""], [location.pathname]);
   const showBackButton = location.pathname !== "/";
+  const isUsersSection = location.pathname.startsWith("/users");
   const selectedDateContext = useMemo(() => ({
     user,
     selectedDate,
@@ -101,7 +103,7 @@ export default function DashboardLayout() {
             selectedDate={selectedDate}
             onSelectedDateChange={setSelectedDate}
           />
-          <main className="dashboard-content">
+          <main className={`dashboard-content ${isUsersSection ? "dashboard-content--staff" : ""}`}>
             <Outlet context={selectedDateContext} />
           </main>
           <SupportWidget />

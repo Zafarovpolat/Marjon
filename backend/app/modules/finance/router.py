@@ -14,7 +14,7 @@ from app.modules.organizations.dependencies import get_org_scope
 from app.shared.admin_crud import CRUDService, OrgScope, crud_router
 from app.shared.pagination import Page, PageParams
 
-router = APIRouter()
+router = APIRouter(prefix="/finance", tags=["finance"])
 
 router.include_router(crud_router(
     prefix="/payment-types", tags=["finance"],

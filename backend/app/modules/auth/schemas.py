@@ -1,7 +1,7 @@
 from __future__ import annotations
 import re
 from uuid import UUID
-from pydantic import EmailStr, Field, field_validator, model_validator
+from pydantic import EmailStr, Field, field_validator
 from app.shared.base_schema import BaseSchema, BaseResponseSchema
 
 
@@ -41,15 +41,9 @@ class CompanyUserCreate(BaseSchema):
 
 
 class LoginRequest(BaseSchema):
-    email: str | None = Field(default=None, max_length=255)
-    phone: str | None = Field(default=None, max_length=50)
+    email: str | None = Field(None, min_length=1, max_length=255)
+    phone: str | None = Field(None, min_length=1, max_length=30)
     password: str
-
-    @model_validator(mode="after")
-    def require_identifier(self) -> "LoginRequest":
-        if not self.email and not self.phone:
-            raise ValueError("email или phone обязателен")
-        return self
 
 
 class RefreshRequest(BaseSchema):
@@ -64,7 +58,8 @@ class TokenResponse(BaseSchema):
 
 class UserResponse(BaseResponseSchema):
     email: str
-    phone: str | None
+    name: str | None = None
+    phone: str | None = None
     is_active: bool
     is_superadmin: bool
     company_id: UUID | None

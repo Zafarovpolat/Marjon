@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.hr.models import AttendanceLog, Employee, WorkShift
 from app.modules.hr.repository import AttendanceLogRepository, EmployeeRepository, WorkShiftRepository
-from app.modules.hr.schemas import AttendanceCreate, EmployeeCreate, ShiftCreate
+from app.modules.hr.schemas import AttendanceCreate, EmployeeCreate, EmployeeUpdate, ShiftCreate
 from app.shared.exceptions import NotFoundError
 
 
@@ -19,6 +19,20 @@ class HRService:
 
     async def list_employees(self, company_id: UUID) -> list[Employee]:
         return await self.emp_repo.get_all(company_id)
+
+    async def update_employee(self, company_id: UUID, employee_id: UUID, data: EmployeeUpdate) -> Employee:
+        emp = await self.emp_repo.get_by_id(employee_id, company_id)
+        if not emp:
+            raise NotFoundError("Employee not found")
+        for field, value in data.model_dump(exclude_unset=True).items():
+            setattr(emp, field, value)
+        return await self.emp_repo.save(emp)
+
+    async def delete_employee(self, company_id: UUID, employee_id: UUID) -> None:
+        emp = await self.emp_repo.get_by_id(employee_id, company_id)
+        if not emp:
+            raise NotFoundError("Employee not found")
+        await self.emp_repo.delete(emp)
 
     async def create_shift(self, company_id: UUID, data: ShiftCreate) -> WorkShift:
         return await self.shift_repo.save(WorkShift(company_id=company_id, **data.model_dump()))

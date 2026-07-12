@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 from typing import Literal
@@ -83,3 +84,23 @@ class TerminalResponse(BaseResponseSchema):
     branch_id: UUID
     name: str
     is_active: bool
+
+
+class ShiftOpen(BaseSchema):
+    branch_id: UUID
+    opening_cash: Decimal = Decimal("0")
+
+
+class ShiftClose(BaseSchema):
+    closing_cash: Decimal = Decimal("0")
+
+
+class ShiftResponse(BaseResponseSchema):
+    company_id: UUID
+    branch_id: UUID
+    cashier_id: UUID
+    opened_at: datetime
+    closed_at: datetime | None
+    opening_cash: Decimal
+    closing_cash: Decimal | None
+    status: str

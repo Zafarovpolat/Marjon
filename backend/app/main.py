@@ -1,7 +1,7 @@
 from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -27,6 +27,9 @@ import app.modules.audit.models           # noqa: F401
 import app.modules.fiscal.models          # noqa: F401
 import app.modules.subscriptions.models   # noqa: F401
 import app.modules.printers.models        # noqa: F401
+import app.modules.halls.models              # noqa: F401
+import app.modules.inventory.warehouse_models  # noqa: F401
+import app.modules.kafe_compat.models     # noqa: F401
 # Главная админка (HQ admin panel)
 import app.modules.handbook.models        # noqa: F401
 import app.modules.organizations.models   # noqa: F401
@@ -46,7 +49,9 @@ from app.modules.rbac.router          import router as rbac_router
 from app.modules.inventory.router     import router as inventory_router
 from app.modules.pos.router           import router as pos_router
 from app.modules.payments.router      import router as payments_router
+from app.modules.payments.webhooks    import router as payment_webhooks_router
 from app.modules.kitchen.router       import router as kitchen_router
+from app.modules.kitchen.websocket    import kitchen_ws_endpoint
 from app.modules.crm.router           import router as crm_router
 from app.modules.loyalty.router       import router as loyalty_router
 from app.modules.delivery.router      import router as delivery_router
@@ -57,6 +62,9 @@ from app.modules.audit.router         import router as audit_router
 from app.modules.fiscal.router        import router as fiscal_router
 from app.modules.subscriptions.router import router as subscriptions_router
 from app.modules.printers.router      import router as printers_router
+from app.modules.halls.router                  import router as halls_router
+from app.modules.inventory.warehouse_router    import router as warehouse_router
+from app.modules.kafe_compat.router   import router as kafe_compat_router
 # Главная админка (HQ admin panel)
 from app.modules.handbook.router       import router as handbook_router
 from app.modules.organizations.router  import router as organizations_router
@@ -69,7 +77,7 @@ from app.modules.field_service.router  import router as field_service_router
 from app.modules.tasks.router          import router as tasks_router
 from app.modules.ratings.router        import router as ratings_router
 from app.modules.admin_settings.router import router as admin_settings_router
-from app.modules.admin_reports.router  import router as admin_reports_router
+from app.modules.admin_reports.router  import router as admin_reports_router, admin_reports_router as hq_reports_router
 
 logger = logging.getLogger(__name__)
 
@@ -95,65 +103,43 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-@app.middleware("http")
-async def cors_middleware(request: Request, call_next):
-    if request.method == "OPTIONS":
-        from starlette.responses import Response
-        response = Response()
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "*"
-        response.headers["Access-Control-Max-Age"] = "600"
-        return response
-    response = await call_next(request)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "*"
-    return response
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.add_middleware(TenantMiddleware)
 
 API = "/api/v1"
-legacy_routers = [
+routers = [
     auth_router, companies_router, rbac_router,
     inventory_router, pos_router, payments_router,
     kitchen_router, crm_router, loyalty_router,
     delivery_router, hr_router, analytics_router,
     notifications_router, audit_router,
     fiscal_router, subscriptions_router, printers_router,
+    halls_router, warehouse_router,
     # Главная админка
     handbook_router, organizations_router, departments_router,
     marketing_router, nomenclature_router, storage_router,
     finance_router, field_service_router, tasks_router,
     ratings_router, admin_settings_router, admin_reports_router,
+    hq_reports_router,
 ]
 
-kafe_routers = [
-    auth_router, companies_router, rbac_router,
-    inventory_router, pos_router, payments_router,
-    kitchen_router, crm_router, loyalty_router,
-    delivery_router, hr_router, analytics_router,
-    notifications_router, audit_router,
-    fiscal_router, printers_router,
-]
-
-admin_routers = [
-    auth_router,
-    organizations_router, departments_router, marketing_router,
-    handbook_router, nomenclature_router, storage_router,
-    finance_router, field_service_router, tasks_router,
-    ratings_router, admin_settings_router, admin_reports_router,
-    subscriptions_router, audit_router,
-]
-
-for router in legacy_routers:
+for router in routers:
     app.include_router(router, prefix=API)
 
-for router in kafe_routers:
-    app.include_router(router, prefix=f"{API}/kafe")
+# kafe_compat: /settings/*, /billing/*, /support/*, /reports/*, /crm/counterparties
+app.include_router(kafe_compat_router, prefix=API)
 
-for router in admin_routers:
-    app.include_router(router, prefix=f"{API}/admin")
+# Webhooks платёжных провайдеров (без JWT)
+app.include_router(payment_webhooks_router, prefix=API)
+
+# WebSocket для кухни
+app.add_api_websocket_route("/ws/kitchen", kitchen_ws_endpoint)
 
 
 @app.get("/health", tags=["system"])

@@ -6,7 +6,6 @@ const datePresets = [
   "Вчера",
   "Эта неделя",
   "Этот месяц",
-  "Прошлый квартал",
   "Этот год",
 ];
 
@@ -324,23 +323,23 @@ export default function ReportDateRangePicker({ value, onChange, buttonClassName
               onFocus={() => openDateTimePicker("end")}
               aria-label="Конец периода"
             />
-            <button className="report-date-ok" type="button" onClick={applyDraft}>OK</button>
+            <button className="report-date-ok" type="button" onClick={applyDraft}>ОК</button>
           </div>
           {activePicker ? (
             <div className="report-date-calendar-popover">
               <div className="report-date-picker-body">
                 <div className="report-date-calendar-panel">
                   <div className="report-date-calendar-toolbar">
-                    <button type="button" onClick={() => setCalendarView(new Date(calendarView.getFullYear(), calendarView.getMonth() - 1, 1))} aria-label="Previous month">
+                    <button type="button" onClick={() => setCalendarView(new Date(calendarView.getFullYear(), calendarView.getMonth() - 1, 1))} aria-label="Предыдущий месяц">
                       <Icon name="bi-chevron-left" size={17} />
                     </button>
-                    <select value={calendarView.getFullYear()} onChange={(event) => updateCalendarYear(event.target.value)} aria-label="Year">
+                    <select value={calendarView.getFullYear()} onChange={(event) => updateCalendarYear(event.target.value)} aria-label="Год">
                       {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
                     </select>
-                    <select value={calendarView.getMonth()} onChange={(event) => updateCalendarMonth(event.target.value)} aria-label="Month">
+                    <select value={calendarView.getMonth()} onChange={(event) => updateCalendarMonth(event.target.value)} aria-label="Месяц">
                       {monthNames.map((month, index) => <option key={month} value={index}>{month}</option>)}
                     </select>
-                    <button type="button" onClick={() => setCalendarView(new Date(calendarView.getFullYear(), calendarView.getMonth() + 1, 1))} aria-label="Next month">
+                    <button type="button" onClick={() => setCalendarView(new Date(calendarView.getFullYear(), calendarView.getMonth() + 1, 1))} aria-label="Следующий месяц">
                       <Icon name="bi-chevron-right" size={17} />
                     </button>
                   </div>
@@ -366,11 +365,11 @@ export default function ReportDateRangePicker({ value, onChange, buttonClassName
                 <div className="report-date-time-panel">
                   <div className="report-date-time-title">
                     <Icon name="bi-clock" size={18} />
-                    <span>Select time</span>
+                    <span>Время</span>
                   </div>
                   <div className="report-date-time-columns">
                     <div className="report-date-time-column">
-                      <span className="report-date-time-column-label">Hours</span>
+                      <span className="report-date-time-column-label">Часы</span>
                       <div className="report-date-time-list" ref={hourListRef}>
                         {hourOptions.map((hour) => (
                           <button
@@ -386,7 +385,7 @@ export default function ReportDateRangePicker({ value, onChange, buttonClassName
                       </div>
                     </div>
                     <div className="report-date-time-column">
-                      <span className="report-date-time-column-label">Minutes</span>
+                      <span className="report-date-time-column-label">Минуты</span>
                       <div className="report-date-time-list" ref={minuteListRef}>
                         {minuteOptions.map((minute) => (
                           <button
@@ -407,9 +406,9 @@ export default function ReportDateRangePicker({ value, onChange, buttonClassName
               <div className="report-date-calendar-footer">
                 <button className="report-date-today-button" type="button" onClick={selectToday}>
                   <Icon name="bi-calendar3" size={17} />
-                  <span>Today</span>
+                  <span>Сегодня</span>
                 </button>
-                <button className="report-date-calendar-ok" type="button" onClick={applyDraft}>OK</button>
+                <button className="report-date-calendar-ok" type="button" onClick={applyDraft}>ОК</button>
               </div>
             </div>
           ) : null}

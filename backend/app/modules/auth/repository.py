@@ -19,16 +19,11 @@ class UserRepository(BaseRepository[User]):
         return result.scalar_one_or_none()
 
     async def get_by_login(self, login: str) -> Optional[User]:
-        """Логин по email, username или номеру телефона."""
-        import re
-        normalized_phone = re.sub(r"[\s\-]", "", login)
+        """Login by email, username or phone."""
         result = await self.db.execute(
             select(User).where(
-                (User.email == login)
-                | (User.username == login)
-                | (User.phone == normalized_phone)
-                | (User.phone == login)
-            )
+                (User.email == login) | (User.username == login) | (User.phone == login)
+            ).limit(1)
         )
         return result.scalar_one_or_none()
 

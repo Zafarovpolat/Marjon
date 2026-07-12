@@ -72,8 +72,8 @@ export function ReceiptLayout({ title, settings, update, fields, extra, preview 
             <div><p>Настройки</p><h1>{title}</h1></div>
           </div>
           <div className="settings-actions">
-            <button type="button" onClick={() => console.log("save receipt", settings)}>Сохранить</button>
-            <button type="button" onClick={() => console.log("test print")}>Напечатать тест</button>
+            <button type="button" onClick={() => window.alert("Сохранение чека будет доступно в следующей версии")}>Сохранить</button>
+            <button type="button" onClick={() => window.alert("Тест печати будет доступен в следующей версии")}>Напечатать тест</button>
           </div>
         </header>
         <div className="settings-receipt-layout">

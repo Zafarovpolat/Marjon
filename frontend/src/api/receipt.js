@@ -97,6 +97,7 @@ function writeStorage(key, value) {
 }
 
 export function buildCustomerTemplate(org = {}) {
+  const organization = org || {};
   const enabled = CUSTOMER_BLOCKS.reduce((acc, key) => ({ ...acc, [key]: true }), {});
   const blockStyles = CUSTOMER_BLOCKS.reduce((acc, key) => ({
     ...acc,
@@ -113,7 +114,7 @@ export function buildCustomerTemplate(org = {}) {
     blocks: [...CUSTOMER_BLOCKS],
     enabled,
     thankYouText: "XARIDINGIZ\nUCHUN RAXMAT!",
-    footerText: org.phone || "+998770702101",
+    footerText: organization.phone || "+998770702101",
     blockStyles: {
       ...blockStyles,
       restaurantName: { size: "large", align: "center", weight: "bold" },
@@ -130,12 +131,12 @@ export function buildCustomerTemplate(org = {}) {
       thankYouText: { x: 0, y: 0 },
       footerText: { x: 0, y: 0 },
     },
-    restaurantName: org.name || "MARJON",
-    address: org.address || "",
-    phone: org.phone || "",
-    currency: org.currency || "UZS",
-    vatRate: Number(org.vat_rate || 0),
-    serviceFee: Number(org.service_fee || 0),
+    restaurantName: organization.name || "MARJON",
+    address: organization.address || "",
+    phone: organization.phone || "",
+    currency: organization.currency || "UZS",
+    vatRate: Number(organization.vat_rate || 0),
+    serviceFee: Number(organization.service_fee || 0),
   };
 }
 

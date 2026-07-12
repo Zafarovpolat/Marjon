@@ -1,6 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { api } from "../api/client";
+import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
+import { exportToExcel } from "../utils/excel";
 
 const initialFilters = {
   orderType: "all",
@@ -148,11 +151,45 @@ export default function OrdersReportPage() {
   const [filters, setFilters] = useState(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [rows, setRows] = useState(orderRows);
+  const [isDemo, setIsDemo] = useState(true);
 
-  const orderTypes = useMemo(() => Array.from(new Set(orderRows.map((row) => row.type))), []);
-  const waiters = useMemo(() => Array.from(new Set(orderRows.map((row) => row.waiter))), []);
+  useEffect(() => {
+    api.get("/reports/orders", { params: { start: dateRange.start, end: dateRange.end } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || data?.orders || [];
+        if (items.length) {
+          setRows(items.map((item) => ({
+            id: String(item.id || ""),
+            orderNumber: String(item.order_number || item.orderNumber || ""),
+            date: item.date || item.created_at || "",
+            type: item.order_type || item.type || "На стол",
+            place: item.place || item.table_name || "-",
+            waiter: item.waiter_name || item.waiter || "-",
+            client: item.client_name || item.client || "-",
+            courier: item.courier_name || item.courier || "не указан",
+            goodsPrice: item.goods_price ? `${Number(item.goods_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            goodsValue: Number(item.goods_price || 0),
+            placePrice: item.place_price ? `${Number(item.place_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            discount: item.discount ? `${Number(item.discount).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            deliveryPrice: item.delivery_price ? `${Number(item.delivery_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            servicePrice: item.service_price ? `${Number(item.service_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            serviceValue: Number(item.service_price || 0),
+            totalPrice: item.total_price ? `${Number(item.total_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            totalValue: Number(item.total_price || 0),
+            status: item.status_label || item.status || "Завершено",
+            dishes: item.dishes || item.order_items?.map((d) => `${d.name} x${d.quantity}`) || [],
+          })));
+          setIsDemo(false);
+        }
+      })
+      .catch(() => {});
+  }, [dateRange.start, dateRange.end]);
 
-  const filteredRows = useMemo(() => orderRows.filter((row) => {
+  const orderTypes = useMemo(() => Array.from(new Set(rows.map((row) => row.type))), [rows]);
+  const waiters = useMemo(() => Array.from(new Set(rows.map((row) => row.waiter))), [rows]);
+
+  const filteredRows = useMemo(() => rows.filter((row) => {
     const min = appliedFilters.minAmount ? Number(appliedFilters.minAmount) : null;
     const max = appliedFilters.maxAmount ? Number(appliedFilters.maxAmount) : null;
     return (
@@ -165,7 +202,7 @@ export default function OrdersReportPage() {
       (min === null || row.totalValue >= min) &&
       (max === null || row.totalValue <= max)
     );
-  }), [appliedFilters]);
+  }), [rows, appliedFilters]);
 
   function updateFilter(key, value) {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -176,12 +213,23 @@ export default function OrdersReportPage() {
   }
 
   function downloadExcel() {
-    console.log("Orders report Excel export placeholder", { filters: appliedFilters, rows: filteredRows });
+    const cols = [
+      { key: "order_number", label: "Номер заказа" },
+      { key: "date", label: "Дата" },
+      { key: "type", label: "Тип" },
+      { key: "place", label: "Место" },
+      { key: "waiter", label: "Официант" },
+      { key: "total", label: "Цена всего" },
+    ];
+    exportToExcel(filteredRows, cols, "orders-report");
   }
 
   return (
     <section className="orders-report-page">
       <article className="report-page-card">
+        {isDemo && (
+          <DemoNotice />
+        )}
         <div className="report-page-header">
           <div className="report-title-group">
             <span className="report-accent-bar" aria-hidden="true" />

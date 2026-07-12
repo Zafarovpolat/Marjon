@@ -1,5 +1,7 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
+import { api } from "../api/client";
+import DemoNotice from "../components/DemoNotice";
 import DatePicker from "../components/DatePicker";
 import Icon from "../components/Icon";
 import { formatMoney } from "../api/client";
@@ -120,10 +122,36 @@ export default function DebtorsCreditorsReportPage() {
   const [currency, setCurrency] = useState("UZS");
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState("cl-001");
+  const [rows, setRows] = useState(parties);
+  const [isDemo, setIsDemo] = useState(true);
+
+  useEffect(() => {
+    api.get("/reports/debt-credit")
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || data?.parties || [];
+        if (items.length) {
+          setRows(items.map((item) => ({
+            id: String(item.id || ""),
+            type: item.type || "debtors",
+            name: item.name || "",
+            category: item.category || "",
+            phone: item.phone || "",
+            owner: item.owner || "",
+            amount: Number(item.amount || 0),
+            dueDate: item.due_date || item.dueDate || "",
+            status: item.status || "active",
+            note: item.note || "",
+            operations: item.operations || [],
+          })));
+          setIsDemo(false);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const totals = useMemo(() => {
-    const debtors = parties.filter((party) => party.type === "debtors");
-    const creditors = parties.filter((party) => party.type === "creditors");
+    const debtors = rows.filter((party) => party.type === "debtors");
+    const creditors = rows.filter((party) => party.type === "creditors");
     const debt = debtors.reduce((sum, party) => sum + party.amount, 0);
     const credit = creditors.reduce((sum, party) => sum + party.amount, 0);
     return {
@@ -133,24 +161,27 @@ export default function DebtorsCreditorsReportPage() {
       debtorsCount: debtors.length,
       creditorsCount: creditors.length,
     };
-  }, []);
+  }, [rows]);
 
   const visibleRows = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    return parties
+    return rows
       .filter((party) => party.type === activeTab)
       .filter((party) => {
         if (!needle) return true;
         return [party.name, party.category, party.phone, party.owner]
           .some((value) => value.toLowerCase().includes(needle));
       });
-  }, [activeTab, search]);
+  }, [rows, activeTab, search]);
 
   const activeTotal = activeTab === "debtors" ? totals.debt : totals.credit;
 
   return (
     <section className="dc-report-page">
       <article className="dc-report-card">
+        {isDemo && (
+          <DemoNotice />
+        )}
         <div className="dc-report-head">
           <div>
             <span className="dc-report-eyebrow">Marjon finance</span>

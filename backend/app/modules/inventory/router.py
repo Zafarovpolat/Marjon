@@ -47,6 +47,11 @@ async def update_product(product_id: UUID, data: ProductUpdate, user: User = Dep
     return await ProductService(db).update(user.company_id, product_id, data)
 
 
+@router.delete("/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_product(product_id: UUID, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)):
+    await ProductService(db).delete(user.company_id, product_id)
+
+
 @router.get("/ingredients", response_model=list[IngredientResponse])
 async def list_ingredients(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     return await IngredientService(db).list(user.company_id)

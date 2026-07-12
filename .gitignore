@@ -1,41 +1,52 @@
-# ── Python ──────────────────────────────────────────────
+# Python
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
 *.egg-info/
-.eggs/
-build/
 dist/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
+build/
+*.egg
 
 # Virtual environments
 .venv/
 venv/
 env/
 
-# ── Secrets & local config ──────────────────────────────
+# Environment files
 .env
-.env.*
-!.env.example
+.env.local
+.env.production
 
-# ── Databases & logs ────────────────────────────────────
+# Database
 *.db
 *.sqlite
 *.sqlite3
+
+# Logs
 *.log
 
-# ── Node / frontend ─────────────────────────────────────
-node_modules/
-frontend/dist/
-frontend/build/
-.vite/
-
-# ── Editor / OS ─────────────────────────────────────────
+# IDE
 .idea/
 .vscode/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
-desktop.ini
 Thumbs.db
+desktop.ini
+
+# Node
+node_modules/
+frontend/dist/
+
+# Print agent config (contains tokens)
+print_agent/agent_config.json
+
+# Large build artifacts
+desktop.zip
+desktop/build/
+mobile/build/
+owner/build/

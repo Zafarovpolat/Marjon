@@ -1,6 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { api } from "../api/client";
+import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
+import { exportToExcel } from "../utils/excel";
 
 const initialFilters = {
   zone: "all",
@@ -197,12 +200,42 @@ export default function TablesReportPage() {
   const [filters, setFilters] = useState(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
   const [selectedTable, setSelectedTable] = useState(null);
+  const [rows, setRows] = useState(tableRows);
+  const [isDemo, setIsDemo] = useState(true);
 
-  const zones = useMemo(() => Array.from(new Set(tableRows.map((row) => row.zone))), []);
-  const waiters = useMemo(() => Array.from(new Set(tableRows.map((row) => row.waiter))), []);
-  const paymentTypes = useMemo(() => Array.from(new Set(tableRows.map((row) => row.paymentType))), []);
+  useEffect(() => {
+    api.get("/reports/tables", { params: { start: dateRange.start, end: dateRange.end } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || data?.tables || [];
+        if (items.length) {
+          setRows(items.map((item) => ({
+            id: String(item.id || ""),
+            tableNumber: item.table_number || item.tableNumber || "",
+            date: item.date || "",
+            servicePrice: item.service_price ? `${Number(item.service_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            serviceValue: Number(item.service_price || 0),
+            discount: item.discount ? `${Number(item.discount).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            placePrice: item.place_price ? `${Number(item.place_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            dishesAmount: item.dishes_amount ? `${Number(item.dishes_amount).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            total: item.total ? `${Number(item.total).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            totalValue: Number(item.total || 0),
+            transaction: item.transaction || "",
+            zone: item.zone || "",
+            paymentType: item.payment_type || item.paymentType || "",
+            waiter: item.waiter_name || item.waiter || "",
+            orders: item.orders || [],
+          })));
+          setIsDemo(false);
+        }
+      })
+      .catch(() => {});
+  }, [dateRange.start, dateRange.end]);
 
-  const filteredRows = useMemo(() => tableRows.filter((row) => {
+  const zones = useMemo(() => Array.from(new Set(rows.map((row) => row.zone))), [rows]);
+  const waiters = useMemo(() => Array.from(new Set(rows.map((row) => row.waiter))), [rows]);
+  const paymentTypes = useMemo(() => Array.from(new Set(rows.map((row) => row.paymentType))), [rows]);
+
+  const filteredRows = useMemo(() => rows.filter((row) => {
     const min = appliedFilters.minAmount ? Number(appliedFilters.minAmount) : null;
     const max = appliedFilters.maxAmount ? Number(appliedFilters.maxAmount) : null;
     return (
@@ -213,7 +246,7 @@ export default function TablesReportPage() {
       (min === null || row.totalValue >= min) &&
       (max === null || row.totalValue <= max)
     );
-  }), [appliedFilters]);
+  }), [rows, appliedFilters]);
 
   function updateFilter(key, value) {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -224,12 +257,23 @@ export default function TablesReportPage() {
   }
 
   function downloadExcel() {
-    console.log("Tables report Excel export placeholder", { filters: appliedFilters, rows: filteredRows });
+    const cols = [
+      { key: "table", label: "Номер стола" },
+      { key: "date", label: "Дата" },
+      { key: "service", label: "Цена обслуживания" },
+      { key: "discount", label: "Скидка" },
+      { key: "dishes", label: "Сумма блюд" },
+      { key: "total", label: "Сумма" },
+    ];
+    exportToExcel(filteredRows, cols, "tables-report");
   }
 
   return (
     <section className="tables-report-page">
       <article className="report-page-card">
+        {isDemo && (
+          <DemoNotice />
+        )}
         <div className="report-page-header">
           <div className="report-title-group">
             <span className="report-accent-bar" aria-hidden="true" />

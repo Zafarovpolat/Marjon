@@ -1,236 +1,241 @@
+#!/usr/bin/env python3
+"""
+Seed script for Marjon POS.
+Usage: cd backend && python seed.py
+
+Creates:
+  - Company: Marjon Restaurant
+  - Branches: Главный зал, Терраса
+  - Users:  admin / kassir / ofitsiant / kuxna / bar
+  - Categories + Products (food & drinks)
+  - Printers for each branch
+"""
 import asyncio
-import httpx
+import sys
+from decimal import Decimal
+from pathlib import Path
 
-BASE_URL = "http://localhost:8000/api/v1"
+sys.path.insert(0, str(Path(__file__).parent))
 
-# ─── 1. Данные компании ──────────────────────────────────────────────────────
-COMPANY = {
-    "company_name": "Marjon Demo",
-    "company_slug": "marjon-demo",
-    "email": "admin@marjon.uz",
-    "password": "Admin1234!",
-}
+from sqlalchemy import select, text
+from app.infrastructure.database.session import AsyncSessionLocal
+from app.modules.auth.models import User
+from app.modules.auth.security import hash_password
+from app.modules.companies.models import Branch, Company
+from app.modules.inventory.models import Category, Product
+from app.modules.printers.models import Printer
+from app.modules.rbac.models import Role, UserRole
 
-# ─── 2. Категории блюд ──────────────────────────────────────────────────────
+
+# ── Data ─────────────────────────────────────────────────────────────────────
+
+COMPANY_SLUG = "marjon"
+COMPANY_NAME = "Marjon Restaurant"
+
+BRANCHES = [
+    {"name": "Главный зал", "address": "ул. Навои 12, Ташкент", "city": "Ташкент"},
+    {"name": "Терраса",     "address": "ул. Навои 12 (терраса)", "city": "Ташкент"},
+]
+
+USERS = [
+    # (email, name, phone, password, role_slug, role_name)
+    ("admin@marjon.uz",      "Админ",         "+998901234567", "Admin1234",  "owner",     "Owner"),
+    ("kassir@marjon.uz",     "Касса",          "+998901234568", "Staff1234",  "cashier",   "Cashier"),
+    ("ofitsiant@marjon.uz",  "Официант",       "+998901234569", "Staff1234",  "waiter",    "Waiter"),
+    ("kuxna@marjon.uz",      "Повар",          "+998901234570", "Staff1234",  "kitchen",   "Kitchen"),
+    ("bar@marjon.uz",        "Бармен",         "+998901234571", "Staff1234",  "bar",       "Bar"),
+]
+
 CATEGORIES = [
-    {"name": "Первые блюда", "slug": "first-dishes", "sort_order": 1},
-    {"name": "Вторые блюда", "slug": "second-dishes", "sort_order": 2},
-    {"name": "Напитки", "slug": "drinks", "sort_order": 3},
-    {"name": "Десерты", "slug": "desserts", "sort_order": 4},
-    {"name": "Закуски", "slug": "appetizers", "sort_order": 5},
+    "Горячие блюда",
+    "Салаты",
+    "Супы",
+    "Пицца",
+    "Гарниры",
+    "Напитки",
+    "Десерты",
 ]
 
-# ─── 3. Блюда ───────────────────────────────────────────────────────────────
 PRODUCTS = [
-    {"name": "Мастава", "price": 25000, "cost_price": 12000, "unit": "порция", "category": "Первые блюда", "sort_order": 1},
-    {"name": "Лагман", "price": 30000, "cost_price": 15000, "unit": "порция", "category": "Первые блюда", "sort_order": 2},
-    {"name": "Шурпа", "price": 28000, "cost_price": 13000, "unit": "порция", "category": "Первые блюда", "sort_order": 3},
-    {"name": "Плов Узбекский", "price": 45000, "cost_price": 20000, "unit": "порция", "category": "Вторые блюда", "sort_order": 1},
-    {"name": "Самса (2 шт)", "price": 18000, "cost_price": 8000, "unit": "порция", "category": "Вторые блюда", "sort_order": 2},
-    {"name": "Шашлык Куриный", "price": 55000, "cost_price": 28000, "unit": "порция", "category": "Вторые блюда", "sort_order": 3},
-    {"name": "Шашлык Говяжий", "price": 70000, "cost_price": 35000, "unit": "порция", "category": "Вторые блюда", "sort_order": 4},
-    {"name": "Кола 0.5л", "price": 12000, "cost_price": 5000, "unit": "шт", "category": "Напитки", "sort_order": 1},
-    {"name": "Зелёный чай", "price": 8000, "cost_price": 1500, "unit": "чайник", "category": "Напитки", "sort_order": 2},
-    {"name": "Чёрный чай", "price": 8000, "cost_price": 1500, "unit": "чайник", "category": "Напитки", "sort_order": 3},
-    {"name": "Айран", "price": 10000, "cost_price": 3000, "unit": "стакан", "category": "Напитки", "sort_order": 4},
-    {"name": "Пахлава", "price": 20000, "cost_price": 8000, "unit": "порция", "category": "Десерты", "sort_order": 1},
-    {"name": "Чак-чак", "price": 15000, "cost_price": 6000, "unit": "порция", "category": "Десерты", "sort_order": 2},
-    {"name": "Салат Ташкентский", "price": 22000, "cost_price": 10000, "unit": "порция", "category": "Закуски", "sort_order": 1},
-    {"name": "Нон (1 шт)", "price": 5000, "cost_price": 1500, "unit": "шт", "category": "Закуски", "sort_order": 2},
+    # (name, category, price)
+    ("Лагман",               "Горячие блюда",  45_000),
+    ("Плов по-узбекски",     "Горячие блюда",  55_000),
+    ("Люля-кебаб (3 шт)",   "Горячие блюда",  65_000),
+    ("Шашлык из говядины",   "Горячие блюда",  70_000),
+    ("Манты (6 шт)",         "Горячие блюда",  40_000),
+
+    ("Салат Цезарь",         "Салаты",         38_000),
+    ("Греческий салат",      "Салаты",         35_000),
+    ("Овощной микс",         "Салаты",         28_000),
+
+    ("Шурпа",                "Супы",           30_000),
+    ("Борщ",                 "Супы",           28_000),
+
+    ("Маргарита",            "Пицца",          60_000),
+    ("Пепперони",            "Пицца",          75_000),
+    ("4 сыра",               "Пицца",          80_000),
+
+    ("Картофель фри",        "Гарниры",        22_000),
+    ("Рис отварной",         "Гарниры",        18_000),
+
+    ("Чай зелёный (чайник)", "Напитки",        15_000),
+    ("Чай чёрный (чайник)",  "Напитки",        15_000),
+    ("Кофе эспрессо",        "Напитки",        18_000),
+    ("Капучино",             "Напитки",        22_000),
+    ("Кола 0.5л",            "Напитки",        12_000),
+    ("Вода 0.5л",            "Напитки",         8_000),
+    ("Айран",                "Напитки",        10_000),
+
+    ("Мороженое (3 шарика)", "Десерты",        25_000),
+    ("Наполеон",             "Десерты",        30_000),
+    ("Чизкейк",              "Десерты",        35_000),
 ]
 
-# ─── 4. Сотрудники ──────────────────────────────────────────────────────────
-STAFF = [
-    {"email": "waiter1@marjon.uz", "password": "Pass1234", "name": "Алишер Каримов", "role_slug": "waiter", "phone": "+998901234567"},
-    {"email": "waiter2@marjon.uz", "password": "Pass1234", "name": "Зулфия Рашидова", "role_slug": "waiter", "phone": "+998901234568"},
-    {"email": "cashier1@marjon.uz", "password": "Pass1234", "name": "Бобур Тошматов", "role_slug": "cashier", "phone": "+998901234569"},
-    {"email": "kitchen1@marjon.uz", "password": "Pass1234", "name": "Санжар Юсупов", "role_slug": "kitchen", "phone": "+998901234570"},
-    {"email": "manager1@marjon.uz", "password": "Pass1234", "name": "Малика Исмоилова", "role_slug": "manager", "phone": "+998901234571"},
-]
-
-# ─── 5. Заказы ──────────────────────────────────────────────────────────────
-ORDERS = [
-    {"order_type": "dine_in", "table_number": "1", "status": "completed", "products": ["Плов Узбекский", "Зелёный чай", "Нон (1 шт)"]},
-    {"order_type": "dine_in", "table_number": "2", "status": "completed", "products": ["Лагман", "Шашлык Куриный", "Кола 0.5л", "Кола 0.5л"]},
-    {"order_type": "dine_in", "table_number": "3", "status": "completed", "products": ["Мастава", "Самса (2 шт)", "Чёрный чай"]},
-    {"order_type": "dine_in", "table_number": "5", "status": "cooking", "products": ["Шашлык Говяжий", "Айран", "Салат Ташкентский"]},
-    {"order_type": "takeaway", "table_number": None, "status": "completed", "products": ["Плов Узбекский", "Самса (2 шт)", "Кола 0.5л"]},
-    {"order_type": "delivery", "table_number": None, "status": "completed", "products": ["Лагман", "Зелёный чай", "Пахлава"]},
-    {"order_type": "dine_in", "table_number": "4", "status": "new", "products": ["Шурпа", "Нон (1 шт)", "Чёрный чай"]},
-    {"order_type": "dine_in", "table_number": "6", "status": "completed", "products": ["Плов Узбекский", "Плов Узбекский", "Айран", "Айран", "Нон (1 шт)"]},
-    {"order_type": "takeaway", "table_number": None, "status": "completed", "products": ["Самса (2 шт)", "Самса (2 шт)", "Чёрный чай"]},
-    {"order_type": "dine_in", "table_number": "2", "status": "completed", "products": ["Шашлык Куриный", "Шашлык Говяжий", "Кола 0.5л", "Кола 0.5л", "Салат Ташкентский", "Чак-чак"]},
+PRINTERS = [
+    # (name, printer_type, ip)
+    ("Принтер касса",    "receipt",  "192.168.1.101"),
+    ("Принтер кухня",    "kitchen",  "192.168.1.102"),
+    ("Принтер бар",      "bar",      "192.168.1.103"),
+    ("Принтер официант", "waiter",   "192.168.1.104"),
 ]
 
 
-async def register_or_login(client: httpx.AsyncClient) -> str:
-    """Регистрируем компанию или логинимся если уже есть."""
-    try:
-        resp = await client.post(f"{BASE_URL}/auth/register", json=COMPANY)
-        if resp.status_code == 201:
-            token = resp.json()["access_token"]
-            print(f"✅ Компания зарегистрирована: {COMPANY['company_name']}")
-            return token
-    except Exception:
-        pass
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
-    # Если уже есть — просто логинимся
-    resp = await client.post(f"{BASE_URL}/auth/login", json={
-        "email": COMPANY["email"],
-        "password": COMPANY["password"],
-    })
-    if resp.status_code == 200:
-        token = resp.json()["access_token"]
-        print(f"✅ Вход выполнен: {COMPANY['email']}")
-        return token
-
-    raise Exception(f"❌ Не удалось зарегистрироваться или войти: {resp.text}")
+async def get_or_none(db, model, **filters):
+    q = select(model)
+    for k, v in filters.items():
+        q = q.where(getattr(model, k) == v)
+    return (await db.execute(q)).scalar_one_or_none()
 
 
-async def seed_categories(client: httpx.AsyncClient) -> dict[str, str]:
-    """Создаём категории. Возвращает dict name→id."""
-    category_map = {}
-    for cat in CATEGORIES:
-        resp = await client.post(f"{BASE_URL}/inventory/categories", json=cat)
-        if resp.status_code in (200, 201):
-            data = resp.json()
-            category_map[cat["name"]] = data["id"]
-            print(f"  + Категория: {cat['name']}")
-        elif resp.status_code == 409:
-            # Уже существует — получаем список
-            print(f"  ~ Категория уже есть: {cat['name']}")
+# ── Main ──────────────────────────────────────────────────────────────────────
 
-    # Подтягиваем существующие если пропустили
-    resp = await client.get(f"{BASE_URL}/inventory/categories")
-    if resp.status_code == 200:
-        for cat in resp.json():
-            category_map[cat["name"]] = cat["id"]
-
-    return category_map
-
-
-async def seed_products(client: httpx.AsyncClient, category_map: dict) -> dict[str, str]:
-    """Создаём блюда. Возвращает dict name→id."""
-    product_map = {}
-    for p in PRODUCTS:
-        payload = {
-            "name": p["name"],
-            "price": p["price"],
-            "cost_price": p["cost_price"],
-            "unit": p["unit"],
-            "sort_order": p["sort_order"],
-            "category_id": category_map.get(p["category"]),
-            "is_active": True,
-            "is_available": True,
-        }
-        resp = await client.post(f"{BASE_URL}/inventory/products", json=payload)
-        if resp.status_code in (200, 201):
-            data = resp.json()
-            product_map[p["name"]] = {"id": data["id"], "price": p["price"]}
-            print(f"  + Блюдо: {p['name']}")
+async def seed():
+    async with AsyncSessionLocal() as db:
+        print("--- Company ---")
+        company = await get_or_none(db, Company, slug=COMPANY_SLUG)
+        if company:
+            print(f"  already exists: {company.name}")
         else:
-            print(f"  ! Блюдо пропущено ({resp.status_code}): {p['name']}")
+            company = Company(name=COMPANY_NAME, slug=COMPANY_SLUG,
+                              country_code="UZ", timezone="Asia/Tashkent", currency="UZS")
+            db.add(company)
+            await db.flush()
+            print(f"  created: {company.name}  id={company.id}")
 
-    # Подтягиваем существующие
-    resp = await client.get(f"{BASE_URL}/inventory/products")
-    if resp.status_code == 200:
-        for prod in resp.json():
-            product_map[prod["name"]] = {"id": prod["id"], "price": float(prod.get("price", 0))}
+        print("--- Branches ---")
+        branch_objects: list[Branch] = []
+        for b in BRANCHES:
+            branch = await get_or_none(db, Branch, company_id=company.id, name=b["name"])
+            if branch:
+                print(f"  already exists: {branch.name}")
+            else:
+                branch = Branch(company_id=company.id, **b)
+                db.add(branch)
+                await db.flush()
+                print(f"  created: {branch.name}  id={branch.id}")
+            branch_objects.append(branch)
 
-    return product_map
+        main_branch = branch_objects[0]
 
-
-async def seed_staff(client: httpx.AsyncClient):
-    """Создаём сотрудников."""
-    for emp in STAFF:
-        payload = {
-            "email": emp["email"],
-            "password": emp["password"],
-            "phone": emp["phone"],
-            "role_slug": emp["role_slug"],
-            "role_name": emp["name"],
-        }
-        resp = await client.post(f"{BASE_URL}/auth/users", json=payload)
-        if resp.status_code in (200, 201):
-            print(f"  + Сотрудник: {emp['name']} ({emp['role_slug']})")
-        else:
-            print(f"  ~ Сотрудник уже есть или ошибка: {emp['name']}")
-
-
-async def seed_orders(client: httpx.AsyncClient, product_map: dict):
-    """Создаём тестовые заказы."""
-    for i, order in enumerate(ORDERS, start=1):
-        # Собираем items
-        items = []
-        totals: dict[str, int] = {}
-        for product_name in order["products"]:
-            totals[product_name] = totals.get(product_name, 0) + 1
-
-        total_amount = 0
-        for product_name, qty in totals.items():
-            prod = product_map.get(product_name)
-            if not prod:
+        print("--- Users & Roles ---")
+        for email, name, phone, password, role_slug, role_name in USERS:
+            user = await get_or_none(db, User, email=email)
+            if user:
+                print(f"  already exists: {email}")
                 continue
-            price = prod["price"]
-            total_amount += price * qty
-            items.append({
-                "product_id": prod["id"],
-                "quantity": qty,
-                "unit_price": price,
-                "total_price": price * qty,
-                "name": product_name,
-            })
 
-        if not items:
-            continue
+            user = User(
+                company_id=company.id,
+                email=email,
+                name=name,
+                phone=phone,
+                password_hash=hash_password(password),
+                is_active=True,
+            )
+            db.add(user)
+            await db.flush()
 
-        payload = {
-            "order_number": f"T{i:04d}",
-            "order_type": order["order_type"],
-            "status": order["status"],
-            "table_number": order["table_number"],
-            "persons_count": 2,
-            "subtotal": total_amount,
-            "discount_amount": 0,
-            "tax_amount": 0,
-            "service_fee": 0,
-            "total_amount": total_amount,
-            "items": items,
-            "source": "seed",
-        }
-        resp = await client.post(f"{BASE_URL}/pos/orders", json=payload)
-        if resp.status_code in (200, 201):
-            print(f"  + Заказ #{i}: {order['order_type']} стол {order['table_number'] or '—'} → {total_amount:,} UZS")
-        else:
-            print(f"  ! Заказ #{i} ошибка ({resp.status_code}): {resp.text[:100]}")
+            # Role
+            role = await get_or_none(db, Role, company_id=company.id, slug=role_slug)
+            if not role:
+                role = Role(company_id=company.id, slug=role_slug, name=role_name, is_system=False)
+                db.add(role)
+                await db.flush()
 
+            # Assign to main branch
+            user_role = UserRole(user_id=user.id, role_id=role.id, branch_id=main_branch.id)
+            db.add(user_role)
+            await db.flush()
+            print(f"  created: {email}  role={role_slug}")
 
-async def main():
-    print("\n🚀 Запуск seed-скрипта Marjon...\n")
+        print("--- Categories ---")
+        cat_map: dict[str, Category] = {}
+        for cat_name in CATEGORIES:
+            cat = await get_or_none(db, Category, company_id=company.id, name=cat_name)
+            if cat:
+                print(f"  already exists: {cat_name}")
+            else:
+                slug = cat_name.lower().replace(" ", "-").replace("ё", "e")
+                cat = Category(company_id=company.id, name=cat_name, slug=slug)
+                db.add(cat)
+                await db.flush()
+                print(f"  created: {cat_name}")
+            cat_map[cat_name] = cat
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        # 1. Регистрация / вход
-        token = await register_or_login(client)
-        client.headers["Authorization"] = f"Bearer {token}"
+        print("--- Products ---")
+        for prod_name, cat_name, price in PRODUCTS:
+            existing = await get_or_none(db, Product, company_id=company.id, name=prod_name)
+            if existing:
+                print(f"  already exists: {prod_name}")
+                continue
+            cat = cat_map[cat_name]
+            product = Product(
+                company_id=company.id,
+                category_id=cat.id,
+                name=prod_name,
+                price=Decimal(str(price)),
+                unit="шт",
+                is_active=True,
+                is_available=True,
+            )
+            db.add(product)
+            print(f"  created: {prod_name}  ({price:,} сум)")
+        await db.flush()
 
-        # 2. Категории
-        print("\n📂 Создание категорий...")
-        category_map = await seed_categories(client)
+        print("--- Printers ---")
+        for pr_name, pr_type, ip in PRINTERS:
+            existing = await get_or_none(db, Printer,
+                                         company_id=company.id, branch_id=main_branch.id,
+                                         name=pr_name)
+            if existing:
+                print(f"  already exists: {pr_name}")
+                continue
+            printer = Printer(
+                company_id=company.id,
+                branch_id=main_branch.id,
+                name=pr_name,
+                printer_type=pr_type,
+                connection_type="network",
+                ip_address=ip,
+                port=9100,
+                paper_width=80,
+            )
+            db.add(printer)
+            print(f"  created: {pr_name}  ({ip})")
 
-        # 3. Блюда
-        print("\n🍽️  Создание блюд...")
-        product_map = await seed_products(client, category_map)
-
-        # 4. Сотрудники
-        print("\n👥 Создание сотрудников...")
-        await seed_staff(client)
-
-        # 5. Заказы
-        print("\n🧾 Создание заказов...")
-        await seed_orders(client, product_map)
-
-    print("\n✅ Seed завершён! Открой http://localhost:5175 и проверь данные.\n")
+        await db.commit()
+        print()
+        print("OK Seed complete!")
+        print()
+        print("  Credentials:")
+        print("  admin@marjon.uz   / Admin1234  (owner)")
+        print("  kassir@marjon.uz  / Staff1234  (cashier)")
+        print("  ofitsiant@marjon.uz / Staff1234 (waiter)")
+        print("  kuxna@marjon.uz   / Staff1234  (kitchen)")
+        print("  bar@marjon.uz     / Staff1234  (bar)")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(seed())

@@ -18,7 +18,7 @@ from app.modules.rbac.models import Role, UserRole
 
 
 PHONE = "+998900078779"
-PASSWORD = "900600"
+PASSWORD = "102938"
 EMAIL = "waiter.900078779@marjon.local"
 USERNAME = "waiter_900078779_active"
 

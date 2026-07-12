@@ -1,7 +1,58 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Chart, CategoryScale, Filler, LineController, LineElement, LinearScale, PointElement, Tooltip } from "chart.js";
 import logo from "../assets/marjon-logo.svg";
 import { adminApi, adminLogin, adminLogout, isAdminAuthenticated } from "./api";
 import Icon from '../components/Icon';
+
+Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler);
+
+const SECTION_API_MAP = {
+  "org-list": { endpoint: "/organizations", mapRow: (r) => [r.company_name || r.name || "", r.type || "Ресторан", String(r.branches_count || r.branch_count || 0), r.admin_name || r.owner_name || "—", r.status || "Активна"] },
+  "org-status": { endpoint: "/organization-statuses", mapRow: (r) => [r.name || "", r.status || "", r.updated_at || "—", r.manager || "—", r.state || r.status || ""] },
+  "storage-income": { endpoint: "/comings", mapRow: (r) => [r.document_number || r.id || "", r.provider_name || r.supplier || "", String(r.items_count || 0), `${Number(r.total || 0).toLocaleString("ru-RU")} UZS`, r.status || "Проведен"] },
+  "storage-expense": { endpoint: "/storage-movements", mapRow: (r) => [r.document_number || r.id || "", r.receiver || r.destination || "", String(r.items_count || 0), `${Number(r.total || 0).toLocaleString("ru-RU")} UZS`, r.status || "Проведен"] },
+  "storage-balance": { endpoint: "/reports/storage-balances", mapRow: (r) => [r.name || "", r.category || "", String(r.quantity || r.balance || 0), r.unit || "", r.status || "В норме"] },
+  "storage-income-journal": { endpoint: "/reports/incomes", mapRow: (r) => [r.date || "", r.document_number || "", r.provider_name || "", `${Number(r.total || 0).toLocaleString("ru-RU")} UZS`, r.status || "Проведен"] },
+  "storage-writeoff": { endpoint: "/reports/consumption", mapRow: (r) => [r.document_number || r.id || "", r.reason || "", String(r.items_count || 0), `${Number(r.total || 0).toLocaleString("ru-RU")} UZS`, r.status || "Проведен"] },
+  "storage-inventory": { endpoint: "/storages", mapRow: (r) => [r.name || r.id || "", r.warehouse || r.storage_name || "", String(r.discrepancies || 0), r.date || "—", r.status || "Завершено"] },
+  "nom-product": { endpoint: "/products", mapRow: null },
+  "nom-sale-category": { endpoint: "/categories", mapRow: (r) => [r.name || "", r.slug || "", String(r.products_count || 0), r.sort_order != null ? String(r.sort_order) : "—", r.status ? "Активна" : "Неактивна"] },
+  "nom-orders": { endpoint: "/orders", mapRow: (r) => [r.order_number || r.id || "", r.date || r.created_at || "", r.customer || "—", `${Number(r.total || 0).toLocaleString("ru-RU")} UZS`, r.status || ""] },
+  "nom-unit": { endpoint: "/units", mapRow: (r) => [r.name || "", r.short_name || r.code || "", r.type || "—", r.is_base ? "Базовая" : "—", r.status !== false ? "Активна" : "Неактивна"] },
+  "hb-countries": { endpoint: "/countries", mapRow: (r) => [r.name || "", r.code || r.iso || "", r.phone_code || "", r.currency || "—", r.status !== false ? "Активна" : "Неактивна"] },
+  "hb-regions": { endpoint: "/regions", mapRow: (r) => [r.name || "", r.country_name || r.country || "", r.code || "—", String(r.districts_count || 0), r.status !== false ? "Активна" : "Неактивна"] },
+  "hb-districts": { endpoint: "/districts", mapRow: (r) => [r.name || "", r.region_name || r.region || "", r.code || "—", "—", r.status !== false ? "Активна" : "Неактивна"] },
+  "srv-employees": { endpoint: "/departments", mapRow: (r) => [r.name || "", r.position || r.role || "—", r.department || "—", r.privileges || "—", r.status !== false ? "Активна" : "Неактивна"] },
+  "srv-source": { endpoint: "/sources", mapRow: (r) => [r.name || "", r.type || "—", r.url || "—", String(r.leads_count || 0), r.status !== false ? "Активна" : "Неактивна"] },
+  "bank-stats": { endpoint: "/reports/debt-credit", mapRow: null },
+  "bank-transactions": { endpoint: "/finance/transactions", mapRow: null },
+  "set-store": { endpoint: "/store-versions", mapRow: (r) => [r.version || r.name || "", r.platform || "—", r.release_date || "—", r.status || "Активна"] },
+  "set-cashier-bg": { endpoint: "/image-backgrounds", mapRow: null },
+  "set-languages": { endpoint: "/languages", mapRow: (r) => [r.name || "", r.code || "", r.is_default ? "Да" : "Нет", r.status !== false ? "Активна" : "Неактивна"] },
+};
+
+function useAdminData(sectionKey) {
+  const [apiRows, setApiRows] = useState(null);
+  const [isDemo, setIsDemo] = useState(true);
+
+  useEffect(() => {
+    const mapping = SECTION_API_MAP[sectionKey];
+    if (!mapping) return;
+    adminApi.get(mapping.endpoint, { params: { size: 100 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || data?.results || [];
+        if (items.length && mapping.mapRow) {
+          setApiRows(items.map(mapping.mapRow));
+          setIsDemo(false);
+        } else if (items.length) {
+          setIsDemo(false);
+        }
+      })
+      .catch(() => {});
+  }, [sectionKey]);
+
+  return { apiRows, isDemo };
+}
 
 const navItems = [
   { key: "dashboard", label: "Дашборд", icon: "bi-grid-1x2-fill" },
@@ -110,15 +161,6 @@ const kpis = [
     tone: "orange",
     points: [20, 26, 31, 44, 40, 55, 63, 72],
     desc: "Суммарный оборот всех организаций платформы за текущий месяц в узбекских сумах.",
-  },
-  {
-    title: "Платежи и банк",
-    value: "Все системы работают",
-    delta: "Uptime 99.98%",
-    icon: "bi-shield-check",
-    tone: "cyan",
-    radar: true,
-    desc: "Состояние платёжного шлюза и интеграции с Хамкорбанком. Аптайм за 30 дней — 99.98%.",
   },
 ];
 
@@ -458,14 +500,6 @@ const approvalItems = [
   ["Sushi Master", "Изменение тарифного плана", "1 ч назад", "Рассмотреть"],
   ["Family Kitchen", "Подключение услуги", "2 ч назад", "Одобрить"],
   ["Burger Station", "Запрос на скидку", "3 ч назад", "Рассмотреть"],
-];
-
-const alertItems = [
-  ["warning", "Высокая нагрузка на сервер API"],
-  ["warning", "Истекает лицензия у 3 организаций"],
-  ["success", "Резервное копирование завершено"],
-  ["info", "Обновление платформы доступно"],
-  ["info", "Новые фичи в модуле “Маркетинг”"],
 ];
 
 const systemItems = [
@@ -854,6 +888,220 @@ function formatCurrency(value) {
   return `${Number(value || 0).toLocaleString("ru-RU")} UZS`;
 }
 
+const financeOperationTotals = {
+  income: 3778653810,
+  expense: 2671477891,
+};
+
+const financeOperationRows = [
+  {
+    id: "money-42142689",
+    date: "04 Jul 2026",
+    time: "21:25",
+    amount: -720000,
+    paymentType: "—",
+    counterparty: "—",
+    category: "Продажа в долг",
+    organization: "Бош филиал",
+    comment: "Заказ № 42142689: Xprinter mini printer, model: XP - 80 TS x 1",
+  },
+  {
+    id: "money-42142750",
+    date: "04 Jul 2026",
+    time: "21:25",
+    amount: -240000,
+    paymentType: "—",
+    counterparty: "—",
+    category: "Продажа в долг",
+    organization: "Бош филиал",
+    comment: "Заказ № 42142750: MERCURY SG108 C (ХАП) x 1",
+  },
+  {
+    id: "money-42143611",
+    date: "04 Jul 2026",
+    time: "21:25",
+    amount: -4200000,
+    paymentType: "—",
+    counterparty: "—",
+    category: "Продажа в долг",
+    organization: "Бош филиал",
+    comment: "Заказ № 42143611: Моноблок - 15 Inch Monitor model: TSM-1514 (8-128 GB, Windows Cash Register) x 1",
+  },
+  {
+    id: "money-42422642",
+    date: "04 Jul 2026",
+    time: "11:48",
+    amount: -240000,
+    paymentType: "—",
+    counterparty: "—",
+    category: "Продажа в долг",
+    organization: "Бош филиал",
+    comment: "Заказ № 42422642: Tenda SG 108 8 Gigabit Power x 1",
+  },
+  {
+    id: "money-20260703-2100",
+    date: "03 Jul 2026",
+    time: "21:00",
+    amount: 1700000,
+    paymentType: "Наличные",
+    counterparty: "Admin 01",
+    category: "Пополнение кассы",
+    organization: "Нурафшон филиал",
+    comment: "02.07.2026",
+  },
+  {
+    id: "money-20260703-2052",
+    date: "03 Jul 2026",
+    time: "20:52",
+    amount: 580000,
+    paymentType: "Наличные",
+    counterparty: "Admin 01",
+    category: "Пополнение кассы",
+    organization: "Наманган филиал",
+    comment: "02.07.2026",
+  },
+  {
+    id: "money-20260703-2043-income",
+    date: "03 Jul 2026",
+    time: "20:43",
+    amount: 5600000,
+    paymentType: "Наличные",
+    counterparty: "Admin 01",
+    category: "Инкассация",
+    organization: "Наманган филиал",
+    comment: "Эркин олган",
+  },
+  {
+    id: "money-20260703-2043-expense",
+    date: "03 Jul 2026",
+    time: "20:43",
+    amount: -4200000,
+    paymentType: "—",
+    counterparty: "—",
+    category: "Продажа в долг",
+    organization: "Бош филиал",
+    comment: "Заказ № 42143611: Моноблок - 15 Inch Monitor model: TSM-1514 (8-128 GB, Windows Cash Register) x 1",
+  },
+  {
+    id: "money-20260703-2042",
+    date: "03 Jul 2026",
+    time: "20:42",
+    amount: 1000000,
+    paymentType: "Наличные",
+    counterparty: "Admin 01",
+    category: "Инкассация",
+    organization: "Фарғона филиал",
+    comment: "Эркин олган",
+  },
+  {
+    id: "money-20260703-2040",
+    date: "03 Jul 2026",
+    time: "20:40",
+    amount: 760000,
+    paymentType: "Наличные",
+    counterparty: "Admin 01",
+    category: "Инкассация",
+    organization: "Наманган филиал",
+    comment: "Эркин олган",
+  },
+  {
+    id: "money-20260703-1846",
+    date: "03 Jul 2026",
+    time: "18:46",
+    amount: 7820000,
+    paymentType: "Перечисление",
+    counterparty: "Поставщик",
+    category: "Закупка товара",
+    organization: "Наманган филиал",
+    comment: "Закупку товара. Товарный лист №83618",
+  },
+  {
+    id: "money-20260703-1737",
+    date: "03 Jul 2026",
+    time: "17:37",
+    amount: 10000,
+    paymentType: "Наличные",
+    counterparty: "—",
+    category: "Прочее поступление",
+    organization: "Сирдарё филиал",
+    comment: "—",
+  },
+];
+
+const incomeCategoryRows = [
+  { id: "income-sales", name: "Приход от продаж", status: "#активно", locked: true },
+  { id: "income-opening", name: "Стартовый баланс", status: "#активно", locked: true },
+  { id: "income-debt-sale", name: "Продажа в долг", status: "#активно", locked: true },
+  { id: "income-vip-sale", name: "Продажа в VIP", status: "#активно", locked: true },
+  { id: "income-oylik-tolov", name: "Oylik to'lov", status: "#активно", locked: false },
+  { id: "income-pochta", name: "Pochta", status: "#активно", locked: false },
+  { id: "income-taksi", name: "Taksi", status: "#активно", locked: false },
+  { id: "income-pochta-upper", name: "POCHTA", status: "#активно", locked: false },
+  { id: "income-obed", name: "Obed", status: "#активно", locked: false },
+  { id: "income-oylik-ish", name: "OYLIK ISH HAQI", status: "#активно", locked: false },
+  { id: "income-arenda", name: "Arenda", status: "#активно", locked: false },
+  { id: "income-qarz", name: "Qarz yopish", status: "#активно", locked: false },
+  { id: "income-pochta-branch", name: "POCHTA filial", status: "#активно", locked: false },
+  { id: "income-filial-open", name: "FILIAL OCHISHI", status: "#активно", locked: false },
+];
+
+const expenseCategoryRows = [
+  { id: "expense-purchase", name: "Закупка товара", status: "#активно", locked: false },
+  { id: "expense-salary", name: "Зарплата", status: "#активно", locked: false },
+  { id: "expense-rent", name: "Аренда", status: "#активно", locked: false },
+  { id: "expense-utilities", name: "Коммунальные услуги", status: "#активно", locked: false },
+  { id: "expense-delivery", name: "Доставка", status: "#активно", locked: false },
+  { id: "expense-marketing", name: "Маркетинг", status: "#активно", locked: false },
+  { id: "expense-taksi", name: "Taksi", status: "#активно", locked: false },
+  { id: "expense-repair", name: "Ремонт оборудования", status: "#активно", locked: false },
+  { id: "expense-refund", name: "Возврат клиенту", status: "#активно", locked: false },
+  { id: "expense-tax", name: "Налоги", status: "#активно", locked: false },
+  { id: "expense-bank", name: "Комиссия банка", status: "#активно", locked: false },
+  { id: "expense-other", name: "Прочие расходы", status: "#активно", locked: false },
+  { id: "expense-qarz", name: "Qarz yopish", status: "#активно", locked: false },
+];
+
+const paymentMethodRows = [
+  { id: "payment-transfer", sort: 1, name: "Pul O'tkazish", type: "Карта", status: "#активно", vip: false },
+  { id: "payment-cash", sort: 2, name: "Наличные", type: "Наличные", status: "#активно", vip: false },
+  { id: "payment-click", sort: 3, name: "CLICK", type: "Онлайн", status: "#активно", vip: true },
+  { id: "payment-terminal", sort: 4, name: "Terminal", type: "Карта", status: "#активно", vip: false },
+];
+
+const financeHistoryRows = [
+  { id: "hist-6162", number: 1, recordId: "6162", date: "04.07.2026 / 15:26", companyId: "1002708", organization: "Danok 3", newAmount: "1 700 000 UZS", oldAmount: "1 288 000 UZS", type: "Изменено", user: "Sardor Hamzayev Admin", comment: "xato kiritilgan" },
+  { id: "hist-6153", number: 2, recordId: "6153", date: "03.07.2026 / 19:24", companyId: "1002628", organization: "Luck 6", newAmount: "300 000 UZS", oldAmount: "390 000 UZS", type: "Изменено", user: "Sardor Hamzayev Admin", comment: "JASUR AXMEDOV 300MING QILIB BERGAN EKAN OYLIK TULOVINI" },
+  { id: "hist-6132", number: 3, recordId: "6132", date: "02.07.2026 / 22:15", companyId: "1002048", organization: "Bambino", newAmount: "3 140 000 UZS", oldAmount: "7 961 000 UZS", type: "Изменено", user: "Sardor Hamzayev Admin", comment: "KLIENTDAN TEXNIKALAR YECHIB OLINGAN ANCHA VAQT TULAMAGANLIGI UCHUN" },
+  { id: "hist-6131", number: 4, recordId: "6131", date: "02.07.2026 / 22:14", companyId: "1002048", organization: "Bambino", newAmount: "7 961 000 UZS", oldAmount: "7 961 000 UZS", type: "Изменено", user: "Sardor Hamzayev Admin", comment: "texnikalar qaytarib yechib olingan sababi klient tulov qilish imkoni yuq ekan programmani ishlatmas ekan Fargona Filiali!" },
+  { id: "hist-6118", number: 5, recordId: "6118", date: "02.07.2026 / 20:09", companyId: "1002482", organization: "Sharq Milliy Taomlari", newAmount: "2 500 000 UZS", oldAmount: "3 000 000 UZS", type: "Изменено", user: "Admin 01", comment: "2.5 MLN SOTIB 3 MLN KIRITILGAN SKRENSHOT TASHLADI" },
+  { id: "hist-6098", number: 6, recordId: "6098", date: "02.07.2026 / 12:14", companyId: "1002678", organization: "DINOZAVR HOT-DOG 5", newAmount: "1 288 000 UZS", oldAmount: "2 000 000 UZS", type: "Изменено", user: "Sardor Hamzayev Admin", comment: "соник 1700 дан сотилган" },
+  { id: "hist-6080", number: 7, recordId: "6080", date: "01.07.2026 / 20:18", companyId: "1002545", organization: "Tandora", newAmount: "700 000 UZS", oldAmount: "960 000 UZS", type: "Изменено", user: "Sardor Hamzayev Admin", comment: "printer 50$ sotilgan" },
+  { id: "hist-1019", number: 8, recordId: "1019", date: "01.07.2026 / 17:18", companyId: "1001530", organization: "Bunyod shashlik", newAmount: "390 000 UZS", oldAmount: "390 000 UZS", type: "Изменено", user: "Admin 01", comment: "" },
+  { id: "hist-1017", number: 9, recordId: "1017", date: "29.06.2026 / 13:43", companyId: "1002682", organization: "Rohat choyxonasi -2", newAmount: "1 500 000 UZS", oldAmount: "1 500 000 UZS", type: "Изменено", user: "Sardor Hamzayev Admin", comment: "" },
+  { id: "hist-1016", number: 10, recordId: "1016", date: "27.06.2026 / 18:36", companyId: "1002887", organization: "Qarmoq", newAmount: "1 000 UZS", oldAmount: "1 000 UZS", type: "Изменено", user: "Sardor Hamzayev Admin", comment: "" },
+  { id: "hist-5926", number: 11, recordId: "5926", date: "27.06.2026 / 18:36", companyId: "1002887", organization: "Qarmoq", newAmount: "3 000 000 UZS", oldAmount: "3 000 000 UZS", type: "Изменено", user: "Sardor Hamzayev Admin", comment: "1" },
+  { id: "hist-1015", number: 12, recordId: "1015", date: "27.06.2026 / 18:35", companyId: "1002887", organization: "Qarmoq", newAmount: "1 000 UZS", oldAmount: "1 000 UZS", type: "Изменено", user: "Sardor Hamzayev Admin", comment: "" },
+  { id: "hist-1014", number: 13, recordId: "1014", date: "27.06.2026 / 18:35", companyId: "1002887", organization: "Qarmoq", newAmount: "1 000 UZS", oldAmount: "1 000 UZS", type: "Изменено", user: "Sardor Hamzayev Admin", comment: "" },
+  { id: "hist-1013", number: 14, recordId: "1013", date: "24.06.2026 / 14:03", companyId: "1001573", organization: "Buxoro Kafe", newAmount: "10 000 000 UZS", oldAmount: "10 000 000 UZS", type: "Изменено", user: "Admin 01", comment: "" },
+  { id: "hist-5852", number: 15, recordId: "5852", date: "18.06.2026 / 11:18", companyId: "1002682", organization: "Rohat choyxonasi -2", newAmount: "6 376 000 UZS", oldAmount: "6 616 685 UZS", type: "Изменено", user: "Admin 01", comment: "HAB QO'YILMAGAN EKAN SARDOR AYTDI" },
+];
+
+const cashierBackgroundRows = [
+  { id: "cashier-bg-canyon", name: "Antelope Canyon", photo: "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=220&q=72" },
+  { id: "cashier-bg-leaves", name: "Green Leaves", photo: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=220&q=72" },
+  { id: "cashier-bg-lavender", name: "Photo Lavender Flower Field Under Pink Sky", photo: "https://images.unsplash.com/photo-1499002238440-d264edd596ec?auto=format&fit=crop&w=220&q=72" },
+  { id: "cashier-bg-city", name: "Bird's Eye View Of City", photo: "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=220&q=72" },
+  { id: "cashier-bg-sports-car", name: "Photography of Gray Sports Car", photo: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=220&q=72" },
+  { id: "cashier-bg-expressway", name: "Photo of Car on Expressway", photo: "https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&fit=crop&w=220&q=72" },
+  { id: "cashier-bg-snow", name: "Landscape Photography of Mountains Covered in Snow", photo: "https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?auto=format&fit=crop&w=220&q=72" },
+  { id: "cashier-bg-water", name: "Aerial Photography of Water Beside Forest during Golden Hour", photo: "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=220&q=72" },
+  { id: "cashier-bg-lake", name: "Lake and Mountain Under White Sky", photo: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=220&q=72" },
+];
+
+function formatSignedFinanceAmount(value) {
+  return `${value < 0 ? "- " : "+ "}${formatCurrency(Math.abs(value))}`;
+}
+
 function addMonthsToRange(range, diff) {
   const start = parseDate(range.start);
   const end = parseDate(range.end);
@@ -895,58 +1143,265 @@ function presetRange(label) {
   return { ...range, label: label === "Сегодня" || label === "Вчера" ? label : rangeLabel(range) };
 }
 
+function adminDateLabels(startDay, startMonth, length) {
+  const start = new Date(2026, startMonth - 1, startDay);
+  return Array.from({ length }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    return `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}`;
+  });
+}
+
 // Static turnover datasets per period — wired to the chart toggle so switching
 // День/Неделя/Месяц/Год actually redraws the line, value, axes and tooltip.
 const chartData = {
   "День": {
     value: "3 184 000 UZS",
     delta: "+4.2% к прошлому дню",
-    points: [28, 34, 31, 44, 39, 52, 47, 58],
-    xLabels: ["09:00", "12:00", "15:00", "18:00", "21:00", "00:00"],
+    points: [0.22, 0.28, 0.31, 0.34, 0.3, 0.38, 0.42, 0.48, 0.44, 0.612, 0.56, 0.52, 0.49, 0.46, 0.41, 0.36],
+    labels: ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00"],
+    tickLabels: [[0, "09:00"], [3, "12:00"], [6, "15:00"], [9, "18:00"], [12, "21:00"], [15, "00:00"]],
     tooltip: { label: "18:00", value: "612 000 UZS" },
+    tooltipIndex: 9,
+    yMax: 0.8,
+    yStep: 0.2,
   },
   "Неделя": {
     value: "21 940 000 UZS",
     delta: "+7.8% к прошлой неделе",
-    points: [34, 40, 36, 48, 52, 60, 66],
-    xLabels: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
-    tooltip: { label: "Сб", value: "4 280 000 UZS" },
+    points: [2.8, 3.2, 2.95, 3.62, 3.9, 4.28, 5.1],
+    labels: ["01.06", "02.06", "03.06", "04.06", "05.06", "06.06", "07.06"],
+    tickLabels: [[0, "01.06"], [1, "02.06"], [2, "03.06"], [3, "04.06"], [4, "05.06"], [5, "06.06"], [6, "07.06"]],
+    tooltip: { label: "06.06", value: "4 280 000 UZS" },
+    tooltipIndex: 5,
+    yMax: 6,
+    yStep: 1,
   },
   "Месяц": {
     value: "78 452 340 UZS",
     delta: "+18.6% к прошлому месяцу",
-    points: [16, 22, 18, 34, 30, 46, 42, 56, 60, 68, 74, 88],
-    xLabels: ["12.05", "19.05", "26.05", "02.06", "09.06", "11.06"],
+    points: [
+      26, 28, 29.5, 30.2, 30.7, 31, 31.2, 31, 30, 29, 28, 27.8, 27.5, 27.9, 29,
+      34, 38, 40, 39, 36.5, 37, 49, 48.5, 46.5, 45.5, 47, 51, 56, 83.12, 78, 81,
+    ],
+    labels: adminDateLabels(12, 5, 31),
+    tickLabels: [[0, "12.05"], [7, "19.05"], [14, "26.05"], [21, "02.06"], [28, "09.06"], [30, "11.06"]],
     tooltip: { label: "09.06", value: "83 120 000 UZS" },
+    tooltipIndex: 28,
+    yMax: 100,
+    yStep: 20,
   },
   "Год": {
     value: "842 600 000 UZS",
     delta: "+24.3% к прошлому году",
-    points: [22, 28, 30, 38, 44, 50, 58, 55, 64, 72, 80, 92],
-    xLabels: ["Янв", "Мар", "Май", "Июл", "Сен", "Ноя"],
+    points: [52, 57, 60, 64, 69, 73, 76, 74, 79, 86, 92.4, 88],
+    labels: ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"],
+    tickLabels: [[0, "Янв"], [2, "Мар"], [4, "Май"], [6, "Июл"], [8, "Сен"], [10, "Ноя"]],
     tooltip: { label: "Ноя", value: "92 400 000 UZS" },
+    tooltipIndex: 10,
+    yMax: 100,
+    yStep: 20,
   },
 };
 
-// Smooth (Catmull-Rom → cubic bezier) line + area path for the platform chart.
-function chartGeometry(values, width = 650, top = 30, bottom = 220, maxValue = 100) {
-  const n = values.length;
-  const pts = values.map((value, index) => ({
-    x: n > 1 ? (index / (n - 1)) * width : 0,
-    y: bottom - (Math.max(0, Math.min(maxValue, value)) / maxValue) * (bottom - top),
-  }));
-  const line = pts.map((point, index) => {
-    if (index === 0) return `M ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
-    const prev = pts[index - 1];
-    const beforePrev = pts[index - 2] || prev;
-    const next = pts[index + 1] || point;
-    const cp1x = prev.x + (point.x - beforePrev.x) / 6;
-    const cp1y = prev.y + (point.y - beforePrev.y) / 6;
-    const cp2x = point.x - (next.x - prev.x) / 6;
-    const cp2y = point.y - (next.y - prev.y) / 6;
-    return `C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
-  }).join(" ");
-  return { line, area: `${line} L ${width} ${bottom} L 0 ${bottom} Z`, last: pts[pts.length - 1] };
+const ADMIN_CHART_COLOR = "#4ed3a7";
+const ADMIN_CHART_COLOR_RGB = "78, 211, 167";
+
+function adminChartPointToMoney(value) {
+  return Math.round(Number(value || 0) * 1000000);
+}
+
+function formatAdminRawMoney(value) {
+  return `${Math.round(Number(value || 0)).toLocaleString("ru-RU").replace(/\u00a0/g, " ")} UZS`;
+}
+
+function formatAdminAxisTick(value) {
+  if (Number(value) === 0) return "0";
+  const millions = Number(value) / 1000000;
+  if (millions < 1) return `${Math.round(Number(value) / 1000)}K`;
+  return `${Number(millions).toLocaleString("ru-RU", { maximumFractionDigits: 1 }).replace(/\u00a0/g, " ")}M`;
+}
+
+function AdminRevenueChart({ data, segment }) {
+  const canvasRef = useRef(null);
+  const tooltipRef = useRef(null);
+
+  useEffect(() => {
+    if (!canvasRef.current) return undefined;
+    const ctx = canvasRef.current.getContext("2d");
+    const tooltipIndex = Math.min(Math.max(data.tooltipIndex ?? data.points.length - 1, 0), data.points.length - 1);
+    const labels = data.labels || data.xLabels || [];
+    const chartPoints = data.points.map(adminChartPointToMoney);
+    const tickLabels = new Map(data.tickLabels || labels.map((label, index) => [index, label]));
+    const yMax = data.yMax ? adminChartPointToMoney(data.yMax) : undefined;
+    const yStep = data.yStep ? adminChartPointToMoney(data.yStep) : undefined;
+    const revealState = { progress: 0, didClip: false };
+    const revealDuration = 1200;
+    const easeOutCubic = (value) => 1 - Math.pow(1 - value, 3);
+
+    const fill = ctx.createLinearGradient(0, 0, 0, 360);
+    fill.addColorStop(0, `rgba(${ADMIN_CHART_COLOR_RGB}, 0.28)`);
+    fill.addColorStop(0.55, `rgba(${ADMIN_CHART_COLOR_RGB}, 0.10)`);
+    fill.addColorStop(1, `rgba(${ADMIN_CHART_COLOR_RGB}, 0)`);
+
+    const revealPlugin = {
+      id: "adminRevenueChartReveal",
+      beforeDatasetsDraw(chart) {
+        const { chartArea } = chart;
+        revealState.didClip = false;
+        if (!chartArea) return;
+        const width = chartArea.width * revealState.progress;
+        chart.ctx.save();
+        chart.ctx.beginPath();
+        chart.ctx.rect(chartArea.left, chartArea.top, width, chartArea.height);
+        chart.ctx.clip();
+        revealState.didClip = true;
+      },
+      afterDatasetsDraw(chart) {
+        if (revealState.didClip) chart.ctx.restore();
+      },
+    };
+    let revealFrame = 0;
+
+    const chart = new Chart(canvasRef.current, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          data: chartPoints,
+          borderColor: ADMIN_CHART_COLOR,
+          backgroundColor: fill,
+          borderWidth: 4,
+          pointBorderColor: ADMIN_CHART_COLOR,
+          pointBorderWidth: 3,
+          pointRadius: 4,
+          pointBackgroundColor: "#ffffff",
+          pointHoverRadius: 7,
+          fill: true,
+          tension: 0.42,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { intersect: false, mode: "index" },
+        animation: false,
+        animations: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            enabled: false,
+            external: ({ chart: activeChart, tooltip }) => {
+              const tooltipEl = tooltipRef.current;
+              if (!tooltipEl) return;
+
+              if (!tooltip || tooltip.opacity === 0) {
+                tooltipEl.classList.remove("is-visible");
+                return;
+              }
+
+              const titleEl = tooltipEl.querySelector("strong");
+              const valueEl = tooltipEl.querySelector("span");
+              if (titleEl) titleEl.textContent = tooltip.title?.[0] || "";
+              if (valueEl) valueEl.textContent = tooltip.body?.[0]?.lines?.[0] || "";
+
+              const tooltipHalfWidth = tooltipEl.offsetWidth / 2 || 72;
+              const minX = tooltipHalfWidth + 8;
+              const maxX = activeChart.width - tooltipHalfWidth - 8;
+              const x = Math.min(Math.max(tooltip.caretX, minX), maxX);
+              const y = Math.max(tooltip.caretY - 10, 16);
+
+              tooltipEl.style.left = `${activeChart.canvas.offsetLeft + x}px`;
+              tooltipEl.style.top = `${activeChart.canvas.offsetTop + y}px`;
+              tooltipEl.classList.add("is-visible");
+            },
+            callbacks: {
+              title: (items) => {
+                const index = items[0]?.dataIndex ?? tooltipIndex;
+                return index === tooltipIndex ? data.tooltip.label : labels[index] || "";
+              },
+              label: (context) => (
+                context.dataIndex === tooltipIndex ? data.tooltip.value : formatAdminRawMoney(context.parsed.y)
+              ),
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              color: "#667085",
+              font: { size: 12, weight: "600", family: "'Golos Text', Manrope, sans-serif" },
+              maxRotation: 0,
+              autoSkip: false,
+              callback: (_value, index) => tickLabels.get(index) || "",
+            },
+            border: { display: false },
+          },
+          y: {
+            beginAtZero: true,
+            ...(yMax ? { max: yMax } : {}),
+            grid: { color: "rgba(15, 23, 42, 0.09)", drawTicks: false },
+            ticks: {
+              ...(yStep ? { stepSize: yStep } : {}),
+              color: "#667085",
+              padding: 8,
+              font: { size: 12, weight: "600", family: "'Golos Text', Manrope, sans-serif" },
+              callback: (value) => formatAdminAxisTick(value),
+            },
+            border: { display: false },
+          },
+        },
+      },
+      plugins: [revealPlugin],
+    });
+
+    const revealStart = performance.now();
+    const runReveal = (timestamp) => {
+      const elapsed = timestamp - revealStart;
+      const progress = Math.min(1, elapsed / revealDuration);
+      revealState.progress = easeOutCubic(progress);
+      chart.draw();
+      if (progress < 1) revealFrame = window.requestAnimationFrame(runReveal);
+    };
+    revealFrame = window.requestAnimationFrame(runReveal);
+
+    return () => {
+      window.cancelAnimationFrame(revealFrame);
+      chart.destroy();
+    };
+  }, [data, segment]);
+
+  return (
+    <>
+      <canvas ref={canvasRef} />
+      <div className="admin-tooltip admin-chart-tooltip" ref={tooltipRef} aria-hidden="true">
+        <strong />
+        <span />
+      </div>
+    </>
+  );
+}
+
+const ADMIN_PHONE_MAX_DIGITS = 9;
+
+function getAdminPhoneDigits(value) {
+  let digits = String(value || "").replace(/\D/g, "");
+
+  if (digits.length > ADMIN_PHONE_MAX_DIGITS && digits.startsWith("998")) {
+    digits = digits.slice(3);
+  }
+
+  return digits.slice(0, ADMIN_PHONE_MAX_DIGITS);
+}
+
+function formatAdminPhone(value) {
+  const digits = getAdminPhoneDigits(value);
+
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 5) return `${digits.slice(0, 2)} ${digits.slice(2)}`;
+  if (digits.length <= 7) return `${digits.slice(0, 2)} ${digits.slice(2, 5)}-${digits.slice(5)}`;
+  return `${digits.slice(0, 2)} ${digits.slice(2, 5)}-${digits.slice(5, 7)}-${digits.slice(7)}`;
 }
 
 function LoginView({ onLogin }) {
@@ -970,12 +1425,16 @@ function LoginView({ onLogin }) {
     }
   }
 
+  function handlePhoneChange(event) {
+    setPhone(getAdminPhoneDigits(event.target.value));
+  }
+
   return (
     <main className="admin-login">
       <form className="admin-login__panel" onSubmit={submit}>
         <div className="admin-login__brand">
           <img src={logo} alt="MARJON" />
-          <span>SUPER ADMIN</span>
+          <span>MARJON ADMIN</span>
         </div>
         <h1>Добро пожаловать</h1>
         <p className="admin-login__subtitle">Войдите в рабочее место суперадминки.</p>
@@ -984,7 +1443,7 @@ function LoginView({ onLogin }) {
           <div className="admin-login__input">
             <Icon name="bi-telephone" size={18} />
             <strong>+998</strong>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="numeric" autoComplete="tel" required />
+            <input value={formatAdminPhone(phone)} onChange={handlePhoneChange} type="tel" inputMode="numeric" autoComplete="tel-national" required />
           </div>
         </label>
         <label className="admin-login__field admin-login__field--password">
@@ -1109,7 +1568,7 @@ function Sidebar({ active, onSelect, collapsed, onToggle, user, onProfile }) {
   );
 }
 
-function Header({ user, onLogout, search, onSearchChange, dateRange, onDateRangeChange, onBellClick, notificationCount, onProfile }) {
+function Header({ user, onLogout, dateRange, onDateRangeChange, onBellClick, notificationCount, onProfile }) {
   const [dateOpen, setDateOpen] = useState(false);
   const [draftRange, setDraftRange] = useState(dateRange);
   const profileName = user?.name || "Александр П.";
@@ -1138,10 +1597,6 @@ function Header({ user, onLogout, search, onSearchChange, dateRange, onDateRange
         <p>Централизованное управление платформой MARJON</p>
       </div>
       <div className="admin-header__actions">
-        <label className="admin-search">
-          <Icon name="bi-search" size={18} />
-          <input value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Поиск по платформе..." />
-        </label>
         <div className="admin-date-picker">
           <button className="admin-date-step" type="button" onClick={() => shiftMonth(-1)} aria-label="Предыдущий месяц">
             <Icon name="bi-chevron-left" size={16} />
@@ -1225,9 +1680,6 @@ function KpiCard({ item, onClick }) {
 
 function PlatformChart({ segment, onSegmentChange }) {
   const data = chartData[segment] || chartData["Месяц"];
-  const geo = chartGeometry(data.points);
-  const tooltipLeft = Math.min(74, Math.max(2, (geo.last.x / 700) * 100 - 8));
-  const tooltipTop = Math.max(4, (geo.last.y / 250) * 100 - 16);
   return (
     <section className="admin-chart-card">
       <div className="admin-chart-card__head">
@@ -1243,45 +1695,7 @@ function PlatformChart({ segment, onSegmentChange }) {
         </div>
       </div>
       <div className="admin-chart">
-        <div className="admin-y-axis">
-          {["100M", "80M", "60M", "40M", "20M", "0"].map((label) => <span key={label}>{label}</span>)}
-        </div>
-        <svg viewBox="0 0 700 250" preserveAspectRatio="none" aria-hidden="true">
-          <defs>
-            <linearGradient id="platformArea" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#43d3a6" stopOpacity="0.34" />
-              <stop offset="100%" stopColor="#d6a84f" stopOpacity="0.02" />
-            </linearGradient>
-            <linearGradient id="platformLine" x1="0" x2="1" y1="0" y2="0">
-              <stop offset="0%" stopColor="#d6a84f" />
-              <stop offset="48%" stopColor="#43d3a6" />
-              <stop offset="100%" stopColor="#f2c76e" />
-            </linearGradient>
-            <filter id="lineGlow">
-              <feGaussianBlur stdDeviation="4" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-            <clipPath id="chartReveal">
-              <rect key={segment} className="admin-chart__reveal" x="0" y="0" width="700" height="250" />
-            </clipPath>
-          </defs>
-          {[30, 68, 106, 144, 182, 220].map((y) => <line x1="0" x2="700" y1={y} y2={y} key={y} />)}
-          <g clipPath="url(#chartReveal)">
-            <path className="admin-chart__area" d={geo.area} />
-            <path key={segment} className="admin-chart__line" d={geo.line} filter="url(#lineGlow)" pathLength="1" />
-          </g>
-          <circle key={segment} cx={geo.last.x} cy={geo.last.y} r="6" className="admin-chart__dot" />
-        </svg>
-        <div className="admin-tooltip" style={{ left: `${tooltipLeft}%`, top: `${tooltipTop}%` }}>
-          <strong>{data.tooltip.label}</strong>
-          <span>{data.tooltip.value}</span>
-        </div>
-        <div className="admin-x-axis">
-          {data.xLabels.map((label) => <span key={label}>{label}</span>)}
-        </div>
+        <AdminRevenueChart data={data} segment={segment} />
       </div>
     </section>
   );
@@ -1544,7 +1958,48 @@ function OrganizationDirectoryPage({ search, onRowDetail, onNotify }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState(orgDirectoryColumnKeys);
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const [isDemo, setIsDemo] = useState(true);
+  const pageSize = 20;
+
+  useEffect(() => {
+    adminApi.get("/organizations", { params: { size: 100 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || [];
+        if (items.length) {
+          setRows(items.map((r) => ({
+            id: String(r.id || ""),
+            message: Boolean(r.has_message),
+            service: r.service_type || "Xizmat",
+            paymentType: r.payment_type || "Без оплаты",
+            name: r.company_name || r.name || "",
+            clientId: String(r.client_id || r.id || ""),
+            terminals: String(r.terminals_count || 0),
+            cashboxes: String(r.cashboxes_count || 0),
+            deposit: String(r.deposit || 0),
+            debt: String(r.debt || 0),
+            overdue: String(r.overdue || 0),
+            contract: String(r.contract_amount || 0),
+            tariff: String(r.tariff_amount || r.tariff || "300 000"),
+            currency: r.currency || "UZS",
+            contact: r.phone || r.contact || "",
+            region: r.region || "",
+            manager: r.manager_name || r.manager || "",
+            date: r.created_at || "",
+            source: r.source || "—",
+            version: r.app_version || "—",
+            orgStatus: r.org_status || r.status || "",
+            identification: r.identification || "—",
+            paymentKind: r.payment_kind || "—",
+            status: r.access_status || "Доступен",
+            onlineMenu: r.online_menu ? "Активно" : "—",
+            warehouse: r.warehouse_enabled ? "Активно" : "—",
+            cashboxOnline: r.cashbox_online ? "Активно" : "—",
+          })));
+          setIsDemo(false);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setPage(1);
@@ -1591,6 +2046,39 @@ function OrganizationDirectoryPage({ search, onRowDetail, onNotify }) {
     const next = row[key] === "Активно" || row[key] === "Доступен" ? "Не активно" : "Активно";
     updateRow(row.id, { [key]: key === "status" && row[key] === "Доступен" ? "Не активно" : next });
     onNotify?.(`${row.name}: статус обновлен.`);
+  }
+
+  function copyClientIdFallback(value) {
+    const textarea = document.createElement("textarea");
+    textarea.value = value;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.top = "0";
+    textarea.style.left = "0";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return copied;
+  }
+
+  async function copyClientId(clientId) {
+    const value = String(clientId);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else if (!copyClientIdFallback(value)) {
+        throw new Error("copy failed");
+      }
+      onNotify?.(`ID клиента ${value} скопирован.`);
+    } catch {
+      if (copyClientIdFallback(value)) {
+        onNotify?.(`ID клиента ${value} скопирован.`);
+      } else {
+        onNotify?.("Не удалось скопировать ID клиента.");
+      }
+    }
   }
 
   function addOrganization() {
@@ -1683,7 +2171,25 @@ function OrganizationDirectoryPage({ search, onRowDetail, onNotify }) {
       ),
     },
     { key: "name", label: "Название", width: 190, render: (row) => <strong className="org-directory-name">{row.name}</strong> },
-    { key: "clientId", label: "ID клиента", width: 110, render: (row) => <span className="org-directory-copy">{row.clientId}<Icon name="bi-copy" size={13} /></span> },
+    {
+      key: "clientId",
+      label: "ID клиента",
+      width: 110,
+      render: (row) => (
+        <button
+          type="button"
+          className="org-directory-copy"
+          onClick={(event) => {
+            event.stopPropagation();
+            copyClientId(row.clientId);
+          }}
+          aria-label={`Скопировать ID клиента ${row.clientId}`}
+        >
+          <span>{row.clientId}</span>
+          <Icon name="bi-copy" size={13} />
+        </button>
+      ),
+    },
     { key: "terminals", label: "Э/с", width: 66, render: (row) => row.terminals },
     { key: "cashboxes", label: "Н/касс", width: 76, render: (row) => row.cashboxes },
     { key: "deposit", label: "Депозит", width: 112, render: (row) => <span className={String(row.deposit).includes("-") ? "is-negative" : ""}>{row.deposit}</span> },
@@ -1883,6 +2389,22 @@ function OrganizationStatusPage({ search, onNotify }) {
   const [sortDirection, setSortDirection] = useState("asc");
   const [editor, setEditor] = useState(null);
 
+  useEffect(() => {
+    adminApi.get("/organization-statuses", { params: { size: 100 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || [];
+        if (items.length) {
+          setRows(items.map((r, i) => ({
+            id: r.id || String(i),
+            name: r.name || "",
+            sort: r.sort_order ?? r.sort ?? i + 1,
+            active: r.status !== false,
+          })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const filteredRows = useMemo(() => {
     const query = search.trim().toLowerCase();
     const list = query
@@ -2031,7 +2553,7 @@ function OrganizationStatusPage({ search, onNotify }) {
   );
 }
 
-function RightColumn({ approvals, alerts, onApprovalAction, onShowApprovals, onShowAlerts, onApprovalClick, onAlertClick, onSystemClick }) {
+function RightColumn({ approvals, onApprovalAction, onShowApprovals, onApprovalClick, onSystemClick }) {
   return (
     <aside className="admin-right">
       <section className="admin-side-card">
@@ -2060,26 +2582,6 @@ function RightColumn({ approvals, alerts, onApprovalAction, onShowApprovals, onS
 
       <section className="admin-side-card">
         <div className="admin-side-card__head">
-          <h3>Системные оповещения</h3>
-          <span>{alerts.length}</span>
-        </div>
-        <div className="admin-alert-list">
-          {alerts.length ? alerts.map((item) => (
-            <div className={`admin-system-alert admin-system-alert--${item[0]}`} key={item[1]} role="button" tabIndex={0} onClick={() => onAlertClick(item)} onKeyDown={(event) => { if (event.key === "Enter") onAlertClick(item); }}>
-              <Icon name={item[0] === "success" ? "bi-check-circle" : item[0] === "warning" ? "bi-exclamation-triangle" : "bi-info-circle"} size={18} />
-              <span>{item[1]}</span>
-            </div>
-          )) : (
-            <div className="admin-empty">Новых оповещений нет.</div>
-          )}
-        </div>
-        {alerts.length ? (
-          <button className="admin-side-link" type="button" onClick={onShowAlerts}>Показать все оповещения</button>
-        ) : null}
-      </section>
-
-      <section className="admin-side-card">
-        <div className="admin-side-card__head">
           <h3>Статус систем</h3>
           <span className="is-live">live</span>
         </div>
@@ -2099,16 +2601,33 @@ function RightColumn({ approvals, alerts, onApprovalAction, onShowApprovals, onS
 
 function ProductNomenclaturePage({ search, onNotify }) {
   const [range, setRange] = useState(() => presetRange("Сегодня"));
+  const [rows, setRows] = useState(productBranchRows);
   const query = search.trim().toLowerCase();
-  const rows = productBranchRows.filter((row) => !query || row.branch.toLowerCase().includes(query));
-  const totals = rows.reduce(
+
+  useEffect(() => {
+    adminApi.get("/products", { params: { size: 100 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || [];
+        if (items.length) {
+          setRows(items.map((r) => ({
+            branch: r.name || r.branch || "",
+            income: Number(r.income || r.price || 0),
+            inventory: Number(r.inventory || r.cost_price || 0),
+          })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const filteredRows = rows.filter((row) => !query || row.branch.toLowerCase().includes(query));
+  const totals = filteredRows.reduce(
     (sum, row) => ({
       income: sum.income + row.income,
       inventory: sum.inventory + row.inventory,
     }),
     { income: 0, inventory: 0 },
   );
-  const activeBranches = rows.filter((row) => row.income > 0 || row.inventory > 0).length;
+  const activeBranches = filteredRows.filter((row) => row.income > 0 || row.inventory > 0).length;
 
   function shiftDay(diff) {
     const start = parseDate(range.start);
@@ -2203,8 +2722,988 @@ function ProductNomenclaturePage({ search, onNotify }) {
   );
 }
 
+function AdminFinanceOperationsPage({ search, onNotify }) {
+  const [range, setRange] = useState(() => presetRange("Сегодня"));
+  const [operations, setOperations] = useState(financeOperationRows);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [organizationFilter, setOrganizationFilter] = useState("all");
+  const query = search.trim().toLowerCase();
+
+  useEffect(() => {
+    adminApi.get("/finance/transactions", { params: { size: 100 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || [];
+        if (items.length) {
+          setOperations(items.map((r) => ({
+            date: r.date || r.created_at || "",
+            number: r.document_number || r.id || "",
+            organization: r.organization_name || r.counterparty || "—",
+            type: r.direction === "expense" ? "Расход" : "Приход",
+            amount: Number(r.amount || 0),
+            paymentType: r.payment_type_name || r.payment_type || "—",
+            status: r.status || "Проведен",
+            comment: r.comment || "",
+          })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const organizationOptions = useMemo(
+    () => Array.from(new Set(operations.map((row) => row.organization))),
+    [operations],
+  );
+  const filteredOperations = operations.filter((row) => {
+    const typeMatches = typeFilter === "all" || (typeFilter === "income" ? row.amount > 0 : row.amount < 0);
+    const organizationMatches = organizationFilter === "all" || row.organization === organizationFilter;
+    const queryMatches = !query || [
+      row.date,
+      row.time,
+      row.paymentType,
+      row.counterparty,
+      row.category,
+      row.organization,
+      row.comment,
+      String(row.amount),
+    ].some((value) => String(value).toLowerCase().includes(query));
+    return typeMatches && organizationMatches && queryMatches;
+  });
+  const visibleTotals = filteredOperations.reduce(
+    (total, row) => ({
+      income: total.income + (row.amount > 0 ? row.amount : 0),
+      expense: total.expense + (row.amount < 0 ? Math.abs(row.amount) : 0),
+    }),
+    { income: 0, expense: 0 },
+  );
+
+  function shiftDay(diff) {
+    const start = parseDate(range.start);
+    const end = parseDate(range.end);
+    start.setDate(start.getDate() + diff);
+    end.setDate(end.getDate() + diff);
+    const next = { start: formatDate(start), end: formatDate(end), preset: "" };
+    setRange({ ...next, label: rangeLabel(next) });
+  }
+
+  function chooseToday() {
+    setRange(presetRange("Сегодня"));
+    onNotify?.("Период денежных операций: сегодня.");
+  }
+
+  function deleteOperation(row) {
+    setOperations((current) => current.filter((item) => item.id !== row.id));
+    onNotify?.(`Операция ${formatSignedFinanceAmount(row.amount)} удалена локально.`);
+  }
+
+  return (
+    <section className="admin-finance-page">
+      <div className="admin-finance-head">
+        <div>
+          <h2>Денежные операции</h2>
+          <p>Приходы, расходы и движения кассы по филиалам.</p>
+        </div>
+        <div className="admin-finance-date">
+          <button type="button" onClick={() => shiftDay(-1)} aria-label="Предыдущая дата">
+            <Icon name="bi-chevron-left" size={15} />
+          </button>
+          <button type="button" className="admin-finance-date__current" onClick={chooseToday}>
+            <Icon name="bi-calendar3" size={16} />
+            <span>{range.preset ? "Выберите дату" : range.label}</span>
+          </button>
+          <button type="button" onClick={() => shiftDay(1)} aria-label="Следующая дата">
+            <Icon name="bi-chevron-right" size={15} />
+          </button>
+        </div>
+      </div>
+
+      <div className="admin-finance-toolbar">
+        <div className="admin-finance-summary is-income">
+          <span>Приход</span>
+          <strong>{formatCurrency(financeOperationTotals.income)}</strong>
+          <small>В таблице: {formatCurrency(visibleTotals.income)}</small>
+        </div>
+        <div className="admin-finance-summary is-expense">
+          <span>Расход</span>
+          <strong>{formatCurrency(financeOperationTotals.expense)}</strong>
+          <small>В таблице: {formatCurrency(visibleTotals.expense)}</small>
+        </div>
+        <div className="admin-finance-actions">
+          <button type="button" className="admin-finance-action is-income" onClick={() => onNotify?.("Форма прихода готова к открытию.")}>
+            <Icon name="bi-plus-lg" size={16} />
+            <span>Приход</span>
+          </button>
+          <button type="button" className="admin-finance-action is-expense" onClick={() => onNotify?.("Форма расхода готова к открытию.")}>
+            <Icon name="bi-dash-lg" size={16} />
+            <span>Расход</span>
+          </button>
+          <button type="button" className="admin-finance-action is-export" onClick={() => onNotify?.("Денежные операции подготовлены для Excel.")}>
+            <Icon name="bi-file-earmark-excel" size={16} />
+            <span>Скачать на Excel</span>
+          </button>
+          <button type="button" className={`admin-finance-action is-filter ${filtersOpen ? "is-active" : ""}`} onClick={() => setFiltersOpen((value) => !value)}>
+            <Icon name="bi-sliders" size={16} />
+            <span>Фильтровать</span>
+          </button>
+        </div>
+      </div>
+
+      {filtersOpen ? (
+        <div className="admin-finance-filters">
+          <label>
+            <span>Тип операции</span>
+            <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+              <option value="all">Все операции</option>
+              <option value="income">Только приход</option>
+              <option value="expense">Только расход</option>
+            </select>
+          </label>
+          <label>
+            <span>Организация</span>
+            <select value={organizationFilter} onChange={(event) => setOrganizationFilter(event.target.value)}>
+              <option value="all">Все филиалы</option>
+              {organizationOptions.map((item) => <option value={item} key={item}>{item}</option>)}
+            </select>
+          </label>
+          <button type="button" onClick={() => { setTypeFilter("all"); setOrganizationFilter("all"); }}>
+            Сбросить
+          </button>
+        </div>
+      ) : null}
+
+      <div className="admin-finance-table-shell">
+        <table className="admin-finance-table">
+          <thead>
+            <tr>
+              <th>Дата</th>
+              <th>Сумма</th>
+              <th>Тип оплаты</th>
+              <th>Контрагент</th>
+              <th>Категория</th>
+              <th>Организация</th>
+              <th>Комментарии</th>
+              <th aria-label="Действия" />
+            </tr>
+          </thead>
+          <tbody>
+            {filteredOperations.map((row) => (
+              <tr key={row.id}>
+                <td>
+                  <strong>{row.date}</strong>
+                  <span>{row.time}</span>
+                </td>
+                <td>
+                  <span className={`admin-finance-amount ${row.amount < 0 ? "is-expense" : "is-income"}`}>
+                    {formatSignedFinanceAmount(row.amount)}
+                  </span>
+                </td>
+                <td>{row.paymentType}</td>
+                <td>{row.counterparty}</td>
+                <td><span className="admin-finance-tag">{row.category}</span></td>
+                <td>{row.organization}</td>
+                <td className="admin-finance-comment">{row.comment}</td>
+                <td>
+                  <button type="button" className="admin-finance-delete" onClick={() => deleteOperation(row)} aria-label="Удалить операцию">
+                    <Icon name="bi-trash3" size={16} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {!filteredOperations.length ? (
+              <tr>
+                <td colSpan="8" className="admin-finance-empty">Операции не найдены.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function AdminFinanceCategoriesPage({
+  search,
+  onNotify,
+  title,
+  initialRows,
+  localPrefix,
+  modalCreateTitle,
+  modalEditTitle,
+  createDescription,
+  editDescription,
+  emptyText,
+  apiEndpoint,
+}) {
+  const [categories, setCategories] = useState(initialRows);
+  const [editor, setEditor] = useState(null);
+  const [draftName, setDraftName] = useState("");
+  const [draftStatus, setDraftStatus] = useState("#активно");
+  const query = search.trim().toLowerCase();
+
+  useEffect(() => {
+    if (!apiEndpoint) return;
+    adminApi.get(apiEndpoint, { params: { size: 100 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || [];
+        if (items.length) {
+          setCategories(items.map((r) => ({
+            name: r.name || "",
+            status: r.status !== false ? "#активно" : "#неактивно",
+            locked: Boolean(r.is_system),
+          })));
+        }
+      })
+      .catch(() => {});
+  }, [apiEndpoint]);
+
+  const filteredCategories = categories.filter((row) => (
+    !query || row.name.toLowerCase().includes(query) || row.status.toLowerCase().includes(query)
+  ));
+  const lockedCount = categories.filter((row) => row.locked).length;
+
+  useEffect(() => {
+    if (!editor) return undefined;
+    function closeOnEscape(event) {
+      if (event.key === "Escape") closeEditor();
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [editor]);
+
+  function addCategory() {
+    setEditor({ mode: "create" });
+    setDraftName("");
+    setDraftStatus("#активно");
+  }
+
+  function editCategory(row) {
+    if (row.locked) return;
+    setEditor({ mode: "edit", row });
+    setDraftName(row.name);
+    setDraftStatus(row.status);
+  }
+
+  function closeEditor() {
+    setEditor(null);
+    setDraftName("");
+    setDraftStatus("#активно");
+  }
+
+  function saveCategory(event) {
+    event.preventDefault();
+    const nextName = draftName.trim();
+    if (!nextName) {
+      onNotify?.("Введите название категории.");
+      return;
+    }
+    if (editor?.mode === "create") {
+      const next = {
+        id: `${localPrefix}-local-${Date.now()}`,
+        name: nextName,
+        status: draftStatus,
+        locked: false,
+      };
+      setCategories((current) => [next, ...current]);
+      onNotify?.(`${nextName}: категория добавлена.`);
+    } else if (editor?.row) {
+      setCategories((current) => current.map((item) => (
+        item.id === editor.row.id ? { ...item, name: nextName, status: draftStatus } : item
+      )));
+      onNotify?.(`${nextName}: категория сохранена.`);
+    }
+    closeEditor();
+  }
+
+  function deleteCategory(row) {
+    if (row.locked) {
+      onNotify?.(`${row.name}: системную категорию нельзя удалить.`);
+      return;
+    }
+    setCategories((current) => current.filter((item) => item.id !== row.id));
+    onNotify?.(`${row.name}: категория удалена локально.`);
+  }
+
+  return (
+    <section className="admin-income-page">
+      <div className="admin-income-head">
+        <div className="admin-income-title">
+          <span aria-hidden="true" />
+          <div>
+            <h2>{title}</h2>
+            <p>{filteredCategories.length} категорий, {lockedCount} системные.</p>
+          </div>
+        </div>
+        <button type="button" className="admin-income-add" onClick={addCategory}>
+          <span>Добавить</span>
+          <Icon name="bi-plus-lg" size={15} />
+        </button>
+      </div>
+
+      <div className="admin-income-list" role="list">
+        {filteredCategories.map((row) => (
+          <div className={`admin-income-row ${row.locked ? "is-locked" : ""}`} role="listitem" key={row.id}>
+            <div className="admin-income-name">
+              <strong>{row.name}</strong>
+            </div>
+            <div className="admin-income-row__actions">
+              <span className={`admin-income-status ${row.status === "#отключено" ? "is-off" : ""}`}>{row.status}</span>
+              {row.locked ? (
+                <span className="admin-income-lock" aria-label="Системная категория" title="Системная категория">
+                  <Icon name="bi-lock" size={15} />
+                </span>
+              ) : (
+                <>
+                  <button type="button" className="admin-income-icon is-edit" onClick={() => editCategory(row)} aria-label="Изменить категорию">
+                    <Icon name="bi-pencil" size={15} />
+                  </button>
+                  <button type="button" className="admin-income-icon is-delete" onClick={() => deleteCategory(row)} aria-label="Удалить категорию">
+                    <Icon name="bi-trash3" size={15} />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+        {!filteredCategories.length ? (
+          <div className="admin-income-empty">{emptyText}</div>
+        ) : null}
+      </div>
+
+      {editor ? (
+        <div className="admin-income-modal" role="dialog" aria-modal="true" aria-label={editor.mode === "create" ? modalCreateTitle : modalEditTitle} onClick={closeEditor}>
+          <form className="admin-income-dialog" onSubmit={saveCategory} onClick={(event) => event.stopPropagation()}>
+            <div className="admin-income-dialog__head">
+              <div>
+                <h3>{editor.mode === "create" ? modalCreateTitle : modalEditTitle}</h3>
+                <p>{editor.mode === "create" ? createDescription : editDescription}</p>
+              </div>
+              <button type="button" className="admin-income-dialog__close" onClick={closeEditor} aria-label="Закрыть">
+                <Icon name="bi-x-lg" size={16} />
+              </button>
+            </div>
+
+            <label className="admin-income-field">
+              <span>Название <b>*</b></span>
+              <input
+                value={draftName}
+                onChange={(event) => setDraftName(event.target.value)}
+                placeholder="Введите название категории"
+                autoFocus
+              />
+            </label>
+
+            <div className="admin-income-status-field">
+              <span>Статус</span>
+              <button
+                type="button"
+                className={`admin-income-switch ${draftStatus === "#активно" ? "is-on" : ""}`}
+                aria-pressed={draftStatus === "#активно"}
+                onClick={() => setDraftStatus((status) => (status === "#активно" ? "#отключено" : "#активно"))}
+              >
+                <span />
+              </button>
+            </div>
+
+            <div className="admin-income-dialog__actions is-single">
+              <button type="submit" className="is-primary">Сохранить</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function AdminIncomeCategoriesPage({ search, onNotify }) {
+  return (
+    <AdminFinanceCategoriesPage
+      search={search}
+      onNotify={onNotify}
+      title="Категории приходов"
+      initialRows={incomeCategoryRows}
+      localPrefix="income"
+      modalCreateTitle="Добавить категорию прихода"
+      modalEditTitle="Изменить категорию прихода"
+      createDescription="Создайте новую категорию для приходных операций."
+      editDescription="Измените название и статус категории."
+      emptyText="Категории приходов не найдены."
+      apiEndpoint="/finance/transaction-categories?kind=income"
+    />
+  );
+}
+
+function AdminExpenseCategoriesPage({ search, onNotify }) {
+  return (
+    <AdminFinanceCategoriesPage
+      search={search}
+      onNotify={onNotify}
+      title="Категории расходов"
+      initialRows={expenseCategoryRows}
+      localPrefix="expense"
+      modalCreateTitle="Добавить категорию расходов"
+      modalEditTitle="Изменить категория расходов"
+      createDescription="Создайте новую категорию для расходных операций."
+      editDescription="Измените название и статус категории расходов."
+      emptyText="Категории расходов не найдены."
+      apiEndpoint="/finance/transaction-categories?kind=expense"
+    />
+  );
+}
+
+function AdminPaymentMethodsPage({ search, onNotify }) {
+  const [methods, setMethods] = useState(paymentMethodRows);
+  const [editor, setEditor] = useState(null);
+  const [draftName, setDraftName] = useState("");
+  const [draftType, setDraftType] = useState("Карта");
+  const [draftStatus, setDraftStatus] = useState("#активно");
+  const [draftVip, setDraftVip] = useState(false);
+  const query = search.trim().toLowerCase();
+
+  useEffect(() => {
+    adminApi.get("/finance/payment-types", { params: { size: 100 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || [];
+        if (items.length) {
+          setMethods(items.map((r) => ({
+            name: r.name || "",
+            type: r.type || "Карта",
+            status: r.status !== false ? "#активно" : "#неактивно",
+            vip: Boolean(r.is_vip),
+          })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+  const filteredMethods = methods
+    .filter((row) => !query || [row.name, row.type, row.status].some((value) => value.toLowerCase().includes(query)))
+    .sort((a, b) => a.sort - b.sort);
+
+  useEffect(() => {
+    if (!editor) return undefined;
+    function closeOnEscape(event) {
+      if (event.key === "Escape") closeEditor();
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [editor]);
+
+  function openCreate() {
+    setEditor({ mode: "create" });
+    setDraftName("");
+    setDraftType("Карта");
+    setDraftStatus("#активно");
+    setDraftVip(false);
+  }
+
+  function openEdit(row) {
+    setEditor({ mode: "edit", row });
+    setDraftName(row.name);
+    setDraftType(row.type);
+    setDraftStatus(row.status);
+    setDraftVip(Boolean(row.vip));
+  }
+
+  function closeEditor() {
+    setEditor(null);
+    setDraftName("");
+    setDraftType("Карта");
+    setDraftStatus("#активно");
+    setDraftVip(false);
+  }
+
+  function saveMethod(event) {
+    event.preventDefault();
+    const nextName = draftName.trim();
+    if (!nextName) {
+      onNotify?.("Введите название способа оплаты.");
+      return;
+    }
+    if (editor?.mode === "create") {
+      const nextSort = methods.reduce((max, row) => Math.max(max, Number(row.sort) || 0), 0) + 1;
+      setMethods((current) => [{
+        id: `payment-local-${Date.now()}`,
+        sort: nextSort,
+        name: nextName,
+        type: draftType,
+        status: draftStatus,
+        vip: draftVip,
+      }, ...current]);
+      onNotify?.(`${nextName}: способ оплаты добавлен.`);
+    } else if (editor?.row) {
+      setMethods((current) => current.map((item) => (
+        item.id === editor.row.id
+          ? { ...item, name: nextName, type: draftType, status: draftStatus, vip: draftVip }
+          : item
+      )));
+      onNotify?.(`${nextName}: способ оплаты сохранён.`);
+    }
+    closeEditor();
+  }
+
+  function deleteMethod(row) {
+    setMethods((current) => current.filter((item) => item.id !== row.id));
+    onNotify?.(`${row.name}: способ оплаты удалён локально.`);
+  }
+
+  function updateSort(row, value) {
+    const nextSort = Math.max(1, Number(value) || 1);
+    setMethods((current) => current.map((item) => (
+      item.id === row.id ? { ...item, sort: nextSort } : item
+    )));
+  }
+
+  return (
+    <section className="admin-income-page admin-payment-page">
+      <div className="admin-income-head">
+        <div className="admin-income-title">
+          <span aria-hidden="true" />
+          <div>
+            <h2>Способ оплаты</h2>
+            <p>{filteredMethods.length} способов, {methods.filter((row) => row.vip).length} VIP.</p>
+          </div>
+        </div>
+        <button type="button" className="admin-income-add" onClick={openCreate}>
+          <span>Добавить</span>
+          <Icon name="bi-plus-lg" size={15} />
+        </button>
+      </div>
+
+      <div className="admin-payment-table" role="table" aria-label="Способы оплаты">
+        <div className="admin-payment-table__row admin-payment-table__head" role="row">
+          <span>Сорт</span>
+          <span>Название</span>
+          <span>Тип</span>
+          <span>Статус</span>
+          <span aria-label="Действия" />
+        </div>
+        {filteredMethods.map((row) => (
+          <div className="admin-payment-table__row" role="row" key={row.id}>
+            <span>
+              <input
+                type="number"
+                min="1"
+                value={row.sort}
+                onChange={(event) => updateSort(row, event.target.value)}
+                aria-label={`Сортировка ${row.name}`}
+              />
+            </span>
+            <strong>{row.name}</strong>
+            <span>{row.type}</span>
+            <span className={`admin-income-status ${row.status === "#отключено" ? "is-off" : ""}`}>{row.status}</span>
+            <span className="admin-payment-actions">
+              <button type="button" className="admin-income-icon is-edit" onClick={() => openEdit(row)} aria-label="Изменить способ оплаты">
+                <Icon name="bi-pencil" size={15} />
+              </button>
+              <button type="button" className="admin-income-icon is-delete" onClick={() => deleteMethod(row)} aria-label="Удалить способ оплаты">
+                <Icon name="bi-trash3" size={15} />
+              </button>
+            </span>
+          </div>
+        ))}
+        {!filteredMethods.length ? (
+          <div className="admin-income-empty">Способы оплаты не найдены.</div>
+        ) : null}
+      </div>
+
+      {editor ? (
+        <div className="admin-income-modal" role="dialog" aria-modal="true" aria-label={editor.mode === "create" ? "Добавить способ оплаты" : "Изменить способ оплаты"} onClick={closeEditor}>
+          <form className="admin-income-dialog admin-payment-dialog" onSubmit={saveMethod} onClick={(event) => event.stopPropagation()}>
+            <div className="admin-income-dialog__head">
+              <div>
+                <h3>{editor.mode === "create" ? "Добавить способ оплаты" : "Изменить способ оплаты"}</h3>
+              </div>
+              <button type="button" className="admin-income-dialog__close" onClick={closeEditor} aria-label="Закрыть">
+                <Icon name="bi-x-lg" size={16} />
+              </button>
+            </div>
+
+            <label className="admin-income-field">
+              <span>Название <b>*</b></span>
+              <input
+                value={draftName}
+                onChange={(event) => setDraftName(event.target.value)}
+                placeholder="Введите название способа оплаты"
+                autoFocus
+              />
+            </label>
+
+            <label className="admin-income-field admin-payment-select-field">
+              <span>Тип оплаты</span>
+              <select value={draftType} onChange={(event) => setDraftType(event.target.value)}>
+                <option value="Карта">Карта</option>
+                <option value="Наличные">Наличные</option>
+                <option value="Онлайн">Онлайн</option>
+                <option value="Перечисление">Перечисление</option>
+              </select>
+            </label>
+
+            <div className="admin-income-status-field">
+              <span>Статус</span>
+              <button
+                type="button"
+                className={`admin-income-switch ${draftStatus === "#активно" ? "is-on" : ""}`}
+                aria-pressed={draftStatus === "#активно"}
+                onClick={() => setDraftStatus((status) => (status === "#активно" ? "#отключено" : "#активно"))}
+              >
+                <span />
+              </button>
+            </div>
+
+            <div className="admin-income-status-field">
+              <span>VIP</span>
+              <button
+                type="button"
+                className={`admin-income-switch ${draftVip ? "is-on" : ""}`}
+                aria-pressed={draftVip}
+                onClick={() => setDraftVip((value) => !value)}
+              >
+                <span />
+              </button>
+            </div>
+
+            <div className="admin-income-dialog__actions is-single">
+              <button type="submit" className="is-primary">Сохранить</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function AdminFinanceHistoryPage({ search, onNotify }) {
+  const [rows, setRows] = useState(financeHistoryRows);
+  const [page, setPage] = useState(1);
+  const pageSize = 15;
+  const query = search.trim().toLowerCase();
+
+  useEffect(() => {
+    adminApi.get("/finance/finance-history", { params: { size: 200 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || [];
+        if (items.length) {
+          setRows(items.map((r, i) => ({
+            id: r.id || `fh-${i}`,
+            number: i + 1,
+            recordId: r.record_id || r.id || "",
+            date: r.date || r.created_at || "",
+            companyId: r.company_id || "",
+            organization: r.organization_name || r.organization || "",
+            newAmount: r.new_amount || "",
+            oldAmount: r.old_amount || "",
+            type: r.type || "",
+            user: r.user_name || r.user || "",
+            comment: r.comment || "",
+          })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const filteredRows = rows.filter((row) => (
+    !query || [
+      row.recordId,
+      row.date,
+      row.companyId,
+      row.organization,
+      row.newAmount,
+      row.oldAmount,
+      row.type,
+      row.user,
+      row.comment,
+    ].some((value) => String(value).toLowerCase().includes(query))
+  ));
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const pageRows = filteredRows.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  function goToPage(nextPage) {
+    const safePage = Math.min(Math.max(nextPage, 1), totalPages);
+    setPage(safePage);
+  }
+
+  return (
+    <section className="admin-income-page admin-history-page">
+      <div className="admin-income-head">
+        <div className="admin-income-title">
+          <span aria-hidden="true" />
+          <div>
+            <h2>История изменений</h2>
+            <p>{filteredRows.length} записей журнала.</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="admin-history-table-wrap">
+        <table className="admin-history-table">
+          <thead>
+            <tr>
+              <th>№</th>
+              <th>ID</th>
+              <th>Дата</th>
+              <th>Компания ID</th>
+              <th>Организация</th>
+              <th>Новая сумма</th>
+              <th>Старая сумма</th>
+              <th>Тип</th>
+              <th>Пользователь</th>
+              <th>Комментарии</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pageRows.map((row) => (
+              <tr key={row.id}>
+                <td>{row.number}</td>
+                <td>{row.recordId}</td>
+                <td>{row.date}</td>
+                <td>{row.companyId}</td>
+                <td>{row.organization}</td>
+                <td>{row.newAmount}</td>
+                <td>{row.oldAmount}</td>
+                <td><span className="admin-history-type">{row.type}</span></td>
+                <td>{row.user}</td>
+                <td className="admin-history-comment">{row.comment || "—"}</td>
+              </tr>
+            ))}
+            {!pageRows.length ? (
+              <tr>
+                <td colSpan="10" className="admin-history-empty">История изменений не найдена.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="admin-history-pager">
+        <button type="button" onClick={() => goToPage(page - 1)} disabled={page === 1} aria-label="Предыдущая страница">
+          <Icon name="bi-chevron-left" size={14} />
+        </button>
+        {[1, 2, 3].map((item) => (
+          <button type="button" key={item} className={page === item ? "is-active" : ""} onClick={() => goToPage(item)}>
+            {item}
+          </button>
+        ))}
+        <span>...</span>
+        <button type="button" onClick={() => onNotify?.("Доступны следующие страницы истории после загрузки с сервера.")}>23</button>
+        <button type="button" onClick={() => goToPage(page + 1)} disabled={page === totalPages} aria-label="Следующая страница">
+          <Icon name="bi-chevron-right" size={14} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function AdminCashierBackgroundPage({ search, onNotify }) {
+  const [backgrounds, setBackgrounds] = useState(() => cashierBackgroundRows.map((row, index) => ({ ...row, sort: index + 1 })));
+  const [editor, setEditor] = useState(null);
+  const [draftName, setDraftName] = useState("");
+  const [draftSort, setDraftSort] = useState("1");
+  const [draftPhoto, setDraftPhoto] = useState("");
+  const fileInputRef = useRef(null);
+  const query = search.trim().toLowerCase();
+
+  useEffect(() => {
+    adminApi.get("/image-backgrounds", { params: { size: 100 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || [];
+        if (items.length) {
+          setBackgrounds(items.map((r, i) => ({
+            id: r.id || `bg-${i}`,
+            name: r.name || "",
+            sort: r.sort_order || i + 1,
+            photo: r.image_url || r.photo || "",
+          })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+  const filteredBackgrounds = backgrounds
+    .filter((row) => !query || row.name.toLowerCase().includes(query) || row.photo.toLowerCase().includes(query))
+    .sort((a, b) => Number(a.sort || 0) - Number(b.sort || 0));
+
+  useEffect(() => {
+    if (!editor) return undefined;
+    function closeOnEscape(event) {
+      if (event.key === "Escape") closeEditor();
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [editor]);
+
+  function openCreate() {
+    setEditor({ mode: "create" });
+    setDraftName("");
+    setDraftSort(String(backgrounds.length + 1));
+    setDraftPhoto("");
+  }
+
+  function openEdit(row) {
+    setEditor({ mode: "edit", row });
+    setDraftName(row.name);
+    setDraftSort(String(row.sort || 1));
+    setDraftPhoto(row.photo);
+  }
+
+  function closeEditor() {
+    setEditor(null);
+    setDraftName("");
+    setDraftSort("1");
+    setDraftPhoto("");
+  }
+
+  function chooseImage(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      onNotify?.("Выберите файл изображения.");
+      event.target.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") setDraftPhoto(reader.result);
+    };
+    reader.readAsDataURL(file);
+    event.target.value = "";
+  }
+
+  function saveBackground(event) {
+    event.preventDefault();
+    const nextName = draftName.trim();
+    const nextSort = Math.max(1, Number(draftSort) || 1);
+    const nextPhoto = draftPhoto.trim();
+    if (!nextName || !nextPhoto) {
+      onNotify?.("Введите название и выберите изображение.");
+      return;
+    }
+    if (editor?.mode === "create") {
+      setBackgrounds((current) => [{
+        id: `cashier-bg-local-${Date.now()}`,
+        name: nextName,
+        sort: nextSort,
+        photo: nextPhoto,
+      }, ...current]);
+      onNotify?.(`${nextName}: фон добавлен.`);
+    } else if (editor?.row) {
+      setBackgrounds((current) => current.map((row) => (
+        row.id === editor.row.id ? { ...row, name: nextName, sort: nextSort, photo: nextPhoto } : row
+      )));
+      onNotify?.(`${nextName}: фон обновлён.`);
+    }
+    closeEditor();
+  }
+
+  function deleteBackground(row) {
+    setBackgrounds((current) => current.filter((item) => item.id !== row.id));
+    onNotify?.(`${row.name}: фон удалён локально.`);
+  }
+
+  return (
+    <section className="admin-income-page admin-cashier-bg-page">
+      <div className="admin-income-head">
+        <div className="admin-income-title">
+          <span aria-hidden="true" />
+          <div>
+            <h2>Фон для кассира</h2>
+            <p>{filteredBackgrounds.length} фонов для кассового экрана.</p>
+          </div>
+        </div>
+        <button type="button" className="admin-income-add" onClick={openCreate}>
+          <span>Добавить</span>
+          <Icon name="bi-plus-lg" size={15} />
+        </button>
+      </div>
+
+      <div className="admin-cashier-bg-table" role="table" aria-label="Фоны для кассира">
+        <div className="admin-cashier-bg-row admin-cashier-bg-head" role="row">
+          <span>Название</span>
+          <span>Фото</span>
+          <span aria-label="Действия" />
+        </div>
+        {filteredBackgrounds.map((row) => (
+          <div className="admin-cashier-bg-row" role="row" key={row.id}>
+            <strong>{row.name}</strong>
+            <span className="admin-cashier-bg-preview">
+              <img src={row.photo} alt={row.name} loading="lazy" />
+            </span>
+            <span className="admin-payment-actions">
+              <button type="button" className="admin-income-icon is-edit" onClick={() => openEdit(row)} aria-label="Редактировать фон">
+                <Icon name="bi-pencil" size={15} />
+              </button>
+              <button type="button" className="admin-income-icon is-delete" onClick={() => deleteBackground(row)} aria-label="Удалить фон">
+                <Icon name="bi-trash3" size={15} />
+              </button>
+            </span>
+          </div>
+        ))}
+        {!filteredBackgrounds.length ? (
+          <div className="admin-income-empty">Фоны для кассира не найдены.</div>
+        ) : null}
+      </div>
+
+      {editor ? (
+        <div className="admin-income-modal" role="dialog" aria-modal="true" aria-label={editor.mode === "create" ? "Добавить фон для кассира" : "Изменить фон для кассира"} onClick={closeEditor}>
+          <form className="admin-income-dialog admin-cashier-bg-dialog" onSubmit={saveBackground} onClick={(event) => event.stopPropagation()}>
+            <div className="admin-income-dialog__head">
+              <div>
+                <h3>{editor.mode === "create" ? "Добавить Фон" : "Изменить Фон"}</h3>
+              </div>
+              <button type="button" className="admin-income-dialog__close" onClick={closeEditor} aria-label="Закрыть">
+                <Icon name="bi-x-lg" size={16} />
+              </button>
+            </div>
+
+            <label className="admin-income-field">
+              <span>Название <b>*</b></span>
+              <input
+                value={draftName}
+                onChange={(event) => setDraftName(event.target.value)}
+                placeholder="Введите название фона"
+                autoFocus
+              />
+            </label>
+
+            <label className="admin-income-field">
+              <span>Сортировка</span>
+              <input
+                type="number"
+                min="1"
+                value={draftSort}
+                onChange={(event) => setDraftSort(event.target.value)}
+              />
+            </label>
+
+            <div className="admin-cashier-upload">
+              <span>Загрузить изображение</span>
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={chooseImage} />
+              <button type="button" onClick={() => fileInputRef.current?.click()}>
+                <Icon name="bi-image" size={15} />
+                <span>Выбрать изображение</span>
+              </button>
+            </div>
+
+            {draftPhoto.trim() ? (
+              <div className="admin-cashier-bg-dialog__preview">
+                <img src={draftPhoto.trim()} alt="Предпросмотр фона" />
+              </div>
+            ) : null}
+
+            <div className="admin-income-dialog__actions is-single">
+              <button type="submit" className="is-primary">Сохранить</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function CategoryPage({ active, rowsOverride, search, onCreate, onRowDetail, onNotify }) {
   const content = categoryContent[active] || categoryContent["org-list"];
+  const { apiRows, isDemo } = useAdminData(active);
   if (active === "org-list") {
     return <OrganizationDirectoryPage search={search} onRowDetail={onRowDetail} onNotify={onNotify} />;
   }
@@ -2214,13 +3713,33 @@ function CategoryPage({ active, rowsOverride, search, onCreate, onRowDetail, onN
   if (active === "nom-product") {
     return <ProductNomenclaturePage search={search} onNotify={onNotify} />;
   }
-  const rows = (rowsOverride || content.rows).filter((row) => {
+  if (active === "fin-operations") {
+    return <AdminFinanceOperationsPage search={search} onNotify={onNotify} />;
+  }
+  if (active === "fin-income-cat") {
+    return <AdminIncomeCategoriesPage search={search} onNotify={onNotify} />;
+  }
+  if (active === "fin-expense-cat") {
+    return <AdminExpenseCategoriesPage search={search} onNotify={onNotify} />;
+  }
+  if (active === "fin-payment") {
+    return <AdminPaymentMethodsPage search={search} onNotify={onNotify} />;
+  }
+  if (active === "fin-history") {
+    return <AdminFinanceHistoryPage search={search} onNotify={onNotify} />;
+  }
+  if (active === "set-cashier-bg") {
+    return <AdminCashierBackgroundPage search={search} onNotify={onNotify} />;
+  }
+  const dataRows = apiRows || rowsOverride || content.rows;
+  const rows = dataRows.filter((row) => {
     const query = search.trim().toLowerCase();
     if (!query) return true;
     return row.some((cell) => String(cell).toLowerCase().includes(query));
   });
   return (
     <section className="admin-category-page">
+      {isDemo && <div className="admin-demo-notice">Показаны демо-данные. Подключите сервер для реальных данных.</div>}
       <div className="admin-panel-head">
         <div>
           <h2>{content.title}</h2>
@@ -2242,11 +3761,189 @@ function CategoryPage({ active, rowsOverride, search, onCreate, onRowDetail, onN
   );
 }
 
-function DashboardPage({ segment, onSegmentChange, organizationRows, approvals, alerts, onExport, onRowAction, onApprovalAction, onShowApprovals, onShowAlerts, onKpiClick, onOrgClick, onApprovalClick, onAlertClick, onSystemClick }) {
+const recentTransactionRows = [
+  { id: 18692, uuid: "d3d48b59-cc42-4a17-9c28-54e3fd28acfb", date: "06.07.2026 / 13:29", orgId: "1002472", name: "Bek choyxonasi", payType: "HamkorBank", amount: "500 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "" },
+  { id: 18691, uuid: "caffac1c-7203-4400-a002-ca379b9ab6e6", date: "06.07.2026 / 13:23", orgId: "1002444", name: "XAM XAM KAFE", payType: "HamkorBank", amount: "500 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "" },
+  { id: 18690, uuid: "ad342fa1-74c4-45c4-8507-111258938cb9", date: "06.07.2026 / 11:05", orgId: "1002190", name: "SHANARAQ 2", payType: "Перечисления", amount: "80 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "06.07.2026" },
+  { id: 18689, uuid: "8676c85f-ba8d-4b00-acdc-18c5a1e37b90", date: "06.07.2026 / 11:04", orgId: "1001057", name: "SHANARAQ", payType: "Перечисления", amount: "580 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "06.07.2026" },
+  { id: 18688, uuid: "267477fe-3d13-46f8-a018-954fce6212f3", date: "06.07.2026 / 09:32", orgId: "1002033", name: "KARVON CHOYXONA", payType: "HamkorBank", amount: "3 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "" },
+  { id: 18687, uuid: "df874b45-05a1-4f87-8a9d-4e6d193c6ab3", date: "06.07.2026 / 00:30", orgId: "1002906", name: "Usmon Restourant", payType: "HamkorBank", amount: "90 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "" },
+  { id: 18686, uuid: "ebfa7d9e-10e3-47a9-ac5f-fa19621949c7", date: "05.07.2026 / 21:37", orgId: "1002949", name: "Sarbon ( Termiz )", payType: "HamkorBank", amount: "200 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "" },
+  { id: 18685, uuid: "7ebc2641-ac3b-4ef0-82d1-aba6f06f22a3", date: "05.07.2026 / 21:35", orgId: "1002950", name: "Fasty. Abdulloh-biznes -group", payType: "HamkorBank", amount: "2 390 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "" },
+  { id: 18684, uuid: "ec72edaf-a376-4aa0-8c9c-dccd0ba23de4", date: "05.07.2026 / 21:07", orgId: "1001894", name: "Majnuntol oshxonasi", payType: "HamkorBank", amount: "50 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "" },
+  { id: 18683, uuid: "d48de62e-047e-40d3-a956-4b752cb3279e", date: "05.07.2026 / 21:06", orgId: "1002943", name: "Qobil polvon", payType: "HamkorBank", amount: "100 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "" },
+  { id: 18682, uuid: "5d84ec16-7772-4ff7-a152-148b1c0e9275", date: "05.07.2026 / 20:51", orgId: "1001894", name: "Majnuntol oshxonasi", payType: "HamkorBank", amount: "50 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "" },
+  { id: 18681, uuid: "63e01126-0a25-423f-ad11-4d92b6ab81e4", date: "05.07.2026 / 20:36", orgId: "1002942", name: "Alibaba uyg'ur taomlari(eski Sharq)", payType: "HamkorBank", amount: "2 300 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "" },
+  { id: 18680, uuid: "adfb6e94-f30d-45b3-887e-4cb74c861817", date: "05.07.2026 / 20:21", orgId: "1002949", name: "Sarbon ( Termiz )", payType: "HamkorBank", amount: "52 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "" },
+  { id: 18679, uuid: "5ff10962-1600-4bfb-af68-258ef3ceab93", date: "05.07.2026 / 20:06", orgId: "1002341", name: "Bek Sazancha", payType: "HamkorBank", amount: "390 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "" },
+  { id: 18678, uuid: "eeecf66e-89eb-4fb3-bdf9-376997cce56f", date: "05.07.2026 / 20:04", orgId: "1002159", name: "Luck restaruant Sho'rchi", payType: "HamkorBank", amount: "500 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "" },
+  { id: 18677, uuid: "9468f2b2-498f-47a2-9ce2-c633e0223c6d", date: "05.07.2026 / 20:03", orgId: "1001435", name: "Sultan", payType: "HamkorBank", amount: "165 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "" },
+  { id: 18676, uuid: "b83a9775-181f-4ea8-b3af-cd185c5ef176", date: "05.07.2026 / 20:01", orgId: "1001450", name: "ZOR SOMSA", payType: "HamkorBank", amount: "30 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "" },
+  { id: 18675, uuid: "484c9079-9c64-4379-a957-b3ceb1564d19", date: "05.07.2026 / 19:56", orgId: "1002416", name: "Муяна", payType: "HamkorBank", amount: "240 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "" },
+  { id: 18674, uuid: "56a76193-9aa5-41ae-84e1-4b0d96edebab", date: "05.07.2026 / 19:32", orgId: "1002724", name: "Sultan milliy taomlar", payType: "HamkorBank", amount: "390 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "" },
+  { id: 18673, uuid: "cf1e436f-ec3e-4862-b4e2-2187fbbd5a26", date: "05.07.2026 / 19:22", orgId: "1001664", name: "Ibrohim bob kafesi", payType: "HamkorBank", amount: "365.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "" },
+  { id: 18672, uuid: "a1f7c930-2b44-4d18-9e21-6c0f5b7d8e42", date: "05.07.2026 / 18:58", orgId: "1002210", name: "Osh Markazi", payType: "Перечисления", amount: "150 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "05.07.2026" },
+  { id: 18671, uuid: "b2c9d451-7e63-4a02-8f19-3d5e1a9c7b60", date: "05.07.2026 / 18:41", orgId: "1001788", name: "Choyxona Baraka", payType: "HamkorBank", amount: "75 000.00 UZS", kind: "Приход", status: "PAID", paymentFor: "Ежемесячный платеж", comment: "" },
+];
+
+function getPageList(current, total) {
+  // Номера страниц с многоточиями: 1 … c-1 c c+1 … total
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages = new Set([1, total, current, current - 1, current + 1]);
+  const list = [...pages].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
+  const result = [];
+  let prev = 0;
+  for (const p of list) {
+    if (p - prev > 1) result.push("…");
+    result.push(p);
+    prev = p;
+  }
+  return result;
+}
+
+function TransactionsTable() {
+  const [rows, setRows] = useState(recentTransactionRows);
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 12;
+
+  useEffect(() => {
+    adminApi.get("/finance/transactions", { params: { size: 50 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || [];
+        if (items.length) {
+          setRows(items.map((r, i) => ({
+            id: r.id_num || i + 1,
+            uuid: r.id || "",
+            date: r.date || r.created_at || "",
+            orgId: r.organization_id || "",
+            name: r.organization_name || "",
+            payType: r.payment_type || "",
+            amount: r.amount ? `${Number(r.amount).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            kind: r.direction === "income" ? "Приход" : "Расход",
+            status: r.status || "PAID",
+            paymentFor: r.payment_for || "",
+            comment: r.comment || "",
+          })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => { setPage(1); }, [query]);
+
+  const filteredRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((row) => Object.values(row).join(" ").toLowerCase().includes(q));
+  }, [query, rows]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * pageSize;
+  const pageRows = filteredRows.slice(startIndex, startIndex + pageSize);
+  const pageList = getPageList(currentPage, totalPages);
+
+  const columns = [
+    { key: "id", label: "ID", width: 66 },
+    { key: "uuid", label: "UUID", width: 214 },
+    { key: "date", label: "Дата", width: 150 },
+    { key: "orgId", label: "ID Организация", width: 120 },
+    { key: "name", label: "Названия", width: 200 },
+    { key: "payType", label: "Тип оплаты", width: 120 },
+    { key: "amount", label: "Сумма", width: 140 },
+    { key: "kind", label: "Тип", width: 92 },
+    { key: "status", label: "Status", width: 90 },
+    { key: "paymentFor", label: "Оплата за", width: 168 },
+    { key: "comment", label: "Комментария", width: 120 },
+    { key: "actions", label: "", width: 54 },
+  ];
+
+  function renderCell(column, row) {
+    switch (column.key) {
+      case "id": return <span className="admin-tx-id">{row.id}</span>;
+      case "uuid": return <span className="admin-tx-uuid">{row.uuid}</span>;
+      case "name": return <strong className="org-directory-name">{row.name}</strong>;
+      case "amount": return <span className="admin-tx-amount">{row.amount}</span>;
+      case "kind": return <span className="org-directory-flag org-directory-flag--success">{row.kind}</span>;
+      case "status": return <span className="org-directory-flag org-directory-flag--success">{row.status}</span>;
+      case "comment": return row.comment ? row.comment : "—";
+      case "actions": return (
+        <button type="button" className="admin-tx-edit" aria-label={`Редактировать транзакцию ${row.id}`}>
+          <Icon name="bi-pencil" size={14} />
+        </button>
+      );
+      default: return row[column.key];
+    }
+  }
+
+  return (
+    <section className="admin-table-card admin-transactions">
+      <div className="admin-panel-head admin-transactions__head">
+        <div>
+          <h2>Последние транзакции</h2>
+        </div>
+        <label className="org-directory-search admin-transactions__search">
+          <Icon name="bi-search" size={15} />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск" />
+        </label>
+      </div>
+
+      <div className="org-directory-table-shell">
+        <table className="org-directory-table admin-transactions__table">
+          <colgroup>
+            {columns.map((column) => <col key={column.key} style={{ width: column.width }} />)}
+          </colgroup>
+          <thead>
+            <tr>{columns.map((column) => <th key={column.key}>{column.label}</th>)}</tr>
+          </thead>
+          <tbody>
+            {pageRows.map((row) => (
+              <tr key={row.id}>
+                {columns.map((column) => <td key={column.key}>{renderCell(column, row)}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!pageRows.length ? <div className="org-directory-empty">Транзакции не найдены.</div> : null}
+      </div>
+
+      <div className="org-directory-footer admin-transactions__footer">
+        <span>{filteredRows.length ? `${startIndex + 1}-${Math.min(startIndex + pageSize, filteredRows.length)} из ${filteredRows.length}` : "0 из 0"}</span>
+        <div className="admin-transactions__pager">
+          <button type="button" disabled={currentPage === 1} onClick={() => setPage((value) => Math.max(1, value - 1))} aria-label="Предыдущая страница">
+            <Icon name="bi-chevron-left" size={15} />
+          </button>
+          {pageList.map((item, index) => (
+            item === "…" ? (
+              <span className="admin-transactions__ellipsis" key={`gap-${index}`}>…</span>
+            ) : (
+              <button
+                type="button"
+                key={item}
+                className={`admin-transactions__page ${item === currentPage ? "is-active" : ""}`}
+                onClick={() => setPage(item)}
+                aria-current={item === currentPage ? "page" : undefined}
+              >
+                {item}
+              </button>
+            )
+          ))}
+          <button type="button" disabled={currentPage === totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))} aria-label="Следующая страница">
+            <Icon name="bi-chevron-right" size={15} />
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DashboardPage({ segment, onSegmentChange, organizationRows, approvals, dashKpis, onExport, onRowAction, onApprovalAction, onShowApprovals, onKpiClick, onOrgClick, onApprovalClick, onSystemClick }) {
+  const displayKpis = dashKpis || kpis;
   return (
     <>
       <section className="admin-kpi-grid">
-        {kpis.map((item) => <KpiCard item={item} key={item.title} onClick={onKpiClick} />)}
+        {displayKpis.map((item) => <KpiCard item={item} key={item.title} onClick={onKpiClick} />)}
       </section>
       <div className="admin-dashboard-grid">
         <main className="admin-center">
@@ -2255,15 +3952,13 @@ function DashboardPage({ segment, onSegmentChange, organizationRows, approvals, 
         </main>
         <RightColumn
           approvals={approvals}
-          alerts={alerts}
           onApprovalAction={onApprovalAction}
           onShowApprovals={onShowApprovals}
-          onShowAlerts={onShowAlerts}
           onApprovalClick={onApprovalClick}
-          onAlertClick={onAlertClick}
           onSystemClick={onSystemClick}
         />
       </div>
+      <TransactionsTable />
     </>
   );
 }
@@ -2323,14 +4018,14 @@ function AdminShell({ onLogout }) {
   const [user, setUser] = useState(null);
   const [message, setMessage] = useState("");
   const [collapsed, setCollapsed] = useState(false);
-  const [search, setSearch] = useState("");
+  const search = "";
   const [segment, setSegment] = useState("Месяц");
   const [dateRange, setDateRange] = useState(() => presetRange("Сегодня"));
   const [organizations, setOrganizations] = useState(organizationRows);
   const [approvals, setApprovals] = useState(approvalItems);
-  const [alerts, setAlerts] = useState(alertItems);
   const [categoryRows, setCategoryRows] = useState({});
   const [detail, setDetail] = useState(null);
+  const [dashKpis, setDashKpis] = useState(kpis);
 
   const closeDetail = () => setDetail(null);
 
@@ -2338,13 +4033,57 @@ function AdminShell({ onLogout }) {
     let mounted = true;
     if (localStorage.getItem("admin_local_login") === "true") {
       setUser({ email: "900000777", phone: "900000777", name: "Super Admin", is_superadmin: true });
-      adminApi.get("/organizations", { params: { size: 5 } }).catch(() => {});
+      adminApi.get("/organizations", { params: { size: 5 } })
+        .then(({ data }) => {
+          if (!mounted) return;
+          const items = Array.isArray(data) ? data : data?.items || [];
+          if (items.length) {
+            setOrganizations(items.map((r) => [
+              r.company_name || r.name || "", r.type || "Ресторан",
+              String(r.branches_count || 0), r.admin_name || r.owner_name || "—",
+              r.created_at || "—", r.status || "Активна",
+            ]));
+          }
+        })
+        .catch(() => {});
+      adminApi.get("/admin-reports/dashboard-kpis")
+        .then(({ data }) => {
+          if (!mounted || !data) return;
+          setDashKpis((prev) => prev.map((kpi, i) => {
+            const key = ["organizations", "branches", "revenue", "subscriptions", "employees", "cashboxes"][i];
+            const v = data[key];
+            return v != null ? { ...kpi, value: typeof v === "number" ? v.toLocaleString("ru-RU") : String(v) } : kpi;
+          }));
+        })
+        .catch(() => {});
       return () => { mounted = false; };
     }
     adminApi.get("/auth/me")
       .then(({ data }) => mounted && setUser(data))
       .catch(() => mounted && setMessage("Профиль не загружен. Проверьте права доступа."));
-    adminApi.get("/organizations", { params: { size: 5 } }).catch(() => {});
+    adminApi.get("/organizations", { params: { size: 5 } })
+      .then(({ data }) => {
+        if (!mounted) return;
+        const items = Array.isArray(data) ? data : data?.items || [];
+        if (items.length) {
+          setOrganizations(items.map((r) => [
+            r.company_name || r.name || "", r.type || "Ресторан",
+            String(r.branches_count || 0), r.admin_name || r.owner_name || "—",
+            r.created_at || "—", r.status || "Активна",
+          ]));
+        }
+      })
+      .catch(() => {});
+    adminApi.get("/admin-reports/dashboard-kpis")
+      .then(({ data }) => {
+        if (!mounted || !data) return;
+        setDashKpis((prev) => prev.map((kpi, i) => {
+          const key = ["organizations", "branches", "revenue", "subscriptions", "employees", "cashboxes"][i];
+          const v = data[key];
+          return v != null ? { ...kpi, value: typeof v === "number" ? v.toLocaleString("ru-RU") : String(v) } : kpi;
+        }));
+      })
+      .catch(() => {});
     return () => { mounted = false; };
   }, []);
 
@@ -2446,18 +4185,6 @@ function AdminShell({ onLogout }) {
     });
   }
 
-  function openAlertDetail(item) {
-    const levelLabel = item[0] === "success" ? "Успешно" : item[0] === "warning" ? "Предупреждение" : "Информация";
-    setDetail({
-      title: levelLabel,
-      subtitle: "Системное оповещение",
-      fields: [
-        { label: "Уровень", value: levelLabel },
-        { label: "Сообщение", value: item[1] },
-      ],
-    });
-  }
-
   function openSystemDetail(item) {
     setDetail({
       title: item[0],
@@ -2503,22 +4230,20 @@ function AdminShell({ onLogout }) {
         onSegmentChange={setSegment}
         organizationRows={filteredOrganizations}
         approvals={approvals}
-        alerts={alerts}
+        dashKpis={dashKpis}
         onExport={() => downloadCsv("marjon-organizations.csv", [["Организация", "Тип", "Филиалов", "Админ", "Дата регистрации", "Статус"], ...filteredOrganizations])}
         onRowAction={handleRowAction}
         onApprovalAction={handleApprovalAction}
         onShowApprovals={() => setMessage(`Показаны все заявки: ${approvals.length}.`)}
-        onShowAlerts={() => setMessage(`Показаны все оповещения: ${alerts.length}.`)}
         onKpiClick={openKpiDetail}
         onOrgClick={openOrgDetail}
         onApprovalClick={openApprovalDetail}
-        onAlertClick={openAlertDetail}
         onSystemClick={openSystemDetail}
       />
     ) : (
       <CategoryPage active={active} rowsOverride={categoryRows[active]} search={search} onCreate={handleCreate} onRowDetail={openCategoryRowDetail} onNotify={setMessage} />
     )
-  ), [active, alerts, approvals, categoryRows, filteredOrganizations, search, segment]);
+  ), [active, approvals, categoryRows, filteredOrganizations, search, segment]);
 
   function logout() {
     adminLogout();
@@ -2532,12 +4257,10 @@ function AdminShell({ onLogout }) {
         <Header
           user={user}
           onLogout={logout}
-          search={search}
-          onSearchChange={setSearch}
           dateRange={dateRange}
           onDateRangeChange={setDateRange}
-          onBellClick={() => setMessage(`Непрочитанных уведомлений: ${approvals.length + alerts.length}.`)}
-          notificationCount={approvals.length + alerts.length}
+          onBellClick={() => setMessage(`Непрочитанных уведомлений: ${approvals.length}.`)}
+          notificationCount={approvals.length}
           onProfile={openProfileDetail}
         />
         {message ? (

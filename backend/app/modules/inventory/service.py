@@ -55,6 +55,14 @@ class ProductService:
             setattr(p, field, value)
         return await self.repo.save(p)
 
+    async def delete(self, company_id: UUID, product_id: UUID) -> None:
+        """Мягкое удаление блюда (снимаем с продажи, скрываем из каталога)."""
+        p = await self.get(company_id, product_id)
+        p.is_active = False
+        if hasattr(p, "is_available"):
+            p.is_available = False
+        await self.repo.save(p)
+
 
 class IngredientService:
     def __init__(self, db: AsyncSession):

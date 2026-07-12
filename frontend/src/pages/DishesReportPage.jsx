@@ -1,6 +1,9 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { api } from "../api/client";
+import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
+import { exportToExcel } from "../utils/excel";
 
 const initialFilters = {
   query: "",
@@ -76,14 +79,40 @@ export default function DishesReportPage() {
   const [filters, setFilters] = useState(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
   const [expandedRow, setExpandedRow] = useState("mastava");
+  const [rows, setRows] = useState(dishesRows);
+  const [isDemo, setIsDemo] = useState(true);
+
+  useEffect(() => {
+    api.get("/reports/dishes", { params: { start: dateRange.start, end: dateRange.end } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || data?.dishes || [];
+        if (items.length) {
+          setRows(items.map((item, index) => ({
+            id: String(item.id || item.name || index),
+            name: `${index + 1}. ${item.name || ""}`,
+            unit: item.unit || "Порция (пр)",
+            quantity: String(item.quantity || 0),
+            price: item.price ? `${Number(item.price).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            amount: item.amount ? `${Number(item.amount).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            cost: item.cost_price ? `${Number(item.cost_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            profit: item.profit ? `${Number(item.profit).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            profitValue: Number(item.profit || 0),
+            status: item.status || "Завершено",
+            details: item.details || undefined,
+          })));
+          setIsDemo(false);
+        }
+      })
+      .catch(() => {});
+  }, [dateRange.start, dateRange.end]);
 
   const filteredRows = useMemo(() => {
     const query = appliedFilters.query.trim().toLowerCase();
-    return dishesRows.filter((row) => {
+    return rows.filter((row) => {
       if (!query) return true;
       return row.name.toLowerCase().includes(query);
     });
-  }, [appliedFilters]);
+  }, [rows, appliedFilters]);
 
   function updateFilter(key, value) {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -100,12 +129,24 @@ export default function DishesReportPage() {
   }
 
   function downloadExcel() {
-    console.log("Dishes report Excel export placeholder", { filters: appliedFilters, rows: filteredRows });
+    const cols = [
+      { key: "name", label: "Название" },
+      { key: "unit", label: "Ед изм" },
+      { key: "quantity", label: "Кол-во" },
+      { key: "price", label: "Цена" },
+      { key: "total", label: "Сумма" },
+      { key: "cost", label: "Себестоимость" },
+      { key: "profit", label: "Прибыль" },
+    ];
+    exportToExcel(filteredRows, cols, "dishes-report");
   }
 
   return (
     <section className="dishes-report-page">
       <article className="report-page-card">
+        {isDemo && (
+          <DemoNotice />
+        )}
         <div className="report-page-header">
           <div className="report-title-group">
             <span className="report-accent-bar" aria-hidden="true" />

@@ -8,11 +8,29 @@ const rows = [
   { name: "Бар", condition: "Цена за час: 20 000 UZS", percent: "10%", status: STATUS_ACTIVE },
 ].map((row, index) => ({ id: index + 1, ...row }));
 
+const apiMapRow = (item) => ({
+  id: item.id,
+  name: item.name || "",
+  condition: item.condition || item.price_description || "",
+  percent: item.percent ? `${item.percent}%` : "0%",
+  status: item.is_active !== false ? STATUS_ACTIVE : "#не активно",
+});
+
+const apiMapFormToPayload = (form) => ({
+  name: form.name,
+  condition: form.condition,
+  percent: parseFloat(form.percent) || 0,
+  payment_type: form.paymentType,
+});
+
 function SettingsPlacesPage() {
   return (
     <SettingsResourcePage
       title="Место"
       initialRows={rows}
+      apiEndpoint="/halls"
+      apiMapRow={apiMapRow}
+      apiMapFormToPayload={apiMapFormToPayload}
       columns={[
         { key: "name", label: "Название", link: true },
         { key: "condition", label: "Цена / условие" },

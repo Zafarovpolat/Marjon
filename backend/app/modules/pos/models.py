@@ -1,7 +1,8 @@
 from __future__ import annotations
+from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
-from sqlalchemy import Boolean, ForeignKey, Integer, JSON, Numeric, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Uuid
 from app.shared.base_model import TimeStampedModel
@@ -60,3 +61,17 @@ class OrderItem(TimeStampedModel):
     course: Mapped[int] = mapped_column(Integer, default=1)
 
     order: Mapped[Order] = relationship(back_populates="items")
+
+
+class CashierShift(TimeStampedModel):
+    __tablename__ = "cashier_shifts"
+
+    company_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("companies.id"), index=True)
+    branch_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("branches.id"), index=True)
+    cashier_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), index=True)
+    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    opening_cash: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=Decimal("0"))
+    closing_cash: Mapped[Decimal | None] = mapped_column(Numeric(15, 2), nullable=True)
+    # open | closed
+    status: Mapped[str] = mapped_column(String(20), default="open")

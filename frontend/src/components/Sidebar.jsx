@@ -7,6 +7,29 @@ import Icon from "./Icon";
 
 const PROFILE_STORAGE_KEY = "marjon_profile_settings";
 const SIDEBAR_PROFILE_PANEL_BG = "#041c18";
+const sidebarLanguages = [
+  {
+    code: "uz",
+    label: "Узбекский",
+    native: "O'zbekcha",
+    short: "UZ",
+    flagUrl: "https://upload.wikimedia.org/wikipedia/commons/8/84/Flag_of_Uzbekistan.svg",
+  },
+  {
+    code: "ru",
+    label: "Русский",
+    native: "Русский",
+    short: "RU",
+    flagUrl: "https://upload.wikimedia.org/wikipedia/commons/f/f3/Flag_of_Russia.svg",
+  },
+  {
+    code: "en",
+    label: "Английский",
+    native: "English",
+    short: "EN",
+    flagUrl: "https://upload.wikimedia.org/wikipedia/en/a/ae/Flag_of_the_United_Kingdom.svg",
+  },
+];
 
 function readStoredProfile() {
   try {
@@ -57,7 +80,7 @@ const navItems = [
     children: [
       { key: "dishes", label: "Блюда", to: "/nomenclature/dishes", icon: "bi-cup-hot" },
       { key: "dish-categories", label: "Категория блюд", to: "/nomenclature/dish-categories", icon: "bi-grid" },
-      { key: "menu", label: "Меню", to: "/nomenclature/menu", icon: "bi-journal-bookmark" },
+      { key: "menu", label: "Продажа", to: "/nomenclature/menu", icon: "bi-journal-bookmark" },
     ],
   },
   {
@@ -129,6 +152,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
   const [hoverMenu, setHoverMenu] = useState("");
   const [accountOpen, setAccountOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [langPanelOpen, setLangPanelOpen] = useState(false);
   const [lang, setLang] = useState(() => localStorage.getItem("marjon_lang") || "ru");
   const [storedProfile, setStoredProfile] = useState(() => readStoredProfile());
   const accountRef = useRef(null);
@@ -140,9 +164,12 @@ export default function Sidebar({ user, collapsed, onToggle }) {
 
   // Ролевая фильтрация пунктов меню (ТЗ §2.2)
   const visibleNavItems = useMemo(() => filterNavItems(navItems, user), [user]);
+  const exactChildParentKey = useMemo(() => (
+    visibleNavItems.find((item) => item.children?.some((child) => location.pathname === child.to))?.key || ""
+  ), [location.pathname, visibleNavItems]);
 
   useEffect(() => {
-    const activeParent = visibleNavItems.find((item) => item.children?.some((child) => location.pathname === child.to));
+    const activeParent = navItems.find((item) => item.children?.some((child) => location.pathname === child.to));
     if (activeParent) {
       setPinnedMenu(activeParent.key);
       setOpenMenu(activeParent.key);
@@ -152,7 +179,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
     }
   }, [location.pathname]);
 
-  useEffect(() => { setAccountOpen(false); }, [location.pathname]);
+  useEffect(() => { setAccountOpen(false); setLangPanelOpen(false); }, [location.pathname]);
   useEffect(() => { setHoverMenu(""); }, [location.pathname]);
   useEffect(() => { setMoreOpen(false); }, [location.pathname]);
 
@@ -172,7 +199,10 @@ export default function Sidebar({ user, collapsed, onToggle }) {
   }, []);
 
   useEffect(() => {
-    if (!accountOpen) return undefined;
+    if (!accountOpen) {
+      setLangPanelOpen(false);
+      return undefined;
+    }
     function onDocClick(event) {
       if (!accountRef.current?.contains(event.target)) setAccountOpen(false);
     }
@@ -195,10 +225,12 @@ export default function Sidebar({ user, collapsed, onToggle }) {
   function selectLang(code) {
     setLang(code);
     localStorage.setItem("marjon_lang", code);
+    setLangPanelOpen(false);
   }
 
   function closeAccountAndSelectMenu(menuKey = "") {
     setAccountOpen(false);
+    setLangPanelOpen(false);
     setPinnedMenu(menuKey);
     setOpenMenu(menuKey);
     setHoverMenu("");
@@ -256,7 +288,9 @@ export default function Sidebar({ user, collapsed, onToggle }) {
         {visibleNavItems.map((item) => {
           const hasChildren = Boolean(item.children?.length);
           const childActive = hasChildren && item.children.some((child) => location.pathname === child.to);
-          const active = item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to) || childActive;
+          const active = exactChildParentKey
+            ? item.key === exactChildParentKey
+            : item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to) || childActive;
           const submenuOpen = !collapsed && (openMenu === item.key || pinnedMenu === item.key);
           const popoverOpen = collapsed && hoverMenu === item.key;
 
@@ -391,36 +425,41 @@ export default function Sidebar({ user, collapsed, onToggle }) {
               <span>Тех. поддержка</span>
             </Link>
 
-            <div className="sidebar-account__lang">
-              <span className="sidebar-account__lang-label">
-                <Icon name="bi-translate" size={16} />
-                Язык
-              </span>
-              <div className="sidebar-account__lang-switch" role="group" aria-label="Выбор языка">
-                <button
-                  type="button"
-                  className={lang === "ru" ? "is-active" : ""}
-                  onClick={() => selectLang("ru")}
-                  aria-pressed={lang === "ru"}
-                >
-                  RU
-                </button>
-                <button
-                  type="button"
-                  className={`sidebar-account__lang-button--flag ${lang === "uz" ? "is-active" : ""}`}
-                  onClick={() => selectLang("uz")}
-                  aria-pressed={lang === "uz"}
-                  aria-label="O'zbek tili"
-                >
-                  <img
-                    className="sidebar-account__flag"
-                    src="https://upload.wikimedia.org/wikipedia/commons/8/84/Flag_of_Uzbekistan.svg"
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </button>
-              </div>
+            <div className={`sidebar-account__lang ${langPanelOpen ? "is-open" : ""}`}>
+              <button
+                type="button"
+                className="sidebar-account__lang-trigger"
+                onClick={() => setLangPanelOpen((open) => !open)}
+                aria-expanded={langPanelOpen}
+                aria-haspopup="menu"
+              >
+                <span className="sidebar-account__lang-label">
+                  <Icon name="bi-translate" size={16} />
+                  Язык
+                </span>
+                <span className="sidebar-account__lang-current">{lang.toUpperCase()}</span>
+                <Icon name="bi-chevron-down" size={14} className="sidebar-account__lang-chevron" aria-hidden="true" />
+              </button>
+              {langPanelOpen ? (
+                <div className="sidebar-account__lang-panel" role="menu" aria-label="Выбор языка">
+                  {sidebarLanguages.map((language) => (
+                    <button
+                      key={language.code}
+                      type="button"
+                      className={lang === language.code ? "is-active" : ""}
+                      onClick={() => selectLang(language.code)}
+                      role="menuitemradio"
+                      aria-checked={lang === language.code}
+                      aria-label={`${language.label}: ${language.native}`}
+                    >
+                      <span className="sidebar-account__lang-flag" aria-hidden="true">
+                        <img src={language.flagUrl} alt="" loading="lazy" decoding="async" />
+                      </span>
+                      <span className="sidebar-account__lang-code">{language.short}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <Link className="sidebar-account__item" to="/store" role="menuitem" onClick={() => closeAccountAndSelectMenu("")}>

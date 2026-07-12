@@ -63,11 +63,25 @@ class AuthService:
 
         return user, access_token, refresh_token
 
+    @staticmethod
+    def _normalize_identifier(identifier: str) -> str:
+        import re
+        stripped = re.sub(r"[\s\-().]", "", identifier)
+        if stripped.startswith("+"):
+            return stripped
+        if re.match(r"^\d+$", stripped):
+            if len(stripped) == 9:          # local UZ: 901234567 → +998901234567
+                return "+998" + stripped
+            if len(stripped) == 12 and stripped.startswith("998"):  # 998901234567
+                return "+" + stripped
+            return stripped
+        return identifier  # email or username — return as-is
+
     async def login(self, email: str, password: str) -> tuple[User, str, str]:
         import logging
         log = logging.getLogger(__name__)
 
-        user = await self.user_repo.get_by_login(email)
+        user = await self.user_repo.get_by_login(self._normalize_identifier(email))
         if not user:
             log.warning("Login failed: user not found — login=%s", email)
             raise UnauthorizedError("Invalid credentials")

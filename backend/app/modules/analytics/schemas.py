@@ -5,6 +5,15 @@ from uuid import UUID
 from app.shared.base_schema import BaseSchema
 
 
+class UserActivityRank(BaseSchema):
+    rank: int
+    user_id: UUID
+    user_name: str
+    sessions: int
+    avg_session_seconds: int
+    total_session_seconds: int
+
+
 class SalesReport(BaseSchema):
     date: date
     orders_count: int
