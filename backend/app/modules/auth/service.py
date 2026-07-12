@@ -65,11 +65,17 @@ class AuthService:
 
     @staticmethod
     def _normalize_identifier(identifier: str) -> str:
-        """Strip phone formatting: '+998 90 123-45-68' → '+998901234568'."""
         import re
-        if identifier.startswith("+") or re.match(r"^\d[\d\s\-()]+$", identifier):
-            return re.sub(r"[\s\-().]", "", identifier)
-        return identifier
+        stripped = re.sub(r"[\s\-().]", "", identifier)
+        if stripped.startswith("+"):
+            return stripped
+        if re.match(r"^\d+$", stripped):
+            if len(stripped) == 9:          # local UZ: 901234567 → +998901234567
+                return "+998" + stripped
+            if len(stripped) == 12 and stripped.startswith("998"):  # 998901234567
+                return "+" + stripped
+            return stripped
+        return identifier  # email or username — return as-is
 
     async def login(self, email: str, password: str) -> tuple[User, str, str]:
         import logging
