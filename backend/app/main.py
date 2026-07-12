@@ -77,12 +77,18 @@ from app.modules.admin_reports.router  import router as admin_reports_router, ad
 
 logger = logging.getLogger(__name__)
 
-# ── Support ticket stub ──────────────────────────────────────────────────────
+# ── Stubs ────────────────────────────────────────────────────────────────────
 _support_router = APIRouter(prefix="/support", tags=["support"])
 
 @_support_router.post("/tickets")
 async def create_support_ticket():
     return {"id": "ticket-stub", "status": "received", "message": "Ваше обращение принято"}
+
+_billing_router = APIRouter(prefix="/billing", tags=["billing"])
+
+@_billing_router.get("/balance")
+async def billing_balance():
+    return {"balance": 0, "currency": "UZS"}
 
 
 @asynccontextmanager
@@ -130,7 +136,7 @@ routers = [
     finance_router, field_service_router, tasks_router,
     ratings_router, admin_settings_router, admin_reports_router,
     hq_reports_router,
-    _support_router,
+    _support_router, _billing_router,
 ]
 
 for router in routers:

@@ -29,7 +29,7 @@ function SettingsPaymentMethodsPage() {
     <SettingsResourcePage
       title="Способ оплаты"
       initialRows={rows}
-      apiEndpoint="/settings/payment-methods"
+      apiEndpoint="/finance/payment-types"
       apiMapRow={apiMapRow}
       apiMapFormToPayload={apiMapFormToPayload}
       filterOptions={["Наличные", "Карта", "Онлайн", "VIP"]}

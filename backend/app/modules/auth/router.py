@@ -137,3 +137,27 @@ async def delete_company_user(
         sql_update(User).where(User.id == user_id).values(is_active=False)
     )
     await db.commit()
+
+
+@router.post("/pin-login", response_model=TokenResponse)
+async def pin_login(data: dict, db: AsyncSession = Depends(get_db)):
+    from app.shared.exceptions import UnauthorizedError
+    raise UnauthorizedError("PIN-логин не настроен")
+
+
+@router.get("/staff-users", response_model=list[CompanyUserResponse])
+async def staff_users(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    from app.modules.auth.repository import UserRepository
+    users = await UserRepository(db).get_company_users(current_user.company_id)
+    result = []
+    for user in users:
+        roles_res = await db.execute(
+            select(Role.slug).join(UserRole, UserRole.role_id == Role.id).where(UserRole.user_id == user.id)
+        )
+        slugs = list(roles_res.scalars().all())
+        result.append(
+            CompanyUserResponse.model_validate(user).model_copy(
+                update={"role_slugs": slugs, "role_slug": slugs[0] if slugs else None}
+            )
+        )
+    return result

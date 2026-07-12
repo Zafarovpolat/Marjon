@@ -28,7 +28,7 @@ function SettingsPlacesPage() {
     <SettingsResourcePage
       title="Место"
       initialRows={rows}
-      apiEndpoint="/settings/places"
+      apiEndpoint="/halls"
       apiMapRow={apiMapRow}
       apiMapFormToPayload={apiMapFormToPayload}
       columns={[

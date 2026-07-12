@@ -4,9 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User
+from uuid import UUID
 from app.modules.hr.schemas import (
     AttendanceCreate, AttendanceResponse,
-    EmployeeCreate, EmployeeResponse,
+    EmployeeCreate, EmployeeUpdate, EmployeeResponse,
     ShiftCreate, ShiftResponse,
 )
 from sqlalchemy import select
@@ -57,6 +58,43 @@ async def log_attendance(data: AttendanceCreate, user: User = Depends(get_curren
 @router.get("/attendance", response_model=list[AttendanceRow])
 async def list_attendance(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     return await AdminReportService(db).attendance_history(user.company_id)
+
+
+@router.patch("/employees/{employee_id}", response_model=EmployeeResponse)
+async def update_employee(
+    employee_id: UUID,
+    data: EmployeeUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from sqlalchemy import update as sql_update
+    from app.modules.hr.models import Employee
+    values = data.model_dump(exclude_none=True)
+    if values:
+        await db.execute(
+            sql_update(Employee).where(
+                Employee.id == employee_id, Employee.company_id == user.company_id
+            ).values(**values)
+        )
+        await db.commit()
+    result = await db.get(Employee, employee_id)
+    return EmployeeResponse.model_validate(result)
+
+
+@router.delete("/employees/{employee_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_employee(
+    employee_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from sqlalchemy import update as sql_update
+    from app.modules.hr.models import Employee
+    await db.execute(
+        sql_update(Employee).where(
+            Employee.id == employee_id, Employee.company_id == user.company_id
+        ).values(is_active=False)
+    )
+    await db.commit()
 
 
 @router.get("/login-history", response_model=list[LoginHistoryRow])
