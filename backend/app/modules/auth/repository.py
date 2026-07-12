@@ -22,12 +22,21 @@ class UserRepository(BaseRepository[User]):
         """Логин по email, username или номеру телефона."""
         import re
         normalized_phone = re.sub(r"[\s\-]", "", login)
+        phone_digits = re.sub(r"\D", "", login)
+        phone_candidates = {login, normalized_phone, phone_digits}
+
+        if phone_digits.startswith("998") and len(phone_digits) > 9:
+            phone_candidates.add(phone_digits[3:])
+            phone_candidates.add(f"+{phone_digits}")
+        elif len(phone_digits) == 9:
+            phone_candidates.add(f"998{phone_digits}")
+            phone_candidates.add(f"+998{phone_digits}")
+
         result = await self.db.execute(
             select(User).where(
                 (User.email == login)
                 | (User.username == login)
-                | (User.phone == normalized_phone)
-                | (User.phone == login)
+                | (User.phone.in_(phone_candidates))
             )
         )
         return result.scalar_one_or_none()

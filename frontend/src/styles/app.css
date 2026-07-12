@@ -3882,9 +3882,20 @@
 }
 
 /* Staff / users */
+.dashboard-content--staff {
+    padding: 10px 12px 12px 10px;
+}
+
 .staff-page {
     width: 100%;
     padding: 26px;
+}
+
+.dashboard-content--staff .staff-page {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    padding: 0;
 }
 
 .staff-card {
@@ -3895,6 +3906,12 @@
     border-radius: 32px;
     background: #fff;
     box-shadow: 0 14px 42px rgba(20, 44, 72, 0.07);
+}
+
+.dashboard-content--staff .staff-card {
+    flex: 1;
+    min-height: 0;
+    border-radius: var(--mj-main-curve, 34px);
 }
 
 .staff-header {
@@ -4373,8 +4390,16 @@
 }
 
 @media (max-width: 768px) {
+    .dashboard-content--staff {
+        padding: 8px;
+    }
+
     .staff-page {
         padding: 16px;
+    }
+
+    .dashboard-content--staff .staff-page {
+        padding: 0;
     }
 
     .staff-card {

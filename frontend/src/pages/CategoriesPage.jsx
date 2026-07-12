@@ -67,7 +67,6 @@ export default function CategoriesPage({ type = "dishes" }) {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(DEFAULT_FORM);
   const [saving, setSaving] = useState(false);
-  const [search, setSearch] = useState("");
 
   async function load() {
     setLoading(true);
@@ -157,14 +156,7 @@ export default function CategoriesPage({ type = "dishes" }) {
     if (editingId === row.id) closeForm();
   }
 
-  const visible = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    const source = query
-      ? rows.filter((row) => `${row.name || ""} ${row.slug || ""}`.toLowerCase().includes(query))
-      : rows;
-
-    return [...source].sort(sortCategories);
-  }, [rows, search]);
+  const visible = useMemo(() => [...rows].sort(sortCategories), [rows]);
 
   return (
     <section className="nomenclature-page menu-categories-page">
@@ -230,17 +222,6 @@ export default function CategoriesPage({ type = "dishes" }) {
             </div>
           </form>
         ) : null}
-
-        <div className="menu-category-toolbar">
-          <label>
-            <Icon name="bi-search" />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по названию" />
-          </label>
-          <button type="button" className="menu-category-config">
-            <Icon name="bi-sliders" />
-            <span>Настроить таблицу</span>
-          </button>
-        </div>
 
         <div className="menu-category-list" aria-busy={loading}>
           {loading

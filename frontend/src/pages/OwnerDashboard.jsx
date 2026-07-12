@@ -6,7 +6,6 @@ import { api, formatMoney, formatNumber } from "../api/client";
 import { dateRangeEndingAt, formatDateLabel, todayInputValue, toDateInputValue } from "../utils/date";
 import Icon from "../components/Icon";
 import { PageLoader } from "../components/Loader";
-import DemoNotice from "../components/DemoNotice";
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler);
 
@@ -1021,6 +1020,7 @@ export default function OwnerDashboard() {
   [sales, period, selectedDate]
 );
   const isSalesDemo = sales.length === 0;
+  const isDashboardDemo = !dashboard || dashboard.today_revenue === undefined;
   const kpis = useMemo(() => {
     if (!isDashboardDemo && !isSalesDemo) return buildRealKpis(dashboard, displaySales, selectedDate);
     return demoKpis(displaySales, selectedDate);
@@ -1074,7 +1074,6 @@ export default function OwnerDashboard() {
     if (dashboard && dashboard.today_revenue !== undefined) return dashboard;
     return demoDashboardFromSales(displaySales, selectedDate);
   }, [dashboard, displaySales, selectedDate]);
-  const isDashboardDemo = !dashboard || dashboard.today_revenue === undefined;
   const daySummary = useMemo(() => {
     const seed = dateSeed(selectedDate);
     const day = displaySales.at(-1) || { revenue: 0, orders_count: 0 };
@@ -1092,27 +1091,29 @@ export default function OwnerDashboard() {
 
   return (
     <>
-      {(isSalesDemo || isDashboardDemo) && <DemoNotice />}
-      <section className="kpi-grid kpi-grid--premium">
-        {kpis.map((kpi) => (
-          <button
-            className={`kpi-card premium-kpi ${kpi.className}`}
-            key={kpi.label}
-            type="button"
-            onClick={() => setSelectedKpi(kpi)}
-            aria-haspopup="dialog"
-          >
-            <div className="premium-kpi__top">
-              <div className="premium-kpi__icon"><Icon name={kpi.icon} size={20} /></div>
-              <span className="trend">{kpi.badge}</span>
-            </div>
-            <div className="kpi-label">{kpi.label}</div>
-            <div className="kpi-value">{kpi.value} {kpi.suffix ? <small>{kpi.suffix}</small> : null}</div>
-            <div className={`kpi-note ${kpi.noteClass}`}>{kpi.note}</div>
-            <div className="premium-kpi__progress"><i style={{ width: `${kpi.progress}%` }} /></div>
-          </button>
-        ))}
-      </section>
+      <div className="owner-kpi-band">
+        <section className="kpi-grid kpi-grid--premium">
+          {kpis.map((kpi) => (
+            <button
+              className={`kpi-card premium-kpi ${kpi.className}`}
+              key={kpi.label}
+              type="button"
+              onClick={() => setSelectedKpi(kpi)}
+              aria-haspopup="dialog"
+            >
+              <div className="premium-kpi__top">
+                <div className="premium-kpi__icon"><Icon name={kpi.icon} size={20} /></div>
+                <span className="trend">{kpi.badge}</span>
+              </div>
+              <div className="kpi-label">{kpi.label}</div>
+              <div className="kpi-value">{kpi.value} {kpi.suffix ? <small>{kpi.suffix}</small> : null}</div>
+              <div className={`kpi-note ${kpi.noteClass}`}>{kpi.note}</div>
+              <div className="premium-kpi__progress"><i style={{ width: `${kpi.progress}%` }} /></div>
+            </button>
+          ))}
+        </section>
+        <div className="owner-kpi-band__side" aria-hidden="true" />
+      </div>
       <KpiInfoDialog kpi={selectedKpi} onClose={() => setSelectedKpi(null)} />
       <WarehouseReportDialog report={selectedWarehouseReport} selectedDate={selectedDate} onClose={() => setSelectedWarehouseReport(null)} />
 

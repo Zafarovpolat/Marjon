@@ -164,6 +164,9 @@ export default function Sidebar({ user, collapsed, onToggle }) {
 
   // Ролевая фильтрация пунктов меню (ТЗ §2.2)
   const visibleNavItems = useMemo(() => filterNavItems(navItems, user), [user]);
+  const exactChildParentKey = useMemo(() => (
+    visibleNavItems.find((item) => item.children?.some((child) => location.pathname === child.to))?.key || ""
+  ), [location.pathname, visibleNavItems]);
 
   useEffect(() => {
     const activeParent = navItems.find((item) => item.children?.some((child) => location.pathname === child.to));
@@ -285,7 +288,9 @@ export default function Sidebar({ user, collapsed, onToggle }) {
         {visibleNavItems.map((item) => {
           const hasChildren = Boolean(item.children?.length);
           const childActive = hasChildren && item.children.some((child) => location.pathname === child.to);
-          const active = item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to) || childActive;
+          const active = exactChildParentKey
+            ? item.key === exactChildParentKey
+            : item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to) || childActive;
           const submenuOpen = !collapsed && (openMenu === item.key || pinnedMenu === item.key);
           const popoverOpen = collapsed && hoverMenu === item.key;
 

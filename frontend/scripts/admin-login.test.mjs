@@ -29,7 +29,7 @@ assert.doesNotMatch(loginSection, /placeholder="0000777"/, "Password input must 
 const submitButtons = loginSection.match(/type="submit"/g) || [];
 assert.equal(submitButtons.length, 1, "Login form must render exactly one submit button.");
 
-assert.match(css, /\.admin-login__panel\s*{[\s\S]*?width:\s*min\(450px,\s*calc\(100vw - 32px\)\)/, "Login panel must use the compact 450px width.");
+assert.match(css, /\.admin-login__panel\s*{[\s\S]*?width:\s*min\(500px,\s*calc\(100vw - 32px\)\)/, "Login panel must use the requested wider 500px width.");
 assert.match(css, /\.admin-login__input\s*{[\s\S]*?min-height:\s*48px/, "Login inputs must use compact height.");
 assert.match(css, /\.admin-login__submit\s*{[\s\S]*?min-height:\s*50px/, "Login submit button must use compact height.");
 assert.match(css, /\.admin-login__panel \.admin-login__eye\s*{[\s\S]*?background:\s*transparent/, "Eye button must stay transparent.");

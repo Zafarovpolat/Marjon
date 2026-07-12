@@ -3377,9 +3377,9 @@ body {
 }
 
 .admin-login__panel {
-  width: min(450px, calc(100vw - 32px)) !important;
-  padding: 26px 36px 28px !important;
-  border-radius: 22px !important;
+  width: min(500px, calc(100vw - 32px)) !important;
+  padding: 30px 42px 32px !important;
+  border-radius: 24px !important;
 }
 
 .admin-login__brand {
@@ -3394,7 +3394,7 @@ body {
 }
 
 .admin-login__brand span {
-  font-size: 11px !important;
+  font-size: 12px !important;
 }
 
 .admin-login__panel h1 {
@@ -8417,4 +8417,8 @@ body:has(.admin-shell),
   font-size: 13px;
   font-weight: 500;
   text-align: center;
+}
+
+.admin-demo-notice {
+  display: none !important;
 }

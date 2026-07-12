@@ -69,6 +69,7 @@ export default function DashboardLayout() {
 
   const [title, subtitle] = useMemo(() => pageMeta[location.pathname] || ["Dashboard", ""], [location.pathname]);
   const showBackButton = location.pathname !== "/";
+  const isUsersSection = location.pathname.startsWith("/users");
   const selectedDateContext = useMemo(() => ({
     user,
     selectedDate,
@@ -102,7 +103,7 @@ export default function DashboardLayout() {
             selectedDate={selectedDate}
             onSelectedDateChange={setSelectedDate}
           />
-          <main className="dashboard-content">
+          <main className={`dashboard-content ${isUsersSection ? "dashboard-content--staff" : ""}`}>
             <Outlet context={selectedDateContext} />
           </main>
           <SupportWidget />

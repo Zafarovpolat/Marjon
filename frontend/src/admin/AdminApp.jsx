@@ -1383,6 +1383,27 @@ function AdminRevenueChart({ data, segment }) {
   );
 }
 
+const ADMIN_PHONE_MAX_DIGITS = 9;
+
+function getAdminPhoneDigits(value) {
+  let digits = String(value || "").replace(/\D/g, "");
+
+  if (digits.length > ADMIN_PHONE_MAX_DIGITS && digits.startsWith("998")) {
+    digits = digits.slice(3);
+  }
+
+  return digits.slice(0, ADMIN_PHONE_MAX_DIGITS);
+}
+
+function formatAdminPhone(value) {
+  const digits = getAdminPhoneDigits(value);
+
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 5) return `${digits.slice(0, 2)} ${digits.slice(2)}`;
+  if (digits.length <= 7) return `${digits.slice(0, 2)} ${digits.slice(2, 5)}-${digits.slice(5)}`;
+  return `${digits.slice(0, 2)} ${digits.slice(2, 5)}-${digits.slice(5, 7)}-${digits.slice(7)}`;
+}
+
 function LoginView({ onLogin }) {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -1404,12 +1425,16 @@ function LoginView({ onLogin }) {
     }
   }
 
+  function handlePhoneChange(event) {
+    setPhone(getAdminPhoneDigits(event.target.value));
+  }
+
   return (
     <main className="admin-login">
       <form className="admin-login__panel" onSubmit={submit}>
         <div className="admin-login__brand">
           <img src={logo} alt="MARJON" />
-          <span>SUPER ADMIN</span>
+          <span>MARJON ADMIN</span>
         </div>
         <h1>Добро пожаловать</h1>
         <p className="admin-login__subtitle">Войдите в рабочее место суперадминки.</p>
@@ -1418,7 +1443,7 @@ function LoginView({ onLogin }) {
           <div className="admin-login__input">
             <Icon name="bi-telephone" size={18} />
             <strong>+998</strong>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="numeric" autoComplete="tel" required />
+            <input value={formatAdminPhone(phone)} onChange={handlePhoneChange} type="tel" inputMode="numeric" autoComplete="tel-national" required />
           </div>
         </label>
         <label className="admin-login__field admin-login__field--password">
