@@ -1,7 +1,7 @@
 from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
-from fastapi import APIRouter, FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -29,6 +29,7 @@ import app.modules.subscriptions.models   # noqa: F401
 import app.modules.printers.models        # noqa: F401
 import app.modules.halls.models              # noqa: F401
 import app.modules.inventory.warehouse_models  # noqa: F401
+import app.modules.kafe_compat.models     # noqa: F401
 # Главная админка (HQ admin panel)
 import app.modules.handbook.models        # noqa: F401
 import app.modules.organizations.models   # noqa: F401
@@ -48,7 +49,9 @@ from app.modules.rbac.router          import router as rbac_router
 from app.modules.inventory.router     import router as inventory_router
 from app.modules.pos.router           import router as pos_router
 from app.modules.payments.router      import router as payments_router
+from app.modules.payments.webhooks    import router as payment_webhooks_router
 from app.modules.kitchen.router       import router as kitchen_router
+from app.modules.kitchen.websocket    import kitchen_ws_endpoint
 from app.modules.crm.router           import router as crm_router
 from app.modules.loyalty.router       import router as loyalty_router
 from app.modules.delivery.router      import router as delivery_router
@@ -61,6 +64,7 @@ from app.modules.subscriptions.router import router as subscriptions_router
 from app.modules.printers.router      import router as printers_router
 from app.modules.halls.router                  import router as halls_router
 from app.modules.inventory.warehouse_router    import router as warehouse_router
+from app.modules.kafe_compat.router   import router as kafe_compat_router
 # Главная админка (HQ admin panel)
 from app.modules.handbook.router       import router as handbook_router
 from app.modules.organizations.router  import router as organizations_router
@@ -76,19 +80,6 @@ from app.modules.admin_settings.router import router as admin_settings_router
 from app.modules.admin_reports.router  import router as admin_reports_router, admin_reports_router as hq_reports_router
 
 logger = logging.getLogger(__name__)
-
-# ── Stubs ────────────────────────────────────────────────────────────────────
-_support_router = APIRouter(prefix="/support", tags=["support"])
-
-@_support_router.post("/tickets")
-async def create_support_ticket():
-    return {"id": "ticket-stub", "status": "received", "message": "Ваше обращение принято"}
-
-_billing_router = APIRouter(prefix="/billing", tags=["billing"])
-
-@_billing_router.get("/balance")
-async def billing_balance():
-    return {"balance": 0, "currency": "UZS"}
 
 
 @asynccontextmanager
@@ -136,11 +127,19 @@ routers = [
     finance_router, field_service_router, tasks_router,
     ratings_router, admin_settings_router, admin_reports_router,
     hq_reports_router,
-    _support_router, _billing_router,
 ]
 
 for router in routers:
     app.include_router(router, prefix=API)
+
+# kafe_compat: /settings/*, /billing/*, /support/*, /reports/*, /crm/counterparties
+app.include_router(kafe_compat_router, prefix=API)
+
+# Webhooks платёжных провайдеров (без JWT)
+app.include_router(payment_webhooks_router, prefix=API)
+
+# WebSocket для кухни
+app.add_api_websocket_route("/ws/kitchen", kitchen_ws_endpoint)
 
 
 @app.get("/health", tags=["system"])
