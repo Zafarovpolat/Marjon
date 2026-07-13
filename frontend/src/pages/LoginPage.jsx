@@ -7,9 +7,9 @@ import logo from "../assets/marjon-logo.svg";
 import Icon from "../components/Icon";
 
 const LANGUAGES = [
-  { code: "uz", short: "UZ", label: "O'zbekcha", flagClass: "uz" },
-  { code: "ru", short: "RU", label: "Русский", flagClass: "ru" },
-  { code: "en", short: "EN", label: "English", flagClass: "en" },
+  { code: "uz", short: "UZ", label: "Uzbek", flagUrl: "https://flagcdn.com/w40/uz.png" },
+  { code: "ru", short: "RU", label: "Russian", flagUrl: "https://flagcdn.com/w40/ru.png" },
+  { code: "en", short: "EN", label: "English", flagUrl: "https://flagcdn.com/w40/gb.png" },
 ];
 
 function getLocalPhoneDigits(raw) {
@@ -160,7 +160,7 @@ export default function LoginPage() {
                 aria-expanded={languageMenuOpen}
                 onClick={() => setLanguageMenuOpen((open) => !open)}
               >
-                <span className={`login-pro-lang__flag is-${currentLanguageMeta.flagClass}`} aria-hidden="true" />
+                <img className="login-pro-lang__flag" src={currentLanguageMeta.flagUrl} alt="" decoding="async" />
                 <span>{currentLanguageMeta.short}</span>
                 <Icon name="bi-chevron-down" size={14} strokeWidth={2.6} />
               </button>
@@ -183,7 +183,7 @@ export default function LoginPage() {
                     onClick={(event) => event.preventDefault()}
                     role="menuitem"
                   >
-                    <span className={`login-pro-lang__flag is-${language.flagClass}`} aria-hidden="true" />
+                    <img className="login-pro-lang__flag" src={language.flagUrl} alt="" decoding="async" />
                     <span>{language.short}</span>
                   </button>
                 ))}

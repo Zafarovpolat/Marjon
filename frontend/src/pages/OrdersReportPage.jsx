@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
@@ -15,6 +15,56 @@ const initialFilters = {
   minAmount: "",
   maxAmount: "",
 };
+
+const orderColumnOptions = [
+  { key: "id", label: "ID заказа" },
+  { key: "orderNumber", label: "Номер заказа" },
+  { key: "date", label: "Дата" },
+  { key: "type", label: "Тип" },
+  { key: "place", label: "Место" },
+  { key: "waiter", label: "Официант" },
+  { key: "client", label: "Клиент" },
+  { key: "courier", label: "Курьер" },
+  { key: "goodsPrice", label: "Цена товаров" },
+  { key: "placePrice", label: "Цена места" },
+  { key: "discount", label: "Скидка" },
+  { key: "deliveryPrice", label: "Цена доставки" },
+  { key: "servicePrice", label: "Цена обслуживания" },
+  { key: "totalPrice", label: "Цена всего" },
+];
+
+const defaultOrderColumnVisibility = orderColumnOptions.reduce((acc, column) => ({
+  ...acc,
+  [column.key]: true,
+}), {});
+const orderColumnsStorageKey = "marjon.orders-report.visible-columns";
+
+function getStoredOrderColumnVisibility() {
+  if (typeof window === "undefined") {
+    return defaultOrderColumnVisibility;
+  }
+
+  try {
+    const stored = window.localStorage.getItem(orderColumnsStorageKey);
+    if (!stored) {
+      return defaultOrderColumnVisibility;
+    }
+
+    const parsed = JSON.parse(stored);
+    const next = { ...defaultOrderColumnVisibility };
+    orderColumnOptions.forEach((column) => {
+      if (typeof parsed?.[column.key] === "boolean") {
+        next[column.key] = parsed[column.key];
+      }
+    });
+
+    return orderColumnOptions.some((column) => next[column.key] !== false)
+      ? next
+      : defaultOrderColumnVisibility;
+  } catch {
+    return defaultOrderColumnVisibility;
+  }
+}
 
 const orderRows = [
   {
@@ -146,7 +196,10 @@ const orderRows = [
 ];
 
 export default function OrdersReportPage() {
+  const tableSettingsRef = useRef(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [tableSettingsOpen, setTableSettingsOpen] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState(() => getStoredOrderColumnVisibility());
   const [dateRange, setDateRange] = useState({ preset: "", start: "01.06.2026", end: "01.07.2026" });
   const [filters, setFilters] = useState(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
@@ -186,8 +239,45 @@ export default function OrdersReportPage() {
       .catch(() => {});
   }, [dateRange.start, dateRange.end]);
 
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(orderColumnsStorageKey, JSON.stringify(visibleColumns));
+    } catch {
+      // localStorage can be unavailable in restricted browser modes.
+    }
+  }, [visibleColumns]);
+
+  useEffect(() => {
+    if (!tableSettingsOpen) {
+      return undefined;
+    }
+
+    function closeOnOutsideClick(event) {
+      if (!tableSettingsRef.current?.contains(event.target)) {
+        setTableSettingsOpen(false);
+      }
+    }
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape") {
+        setTableSettingsOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [tableSettingsOpen]);
+
   const orderTypes = useMemo(() => Array.from(new Set(rows.map((row) => row.type))), [rows]);
   const waiters = useMemo(() => Array.from(new Set(rows.map((row) => row.waiter))), [rows]);
+  const visibleOrderColumns = useMemo(
+    () => orderColumnOptions.filter((column) => visibleColumns[column.key] !== false),
+    [visibleColumns],
+  );
 
   const filteredRows = useMemo(() => rows.filter((row) => {
     const min = appliedFilters.minAmount ? Number(appliedFilters.minAmount) : null;
@@ -210,6 +300,39 @@ export default function OrdersReportPage() {
 
   function applyFilters() {
     setAppliedFilters(filters);
+  }
+
+  function toggleColumn(key) {
+    setVisibleColumns((current) => {
+      const isVisible = current[key] !== false;
+      const visibleCount = orderColumnOptions.filter((column) => current[column.key] !== false).length;
+      if (isVisible && visibleCount <= 1) {
+        return current;
+      }
+      return { ...current, [key]: !isVisible };
+    });
+  }
+
+  function renderOrderCell(row, key) {
+    switch (key) {
+      case "id":
+        return <strong>{row.id}</strong>;
+      case "type":
+        return <span className="orders-type-pill">{row.type}</span>;
+      case "client":
+        return <><Icon name="bi-person" size={15} />{row.client}</>;
+      case "courier":
+        return <><Icon name="bi-truck" size={15} />{row.courier}</>;
+      default:
+        return row[key];
+    }
+  }
+
+  function orderCellClassName(row, key) {
+    if (key === "client" || key === "courier") return "report-muted-cell";
+    if (["placePrice", "discount", "deliveryPrice", "servicePrice"].includes(key) && row[key] === "0 UZS") return "report-muted-cell";
+    if (key === "totalPrice") return "report-total-price";
+    return undefined;
   }
 
   function downloadExcel() {
@@ -238,7 +361,33 @@ export default function OrdersReportPage() {
             </div>
           </div>
           <div className="report-actions">
-            <ReportDateRangePicker value={dateRange} onChange={setDateRange} />
+            <div className="orders-table-settings" ref={tableSettingsRef}>
+            <button className="orders-table-settings-button" type="button" onClick={() => setTableSettingsOpen((value) => !value)} aria-expanded={tableSettingsOpen}>
+              <Icon name="bi-gear-wide-connected" size={18} />
+              Настроить таблицу
+            </button>
+              {tableSettingsOpen ? (
+                <div className="orders-table-settings-popover">
+                  <div className="orders-table-settings-head">
+                    <strong>Столбцы таблицы</strong>
+                    <button type="button" onClick={() => setVisibleColumns(defaultOrderColumnVisibility)}>Сбросить</button>
+                  </div>
+                  <div className="orders-table-settings-list">
+                    {orderColumnOptions.map((column) => {
+                      const checked = visibleColumns[column.key] !== false;
+                      const disabled = checked && visibleOrderColumns.length <= 1;
+                      return (
+                        <label key={column.key}>
+                          <input type="checkbox" checked={checked} disabled={disabled} onChange={() => toggleColumn(column.key)} />
+                          <span>{column.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+            <ReportDateRangePicker value={dateRange} onChange={setDateRange} showDropdownIcon />
             <button className="orders-filter-toggle" type="button" onClick={() => setFiltersOpen((value) => !value)}>
               <Icon name="bi-sliders" size={18} />
               Фильтровать
@@ -300,12 +449,20 @@ export default function OrdersReportPage() {
           </div>
         ) : null}
 
+        <style>
+          {orderColumnOptions.map((column, index) => (
+            visibleColumns[column.key] === false
+              ? `.orders-report-page .report-table thead th:nth-child(${index + 1}), .orders-report-page .report-table tbody tr:not(.report-empty-row) td:nth-child(${index + 1}) { display: none !important; }`
+              : ""
+          )).join("\n")}
+        </style>
+
         <div className="report-table-wrapper">
           <table className="report-table">
             <thead>
               <tr>
                 <th>ID заказа</th>
-                <th>Номер заказа</th>
+                <th>№</th>
                 <th>Дата</th>
                 <th>Тип</th>
                 <th>Место</th>

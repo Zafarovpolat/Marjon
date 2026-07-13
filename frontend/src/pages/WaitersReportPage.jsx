@@ -168,7 +168,7 @@ export default function WaitersReportPage() {
                 value={dateRange}
                 onChange={setDateRange}
                 buttonClassName="z-waiters-report__date"
-                showChevrons
+                showDropdownIcon
               />
             </div>
             <label className="z-waiters-report__percent">

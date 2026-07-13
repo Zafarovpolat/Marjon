@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
@@ -13,6 +13,51 @@ const initialFilters = {
   minAmount: "",
   maxAmount: "",
 };
+
+const tableColumnOptions = [
+  { key: "tableNumber", label: "Номер стола" },
+  { key: "date", label: "Дата" },
+  { key: "servicePrice", label: "Цена обслуживания" },
+  { key: "discount", label: "Скидка" },
+  { key: "placePrice", label: "Цена места" },
+  { key: "dishesAmount", label: "Сумма блюд" },
+  { key: "total", label: "Сумма" },
+  { key: "transaction", label: "Транзакции" },
+  { key: "action", label: "Действие" },
+];
+
+const defaultTableColumnVisibility = tableColumnOptions.reduce((acc, column) => ({
+  ...acc,
+  [column.key]: true,
+}), {});
+const tableColumnsStorageKey = "marjon.tables-report.visible-columns";
+
+function getStoredTableColumnVisibility() {
+  if (typeof window === "undefined") {
+    return defaultTableColumnVisibility;
+  }
+
+  try {
+    const stored = window.localStorage.getItem(tableColumnsStorageKey);
+    if (!stored) {
+      return defaultTableColumnVisibility;
+    }
+
+    const parsed = JSON.parse(stored);
+    const next = { ...defaultTableColumnVisibility };
+    tableColumnOptions.forEach((column) => {
+      if (typeof parsed?.[column.key] === "boolean") {
+        next[column.key] = parsed[column.key];
+      }
+    });
+
+    return tableColumnOptions.some((column) => next[column.key] !== false)
+      ? next
+      : defaultTableColumnVisibility;
+  } catch {
+    return defaultTableColumnVisibility;
+  }
+}
 
 const datePresets = [
   "Сегодня",
@@ -195,7 +240,10 @@ const summaries = [
 ];
 
 export default function TablesReportPage() {
+  const tableSettingsRef = useRef(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [tableSettingsOpen, setTableSettingsOpen] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState(() => getStoredTableColumnVisibility());
   const [dateRange, setDateRange] = useState({ preset: "", start: "01.06.2026", end: "01.07.2026" });
   const [filters, setFilters] = useState(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
@@ -231,9 +279,46 @@ export default function TablesReportPage() {
       .catch(() => {});
   }, [dateRange.start, dateRange.end]);
 
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(tableColumnsStorageKey, JSON.stringify(visibleColumns));
+    } catch {
+      // localStorage can be unavailable in restricted browser modes.
+    }
+  }, [visibleColumns]);
+
+  useEffect(() => {
+    if (!tableSettingsOpen) {
+      return undefined;
+    }
+
+    function closeOnOutsideClick(event) {
+      if (!tableSettingsRef.current?.contains(event.target)) {
+        setTableSettingsOpen(false);
+      }
+    }
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape") {
+        setTableSettingsOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [tableSettingsOpen]);
+
   const zones = useMemo(() => Array.from(new Set(rows.map((row) => row.zone))), [rows]);
   const waiters = useMemo(() => Array.from(new Set(rows.map((row) => row.waiter))), [rows]);
   const paymentTypes = useMemo(() => Array.from(new Set(rows.map((row) => row.paymentType))), [rows]);
+  const visibleTableColumns = useMemo(
+    () => tableColumnOptions.filter((column) => visibleColumns[column.key] !== false),
+    [visibleColumns],
+  );
 
   const filteredRows = useMemo(() => rows.filter((row) => {
     const min = appliedFilters.minAmount ? Number(appliedFilters.minAmount) : null;
@@ -254,6 +339,17 @@ export default function TablesReportPage() {
 
   function applyFilters() {
     setAppliedFilters(filters);
+  }
+
+  function toggleColumn(key) {
+    setVisibleColumns((current) => {
+      const isVisible = current[key] !== false;
+      const visibleCount = tableColumnOptions.filter((column) => current[column.key] !== false).length;
+      if (isVisible && visibleCount <= 1) {
+        return current;
+      }
+      return { ...current, [key]: !isVisible };
+    });
   }
 
   function downloadExcel() {
@@ -283,7 +379,33 @@ export default function TablesReportPage() {
             </div>
           </div>
           <div className="report-actions">
-            <ReportDateRangePicker value={dateRange} onChange={setDateRange} />
+            <div className="tables-table-settings" ref={tableSettingsRef}>
+              <button className="tables-table-settings-button" type="button" onClick={() => setTableSettingsOpen((value) => !value)} aria-expanded={tableSettingsOpen}>
+                <Icon name="bi-gear-wide-connected" size={18} />
+                Настроить таблицу
+              </button>
+              {tableSettingsOpen ? (
+                <div className="tables-table-settings-popover">
+                  <div className="tables-table-settings-head">
+                    <strong>Столбцы таблицы</strong>
+                    <button type="button" onClick={() => setVisibleColumns(defaultTableColumnVisibility)}>Сбросить</button>
+                  </div>
+                  <div className="tables-table-settings-list">
+                    {tableColumnOptions.map((column) => {
+                      const checked = visibleColumns[column.key] !== false;
+                      const disabled = checked && visibleTableColumns.length <= 1;
+                      return (
+                        <label key={column.key}>
+                          <input type="checkbox" checked={checked} disabled={disabled} onChange={() => toggleColumn(column.key)} />
+                          <span>{column.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+            <ReportDateRangePicker value={dateRange} onChange={setDateRange} showDropdownIcon />
             <button className="tables-filter-toggle" type="button" onClick={() => setFiltersOpen((value) => !value)}>
               <Icon name="bi-sliders" size={18} />
               Фильтровать
@@ -348,6 +470,14 @@ export default function TablesReportPage() {
             </article>
           ))}
         </div>
+
+        <style>
+          {tableColumnOptions.map((column, index) => (
+            visibleColumns[column.key] === false
+              ? `.tables-report-page .report-table thead th:nth-child(${index + 1}), .tables-report-page .report-table tbody tr:not(.report-empty-row) td:nth-child(${index + 1}) { display: none !important; }`
+              : ""
+          )).join("\n")}
+        </style>
 
         <div className="report-table-wrapper">
           <table className="report-table">

@@ -1,6 +1,5 @@
 ﻿import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import BackButton from "./BackButton";
 import Sidebar from "./Sidebar";
 import SupportWidget from "./SupportWidget";
 import Topbar from "./Topbar";
@@ -68,7 +67,6 @@ export default function DashboardLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [title, subtitle] = useMemo(() => pageMeta[location.pathname] || ["Dashboard", ""], [location.pathname]);
-  const showBackButton = location.pathname !== "/";
   const isUsersSection = location.pathname.startsWith("/users");
   const selectedDateContext = useMemo(() => ({
     user,

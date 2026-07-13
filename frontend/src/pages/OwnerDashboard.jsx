@@ -3,9 +3,10 @@ import { createPortal } from "react-dom";
 import { Chart, Filler, LineController, LineElement, LinearScale, PointElement, CategoryScale, Tooltip } from "chart.js";
 import { Link, useOutletContext } from "react-router-dom";
 import { api, formatMoney, formatNumber } from "../api/client";
-import { dateRangeEndingAt, formatDateLabel, todayInputValue, toDateInputValue } from "../utils/date";
+import { formatDateLabel, todayInputValue, toDateInputValue } from "../utils/date";
 import Icon from "../components/Icon";
 import { PageLoader } from "../components/Loader";
+import ReportDateRangePicker from "../components/ReportDateRangePicker";
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler);
 
@@ -19,13 +20,398 @@ function seededFactor(seed, index, min = 0.82, max = 1.18) {
   return min + normalized * (max - min);
 }
 
+function inputDateToReportDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return formatDateLabel(todayInputValue());
+  }
+
+  const [year, month, day] = value.split("-");
+  return `${day}.${month}.${year}`;
+}
+
+function reportDateToInputDate(value) {
+  const match = String(value || "").match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (!match) {
+    return todayInputValue();
+  }
+
+  const [, day, month, year] = match;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function reportRangeEndingAt(days, endValue) {
+  const end = new Date(`${endValue}T00:00:00`);
+  const start = new Date(end);
+  start.setDate(end.getDate() - Math.max(1, days) + 1);
+
+  return {
+    preset: "",
+    start: inputDateToReportDate(toDateInputValue(start)),
+    end: inputDateToReportDate(toDateInputValue(end)),
+    startTime: "00:00",
+    endTime: "00:00",
+  };
+}
+
+function normalizeReportRange(range = {}) {
+  const startInput = reportDateToInputDate(range.start);
+  const endInput = reportDateToInputDate(range.end);
+  const [dateFrom, dateTo] = startInput <= endInput ? [startInput, endInput] : [endInput, startInput];
+
+  return {
+    preset: range.preset || "",
+    start: inputDateToReportDate(dateFrom),
+    end: inputDateToReportDate(dateTo),
+    startTime: "00:00",
+    endTime: "00:00",
+  };
+}
+
+function reportRangeToApiParams(range) {
+  const normalized = normalizeReportRange(range);
+  return {
+    date_from: reportDateToInputDate(normalized.start),
+    date_to: reportDateToInputDate(normalized.end),
+  };
+}
+
+function reportRangeDays(range) {
+  const normalized = normalizeReportRange(range);
+  const start = new Date(`${reportDateToInputDate(normalized.start)}T00:00:00`);
+  const end = new Date(`${reportDateToInputDate(normalized.end)}T00:00:00`);
+  return Math.max(1, Math.round((end - start) / 86400000) + 1);
+}
+
+function reportRangeLabel(range) {
+  const normalized = normalizeReportRange(range);
+  if (normalized.start === normalized.end) {
+    return normalized.start;
+  }
+
+  return `${normalized.start} - ${normalized.end}`;
+}
+
+function formatDaysLabel(days) {
+  const value = Math.max(1, Number(days) || 1);
+  const mod10 = value % 10;
+  const mod100 = value % 100;
+
+  if (mod10 === 1 && mod100 !== 11) {
+    return `${value} день`;
+  }
+
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    return `${value} дня`;
+  }
+
+  return `${value} дней`;
+}
+
+function clampAmount(value, max = Number.POSITIVE_INFINITY) {
+  return Math.max(0, Math.min(Math.round(Number(value) || 0), max));
+}
+
+function normalizePaymentRows(rows = [], total = 0) {
+  const revenue = Math.max(0, Number(total) || 0);
+  return rows
+    .map((row) => {
+      const amount = clampAmount(row.amount);
+      return {
+        name: row.name,
+        amount,
+        percent: revenue > 0 ? Math.round((amount / revenue) * 100) : 0,
+      };
+    })
+    .filter((row) => row.amount > 0 || row.name === "Другие оплаты");
+}
+
+function paymentMethodLabel(value) {
+  const key = String(value || "").trim().toLowerCase();
+  const labels = {
+    cash: "Наличные",
+    card: "Карта",
+    click: "CLICK",
+    payme: "Pay me",
+    pay_me: "Pay me",
+    paymego: "Pay me",
+    uzum: "Uzum Bank",
+    loyalty: "Лояльность",
+    mixed: "Смешанная оплата",
+  };
+
+  return labels[key] || value || "Способ оплаты";
+}
+
+function demoPaymentRows(total, seed) {
+  const revenue = Math.max(0, Number(total) || 0);
+  const cash = clampAmount(Math.round((revenue * seededFactor(seed, 4, 0.27, 0.35)) / 10000) * 10000, revenue);
+  const card = clampAmount(Math.round((revenue * seededFactor(seed, 15, 0.22, 0.29)) / 10000) * 10000, revenue - cash);
+  const click = clampAmount(Math.round((revenue * seededFactor(seed, 16, 0.13, 0.19)) / 10000) * 10000, revenue - cash - card);
+  const payme = clampAmount(Math.round((revenue * seededFactor(seed, 17, 0.10, 0.16)) / 10000) * 10000, revenue - cash - card - click);
+  const uzum = clampAmount(Math.round((revenue * seededFactor(seed, 18, 0.06, 0.10)) / 10000) * 10000, revenue - cash - card - click - payme);
+  const other = clampAmount(revenue - cash - card - click - payme - uzum);
+
+  return normalizePaymentRows([
+    { name: "Наличные", amount: cash },
+    { name: "Карта", amount: card },
+    { name: "CLICK", amount: click },
+    { name: "Pay me", amount: payme },
+    { name: "Uzum Bank", amount: uzum },
+    { name: "Другие оплаты", amount: other },
+  ], revenue);
+}
+
+function realPaymentRows(dash = {}, total = 0, seed = 1) {
+  const revenue = Math.max(0, Number(total) || 0);
+  const sourceRows = dash.payment_methods || dash.paymentMethods || dash.payment_breakdown || dash.paymentBreakdown;
+
+  if (Array.isArray(sourceRows) && sourceRows.length) {
+    return normalizePaymentRows(sourceRows.map((row) => {
+      const rawName = row.name || row.label || row.method || row.payment_method || row.paymentMethod || row.type;
+      return {
+        name: paymentMethodLabel(rawName),
+        amount: row.amount ?? row.total ?? row.revenue ?? row.value ?? 0,
+      };
+    }), revenue);
+  }
+
+  if (Array.isArray(sourceRows)) {
+    return revenue > 0 ? normalizePaymentRows([{ name: "Не указано", amount: revenue }], revenue) : [];
+  }
+
+  const cash = clampAmount(dash.cash_total ?? dash.cash ?? 0, revenue);
+  const nonCash = clampAmount(dash.non_cash_total ?? dash.card_total ?? dash.card ?? Math.max(0, revenue - cash), revenue - cash);
+
+  if (cash > 0 || nonCash > 0) {
+    const card = clampAmount(dash.card_total ?? Math.round(nonCash * 0.42), nonCash);
+    const click = clampAmount(dash.click_total ?? dash.click ?? Math.round(nonCash * 0.25), nonCash - card);
+    const payme = clampAmount(dash.payme_total ?? dash.pay_me_total ?? dash.payme ?? Math.round(nonCash * 0.20), nonCash - card - click);
+    const other = clampAmount(nonCash - card - click - payme);
+
+    return normalizePaymentRows([
+      { name: "Наличные", amount: cash },
+      { name: "Карта", amount: card },
+      { name: "CLICK", amount: click },
+      { name: "Pay me", amount: payme },
+      { name: "Другие оплаты", amount: other },
+    ], revenue);
+  }
+
+  return demoPaymentRows(revenue, seed);
+}
+
+const DEFAULT_PLACE_NAMES = ["Зал", "Бар", "Балкон", "Комната №1", "Кабина"];
+
+function configuredPlaceNames(rows = []) {
+  const names = rows
+    .map((row) => String(row.name || row.label || row.title || "").trim())
+    .filter(Boolean);
+
+  return [...new Set(names)];
+}
+
+function orderLocationName(value, orderType, placeNames = []) {
+  const type = String(orderType || "").trim().toLowerCase();
+  if (type === "delivery" || type === "delivery_app") return "Доставка";
+  if (type === "takeaway" || type === "pickup") return "Самовывоз";
+
+  const raw = String(value || "").trim();
+  if (!raw) return "Зал";
+
+  const rawLower = raw.toLowerCase();
+  const matchedPlace = placeNames.find((name) => rawLower.includes(String(name).toLowerCase()));
+  if (matchedPlace) return matchedPlace;
+
+  const [beforeComma] = raw.split(",");
+  const cleaned = beforeComma.replace(/\s*(стол|table)\s*№?\s*\d+.*/i, "").trim();
+  return cleaned || raw || "Зал";
+}
+
+function normalizeOrderRows(rows = [], total = 0, placeNames = []) {
+  const ordersTotal = Math.max(0, Number(total) || 0);
+  const configuredNames = configuredPlaceNames(placeNames);
+  const amounts = new Map(configuredNames.map((name) => [name, 0]));
+
+  rows.forEach((row) => {
+    const rawName = row.name || row.label || row.place || row.table_number || row.tableNumber || row.location || row.type;
+    const name = orderLocationName(rawName, row.order_type || row.orderType || row.type, configuredNames);
+    const amount = clampAmount(row.count ?? row.orders ?? row.amount ?? row.total ?? row.value ?? 0);
+    amounts.set(name, (amounts.get(name) || 0) + amount);
+  });
+
+  return [...amounts.entries()]
+    .map(([name, amount]) => ({
+      name,
+      amount,
+      percent: ordersTotal > 0 ? Math.round((amount / ordersTotal) * 100) : 0,
+    }))
+    .filter((row) => row.amount > 0 || configuredNames.includes(row.name));
+}
+
+function demoOrderRows(total, seed, placeNames = []) {
+  const ordersTotal = Math.max(0, Number(total) || 0);
+  const names = configuredPlaceNames(placeNames);
+  const baseNames = names.length ? names : DEFAULT_PLACE_NAMES;
+  const rows = [...baseNames, "Доставка", "Самовывоз"];
+  const weights = rows.map((_, index) => seededFactor(seed, index + 21, 0.55, 1.35));
+  const weightTotal = weights.reduce((sum, value) => sum + value, 0) || 1;
+  let used = 0;
+
+  return normalizeOrderRows(rows.map((name, index) => {
+    const amount = index === rows.length - 1
+      ? Math.max(0, ordersTotal - used)
+      : Math.max(0, Math.round((ordersTotal * weights[index]) / weightTotal));
+    used += amount;
+    return { name, count: amount };
+  }), ordersTotal, baseNames);
+}
+
+function realOrderRows(dash = {}, total = 0, seed = 1, placeNames = []) {
+  const sourceRows = dash.order_locations || dash.orderLocations || dash.place_orders || dash.placeOrders || dash.order_places || dash.orderPlaces;
+
+  if (Array.isArray(sourceRows)) {
+    return normalizeOrderRows(sourceRows, total, placeNames);
+  }
+
+  return demoOrderRows(total, seed, placeNames);
+}
+
+function normalizeMetricRows(rows = [], total = 0, keepZeroNames = []) {
+  const base = Math.max(0, Number(total) || 0);
+  const keep = new Set(keepZeroNames);
+
+  return rows
+    .map((row) => {
+      const amount = clampAmount(row.amount ?? row.avg_check ?? row.avgCheck ?? row.value ?? 0);
+      return {
+        name: row.name || row.label || "Показатель",
+        amount,
+        percent: base > 0 ? Math.round((amount / base) * 100) : 0,
+      };
+    })
+    .filter((row) => row.amount > 0 || keep.has(row.name));
+}
+
+function demoSplitRows(total, seed, labels, offset = 50) {
+  const value = Math.max(0, Number(total) || 0);
+  const weights = labels.map((_, index) => seededFactor(seed, offset + index, 0.45, 1.28));
+  const weightTotal = weights.reduce((sum, item) => sum + item, 0) || 1;
+  let used = 0;
+
+  return normalizeMetricRows(labels.map((label, index) => {
+    const amount = index === labels.length - 1
+      ? Math.max(0, value - used)
+      : Math.round((value * weights[index]) / weightTotal);
+    used += amount;
+    return { name: label, amount };
+  }), value);
+}
+
+function demoAverageRows(avgCheck, seed, placeSettings = []) {
+  const base = Math.max(0, Number(avgCheck) || 0);
+  const places = configuredPlaceNames(placeSettings);
+  const labels = (places.length ? places.slice(0, 5) : ["Зал", "Бар", "Балкон"]).concat(["Доставка", "Самовывоз"]);
+
+  return normalizeMetricRows(labels.map((label, index) => ({
+    name: label,
+    amount: Math.round((base * seededFactor(seed, index + 70, 0.74, 1.24)) / 1000) * 1000,
+  })), base);
+}
+
+function realAverageRows(dash = {}, avgCheck = 0, seed = 1, placeSettings = []) {
+  const sourceRows = dash.avg_check_segments || dash.avgCheckSegments || dash.average_check_segments || dash.averageCheckSegments;
+  const places = configuredPlaceNames(placeSettings);
+
+  if (Array.isArray(sourceRows) && sourceRows.length) {
+    const grouped = new Map();
+    sourceRows.forEach((row) => {
+      const name = orderLocationName(row.name || row.place || row.table_number || row.tableNumber || row.type, row.order_type || row.orderType || row.type, places);
+      const count = Math.max(1, Number(row.orders_count ?? row.ordersCount ?? row.count ?? 1) || 1);
+      const amount = Number(row.avg_check ?? row.avgCheck ?? row.amount ?? row.value ?? 0) || 0;
+      const current = grouped.get(name) || { total: 0, count: 0 };
+      grouped.set(name, { total: current.total + amount * count, count: current.count + count });
+    });
+
+    return normalizeMetricRows([...grouped.entries()].map(([name, row]) => ({
+      name,
+      amount: row.count ? row.total / row.count : 0,
+    })), avgCheck);
+  }
+
+  return demoAverageRows(avgCheck, seed, placeSettings);
+}
+
+function groupFinanceRows(rows = [], direction) {
+  const grouped = new Map();
+
+  rows.forEach((row) => {
+    const rowDirection = row.direction || row.type;
+    if (rowDirection !== direction) return;
+
+    const name = row.category_name || row.category || row.payment_type_name || row.paymentType || (direction === "expense" ? "Без категории" : "Приход");
+    grouped.set(name, (grouped.get(name) || 0) + Number(row.amount || row.total || row.value || 0));
+  });
+
+  return [...grouped.entries()].map(([name, amount]) => ({ name, amount }));
+}
+
+function demoIncomeRows(total, seed) {
+  return demoSplitRows(total, seed, ["Наличные", "Карта", "CLICK", "Pay me", "Прочий приход"], 80);
+}
+
+function realIncomeRows(dash = {}, total = 0, seed = 1, financeRows = []) {
+  const sourceRows = dash.income_breakdown || dash.incomeBreakdown || dash.income_sources || dash.incomeSources;
+  if (Array.isArray(sourceRows) && sourceRows.length) {
+    return normalizeMetricRows(sourceRows.map((row) => ({
+      name: row.name || row.label || row.category || row.type || "Приход",
+      amount: row.amount ?? row.total ?? row.value ?? 0,
+    })), total);
+  }
+
+  const financeIncome = groupFinanceRows(financeRows, "income");
+  if (financeIncome.length) {
+    return normalizeMetricRows(financeIncome, total);
+  }
+
+  const paymentRows = realPaymentRows(dash, total, seed);
+  return paymentRows.length ? paymentRows : demoIncomeRows(total, seed);
+}
+
+function demoExpenseRows(total, seed) {
+  return demoSplitRows(total, seed, ["Закупки", "Склад", "Персонал", "Операционные", "Доставка"], 90);
+}
+
+function realExpenseRows(dash = {}, total = 0, seed = 1, financeRows = []) {
+  const sourceRows = dash.expense_breakdown || dash.expenseBreakdown || dash.expense_categories || dash.expenseCategories;
+  if (Array.isArray(sourceRows) && sourceRows.length) {
+    return normalizeMetricRows(sourceRows.map((row) => ({
+      name: row.name || row.label || row.category || row.type || "Расход",
+      amount: row.amount ?? row.total ?? row.value ?? 0,
+    })), total);
+  }
+
+  const financeExpense = groupFinanceRows(financeRows, "expense");
+  if (financeExpense.length) {
+    return normalizeMetricRows(financeExpense, total);
+  }
+
+  return total > 0 ? demoExpenseRows(total, seed) : [];
+}
+
 function demoSales(days, endValue) {
   const seed = dateSeed(endValue);
-  const values = days === 30
+  const normalizedDays = Math.max(1, Math.min(366, days));
+  const sourceValues = normalizedDays > 7
     ? [1180000, 1460000, 1320000, 1750000, 1680000, 2120000, 1980000, 2240000, 2410000, 2190000, 2650000, 2880000, 2740000, 3160000, 3420000, 3290000, 3680000, 3510000, 3940000, 4280000, 4120000, 4570000, 4860000, 4620000, 4980000, 5320000, 5180000, 5740000, 6020000, 6350000]
     : [1850000, 2420000, 2180000, 3360000, 3820000, 3540000, 4680000];
+  const values = normalizedDays <= sourceValues.length
+    ? sourceValues.slice(-normalizedDays)
+    : Array.from({ length: normalizedDays }, (_, index) => {
+      const source = sourceValues[index % sourceValues.length];
+      return Math.round((source * seededFactor(seed, index + 31, 0.9, 1.14)) / 10000) * 10000;
+    });
   const endDate = new Date(`${endValue}T00:00:00`);
-  return values.slice(-days).map((baseRevenue, index, list) => {
+  return values.map((baseRevenue, index, list) => {
     const date = new Date(endDate);
     date.setDate(endDate.getDate() - list.length + index + 1);
     const revenue = Math.round((baseRevenue * seededFactor(seed, index)) / 10000) * 10000;
@@ -90,7 +476,7 @@ function signed(n) {
   return n > 0 ? `+${n}` : `${n}`;
 }
 
-function demoKpis(sales, selectedDate) {
+function demoKpis(sales, selectedDate, placeSettings = []) {
   const seed = dateSeed(selectedDate);
   const day = sales.at(-1) || { revenue: 0, orders_count: 0, avg_check: 0 };
   const prev = sales.at(-2) || day;
@@ -132,6 +518,7 @@ function demoKpis(sales, selectedDate) {
         ["Оплачено картой", `${formatNumber(card)} UZS`],
         ["Пиковый час", "13:00 - 14:00"],
       ],
+      paymentRows: demoPaymentRows(day.revenue, seed),
       insight: revChange >= 0
         ? `Темп выше вчерашнего дня на ${Math.abs(revChange)}%.`
         : `Темп ниже вчерашнего дня на ${Math.abs(revChange)}%.`,
@@ -152,6 +539,7 @@ function demoKpis(sales, selectedDate) {
         ["Самовывоз", `${pickup} заказов`],
         ["Среднее время", `${avgTime} мин`],
       ],
+      placeRows: demoOrderRows(day.orders_count, seed, placeSettings),
       insight: "Распределение заказов по залу, доставке и самовывозу за день.",
     },
     {
@@ -171,6 +559,14 @@ function demoKpis(sales, selectedDate) {
         ["Зал", `${formatNumber(Math.round(day.avg_check * 1.07))} UZS`],
         ["Доставка", `${formatNumber(Math.round(day.avg_check * 0.93))} UZS`],
       ],
+      table: {
+        rows: demoAverageRows(day.avg_check, seed, placeSettings),
+        labelColumn: "Канал",
+        valueColumn: "Средний чек",
+        shareColumn: "Индекс",
+        formatValue: formatMoney,
+        emptyText: "Нет данных по среднему чеку",
+      },
       insight: "Средний чек по всем каналам продаж за выбранный день.",
     },
     {
@@ -190,6 +586,14 @@ function demoKpis(sales, selectedDate) {
         ["Оплачено заказов", `${Math.max(0, day.orders_count - activeOrders)} заказов`],
         ["Активные заказы", `${activeOrders} заказа`],
       ],
+      table: {
+        rows: demoIncomeRows(moneyIncome, seed),
+        labelColumn: "Источник",
+        valueColumn: "Приход",
+        shareColumn: "Доля",
+        formatValue: formatMoney,
+        emptyText: "Нет приходов за выбранный день",
+      },
       insight: "Денежный приход показывает поступления, которые уже прошли через оплату.",
     },
     {
@@ -209,12 +613,20 @@ function demoKpis(sales, selectedDate) {
         ["Операционные", `${formatNumber(Math.round(moneyExpense * 0.18))} UZS`],
         ["Доля от выручки", `${Math.round((moneyExpense / Math.max(day.revenue, 1)) * 100)}%`],
       ],
+      table: {
+        rows: demoExpenseRows(moneyExpense, seed),
+        labelColumn: "Статья расходов",
+        valueColumn: "Сумма",
+        shareColumn: "Доля",
+        formatValue: formatMoney,
+        emptyText: "Нет расходов за выбранный день",
+      },
       insight: "Денежные расходы показывают затраты за выбранную дату.",
     },
   ];
 }
 
-function buildRealKpis(dash, sales, selectedDate) {
+function buildRealKpis(dash, sales, selectedDate, placeSettings = [], financeRows = []) {
   const day = sales.at(-1) || { revenue: 0, orders_count: 0, avg_check: 0 };
   const prev = sales.at(-2) || day;
 
@@ -229,8 +641,10 @@ function buildRealKpis(dash, sales, selectedDate) {
 
   const cashTotal = dash.cash_total ?? 0;
   const nonCashTotal = dash.non_cash_total ?? 0;
-  const income = dash.income_total ?? revenue;
-  const expense = dash.expense_total ?? 0;
+  const financeIncomeTotal = groupFinanceRows(financeRows, "income").reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const financeExpenseTotal = groupFinanceRows(financeRows, "expense").reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const income = dash.income_total ?? (financeIncomeTotal > 0 ? financeIncomeTotal : revenue);
+  const expense = dash.expense_total ?? financeExpenseTotal;
   const prevIncome = prev.revenue || 1;
   const incomeChange = pctChange(income, prevIncome);
   const expenseChange = expense > 0 ? pctChange(expense, Math.round(prevIncome * 0.31)) : 0;
@@ -252,6 +666,7 @@ function buildRealKpis(dash, sales, selectedDate) {
         ["Безнал", `${formatNumber(nonCashTotal)} UZS`],
         ["Активные заказы", `${activeOrders}`],
       ],
+      paymentRows: realPaymentRows(dash, revenue, dateSeed(selectedDate)),
       insight: revChange >= 0
         ? `Темп выше вчерашнего дня на ${Math.abs(revChange)}%.`
         : `Темп ниже вчерашнего дня на ${Math.abs(revChange)}%.`,
@@ -270,6 +685,7 @@ function buildRealKpis(dash, sales, selectedDate) {
         ["Активные заказы", `${activeOrders}`],
         ["Завершённых", `${Math.max(0, orders - activeOrders)}`],
       ],
+      placeRows: realOrderRows(dash, orders, dateSeed(selectedDate), placeSettings),
       insight: "Количество заказов за выбранный день.",
     },
     {
@@ -284,6 +700,14 @@ function buildRealKpis(dash, sales, selectedDate) {
       progress: Math.max(8, 65),
       description: "Средняя сумма одного заказа за выбранный день.",
       details: [],
+      table: {
+        rows: realAverageRows(dash, avgCheck, dateSeed(selectedDate), placeSettings),
+        labelColumn: "Канал",
+        valueColumn: "Средний чек",
+        shareColumn: "Индекс",
+        formatValue: formatMoney,
+        emptyText: "Нет данных по среднему чеку",
+      },
       insight: "Средний чек по всем каналам продаж.",
     },
     {
@@ -301,6 +725,14 @@ function buildRealKpis(dash, sales, selectedDate) {
         ["Наличные", `${formatNumber(cashTotal)} UZS`],
         ["Безнал", `${formatNumber(nonCashTotal)} UZS`],
       ],
+      table: {
+        rows: realIncomeRows(dash, income, dateSeed(selectedDate), financeRows),
+        labelColumn: "Источник",
+        valueColumn: "Приход",
+        shareColumn: "Доля",
+        formatValue: formatMoney,
+        emptyText: "Нет приходов за выбранный день",
+      },
       insight: "Денежный приход показывает поступления, прошедшие через оплату.",
     },
     {
@@ -315,6 +747,14 @@ function buildRealKpis(dash, sales, selectedDate) {
       progress: Math.max(8, Math.min(100, Math.round((expense / Math.max(revenue, 1)) * 100))),
       description: "Фактические расходы за выбранную дату.",
       details: [],
+      table: {
+        rows: realExpenseRows(dash, expense, dateSeed(selectedDate), financeRows),
+        labelColumn: "Статья расходов",
+        valueColumn: "Сумма",
+        shareColumn: "Доля",
+        formatValue: formatMoney,
+        emptyText: "Нет расходов за выбранный день",
+      },
       insight: "Денежные расходы за выбранную дату.",
     },
   ];
@@ -619,61 +1059,6 @@ function EmptyState({ title, text }) {
   );
 }
 
-function PeriodDropdown({ value, onChange }) {
-  const [open, setOpen] = useState(false);
-  const closeTimerRef = useRef(null);
-  const options = [
-    { value: 7, label: "7 дней" },
-    { value: 30, label: "30 дней" },
-  ];
-  const selected = options.find((option) => option.value === value) || options[0];
-  const openMenu = () => {
-    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
-    setOpen(true);
-  };
-  const closeMenu = () => {
-    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = window.setTimeout(() => setOpen(false), 140);
-  };
-
-  return (
-    <div
-      className={`period-dropdown ${open ? "is-open" : ""}`}
-      onMouseEnter={openMenu}
-      onMouseLeave={closeMenu}
-      onFocus={openMenu}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) closeMenu();
-      }}
-    >
-      <button className="period-dropdown__button" type="button" onClick={() => setOpen((current) => !current)} aria-haspopup="listbox" aria-expanded={open}>
-        <span>Период</span>
-        <strong>{selected.label}</strong>
-        <Icon name="bi-chevron-down" size={20} />
-      </button>
-      {open ? (
-        <div className="period-dropdown__menu" role="listbox">
-          {options.map((option) => (
-            <button
-              className={option.value === value ? "is-selected" : ""}
-              key={option.value}
-              type="button"
-              role="option"
-              aria-selected={option.value === value}
-              onClick={() => {
-                onChange(option.value);
-                setOpen(false);
-              }}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 function ShiftSummaryCard({ summary }) {
   return (
     <aside className="card card-pad shift-summary-card shift-summary-card--window">
@@ -836,7 +1221,81 @@ function TopSalesCard({ dishes }) {
   );
 }
 
+function formatOrderCount(value) {
+  const count = Math.round(Number(value) || 0);
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  const word = mod10 === 1 && mod100 !== 11
+    ? "заказ"
+    : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)
+      ? "заказа"
+      : "заказов";
+
+  return `${formatNumber(count)} ${word}`;
+}
+
+function KpiPaymentTable({
+  rows = [],
+  labelColumn = "Способ оплаты",
+  valueColumn = "Выручка",
+  shareColumn = "Доля",
+  formatValue = formatMoney,
+  emptyText = "Нет оплат за выбранный день",
+}) {
+  const hasRows = rows.length > 0;
+
+  return (
+    <div className="kpi-payment-report">
+      <div className="kpi-payment-report__table-wrap">
+        <table className="kpi-payment-report__table">
+          <thead>
+            <tr>
+              <th>{labelColumn}</th>
+              <th>{valueColumn}</th>
+              <th>{shareColumn}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {hasRows ? rows.map((row) => (
+                <tr key={row.name}>
+                  <td>{row.name}</td>
+                  <td>{formatValue(row.amount)}</td>
+                  <td>
+                    <div className="kpi-payment-report__share">
+                      <span aria-hidden="true"><i style={{ width: `${Math.max(2, Math.min(100, row.percent))}%` }} /></span>
+                      <strong>{row.percent}%</strong>
+                    </div>
+                  </td>
+                </tr>
+              )) : (
+                <tr>
+                  <td className="kpi-payment-report__empty" colSpan={3}>{emptyText}</td>
+                </tr>
+              )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function KpiInfoDialog({ kpi, onClose }) {
+  const hasCustomTable = kpi?.table && Array.isArray(kpi.table.rows);
+  const hasPlaceTable = !hasCustomTable && Array.isArray(kpi?.placeRows);
+  const tableRows = hasPlaceTable ? kpi.placeRows : !hasCustomTable && Array.isArray(kpi?.paymentRows) ? kpi.paymentRows : null;
+  const tableProps = hasCustomTable ? kpi.table : hasPlaceTable
+    ? {
+      rows: tableRows,
+      labelColumn: "Место",
+      valueColumn: "Заказы",
+      formatValue: formatOrderCount,
+      emptyText: "Нет заказов за выбранный день",
+    }
+    : {
+      rows: tableRows || [],
+    };
+  const hasTable = hasCustomTable || Array.isArray(tableRows);
+
   useEffect(() => {
     if (!kpi) return undefined;
     const handleKeyDown = (event) => {
@@ -853,14 +1312,14 @@ function KpiInfoDialog({ kpi, onClose }) {
   return createPortal(
     <div className="kpi-info-backdrop" role="presentation" onMouseDown={onClose}>
       <section
-        className={`kpi-info-window ${kpi.className}`}
+        className={`kpi-info-window ${kpi.className} ${hasTable ? "kpi-info-window--payment-table" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="kpi-info-title"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="kpi-info-window__head">
-          <div className="kpi-info-window__icon"><Icon name={kpi.icon} size={20} /></div>
+        <div className={`kpi-info-window__head ${hasTable ? "kpi-info-window__head--payment-table" : ""}`}>
+          {hasTable ? null : <div className="kpi-info-window__icon"><Icon name={kpi.icon} size={20} /></div>}
           <div>
             <span>{kpi.badge}</span>
             <h2 id="kpi-info-title">{kpi.label}</h2>
@@ -876,19 +1335,25 @@ function KpiInfoDialog({ kpi, onClose }) {
         </div>
         <p>{kpi.description}</p>
 
-        <div className="kpi-info-window__details">
-          {kpi.details.map(([label, value]) => (
-            <div key={label}>
-              <span>{label}</span>
-              <strong>{value}</strong>
-            </div>
-          ))}
-        </div>
+        {hasTable ? (
+          <KpiPaymentTable {...tableProps} />
+        ) : (
+          <div className="kpi-info-window__details">
+            {kpi.details.map(([label, value]) => (
+              <div key={label}>
+                <span>{label}</span>
+                <strong>{value}</strong>
+              </div>
+            ))}
+          </div>
+        )}
 
-        <div className="kpi-info-window__insight">
-          <Icon name="bi-info-circle" size={20} />
-          <span>{kpi.insight}</span>
-        </div>
+        {hasTable ? null : (
+          <div className="kpi-info-window__insight">
+            <Icon name="bi-info-circle" size={20} />
+            <span>{kpi.insight}</span>
+          </div>
+        )}
       </section>
     </div>,
     container
@@ -971,24 +1436,45 @@ function WarehouseReportDialog({ report, selectedDate, onClose }) {
 
 export default function OwnerDashboard() {
   const { selectedDate = todayInputValue() } = useOutletContext();
-  const [period, setPeriod] = useState(7);
+  const [revenueRange, setRevenueRange] = useState(() => reportRangeEndingAt(7, selectedDate));
   const [selectedKpi, setSelectedKpi] = useState(null);
   const [selectedWarehouseReport, setSelectedWarehouseReport] = useState(null);
   const hasLoadedRef = useRef(false);
+  const lastSelectedDateRef = useRef(selectedDate);
   const [dashboard, setDashboard] = useState(null);
   const [sales, setSales] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
   const [products, setProducts] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
+  const [placeSettings, setPlaceSettings] = useState([]);
+  const [financeTransactions, setFinanceTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const normalizedRevenueRange = useMemo(() => normalizeReportRange(revenueRange), [revenueRange]);
+  const revenueParams = useMemo(() => reportRangeToApiParams(normalizedRevenueRange), [normalizedRevenueRange]);
+  const revenuePeriod = useMemo(() => reportRangeDays(normalizedRevenueRange), [normalizedRevenueRange]);
+  const revenueEndDate = reportDateToInputDate(normalizedRevenueRange.end);
+  const revenuePeriodLabel = reportRangeLabel(normalizedRevenueRange);
+  const revenuePresetOptions = useMemo(() => ([
+    { label: "7 дней", getRange: () => ({ ...reportRangeEndingAt(7, selectedDate), preset: "7 дней" }) },
+    { label: "30 дней", getRange: () => ({ ...reportRangeEndingAt(30, selectedDate), preset: "30 дней" }) },
+  ]), [selectedDate]);
+
+  useEffect(() => {
+    if (lastSelectedDateRef.current === selectedDate) {
+      return;
+    }
+
+    lastSelectedDateRef.current = selectedDate;
+    setRevenueRange((current) => reportRangeEndingAt(reportRangeDays(current), selectedDate));
+  }, [selectedDate]);
 
   useEffect(() => {
     let mounted = true;
     setLoading(!hasLoadedRef.current);
     setError("");
-    const params = dateRangeEndingAt(period, selectedDate);
+    const params = revenueParams;
     const dayParams = { date_from: selectedDate, date_to: selectedDate };
 
     Promise.all([
@@ -998,7 +1484,9 @@ export default function OwnerDashboard() {
       api.get("/inventory/products"),
       api.get("/hr/employees"),
       api.get("/pos/orders", { params: { date: selectedDate } }),
-    ]).then(([dashboardRes, salesRes, topRes, productsRes, employeesRes, ordersRes]) => {
+      api.get("/settings/places").catch(() => ({ data: [] })),
+      api.get("/finance/transactions", { params: { date_from: selectedDate, date_to: selectedDate } }).catch(() => ({ data: [] })),
+    ]).then(([dashboardRes, salesRes, topRes, productsRes, employeesRes, ordersRes, placesRes, financeRes]) => {
       if (!mounted) return;
       setDashboard(dashboardRes.data);
       setSales(salesRes.data);
@@ -1007,24 +1495,28 @@ export default function OwnerDashboard() {
       setEmployees(employeesRes.data);
       const orderList = Array.isArray(ordersRes.data) ? ordersRes.data : ordersRes.data?.items || [];
       setRecentOrders(orderList.slice(0, 5));
+      const placeList = Array.isArray(placesRes.data) ? placesRes.data : placesRes.data?.items || placesRes.data?.results || [];
+      setPlaceSettings(placeList);
+      const financeList = Array.isArray(financeRes.data) ? financeRes.data : financeRes.data?.items || financeRes.data?.results || [];
+      setFinanceTransactions(financeList);
       hasLoadedRef.current = true;
     }).catch((err) => {
       if (mounted) setError(err.response?.data?.detail || "Не удалось загрузить dashboard данные.");
     }).finally(() => mounted && setLoading(false));
 
     return () => { mounted = false; };
-  }, [period, selectedDate]);
+  }, [revenueParams, selectedDate]);
 
   const displaySales = useMemo(
-  () => (sales.length > 0 ? sales : demoSales(period, selectedDate)),
-  [sales, period, selectedDate]
+  () => (sales.length > 0 ? sales : demoSales(revenuePeriod, revenueEndDate)),
+  [sales, revenuePeriod, revenueEndDate]
 );
   const isSalesDemo = sales.length === 0;
   const isDashboardDemo = !dashboard || dashboard.today_revenue === undefined;
   const kpis = useMemo(() => {
-    if (!isDashboardDemo && !isSalesDemo) return buildRealKpis(dashboard, displaySales, selectedDate);
-    return demoKpis(displaySales, selectedDate);
-  }, [isDashboardDemo, isSalesDemo, dashboard, displaySales, selectedDate]);
+    if (!isDashboardDemo && !isSalesDemo) return buildRealKpis(dashboard, displaySales, selectedDate, placeSettings, financeTransactions);
+    return demoKpis(displaySales, selectedDate, placeSettings);
+  }, [isDashboardDemo, isSalesDemo, dashboard, displaySales, selectedDate, placeSettings, financeTransactions]);
   const displayTopDishes = useMemo(() => {
   if (topProducts.length > 0) {
     const maxRevenue = Number(topProducts[0]?.revenue || 1);
@@ -1120,9 +1612,19 @@ export default function OwnerDashboard() {
       <section className="owner-main-grid">
         <div className="card card-pad chart-card premium-chart">
           <div className="section-header section-header--stack">
-            <div><span className="eyebrow">Revenue analytics</span><h2>Выручка за {period} дней</h2><p>Период заканчивается {formatDateLabel(selectedDate)}</p></div>
-            <div className="period-switcher" aria-label="Период выручки">
-              <PeriodDropdown value={period} onChange={setPeriod} />
+            <div><span className="eyebrow">Revenue analytics</span><h2>Выручка за {formatDaysLabel(revenuePeriod)}</h2><p>{revenuePeriodLabel}</p></div>
+            <div className="period-switcher owner-revenue-switcher" aria-label="Период выручки">
+              <div className="owner-revenue-range report-actions">
+                <ReportDateRangePicker
+                  value={normalizedRevenueRange}
+                  onChange={(nextRange) => setRevenueRange(normalizeReportRange(nextRange))}
+                  buttonClassName="period-dropdown__button owner-revenue-range__button"
+                  presets={revenuePresetOptions}
+                  formatButtonLabel={(range) => formatDaysLabel(reportRangeDays(range))}
+                  showDropdownIcon
+                  showTime={false}
+                />
+              </div>
               <Link className="period-switcher__details" to="/analytics">Подробнее</Link>
             </div>
           </div>

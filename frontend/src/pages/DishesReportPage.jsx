@@ -156,7 +156,7 @@ export default function DishesReportPage() {
             </div>
           </div>
           <div className="report-actions">
-            <ReportDateRangePicker value={dateRange} onChange={setDateRange} />
+            <ReportDateRangePicker value={dateRange} onChange={setDateRange} showDropdownIcon />
             <button className="report-excel-button" type="button" onClick={downloadExcel}>
               <Icon name="bi-file-earmark-excel" size={18} />
               Скачать Excel

@@ -1207,6 +1207,24 @@ const chartData = {
 const ADMIN_CHART_COLOR = "#4ed3a7";
 const ADMIN_CHART_COLOR_RGB = "78, 211, 167";
 
+function MarjonLogoSvg({ className = "marjon-logo" }) {
+  return (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 219 229" role="img" aria-label="MARJON">
+      <defs>
+        <radialGradient id="adminMarjonPearl" cx="40%" cy="36%" r="65%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="42%" stopColor="#eceff3" />
+          <stop offset="76%" stopColor="#c4cbd4" />
+          <stop offset="100%" stopColor="#949da9" />
+        </radialGradient>
+      </defs>
+      <path d="M43.15,139.25 C43.25,103.36 43.66,74.00 44.06,74.00 C45.51,74.00 68.00,98.78 68.00,100.37 C68.00,101.27 68.79,102.00 69.76,102.00 C70.72,102.00 80.71,111.22 91.95,122.50 C103.19,133.78 112.80,143.00 113.30,143.00 C113.80,143.00 129.67,127.36 148.56,108.25 L182.92,73.50 L182.96,138.50 L183.00,203.50 L176.00,196.87 L169.00,190.23 L169.00,149.87 L169.00,109.50 L141.25,137.25 L113.51,165.00 L84.37,135.87 L55.22,106.74 L56.61,112.09 C57.67,116.18 58.00,126.07 58.00,154.10 L58.00,190.76 L53.25,194.53 C50.64,196.60 47.26,199.70 45.73,201.40 L42.97,204.50 L43.15,139.25 Z M144.17,89.00 C149.04,83.02 152.79,75.36 154.02,68.90 C155.86,59.21 152.11,46.76 144.90,38.54 C143.19,36.59 142.10,35.00 142.47,35.00 C142.84,35.00 145.99,37.03 149.47,39.52 C156.79,44.74 166.63,54.94 169.44,60.21 L171.37,63.85 L165.44,70.18 C158.49,77.60 147.77,87.85 143.50,91.17 C140.64,93.39 140.68,93.28 144.17,89.00 Z M71.76,80.09 C57.08,65.90 56.01,64.30 58.21,59.69 C60.51,54.86 69.44,45.49 76.41,40.59 C85.27,34.36 85.51,34.31 81.43,39.65 C75.83,46.98 73.79,52.44 73.27,61.50 C72.73,70.79 74.93,78.12 80.38,85.28 C87.93,95.20 86.50,94.34 71.76,80.09 Z" fill="#0b223f" />
+      <path d="M100.49,109.90 C87.79,97.11 87.62,96.88 93.00,99.82 C107.59,107.82 119.48,107.80 134.00,99.77 C139.36,96.80 139.18,97.05 126.51,109.86 C119.37,117.09 113.52,123.00 113.50,123.00 C113.48,123.00 107.63,117.11 100.49,109.90 Z" fill="#08858a" />
+      <circle cx="114" cy="86" r="24" fill="url(#adminMarjonPearl)" />
+    </svg>
+  );
+}
+
 function adminChartPointToMoney(value) {
   return Math.round(Number(value || 0) * 1000000);
 }
@@ -1475,7 +1493,9 @@ function Sidebar({ active, onSelect, collapsed, onToggle, user, onProfile }) {
     () => navItems.find((item) => item.children?.some((child) => child.key === active))?.key || null,
     [active],
   );
+  const closePopoverTimer = useRef(null);
   const [openGroups, setOpenGroups] = useState(() => (activeParent ? [activeParent] : []));
+  const [hoverGroup, setHoverGroup] = useState("");
 
   useEffect(() => {
     if (activeParent) {
@@ -1483,22 +1503,55 @@ function Sidebar({ active, onSelect, collapsed, onToggle, user, onProfile }) {
     }
   }, [activeParent]);
 
+  useEffect(() => {
+    if (!collapsed) setHoverGroup("");
+  }, [collapsed]);
+
+  useEffect(() => () => {
+    if (closePopoverTimer.current) clearTimeout(closePopoverTimer.current);
+  }, []);
+
   function toggleGroup(key) {
     // Accordion: only one category open at a time.
     setOpenGroups((groups) => (groups.includes(key) ? [] : [key]));
   }
 
+  function openCollapsedPopover(key) {
+    if (!collapsed) return;
+    if (closePopoverTimer.current) clearTimeout(closePopoverTimer.current);
+    setHoverGroup(key);
+  }
+
+  function closeCollapsedPopover() {
+    if (!collapsed) return;
+    if (closePopoverTimer.current) clearTimeout(closePopoverTimer.current);
+    closePopoverTimer.current = setTimeout(() => setHoverGroup(""), 260);
+  }
+
+  function selectNavItem(key) {
+    setHoverGroup("");
+    onSelect(key);
+  }
+
   return (
-    <aside className="admin-sidebar">
-      <div className="admin-brand">
-        <img src={logo} alt="MARJON" />
-        <div>
-          <strong>MARJON</strong>
-          <span>ADMIN</span>
+    <aside className={`admin-sidebar ${collapsed ? "is-collapsed" : ""}`}>
+      <div className="admin-brand sidebar-brand">
+        <div className="sidebar-brand__identity">
+          <button
+            className="brand-mark brand-mark--button"
+            type="button"
+            onClick={onToggle}
+            aria-pressed={collapsed}
+            aria-label={collapsed ? "Развернуть меню" : "Свернуть меню"}
+            title={collapsed ? "Развернуть меню" : "Свернуть меню"}
+          >
+            <MarjonLogoSvg />
+          </button>
+          <div>
+            <div className="brand-title">MARJON</div>
+            <div className="brand-subtitle">Restaurant OS</div>
+          </div>
         </div>
-        <button className="admin-sidebar-collapse" type="button" onClick={onToggle} aria-pressed={collapsed} aria-label={collapsed ? "Развернуть меню" : "Свернуть меню"}>
-          <Icon name={collapsed ? "bi-chevron-right" : "bi-chevron-left"} size={18} />
-        </button>
       </div>
       <nav className="admin-nav" aria-label="Admin navigation">
         {navItems.map((item) => {
@@ -1508,7 +1561,7 @@ function Sidebar({ active, onSelect, collapsed, onToggle, user, onProfile }) {
                 key={item.key}
                 type="button"
                 className={active === item.key ? "is-active" : ""}
-                onClick={() => onSelect(item.key)}
+                onClick={() => selectNavItem(item.key)}
               >
                 <Icon name={item.icon} size={18} />
                 <span>{item.label}</span>
@@ -1518,8 +1571,14 @@ function Sidebar({ active, onSelect, collapsed, onToggle, user, onProfile }) {
           }
           const open = openGroups.includes(item.key);
           const hasActiveChild = item.children.some((child) => child.key === active);
+          const popoverOpen = collapsed && hoverGroup === item.key;
           return (
-            <div className={`admin-nav-group ${open ? "is-open" : ""} ${hasActiveChild ? "has-active" : ""}`} key={item.key}>
+            <div
+              className={`admin-nav-group ${open ? "is-open" : ""} ${hasActiveChild ? "has-active" : ""} ${popoverOpen ? "has-popover" : ""}`}
+              key={item.key}
+              onMouseEnter={() => openCollapsedPopover(item.key)}
+              onMouseLeave={closeCollapsedPopover}
+            >
               <button
                 type="button"
                 className={`admin-nav-group__toggle ${hasActiveChild ? "is-active" : ""}`}
@@ -1536,26 +1595,38 @@ function Sidebar({ active, onSelect, collapsed, onToggle, user, onProfile }) {
                     key={child.key}
                     type="button"
                     className={`admin-nav-sub__item ${active === child.key ? "is-active" : ""}`}
-                    onClick={() => onSelect(child.key)}
+                    onClick={() => selectNavItem(child.key)}
                   >
                     <Icon name={child.icon || "bi-circle"} size={17} className="admin-nav-sub__icon" />
                     <span>{child.label}</span>
                   </button>
                 ))}
               </div>
+              {collapsed ? (
+                <div
+                  className="admin-nav-flyout"
+                  onMouseEnter={() => openCollapsedPopover(item.key)}
+                  onMouseLeave={closeCollapsedPopover}
+                >
+                  {item.children.map((child) => (
+                    <button
+                      key={child.key}
+                      type="button"
+                      className={`admin-nav-flyout__item ${active === child.key ? "is-active" : ""}`}
+                      onClick={() => selectNavItem(child.key)}
+                    >
+                      <span className="admin-nav-flyout__icon">
+                        <Icon name={child.icon || "bi-circle"} size={16} />
+                      </span>
+                      <span>{child.label}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           );
         })}
       </nav>
-      <button className="admin-profile-card admin-profile-card--collapse" type="button" onClick={onToggle} aria-pressed={collapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
-        <span className="admin-profile-card__avatar admin-profile-card__avatar--collapse">
-          <Icon name={collapsed ? "bi-chevron-right" : "bi-chevron-left"} size={18} />
-        </span>
-        <span className="admin-profile-card__info">
-          <strong>Свернуть</strong>
-          <small>Сайдбар</small>
-        </span>
-      </button>
       <button className="admin-profile-card" type="button" onClick={onProfile}>
         <span className="admin-profile-card__avatar">{(user?.name || "Александр П.").trim().slice(0, 1)}</span>
         <span className="admin-profile-card__info">
@@ -1590,11 +1661,24 @@ function Header({ user, onLogout, dateRange, onDateRangeChange, onBellClick, not
     setDraftRange(next);
   }
 
+  function goBack() {
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    window.location.href = "/index.html";
+  }
+
   return (
     <header className="admin-header">
-      <div>
-        <h1>Панель администратора</h1>
-        <p>Централизованное управление платформой MARJON</p>
+      <div className="admin-header__title">
+        <button className="admin-back-button" type="button" onClick={goBack} aria-label="Назад" title="Назад">
+          <Icon name="bi-chevron-left" size={24} />
+        </button>
+        <div>
+          <h1>Панель администратора</h1>
+          <p>Централизованное управление платформой MARJON</p>
+        </div>
       </div>
       <div className="admin-header__actions">
         <div className="admin-date-picker">
@@ -4032,7 +4116,7 @@ function AdminShell({ onLogout }) {
   useEffect(() => {
     let mounted = true;
     if (localStorage.getItem("admin_local_login") === "true") {
-      setUser({ email: "900000777", phone: "900000777", name: "Super Admin", is_superadmin: true });
+      setUser({ email: "admin.900078779@marjon.local", phone: "+998900078779", name: "Super Admin", is_superadmin: true });
       adminApi.get("/organizations", { params: { size: 5 } })
         .then(({ data }) => {
           if (!mounted) return;

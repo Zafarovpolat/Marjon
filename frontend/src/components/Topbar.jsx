@@ -3,6 +3,7 @@ import visaLogo from "../assets/paylogos/visa-mastercard.jpg";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import { clampToToday, todayInputValue } from "../utils/date";
+import BackButton from "./BackButton";
 import DatePicker from "./DatePicker";
 import Icon from "./Icon";
 import { InlineLoader } from "./Loader";
@@ -258,11 +259,16 @@ useEffect(() => {
     <>
       <header className="dashboard-topbar">
         <div className="topbar-left">
-          <DatePicker
-            value={selectedDate}
-            max={today}
-            onChange={(value) => onSelectedDateChange(clampToToday(value))}
-          />
+          <span className="topbar-back-slot">
+            <BackButton className="dashboard-back-button--topbar-3d" iconName="bi-chevron-left" />
+          </span>
+          <span className="topbar-date-slot">
+            <DatePicker
+              value={selectedDate}
+              max={today}
+              onChange={(value) => onSelectedDateChange(clampToToday(value))}
+            />
+          </span>
         </div>
         <div className="topbar-actions">
           <div className="topbar-info-widgets" aria-label="Информационные виджеты" ref={rateWidgetRef}>

@@ -4,7 +4,7 @@ from decimal import Decimal
 from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.modules.analytics.schemas import DashboardResponse, PaymentMethodSummary, SalesReport, TopProduct, UserActivityRank, ZReportResponse
+from app.modules.analytics.schemas import AvgCheckSegment, DashboardResponse, OrderLocationSummary, PaymentMethodSummary, SalesReport, TopProduct, UserActivityRank, ZReportResponse
 from app.modules.auth.models import RefreshToken, User
 from app.modules.fiscal.models import FiscalReceipt
 from app.modules.payments.models import Payment
@@ -49,12 +49,77 @@ class AnalyticsService:
         )
         active_count = active.scalar_one()
 
+        payments = await self.db.execute(
+            select(
+                Payment.method,
+                func.count(Payment.id),
+                func.coalesce(func.sum(Payment.amount), 0),
+            )
+            .where(
+                Payment.company_id == company_id,
+                Payment.status == "completed",
+                Payment.created_at >= day_start,
+                Payment.created_at <= day_end,
+            )
+            .group_by(Payment.method)
+        )
+        payment_rows = payments.all()
+        payment_methods = [
+            PaymentMethodSummary(
+                method=row.method,
+                count=row[1],
+                amount=Decimal(str(row[2] or 0)),
+            )
+            for row in payment_rows
+        ]
+        cash_total = sum(Decimal(str(row[2] or 0)) for row in payment_rows if row.method == "cash")
+        non_cash_total = sum(Decimal(str(row[2] or 0)) for row in payment_rows if row.method != "cash")
+
+        locations = await self.db.execute(
+            select(
+                Order.order_type,
+                Order.table_number,
+                func.count(Order.id),
+                func.coalesce(func.sum(Order.total_amount), 0),
+            )
+            .where(
+                Order.company_id == company_id,
+                Order.status == "completed",
+                Order.created_at >= day_start,
+                Order.created_at <= day_end,
+            )
+            .group_by(Order.order_type, Order.table_number)
+        )
+        location_rows = locations.all()
+        order_locations = [
+            OrderLocationSummary(
+                name=row.table_number or row.order_type or "dine_in",
+                count=row[2],
+                order_type=row.order_type,
+            )
+            for row in location_rows
+        ]
+        avg_check_segments = [
+            AvgCheckSegment(
+                name=row.table_number or row.order_type or "dine_in",
+                orders_count=row[2],
+                avg_check=Decimal(str(row[3] or 0)) / row[2] if row[2] else Decimal("0"),
+                order_type=row.order_type,
+            )
+            for row in location_rows
+        ]
+
         avg_check = Decimal(str(revenue)) / count if count > 0 else Decimal("0")
         return DashboardResponse(
             today_revenue=Decimal(str(revenue)),
             today_orders=count,
             avg_check=avg_check,
             active_orders=active_count,
+            cash_total=cash_total,
+            non_cash_total=non_cash_total,
+            payment_methods=payment_methods,
+            order_locations=order_locations,
+            avg_check_segments=avg_check_segments,
         )
 
     async def sales_report(self, company_id: UUID, date_from: date, date_to: date) -> list[SalesReport]:
