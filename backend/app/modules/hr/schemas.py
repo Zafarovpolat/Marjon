@@ -29,6 +29,9 @@ class EmployeeResponse(BaseResponseSchema):
     hire_date: date
     salary_type: str
     salary_amount: Decimal
+    name: str | None = None
+    phone: str | None = None
+    email: str | None = None
 
 
 class ShiftCreate(BaseSchema):

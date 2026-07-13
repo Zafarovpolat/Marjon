@@ -4,7 +4,8 @@ from decimal import Decimal
 from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.modules.analytics.schemas import DashboardResponse, PaymentMethodSummary, SalesReport, TopProduct, ZReportResponse
+from app.modules.analytics.schemas import DashboardResponse, PaymentMethodSummary, SalesReport, TopProduct, UserActivityRank, ZReportResponse
+from app.modules.auth.models import RefreshToken, User
 from app.modules.fiscal.models import FiscalReceipt
 from app.modules.payments.models import Payment
 from app.modules.pos.models import Order, OrderItem, CashierShift
@@ -32,7 +33,7 @@ class AnalyticsService:
             select(func.count(Order.id), func.coalesce(func.sum(Order.total_amount), 0))
             .where(
                 Order.company_id == company_id,
-                Order.status == "completed",
+                Order.status.notin_(["cancelled"]),
                 Order.created_at >= day_start,
                 Order.created_at <= day_end,
             )
@@ -43,9 +44,7 @@ class AnalyticsService:
             select(func.count(Order.id))
             .where(
                 Order.company_id == company_id,
-                Order.status.in_(["new", "accepted", "cooking"]),
-                Order.created_at >= day_start,
-                Order.created_at <= day_end,
+                Order.status.in_(["new", "accepted", "cooking", "ready"]),
             )
         )
         active_count = active.scalar_one()
@@ -67,7 +66,7 @@ class AnalyticsService:
             )
             .where(
                 Order.company_id == company_id,
-                Order.status == "completed",
+                Order.status.notin_(["cancelled"]),
                 Order.created_at >= datetime.combine(date_from, datetime.min.time()),
                 Order.created_at <= datetime.combine(date_to, datetime.max.time()),
             )
@@ -100,7 +99,7 @@ class AnalyticsService:
                 func.sum(OrderItem.total).label("rev"),
             )
             .join(Order, Order.id == OrderItem.order_id)
-            .where(Order.company_id == company_id, Order.status == "completed")
+            .where(Order.company_id == company_id, Order.status.notin_(["cancelled"]))
             .group_by(OrderItem.product_id, OrderItem.name)
             .order_by(func.sum(OrderItem.total).desc())
             .limit(limit)
@@ -244,3 +243,53 @@ class AnalyticsService:
             avg_check=net_sales_decimal / orders_count if orders_count else Decimal("0"),
             payment_methods=payment_methods,
         )
+
+    async def user_activity_ranking(
+        self,
+        company_id: UUID,
+        limit: int = 20,
+        date_from: date | None = None,
+        date_to: date | None = None,
+    ) -> list[UserActivityRank]:
+        # Duration per session capped at 24 h to avoid stale open sessions skewing averages
+        cap = func.least(
+            func.coalesce(RefreshToken.revoked_at, func.now()),
+            RefreshToken.created_at + timedelta(hours=24),
+        )
+        duration_secs = func.extract("epoch", cap - RefreshToken.created_at)
+
+        query = (
+            select(
+                User.id,
+                User.name,
+                func.count(RefreshToken.id).label("sessions"),
+                func.coalesce(func.avg(duration_secs), 0).label("avg_secs"),
+                func.coalesce(func.sum(duration_secs), 0).label("total_secs"),
+            )
+            .join(RefreshToken, RefreshToken.user_id == User.id)
+            .where(User.company_id == company_id)
+            .group_by(User.id, User.name)
+            .order_by(func.count(RefreshToken.id).desc())
+            .limit(limit)
+        )
+        if date_from:
+            query = query.where(
+                RefreshToken.created_at >= datetime.combine(date_from, datetime.min.time())
+            )
+        if date_to:
+            query = query.where(
+                RefreshToken.created_at <= datetime.combine(date_to, datetime.max.time())
+            )
+
+        result = await self.db.execute(query)
+        return [
+            UserActivityRank(
+                rank=i + 1,
+                user_id=row.id,
+                user_name=row.name or "—",
+                sessions=row.sessions,
+                avg_session_seconds=int(row.avg_secs or 0),
+                total_session_seconds=int(row.total_secs or 0),
+            )
+            for i, row in enumerate(result.all())
+        ]

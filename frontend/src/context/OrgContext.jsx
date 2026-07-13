@@ -35,12 +35,12 @@ export function OrgProvider({ children }) {
     if (!isAuthenticated) return;
     setLoading(true);
     try {
-      const { data } = await api.get("/settings/organization");
+      const { data } = await api.get("/companies/me");
       const merged = { ...DEFAULT_ORG, ...data };
       setOrg(merged);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     } catch (err) {
-      console.warn("settings/organization не найден:", err.response?.status);
+      console.warn("companies/me не найден:", err.response?.status);
       setOrg(null);
     } finally {
       setLoading(false);
@@ -52,7 +52,7 @@ export function OrgProvider({ children }) {
   }, [reload, user?.id]);
 
   const update = useCallback(async (patch) => {
-    const { data } = await api.patch("/settings/organization", patch);
+    const { data } = await api.patch("/companies/me", patch);
     const merged = { ...org, ...data };
     setOrg(merged);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));

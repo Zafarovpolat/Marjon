@@ -22,6 +22,8 @@ class User(TimeStampedModel):
     username: Mapped[str | None] = mapped_column(String(150), unique=True, index=True)
     name: Mapped[str | None] = mapped_column(String(255))
     phone: Mapped[str | None] = mapped_column(String(20))
+    # 4–8 значный PIN для быстрого входа сотрудников (ТЗ §3.2 экран официанта/кассира)
+    pin_code: Mapped[str | None] = mapped_column(String(8))
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_superadmin: Mapped[bool] = mapped_column(Boolean, default=False)

@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export const ADMIN_API_BASE_URL = import.meta.env.VITE_ADMIN_API_URL || "http://127.0.0.1:8000/api/v1/admin";
+export const ADMIN_API_BASE_URL = import.meta.env.VITE_ADMIN_API_URL || "http://127.0.0.1:8000/api/v1";
 
 export const adminApi = axios.create({
   baseURL: ADMIN_API_BASE_URL,
@@ -29,7 +29,7 @@ adminApi.interceptors.response.use(
 );
 
 export async function adminLogin(phone, password) {
-  const normalizedPhone = String(phone).replace(/\D/g, "");
+  const normalizedPhone = "+" + String(phone).replace(/\D/g, "");
 
   try {
     const { data } = await adminApi.post("/auth/login", { phone: normalizedPhone, password });

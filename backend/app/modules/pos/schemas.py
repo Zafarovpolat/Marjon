@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 from typing import Literal
@@ -98,8 +99,8 @@ class ShiftResponse(BaseResponseSchema):
     company_id: UUID
     branch_id: UUID
     cashier_id: UUID
-    opened_at: str
-    closed_at: str | None
+    opened_at: datetime
+    closed_at: datetime | None
     opening_cash: Decimal
     closing_cash: Decimal | None
     status: str

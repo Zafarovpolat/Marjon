@@ -205,15 +205,15 @@ const warehouseConfigs = {
 };
 
 const sectionApiEndpoints = {
-  incoming: "/inventory/stock-in",
-  outgoing: "/inventory/stock-out",
-  stock: "/inventory/stock",
-  "incoming-journal": "/inventory/stock-in/journal",
-  transfer: "/inventory/transfers",
-  inventory: "/inventory/inventories",
-  "write-off": "/inventory/write-offs",
-  "write-off-categories": "/inventory/write-off-categories",
-  waste: "/inventory/waste",
+  incoming: "/warehouse/purchases",
+  outgoing: "/warehouse/write-offs",
+  stock: "/warehouse/list",
+  "incoming-journal": "/warehouse/purchases",
+  transfer: "/warehouse/transfers",
+  inventory: "/warehouse/inventory-checks",
+  "write-off": "/warehouse/write-offs",
+  "write-off-categories": "/warehouse/write-offs",
+  waste: "/warehouse/write-offs",
 };
 
 function normalizeSection(section) {
