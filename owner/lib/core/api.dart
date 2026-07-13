@@ -97,6 +97,29 @@ class Api {
   Future<List<dynamic>> branchTables(String branchId) async =>
     (await dio.get('/halls/branch/$branchId/tables')).data;
 
+  // Reports (kafe_compat)
+  Future<Map<String, dynamic>> reportOrders({String? dateFrom, String? dateTo}) async {
+    final p = <String, dynamic>{};
+    if (dateFrom != null) p['date_from'] = dateFrom;
+    if (dateTo != null) p['date_to'] = dateTo;
+    return (await dio.get('/reports/orders', queryParameters: p)).data;
+  }
+
+  Future<Map<String, dynamic>> reportDishes({String? dateFrom, String? dateTo}) async {
+    final p = <String, dynamic>{};
+    if (dateFrom != null) p['date_from'] = dateFrom;
+    if (dateTo != null) p['date_to'] = dateTo;
+    return (await dio.get('/reports/dishes', queryParameters: p)).data;
+  }
+
+  Future<Map<String, dynamic>> financeTransactions({String? dateFrom, String? dateTo, String? direction}) async {
+    final p = <String, dynamic>{};
+    if (dateFrom != null) p['date_from'] = dateFrom;
+    if (dateTo != null) p['date_to'] = dateTo;
+    if (direction != null) p['direction'] = direction;
+    return (await dio.get('/finance/transactions', queryParameters: p)).data;
+  }
+
   // Printers
   Future<List<dynamic>> printers() async => (await dio.get('/printers')).data;
   Future<Map<String, dynamic>> createPrinter(Map<String, dynamic> data) async =>
