@@ -413,7 +413,7 @@ class _DashboardPageState extends State<DashboardPage> {
       gridData: FlGridData(
         show: true,
         drawVerticalLine: false,
-        horizontalInterval: maxY / 4,
+        horizontalInterval: maxY > 0 ? maxY / 4 : 1,
         getDrawingHorizontalLine: (_) => FlLine(color: T.border, strokeWidth: 0.5),
       ),
       borderData: FlBorderData(show: false),
