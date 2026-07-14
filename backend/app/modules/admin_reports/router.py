@@ -125,21 +125,33 @@ async def cancelled_report(
 @admin_reports_router.get("/dashboard-kpis")
 async def dashboard_kpis(db: AsyncSession = Depends(get_db)):
     from sqlalchemy import func, select
-    from app.modules.companies.models import Company, Branch
+    from app.modules.companies.models import Branch
     from app.modules.hr.models import Employee
-    from app.modules.pos.models import Order
+    from app.modules.organizations.models import Organization
+    from app.modules.pos.models import Order, PosTerminal
+    from app.modules.subscriptions.models import Subscription
 
-    orgs = (await db.execute(select(func.count(Company.id)))).scalar_one()
-    branches = (await db.execute(select(func.count(Branch.id)))).scalar_one()
+    orgs = (await db.execute(
+        select(func.count(Organization.id)).where(Organization.deleted_at.is_(None))
+    )).scalar_one()
+    branches = (await db.execute(
+        select(func.count(Branch.id)).where(Branch.is_active.is_(True))
+    )).scalar_one()
     revenue = (await db.execute(
         select(func.coalesce(func.sum(Order.total_amount), 0)).where(Order.status == "completed")
     )).scalar_one()
     employees = (await db.execute(select(func.count(Employee.id)))).scalar_one()
+    subscriptions = (await db.execute(
+        select(func.count(Subscription.id)).where(Subscription.status.in_(("trial", "active")))
+    )).scalar_one()
+    cashboxes = (await db.execute(
+        select(func.count(PosTerminal.id)).where(PosTerminal.is_active.is_(True))
+    )).scalar_one()
     return {
         "organizations": orgs,
         "branches": branches,
         "revenue": float(revenue),
-        "subscriptions": 0,
+        "subscriptions": subscriptions,
         "employees": employees,
-        "cashboxes": 0,
+        "cashboxes": cashboxes,
     }

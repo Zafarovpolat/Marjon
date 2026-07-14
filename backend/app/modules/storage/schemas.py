@@ -1,5 +1,5 @@
 from __future__ import annotations
-from datetime import date, datetime
+from datetime import date as Date, datetime
 from decimal import Decimal
 from uuid import UUID
 from pydantic import BaseModel, Field
@@ -61,8 +61,8 @@ class ComingCreate(BaseModel):
     number: str
     provider_id: UUID | None = None
     storage_id: UUID
-    receipt_date: date | None = None
-    registration_date: date | None = None
+    receipt_date: Date | None = None
+    registration_date: Date | None = None
     comment: str | None = None
     items: list[ComingItemIn] = Field(default_factory=list)
 
@@ -71,8 +71,8 @@ class ComingUpdate(BaseModel):
     number: str | None = None
     provider_id: UUID | None = None
     storage_id: UUID | None = None
-    receipt_date: date | None = None
-    registration_date: date | None = None
+    receipt_date: Date | None = None
+    registration_date: Date | None = None
     comment: str | None = None
     items: list[ComingItemIn] | None = None
 
@@ -81,13 +81,19 @@ class ComingResponse(BaseResponseSchema):
     number: str
     provider_id: UUID | None
     storage_id: UUID
-    receipt_date: date | None
-    registration_date: date | None
-    acceptance_date: date | None
+    receipt_date: Date | None
+    registration_date: Date | None
+    acceptance_date: Date | None
     comment: str | None
     status: str
     total_sum: Decimal
     items: list[ComingItemResponse] = Field(default_factory=list)
+    document_number: str | None = None
+    provider_name: str | None = None
+    storage_name: str | None = None
+    items_count: int | None = None
+    total: Decimal | None = None
+    date: str | None = None
 
 
 class MovementCreate(BaseModel):
@@ -120,6 +126,12 @@ class StorageBalanceRow(BaseModel):
     income_qty: Decimal
     expense_qty: Decimal
     closing_qty: Decimal
+    name: str | None = None
+    category: str | None = None
+    quantity: Decimal | None = None
+    balance: Decimal | None = None
+    unit: str | None = None
+    status: str | None = None
 
 
 class FlowReportRow(BaseModel):
@@ -129,3 +141,9 @@ class FlowReportRow(BaseModel):
     product_name: str
     qty: Decimal
     total: Decimal
+    date: str | None = None
+    document_number: str | None = None
+    provider_name: str | None = None
+    reason: str | None = None
+    items_count: int | None = None
+    status: str | None = None

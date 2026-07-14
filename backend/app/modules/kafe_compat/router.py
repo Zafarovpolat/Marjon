@@ -24,6 +24,7 @@ from app.modules.companies.models import Branch, Company
 from app.modules.finance.models import Counterparty, FinTransaction, PaymentType, TransactionCategory
 from app.modules.kafe_compat.models import SupportTicket
 from app.modules.pos.models import Order, OrderItem
+from app.modules.subscriptions.models import Invoice, Plan, Subscription
 from app.shared.exceptions import NotFoundError
 
 router = APIRouter()
@@ -310,7 +311,40 @@ async def delete_counterparty(item_id: UUID, user: User = Depends(require_compan
 async def billing_balance(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     c = await db.get(Company, user.company_id) if user.company_id else None
     currency = c.currency if c else "UZS"
-    return {"balance": 0, "currency": currency, "plan": "Trial", "status": "trial", "days_left": 30}
+    row = (
+        await db.execute(
+            select(Subscription, Plan)
+            .join(Plan, Plan.id == Subscription.plan_id)
+            .where(Subscription.company_id == user.company_id)
+            .order_by(Subscription.created_at.desc())
+            .limit(1)
+        )
+    ).first()
+    if not row:
+        return {"balance": 0, "currency": currency, "plan": None, "status": "none", "days_left": 0}
+
+    subscription, plan = row
+    unpaid = (
+        await db.execute(
+            select(func.coalesce(func.sum(Invoice.amount), 0)).where(
+                Invoice.subscription_id == subscription.id,
+                Invoice.status.in_(("draft", "open")),
+            )
+        )
+    ).scalar_one()
+    period_end = subscription.current_period_end or subscription.trial_ends_at
+    days_left = 0
+    if period_end:
+        now = datetime.now(period_end.tzinfo) if period_end.tzinfo else datetime.utcnow()
+        days_left = max((period_end - now).days, 0)
+    return {
+        "balance": -float(unpaid or 0),
+        "currency": currency,
+        "plan": plan.name,
+        "status": subscription.status,
+        "days_left": days_left,
+        "subscription_id": subscription.id,
+    }
 
 
 # ── Поддержка: тикеты ────────────────────────────────────────────────────────

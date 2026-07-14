@@ -3,7 +3,6 @@ import { useOutletContext } from "react-router-dom";
 import { api, formatMoney } from "../api/client";
 import { printKitchenReceipt, printOrderReceipt } from "../api/receipt";
 import { formatDateLabel, todayInputValue } from "../utils/date";
-import DemoNotice from "../components/DemoNotice";
 
 function orderItemsLabel(order) {
   const items = order.items || [];
@@ -15,7 +14,6 @@ export default function OrdersPage() {
   const outlet = useOutletContext();
   const { selectedDate = todayInputValue() } = outlet || {};
   const [orders, setOrders] = useState([]);
-  const [isDemo, setIsDemo] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [error, setError] = useState("");
   const [printState, setPrintState] = useState({ id: "", type: "", loading: false, message: "", error: "" });
@@ -24,11 +22,11 @@ export default function OrdersPage() {
     setError("");
     api.get("/pos/orders", { params: { date: selectedDate } })
       .then(({ data }) => {
-        setOrders(data);
-        setIsDemo(!data.length);
-        setSelectedOrderId((current) => current || data[0]?.id || null);
+        const items = Array.isArray(data) ? data : [];
+        setOrders(items);
+        setSelectedOrderId((current) => current || items[0]?.id || null);
       })
-      .catch((err) => { setError(err.response?.data?.detail || "Не удалось загрузить заказы."); setIsDemo(true); });
+      .catch((err) => { setOrders([]); setError(err.response?.data?.detail || "Не удалось загрузить заказы."); });
   }, [selectedDate]);
 
   const selectedOrder = useMemo(
@@ -52,7 +50,7 @@ export default function OrdersPage() {
 
   return (
     <section className="card card-pad">
-      {isDemo && <DemoNotice />}      <div className="section-header">
+      <div className="section-header">
         <div>
           <span className="eyebrow">Orders</span>
           <h2>Заказы за {formatDateLabel(selectedDate)}</h2>

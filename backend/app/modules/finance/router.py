@@ -11,6 +11,7 @@ from app.modules.auth.models import User
 from app.modules.finance import models, schemas
 from app.modules.finance.service import TransactionService
 from app.modules.organizations.dependencies import get_org_scope
+from app.modules.organizations.models import Organization
 from app.shared.admin_crud import CRUDService, OrgScope, crud_router
 from app.shared.pagination import Page, PageParams
 
@@ -81,7 +82,11 @@ async def counterparty_transactions(
         date_from=date_from, date_to=date_to, date_field="date",
         default_sort="-date",
     )
-    return Page.create([schemas.TransactionResponse.model_validate(i) for i in items], total, params)
+    rows = [
+        await _transaction_response(db, item, ((page - 1) * size) + index)
+        for index, item in enumerate(items, start=1)
+    ]
+    return Page.create(rows, total, params)
 
 
 router.include_router(counterparties)
@@ -91,6 +96,31 @@ router.include_router(counterparties)
 transactions = APIRouter(prefix="/transactions", tags=["finance"])
 
 TX_FILTERS = ("direction", "payment_type_id", "counterparty_id", "category_id", "organization_id")
+
+
+async def _transaction_response(db: AsyncSession, tx: models.FinTransaction, id_num: int | None = None) -> schemas.TransactionResponse:
+    payload = schemas.TransactionResponse.model_validate(tx).model_dump()
+    payment_type = await db.get(models.PaymentType, tx.payment_type_id) if tx.payment_type_id else None
+    counterparty = await db.get(models.Counterparty, tx.counterparty_id) if tx.counterparty_id else None
+    category = await db.get(models.TransactionCategory, tx.category_id) if tx.category_id else None
+    organization = await db.get(Organization, tx.organization_id) if tx.organization_id else None
+
+    payment_type_name = payment_type.name if payment_type else None
+    counterparty_name = counterparty.full_name if counterparty else None
+    category_name = category.name if category else None
+
+    payload.update({
+        "payment_type_name": payment_type_name,
+        "payment_type": payment_type_name,
+        "counterparty_name": counterparty_name,
+        "category_name": category_name,
+        "category": category_name,
+        "organization_name": organization.name if organization else None,
+        "status": "PAID",
+        "payment_for": category_name,
+        "id_num": id_num,
+    })
+    return schemas.TransactionResponse.model_validate(payload)
 
 
 @transactions.get("", response_model=Page[schemas.TransactionResponse],
@@ -114,7 +144,11 @@ async def list_transactions(
         date_from=date_from, date_to=date_to, date_field="date",
         org_scope=org_scope, org_field="organization_id",
     )
-    return Page.create([schemas.TransactionResponse.model_validate(i) for i in items], total, params)
+    rows = [
+        await _transaction_response(db, item, ((page - 1) * size) + index)
+        for index, item in enumerate(items, start=1)
+    ]
+    return Page.create(rows, total, params)
 
 
 @transactions.post("", response_model=schemas.TransactionResponse, status_code=status.HTTP_201_CREATED)

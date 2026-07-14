@@ -46,28 +46,8 @@ function isLocalAdminCredential(phone, password) {
   return isLocalAdminHost() && phone === LOCAL_ADMIN_PHONE && String(password) === LOCAL_ADMIN_PASSWORD;
 }
 
-function startLocalAdminSession() {
-  localStorage.removeItem("admin_access_token");
-  localStorage.removeItem("admin_refresh_token");
-  localStorage.setItem("admin_local_login", "true");
-  return {
-    access_token: "",
-    refresh_token: "",
-    user: {
-      email: "admin.900078779@marjon.local",
-      phone: LOCAL_ADMIN_PHONE,
-      name: "Super Admin",
-      is_superadmin: true,
-    },
-  };
-}
-
 export async function adminLogin(phone, password) {
   const normalizedPhone = normalizeAdminPhone(phone);
-
-  if (isLocalAdminCredential(normalizedPhone, password)) {
-    return startLocalAdminSession();
-  }
 
   try {
     const { data } = await adminApi.post("/auth/login", { phone: normalizedPhone, password });
@@ -76,6 +56,9 @@ export async function adminLogin(phone, password) {
     localStorage.removeItem("admin_local_login");
     return data;
   } catch (error) {
+    if (isLocalAdminCredential(normalizedPhone, password)) {
+      localStorage.removeItem("admin_local_login");
+    }
     throw error;
   }
 }
@@ -89,7 +72,6 @@ export function adminLogout() {
 export function isAdminAuthenticated() {
   return Boolean(
     localStorage.getItem("admin_access_token")
-      || localStorage.getItem("access_token")
-      || localStorage.getItem("admin_local_login") === "true",
+      || localStorage.getItem("access_token"),
   );
 }

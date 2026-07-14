@@ -45,6 +45,23 @@ comings = APIRouter(prefix="/comings", tags=["storage"])
 COMING_FILTERS = ("status", "storage_id", "provider_id")
 
 
+async def _coming_response(db: AsyncSession, coming: models.Coming) -> schemas.ComingResponse:
+    payload = schemas.ComingResponse.model_validate(coming).model_dump()
+    provider = await db.get(models.Provider, coming.provider_id) if coming.provider_id else None
+    storage = await db.get(models.Storage, coming.storage_id) if coming.storage_id else None
+    items_count = sum(int(item.qty or 0) for item in coming.items) if coming.items else 0
+    payload.update({
+        "document_number": coming.number,
+        "provider_name": provider.name if provider else None,
+        "storage_name": storage.name if storage else None,
+        "items_count": items_count,
+        "total": coming.total_sum,
+        "date": coming.registration_date.isoformat() if coming.registration_date else None,
+        "status": "Проведен" if coming.status == "accepted" else "Черновик",
+    })
+    return schemas.ComingResponse.model_validate(payload)
+
+
 @comings.get("", response_model=Page[schemas.ComingResponse],
              description=f"Фильтры по полям: {', '.join(COMING_FILTERS)}")
 async def list_comings(
@@ -64,7 +81,7 @@ async def list_comings(
         params, search=search, search_fields=("number",), sort=sort,
         raw_filters=raw_filters, date_from=date_from, date_to=date_to,
     )
-    return Page.create([schemas.ComingResponse.model_validate(i) for i in items], total, params)
+    return Page.create([await _coming_response(db, item) for item in items], total, params)
 
 
 @comings.post("", response_model=schemas.ComingResponse, status_code=status.HTTP_201_CREATED)

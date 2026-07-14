@@ -98,6 +98,15 @@ class TransactionResponse(BaseResponseSchema):
     organization_id: UUID | None
     comment: str | None
     user_id: UUID | None
+    payment_type_name: str | None = None
+    payment_type: str | None = None
+    counterparty_name: str | None = None
+    category_name: str | None = None
+    category: str | None = None
+    organization_name: str | None = None
+    status: str | None = "PAID"
+    payment_for: str | None = None
+    id_num: int | None = None
 
 
 class PayItem(BaseModel):

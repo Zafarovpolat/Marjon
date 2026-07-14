@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
-import { ROLE_HOME } from "../utils/permissions";
+import { getRole, ROLE_HOME } from "../utils/permissions";
 import logo from "../assets/marjon-logo.svg";
 import Icon from "../components/Icon";
 
@@ -117,7 +117,7 @@ export default function LoginPage() {
     try {
       const user = await loginPhone(phone, password);
       if (!remember) localStorage.removeItem("refresh_token");
-      const role = user?.role_slugs?.[0] || (user?.is_superadmin ? "superadmin" : "owner");
+      const role = getRole(user);
       navigate(ROLE_HOME[role] || "/", { replace: true });
     } catch {
       setError(t("auth.login_error"));

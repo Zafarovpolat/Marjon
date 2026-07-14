@@ -31875,8 +31875,8 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   border-radius: 14px !important;
   border: 1px solid rgba(83, 242, 237, 0.16) !important;
   background:
-    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.12) 0, rgba(255, 255, 255, 0.04) 36%, transparent 58%),
-    linear-gradient(180deg, #12355d 0%, #0d2849 50%, #071f3a 100%) !important;
+    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.09) 0, rgba(255, 255, 255, 0.03) 36%, transparent 58%),
+    linear-gradient(180deg, #0f2e52 0%, #0a2341 50%, #061a31 100%) !important;
   color: #8ff9ff !important;
   font-size: 14px !important;
   font-weight: 700 !important;
@@ -31910,7 +31910,7 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   height: 24px !important;
   color: #8ff9ff !important;
   stroke: currentColor !important;
-  stroke-width: 4 !important;
+  stroke-width: 3.2 !important;
   filter: drop-shadow(0 0 7px rgba(143, 249, 255, 0.46)) !important;
 }
 

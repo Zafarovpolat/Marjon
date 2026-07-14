@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
-import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import { exportToExcel } from "../utils/excel";
@@ -66,135 +65,6 @@ function getStoredOrderColumnVisibility() {
   }
 }
 
-const orderRows = [
-  {
-    id: "40969868",
-    orderNumber: "2",
-    date: "22.06.2026 / 20:51",
-    type: "На стол",
-    place: "ЗАЛЛ, 6-стол",
-    waiter: "САБИНА",
-    client: "-",
-    courier: "не указан",
-    goodsPrice: "30 000 UZS",
-    goodsValue: 30000,
-    placePrice: "0 UZS",
-    discount: "0 UZS",
-    deliveryPrice: "0 UZS",
-    servicePrice: "3 000 UZS",
-    serviceValue: 3000,
-    totalPrice: "33 000 UZS",
-    totalValue: 33000,
-    status: "Завершено",
-    dishes: ["КФС x1"],
-  },
-  {
-    id: "40956071",
-    orderNumber: "1",
-    date: "22.06.2026 / 19:36",
-    type: "На стол",
-    place: "ЗАЛЛ, 4-стол",
-    waiter: "САБИНА",
-    client: "-",
-    courier: "не указан",
-    goodsPrice: "66 000 UZS",
-    goodsValue: 66000,
-    placePrice: "0 UZS",
-    discount: "0 UZS",
-    deliveryPrice: "0 UZS",
-    servicePrice: "6 600 UZS",
-    serviceValue: 6600,
-    totalPrice: "72 600 UZS",
-    totalValue: 72600,
-    status: "Завершено",
-    dishes: ["Кайнатма шурва x2"],
-  },
-  {
-    id: "40750410",
-    orderNumber: "4",
-    date: "21.06.2026 / 04:04",
-    type: "На стол",
-    place: "Billiard, 8-стол",
-    waiter: "САБИНА",
-    client: "-",
-    courier: "не указан",
-    goodsPrice: "27 000 UZS",
-    goodsValue: 27000,
-    placePrice: "0 UZS",
-    discount: "0 UZS",
-    deliveryPrice: "0 UZS",
-    servicePrice: "0 UZS",
-    serviceValue: 0,
-    totalPrice: "27 000 UZS",
-    totalValue: 27000,
-    status: "Завершено",
-    dishes: ["Мампар x1"],
-  },
-  {
-    id: "40750408",
-    orderNumber: "3",
-    date: "21.06.2026 / 04:03",
-    type: "На стол",
-    place: "КАБИНА, 2-стол",
-    waiter: "САБИНА",
-    client: "-",
-    courier: "не указан",
-    goodsPrice: "0 UZS",
-    goodsValue: 0,
-    placePrice: "0 UZS",
-    discount: "0 UZS",
-    deliveryPrice: "0 UZS",
-    servicePrice: "0 UZS",
-    serviceValue: 0,
-    totalPrice: "0 UZS",
-    totalValue: 0,
-    status: "Завершено",
-    dishes: ["Без блюд"],
-  },
-  {
-    id: "40056934",
-    orderNumber: "2",
-    date: "15.06.2026 / 20:39",
-    type: "Доставка",
-    place: "-",
-    waiter: "SARDORKASSA",
-    client: "-",
-    courier: "не указан",
-    goodsPrice: "40 000 UZS",
-    goodsValue: 40000,
-    placePrice: "0 UZS",
-    discount: "0 UZS",
-    deliveryPrice: "0 UZS",
-    servicePrice: "0 UZS",
-    serviceValue: 0,
-    totalPrice: "40 000 UZS",
-    totalValue: 40000,
-    status: "Завершено",
-    dishes: ["Ассорти шурва x1"],
-  },
-  {
-    id: "40056830",
-    orderNumber: "1",
-    date: "15.06.2026 / 20:39",
-    type: "Доставка",
-    place: "-",
-    waiter: "SARDORKASSA",
-    client: "-",
-    courier: "не указан",
-    goodsPrice: "84 000 UZS",
-    goodsValue: 84000,
-    placePrice: "0 UZS",
-    discount: "0 UZS",
-    deliveryPrice: "0 UZS",
-    servicePrice: "0 UZS",
-    serviceValue: 0,
-    totalPrice: "84 000 UZS",
-    totalValue: 84000,
-    status: "Завершено",
-    dishes: ["Лагмон x2", "Чучвара x1"],
-  },
-];
-
 export default function OrdersReportPage() {
   const tableSettingsRef = useRef(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -204,15 +74,13 @@ export default function OrdersReportPage() {
   const [filters, setFilters] = useState(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [rows, setRows] = useState(orderRows);
-  const [isDemo, setIsDemo] = useState(true);
+  const [rows, setRows] = useState([]);
 
   useEffect(() => {
     api.get("/reports/orders", { params: { start: dateRange.start, end: dateRange.end } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.orders || [];
-        if (items.length) {
-          setRows(items.map((item) => ({
+        setRows(items.map((item) => ({
             id: String(item.id || ""),
             orderNumber: String(item.order_number || item.orderNumber || ""),
             date: item.date || item.created_at || "",
@@ -233,10 +101,8 @@ export default function OrdersReportPage() {
             status: item.status_label || item.status || "Завершено",
             dishes: item.dishes || item.order_items?.map((d) => `${d.name} x${d.quantity}`) || [],
           })));
-          setIsDemo(false);
-        }
       })
-      .catch(() => {});
+      .catch(() => setRows([]));
   }, [dateRange.start, dateRange.end]);
 
   useEffect(() => {
@@ -350,9 +216,6 @@ export default function OrdersReportPage() {
   return (
     <section className="orders-report-page">
       <article className="report-page-card">
-        {isDemo && (
-          <DemoNotice />
-        )}
         <div className="report-page-header">
           <div className="report-title-group">
             <span className="report-accent-bar" aria-hidden="true" />

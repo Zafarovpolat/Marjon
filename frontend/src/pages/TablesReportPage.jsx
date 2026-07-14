@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
-import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import { exportToExcel } from "../utils/excel";
@@ -114,131 +113,6 @@ function presetRange(label) {
   return { preset: label, start: formatDate(start), end: formatDate(end) };
 }
 
-const tableRows = [
-  {
-    id: "table-8",
-    tableNumber: "8 - Billiard",
-    date: "10.06.2026 / 16:23",
-    servicePrice: "0 UZS",
-    serviceValue: 0,
-    discount: "0 UZS",
-    placePrice: "31 297 334 UZS",
-    dishesAmount: "111 000 UZS",
-    total: "31 408 334 UZS",
-    totalValue: 31408334,
-    transaction: "Terminal - 31 408 334 UZS",
-    zone: "Billiard",
-    paymentType: "Terminal",
-    waiter: "Nurmuxammad",
-    orders: [
-      { number: "#1421", date: "10.06.2026 / 16:23", waiter: "Nurmuxammad", amount: "31 408 334 UZS", status: "Оплачен" },
-      { number: "#1419", date: "10.06.2026 / 15:58", waiter: "Nurmuxammad", amount: "111 000 UZS", status: "Закрыт" },
-    ],
-  },
-  {
-    id: "table-6",
-    tableNumber: "6 - ЗАЛЛ",
-    date: "10.06.2026 / 16:23",
-    servicePrice: "8 500 UZS",
-    serviceValue: 8500,
-    discount: "0 UZS",
-    placePrice: "0 UZS",
-    dishesAmount: "85 000 UZS",
-    total: "93 500 UZS",
-    totalValue: 93500,
-    transaction: "NAXT - 93 500 UZS",
-    zone: "ЗАЛЛ",
-    paymentType: "NAXT",
-    waiter: "САБИНА",
-    orders: [
-      { number: "#1408", date: "10.06.2026 / 16:23", waiter: "САБИНА", amount: "93 500 UZS", status: "Оплачен" },
-    ],
-  },
-  {
-    id: "table-3",
-    tableNumber: "3 - ЗАЛЛ",
-    date: "10.06.2026 / 16:23",
-    servicePrice: "6 500 UZS",
-    serviceValue: 6500,
-    discount: "0 UZS",
-    placePrice: "0 UZS",
-    dishesAmount: "97 000 UZS",
-    total: "103 500 UZS",
-    totalValue: 103500,
-    transaction: "NAXT - 103 500 UZS",
-    zone: "ЗАЛЛ",
-    paymentType: "NAXT",
-    waiter: "Азизбек",
-    orders: [
-      { number: "#1407", date: "10.06.2026 / 16:23", waiter: "Азизбек", amount: "103 500 UZS", status: "Оплачен" },
-    ],
-  },
-  {
-    id: "table-2",
-    tableNumber: "2 - КАБИНА",
-    date: "10.06.2026 / 16:23",
-    servicePrice: "10 400 UZS",
-    serviceValue: 10400,
-    discount: "0 UZS",
-    placePrice: "0 UZS",
-    dishesAmount: "52 000 UZS",
-    total: "62 400 UZS",
-    totalValue: 62400,
-    transaction: "NAXT - 62 400 UZS",
-    zone: "КАБИНА",
-    paymentType: "NAXT",
-    waiter: "Дилноза",
-    orders: [
-      { number: "#1403", date: "10.06.2026 / 16:23", waiter: "Дилноза", amount: "62 400 UZS", status: "Оплачен" },
-    ],
-  },
-  {
-    id: "table-7",
-    tableNumber: "7 - Billiard",
-    date: "01.05.2026 / 14:21",
-    servicePrice: "0 UZS",
-    serviceValue: 0,
-    discount: "0 UZS",
-    placePrice: "112 UZS",
-    dishesAmount: "99 000 UZS",
-    total: "99 112 UZS",
-    totalValue: 99112,
-    transaction: "NAXT - 99 112 UZS",
-    zone: "Billiard",
-    paymentType: "NAXT",
-    waiter: "Сардор",
-    orders: [
-      { number: "#1201", date: "01.05.2026 / 14:21", waiter: "Сардор", amount: "99 112 UZS", status: "Оплачен" },
-    ],
-  },
-  {
-    id: "table-1",
-    tableNumber: "1 - VIP",
-    date: "01.05.2026 / 13:02",
-    servicePrice: "0 UZS",
-    serviceValue: 0,
-    discount: "0 UZS",
-    placePrice: "0 UZS",
-    dishesAmount: "0 UZS",
-    total: "0 UZS",
-    totalValue: 0,
-    transaction: "NAXT - 0 UZS",
-    zone: "VIP",
-    paymentType: "NAXT",
-    waiter: "Менеджер",
-    orders: [
-      { number: "#1194", date: "01.05.2026 / 13:02", waiter: "Менеджер", amount: "0 UZS", status: "Закрыт" },
-    ],
-  },
-];
-
-const summaries = [
-  { key: "service", label: "Цена обслуживания", value: "25 400 UZS", className: "tables-summary-service", icon: "bi-percent" },
-  { key: "place", label: "Цена места", value: "31 297 446 UZS", className: "tables-summary-place", icon: "bi-grid-3x3-gap" },
-  { key: "dishes", label: "Сумма блюд", value: "444 000 UZS", className: "tables-summary-dishes", icon: "bi-cup-hot" },
-  { key: "total", label: "Сумма", value: "31 766 846 UZS", className: "tables-summary-total", icon: "bi-cash-stack" },
-];
-
 export default function TablesReportPage() {
   const tableSettingsRef = useRef(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -248,15 +122,13 @@ export default function TablesReportPage() {
   const [filters, setFilters] = useState(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
   const [selectedTable, setSelectedTable] = useState(null);
-  const [rows, setRows] = useState(tableRows);
-  const [isDemo, setIsDemo] = useState(true);
+  const [rows, setRows] = useState([]);
 
   useEffect(() => {
     api.get("/reports/tables", { params: { start: dateRange.start, end: dateRange.end } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.tables || [];
-        if (items.length) {
-          setRows(items.map((item) => ({
+        setRows(items.map((item) => ({
             id: String(item.id || ""),
             tableNumber: item.table_number || item.tableNumber || "",
             date: item.date || "",
@@ -264,7 +136,9 @@ export default function TablesReportPage() {
             serviceValue: Number(item.service_price || 0),
             discount: item.discount ? `${Number(item.discount).toLocaleString("ru-RU")} UZS` : "0 UZS",
             placePrice: item.place_price ? `${Number(item.place_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            placeValue: Number(item.place_price || 0),
             dishesAmount: item.dishes_amount ? `${Number(item.dishes_amount).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            dishesValue: Number(item.dishes_amount || 0),
             total: item.total ? `${Number(item.total).toLocaleString("ru-RU")} UZS` : "0 UZS",
             totalValue: Number(item.total || 0),
             transaction: item.transaction || "",
@@ -273,10 +147,8 @@ export default function TablesReportPage() {
             waiter: item.waiter_name || item.waiter || "",
             orders: item.orders || [],
           })));
-          setIsDemo(false);
-        }
       })
-      .catch(() => {});
+      .catch(() => setRows([]));
   }, [dateRange.start, dateRange.end]);
 
   useEffect(() => {
@@ -332,6 +204,17 @@ export default function TablesReportPage() {
       (max === null || row.totalValue <= max)
     );
   }), [rows, appliedFilters]);
+  const summaries = useMemo(() => {
+    const sum = (key) => filteredRows.reduce((total, row) => total + Number(row[key] || 0), 0);
+    const format = (value) => `${Number(value || 0).toLocaleString("ru-RU")} UZS`;
+
+    return [
+      { key: "service", label: "Цена обслуживания", value: format(sum("serviceValue")), className: "tables-summary-service", icon: "bi-percent" },
+      { key: "place", label: "Цена места", value: format(sum("placeValue")), className: "tables-summary-place", icon: "bi-grid-3x3-gap" },
+      { key: "dishes", label: "Сумма блюд", value: format(sum("dishesValue")), className: "tables-summary-dishes", icon: "bi-cup-hot" },
+      { key: "total", label: "Сумма", value: format(sum("totalValue")), className: "tables-summary-total", icon: "bi-cash-stack" },
+    ];
+  }, [filteredRows]);
 
   function updateFilter(key, value) {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -367,9 +250,6 @@ export default function TablesReportPage() {
   return (
     <section className="tables-report-page">
       <article className="report-page-card">
-        {isDemo && (
-          <DemoNotice />
-        )}
         <div className="report-page-header">
           <div className="report-title-group">
             <span className="report-accent-bar" aria-hidden="true" />

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, formatMoney } from "../api/client";
-import DemoNotice from "../components/DemoNotice";
 import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 
@@ -10,45 +9,6 @@ const waiterColumns = [
   { key: "service", label: "Сумма услуги", checkable: true },
   { key: "waiterService", label: "Обслуга официанта" },
   { key: "dishes", label: "Блюда" },
-];
-
-const demoWaiters = [
-  {
-    id: "azizbek",
-    name: "Азизбек",
-    orders: 2840000,
-    takeaway: 320000,
-    service: 284000,
-    waiterService: 142000,
-    dishes: 38,
-  },
-  {
-    id: "alisher",
-    name: "Алишер",
-    orders: 1985000,
-    takeaway: 180000,
-    service: 198500,
-    waiterService: 99250,
-    dishes: 27,
-  },
-  {
-    id: "dilnoza",
-    name: "Дилноза",
-    orders: 3260000,
-    takeaway: 540000,
-    service: 326000,
-    waiterService: 163000,
-    dishes: 44,
-  },
-  {
-    id: "sardor",
-    name: "Сардор",
-    orders: 1460000,
-    takeaway: 90000,
-    service: 146000,
-    waiterService: 73000,
-    dishes: 19,
-  },
 ];
 
 function cellValue(waiter, key) {
@@ -68,15 +28,13 @@ export default function WaitersReportPage() {
   const [selectedWaiter, setSelectedWaiter] = useState("");
   const [percent, setPercent] = useState("1");
   const [dateRange, setDateRange] = useState({});
-  const [waiters, setWaiters] = useState(demoWaiters);
-  const [isDemo, setIsDemo] = useState(true);
+  const [waiters, setWaiters] = useState([]);
 
   useEffect(() => {
     api.get("/reports/waiters")
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.waiters || [];
-        if (items.length) {
-          setWaiters(items.map((item) => ({
+        setWaiters(items.map((item) => ({
             id: String(item.id || item.waiter_id || ""),
             name: item.name || item.waiter_name || "",
             orders: Number(item.orders_total || item.orders || 0),
@@ -85,10 +43,8 @@ export default function WaitersReportPage() {
             waiterService: Number(item.waiter_service || item.waiterService || 0),
             dishes: Number(item.dishes_count || item.dishes || 0),
           })));
-          setIsDemo(false);
-        }
       })
-      .catch(() => {});
+      .catch(() => setWaiters([]));
   }, []);
 
   const visibleRows = useMemo(() => {
@@ -154,9 +110,6 @@ export default function WaitersReportPage() {
   return (
     <section className="waiters-report-page">
       <article className="waiters-report-card z-waiters-report">
-        {isDemo && (
-          <DemoNotice />
-        )}
         <div className="z-waiters-report__head">
           <div className="z-waiters-report__title">
             <span aria-hidden="true" />
