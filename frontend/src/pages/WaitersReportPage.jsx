@@ -3,6 +3,12 @@ import { api, formatMoney } from "../api/client";
 import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 
+function toApiDate(ddmmyyyy) {
+  if (!ddmmyyyy) return undefined;
+  const [d, m, y] = ddmmyyyy.split(".");
+  return `${y}-${m}-${d}`;
+}
+
 const waiterColumns = [
   { key: "orders", label: "Сумма заказов", checkable: true, checked: true },
   { key: "takeaway", label: "Сумма заказов на вынос", checkable: true },
@@ -25,13 +31,21 @@ function escapeHtml(value) {
 }
 
 export default function WaitersReportPage() {
-  const [selectedWaiter, setSelectedWaiter] = useState("");
+  const [selectedWaiter, setSelectedWaiter] = useState("all");
   const [percent, setPercent] = useState("1");
-  const [dateRange, setDateRange] = useState({});
+  const [dateRange, setDateRange] = useState(() => {
+    const now = new Date();
+    const start = `01.${String(now.getMonth() + 1).padStart(2, "0")}.${now.getFullYear()}`;
+    const end = `${String(now.getDate()).padStart(2, "0")}.${String(now.getMonth() + 1).padStart(2, "0")}.${now.getFullYear()}`;
+    return { preset: "", start, end };
+  });
   const [waiters, setWaiters] = useState([]);
 
   useEffect(() => {
-    api.get("/reports/waiters")
+    const params = {};
+    if (dateRange.start) params.date_from = toApiDate(dateRange.start);
+    if (dateRange.end) params.date_to = toApiDate(dateRange.end);
+    api.get("/reports/waiters", { params })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.waiters || [];
         setWaiters(items.map((item) => ({
@@ -45,7 +59,7 @@ export default function WaitersReportPage() {
           })));
       })
       .catch(() => setWaiters([]));
-  }, []);
+  }, [dateRange.start, dateRange.end]);
 
   const visibleRows = useMemo(() => {
     if (!selectedWaiter) return [];

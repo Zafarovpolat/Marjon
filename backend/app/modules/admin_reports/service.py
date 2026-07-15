@@ -297,7 +297,9 @@ class AdminReportService:
         query = (
             select(
                 Order.created_at, Order.order_number, Order.table_number,
+                Order.order_type,
                 OrderItem.name, OrderItem.quantity, OrderItem.price,
+                OrderItem.note.label("item_note"),
                 User.name.label("waiter_name"),
             )
             .join(OrderItem, OrderItem.order_id == Order.id)
@@ -308,6 +310,12 @@ class AdminReportService:
         query = self._order_date_filter(query, date_from, date_to)
         rows = (await self.db.execute(query)).all()
         result = []
+        order_type_labels = {
+            "dine_in": "На месте",
+            "takeaway": "На вынос",
+            "delivery": "Доставка",
+            "qr": "QR",
+        }
         for r in rows:
             dt = r.created_at
             result.append(CancelledItemRow(
@@ -320,6 +328,10 @@ class AdminReportService:
                 price=Decimal(str(r.price)),
                 waiter_name=r.waiter_name,
                 unit="шт",
+                order_type=order_type_labels.get(r.order_type, r.order_type),
+                comment=r.item_note,
+                author=r.waiter_name,
+                station=None,
             ))
         return result
 

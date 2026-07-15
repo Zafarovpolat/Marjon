@@ -365,6 +365,7 @@ async def seed_company_users(db):
         await ensure(db, UserRole, user_id=user.id, role_id=role.id, branch_id=main_branch.id)
         users[data["role_slug"]] = user
         users[data["email"]] = user
+        users[data["username"]] = user
         print(f"  {'created' if created else 'ready'} user: {user.email} ({data['role_slug']})")
 
     return company, branches, users
@@ -1581,7 +1582,6 @@ async def seed_hr_sessions_notifications(db, company, branches, users):
                 "actual_start": dt(0, 8, 55),
                 "actual_end": None if role_slug in ("cashier", "waiter") else dt(0, 17, 45),
                 "status": "active" if role_slug in ("cashier", "waiter") else "completed",
-                "note": "Тестовая смена",
             },
             update=True,
             company_id=company.id,
@@ -2055,7 +2055,10 @@ async def seed():
         await seed_customers_orders_payments(db, company, branches, users, products, terminals)
         await seed_hr_sessions_notifications(db, company, branches, users)
         await seed_finance_and_subscription(db, company, users, organizations)
-        await seed_marketing_tasks_services(db, users, region, district, organizations)
+        try:
+            await seed_marketing_tasks_services(db, users, region, district, organizations)
+        except Exception as e:
+            print(f"  [WARN] seed_marketing_tasks_services skipped: {e}")
 
         await db.commit()
 

@@ -203,36 +203,39 @@ function StaffRolePage({ role = "all" }) {
     routeRole === "all" ? "Список сотрудников" : `Список сотрудников: ${roleMap[routeRole].title}`;
 
   const [staff, setStaff] = useState([]);
-const [staffLoading, setStaffLoading] = useState(true);
+  const [staffLoading, setStaffLoading] = useState(true);
 
-useEffect(() => {
-  fetchStaffUsers()
-    .then((data) => {
-      const mapped = (data || []).map((user) => ({
-        id: user.id,
-        fullName: user.role_name || user.email?.split("@")[0] || "—",
-        phone: user.phone || "",
-        roleKey: user.role_slug || "cashier",
-        permission: user.role_slug || "Базовый доступ",
-        status: user.is_active !== false ? "active" : "archived",
-        pin: "",
-        password: "",
-        comment: "",
-        photo: "",
-        access: {},
-      }));
-      setStaff(mapped);
-    })
-    .catch((err) => console.warn("Не удалось загрузить сотрудников:", err.message))
-    .finally(() => setStaffLoading(false));
-}, []);
-  const [activeTab, setActiveTab] = useState("active");
-  const [draftFilters, setDraftFilters] = useState({
+  useEffect(() => {
+    fetchStaffUsers()
+      .then((data) => {
+        const mapped = (data || []).map((user) => ({
+          id: user.id,
+          fullName: user.name || user.role_name || user.email?.split("@")[0] || "—",
+          phone: user.phone || "",
+          roleKey: user.role_slug || "cashier",
+          permission: user.role_slug || "Базовый доступ",
+          status: user.is_active !== false ? "active" : "archived",
+          pin: "",
+          password: "",
+          comment: "",
+          photo: "",
+          access: {},
+        }));
+        setStaff(mapped);
+      })
+      .catch((err) => console.warn("Не удалось загрузить сотрудников:", err.message))
+      .finally(() => setStaffLoading(false));
+  }, []);
+
+  const defaultFilters = useMemo(() => ({
     query: "",
     roleKey: routeRole === "all" ? "" : routeRole,
     status: "",
-  });
-  const [filters, setFilters] = useState(draftFilters);
+  }), [routeRole]);
+
+  const [activeTab, setActiveTab] = useState("active");
+  const [draftFilters, setDraftFilters] = useState(defaultFilters);
+  const [filters, setFilters] = useState(defaultFilters);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -240,6 +243,11 @@ useEffect(() => {
   const [form, setForm] = useState({
     ...emptyForm,
   });
+
+  useEffect(() => {
+    setDraftFilters(defaultFilters);
+    setFilters(defaultFilters);
+  }, [defaultFilters]);
 
   const visibleStaff = useMemo(() => {
     const normalizedQuery = filters.query.trim().toLowerCase();

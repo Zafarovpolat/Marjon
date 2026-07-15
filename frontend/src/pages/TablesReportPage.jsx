@@ -4,6 +4,12 @@ import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import { exportToExcel } from "../utils/excel";
 
+function toApiDate(ddmmyyyy) {
+  if (!ddmmyyyy) return undefined;
+  const [d, m, y] = ddmmyyyy.split(".");
+  return `${y}-${m}-${d}`;
+}
+
 const initialFilters = {
   zone: "all",
   table: "",
@@ -83,7 +89,7 @@ function formatPeriodLabel(range) {
 }
 
 function presetRange(label) {
-  const today = new Date(2026, 5, 27);
+  const today = new Date();
   const start = new Date(today);
   const end = new Date(today);
 
@@ -118,35 +124,44 @@ export default function TablesReportPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [tableSettingsOpen, setTableSettingsOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState(() => getStoredTableColumnVisibility());
-  const [dateRange, setDateRange] = useState({ preset: "", start: "01.06.2026", end: "01.07.2026" });
+  const [dateRange, setDateRange] = useState(() => {
+    const now = new Date();
+    const start = `01.${String(now.getMonth() + 1).padStart(2, "0")}.${now.getFullYear()}`;
+    const end = `${String(now.getDate()).padStart(2, "0")}.${String(now.getMonth() + 1).padStart(2, "0")}.${now.getFullYear()}`;
+    return { preset: "", start, end };
+  });
   const [filters, setFilters] = useState(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
   const [selectedTable, setSelectedTable] = useState(null);
   const [rows, setRows] = useState([]);
 
   useEffect(() => {
-    api.get("/reports/tables", { params: { start: dateRange.start, end: dateRange.end } })
+    api.get("/reports/tables", { params: { date_from: toApiDate(dateRange.start), date_to: toApiDate(dateRange.end) } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.tables || [];
-        setRows(items.map((item) => ({
-            id: String(item.id || ""),
+        setRows(items.map((item) => {
+          const fmt = (v) => v ? `${Number(v).toLocaleString("ru-RU")} UZS` : "0 UZS";
+          const revenueValue = Number(item.revenue || item.total || 0);
+          return {
+            id: String(item.id || item.table_number || ""),
             tableNumber: item.table_number || item.tableNumber || "",
-            date: item.date || "",
-            servicePrice: item.service_price ? `${Number(item.service_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            date: item.date || `${dateRange.start} - ${dateRange.end}`,
+            servicePrice: fmt(item.service_price),
             serviceValue: Number(item.service_price || 0),
-            discount: item.discount ? `${Number(item.discount).toLocaleString("ru-RU")} UZS` : "0 UZS",
-            placePrice: item.place_price ? `${Number(item.place_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            discount: fmt(item.discount),
+            placePrice: fmt(item.place_price),
             placeValue: Number(item.place_price || 0),
-            dishesAmount: item.dishes_amount ? `${Number(item.dishes_amount).toLocaleString("ru-RU")} UZS` : "0 UZS",
-            dishesValue: Number(item.dishes_amount || 0),
-            total: item.total ? `${Number(item.total).toLocaleString("ru-RU")} UZS` : "0 UZS",
-            totalValue: Number(item.total || 0),
-            transaction: item.transaction || "",
+            dishesAmount: fmt(item.dishes_amount || item.revenue),
+            dishesValue: Number(item.dishes_amount || item.revenue || 0),
+            total: fmt(item.total || item.revenue),
+            totalValue: revenueValue,
+            transaction: item.transaction || (item.orders_count ? `${item.orders_count} заказ(ов)` : "-"),
             zone: item.zone || "",
             paymentType: item.payment_type || item.paymentType || "",
             waiter: item.waiter_name || item.waiter || "",
             orders: item.orders || [],
-          })));
+          };
+        }));
       })
       .catch(() => setRows([]));
   }, [dateRange.start, dateRange.end]);
@@ -184,9 +199,9 @@ export default function TablesReportPage() {
     };
   }, [tableSettingsOpen]);
 
-  const zones = useMemo(() => Array.from(new Set(rows.map((row) => row.zone))), [rows]);
-  const waiters = useMemo(() => Array.from(new Set(rows.map((row) => row.waiter))), [rows]);
-  const paymentTypes = useMemo(() => Array.from(new Set(rows.map((row) => row.paymentType))), [rows]);
+  const zones = useMemo(() => Array.from(new Set(rows.map((row) => row.zone).filter(Boolean))), [rows]);
+  const waiters = useMemo(() => Array.from(new Set(rows.map((row) => row.waiter).filter(Boolean))), [rows]);
+  const paymentTypes = useMemo(() => Array.from(new Set(rows.map((row) => row.paymentType).filter(Boolean))), [rows]);
   const visibleTableColumns = useMemo(
     () => tableColumnOptions.filter((column) => visibleColumns[column.key] !== false),
     [visibleColumns],

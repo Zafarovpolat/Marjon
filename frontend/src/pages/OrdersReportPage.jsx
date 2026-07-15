@@ -4,6 +4,12 @@ import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import { exportToExcel } from "../utils/excel";
 
+function toApiDate(ddmmyyyy) {
+  if (!ddmmyyyy) return undefined;
+  const [d, m, y] = ddmmyyyy.split(".");
+  return `${y}-${m}-${d}`;
+}
+
 const initialFilters = {
   orderType: "all",
   status: "all",
@@ -70,37 +76,46 @@ export default function OrdersReportPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [tableSettingsOpen, setTableSettingsOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState(() => getStoredOrderColumnVisibility());
-  const [dateRange, setDateRange] = useState({ preset: "", start: "01.06.2026", end: "01.07.2026" });
+  const [dateRange, setDateRange] = useState(() => {
+    const now = new Date();
+    const start = `01.${String(now.getMonth() + 1).padStart(2, "0")}.${now.getFullYear()}`;
+    const end = `${String(now.getDate()).padStart(2, "0")}.${String(now.getMonth() + 1).padStart(2, "0")}.${now.getFullYear()}`;
+    return { preset: "", start, end };
+  });
   const [filters, setFilters] = useState(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [rows, setRows] = useState([]);
 
   useEffect(() => {
-    api.get("/reports/orders", { params: { start: dateRange.start, end: dateRange.end } })
+    api.get("/reports/orders", { params: { date_from: toApiDate(dateRange.start), date_to: toApiDate(dateRange.end) } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.orders || [];
-        setRows(items.map((item) => ({
-            id: String(item.id || ""),
+        setRows(items.map((item) => {
+          const totalValue = Number(item.total_amount || item.total_price || 0);
+          const fmt = (v) => v ? `${Number(v).toLocaleString("ru-RU")} UZS` : "0 UZS";
+          return {
+            id: String(item.order_id || item.id || ""),
             orderNumber: String(item.order_number || item.orderNumber || ""),
-            date: item.date || item.created_at || "",
+            date: item.created_at || item.date || "",
             type: item.order_type || item.type || "На стол",
-            place: item.place || item.table_name || "-",
+            place: item.table_number ? `Стол ${item.table_number}` : (item.place || item.table_name || "-"),
             waiter: item.waiter_name || item.waiter || "-",
             client: item.client_name || item.client || "-",
             courier: item.courier_name || item.courier || "не указан",
-            goodsPrice: item.goods_price ? `${Number(item.goods_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
-            goodsValue: Number(item.goods_price || 0),
-            placePrice: item.place_price ? `${Number(item.place_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
-            discount: item.discount ? `${Number(item.discount).toLocaleString("ru-RU")} UZS` : "0 UZS",
-            deliveryPrice: item.delivery_price ? `${Number(item.delivery_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
-            servicePrice: item.service_price ? `${Number(item.service_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            goodsPrice: fmt(item.goods_price || item.total_amount),
+            goodsValue: Number(item.goods_price || item.total_amount || 0),
+            placePrice: fmt(item.place_price),
+            discount: fmt(item.discount),
+            deliveryPrice: fmt(item.delivery_price),
+            servicePrice: fmt(item.service_price),
             serviceValue: Number(item.service_price || 0),
-            totalPrice: item.total_price ? `${Number(item.total_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
-            totalValue: Number(item.total_price || 0),
+            totalPrice: fmt(item.total_amount || item.total_price),
+            totalValue,
             status: item.status_label || item.status || "Завершено",
             dishes: item.dishes || item.order_items?.map((d) => `${d.name} x${d.quantity}`) || [],
-          })));
+          };
+        }));
       })
       .catch(() => setRows([]));
   }, [dateRange.start, dateRange.end]);
@@ -138,8 +153,8 @@ export default function OrdersReportPage() {
     };
   }, [tableSettingsOpen]);
 
-  const orderTypes = useMemo(() => Array.from(new Set(rows.map((row) => row.type))), [rows]);
-  const waiters = useMemo(() => Array.from(new Set(rows.map((row) => row.waiter))), [rows]);
+  const orderTypes = useMemo(() => Array.from(new Set(rows.map((row) => row.type).filter(Boolean))), [rows]);
+  const waiters = useMemo(() => Array.from(new Set(rows.map((row) => row.waiter).filter((w) => w && w !== "-"))), [rows]);
   const visibleOrderColumns = useMemo(
     () => orderColumnOptions.filter((column) => visibleColumns[column.key] !== false),
     [visibleColumns],

@@ -10,8 +10,9 @@ function toInputDate(value) {
 }
 
 function formatDateTime(date, time) {
-  const [year, month, day] = date.split("-");
-  return `${day}.${month}.${year} / ${time}`;
+  if (!date) return "";
+  if (time) return `${date} / ${time}`;
+  return date;
 }
 
 function escapeHtml(value) {
@@ -22,20 +23,27 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
+function currentMonthRange() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return { from: `${y}-${m}-01`, to: `${y}-${m}-${d}` };
+}
+
 export default function CancelledDishesReportPage() {
-  const [filters, setFilters] = useState({
-    from: "2026-05-01",
-    to: "2026-05-31",
+  const [filters, setFilters] = useState(() => ({
+    ...currentMonthRange(),
     waiter: "all",
     type: "all",
     query: "",
-  });
+  }));
   const [appliedFilters, setAppliedFilters] = useState(filters);
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState([]);
 
   useEffect(() => {
-    api.get("/reports/cancelled", { params: { start: appliedFilters.from, end: appliedFilters.to } })
+    api.get("/reports/cancelled", { params: { date_from: appliedFilters.from, date_to: appliedFilters.to } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
         setRows(items.map((item) => ({
@@ -64,12 +72,11 @@ export default function CancelledDishesReportPage() {
   const filteredRows = useMemo(() => {
     const query = appliedFilters.query.trim().toLowerCase();
     return rows.filter((row) => {
-      const inRange = row.date >= appliedFilters.from && row.date <= appliedFilters.to;
       const waiterMatch = appliedFilters.waiter === "all" || row.waiter === appliedFilters.waiter;
       const typeMatch = appliedFilters.type === "all" || row.type === appliedFilters.type;
       const queryMatch = !query || [row.name, row.comment, row.author, row.chef, row.waiter]
         .some((value) => String(value).toLowerCase().includes(query));
-      return inRange && waiterMatch && typeMatch && queryMatch;
+      return waiterMatch && typeMatch && queryMatch;
     });
   }, [rows, appliedFilters]);
 

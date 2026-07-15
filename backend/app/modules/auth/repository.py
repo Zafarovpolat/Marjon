@@ -29,7 +29,7 @@ class UserRepository(BaseRepository[User]):
 
     async def get_company_users(self, company_id: UUID) -> list[User]:
         result = await self.db.execute(
-            select(User).where(User.company_id == company_id, User.is_active == True)
+            select(User).where(User.company_id == company_id)
         )
         return list(result.scalars().all())
 
