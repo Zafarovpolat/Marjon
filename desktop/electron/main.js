@@ -75,6 +75,26 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
+// ── IPC: Window controls ──────────────────────────────────────────────────────
+
+ipcMain.handle('window:minimize', () => {
+  if (mainWindow) mainWindow.minimize()
+})
+
+ipcMain.handle('window:toggleFullscreen', () => {
+  if (!mainWindow) return
+  mainWindow.setFullScreen(!mainWindow.isFullScreen())
+})
+
+ipcMain.handle('window:setKiosk', (_event, enabled) => {
+  if (!mainWindow) return
+  mainWindow.setKiosk(enabled)
+})
+
+ipcMain.handle('window:isFullscreen', () => {
+  return mainWindow ? mainWindow.isFullScreen() : false
+})
+
 // ── IPC: Printing ─────────────────────────────────────────────────────────────
 
 ipcMain.handle('printer:print', async (_event, { ip, port, payloadBase64, copies = 1 }) => {

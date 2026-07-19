@@ -56,12 +56,44 @@ export const orders = {
 export const kitchen = {
   orders: (branchId) =>
     api.get('/kitchen/orders', { params: { branch_id: branchId } }).then((r) => r.data),
+  stations: () => api.get('/kitchen/stations').then((r) => r.data),
+  itemStatus: (itemId, status) =>
+    api.patch('/kitchen/orders/items/status', { order_item_id: itemId, status }).then((r) => r.data),
   itemDone: (itemId) =>
     api.patch('/kitchen/orders/items/status', { order_item_id: itemId, status: 'ready' }).then((r) => r.data),
+  itemStart: (itemId) =>
+    api.patch('/kitchen/orders/items/status', { order_item_id: itemId, status: 'cooking' }).then((r) => r.data),
 }
 
 export const menu = {
-  // Inventory products/categories — what POS actually uses for ordering
-  products: () => api.get('/inventory/products').then((r) => r.data),
+  products: (params) => api.get('/inventory/products', { params }).then((r) => r.data),
   categories: () => api.get('/inventory/categories').then((r) => r.data),
+  product: (id) => api.get(`/inventory/products/${id}`).then((r) => r.data),
+}
+
+export const tables = {
+  list: (branchId) => api.get('/tables', { params: { branch_id: branchId } }).then((r) => r.data),
+  halls: (branchId) => api.get('/tables/halls', { params: { branch_id: branchId } }).then((r) => r.data),
+}
+
+export const finance = {
+  shifts: (params) => api.get('/finance/shifts', { params }).then((r) => r.data),
+  openShift: (data) => api.post('/finance/shifts/open', data).then((r) => r.data),
+  closeShift: (shiftId) => api.post(`/finance/shifts/${shiftId}/close`).then((r) => r.data),
+  currentShift: () => api.get('/finance/shifts/current').then((r) => r.data),
+  incomeExpense: (params) => api.get('/finance/income-expense', { params }).then((r) => r.data),
+  addIncome: (data) => api.post('/finance/income-expense', { ...data, type: 'income' }).then((r) => r.data),
+  addExpense: (data) => api.post('/finance/income-expense', { ...data, type: 'expense' }).then((r) => r.data),
+}
+
+export const reports = {
+  sales: (params) => api.get('/reports/sales', { params }).then((r) => r.data),
+  products: (params) => api.get('/reports/products', { params }).then((r) => r.data),
+  staff: (params) => api.get('/reports/staff', { params }).then((r) => r.data),
+}
+
+export const stopList = {
+  list: (branchId) => api.get('/inventory/stop-list', { params: { branch_id: branchId } }).then((r) => r.data),
+  add: (productId, branchId) => api.post('/inventory/stop-list', { product_id: productId, branch_id: branchId }).then((r) => r.data),
+  remove: (id) => api.delete(`/inventory/stop-list/${id}`).then((r) => r.data),
 }

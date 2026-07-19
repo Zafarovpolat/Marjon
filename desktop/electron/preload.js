@@ -5,16 +5,13 @@ const { contextBridge, ipcRenderer } = require('electron')
  * Nothing from Node.js leaks through — only these explicit methods.
  */
 contextBridge.exposeInMainWorld('electron', {
-  /**
-   * Send raw ESC/POS bytes (base64) to a network printer.
-   * @param {{ ip: string, port?: number, payloadBase64: string, copies?: number }} args
-   */
+  // Printing
   print: (args) => ipcRenderer.invoke('printer:print', args),
-
-  /**
-   * Check if a printer is reachable on the network.
-   * @param {{ ip: string, port?: number }} args
-   * @returns {Promise<boolean>}
-   */
   pingPrinter: (args) => ipcRenderer.invoke('printer:ping', args),
+
+  // Window controls
+  minimize: () => ipcRenderer.invoke('window:minimize'),
+  toggleFullscreen: () => ipcRenderer.invoke('window:toggleFullscreen'),
+  setKiosk: (enabled) => ipcRenderer.invoke('window:setKiosk', enabled),
+  isFullscreen: () => ipcRenderer.invoke('window:isFullscreen'),
 })

@@ -1,0 +1,131 @@
+/* ═══════════════════════════════════════════════════════════════════
+   MARJON Desktop — Дизайн-токены
+   Источник: docs/STYLEGUIDE.md + marjon-tokens.css
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Бренд (Teal) ── */
+  --teal-50: #ecfeff;
+  --teal-100: #cffafe;
+  --teal-200: #a5f3fc;
+  --teal-300: #7de8e2;
+  --teal-400: #22d3ee;
+  --teal-500: #1db5b5;
+  --teal-600: #0fa3a3;
+  --teal-700: #0d8585;
+
+  /* ── Navy / Нейтральные ── */
+  --neutral-0: #ffffff;
+  --neutral-50: #f4f7fc;
+  --neutral-100: #e8edf5;
+  --neutral-200: #cbd5e1;
+  --neutral-300: #94a3b8;
+  --neutral-400: #64748b;
+  --neutral-500: #475569;
+  --neutral-600: #334155;
+  --neutral-700: #243a56;
+  --neutral-800: #162840;
+  --neutral-900: #0b1f3f;
+  --neutral-950: #071428;
+
+  /* ── Синий (интерактивный) ── */
+  --blue-600: #2563eb;
+  --blue-700: #1d4ed8;
+
+  /* ── Семантические цвета ── */
+  --color-brand: var(--teal-500);
+  --color-brand-hover: var(--teal-400);
+  --color-brand-dark: var(--teal-600);
+  --color-interactive: var(--blue-600);
+
+  --color-bg: var(--neutral-950);
+  --color-surface: var(--neutral-800);
+  --color-surface-hover: var(--neutral-700);
+  --color-card: var(--neutral-0);
+  --color-border: var(--neutral-600);
+  --color-border-light: var(--neutral-700);
+
+  --color-text-primary: var(--neutral-0);
+  --color-text-secondary: var(--neutral-300);
+  --color-text-muted: var(--neutral-400);
+
+  /* ── Статусы ── */
+  --color-success: #10b981;
+  --color-success-bg: rgba(16, 185, 129, 0.12);
+  --color-warning: #f59e0b;
+  --color-warning-bg: rgba(245, 158, 11, 0.12);
+  --color-danger: #ef4444;
+  --color-danger-bg: rgba(239, 68, 68, 0.12);
+  --color-info: #3b82f6;
+  --color-info-bg: rgba(59, 130, 246, 0.12);
+
+  /* ── Типографика ── */
+  --font-display: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-body: 'Golos Text', 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
+
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 28px;
+  --text-4xl: 32px;
+  --text-timer: 36px;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* ── Радиусы ── */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-full: 9999px;
+
+  /* ── Тени ── */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 2px 8px rgba(7, 20, 40, 0.3);
+  --shadow-md: 0 4px 16px rgba(7, 20, 40, 0.4);
+  --shadow-lg: 0 10px 28px rgba(11, 31, 63, 0.35);
+  --shadow-glow: 0 0 20px rgba(29, 181, 181, 0.25);
+
+  /* ── Отступы (spacing scale) ── */
+  --spacing-2xs: 2px;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+  --spacing-3xl: 48px;
+  --spacing-4xl: 64px;
+
+  /* ── Анимации ── */
+  --transition-fast: 120ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 350ms ease;
+
+  /* ── Размеры для touch (мин 44px по гайдам, мы используем 60px) ── */
+  --touch-min: 60px;
+  --touch-target: 64px;
+  --touch-comfortable: 72px;
+  --topbar-height: 64px;
+  --bottombar-height: 48px;
+  --sidebar-width: 72px;
+  --sidebar-width-expanded: 220px;
+  --header-height: 64px;
+  --footer-height: 48px;
+
+  /* ── Z-index ── */
+  --z-base: 0;
+  --z-dropdown: 100;
+  --z-modal: 200;
+  --z-toast: 300;
+  --z-overlay: 400;
+}
