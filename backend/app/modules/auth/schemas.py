@@ -66,5 +66,20 @@ class UserResponse(BaseResponseSchema):
     role_slugs: list[str] = Field(default_factory=list)
 
 
+class CompanyUserUpdate(BaseSchema):
+    name: str | None = None
+    email: EmailStr | None = None
+    phone: str | None = None
+    password: str | None = None
+    role_slug: str | None = None
+
+    @field_validator("password")
+    @classmethod
+    def check_password(cls, v: str | None) -> str | None:
+        if v is not None:
+            return _validate_password(v)
+        return v
+
+
 class CompanyUserResponse(UserResponse):
     role_slug: str | None = None

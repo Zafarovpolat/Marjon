@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
@@ -141,6 +141,65 @@ class AuthService:
         await self.db.refresh(role)
 
         return user, role
+
+    async def update_company_user(
+        self,
+        user_id: UUID,
+        company_id: UUID | None,
+        *,
+        name: str | None = None,
+        email: str | None = None,
+        phone: str | None = None,
+        password: str | None = None,
+        role_slug: str | None = None,
+    ) -> tuple[User, list[str]]:
+        if not company_id:
+            raise ValidationError("Current user is not assigned to a company")
+
+        user = await self.user_repo.get_by_id(user_id)
+        if not user or user.company_id != company_id:
+            raise NotFoundError("User not found")
+
+        if name is not None:
+            user.name = name
+        if email is not None:
+            existing = await self.user_repo.get_by_email(email)
+            if existing and existing.id != user_id:
+                raise ConflictError("Email already in use")
+            user.email = email
+        if phone is not None:
+            user.phone = phone
+        if password is not None:
+            user.password_hash = hash_password(password)
+
+        if role_slug is not None:
+            from sqlalchemy import delete as sql_delete
+            from app.modules.rbac.repository import RoleRepository
+            role_repo = RoleRepository(self.db)
+            role = await role_repo.get_by_slug(role_slug, company_id)
+            if not role:
+                role = Role(
+                    company_id=company_id,
+                    slug=role_slug,
+                    name=role_slug.replace("_", " ").title(),
+                    is_system=False,
+                )
+                self.db.add(role)
+                await self.db.flush()
+            await self.db.execute(
+                sql_delete(UserRole).where(UserRole.user_id == user_id)
+            )
+            self.db.add(UserRole(user_id=user_id, role_id=role.id))
+
+        await self.db.commit()
+        await self.db.refresh(user)
+
+        from sqlalchemy import select
+        roles_res = await self.db.execute(
+            select(Role.slug).join(UserRole, UserRole.role_id == Role.id).where(UserRole.user_id == user_id)
+        )
+        slugs = list(roles_res.scalars().all())
+        return user, slugs
 
     async def refresh(self, refresh_token: str) -> tuple[str, str]:
         token_hash = hash_refresh_token(refresh_token)

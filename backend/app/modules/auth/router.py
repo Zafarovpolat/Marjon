@@ -1,6 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from uuid import UUID
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +11,7 @@ from app.modules.auth.models import User
 from app.modules.auth.schemas import (
     CompanyUserCreate,
     CompanyUserResponse,
+    CompanyUserUpdate,
     LoginRequest,
     RefreshRequest,
     RegisterRequest,
@@ -19,12 +20,14 @@ from app.modules.auth.schemas import (
 )
 from app.modules.auth.service import AuthService
 from app.modules.rbac.models import Role, UserRole
+from app.shared.rate_limit import limiter
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def register(request: Request, data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     svc = AuthService(db)
     user, access_token, refresh_token = await svc.register(
         company_name=data.company_name,
@@ -36,7 +39,8 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def login(request: Request, data: LoginRequest, db: AsyncSession = Depends(get_db)):
     svc = AuthService(db)
     identifier = data.phone or data.email
     if not identifier:
@@ -118,6 +122,27 @@ async def list_company_users(
             )
         )
     return result
+
+
+@router.patch("/users/{user_id}", response_model=CompanyUserResponse)
+async def update_company_user(
+    user_id: UUID,
+    data: CompanyUserUpdate,
+    current_user: User = Depends(require_company_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    user, slugs = await AuthService(db).update_company_user(
+        user_id,
+        current_user.company_id,
+        name=data.name,
+        email=str(data.email) if data.email else None,
+        phone=data.phone,
+        password=data.password,
+        role_slug=data.role_slug,
+    )
+    return CompanyUserResponse.model_validate(user).model_copy(
+        update={"role_slugs": slugs, "role_slug": slugs[0] if slugs else None}
+    )
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
