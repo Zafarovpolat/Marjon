@@ -39,7 +39,12 @@ class Api {
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
         final prefs = await SharedPreferences.getInstance();
-        options.baseUrl = prefs.getString('server_url') ?? 'http://localhost:8000/api/v1';
+        final localIp = prefs.getString('local_desktop_ip')?.trim() ?? '';
+        options.baseUrl = localIp.isNotEmpty
+            // Route through the desktop's local REST proxy so mobile devices
+            // on the LAN don't need direct internet/cloud access.
+            ? 'http://$localIp:8765/api/v1'
+            : prefs.getString('server_url') ?? 'http://localhost:8000/api/v1';
         if (_token != null) {
           options.headers['Authorization'] = 'Bearer $_token';
         }

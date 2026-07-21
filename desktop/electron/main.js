@@ -2,17 +2,24 @@ const { app, BrowserWindow, ipcMain, shell } = require('electron')
 const { join } = require('path')
 const net = require('net')
 const os = require('os')
+const http = require('http')
+const https = require('https')
 const { WebSocketServer } = require('ws')
 
 const isDev = process.env.NODE_ENV === 'development'
 
-// ── Local network WebSocket server ────────────────────────────────────────────
-// Mobile devices connect to this server via ws://192.168.x.x:8765
-// Desktop relays kitchen events from cloud to connected mobile clients
+// ── Local network server (HTTP proxy + WebSocket) ─────────────────────────────
+// Mobile devices point their base URL at http://192.168.x.x:8765/api/v1 and
+// connect their WS to ws://192.168.x.x:8765. The desktop:
+//   - relays cloud kitchen events to connected mobile clients over WS
+//   - transparently proxies REST requests to the cloud API, so mobile devices
+//     on the LAN don't need direct internet access / cloud URL configuration
 
 const LOCAL_WS_PORT = 8765
+let localHttpServer = null
 let localWsServer = null
 const localClients = new Set()
+let cloudServerUrl = null // e.g. "http://api.marjon.uz/api/v1", set via IPC from renderer
 
 function getLocalIp() {
   for (const iface of Object.values(os.networkInterfaces())) {
@@ -23,9 +30,38 @@ function getLocalIp() {
   return '127.0.0.1'
 }
 
+function proxyToCloud(req, res) {
+  if (!cloudServerUrl) {
+    res.writeHead(503, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ detail: 'Desktop proxy: cloud server not configured' }));
+    return;
+  }
+
+  const origin = cloudServerUrl.replace(/\/api\/v1\/?$/, '');
+  const target = new URL(origin + req.url);
+  const client = target.protocol === 'https:' ? https : http;
+
+  const upstream = client.request(target, {
+    method: req.method,
+    headers: { ...req.headers, host: target.host },
+  }, (upstreamRes) => {
+    res.writeHead(upstreamRes.statusCode, upstreamRes.headers);
+    upstreamRes.pipe(res);
+  });
+
+  upstream.on('error', () => {
+    res.writeHead(502, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ detail: 'Desktop proxy: cloud unreachable' }));
+  });
+
+  req.pipe(upstream);
+}
+
 function startLocalWsServer() {
-  if (localWsServer) return { ip: getLocalIp(), port: LOCAL_WS_PORT }
-  localWsServer = new WebSocketServer({ port: LOCAL_WS_PORT })
+  if (localHttpServer) return { ip: getLocalIp(), port: LOCAL_WS_PORT }
+
+  localHttpServer = http.createServer(proxyToCloud)
+  localWsServer = new WebSocketServer({ server: localHttpServer })
 
   localWsServer.on('connection', (ws) => {
     localClients.add(ws)
@@ -37,13 +73,16 @@ function startLocalWsServer() {
     ws.on('message', (msg) => { if (msg.toString() === 'ping') ws.send('pong') })
   })
 
-  console.log(`[LocalWS] Listening on ws://${getLocalIp()}:${LOCAL_WS_PORT}`)
+  localHttpServer.listen(LOCAL_WS_PORT)
+  console.log(`[LocalWS] Listening on ws://${getLocalIp()}:${LOCAL_WS_PORT} (+ REST proxy)`)
   return { ip: getLocalIp(), port: LOCAL_WS_PORT }
 }
 
 function stopLocalWsServer() {
   localWsServer?.close()
   localWsServer = null
+  localHttpServer?.close()
+  localHttpServer = null
   localClients.clear()
 }
 
@@ -152,4 +191,8 @@ ipcMain.handle('localws:info', () => ({
 
 ipcMain.handle('localws:broadcast', (_event, { event, data }) => {
   broadcastLocal(event, data)
+})
+
+ipcMain.handle('localws:set-server-url', (_event, url) => {
+  cloudServerUrl = url || null
 })

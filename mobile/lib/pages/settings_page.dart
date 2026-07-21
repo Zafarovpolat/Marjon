@@ -13,7 +13,6 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   String _lang = 'ru';
-  String _serverUrl = '';
   String _localDesktopIp = '';
 
   @override
@@ -27,7 +26,6 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       setState(() {
         _lang           = prefs.getString('lang') ?? 'ru';
-        _serverUrl      = prefs.getString('server_url') ?? '';
         _localDesktopIp = prefs.getString('local_desktop_ip') ?? '';
       });
     }
@@ -140,12 +138,6 @@ class _SettingsPageState extends State<SettingsPage> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Облачный сервер',
-                    style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
-                  const SizedBox(height: 4),
-                  Text(_serverUrl.isNotEmpty ? _serverUrl : 'Не указан',
-                    style: const TextStyle(fontSize: 14)),
-                  const SizedBox(height: 10),
                   const Text('Филиал',
                     style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
                   const SizedBox(height: 4),

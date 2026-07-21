@@ -16,5 +16,7 @@ contextBridge.exposeInMainWorld('electron', {
     info: () => ipcRenderer.invoke('localws:info'),
     /** Broadcast a kitchen event to all connected mobile clients. */
     broadcast: (event, data) => ipcRenderer.invoke('localws:broadcast', { event, data }),
+    /** Tell the local proxy which cloud API base URL to forward REST requests to. */
+    setServerUrl: (url) => ipcRenderer.invoke('localws:set-server-url', url),
   },
 })

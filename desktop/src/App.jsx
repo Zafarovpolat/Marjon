@@ -38,6 +38,7 @@ export default function App() {
   useEffect(() => {
     if (!token || !branch?.id || !mode) return
     const serverUrl = localStorage.getItem('marjon_server_url') || 'http://localhost:8000/api/v1'
+    window.electron?.localWS?.setServerUrl(serverUrl)
     connectPrinterWS(serverUrl, token, branch.id)
     connectKitchenWS(serverUrl, token, branch.id)
 
@@ -74,6 +75,7 @@ export default function App() {
     setToken(null); setUser(null); setBranch(null); setMode(null)
     disconnectPrinterWS()
     disconnectKitchenWS()
+    window.electron?.localWS?.setServerUrl(null)
   }
 
   if (!token || !user)  return <LoginPage onLogin={handleLogin} />
