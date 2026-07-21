@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ArrowLeft, Plus, Minus } from 'lucide-react'
 import { orders, menu } from '../../shared/api'
+import { onKitchenEvent } from '../../shared/ws'
 
 const ACTIVE_STATUSES = new Set(['new', 'accepted', 'cooking', 'ready'])
 
@@ -31,7 +32,15 @@ export default function WaiterMode({ user, onBack }) {
       .finally(() => setLoading(false))
   }, [user.branch_id])
 
-  useEffect(() => { loadOrders() }, [loadOrders])
+  useEffect(() => {
+    loadOrders()
+    const unsubs = [
+      onKitchenEvent('new_order',       loadOrders),
+      onKitchenEvent('order_updated',   loadOrders),
+      onKitchenEvent('order_cancelled', loadOrders),
+    ]
+    return () => unsubs.forEach((fn) => fn())
+  }, [loadOrders])
 
   useEffect(() => {
     if (view !== 'new') return

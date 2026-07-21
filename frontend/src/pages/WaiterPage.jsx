@@ -1,9 +1,10 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import logo from "../assets/marjon-logo.svg";
 import { api, formatMoney, logout } from "../api/client";
 import { printKitchenReceipt, printOrderReceipt } from "../api/receipt";
 import Icon from '../components/Icon';
+import { getWsConnection } from "../api/ws";
 
 const tableStatuses = ["free", "occupied", "reserved"];
 const TABLE_COUNT = 50;
@@ -402,7 +403,7 @@ export default function WaiterPage({ mode = "tables" }) {
   const [branch, setBranch] = useState(null);
   const [error, setError] = useState("");
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     const activeBranch = await ensureBranch();
     const [ordersRes, productsRes, categoriesRes] = await Promise.all([
       api.get("/pos/orders"),
@@ -413,11 +414,31 @@ export default function WaiterPage({ mode = "tables" }) {
     setOrders(ordersRes.data);
     setProducts(productsRes.data.filter((product) => product.is_active && product.is_available));
     setCategories(categoriesRes.data.filter((category) => category.is_active));
-  }
+  }, []);
 
   useEffect(() => {
     loadData().catch((err) => setError(err.response?.data?.detail || "POS ma'lumotlarini yuklab bo'lmadi."));
-  }, []);
+
+    const ws = getWsConnection("/ws/kitchen");
+    let fallbackTimer = null;
+    const refresh = () => loadData().catch(() => {});
+
+    const unsubs = [
+      ws.on("new_order",       refresh),
+      ws.on("order_updated",   refresh),
+      ws.on("order_cancelled", refresh),
+    ];
+    ws.onOpen(() => { if (fallbackTimer) { clearInterval(fallbackTimer); fallbackTimer = null; } });
+    ws.onClose(() => { if (!fallbackTimer) fallbackTimer = window.setInterval(refresh, 10_000); });
+    ws.connect();
+    fallbackTimer = window.setInterval(refresh, 10_000);
+
+    return () => {
+      unsubs.forEach((fn) => fn());
+      ws.disconnect();
+      if (fallbackTimer) clearInterval(fallbackTimer);
+    };
+  }, [loadData]);
 
   return (
     <WaiterShell>

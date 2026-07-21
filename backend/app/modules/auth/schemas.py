@@ -64,6 +64,7 @@ class UserResponse(BaseResponseSchema):
     is_superadmin: bool
     company_id: UUID | None
     role_slugs: list[str] = Field(default_factory=list)
+    avatar_url: str | None = None
 
 
 class CompanyUserUpdate(BaseSchema):

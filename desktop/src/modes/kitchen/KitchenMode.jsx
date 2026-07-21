@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { ArrowLeft, CheckCircle } from 'lucide-react'
 import { kitchen } from '../../shared/api'
+import { onKitchenEvent } from '../../shared/ws'
 
 export default function KitchenMode({ user, onBack }) {
   const [orderList, setOrderList] = useState([])
@@ -13,11 +14,21 @@ export default function KitchenMode({ user, onBack }) {
       .finally(() => setLoading(false))
   }, [user.branch_id])
 
-  // Poll every 15 seconds (WS для кухни можно добавить позже)
   useEffect(() => {
     loadOrders()
-    const interval = setInterval(loadOrders, 15_000)
-    return () => clearInterval(interval)
+    // fallback polling every 30s if WS drops
+    const interval = setInterval(loadOrders, 30_000)
+    // real-time kitchen events
+    const unsubs = [
+      onKitchenEvent('new_order',           loadOrders),
+      onKitchenEvent('order_updated',       loadOrders),
+      onKitchenEvent('order_cancelled',     loadOrders),
+      onKitchenEvent('item_status_changed', loadOrders),
+    ]
+    return () => {
+      clearInterval(interval)
+      unsubs.forEach((fn) => fn())
+    }
   }, [loadOrders])
 
   async function handleItemDone(itemId) {

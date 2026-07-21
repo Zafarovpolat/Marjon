@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/api.dart';
 import '../../core/theme.dart';
+import '../../widgets/common.dart';
 
 class OrdersPage extends StatefulWidget {
   const OrdersPage({super.key});
@@ -39,8 +40,7 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   double get _totalRevenue => _orders
-    .where((o) => o['status'] == 'completed')
-    .fold<double>(0, (s, o) => s + (double.tryParse(o['total_amount'].toString()) ?? 0));
+    .fold<double>(0, (s, o) => s + (double.tryParse(o['total_amount']?.toString() ?? '0') ?? 0));
 
   Future<void> _pickDate() async {
     final d = await showDatePicker(
@@ -104,56 +104,58 @@ class _OrdersPageState extends State<OrdersPage> {
             // Orders
             Expanded(child: RefreshIndicator(
               onRefresh: _load,
-              child: _orders.isEmpty
-                ? const Center(child: Text('Нет заказов', style: TextStyle(color: T.muted)))
-                : ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _orders.length,
-                    itemBuilder: (_, i) {
-                      final o = _orders[i];
-                      final items = o['items'] as List? ?? [];
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
-                          color: T.surface, borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: T.border, width: 0.5),
-                        ),
-                        child: ExpansionTile(
-                          tilePadding: const EdgeInsets.symmetric(horizontal: 14),
-                          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-                          shape: const Border(),
-                          title: Row(children: [
-                            Text('#${o['order_number']}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            if (o['table_number'] != null) Text('  Стол ${o['table_number']}', style: const TextStyle(color: T.muted, fontSize: 13)),
-                            const Spacer(),
-                            Text(_fmt(o['total_amount']), style: const TextStyle(fontWeight: FontWeight.bold)),
-                          ]),
-                          subtitle: Row(children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: _statusColor(o['status']).withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(_statuses[o['status']] ?? o['status'],
-                                style: TextStyle(color: _statusColor(o['status']), fontSize: 11, fontWeight: FontWeight.w600)),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(_fmtTime(o['created_at']), style: const TextStyle(color: T.muted, fontSize: 12)),
-                          ]),
-                          children: items.map<Widget>((it) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2),
-                            child: Row(children: [
-                              Text('×${it['quantity']}', style: const TextStyle(color: T.accent, fontWeight: FontWeight.bold)),
-                              const SizedBox(width: 8),
-                              Expanded(child: Text(it['name'], style: const TextStyle(fontSize: 14))),
-                              Text('${_fmt(it['total'])} сум', style: const TextStyle(color: T.muted, fontSize: 13)),
+              child: ResponsiveBox(
+                child: _orders.isEmpty
+                  ? const Center(child: Text('Нет заказов', style: TextStyle(color: T.muted)))
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: _orders.length,
+                      itemBuilder: (_, i) {
+                        final o = _orders[i];
+                        final items = o['items'] as List? ?? [];
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          decoration: BoxDecoration(
+                            color: T.surface, borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: T.border, width: 0.5),
+                          ),
+                          child: ExpansionTile(
+                            tilePadding: const EdgeInsets.symmetric(horizontal: 14),
+                            childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                            shape: const Border(),
+                            title: Row(children: [
+                              Text('#${o['order_number']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              if (o['table_number'] != null) Text('  Стол ${o['table_number']}', style: const TextStyle(color: T.muted, fontSize: 13)),
+                              const Spacer(),
+                              Text(_fmt(o['total_amount']), style: const TextStyle(fontWeight: FontWeight.bold)),
                             ]),
-                          )).toList(),
-                        ),
-                      );
-                    },
-                  ),
+                            subtitle: Row(children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: _statusColor(o['status']).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(_statuses[o['status']] ?? o['status'],
+                                  style: TextStyle(color: _statusColor(o['status']), fontSize: 11, fontWeight: FontWeight.w600)),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(_fmtTime(o['created_at']), style: const TextStyle(color: T.muted, fontSize: 12)),
+                            ]),
+                            children: items.map<Widget>((it) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: Row(children: [
+                                Text('×${it['quantity']}', style: const TextStyle(color: T.accent, fontWeight: FontWeight.bold)),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text(it['name'], style: const TextStyle(fontSize: 14))),
+                                Text('${_fmt(it['total'])} сум', style: const TextStyle(color: T.muted, fontSize: 13)),
+                              ]),
+                            )).toList(),
+                          ),
+                        );
+                      },
+                    ),
+              ),
             )),
           ]),
     );

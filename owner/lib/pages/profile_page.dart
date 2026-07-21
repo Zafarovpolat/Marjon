@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../core/api.dart';
 import '../core/app_state.dart';
@@ -17,6 +18,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final _newPass  = TextEditingController();
   final _confPass = TextEditingController();
   bool _saving = false;
+  bool _uploadingPhoto = false;
   bool _showOld = false, _showNew = false, _showConf = false;
 
   @override
@@ -33,6 +35,26 @@ class _ProfilePageState extends State<ProfilePage> {
       c.dispose();
     }
     super.dispose();
+  }
+
+  Future<void> _pickPhoto() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery, imageQuality: 85, maxWidth: 512, maxHeight: 512);
+    if (picked == null || !mounted) return;
+    setState(() => _uploadingPhoto = true);
+    final state = context.read<AppState>();
+    try {
+      final bytes = await picked.readAsBytes();
+      final ext   = picked.name.split('.').last.toLowerCase();
+      final fname = 'avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
+      await Api().uploadProfilePhoto(bytes, fname);
+      await state.init();
+      if (mounted) showSnack(context, 'Фото обновлено');
+    } catch (e) {
+      if (mounted) showSnack(context, 'Ошибка загрузки: $e', error: true);
+    }
+    if (mounted) setState(() => _uploadingPhoto = false);
   }
 
   Future<void> _save() async {
@@ -84,20 +106,32 @@ class _ProfilePageState extends State<ProfilePage> {
         children: [
           // Avatar
           Center(
-            child: Container(
-              width: 80, height: 80,
-              decoration: BoxDecoration(
-                color: T.accent.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-                border: Border.all(color: T.accent, width: 2),
-              ),
-              child: Center(
-                child: Text(
-                  _initials(user),
-                  style: const TextStyle(
-                    fontSize: 28, fontWeight: FontWeight.bold, color: T.accent),
+            child: GestureDetector(
+              onTap: _uploadingPhoto ? null : _pickPhoto,
+              child: Stack(alignment: Alignment.bottomRight, children: [
+                Container(
+                  width: 80, height: 80,
+                  decoration: BoxDecoration(
+                    color: T.accent.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: T.accent, width: 2),
+                  ),
+                  child: ClipOval(child: _buildAvatarContent(user)),
                 ),
-              ),
+                Container(
+                  width: 26, height: 26,
+                  decoration: BoxDecoration(
+                    color: T.accent,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: T.bg, width: 2),
+                  ),
+                  child: _uploadingPhoto
+                    ? const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.camera_alt, size: 14, color: Colors.white),
+                ),
+              ]),
             ),
           ),
           const SizedBox(height: 8),
@@ -180,6 +214,25 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+
+  Widget _buildAvatarContent(Map<String, dynamic> user) {
+    final avatarUrl = user['avatar_url']?.toString();
+    if (avatarUrl != null && avatarUrl.isNotEmpty) {
+      return Image.network(
+        avatarUrl,
+        width: 80, height: 80, fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _initialsWidget(user),
+      );
+    }
+    return _initialsWidget(user);
+  }
+
+  Widget _initialsWidget(Map<String, dynamic> user) => Center(
+    child: Text(
+      _initials(user),
+      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: T.accent),
+    ),
+  );
 
   String _initials(Map<String, dynamic> user) {
     final name = user['name']?.toString() ?? '';

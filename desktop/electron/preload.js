@@ -1,20 +1,20 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
-/**
- * Exposes a safe subset of Electron APIs to the renderer (React).
- * Nothing from Node.js leaks through — only these explicit methods.
- */
 contextBridge.exposeInMainWorld('electron', {
-  /**
-   * Send raw ESC/POS bytes (base64) to a network printer.
-   * @param {{ ip: string, port?: number, payloadBase64: string, copies?: number }} args
-   */
+  /** Send raw ESC/POS bytes (base64) to a network printer. */
   print: (args) => ipcRenderer.invoke('printer:print', args),
 
-  /**
-   * Check if a printer is reachable on the network.
-   * @param {{ ip: string, port?: number }} args
-   * @returns {Promise<boolean>}
-   */
+  /** Check if a printer is reachable. */
   pingPrinter: (args) => ipcRenderer.invoke('printer:ping', args),
+
+  /**
+   * Local network WebSocket server API.
+   * Mobile devices connect to ws://{ip}:{port} on the LAN.
+   */
+  localWS: {
+    /** Returns { ip, port, clients, running } */
+    info: () => ipcRenderer.invoke('localws:info'),
+    /** Broadcast a kitchen event to all connected mobile clients. */
+    broadcast: (event, data) => ipcRenderer.invoke('localws:broadcast', { event, data }),
+  },
 })

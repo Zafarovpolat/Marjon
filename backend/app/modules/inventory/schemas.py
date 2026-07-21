@@ -26,7 +26,9 @@ class ProductCreate(BaseSchema):
     description: str | None = None
     price: Decimal
     cost_price: Decimal | None = None
-    unit: str = "ÑˆÑ‚"
+    image_url: str | None = None
+    is_active: bool = True
+    unit: str = "шт"
     barcode: str | None = None
     sku: str | None = None
     sort_order: int = 0
@@ -34,8 +36,11 @@ class ProductCreate(BaseSchema):
 
 class ProductUpdate(BaseSchema):
     name: str | None = None
+    description: str | None = None
+    category_id: UUID | None = None
     price: Decimal | None = None
     cost_price: Decimal | None = None
+    image_url: str | None = None
     is_active: bool | None = None
     is_available: bool | None = None
     sort_order: int | None = None
@@ -46,6 +51,7 @@ class ProductResponse(BaseResponseSchema):
     category_id: UUID | None
     name: str
     description: str | None
+    image_url: str | None = None
     price: Decimal
     cost_price: Decimal | None
     tax_rate: Decimal
@@ -70,7 +76,7 @@ class StopListToggle(BaseSchema):
 
 class IngredientCreate(BaseSchema):
     name: str
-    unit: str = "ÐºÐ³"
+    unit: str = "кг"
     category: str | None = None
 
 

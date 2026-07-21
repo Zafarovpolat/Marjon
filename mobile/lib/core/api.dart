@@ -62,6 +62,7 @@ class Api {
   }
 
   void setToken(String? token) => _token = token;
+  String? get token => _token;
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 

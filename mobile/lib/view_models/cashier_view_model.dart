@@ -1,26 +1,37 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../core/api.dart';
+import '../services/ws_service.dart';
 
 class CashierViewModel extends ChangeNotifier {
   static const _activeStatuses = ['new', 'accepted', 'cooking', 'ready'];
 
-  List<Map<String, dynamic>> _orders   = [];
-  List<Map<String, dynamic>> _printers = [];
+  List<Map<String, dynamic>> _orders       = [];
+  List<Map<String, dynamic>> _printers     = [];
+  List<Map<String, dynamic>> _paymentTypes = [];
   bool _loading = true;
-  Timer? _timer;
+  Timer? _fallbackTimer;
   String? _branchId;
+  final List<VoidCallback> _wsCancels = [];
 
-  List<Map<String, dynamic>> get orders   => List.unmodifiable(_orders);
-  List<Map<String, dynamic>> get printers => List.unmodifiable(_printers);
+  List<Map<String, dynamic>> get orders       => List.unmodifiable(_orders);
+  List<Map<String, dynamic>> get printers     => List.unmodifiable(_printers);
+  List<Map<String, dynamic>> get paymentTypes => List.unmodifiable(_paymentTypes);
   bool get loading => _loading;
 
   void start(String branchId) {
     if (_branchId == branchId && !_loading) return;
     _branchId = branchId;
-    _timer?.cancel();
+    _fallbackTimer?.cancel();
+    _cancelWs();
     load();
-    _timer = Timer.periodic(const Duration(seconds: 10), (_) => load());
+    _fallbackTimer = Timer.periodic(const Duration(seconds: 30), (_) => load());
+    WsService().connect(branchId);
+    _wsCancels.addAll([
+      WsService().on('new_order',       (_) => load()),
+      WsService().on('order_updated',   (_) => load()),
+      WsService().on('order_cancelled', (_) => load()),
+    ]);
   }
 
   List<Map<String, dynamic>> filtered(int tabIndex) {
@@ -84,9 +95,6 @@ class CashierViewModel extends ChangeNotifier {
     return result;
   }
 
-  List<Map<String, dynamic>> _paymentTypes = [];
-  List<Map<String, dynamic>> get paymentTypes => List.unmodifiable(_paymentTypes);
-
   Future<void> loadPaymentTypes() async {
     try {
       final list = await Api().paymentTypes();
@@ -95,9 +103,15 @@ class CashierViewModel extends ChangeNotifier {
     } catch (_) {}
   }
 
+  void _cancelWs() {
+    for (final c in _wsCancels) { c(); }
+    _wsCancels.clear();
+  }
+
   @override
   void dispose() {
-    _timer?.cancel();
+    _fallbackTimer?.cancel();
+    _cancelWs();
     super.dispose();
   }
 }

@@ -43,6 +43,9 @@ class ProductService:
     async def list(self, company_id: UUID) -> list[Product]:
         return await self.repo.get_available(company_id)
 
+    async def list_all(self, company_id: UUID) -> list[Product]:
+        return await self.repo.get_all(company_id)
+
     async def get(self, company_id: UUID, product_id: UUID) -> Product:
         p = await self.repo.get_by_id(product_id, company_id)
         if not p:
@@ -51,8 +54,13 @@ class ProductService:
 
     async def update(self, company_id: UUID, product_id: UUID, data: ProductUpdate) -> Product:
         p = await self.get(company_id, product_id)
-        for field, value in data.model_dump(exclude_none=True).items():
+        for field, value in data.model_dump(exclude_unset=True).items():
             setattr(p, field, value)
+        return await self.repo.save(p)
+
+    async def update_image(self, company_id: UUID, product_id: UUID, image_url: str) -> Product:
+        p = await self.get(company_id, product_id)
+        p.image_url = image_url
         return await self.repo.save(p)
 
     async def delete(self, company_id: UUID, product_id: UUID) -> None:

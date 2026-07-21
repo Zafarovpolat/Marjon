@@ -27,6 +27,7 @@ class User(TimeStampedModel):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_superadmin: Mapped[bool] = mapped_column(Boolean, default=False)
+    avatar_url: Mapped[str | None] = mapped_column(String(500))
 
     company: Mapped[Company | None] = relationship("Company", back_populates="users")
     refresh_tokens: Mapped[list[RefreshToken]] = relationship(back_populates="user", cascade="all, delete-orphan")

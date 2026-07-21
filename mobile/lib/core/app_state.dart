@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api.dart';
+import '../services/ws_service.dart';
 
 class AppState extends ChangeNotifier {
   Map<String, dynamic>? user;
@@ -8,22 +9,28 @@ class AppState extends ChangeNotifier {
   String? mode;
 
   bool get isLoggedIn => user != null;
-  bool get hasBranch => branch != null;
+  bool get hasBranch  => branch != null;
   String get branchId => branch!['id'];
 
-  List<String> get roles => (user?['role_slugs'] as List?)?.cast<String>() ?? [];
-  bool get isAdmin => roles.contains('owner') || roles.contains('admin') || (user?['is_superadmin'] == true);
+  List<String> get roles =>
+      (user?['role_slugs'] as List?)?.cast<String>() ?? [];
+
+  bool get isAdmin =>
+      roles.contains('owner') ||
+      roles.contains('admin') ||
+      (user?['is_superadmin'] == true);
 
   String? get autoMode {
     if (isAdmin) return null;
     if (roles.contains('cashier')) return 'cashier';
-    if (roles.contains('waiter')) return 'waiter';
+    if (roles.contains('waiter'))  return 'waiter';
     if (roles.contains('kitchen')) return 'kitchen';
-    if (roles.contains('bar')) return 'bar';
+    if (roles.contains('bar'))     return 'bar';
     return null;
   }
 
-  String get displayName => user?['name'] ?? user?['phone'] ?? user?['email'] ?? '';
+  String get displayName =>
+      user?['name'] ?? user?['phone'] ?? user?['email'] ?? '';
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -33,7 +40,7 @@ class AppState extends ChangeNotifier {
     Api().setToken(token);
     try {
       user = await Api().me();
-      final bId = prefs.getString('branch_id');
+      final bId   = prefs.getString('branch_id');
       final bName = prefs.getString('branch_name');
       if (bId != null && bName != null) {
         branch = {'id': bId, 'name': bName};
@@ -53,9 +60,9 @@ class AppState extends ChangeNotifier {
     Api().setToken(tokens['access_token'] as String);
     await prefs.setString('token', tokens['access_token'] as String);
 
-    user = await Api().me();
+    user   = await Api().me();
     branch = null;
-    mode = null;
+    mode   = null;
     notifyListeners();
   }
 
@@ -74,14 +81,26 @@ class AppState extends ChangeNotifier {
   }
 
   void backToModes() {
+    WsService().disconnect();
     mode = null;
     notifyListeners();
   }
 
-  Future<void> logout() async {
-    user = null;
+  Future<void> backToBranch() async {
+    WsService().disconnect();
     branch = null;
-    mode = null;
+    mode   = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('branch_id');
+    await prefs.remove('branch_name');
+    notifyListeners();
+  }
+
+  Future<void> logout() async {
+    WsService().disconnect();
+    user   = null;
+    branch = null;
+    mode   = null;
     Api().setToken(null);
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');

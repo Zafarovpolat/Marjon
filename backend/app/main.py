@@ -3,12 +3,15 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi import _rate_limit_exceeded_handler
 
 from app.config import settings
 from app.middleware.tenant_middleware import TenantMiddleware
 from app.infrastructure.database.session import AsyncSessionLocal
-from app.shared.exceptions import ValidationError
+from app.shared.rate_limit import limiter
 
 # ── Register all models with SQLAlchemy metadata ────────────────────────────
 import app.modules.companies.models       # noqa: F401
@@ -48,8 +51,9 @@ from app.modules.companies.router     import router as companies_router
 from app.modules.rbac.router          import router as rbac_router
 from app.modules.inventory.router     import router as inventory_router
 from app.modules.pos.router           import router as pos_router
-from app.modules.payments.router      import router as payments_router
-from app.modules.payments.webhooks    import router as payment_webhooks_router
+from app.modules.payments.router          import router as payments_router
+from app.modules.payments.webhooks        import router as payment_webhooks_router
+from app.modules.payments.internal_router import router as payments_internal_router
 from app.modules.kitchen.router       import router as kitchen_router
 from app.modules.kitchen.websocket    import kitchen_ws_endpoint
 from app.modules.crm.router           import router as crm_router
@@ -103,6 +107,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
@@ -115,7 +122,7 @@ app.add_middleware(TenantMiddleware)
 API = "/api/v1"
 routers = [
     auth_router, companies_router, rbac_router,
-    inventory_router, pos_router, payments_router,
+    inventory_router, pos_router, payments_router, payments_internal_router,
     kitchen_router, crm_router, loyalty_router,
     delivery_router, hr_router, analytics_router,
     notifications_router, audit_router,
@@ -140,7 +147,6 @@ app.include_router(payment_webhooks_router, prefix=API)
 
 # WebSocket для кухни
 app.add_api_websocket_route("/ws/kitchen", kitchen_ws_endpoint)
-
 
 @app.get("/health", tags=["system"])
 async def health():

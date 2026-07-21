@@ -1,6 +1,6 @@
 from __future__ import annotations
 from uuid import UUID
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, status, UploadFile
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +21,7 @@ from app.modules.auth.schemas import (
 from app.modules.auth.service import AuthService
 from app.modules.rbac.models import Role, UserRole
 from app.shared.rate_limit import limiter
+from app.shared.storage import storage
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -162,6 +163,34 @@ async def delete_company_user(
         sql_update(User).where(User.id == user_id).values(is_active=False)
     )
     await db.commit()
+
+
+_ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+_IMG_EXT_MAP = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+
+
+@router.post("/me/photo", response_model=UserResponse)
+async def upload_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if file.content_type not in _ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Поддерживаются только jpg, png, webp")
+    ext = _IMG_EXT_MAP[file.content_type]
+    key = f"avatars/{current_user.id}.{ext}"
+    avatar_url = await storage.upload(await file.read(), key, file.content_type)
+    current_user.avatar_url = avatar_url
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
+    result = await db.execute(
+        select(Role.slug)
+        .join(UserRole, UserRole.role_id == Role.id)
+        .where(UserRole.user_id == current_user.id)
+    )
+    role_slugs = list(result.scalars().all())
+    return UserResponse.model_validate(current_user).model_copy(update={"role_slugs": role_slugs})
 
 
 @router.post("/pin-login", response_model=TokenResponse)

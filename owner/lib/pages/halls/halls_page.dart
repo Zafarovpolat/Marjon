@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/api.dart';
 import '../../core/theme.dart';
+import '../../widgets/common.dart';
 
 class HallsPage extends StatefulWidget {
   final Map<String, dynamic> branch;
@@ -154,6 +155,11 @@ class _TablesSection extends StatelessWidget {
   }
 
   Future<void> _deleteTable(BuildContext context, Map<String, dynamic> table) async {
+    final ok = await confirmDialog(context,
+      title: 'Удалить стол?',
+      message: 'Стол №${table['number']} будет удалён',
+      confirmLabel: 'Удалить');
+    if (!ok) return;
     await Api().deleteTable(hall['id'], table['id']);
     onChanged();
   }

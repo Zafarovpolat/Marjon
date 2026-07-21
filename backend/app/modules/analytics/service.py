@@ -1,11 +1,13 @@
-﻿from __future__ import annotations
-from datetime import date, datetime, timezone, timedelta
+from __future__ import annotations
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.analytics.schemas import DashboardResponse, PaymentMethodSummary, SalesReport, TopProduct, UserActivityRank, ZReportResponse
 from app.modules.auth.models import RefreshToken, User
+from app.modules.companies.models import Company
 from app.modules.fiscal.models import FiscalReceipt
 from app.modules.payments.models import Payment
 from app.modules.pos.models import Order, OrderItem
@@ -15,19 +17,32 @@ class AnalyticsService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    @staticmethod
-    def _date_bounds(selected_date: date) -> tuple[datetime, datetime]:
-        return (
-            datetime.combine(selected_date, datetime.min.time()),
-            datetime.combine(selected_date, datetime.max.time()),
+    async def _company_tz(self, company_id: UUID) -> ZoneInfo:
+        result = await self.db.execute(
+            select(Company.timezone).where(Company.id == company_id)
         )
+        tz_str = result.scalar_one_or_none() or "Asia/Tashkent"
+        try:
+            return ZoneInfo(tz_str)
+        except (ZoneInfoNotFoundError, KeyError):
+            return ZoneInfo("Asia/Tashkent")
+
+    @staticmethod
+    def _date_bounds(selected_date: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
+        """Return UTC-aware [day_start, day_end) for a local calendar date."""
+        day_start = datetime.combine(selected_date, datetime.min.time()).replace(tzinfo=tz).astimezone(timezone.utc)
+        day_end   = datetime.combine(selected_date + timedelta(days=1), datetime.min.time()).replace(tzinfo=tz).astimezone(timezone.utc)
+        return day_start, day_end
 
     async def dashboard(self, company_id: UUID, selected_date: date | None = None) -> DashboardResponse:
+        tz = await self._company_tz(company_id)
         if selected_date:
-            day_start, day_end = self._date_bounds(selected_date)
+            day_start, day_end = self._date_bounds(selected_date, tz)
         else:
-            day_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-            day_end = datetime.now(timezone.utc)
+            now_local = datetime.now(tz)
+            today = now_local.date()
+            day_start, day_end = self._date_bounds(today, tz)
+            day_end = datetime.now(timezone.utc)  # up to now, not end of day
 
         result = await self.db.execute(
             select(func.count(Order.id), func.coalesce(func.sum(Order.total_amount), 0))
@@ -58,20 +73,23 @@ class AnalyticsService:
         )
 
     async def sales_report(self, company_id: UUID, date_from: date, date_to: date) -> list[SalesReport]:
+        tz = await self._company_tz(company_id)
+        start, _ = self._date_bounds(date_from, tz)
+        _, end    = self._date_bounds(date_to, tz)
         result = await self.db.execute(
             select(
-                func.date(Order.created_at).label("day"),
+                func.date(func.timezone(str(tz), Order.created_at)).label("day"),
                 func.count(Order.id).label("cnt"),
                 func.coalesce(func.sum(Order.total_amount), 0).label("rev"),
             )
             .where(
                 Order.company_id == company_id,
                 Order.status.notin_(["cancelled"]),
-                Order.created_at >= datetime.combine(date_from, datetime.min.time()),
-                Order.created_at <= datetime.combine(date_to, datetime.max.time()),
+                Order.created_at >= start,
+                Order.created_at < end,
             )
-            .group_by(func.date(Order.created_at))
-            .order_by(func.date(Order.created_at))
+            .group_by(func.date(func.timezone(str(tz), Order.created_at)))
+            .order_by(func.date(func.timezone(str(tz), Order.created_at)))
         )
         rows = result.all()
         return [
@@ -104,10 +122,12 @@ class AnalyticsService:
             .order_by(func.sum(OrderItem.total).desc())
             .limit(limit)
         )
+        if date_from or date_to:
+            tz = await self._company_tz(company_id)
         if date_from:
-            query = query.where(Order.created_at >= datetime.combine(date_from, datetime.min.time()))
+            query = query.where(Order.created_at >= self._date_bounds(date_from, tz)[0])
         if date_to:
-            query = query.where(Order.created_at <= datetime.combine(date_to, datetime.max.time()))
+            query = query.where(Order.created_at < self._date_bounds(date_to, tz)[1])
 
         result = await self.db.execute(
             query
@@ -123,7 +143,8 @@ class AnalyticsService:
         ]
 
     async def z_report(self, company_id: UUID, selected_date: date) -> ZReportResponse:
-        day_start, day_end = self._date_bounds(selected_date)
+        tz = await self._company_tz(company_id)
+        day_start, day_end = self._date_bounds(selected_date, tz)
 
         completed_orders = await self.db.execute(
             select(
@@ -260,13 +281,15 @@ class AnalyticsService:
             .order_by(func.count(RefreshToken.id).desc())
             .limit(limit)
         )
+        if date_from or date_to:
+            tz = await self._company_tz(company_id)
         if date_from:
             query = query.where(
-                RefreshToken.created_at >= datetime.combine(date_from, datetime.min.time())
+                RefreshToken.created_at >= self._date_bounds(date_from, tz)[0]
             )
         if date_to:
             query = query.where(
-                RefreshToken.created_at <= datetime.combine(date_to, datetime.max.time())
+                RefreshToken.created_at < self._date_bounds(date_to, tz)[1]
             )
 
         result = await self.db.execute(query)
