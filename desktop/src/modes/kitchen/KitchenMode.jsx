@@ -89,16 +89,21 @@ export default function KitchenMode({ user = {}, onBack }) {
     } catch { loadOrders() }
   }
 
-  // «Заказ готов» — отмечаем все позиции готовыми (в бэкенде нет отдельного эндпоинта на весь заказ)
+  // «Заказ готов» — бэкенд ставит статус ready и уведомляет официанта.
+  // Фолбэк: если эндпоинта нет, отмечаем позиции по одной.
   async function handleOrderDone(orderId) {
-    const order = orders.find((o) => o.id === orderId)
-    const pending = (order?.items ?? []).filter((i) => i.status !== 'ready' && i.status !== 'done')
     try {
-      for (const it of pending) await kitchen.itemDone(it.id)
-      setOrders((prev) => prev.filter((o) => o.id !== orderId))
-      soundService.stopOverdueAlert(orderId)
-      soundService.play('orderCompleted')
-    } catch { loadOrders() }
+      await kitchen.orderReady(orderId)
+    } catch {
+      const order = orders.find((o) => o.id === orderId)
+      const pending = (order?.items ?? []).filter((i) => i.status !== 'ready' && i.status !== 'done')
+      try {
+        for (const it of pending) await kitchen.itemDone(it.id)
+      } catch { loadOrders(); return }
+    }
+    setOrders((prev) => prev.filter((o) => o.id !== orderId))
+    soundService.stopOverdueAlert(orderId)
+    soundService.play('orderCompleted')
   }
 
   function toggleSound() {

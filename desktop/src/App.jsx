@@ -137,13 +137,23 @@ export default function App() {
     kitchenWS.disconnect()
   }, [])
 
-  const handleLock = useCallback(() => setIsLocked(true), [])
+  const handleLock = useCallback(() => {
+    setIsLocked(true)
+    try { window.electron?.setLocked?.(true) } catch { /* not in electron */ }
+  }, [])
   const handleUnlock = useCallback((pin) => {
     if (pin === '0000' || pin === staffUser?.pin_code) {
-      setIsLocked(false); setLockPin(''); return true
+      setIsLocked(false); setLockPin('')
+      try { window.electron?.setLocked?.(false) } catch { /* not in electron */ }
+      return true
     }
     return false
   }, [staffUser])
+
+  // Electron: при попытке закрыть окно в режиме блокировки — показываем PIN-экран
+  useEffect(() => {
+    try { window.electron?.onRequestExitPin?.(() => setIsLocked(true)) } catch { /* not in electron */ }
+  }, [])
 
   const handleBack = useCallback(() => { localStorage.removeItem('marjon_mode'); setMode(null) }, [])
 

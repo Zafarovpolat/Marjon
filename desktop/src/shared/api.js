@@ -95,6 +95,9 @@ export const kitchen = {
     api.patch('/kitchen/orders/items/status', { order_item_id: itemId, status: 'ready' }).then((r) => r.data),
   itemStart: (itemId) =>
     api.patch('/kitchen/orders/items/status', { order_item_id: itemId, status: 'cooking' }).then((r) => r.data),
+  // Весь заказ готов → бэкенд ставит статус ready и рассылает событие (уведомление официанту)
+  orderReady: (orderId) =>
+    api.patch(`/kitchen/orders/${orderId}/ready`).then((r) => r.data),
 }
 
 export const menu = {
@@ -120,8 +123,8 @@ export const finance = {
   closeShift: (shiftId) => api.post(`/finance/shifts/${shiftId}/close`).then((r) => r.data),
   currentShift: () => api.get('/finance/shifts/current').then((r) => r.data),
   incomeExpense: (params) => api.get('/finance/income-expense', { params }).then((r) => r.data),
-  addIncome: (data) => api.post('/finance/income-expense', { ...data, type: 'income' }).then((r) => r.data),
-  addExpense: (data) => api.post('/finance/income-expense', { ...data, type: 'expense' }).then((r) => r.data),
+  addIncome: (data) => api.post('/finance/income-expense', { ...data, direction: 'income' }).then((r) => r.data),
+  addExpense: (data) => api.post('/finance/income-expense', { ...data, direction: 'expense' }).then((r) => r.data),
 }
 
 export const reports = {
