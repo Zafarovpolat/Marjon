@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   CheckCircle, Clock, AlertTriangle, Volume2, VolumeX,
-  LayoutGrid, CookingPot, Utensils, ShoppingBag, Bike, RefreshCw, Ban,
+  LayoutGrid, CookingPot, Utensils, ShoppingBag, Bike, RefreshCw, Ban, ChefHat,
 } from 'lucide-react'
 import { kitchen } from '../../shared/api'
 import StopListPanel from '../../components/StopListPanel'
+import RecipeModal from '../../components/RecipeModal'
 import { kitchenWS } from '../../services/kitchenWS'
 import { soundService } from '../../services/sound'
 import { t } from '../../shared/i18n'
@@ -32,6 +33,7 @@ export default function KitchenMode({ user = {}, onBack }) {
   const [soundOn, setSoundOn] = useState(() => soundService.enabled)
   const [filter, setFilter] = useState('all')
   const [stopOpen, setStopOpen] = useState(false)
+  const [recipeProd, setRecipeProd] = useState(null)
   const [now, setNow] = useState(Date.now())
   const prevOrderIdsRef = useRef(new Set())
 
@@ -204,6 +206,7 @@ export default function KitchenMode({ user = {}, onBack }) {
                   elapsed={formatElapsed(order.created_at)}
                   onItemDone={handleItemDone}
                   onOrderDone={handleOrderDone}
+                  onShowRecipe={setRecipeProd}
                 />
               ))}
             </div>
@@ -212,6 +215,7 @@ export default function KitchenMode({ user = {}, onBack }) {
       </main>
 
       {stopOpen && <StopListPanel onClose={() => setStopOpen(false)} />}
+      {recipeProd && <RecipeModal product={recipeProd} onClose={() => setRecipeProd(null)} />}
     </div>
   )
 }
@@ -222,7 +226,7 @@ function orderTypeIcon(type) {
   return <Utensils size={15} strokeWidth={2} />
 }
 
-function KitchenCard({ order, timerState, elapsed, onItemDone, onOrderDone }) {
+function KitchenCard({ order, timerState, elapsed, onItemDone, onOrderDone, onShowRecipe }) {
   const items = order.items ?? []
   const doneCount = items.filter((i) => i.status === 'ready' || i.status === 'done').length
   const allDone = items.length > 0 && doneCount === items.length
@@ -259,6 +263,15 @@ function KitchenCard({ order, timerState, elapsed, onItemDone, onOrderDone }) {
                 <span className="kitchen-item__name">{item.name || item.product_name}</span>
                 {item.note && <span className="kitchen-item__note">{item.note}</span>}
               </div>
+              {item.product_id && (
+                <button
+                  className="kitchen-item__recipe"
+                  onClick={() => onShowRecipe({ id: item.product_id, name: item.name || item.product_name })}
+                  title={t('tech_card')}
+                >
+                  <ChefHat size={18} />
+                </button>
+              )}
               {!done ? (
                 <button className="kitchen-item__done-btn" onClick={() => onItemDone(item.id)} title={t('done')}>
                   <CheckCircle size={28} />

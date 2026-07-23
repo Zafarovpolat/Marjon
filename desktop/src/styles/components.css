@@ -3357,6 +3357,8 @@
 .kitchen-card.timer-red .kitchen-card__timer { background: var(--color-danger-bg); color: var(--color-danger); }
 .kitchen-item__done-btn { width: 46px; height: 46px; border-radius: 12px; background: var(--color-success-bg); color: var(--color-success); display: grid; place-items: center; transition: all var(--transition-fast); }
 .kitchen-item__done-btn:hover { background: var(--color-success); color: #fff; }
+.kitchen-item__recipe { width: 38px; height: 46px; display: grid; place-items: center; background: transparent; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 10px; transition: all var(--transition-fast); flex-shrink: 0; }
+.kitchen-item__recipe:hover { background: var(--color-brand-bg); color: var(--color-brand); }
 .kitchen-item__done-btn:active { transform: scale(0.9); }
 .kitchen-item__check { color: var(--color-success); }
 .kitchen-card__complete { border-radius: 12px; font-weight: 700; }
