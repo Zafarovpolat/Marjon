@@ -13,7 +13,10 @@ import SettingsModal from './components/SettingsModal'
 import CashierMode from './modes/cashier/CashierMode'
 import KitchenMode from './modes/kitchen/KitchenMode'
 import WaiterMode from './modes/waiter/WaiterMode'
+import ManagerMode from './modes/manager/ManagerMode'
 import { auth } from './shared/api'
+
+const MANAGER_ROLES = ['owner', 'manager', 'admin', 'director']
 import { kitchenWS } from './services/kitchenWS'
 
 const MODES = {
@@ -237,8 +240,23 @@ export default function App() {
     )
   }
 
-  // Шаг 4: выбор режима (менеджер/владелец)
+  // Шаг 4: менеджер → дашборд; остальные без назначенного режима → выбор режима
   if (!mode) {
+    const roles = (staffUser?.role_slugs || []).map((r) => String(r).toLowerCase())
+    const isManager = roles.some((r) => MANAGER_ROLES.includes(r))
+    if (isManager) {
+      return (
+        <>
+          <ManagerMode
+            user={{ ...staffUser, branch_id: branch.id }}
+            branch={branch}
+            onSwitchMode={handleModeSelect}
+            onLogout={handleStaffLogout}
+          />
+          {settingsOverlay}
+        </>
+      )
+    }
     return (
       <ModeSelector
         user={staffUser}

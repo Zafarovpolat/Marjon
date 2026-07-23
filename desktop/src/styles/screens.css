@@ -362,3 +362,14 @@
 }
 .cashier-work .cashier-products { border-right: 1px solid var(--color-border-light); }
 .cashier-work .cashier-cart { background: var(--color-card); }
+
+/* ── Дашборд менеджера ── */
+.mgr-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; }
+.mgr-tile { display: flex; flex-direction: column; gap: 6px; padding: 20px; border-radius: 16px; background: var(--color-card); border: 1px solid var(--color-border); box-shadow: var(--shadow-xs); }
+.mgr-tile__icon { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; margin-bottom: 4px; }
+.mgr-tile__icon--a { background: var(--color-brand-bg); color: var(--color-brand); }
+.mgr-tile__icon--b { background: var(--color-success-bg); color: var(--green-600); }
+.mgr-tile__icon--c { background: var(--blue-50); color: var(--blue-600); }
+.mgr-tile__val { font-family: var(--font-display); font-size: 26px; font-weight: 800; color: var(--color-text-primary); }
+.mgr-tile__lbl { font-size: var(--text-sm); color: var(--color-text-muted); }
+.mgr-recent__title { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: var(--color-text-primary); }
