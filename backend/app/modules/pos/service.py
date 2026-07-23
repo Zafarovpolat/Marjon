@@ -93,6 +93,13 @@ class OrderService:
         except Exception:
             pass
         try:
+            from app.modules.printers.service import PrinterService
+            await PrinterService(self.db).auto_print_kitchen(
+                company_id, created_order.branch_id, created_order.id
+            )
+        except Exception:
+            pass
+        try:
             await AuditService(self.db).log(
                 company_id, waiter_id, "order.create", "order",
                 entity_id=created_order.id,

@@ -27,6 +27,12 @@ async def active_orders(branch_id: UUID = Query(...), user: User = Depends(get_c
     return await KitchenService(db).get_active_orders(user.company_id, branch_id)
 
 
+@router.patch("/orders/{order_id}/ready", response_model=OrderResponse)
+async def mark_order_ready(order_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Mark an entire order as ready and broadcast the update to kitchen displays."""
+    return await KitchenService(db).mark_order_ready(user.company_id, order_id)
+
+
 @router.patch("/orders/items/status")
 async def update_item_status(data: KitchenItemStatusUpdate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     return await KitchenService(db).update_item_status(user.company_id, data)

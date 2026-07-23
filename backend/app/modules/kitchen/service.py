@@ -46,6 +46,40 @@ class KitchenService:
         )
         return list(result.scalars().all())
 
+    async def mark_order_ready(self, company_id: UUID, order_id: UUID) -> Order:
+        """Set the whole order status to 'ready' and mark all active items ready."""
+        result = await self.db.execute(
+            select(Order)
+            .options(selectinload(Order.items))
+            .where(Order.id == order_id, Order.company_id == company_id)
+        )
+        order = result.scalar_one_or_none()
+        if not order:
+            raise NotFoundError("Order not found")
+
+        if order.status not in ("new", "accepted", "cooking"):
+            raise ValidationError(
+                f"Невозможно перевести заказ в 'ready' из статуса '{order.status}'"
+            )
+
+        order.status = "ready"
+        for item in order.items:
+            if item.status not in ("served", "cancelled", "ready"):
+                item.status = "ready"
+                self.db.add(item)
+        self.db.add(order)
+        await self.db.commit()
+        await self.db.refresh(order)
+        try:
+            await kitchen_manager.broadcast(
+                company_id,
+                "order_updated",
+                {"order_id": str(order_id), "status": "ready"},
+            )
+        except Exception:
+            pass
+        return order
+
     async def update_item_status(self, company_id: UUID, data: KitchenItemStatusUpdate) -> OrderItem:
         # Join through Order to validate company_id
         result = await self.db.execute(

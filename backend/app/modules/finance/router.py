@@ -216,3 +216,61 @@ async def list_finance_history(
 
 
 router.include_router(history)
+
+
+# ── Cashier income / expense (POS desktop shortcut) ──────────────────────────
+# GET  /finance/income-expense  — list transactions filtered by direction
+# POST /finance/income-expense  — create an income or expense transaction
+# These are thin aliases over the existing /finance/transactions endpoints so
+# no new model/table is needed.
+
+class IncomeExpenseCreate(schemas.TransactionCreate):
+    """Convenience schema: same as TransactionCreate but `direction` is required."""
+    pass
+
+
+income_expense = APIRouter(prefix="/income-expense", tags=["finance"])
+
+
+@income_expense.get("", response_model=Page[schemas.TransactionResponse],
+                    summary="Кассовые приходы/расходы (список)")
+async def list_income_expense(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=200),
+    direction: str | None = Query(None, pattern="^(income|expense)$",
+                                  description="income или expense"),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    params = PageParams(page=page, size=size)
+    raw_filters: dict = {}
+    if direction:
+        raw_filters["direction"] = direction
+    items, total = await TransactionService(db).list(
+        params,
+        raw_filters=raw_filters,
+        date_from=date_from, date_to=date_to, date_field="date",
+        default_sort="-date",
+    )
+    rows = [
+        await _transaction_response(db, item, ((page - 1) * size) + index)
+        for index, item in enumerate(items, start=1)
+    ]
+    return Page.create(rows, total, params)
+
+
+@income_expense.post("", response_model=schemas.TransactionResponse,
+                     status_code=status.HTTP_201_CREATED,
+                     summary="Создать кассовый приход/расход")
+async def create_income_expense(
+    data: IncomeExpenseCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    tx = await TransactionService(db).create_transaction(data, user.id)
+    return await _transaction_response(db, tx)
+
+
+router.include_router(income_expense)
