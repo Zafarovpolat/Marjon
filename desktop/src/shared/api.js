@@ -8,7 +8,8 @@ export const api = axios.create()
 
 api.interceptors.request.use((config) => {
   config.baseURL = baseURL()
-  const token = localStorage.getItem('marjon_token')
+  // До входа сотрудника marjon_token отсутствует — используем org-токен терминала как запасной
+  const token = localStorage.getItem('marjon_token') || localStorage.getItem('marjon_org_token')
   // Не перекрываем явно заданный заголовок (staffUsers/pin-login шлют org-токен терминала)
   const hasExplicit = !!(config.headers && config.headers.Authorization)
   if (token && !hasExplicit) config.headers.Authorization = `Bearer ${token}`
@@ -37,6 +38,31 @@ api.interceptors.response.use(
   }
 )
 
+// Org-токен терминала — access живёт 15 мин, refresh — 30 дней.
+// Обновляем access по refresh, когда он протух (иначе staff-users/pin-login дают 401).
+async function refreshOrgToken() {
+  const rt = localStorage.getItem('marjon_org_refresh')
+  if (!rt) throw new Error('no org refresh token')
+  const { data } = await axios.post(`${baseURL()}/auth/refresh`, { refresh_token: rt })
+  localStorage.setItem('marjon_org_token', data.access_token)
+  if (data.refresh_token) localStorage.setItem('marjon_org_refresh', data.refresh_token)
+  return data.access_token
+}
+
+// Выполнить запрос с org-токеном; при 401 обновить токен и повторить один раз.
+async function withOrgRefresh(callFn) {
+  const tok = localStorage.getItem('marjon_org_token')
+  try {
+    return await callFn(tok)
+  } catch (e) {
+    if (e?.response?.status === 401) {
+      const nt = await refreshOrgToken()
+      return await callFn(nt)
+    }
+    throw e
+  }
+}
+
 export const auth = {
   // Бэкенд принимает email ИЛИ phone. Определяем по вводу.
   login: (identifier, password) => {
@@ -47,33 +73,32 @@ export const auth = {
       : { email: id, password }
     return api.post('/auth/login', body).then((r) => r.data)
   },
-  // Список сотрудников филиала (для выбора перед PIN-входом).
-  // До входа сотрудника marjon_token отсутствует — авторизуемся org-токеном терминала.
-  staffUsers: (branchId) => {
-    const orgToken = localStorage.getItem('marjon_org_token')
-    return api
-      .get('/auth/staff-users', {
+  // Список сотрудников филиала (для выбора перед PIN-входом) — под org-токеном с авто-refresh.
+  staffUsers: (branchId) =>
+    withOrgRefresh((tok) =>
+      api.get('/auth/staff-users', {
         params: { branch_id: branchId },
-        headers: orgToken ? { Authorization: `Bearer ${orgToken}` } : {},
-      })
-      .then((r) => r.data)
-  },
-  // PIN-вход сотрудника. Терминал привязан к организации админ-токеном:
-  // бэкенд /auth/pin-login достаёт company_id из этого токена и ищет PIN внутри неё.
-  // Шлём именно org-токен — обычный marjon_token на экране PIN-входа отсутствует.
-  loginByPin: (pin) => {
-    const orgToken = localStorage.getItem('marjon_org_token')
-    return api
-      .post('/auth/pin-login', { pin }, {
-        headers: orgToken ? { Authorization: `Bearer ${orgToken}` } : {},
-      })
-      .then((r) => r.data)
-  },
+        headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+      }).then((r) => r.data)
+    ),
+  // PIN-вход сотрудника: company_id берётся из org-токена терминала (с авто-refresh).
+  loginByPin: (pin) =>
+    withOrgRefresh((tok) =>
+      api.post('/auth/pin-login', { pin }, {
+        headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+      }).then((r) => r.data)
+    ),
   me: () => api.get('/auth/me').then((r) => r.data),
 }
 
 export const companies = {
-  branches: () => api.get('/companies/me/branches').then((r) => r.data),
+  // Филиалы читаются до входа сотрудника — под org-токеном с авто-refresh
+  branches: () =>
+    withOrgRefresh((tok) =>
+      api.get('/companies/me/branches', {
+        headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+      }).then((r) => r.data)
+    ),
 }
 
 export const printers = {

@@ -3157,3 +3157,23 @@
 .pinpad__submit:hover { background: var(--color-brand-hover); }
 .pinpad__submit:active { transform: scale(0.98); }
 .pinpad__submit:disabled { opacity: 0.5; }
+
+/* Кнопка «Сменить организацию» на экране организации */
+.org-screen__reset {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  font-weight: 500;
+  backdrop-filter: blur(6px);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.org-screen__reset:hover { background: rgba(255, 255, 255, 0.22); color: #fff; }

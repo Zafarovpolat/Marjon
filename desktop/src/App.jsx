@@ -75,6 +75,7 @@ export default function App() {
   // 1. Админ привязывает терминал (логин/пароль)
   const handleAdminLogin = useCallback((data) => {
     localStorage.setItem('marjon_org_token', data.access_token)
+    if (data.refresh_token) localStorage.setItem('marjon_org_refresh', data.refresh_token)
     localStorage.setItem('marjon_org_user', JSON.stringify(data.user))
     // Не оставляем админа как «сотрудника»: вход сотрудника идёт через выбор + PIN
     localStorage.removeItem('marjon_token')
@@ -129,7 +130,7 @@ export default function App() {
 
   // Полный сброс терминала (отвязка от организации)
   const handleFullReset = useCallback(() => {
-    ['marjon_org_token', 'marjon_org_user', 'marjon_branch', 'marjon_token', 'marjon_user', 'marjon_mode']
+    ['marjon_org_token', 'marjon_org_refresh', 'marjon_org_user', 'marjon_branch', 'marjon_token', 'marjon_user', 'marjon_mode']
       .forEach((k) => localStorage.removeItem(k))
     setOrgToken(null); setOrgUser(null); setBranch(null)
     setStaffToken(null); setStaffUser(null); setMode(null)
@@ -222,6 +223,7 @@ export default function App() {
           branchName={branch?.name}
           onEnter={() => setStaffView('employees')}
           onSettings={() => setShowSettings(true)}
+          onReset={handleFullReset}
         />
         {settingsOverlay}
       </>

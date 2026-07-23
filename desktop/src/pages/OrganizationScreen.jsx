@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Settings, LogIn, Phone } from 'lucide-react'
+import { Settings, LogIn, Phone, LogOut } from 'lucide-react'
 
 /**
  * OrganizationScreen — экран организации (домашний, до входа сотрудника).
  * Фон-фото, часы, название заведения, кнопка «Войти» (KIRISH),
  * шестерёнка настроек и телефон поддержки. По мотивам ZimZim.
  */
-export default function OrganizationScreen({ orgName, branchName, supportPhone, onEnter, onSettings }) {
+export default function OrganizationScreen({ orgName, branchName, supportPhone, onEnter, onSettings, onReset }) {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000)
@@ -23,6 +23,12 @@ export default function OrganizationScreen({ orgName, branchName, supportPhone, 
       <button className="org-screen__settings" onClick={onSettings} title="Настройки">
         <Settings size={24} />
       </button>
+
+      {onReset && (
+        <button className="org-screen__reset" onClick={onReset} title="Сменить организацию">
+          <LogOut size={18} /> Сменить организацию
+        </button>
+      )}
 
       <div className="org-screen__content">
         <div className="org-screen__brand">
