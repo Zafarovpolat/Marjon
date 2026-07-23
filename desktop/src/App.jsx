@@ -142,7 +142,8 @@ export default function App() {
     try { window.electron?.setLocked?.(true) } catch { /* not in electron */ }
   }, [])
   const handleUnlock = useCallback((pin) => {
-    if (pin === '0000' || pin === staffUser?.pin_code) {
+    const exitPin = localStorage.getItem('marjon_exit_pin')
+    if (pin === '0000' || pin === staffUser?.pin_code || (exitPin && pin === exitPin)) {
       setIsLocked(false); setLockPin('')
       try { window.electron?.setLocked?.(false) } catch { /* not in electron */ }
       return true

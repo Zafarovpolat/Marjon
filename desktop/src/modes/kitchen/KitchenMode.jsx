@@ -7,9 +7,6 @@ import { kitchen } from '../../shared/api'
 import { kitchenWS } from '../../services/kitchenWS'
 import { soundService } from '../../services/sound'
 
-const TIMER_GREEN = 5 * 60 * 1000
-const TIMER_YELLOW = 10 * 60 * 1000
-
 const FILTERS = [
   { id: 'all', label: 'Все', Icon: LayoutGrid },
   { id: 'new', label: 'Новые', Icon: Clock },
@@ -28,6 +25,10 @@ export default function KitchenMode({ user = {}, onBack }) {
   const [filter, setFilter] = useState('all')
   const [now, setNow] = useState(Date.now())
   const prevOrderIdsRef = useRef(new Set())
+
+  // Пороги таймера из настроек (мин → мс): жёлтый и красный
+  const TIMER_GREEN = (Number(localStorage.getItem('marjon_timer_yellow')) || 5) * 60000
+  const TIMER_YELLOW = (Number(localStorage.getItem('marjon_timer_red')) || 10) * 60000
 
   const loadOrders = useCallback(() => {
     kitchen.orders(user.branch_id)
