@@ -9,14 +9,12 @@ import BottomBar from './components/BottomBar'
 import CashierMode from './modes/cashier/CashierMode'
 import KitchenMode from './modes/kitchen/KitchenMode'
 import WaiterMode from './modes/waiter/WaiterMode'
-import BarMode from './modes/bar/BarMode'
 import { kitchenWS } from './services/kitchenWS'
 
 const MODES = {
   cashier: { component: CashierMode, label: 'Касса' },
   kitchen: { component: KitchenMode, label: 'Кухня' },
   waiter: { component: WaiterMode, label: 'Официант' },
-  bar: { component: BarMode, label: 'Бар' },
 }
 
 function loadJson(key) {

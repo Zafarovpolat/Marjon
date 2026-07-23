@@ -86,9 +86,15 @@ export const menu = {
   product: (id) => api.get(`/inventory/products/${id}`).then((r) => r.data),
 }
 
+// Залы (зоны) с вложенными столами: GET /halls?branch_id= → [{id,name,tables:[{id,number,capacity}]}]
+export const halls = {
+  list: (branchId) => api.get('/halls', { params: { branch_id: branchId } }).then((r) => r.data),
+  branchTables: (branchId) => api.get(`/halls/branch/${branchId}/tables`).then((r) => r.data),
+}
+// Обратная совместимость со старым импортом `tables`
 export const tables = {
-  list: (branchId) => api.get('/tables', { params: { branch_id: branchId } }).then((r) => r.data),
-  halls: (branchId) => api.get('/tables/halls', { params: { branch_id: branchId } }).then((r) => r.data),
+  list: (branchId) => api.get(`/halls/branch/${branchId}/tables`).then((r) => r.data),
+  halls: (branchId) => api.get('/halls', { params: { branch_id: branchId } }).then((r) => r.data),
 }
 
 export const finance = {

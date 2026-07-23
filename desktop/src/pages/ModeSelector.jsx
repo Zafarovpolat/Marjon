@@ -1,4 +1,4 @@
-import { ShoppingCart, ChefHat, UtensilsCrossed, Wine, LogOut, ArrowLeft } from 'lucide-react'
+import { ShoppingCart, ChefHat, UtensilsCrossed, LogOut, ArrowLeft } from 'lucide-react'
 
 const MODES = [
   {
@@ -21,13 +21,6 @@ const MODES = [
     description: 'Обслуживание столов',
     icon: UtensilsCrossed,
     color: 'var(--color-success)',
-  },
-  {
-    id: 'bar',
-    label: 'Бар',
-    description: 'Напитки и коктейли',
-    icon: Wine,
-    color: '#9333ea',
   },
 ]
 

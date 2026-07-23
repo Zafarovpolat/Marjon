@@ -6,7 +6,20 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 /* Единая толщина штриха для всех иконок lucide в рабочих экранах */
-.ws svg { stroke-width: 2; }
+.ws svg,
+.floor svg { stroke-width: 2; }
+
+/* Обёртка рабочего экрана внутри общего App-каркаса:
+   navy подложка + сайдбар локаций слева + белый скруглённый main справа.
+   Топбар и статус-бар даёт внешний App. */
+.floor {
+  display: flex;
+  height: 100%;
+  background: var(--chrome-bg);
+  overflow: hidden;
+}
+.floor .ws-side { padding-top: 14px; }
+.floor .ws__main { border-top-left-radius: 22px; }
 
 /* ── Каркас рабочего экрана ── */
 .ws {
