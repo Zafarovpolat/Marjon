@@ -4,6 +4,7 @@ import {
   LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, RefreshCw, LogOut,
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi } from '../../shared/api'
+import DishModal from '../../components/DishModal'
 
 const STATUS_LABELS = {
   new: 'Новый', accepted: 'Принят', cooking: 'Готовится',
@@ -51,6 +52,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
   const [orderNote, setOrderNote] = useState('')
   const [guests, setGuests] = useState(1)
   const [submitting, setSubmitting] = useState(false)
+  const [dishModal, setDishModal] = useState(null)
 
   const loadData = useCallback(() => {
     hallsApi.list(user.branch_id)
@@ -124,17 +126,14 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     if (search && !(p.name || '').toLowerCase().includes(search.toLowerCase())) return false
     return true
   })
-  function addToCart(product) {
-    setCart((prev) => {
-      const ex = prev.find((i) => i.product.id === product.id)
-      if (ex) return prev.map((i) => i.product.id === product.id ? { ...i, qty: i.qty + 1 } : i)
-      return [...prev, { product, qty: 1 }]
-    })
+  function addFromModal({ product, quantity, price, note }) {
+    setCart((prev) => [...prev, { lineId: `${Date.now()}-${Math.random()}`, product, qty: quantity, price, note }])
+    setDishModal(null)
   }
-  function updateQty(id, d) {
-    setCart((prev) => prev.map((i) => i.product.id === id ? { ...i, qty: i.qty + d } : i).filter((i) => i.qty > 0))
+  function updateQty(lineId, d) {
+    setCart((prev) => prev.map((i) => i.lineId === lineId ? { ...i, qty: i.qty + d } : i).filter((i) => i.qty > 0))
   }
-  const cartTotal = cart.reduce((s, i) => s + Number(i.product.price || 0) * i.qty, 0)
+  const cartTotal = cart.reduce((s, i) => s + Number(i.price || 0) * i.qty, 0)
 
   async function submitOrder() {
     if (!cart.length) return
@@ -146,7 +145,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
         table_number: selectedTable?.number != null ? String(selectedTable.number) : null,
         guests_count: guests,
         note: orderNote || null,
-        items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty })),
+        items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, price: i.price, note: i.note || null })),
       })
       setView('floor'); loadData()
     } catch (err) {
@@ -320,7 +319,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                   {filteredProducts.length === 0 ? (
                     <p className="empty-text">Нет блюд</p>
                   ) : filteredProducts.map((p) => (
-                    <button key={p.id} className="product-tile" onClick={() => addToCart(p)}>
+                    <button key={p.id} className="product-tile" onClick={() => setDishModal(p)}>
                       <Utensils size={20} />
                       <span className="product-tile__name">{p.name}</span>
                       <span className="product-tile__price">{Number(p.price || 0).toLocaleString('ru-RU')}</span>
@@ -339,14 +338,17 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                   {cart.length === 0 ? (
                     <p className="empty-text">Добавьте блюда</p>
                   ) : cart.map((item) => (
-                    <div key={item.product.id} className="cart-row">
-                      <span className="cart-row__name">{item.product.name}</span>
-                      <div className="cart-row__qty">
-                        <button onClick={() => updateQty(item.product.id, -1)}><Minus size={16} /></button>
-                        <span>{item.qty}</span>
-                        <button onClick={() => updateQty(item.product.id, 1)}><Plus size={16} /></button>
+                    <div key={item.lineId} className="cart-row">
+                      <div className="cart-row__info">
+                        <span className="cart-row__name">{item.product.name}</span>
+                        {item.note && <span className="cart-row__note">{item.note}</span>}
                       </div>
-                      <span className="cart-row__sum">{(Number(item.product.price || 0) * item.qty).toLocaleString('ru-RU')}</span>
+                      <div className="cart-row__qty">
+                        <button onClick={() => updateQty(item.lineId, -1)}><Minus size={16} /></button>
+                        <span>{item.qty}</span>
+                        <button onClick={() => updateQty(item.lineId, 1)}><Plus size={16} /></button>
+                      </div>
+                      <span className="cart-row__sum">{(Number(item.price || 0) * item.qty).toLocaleString('ru-RU')}</span>
                     </div>
                   ))}
                 </div>
@@ -363,6 +365,10 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
           </div>
         )}
       </main>
+
+      {dishModal && (
+        <DishModal product={dishModal} onAdd={addFromModal} onClose={() => setDishModal(null)} />
+      )}
     </div>
   )
 }

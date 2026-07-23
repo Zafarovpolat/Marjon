@@ -3232,3 +3232,25 @@
 .vkb__key--shift.vkb__key--active { background: #f97316; }
 .vkb__key--shift.vkb__key--active svg { color: #fff; }
 .vkb__key--space { flex: 5; max-width: none; }
+
+/* ── Модалка блюда: количество / цена / комментарий ── */
+.dish-modal { width: 460px; max-width: 94vw; }
+.dish-modal__body { padding: var(--spacing-lg) var(--spacing-xl); display: flex; flex-direction: column; gap: var(--spacing-lg); }
+.dish-modal__row { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-lg); }
+.dish-modal__row--col { flex-direction: column; align-items: stretch; gap: var(--spacing-sm); }
+.dish-modal__row > label { font-size: var(--text-base); color: var(--color-text-secondary); font-weight: var(--font-weight-medium); }
+.dish-modal__price { width: 170px; text-align: right; }
+.dish-modal__note { min-height: 64px; padding: var(--spacing-md); resize: vertical; line-height: 1.4; }
+.dish-modal__total { display: flex; justify-content: space-between; padding-top: var(--spacing-md); border-top: 1px solid var(--color-border-light); font-size: var(--text-lg); }
+.dish-modal__total strong { color: var(--color-brand); font-weight: var(--font-weight-bold); }
+.dish-modal__actions { display: flex; gap: var(--spacing-md); padding: var(--spacing-lg) var(--spacing-xl); border-top: 1px solid var(--color-border-light); }
+.dish-modal__actions .btn { flex: 1; }
+.qty-stepper { display: inline-flex; align-items: center; gap: var(--spacing-md); }
+.qty-stepper button { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 12px; background: var(--color-subtle); color: var(--color-text-primary); }
+.qty-stepper button:hover { background: var(--neutral-200); }
+.qty-stepper button:active { transform: scale(0.94); }
+.qty-stepper span { min-width: 40px; text-align: center; font-size: var(--text-xl); font-weight: 700; }
+
+/* Строка корзины: название + примечание из модалки блюда */
+.cart-row__info { flex: 1; display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.cart-row__note { font-size: var(--text-xs); color: var(--color-warning); font-style: italic; }

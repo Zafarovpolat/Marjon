@@ -1,44 +1,72 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import {
-  Search, Plus, Minus, Trash2, CreditCard, Banknote, X, ShoppingBag, Percent,
-  LayoutGrid, RefreshCw,
+  Search, Plus, Minus, Trash2, CreditCard, Banknote, X, ShoppingBag, Bike, Utensils,
+  Percent, LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock,
 } from 'lucide-react'
-import { orders, menu, printers as printersApi } from '../../shared/api'
+import { orders, menu, halls as hallsApi, printers as printersApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
+import DishModal from '../../components/DishModal'
 
+const ACTIVE = new Set(['new', 'accepted', 'cooking', 'ready', 'pending'])
+const TABLE_LABELS = { free: 'Свободен', busy: 'Занят', ready: 'Готов' }
+const TYPE_LABELS = { dine_in: 'В зале', takeaway: 'С собой', delivery: 'Доставка' }
+
+function zoneIcon(name = '') {
+  const n = name.toLowerCase()
+  if (n.includes('террас')) return Sun
+  if (n.includes('бар')) return Wine
+  if (n.includes('кабин')) return DoorClosed
+  if (n.includes('бронь')) return CalendarClock
+  return Armchair
+}
 function initials(name = '') {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('') || '?'
 }
+function fmtTime(iso) { return iso ? new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '' }
 
 export default function CashierMode({ user = {}, onBack }) {
+  const [zones, setZones] = useState([])
+  const [orderList, setOrderList] = useState([])
+  const [activeZone, setActiveZone] = useState('all')
+  const [loading, setLoading] = useState(true)
+
+  const [view, setView] = useState('floor')        // floor | order
+  const [orderType, setOrderType] = useState('dine_in')
+  const [selectedTable, setSelectedTable] = useState(null)
+
   const [categories, setCategories] = useState([])
   const [products, setProducts] = useState([])
-  const [activeCategory, setActiveCategory] = useState(null)
-  const [cart, setCart] = useState([])
+  const [activeCat, setActiveCat] = useState(null)
   const [search, setSearch] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [printerMap, setPrinterMap] = useState({})
-  const [payModal, setPayModal] = useState(false)
-  const [orderType, setOrderType] = useState('dine_in')
-  const [tableNumber, setTableNumber] = useState('')
-  const [note, setNote] = useState('')
+  const [cart, setCart] = useState([])
   const [discount, setDiscount] = useState(0)
-  const searchRef = useRef(null)
+  const [dishModal, setDishModal] = useState(null)
+  const [payModal, setPayModal] = useState(false)
+  const [printerMap, setPrinterMap] = useState({})
+
+  const loadFloor = useCallback(() => {
+    hallsApi.list(user.branch_id)
+      .then((d) => { const l = Array.isArray(d) ? d : d?.items || []; setZones(l.length ? l : demoZones()) })
+      .catch(() => setZones(demoZones()))
+    orders.list({ branch_id: user.branch_id })
+      .then((d) => { const all = Array.isArray(d) ? d : d?.items || []; setOrderList(all.filter((o) => ACTIVE.has(o.status))) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [user.branch_id])
 
   useEffect(() => {
-    Promise.all([
-      menu.categories().catch(() => []),
-      menu.products().catch(() => []),
-      printersApi.list().catch(() => []),
-    ]).then(([cats, prods, printerList]) => {
-      const catList = cats.items ?? cats ?? []
-      const prodList = prods.items ?? prods ?? []
-      setCategories(catList)
-      setProducts(prodList)
-      const map = {}
-      ;(printerList.items ?? printerList ?? []).forEach((p) => { map[p.id] = p })
-      setPrinterMap(map)
-    }).finally(() => setLoading(false))
+    loadFloor()
+    const id = setInterval(loadFloor, 20000)
+    return () => clearInterval(id)
+  }, [loadFloor])
+
+  useEffect(() => {
+    Promise.all([menu.categories().catch(() => []), menu.products().catch(() => []), printersApi.list().catch(() => [])])
+      .then(([cats, prods, pl]) => {
+        setCategories(cats.items ?? cats ?? [])
+        setProducts(prods.items ?? prods ?? [])
+        const map = {}; (pl.items ?? pl ?? []).forEach((p) => { map[p.id] = p }); setPrinterMap(map)
+      })
   }, [])
 
   useEffect(() => {
@@ -47,197 +75,226 @@ export default function CashierMode({ user = {}, onBack }) {
       const printer = printerMap[msg.printer_id]
       if (!printer) return
       try {
-        await window.electron?.print({
-          ip: printer.ip_address,
-          port: printer.port ?? 9100,
-          payloadBase64: msg.payload,
-          copies: msg.copies ?? 1,
-        })
+        await window.electron?.print({ ip: printer.ip_address, port: printer.port ?? 9100, payloadBase64: msg.payload, copies: msg.copies ?? 1 })
         await printersApi.jobDone(msg.job_id)
       } catch (err) { console.error('[print]', err) }
     })
   }, [printerMap])
 
-  const filteredProducts = products.filter((p) => {
-    if (search) {
-      const q = search.toLowerCase()
-      return p.name?.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q)
-    }
-    return activeCategory ? p.category_id === activeCategory : true
+  // ── Столы ──
+  const allTables = zones.flatMap((z) => (z.tables || []).map((t) => ({ ...t, zoneId: z.id, zoneName: z.name })))
+  const orderFor = (num) => orderList.find((o) => String(o.table_number) === String(num))
+  const tableStatus = (num) => { const o = orderFor(num); return !o ? 'free' : o.status === 'ready' ? 'ready' : 'busy' }
+  const zoneNav = [
+    { id: 'all', name: 'Все', count: allTables.length, Icon: LayoutGrid },
+    ...zones.map((z) => ({ id: z.id, name: z.name, count: (z.tables || []).length, Icon: zoneIcon(z.name) })),
+  ]
+  const shownZones = activeZone === 'all' ? zones : zones.filter((z) => z.id === activeZone)
+  const busyCount = allTables.filter((t) => tableStatus(t.number) !== 'free').length
+
+  function openOrder(type, table) {
+    setOrderType(type); setSelectedTable(table || null)
+    setCart([]); setDiscount(0); setSearch(''); setActiveCat(null)
+    setView('order')
+  }
+  function tapTable(t) { openOrder('dine_in', t) }
+
+  // ── Каталог/корзина ──
+  const filtered = products.filter((p) => {
+    if (search) { const q = search.toLowerCase(); return p.name?.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q) }
+    return activeCat ? p.category_id === activeCat : true
   })
-
-  function addToCart(product) {
-    setCart((prev) => {
-      const ex = prev.find((i) => i.product_id === product.id)
-      if (ex) return prev.map((i) => (i.product_id === product.id ? { ...i, quantity: i.quantity + 1 } : i))
-      return [...prev, { product_id: product.id, name: product.name, price: Number(product.price) || 0, quantity: 1 }]
-    })
+  function addFromModal({ product, quantity, price, note }) {
+    setCart((prev) => [...prev, { lineId: `${Date.now()}-${Math.random()}`, product, name: product.name, price, qty: quantity, note }])
+    setDishModal(null)
   }
-  function updateQty(id, d) {
-    setCart((prev) => prev.map((i) => (i.product_id === id ? { ...i, quantity: i.quantity + d } : i)).filter((i) => i.quantity > 0))
-  }
-  function removeFromCart(id) { setCart((prev) => prev.filter((i) => i.product_id !== id)) }
-  function clearCart() { setCart([]); setDiscount(0); setNote(''); setTableNumber('') }
+  function updateQty(lineId, d) { setCart((prev) => prev.map((i) => i.lineId === lineId ? { ...i, qty: i.qty + d } : i).filter((i) => i.qty > 0)) }
+  function removeLine(lineId) { setCart((prev) => prev.filter((i) => i.lineId !== lineId)) }
 
-  const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0)
+  const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0)
   const discountAmount = subtotal * (discount / 100)
   const total = subtotal - discountAmount
-  const itemCount = cart.reduce((s, i) => s + i.quantity, 0)
+  const itemCount = cart.reduce((s, i) => s + i.qty, 0)
 
   async function handlePayment(method) {
-    if (cart.length === 0) return
+    if (!cart.length) return
     setPayModal(false)
-    const orderData = {
-      branch_id: user.branch_id,
-      order_type: orderType,
-      table_number: orderType === 'dine_in' && tableNumber ? tableNumber : undefined,
-      note: note || undefined,
-      discount_amount: discountAmount ? Math.round(discountAmount) : undefined,
-      payment_method: method,
-      items: cart.map((i) => ({ product_id: i.product_id, quantity: i.quantity, price: i.price })),
-    }
     try {
-      const order = await orders.create(orderData)
+      const order = await orders.create({
+        branch_id: user.branch_id,
+        order_type: orderType,
+        table_number: orderType === 'dine_in' && selectedTable?.number != null ? String(selectedTable.number) : undefined,
+        discount_amount: discountAmount ? Math.round(discountAmount) : undefined,
+        payment_method: method,
+        items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, price: i.price, note: i.note || null })),
+      })
       const receiptPrinter = Object.values(printerMap).find((p) => p.printer_type === 'receipt' && p.branch_id === user.branch_id)
-      if (receiptPrinter) {
-        await printersApi.printReceipt({ order_id: order.id, printer_id: receiptPrinter.id, copies: 1 }).catch(() => {})
-      }
-      clearCart()
+      if (receiptPrinter) await printersApi.printReceipt({ order_id: order.id, printer_id: receiptPrinter.id, copies: 1 }).catch(() => {})
+      setView('floor'); loadFloor()
     } catch (err) {
       alert('Ошибка создания заказа: ' + (err.response?.data?.detail || err.message))
     }
   }
 
-  if (loading) {
+  // ═══ Вид: столы ═══
+  if (view === 'floor') {
     return (
       <div className="floor">
-        <main className="ws__main"><div className="cashier-loading"><div className="spinner" /><p>Загрузка меню...</p></div></main>
+        <aside className="ws-side">
+          <div className="ws-side__label">Локации</div>
+          <nav className="ws-side__nav">
+            {zoneNav.map(({ id, name, count, Icon }) => (
+              <button key={id} className={`zone ${activeZone === id ? 'zone--active' : ''}`} onClick={() => setActiveZone(id)}>
+                <Icon size={20} /><span className="zone__name">{name}</span><span className="zone__count">{count}</span>
+              </button>
+            ))}
+          </nav>
+          <div className="ws-side__spacer" />
+          <button className="zone" onClick={onBack}><ArrowLeft size={20} /><span className="zone__name">Сменить режим</span></button>
+          <div className="ws-user">
+            <div className="ws-user__avatar">{initials(user?.name)}</div>
+            <div className="ws-user__meta">
+              <span className="ws-user__name">{user?.name || 'Кассир'}</span>
+              <span className="ws-user__role">{user?.role_label || 'Касса'}</span>
+            </div>
+          </div>
+        </aside>
+
+        <main className="ws__main">
+          <div className="board__head">
+            <div className="board__title">
+              <h2>Столы</h2>
+              <span className="board__subtitle">{allTables.length} столов · {busyCount} занято</span>
+            </div>
+            <div className="board__head-right">
+              <button className="btn btn--outline btn--sm" onClick={() => openOrder('takeaway', null)}><ShoppingBag size={18} /> С собой</button>
+              <button className="btn btn--outline btn--sm" onClick={() => openOrder('delivery', null)}><Bike size={18} /> Доставка</button>
+            </div>
+          </div>
+          <div className="board__scroll">
+            {loading ? <p className="empty-text">Загрузка...</p> : shownZones.map((z) => (
+              <section className="tgroup" key={z.id}>
+                <div className="tgroup__title">{z.name} <span>{(z.tables || []).length} столов</span></div>
+                <div className="tgrid">
+                  {(z.tables || []).map((t) => {
+                    const o = orderFor(t.number); const st = tableStatus(t.number)
+                    const variant = st === 'free' ? 'free' : st === 'ready' ? 'check' : 'busy'
+                    return (
+                      <button key={t.id ?? t.number} className={`tcard tcard--${variant}`} onClick={() => tapTable(t)}>
+                        <div className="tcard__top">
+                          <span className="tcard__num">{t.number}</span>
+                          <span className="tcard__seats"><Users /> {t.capacity || 4}</span>
+                        </div>
+                        {o ? (
+                          <><span className="tcard__client">Заказ #{o.order_number ?? ''}</span>
+                            <span className="tcard__meta"><Clock /> {fmtTime(o.created_at)}
+                              {o.total_amount != null && <span className="tcard__amount">{Number(o.total_amount).toLocaleString('ru-RU')} сум</span>}
+                            </span></>
+                        ) : <div className="tcard__spacer" />}
+                        <span className="tcard__status">{TABLE_LABELS[st]}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        </main>
       </div>
     )
   }
 
+  // ═══ Вид: заказ (меню + корзина) ═══
   return (
     <div className="floor">
-      {/* Сайдбар категорий */}
       <aside className="ws-side">
         <div className="ws-side__label">Категории</div>
         <nav className="ws-side__nav">
-          <button className={`zone ${!activeCategory ? 'zone--active' : ''}`} onClick={() => { setActiveCategory(null); setSearch('') }}>
-            <LayoutGrid size={20} />
-            <span className="zone__name">Все</span>
+          <button className={`zone ${!activeCat ? 'zone--active' : ''}`} onClick={() => setActiveCat(null)}>
+            <LayoutGrid size={20} /><span className="zone__name">Все</span>
           </button>
-          {categories.map((cat) => (
-            <button key={cat.id} className={`zone ${activeCategory === cat.id ? 'zone--active' : ''}`} onClick={() => { setActiveCategory(cat.id); setSearch('') }}>
-              <span className="zone__name">{cat.name}</span>
+          {categories.map((c) => (
+            <button key={c.id} className={`zone ${activeCat === c.id ? 'zone--active' : ''}`} onClick={() => setActiveCat(c.id)}>
+              <span className="zone__name">{c.name}</span>
             </button>
           ))}
         </nav>
         <div className="ws-side__spacer" />
-        <button className="zone" onClick={onBack}>
-          <RefreshCw size={20} />
-          <span className="zone__name">Сменить режим</span>
-        </button>
-        <div className="ws-user">
-          <div className="ws-user__avatar">{initials(user?.name)}</div>
-          <div className="ws-user__meta">
-            <span className="ws-user__name">{user?.name || 'Кассир'}</span>
-            <span className="ws-user__role">{user?.role_label || 'Касса'}</span>
-          </div>
-        </div>
+        <button className="zone" onClick={() => setView('floor')}><ArrowLeft size={20} /><span className="zone__name">К столам</span></button>
       </aside>
 
-      {/* Товары + корзина */}
       <main className="ws__main">
+        <div className="board__head">
+          <div className="board__title">
+            <h2>
+              {orderType === 'dine_in' ? (selectedTable ? `Стол ${selectedTable.number}` : 'В зале') : TYPE_LABELS[orderType]}
+            </h2>
+            <span className="board__subtitle">{itemCount} позиций · {total.toLocaleString('ru-RU')} сум</span>
+          </div>
+          <div className="board__head-right">
+            <div className="cashier-products__search" style={{ padding: 0, border: 'none' }}>
+              <Search size={18} className="search-icon" />
+              <input className="search-input" placeholder="Поиск блюда…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+          </div>
+        </div>
+
         <div className="cashier-work">
           <div className="cashier-products">
-            <div className="cashier-products__search">
-              <Search size={20} className="search-icon" />
-              <input ref={searchRef} type="text" placeholder="Поиск блюда..." value={search} onChange={(e) => setSearch(e.target.value)} className="search-input" />
-              {search && <button className="search-clear" onClick={() => setSearch('')}><X size={18} /></button>}
-            </div>
             <div className="cashier-products__grid">
-              {filteredProducts.length === 0 ? (
-                <p className="empty-text">Нет блюд в этой категории</p>
-              ) : filteredProducts.map((product) => (
-                <button key={product.id} className="product-card" onClick={() => addToCart(product)}>
-                  {product.image_url && <img src={product.image_url} alt="" className="product-card__img" loading="lazy" />}
-                  <span className="product-card__name">{product.name}</span>
-                  <span className="product-card__price">{Number(product.price || 0).toLocaleString('ru-RU')} сум</span>
-                  {product.in_stop_list && <span className="product-card__stop">СТОП</span>}
+              {filtered.length === 0 ? <p className="empty-text">Нет блюд</p> : filtered.map((p) => (
+                <button key={p.id} className="product-card" onClick={() => setDishModal(p)}>
+                  {p.image_url && <img src={p.image_url} alt="" className="product-card__img" loading="lazy" />}
+                  <span className="product-card__name">{p.name}</span>
+                  <span className="product-card__price">{Number(p.price || 0).toLocaleString('ru-RU')} сум</span>
+                  {p.in_stop_list && <span className="product-card__stop">СТОП</span>}
                 </button>
               ))}
             </div>
           </div>
 
           <aside className="cashier-cart">
-            <div className="cashier-cart__header">
-              <ShoppingBag size={20} />
-              <span>Заказ</span>
-              <span className="cart-count">{itemCount}</span>
-              <div className="cashier-cart__type">
-                <button className={`type-btn ${orderType === 'dine_in' ? 'type-btn--active' : ''}`} onClick={() => setOrderType('dine_in')}>В зале</button>
-                <button className={`type-btn ${orderType === 'takeaway' ? 'type-btn--active' : ''}`} onClick={() => setOrderType('takeaway')}>С собой</button>
-                <button className={`type-btn ${orderType === 'delivery' ? 'type-btn--active' : ''}`} onClick={() => setOrderType('delivery')}>Доставка</button>
-              </div>
-            </div>
-
-            {orderType === 'dine_in' && (
-              <input type="text" className="table-input" placeholder="Стол №" value={tableNumber} onChange={(e) => setTableNumber(e.target.value)} />
-            )}
-
+            <div className="cashier-cart__header"><ShoppingBag size={20} /><span>Заказ</span><span className="cart-count">{itemCount}</span></div>
             <div className="cashier-cart__items">
-              {cart.length === 0 ? (
-                <p className="cart-empty">Корзина пуста</p>
-              ) : cart.map((item) => (
-                <div key={item.product_id} className="cart-item">
+              {cart.length === 0 ? <p className="cart-empty">Нажмите на блюдо, чтобы добавить</p> : cart.map((item) => (
+                <div key={item.lineId} className="cart-item">
                   <div className="cart-item__info">
                     <span className="cart-item__name">{item.name}</span>
-                    <span className="cart-item__price">{(item.price * item.quantity).toLocaleString('ru-RU')} сум</span>
+                    {item.note && <span className="cart-row__note">{item.note}</span>}
+                    <span className="cart-item__price">{(item.price * item.qty).toLocaleString('ru-RU')} сум</span>
                   </div>
                   <div className="cart-item__controls">
-                    <button className="qty-btn" onClick={() => updateQty(item.product_id, -1)}><Minus size={16} /></button>
-                    <span className="qty-value">{item.quantity}</span>
-                    <button className="qty-btn" onClick={() => updateQty(item.product_id, 1)}><Plus size={16} /></button>
-                    <button className="qty-btn qty-btn--delete" onClick={() => removeFromCart(item.product_id)}><Trash2 size={16} /></button>
+                    <button className="qty-btn" onClick={() => updateQty(item.lineId, -1)}><Minus size={16} /></button>
+                    <span className="qty-value">{item.qty}</span>
+                    <button className="qty-btn" onClick={() => updateQty(item.lineId, 1)}><Plus size={16} /></button>
+                    <button className="qty-btn qty-btn--delete" onClick={() => removeLine(item.lineId)}><Trash2 size={16} /></button>
                   </div>
                 </div>
               ))}
             </div>
-
             {cart.length > 0 && (
               <div className="cashier-cart__discount">
                 <Percent size={16} />
                 <input type="number" min="0" max="100" value={discount || ''} onChange={(e) => setDiscount(Math.min(100, Math.max(0, Number(e.target.value))))} placeholder="Скидка %" className="discount-input" />
               </div>
             )}
-
             <div className="cashier-cart__total">
-              {discount > 0 && (
-                <div className="total-row total-row--sub"><span>Подытог</span><span>{subtotal.toLocaleString('ru-RU')} сум</span></div>
-              )}
-              {discount > 0 && (
-                <div className="total-row total-row--discount"><span>Скидка {discount}%</span><span>−{discountAmount.toLocaleString('ru-RU')} сум</span></div>
-              )}
+              {discount > 0 && <div className="total-row total-row--discount"><span>Скидка {discount}%</span><span>−{discountAmount.toLocaleString('ru-RU')}</span></div>}
               <div className="total-row total-row--final"><span>Итого</span><span>{total.toLocaleString('ru-RU')} сум</span></div>
             </div>
-
             <div className="cashier-cart__actions">
-              <button className="cart-btn cart-btn--pay" disabled={cart.length === 0} onClick={() => setPayModal(true)}>
-                <CreditCard size={20} /> Оплата
-              </button>
-              <button className="cart-btn cart-btn--clear" disabled={cart.length === 0} onClick={clearCart}><Trash2 size={18} /></button>
+              <button className="cart-btn cart-btn--pay" disabled={cart.length === 0} onClick={() => setPayModal(true)}><CreditCard size={20} /> Оплата</button>
             </div>
           </aside>
         </div>
       </main>
 
+      {dishModal && <DishModal product={dishModal} onAdd={addFromModal} onClose={() => setDishModal(null)} />}
+
       {payModal && (
         <div className="modal-overlay" onClick={() => setPayModal(false)}>
           <div className="modal pay-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal__header">
-              <h3>Оплата</h3>
-              <button className="icon-btn" onClick={() => setPayModal(false)}><X size={22} /></button>
-            </div>
+            <div className="modal__header"><h3>Оплата</h3><button className="icon-btn" onClick={() => setPayModal(false)}><X size={22} /></button></div>
             <div className="pay-modal__total"><span>К оплате:</span><strong>{total.toLocaleString('ru-RU')} сум</strong></div>
             <div className="pay-modal__methods">
               <button className="pay-method-btn" onClick={() => handlePayment('cash')}><Banknote size={32} /><span>Наличные</span></button>
@@ -249,4 +306,12 @@ export default function CashierMode({ user = {}, onBack }) {
       )}
     </div>
   )
+}
+
+function demoZones() {
+  const mk = (num, cap) => ({ id: `d${num}`, number: num, capacity: cap })
+  return [
+    { id: 'z-hall', name: 'Зал', tables: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => mk(n, 4)) },
+    { id: 'z-terrace', name: 'Терраса', tables: [9, 10, 11, 12].map((n) => mk(n, 4)) },
+  ]
 }
