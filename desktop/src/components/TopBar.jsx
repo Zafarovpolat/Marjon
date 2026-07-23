@@ -9,6 +9,7 @@ export default function TopBar({
   title = 'MARJON',
   subtitle,
   isOnline = true,
+  queued = 0,
   onRefresh,
   onLock,
   onSettings,
@@ -38,6 +39,9 @@ export default function TopBar({
         <span className="topbar__status-text">
           {isOnline ? 'Онлайн' : 'Офлайн'}
         </span>
+        {queued > 0 && (
+          <span className="topbar__queue" title="Записей ждут синхронизации">↻ {queued}</span>
+        )}
       </div>
 
       <div className="topbar__actions">

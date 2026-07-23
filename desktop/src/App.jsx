@@ -14,7 +14,7 @@ import CashierMode from './modes/cashier/CashierMode'
 import KitchenMode from './modes/kitchen/KitchenMode'
 import WaiterMode from './modes/waiter/WaiterMode'
 import ManagerMode from './modes/manager/ManagerMode'
-import { auth } from './shared/api'
+import { auth, flushQueue, queueSize } from './shared/api'
 import { t } from './shared/i18n'
 
 const MANAGER_ROLES = ['owner', 'manager', 'admin', 'director']
@@ -61,6 +61,7 @@ export default function App() {
   const [pinEmployee, setPinEmployee] = useState(null)
 
   const [isOnline, setIsOnline] = useState(true)
+  const [queued, setQueued] = useState(() => queueSize())
   const [isLocked, setIsLocked] = useState(false)
   const [lockPin, setLockPin] = useState('')
   const [showSettings, setShowSettings] = useState(false)
@@ -72,9 +73,20 @@ export default function App() {
     if (!staffToken || !branch?.id || !mode) return
     const serverUrl = localStorage.getItem('marjon_server_url') || 'http://localhost:8000/api/v1'
     kitchenWS.connect(serverUrl, staffToken, branch.id)
-    const unsubscribe = kitchenWS.on('connection', ({ status }) => setIsOnline(status === 'online'))
+    const unsubscribe = kitchenWS.on('connection', ({ status }) => {
+      const online = status === 'online'
+      setIsOnline(online)
+      if (online) flushQueue()   // связь вернулась — досылаем накопленные записи
+    })
     return () => { unsubscribe(); kitchenWS.disconnect() }
   }, [staffToken, branch?.id, mode])
+
+  // Счётчик несинхронизированных записей (офлайн-очередь)
+  useEffect(() => {
+    const onQ = (e) => setQueued(e.detail?.size ?? queueSize())
+    window.addEventListener('marjon:queue', onQ)
+    return () => window.removeEventListener('marjon:queue', onQ)
+  }, [])
 
   // 1. Админ привязывает терминал (логин/пароль)
   const handleAdminLogin = useCallback((data) => {
@@ -280,6 +292,7 @@ export default function App() {
         title={modeLabel}
         subtitle={branch?.name}
         isOnline={isOnline}
+        queued={queued}
         onRefresh={() => window.location.reload()}
         onLock={handleLock}
         onSettings={() => setShowSettings(true)}

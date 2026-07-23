@@ -51,6 +51,68 @@ async function cached(key, promise) {
   }
 }
 
+// ── Офлайн-очередь записи ──────────────────────────────────────────────
+// Если запрос-запись не прошёл из-за отсутствия связи (сервер не ответил),
+// складываем его в localStorage и проигрываем в исходном порядке при
+// восстановлении сети (событие online, периодический таймер, ручной flush).
+const QUEUE_KEY = 'marjon_write_queue'
+function loadQueue() { try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]') } catch { return [] } }
+function saveQueue(q) { try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)) } catch { /* quota */ } }
+function emitQueue(size) {
+  try { window.dispatchEvent(new CustomEvent('marjon:queue', { detail: { size } })) } catch { /* no window */ }
+}
+export function queueSize() { return loadQueue().length }
+// Нет объекта ответа → это сетевая ошибка (офлайн), а не 4xx/5xx от сервера.
+function isNetworkError(e) { return !e?.response }
+function enqueueWrite(method, url, data) {
+  const q = loadQueue()
+  q.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, method, url, data, ts: Date.now() })
+  saveQueue(q)
+  emitQueue(q.length)
+}
+
+// Выполнить запись; при отсутствии сети — поставить в очередь и вернуть {queued:true}.
+async function writeQueued(method, url, data) {
+  try {
+    const r = await api.request({ method, url, data })
+    // Успех — попутно сливаем накопившееся (порядок сохраняем).
+    if (loadQueue().length) flushQueue()
+    return r.data
+  } catch (e) {
+    if (isNetworkError(e)) { enqueueWrite(method, url, data); return { queued: true } }
+    throw e
+  }
+}
+
+// Проиграть очередь по порядку. Возвращает число успешно отправленных.
+export async function flushQueue() {
+  if (flushQueue._busy) return 0
+  flushQueue._busy = true
+  try {
+    let q = loadQueue()
+    let sent = 0
+    while (q.length) {
+      const item = q[0]
+      try {
+        await api.request({ method: item.method, url: item.url, data: item.data })
+        q = loadQueue(); q.shift(); saveQueue(q); sent++
+      } catch (e) {
+        if (isNetworkError(e)) break              // всё ещё офлайн — ждём следующего раза
+        q = loadQueue(); q.shift(); saveQueue(q)  // серверная ошибка — выкидываем «отравленный» элемент
+      }
+    }
+    emitQueue(q.length)
+    return sent
+  } finally {
+    flushQueue._busy = false
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => flushQueue())
+  setInterval(() => { if (loadQueue().length) flushQueue() }, 15000)
+}
+
 // Org-токен терминала — access живёт 15 мин, refresh — 30 дней.
 // Обновляем access по refresh, когда он протух (иначе staff-users/pin-login дают 401).
 async function refreshOrgToken() {
@@ -128,7 +190,7 @@ export const orders = {
   update: (id, data) => api.patch(`/pos/orders/${id}`, data).then((r) => r.data),
   addItem: (orderId, data) => api.post(`/pos/orders/${orderId}/items`, data).then((r) => r.data),
   removeItem: (orderId, itemId) => api.delete(`/pos/orders/${orderId}/items/${itemId}`).then((r) => r.data),
-  updateStatus: (id, status) => api.patch(`/pos/orders/${id}/status`, { status }).then((r) => r.data),
+  updateStatus: (id, status) => writeQueued('patch', `/pos/orders/${id}/status`, { status }),
   cancel: (id) => api.delete(`/pos/orders/${id}`).then((r) => r.data),
 }
 
@@ -136,15 +198,16 @@ export const kitchen = {
   orders: (branchId) =>
     cached('kitchen_orders_' + branchId, api.get('/kitchen/orders', { params: { branch_id: branchId } }).then((r) => r.data)),
   stations: () => api.get('/kitchen/stations').then((r) => r.data),
+  // Записи статусов — через офлайн-очередь: при обрыве связи не теряются, синкаются при реконнекте
   itemStatus: (itemId, status) =>
-    api.patch('/kitchen/orders/items/status', { order_item_id: itemId, status }).then((r) => r.data),
+    writeQueued('patch', '/kitchen/orders/items/status', { order_item_id: itemId, status }),
   itemDone: (itemId) =>
-    api.patch('/kitchen/orders/items/status', { order_item_id: itemId, status: 'ready' }).then((r) => r.data),
+    writeQueued('patch', '/kitchen/orders/items/status', { order_item_id: itemId, status: 'ready' }),
   itemStart: (itemId) =>
-    api.patch('/kitchen/orders/items/status', { order_item_id: itemId, status: 'cooking' }).then((r) => r.data),
+    writeQueued('patch', '/kitchen/orders/items/status', { order_item_id: itemId, status: 'cooking' }),
   // Весь заказ готов → бэкенд ставит статус ready и рассылает событие (уведомление официанту)
   orderReady: (orderId) =>
-    api.patch(`/kitchen/orders/${orderId}/ready`).then((r) => r.data),
+    writeQueued('patch', `/kitchen/orders/${orderId}/ready`, undefined),
 }
 
 export const menu = {
