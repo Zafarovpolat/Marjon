@@ -1,4 +1,5 @@
 ﻿from __future__ import annotations
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -7,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import get_current_user, require_company_admin
-from app.modules.auth.models import User
+from app.modules.auth.models import RefreshToken, User
 from app.modules.auth.schemas import (
     CompanyUserCreate,
     CompanyUserResponse,
@@ -193,3 +194,30 @@ async def staff_users(
             )
         )
     return result
+
+
+# Окно, в течение которого сессия считается «активной» (одна смена)
+_SESSION_WINDOW = timedelta(hours=16)
+
+
+@router.get("/active-staff", response_model=list[str])
+async def active_staff(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """ID сотрудников с активной сессией: есть неотозванный непросроченный
+    refresh-токен, выданный в течение текущей смены. Схему БД не меняем —
+    используем существующую таблицу refresh_tokens."""
+    now = datetime.now(timezone.utc)
+    rows = await db.execute(
+        select(RefreshToken.user_id)
+        .join(User, User.id == RefreshToken.user_id)
+        .where(
+            User.company_id == current_user.company_id,
+            RefreshToken.revoked_at.is_(None),
+            RefreshToken.expires_at > now,
+            RefreshToken.created_at > now - _SESSION_WINDOW,
+        )
+        .distinct()
+    )
+    return [str(uid) for uid in rows.scalars().all()]

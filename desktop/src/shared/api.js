@@ -156,6 +156,13 @@ export const auth = {
         headers: tok ? { Authorization: `Bearer ${tok}` } : {},
       }).then((r) => r.data)
     ),
+  // ID сотрудников с активной сессией (кто «в смене») — под org-токеном с авто-refresh.
+  activeStaff: () =>
+    withOrgRefresh((tok) =>
+      api.get('/auth/active-staff', {
+        headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+      }).then((r) => r.data)
+    ),
   // PIN-вход сотрудника: company_id берётся из org-токена терминала (с авто-refresh).
   loginByPin: (pin) =>
     withOrgRefresh((tok) =>

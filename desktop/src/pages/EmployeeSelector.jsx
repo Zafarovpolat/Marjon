@@ -18,6 +18,7 @@ export default function EmployeeSelector({ branch, onSelect, onBack }) {
   const [staff, setStaff] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [activeIds, setActiveIds] = useState(() => new Set())
 
   function load() {
     setLoading(true); setError(false)
@@ -29,7 +30,17 @@ export default function EmployeeSelector({ branch, onSelect, onBack }) {
       .catch(() => { setStaff(DEMO_STAFF); setError(true) })
       .finally(() => setLoading(false))
   }
-  useEffect(load, [branch?.id])
+  // Кто сейчас в смене (активная сессия). Тихо игнорируем ошибки — индикатор необязателен.
+  function loadActive() {
+    auth.activeStaff()
+      .then((ids) => setActiveIds(new Set(Array.isArray(ids) ? ids.map(String) : [])))
+      .catch(() => {})
+  }
+  useEffect(() => {
+    load(); loadActive()
+    const id = setInterval(loadActive, 30000)
+    return () => clearInterval(id)
+  }, [branch?.id])
 
   return (
     <div className="emp-screen">
@@ -49,8 +60,10 @@ export default function EmployeeSelector({ branch, onSelect, onBack }) {
           <div className="emp-grid">
             {staff.map((u) => {
               const role = u.role_slug || (u.role_slugs && u.role_slugs[0])
+              const inSession = activeIds.has(String(u.id))
               return (
-                <button key={u.id} className="emp-card" onClick={() => onSelect(u)}>
+                <button key={u.id} className={`emp-card ${inSession ? 'emp-card--online' : ''}`} onClick={() => onSelect(u)}>
+                  {inSession && <span className="emp-card__session" title={t('in_session')}><span className="emp-card__session-dot" />{t('in_session')}</span>}
                   <span className="emp-card__avatar" style={{ background: avatarColor(u.name || u.email) }}>
                     {initials(u.name || u.email)}
                   </span>

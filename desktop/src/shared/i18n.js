@@ -78,7 +78,7 @@ const DICT = {
     role_cook: 'Повар', role_chef: 'Шеф-повар', role_kitchen: 'Кухня', role_bartender: 'Бармен',
     role_courier: 'Курьер', role_accountant: 'Бухгалтер', role_admin: 'Администратор', role_default: 'Сотрудник',
     // Экраны входа/сервера/режимов/филиалов
-    emp_demo_note: 'Показаны демо-сотрудники (нет связи с сервером)',
+    emp_demo_note: 'Показаны демо-сотрудники (нет связи с сервером)', in_session: 'В смене',
     srv_setup: 'Настройка терминала', srv_intro: 'Введите адрес сервера Marjon. Эту настройку выполняет IT-специалист при установке.',
     srv_conn_ok: 'Подключение успешно', srv_test: 'Проверить соединение', srv_save: 'Сохранить и продолжить',
     srv_err_status: 'Сервер ответил', srv_err_conn: 'Не удалось подключиться к серверу',
@@ -167,7 +167,7 @@ const DICT = {
     role_cook: 'Oshpaz', role_chef: 'Bosh oshpaz', role_kitchen: 'Oshxona', role_bartender: 'Barmen',
     role_courier: 'Kuryer', role_accountant: 'Buxgalter', role_admin: 'Administrator', role_default: 'Xodim',
     // Kirish/server/rejim/filial ekranlari
-    emp_demo_note: 'Demo xodimlar ko‘rsatilmoqda (server bilan aloqa yo‘q)',
+    emp_demo_note: 'Demo xodimlar ko‘rsatilmoqda (server bilan aloqa yo‘q)', in_session: 'Smenada',
     srv_setup: 'Terminal sozlamasi', srv_intro: 'Marjon server manzilini kiriting. Buni o‘rnatishda IT-mutaxassis bajaradi.',
     srv_conn_ok: 'Ulanish muvaffaqiyatli', srv_test: 'Ulanishni tekshirish', srv_save: 'Saqlash va davom etish',
     srv_err_status: 'Server javob berdi', srv_err_conn: 'Serverga ulanib bo‘lmadi',
