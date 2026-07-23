@@ -3,12 +3,14 @@ import { Delete, Globe, ArrowBigUp, Space, CornerDownLeft, X } from 'lucide-reac
 
 const LAYOUTS = {
   en: [
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
     ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
     ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
     ['shift', 'z', 'x', 'c', 'v', 'b', 'n', 'm', 'backspace'],
     ['lang', 'num', 'space', '.', 'enter'],
   ],
   ru: [
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
     ['й', 'ц', 'у', 'к', 'е', 'н', 'г', 'ш', 'щ', 'з', 'х'],
     ['ф', 'ы', 'в', 'а', 'п', 'р', 'о', 'л', 'д', 'ж', 'э'],
     ['shift', 'я', 'ч', 'с', 'м', 'и', 'т', 'ь', 'б', 'ю', 'backspace'],
@@ -179,6 +181,7 @@ export default function VirtualKeyboard({ onVisibilityChange }) {
               const isWide = key === 'space'
               const isMedium = ['backspace', 'shift', 'enter', 'lang', 'num', 'abc', 'sym'].includes(key)
               const isMultiChar = key.length > 1 && !isSpecial
+              const isDigit = /^[0-9]$/.test(key) && (layout === 'ru' || layout === 'en')
 
               return (
                 <button
@@ -188,6 +191,7 @@ export default function VirtualKeyboard({ onVisibilityChange }) {
                     isWide && 'vkb__key--wide',
                     isMedium && 'vkb__key--medium',
                     isMultiChar && 'vkb__key--multi',
+                    isDigit && 'vkb__key--num',
                     shifted && key === 'shift' && 'vkb__key--active',
                   ].filter(Boolean).join(' ')}
                   onClick={() => handleKey(key)}

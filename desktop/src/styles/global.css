@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   MARJON Desktop — Глобальные стили (reset + base)
+   MARJON Desktop — Глобальные стили (reset + base), СВЕТЛАЯ тема
    ═══════════════════════════════════════════════════════════════════ */
 
 @import './tokens.css';
@@ -20,27 +20,39 @@ body {
   font-size: var(--text-base);
   background: var(--color-bg);
   color: var(--color-text-primary);
-  line-height: 1.4;
+  line-height: 1.45;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
 
-/* Убрать скроллбар для touch */
+/* ── Скроллбар (светлый) ── */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--neutral-600);
+  background: var(--neutral-300);
   border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--neutral-500);
+  background: var(--neutral-400);
+  background-clip: padding-box;
+}
+
+/* Тёмный скроллбар внутри хрома / тёмных панелей */
+.chrome-scroll::-webkit-scrollbar-thumb,
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
 }
 
 /* ── Ссылки ── */
@@ -48,11 +60,20 @@ a {
   color: var(--color-interactive);
   text-decoration: none;
 }
+a:hover { color: var(--color-interactive-hover); }
 
 /* Иконки (lucide) — блочный рендер убирает смещение по baseline */
 svg {
   display: block;
   flex-shrink: 0;
+}
+
+/* ── Заголовки ── */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.2;
 }
 
 /* ── Кнопки (base) ── */
@@ -62,9 +83,9 @@ button {
   border: none;
   cursor: pointer;
   outline: none;
+  color: inherit;
   touch-action: manipulation;
 }
-
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -75,11 +96,14 @@ input, select, textarea {
   font-family: inherit;
   font-size: inherit;
   outline: none;
+  color: var(--color-text-primary);
 }
-
+input::placeholder, textarea::placeholder {
+  color: var(--color-text-placeholder);
+}
 input:focus, select:focus, textarea:focus {
-  outline: 2px solid var(--color-brand);
-  outline-offset: -2px;
+  outline: none;
+  border-color: var(--color-border-focus);
 }
 
 /* ── Утилиты ── */

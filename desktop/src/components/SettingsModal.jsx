@@ -92,7 +92,7 @@ export default function SettingsModal({ open, onClose }) {
                   placeholder="http://192.168.1.x:8000/api/v1"
                 />
                 <button className="btn btn--sm btn--primary" onClick={handleSaveServer}>
-                  {saved ? '✓' : 'Сохранить'}
+                  {saved ? 'Сохранено' : 'Сохранить'}
                 </button>
               </div>
             </div>

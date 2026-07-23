@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { CheckCircle, Clock, AlertTriangle, XCircle, Volume2, VolumeX, ArrowLeft, RefreshCw, Filter } from 'lucide-react'
+import { CheckCircle, Clock, AlertTriangle, XCircle, Volume2, VolumeX, ArrowLeft, RefreshCw, Filter, Utensils, ShoppingBag, Bike } from 'lucide-react'
 import { kitchen } from '../../shared/api'
 import { kitchenWS } from '../../services/kitchenWS'
 import { soundService } from '../../services/sound'
@@ -216,7 +216,7 @@ export default function KitchenMode({ user, onBack, onLogout }) {
         )}
       </main>
 
-      <BottomBar onMinimize={() => window.electronAPI?.minimize?.()}>
+      <BottomBar onMinimize={() => window.electron?.minimize?.()}>
         <button
           className={`bottom-action ${soundOn ? '' : 'bottom-action--muted'}`}
           onClick={toggleSound}
@@ -250,7 +250,11 @@ function KitchenCard({ order, timerState, elapsed, onItemDone, onOrderDone }) {
           )}
           {order.order_type && (
             <span className="kitchen-card__type">
-              {order.order_type === 'dine_in' ? '🍽️' : order.order_type === 'takeaway' ? '📦' : '🚗'}
+              {order.order_type === 'dine_in'
+                ? <Utensils size={15} strokeWidth={2} />
+                : order.order_type === 'takeaway'
+                  ? <ShoppingBag size={15} strokeWidth={2} />
+                  : <Bike size={15} strokeWidth={2} />}
             </span>
           )}
         </div>
@@ -304,7 +308,7 @@ function KitchenCard({ order, timerState, elapsed, onItemDone, onOrderDone }) {
       {allDone && (
         <button className="kitchen-card__complete" onClick={() => onOrderDone(order.id)}>
           <CheckCircle size={20} />
-          Заказ готов — отдать
+          Заказ готов, отдать
         </button>
       )}
     </div>

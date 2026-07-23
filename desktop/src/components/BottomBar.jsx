@@ -9,8 +9,8 @@ export default function BottomBar({ userName, branchName, mode, onMinimize }) {
   const handleMinimize = () => {
     if (onMinimize) {
       onMinimize()
-    } else if (window.electronAPI?.minimize) {
-      window.electronAPI.minimize()
+    } else if (window.electron?.minimize) {
+      window.electron.minimize()
     }
   }
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Lock } from 'lucide-react'
 import ServerSetup from './pages/ServerSetup'
 import LoginPage from './pages/LoginPage'
 import BranchSelector from './pages/BranchSelector'
@@ -148,7 +149,7 @@ export default function App() {
     return (
       <div className="lock-screen">
         <div className="lock-screen__content">
-          <div className="lock-screen__icon">🔒</div>
+          <div className="lock-screen__icon"><Lock size={40} strokeWidth={2} /></div>
           <h2 className="lock-screen__title">Экран заблокирован</h2>
           <p className="lock-screen__user">{staffUser?.name || staffUser?.email}</p>
           <div className="pin-input-group">

@@ -274,7 +274,7 @@ export default function WaiterMode({ user, onBack }) {
           </button>
           <h2>
             {selectedTable ? `Стол ${selectedTable.number}` : 'Без стола'}
-            {' — Новый заказ'}
+            {' · Новый заказ'}
           </h2>
         </header>
 
