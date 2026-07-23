@@ -1,100 +1,73 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Delete, Globe, ArrowBigUp, Space, CornerDownLeft, X } from 'lucide-react'
+import { Delete, ArrowBigUp, CornerDownLeft, X } from 'lucide-react'
 
+// Раскладки 1:1 по референсу: верхний ряд цифр + спец-клавиши справа.
 const LAYOUTS = {
   en: [
-    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
-    ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-    ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
-    ['shift', 'z', 'x', 'c', 'v', 'b', 'n', 'm', 'backspace'],
-    ['lang', 'num', 'space', '.', 'enter'],
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'backspace', 'lang', 'sym'],
+    ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '+', '@', '_'],
+    ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', '/', '=', 'shift'],
+    ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '!', '?', 'space'],
   ],
   ru: [
-    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
-    ['й', 'ц', 'у', 'к', 'е', 'н', 'г', 'ш', 'щ', 'з', 'х'],
-    ['ф', 'ы', 'в', 'а', 'п', 'р', 'о', 'л', 'д', 'ж', 'э'],
-    ['shift', 'я', 'ч', 'с', 'м', 'и', 'т', 'ь', 'б', 'ю', 'backspace'],
-    ['lang', 'num', 'space', '.', 'enter'],
-  ],
-  num: [
-    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
-    ['-', '/', ':', ';', '(', ')', '$', '&', '@', '"'],
-    ['sym', '.', ',', '?', '!', "'", '+', '=', '%', 'backspace'],
-    ['lang', 'abc', 'space', '.', 'enter'],
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'backspace', 'lang', 'sym'],
+    ['й', 'ц', 'у', 'к', 'е', 'н', 'г', 'ш', 'щ', 'з', 'х', 'ъ'],
+    ['ф', 'ы', 'в', 'а', 'п', 'р', 'о', 'л', 'д', 'ж', 'э', 'shift'],
+    ['я', 'ч', 'с', 'м', 'и', 'т', 'ь', 'б', 'ю', ',', '.', 'space'],
   ],
   sym: [
-    ['[', ']', '{', '}', '#', '^', '*', '+', '='],
-    ['_', '\\', '|', '~', '<', '>', '€', '£', '¥'],
-    ['num', '.', ',', '?', '!', "'", '-', '/', 'backspace'],
-    ['lang', 'abc', 'space', '.', 'enter'],
-  ],
-  url: [
-    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
-    ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-    ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
-    ['z', 'x', 'c', 'v', 'b', 'n', 'm', 'backspace'],
-    ['://', 'http', '.com', '.', '/', ':', '-', '_', 'enter'],
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'backspace', 'lang', 'abc'],
+    ['@', '#', '$', '%', '&', '*', '(', ')', '-', '+', '=', '/'],
+    ['!', '?', ':', ';', '"', "'", '_', '\\', '|', '~', '`', 'shift'],
+    ['<', '>', '[', ']', '{', '}', '№', '€', '₽', ',', '.', 'space'],
   ],
 }
 
-const SPECIAL_KEYS = new Set([
-  'shift', 'backspace', 'enter', 'space', 'lang', 'num', 'abc', 'sym',
-])
+const SPECIAL = new Set(['shift', 'backspace', 'enter', 'space', 'lang', 'sym', 'abc'])
 
 export default function VirtualKeyboard({ onVisibilityChange }) {
   const [layout, setLayout] = useState('ru')
   const [shifted, setShifted] = useState(false)
   const [activeInput, setActiveInput] = useState(null)
-  const keyboardRef = useRef(null)
+  const lastAlpha = useRef('ru')
 
   useEffect(() => {
-    function handleFocusIn(e) {
+    function onFocusIn(e) {
       const el = e.target
       if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
-        setActiveInput(el)
-        const kbType = el.dataset.keyboard
-        if (kbType && LAYOUTS[kbType]) {
-          setLayout(kbType)
+        if (el.type === 'password' && el.dataset.keyboard !== 'ru' && el.dataset.keyboard !== 'en') {
+          // пароли/пины часто цифровые — но оставим текущую раскладку
         }
+        setActiveInput(el)
       }
     }
-
-    function handleFocusOut(e) {
+    function onFocusOut() {
       setTimeout(() => {
-        const active = document.activeElement
-        if (active?.tagName !== 'INPUT' && active?.tagName !== 'TEXTAREA') {
-          setActiveInput(null)
-        }
+        const a = document.activeElement
+        if (a?.tagName !== 'INPUT' && a?.tagName !== 'TEXTAREA') setActiveInput(null)
       }, 100)
     }
-
-    document.addEventListener('focusin', handleFocusIn)
-    document.addEventListener('focusout', handleFocusOut)
-
+    document.addEventListener('focusin', onFocusIn)
+    document.addEventListener('focusout', onFocusOut)
     return () => {
-      document.removeEventListener('focusin', handleFocusIn)
-      document.removeEventListener('focusout', handleFocusOut)
+      document.removeEventListener('focusin', onFocusIn)
+      document.removeEventListener('focusout', onFocusOut)
     }
   }, [])
 
-  // Уведомляем родителя об открытии/закрытии — чтобы он сдвинул экран
-  useEffect(() => {
-    onVisibilityChange?.(!!activeInput)
-  }, [activeInput, onVisibilityChange])
+  useEffect(() => { onVisibilityChange?.(!!activeInput) }, [activeInput, onVisibilityChange])
 
-  // Закрытие клавиатуры: снимаем фокус с поля и прячем панель
-  function handleClose() {
-    activeInput?.blur()
-    setActiveInput(null)
-  }
+  function close() { activeInput?.blur(); setActiveInput(null) }
+
+  const setNativeValue = useCallback((el, next, caret) => {
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+    setter?.call(el, next)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+    if (caret != null) el.setSelectionRange(caret, caret)
+  }, [])
 
   const handleKey = useCallback((key) => {
     if (!activeInput) return
-
-    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype, 'value'
-    )?.set
-
     const el = activeInput
     const start = el.selectionStart ?? el.value.length
     const end = el.selectionEnd ?? el.value.length
@@ -102,101 +75,64 @@ export default function VirtualKeyboard({ onVisibilityChange }) {
 
     switch (key) {
       case 'backspace': {
-        if (start === end && start > 0) {
-          const next = val.slice(0, start - 1) + val.slice(end)
-          nativeInputValueSetter?.call(el, next)
-          el.dispatchEvent(new Event('input', { bubbles: true }))
-          el.setSelectionRange(start - 1, start - 1)
-        } else if (start !== end) {
-          const next = val.slice(0, start) + val.slice(end)
-          nativeInputValueSetter?.call(el, next)
-          el.dispatchEvent(new Event('input', { bubbles: true }))
-          el.setSelectionRange(start, start)
-        }
+        if (start === end && start > 0) setNativeValue(el, val.slice(0, start - 1) + val.slice(end), start - 1)
+        else if (start !== end) setNativeValue(el, val.slice(0, start) + val.slice(end), start)
         break
       }
-      case 'enter': {
+      case 'enter':
         el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }))
         break
-      }
-      case 'space': {
-        const next = val.slice(0, start) + ' ' + val.slice(end)
-        nativeInputValueSetter?.call(el, next)
-        el.dispatchEvent(new Event('input', { bubbles: true }))
-        el.setSelectionRange(start + 1, start + 1)
+      case 'space':
+        setNativeValue(el, val.slice(0, start) + ' ' + val.slice(end), start + 1)
         break
-      }
-      case 'shift': {
-        setShifted(s => !s)
-        return
-      }
-      case 'lang': {
-        setLayout(l => l === 'ru' ? 'en' : 'ru')
-        return
-      }
-      case 'num': {
-        setLayout('num')
-        return
-      }
-      case 'sym': {
-        setLayout('sym')
-        return
-      }
-      case 'abc': {
-        setLayout('ru')
-        return
-      }
+      case 'shift': setShifted((s) => !s); return
+      case 'lang': { const next = layout === 'ru' ? 'en' : 'ru'; lastAlpha.current = next; setLayout(next); return }
+      case 'sym': setLayout('sym'); return
+      case 'abc': setLayout(lastAlpha.current || 'ru'); return
       default: {
-        const char = shifted ? key.toUpperCase() : key
-        const next = val.slice(0, start) + char + val.slice(end)
-        nativeInputValueSetter?.call(el, next)
-        el.dispatchEvent(new Event('input', { bubbles: true }))
-        el.setSelectionRange(start + char.length, start + char.length)
+        const ch = shifted ? key.toUpperCase() : key
+        setNativeValue(el, val.slice(0, start) + ch + val.slice(end), start + ch.length)
         if (shifted) setShifted(false)
-        break
       }
     }
-
     el.focus()
-  }, [activeInput, shifted])
+  }, [activeInput, shifted, layout, setNativeValue])
 
   if (!activeInput) return null
-
-  const currentLayout = LAYOUTS[layout] || LAYOUTS.ru
+  const rows = LAYOUTS[layout] || LAYOUTS.ru
+  const langLabel = layout === 'ru' ? 'RU' : layout === 'en' ? 'EN' : 'RU'
 
   return (
-    <div className="vkb" ref={keyboardRef} onMouseDown={(e) => e.preventDefault()}>
-      <div className="vkb__header">
-        <span className="vkb__lang">{layout.toUpperCase()}</span>
-        <button className="vkb__close" onClick={handleClose}>
-          <X size={18} />
-        </button>
+    <div className="vkb" onMouseDown={(e) => e.preventDefault()}>
+      <div className="vkb__bar">
+        <span className="vkb__hint">Раскладка: {langLabel}</span>
+        <div className="vkb__bar-actions">
+          <button className="vkb__enter" onClick={() => handleKey('enter')} title="Ввод">
+            <CornerDownLeft size={20} /> Ввод
+          </button>
+          <button className="vkb__close" onClick={close} title="Скрыть"><X size={18} /></button>
+        </div>
       </div>
 
       <div className="vkb__rows">
-        {currentLayout.map((row, rowIdx) => (
-          <div className="vkb__row" key={rowIdx}>
-            {row.map((key, keyIdx) => {
-              const isSpecial = SPECIAL_KEYS.has(key)
-              const isWide = key === 'space'
-              const isMedium = ['backspace', 'shift', 'enter', 'lang', 'num', 'abc', 'sym'].includes(key)
-              const isMultiChar = key.length > 1 && !isSpecial
+        {rows.map((row, ri) => (
+          <div className="vkb__row" key={ri}>
+            {row.map((key, ki) => {
               const isDigit = /^[0-9]$/.test(key) && (layout === 'ru' || layout === 'en')
-
+              const cls = [
+                'vkb__key',
+                key === 'space' && 'vkb__key--space',
+                key === 'backspace' && 'vkb__key--backspace',
+                key === 'shift' && 'vkb__key--shift',
+                key === 'lang' && 'vkb__key--lang',
+                (key === 'sym' || key === 'abc') && 'vkb__key--fn',
+                isDigit && 'vkb__key--num',
+                shifted && key === 'shift' && 'vkb__key--active',
+                SPECIAL.has(key) && key !== 'space' && 'vkb__key--special',
+              ].filter(Boolean).join(' ')
               return (
-                <button
-                  key={`${rowIdx}-${keyIdx}`}
-                  className={[
-                    'vkb__key',
-                    isWide && 'vkb__key--wide',
-                    isMedium && 'vkb__key--medium',
-                    isMultiChar && 'vkb__key--multi',
-                    isDigit && 'vkb__key--num',
-                    shifted && key === 'shift' && 'vkb__key--active',
-                  ].filter(Boolean).join(' ')}
-                  onClick={() => handleKey(key)}
-                >
-                  {renderKeyLabel(key, shifted)}
+                <button key={`${ri}-${ki}`} className={cls} onClick={() => handleKey(key)}>
+                  {label(key, shifted, langLabel)}
                 </button>
               )
             })}
@@ -207,16 +143,14 @@ export default function VirtualKeyboard({ onVisibilityChange }) {
   )
 }
 
-function renderKeyLabel(key, shifted) {
+function label(key, shifted, langLabel) {
   switch (key) {
     case 'backspace': return <Delete size={22} />
     case 'shift': return <ArrowBigUp size={22} />
-    case 'space': return <Space size={22} />
-    case 'enter': return <CornerDownLeft size={22} />
-    case 'lang': return <Globe size={18} />
-    case 'num': return '123'
+    case 'space': return ''
+    case 'lang': return langLabel
+    case 'sym': return '+#='
     case 'abc': return 'АБВ'
-    case 'sym': return '#+=  '
     default: return shifted ? key.toUpperCase() : key
   }
 }

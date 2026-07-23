@@ -1472,11 +1472,17 @@
   margin-bottom: var(--spacing-xl);
 }
 .settings-section h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
   font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
-  margin-bottom: var(--spacing-md);
-  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-sm);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 2px solid var(--color-border-light);
+  color: var(--color-text-primary);
 }
+.settings-section h3 > svg { color: var(--color-brand); }
 
 .settings-row {
   display: flex;
@@ -1502,18 +1508,8 @@
   transition: background var(--transition-fast);
 }
 .toggle.active { background: var(--color-brand); }
-.toggle::after {
-  content: '';
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-full);
-  background: #fff;
-  transition: transform var(--transition-fast);
-}
-.toggle.active::after { transform: translateX(20px); }
+/* Ползунок тумблера рисуется через .toggle__dot (span), псевдоэлемент не используем,
+   иначе получается двойной кружок и тумблер выглядит сломанным. */
 
 /* Range slider */
 .settings-range {
@@ -3177,3 +3173,62 @@
   transition: background var(--transition-fast), color var(--transition-fast);
 }
 .org-screen__reset:hover { background: rgba(255, 255, 255, 0.22); color: #fff; }
+
+/* ── Полировка модалки настроек (Фаза 8) ── */
+.settings-modal { width: 600px; max-width: 94vw; }
+.settings-modal .modal__body { padding: var(--spacing-lg) var(--spacing-xl) var(--spacing-2xl); }
+.settings-section { margin-bottom: var(--spacing-2xl); }
+.settings-modal .settings-row { gap: var(--spacing-lg); }
+.settings-modal .settings-row > span:first-child { flex: 1; color: var(--color-text-primary); font-size: var(--text-base); }
+/* Инпуты в настройках компактнее, чем большие touch-поля */
+.settings-modal .input { min-height: 44px; }
+.settings-modal .settings-row--col { align-items: stretch; gap: var(--spacing-sm); }
+.settings-modal .settings-row--col > label { font-size: var(--text-sm); color: var(--color-text-secondary); font-weight: var(--font-weight-medium); }
+.settings-modal .settings-input-group { display: flex; align-items: center; gap: var(--spacing-sm); }
+.settings-value { min-width: 52px; text-align: center; font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
+.range-input { flex: 1; accent-color: var(--color-brand); height: 6px; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   ВИРТУАЛЬНАЯ КЛАВИАТУРА 1:1 (по референсу ZimZim)
+   Серая панель, белые цифры, серые буквы; ⌫/⇧/Ввод — оранжевые, RU — синий.
+   Идёт последней — переопределяет прежние .vkb-стили.
+   ═══════════════════════════════════════════════════════════════════ */
+.vkb {
+  background: #d8dde4;
+  border-top: 1px solid var(--color-border);
+  padding: 10px 14px 16px;
+  box-shadow: 0 -12px 44px rgba(11, 31, 63, 0.20);
+}
+.vkb__bar { display: flex; align-items: center; justify-content: space-between; padding: 2px 2px 12px; }
+.vkb__hint { font-size: 13px; color: var(--neutral-600); font-weight: 600; }
+.vkb__bar-actions { display: flex; align-items: center; gap: 8px; }
+.vkb__enter {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 46px; padding: 0 24px; border-radius: 12px;
+  background: #f97316; color: #fff; font-weight: 700; font-size: 15px;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.35);
+}
+.vkb__enter:active { transform: scale(0.96); }
+.vkb__close { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 12px; background: #fff; color: var(--neutral-600); }
+.vkb__rows { display: flex; flex-direction: column; gap: 8px; }
+.vkb__row { display: flex; gap: 8px; justify-content: center; }
+.vkb__key {
+  flex: 1; min-width: 44px; max-width: 98px; height: 62px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 10px; background: #eceef2; color: var(--neutral-900);
+  font-size: 19px; font-weight: 600;
+  box-shadow: 0 1px 0 rgba(11, 31, 63, 0.14);
+  cursor: pointer; user-select: none;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+.vkb__key:active { transform: translateY(1px); background: #dde1e8; }
+.vkb__key--num { background: #ffffff; font-weight: 700; }
+.vkb__key--special { max-width: 112px; background: #dfe3ea; color: var(--neutral-700); font-size: 15px; }
+.vkb__key--fn { font-weight: 700; color: var(--neutral-700); }
+.vkb__key--lang { color: var(--color-interactive); font-weight: 800; }
+.vkb__key--backspace { background: #f97316; color: #fff; }
+.vkb__key--backspace:active { background: #ea580c; }
+.vkb__key--shift svg { color: #f97316; }
+.vkb__key--shift.vkb__key--active { background: #f97316; }
+.vkb__key--shift.vkb__key--active svg { color: #fff; }
+.vkb__key--space { flex: 5; max-width: none; }
