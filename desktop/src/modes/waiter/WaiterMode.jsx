@@ -128,6 +128,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     return true
   })
   function addToCart(product) {
+    if (product.is_available === false || product.in_stop_list) return // в стоп-листе
     setCart((prev) => [...prev, { lineId: `${Date.now()}-${Math.random()}`, product, qty: 1, price: Number(product.price) || 0, note: '' }])
   }
   function saveEdit({ quantity, price, note }) {

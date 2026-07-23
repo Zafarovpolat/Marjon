@@ -113,6 +113,7 @@ export default function CashierMode({ user = {}, onBack }) {
   })
   // Клик по блюду в меню — сразу в заказ (без модалки)
   function addToCart(product) {
+    if (product.is_available === false || product.in_stop_list) return // в стоп-листе
     setCart((prev) => [...prev, { lineId: `${Date.now()}-${Math.random()}`, product, name: product.name, price: Number(product.price) || 0, qty: 1, note: '' }])
   }
   // Правка позиции В ЗАКАЗЕ (кол-во/цена/комментарий)
@@ -254,13 +255,13 @@ export default function CashierMode({ user = {}, onBack }) {
           <div className="cashier-products">
             <div className="cashier-products__grid">
               {filtered.length === 0 ? <p className="empty-text">Нет блюд</p> : filtered.map((p) => (
-                <button key={p.id} className="product-card" onClick={() => addToCart(p)}>
+                <button key={p.id} className={`product-card ${(p.is_available === false || p.in_stop_list) ? 'product-card--stop' : ''}`} onClick={() => addToCart(p)}>
                   <span className="product-card__thumb">
                     {p.image_url ? <img src={p.image_url} alt="" loading="lazy" /> : <Utensils size={26} />}
                   </span>
                   <span className="product-card__name">{p.name}</span>
                   <span className="product-card__price">{Number(p.price || 0).toLocaleString('ru-RU')} сум</span>
-                  {p.in_stop_list && <span className="product-card__stop">СТОП</span>}
+                  {(p.in_stop_list || p.is_available === false) && <span className="product-card__stop">СТОП</span>}
                 </button>
               ))}
             </div>

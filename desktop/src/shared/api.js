@@ -138,6 +138,8 @@ export const menu = {
   products: (params) => api.get('/inventory/products', { params }).then((r) => r.data),
   categories: () => api.get('/inventory/categories').then((r) => r.data),
   product: (id) => api.get(`/inventory/products/${id}`).then((r) => r.data),
+  // Стоп-лист = доступность блюда (is_available). false → в стопе.
+  setAvailable: (id, isAvailable) => api.patch(`/inventory/products/${id}`, { is_available: isAvailable }).then((r) => r.data),
 }
 
 // Залы (зоны) с вложенными столами: GET /halls?branch_id= → [{id,name,tables:[{id,number,capacity}]}]

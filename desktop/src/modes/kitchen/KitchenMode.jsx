@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   CheckCircle, Clock, AlertTriangle, Volume2, VolumeX,
-  LayoutGrid, Loader, CookingPot, Utensils, ShoppingBag, Bike, RefreshCw,
+  LayoutGrid, CookingPot, Utensils, ShoppingBag, Bike, RefreshCw, Ban,
 } from 'lucide-react'
 import { kitchen } from '../../shared/api'
+import StopListPanel from '../../components/StopListPanel'
 import { kitchenWS } from '../../services/kitchenWS'
 import { soundService } from '../../services/sound'
 
@@ -30,6 +31,7 @@ export default function KitchenMode({ user = {}, onBack }) {
   const [loading, setLoading] = useState(true)
   const [soundOn, setSoundOn] = useState(() => soundService.enabled)
   const [filter, setFilter] = useState('all')
+  const [stopOpen, setStopOpen] = useState(false)
   const [now, setNow] = useState(Date.now())
   const prevOrderIdsRef = useRef(new Set())
 
@@ -158,6 +160,10 @@ export default function KitchenMode({ user = {}, onBack }) {
             )
           })}
         </nav>
+        <button className="zone" onClick={() => setStopOpen(true)}>
+          <Ban size={20} />
+          <span className="zone__name">Стоп-лист</span>
+        </button>
         <div className="ws-side__spacer" />
         <button className="zone" onClick={onBack}>
           <RefreshCw size={20} />
@@ -204,6 +210,8 @@ export default function KitchenMode({ user = {}, onBack }) {
           )}
         </div>
       </main>
+
+      {stopOpen && <StopListPanel onClose={() => setStopOpen(false)} />}
     </div>
   )
 }

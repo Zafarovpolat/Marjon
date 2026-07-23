@@ -3368,3 +3368,16 @@
 .rep-dates .input { min-height: 44px; width: auto; }
 .rep-table-wrap { overflow: auto; }
 .rep-print { margin-top: var(--spacing-lg); }
+
+/* ── Стоп-лист ── */
+.stop-modal { width: 640px; max-width: 96vw; }
+.stop-count { display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--color-danger); color: #fff; font-size: 12px; font-weight: 700; margin-left: 8px; }
+.stop-controls { display: flex; align-items: center; gap: var(--spacing-md); padding: 0 var(--spacing-xl) var(--spacing-md); }
+.stop-list { display: flex; flex-direction: column; gap: 6px; }
+.stop-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-subtle); }
+.stop-row--off { background: var(--color-danger-bg); }
+.stop-row__info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.stop-row__name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--color-text-primary); }
+.stop-row--off .stop-row__name { text-decoration: line-through; color: var(--color-danger); }
+.stop-row__price { font-size: var(--text-xs); color: var(--color-text-muted); }
+.product-card--stop { opacity: 0.55; }
