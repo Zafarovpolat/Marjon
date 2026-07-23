@@ -9,7 +9,9 @@ export const api = axios.create()
 api.interceptors.request.use((config) => {
   config.baseURL = baseURL()
   const token = localStorage.getItem('marjon_token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  // Не перекрываем явно заданный заголовок (staffUsers/pin-login шлют org-токен терминала)
+  const hasExplicit = !!(config.headers && config.headers.Authorization)
+  if (token && !hasExplicit) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
@@ -19,8 +21,15 @@ api.interceptors.response.use(
     // На эндпоинтах авторизации 401 — это неверные креды, а не протухшая сессия.
     // Не сносим токен и не перезагружаем — даём странице показать ошибку.
     const url = err.config?.url || ''
-    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/pin-login')
-    if (err.response?.status === 401 && !isAuthEndpoint) {
+    // Не перезагружаем на эндпоинтах входа и подбора сотрудников (у них свои фолбэки),
+    // и только если реально есть сессия сотрудника (marjon_token) — иначе на экране
+    // выбора сотрудника 401 сбрасывал бы экран (баг «окно закрывается»).
+    const skipReload =
+      url.includes('/auth/login') ||
+      url.includes('/auth/pin-login') ||
+      url.includes('/auth/staff-users')
+    const hasStaffSession = !!localStorage.getItem('marjon_token')
+    if (err.response?.status === 401 && !skipReload && hasStaffSession) {
       localStorage.removeItem('marjon_token')
       window.location.reload()
     }

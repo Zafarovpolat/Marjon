@@ -2,12 +2,14 @@ const { app, BrowserWindow, ipcMain, shell } = require('electron')
 const { join } = require('path')
 const net = require('net')
 
-const isDev = process.env.NODE_ENV === 'development'
+const isDev = process.env.NODE_ENV === 'development' || !!process.env['ELECTRON_RENDERER_URL']
 
 // ── Single-instance lock ──────────────────────────────────────────────────────
+// В dev не завершаем процесс при отсутствии лока (electron-vite может перезапускать),
+// чтобы окно не закрывалось внезапно. В проде — стандартный single-instance.
 
 const gotLock = app.requestSingleInstanceLock()
-if (!gotLock) {
+if (!gotLock && !isDev) {
   app.quit()
 } else {
   app.on('second-instance', () => {
