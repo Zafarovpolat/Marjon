@@ -38,6 +38,19 @@ api.interceptors.response.use(
   }
 )
 
+// Офлайн-кэш: успешные GET кэшируем в localStorage; при ошибке (нет связи) отдаём кэш.
+async function cached(key, promise) {
+  try {
+    const data = await promise
+    try { localStorage.setItem('marjon_cache_' + key, JSON.stringify(data)) } catch { /* quota */ }
+    return data
+  } catch (e) {
+    const raw = localStorage.getItem('marjon_cache_' + key)
+    if (raw) { try { return JSON.parse(raw) } catch { /* ignore */ } }
+    throw e
+  }
+}
+
 // Org-токен терминала — access живёт 15 мин, refresh — 30 дней.
 // Обновляем access по refresh, когда он протух (иначе staff-users/pin-login дают 401).
 async function refreshOrgToken() {
@@ -109,7 +122,7 @@ export const printers = {
 }
 
 export const orders = {
-  list: (params) => api.get('/pos/orders', { params }).then((r) => r.data),
+  list: (params) => cached('orders_' + (params?.branch_id || 'all'), api.get('/pos/orders', { params }).then((r) => r.data)),
   get: (id) => api.get(`/pos/orders/${id}`).then((r) => r.data),
   create: (data) => api.post('/pos/orders', data).then((r) => r.data),
   update: (id, data) => api.patch(`/pos/orders/${id}`, data).then((r) => r.data),
@@ -121,7 +134,7 @@ export const orders = {
 
 export const kitchen = {
   orders: (branchId) =>
-    api.get('/kitchen/orders', { params: { branch_id: branchId } }).then((r) => r.data),
+    cached('kitchen_orders_' + branchId, api.get('/kitchen/orders', { params: { branch_id: branchId } }).then((r) => r.data)),
   stations: () => api.get('/kitchen/stations').then((r) => r.data),
   itemStatus: (itemId, status) =>
     api.patch('/kitchen/orders/items/status', { order_item_id: itemId, status }).then((r) => r.data),
@@ -135,8 +148,8 @@ export const kitchen = {
 }
 
 export const menu = {
-  products: (params) => api.get('/inventory/products', { params }).then((r) => r.data),
-  categories: () => api.get('/inventory/categories').then((r) => r.data),
+  products: (params) => cached('products', api.get('/inventory/products', { params }).then((r) => r.data)),
+  categories: () => cached('categories', api.get('/inventory/categories').then((r) => r.data)),
   product: (id) => api.get(`/inventory/products/${id}`).then((r) => r.data),
   // Стоп-лист = доступность блюда (is_available). false → в стопе.
   setAvailable: (id, isAvailable) => api.patch(`/inventory/products/${id}`, { is_available: isAvailable }).then((r) => r.data),
@@ -144,7 +157,7 @@ export const menu = {
 
 // Залы (зоны) с вложенными столами: GET /halls?branch_id= → [{id,name,tables:[{id,number,capacity}]}]
 export const halls = {
-  list: (branchId) => api.get('/halls', { params: { branch_id: branchId } }).then((r) => r.data),
+  list: (branchId) => cached('halls_' + branchId, api.get('/halls', { params: { branch_id: branchId } }).then((r) => r.data)),
   branchTables: (branchId) => api.get(`/halls/branch/${branchId}/tables`).then((r) => r.data),
 }
 // Обратная совместимость со старым импортом `tables`
