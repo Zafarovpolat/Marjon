@@ -29,9 +29,26 @@ api.interceptors.response.use(
 )
 
 export const auth = {
-  // Backend field is "email" (also accepts username); "phone" was wrong
-  login: (email, password) =>
-    api.post('/auth/login', { email, password }).then((r) => r.data),
+  // Бэкенд принимает email ИЛИ phone. Определяем по вводу.
+  login: (identifier, password) => {
+    const id = String(identifier || '').trim()
+    const isPhone = !id.includes('@') && /^\+?[\d\s()\-]{5,}$/.test(id)
+    const body = isPhone
+      ? { phone: id.replace(/[\s()\-]/g, ''), password }
+      : { email: id, password }
+    return api.post('/auth/login', body).then((r) => r.data)
+  },
+  // Список сотрудников филиала (для выбора перед PIN-входом).
+  // До входа сотрудника marjon_token отсутствует — авторизуемся org-токеном терминала.
+  staffUsers: (branchId) => {
+    const orgToken = localStorage.getItem('marjon_org_token')
+    return api
+      .get('/auth/staff-users', {
+        params: { branch_id: branchId },
+        headers: orgToken ? { Authorization: `Bearer ${orgToken}` } : {},
+      })
+      .then((r) => r.data)
+  },
   // PIN-вход сотрудника. Терминал привязан к организации админ-токеном:
   // бэкенд /auth/pin-login достаёт company_id из этого токена и ищет PIN внутри неё.
   // Шлём именно org-токен — обычный marjon_token на экране PIN-входа отсутствует.

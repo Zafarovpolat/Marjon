@@ -2985,3 +2985,175 @@
   box-shadow: var(--shadow-xs);
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════
+   ФАЗА 2 — ПОТОК ВХОДА: организация · сотрудники · пин-пад
+   Единый фон-фото (как логин), светлые карточки, палитра фронта.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.org-screen,
+.emp-screen,
+.pinpad-screen {
+  position: relative;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(7, 20, 40, 0.82) 0%, rgba(11, 31, 63, 0.72) 100%),
+    url('../assets/login-bg.jpg') center / cover no-repeat;
+}
+
+/* ── Экран организации ── */
+.org-screen__overlay {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, transparent 30%, rgba(7, 20, 40, 0.45) 100%);
+  pointer-events: none;
+}
+.org-screen__settings {
+  position: absolute; top: 22px; right: 22px;
+  width: 52px; height: 52px;
+  display: grid; place-items: center;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  backdrop-filter: blur(6px);
+  transition: background var(--transition-fast);
+}
+.org-screen__settings:hover { background: rgba(255, 255, 255, 0.22); }
+.org-screen__content {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  gap: var(--spacing-md);
+  text-align: center;
+}
+.org-screen__brand { display: flex; align-items: center; gap: 14px; margin-bottom: var(--spacing-md); }
+.org-screen__mark {
+  width: 56px; height: 56px; display: grid; place-items: center;
+  border-radius: 16px; background: var(--color-brand); color: #fff;
+  font-family: var(--font-display); font-weight: 800; font-size: 28px;
+  box-shadow: 0 8px 28px var(--color-brand-glow);
+}
+.org-screen__names { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
+.org-screen__org { font-family: var(--font-display); font-size: 26px; font-weight: 800; color: #fff; letter-spacing: 0.02em; }
+.org-screen__branch { font-size: 15px; color: rgba(255, 255, 255, 0.7); }
+.org-screen__clock {
+  font-family: var(--font-mono); font-size: 92px; font-weight: 700; color: #fff;
+  letter-spacing: 0.02em; text-shadow: 0 4px 30px rgba(0, 0, 0, 0.35); line-height: 1;
+}
+.org-screen__date { font-size: 18px; color: rgba(255, 255, 255, 0.75); text-transform: capitalize; margin-bottom: var(--spacing-lg); }
+.org-screen__enter {
+  display: inline-flex; align-items: center; gap: 12px;
+  height: 68px; padding: 0 56px;
+  border-radius: var(--radius-full);
+  background: var(--color-brand); color: #fff;
+  font-family: var(--font-display); font-size: 20px; font-weight: 700;
+  box-shadow: 0 12px 36px var(--color-brand-glow);
+  transition: transform var(--transition-fast), background var(--transition-fast);
+}
+.org-screen__enter:hover { background: var(--color-brand-hover); }
+.org-screen__enter:active { transform: scale(0.97); }
+.org-screen__support {
+  position: absolute; bottom: 20px; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 13px; color: rgba(255, 255, 255, 0.6);
+}
+
+/* ── Выбор сотрудника ── */
+.emp-screen__panel {
+  position: relative;
+  width: min(860px, 94vw);
+  max-height: 88vh;
+  display: flex; flex-direction: column;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  padding: var(--spacing-2xl);
+  overflow: hidden;
+}
+.emp-screen__header { display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-xl); }
+.emp-screen__titles { flex: 1; }
+.emp-screen__titles h1 { font-size: var(--text-2xl); font-weight: 700; }
+.emp-screen__titles p { font-size: var(--text-sm); color: var(--color-text-muted); }
+.emp-screen__state { display: flex; flex-direction: column; align-items: center; gap: var(--spacing-md); padding: var(--spacing-3xl); color: var(--color-text-muted); }
+.emp-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--spacing-lg); overflow-y: auto; padding: 4px;
+}
+.emp-card {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: var(--spacing-lg) var(--spacing-md);
+  border-radius: var(--radius-lg);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+.emp-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--color-brand); }
+.emp-card:active { transform: scale(0.97); }
+.emp-card__avatar {
+  width: 64px; height: 64px; display: grid; place-items: center;
+  border-radius: var(--radius-full); color: #fff;
+  font-family: var(--font-display); font-weight: 700; font-size: 22px;
+}
+.emp-card__name { font-size: var(--text-md); font-weight: 600; text-align: center; line-height: 1.2; }
+.emp-card__role { font-size: var(--text-sm); color: var(--color-text-muted); }
+.emp-screen__note { margin-top: var(--spacing-md); font-size: var(--text-sm); color: var(--color-warning); text-align: center; }
+
+/* ── Пин-пад ── */
+.pinpad {
+  position: relative;
+  width: min(400px, 92vw);
+  display: flex; flex-direction: column; align-items: center;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  padding: var(--spacing-xl) var(--spacing-2xl) var(--spacing-2xl);
+}
+.pinpad__back {
+  align-self: flex-start;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: var(--spacing-sm); margin-bottom: var(--spacing-sm);
+  background: transparent; color: var(--color-text-muted); font-size: var(--text-sm);
+  border-radius: var(--radius-sm);
+}
+.pinpad__back:hover { color: var(--color-text-primary); background: var(--color-subtle); }
+.pinpad__user { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: var(--spacing-lg); }
+.pinpad__avatar {
+  width: 64px; height: 64px; display: grid; place-items: center;
+  border-radius: var(--radius-full); background: var(--color-brand); color: #fff;
+  font-family: var(--font-display); font-weight: 700; font-size: 22px;
+}
+.pinpad__name { font-size: var(--text-lg); font-weight: 700; }
+.pinpad__role { font-size: var(--text-sm); color: var(--color-text-muted); }
+.pinpad__dots { display: flex; gap: var(--spacing-md); margin-bottom: var(--spacing-xl); }
+.pinpad__dots--error { animation: shake 0.4s; }
+.pinpad__dot {
+  width: 16px; height: 16px; border-radius: var(--radius-full);
+  border: 2px solid var(--color-border-strong); transition: all var(--transition-fast);
+}
+.pinpad__dot--filled { background: var(--color-brand); border-color: var(--color-brand); box-shadow: 0 0 8px var(--color-brand-glow); }
+.pinpad__dots--error .pinpad__dot { border-color: var(--color-danger); }
+.pinpad__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--spacing-md); width: 100%; }
+.pinpad__key {
+  height: 72px; border-radius: var(--radius-md);
+  background: var(--color-subtle); color: var(--color-text-primary);
+  font-family: var(--font-display); font-size: var(--text-2xl); font-weight: 600;
+  display: grid; place-items: center;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+.pinpad__key:hover { background: var(--neutral-200); }
+.pinpad__key:active { transform: scale(0.94); background: var(--color-brand); color: #fff; }
+.pinpad__key--action { background: transparent; color: var(--color-text-muted); }
+.pinpad__key--action:hover { background: var(--color-subtle); }
+.pinpad__key--empty { visibility: hidden; }
+.pinpad__submit {
+  width: 100%; min-height: 60px; margin-top: var(--spacing-xl);
+  border-radius: var(--radius-md);
+  background: var(--color-brand); color: #fff;
+  font-size: var(--text-lg); font-weight: 700;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+.pinpad__submit:hover { background: var(--color-brand-hover); }
+.pinpad__submit:active { transform: scale(0.98); }
+.pinpad__submit:disabled { opacity: 0.5; }

@@ -4,17 +4,37 @@ import ServerSetup from './pages/ServerSetup'
 import LoginPage from './pages/LoginPage'
 import BranchSelector from './pages/BranchSelector'
 import ModeSelector from './pages/ModeSelector'
+import OrganizationScreen from './pages/OrganizationScreen'
+import EmployeeSelector from './pages/EmployeeSelector'
+import PinPad from './pages/PinPad'
 import TopBar from './components/TopBar'
 import BottomBar from './components/BottomBar'
+import SettingsModal from './components/SettingsModal'
 import CashierMode from './modes/cashier/CashierMode'
 import KitchenMode from './modes/kitchen/KitchenMode'
 import WaiterMode from './modes/waiter/WaiterMode'
+import { auth } from './shared/api'
 import { kitchenWS } from './services/kitchenWS'
 
 const MODES = {
   cashier: { component: CashierMode, label: 'Касса' },
   kitchen: { component: KitchenMode, label: 'Кухня' },
   waiter: { component: WaiterMode, label: 'Официант' },
+}
+
+// Роль → рабочий режим. owner/manager → null (показываем выбор режима: доступ ко всему).
+const ROLE_TO_MODE = {
+  waiter: 'waiter', cashier: 'cashier',
+  cook: 'kitchen', chef: 'kitchen', kitchen: 'kitchen', bartender: 'kitchen',
+}
+function roleToMode(user, employee) {
+  const slugs = [...(user?.role_slugs || [])]
+  if (employee?.role_slug) slugs.push(employee.role_slug)
+  for (const s of slugs) {
+    const m = ROLE_TO_MODE[String(s || '').toLowerCase()]
+    if (m) return m
+  }
+  return null
 }
 
 function loadJson(key) {
@@ -32,13 +52,15 @@ export default function App() {
   const [staffUser, setStaffUser] = useState(() => loadJson('marjon_user'))
   const [mode, setMode] = useState(() => localStorage.getItem('marjon_mode') || null)
 
+  // Под-поток входа сотрудника
+  const [staffView, setStaffView] = useState('org')      // org | employees | pin
+  const [pinEmployee, setPinEmployee] = useState(null)
+
   const [isOnline, setIsOnline] = useState(true)
   const [isLocked, setIsLocked] = useState(false)
   const [lockPin, setLockPin] = useState('')
+  const [showSettings, setShowSettings] = useState(false)
 
-  // Терминал привязан если есть orgToken + branch
-  const isTerminalBound = !!(orgToken && branch)
-  // Сотрудник залогинен
   const isStaffLoggedIn = !!(staffToken && staffUser)
 
   // WebSocket при полном входе
@@ -46,28 +68,19 @@ export default function App() {
     if (!staffToken || !branch?.id || !mode) return
     const serverUrl = localStorage.getItem('marjon_server_url') || 'http://localhost:8000/api/v1'
     kitchenWS.connect(serverUrl, staffToken, branch.id)
-
-    const unsubscribe = kitchenWS.on('connection', ({ status }) => {
-      setIsOnline(status === 'online')
-    })
-
-    return () => {
-      unsubscribe()
-      kitchenWS.disconnect()
-    }
+    const unsubscribe = kitchenWS.on('connection', ({ status }) => setIsOnline(status === 'online'))
+    return () => { unsubscribe(); kitchenWS.disconnect() }
   }, [staffToken, branch?.id, mode])
 
   // 1. Админ привязывает терминал (логин/пароль)
   const handleAdminLogin = useCallback((data) => {
     localStorage.setItem('marjon_org_token', data.access_token)
     localStorage.setItem('marjon_org_user', JSON.stringify(data.user))
-    // Также ставим как текущий токен (админ = первый user)
-    localStorage.setItem('marjon_token', data.access_token)
-    localStorage.setItem('marjon_user', JSON.stringify(data.user))
+    // Не оставляем админа как «сотрудника»: вход сотрудника идёт через выбор + PIN
+    localStorage.removeItem('marjon_token')
+    localStorage.removeItem('marjon_user')
     setOrgToken(data.access_token)
     setOrgUser(data.user)
-    setStaffToken(data.access_token)
-    setStaffUser(data.user)
   }, [])
 
   // 2. Выбор филиала
@@ -76,15 +89,26 @@ export default function App() {
     setBranch(selectedBranch)
   }, [])
 
-  // 3. PIN-вход сотрудника
-  const handlePinLogin = useCallback((data) => {
+  // 3. PIN-вход выбранного сотрудника → авто-маршрут по роли
+  const handleEmployeePin = useCallback(async (pin) => {
+    const data = await auth.loginByPin(pin)         // бросит при неверном PIN → PinPad покажет ошибку
     localStorage.setItem('marjon_token', data.access_token)
-    localStorage.setItem('marjon_user', JSON.stringify(data.user))
     setStaffToken(data.access_token)
-    setStaffUser(data.user)
-  }, [])
 
-  // 4. Выбор режима
+    let me = null
+    try { me = await auth.me() } catch { /* ignore — используем выбранного сотрудника */ }
+    const user = me || pinEmployee || {}
+    localStorage.setItem('marjon_user', JSON.stringify(user))
+    setStaffUser(user)
+
+    const m = roleToMode(user, pinEmployee)
+    if (m) { localStorage.setItem('marjon_mode', m); setMode(m) }
+    else { localStorage.removeItem('marjon_mode'); setMode(null) }
+    setStaffView('org')
+    setPinEmployee(null)
+  }, [pinEmployee])
+
+  // 4. Выбор режима (для менеджера/владельца)
   const handleModeSelect = useCallback((selectedMode) => {
     localStorage.setItem('marjon_mode', selectedMode)
     setMode(selectedMode)
@@ -98,49 +122,30 @@ export default function App() {
     setStaffToken(null)
     setStaffUser(null)
     setMode(null)
+    setStaffView('org')
+    setPinEmployee(null)
     kitchenWS.disconnect()
   }, [])
 
   // Полный сброс терминала (отвязка от организации)
   const handleFullReset = useCallback(() => {
-    localStorage.removeItem('marjon_org_token')
-    localStorage.removeItem('marjon_org_user')
-    localStorage.removeItem('marjon_branch')
-    localStorage.removeItem('marjon_token')
-    localStorage.removeItem('marjon_user')
-    localStorage.removeItem('marjon_mode')
-    setOrgToken(null)
-    setOrgUser(null)
-    setBranch(null)
-    setStaffToken(null)
-    setStaffUser(null)
-    setMode(null)
+    ['marjon_org_token', 'marjon_org_user', 'marjon_branch', 'marjon_token', 'marjon_user', 'marjon_mode']
+      .forEach((k) => localStorage.removeItem(k))
+    setOrgToken(null); setOrgUser(null); setBranch(null)
+    setStaffToken(null); setStaffUser(null); setMode(null)
+    setStaffView('org'); setPinEmployee(null)
     kitchenWS.disconnect()
   }, [])
 
   const handleLock = useCallback(() => setIsLocked(true), [])
-
   const handleUnlock = useCallback((pin) => {
-    if (pin === '0000' || pin === staffUser?.pin) {
-      setIsLocked(false)
-      setLockPin('')
-      return true
+    if (pin === '0000' || pin === staffUser?.pin_code) {
+      setIsLocked(false); setLockPin(''); return true
     }
     return false
   }, [staffUser])
 
-  const handleBack = useCallback(() => {
-    localStorage.removeItem('marjon_mode')
-    setMode(null)
-  }, [])
-
-  // Назад из выбора режима — к списку филиалов (сотрудник остаётся залогинен)
-  const handleBackToBranches = useCallback(() => {
-    localStorage.removeItem('marjon_branch')
-    localStorage.removeItem('marjon_mode')
-    setBranch(null)
-    setMode(null)
-  }, [])
+  const handleBack = useCallback(() => { localStorage.removeItem('marjon_mode'); setMode(null) }, [])
 
   // ── Экран блокировки ──
   if (isLocked) {
@@ -158,18 +163,10 @@ export default function App() {
               placeholder="PIN"
               value={lockPin}
               onChange={(e) => setLockPin(e.target.value.replace(/\D/g, ''))}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && lockPin.length === 4) {
-                  if (!handleUnlock(lockPin)) setLockPin('')
-                }
-              }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && lockPin.length === 4) { if (!handleUnlock(lockPin)) setLockPin('') } }}
               autoFocus
             />
-            <button
-              className="btn btn--primary"
-              disabled={lockPin.length < 4}
-              onClick={() => { if (!handleUnlock(lockPin)) setLockPin('') }}
-            >
+            <button className="btn btn--primary" disabled={lockPin.length < 4} onClick={() => { if (!handleUnlock(lockPin)) setLockPin('') }}>
               Разблокировать
             </button>
           </div>
@@ -178,50 +175,56 @@ export default function App() {
     )
   }
 
+  const settingsOverlay = showSettings ? <SettingsModal open onClose={() => setShowSettings(false)} /> : null
+
   // ── Поток ──
-  // Шаг 0: Первый запуск — настройка адреса сервера
+  // Шаг 0: адрес сервера
   const serverUrl = localStorage.getItem('marjon_server_url')
-  if (!serverUrl) {
-    return <ServerSetup onComplete={() => window.location.reload()} />
-  }
+  if (!serverUrl) return <ServerSetup onComplete={() => window.location.reload()} />
 
-  // Шаг 1: Терминал не привязан — AdminLogin (логин/пароль + сервер)
-  if (!orgToken || !orgUser) {
-    return <LoginPage mode="admin" onLogin={handleAdminLogin} />
-  }
+  // Шаг 1: терминал не привязан — вход администратора
+  if (!orgToken || !orgUser) return <LoginPage mode="admin" onLogin={handleAdminLogin} />
 
-  // Шаг 2: Нет филиала — выбор
+  // Шаг 2: выбор филиала
   if (!branch) {
-    return (
-      <BranchSelector
-        user={orgUser}
-        onSelect={handleBranchSelect}
-        onLogout={handleFullReset}
-      />
-    )
+    return <BranchSelector user={orgUser} onSelect={handleBranchSelect} onLogout={handleFullReset} />
   }
 
-  // Шаг 3: Терминал привязан, но сотрудник не залогинен — PIN-вход
+  // Шаг 3: вход сотрудника — организация → выбор сотрудника → пин-пад
   if (!isStaffLoggedIn) {
+    if (staffView === 'employees') {
+      return (
+        <EmployeeSelector
+          branch={branch}
+          onSelect={(emp) => { setPinEmployee(emp); setStaffView('pin') }}
+          onBack={() => setStaffView('org')}
+        />
+      )
+    }
+    if (staffView === 'pin' && pinEmployee) {
+      return <PinPad employee={pinEmployee} onSubmit={handleEmployeePin} onBack={() => setStaffView('employees')} />
+    }
     return (
-      <LoginPage
-        mode="pin"
-        branchName={branch?.name}
-        orgName={orgUser?.company_name || orgUser?.name}
-        onLogin={handlePinLogin}
-        onReset={handleFullReset}
-      />
+      <>
+        <OrganizationScreen
+          orgName={orgUser?.company_name || orgUser?.name}
+          branchName={branch?.name}
+          onEnter={() => setStaffView('employees')}
+          onSettings={() => setShowSettings(true)}
+        />
+        {settingsOverlay}
+      </>
     )
   }
 
-  // Шаг 4: Выбор режима
+  // Шаг 4: выбор режима (менеджер/владелец)
   if (!mode) {
     return (
       <ModeSelector
         user={staffUser}
         branch={branch}
         onSelect={handleModeSelect}
-        onBack={handleBackToBranches}
+        onBack={handleStaffLogout}
         onLogout={handleStaffLogout}
       />
     )
@@ -239,23 +242,16 @@ export default function App() {
         isOnline={isOnline}
         onRefresh={() => window.location.reload()}
         onLock={handleLock}
+        onSettings={() => setShowSettings(true)}
         onAccount={handleStaffLogout}
       />
 
       <main className="app-shell__content">
-        <ModeComponent
-          user={userWithBranch}
-          branch={branch}
-          onLogout={handleStaffLogout}
-          onBack={handleBack}
-        />
+        <ModeComponent user={userWithBranch} branch={branch} onLogout={handleStaffLogout} onBack={handleBack} />
       </main>
 
-      <BottomBar
-        userName={staffUser?.name}
-        branchName={branch?.name}
-        mode={modeLabel}
-      />
+      <BottomBar userName={staffUser?.name} branchName={branch?.name} mode={modeLabel} />
+      {settingsOverlay}
     </div>
   )
 }
