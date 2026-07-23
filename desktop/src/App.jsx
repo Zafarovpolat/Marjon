@@ -62,6 +62,7 @@ export default function App() {
 
   const [isOnline, setIsOnline] = useState(true)
   const [queued, setQueued] = useState(() => queueSize())
+  const [, setLangVersion] = useState(0)   // бамп для перерисовки при смене языка
   const [isLocked, setIsLocked] = useState(false)
   const [lockPin, setLockPin] = useState('')
   const [showSettings, setShowSettings] = useState(false)
@@ -86,6 +87,13 @@ export default function App() {
     const onQ = (e) => setQueued(e.detail?.size ?? queueSize())
     window.addEventListener('marjon:queue', onQ)
     return () => window.removeEventListener('marjon:queue', onQ)
+  }, [])
+
+  // Смена языка без перезагрузки: перерисовываем всё дерево (t() читает язык при вызове)
+  useEffect(() => {
+    const onLang = () => setLangVersion((v) => v + 1)
+    window.addEventListener('marjon:lang', onLang)
+    return () => window.removeEventListener('marjon:lang', onLang)
   }, [])
 
   // 1. Админ привязывает терминал (логин/пароль)
@@ -259,15 +267,28 @@ export default function App() {
     const isManager = roles.some((r) => MANAGER_ROLES.includes(r))
     if (isManager) {
       return (
-        <>
-          <ManagerMode
-            user={{ ...staffUser, branch_id: branch.id }}
-            branch={branch}
-            onSwitchMode={handleModeSelect}
-            onLogout={handleStaffLogout}
+        <div className="app-shell">
+          <TopBar
+            title={t('mode_manager')}
+            subtitle={branch?.name}
+            isOnline={isOnline}
+            queued={queued}
+            onRefresh={() => window.location.reload()}
+            onLock={handleLock}
+            onSettings={() => setShowSettings(true)}
+            onAccount={handleStaffLogout}
           />
+          <main className="app-shell__content">
+            <ManagerMode
+              user={{ ...staffUser, branch_id: branch.id }}
+              branch={branch}
+              onSwitchMode={handleModeSelect}
+              onLogout={handleStaffLogout}
+            />
+          </main>
+          <BottomBar userName={staffUser?.name} branchName={branch?.name} mode={t('mode_manager')} />
           {settingsOverlay}
-        </>
+        </div>
       )
     }
     return (

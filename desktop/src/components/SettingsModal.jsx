@@ -27,6 +27,19 @@ export default function SettingsModal({ open, onClose }) {
   if (!open) return null
   const persist = (k, v) => localStorage.setItem(k, v)
 
+  function applyTheme(next) {
+    setTheme(next)
+    persist('marjon_theme', next)
+    document.documentElement.setAttribute('data-theme', next)
+  }
+  // Смена языка без перезагрузки окна: сохраняем + сообщаем приложению событием,
+  // App перерисует дерево, и все вызовы t() подхватят новый язык.
+  function changeLang(next) {
+    persist('marjon_lang', next)
+    setLang(next)
+    try { window.dispatchEvent(new CustomEvent('marjon:lang', { detail: { lang: next } })) } catch { /* no window */ }
+  }
+
   async function zoomStep(dir) {
     const fn = dir > 0 ? el()?.zoomIn : el()?.zoomOut
     const next = await Promise.resolve(fn?.()).catch(() => null)
@@ -125,15 +138,15 @@ export default function SettingsModal({ open, onClose }) {
             <div className="settings-row">
               <span>{t('s_lang')}</span>
               <div className="settings-input-group">
-                <button className={`btn ${lang === 'ru' ? 'btn--primary' : 'btn--outline'}`} onClick={() => { persist('marjon_lang', 'ru'); setLang('ru'); window.location.reload() }}>RU</button>
-                <button className={`btn ${lang === 'uz' ? 'btn--primary' : 'btn--outline'}`} onClick={() => { persist('marjon_lang', 'uz'); setLang('uz'); window.location.reload() }}>UZ</button>
+                <button className={`btn ${lang === 'ru' ? 'btn--primary' : 'btn--outline'}`} onClick={() => changeLang('ru')}>RU</button>
+                <button className={`btn ${lang === 'uz' ? 'btn--primary' : 'btn--outline'}`} onClick={() => changeLang('uz')}>UZ</button>
               </div>
             </div>
             <div className="settings-row">
               <span>{t('s_theme')}</span>
               <div className="settings-input-group">
-                <button className={`btn ${theme === 'light' ? 'btn--primary' : 'btn--outline'}`} onClick={() => { setTheme('light'); persist('marjon_theme', 'light') }}>{t('s_light')}</button>
-                <button className={`btn ${theme === 'dark' ? 'btn--primary' : 'btn--outline'}`} onClick={() => { setTheme('dark'); persist('marjon_theme', 'dark') }}>{t('s_dark')}</button>
+                <button className={`btn ${theme === 'light' ? 'btn--primary' : 'btn--outline'}`} onClick={() => applyTheme('light')}>{t('s_light')}</button>
+                <button className={`btn ${theme === 'dark' ? 'btn--primary' : 'btn--outline'}`} onClick={() => applyTheme('dark')}>{t('s_dark')}</button>
               </div>
             </div>
           </section>

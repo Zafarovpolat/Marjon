@@ -687,15 +687,16 @@
 
 .mode-card {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--spacing-lg);
+  text-align: center;
+  gap: var(--spacing-sm);
   min-height: 100px;
-  padding: var(--spacing-xl);
+  padding: var(--spacing-lg) var(--spacing-md);
   background: var(--color-subtle);
   border: 2px solid var(--color-border-light);
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
-  text-align: left;
   transition: all var(--transition-normal);
 }
 .mode-card:hover {
@@ -718,11 +719,12 @@
 .mode-card__text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 3px;
 }
 .mode-card__label {
-  font-size: var(--text-lg);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-bold);
 }
 .mode-card__desc {
   font-size: var(--text-sm);
@@ -1987,7 +1989,7 @@
 }
 .settings-input-group { display: flex; gap: var(--spacing-sm); }
 .settings-input-group .input { flex: 1; }
-.input, .range-input {
+.input {
   min-height: var(--touch-min);
 }
 .input {
@@ -3259,7 +3261,8 @@
 .qty-stepper span { min-width: 40px; text-align: center; font-size: var(--text-xl); font-weight: 700; }
 
 /* Строка корзины: название + примечание из модалки блюда */
-.cart-row__info { flex: 1; display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.cart-row__info { flex: 1; display: flex; flex-direction: column; min-width: 0; gap: 2px; background: transparent; border: none; padding: 0; text-align: left; cursor: pointer; color: var(--color-text-primary); }
+.cart-row__name { flex: none; font-size: var(--text-md); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cart-row__note { font-size: var(--text-xs); color: var(--color-warning); font-style: italic; }
 
 /* ── Настройки: фиксы (тумблер красится, ползунок, крупные кнопки, подсказки) ── */
@@ -3268,7 +3271,7 @@
 .range-input { -webkit-appearance: none; appearance: none; height: 8px; border-radius: 999px; background: var(--neutral-200); }
 .range-input::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(--color-brand); cursor: pointer; box-shadow: 0 2px 6px rgba(11, 31, 63, 0.25); }
 .range-input::-moz-range-thumb { width: 22px; height: 22px; border: none; border-radius: 50%; background: var(--color-brand); cursor: pointer; }
-.settings-hint { font-size: var(--text-sm); color: var(--color-text-muted); margin: -6px 0 12px; line-height: 1.45; }
+.settings-hint { font-size: var(--text-sm); color: var(--color-text-muted); margin: 2px 0 18px; line-height: 1.5; }
 .settings-num { width: 104px; text-align: center; }
 .settings-modal .btn { min-height: 48px; padding: 0 20px; font-size: var(--text-base); white-space: nowrap; }
 .settings-save { min-width: 132px; }
@@ -3403,6 +3406,14 @@
 .recipe-modal .modal__header h3 { display: flex; align-items: center; gap: 8px; }
 .recipe-desc { margin: 0 0 var(--spacing-md); color: var(--color-text-secondary); font-size: var(--text-sm); line-height: 1.5; }
 .recipe-out { margin-top: var(--spacing-md); padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-brand-bg); color: var(--color-brand-dark); font-weight: 700; font-size: var(--text-sm); text-align: right; }
+
+/* Единый заголовок для всех модалок (финансы/история/отчёты/стоп-лист/техкарта):
+   бренд-иконка + ровный размер, лёгкие разделители секций — цельный вид по палитре */
+.modal__header h2, .modal__header h3 { display: flex; align-items: center; gap: 8px; font-size: var(--text-lg); font-weight: 700; color: var(--color-text-primary); }
+.modal__header h2 > svg, .modal__header h3 > svg { color: var(--color-brand); flex-shrink: 0; }
+.settings-section h3 { border-bottom-width: 1px; }
+/* Таблицы внутри модалок дышат так же, как в панелях */
+.hist-modal .modal__body, .rep-modal .modal__body, .stop-modal .modal__body { padding-top: var(--spacing-md); }
 .rep-controls { padding: 0 var(--spacing-xl) var(--spacing-md); display: flex; flex-direction: column; gap: var(--spacing-md); }
 .rep-dates { display: flex; align-items: center; gap: var(--spacing-sm); }
 .rep-dates .input { min-height: 44px; width: auto; }

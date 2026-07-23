@@ -9,13 +9,6 @@ import { kitchenWS } from '../../services/kitchenWS'
 import { soundService } from '../../services/sound'
 import { t } from '../../shared/i18n'
 
-const FILTERS = [
-  { id: 'all', label: t('all'), Icon: LayoutGrid },
-  { id: 'new', label: t('new_orders'), Icon: Clock },
-  { id: 'cooking', label: t('cooking_orders'), Icon: CookingPot },
-  { id: 'ready', label: t('ready_orders'), Icon: CheckCircle },
-]
-
 // Бэкенд может отдавать наивный UTC (без таймзоны) — считаем его UTC, иначе таймеры врут
 function parseTs(ts) {
   if (!ts) return Date.now()
@@ -28,6 +21,12 @@ function initials(name = '') {
 }
 
 export default function KitchenMode({ user = {}, onBack }) {
+  const FILTERS = [
+    { id: 'all', label: t('all'), Icon: LayoutGrid },
+    { id: 'new', label: t('new_orders'), Icon: Clock },
+    { id: 'cooking', label: t('cooking_orders'), Icon: CookingPot },
+    { id: 'ready', label: t('ready_orders'), Icon: CheckCircle },
+  ]
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [soundOn, setSoundOn] = useState(() => soundService.enabled)

@@ -1,31 +1,12 @@
 import { ShoppingCart, ChefHat, UtensilsCrossed, LogOut, ArrowLeft } from 'lucide-react'
 import { t } from '../shared/i18n'
 
-const MODES = [
-  {
-    id: 'cashier',
-    label: t('mode_cashier'),
-    description: t('md_cashier_desc'),
-    icon: ShoppingCart,
-    color: 'var(--color-brand)',
-  },
-  {
-    id: 'kitchen',
-    label: t('mode_kitchen'),
-    description: t('md_kitchen_desc'),
-    icon: ChefHat,
-    color: 'var(--color-warning)',
-  },
-  {
-    id: 'waiter',
-    label: t('mode_waiter'),
-    description: t('md_waiter_desc'),
-    icon: UtensilsCrossed,
-    color: 'var(--color-success)',
-  },
-]
-
 export default function ModeSelector({ user, branch, onSelect, onBack, onLogout }) {
+  const MODES = [
+    { id: 'cashier', label: t('mode_cashier'), description: t('md_cashier_desc'), icon: ShoppingCart, color: 'var(--color-brand)' },
+    { id: 'kitchen', label: t('mode_kitchen'), description: t('md_kitchen_desc'), icon: ChefHat, color: 'var(--color-warning)' },
+    { id: 'waiter', label: t('mode_waiter'), description: t('md_waiter_desc'), icon: UtensilsCrossed, color: 'var(--color-success)' },
+  ]
   return (
     <div className="login-page">
       <div className="login-card" style={{ maxWidth: 680 }}>

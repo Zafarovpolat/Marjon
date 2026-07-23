@@ -8,17 +8,12 @@ import DishModal from '../../components/DishModal'
 import RecipeModal from '../../components/RecipeModal'
 import { t } from '../../shared/i18n'
 
-const STATUS_LABELS = {
-  new: t('st_new'), accepted: t('st_accepted'), cooking: t('st_cooking'),
-  ready: t('st_ready'), completed: t('st_completed'), cancelled: t('st_cancelled'),
-}
 const STATUS_COLORS = {
   new: 'var(--color-info)', accepted: 'var(--color-brand)',
   cooking: 'var(--color-warning)', ready: 'var(--color-success)',
 }
 const ACTIVE_STATUSES = new Set(['new', 'accepted', 'cooking', 'ready', 'pending'])
 
-const TABLE_LABELS = { free: t('free'), busy: t('busy'), ready: t('ready') }
 
 function zoneIcon(name = '') {
   const n = name.toLowerCase()
@@ -241,7 +236,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                           ) : (
                             <div className="tcard__spacer" />
                           )}
-                          <span className="tcard__status">{TABLE_LABELS[st]}</span>
+                          <span className="tcard__status">{t(st)}</span>
                         </button>
                       )
                     })}
@@ -258,7 +253,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
               <button className="btn-ghost btn--lg" onClick={() => setView('floor')}><ArrowLeft size={22} /> {t('back')}</button>
               <h2>{t('table')} {selectedTable.number}</h2>
               <span className="status-badge" style={{ background: STATUS_COLORS[selectedTable.order?.status] || 'var(--color-text-muted)' }}>
-                {STATUS_LABELS[selectedTable.order?.status] || ''}
+                {selectedTable.order?.status ? t.status(selectedTable.order.status) : ''}
               </span>
             </header>
             <div className="waiter-detail__order">
@@ -275,7 +270,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                     <span className="detail-item__status">
                       {item.status === 'ready' && <CheckCircle size={16} />}
                       {item.status === 'cooking' && <Coffee size={16} />}
-                      {STATUS_LABELS[item.status] || item.status || ''}
+                      {item.status ? t.status(item.status) : ''}
                     </span>
                   </li>
                 ))}

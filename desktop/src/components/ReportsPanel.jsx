@@ -3,12 +3,6 @@ import { X, BarChart3, Printer } from 'lucide-react'
 import { reports } from '../shared/api'
 import { t } from '../shared/i18n'
 
-const TABS = [
-  { id: 'sales', label: t('rep_sales') },
-  { id: 'products', label: t('rep_products') },
-  { id: 'staff', label: t('rep_staff') },
-]
-
 // Ключ колонки с сервера → ключ словаря
 const COL_KEY = {
   name: 'col_name', title: 'col_name', product: 'col_product', staff: 'col_staff', cashier: 'col_cashier',
@@ -27,6 +21,11 @@ function fmtCell(k, v) {
 }
 
 export default function ReportsPanel({ branch, onClose }) {
+  const TABS = [
+    { id: 'sales', label: t('rep_sales') },
+    { id: 'products', label: t('rep_products') },
+    { id: 'staff', label: t('rep_staff') },
+  ]
   const [tab, setTab] = useState('sales')
   const [from, setFrom] = useState(today())
   const [to, setTo] = useState(today())

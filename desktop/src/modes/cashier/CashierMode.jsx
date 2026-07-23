@@ -13,8 +13,6 @@ import RecipeModal from '../../components/RecipeModal'
 import { t } from '../../shared/i18n'
 
 const ACTIVE = new Set(['new', 'accepted', 'cooking', 'ready', 'pending'])
-const TABLE_LABELS = { free: t('free'), busy: t('busy'), ready: t('ready') }
-const TYPE_LABELS = { dine_in: t('dine_in'), takeaway: t('takeaway'), delivery: t('delivery') }
 
 function zoneIcon(name = '') {
   const n = name.toLowerCase()
@@ -203,7 +201,7 @@ export default function CashierMode({ user = {}, onBack }) {
                               {o.total_amount != null && <span className="tcard__amount">{Number(o.total_amount).toLocaleString('ru-RU')} {t('currency')}</span>}
                             </span></>
                         ) : <div className="tcard__spacer" />}
-                        <span className="tcard__status">{TABLE_LABELS[st]}</span>
+                        <span className="tcard__status">{t(st)}</span>
                       </button>
                     )
                   })}
@@ -242,7 +240,7 @@ export default function CashierMode({ user = {}, onBack }) {
         <div className="board__head">
           <div className="board__title">
             <h2>
-              {orderType === 'dine_in' ? (selectedTable ? `${t('table')} ${selectedTable.number}` : t('dine_in')) : TYPE_LABELS[orderType]}
+              {orderType === 'dine_in' ? (selectedTable ? `${t('table')} ${selectedTable.number}` : t('dine_in')) : t(orderType)}
             </h2>
             <span className="board__subtitle">{itemCount} {t('items_low')} · {total.toLocaleString('ru-RU')} {t('currency')}</span>
           </div>

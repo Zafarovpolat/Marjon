@@ -196,3 +196,47 @@
   --z-toast: 300;
   --z-overlay: 400;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   ТЁМНАЯ ТЕМА — переопределяем только семантические алиасы.
+   Хром (навигация/сайдбар) и так тёмно-синий, поэтому меняем поверхности,
+   текст, границы и фоны статусов (делаем полупрозрачными на тёмном).
+   Применяется через <html data-theme="dark">.
+   ═══════════════════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+  --color-text-primary:     #e7edf6;
+  --color-text-secondary:   var(--neutral-300);
+  --color-text-muted:       var(--neutral-400);
+  --color-text-placeholder: var(--neutral-500);
+
+  --color-bg:            var(--neutral-950);
+  --color-card:          var(--neutral-900);
+  --color-surface:       var(--neutral-900);
+  --color-surface-hover: var(--neutral-800);
+  --color-subtle:        var(--neutral-800);
+
+  --color-border:        rgba(255, 255, 255, 0.12);
+  --color-border-light:  rgba(255, 255, 255, 0.07);
+  --color-border-strong: rgba(255, 255, 255, 0.20);
+
+  --color-brand-subtle:  rgba(29, 181, 181, 0.14);
+  --color-brand-bg:      rgba(29, 181, 181, 0.18);
+
+  --color-success-bg: rgba(22, 163, 74, 0.22);
+  --color-warning-bg: rgba(245, 158, 11, 0.22);
+  --color-danger-bg:  rgba(239, 68, 68, 0.22);
+  --color-info-bg:    rgba(59, 130, 246, 0.22);
+
+  /* Статусы столов на тёмном */
+  --status-free-bg:      var(--neutral-900);
+  --status-free-border:  rgba(255, 255, 255, 0.14);
+  --status-busy-bg:      rgba(245, 158, 11, 0.16);
+  --status-check-bg:     rgba(22, 163, 74, 0.16);
+
+  /* Тени глубже на тёмном фоне */
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, .35);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, .40);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, .45);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, .50);
+  --shadow-xl: 0 24px 64px rgba(0, 0, 0, .55);
+}

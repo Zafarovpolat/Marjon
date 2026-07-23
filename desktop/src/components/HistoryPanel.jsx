@@ -3,16 +3,15 @@ import { X, History } from 'lucide-react'
 import { orders } from '../shared/api'
 import { t } from '../shared/i18n'
 
-const TYPES = [
-  { id: 'all', label: t('all') },
-  { id: 'dine_in', label: t('dine_in') },
-  { id: 'takeaway', label: t('takeaway') },
-  { id: 'delivery', label: t('delivery') },
-]
-
 function fmtDt(iso) { return iso ? new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '' }
 
 export default function HistoryPanel({ branch, onClose }) {
+  const TYPES = [
+    { id: 'all', label: t('all') },
+    { id: 'dine_in', label: t('dine_in') },
+    { id: 'takeaway', label: t('takeaway') },
+    { id: 'delivery', label: t('delivery') },
+  ]
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [type, setType] = useState('all')
