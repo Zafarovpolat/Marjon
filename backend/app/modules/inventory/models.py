@@ -95,6 +95,17 @@ class Ingredient(TimeStampedModel):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class ProductRecipe(TimeStampedModel):
+    """Техкарта: блюдо → ингредиенты с количеством (для попапа рецепта на кухне)."""
+    __tablename__ = "product_recipes"
+
+    company_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), index=True)
+    product_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("products.id", ondelete="CASCADE"), index=True)
+    ingredient_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("ingredients.id"), index=True)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(15, 4), default=Decimal("0"))
+    unit: Mapped[str] = mapped_column(String(20), default="г")
+
+
 class Warehouse(TimeStampedModel):
     __tablename__ = "warehouses"
 

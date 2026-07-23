@@ -3276,6 +3276,18 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 /* Карточка блюда в кассе — фото/заглушка сверху */
+.product-cell { position: relative; display: flex; }
+.product-cell .product-card,
+.product-cell .product-tile { width: 100%; }
+.product-card__info {
+  position: absolute; top: 6px; left: 6px; z-index: 2;
+  width: 28px; height: 28px; display: grid; place-items: center;
+  border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(7, 20, 40, 0.55); color: #fff;
+  opacity: 0; transition: opacity var(--transition-fast), background var(--transition-fast);
+}
+.product-cell:hover .product-card__info { opacity: 1; }
+.product-card__info:hover { background: var(--color-brand); }
 .cashier-products .product-card { align-items: stretch; text-align: left; gap: 6px; padding: 10px; min-height: 0; }
 .product-card__thumb {
   width: 100%; height: 92px; border-radius: 10px;
@@ -3363,6 +3375,12 @@
 .hist-status--cancelled { background: var(--color-danger-bg); color: var(--color-danger); }
 .hist-status--ready { background: var(--color-brand-bg); color: var(--color-brand-dark); }
 .hist-status--cooking, .hist-status--accepted { background: var(--color-warning-bg); color: #b45309; }
+
+/* Попап техкарты (ингредиенты блюда) */
+.recipe-modal { max-width: 480px; width: 100%; }
+.recipe-modal .modal__header h3 { display: flex; align-items: center; gap: 8px; }
+.recipe-desc { margin: 0 0 var(--spacing-md); color: var(--color-text-secondary); font-size: var(--text-sm); line-height: 1.5; }
+.recipe-out { margin-top: var(--spacing-md); padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-brand-bg); color: var(--color-brand-dark); font-weight: 700; font-size: var(--text-sm); text-align: right; }
 .rep-controls { padding: 0 var(--spacing-xl) var(--spacing-md); display: flex; flex-direction: column; gap: var(--spacing-md); }
 .rep-dates { display: flex; align-items: center; gap: var(--spacing-sm); }
 .rep-dates .input { min-height: 44px; width: auto; }

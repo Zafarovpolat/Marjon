@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   Search, Plus, Minus, Trash2, CreditCard, Banknote, X, ShoppingBag, Bike, Utensils,
-  Percent, LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock, Wallet, History, BarChart3,
+  Percent, LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock, Wallet, History, BarChart3, ChefHat,
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi, printers as printersApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
@@ -9,6 +9,7 @@ import DishModal from '../../components/DishModal'
 import FinancePanel from '../../components/FinancePanel'
 import HistoryPanel from '../../components/HistoryPanel'
 import ReportsPanel from '../../components/ReportsPanel'
+import RecipeModal from '../../components/RecipeModal'
 
 const ACTIVE = new Set(['new', 'accepted', 'cooking', 'ready', 'pending'])
 const TABLE_LABELS = { free: 'Свободен', busy: 'Занят', ready: 'Готов' }
@@ -48,6 +49,7 @@ export default function CashierMode({ user = {}, onBack }) {
   const [finOpen, setFinOpen] = useState(false)
   const [histOpen, setHistOpen] = useState(false)
   const [repOpen, setRepOpen] = useState(false)
+  const [recipeProd, setRecipeProd] = useState(null)
   const [printerMap, setPrinterMap] = useState({})
 
   const loadFloor = useCallback(() => {
@@ -209,9 +211,9 @@ export default function CashierMode({ user = {}, onBack }) {
             ))}
           </div>
         </main>
-        {finOpen && <FinancePanel branch={branch} onClose={() => setFinOpen(false)} />}
-        {histOpen && <HistoryPanel branch={branch} onClose={() => setHistOpen(false)} />}
-        {repOpen && <ReportsPanel branch={branch} onClose={() => setRepOpen(false)} />}
+        {finOpen && <FinancePanel branch={{ id: user.branch_id }} onClose={() => setFinOpen(false)} />}
+        {histOpen && <HistoryPanel branch={{ id: user.branch_id }} onClose={() => setHistOpen(false)} />}
+        {repOpen && <ReportsPanel branch={{ id: user.branch_id }} onClose={() => setRepOpen(false)} />}
       </div>
     )
   }
@@ -254,16 +256,22 @@ export default function CashierMode({ user = {}, onBack }) {
         <div className="cashier-work">
           <div className="cashier-products">
             <div className="cashier-products__grid">
-              {filtered.length === 0 ? <p className="empty-text">Нет блюд</p> : filtered.map((p) => (
-                <button key={p.id} className={`product-card ${(p.is_available === false || p.in_stop_list) ? 'product-card--stop' : ''}`} onClick={() => addToCart(p)}>
-                  <span className="product-card__thumb">
-                    {p.image_url ? <img src={p.image_url} alt="" loading="lazy" /> : <Utensils size={26} />}
-                  </span>
-                  <span className="product-card__name">{p.name}</span>
-                  <span className="product-card__price">{Number(p.price || 0).toLocaleString('ru-RU')} сум</span>
-                  {(p.in_stop_list || p.is_available === false) && <span className="product-card__stop">СТОП</span>}
-                </button>
-              ))}
+              {filtered.length === 0 ? <p className="empty-text">Нет блюд</p> : filtered.map((p) => {
+                const stopped = p.is_available === false || p.in_stop_list
+                return (
+                  <div key={p.id} className="product-cell">
+                    <button className={`product-card ${stopped ? 'product-card--stop' : ''}`} onClick={() => addToCart(p)}>
+                      <span className="product-card__thumb">
+                        {p.image_url ? <img src={p.image_url} alt="" loading="lazy" /> : <Utensils size={26} />}
+                      </span>
+                      <span className="product-card__name">{p.name}</span>
+                      <span className="product-card__price">{Number(p.price || 0).toLocaleString('ru-RU')} сум</span>
+                      {stopped && <span className="product-card__stop">СТОП</span>}
+                    </button>
+                    <button className="product-card__info" onClick={() => setRecipeProd(p)} title="Техкарта"><ChefHat size={15} /></button>
+                  </div>
+                )
+              })}
             </div>
           </div>
 
@@ -312,6 +320,8 @@ export default function CashierMode({ user = {}, onBack }) {
           onClose={() => setEditLine(null)}
         />
       )}
+
+      {recipeProd && <RecipeModal product={recipeProd} onClose={() => setRecipeProd(null)} />}
 
       {payModal && (
         <div className="modal-overlay" onClick={() => setPayModal(false)}>

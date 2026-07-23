@@ -13,8 +13,41 @@ from app.modules.inventory.schemas import (
     StockItemResponse, StockMovementCreate, StockMovementResponse,
 )
 from app.modules.inventory.service import CategoryService, IngredientService, ProductService, StockService
+from sqlalchemy import select
+from app.modules.inventory.models import Product, Ingredient, ProductRecipe
+from app.shared.exceptions import NotFoundError
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
+
+
+@router.get("/products/{product_id}/recipe")
+async def product_recipe(
+    product_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Техкарта блюда: ингредиенты с количеством."""
+    prod = (await db.execute(
+        select(Product).where(Product.id == product_id, Product.company_id == user.company_id)
+    )).scalar_one_or_none()
+    if not prod:
+        raise NotFoundError("Product not found")
+    rows = (await db.execute(
+        select(ProductRecipe, Ingredient)
+        .join(Ingredient, Ingredient.id == ProductRecipe.ingredient_id)
+        .where(ProductRecipe.product_id == product_id, ProductRecipe.company_id == user.company_id)
+    )).all()
+    items = [
+        {"ingredient_name": ing.name, "quantity": float(pr.quantity or 0), "unit": pr.unit or ing.unit}
+        for pr, ing in rows
+    ]
+    return {
+        "product_id": str(product_id),
+        "product_name": prod.name,
+        "unit": prod.unit,
+        "description": prod.description,
+        "items": items,
+    }
 
 
 @router.post("/categories", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
