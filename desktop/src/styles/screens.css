@@ -332,3 +332,20 @@
 .wstat__dot--off { background: var(--red-500); }
 .ws-bottom__spacer { flex: 1; }
 .ws-bottom__ver { color: rgba(255, 255, 255, 0.35); font-family: var(--font-mono); }
+
+/* ── Кухня в общем каркасе: сетка без двойных отступов/скролла ── */
+.board__scroll .kitchen-grid {
+  padding: 0;
+  overflow: visible;
+}
+.btn.is-muted { opacity: 0.6; }
+
+/* ── Касса в общем каркасе: продукты + корзина ── */
+.cashier-work {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  height: 100%;
+  overflow: hidden;
+}
+.cashier-work .cashier-products { border-right: 1px solid var(--color-border-light); }
+.cashier-work .cashier-cart { background: var(--color-card); }

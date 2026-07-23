@@ -1,25 +1,29 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { CheckCircle, Clock, AlertTriangle, XCircle, Volume2, VolumeX, ArrowLeft, RefreshCw, Filter, Utensils, ShoppingBag, Bike } from 'lucide-react'
+import {
+  CheckCircle, Clock, AlertTriangle, Volume2, VolumeX,
+  LayoutGrid, Loader, CookingPot, Utensils, ShoppingBag, Bike, RefreshCw,
+} from 'lucide-react'
 import { kitchen } from '../../shared/api'
 import { kitchenWS } from '../../services/kitchenWS'
 import { soundService } from '../../services/sound'
-import TopBar from '../../components/TopBar'
-import BottomBar from '../../components/BottomBar'
 
-const TIMER_GREEN = 10 * 60 * 1000
-const TIMER_YELLOW = 20 * 60 * 1000
+const TIMER_GREEN = 5 * 60 * 1000
+const TIMER_YELLOW = 10 * 60 * 1000
 
 const FILTERS = [
-  { id: 'all', label: 'Все' },
-  { id: 'new', label: 'Новые' },
-  { id: 'cooking', label: 'Готовятся' },
-  { id: 'ready', label: 'Готовы' },
+  { id: 'all', label: 'Все', Icon: LayoutGrid },
+  { id: 'new', label: 'Новые', Icon: Clock },
+  { id: 'cooking', label: 'Готовятся', Icon: CookingPot },
+  { id: 'ready', label: 'Готовы', Icon: CheckCircle },
 ]
 
-export default function KitchenMode({ user, onBack, onLogout }) {
+function initials(name = '') {
+  return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('') || '?'
+}
+
+export default function KitchenMode({ user = {}, onBack }) {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
-  const [isOnline, setIsOnline] = useState(false)
   const [soundOn, setSoundOn] = useState(() => soundService.enabled)
   const [filter, setFilter] = useState('all')
   const [now, setNow] = useState(Date.now())
@@ -37,14 +41,11 @@ export default function KitchenMode({ user, onBack, onLogout }) {
   }, [user.branch_id])
 
   function trackNewOrders(list) {
-    const currentIds = new Set(list.map(o => o.id))
+    const currentIds = new Set(list.map((o) => o.id))
     const prevIds = prevOrderIdsRef.current
     if (prevIds.size > 0) {
       for (const id of currentIds) {
-        if (!prevIds.has(id)) {
-          soundService.play('newOrder')
-          break
-        }
+        if (!prevIds.has(id)) { soundService.play('newOrder'); break }
       }
     }
     prevOrderIdsRef.current = currentIds
@@ -52,78 +53,52 @@ export default function KitchenMode({ user, onBack, onLogout }) {
 
   useEffect(() => {
     loadOrders()
-
     const serverUrl = localStorage.getItem('marjon_server_url') || 'http://localhost:8000/api/v1'
     const token = localStorage.getItem('marjon_token')
     kitchenWS.connect(serverUrl, token, user.branch_id)
-
-    kitchenWS.on('connection', ({ status }) => {
-      setIsOnline(status === 'online')
-      if (status === 'online') {
-        soundService.play('connectionRestored')
-        loadOrders()
-      }
-    })
-
-    kitchenWS.on('new_order', () => {
-      soundService.play('newOrder')
-      loadOrders()
-    })
-
-    kitchenWS.on('order_updated', () => loadOrders())
-    kitchenWS.on('order_cancelled', () => {
-      soundService.play('orderCancelled')
-      loadOrders()
-    })
-
-    return () => {
-      kitchenWS.disconnect()
-      soundService.stopAllAlerts()
-    }
+    const unsubs = [
+      kitchenWS.on('connection', ({ status }) => { if (status === 'online') loadOrders() }),
+      kitchenWS.on('new_order', () => { soundService.play('newOrder'); loadOrders() }),
+      kitchenWS.on('order_updated', () => loadOrders()),
+      kitchenWS.on('order_cancelled', () => { soundService.play('orderCancelled'); loadOrders() }),
+    ]
+    return () => { unsubs.forEach((fn) => fn()); soundService.stopAllAlerts() }
   }, [loadOrders])
 
-  // Таймер — обновляем каждые 10 секунд
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 10000)
     return () => clearInterval(id)
   }, [])
 
-  // Проверка просроченных заказов
   useEffect(() => {
-    orders.forEach(order => {
+    orders.forEach((order) => {
       const elapsed = now - new Date(order.created_at).getTime()
-      if (elapsed > TIMER_YELLOW) {
-        soundService.startOverdueAlert(order.id)
-      } else {
-        soundService.stopOverdueAlert(order.id)
-      }
+      if (elapsed > TIMER_YELLOW) soundService.startOverdueAlert(order.id)
+      else soundService.stopOverdueAlert(order.id)
     })
   }, [orders, now])
 
   async function handleItemDone(itemId) {
     try {
       await kitchen.itemDone(itemId)
-      setOrders(prev => prev.map(order => ({
+      setOrders((prev) => prev.map((order) => ({
         ...order,
-        items: (order.items ?? []).map(item =>
-          item.id === itemId ? { ...item, status: 'ready' } : item
-        )
+        items: (order.items ?? []).map((it) => (it.id === itemId ? { ...it, status: 'ready' } : it)),
       })))
       soundService.play('orderCompleted')
-    } catch {
-      loadOrders()
-    }
+    } catch { loadOrders() }
   }
 
+  // «Заказ готов» — отмечаем все позиции готовыми (в бэкенде нет отдельного эндпоинта на весь заказ)
   async function handleOrderDone(orderId) {
+    const order = orders.find((o) => o.id === orderId)
+    const pending = (order?.items ?? []).filter((i) => i.status !== 'ready' && i.status !== 'done')
     try {
-      await kitchen.orderDone(orderId)
-      setOrders(prev => prev.filter(o => o.id !== orderId))
+      for (const it of pending) await kitchen.itemDone(it.id)
+      setOrders((prev) => prev.filter((o) => o.id !== orderId))
       soundService.stopOverdueAlert(orderId)
       soundService.play('orderCompleted')
-    } catch {
-      loadOrders()
-    }
+    } catch { loadOrders() }
   }
 
   function toggleSound() {
@@ -139,105 +114,104 @@ export default function KitchenMode({ user, onBack, onLogout }) {
     if (elapsed < TIMER_YELLOW) return 'yellow'
     return 'red'
   }
-
   function formatElapsed(createdAt) {
-    const elapsed = Math.floor((now - new Date(createdAt).getTime()) / 1000)
+    const elapsed = Math.max(0, Math.floor((now - new Date(createdAt).getTime()) / 1000))
     const min = Math.floor(elapsed / 60)
     const sec = elapsed % 60
     return `${min}:${sec.toString().padStart(2, '0')}`
   }
 
-  const filteredOrders = filter === 'all'
-    ? orders
-    : orders.filter(o => {
-        if (filter === 'new') return o.status === 'new' || o.status === 'pending'
-        if (filter === 'cooking') return o.status === 'cooking' || o.status === 'in_progress'
-        if (filter === 'ready') return o.status === 'ready'
-        return true
-      })
+  function matchFilter(o, f) {
+    if (f === 'new') return o.status === 'new' || o.status === 'pending'
+    if (f === 'cooking') return o.status === 'cooking' || o.status === 'in_progress'
+    if (f === 'ready') return o.status === 'ready'
+    return true
+  }
+  const filteredOrders = filter === 'all' ? orders : orders.filter((o) => matchFilter(o, filter))
+  const inWork = orders.filter((o) => o.status === 'cooking' || o.status === 'in_progress').length
 
   return (
-    <div className="app-shell app-shell--kitchen">
-      <TopBar
-        title="Кухня (KDS)"
-        subtitle={user?.name}
-        isOnline={isOnline}
-        onRefresh={loadOrders}
-        onLock={onBack}
-      >
-        <div className="kitchen-filters">
-          {FILTERS.map(f => (
-            <button
-              key={f.id}
-              className={`filter-chip ${filter === f.id ? 'filter-chip--active' : ''}`}
-              onClick={() => setFilter(f.id)}
-            >
-              {f.label}
-              {f.id !== 'all' && (
-                <span className="filter-chip__count">
-                  {orders.filter(o => {
-                    if (f.id === 'new') return o.status === 'new' || o.status === 'pending'
-                    if (f.id === 'cooking') return o.status === 'cooking' || o.status === 'in_progress'
-                    if (f.id === 'ready') return o.status === 'ready'
-                    return false
-                  }).length}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      </TopBar>
-
-      <main className="kitchen-board">
-        {loading ? (
-          <div className="kitchen-empty">
-            <div className="spinner" />
-            <p>Загрузка заказов...</p>
-          </div>
-        ) : filteredOrders.length === 0 ? (
-          <div className="kitchen-empty">
-            <CheckCircle size={64} strokeWidth={1} />
-            <p>Нет активных заказов</p>
-            <span className="kitchen-empty__hint">Новые заказы появятся автоматически</span>
-          </div>
-        ) : (
-          <div className="kitchen-grid">
-            {filteredOrders.map(order => (
-              <KitchenCard
-                key={order.id}
-                order={order}
-                timerState={getTimerState(order.created_at)}
-                elapsed={formatElapsed(order.created_at)}
-                onItemDone={handleItemDone}
-                onOrderDone={handleOrderDone}
-              />
-            ))}
-          </div>
-        )}
-      </main>
-
-      <BottomBar onMinimize={() => window.electron?.minimize?.()}>
-        <button
-          className={`bottom-action ${soundOn ? '' : 'bottom-action--muted'}`}
-          onClick={toggleSound}
-          title={soundOn ? 'Выключить звук' : 'Включить звук'}
-        >
-          {soundOn ? <Volume2 size={20} /> : <VolumeX size={20} />}
-          <span>{soundOn ? 'Звук вкл' : 'Звук выкл'}</span>
+    <div className="floor">
+      <aside className="ws-side">
+        <div className="ws-side__label">Очередь</div>
+        <nav className="ws-side__nav">
+          {FILTERS.map(({ id, label, Icon }) => {
+            const count = id === 'all' ? orders.length : orders.filter((o) => matchFilter(o, id)).length
+            return (
+              <button key={id} className={`zone ${filter === id ? 'zone--active' : ''}`} onClick={() => setFilter(id)}>
+                <Icon size={20} />
+                <span className="zone__name">{label}</span>
+                <span className="zone__count">{count}</span>
+              </button>
+            )
+          })}
+        </nav>
+        <div className="ws-side__spacer" />
+        <button className="zone" onClick={onBack}>
+          <RefreshCw size={20} />
+          <span className="zone__name">Сменить режим</span>
         </button>
-        <div className="bottom-stats">
-          <span className="bottom-stats__item">
-            Заказов: <strong>{orders.length}</strong>
-          </span>
+        <div className="ws-user">
+          <div className="ws-user__avatar">{initials(user?.name)}</div>
+          <div className="ws-user__meta">
+            <span className="ws-user__name">{user?.name || 'Повар'}</span>
+            <span className="ws-user__role">{user?.role_label || 'Кухня'}</span>
+          </div>
         </div>
-      </BottomBar>
+      </aside>
+
+      <main className="ws__main">
+        <div className="board__head">
+          <div className="board__title">
+            <h2>Кухня</h2>
+            <span className="board__subtitle">{orders.length} заказов · {inWork} в работе</span>
+          </div>
+          <div className="board__head-right">
+            <button className={`btn btn--outline btn--sm ${soundOn ? '' : 'is-muted'}`} onClick={toggleSound}>
+              {soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
+              {soundOn ? 'Звук вкл' : 'Звук выкл'}
+            </button>
+          </div>
+        </div>
+
+        <div className="board__scroll">
+          {loading ? (
+            <div className="kitchen-empty"><div className="spinner" /><p>Загрузка заказов...</p></div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="kitchen-empty">
+              <CheckCircle size={64} strokeWidth={1} />
+              <p>Нет активных заказов</p>
+              <span className="kitchen-empty__hint">Новые заказы появятся автоматически</span>
+            </div>
+          ) : (
+            <div className="kitchen-grid">
+              {filteredOrders.map((order) => (
+                <KitchenCard
+                  key={order.id}
+                  order={order}
+                  timerState={getTimerState(order.created_at)}
+                  elapsed={formatElapsed(order.created_at)}
+                  onItemDone={handleItemDone}
+                  onOrderDone={handleOrderDone}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   )
 }
 
+function orderTypeIcon(type) {
+  if (type === 'takeaway') return <ShoppingBag size={15} strokeWidth={2} />
+  if (type === 'delivery') return <Bike size={15} strokeWidth={2} />
+  return <Utensils size={15} strokeWidth={2} />
+}
+
 function KitchenCard({ order, timerState, elapsed, onItemDone, onOrderDone }) {
   const items = order.items ?? []
-  const doneCount = items.filter(i => i.status === 'ready' || i.status === 'done').length
+  const doneCount = items.filter((i) => i.status === 'ready' || i.status === 'done').length
   const allDone = items.length > 0 && doneCount === items.length
 
   return (
@@ -245,18 +219,8 @@ function KitchenCard({ order, timerState, elapsed, onItemDone, onOrderDone }) {
       <div className="kitchen-card__header">
         <div className="kitchen-card__info">
           <span className="kitchen-card__number">#{order.order_number || order.id}</span>
-          {order.table_number && (
-            <span className="kitchen-card__table">Стол {order.table_number}</span>
-          )}
-          {order.order_type && (
-            <span className="kitchen-card__type">
-              {order.order_type === 'dine_in'
-                ? <Utensils size={15} strokeWidth={2} />
-                : order.order_type === 'takeaway'
-                  ? <ShoppingBag size={15} strokeWidth={2} />
-                  : <Bike size={15} strokeWidth={2} />}
-            </span>
-          )}
+          {order.table_number && <span className="kitchen-card__table">Стол {order.table_number}</span>}
+          {order.order_type && <span className="kitchen-card__type">{orderTypeIcon(order.order_type)}</span>}
         </div>
         <div className="kitchen-card__timer">
           <Clock size={14} />
@@ -265,44 +229,33 @@ function KitchenCard({ order, timerState, elapsed, onItemDone, onOrderDone }) {
       </div>
 
       {order.note && (
-        <div className="kitchen-card__note">
-          <AlertTriangle size={14} />
-          <span>{order.note}</span>
-        </div>
+        <div className="kitchen-card__note"><AlertTriangle size={14} /><span>{order.note}</span></div>
       )}
 
       <div className="kitchen-card__progress">
-        <div
-          className="kitchen-card__progress-bar"
-          style={{ width: `${items.length ? (doneCount / items.length) * 100 : 0}%` }}
-        />
+        <div className="kitchen-card__progress-bar" style={{ width: `${items.length ? (doneCount / items.length) * 100 : 0}%` }} />
       </div>
 
       <ul className="kitchen-card__items">
-        {items.map(item => (
-          <li
-            key={item.id}
-            className={`kitchen-item ${item.status === 'ready' || item.status === 'done' ? 'kitchen-item--done' : ''}`}
-          >
-            <span className="kitchen-item__qty">{item.quantity}×</span>
-            <div className="kitchen-item__body">
-              <span className="kitchen-item__name">{item.name || item.product_name}</span>
-              {item.note && <span className="kitchen-item__note">{item.note}</span>}
-            </div>
-            {item.status !== 'ready' && item.status !== 'done' && (
-              <button
-                className="kitchen-item__done-btn"
-                onClick={() => onItemDone(item.id)}
-                title="Готово"
-              >
-                <CheckCircle size={28} />
-              </button>
-            )}
-            {(item.status === 'ready' || item.status === 'done') && (
-              <CheckCircle size={22} className="kitchen-item__check" />
-            )}
-          </li>
-        ))}
+        {items.map((item) => {
+          const done = item.status === 'ready' || item.status === 'done'
+          return (
+            <li key={item.id} className={`kitchen-item ${done ? 'kitchen-item--done' : ''}`}>
+              <span className="kitchen-item__qty">{item.quantity}×</span>
+              <div className="kitchen-item__body">
+                <span className="kitchen-item__name">{item.name || item.product_name}</span>
+                {item.note && <span className="kitchen-item__note">{item.note}</span>}
+              </div>
+              {!done ? (
+                <button className="kitchen-item__done-btn" onClick={() => onItemDone(item.id)} title="Готово">
+                  <CheckCircle size={28} />
+                </button>
+              ) : (
+                <CheckCircle size={22} className="kitchen-item__check" />
+              )}
+            </li>
+          )
+        })}
       </ul>
 
       {allDone && (
