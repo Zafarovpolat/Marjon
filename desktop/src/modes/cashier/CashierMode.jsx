@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   Search, Plus, Minus, Trash2, CreditCard, Banknote, X, ShoppingBag, Bike, Utensils,
-  Percent, LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock,
+  Percent, LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock, Wallet,
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi, printers as printersApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
 import DishModal from '../../components/DishModal'
+import FinancePanel from '../../components/FinancePanel'
 
 const ACTIVE = new Set(['new', 'accepted', 'cooking', 'ready', 'pending'])
 const TABLE_LABELS = { free: 'Свободен', busy: 'Занят', ready: 'Готов' }
@@ -42,6 +43,7 @@ export default function CashierMode({ user = {}, onBack }) {
   const [discount, setDiscount] = useState(0)
   const [editLine, setEditLine] = useState(null)
   const [payModal, setPayModal] = useState(false)
+  const [finOpen, setFinOpen] = useState(false)
   const [printerMap, setPrinterMap] = useState({})
 
   const loadFloor = useCallback(() => {
@@ -168,6 +170,7 @@ export default function CashierMode({ user = {}, onBack }) {
             <div className="board__head-right">
               <button className="btn btn--outline btn--sm" onClick={() => openOrder('takeaway', null)}><ShoppingBag size={18} /> С собой</button>
               <button className="btn btn--outline btn--sm" onClick={() => openOrder('delivery', null)}><Bike size={18} /> Доставка</button>
+              <button className="btn btn--outline btn--sm" onClick={() => setFinOpen(true)}><Wallet size={18} /> Финансы</button>
             </div>
           </div>
           <div className="board__scroll">
@@ -199,6 +202,7 @@ export default function CashierMode({ user = {}, onBack }) {
             ))}
           </div>
         </main>
+        {finOpen && <FinancePanel branch={branch} onClose={() => setFinOpen(false)} />}
       </div>
     )
   }

@@ -151,11 +151,15 @@ export const tables = {
   halls: (branchId) => api.get('/halls', { params: { branch_id: branchId } }).then((r) => r.data),
 }
 
+// Кассовые смены (бэкенд: /pos/shifts)
+export const shifts = {
+  current: (branchId) => api.get('/pos/shifts/current', { params: { branch_id: branchId } }).then((r) => r.data),
+  open: (branchId, opening_cash = 0) => api.post('/pos/shifts/open', { branch_id: branchId, opening_cash }).then((r) => r.data),
+  close: (closing_cash = 0) => api.post('/pos/shifts/close', { closing_cash }).then((r) => r.data),
+}
+
+// Финансы: приход/расход (бэкенд: /finance/income-expense)
 export const finance = {
-  shifts: (params) => api.get('/finance/shifts', { params }).then((r) => r.data),
-  openShift: (data) => api.post('/finance/shifts/open', data).then((r) => r.data),
-  closeShift: (shiftId) => api.post(`/finance/shifts/${shiftId}/close`).then((r) => r.data),
-  currentShift: () => api.get('/finance/shifts/current').then((r) => r.data),
   incomeExpense: (params) => api.get('/finance/income-expense', { params }).then((r) => r.data),
   addIncome: (data) => api.post('/finance/income-expense', { ...data, direction: 'income' }).then((r) => r.data),
   addExpense: (data) => api.post('/finance/income-expense', { ...data, direction: 'expense' }).then((r) => r.data),

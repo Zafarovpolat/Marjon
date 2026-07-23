@@ -3323,3 +3323,27 @@
 .kitchen-item__done-btn:active { transform: scale(0.9); }
 .kitchen-item__check { color: var(--color-success); }
 .kitchen-card__complete { border-radius: 12px; font-weight: 700; }
+
+/* ── Панель финансов кассы (смена + приход/расход) ── */
+.fin-modal { width: 560px; max-width: 94vw; }
+.fin-badge { padding: 4px 12px; border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: 700; }
+.fin-badge--open { background: var(--color-success-bg); color: var(--green-600); }
+.fin-form { display: flex; gap: var(--spacing-md); margin-bottom: var(--spacing-md); }
+.fin-form .input { flex: 1; min-height: 48px; }
+.fin-actions { display: flex; gap: var(--spacing-md); }
+.fin-btn { flex: 1; min-height: 54px; font-weight: 700; color: #fff; border: none; }
+.fin-btn--in { background: var(--color-success); }
+.fin-btn--in:hover { background: #15803d; }
+.fin-btn--out { background: var(--color-danger); }
+.fin-btn--out:hover { background: #dc2626; }
+.fin-list { display: flex; flex-direction: column; gap: 6px; }
+.fin-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-subtle); }
+.fin-row__dir { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px; flex-shrink: 0; }
+.fin-row__dir--income { background: var(--color-success-bg); color: var(--green-600); }
+.fin-row__dir--expense { background: var(--color-danger-bg); color: var(--color-danger); }
+.fin-row__info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fin-row__cat { font-size: var(--text-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fin-row__date { font-size: var(--text-xs); color: var(--color-text-muted); }
+.fin-row__amt { font-weight: 700; }
+.fin-row__amt--income { color: var(--green-600); }
+.fin-row__amt--expense { color: var(--color-danger); }
