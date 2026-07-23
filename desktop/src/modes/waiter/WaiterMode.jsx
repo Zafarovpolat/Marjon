@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Plus, Minus, Search, X, Users, Clock, CheckCircle, Coffee, Utensils,
-  LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, RefreshCw, LogOut,
+  LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, RefreshCw, ArrowLeft,
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi } from '../../shared/api'
 import DishModal from '../../components/DishModal'
@@ -52,7 +52,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
   const [orderNote, setOrderNote] = useState('')
   const [guests, setGuests] = useState(1)
   const [submitting, setSubmitting] = useState(false)
-  const [dishModal, setDishModal] = useState(null)
+  const [editLine, setEditLine] = useState(null)
 
   const loadData = useCallback(() => {
     hallsApi.list(user.branch_id)
@@ -96,9 +96,10 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     return o.status === 'ready' ? 'ready' : 'busy'
   }
 
+  const freeCount = (list) => list.filter((t) => tableStatus(t.number) === 'free').length
   const zoneNav = [
-    { id: 'all', name: 'Все', count: allTables.length, Icon: LayoutGrid },
-    ...zones.map((z) => ({ id: z.id, name: z.name, count: (z.tables || []).length, Icon: zoneIcon(z.name) })),
+    { id: 'all', name: 'Все', count: freeCount(allTables), Icon: LayoutGrid },
+    ...zones.map((z) => ({ id: z.id, name: z.name, count: freeCount(z.tables || []), Icon: zoneIcon(z.name) })),
   ]
   const shownZones = activeZone === 'all' ? zones : zones.filter((z) => z.id === activeZone)
   const busyCount = allTables.filter((t) => tableStatus(t.number) !== 'free').length
@@ -126,9 +127,12 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     if (search && !(p.name || '').toLowerCase().includes(search.toLowerCase())) return false
     return true
   })
-  function addFromModal({ product, quantity, price, note }) {
-    setCart((prev) => [...prev, { lineId: `${Date.now()}-${Math.random()}`, product, qty: quantity, price, note }])
-    setDishModal(null)
+  function addToCart(product) {
+    setCart((prev) => [...prev, { lineId: `${Date.now()}-${Math.random()}`, product, qty: 1, price: Number(product.price) || 0, note: '' }])
+  }
+  function saveEdit({ quantity, price, note }) {
+    setCart((prev) => prev.map((i) => i.lineId === editLine.lineId ? { ...i, qty: quantity, price, note } : i))
+    setEditLine(null)
   }
   function updateQty(lineId, d) {
     setCart((prev) => prev.map((i) => i.lineId === lineId ? { ...i, qty: i.qty + d } : i).filter((i) => i.qty > 0))
@@ -178,13 +182,6 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
           <RefreshCw size={20} />
           <span className="zone__name">Сменить режим</span>
         </button>
-        <div className="ws-user">
-          <div className="ws-user__avatar">{initials(user?.name)}</div>
-          <div className="ws-user__meta">
-            <span className="ws-user__name">{user?.name || 'Сотрудник'}</span>
-            <span className="ws-user__role">{user?.role_label || 'Официант'}</span>
-          </div>
-        </div>
       </aside>
 
       {/* Основная область */}
@@ -254,7 +251,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
         {view === 'detail' && selectedTable && (
           <div className="waiter-detail">
             <header className="waiter-detail__header">
-              <button className="btn-ghost" onClick={() => setView('floor')}><X size={20} /> Назад</button>
+              <button className="btn-ghost btn--lg" onClick={() => setView('floor')}><ArrowLeft size={22} /> Назад</button>
               <h2>Стол {selectedTable.number}</h2>
               <span className="status-badge" style={{ background: STATUS_COLORS[selectedTable.order?.status] || 'var(--color-text-muted)' }}>
                 {STATUS_LABELS[selectedTable.order?.status] || ''}
@@ -319,7 +316,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                   {filteredProducts.length === 0 ? (
                     <p className="empty-text">Нет блюд</p>
                   ) : filteredProducts.map((p) => (
-                    <button key={p.id} className="product-tile" onClick={() => setDishModal(p)}>
+                    <button key={p.id} className="product-tile" onClick={() => addToCart(p)}>
                       <Utensils size={20} />
                       <span className="product-tile__name">{p.name}</span>
                       <span className="product-tile__price">{Number(p.price || 0).toLocaleString('ru-RU')}</span>
@@ -339,10 +336,10 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                     <p className="empty-text">Добавьте блюда</p>
                   ) : cart.map((item) => (
                     <div key={item.lineId} className="cart-row">
-                      <div className="cart-row__info">
+                      <button type="button" className="cart-row__info" onClick={() => setEditLine(item)} title="Изменить">
                         <span className="cart-row__name">{item.product.name}</span>
                         {item.note && <span className="cart-row__note">{item.note}</span>}
-                      </div>
+                      </button>
                       <div className="cart-row__qty">
                         <button onClick={() => updateQty(item.lineId, -1)}><Minus size={16} /></button>
                         <span>{item.qty}</span>
@@ -366,8 +363,14 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
         )}
       </main>
 
-      {dishModal && (
-        <DishModal product={dishModal} onAdd={addFromModal} onClose={() => setDishModal(null)} />
+      {editLine && (
+        <DishModal
+          product={editLine.product}
+          line={editLine}
+          onSubmit={saveEdit}
+          onRemove={() => { updateQty(editLine.lineId, -editLine.qty); setEditLine(null) }}
+          onClose={() => setEditLine(null)}
+        />
       )}
     </div>
   )

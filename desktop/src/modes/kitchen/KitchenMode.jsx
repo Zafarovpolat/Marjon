@@ -14,6 +14,13 @@ const FILTERS = [
   { id: 'ready', label: 'Готовы', Icon: CheckCircle },
 ]
 
+// Бэкенд может отдавать наивный UTC (без таймзоны) — считаем его UTC, иначе таймеры врут
+function parseTs(ts) {
+  if (!ts) return Date.now()
+  const s = /[zZ]|[+-]\d\d:?\d\d$/.test(ts) ? ts : ts.replace(' ', 'T') + 'Z'
+  const t = new Date(s).getTime()
+  return Number.isNaN(t) ? Date.now() : t
+}
 function initials(name = '') {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('') || '?'
 }
@@ -73,21 +80,20 @@ export default function KitchenMode({ user = {}, onBack }) {
 
   useEffect(() => {
     orders.forEach((order) => {
-      const elapsed = now - new Date(order.created_at).getTime()
+      const elapsed = now - parseTs(order.created_at)
       if (elapsed > TIMER_YELLOW) soundService.startOverdueAlert(order.id)
       else soundService.stopOverdueAlert(order.id)
     })
   }, [orders, now])
 
   async function handleItemDone(itemId) {
-    try {
-      await kitchen.itemDone(itemId)
-      setOrders((prev) => prev.map((order) => ({
-        ...order,
-        items: (order.items ?? []).map((it) => (it.id === itemId ? { ...it, status: 'ready' } : it)),
-      })))
-      soundService.play('orderCompleted')
-    } catch { loadOrders() }
+    // Оптимистично: сразу отмечаем готовым (чтобы клик по галочке всегда срабатывал визуально)
+    setOrders((prev) => prev.map((order) => ({
+      ...order,
+      items: (order.items ?? []).map((it) => (it.id === itemId ? { ...it, status: 'ready' } : it)),
+    })))
+    soundService.play('orderCompleted')
+    try { await kitchen.itemDone(itemId) } catch { /* оставляем оптимистичное состояние */ }
   }
 
   // «Заказ готов» — бэкенд ставит статус ready и уведомляет официанта.
@@ -115,13 +121,13 @@ export default function KitchenMode({ user = {}, onBack }) {
   }
 
   function getTimerState(createdAt) {
-    const elapsed = now - new Date(createdAt).getTime()
+    const elapsed = now - parseTs(createdAt)
     if (elapsed < TIMER_GREEN) return 'green'
     if (elapsed < TIMER_YELLOW) return 'yellow'
     return 'red'
   }
   function formatElapsed(createdAt) {
-    const elapsed = Math.max(0, Math.floor((now - new Date(createdAt).getTime()) / 1000))
+    const elapsed = Math.max(0, Math.floor((now - parseTs(createdAt)) / 1000))
     const min = Math.floor(elapsed / 60)
     const sec = elapsed % 60
     return `${min}:${sec.toString().padStart(2, '0')}`
@@ -157,13 +163,6 @@ export default function KitchenMode({ user = {}, onBack }) {
           <RefreshCw size={20} />
           <span className="zone__name">Сменить режим</span>
         </button>
-        <div className="ws-user">
-          <div className="ws-user__avatar">{initials(user?.name)}</div>
-          <div className="ws-user__meta">
-            <span className="ws-user__name">{user?.name || 'Повар'}</span>
-            <span className="ws-user__role">{user?.role_label || 'Кухня'}</span>
-          </div>
-        </div>
       </aside>
 
       <main className="ws__main">

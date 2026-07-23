@@ -94,10 +94,17 @@ export default function App() {
   const handleEmployeePin = useCallback(async (pin) => {
     const data = await auth.loginByPin(pin)         // бросит при неверном PIN → PinPad покажет ошибку
     localStorage.setItem('marjon_token', data.access_token)
-    setStaffToken(data.access_token)
 
     let me = null
     try { me = await auth.me() } catch { /* ignore — используем выбранного сотрудника */ }
+
+    // PIN должен принадлежать ВЫБРАННОМУ сотруднику (иначе вход был бы «по любому PIN»)
+    const isRealEmp = pinEmployee?.id && /^[0-9a-f-]{16,}$/i.test(String(pinEmployee.id))
+    if (isRealEmp && me?.id && String(me.id) !== String(pinEmployee.id)) {
+      localStorage.removeItem('marjon_token')
+      throw new Error('PIN не соответствует выбранному сотруднику')
+    }
+    setStaffToken(data.access_token)
     const user = me || pinEmployee || {}
     localStorage.setItem('marjon_user', JSON.stringify(user))
     setStaffUser(user)

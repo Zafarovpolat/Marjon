@@ -40,7 +40,7 @@ export default function CashierMode({ user = {}, onBack }) {
   const [search, setSearch] = useState('')
   const [cart, setCart] = useState([])
   const [discount, setDiscount] = useState(0)
-  const [dishModal, setDishModal] = useState(null)
+  const [editLine, setEditLine] = useState(null)
   const [payModal, setPayModal] = useState(false)
   const [printerMap, setPrinterMap] = useState({})
 
@@ -85,9 +85,10 @@ export default function CashierMode({ user = {}, onBack }) {
   const allTables = zones.flatMap((z) => (z.tables || []).map((t) => ({ ...t, zoneId: z.id, zoneName: z.name })))
   const orderFor = (num) => orderList.find((o) => String(o.table_number) === String(num))
   const tableStatus = (num) => { const o = orderFor(num); return !o ? 'free' : o.status === 'ready' ? 'ready' : 'busy' }
+  const freeCount = (list) => list.filter((t) => tableStatus(t.number) === 'free').length
   const zoneNav = [
-    { id: 'all', name: 'Все', count: allTables.length, Icon: LayoutGrid },
-    ...zones.map((z) => ({ id: z.id, name: z.name, count: (z.tables || []).length, Icon: zoneIcon(z.name) })),
+    { id: 'all', name: 'Все', count: freeCount(allTables), Icon: LayoutGrid },
+    ...zones.map((z) => ({ id: z.id, name: z.name, count: freeCount(z.tables || []), Icon: zoneIcon(z.name) })),
   ]
   const shownZones = activeZone === 'all' ? zones : zones.filter((z) => z.id === activeZone)
   const busyCount = allTables.filter((t) => tableStatus(t.number) !== 'free').length
@@ -104,9 +105,14 @@ export default function CashierMode({ user = {}, onBack }) {
     if (search) { const q = search.toLowerCase(); return p.name?.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q) }
     return activeCat ? p.category_id === activeCat : true
   })
-  function addFromModal({ product, quantity, price, note }) {
-    setCart((prev) => [...prev, { lineId: `${Date.now()}-${Math.random()}`, product, name: product.name, price, qty: quantity, note }])
-    setDishModal(null)
+  // Клик по блюду в меню — сразу в заказ (без модалки)
+  function addToCart(product) {
+    setCart((prev) => [...prev, { lineId: `${Date.now()}-${Math.random()}`, product, name: product.name, price: Number(product.price) || 0, qty: 1, note: '' }])
+  }
+  // Правка позиции В ЗАКАЗЕ (кол-во/цена/комментарий)
+  function saveEdit({ quantity, price, note }) {
+    setCart((prev) => prev.map((i) => i.lineId === editLine.lineId ? { ...i, qty: quantity, price, note } : i))
+    setEditLine(null)
   }
   function updateQty(lineId, d) { setCart((prev) => prev.map((i) => i.lineId === lineId ? { ...i, qty: i.qty + d } : i).filter((i) => i.qty > 0)) }
   function removeLine(lineId) { setCart((prev) => prev.filter((i) => i.lineId !== lineId)) }
@@ -151,13 +157,6 @@ export default function CashierMode({ user = {}, onBack }) {
           </nav>
           <div className="ws-side__spacer" />
           <button className="zone" onClick={onBack}><ArrowLeft size={20} /><span className="zone__name">Сменить режим</span></button>
-          <div className="ws-user">
-            <div className="ws-user__avatar">{initials(user?.name)}</div>
-            <div className="ws-user__meta">
-              <span className="ws-user__name">{user?.name || 'Кассир'}</span>
-              <span className="ws-user__role">{user?.role_label || 'Касса'}</span>
-            </div>
-          </div>
         </aside>
 
         <main className="ws__main">
@@ -243,8 +242,10 @@ export default function CashierMode({ user = {}, onBack }) {
           <div className="cashier-products">
             <div className="cashier-products__grid">
               {filtered.length === 0 ? <p className="empty-text">Нет блюд</p> : filtered.map((p) => (
-                <button key={p.id} className="product-card" onClick={() => setDishModal(p)}>
-                  {p.image_url && <img src={p.image_url} alt="" className="product-card__img" loading="lazy" />}
+                <button key={p.id} className="product-card" onClick={() => addToCart(p)}>
+                  <span className="product-card__thumb">
+                    {p.image_url ? <img src={p.image_url} alt="" loading="lazy" /> : <Utensils size={26} />}
+                  </span>
                   <span className="product-card__name">{p.name}</span>
                   <span className="product-card__price">{Number(p.price || 0).toLocaleString('ru-RU')} сум</span>
                   {p.in_stop_list && <span className="product-card__stop">СТОП</span>}
@@ -258,11 +259,11 @@ export default function CashierMode({ user = {}, onBack }) {
             <div className="cashier-cart__items">
               {cart.length === 0 ? <p className="cart-empty">Нажмите на блюдо, чтобы добавить</p> : cart.map((item) => (
                 <div key={item.lineId} className="cart-item">
-                  <div className="cart-item__info">
+                  <button type="button" className="cart-item__info" onClick={() => setEditLine(item)} title="Изменить">
                     <span className="cart-item__name">{item.name}</span>
                     {item.note && <span className="cart-row__note">{item.note}</span>}
                     <span className="cart-item__price">{(item.price * item.qty).toLocaleString('ru-RU')} сум</span>
-                  </div>
+                  </button>
                   <div className="cart-item__controls">
                     <button className="qty-btn" onClick={() => updateQty(item.lineId, -1)}><Minus size={16} /></button>
                     <span className="qty-value">{item.qty}</span>
@@ -289,7 +290,15 @@ export default function CashierMode({ user = {}, onBack }) {
         </div>
       </main>
 
-      {dishModal && <DishModal product={dishModal} onAdd={addFromModal} onClose={() => setDishModal(null)} />}
+      {editLine && (
+        <DishModal
+          product={editLine.product}
+          line={editLine}
+          onSubmit={saveEdit}
+          onRemove={() => { removeLine(editLine.lineId); setEditLine(null) }}
+          onClose={() => setEditLine(null)}
+        />
+      )}
 
       {payModal && (
         <div className="modal-overlay" onClick={() => setPayModal(false)}>

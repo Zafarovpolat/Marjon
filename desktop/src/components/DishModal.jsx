@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import { X, Plus, Minus } from 'lucide-react'
+import { X, Plus, Minus, Trash2 } from 'lucide-react'
 
 /**
- * DishModal — окно добавления блюда: количество, цена за порцию, комментарий.
- * onAdd({ product, quantity, price, note }).
+ * DishModal — правка позиции заказа: количество, цена за порцию, комментарий.
+ * Открывается по клику на позицию В КОРЗИНЕ (не в меню).
+ * props: product (для названия), line ({qty,price,note}) — начальные значения,
+ *        onSubmit({ quantity, price, note }), onRemove?(), onClose().
  */
-export default function DishModal({ product, onAdd, onClose }) {
-  const [qty, setQty] = useState(1)
-  const [price, setPrice] = useState(Number(product?.price) || 0)
-  const [note, setNote] = useState('')
+export default function DishModal({ product, line, onSubmit, onRemove, onClose }) {
+  const [qty, setQty] = useState(line?.qty ?? 1)
+  const [price, setPrice] = useState(line?.price ?? Number(product?.price) || 0)
+  const [note, setNote] = useState(line?.note ?? '')
   if (!product) return null
 
   return (
@@ -30,36 +32,24 @@ export default function DishModal({ product, onAdd, onClose }) {
           </div>
 
           <div className="dish-modal__row">
-            <label>Цена за порцию (сум)</label>
-            <input
-              type="number" min="0" step="500"
-              value={price}
+            <label>Цена за порцию, сум</label>
+            <input type="number" min="0" step="500" value={price}
               onChange={(e) => setPrice(Math.max(0, Number(e.target.value) || 0))}
-              className="input dish-modal__price"
-            />
+              className="input dish-modal__price" />
           </div>
 
           <div className="dish-modal__row dish-modal__row--col">
-            <label>Комментарий к блюду</label>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="input dish-modal__note"
-              placeholder="Например: без лука, острее, отдельно соус…"
-              rows={2}
-            />
+            <label>Комментарий</label>
+            <textarea value={note} onChange={(e) => setNote(e.target.value)}
+              className="input dish-modal__note" placeholder="Например: без лука, острее, отдельно соус…" rows={2} />
           </div>
 
-          <div className="dish-modal__total">
-            Итого: <strong>{(qty * price).toLocaleString('ru-RU')} сум</strong>
-          </div>
+          <div className="dish-modal__total">Итого: <strong>{(qty * price).toLocaleString('ru-RU')} сум</strong></div>
         </div>
 
         <div className="dish-modal__actions">
-          <button className="btn btn--outline" onClick={onClose}>Отмена</button>
-          <button className="btn btn--primary" onClick={() => onAdd({ product, quantity: qty, price, note })}>
-            <Plus size={18} /> Добавить
-          </button>
+          {onRemove && <button className="btn btn--danger dish-modal__del" onClick={onRemove}><Trash2 size={18} /></button>}
+          <button className="btn btn--primary" onClick={() => onSubmit({ quantity: qty, price, note })}>Сохранить</button>
         </div>
       </div>
     </div>

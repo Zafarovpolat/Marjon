@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { RefreshCw, Lock, User, Settings, ZoomIn, ZoomOut, Maximize } from 'lucide-react'
+import { RefreshCw, Lock, User, Settings } from 'lucide-react'
 
 /**
  * TopBar — верхняя панель для всех режимов.
@@ -41,15 +41,6 @@ export default function TopBar({
       </div>
 
       <div className="topbar__actions">
-        <button className="icon-btn" onClick={() => window.electron?.zoomOut?.()} title="Уменьшить масштаб">
-          <ZoomOut size={22} />
-        </button>
-        <button className="icon-btn" onClick={() => window.electron?.zoomIn?.()} title="Увеличить масштаб">
-          <ZoomIn size={22} />
-        </button>
-        <button className="icon-btn" onClick={() => window.electron?.toggleFullscreen?.()} title="Полный экран">
-          <Maximize size={22} />
-        </button>
         {onRefresh && (
           <button className="icon-btn" onClick={onRefresh} title="Обновить">
             <RefreshCw size={22} />
