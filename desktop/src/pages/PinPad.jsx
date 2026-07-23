@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ArrowLeft, Delete } from 'lucide-react'
-import { ROLE_LABELS } from './EmployeeSelector'
 import { t } from '../shared/i18n'
 
 function initials(name = '') {
@@ -54,12 +53,12 @@ export default function PinPad({ employee = {}, onSubmit, onBack }) {
   return (
     <div className="pinpad-screen">
       <div className="pinpad">
-        <button className="pinpad__back" onClick={onBack}><ArrowLeft size={20} /> Назад</button>
+        <button className="pinpad__back" onClick={onBack}><ArrowLeft size={20} /> {t('back')}</button>
 
         <div className="pinpad__user">
           <span className="pinpad__avatar">{initials(employee.name || employee.email)}</span>
           <span className="pinpad__name">{employee.name || employee.email}</span>
-          <span className="pinpad__role">{ROLE_LABELS[role] || 'Сотрудник'}</span>
+          <span className="pinpad__role">{t.role(role)}</span>
         </div>
 
         <div className={`pinpad__dots ${error ? 'pinpad__dots--error' : ''}`}>

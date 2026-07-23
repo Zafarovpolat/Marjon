@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { X, Ban, Search, Check } from 'lucide-react'
 import { menu } from '../shared/api'
+import { t } from '../shared/i18n'
 
 function isStopped(p) { return p.is_available === false || p.in_stop_list === true }
 
@@ -38,23 +39,23 @@ export default function StopListPanel({ onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal stop-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal__header">
-          <h2><Ban size={20} /> Стоп-лист {stopCount > 0 && <span className="stop-count">{stopCount}</span>}</h2>
+          <h2><Ban size={20} /> {t('stoplist')} {stopCount > 0 && <span className="stop-count">{stopCount}</span>}</h2>
           <button className="icon-btn" onClick={onClose}><X size={24} /></button>
         </div>
 
         <div className="stop-controls">
           <div className="cashier-products__search" style={{ padding: 0, border: 'none', flex: 1 }}>
             <Search size={18} className="search-icon" />
-            <input className="search-input" placeholder="Поиск блюда…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input className="search-input" placeholder={t('search_dish')} value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          <button className={`filter-chip ${onlyStop ? 'filter-chip--active' : ''}`} onClick={() => setOnlyStop((v) => !v)}>Только в стопе</button>
+          <button className={`filter-chip ${onlyStop ? 'filter-chip--active' : ''}`} onClick={() => setOnlyStop((v) => !v)}>{t('only_stop')}</button>
         </div>
 
         <div className="modal__body stop-body">
           {loading ? (
-            <div className="kitchen-empty"><div className="spinner" /><p>Загрузка...</p></div>
+            <div className="kitchen-empty"><div className="spinner" /><p>{t('loading')}</p></div>
           ) : shown.length === 0 ? (
-            <p className="settings-hint">Ничего не найдено.</p>
+            <p className="settings-hint">{t('nothing_found')}</p>
           ) : (
             <div className="stop-list">
               {shown.map((p) => {
@@ -63,14 +64,14 @@ export default function StopListPanel({ onClose }) {
                   <div className={`stop-row ${stopped ? 'stop-row--off' : ''}`} key={p.id}>
                     <div className="stop-row__info">
                       <span className="stop-row__name">{p.name}</span>
-                      <span className="stop-row__price">{Number(p.price || 0).toLocaleString('ru-RU')} сум</span>
+                      <span className="stop-row__price">{Number(p.price || 0).toLocaleString('ru-RU')} {t('currency')}</span>
                     </div>
                     <button
                       className={`btn btn--sm ${stopped ? 'btn--primary' : 'btn--danger'}`}
                       disabled={busyId === p.id}
                       onClick={() => toggle(p)}
                     >
-                      {stopped ? <><Check size={16} /> Вернуть</> : <><Ban size={16} /> В стоп</>}
+                      {stopped ? <><Check size={16} /> {t('return_item')}</> : <><Ban size={16} /> {t('to_stop')}</>}
                     </button>
                   </div>
                 )

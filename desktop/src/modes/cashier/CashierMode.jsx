@@ -10,10 +10,11 @@ import FinancePanel from '../../components/FinancePanel'
 import HistoryPanel from '../../components/HistoryPanel'
 import ReportsPanel from '../../components/ReportsPanel'
 import RecipeModal from '../../components/RecipeModal'
+import { t } from '../../shared/i18n'
 
 const ACTIVE = new Set(['new', 'accepted', 'cooking', 'ready', 'pending'])
-const TABLE_LABELS = { free: 'Свободен', busy: 'Занят', ready: 'Готов' }
-const TYPE_LABELS = { dine_in: 'В зале', takeaway: 'С собой', delivery: 'Доставка' }
+const TABLE_LABELS = { free: t('free'), busy: t('busy'), ready: t('ready') }
+const TYPE_LABELS = { dine_in: t('dine_in'), takeaway: t('takeaway'), delivery: t('delivery') }
 
 function zoneIcon(name = '') {
   const n = name.toLowerCase()
@@ -95,7 +96,7 @@ export default function CashierMode({ user = {}, onBack }) {
   const tableStatus = (num) => { const o = orderFor(num); return !o ? 'free' : o.status === 'ready' ? 'ready' : 'busy' }
   const freeCount = (list) => list.filter((t) => tableStatus(t.number) === 'free').length
   const zoneNav = [
-    { id: 'all', name: 'Все', count: freeCount(allTables), Icon: LayoutGrid },
+    { id: 'all', name: t('all'), count: freeCount(allTables), Icon: LayoutGrid },
     ...zones.map((z) => ({ id: z.id, name: z.name, count: freeCount(z.tables || []), Icon: zoneIcon(z.name) })),
   ]
   const shownZones = activeZone === 'all' ? zones : zones.filter((z) => z.id === activeZone)
@@ -147,7 +148,7 @@ export default function CashierMode({ user = {}, onBack }) {
       if (receiptPrinter) await printersApi.printReceipt({ order_id: order.id, printer_id: receiptPrinter.id, copies: 1 }).catch(() => {})
       setView('floor'); loadFloor()
     } catch (err) {
-      alert('Ошибка создания заказа: ' + (err.response?.data?.detail || err.message))
+      alert(t('create_order_error') + ': ' + (err.response?.data?.detail || err.message))
     }
   }
 
@@ -156,7 +157,7 @@ export default function CashierMode({ user = {}, onBack }) {
     return (
       <div className="floor">
         <aside className="ws-side">
-          <div className="ws-side__label">Локации</div>
+          <div className="ws-side__label">{t('locations')}</div>
           <nav className="ws-side__nav">
             {zoneNav.map(({ id, name, count, Icon }) => (
               <button key={id} className={`zone ${activeZone === id ? 'zone--active' : ''}`} onClick={() => setActiveZone(id)}>
@@ -165,41 +166,41 @@ export default function CashierMode({ user = {}, onBack }) {
             ))}
           </nav>
           <div className="ws-side__spacer" />
-          <button className="zone" onClick={onBack}><ArrowLeft size={20} /><span className="zone__name">Сменить режим</span></button>
+          <button className="zone" onClick={onBack}><ArrowLeft size={20} /><span className="zone__name">{t('switch_mode')}</span></button>
         </aside>
 
         <main className="ws__main">
           <div className="board__head">
             <div className="board__title">
-              <h2>Столы</h2>
-              <span className="board__subtitle">{allTables.length} столов · {busyCount} занято</span>
+              <h2>{t('tables')}</h2>
+              <span className="board__subtitle">{allTables.length} {t('tables_low')} · {busyCount} {t('busy_low')}</span>
             </div>
             <div className="board__head-right">
-              <button className="btn btn--outline btn--sm" onClick={() => openOrder('takeaway', null)}><ShoppingBag size={18} /> С собой</button>
-              <button className="btn btn--outline btn--sm" onClick={() => openOrder('delivery', null)}><Bike size={18} /> Доставка</button>
-              <button className="btn btn--outline btn--sm" onClick={() => setFinOpen(true)}><Wallet size={18} /> Финансы</button>
-              <button className="btn btn--outline btn--sm" onClick={() => setHistOpen(true)}><History size={18} /> История</button>
-              <button className="btn btn--outline btn--sm" onClick={() => setRepOpen(true)}><BarChart3 size={18} /> Отчёты</button>
+              <button className="btn btn--outline btn--sm" onClick={() => openOrder('takeaway', null)}><ShoppingBag size={18} /> {t('takeaway')}</button>
+              <button className="btn btn--outline btn--sm" onClick={() => openOrder('delivery', null)}><Bike size={18} /> {t('delivery')}</button>
+              <button className="btn btn--outline btn--sm" onClick={() => setFinOpen(true)}><Wallet size={18} /> {t('finance')}</button>
+              <button className="btn btn--outline btn--sm" onClick={() => setHistOpen(true)}><History size={18} /> {t('history')}</button>
+              <button className="btn btn--outline btn--sm" onClick={() => setRepOpen(true)}><BarChart3 size={18} /> {t('reports')}</button>
             </div>
           </div>
           <div className="board__scroll">
-            {loading ? <p className="empty-text">Загрузка...</p> : shownZones.map((z) => (
+            {loading ? <p className="empty-text">{t('loading')}</p> : shownZones.map((z) => (
               <section className="tgroup" key={z.id}>
-                <div className="tgroup__title">{z.name} <span>{(z.tables || []).length} столов</span></div>
+                <div className="tgroup__title">{z.name} <span>{(z.tables || []).length} {t('tables_low')}</span></div>
                 <div className="tgrid">
-                  {(z.tables || []).map((t) => {
-                    const o = orderFor(t.number); const st = tableStatus(t.number)
+                  {(z.tables || []).map((tb) => {
+                    const o = orderFor(tb.number); const st = tableStatus(tb.number)
                     const variant = st === 'free' ? 'free' : st === 'ready' ? 'check' : 'busy'
                     return (
-                      <button key={t.id ?? t.number} className={`tcard tcard--${variant}`} onClick={() => tapTable(t)}>
+                      <button key={tb.id ?? tb.number} className={`tcard tcard--${variant}`} onClick={() => tapTable(tb)}>
                         <div className="tcard__top">
-                          <span className="tcard__num">{t.number}</span>
-                          <span className="tcard__seats"><Users /> {t.capacity || 4}</span>
+                          <span className="tcard__num">{tb.number}</span>
+                          <span className="tcard__seats"><Users /> {tb.capacity || 4}</span>
                         </div>
                         {o ? (
-                          <><span className="tcard__client">Заказ #{o.order_number ?? ''}</span>
+                          <><span className="tcard__client">{t('order_no')} #{o.order_number ?? ''}</span>
                             <span className="tcard__meta"><Clock /> {fmtTime(o.created_at)}
-                              {o.total_amount != null && <span className="tcard__amount">{Number(o.total_amount).toLocaleString('ru-RU')} сум</span>}
+                              {o.total_amount != null && <span className="tcard__amount">{Number(o.total_amount).toLocaleString('ru-RU')} {t('currency')}</span>}
                             </span></>
                         ) : <div className="tcard__spacer" />}
                         <span className="tcard__status">{TABLE_LABELS[st]}</span>
@@ -222,10 +223,10 @@ export default function CashierMode({ user = {}, onBack }) {
   return (
     <div className="floor">
       <aside className="ws-side">
-        <div className="ws-side__label">Категории</div>
+        <div className="ws-side__label">{t('categories')}</div>
         <nav className="ws-side__nav">
           <button className={`zone ${!activeCat ? 'zone--active' : ''}`} onClick={() => setActiveCat(null)}>
-            <LayoutGrid size={20} /><span className="zone__name">Все</span>
+            <LayoutGrid size={20} /><span className="zone__name">{t('all')}</span>
           </button>
           {categories.map((c) => (
             <button key={c.id} className={`zone ${activeCat === c.id ? 'zone--active' : ''}`} onClick={() => setActiveCat(c.id)}>
@@ -234,21 +235,21 @@ export default function CashierMode({ user = {}, onBack }) {
           ))}
         </nav>
         <div className="ws-side__spacer" />
-        <button className="zone" onClick={() => setView('floor')}><ArrowLeft size={20} /><span className="zone__name">К столам</span></button>
+        <button className="zone" onClick={() => setView('floor')}><ArrowLeft size={20} /><span className="zone__name">{t('to_tables')}</span></button>
       </aside>
 
       <main className="ws__main">
         <div className="board__head">
           <div className="board__title">
             <h2>
-              {orderType === 'dine_in' ? (selectedTable ? `Стол ${selectedTable.number}` : 'В зале') : TYPE_LABELS[orderType]}
+              {orderType === 'dine_in' ? (selectedTable ? `${t('table')} ${selectedTable.number}` : t('dine_in')) : TYPE_LABELS[orderType]}
             </h2>
-            <span className="board__subtitle">{itemCount} позиций · {total.toLocaleString('ru-RU')} сум</span>
+            <span className="board__subtitle">{itemCount} {t('items_low')} · {total.toLocaleString('ru-RU')} {t('currency')}</span>
           </div>
           <div className="board__head-right">
             <div className="cashier-products__search" style={{ padding: 0, border: 'none' }}>
               <Search size={18} className="search-icon" />
-              <input className="search-input" placeholder="Поиск блюда…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <input className="search-input" placeholder={t('search_dish')} value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
           </div>
         </div>
@@ -256,7 +257,7 @@ export default function CashierMode({ user = {}, onBack }) {
         <div className="cashier-work">
           <div className="cashier-products">
             <div className="cashier-products__grid">
-              {filtered.length === 0 ? <p className="empty-text">Нет блюд</p> : filtered.map((p) => {
+              {filtered.length === 0 ? <p className="empty-text">{t('no_dishes')}</p> : filtered.map((p) => {
                 const stopped = p.is_available === false || p.in_stop_list
                 return (
                   <div key={p.id} className="product-cell">
@@ -265,10 +266,10 @@ export default function CashierMode({ user = {}, onBack }) {
                         {p.image_url ? <img src={p.image_url} alt="" loading="lazy" /> : <Utensils size={26} />}
                       </span>
                       <span className="product-card__name">{p.name}</span>
-                      <span className="product-card__price">{Number(p.price || 0).toLocaleString('ru-RU')} сум</span>
-                      {stopped && <span className="product-card__stop">СТОП</span>}
+                      <span className="product-card__price">{Number(p.price || 0).toLocaleString('ru-RU')} {t('currency')}</span>
+                      {stopped && <span className="product-card__stop">STOP</span>}
                     </button>
-                    <button className="product-card__info" onClick={() => setRecipeProd(p)} title="Техкарта"><ChefHat size={15} /></button>
+                    <button className="product-card__info" onClick={() => setRecipeProd(p)} title={t('tech_card')}><ChefHat size={15} /></button>
                   </div>
                 )
               })}
@@ -276,14 +277,14 @@ export default function CashierMode({ user = {}, onBack }) {
           </div>
 
           <aside className="cashier-cart">
-            <div className="cashier-cart__header"><ShoppingBag size={20} /><span>Заказ</span><span className="cart-count">{itemCount}</span></div>
+            <div className="cashier-cart__header"><ShoppingBag size={20} /><span>{t('order')}</span><span className="cart-count">{itemCount}</span></div>
             <div className="cashier-cart__items">
-              {cart.length === 0 ? <p className="cart-empty">Нажмите на блюдо, чтобы добавить</p> : cart.map((item) => (
+              {cart.length === 0 ? <p className="cart-empty">{t('tap_dish_hint')}</p> : cart.map((item) => (
                 <div key={item.lineId} className="cart-item">
-                  <button type="button" className="cart-item__info" onClick={() => setEditLine(item)} title="Изменить">
+                  <button type="button" className="cart-item__info" onClick={() => setEditLine(item)} title={t('edit')}>
                     <span className="cart-item__name">{item.name}</span>
                     {item.note && <span className="cart-row__note">{item.note}</span>}
-                    <span className="cart-item__price">{(item.price * item.qty).toLocaleString('ru-RU')} сум</span>
+                    <span className="cart-item__price">{(item.price * item.qty).toLocaleString('ru-RU')} {t('currency')}</span>
                   </button>
                   <div className="cart-item__controls">
                     <button className="qty-btn" onClick={() => updateQty(item.lineId, -1)}><Minus size={16} /></button>
@@ -297,15 +298,15 @@ export default function CashierMode({ user = {}, onBack }) {
             {cart.length > 0 && (
               <div className="cashier-cart__discount">
                 <Percent size={16} />
-                <input type="number" min="0" max="100" value={discount || ''} onChange={(e) => setDiscount(Math.min(100, Math.max(0, Number(e.target.value))))} placeholder="Скидка %" className="discount-input" />
+                <input type="number" min="0" max="100" value={discount || ''} onChange={(e) => setDiscount(Math.min(100, Math.max(0, Number(e.target.value))))} placeholder={t('discount')} className="discount-input" />
               </div>
             )}
             <div className="cashier-cart__total">
-              {discount > 0 && <div className="total-row total-row--discount"><span>Скидка {discount}%</span><span>−{discountAmount.toLocaleString('ru-RU')}</span></div>}
-              <div className="total-row total-row--final"><span>Итого</span><span>{total.toLocaleString('ru-RU')} сум</span></div>
+              {discount > 0 && <div className="total-row total-row--discount"><span>{t('discount_word')} {discount}%</span><span>−{discountAmount.toLocaleString('ru-RU')}</span></div>}
+              <div className="total-row total-row--final"><span>{t('total')}</span><span>{total.toLocaleString('ru-RU')} {t('currency')}</span></div>
             </div>
             <div className="cashier-cart__actions">
-              <button className="cart-btn cart-btn--pay" disabled={cart.length === 0} onClick={() => setPayModal(true)}><CreditCard size={20} /> Оплата</button>
+              <button className="cart-btn cart-btn--pay" disabled={cart.length === 0} onClick={() => setPayModal(true)}><CreditCard size={20} /> {t('pay')}</button>
             </div>
           </aside>
         </div>
@@ -326,12 +327,12 @@ export default function CashierMode({ user = {}, onBack }) {
       {payModal && (
         <div className="modal-overlay" onClick={() => setPayModal(false)}>
           <div className="modal pay-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal__header"><h3>Оплата</h3><button className="icon-btn" onClick={() => setPayModal(false)}><X size={22} /></button></div>
-            <div className="pay-modal__total"><span>К оплате:</span><strong>{total.toLocaleString('ru-RU')} сум</strong></div>
+            <div className="modal__header"><h3>{t('pay')}</h3><button className="icon-btn" onClick={() => setPayModal(false)}><X size={22} /></button></div>
+            <div className="pay-modal__total"><span>{t('to_pay')}:</span><strong>{total.toLocaleString('ru-RU')} {t('currency')}</strong></div>
             <div className="pay-modal__methods">
-              <button className="pay-method-btn" onClick={() => handlePayment('cash')}><Banknote size={32} /><span>Наличные</span></button>
-              <button className="pay-method-btn" onClick={() => handlePayment('card')}><CreditCard size={32} /><span>Карта</span></button>
-              <button className="pay-method-btn" onClick={() => handlePayment('mixed')}><Banknote size={24} /><CreditCard size={24} /><span>Смешанная</span></button>
+              <button className="pay-method-btn" onClick={() => handlePayment('cash')}><Banknote size={32} /><span>{t('cash')}</span></button>
+              <button className="pay-method-btn" onClick={() => handlePayment('card')}><CreditCard size={32} /><span>{t('card')}</span></button>
+              <button className="pay-method-btn" onClick={() => handlePayment('mixed')}><Banknote size={24} /><CreditCard size={24} /><span>{t('mixed')}</span></button>
             </div>
           </div>
         </div>

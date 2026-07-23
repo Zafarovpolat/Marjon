@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { RefreshCw, Lock, User, Settings } from 'lucide-react'
+import { t } from '../shared/i18n'
 
 /**
  * TopBar — верхняя панель для всех режимов.
@@ -37,31 +38,31 @@ export default function TopBar({
       <div className="topbar__status">
         <div className={`status-dot ${isOnline ? 'status-dot--online' : 'status-dot--offline'}`} />
         <span className="topbar__status-text">
-          {isOnline ? 'Онлайн' : 'Офлайн'}
+          {isOnline ? t('online') : t('offline')}
         </span>
         {queued > 0 && (
-          <span className="topbar__queue" title="Записей ждут синхронизации">↻ {queued}</span>
+          <span className="topbar__queue" title={t('queue_hint')}>↻ {queued}</span>
         )}
       </div>
 
       <div className="topbar__actions">
         {onRefresh && (
-          <button className="icon-btn" onClick={onRefresh} title="Обновить">
+          <button className="icon-btn" onClick={onRefresh} title={t('refresh')}>
             <RefreshCw size={22} />
           </button>
         )}
         {onLock && (
-          <button className="icon-btn" onClick={onLock} title="Заблокировать экран">
+          <button className="icon-btn" onClick={onLock} title={t('lock_screen')}>
             <Lock size={22} />
           </button>
         )}
         {onSettings && (
-          <button className="icon-btn" onClick={onSettings} title="Настройки">
+          <button className="icon-btn" onClick={onSettings} title={t('settings')}>
             <Settings size={22} />
           </button>
         )}
         {onAccount && (
-          <button className="icon-btn" onClick={onAccount} title="Аккаунт">
+          <button className="icon-btn" onClick={onAccount} title={t('account')}>
             <User size={22} />
           </button>
         )}

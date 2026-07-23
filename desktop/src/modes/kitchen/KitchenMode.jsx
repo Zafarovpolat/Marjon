@@ -7,12 +7,13 @@ import { kitchen } from '../../shared/api'
 import StopListPanel from '../../components/StopListPanel'
 import { kitchenWS } from '../../services/kitchenWS'
 import { soundService } from '../../services/sound'
+import { t } from '../../shared/i18n'
 
 const FILTERS = [
-  { id: 'all', label: 'Все', Icon: LayoutGrid },
-  { id: 'new', label: 'Новые', Icon: Clock },
-  { id: 'cooking', label: 'Готовятся', Icon: CookingPot },
-  { id: 'ready', label: 'Готовы', Icon: CheckCircle },
+  { id: 'all', label: t('all'), Icon: LayoutGrid },
+  { id: 'new', label: t('new_orders'), Icon: Clock },
+  { id: 'cooking', label: t('cooking_orders'), Icon: CookingPot },
+  { id: 'ready', label: t('ready_orders'), Icon: CheckCircle },
 ]
 
 // Бэкенд может отдавать наивный UTC (без таймзоны) — считаем его UTC, иначе таймеры врут
@@ -147,7 +148,7 @@ export default function KitchenMode({ user = {}, onBack }) {
   return (
     <div className="floor">
       <aside className="ws-side">
-        <div className="ws-side__label">Очередь</div>
+        <div className="ws-side__label">{t('queue')}</div>
         <nav className="ws-side__nav">
           {FILTERS.map(({ id, label, Icon }) => {
             const count = id === 'all' ? orders.length : orders.filter((o) => matchFilter(o, id)).length
@@ -162,37 +163,37 @@ export default function KitchenMode({ user = {}, onBack }) {
         </nav>
         <button className="zone" onClick={() => setStopOpen(true)}>
           <Ban size={20} />
-          <span className="zone__name">Стоп-лист</span>
+          <span className="zone__name">{t('stoplist')}</span>
         </button>
         <div className="ws-side__spacer" />
         <button className="zone" onClick={onBack}>
           <RefreshCw size={20} />
-          <span className="zone__name">Сменить режим</span>
+          <span className="zone__name">{t('switch_mode')}</span>
         </button>
       </aside>
 
       <main className="ws__main">
         <div className="board__head">
           <div className="board__title">
-            <h2>Кухня</h2>
-            <span className="board__subtitle">{orders.length} заказов · {inWork} в работе</span>
+            <h2>{t('mode_kitchen')}</h2>
+            <span className="board__subtitle">{orders.length} {t('orders_low')} · {inWork} {t('in_work')}</span>
           </div>
           <div className="board__head-right">
             <button className={`btn btn--outline btn--sm ${soundOn ? '' : 'is-muted'}`} onClick={toggleSound}>
               {soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
-              {soundOn ? 'Звук вкл' : 'Звук выкл'}
+              {soundOn ? t('sound_on') : t('sound_off')}
             </button>
           </div>
         </div>
 
         <div className="board__scroll">
           {loading ? (
-            <div className="kitchen-empty"><div className="spinner" /><p>Загрузка заказов...</p></div>
+            <div className="kitchen-empty"><div className="spinner" /><p>{t('loading_orders')}</p></div>
           ) : filteredOrders.length === 0 ? (
             <div className="kitchen-empty">
               <CheckCircle size={64} strokeWidth={1} />
-              <p>Нет активных заказов</p>
-              <span className="kitchen-empty__hint">Новые заказы появятся автоматически</span>
+              <p>{t('no_orders')}</p>
+              <span className="kitchen-empty__hint">{t('new_orders_auto')}</span>
             </div>
           ) : (
             <div className="kitchen-grid">
@@ -232,7 +233,7 @@ function KitchenCard({ order, timerState, elapsed, onItemDone, onOrderDone }) {
       <div className="kitchen-card__header">
         <div className="kitchen-card__info">
           <span className="kitchen-card__number">#{order.order_number || order.id}</span>
-          {order.table_number && <span className="kitchen-card__table">Стол {order.table_number}</span>}
+          {order.table_number && <span className="kitchen-card__table">{t('table')} {order.table_number}</span>}
           {order.order_type && <span className="kitchen-card__type">{orderTypeIcon(order.order_type)}</span>}
         </div>
         <div className="kitchen-card__timer">
@@ -260,7 +261,7 @@ function KitchenCard({ order, timerState, elapsed, onItemDone, onOrderDone }) {
                 {item.note && <span className="kitchen-item__note">{item.note}</span>}
               </div>
               {!done ? (
-                <button className="kitchen-item__done-btn" onClick={() => onItemDone(item.id)} title="Готово">
+                <button className="kitchen-item__done-btn" onClick={() => onItemDone(item.id)} title={t('done')}>
                   <CheckCircle size={28} />
                 </button>
               ) : (
@@ -274,7 +275,7 @@ function KitchenCard({ order, timerState, elapsed, onItemDone, onOrderDone }) {
       {allDone && (
         <button className="kitchen-card__complete" onClick={() => onOrderDone(order.id)}>
           <CheckCircle size={20} />
-          Заказ готов, отдать
+          {t('order_ready_give')}
         </button>
       )}
     </div>

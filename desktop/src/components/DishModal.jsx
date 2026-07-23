@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X, Plus, Minus, Trash2 } from 'lucide-react'
+import { t } from '../shared/i18n'
 
 /**
  * DishModal — правка позиции заказа: количество, цена за порцию, комментарий.
@@ -23,7 +24,7 @@ export default function DishModal({ product, line, onSubmit, onRemove, onClose }
 
         <div className="dish-modal__body">
           <div className="dish-modal__row">
-            <label>Количество</label>
+            <label>{t('qty')}</label>
             <div className="qty-stepper">
               <button onClick={() => setQty((q) => Math.max(1, q - 1))}><Minus size={18} /></button>
               <span>{qty}</span>
@@ -32,24 +33,24 @@ export default function DishModal({ product, line, onSubmit, onRemove, onClose }
           </div>
 
           <div className="dish-modal__row">
-            <label>Цена за порцию, сум</label>
+            <label>{t('price_per')}</label>
             <input type="number" min="0" step="500" value={price}
               onChange={(e) => setPrice(Math.max(0, Number(e.target.value) || 0))}
               className="input dish-modal__price" />
           </div>
 
           <div className="dish-modal__row dish-modal__row--col">
-            <label>Комментарий</label>
+            <label>{t('comment')}</label>
             <textarea value={note} onChange={(e) => setNote(e.target.value)}
-              className="input dish-modal__note" placeholder="Например: без лука, острее, отдельно соус…" rows={2} />
+              className="input dish-modal__note" placeholder={t('dish_note_ph')} rows={2} />
           </div>
 
-          <div className="dish-modal__total">Итого: <strong>{(qty * price).toLocaleString('ru-RU')} сум</strong></div>
+          <div className="dish-modal__total">{t('total')}: <strong>{(qty * price).toLocaleString('ru-RU')} {t('currency')}</strong></div>
         </div>
 
         <div className="dish-modal__actions">
           {onRemove && <button className="btn btn--danger dish-modal__del" onClick={onRemove}><Trash2 size={18} /></button>}
-          <button className="btn btn--primary" onClick={() => onSubmit({ quantity: qty, price, note })}>Сохранить</button>
+          <button className="btn btn--primary" onClick={() => onSubmit({ quantity: qty, price, note })}>{t('save')}</button>
         </div>
       </div>
     </div>

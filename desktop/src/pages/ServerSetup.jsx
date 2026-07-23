@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Server, Check, Wifi, WifiOff } from 'lucide-react'
 import VirtualKeyboard from '../components/VirtualKeyboard'
+import { t } from '../shared/i18n'
 
 /**
  * ServerSetup — экран первого запуска.
@@ -27,11 +28,11 @@ export default function ServerSetup({ onComplete }) {
         setStatus('ok')
       } else {
         setStatus('error')
-        setError(`Сервер ответил ${res.status}`)
+        setError(`${t('srv_err_status')} ${res.status}`)
       }
     } catch (err) {
       setStatus('error')
-      setError('Не удалось подключиться к серверу')
+      setError(t('srv_err_conn'))
     } finally {
       setTesting(false)
     }
@@ -48,7 +49,7 @@ export default function ServerSetup({ onComplete }) {
       <div className={`login-card ${kbOpen ? 'login-card--kb-open' : ''}`}>
         <div className="login-card__header">
           <div className="login-card__logo">MARJON</div>
-          <p className="login-card__subtitle">Настройка терминала</p>
+          <p className="login-card__subtitle">{t('srv_setup')}</p>
         </div>
 
         <div className="server-setup">
@@ -56,13 +57,10 @@ export default function ServerSetup({ onComplete }) {
             <Server size={48} strokeWidth={1.5} />
           </div>
 
-          <p className="server-setup__hint">
-            Введите адрес сервера Marjon.
-            Эту настройку выполняет IT-специалист при установке.
-          </p>
+          <p className="server-setup__hint">{t('srv_intro')}</p>
 
           <div className="login-field">
-            <label className="login-field__label">Адрес сервера</label>
+            <label className="login-field__label">{t('s_server_addr')}</label>
             <input
               className="login-field__input"
               value={url}
@@ -75,7 +73,7 @@ export default function ServerSetup({ onComplete }) {
           {status === 'ok' && (
             <div className="server-setup__status server-setup__status--ok">
               <Wifi size={18} />
-              <span>Подключение успешно</span>
+              <span>{t('srv_conn_ok')}</span>
             </div>
           )}
 
@@ -92,7 +90,7 @@ export default function ServerSetup({ onComplete }) {
               onClick={testConnection}
               disabled={testing || !url.trim()}
             >
-              {testing ? 'Проверка...' : 'Проверить соединение'}
+              {testing ? t('check') : t('srv_test')}
             </button>
 
             <button
@@ -101,7 +99,7 @@ export default function ServerSetup({ onComplete }) {
               disabled={!url.trim()}
             >
               <Check size={18} />
-              Сохранить и продолжить
+              {t('srv_save')}
             </button>
           </div>
         </div>

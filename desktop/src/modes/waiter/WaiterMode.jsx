@@ -6,10 +6,11 @@ import {
 import { orders, menu, halls as hallsApi } from '../../shared/api'
 import DishModal from '../../components/DishModal'
 import RecipeModal from '../../components/RecipeModal'
+import { t } from '../../shared/i18n'
 
 const STATUS_LABELS = {
-  new: 'Новый', accepted: 'Принят', cooking: 'Готовится',
-  ready: 'Готов', completed: 'Закрыт', cancelled: 'Отменён',
+  new: t('st_new'), accepted: t('st_accepted'), cooking: t('st_cooking'),
+  ready: t('st_ready'), completed: t('st_completed'), cancelled: t('st_cancelled'),
 }
 const STATUS_COLORS = {
   new: 'var(--color-info)', accepted: 'var(--color-brand)',
@@ -17,7 +18,7 @@ const STATUS_COLORS = {
 }
 const ACTIVE_STATUSES = new Set(['new', 'accepted', 'cooking', 'ready', 'pending'])
 
-const TABLE_LABELS = { free: 'Свободен', busy: 'Занят', ready: 'Готов' }
+const TABLE_LABELS = { free: t('free'), busy: t('busy'), ready: t('ready') }
 
 function zoneIcon(name = '') {
   const n = name.toLowerCase()
@@ -100,7 +101,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
 
   const freeCount = (list) => list.filter((t) => tableStatus(t.number) === 'free').length
   const zoneNav = [
-    { id: 'all', name: 'Все', count: freeCount(allTables), Icon: LayoutGrid },
+    { id: 'all', name: t('all'), count: freeCount(allTables), Icon: LayoutGrid },
     ...zones.map((z) => ({ id: z.id, name: z.name, count: freeCount(z.tables || []), Icon: zoneIcon(z.name) })),
   ]
   const shownZones = activeZone === 'all' ? zones : zones.filter((z) => z.id === activeZone)
@@ -156,7 +157,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
       })
       setView('floor'); loadData()
     } catch (err) {
-      alert(err?.response?.data?.detail || 'Ошибка создания заказа')
+      alert(err?.response?.data?.detail || t('create_order_error'))
     } finally {
       setSubmitting(false)
     }
@@ -166,7 +167,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     <div className="floor">
       {/* Сайдбар локаций */}
       <aside className="ws-side">
-        <div className="ws-side__label">Локации</div>
+        <div className="ws-side__label">{t('locations')}</div>
         <nav className="ws-side__nav">
           {zoneNav.map(({ id, name, count, Icon }) => (
             <button
@@ -183,7 +184,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
         <div className="ws-side__spacer" />
         <button className="zone" onClick={onBack}>
           <RefreshCw size={20} />
-          <span className="zone__name">Сменить режим</span>
+          <span className="zone__name">{t('switch_mode')}</span>
         </button>
       </aside>
 
@@ -193,47 +194,47 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
           <>
             <div className="board__head">
               <div className="board__title">
-                <h2>{activeZone === 'all' ? 'Все столы' : (zones.find((z) => z.id === activeZone)?.name || 'Зал')}</h2>
-                <span className="board__subtitle">{shownCount} столов · {busyCount} занято</span>
+                <h2>{activeZone === 'all' ? t('all_tables') : (zones.find((z) => z.id === activeZone)?.name || t('hall'))}</h2>
+                <span className="board__subtitle">{shownCount} {t('tables_low')} · {busyCount} {t('busy_low')}</span>
               </div>
               <div className="board__head-right">
                 <div className="legend">
-                  <span className="legend__item"><span className="legend__swatch legend__swatch--free" /> Свободен</span>
-                  <span className="legend__item"><span className="legend__swatch legend__swatch--busy" /> Занят</span>
-                  <span className="legend__item"><span className="legend__swatch legend__swatch--check" /> Готов</span>
+                  <span className="legend__item"><span className="legend__swatch legend__swatch--free" /> {t('free')}</span>
+                  <span className="legend__item"><span className="legend__swatch legend__swatch--busy" /> {t('busy')}</span>
+                  <span className="legend__item"><span className="legend__swatch legend__swatch--check" /> {t('ready')}</span>
                 </div>
                 <button className="btn btn--primary btn--sm" onClick={() => openNewOrder(null)}>
-                  <Plus size={18} /> Новый заказ
+                  <Plus size={18} /> {t('new_order')}
                 </button>
               </div>
             </div>
 
             <div className="board__scroll">
               {loading ? (
-                <p className="empty-text">Загрузка...</p>
+                <p className="empty-text">{t('loading')}</p>
               ) : shownZones.length === 0 ? (
-                <p className="empty-text">Нет залов. Добавьте их в веб-админке.</p>
+                <p className="empty-text">{t('no_halls')}</p>
               ) : shownZones.map((z) => (
                 <section className="tgroup" key={z.id}>
-                  <div className="tgroup__title">{z.name} <span>{(z.tables || []).length} столов</span></div>
+                  <div className="tgroup__title">{z.name} <span>{(z.tables || []).length} {t('tables_low')}</span></div>
                   <div className="tgrid">
-                    {(z.tables || []).map((t) => {
-                      const o = orderFor(t.number)
-                      const st = tableStatus(t.number)
+                    {(z.tables || []).map((tb) => {
+                      const o = orderFor(tb.number)
+                      const st = tableStatus(tb.number)
                       const variant = st === 'free' ? 'free' : st === 'ready' ? 'check' : 'busy'
                       return (
-                        <button key={t.id ?? t.number} className={`tcard tcard--${variant}`} onClick={() => handleTableTap(t)}>
+                        <button key={tb.id ?? tb.number} className={`tcard tcard--${variant}`} onClick={() => handleTableTap(tb)}>
                           <div className="tcard__top">
-                            <span className="tcard__num">{t.number}</span>
-                            <span className="tcard__seats"><Users /> {t.capacity || t.seats || 4}</span>
+                            <span className="tcard__num">{tb.number}</span>
+                            <span className="tcard__seats"><Users /> {tb.capacity || tb.seats || 4}</span>
                           </div>
                           {o ? (
                             <>
-                              <span className="tcard__client">Заказ #{o.order_number ?? ''}</span>
+                              <span className="tcard__client">{t('order_no')} #{o.order_number ?? ''}</span>
                               <span className="tcard__meta">
                                 <Clock /> {formatTime(o.created_at)}
                                 {o.total_amount != null && (
-                                  <span className="tcard__amount">{Number(o.total_amount).toLocaleString('ru-RU')} сум</span>
+                                  <span className="tcard__amount">{Number(o.total_amount).toLocaleString('ru-RU')} {t('currency')}</span>
                                 )}
                               </span>
                             </>
@@ -254,17 +255,17 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
         {view === 'detail' && selectedTable && (
           <div className="waiter-detail">
             <header className="waiter-detail__header">
-              <button className="btn-ghost btn--lg" onClick={() => setView('floor')}><ArrowLeft size={22} /> Назад</button>
-              <h2>Стол {selectedTable.number}</h2>
+              <button className="btn-ghost btn--lg" onClick={() => setView('floor')}><ArrowLeft size={22} /> {t('back')}</button>
+              <h2>{t('table')} {selectedTable.number}</h2>
               <span className="status-badge" style={{ background: STATUS_COLORS[selectedTable.order?.status] || 'var(--color-text-muted)' }}>
                 {STATUS_LABELS[selectedTable.order?.status] || ''}
               </span>
             </header>
             <div className="waiter-detail__order">
               <div className="waiter-detail__meta">
-                <span>Заказ #{selectedTable.order?.order_number}</span>
+                <span>{t('order_no')} #{selectedTable.order?.order_number}</span>
                 <span><Clock size={14} /> {formatTime(selectedTable.order?.created_at)}</span>
-                <span>{Number(selectedTable.order?.total_amount || 0).toLocaleString('ru-RU')} сум</span>
+                <span>{Number(selectedTable.order?.total_amount || 0).toLocaleString('ru-RU')} {t('currency')}</span>
               </div>
               <ul className="waiter-detail__items">
                 {(selectedTable.order?.items ?? []).map((item) => (
@@ -281,14 +282,14 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
               </ul>
               <div className="waiter-detail__actions">
                 <button className="btn-primary btn--lg" onClick={() => openNewOrder(selectedTable)}>
-                  <Plus size={18} /> Добавить блюда
+                  <Plus size={18} /> {t('add_dishes')}
                 </button>
                 {selectedTable.order?.status === 'ready' && (
                   <button className="btn-success btn--lg" onClick={async () => {
                     try { await orders.updateStatus(selectedTable.order.id, 'completed') } catch {}
                     setView('floor'); loadData()
                   }}>
-                    <CheckCircle size={18} /> Закрыть заказ
+                    <CheckCircle size={18} /> {t('close_order')}
                   </button>
                 )}
               </div>
@@ -300,24 +301,24 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
           <div className="waiter-new-order">
             <header className="waiter-new-order__header">
               <button className="btn-ghost" onClick={() => setView('floor')}><X size={20} /></button>
-              <h2>{selectedTable ? `Стол ${selectedTable.number}` : 'Без стола'}{' · Новый заказ'}</h2>
+              <h2>{selectedTable ? `${t('table')} ${selectedTable.number}` : t('no_table')}{' · ' + t('new_order')}</h2>
             </header>
             <div className="waiter-new-order__body">
               <div className="waiter-catalog">
                 <div className="waiter-catalog__search">
                   <Search size={18} />
-                  <input placeholder="Поиск блюда..." value={search} onChange={(e) => setSearch(e.target.value)} />
+                  <input placeholder={t('search_dish')} value={search} onChange={(e) => setSearch(e.target.value)} />
                   {search && <button className="btn-icon-sm" onClick={() => setSearch('')}><X size={16} /></button>}
                 </div>
                 <div className="waiter-catalog__cats">
-                  <button className={`cat-btn ${!activeCat ? 'cat-btn--active' : ''}`} onClick={() => setActiveCat(null)}>Все</button>
+                  <button className={`cat-btn ${!activeCat ? 'cat-btn--active' : ''}`} onClick={() => setActiveCat(null)}>{t('all')}</button>
                   {categories.map((c) => (
                     <button key={c.id} className={`cat-btn ${activeCat === c.id ? 'cat-btn--active' : ''}`} onClick={() => setActiveCat(c.id)}>{c.name}</button>
                   ))}
                 </div>
                 <div className="waiter-catalog__grid">
                   {filteredProducts.length === 0 ? (
-                    <p className="empty-text">Нет блюд</p>
+                    <p className="empty-text">{t('no_dishes')}</p>
                   ) : filteredProducts.map((p) => (
                     <div key={p.id} className="product-cell">
                       <button className="product-tile" onClick={() => addToCart(p)}>
@@ -325,24 +326,24 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                         <span className="product-tile__name">{p.name}</span>
                         <span className="product-tile__price">{Number(p.price || 0).toLocaleString('ru-RU')}</span>
                       </button>
-                      <button className="product-card__info" onClick={() => setRecipeProd(p)} title="Техкарта"><ChefHat size={14} /></button>
+                      <button className="product-card__info" onClick={() => setRecipeProd(p)} title={t('tech_card')}><ChefHat size={14} /></button>
                     </div>
                   ))}
                 </div>
               </div>
               <div className="waiter-cart">
                 <div className="waiter-cart__meta">
-                  <label>Гостей:
+                  <label>{t('guests')}:
                     <input type="number" min="1" max="20" value={guests} onChange={(e) => setGuests(Number(e.target.value) || 1)} />
                   </label>
-                  <input className="waiter-cart__note" placeholder="Комментарий к заказу..." value={orderNote} onChange={(e) => setOrderNote(e.target.value)} />
+                  <input className="waiter-cart__note" placeholder={t('order_comment')} value={orderNote} onChange={(e) => setOrderNote(e.target.value)} />
                 </div>
                 <div className="waiter-cart__items">
                   {cart.length === 0 ? (
-                    <p className="empty-text">Добавьте блюда</p>
+                    <p className="empty-text">{t('add_dishes_empty')}</p>
                   ) : cart.map((item) => (
                     <div key={item.lineId} className="cart-row">
-                      <button type="button" className="cart-row__info" onClick={() => setEditLine(item)} title="Изменить">
+                      <button type="button" className="cart-row__info" onClick={() => setEditLine(item)} title={t('edit')}>
                         <span className="cart-row__name">{item.product.name}</span>
                         {item.note && <span className="cart-row__note">{item.note}</span>}
                       </button>
@@ -357,9 +358,9 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                 </div>
                 {cart.length > 0 && (
                   <div className="waiter-cart__footer">
-                    <div className="waiter-cart__total">Итого: <strong>{cartTotal.toLocaleString('ru-RU')} сум</strong></div>
+                    <div className="waiter-cart__total">{t('total')}: <strong>{cartTotal.toLocaleString('ru-RU')} {t('currency')}</strong></div>
                     <button className="btn-primary btn--xl" onClick={submitOrder} disabled={submitting}>
-                      {submitting ? 'Отправка...' : 'Отправить на кухню'}
+                      {submitting ? t('sending') : t('to_kitchen')}
                     </button>
                   </div>
                 )}

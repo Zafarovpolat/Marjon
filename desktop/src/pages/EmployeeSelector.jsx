@@ -3,12 +3,6 @@ import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { auth } from '../shared/api'
 import { t } from '../shared/i18n'
 
-export const ROLE_LABELS = {
-  owner: 'Владелец', manager: 'Менеджер', cashier: 'Кассир', waiter: 'Официант',
-  cook: 'Повар', chef: 'Шеф-повар', kitchen: 'Кухня', bartender: 'Бармен',
-  courier: 'Курьер', accountant: 'Бухгалтер', admin: 'Администратор',
-}
-
 function initials(name = '') {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('') || '?'
 }
@@ -41,16 +35,16 @@ export default function EmployeeSelector({ branch, onSelect, onBack }) {
     <div className="emp-screen">
       <div className="emp-screen__panel">
         <header className="emp-screen__header">
-          <button className="icon-btn" onClick={onBack} title="Назад"><ArrowLeft size={22} /></button>
+          <button className="icon-btn" onClick={onBack} title={t('back')}><ArrowLeft size={22} /></button>
           <div className="emp-screen__titles">
             <h1>{t('choose_employee')}</h1>
-            <p>{branch?.name || 'Филиал'}</p>
+            <p>{branch?.name || t('branch')}</p>
           </div>
-          <button className="icon-btn" onClick={load} title="Обновить"><RefreshCw size={20} /></button>
+          <button className="icon-btn" onClick={load} title={t('refresh')}><RefreshCw size={20} /></button>
         </header>
 
         {loading ? (
-          <div className="emp-screen__state"><div className="spinner" /><p>Загрузка...</p></div>
+          <div className="emp-screen__state"><div className="spinner" /><p>{t('loading')}</p></div>
         ) : (
           <div className="emp-grid">
             {staff.map((u) => {
@@ -61,13 +55,13 @@ export default function EmployeeSelector({ branch, onSelect, onBack }) {
                     {initials(u.name || u.email)}
                   </span>
                   <span className="emp-card__name">{u.name || u.email}</span>
-                  <span className="emp-card__role">{ROLE_LABELS[role] || 'Сотрудник'}</span>
+                  <span className="emp-card__role">{t.role(role)}</span>
                 </button>
               )
             })}
           </div>
         )}
-        {error && <p className="emp-screen__note">Показаны демо-сотрудники (нет связи с сервером)</p>}
+        {error && <p className="emp-screen__note">{t('emp_demo_note')}</p>}
       </div>
     </div>
   )

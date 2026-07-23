@@ -1,4 +1,5 @@
 import { Minus, User } from 'lucide-react'
+import { t } from '../shared/i18n'
 
 /**
  * BottomBar — нижняя панель с кнопкой сворачивания
@@ -27,7 +28,7 @@ export default function BottomBar({ userName, branchName, mode, onMinimize }) {
         {mode && <span> · {mode}</span>}
       </div>
 
-      <button className="bottombar__minimize" onClick={handleMinimize} title="Свернуть окно">
+      <button className="bottombar__minimize" onClick={handleMinimize} title={t('minimize')}>
         <Minus size={18} />
       </button>
     </footer>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { LogOut, MapPin, RefreshCw, Building2 } from 'lucide-react'
 import { companies } from '../shared/api'
+import { t } from '../shared/i18n'
 
 export default function BranchSelector({ user, onSelect, onLogout }) {
   const [branches, setBranches] = useState([])
@@ -12,7 +13,7 @@ export default function BranchSelector({ user, onSelect, onLogout }) {
     setError('')
     companies.branches()
       .then(data => setBranches(Array.isArray(data) ? data : []))
-      .catch(() => setError('Не удалось загрузить список филиалов'))
+      .catch(() => setError(t('bs_load_err')))
       .finally(() => setLoading(false))
   }
 
@@ -25,15 +26,15 @@ export default function BranchSelector({ user, onSelect, onLogout }) {
           <div className="branch-selector__user">
             <Building2 size={28} className="brand-icon" />
             <div>
-              <h1 className="branch-selector__title">Выберите филиал</h1>
+              <h1 className="branch-selector__title">{t('bs_title')}</h1>
               <p className="branch-selector__username">{user?.name || user?.email}</p>
             </div>
           </div>
           <div className="branch-selector__actions">
-            <button className="icon-btn" onClick={load} title="Обновить">
+            <button className="icon-btn" onClick={load} title={t('refresh')}>
               <RefreshCw size={22} />
             </button>
-            <button className="icon-btn icon-btn--danger" onClick={onLogout} title="Выйти">
+            <button className="icon-btn icon-btn--danger" onClick={onLogout} title={t('logout')}>
               <LogOut size={22} />
             </button>
           </div>
@@ -42,17 +43,17 @@ export default function BranchSelector({ user, onSelect, onLogout }) {
         {loading ? (
           <div className="branch-selector__loading">
             <div className="spinner" />
-            <p>Загрузка филиалов...</p>
+            <p>{t('bs_loading')}</p>
           </div>
         ) : error ? (
           <div className="branch-selector__error">
             <p className="error">{error}</p>
-            <button className="btn btn--outline" onClick={load}>Повторить</button>
+            <button className="btn btn--outline" onClick={load}>{t('retry')}</button>
           </div>
         ) : branches.length === 0 ? (
           <div className="branch-selector__empty">
             <MapPin size={48} strokeWidth={1.5} />
-            <p>Нет доступных филиалов</p>
+            <p>{t('bs_empty')}</p>
           </div>
         ) : (
           <div className="branch-grid">

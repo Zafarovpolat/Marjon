@@ -21,12 +21,12 @@ export default function OrganizationScreen({ orgName, branchName, supportPhone, 
     <div className="org-screen">
       <div className="org-screen__overlay" />
 
-      <button className="org-screen__settings" onClick={onSettings} title="Настройки">
+      <button className="org-screen__settings" onClick={onSettings} title={t('settings')}>
         <Settings size={24} />
       </button>
 
       {onReset && (
-        <button className="org-screen__reset" onClick={onReset} title="Сменить организацию">
+        <button className="org-screen__reset" onClick={onReset} title={t('change_org')}>
           <LogOut size={18} /> {t('change_org')}
         </button>
       )}

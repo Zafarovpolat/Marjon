@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Volume2, Server, Monitor, Timer, Globe, Maximize, ZoomIn, ZoomOut, Check } from 'lucide-react'
 import { soundService } from '../services/sound'
+import { t } from '../shared/i18n'
 
 const el = () => (typeof window !== 'undefined' ? window.electron : null)
 
@@ -45,65 +46,65 @@ export default function SettingsModal({ open, onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal settings-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal__header">
-          <h2>Настройки</h2>
+          <h2>{t('settings')}</h2>
           <button className="icon-btn" onClick={onClose}><X size={24} /></button>
         </div>
 
         <div className="modal__body">
           {/* Звук */}
           <section className="settings-section">
-            <h3><Volume2 size={18} /> Звук</h3>
+            <h3><Volume2 size={18} /> {t('s_sound')}</h3>
             <div className="settings-row">
-              <span>Звуковые уведомления</span>
+              <span>{t('s_sound_notif')}</span>
               <button
                 className={`toggle ${soundEnabled ? 'toggle--on' : ''}`}
                 onClick={() => { const n = !soundEnabled; setSoundEnabled(n); soundService.enabled = n }}
               ><span className="toggle__dot" /></button>
             </div>
             <div className="settings-row">
-              <span>Громкость</span>
+              <span>{t('s_volume')}</span>
               <input type="range" min="0" max="1" step="0.05" value={volume}
                 onChange={(e) => { const v = parseFloat(e.target.value); setVolume(v); soundService.volume = v }}
                 className="range-input" />
               <span className="settings-value">{Math.round(volume * 100)}%</span>
             </div>
             <div className="settings-row">
-              <span>Проверить звук</span>
-              <button className="btn btn--outline" onClick={() => soundService.play('newOrder')}>Проиграть</button>
+              <span>{t('s_test_sound')}</span>
+              <button className="btn btn--outline" onClick={() => soundService.play('newOrder')}>{t('s_play')}</button>
             </div>
           </section>
 
           {/* Таймеры кухни */}
           <section className="settings-section">
-            <h3><Timer size={18} /> Таймеры кухни</h3>
-            <p className="settings-hint">Через сколько минут карточка заказа на кухне подсветится жёлтым (внимание) и красным (просрочено).</p>
+            <h3><Timer size={18} /> {t('s_kitchen_timers')}</h3>
+            <p className="settings-hint">{t('s_timers_hint')}</p>
             <div className="settings-row">
-              <span>Жёлтый через, мин</span>
+              <span>{t('s_yellow_after')}</span>
               <input type="number" min="1" max="60" value={timerYellow} onChange={(e) => setTimerYellow(Number(e.target.value) || 5)} className="input settings-num" />
             </div>
             <div className="settings-row">
-              <span>Красный через, мин</span>
+              <span>{t('s_red_after')}</span>
               <input type="number" min="1" max="120" value={timerRed} onChange={(e) => setTimerRed(Number(e.target.value) || 10)} className="input settings-num" />
             </div>
             <div className="settings-row">
-              <span>Сохранить пороги</span>
+              <span>{t('s_save_thresholds')}</span>
               <button className="btn btn--primary settings-save" onClick={saveTimers}>
-                {timersSaved ? <Check size={20} /> : 'Сохранить'}
+                {timersSaved ? <Check size={20} /> : t('save')}
               </button>
             </div>
           </section>
 
           {/* Экран */}
           <section className="settings-section">
-            <h3><Monitor size={18} /> Экран</h3>
+            <h3><Monitor size={18} /> {t('s_screen')}</h3>
             <div className="settings-row">
-              <span>Полный экран</span>
+              <span>{t('s_fullscreen')}</span>
               <button className="btn btn--outline" onClick={() => el()?.toggleFullscreen?.()}>
-                <Maximize size={18} /> Переключить
+                <Maximize size={18} /> {t('s_toggle')}
               </button>
             </div>
             <div className="settings-row">
-              <span>Масштаб интерфейса</span>
+              <span>{t('s_zoom')}</span>
               <div className="settings-input-group">
                 <button className="btn btn--outline settings-icon-btn" onClick={() => zoomStep(-1)}><ZoomOut size={18} /></button>
                 <span className="settings-value">{Math.round(zoom * 100)}%</span>
@@ -111,7 +112,7 @@ export default function SettingsModal({ open, onClose }) {
               </div>
             </div>
             <div className="settings-row">
-              <span>Запускать при старте Windows</span>
+              <span>{t('s_autolaunch')}</span>
               <button className={`toggle ${autoLaunch ? 'toggle--on' : ''}`}
                 onClick={() => { const n = !autoLaunch; setAutoLaunch(n); persist('marjon_autolaunch', n ? '1' : '0'); try { el()?.setAutoLaunch?.(n) } catch {} }}
               ><span className="toggle__dot" /></button>
@@ -120,32 +121,32 @@ export default function SettingsModal({ open, onClose }) {
 
           {/* Язык и тема */}
           <section className="settings-section">
-            <h3><Globe size={18} /> Язык и тема</h3>
+            <h3><Globe size={18} /> {t('s_lang_theme')}</h3>
             <div className="settings-row">
-              <span>Язык интерфейса</span>
+              <span>{t('s_lang')}</span>
               <div className="settings-input-group">
                 <button className={`btn ${lang === 'ru' ? 'btn--primary' : 'btn--outline'}`} onClick={() => { persist('marjon_lang', 'ru'); setLang('ru'); window.location.reload() }}>RU</button>
                 <button className={`btn ${lang === 'uz' ? 'btn--primary' : 'btn--outline'}`} onClick={() => { persist('marjon_lang', 'uz'); setLang('uz'); window.location.reload() }}>UZ</button>
               </div>
             </div>
             <div className="settings-row">
-              <span>Тема</span>
+              <span>{t('s_theme')}</span>
               <div className="settings-input-group">
-                <button className={`btn ${theme === 'light' ? 'btn--primary' : 'btn--outline'}`} onClick={() => { setTheme('light'); persist('marjon_theme', 'light') }}>Светлая</button>
-                <button className={`btn ${theme === 'dark' ? 'btn--primary' : 'btn--outline'}`} onClick={() => { setTheme('dark'); persist('marjon_theme', 'dark') }}>Тёмная</button>
+                <button className={`btn ${theme === 'light' ? 'btn--primary' : 'btn--outline'}`} onClick={() => { setTheme('light'); persist('marjon_theme', 'light') }}>{t('s_light')}</button>
+                <button className={`btn ${theme === 'dark' ? 'btn--primary' : 'btn--outline'}`} onClick={() => { setTheme('dark'); persist('marjon_theme', 'dark') }}>{t('s_dark')}</button>
               </div>
             </div>
           </section>
 
           {/* Подключение */}
           <section className="settings-section">
-            <h3><Server size={18} /> Подключение</h3>
+            <h3><Server size={18} /> {t('s_connection')}</h3>
             <div className="settings-row settings-row--col">
-              <label>Адрес сервера</label>
+              <label>{t('s_server_addr')}</label>
               <div className="settings-input-group">
                 <input type="text" value={serverUrl} onChange={(e) => setServerUrl(e.target.value)} className="input" placeholder="http://192.168.1.x:8000/api/v1" />
                 <button className="btn btn--primary settings-save" onClick={saveServer}>
-                  {serverSaved ? <Check size={20} /> : 'Сохранить'}
+                  {serverSaved ? <Check size={20} /> : t('save')}
                 </button>
               </div>
             </div>

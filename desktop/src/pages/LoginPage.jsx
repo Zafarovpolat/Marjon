@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { auth } from '../shared/api'
 import { Eye, EyeOff, Delete, LogOut } from 'lucide-react'
 import VirtualKeyboard from '../components/VirtualKeyboard'
+import { t } from '../shared/i18n'
 
 // Оставляет только 9 локальных цифр номера (отбрасывает код страны 998)
 function extractPhoneDigits(raw) {
@@ -53,7 +54,7 @@ function AdminLogin({ onLogin }) {
   async function handleSubmit(e) {
     e.preventDefault()
     if (!phoneComplete) {
-      setError('Введите номер телефона полностью')
+      setError(t('lp_phone_incomplete'))
       return
     }
     setError('')
@@ -66,7 +67,7 @@ function AdminLogin({ onLogin }) {
       onLogin({ ...tokens, user })
     } catch (err) {
       localStorage.removeItem('marjon_token')
-      setError(err.response?.data?.detail || 'Неверный телефон или пароль')
+      setError(err.response?.data?.detail || t('lp_bad_creds'))
     } finally {
       setLoading(false)
     }
@@ -78,12 +79,12 @@ function AdminLogin({ onLogin }) {
       <div className={`login-card ${kbOpen ? 'login-card--kb-open' : ''}`}>
         <div className="login-card__header">
           <div className="login-card__logo">MARJON</div>
-          <p className="login-card__subtitle">Настройка терминала</p>
+          <p className="login-card__subtitle">{t('srv_setup')}</p>
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="login-field">
-            <label className="login-field__label">Номер телефона</label>
+            <label className="login-field__label">{t('lp_phone')}</label>
             <input
               className="login-field__input"
               type="tel"
@@ -96,7 +97,7 @@ function AdminLogin({ onLogin }) {
           </div>
 
           <div className="login-field">
-            <label className="login-field__label">Пароль</label>
+            <label className="login-field__label">{t('lp_password')}</label>
             <div className="login-field__password-wrap">
               <input
                 className="login-field__input"
@@ -119,7 +120,7 @@ function AdminLogin({ onLogin }) {
           {error && <p className="login-error">{error}</p>}
 
           <button type="submit" className="login-btn" disabled={loading}>
-            {loading ? 'Вход...' : 'Привязать терминал'}
+            {loading ? t('lp_logging_in') : t('lp_bind')}
           </button>
         </form>
       </div>
@@ -151,7 +152,7 @@ function PinLogin({ onLogin, onReset, branchName, orgName }) {
     } catch (err) {
       localStorage.removeItem('marjon_token')
       setPin('')
-      setError('Неверный PIN-код')
+      setError(t('lp_bad_pin'))
     } finally {
       setLoading(false)
     }
@@ -180,7 +181,7 @@ function PinLogin({ onLogin, onReset, branchName, orgName }) {
         </div>
 
         <div className="login-pin">
-          <p className="login-pin__hint">Введите PIN для входа</p>
+          <p className="login-pin__hint">{t('lp_enter_pin_hint')}</p>
 
           <div className="login-pin__dots">
             {[0, 1, 2, 3].map(i => (
@@ -225,7 +226,7 @@ function PinLogin({ onLogin, onReset, branchName, orgName }) {
         {onReset && (
           <button className="login-reset-btn" onClick={onReset}>
             <LogOut size={16} />
-            Сменить организацию
+            {t('change_org')}
           </button>
         )}
       </div>
