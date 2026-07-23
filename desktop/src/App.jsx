@@ -15,6 +15,7 @@ import KitchenMode from './modes/kitchen/KitchenMode'
 import WaiterMode from './modes/waiter/WaiterMode'
 import ManagerMode from './modes/manager/ManagerMode'
 import { auth } from './shared/api'
+import { t } from './shared/i18n'
 
 const MANAGER_ROLES = ['owner', 'manager', 'admin', 'director']
 import { kitchenWS } from './services/kitchenWS'
@@ -269,7 +270,8 @@ export default function App() {
   }
 
   // ── Рабочий режим ──
-  const { component: ModeComponent, label: modeLabel } = MODES[mode]
+  const { component: ModeComponent } = MODES[mode]
+  const modeLabel = t('mode_' + mode)
   const userWithBranch = { ...staffUser, branch_id: branch.id }
 
   return (

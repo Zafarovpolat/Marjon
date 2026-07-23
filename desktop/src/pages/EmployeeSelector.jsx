@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { auth } from '../shared/api'
+import { t } from '../shared/i18n'
 
 export const ROLE_LABELS = {
   owner: 'Владелец', manager: 'Менеджер', cashier: 'Кассир', waiter: 'Официант',
@@ -42,7 +43,7 @@ export default function EmployeeSelector({ branch, onSelect, onBack }) {
         <header className="emp-screen__header">
           <button className="icon-btn" onClick={onBack} title="Назад"><ArrowLeft size={22} /></button>
           <div className="emp-screen__titles">
-            <h1>Выберите сотрудника</h1>
+            <h1>{t('choose_employee')}</h1>
             <p>{branch?.name || 'Филиал'}</p>
           </div>
           <button className="icon-btn" onClick={load} title="Обновить"><RefreshCw size={20} /></button>

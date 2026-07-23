@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Settings, LogIn, Phone, LogOut } from 'lucide-react'
+import { t } from '../shared/i18n'
 
 /**
  * OrganizationScreen — экран организации (домашний, до входа сотрудника).
@@ -26,7 +27,7 @@ export default function OrganizationScreen({ orgName, branchName, supportPhone, 
 
       {onReset && (
         <button className="org-screen__reset" onClick={onReset} title="Сменить организацию">
-          <LogOut size={18} /> Сменить организацию
+          <LogOut size={18} /> {t('change_org')}
         </button>
       )}
 
@@ -44,13 +45,13 @@ export default function OrganizationScreen({ orgName, branchName, supportPhone, 
 
         <button className="org-screen__enter" onClick={onEnter}>
           <LogIn size={22} strokeWidth={2.2} />
-          Войти
+          {t('enter')}
         </button>
       </div>
 
       <div className="org-screen__support">
         <Phone size={15} />
-        Служба поддержки: {supportPhone || '+998 (77) 343 00 19'}
+        {t('support')}: {supportPhone || '+998 (77) 343 00 19'}
       </div>
     </div>
   )

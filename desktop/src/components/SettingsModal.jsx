@@ -124,8 +124,8 @@ export default function SettingsModal({ open, onClose }) {
             <div className="settings-row">
               <span>Язык интерфейса</span>
               <div className="settings-input-group">
-                <button className={`btn ${lang === 'ru' ? 'btn--primary' : 'btn--outline'}`} onClick={() => { setLang('ru'); persist('marjon_lang', 'ru') }}>RU</button>
-                <button className={`btn ${lang === 'uz' ? 'btn--primary' : 'btn--outline'}`} onClick={() => { setLang('uz'); persist('marjon_lang', 'uz') }}>UZ</button>
+                <button className={`btn ${lang === 'ru' ? 'btn--primary' : 'btn--outline'}`} onClick={() => { persist('marjon_lang', 'ru'); setLang('ru'); window.location.reload() }}>RU</button>
+                <button className={`btn ${lang === 'uz' ? 'btn--primary' : 'btn--outline'}`} onClick={() => { persist('marjon_lang', 'uz'); setLang('uz'); window.location.reload() }}>UZ</button>
               </div>
             </div>
             <div className="settings-row">

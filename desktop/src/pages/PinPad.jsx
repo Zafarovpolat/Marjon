@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ArrowLeft, Delete } from 'lucide-react'
 import { ROLE_LABELS } from './EmployeeSelector'
+import { t } from '../shared/i18n'
 
 function initials(name = '') {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('') || '?'
@@ -82,7 +83,7 @@ export default function PinPad({ employee = {}, onSubmit, onBack }) {
         </div>
 
         <button className="pinpad__submit" onClick={() => submit(pin)} disabled={pin.length < 4 || busy}>
-          {busy ? 'Проверка...' : 'Войти'}
+          {busy ? t('check') : t('enter')}
         </button>
       </div>
     </div>
