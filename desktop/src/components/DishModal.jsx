@@ -9,7 +9,7 @@ import { X, Plus, Minus, Trash2 } from 'lucide-react'
  */
 export default function DishModal({ product, line, onSubmit, onRemove, onClose }) {
   const [qty, setQty] = useState(line?.qty ?? 1)
-  const [price, setPrice] = useState(line?.price ?? Number(product?.price) || 0)
+  const [price, setPrice] = useState(line?.price ?? (Number(product?.price) || 0))
   const [note, setNote] = useState(line?.note ?? '')
   if (!product) return null
 
