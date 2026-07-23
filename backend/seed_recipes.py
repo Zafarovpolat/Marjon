@@ -5,11 +5,38 @@
 """
 import asyncio
 import random
+import sys
 from decimal import Decimal
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
 
 from sqlalchemy import select
 
 from app.infrastructure.database.session import AsyncSessionLocal
+
+# Импортируем ВСЕ модели, чтобы SQLAlchemy разрешил строковые ссылки в relationship
+# (иначе конфигурация мапперов падает: Company → 'User' и т.п.)
+import app.modules.companies.models       # noqa: F401
+import app.modules.auth.models            # noqa: F401
+import app.modules.rbac.models            # noqa: F401
+import app.modules.inventory.models       # noqa: F401
+import app.modules.crm.models             # noqa: F401
+import app.modules.pos.models             # noqa: F401
+import app.modules.payments.models        # noqa: F401
+import app.modules.kitchen.models         # noqa: F401
+import app.modules.loyalty.models         # noqa: F401
+import app.modules.delivery.models        # noqa: F401
+import app.modules.hr.models              # noqa: F401
+import app.modules.notifications.models   # noqa: F401
+import app.modules.audit.models           # noqa: F401
+import app.modules.fiscal.models          # noqa: F401
+import app.modules.subscriptions.models   # noqa: F401
+import app.modules.printers.models        # noqa: F401
+import app.modules.halls.models           # noqa: F401
+import app.modules.inventory.warehouse_models  # noqa: F401
+import app.modules.finance.models         # noqa: F401
+
 from app.modules.companies.models import Company
 from app.modules.inventory.models import Product, Ingredient, ProductRecipe
 
