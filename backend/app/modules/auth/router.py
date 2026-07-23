@@ -12,6 +12,7 @@ from app.modules.auth.schemas import (
     CompanyUserCreate,
     CompanyUserResponse,
     LoginRequest,
+    PinLoginRequest,
     RefreshRequest,
     RegisterRequest,
     TokenResponse,
@@ -140,17 +141,48 @@ async def delete_company_user(
 
 
 @router.post("/pin-login", response_model=TokenResponse)
-async def pin_login(data: dict, db: AsyncSession = Depends(get_db)):
-    from app.shared.exceptions import UnauthorizedError
-    raise UnauthorizedError("PIN-логин не настроен")
+async def pin_login(
+    data: PinLoginRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Быстрый вход сотрудника по PIN.
+
+    Терминал привязан к организации токеном админа (передаётся в Authorization).
+    PIN ищется в рамках этой организации — так один и тот же PIN в разных
+    компаниях не пересекается.
+    """
+    if not current_user.company_id:
+        from app.shared.exceptions import ForbiddenError
+        raise ForbiddenError("Терминал не привязан к организации")
+    _, access_token, refresh_token = await AuthService(db).login_by_pin(
+        current_user.company_id, data.pin
+    )
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
 @router.get("/staff-users", response_model=list[CompanyUserResponse])
-async def staff_users(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def staff_users(
+    branch_id: UUID | None = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Список сотрудников организации. При указании branch_id — только те,
+    кто привязан к этому филиалу через UserRole.branch_id."""
     from app.modules.auth.repository import UserRepository
     users = await UserRepository(db).get_company_users(current_user.company_id)
+
+    branch_user_ids: set[UUID] | None = None
+    if branch_id is not None:
+        rows = await db.execute(
+            select(UserRole.user_id).where(UserRole.branch_id == branch_id)
+        )
+        branch_user_ids = set(rows.scalars().all())
+
     result = []
     for user in users:
+        if branch_user_ids is not None and user.id not in branch_user_ids:
+            continue
         roles_res = await db.execute(
             select(Role.slug).join(UserRole, UserRole.role_id == Role.id).where(UserRole.user_id == user.id)
         )

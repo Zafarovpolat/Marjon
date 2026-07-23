@@ -99,6 +99,22 @@ class AuthService:
 
         return user, access_token, refresh_token
 
+    async def login_by_pin(self, company_id: UUID, pin: str) -> tuple[User, str, str]:
+        """Быстрый вход сотрудника по PIN в рамках его организации."""
+        import logging
+        log = logging.getLogger(__name__)
+
+        user = await self.user_repo.get_by_pin(company_id, pin)
+        if not user:
+            log.warning("PIN login failed: no active user for pin in company=%s", company_id)
+            raise UnauthorizedError("Invalid PIN")
+
+        access_token = create_access_token(user.id, user.company_id)
+        refresh_token = create_refresh_token()
+        await self._save_refresh_token(user.id, refresh_token)
+
+        return user, access_token, refresh_token
+
     async def create_company_user(
         self,
         company_id: UUID | None,

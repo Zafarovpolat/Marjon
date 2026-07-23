@@ -46,6 +46,10 @@ class LoginRequest(BaseSchema):
     password: str
 
 
+class PinLoginRequest(BaseSchema):
+    pin: str = Field(..., min_length=4, max_length=8, pattern=r"^\d+$")
+
+
 class RefreshRequest(BaseSchema):
     refresh_token: str
 

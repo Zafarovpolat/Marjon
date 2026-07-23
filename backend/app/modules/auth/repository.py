@@ -33,6 +33,18 @@ class UserRepository(BaseRepository[User]):
         )
         return list(result.scalars().all())
 
+    async def get_by_pin(self, company_id: UUID, pin: str) -> Optional[User]:
+        """PIN-вход сотрудника: поиск активного пользователя по PIN в рамках company.
+        PIN уникален только внутри организации, поэтому scope по company_id обязателен."""
+        result = await self.db.execute(
+            select(User).where(
+                User.company_id == company_id,
+                User.pin_code == pin,
+                User.is_active == True,  # noqa: E712
+            ).limit(1)
+        )
+        return result.scalar_one_or_none()
+
 
 class RefreshTokenRepository(BaseRepository[RefreshToken]):
     def __init__(self, db: AsyncSession):

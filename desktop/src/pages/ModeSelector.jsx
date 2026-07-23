@@ -13,14 +13,14 @@ const MODES = [
     label: 'Кухня',
     description: 'Приготовление заказов',
     icon: ChefHat,
-    color: 'var(--color-status-overdue)',
+    color: 'var(--color-warning)',
   },
   {
     id: 'waiter',
     label: 'Официант',
     description: 'Обслуживание столов',
     icon: UtensilsCrossed,
-    color: 'var(--color-status-ok)',
+    color: 'var(--color-success)',
   },
   {
     id: 'bar',

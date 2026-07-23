@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import ServerSetup from './pages/ServerSetup'
 import LoginPage from './pages/LoginPage'
 import BranchSelector from './pages/BranchSelector'
 import ModeSelector from './pages/ModeSelector'
@@ -134,6 +135,14 @@ export default function App() {
     setMode(null)
   }, [])
 
+  // Назад из выбора режима — к списку филиалов (сотрудник остаётся залогинен)
+  const handleBackToBranches = useCallback(() => {
+    localStorage.removeItem('marjon_branch')
+    localStorage.removeItem('marjon_mode')
+    setBranch(null)
+    setMode(null)
+  }, [])
+
   // ── Экран блокировки ──
   if (isLocked) {
     return (
@@ -171,6 +180,12 @@ export default function App() {
   }
 
   // ── Поток ──
+  // Шаг 0: Первый запуск — настройка адреса сервера
+  const serverUrl = localStorage.getItem('marjon_server_url')
+  if (!serverUrl) {
+    return <ServerSetup onComplete={() => window.location.reload()} />
+  }
+
   // Шаг 1: Терминал не привязан — AdminLogin (логин/пароль + сервер)
   if (!orgToken || !orgUser) {
     return <LoginPage mode="admin" onLogin={handleAdminLogin} />
@@ -207,7 +222,7 @@ export default function App() {
         user={staffUser}
         branch={branch}
         onSelect={handleModeSelect}
-        onBack={handleStaffLogout}
+        onBack={handleBackToBranches}
         onLogout={handleStaffLogout}
       />
     )

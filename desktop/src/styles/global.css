@@ -49,6 +49,12 @@ a {
   text-decoration: none;
 }
 
+/* Иконки (lucide) — блочный рендер убирает смещение по baseline */
+svg {
+  display: block;
+  flex-shrink: 0;
+}
+
 /* ── Кнопки (base) ── */
 button {
   font-family: inherit;

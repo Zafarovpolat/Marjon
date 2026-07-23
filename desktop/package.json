@@ -6,6 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "dev": "node scripts/dev.js",
+    "check:css": "node scripts/check-css-classes.mjs",
     "build": "electron-vite build",
     "package": "electron-vite build && electron-builder",
     "package:dir": "electron-vite build && electron-builder --dir"

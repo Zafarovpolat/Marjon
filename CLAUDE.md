@@ -46,10 +46,14 @@ POS-касса, кухонный дисплей (KDS), склад, достав�
 | Токены | `marjon-tokens.css` | Все цвета, тени, радиусы — ТОЛЬКО через токены |
 | State | React Context | `AuthContext`, `OrgContext`, `ThemeContext` |
 
-### Backend (не трогай без разрешения)
+### Backend
 
 FastAPI + Python 3.12 + SQLAlchemy 2.0 async + Alembic + PostgreSQL (Supabase).
 30 модулей в `backend/app/modules/`. Swagger: `localhost:8000/docs`.
+
+Бэкенд можно менять. Сейчас активная работа над мобилкой и десктопом — бэкенд чиним потом.
+
+**TODO (бэкенд, отложено):** `/auth/pin-login` (`backend/app/modules/auth/router.py`) — заглушка, всегда кидает "PIN-логин не настроен". Нужно реализовать: поиск user по `pin_code` в рамках company, выдача access/refresh токенов (по образцу `AuthService.login`). Фронт (десктоп) уже вызывает `auth.loginByPin`.
 
 ### Backend паттерны
 

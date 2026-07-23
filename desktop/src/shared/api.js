@@ -16,7 +16,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (r) => r,
   (err) => {
-    if (err.response?.status === 401) {
+    // На эндпоинтах авторизации 401 — это неверные креды, а не протухшая сессия.
+    // Не сносим токен и не перезагружаем — даём странице показать ошибку.
+    const url = err.config?.url || ''
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/pin-login')
+    if (err.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('marjon_token')
       window.location.reload()
     }
@@ -28,6 +32,17 @@ export const auth = {
   // Backend field is "email" (also accepts username); "phone" was wrong
   login: (email, password) =>
     api.post('/auth/login', { email, password }).then((r) => r.data),
+  // PIN-вход сотрудника. Терминал привязан к организации админ-токеном:
+  // бэкенд /auth/pin-login достаёт company_id из этого токена и ищет PIN внутри неё.
+  // Шлём именно org-токен — обычный marjon_token на экране PIN-входа отсутствует.
+  loginByPin: (pin) => {
+    const orgToken = localStorage.getItem('marjon_org_token')
+    return api
+      .post('/auth/pin-login', { pin }, {
+        headers: orgToken ? { Authorization: `Bearer ${orgToken}` } : {},
+      })
+      .then((r) => r.data)
+  },
   me: () => api.get('/auth/me').then((r) => r.data),
 }
 
