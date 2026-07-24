@@ -49,6 +49,7 @@ function ProtectedRoute({ children }) {
 }
 
 const router = createBrowserRouter([
+  { path: "/index.html", element: <Navigate to="/" replace /> },
   { path: "/login", element: <LoginPage /> },
   { path: "/login/staff", element: <StaffLoginPage /> },
   { path: "/login/pin/:employeeId", element: <PinLoginPage /> },

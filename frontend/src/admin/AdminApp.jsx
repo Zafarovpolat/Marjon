@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chart, CategoryScale, Filler, LineController, LineElement, LinearScale, PointElement, Tooltip } from "chart.js";
 import logo from "../assets/marjon-logo.svg";
 import { adminApi, adminLogin, adminLogout, isAdminAuthenticated } from "./api";
 import Icon from '../components/Icon';
+import ReportDateRangePicker from "../components/ReportDateRangePicker";
+import { createPortal } from "react-dom";
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler);
 
@@ -119,6 +121,9 @@ const navItems = [
   },
 ];
 
+const DEMO_ORGANIZATION_ROW_COUNT = 240;
+const DEMO_TRANSACTION_ROW_COUNT = 96;
+
 const kpis = [
   {
     title: "Всего организаций",
@@ -170,6 +175,65 @@ const kpis = [
     points: [18, 22, 28, 27, 35, 42, 47, 55],
     desc: "Подключённые кассовые рабочие места с активной синхронизацией.",
   },
+];
+
+const ADMIN_DASHBOARD_DEMO_MODE = true;
+
+const demoKpiOverrides = {
+  organizations: {
+    value: DEMO_ORGANIZATION_ROW_COUNT.toLocaleString("ru-RU"),
+    delta: "Демо-база клиентов",
+    points: [1, 1, 1, 1, 1, 1, 1, 1],
+    desc: "Демо-база организаций для проверки админского дашборда без записи данных в backend.",
+  },
+  branches: {
+    value: "2",
+    delta: "+2 активных филиала",
+    points: [1, 1, 1, 2, 2, 2, 2, 2],
+    desc: "Два активных филиала Marjon Cafe с рабочими кассами и синхронизацией.",
+  },
+  subscriptions: {
+    value: "1",
+    delta: "1 заявка на одобрение",
+    points: [0, 1, 1, 0, 1, 1, 1, 1],
+    desc: "Одна демо-заявка Marjon Cafe ожидает решения администратора.",
+  },
+  revenue: {
+    value: "187 450 000 UZS",
+    delta: "+24% к прошлому месяцу",
+    points: [18, 42, 76, 119, 156, 187],
+    desc: "Демо-оборот Marjon Cafe за текущий месяц.",
+  },
+  cashboxes: {
+    value: "4",
+    delta: "3 онлайн, 1 резерв",
+    points: [2, 2, 3, 3, 4, 4, 4, 4],
+    desc: "Кассовые рабочие места Marjon Cafe: три активные кассы и одна резервная.",
+  },
+};
+
+const dashboardKpiOrder = ["revenue", "organizations", "subscriptions", "branches", "cashboxes"];
+
+function orderDashboardKpis(items) {
+  return [...items].sort((a, b) => {
+    const firstIndex = dashboardKpiOrder.indexOf(a.dataKey);
+    const secondIndex = dashboardKpiOrder.indexOf(b.dataKey);
+    return (firstIndex === -1 ? dashboardKpiOrder.length : firstIndex) - (secondIndex === -1 ? dashboardKpiOrder.length : secondIndex);
+  });
+}
+
+const demoKpis = orderDashboardKpis(kpis.map((kpi) => ({
+  ...kpi,
+  ...(demoKpiOverrides[kpi.dataKey] || {}),
+})));
+
+const dashboardWarehouseCards = [
+  { title: "Приход товаров", value: "11 575 000 UZS", icon: "bi-box-arrow-in-down", tone: "income", route: "storage-income" },
+  { title: "Расход товаров", value: "0 UZS", icon: "bi-box-arrow-up", tone: "expense", route: "storage-expense" },
+  { title: "Остаток склада", value: "958 892 000 UZS", icon: "bi-boxes", tone: "stock", route: "storage-balance" },
+  { title: "Общие затраты", value: "0 UZS", icon: "bi-receipt", tone: "cost" },
+  { title: "Кредиторка", value: "994 000 UZS", icon: "bi-credit-card", tone: "payable" },
+  { title: "Дебиторка", value: "0 UZS", icon: "bi-wallet2", tone: "receivable" },
 ];
 
 const organizationRows = [];
@@ -496,6 +560,79 @@ const organizationDirectoryRows = [
   },
 ];
 
+const demoOrganizationNames = [
+  "MARJON CAFE", "MUSTAFO CAFE", "BAYKAL RESTAURANT", "SAMARKAND PLOV", "CHILONZOR GRILL",
+  "YUNUSABAD COFFEE", "BESH QOZON", "TASHKENT FOOD HALL", "NAVOI STEAK HOUSE", "BUKHARA LAGMAN",
+  "ANDIJON OSH MARKAZI", "FARGONA FAMILY CAFE", "NAMANGAN BURGER", "QARSHI DONER", "NUKUS BBQ",
+  "URGENCH TERRACE", "JIZZAX SOMSA", "DENOV TEA HOUSE", "KOKAND BISTRO", "TERMIZ GARDEN",
+  "SIRDARYO FAST FOOD", "ZARAFSHON BALIQ", "RISHTON CHOYXONA", "SHAHRISABZ CAFE",
+];
+
+const demoOrganizationRegions = [
+  "Toshkent", "Andijon", "Samarqand", "Fargona", "Namangan", "Buxoro", "JIZZAX", "Navoiy",
+  "Qashqadaryo", "Surxondaryo", "Xorazm", "Qoraqalpogiston", "Sirdaryo",
+];
+
+const demoOrganizationManagers = [
+  "SAITOV SARVAR", "HAMZAYEV SARDOR", "MIRYEVANOV BOTUV", "ALAMAT SOTUV", "BOBOMURODOV",
+  "ZARIPOV JASUR", "ABDULLAYEV AKMAL", "RAHIMOV AZIZ", "KARIMOVA DILNOZA", "USMONOV BEKZOD",
+  "TURSUNOV JAMSHID", "IBRAGIMOV RUSTAM",
+];
+
+const demoOrganizationSources = ["Diler", "Instagram", "Telegram", "Facebook", "Sarlavha", "Referral", "Call center"];
+const demoOrganizationStatuses = ["Доступен", "Активно", "Не активно"];
+const demoOrganizationOrgStatuses = ["ISHLA TURGAN", "USTANOVKA JARAYONIDA", "HALI ULANMAGAN", "VAQTICHALI ISHLAMAYOTGAN", "TEST"];
+const demoOrganizationPaymentKinds = ["Тариф платежи", "Тест платежи", "Абонентская оплата", "Разовая оплата"];
+
+function formatDemoMoney(value) {
+  return Math.round(value).toLocaleString("ru-RU").replace(/\u00a0/g, " ");
+}
+
+function buildDemoOrganizationRows() {
+  return Array.from({ length: DEMO_ORGANIZATION_ROW_COUNT }, (_, index) => {
+    const id = 1003001 + index;
+    const name = `${demoOrganizationNames[index % demoOrganizationNames.length]} ${index % 4 === 0 ? "MAIN" : `FILIAL ${index % 9 + 1}`}`;
+    const debt = index % 5 === 0 ? 0 : (index % 7 + 1) * 180000;
+    const deposit = index % 6 === 0 ? -(index % 8 + 1) * 250000 : (index % 9) * 150000;
+    const contract = index % 3 === 0 ? (index % 12 + 2) * 500000 : 0;
+    const day = String(1 + (index % 28)).padStart(2, "0");
+    const month = String(6 + (index % 2)).padStart(2, "0");
+    const phoneTail = String(1000000 + ((index * 3791) % 8999999)).padStart(7, "0");
+
+    return {
+      id: String(id),
+      message: index % 3 === 0,
+      service: index % 4 === 0 ? "Yangi" : "Xizmat",
+      paymentType: index % 6 === 0 ? "Тест" : index % 2 === 0 ? "Тариф" : "Без оплаты",
+      name,
+      clientId: String(id),
+      terminals: String(index % 5),
+      cashboxes: String((index % 4) + (index % 10 === 0 ? 2 : 0)),
+      deposit: formatDemoMoney(deposit),
+      debt: formatDemoMoney(debt),
+      overdue: index % 8 === 0 ? formatDemoMoney((index % 6 + 1) * 90000) : "0",
+      contract: formatDemoMoney(contract),
+      tariff: formatDemoMoney(250000 + (index % 5) * 50000),
+      currency: "UZS",
+      contact: `998 ${90 + (index % 9)} ${phoneTail.slice(0, 3)} ${phoneTail.slice(3, 5)} ${phoneTail.slice(5)}`,
+      region: demoOrganizationRegions[index % demoOrganizationRegions.length],
+      manager: demoOrganizationManagers[index % demoOrganizationManagers.length],
+      date: `${day}.${month}.2026`,
+      source: demoOrganizationSources[index % demoOrganizationSources.length],
+      version: index % 7 === 0 ? "" : `15.${String(index % 6).padStart(2, "0")}`,
+      orgStatus: demoOrganizationOrgStatuses[index % demoOrganizationOrgStatuses.length],
+      identification: index % 4 === 0 ? "Ожидает" : "Проверено",
+      paymentKind: demoOrganizationPaymentKinds[index % demoOrganizationPaymentKinds.length],
+      status: demoOrganizationStatuses[index % demoOrganizationStatuses.length],
+      onlineMenu: index % 5 === 0 ? "Не активно" : "Активно",
+      warehouse: index % 4 === 0 ? "Не активно" : "Активно",
+      cashboxOnline: index % 6 === 0 ? "Не активно" : "Активно",
+    };
+  });
+}
+
+const demoOrganizationDirectoryRows = buildDemoOrganizationRows();
+
 const approvalItems = [];
 
 const systemItems = [];
@@ -533,6 +670,1148 @@ const productBranchRows = [
   { branch: "Қарши филиал", income: 0, inventory: 0 },
   { branch: "Наманган филиал", income: 0, inventory: 0 },
   { branch: "Бош филиал", income: 34600000, inventory: 0 },
+];
+
+const ADMIN_PRODUCTS_STORAGE_KEY = "marjon-admin-products-v1";
+
+const adminProductCategories = [
+  "Хап",
+  "Ускуналар (оборудование)",
+  "Компьютер",
+  "Моноблок",
+  "Wi-Fi",
+  "Принтер",
+  "Кабель",
+  "Сканер",
+  "Хизматлар (услуги)",
+];
+
+const adminProductUnits = [
+  "Метр (м)",
+  "Килограмм (кг)",
+  "Литр (л)",
+  "Штук (шт)",
+  "Порция (пр)",
+  "Грамм (г)",
+];
+
+const adminProductWarehouses = [
+  "Главный склад",
+  "Склад Тошкент",
+  "Склад расхода",
+];
+
+const adminProductRows = [
+  { id: "tenda-sg108", name: "Tenda SG 108 8 Gigabit Power", category: "Хап", price: 240000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+  { id: "menyu-xolder", name: "MENYU XOLDER", category: "Ускуналар (оборудование)", price: 15000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+  { id: "headset-h320", name: "Наушник - hp Gaming Headset H320", category: "Компьютер", price: 400000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+  { id: "monoblock-touch", name: "МОНОБЛОК (Иккита экранли) - 15 INCN DUAL SCREEN 41X25,5X41,5 см (WINDOWS) model : TS-15D09 TOUCH Pos machine", category: "Моноблок", price: 5808000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+  { id: "wifi-alfa", name: "USB Wi-Fi Adapter - ALFA ALFANEXT", category: "Wi-Fi", price: 100, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+  { id: "xprinter-xp365", name: "Xprinter mini printer, model : XP - 365 B (баркод)", category: "Принтер", price: 726000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+  { id: "cuby-gs108d", name: "CUBY 8-Port Gigabit Desktop Switch (Хап) model : GS108D", category: "Хап", price: 240000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+  { id: "xprinter-q80as", name: "Xprinter mini printer, model : XP - Q80AS", category: "Принтер", price: 720000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+  { id: "network-cable", name: "Коврик (каттаси - клавиатура ва мышка учун)", category: "Компьютер", price: 35000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+  { id: "sunkit-cable", name: "Обжимник - кабель учун икки функционали (Read Star SUNKIT SK-868G)", category: "Кабель", price: 100000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+  { id: "menuholder-set", name: "Менюхолдер (Реклама учун подставка, (стол устидаги) комплект)", category: "Сканер", price: 25000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+  { id: "abonent-service", name: "ойлик абонент тўлов", category: "Хизматлар (услуги)", price: 390000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+  { id: "bank-acquiring", name: "Хамкор Банк эквайринг", category: "Хизматлар (услуги)", price: 4000000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+  { id: "telegram-bot", name: "Телеграмм бот", category: "Хизматлар (услуги)", price: 4000000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+  { id: "soliq-integration", name: "Солиқ интеграция", category: "Хизматлар (услуги)", price: 3000000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+  { id: "user-manual-scale", name: "Электрон тарози User Manual", category: "Сканер", price: 4800000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+  { id: "cash-drawer", name: "Касса аппарати CACH DRAWER", category: "Сканер", price: 960000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+  { id: "meetion-c100", name: "Meetion USB CORDED COMBO C100 (клавиатура и мышь без проводная)", category: "Компьютер", price: 126000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+  { id: "computer-set", name: "Компьютер комплект (монитор, процессор, клавиатура, мышка)", category: "Компьютер", price: 3300000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+  { id: "mercury-sg108", name: "MERCURY SG108 C (ХАП)", category: "Хап", price: 240000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
+];
+
+function readStoredAdminProducts() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const value = window.localStorage.getItem(ADMIN_PRODUCTS_STORAGE_KEY);
+    const parsed = value ? JSON.parse(value) : null;
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredAdminProducts(rows) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(ADMIN_PRODUCTS_STORAGE_KEY, JSON.stringify(rows));
+  } catch {
+    // Local changes are still kept in memory when storage is unavailable.
+  }
+}
+
+function normalizeAdminProduct(row, index = 0) {
+  const rawStatus = String(row.status ?? "").toLowerCase();
+  const isInactive = row.status === false || rawStatus.includes("inactive") || rawStatus.includes("неак");
+  const isArchived = Boolean(row.archived) || rawStatus.includes("archiv") || rawStatus.includes("архив");
+
+  return {
+    id: String(row.id ?? row.product_id ?? `product-${index + 1}`),
+    name: row.name || row.product_name || row.title || "",
+    category: row.category_name || row.category?.name || row.category || "Без категории",
+    price: Number(row.price ?? row.sale_price ?? row.cost_price ?? 0),
+    unit: row.unit_name || row.unit?.name || row.unit || row.measure || "Штук (шт)",
+    status: isInactive ? "inactive" : "active",
+    warehouse: row.warehouse || row.storage_name || "Главный склад",
+    photo: row.photo || row.image || row.image_url || "",
+    archived: isArchived,
+  };
+}
+
+function createAdminProductDraft(row = null) {
+  return {
+    id: row?.id || "",
+    name: row?.name || "",
+    category: row?.category || adminProductCategories[0],
+    price: row?.price != null ? String(row.price) : "",
+    unit: row?.unit || "Штук (шт)",
+    status: row?.status || "active",
+    warehouse: row?.warehouse || "Главный склад",
+    photo: row?.photo || "",
+    archived: Boolean(row?.archived),
+  };
+}
+
+const ADMIN_SALE_CATEGORIES_STORAGE_KEY = "marjon-admin-sale-categories-v1";
+
+const adminSaleCategoryRows = [
+  { id: "equipment", name: "Ускуналар (оборудование)", status: "active" },
+  { id: "services", name: "Хизматлар (услуги)", status: "active" },
+  { id: "printer", name: "Принтер", status: "active" },
+  { id: "computer", name: "Компьютер", status: "active" },
+  { id: "cable", name: "Кабель", status: "active" },
+  { id: "defect", name: "Яроксизлари (брак)", status: "active" },
+  { id: "used", name: "Ишлатилганлари (б/у)", status: "active" },
+  { id: "wi-fi", name: "Wi-Fi", status: "active" },
+  { id: "check-paper", name: "Чек Когоз (Check Qog'oz)", status: "active" },
+  { id: "monoblock-sale", name: "Моноблок", status: "active" },
+  { id: "hub-sale", name: "Хап", status: "active" },
+  { id: "scanner-sale", name: "Сканер", status: "active" },
+  { id: "water-sale", name: "Сув", status: "active" },
+];
+
+function readStoredAdminSaleCategories() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const value = window.localStorage.getItem(ADMIN_SALE_CATEGORIES_STORAGE_KEY);
+    const parsed = value ? JSON.parse(value) : null;
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredAdminSaleCategories(rows) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(ADMIN_SALE_CATEGORIES_STORAGE_KEY, JSON.stringify(rows));
+  } catch {
+    // The current session still works if localStorage is unavailable.
+  }
+}
+
+function normalizeAdminSaleCategory(row, index = 0) {
+  const rawStatus = String(row.status ?? "").toLowerCase();
+  const isInactive = row.status === false || rawStatus.includes("inactive") || rawStatus.includes("неак");
+
+  return {
+    id: String(row.id ?? row.category_id ?? `sale-category-${index + 1}`),
+    name: row.name || row.title || row.category_name || "",
+    status: isInactive ? "inactive" : "active",
+  };
+}
+
+function createAdminSaleCategoryDraft(row = null) {
+  return {
+    id: row?.id || "",
+    name: row?.name || "",
+    status: row?.status || "active",
+  };
+}
+
+const ADMIN_ORDERS_STORAGE_KEY = "marjon-admin-orders-v1";
+
+const adminOrderOrganizations = [
+  "Qadrdonlar\" kafe",
+  "Nomi hali tanlanmagan",
+  "Simfoniya milliy taomlari",
+  "Amirlik restorani",
+  "Street food",
+  "test Asliddin",
+  "Cocacola cafe",
+  "Milliy taomlar",
+  "Xamro Milliy Taomlar",
+  "Anxor kafe",
+  "BAYKAL RESTAURANT",
+  "KARVON OSHXONA",
+];
+
+const adminOrderProducts = [
+  "MERCURY SG108 C (ХАП)",
+  "Xprinter mini printer, model : XP - 80 TS",
+  "Урнатиб бериш (Ustanovka)",
+  "Tenda SG 108 8 Gigabit Power",
+  "Компьютер комплект (монитор, процессор, клавиатура, мышка)",
+  "Солиқ интеграция",
+  "MERCUSYS 8-Port 10/100/1000 Mbps Deskor Switch, model : MS108G (ХАП)",
+  "Xprinter mini printer, model : XP-T80 A",
+];
+
+const adminOrderRows = [
+  { id: "45084949", organization: "Qadrdonlar\" kafe", paymentId: "1003024", items: [{ product: "MERCURY SG108 C (ХАП)", quantity: 1, price: 240000, comment: "-" }], status: "new" },
+  { id: "45084881", organization: "Qadrdonlar\" kafe", paymentId: "1003024", items: [{ product: "Xprinter mini printer, model : XP - 80 TS", quantity: 2, price: 720000, comment: "-" }], status: "new" },
+  { id: "45084826", organization: "Qadrdonlar\" kafe", paymentId: "1003024", items: [{ product: "Урнатиб бериш (Ustanovka)", quantity: 3, price: 1000000, comment: "-" }], status: "new" },
+  { id: "45080376", organization: "Nomi hali tanlanmagan", paymentId: "1003023", items: [{ product: "Tenda SG 108 8 Gigabit Power", quantity: 1, price: 240000, comment: "-" }], status: "new" },
+  { id: "45080306", organization: "Nomi hali tanlanmagan", paymentId: "1003023", items: [{ product: "Компьютер комплект (монитор, процессор, клавиатура, мышка)", quantity: 1, price: 3180000, comment: "-" }], status: "new" },
+  { id: "45080199", organization: "Nomi hali tanlanmagan", paymentId: "1003023", items: [{ product: "Xprinter mini printer, model : XP - 80 TS", quantity: 3, price: 720000, comment: "-" }], status: "new" },
+  { id: "45078782", organization: "Nomi hali tanlanmagan", paymentId: "1003023", items: [{ product: "Урнатиб бериш (Ustanovka)", quantity: 3, price: 1000000, comment: "-" }], status: "new" },
+  { id: "45066810", organization: "Simfoniya milliy taomlari", paymentId: "1003022", items: [{ product: "MERCURY SG108 C (ХАП)", quantity: 1, price: 240000, comment: "-" }], status: "new" },
+  { id: "45066702", organization: "Simfoniya milliy taomlari", paymentId: "1003022", items: [{ product: "Xprinter mini printer, model : XP - 80 TS", quantity: 2, price: 720000, comment: "-" }], status: "new" },
+  { id: "45066589", organization: "Simfoniya milliy taomlari", paymentId: "1003022", items: [{ product: "Урнатиб бериш (Ustanovka)", quantity: 3, price: 1000000, comment: "-" }], status: "new" },
+  { id: "45062063", organization: "Amirlik restorani", paymentId: "1003021", items: [{ product: "Урнатиб бериш (Ustanovka)", quantity: 3, price: 1000000, comment: "-" }], status: "new" },
+  { id: "44996156", organization: "Street food", paymentId: "1002792", items: [], total: 390000, comment: "-", status: "cancelled" },
+  { id: "44996117", organization: "Street food", paymentId: "1002792", items: [], total: 390000, comment: "-", status: "cancelled" },
+  { id: "44953425", organization: "test Asliddin", paymentId: "1000104", items: [], total: 390000, comment: "-", status: "cancelled" },
+  {
+    id: "44949330",
+    organization: "Cocacola cafe",
+    paymentId: "1003020",
+    items: [
+      { product: "Урнатиб бериш (Ustanovka)", quantity: 2, price: 1000000, comment: "-" },
+      { product: "Xprinter mini printer, model : XP - 80 TS", quantity: 2, price: 720000, comment: "-" },
+      { product: "MERCUSYS 8-Port 10/100/1000 Mbps Deskor Switch, model : MS108G (ХАП)", quantity: 1, price: 240000, comment: "-" },
+    ],
+    status: "new",
+  },
+  { id: "44948636", organization: "Milliy taomlar", paymentId: "1003019", items: [{ product: "Урнатиб бериш (Ustanovka)", quantity: 2.5, price: 1000000, comment: "-" }], status: "new" },
+  { id: "44947554", organization: "Xamro Milliy Taomlar", paymentId: "1002058", items: [{ product: "Солиқ интеграция", quantity: 1, price: 1000000, comment: "-" }], status: "accepted" },
+  { id: "44941986", organization: "Anxor kafe", paymentId: "1003018", items: [{ product: "Урнатиб бериш (Ustanovka)", quantity: 2.5, price: 1000000, comment: "-" }], status: "new" },
+  { id: "44886258", organization: "BAYKAL RESTAURANT", paymentId: "1002944", items: [{ product: "Урнатиб бериш (Ustanovka)", quantity: 1, price: 2500000, comment: "-" }], status: "new" },
+  { id: "44886034", organization: "KARVON OSHXONA", paymentId: "1002113", items: [{ product: "Xprinter mini printer, model : XP-T80 A", quantity: 1, price: 600000, comment: "-" }], status: "new" },
+];
+
+function readStoredAdminOrders() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const value = window.localStorage.getItem(ADMIN_ORDERS_STORAGE_KEY);
+    const parsed = value ? JSON.parse(value) : null;
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredAdminOrders(rows) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(ADMIN_ORDERS_STORAGE_KEY, JSON.stringify(rows));
+  } catch {
+    // The table remains usable for the current session if storage is unavailable.
+  }
+}
+
+function normalizeAdminOrderStatus(status) {
+  const value = String(status || "").toLowerCase();
+  if (value.includes("cancel") || value.includes("отмен")) return "cancelled";
+  if (value.includes("accept") || value.includes("прин") || value.includes("done") || value.includes("заверш")) return "accepted";
+  return "new";
+}
+
+function normalizeAdminOrder(row, index = 0) {
+  const rawItems = Array.isArray(row.items)
+    ? row.items
+    : Array.isArray(row.products)
+      ? row.products
+      : Array.isArray(row.order_items)
+        ? row.order_items
+        : [];
+
+  const items = rawItems.map((item, itemIndex) => ({
+    id: String(item.id || `${row.id || index}-item-${itemIndex}`),
+    product: item.product_name || item.name || item.product?.name || item.title || "—",
+    quantity: Number(item.quantity || item.qty || 1),
+    price: Number(item.price || item.amount || item.total || 0),
+    comment: item.comment || "-",
+  }));
+
+  return {
+    id: String(row.id || row.order_number || `order-${index + 1}`),
+    organization: row.organization_name || row.branch_name || row.customer_name || row.customer || row.name || "—",
+    paymentId: String(row.payment_id || row.paymentId || row.transaction_id || row.pay_id || "—"),
+    items,
+    total: Number(row.total || row.amount || items.reduce((sum, item) => sum + item.price * item.quantity, 0)),
+    comment: row.comment || "-",
+    status: normalizeAdminOrderStatus(row.status),
+  };
+}
+
+function createAdminOrderDraft(row = null) {
+  const items = row?.items?.length
+    ? row.items
+    : [{ id: `order-item-${Date.now()}`, product: adminOrderProducts[0], quantity: 1, price: 0, comment: "" }];
+
+  return {
+    id: row?.id || "",
+    organization: row?.organization || adminOrderOrganizations[0],
+    paymentId: row?.paymentId || "",
+    status: row?.status || "new",
+    items: items.map((item, index) => ({
+      id: item.id || `order-item-${Date.now()}-${index}`,
+      product: item.product || adminOrderProducts[0],
+      quantity: String(item.quantity ?? 1),
+      price: String(item.price ?? 0),
+      comment: item.comment === "-" ? "" : item.comment || "",
+    })),
+  };
+}
+
+function getAdminOrderTotal(row) {
+  if (row.items?.length) {
+    return row.items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0);
+  }
+
+  return Number(row.total || 0);
+}
+
+function getAdminOrderProductsLabel(row) {
+  if (!row.items?.length) return "—";
+
+  return row.items
+    .map((item) => `${item.product} — ${item.quantity}`)
+    .join("\n");
+}
+
+const ADMIN_UNITS_STORAGE_KEY = "marjon-admin-units-v1";
+
+const adminUnitRows = [
+  { id: "meter", sort: 1, name: "Метр (м)", shortName: "м", status: "active" },
+  { id: "kilogram", sort: 1, name: "Килограмм (кг)", shortName: "кг", status: "active" },
+  { id: "liter", sort: 1, name: "Литр (л)", shortName: "л", status: "active" },
+  { id: "piece", sort: 1, name: "Штук (шт)", shortName: "шт", status: "active" },
+  { id: "portion", sort: 1, name: "Порция (пр)", shortName: "пр", status: "active" },
+  { id: "gram", sort: 1, name: "Грамм (г)", shortName: "г", status: "active" },
+];
+
+function readStoredAdminUnits() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const value = window.localStorage.getItem(ADMIN_UNITS_STORAGE_KEY);
+    const parsed = value ? JSON.parse(value) : null;
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredAdminUnits(rows) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(ADMIN_UNITS_STORAGE_KEY, JSON.stringify(rows));
+  } catch {
+    // Keep the in-memory table working if localStorage is unavailable.
+  }
+}
+
+function normalizeAdminUnit(row, index = 0) {
+  const rawStatus = String(row.status ?? "").toLowerCase();
+  const isInactive = row.status === false || rawStatus.includes("inactive") || rawStatus.includes("неак");
+
+  return {
+    id: String(row.id ?? row.unit_id ?? `unit-${index + 1}`),
+    sort: Number(row.sort_order ?? row.sort ?? row.order ?? 1) || 1,
+    name: row.name || row.title || "",
+    shortName: row.short_name || row.shortName || row.code || row.abbreviation || "",
+    status: isInactive ? "inactive" : "active",
+  };
+}
+
+function createAdminUnitDraft(row = null) {
+  return {
+    id: row?.id || "",
+    sort: row?.sort != null ? String(row.sort) : "1",
+    name: row?.name || "",
+    shortName: row?.shortName || "",
+    status: row?.status || "active",
+  };
+}
+
+const ADMIN_HANDBOOK_LOCATIONS_STORAGE_KEY = "marjon-admin-handbook-locations-v1";
+
+const adminHandbookDefaultRows = {
+  countries: [
+    { id: "uzbekistan", name: "Узбекистан", code: "998", iso: "UZ", mask: "(##) ### ## ##", status: "active" },
+  ],
+  regions: [
+    { id: "tashkent", name: "Ташкент", country: "Узбекистан", status: "active" },
+  ],
+  districts: [
+    { id: "bektemir", name: "Бектемирский район", region: "Ташкент", status: "active" },
+    { id: "mirabad", name: "Мирабадский район", region: "Ташкент", status: "active" },
+    { id: "mirzo-ulugbek", name: "Мирзо-Улугбекский район", region: "Ташкент", status: "active" },
+    { id: "sergeli", name: "Сергелийский район", region: "Ташкент", status: "active" },
+    { id: "almazar", name: "Алмазарский район", region: "Ташкент", status: "active" },
+    { id: "uchtepa", name: "Учтепинский район", region: "Ташкент", status: "active" },
+    { id: "shaykhantakhur", name: "Шайхантахурский район", region: "Ташкент", status: "active" },
+    { id: "yunusabad", name: "Юнусабадский район", region: "Ташкент", status: "active" },
+    { id: "yakkasaray", name: "Яккасарайский район", region: "Ташкент", status: "active" },
+    { id: "yashnabad", name: "Яшнабадский район", region: "Ташкент", status: "active" },
+    { id: "chilanzar", name: "Чиланзарский район", region: "Ташкент", status: "active" },
+    { id: "yangihayot", name: "Янгихаётский район", region: "Ташкент", status: "active" },
+  ],
+};
+
+const adminHandbookActiveKind = {
+  "hb-countries": "countries",
+  "hb-regions": "regions",
+  "hb-districts": "districts",
+};
+
+const adminHandbookConfig = {
+  countries: {
+    title: "Страны",
+    singleTitle: "страну",
+    editTitle: "страну",
+    columns: ["№", "Название", "Статус"],
+  },
+  regions: {
+    title: "Регионы",
+    singleTitle: "регион",
+    editTitle: "регион",
+    columns: ["№", "Название", "Страна", "Статус"],
+  },
+  districts: {
+    title: "Районы",
+    singleTitle: "район",
+    editTitle: "район",
+    columns: ["№", "Название", "Регион", "Статус"],
+  },
+};
+
+function normalizeAdminHandbookStatus(status) {
+  const value = String(status ?? "").toLowerCase();
+  return status === false || value.includes("inactive") || value.includes("неак") ? "inactive" : "active";
+}
+
+function normalizeAdminHandbookRow(kind, row = {}, index = 0) {
+  const baseId = `${kind}-${index + 1}`;
+
+  if (kind === "countries") {
+    return {
+      id: String(row.id || row.country_id || baseId),
+      name: row.name || row.country || "Узбекистан",
+      code: String(row.code || row.phone_code || "998"),
+      iso: String(row.iso || row.alpha2 || row.short_code || "UZ").toUpperCase(),
+      mask: row.mask || row.phone_mask || "(##) ### ## ##",
+      status: normalizeAdminHandbookStatus(row.status),
+    };
+  }
+
+  if (kind === "regions") {
+    return {
+      id: String(row.id || row.region_id || baseId),
+      name: row.name || row.region || "Ташкент",
+      country: row.country || row.country_name || "Узбекистан",
+      status: normalizeAdminHandbookStatus(row.status),
+    };
+  }
+
+  return {
+    id: String(row.id || row.district_id || baseId),
+    name: row.name || row.district || "",
+    region: row.region || row.region_name || "Ташкент",
+    status: normalizeAdminHandbookStatus(row.status),
+  };
+}
+
+function normalizeAdminHandbookState(value = {}) {
+  const countriesSource = Array.isArray(value.countries) && value.countries.length
+    ? value.countries
+    : adminHandbookDefaultRows.countries;
+  const regionsSource = Array.isArray(value.regions) && value.regions.length
+    ? value.regions
+    : adminHandbookDefaultRows.regions;
+  const districtsSource = Array.isArray(value.districts) && value.districts.length
+    ? value.districts
+    : adminHandbookDefaultRows.districts;
+
+  return {
+    countries: countriesSource.map((row, index) => normalizeAdminHandbookRow("countries", row, index)).slice(0, 1),
+    regions: regionsSource.map((row, index) => normalizeAdminHandbookRow("regions", row, index)).slice(0, 1),
+    districts: districtsSource.map((row, index) => normalizeAdminHandbookRow("districts", row, index)),
+  };
+}
+
+function readStoredAdminHandbookLocations() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const value = window.localStorage.getItem(ADMIN_HANDBOOK_LOCATIONS_STORAGE_KEY);
+    const parsed = value ? JSON.parse(value) : null;
+    return parsed && typeof parsed === "object" ? normalizeAdminHandbookState(parsed) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredAdminHandbookLocations(rows) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(ADMIN_HANDBOOK_LOCATIONS_STORAGE_KEY, JSON.stringify(normalizeAdminHandbookState(rows)));
+  } catch {
+    // The current session remains usable if localStorage is unavailable.
+  }
+}
+
+function createAdminHandbookDraft(kind, row = null, state = null) {
+  const countryName = state?.countries?.[0]?.name || "Узбекистан";
+  const regionName = state?.regions?.[0]?.name || "Ташкент";
+
+  if (kind === "countries") {
+    return {
+      id: row?.id || "",
+      name: row?.name || "Узбекистан",
+      code: row?.code || "998",
+      iso: row?.iso || "UZ",
+      mask: row?.mask || "(##) ### ## ##",
+      status: row?.status || "active",
+    };
+  }
+
+  if (kind === "regions") {
+    return {
+      id: row?.id || "",
+      name: row?.name || "Ташкент",
+      country: row?.country || countryName,
+      status: row?.status || "active",
+    };
+  }
+
+  return {
+    id: row?.id || "",
+    name: row?.name || "",
+    region: row?.region || regionName,
+    status: row?.status || "active",
+  };
+}
+
+const ADMIN_EMPLOYEES_STORAGE_KEY = "marjon-admin-employees-v1";
+
+const adminEmployeeRoles = [
+  "sales",
+  "installer",
+  "operator",
+  "admin",
+  "marketing",
+  "tech_support",
+  "product_manager",
+  "moderator",
+  "media",
+];
+
+const adminEmployeeDepartments = [
+  "Продажи",
+  "Установка",
+  "Операторская",
+  "Администрация",
+  "Маркетинг",
+  "Техподдержка",
+  "Продукты",
+  "Медиа",
+];
+
+const adminEmployeeRows = [
+  { id: "88489", name: "OG'ABEK AXATOV", phone: "99893 810 70 70", roles: ["sales", "installer", "operator"], balance: 0, inRating: true, login: "938107070", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Продажи", status: "active" },
+  { id: "86840", name: "Sardor Hamzayev Admin", phone: "99800 000 00 02", roles: ["admin"], balance: 0, inRating: false, login: "000000002", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Администрация", status: "active" },
+  { id: "86756", name: "Yo'ldashev Xurshid", phone: "99893 437 13 77", roles: ["sales", "operator", "installer"], balance: 0, inRating: true, login: "934371377", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Продажи", status: "active" },
+  { id: "86755", name: "Safayev Aziz", phone: "99888 140 60 68", roles: ["sales"], balance: 0, inRating: true, login: "881406068", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Продажи", status: "active" },
+  { id: "86071", name: "JAVOHIR SOTUV", phone: "99877 728 55 08", roles: ["sales", "installer"], balance: 0, inRating: true, login: "777285508", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Установка", status: "active" },
+  { id: "85559", name: "DILSHOD XABIBULLAYEV SOTUV", phone: "99894 480 76 05", roles: ["sales", "installer", "operator"], balance: 0, inRating: true, login: "944807605", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Продажи", status: "active" },
+  { id: "83632", name: "Azamat turkiya", phone: "99800 000 55 55", roles: ["operator", "installer", "sales"], balance: 0, inRating: false, login: "000005555", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Операторская", status: "active" },
+  { id: "83407", name: "RUSTAM UZOQOV SOTUV", phone: "99893 931 22 66", roles: ["sales", "installer"], balance: 0, inRating: true, login: "939312266", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Продажи", status: "active" },
+  { id: "83233", name: "OLIMJONOV AZAMAT SOTUV", phone: "99870 036 98 03", roles: ["sales", "installer"], balance: 0, inRating: true, login: "700369803", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Установка", status: "active" },
+  { id: "78694", name: "Asadbek", phone: "99891 775 62 42", roles: ["operator", "tech_support"], balance: -3000000, inRating: true, login: "917756242", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Техподдержка", status: "active" },
+  { id: "75275", name: "KAMOLIDDIN TARGETOLOG", phone: "99894 077 16 01", roles: ["marketing"], balance: 0, inRating: false, login: "940771601", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Маркетинг", status: "active" },
+  { id: "74395", name: "MAVLONOV SHOHIRUH SOLIQ", phone: "99897 111 30 09", roles: ["installer", "operator", "sales", "tech_support"], balance: 0, inRating: true, login: "971113009", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Техподдержка", status: "active" },
+  { id: "73122", name: "Kunlik Premya", phone: "99821 545 87 87", roles: ["media"], balance: 0, inRating: false, login: "215458787", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Медиа", status: "active" },
+  { id: "72045", name: "TURAYEV ALISHER", phone: "99893 109 66 36", roles: ["sales", "operator", "tech_support"], balance: 0, inRating: true, login: "931096636", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Продажи", status: "active" },
+  { id: "69903", name: "SHOHABBOS DONYOROV SOTUV", phone: "99894 777 57 52", roles: ["sales"], balance: 0, inRating: true, login: "947775752", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Продажи", status: "active" },
+  { id: "69565", name: "AZIM O'KTAMOV SOTUV", phone: "99895 737 37 07", roles: ["sales"], balance: 0, inRating: true, login: "957373707", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Продажи", status: "active" },
+  { id: "62529", name: "811", phone: "99823 145 66 51", roles: ["product_manager"], balance: 0, inRating: false, login: "231456651", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Продукты", status: "active" },
+  { id: "62528", name: "812", phone: "99832 168 43 21", roles: ["product_manager"], balance: -30000000, inRating: false, login: "321684321", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Продукты", status: "active" },
+  { id: "62527", name: "813", phone: "99856 416 55 15", roles: ["product_manager"], balance: -60000000, inRating: false, login: "564165515", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Продукты", status: "active" },
+  { id: "62526", name: "814", phone: "99823 165 43 51", roles: ["product_manager"], balance: -51000000, inRating: false, login: "231654351", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Продукты", status: "active" },
+  { id: "62524", name: "815", phone: "99853 165 14 35", roles: ["product_manager"], balance: -95000000, inRating: false, login: "531651435", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Продукты", status: "active" },
+  { id: "62522", name: "816", phone: "99821 561 45 64", roles: ["product_manager"], balance: -73000000, inRating: false, login: "215614564", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Продукты", status: "active" },
+  { id: "62521", name: "817", phone: "99821 358 54 34", roles: ["product_manager"], balance: -80000000, inRating: false, login: "213585434", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Продукты", status: "active" },
+  { id: "60834", name: "Eldor Sotuv", phone: "99890 614 29 69", roles: ["sales", "installer"], balance: 0, inRating: false, login: "906142969", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Продажи", status: "active" },
+  { id: "60805", name: "Humoyun Targetolog", phone: "99899 300 48 28", roles: ["marketing"], balance: 0, inRating: false, login: "993004828", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Маркетинг", status: "active" },
+  { id: "60437", name: "Шахзод Эркинбоев", phone: "99893 733 32 23", roles: ["product_manager", "moderator", "sales"], balance: -3000000, inRating: true, login: "937333223", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Продукты", status: "active" },
+  { id: "57297", name: "Хуршид Термиз филиал", phone: "99897 697 66 88", roles: ["installer", "sales"], balance: 0, inRating: false, login: "976976688", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Установка", status: "active" },
+  { id: "57296", name: "Зохиджон Термиз", phone: "99893 234 65 65", roles: ["sales", "installer"], balance: 0, inRating: false, login: "932346565", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Установка", status: "active" },
+  { id: "56337", name: "Akbar aka", phone: "99897 708 22 02", roles: ["product_manager", "sales", "installer"], balance: -24000000, inRating: true, login: "977082202", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Продукты", status: "active" },
+  { id: "56167", name: "Boltaboyev Jahongir Farg'ona Filial", phone: "99895 964 11 00", roles: ["installer", "sales", "moderator"], balance: -20000000, inRating: true, login: "959641100", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Установка", status: "active" },
+  { id: "56018", name: "Samandar Akmalov Sotuv", phone: "99899 000 45 14", roles: ["sales"], balance: 0, inRating: false, login: "990004514", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Продажи", status: "active" },
+  { id: "54448", name: "Asilbek Targetolog", phone: "99897 432 30 03", roles: ["marketing"], balance: -6000000, inRating: false, login: "974323003", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Маркетинг", status: "active" },
+  { id: "54089", name: "Jonibek", phone: "99890 919 04 84", roles: ["media", "operator"], balance: 0, inRating: false, login: "909190484", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Медиа", status: "active" },
+  { id: "51455", name: "Sardor aka M", phone: "99899 200 62 67", roles: ["marketing", "product_manager", "sales"], balance: 0, inRating: false, login: "992006267", telegram: "", workingDays: "6", workingTime: "9", salary: "", email: "", department: "Маркетинг", status: "active" },
+];
+
+function readStoredAdminEmployees() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const value = window.localStorage.getItem(ADMIN_EMPLOYEES_STORAGE_KEY);
+    const parsed = value ? JSON.parse(value) : null;
+    return Array.isArray(parsed) ? parsed.map(normalizeAdminEmployee).filter((row) => row.name) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredAdminEmployees(rows) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(ADMIN_EMPLOYEES_STORAGE_KEY, JSON.stringify(rows.map(normalizeAdminEmployee)));
+  } catch {
+    // Keep the in-memory table working if localStorage is unavailable.
+  }
+}
+
+function normalizeAdminEmployee(row = {}, index = 0) {
+  const roleSource = Array.isArray(row.roles)
+    ? row.roles
+    : String(row.role || row.roles || "sales").split(/[,\s]+/);
+  const roles = roleSource.map((role) => String(role).trim()).filter(Boolean);
+
+  return {
+    id: String(row.id || row.employee_id || `employee-${index + 1}`),
+    name: row.name || row.full_name || row.fio || "",
+    phone: row.phone || row.phone_number || row.mobile || "",
+    roles: roles.length ? roles : ["sales"],
+    balance: Number(row.balance || 0),
+    inRating: row.inRating ?? row.in_rating ?? row.rating_enabled ?? true,
+    login: row.login || row.username || "",
+    password: row.password || "",
+    telegram: row.telegram || row.telegram_id || "",
+    workingDays: String(row.workingDays ?? row.working_days ?? "6"),
+    workingTime: String(row.workingTime ?? row.working_time ?? "9"),
+    salary: row.salary != null ? String(row.salary) : "",
+    email: row.email || "",
+    department: row.department || row.department_name || adminEmployeeDepartments[0],
+    status: normalizeAdminHandbookStatus(row.status),
+  };
+}
+
+function createAdminEmployeeDraft(row = null) {
+  return {
+    id: row?.id || "",
+    name: row?.name || "",
+    phone: row?.phone || "+998 ",
+    roles: row?.roles?.length ? [...row.roles] : ["sales"],
+    balance: row?.balance != null ? String(row.balance) : "0",
+    inRating: row?.inRating ?? true,
+    login: row?.login || "",
+    password: row?.password || "",
+    telegram: row?.telegram || "",
+    workingDays: row?.workingDays || "6",
+    workingTime: row?.workingTime || "9",
+    salary: row?.salary || "",
+    email: row?.email || "",
+    department: row?.department || adminEmployeeDepartments[0],
+    status: row?.status || "active",
+  };
+}
+
+const storageIncomeBranchRows = [
+  { branch: "Тошкент филиал", income: 32864000, inventory: 0 },
+];
+
+const storageIncomeDetailRows = [
+  { id: "total", name: "Всего", quantity: 395, amount: 32864000, tone: "total" },
+  { id: "realization", name: "Реализация", quantity: 395, amount: 32864000, tone: "green" },
+  {
+    id: "computer",
+    name: "Компьютер",
+    quantity: 18,
+    amount: 814000,
+    tone: "category",
+    children: [
+      { id: "mish-depo-v82", name: "Mish DEPO V82 (mishka)", quantity: "8 шт", amount: 464000 },
+      { id: "keyboard-mat", name: "Коврик (каттаси - клавиатура ва мышка учун)", quantity: "10 шт", amount: 350000 },
+    ],
+  },
+  {
+    id: "cable",
+    name: "Кабель",
+    quantity: 351,
+    amount: 1570000,
+    tone: "category",
+    children: [
+      { id: "connector-cat-6", name: "Коннектор CAT 6", quantity: "350 шт", amount: 350000 },
+      { id: "network-cable-cat6", name: "NET WORK CABLE (OUTDOOR CAT6 UTP 23 AWG CABLE) (korobkada buxta kabel)", quantity: "1 шт", amount: 1220000 },
+    ],
+  },
+  {
+    id: "printer",
+    name: "Принтер",
+    quantity: 10,
+    amount: 7200000,
+    tone: "category",
+    children: [
+      { id: "xprinter-xp-80-ts", name: "Xprinter mini printer, model : XP - 80 TS", quantity: "10 шт", amount: 7200000 },
+    ],
+  },
+  {
+    id: "monoblock",
+    name: "Моноблок",
+    quantity: 5,
+    amount: 21000000,
+    tone: "category",
+    children: [
+      { id: "monoblock-tsm-1514", name: "Моноблок - 15 Inch Monitor model : TSM-1514 (8-128 GB (Windows Cach Register)", quantity: "5 шт", amount: 21000000 },
+    ],
+  },
+  {
+    id: "scanner",
+    name: "Сканер",
+    quantity: 2,
+    amount: 400000,
+    tone: "category",
+    children: [
+      { id: "rfid-reader", name: "RFID READER (сканер, карта, браслетники)", quantity: "2 шт", amount: 400000 },
+    ],
+  },
+  {
+    id: "wifi",
+    name: "Wi-Fi",
+    quantity: 2,
+    amount: 200000,
+    tone: "category",
+    children: [
+      { id: "usb-wifi-alfa", name: "USB Wi-Fi Adapter - ALFA ALFANEXT", quantity: "2 шт", amount: 200000 },
+    ],
+  },
+  {
+    id: "hub",
+    name: "Хап",
+    quantity: 7,
+    amount: 1680000,
+    tone: "category",
+    children: [
+      { id: "tenda-sg-108", name: "Tenda SG 108 8 Gigabit Power", quantity: "7 шт", amount: 1680000 },
+    ],
+  },
+  { id: "used-product", name: "Продукт Б/У", quantity: 0, amount: 0, tone: "green" },
+];
+
+const storageIncomeJournalRows = [
+  {
+    id: "income-88377",
+    number: "88377",
+    supplier: "Nanotech",
+    warehouse: "Главный склад",
+    incomingDate: "22.07.2026",
+    registeredAt: "22.07.2026 / 18:22",
+    registeredBy: "Ergashev Bahodir Bahriddinovich",
+    acceptedAt: "22.07.2026 / 18:23",
+    acceptedBy: "Ergashev Bahodir Bahriddinovich",
+    itemCount: 1,
+    total: 2400000,
+    status: "принято",
+    contractNumber: "—",
+    comment: "Янги техника сотиб олинди.",
+    items: [
+      { id: "tenda-sg-108", name: "Tenda SG 108 8 Gigabit Power", price: 240000, quantity: 10, waste: "—", balance: 10, total: 2400000 },
+    ],
+  },
+  {
+    id: "income-88488",
+    number: "88488",
+    supplier: "ZARINLIGHT",
+    warehouse: "Главный склад",
+    incomingDate: "22.07.2026",
+    registeredAt: "23.07.2026 / 10:31",
+    registeredBy: "Ergashev Bahodir Bahriddinovich",
+    acceptedAt: "23.07.2026 / 10:33",
+    acceptedBy: "Ergashev Bahodir Bahriddinovich",
+    itemCount: 1,
+    total: 8400000,
+    status: "принято",
+    contractNumber: "—",
+    comment: "Поступление оборудования на склад.",
+    items: [
+      { id: "xprinter-xp-80-ts-journal", name: "Xprinter mini printer, model : XP - 80 TS", price: 700000, quantity: 12, waste: "—", balance: 12, total: 8400000 },
+    ],
+  },
+  {
+    id: "income-87346",
+    number: "87346",
+    supplier: "Главный организация",
+    warehouse: "Главный склад",
+    incomingDate: "18.07.2026",
+    registeredAt: "-",
+    registeredBy: "",
+    acceptedAt: "-",
+    acceptedBy: "",
+    itemCount: 1,
+    total: 1000000,
+    status: "принято",
+    contractNumber: "—",
+    comment: "Корректировка остатка по главному складу.",
+    items: [
+      { id: "keyboard-mat-journal", name: "Коврик для клавиатуры и мышки", price: 100000, quantity: 10, waste: "—", balance: 10, total: 1000000 },
+    ],
+  },
+  {
+    id: "income-87343",
+    number: "87343",
+    supplier: "ZARINLIGHT",
+    warehouse: "Главный склад",
+    incomingDate: "17.07.2026",
+    registeredAt: "18.07.2026 / 15:03",
+    registeredBy: "Ergashev Bahodir Bahriddinovich",
+    acceptedAt: "18.07.2026 / 15:05",
+    acceptedBy: "Ergashev Bahodir Bahriddinovich",
+    itemCount: 4,
+    total: 45760000,
+    status: "принято",
+    contractNumber: "—",
+    comment: "Крупное поступление техники.",
+    items: [
+      { id: "monoblock-tsm-journal", name: "Моноблок - 15 Inch Monitor model : TSM-1514", price: 4200000, quantity: 5, waste: "—", balance: 5, total: 21000000 },
+      { id: "printer-journal", name: "Xprinter mini printer, model : XP - 80 TS", price: 720000, quantity: 10, waste: "—", balance: 10, total: 7200000 },
+      { id: "network-cable-journal", name: "NET WORK CABLE OUTDOOR CAT6 UTP", price: 1220000, quantity: 10, waste: "—", balance: 10, total: 12200000 },
+      { id: "scanner-journal", name: "RFID READER", price: 680000, quantity: 7, waste: "—", balance: 7, total: 4760000 },
+    ],
+  },
+  {
+    id: "income-86630",
+    number: "86630",
+    supplier: "ZARINLIGHT",
+    warehouse: "Главный склад",
+    incomingDate: "15.07.2026",
+    registeredAt: "15.07.2026 / 13:56",
+    registeredBy: "Ergashev Bahodir Bahriddinovich",
+    acceptedAt: "15.07.2026 / 14:03",
+    acceptedBy: "Ergashev Bahodir Bahriddinovich",
+    itemCount: 5,
+    total: 11575000,
+    status: "принято",
+    contractNumber: "—",
+    comment: "Приход расходных материалов.",
+    items: [
+      { id: "chek-paper-56-journal", name: "Chek qogoz 56/12 m Termolenta", price: 1500, quantity: 5000, waste: "—", balance: 5000, total: 7500000 },
+      { id: "connector-cat6-journal", name: "Коннектор CAT 6", price: 1000, quantity: 350, waste: "—", balance: 350, total: 350000 },
+      { id: "usb-wifi-journal", name: "USB Wi-Fi Adapter - ALFA ALFANEXT", price: 100000, quantity: 2, waste: "—", balance: 2, total: 200000 },
+      { id: "hub-journal", name: "MERCURY SG108 C", price: 240000, quantity: 10, waste: "—", balance: 10, total: 2400000 },
+      { id: "scanner-card-journal", name: "RFID карта", price: 37500, quantity: 30, waste: "—", balance: 30, total: 1125000 },
+    ],
+  },
+  {
+    id: "income-86397",
+    number: "86397",
+    supplier: "Nanotech",
+    warehouse: "Главный склад",
+    incomingDate: "14.07.2026",
+    registeredAt: "14.07.2026 / 16:15",
+    registeredBy: "Ergashev Bahodir Bahriddinovich",
+    acceptedAt: "14.07.2026 / 16:21",
+    acceptedBy: "Ergashev Bahodir Bahriddinovich",
+    itemCount: 1,
+    total: 3600000,
+    status: "принято",
+    contractNumber: "—",
+    comment: "Поставка периферии.",
+    items: [
+      { id: "wireless-keyboard-journal", name: "WIRED KEYBOARD E-KB721 MEGA jet", price: 120000, quantity: 30, waste: "—", balance: 30, total: 3600000 },
+    ],
+  },
+  {
+    id: "income-86015",
+    number: "86015",
+    supplier: "Главный организация",
+    warehouse: "Главный склад",
+    incomingDate: "13.07.2026",
+    registeredAt: "-",
+    registeredBy: "",
+    acceptedAt: "-",
+    acceptedBy: "",
+    itemCount: 1,
+    total: 1000000,
+    status: "принято",
+    contractNumber: "—",
+    comment: "Ручное поступление.",
+    items: [
+      { id: "manual-product-journal", name: "Продукт Б/У", price: 1000000, quantity: 1, waste: "—", balance: 1, total: 1000000 },
+    ],
+  },
+  {
+    id: "income-86222",
+    number: "86222",
+    supplier: "ZARINLIGHT",
+    warehouse: "Главный склад",
+    incomingDate: "13.07.2026",
+    registeredAt: "14.07.2026 / 09:38",
+    registeredBy: "Ergashev Bahodir Bahriddinovich",
+    acceptedAt: "14.07.2026 / 10:03",
+    acceptedBy: "Ergashev Bahodir Bahriddinovich",
+    itemCount: 8,
+    total: 21423000,
+    status: "принято",
+    contractNumber: "—",
+    comment: "Поступление товаров для филиала Тошкент.",
+    items: [
+      { id: "paper-80-journal", name: "Chek qogoz 80/50 m Termolenta", price: 9000, quantity: 37, waste: "—", balance: 37, total: 333000 },
+      { id: "xprinter-t837-journal", name: "Xprinter mini printer model : XP-T837L", price: 720000, quantity: 12, waste: "—", balance: 12, total: 8640000 },
+      { id: "monoblock-extra-journal", name: "Моноблок TSM-1514", price: 4200000, quantity: 2, waste: "—", balance: 2, total: 8400000 },
+      { id: "network-cable-extra-journal", name: "NET WORK CABLE CAT6", price: 1220000, quantity: 3, waste: "—", balance: 3, total: 3660000 },
+      { id: "connector-extra-journal", name: "Коннектор CAT 6", price: 1000, quantity: 350, waste: "—", balance: 350, total: 350000 },
+      { id: "wifi-extra-journal", name: "USB Wi-Fi Adapter", price: 200000, quantity: 2, waste: "—", balance: 2, total: 400000 },
+      { id: "mouse-extra-journal", name: "Mish DEPO V82", price: 58000, quantity: 8, waste: "—", balance: 8, total: 464000 },
+      { id: "mat-extra-journal", name: "Коврик для клавиатуры и мышки", price: 22000, quantity: 8, waste: "—", balance: 8, total: 176000 },
+    ],
+  },
+  {
+    id: "income-85484",
+    number: "85484",
+    supplier: "Главный организация",
+    warehouse: "Главный склад",
+    incomingDate: "11.07.2026",
+    registeredAt: "-",
+    registeredBy: "",
+    acceptedAt: "-",
+    acceptedBy: "",
+    itemCount: 2,
+    total: 1125000,
+    status: "принято",
+    contractNumber: "—",
+    comment: "Дополнительное поступление.",
+    items: [
+      { id: "rfid-card-journal", name: "RFID карта", price: 37500, quantity: 20, waste: "—", balance: 20, total: 750000 },
+      { id: "menuholder-journal", name: "Менюхолдер", price: 37500, quantity: 10, waste: "—", balance: 10, total: 375000 },
+    ],
+  },
+];
+
+const storageWriteoffRows = [];
+
+const storageInventoryRows = [
+  {
+    id: "8350",
+    registeredAt: "07.07.2026 / 10:31",
+    registeredBy: "Ergashev Bahodir Bahriddinovich",
+    warehouse: "Главный склад",
+    comment: "-",
+    type: "Приход и расход учтены",
+    status: "принято",
+    items: [
+      { id: "mercusys-ms108g-inv", name: "MERCUSYS 8-Port 10/100/1000 Mbps Deskor Switch, model : MS108G (ХАП)", quantity: "+ 1", unit: "Штук (шт)" },
+      { id: "computer-set-inv", name: "Компьютер комплект (монитор, процессор, клавиатура, мышка)", quantity: "+ 1", unit: "Штук (шт)" },
+    ],
+  },
+];
+
+const storageExpenseBranchRows = [
+  { branch: "Тошкент филиал", expense: 13860000, inventory: 0 },
+];
+
+const storageExpenseDetailRows = [
+  { id: "total", name: "Всего", quantity: 79, amount: 13860000, tone: "total" },
+  { id: "realization", name: "Реализация", quantity: 79, amount: 13860000, tone: "green" },
+  {
+    id: "printer",
+    name: "Принтер",
+    quantity: 12,
+    amount: 7680000,
+    tone: "category",
+    children: [
+      { id: "xprinter-xp-t837l", name: "Xprinter mini printer model : XP-T837L", quantity: "1 шт", amount: 0 },
+      { id: "xprinter-xp-80-ts-expense", name: "Xprinter mini printer, model : XP - 80 TS", quantity: "11 шт", amount: 7680000 },
+    ],
+  },
+  {
+    id: "monoblock",
+    name: "Моноблок",
+    quantity: 1,
+    amount: 4200000,
+    tone: "category",
+    children: [
+      { id: "monoblock-tsm-1514-expense", name: "Моноблок - 15 Inch Monitor model : TSM-1514 (8-128 GB (Windows Cach Register)", quantity: "1 шт", amount: 4200000 },
+    ],
+  },
+  {
+    id: "hub",
+    name: "Хап",
+    quantity: 5,
+    amount: 480000,
+    tone: "category",
+    children: [
+      { id: "mercury-sg108c", name: "MERCURY SG108 C (ХАП)", quantity: "2 шт", amount: 480000 },
+      { id: "mercusys-ms108g", name: "MERCUSYS 8-Port 10/100/1000 Mbps Deskor Switch, model : MS108G (ХАП)", quantity: "3 шт", amount: 0 },
+    ],
+  },
+  {
+    id: "computer",
+    name: "Компьютер",
+    quantity: 1,
+    amount: 0,
+    tone: "category",
+    children: [
+      { id: "computer-set", name: "Компьютер комплект (монитор, процессор, клавиатура, мышка)", quantity: "1 шт", amount: 0 },
+    ],
+  },
+  {
+    id: "scanner",
+    name: "Сканер",
+    quantity: 60,
+    amount: 1500000,
+    tone: "category",
+    children: [
+      { id: "menuholder", name: "Менюхолдер (Реклама учун подставка, (стол устидаги) комплект)", quantity: "60 шт", amount: 1500000 },
+    ],
+  },
+  { id: "used-product", name: "Продукт Б/У", quantity: 0, amount: 0, tone: "green" },
+];
+
+const storageBalanceBranchRows = [
+  { branch: "Тошкент филиал", balance: "7 462", amount: 384273000 },
+];
+
+const storageBalanceDetailRows = [
+  { id: "total", name: "Всего", quantity: "7 462", amount: 384273000, tone: "total" },
+  { id: "realization", name: "Реализация", quantity: "7 462", amount: 384273000, tone: "green" },
+  {
+    id: "cable",
+    name: "Кабель",
+    quantity: "1 947",
+    amount: 15604000,
+    tone: "category",
+    children: [
+      { id: "connector-cat-5-balance", name: "Коннектор CAT 5", quantity: "-50 шт", amount: 0 },
+      { id: "connector-cat-6-balance", name: "Коннектор CAT 6", quantity: "1 984 шт", amount: 1984000 },
+      { id: "network-cable-cat6-balance", name: "NET WORK CABLE (OUTDOOR CAT6 UTP 23 AWG CABLE) (korobkada buxta kabel)", quantity: "11 шт", amount: 13420000 },
+      { id: "sunkit-sk-868g-balance", name: "Обжимник - кабель учун икки функцияли (Read Star SUNKIT SK-868G)", quantity: "2 шт", amount: 200000 },
+    ],
+  },
+  {
+    id: "check-paper",
+    name: "Chek Qog'oz",
+    quantity: "5 223",
+    amount: 8112000,
+    tone: "category",
+    children: [
+      { id: "chek-qogoz-56", name: "Chek qogoz 56/12 m Termolenta", quantity: "5 186 шт", amount: 7779000 },
+      { id: "chek-qogoz-80", name: "Chek qogoz 80/50 m Termolenta", quantity: "37 шт", amount: 333000 },
+    ],
+  },
+  {
+    id: "computer",
+    name: "Компьютер",
+    quantity: "60",
+    amount: 14977000,
+    tone: "category",
+    children: [
+      { id: "mish-depo-v82-balance", name: "Mish DEPO V82 (mishka)", quantity: "19 шт", amount: 1102000 },
+      { id: "wired-keyboard-balance", name: "WIRED KEYBOARD E-KB721 MEGA jet (klaviatura provodnaya)", quantity: "8 шт", amount: 1000000 },
+      { id: "ziffler-monitor-balance", name: "ZIFFLER GURVED MONITOR 24ZC100", quantity: "2 шт", amount: 2000000 },
+      { id: "zttech-computer-balance", name: "ZTTECH COMPUTER (Case R 10) (Prosser)", quantity: "4 шт", amount: 4000000 },
+      { id: "immer-monitor-balance", name: "IMMER FLAT MONITOR IJ24LT120", quantity: "1 шт", amount: 2000000 },
+      { id: "everel-monitor-balance", name: "EVEREL 23,8 FLAT MONITOR 24EV1 100", quantity: "4 шт", amount: 4000000 },
+      { id: "computer-set-balance", name: "Компьютер комплект (монитор, процессор, клавиатура, мышка)", quantity: "-3 шт", amount: 0 },
+      { id: "keyboard-mat-balance", name: "Коврик (каттаси - клавиатура ва мышка учун)", quantity: "25 шт", amount: 875000 },
+    ],
+  },
+  {
+    id: "monoblock",
+    name: "Моноблок",
+    quantity: "69",
+    amount: 247200000,
+    tone: "category",
+    children: [
+      { id: "monoblock-tsm-1514-balance", name: "Моноблок - 15 Inch Monitor model : TSM-1514 (8-128 GB (Windows Cach Register)", quantity: "52 шт", amount: 231000000 },
+      { id: "user-manual-scale-balance", name: "Электрон тарози User Manual", quantity: "1 шт", amount: 4800000 },
+      { id: "cash-drawer-balance", name: "Касса аппарати CACH DRAWER", quantity: "2 шт", amount: 1320000 },
+      { id: "xprinter-q80as-balance", name: "Xprinter mini printer, model : XP - Q80AS", quantity: "14 шт", amount: 10080000 },
+    ],
+  },
+  {
+    id: "printer",
+    name: "Принтер",
+    quantity: "102",
+    amount: 77900000,
+    tone: "category",
+    children: [
+      { id: "xprinter-t837l-balance", name: "Xprinter mini printer model : XP-T837L", quantity: "-6 шт", amount: -3904000 },
+      { id: "xprinter-q838l-bluetooth-balance", name: "Xprinter mini printer model : XP-Q838L (bluetooth)", quantity: "1 шт", amount: 720000 },
+      { id: "xprinter-xp80t-usb-balance", name: "Xprinter mini printer, model : XP - 80 T (USB+LAN kabel)", quantity: "2 шт", amount: 1700000 },
+      { id: "xprinter-xp80ts-balance", name: "Xprinter mini printer, model : XP - 80 TS", quantity: "93 шт", amount: 66960000 },
+      { id: "xprinter-q838l-balance", name: "Xpinter mini printer XP-Q838L", quantity: "9 шт", amount: 6480000 },
+      { id: "xprinter-xp80q-balance", name: "Xprinter mini printer, model : XP - T 80 Q", quantity: "1 шт", amount: 600000 },
+      { id: "xprinter-q80as-printer-balance", name: "Xprinter mini printer, model : XP - Q80AS", quantity: "2 шт", amount: 1440000 },
+    ],
+  },
+  {
+    id: "scanner",
+    name: "Сканер",
+    quantity: "4",
+    amount: 1840000,
+    tone: "category",
+    children: [
+      { id: "d-netum-a5-balance", name: "2 D NETUM (2D Omnidi Rectional Barcode Scanner) model : A5 (YUmologi) штрих-код сканери", quantity: "2 шт", amount: 1440000 },
+      { id: "rfid-reader-balance", name: "RFID READER (сканер, карта, браслетники)", quantity: "2 шт", amount: 400000 },
+      { id: "menuholder-balance", name: "Менюхолдер (Реклама учун подставка, (стол устидаги) комплект)", quantity: "0 шт", amount: 0 },
+    ],
+  },
+  {
+    id: "hub",
+    name: "Хап",
+    quantity: "53",
+    amount: 18240000,
+    tone: "category",
+    children: [
+      { id: "mercury-sg108c-balance", name: "MERCURY SG108 C (ХАП)", quantity: "45 шт", amount: 10800000 },
+      { id: "mercusys-ms108g-balance", name: "MERCUSYS 8-Port 10/100/1000 Mbps Deskor Switch, model : MS108G (ХАП)", quantity: "-23 шт", amount: 0 },
+      { id: "cuby-gs108d-balance", name: "CUBY 8-Port Gigabit Desktop Switch (Xan) model : GS108D", quantity: "24 шт", amount: 5760000 },
+      { id: "tenda-sg108-balance", name: "Tenda SG 108 8 Gigabit Power", quantity: "7 шт", amount: 1680000 },
+    ],
+  },
+  {
+    id: "services",
+    name: "Хизматлар (услуги)",
+    quantity: "0",
+    amount: 0,
+    tone: "category",
+    children: [
+      { id: "soliq-integration-balance", name: "Солик интеграция", quantity: "0 шт", amount: 0 },
+      { id: "telegram-bot-balance", name: "Телеграмм бот", quantity: "0 шт", amount: 0 },
+      { id: "monthly-payment-balance", name: "ойлик абонент тўлов", quantity: "0 шт", amount: 0 },
+    ],
+  },
+  {
+    id: "wifi",
+    name: "Wi-Fi",
+    quantity: "4",
+    amount: 400000,
+    tone: "category",
+    children: [
+      { id: "usb-wifi-alfa-balance", name: "USB Wi-Fi Adapter - ALFA ALFANEXT", quantity: "4 шт", amount: 400000 },
+    ],
+  },
+  { id: "used-product", name: "Продукт Б/У", quantity: "0", amount: 0, tone: "green" },
 ];
 
 const categoryContent = {
@@ -1133,8 +2412,11 @@ function presetRange(label) {
   return { ...range, label: label === "Сегодня" || label === "Вчера" ? label : rangeLabel(range) };
 }
 
-const ADMIN_CHART_COLOR = "#4ed3a7";
-const ADMIN_CHART_COLOR_RGB = "78, 211, 167";
+const ADMIN_CHART_COLOR = "#1a916f";
+const ADMIN_CHART_COLOR_RGB = "26, 145, 111";
+const ADMIN_CHART_TODAY = new Date(2026, 6, 15);
+const ADMIN_CHART_MONTHS = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+const ADMIN_CHART_PRESET_DAYS = [7, 30];
 
 function adminChartPointToMoney(value) {
   return Math.round(Number(value || 0) * 1000000);
@@ -1149,6 +2431,213 @@ function formatAdminAxisTick(value) {
   const millions = Number(value) / 1000000;
   if (millions < 1) return `${Math.round(Number(value) / 1000)}K`;
   return `${Number(millions).toLocaleString("ru-RU", { maximumFractionDigits: 1 }).replace(/\u00a0/g, " ")}M`;
+}
+
+function adminDateToInputValue(date) {
+  const value = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
+  return `${value.getFullYear()}-${padDate(value.getMonth() + 1)}-${padDate(value.getDate())}`;
+}
+
+function adminTodayInputValue() {
+  return adminDateToInputValue(new Date());
+}
+
+function adminReportDateToInputDate(value) {
+  const match = String(value || "").match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (!match) return adminTodayInputValue();
+  const [, day, month, year] = match;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function adminInputDateToReportDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) {
+    return formatDate(new Date());
+  }
+  const [year, month, day] = value.split("-");
+  return `${day}.${month}.${year}`;
+}
+
+function adminChartRangeEndingAt(days, endValue = adminTodayInputValue()) {
+  const end = new Date(`${endValue}T00:00:00`);
+  const start = new Date(end);
+  start.setDate(end.getDate() - Math.max(1, Number(days) || 1) + 1);
+  return {
+    preset: "",
+    start: adminInputDateToReportDate(adminDateToInputValue(start)),
+    end: adminInputDateToReportDate(adminDateToInputValue(end)),
+    startTime: "00:00",
+    endTime: "00:00",
+  };
+}
+
+function normalizeAdminReportRange(range = {}) {
+  const startInput = adminReportDateToInputDate(range.start);
+  const endInput = adminReportDateToInputDate(range.end);
+  const [dateFrom, dateTo] = startInput <= endInput ? [startInput, endInput] : [endInput, startInput];
+  return {
+    preset: range.preset || "",
+    start: adminInputDateToReportDate(dateFrom),
+    end: adminInputDateToReportDate(dateTo),
+    startTime: "00:00",
+    endTime: "00:00",
+  };
+}
+
+function adminChartRangeDays(range) {
+  const normalized = normalizeAdminReportRange(range);
+  const start = new Date(`${adminReportDateToInputDate(normalized.start)}T00:00:00`);
+  const end = new Date(`${adminReportDateToInputDate(normalized.end)}T00:00:00`);
+  return Math.max(1, Math.round((end - start) / 86400000) + 1);
+}
+
+function adminChartRangeLabel(range) {
+  const normalized = normalizeAdminReportRange(range);
+  return normalized.start === normalized.end ? normalized.start : `${normalized.start} - ${normalized.end}`;
+}
+
+function formatAdminDaysLabel(days) {
+  const value = Math.max(1, Number(days) || 1);
+  const mod10 = value % 10;
+  const mod100 = value % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${value} день`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${value} дня`;
+  return `${value} дней`;
+}
+
+function buildAdminChartRange(days) {
+  const end = new Date(ADMIN_CHART_TODAY);
+  const start = new Date(ADMIN_CHART_TODAY);
+  start.setDate(end.getDate() - days + 1);
+  return {
+    mode: String(days),
+    label: `${days} дней`,
+    start: formatDate(start),
+    end: formatDate(end),
+  };
+}
+
+function getAdminChartDaysBetween(startDate, endDate) {
+  const start = parseDate(startDate);
+  const end = parseDate(endDate);
+  return Math.max(1, Math.round((end - start) / 86400000) + 1);
+}
+
+function normalizeAdminChartRange(startValue, endValue, mode = "custom") {
+  const start = parseDate(startValue);
+  const end = parseDate(endValue);
+  const first = start <= end ? start : end;
+  const last = start <= end ? end : start;
+  const range = {
+    mode,
+    start: formatDate(first),
+    end: formatDate(last),
+  };
+  return { ...range, label: mode === "7" || mode === "30" ? `${mode} дней` : rangeLabel(range) };
+}
+
+function buildAdminRangeLabels(range) {
+  const start = parseDate(range.start);
+  const days = getAdminChartDaysBetween(range.start, range.end);
+
+  return Array.from({ length: days }, (_, day) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + day);
+    return `${padDate(date.getDate())}.${padDate(date.getMonth() + 1)}`;
+  });
+}
+
+function buildAdminChartTickLabels(labels) {
+  if (labels.length <= 12) {
+    return labels.map((label, index) => [index, label]);
+  }
+
+  if (labels.length > 31) {
+    return labels.reduce((ticks, label, index) => {
+      if (index % 5 === 0 || index === labels.length - 1) ticks.push([index, label]);
+      return ticks;
+    }, []);
+  }
+
+  const visibleTickCount = labels.length <= 31 ? 8 : 10;
+  const step = (labels.length - 1) / Math.max(1, visibleTickCount - 1);
+  const visibleIndexes = new Set();
+
+  for (let index = 0; index < visibleTickCount; index += 1) {
+    visibleIndexes.add(Math.round(index * step));
+  }
+
+  visibleIndexes.add(0);
+  visibleIndexes.add(labels.length - 1);
+
+  return labels.reduce((ticks, label, index) => {
+    if (visibleIndexes.has(index)) ticks.push([index, label]);
+    return ticks;
+  }, []);
+}
+
+function buildAdminDemoCurvePoints(count, target) {
+  if (count <= 0) return [];
+  if (count === 1) return [Number(target.toFixed(2))];
+
+  const startValue = target * 0.12;
+  const availableValue = Math.max(0, target - startValue);
+  const increments = Array.from({ length: count - 1 }, (_, index) => {
+    const progress = (index + 1) / Math.max(1, count - 1);
+    const weeklyWave = Math.sin(progress * Math.PI * 4.2 - 0.45) * 0.34;
+    const shortWave = Math.sin((index + 1) * 1.45) * 0.14;
+    const lunchPulse = Math.exp(-Math.pow((progress - 0.38) / 0.13, 2)) * 0.42;
+    const weekendPulse = Math.exp(-Math.pow((progress - 0.78) / 0.11, 2)) * 0.34;
+    const quietWindow = Math.exp(-Math.pow((progress - 0.58) / 0.09, 2)) * 0.28;
+
+    return Math.max(0.32, 1 + weeklyWave + shortWave + lunchPulse + weekendPulse - quietWindow);
+  });
+  const totalWeight = increments.reduce((sum, value) => sum + value, 0) || 1;
+  let runningValue = startValue;
+  const points = [Number(runningValue.toFixed(2))];
+
+  increments.forEach((weight) => {
+    runningValue += availableValue * (weight / totalWeight);
+    points.push(Number(runningValue.toFixed(2)));
+  });
+
+  points[points.length - 1] = Number(target.toFixed(2));
+  return points;
+}
+
+function demoAdminChartRangeData(range) {
+  const labels = buildAdminRangeLabels(range);
+  const days = getAdminChartDaysBetween(range.start, range.end);
+  const target = Math.max(12, days * 6.25);
+  const points = buildAdminDemoCurvePoints(labels.length, target);
+  const yMax = Math.ceil(Math.max(...points) / 10) * 10;
+  const value = formatAdminRawMoney(adminChartPointToMoney(points.at(-1)));
+
+  return {
+    value,
+    delta: `Период: ${range.start} - ${range.end}`,
+    points,
+    labels,
+    tickLabels: buildAdminChartTickLabels(labels),
+    tooltip: { label: range.end, value },
+    tooltipIndex: Math.max(0, labels.length - 1),
+    yMax,
+    yStep: Math.max(5, yMax / 4),
+  };
+}
+
+function emptyAdminChartRangeData(range) {
+  const labels = buildAdminRangeLabels(range);
+  return {
+    value: "0 UZS",
+    delta: `Нет данных backend за ${range.start} - ${range.end}`,
+    points: labels.map(() => 0),
+    labels,
+    tickLabels: buildAdminChartTickLabels(labels),
+    tooltip: { label: range.end, value: "0 UZS" },
+    tooltipIndex: Math.max(0, labels.length - 1),
+    yMax: 1,
+    yStep: 0.25,
+  };
 }
 
 function emptyAdminChartData(segment) {
@@ -1170,6 +2659,55 @@ function emptyAdminChartData(segment) {
     tooltipIndex: Math.max(0, labels.length - 1),
     yMax: 1,
     yStep: 0.25,
+  };
+}
+
+const adminDemoChartBySegment = {
+  "День": {
+    value: "24 850 000 UZS",
+    delta: "Демо-оборот Marjon Cafe за сегодня",
+    labels: ["09:00", "12:00", "15:00", "18:00", "21:00", "00:00"],
+    points: [1.8, 4.2, 8.9, 13.4, 20.1, 24.85],
+    tooltip: { label: "00:00", value: "24 850 000 UZS" },
+    yMax: 30,
+    yStep: 7.5,
+  },
+  "Неделя": {
+    value: "187 450 000 UZS",
+    delta: "+16% к прошлой неделе",
+    labels: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
+    points: [18.5, 22.4, 19.8, 26.1, 31.6, 38.4, 30.65],
+    tooltip: { label: "Вс", value: "30 650 000 UZS" },
+    yMax: 45,
+    yStep: 15,
+  },
+  "Месяц": {
+    value: "187 450 000 UZS",
+    delta: "+24% к прошлому месяцу",
+    labels: ["01", "07", "14", "21", "28", "31"],
+    points: [18.4, 42.8, 76.3, 118.9, 155.6, 187.45],
+    tooltip: { label: "31 июля", value: "187 450 000 UZS" },
+    yMax: 220,
+    yStep: 55,
+  },
+  "Год": {
+    value: "1 048 000 000 UZS",
+    delta: "Демо-оборот за 2026 год",
+    labels: ["Янв", "Мар", "Май", "Июл", "Сен", "Ноя"],
+    points: [62, 211, 389, 604, 832, 1048],
+    tooltip: { label: "Ноябрь", value: "1 048 000 000 UZS" },
+    yMax: 1200,
+    yStep: 300,
+  },
+};
+
+function demoAdminChartData(segment, range) {
+  if (range) return demoAdminChartRangeData(range);
+  const data = adminDemoChartBySegment[segment] || adminDemoChartBySegment["Месяц"];
+  return {
+    ...data,
+    tickLabels: data.labels.map((label, index) => [index, label]),
+    tooltipIndex: Math.max(0, data.points.length - 1),
   };
 }
 
@@ -1229,7 +2767,8 @@ function AdminRevenueChart({ data, segment }) {
           pointBackgroundColor: "#ffffff",
           pointHoverRadius: 7,
           fill: true,
-          tension: 0.42,
+          cubicInterpolationMode: "monotone",
+          tension: 0.5,
         }],
       },
       options: {
@@ -1251,10 +2790,14 @@ function AdminRevenueChart({ data, segment }) {
                 return;
               }
 
-              const titleEl = tooltipEl.querySelector("strong");
-              const valueEl = tooltipEl.querySelector("span");
+              const amountEl = tooltipEl.querySelector(".admin-chart-tooltip__amount");
+              const currencyEl = tooltipEl.querySelector(".admin-chart-tooltip__currency");
+              const titleEl = tooltipEl.querySelector(".admin-chart-tooltip__date");
+              const tooltipValue = tooltip.body?.[0]?.lines?.[0] || "";
+              const valueParts = tooltipValue.match(/^(.+?)\s+([A-Z]{3})$/);
+              if (amountEl) amountEl.textContent = valueParts?.[1] || tooltipValue;
+              if (currencyEl) currencyEl.textContent = valueParts?.[2] || "";
               if (titleEl) titleEl.textContent = tooltip.title?.[0] || "";
-              if (valueEl) valueEl.textContent = tooltip.body?.[0]?.lines?.[0] || "";
 
               const tooltipHalfWidth = tooltipEl.offsetWidth / 2 || 72;
               const minX = tooltipHalfWidth + 8;
@@ -1285,6 +2828,7 @@ function AdminRevenueChart({ data, segment }) {
               font: { size: 12, weight: "600", family: "'Golos Text', Manrope, sans-serif" },
               maxRotation: 0,
               autoSkip: false,
+              padding: 10,
               callback: (_value, index) => tickLabels.get(index) || "",
             },
             border: { display: false },
@@ -1327,8 +2871,11 @@ function AdminRevenueChart({ data, segment }) {
     <>
       <canvas ref={canvasRef} />
       <div className="admin-tooltip admin-chart-tooltip" ref={tooltipRef} aria-hidden="true">
-        <strong />
-        <span />
+        <strong>
+          <span className="admin-chart-tooltip__amount" />
+          <small className="admin-chart-tooltip__currency" />
+        </strong>
+        <span className="admin-chart-tooltip__date" />
       </div>
     </>
   );
@@ -1431,9 +2978,10 @@ function Sidebar({ active, onSelect, collapsed, onToggle, user, onProfile }) {
   const [hoverGroup, setHoverGroup] = useState("");
 
   useEffect(() => {
-    if (activeParent) {
-      setOpenGroups((groups) => (groups.length === 1 && groups[0] === activeParent ? groups : [activeParent]));
-    }
+    setOpenGroups((groups) => {
+      if (!activeParent) return groups.length ? [] : groups;
+      return groups.length === 1 && groups[0] === activeParent ? groups : [activeParent];
+    });
   }, [activeParent]);
 
   useEffect(() => {
@@ -1462,7 +3010,9 @@ function Sidebar({ active, onSelect, collapsed, onToggle, user, onProfile }) {
   }
 
   function selectNavItem(key) {
+    const nextParent = navItems.find((item) => item.children?.some((child) => child.key === key))?.key || null;
     setHoverGroup("");
+    setOpenGroups(nextParent ? [nextParent] : []);
     onSelect(key);
   }
 
@@ -1580,23 +3130,55 @@ function formatAdminHeaderTime(value) {
   return `${String(value.getHours()).padStart(2, "0")}:${String(value.getMinutes()).padStart(2, "0")}`;
 }
 
-function Header({ user, onLogout, onBellClick, notificationCount, onProfile }) {
+function Header({ user, onBack, notifications = [], onNotificationRefresh, onNotificationSelect, onProfile }) {
+  const notificationsRef = useRef(null);
   const [now, setNow] = useState(() => new Date());
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
   const profileName = user?.name || "Александр П.";
   const profileInitial = profileName.trim().slice(0, 1) || "А";
-  const profileRole = user?.is_superadmin ? "Суперадмин" : "Суперадмин";
+  const profileRole = user?.is_superadmin ? "Суперадмин" : "Администратор";
+  const notificationCount = notifications.length;
+  const notificationLabel = notificationCount ? `Уведомления: ${notificationCount}` : "Уведомлений нет";
+  const notificationTitle = notificationCount
+    ? `${notificationCount} ${notificationCount === 1 ? "сообщение" : "сообщений"}`
+    : "Нет сообщений";
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 30 * 1000);
     return () => window.clearInterval(id);
   }, []);
 
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (!notificationsRef.current?.contains(event.target)) {
+        setNotificationsOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   function goBack() {
-    if (window.history.length > 1) {
-      window.history.back();
+    if (onBack) {
+      onBack();
       return;
     }
-    window.location.href = "/index.html";
+    window.location.replace("/admin.html");
+  }
+
+  function refreshNotifications() {
+    setNotificationsLoading(true);
+    window.setTimeout(() => {
+      setNotificationsLoading(false);
+      onNotificationRefresh?.();
+    }, 450);
+  }
+
+  function openNotification(item) {
+    setNotificationsOpen(false);
+    onNotificationSelect?.(item);
   }
 
   return (
@@ -1618,26 +3200,86 @@ function Header({ user, onLogout, onBellClick, notificationCount, onProfile }) {
             <strong>{formatAdminHeaderTime(now)}</strong>
           </span>
         </div>
-        <button className="admin-bell" type="button" aria-label="Уведомления" onClick={onBellClick}>
-          <Icon name="bi-bell" size={18} />
-          <span>{notificationCount}</span>
-        </button>
+        <div className="admin-notification-wrap" ref={notificationsRef}>
+          <button
+            className={`admin-bell admin-notification ${notificationsOpen ? "is-open" : ""}`}
+            type="button"
+            aria-label={notificationLabel}
+            aria-haspopup="dialog"
+            aria-expanded={notificationsOpen}
+            onClick={() => setNotificationsOpen((value) => !value)}
+          >
+            <Icon name="bi-bell" size={18} />
+            {notificationCount ? (
+              <span className="admin-notification__badge" aria-hidden="true">
+                {notificationCount > 99 ? "99+" : notificationCount}
+              </span>
+            ) : null}
+          </button>
+          {notificationsOpen ? (
+            <div className="admin-notification-popover" role="dialog" aria-label="Уведомления">
+              <div className="admin-notification-popover__head">
+                <div>
+                  <span>Уведомления</span>
+                  <strong>{notificationTitle}</strong>
+                </div>
+                <button
+                  className={notificationsLoading ? "is-loading" : ""}
+                  type="button"
+                  onClick={refreshNotifications}
+                  disabled={notificationsLoading}
+                  aria-label="Обновить"
+                >
+                  <Icon name="bi-arrow-clockwise" size={16} />
+                </button>
+              </div>
+              <div className="admin-notification-popover__body">
+                {notificationsLoading ? (
+                  <div className="admin-notification-popover__empty">Загрузка...</div>
+                ) : null}
+                {!notificationsLoading && notifications.length ? notifications.map((item) => (
+                  <button type="button" className="admin-notification-item" key={item.id} onClick={() => openNotification(item)}>
+                    <span className="admin-notification-item__icon">
+                      <Icon name={item.icon || "bi-exclamation-triangle"} size={16} />
+                    </span>
+                    <span className="admin-notification-item__body">
+                      <strong>{item.title}</strong>
+                      <span>{item.text}</span>
+                    </span>
+                  </button>
+                )) : null}
+                {!notificationsLoading && !notifications.length ? (
+                  <p className="admin-notification-popover__empty">Новых сообщений нет</p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </div>
         <button className="admin-profile" type="button" onClick={onProfile} aria-label="Профиль администратора">
           <div className="admin-profile__avatar">{profileInitial}</div>
-          <div>
+          <div className="admin-profile__meta">
             <strong>{profileName}</strong>
             <span>{profileRole}</span>
           </div>
-        </button>
-        <button className="admin-logout" type="button" onClick={onLogout} aria-label="Выйти">
-          <Icon name="bi-box-arrow-right" size={18} />
+          <Icon name="bi-chevron-down" size={15} className="admin-profile__chevron" />
         </button>
       </div>
     </header>
   );
 }
 
+function splitKpiValue(value) {
+  const text = String(value ?? "").trim();
+  const match = text.match(/^(.*?)(?:\s+(UZS|USD|RUB))$/i);
+  return match
+    ? { amount: match[1].trim(), suffix: match[2].toUpperCase() }
+    : { amount: text, suffix: "" };
+}
+
 function KpiCard({ item, onClick }) {
+  const value = splitKpiValue(item.value);
+  const today = new Date();
+
   return (
     <article
       className={`admin-kpi admin-kpi--${item.tone}`}
@@ -1648,16 +3290,232 @@ function KpiCard({ item, onClick }) {
     >
       <div className="admin-kpi__top">
         <span><Icon name={item.icon} size={20} /></span>
-        <small>{item.title}</small>
+        <time dateTime={adminDateToInputValue(today)}>{formatDate(today)}</time>
       </div>
-      <strong>{item.value}</strong>
+      <small className="admin-kpi__title">{item.title}</small>
+      <strong>
+        <span>{value.amount}</span>
+        {value.suffix ? <small>{value.suffix}</small> : null}
+      </strong>
       <p>{item.delta}</p>
     </article>
   );
 }
 
+function adminChartRangeForSegment(segment) {
+  if (segment === "День") {
+    return {
+      mode: "today",
+      label: "Сегодня",
+      start: formatDate(ADMIN_CHART_TODAY),
+      end: formatDate(ADMIN_CHART_TODAY),
+    };
+  }
+  if (segment === "Неделя") return buildAdminChartRange(7);
+  if (segment === "Год") {
+    return {
+      mode: "year",
+      label: "2026",
+      start: "01.01.2026",
+      end: "31.12.2026",
+    };
+  }
+  return buildAdminChartRange(30);
+}
+
+function getAdminChartCalendarCells(year, month) {
+  const first = new Date(year, month, 1);
+  const mondayOffset = (first.getDay() + 6) % 7;
+  const start = new Date(year, month, 1 - mondayOffset);
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    return {
+      key: formatDate(date),
+      date,
+      label: String(date.getDate()),
+      muted: date.getMonth() !== month,
+    };
+  });
+}
+
+function AdminChartRangePicker({ range, onChange }) {
+  const pickerRef = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [draftStart, setDraftStart] = useState(range.start);
+  const [draftEnd, setDraftEnd] = useState(range.end);
+  const [draftMode, setDraftMode] = useState(range.mode);
+  const [viewDate, setViewDate] = useState(() => parseDate(range.end));
+  const [selectingEnd, setSelectingEnd] = useState(false);
+
+  useEffect(() => {
+    setDraftStart(range.start);
+    setDraftEnd(range.end);
+    setDraftMode(range.mode);
+    setViewDate(parseDate(range.end));
+  }, [range]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function closeOnOutside(event) {
+      if (!pickerRef.current?.contains(event.target)) setOpen(false);
+    }
+    function closeOnEscape(event) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", closeOnOutside);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutside);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  function choosePreset(days) {
+    const next = buildAdminChartRange(days);
+    setDraftStart(next.start);
+    setDraftEnd(next.end);
+    setDraftMode(next.mode);
+    setViewDate(parseDate(next.end));
+    setSelectingEnd(false);
+  }
+
+  function chooseToday() {
+    const today = formatDate(ADMIN_CHART_TODAY);
+    setDraftStart(today);
+    setDraftEnd(today);
+    setDraftMode("today");
+    setViewDate(ADMIN_CHART_TODAY);
+    setSelectingEnd(false);
+  }
+
+  function chooseCalendarDate(date) {
+    const next = formatDate(date);
+    setDraftMode("custom");
+    setViewDate(date);
+    if (!selectingEnd) {
+      setDraftStart(next);
+      setDraftEnd(next);
+      setSelectingEnd(true);
+      return;
+    }
+    const normalized = normalizeAdminChartRange(draftStart, next, "custom");
+    setDraftStart(normalized.start);
+    setDraftEnd(normalized.end);
+    setSelectingEnd(false);
+  }
+
+  function applyRange() {
+    const normalized = normalizeAdminChartRange(draftStart, draftEnd, draftMode);
+    onChange(normalized);
+    setOpen(false);
+    setSelectingEnd(false);
+  }
+
+  const viewYear = viewDate.getFullYear();
+  const viewMonth = viewDate.getMonth();
+  const calendarCells = getAdminChartCalendarCells(viewYear, viewMonth);
+  const rangeStartDate = parseDate(draftStart);
+  const rangeEndDate = parseDate(draftEnd);
+
+  return (
+    <div className="admin-chart-range" ref={pickerRef}>
+      <button className="admin-chart-range__trigger" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+        <span>{range.label}</span>
+        <Icon name="bi-chevron-down" size={14} />
+      </button>
+
+      {open ? (
+        <div className="admin-chart-range__popover" role="dialog" aria-label="Период графика">
+          <div className="admin-chart-range__presets">
+            {[7, 30].map((days) => (
+              <button
+                type="button"
+                className={draftMode === String(days) ? "is-active" : ""}
+                key={days}
+                onClick={() => choosePreset(days)}
+              >
+                {days} дней
+              </button>
+            ))}
+          </div>
+
+          <div className="admin-chart-range__inputs">
+            <input value={draftStart} onChange={(event) => { setDraftStart(event.target.value); setDraftMode("custom"); }} aria-label="Начало периода" />
+            <span>-</span>
+            <input value={draftEnd} onChange={(event) => { setDraftEnd(event.target.value); setDraftMode("custom"); }} aria-label="Конец периода" />
+            <button type="button" onClick={applyRange}>OK</button>
+          </div>
+
+          <div className="admin-chart-calendar">
+            <div className="admin-chart-calendar__nav">
+              <button type="button" onClick={() => setViewDate(new Date(viewYear, viewMonth - 1, 1))} aria-label="Предыдущий месяц">
+                <Icon name="bi-chevron-left" size={15} />
+              </button>
+              <select value={viewYear} onChange={(event) => setViewDate(new Date(Number(event.target.value), viewMonth, 1))} aria-label="Год">
+                {[2025, 2026, 2027].map((year) => <option value={year} key={year}>{year}</option>)}
+              </select>
+              <select value={viewMonth} onChange={(event) => setViewDate(new Date(viewYear, Number(event.target.value), 1))} aria-label="Месяц">
+                {ADMIN_CHART_MONTHS.map((month, index) => <option value={index} key={month}>{month}</option>)}
+              </select>
+              <button type="button" onClick={() => setViewDate(new Date(viewYear, viewMonth + 1, 1))} aria-label="Следующий месяц">
+                <Icon name="bi-chevron-right" size={15} />
+              </button>
+            </div>
+
+            <div className="admin-chart-calendar__week">
+              {["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"].map((day) => <span key={day}>{day}</span>)}
+            </div>
+            <div className="admin-chart-calendar__grid">
+              {calendarCells.map((cell) => {
+                const isSelected = cell.key === draftStart || cell.key === draftEnd;
+                const inRange = cell.date >= rangeStartDate && cell.date <= rangeEndDate;
+                return (
+                  <button
+                    type="button"
+                    className={`${cell.muted ? "is-muted" : ""} ${inRange ? "is-in-range" : ""} ${isSelected ? "is-selected" : ""}`}
+                    key={cell.key}
+                    onClick={() => chooseCalendarDate(cell.date)}
+                  >
+                    {cell.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="admin-chart-range__actions">
+            <button type="button" className="is-today" onClick={chooseToday}>
+              <Icon name="bi-calendar3" size={14} />
+              Сегодня
+            </button>
+            <button type="button" className="is-primary" onClick={applyRange}>OK</button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function PlatformChart({ segment, onSegmentChange }) {
-  const data = emptyAdminChartData(segment);
+  const [range, setRange] = useState(() => adminChartRangeEndingAt(7));
+  const normalizedRange = useMemo(() => normalizeAdminReportRange(range), [range]);
+  const data = ADMIN_DASHBOARD_DEMO_MODE ? demoAdminChartData(segment, normalizedRange) : emptyAdminChartRangeData(normalizedRange);
+  const presetOptions = useMemo(() => (
+    ADMIN_CHART_PRESET_DAYS.map((days) => ({
+      label: `${days} дней`,
+      getRange: () => ({ ...adminChartRangeEndingAt(days), preset: `${days} дней` }),
+    }))
+  ), []);
+
+  function handleRangeChange(nextRange) {
+    const next = normalizeAdminReportRange(nextRange);
+    const days = adminChartRangeDays(next);
+    setRange(next);
+    if (days === 7) onSegmentChange("Неделя");
+    if (days === 30) onSegmentChange("Месяц");
+  }
+
   return (
     <section className="admin-chart-card">
       <div className="admin-chart-card__head">
@@ -1666,16 +3524,56 @@ function PlatformChart({ segment, onSegmentChange }) {
           <strong>{data.value}</strong>
           <em>{data.delta}</em>
         </div>
-        <div className="admin-segments">
-          {["День", "Неделя", "Месяц", "Год"].map((item) => (
-            <button className={item === segment ? "is-active" : ""} type="button" key={item} onClick={() => onSegmentChange(item)}>{item}</button>
-          ))}
+        <div className="admin-chart-controls period-switcher owner-revenue-switcher admin-revenue-switcher" aria-label="Период оборота платформы">
+          <div className="owner-revenue-range report-actions admin-revenue-range">
+            <ReportDateRangePicker
+              value={normalizedRange}
+              onChange={handleRangeChange}
+              buttonClassName="period-dropdown__button owner-revenue-range__button admin-revenue-range__button"
+              presets={presetOptions}
+              formatButtonLabel={(currentRange) => formatAdminDaysLabel(adminChartRangeDays(currentRange))}
+              showDropdownIcon
+              showTime={false}
+              blockPageScrollOnWheel
+            />
+          </div>
         </div>
       </div>
       <div className="admin-chart">
         <AdminRevenueChart data={data} segment={segment} />
       </div>
     </section>
+  );
+}
+
+function DashboardWarehouseCards({ onOpenSection }) {
+  return (
+    <aside className="admin-chart-side-cards" aria-label="Сводка склада и затрат">
+      {dashboardWarehouseCards.map((item) => {
+        const className = `admin-chart-side-card admin-chart-side-card--${item.tone}`;
+        const content = (
+          <>
+            <span className="admin-chart-side-card__icon">
+              <Icon name={item.icon} size={19} />
+            </span>
+            <span className="admin-chart-side-card__body">
+              <strong>{item.title}</strong>
+              <em>{item.value}</em>
+            </span>
+          </>
+        );
+
+        return item.route ? (
+          <button className={className} type="button" onClick={() => onOpenSection?.(item.route)} key={item.title}>
+            {content}
+          </button>
+        ) : (
+          <article className={className} key={item.title}>
+            {content}
+          </article>
+        );
+      })}
+    </aside>
   );
 }
 
@@ -1693,6 +3591,67 @@ const orgDirectoryColumnKeys = [
   "manager", "date", "source", "version", "orgStatus", "identification", "paymentKind",
   "status", "onlineMenu", "warehouse", "cashboxOnline", "actions",
 ];
+
+const ORG_DIRECTORY_COLUMN_SETTINGS_STORAGE_KEY = "marjon.admin.organizations.columns.v1";
+const ORG_DIRECTORY_COLUMN_SETTINGS_LAYOUT_VERSION = 1;
+const defaultOrgDirectoryColumnOrder = [...orgDirectoryColumnKeys];
+
+function normalizeOrgDirectoryColumnKeys(keys) {
+  const seen = new Set();
+  return (Array.isArray(keys) ? keys : []).filter((key) => {
+    if (!orgDirectoryColumnKeys.includes(key) || seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function normalizeOrgDirectoryColumnSettings(settings) {
+  const savedOrder = settings?.layoutVersion === ORG_DIRECTORY_COLUMN_SETTINGS_LAYOUT_VERSION
+    ? normalizeOrgDirectoryColumnKeys(settings?.order)
+    : [];
+  const order = [
+    ...savedOrder,
+    ...defaultOrgDirectoryColumnOrder.filter((key) => !savedOrder.includes(key)),
+  ];
+  const visibleSource = Array.isArray(settings) ? settings : settings?.visible;
+  const visible = normalizeOrgDirectoryColumnKeys(visibleSource || orgDirectoryColumnKeys)
+    .filter((key) => order.includes(key));
+
+  return {
+    layoutVersion: ORG_DIRECTORY_COLUMN_SETTINGS_LAYOUT_VERSION,
+    order,
+    visible: visible.length ? visible : [order[0]],
+  };
+}
+
+function loadOrgDirectoryColumnSettings() {
+  if (typeof window === "undefined") {
+    return normalizeOrgDirectoryColumnSettings();
+  }
+
+  try {
+    return normalizeOrgDirectoryColumnSettings(JSON.parse(window.localStorage.getItem(ORG_DIRECTORY_COLUMN_SETTINGS_STORAGE_KEY)));
+  } catch {
+    return normalizeOrgDirectoryColumnSettings();
+  }
+}
+
+function saveOrgDirectoryColumnSettings(settings) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      ORG_DIRECTORY_COLUMN_SETTINGS_STORAGE_KEY,
+      JSON.stringify(normalizeOrgDirectoryColumnSettings(settings)),
+    );
+  } catch {
+    // localStorage can be unavailable in private mode; current UI state still works.
+  }
+}
 
 function OrgDirectoryFlag({ value, onClick }) {
   const normalized = String(value).toLowerCase();
@@ -1924,9 +3883,306 @@ function OrganizationMessageScreen({ row, onBack, onSave, onNotify }) {
   );
 }
 
-function OrganizationDirectoryPage({ search, onRowDetail, onNotify }) {
-  const [rows, setRows] = useState([]);
+function OrganizationEditScreen({ row, onBack, onSave }) {
+  const [form, setForm] = useState(() => ({
+    name: row.name || "",
+    tariff: row.tariff || "",
+    workingDays: "0",
+    branchType: "Обычный",
+    virtualCashbox: "",
+    virtualCashboxIp: "",
+    country: "Узбекистан",
+    region: row.region || "Surxondaryo",
+    district: "Денов т",
+    installDate: row.date || "20.07.2026",
+    inn: "",
+    solvency: "Платежеспособный",
+  }));
+  const [settings, setSettings] = useState(() => ({
+    warehouse: row.warehouse === "Активно",
+    onlineMenu: row.onlineMenu === "Активно",
+    socialLink: false,
+    autoBlock: true,
+    status: row.status !== "Не активно",
+    myId: false,
+  }));
+  const [extraOpen, setExtraOpen] = useState(false);
+  const [extraForm, setExtraForm] = useState(() => ({
+    managerName: row.manager || "ISKANDAROV ABDURAIM",
+    managerPhone: row.contact || "+998 88-805-1441",
+    companyPhone: row.contact || "+998 88-805-1441",
+    ownerPhone: row.contact || "+998 88-805-1441",
+    operator: "Sirojiddin Nuritdinov",
+    seller: "Sirojiddin Nuritdinov",
+    installer: row.manager || "JAMOLDINOV BOTIR",
+    source: row.source || "Instagram",
+    organizationStatus: row.orgStatus || "USTANOVKA JARAYONIDA",
+    telegramGroupId: "1",
+    description: "1",
+    mainCurrency: row.currency || "UZS",
+    availableCurrency: row.currency || "UZS",
+  }));
+  const [extraNumbers, setExtraNumbers] = useState([]);
+
+  function updateField(key, value) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function toggleSetting(key) {
+    setSettings((current) => ({ ...current, [key]: !current[key] }));
+  }
+
+  function updateExtraField(key, value) {
+    setExtraForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function addExtraNumber() {
+    setExtraNumbers((current) => [...current, { id: Date.now(), value: "" }]);
+  }
+
+  function updateExtraNumber(id, value) {
+    setExtraNumbers((current) => current.map((phone) => (
+      phone.id === id ? { ...phone, value } : phone
+    )));
+  }
+
+  function removeExtraNumber(id) {
+    setExtraNumbers((current) => current.filter((phone) => phone.id !== id));
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    onSave(row.id, {
+      name: form.name.trim() || row.name,
+      tariff: form.tariff.trim() || row.tariff,
+      region: form.region,
+      date: form.installDate,
+      contact: extraForm.ownerPhone.trim() || extraForm.companyPhone.trim() || row.contact,
+      manager: extraForm.managerName.trim() || row.manager,
+      source: extraForm.source,
+      orgStatus: extraForm.organizationStatus,
+      currency: extraForm.mainCurrency,
+      extraPhones: extraNumbers.map((phone) => phone.value.trim()).filter(Boolean),
+      warehouse: settings.warehouse ? "Активно" : "Не активно",
+      onlineMenu: settings.onlineMenu ? "Активно" : "Не активно",
+      status: settings.status ? (row.status === "Активно" ? "Активно" : "Доступен") : "Не активно",
+    });
+  }
+
+  function renderTextField(label, key, options = {}) {
+    return (
+      <label className="org-edit-field">
+        <span>
+          {label}
+          {options.required ? <b>*</b> : null}
+        </span>
+        <input
+          type="text"
+          value={form[key]}
+          placeholder={options.placeholder}
+          readOnly={options.readOnly}
+          onChange={(event) => updateField(key, event.target.value)}
+        />
+      </label>
+    );
+  }
+
+  function renderSelectField(label, key, values) {
+    return (
+      <label className="org-edit-field org-edit-field--select">
+        <span>{label}</span>
+        <select value={form[key]} onChange={(event) => updateField(key, event.target.value)}>
+          {values.map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
+  function renderExtraTextField(label, key, options = {}) {
+    return (
+      <label className="org-edit-extra-field">
+        <span>{label}</span>
+        <input
+          type="text"
+          value={extraForm[key]}
+          placeholder={options.placeholder}
+          readOnly={options.readOnly}
+          onChange={(event) => updateExtraField(key, event.target.value)}
+        />
+      </label>
+    );
+  }
+
+  function renderExtraSelectField(label, key, values, options = {}) {
+    return (
+      <label className="org-edit-extra-field">
+        <span>{label}</span>
+        <select
+          value={extraForm[key]}
+          disabled={options.disabled}
+          onChange={(event) => updateExtraField(key, event.target.value)}
+        >
+          {values.map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
+  const settingRows = [
+    ["warehouse", "Управление складом"],
+    ["onlineMenu", "Онлайн Меню"],
+    ["status", "Статус"],
+    ["socialLink", "Ссылка соц сетей"],
+    ["autoBlock", "Автоблокировка"],
+    ["myId", "Подтверждение MYID"],
+  ];
+  const regionOptions = Array.from(new Set([row.region || "Surxondaryo", "Surxondaryo", "Toshkent", "Samarqand", "Farg'ona", "Buxoro"].filter(Boolean)));
+
+  return (
+    <section className="org-edit-page">
+      <header className="org-edit-header">
+        <button type="button" className="org-edit-back" onClick={onBack} aria-label="Назад">
+          <Icon name="bi-chevron-left" size={18} />
+        </button>
+        <h2>Изменить организацию</h2>
+      </header>
+
+      <form className="org-edit-form" onSubmit={handleSubmit}>
+        <h3>Основные данные</h3>
+        <div className="org-edit-grid">
+          {renderTextField("Название", "name")}
+          {renderTextField("Цена тарифа", "tariff", { readOnly: true })}
+          {renderTextField("Рабочие дни", "workingDays")}
+          {renderSelectField("Тип филиала", "branchType", ["Обычный", "Филиал", "Главный"])}
+          {renderTextField("Виртуал касса номер", "virtualCashbox", { placeholder: "Введите номер" })}
+          {renderTextField("IP адрес виртуальной кассы", "virtualCashboxIp", { placeholder: "Введите номер" })}
+          {renderSelectField("Страна", "country", ["Узбекистан"])}
+          {renderSelectField("Регион", "region", regionOptions)}
+          {renderSelectField("Район", "district", ["Денов т", "Термез", "Шурчи", "Ангор"])}
+          {renderTextField("Дата установки ", "installDate", { required: true })}
+          {renderTextField("ИНН организации", "inn", { placeholder: "Введите номер" })}
+          {renderSelectField("Платежеспособный", "solvency", ["Платежеспособный", "Неплатежеспособный"])}
+        </div>
+
+        <div className="org-edit-settings">
+          <h3>Настройки</h3>
+          <div className="org-edit-toggle-grid">
+            {settingRows.map(([key, label]) => (
+              <div key={key} className="org-edit-setting">
+                <span>{label}</span>
+                <button
+                  type="button"
+                  className={`org-edit-toggle ${settings[key] ? "is-on" : ""}`}
+                  onClick={() => toggleSetting(key)}
+                  aria-pressed={settings[key]}
+                  aria-label={label}
+                >
+                  <span />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button type="button" className="org-edit-extra" onClick={() => setExtraOpen((current) => !current)}>
+          {extraOpen ? "Закрыть доп. опции" : "Показать доп. опции"}
+        </button>
+
+        {extraOpen ? (
+          <section className="org-edit-extra-panel">
+            <div className="org-edit-extra-section">
+              <h4>Контактные лица</h4>
+              <div className="org-edit-extra-grid org-edit-extra-grid--contacts">
+                {renderExtraTextField("Имя менеджера", "managerName")}
+                {renderExtraTextField("Номер менеджера", "managerPhone")}
+                {renderExtraTextField("Номер компании", "companyPhone")}
+                {renderExtraTextField("Номер владельца", "ownerPhone")}
+              </div>
+
+              {extraNumbers.length > 0 ? (
+                <div className="org-edit-extra-numbers">
+                  {extraNumbers.map((phone, index) => (
+                    <div className="org-edit-extra-field" key={phone.id}>
+                      <span>Доп. номер {index + 1}</span>
+                      <div className="org-edit-phone-row">
+                        <input
+                          type="text"
+                          value={phone.value}
+                          placeholder="+998"
+                          onChange={(event) => updateExtraNumber(phone.id, event.target.value)}
+                        />
+                        <button type="button" onClick={() => removeExtraNumber(phone.id)} aria-label="Удалить номер">
+                          <Icon name="bi-x-lg" size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              <button type="button" className="org-edit-add-phone" onClick={addExtraNumber}>
+                + Добавить номер
+              </button>
+            </div>
+
+            <div className="org-edit-extra-section">
+              <h4>География и персонал</h4>
+              <div className="org-edit-extra-grid org-edit-extra-grid--staff">
+                {renderExtraSelectField("Оператор", "operator", ["Sirojiddin Nuritdinov", "ISKANDAROV ABDURAIM", "JAMOLDINOV BOTIR"])}
+                {renderExtraSelectField("Продавец", "seller", ["Sirojiddin Nuritdinov", "ISKANDAROV ABDURAIM", "JAMOLDINOV BOTIR"], { disabled: true })}
+                {renderExtraSelectField("Установщик", "installer", ["JAMOLDINOV BOTIR", "Sirojiddin Nuritdinov", "ISKANDAROV ABDURAIM"])}
+              </div>
+            </div>
+
+            <div className="org-edit-extra-section">
+              <h4>Дополнительно</h4>
+              <div className="org-edit-extra-grid org-edit-extra-grid--additional">
+                {renderExtraSelectField("Источник", "source", ["Instagram", "Telegram", "Facebook", "Diler", "Referral"])}
+                {renderExtraSelectField("Статус Организации", "organizationStatus", ["USTANOVKA JARAYONIDA", "ISHLA TURGAN", "HALI ULANMAGAN", "TEST"])}
+                {renderExtraTextField("ID телеграм группы (support)", "telegramGroupId")}
+                {renderExtraTextField("Описание", "description")}
+                {renderExtraSelectField("Основная валюта", "mainCurrency", ["UZS", "USD", "RUB"], { disabled: true })}
+                <div className="org-edit-extra-field">
+                  <span>Доступные валюты</span>
+                  <div className="org-edit-currency-tags">
+                    <button
+                      type="button"
+                      className="org-edit-currency-chip"
+                      onClick={() => updateExtraField("availableCurrency", "")}
+                      aria-label="Убрать валюту"
+                    >
+                      {extraForm.availableCurrency || "UZS"} <i>×</i>
+                    </button>
+                    <Icon name="bi-chevron-down" size={14} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        <div className="org-edit-actions">
+          <button type="submit" className="org-edit-save">
+            Сохранить
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function OrganizationDirectoryPage({ search, onNotify, onInnerBackChange }) {
+  const [rows, setRows] = useState(() => (ADMIN_DASHBOARD_DEMO_MODE ? demoOrganizationDirectoryRows : []));
   const [messageRow, setMessageRow] = useState(null);
+  const [editorRow, setEditorRow] = useState(null);
   const [query, setQuery] = useState("");
   const [serviceFilter, setServiceFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
@@ -1934,11 +4190,32 @@ function OrganizationDirectoryPage({ search, onRowDetail, onNotify }) {
   const [messageOnly, setMessageOnly] = useState(false);
   const [yangiOnly, setYangiOnly] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [visibleColumns, setVisibleColumns] = useState(orgDirectoryColumnKeys);
+  const [columnSettings, setColumnSettings] = useState(loadOrgDirectoryColumnSettings);
+  const [dragColumnKey, setDragColumnKey] = useState("");
+  const [dragColumnTarget, setDragColumnTarget] = useState(null);
   const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const pageSizeOptions = ADMIN_DASHBOARD_DEMO_MODE ? [20, 50, 100] : [10, 20, 50];
+  const [pageSize, setPageSize] = useState(() => (ADMIN_DASHBOARD_DEMO_MODE ? 50 : 20));
+  const visibleColumns = columnSettings.visible;
 
   useEffect(() => {
+    if (!onInnerBackChange) return undefined;
+
+    if (!editorRow && !messageRow) {
+      onInnerBackChange(null);
+      return undefined;
+    }
+
+    onInnerBackChange(() => {
+      setEditorRow(null);
+      setMessageRow(null);
+    });
+
+    return () => onInnerBackChange(null);
+  }, [editorRow, messageRow, onInnerBackChange]);
+
+  useEffect(() => {
+    if (ADMIN_DASHBOARD_DEMO_MODE) return;
     adminApi.get("/organizations", { params: { size: 100 } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
@@ -1977,7 +4254,11 @@ function OrganizationDirectoryPage({ search, onRowDetail, onNotify }) {
 
   useEffect(() => {
     setPage(1);
-  }, [query, search, serviceFilter, paymentFilter, statusFilter, messageOnly, yangiOnly]);
+  }, [query, search, serviceFilter, paymentFilter, statusFilter, messageOnly, yangiOnly, pageSize]);
+
+  useEffect(() => {
+    saveOrgDirectoryColumnSettings(columnSettings);
+  }, [columnSettings]);
 
   const filteredRows = useMemo(() => {
     const globalQuery = search.trim().toLowerCase();
@@ -1999,6 +4280,7 @@ function OrganizationDirectoryPage({ search, onRowDetail, onNotify }) {
   const currentPage = Math.min(page, totalPages);
   const startIndex = (currentPage - 1) * pageSize;
   const pageRows = filteredRows.slice(startIndex, startIndex + pageSize);
+  const pageList = getPageList(currentPage, totalPages);
 
   const totals = useMemo(() => {
     const active = rows.filter((row) => row.status === "Активно" || row.status === "Доступен").length;
@@ -2014,6 +4296,12 @@ function OrganizationDirectoryPage({ search, onRowDetail, onNotify }) {
   function saveMessageRow(id, patch) {
     updateRow(id, patch);
     setMessageRow((current) => (current?.id === id ? { ...current, ...patch } : current));
+  }
+
+  function saveEditorRow(id, patch) {
+    updateRow(id, patch);
+    setEditorRow(null);
+    onNotify?.(`${patch.name || "Организация"}: данные сохранены.`);
   }
 
   function toggleAvailability(row, key) {
@@ -2074,14 +4362,77 @@ function OrganizationDirectoryPage({ search, onRowDetail, onNotify }) {
   }
 
   function toggleColumn(key) {
-    setVisibleColumns((current) => (
-      current.includes(key)
-        ? current.filter((item) => item !== key)
-        : orgDirectoryColumnKeys.filter((item) => item === key || current.includes(item))
-    ));
+    setColumnSettings((current) => {
+      const normalized = normalizeOrgDirectoryColumnSettings(current);
+
+      if (normalized.visible.includes(key)) {
+        return {
+          ...normalized,
+          visible: normalized.visible.length > 1
+            ? normalized.visible.filter((item) => item !== key)
+            : normalized.visible,
+        };
+      }
+
+      return {
+        ...normalized,
+        visible: normalized.order.filter((item) => item === key || normalized.visible.includes(item)),
+      };
+    });
   }
 
-  const columns = [
+  function moveColumn(key, direction) {
+    setColumnSettings((current) => {
+      const normalized = normalizeOrgDirectoryColumnSettings(current);
+      const currentIndex = normalized.order.indexOf(key);
+      const nextIndex = currentIndex + direction;
+
+      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= normalized.order.length) {
+        return normalized;
+      }
+
+      const nextOrder = [...normalized.order];
+      [nextOrder[currentIndex], nextOrder[nextIndex]] = [nextOrder[nextIndex], nextOrder[currentIndex]];
+
+      return {
+        ...normalized,
+        order: nextOrder,
+      };
+    });
+  }
+
+  function moveColumnToDrop(sourceKey, targetKey, placement = "before") {
+    if (!sourceKey || !targetKey || sourceKey === targetKey) {
+      return;
+    }
+
+    setColumnSettings((current) => {
+      const normalized = normalizeOrgDirectoryColumnSettings(current);
+      const nextOrder = normalized.order.filter((key) => key !== sourceKey);
+      const targetIndex = nextOrder.indexOf(targetKey);
+
+      if (targetIndex < 0 || !normalized.order.includes(sourceKey)) {
+        return normalized;
+      }
+
+      nextOrder.splice(placement === "after" ? targetIndex + 1 : targetIndex, 0, sourceKey);
+
+      return {
+        ...normalized,
+        order: nextOrder,
+      };
+    });
+  }
+
+  function resetColumnSettings() {
+    setColumnSettings(normalizeOrgDirectoryColumnSettings());
+  }
+
+  function goToPage(nextPage) {
+    setPage(Math.min(totalPages, Math.max(1, nextPage)));
+  }
+
+  const allColumns = [
     { key: "number", label: "№", width: 54, render: (_, rowIndex) => startIndex + rowIndex + 1 },
     {
       key: "message",
@@ -2170,12 +4521,27 @@ function OrganizationDirectoryPage({ search, onRowDetail, onNotify }) {
       label: "",
       width: 58,
       render: (row) => (
-        <button type="button" className="org-directory-edit" onClick={() => openDetail(row)} aria-label={`Редактировать ${row.name}`}>
-          <Icon name="bi-pencil-square" size={16} />
+        <button type="button" className="org-directory-edit" onClick={() => setEditorRow(row)} aria-label={`Редактировать ${row.name}`}>
+          <Icon name="bi-pencil" size={15} />
         </button>
       ),
     },
-  ].filter((column) => visibleColumns.includes(column.key));
+  ];
+  const orderedColumns = columnSettings.order
+    .map((key) => allColumns.find((column) => column.key === key))
+    .filter(Boolean);
+  const columns = orderedColumns.filter((column) => visibleColumns.includes(column.key));
+  const actionsColumnIsLast = columns.at(-1)?.key === "actions";
+
+  if (editorRow) {
+    return (
+      <OrganizationEditScreen
+        row={editorRow}
+        onBack={() => setEditorRow(null)}
+        onSave={saveEditorRow}
+      />
+    );
+  }
 
   if (messageRow) {
     return (
@@ -2236,48 +4602,130 @@ function OrganizationDirectoryPage({ search, onRowDetail, onNotify }) {
         <button type="button" className={`org-directory-switch ${yangiOnly ? "is-on" : ""}`} onClick={() => setYangiOnly((value) => !value)}>
           <span /> Yangi
         </button>
-        <button type="button" className="org-directory-settings" onClick={() => setSettingsOpen((value) => !value)}>
+        <button
+          type="button"
+          className={`org-directory-settings ${settingsOpen ? "is-open" : ""}`}
+          onClick={() => setSettingsOpen((value) => !value)}
+          aria-expanded={settingsOpen}
+        >
           <Icon name="bi-sliders" size={15} /> Настройка таблицы
         </button>
       </div>
 
       {settingsOpen ? (
-        <div className="org-directory-column-panel">
-          {orgDirectoryColumnKeys.filter((key) => key !== "number" && key !== "actions").map((key) => {
-            const column = columns.find((item) => item.key === key) || { label: key };
-            const fallback = {
-              message: "Msg", service: "Услуга", paymentType: "Тип оплаты", name: "Название", clientId: "ID клиента",
-              terminals: "Э/с", cashboxes: "Н/касс", deposit: "Депозит", debt: "Долг", overdue: "Просроченный долг",
-              contract: "Контракт", tariff: "Цена тарифа", currency: "Валюта", contact: "Контакты", region: "Регион",
-              manager: "Сотрудник", date: "Дата", source: "Источник", version: "Версия", orgStatus: "Статус организации",
-              identification: "Статус идентификации", paymentKind: "Тип платежей", status: "Статус",
-              onlineMenu: "Онлайн меню", warehouse: "Управление складом", cashboxOnline: "Касса онлайн",
-            };
-            return (
-              <label key={key}>
-                <input type="checkbox" checked={visibleColumns.includes(key)} onChange={() => toggleColumn(key)} />
-                <span>{column.label === key ? fallback[key] : column.label}</span>
-              </label>
-            );
-          })}
+        <div className="org-directory-column-panel org-directory-column-panel--configurable admin-transactions__column-panel">
+          <div className="admin-transactions__column-panel-head">
+            <span>Столбцы</span>
+            <button type="button" onClick={resetColumnSettings}>Сброс</button>
+          </div>
+          <div className="admin-transactions__column-list">
+            {orderedColumns.map((column, index) => {
+              const checked = visibleColumns.includes(column.key);
+              const disabled = checked && visibleColumns.length === 1;
+              const label = column.label || "Действия";
+              const dropPosition = dragColumnTarget?.key === column.key ? dragColumnTarget.position : "";
+
+              return (
+                <div
+                  className={`admin-transactions__column-item ${disabled ? "is-disabled" : ""} ${dragColumnKey === column.key ? "is-dragging" : ""} ${dropPosition ? `is-drop-${dropPosition}` : ""}`}
+                  key={column.key}
+                  draggable
+                  onDragStart={(event) => {
+                    setDragColumnKey(column.key);
+                    setDragColumnTarget(null);
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", column.key);
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                    const sourceKey = event.dataTransfer.getData("text/plain") || dragColumnKey;
+
+                    if (!sourceKey || sourceKey === column.key) {
+                      setDragColumnTarget(null);
+                      return;
+                    }
+
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    const position = event.clientX - rect.left > rect.width / 2 ? "after" : "before";
+                    setDragColumnTarget((current) => (
+                      current?.key === column.key && current?.position === position
+                        ? current
+                        : { key: column.key, position }
+                    ));
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    moveColumnToDrop(
+                      event.dataTransfer.getData("text/plain") || dragColumnKey,
+                      column.key,
+                      dragColumnTarget?.key === column.key ? dragColumnTarget.position : "before",
+                    );
+                    setDragColumnKey("");
+                    setDragColumnTarget(null);
+                  }}
+                  onDragEnd={() => {
+                    setDragColumnKey("");
+                    setDragColumnTarget(null);
+                  }}
+                >
+                  <label className="admin-transactions__column-toggle">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={disabled}
+                      onChange={() => toggleColumn(column.key)}
+                    />
+                    <span>{label}</span>
+                  </label>
+                  <div className="admin-transactions__column-move" aria-label={`Порядок столбца ${label}`}>
+                    <button
+                      type="button"
+                      disabled={index === 0}
+                      onClick={() => moveColumn(column.key, -1)}
+                      aria-label={`Переместить ${label} левее`}
+                    >
+                      <Icon name="bi-chevron-left" size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={index === orderedColumns.length - 1}
+                      onClick={() => moveColumn(column.key, 1)}
+                      aria-label={`Переместить ${label} правее`}
+                    >
+                      <Icon name="bi-chevron-right" size={14} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       ) : null}
 
-      <div className="org-directory-table-shell">
-        <table className="org-directory-table">
+      <div className="org-directory-table-shell" onWheelCapture={keepWheelInsideScroller}>
+        <table className={`org-directory-table org-directory-table--configurable ${actionsColumnIsLast ? "is-actions-sticky" : ""}`}>
           <colgroup>
             {columns.map((column) => <col key={column.key} style={{ width: column.width }} />)}
           </colgroup>
           <thead>
             <tr>
-              {columns.map((column) => <th key={column.key}>{column.label}</th>)}
+              {columns.map((column) => (
+                <th className={`org-directory-cell org-directory-cell--${column.key}`} key={column.key}>
+                  {column.key === "actions" ? (
+                    <span className="org-directory-actions-head" aria-hidden="true">
+                      <Icon name="bi-sliders" size={15} />
+                    </span>
+                  ) : column.label}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {pageRows.map((row, rowIndex) => (
               <tr key={row.id}>
                 {columns.map((column) => (
-                  <td key={column.key}>{column.render(row, rowIndex)}</td>
+                  <td className={`org-directory-cell org-directory-cell--${column.key}`} key={column.key}>{column.render(row, rowIndex)}</td>
                 ))}
               </tr>
             ))}
@@ -2287,14 +4735,44 @@ function OrganizationDirectoryPage({ search, onRowDetail, onNotify }) {
       </div>
 
       <div className="org-directory-footer">
-        <span>{filteredRows.length ? `${startIndex + 1}-${Math.min(startIndex + pageSize, filteredRows.length)} из ${filteredRows.length}` : "0 из 0"}</span>
-        <div>
-          <button type="button" disabled={currentPage === 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>
+        <span className="org-directory-footer__summary">
+          {filteredRows.length ? `${startIndex + 1}-${Math.min(startIndex + pageSize, filteredRows.length)} из ${filteredRows.length}` : "0 из 0"}
+          <small>Страница {currentPage} из {totalPages}</small>
+        </span>
+        <div className="org-directory-pager">
+          <AdminPageSizeDropdown value={pageSize} options={pageSizeOptions} onChange={setPageSize} />
+          <button type="button" disabled={currentPage === 1} onClick={() => goToPage(1)} aria-label="Первая страница">
+            <span className="org-directory-double-icon" aria-hidden="true">
+              <Icon name="bi-chevron-left" size={13} />
+              <Icon name="bi-chevron-left" size={13} />
+            </span>
+          </button>
+          <button type="button" disabled={currentPage === 1} onClick={() => goToPage(currentPage - 1)} aria-label="Предыдущая страница">
             <Icon name="bi-chevron-left" size={15} />
           </button>
-          <b>{currentPage}</b>
-          <button type="button" disabled={currentPage === totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>
+          {pageList.map((item, index) => (
+            item === "…" ? (
+              <span className="org-directory-ellipsis" key={`gap-${index}`}>…</span>
+            ) : (
+              <button
+                type="button"
+                className={`org-directory-page-btn ${item === currentPage ? "is-active" : ""}`}
+                key={item}
+                onClick={() => goToPage(item)}
+                aria-current={item === currentPage ? "page" : undefined}
+              >
+                {item}
+              </button>
+            )
+          ))}
+          <button type="button" disabled={currentPage === totalPages} onClick={() => goToPage(currentPage + 1)} aria-label="Следующая страница">
             <Icon name="bi-chevron-right" size={15} />
+          </button>
+          <button type="button" disabled={currentPage === totalPages} onClick={() => goToPage(totalPages)} aria-label="Последняя страница">
+            <span className="org-directory-double-icon" aria-hidden="true">
+              <Icon name="bi-chevron-right" size={13} />
+              <Icon name="bi-chevron-right" size={13} />
+            </span>
           </button>
         </div>
       </div>
@@ -2338,22 +4816,70 @@ function OrganizationsTable({ rows, onExport, onRowAction, onRowClick }) {
   );
 }
 
+const ORG_STATUS_STORAGE_KEY = "marjon.admin.organization-statuses.v1";
+
+function normalizeOrganizationStatusRow(row, index = 0) {
+  const name = String(row?.name || "").trim();
+  return {
+    id: String(row?.id || `status-${Date.now()}-${index}`),
+    name: name.toUpperCase(),
+    sort: Number(row?.sort ?? row?.sort_order ?? index + 1) || index + 1,
+    active: row?.active ?? row?.status !== false,
+  };
+}
+
+function loadOrganizationStatusRows() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(ORG_STATUS_STORAGE_KEY) || "[]");
+    return Array.isArray(parsed)
+      ? parsed.map(normalizeOrganizationStatusRow).filter((row) => row.name)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveOrganizationStatusRows(rows) {
+  try {
+    localStorage.setItem(ORG_STATUS_STORAGE_KEY, JSON.stringify(rows));
+  } catch {
+    // localStorage can be unavailable in private mode; keep the in-memory state working.
+  }
+}
+
+function mergeOrganizationStatusRows(localRows, remoteRows) {
+  const byKey = new Map();
+
+  [...remoteRows, ...localRows].forEach((row, index) => {
+    const normalized = normalizeOrganizationStatusRow(row, index);
+    if (!normalized.name) return;
+    byKey.set(normalized.id || normalized.name, normalized);
+  });
+
+  return [...byKey.values()].sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name));
+}
+
 function OrganizationStatusPage({ search, onNotify }) {
-  const [rows, setRows] = useState([]);
+  const [rows, setRows] = useState(loadOrganizationStatusRows);
   const [sortDirection, setSortDirection] = useState("asc");
   const [editor, setEditor] = useState(null);
+
+  useEffect(() => {
+    saveOrganizationStatusRows(rows);
+  }, [rows]);
 
   useEffect(() => {
     adminApi.get("/organization-statuses", { params: { size: 100 } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
         if (items.length) {
-          setRows(items.map((r, i) => ({
+          const remoteRows = items.map((r, i) => ({
             id: r.id || String(i),
             name: r.name || "",
             sort: r.sort_order ?? r.sort ?? i + 1,
             active: r.status !== false,
-          })));
+          }));
+          setRows((current) => mergeOrganizationStatusRows(current, remoteRows));
         }
       })
       .catch(() => {});
@@ -2403,9 +4929,27 @@ function OrganizationStatusPage({ search, onNotify }) {
   }
 
   function refreshRows() {
-    setRows([]);
     setEditor(null);
-    onNotify?.("Список статусов обновлен.");
+    adminApi.get("/organization-statuses", { params: { size: 100 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || [];
+        if (!items.length) {
+          onNotify?.("Backend вернул пустой список. Локальные статусы сохранены.");
+          return;
+        }
+
+        const remoteRows = items.map((r, i) => ({
+          id: r.id || String(i),
+          name: r.name || "",
+          sort: r.sort_order ?? r.sort ?? i + 1,
+          active: r.status !== false,
+        }));
+        setRows((current) => mergeOrganizationStatusRows(current, remoteRows));
+        onNotify?.("Список статусов обновлен без удаления локальных изменений.");
+      })
+      .catch(() => {
+        onNotify?.("Backend недоступен. Локальные статусы сохранены.");
+      });
   }
 
   function toggleActive(row) {
@@ -2554,88 +5098,141 @@ function RightColumn({ approvals, onApprovalAction, onShowApprovals, onApprovalC
   );
 }
 
-function ProductNomenclaturePage({ search, onNotify }) {
-  const [range, setRange] = useState(() => presetRange("Сегодня"));
-  const [rows, setRows] = useState([]);
+function StorageIncomeDateControl({ range, onChange, presets }) {
+  return (
+    <div className="admin-storage-income-date-picker">
+      <ReportDateRangePicker
+        value={range}
+        onChange={(nextRange) => onChange(normalizeAdminReportRange(nextRange))}
+        buttonClassName="admin-storage-income-date-button"
+        showTime={false}
+        presets={presets}
+        formatButtonLabel={formatAdminDashboardDateRangeButton}
+        blockPageScrollOnWheel
+        applyPresetOnSelect
+        showMenuOk={false}
+        leadingIconName="bi-calendar3"
+        leadingIconSize={16}
+      />
+    </div>
+  );
+}
+
+function StorageIncomePage({ search, onNotify, onInnerBackChange }) {
+  const [range, setRange] = useState(() => buildAdminDashboardDateRange("Этот месяц"));
+  const [selectedBranch, setSelectedBranch] = useState(null);
+  const [expandedIncomeRows, setExpandedIncomeRows] = useState(() => ({}));
   const query = search.trim().toLowerCase();
+  const rows = storageIncomeBranchRows.filter((row) => !query || row.branch.toLowerCase().includes(query));
+  const datePresets = useMemo(() => (
+    ADMIN_DASHBOARD_DATE_PRESET_LABELS.map((label) => ({
+      label,
+      getRange: () => buildAdminDashboardDateRange(label),
+    }))
+  ), []);
 
   useEffect(() => {
-    adminApi.get("/products", { params: { size: 100 } })
-      .then(({ data }) => {
-        const items = Array.isArray(data) ? data : data?.items || [];
-        if (items.length) {
-          setRows(items.map((r) => ({
-            branch: r.name || r.branch || "",
-            income: Number(r.income || r.price || 0),
-            inventory: Number(r.inventory || r.cost_price || 0),
-          })));
-        }
-      })
-      .catch(() => {});
-  }, []);
+    if (!onInnerBackChange) return undefined;
 
-  const filteredRows = rows.filter((row) => !query || row.branch.toLowerCase().includes(query));
-  const totals = filteredRows.reduce(
-    (sum, row) => ({
-      income: sum.income + row.income,
-      inventory: sum.inventory + row.inventory,
-    }),
-    { income: 0, inventory: 0 },
-  );
-  const activeBranches = filteredRows.filter((row) => row.income > 0 || row.inventory > 0).length;
+    if (!selectedBranch) {
+      onInnerBackChange(null);
+      return undefined;
+    }
 
-  function shiftDay(diff) {
-    const start = parseDate(range.start);
-    const end = parseDate(range.end);
-    start.setDate(start.getDate() + diff);
-    end.setDate(end.getDate() + diff);
-    const next = { start: formatDate(start), end: formatDate(end), preset: "" };
-    setRange({ ...next, label: rangeLabel(next) });
-  }
-
-  function chooseToday() {
-    setRange(presetRange("Сегодня"));
-    onNotify?.("Период продукта: сегодня.");
-  }
+    onInnerBackChange(() => setSelectedBranch(null));
+    return () => onInnerBackChange(null);
+  }, [onInnerBackChange, selectedBranch]);
 
   function openBranch(row) {
-    onNotify?.(`${row.branch}: приход ${formatCurrency(row.income)}, инвентаризация ${formatCurrency(row.inventory)}.`);
+    setSelectedBranch(row);
+    onNotify?.(`${row.branch}: открыт экран прихода товаров.`);
+  }
+
+  function toggleIncomeDetailRow(rowId) {
+    setExpandedIncomeRows((previous) => ({
+      ...previous,
+      [rowId]: !previous[rowId],
+    }));
+  }
+
+  if (selectedBranch) {
+    return (
+      <section className="admin-storage-income-page admin-storage-income-page--detail">
+        <div className="admin-storage-income-detail-card">
+          <div className="admin-storage-income-detail-head">
+            <div className="admin-storage-income-detail-title">
+              <span aria-hidden="true" />
+              <h2>Приход товаров</h2>
+            </div>
+            <StorageIncomeDateControl range={range} onChange={setRange} presets={datePresets} />
+          </div>
+
+          <div className="admin-storage-income-detail-table-wrap">
+            <table className="admin-storage-income-detail-table">
+              <thead>
+                <tr>
+                  <th>Названия</th>
+                  <th>Кол-во</th>
+                  <th>Сумма</th>
+                </tr>
+              </thead>
+              <tbody>
+                {storageIncomeDetailRows.map((row) => {
+                  const isCategory = Array.isArray(row.children);
+                  const hasChildren = Boolean(row.children?.length);
+                  const isOpen = Boolean(expandedIncomeRows[row.id]);
+
+                  return (
+                    <Fragment key={row.id}>
+                      <tr className={`is-${row.tone}${isCategory ? " is-expandable" : ""}${isOpen ? " is-open" : ""}`}>
+                        <td>
+                          {isCategory ? (
+                            <button
+                              type="button"
+                              className="admin-storage-income-detail-toggle"
+                              onClick={() => hasChildren && toggleIncomeDetailRow(row.id)}
+                              disabled={!hasChildren}
+                              aria-expanded={hasChildren ? isOpen : undefined}
+                            >
+                              <Icon name={isOpen ? "bi-chevron-down" : "bi-chevron-right"} size={14} />
+                              <span>{row.name}</span>
+                            </button>
+                          ) : row.name}
+                        </td>
+                        <td>{row.quantity}</td>
+                        <td>{formatCurrency(row.amount)}</td>
+                      </tr>
+                      {isOpen ? row.children.map((child, childIndex) => (
+                        <tr className="is-child" key={child.id}>
+                          <td>
+                            <span className="admin-storage-income-detail-child-name">
+                              {childIndex + 1}. {child.name}
+                            </span>
+                          </td>
+                          <td>{child.quantity}</td>
+                          <td>{formatCurrency(child.amount)}</td>
+                        </tr>
+                      )) : null}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    );
   }
 
   return (
-    <section className="admin-product-page">
-      <div className="admin-product-head">
-        <div className="admin-product-date">
-          <button type="button" onClick={() => shiftDay(-1)} aria-label="Предыдущая дата">
-            <Icon name="bi-chevron-left" size={15} />
-          </button>
-          <button type="button" className="admin-product-date__current" onClick={chooseToday}>
-            <Icon name="bi-calendar3" size={16} />
-            <span>{range.preset ? "Выберите дату" : range.label}</span>
-          </button>
-          <button type="button" onClick={() => shiftDay(1)} aria-label="Следующая дата">
-            <Icon name="bi-chevron-right" size={15} />
-          </button>
-        </div>
-        <div className="admin-product-title">
-          <h2>Продукт</h2>
-          <p>Сводка прихода продуктов и инвентаризации по филиалам.</p>
-        </div>
-        <button type="button" className="admin-product-action" onClick={() => onNotify?.("Сводка продукта подготовлена к экспорту.")}>
-          <Icon name="bi-download" size={15} />
-          <span>Экспорт</span>
-        </button>
+    <section className="admin-storage-income-page">
+      <div className="admin-storage-income-head">
+        <StorageIncomeDateControl range={range} onChange={setRange} presets={datePresets} />
+        <h2>Приход товаров</h2>
       </div>
 
-      <div className="admin-product-summary">
-        <span><b>{rows.length}</b> филиалов</span>
-        <span><b>{activeBranches}</b> с приходом</span>
-        <span><b>{formatCurrency(totals.income)}</b> приход</span>
-        <span><b>{formatCurrency(totals.inventory)}</b> инвентаризация</span>
-      </div>
-
-      <div className="admin-product-table-shell">
-        <table className="admin-product-table">
+      <div className="admin-storage-income-branch-card">
+        <table className="admin-storage-income-branch-table">
           <thead>
             <tr>
               <th>№</th>
@@ -2659,20 +5256,2740 @@ function ProductNomenclaturePage({ search, onNotify }) {
             ))}
             {!rows.length ? (
               <tr>
-                <td colSpan="4" className="admin-product-empty">Филиалы не найдены.</td>
+                <td colSpan="4" className="admin-storage-income-empty">Филиал не найден.</td>
               </tr>
             ) : null}
           </tbody>
-          <tfoot>
-            <tr>
-              <td />
-              <td>Итого</td>
-              <td>{formatCurrency(totals.income)}</td>
-              <td>{formatCurrency(totals.inventory)}</td>
-            </tr>
-          </tfoot>
         </table>
       </div>
+    </section>
+  );
+}
+
+function StorageIncomeJournalPage({ search, onNotify, onInnerBackChange }) {
+  const [rows, setRows] = useState(() => storageIncomeJournalRows);
+  const [selectedRow, setSelectedRow] = useState(null);
+  const [detailSearch, setDetailSearch] = useState("");
+  const [sortState, setSortState] = useState({ key: "number", direction: "desc" });
+  const query = search.trim().toLowerCase();
+
+  const columns = [
+    { key: "number", label: "Номер", sortable: true },
+    { key: "supplier", label: "Поставщик", sortable: false },
+    { key: "warehouse", label: "На склад", sortable: false },
+    { key: "incomingDate", label: "Дата поступление", sortable: true },
+    { key: "registeredAt", label: "Дата регистрации", sortable: false },
+    { key: "acceptedAt", label: "Дата приема", sortable: false },
+    { key: "itemCount", label: "Кол-во наименование", sortable: true },
+    { key: "total", label: "Итоговая сумма", sortable: true },
+    { key: "status", label: "Статус", sortable: true },
+    { key: "actions", label: "", sortable: false },
+  ];
+
+  useEffect(() => {
+    if (!onInnerBackChange) return undefined;
+
+    if (!selectedRow) {
+      onInnerBackChange(null);
+      return undefined;
+    }
+
+    onInnerBackChange(() => setSelectedRow(null));
+    return () => onInnerBackChange(null);
+  }, [onInnerBackChange, selectedRow]);
+
+  const filteredRows = useMemo(() => {
+    const nextRows = rows.filter((row) => {
+      if (!query) return true;
+      return [
+        row.number,
+        row.supplier,
+        row.warehouse,
+        row.incomingDate,
+        row.registeredAt,
+        row.registeredBy,
+        row.acceptedAt,
+        row.acceptedBy,
+        row.status,
+        row.comment,
+        ...row.items.map((item) => item.name),
+      ].some((value) => String(value || "").toLowerCase().includes(query));
+    });
+
+    const direction = sortState.direction === "asc" ? 1 : -1;
+    return [...nextRows].sort((a, b) => {
+      const first = getJournalSortValue(a, sortState.key);
+      const second = getJournalSortValue(b, sortState.key);
+      if (first > second) return direction;
+      if (first < second) return -direction;
+      return 0;
+    });
+  }, [query, rows, sortState]);
+
+  const detailItems = useMemo(() => {
+    if (!selectedRow) return [];
+    const detailQuery = detailSearch.trim().toLowerCase();
+    if (!detailQuery) return selectedRow.items;
+    return selectedRow.items.filter((item) => item.name.toLowerCase().includes(detailQuery));
+  }, [detailSearch, selectedRow]);
+
+  function getJournalSortValue(row, key) {
+    if (key === "total" || key === "itemCount") return Number(row[key] || 0);
+    return String(row[key] || "").toLowerCase();
+  }
+
+  function changeSort(column) {
+    if (!column.sortable) return;
+    setSortState((current) => (
+      current.key === column.key
+        ? { key: column.key, direction: current.direction === "asc" ? "desc" : "asc" }
+        : { key: column.key, direction: "asc" }
+    ));
+  }
+
+  function openRow(row) {
+    setSelectedRow(row);
+    setDetailSearch("");
+    onNotify?.(`Поступление №${row.number}: открыта подробная информация.`);
+  }
+
+  function deleteRow(row) {
+    setRows((current) => current.filter((item) => item.id !== row.id));
+    if (selectedRow?.id === row.id) setSelectedRow(null);
+    onNotify?.(`Поступление №${row.number}: строка удалена локально.`);
+  }
+
+  function renderDateCell(value, actor) {
+    return (
+      <span className="admin-storage-income-journal-date-cell">
+        <span>{value || "-"}</span>
+        {actor ? <small>{actor}</small> : null}
+      </span>
+    );
+  }
+
+  if (selectedRow) {
+    return (
+      <section className="admin-storage-income-page admin-storage-income-journal-page admin-storage-income-journal-page--detail">
+        <div className="admin-storage-income-journal-detail-layout">
+          <aside className="admin-storage-income-journal-summary">
+            <div className="admin-storage-income-journal-total">
+              <span>Всего</span>
+              <strong>{formatCurrency(selectedRow.total)}</strong>
+            </div>
+            <div className="admin-storage-income-journal-info">
+              <dl>
+                <div>
+                  <dt>Статус</dt>
+                  <dd><span className="admin-storage-income-journal-status">{selectedRow.status}</span></dd>
+                </div>
+                <div>
+                  <dt>Номер договора</dt>
+                  <dd>{selectedRow.contractNumber}</dd>
+                </div>
+                <div>
+                  <dt>Дата прихода</dt>
+                  <dd>{selectedRow.incomingDate}</dd>
+                </div>
+                <div>
+                  <dt>Поставщик</dt>
+                  <dd>{selectedRow.supplier}</dd>
+                </div>
+                <div>
+                  <dt>Склад</dt>
+                  <dd>{selectedRow.warehouse}</dd>
+                </div>
+                <div>
+                  <dt>Комментария</dt>
+                  <dd>{selectedRow.comment}</dd>
+                </div>
+              </dl>
+            </div>
+          </aside>
+
+          <article className="admin-storage-income-journal-detail-card">
+            <div className="admin-storage-income-journal-detail-toolbar">
+              <button type="button" className="admin-storage-income-journal-selected-tab">
+                Выбранное ({selectedRow.items.length})
+              </button>
+              <label className="admin-storage-income-journal-search">
+                <Icon name="bi-search" size={15} />
+                <input
+                  type="search"
+                  value={detailSearch}
+                  onChange={(event) => setDetailSearch(event.target.value)}
+                  placeholder="Поиск"
+                  aria-label="Поиск по товарам поступления"
+                />
+              </label>
+            </div>
+
+            <div className="admin-storage-income-journal-detail-table-wrap">
+              <table className="admin-storage-income-journal-detail-table">
+                <thead>
+                  <tr>
+                    <th>№</th>
+                    <th>Названия</th>
+                    <th>Цена</th>
+                    <th>Кол-во</th>
+                    <th>Отход</th>
+                    <th>Остаток</th>
+                    <th>Итоговая сумма</th>
+                    <th aria-label="Просмотр" />
+                    <th aria-label="Отход" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {detailItems.map((item, index) => (
+                    <tr key={item.id}>
+                      <td>{index + 1}</td>
+                      <td><strong>{item.name}</strong></td>
+                      <td>{formatCurrency(item.price)}</td>
+                      <td>{item.quantity}</td>
+                      <td>{item.waste}</td>
+                      <td>{item.balance}</td>
+                      <td>{formatCurrency(item.total)}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="admin-storage-income-journal-icon-button is-view"
+                          onClick={() => onNotify?.(`${item.name}: просмотр товара.`)}
+                          aria-label={`Просмотреть ${item.name}`}
+                        >
+                          <Icon name="bi-eye" size={15} />
+                        </button>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="admin-storage-income-journal-waste-button"
+                          onClick={() => onNotify?.(`${item.name}: открыта функция отхода.`)}
+                        >
+                          Отход
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {!detailItems.length ? (
+                    <tr>
+                      <td colSpan="9" className="admin-storage-income-empty">Товар не найден.</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="admin-storage-income-page admin-storage-income-journal-page">
+      <div className="admin-storage-income-journal-head">
+        <div className="admin-storage-income-journal-title">
+          <span aria-hidden="true" />
+          <h2>Поступление товаров</h2>
+        </div>
+        <button
+          type="button"
+          className="admin-storage-income-journal-create"
+          onClick={() => onNotify?.("Создание поступления: форма будет подключена к API.")}
+        >
+          <span>Создать</span>
+          <Icon name="bi-plus" size={15} />
+        </button>
+      </div>
+
+      <div className="admin-storage-income-journal-table-card">
+        <table className="admin-storage-income-journal-table">
+          <thead>
+            <tr>
+              {columns.map((column) => (
+                <th key={column.key}>
+                  {column.sortable ? (
+                    <button
+                      type="button"
+                      onClick={() => changeSort(column)}
+                      className={sortState.key === column.key ? "is-active" : ""}
+                    >
+                      <span>{column.label}</span>
+                      <span className={`admin-storage-income-journal-sort ${sortState.key === column.key ? `is-${sortState.direction}` : ""}`} aria-hidden="true" />
+                    </button>
+                  ) : column.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filteredRows.map((row) => (
+              <tr key={row.id} onClick={() => openRow(row)} tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter") openRow(row); }}>
+                <td>{row.number}</td>
+                <td>{row.supplier}</td>
+                <td>{row.warehouse}</td>
+                <td>{row.incomingDate}</td>
+                <td>{renderDateCell(row.registeredAt, row.registeredBy)}</td>
+                <td>{renderDateCell(row.acceptedAt, row.acceptedBy)}</td>
+                <td>{row.itemCount}</td>
+                <td>{formatCurrency(row.total)}</td>
+                <td><span className="admin-storage-income-journal-status">{row.status}</span></td>
+                <td>
+                  <div className="admin-storage-income-journal-actions">
+                    <button
+                      type="button"
+                      className="admin-storage-income-journal-icon-button is-view"
+                      onClick={(event) => { event.stopPropagation(); openRow(row); }}
+                      aria-label={`Открыть поступление ${row.number}`}
+                    >
+                      <Icon name="bi-eye" size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      className="admin-storage-income-journal-icon-button is-delete"
+                      onClick={(event) => { event.stopPropagation(); deleteRow(row); }}
+                      aria-label={`Удалить поступление ${row.number}`}
+                    >
+                      <Icon name="bi-trash3" size={15} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {!filteredRows.length ? (
+              <tr>
+                <td colSpan={columns.length} className="admin-storage-income-empty">Поступления не найдены.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function StorageWriteoffPage({ search, onNotify }) {
+  const [rows, setRows] = useState(() => storageWriteoffRows);
+  const [sortState, setSortState] = useState({ key: "number", direction: "desc" });
+  const query = search.trim().toLowerCase();
+  const columns = [
+    { key: "number", label: "Номер", sortable: true },
+    { key: "supplier", label: "Поставщик", sortable: false },
+    { key: "warehouse", label: "На склад", sortable: false },
+    { key: "incomingDate", label: "Дата поступление", sortable: true },
+    { key: "registeredAt", label: "Дата регистрации", sortable: false },
+    { key: "acceptedAt", label: "Дата приема", sortable: false },
+    { key: "itemCount", label: "Кол-во наименование", sortable: true },
+    { key: "total", label: "Итоговая сумма", sortable: true },
+    { key: "status", label: "Статус", sortable: true },
+  ];
+
+  useEffect(() => {
+    adminApi.get("/reports/consumption", { params: { size: 100 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || [];
+        if (!items.length) {
+          setRows(storageWriteoffRows);
+          return;
+        }
+
+        setRows(items.map((row, index) => normalizeStorageWriteoffRow(row, index)));
+      })
+      .catch(() => {});
+  }, []);
+
+  const filteredRows = useMemo(() => {
+    const nextRows = rows.filter((row) => {
+      if (!query) return true;
+      return [
+        row.number,
+        row.supplier,
+        row.warehouse,
+        row.incomingDate,
+        row.registeredAt,
+        row.acceptedAt,
+        row.itemCount,
+        row.total,
+        row.status,
+      ].some((value) => String(value || "").toLowerCase().includes(query));
+    });
+
+    const direction = sortState.direction === "asc" ? 1 : -1;
+    return [...nextRows].sort((a, b) => {
+      const first = getStorageWriteoffSortValue(a, sortState.key);
+      const second = getStorageWriteoffSortValue(b, sortState.key);
+      if (first > second) return direction;
+      if (first < second) return -direction;
+      return 0;
+    });
+  }, [query, rows, sortState]);
+
+  function normalizeStorageWriteoffRow(row, index) {
+    return {
+      id: String(row.id || row.document_number || `writeoff-${index}`),
+      number: String(row.document_number || row.number || row.id || `WO-${index + 1}`),
+      supplier: row.provider_name || row.supplier || row.reason || "—",
+      warehouse: row.warehouse || row.storage_name || row.to_storage || "Главный склад",
+      incomingDate: row.date || row.incoming_date || row.created_date || "—",
+      registeredAt: row.registered_at || row.created_at || "—",
+      acceptedAt: row.accepted_at || row.completed_at || row.updated_at || "—",
+      itemCount: Number(row.items_count || row.item_count || row.quantity || 0),
+      total: Number(row.total || row.amount || 0),
+      status: row.status || "принято",
+    };
+  }
+
+  function getStorageWriteoffSortValue(row, key) {
+    if (key === "total" || key === "itemCount") return Number(row[key] || 0);
+    return String(row[key] || "").toLowerCase();
+  }
+
+  function changeSort(column) {
+    if (!column.sortable) return;
+    setSortState((current) => (
+      current.key === column.key
+        ? { key: column.key, direction: current.direction === "asc" ? "desc" : "asc" }
+        : { key: column.key, direction: "asc" }
+    ));
+  }
+
+  function openRow(row) {
+    onNotify?.(`Отход товаров №${row.number}: подробная карточка будет подключена к API.`);
+  }
+
+  return (
+    <section className="admin-storage-income-page admin-storage-writeoff-page">
+      <div className="admin-storage-writeoff-card">
+        <div className="admin-storage-writeoff-head">
+          <div className="admin-storage-writeoff-title">
+            <span aria-hidden="true" />
+            <h2>Отход товаров</h2>
+          </div>
+        </div>
+
+        <div className="admin-storage-writeoff-table-wrap">
+          <table className="admin-storage-writeoff-table">
+            <thead>
+              <tr>
+                {columns.map((column) => (
+                  <th key={column.key}>
+                    {column.sortable ? (
+                      <button
+                        type="button"
+                        onClick={() => changeSort(column)}
+                        className={sortState.key === column.key ? "is-active" : ""}
+                      >
+                        <span>{column.label}</span>
+                        <span className={`admin-storage-income-journal-sort ${sortState.key === column.key ? `is-${sortState.direction}` : ""}`} aria-hidden="true" />
+                      </button>
+                    ) : column.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRows.map((row) => (
+                <tr key={row.id} onClick={() => openRow(row)} tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter") openRow(row); }}>
+                  <td>{row.number}</td>
+                  <td>{row.supplier}</td>
+                  <td>{row.warehouse}</td>
+                  <td>{row.incomingDate}</td>
+                  <td>{row.registeredAt}</td>
+                  <td>{row.acceptedAt}</td>
+                  <td>{row.itemCount}</td>
+                  <td>{formatCurrency(row.total)}</td>
+                  <td><span className="admin-storage-income-journal-status">{row.status}</span></td>
+                </tr>
+              ))}
+              {!filteredRows.length ? (
+                <tr className="admin-storage-writeoff-empty-row">
+                  <td colSpan={columns.length}>
+                    <div className="admin-storage-writeoff-empty">
+                      <div className="admin-storage-writeoff-empty-illustration" aria-hidden="true">
+                        <svg viewBox="0 0 80 86" focusable="false">
+                          <rect x="8" y="22" width="44" height="56" rx="7" />
+                          <rect x="16" y="14" width="44" height="56" rx="7" />
+                          <path d="M28 6h31l13 13v39a7 7 0 0 1-7 7H28a7 7 0 0 1-7-7V13a7 7 0 0 1 7-7Z" />
+                          <path className="admin-storage-writeoff-empty-fold" d="M59 6v13h13" />
+                        </svg>
+                      </div>
+                      <strong>Список пуст</strong>
+                    </div>
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function StorageInventoryPage({ search, onNotify, onInnerBackChange }) {
+  const [rows, setRows] = useState(() => storageInventoryRows);
+  const [selectedRow, setSelectedRow] = useState(null);
+  const [sortState, setSortState] = useState({ key: "id", direction: "desc" });
+  const query = search.trim().toLowerCase();
+  const columns = [
+    { key: "id", label: "ID", sortable: true },
+    { key: "registeredAt", label: "Дата регистрации", sortable: true },
+    { key: "warehouse", label: "Склад", sortable: false },
+    { key: "comment", label: "Комментарие", sortable: false },
+    { key: "type", label: "Тип", sortable: false },
+    { key: "status", label: "Статус", sortable: true },
+    { key: "actions", label: "", sortable: false },
+  ];
+
+  useEffect(() => {
+    if (ADMIN_DASHBOARD_DEMO_MODE) return;
+
+    adminApi.get("/storages", { params: { size: 100 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || [];
+        if (!items.length) {
+          setRows(storageInventoryRows);
+          return;
+        }
+
+        setRows(items.map((row, index) => normalizeStorageInventoryRow(row, index)));
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!onInnerBackChange) return undefined;
+
+    if (!selectedRow) {
+      onInnerBackChange(null);
+      return undefined;
+    }
+
+    onInnerBackChange(() => setSelectedRow(null));
+    return () => onInnerBackChange(null);
+  }, [onInnerBackChange, selectedRow]);
+
+  useEffect(() => {
+    if (!selectedRow) return undefined;
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape") setSelectedRow(null);
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [selectedRow]);
+
+  const filteredRows = useMemo(() => {
+    const nextRows = rows.filter((row) => {
+      if (!query) return true;
+      return [
+        row.id,
+        row.registeredAt,
+        row.registeredBy,
+        row.warehouse,
+        row.comment,
+        row.type,
+        row.status,
+        ...row.items.map((item) => item.name),
+      ].some((value) => String(value || "").toLowerCase().includes(query));
+    });
+
+    const direction = sortState.direction === "asc" ? 1 : -1;
+    return [...nextRows].sort((a, b) => {
+      const first = getStorageInventorySortValue(a, sortState.key);
+      const second = getStorageInventorySortValue(b, sortState.key);
+      if (first > second) return direction;
+      if (first < second) return -direction;
+      return 0;
+    });
+  }, [query, rows, sortState]);
+
+  function normalizeStorageInventoryRow(row, index) {
+    const items = Array.isArray(row.items) ? row.items : Array.isArray(row.products) ? row.products : [];
+    return {
+      id: String(row.id || row.document_number || row.number || index + 1),
+      registeredAt: row.registered_at || row.created_at || row.date || "—",
+      registeredBy: row.registered_by || row.created_by || row.user_name || row.manager || "",
+      warehouse: row.warehouse || row.storage_name || row.name || "Главный склад",
+      comment: row.comment || row.description || row.note || "-",
+      type: row.type || row.operation_type || "Приход и расход учтены",
+      status: row.status || "принято",
+      items: items.map((item, itemIndex) => ({
+        id: String(item.id || `${row.id || index}-${itemIndex}`),
+        name: item.name || item.product_name || item.title || "—",
+        quantity: formatInventoryQuantity(item.quantity ?? item.diff ?? item.balance_delta ?? 0),
+        unit: item.unit || item.unit_name || "Штук (шт)",
+      })),
+    };
+  }
+
+  function formatInventoryQuantity(value) {
+    const number = Number(value);
+    if (Number.isFinite(number) && number > 0) return `+ ${number.toLocaleString("ru-RU")}`;
+    if (Number.isFinite(number)) return number.toLocaleString("ru-RU");
+    return String(value || "0");
+  }
+
+  function getStorageInventorySortValue(row, key) {
+    if (key === "id") return Number(row.id) || row.id;
+    return String(row[key] || "").toLowerCase();
+  }
+
+  function changeSort(column) {
+    if (!column.sortable) return;
+    setSortState((current) => (
+      current.key === column.key
+        ? { key: column.key, direction: current.direction === "asc" ? "desc" : "asc" }
+        : { key: column.key, direction: "asc" }
+    ));
+  }
+
+  function openInventory(row) {
+    setSelectedRow(row);
+    onNotify?.(`Инвентаризация ${row.id}: открыт список товаров.`);
+  }
+
+  function downloadInventory(row) {
+    const csv = [
+      ["Название", "Кол-во", "Ед. изм"],
+      ...row.items.map((item) => [item.name, item.quantity, item.unit]),
+    ].map((csvRow) => csvRow.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `marjon-inventory-${row.id}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    onNotify?.(`Инвентаризация ${row.id}: список скачан.`);
+  }
+
+  return (
+    <section className="admin-storage-income-page admin-storage-inventory-page">
+      <div className="admin-storage-inventory-card">
+        <div className="admin-storage-inventory-head">
+          <div className="admin-storage-inventory-title">
+            <span aria-hidden="true" />
+            <h2>Инвентаризация</h2>
+          </div>
+          <button
+            type="button"
+            className="admin-storage-inventory-create"
+            onClick={() => onNotify?.("Создание инвентаризации: форма будет подключена к API.")}
+          >
+            <span>Создать</span>
+            <Icon name="bi-plus" size={15} />
+          </button>
+        </div>
+
+        <div className="admin-storage-inventory-table-wrap">
+          <table className="admin-storage-inventory-table">
+            <thead>
+              <tr>
+                {columns.map((column) => (
+                  <th key={column.key}>
+                    {column.sortable ? (
+                      <button
+                        type="button"
+                        onClick={() => changeSort(column)}
+                        className={sortState.key === column.key ? "is-active" : ""}
+                      >
+                        <span>{column.label}</span>
+                        <span className={`admin-storage-income-journal-sort ${sortState.key === column.key ? `is-${sortState.direction}` : ""}`} aria-hidden="true" />
+                      </button>
+                    ) : column.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRows.map((row) => (
+                <tr key={row.id} onClick={() => openInventory(row)} tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter") openInventory(row); }}>
+                  <td>{row.id}</td>
+                  <td>
+                    <span className="admin-storage-inventory-date-cell">
+                      <span>{row.registeredAt}</span>
+                      {row.registeredBy ? <small>{row.registeredBy}</small> : null}
+                    </span>
+                  </td>
+                  <td>{row.warehouse}</td>
+                  <td>{row.comment}</td>
+                  <td>{row.type}</td>
+                  <td><span className="admin-storage-income-journal-status">{row.status}</span></td>
+                  <td>
+                    <button
+                      type="button"
+                      className="admin-storage-inventory-edit"
+                      onClick={(event) => { event.stopPropagation(); openInventory(row); }}
+                      aria-label={`Открыть инвентаризацию ${row.id}`}
+                    >
+                      <Icon name="bi-pencil" size={15} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {!filteredRows.length ? (
+                <tr className="admin-storage-inventory-empty-row">
+                  <td colSpan={columns.length}>Инвентаризации не найдены.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {selectedRow ? createPortal((
+        <div className="admin-storage-inventory-modal" role="presentation" onMouseDown={() => setSelectedRow(null)}>
+          <div
+            className="admin-storage-inventory-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Список инвентаризации ${selectedRow.id}`}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="admin-storage-inventory-dialog-head">
+              <h3>Список</h3>
+              <button type="button" onClick={() => setSelectedRow(null)} aria-label="Закрыть список">
+                <Icon name="bi-x-lg" size={17} />
+              </button>
+            </div>
+
+            <div className="admin-storage-inventory-dialog-body">
+              <div className="admin-storage-inventory-dialog-actions">
+                <button type="button" onClick={() => downloadInventory(selectedRow)}>
+                  <Icon name="bi-file-earmark-spreadsheet" size={18} />
+                  <span>Скачать</span>
+                </button>
+              </div>
+
+              <table className="admin-storage-inventory-list-table">
+                <thead>
+                  <tr>
+                    <th>Название</th>
+                    <th>Кол-во</th>
+                    <th>Ед. изм</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedRow.items.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.name}</td>
+                      <td className="is-positive">{item.quantity}</td>
+                      <td>{item.unit}</td>
+                    </tr>
+                  ))}
+                  {!selectedRow.items.length ? (
+                    <tr>
+                      <td colSpan="3" className="admin-storage-inventory-list-empty">Список пуст</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ), document.body) : null}
+    </section>
+  );
+}
+
+function StorageExpensePage({ search, onNotify, onInnerBackChange }) {
+  const [range, setRange] = useState(() => buildAdminDashboardDateRange("Этот месяц"));
+  const [selectedBranch, setSelectedBranch] = useState(null);
+  const [expandedExpenseRows, setExpandedExpenseRows] = useState(() => ({}));
+  const query = search.trim().toLowerCase();
+  const rows = storageExpenseBranchRows.filter((row) => !query || row.branch.toLowerCase().includes(query));
+  const datePresets = useMemo(() => (
+    ADMIN_DASHBOARD_DATE_PRESET_LABELS.map((label) => ({
+      label,
+      getRange: () => buildAdminDashboardDateRange(label),
+    }))
+  ), []);
+
+  useEffect(() => {
+    if (!onInnerBackChange) return undefined;
+
+    if (!selectedBranch) {
+      onInnerBackChange(null);
+      return undefined;
+    }
+
+    onInnerBackChange(() => setSelectedBranch(null));
+    return () => onInnerBackChange(null);
+  }, [onInnerBackChange, selectedBranch]);
+
+  function openBranch(row) {
+    setSelectedBranch(row);
+    onNotify?.(`${row.branch}: открыт экран расхода товаров.`);
+  }
+
+  function toggleExpenseDetailRow(rowId) {
+    setExpandedExpenseRows((previous) => ({
+      ...previous,
+      [rowId]: !previous[rowId],
+    }));
+  }
+
+  if (selectedBranch) {
+    return (
+      <section className="admin-storage-income-page admin-storage-income-page--detail admin-storage-expense-page--detail">
+        <div className="admin-storage-income-detail-card">
+          <div className="admin-storage-income-detail-head">
+            <div className="admin-storage-income-detail-title">
+              <span aria-hidden="true" />
+              <h2>Расход товаров</h2>
+            </div>
+            <StorageIncomeDateControl range={range} onChange={setRange} presets={datePresets} />
+          </div>
+
+          <div className="admin-storage-income-detail-table-wrap">
+            <table className="admin-storage-income-detail-table">
+              <thead>
+                <tr>
+                  <th>Названия</th>
+                  <th>Кол-во</th>
+                  <th>Сумма</th>
+                </tr>
+              </thead>
+              <tbody>
+                {storageExpenseDetailRows.map((row) => {
+                  const isCategory = Array.isArray(row.children);
+                  const hasChildren = Boolean(row.children?.length);
+                  const isOpen = Boolean(expandedExpenseRows[row.id]);
+
+                  return (
+                    <Fragment key={row.id}>
+                      <tr className={`is-${row.tone}${isCategory ? " is-expandable" : ""}${isOpen ? " is-open" : ""}`}>
+                        <td>
+                          {isCategory ? (
+                            <button
+                              type="button"
+                              className="admin-storage-income-detail-toggle"
+                              onClick={() => hasChildren && toggleExpenseDetailRow(row.id)}
+                              disabled={!hasChildren}
+                              aria-expanded={hasChildren ? isOpen : undefined}
+                            >
+                              <Icon name={isOpen ? "bi-chevron-down" : "bi-chevron-right"} size={14} />
+                              <span>{row.name}</span>
+                            </button>
+                          ) : row.name}
+                        </td>
+                        <td>{row.quantity}</td>
+                        <td>{formatCurrency(row.amount)}</td>
+                      </tr>
+                      {isOpen ? row.children.map((child, childIndex) => (
+                        <tr className="is-child" key={child.id}>
+                          <td>
+                            <span className="admin-storage-income-detail-child-name">
+                              {childIndex + 1}. {child.name}
+                            </span>
+                          </td>
+                          <td>{child.quantity}</td>
+                          <td>{formatCurrency(child.amount)}</td>
+                        </tr>
+                      )) : null}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="admin-storage-income-page admin-storage-expense-page">
+      <div className="admin-storage-income-head">
+        <StorageIncomeDateControl range={range} onChange={setRange} presets={datePresets} />
+        <h2>Расход товаров</h2>
+      </div>
+
+      <div className="admin-storage-income-branch-card">
+        <table className="admin-storage-income-branch-table">
+          <thead>
+            <tr>
+              <th>№</th>
+              <th>Филиал</th>
+              <th>Расход</th>
+              <th>Инвентаризация</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, index) => (
+              <tr key={row.branch} onClick={() => openBranch(row)}>
+                <td>{index + 1}</td>
+                <td>
+                  <button type="button" onClick={(event) => { event.stopPropagation(); openBranch(row); }}>
+                    {row.branch}
+                  </button>
+                </td>
+                <td>{formatCurrency(row.expense)}</td>
+                <td>{formatCurrency(row.inventory)}</td>
+              </tr>
+            ))}
+            {!rows.length ? (
+              <tr>
+                <td colSpan="4" className="admin-storage-income-empty">Филиал не найден.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function StorageBalancePage({ search, onNotify, onInnerBackChange }) {
+  const [range, setRange] = useState(() => buildAdminDashboardDateRange("Этот месяц"));
+  const [selectedBranch, setSelectedBranch] = useState(null);
+  const [expandedBalanceRows, setExpandedBalanceRows] = useState(() => ({}));
+  const query = search.trim().toLowerCase();
+  const rows = storageBalanceBranchRows.filter((row) => !query || row.branch.toLowerCase().includes(query));
+  const datePresets = useMemo(() => (
+    ADMIN_DASHBOARD_DATE_PRESET_LABELS.map((label) => ({
+      label,
+      getRange: () => buildAdminDashboardDateRange(label),
+    }))
+  ), []);
+
+  useEffect(() => {
+    if (!onInnerBackChange) return undefined;
+
+    if (!selectedBranch) {
+      onInnerBackChange(null);
+      return undefined;
+    }
+
+    onInnerBackChange(() => setSelectedBranch(null));
+    return () => onInnerBackChange(null);
+  }, [onInnerBackChange, selectedBranch]);
+
+  function openBranch(row) {
+    setSelectedBranch(row);
+    onNotify?.(`${row.branch}: открыт экран остатка.`);
+  }
+
+  function toggleBalanceDetailRow(rowId) {
+    setExpandedBalanceRows((previous) => ({
+      ...previous,
+      [rowId]: !previous[rowId],
+    }));
+  }
+
+  if (selectedBranch) {
+    return (
+      <section className="admin-storage-income-page admin-storage-income-page--detail admin-storage-balance-page--detail">
+        <div className="admin-storage-income-detail-card admin-storage-balance-detail-card">
+          <div className="admin-storage-balance-toolbar">
+            <button type="button" className="admin-storage-balance-tab">Остаток</button>
+            <select className="admin-storage-balance-cashier" defaultValue="" aria-label="Выберите кассир">
+              <option value="">Выберите кассир</option>
+            </select>
+          </div>
+
+          <div className="admin-storage-income-detail-table-wrap">
+            <table className="admin-storage-income-detail-table admin-storage-balance-detail-table">
+              <thead>
+                <tr>
+                  <th>Названия</th>
+                  <th>Остаток</th>
+                  <th>Сумма</th>
+                </tr>
+              </thead>
+              <tbody>
+                {storageBalanceDetailRows.map((row) => {
+                  const isCategory = Array.isArray(row.children);
+                  const hasChildren = Boolean(row.children?.length);
+                  const isOpen = Boolean(expandedBalanceRows[row.id]);
+
+                  return (
+                    <Fragment key={row.id}>
+                      <tr className={`is-${row.tone}${isCategory ? " is-expandable" : ""}${isOpen ? " is-open" : ""}`}>
+                        <td>
+                          {isCategory ? (
+                            <button
+                              type="button"
+                              className="admin-storage-income-detail-toggle"
+                              onClick={() => hasChildren && toggleBalanceDetailRow(row.id)}
+                              disabled={!hasChildren}
+                              aria-expanded={hasChildren ? isOpen : undefined}
+                            >
+                              <Icon name={isOpen ? "bi-chevron-down" : "bi-chevron-right"} size={14} />
+                              <span>{row.name}</span>
+                            </button>
+                          ) : row.name}
+                        </td>
+                        <td>{row.quantity}</td>
+                        <td>{formatCurrency(row.amount)}</td>
+                      </tr>
+                      {isOpen ? row.children.map((child, childIndex) => (
+                        <tr className="is-child" key={child.id}>
+                          <td>
+                            <span className="admin-storage-income-detail-child-name">
+                              {childIndex + 1}. {child.name}
+                            </span>
+                          </td>
+                          <td>{child.quantity}</td>
+                          <td>{formatCurrency(child.amount)}</td>
+                        </tr>
+                      )) : null}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="admin-storage-income-page admin-storage-balance-page">
+      <div className="admin-storage-income-head">
+        <StorageIncomeDateControl range={range} onChange={setRange} presets={datePresets} />
+        <h2>Остаток</h2>
+      </div>
+
+      <div className="admin-storage-income-branch-card">
+        <table className="admin-storage-income-branch-table">
+          <thead>
+            <tr>
+              <th>№</th>
+              <th>Филиал</th>
+              <th>Остаток</th>
+              <th>Сумма</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, index) => (
+              <tr key={row.branch} onClick={() => openBranch(row)}>
+                <td>{index + 1}</td>
+                <td>
+                  <button type="button" onClick={(event) => { event.stopPropagation(); openBranch(row); }}>
+                    {row.branch}
+                  </button>
+                </td>
+                <td>{row.balance}</td>
+                <td>{formatCurrency(row.amount)}</td>
+              </tr>
+            ))}
+            {!rows.length ? (
+              <tr>
+                <td colSpan="4" className="admin-storage-income-empty">Филиал не найден.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function ProductNomenclaturePage({ search, onNotify }) {
+  const [rows, setRows] = useState(() => readStoredAdminProducts() || adminProductRows);
+  const [nameFilter, setNameFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [sortDirection, setSortDirection] = useState("asc");
+  const [showArchive, setShowArchive] = useState(false);
+  const [editor, setEditor] = useState(null);
+  const hasStoredRowsRef = useRef(readStoredAdminProducts() !== null);
+  const query = search.trim().toLowerCase();
+
+  useEffect(() => {
+    if (hasStoredRowsRef.current) return;
+
+    adminApi.get("/products", { params: { size: 100 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || data?.results || [];
+        if (items.length) {
+          setRows(items.map(normalizeAdminProduct));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    saveStoredAdminProducts(rows);
+  }, [rows]);
+
+  const categoryOptions = useMemo(() => {
+    const values = rows.map((row) => row.category).filter(Boolean);
+    return Array.from(new Set([...adminProductCategories, ...values]));
+  }, [rows]);
+
+  const visibleRows = useMemo(() => {
+    const filterText = nameFilter.trim().toLowerCase();
+
+    return rows
+      .filter((row) => Boolean(row.archived) === showArchive)
+      .filter((row) => {
+        const haystack = `${row.name} ${row.category} ${row.unit}`.toLowerCase();
+        return !query || haystack.includes(query);
+      })
+      .filter((row) => !filterText || row.name.toLowerCase().includes(filterText))
+      .filter((row) => !categoryFilter || row.category === categoryFilter)
+      .sort((a, b) => {
+        const result = a.name.localeCompare(b.name, "ru", { sensitivity: "base" });
+        return sortDirection === "asc" ? result : -result;
+      });
+  }, [rows, showArchive, query, nameFilter, categoryFilter, sortDirection]);
+
+  function updateEditor(field, value) {
+    setEditor((current) => current ? { ...current, [field]: value } : current);
+  }
+
+  function openAddProduct() {
+    setEditor(createAdminProductDraft());
+  }
+
+  function openEditProduct(row) {
+    setEditor(createAdminProductDraft(row));
+  }
+
+  function closeEditor() {
+    setEditor(null);
+  }
+
+  function handlePhotoChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => updateEditor("photo", String(reader.result || ""));
+    reader.readAsDataURL(file);
+    event.target.value = "";
+  }
+
+  function saveProduct(event) {
+    event.preventDefault();
+    if (!editor) return;
+
+    const name = editor.name.trim();
+    if (!name) return;
+
+    const nextProduct = {
+      ...editor,
+      id: editor.id || `product-${Date.now()}`,
+      name,
+      price: Number(String(editor.price).replace(/\s/g, "").replace(",", ".")) || 0,
+      archived: Boolean(editor.archived),
+    };
+
+    setRows((current) => {
+      const exists = current.some((row) => row.id === nextProduct.id);
+      return exists
+        ? current.map((row) => row.id === nextProduct.id ? nextProduct : row)
+        : [nextProduct, ...current];
+    });
+    setShowArchive(Boolean(nextProduct.archived));
+    closeEditor();
+    onNotify?.("Продукт сохранён.");
+  }
+
+  function archiveProduct(row) {
+    setRows((current) => current.map((item) => item.id === row.id ? { ...item, archived: true } : item));
+    onNotify?.(`${row.name} перемещён в архив.`);
+  }
+
+  function restoreProduct(row) {
+    setRows((current) => current.map((item) => item.id === row.id ? { ...item, archived: false } : item));
+    onNotify?.(`${row.name} возвращён в список.`);
+  }
+
+  function clearFilters() {
+    setNameFilter("");
+    setCategoryFilter("");
+  }
+
+  const drawer = editor ? createPortal(
+    <div className="admin-product-drawer" role="dialog" aria-modal="true" aria-label="Карточка продукта">
+      <button type="button" className="admin-product-drawer__shade" onClick={closeEditor} aria-label="Закрыть форму" />
+      <form className="admin-product-panel" onSubmit={saveProduct}>
+        <div className="admin-product-panel__body">
+          <label className="admin-product-photo-upload">
+            <input type="file" accept="image/*" onChange={handlePhotoChange} />
+            {editor.photo ? (
+              <img src={editor.photo} alt="" />
+            ) : (
+              <>
+                <Icon name="bi-image" size={18} />
+                <span>Загрузить фото</span>
+              </>
+            )}
+          </label>
+
+          <label className="admin-product-field admin-product-field--wide">
+            <span>Склад для расхода</span>
+            <select value={editor.warehouse} onChange={(event) => updateEditor("warehouse", event.target.value)}>
+              {adminProductWarehouses.map((warehouse) => (
+                <option value={warehouse} key={warehouse}>{warehouse}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="admin-product-field admin-product-field--wide">
+            <span>Название <b>*</b></span>
+            <input value={editor.name} onChange={(event) => updateEditor("name", event.target.value)} required />
+          </label>
+
+          <label className="admin-product-field admin-product-field--wide">
+            <span>Цена <b>*</b></span>
+            <input
+              inputMode="numeric"
+              value={editor.price}
+              onChange={(event) => updateEditor("price", event.target.value)}
+              required
+            />
+          </label>
+
+          <div className="admin-product-form-grid">
+            <label className="admin-product-field">
+              <span>Категория товара</span>
+              <select value={editor.category} onChange={(event) => updateEditor("category", event.target.value)}>
+                {categoryOptions.map((category) => (
+                  <option value={category} key={category}>{category}</option>
+                ))}
+              </select>
+            </label>
+
+            <div className="admin-product-status-field">
+              <span>Статус</span>
+              <button
+                type="button"
+                className={`admin-product-switch ${editor.status === "active" ? "is-on" : ""}`}
+                onClick={() => updateEditor("status", editor.status === "active" ? "inactive" : "active")}
+                aria-pressed={editor.status === "active"}
+              >
+                <span />
+              </button>
+            </div>
+          </div>
+
+          <div className="admin-product-unit-field">
+            <span>Выберите единицу измерения <b>*</b></span>
+            <div>
+              {adminProductUnits.map((unit) => (
+                <button
+                  type="button"
+                  className={editor.unit === unit ? "is-selected" : ""}
+                  onClick={() => updateEditor("unit", unit)}
+                  key={unit}
+                >
+                  {unit}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="admin-product-panel__footer">
+          <button type="button" onClick={closeEditor}>Отменить</button>
+          <button type="submit">Сохранить</button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  ) : null;
+
+  return (
+    <section className="admin-product-page">
+      <div className="admin-product-card">
+        <div className="admin-product-toolbar">
+          <div className="admin-product-title">
+            <span className="admin-product-title-mark" aria-hidden="true" />
+            <h2>Список продуктов</h2>
+            <button type="button" className="admin-product-archive-link" onClick={() => setShowArchive((value) => !value)}>
+              <Icon name="bi-trash3" size={13} />
+              <span>{showArchive ? "Вернуться к списку" : "Перейти к архив"}</span>
+            </button>
+          </div>
+
+          <button type="button" className="admin-product-add" onClick={openAddProduct}>
+            <span>Добавить</span>
+            <Icon name="bi-plus" size={15} />
+          </button>
+        </div>
+
+        <div className="admin-product-table-shell">
+          <table className="admin-product-table">
+            <thead>
+              <tr>
+                <th>Фото</th>
+                <th>
+                  <button type="button" className="admin-product-sort" onClick={() => setSortDirection((value) => value === "asc" ? "desc" : "asc")}>
+                    <span>Название</span>
+                    <i className={`admin-product-sort__icon is-${sortDirection}`} aria-hidden="true" />
+                  </button>
+                </th>
+                <th>Категория</th>
+                <th>Цена</th>
+                <th>Ед. изм</th>
+                <th>Статус</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="admin-product-filter-row">
+                <td />
+                <td>
+                  <input value={nameFilter} onChange={(event) => setNameFilter(event.target.value)} placeholder="Введите" />
+                </td>
+                <td>
+                  <label className="admin-product-filter-select">
+                    <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+                      <option value="">Выберите</option>
+                      {categoryOptions.map((category) => (
+                        <option value={category} key={category}>{category}</option>
+                      ))}
+                    </select>
+                    <Icon name="bi-chevron-down" size={15} />
+                  </label>
+                </td>
+                <td />
+                <td />
+                <td />
+                <td>
+                  <button type="button" className="admin-product-filter-clear" onClick={clearFilters} aria-label="Очистить фильтр">
+                    <Icon name="bi-funnel" size={16} />
+                  </button>
+                </td>
+              </tr>
+
+              {visibleRows.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    <span className="admin-product-photo">
+                      {row.photo ? <img src={row.photo} alt="" /> : <Icon name="bi-image" size={17} />}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="admin-product-name">{row.name}</span>
+                  </td>
+                  <td>{row.category}</td>
+                  <td>{Number(row.price || 0).toLocaleString("ru-RU")}</td>
+                  <td>{row.unit}</td>
+                  <td>
+                    <span className={`admin-product-status ${row.status === "active" ? "is-active" : "is-inactive"}`}>
+                      {row.status === "active" ? "#активно" : "#неактивно"}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="admin-product-row-actions">
+                      <button type="button" className="admin-product-icon-action is-edit" onClick={() => openEditProduct(row)} aria-label="Редактировать продукт">
+                        <Icon name="bi-pencil" size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-product-icon-action is-delete"
+                        onClick={() => showArchive ? restoreProduct(row) : archiveProduct(row)}
+                        aria-label={showArchive ? "Вернуть из архива" : "Переместить в архив"}
+                      >
+                        <Icon name={showArchive ? "bi-check2" : "bi-trash3"} size={15} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+
+              {!visibleRows.length ? (
+                <tr>
+                  <td colSpan="7" className="admin-product-empty">
+                    {showArchive ? "Архив пуст" : "Список пуст"}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {drawer}
+    </section>
+  );
+}
+
+function SaleCategoryPage({ search, onNotify }) {
+  const [rows, setRows] = useState(() => readStoredAdminSaleCategories() || adminSaleCategoryRows);
+  const [editor, setEditor] = useState(null);
+  const hasStoredRowsRef = useRef(readStoredAdminSaleCategories() !== null);
+  const query = (search || "").trim().toLowerCase();
+
+  useEffect(() => {
+    if (hasStoredRowsRef.current) return;
+
+    adminApi.get("/categories", { params: { size: 100 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || data?.results || [];
+        const nextRows = items.map(normalizeAdminSaleCategory).filter((row) => row.name);
+        if (nextRows.length) {
+          setRows(nextRows);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    saveStoredAdminSaleCategories(rows);
+  }, [rows]);
+
+  useEffect(() => {
+    if (!editor) return undefined;
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape") {
+        setEditor(null);
+      }
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [editor]);
+
+  const visibleRows = useMemo(() => {
+    return rows.filter((row) => !query || row.name.toLowerCase().includes(query));
+  }, [rows, query]);
+
+  function openCreate() {
+    setEditor(createAdminSaleCategoryDraft());
+  }
+
+  function openEdit(row) {
+    setEditor(createAdminSaleCategoryDraft(row));
+  }
+
+  function closeEditor() {
+    setEditor(null);
+  }
+
+  function updateEditor(field, value) {
+    setEditor((current) => current ? { ...current, [field]: value } : current);
+  }
+
+  function saveCategory(event) {
+    event.preventDefault();
+    if (!editor) return;
+
+    const name = editor.name.trim();
+    if (!name) return;
+
+    const nextCategory = {
+      ...editor,
+      id: editor.id || `sale-category-${Date.now()}`,
+      name,
+    };
+
+    setRows((current) => {
+      const exists = current.some((row) => row.id === nextCategory.id);
+      return exists
+        ? current.map((row) => row.id === nextCategory.id ? nextCategory : row)
+        : [nextCategory, ...current];
+    });
+    closeEditor();
+    onNotify?.("Категория реализации сохранена.");
+  }
+
+  function deleteCategory(row) {
+    setRows((current) => current.filter((item) => item.id !== row.id));
+    onNotify?.(`${row.name} удалена из категории реализации.`);
+  }
+
+  const modal = editor ? createPortal(
+    <div className="admin-sale-category-modal" role="dialog" aria-modal="true" aria-label="Категория реализации">
+      <button type="button" className="admin-sale-category-modal__shade" onClick={closeEditor} aria-label="Закрыть" />
+      <form className="admin-sale-category-dialog" onSubmit={saveCategory}>
+        <div className="admin-sale-category-dialog__head">
+          <h3>{editor.id ? "Изменить категорию продукта" : "Добавить категорию продукта"}</h3>
+          <button type="button" onClick={closeEditor} aria-label="Закрыть">
+            <Icon name="bi-x-lg" size={18} />
+          </button>
+        </div>
+
+        <div className="admin-sale-category-dialog__body">
+          <label className="admin-sale-category-field">
+            <span>Название <b>*</b></span>
+            <input
+              value={editor.name}
+              onChange={(event) => updateEditor("name", event.target.value)}
+              autoFocus
+              required
+            />
+          </label>
+
+          <div className="admin-sale-category-status-field">
+            <span>Статус</span>
+            <button
+              type="button"
+              className={`admin-sale-category-switch ${editor.status === "active" ? "is-on" : ""}`}
+              onClick={() => updateEditor("status", editor.status === "active" ? "inactive" : "active")}
+              aria-pressed={editor.status === "active"}
+            >
+              <span />
+            </button>
+          </div>
+        </div>
+
+        <div className="admin-sale-category-dialog__actions">
+          <button type="submit">Сохранить</button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  ) : null;
+
+  return (
+    <section className="admin-sale-category-page">
+      <div className="admin-sale-category-card">
+        <div className="admin-sale-category-head">
+          <div className="admin-sale-category-title">
+            <span aria-hidden="true" />
+            <h2>Реализация</h2>
+          </div>
+
+          <button type="button" className="admin-sale-category-add" onClick={openCreate}>
+            <span>Добавить</span>
+            <Icon name="bi-plus" size={15} />
+          </button>
+        </div>
+
+        <div className="admin-sale-category-list" role="table" aria-label="Список категорий реализации">
+          {visibleRows.map((row) => (
+            <div className="admin-sale-category-row" role="row" key={row.id}>
+              <strong>{row.name}</strong>
+              <span className={`admin-sale-category-status ${row.status === "active" ? "is-active" : "is-inactive"}`}>
+                {row.status === "active" ? "#активно" : "#неактивно"}
+              </span>
+              <div className="admin-sale-category-actions">
+                <button type="button" className="is-edit" onClick={() => openEdit(row)} aria-label="Редактировать категорию">
+                  <Icon name="bi-pencil" size={15} />
+                </button>
+                <button type="button" className="is-delete" onClick={() => deleteCategory(row)} aria-label="Удалить категорию">
+                  <Icon name="bi-trash3" size={15} />
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {!visibleRows.length ? (
+            <div className="admin-sale-category-empty">Список пуст</div>
+          ) : null}
+        </div>
+      </div>
+
+      {modal}
+    </section>
+  );
+}
+
+function OrdersNomenclaturePage({ search, onNotify }) {
+  const [rows, setRows] = useState(() => readStoredAdminOrders() || adminOrderRows);
+  const [editor, setEditor] = useState(null);
+  const [sortState, setSortState] = useState({ key: "id", direction: "desc" });
+  const [page, setPage] = useState(1);
+  const hasStoredRowsRef = useRef(readStoredAdminOrders() !== null);
+  const pageSize = 14;
+  const query = (search || "").trim().toLowerCase();
+
+  useEffect(() => {
+    if (hasStoredRowsRef.current) return;
+
+    adminApi.get("/orders", { params: { size: 100 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || data?.results || [];
+        const nextRows = items.map(normalizeAdminOrder).filter((row) => row.id);
+        if (nextRows.length) {
+          setRows(nextRows);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    saveStoredAdminOrders(rows);
+  }, [rows]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query]);
+
+  useEffect(() => {
+    if (!editor) return undefined;
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape") {
+        setEditor(null);
+      }
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [editor]);
+
+  const filteredRows = useMemo(() => {
+    const nextRows = rows.filter((row) => {
+      if (!query) return true;
+      return [
+        row.id,
+        row.organization,
+        row.paymentId,
+        getAdminOrderProductsLabel(row),
+        getAdminOrderTotal(row),
+        row.comment,
+        row.status,
+      ].some((value) => String(value || "").toLowerCase().includes(query));
+    });
+
+    const direction = sortState.direction === "asc" ? 1 : -1;
+    return [...nextRows].sort((a, b) => {
+      let first = a[sortState.key];
+      let second = b[sortState.key];
+
+      if (sortState.key === "total") {
+        first = getAdminOrderTotal(a);
+        second = getAdminOrderTotal(b);
+      }
+
+      if (sortState.key === "id" || sortState.key === "paymentId" || sortState.key === "total") {
+        first = Number(String(first).replace(/\D/g, "")) || 0;
+        second = Number(String(second).replace(/\D/g, "")) || 0;
+      }
+
+      if (first > second) return direction;
+      if (first < second) return -direction;
+      return 0;
+    });
+  }, [rows, query, sortState]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paginationItems = useMemo(() => {
+    if (totalPages <= 4) {
+      return Array.from({ length: totalPages }, (_, index) => index + 1);
+    }
+
+    return [1, 2, 3, "...", totalPages];
+  }, [totalPages]);
+
+  function toggleSort(key) {
+    setSortState((current) => ({
+      key,
+      direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+  }
+
+  function openCreate() {
+    setEditor(createAdminOrderDraft());
+  }
+
+  function openEdit(row) {
+    setEditor(createAdminOrderDraft(row));
+  }
+
+  function closeEditor() {
+    setEditor(null);
+  }
+
+  function updateEditor(field, value) {
+    setEditor((current) => current ? { ...current, [field]: value } : current);
+  }
+
+  function updateEditorItem(itemId, field, value) {
+    setEditor((current) => current ? {
+      ...current,
+      items: current.items.map((item) => item.id === itemId ? { ...item, [field]: value } : item),
+    } : current);
+  }
+
+  function addEditorItem() {
+    setEditor((current) => current ? {
+      ...current,
+      items: [
+        ...current.items,
+        { id: `order-item-${Date.now()}`, product: adminOrderProducts[0], quantity: "1", price: "0", comment: "" },
+      ],
+    } : current);
+  }
+
+  function removeEditorItem(itemId) {
+    setEditor((current) => current ? {
+      ...current,
+      items: current.items.length > 1 ? current.items.filter((item) => item.id !== itemId) : current.items,
+    } : current);
+  }
+
+  function saveOrder(event) {
+    event.preventDefault();
+    if (!editor) return;
+
+    const items = editor.items.map((item) => ({
+      id: item.id,
+      product: item.product || adminOrderProducts[0],
+      quantity: Number(String(item.quantity).replace(",", ".")) || 0,
+      price: Number(String(item.price).replace(/\s/g, "").replace(",", ".")) || 0,
+      comment: item.comment?.trim() || "-",
+    }));
+
+    const nextOrder = {
+      id: editor.id || String(Date.now()).slice(-8),
+      organization: editor.organization || adminOrderOrganizations[0],
+      paymentId: editor.paymentId || String(1000000 + Math.floor(Math.random() * 9000)),
+      items,
+      total: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
+      comment: items.find((item) => item.comment && item.comment !== "-")?.comment || "-",
+      status: editor.status || "new",
+    };
+
+    setRows((current) => {
+      const exists = current.some((row) => row.id === nextOrder.id);
+      return exists
+        ? current.map((row) => row.id === nextOrder.id ? nextOrder : row)
+        : [nextOrder, ...current];
+    });
+    closeEditor();
+    onNotify?.("Заказ сохранён.");
+  }
+
+  function confirmOrder(row) {
+    setRows((current) => current.map((item) => item.id === row.id ? { ...item, status: "accepted" } : item));
+    onNotify?.(`Заказ ${row.id} подтверждён.`);
+  }
+
+  function cancelOrder(row) {
+    setRows((current) => current.map((item) => item.id === row.id ? { ...item, status: "cancelled" } : item));
+    onNotify?.(`Заказ ${row.id} отменён.`);
+  }
+
+  function deleteOrder(row) {
+    setRows((current) => current.filter((item) => item.id !== row.id));
+    onNotify?.(`Заказ ${row.id} удалён.`);
+  }
+
+  function statusLabel(status) {
+    if (status === "accepted") return "Принято";
+    if (status === "cancelled") return "Отменено";
+    return "Новые";
+  }
+
+  const drawer = editor ? createPortal(
+    <div className="admin-orders-drawer" role="dialog" aria-modal="true" aria-label="Заказ">
+      <button type="button" className="admin-orders-drawer__shade" onClick={closeEditor} aria-label="Закрыть форму" />
+      <form className="admin-orders-panel" onSubmit={saveOrder}>
+        <div className="admin-orders-panel__body">
+          <h3>{editor.id ? "Изменить заказы" : "Добавить заказы"}</h3>
+
+          <label className="admin-orders-field admin-orders-field--wide">
+            <span>Организация</span>
+            <select value={editor.organization} onChange={(event) => updateEditor("organization", event.target.value)}>
+              {adminOrderOrganizations.map((organization) => (
+                <option value={organization} key={organization}>{organization}</option>
+              ))}
+            </select>
+          </label>
+
+          <div className="admin-orders-items">
+            {editor.items.map((item) => (
+              <div className="admin-orders-item" key={item.id}>
+                <label className="admin-orders-field">
+                  <span>Продукт</span>
+                  <select value={item.product} onChange={(event) => updateEditorItem(item.id, "product", event.target.value)}>
+                    {adminOrderProducts.map((product) => (
+                      <option value={product} key={product}>{product}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="admin-orders-field">
+                  <span>Цена</span>
+                  <input value={item.price} inputMode="numeric" onChange={(event) => updateEditorItem(item.id, "price", event.target.value)} />
+                </label>
+
+                <label className="admin-orders-field">
+                  <span>Количество</span>
+                  <input value={item.quantity} inputMode="decimal" onChange={(event) => updateEditorItem(item.id, "quantity", event.target.value)} />
+                </label>
+
+                <label className="admin-orders-field">
+                  <span>Комментария</span>
+                  <input value={item.comment} onChange={(event) => updateEditorItem(item.id, "comment", event.target.value)} placeholder="Комментария" />
+                </label>
+
+                {editor.items.length > 1 ? (
+                  <button type="button" className="admin-orders-item-remove" onClick={() => removeEditorItem(item.id)} aria-label="Удалить продукт">
+                    <Icon name="bi-trash3" size={14} />
+                  </button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+
+          <button type="button" className="admin-orders-add-item" onClick={addEditorItem}>
+            <Icon name="bi-plus" size={14} />
+            <span>Добавить</span>
+          </button>
+        </div>
+
+        <div className="admin-orders-panel__footer">
+          <button type="button" onClick={closeEditor}>Отменить</button>
+          <button type="submit">Сохранить</button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  ) : null;
+
+  return (
+    <section className="admin-orders-page">
+      <div className="admin-orders-card">
+        <div className="admin-orders-head">
+          <div className="admin-orders-title">
+            <span aria-hidden="true" />
+            <h2>Список заказов</h2>
+          </div>
+
+          <button type="button" className="admin-orders-add" onClick={openCreate}>
+            <span>Добавить</span>
+            <Icon name="bi-plus" size={15} />
+          </button>
+        </div>
+
+        <div className="admin-orders-table-wrap">
+          <table className="admin-orders-table">
+            <thead>
+              <tr>
+                <th>
+                  <button type="button" onClick={() => toggleSort("id")}>
+                    <span>ID</span>
+                    <i className={`admin-orders-sort is-${sortState.key === "id" ? sortState.direction : "none"}`} />
+                  </button>
+                </th>
+                <th>Названия</th>
+                <th>
+                  <button type="button" onClick={() => toggleSort("paymentId")}>
+                    <span>ID платежа</span>
+                    <i className={`admin-orders-sort is-${sortState.key === "paymentId" ? sortState.direction : "none"}`} />
+                  </button>
+                </th>
+                <th>Продукты</th>
+                <th>
+                  <button type="button" onClick={() => toggleSort("total")}>
+                    <span>Цена</span>
+                    <i className={`admin-orders-sort is-${sortState.key === "total" ? sortState.direction : "none"}`} />
+                  </button>
+                </th>
+                <th>Комментария</th>
+                <th>
+                  <button type="button" onClick={() => toggleSort("status")}>
+                    <span>Статус</span>
+                    <i className={`admin-orders-sort is-${sortState.key === "status" ? sortState.direction : "none"}`} />
+                  </button>
+                </th>
+                <th />
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {pageRows.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.id}</td>
+                  <td>{row.organization}</td>
+                  <td><strong>{row.paymentId}</strong></td>
+                  <td>
+                    <span className="admin-orders-products">{getAdminOrderProductsLabel(row)}</span>
+                  </td>
+                  <td>{getAdminOrderTotal(row).toLocaleString("ru-RU")}</td>
+                  <td>{row.comment || "-"}</td>
+                  <td>
+                    <span className={`admin-orders-status is-${row.status}`}>
+                      {statusLabel(row.status)}
+                    </span>
+                  </td>
+                  <td>
+                    {row.status === "new" ? (
+                      <div className="admin-orders-decision">
+                        <button type="button" className="is-confirm" onClick={() => confirmOrder(row)}>Подтвердить</button>
+                        <button type="button" className="is-cancel" onClick={() => cancelOrder(row)}>Отменить</button>
+                      </div>
+                    ) : null}
+                  </td>
+                  <td>
+                    <div className="admin-orders-actions">
+                      <button type="button" className="is-edit" onClick={() => openEdit(row)} aria-label="Редактировать заказ">
+                        <Icon name="bi-pencil" size={15} />
+                      </button>
+                      <button type="button" className="is-delete" onClick={() => deleteOrder(row)} aria-label="Удалить заказ">
+                        <Icon name="bi-trash3" size={15} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+
+              {!pageRows.length ? (
+                <tr>
+                  <td colSpan="9" className="admin-orders-empty">Список пуст</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="admin-orders-pagination">
+          <button type="button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={currentPage === 1} aria-label="Предыдущая страница">
+            <Icon name="bi-chevron-left" size={15} />
+          </button>
+          {paginationItems.map((item) => item === "..." ? (
+            <span key="dots">...</span>
+          ) : (
+            <button type="button" className={item === currentPage ? "is-active" : ""} onClick={() => setPage(item)} key={item}>
+              {item}
+            </button>
+          ))}
+          <button type="button" onClick={() => setPage((value) => Math.min(totalPages, value + 1))} disabled={currentPage === totalPages} aria-label="Следующая страница">
+            <Icon name="bi-chevron-right" size={15} />
+          </button>
+        </div>
+      </div>
+
+      {drawer}
+    </section>
+  );
+}
+
+function UnitNomenclaturePage({ search, onNotify }) {
+  const [rows, setRows] = useState(() => readStoredAdminUnits() || adminUnitRows);
+  const [editor, setEditor] = useState(null);
+  const hasStoredRowsRef = useRef(readStoredAdminUnits() !== null);
+  const query = (search || "").trim().toLowerCase();
+
+  useEffect(() => {
+    if (hasStoredRowsRef.current) return;
+
+    adminApi.get("/units", { params: { size: 100 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || data?.results || [];
+        const nextRows = items.map(normalizeAdminUnit).filter((row) => row.name);
+        if (nextRows.length) {
+          setRows(nextRows);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    saveStoredAdminUnits(rows);
+  }, [rows]);
+
+  useEffect(() => {
+    if (!editor) return undefined;
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape") {
+        setEditor(null);
+      }
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [editor]);
+
+  const visibleRows = useMemo(() => {
+    return rows
+      .filter((row) => {
+        if (!query) return true;
+        return [row.sort, row.name, row.shortName, row.status]
+          .some((value) => String(value || "").toLowerCase().includes(query));
+      })
+      .sort((a, b) => {
+        const sortDiff = Number(a.sort || 0) - Number(b.sort || 0);
+        return sortDiff || a.name.localeCompare(b.name, "ru", { sensitivity: "base" });
+      });
+  }, [rows, query]);
+
+  function openCreate() {
+    setEditor(createAdminUnitDraft());
+  }
+
+  function openEdit(row) {
+    setEditor(createAdminUnitDraft(row));
+  }
+
+  function closeEditor() {
+    setEditor(null);
+  }
+
+  function updateEditor(field, value) {
+    setEditor((current) => current ? { ...current, [field]: value } : current);
+  }
+
+  function updateSort(row, value) {
+    setRows((current) => current.map((item) => (
+      item.id === row.id ? { ...item, sort: Number(value) || 1 } : item
+    )));
+  }
+
+  function saveUnit(event) {
+    event.preventDefault();
+    if (!editor) return;
+
+    const name = editor.name.trim();
+    const shortName = editor.shortName.trim();
+    if (!name || !shortName) return;
+
+    const nextUnit = {
+      ...editor,
+      id: editor.id || `unit-${Date.now()}`,
+      sort: Number(editor.sort) || 1,
+      name,
+      shortName,
+    };
+
+    setRows((current) => {
+      const exists = current.some((row) => row.id === nextUnit.id);
+      return exists
+        ? current.map((row) => row.id === nextUnit.id ? nextUnit : row)
+        : [...current, nextUnit];
+    });
+    closeEditor();
+    onNotify?.("Единица измерения сохранена.");
+  }
+
+  function deleteUnit(row) {
+    setRows((current) => current.filter((item) => item.id !== row.id));
+    onNotify?.(`${row.name} удалена из единиц измерения.`);
+  }
+
+  const modal = editor ? createPortal(
+    <div className="admin-unit-modal" role="dialog" aria-modal="true" aria-label="Единица измерения">
+      <button type="button" className="admin-unit-modal__shade" onClick={closeEditor} aria-label="Закрыть" />
+      <form className="admin-unit-dialog" onSubmit={saveUnit}>
+        <div className="admin-unit-dialog__head">
+          <h3>{editor.id ? "Изменить единица измерению" : "Добавить единица измерению"}</h3>
+          <button type="button" onClick={closeEditor} aria-label="Закрыть">
+            <Icon name="bi-x-lg" size={18} />
+          </button>
+        </div>
+
+        <div className="admin-unit-dialog__body">
+          <label className="admin-unit-field">
+            <span>Название <b>*</b></span>
+            <input value={editor.name} onChange={(event) => updateEditor("name", event.target.value)} autoFocus required />
+          </label>
+
+          <label className="admin-unit-field">
+            <span>Короткое названия <b>*</b></span>
+            <input value={editor.shortName} onChange={(event) => updateEditor("shortName", event.target.value)} required />
+          </label>
+
+          <div className="admin-unit-status-field">
+            <span>Статус</span>
+            <button
+              type="button"
+              className={`admin-unit-switch ${editor.status === "active" ? "is-on" : ""}`}
+              onClick={() => updateEditor("status", editor.status === "active" ? "inactive" : "active")}
+              aria-pressed={editor.status === "active"}
+            >
+              <span />
+            </button>
+          </div>
+        </div>
+
+        <div className="admin-unit-dialog__actions">
+          <button type="submit">Сохранить</button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  ) : null;
+
+  return (
+    <section className="admin-unit-page">
+      <div className="admin-unit-card">
+        <div className="admin-unit-head">
+          <div className="admin-unit-title">
+            <span aria-hidden="true" />
+            <h2>Единица измерения</h2>
+          </div>
+
+          <button type="button" className="admin-unit-add" onClick={openCreate}>
+            <span>Добавить</span>
+            <Icon name="bi-plus" size={15} />
+          </button>
+        </div>
+
+        <div className="admin-unit-table-wrap">
+          <table className="admin-unit-table">
+            <thead>
+              <tr>
+                <th>Сорт</th>
+                <th>Название</th>
+                <th>Короткое названия</th>
+                <th>Статус</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {visibleRows.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    <input
+                      aria-label={`Сорт ${row.name}`}
+                      value={row.sort}
+                      inputMode="numeric"
+                      onChange={(event) => updateSort(row, event.target.value)}
+                    />
+                  </td>
+                  <td><strong>{row.name}</strong></td>
+                  <td>{row.shortName}</td>
+                  <td>
+                    <span className={`admin-unit-status ${row.status === "active" ? "is-active" : "is-inactive"}`}>
+                      {row.status === "active" ? "#активно" : "#неактивно"}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="admin-unit-actions">
+                      <button type="button" className="is-edit" onClick={() => openEdit(row)} aria-label="Редактировать единицу измерения">
+                        <Icon name="bi-pencil" size={15} />
+                      </button>
+                      <button type="button" className="is-delete" onClick={() => deleteUnit(row)} aria-label="Удалить единицу измерения">
+                        <Icon name="bi-trash3" size={15} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+
+              {!visibleRows.length ? (
+                <tr>
+                  <td colSpan="5" className="admin-unit-empty">Список пуст</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {modal}
+    </section>
+  );
+}
+
+function AdminEmployeesPage({ search, onNotify }) {
+  const [rows, setRows] = useState(() => readStoredAdminEmployees() || adminEmployeeRows.map(normalizeAdminEmployee));
+  const [query, setQuery] = useState("");
+  const [sortState, setSortState] = useState({ key: "id", direction: "desc" });
+  const [page, setPage] = useState(1);
+  const [editor, setEditor] = useState(null);
+  const pageSize = 16;
+  const globalQuery = (search || "").trim().toLowerCase();
+  const localQuery = query.trim().toLowerCase();
+
+  useEffect(() => {
+    saveStoredAdminEmployees(rows);
+  }, [rows]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [globalQuery, localQuery, sortState.key, sortState.direction]);
+
+  useEffect(() => {
+    if (!editor) return undefined;
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape") {
+        setEditor(null);
+      }
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [editor]);
+
+  const filteredRows = useMemo(() => {
+    const nextRows = rows.filter((row) => {
+      const haystack = [
+        row.id,
+        row.name,
+        row.phone,
+        row.login,
+        row.department,
+        row.email,
+        row.roles.join(" "),
+        row.inRating ? "участвует" : "не участвует",
+      ].join(" ").toLowerCase();
+
+      if (globalQuery && !haystack.includes(globalQuery)) return false;
+      if (localQuery && !haystack.includes(localQuery)) return false;
+      return true;
+    });
+
+    return nextRows.sort((a, b) => {
+      const direction = sortState.direction === "asc" ? 1 : -1;
+      if (sortState.key === "id" || sortState.key === "balance") {
+        return (Number(a[sortState.key] || 0) - Number(b[sortState.key] || 0)) * direction;
+      }
+
+      return String(a[sortState.key] || "").localeCompare(String(b[sortState.key] || ""), "ru", { sensitivity: "base" }) * direction;
+    });
+  }, [globalQuery, localQuery, rows, sortState.direction, sortState.key]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const pageList = getPageList(currentPage, totalPages);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  function goToPage(nextPage) {
+    setPage(Math.min(totalPages, Math.max(1, nextPage)));
+  }
+
+  function toggleSort(key) {
+    setSortState((current) => ({
+      key,
+      direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+  }
+
+  function openCreate() {
+    setEditor(createAdminEmployeeDraft());
+  }
+
+  function openEdit(row) {
+    setEditor(createAdminEmployeeDraft(row));
+  }
+
+  function closeEditor() {
+    setEditor(null);
+  }
+
+  function updateEditor(field, value) {
+    setEditor((current) => current ? { ...current, [field]: value } : current);
+  }
+
+  function toggleEditorRole(role) {
+    setEditor((current) => {
+      if (!current) return current;
+      const roles = current.roles.includes(role)
+        ? current.roles.filter((item) => item !== role)
+        : [...current.roles, role];
+
+      return { ...current, roles: roles.length ? roles : [role] };
+    });
+  }
+
+  function saveEmployee(event) {
+    event.preventDefault();
+    if (!editor) return;
+
+    const name = editor.name.trim();
+    const phone = editor.phone.trim();
+    const login = editor.login.trim();
+    if (!name || !login) return;
+
+    const nextEmployee = normalizeAdminEmployee({
+      ...editor,
+      id: editor.id || String(Date.now()).slice(-5),
+      name,
+      phone,
+      login,
+      balance: Number(String(editor.balance || 0).replace(/\s/g, "")) || 0,
+    });
+
+    setRows((current) => {
+      const exists = current.some((row) => row.id === nextEmployee.id);
+      return exists
+        ? current.map((row) => row.id === nextEmployee.id ? nextEmployee : row)
+        : [nextEmployee, ...current];
+    });
+    closeEditor();
+    onNotify?.("Сотрудник сохранён.");
+  }
+
+  function deleteEmployee(row) {
+    setRows((current) => current.filter((item) => item.id !== row.id));
+    onNotify?.(`${row.name} удалён из списка сотрудников.`);
+  }
+
+  function renderSortableHead(label, key) {
+    return (
+      <button type="button" className="admin-employee-sort" onClick={() => toggleSort(key)}>
+        <span>{label}</span>
+        <i className={`admin-employee-sort__arrows ${sortState.key === key ? `is-${sortState.direction}` : ""}`} aria-hidden="true" />
+      </button>
+    );
+  }
+
+  const drawer = editor ? createPortal(
+    <div className="admin-employee-drawer" role="dialog" aria-modal="true" aria-label="Аккаунт сотрудника">
+      <button type="button" className="admin-employee-drawer__shade" onClick={closeEditor} aria-label="Закрыть" />
+      <form className="admin-employee-panel" onSubmit={saveEmployee}>
+        <div className="admin-employee-panel__head">
+          <h3>{editor.id ? "Изменить аккаунт" : "Добавить аккаунт"}</h3>
+          <button type="button" onClick={closeEditor} aria-label="Закрыть">
+            <Icon name="bi-x-lg" size={18} />
+          </button>
+        </div>
+
+        <div className="admin-employee-panel__body">
+          <label className="admin-employee-field">
+            <span>Имя <b>*</b></span>
+            <input value={editor.name} onChange={(event) => updateEditor("name", event.target.value)} autoFocus required />
+          </label>
+
+          <label className="admin-employee-field">
+            <span>Номер телефона</span>
+            <input value={editor.phone} onChange={(event) => updateEditor("phone", event.target.value)} />
+          </label>
+
+          <label className="admin-employee-field">
+            <span>Login <b>*</b></span>
+            <input value={editor.login} onChange={(event) => updateEditor("login", event.target.value)} required />
+          </label>
+
+          <label className="admin-employee-field">
+            <span>Пароль <b>*</b></span>
+            <input value={editor.password} onChange={(event) => updateEditor("password", event.target.value)} placeholder="Введите пароль" />
+          </label>
+
+          <label className="admin-employee-field">
+            <span>Телеграмм</span>
+            <input value={editor.telegram} onChange={(event) => updateEditor("telegram", event.target.value)} placeholder="Телеграмм ID" />
+          </label>
+
+          <div className="admin-employee-form-grid">
+            <label className="admin-employee-field">
+              <span>Рабочие дни</span>
+              <input value={editor.workingDays} onChange={(event) => updateEditor("workingDays", event.target.value)} inputMode="numeric" />
+            </label>
+
+            <label className="admin-employee-field">
+              <span>Рабочее время</span>
+              <input value={editor.workingTime} onChange={(event) => updateEditor("workingTime", event.target.value)} inputMode="numeric" />
+            </label>
+          </div>
+
+          <label className="admin-employee-field">
+            <span>Зарплата</span>
+            <input value={editor.salary} onChange={(event) => updateEditor("salary", event.target.value)} placeholder="Зарплата" inputMode="numeric" />
+          </label>
+
+          <label className="admin-employee-field">
+            <span>Email</span>
+            <input value={editor.email} onChange={(event) => updateEditor("email", event.target.value)} placeholder="Введите email" />
+          </label>
+
+          <label className="admin-employee-field">
+            <span>Отдел</span>
+            <select value={editor.department} onChange={(event) => updateEditor("department", event.target.value)}>
+              {adminEmployeeDepartments.map((department) => (
+                <option value={department} key={department}>{department}</option>
+              ))}
+            </select>
+          </label>
+
+          <div className="admin-employee-roles-field">
+            <span>Роли</span>
+            <div>
+              {adminEmployeeRoles.map((role) => (
+                <button
+                  type="button"
+                  className={editor.roles.includes(role) ? "is-selected" : ""}
+                  onClick={() => toggleEditorRole(role)}
+                  key={role}
+                >
+                  {role}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <label className="admin-employee-field">
+            <span>Баланс</span>
+            <input value={editor.balance} onChange={(event) => updateEditor("balance", event.target.value)} inputMode="numeric" />
+          </label>
+
+          <div className="admin-employee-switch-row">
+            <span>Участвует в рейтинге</span>
+            <button
+              type="button"
+              className={`admin-employee-switch ${editor.inRating ? "is-on" : ""}`}
+              onClick={() => updateEditor("inRating", !editor.inRating)}
+              aria-pressed={editor.inRating}
+            >
+              <span />
+            </button>
+          </div>
+        </div>
+
+        <div className="admin-employee-panel__footer">
+          <button type="button" onClick={closeEditor}>Отменить</button>
+          <button type="submit">Сохранить</button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  ) : null;
+
+  return (
+    <section className="admin-employee-page">
+      <div className="admin-employee-card">
+        <div className="admin-employee-head">
+          <div className="admin-employee-title">
+            <span aria-hidden="true" />
+            <h2>Список сотрудников</h2>
+          </div>
+
+          <div className="admin-employee-head__actions">
+            <button type="button" className="admin-employee-refresh" onClick={() => onNotify?.("Список сотрудников обновлён.")}>
+              Обновить список (devent)
+            </button>
+            <button type="button" className="admin-employee-add" onClick={openCreate}>
+              <span>Добавить</span>
+              <Icon name="bi-plus" size={15} />
+            </button>
+          </div>
+        </div>
+
+        <label className="admin-employee-search">
+          <Icon name="bi-search" size={15} />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск" />
+        </label>
+
+        <div className="admin-employee-table-wrap" onWheelCapture={keepWheelInsideScroller}>
+          <table className="admin-employee-table">
+            <thead>
+              <tr>
+                <th>{renderSortableHead("ID", "id")}</th>
+                <th>{renderSortableHead("ФИО", "name")}</th>
+                <th>{renderSortableHead("Номер телефон", "phone")}</th>
+                <th>Роль</th>
+                <th>{renderSortableHead("Баланс", "balance")}</th>
+                <th>Участвует в рейтинге</th>
+                <th aria-label="Действия" />
+              </tr>
+            </thead>
+            <tbody>
+              {pageRows.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.id}</td>
+                  <td><strong>{row.name}</strong></td>
+                  <td>{row.phone}</td>
+                  <td>
+                    <span className="admin-employee-role-list">
+                      {row.roles.map((role) => <span key={role}>{role}</span>)}
+                    </span>
+                  </td>
+                  <td>
+                    {row.balance ? (
+                      <span className={`admin-employee-balance ${row.balance < 0 ? "is-negative" : "is-positive"}`}>
+                        {row.balance < 0 ? "-" : ""}{Number(Math.abs(row.balance)).toLocaleString("ru-RU")}
+                      </span>
+                    ) : (
+                      <span className="admin-employee-balance is-empty">—</span>
+                    )}
+                  </td>
+                  <td>
+                    <span className={`admin-employee-rating ${row.inRating ? "is-on" : "is-off"}`}>
+                      {row.inRating ? "Участвует" : "Не участвует"}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="admin-employee-actions">
+                      <button type="button" className="is-ledger" onClick={() => onNotify?.(`Баланс ${row.name}: ${formatCurrency(row.balance)}.`)} aria-label={`Баланс ${row.name}`}>
+                        <Icon name="bi-wallet2" size={14} />
+                      </button>
+                      <button type="button" className="is-edit" onClick={() => openEdit(row)} aria-label={`Редактировать ${row.name}`}>
+                        <Icon name="bi-pencil" size={15} />
+                      </button>
+                      <button type="button" className="is-delete" onClick={() => deleteEmployee(row)} aria-label={`Удалить ${row.name}`}>
+                        <Icon name="bi-trash3" size={15} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+
+              {!pageRows.length ? (
+                <tr>
+                  <td colSpan="7" className="admin-employee-empty">Сотрудники не найдены</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="admin-employee-footer">
+          <span>{filteredRows.length ? `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, filteredRows.length)} из ${filteredRows.length}` : "0 из 0"}</span>
+          <div className="admin-employee-pager">
+            <button type="button" disabled={currentPage === 1} onClick={() => goToPage(currentPage - 1)} aria-label="Предыдущая страница">
+              <Icon name="bi-chevron-left" size={15} />
+            </button>
+            {pageList.map((item, index) => item === "…" ? (
+              <span key={`gap-${index}`}>…</span>
+            ) : (
+              <button type="button" className={item === currentPage ? "is-active" : ""} onClick={() => goToPage(item)} key={item}>
+                {item}
+              </button>
+            ))}
+            <button type="button" disabled={currentPage === totalPages} onClick={() => goToPage(currentPage + 1)} aria-label="Следующая страница">
+              <Icon name="bi-chevron-right" size={15} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {drawer}
+    </section>
+  );
+}
+
+function HandbookLocationPage({ active, search, onNotify }) {
+  const kind = adminHandbookActiveKind[active] || "countries";
+  const config = adminHandbookConfig[kind];
+  const [locations, setLocations] = useState(() => readStoredAdminHandbookLocations() || normalizeAdminHandbookState());
+  const [editor, setEditor] = useState(null);
+  const query = (search || "").trim().toLowerCase();
+  const rows = locations[kind] || [];
+  const countryOptions = locations.countries?.length ? locations.countries : adminHandbookDefaultRows.countries;
+  const regionOptions = locations.regions?.length ? locations.regions : adminHandbookDefaultRows.regions;
+
+  useEffect(() => {
+    saveStoredAdminHandbookLocations(locations);
+  }, [locations]);
+
+  useEffect(() => {
+    setEditor(null);
+  }, [kind]);
+
+  useEffect(() => {
+    if (!editor) return undefined;
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape") {
+        setEditor(null);
+      }
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [editor]);
+
+  const visibleRows = useMemo(() => {
+    return rows.filter((row) => {
+      if (!query) return true;
+      return Object.values(row).some((value) => String(value || "").toLowerCase().includes(query));
+    });
+  }, [rows, query]);
+
+  function openCreate() {
+    if (kind !== "districts" && rows.length) {
+      setEditor(createAdminHandbookDraft(kind, rows[0], locations));
+      onNotify?.(`${config.title}: доступна только одна запись.`);
+      return;
+    }
+
+    setEditor(createAdminHandbookDraft(kind, null, locations));
+  }
+
+  function openEdit(row) {
+    setEditor(createAdminHandbookDraft(kind, row, locations));
+  }
+
+  function closeEditor() {
+    setEditor(null);
+  }
+
+  function updateEditor(field, value) {
+    setEditor((current) => current ? { ...current, [field]: value } : current);
+  }
+
+  function saveRow(event) {
+    event.preventDefault();
+    if (!editor) return;
+
+    const name = editor.name.trim();
+    if (!name) return;
+
+    const nextRow = normalizeAdminHandbookRow(kind, {
+      ...editor,
+      id: editor.id || `${kind}-${Date.now()}`,
+      name,
+    }, rows.length);
+
+    setLocations((current) => {
+      const currentRows = current[kind] || [];
+      const exists = currentRows.some((row) => row.id === nextRow.id);
+      const nextRows = kind !== "districts"
+        ? [nextRow]
+        : exists
+          ? currentRows.map((row) => row.id === nextRow.id ? nextRow : row)
+          : [...currentRows, nextRow];
+
+      return normalizeAdminHandbookState({ ...current, [kind]: nextRows });
+    });
+    closeEditor();
+    onNotify?.(`${config.title}: запись сохранена.`);
+  }
+
+  function deleteRow(row) {
+    if (kind !== "districts") {
+      onNotify?.(`${config.title}: эта запись обязательна.`);
+      return;
+    }
+
+    setLocations((current) => normalizeAdminHandbookState({
+      ...current,
+      districts: current.districts.filter((item) => item.id !== row.id),
+    }));
+    onNotify?.(`${row.name} удалён из справочника районов.`);
+  }
+
+  function renderParentCell(row) {
+    if (kind === "regions") return <td>{row.country}</td>;
+    if (kind === "districts") return <td>{row.region}</td>;
+    return null;
+  }
+
+  const modal = editor ? createPortal(
+    <div className="admin-handbook-modal" role="dialog" aria-modal="true" aria-label={config.title}>
+      <button type="button" className="admin-handbook-modal__shade" onClick={closeEditor} aria-label="Закрыть" />
+      <form className="admin-handbook-dialog" onSubmit={saveRow}>
+        <div className="admin-handbook-dialog__head">
+          <h3>{editor.id ? `Изменить ${config.editTitle}` : `Добавить ${config.singleTitle}`}</h3>
+          <button type="button" onClick={closeEditor} aria-label="Закрыть">
+            <Icon name="bi-x-lg" size={18} />
+          </button>
+        </div>
+
+        <div className="admin-handbook-dialog__body">
+          <label className="admin-handbook-field">
+            <span>Название <b>*</b></span>
+            <input value={editor.name} onChange={(event) => updateEditor("name", event.target.value)} autoFocus required />
+          </label>
+
+          {kind === "countries" ? (
+            <>
+              <label className="admin-handbook-field">
+                <span>Код <b>*</b></span>
+                <input value={editor.code} onChange={(event) => updateEditor("code", event.target.value)} required />
+              </label>
+              <label className="admin-handbook-field">
+                <span>ISO <b>*</b></span>
+                <input value={editor.iso} onChange={(event) => updateEditor("iso", event.target.value.toUpperCase())} required />
+              </label>
+              <label className="admin-handbook-field">
+                <span>Маска <b>*</b></span>
+                <input value={editor.mask} onChange={(event) => updateEditor("mask", event.target.value)} required />
+              </label>
+            </>
+          ) : null}
+
+          {kind === "regions" ? (
+            <label className="admin-handbook-field">
+              <span>Страна</span>
+              <select value={editor.country} onChange={(event) => updateEditor("country", event.target.value)}>
+                {countryOptions.map((country) => (
+                  <option value={country.name} key={country.id}>{country.name}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
+          {kind === "districts" ? (
+            <label className="admin-handbook-field">
+              <span>Регион</span>
+              <select value={editor.region} onChange={(event) => updateEditor("region", event.target.value)}>
+                {regionOptions.map((region) => (
+                  <option value={region.name} key={region.id}>{region.name}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
+          <div className="admin-handbook-status-field">
+            <span>Статус</span>
+            <button
+              type="button"
+              className={`admin-handbook-switch ${editor.status === "active" ? "is-on" : ""}`}
+              onClick={() => updateEditor("status", editor.status === "active" ? "inactive" : "active")}
+              aria-pressed={editor.status === "active"}
+            >
+              <span />
+            </button>
+          </div>
+        </div>
+
+        <div className="admin-handbook-dialog__actions">
+          <button type="submit">Сохранить</button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  ) : null;
+
+  return (
+    <section className={`admin-handbook-page admin-handbook-page--${kind}`}>
+      <div className="admin-handbook-card">
+        <div className="admin-handbook-head">
+          <div className="admin-handbook-title">
+            <span aria-hidden="true" />
+            <h2>{config.title}</h2>
+          </div>
+
+          <button type="button" className="admin-handbook-add" onClick={openCreate}>
+            <span>Добавить</span>
+            <Icon name="bi-plus" size={15} />
+          </button>
+        </div>
+
+        <div className="admin-handbook-table-wrap" onWheelCapture={keepWheelInsideScroller}>
+          <table className={`admin-handbook-table admin-handbook-table--${kind}`}>
+            <thead>
+              <tr>
+                {config.columns.map((column) => <th key={column}>{column}</th>)}
+                <th aria-label="Действия" />
+              </tr>
+            </thead>
+            <tbody>
+              {visibleRows.map((row, index) => (
+                <tr key={row.id}>
+                  <td>{index + 1}</td>
+                  <td><strong>{row.name}</strong></td>
+                  {renderParentCell(row)}
+                  <td>
+                    <span className={`admin-handbook-status ${row.status === "active" ? "is-active" : "is-inactive"}`}>
+                      {row.status === "active" ? "#активно" : "#неактивно"}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="admin-handbook-actions">
+                      <button type="button" className="is-edit" onClick={() => openEdit(row)} aria-label={`Редактировать ${row.name}`}>
+                        <Icon name="bi-pencil" size={15} />
+                      </button>
+                      <button type="button" className="is-delete" onClick={() => deleteRow(row)} aria-label={`Удалить ${row.name}`}>
+                        <Icon name="bi-trash3" size={15} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+
+              {!visibleRows.length ? (
+                <tr>
+                  <td colSpan={config.columns.length + 1} className="admin-handbook-empty">Список пуст</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {modal}
     </section>
   );
 }
@@ -3656,17 +8973,50 @@ function AdminCashierBackgroundPage({ search, onNotify }) {
   );
 }
 
-function CategoryPage({ active, rowsOverride, search, onCreate, onRowDetail, onNotify }) {
+function CategoryPage({ active, rowsOverride, search, onCreate, onRowDetail, onNotify, onInnerBackChange }) {
   const content = categoryContent[active] || categoryContent["org-list"];
   const { apiRows } = useAdminData(active);
   if (active === "org-list") {
-    return <OrganizationDirectoryPage search={search} onRowDetail={onRowDetail} onNotify={onNotify} />;
+    return <OrganizationDirectoryPage search={search} onNotify={onNotify} onInnerBackChange={onInnerBackChange} />;
   }
   if (active === "org-status") {
     return <OrganizationStatusPage search={search} onNotify={onNotify} />;
   }
+  if (active === "storage-income") {
+    return <StorageIncomePage search={search} onNotify={onNotify} onInnerBackChange={onInnerBackChange} />;
+  }
+  if (active === "storage-expense") {
+    return <StorageExpensePage search={search} onNotify={onNotify} onInnerBackChange={onInnerBackChange} />;
+  }
+  if (active === "storage-balance") {
+    return <StorageBalancePage search={search} onNotify={onNotify} onInnerBackChange={onInnerBackChange} />;
+  }
+  if (active === "storage-income-journal") {
+    return <StorageIncomeJournalPage search={search} onNotify={onNotify} onInnerBackChange={onInnerBackChange} />;
+  }
+  if (active === "storage-writeoff") {
+    return <StorageWriteoffPage search={search} onNotify={onNotify} />;
+  }
+  if (active === "storage-inventory") {
+    return <StorageInventoryPage search={search} onNotify={onNotify} onInnerBackChange={onInnerBackChange} />;
+  }
   if (active === "nom-product") {
     return <ProductNomenclaturePage search={search} onNotify={onNotify} />;
+  }
+  if (active === "nom-sale-category") {
+    return <SaleCategoryPage search={search} onNotify={onNotify} />;
+  }
+  if (active === "nom-orders") {
+    return <OrdersNomenclaturePage search={search} onNotify={onNotify} />;
+  }
+  if (active === "nom-unit") {
+    return <UnitNomenclaturePage search={search} onNotify={onNotify} />;
+  }
+  if (active === "hb-countries" || active === "hb-regions" || active === "hb-districts") {
+    return <HandbookLocationPage active={active} search={search} onNotify={onNotify} />;
+  }
+  if (active === "srv-employees") {
+    return <AdminEmployeesPage search={search} onNotify={onNotify} />;
   }
   if (active === "fin-operations") {
     return <AdminFinanceOperationsPage search={search} onNotify={onNotify} />;
@@ -3730,13 +9080,597 @@ function getPageList(current, total) {
   return result;
 }
 
-function TransactionsTable() {
-  const [rows, setRows] = useState([]);
-  const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
-  const pageSize = 12;
+function keepWheelInsideScroller(event) {
+  const scroller = event.currentTarget;
+  const horizontalDelta = event.shiftKey && !event.deltaX ? event.deltaY : event.deltaX;
+  const verticalDelta = event.shiftKey ? 0 : event.deltaY;
+
+  if (!horizontalDelta && !verticalDelta) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+  scroller.scrollLeft += horizontalDelta;
+  scroller.scrollTop += verticalDelta;
+}
+
+const transactionColumnKeys = [
+  "id", "uuid", "date", "orgId", "name", "payType",
+  "amount", "kind", "status", "paymentFor", "comment", "actions",
+];
+
+const TRANSACTION_COLUMN_SETTINGS_STORAGE_KEY = "marjon.admin.transactions.columns.v1";
+const TRANSACTION_COLUMN_SETTINGS_LAYOUT_VERSION = 2;
+const defaultTransactionColumnOrder = [
+  "id", "uuid", "name", "date", "orgId", "payType",
+  "amount", "kind", "status", "paymentFor", "comment", "actions",
+];
+
+function normalizeTransactionColumnKeys(keys) {
+  const seen = new Set();
+  return (Array.isArray(keys) ? keys : []).filter((key) => {
+    if (!transactionColumnKeys.includes(key) || seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function normalizeTransactionColumnSettings(settings) {
+  const savedOrder = settings?.layoutVersion === TRANSACTION_COLUMN_SETTINGS_LAYOUT_VERSION
+    ? normalizeTransactionColumnKeys(settings?.order)
+    : [];
+  const order = [
+    ...savedOrder,
+    ...defaultTransactionColumnOrder.filter((key) => !savedOrder.includes(key)),
+    ...transactionColumnKeys.filter((key) => !savedOrder.includes(key) && !defaultTransactionColumnOrder.includes(key)),
+  ];
+  const visibleSource = Array.isArray(settings) ? settings : settings?.visible;
+  const visible = normalizeTransactionColumnKeys(visibleSource || transactionColumnKeys)
+    .filter((key) => order.includes(key));
+
+  return {
+    layoutVersion: TRANSACTION_COLUMN_SETTINGS_LAYOUT_VERSION,
+    order,
+    visible: visible.length ? visible : [order[0]],
+  };
+}
+
+function loadTransactionColumnSettings() {
+  if (typeof window === "undefined") {
+    return normalizeTransactionColumnSettings();
+  }
+
+  try {
+    return normalizeTransactionColumnSettings(JSON.parse(window.localStorage.getItem(TRANSACTION_COLUMN_SETTINGS_STORAGE_KEY)));
+  } catch {
+    return normalizeTransactionColumnSettings();
+  }
+}
+
+function saveTransactionColumnSettings(settings) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      TRANSACTION_COLUMN_SETTINGS_STORAGE_KEY,
+      JSON.stringify(normalizeTransactionColumnSettings(settings)),
+    );
+  } catch {
+    // localStorage can be unavailable in private mode; the current session still keeps the setting.
+  }
+}
+
+function formatTransactionAmountParts(value) {
+  const source = String(value ?? "").replace(/\u00a0/g, " ").trim();
+  const currencyMatch = source.match(/\s+([A-Za-zА-Яа-я]{3,})$/);
+  const currency = currencyMatch?.[1] || "UZS";
+  const numberSource = currencyMatch ? source.slice(0, currencyMatch.index).trim() : source;
+  const numericValue = Number(numberSource.replace(/[^\d-]/g, ""));
+
+  if (!Number.isFinite(numericValue)) {
+    return { value: numberSource || "0", currency };
+  }
+
+  return {
+    value: formatDemoMoney(numericValue),
+    currency,
+  };
+}
+
+function transactionDateToInputValue(value) {
+  const match = String(value || "").match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{1,2}))?/);
+  if (!match) {
+    return "";
+  }
+
+  const [, day, month, year, hour = "00", minute = "00"] = match;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+}
+
+function transactionInputDateToDisplay(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!match) {
+    return value || "";
+  }
+
+  const [, year, month, day, hour, minute] = match;
+  return `${day}.${month}.${year} ${hour}:${minute}`;
+}
+
+function transactionAmountToDraftValue(value) {
+  const amount = formatTransactionAmountParts(value);
+  return amount.value;
+}
+
+function formatTransactionAmountDraft(value) {
+  const numericValue = Number(String(value ?? "").replace(/[^\d-]/g, ""));
+  return Number.isFinite(numericValue) ? formatDemoMoney(Math.abs(numericValue)) : "0";
+}
+
+function AdminPageSizeDropdown({ value, options, onChange }) {
+  const dropdownRef = useRef(null);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
+    if (!open) return undefined;
+
+    function closeOnOutside(event) {
+      if (!dropdownRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    }
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", closeOnOutside);
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutside);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  function selectOption(nextValue) {
+    onChange(nextValue);
+    setOpen(false);
+  }
+
+  return (
+    <div className={`admin-page-size ${open ? "is-open" : ""}`} ref={dropdownRef}>
+      <button
+        className="admin-page-size__button"
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span className="admin-page-size__label">Строк</span>
+        <strong>{value}</strong>
+        <Icon name="bi-chevron-down" size={14} />
+      </button>
+      {open ? (
+        <div className="admin-page-size__menu" role="listbox" aria-label="Количество строк">
+          {options.map((option) => (
+            <button
+              className={`admin-page-size__option ${option === value ? "is-selected" : ""}`}
+              type="button"
+              role="option"
+              aria-selected={option === value}
+              key={option}
+              onClick={() => selectOption(option)}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+const demoTransactionSeeds = [
+  {
+    id: 1,
+    uuid: "demo-marjon-0001",
+    date: "15.07.2026 16:42",
+    orgId: "1003001",
+    name: "Marjon Cafe - Yunusabad",
+    payType: "Payme",
+    amount: "2 450 000 UZS",
+    kind: "Приход",
+    status: "PAID",
+    paymentFor: "Обеденный зал",
+    comment: "Демо: столы 4-7",
+  },
+  {
+    id: 2,
+    uuid: "demo-marjon-0002",
+    date: "15.07.2026 15:18",
+    orgId: "1003001",
+    name: "Marjon Cafe - Chilonzor",
+    payType: "Uzcard",
+    amount: "1 860 000 UZS",
+    kind: "Приход",
+    status: "PAID",
+    paymentFor: "Банкет",
+    comment: "Демо: предоплата",
+  },
+  {
+    id: 3,
+    uuid: "demo-marjon-0003",
+    date: "15.07.2026 14:05",
+    orgId: "1003001",
+    name: "Marjon Cafe - Yunusabad",
+    payType: "Наличные",
+    amount: "740 000 UZS",
+    kind: "Приход",
+    status: "PAID",
+    paymentFor: "Доставка",
+    comment: "Демо: курьерская смена",
+  },
+  {
+    id: 4,
+    uuid: "demo-marjon-0004",
+    date: "15.07.2026 12:34",
+    orgId: "1003001",
+    name: "Marjon Cafe - Chilonzor",
+    payType: "Humo",
+    amount: "3 210 000 UZS",
+    kind: "Приход",
+    status: "PAID",
+    paymentFor: "Зал и летняя терраса",
+    comment: "Демо: обеденный пик",
+  },
+  {
+    id: 5,
+    uuid: "demo-marjon-0005",
+    date: "15.07.2026 11:20",
+    orgId: "1003001",
+    name: "Marjon Cafe - Yunusabad",
+    payType: "Click",
+    amount: "580 000 UZS",
+    kind: "Приход",
+    status: "PAID",
+    paymentFor: "Кофе-бар",
+    comment: "Демо: утренние продажи",
+  },
+  {
+    id: 6,
+    uuid: "demo-marjon-0006",
+    date: "14.07.2026 22:10",
+    orgId: "1003001",
+    name: "Marjon Cafe - Chilonzor",
+    payType: "Payme",
+    amount: "4 980 000 UZS",
+    kind: "Приход",
+    status: "PAID",
+    paymentFor: "Вечерняя смена",
+    comment: "Демо: закрытие смены",
+  },
+  {
+    id: 7,
+    uuid: "demo-marjon-0007",
+    date: "14.07.2026 19:46",
+    orgId: "1003001",
+    name: "Marjon Cafe - Yunusabad",
+    payType: "Uzcard",
+    amount: "2 125 000 UZS",
+    kind: "Приход",
+    status: "PAID",
+    paymentFor: "Семейный зал",
+    comment: "Демо: бронирование",
+  },
+  {
+    id: 8,
+    uuid: "demo-marjon-0008",
+    date: "14.07.2026 17:02",
+    orgId: "1003001",
+    name: "Marjon Cafe - Chilonzor",
+    payType: "Наличные",
+    amount: "690 000 UZS",
+    kind: "Расход",
+    status: "PAID",
+    paymentFor: "Хозяйственные расходы",
+    comment: "Демо: расходные материалы",
+  },
+  {
+    id: 9,
+    uuid: "demo-marjon-0009",
+    date: "14.07.2026 13:30",
+    orgId: "1003001",
+    name: "Marjon Cafe - Yunusabad",
+    payType: "Humo",
+    amount: "1 340 000 UZS",
+    kind: "Приход",
+    status: "PAID",
+    paymentFor: "Бизнес-ланч",
+    comment: "Демо: корпоративный заказ",
+  },
+  {
+    id: 10,
+    uuid: "demo-marjon-0010",
+    date: "13.07.2026 21:15",
+    orgId: "1003001",
+    name: "Marjon Cafe - Chilonzor",
+    payType: "Click",
+    amount: "3 780 000 UZS",
+    kind: "Приход",
+    status: "PAID",
+    paymentFor: "Вечерний зал",
+    comment: "Демо: пятничная загрузка",
+  },
+  {
+    id: 11,
+    uuid: "demo-marjon-0011",
+    date: "13.07.2026 18:06",
+    orgId: "1003001",
+    name: "Marjon Cafe - Yunusabad",
+    payType: "Payme",
+    amount: "920 000 UZS",
+    kind: "Приход",
+    status: "PAID",
+    paymentFor: "Доставка",
+    comment: "Демо: онлайн-меню",
+  },
+  {
+    id: 12,
+    uuid: "demo-marjon-0012",
+    date: "13.07.2026 10:44",
+    orgId: "1003001",
+    name: "Marjon Cafe - Chilonzor",
+    payType: "Наличные",
+    amount: "450 000 UZS",
+    kind: "Расход",
+    status: "PAID",
+    paymentFor: "Склад",
+    comment: "Демо: закупка зелени",
+  },
+];
+
+const demoTransactionBranches = [
+  "Marjon Cafe - Yunusabad",
+  "Marjon Cafe - Chilonzor",
+  "Marjon Cafe - Mirabad",
+  "Marjon Cafe - Sergeli",
+];
+
+const demoTransactionPayTypes = ["Payme", "Uzcard", "Humo", "Click", "Наличные"];
+const demoTransactionTargets = [
+  "Обеденный зал",
+  "Банкет",
+  "Доставка",
+  "Кофе-бар",
+  "Вечерняя смена",
+  "Семейный зал",
+  "Склад",
+  "Летняя терраса",
+];
+const demoTransactionComments = [
+  "Демо: столы 4-7",
+  "Демо: предоплата",
+  "Демо: курьерская смена",
+  "Демо: обеденный пик",
+  "Демо: закрытие смены",
+  "Демо: закупка",
+  "Демо: онлайн-меню",
+  "Демо: корпоративный заказ",
+];
+
+function formatDemoTransactionDate(value) {
+  return `${padDate(value.getDate())}.${padDate(value.getMonth() + 1)}.${value.getFullYear()} ${padDate(value.getHours())}:${padDate(value.getMinutes())}`;
+}
+
+function buildDemoTransactions() {
+  const baseDate = new Date(2026, 6, 15, 16, 42);
+  return Array.from({ length: DEMO_TRANSACTION_ROW_COUNT }, (_, index) => {
+    const seed = demoTransactionSeeds[index % demoTransactionSeeds.length];
+    const date = new Date(baseDate);
+    date.setMinutes(baseDate.getMinutes() - index * 127);
+    const isExpense = index % 11 === 7 || seed.kind === "Расход";
+    const amount = isExpense
+      ? 320000 + (index % 9) * 85000
+      : 520000 + ((index * 337000) % 4300000);
+
+    return {
+      ...seed,
+      id: index + 1,
+      uuid: `demo-marjon-${String(index + 1).padStart(4, "0")}`,
+      date: formatDemoTransactionDate(date),
+      orgId: String(1003001 + (index % 4)),
+      name: demoTransactionBranches[index % demoTransactionBranches.length],
+      payType: demoTransactionPayTypes[index % demoTransactionPayTypes.length],
+      amount: `${formatDemoMoney(amount)} UZS`,
+      kind: isExpense ? "Расход" : "Приход",
+      status: "PAID",
+      paymentFor: demoTransactionTargets[index % demoTransactionTargets.length],
+      comment: `${demoTransactionComments[index % demoTransactionComments.length]} #${String(index + 1).padStart(3, "0")}`,
+    };
+  });
+}
+
+const demoTransactions = buildDemoTransactions();
+
+const dashboardTransactionReportRows = [
+  {
+    id: "marjon",
+    module: "Marjon",
+    contract: "754 995 216",
+    completed: "651 371 000",
+    paid: "536 599 424",
+    unpaid: "114 771 576",
+    activeOrders: "103 624 216",
+    rejected: "96 845 240",
+    overdue: "23 797 727",
+    children: [
+      {
+        id: "monthly-payment",
+        module: "Ойлик тулов",
+        contract: "333 569 000",
+        completed: "333 569 000",
+        paid: "306 409 424",
+        unpaid: "27 159 576",
+        activeOrders: "0",
+        rejected: "32 371 000",
+        overdue: "21 802 165",
+      },
+      {
+        id: "installation",
+        module: "Установка",
+        contract: "252 568 000",
+        completed: "216 898 000",
+        paid: "141 450 000",
+        unpaid: "75 448 000",
+        activeOrders: "35 670 000",
+        rejected: "12 033 000",
+        overdue: "1 995 562",
+      },
+      {
+        id: "goods-tech",
+        module: "Товар + Техника",
+        contract: "168 858 216",
+        completed: "100 904 000",
+        paid: "88 740 000",
+        unpaid: "12 164 000",
+        activeOrders: "67 954 216",
+        rejected: "52 441 240",
+        overdue: "0",
+      },
+    ],
+  },
+];
+
+const dashboardSalesReportRows = [
+  {
+    id: "admin-01",
+    employee: "Admin 01",
+    contract: "3 610 000",
+    completed: "3 610 000",
+    paid: "3 610 000",
+    unpaid: "0",
+    activeOrders: "0",
+    rejected: "390 000",
+    overdue: "0",
+    children: [
+      {
+        id: "admin-01-marjon",
+        employee: "Marjon",
+        contract: "3 610 000",
+        completed: "3 610 000",
+        paid: "3 610 000",
+        unpaid: "0",
+        activeOrders: "0",
+        rejected: "390 000",
+        overdue: "0",
+      },
+    ],
+  },
+  {
+    id: "alikulov-jahongir",
+    employee: "ALIKULOV JAHONGIR",
+    contract: "40 620 000",
+    completed: "40 620 000",
+    paid: "38 920 390",
+    unpaid: "1 699 610",
+    activeOrders: "0",
+    rejected: "2 850 240",
+    overdue: "1 156 000",
+    children: [
+      {
+        id: "alikulov-marjon",
+        employee: "Marjon",
+        contract: "38 430 000",
+        completed: "38 430 000",
+        paid: "36 730 390",
+        unpaid: "1 699 610",
+        activeOrders: "0",
+        rejected: "2 850 240",
+        overdue: "1 156 000",
+      },
+    ],
+  },
+  {
+    id: "fayruz",
+    employee: "Fayruz",
+    contract: "2 730 000",
+    completed: "2 730 000",
+    paid: "2 730 000",
+    unpaid: "0",
+    activeOrders: "0",
+    rejected: "0",
+    overdue: "0",
+    children: [
+      { id: "fayruz-marjon", employee: "Marjon", contract: "2 730 000", completed: "2 730 000", paid: "2 730 000", unpaid: "0", activeOrders: "0", rejected: "0", overdue: "0" },
+    ],
+  },
+  {
+    id: "test-user",
+    employee: "Test user",
+    contract: "0",
+    completed: "0",
+    paid: "0",
+    unpaid: "0",
+    activeOrders: "0",
+    rejected: "0",
+    overdue: "0",
+    children: [
+      { id: "test-user-marjon", employee: "Marjon", contract: "0", completed: "0", paid: "0", unpaid: "0", activeOrders: "0", rejected: "0", overdue: "0" },
+    ],
+  },
+  {
+    id: "alisher-abdusattorov",
+    employee: "ALISHER ABDUSATTOROV",
+    contract: "11 790 000",
+    completed: "11 790 000",
+    paid: "11 400 000",
+    unpaid: "390 000",
+    activeOrders: "0",
+    rejected: "390 000",
+    overdue: "0",
+    children: [
+      { id: "alisher-abdusattorov-marjon", employee: "Marjon", contract: "11 790 000", completed: "11 790 000", paid: "11 400 000", unpaid: "390 000", activeOrders: "0", rejected: "390 000", overdue: "0" },
+    ],
+  },
+  {
+    id: "hamzayev-sardor",
+    employee: "HAMZAYEV SARDOR",
+    contract: "119 065 000",
+    completed: "118 685 000",
+    paid: "56 025 000",
+    unpaid: "62 660 000",
+    activeOrders: "380 000",
+    rejected: "780 000",
+    overdue: "0",
+    children: [
+      { id: "hamzayev-sardor-marjon", employee: "Marjon", contract: "119 065 000", completed: "118 685 000", paid: "56 025 000", unpaid: "62 660 000", activeOrders: "380 000", rejected: "780 000", overdue: "0" },
+    ],
+  },
+];
+
+function TransactionsTable() {
+  const [rows, setRows] = useState(() => (ADMIN_DASHBOARD_DEMO_MODE ? demoTransactions : []));
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSizeOptions = ADMIN_DASHBOARD_DEMO_MODE ? [12, 25, 50] : [10, 20, 50];
+  const [pageSize, setPageSize] = useState(() => (ADMIN_DASHBOARD_DEMO_MODE ? 12 : 20));
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [columnSettings, setColumnSettings] = useState(loadTransactionColumnSettings);
+  const [dragColumnKey, setDragColumnKey] = useState("");
+  const [dragColumnTarget, setDragColumnTarget] = useState(null);
+  const [transactionEditor, setTransactionEditor] = useState(null);
+  const visibleColumns = columnSettings.visible;
+
+  useEffect(() => {
+    if (ADMIN_DASHBOARD_DEMO_MODE) return;
     adminApi.get("/finance/transactions", { params: { size: 50 } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
@@ -3757,7 +9691,24 @@ function TransactionsTable() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => { setPage(1); }, [query]);
+  useEffect(() => { setPage(1); }, [query, pageSize]);
+
+  useEffect(() => {
+    saveTransactionColumnSettings(columnSettings);
+  }, [columnSettings]);
+
+  useEffect(() => {
+    if (!transactionEditor) return undefined;
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape") {
+        setTransactionEditor(null);
+      }
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [transactionEditor]);
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -3771,32 +9722,160 @@ function TransactionsTable() {
   const pageRows = filteredRows.slice(startIndex, startIndex + pageSize);
   const pageList = getPageList(currentPage, totalPages);
 
-  const columns = [
+  function goToPage(nextPage) {
+    setPage(Math.min(totalPages, Math.max(1, nextPage)));
+  }
+
+  function toggleColumn(key) {
+    setColumnSettings((current) => {
+      const normalized = normalizeTransactionColumnSettings(current);
+
+      if (normalized.visible.includes(key)) {
+        return {
+          ...normalized,
+          visible: normalized.visible.length > 1
+            ? normalized.visible.filter((item) => item !== key)
+            : normalized.visible,
+        };
+      }
+
+      return {
+        ...normalized,
+        visible: normalized.order.filter((item) => item === key || normalized.visible.includes(item)),
+      };
+    });
+  }
+
+  function moveColumn(key, direction) {
+    setColumnSettings((current) => {
+      const normalized = normalizeTransactionColumnSettings(current);
+      const currentIndex = normalized.order.indexOf(key);
+      const nextIndex = currentIndex + direction;
+
+      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= normalized.order.length) {
+        return normalized;
+      }
+
+      const nextOrder = [...normalized.order];
+      [nextOrder[currentIndex], nextOrder[nextIndex]] = [nextOrder[nextIndex], nextOrder[currentIndex]];
+
+      return {
+        ...normalized,
+        order: nextOrder,
+      };
+    });
+  }
+
+  function moveColumnToDrop(sourceKey, targetKey, placement = "before") {
+    if (!sourceKey || !targetKey || sourceKey === targetKey) {
+      return;
+    }
+
+    setColumnSettings((current) => {
+      const normalized = normalizeTransactionColumnSettings(current);
+      const nextOrder = normalized.order.filter((key) => key !== sourceKey);
+      const targetIndex = nextOrder.indexOf(targetKey);
+
+      if (targetIndex < 0 || !normalized.order.includes(sourceKey)) {
+        return normalized;
+      }
+
+      nextOrder.splice(placement === "after" ? targetIndex + 1 : targetIndex, 0, sourceKey);
+
+      return {
+        ...normalized,
+        order: nextOrder,
+      };
+    });
+  }
+
+  function resetColumnSettings() {
+    setColumnSettings(normalizeTransactionColumnSettings());
+  }
+
+  function openTransactionEditor(row) {
+    setTransactionEditor({
+      id: row.id,
+      name: row.name || "",
+      date: transactionDateToInputValue(row.date),
+      amount: transactionAmountToDraftValue(row.amount),
+      kind: row.kind || "Приход",
+      payType: row.payType || demoTransactionPayTypes[0],
+      status: row.status || "PAID",
+      paymentFor: row.paymentFor || "",
+      comment: row.comment || "",
+    });
+  }
+
+  function updateTransactionEditor(key, value) {
+    setTransactionEditor((current) => (current ? { ...current, [key]: value } : current));
+  }
+
+  function saveTransactionEditor(event) {
+    event.preventDefault();
+
+    if (!transactionEditor) {
+      return;
+    }
+
+    const amount = Math.abs(Number(String(transactionEditor.amount).replace(/[^\d-]/g, "")) || 0);
+    const nextRow = {
+      name: transactionEditor.name.trim() || "—",
+      date: transactionInputDateToDisplay(transactionEditor.date),
+      amount: `${formatDemoMoney(amount)} UZS`,
+      kind: transactionEditor.kind,
+      payType: transactionEditor.payType,
+      status: transactionEditor.status.trim() || "PAID",
+      paymentFor: transactionEditor.paymentFor.trim(),
+      comment: transactionEditor.comment.trim(),
+    };
+
+    setRows((current) => current.map((row) => (
+      row.id === transactionEditor.id ? { ...row, ...nextRow } : row
+    )));
+    setTransactionEditor(null);
+  }
+
+  const allColumns = [
     { key: "id", label: "ID", width: 66 },
     { key: "uuid", label: "UUID", width: 214 },
     { key: "date", label: "Дата", width: 150 },
     { key: "orgId", label: "ID Организация", width: 120 },
     { key: "name", label: "Названия", width: 200 },
     { key: "payType", label: "Тип оплаты", width: 120 },
-    { key: "amount", label: "Сумма", width: 140 },
+    { key: "amount", label: "Сумма", width: 156 },
     { key: "kind", label: "Тип", width: 92 },
     { key: "status", label: "Status", width: 90 },
-    { key: "paymentFor", label: "Оплата за", width: 168 },
-    { key: "comment", label: "Комментария", width: 120 },
-    { key: "actions", label: "", width: 54 },
+    { key: "paymentFor", label: "Оплата за", width: 180 },
+    { key: "comment", label: "Комментария", width: 220 },
+    { key: "actions", label: "", width: 58 },
   ];
+
+  const orderedColumns = columnSettings.order
+    .map((key) => allColumns.find((column) => column.key === key))
+    .filter(Boolean);
+  const columns = orderedColumns.filter((column) => visibleColumns.includes(column.key));
+  const actionsColumnIsLast = columns.at(-1)?.key === "actions";
 
   function renderCell(column, row) {
     switch (column.key) {
       case "id": return <span className="admin-tx-id">{row.id}</span>;
       case "uuid": return <span className="admin-tx-uuid">{row.uuid}</span>;
       case "name": return <strong className="org-directory-name">{row.name}</strong>;
-      case "amount": return <span className="admin-tx-amount">{row.amount}</span>;
-      case "kind": return <span className="org-directory-flag org-directory-flag--success">{row.kind}</span>;
+      case "amount": {
+        const amount = formatTransactionAmountParts(row.amount);
+        return (
+          <span className="admin-tx-amount">
+            <span className="admin-tx-amount__value">{amount.value}</span>
+            <span className="admin-tx-amount__currency">{amount.currency}</span>
+          </span>
+        );
+      }
+      case "kind": return <span className={`org-directory-flag ${row.kind === "Расход" ? "org-directory-flag--warning" : "org-directory-flag--success"}`}>{row.kind}</span>;
       case "status": return <span className="org-directory-flag org-directory-flag--success">{row.status}</span>;
       case "comment": return row.comment ? row.comment : "—";
       case "actions": return (
-        <button type="button" className="admin-tx-edit" aria-label={`Редактировать транзакцию ${row.id}`}>
+        <button type="button" className="admin-tx-edit" onClick={() => openTransactionEditor(row)} aria-label={`Редактировать транзакцию ${row.id}`}>
           <Icon name="bi-pencil" size={14} />
         </button>
       );
@@ -3804,30 +9883,248 @@ function TransactionsTable() {
     }
   }
 
-  return (
-    <section className="admin-table-card admin-transactions">
-      <div className="admin-panel-head admin-transactions__head">
-        <div>
-          <h2>Последние транзакции</h2>
-        </div>
-        <label className="org-directory-search admin-transactions__search">
-          <Icon name="bi-search" size={15} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск" />
-        </label>
-      </div>
+  const transactionEditorModal = transactionEditor && typeof document !== "undefined"
+    ? createPortal(
+      <div
+        className="admin-income-modal admin-transaction-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Редактировать транзакцию ${transactionEditor.id}`}
+        onClick={() => setTransactionEditor(null)}
+      >
+        <form className="admin-income-dialog admin-transaction-dialog" onSubmit={saveTransactionEditor} onClick={(event) => event.stopPropagation()}>
+          <div className="admin-income-dialog__head admin-transaction-dialog__head">
+            <div>
+              <h3>Редактировать транзакцию</h3>
+              <p>ID {transactionEditor.id}. Изменения применятся к строке таблицы.</p>
+            </div>
+            <button type="button" className="admin-income-dialog__close" onClick={() => setTransactionEditor(null)} aria-label="Закрыть">
+              <Icon name="bi-x-lg" size={16} />
+            </button>
+          </div>
 
-      <div className="org-directory-table-shell">
-        <table className="org-directory-table admin-transactions__table">
+          <div className="admin-transaction-dialog__grid">
+            <label className="admin-income-field admin-transaction-field admin-transaction-field--wide">
+              <span>Название</span>
+              <input
+                value={transactionEditor.name}
+                onChange={(event) => updateTransactionEditor("name", event.target.value)}
+                placeholder="Название организации"
+                autoFocus
+              />
+            </label>
+
+            <label className="admin-income-field admin-transaction-field">
+              <span>Сумма</span>
+              <div className="admin-transaction-amount-input">
+                <input
+                  value={transactionEditor.amount}
+                  inputMode="numeric"
+                  onChange={(event) => updateTransactionEditor("amount", formatTransactionAmountDraft(event.target.value))}
+                  placeholder="0"
+                />
+                <strong>UZS</strong>
+              </div>
+            </label>
+
+            <label className="admin-income-field admin-transaction-field">
+              <span>Дата и время</span>
+              <input
+                type="datetime-local"
+                value={transactionEditor.date}
+                onChange={(event) => updateTransactionEditor("date", event.target.value)}
+              />
+            </label>
+
+            <label className="admin-income-field admin-transaction-field">
+              <span>Тип</span>
+              <select value={transactionEditor.kind} onChange={(event) => updateTransactionEditor("kind", event.target.value)}>
+                <option value="Приход">Приход</option>
+                <option value="Расход">Расход</option>
+              </select>
+            </label>
+
+            <label className="admin-income-field admin-transaction-field">
+              <span>Тип оплаты</span>
+              <select value={transactionEditor.payType} onChange={(event) => updateTransactionEditor("payType", event.target.value)}>
+                {demoTransactionPayTypes.map((type) => <option value={type} key={type}>{type}</option>)}
+              </select>
+            </label>
+
+            <label className="admin-income-field admin-transaction-field">
+              <span>Status</span>
+              <select value={transactionEditor.status} onChange={(event) => updateTransactionEditor("status", event.target.value)}>
+                <option value="PAID">PAID</option>
+                <option value="PENDING">PENDING</option>
+                <option value="CANCELLED">CANCELLED</option>
+              </select>
+            </label>
+
+            <label className="admin-income-field admin-transaction-field">
+              <span>Оплата за</span>
+              <input
+                value={transactionEditor.paymentFor}
+                onChange={(event) => updateTransactionEditor("paymentFor", event.target.value)}
+                placeholder="Назначение оплаты"
+              />
+            </label>
+
+            <label className="admin-income-field admin-transaction-field admin-transaction-field--wide">
+              <span>Комментария</span>
+              <textarea
+                value={transactionEditor.comment}
+                onChange={(event) => updateTransactionEditor("comment", event.target.value)}
+                placeholder="Комментарий к транзакции"
+                rows={3}
+              />
+            </label>
+          </div>
+
+          <div className="admin-income-dialog__actions admin-transaction-dialog__actions">
+            <button type="button" className="is-ghost" onClick={() => setTransactionEditor(null)}>Отмена</button>
+            <button type="submit" className="is-primary">Сохранить</button>
+          </div>
+        </form>
+      </div>,
+      document.body,
+    )
+    : null;
+
+  return (
+    <>
+      <section className="admin-table-card admin-transactions">
+        <div className="admin-panel-head admin-transactions__head">
+          <div>
+            <h2>Последние транзакции</h2>
+          </div>
+          <button
+            className={`admin-transactions__settings ${settingsOpen ? "is-open" : ""}`}
+            type="button"
+            onClick={() => setSettingsOpen((value) => !value)}
+            aria-expanded={settingsOpen}
+          >
+            <Icon name="bi-sliders" size={15} />
+            <span>Настроить таблицу</span>
+          </button>
+          <label className="org-directory-search admin-transactions__search">
+            <Icon name="bi-search" size={15} />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск" />
+          </label>
+        </div>
+
+      {settingsOpen ? (
+        <div className="org-directory-column-panel admin-transactions__column-panel">
+          <div className="admin-transactions__column-panel-head">
+            <span>Столбцы</span>
+            <button type="button" onClick={resetColumnSettings}>Сброс</button>
+          </div>
+          <div className="admin-transactions__column-list">
+            {orderedColumns.map((column, index) => {
+              const checked = visibleColumns.includes(column.key);
+              const disabled = checked && visibleColumns.length === 1;
+              const label = column.label || "Действия";
+              const dropPosition = dragColumnTarget?.key === column.key ? dragColumnTarget.position : "";
+
+              return (
+                <div
+                  className={`admin-transactions__column-item ${disabled ? "is-disabled" : ""} ${dragColumnKey === column.key ? "is-dragging" : ""} ${dropPosition ? `is-drop-${dropPosition}` : ""}`}
+                  key={column.key}
+                  draggable
+                  onDragStart={(event) => {
+                    setDragColumnKey(column.key);
+                    setDragColumnTarget(null);
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", column.key);
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                    const sourceKey = event.dataTransfer.getData("text/plain") || dragColumnKey;
+
+                    if (!sourceKey || sourceKey === column.key) {
+                      setDragColumnTarget(null);
+                      return;
+                    }
+
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    const position = event.clientX - rect.left > rect.width / 2 ? "after" : "before";
+                    setDragColumnTarget((current) => (
+                      current?.key === column.key && current?.position === position
+                        ? current
+                        : { key: column.key, position }
+                    ));
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    moveColumnToDrop(
+                      event.dataTransfer.getData("text/plain") || dragColumnKey,
+                      column.key,
+                      dragColumnTarget?.key === column.key ? dragColumnTarget.position : "before",
+                    );
+                    setDragColumnKey("");
+                    setDragColumnTarget(null);
+                  }}
+                  onDragEnd={() => {
+                    setDragColumnKey("");
+                    setDragColumnTarget(null);
+                  }}
+                >
+                  <label className="admin-transactions__column-toggle">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={disabled}
+                      onChange={() => toggleColumn(column.key)}
+                    />
+                    <span>{label}</span>
+                  </label>
+                  <div className="admin-transactions__column-move" aria-label={`Порядок столбца ${label}`}>
+                    <button
+                      type="button"
+                      disabled={index === 0}
+                      onClick={() => moveColumn(column.key, -1)}
+                      aria-label={`Переместить ${label} левее`}
+                    >
+                      <Icon name="bi-chevron-left" size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={index === orderedColumns.length - 1}
+                      onClick={() => moveColumn(column.key, 1)}
+                      aria-label={`Переместить ${label} правее`}
+                    >
+                      <Icon name="bi-chevron-right" size={14} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="org-directory-table-shell admin-transactions__table-shell" onWheelCapture={keepWheelInsideScroller}>
+        <table className={`org-directory-table admin-transactions__table ${actionsColumnIsLast ? "is-actions-sticky" : ""}`}>
           <colgroup>
             {columns.map((column) => <col key={column.key} style={{ width: column.width }} />)}
           </colgroup>
           <thead>
-            <tr>{columns.map((column) => <th key={column.key}>{column.label}</th>)}</tr>
+            <tr>{columns.map((column) => (
+              <th className={`admin-transactions__cell admin-transactions__cell--${column.key}`} key={column.key}>
+                {column.key === "actions" ? (
+                  <span className="admin-transactions__actions-head" aria-hidden="true">
+                    <Icon name="bi-sliders" size={15} />
+                  </span>
+                ) : column.label}
+              </th>
+            ))}</tr>
           </thead>
           <tbody>
             {pageRows.map((row) => (
               <tr key={row.id}>
-                {columns.map((column) => <td key={column.key}>{renderCell(column, row)}</td>)}
+                {columns.map((column) => (
+                  <td className={`admin-transactions__cell admin-transactions__cell--${column.key}`} key={column.key}>{renderCell(column, row)}</td>
+                ))}
               </tr>
             ))}
           </tbody>
@@ -3836,57 +10133,623 @@ function TransactionsTable() {
       </div>
 
       <div className="org-directory-footer admin-transactions__footer">
-        <span>{filteredRows.length ? `${startIndex + 1}-${Math.min(startIndex + pageSize, filteredRows.length)} из ${filteredRows.length}` : "0 из 0"}</span>
-        <div className="admin-transactions__pager">
-          <button type="button" disabled={currentPage === 1} onClick={() => setPage((value) => Math.max(1, value - 1))} aria-label="Предыдущая страница">
+        <span className="org-directory-footer__summary">
+          {filteredRows.length ? `${startIndex + 1}-${Math.min(startIndex + pageSize, filteredRows.length)} из ${filteredRows.length}` : "0 из 0"}
+          <small>Страница {currentPage} из {totalPages}</small>
+        </span>
+        <div className="org-directory-pager admin-transactions__pager">
+          <AdminPageSizeDropdown value={pageSize} options={pageSizeOptions} onChange={setPageSize} />
+          <button type="button" disabled={currentPage === 1} onClick={() => goToPage(1)} aria-label="Первая страница">
+            <span className="org-directory-double-icon" aria-hidden="true">
+              <Icon name="bi-chevron-left" size={13} />
+              <Icon name="bi-chevron-left" size={13} />
+            </span>
+          </button>
+          <button type="button" disabled={currentPage === 1} onClick={() => goToPage(currentPage - 1)} aria-label="Предыдущая страница">
             <Icon name="bi-chevron-left" size={15} />
           </button>
           {pageList.map((item, index) => (
             item === "…" ? (
-              <span className="admin-transactions__ellipsis" key={`gap-${index}`}>…</span>
+              <span className="org-directory-ellipsis" key={`gap-${index}`}>…</span>
             ) : (
               <button
                 type="button"
                 key={item}
-                className={`admin-transactions__page ${item === currentPage ? "is-active" : ""}`}
-                onClick={() => setPage(item)}
+                className={`org-directory-page-btn ${item === currentPage ? "is-active" : ""}`}
+                onClick={() => goToPage(item)}
                 aria-current={item === currentPage ? "page" : undefined}
               >
                 {item}
               </button>
             )
           ))}
-          <button type="button" disabled={currentPage === totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))} aria-label="Следующая страница">
+          <button type="button" disabled={currentPage === totalPages} onClick={() => goToPage(currentPage + 1)} aria-label="Следующая страница">
             <Icon name="bi-chevron-right" size={15} />
           </button>
+          <button type="button" disabled={currentPage === totalPages} onClick={() => goToPage(totalPages)} aria-label="Последняя страница">
+            <span className="org-directory-double-icon" aria-hidden="true">
+              <Icon name="bi-chevron-right" size={13} />
+              <Icon name="bi-chevron-right" size={13} />
+            </span>
+          </button>
+        </div>
+      </div>
+      </section>
+      {transactionEditorModal}
+    </>
+  );
+}
+
+function DashboardTransactionsReportPage() {
+  const [openRows, setOpenRows] = useState(() => ({}));
+  const [dateRange, setDateRange] = useState(() => buildAdminDashboardDateRange("Этот год"));
+  const datePresets = useMemo(() => (
+    ADMIN_DASHBOARD_DATE_PRESET_LABELS.map((label) => ({
+      label,
+      getRange: () => buildAdminDashboardDateRange(label),
+    }))
+  ), []);
+
+  function toggleRow(rowId) {
+    setOpenRows((current) => ({
+      ...current,
+      [rowId]: !current[rowId],
+    }));
+  }
+
+  return (
+    <section className="admin-dashboard-transactions-report">
+      <div className="admin-dashboard-transactions-report__filters">
+        <div className="admin-dashboard-transactions-report__date-picker admin-chart-filter-date-picker admin-revenue-range">
+          <ReportDateRangePicker
+            value={dateRange}
+            onChange={(nextRange) => setDateRange(normalizeAdminReportRange(nextRange))}
+            buttonClassName="admin-chart-filter admin-chart-filter--date admin-dashboard-transactions-report__date"
+            showTime={false}
+            presets={datePresets}
+            formatButtonLabel={formatAdminDashboardDateRangeButton}
+            blockPageScrollOnWheel
+            applyPresetOnSelect
+            showMenuOk={false}
+            leadingIconName="bi-calendar3"
+            leadingIconSize={16}
+          />
+        </div>
+        <button className="admin-dashboard-transactions-report__branch" type="button">
+          <Icon name="bi-geo-alt" size={16} />
+          <span>Тошкент филиал</span>
+        </button>
+      </div>
+
+      <div className="admin-dashboard-transactions-report__card">
+        <div className="admin-dashboard-transactions-report__table-wrap">
+          <table className="admin-dashboard-transactions-report__table">
+            <thead>
+              <tr>
+                <th>№</th>
+                <th>Модуль</th>
+                <th>По договору</th>
+                <th>Выполненный</th>
+                <th>Оплачено</th>
+                <th>Не оплачено</th>
+                <th>Сумма активных заказов</th>
+                <th>Отклонено</th>
+                <th>Просроченный долг</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dashboardTransactionReportRows.map((row, index) => {
+                const isOpen = Boolean(openRows[row.id]);
+
+                return (
+                  <Fragment key={row.id}>
+                    <tr className={`is-parent${isOpen ? " is-open" : ""}`}>
+                      <td>{index + 1}</td>
+                      <td>
+                        <span className="admin-dashboard-transactions-report__module">
+                          <strong>{row.module}</strong>
+                          <button
+                            type="button"
+                            onClick={() => toggleRow(row.id)}
+                            aria-expanded={isOpen}
+                            aria-label={`${isOpen ? "Скрыть" : "Показать"} ${row.module}`}
+                          >
+                            <span aria-hidden="true" />
+                          </button>
+                        </span>
+                      </td>
+                      <td>{row.contract}</td>
+                      <td>{row.completed}</td>
+                      <td>{row.paid}</td>
+                      <td>{row.unpaid}</td>
+                      <td>{row.activeOrders}</td>
+                      <td>{row.rejected}</td>
+                      <td>{row.overdue}</td>
+                    </tr>
+                    {isOpen ? row.children.map((child, childIndex) => (
+                      <tr className="is-child" key={child.id}>
+                        <td />
+                        <td>{childIndex + 1}. {child.module}</td>
+                        <td>{child.contract}</td>
+                        <td>{child.completed}</td>
+                        <td>{child.paid}</td>
+                        <td>{child.unpaid}</td>
+                        <td>{child.activeOrders}</td>
+                        <td>{child.rejected}</td>
+                        <td>{child.overdue}</td>
+                      </tr>
+                    )) : null}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     </section>
   );
 }
 
-function DashboardPage({ segment, onSegmentChange, organizationRows, approvals, dashKpis, onExport, onRowAction, onApprovalAction, onShowApprovals, onKpiClick, onOrgClick, onApprovalClick, onSystemClick }) {
+function DashboardSalesReportPage() {
+  const [openRows, setOpenRows] = useState(() => ({}));
+  const [dateRange, setDateRange] = useState(() => buildAdminDashboardDateRange("Этот год"));
+  const datePresets = useMemo(() => (
+    ADMIN_DASHBOARD_DATE_PRESET_LABELS.map((label) => ({
+      label,
+      getRange: () => buildAdminDashboardDateRange(label),
+    }))
+  ), []);
+
+  function toggleRow(rowId) {
+    setOpenRows((current) => ({
+      ...current,
+      [rowId]: !current[rowId],
+    }));
+  }
+
+  return (
+    <section className="admin-dashboard-transactions-report admin-dashboard-sales-report">
+      <div className="admin-dashboard-transactions-report__filters">
+        <div className="admin-dashboard-transactions-report__date-picker admin-chart-filter-date-picker admin-revenue-range">
+          <ReportDateRangePicker
+            value={dateRange}
+            onChange={(nextRange) => setDateRange(normalizeAdminReportRange(nextRange))}
+            buttonClassName="admin-chart-filter admin-chart-filter--date admin-dashboard-transactions-report__date"
+            showTime={false}
+            presets={datePresets}
+            formatButtonLabel={formatAdminDashboardDateRangeButton}
+            blockPageScrollOnWheel
+            applyPresetOnSelect
+            showMenuOk={false}
+            leadingIconName="bi-calendar3"
+            leadingIconSize={16}
+          />
+        </div>
+        <button className="admin-dashboard-transactions-report__branch" type="button">
+          <Icon name="bi-geo-alt" size={16} />
+          <span>Тошкент филиал</span>
+        </button>
+      </div>
+
+      <div className="admin-dashboard-transactions-report__card">
+        <div className="admin-dashboard-transactions-report__table-wrap">
+          <table className="admin-dashboard-transactions-report__table">
+            <thead>
+              <tr>
+                <th>№</th>
+                <th>Сотрудник</th>
+                <th>По договору</th>
+                <th>Выполненный</th>
+                <th>Оплачено</th>
+                <th>Не оплачено</th>
+                <th>Сумма активных заказов</th>
+                <th>Отклонено</th>
+                <th>Просроченный долг</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dashboardSalesReportRows.map((row, index) => {
+                const hasChildren = row.children.length > 0;
+                const isOpen = Boolean(openRows[row.id]);
+
+                return (
+                  <Fragment key={row.id}>
+                    <tr className={`is-parent${isOpen ? " is-open" : ""}`}>
+                      <td>{index + 1}</td>
+                      <td>
+                        <span className="admin-dashboard-transactions-report__module">
+                          <strong>{row.employee}</strong>
+                          {hasChildren ? (
+                            <button
+                              type="button"
+                              onClick={() => toggleRow(row.id)}
+                              aria-expanded={isOpen}
+                              aria-label={`${isOpen ? "Скрыть" : "Показать"} ${row.employee}`}
+                            >
+                              <span aria-hidden="true" />
+                            </button>
+                          ) : null}
+                        </span>
+                      </td>
+                      <td>{row.contract}</td>
+                      <td>{row.completed}</td>
+                      <td>{row.paid}</td>
+                      <td>{row.unpaid}</td>
+                      <td>{row.activeOrders}</td>
+                      <td>{row.rejected}</td>
+                      <td>{row.overdue}</td>
+                    </tr>
+                    {isOpen ? row.children.map((child, childIndex) => (
+                      <tr className="is-child" key={child.id}>
+                        <td />
+                        <td>{childIndex + 1}. {child.employee}</td>
+                        <td>{child.contract}</td>
+                        <td>{child.completed}</td>
+                        <td>{child.paid}</td>
+                        <td>{child.unpaid}</td>
+                        <td>{child.activeOrders}</td>
+                        <td>{child.rejected}</td>
+                        <td>{child.overdue}</td>
+                      </tr>
+                    )) : null}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DashboardPage({ segment, onSegmentChange, organizationRows, approvals, dashKpis, onExport, onRowAction, onApprovalAction, onShowApprovals, onKpiClick, onOrgClick, onApprovalClick, onSystemClick, dashboardView, onOpenTransactions, onOpenSales, onOpenSection }) {
+  if (dashboardView === "transactions") {
+    return <DashboardTransactionsReportPage />;
+  }
+  if (dashboardView === "sales") {
+    return <DashboardSalesReportPage />;
+  }
+
   const displayKpis = dashKpis || kpis;
   return (
     <>
       <section className="admin-kpi-grid">
         {displayKpis.map((item) => <KpiCard item={item} key={item.title} onClick={onKpiClick} />)}
       </section>
-      <div className="admin-dashboard-grid">
+      <div className="admin-dashboard-grid admin-dashboard-grid--chart-summary">
         <main className="admin-center">
+          <DashboardChartFilterBar onOpenTransactions={onOpenTransactions} onOpenSales={onOpenSales} />
           <PlatformChart segment={segment} onSegmentChange={onSegmentChange} />
-          <OrganizationsTable rows={organizationRows} onExport={onExport} onRowAction={onRowAction} onRowClick={onOrgClick} />
         </main>
-        <RightColumn
-          approvals={approvals}
-          onApprovalAction={onApprovalAction}
-          onShowApprovals={onShowApprovals}
-          onApprovalClick={onApprovalClick}
-          onSystemClick={onSystemClick}
-        />
+        <DashboardWarehouseCards onOpenSection={onOpenSection} />
       </div>
       <TransactionsTable />
     </>
+  );
+}
+
+const ADMIN_DASHBOARD_DATE_PRESET_LABELS = ["Сегодня", "Вчера", "Эта неделя", "Этот месяц", "Этот год"];
+const ADMIN_DASHBOARD_DATE_SHORT_MONTHS = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+const ADMIN_DASHBOARD_DATE_FULL_MONTHS = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
+
+const adminInstallStatusOptions = [
+  { key: "all", label: "Все", count: 160 },
+  { key: "waiting", label: "Ожидающий", count: 79 },
+  { key: "installed", label: "Установлен", count: 12 },
+  { key: "cancelled", label: "Отменено", count: 4 },
+  { key: "extended", label: "Продлен", count: 0 },
+  { key: "unset", label: "Не указано", count: 65 },
+];
+
+const adminInstallDateRows = [
+  { id: "install-001", date: "02.07.2026", branch: "Тошкент филиал", status: "waiting", client: "AKBAR TEST", manager: "AKBAR MAMAYUSUPOV", address: "Toshkent sh, Sergeli t", amount: "0 UZS" },
+  { id: "install-002", date: "04.07.2026", branch: "Тошкент филиал", status: "waiting", client: "MARJON CAFE", manager: "SARDOR HAMZAYEV", address: "Toshkent sh, Yunusobod t", amount: "390 000 UZS" },
+  { id: "install-003", date: "06.07.2026", branch: "Тошкент филиал", status: "installed", client: "QADRDONLAR KAFE", manager: "OG'ABEK AXATOV", address: "Toshkent sh, Chilonzor t", amount: "1 200 000 UZS" },
+  { id: "install-004", date: "08.07.2026", branch: "Тошкент филиал", status: "waiting", client: "MUSTAFO CAFE", manager: "JAVOHIR SOTUV", address: "Toshkent sh, Yakkasaroy t", amount: "0 UZS" },
+  { id: "install-005", date: "11.07.2026", branch: "Тошкент филиал", status: "installed", client: "Yimizmi", manager: "Izzatbek Muzaffarov", address: "Toshkent sh, Шайхонтохур т", amount: "0 UZS", clientId: "1002975", ownerPhone: "+998 90 044 21 20" },
+  { id: "install-006", date: "11.07.2026", branch: "Тошкент филиал", status: "installed", client: "OSIYO GARDEN", manager: "Marjon", address: "Samarqand, Жомбой т", amount: "0 UZS", clientId: "1002976", ownerPhone: "+998 90 044 21 21" },
+  { id: "install-007", date: "15.07.2026", branch: "Тошкент филиал", status: "waiting", client: "BURGER HOUSE", manager: "YO'LDASHEV XURSHID", address: "Toshkent sh, Mirzo Ulug'bek t", amount: "0 UZS" },
+  { id: "install-008", date: "17.07.2026", branch: "Тошкент филиал", status: "cancelled", client: "STREET FOOD", manager: "SAFAYEV AZIZ", address: "Toshkent sh, Uchtepa t", amount: "0 UZS" },
+  { id: "install-009", date: "18.07.2026", branch: "Тошкент филиал", status: "waiting", client: "ANXOR KAFE", manager: "DILSHOD XABIBULLAYEV", address: "Toshkent sh, Yashnobod t", amount: "390 000 UZS" },
+  { id: "install-010", date: "20.07.2026", branch: "Тошкент филиал", status: "waiting", client: "KARVON OSHXONA", manager: "TURAYEV ALISHER", address: "Toshkent sh, Olmazor t", amount: "0 UZS" },
+  { id: "install-011", date: "21.07.2026", branch: "Тошкент филиал", status: "extended", client: "GOLDEN UZBECHIM", manager: "SHOHABBOS DONYOROV", address: "Toshkent sh, Shayxontohur t", amount: "390 000 UZS" },
+  { id: "install-012", date: "24.07.2026", branch: "Тошкент филиал", status: "waiting", client: "SIMFONIYA MILLIY TAOMLARI", manager: "AZIM O'KTAMOV", address: "Toshkent sh, Bektemir t", amount: "0 UZS" },
+  { id: "install-013", date: "24.07.2026", branch: "Тошкент филиал", status: "installed", client: "AMIRLIK RESTORANI", manager: "ELDOR SOTUV", address: "Toshkent sh, Mirobod t", amount: "1 000 000 UZS" },
+  { id: "install-014", date: "", branch: "Тошкент филиал", status: "unset", client: "NOMI HALI TANLANMAGAN", manager: "SARDOR HAMZAYEV", address: "Toshkent sh", amount: "0 UZS" },
+];
+
+function buildAdminDashboardDateRange(preset) {
+  const end = new Date(`${adminTodayInputValue()}T00:00:00`);
+  const start = new Date(end);
+
+  if (preset === "Вчера") {
+    start.setDate(start.getDate() - 1);
+    end.setDate(end.getDate() - 1);
+  } else if (preset === "Эта неделя") {
+    const mondayOffset = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - mondayOffset);
+    end.setTime(start.getTime());
+    end.setDate(start.getDate() + 6);
+  } else if (preset === "Этот месяц") {
+    start.setDate(1);
+    end.setMonth(end.getMonth() + 1, 0);
+  } else if (preset === "Этот год") {
+    start.setMonth(0, 1);
+    end.setMonth(11, 31);
+  }
+
+  return normalizeAdminReportRange({
+    preset,
+    start: adminInputDateToReportDate(adminDateToInputValue(start)),
+    end: adminInputDateToReportDate(adminDateToInputValue(end)),
+    startTime: "00:00",
+    endTime: "00:00",
+  });
+}
+
+function formatAdminDashboardDateRangeButton(range) {
+  const normalized = normalizeAdminReportRange(range);
+  const start = new Date(`${adminReportDateToInputDate(normalized.start)}T00:00:00`);
+  const end = new Date(`${adminReportDateToInputDate(normalized.end)}T00:00:00`);
+  const startLabel = `${start.getDate()} ${ADMIN_DASHBOARD_DATE_SHORT_MONTHS[start.getMonth()]}`;
+  const endLabel = `${end.getDate()} ${ADMIN_DASHBOARD_DATE_SHORT_MONTHS[end.getMonth()]}\u00a0${end.getFullYear()}`;
+
+  if (normalized.start === normalized.end) {
+    return `${end.getDate()} ${ADMIN_DASHBOARD_DATE_FULL_MONTHS[end.getMonth()]}\u00a0${end.getFullYear()}`;
+  }
+
+  return `${startLabel} - ${endLabel}`;
+}
+
+function formatAdminInstallDateHeading(value) {
+  const date = parseDate(value);
+  return `${date.getDate()} ${ADMIN_DASHBOARD_DATE_FULL_MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+function AdminInstallDateModal({ onClose }) {
+  const [branch, setBranch] = useState("all");
+  const [status, setStatus] = useState("installed");
+  const [selectedDate, setSelectedDate] = useState("11.07.2026");
+  const [viewDate, setViewDate] = useState(() => parseDate("11.07.2026"));
+  const [expandedInstallRowId, setExpandedInstallRowId] = useState("");
+
+  useEffect(() => {
+    function closeOnEscape(event) {
+      if (event.key === "Escape") onClose();
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  const branchOptions = useMemo(() => (
+    ["all", ...Array.from(new Set(adminInstallDateRows.map((row) => row.branch).filter(Boolean)))]
+  ), []);
+
+  const rowsByBranch = useMemo(() => (
+    adminInstallDateRows.filter((row) => branch === "all" || row.branch === branch)
+  ), [branch]);
+
+  const statusCounts = useMemo(() => (
+    adminInstallStatusOptions.reduce((acc, option) => {
+      acc[option.key] = option.count ?? (option.key === "all"
+        ? rowsByBranch.length
+        : rowsByBranch.filter((row) => row.status === option.key).length);
+      return acc;
+    }, {})
+  ), [rowsByBranch]);
+
+  const filteredRows = useMemo(() => (
+    rowsByBranch.filter((row) => {
+      const statusMatches = status === "all" || row.status === status;
+      const dateMatches = status === "unset" ? !row.date : row.date === selectedDate;
+      return statusMatches && dateMatches;
+    })
+  ), [rowsByBranch, selectedDate, status]);
+
+  const calendarCounts = useMemo(() => (
+    rowsByBranch.reduce((acc, row) => {
+      if (!row.date || (status !== "all" && row.status !== status)) return acc;
+      acc[row.date] = (acc[row.date] || 0) + 1;
+      return acc;
+    }, {})
+  ), [rowsByBranch, status]);
+
+  const viewYear = viewDate.getFullYear();
+  const viewMonth = viewDate.getMonth();
+  const calendarCells = getAdminChartCalendarCells(viewYear, viewMonth);
+  const selectedDateObject = parseDate(selectedDate);
+
+  useEffect(() => {
+    if (!filteredRows.length) {
+      setExpandedInstallRowId("");
+      return;
+    }
+
+    setExpandedInstallRowId((currentId) => (
+      currentId && filteredRows.some((row) => row.id === currentId) ? currentId : ""
+    ));
+  }, [filteredRows]);
+
+  function shiftMonth(diff) {
+    setViewDate(new Date(viewYear, viewMonth + diff, 1));
+  }
+
+  function chooseDate(date) {
+    const next = formatDate(date);
+    setSelectedDate(next);
+    setViewDate(date);
+    if (status === "unset") setStatus("all");
+  }
+
+  const modal = (
+    <div className="admin-install-date-modal" role="dialog" aria-modal="true" aria-label="Дата установки">
+      <button type="button" className="admin-install-date-modal__shade" onClick={onClose} aria-label="Закрыть" />
+      <section className="admin-install-date-dialog" onClick={(event) => event.stopPropagation()}>
+        <button type="button" className="admin-install-date-dialog__close" onClick={onClose} aria-label="Закрыть">
+          <Icon name="bi-x-lg" size={17} />
+        </button>
+
+        <div className="admin-install-date-calendar-pane">
+          <div className="admin-install-date-title">
+            <Icon name="bi-calendar3" size={16} />
+            <h3>Дата установки</h3>
+          </div>
+
+          <label className="admin-install-date-branch">
+            <select value={branch} onChange={(event) => setBranch(event.target.value)}>
+              {branchOptions.map((option) => (
+                <option value={option} key={option}>{option === "all" ? "Филиал" : option}</option>
+              ))}
+            </select>
+            <Icon name="bi-chevron-down" size={15} />
+          </label>
+
+          <div className="admin-install-date-calendar">
+            <div className="admin-install-date-calendar__nav">
+              <button type="button" onClick={() => shiftMonth(-1)} aria-label="Предыдущий месяц">
+                <Icon name="bi-chevron-left" size={16} />
+              </button>
+              <strong>{ADMIN_CHART_MONTHS[viewMonth]} {viewYear}</strong>
+              <button type="button" onClick={() => shiftMonth(1)} aria-label="Следующий месяц">
+                <Icon name="bi-chevron-right" size={16} />
+              </button>
+            </div>
+
+            <div className="admin-install-date-calendar__week">
+              {["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => <span key={day}>{day}</span>)}
+            </div>
+            <div className="admin-install-date-calendar__grid">
+              {calendarCells.map((cell) => {
+                const count = calendarCounts[cell.key] || 0;
+                const isSelected = cell.key === selectedDate;
+                const isToday = formatDate(ADMIN_CHART_TODAY) === cell.key;
+                return (
+                  <button
+                    type="button"
+                    className={`${cell.muted ? "is-muted" : ""} ${isSelected ? "is-selected" : ""} ${isToday ? "is-today" : ""}`}
+                    key={cell.key}
+                    onClick={() => chooseDate(cell.date)}
+                  >
+                    {count ? <small>{count}</small> : null}
+                    <span>{cell.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="admin-install-date-list-pane">
+          <div className="admin-install-date-filter">
+            <span>Статус</span>
+            <div>
+              {adminInstallStatusOptions.map((option) => (
+                <button
+                  type="button"
+                  className={status === option.key ? "is-active" : ""}
+                  onClick={() => setStatus(option.key)}
+                  key={option.key}
+                >
+                  {option.label}
+                  <b>{statusCounts[option.key] || 0}</b>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="admin-install-date-list">
+            <h4>{status === "unset" ? "Без даты" : formatAdminInstallDateHeading(selectedDate)}</h4>
+            {filteredRows.map((row, index) => {
+              const isOpen = expandedInstallRowId === row.id;
+
+              return (
+                <article className={`admin-install-date-item is-${row.status} ${isOpen ? "is-open" : ""}`} key={row.id}>
+                  <button
+                    type="button"
+                    className="admin-install-date-item__main"
+                    onClick={() => setExpandedInstallRowId(isOpen ? "" : row.id)}
+                    aria-expanded={isOpen}
+                  >
+                    <span className="admin-install-date-item__index">{index + 1}</span>
+                    <div>
+                      <small>{row.manager}</small>
+                      <strong>{row.client}</strong>
+                      <em>{row.address}</em>
+                    </div>
+                  </button>
+                  {isOpen ? (
+                    <div className="admin-install-date-item__details">
+                      <span>ID:</span>
+                      <strong>{row.clientId || row.id}</strong>
+                      <span>Тел. владельца:</span>
+                      <strong>{row.ownerPhone || "Не указано"}</strong>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+            {!filteredRows.length ? (
+              <div className="admin-install-date-empty">
+                <Icon name="bi-calendar3" size={20} />
+                <span>{status === "unset" ? "Нет заявок без даты." : `На ${formatDate(selectedDateObject)} заявок нет.`}</span>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+
+  return createPortal(modal, document.body);
+}
+
+function DashboardChartFilterBar({ onOpenTransactions, onOpenSales }) {
+  const [installDateOpen, setInstallDateOpen] = useState(false);
+  const [dateRange, setDateRange] = useState(() => buildAdminDashboardDateRange("Этот месяц"));
+  const datePresets = useMemo(() => (
+    ADMIN_DASHBOARD_DATE_PRESET_LABELS.map((label) => ({
+      label,
+      getRange: () => buildAdminDashboardDateRange(label),
+    }))
+  ), []);
+
+  return (
+    <div className="admin-chart-filter-bar" aria-label="Фильтры графика">
+      <div className="admin-chart-filter-date-picker admin-revenue-range">
+        <ReportDateRangePicker
+          value={dateRange}
+          onChange={(nextRange) => setDateRange(normalizeAdminReportRange(nextRange))}
+          buttonClassName="admin-chart-filter admin-chart-filter--date"
+          showTime={false}
+          presets={datePresets}
+          formatButtonLabel={formatAdminDashboardDateRangeButton}
+          blockPageScrollOnWheel
+          applyPresetOnSelect
+          showMenuOk={false}
+          leadingIconName="bi-calendar3"
+          leadingIconSize={16}
+        />
+      </div>
+      <button className="admin-chart-filter admin-chart-filter--with-icon" type="button" onClick={onOpenSales}>
+        <Icon name="bi-cash-coin" size={16} />
+        <span>Продажи</span>
+      </button>
+      <button className="admin-chart-filter admin-chart-filter--with-icon" type="button" onClick={onOpenTransactions}>
+        <Icon name="bi-receipt" size={16} />
+        <span>Транзакции</span>
+      </button>
+      <button className="admin-chart-filter admin-chart-filter--install admin-chart-filter--with-icon" type="button" onClick={() => setInstallDateOpen(true)}>
+        <Icon name="bi-pc-display" size={16} />
+        <span>Дата установки</span>
+      </button>
+      <button className="admin-chart-filter admin-chart-filter--with-icon" type="button">
+        <Icon name="bi-graph-up" size={16} />
+        <span>Аналитика</span>
+      </button>
+      {installDateOpen ? <AdminInstallDateModal onClose={() => setInstallDateOpen(false)} /> : null}
+    </div>
   );
 }
 
@@ -3942,6 +10805,8 @@ function DetailModal({ data, onClose }) {
 
 function AdminShell({ onLogout }) {
   const [active, setActive] = useState("dashboard");
+  const navigationHistoryRef = useRef([]);
+  const innerBackRef = useRef(null);
   const [user, setUser] = useState(null);
   const [message, setMessage] = useState("");
   const [collapsed, setCollapsed] = useState(false);
@@ -3952,9 +10817,26 @@ function AdminShell({ onLogout }) {
   const [approvals, setApprovals] = useState([]);
   const [categoryRows, setCategoryRows] = useState({});
   const [detail, setDetail] = useState(null);
-  const [dashKpis, setDashKpis] = useState(kpis);
+  const [dashKpis, setDashKpis] = useState(() => (ADMIN_DASHBOARD_DEMO_MODE ? demoKpis : orderDashboardKpis(kpis)));
+  const [dashboardView, setDashboardView] = useState(null);
 
   const closeDetail = () => setDetail(null);
+  const setInnerBackHandler = useCallback((handler) => {
+    innerBackRef.current = typeof handler === "function" ? handler : null;
+  }, []);
+
+  const navigateTo = useCallback((nextActive) => {
+    if (nextActive === active) {
+      if (nextActive === "dashboard") setDashboardView(null);
+      return;
+    }
+
+    navigationHistoryRef.current = [...navigationHistoryRef.current, active].slice(-40);
+    innerBackRef.current = null;
+    setDetail(null);
+    setDashboardView(null);
+    setActive(nextActive);
+  }, [active]);
 
   useEffect(() => {
     let mounted = true;
@@ -3973,15 +10855,17 @@ function AdminShell({ onLogout }) {
           }
         })
         .catch(() => {});
-      adminApi.get("/admin-reports/dashboard-kpis")
-        .then(({ data }) => {
-          if (!mounted || !data) return;
-          setDashKpis((prev) => prev.map((kpi) => {
-            const v = data[kpi.dataKey];
-            return v != null ? { ...kpi, value: typeof v === "number" ? v.toLocaleString("ru-RU") : String(v) } : kpi;
-          }));
-        })
-        .catch(() => {});
+      if (!ADMIN_DASHBOARD_DEMO_MODE) {
+        adminApi.get("/admin-reports/dashboard-kpis")
+          .then(({ data }) => {
+            if (!mounted || !data) return;
+            setDashKpis((prev) => prev.map((kpi) => {
+              const v = data[kpi.dataKey];
+              return v != null ? { ...kpi, value: typeof v === "number" ? v.toLocaleString("ru-RU") : String(v) } : kpi;
+            }));
+          })
+          .catch(() => {});
+      }
       return () => { mounted = false; };
     }
     adminApi.get("/auth/me")
@@ -4000,15 +10884,17 @@ function AdminShell({ onLogout }) {
         }
       })
       .catch(() => {});
-    adminApi.get("/admin-reports/dashboard-kpis")
-      .then(({ data }) => {
-        if (!mounted || !data) return;
-        setDashKpis((prev) => prev.map((kpi) => {
-          const v = data[kpi.dataKey];
-          return v != null ? { ...kpi, value: typeof v === "number" ? v.toLocaleString("ru-RU") : String(v) } : kpi;
-        }));
-      })
-      .catch(() => {});
+    if (!ADMIN_DASHBOARD_DEMO_MODE) {
+      adminApi.get("/admin-reports/dashboard-kpis")
+        .then(({ data }) => {
+          if (!mounted || !data) return;
+          setDashKpis((prev) => prev.map((kpi) => {
+            const v = data[kpi.dataKey];
+            return v != null ? { ...kpi, value: typeof v === "number" ? v.toLocaleString("ru-RU") : String(v) } : kpi;
+          }));
+        })
+        .catch(() => {});
+    }
     return () => { mounted = false; };
   }, []);
 
@@ -4023,6 +10909,14 @@ function AdminShell({ onLogout }) {
     if (!query) return organizations;
     return organizations.filter((row) => row.some((cell) => String(cell).toLowerCase().includes(query)));
   }, [organizations, search]);
+
+  const headerNotifications = useMemo(() => approvals.map((item, index) => ({
+    id: `${item[0]}-${item[1]}-${index}`,
+    title: item[0],
+    text: `${item[1]} · ${item[2]}`,
+    icon: "bi-exclamation-triangle",
+    approval: item,
+  })), [approvals]);
 
   function downloadCsv(filename, rows) {
     const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -4064,6 +10958,11 @@ function AdminShell({ onLogout }) {
   }
 
   function openKpiDetail(item) {
+    if (item?.dataKey === "organizations") {
+      navigateTo("org-list");
+      return;
+    }
+
     setDetail({
       title: item.title,
       subtitle: "Ключевой показатель платформы",
@@ -4108,6 +11007,14 @@ function AdminShell({ onLogout }) {
         { label: "Закрыть", variant: "ghost", onClick: closeDetail },
       ],
     });
+  }
+
+  function handleNotificationSelect(item) {
+    if (item?.approval) {
+      openApprovalDetail(item.approval);
+      return;
+    }
+    setMessage(item?.title || "Уведомление открыто.");
   }
 
   function openSystemDetail(item) {
@@ -4164,28 +11071,63 @@ function AdminShell({ onLogout }) {
         onOrgClick={openOrgDetail}
         onApprovalClick={openApprovalDetail}
         onSystemClick={openSystemDetail}
+        dashboardView={dashboardView}
+        onOpenTransactions={() => setDashboardView("transactions")}
+        onOpenSales={() => setDashboardView("sales")}
+        onOpenSection={navigateTo}
       />
     ) : (
-      <CategoryPage active={active} rowsOverride={categoryRows[active]} search={search} onCreate={handleCreate} onRowDetail={openCategoryRowDetail} onNotify={setMessage} />
+      <CategoryPage active={active} rowsOverride={categoryRows[active]} search={search} onCreate={handleCreate} onRowDetail={openCategoryRowDetail} onNotify={setMessage} onInnerBackChange={setInnerBackHandler} />
     )
-  ), [active, approvals, categoryRows, dashKpis, filteredOrganizations, search, segment]);
+  ), [active, approvals, categoryRows, dashKpis, dashboardView, filteredOrganizations, navigateTo, search, segment, setInnerBackHandler]);
 
   function logout() {
     adminLogout();
     onLogout();
   }
 
+  function handleHeaderBack() {
+    if (detail) {
+      closeDetail();
+      return;
+    }
+
+    if (innerBackRef.current) {
+      innerBackRef.current();
+      return;
+    }
+
+    if (active === "dashboard" && dashboardView) {
+      setDashboardView(null);
+      return;
+    }
+
+    while (navigationHistoryRef.current.at(-1) === active) {
+      navigationHistoryRef.current.pop();
+    }
+
+    const previousActive = navigationHistoryRef.current.pop();
+    if (previousActive) {
+      innerBackRef.current = null;
+      setActive(previousActive);
+      return;
+    }
+
+    if (active !== "dashboard") {
+      setActive("dashboard");
+    }
+  }
+
   return (
     <div className={`admin-shell ${collapsed ? "is-sidebar-collapsed" : ""}`}>
-      <Sidebar active={active} onSelect={setActive} collapsed={collapsed} onToggle={() => setCollapsed((value) => !value)} user={user} onProfile={openProfileDetail} />
+      <Sidebar active={active} onSelect={navigateTo} collapsed={collapsed} onToggle={() => setCollapsed((value) => !value)} user={user} onProfile={openProfileDetail} />
       <section className="admin-main">
         <Header
           user={user}
-          onLogout={logout}
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
-          onBellClick={() => setMessage(`Непрочитанных уведомлений: ${approvals.length}.`)}
-          notificationCount={approvals.length}
+          onBack={handleHeaderBack}
+          notifications={headerNotifications}
+          onNotificationRefresh={() => setMessage("Уведомления обновлены.")}
+          onNotificationSelect={handleNotificationSelect}
           onProfile={openProfileDetail}
         />
         {message ? (
