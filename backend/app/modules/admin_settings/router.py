@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import date
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy import select
@@ -26,15 +27,70 @@ router.include_router(crud_router(
     default_sort="name",
 ))
 
-router.include_router(crud_router(
-    prefix="/image-backgrounds", tags=["settings"],
-    model=models.ImageBackground,
-    create_schema=schemas.ImageBackgroundCreate,
-    update_schema=schemas.ImageBackgroundUpdate,
-    response_schema=schemas.ImageBackgroundResponse,
-    search_fields=("name",),
-    default_sort="name",
-))
+# ── Фоны десктопа: привязка к организации (company_id) + активный фон ─────────
+image_bg = APIRouter(prefix="/image-backgrounds", tags=["settings"])
+
+
+@image_bg.get("", response_model=Page[schemas.ImageBackgroundResponse], summary="List backgrounds (org-scoped)")
+async def list_backgrounds(
+    page: int = Query(1, ge=1),
+    size: int = Query(100, ge=1, le=200),
+    search: str | None = Query(None),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    params = PageParams(page=page, size=size)
+    items, total = await CRUDService(models.ImageBackground, db).list(
+        params, search=search, search_fields=("name",),
+        default_sort="sort_order", org_scope=[user.company_id], org_field="company_id",
+    )
+    return Page.create([schemas.ImageBackgroundResponse.model_validate(i) for i in items], total, params)
+
+
+@image_bg.get("/active", response_model=schemas.ImageBackgroundResponse | None,
+              summary="Активный фон десктопа для организации (для терминала)")
+async def active_background(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    base = select(models.ImageBackground).where(models.ImageBackground.company_id == user.company_id)
+    obj = (await db.execute(
+        base.where(models.ImageBackground.is_active.is_(True)).order_by(models.ImageBackground.updated_at.desc())
+    )).scalars().first()
+    if obj is None:  # активный не выбран — берём самый свежий
+        obj = (await db.execute(base.order_by(models.ImageBackground.updated_at.desc()))).scalars().first()
+    return obj
+
+
+@image_bg.post("", response_model=schemas.ImageBackgroundResponse, status_code=status.HTTP_201_CREATED)
+async def create_background(
+    data: schemas.ImageBackgroundCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await CRUDService(models.ImageBackground, db).create(data, company_id=user.company_id)
+
+
+@image_bg.patch("/{item_id}", response_model=schemas.ImageBackgroundResponse)
+async def update_background(
+    item_id: UUID,
+    data: schemas.ImageBackgroundUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await CRUDService(models.ImageBackground, db).update(item_id, data)
+
+
+@image_bg.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_background(
+    item_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await CRUDService(models.ImageBackground, db).delete(item_id)
+
+
+router.include_router(image_bg)
 
 router.include_router(crud_router(
     prefix="/store-versions", tags=["settings"],

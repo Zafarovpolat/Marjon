@@ -52,16 +52,22 @@ class TranslationImportResult(BaseModel):
 class ImageBackgroundCreate(BaseModel):
     name: str
     photo: str | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
 
 
 class ImageBackgroundUpdate(BaseModel):
     name: str | None = None
     photo: str | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
 
 
 class ImageBackgroundResponse(BaseResponseSchema):
     name: str
     photo: str | None
+    sort_order: int = 0
+    is_active: bool = False
 
 
 class StoreVersionCreate(BaseModel):

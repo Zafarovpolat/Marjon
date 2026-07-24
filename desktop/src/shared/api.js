@@ -183,6 +183,17 @@ export const companies = {
     ),
 }
 
+// Брендинг организации: кастомный фон десктопа (задаётся в веб-админке)
+export const branding = {
+  // Активный фон текущей организации; читается под org-токеном (до входа сотрудника)
+  activeBackground: () =>
+    withOrgRefresh((tok) =>
+      api.get('/image-backgrounds/active', {
+        headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+      }).then((r) => r.data)
+    ),
+}
+
 export const printers = {
   list: () => api.get('/printers').then((r) => r.data),
   jobDone: (jobId) => api.post(`/printers/jobs/${jobId}/done`).then((r) => r.data),

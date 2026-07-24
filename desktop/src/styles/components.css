@@ -2942,7 +2942,7 @@
 .login-page {
   background:
     linear-gradient(135deg, rgba(7, 20, 40, 0.78) 0%, rgba(11, 31, 63, 0.66) 100%),
-    url('../assets/login-bg.jpg') center / cover no-repeat;
+    var(--org-bg-image, url('../assets/login-bg.jpg')) center / cover no-repeat;
 }
 .login-page__bg {
   background:
@@ -3012,7 +3012,7 @@
   overflow: hidden;
   background:
     linear-gradient(135deg, rgba(7, 20, 40, 0.82) 0%, rgba(11, 31, 63, 0.72) 100%),
-    url('../assets/login-bg.jpg') center / cover no-repeat;
+    var(--org-bg-image, url('../assets/login-bg.jpg')) center / cover no-repeat;
 }
 
 /* ── Экран организации ── */

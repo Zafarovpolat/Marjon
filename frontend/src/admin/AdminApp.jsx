@@ -3525,7 +3525,7 @@ function AdminCashierBackgroundPage({ search, onNotify }) {
     event.target.value = "";
   }
 
-  function saveBackground(event) {
+  async function saveBackground(event) {
     event.preventDefault();
     const nextName = draftName.trim();
     const nextSort = Math.max(1, Number(draftSort) || 1);
@@ -3534,26 +3534,38 @@ function AdminCashierBackgroundPage({ search, onNotify }) {
       onNotify?.("Введите название и выберите изображение.");
       return;
     }
-    if (editor?.mode === "create") {
-      setBackgrounds((current) => [{
-        id: `cashier-bg-local-${Date.now()}`,
-        name: nextName,
-        sort: nextSort,
-        photo: nextPhoto,
-      }, ...current]);
-      onNotify?.(`${nextName}: фон добавлен.`);
-    } else if (editor?.row) {
-      setBackgrounds((current) => current.map((row) => (
-        row.id === editor.row.id ? { ...row, name: nextName, sort: nextSort, photo: nextPhoto } : row
-      )));
-      onNotify?.(`${nextName}: фон обновлён.`);
+    const payload = { name: nextName, photo: nextPhoto, sort_order: nextSort };
+    try {
+      if (editor?.mode === "create") {
+        const { data } = await adminApi.post("/image-backgrounds", payload);
+        setBackgrounds((current) => [{
+          id: data?.id || `cashier-bg-local-${Date.now()}`,
+          name: nextName, sort: nextSort, photo: nextPhoto,
+        }, ...current]);
+        onNotify?.(`${nextName}: фон сохранён.`);
+      } else if (editor?.row) {
+        if (!String(editor.row.id).startsWith("cashier-bg-local")) {
+          await adminApi.patch(`/image-backgrounds/${editor.row.id}`, payload);
+        }
+        setBackgrounds((current) => current.map((row) => (
+          row.id === editor.row.id ? { ...row, name: nextName, sort: nextSort, photo: nextPhoto } : row
+        )));
+        onNotify?.(`${nextName}: фон обновлён.`);
+      }
+    } catch (err) {
+      onNotify?.("Не удалось сохранить фон на сервере.");
     }
     closeEditor();
   }
 
-  function deleteBackground(row) {
+  async function deleteBackground(row) {
+    try {
+      if (!String(row.id).startsWith("cashier-bg-local")) {
+        await adminApi.delete(`/image-backgrounds/${row.id}`);
+      }
+    } catch (err) { /* игнорируем — уберём локально в любом случае */ }
     setBackgrounds((current) => current.filter((item) => item.id !== row.id));
-    onNotify?.(`${row.name}: фон удалён локально.`);
+    onNotify?.(`${row.name}: фон удалён.`);
   }
 
   return (

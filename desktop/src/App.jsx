@@ -14,7 +14,7 @@ import CashierMode from './modes/cashier/CashierMode'
 import KitchenMode from './modes/kitchen/KitchenMode'
 import WaiterMode from './modes/waiter/WaiterMode'
 import ManagerMode from './modes/manager/ManagerMode'
-import { auth, flushQueue, queueSize } from './shared/api'
+import { auth, branding, flushQueue, queueSize } from './shared/api'
 import { t } from './shared/i18n'
 
 const MANAGER_ROLES = ['owner', 'manager', 'admin', 'director']
@@ -95,6 +95,23 @@ export default function App() {
     window.addEventListener('marjon:lang', onLang)
     return () => window.removeEventListener('marjon:lang', onLang)
   }, [])
+
+  // Кастомный фон организации (задаётся в веб-админке) — применяем к экранам входа
+  useEffect(() => {
+    if (!orgToken) return
+    branding.activeBackground()
+      .then((bg) => {
+        const photo = bg?.photo || ''
+        if (photo) {
+          localStorage.setItem('marjon_bg', photo)
+          document.documentElement.style.setProperty('--org-bg-image', `url("${photo}")`)
+        } else {
+          localStorage.removeItem('marjon_bg')
+          document.documentElement.style.removeProperty('--org-bg-image')
+        }
+      })
+      .catch(() => { /* нет фона — остаётся дефолтный */ })
+  }, [orgToken])
 
   // 1. Админ привязывает терминал (логин/пароль)
   const handleAdminLogin = useCallback((data) => {

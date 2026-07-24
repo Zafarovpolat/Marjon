@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import date, datetime
 from uuid import UUID
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import Uuid
 from app.shared.base_model import TimeStampedModel
@@ -26,10 +26,17 @@ class Translation(TimeStampedModel):
 
 
 class ImageBackground(TimeStampedModel):
+    """Кастомный фон десктоп-приложения кассы, привязанный к организации.
+    photo — URL или data:base64 (поэтому Text). Активный фон один на компанию."""
     __tablename__ = "adm_image_backgrounds"
 
+    company_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), index=True, nullable=True
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    photo: Mapped[str | None] = mapped_column(String(512))  # URL/ключ в хранилище
+    photo: Mapped[str | None] = mapped_column(Text)  # URL или data:image/...;base64,...
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class StoreVersion(TimeStampedModel):
