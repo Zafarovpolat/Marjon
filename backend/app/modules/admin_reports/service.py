@@ -237,6 +237,7 @@ class AdminReportService:
                 User.name.label("waiter_name"),
                 func.count(Order.id).label("orders_count"),
                 func.coalesce(func.sum(Order.total_amount), 0).label("orders_total"),
+                func.coalesce(func.sum(Order.service_fee), 0).label("service_fee"),
                 func.coalesce(func.sum(
                     select(func.count(OrderItem.id))
                     .where(OrderItem.order_id == Order.id)
@@ -251,12 +252,20 @@ class AdminReportService:
         )
         query = self._order_date_filter(query, date_from, date_to)
         rows = (await self.db.execute(query)).all()
+        # Процент доли обслуги официанта — из настроек компании
+        from app.modules.companies.models import Company
+        pct = (await self.db.execute(
+            select(Company.waiter_service_percent).where(Company.id == company_id)
+        )).scalar_one_or_none() or 0
+        pct = Decimal(str(pct))
         return [
             WaiterReportRow(
                 waiter_id=r.waiter_id, name=r.waiter_name or "—",
                 orders_count=r.orders_count,
                 orders_total=Decimal(str(r.orders_total)),
                 dishes_count=int(r.dishes_count or 0),
+                service_fee=Decimal(str(r.service_fee)),
+                waiter_share=(Decimal(str(r.service_fee)) * pct / Decimal("100")).quantize(Decimal("0.01")),
             )
             for r in rows
         ]

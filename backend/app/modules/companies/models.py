@@ -1,7 +1,7 @@
 from __future__ import annotations
 from uuid import UUID
 from typing import TYPE_CHECKING
-from sqlalchemy import String, Boolean, Text, ForeignKey
+from sqlalchemy import String, Boolean, Integer, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Uuid
 from app.shared.base_model import TimeStampedModel
@@ -21,6 +21,8 @@ class Company(TimeStampedModel):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     # Спец-пароль для отмены заказа (задаётся в веб-админке)
     cancel_password: Mapped[str | None] = mapped_column(String(64))
+    # Доля обслуги, начисляемая официанту, % (для отчёта по официантам)
+    waiter_service_percent: Mapped[int] = mapped_column(Integer, default=0)
 
     branches: Mapped[list[Branch]] = relationship(back_populates="company", cascade="all, delete-orphan")
     users: Mapped[list[User]] = relationship(back_populates="company")

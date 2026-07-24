@@ -64,6 +64,8 @@ class OrderItem(TimeStampedModel):
     note: Mapped[str | None] = mapped_column(Text)
     modifiers: Mapped[dict] = mapped_column(JSON, default=list)
     course: Mapped[int] = mapped_column(Integer, default=1)
+    # Позиция «с собой» — не облагается сервисным сбором
+    takeaway: Mapped[bool] = mapped_column(Boolean, default=False)
 
     order: Mapped[Order] = relationship(back_populates="items")
 

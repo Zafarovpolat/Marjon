@@ -3468,6 +3468,12 @@ body.vkb-open .login-card {
 .cashier-delivery__suggest { position: absolute; left: var(--spacing-md); right: var(--spacing-md); top: 46px; z-index: 20; background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-sm); box-shadow: var(--shadow-md); overflow: hidden; }
 .cashier-delivery__suggest button { display: block; width: 100%; text-align: left; padding: 10px 12px; background: transparent; border: none; color: var(--color-text-primary); font-size: var(--text-sm); cursor: pointer; }
 .cashier-delivery__suggest button:hover { background: var(--color-brand-bg); color: var(--color-brand); }
+
+/* Бейдж «с собой» у позиции */
+.cart-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: var(--radius-full); background: var(--blue-100); color: var(--blue-700); font-size: 10px; font-weight: 700; vertical-align: middle; }
+/* Кнопка «переместить позицию» в деталях официанта */
+.detail-item__move { background: transparent; border: none; color: var(--color-text-muted); cursor: pointer; padding: 4px 6px; border-radius: 8px; display: inline-grid; place-items: center; }
+.detail-item__move:hover { background: var(--color-brand-bg); color: var(--color-brand); }
 .pay-order__methods .pay-method-btn { min-height: 78px; gap: 6px; font-size: var(--text-sm); }
 .pay-order__methods .pay-method-btn.is-active { border-color: var(--color-brand); background: var(--color-brand-bg); color: var(--color-brand); box-shadow: 0 0 0 1px var(--color-brand) inset; }
 .pay-order__cash { display: flex; flex-direction: column; gap: 8px; }

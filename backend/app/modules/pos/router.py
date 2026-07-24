@@ -64,6 +64,12 @@ async def remove_item(order_id: UUID, item_id: UUID, user: User = Depends(get_cu
     return await OrderService(db).remove_item(user.company_id, order_id, item_id)
 
 
+@router.post("/orders/{order_id}/items/{item_id}/move", response_model=OrderResponse)
+async def move_item(order_id: UUID, item_id: UUID, table: str = Query(...), user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Перекинуть позицию на другой стол (создаёт/дополняет заказ целевого стола)."""
+    return await OrderService(db).move_item(user.company_id, order_id, item_id, table)
+
+
 # ── Terminals ─────────────────────────────────────────────────────────────────
 
 @router.post("/terminals", response_model=TerminalResponse, status_code=status.HTTP_201_CREATED)

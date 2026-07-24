@@ -56,12 +56,29 @@ export default function SettingsProfilePage() {
   const [cancelPw, setCancelPw] = useState("");
   const [cancelPwSet, setCancelPwSet] = useState(false);
   const [cancelPwSaving, setCancelPwSaving] = useState(false);
+  const [waiterPct, setWaiterPct] = useState("");
+  const [waiterPctSaving, setWaiterPctSaving] = useState(false);
 
   useEffect(() => {
     api.get("/companies/me/cancel-password")
       .then(({ data }) => setCancelPwSet(Boolean(data?.is_set)))
       .catch(() => {});
+    api.get("/companies/me")
+      .then(({ data }) => setWaiterPct(data?.waiter_service_percent != null ? String(data.waiter_service_percent) : ""))
+      .catch(() => {});
   }, []);
+
+  const saveWaiterPct = async () => {
+    setWaiterPctSaving(true);
+    try {
+      await api.patch("/companies/me", { waiter_service_percent: Math.max(0, Math.min(100, Number(waiterPct) || 0)) });
+      setSuccess("Доля обслуги официанту сохранена.");
+    } catch (err) {
+      setError(err.response?.data?.detail || "Не удалось сохранить долю обслуги");
+    } finally {
+      setWaiterPctSaving(false);
+    }
+  };
 
   const saveCancelPw = async () => {
     setCancelPwSaving(true);
@@ -303,6 +320,24 @@ export default function SettingsProfilePage() {
                     autoComplete="off"
                   />
                   <button type="button" className="company-profile-danger" style={{ whiteSpace: "nowrap" }} disabled={cancelPwSaving} onClick={saveCancelPw}>
+                    Сохранить
+                  </button>
+                </div>
+              </label>
+
+              <label>
+                <span>
+                  <b>Доля обслуги официанту, %</b>
+                  <em>Процент от суммы обслуги для отчёта по официантам</em>
+                </span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type="number" min="0" max="100"
+                    value={waiterPct}
+                    onChange={(event) => setWaiterPct(event.target.value)}
+                    placeholder="0"
+                  />
+                  <button type="button" className="company-profile-danger" style={{ whiteSpace: "nowrap" }} disabled={waiterPctSaving} onClick={saveWaiterPct}>
                     Сохранить
                   </button>
                 </div>

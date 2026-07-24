@@ -29,6 +29,8 @@ class WaiterReportRow(BaseModel):
     orders_count: int
     orders_total: Decimal
     dishes_count: int
+    service_fee: Decimal = Decimal("0")
+    waiter_share: Decimal = Decimal("0")
 
 
 class DishReportRow(BaseModel):

@@ -208,6 +208,7 @@ export const orders = {
   update: (id, data) => api.patch(`/pos/orders/${id}`, data).then((r) => r.data),
   addItem: (orderId, data) => api.post(`/pos/orders/${orderId}/items`, data).then((r) => r.data),
   removeItem: (orderId, itemId) => api.delete(`/pos/orders/${orderId}/items/${itemId}`).then((r) => r.data),
+  moveItem: (orderId, itemId, table) => api.post(`/pos/orders/${orderId}/items/${itemId}/move`, null, { params: { table } }).then((r) => r.data),
   updateStatus: (id, status) => writeQueued('patch', `/pos/orders/${id}/status`, { status }),
   cancel: (id, password) => api.delete(`/pos/orders/${id}`, { params: password ? { password } : {} }).then((r) => r.data),
 }
@@ -269,9 +270,9 @@ export const customers = {
 }
 
 export const reports = {
-  sales: (params) => api.get('/reports/sales', { params }).then((r) => r.data),
-  products: (params) => api.get('/reports/products', { params }).then((r) => r.data),
-  staff: (params) => api.get('/reports/staff', { params }).then((r) => r.data),
+  sales: (params) => api.get('/reports/orders', { params }).then((r) => r.data),
+  products: (params) => api.get('/reports/dishes', { params }).then((r) => r.data),
+  staff: (params) => api.get('/reports/waiters', { params }).then((r) => r.data),
 }
 
 export const stopList = {

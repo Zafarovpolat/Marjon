@@ -35,6 +35,8 @@ class ReceiptData:
     table_number: str | None = None
     customer_name: str | None = None
     fiscal_code: str | None = None
+    service_fee: Decimal = Decimal("0")
+    waiter_name: str | None = None
     printed_at: datetime = field(default_factory=datetime.now)
 
 
@@ -135,6 +137,8 @@ class EscPosFormatter:
         out += self._two_col("Итого:", f"{data.subtotal:,.0f}")
         if data.discount > 0:
             out += self._two_col("Скидка:", f"-{data.discount:,.0f}")
+        if getattr(data, "service_fee", 0) and data.service_fee > 0:
+            out += self._two_col("Обслуживание:", f"{data.service_fee:,.0f}")
         if data.tax > 0:
             out += self._two_col("НДС (12%):", f"{data.tax:,.0f}")
         out += self.BOLD_ON

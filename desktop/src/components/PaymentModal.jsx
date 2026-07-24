@@ -15,7 +15,7 @@ import { t } from '../shared/i18n'
  */
 function fmt(n) { return Number(n || 0).toLocaleString('ru-RU') }
 
-export default function PaymentModal({ order, onPrint, onComplete, onCancel, onReassign, onClose, canClose = true }) {
+export default function PaymentModal({ order, onPrint, onComplete, onCancel, onReassign, onClose, canClose = true, staff = [], onSetWaiter }) {
   const [method, setMethod] = useState('cash')
   const [received, setReceived] = useState('')
   const [cashPart, setCashPart] = useState('')   // при смешанной оплате
@@ -66,6 +66,16 @@ export default function PaymentModal({ order, onPrint, onComplete, onCancel, onR
             <span>{t('to_pay_label')}</span>
             <strong>{fmt(total)} {t('currency')}</strong>
           </div>
+
+          {onSetWaiter && staff.length > 0 && (
+            <div className="pay-order__mixrow" style={{ marginBottom: 12 }}>
+              <label>{t('change_waiter')}</label>
+              <select className="input" value={order?.waiter_id || ''} onChange={(e) => onSetWaiter(order, e.target.value || null)}>
+                <option value="">—</option>
+                {staff.map((s) => <option key={s.id} value={s.id}>{s.name || s.email}</option>)}
+              </select>
+            </div>
+          )}
 
           <button className={`btn btn--outline pay-order__print ${printed ? 'is-done' : ''}`} onClick={doPrint}>
             {printed ? <CheckCircle size={18} /> : <Printer size={18} />} {t('print_receipt')}

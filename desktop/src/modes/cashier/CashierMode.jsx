@@ -3,7 +3,7 @@ import {
   Search, Plus, Minus, Trash2, CreditCard, Banknote, X, ShoppingBag, Bike, Utensils,
   Percent, LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock, Wallet, History, BarChart3, LogOut,
 } from 'lucide-react'
-import { orders, menu, halls as hallsApi, printers as printersApi, customers as customersApi } from '../../shared/api'
+import { orders, menu, halls as hallsApi, printers as printersApi, customers as customersApi, auth as authApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
 import DishModal from '../../components/DishModal'
 import FinancePanel from '../../components/FinancePanel'
@@ -55,6 +55,7 @@ export default function CashierMode({ user = {}, onBack }) {
   const [histOpen, setHistOpen] = useState(false)
   const [repOpen, setRepOpen] = useState(false)
   const [payExisting, setPayExisting] = useState(null)   // существующий заказ на оплату/закрытие
+  const [staff, setStaff] = useState([])                 // сотрудники (для смены официанта)
   const [printerMap, setPrinterMap] = useState({})
 
   const loadFloor = useCallback(() => {
@@ -80,7 +81,8 @@ export default function CashierMode({ user = {}, onBack }) {
         setProducts(prods.items ?? prods ?? [])
         const map = {}; (pl.items ?? pl ?? []).forEach((p) => { map[p.id] = p }); setPrinterMap(map)
       })
-  }, [])
+    authApi.staffUsers(user.branch_id).then((d) => setStaff(Array.isArray(d) ? d : d?.items || [])).catch(() => {})
+  }, [user.branch_id])
 
   useEffect(() => {
     return onPrintJob(async (msg) => {
@@ -158,6 +160,11 @@ export default function CashierMode({ user = {}, onBack }) {
     try { await orders.cancel(order.id, password); setPayExisting(null); loadFloor() }
     catch (e) { alert(e?.response?.data?.detail || t('cancel_error')) }
   }
+  // Смена официанта заказа
+  async function setOrderWaiter(order, waiterId) {
+    try { await orders.update(order.id, { waiter_id: waiterId }); setPayExisting({ ...order, waiter_id: waiterId }); loadFloor() }
+    catch (e) { alert(e?.response?.data?.detail || e.message) }
+  }
   // Перенос заказа на другой стол
   async function reassignTable(order) {
     const num = window.prompt(t('move_table'), order.table_number || '')
@@ -177,8 +184,8 @@ export default function CashierMode({ user = {}, onBack }) {
     setCart((prev) => [...prev, { lineId: `${Date.now()}-${Math.random()}`, product, name: product.name, price: Number(product.price) || 0, qty: 1, note: '' }])
   }
   // Правка позиции В ЗАКАЗЕ (кол-во/цена/комментарий)
-  function saveEdit({ quantity, price, note }) {
-    setCart((prev) => prev.map((i) => i.lineId === editLine.lineId ? { ...i, qty: quantity, price, note } : i))
+  function saveEdit({ quantity, price, note, takeaway }) {
+    setCart((prev) => prev.map((i) => i.lineId === editLine.lineId ? { ...i, qty: quantity, price, note, takeaway } : i))
     setEditLine(null)
   }
   function updateQty(lineId, d) { setCart((prev) => prev.map((i) => i.lineId === lineId ? { ...i, qty: i.qty + d } : i).filter((i) => i.qty > 0)) }
@@ -203,7 +210,7 @@ export default function CashierMode({ user = {}, onBack }) {
         customer_phone: orderType === 'delivery' ? (deliveryPhone || undefined) : undefined,
         customer_address: orderType === 'delivery' ? (deliveryAddress || undefined) : undefined,
         payment_method: method,
-        items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, price: i.price, note: i.note || null })),
+        items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, price: i.price, note: i.note || null, takeaway: !!i.takeaway })),
       })
       const receiptPrinter = Object.values(printerMap).find((p) => p.printer_type === 'receipt' && p.branch_id === user.branch_id)
       if (receiptPrinter) await printersApi.printReceipt({ order_id: order.id, printer_id: receiptPrinter.id, copies: 1 }).catch(() => {})
@@ -282,6 +289,8 @@ export default function CashierMode({ user = {}, onBack }) {
             onComplete={completeExistingOrder}
             onCancel={cancelOrder}
             onReassign={reassignTable}
+            staff={staff}
+            onSetWaiter={setOrderWaiter}
             canClose={can(user, 'can_close_bill')}
             onClose={() => setPayExisting(null)}
           />
@@ -366,7 +375,7 @@ export default function CashierMode({ user = {}, onBack }) {
               {cart.length === 0 ? <p className="cart-empty">{t('tap_dish_hint')}</p> : cart.map((item) => (
                 <div key={item.lineId} className="cart-item">
                   <button type="button" className="cart-item__info" onClick={() => setEditLine(item)} title={t('edit')}>
-                    <span className="cart-item__name">{item.name}</span>
+                    <span className="cart-item__name">{item.name}{item.takeaway && <span className="cart-tag">{t('takeaway')}</span>}</span>
                     {item.note && <span className="cart-row__note">{item.note}</span>}
                     <span className="cart-item__price">{(item.price * item.qty).toLocaleString('ru-RU')} {t('currency')}</span>
                   </button>

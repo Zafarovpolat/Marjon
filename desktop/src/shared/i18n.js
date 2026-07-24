@@ -32,7 +32,7 @@ const DICT = {
     receipt_sent: 'Чек отправлен на печать', complete_order: 'Закрыть заказ', hand_to_cashier: 'Передать на кассу',
     order_items: 'Позиции заказа', to_pay_label: 'К оплате', phone: 'Телефон', address: 'Адрес доставки', move_table: 'Сменить стол',
     cancel_order: 'Отменить заказ', cancel_password_prompt: 'Введите пароль отмены', cancel_error: 'Не удалось отменить заказ',
-    no_permission: 'Нет прав на это действие',
+    no_permission: 'Нет прав на это действие', move_to_table: 'Переместить на стол №', change_waiter: 'Сменить официанта',
     // Техкарта
     tech_card: 'Техкарта', ingredient: 'Ингредиент', amount: 'Кол-во',
     recipe_yield: 'Выход', portion: 'порция', recipe_empty: 'Техкарта для этого блюда ещё не заполнена.',
@@ -69,6 +69,7 @@ const DICT = {
     rep_unavailable: 'Отчёт недоступен (нет связи или данных).', rep_no_data: 'Нет данных за период.', print: 'Печать',
     col_name: 'Название', col_product: 'Блюдо', col_staff: 'Сотрудник', col_cashier: 'Кассир',
     col_count: 'Кол-во', col_orders: 'Заказы', col_revenue: 'Выручка', col_date: 'Дата',
+    col_service: 'Обслуга', col_share: 'Доля официанта', col_price: 'Цена', col_unit: 'Ед.', col_profit: 'Прибыль',
     // Стоп-лист
     only_stop: 'Только в стопе', nothing_found: 'Ничего не найдено.', return_item: 'Вернуть', to_stop: 'В стоп',
     // Настройки
@@ -79,6 +80,7 @@ const DICT = {
     s_screen: 'Экран', s_fullscreen: 'Полный экран', s_toggle: 'Переключить', s_zoom: 'Масштаб интерфейса',
     s_autolaunch: 'Запускать при старте Windows', s_lang_theme: 'Язык и тема', s_lang: 'Язык интерфейса',
     s_theme: 'Тема', s_light: 'Светлая', s_dark: 'Тёмная', s_connection: 'Подключение', s_server_addr: 'Адрес сервера',
+    printers_diag: 'Принтеры (диагностика)', printers_queue: 'Записей в очереди офлайн', printers_none: 'Принтеры не настроены', printers_ping: 'Пинг',
     // Роли
     role_owner: 'Владелец', role_manager: 'Менеджер', role_cashier: 'Кассир', role_waiter: 'Официант',
     role_cook: 'Повар', role_chef: 'Шеф-повар', role_kitchen: 'Кухня', role_bartender: 'Бармен',
@@ -127,7 +129,7 @@ const DICT = {
     receipt_sent: 'Chek chop etishga yuborildi', complete_order: 'Buyurtmani yopish', hand_to_cashier: 'Kassaga topshirish',
     order_items: 'Buyurtma tarkibi', to_pay_label: 'To‘lash kerak', phone: 'Telefon', address: 'Yetkazish manzili', move_table: 'Stolni almashtirish',
     cancel_order: 'Buyurtmani bekor qilish', cancel_password_prompt: 'Bekor qilish parolini kiriting', cancel_error: 'Buyurtmani bekor qilib bo‘lmadi',
-    no_permission: 'Bu amal uchun ruxsat yo‘q',
+    no_permission: 'Bu amal uchun ruxsat yo‘q', move_to_table: 'Boshqa stolga №', change_waiter: 'Ofitsiantni almashtirish',
     // Texkarta
     tech_card: 'Texkarta', ingredient: 'Ingredient', amount: 'Miqdor',
     recipe_yield: 'Chiqishi', portion: 'porsiya', recipe_empty: 'Bu taom uchun texkarta hali to‘ldirilmagan.',
@@ -164,6 +166,7 @@ const DICT = {
     rep_unavailable: 'Hisobot mavjud emas (aloqa yoki ma’lumot yo‘q).', rep_no_data: 'Davr uchun ma’lumot yo‘q.', print: 'Chop etish',
     col_name: 'Nomi', col_product: 'Taom', col_staff: 'Xodim', col_cashier: 'Kassir',
     col_count: 'Miqdor', col_orders: 'Buyurtmalar', col_revenue: 'Tushum', col_date: 'Sana',
+    col_service: 'Xizmat haqi', col_share: 'Ofitsiant ulushi', col_price: 'Narx', col_unit: 'Birlik', col_profit: 'Foyda',
     // Stop-ro‘yxat
     only_stop: 'Faqat stopda', nothing_found: 'Hech narsa topilmadi.', return_item: 'Qaytarish', to_stop: 'Stopga',
     // Sozlamalar
@@ -174,6 +177,7 @@ const DICT = {
     s_screen: 'Ekran', s_fullscreen: 'To‘liq ekran', s_toggle: 'Almashtirish', s_zoom: 'Interfeys masshtabi',
     s_autolaunch: 'Windows ishga tushganda ochilsin', s_lang_theme: 'Til va mavzu', s_lang: 'Interfeys tili',
     s_theme: 'Mavzu', s_light: 'Yorug‘', s_dark: 'Qorong‘i', s_connection: 'Ulanish', s_server_addr: 'Server manzili',
+    printers_diag: 'Printerlar (diagnostika)', printers_queue: 'Oflayn navbatdagi yozuvlar', printers_none: 'Printerlar sozlanmagan', printers_ping: 'Ping',
     // Rollar
     role_owner: 'Egasi', role_manager: 'Menejer', role_cashier: 'Kassir', role_waiter: 'Ofitsiant',
     role_cook: 'Oshpaz', role_chef: 'Bosh oshpaz', role_kitchen: 'Oshxona', role_bartender: 'Barmen',

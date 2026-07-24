@@ -12,6 +12,7 @@ export default function DishModal({ product, line, onSubmit, onRemove, onClose }
   const [qty, setQty] = useState(line?.qty ?? 1)
   const [price, setPrice] = useState(line?.price ?? (Number(product?.price) || 0))
   const [note, setNote] = useState(line?.note ?? '')
+  const [takeaway, setTakeaway] = useState(line?.takeaway ?? false)
   if (!product) return null
 
   return (
@@ -44,6 +45,13 @@ export default function DishModal({ product, line, onSubmit, onRemove, onClose }
               className="input dish-modal__price" />
           </div>
 
+          <div className="dish-modal__row">
+            <label>{t('takeaway')}</label>
+            <button type="button" className={`toggle ${takeaway ? 'toggle--on' : ''}`} onClick={() => setTakeaway((v) => !v)}>
+              <span className="toggle__dot" />
+            </button>
+          </div>
+
           <div className="dish-modal__row dish-modal__row--col">
             <label>{t('comment')}</label>
             <textarea value={note} onChange={(e) => setNote(e.target.value)}
@@ -55,7 +63,7 @@ export default function DishModal({ product, line, onSubmit, onRemove, onClose }
 
         <div className="dish-modal__actions">
           {onRemove && <button className="btn btn--danger dish-modal__del" onClick={onRemove}><Trash2 size={18} /></button>}
-          <button className="btn btn--primary" onClick={() => onSubmit({ quantity: qty, price, note })}>{t('save')}</button>
+          <button className="btn btn--primary" onClick={() => onSubmit({ quantity: qty, price, note, takeaway })}>{t('save')}</button>
         </div>
       </div>
     </div>

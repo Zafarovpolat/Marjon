@@ -14,6 +14,7 @@ class OrderItemCreate(BaseSchema):
     note: str | None = None
     modifiers: list[dict] = Field(default_factory=list)
     course: int = 1
+    takeaway: bool = False
 
 
 class OrderCreate(BaseSchema):
@@ -38,6 +39,7 @@ class OrderUpdate(BaseSchema):
     persons_count: int | None = None
     customer_phone: str | None = None
     customer_address: str | None = None
+    waiter_id: UUID | None = None
     discount_amount: Decimal | None = None
     service_fee_rate: float | None = None
 
@@ -58,6 +60,7 @@ class OrderItemResponse(BaseResponseSchema):
     note: str | None
     modifiers: list
     course: int
+    takeaway: bool = False
 
 
 class OrderResponse(BaseResponseSchema):

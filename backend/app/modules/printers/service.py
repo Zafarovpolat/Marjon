@@ -215,12 +215,21 @@ class PrinterService:
             for item in order.items
         ]
 
+        # Названия компании/филиала/официанта для «подробного» чека
+        from app.modules.companies.models import Company, Branch
+        from app.modules.auth.models import User as _User
+        company = (await self.db.execute(select(Company).where(Company.id == company_id))).scalar_one_or_none()
+        branch = (await self.db.execute(select(Branch).where(Branch.id == order.branch_id))).scalar_one_or_none()
+        waiter = None
+        if order.waiter_id:
+            waiter = (await self.db.execute(select(_User).where(_User.id == order.waiter_id))).scalar_one_or_none()
+
         return ReceiptData(
-            company_name="Компания",
-            branch_name="Филиал",
+            company_name=(company.name if company else "—"),
+            branch_name=(branch.name if branch else "—"),
             order_number=order.order_number,
             order_type=order.order_type,
-            cashier_name="Кассир",
+            cashier_name=(waiter.name if waiter and waiter.name else "Кассир"),
             items=lines,
             subtotal=order.subtotal,
             discount=order.discount_amount,
@@ -230,6 +239,8 @@ class PrinterService:
             cash_received=payment.cash_received if payment else None,
             change_given=payment.change_given if payment else None,
             table_number=order.table_number,
+            service_fee=order.service_fee,
+            waiter_name=(waiter.name if waiter else None),
         )
 
     async def _build_kitchen_data(self, order: Order) -> KitchenTicketData:

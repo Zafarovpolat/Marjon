@@ -16,6 +16,7 @@ class CompanyUpdate(BaseSchema):
     country_code: str | None = None
     timezone: str | None = None
     currency: str | None = None
+    waiter_service_percent: int | None = None
 
 
 class CompanyResponse(BaseResponseSchema):
@@ -25,6 +26,7 @@ class CompanyResponse(BaseResponseSchema):
     timezone: str
     currency: str
     is_active: bool
+    waiter_service_percent: int = 0
 
 
 class BranchCreate(BaseSchema):

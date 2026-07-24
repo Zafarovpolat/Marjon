@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { X, Volume2, Server, Monitor, Timer, Globe, Maximize, ZoomIn, ZoomOut, Check } from 'lucide-react'
+import { X, Volume2, Server, Monitor, Timer, Globe, Maximize, ZoomIn, ZoomOut, Check, Printer, Wifi } from 'lucide-react'
 import { soundService } from '../services/sound'
+import { printers as printersApi, queueSize } from '../shared/api'
 import { t } from '../shared/i18n'
 
 const el = () => (typeof window !== 'undefined' ? window.electron : null)
@@ -18,11 +19,22 @@ export default function SettingsModal({ open, onClose }) {
   const [timerRed, setTimerRed] = useState(() => Number(localStorage.getItem('marjon_timer_red')) || 10)
   const [lang, setLang] = useState(() => localStorage.getItem('marjon_lang') || 'ru')
   const [theme, setTheme] = useState(() => localStorage.getItem('marjon_theme') || 'light')
+  const [printerList, setPrinterList] = useState([])
+  const [pingState, setPingState] = useState({})   // { [id]: 'ok'|'fail'|'...' }
 
   useEffect(() => {
     if (!open) return
     Promise.resolve(el()?.getZoom?.()).then((z) => { if (z) setZoom(z) }).catch(() => {})
+    printersApi.list().then((d) => setPrinterList(Array.isArray(d) ? d : d?.items || [])).catch(() => setPrinterList([]))
   }, [open])
+
+  async function pingPrinter(p) {
+    setPingState((s) => ({ ...s, [p.id]: '...' }))
+    try {
+      const r = await el()?.pingPrinter?.({ ip: p.ip_address, port: p.port ?? 9100 })
+      setPingState((s) => ({ ...s, [p.id]: r?.ok || r === true ? 'ok' : 'fail' }))
+    } catch { setPingState((s) => ({ ...s, [p.id]: 'fail' })) }
+  }
 
   if (!open) return null
   const persist = (k, v) => localStorage.setItem(k, v)
@@ -163,6 +175,22 @@ export default function SettingsModal({ open, onClose }) {
                 </button>
               </div>
             </div>
+          </section>
+
+          {/* Принтеры — диагностика */}
+          <section className="settings-section">
+            <h3><Printer size={18} /> {t('printers_diag')}</h3>
+            <p className="settings-hint">{t('printers_queue')}: {queueSize()}</p>
+            {printerList.length === 0 ? (
+              <p className="settings-hint">{t('printers_none')}</p>
+            ) : printerList.map((p) => (
+              <div className="settings-row" key={p.id}>
+                <span>{p.name} · {p.printer_type === 'receipt' ? t('cash') : t('mode_kitchen')} · {p.ip_address || '—'}:{p.port ?? 9100}</span>
+                <button className="btn btn--outline btn--sm" onClick={() => pingPrinter(p)}>
+                  <Wifi size={16} /> {pingState[p.id] === 'ok' ? '✓' : pingState[p.id] === 'fail' ? '✕' : pingState[p.id] === '...' ? '…' : t('printers_ping')}
+                </button>
+              </div>
+            ))}
           </section>
         </div>
       </div>

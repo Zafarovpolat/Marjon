@@ -6,8 +6,9 @@ import { t } from '../shared/i18n'
 // Ключ колонки с сервера → ключ словаря
 const COL_KEY = {
   name: 'col_name', title: 'col_name', product: 'col_product', staff: 'col_staff', cashier: 'col_cashier',
-  count: 'col_count', qty: 'col_count', quantity: 'col_count', orders: 'col_orders',
-  total: 'col_sum', amount: 'col_sum', sum: 'col_sum', revenue: 'col_revenue', date: 'col_date',
+  count: 'col_count', qty: 'col_count', quantity: 'col_count', dishes_count: 'col_count', orders: 'col_orders', orders_count: 'col_orders',
+  total: 'col_sum', amount: 'col_sum', sum: 'col_sum', orders_total: 'col_sum', revenue: 'col_revenue', date: 'col_date',
+  service_fee: 'col_service', waiter_share: 'col_share', price: 'col_price', unit: 'col_unit', profit: 'col_profit',
 }
 function colLabel(c) { return COL_KEY[c] ? t(COL_KEY[c]) : c }
 
@@ -15,7 +16,7 @@ function today() { return new Date().toISOString().slice(0, 10) }
 function isNum(v) { return typeof v === 'number' || (typeof v === 'string' && v !== '' && !isNaN(Number(v)) && /[0-9]/.test(v)) }
 function fmtCell(k, v) {
   if (v == null) return '—'
-  if (isNum(v) && /total|amount|revenue|sum|price/i.test(k)) return Number(v).toLocaleString('ru-RU')
+  if (isNum(v) && /total|amount|revenue|sum|price|fee|share|profit|cost/i.test(k)) return Number(v).toLocaleString('ru-RU')
   if (typeof v === 'object') return JSON.stringify(v)
   return String(v)
 }
@@ -45,7 +46,9 @@ export default function ReportsPanel({ branch, onClose }) {
       .finally(() => setLoading(false))
   }, [tab, from, to, branch?.id])
 
-  const cols = rows && rows.length ? Object.keys(rows[0]).filter((k) => typeof rows[0][k] !== 'object').slice(0, 6) : []
+  const cols = rows && rows.length
+    ? Object.keys(rows[0]).filter((k) => typeof rows[0][k] !== 'object' && !/_id$|^id$/i.test(k)).slice(0, 8)
+    : []
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -80,10 +83,10 @@ export default function ReportsPanel({ branch, onClose }) {
             <>
               <div className="rep-table-wrap">
                 <table className="hist-table">
-                  <thead><tr>{cols.map((c) => <th key={c} className={/total|amount|revenue|sum/i.test(c) ? 'ta-r' : ''}>{colLabel(c)}</th>)}</tr></thead>
+                  <thead><tr>{cols.map((c) => <th key={c} className={/total|amount|revenue|sum|fee|share|price|profit|cost/i.test(c) ? 'ta-r' : ''}>{colLabel(c)}</th>)}</tr></thead>
                   <tbody>
                     {rows.map((r, i) => (
-                      <tr key={i}>{cols.map((c) => <td key={c} className={/total|amount|revenue|sum/i.test(c) ? 'ta-r hist-sum' : ''}>{fmtCell(c, r[c])}</td>)}</tr>
+                      <tr key={i}>{cols.map((c) => <td key={c} className={/total|amount|revenue|sum|fee|share|price|profit|cost/i.test(c) ? 'ta-r hist-sum' : ''}>{fmtCell(c, r[c])}</td>)}</tr>
                     ))}
                   </tbody>
                 </table>

@@ -64,6 +64,7 @@ class OrderService:
         await self.db.flush()
 
         subtotal = Decimal("0")
+        service_base = Decimal("0")
         for item_data in data.items:
             product = await self._get_product(company_id, item_data.product_id)
             item_total = _quantize(product.price * item_data.quantity)
@@ -72,6 +73,8 @@ class OrderService:
             item_discount = _quantize(item_data.discount) if item_data.discount else Decimal("0")
             item_total_after_discount = max(item_total - item_discount, Decimal("0"))
             subtotal += item_total_after_discount
+            if not item_data.takeaway:
+                service_base += item_total_after_discount
 
             item = OrderItem(
                 order_id=order.id,
@@ -84,12 +87,13 @@ class OrderService:
                 note=item_data.note,
                 modifiers=item_data.modifiers,
                 course=item_data.course,
+                takeaway=item_data.takeaway,
             )
             self.db.add(item)
 
-        # Calculate totals
+        # Calculate totals (обслуга — только с позиций «в зале»)
         order.subtotal = subtotal
-        self._recalculate_totals(order, data.discount_amount, data.service_fee_rate)
+        self._recalculate_totals(order, data.discount_amount, data.service_fee_rate, service_base=service_base)
         await self.db.commit()
         created_order = await self.get(company_id, order.id)
         try:
@@ -204,15 +208,17 @@ class OrderService:
             note=item_data.note,
             modifiers=item_data.modifiers,
             course=item_data.course,
+            takeaway=item_data.takeaway,
         )
         self.db.add(item)
+        await self.db.flush()
 
         order.subtotal += item_total_after_discount
         # Дозаказ → снова «готовится», сбрасываем отметку печати чека (стол снова занят)
         order.receipt_printed_at = None
         if order.status in ("ready", "new", "accepted"):
             order.status = "cooking"
-        self._recalculate_totals(order)
+        self._recalculate_totals(order, service_base=await self._service_base_q(order.id))
         await self.db.commit()
         return await self.get(company_id, order_id)
 
@@ -227,9 +233,86 @@ class OrderService:
         order.subtotal -= item.total
         item.status = "cancelled"
         item.total = Decimal("0")
-        self._recalculate_totals(order)
+        self._recalculate_totals(order, service_base=await self._service_base_q(order.id))
         await self.db.commit()
         return await self.get(company_id, order_id)
+
+    async def _subtotal_q(self, order_id: UUID) -> Decimal:
+        res = await self.db.execute(
+            select(func.coalesce(func.sum(OrderItem.total), 0)).where(
+                OrderItem.order_id == order_id, OrderItem.status != "cancelled",
+            )
+        )
+        return Decimal(str(res.scalar_one() or 0))
+
+    # ── Move item to another table ────────────────────────────────────────────
+
+    async def move_item(self, company_id: UUID, order_id: UUID, item_id: UUID, target_table: str) -> Order:
+        """Перекинуть позицию на другой стол. Находит/создаёт заказ на целевом столе,
+        помечает позицию «перемещено», перепечатывает кухонный чек, пустой исходный отменяет."""
+        order = await self.get(company_id, order_id)
+        if order.status in ("completed", "cancelled"):
+            raise ValidationError("Нельзя перемещать позицию завершённого/отменённого заказа")
+        item = await self._get_order_item(order, item_id)
+        if item.status == "cancelled":
+            raise ValidationError("Позиция отменена")
+        target_table = str(target_table).strip()
+        if not target_table or target_table == str(order.table_number or ""):
+            raise ValidationError("Выберите другой стол")
+
+        # Найти активный заказ на целевом столе или создать новый
+        target = (await self.db.execute(
+            select(Order).where(
+                Order.company_id == company_id, Order.branch_id == order.branch_id,
+                Order.table_number == target_table,
+                Order.status.notin_(["completed", "cancelled"]),
+            ).order_by(Order.created_at.desc())
+        )).scalars().first()
+        if not target:
+            target = Order(
+                company_id=company_id, branch_id=order.branch_id, waiter_id=order.waiter_id,
+                order_number=await self._generate_daily_number(company_id, order.branch_id),
+                order_type="dine_in", table_number=target_table, status="cooking",
+            )
+            self.db.add(target)
+            await self.db.flush()
+
+        # Пометка «перемещено» → попадёт в кухонный чек
+        mark = f"[перемещено со стола {order.table_number}]"
+        item.note = f"{item.note} {mark}".strip() if item.note else mark
+        item.order_id = target.id
+        target.receipt_printed_at = None
+        await self.db.flush()
+
+        # Пересчёт обоих заказов
+        order.subtotal = await self._subtotal_q(order.id)
+        self._recalculate_totals(order, service_base=await self._service_base_q(order.id))
+        target.subtotal = await self._subtotal_q(target.id)
+        self._recalculate_totals(target, service_base=await self._service_base_q(target.id))
+
+        # Пустой исходный заказ — отменить (стол освобождается)
+        remaining = (await self.db.execute(
+            select(func.count(OrderItem.id)).where(
+                OrderItem.order_id == order.id, OrderItem.status != "cancelled",
+            )
+        )).scalar_one()
+        if remaining == 0:
+            order.status = "cancelled"
+
+        await self.db.commit()
+
+        # Повторная печать кухонного чека целевого заказа + уведомления
+        try:
+            from app.modules.printers.service import PrinterService
+            await PrinterService(self.db).auto_print_kitchen(company_id, target.branch_id, target.id)
+        except Exception:
+            pass
+        try:
+            await kitchen_manager.broadcast(company_id, "order_updated", {"order_id": str(target.id)})
+            await kitchen_manager.broadcast(company_id, "order_updated", {"order_id": str(order.id)})
+        except Exception:
+            pass
+        return await self.get(company_id, target.id)
 
     # ── Update order (discount / service fee / note) ──────────────────────────
 
@@ -244,8 +327,15 @@ class OrderService:
             order.table_number = data.table_number
         if data.persons_count is not None:
             order.persons_count = data.persons_count
+        if data.customer_phone is not None:
+            order.customer_phone = data.customer_phone
+        if data.customer_address is not None:
+            order.customer_address = data.customer_address
+        if data.waiter_id is not None:
+            order.waiter_id = data.waiter_id
 
-        self._recalculate_totals(order, data.discount_amount, data.service_fee_rate)
+        self._recalculate_totals(order, data.discount_amount, data.service_fee_rate,
+                                 service_base=await self._service_base_q(order.id))
         await self.repo.save(order)
         return await self.get(company_id, order_id)
 
@@ -256,8 +346,11 @@ class OrderService:
         order: Order,
         discount_override: Decimal | None = None,
         service_fee_rate_override: float | None = None,
+        service_base: Decimal | None = None,
     ) -> None:
-        """Recalculate tax, discount, service_fee, total_amount from subtotal."""
+        """Пересчёт налога, скидки, обслуги, итога.
+        service_base — сумма позиций «в зале» (без takeaway); обслуга берётся с неё.
+        Если не передана — обслуга считается со всей суммы (обратная совместимость)."""
         subtotal = order.subtotal
 
         # Discount (manual amount)
@@ -265,18 +358,30 @@ class OrderService:
             order.discount_amount = _quantize(discount_override)
         after_discount = max(subtotal - order.discount_amount, Decimal("0"))
 
-        # Tax (НДС 12% — from settings, applied after discount)
+        # Tax (НДС 12% — from settings, applied after discount) — на всё
         tax_rate = Decimal(str(settings.default_tax_rate))
         order.tax_amount = _quantize(after_discount * tax_rate)
 
-        # Service fee (rate-based)
+        # Service fee (rate-based) — только на позиции «в зале»
         if service_fee_rate_override is not None:
             fee_rate = Decimal(str(service_fee_rate_override))
         else:
             fee_rate = Decimal(str(settings.default_service_fee_rate))
-        order.service_fee = _quantize(after_discount * fee_rate)
+        fee_base = after_discount if service_base is None else service_base
+        order.service_fee = _quantize(fee_base * fee_rate)
 
         order.total_amount = _quantize(after_discount + order.tax_amount + order.service_fee)
+
+    async def _service_base_q(self, order_id: UUID) -> Decimal:
+        """Сумма активных позиций «в зале» (не отменённых, не takeaway) для обслуги."""
+        res = await self.db.execute(
+            select(func.coalesce(func.sum(OrderItem.total), 0)).where(
+                OrderItem.order_id == order_id,
+                OrderItem.status != "cancelled",
+                OrderItem.takeaway.is_(False),
+            )
+        )
+        return Decimal(str(res.scalar_one() or 0))
 
     async def _generate_daily_number(self, company_id: UUID, branch_id: UUID) -> str:
         """Generate daily order number: YYYYMMDD-NNNN."""

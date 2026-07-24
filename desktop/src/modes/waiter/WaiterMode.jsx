@@ -100,6 +100,13 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     })
   }, [printerMap])
 
+  // Перекинуть позицию на другой стол
+  async function moveItemToTable(order, item) {
+    const num = window.prompt(t('move_to_table'))
+    if (num === null || String(num).trim() === '') return
+    try { await orders.moveItem(order.id, item.id, String(num).trim()); setView('floor'); loadData() }
+    catch (e) { alert(e?.response?.data?.detail || e.message) }
+  }
   // Печать чека клиента (официант печатает сам)
   async function printReceipt(order) {
     if (!order?.id) return
@@ -160,8 +167,8 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     if (product.is_available === false || product.in_stop_list) return // в стоп-листе
     setCart((prev) => [...prev, { lineId: `${Date.now()}-${Math.random()}`, product, qty: 1, price: Number(product.price) || 0, note: '' }])
   }
-  function saveEdit({ quantity, price, note }) {
-    setCart((prev) => prev.map((i) => i.lineId === editLine.lineId ? { ...i, qty: quantity, price, note } : i))
+  function saveEdit({ quantity, price, note, takeaway }) {
+    setCart((prev) => prev.map((i) => i.lineId === editLine.lineId ? { ...i, qty: quantity, price, note, takeaway } : i))
     setEditLine(null)
   }
   function updateQty(lineId, d) {
@@ -176,7 +183,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
       if (addToOrderId) {
         // Дополняем существующий заказ (старые блюда сохраняются)
         for (const i of cart) {
-          await orders.addItem(addToOrderId, { product_id: i.product.id, quantity: i.qty, note: i.note || null })
+          await orders.addItem(addToOrderId, { product_id: i.product.id, quantity: i.qty, note: i.note || null, takeaway: !!i.takeaway })
         }
         // Авто-статус: заказ снова «готовится»
         try { await orders.updateStatus(addToOrderId, 'cooking') } catch { /* офлайн-очередь */ }
@@ -187,7 +194,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
           table_number: selectedTable?.number != null ? String(selectedTable.number) : null,
           guests_count: guests,
           note: orderNote || null,
-          items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, price: i.price, note: i.note || null })),
+          items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, price: i.price, note: i.note || null, takeaway: !!i.takeaway })),
         })
       }
       setAddToOrderId(null)
@@ -306,7 +313,10 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                 {(selectedTable.order?.items ?? []).map((item) => (
                   <li key={item.id} className={`detail-item detail-item--${item.status || 'new'}`}>
                     <span className="detail-item__qty">×{item.quantity}</span>
-                    <span className="detail-item__name">{item.name || item.product_name}</span>
+                    <span className="detail-item__name">{item.name || item.product_name}{item.takeaway ? <span className="cart-tag">{t('takeaway')}</span> : null}</span>
+                    <button type="button" className="detail-item__move" title={t('move_to_table')} onClick={() => moveItemToTable(selectedTable.order, item)}>
+                      <ArrowLeft size={15} style={{ transform: 'rotate(180deg)' }} />
+                    </button>
                     <span className="detail-item__status">
                       {item.status === 'ready' && <CheckCircle size={16} />}
                       {item.status === 'cooking' && <Coffee size={16} />}
@@ -371,7 +381,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                   ) : cart.map((item) => (
                     <div key={item.lineId} className="cart-row">
                       <button type="button" className="cart-row__info" onClick={() => setEditLine(item)} title={t('edit')}>
-                        <span className="cart-row__name">{item.product.name}</span>
+                        <span className="cart-row__name">{item.product.name}{item.takeaway && <span className="cart-tag">{t('takeaway')}</span>}</span>
                         {item.note && <span className="cart-row__note">{item.note}</span>}
                       </button>
                       <div className="cart-row__qty">

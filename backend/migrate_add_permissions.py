@@ -21,11 +21,15 @@ PLAN = {
     },
     "companies": {
         "cancel_password": {"sqlite": "VARCHAR(64)", "postgresql": "VARCHAR(64)"},
+        "waiter_service_percent": {"sqlite": "INTEGER DEFAULT 0", "postgresql": "INTEGER DEFAULT 0"},
     },
     "orders": {
         "customer_phone":     {"sqlite": "VARCHAR(30)", "postgresql": "VARCHAR(30)"},
         "customer_address":   {"sqlite": "TEXT", "postgresql": "TEXT"},
         "receipt_printed_at": {"sqlite": "TIMESTAMP", "postgresql": "TIMESTAMPTZ"},
+    },
+    "order_items": {
+        "takeaway": {"sqlite": "BOOLEAN DEFAULT 0", "postgresql": "BOOLEAN DEFAULT FALSE"},
     },
 }
 
