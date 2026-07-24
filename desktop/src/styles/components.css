@@ -331,8 +331,9 @@
 
 /* Когда открыта экранная клавиатура — сдвигаем карточку вверх,
    чтобы активное поле не перекрывалось */
-.login-card--kb-open {
-  transform: translateY(-26vh);
+.login-card--kb-open,
+body.vkb-open .login-card {
+  transform: translateY(-24vh);
 }
 
 .login-card__header {
@@ -3389,9 +3390,9 @@
 
 /* ── История заказов / Отчёты (таблицы) ── */
 .hist-modal, .rep-modal { width: 720px; max-width: 96vw; }
-.hist-tabs { display: flex; gap: 8px; padding: 0 var(--spacing-xl) var(--spacing-md); flex-wrap: wrap; }
+.hist-tabs { display: flex; gap: 8px; padding: var(--spacing-lg) var(--spacing-xl) var(--spacing-md); flex-wrap: wrap; }
 .hist-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
-.hist-table th { text-align: left; padding: 8px 10px; color: var(--color-text-muted); font-weight: 600; border-bottom: 2px solid var(--color-border-light); position: sticky; top: 0; background: var(--color-card); }
+.hist-table th { text-align: left; padding: 8px 10px; color: var(--color-text-muted); font-weight: 600; border-bottom: 2px solid var(--color-border-light); background: var(--color-card); }
 .hist-table td { padding: 9px 10px; border-bottom: 1px solid var(--color-border-light); }
 .hist-table .ta-r, .hist-table th.ta-r { text-align: right; }
 .hist-num { font-weight: 700; }
@@ -3416,7 +3417,8 @@
 .settings-section h3 { border-bottom-width: 1px; }
 /* Таблицы внутри модалок дышат так же, как в панелях */
 .hist-modal .modal__body, .rep-modal .modal__body, .stop-modal .modal__body { padding-top: var(--spacing-md); }
-.rep-controls { padding: 0 var(--spacing-xl) var(--spacing-md); display: flex; flex-direction: column; gap: var(--spacing-md); }
+.rep-controls { padding: var(--spacing-lg) var(--spacing-xl) var(--spacing-md); display: flex; flex-direction: column; gap: var(--spacing-md); }
+.rep-controls .hist-tabs { padding: 0; }
 .rep-dates { display: flex; align-items: center; gap: var(--spacing-sm); }
 .rep-dates .input { min-height: 44px; width: auto; }
 .rep-table-wrap { overflow: auto; }
@@ -3425,7 +3427,7 @@
 /* ── Стоп-лист ── */
 .stop-modal { width: 640px; max-width: 96vw; }
 .stop-count { display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--color-danger); color: #fff; font-size: 12px; font-weight: 700; margin-left: 8px; }
-.stop-controls { display: flex; align-items: center; gap: var(--spacing-md); padding: 0 var(--spacing-xl) var(--spacing-md); }
+.stop-controls { display: flex; align-items: center; gap: var(--spacing-md); padding: var(--spacing-lg) var(--spacing-xl) var(--spacing-md); }
 .stop-list { display: flex; flex-direction: column; gap: 6px; }
 .stop-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-subtle); }
 .stop-row--off { background: var(--color-danger-bg); }
@@ -3456,3 +3458,29 @@
 .pay-order__change strong { font-size: var(--text-lg); font-weight: 800; color: var(--color-success); }
 .pay-order__actions { padding: var(--spacing-lg) var(--spacing-xl); border-top: 1px solid var(--color-border-light); }
 .pay-order__actions .btn { width: 100%; justify-content: center; }
+
+/* Поиск блюда в шапке кассы — длиннее */
+.board__head-right .cashier-products__search { width: 380px; max-width: 42vw; }
+.board__head-right .search-input { width: 100%; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   ТЁМНАЯ ТЕМА — экраны входа, клавиатура, столы (были жёстко белые)
+   ═══════════════════════════════════════════════════════════════════ */
+[data-theme="dark"] .login-card { background: var(--color-card); border-color: var(--color-border); }
+[data-theme="dark"] .login-card__tabs { background: var(--color-subtle); }
+[data-theme="dark"] .emp-screen__panel { background: var(--color-card); }
+[data-theme="dark"] .pinpad { background: var(--color-card); }
+[data-theme="dark"] .pinpad__key:hover { background: var(--color-surface-hover); }
+[data-theme="dark"] .server-setup__icon { background: rgba(29, 181, 181, 0.18); }
+
+/* Экранная клавиатура — тёмные клавиши */
+[data-theme="dark"] .vkb { background: var(--neutral-800); border-top-color: var(--color-border); box-shadow: 0 -10px 40px rgba(0,0,0,0.45); }
+[data-theme="dark"] .vkb__key { background: var(--neutral-700); color: #e7edf6; box-shadow: 0 1px 0 rgba(0,0,0,0.35); }
+[data-theme="dark"] .vkb__key:active { background: var(--neutral-600); }
+[data-theme="dark"] .vkb__key--medium { background: var(--neutral-600); color: #cdd7e6; }
+[data-theme="dark"] .vkb__close { background: var(--neutral-700); color: #cdd7e6; }
+
+/* Столы — busy/check были со светлым фоном (текст сливался в тёмной теме) */
+[data-theme="dark"] .tcard--busy { background: rgba(245, 158, 11, 0.16); border-color: rgba(245, 158, 11, 0.38); }
+[data-theme="dark"] .tcard--check { background: rgba(22, 163, 74, 0.16); border-color: rgba(22, 163, 74, 0.42); }
+[data-theme="dark"] .tcard--free .tcard__status { background: var(--color-subtle); color: var(--color-text-secondary); }

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
-  CheckCircle, Clock, AlertTriangle, Volume2, VolumeX,
+  CheckCircle, Check, Clock, AlertTriangle, Volume2, VolumeX,
   LayoutGrid, CookingPot, Utensils, ShoppingBag, Bike, RefreshCw, Ban, ChefHat,
 } from 'lucide-react'
 import { kitchen } from '../../shared/api'
@@ -274,7 +274,7 @@ function KitchenCard({ order, timerState, elapsed, onItemDone, onOrderDone, onSh
               )}
               {!done ? (
                 <button className="kitchen-item__done-btn" onClick={() => onItemDone(item.id)} title={t('done')}>
-                  <CheckCircle size={28} />
+                  <Check size={24} strokeWidth={3} />
                 </button>
               ) : (
                 <CheckCircle size={22} className="kitchen-item__check" />

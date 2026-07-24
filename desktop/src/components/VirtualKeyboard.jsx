@@ -32,6 +32,8 @@ const LAYOUTS = {
 
 const SPECIAL = new Set(['shift', 'backspace', 'enter', 'space', 'lang', 'num', 'abc', 'sym'])
 const MEDIUM = new Set(['shift', 'backspace', 'enter', 'lang', 'num', 'abc', 'sym'])
+// Типы input, для которых экранная клавиатура не нужна
+const NON_TEXT = new Set(['range', 'checkbox', 'radio', 'color', 'file', 'date', 'datetime-local', 'month', 'time', 'week', 'button', 'submit', 'reset'])
 
 export default function VirtualKeyboard({ onVisibilityChange }) {
   const [layout, setLayout] = useState('ru')
@@ -42,7 +44,9 @@ export default function VirtualKeyboard({ onVisibilityChange }) {
   useEffect(() => {
     function onFocusIn(e) {
       const el = e.target
-      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+      const isText = el.tagName === 'TEXTAREA' ||
+        (el.tagName === 'INPUT' && !NON_TEXT.has((el.getAttribute('type') || 'text').toLowerCase()))
+      if (isText) {
         setActiveInput(el)
         const kb = el.dataset.keyboard
         if (kb && LAYOUTS[kb]) { setLayout(kb); if (kb === 'ru' || kb === 'en') lastAlpha.current = kb }
@@ -59,7 +63,11 @@ export default function VirtualKeyboard({ onVisibilityChange }) {
     return () => { document.removeEventListener('focusin', onFocusIn); document.removeEventListener('focusout', onFocusOut) }
   }, [])
 
-  useEffect(() => { onVisibilityChange?.(!!activeInput) }, [activeInput, onVisibilityChange])
+  useEffect(() => {
+    onVisibilityChange?.(!!activeInput)
+    // Глобальный сигнал для CSS (сдвиг карточек входа), т.к. клавиатура смонтирована один раз в корне
+    try { document.body.classList.toggle('vkb-open', !!activeInput) } catch { /* no body */ }
+  }, [activeInput, onVisibilityChange])
 
   function close() { activeInput?.blur(); setActiveInput(null) }
 

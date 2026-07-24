@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Server, Check, Wifi, WifiOff } from 'lucide-react'
-import VirtualKeyboard from '../components/VirtualKeyboard'
 import { t } from '../shared/i18n'
 
 /**
@@ -13,7 +12,6 @@ export default function ServerSetup({ onComplete }) {
   const [testing, setTesting] = useState(false)
   const [status, setStatus] = useState(null) // 'ok' | 'error'
   const [error, setError] = useState('')
-  const [kbOpen, setKbOpen] = useState(false)
 
   async function testConnection() {
     setTesting(true)
@@ -46,7 +44,7 @@ export default function ServerSetup({ onComplete }) {
 
   return (
     <div className="login-page">
-      <div className={`login-card ${kbOpen ? 'login-card--kb-open' : ''}`}>
+      <div className="login-card">
         <div className="login-card__header">
           <div className="login-card__logo">MARJON</div>
           <p className="login-card__subtitle">{t('srv_setup')}</p>
@@ -104,8 +102,6 @@ export default function ServerSetup({ onComplete }) {
           </div>
         </div>
       </div>
-
-      <VirtualKeyboard onVisibilityChange={setKbOpen} />
     </div>
   )
 }

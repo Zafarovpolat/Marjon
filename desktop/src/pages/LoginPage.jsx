@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react'
 import { auth } from '../shared/api'
 import { Eye, EyeOff, Delete, LogOut } from 'lucide-react'
-import VirtualKeyboard from '../components/VirtualKeyboard'
 import { t } from '../shared/i18n'
 
 // Оставляет только 9 локальных цифр номера (отбрасывает код страны 998)
@@ -47,7 +46,6 @@ function AdminLogin({ onLogin }) {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [kbOpen, setKbOpen] = useState(false)
 
   const phoneComplete = phoneDigits.length === 9
 
@@ -75,8 +73,7 @@ function AdminLogin({ onLogin }) {
 
   return (
     <div className="login-page">
-      {/* Сдвигаем карточку вверх, когда открыта клавиатура, чтобы поле было видно */}
-      <div className={`login-card ${kbOpen ? 'login-card--kb-open' : ''}`}>
+      <div className="login-card">
         <div className="login-card__header">
           <div className="login-card__logo">MARJON</div>
           <p className="login-card__subtitle">{t('srv_setup')}</p>
@@ -124,10 +121,6 @@ function AdminLogin({ onLogin }) {
           </button>
         </form>
       </div>
-
-      <VirtualKeyboard
-        onVisibilityChange={setKbOpen}
-      />
     </div>
   )
 }

@@ -291,7 +291,7 @@
 .tcard:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 .tcard:active { transform: translateY(0) scale(0.985); }
 
-.tcard__top { display: flex; align-items: flex-start; justify-content: space-between; }
+.tcard__top { display: flex; align-items: flex-start; justify-content: space-between; width: 100%; gap: 12px; }
 .tcard__num { font-family: var(--font-display); font-size: 26px; font-weight: 800; color: var(--color-text-primary); line-height: 1; }
 .tcard__seats { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--color-text-muted); }
 .tcard__seats > svg { width: 15px; height: 15px; }
