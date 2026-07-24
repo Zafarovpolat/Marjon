@@ -263,6 +263,11 @@ export const finance = {
   addExpense: (data) => api.post('/finance/income-expense', { ...data, direction: 'expense' }).then((r) => r.data),
 }
 
+// Клиенты (автокомплит по номеру в доставке)
+export const customers = {
+  search: (q) => api.get('/crm/customers', { params: { q } }).then((r) => r.data),
+}
+
 export const reports = {
   sales: (params) => api.get('/reports/sales', { params }).then((r) => r.data),
   products: (params) => api.get('/reports/products', { params }).then((r) => r.data),

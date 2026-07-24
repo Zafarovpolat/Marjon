@@ -3,7 +3,7 @@ import {
   Search, Plus, Minus, Trash2, CreditCard, Banknote, X, ShoppingBag, Bike, Utensils,
   Percent, LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock, Wallet, History, BarChart3, LogOut,
 } from 'lucide-react'
-import { orders, menu, halls as hallsApi, printers as printersApi } from '../../shared/api'
+import { orders, menu, halls as hallsApi, printers as printersApi, customers as customersApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
 import DishModal from '../../components/DishModal'
 import FinancePanel from '../../components/FinancePanel'
@@ -45,6 +45,10 @@ export default function CashierMode({ user = {}, onBack }) {
   const [cart, setCart] = useState([])
   const [discount, setDiscount] = useState(0)
   const [orderNote, setOrderNote] = useState('')
+  const [deliveryPhone, setDeliveryPhone] = useState('')
+  const [deliveryAddress, setDeliveryAddress] = useState('')
+  const [custId, setCustId] = useState(null)
+  const [custMatches, setCustMatches] = useState([])
   const [editLine, setEditLine] = useState(null)
   const [payModal, setPayModal] = useState(false)
   const [finOpen, setFinOpen] = useState(false)
@@ -110,7 +114,18 @@ export default function CashierMode({ user = {}, onBack }) {
   function openOrder(type, table) {
     setOrderType(type); setSelectedTable(table || null)
     setCart([]); setDiscount(0); setOrderNote(''); setSearch(''); setActiveCat(null)
+    setDeliveryPhone(''); setDeliveryAddress(''); setCustId(null); setCustMatches([])
     setView('order')
+  }
+  // Автокомплит постоянных клиентов по номеру
+  function onDeliveryPhone(v) {
+    setDeliveryPhone(v); setCustId(null)
+    const q = v.replace(/[^\d+]/g, '')
+    if (q.length < 3) { setCustMatches([]); return }
+    customersApi.search(q).then((list) => setCustMatches((Array.isArray(list) ? list : []).slice(0, 6))).catch(() => setCustMatches([]))
+  }
+  function pickCustomer(c) {
+    setDeliveryPhone(c.phone || ''); setCustId(c.id); setCustMatches([])
   }
   // Клик по столу: есть заказ (передан официантом) → оплата/закрытие; пусто → новый заказ
   function tapTable(tbl) {
@@ -142,6 +157,13 @@ export default function CashierMode({ user = {}, onBack }) {
     if (password === null) return
     try { await orders.cancel(order.id, password); setPayExisting(null); loadFloor() }
     catch (e) { alert(e?.response?.data?.detail || t('cancel_error')) }
+  }
+  // Перенос заказа на другой стол
+  async function reassignTable(order) {
+    const num = window.prompt(t('move_table'), order.table_number || '')
+    if (num === null || String(num).trim() === '') return
+    try { await orders.update(order.id, { table_number: String(num).trim() }); setPayExisting(null); loadFloor() }
+    catch (e) { alert(e?.response?.data?.detail || e.message) }
   }
 
   // ── Каталог/корзина ──
@@ -177,6 +199,9 @@ export default function CashierMode({ user = {}, onBack }) {
         table_number: orderType === 'dine_in' && selectedTable?.number != null ? String(selectedTable.number) : undefined,
         discount_amount: discountAmount ? Math.round(discountAmount) : undefined,
         note: orderNote || undefined,
+        customer_id: custId || undefined,
+        customer_phone: orderType === 'delivery' ? (deliveryPhone || undefined) : undefined,
+        customer_address: orderType === 'delivery' ? (deliveryAddress || undefined) : undefined,
         payment_method: method,
         items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, price: i.price, note: i.note || null })),
       })
@@ -256,6 +281,7 @@ export default function CashierMode({ user = {}, onBack }) {
             onPrint={printOrderReceipt}
             onComplete={completeExistingOrder}
             onCancel={cancelOrder}
+            onReassign={reassignTable}
             canClose={can(user, 'can_close_bill')}
             onClose={() => setPayExisting(null)}
           />
@@ -319,6 +345,23 @@ export default function CashierMode({ user = {}, onBack }) {
 
           <aside className="cashier-cart">
             <div className="cashier-cart__header"><ShoppingBag size={20} /><span>{t('order')}</span><span className="cart-count">{itemCount}</span></div>
+            {orderType === 'delivery' && (
+              <div className="cashier-delivery">
+                <div className="cashier-delivery__phone">
+                  <input className="cashier-cart__note" placeholder={t('phone')} value={deliveryPhone} onChange={(e) => onDeliveryPhone(e.target.value)} />
+                  {custMatches.length > 0 && (
+                    <div className="cashier-delivery__suggest">
+                      {custMatches.map((c) => (
+                        <button key={c.id} type="button" onClick={() => pickCustomer(c)}>
+                          {c.phone}{c.name ? ` · ${c.name}` : ''}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <input className="cashier-cart__note" placeholder={t('address')} value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} />
+              </div>
+            )}
             <div className="cashier-cart__items">
               {cart.length === 0 ? <p className="cart-empty">{t('tap_dish_hint')}</p> : cart.map((item) => (
                 <div key={item.lineId} className="cart-item">

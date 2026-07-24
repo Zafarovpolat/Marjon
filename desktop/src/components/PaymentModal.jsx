@@ -15,7 +15,7 @@ import { t } from '../shared/i18n'
  */
 function fmt(n) { return Number(n || 0).toLocaleString('ru-RU') }
 
-export default function PaymentModal({ order, onPrint, onComplete, onCancel, onClose, canClose = true }) {
+export default function PaymentModal({ order, onPrint, onComplete, onCancel, onReassign, onClose, canClose = true }) {
   const [method, setMethod] = useState('cash')
   const [received, setReceived] = useState('')
   const [cashPart, setCashPart] = useState('')   // при смешанной оплате
@@ -115,6 +115,11 @@ export default function PaymentModal({ order, onPrint, onComplete, onCancel, onC
         </div>
 
         <div className="pay-order__actions">
+          {onReassign && order?.table_number && (
+            <button className="btn btn--outline" disabled={busy} onClick={() => onReassign(order)}>
+              {t('move_table')}
+            </button>
+          )}
           {onCancel && (
             <button className="btn btn--outline pay-order__cancel" disabled={busy} onClick={() => onCancel(order)}>
               {t('cancel_order')}

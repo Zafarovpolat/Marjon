@@ -30,7 +30,7 @@ const DICT = {
     pay_order: 'Оплата заказа', print_receipt: 'Печать чека', cash_received: 'Получено', change: 'Сдача',
     no_receipt_printer: 'Чековый принтер не настроен (добавьте его в админке по IP)',
     receipt_sent: 'Чек отправлен на печать', complete_order: 'Закрыть заказ', hand_to_cashier: 'Передать на кассу',
-    order_items: 'Позиции заказа', to_pay_label: 'К оплате',
+    order_items: 'Позиции заказа', to_pay_label: 'К оплате', phone: 'Телефон', address: 'Адрес доставки', move_table: 'Сменить стол',
     cancel_order: 'Отменить заказ', cancel_password_prompt: 'Введите пароль отмены', cancel_error: 'Не удалось отменить заказ',
     no_permission: 'Нет прав на это действие',
     // Техкарта
@@ -125,7 +125,7 @@ const DICT = {
     pay_order: 'Buyurtma to‘lovi', print_receipt: 'Chek chop etish', cash_received: 'Berilgan summa', change: 'Qaytim',
     no_receipt_printer: 'Chek printeri sozlanmagan (admin panelda IP bo‘yicha qo‘shing)',
     receipt_sent: 'Chek chop etishga yuborildi', complete_order: 'Buyurtmani yopish', hand_to_cashier: 'Kassaga topshirish',
-    order_items: 'Buyurtma tarkibi', to_pay_label: 'To‘lash kerak',
+    order_items: 'Buyurtma tarkibi', to_pay_label: 'To‘lash kerak', phone: 'Telefon', address: 'Yetkazish manzili', move_table: 'Stolni almashtirish',
     cancel_order: 'Buyurtmani bekor qilish', cancel_password_prompt: 'Bekor qilish parolini kiriting', cancel_error: 'Buyurtmani bekor qilib bo‘lmadi',
     no_permission: 'Bu amal uchun ruxsat yo‘q',
     // Texkarta
