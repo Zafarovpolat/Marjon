@@ -280,11 +280,8 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                   <Plus size={18} /> {t('add_dishes')}
                 </button>
                 {selectedTable.order?.status === 'ready' && (
-                  <button className="btn-success btn--lg" onClick={async () => {
-                    try { await orders.updateStatus(selectedTable.order.id, 'completed') } catch {}
-                    setView('floor'); loadData()
-                  }}>
-                    <CheckCircle size={18} /> {t('close_order')}
+                  <button className="btn-success btn--lg" onClick={() => { setView('floor'); loadData() }}>
+                    <CheckCircle size={18} /> {t('hand_to_cashier')}
                   </button>
                 )}
               </div>

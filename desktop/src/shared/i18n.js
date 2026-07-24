@@ -27,6 +27,10 @@ const DICT = {
     cash: 'Наличные', card: 'Карта', mixed: 'Смешанная',
     items_low: 'позиций', tables_low: 'столов', busy_low: 'занято', in_work: 'в работе', orders_low: 'заказов',
     create_order_error: 'Ошибка создания заказа',
+    pay_order: 'Оплата заказа', print_receipt: 'Печать чека', cash_received: 'Получено', change: 'Сдача',
+    no_receipt_printer: 'Чековый принтер не настроен (добавьте его в админке по IP)',
+    receipt_sent: 'Чек отправлен на печать', complete_order: 'Закрыть заказ', hand_to_cashier: 'Передать на кассу',
+    order_items: 'Позиции заказа', to_pay_label: 'К оплате',
     // Техкарта
     tech_card: 'Техкарта', ingredient: 'Ингредиент', amount: 'Кол-во',
     recipe_yield: 'Выход', portion: 'порция', recipe_empty: 'Техкарта для этого блюда ещё не заполнена.',
@@ -116,6 +120,10 @@ const DICT = {
     cash: 'Naqd', card: 'Karta', mixed: 'Aralash',
     items_low: 'pozitsiya', tables_low: 'stol', busy_low: 'band', in_work: 'ishda', orders_low: 'buyurtma',
     create_order_error: 'Buyurtma yaratishda xatolik',
+    pay_order: 'Buyurtma to‘lovi', print_receipt: 'Chek chop etish', cash_received: 'Berilgan summa', change: 'Qaytim',
+    no_receipt_printer: 'Chek printeri sozlanmagan (admin panelda IP bo‘yicha qo‘shing)',
+    receipt_sent: 'Chek chop etishga yuborildi', complete_order: 'Buyurtmani yopish', hand_to_cashier: 'Kassaga topshirish',
+    order_items: 'Buyurtma tarkibi', to_pay_label: 'To‘lash kerak',
     // Texkarta
     tech_card: 'Texkarta', ingredient: 'Ingredient', amount: 'Miqdor',
     recipe_yield: 'Chiqishi', portion: 'porsiya', recipe_empty: 'Bu taom uchun texkarta hali to‘ldirilmagan.',

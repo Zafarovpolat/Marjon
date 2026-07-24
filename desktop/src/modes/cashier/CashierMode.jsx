@@ -10,6 +10,7 @@ import FinancePanel from '../../components/FinancePanel'
 import HistoryPanel from '../../components/HistoryPanel'
 import ReportsPanel from '../../components/ReportsPanel'
 import RecipeModal from '../../components/RecipeModal'
+import PaymentModal from '../../components/PaymentModal'
 import { t } from '../../shared/i18n'
 
 const ACTIVE = new Set(['new', 'accepted', 'cooking', 'ready', 'pending'])
@@ -49,6 +50,7 @@ export default function CashierMode({ user = {}, onBack }) {
   const [histOpen, setHistOpen] = useState(false)
   const [repOpen, setRepOpen] = useState(false)
   const [recipeProd, setRecipeProd] = useState(null)
+  const [payExisting, setPayExisting] = useState(null)   // существующий заказ на оплату/закрытие
   const [printerMap, setPrinterMap] = useState({})
 
   const loadFloor = useCallback(() => {
@@ -105,7 +107,30 @@ export default function CashierMode({ user = {}, onBack }) {
     setCart([]); setDiscount(0); setSearch(''); setActiveCat(null)
     setView('order')
   }
-  function tapTable(t) { openOrder('dine_in', t) }
+  // Клик по столу: есть заказ (передан официантом) → оплата/закрытие; пусто → новый заказ
+  function tapTable(tbl) {
+    const o = orderFor(tbl.number)
+    if (o) setPayExisting(o)
+    else openOrder('dine_in', tbl)
+  }
+
+  // Чековый принтер филиала (привязка по IP — в админке организации)
+  function receiptPrinter() {
+    return Object.values(printerMap).find((p) => p.printer_type === 'receipt' && p.branch_id === user.branch_id)
+  }
+  async function printOrderReceipt(order) {
+    const pr = receiptPrinter()
+    if (!pr) { alert(t('no_receipt_printer')); return }
+    try { await printersApi.printReceipt({ order_id: order.id, printer_id: pr.id, copies: 1 }) }
+    catch (e) { alert(e?.response?.data?.detail || e.message) }
+  }
+  // Закрыть заказ (оплата подтверждена кассиром). Способ оплаты фиксируется вручную —
+  // платёжку интегрируем позже; сейчас просто переводим заказ в completed.
+  async function completeExistingOrder(order /* , method */) {
+    try { await orders.updateStatus(order.id, 'completed') } catch { /* офлайн-очередь досошлёт */ }
+    setPayExisting(null)
+    loadFloor()
+  }
 
   // ── Каталог/корзина ──
   const filtered = products.filter((p) => {
@@ -213,6 +238,14 @@ export default function CashierMode({ user = {}, onBack }) {
         {finOpen && <FinancePanel branch={{ id: user.branch_id }} onClose={() => setFinOpen(false)} />}
         {histOpen && <HistoryPanel branch={{ id: user.branch_id }} onClose={() => setHistOpen(false)} />}
         {repOpen && <ReportsPanel branch={{ id: user.branch_id }} onClose={() => setRepOpen(false)} />}
+        {payExisting && (
+          <PaymentModal
+            order={payExisting}
+            onPrint={printOrderReceipt}
+            onComplete={completeExistingOrder}
+            onClose={() => setPayExisting(null)}
+          />
+        )}
       </div>
     )
   }
