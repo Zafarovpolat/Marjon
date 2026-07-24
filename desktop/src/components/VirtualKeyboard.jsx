@@ -50,6 +50,8 @@ export default function VirtualKeyboard({ onVisibilityChange }) {
         setActiveInput(el)
         const kb = el.dataset.keyboard
         if (kb && LAYOUTS[kb]) { setLayout(kb); if (kb === 'ru' || kb === 'en') lastAlpha.current = kb }
+        // Держим фокусное поле в зоне видимости над клавиатурой
+        setTimeout(() => { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }) } catch { /* ignore */ } }, 60)
       }
     }
     function onFocusOut() {

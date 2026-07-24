@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   CheckCircle, Check, Clock, AlertTriangle, Volume2, VolumeX,
-  LayoutGrid, CookingPot, Utensils, ShoppingBag, Bike, RefreshCw, Ban, ChefHat,
+  LayoutGrid, CookingPot, Utensils, ShoppingBag, Bike, Ban, ChefHat, LogOut,
 } from 'lucide-react'
 import { kitchen } from '../../shared/api'
 import StopListPanel from '../../components/StopListPanel'
@@ -149,6 +149,10 @@ export default function KitchenMode({ user = {}, onBack }) {
   return (
     <div className="floor">
       <aside className="ws-side">
+        <button className="zone zone--exit" onClick={onBack}>
+          <LogOut size={20} />
+          <span className="zone__name">{t('logout')}</span>
+        </button>
         <div className="ws-side__label">{t('queue')}</div>
         <nav className="ws-side__nav">
           {FILTERS.map(({ id, label, Icon }) => {
@@ -162,14 +166,10 @@ export default function KitchenMode({ user = {}, onBack }) {
             )
           })}
         </nav>
+        <div className="ws-side__spacer" />
         <button className="zone" onClick={() => setStopOpen(true)}>
           <Ban size={20} />
           <span className="zone__name">{t('stoplist')}</span>
-        </button>
-        <div className="ws-side__spacer" />
-        <button className="zone" onClick={onBack}>
-          <RefreshCw size={20} />
-          <span className="zone__name">{t('switch_mode')}</span>
         </button>
       </aside>
 

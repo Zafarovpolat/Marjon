@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   Search, Plus, Minus, Trash2, CreditCard, Banknote, X, ShoppingBag, Bike, Utensils,
-  Percent, LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock, Wallet, History, BarChart3, ChefHat,
+  Percent, LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock, Wallet, History, BarChart3, LogOut,
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi, printers as printersApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
@@ -9,7 +9,6 @@ import DishModal from '../../components/DishModal'
 import FinancePanel from '../../components/FinancePanel'
 import HistoryPanel from '../../components/HistoryPanel'
 import ReportsPanel from '../../components/ReportsPanel'
-import RecipeModal from '../../components/RecipeModal'
 import PaymentModal from '../../components/PaymentModal'
 import { t } from '../../shared/i18n'
 
@@ -49,7 +48,6 @@ export default function CashierMode({ user = {}, onBack }) {
   const [finOpen, setFinOpen] = useState(false)
   const [histOpen, setHistOpen] = useState(false)
   const [repOpen, setRepOpen] = useState(false)
-  const [recipeProd, setRecipeProd] = useState(null)
   const [payExisting, setPayExisting] = useState(null)   // существующий заказ на оплату/закрытие
   const [printerMap, setPrinterMap] = useState({})
 
@@ -180,6 +178,7 @@ export default function CashierMode({ user = {}, onBack }) {
     return (
       <div className="floor">
         <aside className="ws-side">
+          <button className="zone zone--exit" onClick={onBack}><LogOut size={20} /><span className="zone__name">{t('logout')}</span></button>
           <div className="ws-side__label">{t('locations')}</div>
           <nav className="ws-side__nav">
             {zoneNav.map(({ id, name, count, Icon }) => (
@@ -188,8 +187,6 @@ export default function CashierMode({ user = {}, onBack }) {
               </button>
             ))}
           </nav>
-          <div className="ws-side__spacer" />
-          <button className="zone" onClick={onBack}><ArrowLeft size={20} /><span className="zone__name">{t('switch_mode')}</span></button>
         </aside>
 
         <main className="ws__main">
@@ -254,6 +251,7 @@ export default function CashierMode({ user = {}, onBack }) {
   return (
     <div className="floor">
       <aside className="ws-side">
+        <button className="zone zone--exit" onClick={() => setView('floor')}><ArrowLeft size={20} /><span className="zone__name">{t('to_tables')}</span></button>
         <div className="ws-side__label">{t('categories')}</div>
         <nav className="ws-side__nav">
           <button className={`zone ${!activeCat ? 'zone--active' : ''}`} onClick={() => setActiveCat(null)}>
@@ -265,8 +263,6 @@ export default function CashierMode({ user = {}, onBack }) {
             </button>
           ))}
         </nav>
-        <div className="ws-side__spacer" />
-        <button className="zone" onClick={() => setView('floor')}><ArrowLeft size={20} /><span className="zone__name">{t('to_tables')}</span></button>
       </aside>
 
       <main className="ws__main">
@@ -291,17 +287,14 @@ export default function CashierMode({ user = {}, onBack }) {
               {filtered.length === 0 ? <p className="empty-text">{t('no_dishes')}</p> : filtered.map((p) => {
                 const stopped = p.is_available === false || p.in_stop_list
                 return (
-                  <div key={p.id} className="product-cell">
-                    <button className={`product-card ${stopped ? 'product-card--stop' : ''}`} onClick={() => addToCart(p)}>
-                      <span className="product-card__thumb">
-                        {p.image_url ? <img src={p.image_url} alt="" loading="lazy" /> : <Utensils size={26} />}
-                      </span>
-                      <span className="product-card__name">{p.name}</span>
-                      <span className="product-card__price">{Number(p.price || 0).toLocaleString('ru-RU')} {t('currency')}</span>
-                      {stopped && <span className="product-card__stop">STOP</span>}
-                    </button>
-                    <button className="product-card__info" onClick={() => setRecipeProd(p)} title={t('tech_card')}><ChefHat size={15} /></button>
-                  </div>
+                  <button key={p.id} className={`product-card ${stopped ? 'product-card--stop' : ''}`} onClick={() => addToCart(p)}>
+                    <span className="product-card__thumb">
+                      {p.image_url ? <img src={p.image_url} alt="" loading="lazy" /> : <Utensils size={26} />}
+                    </span>
+                    <span className="product-card__name">{p.name}</span>
+                    <span className="product-card__price">{Number(p.price || 0).toLocaleString('ru-RU')} {t('currency')}</span>
+                    {stopped && <span className="product-card__stop">STOP</span>}
+                  </button>
                 )
               })}
             </div>
@@ -352,8 +345,6 @@ export default function CashierMode({ user = {}, onBack }) {
           onClose={() => setEditLine(null)}
         />
       )}
-
-      {recipeProd && <RecipeModal product={recipeProd} onClose={() => setRecipeProd(null)} />}
 
       {payModal && (
         <div className="modal-overlay" onClick={() => setPayModal(false)}>

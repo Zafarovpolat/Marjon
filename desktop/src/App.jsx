@@ -3,7 +3,6 @@ import { Lock } from 'lucide-react'
 import ServerSetup from './pages/ServerSetup'
 import LoginPage from './pages/LoginPage'
 import BranchSelector from './pages/BranchSelector'
-import ModeSelector from './pages/ModeSelector'
 import OrganizationScreen from './pages/OrganizationScreen'
 import EmployeeSelector from './pages/EmployeeSelector'
 import PinPad from './pages/PinPad'
@@ -13,11 +12,8 @@ import SettingsModal from './components/SettingsModal'
 import CashierMode from './modes/cashier/CashierMode'
 import KitchenMode from './modes/kitchen/KitchenMode'
 import WaiterMode from './modes/waiter/WaiterMode'
-import ManagerMode from './modes/manager/ManagerMode'
 import { auth, branding, flushQueue, queueSize } from './shared/api'
 import { t } from './shared/i18n'
-
-const MANAGER_ROLES = ['owner', 'manager', 'admin', 'director']
 import { kitchenWS } from './services/kitchenWS'
 
 const MODES = {
@@ -26,7 +22,8 @@ const MODES = {
   waiter: { component: WaiterMode, label: 'Официант' },
 }
 
-// Роль → рабочий режим. owner/manager → null (показываем выбор режима: доступ ко всему).
+// Роль → рабочий режим. Роли пока только официант/кассир; повар → кухня (KDS).
+// Владелец/менеджер/админ и прочие по умолчанию → касса (полный доступ кассира).
 const ROLE_TO_MODE = {
   waiter: 'waiter', cashier: 'cashier',
   cook: 'kitchen', chef: 'kitchen', kitchen: 'kitchen', bartender: 'kitchen',
@@ -38,7 +35,7 @@ function roleToMode(user, employee) {
     const m = ROLE_TO_MODE[String(s || '').toLowerCase()]
     if (m) return m
   }
-  return null
+  return 'cashier'   // дефолт — касса
 }
 
 function loadJson(key) {
@@ -150,31 +147,26 @@ export default function App() {
     localStorage.setItem('marjon_user', JSON.stringify(user))
     setStaffUser(user)
 
-    const m = roleToMode(user, pinEmployee)
-    if (m) { localStorage.setItem('marjon_mode', m); setMode(m) }
-    else { localStorage.removeItem('marjon_mode'); setMode(null) }
+    const m = roleToMode(user, pinEmployee)   // всегда вернёт режим (дефолт — касса)
+    localStorage.setItem('marjon_mode', m); setMode(m)
     setStaffView('org')
     setPinEmployee(null)
   }, [pinEmployee])
 
-  // 4. Выбор режима (для менеджера/владельца)
-  const handleModeSelect = useCallback((selectedMode) => {
-    localStorage.setItem('marjon_mode', selectedMode)
-    setMode(selectedMode)
-  }, [])
-
-  // Выход сотрудника (не отвязывает терминал)
-  const handleStaffLogout = useCallback(() => {
+  // Выход сотрудника (не отвязывает терминал). toEmployees=true → сразу к выбору сотрудника
+  const handleStaffLogout = useCallback((toEmployees = false) => {
     localStorage.removeItem('marjon_token')
     localStorage.removeItem('marjon_user')
     localStorage.removeItem('marjon_mode')
     setStaffToken(null)
     setStaffUser(null)
     setMode(null)
-    setStaffView('org')
+    setStaffView(toEmployees === true ? 'employees' : 'org')
     setPinEmployee(null)
     kitchenWS.disconnect()
   }, [])
+  // Кнопка аккаунта в шапке — сразу к выбору сотрудника
+  const handleAccount = useCallback(() => handleStaffLogout(true), [handleStaffLogout])
 
   // Полный сброс терминала (отвязка от организации)
   const handleFullReset = useCallback(() => {
@@ -204,8 +196,6 @@ export default function App() {
   useEffect(() => {
     try { window.electron?.onRequestExitPin?.(() => setIsLocked(true)) } catch { /* not in electron */ }
   }, [])
-
-  const handleBack = useCallback(() => { localStorage.removeItem('marjon_mode'); setMode(null) }, [])
 
   // ── Экран блокировки ──
   if (isLocked) {
@@ -278,50 +268,10 @@ export default function App() {
     )
   }
 
-  // Шаг 4: менеджер → дашборд; остальные без назначенного режима → выбор режима
-  if (!mode) {
-    const roles = (staffUser?.role_slugs || []).map((r) => String(r).toLowerCase())
-    const isManager = roles.some((r) => MANAGER_ROLES.includes(r))
-    if (isManager) {
-      return (
-        <div className="app-shell">
-          <TopBar
-            title={t('mode_manager')}
-            subtitle={branch?.name}
-            isOnline={isOnline}
-            queued={queued}
-            onRefresh={() => window.location.reload()}
-            onLock={handleLock}
-            onSettings={() => setShowSettings(true)}
-            onAccount={handleStaffLogout}
-          />
-          <main className="app-shell__content">
-            <ManagerMode
-              user={{ ...staffUser, branch_id: branch.id }}
-              branch={branch}
-              onSwitchMode={handleModeSelect}
-              onLogout={handleStaffLogout}
-            />
-          </main>
-          <BottomBar userName={staffUser?.name} branchName={branch?.name} mode={t('mode_manager')} />
-          {settingsOverlay}
-        </div>
-      )
-    }
-    return (
-      <ModeSelector
-        user={staffUser}
-        branch={branch}
-        onSelect={handleModeSelect}
-        onBack={handleStaffLogout}
-        onLogout={handleStaffLogout}
-      />
-    )
-  }
-
-  // ── Рабочий режим ──
-  const { component: ModeComponent } = MODES[mode]
-  const modeLabel = t('mode_' + mode)
+  // ── Рабочий режим (только официант/кассир/кухня; дефолт — касса) ──
+  const activeMode = mode && MODES[mode] ? mode : 'cashier'
+  const { component: ModeComponent } = MODES[activeMode]
+  const modeLabel = t('mode_' + activeMode)
   const userWithBranch = { ...staffUser, branch_id: branch.id }
 
   return (
@@ -334,11 +284,11 @@ export default function App() {
         onRefresh={() => window.location.reload()}
         onLock={handleLock}
         onSettings={() => setShowSettings(true)}
-        onAccount={handleStaffLogout}
+        onAccount={handleAccount}
       />
 
       <main className="app-shell__content">
-        <ModeComponent user={userWithBranch} branch={branch} onLogout={handleStaffLogout} onBack={handleBack} />
+        <ModeComponent user={userWithBranch} branch={branch} onLogout={handleStaffLogout} onBack={handleAccount} />
       </main>
 
       <BottomBar userName={staffUser?.name} branchName={branch?.name} mode={modeLabel} />

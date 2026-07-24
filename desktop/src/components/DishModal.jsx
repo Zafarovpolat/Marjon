@@ -26,9 +26,14 @@ export default function DishModal({ product, line, onSubmit, onRemove, onClose }
           <div className="dish-modal__row">
             <label>{t('qty')}</label>
             <div className="qty-stepper">
-              <button onClick={() => setQty((q) => Math.max(1, q - 1))}><Minus size={18} /></button>
-              <span>{qty}</span>
-              <button onClick={() => setQty((q) => q + 1)}><Plus size={18} /></button>
+              <button onClick={() => setQty((q) => Math.max(0.1, Math.round((q - 1) * 1000) / 1000))}><Minus size={18} /></button>
+              <input
+                type="number" step="0.5" min="0.1"
+                className="qty-stepper__input"
+                value={qty}
+                onChange={(e) => setQty(Math.max(0.1, Number(e.target.value) || 0.1))}
+              />
+              <button onClick={() => setQty((q) => Math.round((q + 1) * 1000) / 1000)}><Plus size={18} /></button>
             </div>
           </div>
 

@@ -19,7 +19,7 @@
   overflow: hidden;
 }
 .floor .ws-side { padding-top: 14px; }
-.floor .ws__main { border-top-left-radius: 22px; }
+.floor .ws__main { border-top-left-radius: 24px; border-bottom-left-radius: 24px; }
 
 /* ── Каркас рабочего экрана ── */
 .ws {
@@ -317,11 +317,11 @@
 .tcard--free::before { background: var(--neutral-300); }
 .tcard--free .tcard__status { background: var(--neutral-100); color: var(--neutral-600); }
 
-.tcard--busy { background: #fffaf1; border-color: #f6dcac; }
-.tcard--busy::before { background: var(--amber-500); }
-.tcard--busy .tcard__status { background: var(--amber-500); color: #fff; }
+.tcard--busy { background: var(--blue-50); border-color: var(--blue-200); }
+.tcard--busy::before { background: var(--blue-600); }
+.tcard--busy .tcard__status { background: var(--blue-600); color: #fff; }
 
-.tcard--check { background: #edfcf6; border-color: #a9e8ce; }
+.tcard--check { background: var(--teal-50); border-color: var(--teal-200); }
 .tcard--check::before { background: var(--color-brand); }
 .tcard--check .tcard__status { background: var(--color-brand); color: #fff; }
 

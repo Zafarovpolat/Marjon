@@ -3260,6 +3260,8 @@ body.vkb-open .login-card {
 .qty-stepper button:hover { background: var(--neutral-200); }
 .qty-stepper button:active { transform: scale(0.94); }
 .qty-stepper span { min-width: 40px; text-align: center; font-size: var(--text-xl); font-weight: 700; }
+.qty-stepper__input { width: 84px; height: 46px; text-align: center; font-size: var(--text-xl); font-weight: 700; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); color: var(--color-text-primary); }
+.qty-stepper__input:focus { border-color: var(--color-brand); outline: none; }
 
 /* Строка корзины: название + примечание из модалки блюда */
 .cart-row__info { flex: 1; display: flex; flex-direction: column; min-width: 0; gap: 2px; background: transparent; border: none; padding: 0; text-align: left; cursor: pointer; color: var(--color-text-primary); }
@@ -3480,7 +3482,18 @@ body.vkb-open .login-card {
 [data-theme="dark"] .vkb__key--medium { background: var(--neutral-600); color: #cdd7e6; }
 [data-theme="dark"] .vkb__close { background: var(--neutral-700); color: #cdd7e6; }
 
-/* Столы — busy/check были со светлым фоном (текст сливался в тёмной теме) */
-[data-theme="dark"] .tcard--busy { background: rgba(245, 158, 11, 0.16); border-color: rgba(245, 158, 11, 0.38); }
-[data-theme="dark"] .tcard--check { background: rgba(22, 163, 74, 0.16); border-color: rgba(22, 163, 74, 0.42); }
+/* Столы — busy(синий)/check(тил) на тёмном фоне, строго по палитре */
+[data-theme="dark"] .tcard--busy { background: rgba(37, 99, 235, 0.18); border-color: rgba(37, 99, 235, 0.42); }
+[data-theme="dark"] .tcard--check { background: rgba(29, 181, 181, 0.16); border-color: rgba(29, 181, 181, 0.42); }
 [data-theme="dark"] .tcard--free .tcard__status { background: var(--color-subtle); color: var(--color-text-secondary); }
+
+/* Кнопка выхода/назад наверху сайдбара */
+.zone--exit { margin-bottom: 10px; background: rgba(255,255,255,0.06); color: #fff; }
+.zone--exit > svg { color: rgba(255,255,255,0.85); }
+.zone--exit:hover { background: rgba(255,255,255,0.12); }
+
+/* Кнопки — по палитре и крупнее (в т.ч. Финансы/История/Отчёты в шапке) */
+.btn--outline { border-color: var(--color-border-strong); color: var(--color-text-secondary); background: var(--color-surface); }
+.btn--outline:hover { border-color: var(--color-brand); color: var(--color-brand); background: var(--color-brand-bg); }
+.board__head-right .btn--sm { min-height: 46px; padding: 0 16px; font-size: var(--text-sm); font-weight: 600; }
+.board__head-right .btn--sm > svg { color: var(--color-brand); }

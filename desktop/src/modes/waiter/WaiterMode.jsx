@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Plus, Minus, Search, X, Users, Clock, CheckCircle, Coffee, Utensils,
-  LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, RefreshCw, ArrowLeft, ChefHat,
+  LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, RefreshCw, ArrowLeft, LogOut, Printer,
 } from 'lucide-react'
-import { orders, menu, halls as hallsApi } from '../../shared/api'
+import { orders, menu, halls as hallsApi, printers as printersApi } from '../../shared/api'
+import { onPrintJob } from '../../shared/ws'
 import DishModal from '../../components/DishModal'
-import RecipeModal from '../../components/RecipeModal'
 import { t } from '../../shared/i18n'
 
 const STATUS_COLORS = {
@@ -50,7 +50,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
   const [guests, setGuests] = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [editLine, setEditLine] = useState(null)
-  const [recipeProd, setRecipeProd] = useState(null)
+  const [printerMap, setPrinterMap] = useState({})
 
   const loadData = useCallback(() => {
     hallsApi.list(user.branch_id)
@@ -80,6 +80,33 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     menu.products().then((d) => setProducts(Array.isArray(d) ? d : d?.items || [])).catch(() => {})
     menu.categories().then((d) => setCategories(Array.isArray(d) ? d : d?.items || [])).catch(() => {})
   }, [view])
+
+  // Принтеры филиала + обработчик заданий печати (терминал официанта тоже может печатать)
+  useEffect(() => {
+    printersApi.list().then((pl) => {
+      const map = {}; (pl.items ?? pl ?? []).forEach((p) => { map[p.id] = p }); setPrinterMap(map)
+    }).catch(() => {})
+  }, [])
+  useEffect(() => {
+    return onPrintJob(async (msg) => {
+      if (msg.event !== 'print_job') return
+      const printer = printerMap[msg.printer_id]
+      if (!printer) return
+      try {
+        await window.electron?.print({ ip: printer.ip_address, port: printer.port ?? 9100, payloadBase64: msg.payload, copies: msg.copies ?? 1 })
+        await printersApi.jobDone(msg.job_id)
+      } catch (err) { console.error('[print]', err) }
+    })
+  }, [printerMap])
+
+  // Печать чека клиента (официант печатает сам)
+  async function printReceipt(order) {
+    if (!order?.id) return
+    const pr = Object.values(printerMap).find((p) => p.printer_type === 'receipt' && p.branch_id === user.branch_id)
+    if (!pr) { alert(t('no_receipt_printer')); return }
+    try { await printersApi.printReceipt({ order_id: order.id, printer_id: pr.id, copies: 1 }) }
+    catch (e) { alert(e?.response?.data?.detail || e.message) }
+  }
 
   // ── Данные столов ──
   const allTables = zones.flatMap((z) =>
@@ -162,6 +189,10 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     <div className="floor">
       {/* Сайдбар локаций */}
       <aside className="ws-side">
+        <button className="zone zone--exit" onClick={onBack}>
+          <LogOut size={20} />
+          <span className="zone__name">{t('logout')}</span>
+        </button>
         <div className="ws-side__label">{t('locations')}</div>
         <nav className="ws-side__nav">
           {zoneNav.map(({ id, name, count, Icon }) => (
@@ -176,11 +207,6 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
             </button>
           ))}
         </nav>
-        <div className="ws-side__spacer" />
-        <button className="zone" onClick={onBack}>
-          <RefreshCw size={20} />
-          <span className="zone__name">{t('switch_mode')}</span>
-        </button>
       </aside>
 
       {/* Основная область */}
@@ -279,11 +305,9 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                 <button className="btn-primary btn--lg" onClick={() => openNewOrder(selectedTable)}>
                   <Plus size={18} /> {t('add_dishes')}
                 </button>
-                {selectedTable.order?.status === 'ready' && (
-                  <button className="btn-success btn--lg" onClick={() => { setView('floor'); loadData() }}>
-                    <CheckCircle size={18} /> {t('hand_to_cashier')}
-                  </button>
-                )}
+                <button className="btn-success btn--lg" onClick={() => printReceipt(selectedTable.order)}>
+                  <Printer size={18} /> {t('print_receipt')}
+                </button>
               </div>
             </div>
           </div>
@@ -312,14 +336,11 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                   {filteredProducts.length === 0 ? (
                     <p className="empty-text">{t('no_dishes')}</p>
                   ) : filteredProducts.map((p) => (
-                    <div key={p.id} className="product-cell">
-                      <button className="product-tile" onClick={() => addToCart(p)}>
-                        <Utensils size={20} />
-                        <span className="product-tile__name">{p.name}</span>
-                        <span className="product-tile__price">{Number(p.price || 0).toLocaleString('ru-RU')}</span>
-                      </button>
-                      <button className="product-card__info" onClick={() => setRecipeProd(p)} title={t('tech_card')}><ChefHat size={14} /></button>
-                    </div>
+                    <button key={p.id} className="product-tile" onClick={() => addToCart(p)}>
+                      <Utensils size={20} />
+                      <span className="product-tile__name">{p.name}</span>
+                      <span className="product-tile__price">{Number(p.price || 0).toLocaleString('ru-RU')} {t('currency')}</span>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -371,8 +392,6 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
           onClose={() => setEditLine(null)}
         />
       )}
-
-      {recipeProd && <RecipeModal product={recipeProd} onClose={() => setRecipeProd(null)} />}
     </div>
   )
 }

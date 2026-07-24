@@ -89,9 +89,9 @@
   --color-border-strong: var(--neutral-300);
   --color-border-focus:  var(--teal-500);
 
-  /* ── ХРОМ (тёмно-синие хедер / сайдбар / боттомбар) ── */
-  --chrome-bg:         var(--neutral-900);   /* #0b1f3f */
-  --chrome-bg-2:       var(--neutral-950);   /* #071428 — глубже, для сайдбара */
+  /* ── ХРОМ (тёмно-синие хедер / сайдбар / боттомбар) — осветлённые ── */
+  --chrome-bg:         #1b3358;   /* светлее прежнего #0b1f3f */
+  --chrome-bg-2:       #16294a;   /* сайдбар — чуть глубже хедера */
   --chrome-text:       #ffffff;
   --chrome-text-muted: rgba(255, 255, 255, 0.62);
   --chrome-hover:      rgba(255, 255, 255, 0.09);
