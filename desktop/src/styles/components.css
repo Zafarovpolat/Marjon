@@ -3452,6 +3452,15 @@ body.vkb-open .login-card {
 .pay-order__print { width: 100%; justify-content: center; margin-bottom: var(--spacing-md); }
 .pay-order__print.is-done { border-color: var(--color-success); color: var(--color-success); }
 .pay-order__methods { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md); margin-bottom: var(--spacing-md); }
+.pay-order__methods--3 { grid-template-columns: repeat(3, 1fr); }
+.pay-method-btn__mix { display: inline-flex; gap: 2px; }
+.pay-order__mixrow { display: flex; align-items: center; gap: 12px; }
+.pay-order__mixrow label { width: 84px; font-size: var(--text-sm); font-weight: 600; color: var(--color-text-secondary); }
+.pay-order__mixrow .input { flex: 1; }
+
+/* Комментарий заказа в корзине кассы */
+.cashier-cart__note { margin: 0 var(--spacing-md) var(--spacing-sm); min-height: 44px; padding: 0 var(--spacing-md); background: var(--color-subtle); border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text-primary); font-size: var(--text-sm); }
+.cashier-cart__note:focus { border-color: var(--color-brand); outline: none; }
 .pay-order__methods .pay-method-btn { min-height: 78px; gap: 6px; font-size: var(--text-sm); }
 .pay-order__methods .pay-method-btn.is-active { border-color: var(--color-brand); background: var(--color-brand-bg); color: var(--color-brand); box-shadow: 0 0 0 1px var(--color-brand) inset; }
 .pay-order__cash { display: flex; flex-direction: column; gap: 8px; }

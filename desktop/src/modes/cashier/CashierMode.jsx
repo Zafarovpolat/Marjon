@@ -43,6 +43,7 @@ export default function CashierMode({ user = {}, onBack }) {
   const [search, setSearch] = useState('')
   const [cart, setCart] = useState([])
   const [discount, setDiscount] = useState(0)
+  const [orderNote, setOrderNote] = useState('')
   const [editLine, setEditLine] = useState(null)
   const [payModal, setPayModal] = useState(false)
   const [finOpen, setFinOpen] = useState(false)
@@ -102,7 +103,7 @@ export default function CashierMode({ user = {}, onBack }) {
 
   function openOrder(type, table) {
     setOrderType(type); setSelectedTable(table || null)
-    setCart([]); setDiscount(0); setSearch(''); setActiveCat(null)
+    setCart([]); setDiscount(0); setOrderNote(''); setSearch(''); setActiveCat(null)
     setView('order')
   }
   // Клик по столу: есть заказ (передан официантом) → оплата/закрытие; пусто → новый заказ
@@ -162,6 +163,7 @@ export default function CashierMode({ user = {}, onBack }) {
         order_type: orderType,
         table_number: orderType === 'dine_in' && selectedTable?.number != null ? String(selectedTable.number) : undefined,
         discount_amount: discountAmount ? Math.round(discountAmount) : undefined,
+        note: orderNote || undefined,
         payment_method: method,
         items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, price: i.price, note: i.note || null })),
       })
@@ -324,6 +326,9 @@ export default function CashierMode({ user = {}, onBack }) {
                 <Percent size={16} />
                 <input type="number" min="0" max="100" value={discount || ''} onChange={(e) => setDiscount(Math.min(100, Math.max(0, Number(e.target.value))))} placeholder={t('discount')} className="discount-input" />
               </div>
+            )}
+            {cart.length > 0 && (
+              <input className="cashier-cart__note" value={orderNote} onChange={(e) => setOrderNote(e.target.value)} placeholder={t('comment')} />
             )}
             <div className="cashier-cart__total">
               {discount > 0 && <div className="total-row total-row--discount"><span>{t('discount_word')} {discount}%</span><span>−{discountAmount.toLocaleString('ru-RU')}</span></div>}

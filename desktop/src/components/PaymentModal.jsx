@@ -18,21 +18,27 @@ function fmt(n) { return Number(n || 0).toLocaleString('ru-RU') }
 export default function PaymentModal({ order, onPrint, onComplete, onClose }) {
   const [method, setMethod] = useState('cash')
   const [received, setReceived] = useState('')
+  const [cashPart, setCashPart] = useState('')   // при смешанной оплате
+  const [cardPart, setCardPart] = useState('')
   const [busy, setBusy] = useState(false)
   const [printed, setPrinted] = useState(false)
 
   const total = Number(order?.total_amount || 0)
   const items = order?.items || []
   const change = method === 'cash' && received ? Math.max(0, Number(received) - total) : 0
+  const mixedSum = (Number(cashPart) || 0) + (Number(cardPart) || 0)
+  const mixedLeft = Math.max(0, total - mixedSum)
+  const canComplete = method !== 'mixed' || mixedSum >= total
 
   async function doPrint() {
     setPrinted(true)
     try { await onPrint(order) } finally { setTimeout(() => setPrinted(false), 1600) }
   }
   async function doComplete() {
-    if (busy) return
+    if (busy || !canComplete) return
     setBusy(true)
-    try { await onComplete(order, method) } finally { setBusy(false) }
+    const detail = method === 'mixed' ? { cash: Number(cashPart) || 0, card: Number(cardPart) || 0 } : undefined
+    try { await onComplete(order, method, detail) } finally { setBusy(false) }
   }
 
   return (
@@ -65,12 +71,15 @@ export default function PaymentModal({ order, onPrint, onComplete, onClose }) {
             {printed ? <CheckCircle size={18} /> : <Printer size={18} />} {t('print_receipt')}
           </button>
 
-          <div className="pay-order__methods">
+          <div className="pay-order__methods pay-order__methods--3">
             <button className={`pay-method-btn ${method === 'cash' ? 'is-active' : ''}`} onClick={() => setMethod('cash')}>
               <Banknote size={26} /><span>{t('cash')}</span>
             </button>
             <button className={`pay-method-btn ${method === 'card' ? 'is-active' : ''}`} onClick={() => setMethod('card')}>
               <CreditCard size={26} /><span>{t('card')}</span>
+            </button>
+            <button className={`pay-method-btn ${method === 'mixed' ? 'is-active' : ''}`} onClick={() => setMethod('mixed')}>
+              <span className="pay-method-btn__mix"><Banknote size={20} /><CreditCard size={20} /></span><span>{t('mixed')}</span>
             </button>
           </div>
 
@@ -84,10 +93,29 @@ export default function PaymentModal({ order, onPrint, onComplete, onClose }) {
               )}
             </div>
           )}
+
+          {method === 'mixed' && (
+            <div className="pay-order__cash">
+              <div className="pay-order__mixrow">
+                <label>{t('cash')}</label>
+                <input type="number" min="0" className="input" value={cashPart}
+                  onChange={(e) => setCashPart(e.target.value)} placeholder="0" />
+              </div>
+              <div className="pay-order__mixrow">
+                <label>{t('card')}</label>
+                <input type="number" min="0" className="input" value={cardPart}
+                  onChange={(e) => setCardPart(e.target.value)} placeholder="0" />
+              </div>
+              <div className="pay-order__change">
+                <span>{mixedLeft > 0 ? t('to_pay_label') : t('change')}</span>
+                <strong>{fmt(mixedLeft > 0 ? mixedLeft : mixedSum - total)} {t('currency')}</strong>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="pay-order__actions">
-          <button className="btn btn--primary btn--lg" disabled={busy} onClick={doComplete}>
+          <button className="btn btn--primary btn--lg" disabled={busy || !canComplete} onClick={doComplete}>
             <CheckCircle size={20} /> {t('complete_order')}
           </button>
         </div>

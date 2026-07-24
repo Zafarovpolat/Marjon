@@ -51,6 +51,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
   const [submitting, setSubmitting] = useState(false)
   const [editLine, setEditLine] = useState(null)
   const [printerMap, setPrinterMap] = useState({})
+  const [addToOrderId, setAddToOrderId] = useState(null)   // id заказа, в который ДОБАВЛЯЕМ блюда
 
   const loadData = useCallback(() => {
     hallsApi.list(user.branch_id)
@@ -141,6 +142,8 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
   }
   function openNewOrder(table) {
     setSelectedTable(table)
+    // Если у стола уже есть заказ — ДОБАВЛЯЕМ в него (а не создаём новый)
+    setAddToOrderId(table?.order?.id || null)
     setCart([]); setOrderNote(''); setGuests(1); setSearch(''); setActiveCat(null)
     setView('new')
   }
@@ -169,14 +172,24 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     if (!cart.length) return
     setSubmitting(true)
     try {
-      await orders.create({
-        branch_id: user.branch_id,
-        order_type: 'dine_in',
-        table_number: selectedTable?.number != null ? String(selectedTable.number) : null,
-        guests_count: guests,
-        note: orderNote || null,
-        items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, price: i.price, note: i.note || null })),
-      })
+      if (addToOrderId) {
+        // Дополняем существующий заказ (старые блюда сохраняются)
+        for (const i of cart) {
+          await orders.addItem(addToOrderId, { product_id: i.product.id, quantity: i.qty, note: i.note || null })
+        }
+        // Авто-статус: заказ снова «готовится»
+        try { await orders.updateStatus(addToOrderId, 'cooking') } catch { /* офлайн-очередь */ }
+      } else {
+        await orders.create({
+          branch_id: user.branch_id,
+          order_type: 'dine_in',
+          table_number: selectedTable?.number != null ? String(selectedTable.number) : null,
+          guests_count: guests,
+          note: orderNote || null,
+          items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, price: i.price, note: i.note || null })),
+        })
+      }
+      setAddToOrderId(null)
       setView('floor'); loadData()
     } catch (err) {
       alert(err?.response?.data?.detail || t('create_order_error'))
