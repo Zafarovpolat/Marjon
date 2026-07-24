@@ -12,7 +12,12 @@ export default function BranchSelector({ user, onSelect, onLogout }) {
     setLoading(true)
     setError('')
     companies.branches()
-      .then(data => setBranches(Array.isArray(data) ? data : []))
+      .then(data => {
+        const list = Array.isArray(data) ? data : []
+        setBranches(list)
+        // Один логин = один филиал: если филиал единственный — выбираем автоматически
+        if (list.length === 1) onSelect(list[0])
+      })
       .catch(() => setError(t('bs_load_err')))
       .finally(() => setLoading(false))
   }

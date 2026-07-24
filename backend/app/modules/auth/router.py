@@ -12,6 +12,7 @@ from app.modules.auth.models import RefreshToken, User
 from app.modules.auth.schemas import (
     CompanyUserCreate,
     CompanyUserResponse,
+    CompanyUserUpdate,
     LoginRequest,
     PinLoginRequest,
     RefreshRequest,
@@ -61,8 +62,34 @@ async def create_company_user(
         phone=data.phone,
         role_slug=data.role_slug,
         role_name=data.role_name,
+        name=data.name,
+        pin_code=data.pin_code,
+        printer_ip=data.printer_ip,
+        nfc_id=data.nfc_id,
+        branch_id=data.branch_id,
+        is_active=data.is_active,
+        permissions=data.permissions,
     )
     return CompanyUserResponse.model_validate(user).model_copy(update={"role_slug": role.slug})
+
+
+@router.patch("/users/{user_id}", response_model=CompanyUserResponse)
+async def update_company_user(
+    user_id: UUID,
+    data: CompanyUserUpdate,
+    current_user: User = Depends(require_company_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await AuthService(db).update_company_user(
+        current_user.company_id, user_id, data.model_dump(exclude_unset=True)
+    )
+    roles_res = await db.execute(
+        select(Role.slug).join(UserRole, UserRole.role_id == Role.id).where(UserRole.user_id == user.id)
+    )
+    slugs = list(roles_res.scalars().all())
+    return CompanyUserResponse.model_validate(user).model_copy(
+        update={"role_slugs": slugs, "role_slug": slugs[0] if slugs else None}
+    )
 
 
 @router.post("/login/form", response_model=TokenResponse, include_in_schema=False)

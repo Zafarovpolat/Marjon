@@ -19,6 +19,8 @@ class Company(TimeStampedModel):
     timezone: Mapped[str] = mapped_column(String(50), default="UTC")
     currency: Mapped[str] = mapped_column(String(3), default="UZS")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Спец-пароль для отмены заказа (задаётся в веб-админке)
+    cancel_password: Mapped[str | None] = mapped_column(String(64))
 
     branches: Mapped[list[Branch]] = relationship(back_populates="company", cascade="all, delete-orphan")
     users: Mapped[list[User]] = relationship(back_populates="company")

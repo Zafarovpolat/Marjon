@@ -208,19 +208,30 @@ function StaffRolePage({ role = "all" }) {
   useEffect(() => {
     fetchStaffUsers()
       .then((data) => {
-        const mapped = (data || []).map((user) => ({
-          id: user.id,
-          fullName: user.name || user.role_name || user.email?.split("@")[0] || "—",
-          phone: user.phone || "",
-          roleKey: user.role_slug || "cashier",
-          permission: user.role_slug || "Базовый доступ",
-          status: user.is_active !== false ? "active" : "archived",
-          pin: "",
-          password: "",
-          comment: "",
-          photo: "",
-          access: {},
-        }));
+        const mapped = (data || []).map((user) => {
+          const perm = user.permissions || {};
+          return {
+            id: user.id,
+            fullName: user.name || user.role_name || user.email?.split("@")[0] || "—",
+            phone: user.phone || "",
+            roleKey: user.role_slug || "cashier",
+            permission: user.role_slug || "Базовый доступ",
+            status: user.is_active !== false ? "active" : "archived",
+            pin: user.pin_code || "",
+            password: "",
+            printerIp: user.printer_ip || "",
+            nfcId: user.nfc_id || "",
+            canDeleteDishes: !!perm.can_delete_dishes,
+            canTakeawayAtTable: !!perm.can_takeaway_at_table,
+            canChangeOrderType: !!perm.can_change_order_type,
+            canCloseBill: !!perm.can_close_bill,
+            canOpenCashDrawerAfterPayment: !!perm.can_open_cash_drawer,
+            canViewClosedOrders: !!perm.can_view_closed_orders,
+            comment: "",
+            photo: "",
+            access: perm.modules || {},
+          };
+        });
         setStaff(mapped);
       })
       .catch((err) => console.warn("Не удалось загрузить сотрудников:", err.message))
@@ -336,6 +347,24 @@ const saveStaff = async (event) => {
   event.preventDefault();
   const phone = normalizePhone(form.phone, form.phoneCountry);
   const email = `${phone || Date.now()}@staff.marjon`;
+  // Права сотрудника → на бэкенд (десктоп будет их применять)
+  const permissions = {
+    can_delete_dishes: !!form.canDeleteDishes,
+    can_takeaway_at_table: !!form.canTakeawayAtTable,
+    can_change_order_type: !!form.canChangeOrderType,
+    can_close_bill: !!form.canCloseBill,
+    can_open_cash_drawer: !!form.canOpenCashDrawerAfterPayment,
+    can_view_closed_orders: !!form.canViewClosedOrders,
+    modules: form.access || {},
+  };
+  const staffFields = {
+    name: form.fullName,
+    pin_code: form.pin || null,
+    printer_ip: form.printerIp || null,
+    nfc_id: form.nfcId || null,
+    is_active: form.status === "active",
+    permissions,
+  };
 
   try {
     if (!editingId) {
@@ -345,6 +374,7 @@ const saveStaff = async (event) => {
         phone: phone || null,
         role_slug: form.roleKey || "cashier",
         role_name: form.fullName,
+        ...staffFields,
       });
       setStaff((current) => [{
         id: newUser.id,
@@ -366,6 +396,7 @@ const saveStaff = async (event) => {
         phone: phone || null,
         role_slug: form.roleKey || "cashier",
         role_name: form.fullName,
+        ...staffFields,
       });
       setStaff((current) => current.map((emp) =>
         emp.id === editingId ? { ...emp, ...form, permission: getPermissionSummary(form) } : emp

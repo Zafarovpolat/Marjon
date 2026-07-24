@@ -209,7 +209,7 @@ export const orders = {
   addItem: (orderId, data) => api.post(`/pos/orders/${orderId}/items`, data).then((r) => r.data),
   removeItem: (orderId, itemId) => api.delete(`/pos/orders/${orderId}/items/${itemId}`).then((r) => r.data),
   updateStatus: (id, status) => writeQueued('patch', `/pos/orders/${id}/status`, { status }),
-  cancel: (id) => api.delete(`/pos/orders/${id}`).then((r) => r.data),
+  cancel: (id, password) => api.delete(`/pos/orders/${id}`, { params: password ? { password } : {} }).then((r) => r.data),
 }
 
 export const kitchen = {

@@ -2,7 +2,7 @@ from __future__ import annotations
 from uuid import UUID
 from datetime import datetime
 from typing import TYPE_CHECKING
-from sqlalchemy import String, Boolean, DateTime, ForeignKey
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Uuid
 from app.shared.base_model import TimeStampedModel
@@ -27,6 +27,14 @@ class User(TimeStampedModel):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_superadmin: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Привязка сотрудника к филиалу (для «один логин = один филиал» и скоупа персонала)
+    branch_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    # Персональный принтер сотрудника (IP), NFC-карта и права доступа (из веб-админки)
+    printer_ip: Mapped[str | None] = mapped_column(String(45))
+    nfc_id: Mapped[str | None] = mapped_column(String(64))
+    permissions: Mapped[dict | None] = mapped_column(JSON, default=dict)
 
     company: Mapped[Company | None] = relationship("Company", back_populates="users")
     refresh_tokens: Mapped[list[RefreshToken]] = relationship(back_populates="user", cascade="all, delete-orphan")

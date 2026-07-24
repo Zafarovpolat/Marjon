@@ -52,6 +52,30 @@ export default function SettingsProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  // Спец-пароль отмены заказа (самодостаточный блок, отдельно от основного сохранения профиля)
+  const [cancelPw, setCancelPw] = useState("");
+  const [cancelPwSet, setCancelPwSet] = useState(false);
+  const [cancelPwSaving, setCancelPwSaving] = useState(false);
+
+  useEffect(() => {
+    api.get("/companies/me/cancel-password")
+      .then(({ data }) => setCancelPwSet(Boolean(data?.is_set)))
+      .catch(() => {});
+  }, []);
+
+  const saveCancelPw = async () => {
+    setCancelPwSaving(true);
+    try {
+      const { data } = await api.post("/companies/me/cancel-password", { password: cancelPw || null });
+      setCancelPwSet(Boolean(data?.is_set));
+      setCancelPw("");
+      setSuccess("Пароль отмены сохранён.");
+    } catch (err) {
+      setError(err.response?.data?.detail || "Не удалось сохранить пароль отмены");
+    } finally {
+      setCancelPwSaving(false);
+    }
+  };
 
   useEffect(() => {
     api.get("/companies/me")
@@ -263,6 +287,25 @@ export default function SettingsProfilePage() {
                   <option value="UZS">UZS - Узбекский сум</option>
                   <option value="USD">USD - Доллар</option>
                 </select>
+              </label>
+
+              <label>
+                <span>
+                  <b>Пароль отмены заказа</b>
+                  <em>{cancelPwSet ? "Пароль задан — введите новый, чтобы изменить" : "Требуется в кассе для отмены заказа"}</em>
+                </span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type="text"
+                    value={cancelPw}
+                    onChange={(event) => setCancelPw(event.target.value)}
+                    placeholder={cancelPwSet ? "•••• (задан)" : "Например: 1234"}
+                    autoComplete="off"
+                  />
+                  <button type="button" className="company-profile-danger" style={{ whiteSpace: "nowrap" }} disabled={cancelPwSaving} onClick={saveCancelPw}>
+                    Сохранить
+                  </button>
+                </div>
               </label>
             </div>
 

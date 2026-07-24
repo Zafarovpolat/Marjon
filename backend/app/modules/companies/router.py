@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 from uuid import UUID
 from fastapi import APIRouter, Depends, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
@@ -11,6 +12,11 @@ from app.modules.companies.schemas import (
     CompanyCreate, CompanyResponse, CompanyUpdate,
 )
 from app.modules.companies.service import BranchService, CompanyService
+
+
+class CancelPasswordSet(BaseModel):
+    password: str | None = None
+
 
 router = APIRouter(prefix="/companies", tags=["companies"])
 
@@ -55,7 +61,34 @@ async def list_branches(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await BranchService(db).list(current_user.company_id)
+    branches = await BranchService(db).list(current_user.company_id)
+    # «Один логин = один филиал»: если аккаунт привязан к филиалу — отдаём только его
+    if getattr(current_user, "branch_id", None):
+        scoped = [b for b in branches if b.id == current_user.branch_id]
+        if scoped:
+            return scoped
+    return branches
+
+
+@router.get("/me/cancel-password")
+async def cancel_password_status(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    company = await CompanyService(db).get(current_user.company_id)
+    return {"is_set": bool(getattr(company, "cancel_password", None))}
+
+
+@router.post("/me/cancel-password")
+async def set_cancel_password(
+    data: CancelPasswordSet,
+    current_user: User = Depends(require_company_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    company = await CompanyService(db).get(current_user.company_id)
+    company.cancel_password = (data.password or None)
+    await db.commit()
+    return {"is_set": bool(company.cancel_password)}
 
 
 @router.patch("/me/branches/{branch_id}", response_model=BranchResponse)

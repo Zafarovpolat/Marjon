@@ -3467,8 +3467,10 @@ body.vkb-open .login-card {
 .pay-order__cash label { font-size: var(--text-sm); color: var(--color-text-secondary); font-weight: 600; }
 .pay-order__change { display: flex; align-items: baseline; justify-content: space-between; padding: 8px 0 0; }
 .pay-order__change strong { font-size: var(--text-lg); font-weight: 800; color: var(--color-success); }
-.pay-order__actions { padding: var(--spacing-lg) var(--spacing-xl); border-top: 1px solid var(--color-border-light); }
+.pay-order__actions { padding: var(--spacing-lg) var(--spacing-xl); border-top: 1px solid var(--color-border-light); display: flex; flex-direction: column; gap: 10px; }
 .pay-order__actions .btn { width: 100%; justify-content: center; }
+.pay-order__cancel { color: var(--color-danger); border-color: var(--color-danger); order: 2; }
+.pay-order__cancel:hover { background: var(--color-danger-bg); color: var(--color-danger); }
 
 /* Поиск блюда в шапке кассы — длиннее */
 .board__head-right .cashier-products__search { width: 380px; max-width: 42vw; }

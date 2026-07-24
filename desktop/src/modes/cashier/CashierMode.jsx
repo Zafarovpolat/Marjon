@@ -11,6 +11,7 @@ import HistoryPanel from '../../components/HistoryPanel'
 import ReportsPanel from '../../components/ReportsPanel'
 import PaymentModal from '../../components/PaymentModal'
 import { t } from '../../shared/i18n'
+import { can } from '../../shared/permissions'
 
 const ACTIVE = new Set(['new', 'accepted', 'cooking', 'ready', 'pending'])
 
@@ -130,6 +131,13 @@ export default function CashierMode({ user = {}, onBack }) {
     setPayExisting(null)
     loadFloor()
   }
+  // Отмена заказа — со спец-паролем (проверяется на бэкенде)
+  async function cancelOrder(order) {
+    const password = window.prompt(t('cancel_password_prompt'))
+    if (password === null) return
+    try { await orders.cancel(order.id, password); setPayExisting(null); loadFloor() }
+    catch (e) { alert(e?.response?.data?.detail || t('cancel_error')) }
+  }
 
   // ── Каталог/корзина ──
   const filtered = products.filter((p) => {
@@ -198,10 +206,10 @@ export default function CashierMode({ user = {}, onBack }) {
               <span className="board__subtitle">{allTables.length} {t('tables_low')} · {busyCount} {t('busy_low')}</span>
             </div>
             <div className="board__head-right">
-              <button className="btn btn--outline btn--sm" onClick={() => openOrder('takeaway', null)}><ShoppingBag size={18} /> {t('takeaway')}</button>
-              <button className="btn btn--outline btn--sm" onClick={() => openOrder('delivery', null)}><Bike size={18} /> {t('delivery')}</button>
+              {can(user, 'can_change_order_type') && <button className="btn btn--outline btn--sm" onClick={() => openOrder('takeaway', null)}><ShoppingBag size={18} /> {t('takeaway')}</button>}
+              {can(user, 'can_change_order_type') && <button className="btn btn--outline btn--sm" onClick={() => openOrder('delivery', null)}><Bike size={18} /> {t('delivery')}</button>}
               <button className="btn btn--outline btn--sm" onClick={() => setFinOpen(true)}><Wallet size={18} /> {t('finance')}</button>
-              <button className="btn btn--outline btn--sm" onClick={() => setHistOpen(true)}><History size={18} /> {t('history')}</button>
+              {can(user, 'can_view_closed_orders') && <button className="btn btn--outline btn--sm" onClick={() => setHistOpen(true)}><History size={18} /> {t('history')}</button>}
               <button className="btn btn--outline btn--sm" onClick={() => setRepOpen(true)}><BarChart3 size={18} /> {t('reports')}</button>
             </div>
           </div>
@@ -242,6 +250,8 @@ export default function CashierMode({ user = {}, onBack }) {
             order={payExisting}
             onPrint={printOrderReceipt}
             onComplete={completeExistingOrder}
+            onCancel={cancelOrder}
+            canClose={can(user, 'can_close_bill')}
             onClose={() => setPayExisting(null)}
           />
         )}
@@ -316,7 +326,7 @@ export default function CashierMode({ user = {}, onBack }) {
                     <button className="qty-btn" onClick={() => updateQty(item.lineId, -1)}><Minus size={16} /></button>
                     <span className="qty-value">{item.qty}</span>
                     <button className="qty-btn" onClick={() => updateQty(item.lineId, 1)}><Plus size={16} /></button>
-                    <button className="qty-btn qty-btn--delete" onClick={() => removeLine(item.lineId)}><Trash2 size={16} /></button>
+                    {can(user, 'can_delete_dishes') && <button className="qty-btn qty-btn--delete" onClick={() => removeLine(item.lineId)}><Trash2 size={16} /></button>}
                   </div>
                 </div>
               ))}
@@ -335,7 +345,7 @@ export default function CashierMode({ user = {}, onBack }) {
               <div className="total-row total-row--final"><span>{t('total')}</span><span>{total.toLocaleString('ru-RU')} {t('currency')}</span></div>
             </div>
             <div className="cashier-cart__actions">
-              <button className="cart-btn cart-btn--pay" disabled={cart.length === 0} onClick={() => setPayModal(true)}><CreditCard size={20} /> {t('pay')}</button>
+              <button className="cart-btn cart-btn--pay" disabled={cart.length === 0 || !can(user, 'can_close_bill')} onClick={() => setPayModal(true)}><CreditCard size={20} /> {t('pay')}</button>
             </div>
           </aside>
         </div>

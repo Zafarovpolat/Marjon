@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.modules.companies.models import Branch
+from app.modules.companies.models import Branch, Company
 from app.modules.inventory.models import Product
 from app.modules.kitchen.websocket import kitchen_manager
 from app.modules.audit.service import AuditService
@@ -160,10 +160,15 @@ class OrderService:
 
     # ── Cancel ────────────────────────────────────────────────────────────────
 
-    async def cancel(self, company_id: UUID, order_id: UUID) -> Order:
+    async def cancel(self, company_id: UUID, order_id: UUID, password: str | None = None) -> Order:
         order = await self.get(company_id, order_id)
         if order.status in ("completed", "cancelled"):
             raise ValidationError(f"Невозможно отменить заказ в статусе '{order.status}'")
+        # Спец-пароль отмены (если задан в админке) обязателен
+        company = (await self.db.execute(select(Company).where(Company.id == company_id))).scalar_one_or_none()
+        if company and company.cancel_password:
+            if not password or password != company.cancel_password:
+                raise ValidationError("Неверный пароль отмены заказа")
         order.status = "cancelled"
         saved = await self.repo.save(order)
         try:

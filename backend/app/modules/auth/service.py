@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -115,21 +116,7 @@ class AuthService:
 
         return user, access_token, refresh_token
 
-    async def create_company_user(
-        self,
-        company_id: UUID | None,
-        email: str,
-        password: str,
-        role_slug: str,
-        role_name: str | None = None,
-        phone: str | None = None,
-    ) -> tuple[User, Role]:
-        if not company_id:
-            raise ValidationError("Current user is not assigned to a company")
-
-        if await self.user_repo.get_by_email(email):
-            raise ConflictError("Email already registered")
-
+    async def _ensure_role(self, company_id: UUID, role_slug: str, role_name: str | None) -> Role:
         role_repo = RoleRepository(self.db)
         role = await role_repo.get_by_slug(role_slug, company_id)
         if not role:
@@ -141,11 +128,44 @@ class AuthService:
             )
             self.db.add(role)
             await self.db.flush()
+        return role
+
+    async def create_company_user(
+        self,
+        company_id: UUID | None,
+        email: str,
+        password: str,
+        role_slug: str,
+        role_name: str | None = None,
+        phone: str | None = None,
+        *,
+        name: str | None = None,
+        pin_code: str | None = None,
+        printer_ip: str | None = None,
+        nfc_id: str | None = None,
+        branch_id: UUID | None = None,
+        is_active: bool | None = None,
+        permissions: dict | None = None,
+    ) -> tuple[User, Role]:
+        if not company_id:
+            raise ValidationError("Current user is not assigned to a company")
+
+        if await self.user_repo.get_by_email(email):
+            raise ConflictError("Email already registered")
+
+        role = await self._ensure_role(company_id, role_slug, role_name)
 
         user = User(
             company_id=company_id,
             email=email,
             phone=phone,
+            name=name or role_name,
+            pin_code=pin_code or None,
+            printer_ip=printer_ip or None,
+            nfc_id=nfc_id or None,
+            branch_id=branch_id,
+            permissions=permissions or {},
+            is_active=True if is_active is None else is_active,
             password_hash=hash_password(password),
         )
         self.db.add(user)
@@ -157,6 +177,34 @@ class AuthService:
         await self.db.refresh(role)
 
         return user, role
+
+    async def update_company_user(self, company_id: UUID | None, user_id: UUID, data: dict) -> User:
+        if not company_id:
+            raise ValidationError("Current user is not assigned to a company")
+        user = (await self.db.execute(
+            select(User).where(User.id == user_id, User.company_id == company_id)
+        )).scalar_one_or_none()
+        if not user:
+            raise NotFoundError("User not found")
+
+        # Скалярные поля
+        for f in ("phone", "name", "pin_code", "printer_ip", "nfc_id", "branch_id", "is_active", "permissions"):
+            if data.get(f) is not None:
+                setattr(user, f, data[f])
+        if data.get("email"):
+            user.email = data["email"]
+        if data.get("password"):
+            user.password_hash = hash_password(data["password"])
+
+        # Смена роли (заменяем привязку)
+        if data.get("role_slug"):
+            role = await self._ensure_role(company_id, data["role_slug"], data.get("role_name"))
+            await self.db.execute(delete(UserRole).where(UserRole.user_id == user.id))
+            self.db.add(UserRole(user_id=user.id, role_id=role.id))
+
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user
 
     async def refresh(self, refresh_token: str) -> tuple[str, str]:
         token_hash = hash_refresh_token(refresh_token)

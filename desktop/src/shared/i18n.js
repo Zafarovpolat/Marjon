@@ -31,6 +31,8 @@ const DICT = {
     no_receipt_printer: 'Чековый принтер не настроен (добавьте его в админке по IP)',
     receipt_sent: 'Чек отправлен на печать', complete_order: 'Закрыть заказ', hand_to_cashier: 'Передать на кассу',
     order_items: 'Позиции заказа', to_pay_label: 'К оплате',
+    cancel_order: 'Отменить заказ', cancel_password_prompt: 'Введите пароль отмены', cancel_error: 'Не удалось отменить заказ',
+    no_permission: 'Нет прав на это действие',
     // Техкарта
     tech_card: 'Техкарта', ingredient: 'Ингредиент', amount: 'Кол-во',
     recipe_yield: 'Выход', portion: 'порция', recipe_empty: 'Техкарта для этого блюда ещё не заполнена.',
@@ -124,6 +126,8 @@ const DICT = {
     no_receipt_printer: 'Chek printeri sozlanmagan (admin panelda IP bo‘yicha qo‘shing)',
     receipt_sent: 'Chek chop etishga yuborildi', complete_order: 'Buyurtmani yopish', hand_to_cashier: 'Kassaga topshirish',
     order_items: 'Buyurtma tarkibi', to_pay_label: 'To‘lash kerak',
+    cancel_order: 'Buyurtmani bekor qilish', cancel_password_prompt: 'Bekor qilish parolini kiriting', cancel_error: 'Buyurtmani bekor qilib bo‘lmadi',
+    no_permission: 'Bu amal uchun ruxsat yo‘q',
     // Texkarta
     tech_card: 'Texkarta', ingredient: 'Ingredient', amount: 'Miqdor',
     recipe_yield: 'Chiqishi', portion: 'porsiya', recipe_empty: 'Bu taom uchun texkarta hali to‘ldirilmagan.',

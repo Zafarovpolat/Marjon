@@ -33,11 +33,34 @@ class CompanyUserCreate(BaseSchema):
     phone: str | None = None
     role_slug: str
     role_name: str | None = None
+    name: str | None = None
+    pin_code: str | None = None
+    printer_ip: str | None = None
+    nfc_id: str | None = None
+    branch_id: UUID | None = None
+    is_active: bool | None = None
+    permissions: dict | None = None
 
     @field_validator("password")
     @classmethod
     def check_password(cls, v: str) -> str:
         return _validate_password(v)
+
+
+class CompanyUserUpdate(BaseSchema):
+    """Частичное обновление сотрудника из веб-админки (все поля опциональны)."""
+    email: EmailStr | None = None
+    password: str | None = None
+    phone: str | None = None
+    role_slug: str | None = None
+    role_name: str | None = None
+    name: str | None = None
+    pin_code: str | None = None
+    printer_ip: str | None = None
+    nfc_id: str | None = None
+    branch_id: UUID | None = None
+    is_active: bool | None = None
+    permissions: dict | None = None
 
 
 class LoginRequest(BaseSchema):
@@ -67,6 +90,10 @@ class UserResponse(BaseResponseSchema):
     is_active: bool
     is_superadmin: bool
     company_id: UUID | None
+    branch_id: UUID | None = None
+    printer_ip: str | None = None
+    nfc_id: str | None = None
+    permissions: dict | None = None
     role_slugs: list[str] = Field(default_factory=list)
 
 

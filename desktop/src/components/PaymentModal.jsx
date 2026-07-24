@@ -15,7 +15,7 @@ import { t } from '../shared/i18n'
  */
 function fmt(n) { return Number(n || 0).toLocaleString('ru-RU') }
 
-export default function PaymentModal({ order, onPrint, onComplete, onClose }) {
+export default function PaymentModal({ order, onPrint, onComplete, onCancel, onClose, canClose = true }) {
   const [method, setMethod] = useState('cash')
   const [received, setReceived] = useState('')
   const [cashPart, setCashPart] = useState('')   // при смешанной оплате
@@ -115,7 +115,12 @@ export default function PaymentModal({ order, onPrint, onComplete, onClose }) {
         </div>
 
         <div className="pay-order__actions">
-          <button className="btn btn--primary btn--lg" disabled={busy || !canComplete} onClick={doComplete}>
+          {onCancel && (
+            <button className="btn btn--outline pay-order__cancel" disabled={busy} onClick={() => onCancel(order)}>
+              {t('cancel_order')}
+            </button>
+          )}
+          <button className="btn btn--primary btn--lg" disabled={busy || !canComplete || !canClose} onClick={doComplete}>
             <CheckCircle size={20} /> {t('complete_order')}
           </button>
         </div>
