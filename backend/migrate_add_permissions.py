@@ -22,6 +22,11 @@ PLAN = {
     "companies": {
         "cancel_password": {"sqlite": "VARCHAR(64)", "postgresql": "VARCHAR(64)"},
     },
+    "orders": {
+        "customer_phone":     {"sqlite": "VARCHAR(30)", "postgresql": "VARCHAR(30)"},
+        "customer_address":   {"sqlite": "TEXT", "postgresql": "TEXT"},
+        "receipt_printed_at": {"sqlite": "TIMESTAMP", "postgresql": "TIMESTAMPTZ"},
+    },
 }
 
 

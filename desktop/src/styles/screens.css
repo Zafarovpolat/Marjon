@@ -324,6 +324,10 @@
 .tcard--check { background: var(--teal-50); border-color: var(--teal-200); }
 .tcard--check::before { background: var(--color-brand); }
 .tcard--check .tcard__status { background: var(--color-brand); color: #fff; }
+/* Ожидает оплату (чек напечатан) — зелёный */
+.tcard--pay { background: var(--green-100); border-color: var(--green-300); }
+.tcard--pay::before { background: var(--color-success); }
+.tcard--pay .tcard__status { background: var(--color-success); color: #fff; }
 
 /* ═══ Нижний статус-бар ═══ */
 .ws-bottom {

@@ -3496,6 +3496,7 @@ body.vkb-open .login-card {
 /* Столы — busy(синий)/check(тил) на тёмном фоне, строго по палитре */
 [data-theme="dark"] .tcard--busy { background: rgba(37, 99, 235, 0.18); border-color: rgba(37, 99, 235, 0.42); }
 [data-theme="dark"] .tcard--check { background: rgba(29, 181, 181, 0.16); border-color: rgba(29, 181, 181, 0.42); }
+[data-theme="dark"] .tcard--pay { background: rgba(22, 163, 74, 0.18); border-color: rgba(22, 163, 74, 0.45); }
 [data-theme="dark"] .tcard--free .tcard__status { background: var(--color-subtle); color: var(--color-text-secondary); }
 
 /* Кнопка выхода/назад наверху сайдбара */

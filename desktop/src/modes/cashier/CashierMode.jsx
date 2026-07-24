@@ -93,7 +93,12 @@ export default function CashierMode({ user = {}, onBack }) {
   // ── Столы ──
   const allTables = zones.flatMap((z) => (z.tables || []).map((t) => ({ ...t, zoneId: z.id, zoneName: z.name })))
   const orderFor = (num) => orderList.find((o) => String(o.table_number) === String(num))
-  const tableStatus = (num) => { const o = orderFor(num); return !o ? 'free' : o.status === 'ready' ? 'ready' : 'busy' }
+  const tableStatus = (num) => {
+    const o = orderFor(num)
+    if (!o) return 'free'
+    if (o.receipt_printed_at) return 'await'   // чек напечатан → ожидает оплату
+    return o.status === 'ready' ? 'ready' : 'busy'
+  }
   const freeCount = (list) => list.filter((t) => tableStatus(t.number) === 'free').length
   const zoneNav = [
     { id: 'all', name: t('all'), count: freeCount(allTables), Icon: LayoutGrid },
@@ -220,7 +225,7 @@ export default function CashierMode({ user = {}, onBack }) {
                 <div className="tgrid">
                   {(z.tables || []).map((tb) => {
                     const o = orderFor(tb.number); const st = tableStatus(tb.number)
-                    const variant = st === 'free' ? 'free' : st === 'ready' ? 'check' : 'busy'
+                    const variant = st === 'free' ? 'free' : st === 'ready' ? 'check' : st === 'await' ? 'pay' : 'busy'
                     return (
                       <button key={tb.id ?? tb.number} className={`tcard tcard--${variant}`} onClick={() => tapTable(tb)}>
                         <div className="tcard__top">

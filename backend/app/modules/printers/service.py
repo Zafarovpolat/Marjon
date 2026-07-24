@@ -1,5 +1,6 @@
 from __future__ import annotations
 import base64
+from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
 
@@ -77,7 +78,15 @@ class PrinterService:
 
         fmt = EscPosFormatter(printer.paper_width)
         raw = fmt.format_receipt(receipt_data)
-        return await self._enqueue_and_send(company_id, printer, "receipt", order_id, raw, copies)
+        job = await self._enqueue_and_send(company_id, printer, "receipt", order_id, raw, copies)
+        # Отметка «чек напечатан» → стол «ожидает оплату» (сбросится при дозаказе)
+        try:
+            if order.status not in ("completed", "cancelled"):
+                order.receipt_printed_at = datetime.now(timezone.utc)
+                await self.db.commit()
+        except Exception:
+            pass
+        return job
 
     async def print_kitchen_ticket(
         self, company_id: UUID, order_id: UUID, printer_id: UUID, copies: int = 1

@@ -24,6 +24,8 @@ class OrderCreate(BaseSchema):
     table_number: str | None = None
     persons_count: int = 1
     note: str | None = None
+    customer_phone: str | None = None
+    customer_address: str | None = None
     discount_amount: Decimal | None = None
     service_fee_rate: float | None = None
     items: list[OrderItemCreate] = Field(default_factory=list)
@@ -34,6 +36,8 @@ class OrderUpdate(BaseSchema):
     note: str | None = None
     table_number: str | None = None
     persons_count: int | None = None
+    customer_phone: str | None = None
+    customer_address: str | None = None
     discount_amount: Decimal | None = None
     service_fee_rate: float | None = None
 
@@ -71,6 +75,9 @@ class OrderResponse(BaseResponseSchema):
     total_amount: Decimal
     note: str | None
     source: str
+    customer_phone: str | None = None
+    customer_address: str | None = None
+    receipt_printed_at: datetime | None = None
     items: list[OrderItemResponse] = Field(default_factory=list)
 
 

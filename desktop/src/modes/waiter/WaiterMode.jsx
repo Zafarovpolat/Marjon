@@ -119,6 +119,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
   function tableStatus(number) {
     const o = orderFor(number)
     if (!o) return 'free'
+    if (o.receipt_printed_at) return 'await'
     return o.status === 'ready' ? 'ready' : 'busy'
   }
 
@@ -255,7 +256,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                     {(z.tables || []).map((tb) => {
                       const o = orderFor(tb.number)
                       const st = tableStatus(tb.number)
-                      const variant = st === 'free' ? 'free' : st === 'ready' ? 'check' : 'busy'
+                      const variant = st === 'free' ? 'free' : st === 'ready' ? 'check' : st === 'await' ? 'pay' : 'busy'
                       return (
                         <button key={tb.id ?? tb.number} className={`tcard tcard--${variant}`} onClick={() => handleTableTap(tb)}>
                           <div className="tcard__top">

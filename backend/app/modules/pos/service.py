@@ -55,6 +55,10 @@ class OrderService:
             table_number=data.table_number,
             persons_count=data.persons_count,
             note=data.note,
+            customer_phone=data.customer_phone,
+            customer_address=data.customer_address,
+            # Заказ с позициями сразу уходит повару → статус «готовится»
+            status="cooking" if data.items else "new",
         )
         self.db.add(order)
         await self.db.flush()
@@ -204,6 +208,10 @@ class OrderService:
         self.db.add(item)
 
         order.subtotal += item_total_after_discount
+        # Дозаказ → снова «готовится», сбрасываем отметку печати чека (стол снова занят)
+        order.receipt_printed_at = None
+        if order.status in ("ready", "new", "accepted"):
+            order.status = "cooking"
         self._recalculate_totals(order)
         await self.db.commit()
         return await self.get(company_id, order_id)
@@ -285,8 +293,8 @@ class OrderService:
             )
         )
         count = result.scalar_one()
-        seq = str(count + 1).zfill(4)
-        return f"{today.strftime('%Y%m%d')}-{seq}"
+        # Простой порядковый номер (по очереди), сбрасывается ежедневно по филиалу
+        return str(count + 1)
 
     async def _get_branch(self, company_id: UUID, branch_id: UUID) -> Branch:
         result = await self.db.execute(

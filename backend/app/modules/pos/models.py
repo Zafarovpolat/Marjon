@@ -40,6 +40,11 @@ class Order(TimeStampedModel):
     note: Mapped[str | None] = mapped_column(Text)
     # pos | qr | delivery_app
     source: Mapped[str] = mapped_column(String(50), default="pos")
+    # Доставка: контакты клиента
+    customer_phone: Mapped[str | None] = mapped_column(String(30))
+    customer_address: Mapped[str | None] = mapped_column(Text)
+    # Чек напечатан → стол «ожидает оплату» (зелёный). Сбрасывается при дозаказе.
+    receipt_printed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     items: Mapped[list[OrderItem]] = relationship(back_populates="order", cascade="all, delete-orphan")
 
