@@ -136,20 +136,20 @@ const kpis = [
     desc: "Всего подключённых организаций на платформе MARJON, включая активные и на модерации.",
   },
   {
-    title: "Активных филиалов",
+    title: "Оплаченная сумма",
     value: "0",
     delta: "—",
-    icon: "bi-diagram-3",
+    icon: "bi-cash-coin",
     tone: "green",
     dataKey: "branches",
     points: [18, 24, 32, 28, 42, 48, 51, 60],
     desc: "Филиалы с активной кассой и работающей синхронизацией за выбранный период.",
   },
   {
-    title: "Ожидают одобрения",
+    title: "Выполненная работа",
     value: "0",
     delta: "—",
-    icon: "bi-inbox",
+    icon: "bi-clipboard-check",
     tone: "violet",
     dataKey: "subscriptions",
     points: [58, 48, 52, 42, 39, 35, 30, 26],
@@ -166,10 +166,10 @@ const kpis = [
     desc: "Суммарный оборот всех организаций платформы за текущий месяц в узбекских сумах.",
   },
   {
-    title: "Активных касс",
+    title: "Не оплачено",
     value: "0",
     delta: "—",
-    icon: "bi-pc-display",
+    icon: "bi-receipt",
     tone: "cyan",
     dataKey: "cashboxes",
     points: [18, 22, 28, 27, 35, 42, 47, 55],
@@ -228,12 +228,12 @@ const demoKpis = orderDashboardKpis(kpis.map((kpi) => ({
 })));
 
 const dashboardWarehouseCards = [
-  { title: "Приход товаров", value: "11 575 000 UZS", icon: "bi-box-arrow-in-down", tone: "income", route: "storage-income" },
-  { title: "Расход товаров", value: "0 UZS", icon: "bi-box-arrow-up", tone: "expense", route: "storage-expense" },
-  { title: "Остаток склада", value: "958 892 000 UZS", icon: "bi-boxes", tone: "stock", route: "storage-balance" },
-  { title: "Общие затраты", value: "0 UZS", icon: "bi-receipt", tone: "cost" },
-  { title: "Кредиторка", value: "994 000 UZS", icon: "bi-credit-card", tone: "payable" },
-  { title: "Дебиторка", value: "0 UZS", icon: "bi-wallet2", tone: "receivable" },
+  { title: "Приход товаров", value: "11 575 000 UZS", subtitle: "За всё время", icon: "bi-box-arrow-in-down", tone: "income", route: "storage-income" },
+  { title: "Расход товаров", value: "0 UZS", subtitle: "За всё время", icon: "bi-box-arrow-up", tone: "expense", route: "storage-expense" },
+  { title: "Остаток склада", value: "958 892 000 UZS", subtitle: "Текущий остаток", icon: "bi-boxes", tone: "stock", route: "storage-balance" },
+  { title: "Общие затраты", value: "0 UZS", subtitle: "За всё время", icon: "bi-receipt", tone: "cost" },
+  { title: "Кредиторка", value: "994 000 UZS", subtitle: "Текущая задолженность", icon: "bi-credit-card", tone: "payable" },
+  { title: "Дебиторка", value: "0 UZS", subtitle: "Текущая задолженность", icon: "bi-wallet2", tone: "receivable" },
 ];
 
 const organizationRows = [];
@@ -834,6 +834,59 @@ function createAdminSaleCategoryDraft(row = null) {
     id: row?.id || "",
     name: row?.name || "",
     status: row?.status || "active",
+  };
+}
+
+const ADMIN_SOURCES_STORAGE_KEY = "marjon-admin-sources-v1";
+
+const adminSourceRows = [
+  { id: "16", name: "Trade" },
+  { id: "15", name: "Kiruvchi qo'g'iroqlar" },
+  { id: "14", name: "Sayt registratsiya" },
+  { id: "13", name: "Telegram" },
+  { id: "12", name: "Facebook" },
+  { id: "8", name: "zimzim" },
+  { id: "7", name: "Baza" },
+  { id: "6", name: "ko'cha" },
+  { id: "5", name: "Instagram eski" },
+  { id: "4", name: "Diller" },
+  { id: "3", name: "Sarafan" },
+  { id: "2", name: "Instagram" },
+];
+
+function readStoredAdminSources() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const value = window.localStorage.getItem(ADMIN_SOURCES_STORAGE_KEY);
+    const parsed = value ? JSON.parse(value) : null;
+    return Array.isArray(parsed) ? parsed.map(normalizeAdminSource).filter((row) => row.name) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredAdminSources(rows) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(ADMIN_SOURCES_STORAGE_KEY, JSON.stringify(rows.map(normalizeAdminSource)));
+  } catch {
+    // The current session still works if localStorage is unavailable.
+  }
+}
+
+function normalizeAdminSource(row, index = 0) {
+  return {
+    id: String(row?.id ?? row?.source_id ?? index + 1),
+    name: row?.name || row?.title || row?.source || "",
+  };
+}
+
+function createAdminSourceDraft(row = null) {
+  return {
+    id: row?.id || "",
+    name: row?.name || "",
   };
 }
 
@@ -3279,6 +3332,13 @@ function splitKpiValue(value) {
 function KpiCard({ item, onClick }) {
   const value = splitKpiValue(item.value);
   const today = new Date();
+  const deltaIconName = {
+    revenue: "bi-graph-up-arrow",
+    organizations: "bi-buildings",
+    subscriptions: "bi-clipboard-check",
+    branches: "bi-cash-coin",
+    cashboxes: "bi-receipt",
+  }[item.dataKey] || "bi-check2";
 
   return (
     <article
@@ -3297,7 +3357,12 @@ function KpiCard({ item, onClick }) {
         <span>{value.amount}</span>
         {value.suffix ? <small>{value.suffix}</small> : null}
       </strong>
-      <p>{item.delta}</p>
+      <p>
+        <span className="admin-kpi__delta-icon" aria-hidden="true">
+          <Icon name={deltaIconName} size={11} />
+        </span>
+        <span className="admin-kpi__delta-text">{item.delta}</span>
+      </p>
     </article>
   );
 }
@@ -3551,14 +3616,21 @@ function DashboardWarehouseCards({ onOpenSection }) {
     <aside className="admin-chart-side-cards" aria-label="Сводка склада и затрат">
       {dashboardWarehouseCards.map((item) => {
         const className = `admin-chart-side-card admin-chart-side-card--${item.tone}`;
+        const value = splitKpiValue(item.value);
         const content = (
           <>
             <span className="admin-chart-side-card__icon">
-              <Icon name={item.icon} size={19} />
+              <Icon name={item.icon} size={30} />
             </span>
             <span className="admin-chart-side-card__body">
               <strong>{item.title}</strong>
-              <em>{item.value}</em>
+              <span className="admin-chart-side-card__value">
+                <span>{value.amount}</span>
+                {value.suffix ? <small>{value.suffix}</small> : null}
+              </span>
+            </span>
+            <span className="admin-chart-side-card__chevron" aria-hidden="true">
+              <Icon name="bi-chevron-right" size={21} />
             </span>
           </>
         );
@@ -6783,6 +6855,209 @@ function SaleCategoryPage({ search, onNotify }) {
   );
 }
 
+function AdminSourcesPage({ search, onNotify }) {
+  const [rows, setRows] = useState(() => readStoredAdminSources() || adminSourceRows);
+  const [editor, setEditor] = useState(null);
+  const [sortState, setSortState] = useState({ key: "id", direction: "desc" });
+  const hasStoredRowsRef = useRef(readStoredAdminSources() !== null);
+  const query = (search || "").trim().toLowerCase();
+
+  useEffect(() => {
+    if (hasStoredRowsRef.current) return;
+
+    adminApi.get("/sources", { params: { size: 100 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data?.items || data?.results || [];
+        const nextRows = items.map(normalizeAdminSource).filter((row) => row.name);
+        if (nextRows.length) {
+          setRows(nextRows);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    saveStoredAdminSources(rows);
+  }, [rows]);
+
+  useEffect(() => {
+    if (!editor) return undefined;
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape") {
+        setEditor(null);
+      }
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [editor]);
+
+  const visibleRows = useMemo(() => {
+    return rows
+      .filter((row) => {
+        if (!query) return true;
+        return [row.id, row.name].some((value) => String(value).toLowerCase().includes(query));
+      })
+      .sort((a, b) => {
+        const direction = sortState.direction === "asc" ? 1 : -1;
+        if (sortState.key === "id") {
+          return (Number(a.id) - Number(b.id)) * direction;
+        }
+        return String(a.name).localeCompare(String(b.name), "ru", { sensitivity: "base" }) * direction;
+      });
+  }, [query, rows, sortState.direction, sortState.key]);
+
+  function toggleSort(key) {
+    setSortState((current) => ({
+      key,
+      direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+  }
+
+  function openCreate() {
+    setEditor(createAdminSourceDraft());
+  }
+
+  function openEdit(row) {
+    setEditor(createAdminSourceDraft(row));
+  }
+
+  function closeEditor() {
+    setEditor(null);
+  }
+
+  function updateEditor(field, value) {
+    setEditor((current) => current ? { ...current, [field]: value } : current);
+  }
+
+  function saveSource(event) {
+    event.preventDefault();
+    if (!editor) return;
+
+    const name = editor.name.trim();
+    if (!name) {
+      onNotify?.("Введите название источника.");
+      return;
+    }
+
+    const nextId = editor.id || String(rows.reduce((max, row) => Math.max(max, Number(row.id) || 0), 0) + 1);
+    const nextSource = { id: nextId, name };
+
+    setRows((current) => {
+      const exists = current.some((row) => row.id === nextSource.id);
+      return exists
+        ? current.map((row) => row.id === nextSource.id ? nextSource : row)
+        : [nextSource, ...current];
+    });
+    closeEditor();
+    onNotify?.("Источник сохранён.");
+  }
+
+  function deleteSource(row) {
+    setRows((current) => current.filter((item) => item.id !== row.id));
+    onNotify?.(`${row.name}: источник удалён.`);
+  }
+
+  const modal = editor ? createPortal(
+    <div className="admin-source-modal" role="dialog" aria-modal="true" aria-label="Источник">
+      <button type="button" className="admin-source-modal__shade" onClick={closeEditor} aria-label="Закрыть" />
+      <form className="admin-source-dialog" onSubmit={saveSource}>
+        <div className="admin-source-dialog__head">
+          <h3>{editor.id ? "Изменить источник" : "Добавить источник"}</h3>
+          <button type="button" onClick={closeEditor} aria-label="Закрыть">
+            <Icon name="bi-x-lg" size={18} />
+          </button>
+        </div>
+
+        <div className="admin-source-dialog__body">
+          <label className="admin-source-field">
+            <span>Название <b>*</b></span>
+            <input
+              value={editor.name}
+              onChange={(event) => updateEditor("name", event.target.value)}
+              autoFocus
+              required
+            />
+          </label>
+        </div>
+
+        <div className="admin-source-dialog__actions">
+          <button type="button" onClick={closeEditor}>Отмена</button>
+          <button type="submit">Сохранить</button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  ) : null;
+
+  return (
+    <section className="admin-source-page">
+      <div className="admin-source-card">
+        <div className="admin-source-head">
+          <div className="admin-source-title">
+            <span aria-hidden="true">
+              <Icon name="bi-megaphone" size={18} />
+            </span>
+            <div>
+              <h2>Список источников</h2>
+              <p>Каналы привлечения клиентов</p>
+            </div>
+          </div>
+
+          <button type="button" className="admin-source-add" onClick={openCreate}>
+            <span>Добавить</span>
+            <Icon name="bi-plus" size={14} />
+          </button>
+        </div>
+
+        <div className="admin-source-table" role="table" aria-label="Список источников">
+          <div className="admin-source-row admin-source-row--head" role="row">
+            <button
+              type="button"
+              className={`admin-source-sort-button ${sortState.key === "id" ? `is-${sortState.direction}` : ""}`}
+              onClick={() => toggleSort("id")}
+            >
+              <span>ID</span>
+              <span className="admin-source-sort-icon" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className={`admin-source-sort-button ${sortState.key === "name" ? `is-${sortState.direction}` : ""}`}
+              onClick={() => toggleSort("name")}
+            >
+              <span>Названия</span>
+              <span className="admin-source-sort-icon" aria-hidden="true" />
+            </button>
+            <span aria-hidden="true" />
+          </div>
+
+          {visibleRows.map((row) => (
+            <div className="admin-source-row" role="row" key={row.id}>
+              <span className="admin-source-id">{row.id}</span>
+              <strong>{row.name}</strong>
+              <div className="admin-source-actions">
+                <button type="button" className="is-edit" onClick={() => openEdit(row)} aria-label="Редактировать источник">
+                  <Icon name="bi-pencil" size={14} />
+                </button>
+                <button type="button" className="is-delete" onClick={() => deleteSource(row)} aria-label="Удалить источник">
+                  <Icon name="bi-trash3" size={14} />
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {!visibleRows.length ? (
+            <div className="admin-source-empty">Источники не найдены</div>
+          ) : null}
+        </div>
+      </div>
+
+      {modal}
+    </section>
+  );
+}
+
 function OrdersNomenclaturePage({ search, onNotify }) {
   const [rows, setRows] = useState(() => readStoredAdminOrders() || adminOrderRows);
   const [editor, setEditor] = useState(null);
@@ -7994,38 +8269,591 @@ function HandbookLocationPage({ active, search, onNotify }) {
   );
 }
 
+const ADMIN_FINANCE_FALLBACK_PAYMENT_TYPES = [
+  { id: "fallback-cash", label: "Наличные", apiId: null },
+  { id: "fallback-card", label: "Карта", apiId: null },
+  { id: "fallback-transfer", label: "Перечисление", apiId: null },
+];
+const ADMIN_FINANCE_FALLBACK_INCOME_CATEGORIES = [
+  { id: "fallback-income-cash", label: "Пополнение кассы", apiId: null, kind: "income" },
+  { id: "fallback-income-order", label: "Оплата заказа", apiId: null, kind: "income" },
+  { id: "fallback-income-other", label: "Прочее поступление", apiId: null, kind: "income" },
+];
+const ADMIN_FINANCE_COUNTERPARTY_TYPES = [
+  { value: "provider", label: "Поставщики" },
+  { value: "client", label: "Клиенты" },
+  { value: "employee", label: "Сотрудники" },
+  { value: "other", label: "Другие" },
+];
+const ADMIN_FINANCE_COMMENT_LIMIT = 500;
+const ADMIN_FINANCE_REQUIRED_FIELDS = ["amount", "paymentTypeId", "organizationId", "date", "categoryId"];
+
+const adminFinanceApi = {
+  listTransactions(params = {}) {
+    return adminApi.get("/finance/transactions", { params: { size: 100, ...params } });
+  },
+  createTransaction(payload, idempotencyKey) {
+    return adminApi.post("/finance/transactions", payload, {
+      headers: { "Idempotency-Key": idempotencyKey },
+    });
+  },
+  listPaymentTypes() {
+    return adminApi.get("/finance/payment-types", { params: { size: 100, status: true } });
+  },
+  listOrganizations() {
+    return adminApi.get("/organizations", { params: { size: 100, status: "active" } });
+  },
+  listCategories(kind) {
+    return adminApi.get("/finance/transaction-categories", { params: { size: 200, kind, status: true } });
+  },
+  listCounterparties(type) {
+    return adminApi.get("/finance/counterparties", { params: { size: 200, type } });
+  },
+};
+
+function extractAdminFinanceItems(data) {
+  return Array.isArray(data) ? data : data?.items || data?.results || [];
+}
+
+function isUuidLike(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
+}
+
+function normalizeAdminFinanceOption(item, index, labelFields = ["name"]) {
+  const rawId = item?.id || item?.uuid || item?.value || "";
+  const label = labelFields.map((field) => item?.[field]).find(Boolean) || item?.label || rawId || `option-${index + 1}`;
+  return {
+    id: String(rawId || `${label}-${index}`),
+    apiId: isUuidLike(rawId) ? String(rawId) : null,
+    label: String(label),
+    raw: item,
+  };
+}
+
+function normalizeAdminFinanceTransaction(row, index = 0) {
+  const operationType = row.direction || row.operation_type || (Number(row.amount || 0) < 0 ? "expense" : "income");
+  const amount = Math.abs(Number(row.amount || 0));
+  const dateValue = row.date || row.created_at || "";
+  const parsedDate = dateValue ? new Date(dateValue) : null;
+  const hasValidDate = parsedDate && !Number.isNaN(parsedDate.getTime());
+  return {
+    id: row.id || row.uuid || row.document_number || `finance-operation-${index}`,
+    date: hasValidDate ? parsedDate.toLocaleDateString("ru-RU") : (row.date || "—"),
+    time: hasValidDate ? parsedDate.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) : (row.time || ""),
+    number: row.document_number || row.id || "",
+    organization: row.organization_name || row.organization || "—",
+    type: operationType === "expense" ? "Расход" : "Приход",
+    operationType,
+    amount: operationType === "expense" ? -amount : amount,
+    paymentType: row.payment_type_name || row.payment_type || "—",
+    counterparty: row.counterparty_name || row.counterparty || "—",
+    category: row.category_name || row.category || "—",
+    status: row.status || "Проведен",
+    comment: row.comment || "—",
+  };
+}
+
+function createAdminFinanceTransactionDraft(operationType = "income", defaults = {}) {
+  return {
+    operationType,
+    amount: "",
+    paymentTypeId: defaults.paymentTypeId || "",
+    organizationId: defaults.organizationId || "",
+    counterpartyType: "provider",
+    counterpartyId: "",
+    date: adminTodayInputValue(),
+    categoryId: defaults.categoryId || "",
+    comment: "",
+  };
+}
+
+function formatAdminFinanceAmountDraft(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "";
+  const normalized = digits.replace(/^0+(?=\d)/, "");
+  return normalized.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
+function parseAdminFinanceAmount(value) {
+  return Number(String(value || "").replace(/\s/g, "")) || 0;
+}
+
+function adminFinanceDateForApi(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "")) ? `${value}T00:00:00` : null;
+}
+
+function adminFinanceDraftDirty(draft, initialDraft) {
+  return JSON.stringify(draft || {}) !== JSON.stringify(initialDraft || {});
+}
+
+function getAdminFinanceBackendMessage(error) {
+  const detail = error?.response?.data?.detail;
+  if (Array.isArray(detail)) {
+    return detail.map((item) => item?.msg || item?.message || String(item)).join("; ");
+  }
+  if (detail && typeof detail === "object") {
+    return detail.message || JSON.stringify(detail);
+  }
+  return detail || "Не удалось добавить операцию. Проверьте данные и попробуйте ещё раз.";
+}
+
+function validateAdminFinanceDraft(draft) {
+  const errors = {};
+  const amount = parseAdminFinanceAmount(draft.amount);
+  if (!String(draft.amount || "").trim()) {
+    errors.amount = "Введите сумму";
+  } else if (amount <= 0) {
+    errors.amount = "Сумма должна быть больше нуля";
+  }
+  if (!draft.paymentTypeId) errors.paymentTypeId = "Выберите способ оплаты";
+  if (!draft.organizationId) errors.organizationId = "Выберите филиал";
+  if (!draft.date || !adminFinanceDateForApi(draft.date)) errors.date = "Выберите дату";
+  if (!draft.categoryId) errors.categoryId = "Выберите категорию";
+  return errors;
+}
+
+function AdminFinanceSearchableSelect({
+  label,
+  required = false,
+  value,
+  options,
+  onChange,
+  placeholder = "Выберите",
+  searchPlaceholder = "Поиск",
+  emptyText = "Ничего не найдено",
+  error,
+  disabled = false,
+  loading = false,
+  controlRef,
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const rootRef = useRef(null);
+  const selected = options.find((option) => option.id === value);
+  const filteredOptions = options.filter((option) => option.label.toLowerCase().includes(query.trim().toLowerCase()));
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function closeOnOutsideClick(event) {
+      if (!rootRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    }
+    window.addEventListener("mousedown", closeOnOutsideClick);
+    return () => window.removeEventListener("mousedown", closeOnOutsideClick);
+  }, [open]);
+
+  function chooseOption(option) {
+    onChange(option.id);
+    setQuery("");
+    setOpen(false);
+  }
+
+  return (
+    <div className={`admin-income-field admin-transaction-field admin-finance-select-field ${error ? "is-invalid" : ""}`} ref={rootRef}>
+      <span>{label} {required ? <b>*</b> : null}</span>
+      <button
+        type="button"
+        className="admin-finance-select-button"
+        ref={controlRef}
+        disabled={disabled}
+        aria-invalid={Boolean(error)}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <strong className={selected ? "" : "is-placeholder"}>{loading ? "Загрузка..." : selected?.label || placeholder}</strong>
+        <Icon name="bi-chevron-down" size={14} />
+      </button>
+      {open ? (
+        <div className="admin-finance-select-menu" onClick={(event) => event.stopPropagation()}>
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={searchPlaceholder}
+            autoFocus
+          />
+          <div className="admin-finance-select-options">
+            {filteredOptions.map((option) => (
+              <button
+                type="button"
+                key={option.id}
+                className={option.id === value ? "is-selected" : ""}
+                onClick={() => chooseOption(option)}
+              >
+                {option.label}
+              </button>
+            ))}
+            {!filteredOptions.length ? <em>{emptyText}</em> : null}
+          </div>
+        </div>
+      ) : null}
+      {error ? <em className="admin-finance-field-error">{error}</em> : null}
+    </div>
+  );
+}
+
+function AdminFinanceCurrencyInput({ value, onChange, error, controlRef, disabled }) {
+  return (
+    <label className={`admin-income-field admin-transaction-field ${error ? "is-invalid" : ""}`}>
+      <span>Сумма <b>*</b></span>
+      <div className="admin-transaction-amount-input admin-finance-operation-amount">
+        <input
+          ref={controlRef}
+          value={value}
+          inputMode="numeric"
+          disabled={disabled}
+          aria-invalid={Boolean(error)}
+          onChange={(event) => onChange(formatAdminFinanceAmountDraft(event.target.value))}
+          placeholder="0"
+          autoFocus
+        />
+        <strong>UZS</strong>
+      </div>
+      {error ? <em className="admin-finance-field-error">{error}</em> : null}
+    </label>
+  );
+}
+
+function AdminFinanceCounterpartyTypeSelector({ value, onChange }) {
+  return (
+    <div className="admin-income-field admin-transaction-field admin-finance-counterparty-field">
+      <span>Тип контрагента</span>
+      <div className="admin-finance-counterparty-types" role="radiogroup" aria-label="Тип контрагента">
+        {ADMIN_FINANCE_COUNTERPARTY_TYPES.map((item) => (
+          <button
+            type="button"
+            key={item.value}
+            className={item.value === value ? "is-active" : ""}
+            role="radio"
+            aria-checked={item.value === value}
+            onClick={() => onChange(item.value)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AdminFinanceDateInput({ value, onChange, error, controlRef, disabled }) {
+  return (
+    <label className={`admin-income-field admin-transaction-field ${error ? "is-invalid" : ""}`}>
+      <span>Дата <b>*</b></span>
+      <div className="admin-finance-operation-date">
+        <input
+          ref={controlRef}
+          type="date"
+          value={value}
+          disabled={disabled}
+          aria-invalid={Boolean(error)}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <strong>{adminInputDateToReportDate(value)}</strong>
+        <Icon name="bi-calendar3" size={15} />
+      </div>
+      {error ? <em className="admin-finance-field-error">{error}</em> : null}
+    </label>
+  );
+}
+
+function AdminFinanceTransactionModal({
+  open,
+  operationType,
+  draft,
+  errors,
+  submitError,
+  submitting,
+  referencesLoading,
+  paymentTypes,
+  organizations,
+  categories,
+  counterparties,
+  onChange,
+  onCloseRequest,
+  onSubmit,
+  fieldRef,
+}) {
+  if (!open || typeof document === "undefined") return null;
+
+  const isIncome = operationType === "income";
+  const title = isIncome ? "Добавить приход" : "Добавить расход";
+  const actionText = isIncome ? "Добавить" : "Добавить";
+  const loadingText = isIncome ? "Добавление…" : "Добавление…";
+  const counterpartyOptions = counterparties[draft.counterpartyType] || [];
+
+  return createPortal(
+    <div
+      className={`admin-income-modal admin-transaction-modal admin-finance-operation-modal ${isIncome ? "is-income" : "is-expense"}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onCloseRequest();
+      }}
+    >
+      <form className="admin-income-dialog admin-transaction-dialog admin-finance-operation-dialog" onSubmit={onSubmit} onMouseDown={(event) => event.stopPropagation()}>
+        <div className="admin-income-dialog__head admin-transaction-dialog__head admin-finance-operation-dialog__head">
+          <div className="admin-finance-operation-title">
+            <span aria-hidden="true">
+              <Icon name={isIncome ? "bi-plus-lg" : "bi-dash-lg"} size={18} />
+            </span>
+            <div>
+              <h3>{title}</h3>
+            </div>
+          </div>
+          <button type="button" className="admin-income-dialog__close" onClick={onCloseRequest} aria-label="Закрыть">
+            <Icon name="bi-x-lg" size={16} />
+          </button>
+        </div>
+
+        <div className="admin-transaction-dialog__grid admin-finance-operation-dialog__grid">
+          <AdminFinanceCurrencyInput
+            value={draft.amount}
+            disabled={submitting}
+            error={errors.amount}
+            controlRef={fieldRef("amount")}
+            onChange={(value) => onChange("amount", value)}
+          />
+          <AdminFinanceSearchableSelect
+            label="Способ оплаты"
+            required
+            value={draft.paymentTypeId}
+            options={paymentTypes}
+            loading={referencesLoading && !paymentTypes.length}
+            disabled={submitting}
+            error={errors.paymentTypeId}
+            controlRef={fieldRef("paymentTypeId")}
+            placeholder="Выберите способ оплаты"
+            onChange={(value) => onChange("paymentTypeId", value)}
+          />
+          <AdminFinanceSearchableSelect
+            label="Организация или филиал"
+            required
+            value={draft.organizationId}
+            options={organizations}
+            loading={referencesLoading && !organizations.length}
+            disabled={submitting}
+            error={errors.organizationId}
+            controlRef={fieldRef("organizationId")}
+            placeholder="Выберите филиал"
+            searchPlaceholder="Поиск филиала"
+            onChange={(value) => onChange("organizationId", value)}
+          />
+          <AdminFinanceCounterpartyTypeSelector
+            value={draft.counterpartyType}
+            onChange={(value) => onChange("counterpartyType", value)}
+          />
+          <AdminFinanceSearchableSelect
+            label="Контрагент"
+            value={draft.counterpartyId}
+            options={counterpartyOptions}
+            disabled={submitting}
+            error={errors.counterpartyId}
+            controlRef={fieldRef("counterpartyId")}
+            placeholder="Не выбран"
+            searchPlaceholder="Поиск контрагента"
+            emptyText="Контрагенты не найдены"
+            onChange={(value) => onChange("counterpartyId", value)}
+          />
+          <AdminFinanceDateInput
+            value={draft.date}
+            disabled={submitting}
+            error={errors.date}
+            controlRef={fieldRef("date")}
+            onChange={(value) => onChange("date", value)}
+          />
+          <AdminFinanceSearchableSelect
+            label="Категория"
+            required
+            value={draft.categoryId}
+            options={categories}
+            loading={referencesLoading && !categories.length}
+            disabled={submitting}
+            error={errors.categoryId}
+            controlRef={fieldRef("categoryId")}
+            placeholder="Выберите категорию"
+            searchPlaceholder="Поиск категории"
+            onChange={(value) => onChange("categoryId", value)}
+          />
+          <label className="admin-income-field admin-transaction-field admin-transaction-field--wide admin-finance-comment-field">
+            <span>Комментарий</span>
+            <textarea
+              value={draft.comment}
+              disabled={submitting}
+              maxLength={ADMIN_FINANCE_COMMENT_LIMIT}
+              onChange={(event) => onChange("comment", event.target.value)}
+              placeholder="Комментарий к операции"
+              rows={3}
+            />
+            <small>{draft.comment.length}/{ADMIN_FINANCE_COMMENT_LIMIT}</small>
+          </label>
+        </div>
+
+        {submitError ? <div className="admin-finance-submit-error">{submitError}</div> : null}
+
+        <div className="admin-income-dialog__actions admin-transaction-dialog__actions admin-finance-operation-dialog__actions is-single">
+          <button type="submit" className="is-primary" disabled={submitting}>
+            {submitting ? loadingText : actionText}
+          </button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  );
+}
+
 function AdminFinanceOperationsPage({ search, onNotify }) {
-  const [range, setRange] = useState(() => presetRange("Сегодня"));
-  const [operations, setOperations] = useState([]);
+  const [range, setRange] = useState(() => buildAdminDashboardDateRange("Этот месяц"));
+  const [operations, setOperations] = useState(() => financeOperationRows);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
   const [organizationFilter, setOrganizationFilter] = useState("all");
-  const query = search.trim().toLowerCase();
+  const [financeModalOpen, setFinanceModalOpen] = useState(false);
+  const [financeModalType, setFinanceModalType] = useState("income");
+  const [financeDraft, setFinanceDraft] = useState(() => createAdminFinanceTransactionDraft("income"));
+  const [financeInitialDraft, setFinanceInitialDraft] = useState(() => createAdminFinanceTransactionDraft("income"));
+  const [financeErrors, setFinanceErrors] = useState({});
+  const [financeSubmitError, setFinanceSubmitError] = useState("");
+  const [financeSubmitting, setFinanceSubmitting] = useState(false);
+  const [referencesLoading, setReferencesLoading] = useState(false);
+  const [paymentTypes, setPaymentTypes] = useState(() => ADMIN_FINANCE_FALLBACK_PAYMENT_TYPES);
+  const [organizations, setOrganizations] = useState([]);
+  const [categoriesByKind, setCategoriesByKind] = useState(() => ({
+    income: ADMIN_FINANCE_FALLBACK_INCOME_CATEGORIES,
+    expense: [],
+  }));
+  const [counterpartiesByType, setCounterpartiesByType] = useState(() => (
+    Object.fromEntries(ADMIN_FINANCE_COUNTERPARTY_TYPES.map((item) => [item.value, []]))
+  ));
+  const financeFieldRefs = useRef({});
+  const query = (search || "").trim().toLowerCase();
+  const datePresets = useMemo(() => (
+    ADMIN_DASHBOARD_DATE_PRESET_LABELS.map((label) => ({
+      label,
+      getRange: () => buildAdminDashboardDateRange(label),
+    }))
+  ), []);
+  const transactionCategories = categoriesByKind[financeModalType] || [];
+
+  const loadFinanceOperations = useCallback(async () => {
+    const normalizedRange = normalizeAdminReportRange(range);
+    const params = {
+      date_from: adminReportDateToInputDate(normalizedRange.start),
+      date_to: adminReportDateToInputDate(normalizedRange.end),
+    };
+    try {
+      const { data } = await adminFinanceApi.listTransactions(params);
+      const items = extractAdminFinanceItems(data);
+      if (items.length) {
+        setOperations(items.map(normalizeAdminFinanceTransaction));
+      }
+      return items;
+    } catch {
+      return null;
+    }
+  }, [range]);
 
   useEffect(() => {
-    adminApi.get("/finance/transactions", { params: { size: 100 } })
-      .then(({ data }) => {
-        const items = Array.isArray(data) ? data : data?.items || [];
-        if (items.length) {
-          setOperations(items.map((r) => ({
-            date: r.date || r.created_at || "",
-            number: r.document_number || r.id || "",
-            organization: r.organization_name || r.counterparty_name || r.counterparty || "—",
-            type: r.direction === "expense" ? "Расход" : "Приход",
-            amount: r.direction === "expense" ? -Math.abs(Number(r.amount || 0)) : Math.abs(Number(r.amount || 0)),
-            paymentType: r.payment_type_name || r.payment_type || "—",
-            status: r.status || "Проведен",
-            comment: r.comment || "",
-          })));
-        }
-      })
-      .catch(() => {});
+    loadFinanceOperations();
+  }, [loadFinanceOperations]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadReferences() {
+      setReferencesLoading(true);
+      const [
+        paymentResult,
+        organizationResult,
+        incomeCategoryResult,
+        expenseCategoryResult,
+        ...counterpartyResults
+      ] = await Promise.allSettled([
+        adminFinanceApi.listPaymentTypes(),
+        adminFinanceApi.listOrganizations(),
+        adminFinanceApi.listCategories("income"),
+        adminFinanceApi.listCategories("expense"),
+        ...ADMIN_FINANCE_COUNTERPARTY_TYPES.map((item) => adminFinanceApi.listCounterparties(item.value)),
+      ]);
+      if (!mounted) return;
+
+      const nextPaymentTypes = paymentResult.status === "fulfilled"
+        ? extractAdminFinanceItems(paymentResult.value.data)
+          .filter((item) => item.status !== false)
+          .map((item, index) => normalizeAdminFinanceOption(item, index, ["name", "type"]))
+        : [];
+      const nextOrganizations = organizationResult.status === "fulfilled"
+        ? extractAdminFinanceItems(organizationResult.value.data)
+          .filter((item) => item.status !== "blocked")
+          .map((item, index) => normalizeAdminFinanceOption(item, index, ["name", "company_name"]))
+        : [];
+      const nextIncomeCategories = incomeCategoryResult.status === "fulfilled"
+        ? extractAdminFinanceItems(incomeCategoryResult.value.data)
+          .filter((item) => item.kind === "income" && item.status !== false)
+          .map((item, index) => ({ ...normalizeAdminFinanceOption(item, index, ["name"]), kind: "income" }))
+        : [];
+      const nextExpenseCategories = expenseCategoryResult.status === "fulfilled"
+        ? extractAdminFinanceItems(expenseCategoryResult.value.data)
+          .filter((item) => item.kind === "expense" && item.status !== false)
+          .map((item, index) => ({ ...normalizeAdminFinanceOption(item, index, ["name"]), kind: "expense" }))
+        : [];
+      const nextCounterparties = {};
+      ADMIN_FINANCE_COUNTERPARTY_TYPES.forEach((item, index) => {
+        const result = counterpartyResults[index];
+        nextCounterparties[item.value] = result?.status === "fulfilled"
+          ? extractAdminFinanceItems(result.value.data)
+            .map((row, rowIndex) => normalizeAdminFinanceOption(row, rowIndex, ["full_name", "name", "phone"]))
+          : [];
+      });
+
+      setPaymentTypes(nextPaymentTypes.length ? nextPaymentTypes : ADMIN_FINANCE_FALLBACK_PAYMENT_TYPES);
+      setOrganizations(nextOrganizations);
+      setCategoriesByKind({
+        income: nextIncomeCategories.length ? nextIncomeCategories : ADMIN_FINANCE_FALLBACK_INCOME_CATEGORIES,
+        expense: nextExpenseCategories,
+      });
+      setCounterpartiesByType(nextCounterparties);
+      setReferencesLoading(false);
+    }
+
+    loadReferences();
+    return () => {
+      mounted = false;
+    };
   }, []);
+
+  useEffect(() => {
+    if (!financeModalOpen || typeof document === "undefined") return undefined;
+    const previousOverflow = document.body.style.overflow;
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        requestCloseFinanceModal();
+      }
+    }
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [financeModalOpen, financeDraft, financeInitialDraft, financeSubmitting]);
 
   const organizationOptions = useMemo(
     () => Array.from(new Set(operations.map((row) => row.organization))),
     [operations],
   );
+  const financeTotals = useMemo(() => operations.reduce((acc, row) => {
+    if (row.amount < 0) {
+      acc.expense += Math.abs(Number(row.amount || 0));
+    } else {
+      acc.income += Number(row.amount || 0);
+    }
+    return acc;
+  }, { income: 0, expense: 0 }), [operations]);
   const filteredOperations = operations.filter((row) => {
     const typeMatches = typeFilter === "all" || (typeFilter === "income" ? row.amount > 0 : row.amount < 0);
     const organizationMatches = organizationFilter === "all" || row.organization === organizationFilter;
@@ -8041,77 +8869,177 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
     ].some((value) => String(value).toLowerCase().includes(query));
     return typeMatches && organizationMatches && queryMatches;
   });
-  const visibleTotals = filteredOperations.reduce(
-    (total, row) => ({
-      income: total.income + (row.amount > 0 ? row.amount : 0),
-      expense: total.expense + (row.amount < 0 ? Math.abs(row.amount) : 0),
-    }),
-    { income: 0, expense: 0 },
-  );
-
-  function shiftDay(diff) {
-    const start = parseDate(range.start);
-    const end = parseDate(range.end);
-    start.setDate(start.getDate() + diff);
-    end.setDate(end.getDate() + diff);
-    const next = { start: formatDate(start), end: formatDate(end), preset: "" };
-    setRange({ ...next, label: rangeLabel(next) });
-  }
-
-  function chooseToday() {
-    setRange(presetRange("Сегодня"));
-    onNotify?.("Период денежных операций: сегодня.");
-  }
-
   function deleteOperation(row) {
     setOperations((current) => current.filter((item) => item.id !== row.id));
     onNotify?.(`Операция ${formatSignedFinanceAmount(row.amount)} удалена локально.`);
   }
 
+  function fieldRef(name) {
+    return (node) => {
+      if (node) financeFieldRefs.current[name] = node;
+    };
+  }
+
+  function focusFirstInvalidField(errors) {
+    const firstField = ADMIN_FINANCE_REQUIRED_FIELDS.find((field) => errors[field]);
+    if (!firstField) return;
+    window.requestAnimationFrame(() => {
+      financeFieldRefs.current[firstField]?.focus?.();
+    });
+  }
+
+  function buildFinanceDraft(operationType = "income") {
+    return createAdminFinanceTransactionDraft(operationType, {
+      paymentTypeId: paymentTypes[0]?.id || "",
+      organizationId: organizations[0]?.id || "",
+      categoryId: (categoriesByKind[operationType] || [])[0]?.id || "",
+    });
+  }
+
+  function openFinanceModal(operationType = "income") {
+    const nextDraft = buildFinanceDraft(operationType);
+    financeFieldRefs.current = {};
+    setFinanceModalType(operationType);
+    setFinanceDraft(nextDraft);
+    setFinanceInitialDraft(nextDraft);
+    setFinanceErrors({});
+    setFinanceSubmitError("");
+    setFinanceModalOpen(true);
+  }
+
+  function closeFinanceModal() {
+    setFinanceModalOpen(false);
+    setFinanceErrors({});
+    setFinanceSubmitError("");
+    setFinanceSubmitting(false);
+  }
+
+  function requestCloseFinanceModal() {
+    if (financeSubmitting) return;
+    if (adminFinanceDraftDirty(financeDraft, financeInitialDraft)) {
+      const confirmed = window.confirm("Закрыть окно? Введённые данные будут потеряны.");
+      if (!confirmed) return;
+    }
+    closeFinanceModal();
+  }
+
+  function updateFinanceDraft(field, value) {
+    setFinanceDraft((current) => {
+      const next = { ...current, [field]: value };
+      if (field === "counterpartyType") {
+        next.counterpartyId = "";
+      }
+      return next;
+    });
+    setFinanceErrors((current) => {
+      const next = { ...current };
+      delete next[field];
+      if (field === "counterpartyType") delete next.counterpartyId;
+      return next;
+    });
+    setFinanceSubmitError("");
+  }
+
+  async function saveFinanceOperation(event) {
+    event.preventDefault();
+    if (financeSubmitting) return;
+
+    const errors = validateAdminFinanceDraft(financeDraft);
+    if (Object.keys(errors).length) {
+      setFinanceErrors(errors);
+      focusFirstInvalidField(errors);
+      return;
+    }
+
+    const selectedPaymentType = paymentTypes.find((item) => item.id === financeDraft.paymentTypeId);
+    const selectedOrganization = organizations.find((item) => item.id === financeDraft.organizationId);
+    const selectedCounterparty = (counterpartiesByType[financeDraft.counterpartyType] || [])
+      .find((item) => item.id === financeDraft.counterpartyId);
+    const selectedCategory = transactionCategories.find((item) => item.id === financeDraft.categoryId);
+    const payload = {
+      direction: financeDraft.operationType,
+      amount: parseAdminFinanceAmount(financeDraft.amount),
+      date: adminFinanceDateForApi(financeDraft.date),
+      comment: financeDraft.comment.trim() || null,
+    };
+
+    if (selectedPaymentType?.apiId) payload.payment_type_id = selectedPaymentType.apiId;
+    if (selectedOrganization?.apiId) payload.organization_id = selectedOrganization.apiId;
+    if (selectedCounterparty?.apiId) payload.counterparty_id = selectedCounterparty.apiId;
+    if (selectedCategory?.apiId) payload.category_id = selectedCategory.apiId;
+
+    setFinanceSubmitting(true);
+    setFinanceSubmitError("");
+
+    try {
+      const idempotencyKey = `admin-finance-${financeDraft.operationType}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const { data } = await adminFinanceApi.createTransaction(payload, idempotencyKey);
+      const refreshedItems = await loadFinanceOperations();
+      if ((!refreshedItems || !refreshedItems.length) && data?.id) {
+        setOperations((current) => [
+          normalizeAdminFinanceTransaction({
+            ...data,
+            payment_type_name: selectedPaymentType?.label,
+            organization_name: selectedOrganization?.label,
+            counterparty_name: selectedCounterparty?.label,
+            category_name: selectedCategory?.label,
+          }),
+          ...current.filter((row) => row.id !== data.id),
+        ]);
+      }
+      closeFinanceModal();
+      setFinanceDraft(buildFinanceDraft(financeDraft.operationType));
+      setFinanceInitialDraft(buildFinanceDraft(financeDraft.operationType));
+      onNotify?.(financeDraft.operationType === "income" ? "Приход успешно добавлен" : "Расход успешно добавлен");
+    } catch (error) {
+      const message = getAdminFinanceBackendMessage(error);
+      setFinanceSubmitError(message);
+      onNotify?.(message);
+    } finally {
+      setFinanceSubmitting(false);
+    }
+  }
+
   return (
     <section className="admin-finance-page">
-      <div className="admin-finance-head">
-        <div>
-          <h2>Денежные операции</h2>
-          <p>Приходы, расходы и движения кассы по филиалам.</p>
-        </div>
-        <div className="admin-finance-date">
-          <button type="button" onClick={() => shiftDay(-1)} aria-label="Предыдущая дата">
-            <Icon name="bi-chevron-left" size={15} />
-          </button>
-          <button type="button" className="admin-finance-date__current" onClick={chooseToday}>
-            <Icon name="bi-calendar3" size={16} />
-            <span>{range.preset ? "Выберите дату" : range.label}</span>
-          </button>
-          <button type="button" onClick={() => shiftDay(1)} aria-label="Следующая дата">
-            <Icon name="bi-chevron-right" size={15} />
-          </button>
-        </div>
-      </div>
+      <h2 className="sr-only">Денежные операции</h2>
 
       <div className="admin-finance-toolbar">
+        <div className="admin-finance-date">
+          <ReportDateRangePicker
+            value={range}
+            onChange={(nextRange) => setRange(normalizeAdminReportRange(nextRange))}
+            buttonClassName="admin-finance-date-button"
+            showTime={false}
+            presets={datePresets}
+            formatButtonLabel={formatAdminDashboardDateRangeButton}
+            blockPageScrollOnWheel
+            applyPresetOnSelect
+            showMenuOk={false}
+            leadingIconName="bi-calendar3"
+            leadingIconSize={16}
+          />
+        </div>
         <div className="admin-finance-summary is-income">
           <span>Приход</span>
-          <strong>{formatCurrency(financeOperationTotals.income)}</strong>
-          <small>В таблице: {formatCurrency(visibleTotals.income)}</small>
+          <strong>{formatCurrency(financeTotals.income)}</strong>
         </div>
         <div className="admin-finance-summary is-expense">
           <span>Расход</span>
-          <strong>{formatCurrency(financeOperationTotals.expense)}</strong>
-          <small>В таблице: {formatCurrency(visibleTotals.expense)}</small>
+          <strong>{formatCurrency(financeTotals.expense)}</strong>
         </div>
         <div className="admin-finance-actions">
-          <button type="button" className="admin-finance-action is-income" onClick={() => onNotify?.("Форма прихода готова к открытию.")}>
+          <button type="button" className="admin-finance-action is-income" onClick={() => openFinanceModal("income")}>
             <Icon name="bi-plus-lg" size={16} />
-            <span>Приход</span>
+            <span>ПРИХОД</span>
           </button>
-          <button type="button" className="admin-finance-action is-expense" onClick={() => onNotify?.("Форма расхода готова к открытию.")}>
+          <button type="button" className="admin-finance-action is-expense" onClick={() => openFinanceModal("expense")}>
             <Icon name="bi-dash-lg" size={16} />
-            <span>Расход</span>
+            <span>РАСХОД</span>
           </button>
           <button type="button" className="admin-finance-action is-export" onClick={() => onNotify?.("Денежные операции подготовлены для Excel.")}>
             <Icon name="bi-file-earmark-excel" size={16} />
-            <span>Скачать на Excel</span>
+            <span>Скачать на EXCEL</span>
           </button>
           <button type="button" className={`admin-finance-action is-filter ${filtersOpen ? "is-active" : ""}`} onClick={() => setFiltersOpen((value) => !value)}>
             <Icon name="bi-sliders" size={16} />
@@ -8149,6 +9077,7 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
             <tr>
               <th>Дата</th>
               <th>Сумма</th>
+              <th>Тип</th>
               <th>Тип оплаты</th>
               <th>Контрагент</th>
               <th>Категория</th>
@@ -8169,6 +9098,7 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
                     {formatSignedFinanceAmount(row.amount)}
                   </span>
                 </td>
+                <td><span className={`admin-finance-operation-type ${row.amount < 0 ? "is-expense" : "is-income"}`}>{row.type}</span></td>
                 <td>{row.paymentType}</td>
                 <td>{row.counterparty}</td>
                 <td><span className="admin-finance-tag">{row.category}</span></td>
@@ -8183,12 +9113,29 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
             ))}
             {!filteredOperations.length ? (
               <tr>
-                <td colSpan="8" className="admin-finance-empty">Операции не найдены.</td>
+                <td colSpan="9" className="admin-finance-empty">Операции не найдены.</td>
               </tr>
             ) : null}
           </tbody>
         </table>
       </div>
+      <AdminFinanceTransactionModal
+        open={financeModalOpen}
+        operationType={financeModalType}
+        draft={financeDraft}
+        errors={financeErrors}
+        submitError={financeSubmitError}
+        submitting={financeSubmitting}
+        referencesLoading={referencesLoading}
+        paymentTypes={paymentTypes}
+        organizations={organizations}
+        categories={transactionCategories}
+        counterparties={counterpartiesByType}
+        onChange={updateFinanceDraft}
+        onCloseRequest={requestCloseFinanceModal}
+        onSubmit={saveFinanceOperation}
+        fieldRef={fieldRef}
+      />
     </section>
   );
 }
@@ -9017,6 +9964,9 @@ function CategoryPage({ active, rowsOverride, search, onCreate, onRowDetail, onN
   }
   if (active === "srv-employees") {
     return <AdminEmployeesPage search={search} onNotify={onNotify} />;
+  }
+  if (active === "srv-source") {
+    return <AdminSourcesPage search={search} onNotify={onNotify} />;
   }
   if (active === "fin-operations") {
     return <AdminFinanceOperationsPage search={search} onNotify={onNotify} />;
@@ -10733,7 +11683,7 @@ function DashboardChartFilterBar({ onOpenTransactions, onOpenSales }) {
         />
       </div>
       <button className="admin-chart-filter admin-chart-filter--with-icon" type="button" onClick={onOpenSales}>
-        <Icon name="bi-cash-coin" size={16} />
+        <Icon name="bi-tags" size={16} />
         <span>Продажи</span>
       </button>
       <button className="admin-chart-filter admin-chart-filter--with-icon" type="button" onClick={onOpenTransactions}>
