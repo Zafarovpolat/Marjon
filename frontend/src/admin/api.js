@@ -9,6 +9,7 @@ import {
   resolveAdminAuthSession,
   saveAuthTokens,
 } from "../auth/session";
+import { createFetchAdapter, DEFAULT_HTTP_TIMEOUT_MS } from "../api/transport";
 
 export const ADMIN_API_BASE_URL = import.meta.env.VITE_ADMIN_API_URL || "http://127.0.0.1:8000/api/v1";
 const LOCAL_ADMIN_PHONE = "+998900078779";
@@ -19,6 +20,8 @@ export const adminApi = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  timeout: DEFAULT_HTTP_TIMEOUT_MS,
+  adapter: createFetchAdapter({ defaultTimeout: DEFAULT_HTTP_TIMEOUT_MS }),
 });
 
 adminApi.interceptors.request.use((config) => {
