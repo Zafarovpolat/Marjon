@@ -71,43 +71,6 @@ async def list_attendance(user: User = Depends(get_current_user), db: AsyncSessi
     return await AdminReportService(db).attendance_history(user.company_id)
 
 
-@router.patch("/employees/{employee_id}", response_model=EmployeeResponse)
-async def update_employee(
-    employee_id: UUID,
-    data: EmployeeUpdate,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    from sqlalchemy import update as sql_update
-    from app.modules.hr.models import Employee
-    values = data.model_dump(exclude_none=True)
-    if values:
-        await db.execute(
-            sql_update(Employee).where(
-                Employee.id == employee_id, Employee.company_id == user.company_id
-            ).values(**values)
-        )
-        await db.commit()
-    result = await db.get(Employee, employee_id)
-    return EmployeeResponse.model_validate(result)
-
-
-@router.delete("/employees/{employee_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_employee(
-    employee_id: UUID,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    from sqlalchemy import update as sql_update
-    from app.modules.hr.models import Employee
-    await db.execute(
-        sql_update(Employee).where(
-            Employee.id == employee_id, Employee.company_id == user.company_id
-        ).values(is_active=False)
-    )
-    await db.commit()
-
-
 @router.get("/login-history", response_model=list[LoginHistoryRow])
 async def login_history(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     return await AdminReportService(db).login_history(user.company_id)

@@ -57,6 +57,14 @@ class Settings(BaseSettings):
     payme_secret_key: str | None = None
     uzum_service_id: str | None = None
     uzum_secret_key: str | None = None
+    # Секрет внутренних вебхуков платёжек (из ветки bek)
+    webhook_secret: str | None = None
+    # MinIO / S3 — загрузка аватаров и файлов (из ветки bek)
+    minio_endpoint: str | None = None
+    minio_access_key: str | None = None
+    minio_secret_key: str | None = None
+    minio_bucket: str = "marjon"
+    minio_public_url: str = "http://localhost:9000"
 
     class Config:
         env_file = ".env"

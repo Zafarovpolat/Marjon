@@ -33,7 +33,7 @@ class KitchenWS {
 
     const { serverUrl, token, branchId } = this._params
     const wsUrl = serverUrl.replace(/^http/, 'ws').replace(/\/api\/v1\/?$/, '')
-    const url = `${wsUrl}/ws/kitchen?token=${token}`
+    const url = `${wsUrl}/ws/kitchen?token=${token}&branch_id=${branchId}`
 
     try {
       this._socket = new WebSocket(url)

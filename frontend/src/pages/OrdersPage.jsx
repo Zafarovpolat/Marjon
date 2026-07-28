@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { api, formatMoney } from "../api/client";
 import { printKitchenReceipt, printOrderReceipt } from "../api/receipt";
+import { getWsConnection } from "../api/ws";
 import { formatDateLabel, todayInputValue } from "../utils/date";
 
 function orderItemsLabel(order) {

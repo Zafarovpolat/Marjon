@@ -15,6 +15,7 @@ import WaiterMode from './modes/waiter/WaiterMode'
 import { auth, branding, flushQueue, queueSize } from './shared/api'
 import { t } from './shared/i18n'
 import { kitchenWS } from './services/kitchenWS'
+import { connectPrinterWS, disconnectPrinterWS } from './shared/ws'
 
 const MODES = {
   cashier: { component: CashierMode, label: 'Касса' },
@@ -71,12 +72,14 @@ export default function App() {
     if (!staffToken || !branch?.id || !mode) return
     const serverUrl = localStorage.getItem('marjon_server_url') || 'http://localhost:8000/api/v1'
     kitchenWS.connect(serverUrl, staffToken, branch.id)
+    // Принтерный WS: терминал получает задания печати (чек/кухня) и печатает через Electron
+    connectPrinterWS(serverUrl, staffToken, branch.id)
     const unsubscribe = kitchenWS.on('connection', ({ status }) => {
       const online = status === 'online'
       setIsOnline(online)
       if (online) flushQueue()   // связь вернулась — досылаем накопленные записи
     })
-    return () => { unsubscribe(); kitchenWS.disconnect() }
+    return () => { unsubscribe(); kitchenWS.disconnect(); disconnectPrinterWS() }
   }, [staffToken, branch?.id, mode])
 
   // Счётчик несинхронизированных записей (офлайн-очередь)
