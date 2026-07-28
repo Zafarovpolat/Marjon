@@ -8285,6 +8285,10 @@ const ADMIN_FINANCE_COUNTERPARTY_TYPES = [
   { value: "employee", label: "Сотрудники" },
   { value: "other", label: "Другие" },
 ];
+const ADMIN_FINANCE_CALENDAR_MONTHS = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+const ADMIN_FINANCE_CALENDAR_WEEK_DAYS = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"];
+const ADMIN_FINANCE_CALENDAR_YEARS = Array.from({ length: 15 }, (_, index) => 2020 + index);
+const ADMIN_FINANCE_MODAL_ANIMATION_MS = 180;
 const ADMIN_FINANCE_COMMENT_LIMIT = 500;
 const ADMIN_FINANCE_REQUIRED_FIELDS = ["amount", "paymentTypeId", "organizationId", "date", "categoryId"];
 
@@ -8382,8 +8386,24 @@ function adminFinanceDateForApi(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "")) ? `${value}T00:00:00` : null;
 }
 
-function adminFinanceDraftDirty(draft, initialDraft) {
-  return JSON.stringify(draft || {}) !== JSON.stringify(initialDraft || {});
+function adminFinanceInputToDate(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return new Date();
+  const [, year, month, day] = match;
+  return new Date(Number(year), Number(month) - 1, Number(day));
+}
+
+function adminFinanceCalendarDays(viewDate) {
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const first = new Date(year, month, 1);
+  const startOffset = (first.getDay() + 6) % 7;
+  const start = new Date(year, month, 1 - startOffset);
+  return Array.from({ length: 42 }, (_, index) => {
+    const day = new Date(start);
+    day.setDate(start.getDate() + index);
+    return day;
+  });
 }
 
 function getAdminFinanceBackendMessage(error) {
@@ -8537,28 +8557,179 @@ function AdminFinanceCounterpartyTypeSelector({ value, onChange }) {
 }
 
 function AdminFinanceDateInput({ value, onChange, error, controlRef, disabled }) {
+  const [open, setOpen] = useState(false);
+  const [draftDate, setDraftDate] = useState(value || adminTodayInputValue());
+  const [viewDate, setViewDate] = useState(() => {
+    const selected = adminFinanceInputToDate(value || adminTodayInputValue());
+    return new Date(selected.getFullYear(), selected.getMonth(), 1);
+  });
+  const [calendarPosition, setCalendarPosition] = useState(null);
+  const rootRef = useRef(null);
+  const buttonRef = useRef(null);
+  const todayValue = adminTodayInputValue();
+  const selectedValue = draftDate || value || todayValue;
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const selected = adminFinanceInputToDate(value || todayValue);
+    setDraftDate(value || todayValue);
+    setViewDate(new Date(selected.getFullYear(), selected.getMonth(), 1));
+
+    function updateCalendarPosition() {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      const gap = 7;
+      const safeGap = 12;
+      const width = Math.min(314, Math.max(260, viewportWidth - safeGap * 2));
+      const estimatedHeight = 292;
+      const left = Math.min(Math.max(safeGap, rect.left), Math.max(safeGap, viewportWidth - width - safeGap));
+      const top = rect.bottom + gap + estimatedHeight <= viewportHeight - safeGap
+        ? rect.bottom + gap
+        : Math.max(safeGap, rect.top - gap - estimatedHeight);
+      setCalendarPosition((current) => {
+        const next = { left, top, width };
+        return current && current.left === next.left && current.top === next.top && current.width === next.width
+          ? current
+          : next;
+      });
+    }
+
+    function closeOnOutsideClick(event) {
+      if (!rootRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    }
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        setOpen(false);
+      }
+    }
+
+    updateCalendarPosition();
+    window.addEventListener("resize", updateCalendarPosition);
+    window.addEventListener("scroll", updateCalendarPosition, true);
+    window.addEventListener("mousedown", closeOnOutsideClick);
+    window.addEventListener("keydown", closeOnEscape, true);
+    return () => {
+      window.removeEventListener("resize", updateCalendarPosition);
+      window.removeEventListener("scroll", updateCalendarPosition, true);
+      window.removeEventListener("mousedown", closeOnOutsideClick);
+      window.removeEventListener("keydown", closeOnEscape, true);
+    };
+  }, [open, todayValue, value]);
+
+  function setDateButtonRef(node) {
+    buttonRef.current = node;
+    controlRef?.(node);
+  }
+
+  function shiftMonth(delta) {
+    setViewDate((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
+  }
+
+  function selectToday() {
+    const today = new Date();
+    setDraftDate(todayValue);
+    setViewDate(new Date(today.getFullYear(), today.getMonth(), 1));
+  }
+
+  function applyDate() {
+    onChange(selectedValue);
+    setOpen(false);
+  }
+
+  const calendar = open && calendarPosition && typeof document !== "undefined"
+    ? createPortal(
+      <div
+        className="admin-finance-calendar"
+        role="dialog"
+        aria-label="Выбор даты"
+        style={{
+          left: `${calendarPosition.left}px`,
+          top: `${calendarPosition.top}px`,
+          width: `${calendarPosition.width}px`,
+        }}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="admin-finance-calendar__toolbar">
+          <button type="button" onClick={() => shiftMonth(-1)} aria-label="Предыдущий месяц">
+            <Icon name="bi-chevron-left" size={16} />
+          </button>
+          <select value={viewDate.getFullYear()} onChange={(event) => setViewDate(new Date(Number(event.target.value), viewDate.getMonth(), 1))} aria-label="Год">
+            {ADMIN_FINANCE_CALENDAR_YEARS.map((year) => <option key={year} value={year}>{year}</option>)}
+          </select>
+          <select value={viewDate.getMonth()} onChange={(event) => setViewDate(new Date(viewDate.getFullYear(), Number(event.target.value), 1))} aria-label="Месяц">
+            {ADMIN_FINANCE_CALENDAR_MONTHS.map((month, index) => <option key={month} value={index}>{month}</option>)}
+          </select>
+          <button type="button" onClick={() => shiftMonth(1)} aria-label="Следующий месяц">
+            <Icon name="bi-chevron-right" size={16} />
+          </button>
+        </div>
+        <div className="admin-finance-calendar__week">
+          {ADMIN_FINANCE_CALENDAR_WEEK_DAYS.map((day) => <span key={day}>{day}</span>)}
+        </div>
+        <div className="admin-finance-calendar__grid">
+          {adminFinanceCalendarDays(viewDate).map((day) => {
+            const inputValue = adminDateToInputValue(day);
+            const muted = day.getMonth() !== viewDate.getMonth();
+            return (
+              <button
+                type="button"
+                key={inputValue}
+                className={`${muted ? "is-muted" : ""} ${inputValue === selectedValue ? "is-selected" : ""} ${inputValue === todayValue ? "is-today" : ""}`.trim()}
+                onClick={() => setDraftDate(inputValue)}
+              >
+                {day.getDate()}
+              </button>
+            );
+          })}
+        </div>
+        <div className="admin-finance-calendar__footer">
+          <button type="button" className="admin-finance-calendar__today" onClick={selectToday}>
+            <Icon name="bi-calendar3" size={15} />
+            <span>Сегодня</span>
+          </button>
+          <button type="button" className="admin-finance-calendar__ok" onClick={applyDate}>OK</button>
+        </div>
+      </div>,
+      document.body,
+    )
+    : null;
+
   return (
-    <label className={`admin-income-field admin-transaction-field ${error ? "is-invalid" : ""}`}>
+    <div className={`admin-income-field admin-transaction-field admin-finance-date-field ${error ? "is-invalid" : ""}`} ref={rootRef}>
       <span>Дата <b>*</b></span>
-      <div className="admin-finance-operation-date">
-        <input
-          ref={controlRef}
-          type="date"
-          value={value}
-          disabled={disabled}
-          aria-invalid={Boolean(error)}
-          onChange={(event) => onChange(event.target.value)}
-        />
+      <button
+        type="button"
+        className="admin-finance-operation-date"
+        ref={setDateButtonRef}
+        disabled={disabled}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-invalid={Boolean(error)}
+        onClick={() => {
+          if (!open) setCalendarPosition(null);
+          setOpen((current) => !current);
+        }}
+      >
         <strong>{adminInputDateToReportDate(value)}</strong>
         <Icon name="bi-calendar3" size={15} />
-      </div>
+      </button>
+      {calendar}
       {error ? <em className="admin-finance-field-error">{error}</em> : null}
-    </label>
+    </div>
   );
 }
 
 function AdminFinanceTransactionModal({
   open,
+  closing = false,
   operationType,
   draft,
   errors,
@@ -8584,9 +8755,10 @@ function AdminFinanceTransactionModal({
 
   return createPortal(
     <div
-      className={`admin-income-modal admin-transaction-modal admin-finance-operation-modal ${isIncome ? "is-income" : "is-expense"}`}
+      className={`admin-income-modal admin-transaction-modal admin-finance-operation-modal ${isIncome ? "is-income" : "is-expense"} ${closing ? "is-closing" : "is-opening"}`}
       role="dialog"
       aria-modal="true"
+      aria-hidden={closing ? "true" : undefined}
       aria-label={title}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onCloseRequest();
@@ -8703,13 +8875,83 @@ function AdminFinanceTransactionModal({
   );
 }
 
+function AdminFinanceFilterDrawer({
+  open,
+  draft,
+  counterpartyOptions,
+  categoryOptions,
+  onDraftChange,
+  onApply,
+  onClear,
+  onClose,
+}) {
+  useEffect(() => {
+    if (!open || typeof document === "undefined") return undefined;
+    const previousOverflow = document.body.style.overflow;
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+    }
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open, onClose]);
+
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div className="admin-finance-filter-drawer" role="dialog" aria-modal="true" aria-label="Фильтр" onMouseDown={onClose}>
+      <form className="admin-finance-filter-panel" onSubmit={onApply} onMouseDown={(event) => event.stopPropagation()}>
+        <h3>Фильтр</h3>
+        <label className="admin-finance-filter-field">
+          <span>Тип операции</span>
+          <select value={draft.type} aria-label="Тип операции" onChange={(event) => onDraftChange("type", event.target.value)}>
+            <option value="all">Выберите тип</option>
+            <option value="income">Приход</option>
+            <option value="expense">Расход</option>
+          </select>
+        </label>
+        <label className="admin-finance-filter-field">
+          <span>Контрагент</span>
+          <select value={draft.counterparty} aria-label="Контрагент" onChange={(event) => onDraftChange("counterparty", event.target.value)}>
+            <option value="all">Фильтр по контрагентам</option>
+            {counterpartyOptions.map((item) => <option value={item} key={item}>{item}</option>)}
+          </select>
+        </label>
+        <label className="admin-finance-filter-field">
+          <span>Категория</span>
+          <select value={draft.category} aria-label="Категория" onChange={(event) => onDraftChange("category", event.target.value)}>
+            <option value="all">Фильтр по категории</option>
+            {categoryOptions.map((item) => <option value={item} key={item}>{item}</option>)}
+          </select>
+        </label>
+        <div className="admin-finance-filter-actions">
+          <button type="submit" className="is-apply">Фильтровать</button>
+          <button type="button" className="is-clear" onClick={onClear}>Очистить</button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  );
+}
+
 function AdminFinanceOperationsPage({ search, onNotify }) {
   const [range, setRange] = useState(() => buildAdminDashboardDateRange("Этот месяц"));
   const [operations, setOperations] = useState(() => financeOperationRows);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
-  const [organizationFilter, setOrganizationFilter] = useState("all");
+  const [counterpartyFilter, setCounterpartyFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [filterDraft, setFilterDraft] = useState({ type: "all", counterparty: "all", category: "all" });
   const [financeModalOpen, setFinanceModalOpen] = useState(false);
+  const [financeModalClosing, setFinanceModalClosing] = useState(false);
   const [financeModalType, setFinanceModalType] = useState("income");
   const [financeDraft, setFinanceDraft] = useState(() => createAdminFinanceTransactionDraft("income"));
   const [financeInitialDraft, setFinanceInitialDraft] = useState(() => createAdminFinanceTransactionDraft("income"));
@@ -8727,6 +8969,7 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
     Object.fromEntries(ADMIN_FINANCE_COUNTERPARTY_TYPES.map((item) => [item.value, []]))
   ));
   const financeFieldRefs = useRef({});
+  const financeCloseTimerRef = useRef(null);
   const query = (search || "").trim().toLowerCase();
   const datePresets = useMemo(() => (
     ADMIN_DASHBOARD_DATE_PRESET_LABELS.map((label) => ({
@@ -8735,6 +8978,12 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
     }))
   ), []);
   const transactionCategories = categoriesByKind[financeModalType] || [];
+
+  useEffect(() => () => {
+    if (financeCloseTimerRef.current) {
+      window.clearTimeout(financeCloseTimerRef.current);
+    }
+  }, []);
 
   const loadFinanceOperations = useCallback(async () => {
     const normalizedRange = normalizeAdminReportRange(range);
@@ -8840,12 +9089,19 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [financeModalOpen, financeDraft, financeInitialDraft, financeSubmitting]);
+  }, [financeModalOpen, financeDraft, financeInitialDraft, financeSubmitting, financeModalClosing]);
 
-  const organizationOptions = useMemo(
-    () => Array.from(new Set(operations.map((row) => row.organization))),
+  const filterCounterpartyOptions = useMemo(
+    () => Array.from(new Set(operations.map((row) => row.counterparty).filter((value) => value && value !== "—")))
+      .sort((a, b) => a.localeCompare(b, "ru", { sensitivity: "base" })),
     [operations],
   );
+  const filterCategoryOptions = useMemo(
+    () => Array.from(new Set(operations.map((row) => row.category).filter((value) => value && value !== "—")))
+      .sort((a, b) => a.localeCompare(b, "ru", { sensitivity: "base" })),
+    [operations],
+  );
+  const financeFiltersActive = typeFilter !== "all" || counterpartyFilter !== "all" || categoryFilter !== "all";
   const financeTotals = useMemo(() => operations.reduce((acc, row) => {
     if (row.amount < 0) {
       acc.expense += Math.abs(Number(row.amount || 0));
@@ -8856,7 +9112,8 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
   }, { income: 0, expense: 0 }), [operations]);
   const filteredOperations = operations.filter((row) => {
     const typeMatches = typeFilter === "all" || (typeFilter === "income" ? row.amount > 0 : row.amount < 0);
-    const organizationMatches = organizationFilter === "all" || row.organization === organizationFilter;
+    const counterpartyMatches = counterpartyFilter === "all" || row.counterparty === counterpartyFilter;
+    const categoryMatches = categoryFilter === "all" || row.category === categoryFilter;
     const queryMatches = !query || [
       row.date,
       row.time,
@@ -8867,7 +9124,7 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
       row.comment,
       String(row.amount),
     ].some((value) => String(value).toLowerCase().includes(query));
-    return typeMatches && organizationMatches && queryMatches;
+    return typeMatches && counterpartyMatches && categoryMatches && queryMatches;
   });
   function deleteOperation(row) {
     setOperations((current) => current.filter((item) => item.id !== row.id));
@@ -8897,6 +9154,10 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
   }
 
   function openFinanceModal(operationType = "income") {
+    if (financeCloseTimerRef.current) {
+      window.clearTimeout(financeCloseTimerRef.current);
+      financeCloseTimerRef.current = null;
+    }
     const nextDraft = buildFinanceDraft(operationType);
     financeFieldRefs.current = {};
     setFinanceModalType(operationType);
@@ -8904,23 +9165,60 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
     setFinanceInitialDraft(nextDraft);
     setFinanceErrors({});
     setFinanceSubmitError("");
+    setFinanceModalClosing(false);
     setFinanceModalOpen(true);
   }
 
-  function closeFinanceModal() {
-    setFinanceModalOpen(false);
-    setFinanceErrors({});
-    setFinanceSubmitError("");
-    setFinanceSubmitting(false);
+  function closeFinanceModal(afterClose) {
+    if (financeCloseTimerRef.current) return;
+    setFinanceModalClosing(true);
+    financeCloseTimerRef.current = window.setTimeout(() => {
+      financeCloseTimerRef.current = null;
+      setFinanceModalOpen(false);
+      setFinanceModalClosing(false);
+      setFinanceErrors({});
+      setFinanceSubmitError("");
+      setFinanceSubmitting(false);
+      afterClose?.();
+    }, ADMIN_FINANCE_MODAL_ANIMATION_MS);
   }
 
   function requestCloseFinanceModal() {
-    if (financeSubmitting) return;
-    if (adminFinanceDraftDirty(financeDraft, financeInitialDraft)) {
-      const confirmed = window.confirm("Закрыть окно? Введённые данные будут потеряны.");
-      if (!confirmed) return;
-    }
+    if (financeSubmitting || financeModalClosing) return;
     closeFinanceModal();
+  }
+
+  function openFinanceFilters() {
+    setFilterDraft({ type: typeFilter, counterparty: counterpartyFilter, category: categoryFilter });
+    setFiltersOpen(true);
+  }
+
+  function toggleFinanceFilters() {
+    if (filtersOpen) {
+      setFiltersOpen(false);
+    } else {
+      openFinanceFilters();
+    }
+  }
+
+  function updateFilterDraft(field, value) {
+    setFilterDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  function applyFinanceFilters(event) {
+    event.preventDefault();
+    setTypeFilter(filterDraft.type);
+    setCounterpartyFilter(filterDraft.counterparty);
+    setCategoryFilter(filterDraft.category);
+    setFiltersOpen(false);
+  }
+
+  function clearFinanceFilters() {
+    const emptyFilters = { type: "all", counterparty: "all", category: "all" };
+    setFilterDraft(emptyFilters);
+    setTypeFilter("all");
+    setCounterpartyFilter("all");
+    setCategoryFilter("all");
   }
 
   function updateFinanceDraft(field, value) {
@@ -8987,9 +9285,11 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
           ...current.filter((row) => row.id !== data.id),
         ]);
       }
-      closeFinanceModal();
-      setFinanceDraft(buildFinanceDraft(financeDraft.operationType));
-      setFinanceInitialDraft(buildFinanceDraft(financeDraft.operationType));
+      const nextDraft = buildFinanceDraft(financeDraft.operationType);
+      closeFinanceModal(() => {
+        setFinanceDraft(nextDraft);
+        setFinanceInitialDraft(nextDraft);
+      });
       onNotify?.(financeDraft.operationType === "income" ? "Приход успешно добавлен" : "Расход успешно добавлен");
     } catch (error) {
       const message = getAdminFinanceBackendMessage(error);
@@ -9041,38 +9341,26 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
             <Icon name="bi-file-earmark-excel" size={16} />
             <span>Скачать на EXCEL</span>
           </button>
-          <button type="button" className={`admin-finance-action is-filter ${filtersOpen ? "is-active" : ""}`} onClick={() => setFiltersOpen((value) => !value)}>
+          <button type="button" className={`admin-finance-action is-filter ${filtersOpen || financeFiltersActive ? "is-active" : ""}`} onClick={toggleFinanceFilters}>
             <Icon name="bi-sliders" size={16} />
             <span>Фильтровать</span>
           </button>
         </div>
       </div>
 
-      {filtersOpen ? (
-        <div className="admin-finance-filters">
-          <label>
-            <span>Тип операции</span>
-            <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
-              <option value="all">Все операции</option>
-              <option value="income">Только приход</option>
-              <option value="expense">Только расход</option>
-            </select>
-          </label>
-          <label>
-            <span>Организация</span>
-            <select value={organizationFilter} onChange={(event) => setOrganizationFilter(event.target.value)}>
-              <option value="all">Все филиалы</option>
-              {organizationOptions.map((item) => <option value={item} key={item}>{item}</option>)}
-            </select>
-          </label>
-          <button type="button" onClick={() => { setTypeFilter("all"); setOrganizationFilter("all"); }}>
-            Сбросить
-          </button>
-        </div>
-      ) : null}
-
       <div className="admin-finance-table-shell">
         <table className="admin-finance-table">
+          <colgroup>
+            <col className="admin-finance-col-date" />
+            <col className="admin-finance-col-amount" />
+            <col className="admin-finance-col-type" />
+            <col className="admin-finance-col-payment" />
+            <col className="admin-finance-col-counterparty" />
+            <col className="admin-finance-col-category" />
+            <col className="admin-finance-col-organization" />
+            <col className="admin-finance-col-comment" />
+            <col className="admin-finance-col-actions" />
+          </colgroup>
           <thead>
             <tr>
               <th>Дата</th>
@@ -9103,7 +9391,7 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
                 <td>{row.counterparty}</td>
                 <td><span className="admin-finance-tag">{row.category}</span></td>
                 <td>{row.organization}</td>
-                <td className="admin-finance-comment">{row.comment}</td>
+                <td className="admin-finance-comment"><span>{row.comment}</span></td>
                 <td>
                   <button type="button" className="admin-finance-delete" onClick={() => deleteOperation(row)} aria-label="Удалить операцию">
                     <Icon name="bi-trash3" size={16} />
@@ -9119,8 +9407,19 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
           </tbody>
         </table>
       </div>
+      <AdminFinanceFilterDrawer
+        open={filtersOpen}
+        draft={filterDraft}
+        counterpartyOptions={filterCounterpartyOptions}
+        categoryOptions={filterCategoryOptions}
+        onDraftChange={updateFilterDraft}
+        onApply={applyFinanceFilters}
+        onClear={clearFinanceFilters}
+        onClose={() => setFiltersOpen(false)}
+      />
       <AdminFinanceTransactionModal
         open={financeModalOpen}
+        closing={financeModalClosing}
         operationType={financeModalType}
         draft={financeDraft}
         errors={financeErrors}
@@ -9148,16 +9447,24 @@ function AdminFinanceCategoriesPage({
   localPrefix,
   modalCreateTitle,
   modalEditTitle,
-  createDescription,
-  editDescription,
   emptyText,
   apiEndpoint,
 }) {
-  const [categories, setCategories] = useState([]);
+  const fallbackCategories = useMemo(() => (initialRows || []).map((row, index) => ({
+    id: row.id || `${localPrefix}-${index + 1}`,
+    name: row.name || "",
+    status: row.status || "#активно",
+    locked: Boolean(row.locked),
+  })), [initialRows, localPrefix]);
+  const [categories, setCategories] = useState(fallbackCategories);
   const [editor, setEditor] = useState(null);
   const [draftName, setDraftName] = useState("");
   const [draftStatus, setDraftStatus] = useState("#активно");
   const query = search.trim().toLowerCase();
+
+  useEffect(() => {
+    setCategories(fallbackCategories);
+  }, [fallbackCategories]);
 
   useEffect(() => {
     if (!apiEndpoint) return;
@@ -9165,20 +9472,30 @@ function AdminFinanceCategoriesPage({
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
         if (items.length) {
-          setCategories(items.map((r) => ({
-            name: r.name || "",
-            status: r.status !== false ? "#активно" : "#неактивно",
-            locked: Boolean(r.is_system),
-          })));
+          setCategories(items.map((r, index) => {
+            const rawStatus = typeof r.status === "string" ? r.status.toLowerCase() : r.status;
+            const isOff = rawStatus === false || r.is_active === false || ["inactive", "disabled", "#неактивно", "#отключено"].includes(rawStatus);
+            return {
+              id: String(r.id ?? r.category_id ?? `${localPrefix}-api-${index + 1}`),
+              name: r.name || r.title || "",
+              status: isOff ? "#отключено" : "#активно",
+              locked: Boolean(r.is_system || r.locked),
+            };
+          }).filter((row) => row.name));
         }
       })
       .catch(() => {});
-  }, [apiEndpoint]);
+  }, [apiEndpoint, localPrefix]);
 
   const filteredCategories = categories.filter((row) => (
     !query || row.name.toLowerCase().includes(query) || row.status.toLowerCase().includes(query)
   ));
+  const activeCount = categories.filter((row) => row.status === "#активно").length;
   const lockedCount = categories.filter((row) => row.locked).length;
+  const customCount = Math.max(categories.length - lockedCount, 0);
+  const sectionNote = localPrefix === "income"
+    ? "Категории для приходных операций"
+    : "Категории для расходных операций";
 
   useEffect(() => {
     if (!editor) return undefined;
@@ -9243,49 +9560,72 @@ function AdminFinanceCategoriesPage({
   }
 
   return (
-    <section className="admin-income-page">
+    <section className="admin-income-page admin-finance-category-page">
       <div className="admin-income-head">
-        <div className="admin-income-title">
-          <span aria-hidden="true" />
-          <div>
-            <h2>{title}</h2>
-            <p>{filteredCategories.length} категорий, {lockedCount} системные.</p>
+        <div className="admin-income-head__main">
+          <div className="admin-income-title">
+            <span aria-hidden="true">
+              <Icon name="bi-tags" size={18} />
+            </span>
+            <div>
+              <h2>{title}</h2>
+              <p>{sectionNote}</p>
+            </div>
+          </div>
+          <div className="admin-income-stats" aria-label="Сводка категорий">
+            <span><strong>{categories.length}</strong> всего</span>
+            <span><strong>{activeCount}</strong> активные</span>
+            <span><strong>{customCount}</strong> свои</span>
+            <span><strong>{lockedCount}</strong> системные</span>
           </div>
         </div>
         <button type="button" className="admin-income-add" onClick={addCategory}>
-          <span>Добавить</span>
           <Icon name="bi-plus-lg" size={15} />
+          <span>Добавить</span>
         </button>
       </div>
 
-      <div className="admin-income-list" role="list">
-        {filteredCategories.map((row) => (
-          <div className={`admin-income-row ${row.locked ? "is-locked" : ""}`} role="listitem" key={row.id}>
-            <div className="admin-income-name">
-              <strong>{row.name}</strong>
-            </div>
-            <div className="admin-income-row__actions">
-              <span className={`admin-income-status ${row.status === "#отключено" ? "is-off" : ""}`}>{row.status}</span>
-              {row.locked ? (
-                <span className="admin-income-lock" aria-label="Системная категория" title="Системная категория">
-                  <Icon name="bi-lock" size={15} />
+      <div className="admin-income-table-shell">
+        <div className="admin-income-list-head" aria-hidden="true">
+          <span>Категория</span>
+          <span>Статус</span>
+          <span>Действия</span>
+        </div>
+        <div className="admin-income-list" role="list">
+          {filteredCategories.map((row) => (
+            <div className={`admin-income-row ${row.locked ? "is-locked" : ""}`} role="listitem" key={row.id}>
+              <div className="admin-income-name">
+                <span className="admin-income-category-dot" aria-hidden="true">
+                  <Icon name={row.locked ? "bi-shield-lock" : "bi-tags"} size={14} />
                 </span>
-              ) : (
-                <>
-                  <button type="button" className="admin-income-icon is-edit" onClick={() => editCategory(row)} aria-label="Изменить категорию">
-                    <Icon name="bi-pencil" size={15} />
-                  </button>
-                  <button type="button" className="admin-income-icon is-delete" onClick={() => deleteCategory(row)} aria-label="Удалить категорию">
-                    <Icon name="bi-trash3" size={15} />
-                  </button>
-                </>
-              )}
+                <span className="admin-income-name__text">
+                  <strong>{row.name}</strong>
+                  <small>{row.locked ? "Системная" : "Пользовательская"}</small>
+                </span>
+              </div>
+              <div className="admin-income-row__actions">
+                <span className={`admin-income-status ${row.status !== "#активно" ? "is-off" : ""}`}>{row.status}</span>
+                {row.locked ? (
+                  <span className="admin-income-lock" aria-label="Системная категория" title="Системная категория">
+                    <Icon name="bi-lock" size={15} />
+                  </span>
+                ) : (
+                  <>
+                    <button type="button" className="admin-income-icon is-edit" onClick={() => editCategory(row)} aria-label="Изменить категорию">
+                      <Icon name="bi-pencil" size={15} />
+                    </button>
+                    <button type="button" className="admin-income-icon is-delete" onClick={() => deleteCategory(row)} aria-label="Удалить категорию">
+                      <Icon name="bi-trash3" size={15} />
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
-        {!filteredCategories.length ? (
-          <div className="admin-income-empty">{emptyText}</div>
-        ) : null}
+          ))}
+          {!filteredCategories.length ? (
+            <div className="admin-income-empty">{emptyText}</div>
+          ) : null}
+        </div>
       </div>
 
       {editor ? (
@@ -9294,7 +9634,6 @@ function AdminFinanceCategoriesPage({
             <div className="admin-income-dialog__head">
               <div>
                 <h3>{editor.mode === "create" ? modalCreateTitle : modalEditTitle}</h3>
-                <p>{editor.mode === "create" ? createDescription : editDescription}</p>
               </div>
               <button type="button" className="admin-income-dialog__close" onClick={closeEditor} aria-label="Закрыть">
                 <Icon name="bi-x-lg" size={16} />
@@ -9306,7 +9645,7 @@ function AdminFinanceCategoriesPage({
               <input
                 value={draftName}
                 onChange={(event) => setDraftName(event.target.value)}
-                placeholder="Введите название категории"
+                placeholder="Введите название"
                 autoFocus
               />
             </label>
@@ -9324,7 +9663,7 @@ function AdminFinanceCategoriesPage({
             </div>
 
             <div className="admin-income-dialog__actions is-single">
-              <button type="submit" className="is-primary">Сохранить</button>
+              <button type="submit" className="is-primary">{editor.mode === "create" ? "Добавить" : "Сохранить"}</button>
             </div>
           </form>
         </div>
@@ -9341,8 +9680,8 @@ function AdminIncomeCategoriesPage({ search, onNotify }) {
       title="Категории приходов"
       initialRows={incomeCategoryRows}
       localPrefix="income"
-      modalCreateTitle="Добавить категорию прихода"
-      modalEditTitle="Изменить категорию прихода"
+      modalCreateTitle="Добавить категорию приходов"
+      modalEditTitle="Изменить категорию приходов"
       createDescription="Создайте новую категорию для приходных операций."
       editDescription="Измените название и статус категории."
       emptyText="Категории приходов не найдены."
@@ -9360,7 +9699,7 @@ function AdminExpenseCategoriesPage({ search, onNotify }) {
       initialRows={expenseCategoryRows}
       localPrefix="expense"
       modalCreateTitle="Добавить категорию расходов"
-      modalEditTitle="Изменить категория расходов"
+      modalEditTitle="Изменить категорию расходов"
       createDescription="Создайте новую категорию для расходных операций."
       editDescription="Измените название и статус категории расходов."
       emptyText="Категории расходов не найдены."
@@ -9370,7 +9709,15 @@ function AdminExpenseCategoriesPage({ search, onNotify }) {
 }
 
 function AdminPaymentMethodsPage({ search, onNotify }) {
-  const [methods, setMethods] = useState([]);
+  const paymentFallbackRows = useMemo(() => paymentMethodRows.map((row, index) => ({
+    id: row.id || `payment-${index + 1}`,
+    sort: Number(row.sort) || index + 1,
+    name: row.name || "",
+    type: row.type || "Карта",
+    status: row.status || "#активно",
+    vip: Boolean(row.vip),
+  })), []);
+  const [methods, setMethods] = useState(paymentFallbackRows);
   const [editor, setEditor] = useState(null);
   const [draftName, setDraftName] = useState("");
   const [draftType, setDraftType] = useState("Карта");
@@ -9379,16 +9726,22 @@ function AdminPaymentMethodsPage({ search, onNotify }) {
   const query = search.trim().toLowerCase();
 
   useEffect(() => {
+    setMethods(paymentFallbackRows);
+  }, [paymentFallbackRows]);
+
+  useEffect(() => {
     adminApi.get("/finance/payment-types", { params: { size: 100 } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
         if (items.length) {
-          setMethods(items.map((r) => ({
-            name: r.name || "",
-            type: r.type || "Карта",
-            status: r.status !== false ? "#активно" : "#неактивно",
-            vip: Boolean(r.is_vip),
-          })));
+          setMethods(items.map((r, index) => ({
+            id: String(r.id ?? r.payment_type_id ?? `payment-api-${index + 1}`),
+            sort: Number(r.sort_order ?? r.sort ?? index + 1) || index + 1,
+            name: r.name || r.title || "",
+            type: r.type || r.kind || "Карта",
+            status: r.status !== false && r.is_active !== false ? "#активно" : "#неактивно",
+            vip: Boolean(r.is_vip || r.vip),
+          })).filter((row) => row.name));
         }
       })
       .catch(() => {});
@@ -9591,12 +9944,49 @@ function AdminPaymentMethodsPage({ search, onNotify }) {
 }
 
 function AdminFinanceHistoryPage({ search, onNotify }) {
-  const [rows, setRows] = useState([]);
+  const historyFallbackRows = useMemo(() => financeHistoryRows.map((row, index) => ({
+    ...row,
+    number: index + 1,
+  })), []);
+  const [rows, setRows] = useState(historyFallbackRows);
   const [page, setPage] = useState(1);
+  const historyScrollRef = useRef(null);
+  const [historyScroll, setHistoryScroll] = useState({
+    max: 0,
+    thumbPercent: 100,
+    leftPercent: 0,
+  });
   const pageSize = 15;
   const query = search.trim().toLowerCase();
 
+  const updateHistoryScroll = useCallback(() => {
+    const scroller = historyScrollRef.current;
+    if (!scroller) return;
+
+    const max = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+    const thumbPercent = max
+      ? Math.max(14, Math.min(100, (scroller.clientWidth / scroller.scrollWidth) * 100))
+      : 100;
+    const leftPercent = max ? (scroller.scrollLeft / max) * (100 - thumbPercent) : 0;
+
+    setHistoryScroll((current) => {
+      const next = {
+        max: Math.round(max),
+        thumbPercent: Number(thumbPercent.toFixed(3)),
+        leftPercent: Number(leftPercent.toFixed(3)),
+      };
+
+      return current.max === next.max
+        && current.thumbPercent === next.thumbPercent
+        && current.leftPercent === next.leftPercent
+        ? current
+        : next;
+    });
+  }, []);
+
   useEffect(() => {
+    setRows(historyFallbackRows);
+
     adminApi.get("/finance/finance-history", { params: { size: 200 } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
@@ -9616,8 +10006,8 @@ function AdminFinanceHistoryPage({ search, onNotify }) {
           })));
         }
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => setRows(historyFallbackRows));
+  }, [historyFallbackRows]);
 
   const filteredRows = rows.filter((row) => (
     !query || [
@@ -9636,12 +10026,66 @@ function AdminFinanceHistoryPage({ search, onNotify }) {
   const pageRows = filteredRows.slice((page - 1) * pageSize, page * pageSize);
 
   useEffect(() => {
+    updateHistoryScroll();
+    window.addEventListener("resize", updateHistoryScroll);
+    return () => window.removeEventListener("resize", updateHistoryScroll);
+  }, [pageRows.length, updateHistoryScroll]);
+
+  useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
   function goToPage(nextPage) {
     const safePage = Math.min(Math.max(nextPage, 1), totalPages);
     setPage(safePage);
+  }
+
+  function scrollHistoryBy(direction) {
+    const scroller = historyScrollRef.current;
+    if (!scroller) return;
+    scroller.scrollBy({
+      left: direction * Math.max(160, scroller.clientWidth * 0.44),
+      behavior: "smooth",
+    });
+  }
+
+  function handleHistoryScrollbarPointerDown(event) {
+    const scroller = historyScrollRef.current;
+    if (!scroller || historyScroll.max <= 0) return;
+
+    const track = event.currentTarget;
+    const rect = track.getBoundingClientRect();
+    const thumbWidth = Math.max(24, rect.width * (historyScroll.thumbPercent / 100));
+    const maxThumbLeft = Math.max(1, rect.width - thumbWidth);
+    const currentThumbLeft = (scroller.scrollLeft / historyScroll.max) * maxThumbLeft;
+    const target = event.target;
+    const isThumb = target instanceof Element && target.closest(".admin-history-scrollbar__thumb");
+    const dragOffset = isThumb
+      ? event.clientX - rect.left - currentThumbLeft
+      : thumbWidth / 2;
+
+    function setScrollFromClientX(clientX) {
+      const nextThumbLeft = Math.min(
+        Math.max(clientX - rect.left - dragOffset, 0),
+        maxThumbLeft,
+      );
+      scroller.scrollLeft = (nextThumbLeft / maxThumbLeft) * historyScroll.max;
+    }
+
+    setScrollFromClientX(event.clientX);
+
+    function handlePointerMove(moveEvent) {
+      setScrollFromClientX(moveEvent.clientX);
+    }
+
+    function handlePointerUp() {
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerUp);
+    }
+
+    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointerup", handlePointerUp);
+    event.preventDefault();
   }
 
   return (
@@ -9656,8 +10100,13 @@ function AdminFinanceHistoryPage({ search, onNotify }) {
         </div>
       </div>
 
-      <div className="admin-history-table-wrap">
-        <table className="admin-history-table">
+      <div
+        className="admin-history-table-wrap"
+        ref={historyScrollRef}
+        onScroll={updateHistoryScroll}
+        onWheelCapture={keepWheelInsideScroller}
+      >
+        <table className="admin-history-table" id="admin-history-table">
           <thead>
             <tr>
               <th>№</th>
@@ -9694,6 +10143,41 @@ function AdminFinanceHistoryPage({ search, onNotify }) {
             ) : null}
           </tbody>
         </table>
+      </div>
+
+      <div className="admin-history-scrollbar" aria-label="Р“РѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅР°СЏ РїСЂРѕРєСЂСѓС‚РєР° С‚Р°Р±Р»РёС†С‹">
+        <button
+          type="button"
+          className="admin-history-scrollbar__button is-prev"
+          onClick={() => scrollHistoryBy(-1)}
+          disabled={historyScroll.max <= 0}
+          aria-label="РџСЂРѕРєСЂСѓС‚РёС‚СЊ РІР»РµРІРѕ"
+        />
+        <div
+          className="admin-history-scrollbar__track"
+          role="scrollbar"
+          aria-controls="admin-history-table"
+          aria-orientation="horizontal"
+          aria-valuemin={0}
+          aria-valuemax={historyScroll.max}
+          aria-valuenow={historyScroll.max ? Math.round((historyScroll.leftPercent / Math.max(1, 100 - historyScroll.thumbPercent)) * historyScroll.max) : 0}
+          onPointerDown={handleHistoryScrollbarPointerDown}
+        >
+          <span
+            className="admin-history-scrollbar__thumb"
+            style={{
+              width: `${historyScroll.thumbPercent}%`,
+              left: `${historyScroll.leftPercent}%`,
+            }}
+          />
+        </div>
+        <button
+          type="button"
+          className="admin-history-scrollbar__button is-next"
+          onClick={() => scrollHistoryBy(1)}
+          disabled={historyScroll.max <= 0}
+          aria-label="РџСЂРѕРєСЂСѓС‚РёС‚СЊ РІРїСЂР°РІРѕ"
+        />
       </div>
 
       <div className="admin-history-pager">
