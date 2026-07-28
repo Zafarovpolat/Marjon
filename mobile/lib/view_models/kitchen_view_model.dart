@@ -6,12 +6,14 @@ import '../services/ws_service.dart';
 class KitchenViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> _orders = [];
   bool _loading = true;
+  String? _error;
   Timer? _fallbackTimer;
   String? _branchId;
   final List<VoidCallback> _wsCancels = [];
 
   List<Map<String, dynamic>> get orders => List.unmodifiable(_orders);
   bool get loading => _loading;
+  String? get error => _error;
 
   void start(String branchId) {
     if (_branchId == branchId && !_loading) return;
@@ -36,7 +38,10 @@ class KitchenViewModel extends ChangeNotifier {
     try {
       final list = await Api().kitchenOrders(_branchId!);
       _orders = list.cast<Map<String, dynamic>>();
-    } catch (_) {}
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+    }
     _loading = false;
     notifyListeners();
   }

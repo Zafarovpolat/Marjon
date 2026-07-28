@@ -9,12 +9,14 @@ class WaiterViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> _orders   = [];
   List<Map<String, dynamic>> _printers = [];
   bool _loading = true;
+  String? _error;
   Timer? _fallbackTimer;
   String? _branchId;
   final List<VoidCallback> _wsCancels = [];
 
   List<Map<String, dynamic>> get orders => List.unmodifiable(_orders);
   bool get loading => _loading;
+  String? get error => _error;
 
   void start(String branchId) {
     if (_branchId == branchId && !_loading) return;
@@ -41,7 +43,10 @@ class WaiterViewModel extends ChangeNotifier {
       _orders   = List<Map<String, dynamic>>.from(
           results[0].where((o) => _activeStatuses.contains(o['status'])));
       _printers = List<Map<String, dynamic>>.from(results[1]);
-    } catch (_) {}
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+    }
     _loading = false;
     notifyListeners();
   }

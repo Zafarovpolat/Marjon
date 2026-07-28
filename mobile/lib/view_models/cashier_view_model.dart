@@ -10,6 +10,7 @@ class CashierViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> _printers     = [];
   List<Map<String, dynamic>> _paymentTypes = [];
   bool _loading = true;
+  String? _error;
   Timer? _fallbackTimer;
   String? _branchId;
   final List<VoidCallback> _wsCancels = [];
@@ -18,6 +19,7 @@ class CashierViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> get printers     => List.unmodifiable(_printers);
   List<Map<String, dynamic>> get paymentTypes => List.unmodifiable(_paymentTypes);
   bool get loading => _loading;
+  String? get error => _error;
 
   void start(String branchId) {
     if (_branchId == branchId && !_loading) return;
@@ -53,7 +55,10 @@ class CashierViewModel extends ChangeNotifier {
       _orders   = List<Map<String, dynamic>>.from(
           results[0].where((o) => _activeStatuses.contains(o['status'])));
       _printers = List<Map<String, dynamic>>.from(results[1]);
-    } catch (_) {}
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+    }
     _loading = false;
     notifyListeners();
   }
