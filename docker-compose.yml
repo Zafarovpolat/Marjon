@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   db:
     image: postgres:16-alpine
@@ -18,11 +16,57 @@ services:
       timeout: 3s
       retries: 5
 
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: marjon
+      MINIO_ROOT_PASSWORD: marjon_secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  ngrok-minio:
+    image: ngrok/ngrok:latest
+    restart: unless-stopped
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    command: http minio:9000 --domain=flounder-precious-vervet.ngrok-free.app --log stdout
+    ports:
+      - "4040:4040"
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 marjon marjon_secret &&
+        mc mb --ignore-existing local/marjon-media &&
+        mc anonymous set public local/marjon-media &&
+        echo 'MinIO bucket ready'
+      "
+    restart: "no"
+
   backend:
     build: ./backend
     restart: unless-stopped
     depends_on:
       db:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     ports:
       - "8000:8000"
@@ -31,11 +75,65 @@ services:
       SECRET_KEY: local-dev-secret-key-change-in-prod
       DEBUG: "true"
       PORT: "8000"
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
+      MINIO_ACCESS_KEY: marjon
+      MINIO_SECRET_KEY: marjon_secret
+      MINIO_BUCKET: marjon-media
     command: >
       sh -c "
         alembic upgrade head &&
         uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
       "
 
+  payme-gateway:
+    build: ./services/payme-gateway
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    ports:
+      - "8001:8001"
+    environment:
+      PORT: "8001"
+      DATABASE_URL: postgres://marjon:marjon_secret@db:5432/marjon?sslmode=disable
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
+      BACKEND_URL: http://backend:8000/api/v1
+
+  click-gateway:
+    build: ./services/click-gateway
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    ports:
+      - "8002:8002"
+    environment:
+      PORT: "8002"
+      DATABASE_URL: postgres://marjon:marjon_secret@db:5432/marjon?sslmode=disable
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
+      BACKEND_URL: http://backend:8000/api/v1
+
+  uzum-gateway:
+    build: ./services/uzum-gateway
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    ports:
+      - "8003:8003"
+    environment:
+      PORT: "8003"
+      DATABASE_URL: postgres://marjon:marjon_secret@db:5432/marjon?sslmode=disable
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
+      BACKEND_URL: http://backend:8000/api/v1
+
 volumes:
   pgdata:
+  minio_data:

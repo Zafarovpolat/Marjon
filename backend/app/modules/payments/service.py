@@ -7,6 +7,7 @@ from app.modules.payments.models import Payment
 from app.modules.payments.repository import PaymentRepository
 from app.modules.payments.schemas import PaymentCreate
 from app.modules.pos.models import Order
+from app.modules.kitchen.websocket import kitchen_manager
 from app.modules.fiscal.service import FiscalService
 from app.modules.fiscal.schemas import FiscalReceiptCreate
 from app.modules.audit.service import AuditService
@@ -61,6 +62,14 @@ class PaymentService:
         order.status = "completed"
         self.db.add(order)
         await self.db.commit()
+
+        try:
+            await kitchen_manager.broadcast(
+                company_id, order.branch_id, "order_completed",
+                {"order_id": str(order.id), "order_number": order.order_number},
+            )
+        except Exception:
+            pass
 
         try:
             await FiscalService(self.db).create(

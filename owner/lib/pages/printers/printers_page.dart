@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/api.dart';
 import '../../core/theme.dart';
+import '../../widgets/common.dart';
 
 class PrintersPage extends StatefulWidget {
   const PrintersPage({super.key});
@@ -64,6 +65,28 @@ class _PrintersPageState extends State<PrintersPage> {
     }
   }
 
+  Future<void> _editPrinter(Map<String, dynamic> printer) async {
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context, isScrollControlled: true,
+      builder: (_) => _PrinterForm(branches: _branches, initial: printer),
+    );
+    if (result == null) return;
+    try {
+      await Api().updatePrinter(printer['id'].toString(), result);
+      // Preserve ping status
+      final prevPing = _pingStatus[printer['id']];
+      _load().then((_) {
+        if (mounted && prevPing != null) {
+          setState(() => _pingStatus[printer['id']] = prevPing);
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      }
+    }
+  }
+
   Future<void> _deletePrinter(Map<String, dynamic> printer) async {
     final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
       backgroundColor: T.surface,
@@ -99,7 +122,7 @@ class _PrintersPageState extends State<PrintersPage> {
             onRefresh: _load,
             child: _printers.isEmpty
               ? const Center(child: Text('Нет принтеров', style: TextStyle(color: T.muted)))
-              : ListView.builder(
+              : ResponsiveBox(child: ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: _printers.length,
                   itemBuilder: (_, i) {
@@ -134,13 +157,15 @@ class _PrintersPageState extends State<PrintersPage> {
                         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                           IconButton(icon: const Icon(Icons.wifi_find, size: 20), onPressed: () => _ping(p),
                             tooltip: 'Проверить'),
+                          IconButton(icon: const Icon(Icons.edit_outlined, size: 20, color: T.muted),
+                            onPressed: () => _editPrinter(p), tooltip: 'Редактировать'),
                           IconButton(icon: const Icon(Icons.delete_outline, size: 20, color: T.danger),
                             onPressed: () => _deletePrinter(p)),
                         ]),
                       ),
                     );
                   },
-                ),
+                )),
           ),
     );
   }
@@ -148,34 +173,44 @@ class _PrintersPageState extends State<PrintersPage> {
 
 class _PrinterForm extends StatefulWidget {
   final List<dynamic> branches;
-  const _PrinterForm({required this.branches});
+  final Map<String, dynamic>? initial;
+  const _PrinterForm({required this.branches, this.initial});
   @override
   State<_PrinterForm> createState() => _PrinterFormState();
 }
 
 class _PrinterFormState extends State<_PrinterForm> {
-  final _name = TextEditingController();
-  final _ip = TextEditingController();
-  final _port = TextEditingController(text: '9100');
+  late final TextEditingController _name, _ip, _port;
   String _type = 'receipt';
   String? _branchId;
 
   static const _types = [
-    ('receipt', 'Чеки'), ('kitchen', 'Кухня'), ('bar', 'Бар'), ('waiter', 'Официант'),
+    ('receipt', 'Чеки'), ('kitchen', 'Кухня'), ('bar', 'Бар'),
+    ('waiter', 'Официант'), ('label', 'Этикетки'),
   ];
 
   @override
   void initState() {
     super.initState();
-    if (widget.branches.isNotEmpty) _branchId = widget.branches[0]['id'];
+    final p = widget.initial;
+    _name = TextEditingController(text: p?['name'] ?? '');
+    _ip   = TextEditingController(text: p?['ip_address'] ?? '');
+    _port = TextEditingController(text: (p?['port'] ?? 9100).toString());
+    _type = p?['printer_type'] ?? 'receipt';
+    _branchId = p?['branch_id']?.toString()
+      ?? (widget.branches.isNotEmpty ? widget.branches[0]['id'] : null);
   }
+
+  @override
+  void dispose() { _name.dispose(); _ip.dispose(); _port.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Новый принтер', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        Text(widget.initial == null ? 'Новый принтер' : 'Редактировать принтер',
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
         TextField(controller: _name, decoration: const InputDecoration(labelText: 'Название'), autofocus: true),
         const SizedBox(height: 12),
@@ -208,7 +243,7 @@ class _PrinterFormState extends State<_PrinterForm> {
               'connection_type': 'network',
             });
           },
-          child: const Text('Создать'),
+          child: Text(widget.initial == null ? 'Создать' : 'Сохранить'),
         )),
       ]),
     );

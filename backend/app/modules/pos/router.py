@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import date
 from uuid import UUID
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
@@ -14,12 +14,14 @@ from app.modules.pos.schemas import (
     ShiftOpen, ShiftClose, ShiftResponse,
 )
 from app.modules.pos.service import OrderService, TerminalService, ShiftService
+from app.shared.rate_limit import limiter
 
 router = APIRouter(prefix="/pos", tags=["pos"])
 
 
 @router.post("/orders", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
-async def create_order(data: OrderCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+@limiter.limit("120/minute")
+async def create_order(request: Request, data: OrderCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     return await OrderService(db).create(user.company_id, user.id, data)
 
 
@@ -28,10 +30,16 @@ async def list_orders(
     branch_id: UUID | None = Query(None),
     status: str | None = Query(None),
     date: date | None = Query(None),
+    active_only: bool = Query(False, description="Только активные: new/accepted/cooking/ready"),
+    table_number: str | None = Query(None, description="Фильтр по номеру стола"),
+    limit: int = Query(200, ge=1, le=1000, description="Максимум строк"),
+    offset: int = Query(0, ge=0, description="Смещение"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await OrderService(db).list(user.company_id, branch_id, status, date)
+    return await OrderService(db).list(
+        user.company_id, branch_id, status, date, active_only, table_number, limit, offset
+    )
 
 
 @router.get("/orders/{order_id}", response_model=OrderResponse)

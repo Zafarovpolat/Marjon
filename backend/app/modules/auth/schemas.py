@@ -62,6 +62,11 @@ class CompanyUserUpdate(BaseSchema):
     is_active: bool | None = None
     permissions: dict | None = None
 
+    @field_validator("password")
+    @classmethod
+    def check_password(cls, v: str | None) -> str | None:
+        return _validate_password(v) if v else v
+
 
 class LoginRequest(BaseSchema):
     email: str | None = Field(None, min_length=1, max_length=255)
@@ -95,6 +100,7 @@ class UserResponse(BaseResponseSchema):
     nfc_id: str | None = None
     permissions: dict | None = None
     role_slugs: list[str] = Field(default_factory=list)
+    avatar_url: str | None = None
 
 
 class CompanyUserResponse(UserResponse):

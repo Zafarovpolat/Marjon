@@ -1,9 +1,5 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
-/**
- * Exposes a safe subset of Electron APIs to the renderer (React).
- * Nothing from Node.js leaks through — only these explicit methods.
- */
 contextBridge.exposeInMainWorld('electron', {
   // ── Printing ────────────────────────────────────────────────────────────────
   print: (args) => ipcRenderer.invoke('printer:print', args),

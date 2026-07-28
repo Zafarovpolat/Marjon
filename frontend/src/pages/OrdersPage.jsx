@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { api, formatMoney } from "../api/client";
 import { printKitchenReceipt, printOrderReceipt } from "../api/receipt";
@@ -18,9 +18,9 @@ export default function OrdersPage() {
   const [error, setError] = useState("");
   const [printState, setPrintState] = useState({ id: "", type: "", loading: false, message: "", error: "" });
 
-  useEffect(() => {
+  const loadOrders = useCallback(() => {
     setError("");
-    api.get("/pos/orders", { params: { date: selectedDate } })
+    return api.get("/pos/orders", { params: { date: selectedDate } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : [];
         setOrders(items);
@@ -28,6 +28,30 @@ export default function OrdersPage() {
       })
       .catch((err) => { setOrders([]); setError(err.response?.data?.detail || "Не удалось загрузить заказы."); });
   }, [selectedDate]);
+
+  useEffect(() => {
+    loadOrders();
+
+    const ws = getWsConnection("/ws/kitchen");
+    let fallbackTimer = null;
+    const refresh = () => loadOrders();
+
+    const unsubs = [
+      ws.on("new_order",       refresh),
+      ws.on("order_updated",   refresh),
+      ws.on("order_cancelled", refresh),
+    ];
+    ws.onOpen(() => { if (fallbackTimer) { clearInterval(fallbackTimer); fallbackTimer = null; } });
+    ws.onClose(() => { if (!fallbackTimer) fallbackTimer = window.setInterval(refresh, 15_000); });
+    ws.connect();
+    fallbackTimer = window.setInterval(refresh, 15_000);
+
+    return () => {
+      unsubs.forEach((fn) => fn());
+      ws.disconnect();
+      if (fallbackTimer) clearInterval(fallbackTimer);
+    };
+  }, [loadOrders]);
 
   const selectedOrder = useMemo(
     () => orders.find((order) => String(order.id) === String(selectedOrderId)) || null,

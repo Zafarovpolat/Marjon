@@ -1,6 +1,10 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron')
 const { join } = require('path')
 const net = require('net')
+const os = require('os')
+const http = require('http')
+const https = require('https')
+const { WebSocketServer } = require('ws')
 
 const isDev = process.env.NODE_ENV === 'development' || !!process.env['ELECTRON_RENDERER_URL']
 
@@ -26,7 +30,92 @@ if (!gotLock && !isDev) {
 let allowClose = true   // becomes false when renderer calls window:setLocked(true)
 let allowCloseOnce = false
 
-// ── Printer TCP helpers (inlined to avoid Vite bundling issues) ───────────────
+// ── Local network server (HTTP proxy + WebSocket) ─────────────────────────────
+// Mobile devices point their base URL at http://192.168.x.x:8765/api/v1 and
+// connect their WS to ws://192.168.x.x:8765. The desktop:
+//   - relays cloud kitchen events to connected mobile clients over WS
+//   - transparently proxies REST requests to the cloud API, so mobile devices
+//     on the LAN don't need direct internet access / cloud URL configuration
+
+const LOCAL_WS_PORT = 8765
+let localHttpServer = null
+let localWsServer = null
+const localClients = new Set()
+let cloudServerUrl = null // e.g. "http://api.marjon.uz/api/v1", set via IPC from renderer
+
+function getLocalIp() {
+  for (const iface of Object.values(os.networkInterfaces())) {
+    for (const addr of iface) {
+      if (addr.family === 'IPv4' && !addr.internal) return addr.address
+    }
+  }
+  return '127.0.0.1'
+}
+
+function proxyToCloud(req, res) {
+  if (!cloudServerUrl) {
+    res.writeHead(503, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ detail: 'Desktop proxy: cloud server not configured' }));
+    return;
+  }
+
+  const origin = cloudServerUrl.replace(/\/api\/v1\/?$/, '');
+  const target = new URL(origin + req.url);
+  const client = target.protocol === 'https:' ? https : http;
+
+  const upstream = client.request(target, {
+    method: req.method,
+    headers: { ...req.headers, host: target.host },
+  }, (upstreamRes) => {
+    res.writeHead(upstreamRes.statusCode, upstreamRes.headers);
+    upstreamRes.pipe(res);
+  });
+
+  upstream.on('error', () => {
+    res.writeHead(502, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ detail: 'Desktop proxy: cloud unreachable' }));
+  });
+
+  req.pipe(upstream);
+}
+
+function startLocalWsServer() {
+  if (localHttpServer) return { ip: getLocalIp(), port: LOCAL_WS_PORT }
+
+  localHttpServer = http.createServer(proxyToCloud)
+  localWsServer = new WebSocketServer({ server: localHttpServer })
+
+  localWsServer.on('connection', (ws) => {
+    localClients.add(ws)
+    // Inform the mobile client it's connected
+    ws.send(JSON.stringify({ event: '__connected__', data: { port: LOCAL_WS_PORT } }))
+    ws.on('close',  () => localClients.delete(ws))
+    ws.on('error',  () => localClients.delete(ws))
+    // Keepalive pong
+    ws.on('message', (msg) => { if (msg.toString() === 'ping') ws.send('pong') })
+  })
+
+  localHttpServer.listen(LOCAL_WS_PORT)
+  console.log(`[LocalWS] Listening on ws://${getLocalIp()}:${LOCAL_WS_PORT} (+ REST proxy)`)
+  return { ip: getLocalIp(), port: LOCAL_WS_PORT }
+}
+
+function stopLocalWsServer() {
+  localWsServer?.close()
+  localWsServer = null
+  localHttpServer?.close()
+  localHttpServer = null
+  localClients.clear()
+}
+
+function broadcastLocal(event, data) {
+  const msg = JSON.stringify({ event, data })
+  for (const ws of localClients) {
+    if (ws.readyState === 1 /* OPEN */) ws.send(msg)
+  }
+}
+
+// ── Printer TCP helpers ───────────────────────────────────────────────────────
 
 function printRaw(ip, port, data, timeout = 5000) {
   return new Promise((resolve, reject) => {
@@ -102,6 +191,8 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // Start local WS server immediately so mobile devices can connect
+  startLocalWsServer()
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -119,6 +210,7 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  stopLocalWsServer()
   if (process.platform !== 'darwin') app.quit()
 })
 
@@ -223,4 +315,21 @@ ipcMain.handle('printer:print', async (_event, { ip, port, payloadBase64, copies
 
 ipcMain.handle('printer:ping', async (_event, { ip, port }) => {
   return await pingPrinter(ip, port ?? 9100)
+})
+
+// ── IPC: Local WebSocket server ───────────────────────────────────────────────
+
+ipcMain.handle('localws:info', () => ({
+  ip: getLocalIp(),
+  port: LOCAL_WS_PORT,
+  clients: localClients.size,
+  running: localWsServer !== null,
+}))
+
+ipcMain.handle('localws:broadcast', (_event, { event, data }) => {
+  broadcastLocal(event, data)
+})
+
+ipcMain.handle('localws:set-server-url', (_event, url) => {
+  cloudServerUrl = url || null
 })

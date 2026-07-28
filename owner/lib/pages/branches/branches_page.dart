@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/api.dart';
 import '../../core/theme.dart';
+import '../../widgets/common.dart';
 import '../halls/halls_page.dart';
 
 class BranchesPage extends StatefulWidget {
@@ -72,7 +73,7 @@ class _BranchesPageState extends State<BranchesPage> {
             onRefresh: _load,
             child: _branches.isEmpty
               ? const Center(child: Text('Нет филиалов', style: TextStyle(color: T.muted)))
-              : ListView.builder(
+              : ResponsiveBox(child: ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: _branches.length,
                   itemBuilder: (_, i) {
@@ -110,13 +111,16 @@ class _BranchesPageState extends State<BranchesPage> {
                               MaterialPageRoute(builder: (_) => HallsPage(branch: Map<String, dynamic>.from(b))),
                             ),
                           ),
-                          const Icon(Icons.edit_outlined, color: T.muted),
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, color: T.muted, size: 20),
+                            tooltip: 'Редактировать',
+                            onPressed: () => _editBranch(Map<String, dynamic>.from(b)),
+                          ),
                         ]),
-                        onTap: () => _editBranch(Map<String, dynamic>.from(b)),
                       ),
                     );
                   },
-                ),
+                )),
           ),
     );
   }

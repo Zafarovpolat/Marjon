@@ -35,6 +35,8 @@ class User(TimeStampedModel):
     printer_ip: Mapped[str | None] = mapped_column(String(45))
     nfc_id: Mapped[str | None] = mapped_column(String(64))
     permissions: Mapped[dict | None] = mapped_column(JSON, default=dict)
+    # Аватар сотрудника (загрузка через /auth/me/photo) — из ветки bek
+    avatar_url: Mapped[str | None] = mapped_column(String(512))
 
     company: Mapped[Company | None] = relationship("Company", back_populates="users")
     refresh_tokens: Mapped[list[RefreshToken]] = relationship(back_populates="user", cascade="all, delete-orphan")

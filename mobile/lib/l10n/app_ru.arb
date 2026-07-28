@@ -1,0 +1,122 @@
+{
+  "@@locale": "ru",
+
+  "appTitle": "Marjon",
+
+  "loginTitle": "Marjon",
+  "loginSubtitle": "Терминал",
+  "loginServer": "Адрес сервера",
+  "loginEmail": "Email или телефон",
+  "loginPassword": "Пароль",
+  "loginButton": "Войти",
+  "loginError": "Неверный логин или пароль",
+
+  "branchTitle": "Выберите филиал",
+  "branchEmpty": "Нет филиалов",
+
+  "modeTitle": "Выберите рабочее место",
+  "modeCashier": "Касса",
+  "modeWaiter": "Официант",
+  "modeKitchen": "Кухня",
+  "modeBar": "Бар",
+
+  "tabAll": "Все ({count})",
+  "@tabAll": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "tabNew": "Новые ({count})",
+  "@tabNew": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "tabAccepted": "Принятые ({count})",
+  "@tabAccepted": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "tabCooking": "Готовятся ({count})",
+  "@tabCooking": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "tabReady": "Готовы ({count})",
+  "@tabReady": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "noOrders": "Нет заказов",
+  "noActiveOrders": "Нет активных заказов",
+  "acceptOrder": "Принять",
+  "cancelOrder": "Отмена",
+  "closeOrder": "Закрыть заказ",
+  "printReceipt": "Печать чека",
+  "printerNotFound": "Принтер чеков не найден",
+  "receiptSent": "Чек отправлен",
+  "printError": "Ошибка печати",
+  "statusUpdateError": "Ошибка обновления статуса",
+  "orderError": "Ошибка создания заказа",
+
+  "statusNew": "Новый",
+  "statusAccepted": "Принят",
+  "statusCooking": "Готовится",
+  "statusReady": "Готов",
+  "statusCompleted": "Закрыт",
+  "statusCancelled": "Отменён",
+
+  "newOrderTitle": "Новый заказ",
+  "tableLabel": "Стол",
+  "tableNumber": "Стол {number}",
+  "@tableNumber": {
+    "placeholders": { "number": { "type": "String" } }
+  },
+  "noTable": "Без стола (на вынос)",
+  "searchHint": "Поиск блюда...",
+  "nothingFound": "Ничего не найдено",
+  "allCategories": "Все",
+  "createOrderBtn": "Создать — {total} сум",
+  "@createOrderBtn": {
+    "placeholders": { "total": { "type": "String" } }
+  },
+  "pickTable": "Выберите стол",
+  "noTablesAvailable": "Нет доступных столов",
+  "noTablesHint": "Настройте залы и столы в админ-панели",
+
+  "startCooking": "Начать готовить",
+  "itemReady": "Готово",
+  "orderReadyBtn": "Заказ готов!",
+  "orderReadyMsg": "Заказ #{number} готов!",
+  "@orderReadyMsg": {
+    "placeholders": { "number": { "type": "String" } }
+  },
+  "liveLabel": "LIVE",
+
+  "settingsTitle": "Настройки",
+  "settingsLanguage": "Язык",
+  "settingsRussian": "Русский",
+  "settingsUzbek": "O''zbekcha",
+  "settingsEnglish": "English",
+  "settingsConnection": "Подключение",
+  "settingsServer": "Сервер",
+  "settingsBranch": "Филиал",
+  "settingsBranchNone": "Не выбран",
+  "settingsServerNone": "Не указан",
+  "settingsApp": "Приложение",
+  "settingsVersion": "Версия",
+  "settingsSwitchBranch": "Сменить филиал",
+  "settingsLogout": "Выйти",
+  "settingsPrivacy": "Конфиденциальность",
+
+  "privacyTitle": "Политика конфиденциальности",
+
+  "errorGeneric": "Произошла ошибка",
+  "loading": "Загрузка...",
+  "itemsCount": "{count} позиций",
+  "@itemsCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "subtotal": "Подытог",
+  "discount": "Скидка",
+  "total": "Итого",
+  "note": "Примечание",
+  "positions": "Позиции",
+  "sumSuffix": "сум",
+  "backToModes": "Назад",
+  "logout": "Выйти"
+}

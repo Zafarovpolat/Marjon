@@ -1,8 +1,10 @@
 from __future__ import annotations
-from datetime import date, datetime, timezone
+import hashlib
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
-from sqlalchemy import func, select
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -97,7 +99,9 @@ class OrderService:
         await self.db.commit()
         created_order = await self.get(company_id, order.id)
         try:
-            await kitchen_manager.broadcast(company_id, "new_order", {"order_id": str(created_order.id)})
+            await kitchen_manager.broadcast(
+                company_id, data.branch_id, "new_order", {"order_id": str(created_order.id)}
+            )
         except Exception:
             pass
         try:
@@ -131,10 +135,22 @@ class OrderService:
         branch_id: UUID | None = None,
         status: str | None = None,
         selected_date: date | None = None,
+        active_only: bool = False,
+        table_number: str | None = None,
+        limit: int = 200,
+        offset: int = 0,
     ) -> list[Order]:
         if status:
             return await self.repo.get_by_status(company_id, status, branch_id, selected_date)
-        return await self.repo.get_all(company_id, selected_date=selected_date)
+        return await self.repo.get_all(
+            company_id,
+            selected_date=selected_date,
+            branch_id=branch_id,
+            active_only=active_only,
+            table_number=table_number,
+            limit=limit,
+            offset=offset,
+        )
 
     # ── Update status (state machine) ─────────────────────────────────────────
 
@@ -153,7 +169,10 @@ class OrderService:
         await self.repo.save(order)
         updated_order = await self.get(company_id, order_id)
         try:
-            await kitchen_manager.broadcast(company_id, "order_updated", {"order_id": str(order_id), "status": target})
+            await kitchen_manager.broadcast(
+                company_id, order.branch_id, "order_updated",
+                {"order_id": str(order_id), "status": target},
+            )
         except Exception:
             pass
         try:
@@ -180,7 +199,9 @@ class OrderService:
         order.status = "cancelled"
         saved = await self.repo.save(order)
         try:
-            await kitchen_manager.broadcast(company_id, "order_cancelled", {"order_id": str(order_id)})
+            await kitchen_manager.broadcast(
+                company_id, order.branch_id, "order_cancelled", {"order_id": str(order_id)}
+            )
         except Exception:
             pass
         return saved
@@ -384,17 +405,33 @@ class OrderService:
         return Decimal(str(res.scalar_one() or 0))
 
     async def _generate_daily_number(self, company_id: UUID, branch_id: UUID) -> str:
-        """Generate daily order number: YYYYMMDD-NNNN."""
-        today = datetime.now(timezone.utc).date()
-        today_start = datetime.combine(today, datetime.min.time())
-        today_end = datetime.combine(today, datetime.max.time())
+        """Generate daily order number: YYYYMMDD-NNNN (serialized via advisory lock)."""
+        tz_str = await self._get_company_timezone(company_id)
+        try:
+            tz = ZoneInfo(tz_str)
+        except (ZoneInfoNotFoundError, KeyError):
+            tz = ZoneInfo("Asia/Tashkent")
+
+        now_local = datetime.now(tz)
+        today_local = now_local.date()
+
+        # Serialize concurrent requests for the same company/branch/day
+        lock_key = int.from_bytes(
+            hashlib.sha256(f"{company_id}:{branch_id}:{today_local}".encode()).digest()[:8],
+            "big", signed=True,
+        )
+        await self.db.execute(text("SELECT pg_advisory_xact_lock(:k)").bindparams(k=lock_key))
+
+        # Count in UTC range that corresponds to local calendar day
+        day_start = datetime.combine(today_local, datetime.min.time()).replace(tzinfo=tz).astimezone(timezone.utc)
+        day_end   = datetime.combine(today_local + timedelta(days=1), datetime.min.time()).replace(tzinfo=tz).astimezone(timezone.utc)
 
         result = await self.db.execute(
             select(func.count(Order.id)).where(
                 Order.company_id == company_id,
                 Order.branch_id == branch_id,
-                Order.created_at >= today_start,
-                Order.created_at <= today_end,
+                Order.created_at >= day_start,
+                Order.created_at < day_end,
             )
         )
         count = result.scalar_one()

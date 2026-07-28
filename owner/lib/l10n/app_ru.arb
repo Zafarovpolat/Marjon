@@ -1,0 +1,100 @@
+{
+  "@@locale": "ru",
+
+  "appTitle": "Marjon Owner",
+  "@appTitle": { "description": "Application title" },
+
+  "navDashboard": "Главная",
+  "@navDashboard": { "description": "Bottom nav: dashboard tab" },
+
+  "navReports": "Отчёты",
+  "@navReports": { "description": "Bottom nav: reports tab" },
+
+  "navStaff": "Персонал",
+  "@navStaff": { "description": "Bottom nav: staff tab" },
+
+  "navMenu": "Меню",
+  "@navMenu": { "description": "Bottom nav: menu tab" },
+
+  "navMore": "Ещё",
+  "@navMore": { "description": "Bottom nav: more tab" },
+
+  "kpiRevenue": "ВЫРУЧКА ЗА ДЕНЬ",
+  "kpiOrders": "ЗАКАЗОВ",
+  "kpiAvgCheck": "СРЕДНИЙ ЧЕК",
+  "kpiIncome": "ПРИХОД",
+  "kpiExpense": "РАСХОДЫ",
+
+  "vsYesterday": "vs вчера",
+  "@vsYesterday": { "description": "Delta label on KPI card" },
+
+  "loading": "Загрузка...",
+  "errorGeneric": "Произошла ошибка",
+  "retry": "Повторить",
+  "save": "Сохранить",
+  "cancel": "Отмена",
+  "delete": "Удалить",
+  "edit": "Редактировать",
+  "add": "Добавить",
+  "create": "Создать",
+  "search": "Поиск",
+  "noData": "Нет данных",
+  "refresh": "Обновить",
+
+  "staffTitle": "Сотрудники",
+  "staffAdd": "Добавить сотрудника",
+  "staffEmpty": "Нет сотрудников",
+  "staffDeleteConfirm": "Удалить сотрудника?",
+  "staffDeleteMsg": "'{name}' будет удалён из системы",
+  "@staffDeleteMsg": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+
+  "ordersTitle": "Заказы",
+  "ordersEmpty": "Нет заказов",
+  "ordersCount": "{count} заказов",
+  "@ordersCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "financeTitle": "Финансы",
+  "financeIncome": "Доходы",
+  "financeExpense": "Расходы",
+  "financeBalance": "Баланс",
+  "financeAdd": "Добавить",
+  "financeEmpty": "Нет транзакций",
+
+  "reportsTitle": "Отчёты",
+  "reportsDishes": "Блюда",
+  "reportsWaiters": "Официанты",
+  "reportsCancelled": "Отмены",
+
+  "analyticsTitle": "Аналитика",
+  "analyticsRevenue": "Выручка",
+  "analyticsOrders": "Заказов",
+  "analyticsAvgCheck": "Ср. чек",
+
+  "menuTitle": "Меню",
+  "menuAll": "Все ({count})",
+  "@menuAll": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "branchesTitle": "Филиалы",
+  "branchesEmpty": "Нет филиалов",
+
+  "printersTitle": "Принтеры",
+  "printersEmpty": "Нет принтеров",
+  "printerOnline": "Онлайн",
+  "printerOffline": "Недоступен",
+
+  "settingsTitle": "Настройки",
+  "settingsLogout": "Выйти",
+  "settingsLogoutConfirm": "Вы уверены, что хотите выйти?"
+}

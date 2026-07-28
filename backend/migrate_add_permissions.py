@@ -18,6 +18,7 @@ PLAN = {
         "printer_ip":  {"sqlite": "VARCHAR(45)", "postgresql": "VARCHAR(45)"},
         "nfc_id":      {"sqlite": "VARCHAR(64)", "postgresql": "VARCHAR(64)"},
         "permissions": {"sqlite": "TEXT", "postgresql": "JSON"},
+        "avatar_url":  {"sqlite": "VARCHAR(512)", "postgresql": "VARCHAR(512)"},
     },
     "companies": {
         "cancel_password": {"sqlite": "VARCHAR(64)", "postgresql": "VARCHAR(64)"},
