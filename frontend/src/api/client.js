@@ -8,6 +8,7 @@ import {
   prepareAuthRequest,
   saveAuthTokens,
 } from "../auth/session";
+import { createFetchAdapter, DEFAULT_HTTP_TIMEOUT_MS } from "./transport";
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api/v1";
 
@@ -16,6 +17,8 @@ export const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  timeout: DEFAULT_HTTP_TIMEOUT_MS,
+  adapter: createFetchAdapter({ defaultTimeout: DEFAULT_HTTP_TIMEOUT_MS }),
 });
 
 api.interceptors.request.use((config) => {

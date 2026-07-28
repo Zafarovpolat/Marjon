@@ -128,6 +128,18 @@ function setAuthorizationHeader(config, token) {
   config.headers.Authorization = `Bearer ${token}`;
 }
 
+function getCallerSignal(config) {
+  return config?._callerSignal || config?.signal;
+}
+
+function createRequestAbortedError(config) {
+  const error = new Error("Request was aborted");
+  error.name = "AbortError";
+  error.code = "ABORTED";
+  error.config = config;
+  return error;
+}
+
 function resetSessionEventForScope(scope) {
   const normalizedScope = normalizeScope(scope);
   sessionEndEmittedScopes.delete(normalizedScope);
@@ -151,6 +163,10 @@ export function resolveAdminAuthSession() {
 
 export function prepareAuthRequest(config, { scope = AUTH_SCOPES.DEFAULT, accessToken = "" } = {}) {
   config._authScope = normalizeScope(scope);
+  if (config.signal && !config._callerSignal) {
+    config._callerSignal = config.signal;
+    delete config.signal;
+  }
   config.headers = config.headers || {};
   if (isFormDataBody(config.data)) {
     removeContentTypeHeader(config.headers);
@@ -221,7 +237,12 @@ export function endAuthSession(reason = "session_expired", { scope = AUTH_SCOPES
 
 export function shouldSkipAuthRefresh(url) {
   const pathname = getPathname(url);
-  return AUTH_REFRESH_EXCLUDED_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+  return AUTH_REFRESH_EXCLUDED_PATHS.some((path) => (
+    pathname === path
+    || pathname.startsWith(`${path}/`)
+    || pathname.endsWith(path)
+    || pathname.endsWith(`${path}/`)
+  ));
 }
 
 export async function refreshAuthSession({ baseURL, scope = AUTH_SCOPES.DEFAULT } = {}) {
@@ -283,6 +304,9 @@ export async function handleAuthResponseError(error, { client, baseURL, scope = 
       baseURL: getRequestBaseURL(originalRequest, baseURL),
       scope: requestScope,
     });
+    if (getCallerSignal(originalRequest)?.aborted) {
+      return Promise.reject(createRequestAbortedError(originalRequest));
+    }
     setAuthorizationHeader(originalRequest, newAccessToken);
     return client(originalRequest);
   } catch (refreshError) {
