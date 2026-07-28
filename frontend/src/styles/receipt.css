@@ -49,8 +49,8 @@
   grid-template-columns: minmax(0, 1fr) minmax(420px, 520px);
   gap: 22px;
   align-items: stretch;
-  height: calc(100dvh - 150px);
-  max-height: calc(100dvh - 150px);
+  height: calc(100dvh - var(--admin-owner-header-h, 84px) - 62px);
+  max-height: calc(100dvh - var(--admin-owner-header-h, 84px) - 62px);
   min-height: 0;
   overflow: hidden;
 }
@@ -294,6 +294,7 @@
 .receipt-preview-sticky {
   top: -20px;
   padding-top: 0;
+  align-self: stretch;
   height: 100%;
   max-height: 100%;
   min-height: 0;
@@ -951,7 +952,7 @@
 
   .receipt-preview-shell {
     width: 100%;
-    overflow: visible;
+    overflow: hidden;
     padding: 20px 12px;
   }
 
