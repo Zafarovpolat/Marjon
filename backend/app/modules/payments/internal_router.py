@@ -1,4 +1,5 @@
 from __future__ import annotations
+import hmac
 from decimal import Decimal
 from uuid import UUID
 
@@ -19,7 +20,9 @@ router = APIRouter(prefix="/internal", tags=["internal"])
 
 
 def verify_secret(x_webhook_secret: str = Header(...)) -> None:
-    if x_webhook_secret != settings.webhook_secret:
+    expected = settings.webhook_secret
+    # Fail-closed при незаданном секрете; сравнение constant-time (защита от тайминг-атак).
+    if not expected or not hmac.compare_digest(x_webhook_secret, expected):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
 
