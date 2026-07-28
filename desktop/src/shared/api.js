@@ -115,13 +115,24 @@ if (typeof window !== 'undefined') {
 
 // Org-токен терминала — access живёт 15 мин, refresh — 30 дней.
 // Обновляем access по refresh, когда он протух (иначе staff-users/pin-login дают 401).
+// Singleton in-flight: при параллельных 401 делаем ОДИН refresh, иначе второй
+// вызов уходит с уже отозванным refresh-токеном (бэкенд ротирует их) и падает.
+let _orgRefreshPromise = null
 async function refreshOrgToken() {
-  const rt = localStorage.getItem('marjon_org_refresh')
-  if (!rt) throw new Error('no org refresh token')
-  const { data } = await axios.post(`${baseURL()}/auth/refresh`, { refresh_token: rt })
-  localStorage.setItem('marjon_org_token', data.access_token)
-  if (data.refresh_token) localStorage.setItem('marjon_org_refresh', data.refresh_token)
-  return data.access_token
+  if (_orgRefreshPromise) return _orgRefreshPromise
+  _orgRefreshPromise = (async () => {
+    const rt = localStorage.getItem('marjon_org_refresh')
+    if (!rt) throw new Error('no org refresh token')
+    const { data } = await axios.post(`${baseURL()}/auth/refresh`, { refresh_token: rt })
+    localStorage.setItem('marjon_org_token', data.access_token)
+    if (data.refresh_token) localStorage.setItem('marjon_org_refresh', data.refresh_token)
+    return data.access_token
+  })()
+  try {
+    return await _orgRefreshPromise
+  } finally {
+    _orgRefreshPromise = null
+  }
 }
 
 // Выполнить запрос с org-токеном; при 401 обновить токен и повторить один раз.
