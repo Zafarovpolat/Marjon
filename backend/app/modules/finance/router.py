@@ -156,9 +156,11 @@ async def create_transaction(
     data: schemas.TransactionCreate,
     idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
     user: User = Depends(get_current_user),
+    org_scope: OrgScope = Depends(get_org_scope),
     db: AsyncSession = Depends(get_db),
 ):
-    return await TransactionService(db).create_transaction(data, user.id, idempotency_key)
+    tx = await TransactionService(db).create_transaction(data, user.id, idempotency_key, org_scope)
+    return await _transaction_response(db, tx)
 
 
 @transactions.post("/pay", response_model=list[schemas.TransactionResponse],
@@ -168,9 +170,11 @@ async def pay(
     data: schemas.PayRequest,
     idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
     user: User = Depends(get_current_user),
+    org_scope: OrgScope = Depends(get_org_scope),
     db: AsyncSession = Depends(get_db),
 ):
-    return await TransactionService(db).pay(data, user.id, idempotency_key)
+    transactions = await TransactionService(db).pay(data, user.id, idempotency_key, org_scope)
+    return [await _transaction_response(db, tx) for tx in transactions]
 
 
 @transactions.get("/{tx_id}", response_model=schemas.TransactionResponse)
