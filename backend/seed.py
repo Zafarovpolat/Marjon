@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from app.infrastructure.database.session import AsyncSessionLocal
 from app.modules.admin_settings.models import ImageBackground, Language, StoreVersion, Translation, UserLog
 from app.modules.auth.models import RefreshToken, User
-from app.modules.auth.security import hash_password
+from app.modules.auth.security import hash_password, hash_pin
 from app.modules.companies.models import Branch, Company
 from app.modules.crm.models import Customer, CustomerNote
 from app.modules.delivery.models import Courier, DeliveryOrder, DeliveryZone
@@ -342,7 +342,7 @@ async def seed_company_users(db):
                 username=data["username"],
                 name=data["name"],
                 phone=data["phone"],
-                pin_code=data["pin"],
+                pin_hash=hash_pin(data["pin"]) if data.get("pin") else None,
                 password_hash=hash_password(data["password"]),
                 is_active=True,
                 is_superadmin=bool(data.get("is_superadmin")),
@@ -355,7 +355,7 @@ async def seed_company_users(db):
             user.username = user.username or data["username"]
             user.name = data["name"]
             user.phone = data["phone"]
-            user.pin_code = data["pin"]
+            user.pin_hash = hash_pin(data["pin"]) if data.get("pin") else None
             user.password_hash = hash_password(data["password"])
             user.is_active = True
             if data.get("is_superadmin"):

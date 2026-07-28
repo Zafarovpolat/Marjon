@@ -24,6 +24,9 @@ class User(TimeStampedModel):
     phone: Mapped[str | None] = mapped_column(String(20))
     # 4–8 значный PIN для быстрого входа сотрудников (ТЗ §3.2 экран официанта/кассира)
     pin_code: Mapped[str | None] = mapped_column(String(8))
+    # PIN хранится хешированным (bcrypt); pin_code оставлен для обратной совместимости
+    # и обнуляется миграцией после бэкфилла в pin_hash.
+    pin_hash: Mapped[str | None] = mapped_column(String(255))
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_superadmin: Mapped[bool] = mapped_column(Boolean, default=False)

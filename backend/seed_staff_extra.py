@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from sqlalchemy import select, or_
 from app.infrastructure.database.session import AsyncSessionLocal
 from app.modules.auth.models import User
-from app.modules.auth.security import hash_password
+from app.modules.auth.security import hash_password, hash_pin
 from app.modules.companies.models import Branch, Company
 from app.modules.inventory.models import Product
 from app.modules.pos.models import Order, OrderItem
@@ -136,7 +136,7 @@ async def seed_extra():
                 username=data["username"],
                 name=data["name"],
                 phone=data["phone"],
-                pin_code=data["pin"],
+                pin_hash=hash_pin(data["pin"]) if data.get("pin") else None,
                 password_hash=hash_password(data["password"]),
                 is_active=data.get("is_active", True),
                 is_superadmin=False,

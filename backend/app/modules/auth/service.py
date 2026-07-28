@@ -12,6 +12,7 @@ from app.modules.auth.security import (
     create_access_token,
     create_refresh_token,
     hash_password,
+    hash_pin,
     hash_refresh_token,
     verify_password,
 )
@@ -160,7 +161,7 @@ class AuthService:
             email=email,
             phone=phone,
             name=name or role_name,
-            pin_code=pin_code or None,
+            pin_hash=hash_pin(pin_code) if pin_code else None,
             printer_ip=printer_ip or None,
             nfc_id=nfc_id or None,
             branch_id=branch_id,
@@ -188,9 +189,12 @@ class AuthService:
             raise NotFoundError("User not found")
 
         # Скалярные поля
-        for f in ("phone", "name", "pin_code", "printer_ip", "nfc_id", "branch_id", "is_active", "permissions"):
+        for f in ("phone", "name", "printer_ip", "nfc_id", "branch_id", "is_active", "permissions"):
             if data.get(f) is not None:
                 setattr(user, f, data[f])
+        # PIN — только в хеш, plaintext не сохраняем
+        if data.get("pin_code") is not None:
+            user.pin_hash = hash_pin(data["pin_code"]) if data["pin_code"] else None
         if data.get("email"):
             user.email = data["email"]
         if data.get("password"):

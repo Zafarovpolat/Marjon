@@ -19,6 +19,7 @@ PLAN = {
         "nfc_id":      {"sqlite": "VARCHAR(64)", "postgresql": "VARCHAR(64)"},
         "permissions": {"sqlite": "TEXT", "postgresql": "JSON"},
         "avatar_url":  {"sqlite": "VARCHAR(512)", "postgresql": "VARCHAR(512)"},
+        "pin_hash":    {"sqlite": "VARCHAR(255)", "postgresql": "VARCHAR(255)"},
     },
     "companies": {
         "cancel_password": {"sqlite": "VARCHAR(64)", "postgresql": "VARCHAR(64)"},
@@ -60,6 +61,28 @@ async def main():
                 ddl = ddl_by_dialect.get(dialect, ddl_by_dialect["sqlite"])
                 await conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}")
                 added.append(f"{table}.{col}")
+
+    # Бэкфилл PIN: хешируем существующие plaintext-PIN (bcrypt) и стираем открытый pin_code.
+    # Идемпотентно: берём только строки, где pin_code задан, а pin_hash ещё пуст.
+    from sqlalchemy import text
+    from app.modules.auth.security import hash_pin
+    migrated = 0
+    async with engine.begin() as conn:
+        existing, table_exists = await existing_columns(conn, dialect, "users")
+        if table_exists and {"pin_code", "pin_hash"} <= existing:
+            rows = (await conn.execute(text(
+                "SELECT id, pin_code FROM users "
+                "WHERE pin_code IS NOT NULL AND pin_code <> '' AND pin_hash IS NULL"
+            ))).fetchall()
+            for row in rows:
+                await conn.execute(
+                    text("UPDATE users SET pin_hash = :h, pin_code = NULL WHERE id = :id"),
+                    {"h": hash_pin(str(row[1])), "id": row[0]},
+                )
+                migrated += 1
+    if migrated:
+        print(f"PIN: перенесено в хеш и очищено {migrated} plaintext-PIN")
+
     print(f"Готово. Добавлены колонки: {added or 'нет (уже все на месте)'}")
 
 

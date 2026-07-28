@@ -97,7 +97,8 @@ async def update_company_user(
 
 
 @router.post("/login/form", response_model=TokenResponse, include_in_schema=False)
-async def login_form(form: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def login_form(request: Request, form: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
     """OAuth2 form login (used by Swagger UI)."""
     svc = AuthService(db)
     _, access_token, refresh_token = await svc.login(form.username, form.password)
@@ -105,7 +106,8 @@ async def login_form(form: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh(data: RefreshRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def refresh(request: Request, data: RefreshRequest, db: AsyncSession = Depends(get_db)):
     svc = AuthService(db)
     access_token, refresh_token = await svc.refresh(data.refresh_token)
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
@@ -201,7 +203,9 @@ async def upload_avatar(
 
 
 @router.post("/pin-login", response_model=TokenResponse)
+@limiter.limit("30/minute")
 async def pin_login(
+    request: Request,
     data: PinLoginRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

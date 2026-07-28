@@ -38,16 +38,21 @@ class UserRepository(BaseRepository[User]):
         return list(result.scalars().all())
 
     async def get_by_pin(self, company_id: UUID, pin: str) -> Optional[User]:
-        """PIN-вход сотрудника: поиск активного пользователя по PIN в рамках company.
+        """PIN-вход сотрудника: перебираем активных сотрудников компании и сверяем
+        bcrypt-хеш. Plaintext-PIN в БД больше не хранится (см. pin_hash).
         PIN уникален только внутри организации, поэтому scope по company_id обязателен."""
+        from app.modules.auth.security import verify_pin
         result = await self.db.execute(
             select(User).where(
                 User.company_id == company_id,
-                User.pin_code == pin,
                 User.is_active == True,  # noqa: E712
-            ).limit(1)
+                User.pin_hash.is_not(None),
+            )
         )
-        return result.scalar_one_or_none()
+        for user in result.scalars().all():
+            if verify_pin(pin, user.pin_hash):
+                return user
+        return None
 
 
 class RefreshTokenRepository(BaseRepository[RefreshToken]):

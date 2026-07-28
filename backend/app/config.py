@@ -91,7 +91,11 @@ class Settings(BaseSettings):
     def validate_security(self):
         if not self.secret_key:
             if self.debug:
-                self.secret_key = "dev-only-insecure-secret-key"
+                # Не хардкодим публично известный ключ (иначе при случайном DEBUG=true
+                # на проде можно было бы подделать любой JWT). Генерируем эфемерный
+                # на процесс: токены не переживут рестарт — приемлемо для локалки.
+                import secrets
+                self.secret_key = secrets.token_urlsafe(48)
             else:
                 raise ValueError("SECRET_KEY must be set when DEBUG=false")
         return self

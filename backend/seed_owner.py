@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from app.infrastructure.database.session import AsyncSessionLocal
 from app.modules.auth.models import User
-from app.modules.auth.security import hash_password
+from app.modules.auth.security import hash_password, hash_pin
 from app.modules.companies.models import Branch, Company
 from app.modules.rbac.models import Role, UserRole
 
@@ -73,7 +73,7 @@ async def main():
                 username="admin",
                 name="Владелец Marjon Cafe",
                 phone=PHONE,
-                pin_code="1111",
+                pin_hash=hash_pin("1111"),
                 password_hash=hash_password(PASSWORD),
                 is_active=True,
                 is_superadmin=False,
@@ -90,7 +90,7 @@ async def main():
                 user.username = "admin"
             user.name = "Владелец Marjon Cafe"
             user.phone = PHONE
-            user.pin_code = "1111"
+            user.pin_hash = hash_pin("1111")
             user.password_hash = hash_password(PASSWORD)
             user.is_active = True
             user.is_superadmin = False
@@ -103,7 +103,7 @@ async def main():
             owner.company_id = company.id
             owner.name = "Владелец Marjon Cafe"
             owner.phone = PHONE
-            owner.pin_code = "1111"
+            owner.pin_hash = hash_pin("1111")
             owner.password_hash = hash_password(PASSWORD)
             owner.is_active = True
             owner.is_superadmin = False

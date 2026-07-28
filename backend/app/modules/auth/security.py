@@ -18,6 +18,20 @@ def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
+def hash_pin(pin: str) -> str:
+    """PIN сотрудника хранится хешированным (bcrypt), не в открытом виде."""
+    return bcrypt.hashpw(pin.encode(), bcrypt.gensalt()).decode()
+
+
+def verify_pin(plain: str, hashed: str | None) -> bool:
+    if not hashed:
+        return False
+    try:
+        return bcrypt.checkpw(plain.encode(), hashed.encode())
+    except (ValueError, TypeError):
+        return False
+
+
 def create_access_token(user_id: UUID, company_id: UUID | None = None) -> str:
     payload = {
         "sub": str(user_id),
