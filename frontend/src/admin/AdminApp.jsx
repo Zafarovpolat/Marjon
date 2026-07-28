@@ -12286,34 +12286,6 @@ function AdminShell({ onLogout }) {
 
   useEffect(() => {
     let mounted = true;
-    if (localStorage.getItem("admin_local_login") === "true") {
-      setUser({ email: "admin.900078779@marjon.local", phone: "+998900078779", name: "Super Admin", is_superadmin: true });
-      adminApi.get("/organizations", { params: { size: 5 } })
-        .then(({ data }) => {
-          if (!mounted) return;
-          const items = Array.isArray(data) ? data : data?.items || [];
-          if (items.length) {
-            setOrganizations(items.map((r) => [
-              r.company_name || r.name || "", r.type || "Ресторан",
-              String(r.branches_count || 0), r.admin_name || r.owner_name || "—",
-              r.created_at || "—", r.status || "Активна",
-            ]));
-          }
-        })
-        .catch(() => {});
-      if (!ADMIN_DASHBOARD_DEMO_MODE) {
-        adminApi.get("/admin-reports/dashboard-kpis")
-          .then(({ data }) => {
-            if (!mounted || !data) return;
-            setDashKpis((prev) => prev.map((kpi) => {
-              const v = data[kpi.dataKey];
-              return v != null ? { ...kpi, value: typeof v === "number" ? v.toLocaleString("ru-RU") : String(v) } : kpi;
-            }));
-          })
-          .catch(() => {});
-      }
-      return () => { mounted = false; };
-    }
     adminApi.get("/auth/me")
       .then(({ data }) => mounted && setUser(data))
       .catch(() => mounted && setMessage("Профиль не загружен. Проверьте права доступа."));
