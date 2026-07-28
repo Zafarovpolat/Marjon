@@ -14,16 +14,31 @@ export const ROLES = {
 
 // Какие верхнеуровневые разделы доступны каждой роли.
 // "*" — все разделы.
-const COMPANY_ADMIN_SECTIONS = ["dashboard", "reports", "users", "nomenclature", "warehouse", "warehouse-report", "finance", "settings", "orders", "qr", "subscription"];
+const ACCOUNT_SECTIONS = ["settings.profile", "settings.support"];
+const COMPANY_ADMIN_SECTIONS = [
+  "dashboard",
+  "reports",
+  "users",
+  "nomenclature",
+  "warehouse",
+  "warehouse-report",
+  "finance",
+  "settings",
+  ...ACCOUNT_SECTIONS,
+  "orders",
+  "reviews",
+  "qr",
+  "subscription",
+];
 
 const ROLE_SECTIONS = {
   owner: "*",
   superadmin: "*",
   admin: COMPANY_ADMIN_SECTIONS,
   manager: COMPANY_ADMIN_SECTIONS,
-  cashier: ["dashboard", "orders", "settings.profile"],
-  waiter: ["waiter"],
-  kitchen: ["kitchen"],
+  cashier: ["dashboard", "orders", ...ACCOUNT_SECTIONS],
+  waiter: ["waiter", ...ACCOUNT_SECTIONS],
+  kitchen: ["kitchen", ...ACCOUNT_SECTIONS],
   monoblock: ["orders", "waiter"],
 };
 
@@ -49,6 +64,7 @@ const ROUTE_SECTION_RULES = [
   { prefixes: ["/stock-report"], sectionKey: "warehouse-report" },
   { prefixes: ["/warehouse"], sectionKey: "warehouse" },
   { prefixes: ["/settings/profile"], sectionKey: "settings.profile" },
+  { prefixes: ["/settings/support"], sectionKey: "settings.support" },
   { prefixes: ["/settings"], sectionKey: "settings" },
   {
     prefixes: [
@@ -61,7 +77,7 @@ const ROUTE_SECTION_RULES = [
   },
   { prefixes: ["/nomenclature", "/menu"], sectionKey: "nomenclature" },
   { prefixes: ["/orders", "/store"], sectionKey: "orders" },
-  { prefixes: ["/reviews"], sectionKey: "dashboard" },
+  { prefixes: ["/reviews"], sectionKey: "reviews" },
 ];
 
 function normalizePathname(pathname) {

@@ -40,9 +40,11 @@ vi.mock("./api/receipt", () => ({
 const users = {
   owner: { id: "owner", role_slugs: ["owner"], email: "owner@marjon.test" },
   admin: { id: "admin", role_slugs: ["admin"], email: "admin@marjon.test" },
+  manager: { id: "manager", role_slugs: ["manager"], email: "manager@marjon.test" },
   cashier: { id: "cashier", role_slugs: ["cashier"], email: "cashier@marjon.test" },
   waiter: { id: "waiter", role_slugs: ["waiter"], email: "waiter@marjon.test" },
   kitchen: { id: "kitchen", role_slugs: ["kitchen"], email: "kitchen@marjon.test" },
+  unknown: { id: "unknown", role_slugs: ["auditor"], email: "unknown@marjon.test" },
   noRole: { id: "no-role", role_slugs: [], email: "norole@marjon.test" },
 };
 
@@ -72,6 +74,28 @@ function renderAt(pathname) {
 
 async function waitForPath(pathname) {
   await waitFor(() => expect(window.location.pathname).toBe(pathname));
+}
+
+async function expectAllowedRoute(pathname, user, selector = ".dashboard-shell") {
+  mockAuthenticatedUser(user);
+
+  renderAt(pathname);
+
+  await waitForPath(pathname);
+  if (selector) {
+    await waitFor(() => expect(document.querySelector(selector)).toBeInTheDocument());
+  }
+}
+
+async function expectRedirect(pathname, user, expectedPathname, forbiddenSelector = null) {
+  mockAuthenticatedUser(user);
+
+  renderAt(pathname);
+
+  await waitForPath(expectedPathname);
+  if (forbiddenSelector) {
+    expect(document.querySelector(forbiddenSelector)).not.toBeInTheDocument();
+  }
 }
 
 describe("role route guards", () => {
@@ -186,5 +210,90 @@ describe("role route guards", () => {
 
     await waitForPath("/orders");
     await waitFor(() => expect(window.location.pathname).toBe("/orders"));
+  });
+
+  it.each([
+    ["owner", users.owner],
+    ["cashier", users.cashier],
+    ["waiter", users.waiter],
+    ["kitchen", users.kitchen],
+  ])("allows %s to open profile settings", async (_, user) => {
+    await expectAllowedRoute("/settings/profile", user);
+  });
+
+  it("redirects an unknown role away from profile settings", async () => {
+    await expectRedirect("/settings/profile", users.unknown, "/login", ".company-profile-page");
+  });
+
+  it.each([
+    ["owner", users.owner],
+    ["cashier", users.cashier],
+    ["waiter", users.waiter],
+    ["kitchen", users.kitchen],
+  ])("allows %s to open support settings", async (_, user) => {
+    await expectAllowedRoute("/settings/support", user);
+  });
+
+  it("redirects an unknown role away from support settings", async () => {
+    await expectRedirect("/settings/support", users.unknown, "/login", ".empty-state");
+  });
+
+  it.each([
+    ["owner", users.owner],
+    ["admin", users.admin],
+    ["manager", users.manager],
+    ["cashier", users.cashier],
+  ])("allows %s to open store", async (_, user) => {
+    await expectAllowedRoute("/store", user);
+  });
+
+  it("redirects waiter away from store", async () => {
+    await expectRedirect("/store", users.waiter, "/waiter", ".data-table");
+  });
+
+  it("redirects kitchen away from store", async () => {
+    await expectRedirect("/store", users.kitchen, "/kitchen", ".data-table");
+  });
+
+  it.each([
+    ["owner", users.owner],
+    ["admin", users.admin],
+    ["manager", users.manager],
+  ])("allows %s to open reviews", async (_, user) => {
+    await expectAllowedRoute("/reviews", user);
+  });
+
+  it("redirects cashier away from reviews", async () => {
+    await expectRedirect("/reviews", users.cashier, "/orders", ".empty-state");
+  });
+
+  it("redirects waiter away from reviews", async () => {
+    await expectRedirect("/reviews", users.waiter, "/waiter", ".empty-state");
+  });
+
+  it("redirects kitchen away from reviews", async () => {
+    await expectRedirect("/reviews", users.kitchen, "/kitchen", ".empty-state");
+  });
+
+  it.each([
+    ["owner", users.owner, "/"],
+    ["superadmin", { is_superadmin: true, role_slugs: [] }, "/"],
+    ["admin", users.admin, "/"],
+    ["manager", users.manager, "/"],
+    ["cashier", users.cashier, "/orders"],
+    ["waiter", users.waiter, "/waiter"],
+    ["kitchen", users.kitchen, "/kitchen"],
+  ])("allows %s to open its role home without redirect loop", async (_, user, pathname) => {
+    await expectAllowedRoute(pathname, user, null);
+    await waitFor(() => expect(window.location.pathname).toBe(pathname));
+  });
+
+  it.each([
+    ["admin", users.admin, "/finance/transactions"],
+    ["manager", users.manager, "/finance/transactions"],
+    ["admin", users.admin, "/reviews"],
+    ["manager", users.manager, "/reviews"],
+  ])("allows %s route access like manager for %s", async (_, user, pathname) => {
+    await expectAllowedRoute(pathname, user);
   });
 });
