@@ -111,7 +111,6 @@ export default function ReceiptSettingsPage() {
     <section className="receipt-page">
 
       {error ? <div className="message message-error">{error}</div> : null}
-      {message ? <div className="message message-success">{message}</div> : null}
 
       <div className="receipt-layout">
         <div className="receipt-settings card card-pad">
