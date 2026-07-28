@@ -1,4 +1,12 @@
 import axios from "axios";
+import {
+  AUTH_STORAGE_KEYS,
+  clearAuthTokens,
+  getAccessToken,
+  handleAuthResponseError,
+  hasAccessToken,
+  saveAuthTokens,
+} from "../auth/session";
 
 export const ADMIN_API_BASE_URL = import.meta.env.VITE_ADMIN_API_URL || "http://127.0.0.1:8000/api/v1";
 const LOCAL_ADMIN_PHONE = "+998900078779";
@@ -12,8 +20,9 @@ export const adminApi = axios.create({
 });
 
 adminApi.interceptors.request.use((config) => {
-  const token = localStorage.getItem("admin_access_token") || localStorage.getItem("access_token");
+  const token = getAccessToken({ preferAdminToken: true });
   if (token) {
+    config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
@@ -21,13 +30,11 @@ adminApi.interceptors.request.use((config) => {
 
 adminApi.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem("admin_access_token");
-      localStorage.removeItem("admin_refresh_token");
-    }
-    return Promise.reject(error);
-  },
+  (error) => handleAuthResponseError(error, {
+    client: adminApi,
+    baseURL: ADMIN_API_BASE_URL,
+    preferAdminToken: true,
+  }),
 );
 
 function normalizeAdminPhone(phone) {
@@ -51,8 +58,7 @@ export async function adminLogin(phone, password) {
 
   try {
     const { data } = await adminApi.post("/auth/login", { phone: normalizedPhone, password });
-    localStorage.setItem("admin_access_token", data.access_token);
-    localStorage.setItem("admin_refresh_token", data.refresh_token);
+    saveAuthTokens(data, { scope: "admin" });
     localStorage.removeItem("admin_local_login");
     return data;
   } catch (error) {
@@ -64,14 +70,11 @@ export async function adminLogin(phone, password) {
 }
 
 export function adminLogout() {
-  localStorage.removeItem("admin_access_token");
-  localStorage.removeItem("admin_refresh_token");
+  clearAuthTokens({ scope: "admin" });
   localStorage.removeItem("admin_local_login");
 }
 
 export function isAdminAuthenticated() {
-  return Boolean(
-    localStorage.getItem("admin_access_token")
-      || localStorage.getItem("access_token"),
-  );
+  return hasAccessToken({ preferAdminToken: true })
+    || Boolean(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken));
 }
