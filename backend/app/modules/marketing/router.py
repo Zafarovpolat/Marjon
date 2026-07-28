@@ -93,23 +93,23 @@ async def create_lead(data: schemas.LeadCreate, user: User = Depends(get_current
 
 
 @leads.get("/{lead_id}", response_model=schemas.LeadResponse)
-async def get_lead(lead_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    return await LeadService(db).get(lead_id)
+async def get_lead(lead_id: UUID, user: User = Depends(get_current_user), org_scope: OrgScope = Depends(get_org_scope), db: AsyncSession = Depends(get_db)):
+    return await LeadService(db).get(lead_id, org_scope=org_scope, org_field="organization_id")
 
 
 @leads.patch("/{lead_id}", response_model=schemas.LeadResponse)
-async def update_lead(lead_id: UUID, data: schemas.LeadUpdate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    return await LeadService(db).update_lead(lead_id, data)
+async def update_lead(lead_id: UUID, data: schemas.LeadUpdate, user: User = Depends(get_current_user), org_scope: OrgScope = Depends(get_org_scope), db: AsyncSession = Depends(get_db)):
+    return await LeadService(db).update_lead(lead_id, data, org_scope=org_scope)
 
 
 @leads.delete("/{lead_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_lead(lead_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    await LeadService(db).delete(lead_id)
+async def delete_lead(lead_id: UUID, user: User = Depends(get_current_user), org_scope: OrgScope = Depends(get_org_scope), db: AsyncSession = Depends(get_db)):
+    await LeadService(db).delete(lead_id, org_scope=org_scope, org_field="organization_id")
 
 
 @leads.post("/{lead_id}/tags", response_model=schemas.LeadResponse)
-async def assign_lead_tags(lead_id: UUID, data: schemas.LeadTagsAssign, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    return await LeadService(db).assign_tags(lead_id, data.tag_ids)
+async def assign_lead_tags(lead_id: UUID, data: schemas.LeadTagsAssign, user: User = Depends(get_current_user), org_scope: OrgScope = Depends(get_org_scope), db: AsyncSession = Depends(get_db)):
+    return await LeadService(db).assign_tags(lead_id, data.tag_ids, org_scope=org_scope)
 
 
 router.include_router(leads)

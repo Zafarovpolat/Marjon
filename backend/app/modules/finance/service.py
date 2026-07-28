@@ -136,9 +136,10 @@ class TransactionService(CRUDService[FinTransaction]):
         return tx
 
     async def update_transaction(
-        self, tx_id: UUID, data: TransactionUpdate, user_id: UUID
+        self, tx_id: UUID, data: TransactionUpdate, user_id: UUID,
+        org_scope: OrgScope = None,
     ) -> FinTransaction:
-        tx = await self.get(tx_id)
+        tx = await self.get(tx_id, org_scope=org_scope, org_field="organization_id")
         payload = data.model_dump(exclude_unset=True)
 
         if "amount" in payload and Decimal(payload["amount"]) != Decimal(tx.amount):
@@ -169,8 +170,10 @@ class TransactionService(CRUDService[FinTransaction]):
         await self.db.refresh(tx)
         return tx
 
-    async def delete_transaction(self, tx_id: UUID, user_id: UUID) -> None:
-        tx = await self.get(tx_id)
+    async def delete_transaction(
+        self, tx_id: UUID, user_id: UUID, org_scope: OrgScope = None,
+    ) -> None:
+        tx = await self.get(tx_id, org_scope=org_scope, org_field="organization_id")
         await self._apply_balance(
             tx.counterparty_id, tx.organization_id,
             -self._delta(tx.direction, Decimal(tx.amount)),

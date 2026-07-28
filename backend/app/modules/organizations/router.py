@@ -26,6 +26,7 @@ router.include_router(crud_router(
     ),
     org_field="id",
     scope_dep=get_org_scope,
+    admin_dep=require_superadmin,
 ))
 
 router.include_router(crud_router(
@@ -37,6 +38,7 @@ router.include_router(crud_router(
     search_fields=("name",),
     filter_fields=("status",),
     default_sort="sort",
+    admin_dep=require_superadmin,
 ))
 
 

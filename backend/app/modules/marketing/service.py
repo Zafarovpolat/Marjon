@@ -43,8 +43,8 @@ class LeadService(CRUDService[Lead]):
         await self.db.refresh(lead)
         return lead
 
-    async def update_lead(self, lead_id: UUID, data: LeadUpdate) -> Lead:
-        lead = await self.get(lead_id)
+    async def update_lead(self, lead_id: UUID, data: LeadUpdate, org_scope: OrgScope = None) -> Lead:
+        lead = await self.get(lead_id, org_scope=org_scope, org_field="organization_id")
         payload = data.model_dump(exclude_unset=True, exclude={"tag_ids"})
         for key, value in payload.items():
             setattr(lead, key, value)
@@ -54,8 +54,8 @@ class LeadService(CRUDService[Lead]):
         await self.db.refresh(lead)
         return lead
 
-    async def assign_tags(self, lead_id: UUID, tag_ids: list[UUID]) -> Lead:
-        lead = await self.get(lead_id)
+    async def assign_tags(self, lead_id: UUID, tag_ids: list[UUID], org_scope: OrgScope = None) -> Lead:
+        lead = await self.get(lead_id, org_scope=org_scope, org_field="organization_id")
         lead.tags = await self._load_tags(tag_ids)
         await self.db.commit()
         await self.db.refresh(lead)

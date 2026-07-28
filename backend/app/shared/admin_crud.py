@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.types import Uuid
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import get_current_user, require_company_admin
 from app.modules.auth.models import User
 from app.shared.base_model import TimeStampedModel
 from app.shared.exceptions import NotFoundError, ValidationError
@@ -142,10 +142,19 @@ class CRUDService(Generic[M]):
         items = list((await self.db.execute(query)).scalars().all())
         return items, total
 
-    async def get(self, id: UUID) -> M:
-        obj = (
-            await self.db.execute(self._alive(select(self.model)).where(self.model.id == id))
-        ).scalar_one_or_none()
+    async def get(
+        self,
+        id: UUID,
+        *,
+        org_scope: OrgScope = None,
+        org_field: str | None = None,
+    ) -> M:
+        query = self._alive(select(self.model)).where(self.model.id == id)
+        # Скоуп организации применяем и к single-object операциям,
+        # иначе IDOR: чужой объект достаётся/меняется по прямому UUID.
+        if org_scope is not None and org_field and hasattr(self.model, org_field):
+            query = query.where(getattr(self.model, org_field).in_(org_scope))
+        obj = (await self.db.execute(query)).scalar_one_or_none()
         if obj is None:
             raise NotFoundError(f"{self.model.__name__} not found")
         return obj
@@ -159,8 +168,15 @@ class CRUDService(Generic[M]):
         await self.db.refresh(obj)
         return obj
 
-    async def update(self, id: UUID, data: BaseModel | dict) -> M:
-        obj = await self.get(id)
+    async def update(
+        self,
+        id: UUID,
+        data: BaseModel | dict,
+        *,
+        org_scope: OrgScope = None,
+        org_field: str | None = None,
+    ) -> M:
+        obj = await self.get(id, org_scope=org_scope, org_field=org_field)
         payload = data if isinstance(data, dict) else data.model_dump(exclude_unset=True)
         payload = _json_safe(self.model, payload)
         for key, value in payload.items():
@@ -169,8 +185,14 @@ class CRUDService(Generic[M]):
         await self.db.refresh(obj)
         return obj
 
-    async def delete(self, id: UUID) -> None:
-        obj = await self.get(id)
+    async def delete(
+        self,
+        id: UUID,
+        *,
+        org_scope: OrgScope = None,
+        org_field: str | None = None,
+    ) -> None:
+        obj = await self.get(id, org_scope=org_scope, org_field=org_field)
         if hasattr(obj, "deleted_at"):
             obj.deleted_at = datetime.now(timezone.utc)
         else:
@@ -192,6 +214,7 @@ def crud_router(
     date_field: str = "created_at",
     org_field: str | None = None,
     scope_dep: Callable[..., Any] = unrestricted_scope,
+    admin_dep: Callable[..., Any] = require_company_admin,
     router: APIRouter | None = None,
 ) -> APIRouter:
     """Build a standard CRUD router for one resource.
@@ -242,7 +265,7 @@ def crud_router(
             summary=f"Create {model.__name__}")
     async def create_item(
         data: create_schema,  # type: ignore[valid-type]
-        user: User = Depends(get_current_user),
+        user: User = Depends(admin_dep),
         db: AsyncSession = Depends(get_db),
     ):
         return await CRUDService(model, db).create(data)
@@ -251,35 +274,39 @@ def crud_router(
     async def get_item(
         item_id: UUID,
         user: User = Depends(get_current_user),
+        org_scope: OrgScope = Depends(scope_dep),
         db: AsyncSession = Depends(get_db),
     ):
-        return await CRUDService(model, db).get(item_id)
+        return await CRUDService(model, db).get(item_id, org_scope=org_scope, org_field=org_field)
 
     @r.patch("/{item_id}", response_model=response_schema, summary=f"Update {model.__name__}")
     async def update_item(
         item_id: UUID,
         data: update_schema,  # type: ignore[valid-type]
-        user: User = Depends(get_current_user),
+        user: User = Depends(admin_dep),
+        org_scope: OrgScope = Depends(scope_dep),
         db: AsyncSession = Depends(get_db),
     ):
-        return await CRUDService(model, db).update(item_id, data)
+        return await CRUDService(model, db).update(item_id, data, org_scope=org_scope, org_field=org_field)
 
     @r.put("/{item_id}", response_model=response_schema, include_in_schema=False)
     async def replace_item(
         item_id: UUID,
         data: update_schema,  # type: ignore[valid-type]
-        user: User = Depends(get_current_user),
+        user: User = Depends(admin_dep),
+        org_scope: OrgScope = Depends(scope_dep),
         db: AsyncSession = Depends(get_db),
     ):
-        return await CRUDService(model, db).update(item_id, data)
+        return await CRUDService(model, db).update(item_id, data, org_scope=org_scope, org_field=org_field)
 
     @r.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT,
               summary=f"Delete {model.__name__}")
     async def delete_item(
         item_id: UUID,
-        user: User = Depends(get_current_user),
+        user: User = Depends(admin_dep),
+        org_scope: OrgScope = Depends(scope_dep),
         db: AsyncSession = Depends(get_db),
     ):
-        await CRUDService(model, db).delete(item_id)
+        await CRUDService(model, db).delete(item_id, org_scope=org_scope, org_field=org_field)
 
     return r

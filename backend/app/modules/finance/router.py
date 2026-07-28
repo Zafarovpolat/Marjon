@@ -178,18 +178,18 @@ async def pay(
 
 
 @transactions.get("/{tx_id}", response_model=schemas.TransactionResponse)
-async def get_transaction(tx_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    return await TransactionService(db).get(tx_id)
+async def get_transaction(tx_id: UUID, user: User = Depends(get_current_user), org_scope: OrgScope = Depends(get_org_scope), db: AsyncSession = Depends(get_db)):
+    return await TransactionService(db).get(tx_id, org_scope=org_scope, org_field="organization_id")
 
 
 @transactions.patch("/{tx_id}", response_model=schemas.TransactionResponse)
-async def update_transaction(tx_id: UUID, data: schemas.TransactionUpdate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    return await TransactionService(db).update_transaction(tx_id, data, user.id)
+async def update_transaction(tx_id: UUID, data: schemas.TransactionUpdate, user: User = Depends(get_current_user), org_scope: OrgScope = Depends(get_org_scope), db: AsyncSession = Depends(get_db)):
+    return await TransactionService(db).update_transaction(tx_id, data, user.id, org_scope=org_scope)
 
 
 @transactions.delete("/{tx_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_transaction(tx_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    await TransactionService(db).delete_transaction(tx_id, user.id)
+async def delete_transaction(tx_id: UUID, user: User = Depends(get_current_user), org_scope: OrgScope = Depends(get_org_scope), db: AsyncSession = Depends(get_db)):
+    await TransactionService(db).delete_transaction(tx_id, user.id, org_scope=org_scope)
 
 
 router.include_router(transactions)
