@@ -32,7 +32,7 @@ class BaseRepository(Generic[ModelType]):
 
 
 class TenantRepository(BaseRepository[ModelType]):
-    """Repository Ñ Ð°Ð²Ñ‚Ð¾Ð¼Ð°Ñ‚Ð¸Ñ‡ÐµÑÐºÐ¾Ð¹ Ñ„Ð¸Ð»ÑŒÑ‚Ñ€Ð°Ñ†Ð¸ÐµÐ¹ Ð¿Ð¾ company_id."""
+    """Репозиторий с автоматической фильтрацией по company_id."""
 
     def _base_query(self, company_id: UUID):
         return select(self.model).where(self.model.company_id == company_id)

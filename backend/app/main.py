@@ -110,10 +110,14 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
+# CORS: не допускаем опасную связку "*" + credentials (иначе можно отразить
+# произвольный origin с куками). Если сконфигурирован конкретный список origin —
+# разрешаем credentials для них; если "*"/пусто — отдаём "*" без credentials.
+_cors_origins = [o for o in settings.allowed_origins if o and o != "*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins,
-    allow_credentials=True,
+    allow_origins=_cors_origins or ["*"],
+    allow_credentials=bool(_cors_origins),
     allow_methods=["*"],
     allow_headers=["*"],
 )

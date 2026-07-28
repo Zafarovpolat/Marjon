@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 
 from sqlalchemy import select
 
@@ -12,8 +13,11 @@ from app.modules.companies.models import Branch, Company
 from app.modules.rbac.models import Role, UserRole
 
 
-PHONE = "+998900078779"
-PASSWORD = "102938"
+# Креды сидируемого владельца берём из ENV; значения по умолчанию оставлены для
+# обратной совместимости с уже засиженными базами. На проде задавайте
+# SEED_OWNER_PHONE / SEED_OWNER_PASSWORD и меняйте пароль.
+PHONE = os.getenv("SEED_OWNER_PHONE", "+998900078779")
+PASSWORD = os.getenv("SEED_OWNER_PASSWORD", "102938")
 
 
 async def first(db, model, *criteria):
@@ -119,7 +123,7 @@ async def main():
                 db.add(UserRole(user_id=owner.id, role_id=role.id, branch_id=branch.id))
 
         await db.commit()
-        print("OK owner credentials ready: 90 007 87 79 / 102938")
+        print(f"OK owner ready: {PHONE} (пароль задан через ENV/дефолт — в лог не выводим)")
 
 
 if __name__ == "__main__":
