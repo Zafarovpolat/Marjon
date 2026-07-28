@@ -13,6 +13,46 @@ from app.modules.fiscal.schemas import FiscalReceiptCreate
 from app.modules.audit.service import AuditService
 from app.shared.exceptions import NotFoundError, ValidationError
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+async def record_fiscal_and_audit(
+    db: AsyncSession,
+    payment: Payment,
+    *,
+    actor_id: UUID | None = None,
+    source: str = "pos",
+) -> None:
+    """Фискальный чек + запись аудита для успешно проведённой оплаты.
+
+    Единый путь и для кассы, и для вебхуков провайдеров (Click/Payme/Uzum/gateway),
+    чтобы онлайн-оплата не обходила фискализацию (ОФД soliq.uz) и журнал аудита.
+    Best-effort: не роняет уже проведённую оплату, ошибки логируются.
+    """
+    try:
+        await FiscalService(db).create(
+            payment.company_id,
+            FiscalReceiptCreate(order_id=payment.order_id, payment_id=payment.id),
+        )
+    except Exception:
+        logger.exception("Фискализация не удалась для payment %s", payment.id)
+    try:
+        await AuditService(db).log(
+            payment.company_id,
+            actor_id if actor_id is not None else payment.cashier_id,
+            f"payment.complete.{source}", "payment",
+            entity_id=payment.id,
+            new_data={
+                "order_id": str(payment.order_id),
+                "amount": str(payment.amount),
+                "method": payment.method,
+            },
+        )
+    except Exception:
+        logger.exception("Аудит не удался для payment %s", payment.id)
+
 
 class PaymentService:
     def __init__(self, db: AsyncSession):
@@ -56,12 +96,15 @@ class PaymentService:
             cash_received=data.cash_received,
             change_given=change_given,
         )
-        saved = await self.repo.save(payment)
-
-        # Mark order as completed
+        # Платёж и заказ фиксируем ОДНОЙ транзакцией: раньше платёж коммитился
+        # отдельно от заказа, и сбой между двумя commit'ами оставлял платёж
+        # "completed" без завершённого заказа.
+        self.db.add(payment)
         order.status = "completed"
         self.db.add(order)
         await self.db.commit()
+        await self.db.refresh(payment)
+        saved = payment
 
         try:
             await kitchen_manager.broadcast(
@@ -71,21 +114,8 @@ class PaymentService:
         except Exception:
             pass
 
-        try:
-            await FiscalService(self.db).create(
-                company_id, FiscalReceiptCreate(order_id=data.order_id, payment_id=saved.id)
-            )
-        except Exception:
-            pass
-
-        try:
-            await AuditService(self.db).log(
-                company_id, cashier_id, "payment.create", "payment",
-                entity_id=saved.id,
-                new_data={"order_id": str(data.order_id), "amount": str(data.amount), "method": data.method},
-            )
-        except Exception:
-            pass
+        # Фискальный чек + аудит единым путём (тот же, что зовут вебхуки провайдеров)
+        await record_fiscal_and_audit(self.db, saved, actor_id=cashier_id, source="pos")
 
         return saved
 

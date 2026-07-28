@@ -11,6 +11,7 @@ from app.config import settings
 from app.infrastructure.database.session import get_db
 from app.modules.payments.models import Payment
 from app.modules.payments.repository import PaymentRepository
+from app.modules.payments.service import record_fiscal_and_audit
 from app.modules.pos.models import Order
 from app.modules.kitchen.websocket import kitchen_manager
 
@@ -69,12 +70,12 @@ async def payment_webhook(data: PaymentWebhookIn, db: AsyncSession = Depends(get
             status="completed",
             fiscal_code=data.gateway_tx_id,
         )
-        repo = PaymentRepository(db)
-        await repo.save(payment)
-
+        # Платёж и заказ — одной транзакцией
+        db.add(payment)
         order.status = "completed"
         db.add(order)
         await db.commit()
+        await db.refresh(payment)
 
         try:
             await kitchen_manager.broadcast(
@@ -83,6 +84,9 @@ async def payment_webhook(data: PaymentWebhookIn, db: AsyncSession = Depends(get
             )
         except Exception:
             pass
+
+        # Не обходим фискализацию/аудит
+        await record_fiscal_and_audit(db, payment, source="gateway")
 
     elif data.action == "cancel":
         if order.status == "completed":

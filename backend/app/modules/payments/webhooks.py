@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.infrastructure.database.session import get_db
 from app.modules.payments.models import Payment
+from app.modules.payments.service import record_fiscal_and_audit
 from app.modules.pos.models import Order
 
 logger = logging.getLogger(__name__)
@@ -101,6 +102,9 @@ async def click_webhook(request: Request, db: AsyncSession = Depends(get_db)):
 
         await db.commit()
         logger.info("Click: payment %s completed, click_trans_id=%s", payment.id, click_trans_id)
+
+        # Не обходим фискализацию/аудит (раньше вебхуки их не вызывали вовсе)
+        await record_fiscal_and_audit(db, payment, source="click")
 
         return {
             "click_trans_id": int(click_trans_id),
@@ -251,6 +255,9 @@ async def payme_webhook(
         await db.commit()
         logger.info("Payme: payment %s completed, payme_id=%s", payment.id, payme_id)
 
+        # Не обходим фискализацию/аудит (раньше вебхуки их не вызывали вовсе)
+        await record_fiscal_and_audit(db, payment, source="payme")
+
         return _payme_result(rpc_id, {
             "transaction": str(payment.id),
             "perform_time": perform_time,
@@ -372,6 +379,9 @@ async def uzum_webhook(
 
         await db.commit()
         logger.info("Uzum: payment %s completed, trans_id=%s", payment.id, uzum_trans_id)
+
+        # Не обходим фискализацию/аудит (раньше вебхуки их не вызывали вовсе)
+        await record_fiscal_and_audit(db, payment, source="uzum")
 
     elif event == "payment.cancelled" or status_val == "cancelled":
         payment.status = "failed"
