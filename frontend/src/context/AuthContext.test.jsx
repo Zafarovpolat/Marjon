@@ -2,7 +2,12 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import axios from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
-import { AUTH_STORAGE_KEYS, resetAuthSessionStateForTest } from "../auth/session";
+import {
+  AUTH_SCOPES,
+  AUTH_SESSION_ENDED_EVENT,
+  AUTH_STORAGE_KEYS,
+  resetAuthSessionStateForTest,
+} from "../auth/session";
 import { getRoleHomePath } from "../utils/permissions";
 import { AuthProvider, useAuth } from "./AuthContext";
 
@@ -158,6 +163,37 @@ describe("AuthContext", () => {
     expect(screen.getByTestId("authenticated")).toHaveTextContent("false");
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBeNull();
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBeNull();
+  });
+
+  it("does not clear the main user state for an admin session-ended event", async () => {
+    localStorage.setItem(AUTH_STORAGE_KEYS.accessToken, "access-a");
+    api.defaults.adapter = vi.fn((config) => resolveResponse(config, ownerUser));
+
+    renderAuth();
+    await waitFor(() => expect(screen.getByTestId("user")).toHaveTextContent("present"));
+
+    window.dispatchEvent(new CustomEvent(AUTH_SESSION_ENDED_EVENT, {
+      detail: { reason: "refresh_failed", scope: AUTH_SCOPES.ADMIN },
+    }));
+
+    expect(screen.getByTestId("user")).toHaveTextContent("present");
+    expect(screen.getByTestId("authenticated")).toHaveTextContent("true");
+  });
+
+  it("clears the main user state for a default session-ended event", async () => {
+    localStorage.setItem(AUTH_STORAGE_KEYS.accessToken, "access-a");
+    api.defaults.adapter = vi.fn((config) => resolveResponse(config, ownerUser));
+
+    renderAuth();
+    await waitFor(() => expect(screen.getByTestId("user")).toHaveTextContent("present"));
+
+    window.dispatchEvent(new CustomEvent(AUTH_SESSION_ENDED_EVENT, {
+      detail: { reason: "refresh_failed", scope: AUTH_SCOPES.DEFAULT },
+    }));
+
+    await waitFor(() => expect(screen.getByTestId("user")).toHaveTextContent("missing"));
+    expect(screen.getByTestId("authenticated")).toHaveTextContent("false");
+    expect(screen.getByTestId("session-expired")).toHaveTextContent("true");
   });
 
   it("does not turn an unknown role into owner and keeps a safe role home", async () => {

@@ -1,10 +1,12 @@
 import axios from "axios";
 import {
   AUTH_STORAGE_KEYS,
+  AUTH_SCOPES,
   clearAuthTokens,
   getAccessToken,
   handleAuthResponseError,
-  hasAccessToken,
+  prepareAuthRequest,
+  resolveAdminAuthSession,
   saveAuthTokens,
 } from "../auth/session";
 
@@ -20,12 +22,10 @@ export const adminApi = axios.create({
 });
 
 adminApi.interceptors.request.use((config) => {
-  const token = getAccessToken({ preferAdminToken: true });
-  if (token) {
-    config.headers = config.headers || {};
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+  const session = config._authScope
+    ? { scope: config._authScope, accessToken: getAccessToken({ scope: config._authScope }) }
+    : resolveAdminAuthSession();
+  return prepareAuthRequest(config, { scope: session.scope, accessToken: session.accessToken });
 });
 
 adminApi.interceptors.response.use(
@@ -33,7 +33,7 @@ adminApi.interceptors.response.use(
   (error) => handleAuthResponseError(error, {
     client: adminApi,
     baseURL: ADMIN_API_BASE_URL,
-    preferAdminToken: true,
+    resolveScope: resolveAdminAuthSession,
   }),
 );
 
@@ -58,7 +58,7 @@ export async function adminLogin(phone, password) {
 
   try {
     const { data } = await adminApi.post("/auth/login", { phone: normalizedPhone, password });
-    saveAuthTokens(data, { scope: "admin" });
+    saveAuthTokens(data, { scope: AUTH_SCOPES.ADMIN });
     localStorage.removeItem("admin_local_login");
     return data;
   } catch (error) {
@@ -70,11 +70,11 @@ export async function adminLogin(phone, password) {
 }
 
 export function adminLogout() {
-  clearAuthTokens({ scope: "admin" });
+  clearAuthTokens({ scope: AUTH_SCOPES.ADMIN });
   localStorage.removeItem("admin_local_login");
 }
 
 export function isAdminAuthenticated() {
-  return hasAccessToken({ preferAdminToken: true })
+  return Boolean(resolveAdminAuthSession().accessToken)
     || Boolean(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken));
 }

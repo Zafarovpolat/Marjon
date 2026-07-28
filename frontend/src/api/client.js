@@ -1,9 +1,11 @@
 import axios from "axios";
 import {
+  AUTH_SCOPES,
   endAuthSession,
   getAccessToken as readAccessToken,
   handleAuthResponseError,
   hasAccessToken,
+  prepareAuthRequest,
   saveAuthTokens,
 } from "../auth/session";
 
@@ -17,17 +19,13 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = readAccessToken();
-  if (token) {
-    config.headers = config.headers || {};
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+  const token = readAccessToken({ scope: AUTH_SCOPES.DEFAULT });
+  return prepareAuthRequest(config, { scope: AUTH_SCOPES.DEFAULT, accessToken: token });
 });
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => handleAuthResponseError(error, { client: api, baseURL: API_BASE_URL }),
+  (error) => handleAuthResponseError(error, { client: api, baseURL: API_BASE_URL, scope: AUTH_SCOPES.DEFAULT }),
 );
 
 export async function login(email, password) {
@@ -54,19 +52,19 @@ export async function fetchStaffUsers() {
 }
 
 function saveTokens(data) {
-  saveAuthTokens(data);
+  saveAuthTokens(data, { scope: AUTH_SCOPES.DEFAULT });
 }
 
 export function logout() {
-  endAuthSession("logout");
+  endAuthSession("logout", { scope: AUTH_SCOPES.ALL });
 }
 
 export function isAuthenticated() {
-  return hasAccessToken();
+  return hasAccessToken({ scope: AUTH_SCOPES.DEFAULT });
 }
 
 export function getAccessToken() {
-  return readAccessToken();
+  return readAccessToken({ scope: AUTH_SCOPES.DEFAULT });
 }
 
 export function formatMoney(value, currency = "UZS") {

@@ -3,7 +3,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api, isAuthenticated, login as apiLogin, loginByPhone as apiLoginByPhone, loginByPin as apiLoginByPin, logout as apiLogout } from "../api/client";
-import { subscribeToAuthSessionEnded } from "../auth/session";
+import { AUTH_SCOPES, subscribeToAuthSessionEnded } from "../auth/session";
 import { getRole, ROLE_HOME } from "../utils/permissions";
 
 const AuthContext = createContext(null);
@@ -39,7 +39,8 @@ export function AuthProvider({ children }) {
     loadProfile();
   }, [loadProfile]);
 
-  useEffect(() => subscribeToAuthSessionEnded(({ reason }) => {
+  useEffect(() => subscribeToAuthSessionEnded(({ reason, scope }) => {
+    if (scope === AUTH_SCOPES.ADMIN) return;
     setUser(null);
     setLoading(false);
     setSessionExpired(reason !== "logout");

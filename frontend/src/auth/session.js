@@ -1,5 +1,11 @@
 import axios from "axios";
 
+export const AUTH_SCOPES = {
+  DEFAULT: "default",
+  ADMIN: "admin",
+  ALL: "all",
+};
+
 export const AUTH_STORAGE_KEYS = {
   accessToken: "access_token",
   refreshToken: "refresh_token",
@@ -11,12 +17,24 @@ export const AUTH_SESSION_ENDED_EVENT = "marjon:auth-session-ended";
 
 const AUTH_REFRESH_PATH = "/auth/refresh";
 const AUTH_REFRESH_EXCLUDED_PATHS = ["/auth/login", "/auth/pin-login", AUTH_REFRESH_PATH];
+const AUTH_SCOPE_VALUES = new Set([AUTH_SCOPES.DEFAULT, AUTH_SCOPES.ADMIN]);
 
-let refreshPromise = null;
-let sessionEndEmitted = false;
+const refreshPromises = {
+  [AUTH_SCOPES.DEFAULT]: null,
+  [AUTH_SCOPES.ADMIN]: null,
+};
+const sessionEndEmittedScopes = new Set();
 
 function storage() {
   return typeof window !== "undefined" ? window.localStorage : null;
+}
+
+function normalizeScope(scope) {
+  return AUTH_SCOPE_VALUES.has(scope) ? scope : AUTH_SCOPES.DEFAULT;
+}
+
+function normalizeCleanupScope(scope) {
+  return scope === AUTH_SCOPES.ALL ? AUTH_SCOPES.ALL : normalizeScope(scope);
 }
 
 function readStorageKey(key) {
@@ -45,7 +63,7 @@ function removeStorageKey(key) {
 }
 
 function tokenKeysForScope(scope) {
-  if (scope === "admin") {
+  if (normalizeScope(scope) === AUTH_SCOPES.ADMIN) {
     return {
       accessToken: AUTH_STORAGE_KEYS.adminAccessToken,
       refreshToken: AUTH_STORAGE_KEYS.adminRefreshToken,
@@ -77,24 +95,32 @@ function getRequestBaseURL(config, fallbackBaseURL) {
   return config?.baseURL || fallbackBaseURL || "";
 }
 
-function getRefreshTokenRecord(preferAdminToken = false) {
-  const primaryRefresh = readStorageKey(AUTH_STORAGE_KEYS.refreshToken);
-  const adminRefresh = readStorageKey(AUTH_STORAGE_KEYS.adminRefreshToken);
-
-  if (preferAdminToken && adminRefresh) {
-    return { token: adminRefresh, scope: "admin" };
-  }
-  if (primaryRefresh) {
-    return { token: primaryRefresh, scope: "primary" };
-  }
-  if (preferAdminToken && adminRefresh) {
-    return { token: adminRefresh, scope: "admin" };
-  }
-  return { token: "", scope: "primary" };
+function getTokenRecord(scope) {
+  const normalizedScope = normalizeScope(scope);
+  const keys = tokenKeysForScope(normalizedScope);
+  return {
+    scope: normalizedScope,
+    accessToken: readStorageKey(keys.accessToken),
+    refreshToken: readStorageKey(keys.refreshToken),
+  };
 }
 
 function isValidTokenResponse(data) {
   return Boolean(data?.access_token && data?.refresh_token);
+}
+
+function isFormDataBody(data) {
+  return typeof FormData !== "undefined" && data instanceof FormData;
+}
+
+function removeContentTypeHeader(headers) {
+  if (!headers) return;
+  if (typeof headers.delete === "function") {
+    headers.delete("Content-Type");
+    return;
+  }
+  delete headers["Content-Type"];
+  delete headers["content-type"];
 }
 
 function setAuthorizationHeader(config, token) {
@@ -102,47 +128,78 @@ function setAuthorizationHeader(config, token) {
   config.headers.Authorization = `Bearer ${token}`;
 }
 
-export function getAccessToken({ preferAdminToken = false } = {}) {
-  const primaryAccess = readStorageKey(AUTH_STORAGE_KEYS.accessToken);
-  const adminAccess = readStorageKey(AUTH_STORAGE_KEYS.adminAccessToken);
-
-  if (preferAdminToken) return adminAccess || primaryAccess;
-  return primaryAccess;
+function resetSessionEventForScope(scope) {
+  const normalizedScope = normalizeScope(scope);
+  sessionEndEmittedScopes.delete(normalizedScope);
+  sessionEndEmittedScopes.delete(AUTH_SCOPES.ALL);
 }
 
-export function getRefreshToken({ preferAdminToken = false } = {}) {
-  return getRefreshTokenRecord(preferAdminToken).token;
+export function getAuthScope(value) {
+  return normalizeScope(value);
 }
 
-export function hasAccessToken({ preferAdminToken = false } = {}) {
-  return Boolean(getAccessToken({ preferAdminToken }));
+export function resolveAdminAuthSession() {
+  const adminRecord = getTokenRecord(AUTH_SCOPES.ADMIN);
+  if (adminRecord.accessToken) return adminRecord;
+
+  const defaultRecord = getTokenRecord(AUTH_SCOPES.DEFAULT);
+  if (defaultRecord.accessToken) return defaultRecord;
+
+  if (adminRecord.refreshToken) return adminRecord;
+  return defaultRecord;
 }
 
-export function saveAuthTokens(data, { scope = "primary" } = {}) {
+export function prepareAuthRequest(config, { scope = AUTH_SCOPES.DEFAULT, accessToken = "" } = {}) {
+  config._authScope = normalizeScope(scope);
+  config.headers = config.headers || {};
+  if (isFormDataBody(config.data)) {
+    removeContentTypeHeader(config.headers);
+  }
+  if (accessToken) {
+    setAuthorizationHeader(config, accessToken);
+  }
+  return config;
+}
+
+export function getAccessToken({ scope = AUTH_SCOPES.DEFAULT } = {}) {
+  return getTokenRecord(scope).accessToken;
+}
+
+export function getRefreshToken({ scope = AUTH_SCOPES.DEFAULT } = {}) {
+  return getTokenRecord(scope).refreshToken;
+}
+
+export function hasAccessToken({ scope = AUTH_SCOPES.DEFAULT } = {}) {
+  return Boolean(getAccessToken({ scope }));
+}
+
+export function saveAuthTokens(data, { scope = AUTH_SCOPES.DEFAULT } = {}) {
   if (!data?.access_token) return false;
 
-  const keys = tokenKeysForScope(scope);
+  const normalizedScope = normalizeScope(scope);
+  const keys = tokenKeysForScope(normalizedScope);
   writeStorageKey(keys.accessToken, data.access_token);
   if (data.refresh_token) {
     writeStorageKey(keys.refreshToken, data.refresh_token);
   }
-  sessionEndEmitted = false;
+  resetSessionEventForScope(normalizedScope);
   return true;
 }
 
-export function clearAuthTokens({ scope = "all" } = {}) {
-  if (scope === "primary" || scope === "all") {
+export function clearAuthTokens({ scope = AUTH_SCOPES.ALL } = {}) {
+  const cleanupScope = normalizeCleanupScope(scope);
+  if (cleanupScope === AUTH_SCOPES.DEFAULT || cleanupScope === AUTH_SCOPES.ALL) {
     removeStorageKey(AUTH_STORAGE_KEYS.accessToken);
     removeStorageKey(AUTH_STORAGE_KEYS.refreshToken);
   }
-  if (scope === "admin" || scope === "all") {
+  if (cleanupScope === AUTH_SCOPES.ADMIN || cleanupScope === AUTH_SCOPES.ALL) {
     removeStorageKey(AUTH_STORAGE_KEYS.adminAccessToken);
     removeStorageKey(AUTH_STORAGE_KEYS.adminRefreshToken);
   }
 }
 
 export function subscribeToAuthSessionEnded(listener) {
-  if (typeof listener !== "function") return () => {};
+  if (typeof listener !== "function" || typeof window === "undefined") return () => {};
   function onWindowEvent(event) {
     listener(event.detail || {});
   }
@@ -150,12 +207,15 @@ export function subscribeToAuthSessionEnded(listener) {
   return () => window.removeEventListener(AUTH_SESSION_ENDED_EVENT, onWindowEvent);
 }
 
-export function endAuthSession(reason = "session_expired") {
-  clearAuthTokens();
-  if (sessionEndEmitted) return;
-  sessionEndEmitted = true;
+export function endAuthSession(reason = "session_expired", { scope = AUTH_SCOPES.ALL } = {}) {
+  const cleanupScope = normalizeCleanupScope(scope);
+  clearAuthTokens({ scope: cleanupScope });
+  if (sessionEndEmittedScopes.has(cleanupScope)) return;
+  sessionEndEmittedScopes.add(cleanupScope);
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(AUTH_SESSION_ENDED_EVENT, { detail: { reason } }));
+    window.dispatchEvent(new CustomEvent(AUTH_SESSION_ENDED_EVENT, {
+      detail: { reason, scope: cleanupScope },
+    }));
   }
 }
 
@@ -164,17 +224,18 @@ export function shouldSkipAuthRefresh(url) {
   return AUTH_REFRESH_EXCLUDED_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
-export async function refreshAuthSession({ baseURL, preferAdminToken = false } = {}) {
-  if (refreshPromise) return refreshPromise;
+export async function refreshAuthSession({ baseURL, scope = AUTH_SCOPES.DEFAULT } = {}) {
+  const normalizedScope = normalizeScope(scope);
+  if (refreshPromises[normalizedScope]) return refreshPromises[normalizedScope];
 
-  const refreshRecord = getRefreshTokenRecord(preferAdminToken);
-  if (!refreshRecord.token) {
-    endAuthSession("missing_refresh_token");
+  const refreshToken = getRefreshToken({ scope: normalizedScope });
+  if (!refreshToken) {
+    endAuthSession("missing_refresh_token", { scope: normalizedScope });
     return Promise.reject(new Error("missing_refresh_token"));
   }
 
-  refreshPromise = axios.post(joinUrl(baseURL, AUTH_REFRESH_PATH), {
-    refresh_token: refreshRecord.token,
+  refreshPromises[normalizedScope] = axios.post(joinUrl(baseURL, AUTH_REFRESH_PATH), {
+    refresh_token: refreshToken,
   }, {
     headers: { "Content-Type": "application/json" },
   })
@@ -182,21 +243,21 @@ export async function refreshAuthSession({ baseURL, preferAdminToken = false } =
       if (!isValidTokenResponse(data)) {
         throw new Error("invalid_refresh_response");
       }
-      saveAuthTokens(data, { scope: refreshRecord.scope });
+      saveAuthTokens(data, { scope: normalizedScope });
       return data.access_token;
     })
     .catch((error) => {
-      endAuthSession("refresh_failed");
+      endAuthSession("refresh_failed", { scope: normalizedScope });
       throw error;
     })
     .finally(() => {
-      refreshPromise = null;
+      refreshPromises[normalizedScope] = null;
     });
 
-  return refreshPromise;
+  return refreshPromises[normalizedScope];
 }
 
-export async function handleAuthResponseError(error, { client, baseURL, preferAdminToken = false } = {}) {
+export async function handleAuthResponseError(error, { client, baseURL, scope = AUTH_SCOPES.DEFAULT, resolveScope } = {}) {
   const originalRequest = error?.config;
   const status = error?.response?.status;
   const requestUrl = getRequestUrl(originalRequest);
@@ -205,17 +266,22 @@ export async function handleAuthResponseError(error, { client, baseURL, preferAd
     return Promise.reject(error);
   }
 
+  const requestScope = normalizeScope(
+    originalRequest._authScope || (typeof resolveScope === "function" ? resolveScope().scope : scope),
+  );
+
   if (originalRequest._authRetry) {
-    endAuthSession("retry_unauthorized");
+    endAuthSession("retry_unauthorized", { scope: requestScope });
     return Promise.reject(error);
   }
 
   originalRequest._authRetry = true;
+  originalRequest._authScope = requestScope;
 
   try {
     const newAccessToken = await refreshAuthSession({
       baseURL: getRequestBaseURL(originalRequest, baseURL),
-      preferAdminToken,
+      scope: requestScope,
     });
     setAuthorizationHeader(originalRequest, newAccessToken);
     return client(originalRequest);
@@ -224,11 +290,12 @@ export async function handleAuthResponseError(error, { client, baseURL, preferAd
   }
 }
 
-export function getAuthRefreshPromiseForTest() {
-  return refreshPromise;
+export function getAuthRefreshPromiseForTest(scope = AUTH_SCOPES.DEFAULT) {
+  return refreshPromises[normalizeScope(scope)];
 }
 
 export function resetAuthSessionStateForTest() {
-  refreshPromise = null;
-  sessionEndEmitted = false;
+  refreshPromises[AUTH_SCOPES.DEFAULT] = null;
+  refreshPromises[AUTH_SCOPES.ADMIN] = null;
+  sessionEndEmittedScopes.clear();
 }
