@@ -3522,3 +3522,20 @@ body.vkb-open .login-card {
 .btn--outline:hover { border-color: var(--color-brand); color: var(--color-brand); background: var(--color-brand-bg); }
 .board__head-right .btn--sm { min-height: 46px; padding: 0 16px; font-size: var(--text-sm); font-weight: 600; }
 .board__head-right .btn--sm > svg { color: var(--color-brand); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   ЭКРАННАЯ КЛАВИАТУРА И МОДАЛКИ — поле ввода не должно перекрываться
+   ═══════════════════════════════════════════════════════════════════
+   .vkb — position: fixed; bottom: 0, поэтому модалка (max-height: 85vh)
+   уходила под клавиатуру и активный инпут (например «Адрес сервера»)
+   оказывался невидимым. Пока клавиатура открыта, ограничиваем рабочую
+   область оверлея её реальной высотой (--vkb-height задаёт VirtualKeyboard),
+   и модалка сжимается в остаток экрана — внутренний скролл .modal__body
+   вместе с scrollIntoView доводит поле до центра видимой части.
+   При закрытой клавиатуре --vkb-height = 0px и вид не меняется. */
+body.vkb-open .modal-overlay {
+  bottom: var(--vkb-height, 0px);
+}
+body.vkb-open .modal {
+  max-height: 100%;
+}

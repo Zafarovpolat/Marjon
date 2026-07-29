@@ -40,6 +40,7 @@ export default function VirtualKeyboard({ onVisibilityChange }) {
   const [shifted, setShifted] = useState(false)
   const [activeInput, setActiveInput] = useState(null)
   const lastAlpha = useRef('ru')
+  const kbRef = useRef(null)
 
   useEffect(() => {
     function onFocusIn(e) {
@@ -70,6 +71,30 @@ export default function VirtualKeyboard({ onVisibilityChange }) {
     // Глобальный сигнал для CSS (сдвиг карточек входа), т.к. клавиатура смонтирована один раз в корне
     try { document.body.classList.toggle('vkb-open', !!activeInput) } catch { /* no body */ }
   }, [activeInput, onVisibilityChange])
+
+  // Реальная высота клавиатуры → CSS-переменная --vkb-height.
+  // По ней модальные окна сжимают рабочую область, чтобы активное поле
+  // никогда не оказывалось под клавиатурой (см. правило body.vkb-open в CSS).
+  // Пересчитываем и при смене раскладки: у num/sym другое число рядов.
+  useEffect(() => {
+    const root = document.documentElement
+    if (!activeInput) {
+      root.style.setProperty('--vkb-height', '0px')
+      return undefined
+    }
+    const apply = () => {
+      const h = kbRef.current?.offsetHeight || 0
+      root.style.setProperty('--vkb-height', `${h}px`)
+    }
+    apply()
+    // Клавиатура уже смонтирована и область сжалась — доводим поле до центра видимой части
+    const timer = setTimeout(() => {
+      apply()
+      try { activeInput.scrollIntoView({ block: 'center', behavior: 'smooth' }) } catch { /* ignore */ }
+    }, 90)
+    window.addEventListener('resize', apply)
+    return () => { clearTimeout(timer); window.removeEventListener('resize', apply) }
+  }, [activeInput, layout])
 
   function close() { activeInput?.blur(); setActiveInput(null) }
 
@@ -111,7 +136,7 @@ export default function VirtualKeyboard({ onVisibilityChange }) {
   const rows = LAYOUTS[layout] || LAYOUTS.ru
 
   return (
-    <div className="vkb" onMouseDown={(e) => e.preventDefault()}>
+    <div className="vkb" ref={kbRef} onMouseDown={(e) => e.preventDefault()}>
       <div className="vkb__header">
         <span className="vkb__lang">{layout.toUpperCase()}</span>
         <button className="vkb__close" onClick={close}><X size={18} /></button>
