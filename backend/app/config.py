@@ -1,9 +1,10 @@
 from __future__ import annotations
 import json
 from functools import lru_cache
+from typing import Annotated
 
 from pydantic import field_validator, model_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, NoDecode
 
 
 class Settings(BaseSettings):
@@ -20,7 +21,10 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     port: int = 8000  # Render sets PORT env var
 
-    allowed_origins: list[str] = [
+    # NoDecode: запрещаем pydantic-settings разбирать значение из переменной
+    # окружения как JSON ДО валидатора parse_origins. Иначе ALLOWED_ORIGINS в виде
+    # "http://a,http://b" или "*" ронял старт (json.loads падал раньше валидатора).
+    allowed_origins: Annotated[list[str], NoDecode] = [
         "http://localhost:3000",
         "http://localhost:5173",
         "http://localhost:5174",
