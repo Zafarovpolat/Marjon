@@ -153,10 +153,12 @@ jobs:
       # нельзя собрать в песочнице агента.
       - name: Build + vet каждого шлюза
         run: |
+          fail=0
           for svc in click-gateway payme-gateway uzum-gateway; do
             echo "== $svc =="
-            (cd "services/$svc" && go mod tidy && go build ./... && go vet ./...)
+            (cd "services/$svc" && go mod tidy && go build ./... && go vet ./...) || fail=1
           done
+          exit $fail
 
   mobile:
     name: Flutter (analyze mobile + owner)

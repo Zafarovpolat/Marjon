@@ -15,6 +15,11 @@ from app.main import app
 from app.infrastructure.database.session import get_db
 from app.shared.base_model import Base
 
+# В тестах rate-limit не нужен: наборы делают много auth-запросов подряд и упирались
+# в лимит /auth/register (5/min) -> 429. Отключаем только для тестовой среды.
+from app.shared.rate_limit import limiter as _limiter
+_limiter.enabled = False
+
 
 @pytest_asyncio.fixture
 async def db_engine():

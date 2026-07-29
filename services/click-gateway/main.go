@@ -203,10 +203,10 @@ const (
 func calcSignature(clickTransID, serviceID int64, secretKey, merchantTransID, merchantPrepareID, amount, action, signTime string) string {
 	var raw string
 	if action == "0" {
-		raw = fmt.Sprintf("%s%d%s%s%s%s%s",
+		raw = fmt.Sprintf("%d%d%s%s%s%s%s",
 			clickTransID, serviceID, secretKey, merchantTransID, amount, action, signTime)
 	} else {
-		raw = fmt.Sprintf("%s%d%s%s%s%s%s%s",
+		raw = fmt.Sprintf("%d%d%s%s%s%s%s%s",
 			clickTransID, serviceID, secretKey, merchantTransID, merchantPrepareID, amount, action, signTime)
 	}
 	sum := md5.Sum([]byte(raw))
