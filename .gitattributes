@@ -2,3 +2,8 @@
 # .cmd без CRLF может некорректно исполняться cmd.exe.
 start.cmd text eol=crlf
 start.ps1 text eol=crlf
+docker-start.cmd text eol=crlf
+
+# Скрипты, исполняемые внутри Linux-контейнеров, обязаны иметь LF:
+# при CRLF ломается shebang (#!/bin/sh^M: no such file or directory).
+*.sh text eol=lf

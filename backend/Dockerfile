@@ -15,7 +15,12 @@ RUN pip install --no-cache-dir . && \
 # App source
 COPY . .
 
+# Инициализация БД и запуск: ожидание базы, аккуратные миграции (в т.ч. случай
+# «таблицы уже есть, alembic не проинициализирован»), демо-данные при первом
+# запуске. Раньше здесь был просто `alembic upgrade head`, который падал.
+RUN chmod +x /app/docker-entrypoint.sh
+
 EXPOSE 8000
 
-# Render sets $PORT; default to 8000
-CMD sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+# $PORT задаётся хостингом (Render); локально по умолчанию 8000
+CMD ["/app/docker-entrypoint.sh"]

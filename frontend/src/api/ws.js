@@ -5,9 +5,11 @@ import { API_BASE_URL, getAccessToken } from "./client";
 
 function buildWsUrl(path) {
   try {
-    const url = new URL(API_BASE_URL);
-    const proto = url.protocol === "https:" ? "wss:" : "ws:";
-    return `${proto}//${url.host}${path}`;
+    // API_BASE_URL может быть относительным ("/api/v1" — сборка за nginx-прокси):
+    // тогда host берётся из адреса открытой страницы, а не из константы.
+    const base = new URL(API_BASE_URL, window.location.origin);
+    const proto = base.protocol === "https:" ? "wss:" : "ws:";
+    return `${proto}//${base.host}${path}`;
   } catch {
     return path;
   }

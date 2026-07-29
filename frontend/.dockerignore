@@ -1,0 +1,9 @@
+# node_modules ставятся внутри образа (нужны linux-бинарники, а не windows)
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+.git/
+.gitignore
+npm-debug.log*

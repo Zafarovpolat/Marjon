@@ -1,0 +1,24 @@
+# Локальное окружение и мусор не должны попадать в образ:
+# .venv весит сотни МБ и содержит бинарники под Windows.
+.venv/
+venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Локальные базы и секреты — в контейнере своя БД и переменные окружения
+*.db
+*.sqlite
+*.sqlite3
+.env
+.env.*
+!.env.example
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.git/
+.gitignore
