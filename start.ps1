@@ -165,7 +165,42 @@ function Initialize-BackendEnv {
     } else {
         Write-Ok 'backend\.env на месте'
     }
+    Repair-EnvAscii -EnvFile $envFile
     return $envFile
+}
+
+function Repair-EnvAscii {
+    param([string]$EnvFile)
+    # slowapi/starlette читают .env СИСТЕМНОЙ кодировкой (cp1252/cp1251), поэтому любой
+    # не-ASCII символ (русский комментарий, рамки ──) валит старт бэкенда:
+    # UnicodeDecodeError: 'charmap' codec can't decode byte ...
+    if (-not (Test-Path -LiteralPath $EnvFile)) { return }
+    try {
+        $bytes = [System.IO.File]::ReadAllBytes($EnvFile)
+        $hasNonAscii = $false
+        foreach ($b in $bytes) { if ($b -gt 127) { $hasNonAscii = $true; break } }
+        if (-not $hasNonAscii) { return }
+
+        Write-Warn2 'В backend\.env есть не-ASCII символы — бэкенд упадёт с UnicodeDecodeError.'
+        if (-not (Confirm-Yes 'Убрать их (комментарии с кириллицей/рамками)?' -DefaultYes)) { return }
+
+        Copy-Item -LiteralPath $EnvFile -Destination ($EnvFile + '.backup') -Force
+        $lines = [System.IO.File]::ReadAllLines($EnvFile, [System.Text.Encoding]::UTF8)
+        $clean = @()
+        $dropped = 0
+        foreach ($line in $lines) {
+            if ($line -match '[^\x00-\x7F]') {
+                if ($line.TrimStart().StartsWith('#') -or $line.Trim() -eq '') { $dropped++; continue }
+                # строка с настройкой — оставляем, но предупреждаем
+                Write-Warn2 ("не-ASCII в значении настройки, проверьте вручную: " + $line.Split('=')[0])
+            }
+            $clean += $line
+        }
+        [System.IO.File]::WriteAllLines($EnvFile, $clean, (New-Object System.Text.UTF8Encoding($false)))
+        Write-Ok ("backend\.env приведён к ASCII (удалено строк-комментариев: $dropped), копия в .env.backup")
+    } catch {
+        Write-Err2 ("не удалось проверить .env: {0}" -f $_.Exception.Message)
+    }
 }
 
 function Test-DbConnection {
