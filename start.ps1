@@ -297,6 +297,7 @@ function Invoke-Migrations {
 }
 
 function Start-Backend {
+    param([string]$LanIp = '127.0.0.1')
     Write-Head 'Backend (FastAPI)'
 
     if (Test-Port -Port $BackendPort) {
@@ -317,8 +318,16 @@ function Start-Backend {
     Test-Database -EnvFile $envFile
     Invoke-Migrations -Python $py
 
+    # Разрешённые origin: по умолчанию в config.py только localhost/127.0.0.1, поэтому
+    # веб, открытый с планшета по http://<LAN-IP>:5173, получал бы CORS-ошибку на каждый
+    # запрос. Передаём список через переменную окружения — она приоритетнее .env,
+    # сам .env не трогаем.
+    $origins = "http://localhost:$FrontendPort,http://127.0.0.1:$FrontendPort,http://$($LanIp):$FrontendPort"
+    Write-Info "CORS разрешён для: $origins"
+
     # host 0.0.0.0 — чтобы телефон/планшет в той же сети могли достучаться
-    $cmd = '& ''' + $py + ''' -m uvicorn app.main:app --reload --host 0.0.0.0 --port ' + $BackendPort
+    $cmd = '$env:ALLOWED_ORIGINS = ''' + $origins + '''; ' +
+           '& ''' + $py + ''' -m uvicorn app.main:app --reload --host 0.0.0.0 --port ' + $BackendPort
     Start-Win -Title 'Marjon Backend :8000' -WorkDir $BackendDir -Command $cmd
 
     Write-Info 'ждём порт 8000...'
@@ -477,13 +486,13 @@ function Invoke-Mode {
     Initialize-Firewall
 
     switch ($Selected) {
-        'backend' { Start-Backend | Out-Null }
-        'front'   { Start-Backend | Out-Null; Start-Frontend -LanIp $lanIp }
-        'desktop' { Start-Backend | Out-Null; Start-Desktop }
-        'mobile'  { Start-Backend | Out-Null; Start-FlutterApp -Title 'Marjon Mobile (Flutter)' -Dir $MobileDir -LanIp $lanIp }
-        'owner'   { Start-Backend | Out-Null; Start-FlutterApp -Title 'Marjon Owner (Flutter)'  -Dir $OwnerDir  -LanIp $lanIp }
+        'backend' { Start-Backend -LanIp $lanIp | Out-Null }
+        'front'   { Start-Backend -LanIp $lanIp | Out-Null; Start-Frontend -LanIp $lanIp }
+        'desktop' { Start-Backend -LanIp $lanIp | Out-Null; Start-Desktop }
+        'mobile'  { Start-Backend -LanIp $lanIp | Out-Null; Start-FlutterApp -Title 'Marjon Mobile (Flutter)' -Dir $MobileDir -LanIp $lanIp }
+        'owner'   { Start-Backend -LanIp $lanIp | Out-Null; Start-FlutterApp -Title 'Marjon Owner (Flutter)'  -Dir $OwnerDir  -LanIp $lanIp }
         'all'     {
-            Start-Backend | Out-Null
+            Start-Backend -LanIp $lanIp | Out-Null
             Start-Frontend -LanIp $lanIp
             Start-Desktop
             Start-FlutterApp -Title 'Marjon Mobile (Flutter)' -Dir $MobileDir -LanIp $lanIp
