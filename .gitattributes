@@ -1,0 +1,4 @@
+# Windows dev-лаунчер: в репозитории храним LF, в рабочей копии — CRLF.
+# .cmd без CRLF может некорректно исполняться cmd.exe.
+start.cmd text eol=crlf
+start.ps1 text eol=crlf
