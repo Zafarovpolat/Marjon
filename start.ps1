@@ -197,20 +197,102 @@ function Test-Database {
     }
 }
 
+function Test-BackendDeps {
+    param([string]$Python)
+    $probe = 'import fastapi, uvicorn, sqlalchemy, alembic, slowapi, pydantic_settings, aiosqlite'
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & $Python -c $probe 2>$null | Out-Null
+        if ($LASTEXITCODE -eq 0) { Write-Ok 'зависимости бэкенда на месте'; return $true }
+
+        Write-Warn2 'в venv не хватает зависимостей (например slowapi) — бэкенд не запустится'
+        if (-not (Confirm-Yes 'Установить/обновить requirements.txt в venv?' -DefaultYes)) { return $false }
+
+        Push-Location $BackendDir
+        try {
+            Write-Info 'pip install -r requirements.txt (несколько минут)...'
+            & $Python -m pip install -r requirements.txt
+            if ($LASTEXITCODE -ne 0) {
+                Write-Err2 "pip install завершился с ошибкой (код $LASTEXITCODE) — см. вывод выше"
+                return $false
+            }
+        } finally {
+            Pop-Location
+        }
+
+        & $Python -c $probe 2>$null | Out-Null
+        if ($LASTEXITCODE -eq 0) { Write-Ok 'зависимости установлены'; return $true }
+        Write-Err2 'зависимости всё ещё неполные — проверьте вывод pip'
+        return $false
+    } finally {
+        $ErrorActionPreference = $prevEap
+    }
+}
+
+function Show-PythonInfo {
+    param([string]$Python)
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $ver = & $Python -c "import sys; print('{}.{}'.format(sys.version_info[0], sys.version_info[1]))" 2>$null
+        if ($LASTEXITCODE -eq 0 -and $ver) {
+            $ver = ($ver | Select-Object -First 1).ToString().Trim()
+            Write-Info "Python: $ver"
+            $parts = $ver.Split('.')
+            if ($parts.Count -ge 2 -and [int]$parts[0] -eq 3 -and [int]$parts[1] -ge 13) {
+                Write-Warn2 "Python $ver очень свежий — часть пакетов может не иметь готовых wheel'ов."
+                Write-Warn2 'Если pip падает на сборке пакета — используйте Python 3.12 для venv.'
+            }
+        }
+    } finally {
+        $ErrorActionPreference = $prevEap
+    }
+}
+
 function Invoke-Migrations {
     param([string]$Python)
     if (-not (Confirm-Yes 'Выполнить миграции (alembic upgrade head + migrate_add_permissions.py)?')) { return }
+
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
     Push-Location $BackendDir
     try {
         Write-Info 'alembic upgrade head...'
-        & $Python -m alembic upgrade head
+        $out  = & $Python -m alembic upgrade head 2>&1
+        $code = $LASTEXITCODE
+        $text = ($out | Out-String)
+
+        if ($code -eq 0) {
+            Write-Ok 'alembic upgrade head выполнен'
+        }
+        elseif ($text -match 'already exists') {
+            # Типичная ситуация: таблицы созданы через create_tables.py, а alembic не проинициализирован.
+            Write-Warn2 'таблицы в БД уже есть, но alembic об этом не знает (нет отметки версии).'
+            if (Confirm-Yes 'Отметить БД как актуальную (alembic stamp head)?' -DefaultYes) {
+                & $Python -m alembic stamp head
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Ok 'alembic stamp head выполнен — дальше миграции будут применяться нормально'
+                } else {
+                    Write-Err2 "alembic stamp head не удался (код $LASTEXITCODE)"
+                }
+            }
+        }
+        else {
+            Write-Err2 "alembic upgrade head упал (код $code):"
+            $out | Select-Object -Last 15 | ForEach-Object { Write-Host "         $_" -ForegroundColor DarkGray }
+        }
+
         Write-Info 'migrate_add_permissions.py...'
         & $Python migrate_add_permissions.py
-        Write-Ok 'миграции выполнены'
-    } catch {
-        Write-Err2 "миграции упали: $($_.Exception.Message)"
+        if ($LASTEXITCODE -eq 0) {
+            Write-Ok 'migrate_add_permissions.py выполнен'
+        } else {
+            Write-Err2 "migrate_add_permissions.py упал (код $LASTEXITCODE)"
+        }
     } finally {
         Pop-Location
+        $ErrorActionPreference = $prevEap
     }
 }
 
@@ -224,6 +306,12 @@ function Start-Backend {
 
     $py = Resolve-Python
     if (-not $py) { return $false }
+
+    Show-PythonInfo -Python $py
+    if (-not (Test-BackendDeps -Python $py)) {
+        Write-Err2 'бэкенд не запускаю: зависимости не готовы'
+        return $false
+    }
 
     $envFile = Initialize-BackendEnv
     Test-Database -EnvFile $envFile
