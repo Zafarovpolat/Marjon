@@ -1,0 +1,133 @@
+name: smoke
+
+# Быстрая проверка на каждый push/PR: ловит ровно тот класс ошибок, что бил при
+# реальном запуске (падение импорта, 500/422 на логине, поломка сборки) ДО того,
+# как код попадёт на машину для теста.
+
+on:
+  push:
+    branches: [front, main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  backend:
+    name: Backend (импорт, логин, тесты)
+    runs-on: ubuntu-latest
+    env:
+      # Локальная БД в файле — общая для сидирования и смок-запроса, без Postgres.
+      DATABASE_URL: "sqlite+aiosqlite:///./ci.db"
+      SECRET_KEY: "ci-only-secret-key-at-least-32-characters"
+      DEBUG: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"        # целевая версия проекта (Dockerfile)
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Установить зависимости
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Импорт приложения ловит падения уровня старта (напр. ForwardRef от
+      # slowapi+отложенных аннотаций). Прогоняем с двумя «неудобными» значениями
+      # ALLOWED_ORIGINS — как их передаёт лаунчер (через запятую) и docker ("*").
+      - name: Импорт с ALLOWED_ORIGINS через запятую
+        working-directory: backend
+        env:
+          ALLOWED_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173,http://192.168.1.5:5173"
+        run: python -c "import app.main; print('import OK (comma origins)')"
+
+      - name: Импорт с ALLOWED_ORIGINS="*"
+        working-directory: backend
+        env:
+          ALLOWED_ORIGINS: "*"
+        run: python -c "import app.main; print('import OK (wildcard origins)')"
+
+      - name: Схема БД и демо-данные
+        working-directory: backend
+        run: |
+          python create_tables.py
+          python migrate_add_permissions.py
+          python seed.py
+
+      # Главный смок: приложение реально отвечает и логин выдаёт токен.
+      # Разом ловит ForwardRef (не импортируется), 422 (валидатор сломан),
+      # 500 (БД/прочее) — всё, что нас било.
+      - name: Смок логина (ASGI, без сети)
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          import asyncio, sys
+          from httpx import ASGITransport, AsyncClient
+          from app.main import app
+
+          async def main():
+              transport = ASGITransport(app=app)
+              async with AsyncClient(transport=transport, base_url="http://test") as c:
+                  r = await c.get("/docs")
+                  assert r.status_code == 200, f"/docs -> {r.status_code}"
+
+                  r = await c.post("/api/v1/auth/login",
+                                   json={"phone": "+998900078779", "password": "102938"})
+                  assert r.status_code == 200, f"login -> {r.status_code}: {r.text[:300]}"
+                  assert "access_token" in r.json(), f"нет access_token: {r.text[:300]}"
+              print("SMOKE OK: /docs=200, login=200, токен выдан")
+
+          asyncio.run(main())
+          PY
+
+      - name: Юнит-тесты бэкенда (pytest, SQLite in-memory)
+        working-directory: backend
+        run: pip install pytest pytest-asyncio && pytest
+
+  frontend:
+    name: Frontend (тесты и сборка)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Установить зависимости
+        working-directory: frontend
+        run: npm ci
+
+      - name: Тесты (admin-проверки + vitest)
+        working-directory: frontend
+        run: npm test
+
+      - name: Production-сборка
+        working-directory: frontend
+        run: npm run build
+
+  desktop:
+    name: Desktop (сборка Electron)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Установить зависимости
+        working-directory: desktop
+        run: npm ci
+
+      # electron-vite build ловит поломки импортов (напр. отсутствующий 'ws',
+      # битые пути после правок) без запуска GUI.
+      - name: Сборка
+        working-directory: desktop
+        run: npm run build
