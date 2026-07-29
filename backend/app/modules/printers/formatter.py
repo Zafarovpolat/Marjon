@@ -71,12 +71,27 @@ class EscPosFormatter:
     NORMAL_SIZE   = GS + b"\x21\x00"
     INIT          = ESC + b"\x40"
 
-    def __init__(self, paper_width: int = 80):
+    # Кодовые страницы для кириллицы. Термопринтер ESC/POS НЕ понимает UTF-8 —
+    # надо командой ESC t n выбрать однобайтовую страницу И кодировать текст в неё.
+    # Раньше текст слался в UTF-8 без выбора страницы → принтер рисовал байты своей
+    # дефолтной (китайской) страницей → иероглифы. PC866 (n=17) — самый совместимый
+    # вариант для русского на большинстве термопринтеров.
+    _CHARSETS = {
+        "cp866": (b"\x11", "cp866"),    # ESC t 17 — PC866 (кириллица), по умолчанию
+        "cp1251": (b"\x49", "cp1251"),  # ESC t 73 — WPC1251
+    }
+
+    def __init__(self, paper_width: int = 80, charset: str = "cp866"):
         # 80mm ≈ 48 chars; 58mm ≈ 32 chars
         self.cols = 48 if paper_width >= 80 else 32
+        page_byte, codec = self._CHARSETS.get((charset or "cp866").lower(), self._CHARSETS["cp866"])
+        self._codec = codec
+        # ESC t n — выбор кодовой страницы; шлём после INIT (ESC @ её сбрасывает)
+        self._set_codepage = self.ESC + b"\x74" + page_byte
 
     def _line(self, text: str = "") -> bytes:
-        return text.encode("utf-8", errors="replace") + self.LF
+        # Кодируем в выбранную кодовую страницу принтера, НЕ в UTF-8
+        return text.encode(self._codec, errors="replace") + self.LF
 
     def _divider(self, char: str = "-") -> bytes:
         return self._line(char * self.cols)
@@ -95,6 +110,7 @@ class EscPosFormatter:
     def format_receipt(self, data: ReceiptData) -> bytes:
         out = bytearray()
         out += self.INIT
+        out += self._set_codepage   # кириллическая кодовая страница (ESC @ сбрасывает её)
 
         # Header
         out += self.ALIGN_CENTER
@@ -172,6 +188,7 @@ class EscPosFormatter:
     def format_kitchen_ticket(self, data: KitchenTicketData) -> bytes:
         out = bytearray()
         out += self.INIT
+        out += self._set_codepage   # кириллическая кодовая страница (ESC @ сбрасывает её)
         out += self.ALIGN_CENTER
         out += self.BOLD_ON + self.DOUBLE_HEIGHT
         out += self._line(f"ЗАКАЗ #{data.order_number}")

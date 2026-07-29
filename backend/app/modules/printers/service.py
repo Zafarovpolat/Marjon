@@ -57,7 +57,7 @@ class PrinterService:
     async def test_print(self, company_id: UUID, printer_id: UUID) -> PrintJob:
         """Print a test page."""
         printer = await self.get(company_id, printer_id)
-        fmt = EscPosFormatter(printer.paper_width)
+        fmt = EscPosFormatter(printer.paper_width, charset=(printer.settings or {}).get("charset", "cp866"))
         data = (
             fmt.INIT + fmt.ALIGN_CENTER
             + fmt.BOLD_ON
@@ -77,7 +77,7 @@ class PrinterService:
         order = await self._get_order(company_id, order_id)
         receipt_data = await self._build_receipt_data(company_id, order)
 
-        fmt = EscPosFormatter(printer.paper_width)
+        fmt = EscPosFormatter(printer.paper_width, charset=(printer.settings or {}).get("charset", "cp866"))
         raw = fmt.format_receipt(receipt_data)
         job = await self._enqueue_and_send(company_id, printer, "receipt", order_id, raw, copies)
         # Отметка «чек напечатан» → стол «ожидает оплату» (сбросится при дозаказе)
@@ -96,7 +96,7 @@ class PrinterService:
         order = await self._get_order(company_id, order_id)
         ticket_data = await self._build_kitchen_data(order)
 
-        fmt = EscPosFormatter(printer.paper_width)
+        fmt = EscPosFormatter(printer.paper_width, charset=(printer.settings or {}).get("charset", "cp866"))
         raw = fmt.format_kitchen_ticket(ticket_data)
         return await self._enqueue_and_send(company_id, printer, "kitchen", order_id, raw, copies)
 
@@ -107,7 +107,7 @@ class PrinterService:
         for printer in printers:
             order = await self._get_order(company_id, order_id)
             receipt_data = await self._build_receipt_data(company_id, order)
-            fmt = EscPosFormatter(printer.paper_width)
+            fmt = EscPosFormatter(printer.paper_width, charset=(printer.settings or {}).get("charset", "cp866"))
             raw = fmt.format_receipt(receipt_data)
             job = await self._enqueue_and_send(company_id, printer, "receipt", order_id, raw)
             jobs.append(job)
@@ -119,7 +119,7 @@ class PrinterService:
         for printer in printers:
             order = await self._get_order(company_id, order_id)
             ticket_data = await self._build_kitchen_data(order)
-            fmt = EscPosFormatter(printer.paper_width)
+            fmt = EscPosFormatter(printer.paper_width, charset=(printer.settings or {}).get("charset", "cp866"))
             raw = fmt.format_kitchen_ticket(ticket_data)
             job = await self._enqueue_and_send(company_id, printer, "kitchen", order_id, raw)
             jobs.append(job)
