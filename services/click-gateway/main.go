@@ -248,21 +248,39 @@ type WebhookPayload struct {
 	Action      string  `json:"action"`
 }
 
+// Клиент с таймаутом: без него зависший бэкенд подвесил бы горутину навсегда.
+var backendClient = &http.Client{Timeout: 10 * time.Second}
+
 func notifyBackend(p WebhookPayload) {
 	body, _ := json.Marshal(p)
-	req, _ := http.NewRequest("POST", conf.BackendURL+"/internal/payment-webhook", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Webhook-Secret", conf.WebhookSecret)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Printf("notify backend error: %v", err)
-		return
+	const attempts = 5
+	var lastErr error
+	for i := 1; i <= attempts; i++ {
+		req, _ := http.NewRequest("POST", conf.BackendURL+"/internal/payment-webhook", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Webhook-Secret", conf.WebhookSecret)
+		resp, err := backendClient.Do(req)
+		if err != nil {
+			lastErr = err
+		} else {
+			code := resp.StatusCode
+			b, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if code < 300 {
+				if i > 1 {
+					log.Printf("notify backend ok on attempt %d", i)
+				}
+				return
+			}
+			lastErr = fmt.Errorf("status %d: %s", code, b)
+		}
+		log.Printf("notify backend attempt %d/%d failed: %v", i, attempts, lastErr)
+		if i < attempts {
+			time.Sleep(time.Duration(i*i) * time.Second) // backoff 1,4,9,16s
+		}
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		b, _ := io.ReadAll(resp.Body)
-		log.Printf("notify backend %d: %s", resp.StatusCode, b)
-	}
+	// DEAD-LETTER: оплата прошла у провайдера, но бэкенд не подтвердил — нужен ручной разбор.
+	log.Printf("DEAD-LETTER notify backend gave up after %d attempts: %v | payload=%s", attempts, lastErr, body)
 }
 
 // ── Request parsing ───────────────────────────────────────────────────────────
@@ -273,6 +291,7 @@ type ClickWebhookRequest struct {
 	ClickPaydocID     int64
 	MerchantTransID   string
 	Amount            float64
+	RawAmount         string // сырое значение amount из form-POST — для подписи дословно
 	Action            string
 	Error             int
 	ErrorNote         string
@@ -295,6 +314,7 @@ func parseRequest(r *http.Request) (*ClickWebhookRequest, error) {
 		ClickPaydocID:     parseInt64(r.FormValue("click_paydoc_id")),
 		MerchantTransID:   r.FormValue("merchant_trans_id"),
 		Amount:            parseFloat(r.FormValue("amount")),
+		RawAmount:         r.FormValue("amount"),
 		Action:            r.FormValue("action"),
 		Error:             parseInt(r.FormValue("error")),
 		ErrorNote:         r.FormValue("error_note"),
@@ -374,7 +394,7 @@ func prepareHandler(companyID string, w http.ResponseWriter, r *http.Request) {
 		req.ClickTransID, req.ServiceID,
 		creds.SecretKey, req.MerchantTransID,
 		"",
-		fmt.Sprintf("%.2f", req.Amount),
+		req.RawAmount,
 		req.Action, req.SignTime,
 	)
 	if !strings.EqualFold(expected, req.SignString) {
@@ -449,7 +469,7 @@ func completeHandler(companyID string, w http.ResponseWriter, r *http.Request) {
 		req.ClickTransID, req.ServiceID,
 		creds.SecretKey, req.MerchantTransID,
 		req.MerchantPrepareID,
-		fmt.Sprintf("%.2f", req.Amount),
+		req.RawAmount,
 		req.Action, req.SignTime,
 	)
 	if !strings.EqualFold(expected, req.SignString) {

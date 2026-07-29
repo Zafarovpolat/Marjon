@@ -4,13 +4,16 @@ import (
 	"bytes"
 	"crypto/md5"
 	"crypto/rand"
+	"crypto/subtle"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -238,7 +241,22 @@ func verifyAuth(r *http.Request, creds *UzumCreds) bool {
 		return false
 	}
 	expected := fmt.Sprintf("%x", md5.Sum([]byte(creds.SecretKey+serviceID+timestamp)))
-	return strings.EqualFold(expected, signature)
+	// Подпись сверяем constant-time (защита от тайминг-атаки).
+	if subtle.ConstantTimeCompare([]byte(strings.ToLower(expected)), []byte(strings.ToLower(signature))) != 1 {
+		return false
+	}
+	// Свежесть метки времени — защита от replay. Единицу (сек/мс) определяем по
+	// величине; при непарсинге НЕ отвергаем, чтобы не рубить легитимные запросы.
+	if ts, err := strconv.ParseInt(timestamp, 10, 64); err == nil {
+		if ts > 1_000_000_000_000 { // похоже на миллисекунды
+			ts /= 1000
+		}
+		if diff := time.Now().Unix() - ts; diff > 300 || diff < -300 {
+			log.Printf("uzum auth: устаревшая метка времени (delta=%ds)", diff)
+			return false
+		}
+	}
+	return true
 }
 
 // ── JSON-RPC ──────────────────────────────────────────────────────────────────
@@ -309,21 +327,39 @@ type WebhookPayload struct {
 	Action      string  `json:"action"`
 }
 
+// Клиент с таймаутом: без него зависший бэкенд подвесил бы горутину навсегда.
+var backendClient = &http.Client{Timeout: 10 * time.Second}
+
 func notifyBackend(p WebhookPayload) {
 	body, _ := json.Marshal(p)
-	req, _ := http.NewRequest("POST", conf.BackendURL+"/internal/payment-webhook", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Webhook-Secret", conf.WebhookSecret)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Printf("notify backend error: %v", err)
-		return
+	const attempts = 5
+	var lastErr error
+	for i := 1; i <= attempts; i++ {
+		req, _ := http.NewRequest("POST", conf.BackendURL+"/internal/payment-webhook", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Webhook-Secret", conf.WebhookSecret)
+		resp, err := backendClient.Do(req)
+		if err != nil {
+			lastErr = err
+		} else {
+			code := resp.StatusCode
+			b, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if code < 300 {
+				if i > 1 {
+					log.Printf("notify backend ok on attempt %d", i)
+				}
+				return
+			}
+			lastErr = fmt.Errorf("status %d: %s", code, b)
+		}
+		log.Printf("notify backend attempt %d/%d failed: %v", i, attempts, lastErr)
+		if i < attempts {
+			time.Sleep(time.Duration(i*i) * time.Second) // backoff 1,4,9,16s
+		}
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		b, _ := io.ReadAll(resp.Body)
-		log.Printf("notify backend %d: %s", resp.StatusCode, b)
-	}
+	// DEAD-LETTER: оплата прошла у провайдера, но бэкенд не подтвердил — нужен ручной разбор.
+	log.Printf("DEAD-LETTER notify backend gave up after %d attempts: %v | payload=%s", attempts, lastErr, body)
 }
 
 // ── Params ────────────────────────────────────────────────────────────────────
@@ -374,7 +410,7 @@ func handleCheckOrder(companyID string, id interface{}, raw json.RawMessage) RPC
 	if err != nil || order == nil {
 		return errResp(id, ErrOrderNotFound, "order not found")
 	}
-	if p.Params.Amount != int64(order.TotalAmount*100) {
+	if p.Params.Amount != int64(math.Round(order.TotalAmount*100)) {
 		return errResp(id, ErrIncorrectAmount, "incorrect amount")
 	}
 	return RPCResponse{Result: map[string]any{
@@ -418,7 +454,7 @@ func handleCreateTransaction(companyID string, id interface{}, raw json.RawMessa
 	if err != nil || order == nil {
 		return errResp(id, ErrOrderNotFound, "order not found")
 	}
-	if p.Params.Amount != int64(order.TotalAmount*100) {
+	if p.Params.Amount != int64(math.Round(order.TotalAmount*100)) {
 		return errResp(id, ErrIncorrectAmount, "incorrect amount")
 	}
 

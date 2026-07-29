@@ -3,12 +3,14 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/subtle"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"strings"
@@ -314,21 +316,39 @@ type WebhookPayload struct {
 	Action      string  `json:"action"`
 }
 
+// Клиент с таймаутом: без него зависший бэкенд подвесил бы горутину навсегда.
+var backendClient = &http.Client{Timeout: 10 * time.Second}
+
 func notifyBackend(p WebhookPayload) {
 	body, _ := json.Marshal(p)
-	req, _ := http.NewRequest("POST", conf.BackendURL+"/internal/payment-webhook", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Webhook-Secret", conf.WebhookSecret)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Printf("notify backend error: %v", err)
-		return
+	const attempts = 5
+	var lastErr error
+	for i := 1; i <= attempts; i++ {
+		req, _ := http.NewRequest("POST", conf.BackendURL+"/internal/payment-webhook", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Webhook-Secret", conf.WebhookSecret)
+		resp, err := backendClient.Do(req)
+		if err != nil {
+			lastErr = err
+		} else {
+			code := resp.StatusCode
+			b, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if code < 300 {
+				if i > 1 {
+					log.Printf("notify backend ok on attempt %d", i)
+				}
+				return
+			}
+			lastErr = fmt.Errorf("status %d: %s", code, b)
+		}
+		log.Printf("notify backend attempt %d/%d failed: %v", i, attempts, lastErr)
+		if i < attempts {
+			time.Sleep(time.Duration(i*i) * time.Second) // backoff 1,4,9,16s
+		}
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		b, _ := io.ReadAll(resp.Body)
-		log.Printf("notify backend %d: %s", resp.StatusCode, b)
-	}
+	// DEAD-LETTER: оплата прошла у провайдера, но бэкенд не подтвердил — нужен ручной разбор.
+	log.Printf("DEAD-LETTER notify backend gave up after %d attempts: %v | payload=%s", attempts, lastErr, body)
 }
 
 // ── Params ────────────────────────────────────────────────────────────────────
@@ -374,7 +394,7 @@ func handleCheckPerform(companyID string, id interface{}, raw json.RawMessage) R
 	if err != nil || order == nil {
 		return errResp(id, ErrOrderNotFound, ml("Заказ не найден", "Order not found"), "order_id")
 	}
-	if p.Amount != int64(order.TotalAmount*100) {
+	if p.Amount != int64(math.Round(order.TotalAmount*100)) {
 		return errResp(id, ErrIncorrectAmount, ml("Неверная сумма", "Incorrect amount"))
 	}
 	return RPCResponse{Result: map[string]any{"allow": true}, ID: id}
@@ -409,7 +429,7 @@ func handleCreateTx(companyID string, id interface{}, raw json.RawMessage) RPCRe
 	if err != nil || order == nil {
 		return errResp(id, ErrOrderNotFound, ml("Заказ не найден", "Order not found"), "order_id")
 	}
-	if p.Amount != int64(order.TotalAmount*100) {
+	if p.Amount != int64(math.Round(order.TotalAmount*100)) {
 		return errResp(id, ErrIncorrectAmount, ml("Неверная сумма", "Incorrect amount"))
 	}
 
@@ -570,7 +590,7 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Verify Basic Auth against company key
 	incomingKey := extractPaymeKey(r)
-	if incomingKey != paymeKey {
+	if subtle.ConstantTimeCompare([]byte(incomingKey), []byte(paymeKey)) != 1 {
 		w.WriteHeader(http.StatusUnauthorized)
 		writeJSON(w, errResp(nil, ErrAuthFailed, "Permission denied"))
 		return
