@@ -84,6 +84,8 @@ jobs:
 
       - name: Юнит-тесты бэкенда (pytest, SQLite in-memory)
         working-directory: backend
+        env:
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"   # изолируем от засиженной ci.db
         run: pip install pytest pytest-asyncio && pytest
 
   frontend:
@@ -100,7 +102,7 @@ jobs:
 
       - name: Установить зависимости
         working-directory: frontend
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Тесты (admin-проверки + vitest)
         working-directory: frontend
@@ -124,7 +126,7 @@ jobs:
 
       - name: Установить зависимости
         working-directory: desktop
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       # electron-vite build ловит поломки импортов (напр. отсутствующий 'ws',
       # битые пути после правок) без запуска GUI.
@@ -149,7 +151,7 @@ jobs:
         run: |
           for svc in click-gateway payme-gateway uzum-gateway; do
             echo "== $svc =="
-            (cd "services/$svc" && go build ./... && go vet ./...)
+            (cd "services/$svc" && go mod download && go build ./... && go vet ./...)
           done
 
   mobile:

@@ -113,7 +113,7 @@ app.add_middleware(SlowAPIMiddleware)
 # CORS: не допускаем опасную связку "*" + credentials (иначе можно отразить
 # произвольный origin с куками). Если сконфигурирован конкретный список origin —
 # разрешаем credentials для них; если "*"/пусто — отдаём "*" без credentials.
-_cors_origins = [o for o in settings.allowed_origins if o and o != "*"]
+_cors_origins = [o for o in settings.cors_origins if o and o != "*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins or ["*"],
