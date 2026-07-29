@@ -1,4 +1,9 @@
-from __future__ import annotations
+# ВАЖНО: здесь НЕТ 'from __future__ import annotations'.
+# На эндпоинтах этого модуля висит @limiter.limit (slowapi). Обёртка slowapi
+# подменяет __globals__ функции, поэтому FastAPI не может разрезолвить
+# строковые аннотации: body-параметры вырождались в query (HTTP 422 на
+# /auth/login, /auth/refresh, POST /pos/orders), а Depends() по аннотации
+# падал на старте. С реальными аннотациями резолв не нужен.
 from datetime import date
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request, status

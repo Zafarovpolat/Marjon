@@ -1,4 +1,9 @@
-﻿from __future__ import annotations
+﻿# ВАЖНО: здесь НЕТ 'from __future__ import annotations'.
+# На эндпоинтах этого модуля висит @limiter.limit (slowapi). Обёртка slowapi
+# подменяет __globals__ функции, поэтому FastAPI не может разрезолвить
+# строковые аннотации: body-параметры вырождались в query (HTTP 422 на
+# /auth/login, /auth/refresh, POST /pos/orders), а Depends() по аннотации
+# падал на старте. С реальными аннотациями резолв не нужен.
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, Request, status, UploadFile
@@ -100,11 +105,8 @@ async def update_company_user(
 @limiter.limit("10/minute")
 async def login_form(
     request: Request,
-    # Зависимость указана ЯВНО, а не через пустой Depends(): в модуле включён
-    # `from __future__ import annotations`, поэтому аннотация — строка. После
-    # обёртки @limiter.limit globals функции принадлежат slowapi, где имени
-    # OAuth2PasswordRequestForm нет, и пустой Depends() падал на старте:
-    # TypeError: ForwardRef('OAuth2PasswordRequestForm') is not a callable object
+    # Зависимость указана ЯВНО (а не пустым Depends()): так FastAPI не обязан
+    # выводить её из аннотации — устойчиво даже под обёрткой @limiter.limit.
     form: OAuth2PasswordRequestForm = Depends(OAuth2PasswordRequestForm),
     db: AsyncSession = Depends(get_db),
 ):
