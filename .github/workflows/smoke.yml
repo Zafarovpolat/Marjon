@@ -131,3 +131,47 @@ jobs:
       - name: Сборка
         working-directory: desktop
         run: npm run build
+
+  gateways:
+    name: Платёжные шлюзы (Go build + vet)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      # go build падает на неиспользуемых импортах и синтаксисе; go vet — на
+      # подозрительных конструкциях. Ловит правки в подписи/сумме/ретраях, которые
+      # нельзя собрать в песочнице агента.
+      - name: Build + vet каждого шлюза
+        run: |
+          for svc in click-gateway payme-gateway uzum-gateway; do
+            echo "== $svc =="
+            (cd "services/$svc" && go build ./... && go vet ./...)
+          done
+
+  mobile:
+    name: Flutter (analyze mobile + owner)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      # analyze с --no-fatal-* падает только на ОШИБКАХ (реальная поломка кода),
+      # а не на пред-существующих warning/info — ловит регрессии без лишнего шума.
+      - name: Analyze mobile
+        working-directory: mobile
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Analyze owner
+        working-directory: owner
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-infos --no-fatal-warnings
