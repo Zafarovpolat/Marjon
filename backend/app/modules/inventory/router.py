@@ -16,8 +16,14 @@ from app.modules.inventory.service import CategoryService, IngredientService, Pr
 from sqlalchemy import select
 from app.modules.inventory.models import Product, Ingredient, ProductRecipe
 from app.shared.exceptions import NotFoundError
+from app.shared.storage import storage
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
+
+# Загрузка изображений товаров (политика совпадает с auth/router: /me/photo).
+# Раньше эти имена использовались в хендлерах, но нигде не определялись — NameError.
+_ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
+_EXT_MAP = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
 
 
 @router.get("/products/{product_id}/recipe")
