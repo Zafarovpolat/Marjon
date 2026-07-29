@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+﻿\xef\xbb\xbf#Requires -Version 5.1
 <#
   Marjon - dev-лаунчер (Windows).
 
@@ -66,22 +66,38 @@ function Test-Port {
 }
 
 function Get-LanIp {
+    # Берём адрес интерфейса, через который идёт маршрут ПО УМОЛЧАНИЮ — это реальная
+    # сеть (Wi-Fi/Ethernet). Иначе выбирался виртуальный адаптер VirtualBox/Hyper-V/WSL
+    # (192.168.56.x, 172.17.x и подобные), и с телефона адрес был недоступен.
     $ip = $null
     try {
-        $cands = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop |
-                 Where-Object { $_.IPAddress -ne '127.0.0.1' }
-        $pref = $cands | Where-Object {
-            $_.IPAddress -like '192.168.*' -or $_.IPAddress -like '10.*' -or $_.IPAddress -like '172.*'
-        } | Select-Object -First 1
-        if ($pref) { $ip = $pref.IPAddress }
-        elseif ($cands) { $ip = ($cands | Select-Object -First 1).IPAddress }
-    } catch {
+        $route = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction Stop |
+                 Where-Object { $_.NextHop -ne '0.0.0.0' } |
+                 Sort-Object -Property RouteMetric, ifMetric |
+                 Select-Object -First 1
+        if ($route) {
+            $ip = (Get-NetIPAddress -InterfaceIndex $route.ifIndex -AddressFamily IPv4 -ErrorAction Stop |
+                   Where-Object { $_.IPAddress -ne '127.0.0.1' } |
+                   Select-Object -First 1).IPAddress
+        }
+    } catch { $ip = $null }
+
+    # Фолбэк: любой приватный адрес, кроме известных виртуальных диапазонов и адаптеров
+    if (-not $ip) {
         try {
-            $ip = ([System.Net.Dns]::GetHostAddresses([System.Net.Dns]::GetHostName()) |
-                   Where-Object { $_.AddressFamily -eq 'InterNetwork' } |
-                   Select-Object -First 1).IPAddressToString
+            $virtualNames = '*VirtualBox*', '*Hyper-V*', '*VMware*', '*WSL*', '*Loopback*', '*vEthernet*'
+            $cands = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop |
+                     Where-Object { $_.IPAddress -ne '127.0.0.1' -and $_.IPAddress -notlike '192.168.56.*' -and $_.IPAddress -notlike '169.254.*' }
+            foreach ($c in $cands) {
+                $alias = $c.InterfaceAlias
+                $isVirtual = $false
+                foreach ($n in $virtualNames) { if ($alias -like $n) { $isVirtual = $true } }
+                if (-not $isVirtual) { $ip = $c.IPAddress; break }
+            }
+            if (-not $ip -and $cands) { $ip = ($cands | Select-Object -First 1).IPAddress }
         } catch { $ip = $null }
     }
+
     if (-not $ip) { $ip = '127.0.0.1' }
     return $ip
 }
@@ -545,6 +561,11 @@ function Invoke-Mode {
 
     Write-Head 'Локальная сеть'
     Write-Info "IP этого компьютера: $lanIp"
+    if ($lanIp -like '192.168.56.*' -or $lanIp -like '169.254.*' -or $lanIp -eq '127.0.0.1') {
+        Write-Warn2 'Похоже, это виртуальный адаптер (VirtualBox/Hyper-V), а не Wi-Fi.'
+        Write-Warn2 'С телефона такой адрес недоступен. Реальный адрес смотрите так:'
+        Write-Host  '         ipconfig | Select-String -Pattern "IPv4"' -ForegroundColor DarkGray
+    }
     Initialize-Firewall
 
     switch ($Selected) {
