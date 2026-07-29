@@ -334,6 +334,79 @@ function Start-Backend {
     return $false
 }
 
+# ── Доступ по локальной сети (тест с планшетов/телефонов) ─────────────────────
+function Test-IsAdmin {
+    try {
+        $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+        return (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole(
+            [Security.Principal.WindowsBuiltInRole]::Administrator)
+    } catch { return $false }
+}
+
+function Initialize-Firewall {
+    # Windows по умолчанию блокирует входящие подключения к 8000/5173,
+    # поэтому телефон/планшет не увидит ни API, ни веб-интерфейс.
+    $rules = @(
+        @{ Name = 'Marjon Backend 8000';  Port = $BackendPort },
+        @{ Name = 'Marjon Frontend 5173'; Port = $FrontendPort }
+    )
+    $missing = @()
+    foreach ($r in $rules) {
+        $exists = $null
+        try { $exists = Get-NetFirewallRule -DisplayName $r.Name -ErrorAction SilentlyContinue } catch { }
+        if ($exists) { Write-Ok ("фаервол: правило есть — {0}" -f $r.Name) } else { $missing += $r }
+    }
+    if ($missing.Count -eq 0) { return }
+
+    if (Test-IsAdmin) {
+        if (Confirm-Yes 'Открыть порты 8000/5173 в фаерволе для локальной сети?' -DefaultYes) {
+            foreach ($r in $missing) {
+                try {
+                    New-NetFirewallRule -DisplayName $r.Name -Direction Inbound -Action Allow `
+                        -Protocol TCP -LocalPort $r.Port -Profile Private | Out-Null
+                    Write-Ok ("фаервол: правило добавлено — {0} (порт {1}, профиль Private)" -f $r.Name, $r.Port)
+                } catch {
+                    Write-Err2 ("не удалось добавить правило {0}: {1}" -f $r.Name, $_.Exception.Message)
+                }
+            }
+        }
+    } else {
+        Write-Warn2 'Портов в фаерволе нет, а прав администратора нет — с других устройств не подключиться.'
+        Write-Warn2 'Запустите PowerShell от имени администратора и выполните:'
+        foreach ($r in $missing) {
+            Write-Host ("         New-NetFirewallRule -DisplayName '{0}' -Direction Inbound -Action Allow -Protocol TCP -LocalPort {1} -Profile Private" -f $r.Name, $r.Port) -ForegroundColor DarkGray
+        }
+    }
+}
+
+function Set-FrontendLanEnv {
+    param([string]$LanIp)
+    # Веб и админка по умолчанию обращаются к http://127.0.0.1:8000 — с планшета это
+    # будет сам планшет. Поэтому фиксируем реальный IP этого компьютера в .env.local
+    # (файл в .gitignore, на репозиторий не влияет).
+    $file = Join-Path $FrontendDir '.env.local'
+    $api  = "http://$($LanIp):$BackendPort/api/v1"
+    $body = @(
+        '# Сгенерировано лаунчером start.ps1 для теста в локальной сети.',
+        '# Адрес API должен быть виден с других устройств, поэтому не 127.0.0.1.',
+        "VITE_API_URL=$api",
+        "VITE_ADMIN_API_URL=$api"
+    ) -join "`r`n"
+
+    $old = ''
+    if (Test-Path -LiteralPath $file) { $old = (Get-Content -LiteralPath $file -Raw -ErrorAction SilentlyContinue) }
+    if ($old.Trim() -eq $body.Trim()) {
+        Write-Ok "адрес API для веба уже настроен: $api"
+        return
+    }
+    try {
+        Set-Content -LiteralPath $file -Value $body -Encoding UTF8
+        Write-Ok "адрес API для веба записан в frontend\.env.local: $api"
+    } catch {
+        Write-Err2 ("не удалось записать .env.local: {0}" -f $_.Exception.Message)
+    }
+}
+
 # ── Клиенты ───────────────────────────────────────────────────────────────────
 function Get-NpmBootstrap {
     # Одной строкой (без переводов строк — команда уходит в Start-Process как один аргумент):
@@ -345,14 +418,17 @@ function Get-NpmBootstrap {
 }
 
 function Start-Frontend {
+    param([string]$LanIp = '127.0.0.1')
     Write-Head 'Frontend (React + Vite)'
     if (-not (Test-Cmd 'npm')) { Write-Err2 'npm не найден в PATH (нужен Node.js)'; return }
     if (Test-Port -Port $FrontendPort) { Write-Warn2 "порт $FrontendPort занят — возможно, dev-сервер уже запущен" }
+    Set-FrontendLanEnv -LanIp $LanIp
 
     $cmd = (Get-NpmBootstrap) + 'npm run dev'
     Start-Win -Title 'Marjon Frontend :5173' -WorkDir $FrontendDir -Command $cmd
     Write-Info "веб:    http://localhost:$FrontendPort/"
     Write-Info "админка: http://localhost:$FrontendPort/admin.html"
+    Write-Info ("с других устройств: http://{0}:{1}/" -f $LanIp, $FrontendPort)
 }
 
 function Start-Desktop {
@@ -396,15 +472,19 @@ function Invoke-Mode {
     param([string]$Selected)
     $lanIp = Get-LanIp
 
+    Write-Head 'Локальная сеть'
+    Write-Info "IP этого компьютера: $lanIp"
+    Initialize-Firewall
+
     switch ($Selected) {
         'backend' { Start-Backend | Out-Null }
-        'front'   { Start-Backend | Out-Null; Start-Frontend }
+        'front'   { Start-Backend | Out-Null; Start-Frontend -LanIp $lanIp }
         'desktop' { Start-Backend | Out-Null; Start-Desktop }
         'mobile'  { Start-Backend | Out-Null; Start-FlutterApp -Title 'Marjon Mobile (Flutter)' -Dir $MobileDir -LanIp $lanIp }
         'owner'   { Start-Backend | Out-Null; Start-FlutterApp -Title 'Marjon Owner (Flutter)'  -Dir $OwnerDir  -LanIp $lanIp }
         'all'     {
             Start-Backend | Out-Null
-            Start-Frontend
+            Start-Frontend -LanIp $lanIp
             Start-Desktop
             Start-FlutterApp -Title 'Marjon Mobile (Flutter)' -Dir $MobileDir -LanIp $lanIp
             Start-FlutterApp -Title 'Marjon Owner (Flutter)'  -Dir $OwnerDir  -LanIp $lanIp

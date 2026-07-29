@@ -14,6 +14,7 @@ from app.modules.printers.formatter import (
 from app.modules.printers.models import PrintJob, Printer
 from app.modules.printers.printer_client import PrinterError, print_raw
 from app.modules.printers.repository import PrintJobRepository, PrinterRepository
+from app.modules.printers.ws_manager import printer_ws_manager
 from app.modules.printers.schemas import PrinterCreate, PrinterUpdate
 from app.modules.pos.models import Order, OrderItem
 from app.modules.payments.models import Payment
@@ -159,16 +160,40 @@ class PrinterService:
         )
         job = await self.job_repo.save(job)
 
-        # Try to print immediately via network
+        # Шаг 1. Пробуем напечатать сразу с сервера (принтер в одной сети с бэкендом).
+        printed = False
         if printer.connection_type == "network" and printer.ip_address:
             try:
                 for _ in range(copies):
                     await print_raw(printer, raw)
                 job.status = "done"
+                printed = True
             except PrinterError as e:
-                job.status = "failed"
+                # НЕ помечаем failed: принтер может быть недоступен с сервера
+                # (бэкенд в облаке), но доступен из сети заведения. Оставляем
+                # pending, чтобы задание подхватил терминал (по WS) или print_agent.
+                job.status = "pending"
                 job.error = str(e)
             await self.job_repo.save(job)
+
+        # Шаг 2. Не напечатали сами — отдаём задание терминалам филиала по WebSocket.
+        # Терминал печатает локально и закрывает задание через POST /printers/jobs/{id}/done.
+        if not printed:
+            try:
+                await printer_ws_manager.broadcast(
+                    company_id,
+                    printer.branch_id,
+                    {
+                        "event": "print_job",
+                        "job_id": str(job.id),
+                        "printer_id": str(printer.id),
+                        "payload": payload,
+                        "copies": copies,
+                        "job_type": job_type,
+                    },
+                )
+            except Exception:  # noqa: BLE001 — доставка по WS не должна ронять оплату/заказ
+                pass
 
         return job
 

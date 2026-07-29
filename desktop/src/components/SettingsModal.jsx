@@ -28,12 +28,18 @@ export default function SettingsModal({ open, onClose }) {
     printersApi.list().then((d) => setPrinterList(Array.isArray(d) ? d : d?.items || [])).catch(() => setPrinterList([]))
   }, [open])
 
+  // Печатает в первую очередь СЕРВЕР (бэкенд сам шлёт ESC/POS на ip:9100), и только
+  // если он не смог — задание уходит на терминал по WebSocket. Поэтому проверяем обе
+  // стороны: результат сервера главный, доступность с терминала — резервный путь.
   async function pingPrinter(p) {
     setPingState((s) => ({ ...s, [p.id]: '...' }))
-    try {
-      const r = await el()?.pingPrinter?.({ ip: p.ip_address, port: p.port ?? 9100 })
-      setPingState((s) => ({ ...s, [p.id]: r?.ok || r === true ? 'ok' : 'fail' }))
-    } catch { setPingState((s) => ({ ...s, [p.id]: 'fail' })) }
+    const ip = p.ip_address
+    const port = p.port ?? 9100
+    const [fromServer, fromTerminal] = await Promise.all([
+      printersApi.ping(ip, port).then((r) => Boolean(r?.reachable)).catch(() => false),
+      Promise.resolve(el()?.pingPrinter?.({ ip, port })).then((r) => r?.ok || r === true).catch(() => false),
+    ])
+    setPingState((s) => ({ ...s, [p.id]: fromServer ? 'ok' : fromTerminal ? 'terminal' : 'fail' }))
   }
 
   if (!open) return null
@@ -186,8 +192,17 @@ export default function SettingsModal({ open, onClose }) {
             ) : printerList.map((p) => (
               <div className="settings-row" key={p.id}>
                 <span>{p.name} · {p.printer_type === 'receipt' ? t('cash') : t('mode_kitchen')} · {p.ip_address || '—'}:{p.port ?? 9100}</span>
-                <button className="btn btn--outline btn--sm" onClick={() => pingPrinter(p)}>
-                  <Wifi size={16} /> {pingState[p.id] === 'ok' ? '✓' : pingState[p.id] === 'fail' ? '✕' : pingState[p.id] === '...' ? '…' : t('printers_ping')}
+                <button
+                  className="btn btn--outline btn--sm"
+                  onClick={() => pingPrinter(p)}
+                  title={pingState[p.id] === 'ok' ? t('ping_ok')
+                    : pingState[p.id] === 'terminal' ? t('ping_terminal')
+                    : pingState[p.id] === 'fail' ? t('ping_fail') : ''}
+                >
+                  <Wifi size={16} /> {pingState[p.id] === 'ok' ? '✓'
+                    : pingState[p.id] === 'terminal' ? '✓*'
+                    : pingState[p.id] === 'fail' ? '✕'
+                    : pingState[p.id] === '...' ? '…' : t('printers_ping')}
                 </button>
               </div>
             ))}

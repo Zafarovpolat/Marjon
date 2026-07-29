@@ -207,6 +207,9 @@ export const branding = {
 
 export const printers = {
   list: () => api.get('/printers').then((r) => r.data),
+  // Проверка доступности принтера СО СТОРОНЫ СЕРВЕРА (сервер печатает первым).
+  ping: (ip, port = 9100) =>
+    api.get('/printers/ping', { params: { ip, port } }).then((r) => r.data),
   jobDone: (jobId) => api.post(`/printers/jobs/${jobId}/done`).then((r) => r.data),
   printReceipt: (data) => api.post('/printers/print/receipt', data).then((r) => r.data),
   printKitchen: (data) => api.post('/printers/print/kitchen', data).then((r) => r.data),

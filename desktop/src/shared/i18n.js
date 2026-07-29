@@ -81,6 +81,9 @@ const DICT = {
     s_autolaunch: 'Запускать при старте Windows', s_lang_theme: 'Язык и тема', s_lang: 'Язык интерфейса',
     s_theme: 'Тема', s_light: 'Светлая', s_dark: 'Тёмная', s_connection: 'Подключение', s_server_addr: 'Адрес сервера',
     printers_diag: 'Принтеры (диагностика)', printers_queue: 'Записей в очереди офлайн', printers_none: 'Принтеры не настроены', printers_ping: 'Пинг',
+    ping_ok: 'Доступен с сервера — печать пойдёт напрямую',
+    ping_terminal: 'С сервера недоступен, но доступен с этого терминала — печать пойдёт через терминал',
+    ping_fail: 'Недоступен ни с сервера, ни с терминала — проверьте IP, порт и сеть',
     // Роли
     role_owner: 'Владелец', role_manager: 'Менеджер', role_cashier: 'Кассир', role_waiter: 'Официант',
     role_cook: 'Повар', role_chef: 'Шеф-повар', role_kitchen: 'Кухня', role_bartender: 'Бармен',
@@ -178,6 +181,9 @@ const DICT = {
     s_autolaunch: 'Windows ishga tushganda ochilsin', s_lang_theme: 'Til va mavzu', s_lang: 'Interfeys tili',
     s_theme: 'Mavzu', s_light: 'Yorug‘', s_dark: 'Qorong‘i', s_connection: 'Ulanish', s_server_addr: 'Server manzili',
     printers_diag: 'Printerlar (diagnostika)', printers_queue: 'Oflayn navbatdagi yozuvlar', printers_none: 'Printerlar sozlanmagan', printers_ping: 'Ping',
+    ping_ok: 'Serverdan mavjud — chop etish to‘g‘ridan-to‘g‘ri ketadi',
+    ping_terminal: 'Serverdan mavjud emas, lekin shu terminaldan mavjud — chop etish terminal orqali ketadi',
+    ping_fail: 'Na serverdan, na terminaldan mavjud emas — IP, port va tarmoqni tekshiring',
     // Rollar
     role_owner: 'Egasi', role_manager: 'Menejer', role_cashier: 'Kassir', role_waiter: 'Ofitsiant',
     role_cook: 'Oshpaz', role_chef: 'Bosh oshpaz', role_kitchen: 'Oshxona', role_bartender: 'Barmen',
