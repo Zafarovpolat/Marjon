@@ -512,12 +512,15 @@ class _PaymentSheetState extends State<_PaymentSheet> {
             ? double.tryParse(_cashCtrl.text.replaceAll(' ', ''))
             : null,
       );
+      if (!mounted) return;                // виджет закрыли во время запроса — не трогаем context
       final changeRaw = result['change_given'];
       final change = changeRaw == null ? null
           : (changeRaw is num ? changeRaw.toDouble()
               : double.tryParse(changeRaw.toString()));
       widget.onPaid(change);
     } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);     // вернуть кнопку в рабочее состояние после ошибки
       widget.onError(e.toString());
     }
   }
