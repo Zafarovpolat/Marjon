@@ -152,8 +152,69 @@ function Initialize-BackendEnv {
     return $envFile
 }
 
+function Test-DbConnection {
+    param([string]$Python)
+    # Открытый порт != рабочие креды. Пробуем реально подключиться настройками приложения,
+    # иначе неверный пароль вылезал 400-строчным трейсбеком уже при логине.
+    if (-not $Python) { return }
+    $probe = @(
+        'import asyncio, sys',
+        'from app.config import settings',
+        'from sqlalchemy import text',
+        'from sqlalchemy.ext.asyncio import create_async_engine',
+        '',
+        'async def main():',
+        '    engine = create_async_engine(settings.database_url)',
+        '    try:',
+        '        async with engine.connect() as conn:',
+        '            await conn.execute(text("SELECT 1"))',
+        '        print("DB_OK")',
+        '    except Exception as exc:',
+        '        print("DB_FAIL|" + type(exc).__name__ + "|" + str(exc).replace(chr(10), " ")[:300])',
+        '        sys.exit(1)',
+        '    finally:',
+        '        await engine.dispose()',
+        '',
+        'asyncio.run(main())'
+    ) -join "`r`n"
+
+    $tmp = Join-Path $env:TEMP 'marjon_db_probe.py'
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    Push-Location $BackendDir
+    try {
+        Set-Content -LiteralPath $tmp -Value $probe -Encoding UTF8
+        $out = & $Python $tmp 2>&1
+        $text = ($out | Out-String)
+        if ($text -match 'DB_OK') {
+            Write-Ok 'БД: подключение проверено'
+            return
+        }
+        Write-Err2 'БД: подключиться НЕ удалось — бэкенд будет отдавать 500 на любой запрос.'
+        if ($text -match 'InvalidPasswordError') {
+            Write-Warn2 'Неверный пароль пользователя БД. Либо на порту 5432 стоит другой Postgres.'
+            Write-Warn2 'Быстрое решение для теста — перейти на SQLite: в backend\.env указать'
+            Write-Host  '         DATABASE_URL=sqlite+aiosqlite:///./app.db' -ForegroundColor DarkGray
+            Write-Warn2 'затем: python create_tables.py, python migrate_add_permissions.py, python seed.py'
+        }
+        elseif ($text -match 'InvalidCatalogName|does not exist') {
+            Write-Warn2 'Базы с таким именем нет — создайте её или используйте docker compose up -d db.'
+        }
+        else {
+            $line = ($out | Where-Object { $_ -match 'DB_FAIL' } | Select-Object -First 1)
+            if ($line) { Write-Warn2 ([string]$line) }
+        }
+    } catch {
+        Write-Warn2 ("проверку подключения выполнить не удалось: {0}" -f $_.Exception.Message)
+    } finally {
+        Pop-Location
+        Remove-Item -LiteralPath $tmp -ErrorAction SilentlyContinue
+        $ErrorActionPreference = $prevEap
+    }
+}
+
 function Test-Database {
-    param([string]$EnvFile)
+    param([string]$EnvFile, [string]$Python)
     if (-not (Test-Path -LiteralPath $EnvFile)) { return }
 
     $line = Select-String -LiteralPath $EnvFile -Pattern '^\s*DATABASE_URL\s*=' |
@@ -161,14 +222,15 @@ function Test-Database {
     if (-not $line) { return }
     $url = $line.Line
 
-    if ($url -match 'sqlite') { Write-Ok 'БД: SQLite (локальный файл)'; return }
+    if ($url -match 'sqlite') { Write-Ok 'БД: SQLite (локальный файл)'; Test-DbConnection -Python $Python; return }
     if ($url -notmatch 'postgres') { return }
 
     $isLocal = ($url -match 'localhost' -or $url -match '127\.0\.0\.1')
     if (-not $isLocal) { Write-Info 'БД: внешний Postgres (проверка пропущена)'; return }
 
     if (Test-Port -Port 5432) {
-        Write-Ok 'БД: Postgres на localhost:5432 доступен'
+        Write-Ok 'БД: Postgres на localhost:5432 отвечает'
+        Test-DbConnection -Python $Python
         return
     }
 
@@ -315,7 +377,7 @@ function Start-Backend {
     }
 
     $envFile = Initialize-BackendEnv
-    Test-Database -EnvFile $envFile
+    Test-Database -EnvFile $envFile -Python $py
     Invoke-Migrations -Python $py
 
     # Разрешённые origin: по умолчанию в config.py только localhost/127.0.0.1, поэтому
