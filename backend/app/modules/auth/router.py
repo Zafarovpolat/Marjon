@@ -98,7 +98,16 @@ async def update_company_user(
 
 @router.post("/login/form", response_model=TokenResponse, include_in_schema=False)
 @limiter.limit("10/minute")
-async def login_form(request: Request, form: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
+async def login_form(
+    request: Request,
+    # Зависимость указана ЯВНО, а не через пустой Depends(): в модуле включён
+    # `from __future__ import annotations`, поэтому аннотация — строка. После
+    # обёртки @limiter.limit globals функции принадлежат slowapi, где имени
+    # OAuth2PasswordRequestForm нет, и пустой Depends() падал на старте:
+    # TypeError: ForwardRef('OAuth2PasswordRequestForm') is not a callable object
+    form: OAuth2PasswordRequestForm = Depends(OAuth2PasswordRequestForm),
+    db: AsyncSession = Depends(get_db),
+):
     """OAuth2 form login (used by Swagger UI)."""
     svc = AuthService(db)
     _, access_token, refresh_token = await svc.login(form.username, form.password)
