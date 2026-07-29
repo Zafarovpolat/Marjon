@@ -335,12 +335,21 @@ function Start-Backend {
 }
 
 # ── Клиенты ───────────────────────────────────────────────────────────────────
+function Get-NpmBootstrap {
+    # Одной строкой (без переводов строк — команда уходит в Start-Process как один аргумент):
+    #  - нет node_modules            -> npm install
+    #  - есть, но состав неполный    -> npm install  (случай отсутствующего 'ws' после обновления package.json)
+    return '$need = -not (Test-Path node_modules); ' +
+           'if (-not $need) { npm ls --depth=0 --silent 2>$null | Out-Null; $need = ($LASTEXITCODE -ne 0) }; ' +
+           'if ($need) { Write-Host "Ставлю зависимости (npm install)..." -ForegroundColor Yellow; npm install }; '
+}
+
 function Start-Frontend {
     Write-Head 'Frontend (React + Vite)'
     if (-not (Test-Cmd 'npm')) { Write-Err2 'npm не найден в PATH (нужен Node.js)'; return }
     if (Test-Port -Port $FrontendPort) { Write-Warn2 "порт $FrontendPort занят — возможно, dev-сервер уже запущен" }
 
-    $cmd = 'if (-not (Test-Path node_modules)) { Write-Host ''npm install...'' -ForegroundColor Yellow; npm install }; npm run dev'
+    $cmd = (Get-NpmBootstrap) + 'npm run dev'
     Start-Win -Title 'Marjon Frontend :5173' -WorkDir $FrontendDir -Command $cmd
     Write-Info "веб:    http://localhost:$FrontendPort/"
     Write-Info "админка: http://localhost:$FrontendPort/admin.html"
@@ -350,7 +359,7 @@ function Start-Desktop {
     Write-Head 'Desktop (Electron)'
     if (-not (Test-Cmd 'npm')) { Write-Err2 'npm не найден в PATH (нужен Node.js)'; return }
 
-    $cmd = 'if (-not (Test-Path node_modules)) { Write-Host ''npm install...'' -ForegroundColor Yellow; npm install }; npm run dev'
+    $cmd = (Get-NpmBootstrap) + 'npm run dev'
     Start-Win -Title 'Marjon Desktop' -WorkDir $DesktopDir -Command $cmd
     Write-Info 'адрес сервера в десктопе: http://127.0.0.1:8000/api/v1'
 }
