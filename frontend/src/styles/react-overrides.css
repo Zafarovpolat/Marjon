@@ -15989,16 +15989,12 @@ body.dashboard-body,
 }
 
 .z-waiters-report__percent span {
-  right: 14px !important;
   color: var(--neutral-600) !important;
   font-weight: 800 !important;
-  pointer-events: none !important;
 }
 
 .z-waiters-report__select select {
   width: 250px !important;
-  padding: 0 42px 0 14px !important;
-  appearance: none !important;
 }
 
 .z-waiters-report__select i,
@@ -16010,36 +16006,23 @@ body.dashboard-body,
 }
 
 .z-waiters-report__excel {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
   gap: 10px !important;
   height: 46px !important;
-  padding: 0 20px !important;
-  border: 0 !important;
   border-radius: 10px !important;
-  color: #ffffff !important;
   background: #059669;
   box-shadow: 0 7px 13px rgba(22, 163, 74, 0.154) !important;
   font-size: 14px !important;
   font-weight: 500 !important;
-  white-space: nowrap !important;
   cursor: pointer !important;
 }
 
 .z-waiters-report__table {
-  display: grid !important;
-  overflow: hidden !important;
   border-radius: 12px !important;
   border: 1px solid rgba(203, 213, 225, 0.72) !important;
-  background: #ffffff !important;
 }
 
 .z-waiters-report__row {
-  display: grid !important;
   grid-template-columns: 1.15fr 1.15fr 1.55fr 1fr 1.1fr 0.7fr !important;
-  align-items: center !important;
-  min-width: 980px !important;
 }
 
 .z-waiters-report__row--head {
@@ -16049,14 +16032,9 @@ body.dashboard-body,
 
 .z-waiters-report__row--head > div,
 .z-waiters-report__row--head label {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 10px !important;
   padding: 0 16px !important;
   color: var(--neutral-900) !important;
   font-size: 14px !important;
-  font-weight: 500 !important;
-  white-space: nowrap !important;
 }
 
 .z-waiters-report__row--head input {
@@ -16075,9 +16053,6 @@ body.dashboard-body,
 .z-waiters-report__row--total > * {
   padding: 0 16px !important;
   color: var(--neutral-900) !important;
-  font-size: 15px !important;
-  font-weight: 500 !important;
-  white-space: nowrap !important;
 }
 
 @media (max-width: 1024px) {
@@ -16259,8 +16234,6 @@ body.dashboard-body,
 .warehouse-summary-item strong {
   display: block !important;
   color: var(--owner-ink, var(--neutral-950)) !important;
-  font-size: 16px !important;
-  font-weight: 500 !important;
   line-height: 1.2 !important;
 }
 
@@ -16268,8 +16241,6 @@ body.dashboard-body,
   display: block !important;
   margin-top: 5px !important;
   color: var(--owner-ink, var(--neutral-950)) !important;
-  font-size: 16px !important;
-  font-weight: 500 !important;
   line-height: 1.2 !important;
 }
 
@@ -16742,25 +16713,8 @@ body.dashboard-body,
   top: auto !important;
   left: auto !important;
   z-index: 30 !important;
-  width: fit-content !important;
   height: auto !important;
   margin: 0 0 18px !important;
-  padding: 0 !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  pointer-events: auto !important;
-}
-
-.dashboard-back-slot .dashboard-back-button {
-  position: static !important;
-  top: auto !important;
-  margin: 0 !important;
-  border: 1px solid rgba(203, 213, 225, 0.86) !important;
-  background: #ffffff !important;
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.056) !important;
-  pointer-events: auto !important;
 }
 
 /* MARJON Print Center: final Z-report page layout. */
@@ -17211,7 +17165,6 @@ body.dashboard-body,
 
 .dashboard-back-slot + .z-report-page--print-only {
   margin-top: 52px !important;
-  padding-top: 0 !important;
 }
 
 .dashboard-back-slot .dashboard-back-button {
@@ -17570,12 +17523,8 @@ body.dashboard-body,
 }
 
 .z-waiters-report__row--body > * {
-  height: 100% !important;
-  display: flex !important;
-  align-items: center !important;
   padding: 0 16px !important;
   color: var(--neutral-900) !important;
-  font-size: 15px !important;
   font-weight: 500 !important;
 }
 
@@ -17627,10 +17576,7 @@ body.dashboard-body,
 }
 
 .warehouse-summary-item__icon {
-  width: 44px !important;
-  height: 44px !important;
   flex-basis: 44px !important;
-  border-radius: 12px !important;
 }
 
 .warehouse-summary-item strong {
@@ -17643,7 +17589,6 @@ body.dashboard-body,
   margin-top: 6px !important;
   font-size: 16px !important;
   line-height: 1.22 !important;
-  font-weight: 500 !important;
 }
 
 /* Match top KPI typography with the softer enlarged warehouse cards. */
@@ -17747,7 +17692,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 
 /* лого банков в методах оплаты */
 .balance-payment-method__logos { display: inline-flex !important; align-items: center !important; gap: 8px !important; }
-.balance-payment-method__logos img { height: 22px !important; width: auto !important; max-width: 64px !important; object-fit: contain !important; display: block !important; }
+.balance-payment-method__logos img { height: 22px !important; width: auto !important; max-width: 64px !important; display: block !important; }
 
 
 /* ==== AUTHORITATIVE FIXES (v2): brand border, content radius, sidebar hover ==== */
@@ -17770,7 +17715,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .dashboard-shell .dashboard-content,
 .dashboard-shell .dashboard-main:not(.is-sidebar-collapsed) .dashboard-content,
 .dashboard-shell .dashboard-main.is-sidebar-collapsed .dashboard-content {
-  border-top-left-radius: 18px !important;
   border-top-right-radius: 18px !important;
 }
 @media (max-width: 1024px) {
@@ -17984,8 +17928,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .dashboard-sidebar .sidebar-account,
 .dashboard-sidebar .sidebar-account:hover {
   box-sizing: border-box !important;
-  border: 1px solid transparent !important;
-  transform: none !important;
   margin: 0 !important;
 }
 .dashboard-sidebar .sidebar-account:hover {
@@ -18018,7 +17960,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .kpi-grid--premium { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
 @media (max-width: 1280px) { .kpi-grid--premium { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
 @media (max-width: 1024px) { .kpi-grid--premium { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
-@media (max-width: 560px)  { .kpi-grid--premium { grid-template-columns: 1fr !important; } }
 
 /* 3) period-switcher: одинаковый размер дропдауна и "Подробнее" */
 .period-switcher { display: inline-flex !important; align-items: center !important; gap: 8px !important; }
@@ -18110,11 +18051,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .period-switcher button svg { color: var(--accent, #1db5b5) !important; fill: none !important; stroke: currentColor !important; }
 
 /* ИКОНКИ lucide — stroke-based: только color/stroke, без сплошной заливки */
-.premium-kpi__icon svg,
-.premium-kpi__icon svg * {
-  fill: none !important;
-  stroke: currentColor !important;
-}
 .premium-kpi__icon, .premium-kpi__icon svg { color: #ffffff !important; }
 
 .warehouse-summary-item__icon svg,
@@ -18234,7 +18170,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .warehouse-summary-item--pink {
   border: 0 !important;
   background: var(--neutral-50, #f4f7fc) !important;
-  box-shadow: none !important;
 }
 
 /* 7) единый стиль иконок: warehouse-контейнер как у KPI-чипа (teal-tint, teal-глиф, stroke) */
@@ -18250,8 +18185,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .warehouse-summary-item__icon svg { stroke-width: 2 !important; }
 
 /* 8) warehouse значения: меньше и аккуратнее */
-.warehouse-summary-item strong { font-size: 13px !important; font-weight: 600 !important; color: var(--neutral-900,#0b1f3f) !important; }
-.warehouse-summary-item span:not(.warehouse-summary-item__icon) { font-size: 13px !important; font-weight: 500 !important; color: var(--neutral-600,#475569) !important; }
+.warehouse-summary-item strong { font-size: 13px !important; }
+.warehouse-summary-item span:not(.warehouse-summary-item__icon) { font-size: 13px !important; }
 
 /* 9+10) "Все блюда" / "Все заказы" = 1:1 с "Подробнее", без символа › */
 .section-header .btn-ghost,
@@ -18422,17 +18357,11 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .dish-catalog-page .dish-catalog-header {
   min-height: 0 !important;
   margin-bottom: 12px !important;
-  align-items: flex-start !important;
 }
 
 .dish-catalog-page .dish-catalog-header h1 {
   font-size: 26px !important;
   line-height: 1.1 !important;
-}
-
-.dish-catalog-page .dish-catalog-header p {
-  margin-top: 4px !important;
-  line-height: 1.35 !important;
 }
 
 .dish-catalog-page .dish-header-actions {
@@ -18490,7 +18419,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 }
 
 .dish-catalog-page .dish-grid-table {
-  width: 100% !important;
   min-width: 0 !important;
   table-layout: auto !important;
 }
@@ -18700,7 +18628,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .staff-modal {
   z-index: 5000 !important;
   align-items: center !important;
-  justify-content: flex-end !important;
   padding: 18px 28px !important;
 }
 
@@ -18717,7 +18644,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   gap: 12px !important;
   padding: 0 !important;
   border: 1px solid rgba(226, 232, 240, 0.94) !important;
-  border-radius: 24px !important;
   background: #ffffff !important;
   box-shadow: 0 26px 70px rgba(15, 23, 42, 0.24) !important;
 }
@@ -18739,7 +18665,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 }
 
 .staff-form__header h2 {
-  font-size: 22px !important;
   line-height: 1.15 !important;
 }
 
@@ -18747,7 +18672,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   width: 36px !important;
   height: 36px !important;
   border-color: rgba(29, 181, 181, 0.28) !important;
-  border-radius: 12px !important;
   color: #0f8f8f !important;
   background: rgba(29, 181, 181, 0.08) !important;
 }
@@ -19019,7 +18943,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 }
 
 .staff-form__footer button {
-  min-height: 42px !important;
   border-radius: 14px !important;
 }
 
@@ -19041,7 +18964,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   }
 
   .staff-form {
-    width: 100% !important;
     max-height: calc(100vh - 20px) !important;
     border-radius: 20px !important;
   }
@@ -19066,7 +18988,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .dashboard-shell .kpi-grid--premium .premium-kpi .premium-kpi__icon,
 .dashboard-shell .kpi-grid .premium-kpi .premium-kpi__icon {
   background: #1db5b5 !important;
-  background-image: none !important;
   color: #ffffff !important;
 }
 .dashboard-shell .kpi-grid--premium .premium-kpi::after {
@@ -19134,9 +19055,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 /* ============ FIX ROUND 2 (front) ============ */
 
 /* A) warehouse icon — square (sharp corners) */
-.dashboard-shell .warehouse-summary-item__icon {
-  border-radius: 6px !important;
-}
 
 /* B) KPI icon — light teal tint + teal glyph (lighter, matches warehouse chips) */
 .dashboard-shell .kpi-grid--premium .premium-kpi .premium-kpi__icon,
@@ -19312,7 +19230,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   min-width: 48px !important;
   max-width: 48px !important;
   flex: 0 0 48px !important;
-  border-radius: 14px !important;
 }
 
 /* payment logos — bigger */
@@ -19473,15 +19390,11 @@ body:has(.balance-payment-modal) .dashboard-main {
 /* Staff edit modal: professional layout pass. */
 .staff-modal {
   z-index: 30000 !important;
-  align-items: flex-start !important;
   padding: 76px 32px 24px !important;
 }
 
 .staff-form {
   width: min(670px, calc(100vw - 64px)) !important;
-  max-height: calc(100vh - 100px) !important;
-  border-radius: 24px !important;
-  overflow: hidden !important;
 }
 
 .staff-form__header {
@@ -19499,7 +19412,6 @@ body:has(.balance-payment-modal) .dashboard-main {
   margin: 0 !important;
   color: var(--neutral-950, #0b1f3f) !important;
   font-size: 22px !important;
-  font-weight: 800 !important;
 }
 
 .staff-form__grid--edit {
@@ -19620,13 +19532,8 @@ body:has(.balance-payment-modal) .dashboard-main {
 }
 
 .staff-form__footer button {
-  min-height: 46px !important;
   border-radius: 12px !important;
   font-weight: 800 !important;
-}
-
-.staff-form__footer button[type="button"] {
-  min-width: 130px !important;
 }
 
 .staff-form__footer button[type="submit"] {
@@ -19680,7 +19587,6 @@ body:has(.balance-payment-modal) .dashboard-main {
   margin-inline: 56px !important;
   padding-top: 36px !important;
   padding-bottom: 28px !important;
-  display: grid !important;
   grid-template-columns: 170px minmax(0, 1fr) minmax(0, 1.2fr) !important;
   grid-template-rows: repeat(3, auto) auto !important;
   column-gap: 54px !important;
@@ -19693,7 +19599,6 @@ body:has(.balance-payment-modal) .dashboard-main {
   grid-row: 1 / span 3 !important;
   width: 138px !important;
   min-height: 172px !important;
-  margin: 0 !important;
   padding: 18px 12px !important;
   justify-self: start !important;
   align-self: start !important;
@@ -19751,7 +19656,6 @@ body:has(.balance-payment-modal) .dashboard-main {
 .staff-form .staff-form__grid.staff-form__grid--edit label {
   gap: 12px !important;
   font-size: 18px !important;
-  font-weight: 800 !important;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit input,
@@ -19789,7 +19693,6 @@ body:has(.balance-payment-modal) .dashboard-main {
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit > .staff-permission-switches {
-  grid-column: 1 / -1 !important;
   grid-row: 4 !important;
   margin-top: 18px !important;
   padding-top: 24px !important;
@@ -19798,7 +19701,6 @@ body:has(.balance-payment-modal) .dashboard-main {
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch {
   min-height: 68px !important;
-  padding: 0 !important;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch span {
@@ -19876,7 +19778,6 @@ body:has(.balance-payment-modal) .dashboard-main {
 /* Staff edit compact right-aligned final adjustment. */
 .staff-modal {
   align-items: flex-start !important;
-  justify-content: flex-end !important;
   padding: 70px 18px 18px !important;
 }
 
@@ -19911,7 +19812,6 @@ body:has(.balance-payment-modal) .dashboard-main {
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-photo-upload {
-  width: 112px !important;
   min-height: 132px !important;
   padding: 14px 10px !important;
   border-radius: 12px !important;
@@ -19961,7 +19861,6 @@ body:has(.balance-payment-modal) .dashboard-main {
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit > .staff-permission-switches {
-  margin-top: 10px !important;
   padding-top: 16px !important;
 }
 
@@ -19969,12 +19868,7 @@ body:has(.balance-payment-modal) .dashboard-main {
   min-height: 46px !important;
 }
 
-.staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch span {
-  font-size: 14px !important;
-}
-
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch i {
-  min-width: 76px !important;
   font-size: 13px !important;
 }
 
@@ -20012,7 +19906,6 @@ body:has(.balance-payment-modal) .dashboard-main {
 
 /* Final right-shift: remove the empty space on the right and keep the form compact. */
 .staff-modal {
-  justify-content: flex-end !important;
   padding: 70px 0 14px 18px !important;
 }
 
@@ -20047,20 +19940,10 @@ body:has(.balance-payment-modal) .dashboard-main {
 }
 
 /* Hard final: right compact drawer, no bottom/right empty space. */
-.staff-modal {
-  align-items: stretch !important;
-  justify-content: flex-end !important;
-  padding: 70px 0 0 0 !important;
-}
 
 .staff-form {
   width: min(860px, calc(100vw - 52px)) !important;
-  height: calc(100vh - 70px) !important;
-  max-height: calc(100vh - 70px) !important;
-  margin: 0 0 0 auto !important;
   border-radius: 20px 0 0 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
 }
 
 .staff-form__header {
@@ -20079,8 +19962,6 @@ body:has(.balance-payment-modal) .dashboard-main {
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit {
-  flex: 1 1 auto !important;
-  overflow: hidden auto !important;
   margin-left: 46px !important;
   margin-right: 12px !important;
   padding-top: 18px !important;
@@ -20098,7 +19979,6 @@ body:has(.balance-payment-modal) .dashboard-main {
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-photo-upload > span {
   margin-top: 6px !important;
-  font-size: 13px !important;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-avatar--large {
@@ -20108,15 +19988,12 @@ body:has(.balance-payment-modal) .dashboard-main {
 
 .staff-form .staff-form__grid.staff-form__grid--edit label {
   gap: 6px !important;
-  font-size: 13px !important;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit input,
 .staff-form .staff-form__grid.staff-form__grid--edit select {
   height: 42px !important;
   min-height: 42px !important;
-  padding: 0 12px !important;
-  font-size: 14px !important;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-phone-field input {
@@ -20125,12 +20002,6 @@ body:has(.balance-payment-modal) .dashboard-main {
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-phone-flag {
   left: 10px !important;
-  width: 34px !important;
-  height: 24px !important;
-}
-
-.staff-form .staff-form__grid.staff-form__grid--edit .staff-password-field input {
-  padding-right: 48px !important;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-password-field button {
@@ -20154,7 +20025,6 @@ body:has(.balance-payment-modal) .dashboard-main {
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch i {
   min-width: 70px !important;
-  font-size: 12px !important;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-switch {
@@ -20191,20 +20061,6 @@ body:has(.balance-payment-modal) .dashboard-main {
 }
 
 /* Permission matrix behavior: switch-only toggles and animated sub-actions. */
-.staff-permission-matrix .staff-access-row {
-  gap: 0 !important;
-  overflow: hidden !important;
-}
-
-.staff-permission-matrix .staff-access-toggle {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 12px !important;
-  min-height: 24px !important;
-  color: var(--neutral-700, #334155) !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
-}
 
 .staff-switch-button,
 .staff-access-action {
@@ -20214,53 +20070,8 @@ body:has(.balance-payment-modal) .dashboard-main {
   cursor: pointer !important;
 }
 
-.staff-switch-button {
-  width: 34px !important;
-  height: 20px !important;
-  display: inline-grid !important;
-  place-items: center !important;
-  padding: 0 !important;
-}
-
-.staff-mini-switch,
-.staff-form .staff-form__grid.staff-form__grid--edit .staff-switch {
-  transition: background-color 0.22s ease, box-shadow 0.22s ease !important;
-}
-
-.staff-mini-switch::after,
-.staff-form .staff-form__grid.staff-form__grid--edit .staff-switch::after {
-  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.22s ease !important;
-}
-
-.staff-access-actions {
-  max-height: 0 !important;
-  opacity: 0 !important;
-  transform: translateY(-6px) !important;
-  overflow: hidden !important;
-  pointer-events: none !important;
-  margin-top: 0 !important;
-  transition:
-    max-height 0.24s ease,
-    opacity 0.18s ease,
-    transform 0.22s ease,
-    margin-top 0.22s ease !important;
-}
-
 .staff-access-row.is-open .staff-access-actions {
   max-height: 42px !important;
-  opacity: 1 !important;
-  transform: translateY(0) !important;
-  pointer-events: auto !important;
-  margin-top: 10px !important;
-}
-
-.staff-access-action:disabled {
-  cursor: default !important;
-}
-
-.staff-access-action:disabled .staff-mini-switch,
-.staff-access-action:disabled span {
-  opacity: 0.55 !important;
 }
 
 /* Support phone: country code is fixed text, local number is the only editable part. */
@@ -20285,13 +20096,7 @@ body:has(.balance-payment-modal) .dashboard-main {
   flex: 1 1 auto !important;
   min-width: 0 !important;
   padding: 0 !important;
-  border: 0 !important;
   border-radius: 0 !important;
-  box-shadow: none !important;
-  background: transparent !important;
-  height: auto !important;
-  color: var(--neutral-950, #0b1f3f) !important;
-  opacity: 1 !important;
 }
 
 .support-widget__phone input::placeholder {
@@ -20403,12 +20208,6 @@ body:has(.balance-payment-modal) .dashboard-main {
 }
 
 /* Match active status text green. */
-.staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch.is-on i,
-.staff-status-badge:not(.is-archived),
-.nomenclature-status-badge:not(.is-archived),
-.finance-status-badge:not(.is-archived) {
-  color: #008f4c !important;
-}
 
 /* Phone country selector. */
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-phone-field {
@@ -20536,12 +20335,7 @@ body:has(.balance-payment-modal) .dashboard-main {
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch i {
   width: 76px !important;
   min-width: 76px !important;
-  color: #ef4444 !important;
   text-align: right !important;
-}
-
-.staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch.is-on i {
-  color: #16a34a !important;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch .staff-switch,
@@ -20550,12 +20344,6 @@ body:has(.balance-payment-modal) .dashboard-main {
   min-width: 34px !important;
   height: 20px !important;
   background: #c6cbd3 !important;
-}
-
-.staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch.is-on .staff-switch,
-.staff-switch-button.is-on .staff-mini-switch,
-.staff-access-action.is-on .staff-mini-switch {
-  background: #20b8b8 !important;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch .staff-switch::after,
@@ -20771,11 +20559,6 @@ body:has(.admin-income-modal) .support-widget {
 }
 
 /* Final switch color: teal like the reference. */
-.staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch.is-on .staff-switch,
-.staff-switch-button.is-on .staff-mini-switch,
-.staff-access-action.is-on .staff-mini-switch {
-  background: #20b8b8 !important;
-}
 
 /* Status text color and stable teal switches. */
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch i {
@@ -20790,11 +20573,6 @@ body:has(.admin-income-modal) .support-widget {
 .staff-switch-button,
 .staff-access-action {
   transform: none !important;
-}
-
-.staff-form .staff-form__grid.staff-form__grid--edit .staff-switch,
-.staff-mini-switch {
-  background: #c6cbd3 !important;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch.is-on .staff-switch,
@@ -21016,9 +20794,6 @@ body:has(.admin-income-modal) .support-widget {
 }
 
 .staff-access-actions {
-  display: grid !important;
-  grid-template-columns: repeat(4, max-content) !important;
-  gap: 10px 18px !important;
   align-items: center !important;
 }
 
@@ -23015,15 +22790,12 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 
 /* OK в строке дат */
 .report-actions .report-date-ok {
-  min-height: 36px !important;
-  height: 36px !important;
   padding: 0 16px !important;
   color: #ffffff !important;
   border: 0 !important;
   border-radius: 9px !important;
   background: var(--teal-500, #1db5b5) !important;
   box-shadow: 0 2px 8px rgba(29, 181, 181, 0.28) !important;
-  font-size: 12px !important;
   font-weight: 700 !important;
   letter-spacing: 0.04em !important;
   transition: background 120ms, box-shadow 120ms, transform 80ms !important;
@@ -23051,7 +22823,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
    ============================================================== */
 .report-actions .report-date-calendar-popover {
   border: 1px solid rgba(194, 212, 234, 0.65) !important;
-  border-radius: 16px !important;
   background: #ffffff !important;
   box-shadow:
     0 0 0 1px rgba(29, 181, 181, 0.05),
@@ -23133,7 +22904,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .report-actions .report-date-calendar-week span {
   padding: 0 0 10px !important;
   color: #64748b !important;
-  font-size: 11px !important;
   font-weight: 700 !important;
   text-transform: uppercase !important;
   letter-spacing: 0.05em !important;
@@ -23145,7 +22915,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   padding: 0 !important;
   color: #1e293b !important;
   border: 0 !important;
-  border-radius: 9px !important;
   background: transparent !important;
   box-shadow: none !important;
   font-size: 14px !important;
@@ -23211,9 +22980,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 
 .report-actions .report-date-time-column-label {
   display: block !important;
-  margin-bottom: 5px !important;
   color: #64748b !important;
-  font-size: 10px !important;
   font-weight: 700 !important;
   text-align: center !important;
   text-transform: uppercase !important;
@@ -23274,7 +23041,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .report-actions .report-date-today-button,
 .report-actions .report-date-calendar-ok {
   min-height: 40px !important;
-  border-radius: 10px !important;
   box-shadow: none !important;
   font-size: 14px !important;
   font-weight: 600 !important;
@@ -23473,13 +23239,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     max-width: var(--owner-sidebar-open-w, 280px) !important;
     height: 72px !important;
     min-height: 72px !important;
-    display: grid !important;
-    grid-template-columns: 224px 30px !important;
     align-items: flex-start !important;
-    column-gap: 8px !important;
-    overflow: visible !important;
-    transform: none !important;
-    transition: none !important;
   }
 
   .dashboard-sidebar .sidebar-brand__identity,
@@ -23613,22 +23373,10 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     pointer-events: none !important;
   }
 
-  .dashboard-sidebar,
-  .dashboard-sidebar.is-collapsed {
-    background: var(--shell-sidebar-bg, #0b1f3f) !important;
-    background-color: var(--shell-sidebar-bg, #0b1f3f) !important;
-  }
-
   .dashboard-sidebar .sidebar-brand,
   .dashboard-sidebar.is-collapsed .sidebar-brand,
   .dashboard-sidebar:not(.is-collapsed) .sidebar-brand {
-    position: fixed !important;
-    top: 18px !important;
-    left: 10px !important;
     z-index: 90 !important;
-    width: 262px !important;
-    min-width: 262px !important;
-    max-width: 262px !important;
     height: 56px !important;
     min-height: 56px !important;
     max-height: 56px !important;
@@ -23642,10 +23390,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     background-color: var(--shell-sidebar-bg, #0b1f3f) !important;
     border: 0 !important;
     overflow: visible !important;
-    transform: none !important;
-    translate: none !important;
     scale: none !important;
-    transition: none !important;
   }
 
   .dashboard-sidebar .sidebar-brand,
@@ -24281,7 +24026,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     width: calc(100% + 52px) !important;
     margin-left: -26px !important;
     margin-right: -26px !important;
-    margin-top: -12px !important;
     gap: 14px !important;
   }
 
@@ -24410,8 +24154,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .dashboard-shell .chart-card,
 .dashboard-shell .premium-chart {
   transition: none !important;
-  animation: none !important;
-  transform: none !important;
 }
 
 .dashboard-shell .chart-card:hover,
@@ -24419,8 +24161,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .dashboard-shell .premium-chart:hover,
 .dashboard-shell .premium-chart:focus-within {
   transition: none !important;
-  animation: none !important;
-  transform: none !important;
   box-shadow: var(--mj-card-shadow) !important;
 }
 
@@ -25054,7 +24794,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .dish-catalog-page .dish-grid-wrap {
-  overflow: auto !important;
   border: 1px solid var(--dish-border) !important;
   border-radius: 8px !important;
   background: #ffffff !important;
@@ -25565,13 +25304,10 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   .dish-catalog-page .dish-catalog-card {
     flex: 1 1 auto !important;
     min-height: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
     padding-bottom: 12px !important;
   }
 
   .dish-catalog-page .dish-grid-wrap {
-    flex: 1 1 auto !important;
     min-height: 220px !important;
     max-height: none !important;
     overflow: auto !important;
@@ -25609,15 +25345,12 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .dish-catalog-page .dish-grid-wrap::-webkit-scrollbar-track {
-  border-radius: 999px !important;
   background: #e8f7f7 !important;
 }
 
 .dish-catalog-page .dish-grid-wrap::-webkit-scrollbar-thumb {
   min-height: 42px !important;
   border: 2px solid #e8f7f7 !important;
-  border-radius: 999px !important;
-  background: #18b6ad !important;
 }
 
 .dish-catalog-page .dish-grid-wrap::-webkit-scrollbar-thumb:hover {
@@ -26157,8 +25890,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   body.dashboard-body:has(.menu-categories-page) .dashboard-content {
     box-sizing: border-box !important;
     height: calc(100dvh - 84px) !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
     display: flex !important;
     flex-direction: column !important;
   }
@@ -26196,9 +25927,6 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   .dish-catalog-page .dish-grid-wrap,
   .menu-categories-page .menu-category-list {
     flex: 1 1 auto !important;
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
     overflow: auto !important;
     overscroll-behavior: contain !important;
   }
@@ -29091,9 +28819,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 /* Cafe login: full-screen photo background without left-side promo cards. */
 .login-pro-shell {
   position: relative !important;
-  min-height: 100dvh !important;
   height: auto !important;
-  overflow: auto !important;
   display: grid !important;
   grid-template-columns: minmax(0, 1fr) !important;
   place-items: center !important;
@@ -29121,7 +28847,6 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
   position: relative !important;
   z-index: 1 !important;
   width: min(500px, calc(100vw - 32px)) !important;
-  height: auto !important;
   min-height: 0 !important;
   overflow: visible !important;
   padding: 0 !important;
@@ -29216,7 +28941,6 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 .login-pro-input-wrap input:-webkit-autofill,
 .login-pro-input-wrap input:-webkit-autofill:hover,
 .login-pro-input-wrap input:-webkit-autofill:focus {
-  -webkit-text-fill-color: #fff8e6 !important;
   -webkit-box-shadow: 0 0 0 1000px rgba(9, 24, 30, 0.78) inset !important;
   box-shadow: 0 0 0 1000px rgba(9, 24, 30, 0.78) inset !important;
   caret-color: #fff8e6 !important;
@@ -29464,7 +29188,6 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-submit {
-  min-height: 58px !important;
   border-radius: 12px !important;
   background: linear-gradient(135deg, #15c7c5 0%, #08a8af 100%) !important;
   color: #fff !important;
@@ -29579,7 +29302,6 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 @media (max-width: 1100px) {
   .login-pro-panel {
     width: min(520px, 100%) !important;
-    min-width: 0 !important;
     margin-right: 0 !important;
     background: rgba(4, 18, 22, 0.72) !important;
   }
@@ -29711,7 +29433,6 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 
 /* Cafe login: stable language menu and fixed Uzbekistan phone prefix. */
 .login-pro-top-actions {
-  align-items: center !important;
   gap: 14px !important;
   min-width: 194px;
 }
@@ -30063,8 +29784,6 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-lang__flag {
-  width: 21px !important;
-  height: 14px !important;
   border-color: rgba(255, 255, 255, 0.58) !important;
 }
 
@@ -30877,13 +30596,6 @@ body.dashboard-body .dashboard-shell .premium-chart .owner-revenue-switcher .own
   line-height: 1.35 !important;
 }
 
-.dc-report-head .mj-datepicker__trigger {
-  min-width: 212px !important;
-  height: 38px !important;
-  min-height: 38px !important;
-  border-radius: 12px !important;
-}
-
 .dc-report-head .mj-datepicker__icon {
   width: 30px !important;
   height: 30px !important;
@@ -31186,8 +30898,6 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   width: fit-content !important;
   max-width: 100% !important;
   position: relative !important;
-  display: flex !important;
-  align-items: center !important;
   justify-content: flex-start !important;
   gap: 12px !important;
   margin: -16px 0 4px 18px !important;
