@@ -3081,7 +3081,6 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link:hover,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible,
 .dashboard-sidebar .sidebar-submenu__link.is-active {
-  position: relative !important;
   height: 30px !important;
   min-height: 30px !important;
   max-height: 30px !important;
@@ -3089,8 +3088,6 @@ body.dashboard-body,
   border-radius: 8px !important;
   color: rgba(219, 234, 254, 0.72) !important;
   font-size: 12px !important;
-  line-height: 1 !important;
-  background: transparent !important;
   overflow: visible !important;
 }
 
@@ -3098,19 +3095,9 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link:hover::before,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible::before,
 .dashboard-sidebar .sidebar-submenu__link.is-active::before {
-  content: "" !important;
-  position: absolute !important;
-  top: 50% !important;
-  margin: 0 !important;
-  border-radius: 999px !important;
   background: rgba(147, 197, 253, 0.72) !important;
   box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.07),
     0 0 7px rgba(147, 197, 253, 0.196) !important;
-  transform: translateY(-50%) !important;
-}
-
-.dashboard-sidebar .sidebar-submenu__dot {
-  display: none !important;
 }
 
 .dashboard-sidebar .sidebar-submenu__icon {
@@ -3118,8 +3105,6 @@ body.dashboard-body,
   width: 16px !important;
   min-width: 16px !important;
   height: 16px !important;
-  display: grid !important;
-  place-items: center !important;
   color: rgba(219, 234, 254, 0.74) !important;
 }
 
@@ -3277,10 +3262,7 @@ body.dashboard-body,
   min-height: 34px !important;
   max-height: 34px !important;
   padding: 0 8px 0 23px !important;
-  border-radius: 9px !important;
   color: rgba(219, 234, 254, 0.76) !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
 }
 
 .dashboard-sidebar .sidebar-submenu__link::before,
@@ -3294,14 +3276,7 @@ body.dashboard-body,
 
 .dashboard-sidebar .sidebar-submenu__icon {
   flex-basis: 17px !important;
-  width: 17px !important;
-  min-width: 17px !important;
-  height: 17px !important;
   margin-right: 8px !important;
-}
-
-.dashboard-sidebar .sidebar-submenu__icon .bi {
-  font-size: 14px !important;
 }
 
 .dashboard-sidebar .sidebar-submenu__link:hover,
@@ -3433,7 +3408,6 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible,
 .dashboard-sidebar .sidebar-submenu__link.is-active {
   padding-left: 38px !important;
-  border-radius: 9px !important;
 }
 
 .dashboard-sidebar .sidebar-submenu__link::before,
