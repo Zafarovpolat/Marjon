@@ -2400,19 +2400,8 @@ body.dashboard-body,
 }
 
 /* Keep sidebar user card above long submenus */
-.dashboard-sidebar {
-  display: flex !important;
-  flex-direction: column !important;
-  overflow: hidden !important;
-}
-
 .dashboard-sidebar .sidebar-nav {
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
   padding-bottom: 18px !important;
-  scrollbar-gutter: stable !important;
 }
 
 .dashboard-sidebar .sidebar-user {
@@ -2493,17 +2482,11 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link:hover,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible,
 .dashboard-sidebar .sidebar-submenu__link.is-active {
-  box-sizing: border-box !important;
-  width: 100% !important;
   min-height: 34px !important;
   height: 34px !important;
   padding: 0 10px 0 12px !important;
-  margin: 0 !important;
-  display: flex !important;
-  align-items: center !important;
   gap: 0 !important;
   transform: none !important;
-  border: 0 !important;
   outline: 0 !important;
 }
 
@@ -2511,18 +2494,12 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link:hover::before,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible::before,
 .dashboard-sidebar .sidebar-submenu__link.is-active::before {
-  flex: 0 0 5px !important;
-  width: 5px !important;
-  min-width: 5px !important;
-  height: 5px !important;
   margin: 0 9px 0 0 !important;
-  transform: none !important;
 }
 
 .dashboard-sidebar .sidebar-submenu__link:hover,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible {
   color: #fff !important;
-  background: rgba(255, 255, 255, 0.075) !important;
 }
 
 .dashboard-sidebar .sidebar-submenu__link.is-active {
@@ -2601,8 +2578,6 @@ body.dashboard-body,
   margin: 0 !important;
   border-radius: 14px !important;
   font-size: 14px !important;
-  line-height: 1 !important;
-  font-weight: 500 !important;
   letter-spacing: 0 !important;
   transform: none !important;
   white-space: nowrap !important;
@@ -2639,17 +2614,12 @@ body.dashboard-body,
   inset: auto !important;
   z-index: auto !important;
   width: auto !important;
-  max-height: 0 !important;
-  opacity: 0 !important;
-  overflow: hidden !important;
   pointer-events: none !important;
   margin: 0 4px 0 28px !important;
-  padding: 0 !important;
   border-left: 1px solid rgba(147, 197, 253, 0.20) !important;
   border-radius: 0 12px 12px 0 !important;
   background: rgba(255, 255, 255, 0.025) !important;
   box-shadow: none !important;
-  transform: translateY(-3px) !important;
   transition:
     max-height 0.24s cubic-bezier(0.22, 1, 0.36, 1),
     opacity 0.16s ease,
@@ -2661,12 +2631,8 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open:hover .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open:focus-within .sidebar-submenu {
-  max-height: 360px !important;
-  opacity: 1 !important;
   pointer-events: auto !important;
-  margin-top: 4px !important;
   padding: 4px 4px 4px 7px !important;
-  transform: translateY(0) !important;
 }
 
 .dashboard-sidebar .sidebar-submenu__link,
