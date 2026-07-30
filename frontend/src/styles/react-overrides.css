@@ -3485,24 +3485,6 @@ body.dashboard-body,
   }
 }
 
-/* Revert seam overlap change */
-.dashboard-main {
-  margin-left: 0 !important;
-  border-top-left-radius: 36px !important;
-  box-shadow: -11px 0 26px rgba(2, 8, 23, 0.112) !important;
-}
-
-.dashboard-topbar {
-  border-top-left-radius: 36px !important;
-}
-
-@media (max-width: 1024px) {
-  .dashboard-main,
-  .dashboard-topbar {
-    border-top-left-radius: 0 !important;
-  }
-}
-
 /* Reference seam: large white curve, dark background behind it */
 body.dashboard-body,
 .dashboard-shell {
@@ -3514,12 +3496,10 @@ body.dashboard-body,
 }
 
 .dashboard-main {
-  margin-left: 0 !important;
   border-top-left-radius: 58px !important;
   background: var(--neutral-50);
   box-shadow: -7px 0 20px rgba(2, 8, 23, 0.07),
     inset 1px 0 0 rgba(255, 255, 255, 0.574) !important;
-  overflow: hidden auto !important;
 }
 
 .dashboard-topbar {
@@ -3527,36 +3507,19 @@ body.dashboard-body,
   background: rgba(255, 255, 255, 0.94) !important;
 }
 
-@media (max-width: 1024px) {
-  .dashboard-main,
-  .dashboard-topbar {
-    border-top-left-radius: 0 !important;
-  }
-}
-
 /* Keep only sidebar reference design; restore previous main seam */
 .dashboard-main {
-  margin-left: 0 !important;
-  border-top-left-radius: 36px !important;
   background: var(--neutral-50);
   box-shadow: -11px 0 26px rgba(2, 8, 23, 0.112) !important;
 }
 
 .dashboard-topbar {
-  border-top-left-radius: 36px !important;
   background: rgba(245, 247, 251, 0.96) !important;
 }
 
 body.dashboard-body,
 .dashboard-shell {
   background: var(--neutral-950);
-}
-
-@media (max-width: 1024px) {
-  .dashboard-main,
-  .dashboard-topbar {
-    border-top-left-radius: 0 !important;
-  }
 }
 
 /* Make sidebar user card shorter in width, keep text size */
