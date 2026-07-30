@@ -28818,10 +28818,10 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 
 /* Cafe login: full-screen photo background without left-side promo cards. */
 .login-pro-shell {
-  position: relative !important;
-  height: auto !important;
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) !important;
+  position: relative;
+  height: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: 28px 16px;
   background:
@@ -28844,11 +28844,11 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-panel {
-  position: relative !important;
-  z-index: 1 !important;
+  position: relative;
+  z-index: 1;
   width: min(500px, calc(100vw - 32px));
-  min-height: 0 !important;
-  overflow: visible !important;
+  min-height: 0;
+  overflow: visible;
   padding: 0;
 }
 
@@ -28856,7 +28856,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
   width: 100%;
   padding: 30px 42px 32px;
   border-radius: 24px;
-  border-color: rgba(255, 248, 230, 0.18) !important;
+  border-color: rgba(255, 248, 230, 0.18);
   background: rgba(15, 31, 37, 0.9);
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
   backdrop-filter: blur(18px) saturate(1.08);
@@ -28864,29 +28864,29 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 
 .login-pro-logo-row {
   gap: 12px;
-  margin-bottom: 0 !important;
+  margin-bottom: 0;
 }
 
 .login-pro-logo-row img {
   width: 44px;
   height: 44px;
-  padding: 8px !important;
+  padding: 8px;
   border-radius: 14px;
-  background: #fff !important;
+  background: #fff;
 }
 
 .login-pro-logo-row strong {
-  color: rgba(242, 199, 110, 0.9) !important;
+  color: rgba(242, 199, 110, 0.9);
   font-size: 14px;
-  font-weight: 900 !important;
-  letter-spacing: 0.14em !important;
+  font-weight: 900;
+  letter-spacing: 0.14em;
 }
 
 .login-pro-logo-row span {
-  color: rgba(226, 232, 240, 0.72) !important;
+  color: rgba(226, 232, 240, 0.72);
   font-size: 11px;
-  font-weight: 800 !important;
-  letter-spacing: 0.12em !important;
+  font-weight: 800;
+  letter-spacing: 0.12em;
 }
 
 .login-pro-divider {
@@ -28894,21 +28894,21 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-head h2 {
-  color: #fff8e6 !important;
+  color: #fff8e6;
   font-size: 29px;
-  letter-spacing: 0 !important;
+  letter-spacing: 0;
 }
 
 .login-pro-head p {
   margin-bottom: 24px;
-  color: rgba(226, 232, 240, 0.78) !important;
-  font-size: 15px !important;
+  color: rgba(226, 232, 240, 0.78);
+  font-size: 15px;
 }
 
 .login-pro-field > span {
-  color: rgba(226, 232, 240, 0.74) !important;
-  font-size: 11px !important;
-  font-weight: 800 !important;
+  color: rgba(226, 232, 240, 0.74);
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .login-pro-input-wrap {
@@ -28916,7 +28916,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
   border-color: rgba(226, 232, 240, 0.18);
   border-radius: 17px;
   background: rgba(9, 24, 30, 0.78);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
 .login-pro-input-wrap:focus-within {
@@ -28925,13 +28925,13 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-input-wrap svg {
-  color: rgba(226, 232, 240, 0.74) !important;
+  color: rgba(226, 232, 240, 0.74);
 }
 
 .login-pro-input-wrap input {
-  color: #fff8e6 !important;
+  color: #fff8e6;
   font-size: 15px;
-  font-weight: 800 !important;
+  font-weight: 800;
 }
 
 .login-pro-input-wrap input::placeholder {
@@ -28947,7 +28947,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-row {
-  margin: 2px 0 18px !important;
+  margin: 2px 0 18px;
 }
 
 .login-pro-check,
@@ -28972,9 +28972,9 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
   border-radius: 16px;
   color: #071612;
   font-size: 16px;
-  font-weight: 900 !important;
+  font-weight: 900;
   background: linear-gradient(135deg, #f7c95d 0%, #f4c456 38%, #4fd69c 100%);
-  box-shadow: none !important;
+  box-shadow: none;
 }
 
 .login-pro-alert {
@@ -28985,7 +28985,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 
 @media (max-width: 640px) {
   .login-pro-shell {
-    padding: 18px 16px !important;
+    padding: 18px 16px;
   }
 
   .login-pro-card {
@@ -28993,22 +28993,22 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
   }
 
   .login-pro-row {
-    align-items: flex-start !important;
-    flex-direction: column !important;
-    gap: 12px !important;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
   }
 }
 
 /* Cafe login reference layout: framed split view, no cards over the left photo. */
 .login-pro-shell {
-  align-items: center !important;
-  justify-items: center !important;
-  min-height: 100dvh !important;
-  padding: 0 !important;
-  overflow: auto !important;
+  align-items: center;
+  justify-items: center;
+  min-height: 100dvh;
+  padding: 0;
+  overflow: auto;
   background:
     linear-gradient(120deg, rgba(2, 10, 14, 0.78), rgba(5, 32, 38, 0.64)),
-    url("../assets/kafe-login-restaurant.png") center / cover no-repeat !important;
+    url("../assets/kafe-login-restaurant.png") center / cover no-repeat;
 }
 
 .login-pro-shell::before {
@@ -29131,7 +29131,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-panel {
-  display: grid !important;
+  display: grid;
   place-items: center;
   width: auto;
   height: auto;
@@ -29144,18 +29144,18 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 .login-pro-card {
   width: min(470px, 100%);
   padding: 50px 40px 46px;
-  border-radius: 18px !important;
-  border: 1px solid rgba(226, 232, 240, 0.46) !important;
+  border-radius: 18px;
+  border: 1px solid rgba(226, 232, 240, 0.46);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035)),
-    rgba(11, 29, 34, 0.56) !important;
-  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.34) !important;
-  backdrop-filter: blur(18px) saturate(1.1) !important;
+    rgba(11, 29, 34, 0.56);
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(18px) saturate(1.1);
 }
 
 .login-pro-logo-row {
-  justify-content: center !important;
-  text-align: left !important;
+  justify-content: center;
+  text-align: left;
 }
 
 .login-pro-head {
@@ -29163,8 +29163,8 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-head h2 {
-  font-size: 30px !important;
-  line-height: 1.14 !important;
+  font-size: 30px;
+  line-height: 1.14;
 }
 
 .login-pro-head h2::before {
@@ -29182,20 +29182,20 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 
 .login-pro-input-wrap {
   min-height: 62px;
-  border-radius: 12px !important;
-  border-color: rgba(226, 232, 240, 0.28) !important;
-  background: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 12px;
+  border-color: rgba(226, 232, 240, 0.28);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .login-pro-submit {
-  border-radius: 12px !important;
-  background: linear-gradient(135deg, #15c7c5 0%, #08a8af 100%) !important;
-  color: #fff !important;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #15c7c5 0%, #08a8af 100%);
+  color: #fff;
 }
 
 @media (max-width: 1100px) {
   .login-pro-shell {
-    padding: 0 !important;
+    padding: 0;
   }
 
   .login-pro-frame {
@@ -29221,13 +29221,13 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
   }
 
   .login-pro-panel {
-    padding: 34px 24px !important;
+    padding: 34px 24px;
   }
 }
 
 @media (max-width: 760px) {
   .login-pro-shell {
-    padding: 0 !important;
+    padding: 0;
   }
 
   .login-pro-frame {
@@ -29259,7 +29259,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
   }
 
   .login-pro-card {
-    padding: 30px 20px 28px !important;
+    padding: 30px 20px 28px;
   }
 }
 
@@ -29267,12 +29267,12 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 .login-pro-frame {
   background:
     linear-gradient(90deg, rgba(2, 10, 14, 0.16) 0%, rgba(2, 10, 14, 0.28) 47%, rgba(2, 10, 14, 0.88) 100%),
-    url("../assets/kafe-login-restaurant.png") center / cover no-repeat !important;
+    url("../assets/kafe-login-restaurant.png") center / cover no-repeat;
 }
 
 .login-pro-topbar {
-  background: rgba(3, 20, 23, 0.72) !important;
-  backdrop-filter: blur(16px) saturate(1.08) !important;
+  background: rgba(3, 20, 23, 0.72);
+  backdrop-filter: blur(16px) saturate(1.08);
 }
 
 .login-pro-body {
@@ -29285,16 +29285,16 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-media {
-  display: none !important;
+  display: none;
 }
 
 .login-pro-panel {
-  justify-self: end !important;
+  justify-self: end;
   width: min(600px, 46vw);
   min-width: 500px;
-  height: 100% !important;
-  margin-right: clamp(28px, 5vw, 86px) !important;
-  padding: 38px 56px !important;
+  height: 100%;
+  margin-right: clamp(28px, 5vw, 86px);
+  padding: 38px 56px;
   background:
     linear-gradient(90deg, rgba(2, 10, 14, 0), rgba(4, 18, 22, 0.72) 26%, rgba(4, 18, 22, 0.94) 100%);
 }
@@ -29302,8 +29302,8 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 @media (max-width: 1100px) {
   .login-pro-panel {
     width: min(520px, 100%);
-    margin-right: 0 !important;
-    background: rgba(4, 18, 22, 0.72) !important;
+    margin-right: 0;
+    background: rgba(4, 18, 22, 0.72);
   }
 }
 
@@ -29314,66 +29314,66 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 
 .login-pro-topbar nav,
 .login-pro-top-actions {
-  display: none !important;
+  display: none;
 }
 
 .login-pro-topbrand {
-  gap: 14px !important;
+  gap: 14px;
   font-size: 18px !important;
 }
 
 .login-pro-topbrand img {
-  width: 46px !important;
-  height: 46px !important;
-  padding: 8px !important;
-  border-radius: 15px !important;
+  width: 46px;
+  height: 46px;
+  padding: 8px;
+  border-radius: 15px;
 }
 
 .login-pro-card {
-  width: min(520px, 100%) !important;
-  padding: 42px 44px 38px !important;
+  width: min(520px, 100%);
+  padding: 42px 44px 38px;
 }
 
 .login-pro-logo-row {
-  gap: 14px !important;
+  gap: 14px;
 }
 
 .login-pro-logo-row img {
-  width: 54px !important;
-  height: 54px !important;
-  border-radius: 16px !important;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
 }
 
 .login-pro-logo-row strong {
-  font-size: 16px !important;
+  font-size: 16px;
 }
 
 .login-pro-logo-row span {
-  font-size: 12px !important;
+  font-size: 12px;
 }
 
 .login-pro-panel {
-  width: min(680px, 50vw) !important;
-  min-width: 560px !important;
-  padding-inline: 64px !important;
+  width: min(680px, 50vw);
+  min-width: 560px;
+  padding-inline: 64px;
 }
 
 .login-pro-input-wrap {
-  min-height: 60px !important;
-  padding-inline: 22px !important;
+  min-height: 60px;
+  padding-inline: 22px;
 }
 
 .login-pro-input-wrap input {
-  font-size: 17px !important;
+  font-size: 17px;
 }
 
 .login-pro-submit {
-  min-height: 58px !important;
-  font-size: 17px !important;
+  min-height: 58px;
+  font-size: 17px;
 }
 
 .login-pro-divider {
-  height: 16px !important;
+  height: 16px;
 }
 
 .login-pro-head h2::before {
@@ -29381,24 +29381,24 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-head p {
-  margin-bottom: 20px !important;
+  margin-bottom: 20px;
 }
 
 .login-pro-field {
-  margin-bottom: 16px !important;
+  margin-bottom: 16px;
 }
 
 @media (max-width: 1100px) {
   .login-pro-panel {
-    width: min(620px, 100%) !important;
-    min-width: 0 !important;
-    padding-inline: 34px !important;
+    width: min(620px, 100%);
+    min-width: 0;
+    padding-inline: 34px;
   }
 }
 
 @media (max-width: 640px) {
   .login-pro-card {
-    padding: 34px 22px 30px !important;
+    padding: 34px 22px 30px;
   }
 }
 
@@ -29409,12 +29409,12 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 
 .login-pro-top-actions {
   display: inline-flex;
-  justify-self: end !important;
+  justify-self: end;
 }
 
 .login-pro-top-actions button,
 .login-pro-register {
-  display: inline-flex !important;
+  display: inline-flex;
 }
 
 .login-pro-top-actions > a:not(.login-pro-register) {
@@ -29423,12 +29423,12 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 
 .login-pro-body {
   background:
-    linear-gradient(90deg, rgba(2, 10, 14, 0.04) 0%, rgba(2, 10, 14, 0.12) 54%, rgba(2, 10, 14, 0.36) 100%) !important;
+    linear-gradient(90deg, rgba(2, 10, 14, 0.04) 0%, rgba(2, 10, 14, 0.12) 54%, rgba(2, 10, 14, 0.36) 100%);
 }
 
 .login-pro-panel {
   background:
-    linear-gradient(90deg, rgba(2, 10, 14, 0), rgba(2, 10, 14, 0.1) 36%, rgba(2, 10, 14, 0.28) 100%) !important;
+    linear-gradient(90deg, rgba(2, 10, 14, 0), rgba(2, 10, 14, 0.1) 36%, rgba(2, 10, 14, 0.28) 100%);
 }
 
 /* Cafe login: stable language menu and fixed Uzbekistan phone prefix. */
@@ -29439,26 +29439,26 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 
 .login-pro-lang {
   position: relative;
-  display: inline-flex !important;
+  display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
 }
 
 .login-pro-lang__button {
-  width: 78px !important;
-  min-width: 78px !important;
-  height: 38px !important;
-  display: grid !important;
+  width: 78px;
+  min-width: 78px;
+  height: 38px;
+  display: grid;
   grid-template-columns: 22px 1fr 14px;
-  align-items: center !important;
+  align-items: center;
   justify-items: center;
   gap: 6px;
-  padding: 0 8px !important;
+  padding: 0 8px;
   border: 1px solid rgba(226, 232, 240, 0.32) !important;
-  border-radius: 12px !important;
-  background: rgba(7, 25, 30, 0.64) !important;
-  color: #fff8e6 !important;
-  font-size: 14px !important;
+  border-radius: 12px;
+  background: rgba(7, 25, 30, 0.64);
+  color: #fff8e6;
+  font-size: 14px;
   font-weight: 800 !important;
   line-height: 1 !important;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
@@ -29516,20 +29516,20 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-lang__menu button {
-  width: 100% !important;
-  min-height: 34px !important;
-  display: grid !important;
+  width: 100%;
+  min-height: 34px;
+  display: grid;
   grid-template-columns: 24px 1fr;
-  align-items: center !important;
+  align-items: center;
   gap: 8px;
-  padding: 0 8px !important;
-  border: 0 !important;
-  border-radius: 9px !important;
-  background: transparent !important;
-  color: rgba(226, 232, 240, 0.86) !important;
-  font-size: 13px !important;
-  font-weight: 900 !important;
-  line-height: 1 !important;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: rgba(226, 232, 240, 0.86);
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
   text-align: left;
   cursor: pointer;
 }
@@ -29579,8 +29579,8 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-input-wrap--phone {
-  grid-template-columns: 20px auto minmax(0, 1fr) !important;
-  gap: 12px !important;
+  grid-template-columns: 20px auto minmax(0, 1fr);
+  gap: 12px;
 }
 
 .login-pro-phone-prefix {
@@ -29592,8 +29592,8 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-input-wrap--phone input {
-  min-width: 0 !important;
-  padding-left: 0 !important;
+  min-width: 0;
+  padding-left: 0;
 }
 
 .login-pro-input-wrap input::placeholder {
@@ -29611,19 +29611,19 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 @media (max-width: 640px) {
   .login-pro-top-actions {
     min-width: 0;
-    gap: 8px !important;
+    gap: 8px;
   }
 
   .login-pro-lang__button {
-    width: 74px !important;
-    min-width: 74px !important;
+    width: 74px;
+    min-width: 74px;
   }
 }
 
 /* Cafe login: final field cleanup and selectable hover language menu. */
 .login-pro-card .login-pro-input-wrap {
-  border-color: transparent !important;
-  box-shadow: none !important;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .login-pro-card .login-pro-input-wrap:focus-within {
@@ -29660,8 +29660,8 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 .login-pro-card .login-pro-eye {
   border: 0 !important;
   outline: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
+  background: transparent;
+  box-shadow: none;
 }
 
 .login-pro-card .login-pro-eye:focus,
@@ -29671,7 +29671,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-top-actions .login-pro-lang__button {
-  display: grid !important;
+  display: grid;
 }
 
 .login-pro-lang.is-open .login-pro-lang__button {
@@ -29691,7 +29691,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-top-actions .login-pro-lang__menu button {
-  display: grid !important;
+  display: grid;
 }
 
 /* Cafe login: compact language dropdown matching the requested hover panel. */
@@ -29699,12 +29699,12 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
   --login-pro-lang-slot: 76px;
   --login-pro-action-gap: 12px;
   --login-pro-register-slot: 160px;
-  display: grid !important;
+  display: grid;
   grid-template-columns: var(--login-pro-lang-slot) var(--login-pro-register-slot);
-  align-items: center !important;
-  gap: var(--login-pro-action-gap) !important;
-  width: calc(var(--login-pro-lang-slot) + var(--login-pro-action-gap) + var(--login-pro-register-slot)) !important;
-  min-width: calc(var(--login-pro-lang-slot) + var(--login-pro-action-gap) + var(--login-pro-register-slot)) !important;
+  align-items: center;
+  gap: var(--login-pro-action-gap);
+  width: calc(var(--login-pro-lang-slot) + var(--login-pro-action-gap) + var(--login-pro-register-slot));
+  min-width: calc(var(--login-pro-lang-slot) + var(--login-pro-action-gap) + var(--login-pro-register-slot));
 }
 
 .login-pro-lang {
@@ -29722,17 +29722,17 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-top-actions .login-pro-lang__button {
-  width: 76px !important;
-  min-width: 76px !important;
-  height: 34px !important;
+  width: 76px;
+  min-width: 76px;
+  height: 34px;
   grid-template-columns: 20px 1fr 12px !important;
-  gap: 5px !important;
-  padding: 0 8px !important;
+  gap: 5px;
+  padding: 0 8px;
   border-color: rgba(45, 212, 191, 0.72) !important;
-  border-radius: 10px !important;
-  background: rgba(7, 38, 42, 0.94) !important;
-  color: #f8fafc !important;
-  box-shadow: none !important;
+  border-radius: 10px;
+  background: rgba(7, 38, 42, 0.94);
+  color: #f8fafc;
+  box-shadow: none;
 }
 
 .login-pro-lang:hover .login-pro-lang__button,
@@ -29747,17 +29747,17 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-lang__button svg {
-  width: 12px !important;
-  height: 12px !important;
+  width: 12px;
+  height: 12px;
 }
 
 .login-pro-lang__menu {
-  top: calc(100% + 7px) !important;
-  right: 0 !important;
-  width: 88px !important;
-  padding: 6px !important;
-  border-color: rgba(37, 99, 127, 0.72) !important;
-  border-radius: 10px !important;
+  top: calc(100% + 7px);
+  right: 0;
+  width: 88px;
+  padding: 6px;
+  border-color: rgba(37, 99, 127, 0.72);
+  border-radius: 10px;
   background: rgba(5, 27, 43, 0.98);
   box-shadow: 0 18px 34px rgba(0, 0, 0, 0.34);
 }
@@ -29767,13 +29767,13 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-top-actions .login-pro-lang__menu button {
-  min-height: 29px !important;
-  grid-template-columns: 22px 1fr !important;
-  gap: 7px !important;
-  padding: 0 7px !important;
-  border-radius: 8px !important;
-  color: rgba(219, 234, 254, 0.82) !important;
-  font-size: 12px !important;
+  min-height: 29px;
+  grid-template-columns: 22px 1fr;
+  gap: 7px;
+  padding: 0 7px;
+  border-radius: 8px;
+  color: rgba(219, 234, 254, 0.82);
+  font-size: 12px;
 }
 
 .login-pro-top-actions .login-pro-lang__menu button:hover,
@@ -29784,12 +29784,12 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-lang__flag {
-  border-color: rgba(255, 255, 255, 0.58) !important;
+  border-color: rgba(255, 255, 255, 0.58);
 }
 
 @media (max-width: 640px) {
   .login-pro-topbar {
-    gap: 12px !important;
+    gap: 12px;
   }
 
   .login-pro-top-actions {
@@ -29799,17 +29799,17 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
   }
 
   .login-pro-register {
-    padding-inline: 10px !important;
+    padding-inline: 10px;
     font-size: 12px !important;
   }
 }
 
 /* Cafe login: left hero text over the restaurant photo. */
 .login-pro-body {
-  grid-template-columns: minmax(390px, 1fr) minmax(480px, 0.62fr) !important;
-  align-items: center !important;
-  gap: clamp(34px, 5vw, 88px) !important;
-  padding: 0 clamp(56px, 7vw, 124px) !important;
+  grid-template-columns: minmax(390px, 1fr) minmax(480px, 0.62fr);
+  align-items: center;
+  gap: clamp(34px, 5vw, 88px);
+  padding: 0 clamp(56px, 7vw, 124px);
 }
 
 .login-pro-body::before {
@@ -29900,26 +29900,26 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-body .login-pro-panel {
-  position: relative !important;
-  z-index: 1 !important;
-  justify-self: end !important;
-  width: min(520px, 100%) !important;
-  min-width: 0 !important;
-  height: auto !important;
-  margin-right: 0 !important;
-  padding: 0 !important;
-  background: transparent !important;
+  position: relative;
+  z-index: 1;
+  justify-self: end;
+  width: min(520px, 100%);
+  min-width: 0;
+  height: auto;
+  margin-right: 0;
+  padding: 0;
+  background: transparent;
 }
 
 .login-pro-body .login-pro-card {
-  width: min(500px, 100%) !important;
+  width: min(500px, 100%);
 }
 
 @media (max-width: 1260px) {
   .login-pro-body {
-    grid-template-columns: minmax(330px, 1fr) minmax(450px, 0.7fr) !important;
-    gap: 34px !important;
-    padding: 0 44px !important;
+    grid-template-columns: minmax(330px, 1fr) minmax(450px, 0.7fr);
+    gap: 34px;
+    padding: 0 44px;
   }
 
   .login-pro-hero-copy h1 {
@@ -29933,9 +29933,9 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 
 @media (max-width: 980px) {
   .login-pro-body {
-    grid-template-columns: minmax(0, 1fr) !important;
-    justify-items: center !important;
-    padding: 24px !important;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    padding: 24px;
   }
 
   .login-pro-hero-copy {
@@ -29943,34 +29943,34 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
   }
 
   .login-pro-body .login-pro-panel {
-    justify-self: center !important;
+    justify-self: center;
   }
 }
 
 /* Cafe login: smaller left copy and language menu above the photo overlay. */
 .login-pro-topbar {
-  position: relative !important;
-  z-index: 120 !important;
-  overflow: visible !important;
+  position: relative;
+  z-index: 120;
+  overflow: visible;
 }
 
 .login-pro-top-actions,
 .login-pro-lang {
-  position: relative !important;
-  z-index: 140 !important;
+  position: relative;
+  z-index: 140;
 }
 
 .login-pro-lang__menu {
-  z-index: 180 !important;
-  background: #061b2b !important;
-  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.48) !important;
+  z-index: 180;
+  background: #061b2b;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.48);
   isolation: isolate;
 }
 
 .login-pro-body {
-  position: relative !important;
-  z-index: 160 !important;
-  overflow: visible !important;
+  position: relative;
+  z-index: 160;
+  overflow: visible;
 }
 
 .login-pro-body::before {
@@ -29978,69 +29978,69 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-hero-copy {
-  max-width: 590px !important;
+  max-width: 590px;
 }
 
 .login-pro-hero-copy__badge {
-  position: relative !important;
-  z-index: 220 !important;
-  min-height: 36px !important;
-  padding: 0 16px !important;
-  font-size: 12px !important;
-  transform: translate(clamp(72px, 8vw, 140px), clamp(-206px, -13vw, -156px)) !important;
+  position: relative;
+  z-index: 220;
+  min-height: 36px;
+  padding: 0 16px;
+  font-size: 12px;
+  transform: translate(clamp(72px, 8vw, 140px), clamp(-206px, -13vw, -156px));
 }
 
 .login-pro-hero-copy h1 {
-  margin: 28px 0 18px !important;
-  font-size: clamp(36px, 4.25vw, 62px) !important;
-  line-height: 1.03 !important;
+  margin: 28px 0 18px;
+  font-size: clamp(36px, 4.25vw, 62px);
+  line-height: 1.03;
 }
 
 .login-pro-hero-copy p {
-  max-width: 540px !important;
-  font-size: clamp(16px, 1.15vw, 20px) !important;
-  line-height: 1.42 !important;
+  max-width: 540px;
+  font-size: clamp(16px, 1.15vw, 20px);
+  line-height: 1.42;
 }
 
 .login-pro-hero-copy ul {
-  width: min(520px, 100%) !important;
-  margin-top: 42px !important;
+  width: min(520px, 100%);
+  margin-top: 42px;
 }
 
 .login-pro-hero-copy li {
-  min-height: 62px !important;
-  gap: 20px !important;
-  font-size: clamp(14px, 1.05vw, 18px) !important;
+  min-height: 62px;
+  gap: 20px;
+  font-size: clamp(14px, 1.05vw, 18px);
 }
 
 .login-pro-hero-copy svg {
-  width: 28px !important;
-  height: 28px !important;
+  width: 28px;
+  height: 28px;
 }
 
 @media (max-width: 1260px) {
   .login-pro-hero-copy h1 {
-    font-size: clamp(34px, 4vw, 50px) !important;
+    font-size: clamp(34px, 4vw, 50px);
   }
 
   .login-pro-hero-copy p {
-    font-size: 16px !important;
+    font-size: 16px;
   }
 
   .login-pro-hero-copy li {
-    font-size: 14px !important;
+    font-size: 14px;
   }
 }
 
 /* Cafe login: use remote flag images instead of CSS-drawn flags. */
 .login-pro-lang__flag {
-  display: block !important;
-  width: 21px !important;
-  height: 14px !important;
-  object-fit: cover !important;
-  background: none !important;
-  border: 1px solid rgba(255, 255, 255, 0.58) !important;
-  border-radius: 3px !important;
+  display: block;
+  width: 21px;
+  height: 14px;
+  object-fit: cover;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 3px;
 }
 
 .login-pro-lang__flag.is-uz,
