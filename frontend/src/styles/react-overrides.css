@@ -2118,14 +2118,6 @@ body.dashboard-body,
 }
 
 .dashboard-sidebar .sidebar-icon {
-  width: 22px !important;
-  min-width: 22px !important;
-  height: 22px !important;
-  font-size: 17px !important;
-}
-
-.dashboard-sidebar .sidebar-icon .bi,
-.dashboard-sidebar .sidebar-link i:not(.sidebar-link__chevron) {
   font-size: 17px !important;
 }
 
@@ -2396,7 +2388,6 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link.is-active {
   min-height: 30px !important;
   padding: 6px 10px 6px 12px !important;
-  transform: none !important;
 }
 
 /* Keep sidebar user card above long submenus */
@@ -2441,10 +2432,6 @@ body.dashboard-body,
 
 .dashboard-sidebar .sidebar-user {
   z-index: 60 !important;
-}
-
-.dashboard-sidebar .sidebar-nav {
-  background: transparent !important;
 }
 
 /* Sidebar category and subcategory typography parity */
