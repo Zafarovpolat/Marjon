@@ -3329,7 +3329,6 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open:hover .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open:focus-within .sidebar-submenu {
   margin-top: 0 !important;
-  padding: 7px 0 8px !important;
   max-height: 390px !important;
 }
 
@@ -3351,10 +3350,6 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link:hover::before,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible::before,
 .dashboard-sidebar .sidebar-submenu__link.is-active::before {
-  left: -4px !important;
-  width: 7px !important;
-  min-width: 7px !important;
-  height: 7px !important;
   background: rgba(147, 197, 253, 0.70) !important;
   box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.07),
     0 0 7px rgba(147, 197, 253, 0.168) !important;
@@ -3374,19 +3369,16 @@ body.dashboard-body,
 
 .dashboard-sidebar .sidebar-submenu__link:hover,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible {
-  color: #ffffff !important;
   background: rgba(255, 255, 255, 0.065) !important;
 }
 
 .dashboard-sidebar .sidebar-submenu__link.is-active {
-  color: #ffffff !important;
   background: rgba(31, 202, 194, 0.92);
   box-shadow: 0 6px 13px rgba(2, 8, 23, 0.126),
     inset 0 1px 0 rgba(255, 255, 255, 0.056) !important;
 }
 
 .dashboard-sidebar .sidebar-submenu__link.is-active::before {
-  background: var(--color-brand) !important;
   box-shadow: 0 0 0 2px rgba(29, 181, 181, 0.112),
     0 0 10px rgba(29, 181, 181, 0.336) !important;
 }
@@ -3450,10 +3442,6 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible::before,
 .dashboard-sidebar .sidebar-submenu__link.is-active::before {
   left: -4px !important;
-  width: 7px !important;
-  min-width: 7px !important;
-  height: 7px !important;
-  background: var(--neutral-300) !important;
   box-shadow: 0 0 0 1px rgba(8, 29, 63, 0.665),
     0 0 6px rgba(157, 184, 216, 0.154) !important;
 }
@@ -3465,16 +3453,13 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link:hover,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible {
   background: rgba(255, 255, 255, 0.052) !important;
-  color: #ffffff !important;
 }
 
 .dashboard-sidebar .sidebar-submenu__link.is-active {
   background: rgba(31, 202, 194, 0.92);
-  color: #ffffff !important;
 }
 
 .dashboard-sidebar .sidebar-submenu__link.is-active::before {
-  background: var(--color-brand) !important;
   box-shadow: 0 0 0 1px rgba(8, 29, 63, 0.672),
     0 0 0 2px rgba(29, 181, 181, 0.112),
     0 0 8px rgba(29, 181, 181, 0.322) !important;
