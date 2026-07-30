@@ -12970,7 +12970,7 @@ body.dashboard-body,
   flex: 0 0 1px !important;
   width: 1px !important;
   align-self: stretch !important;
-  margin-block: 10px !important;
+  margin-block: 10px;
   background: rgba(226, 232, 240, 0.4) !important;
 }
 
@@ -25281,7 +25281,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   position: relative !important;
   border-radius: 12px !important;
   overflow: hidden !important;
-  background-clip: padding-box !important;
+  background-clip: padding-box;
   appearance: none !important;
 }
 
@@ -28129,7 +28129,7 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
   body.dashboard-body .dashboard-shell .owner-top-sales-card .top-dish.top-dish--compact {
     display: grid !important;
     grid-template-columns: 22px 40px minmax(0, 1fr) auto auto !important;
-    grid-template-areas: "rank photo body qty price" !important;
+    grid-template-areas: "rank photo body qty price";
     align-items: center !important;
     gap: 4px 10px !important;
     min-height: 68px !important;
@@ -28727,7 +28727,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 .menu-categories-page .menu-category-list {
   align-content: start !important;
   gap: 8px !important;
-  grid-auto-rows: 54px !important;
+  grid-auto-rows: 54px;
 }
 
 .menu-categories-page .menu-category-row,

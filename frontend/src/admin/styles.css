@@ -6674,7 +6674,7 @@ body::-webkit-scrollbar,
   grid-auto-flow: column;
   gap: 8px;
   padding: 0 10px;
-  border-inline: 1px solid rgba(203, 213, 225, 0.72) !important;
+  border-inline: 1px solid rgba(203, 213, 225, 0.72);
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
