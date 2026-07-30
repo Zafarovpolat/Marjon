@@ -3925,7 +3925,7 @@ body,
 .admin-sidebar,
 .admin-nav {
   scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
+  -ms-overflow-style: none;
 }
 
 html::-webkit-scrollbar,
@@ -3991,7 +3991,7 @@ body::-webkit-scrollbar,
   -webkit-text-fill-color: #fff8e6 !important;
   -webkit-box-shadow: 0 0 0 1000px rgba(9, 24, 30, 0.78) inset !important;
   box-shadow: 0 0 0 1000px rgba(9, 24, 30, 0.78) inset !important;
-  caret-color: #fff8e6 !important;
+  caret-color: #fff8e6;
 }
 
 .admin-login::-webkit-scrollbar {
@@ -4514,7 +4514,7 @@ body::-webkit-scrollbar,
   }
 
   .admin-header {
-    box-sizing: border-box !important;
+    box-sizing: border-box;
     margin: 0;
     padding: 16px 25px 14px;
   }
@@ -6707,7 +6707,7 @@ body::-webkit-scrollbar,
 }
 
 .admin-storage-income-date-picker .report-period-button.admin-storage-income-date-button {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   width: 224px !important;
   min-width: 224px !important;
   max-width: 224px !important;
@@ -6727,7 +6727,7 @@ body::-webkit-scrollbar,
   font-weight: 700 !important;
   line-height: 1 !important;
   letter-spacing: 0 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
   transform: none !important;
 }
 
@@ -6759,12 +6759,12 @@ body::-webkit-scrollbar,
   overflow: hidden !important;
   color: currentColor !important;
   text-align: left !important;
-  text-overflow: ellipsis !important;
+  text-overflow: ellipsis;
 }
 
 .admin-storage-income-date-picker .report-date-menu,
 .admin-storage-income-date-picker .report-date-calendar-popover {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   position: absolute !important;
   right: auto !important;
   left: 0 !important;
@@ -11069,7 +11069,7 @@ body:has(.admin-shell),
 .admin-content button.admin-chart-side-card {
   width: 100% !important;
   color: inherit !important;
-  font: inherit !important;
+  font: inherit;
   text-align: left !important;
   cursor: pointer;
 }
@@ -11101,8 +11101,8 @@ body:has(.admin-shell),
   width: 21px !important;
   height: 21px !important;
   stroke-width: 2.05 !important;
-  stroke-linecap: round !important;
-  stroke-linejoin: round !important;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .admin-content .admin-chart-side-card__body {
@@ -11118,8 +11118,8 @@ body:has(.admin-shell),
   display: flex !important;
   align-items: center !important;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-content .admin-chart-side-card__body strong {
@@ -11141,7 +11141,7 @@ body:has(.admin-shell),
 .admin-content .admin-chart-side-card__value > span {
   min-width: 0 !important;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
+  text-overflow: ellipsis;
 }
 
 .admin-content .admin-chart-side-card__value small {
@@ -11163,7 +11163,7 @@ body:has(.admin-shell),
 .admin-content .admin-chart-side-card__meta > span:last-child {
   min-width: 0 !important;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
+  text-overflow: ellipsis;
 }
 
 .admin-content .admin-chart-side-card__dot {
@@ -11221,7 +11221,7 @@ body:has(.admin-shell),
 .admin-content .admin-chart-card {
   position: relative !important;
   z-index: 1 !important;
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   width: 100% !important;
   max-width: 100% !important;
   min-height: 474px !important;
@@ -11274,7 +11274,7 @@ body:has(.admin-shell),
   margin-top: 5px !important;
   color: #1a916f !important;
   font-size: 13px !important;
-  font-style: normal !important;
+  font-style: normal;
   font-weight: 800 !important;
   line-height: 1.2 !important;
 }
@@ -11299,7 +11299,7 @@ body:has(.admin-shell),
   font-size: 13px !important;
   font-weight: 800 !important;
   line-height: 1 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .admin-content .admin-segments button:hover {
@@ -11344,7 +11344,7 @@ body:has(.admin-shell),
   font-size: 13px !important;
   font-weight: 900 !important;
   line-height: 1 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
   cursor: pointer !important;
 }
 
@@ -11510,7 +11510,7 @@ body:has(.admin-shell),
 }
 
 .admin-content .admin-chart-calendar__grid button {
-  aspect-ratio: 1 / 1 !important;
+  aspect-ratio: 1 / 1;
   width: 100% !important;
   min-width: 0 !important;
   display: grid !important;
@@ -11636,7 +11636,7 @@ body:has(.admin-shell),
   font-size: 16px !important;
   font-weight: 500 !important;
   line-height: 1.1 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .admin-content .admin-chart-tooltip {
@@ -11650,7 +11650,7 @@ body:has(.admin-shell),
   font-size: 6px !important;
   font-weight: 500 !important;
   line-height: 1.05 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .admin-content .admin-chart-tooltip span {
@@ -11659,7 +11659,7 @@ body:has(.admin-shell),
   font-size: 14px !important;
   font-weight: 600 !important;
   line-height: 1.1 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 @media (max-width: 900px) {
@@ -11804,7 +11804,7 @@ body:has(.admin-shell),
     padding: 18px !important;
     border-radius: var(--admin-owner-content-radius) 0 0 0 !important;
     overflow: auto !important;
-    overscroll-behavior: contain !important;
+    overscroll-behavior: contain;
   }
 
   .admin-brand {
@@ -11944,9 +11944,9 @@ body:has(.admin-shell),
   flex: 1 1 0 !important;
   min-height: 0 !important;
   overflow: auto !important;
-  overscroll-behavior: contain !important;
+  overscroll-behavior: contain;
   scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
+  -ms-overflow-style: none;
 }
 
 .admin-main > .admin-content::-webkit-scrollbar {
@@ -12406,7 +12406,7 @@ body:has(.admin-shell),
 }
 
 .admin-finance-date .report-period-button.admin-finance-date-button {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   width: 100% !important;
   min-width: 0 !important;
   max-width: none !important;
@@ -12426,7 +12426,7 @@ body:has(.admin-shell),
   font-size: 12px !important;
   font-weight: 800 !important;
   line-height: 1 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .admin-finance-date .report-period-button.admin-finance-date-button:hover,
@@ -12456,13 +12456,13 @@ body:has(.admin-shell),
   overflow: hidden !important;
   color: currentColor !important;
   text-align: center !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-finance-date .report-date-menu,
 .admin-finance-date .report-date-calendar-popover {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   position: absolute !important;
   right: auto !important;
   left: 0 !important;
@@ -15197,7 +15197,7 @@ body:has(.admin-shell),
   font-size: 12px !important;
   font-weight: 700 !important;
   line-height: 1 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
   cursor: pointer !important;
 }
 
@@ -16587,7 +16587,7 @@ body:has(.admin-shell),
     min-height: var(--admin-sidebar-logo-box) !important;
     max-height: var(--admin-sidebar-logo-box) !important;
     flex: 0 0 var(--admin-sidebar-logo-box) !important;
-    box-sizing: border-box !important;
+    box-sizing: border-box;
     display: grid !important;
     place-items: center !important;
     grid-column: 1 !important;
@@ -16616,8 +16616,8 @@ body:has(.admin-shell),
     width: 100% !important;
     height: 100% !important;
     display: block !important;
-    object-fit: contain !important;
-    object-position: center !important;
+    object-fit: contain;
+    object-position: center;
     margin: 0 !important;
     padding: 0 !important;
     border: 0 !important;
@@ -16635,7 +16635,7 @@ body:has(.admin-shell),
   .admin-shell .admin-sidebar .brand-subtitle {
     display: block !important;
     max-width: none !important;
-    white-space: nowrap !important;
+    white-space: nowrap;
     opacity: 1 !important;
     visibility: visible !important;
     pointer-events: auto !important;
@@ -16649,7 +16649,7 @@ body:has(.admin-shell),
     font-weight: 800 !important;
     line-height: 1.1 !important;
     letter-spacing: 0.02em !important;
-    text-shadow: 0 0 18px rgba(214, 168, 79, 0.18) !important;
+    text-shadow: 0 0 18px rgba(214, 168, 79, 0.18);
   }
 
   .admin-shell .admin-sidebar .brand-subtitle {
@@ -16843,7 +16843,7 @@ body:has(.admin-shell),
   .admin-shell.is-sidebar-collapsed .admin-nav-group__toggle:hover,
   .admin-shell.is-sidebar-collapsed .admin-nav-group__toggle:focus-visible,
   .admin-shell.is-sidebar-collapsed .admin-nav-group__toggle.is-active {
-    box-sizing: border-box !important;
+    box-sizing: border-box;
     width: 56px !important;
     min-width: 56px !important;
     max-width: 56px !important;
@@ -17022,7 +17022,7 @@ body:has(.admin-shell),
 }
 
 .admin-date-time {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   min-width: 184px !important;
   height: 42px !important;
   min-height: 42px !important;
@@ -17158,7 +17158,7 @@ body:has(.admin-shell),
   font-size: 11px !important;
   font-weight: 500 !important;
   line-height: 1 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .admin-content .admin-kpi__title {
@@ -17171,9 +17171,9 @@ body:has(.admin-shell),
   font-weight: 700 !important;
   letter-spacing: 0 !important;
   line-height: 1.25 !important;
-  text-overflow: ellipsis !important;
+  text-overflow: ellipsis;
   text-transform: none !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .admin-content .admin-kpi > strong {
@@ -17186,18 +17186,18 @@ body:has(.admin-shell),
   color: #000000 !important;
   font-size: clamp(24px, 1.95vw, 30px) !important;
   font-weight: 700 !important;
-  font-variant-numeric: tabular-nums !important;
+  font-variant-numeric: tabular-nums;
   line-height: 1.02 !important;
   letter-spacing: 0 !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-content .admin-kpi > strong span {
   min-width: 0 !important;
   overflow: hidden !important;
   color: #000000 !important;
-  text-overflow: ellipsis !important;
+  text-overflow: ellipsis;
 }
 
 .admin-content .admin-kpi > strong small {
@@ -17213,7 +17213,7 @@ body:has(.admin-shell),
 .admin-content .admin-chart-card__head strong {
   font-size: 25px !important;
   font-weight: 650 !important;
-  font-variant-numeric: tabular-nums !important;
+  font-variant-numeric: tabular-nums;
   line-height: 1.08 !important;
   letter-spacing: 0 !important;
 }
@@ -17226,10 +17226,10 @@ body:has(.admin-shell),
   color: #0b1f3a !important;
   font-size: 20px !important;
   font-weight: 500 !important;
-  font-variant-numeric: tabular-nums !important;
+  font-variant-numeric: tabular-nums;
   line-height: 1.05 !important;
   letter-spacing: 0 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .admin-content .admin-chart-card .admin-chart-tooltip__amount {
@@ -17238,7 +17238,7 @@ body:has(.admin-shell),
   font-size: 20px !important;
   font-weight: 500 !important;
   line-height: 1.05 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .admin-content .admin-chart-card .admin-chart-tooltip__currency {
@@ -17247,7 +17247,7 @@ body:has(.admin-shell),
   font-weight: 500 !important;
   line-height: 1 !important;
   text-transform: uppercase !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .admin-content .admin-chart-card .admin-chart-tooltip__date {
@@ -17256,7 +17256,7 @@ body:has(.admin-shell),
   font-size: 15px !important;
   font-weight: 600 !important;
   line-height: 1.1 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .admin-content .admin-kpi > p {
@@ -17272,8 +17272,8 @@ body:has(.admin-shell),
   font-size: 12px !important;
   font-weight: 600 !important;
   line-height: 1.25 !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-content .admin-kpi > p::before {
@@ -17307,7 +17307,7 @@ body:has(.admin-shell),
 .admin-content .admin-kpi__delta-text {
   min-width: 0 !important;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
+  text-overflow: ellipsis;
 }
 
 .admin-content .admin-spark,
@@ -17439,8 +17439,8 @@ body:has(.admin-shell),
   font-weight: 700 !important;
   line-height: 1.15 !important;
   text-align: left !important;
-  white-space: nowrap !important;
-  cursor: pointer !important;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 .admin-shell.is-sidebar-collapsed .admin-nav .admin-nav-flyout .admin-nav-flyout__item span,
@@ -17523,7 +17523,7 @@ body:has(.admin-shell),
 .admin-shell.is-sidebar-collapsed .admin-nav-group.has-popover .admin-nav-flyout .admin-nav-flyout__item:hover,
 .admin-shell.is-sidebar-collapsed .admin-nav-group.has-popover .admin-nav-flyout .admin-nav-flyout__item:focus-visible,
 .admin-shell.is-sidebar-collapsed .admin-nav-group.has-popover .admin-nav-flyout .admin-nav-flyout__item.is-active {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   position: relative !important;
   width: 100% !important;
   min-width: 182px !important;
@@ -17540,7 +17540,7 @@ body:has(.admin-shell),
   padding: 0 10px !important;
   border-radius: 12px !important;
   text-align: left !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
   transform: none !important;
   filter: none !important;
 }
@@ -17644,7 +17644,7 @@ body:has(.admin-shell),
 
   .admin-shell.is-sidebar-collapsed .admin-sidebar {
     z-index: 1200;
-    isolation: isolate !important;
+    isolation: isolate;
   }
 
   .admin-shell.is-sidebar-collapsed .admin-nav {
@@ -17659,7 +17659,7 @@ body:has(.admin-shell),
 
   .admin-shell.is-sidebar-collapsed .admin-nav-group .admin-nav-flyout,
   .admin-shell.is-sidebar-collapsed .admin-nav-group.has-popover .admin-nav-flyout {
-    box-sizing: border-box !important;
+    box-sizing: border-box;
     position: absolute !important;
     top: 0 !important;
     left: calc(100% + 12px) !important;
@@ -17669,7 +17669,7 @@ body:has(.admin-shell),
     max-width: 246px !important;
     display: grid !important;
     grid-template-columns: 1fr !important;
-    grid-auto-flow: row !important;
+    grid-auto-flow: row;
     gap: 7px !important;
     padding: 13px !important;
     border: 1px solid rgba(242, 199, 110, 0.18) !important;
@@ -17684,7 +17684,7 @@ body:has(.admin-shell),
     transform: translateX(-8px) !important;
     transition: opacity 160ms ease, transform 180ms ease, visibility 0ms linear 180ms !important;
     overflow: visible !important;
-    isolation: isolate !important;
+    isolation: isolate;
   }
 
   .admin-shell.is-sidebar-collapsed .admin-nav-group.has-popover .admin-nav-flyout {
@@ -17713,7 +17713,7 @@ body:has(.admin-shell),
   .admin-shell.is-sidebar-collapsed .admin-nav .admin-nav-flyout > button.admin-nav-flyout__item:active,
   .admin-shell.is-sidebar-collapsed .admin-nav .admin-nav-flyout > button.admin-nav-flyout__item.is-active,
   .admin-shell.is-sidebar-collapsed .admin-nav .admin-nav-flyout > button.admin-nav-flyout__item.is-active:hover {
-    box-sizing: border-box !important;
+    box-sizing: border-box;
     width: 100% !important;
     min-width: 0 !important;
     max-width: none !important;
@@ -17737,11 +17737,11 @@ body:has(.admin-shell),
     line-height: 1.2 !important;
     letter-spacing: 0 !important;
     text-align: left !important;
-    white-space: nowrap !important;
-    cursor: pointer !important;
+    white-space: nowrap;
+    cursor: pointer;
     transform: none !important;
-    translate: none !important;
-    scale: none !important;
+    translate: none;
+    scale: none;
     overflow: hidden !important;
     transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease !important;
   }
@@ -17765,7 +17765,7 @@ body:has(.admin-shell),
   .admin-shell.is-sidebar-collapsed .admin-nav .admin-nav-flyout > button.admin-nav-flyout__item .admin-nav-flyout__icon,
   .admin-shell.is-sidebar-collapsed .admin-nav .admin-nav-flyout > button.admin-nav-flyout__item:hover .admin-nav-flyout__icon,
   .admin-shell.is-sidebar-collapsed .admin-nav .admin-nav-flyout > button.admin-nav-flyout__item.is-active .admin-nav-flyout__icon {
-    box-sizing: border-box !important;
+    box-sizing: border-box;
     width: 26px !important;
     min-width: 26px !important;
     max-width: 26px !important;
@@ -17824,7 +17824,7 @@ body:has(.admin-shell),
 .admin-header__actions .admin-profile,
 .admin-header__actions .admin-profile:hover,
 .admin-header__actions .admin-profile:focus-visible {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   width: auto !important;
   min-width: 210px !important;
   max-width: min(300px, 32vw) !important;
@@ -17884,8 +17884,8 @@ body:has(.admin-shell),
   min-width: 0 !important;
   max-width: 100% !important;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   letter-spacing: 0 !important;
 }
 
@@ -18003,7 +18003,7 @@ body:has(.admin-shell),
   font-weight: 600 !important;
   line-height: 1 !important;
   letter-spacing: 0 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
   transform: none !important;
 }
 
@@ -18025,8 +18025,8 @@ body:has(.admin-shell),
   font-weight: 600 !important;
   line-height: 1 !important;
   letter-spacing: 0 !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-content .admin-revenue-range .report-period-button.period-dropdown__button svg {
@@ -18042,7 +18042,7 @@ body:has(.admin-shell),
 }
 
 .admin-content .admin-revenue-range .report-date-menu {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   position: absolute !important;
   top: calc(100% + 8px) !important;
   right: 0 !important;
@@ -18052,7 +18052,7 @@ body:has(.admin-shell),
   max-height: none !important;
   padding: 14px !important;
   overflow: visible !important;
-  overscroll-behavior: contain !important;
+  overscroll-behavior: contain;
   border: 1px solid rgba(194, 212, 234, 0.65) !important;
   border-radius: 16px !important;
   background: #ffffff !important;
@@ -18061,7 +18061,7 @@ body:has(.admin-shell),
     0 4px 16px rgba(15, 23, 42, 0.08),
     0 20px 50px rgba(15, 23, 42, 0.13) !important;
   color: #0f172a !important;
-  isolation: isolate !important;
+  isolation: isolate;
 }
 
 .admin-content .admin-revenue-range .report-date-presets {
@@ -18175,7 +18175,7 @@ body:has(.admin-shell),
 }
 
 .admin-content .admin-revenue-range .report-date-calendar-popover {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   position: absolute !important;
   top: calc(100% + 10px) !important;
   right: 0 !important;
@@ -18183,7 +18183,7 @@ body:has(.admin-shell),
   z-index: 3010 !important;
   width: min(410px, calc(100vw - 32px)) !important;
   overflow: hidden !important;
-  overscroll-behavior: contain !important;
+  overscroll-behavior: contain;
   border: 1px solid rgba(194, 212, 234, 0.65) !important;
   border-radius: 16px !important;
   background: #ffffff !important;
@@ -18255,7 +18255,7 @@ body:has(.admin-shell),
 .admin-content .admin-revenue-range .report-date-calendar-toolbar select {
   min-width: 0 !important;
   padding: 0 10px !important;
-  cursor: pointer !important;
+  cursor: pointer;
 }
 
 .admin-content .admin-revenue-range .report-date-calendar-toolbar button:hover,
@@ -18571,8 +18571,8 @@ body:has(.admin-shell),
   font-size: 14px !important;
   font-weight: 600 !important;
   line-height: 1.15 !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-notification-item__body span {
@@ -18583,8 +18583,8 @@ body:has(.admin-shell),
   font-size: 13px !important;
   font-weight: 500 !important;
   line-height: 1.2 !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-notification-popover__empty {
@@ -21652,7 +21652,7 @@ body:has(.admin-shell),
 
 .admin-dashboard-transactions-report__date-picker .report-date-menu,
 .admin-dashboard-transactions-report__date-picker .report-date-calendar-popover {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   position: absolute !important;
   top: calc(100% + 8px) !important;
   right: auto !important;
@@ -21661,7 +21661,7 @@ body:has(.admin-shell),
   width: min(348px, calc(100vw - 32px)) !important;
   max-height: none !important;
   overflow: visible !important;
-  overscroll-behavior: contain !important;
+  overscroll-behavior: contain;
   border: 1px solid rgba(194, 212, 234, 0.72) !important;
   border-radius: 14px !important;
   background: #ffffff !important;
@@ -22411,14 +22411,14 @@ body:has(.admin-shell),
     justify-self: start !important;
     align-self: center !important;
     transform: none !important;
-    translate: none !important;
+    translate: none;
     transition:
       background-color 160ms ease,
       box-shadow 160ms ease,
       margin 220ms ease,
       transform 220ms ease !important;
     z-index: 1710 !important;
-    will-change: auto !important;
+    will-change: auto;
   }
 
   .admin-shell.is-sidebar-collapsed .admin-sidebar .brand-mark,
@@ -22443,12 +22443,12 @@ body:has(.admin-shell),
     max-height: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
-    object-fit: contain !important;
-    object-position: center !important;
+    object-fit: contain;
+    object-position: center;
     transform: none !important;
     transition: none !important;
-    translate: none !important;
-    will-change: auto !important;
+    translate: none;
+    will-change: auto;
   }
 
   .admin-shell .admin-sidebar .sidebar-brand__identity > div:not(.brand-mark),
@@ -22742,11 +22742,11 @@ body:has(.admin-shell),
     width: 100% !important;
     height: 100% !important;
     display: block !important;
-    object-fit: contain !important;
-    object-position: center !important;
+    object-fit: contain;
+    object-position: center;
     margin: 0 !important;
     transform: none !important;
-    translate: none !important;
+    translate: none;
     transition: none !important;
   }
 
@@ -22800,15 +22800,15 @@ body:has(.admin-shell),
   .admin-shell .admin-sidebar .admin-nav-group:focus-within,
   .admin-shell .admin-sidebar .admin-nav-group.is-open,
   .admin-shell .admin-sidebar .admin-nav > button {
-    box-sizing: border-box !important;
+    box-sizing: border-box;
     width: 100% !important;
     min-width: 0 !important;
     max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
     transform: none !important;
-    translate: none !important;
-    scale: none !important;
+    translate: none;
+    scale: none;
   }
 
   .admin-shell:not(.is-sidebar-collapsed) .admin-sidebar .admin-nav > button,
@@ -22894,7 +22894,7 @@ body:has(.admin-shell),
   .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav-group:hover,
   .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav-group.has-popover,
   .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav > button {
-    box-sizing: border-box !important;
+    box-sizing: border-box;
     width: 56px !important;
     min-width: 56px !important;
     max-width: 56px !important;
@@ -22904,8 +22904,8 @@ body:has(.admin-shell),
     margin: 0 auto !important;
     padding: 0 !important;
     transform: none !important;
-    translate: none !important;
-    scale: none !important;
+    translate: none;
+    scale: none;
   }
 
   .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav > button,
@@ -22916,7 +22916,7 @@ body:has(.admin-shell),
   .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav-group__toggle:hover,
   .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav-group__toggle:focus-visible,
   .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav-group__toggle.is-active {
-    box-sizing: border-box !important;
+    box-sizing: border-box;
     width: 56px !important;
     min-width: 56px !important;
     max-width: 56px !important;
@@ -22931,8 +22931,8 @@ body:has(.admin-shell),
     grid-template-columns: 1fr !important;
     place-items: center !important;
     transform: none !important;
-    translate: none !important;
-    scale: none !important;
+    translate: none;
+    scale: none;
     transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease !important;
   }
 

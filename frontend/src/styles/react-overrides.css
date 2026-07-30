@@ -1958,7 +1958,7 @@ body.dashboard-body,
   box-shadow: 0 11px 31px rgba(15, 23, 42, 0.053),
     0 1px 0 rgba(255, 255, 255, 0.672) inset;
   overflow: hidden !important;
-  isolation: isolate !important;
+  isolation: isolate;
 }
 
 .kpi-grid--premium .premium-kpi::before {
@@ -2445,7 +2445,7 @@ body.dashboard-body,
   max-height: 100vh !important;
   display: flex !important;
   flex-direction: column !important;
-  box-sizing: border-box !important;
+  box-sizing: border-box;
 }
 
 .dashboard-sidebar .sidebar-brand {
@@ -2484,7 +2484,7 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-link.is-active,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open > .sidebar-link,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open > .sidebar-link--button {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   width: 100% !important;
   height: 48px;
   min-height: 48px;
@@ -2496,7 +2496,7 @@ body.dashboard-body,
   font-size: 14px;
   letter-spacing: 0 !important;
   transform: none !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .dashboard-sidebar .sidebar-link > span:not(.sidebar-icon),
@@ -2509,7 +2509,7 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-icon {
   flex: 0 0 22px;
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
 }
 
 .dashboard-sidebar .sidebar-link__chevron {
@@ -2547,7 +2547,7 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link:hover,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible,
 .dashboard-sidebar .sidebar-submenu__link.is-active {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   width: 100% !important;
   height: 32px;
   min-height: 32px;
@@ -2689,7 +2689,7 @@ body.dashboard-body,
 .kpi-grid.kpi-grid--premium {
   gap: 18px !important;
   margin-bottom: 20px !important;
-  perspective: 1200px !important;
+  perspective: 1200px;
 }
 
 .kpi-grid--premium .premium-kpi {
@@ -3569,7 +3569,7 @@ body.dashboard-body,
 .pos-sidebar--ownerlike .pos-nav a:hover,
 .pos-sidebar--ownerlike .pos-nav-button:hover,
 .pos-sidebar--ownerlike .pos-nav a.is-active {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   width: 100% !important;
   height: 52px !important;
   min-height: 52px !important;
@@ -3609,7 +3609,7 @@ body.dashboard-body,
   min-width: 22px;
   height: 22px;
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   border-radius: 0 !important;
   color: currentColor;
 }
@@ -3700,7 +3700,7 @@ body.dashboard-body,
   border-radius: 12px !important;
   background: transparent !important;
   color: rgba(255, 255, 255, 0.82) !important;
-  font: inherit !important;
+  font: inherit;
   font-weight: 700 !important;
   box-shadow: none !important;
 }
@@ -4363,7 +4363,7 @@ body.dashboard-body,
   overflow-y: auto !important;
   overflow-x: hidden !important;
   scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
+  -ms-overflow-style: none;
 }
 
 .dashboard-sidebar .sidebar-nav::-webkit-scrollbar {
@@ -4454,9 +4454,9 @@ body.dashboard-body,
   background: transparent !important;
   box-shadow: none !important;
   line-height: 1 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
+  text-overflow: ellipsis;
 }
 
 .dashboard-sidebar .sidebar-submenu__link::before,
@@ -4487,7 +4487,7 @@ body.dashboard-body,
   min-width: 17px;
   height: 17px;
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   color: rgba(188, 207, 232, 0.76);
 }
 
@@ -5728,10 +5728,10 @@ body.dashboard-body,
   margin: 0 !important;
   text-align: left !important;
   cursor: pointer !important;
-  font: inherit !important;
+  font: inherit;
   color: inherit !important;
-  -webkit-appearance: none !important;
-  appearance: none !important;
+  -webkit-appearance: none;
+  appearance: none;
   transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
               box-shadow 200ms ease, border-color 200ms ease, background 200ms ease !important;
 }
@@ -7072,7 +7072,7 @@ body.dashboard-body,
 .warehouse-document-table__head,
 .warehouse-document-table__row {
   width: 100% !important;
-  box-sizing: border-box !important;
+  box-sizing: border-box;
 }
 
 .warehouse-document-table__head > span:last-child {
@@ -7240,7 +7240,7 @@ body.dashboard-body,
 }
 
 .warehouse-board {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   width: 100% !important;
   max-width: 100% !important;
 }
@@ -7281,14 +7281,14 @@ body.dashboard-body,
 .warehouse-document-table--incoming .warehouse-document-table__row > strong,
 .warehouse-document-table--incoming .warehouse-document-table__head > span {
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .warehouse-document-table--incoming .warehouse-document-table__row small {
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .warehouse-document-table--incoming .warehouse-row-actions {
@@ -7331,8 +7331,8 @@ body.dashboard-body,
   }
 
   * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   html,
@@ -7428,7 +7428,7 @@ body.dashboard-body,
     border-radius: 8mm !important;
     background: var(--neutral-50);
     box-shadow: 0 7mm 18mm rgba(15, 23, 42, 0.07) !important;
-    break-inside: avoid !important;
+    break-inside: avoid;
   }
 
   .z-report-hero::before {
@@ -7504,7 +7504,7 @@ body.dashboard-body,
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     gap: 3.2mm !important;
     margin: 0 !important;
-    break-inside: avoid !important;
+    break-inside: avoid;
   }
 
   .z-report-kpi {
@@ -7517,7 +7517,7 @@ body.dashboard-body,
     background: var(--neutral-50);
     box-shadow: 0 4mm 10mm rgba(15, 23, 42, 0.056),
       inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
-    break-inside: avoid !important;
+    break-inside: avoid;
     transform: none !important;
   }
 
@@ -7572,7 +7572,7 @@ body.dashboard-body,
     background: #ffffff;
     box-shadow: 0 4mm 10mm rgba(15, 23, 42, 0.053),
       inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
-    break-inside: avoid !important;
+    break-inside: avoid;
     transform: none !important;
   }
 
@@ -7746,7 +7746,7 @@ body.dashboard-body,
   }
 
   .z-report-page--print-only .z-report-print-row {
-    break-inside: avoid !important;
+    break-inside: avoid;
     box-shadow: none !important;
   }
 }
@@ -8245,7 +8245,7 @@ body.dashboard-body {
 }
 
 .dashboard-shell {
-  isolation: isolate !important;
+  isolation: isolate;
 }
 
 .dashboard-shell::before {
@@ -8852,7 +8852,7 @@ body.dashboard-body {
 
 .dashboard-topbar .sidebar-collapse-control {
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: 11px;
   color: var(--neutral-950);
@@ -9012,7 +9012,7 @@ body.dashboard-body {
   margin: 0 !important;
   padding: 0 !important;
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   line-height: 1 !important;
   transform: none !important;
 }
@@ -9157,7 +9157,7 @@ body.dashboard-body {
   box-shadow: 0 7px 13px rgba(23, 105, 232, 0.14) !important;
   font-size: 14px;
   font-weight: 500;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .z-report-page--print-only .z-report-print-row__action:hover {
@@ -9397,7 +9397,7 @@ body.dashboard-body {
 
 .dashboard-sidebar .sidebar-account__lang-switch .sidebar-account__lang-button--flag {
   display: inline-grid !important;
-  place-items: center !important;
+  place-items: center;
   min-width: 42px !important;
   padding: 0 7px !important;
 }
@@ -9801,7 +9801,7 @@ body.dashboard-body {
   right: auto !important;
   z-index: 2 !important;
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   flex-basis: 44px !important;
   width: 44px !important;
   height: 44px !important;
@@ -9859,8 +9859,8 @@ body.dashboard-body {
   line-height: 1 !important;
   letter-spacing: 0 !important;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dashboard-topbar p {
@@ -9938,7 +9938,7 @@ html,
 body,
 .dashboard-main {
   scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
+  -ms-overflow-style: none;
 }
 
 html::-webkit-scrollbar,
@@ -10069,7 +10069,7 @@ html,
 .sidebar-user__meta strong {
   max-width: 136px !important;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
+  text-overflow: ellipsis;
   white-space: nowrap !important;
   color: #ffffff !important;
   font-size: 14px !important;
@@ -10175,7 +10175,7 @@ html,
   color: var(--neutral-900) !important;
   font-size: 13px;
   font-weight: 500 !important;
-  font-variant-numeric: tabular-nums !important;
+  font-variant-numeric: tabular-nums;
 }
 
 .topbar-notification__badge {
@@ -10224,7 +10224,7 @@ html,
   width: 100% !important;
   text-align: left !important;
   cursor: pointer !important;
-  appearance: none !important;
+  appearance: none;
   font: inherit !important;
 }
 
@@ -10351,7 +10351,7 @@ html,
     margin-top: 6px !important;
     overflow: hidden !important;
     white-space: nowrap !important;
-    text-overflow: ellipsis !important;
+    text-overflow: ellipsis;
   }
 
   .kpi-note {
@@ -10365,7 +10365,7 @@ html,
   inset: 0 !important;
   z-index: 99999 !important;
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   padding: 24px !important;
   background: rgba(2, 8, 23, 0.54) !important;
   backdrop-filter: blur(5px) !important;
@@ -10399,7 +10399,7 @@ html,
 .kpi-info-window__icon,
 .kpi-info-window__close {
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   border-radius: 16px !important;
 }
 
@@ -10627,7 +10627,7 @@ html,
   border-bottom: 1px solid rgba(226, 232, 240, 0.76) !important;
   text-align: left !important;
   vertical-align: middle !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .kpi-payment-report__table th {
@@ -10969,7 +10969,7 @@ html,
 
 .recent-order em {
   color: var(--color-success) !important;
-  font-style: normal !important;
+  font-style: normal;
   font-weight: 500 !important;
 }
 
@@ -11356,9 +11356,9 @@ html,
 /* Sidebar logo centering and collapsed profile popover */
 .dashboard-sidebar .brand-mark,
 .dashboard-sidebar .brand-mark--button {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   overflow: hidden !important;
   line-height: 0 !important;
 }
@@ -11369,7 +11369,7 @@ html,
   height: 100% !important;
   display: block !important;
   object-fit: contain !important;
-  object-position: center !important;
+  object-position: center;
   margin: auto !important;
 }
 
@@ -11779,7 +11779,7 @@ html,
   height: 100% !important;
   display: block !important;
   object-fit: contain !important;
-  object-position: center !important;
+  object-position: center;
   margin: auto !important;
 }
 
@@ -11853,7 +11853,7 @@ html,
   height: 100% !important;
   display: block !important;
   object-fit: contain !important;
-  object-position: center !important;
+  object-position: center;
   margin: 0 !important;
 }
 
@@ -12026,7 +12026,7 @@ html,
   height: 100% !important;
   display: block !important;
   object-fit: contain !important;
-  object-position: center !important;
+  object-position: center;
   margin: 0 !important;
 }
 
@@ -12070,7 +12070,7 @@ html,
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
-  object-position: center !important;
+  object-position: center;
   padding: 0 !important;
   border-radius: inherit !important;
 }
@@ -12104,7 +12104,7 @@ html,
   width: 112px !important;
   height: 112px !important;
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   overflow: hidden !important;
   border-radius: 28px !important;
   background: #ffffff !important;
@@ -12395,7 +12395,7 @@ html,
 }
 
 .dashboard-sidebar .sidebar-brand__toggle {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   flex: 0 0 34px !important;
   width: 34px !important;
   height: 34px !important;
@@ -12440,7 +12440,7 @@ html,
   left: 61px !important;
   z-index: 8 !important;
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   width: 28px !important;
   height: 28px !important;
   flex: 0 0 28px !important;
@@ -12474,7 +12474,7 @@ html,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-active:hover,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.has-popover,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.has-popover:hover {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   width: 100% !important;
   min-width: 0 !important;
   max-width: none !important;
@@ -12695,7 +12695,7 @@ html,
 .dashboard-sidebar.is-collapsed .sidebar-nav-item.is-active,
 .dashboard-sidebar.is-collapsed .sidebar-nav-item.has-popover,
 .dashboard-sidebar.is-collapsed .sidebar-nav-item.has-popover:hover {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   width: 56px !important;
   min-width: 56px !important;
   max-width: 56px !important;
@@ -12723,7 +12723,7 @@ html,
 .dashboard-sidebar.is-collapsed .sidebar-link--button:active,
 .dashboard-sidebar.is-collapsed .sidebar-link--button.is-active,
 .dashboard-sidebar.is-collapsed .sidebar-link--button.is-active:hover {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   width: 56px !important;
   min-width: 56px !important;
   max-width: 56px !important;
@@ -12763,7 +12763,7 @@ html,
 .sidebar-collapsed-popover__link:active,
 .sidebar-collapsed-popover__link.is-active,
 .sidebar-collapsed-popover__link.is-active:hover {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   width: 100% !important;
   min-height: 42px !important;
   height: 42px !important;
@@ -12934,7 +12934,7 @@ body.dashboard-body,
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.056),
     0 7px 16px rgba(2, 8, 23, 0.126) !important;
   overflow: hidden !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .dashboard-topbar .topbar-left .mj-datepicker__icon {
@@ -13040,7 +13040,7 @@ body.dashboard-body,
     0 6px 14px rgba(29, 181, 181, 0.168),
     inset 0 1px 0 rgba(255, 255, 255, 0.238),
     inset 0 -1px 0 rgba(4, 31, 58, 0.14);
-  isolation: isolate !important;
+  isolation: isolate;
 }
 
 /* Right-side wallet pocket. */
@@ -13306,7 +13306,7 @@ body.dashboard-body,
   inset: 0 !important;
   z-index: 300;
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   padding: 24px;
   background: rgba(2, 8, 23, 0.54) !important;
   backdrop-filter: blur(5px) !important;
@@ -13350,7 +13350,7 @@ body.dashboard-body,
 
 .balance-payment-dialog__head button {
   display: inline-grid !important;
-  place-items: center !important;
+  place-items: center;
   width: 44px !important;
   height: 44px !important;
   border: 0 !important;
@@ -13463,7 +13463,7 @@ body.dashboard-body,
   height: 30px !important;
   padding: 0 8px !important;
   border-radius: 8px !important;
-  font-style: normal !important;
+  font-style: normal;
   font-size: 13px !important;
   font-weight: 500 !important;
 }
@@ -13621,7 +13621,7 @@ body.dashboard-body,
 .balance-card-step__close {
   position: absolute !important;
   display: inline-grid !important;
-  place-items: center !important;
+  place-items: center;
   width: 38px;
   height: 38px;
   border: 0 !important;
@@ -13691,7 +13691,7 @@ body.dashboard-body,
 
 .balance-card-step__details dt i {
   display: inline-grid !important;
-  place-items: center !important;
+  place-items: center;
   width: 34px;
   height: 34px;
   border-radius: 10px;
@@ -13722,7 +13722,7 @@ body.dashboard-body,
 
 .balance-card-step__progress span {
   display: inline-grid !important;
-  place-items: center !important;
+  place-items: center;
   width: 40px;
   height: 40px;
   border-radius: 999px !important;
@@ -14195,13 +14195,13 @@ body.dashboard-body,
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.042),
     0 7px 16px rgba(2, 8, 23, 0.098) !important;
   backdrop-filter: blur(14px) !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
   cursor: pointer !important;
 }
 
 .dashboard-topbar .topbar-info-widget__icon {
   display: inline-grid !important;
-  place-items: center !important;
+  place-items: center;
   border-radius: 999px !important;
   color: var(--teal-50) !important;
   background: rgba(29, 181, 181, 0.14);
@@ -14305,7 +14305,7 @@ body.dashboard-body,
 
 .usd-rate-popover__head button {
   display: inline-grid !important;
-  place-items: center !important;
+  place-items: center;
   width: 32px !important;
   height: 32px !important;
   border: 1px solid var(--border) !important;
@@ -15125,7 +15125,7 @@ body.dashboard-body,
 
 .support-widget__flag {
   display: inline-grid !important;
-  place-items: center !important;
+  place-items: center;
   flex: 0 0 auto !important;
   border: 1px solid rgba(15, 23, 42, 0.14) !important;
   border-radius: 4px !important;
@@ -15152,7 +15152,7 @@ body.dashboard-body,
   outline: 0 !important;
   background: transparent !important;
   color: var(--neutral-900) !important;
-  font: inherit !important;
+  font: inherit;
   font-weight: 500 !important;
   box-shadow: none !important;
 }
@@ -15681,7 +15681,7 @@ body.dashboard-body,
 }
 
 .dashboard-topbar {
-  isolation: isolate !important;
+  isolation: isolate;
   overflow: visible !important;
   background: var(--shell-header-bg) !important;
   border: 0 !important;
@@ -15880,9 +15880,9 @@ body.dashboard-body,
   max-height: calc(100vh - 82px) !important;
   overflow-x: hidden !important;
   overflow-y: auto !important;
-  overscroll-behavior: contain !important;
+  overscroll-behavior: contain;
   scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
+  -ms-overflow-style: none;
 }
 
 .dashboard-content::-webkit-scrollbar {
@@ -16263,7 +16263,7 @@ body.dashboard-body,
   bottom: 0 !important;
   left: 280px !important;
   width: calc(100vw - 280px) !important;
-  place-items: center !important;
+  place-items: center;
 }
 
 .dashboard-main.is-sidebar-collapsed .warehouse-report-backdrop {
@@ -16290,7 +16290,7 @@ body.dashboard-body,
 .warehouse-report-window__icon,
 .warehouse-report-window__close {
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
 }
 
 .warehouse-report-window__icon {
@@ -16388,7 +16388,7 @@ body.dashboard-body,
 
 .warehouse-report-table tbody td:nth-child(4) {
   font-weight: 500 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .warehouse-report-window .badge-success,
@@ -16557,8 +16557,8 @@ body.dashboard-body,
   font-size: 15px !important;
   font-weight: 500 !important;
   line-height: 1.2 !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .owner-top-sales-card .top-dish__qty {
@@ -16566,7 +16566,7 @@ body.dashboard-body,
   font-size: 13px !important;
   font-weight: 500 !important;
   text-align: right !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .owner-top-sales-card .top-dish__price {
@@ -16575,7 +16575,7 @@ body.dashboard-body,
   font-weight: 500 !important;
   line-height: 1.2 !important;
   text-align: right !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 @media (max-width: 768px) {
@@ -16620,13 +16620,13 @@ body.dashboard-body,
 .data-table {
   width: 100% !important;
   border-collapse: separate !important;
-  border-spacing: 0 !important;
+  border-spacing: 0;
   overflow: hidden !important;
   border: 1px solid var(--blue-100) !important;
   border-radius: 16px !important;
   background: #ffffff !important;
   box-shadow: none !important;
-  font-variant-numeric: tabular-nums !important;
+  font-variant-numeric: tabular-nums;
 }
 
 .data-table thead th {
@@ -16642,7 +16642,7 @@ body.dashboard-body,
   font-size: 13px !important;
   font-weight: 500 !important;
   line-height: 1.2 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .data-table thead th::after {
@@ -16661,7 +16661,7 @@ body.dashboard-body,
   font-weight: 500 !important;
   line-height: 1.2 !important;
   vertical-align: middle !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .data-table tbody tr:last-child td {
@@ -16824,7 +16824,7 @@ body.dashboard-body,
   box-shadow: 0 6px 13px rgba(37, 99, 235, 0.175) !important;
   font-size: 14px !important;
   font-weight: 500 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
   cursor: pointer !important;
   transition: filter 0.16s ease, box-shadow 0.16s ease !important;
 }
@@ -16920,7 +16920,7 @@ body.dashboard-body,
   width: 100% !important;
   min-width: 1080px !important;
   border-collapse: separate !important;
-  border-spacing: 0 !important;
+  border-spacing: 0;
 }
 
 .z-report-print-table th {
@@ -16934,7 +16934,7 @@ body.dashboard-body,
   letter-spacing: 0.02em !important;
   font-size: 12px !important;
   font-weight: 500 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .z-report-print-table th:first-child,
@@ -16996,7 +16996,7 @@ body.dashboard-body,
   width: 46px !important;
   height: 46px !important;
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   border-radius: 14px !important;
   color: var(--color-brand) !important;
   background: rgba(29, 181, 181, 0.12) !important;
@@ -17030,7 +17030,7 @@ body.dashboard-body,
   font-size: 14px !important;
   font-weight: 500 !important;
   outline: 0 !important;
-  appearance: none !important;
+  appearance: none;
 }
 
 .z-report-print-table__field input {
@@ -17105,7 +17105,7 @@ body.dashboard-body,
 
 /* Z-report date picker must stay above the print table and its action buttons. */
 .z-report-page--print-only .z-report-print-toolbar {
-  isolation: isolate !important;
+  isolation: isolate;
   z-index: 10000 !important;
 }
 
@@ -17282,7 +17282,7 @@ body.dashboard-body,
   overflow: hidden !important;
   font-size: clamp(24px, 1.9vw, 34px) !important;
   line-height: 1.08 !important;
-  text-overflow: ellipsis !important;
+  text-overflow: ellipsis;
   white-space: nowrap !important;
 }
 
@@ -17442,7 +17442,7 @@ body.dashboard-body,
 .cancelled-table td {
   padding: 14px 12px !important;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
+  text-overflow: ellipsis;
 }
 
 .cancelled-table th:nth-child(1),
@@ -17475,7 +17475,7 @@ body.dashboard-body,
 .cancelled-type-pill {
   max-width: 100% !important;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
+  text-overflow: ellipsis;
   white-space: nowrap !important;
 }
 
@@ -17546,7 +17546,7 @@ body.dashboard-body,
 
 .warehouse-summary-item {
   width: 100% !important;
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   justify-content: flex-start !important;
 }
 
@@ -17731,7 +17731,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .dashboard-sidebar .sidebar-link--button,
 .dashboard-sidebar .sidebar-nav-item > .sidebar-link,
 .dashboard-sidebar .sidebar-nav-item > .sidebar-link--button {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   border: 1px solid transparent !important;
 }
 /* при ховере меняем только цвет бордера, не его наличие */
@@ -17757,7 +17757,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .balance-card-step__side h2,
 .balance-payment-dialog .balance-card-step__side h2 {
   color: #ffffff !important;
-  -webkit-text-fill-color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff;
   background: none !important;
 }
 .balance-card-step__side p,
@@ -17856,8 +17856,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 
 /* ---- Кастомный чекбокс (единый по сайту) ---- */
 .dashboard-shell input[type="checkbox"] {
-  -webkit-appearance: none !important;
-  appearance: none !important;
+  -webkit-appearance: none;
+  appearance: none;
   width: 18px !important;
   height: 18px !important;
   min-width: 18px !important;
@@ -17893,8 +17893,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 
 /* ---- Радиокнопки в едином стиле ---- */
 .dashboard-shell input[type="radio"] {
-  -webkit-appearance: none !important;
-  appearance: none !important;
+  -webkit-appearance: none;
+  appearance: none;
   width: 18px !important; height: 18px !important; min-width: 18px !important;
   border: 1.5px solid var(--neutral-300,#cbd5e1) !important;
   border-radius: 50% !important; background: #fff !important; cursor: pointer !important;
@@ -17915,7 +17915,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .dashboard-sidebar .sidebar-link--button:hover,
 .dashboard-sidebar .sidebar-nav-item > .sidebar-link:hover,
 .dashboard-sidebar .sidebar-nav-item > .sidebar-link--button:hover {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   height: 44px !important;
   min-height: 44px !important;
   max-height: 44px !important;
@@ -17927,7 +17927,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 /* ---- sidebar-account hover stability ---- */
 .dashboard-sidebar .sidebar-account,
 .dashboard-sidebar .sidebar-account:hover {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   margin: 0 !important;
 }
 .dashboard-sidebar .sidebar-account:hover {
@@ -17967,7 +17967,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .period-switcher .period-switcher__details,
 .period-switcher button,
 .period-switcher select {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   height: 36px !important;
   min-height: 36px !important;
   display: inline-flex !important;
@@ -18030,7 +18030,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .period-switcher .period-dropdown__button,
 .period-switcher .period-dropdown > button,
 .period-switcher button {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   height: 36px !important;
   min-height: 36px !important;
   display: inline-flex !important;
@@ -18175,7 +18175,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 /* 7) единый стиль иконок: warehouse-контейнер как у KPI-чипа (teal-tint, teal-глиф, stroke) */
 .warehouse-summary-item__icon {
   width: 40px; height: 40px;
-  display: grid !important; place-items: center !important;
+  display: grid !important; place-items: center;
   border-radius: 12px !important;
   background: rgba(29,181,181,0.10) !important;
   color: var(--accent,#1db5b5) !important;
@@ -18239,7 +18239,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .dashboard-sidebar .sidebar-user.sidebar-user--button:active,
 .dashboard-sidebar .sidebar-account:hover .sidebar-user.sidebar-user--button,
 .dashboard-sidebar .sidebar-account.is-open .sidebar-user.sidebar-user--button {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   width: 100% !important;
   margin: 0 !important;
   border-width: 1px !important;
@@ -18691,7 +18691,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   width: 112px !important;
   min-height: 112px !important;
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   gap: 0 !important;
   padding: 12px 14px !important;
   border: 1px solid rgba(148, 163, 184, 0.3) !important;
@@ -18710,7 +18710,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .staff-photo-upload > div {
   width: 100% !important;
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   gap: 0 !important;
 }
 
@@ -18779,7 +18779,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   width: 34px !important;
   height: 24px !important;
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   overflow: hidden !important;
   border: 1px solid rgba(148, 163, 184, 0.28) !important;
   border-radius: 4px !important;
@@ -18806,7 +18806,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   height: 34px !important;
   min-height: 34px !important;
   display: inline-grid !important;
-  place-items: center !important;
+  place-items: center;
   padding: 0 !important;
   border: 0 !important;
   border-radius: 10px !important;
@@ -18881,8 +18881,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .staff-permission-switch i {
   min-width: 0 !important;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .staff-permission-switch span {
@@ -18894,7 +18894,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .staff-permission-switch i {
   color: var(--neutral-500, #64748b) !important;
   font-size: 12px !important;
-  font-style: normal !important;
+  font-style: normal;
   font-weight: 600 !important;
 }
 
@@ -19105,7 +19105,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   min-width: 40px;
   max-width: 40px;
   flex: 0 0 40px;
-  aspect-ratio: 1 / 1 !important;
+  aspect-ratio: 1 / 1;
   padding: 0 !important;
   border-radius: 6px;
 }
@@ -19116,7 +19116,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 /* 4) recent-order price — palette (navy), not green */
 .dashboard-shell .recent-orders-list .recent-order em {
   color: #0b1f3f !important;
-  font-style: normal !important;
+  font-style: normal;
   font-weight: 600 !important;
 }
 
@@ -19175,7 +19175,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   font-size: 16px !important;
   font-weight: 600;
   color: #0b1f3f !important;
-  font-style: normal !important;
+  font-style: normal;
 }
 
 /* ============ FIX ROUND 6 — warehouse blue: drop border, use KPI-style shadow ============ */
@@ -19299,8 +19299,8 @@ body:has(.balance-payment-modal) .dashboard-main {
 
 /* custom checkbox in balance-offer */
 .balance-offer--check input[type="checkbox"] {
-  appearance: none !important;
-  -webkit-appearance: none !important;
+  appearance: none;
+  -webkit-appearance: none;
   width: 20px !important;
   height: 20px !important;
   min-width: 20px !important;
@@ -20171,7 +20171,7 @@ body:has(.balance-payment-modal) .dashboard-main {
   min-height: 34px !important;
   max-height: 34px !important;
   display: inline-grid !important;
-  place-items: center !important;
+  place-items: center;
   padding: 0 !important;
   gap: 0 !important;
   overflow: hidden !important;
@@ -20308,8 +20308,8 @@ body:has(.balance-payment-modal) .dashboard-main {
 .staff-phone-country-menu span {
   min-width: 0 !important;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 13px !important;
   font-weight: 700 !important;
 }
@@ -20482,8 +20482,8 @@ body:has(.admin-income-modal) .support-widget {
 .support-widget__country-menu span {
   min-width: 0 !important;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 14px !important;
   font-weight: 500 !important;
 }
@@ -20621,7 +20621,7 @@ body:has(.admin-income-modal) .support-widget {
   flex: 1 1 auto !important;
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  grid-auto-flow: row !important;
+  grid-auto-flow: row;
   gap: 12px 12px !important;
   align-content: start !important;
   margin: 0 !important;
@@ -20847,7 +20847,7 @@ body:has(.admin-income-modal) .support-widget {
   width: 34px !important;
   height: 20px !important;
   display: inline-grid !important;
-  place-items: center !important;
+  place-items: center;
   padding: 0 !important;
   border: 0 !important;
   background: transparent !important;
@@ -20953,7 +20953,7 @@ body:has(.admin-income-modal) .support-widget {
   font-size: 19px;
   font-weight: 700;
   letter-spacing: 0.02em !important;
-  box-sizing: border-box !important;
+  box-sizing: border-box;
 }
 
 .balance-payment-dialog__field strong {
@@ -21833,7 +21833,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   width: 210px !important;
   padding: 0 42px 0 14px !important;
   color: #94a3b8 !important;
-  appearance: none !important;
+  appearance: none;
 }
 
 .z-waiters-report__select svg {
@@ -21887,7 +21887,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   color: #020617 !important;
   font-size: 15px !important;
   font-weight: 500 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .z-waiters-report__row--head input {
@@ -22094,16 +22094,16 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   color: inherit !important;
   font-size: 12px !important;
   font-weight: 900 !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dashboard-sidebar .sidebar-account__lang-panel em {
   color: rgba(226, 236, 255, 0.56) !important;
   font-size: 11px !important;
-  font-style: normal !important;
+  font-style: normal;
   font-weight: 800 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 /* Final guard: keep the profile card on the owner-platform navy in every state. */
@@ -22454,7 +22454,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .kpi-info-window,
 .warehouse-report-window {
   scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
+  -ms-overflow-style: none;
 }
 .kpi-info-window::-webkit-scrollbar,
 .warehouse-report-window::-webkit-scrollbar { display: none !important; }
@@ -22874,7 +22874,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 
 .report-actions .report-date-calendar-toolbar button {
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   padding: 0 !important;
   color: var(--teal-500, #1db5b5) !important;
 }
@@ -23163,7 +23163,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     max-width: none !important;
     opacity: 1 !important;
     visibility: visible !important;
-    white-space: nowrap !important;
+    white-space: nowrap;
     transform: none !important;
   }
 
@@ -23218,7 +23218,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     min-height: 36px !important;
     padding: 0 !important;
     display: grid !important;
-    place-items: center !important;
+    place-items: center;
     gap: 0 !important;
     border-radius: 10px !important;
   }
@@ -23455,7 +23455,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   .dashboard-main.is-sidebar-collapsed .dashboard-topbar,
   .dashboard-shell.is-sidebar-collapsed .dashboard-topbar,
   .dashboard-shell.is-sidebar-expanded .dashboard-topbar {
-    box-sizing: border-box !important;
+    box-sizing: border-box;
     margin-left: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -23646,7 +23646,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     height: 30px !important;
     min-height: 30px !important;
     max-height: 30px !important;
-    place-items: center !important;
+    place-items: center;
     margin: 0 !important;
     padding: 0 !important;
     color: rgba(226, 236, 255, 0.9) !important;
@@ -23673,7 +23673,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     height: 30px !important;
     min-height: 30px !important;
     max-height: 30px !important;
-    place-items: center !important;
+    place-items: center;
     margin: 0 !important;
     padding: 0 !important;
     color: rgba(226, 236, 255, 0.9) !important;
@@ -23753,7 +23753,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   width: 42px !important;
   min-width: 42px !important;
   display: inline-grid !important;
-  place-items: center !important;
+  place-items: center;
   padding: 0 !important;
   border-radius: 10px !important;
   font-size: 12px !important;
@@ -23900,8 +23900,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .z-waiters-report__date-picker.report-actions .report-period-picker .z-waiters-report__date span {
   min-width: 0 !important;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .z-waiters-report__date-picker.report-actions .report-date-menu {
@@ -23984,8 +23984,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .orders-report-page .report-period-button span {
   display: block !important;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 14px !important;
   font-weight: 800 !important;
 }
@@ -24307,7 +24307,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   max-width: 44px !important;
   flex: 0 0 44px !important;
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   border-radius: 14px !important;
   box-shadow: none !important;
 }
@@ -24417,7 +24417,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .z-report-page--print-only .z-report-select__trigger {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   width: 100% !important;
   min-width: 0 !important;
   height: 40px !important;
@@ -24432,19 +24432,19 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   background: #ffffff !important;
   color: #10233d !important;
   box-shadow: none !important;
-  font: inherit !important;
+  font: inherit;
   font-size: 13px !important;
   font-weight: 700 !important;
   line-height: 1 !important;
-  appearance: none !important;
+  appearance: none;
   cursor: pointer !important;
 }
 
 .z-report-page--print-only .z-report-select__trigger span {
   min-width: 0 !important;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .z-report-page--print-only .z-report-select__trigger svg {
@@ -24802,9 +24802,9 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .dish-catalog-page .dish-grid-table {
   width: 100%;
   min-width: 1360px;
-  table-layout: fixed !important;
+  table-layout: fixed;
   border-collapse: separate !important;
-  border-spacing: 0 !important;
+  border-spacing: 0;
   color: #20324d !important;
   font-size: 13px !important;
 }
@@ -24826,7 +24826,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   font-size: 12px !important;
   font-weight: 800 !important;
   text-align: left !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .dish-catalog-page .dish-grid-table tbody tr:hover td {
@@ -24913,8 +24913,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .dish-catalog-page .dish-recipe-link,
 .dish-catalog-page .dish-printer-cell {
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dish-catalog-page .dish-sort-cell {
@@ -24969,7 +24969,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 
 .dish-catalog-page .dish-photo-button {
   display: inline-grid !important;
-  place-items: center !important;
+  place-items: center;
 }
 
 .dish-catalog-page .dish-photo-placeholder {
@@ -25209,7 +25209,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   box-shadow: none !important;
   font-size: 13px !important;
   font-weight: 800 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .dish-catalog-page .dish-table-settings-btn:hover,
@@ -25282,7 +25282,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   border-radius: 12px !important;
   overflow: hidden !important;
   background-clip: padding-box;
-  appearance: none !important;
+  appearance: none;
 }
 
 .dish-catalog-page .dish-stat-lines button.is-active {
@@ -25311,7 +25311,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     min-height: 220px;
     max-height: none;
     overflow: auto !important;
-    overscroll-behavior: contain !important;
+    overscroll-behavior: contain;
     scrollbar-gutter: stable both-edges !important;
   }
 
@@ -25408,7 +25408,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 
 .dish-catalog-page .dish-grid-table th,
 .dish-catalog-page .dish-grid-table td {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
 }
 
 .dish-catalog-page .dish-grid-wrap::-webkit-scrollbar {
@@ -25928,7 +25928,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   .menu-categories-page .menu-category-list {
     flex: 1 1 auto;
     overflow: auto !important;
-    overscroll-behavior: contain !important;
+    overscroll-behavior: contain;
   }
 
   .dish-catalog-page .dish-grid-table th {
@@ -25968,13 +25968,13 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   .dish-catalog-page,
   .dashboard-back-slot + .menu-categories-page,
   .menu-categories-page {
-    box-sizing: border-box !important;
+    box-sizing: border-box;
     padding-bottom: 0 !important;
   }
 
   .dish-catalog-page .dish-catalog-card,
   .menu-categories-page .menu-categories-card {
-    box-sizing: border-box !important;
+    box-sizing: border-box;
     padding-bottom: 8px !important;
   }
 
@@ -27051,7 +27051,7 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
     height: 100% !important;
     display: block !important;
     object-fit: contain !important;
-    object-position: center !important;
+    object-position: center;
     margin: 0 !important;
     transform: none !important;
     translate: none !important;
@@ -27086,7 +27086,7 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
   body.dashboard-body .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar .brand-subtitle {
     display: block !important;
     max-width: none !important;
-    white-space: nowrap !important;
+    white-space: nowrap;
     opacity: 1 !important;
     visibility: visible !important;
     pointer-events: auto !important;
@@ -27231,7 +27231,7 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
 .clients-directory-page .settings-table {
   min-width: 980px !important;
   border-collapse: separate !important;
-  border-spacing: 0 !important;
+  border-spacing: 0;
   border: 1px solid #dce8f6 !important;
   border-radius: 14px !important;
   color: #20324d !important;
@@ -28060,7 +28060,7 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
   body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .kpi-grid.kpi-grid--premium {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    grid-auto-flow: row !important;
+    grid-auto-flow: row;
   }
 
   body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .kpi-grid.kpi-grid--premium .premium-kpi__top {
@@ -28084,7 +28084,7 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
   body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .kpi-grid.kpi-grid--premium {
     display: grid !important;
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    grid-auto-flow: row !important;
+    grid-auto-flow: row;
   }
 
   body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .kpi-grid.kpi-grid--premium > .premium-kpi:last-child:nth-child(5) {
@@ -28174,7 +28174,7 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
     font-weight: 500 !important;
     line-height: 1.2 !important;
     text-align: right !important;
-    white-space: nowrap !important;
+    white-space: nowrap;
   }
 
   body.dashboard-body .dashboard-shell .owner-top-sales-card .top-dish__price {
@@ -28185,7 +28185,7 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
     font-weight: 500 !important;
     line-height: 1.2 !important;
     text-align: right !important;
-    white-space: nowrap !important;
+    white-space: nowrap;
   }
 }
 
@@ -28198,7 +28198,7 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
     max-width: 40px !important;
     max-height: 40px !important;
     flex: 0 0 40px !important;
-    aspect-ratio: 1 / 1 !important;
+    aspect-ratio: 1 / 1;
     border-radius: 12px !important;
   }
 
@@ -28214,7 +28214,7 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
   body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .kpi-grid.kpi-grid--premium {
     display: grid !important;
     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-    grid-auto-flow: row !important;
+    grid-auto-flow: row;
   }
 
   body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .kpi-grid.kpi-grid--premium > .premium-kpi {
@@ -28351,7 +28351,7 @@ body.dashboard-body .nomenclature-page--raw .nomenclature-table-wrapper {
 body.dashboard-body .nomenclature-page--raw .nomenclature-table {
   width: 100% !important;
   min-width: 0 !important;
-  table-layout: fixed !important;
+  table-layout: fixed;
 }
 
 body.dashboard-body .nomenclature-page--raw .nomenclature-table th,
@@ -28360,8 +28360,8 @@ body.dashboard-body .nomenclature-page--raw .nomenclature-table td {
   padding: 12px 10px !important;
   font-size: 12px !important;
   line-height: 1.2 !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 body.dashboard-body .nomenclature-page--raw .nomenclature-table th {
@@ -28527,7 +28527,7 @@ body.dashboard-body .nomenclature-page--semi .nomenclature-table-wrapper {
 body.dashboard-body .nomenclature-page--semi .nomenclature-table {
   width: 100% !important;
   min-width: 0 !important;
-  table-layout: fixed !important;
+  table-layout: fixed;
 }
 
 body.dashboard-body .nomenclature-page--semi .nomenclature-table th,
@@ -28536,8 +28536,8 @@ body.dashboard-body .nomenclature-page--semi .nomenclature-table td {
   padding: 12px 10px !important;
   font-size: 12px !important;
   line-height: 1.2 !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 body.dashboard-body .nomenclature-page--semi .nomenclature-table th {
@@ -28655,7 +28655,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
   gap: 4px !important;
   font-size: clamp(22px, 1.85vw, 29px) !important;
   letter-spacing: 0 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band .premium-kpi .kpi-value small {
@@ -28732,7 +28732,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 
 .menu-categories-page .menu-category-row,
 .menu-categories-page .menu-category-row.is-loading {
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   grid-template-columns: minmax(220px, 1fr) 40px auto auto 36px 36px !important;
   gap: 8px !important;
   height: 54px !important;
@@ -28822,7 +28822,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
   height: auto !important;
   display: grid !important;
   grid-template-columns: minmax(0, 1fr) !important;
-  place-items: center !important;
+  place-items: center;
   padding: 28px 16px;
   background:
     linear-gradient(115deg, rgba(4, 12, 14, 0.84) 0%, rgba(7, 20, 24, 0.58) 48%, rgba(4, 12, 14, 0.8) 100%),
@@ -28943,7 +28943,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 .login-pro-input-wrap input:-webkit-autofill:focus {
   -webkit-box-shadow: 0 0 0 1000px rgba(9, 24, 30, 0.78) inset;
   box-shadow: 0 0 0 1000px rgba(9, 24, 30, 0.78) inset !important;
-  caret-color: #fff8e6 !important;
+  caret-color: #fff8e6;
 }
 
 .login-pro-row {
@@ -29132,7 +29132,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 
 .login-pro-panel {
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   width: auto;
   height: auto;
   padding: 38px 52px;
@@ -29645,10 +29645,10 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 .login-pro-card .login-pro-input-wrap input:-webkit-autofill,
 .login-pro-card .login-pro-input-wrap input:-webkit-autofill:hover,
 .login-pro-card .login-pro-input-wrap input:-webkit-autofill:focus {
-  -webkit-text-fill-color: #fff8e6 !important;
+  -webkit-text-fill-color: #fff8e6;
   -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
   box-shadow: none !important;
-  caret-color: #fff8e6 !important;
+  caret-color: #fff8e6;
   transition: background-color 9999s ease-out 0s;
 }
 
@@ -30304,7 +30304,7 @@ body.dashboard-body .dashboard-shell .owner-revenue-range.report-actions .report
   padding: 0 13px !important;
   gap: 7px !important;
   overflow: hidden !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 body.dashboard-body .dashboard-shell .owner-revenue-range.report-actions .report-period-button.period-dropdown__button span,
@@ -30330,8 +30330,8 @@ body.dashboard-body .dashboard-shell .owner-revenue-range.report-actions .report
   color: #162840 !important;
   font-size: 13px !important;
   font-weight: 600 !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 body.dashboard-body .dashboard-shell .owner-revenue-range.report-actions .report-period-button.period-dropdown__button svg {
@@ -30402,7 +30402,7 @@ body.dashboard-body .dashboard-shell .owner-revenue-range.report-actions .report
 
 body.dashboard-body .dashboard-shell .owner-revenue-range.report-actions .report-date-calendar-grid button {
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   height: auto !important;
   min-height: 30px !important;
 }
@@ -30450,7 +30450,7 @@ body.dashboard-body .dashboard-shell .owner-revenue-switcher .period-dropdown__b
   gap: 7px !important;
   padding: 0 13px !important;
   overflow: visible !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 body.dashboard-body .dashboard-shell .owner-revenue-switcher .period-dropdown__button strong {
@@ -30460,7 +30460,7 @@ body.dashboard-body .dashboard-shell .owner-revenue-switcher .period-dropdown__b
   font-weight: 600 !important;
   line-height: 1 !important;
   letter-spacing: 0 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 body.dashboard-body .dashboard-shell .owner-revenue-switcher .period-dropdown__button svg {
@@ -30483,7 +30483,7 @@ body.dashboard-body .dashboard-shell .owner-revenue-switcher .period-dropdown__m
   height: 34px !important;
   min-height: 34px !important;
   justify-content: center !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 /* Owner dashboard: keep the revenue date picker above the chart canvas. */
@@ -30517,14 +30517,14 @@ body.dashboard-body .dashboard-shell .premium-chart .owner-revenue-range.report-
   z-index: 3000 !important;
   background: #ffffff !important;
   opacity: 1 !important;
-  isolation: isolate !important;
+  isolation: isolate;
 }
 
 body.dashboard-body .dashboard-shell .premium-chart .owner-revenue-range.report-actions .report-date-calendar-popover {
   z-index: 3010 !important;
   background: #ffffff !important;
   opacity: 1 !important;
-  isolation: isolate !important;
+  isolation: isolate;
   backdrop-filter: none !important;
 }
 
@@ -30680,7 +30680,7 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   position: relative !important;
   top: auto !important;
   z-index: 2 !important;
-  isolation: isolate !important;
+  isolation: isolate;
   width: 38px !important;
   min-width: 38px !important;
   max-width: 38px !important;
@@ -30940,15 +30940,15 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   box-shadow: 0 5px 11px rgba(15, 23, 42, 0.035) !important;
   font-size: 14px !important;
   font-weight: 800 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .z-report-page--print-only .z-report-period-toolbar .report-period-button.z-report-period-button span {
   min-width: 0 !important;
   overflow: hidden !important;
   color: #10233d !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .z-report-page--print-only .z-report-period-toolbar .report-period-button.z-report-period-button svg {
@@ -31061,7 +31061,7 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   font-weight: 800 !important;
   line-height: 1 !important;
   letter-spacing: 0 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
   transform: none !important;
 }
 
@@ -31075,8 +31075,8 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   display: block !important;
   overflow: hidden !important;
   color: #10233d !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: inherit !important;
   font-weight: inherit !important;
   line-height: 1 !important;
@@ -31212,7 +31212,7 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   font-weight: 800 !important;
   line-height: 42px !important;
   letter-spacing: 0 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .z-report-page--print-only .z-report-period-toolbar .report-period-picker {
@@ -31251,7 +31251,7 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   font-size: 14px !important;
   font-weight: 800 !important;
   line-height: 1 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
   cursor: pointer !important;
 }
 
@@ -31341,13 +31341,13 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   height: 16px !important;
   min-width: 16px !important;
   margin: 0 !important;
-  appearance: none !important;
-  -webkit-appearance: none !important;
+  appearance: none;
+  -webkit-appearance: none;
   border: 0 !important;
   border-radius: 5px !important;
   background: var(--color-brand, #1db5b5) !important;
   flex: 0 0 auto !important;
-  place-self: center !important;
+  place-self: center;
 }
 
 .orders-report-page .orders-table-settings-list input::after {
@@ -31374,8 +31374,8 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
 .orders-report-page .orders-table-settings-list span {
   min-width: 0 !important;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Orders report: make table corners less rounded. */
@@ -31400,7 +31400,7 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   font-size: 14px !important;
   font-weight: 800 !important;
   line-height: 1 !important;
-  white-space: nowrap !important;
+  white-space: nowrap;
   cursor: pointer !important;
 }
 
@@ -31490,13 +31490,13 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   height: 16px !important;
   min-width: 16px !important;
   margin: 0 !important;
-  appearance: none !important;
-  -webkit-appearance: none !important;
+  appearance: none;
+  -webkit-appearance: none;
   border: 0 !important;
   border-radius: 5px !important;
   background: var(--color-brand, #1db5b5) !important;
   flex: 0 0 auto !important;
-  place-self: center !important;
+  place-self: center;
 }
 
 .tables-report-page .tables-table-settings-list input::after {
@@ -31523,8 +31523,8 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
 .tables-report-page .tables-table-settings-list span {
   min-width: 0 !important;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tables-report-page .report-table-wrapper {

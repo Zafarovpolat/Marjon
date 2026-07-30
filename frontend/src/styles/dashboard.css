@@ -5497,7 +5497,7 @@ body.dashboard-body::before {
   height: 54px !important;
   border-radius: 18px !important;
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   color: #fff !important;
   box-shadow: 0 10px 19px rgba(16,24,40, 0.105), inset 0 1px 0 rgba(255,255,255, 0.168) !important;
 }
@@ -5704,7 +5704,7 @@ body.dashboard-body::before {
   width: 46px !important;
   height: 46px !important;
   display: grid !important;
-  place-items: center !important;
+  place-items: center;
   border-radius: 14px !important;
   color: #fff !important;
   background: var(--neutral-950);
