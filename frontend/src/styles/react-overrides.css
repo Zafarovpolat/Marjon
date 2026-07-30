@@ -2619,7 +2619,6 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link:hover,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible {
   background: rgba(255, 255, 255, 0.075) !important;
-  outline: 0 !important;
 }
 
 .dashboard-sidebar .sidebar-submenu__link.is-active {
@@ -3201,7 +3200,6 @@ body.dashboard-body,
 }
 
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open {
-  border-radius: 10px !important;
   background: rgba(255, 255, 255, 0.075);
   box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.084),
     0 11px 22px rgba(2, 8, 23, 0.126) !important;
@@ -3258,9 +3256,6 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link:hover,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible,
 .dashboard-sidebar .sidebar-submenu__link.is-active {
-  height: 34px !important;
-  min-height: 34px !important;
-  max-height: 34px !important;
   padding: 0 8px 0 23px !important;
   color: rgba(219, 234, 254, 0.76) !important;
 }
@@ -3356,10 +3351,6 @@ body.dashboard-body,
   left: -4px !important;
   box-shadow: 0 0 0 1px rgba(8, 29, 63, 0.665),
     0 0 6px rgba(157, 184, 216, 0.154) !important;
-}
-
-.dashboard-sidebar .sidebar-submenu__icon {
-  color: rgba(188, 207, 232, 0.76) !important;
 }
 
 .dashboard-sidebar .sidebar-submenu__link:hover,
