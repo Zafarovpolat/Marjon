@@ -3598,7 +3598,6 @@ body.dashboard-body,
 
 /* Waiter POS sidebar aligned with owner category panel */
 .pos-sidebar.pos-sidebar--ownerlike {
-  width: 260px !important;
   padding: 14px 10px 14px !important;
   background: var(--neutral-950);
   box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.028) !important;
@@ -3614,7 +3613,6 @@ body.dashboard-body,
 .pos-sidebar--ownerlike .pos-brand__mark {
   width: 54px !important;
   height: 54px !important;
-  border-radius: 0 !important;
   padding: 4px !important;
   background: #ffffff !important;
   box-shadow: 0 7px 14px rgba(2, 8, 23, 0.175) !important;
@@ -3627,9 +3625,7 @@ body.dashboard-body,
 }
 
 .pos-sidebar--ownerlike .pos-brand span {
-  margin-top: 4px !important;
   font-size: 10px !important;
-  letter-spacing: 0.04em !important;
   color: rgba(219, 234, 254, 0.62) !important;
 }
 
@@ -3671,12 +3667,10 @@ body.dashboard-body,
 
 .pos-sidebar--ownerlike .pos-nav a:hover,
 .pos-sidebar--ownerlike .pos-nav-button:hover {
-  color: #ffffff !important;
   background: rgba(255, 255, 255, 0.055) !important;
 }
 
 .pos-sidebar--ownerlike .pos-nav a.is-active {
-  color: #ffffff !important;
   background: var(--color-brand);
   border-color: rgba(83, 242, 237, 0.48) !important;
   box-shadow: 0 10px 20px rgba(29, 181, 181, 0.224),
@@ -3692,9 +3686,7 @@ body.dashboard-body,
   display: grid !important;
   place-items: center !important;
   border-radius: 0 !important;
-  background: transparent !important;
   color: currentColor !important;
-  font-size: 18px !important;
 }
 
 .pos-sidebar--ownerlike .pos-nav__icon .bi {
@@ -3702,9 +3694,7 @@ body.dashboard-body,
 }
 
 .pos-sidebar--ownerlike .pos-sidebar-user {
-  width: 100% !important;
   min-height: 68px !important;
-  margin-top: auto !important;
   padding: 8px 12px !important;
   gap: 9px !important;
   border-radius: 14px !important;
