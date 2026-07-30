@@ -3026,7 +3026,6 @@ body.dashboard-body,
 
 .dashboard-sidebar .sidebar-brand {
   padding: 0 6px 16px !important;
-  margin-bottom: 8px !important;
   border-bottom: 1px solid rgba(148, 163, 184, 0.18) !important;
 }
 
@@ -3052,7 +3051,6 @@ body.dashboard-body,
 
 .dashboard-sidebar .sidebar-nav {
   gap: 6px !important;
-  padding: 0 0 12px !important;
 }
 
 .dashboard-sidebar .sidebar-link,
@@ -3071,7 +3069,6 @@ body.dashboard-body,
   color: rgba(219, 234, 254, 0.78) !important;
   font-size: 13px !important;
   line-height: 1 !important;
-  font-weight: 500 !important;
   border: 1px solid transparent !important;
   box-shadow: none !important;
   background: transparent !important;
@@ -3114,7 +3111,6 @@ body.dashboard-body,
 
 .dashboard-sidebar .sidebar-link__chevron {
   color: currentColor !important;
-  font-size: 12px !important;
   opacity: 0.95 !important;
 }
 
@@ -3156,7 +3152,6 @@ body.dashboard-body,
   border-radius: 8px !important;
   color: rgba(219, 234, 254, 0.72) !important;
   font-size: 12px !important;
-  font-weight: 500 !important;
   line-height: 1 !important;
   background: transparent !important;
   overflow: visible !important;
@@ -3168,11 +3163,7 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link.is-active::before {
   content: "" !important;
   position: absolute !important;
-  left: -4px !important;
   top: 50% !important;
-  width: 7px !important;
-  min-width: 7px !important;
-  height: 7px !important;
   margin: 0 !important;
   border-radius: 999px !important;
   background: rgba(147, 197, 253, 0.72) !important;
@@ -3192,7 +3183,6 @@ body.dashboard-body,
   height: 16px !important;
   display: grid !important;
   place-items: center !important;
-  margin-right: 8px !important;
   color: rgba(219, 234, 254, 0.74) !important;
 }
 
@@ -3202,19 +3192,14 @@ body.dashboard-body,
 
 .dashboard-sidebar .sidebar-submenu__link:hover,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible {
-  color: #ffffff !important;
   background: rgba(255, 255, 255, 0.055) !important;
 }
 
 .dashboard-sidebar .sidebar-submenu__link.is-active {
-  color: #ffffff !important;
   background: rgba(31, 202, 194, 0.86);
-  box-shadow: 0 6px 13px rgba(2, 8, 23, 0.126),
-    inset 0 1px 0 rgba(255, 255, 255, 0.056) !important;
 }
 
 .dashboard-sidebar .sidebar-submenu__link.is-active::before {
-  background: var(--color-brand) !important;
   box-shadow: 0 0 0 2px rgba(29, 181, 181, 0.112),
     0 0 10px rgba(29, 181, 181, 0.315) !important;
 }
