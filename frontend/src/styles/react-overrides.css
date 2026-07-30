@@ -1946,18 +1946,18 @@ body.dashboard-body,
 
 /* Owner KPI cards aligned with Revenue analytics card */
 .kpi-grid.kpi-grid--premium {
-  align-items: stretch !important;
+  align-items: stretch;
 }
 
 .kpi-grid--premium .premium-kpi {
-  position: relative !important;
+  position: relative;
   min-height: 172px;
   padding: 22px 22px 20px;
   border-radius: 30px;
-  color: var(--neutral-900) !important;
+  color: var(--neutral-900);
   box-shadow: 0 11px 31px rgba(15, 23, 42, 0.053),
     0 1px 0 rgba(255, 255, 255, 0.672) inset;
-  overflow: hidden !important;
+  overflow: hidden;
   isolation: isolate;
 }
 
@@ -1974,12 +1974,12 @@ body.dashboard-body,
 }
 
 .kpi-grid--premium .premium-kpi__top {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  gap: 12px !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 20px;
-  color: var(--neutral-900) !important;
+  color: var(--neutral-900);
 }
 
 .kpi-grid--premium .premium-kpi__icon i {
@@ -1993,30 +1993,30 @@ body.dashboard-body,
 .kpi-grid--premium .trend {
   min-height: 30px;
   padding: 7px 11px;
-  border: 1px solid rgba(29, 181, 181, 0.18) !important;
+  border: 1px solid rgba(29, 181, 181, 0.18);
   border-radius: 999px !important;
   color: var(--color-warning);
   background: rgba(255, 247, 237, 0.88);
   font-size: 12px !important;
   font-weight: 500 !important;
-  letter-spacing: 0.02em !important;
+  letter-spacing: 0.02em;
 }
 
 .kpi-grid--premium .premium-kpi .kpi-label {
-  margin-bottom: 8px !important;
+  margin-bottom: 8px;
   letter-spacing: 0.02em;
-  text-transform: uppercase !important;
+  text-transform: uppercase;
 }
 
 .kpi-grid--premium .premium-kpi .kpi-value {
   color: var(--neutral-900);
   font-size: clamp(25px, 2.3vw, 35px);
   letter-spacing: -0.055em;
-  text-shadow: none !important;
+  text-shadow: none;
 }
 
 .kpi-grid--premium .premium-kpi .kpi-value small {
-  margin-left: 4px !important;
+  margin-left: 4px;
   color: var(--color-brand);
   font-size: 12px;
   font-weight: 500;
@@ -2024,7 +2024,7 @@ body.dashboard-body,
 }
 
 .kpi-grid--premium .premium-kpi .kpi-note {
-  max-width: 92% !important;
+  max-width: 92%;
   margin-top: 11px;
   padding-bottom: 14px;
   font-size: 14px;
@@ -2032,18 +2032,18 @@ body.dashboard-body,
 
 @media (max-width: 1280px) {
   .kpi-grid.kpi-grid--premium {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 768px) {
   .kpi-grid.kpi-grid--premium {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: 1fr;
   }
 
   .kpi-grid--premium .premium-kpi {
-    min-height: 154px !important;
-    padding: 20px !important;
+    min-height: 154px;
+    padding: 20px;
   }
 }
 
@@ -2056,26 +2056,26 @@ body.dashboard-body,
 
 /* Compact premium sidebar navigation */
 .dashboard-sidebar .sidebar-nav {
-  padding-top: 10px !important;
+  padding-top: 10px;
 }
 
 .dashboard-sidebar .sidebar-nav-item {
-  margin: 0 !important;
+  margin: 0;
 }
 
 .dashboard-sidebar .sidebar-link,
 .dashboard-sidebar .sidebar-link--button {
-  min-height: 48px !important;
-  padding: 0 16px !important;
-  border-radius: 13px !important;
-  gap: 12px !important;
-  font-size: 15px !important;
-  line-height: 1.15 !important;
-  font-weight: 500 !important;
+  min-height: 48px;
+  padding: 0 16px;
+  border-radius: 13px;
+  gap: 12px;
+  font-size: 15px;
+  line-height: 1.15;
+  font-weight: 500;
 }
 
 .dashboard-sidebar .sidebar-icon {
-  font-size: 17px !important;
+  font-size: 17px;
 }
 
 .dashboard-sidebar .sidebar-link__chevron {
@@ -2085,8 +2085,8 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open > .sidebar-link,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open > .sidebar-link--button,
 .dashboard-sidebar .sidebar-link.is-active {
-  min-height: 52px !important;
-  border-radius: 14px !important;
+  min-height: 52px;
+  border-radius: 14px;
 }
 
 .dashboard-sidebar .sidebar-submenu {
@@ -2103,11 +2103,11 @@ body.dashboard-body,
 
 .dashboard-sidebar .sidebar-submenu__link {
   min-height: 31px;
-  padding: 6px 10px 6px 12px !important;
-  border-radius: 10px !important;
-  font-size: 13px !important;
-  line-height: 1.18 !important;
-  font-weight: 500 !important;
+  padding: 6px 10px 6px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.18;
+  font-weight: 500;
 }
 
 .dashboard-sidebar .sidebar-submenu__link::before {
@@ -2127,21 +2127,21 @@ body.dashboard-body,
 @media (max-height: 768px) {
   .dashboard-sidebar .sidebar-link,
   .dashboard-sidebar .sidebar-link--button {
-    min-height: 44px !important;
-    font-size: 15px !important;
+    min-height: 44px;
+    font-size: 15px;
   }
 
   .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open > .sidebar-link,
   .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open > .sidebar-link--button,
   .dashboard-sidebar .sidebar-link.is-active {
-    min-height: 48px !important;
+    min-height: 48px;
   }
 
   .dashboard-sidebar .sidebar-submenu__link {
-    min-height: 28px !important;
-    padding-top: 5px !important;
-    padding-bottom: 5px !important;
-    font-size: 13px !important;
+    min-height: 28px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    font-size: 13px;
   }
 }
 
@@ -2213,11 +2213,11 @@ body.dashboard-body,
 .dashboard-sidebar,
 .dashboard-sidebar .sidebar-nav,
 .dashboard-sidebar .sidebar-nav-item.has-submenu {
-  overflow: visible !important;
+  overflow: visible;
 }
 
 .dashboard-sidebar .sidebar-nav {
-  position: relative !important;
+  position: relative;
   align-content: start;
 }
 
@@ -2274,8 +2274,8 @@ body.dashboard-body,
 
 /* Restore inline submenu flow: lower categories move down smoothly */
 .dashboard-sidebar .sidebar-nav-item.has-submenu {
-  position: relative !important;
-  z-index: auto !important;
+  position: relative;
+  z-index: auto;
 }
 
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open {
@@ -2335,10 +2335,10 @@ body.dashboard-body,
 }
 
 .dashboard-sidebar .sidebar-user {
-  position: relative !important;
+  position: relative;
   z-index: 80;
-  flex: 0 0 auto !important;
-  margin-top: 10px !important;
+  flex: 0 0 auto;
+  margin-top: 10px;
   background: rgba(15, 35, 79, 0.98);
   border: 1px solid rgba(147, 197, 253, 0.18);
   box-shadow: 0 -10px 20px rgba(2, 8, 23, 0.21),
@@ -2359,7 +2359,7 @@ body.dashboard-body,
 
 .dashboard-sidebar .sidebar-nav-item.has-submenu,
 .dashboard-sidebar .sidebar-submenu {
-  z-index: 1 !important;
+  z-index: 1;
 }
 
 /* Remove accidental dark overlay from sidebar top */
@@ -2370,7 +2370,7 @@ body.dashboard-body,
 }
 
 .dashboard-sidebar .sidebar-user {
-  z-index: 60 !important;
+  z-index: 60;
 }
 
 /* Sidebar category and subcategory typography parity */
@@ -2387,9 +2387,9 @@ body.dashboard-body,
 }
 
 .dashboard-sidebar .sidebar-submenu__link {
-  min-height: 34px !important;
-  padding-top: 7px !important;
-  padding-bottom: 7px !important;
+  min-height: 34px;
+  padding-top: 7px;
+  padding-bottom: 7px;
 }
 
 @media (max-height: 768px) {
@@ -2442,39 +2442,39 @@ body.dashboard-body,
 
 /* Final sidebar cleanup: stable layout, no overlap, no wrapping */
 .dashboard-sidebar {
-  max-height: 100vh !important;
-  display: flex !important;
-  flex-direction: column !important;
+  max-height: 100vh;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
 }
 
 .dashboard-sidebar .sidebar-brand {
-  flex: 0 0 auto !important;
+  flex: 0 0 auto;
   margin-bottom: 10px;
 }
 
 .dashboard-sidebar .sidebar-nav {
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-content: stretch !important;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-content: stretch;
   padding: 8px 0 12px;
-  margin: 0 !important;
-  background: transparent !important;
+  margin: 0;
+  background: transparent;
   scrollbar-width: thin;
-  scrollbar-gutter: stable !important;
+  scrollbar-gutter: stable;
 }
 
 .dashboard-sidebar .sidebar-nav-item,
 .dashboard-sidebar .sidebar-nav-item.has-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open {
-  position: relative !important;
-  z-index: auto !important;
-  flex: 0 0 auto !important;
-  min-width: 0 !important;
-  margin: 0 !important;
-  overflow: visible !important;
+  position: relative;
+  z-index: auto;
+  flex: 0 0 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: visible;
 }
 
 .dashboard-sidebar .sidebar-link,
@@ -2508,13 +2508,13 @@ body.dashboard-body,
 
 .dashboard-sidebar .sidebar-icon {
   flex: 0 0 22px;
-  display: grid !important;
+  display: grid;
   place-items: center;
 }
 
 .dashboard-sidebar .sidebar-link__chevron {
-  flex: 0 0 auto !important;
-  margin-left: auto !important;
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .dashboard-sidebar .sidebar-submenu,
@@ -2599,7 +2599,7 @@ body.dashboard-body,
 
 @media (max-height: 768px) {
   .dashboard-sidebar .sidebar-nav {
-    gap: 5px !important;
+    gap: 5px;
   }
 
   .dashboard-sidebar .sidebar-link,
@@ -2670,25 +2670,25 @@ body.dashboard-body,
 .period-switcher__details,
 .revenue-period-dropdown__trigger,
 .section-header .btn-ghost {
-  border: 1px solid rgba(226, 232, 240, 0.90) !important;
+  border: 1px solid rgba(226, 232, 240, 0.90);
   background: var(--neutral-50);
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.056),
-    0 1px 0 rgba(255, 255, 255, 0.665) inset !important;
+    0 1px 0 rgba(255, 255, 255, 0.665) inset;
 }
 
 /* Align period controls and section actions to one common button height */
 .period-switcher .period-dropdown__button,
 .period-switcher__details,
 .section-header .btn-ghost {
-  min-height: 48px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .kpi-grid.kpi-grid--premium {
-  gap: 18px !important;
-  margin-bottom: 20px !important;
+  gap: 18px;
+  margin-bottom: 20px;
   perspective: 1200px;
 }
 
@@ -2697,7 +2697,7 @@ body.dashboard-body,
   padding: 20px 20px 18px !important;
   border-radius: 22px !important;
   border: 1px solid rgba(226, 232, 240, 0.92) !important;
-  background: #ffffff !important;
+  background: #ffffff;
   box-shadow: 0 13px 26px rgba(15, 23, 42, 0.07),
     0 5px 10px rgba(15, 23, 42, 0.032),
     inset 0 1px 0 rgba(255, 255, 255, 0.7),
