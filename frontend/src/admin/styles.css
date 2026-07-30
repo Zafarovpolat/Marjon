@@ -2678,7 +2678,7 @@ body {
 .admin-sidebar {
   background:
     radial-gradient(circle at 20% 0%, rgba(214, 168, 79, 0.14), transparent 28%),
-    linear-gradient(180deg, #182529 0%, #141f23 48%, #10191c 100%) !important;
+    linear-gradient(180deg, #182529 0%, #141f23 48%, #10191c 100%);
   border-right: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -2703,10 +2703,10 @@ body {
 
 .admin-nav button.is-active {
   position: relative;
-  border-color: rgba(214, 168, 79, 0.26) !important;
+  border-color: rgba(214, 168, 79, 0.26);
   background:
     linear-gradient(90deg, rgba(26, 145, 111, 0.16), rgba(214, 168, 79, 0.08)),
-    rgba(24, 37, 40, 0.72) !important;
+    rgba(24, 37, 40, 0.72);
 }
 
 .admin-nav button.is-active::before {
@@ -2763,11 +2763,11 @@ body {
 .admin-side-card:hover,
 .admin-category-page:hover {
   transform: translateY(-2px);
-  border-color: rgba(214, 168, 79, 0.24) !important;
+  border-color: rgba(214, 168, 79, 0.24);
   box-shadow:
     0 22px 54px rgba(0, 0, 0, 0.3),
     0 0 24px rgba(214, 168, 79, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.055) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.055);
 }
 
 .admin-kpi__top span,
@@ -2952,10 +2952,10 @@ body {
   border: 1px solid rgba(226, 232, 240, 0.2) !important;
   border-radius: 28px;
   background:
-    linear-gradient(180deg, rgba(14, 28, 36, 0.78), rgba(8, 18, 26, 0.72)) !important;
+    linear-gradient(180deg, rgba(14, 28, 36, 0.78), rgba(8, 18, 26, 0.72));
   box-shadow:
     0 28px 90px rgba(0, 0, 0, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(22px) saturate(1.14);
 }
 
@@ -3091,9 +3091,9 @@ body {
 
 /* Super admin login follows the restaurant login structure with admin styling. */
 .admin-login__panel {
-  width: min(594px, calc(100vw - 32px)) !important;
-  padding: 56px 58px 54px !important;
-  border-radius: 34px !important;
+  width: min(594px, calc(100vw - 32px));
+  padding: 56px 58px 54px;
+  border-radius: 34px;
 }
 
 .admin-login__brand {
@@ -3104,10 +3104,10 @@ body {
 }
 
 .admin-login__brand img {
-  width: 54px !important;
-  height: 54px !important;
+  width: 54px;
+  height: 54px;
   padding: 8px !important;
-  border-radius: 18px !important;
+  border-radius: 18px;
 }
 
 .admin-login__brand span {
@@ -3120,7 +3120,7 @@ body {
 .admin-login__panel h1 {
   margin: 0 !important;
   color: #fff8e6 !important;
-  font-size: 34px !important;
+  font-size: 34px;
   line-height: 1.12 !important;
 }
 
@@ -3131,18 +3131,18 @@ body {
 }
 
 .admin-login__subtitle {
-  margin: 10px 0 34px !important;
+  margin: 10px 0 34px;
   color: rgba(226, 232, 240, 0.78) !important;
-  font-size: 17px !important;
+  font-size: 17px;
   font-weight: 700 !important;
 }
 
 .admin-login__field {
   display: grid !important;
-  gap: 10px !important;
+  gap: 10px;
   margin: 0 0 22px !important;
   color: rgba(226, 232, 240, 0.88) !important;
-  font-size: 12px !important;
+  font-size: 12px;
   font-weight: 900 !important;
   letter-spacing: 0.06em !important;
 }
@@ -3177,7 +3177,7 @@ body {
 }
 
 .admin-login__input input {
-  min-height: 58px !important;
+  min-height: 58px;
   padding: 0 !important;
   border: 0 !important;
   border-radius: 0 !important;
@@ -3224,7 +3224,7 @@ body {
 .admin-login__options input {
   width: 24px;
   height: 24px;
-  min-height: 24px !important;
+  min-height: 24px;
   accent-color: #1a916f;
 }
 
@@ -3241,16 +3241,16 @@ body {
 
 .admin-login__submit {
   width: 100%;
-  min-height: 64px !important;
+  min-height: 64px;
   margin-top: 2px;
-  border-radius: 18px !important;
+  border-radius: 18px;
   font-size: 18px;
   font-weight: 900;
 }
 
 @media (max-width: 640px) {
   .admin-login__panel {
-    padding: 34px 24px 32px !important;
+    padding: 34px 24px 32px;
     border-radius: 26px !important;
   }
 
@@ -3267,43 +3267,43 @@ body {
 /* Compact login sizing and field bug fixes. */
 .admin-login {
   display: grid !important;
-  min-height: 100vh !important;
+  min-height: 100vh;
   place-items: center !important;
-  padding: 28px 16px !important;
+  padding: 28px 16px;
 }
 
 .admin-login__panel {
-  padding: 32px 42px 34px !important;
-  border-radius: 26px !important;
+  padding: 32px 42px 34px;
+  border-radius: 26px;
 }
 
 .admin-login__brand {
-  margin-bottom: 18px !important;
+  margin-bottom: 18px;
 }
 
 .admin-login__brand img {
-  width: 48px !important;
-  height: 48px !important;
+  width: 48px;
+  height: 48px;
 }
 
 .admin-login__panel h1 {
-  font-size: 29px !important;
+  font-size: 29px;
 }
 
 .admin-login__subtitle {
-  margin: 8px 0 24px !important;
-  font-size: 15px !important;
+  margin: 8px 0 24px;
+  font-size: 15px;
 }
 
 .admin-login__field {
-  gap: 8px !important;
-  margin-bottom: 16px !important;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .admin-login__input {
-  min-height: 54px !important;
-  padding: 0 14px 0 18px !important;
-  border-radius: 17px !important;
+  min-height: 54px;
+  padding: 0 14px 0 18px;
+  border-radius: 17px;
 }
 
 .admin-login__field--phone .admin-login__input {
@@ -3315,13 +3315,13 @@ body {
 }
 
 .admin-login__input input {
-  min-height: 52px !important;
+  min-height: 52px;
 }
 
 .admin-login__panel .admin-login__eye {
-  width: 36px !important;
-  height: 36px !important;
-  min-height: 36px !important;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
   color: rgba(226, 232, 240, 0.74) !important;
   border: 0 !important;
   background: transparent !important;
@@ -3336,7 +3336,7 @@ body {
 }
 
 .admin-login__options {
-  margin: 0 0 18px !important;
+  margin: 0 0 18px;
 }
 
 .admin-login__options label {
@@ -3349,9 +3349,9 @@ body {
 }
 
 .admin-login__submit {
-  min-height: 56px !important;
-  border-radius: 16px !important;
-  font-size: 16px !important;
+  min-height: 56px;
+  border-radius: 16px;
+  font-size: 16px;
 }
 
 @media (max-height: 760px) {
@@ -3511,10 +3511,10 @@ body {
   display: grid;
   width: 36px;
   height: 38px;
-  min-height: 38px !important;
+  min-height: 38px;
   place-items: center;
   padding: 0 !important;
-  color: #f2c76e !important;
+  color: #f2c76e;
   box-shadow: none !important;
 }
 
@@ -3680,8 +3680,8 @@ body {
 .admin-login__input input:-webkit-autofill:hover,
 .admin-login__input input:-webkit-autofill:focus,
 .admin-login__input input:-webkit-autofill:active {
-  -webkit-box-shadow: 0 0 0 1000px rgba(3, 10, 16, 0.92) inset !important;
-  box-shadow: 0 0 0 1000px rgba(3, 10, 16, 0.92) inset !important;
+  -webkit-box-shadow: 0 0 0 1000px rgba(3, 10, 16, 0.92) inset;
+  box-shadow: 0 0 0 1000px rgba(3, 10, 16, 0.92) inset;
   transition: background-color 9999s ease-out 0s !important;
 }
 
@@ -3843,7 +3843,7 @@ body:has(.admin-shell) {
 }
 
 .admin-main {
-  background: var(--admin-shell-page-bg) !important;
+  background: var(--admin-shell-page-bg);
 }
 
 .admin-main::before {
@@ -4080,7 +4080,7 @@ body::-webkit-scrollbar,
 
 /* Collapsed sidebar: hide submenus + chevrons entirely */
 .admin-shell.is-sidebar-collapsed .admin-nav-sub {
-  display: none !important;
+  display: none;
 }
 
 /* ════════ Sidebar — reference layout in admin colors ════════ */
@@ -4091,7 +4091,7 @@ body::-webkit-scrollbar,
   border-bottom-left-radius: 24px !important;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.022), rgba(255, 255, 255, 0.008)),
-    var(--admin-shell-page-bg) !important;
+    var(--admin-shell-page-bg);
   box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.06);
 }
 
@@ -4388,20 +4388,20 @@ body::-webkit-scrollbar,
   stroke: rgba(15, 23, 42, 0.08) !important;
 }
 .admin-content .admin-tooltip {
-  background: #0f172a !important;
+  background: #0f172a;
   border-color: transparent !important;
 }
-.admin-content .admin-tooltip strong { color: #fff !important; }
-.admin-content .admin-tooltip span { color: rgba(255, 255, 255, 0.82) !important; }
+.admin-content .admin-tooltip strong { color: #fff; }
+.admin-content .admin-tooltip span { color: rgba(255, 255, 255, 0.82); }
 
 /* Segment toggle */
 .admin-content .admin-segments {
   border-color: var(--lc-line) !important;
 }
-.admin-content .admin-segments button { color: var(--lc-muted) !important; }
+.admin-content .admin-segments button { color: var(--lc-muted); }
 .admin-content .admin-segments button.is-active {
-  color: #06231f !important;
-  background: linear-gradient(135deg, var(--gold-2), var(--teal)) !important;
+  color: #06231f;
+  background: linear-gradient(135deg, var(--gold-2), var(--teal));
 }
 
 /* Tables */
@@ -4506,39 +4506,39 @@ body::-webkit-scrollbar,
 @media (min-width: 981px) {
 
   .admin-shell:not(.is-sidebar-collapsed) .admin-sidebar {
-    padding: 21px 10px 16px !important;
+    padding: 21px 10px 16px;
   }
 
   .admin-main {
-    padding: 0 0 14px !important;
+    padding: 0 0 14px;
   }
 
   .admin-header {
     box-sizing: border-box !important;
-    margin: 0 !important;
-    padding: 16px 25px 14px !important;
+    margin: 0;
+    padding: 16px 25px 14px;
   }
 
   .admin-header h1 {
-    font-size: 24px !important;
-    line-height: 1 !important;
+    font-size: 24px;
+    line-height: 1;
   }
 
   .admin-header p {
-    margin-top: 4px !important;
-    font-size: 11px !important;
-    line-height: 1.25 !important;
+    margin-top: 4px;
+    font-size: 11px;
+    line-height: 1.25;
   }
 
   .admin-brand {
-    gap: 10px !important;
-    padding: 0 4px 2px !important;
+    gap: 10px;
+    padding: 0 4px 2px;
     border-bottom: 0 !important;
   }
 
   .admin-brand img {
-    width: 39px !important;
-    height: 39px !important;
+    width: 39px;
+    height: 39px;
   }
 
   .admin-sidebar-collapse {
@@ -4580,19 +4580,19 @@ body::-webkit-scrollbar,
   .admin-date-step,
   .admin-bell,
   .admin-logout {
-    width: 34px !important;
+    width: 34px;
   }
 
   .admin-profile__avatar {
-    width: 28px !important;
-    height: 28px !important;
-    border-radius: 9px !important;
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
   }
 
   .admin-profile-card {
-    min-height: 66px !important;
-    padding: 8px 10px !important;
-    border-radius: 15px !important;
+    min-height: 66px;
+    padding: 8px 10px;
+    border-radius: 15px;
   }
 
   .admin-profile-card--collapse {
@@ -4644,7 +4644,7 @@ body::-webkit-scrollbar,
     margin-top: 0 !important;
     margin-left: 0 !important;
     margin-right: 0 !important;
-    padding: 26px !important;
+    padding: 26px;
   }
 }
 
@@ -6719,10 +6719,10 @@ body::-webkit-scrollbar,
   gap: 10px !important;
   padding: 0 14px !important;
   border: 1px solid var(--admin-storage-date-border) !important;
-  border-radius: 9px !important;
-  color: #334155 !important;
-  background: #ffffff !important;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06) !important;
+  border-radius: 9px;
+  color: #334155;
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
   font-size: 14px !important;
   font-weight: 700 !important;
   line-height: 1 !important;
@@ -6748,7 +6748,7 @@ body::-webkit-scrollbar,
   grid-column: 1 !important;
   width: 16px !important;
   height: 16px !important;
-  color: #64748b !important;
+  color: #64748b;
   stroke: currentColor !important;
 }
 
@@ -7081,9 +7081,9 @@ body::-webkit-scrollbar,
 
 .admin-storage-income-empty {
   height: 84px !important;
-  color: #64748b !important;
+  color: #64748b;
   text-align: center !important;
-  background: #f8fafc !important;
+  background: #f8fafc;
 }
 
 .admin-storage-income-detail-card {
@@ -11029,7 +11029,7 @@ body:has(.admin-shell),
   z-index: 120 !important;
   min-width: 0 !important;
   max-width: 100% !important;
-  min-height: 474px !important;
+  min-height: 474px;
   display: grid !important;
   grid-template-rows: repeat(6, minmax(0, 1fr)) !important;
 }
@@ -11264,9 +11264,9 @@ body:has(.admin-shell),
 .admin-content .admin-chart-card__head strong {
   margin-top: 3px !important;
   color: #0f172a !important;
-  font-size: 28px !important;
-  font-weight: 800 !important;
-  line-height: 1.04 !important;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.04;
 }
 
 .admin-content .admin-chart-card__head em {
@@ -11745,7 +11745,7 @@ body:has(.admin-shell),
 
 @media (min-width: 981px) {
   .admin-shell:not(.is-sidebar-collapsed) {
-    grid-template-columns: var(--admin-owner-sidebar-w) minmax(0, 1fr) !important;
+    grid-template-columns: var(--admin-owner-sidebar-w) minmax(0, 1fr);
   }
 
   .admin-shell.is-sidebar-collapsed {
@@ -11759,7 +11759,7 @@ body:has(.admin-shell),
   }
 
   .admin-shell.is-sidebar-collapsed .admin-sidebar {
-    padding: 22px 10px 14px !important;
+    padding: 22px 10px 14px;
   }
 
   .admin-main {
@@ -12332,7 +12332,7 @@ body:has(.admin-shell),
 }
 
 .admin-finance-comment {
-  color: #475569 !important;
+  color: #475569;
   line-height: 1.35;
 }
 
@@ -16540,7 +16540,7 @@ body:has(.admin-shell),
   .admin-shell .admin-sidebar.is-collapsed .admin-brand.sidebar-brand,
   .admin-shell:not(.is-sidebar-collapsed) .admin-sidebar .admin-brand.sidebar-brand {
     position: fixed !important;
-    top: 18px !important;
+    top: 18px;
     margin: 0 !important;
     padding: 0 !important;
     display: grid !important;
@@ -16628,7 +16628,7 @@ body:has(.admin-shell),
   .admin-shell .admin-sidebar .sidebar-brand__identity > div:not(.brand-mark),
   .admin-shell .admin-sidebar .sidebar-brand__identity > button + div {
     display: block !important;
-    transition: none !important;
+    transition: none;
   }
 
   .admin-shell .admin-sidebar .brand-title,
@@ -16665,18 +16665,18 @@ body:has(.admin-shell),
   .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-brand.sidebar-brand,
   .admin-shell.is-sidebar-collapsed .admin-sidebar.is-collapsed .admin-brand.sidebar-brand {
     left: 10px !important;
-    width: calc(var(--admin-owner-sidebar-collapsed-w) - 20px) !important;
-    min-width: calc(var(--admin-owner-sidebar-collapsed-w) - 20px) !important;
-    max-width: calc(var(--admin-owner-sidebar-collapsed-w) - 20px) !important;
-    grid-template-columns: 1fr !important;
+    width: calc(var(--admin-owner-sidebar-collapsed-w) - 20px);
+    min-width: calc(var(--admin-owner-sidebar-collapsed-w) - 20px);
+    max-width: calc(var(--admin-owner-sidebar-collapsed-w) - 20px);
+    grid-template-columns: 1fr;
   }
 
   .admin-shell.is-sidebar-collapsed .admin-sidebar .sidebar-brand__identity,
   .admin-shell.is-sidebar-collapsed .admin-sidebar.is-collapsed .sidebar-brand__identity {
-    width: 56px !important;
-    min-width: 56px !important;
-    max-width: 56px !important;
-    grid-template-columns: 56px !important;
+    width: 56px;
+    min-width: 56px;
+    max-width: 56px;
+    grid-template-columns: 56px;
   }
 
   .admin-shell.is-sidebar-collapsed .admin-sidebar .sidebar-brand__identity > div:not(.brand-mark),
@@ -16916,9 +16916,9 @@ body:has(.admin-shell),
 .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-brand.sidebar-brand .brand-mark--button:hover,
 .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-brand.sidebar-brand .brand-mark--button:focus-visible,
 .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-brand.sidebar-brand .brand-mark--button:active {
-  background: transparent !important;
-  background-color: transparent !important;
-  padding: 0 !important;
+  background: transparent;
+  background-color: transparent;
+  padding: 0;
 }
 
 .admin-shell .admin-sidebar .admin-brand.sidebar-brand .brand-mark .marjon-logo,
@@ -16926,9 +16926,9 @@ body:has(.admin-shell),
 .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-brand.sidebar-brand .brand-mark .marjon-logo,
 .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-brand.sidebar-brand .brand-mark--button .marjon-logo {
   background-image: none !important;
-  border-radius: 14px !important;
-  clip-path: inset(1px round 14px) !important;
-  overflow: hidden !important;
+  border-radius: 14px;
+  clip-path: inset(1px round 14px);
+  overflow: hidden;
 }
 
 /* Admin brand logo: match the Marjon Cafe white rounded tile. */
@@ -17034,7 +17034,7 @@ body:has(.admin-shell),
   border: 1px solid rgba(214, 168, 79, 0.18) !important;
   border-radius: 12px !important;
   background: rgba(14, 33, 29, 0.82) !important;
-  color: #f2e5bd !important;
+  color: #f2e5bd;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.045),
     0 8px 18px rgba(2, 8, 7, 0.16) !important;
@@ -17056,7 +17056,7 @@ body:has(.admin-shell),
 }
 
 .admin-date-time__item strong {
-  color: #f5ead0 !important;
+  color: #f5ead0;
   font-size: 14px !important;
   font-weight: 800 !important;
   line-height: 1 !important;
@@ -17073,7 +17073,7 @@ body:has(.admin-shell),
 .admin-content .admin-kpi-grid {
   display: grid !important;
   grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-  gap: 16px !important;
+  gap: 16px;
   margin: 0 0 14px !important;
 }
 
@@ -17643,18 +17643,18 @@ body:has(.admin-shell),
   }
 
   .admin-shell.is-sidebar-collapsed .admin-sidebar {
-    z-index: 1200 !important;
+    z-index: 1200;
     isolation: isolate !important;
   }
 
   .admin-shell.is-sidebar-collapsed .admin-nav {
     position: relative !important;
-    z-index: 1201 !important;
+    z-index: 1201;
   }
 
   .admin-shell.is-sidebar-collapsed .admin-nav-group.has-popover {
     position: relative !important;
-    z-index: 1220 !important;
+    z-index: 1220;
   }
 
   .admin-shell.is-sidebar-collapsed .admin-nav-group .admin-nav-flyout,
@@ -17663,7 +17663,7 @@ body:has(.admin-shell),
     position: absolute !important;
     top: 0 !important;
     left: calc(100% + 12px) !important;
-    z-index: 1240 !important;
+    z-index: 1240;
     width: 246px !important;
     min-width: 246px !important;
     max-width: 246px !important;
@@ -19454,10 +19454,10 @@ body:has(.admin-shell),
   }
 
   .admin-shell:not(.is-sidebar-collapsed) .admin-sidebar {
-    width: 280px !important;
-    min-width: 280px !important;
-    max-width: 280px !important;
-    padding: 6px 7px 16px 9px !important;
+    width: 280px;
+    min-width: 280px;
+    max-width: 280px;
+    padding: 6px 7px 16px 9px;
     background: #031a14 !important;
     background-image: none !important;
     border-right: 0 !important;
@@ -19656,7 +19656,7 @@ body:has(.admin-shell),
 /* Collapsed sidebar: closed category buttons use the same palette and top offset as the open sidebar. */
 @media (min-width: 981px) {
   .admin-shell.is-sidebar-collapsed .admin-sidebar {
-    padding: 6px 16px 16px !important;
+    padding: 6px 16px 16px;
     background: #031a14 !important;
     background-image: none !important;
   }
@@ -22200,15 +22200,15 @@ body:has(.admin-shell),
   .admin-shell:not(.is-sidebar-collapsed) .admin-sidebar .admin-nav-group,
   .admin-shell:not(.is-sidebar-collapsed) .admin-sidebar .admin-nav > button,
   .admin-shell:not(.is-sidebar-collapsed) .admin-sidebar .admin-nav-group__toggle {
-    width: 262px !important;
-    min-width: 262px !important;
-    max-width: 262px !important;
+    width: 262px;
+    min-width: 262px;
+    max-width: 262px;
   }
 }
 
 @media (min-width: 981px) and (max-width: 1440px) {
   .admin-shell:not(.is-sidebar-collapsed) {
-    --admin-sidebar-brand-w: 228px !important;
+    --admin-sidebar-brand-w: 228px;
     --admin-sidebar-brand-identity-w: 190px !important;
     --admin-sidebar-logo-box: 46px !important;
   }
@@ -22245,7 +22245,7 @@ body:has(.admin-shell),
   .admin-sidebar .admin-nav,
   .admin-sidebar.is-collapsed .admin-nav,
   .admin-sidebar:not(.is-collapsed) .admin-nav {
-    margin-top: 76px !important;
+    margin-top: 76px;
   }
 }
 
@@ -22254,7 +22254,7 @@ body:has(.admin-shell),
   .admin-shell,
   .admin-shell:not(.is-sidebar-collapsed),
   .admin-shell.is-sidebar-collapsed {
-    --admin-owner-sidebar-w: 280px !important;
+    --admin-owner-sidebar-w: 280px;
     --admin-owner-sidebar-collapsed-w: 80px !important;
     --admin-sidebar-current-w: var(--admin-owner-sidebar-w) !important;
     --admin-sidebar-brand-left: 12px !important;
