@@ -2651,8 +2651,6 @@ body.dashboard-body,
   border: 0 !important;
   border-radius: 9px !important;
   font-size: 14px !important;
-  line-height: 1 !important;
-  font-weight: 500 !important;
   letter-spacing: 0 !important;
   color: rgba(219, 234, 254, 0.82) !important;
   white-space: nowrap !important;
@@ -2665,13 +2663,11 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link:hover::before,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible::before,
 .dashboard-sidebar .sidebar-submenu__link.is-active::before {
-  content: "" !important;
   flex: 0 0 5px !important;
   width: 5px !important;
   min-width: 5px !important;
   height: 5px !important;
   margin: 0 8px 0 0 !important;
-  border-radius: 999px !important;
   background: rgba(147, 197, 253, 0.62) !important;
   box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.042) !important;
   transform: none !important;
@@ -2679,13 +2675,11 @@ body.dashboard-body,
 
 .dashboard-sidebar .sidebar-submenu__link:hover,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible {
-  color: #ffffff !important;
   background: rgba(255, 255, 255, 0.075) !important;
   outline: 0 !important;
 }
 
 .dashboard-sidebar .sidebar-submenu__link.is-active {
-  color: #ffffff !important;
   background: rgba(29, 181, 181, 0.22);
 }
 
@@ -2731,18 +2725,6 @@ body.dashboard-body,
     max-height: 30px !important;
     font-size: 14px !important;
   }
-}
-
-/* Hide sidebar nav scrollbar while keeping scroll behavior */
-.dashboard-sidebar .sidebar-nav {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-}
-
-.dashboard-sidebar .sidebar-nav::-webkit-scrollbar {
-  width: 0 !important;
-  height: 0 !important;
-  display: none !important;
 }
 
 /* Owner dashboard 3D reference polish */
