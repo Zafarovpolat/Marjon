@@ -18499,24 +18499,24 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .dish-catalog-page .dish-row-actions button.danger {
   border-color: rgba(220, 38, 38, 0.24);
   color: #dc2626;
-  background: rgba(220, 38, 38, 0.06) !important;
+  background: rgba(220, 38, 38, 0.06);
 }
 
 .dish-catalog-page .dish-row-actions button.danger:hover {
-  border-color: rgba(220, 38, 38, 0.5) !important;
-  background: rgba(220, 38, 38, 0.12) !important;
-  color: #dc2626 !important;
+  border-color: rgba(220, 38, 38, 0.5);
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
 }
 
 .dish-catalog-page .dish-photo-button,
 .dish-catalog-page .dish-photo,
 .dish-catalog-page .dish-photo-placeholder {
-  border-radius: 12px !important;
+  border-radius: 12px;
 }
 
 .dish-catalog-page .dish-more-btn {
-  width: 48px !important;
-  min-width: 48px !important;
+  width: 48px;
+  min-width: 48px;
   height: 48px !important;
   min-height: 48px !important;
 }
@@ -18608,7 +18608,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 
 /* Orders report: expand the central card toward the marked top and side edges. */
 .dashboard-back-slot + .orders-report-page {
-  margin-top: -2px !important;
+  margin-top: -2px;
 }
 
 .orders-report-page {
@@ -18626,9 +18626,9 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 
 /* Staff edit drawer polish. */
 .staff-modal {
-  z-index: 5000 !important;
-  align-items: center !important;
-  padding: 18px 28px !important;
+  z-index: 5000;
+  align-items: center;
+  padding: 18px 28px;
 }
 
 .staff-modal__backdrop {
@@ -18637,10 +18637,10 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 }
 
 .staff-form {
-  width: min(680px, calc(100vw - 56px)) !important;
-  height: auto !important;
-  max-height: calc(100vh - 56px) !important;
-  overflow: hidden auto !important;
+  width: min(680px, calc(100vw - 56px));
+  height: auto;
+  max-height: calc(100vh - 56px);
+  overflow: hidden auto;
   gap: 12px !important;
   padding: 0 !important;
   border: 1px solid rgba(226, 232, 240, 0.94) !important;
@@ -18652,8 +18652,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   position: sticky !important;
   top: 0 !important;
   z-index: 3 !important;
-  padding: 16px 24px 14px !important;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.9) !important;
+  padding: 16px 24px 14px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
   background: rgba(255, 255, 255, 0.96) !important;
   backdrop-filter: blur(14px) !important;
 }
@@ -18665,12 +18665,12 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 }
 
 .staff-form__header h2 {
-  line-height: 1.15 !important;
+  line-height: 1.15;
 }
 
 .staff-form__header button {
-  width: 36px !important;
-  height: 36px !important;
+  width: 36px;
+  height: 36px;
   border-color: rgba(29, 181, 181, 0.28) !important;
   color: #0f8f8f !important;
   background: rgba(29, 181, 181, 0.08) !important;
@@ -18682,7 +18682,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 }
 
 .staff-form__grid--edit {
-  padding-top: 14px !important;
+  padding-top: 14px;
 }
 
 .staff-photo-upload {
@@ -18932,8 +18932,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   bottom: 0 !important;
   z-index: 4 !important;
   margin: 0 !important;
-  padding: 12px 24px !important;
-  border-top: 1px solid rgba(226, 232, 240, 0.92) !important;
+  padding: 12px 24px;
+  border-top: 1px solid rgba(226, 232, 240, 0.92);
   background: rgba(255, 255, 255, 0.96) !important;
   backdrop-filter: blur(14px) !important;
 }
@@ -18943,7 +18943,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 }
 
 .staff-form__footer button {
-  border-radius: 14px !important;
+  border-radius: 14px;
 }
 
 .staff-form__footer button[type="button"] {
@@ -18953,18 +18953,18 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 }
 
 .staff-form__footer button[type="submit"] {
-  min-width: 126px !important;
+  min-width: 126px;
   background: var(--accent, #1db5b5) !important;
   box-shadow: 0 12px 24px rgba(29, 181, 181, 0.22) !important;
 }
 
 @media (max-width: 760px) {
   .staff-modal {
-    padding: 10px !important;
+    padding: 10px;
   }
 
   .staff-form {
-    max-height: calc(100vh - 20px) !important;
+    max-height: calc(100vh - 20px);
     border-radius: 20px !important;
   }
 
@@ -18987,8 +18987,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 /* 1) KPI icon background strictly teal-500 (kill cyan/orange/blue/purple/navy leaks) */
 .dashboard-shell .kpi-grid--premium .premium-kpi .premium-kpi__icon,
 .dashboard-shell .kpi-grid .premium-kpi .premium-kpi__icon {
-  background: #1db5b5 !important;
-  color: #ffffff !important;
+  background: #1db5b5;
+  color: #ffffff;
 }
 .dashboard-shell .kpi-grid--premium .premium-kpi::after {
   background: #1db5b5 !important;
@@ -19100,14 +19100,14 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 
 /* 2) warehouse icon — true square 40x40 */
 .dashboard-shell .warehouse-summary-item__icon {
-  width: 40px !important;
-  height: 40px !important;
-  min-width: 40px !important;
-  max-width: 40px !important;
-  flex: 0 0 40px !important;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  max-width: 40px;
+  flex: 0 0 40px;
   aspect-ratio: 1 / 1 !important;
   padding: 0 !important;
-  border-radius: 6px !important;
+  border-radius: 6px;
 }
 
 /* 3) top-dish line — no bottom margin */
@@ -19123,7 +19123,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 /* ============ FIX ROUND 4 (front) ============ */
 
 /* warehouse icon radius = same as KPI icon (18px) */
-.dashboard-shell .warehouse-summary-item__icon { border-radius: 18px !important; }
+.dashboard-shell .warehouse-summary-item__icon { border-radius: 18px; }
 
 /* recent-order status badges — consistent tinted pills (both with bg) */
 .dashboard-shell .recent-order small {
@@ -19145,7 +19145,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 /* ============ FIX ROUND 5 (front) — unify top-dish & recent-order ============ */
 
 /* warehouse icon radius -> 12px */
-.dashboard-shell .warehouse-summary-item__icon { border-radius: 12px !important; }
+.dashboard-shell .warehouse-summary-item__icon { border-radius: 12px; }
 
 /* unified base for both list rows */
 .dashboard-shell .top-dish,
@@ -19173,7 +19173,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .dashboard-shell .top-dish__price,
 .dashboard-shell .recent-orders-list .recent-order em {
   font-size: 16px !important;
-  font-weight: 600 !important;
+  font-weight: 600;
   color: #0b1f3f !important;
   font-style: normal !important;
 }
@@ -19225,11 +19225,11 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 
 /* warehouse icon — bigger, overrides all previous dashboard-shell rules */
 .dashboard-shell .warehouse-summary-item__icon {
-  width: 48px !important;
-  height: 48px !important;
-  min-width: 48px !important;
-  max-width: 48px !important;
-  flex: 0 0 48px !important;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  max-width: 48px;
+  flex: 0 0 48px;
 }
 
 /* payment logos — bigger */
@@ -19390,18 +19390,18 @@ body:has(.balance-payment-modal) .dashboard-main {
 /* Staff edit modal: professional layout pass. */
 .staff-modal {
   z-index: 30000 !important;
-  padding: 76px 32px 24px !important;
+  padding: 76px 32px 24px;
 }
 
 .staff-form {
-  width: min(670px, calc(100vw - 64px)) !important;
+  width: min(670px, calc(100vw - 64px));
 }
 
 .staff-form__header {
-  min-height: 58px !important;
+  min-height: 58px;
   display: flex !important;
   align-items: center !important;
-  padding: 14px 22px !important;
+  padding: 14px 22px;
 }
 
 .staff-form__header p {
@@ -19411,7 +19411,7 @@ body:has(.balance-payment-modal) .dashboard-main {
 .staff-form__header h2 {
   margin: 0 !important;
   color: var(--neutral-950, #0b1f3f) !important;
-  font-size: 22px !important;
+  font-size: 22px;
 }
 
 .staff-form__grid--edit {
@@ -19527,17 +19527,17 @@ body:has(.balance-payment-modal) .dashboard-main {
 }
 
 .staff-form__footer {
-  min-height: 64px !important;
-  padding: 10px 22px !important;
+  min-height: 64px;
+  padding: 10px 22px;
 }
 
 .staff-form__footer button {
-  border-radius: 12px !important;
+  border-radius: 12px;
   font-weight: 800 !important;
 }
 
 .staff-form__footer button[type="submit"] {
-  min-width: 180px !important;
+  min-width: 180px;
 }
 
 @media (max-width: 760px) {
@@ -19558,59 +19558,59 @@ body:has(.balance-payment-modal) .dashboard-main {
 
 /* Staff edit modal exact reference layout. */
 .staff-modal {
-  padding: 78px 42px 24px !important;
+  padding: 78px 42px 24px;
 }
 
 .staff-form {
-  width: min(1120px, calc(100vw - 84px)) !important;
-  max-height: calc(100vh - 100px) !important;
-  border-radius: 24px !important;
+  width: min(1120px, calc(100vw - 84px));
+  max-height: calc(100vh - 100px);
+  border-radius: 24px;
 }
 
 .staff-form__header {
-  min-height: 86px !important;
-  padding: 26px 56px 18px !important;
+  min-height: 86px;
+  padding: 26px 56px 18px;
 }
 
 .staff-form__header h2 {
-  font-size: 34px !important;
-  line-height: 1.05 !important;
+  font-size: 34px;
+  line-height: 1.05;
 }
 
 .staff-form__header button {
-  width: 52px !important;
-  height: 52px !important;
-  border-radius: 14px !important;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit {
-  margin-inline: 56px !important;
-  padding-top: 36px !important;
-  padding-bottom: 28px !important;
-  grid-template-columns: 170px minmax(0, 1fr) minmax(0, 1.2fr) !important;
+  margin-inline: 56px;
+  padding-top: 36px;
+  padding-bottom: 28px;
+  grid-template-columns: 170px minmax(0, 1fr) minmax(0, 1.2fr);
   grid-template-rows: repeat(3, auto) auto !important;
-  column-gap: 54px !important;
-  row-gap: 26px !important;
+  column-gap: 54px;
+  row-gap: 26px;
   align-items: start !important;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-photo-upload {
-  grid-column: 1 !important;
-  grid-row: 1 / span 3 !important;
-  width: 138px !important;
-  min-height: 172px !important;
-  padding: 18px 12px !important;
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  width: 138px;
+  min-height: 172px;
+  padding: 18px 12px;
   justify-self: start !important;
   align-self: start !important;
-  border-radius: 14px !important;
+  border-radius: 14px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-photo-upload > span {
   order: 2 !important;
-  margin-top: 14px !important;
+  margin-top: 14px;
   color: #0faaaa !important;
-  font-size: 18px !important;
-  line-height: 1.35 !important;
+  font-size: 18px;
+  line-height: 1.35;
   font-weight: 800 !important;
 }
 
@@ -19619,8 +19619,8 @@ body:has(.balance-payment-modal) .dashboard-main {
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-avatar--large {
-  width: 52px !important;
-  height: 52px !important;
+  width: 52px;
+  height: 52px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit > label:nth-child(2) {
@@ -19654,37 +19654,37 @@ body:has(.balance-payment-modal) .dashboard-main {
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit label {
-  gap: 12px !important;
-  font-size: 18px !important;
+  gap: 12px;
+  font-size: 18px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit input,
 .staff-form .staff-form__grid.staff-form__grid--edit select {
-  height: 60px !important;
-  min-height: 60px !important;
-  padding: 0 20px !important;
-  border-radius: 12px !important;
-  font-size: 19px !important;
+  height: 60px;
+  min-height: 60px;
+  padding: 0 20px;
+  border-radius: 12px;
+  font-size: 19px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-phone-field input {
-  padding-left: 82px !important;
+  padding-left: 82px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-phone-flag {
-  left: 18px !important;
-  width: 44px !important;
-  height: 30px !important;
+  left: 18px;
+  width: 44px;
+  height: 30px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-password-field input {
-  padding-right: 68px !important;
+  padding-right: 68px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-password-field button {
-  right: 10px !important;
-  width: 48px !important;
-  height: 48px !important;
+  right: 10px;
+  width: 48px;
+  height: 48px;
   border-radius: 12px !important;
 }
 
@@ -19694,56 +19694,56 @@ body:has(.balance-payment-modal) .dashboard-main {
 
 .staff-form .staff-form__grid.staff-form__grid--edit > .staff-permission-switches {
   grid-row: 4 !important;
-  margin-top: 18px !important;
-  padding-top: 24px !important;
-  border-top: 2px solid rgba(226, 232, 240, 0.95) !important;
+  margin-top: 18px;
+  padding-top: 24px;
+  border-top: 2px solid rgba(226, 232, 240, 0.95);
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch {
-  min-height: 68px !important;
+  min-height: 68px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch span {
-  font-size: 18px !important;
+  font-size: 18px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch i {
-  min-width: 96px !important;
-  font-size: 16px !important;
+  min-width: 96px;
+  font-size: 16px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-switch {
-  width: 72px !important;
-  height: 42px !important;
+  width: 72px;
+  height: 42px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-switch::after {
-  width: 34px !important;
-  height: 34px !important;
+  width: 34px;
+  height: 34px;
   transform: translateX(0) !important;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch.is-on .staff-switch::after {
-  transform: translateX(30px) !important;
+  transform: translateX(30px);
 }
 
 .staff-form__footer {
-  min-height: 108px !important;
-  padding: 22px 56px 28px !important;
+  min-height: 108px;
+  padding: 22px 56px 28px;
 }
 
 .staff-form__footer button {
-  min-height: 62px !important;
+  min-height: 62px;
   border-radius: 13px !important;
-  font-size: 18px !important;
+  font-size: 18px;
 }
 
 .staff-form__footer button[type="button"] {
-  min-width: 170px !important;
+  min-width: 170px;
 }
 
 .staff-form__footer button[type="submit"] {
-  min-width: 250px !important;
+  min-width: 250px;
 }
 
 @media (max-width: 900px) {
@@ -19777,143 +19777,143 @@ body:has(.balance-payment-modal) .dashboard-main {
 
 /* Staff edit compact right-aligned final adjustment. */
 .staff-modal {
-  align-items: flex-start !important;
-  padding: 70px 18px 18px !important;
+  align-items: flex-start;
+  padding: 70px 18px 18px;
 }
 
 .staff-form {
-  width: min(940px, calc(100vw - 36px)) !important;
-  max-height: calc(100vh - 88px) !important;
-  border-radius: 20px !important;
+  width: min(940px, calc(100vw - 36px));
+  max-height: calc(100vh - 88px);
+  border-radius: 20px;
 }
 
 .staff-form__header {
-  min-height: 64px !important;
-  padding: 16px 34px 12px !important;
+  min-height: 64px;
+  padding: 16px 34px 12px;
 }
 
 .staff-form__header h2 {
-  font-size: 26px !important;
+  font-size: 26px;
 }
 
 .staff-form__header button {
-  width: 42px !important;
-  height: 42px !important;
-  border-radius: 12px !important;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit {
   margin-inline: 34px !important;
-  padding-top: 22px !important;
-  padding-bottom: 18px !important;
-  grid-template-columns: 132px minmax(0, 1fr) minmax(0, 1.08fr) !important;
-  column-gap: 30px !important;
-  row-gap: 16px !important;
+  padding-top: 22px;
+  padding-bottom: 18px;
+  grid-template-columns: 132px minmax(0, 1fr) minmax(0, 1.08fr);
+  column-gap: 30px;
+  row-gap: 16px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-photo-upload {
-  min-height: 132px !important;
-  padding: 14px 10px !important;
-  border-radius: 12px !important;
+  min-height: 132px;
+  padding: 14px 10px;
+  border-radius: 12px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-photo-upload > span {
-  margin-top: 8px !important;
-  font-size: 14px !important;
+  margin-top: 8px;
+  font-size: 14px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-avatar--large {
-  width: 40px !important;
-  height: 40px !important;
+  width: 40px;
+  height: 40px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit label {
-  gap: 8px !important;
-  font-size: 14px !important;
+  gap: 8px;
+  font-size: 14px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit input,
 .staff-form .staff-form__grid.staff-form__grid--edit select {
-  height: 46px !important;
-  min-height: 46px !important;
-  padding: 0 14px !important;
-  font-size: 15px !important;
+  height: 46px;
+  min-height: 46px;
+  padding: 0 14px;
+  font-size: 15px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-phone-field input {
-  padding-left: 64px !important;
+  padding-left: 64px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-phone-flag {
-  left: 12px !important;
-  width: 38px !important;
-  height: 26px !important;
+  left: 12px;
+  width: 38px;
+  height: 26px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-password-field input {
-  padding-right: 54px !important;
+  padding-right: 54px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-password-field button {
-  right: 7px !important;
-  width: 36px !important;
-  height: 36px !important;
+  right: 7px;
+  width: 36px;
+  height: 36px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit > .staff-permission-switches {
-  padding-top: 16px !important;
+  padding-top: 16px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch {
-  min-height: 46px !important;
+  min-height: 46px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch i {
-  font-size: 13px !important;
+  font-size: 13px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-switch {
-  width: 50px !important;
-  height: 28px !important;
+  width: 50px;
+  height: 28px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-switch::after {
-  width: 22px !important;
-  height: 22px !important;
+  width: 22px;
+  height: 22px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch.is-on .staff-switch::after {
-  transform: translateX(22px) !important;
+  transform: translateX(22px);
 }
 
 .staff-form__footer {
-  min-height: 72px !important;
-  padding: 12px 34px 14px !important;
+  min-height: 72px;
+  padding: 12px 34px 14px;
 }
 
 .staff-form__footer button {
-  min-height: 46px !important;
-  font-size: 14px !important;
+  min-height: 46px;
+  font-size: 14px;
 }
 
 .staff-form__footer button[type="button"] {
-  min-width: 130px !important;
+  min-width: 130px;
 }
 
 .staff-form__footer button[type="submit"] {
-  min-width: 210px !important;
+  min-width: 210px;
 }
 
 /* Final right-shift: remove the empty space on the right and keep the form compact. */
 .staff-modal {
-  padding: 70px 0 14px 18px !important;
+  padding: 70px 0 14px 18px;
 }
 
 .staff-form {
   margin-left: auto !important;
   margin-right: 0 !important;
-  width: min(900px, calc(100vw - 18px)) !important;
-  max-height: calc(100vh - 84px) !important;
+  width: min(900px, calc(100vw - 18px));
+  max-height: calc(100vh - 84px);
 }
 
 .staff-form__header {
@@ -19922,16 +19922,16 @@ body:has(.balance-payment-modal) .dashboard-main {
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit {
-  margin-left: 52px !important;
-  margin-right: 14px !important;
-  grid-template-columns: 118px minmax(0, 1fr) minmax(0, 1.04fr) !important;
-  column-gap: 24px !important;
-  row-gap: 14px !important;
+  margin-left: 52px;
+  margin-right: 14px;
+  grid-template-columns: 118px minmax(0, 1fr) minmax(0, 1.04fr);
+  column-gap: 24px;
+  row-gap: 14px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-photo-upload {
-  width: 104px !important;
-  min-height: 124px !important;
+  width: 104px;
+  min-height: 124px;
 }
 
 .staff-form__footer {
@@ -19942,23 +19942,23 @@ body:has(.balance-payment-modal) .dashboard-main {
 /* Hard final: right compact drawer, no bottom/right empty space. */
 
 .staff-form {
-  width: min(860px, calc(100vw - 52px)) !important;
-  border-radius: 20px 0 0 0 !important;
+  width: min(860px, calc(100vw - 52px));
+  border-radius: 20px 0 0 0;
 }
 
 .staff-form__header {
-  min-height: 56px !important;
-  padding: 12px 16px 10px 28px !important;
+  min-height: 56px;
+  padding: 12px 16px 10px 28px;
   flex: 0 0 auto !important;
 }
 
 .staff-form__header h2 {
-  font-size: 25px !important;
+  font-size: 25px;
 }
 
 .staff-form__header button {
-  width: 40px !important;
-  height: 40px !important;
+  width: 40px;
+  height: 40px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit {
@@ -19966,65 +19966,65 @@ body:has(.balance-payment-modal) .dashboard-main {
   margin-right: 12px !important;
   padding-top: 18px !important;
   padding-bottom: 10px !important;
-  grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr) !important;
+  grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr);
   column-gap: 20px !important;
   row-gap: 12px !important;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-photo-upload {
-  width: 100px !important;
-  min-height: 118px !important;
-  padding: 12px 8px !important;
+  width: 100px;
+  min-height: 118px;
+  padding: 12px 8px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-photo-upload > span {
-  margin-top: 6px !important;
+  margin-top: 6px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-avatar--large {
-  width: 36px !important;
-  height: 36px !important;
+  width: 36px;
+  height: 36px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit label {
-  gap: 6px !important;
+  gap: 6px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit input,
 .staff-form .staff-form__grid.staff-form__grid--edit select {
-  height: 42px !important;
-  min-height: 42px !important;
+  height: 42px;
+  min-height: 42px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-phone-field input {
-  padding-left: 58px !important;
+  padding-left: 58px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-phone-flag {
-  left: 10px !important;
+  left: 10px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-password-field button {
-  right: 5px !important;
-  width: 32px !important;
-  height: 32px !important;
+  right: 5px;
+  width: 32px;
+  height: 32px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit > .staff-permission-switches {
-  margin-top: 6px !important;
-  padding-top: 12px !important;
+  margin-top: 6px;
+  padding-top: 12px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch {
-  min-height: 39px !important;
+  min-height: 39px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch span {
-  font-size: 13px !important;
+  font-size: 13px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch i {
-  min-width: 70px !important;
+  min-width: 70px;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-switch {
@@ -20042,8 +20042,8 @@ body:has(.balance-payment-modal) .dashboard-main {
 }
 
 .staff-form__footer {
-  min-height: 62px !important;
-  padding: 8px 12px 8px 28px !important;
+  min-height: 62px;
+  padding: 8px 12px 8px 28px;
   flex: 0 0 auto !important;
 }
 
@@ -20071,7 +20071,7 @@ body:has(.balance-payment-modal) .dashboard-main {
 }
 
 .staff-access-row.is-open .staff-access-actions {
-  max-height: 42px !important;
+  max-height: 42px;
 }
 
 /* Support phone: country code is fixed text, local number is the only editable part. */
@@ -20217,7 +20217,7 @@ body:has(.balance-payment-modal) .dashboard-main {
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-phone-field input {
-  padding-left: 68px !important;
+  padding-left: 68px;
 }
 
 .staff-phone-country {
@@ -20328,13 +20328,13 @@ body:has(.balance-payment-modal) .dashboard-main {
 
 /* Absolute final switch fix: teal active state and no status switch jumping. */
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch {
-  grid-template-columns: minmax(0, 1fr) 76px 34px !important;
+  grid-template-columns: minmax(0, 1fr) 76px 34px;
   width: 100% !important;
 }
 
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch i {
   width: 76px !important;
-  min-width: 76px !important;
+  min-width: 76px;
   text-align: right !important;
 }
 
@@ -20950,8 +20950,8 @@ body:has(.admin-income-modal) .support-widget {
   border: 1px solid var(--neutral-200) !important;
   background: var(--neutral-50) !important;
   color: var(--neutral-900) !important;
-  font-size: 19px !important;
-  font-weight: 700 !important;
+  font-size: 19px;
+  font-weight: 700;
   letter-spacing: 0.02em !important;
   box-sizing: border-box !important;
 }
@@ -22314,7 +22314,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   overflow: hidden !important;
   border: 1px solid rgba(255, 255, 255, 0.42) !important;
   border-radius: 4px !important;
-  background: rgba(255, 255, 255, 0.1) !important;
+  background: rgba(255, 255, 255, 0.1);
   box-shadow: 0 1px 3px rgba(2, 8, 23, 0.2) !important;
 }
 
@@ -22790,12 +22790,12 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 
 /* OK в строке дат */
 .report-actions .report-date-ok {
-  padding: 0 16px !important;
+  padding: 0 16px;
   color: #ffffff !important;
   border: 0 !important;
-  border-radius: 9px !important;
+  border-radius: 9px;
   background: var(--teal-500, #1db5b5) !important;
-  box-shadow: 0 2px 8px rgba(29, 181, 181, 0.28) !important;
+  box-shadow: 0 2px 8px rgba(29, 181, 181, 0.28);
   font-weight: 700 !important;
   letter-spacing: 0.04em !important;
   transition: background 120ms, box-shadow 120ms, transform 80ms !important;
@@ -22841,33 +22841,33 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 /* Лейаут тела */
 .report-actions .report-date-picker-body {
   display: grid !important;
-  grid-template-columns: minmax(0, 1fr) 172px !important;
+  grid-template-columns: minmax(0, 1fr) 172px;
   min-height: 0 !important;
 }
 
 /* ---- ПАНЕЛЬ КАЛЕНДАРЯ ---- */
 .report-actions .report-date-calendar-panel {
-  padding: 18px 18px 14px !important;
+  padding: 18px 18px 14px;
 }
 
 /* Тулбар навигации */
 .report-actions .report-date-calendar-toolbar {
   display: grid !important;
-  grid-template-columns: 36px 1fr 1fr 36px !important;
+  grid-template-columns: 36px 1fr 1fr 36px;
   align-items: center !important;
-  gap: 8px !important;
-  margin-bottom: 14px !important;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
 .report-actions .report-date-calendar-toolbar button,
 .report-actions .report-date-calendar-toolbar select {
-  min-height: 36px !important;
+  min-height: 36px;
   color: #0f172a !important;
   border: 1px solid rgba(194, 212, 234, 0.8) !important;
-  border-radius: 9px !important;
+  border-radius: 9px;
   background: #f7f9fd !important;
   box-shadow: none !important;
-  font-size: 13px !important;
+  font-size: 13px;
   font-weight: 500 !important;
   transition: background 100ms, border-color 100ms !important;
 }
@@ -22890,7 +22890,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .report-actions .report-date-calendar-toolbar select {
-  padding: 0 10px !important;
+  padding: 0 10px;
   cursor: pointer !important;
 }
 
@@ -22911,13 +22911,13 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 
 /* Ячейки дней */
 .report-actions .report-date-calendar-grid button {
-  min-height: 38px !important;
+  min-height: 38px;
   padding: 0 !important;
   color: #1e293b !important;
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
-  font-size: 14px !important;
+  font-size: 14px;
   font-weight: 500 !important;
   transition: background 90ms, color 90ms !important;
 }
@@ -22944,7 +22944,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .report-actions .report-date-time-panel {
   display: grid !important;
   grid-template-rows: auto minmax(0, 1fr) !important;
-  padding: 18px 12px 14px 12px !important;
+  padding: 18px 12px 14px 12px;
   border-left: 1px solid rgba(194, 212, 234, 0.55) !important;
   background: #f9fafc !important;
 }
@@ -22952,11 +22952,11 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .report-actions .report-date-time-title {
   display: flex !important;
   align-items: center !important;
-  gap: 8px !important;
-  min-height: 32px !important;
-  margin-bottom: 12px !important;
+  gap: 8px;
+  min-height: 32px;
+  margin-bottom: 12px;
   color: #334155 !important;
-  font-size: 13px !important;
+  font-size: 13px;
   font-weight: 600 !important;
 }
 
@@ -22968,7 +22968,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .report-actions .report-date-time-columns {
   display: grid !important;
   grid-template-columns: 1fr 1fr !important;
-  gap: 7px !important;
+  gap: 7px;
   min-height: 0 !important;
 }
 
@@ -22991,14 +22991,14 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .report-actions .report-date-time-list {
   overflow-y: auto !important;
   border: 1px solid rgba(194, 212, 234, 0.65) !important;
-  border-radius: 10px !important;
+  border-radius: 10px;
   background: #ffffff !important;
-  max-height: 260px !important;
+  max-height: 260px;
 }
 
 .report-actions .report-date-time-list button {
   width: 100% !important;
-  min-height: 34px !important;
+  min-height: 34px;
   justify-content: center !important;
   padding: 0 4px !important;
   color: #334155 !important;
@@ -23007,7 +23007,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
-  font-size: 13px !important;
+  font-size: 13px;
   font-weight: 500 !important;
   transition: background 90ms, color 90ms !important;
 }
@@ -23032,25 +23032,25 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .report-actions .report-date-calendar-footer {
   display: grid !important;
   grid-template-columns: auto 1fr !important;
-  gap: 10px !important;
-  padding: 12px 16px !important;
+  gap: 10px;
+  padding: 12px 16px;
   border-top: 1px solid rgba(194, 212, 234, 0.55) !important;
   background: #f9fafc !important;
 }
 
 .report-actions .report-date-today-button,
 .report-actions .report-date-calendar-ok {
-  min-height: 40px !important;
+  min-height: 40px;
   box-shadow: none !important;
-  font-size: 14px !important;
+  font-size: 14px;
   font-weight: 600 !important;
 }
 
 .report-actions .report-date-today-button {
   justify-self: start !important;
-  min-width: auto !important;
-  gap: 8px !important;
-  padding: 0 18px !important;
+  min-width: auto;
+  gap: 8px;
+  padding: 0 18px;
   color: #0e8a8a !important;
   border: 1px solid rgba(29, 181, 181, 0.28) !important;
   background: rgba(29, 181, 181, 0.07) !important;
@@ -23234,12 +23234,12 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   .dashboard-sidebar .sidebar-brand,
   .dashboard-sidebar.is-collapsed .sidebar-brand,
   .dashboard-sidebar:not(.is-collapsed) .sidebar-brand {
-    width: var(--owner-sidebar-open-w, 280px) !important;
-    min-width: var(--owner-sidebar-open-w, 280px) !important;
-    max-width: var(--owner-sidebar-open-w, 280px) !important;
-    height: 72px !important;
-    min-height: 72px !important;
-    align-items: flex-start !important;
+    width: var(--owner-sidebar-open-w, 280px);
+    min-width: var(--owner-sidebar-open-w, 280px);
+    max-width: var(--owner-sidebar-open-w, 280px);
+    height: 72px;
+    min-height: 72px;
+    align-items: flex-start;
   }
 
   .dashboard-sidebar .sidebar-brand__identity,
@@ -23550,7 +23550,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   body.dashboard-body .dashboard-shell::before,
   body.dashboard-body .dashboard-shell.is-sidebar-expanded::before,
   body.dashboard-body .dashboard-shell.is-sidebar-collapsed::before {
-    width: var(--owner-sidebar-current-w) !important;
+    width: var(--owner-sidebar-current-w);
     transition: width 220ms ease !important;
   }
 
@@ -23691,12 +23691,12 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 /* Compact report date/time picker and topbar date trigger. */
 .dashboard-topbar .topbar-left .mj-datepicker__trigger,
 .dashboard-topbar .mj-datepicker__trigger {
-  height: 38px !important;
-  min-height: 38px !important;
+  height: 38px;
+  min-height: 38px;
   gap: 8px !important;
   padding: 0 12px !important;
-  border-radius: 12px !important;
-  font-size: 13px !important;
+  border-radius: 12px;
+  font-size: 13px;
 }
 
 .dashboard-topbar .topbar-left .mj-datepicker__value,
@@ -23922,11 +23922,11 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 
 .orders-report-page .report-page-header {
   align-items: flex-start !important;
-  margin-bottom: 12px !important;
+  margin-bottom: 12px;
 }
 
 .orders-report-page .report-title-group {
-  transform: translateY(-3px) !important;
+  transform: translateY(-3px);
 }
 
 .orders-report-page .report-actions {
@@ -24023,9 +24023,9 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   }
 
   .dashboard-content > .kpi-grid.kpi-grid--premium:first-child {
-    width: calc(100% + 52px) !important;
-    margin-left: -26px !important;
-    margin-right: -26px !important;
+    width: calc(100% + 52px);
+    margin-left: -26px;
+    margin-right: -26px;
     gap: 14px !important;
   }
 
@@ -24153,7 +24153,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 /* Chart card: keep the container completely static on hover/focus. */
 .dashboard-shell .chart-card,
 .dashboard-shell .premium-chart {
-  transition: none !important;
+  transition: none;
 }
 
 .dashboard-shell .chart-card:hover,
@@ -24161,7 +24161,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .dashboard-shell .premium-chart:hover,
 .dashboard-shell .premium-chart:focus-within {
   transition: none !important;
-  box-shadow: var(--mj-card-shadow) !important;
+  box-shadow: var(--mj-card-shadow);
 }
 
 .dashboard-shell .chart-wrap {
@@ -24558,12 +24558,12 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .dish-catalog-page .dish-catalog-card {
-  overflow: visible !important;
+  overflow: visible;
   padding: 18px !important;
   border: 1px solid var(--dish-border) !important;
-  border-radius: 8px !important;
+  border-radius: 8px;
   background: #ffffff !important;
-  box-shadow: 0 12px 30px rgba(15, 35, 70, 0.06) !important;
+  box-shadow: 0 12px 30px rgba(15, 35, 70, 0.06);
 }
 
 .dish-catalog-page .dish-catalog-header {
@@ -24623,12 +24623,12 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 
 .dish-catalog-page .dish-stat-grid {
   grid-template-columns: repeat(5, minmax(150px, 1fr)) !important;
-  gap: 0 !important;
-  overflow: hidden !important;
+  gap: 0;
+  overflow: hidden;
   margin-bottom: 14px !important;
-  border: 1px solid var(--dish-border) !important;
-  border-radius: 8px !important;
-  background: #ffffff !important;
+  border: 1px solid var(--dish-border);
+  border-radius: 8px;
+  background: #ffffff;
 }
 
 .dish-catalog-page .dish-stat-card {
@@ -24682,8 +24682,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .dish-catalog-page .dish-stat-top svg {
-  width: 18px !important;
-  height: 18px !important;
+  width: 18px;
+  height: 18px;
   color: var(--dish-tone) !important;
 }
 
@@ -24703,7 +24703,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   min-height: 27px !important;
   padding: 0 9px !important;
   border: 1px solid var(--dish-border-soft) !important;
-  border-radius: 6px !important;
+  border-radius: 6px;
   color: #4f647f !important;
   background: #f6f9fd !important;
   font-size: 12px !important;
@@ -24800,8 +24800,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .dish-catalog-page .dish-grid-table {
-  width: 100% !important;
-  min-width: 1360px !important;
+  width: 100%;
+  min-width: 1360px;
   table-layout: fixed !important;
   border-collapse: separate !important;
   border-spacing: 0 !important;
@@ -25129,7 +25129,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 
 /* Dish catalog final softening: keep stat-card radius stable after category clicks. */
 .dish-catalog-page .dish-catalog-card {
-  border-radius: 18px !important;
+  border-radius: 18px;
   box-shadow: 0 14px 34px rgba(13, 39, 72, 0.075) !important;
 }
 
@@ -25221,11 +25221,11 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .dish-catalog-page .dish-grid-table th:first-child {
-  border-top-left-radius: 16px !important;
+  border-top-left-radius: 16px;
 }
 
 .dish-catalog-page .dish-grid-table th:last-child {
-  border-top-right-radius: 16px !important;
+  border-top-right-radius: 16px;
 }
 
 /* Dish catalog edge alignment: expand toward the marked top and side arrows. */
@@ -25295,21 +25295,21 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 @media (min-width: 1025px) {
   .dashboard-back-slot + .dish-catalog-page,
   .dish-catalog-page {
-    height: calc(100dvh - 24px) !important;
-    min-height: 0 !important;
+    height: calc(100dvh - 24px);
+    min-height: 0;
     display: flex !important;
     flex-direction: column !important;
   }
 
   .dish-catalog-page .dish-catalog-card {
     flex: 1 1 auto !important;
-    min-height: 0 !important;
-    padding-bottom: 12px !important;
+    min-height: 0;
+    padding-bottom: 12px;
   }
 
   .dish-catalog-page .dish-grid-wrap {
-    min-height: 220px !important;
-    max-height: none !important;
+    min-height: 220px;
+    max-height: none;
     overflow: auto !important;
     overscroll-behavior: contain !important;
     scrollbar-gutter: stable both-edges !important;
@@ -25323,9 +25323,9 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 /* Dish catalog scrollbar: pin lower and use the Marjon teal color. */
 @media (min-width: 1025px) {
   .dish-catalog-page .dish-grid-wrap {
-    flex: 0 0 auto !important;
-    height: calc(100dvh - 318px) !important;
-    min-height: 320px !important;
+    flex: 0 0 auto;
+    height: calc(100dvh - 318px);
+    min-height: 320px;
     margin-bottom: 0 !important;
   }
 
@@ -25340,17 +25340,17 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .dish-catalog-page .dish-grid-wrap::-webkit-scrollbar {
-  width: 12px !important;
-  height: 12px !important;
+  width: 12px;
+  height: 12px;
 }
 
 .dish-catalog-page .dish-grid-wrap::-webkit-scrollbar-track {
-  background: #e8f7f7 !important;
+  background: #e8f7f7;
 }
 
 .dish-catalog-page .dish-grid-wrap::-webkit-scrollbar-thumb {
   min-height: 42px !important;
-  border: 2px solid #e8f7f7 !important;
+  border: 2px solid #e8f7f7;
 }
 
 .dish-catalog-page .dish-grid-wrap::-webkit-scrollbar-thumb:hover {
@@ -25370,14 +25370,14 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     min-height: calc(100dvh - 52px) !important;
     display: flex !important;
     flex-direction: column !important;
-    padding: 20px 18px 12px !important;
+    padding: 20px 18px 12px;
     overflow: hidden !important;
   }
 
   .dish-catalog-page .dish-catalog-header {
     flex: 0 0 auto !important;
-    min-height: 48px !important;
-    margin-bottom: 16px !important;
+    min-height: 48px;
+    margin-bottom: 16px;
   }
 
   .dish-catalog-page .dish-stat-grid,
@@ -25889,7 +25889,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   body.dashboard-body:has(.dish-catalog-page) .dashboard-content,
   body.dashboard-body:has(.menu-categories-page) .dashboard-content {
     box-sizing: border-box !important;
-    height: calc(100dvh - 84px) !important;
+    height: calc(100dvh - 84px);
     display: flex !important;
     flex-direction: column !important;
   }
@@ -25926,7 +25926,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 
   .dish-catalog-page .dish-grid-wrap,
   .menu-categories-page .menu-category-list {
-    flex: 1 1 auto !important;
+    flex: 1 1 auto;
     overflow: auto !important;
     overscroll-behavior: contain !important;
   }
@@ -28823,10 +28823,10 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
   display: grid !important;
   grid-template-columns: minmax(0, 1fr) !important;
   place-items: center !important;
-  padding: 28px 16px !important;
+  padding: 28px 16px;
   background:
     linear-gradient(115deg, rgba(4, 12, 14, 0.84) 0%, rgba(7, 20, 24, 0.58) 48%, rgba(4, 12, 14, 0.8) 100%),
-    url("../assets/tashkent-admin-bg.jpg") center / cover no-repeat !important;
+    url("../assets/tashkent-admin-bg.jpg") center / cover no-repeat;
 }
 
 .login-pro-shell::before {
@@ -28846,61 +28846,61 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 .login-pro-panel {
   position: relative !important;
   z-index: 1 !important;
-  width: min(500px, calc(100vw - 32px)) !important;
+  width: min(500px, calc(100vw - 32px));
   min-height: 0 !important;
   overflow: visible !important;
-  padding: 0 !important;
+  padding: 0;
 }
 
 .login-pro-card {
-  width: 100% !important;
-  padding: 30px 42px 32px !important;
-  border-radius: 24px !important;
+  width: 100%;
+  padding: 30px 42px 32px;
+  border-radius: 24px;
   border-color: rgba(255, 248, 230, 0.18) !important;
-  background: rgba(15, 31, 37, 0.9) !important;
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42) !important;
-  backdrop-filter: blur(18px) saturate(1.08) !important;
+  background: rgba(15, 31, 37, 0.9);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(18px) saturate(1.08);
 }
 
 .login-pro-logo-row {
-  gap: 12px !important;
+  gap: 12px;
   margin-bottom: 0 !important;
 }
 
 .login-pro-logo-row img {
-  width: 44px !important;
-  height: 44px !important;
+  width: 44px;
+  height: 44px;
   padding: 8px !important;
-  border-radius: 14px !important;
+  border-radius: 14px;
   background: #fff !important;
 }
 
 .login-pro-logo-row strong {
   color: rgba(242, 199, 110, 0.9) !important;
-  font-size: 14px !important;
+  font-size: 14px;
   font-weight: 900 !important;
   letter-spacing: 0.14em !important;
 }
 
 .login-pro-logo-row span {
   color: rgba(226, 232, 240, 0.72) !important;
-  font-size: 11px !important;
+  font-size: 11px;
   font-weight: 800 !important;
   letter-spacing: 0.12em !important;
 }
 
 .login-pro-divider {
-  height: 24px !important;
+  height: 24px;
 }
 
 .login-pro-head h2 {
   color: #fff8e6 !important;
-  font-size: 29px !important;
+  font-size: 29px;
   letter-spacing: 0 !important;
 }
 
 .login-pro-head p {
-  margin-bottom: 24px !important;
+  margin-bottom: 24px;
   color: rgba(226, 232, 240, 0.78) !important;
   font-size: 15px !important;
 }
@@ -28912,10 +28912,10 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-input-wrap {
-  min-height: 54px !important;
-  border-color: rgba(226, 232, 240, 0.18) !important;
-  border-radius: 17px !important;
-  background: rgba(9, 24, 30, 0.78) !important;
+  min-height: 54px;
+  border-color: rgba(226, 232, 240, 0.18);
+  border-radius: 17px;
+  background: rgba(9, 24, 30, 0.78);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
 }
 
@@ -28930,18 +28930,18 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 
 .login-pro-input-wrap input {
   color: #fff8e6 !important;
-  font-size: 15px !important;
+  font-size: 15px;
   font-weight: 800 !important;
 }
 
 .login-pro-input-wrap input::placeholder {
-  color: rgba(255, 248, 230, 0.64) !important;
+  color: rgba(255, 248, 230, 0.64);
 }
 
 .login-pro-input-wrap input:-webkit-autofill,
 .login-pro-input-wrap input:-webkit-autofill:hover,
 .login-pro-input-wrap input:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0 1000px rgba(9, 24, 30, 0.78) inset !important;
+  -webkit-box-shadow: 0 0 0 1000px rgba(9, 24, 30, 0.78) inset;
   box-shadow: 0 0 0 1000px rgba(9, 24, 30, 0.78) inset !important;
   caret-color: #fff8e6 !important;
 }
@@ -28968,12 +28968,12 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-submit {
-  min-height: 56px !important;
-  border-radius: 16px !important;
-  color: #071612 !important;
-  font-size: 16px !important;
+  min-height: 56px;
+  border-radius: 16px;
+  color: #071612;
+  font-size: 16px;
   font-weight: 900 !important;
-  background: linear-gradient(135deg, #f7c95d 0%, #f4c456 38%, #4fd69c 100%) !important;
+  background: linear-gradient(135deg, #f7c95d 0%, #f4c456 38%, #4fd69c 100%);
   box-shadow: none !important;
 }
 
@@ -28989,7 +28989,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
   }
 
   .login-pro-card {
-    padding: 26px 22px 28px !important;
+    padding: 26px 22px 28px;
   }
 
   .login-pro-row {
@@ -29133,17 +29133,17 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 .login-pro-panel {
   display: grid !important;
   place-items: center !important;
-  width: auto !important;
-  height: auto !important;
-  padding: 38px 52px !important;
+  width: auto;
+  height: auto;
+  padding: 38px 52px;
   background:
     radial-gradient(circle at 40% 20%, rgba(0, 188, 188, 0.14), transparent 42%),
     linear-gradient(180deg, rgba(6, 26, 31, 0.9), rgba(4, 18, 22, 0.94));
 }
 
 .login-pro-card {
-  width: min(470px, 100%) !important;
-  padding: 50px 40px 46px !important;
+  width: min(470px, 100%);
+  padding: 50px 40px 46px;
   border-radius: 18px !important;
   border: 1px solid rgba(226, 232, 240, 0.46) !important;
   background:
@@ -29177,11 +29177,11 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-head p {
-  margin-bottom: 30px !important;
+  margin-bottom: 30px;
 }
 
 .login-pro-input-wrap {
-  min-height: 62px !important;
+  min-height: 62px;
   border-radius: 12px !important;
   border-color: rgba(226, 232, 240, 0.28) !important;
   background: rgba(255, 255, 255, 0.1) !important;
@@ -29278,10 +29278,10 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 .login-pro-body {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-columns: minmax(0, 1fr);
   min-height: 0;
   background:
-    linear-gradient(90deg, rgba(2, 10, 14, 0.04) 0%, rgba(2, 10, 14, 0.2) 50%, rgba(2, 10, 14, 0.84) 100%) !important;
+    linear-gradient(90deg, rgba(2, 10, 14, 0.04) 0%, rgba(2, 10, 14, 0.2) 50%, rgba(2, 10, 14, 0.84) 100%);
 }
 
 .login-pro-media {
@@ -29290,18 +29290,18 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 
 .login-pro-panel {
   justify-self: end !important;
-  width: min(600px, 46vw) !important;
-  min-width: 500px !important;
+  width: min(600px, 46vw);
+  min-width: 500px;
   height: 100% !important;
   margin-right: clamp(28px, 5vw, 86px) !important;
   padding: 38px 56px !important;
   background:
-    linear-gradient(90deg, rgba(2, 10, 14, 0), rgba(4, 18, 22, 0.72) 26%, rgba(4, 18, 22, 0.94) 100%) !important;
+    linear-gradient(90deg, rgba(2, 10, 14, 0), rgba(4, 18, 22, 0.72) 26%, rgba(4, 18, 22, 0.94) 100%);
 }
 
 @media (max-width: 1100px) {
   .login-pro-panel {
-    width: min(520px, 100%) !important;
+    width: min(520px, 100%);
     margin-right: 0 !important;
     background: rgba(4, 18, 22, 0.72) !important;
   }
@@ -29309,7 +29309,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 
 /* Cafe login: simplified header and larger right-side form controls. */
 .login-pro-topbar {
-  grid-template-columns: auto minmax(0, 1fr) !important;
+  grid-template-columns: auto minmax(0, 1fr);
 }
 
 .login-pro-topbar nav,
@@ -29408,7 +29408,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-top-actions {
-  display: inline-flex !important;
+  display: inline-flex;
   justify-self: end !important;
 }
 
@@ -29433,7 +29433,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 
 /* Cafe login: stable language menu and fixed Uzbekistan phone prefix. */
 .login-pro-top-actions {
-  gap: 14px !important;
+  gap: 14px;
   min-width: 194px;
 }
 
@@ -29758,8 +29758,8 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
   padding: 6px !important;
   border-color: rgba(37, 99, 127, 0.72) !important;
   border-radius: 10px !important;
-  background: rgba(5, 27, 43, 0.98) !important;
-  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.34) !important;
+  background: rgba(5, 27, 43, 0.98);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.34);
 }
 
 .login-pro-lang__menu::before {
@@ -30895,12 +30895,12 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
 
 /* Z-report print center: shared period picker above the table. */
 .z-report-page--print-only .z-report-period-toolbar {
-  width: fit-content !important;
-  max-width: 100% !important;
+  width: fit-content;
+  max-width: 100%;
   position: relative !important;
-  justify-content: flex-start !important;
+  justify-content: flex-start;
   gap: 12px !important;
-  margin: -16px 0 4px 18px !important;
+  margin: -16px 0 4px 18px;
   padding: 0 !important;
   border: 0 !important;
   border-radius: 0 !important;
@@ -30911,7 +30911,7 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
 }
 
 .z-report-page--print-only .z-report-period-toolbar + .z-report-print-panel {
-  margin-top: 0 !important;
+  margin-top: 0;
 }
 
 .z-report-page--print-only .z-report-period-toolbar > div:first-child {
@@ -30970,21 +30970,21 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
 
 .z-report-page--print-only .z-report-period-toolbar .report-date-menu {
   top: calc(100% + 10px) !important;
-  left: 0 !important;
-  right: auto !important;
+  left: 0;
+  right: auto;
   z-index: 12020 !important;
   width: 352px !important;
 }
 
 .z-report-page--print-only .z-report-period-toolbar .report-date-calendar-popover {
-  left: 0 !important;
-  right: auto !important;
+  left: 0;
+  right: auto;
   z-index: 12030 !important;
 }
 
 .z-report-page--print-only .z-report-period-toolbar .report-date-calendar-popover::before {
-  left: 36px !important;
-  right: auto !important;
+  left: 36px;
+  right: auto;
 }
 
 .z-report-page--print-only .z-report-period-toolbar:has(.report-date-menu) {
@@ -31023,14 +31023,14 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   width: auto !important;
   min-width: 206px !important;
   max-width: 260px !important;
-  height: 34px !important;
-  min-height: 34px !important;
+  height: 34px;
+  min-height: 34px;
   flex: 0 0 auto !important;
   display: inline-flex !important;
   align-items: center !important;
   padding: 0 !important;
   border: 0 !important;
-  border-radius: 9px !important;
+  border-radius: 9px;
   background: transparent !important;
   box-shadow: none !important;
   overflow: visible !important;
@@ -31045,15 +31045,15 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   width: 100% !important;
   min-width: 206px !important;
   max-width: 260px !important;
-  height: 34px !important;
-  min-height: 34px !important;
+  height: 34px;
+  min-height: 34px;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: space-between !important;
   gap: 8px !important;
-  padding: 0 11px !important;
+  padding: 0 11px;
   border: 1px solid rgba(194, 212, 234, 0.95) !important;
-  border-radius: 9px !important;
+  border-radius: 9px;
   background: #ffffff !important;
   color: #10233d !important;
   box-shadow: 0 5px 11px rgba(15, 23, 42, 0.035) !important;
