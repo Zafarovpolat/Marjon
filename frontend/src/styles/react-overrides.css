@@ -4500,7 +4500,6 @@ body.dashboard-body,
 
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open > .sidebar-link--button {
   border-radius: 10px !important;
-  color: #ffffff !important;
   background: var(--color-brand);
   box-shadow: 0 8px 17px rgba(29, 181, 181, 0.154),
     inset 0 1px 0 rgba(255, 255, 255, 0.154) !important;
@@ -4515,11 +4514,9 @@ body.dashboard-body,
   width: auto !important;
   max-height: 0 !important;
   margin: 0 8px 0 20px !important;
-  padding: 0 !important;
   overflow: hidden !important;
   opacity: 0 !important;
   pointer-events: none !important;
-  border: 0 !important;
   border-radius: 0 0 9px 9px !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -4547,7 +4544,6 @@ body.dashboard-body,
   left: 8px !important;
   top: 14px !important;
   bottom: 8px !important;
-  width: 1px !important;
   border-radius: 999px !important;
   background: rgba(147, 197, 253, 0.36);
   pointer-events: none !important;
@@ -4570,13 +4566,10 @@ body.dashboard-body,
   color: rgba(219, 234, 254, 0.78) !important;
   background: transparent !important;
   box-shadow: none !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
   line-height: 1 !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
-  transform: none !important;
 }
 
 .dashboard-sidebar .sidebar-submenu__link::before,
@@ -4595,7 +4588,6 @@ body.dashboard-body,
   background: var(--neutral-300) !important;
   box-shadow: 0 0 0 2px rgba(8, 29, 63, 0.665),
     0 0 6px rgba(157, 184, 216, 0.154) !important;
-  transform: translateY(-50%) !important;
 }
 
 .dashboard-sidebar .sidebar-submenu__dot {
@@ -4618,7 +4610,6 @@ body.dashboard-body,
 
 .dashboard-sidebar .sidebar-submenu__link:hover,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible {
-  color: #ffffff !important;
   background: rgba(255, 255, 255, 0.07) !important;
   outline: 0 !important;
 }
@@ -4632,7 +4623,6 @@ body.dashboard-body,
 }
 
 .dashboard-sidebar .sidebar-submenu__link.is-active {
-  color: #ffffff !important;
   background: rgba(29, 181, 181, 0.28);
 }
 
