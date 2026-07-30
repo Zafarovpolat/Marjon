@@ -2335,22 +2335,18 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-nav-item.has-submenu:hover .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu:focus-within .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-active .sidebar-submenu {
-  position: static !important;
   top: auto !important;
   left: auto !important;
   right: auto !important;
-  z-index: auto !important;
   margin: 5px 2px 0 40px !important;
   padding-left: 0 !important;
   max-height: 0 !important;
   opacity: 0 !important;
   overflow: hidden !important;
   transform: translateY(-4px) !important;
-  pointer-events: none !important;
   border-left: 1px solid rgba(147, 197, 253, 0.18) !important;
   border-radius: 0 13px 13px 0 !important;
   background: rgba(255, 255, 255, 0.035);
-  box-shadow: none !important;
   transition:
     max-height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
     opacity 0.18s ease,
@@ -2367,7 +2363,6 @@ body.dashboard-body,
   padding-top: 4px !important;
   padding-bottom: 4px !important;
   transform: translateY(0) !important;
-  pointer-events: auto !important;
 }
 
 .dashboard-sidebar .sidebar-link,
@@ -2473,7 +2468,6 @@ body.dashboard-body,
   height: 34px !important;
   padding: 0 10px 0 12px !important;
   gap: 0 !important;
-  transform: none !important;
   outline: 0 !important;
 }
 
