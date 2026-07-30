@@ -11679,7 +11679,7 @@ body:has(.admin-shell),
   }
 
   .admin-content .admin-chart-card__head {
-    flex-direction: column !important;
+    flex-direction: column;
     align-items: stretch !important;
   }
 
@@ -11766,7 +11766,7 @@ body:has(.admin-shell),
     height: 100dvh !important;
     min-height: 0 !important;
     display: flex !important;
-    flex-direction: column !important;
+    flex-direction: column;
     padding: 0 !important;
     border-top-left-radius: 0 !important;
     border-bottom-left-radius: 0 !important;
@@ -11928,7 +11928,7 @@ body:has(.admin-shell),
   height: 100dvh !important;
   min-height: 0 !important;
   display: flex !important;
-  flex-direction: column !important;
+  flex-direction: column;
   padding: 0 !important;
   overflow: hidden !important;
   background: var(--admin-shell-bar-bg) !important;
@@ -16032,7 +16032,7 @@ body:has(.admin-shell),
   color: #334155 !important;
   background: #f8fafc !important;
   box-shadow: none !important;
-  font-family: "Golos Text", "Manrope", "Inter", sans-serif !important;
+  font-family: "Golos Text", "Manrope", "Inter", sans-serif;
   font-size: 12px !important;
   font-weight: 800 !important;
   line-height: 1 !important;
@@ -16737,7 +16737,7 @@ body:has(.admin-shell),
     min-height: var(--admin-sidebar-logo-box) !important;
     max-height: var(--admin-sidebar-logo-box) !important;
     margin-left: 3px !important;
-    align-self: center !important;
+    align-self: center;
     border-radius: 15px !important;
   }
 
@@ -17180,7 +17180,7 @@ body:has(.admin-shell),
   display: flex !important;
   align-items: baseline !important;
   gap: 6px !important;
-  align-self: center !important;
+  align-self: center;
   margin: 0 0 10px !important;
   overflow: hidden !important;
   color: #000000 !important;
@@ -17940,7 +17940,7 @@ body:has(.admin-shell),
 .admin-content .admin-chart-card button,
 .admin-content .admin-chart-card input,
 .admin-content .admin-chart-card select {
-  font-family: "Golos Text", "Manrope", "Inter", sans-serif !important;
+  font-family: "Golos Text", "Manrope", "Inter", sans-serif;
 }
 
 .admin-content .admin-revenue-switcher {
@@ -18519,7 +18519,7 @@ body:has(.admin-shell),
   max-height: 390px !important;
   display: grid !important;
   gap: 8px !important;
-  overflow-y: auto !important;
+  overflow-y: auto;
   overflow-x: hidden !important;
   padding: 12px !important;
   background: #ffffff !important;
@@ -22409,7 +22409,7 @@ body:has(.admin-shell),
     place-items: center !important;
     grid-column: 1 !important;
     justify-self: start !important;
-    align-self: center !important;
+    align-self: center;
     transform: none !important;
     translate: none;
     transition:
@@ -22925,7 +22925,7 @@ body:has(.admin-shell),
     max-height: 56px !important;
     margin: 0 !important;
     padding: 0 !important;
-    border-width: 1px !important;
+    border-width: 1px;
     gap: 0 !important;
     display: grid !important;
     grid-template-columns: 1fr !important;
