@@ -404,6 +404,10 @@ class OrderService:
         )
         return Decimal(str(res.scalar_one() or 0))
 
+    async def _get_company_timezone(self, company_id: UUID) -> str:
+        result = await self.db.execute(select(Company.timezone).where(Company.id == company_id))
+        return result.scalar_one_or_none() or "Asia/Tashkent"
+
     async def _generate_daily_number(self, company_id: UUID, branch_id: UUID) -> str:
         """Generate daily order number: YYYYMMDD-NNNN (serialized via advisory lock)."""
         tz_str = await self._get_company_timezone(company_id)

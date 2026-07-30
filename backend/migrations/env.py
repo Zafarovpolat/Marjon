@@ -22,6 +22,9 @@ import app.modules.audit.models          # noqa: F401
 import app.modules.fiscal.models         # noqa: F401
 import app.modules.subscriptions.models  # noqa: F401
 import app.modules.printers.models       # noqa: F401
+import app.modules.halls.models          # noqa: F401
+import app.modules.kafe_compat.models    # noqa: F401
+import app.modules.inventory.warehouse_models  # noqa: F401
 # Главная админка (HQ admin panel)
 import app.modules.handbook.models        # noqa: F401
 import app.modules.organizations.models   # noqa: F401
