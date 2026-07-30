@@ -1947,38 +1947,10 @@ body.dashboard-body,
   box-shadow: none !important;
 }
 
-.dashboard-sidebar::before,
-.dashboard-sidebar::after {
-  display: none !important;
-  content: none !important;
-}
-
 .dashboard-main {
   position: relative !important;
   z-index: 4 !important;
-  margin-left: 0 !important;
-  border-top-left-radius: 36px !important;
   background: var(--neutral-50);
-  box-shadow: -11px 0 26px rgba(2, 8, 23, 0.112) !important;
-  overflow: hidden auto !important;
-}
-
-.dashboard-main::before,
-.dashboard-main::after {
-  display: none !important;
-  content: none !important;
-}
-
-.dashboard-topbar {
-  border-top-left-radius: 36px !important;
-  background: rgba(245, 247, 251, 0.96) !important;
-}
-
-@media (max-width: 1024px) {
-  .dashboard-main,
-  .dashboard-topbar {
-    border-top-left-radius: 0 !important;
-  }
 }
 
 /* Owner KPI cards aligned with Revenue analytics card */
