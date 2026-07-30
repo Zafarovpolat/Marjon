@@ -3480,16 +3480,11 @@ body.dashboard-body,
 }
 
 .dashboard-sidebar .sidebar-submenu::before {
-  content: "" !important;
   display: block !important;
-  position: absolute !important;
   left: 18px !important;
   top: 12px !important;
   bottom: 12px !important;
-  width: 1px !important;
   background: rgba(147, 197, 253, 0.34);
-  border-radius: 999px !important;
-  pointer-events: none !important;
 }
 
 .dashboard-sidebar .sidebar-submenu {
@@ -3509,11 +3504,7 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible::before,
 .dashboard-sidebar .sidebar-submenu__link.is-active::before {
   left: 15px !important;
-  width: 7px !important;
-  min-width: 7px !important;
-  height: 7px !important;
   z-index: 2 !important;
-  background: var(--neutral-300) !important;
   box-shadow: 0 0 0 2px rgba(8, 29, 63, 0.658),
     0 0 6px rgba(157, 184, 216, 0.14) !important;
 }
