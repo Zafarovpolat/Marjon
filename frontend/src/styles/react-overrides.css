@@ -2448,8 +2448,6 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link:hover,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible,
 .dashboard-sidebar .sidebar-submenu__link.is-active {
-  min-height: 34px !important;
-  height: 34px !important;
   padding: 0 10px 0 12px !important;
   gap: 0 !important;
   outline: 0 !important;
@@ -2603,19 +2601,11 @@ body.dashboard-body,
   height: 32px !important;
   min-height: 32px !important;
   max-height: 32px !important;
-  display: flex !important;
-  align-items: center !important;
   padding: 0 8px !important;
   margin: 0 !important;
   border: 0 !important;
-  border-radius: 9px !important;
-  font-size: 14px !important;
   letter-spacing: 0 !important;
   color: rgba(219, 234, 254, 0.82) !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  transform: none !important;
 }
 
 .dashboard-sidebar .sidebar-submenu__link::before,
