@@ -24260,34 +24260,34 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 
 /* Orders report: remove eyebrow gap, raise title, and widen the table field. */
 .orders-report-page .report-title-group {
-  align-items: flex-start !important;
-  transform: translateY(-10px) !important;
+  align-items: flex-start;
+  transform: translateY(-10px);
 }
 
 .orders-report-page .report-title-group > div {
-  display: flex !important;
-  align-items: flex-start !important;
+  display: flex;
+  align-items: flex-start;
 }
 
 .orders-report-page .report-title-group h2 {
-  margin-top: 0 !important;
-  line-height: 1 !important;
+  margin-top: 0;
+  line-height: 1;
 }
 
 .orders-report-page .report-accent-bar {
-  height: 52px !important;
-  margin-top: 0 !important;
+  height: 52px;
+  margin-top: 0;
 }
 
 .orders-report-page .report-page-header {
-  margin-bottom: 8px !important;
+  margin-bottom: 8px;
 }
 
 .orders-report-page .report-table-wrapper {
-  width: calc(100% + 40px) !important;
-  max-width: none !important;
-  margin-left: -20px !important;
-  margin-right: -20px !important;
+  width: calc(100% + 40px);
+  max-width: none;
+  margin-left: -20px;
+  margin-right: -20px;
 }
 
 /* Owner dashboard right summary icons: match the colored outline chips. */
@@ -25098,22 +25098,22 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   }
 
   .dish-catalog-page .dish-catalog-card {
-    padding: 14px !important;
+    padding: 14px;
   }
 
   .dish-catalog-page .dish-catalog-header,
   .dish-catalog-page .dish-header-actions {
-    align-items: stretch !important;
-    flex-direction: column !important;
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .dish-catalog-page .dish-stat-grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: 1fr;
   }
 
   .dish-catalog-page .dish-stat-card {
-    border-right: 0 !important;
-    border-top: 1px solid var(--dish-border-soft) !important;
+    border-right: 0;
+    border-top: 1px solid var(--dish-border-soft);
   }
 
   .dish-catalog-page .dish-stat-card:first-child {
@@ -25123,7 +25123,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   .dish-catalog-page .dish-search,
   .dish-catalog-page .dish-toolbar select,
   .dish-catalog-page .dish-toolbar button {
-    width: 100% !important;
+    width: 100%;
   }
 }
 
@@ -25297,12 +25297,12 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   .dish-catalog-page {
     height: calc(100dvh - 24px);
     min-height: 0;
-    display: flex !important;
-    flex-direction: column !important;
+    display: flex;
+    flex-direction: column;
   }
 
   .dish-catalog-page .dish-catalog-card {
-    flex: 1 1 auto !important;
+    flex: 1 1 auto;
     min-height: 0;
     padding-bottom: 12px;
   }
@@ -25310,13 +25310,13 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   .dish-catalog-page .dish-grid-wrap {
     min-height: 220px;
     max-height: none;
-    overflow: auto !important;
+    overflow: auto;
     overscroll-behavior: contain;
-    scrollbar-gutter: stable both-edges !important;
+    scrollbar-gutter: stable both-edges;
   }
 
   .dish-catalog-page .dish-grid-table {
-    min-height: 100% !important;
+    min-height: 100%;
   }
 }
 
@@ -25326,7 +25326,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     flex: 0 0 auto;
     height: calc(100dvh - 318px);
     min-height: 320px;
-    margin-bottom: 0 !important;
+    margin-bottom: 0;
   }
 
   .dish-catalog-page .dish-catalog-card {
@@ -25898,20 +25898,20 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   .dish-catalog-page,
   .dashboard-back-slot + .menu-categories-page,
   .menu-categories-page {
-    flex: 1 1 auto !important;
-    height: 100% !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .dish-catalog-page .dish-catalog-card,
   .menu-categories-page .menu-categories-card {
-    flex: 1 1 auto !important;
-    height: 100% !important;
-    min-height: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
   .dish-catalog-page .dish-catalog-header,
@@ -25921,20 +25921,20 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   .menu-categories-page .menu-category-error,
   .menu-categories-page .menu-category-form,
   .menu-categories-page .menu-category-toolbar {
-    flex: 0 0 auto !important;
+    flex: 0 0 auto;
   }
 
   .dish-catalog-page .dish-grid-wrap,
   .menu-categories-page .menu-category-list {
     flex: 1 1 auto;
-    overflow: auto !important;
+    overflow: auto;
     overscroll-behavior: contain;
   }
 
   .dish-catalog-page .dish-grid-table th {
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 3 !important;
+    position: sticky;
+    top: 0;
+    z-index: 3;
   }
 }
 
@@ -25975,59 +25975,59 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   .dish-catalog-page .dish-catalog-card,
   .menu-categories-page .menu-categories-card {
     box-sizing: border-box;
-    padding-bottom: 8px !important;
+    padding-bottom: 8px;
   }
 
   .dish-catalog-page .dish-grid-wrap,
   .menu-categories-page .menu-category-list {
-    flex: 1 1 0 !important;
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    margin-bottom: 0 !important;
-    overflow-x: scroll !important;
-    overflow-y: auto !important;
-    scrollbar-gutter: stable both-edges !important;
+    flex: 1 1 0;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    margin-bottom: 0;
+    overflow-x: scroll;
+    overflow-y: auto;
+    scrollbar-gutter: stable both-edges;
   }
 }
 
 /* Compact dish catalog controls so the table owns most of the screen. */
 @media (min-width: 1025px) {
   .dish-catalog-page .dish-catalog-card {
-    padding: 14px 14px 8px !important;
+    padding: 14px 14px 8px;
   }
 
   .dish-catalog-page .dish-catalog-header {
-    min-height: 0 !important;
-    margin-bottom: 8px !important;
-    gap: 12px !important;
+    min-height: 0;
+    margin-bottom: 8px;
+    gap: 12px;
   }
 
   .dish-catalog-page .dish-catalog-header h1 {
-    font-size: 21px !important;
-    line-height: 1.05 !important;
+    font-size: 21px;
+    line-height: 1.05;
   }
 
   .dish-catalog-page .dish-catalog-header p {
-    margin-top: 3px !important;
-    font-size: 12px !important;
-    line-height: 1.2 !important;
+    margin-top: 3px;
+    font-size: 12px;
+    line-height: 1.2;
   }
 
   .dish-catalog-page .dish-header-actions {
-    gap: 8px !important;
+    gap: 8px;
   }
 
   .dish-catalog-page .dish-header-actions button {
-    height: 32px !important;
-    min-height: 32px !important;
-    padding: 0 12px !important;
-    font-size: 12px !important;
+    height: 32px;
+    min-height: 32px;
+    padding: 0 12px;
+    font-size: 12px;
   }
 
   .dish-catalog-page .dish-stat-grid {
-    gap: 10px !important;
-    margin-bottom: 10px !important;
+    gap: 10px;
+    margin-bottom: 10px;
   }
 
   .dish-catalog-page .dish-stat-card,
@@ -26040,14 +26040,14 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   }
 
   .dish-catalog-page .dish-stat-top {
-    min-height: 22px !important;
-    font-size: 11px !important;
-    line-height: 1.15 !important;
+    min-height: 22px;
+    font-size: 11px;
+    line-height: 1.15;
   }
 
   .dish-catalog-page .dish-stat-top svg {
-    width: 28px !important;
-    height: 28px !important;
+    width: 28px;
+    height: 28px;
     padding: 7px !important;
     border-radius: 10px !important;
   }
