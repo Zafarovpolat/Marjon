@@ -18463,11 +18463,11 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .dish-catalog-page .btn-soft,
 .dish-catalog-page .btn-outline-danger,
 .dish-catalog-page .dish-more-btn {
-  border: 1px solid var(--neutral-200, #e2e8f0) !important;
-  border-radius: 12px !important;
-  color: var(--neutral-700, #334155) !important;
-  background: #ffffff !important;
-  box-shadow: none !important;
+  border: 1px solid var(--neutral-200, #e2e8f0);
+  border-radius: 12px;
+  color: var(--neutral-700, #334155);
+  background: #ffffff;
+  box-shadow: none;
 }
 
 .dish-catalog-page .btn-outline-primary:hover,
@@ -18527,7 +18527,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .dish-catalog-page .dish-price-input,
 .dish-catalog-page .dish-search,
 .dish-catalog-page .dish-toolbar select {
-  border-radius: 12px !important;
+  border-radius: 12px;
 }
 
 /* Wider content spacing for secondary report/catalog windows. */
@@ -18591,7 +18591,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .report-table-wrapper,
 .nomenclature-table-wrapper,
 .warehouse-table-wrap {
-  width: 100% !important;
+  width: 100%;
   max-width: none !important;
 }
 
@@ -18612,16 +18612,16 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 }
 
 .orders-report-page {
-  padding-left: 0 !important;
-  padding-right: 0 !important;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .orders-report-page .report-page-card {
-  width: calc(100% + 52px) !important;
-  margin-left: -26px !important;
-  margin-right: -26px !important;
-  padding: 22px 26px 26px !important;
-  border-radius: 28px !important;
+  width: calc(100% + 52px);
+  margin-left: -26px;
+  margin-right: -26px;
+  padding: 22px 26px 26px;
+  border-radius: 28px;
 }
 
 /* Staff edit drawer polish. */
