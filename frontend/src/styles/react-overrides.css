@@ -16169,28 +16169,28 @@ body.dashboard-body,
 
 @media (min-width: 481px) and (max-width: 1024px) {
   .warehouse-summary-list {
-    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
 .warehouse-summary-item {
   min-height: 84px;
-  display: flex !important;
-  align-items: center !important;
+  display: flex;
+  align-items: center;
   gap: 14px;
   padding: 18px 20px;
-  position: relative !important;
-  overflow: hidden !important;
-  text-align: left !important;
-  font: inherit !important;
-  color: var(--owner-ink, var(--neutral-950)) !important;
-  border-radius: 16px !important;
-  border: 1px solid rgba(226, 232, 240, 0.92) !important;
+  position: relative;
+  overflow: hidden;
+  text-align: left;
+  font: inherit;
+  color: var(--owner-ink, var(--neutral-950));
+  border-radius: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.92);
   background: rgba(248, 250, 252, 0.62);
   box-shadow: 0 11px 24px rgba(15, 23, 42, 0.056),
-    0 1px 0 rgba(255, 255, 255, 0.63) inset !important;
-  cursor: pointer !important;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
+    0 1px 0 rgba(255, 255, 255, 0.63) inset;
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .warehouse-summary-item:hover,
@@ -16207,8 +16207,8 @@ body.dashboard-body,
   height: 36px;
   flex: 0 0 36px;
   display: inline-flex;
-  align-items: center !important;
-  justify-content: center !important;
+  align-items: center;
+  justify-content: center;
   border-radius: 10px;
   color: var(--color-brand);
   background: rgba(29, 181, 181, 0.12);
@@ -16232,7 +16232,7 @@ body.dashboard-body,
 }
 
 .warehouse-summary-item strong {
-  display: block !important;
+  display: block;
   color: var(--owner-ink, var(--neutral-950));
   line-height: 1.2;
 }
@@ -16592,7 +16592,7 @@ body.dashboard-body,
 
 /* Center USD converter popover in the visible workspace, adapting to sidebar width. */
 .dashboard-topbar .topbar-info-widgets {
-  position: static !important;
+  position: static;
 }
 
 .dashboard-topbar .usd-rate-popover {
@@ -17534,25 +17534,25 @@ body.dashboard-body,
 
 /* Dashboard warehouse quick buttons: stretch cards to the full right column. */
 .owner-main-grid > .warehouse-summary-card {
-  width: 100% !important;
-  min-width: 0 !important;
-  justify-self: stretch !important;
-  align-self: stretch !important;
+  width: 100%;
+  min-width: 0;
+  justify-self: stretch;
+  align-self: stretch;
 }
 
 .warehouse-summary-list {
-  width: 100% !important;
+  width: 100%;
 }
 
 .warehouse-summary-item {
-  width: 100% !important;
+  width: 100%;
   box-sizing: border-box;
-  justify-content: flex-start !important;
+  justify-content: flex-start;
 }
 
 .warehouse-summary-item > div {
-  min-width: 0 !important;
-  flex: 1 1 auto !important;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .warehouse-summary-item strong,
@@ -17570,18 +17570,18 @@ body.dashboard-body,
 }
 
 .warehouse-summary-item {
-  min-height: 92px !important;
-  gap: 16px !important;
+  min-height: 92px;
+  gap: 16px;
   padding: 20px 22px;
 }
 
 .warehouse-summary-item__icon {
-  flex-basis: 44px !important;
+  flex-basis: 44px;
 }
 
 .warehouse-summary-item strong {
   font-size: 16px;
-  line-height: 1.22 !important;
+  line-height: 1.22;
   font-weight: 500;
 }
 
@@ -17593,29 +17593,29 @@ body.dashboard-body,
 
 /* Match top KPI typography with the softer enlarged warehouse cards. */
 .kpi-grid--premium .premium-kpi .kpi-label {
-  color: var(--owner-ink, var(--neutral-950)) !important;
+  color: var(--owner-ink, var(--neutral-950));
   font-size: 12px !important;
-  line-height: 1.22 !important;
-  font-weight: 500 !important;
+  line-height: 1.22;
+  font-weight: 500;
   letter-spacing: 0.035em !important;
 }
 
 .kpi-grid--premium .premium-kpi .kpi-value {
-  font-size: clamp(26px, 2vw, 34px) !important;
+  font-size: clamp(26px, 2vw, 34px);
   line-height: 1.02 !important;
   font-weight: 500 !important;
-  letter-spacing: 0 !important;
+  letter-spacing: 0;
 }
 
 .kpi-grid--premium .premium-kpi .kpi-value small {
-  font-size: 13px !important;
+  font-size: 13px;
   font-weight: 400 !important;
 }
 
 .kpi-grid--premium .premium-kpi .kpi-note {
-  font-size: 12px !important;
-  line-height: 1.25 !important;
-  font-weight: 500 !important;
+  font-size: 12px;
+  line-height: 1.25;
+  font-weight: 500;
 }
 
 .warehouse-summary-item strong,
@@ -17654,7 +17654,7 @@ html,#root{background:var(--neutral-50,#f4f7fc) !important;}
 
 /* 1) sidebar-brand: убрать нижнюю границу */
 .dashboard-sidebar .sidebar-brand,
-.sidebar-brand { border-bottom: 0 !important; }
+.sidebar-brand { border-bottom: 0; }
 
 /* 2) при активной модалке оплаты — у сайдбара нет тени */
 body:has(.balance-payment-modal) .dashboard-sidebar,
@@ -17720,8 +17720,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 @media (max-width: 1024px) {
   .dashboard-shell .dashboard-content,
   .dashboard-shell .dashboard-main.is-sidebar-collapsed .dashboard-content {
-    border-top-left-radius: 18px !important;
-    border-top-right-radius: 18px !important;
+    border-top-left-radius: 18px;
+    border-top-right-radius: 18px;
   }
 }
 
@@ -17732,7 +17732,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .dashboard-sidebar .sidebar-nav-item > .sidebar-link,
 .dashboard-sidebar .sidebar-nav-item > .sidebar-link--button {
   box-sizing: border-box;
-  border: 1px solid transparent !important;
+  border: 1px solid transparent;
 }
 /* при ховере меняем только цвет бордера, не его наличие */
 .dashboard-sidebar .sidebar-link:hover,
@@ -17942,15 +17942,15 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .premium-kpi__icon i,
 .premium-kpi__icon svg,
 .premium-kpi__icon svg * {
-  color: #ffffff !important;
-  fill: #ffffff !important;
+  color: #ffffff;
+  fill: #ffffff;
 }
 /* фоны иконок только в палитре (teal/navy), без purple/blue */
-.premium-kpi--revenue .premium-kpi__icon { background: var(--accent, #1db5b5) !important; }
-.premium-kpi--orders  .premium-kpi__icon { background: var(--primary, #0b1f3f) !important; }
-.premium-kpi--avg     .premium-kpi__icon { background: var(--accent, #1db5b5) !important; }
-.premium-kpi--tables  .premium-kpi__icon { background: var(--primary, #0b1f3f) !important; }
-.premium-kpi--expense .premium-kpi__icon { background: var(--accent, #1db5b5) !important; }
+.premium-kpi--revenue .premium-kpi__icon { background: var(--accent, #1db5b5); }
+.premium-kpi--orders  .premium-kpi__icon { background: var(--primary, #0b1f3f); }
+.premium-kpi--avg     .premium-kpi__icon { background: var(--accent, #1db5b5); }
+.premium-kpi--tables  .premium-kpi__icon { background: var(--primary, #0b1f3f); }
+.premium-kpi--expense .premium-kpi__icon { background: var(--accent, #1db5b5); }
 /* угловой "глоу" тоже только в палитре */
 .premium-kpi--avg::after     { background: var(--accent, #1db5b5) !important; }
 .premium-kpi--orders::after  { background: var(--primary, #0b1f3f) !important; }
@@ -17959,22 +17959,22 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 /* 2) 5 KPI-карт в один аккуратный ряд (без карты-сироты) */
 .kpi-grid--premium { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 @media (max-width: 1280px) { .kpi-grid--premium { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 1024px) { .kpi-grid--premium { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+@media (max-width: 1024px) { .kpi-grid--premium { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* 3) period-switcher: одинаковый размер дропдауна и "Подробнее" */
-.period-switcher { display: inline-flex !important; align-items: center !important; gap: 8px !important; }
+.period-switcher { display: inline-flex; align-items: center; gap: 8px; }
 .period-switcher > *,
 .period-switcher .period-switcher__details,
 .period-switcher button,
 .period-switcher select {
   box-sizing: border-box;
-  height: 36px !important;
+  height: 36px;
   min-height: 36px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  padding: 0 14px !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 500;
   border-radius: 10px !important;
 }
 .period-switcher__details {
@@ -17996,9 +17996,9 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .warehouse-summary-item--pink,
 .warehouse-summary-item--purple,
 .warehouse-summary-item--teal {
-  background: #ffffff !important;
-  border: 1px solid var(--neutral-200, #e2e8f0) !important;
-  box-shadow: none !important;
+  background: #ffffff;
+  border: 1px solid var(--neutral-200, #e2e8f0);
+  box-shadow: none;
 }
 .warehouse-summary-item__icon,
 .warehouse-summary-item--blue .warehouse-summary-item__icon,
@@ -18009,22 +18009,22 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .warehouse-summary-item--pink .warehouse-summary-item__icon,
 .warehouse-summary-item--purple .warehouse-summary-item__icon,
 .warehouse-summary-item--teal .warehouse-summary-item__icon {
-  background: rgba(29,181,181,0.10) !important;
-  color: var(--accent, #1db5b5) !important;
+  background: rgba(29,181,181,0.10);
+  color: var(--accent, #1db5b5);
 }
 .warehouse-summary-item__icon i,
 .warehouse-summary-item__icon svg,
 .warehouse-summary-item__icon svg * {
-  color: var(--accent, #1db5b5) !important;
-  fill: var(--accent, #1db5b5) !important;
+  color: var(--accent, #1db5b5);
+  fill: var(--accent, #1db5b5);
 }
 
 /* ===== CORRECTIONS: 4 KPI cards, period dropdown = details, stroke icons ===== */
 
 /* grid обратно на 4 колонки (карт теперь 4) */
-.kpi-grid--premium { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
-@media (max-width: 1280px) { .kpi-grid--premium { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
-@media (max-width: 560px)  { .kpi-grid--premium { grid-template-columns: 1fr !important; } }
+.kpi-grid--premium { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1280px) { .kpi-grid--premium { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px)  { .kpi-grid--premium { grid-template-columns: 1fr; } }
 
 /* кнопка периода: точно как "Подробнее" (teal фон + teal текст, та же высота) */
 .period-switcher .period-dropdown__button,
