@@ -24554,26 +24554,26 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   --dish-row-hover: #f8fbff;
   --dish-cell-bg: #ffffff;
   padding: 8px 6px 24px !important;
-  color: var(--dish-page-text) !important;
+  color: var(--dish-page-text);
 }
 
 .dish-catalog-page .dish-catalog-card {
   overflow: visible;
-  padding: 18px !important;
-  border: 1px solid var(--dish-border) !important;
+  padding: 18px;
+  border: 1px solid var(--dish-border);
   border-radius: 8px;
-  background: #ffffff !important;
+  background: #ffffff;
   box-shadow: 0 12px 30px rgba(15, 35, 70, 0.06);
 }
 
 .dish-catalog-page .dish-catalog-header {
-  align-items: flex-start !important;
-  gap: 18px !important;
-  margin-bottom: 14px !important;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 14px;
 }
 
 .dish-catalog-page .report-title-group {
-  gap: 0 !important;
+  gap: 0;
 }
 
 .dish-catalog-page .report-accent-bar {
@@ -24581,31 +24581,31 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .dish-catalog-page .dish-catalog-header h1 {
-  color: #10233d !important;
-  font-size: 24px !important;
-  font-weight: 800 !important;
-  line-height: 1.12 !important;
+  color: #10233d;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.12;
 }
 
 .dish-catalog-page .dish-catalog-header p {
-  max-width: 760px !important;
-  margin-top: 4px !important;
-  color: var(--dish-page-muted) !important;
-  font-size: 13px !important;
-  line-height: 1.35 !important;
+  max-width: 760px;
+  margin-top: 4px;
+  color: var(--dish-page-muted);
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .dish-catalog-page .dish-header-actions {
-  align-self: flex-start !important;
-  gap: 8px !important;
+  align-self: flex-start;
+  gap: 8px;
 }
 
 .dish-catalog-page .dish-header-actions button {
-  min-height: 34px !important;
-  height: 34px !important;
-  padding: 0 12px !important;
-  border-radius: 7px !important;
-  font-size: 13px !important;
+  min-height: 34px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-size: 13px;
   font-weight: 800 !important;
 }
 
@@ -24616,29 +24616,29 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .dish-catalog-page .dish-header-actions .btn-soft {
-  border-color: #c8d8eb !important;
-  color: #263b55 !important;
-  background: #ffffff !important;
+  border-color: #c8d8eb;
+  color: #263b55;
+  background: #ffffff;
 }
 
 .dish-catalog-page .dish-stat-grid {
-  grid-template-columns: repeat(5, minmax(150px, 1fr)) !important;
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
   gap: 0;
   overflow: hidden;
-  margin-bottom: 14px !important;
+  margin-bottom: 14px;
   border: 1px solid var(--dish-border);
   border-radius: 8px;
   background: #ffffff;
 }
 
 .dish-catalog-page .dish-stat-card {
-  min-height: 112px !important;
-  padding: 12px 14px !important;
-  border: 0 !important;
-  border-right: 1px solid var(--dish-border-soft) !important;
-  border-radius: 0 !important;
-  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
-  box-shadow: none !important;
+  min-height: 112px;
+  padding: 12px 14px;
+  border: 0;
+  border-right: 1px solid var(--dish-border-soft);
+  border-radius: 0;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  box-shadow: none;
 }
 
 .dish-catalog-page .dish-stat-card:last-child {
@@ -24676,38 +24676,38 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .dish-catalog-page .dish-stat-top {
-  color: #5c708d !important;
-  font-size: 12px !important;
-  font-weight: 700 !important;
+  color: #5c708d;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .dish-catalog-page .dish-stat-top svg {
   width: 18px;
   height: 18px;
-  color: var(--dish-tone) !important;
+  color: var(--dish-tone);
 }
 
 .dish-catalog-page .dish-stat-card strong {
-  margin: 9px 0 10px !important;
-  color: #07182f !important;
-  font-size: 27px !important;
-  font-weight: 800 !important;
-  line-height: 1 !important;
+  margin: 9px 0 10px;
+  color: #07182f;
+  font-size: 27px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .dish-catalog-page .dish-stat-lines {
-  gap: 5px !important;
+  gap: 5px;
 }
 
 .dish-catalog-page .dish-stat-lines button {
-  min-height: 27px !important;
-  padding: 0 9px !important;
-  border: 1px solid var(--dish-border-soft) !important;
+  min-height: 27px;
+  padding: 0 9px;
+  border: 1px solid var(--dish-border-soft);
   border-radius: 6px;
-  color: #4f647f !important;
+  color: #4f647f;
   background: #f6f9fd !important;
-  font-size: 12px !important;
-  font-weight: 700 !important;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .dish-catalog-page .dish-stat-lines button:hover,
@@ -24723,12 +24723,12 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .dish-catalog-page .dish-toolbar {
-  gap: 8px !important;
-  padding: 10px !important;
-  margin-bottom: 14px !important;
-  border: 1px solid var(--dish-border) !important;
+  gap: 8px;
+  padding: 10px;
+  margin-bottom: 14px;
+  border: 1px solid var(--dish-border);
   border-radius: 8px !important;
-  background: #f7faff !important;
+  background: #f7faff;
 }
 
 .dish-catalog-page .dish-search {
@@ -24772,12 +24772,12 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .dish-catalog-page .btn-outline-primary,
 .dish-catalog-page .btn-outline-danger,
 .dish-catalog-page .dish-more-btn {
-  border: 1px solid #c8d8eb !important;
-  color: #263b55 !important;
-  background: #ffffff !important;
-  box-shadow: none !important;
-  font-size: 13px !important;
-  font-weight: 800 !important;
+  border: 1px solid #c8d8eb;
+  color: #263b55;
+  background: #ffffff;
+  box-shadow: none;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .dish-catalog-page .btn-outline-primary:hover,
@@ -24794,38 +24794,38 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .dish-catalog-page .dish-grid-wrap {
-  border: 1px solid var(--dish-border) !important;
+  border: 1px solid var(--dish-border);
   border-radius: 8px !important;
-  background: #ffffff !important;
+  background: #ffffff;
 }
 
 .dish-catalog-page .dish-grid-table {
   width: 100%;
   min-width: 1360px;
   table-layout: fixed;
-  border-collapse: separate !important;
+  border-collapse: separate;
   border-spacing: 0;
-  color: #20324d !important;
-  font-size: 13px !important;
+  color: #20324d;
+  font-size: 13px;
 }
 
 .dish-catalog-page .dish-grid-table th,
 .dish-catalog-page .dish-grid-table td {
-  height: 46px !important;
-  padding: 0 12px !important;
+  height: 46px;
+  padding: 0 12px;
   border-right: 0 !important;
   border-bottom: 1px solid var(--dish-border-soft) !important;
-  background: var(--dish-cell-bg) !important;
-  vertical-align: middle !important;
+  background: var(--dish-cell-bg);
+  vertical-align: middle;
 }
 
 .dish-catalog-page .dish-grid-table th {
   height: 44px !important;
   background: var(--dish-header-bg) !important;
   color: #58708d !important;
-  font-size: 12px !important;
+  font-size: 12px;
   font-weight: 800 !important;
-  text-align: left !important;
+  text-align: left;
   white-space: nowrap;
 }
 
