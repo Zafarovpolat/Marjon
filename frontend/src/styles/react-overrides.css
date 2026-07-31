@@ -18552,10 +18552,10 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .dc-report-page,
 .nomenclature-page,
 .warehouse-page {
-  width: 100% !important;
-  max-width: none !important;
-  padding-left: 6px !important;
-  padding-right: 6px !important;
+  width: 100%;
+  max-width: none;
+  padding-left: 6px;
+  padding-right: 6px;
 }
 
 .z-report-page--print-only {
@@ -18576,10 +18576,10 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .warehouse-panel,
 .warehouse-page .warehouse-card,
 .warehouse-page .nomenclature-card {
-  width: 100% !important;
-  max-width: none !important;
-  margin-left: 0 !important;
-  margin-right: 0 !important;
+  width: 100%;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
 }
 
 .z-report-page--print-only .z-report-print-panel {
@@ -18597,7 +18597,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 
 /* Match top KPI hover motion to the warehouse buttons beside the chart. */
 .dashboard-shell .kpi-grid--premium .premium-kpi {
-  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease !important;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
 }
 
 .dashboard-shell .kpi-grid--premium .premium-kpi:hover,
@@ -19018,7 +19018,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .dashboard-shell .warehouse-summary-item--orange,
 .dashboard-shell .warehouse-summary-item--rose,
 .dashboard-shell .warehouse-summary-item--pink {
-  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease !important;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
 }
 .dashboard-shell .warehouse-summary-item:hover,
 .dashboard-shell .warehouse-summary-item--blue:hover,
@@ -19059,17 +19059,17 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 /* B) KPI icon — light teal tint + teal glyph (lighter, matches warehouse chips) */
 .dashboard-shell .kpi-grid--premium .premium-kpi .premium-kpi__icon,
 .dashboard-shell .kpi-grid .premium-kpi .premium-kpi__icon {
-  background: rgba(29,181,181,0.12) !important;
-  background-image: none !important;
+  background: rgba(29,181,181,0.12);
+  background-image: none;
   color: #1db5b5 !important;
   box-shadow: none !important;
 }
 .dashboard-shell .kpi-grid--premium .premium-kpi .premium-kpi__icon svg,
 .dashboard-shell .kpi-grid .premium-kpi .premium-kpi__icon svg,
 .dashboard-shell .kpi-grid--premium .premium-kpi .premium-kpi__icon svg * {
-  color: #1db5b5 !important;
-  stroke: #1db5b5 !important;
-  fill: none !important;
+  color: #1db5b5;
+  stroke: #1db5b5;
+  fill: none;
 }
 
 /* C) period dropdown — active item: white check, hover keeps teal (not transparent) */
@@ -19106,7 +19106,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   max-width: 40px;
   flex: 0 0 40px;
   aspect-ratio: 1 / 1;
-  padding: 0 !important;
+  padding: 0;
   border-radius: 6px;
 }
 
@@ -19181,9 +19181,9 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 /* ============ FIX ROUND 6 — warehouse blue: drop border, use KPI-style shadow ============ */
 .dashboard-shell .warehouse-summary-item,
 .dashboard-shell .warehouse-summary-item--blue {
-  border: 0 !important;
-  background: #ffffff !important;
-  box-shadow: 0 13px 26px rgba(15,23,42,0.07), 0 5px 10px rgba(15,23,42,0.03) !important;
+  border: 0;
+  background: #ffffff;
+  box-shadow: 0 13px 26px rgba(15,23,42,0.07), 0 5px 10px rgba(15,23,42,0.03);
 }
 
 /* ============ FIX ROUND 7 — price weight, usd-converter border, modal close icon ============ */
@@ -19246,12 +19246,12 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 
 /* warehouse-summary-item: меньше Y-отступы, иконка больше */
 .warehouse-summary-item {
-  padding: 12px 20px !important;
+  padding: 12px 20px;
 }
 .warehouse-summary-item__icon {
-  width: 44px !important;
-  height: 44px !important;
-  flex: 0 0 44px !important;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
 }
 
 /* dashboard-content: только левый верхний радиус, без фона */
@@ -19370,7 +19370,7 @@ body:has(.balance-payment-modal) .dashboard-main {
 /* 3) dashboard-main светлый фон: перекрываем neutral-950 строки 10225 для всех состояний */
 .dashboard-shell .dashboard-main,
 .dashboard-shell .dashboard-main.is-sidebar-collapsed {
-  background: var(--neutral-50, #f4f7fc) !important;
+  background: var(--neutral-50, #f4f7fc);
 }
 
 /* 4) sidebar-link — прозрачный бордер по умолчанию, чтобы не прыгало при ховере */
@@ -20992,7 +20992,7 @@ body:has(.admin-income-modal) .support-widget {
 }
 
 .dashboard-shell .dashboard-content.dashboard-content {
-  background: var(--neutral-50, #f4f7fc) !important;
+  background: var(--neutral-50, #f4f7fc);
 }
 
 .dashboard-shell .dashboard-main:not(.is-sidebar-collapsed) .dashboard-content.dashboard-content,
@@ -21147,7 +21147,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   /* topbar-actions: не растягивать на всю ширину, не переносить */
   .dashboard-topbar .topbar-actions {
     width: auto !important;
-    flex: 0 0 auto !important;
+    flex: 0 0 auto;
     flex-wrap: nowrap !important;
     justify-content: flex-end !important;
     margin-left: 0 !important;
