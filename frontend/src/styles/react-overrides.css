@@ -23917,11 +23917,11 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .orders-report-page .report-page-card {
-  padding-top: 14px !important;
+  padding-top: 14px;
 }
 
 .orders-report-page .report-page-header {
-  align-items: flex-start !important;
+  align-items: flex-start;
   margin-bottom: 12px;
 }
 
@@ -23930,37 +23930,37 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .orders-report-page .report-actions {
-  align-items: flex-start !important;
-  gap: 8px !important;
-  transform: translateY(-2px) !important;
+  align-items: flex-start;
+  gap: 8px;
+  transform: translateY(-2px);
 }
 
 .orders-report-page .report-period-picker {
-  flex: 0 0 auto !important;
-  border-color: transparent !important;
-  background: #ffffff !important;
-  box-shadow: none !important;
+  flex: 0 0 auto;
+  border-color: transparent;
+  background: #ffffff;
+  box-shadow: none;
 }
 
 .orders-report-page .report-period-button,
 .orders-report-page .orders-filter-toggle,
 .orders-report-page .report-excel-button {
-  height: 42px !important;
-  min-height: 42px !important;
-  border-radius: 12px !important;
-  font-size: 13px !important;
-  line-height: 1 !important;
-  box-shadow: none !important;
+  height: 42px;
+  min-height: 42px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1;
+  box-shadow: none;
 }
 
 .orders-report-page .report-period-button {
-  min-width: 176px !important;
-  padding: 0 15px !important;
-  color: #0f2a43 !important;
-  border: 1px solid rgba(194, 212, 234, 0.78) !important;
-  background: #ffffff !important;
-  font-weight: 800 !important;
-  font-size: 14px !important;
+  min-width: 176px;
+  padding: 0 15px;
+  color: #0f2a43;
+  border: 1px solid rgba(194, 212, 234, 0.78);
+  background: #ffffff;
+  font-weight: 800;
+  font-size: 14px;
 }
 
 .orders-report-page .report-period-button:focus,
@@ -23982,36 +23982,36 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .orders-report-page .report-period-button span {
-  display: block !important;
-  overflow: hidden !important;
+  display: block;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px !important;
-  font-weight: 800 !important;
+  font-size: 14px;
+  font-weight: 800;
 }
 
 .orders-report-page .orders-filter-toggle {
-  min-width: 138px !important;
-  padding: 0 13px !important;
-  color: #0f2a43 !important;
-  border-color: rgba(29, 181, 181, 0.48) !important;
-  background: #ffffff !important;
-  font-size: 14px !important;
-  font-weight: 800 !important;
+  min-width: 138px;
+  padding: 0 13px;
+  color: #0f2a43;
+  border-color: rgba(29, 181, 181, 0.48);
+  background: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
 }
 
 .orders-report-page .report-excel-button {
-  min-width: 138px !important;
-  padding: 0 14px !important;
-  border: 1px solid transparent !important;
-  background: #12b76a !important;
-  box-shadow: 0 10px 22px rgba(18, 183, 106, 0.18) !important;
-  font-size: 14px !important;
-  font-weight: 800 !important;
+  min-width: 138px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  background: #12b76a;
+  box-shadow: 0 10px 22px rgba(18, 183, 106, 0.18);
+  font-size: 14px;
+  font-weight: 800;
 }
 
 .orders-report-page .report-table-wrapper {
-  margin-top: 0 !important;
+  margin-top: 0;
 }
 
 /* Owner dashboard KPI row: five cards in one filled grid row after 1280px. */
