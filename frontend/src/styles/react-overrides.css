@@ -21947,7 +21947,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .dashboard-sidebar .sidebar-user__meta strong {
-  color: #ffffff !important;
+  color: #ffffff;
 }
 
 .dashboard-sidebar .sidebar-user__meta span,
@@ -21956,9 +21956,9 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .dashboard-sidebar .sidebar-user__arrow {
-  background: rgba(255, 255, 255, 0.11) !important;
-  border-radius: 12px !important;
-  color: rgba(226, 236, 255, 0.78) !important;
+  background: rgba(255, 255, 255, 0.11);
+  border-radius: 12px;
+  color: rgba(226, 236, 255, 0.78);
 }
 
 .dashboard-sidebar .sidebar-account__menu {
@@ -22464,18 +22464,18 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   .dashboard-content .kpi-grid.kpi-grid--premium,
   .kpi-grid.kpi-grid--premium,
   .kpi-grid--premium {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 10px !important;
-    margin-bottom: 12px !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
   }
 
   /* === KPI КАРТОЧКИ === */
   .kpi-grid--premium .premium-kpi {
-    min-height: 110px !important;
-    padding: 11px 10px 9px !important;
+    min-height: 110px;
+    padding: 11px 10px 9px;
   }
   .kpi-grid--premium .premium-kpi__top {
-    margin-bottom: 4px !important;
+    margin-bottom: 4px;
   }
 
   /* Иконки: compound (0,3,0) перебивает existing 48px */
@@ -22484,16 +22484,16 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   .kpi-grid--premium .premium-kpi--orders .premium-kpi__icon,
   .kpi-grid--premium .premium-kpi--avg .premium-kpi__icon,
   .kpi-grid--premium .premium-kpi--tables .premium-kpi__icon {
-    width: 28px !important;
-    height: 28px !important;
-    border-radius: 7px !important;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
     flex-shrink: 0;
   }
   .kpi-grid--premium .premium-kpi__icon i,
   .kpi-grid--premium .premium-kpi__icon svg {
-    font-size: 13px !important;
-    width: 13px !important;
-    height: 13px !important;
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
   }
 
   /* Trend-бейдж */
@@ -22502,27 +22502,27 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     padding: 2px 5px !important;
     font-size: 9px !important;
     border-radius: 5px !important;
-    line-height: 1 !important;
+    line-height: 1;
   }
 
   /* Метка / значение / примечание */
   .kpi-grid--premium .premium-kpi .kpi-label {
     font-size: 10px !important;
-    margin-bottom: 1px !important;
+    margin-bottom: 1px;
   }
   .kpi-grid--premium .premium-kpi .kpi-value {
-    font-size: clamp(14px, 4vw, 19px) !important;
+    font-size: clamp(14px, 4vw, 19px);
     line-height: 1.1 !important;
-    letter-spacing: -0.01em !important;
+    letter-spacing: -0.01em;
   }
   .kpi-grid--premium .premium-kpi .kpi-value small {
-    font-size: 9px !important;
-    margin-left: 2px !important;
+    font-size: 9px;
+    margin-left: 2px;
   }
   .kpi-grid--premium .premium-kpi .kpi-note {
-    font-size: 9px !important;
+    font-size: 9px;
     margin-top: 2px !important;
-    line-height: 1.2 !important;
+    line-height: 1.2;
   }
 
   /* === KPI INFO DIALOG — bottom sheet === */
@@ -22584,25 +22584,25 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 
   /* Section header: в столбик */
   .section-header.section-header--stack {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 8px !important;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
   .section-header.section-header--stack h2 { font-size: 0.95rem !important; }
-  .section-header.section-header--stack p { font-size: 11px !important; }
+  .section-header.section-header--stack p { font-size: 11px; }
   .section-header.section-header--stack .eyebrow { font-size: 10px !important; }
 
   /* === WAREHOUSE SUMMARY === */
   .warehouse-summary-item {
-    padding: 10px 12px !important;
+    padding: 10px 12px;
   }
   .warehouse-summary-item__icon {
-    width: 34px !important;
-    height: 34px !important;
-    border-radius: 9px !important;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
     flex-shrink: 0;
   }
-  .warehouse-summary-item strong { font-size: 13px !important; }
+  .warehouse-summary-item strong { font-size: 13px; }
   .warehouse-summary-item span:not(.warehouse-summary-item__icon) { font-size: 12px !important; }
 
   /* === TOP DISHES CARD === */
@@ -22622,7 +22622,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   .owner-main-grid,
   .owner-widgets {
     gap: 12px !important;
-    margin-top: 12px !important;
+    margin-top: 12px;
   }
 }
 
