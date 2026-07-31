@@ -21165,23 +21165,23 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   /* Компактные элементы топбара */
   .dashboard-topbar .mj-datepicker__trigger,
   .dashboard-topbar .topbar-left .mj-datepicker__trigger {
-    height: 36px !important;
-    min-height: 36px !important;
-    padding: 0 10px !important;
-    font-size: 12px !important;
+    height: 36px;
+    min-height: 36px;
+    padding: 0 10px;
+    font-size: 12px;
   }
 
   .dashboard-topbar .topbar-info-widget.topbar-info-widget--rate {
     height: 34px !important;
-    min-height: 0 !important;
+    min-height: 0;
     padding: 0 10px !important;
     border-radius: 12px !important;
   }
 
   .dashboard-topbar .topbar-icon.topbar-notification {
-    width: 34px !important;
+    width: 34px;
     min-width: 34px !important;
-    max-width: 34px !important;
+    max-width: 34px;
     height: 34px !important;
     min-height: 0 !important;
   }
@@ -21196,12 +21196,12 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 
   .dashboard-topbar .topbar-balance-pill .topbar-balance-amount {
     padding: 0 12px 0 14px !important;
-    line-height: 34px !important;
+    line-height: 34px;
   }
 
   .dashboard-topbar .topbar-balance-pill .topbar-pay-button {
     padding: 0 12px !important;
-    line-height: normal !important;
+    line-height: normal;
   }
 }
 
@@ -21228,14 +21228,14 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 
   .dashboard-topbar .topbar-info-widget.topbar-info-widget--rate {
     height: 36px !important;
-    min-height: 0 !important;
+    min-height: 0;
     padding: 0 12px !important;
   }
 
   .dashboard-topbar .topbar-icon.topbar-notification {
-    width: 36px !important;
+    width: 36px;
     min-width: 36px !important;
-    max-width: 36px !important;
+    max-width: 36px;
     height: 36px !important;
     min-height: 0 !important;
   }
@@ -21250,12 +21250,12 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 
   .dashboard-topbar .topbar-balance-pill .topbar-balance-amount {
     padding: 0 12px 0 14px !important;
-    line-height: 36px !important;
+    line-height: 36px;
   }
 
   .dashboard-topbar .topbar-balance-pill .topbar-pay-button {
     padding: 0 12px !important;
-    line-height: normal !important;
+    line-height: normal;
   }
 
   /* dashboard-content: пересчитываем min-height под новый топбар 64px */
