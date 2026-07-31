@@ -26307,10 +26307,10 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
 @media (min-width: 1025px) {
   .dashboard-back-slot + .sales-page,
   .sales-page {
-    width: calc(100% + 52px) !important;
-    max-width: none !important;
-    margin: -12px -26px 0 !important;
-    padding: 0 8px 22px !important;
+    width: calc(100% + 52px);
+    max-width: none;
+    margin: -12px -26px 0;
+    padding: 0 8px 22px;
   }
 }
 
@@ -26699,25 +26699,25 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
 .sales-table .sales-col-index {
   width: 56px;
   min-width: 56px;
-  text-align: center !important;
+  text-align: center;
 }
 
 .sales-table .sales-col-dish {
   min-width: 210px;
-  text-align: left !important;
+  text-align: left;
 }
 
 .sales-table .sales-col-category {
   width: 178px;
   min-width: 150px;
-  text-align: left !important;
+  text-align: left;
 }
 
 .sales-table .sales-col-sold,
 .sales-table .sales-col-price,
 .sales-table .sales-col-revenue,
 .sales-table .sales-col-share {
-  text-align: right !important;
+  text-align: right;
 }
 
 .sales-category-pill {
@@ -27124,20 +27124,20 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
 @media (min-width: 1025px) {
   .dashboard-back-slot + .clients-directory-page,
   .clients-directory-page {
-    width: calc(100% + 52px) !important;
-    max-width: none !important;
-    margin: -12px -26px 0 !important;
-    padding: 0 8px 22px !important;
+    width: calc(100% + 52px);
+    max-width: none;
+    margin: -12px -26px 0;
+    padding: 0 8px 22px;
   }
 }
 
 .clients-directory-page .settings-card {
-  min-height: calc(100dvh - 110px) !important;
-  padding: 18px !important;
-  border: 1px solid #d7e5f2 !important;
-  border-radius: 20px !important;
-  background: #ffffff !important;
-  box-shadow: 0 18px 42px rgba(38, 70, 105, 0.08) !important;
+  min-height: calc(100dvh - 110px);
+  padding: 18px;
+  border: 1px solid #d7e5f2;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 18px 42px rgba(38, 70, 105, 0.08);
 }
 
 .clients-directory-page .settings-directory-toolbar {
@@ -27149,28 +27149,28 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
 }
 
 .clients-directory-page .settings-tabs {
-  display: inline-flex !important;
-  align-items: center !important;
-  flex-wrap: wrap !important;
-  gap: 8px !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .clients-directory-page .settings-tabs button {
-  min-width: 132px !important;
-  min-height: 38px !important;
-  padding: 0 18px !important;
-  border: 1px solid #cfdeeb !important;
-  border-radius: 10px !important;
-  color: #31465f !important;
-  background: #ffffff !important;
-  font-size: 13px !important;
-  font-weight: 900 !important;
-  box-shadow: 0 4px 10px rgba(16, 40, 70, 0.04) !important;
+  min-width: 132px;
+  min-height: 38px;
+  padding: 0 18px;
+  border: 1px solid #cfdeeb;
+  border-radius: 10px;
+  color: #31465f;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 900;
+  box-shadow: 0 4px 10px rgba(16, 40, 70, 0.04);
 }
 
 .clients-directory-page .settings-tabs button.is-active {
@@ -27181,22 +27181,22 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
 }
 
 .clients-directory-page .settings-actions {
-  flex: 0 0 auto !important;
-  flex-wrap: nowrap !important;
-  gap: 10px !important;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 10px;
 }
 
 .clients-directory-page .settings-search {
-  width: 188px !important;
-  min-height: 38px !important;
-  padding: 0 12px !important;
-  border: 1px solid #cfdeeb !important;
-  border-radius: 10px !important;
-  color: #263b55 !important;
-  background: #ffffff !important;
-  font-size: 13px !important;
-  font-weight: 800 !important;
-  outline: 0 !important;
+  width: 188px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid #cfdeeb;
+  border-radius: 10px;
+  color: #263b55;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  outline: 0;
 }
 
 .clients-directory-page .settings-search:focus {
@@ -27205,15 +27205,15 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
 }
 
 .clients-directory-page .settings-actions > button {
-  min-height: 38px !important;
-  padding: 0 16px !important;
-  border: 1px solid #1f80ff !important;
-  border-radius: 10px !important;
-  color: #ffffff !important;
-  background: #1f80ff !important;
-  font-size: 13px !important;
-  font-weight: 900 !important;
-  box-shadow: 0 10px 22px rgba(31, 128, 255, 0.18) !important;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid #1f80ff;
+  border-radius: 10px;
+  color: #ffffff;
+  background: #1f80ff;
+  font-size: 13px;
+  font-weight: 900;
+  box-shadow: 0 10px 22px rgba(31, 128, 255, 0.18);
 }
 
 .clients-directory-page .settings-actions > button:hover {
@@ -27221,37 +27221,37 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
 }
 
 .clients-directory-page .settings-table-wrapper {
-  overflow: auto !important;
-  padding: 10px !important;
-  border: 1px solid #e2ecf8 !important;
-  border-radius: 16px !important;
-  background: #f4f8fd !important;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid #e2ecf8;
+  border-radius: 16px;
+  background: #f4f8fd;
 }
 
 .clients-directory-page .settings-table {
-  min-width: 980px !important;
-  border-collapse: separate !important;
+  min-width: 980px;
+  border-collapse: separate;
   border-spacing: 0;
-  border: 1px solid #dce8f6 !important;
-  border-radius: 14px !important;
-  color: #20324d !important;
-  background: #ffffff !important;
-  font-size: 13px !important;
-  overflow: hidden !important;
+  border: 1px solid #dce8f6;
+  border-radius: 14px;
+  color: #20324d;
+  background: #ffffff;
+  font-size: 13px;
+  overflow: hidden;
 }
 
 .clients-directory-page .settings-table th {
-  position: relative !important;
-  height: 42px !important;
-  padding: 0 26px !important;
+  position: relative;
+  height: 42px;
+  padding: 0 26px;
   border: 0 !important;
   border-bottom: 1px solid #dce8f6 !important;
   color: #6b83a5 !important;
   background: #f3f7fd !important;
-  font-size: 12px !important;
+  font-size: 12px;
   font-weight: 900 !important;
-  letter-spacing: 0 !important;
-  text-transform: none !important;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .clients-directory-page .settings-table th:not(:last-child)::after {
@@ -27280,14 +27280,14 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
 }
 
 .clients-directory-page .settings-table td {
-  height: 44px !important;
-  padding: 0 26px !important;
+  height: 44px;
+  padding: 0 26px;
   border-top: 0 !important;
-  border-bottom: 1px solid #e7eef8 !important;
-  color: #2d405d !important;
-  background: #ffffff !important;
-  font-size: 13px !important;
-  font-weight: 800 !important;
+  border-bottom: 1px solid #e7eef8;
+  color: #2d405d;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .clients-directory-page .settings-table tbody tr:hover td {
@@ -27396,10 +27396,10 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
 }
 
 .clients-directory-page .settings-empty-state {
-  padding: 34px !important;
-  color: #74869a !important;
-  text-align: center !important;
-  font-weight: 900 !important;
+  padding: 34px;
+  color: #74869a;
+  text-align: center;
+  font-weight: 900;
 }
 
 .settings-demo-notice {
@@ -27424,16 +27424,16 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
 
   .clients-directory-page .settings-actions {
     width: 100%;
-    flex-wrap: wrap !important;
+    flex-wrap: wrap;
   }
 
   .clients-directory-page .settings-search {
-    flex: 1 1 180px !important;
-    width: auto !important;
+    flex: 1 1 180px;
+    width: auto;
   }
 
   .clients-directory-page .settings-tabs button {
-    flex: 1 1 130px !important;
+    flex: 1 1 130px;
   }
 }
 
@@ -27694,10 +27694,10 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
 @media (min-width: 1025px) {
   .dashboard-back-slot + .company-profile-page,
   .company-profile-page {
-    width: calc(100% + 52px) !important;
-    max-width: none !important;
-    margin: -12px -26px 0 !important;
-    padding: 0 8px 22px !important;
+    width: calc(100% + 52px);
+    max-width: none;
+    margin: -12px -26px 0;
+    padding: 0 8px 22px;
   }
 }
 
