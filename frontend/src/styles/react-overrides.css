@@ -4360,9 +4360,9 @@ body.dashboard-body,
 
 /* Owner sidebar submenu: restore nested category design */
 .dashboard-sidebar .sidebar-nav {
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  scrollbar-width: none !important;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
@@ -4374,11 +4374,11 @@ body.dashboard-body,
 
 .dashboard-sidebar .sidebar-nav-item.has-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open {
-  overflow: visible !important;
+  overflow: visible;
 }
 
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open {
-  padding-bottom: 8px !important;
+  padding-bottom: 8px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.075);
   box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.091),
@@ -4482,11 +4482,11 @@ body.dashboard-body,
 }
 
 .dashboard-sidebar .sidebar-submenu__icon {
-  flex: 0 0 17px !important;
+  flex: 0 0 17px;
   width: 17px;
   min-width: 17px;
   height: 17px;
-  display: grid !important;
+  display: grid;
   place-items: center;
   color: rgba(188, 207, 232, 0.76);
 }
@@ -7753,25 +7753,25 @@ body.dashboard-body,
 
 /* Premium owner sidebar submenu */
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open {
-  padding: 0 0 10px !important;
-  border-radius: 13px !important;
+  padding: 0 0 10px;
+  border-radius: 13px;
   background: rgba(255, 255, 255, 0.105);
-  border: 1px solid rgba(151, 185, 225, 0.16) !important;
+  border: 1px solid rgba(151, 185, 225, 0.16);
   box-shadow: 0 11px 23px rgba(2, 8, 23, 0.154),
     inset 0 1px 0 rgba(255, 255, 255, 0.077),
-    inset 0 -1px 0 rgba(2, 8, 23, 0.098) !important;
+    inset 0 -1px 0 rgba(2, 8, 23, 0.098);
 }
 
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open > .sidebar-link--button {
-  height: 48px !important;
-  min-height: 48px !important;
-  max-height: 48px !important;
-  border-radius: 12px !important;
-  color: #ffffff !important;
+  height: 48px;
+  min-height: 48px;
+  max-height: 48px;
+  border-radius: 12px;
+  color: #ffffff;
   background: var(--color-brand);
   box-shadow: 0 10px 20px rgba(29, 181, 181, 0.224),
     0 5px 11px rgba(29, 181, 181, 0.098),
-    inset 0 1px 0 rgba(255, 255, 255, 0.182) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.182);
 }
 
 .dashboard-sidebar .sidebar-submenu,
@@ -7837,9 +7837,9 @@ body.dashboard-body,
   min-width: 20px;
   height: 20px;
   border-radius: 7px;
-  color: rgba(213, 229, 250, 0.84) !important;
-  background: rgba(255, 255, 255, 0.055) !important;
-  box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.07) !important;
+  color: rgba(213, 229, 250, 0.84);
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.07);
 }
 
 .dashboard-sidebar .sidebar-submenu__icon .bi {
@@ -7871,10 +7871,10 @@ body.dashboard-body,
 }
 
 .dashboard-sidebar .sidebar-submenu__link.is-active {
-  color: #ffffff !important;
+  color: #ffffff;
   background: rgba(29, 181, 181, 0.32);
   box-shadow: inset 0 0 0 1px rgba(255, 188, 149, 0.14),
-    0 6px 14px rgba(29, 181, 181, 0.105) !important;
+    0 6px 14px rgba(29, 181, 181, 0.105);
 }
 
 .dashboard-sidebar .sidebar-submenu__link.is-active::before {
@@ -7885,10 +7885,10 @@ body.dashboard-body,
 }
 
 .dashboard-sidebar .sidebar-submenu__link.is-active .sidebar-submenu__icon {
-  color: #ffffff !important;
+  color: #ffffff;
   background: rgba(29, 181, 181, 0.35);
   box-shadow: inset 0 0 0 1px rgba(255, 210, 184, 0.168),
-    0 5px 11px rgba(29, 181, 181, 0.112) !important;
+    0 5px 11px rgba(29, 181, 181, 0.112);
 }
 
 /* Larger submenu labels and icons */
@@ -7907,10 +7907,10 @@ body.dashboard-body,
 }
 
 .dashboard-sidebar .sidebar-submenu__icon {
-  width: 24px !important;
-  min-width: 24px !important;
-  height: 24px !important;
-  border-radius: 8px !important;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 8px;
 }
 
 .dashboard-sidebar .sidebar-submenu__icon .bi {
@@ -7971,7 +7971,7 @@ body.dashboard-body,
     flex-basis 300ms ease-in-out,
     padding 300ms ease-in-out,
     border-radius 300ms ease-in-out,
-    box-shadow 300ms ease-in-out !important;
+    box-shadow 300ms ease-in-out;
 }
 
 .sidebar-collapse-control {
