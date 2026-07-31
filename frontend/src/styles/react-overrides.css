@@ -18048,10 +18048,10 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .period-switcher .period-dropdown__button:hover,
 .period-switcher button:hover { background: rgba(29,181,181,0.16) !important; }
 .period-switcher .period-dropdown__button svg,
-.period-switcher button svg { color: var(--accent, #1db5b5) !important; fill: none !important; stroke: currentColor !important; }
+.period-switcher button svg { color: var(--accent, #1db5b5); fill: none; stroke: currentColor; }
 
 /* ИКОНКИ lucide — stroke-based: только color/stroke, без сплошной заливки */
-.premium-kpi__icon, .premium-kpi__icon svg { color: #ffffff !important; }
+.premium-kpi__icon, .premium-kpi__icon svg { color: #ffffff; }
 
 .warehouse-summary-item__icon svg,
 .warehouse-summary-item__icon svg *,
@@ -18061,39 +18061,39 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .warehouse-summary-item--orange .warehouse-summary-item__icon svg *,
 .warehouse-summary-item--rose .warehouse-summary-item__icon svg *,
 .warehouse-summary-item--pink .warehouse-summary-item__icon svg * {
-  fill: none !important;
-  stroke: currentColor !important;
+  fill: none;
+  stroke: currentColor;
 }
 .warehouse-summary-item__icon,
-.warehouse-summary-item__icon svg { color: var(--accent, #1db5b5) !important; }
+.warehouse-summary-item__icon svg { color: var(--accent, #1db5b5); }
 
 /* ===== KPI grid strictly 4 cols + period button exact match ===== */
 .dashboard-content .kpi-grid.kpi-grid--premium,
 .kpi-grid.kpi-grid--premium {
-  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 @media (max-width: 1100px) {
   .dashboard-content .kpi-grid.kpi-grid--premium,
-  .kpi-grid.kpi-grid--premium { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .kpi-grid.kpi-grid--premium { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 560px) {
   .dashboard-content .kpi-grid.kpi-grid--premium,
-  .kpi-grid.kpi-grid--premium { grid-template-columns: 1fr !important; }
+  .kpi-grid.kpi-grid--premium { grid-template-columns: 1fr; }
 }
 
 /* period dropdown button = точно как .period-switcher__details */
 .period-switcher .period-dropdown__button {
-  height: 36px !important;
-  min-height: 36px !important;
-  line-height: 1 !important;
-  padding: 0 14px !important;
-  gap: 6px !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
+  height: 36px;
+  min-height: 36px;
+  line-height: 1;
+  padding: 0 14px;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
 }
-.period-switcher .period-dropdown__button span { font-size: 13px !important; font-weight: 500 !important; text-transform: none !important; letter-spacing: 0 !important; }
+.period-switcher .period-dropdown__button span { font-size: 13px; font-weight: 500; text-transform: none; letter-spacing: 0; }
 .period-switcher .period-dropdown__button strong { font-size: 13px !important; font-weight: 600 !important; color: #162840 !important; }
-.period-switcher .period-dropdown__button svg { display: none !important; }
+.period-switcher .period-dropdown__button svg { display: none; }
 
 /* ===================== ROUND OF FIXES (palette + consistency) ===================== */
 
@@ -18175,14 +18175,14 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 /* 7) единый стиль иконок: warehouse-контейнер как у KPI-чипа (teal-tint, teal-глиф, stroke) */
 .warehouse-summary-item__icon {
   width: 40px; height: 40px;
-  display: grid !important; place-items: center;
-  border-radius: 12px !important;
-  background: rgba(29,181,181,0.10) !important;
-  color: var(--accent,#1db5b5) !important;
+  display: grid; place-items: center;
+  border-radius: 12px;
+  background: rgba(29,181,181,0.10);
+  color: var(--accent,#1db5b5);
 }
-.warehouse-summary-item__icon svg, .warehouse-summary-item__icon svg * { fill: none !important; stroke: currentColor !important; }
-.premium-kpi__icon svg, .premium-kpi__icon svg * { fill: none !important; stroke: currentColor !important; stroke-width: 2 !important; }
-.warehouse-summary-item__icon svg { stroke-width: 2 !important; }
+.warehouse-summary-item__icon svg, .warehouse-summary-item__icon svg * { fill: none; stroke: currentColor; }
+.premium-kpi__icon svg, .premium-kpi__icon svg * { fill: none; stroke: currentColor; stroke-width: 2; }
+.warehouse-summary-item__icon svg { stroke-width: 2; }
 
 /* 8) warehouse значения: меньше и аккуратнее */
 .warehouse-summary-item strong { font-size: 13px; }
@@ -18217,11 +18217,11 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .warehouse-summary-item--orange,
 .warehouse-summary-item--rose,
 .warehouse-summary-item--pink {
-  background: #ffffff !important;
-  border: 1px solid var(--neutral-200, #e7ebf2) !important;
-  box-shadow: none !important;
+  background: #ffffff;
+  border: 1px solid var(--neutral-200, #e7ebf2);
+  box-shadow: none;
 }
-.warehouse-summary-item strong { font-size: 15px !important; font-weight: 600 !important; color: var(--neutral-900,#0b1f3f) !important; }
+.warehouse-summary-item strong { font-size: 15px; font-weight: 600; color: var(--neutral-900,#0b1f3f) !important; }
 .warehouse-summary-item span:not(.warehouse-summary-item__icon) { font-size: 14px !important; font-weight: 500 !important; color: var(--neutral-600,#475569) !important; }
 
 /* KPI иконки строго teal-500 (палитра) */
@@ -18229,7 +18229,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .premium-kpi--revenue .premium-kpi__icon,
 .premium-kpi--orders .premium-kpi__icon,
 .premium-kpi--avg .premium-kpi__icon,
-.premium-kpi--tables .premium-kpi__icon { background: #1db5b5 !important; }
+.premium-kpi--tables .premium-kpi__icon { background: #1db5b5; }
 
 /* Final guard: profile button must not shift on hover/focus/active. */
 .dashboard-sidebar .sidebar-user.sidebar-user--button,
