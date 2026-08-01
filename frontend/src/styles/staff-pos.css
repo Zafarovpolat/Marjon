@@ -2,7 +2,6 @@
 
 .pos-body {
   margin: 0;
-  min-height: 100dvh;
   display: flex;
   background: var(--neutral-950);
   color: var(--mj-ink);
@@ -12,7 +11,6 @@
 .pos-sidebar {
   position: sticky;
   top: 0;
-  width: 280px;
   height: 100dvh;
   flex-shrink: 0;
   display: flex;
@@ -100,7 +98,6 @@
 .pos-main {
   flex: 1;
   min-width: 0;
-  padding: 28px 32px 36px;
   background: var(--neutral-50);
   box-shadow: none;
   border-left: 0;
@@ -194,7 +191,6 @@
 
 .pos-table-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(142px, 1fr));
   gap: 12px;
 }
 
@@ -211,7 +207,6 @@
   color: var(--neutral-800);
   font-weight: 700;
   border: 1px solid var(--neutral-200);
-  background: #fff;
   transition: transform 0.2s var(--mj-ease), box-shadow 0.2s var(--mj-ease);
 }
 
@@ -290,7 +285,6 @@
 
 .pos-workspace {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
   gap: 18px;
 }
 
@@ -352,11 +346,7 @@
   margin-top: 18px;
 }
 
-.pos-filter-title {
-  margin: 20px 0 -8px;
-  color: var(--neutral-600);
-  font-size: 14px;
-}
+
 
 .pos-zone {
   padding: 7px 9px;
@@ -537,9 +527,6 @@
   justify-content: space-between;
   gap: 14px;
   padding: 16px 22px;
-  background: rgba(10, 14, 23, 0.92);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(12px);
 }
 
 .kitchen-topbar h1 {
@@ -555,11 +542,7 @@
   font-size: 14px;
 }
 
-.kitchen-board {
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
-  padding: 20px 22px 32px;
-}
+
 
 .kitchen-order {
   border-radius: var(--mj-radius-lg);

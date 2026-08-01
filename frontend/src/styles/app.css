@@ -69,9 +69,6 @@
 
 .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 16px;
-    margin-bottom: 22px;
 }
 
 .kpi-card {
@@ -79,10 +76,6 @@
     overflow: hidden;
     min-height: 174px;
     padding: 20px;
-    border: 1px solid var(--border-subtle);
-    border-radius: 28px;
-    background: rgba(255,255,255,.94);
-    box-shadow: var(--shadow-sm);
     backdrop-filter: blur(16px);
     transition: var(--transition);
 }
@@ -145,28 +138,17 @@
 }
 
 .kpi-value {
-    margin-top: 20px;
-    color: var(--text-primary);
     font-family: var(--font-display);
-    font-size: 2.5rem;
-    font-weight: 700;
-    line-height: 1;
 }
 
 .kpi-label {
     margin-top: 8px;
-    color: var(--text-secondary);
-    font-size: 13px;
 }
 
 .trend {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 5px 8px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 500;
 }
 
 .trend.up {
@@ -303,7 +285,6 @@
     border: 1px solid rgba(255,255,255,.78);
     border-radius: 30px;
     background: rgba(255,255,255,.92);
-    box-shadow: var(--shadow-sm);
     backdrop-filter: blur(16px);
 }
 
@@ -472,9 +453,7 @@
     align-items: center;
     gap: 6px;
     padding: 6px 10px;
-    border-radius: 999px;
     font-size: 12px;
-    font-weight: 500;
 }
 
 .status-new { background: rgba(59, 130, 246, .13); color: var(--color-interactive); }
@@ -493,19 +472,9 @@
     gap: 16px;
 }
 
-.top-dish {
-    display: grid;
-    grid-template-columns: 42px 1fr auto;
-    gap: 12px;
-    align-items: center;
-    padding: 10px;
-    border-radius: 18px;
-    background: rgba(255,255,255,.52);
-    transition: var(--transition);
-}
+
 
 .top-dish:hover {
-    transform: translateX(4px);
     background: rgba(255,255,255,.82);
 }
 
@@ -586,9 +555,7 @@
 }
 
 /* Dishes catalog */
-.dish-catalog-page {
-    padding: 24px;
-}
+
 
 .dish-catalog-card {
     padding: 24px;
@@ -634,9 +601,6 @@
 .dish-stat-card {
     min-height: 134px;
     padding: 16px;
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    border-radius: 20px;
-    box-shadow: 0 7px 17px rgba(15, 23, 42, 0.042);
 }
 
 .dish-stat-blue { background: var(--blue-50); }
@@ -658,9 +622,7 @@
     font-weight: 500;
 }
 
-.dish-stat-top svg {
-    color: #0891b2;
-}
+
 
 .dish-stat-card strong {
     display: block;
@@ -814,7 +776,6 @@
 
 .dish-row-actions button.danger {
     border-color: #fecaca;
-    color: #dc2626;
 }
 
 .dish-photo,
@@ -1171,7 +1132,6 @@
 
 .dc-report-card {
     position: relative;
-    overflow: visible;
     padding: clamp(22px, 2.2vw, 32px);
     border: 1px solid rgba(255, 255, 255, .84);
     border-radius: 34px;
@@ -1182,15 +1142,11 @@
 .dc-report-head {
     display: flex;
     justify-content: space-between;
-    gap: 18px;
-    margin-bottom: 24px;
 }
 
 .dc-report-eyebrow {
     display: inline-flex;
-    margin-bottom: 8px;
     color: var(--accent-secondary);
-    font-size: 12px;
     font-weight: 500;
     letter-spacing: .12em;
     text-transform: uppercase;
@@ -1200,34 +1156,23 @@
     margin: 0;
     color: var(--text-primary);
     font-family: var(--font-display);
-    font-size: clamp(28px, 3vw, 42px);
-    line-height: 1.04;
     font-weight: 800;
     letter-spacing: 0;
 }
 
 .dc-report-head p {
-    max-width: 620px;
     margin: 10px 0 0;
     color: var(--text-secondary);
-    font-size: 15px;
-    line-height: 1.55;
 }
 
 .dc-summary-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
-    margin-bottom: 26px;
 }
 
 .dc-summary-card {
     position: relative;
     overflow: hidden;
-    min-height: 152px;
-    padding: 20px;
     border: 1px solid rgba(228, 231, 236, .92);
-    border-radius: 28px;
     background: #fff;
     box-shadow: 0 11px 26px rgba(16, 24, 40, 0.049);
 }
@@ -1235,10 +1180,6 @@
 .dc-summary-card::after {
     content: "";
     position: absolute;
-    right: -34px;
-    top: -42px;
-    width: 128px;
-    height: 128px;
     border-radius: 999px;
     opacity: .16;
 }
@@ -1258,7 +1199,6 @@
     justify-content: space-between;
     gap: 12px;
     color: var(--text-secondary);
-    font-size: 13px;
     font-weight: 500;
     letter-spacing: .07em;
     text-transform: uppercase;
@@ -1272,11 +1212,8 @@
     position: relative;
     z-index: 1;
     display: block;
-    margin-top: 24px;
     color: var(--text-primary);
     font-family: var(--font-display);
-    font-size: clamp(26px, 2.2vw, 36px);
-    line-height: 1;
     letter-spacing: 0;
 }
 
@@ -1284,9 +1221,7 @@
     position: relative;
     z-index: 1;
     display: block;
-    margin-top: 12px;
     color: var(--text-secondary);
-    font-size: 14px;
 }
 
 .dc-toolbar {
@@ -1323,7 +1258,6 @@
 
 .dc-tabs button.is-active,
 .dc-currency button.is-active {
-    color: #fff;
     background: var(--accent-secondary);
     box-shadow: 0 7px 17px rgba(29, 181, 181, 0.168);
 }
@@ -1333,11 +1267,9 @@
     align-items: center;
     justify-content: flex-end;
     gap: 12px;
-    min-width: 0;
 }
 
 .dc-search {
-    min-width: 300px;
     min-height: 52px;
     display: inline-flex;
     align-items: center;
@@ -1373,7 +1305,6 @@
 
 .dc-table {
     width: 100%;
-    min-width: 920px;
     border-collapse: collapse;
 }
 
@@ -1540,9 +1471,7 @@
 }
 
 @media (max-width: 1280px) {
-    .dc-summary-grid {
-        grid-template-columns: 1fr;
-    }
+    
 
     .dc-toolbar,
     .dc-report-head {
@@ -1592,7 +1521,6 @@
 }
 
 .cancelled-report-card {
-    overflow: hidden;
     padding: clamp(22px, 2.15vw, 32px);
     border: 1px solid rgba(255, 255, 255, .86);
     border-radius: 34px;
@@ -1651,9 +1579,7 @@
     align-items: center;
     justify-content: center;
     gap: 9px;
-    border: 0;
     border-radius: 16px;
-    color: #fff;
     font-weight: 800;
     cursor: pointer;
     transition: .2s ease;
@@ -1662,14 +1588,11 @@
 
 .cancelled-report-excel {
     padding: 0 18px;
-    box-shadow: 0 8px 18px rgba(18, 183, 106, 0.154);
 }
 
 .cancelled-filter-button {
     align-self: end;
     padding: 0 18px;
-    background: var(--accent-secondary);
-    box-shadow: 0 8px 18px rgba(29, 181, 181, 0.154);
 }
 
 .cancelled-report-excel:hover,
@@ -1680,7 +1603,6 @@
 
 .cancelled-filter-panel {
     display: grid;
-    grid-template-columns: repeat(2, minmax(150px, .7fr)) repeat(2, minmax(160px, .8fr)) minmax(220px, 1fr) auto;
     gap: 12px;
     margin-bottom: 18px;
     padding: 14px;
@@ -1712,8 +1634,6 @@
     border: 1px solid rgba(203, 213, 225, .92);
     border-radius: 15px;
     outline: 0;
-    background: rgba(255, 255, 255, .92);
-    color: var(--text-primary);
     font: inherit;
     font-weight: 700;
 }
@@ -1726,7 +1646,6 @@
 
 .cancelled-table-wrap {
     max-width: 100%;
-    overflow-x: auto;
     border: 1px solid rgba(194, 206, 226, .92);
     border-radius: 24px;
     background: rgba(255, 255, 255, .82);
@@ -1734,13 +1653,11 @@
 
 .cancelled-table {
     width: 100%;
-    min-width: 1540px;
     border-collapse: collapse;
 }
 
 .cancelled-table th,
 .cancelled-table td {
-    padding: 14px 16px;
     border-bottom: 1px solid rgba(213, 220, 232, .86);
     text-align: left;
     vertical-align: middle;
@@ -1837,20 +1754,16 @@
 }
 
 .cancelled-pagination button.is-active {
-    color: #fff;
     background: var(--accent-secondary);
     box-shadow: 0 6px 14px rgba(29, 181, 181, 0.154);
 }
 
 .cancelled-pagination button:disabled {
     cursor: not-allowed;
-    opacity: .42;
 }
 
 @media (max-width: 1280px) {
-    .cancelled-filter-panel {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
+    
 
     .cancelled-filter-button {
         align-self: stretch;
@@ -1874,9 +1787,7 @@
         width: 100%;
     }
 
-    .cancelled-filter-panel {
-        grid-template-columns: 1fr;
-    }
+    
 }
 
 .dishes-report-page {
@@ -1884,7 +1795,6 @@
 }
 
 .dishes-report-page .report-page-card {
-    overflow: hidden;
     padding: clamp(22px, 2.15vw, 32px);
     border: 1px solid rgba(255, 255, 255, .86);
     border-radius: 34px;
@@ -2304,7 +2214,6 @@
 }
 
 .tables-report-page .report-page-card {
-    overflow: hidden;
     padding: clamp(22px, 2.15vw, 32px);
     border: 1px solid rgba(255, 255, 255, .86);
     border-radius: 34px;
@@ -2404,11 +2313,6 @@
     width: min(412px, calc(100vw - 42px));
     max-height: min(520px, calc(100vh - 150px));
     overflow: auto;
-    padding: 16px;
-    border: 1px solid rgba(194, 206, 226, .96);
-    border-radius: 16px;
-    background: rgba(255, 255, 255, .98);
-    box-shadow: 0 24px 64px rgba(15, 23, 42, .18);
 }
 
 .tables-report-page .report-date-menu__title {
@@ -2425,73 +2329,27 @@
     font-weight: 600;
 }
 
-.tables-report-page .report-date-presets {
-    display: grid;
-    gap: 2px;
-    padding-bottom: 12px;
-    margin-bottom: 12px;
-    border-bottom: 1px solid rgba(203, 213, 225, .9);
-}
 
-.tables-report-page .report-date-presets button {
-    justify-content: flex-start;
-    min-height: 35px;
-    padding: 0 10px;
-    color: var(--text-primary);
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
-    box-shadow: none;
-    font-size: 14px;
-    font-weight: 500;
-}
+
+
 
 .tables-report-page .report-date-presets button:hover,
 .tables-report-page .report-date-presets button.is-active {
-    color: #0f172a;
     background: rgba(218, 226, 240, .92);
-    transform: none;
 }
 
 .tables-report-page .report-date-range {
     position: sticky;
-    bottom: -16px;
-    display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 10px;
     padding-top: 12px;
     padding-bottom: 16px;
-    margin-bottom: -16px;
-    background: rgba(255, 255, 255, .98);
 }
 
-.tables-report-page .report-date-range input {
-    width: 100%;
-    min-height: 38px;
-    padding: 0 10px;
-    border: 1px solid rgba(203, 213, 225, .96);
-    border-radius: 6px;
-    background: #fff;
-    color: var(--text-primary);
-    outline: none;
-}
 
-.tables-report-page .report-date-range span {
-    color: var(--text-primary);
-    font-weight: 700;
-}
 
-.tables-report-page .report-date-range button {
-    min-height: 38px;
-    padding: 0 13px;
-    color: #fff;
-    border: 0;
-    border-radius: 8px;
-    background: #2f7df6;
-    box-shadow: none;
-    font-weight: 700;
-}
+
+
+
 
 .report-actions .report-period-picker {
     position: relative;
@@ -2501,7 +2359,6 @@
     min-height: 46px;
     overflow: visible;
     border: 1px solid rgba(194, 206, 226, .92);
-    border-radius: 16px;
     background: rgba(233, 240, 250, .92);
 }
 
@@ -2516,8 +2373,6 @@
 
 .report-actions .report-period-picker .report-period-button {
     min-width: 0;
-    padding: 0 6px;
-    font-weight: 800;
 }
 
 .report-actions .report-period-picker .report-period-button span {
@@ -2537,13 +2392,7 @@
     right: 0;
     z-index: 80;
     width: min(412px, calc(100vw - 42px));
-    max-height: min(520px, calc(100vh - 150px));
-    overflow: auto;
-    padding: 16px;
-    border: 1px solid rgba(194, 206, 226, .96);
-    border-radius: 16px;
     background: rgba(255, 255, 255, .98);
-    box-shadow: 0 24px 64px rgba(15, 23, 42, .18);
 }
 
 .report-actions .report-date-menu__title {
@@ -2560,81 +2409,41 @@
     font-weight: 700;
 }
 
-.report-actions .report-date-presets {
-    display: grid;
-    gap: 2px;
-    padding-bottom: 12px;
-    margin-bottom: 12px;
-    border-bottom: 1px solid rgba(203, 213, 225, .9);
-}
+
 
 .report-actions .report-date-presets button {
-    justify-content: flex-start;
     min-height: 35px;
-    padding: 0 10px;
-    color: var(--text-primary);
-    border: 0;
-    border-radius: 8px;
     background: transparent;
-    box-shadow: none;
     font-size: 14px;
-    font-weight: 500;
 }
 
 .report-actions .report-date-presets button:hover,
 .report-actions .report-date-presets button.is-active {
-    color: #0f172a;
     background: rgba(218, 226, 240, .92);
-    transform: none;
 }
 
 .report-actions .report-date-range {
     position: sticky;
-    bottom: -16px;
-    display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 10px;
-    padding-top: 12px;
     padding-bottom: 16px;
-    margin-bottom: -16px;
     background: rgba(255, 255, 255, .98);
 }
 
 .report-actions .report-date-input {
     width: 100%;
     min-height: 38px;
-    padding: 0 10px;
-    border: 1px solid rgba(203, 213, 225, .96);
-    border-radius: 6px;
     background: #fff;
-    color: var(--text-primary);
-    box-shadow: none;
-    font-weight: 600;
-    text-align: left;
-    outline: none;
 }
 
 .report-actions .report-date-input.is-active {
-    color: #fff;
-    border-color: #2f7df6;
     background: #2f7df6;
 }
 
-.report-actions .report-date-range span {
-    color: var(--text-primary);
-    font-weight: 700;
-}
+
 
 .report-actions .report-date-ok {
     min-height: 38px;
-    padding: 0 13px;
-    color: #fff;
-    border: 0;
-    border-radius: 8px;
     background: #2f7df6;
-    box-shadow: none;
-    font-weight: 700;
 }
 
 .report-actions .report-mini-calendar {
@@ -2822,66 +2631,40 @@
     width: min(620px, calc(100vw - 42px)) !important;
     max-height: none !important;
     overflow: visible !important;
-    padding: 12px 10px 14px !important;
-    border: 1px solid #d6dce6 !important;
-    border-radius: 10px !important;
     background: #fff !important;
-    box-shadow: 0 12px 28px rgba(15, 23, 42, .18) !important;
 }
 
-.report-actions .report-date-presets {
-    gap: 0 !important;
-    padding-bottom: 10px !important;
-    margin-bottom: 10px !important;
-    border-bottom: 1px solid #d5dbe5 !important;
-}
+
 
 .report-actions .report-date-presets button {
     min-height: 24px !important;
-    padding: 0 6px !important;
-    color: #102033 !important;
-    border-radius: 4px !important;
     font-size: 11px !important;
-    font-weight: 400 !important;
 }
 
 .report-actions .report-date-presets button:hover,
 .report-actions .report-date-presets button.is-active {
-    color: #102033 !important;
     background: #edf3fb !important;
 }
 
 .report-actions .report-date-range {
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) 27px !important;
-    gap: 5px !important;
-    padding: 4px 0 0 !important;
     background: #fff !important;
 }
 
 .report-actions .report-date-input {
     min-height: 22px !important;
-    height: 22px !important;
-    padding: 0 2px !important;
-    border: 1px solid #cfd6df !important;
-    border-radius: 3px !important;
     background: #fff !important;
-    box-shadow: none !important;
     font-size: 12px !important;
-    font-weight: 400 !important;
     line-height: 20px !important;
-    letter-spacing: 0 !important;
     font-variant-numeric: tabular-nums;
 }
 
 .report-actions .report-date-range span {
-    color: #3f4b5f !important;
     font-size: 11px !important;
 }
 
 .report-actions .report-date-ok {
     min-height: 22px !important;
-    height: 22px !important;
-    border-radius: 6px !important;
     font-size: 10px !important;
 }
 
@@ -2891,12 +2674,8 @@
     right: 0;
     z-index: 85;
     width: 100%;
-    overflow: hidden;
     padding: 0;
-    border: 1px solid #d7dde8;
-    border-radius: 12px;
     background: #fff;
-    box-shadow: 0 22px 54px rgba(15, 23, 42, .18);
     --report-date-accent: var(--teal-500, #1db5b5);
 }
 
@@ -2914,49 +2693,28 @@
 }
 
 .report-actions .report-date-picker-body {
-    display: grid;
     grid-template-columns: minmax(0, 1fr) 190px;
     min-height: 374px;
 }
 
-.report-actions .report-date-calendar-panel {
-    padding: 20px 20px 16px;
-}
+
 
 .report-actions .report-date-calendar-toolbar {
-    display: grid;
     grid-template-columns: 44px 112px 150px 44px;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 20px;
 }
 
 .report-actions .report-date-calendar-toolbar button,
 .report-actions .report-date-calendar-toolbar select {
     min-height: 44px;
-    color: #111827;
-    border: 1px solid #d6dce6;
-    border-radius: 8px;
     background: #fff;
-    box-shadow: none;
     font-size: 18px;
-    font-weight: 500;
 }
 
-.report-actions .report-date-calendar-toolbar button {
-    display: grid;
-    padding: 0;
-    color: var(--report-date-accent);
-}
 
-.report-actions .report-date-calendar-toolbar button svg {
-    stroke-width: 2.4;
-}
 
-.report-actions .report-date-calendar-toolbar select {
-    padding: 0 16px;
-    cursor: pointer;
-}
+
+
+
 
 .report-actions .report-date-calendar-week,
 .report-actions .report-date-calendar-grid {
@@ -2966,145 +2724,79 @@
 }
 
 .report-actions .report-date-calendar-week span {
-    padding: 0 0 14px;
-    color: #4b5563;
     font-size: 17px;
-    font-weight: 500;
 }
 
 .report-actions .report-date-calendar-grid button {
     min-height: 45px;
-    padding: 0;
-    color: #111827;
-    border: 0;
-    border-radius: 8px;
     background: transparent;
-    box-shadow: none;
     font-size: 19px;
-    font-weight: 500;
 }
 
-.report-actions .report-date-calendar-grid button.is-muted {
-    color: #7f8794;
-}
+
 
 .report-actions .report-date-calendar-grid button:hover,
 .report-actions .report-date-calendar-grid button.is-selected {
-    color: #fff;
     background: var(--report-date-accent);
 }
 
-.report-actions .report-date-time-panel {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    padding: 20px 14px 16px 16px;
-    border-left: 1px solid #d7dde8;
-}
+
 
 .report-actions .report-date-time-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
     min-height: 44px;
-    margin-bottom: 18px;
-    color: #111827;
     font-size: 19px;
-    font-weight: 500;
 }
 
-.report-actions .report-date-time-title svg {
-    color: #111827;
-    stroke-width: 2;
-}
+
 
 .report-actions .report-date-time-columns {
-    display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
     min-height: 0;
 }
 
 .report-actions .report-date-time-column {
     min-height: 0;
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
 }
 
 .report-actions .report-date-time-column-label {
-    display: block;
-    margin-bottom: 7px;
-    color: #64748b;
     font-size: 11px;
-    font-weight: 700;
-    text-align: center;
 }
 
 .report-actions .report-date-time-list {
-    max-height: 276px;
-    overflow-y: auto;
     width: 100%;
-    border: 1px solid #e2e7ef;
-    border-radius: 8px;
     background: #fff;
-    scrollbar-color: rgba(17, 24, 39, .28) transparent;
-    scrollbar-width: thin;
 }
 
 .report-actions .report-date-time-list button {
     width: 100%;
     min-height: 42px;
-    justify-content: center;
-    padding: 0 8px;
-    color: #111827;
-    border: 0;
-    border-bottom: 1px solid #e5eaf2;
-    border-radius: 0;
     background: #fff;
-    box-shadow: none;
     font-size: 16px;
-    font-weight: 500;
 }
 
 .report-actions .report-date-time-list button:hover,
 .report-actions .report-date-time-list button.is-selected {
-    color: #0f172a;
     background: rgba(29, 181, 181, .12);
 }
 
 .report-actions .report-date-calendar-footer {
-    display: grid;
     grid-template-columns: 1fr 190px;
-    gap: 20px;
-    padding: 14px 16px;
-    border-top: 1px solid #d7dde8;
     background: #fff;
 }
 
 .report-actions .report-date-today-button,
 .report-actions .report-date-calendar-ok {
     min-height: 46px;
-    border-radius: 8px;
-    box-shadow: none;
     font-size: 18px;
-    font-weight: 500;
 }
 
 .report-actions .report-date-today-button {
-    justify-self: start;
-    min-width: 148px;
-    gap: 12px;
-    color: var(--report-date-accent);
-    border: 1px solid #d7dde8;
     background: #fff;
 }
 
-.report-actions .report-date-today-button svg {
-    color: var(--report-date-accent);
-}
+
 
 .report-actions .report-date-calendar-ok {
-    color: #fff;
-    border: 0;
     background: var(--report-date-accent);
 }
 
@@ -3251,10 +2943,8 @@
 }
 
 .tables-report-page .report-table-wrapper {
-    max-width: 100%;
     overflow-x: auto;
     border: 1px solid rgba(194, 206, 226, .92);
-    border-radius: 24px;
     background: rgba(255, 255, 255, .84);
     scrollbar-width: thin;
     scrollbar-color: rgba(32, 201, 201, .55) rgba(226, 232, 240, .9);
@@ -3494,32 +3184,25 @@
 }
 
 .orders-report-page .report-page-card {
-    overflow: hidden;
-    padding: clamp(22px, 2.15vw, 32px);
     border: 1px solid rgba(255, 255, 255, .86);
-    border-radius: 34px;
     background: rgba(255, 255, 255, .98);
     box-shadow: 0 17px 48px rgba(13, 39, 72, 0.084);
 }
 
 .orders-report-page .report-page-header {
     display: flex;
-    align-items: center;
     justify-content: space-between;
     gap: 18px;
-    margin-bottom: 20px;
 }
 
 .orders-report-page .report-title-group {
     min-width: 0;
     display: flex;
-    align-items: center;
     gap: 14px;
 }
 
 .orders-report-page .report-accent-bar {
     width: 10px;
-    height: 44px;
     flex: 0 0 auto;
     border-radius: 999px;
     background: var(--accent-secondary);
@@ -3541,16 +3224,13 @@
     color: var(--text-primary);
     font-family: var(--font-display);
     font-size: clamp(26px, 2.2vw, 36px);
-    line-height: 1.08;
     font-weight: 800;
     letter-spacing: 0;
 }
 
 .orders-report-page .report-actions {
     display: flex;
-    align-items: center;
     justify-content: flex-end;
-    gap: 10px;
     flex-wrap: wrap;
 }
 
@@ -3563,36 +3243,23 @@
 .orders-report-page .report-period-button,
 .orders-report-page .orders-filter-toggle,
 .orders-report-page .report-excel-button {
-    min-height: 46px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 9px;
-    border-radius: 14px;
     cursor: pointer;
     transition: .2s ease;
     white-space: nowrap;
 }
 
-.orders-report-page .report-period-button {
-    padding: 0 14px;
-    border: 1px solid rgba(194, 206, 226, .92);
-    color: var(--text-primary);
-    background: rgba(233, 240, 250, .92);
-}
+
 
 .orders-report-page .orders-filter-toggle {
-    padding: 0 16px;
     border: 1px solid rgba(29, 181, 181, .48);
-    color: var(--accent-secondary);
-    background: rgba(255, 255, 255, .92);
 }
 
 .orders-report-page .report-excel-button {
-    padding: 0 18px;
-    border: 0;
     color: #fff;
-    box-shadow: 0 8px 18px rgba(18, 183, 106, 0.154);
 }
 
 .orders-report-page .report-period-button:hover,
@@ -3665,10 +3332,8 @@
 }
 
 .orders-report-page .report-table-wrapper {
-    max-width: 100%;
     overflow-x: auto;
     border: 1px solid rgba(194, 206, 226, .92);
-    border-radius: 24px;
     background: rgba(255, 255, 255, .84);
     scrollbar-width: thin;
     scrollbar-color: rgba(32, 201, 201, .55) rgba(226, 232, 240, .9);
@@ -4053,7 +3718,6 @@
 }
 
 .staff-form textarea {
-    min-height: 92px;
     padding-top: 12px;
 }
 
@@ -4156,10 +3820,7 @@
     object-fit: cover;
 }
 
-.staff-avatar--large {
-    width: 64px;
-    height: 64px;
-}
+
 
 .staff-name-cell {
     color: #0f5fa8 !important;
@@ -4250,36 +3911,23 @@
 .staff-modal {
     position: fixed;
     inset: 0;
-    z-index: 1200;
     display: flex;
-    justify-content: flex-end;
 }
 
 .staff-modal__backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(15, 23, 42, .38);
-    backdrop-filter: blur(4px);
 }
 
 .staff-form {
     position: relative;
     z-index: 1;
-    width: min(620px, 100%);
-    height: 100%;
     overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-    padding: 28px;
     border-left: 1px solid rgba(215, 226, 240, .9);
-    background: #fff;
-    box-shadow: -14px 0 42px rgba(15, 23, 42, 0.126);
 }
 
 .staff-form__header,
 .staff-form__footer {
-    display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 14px;
@@ -4287,33 +3935,22 @@
 
 .staff-form__header p {
     margin: 0 0 5px;
-    color: #0e7490;
     font-size: 12px;
     font-weight: 500;
-    letter-spacing: .08em;
     text-transform: uppercase;
 }
 
-.staff-form__header h2 {
-    margin: 0;
-    color: var(--neutral-950);
-    font-size: 24px;
-    font-weight: 800;
-}
+
 
 .staff-form__header button {
     display: grid;
     place-items: center;
     border: 1px solid var(--blue-100);
-    background: #fff;
-    color: var(--neutral-950);
     cursor: pointer;
 }
 
 .staff-photo-upload > div {
-    display: flex;
     align-items: center;
-    gap: 14px;
 }
 
 .staff-photo-upload input {
@@ -4323,39 +3960,25 @@
 
 .staff-form__grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
 }
 
-.staff-form__comment {
-    grid-column: 1 / -1;
-}
+
 
 .staff-form__footer {
     position: sticky;
-    bottom: -28px;
-    margin: auto -28px -28px;
-    padding: 16px 28px;
-    border-top: 1px solid rgba(218, 228, 239, .95);
-    background: rgba(255, 255, 255, .92);
-    backdrop-filter: blur(12px);
 }
 
 .staff-form__footer button {
-    min-height: 44px;
     padding: 0 18px;
     border: 1px solid var(--blue-100);
     background: #fff;
     color: #64748b;
-    font-weight: 800;
     cursor: pointer;
 }
 
 .staff-form__footer button[type="submit"] {
     border: 0;
-    background: #0ea5e9;
     color: #fff;
-    box-shadow: 0 8px 18px rgba(14, 165, 233, 0.154);
 }
 
 @media (max-width: 1280px) {
@@ -5403,10 +5026,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 18px;
     border: 1px solid rgba(218, 228, 239, .9);
-    border-radius: 20px;
-    box-shadow: 0 8px 19px rgba(15, 23, 42, 0.049);
 }
 
 .warehouse-summary-card--blue {
@@ -5649,7 +5269,6 @@
 
 .warehouse-row-actions button.is-danger {
     border-color: rgba(239, 68, 68, .34);
-    color: #dc2626;
 }
 
 .warehouse-row-actions button.is-restore {
@@ -6208,7 +5827,6 @@
 
 .finance-category-actions button.is-danger {
     border-color: rgba(239, 68, 68, .34);
-    color: #dc2626;
 }
 
 .finance-category-actions button.is-restore {
@@ -6643,15 +6261,10 @@
     flex-wrap: wrap;
 }
 
-.settings-action-edit,
-.settings-action-delete {
-    width: 34px;
-    height: 34px;
-}
+
 
 .settings-action-delete {
     border-color: rgba(239, 68, 68, .34) !important;
-    color: #dc2626 !important;
 }
 
 .settings-link-cell {
