@@ -112,6 +112,14 @@ jobs:
         working-directory: frontend
         run: npm run test:admin
 
+      # Запрещает РОСТ числа !important. stylelint с declaration-no-important
+      # здесь не годится: правило умеет только «запрещено везде», а это 11.6k
+      # ошибок на текущей базе — шум, который начнут игнорировать. Бюджет по
+      # файлам работает как базлайн: старое терпим, новое не пропускаем.
+      - name: Бюджет !important (роста быть не должно)
+        working-directory: frontend
+        run: node tools/important-budget.mjs
+
       - name: Production-сборка
         working-directory: frontend
         run: npm run build

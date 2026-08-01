@@ -9,7 +9,8 @@
     "test": "npm run test:admin && npm run test:unit",
     "test:admin": "node scripts/admin-login.test.mjs",
     "test:unit": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint:important": "node tools/important-budget.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.0",
