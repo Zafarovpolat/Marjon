@@ -84,7 +84,10 @@ const ROUTES = [
   ["stock-stock", "/stock-report/stock"],
   ["users-attendance", "/users/attendance"],
   ["users-cashier", "/users/cashier"],
-  ["users-login-history", "/users/login-history"],
+  // /users/login-history сознательно НЕ снимаем: экран показывает записи о
+  // входах, а сам харнесс логинится через API — каждый прогон дописывает
+  // строку, таблица сдвигается, и сравнение «front с самим собой» давало
+  // ложное расхождение. Наблюдатель меняет наблюдаемое.
   ["settings-place", "/settings/place"],
   ["settings-units", "/settings/units"],
   ["settings-payment", "/settings/payment-methods"],
