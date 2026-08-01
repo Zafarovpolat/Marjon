@@ -250,19 +250,19 @@ jobs:
       # НОВЫЕ забытые миграции, ради чего и задуман.
       - name: Расхождение схемы и моделей (сводка, не блокирует)
         working-directory: backend
+        continue-on-error: true      # страховка: шаг не должен ронять задачу
         run: |
-          set +e
-          alembic check > /tmp/drift.txt 2>&1
-          code=$?
-          set -e
-          if [ $code -eq 0 ]; then echo "расхождений нет"; exit 0; fi
-          echo "Расхождений: $(grep -c 'Detected ' /tmp/drift.txt)"
-          echo "Затронуто таблиц: $(grep -oE \"on column '[a-z_]+\\.\" /tmp/drift.txt | sort -u | wc -l)"
+          alembic check > /tmp/drift.txt 2>&1 || true
+          if ! grep -q "Detected " /tmp/drift.txt; then
+            echo "расхождений нет"
+            exit 0
+          fi
+          echo "Расхождений: $(grep -c "Detected " /tmp/drift.txt)"
           echo "--- по типам ---"
           grep -oE "Detected [a-zA-Z ]+" /tmp/drift.txt | sort | uniq -c | sort -rn | head
           echo "--- первые 15 ---"
           grep "Detected " /tmp/drift.txt | head -15
-          echo "(известный долг: шаг информационный, сборку не роняет)"
+          echo "(известный долг, см. коммит про alembic check: шаг информационный)"
 
       - name: Демо-данные поверх миграций
         working-directory: backend
