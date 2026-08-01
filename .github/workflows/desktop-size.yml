@@ -44,9 +44,9 @@ jobs:
         run: |
           npx electron-vite build
           if [ "${{ github.event.inputs.target }}" = "dir" ]; then
-            npx electron-builder --win --dir
+            npx electron-builder --win --dir --publish never
           else
-            npx electron-builder --win
+            npx electron-builder --win --publish never
           fi
 
       - name: Размер

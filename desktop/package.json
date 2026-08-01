@@ -64,11 +64,14 @@
     },
     "files": [
       "out/**/*",
+      "!out/**/*.map",
       "resources/**/*"
     ],
     "directories": {
       "output": "dist",
       "buildResources": "resources"
-    }
+    },
+    "compression": "maximum",
+    "afterPack": "scripts/after-pack.cjs"
   }
 }
