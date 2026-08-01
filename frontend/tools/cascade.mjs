@@ -20,6 +20,16 @@ const WIDTHS = (bpArg || "390,768,1280").split(",").map(Number);
 
 const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
 
+/* ---------- каскадные слои ----------
+   Порядок каскада: важность → слой → специфичность → порядок.
+   Правила вне слоёв сильнее любого слоя — так по спецификации. */
+const LAYER_ORDER = ["marjon-base", "marjon-important"];
+function layerRank(name) {
+  if (!name) return LAYER_ORDER.length;
+  const i = LAYER_ORDER.indexOf(name);
+  return i === -1 ? 0 : i;
+}
+
 /* ---------- медиазапросы ---------- */
 function mediaApplies(ctx, width) {
   if (!ctx) return true;
@@ -110,24 +120,27 @@ for (const file of files) {
     const fp = el.tagName.toLowerCase() + (cls ? "." + cls.split(/\s+/).join(".") : "");
 
     // --- победитель по каждой ширине ---
+    // Порядок каскада: важность → слой → специфичность → порядок.
     for (let wi = 0; wi < WIDTHS.length; wi++) {
       const win = new Map();
       for (const ri of hit) {
         if (!mediaOk[ri][wi]) continue;
         const r = rules[ri];
+        const lay = layerRank(r.layer);
         for (const d of r.d) {
           const prop = d[0], val = d[1], imp = d[2];
           const cur = win.get(prop);
-          if (!cur) { win.set(prop, [imp, r.spec, r.ord, val, ri]); continue; }
-          if (imp !== cur[0]) { if (imp > cur[0]) win.set(prop, [imp, r.spec, r.ord, val, ri]); continue; }
-          const cs = cur[1], rs = r.spec;
-          const cmp = rs[0] - cs[0] || rs[1] - cs[1] || rs[2] - cs[2] || r.ord - cur[2];
-          if (cmp >= 0) win.set(prop, [imp, r.spec, r.ord, val, ri]);
+          if (!cur) { win.set(prop, [imp, lay, r.spec, r.ord, val, ri]); continue; }
+          if (imp !== cur[0]) { if (imp > cur[0]) win.set(prop, [imp, lay, r.spec, r.ord, val, ri]); continue; }
+          if (lay !== cur[1]) { if (lay > cur[1]) win.set(prop, [imp, lay, r.spec, r.ord, val, ri]); continue; }
+          const cs = cur[2], rs = r.spec;
+          const cmp = rs[0] - cs[0] || rs[1] - cs[1] || rs[2] - cs[2] || r.ord - cur[3];
+          if (cmp >= 0) win.set(prop, [imp, lay, r.spec, r.ord, val, ri]);
         }
       }
       if (!win.size) continue;
       const o = {};
-      for (const [p, v] of win) o[p] = v[3];
+      for (const [p, v] of win) o[p] = v[4];
       lines[wi].push(JSON.stringify({ p: page, i, f: fp, s: o }));
     }
   });

@@ -5,13 +5,14 @@ set -euo pipefail
 cd /agent/workspace/Marjon/frontend
 BASE=.cssaudit/gitbase
 WIDTHS="${1:-1440,1920}"
+REF="${2:-e85e978e8a0ea2eac17defcc8fc343469801a48a}"
 
 rm -rf "$BASE"; mkdir -p "$BASE/src/styles" "$BASE/src/admin"
 for f in marjon-tokens brand dashboard topbar-widgets forms tables staff-pos responsive \
          app dashboard-curve loader react-overrides receipt auth login-extras; do
-  git -C /agent/workspace/Marjon show "HEAD:frontend/src/styles/$f.css" > "$BASE/src/styles/$f.css" 2>/dev/null || true
+  git -C /agent/workspace/Marjon show "$REF:frontend/src/styles/$f.css" > "$BASE/src/styles/$f.css" 2>/dev/null || true
 done
-git -C /agent/workspace/Marjon show HEAD:frontend/src/admin/styles.css > "$BASE/src/admin/styles.css" 2>/dev/null || true
+git -C /agent/workspace/Marjon show "$REF:frontend/src/admin/styles.css" > "$BASE/src/admin/styles.css" 2>/dev/null || true
 
 python3 - "$BASE" <<'PY'
 import sys, os, json
