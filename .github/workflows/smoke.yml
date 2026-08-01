@@ -278,3 +278,11 @@ jobs:
         run: |
           python migrate_add_permissions.py
           python seed.py
+
+      # Показывает, есть ли NULL там, где модели требуют NOT NULL. На чистой
+      # базе с сидами их быть не должно — если появятся, значит сиды пишут не
+      # всё, и большая миграция с SET NOT NULL упала бы. Информационно.
+      - name: NULL в обязательных колонках (сводка)
+        working-directory: backend
+        continue-on-error: true
+        run: python scripts/check_nulls.py

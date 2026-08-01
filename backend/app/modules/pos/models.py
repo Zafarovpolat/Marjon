@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, JSON, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Uuid
 from app.shared.base_model import TimeStampedModel
@@ -19,6 +19,18 @@ class PosTerminal(TimeStampedModel):
 
 class Order(TimeStampedModel):
     __tablename__ = "orders"
+
+    # Индексы производительности из миграции e9f0idx01. Объявлять их здесь
+    # обязательно: модель — источник правды для `alembic autogenerate`. Пока их
+    # тут не было, автогенерация видела в базе «лишние» индексы и предлагала их
+    # УДАЛИТЬ. Один неосторожный `alembic revision --autogenerate` — и заказы
+    # остались бы без индексов по статусу, столу и паре (филиал, дата), то есть
+    # без самых частых запросов дашборда и кассы.
+    __table_args__ = (
+        Index("ix_orders_status", "status"),
+        Index("ix_orders_table_number", "table_number"),
+        Index("ix_orders_branch_created", "branch_id", "created_at"),
+    )
 
     company_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("companies.id"), index=True)
     branch_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("branches.id"), index=True)
