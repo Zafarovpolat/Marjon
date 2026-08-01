@@ -158,12 +158,25 @@ async function main() {
   const seenBad = new Set();
   page.on("response", (r) => {
     const s = r.status();
-    if (s < 400) return;
     const u = r.url().replace(/^https?:\/\/[^/]+/, "");
+    // Экраны дашборда грузятся Promise.all без .catch у первых шести вызовов —
+    // печатаем их статусы всегда, иначе причина пустого экрана не видна.
+    const watched = /\/analytics\/|\/pos\/orders|\/hr\/employees|\/inventory\/products/.test(u);
+    if (s < 400 && !watched) return;
     const k = `${s} ${u.split("?")[0]}`;
     if (seenBad.has(k)) return;
     seenBad.add(k);
     console.log(`  [api ${s}] ${u.slice(0, 120)}`);
+  });
+  // Запрос, не получивший ответа (обрыв, блокировка), события response НЕ
+  // порождает — без этого слушателя такая ошибка невидима.
+  page.on("requestfailed", (r) => {
+    const u = r.url().replace(/^https?:\/\/[^/]+/, "");
+    if (!u.startsWith("/api/")) return;
+    const k = `FAIL ${u.split("?")[0]}`;
+    if (seenBad.has(k)) return;
+    seenBad.add(k);
+    console.log(`  [api ОБРЫВ] ${u.slice(0, 110)} — ${r.failure()?.errorText || "?"}`);
   });
 
   const settle = async () => {
