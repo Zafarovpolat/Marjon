@@ -104,7 +104,6 @@
   background: var(--neutral-50);
   box-shadow: none;
   border-left: 0;
-  overflow-y: auto;
 }
 
 .pos-top {
@@ -293,7 +292,6 @@
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
   gap: 18px;
-  align-items: start;
 }
 
 .pos-filter-panel,
@@ -358,7 +356,6 @@
   margin: 20px 0 -8px;
   color: var(--neutral-600);
   font-size: 14px;
-  font-weight: 500;
 }
 
 .pos-zone {
@@ -559,7 +556,6 @@
 }
 
 .kitchen-board {
-  display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
   padding: 20px 22px 32px;

@@ -15,11 +15,9 @@
 .data-table {
     width: 100%;
     border-collapse: separate;
-    border-spacing: 0;
     overflow: hidden;
     background: #fff;
     border: 1px solid var(--border);
-    border-radius: 14px;
 }
 
 .data-table th,

@@ -7,23 +7,18 @@
   --mj-main-curve: 32px;
 }
 
-body.dashboard-body {
-  background: var(--neutral-950);
-}
+
 
 body.dashboard-body::before {
   display: none;
 }
 
 .dashboard-shell {
-  display: flex;
   height: 100vh;
   overflow: hidden;
-  background: var(--neutral-950);
 }
 
 .dashboard-sidebar {
-  position: relative;
   z-index: 20;
   flex-shrink: 0;
   width: var(--mj-sidebar-width);
@@ -32,7 +27,6 @@ body.dashboard-body::before {
   padding: 20px 14px 18px;
   border: 0;
   border-radius: 0;
-  box-shadow: none;
   overflow: hidden;
   background: linear-gradient(180deg, var(--neutral-800) 0%, var(--neutral-900) 55%, var(--neutral-950) 100%) !important;
 }
@@ -79,12 +73,8 @@ body.dashboard-body::before {
   flex: 1;
   min-width: 0;
   height: 100vh;
-  margin-left: 0;
   padding-left: 0;
-  overflow: hidden auto;
   border: none !important;
-  border-top-left-radius: var(--mj-main-curve);
-  background: var(--neutral-50);
   box-shadow: none;
 }
 
@@ -98,9 +88,7 @@ body.dashboard-body::before {
   top: 0;
   z-index: 10;
   margin: 0;
-  border-top-left-radius: var(--mj-main-curve);
   border-bottom: 1px solid var(--neutral-200);
-  background: var(--neutral-50);
   backdrop-filter: none;
   box-shadow: none;
 }

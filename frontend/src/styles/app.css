@@ -1181,7 +1181,6 @@
 
 .dc-report-head {
     display: flex;
-    align-items: flex-start;
     justify-content: space-between;
     gap: 18px;
     margin-bottom: 24px;
@@ -1663,7 +1662,6 @@
 
 .cancelled-report-excel {
     padding: 0 18px;
-    background: #12b76a;
     box-shadow: 0 8px 18px rgba(18, 183, 106, 0.154);
 }
 
@@ -2854,22 +2852,16 @@
 }
 
 .report-actions .report-date-range {
-    position: relative !important;
-    bottom: auto !important;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) 27px !important;
     gap: 5px !important;
     padding: 4px 0 0 !important;
-    margin-bottom: 0 !important;
     background: #fff !important;
 }
 
 .report-actions .report-date-input {
-    min-width: 0 !important;
-    width: 100% !important;
     min-height: 22px !important;
     height: 22px !important;
     padding: 0 2px !important;
-    color: #0f172a !important;
     border: 1px solid #cfd6df !important;
     border-radius: 3px !important;
     background: #fff !important;
@@ -2879,23 +2871,18 @@
     line-height: 20px !important;
     letter-spacing: 0 !important;
     font-variant-numeric: tabular-nums;
-    text-align: center !important;
 }
 
 .report-actions .report-date-range span {
     color: #3f4b5f !important;
     font-size: 11px !important;
-    font-weight: 400 !important;
 }
 
 .report-actions .report-date-ok {
     min-height: 22px !important;
     height: 22px !important;
-    padding: 0 !important;
     border-radius: 6px !important;
-    background: var(--teal-500, #1db5b5) !important;
     font-size: 10px !important;
-    font-weight: 700 !important;
 }
 
 .report-actions .report-date-calendar-popover {
@@ -2958,7 +2945,6 @@
 
 .report-actions .report-date-calendar-toolbar button {
     display: grid;
-    place-items: center;
     padding: 0;
     color: var(--report-date-accent);
 }
@@ -3583,7 +3569,6 @@
     justify-content: center;
     gap: 9px;
     border-radius: 14px;
-    font-weight: 800;
     cursor: pointer;
     transition: .2s ease;
     white-space: nowrap;
@@ -3607,7 +3592,6 @@
     padding: 0 18px;
     border: 0;
     color: #fff;
-    background: #12b76a;
     box-shadow: 0 8px 18px rgba(18, 183, 106, 0.154);
 }
 
@@ -4071,7 +4055,6 @@
 .staff-form textarea {
     min-height: 92px;
     padding-top: 12px;
-    resize: vertical;
 }
 
 .staff-filter-buttons {
@@ -4319,12 +4302,9 @@
 }
 
 .staff-form__header button {
-    width: 42px;
-    height: 42px;
     display: grid;
     place-items: center;
     border: 1px solid var(--blue-100);
-    border-radius: 14px;
     background: #fff;
     color: var(--neutral-950);
     cursor: pointer;
@@ -4365,7 +4345,6 @@
     min-height: 44px;
     padding: 0 18px;
     border: 1px solid var(--blue-100);
-    border-radius: 14px;
     background: #fff;
     color: #64748b;
     font-weight: 800;
@@ -4435,12 +4414,10 @@
 
 /* Nomenclature */
 .nomenclature-page {
-    width: 100%;
     padding: 26px;
 }
 
 .nomenclature-card {
-    width: 100%;
     min-height: calc(100vh - 140px);
     padding: 28px;
     border: 1px solid rgba(215, 226, 240, .86);
@@ -4650,7 +4627,6 @@
 }
 
 .nomenclature-table-wrapper {
-    width: 100%;
     overflow-x: auto;
     border: 1px solid rgba(218, 228, 239, .95);
     border-radius: 22px;
@@ -5332,7 +5308,6 @@
 
 /* Warehouse */
 .warehouse-page {
-    width: 100%;
     padding: 26px;
 }
 
@@ -5658,10 +5633,7 @@
     color: #64748b;
 }
 
-.warehouse-row-actions {
-    display: flex;
-    gap: 8px;
-}
+
 
 .warehouse-row-actions button {
     width: 34px;
@@ -6675,8 +6647,6 @@
 .settings-action-delete {
     width: 34px;
     height: 34px;
-    min-height: 34px !important;
-    padding: 0 !important;
 }
 
 .settings-action-delete {
