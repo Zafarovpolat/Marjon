@@ -304,33 +304,43 @@ function mayShareElement(a, b, ev) {
     for (const id of A.ids) if (!B.ids.has(id)) return false; // #x vs #y
     return true;
   }
-  if (A.ids.size !== B.ids.size) {
-    const r = A.ids.size ? idSide(A, B) : idSide(B, A);
-    if (r !== null) return r;
+
+  // ── Ниже — выводы, опирающиеся на разметку. Они ДАЮТ ЛОЖНЫЕ ОТРИЦАНИЯ:
+  // className часто собирается динамически (шаблоны, clsx, пропсы), теги
+  // приходят из чужих компонентов — и извлечение из JSX это не видит. Один
+  // пропущенный конкурент = снятый флаг = поехавшая вёрстка. Именно так и
+  // произошло: первый прогон visual-регрессии показал сдвиг пунктов меню и
+  // виджета в шапке на 17 экранах. Поэтому по умолчанию ВЫКЛЮЧЕНО.
+  if (ev.trustMarkup) {
+    if (A.ids.size !== B.ids.size) {
+      const r = A.ids.size ? idSide(A, B) : idSide(B, A);
+      if (r !== null) return r;
+    }
+    if (A.classes.size && B.classes.size) {
+      for (const c of A.classes) if (B.classes.has(c)) return true;
+      for (const c1 of A.classes) for (const c2 of B.classes) {
+        const k = c1 < c2 ? `${c1}|${c2}` : `${c2}|${c1}`;
+        if (ev.pairs.has(k)) return true;
+      }
+      return false;
+    }
+    const classVsTag = (C, T) => {
+      for (const c of C.classes) {
+        const tags = ev.classTags.get(c);
+        if (!tags || !tags.size) return true;
+        if (tags.has(T.tag)) return true;
+      }
+      return false;
+    };
+    if (A.classes.size && B.tag && !B.classes.size) return classVsTag(A, B);
+    if (B.classes.size && A.tag && !A.classes.size) return classVsTag(B, A);
   }
 
+  // Общий класс — точно один и тот же элемент возможен.
   if (A.classes.size && B.classes.size) {
-    for (const c of A.classes) if (B.classes.has(c)) return true;   // общий класс
-    for (const c1 of A.classes) for (const c2 of B.classes) {       // встречаются вместе?
-      const k = c1 < c2 ? `${c1}|${c2}` : `${c2}|${c1}`;
-      if (ev.pairs.has(k)) return true;
-    }
-    return false;
+    for (const c of A.classes) if (B.classes.has(c)) return true;
   }
-
-  // Класс против голого тега: смотрим, на каких тегах этот класс живёт.
-  const classVsTag = (C, T) => {
-    for (const c of C.classes) {
-      const tags = ev.classTags.get(c);
-      if (!tags || !tags.size) return true;                   // нет данных → осторожно
-      if (tags.has(T.tag)) return true;
-    }
-    return false;
-  };
-  if (A.classes.size && B.tag && !B.classes.size) return classVsTag(A, B);
-  if (B.classes.size && A.tag && !A.classes.size) return classVsTag(B, A);
-
-  return true;
+  return true;   // не доказали расхождение — считаем конкурентами
 }
 
 /** Кто выигрывает БЕЗ учёта важности: specificity, затем порядок. */
@@ -560,6 +570,8 @@ const apply = args.includes("--apply");
 
 const protectedRules = collectTestProtected(path.resolve(__dirname, "..", "scripts"));
 const ev = collectDomEvidence(SRC, [path.resolve(__dirname, "..", "index.html"), path.resolve(__dirname, "..", "admin.html")]);
+ev.trustMarkup = args.includes("--trust-markup");
+console.log(`Режим: ${ev.trustMarkup ? "доверять разметке (агрессивно)" : "консервативный"}`);
 console.log(`Свидетельств из разметки: пар классов ${ev.pairs.size}, классов с тегами ${ev.classTags.size}, id ${ev.idInfo.size}\n`);
 
 let grandSafe = 0, grandTotal = 0;

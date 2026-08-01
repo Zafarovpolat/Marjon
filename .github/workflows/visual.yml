@@ -43,7 +43,11 @@ jobs:
           if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
             BASE="${{ github.event.pull_request.base.sha }}"
           else
-            BASE=$(git rev-parse "origin/${{ github.event.inputs.base_ref || 'front' }}")
+            REF="${{ github.event.inputs.base_ref || 'front' }}"
+            # Принимаем и имя ветки, и «сырой» SHA — иначе нельзя сравниться
+            # с конкретным коммитом, а это нужно для проверки уже влитых партий.
+            BASE=$(git rev-parse --verify "origin/$REF^{commit}" 2>/dev/null \
+                || git rev-parse --verify "$REF^{commit}")
           fi
           echo "sha=$BASE" >> "$GITHUB_OUTPUT"
           echo "База: $BASE ($(git log -1 --format=%s "$BASE" | head -c 80))"
