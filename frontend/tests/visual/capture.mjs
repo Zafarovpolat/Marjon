@@ -29,6 +29,12 @@ const API = arg("api", "http://127.0.0.1:8000/api/v1");
 const OUT = path.resolve(arg("out", "shots"));
 const PHONE = arg("phone", "+998900078779");
 const PASSWORD = arg("password", "102938");
+// Дата «замораживается» НА ДАТУ СИДА. backend/seed.py жёстко использует
+// TODAY = 2026-07-14, поэтому при любой другой дате все экраны с фильтром по
+// дню («Заказы за …», отчёты, журналы) рендерятся пустыми — и сравнение
+// перестаёт что-либо проверять на реальных данных. Значение общее для обоих
+// прогонов, так что детерминизм сохраняется.
+const FREEZE = arg("freeze", "2026-07-14T18:00:00+05:00");
 
 /** Экраны основного приложения. Список намеренно широкий, но не все 88 маршрутов:
  *  берём по одному представителю каждого раздела — этого достаточно, чтобы
@@ -87,6 +93,7 @@ async function login() {
 }
 
 async function main() {
+  console.log(`время заморожено на: ${FREEZE}`);
   fs.mkdirSync(OUT, { recursive: true });
   const tokens = await login();
 
@@ -109,7 +116,7 @@ async function main() {
   });
 
   await ctx.addInitScript(
-    ({ access, refresh }) => {
+    ({ access, refresh, frozenAt }) => {
       try {
         localStorage.setItem("access_token", access);
         localStorage.setItem("refresh_token", refresh || access);
@@ -122,7 +129,7 @@ async function main() {
       // страница должна остаться рабочей — иначе сломаем сам прогон.
       try {
         const _D = Date;
-        const FIXED = new _D("2026-01-15T10:00:00+05:00").getTime();
+        const FIXED = new _D(frozenAt).getTime();
         const Frozen = class extends _D {
           constructor(...a) { super(...(a.length ? a : [FIXED])); }
           static now() { return FIXED; }
@@ -135,7 +142,7 @@ async function main() {
         Math.random = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
       } catch { /* неважно */ }
     },
-    { access: tokens.access_token, refresh: tokens.refresh_token }
+    { access: tokens.access_token, refresh: tokens.refresh_token, frozenAt: FREEZE }
   );
 
   const page = await ctx.newPage();
@@ -182,7 +189,15 @@ async function main() {
   }
 
   await browser.close();
+  // Если экран не снялся в ОБОИХ прогонах, сравнение его просто не увидит и
+  // отчитается «расхождений нет» — ложное спокойствие. Поэтому недобор кадров
+  // сам по себе считается провалом.
+  const expected = ROUTES.length + ADMIN_SECTIONS.length;
   const n = fs.readdirSync(OUT).filter((f) => f.endsWith(".png")).length;
+  if (n < expected) {
+    console.error(`снято ${n} из ${expected} экранов — часть страниц не открылась, проверка неполная`);
+    process.exit(1);
+  }
   console.log(`снято скриншотов: ${n} -> ${OUT}`);
   if (!n) { console.error("НИ ОДНОГО скриншота — проверка бессмысленна"); process.exit(1); }
 }
