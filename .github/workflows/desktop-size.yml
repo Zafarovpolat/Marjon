@@ -44,9 +44,9 @@ jobs:
         run: |
           npx electron-vite build
           if [ "${{ github.event.inputs.target }}" = "dir" ]; then
-            npx electron-builder --win --dir
+            npx electron-builder --win --dir --publish never
           else
-            npx electron-builder --win
+            npx electron-builder --win --publish never
           fi
 
       - name: Размер
@@ -72,6 +72,24 @@ jobs:
             echo "файлов .pak: $(find "$UNP" -path '*locales*' -name '*.pak' | wc -l)"
             du -sm "$UNP/locales" 2>/dev/null | cut -f1 | sed 's/$/ МБ в locales/' || true
           fi
+
+      - name: Что внутри app.asar
+        working-directory: desktop
+        shell: bash
+        run: |
+          UNP=$(find dist -maxdepth 1 -type d -name "win-unpacked*" | head -1)
+          A="$UNP/resources/app.asar"
+          [ -f "$A" ] || { echo "app.asar не найден"; exit 0; }
+          echo "размер app.asar: $(du -m "$A" | cut -f1) МБ"
+          # Разложение по каталогам верхнего уровня: сразу видно, лежат ли внутри
+          # node_modules (electron-builder кладёт production-зависимости даже при
+          # ограниченном "files") и сколько они весят.
+          npx asar list "$A" > /tmp/asar.txt 2>/dev/null || { echo "asar list недоступен"; exit 0; }
+          echo "файлов всего: $(wc -l < /tmp/asar.txt)"
+          echo "--- по каталогам верхнего уровня ---"
+          tr '\\\\' '/' < /tmp/asar.txt | sed 's|^/||' | cut -d/ -f1 | sort | uniq -c | sort -rn | head -15
+          echo "--- крупнейшие пакеты в node_modules ---"
+          tr '\\\\' '/' < /tmp/asar.txt | grep -i node_modules | sed -E 's|.*node_modules/([^/]+).*|\1|' | sort | uniq -c | sort -rn | head -15
 
       - name: Выложить установщик
         if: always()
