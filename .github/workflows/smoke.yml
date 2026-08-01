@@ -191,3 +191,68 @@ jobs:
         run: |
           flutter pub get
           flutter analyze --no-fatal-infos --no-fatal-warnings
+
+  migrations:
+    name: Миграции (alembic на чистом Postgres)
+    runs-on: ubuntu-latest
+    # До сих пор миграции только компилировались: схему в CI поднимал
+    # create_tables.py, а `alembic upgrade head` не запускался ни разу — то есть
+    # 12 ревизий (включая 4 свежие: pin_hash, права, колонки company/order,
+    # halls/tables/product_recipes) не были проверены фактическим прогоном.
+    # SQLite для этого не годится: часть DDL и типов специфична для Postgres.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: marjon_mig
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/marjon_mig"
+      SECRET_KEY: "ci-only-secret-key-at-least-32-characters"
+      DEBUG: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Установить зависимости
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: alembic upgrade head на пустой БД
+        working-directory: backend
+        run: alembic upgrade head
+
+      - name: Схема совпадает с моделями (autogenerate пуст)
+        working-directory: backend
+        run: |
+          # Если после миграций autogenerate находит отличия — значит модели и
+          # схема разъехались и кто-то забыл миграцию.
+          alembic revision --autogenerate -m "ci-drift-check" -o /tmp/drift || true
+          NEW=$(ls -t migrations/versions/*.py | head -1)
+          if grep -qE "op\.(create_table|add_column|drop_column|alter_column|create_index)" "$NEW"; then
+            echo "РАСХОЖДЕНИЕ схемы и моделей — не хватает миграции:"
+            grep -nE "op\.(create_table|add_column|drop_column|alter_column|create_index)" "$NEW" | head -20
+            exit 1
+          fi
+          echo "расхождений нет"
+          rm -f "$NEW"
+
+      - name: Демо-данные поверх миграций
+        working-directory: backend
+        run: |
+          python migrate_add_permissions.py
+          python seed.py

@@ -24,9 +24,30 @@ jobs:
   visual:
     name: Скриншоты до/после
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
+
+    # Postgres, а не SQLite. Причина конкретная: analytics.sales_report строит
+    # запрос через func.timezone(...) — это функция PostgreSQL, в SQLite её нет.
+    # Эндпоинт /analytics/sales обрывался (net::ERR_FAILED), а он второй в
+    # Promise.all дашборда и без .catch — из-за этого весь экран рендерил
+    # «Dashboard недоступен» и его вёрстка не проверялась вовсе.
+    # Заодно среда становится ближе к продовой.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: marjon
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
     env:
-      DATABASE_URL: "sqlite+aiosqlite:///./ci.db"
+      DATABASE_URL: "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/marjon"
       SECRET_KEY: "ci-only-secret-key-at-least-32-characters"
       DEBUG: "true"
       ALLOWED_ORIGINS: "*"
