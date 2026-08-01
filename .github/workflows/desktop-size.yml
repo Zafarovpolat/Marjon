@@ -1,0 +1,85 @@
+name: desktop-size
+
+# Реальный размер Windows-установщика.
+#
+# Зачем отдельным workflow и по кнопке:
+#   • На Linux не собрать: electron-builder правит метаданные .exe и требует
+#     wine (падает даже с --dir). Значит нужен настоящий windows-раннер.
+#   • Такая сборка тянет Electron целиком и идёт минуты — на каждый коммит это
+#     лишнее. Размер нужен точечно: до и после оптимизаций.
+#
+# Заодно это ЕДИНСТВЕННАЯ проверка конфига electron-builder: `npm run build`
+# в smoke прогоняет только electron-vite и до упаковки не доходит, поэтому
+# ошибка в блоке build package.json там не всплывёт.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Что собирать: installer (NSIS, реальный .exe) или dir (быстрее)"
+        required: false
+        default: "installer"
+
+jobs:
+  size:
+    name: Сборка и замер (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Установить зависимости
+        working-directory: desktop
+        run: npm install --no-audit --no-fund
+
+      - name: Сборка
+        working-directory: desktop
+        shell: bash
+        run: |
+          npx electron-vite build
+          if [ "${{ github.event.inputs.target }}" = "dir" ]; then
+            npx electron-builder --win --dir
+          else
+            npx electron-builder --win
+          fi
+
+      - name: Размер
+        working-directory: desktop
+        shell: bash
+        run: |
+          echo "=== установщики и портативные сборки ==="
+          find dist -maxdepth 1 -name "*.exe" -printf "%10s  %p\n" 2>/dev/null | sort -rn || \
+            ls -l dist/*.exe 2>/dev/null || echo "(.exe не найден)"
+          echo ""
+          echo "=== в мегабайтах ==="
+          for f in dist/*.exe; do
+            [ -e "$f" ] || continue
+            echo "$(du -m "$f" | cut -f1) МБ  $(basename "$f")"
+          done
+          echo ""
+          UNP=$(find dist -maxdepth 1 -type d -name "win-unpacked*" | head -1)
+          if [ -n "$UNP" ]; then
+            echo "=== распакованное: $(du -sm "$UNP" | cut -f1) МБ ==="
+            echo "--- крупнейшее ---"
+            du -am "$UNP" | sort -rn | head -20
+            echo "--- локали ---"
+            echo "файлов .pak: $(find "$UNP" -path '*locales*' -name '*.pak' | wc -l)"
+            du -sm "$UNP/locales" 2>/dev/null | cut -f1 | sed 's/$/ МБ в locales/' || true
+          fi
+
+      - name: Выложить установщик
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-installer
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.blockmap
+          retention-days: 7
+          if-no-files-found: warn
