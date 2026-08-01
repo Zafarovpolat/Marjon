@@ -1,4 +1,4 @@
-﻿\xef\xbb\xbf#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
   Marjon - dev-лаунчер (Windows).
 
