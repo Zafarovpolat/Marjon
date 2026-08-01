@@ -65,7 +65,14 @@
     "files": [
       "out/**/*",
       "!out/**/*.map",
-      "resources/**/*"
+      "resources/**/*",
+      "!node_modules/lucide-react/**",
+      "!node_modules/react/**",
+      "!node_modules/react-dom/**",
+      "!node_modules/react-router-dom/**",
+      "!node_modules/axios/**",
+      "!node_modules/scheduler/**",
+      "!node_modules/@remix-run/**"
     ],
     "directories": {
       "output": "dist",

@@ -87,9 +87,9 @@ jobs:
           npx asar list "$A" > /tmp/asar.txt 2>/dev/null || { echo "asar list недоступен"; exit 0; }
           echo "файлов всего: $(wc -l < /tmp/asar.txt)"
           echo "--- по каталогам верхнего уровня ---"
-          sed 's|^[\\/]||' /tmp/asar.txt | cut -d/ -f1 | cut -d'\\' -f1 | sort | uniq -c | sort -rn | head -15
+          tr '\\\\' '/' < /tmp/asar.txt | sed 's|^/||' | cut -d/ -f1 | sort | uniq -c | sort -rn | head -15
           echo "--- крупнейшие пакеты в node_modules ---"
-          grep -i "node_modules" /tmp/asar.txt | sed -E 's|.*node_modules[\\/]([^\\/]+).*|\1|' | sort | uniq -c | sort -rn | head -15
+          tr '\\\\' '/' < /tmp/asar.txt | grep -i node_modules | sed -E 's|.*node_modules/([^/]+).*|\1|' | sort | uniq -c | sort -rn | head -15
 
       - name: Выложить установщик
         if: always()
