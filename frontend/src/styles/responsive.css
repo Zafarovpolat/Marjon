@@ -48,32 +48,29 @@
 
   }
 
-
 }
 
 @layer marjon-important {
-
 
   /* ============================================================
      RESPONSIVE: единый механизм мобильного сайдбара (≤768)
      Перебивает конфликт transform vs left из dashboard.css.
      ============================================================ */
   @media (max-width: 768px) {
-    .dashboard-sidebar,
-    .marjon-owner-dashboard .sidebar {
     
-        left: 0;
+.marjon-owner-dashboard .sidebar {
+  left: 0;
+}
 
-    
-    
-    }
     .dashboard-sidebar.is-open,
     .marjon-owner-dashboard .sidebar.is-open {
       transform: translateX(0);
     }
-    .marjon-owner-dashboard .main-content,
-    .dashboard-content { margin-left: 0; }
-  }
+    
+.marjon-owner-dashboard .main-content {
+  margin-left: 0;
+}
 
+  }
 
 }

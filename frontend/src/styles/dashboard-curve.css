@@ -115,17 +115,6 @@
    * MARJON — стык сайдбар / контент (без наложения на меню)
    */
 
-  .dashboard-sidebar {
-
-  
-
-  
-
-  
-
-    background: linear-gradient(180deg, var(--neutral-800) 0%, var(--neutral-900) 55%, var(--neutral-950) 100%);
-  }
-
   .sidebar-link.is-active {
     background: linear-gradient(90deg, var(--color-brand) 0%, var(--color-brand-hover) 100%);
     border-color: transparent;
@@ -137,9 +126,8 @@
   }
 
   .sidebar-user {
-    background: rgba(255, 255, 255, 0.07);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: none;
+
+    
     backdrop-filter: none;
   }
 
@@ -151,12 +139,8 @@
 
   
 
-  
-
     border: none;
 
-  
   }
-
 
 }

@@ -2855,7 +2855,6 @@
     margin-left: var(--sidebar-width);
     min-height: 100vh;
 
-  
     background: var(--main-bg);
   }
 
@@ -4627,8 +4626,6 @@
   /* Refined employee submenu: close on mouse leave, cleaner nested style */
   .sidebar-nav-item.has-submenu:not(:hover):not(:focus-within) .sidebar-submenu {
 
-  
-
     pointer-events: none;
   }
 
@@ -4644,8 +4641,6 @@
   .sidebar-nav-item.has-submenu:hover .sidebar-submenu,
   .sidebar-nav-item.has-submenu:focus-within .sidebar-submenu {
 
-  
-  
     pointer-events: auto;
   }
 
@@ -4695,8 +4690,6 @@
   .sidebar-nav-item.has-submenu.is-open:hover .sidebar-submenu,
   .sidebar-nav-item.has-submenu.is-open:focus-within .sidebar-submenu {
     max-height: 320px;
-
-  
 
   }
 
@@ -4978,8 +4971,6 @@
   .dashboard-sidebar::before {
     content: "";
 
-  
-
     background: transparent;
   }
 
@@ -5061,8 +5052,6 @@
   .sidebar-user,
   .marjon-owner-dashboard .sidebar-user {
 
-  
-  
     background: rgba(255,255,255,0.11);
 
   }
@@ -5073,30 +5062,15 @@
 
   
 
-  
-
-  
-
-  
-
-  
     background: var(--mj-shell-mid);
   }
 
   .marjon-owner-dashboard .sidebar::before {
 
-  
-
     background: transparent;
   }
 
   .marjon-owner-dashboard .top-bar {
-
-  
-
-  
-
-  
 
   
   
@@ -5123,7 +5097,6 @@
   .marjon-owner-dashboard .balance-btn,
   .marjon-owner-dashboard .btn-primary {
 
-  
     background: var(--mj-cyan);
   
   }
@@ -5139,8 +5112,6 @@
   .premium-kpi,
   .card {
 
-  
-  
     background: var(--neutral-50);
 
   }
@@ -5168,8 +5139,6 @@
   .marjon-owner-dashboard .kpi-icon,
   .premium-kpi__icon {
 
-  
-  
     place-items: center;
 
   }
@@ -5199,8 +5168,6 @@
   .premium-chart,
   .top-dishes-card {
 
-  
-
     background: var(--neutral-50);
 
   }
@@ -5210,17 +5177,12 @@
   .premium-chart::before,
   .top-dishes-card::before {
 
-  
-
-  
-
     background: var(--mj-cyan);
   }
 
   .marjon-owner-dashboard .chart-insight,
   .revenue-insight {
 
-  
     background: var(--neutral-50);
   
   }
@@ -5237,9 +5199,6 @@
   .top-dish {
 
   
-
-  
-  
     background: var(--neutral-50);
 
   }
@@ -5247,7 +5206,6 @@
   .marjon-owner-dashboard .dish-rank,
   .top-dish__rank {
 
-  
     place-items: center;
 
     background: var(--neutral-950);
@@ -5284,7 +5242,6 @@
   @media (max-width: 1280px) {
     :root { --mj-sidebar-w: 280px; }
 
-  
   }
 
   @media (max-width: 1024px) {
@@ -5302,10 +5259,7 @@
       transform: translateX(0);
     }
 
-  
-
   }
-
 
 }
 
@@ -5330,14 +5284,10 @@
 
   /* Unified square role layout */
 
-  .dashboard-sidebar,
-  .marjon-owner-dashboard .sidebar {
-
-  
-    border-radius: 0;
-
-    box-shadow: none;
-  }
+.marjon-owner-dashboard .sidebar {
+  border-radius: 0;
+  box-shadow: none;
+}
 
   .dashboard-sidebar::before,
   .dashboard-sidebar::after,
@@ -5497,16 +5447,14 @@
   .sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link--button.is-active {
     appearance: none;
     -webkit-appearance: none;
-    color: rgba(255, 255, 255, 0.76);
-    background: transparent;
-    box-shadow: none;
-  }
 
-  .sidebar-link--button span,
-  .sidebar-link--button .sidebar-icon,
-  .sidebar-link--button .sidebar-link__chevron {
-    color: inherit;
+    
   }
+.sidebar-nav-item.has-submenu:not(.is-open)>.sidebar-link--button,.sidebar-nav-item.has-submenu:not(.is-open)>.sidebar-link--button.is-active {
+  color: rgba(255, 255, 255, 0.76);
+  background: transparent;
+  box-shadow: none;
+}
 
   .sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link--button:hover,
   .sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link--button:focus-visible {
@@ -5538,14 +5486,6 @@
      конфликтующие правила без изменения JSX/логики.
      ====================================================================== */
 
-  html,
-  body,
-  body.dashboard-body {
-
-    background: var(--mj-page-bg);
-
-  }
-
   body.dashboard-body::before {
     display: none;
   }
@@ -5555,13 +5495,8 @@
   .dashboard-sidebar {
 
   
-
-  
-  
     color: #fff;
 
-  
-  
   }
 
   .dashboard-sidebar::before {
@@ -5576,38 +5511,42 @@
 
   .dashboard-topbar {
 
-  
-
-  
-
-  
     color: #fff;
-
-  
 
   }
 
   /* ===================== Shared sidebar elements ===================== */
   .sidebar-brand,
   .marjon-owner-dashboard .sidebar-logo {
-    position: relative;
+    
     z-index: 2;
-    padding: 8px 4px 24px;
-    border-bottom: 1px solid rgba(255,255,255,0.085);
+
   }
+.marjon-owner-dashboard .sidebar-logo {
+  position: relative;
+  padding: 8px 4px 24px;
+  border-bottom: 1px solid rgba(255,255,255,0.085);
+}
 
   .sidebar-link,
   .sidebar-link--button,
   .marjon-owner-dashboard .nav-item {
     position: relative;
-    min-height: 52px;
-    border-radius: 16px;
-    color: rgba(255,255,255,0.75);
-    background: transparent;
-    border: 1px solid transparent;
-    box-shadow: none;
-    transition: background var(--mj-ease-final), color var(--mj-ease-final), border-color var(--mj-ease-final), box-shadow var(--mj-ease-final), transform var(--mj-ease-final);
+
+    
+
+    
+    
   }
+.marjon-owner-dashboard .nav-item {
+  min-height: 52px;
+  border-radius: 16px;
+  color: rgba(255,255,255,0.75);
+  background: transparent;
+  border: 1px solid transparent;
+  box-shadow: none;
+  transition: background var(--mj-ease-final), color var(--mj-ease-final), border-color var(--mj-ease-final), box-shadow var(--mj-ease-final), transform var(--mj-ease-final);
+}
 
   .sidebar-link:hover,
   .sidebar-link--button:hover,
@@ -5636,26 +5575,19 @@
     display: none;
   }
 
-  .sidebar-icon,
-  .sidebar-link span,
-  .sidebar-link__chevron,
-  .sidebar-link--button span,
-  .sidebar-link--button .sidebar-icon,
-  .sidebar-link--button .sidebar-link__chevron,
-  .marjon-owner-dashboard .nav-item i {
-    color: currentColor;
-  }
+.sidebar-link span,.sidebar-link--button span,.sidebar-link--button .sidebar-icon,.sidebar-link--button .sidebar-link__chevron,.marjon-owner-dashboard .nav-item i {
+  color: currentColor;
+}
 
-  .sidebar-user,
-  .marjon-owner-dashboard .sidebar-user {
-    position: relative;
-    z-index: 2;
-    min-height: 78px;
-    border-radius: 20px;
   
-    border: 1px solid rgba(255,255,255,0.12);
-    box-shadow: inset 0 1px 0 rgba(255,255,255, 0.053);
-  }
+.marjon-owner-dashboard .sidebar-user {
+  position: relative;
+  z-index: 2;
+  min-height: 78px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: inset 0 1px 0 rgba(255,255,255, 0.053);
+}
 
   /* ===================== Standalone /dashboard owner layout ===================== */
   .marjon-owner-dashboard {
@@ -5867,24 +5799,37 @@
   /* ===================== Owner cards and grids ===================== */
   .marjon-owner-dashboard .kpi-grid,
   .kpi-grid--premium {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: clamp(18px, 1.45vw, 24px);
-    margin-bottom: 26px;
+
+    
+    
     padding: 0;
   }
+.marjon-owner-dashboard .kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(18px, 1.45vw, 24px);
+  margin-bottom: 26px;
+}
 
   .marjon-owner-dashboard .kpi-card,
   .premium-kpi,
   .card {
     position: relative;
-    overflow: hidden;
-    min-width: 0;
-    border-radius: var(--mj-radius-xl);
-  
-    border: 1px solid var(--mj-card-border);
-    box-shadow: var(--mj-card-shadow);
+
+    
+
+    
   }
+.marjon-owner-dashboard .kpi-card,.card {
+  overflow: hidden;
+  min-width: 0;
+}
+
+.marjon-owner-dashboard .kpi-card {
+  border-radius: var(--mj-radius-xl);
+  border: 1px solid var(--mj-card-border);
+  box-shadow: var(--mj-card-shadow);
+}
 
   .marjon-owner-dashboard .kpi-card {
     min-height: 190px;
@@ -5913,73 +5858,94 @@
 
   .marjon-owner-dashboard .kpi-icon,
   .premium-kpi__icon {
-    width: 54px;
-    height: 54px;
-    border-radius: 18px;
-    display: grid;
-  
-    color: #fff;
-    box-shadow: 0 10px 19px rgba(16,24,40, 0.105), inset 0 1px 0 rgba(255,255,255, 0.168);
-  }
 
-  .marjon-owner-dashboard .kpi-badge,
-  .trend {
-    min-height: 30px;
-    padding: 0 12px;
-    border-radius: 999px;
-    border: 1px solid rgba(208,213,221,0.9);
-    background: rgba(248,250,252,0.94);
-    color: var(--neutral-600);
-    font-weight: 700;
+    
+    display: grid;
+
+    
   }
+.marjon-owner-dashboard .kpi-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  color: #fff;
+  box-shadow: 0 10px 19px rgba(16,24,40, 0.105), inset 0 1px 0 rgba(255,255,255, 0.168);
+}
+
+  
+.marjon-owner-dashboard .kpi-badge {
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(208,213,221,0.9);
+  background: rgba(248,250,252,0.94);
+  color: var(--neutral-600);
+  font-weight: 700;
+}
 
   .marjon-owner-dashboard .kpi-label,
   .kpi-label {
-    color: var(--neutral-500);
-    font-size: 13px;
+
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.085em;
+    
   }
+.marjon-owner-dashboard .kpi-label {
+  color: var(--neutral-500);
+  font-size: 13px;
+  letter-spacing: 0.085em;
+}
 
-  .marjon-owner-dashboard .kpi-value,
-  .kpi-value {
-    color: var(--mj-text);
-    font-size: clamp(2rem, 2.45vw, 2.75rem);
-    line-height: 1.05;
-    font-weight: 700;
-    letter-spacing: -0.055em;
-  }
+  
+.marjon-owner-dashboard .kpi-value {
+  color: var(--mj-text);
+  font-size: clamp(2rem, 2.45vw, 2.75rem);
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.055em;
+}
 
-  .marjon-owner-dashboard .kpi-desc,
-  .kpi-note {
-    color: var(--neutral-500);
-    font-size: 14px;
-    font-weight: 500;
-  }
+  
+.marjon-owner-dashboard .kpi-desc {
+  color: var(--neutral-500);
+  font-size: 14px;
+  font-weight: 500;
+}
 
   .marjon-owner-dashboard .bottom-grid,
   .owner-main-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.55fr) minmax(360px, 0.9fr);
-    gap: 24px;
+
     align-items: stretch;
-    margin-top: 0;
+    
   }
+.marjon-owner-dashboard .bottom-grid {
+  grid-template-columns: minmax(0, 1.55fr) minmax(360px, 0.9fr);
+  gap: 24px;
+  margin-top: 0;
+}
 
   .marjon-owner-dashboard .chart-card,
   .marjon-owner-dashboard .top-dishes-card,
   .premium-chart,
   .top-dishes-card {
     position: relative;
-    overflow: hidden;
+    
     min-width: 0;
-    border-radius: var(--mj-radius-xl);
-    padding: 28px;
+
   
-    border: 1px solid var(--mj-card-border);
-    box-shadow: var(--mj-card-shadow);
+
   }
+.marjon-owner-dashboard .chart-card,.marjon-owner-dashboard .top-dishes-card,.top-dishes-card {
+  overflow: hidden;
+}
+
+.marjon-owner-dashboard .chart-card,.marjon-owner-dashboard .top-dishes-card {
+  border-radius: var(--mj-radius-xl);
+  padding: 28px;
+  border: 1px solid var(--mj-card-border);
+  box-shadow: var(--mj-card-shadow);
+}
 
   .marjon-owner-dashboard .chart-card::before,
   .marjon-owner-dashboard .top-dishes-card::before,
@@ -5998,30 +5964,33 @@
 
   .marjon-owner-dashboard .section-label,
   .eyebrow {
-    color: var(--mj-cyan);
-    font-size: 12px;
+
     font-weight: 500;
-    letter-spacing: 0.14em;
+    
   }
+.marjon-owner-dashboard .section-label {
+  color: var(--mj-cyan);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+}
 
   .marjon-owner-dashboard .chart-card .section-label,
   .premium-chart .eyebrow {
     color: var(--mj-orange);
   }
 
-  .marjon-owner-dashboard .section-title,
-  .section-header h2 {
-    color: var(--mj-text);
-    font-size: clamp(19px, 1.35vw, 23px);
-    font-weight: 700;
-    letter-spacing: -0.035em;
-  }
+.marjon-owner-dashboard .section-title {
+  color: var(--mj-text);
+  font-size: clamp(19px, 1.35vw, 23px);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+}
 
-  .marjon-owner-dashboard .section-desc,
-  .section-header p {
-    color: var(--neutral-500);
-    font-weight: 500;
-  }
+  
+.marjon-owner-dashboard .section-desc {
+  color: var(--neutral-500);
+  font-weight: 500;
+}
 
   .marjon-owner-dashboard .btn-outline,
   .marjon-owner-dashboard .btn-link,
@@ -6029,10 +5998,17 @@
   .period-chip,
   .btn-ghost {
     border-color: rgba(213,220,232,0.92);
-    background: rgba(255,255,255,0.92);
-    color: var(--neutral-800);
-    box-shadow: 0 7px 17px rgba(13,39,72, 0.039);
+
+    
   }
+.marjon-owner-dashboard .btn-outline,.marjon-owner-dashboard .btn-link,.period-chip {
+  background: rgba(255,255,255,0.92);
+  box-shadow: 0 7px 17px rgba(13,39,72, 0.039);
+}
+
+.marjon-owner-dashboard .btn-outline,.marjon-owner-dashboard .btn-link,.period-switcher,.period-chip {
+  color: var(--neutral-800);
+}
 
   .marjon-owner-dashboard .btn-outline:hover,
   .marjon-owner-dashboard .btn-link:hover,
@@ -6044,11 +6020,14 @@
 
   .marjon-owner-dashboard .chart-canvas,
   .chart-wrap {
-    height: 318px;
+    
     min-width: 0;
     border-radius: 22px;
     background: transparent;
   }
+.marjon-owner-dashboard .chart-canvas {
+  height: 318px;
+}
 
   .marjon-owner-dashboard .chart-insight,
   .revenue-insight {
@@ -6075,22 +6054,24 @@
   .marjon-owner-dashboard .top-dishes-list,
   .top-dishes-list {
     display: grid;
-    gap: 14px;
+    
   }
+.marjon-owner-dashboard .top-dishes-list {
+  gap: 14px;
+}
 
-  .marjon-owner-dashboard .dish-row,
-  .top-dish {
-    display: grid;
-    grid-template-columns: 52px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 14px;
-    padding: 14px;
-    border-radius: 20px;
-    border: 1px solid rgba(228,231,236,0.95);
   
-    box-shadow: var(--mj-card-shadow-soft);
-    transition: transform var(--mj-ease-final), box-shadow var(--mj-ease-final), border-color var(--mj-ease-final);
-  }
+.marjon-owner-dashboard .dish-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(228,231,236,0.95);
+  box-shadow: var(--mj-card-shadow-soft);
+  transition: transform var(--mj-ease-final), box-shadow var(--mj-ease-final), border-color var(--mj-ease-final);
+}
 
   .marjon-owner-dashboard .dish-row:hover,
   .top-dish:hover {
@@ -6101,22 +6082,27 @@
 
   .marjon-owner-dashboard .dish-rank,
   .top-dish__rank {
-    width: 46px;
-    height: 46px;
-    display: grid;
-  
-    border-radius: 14px;
-    color: #fff;
-  
-    box-shadow: 0 8px 17px rgba(7,20,43, 0.154), inset 0 1px 0 rgba(255,255,255, 0.126);
-    font-weight: 700;
-  }
 
-  .marjon-owner-dashboard .dish-name,
-  .top-dish__line strong {
-    color: var(--mj-text);
-    font-weight: 500;
+    display: grid;
+
+    
+
+    
   }
+.marjon-owner-dashboard .dish-rank {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  color: #fff;
+  box-shadow: 0 8px 17px rgba(7,20,43, 0.154), inset 0 1px 0 rgba(255,255,255, 0.126);
+  font-weight: 700;
+}
+
+  
+.marjon-owner-dashboard .dish-name {
+  color: var(--mj-text);
+  font-weight: 500;
+}
 
   .marjon-owner-dashboard .dish-sales,
   .badge-info {
@@ -6141,22 +6127,17 @@
     box-shadow: 0 5px 11px rgba(32,201,201, 0.168);
   }
 
-  .marjon-owner-dashboard .dish-revenue,
-  .top-dish__price,
-  .top-dish__line span {
-    color: var(--mj-text);
-    font-weight: 500;
-  }
+.marjon-owner-dashboard .dish-revenue,.top-dish__line span {
+  color: var(--mj-text);
+  font-weight: 500;
+}
 
   /* ===================== Buttons and utility cards ===================== */
-  .btn-primary,
-  .lang-switch button.is-active,
-  .lang-switch button.active,
-  .period-switcher a.is-active {
-    color: #fff;
   
-    box-shadow: 0 8px 17px rgba(32,201,201, 0.168);
-  }
+.lang-switch button.is-active,.lang-switch button.active,.period-switcher a.is-active {
+  color: #fff;
+  box-shadow: 0 8px 17px rgba(32,201,201, 0.168);
+}
 
   .quick-actions__grid a,
   .restaurant-health .health-grid > div,
@@ -6179,88 +6160,86 @@
     .dashboard-topbar,
     .marjon-owner-dashboard .top-bar,
     .marjon-owner-dashboard .dashboard-body {
-      padding-left: 28px;
+      
       padding-right: 28px;
     }
+.marjon-owner-dashboard .top-bar,.marjon-owner-dashboard .dashboard-body {
+  padding-left: 28px;
+}
 
-    .marjon-owner-dashboard .bottom-grid,
-    .owner-main-grid {
-      grid-template-columns: minmax(0, 1.42fr) minmax(340px, 0.86fr);
-      gap: 20px;
-    }
+    
+.marjon-owner-dashboard .bottom-grid {
+  grid-template-columns: minmax(0, 1.42fr) minmax(340px, 0.86fr);
+  gap: 20px;
+}
+
   }
 
   @media (max-width: 1280px) {
-    .marjon-owner-dashboard .kpi-grid,
-    .kpi-grid--premium,
-    .kpi-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+    
+.marjon-owner-dashboard .kpi-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 
-    .marjon-owner-dashboard .bottom-grid,
-    .owner-main-grid,
-    .content-grid,
-    .owner-widgets {
-      grid-template-columns: 1fr;
-    }
+    
+.marjon-owner-dashboard .bottom-grid,.content-grid {
+  grid-template-columns: 1fr;
+}
+
   }
 
   @media (max-width: 1024px) {
 
-    .dashboard-shell {
-      display: flex;
-    }
+.marjon-owner-dashboard .sidebar {
+  position: fixed;
+  transition: transform 0.28s ease;
+}
 
-    .dashboard-sidebar,
-    .marjon-owner-dashboard .sidebar {
-      position: fixed;
     
-      transition: transform 0.28s ease;
-    }
+.marjon-owner-dashboard .main-content {
+  margin-left: 0;
+}
 
-    .dashboard-main,
-    .marjon-owner-dashboard .main-content {
-      margin-left: 0;
-    }
+    
+.marjon-owner-dashboard .top-bar {
+  min-height: auto;
+  align-items: flex-start;
+  flex-direction: column;
+}
 
-    .dashboard-topbar,
-    .marjon-owner-dashboard .top-bar {
-      min-height: auto;
-      align-items: flex-start;
-      flex-direction: column;
-    }
+    
+.marjon-owner-dashboard .top-bar-right {
+  width: 100%;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
 
-    .topbar-actions,
-    .marjon-owner-dashboard .top-bar-right {
-      width: 100%;
-      justify-content: flex-start;
-      flex-wrap: wrap;
-    }
   }
 
   @media (max-width: 480px) {
-    .dashboard-content,
-    .dashboard-topbar,
-    .marjon-owner-dashboard .top-bar,
-    .marjon-owner-dashboard .dashboard-body {
-      padding-left: 18px;
-      padding-right: 18px;
-    }
-    .marjon-owner-dashboard .kpi-grid,
-    .kpi-grid--premium,
-    .kpi-grid {
-      grid-template-columns: 1fr;
-    }
-    .marjon-owner-dashboard .dish-row,
-    .top-dish {
-      grid-template-columns: 44px minmax(0, 1fr);
-    }
-    .marjon-owner-dashboard .dish-revenue,
-    .top-dish__price {
-      grid-column: 2;
-      justify-self: start;
-      text-align: left;
-    }
+    
+.marjon-owner-dashboard .top-bar,.marjon-owner-dashboard .dashboard-body {
+  padding-left: 18px;
+}
+
+.dashboard-content,.marjon-owner-dashboard .top-bar,.marjon-owner-dashboard .dashboard-body {
+  padding-right: 18px;
+}
+
+.marjon-owner-dashboard .kpi-grid {
+  grid-template-columns: 1fr;
+}
+
+.marjon-owner-dashboard .dish-row {
+  grid-template-columns: 44px minmax(0, 1fr);
+}
+
+.marjon-owner-dashboard .dish-revenue {
+  grid-column: 2;
+  justify-self: start;
+  text-align: left;
+}
+
   }
 
 }
