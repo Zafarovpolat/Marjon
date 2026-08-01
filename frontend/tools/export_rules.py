@@ -53,6 +53,8 @@ def export(paths, label):
                     "key": key_of(sel),
                     "file": r.file,
                     "line": r.line,
+                    "layer": next((a.replace("@layer", "").strip()
+                                   for a in r.at_stack if a.startswith("@layer")), ""),
                     "d": [[d.prop, d.value, 1 if d.important else 0] for d in r.decls],
                 })
     os.makedirs(OUT, exist_ok=True)
