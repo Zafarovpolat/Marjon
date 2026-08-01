@@ -4,11 +4,11 @@
 
 | | значение |
 |---|---:|
-| `!important` во `frontend/src` | **11 630** |
+| `!important` во `frontend/src` | **11083** |
 | было в начале работ | 16 985 |
-| в `react-overrides.css` | 4 911 (18 402 строки) |
-| в `styles/modules/dashboard.css` | 3 579 (9 159 строк) |
-| в `admin/styles.css` | 2 641 |
+| в `react-overrides.css` | 4777 (16683 строк) |
+| в `styles/modules/dashboard.css` | 3302 (7917 строк) |
+| в `admin/styles.css` | 2563 (22125 строк) |
 
 Защита от роста уже стоит: `frontend/tools/important-budget.mjs` сверяет число
 флагов в каждом файле с базлайном `important-budget.json` и валит сборку, если
