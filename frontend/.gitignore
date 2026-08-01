@@ -4,3 +4,7 @@ dist/
 
 # CSS audit artifacts
 .cssaudit/
+
+# python bytecode
+__pycache__/
+*.pyc
