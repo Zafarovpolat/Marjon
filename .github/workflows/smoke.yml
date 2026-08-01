@@ -264,6 +264,15 @@ jobs:
           grep "Detected " /tmp/drift.txt | head -15
           echo "(известный долг, см. коммит про alembic check: шаг информационный)"
 
+      - name: Выложить список расхождений
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: schema-drift
+          path: /tmp/drift.txt
+          retention-days: 7
+          if-no-files-found: ignore
+
       - name: Демо-данные поверх миграций
         working-directory: backend
         run: |
