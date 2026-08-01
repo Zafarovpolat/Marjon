@@ -480,7 +480,7 @@ button {
 .admin-side-card,
 .admin-category-page {
   position: relative;
-  overflow: hidden;
+  overflow: hidden !important;
   border-radius: 18px;
   animation: adminFadeUp 0.42s ease both;
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
@@ -729,9 +729,9 @@ button {
 }
 
 .admin-chart svg {
-  width: 100%;
+  width: 100% !important;
   height: 300px;
-  overflow: hidden;
+  overflow: hidden !important;
 }
 
 .admin-chart__area {
@@ -1156,7 +1156,7 @@ button {
   }
 
   .admin-tooltip {
-    display: none;
+    display: none !important;
   }
 
   .admin-footer {
@@ -1557,7 +1557,7 @@ button {
 
 .admin-chart svg {
   height: 276px;
-  overflow: hidden;
+  overflow: hidden !important;
 }
 
 .admin-chart svg line {
@@ -3039,7 +3039,7 @@ body {
 .admin-shell.is-sidebar-collapsed .admin-brand div,
 .admin-shell.is-sidebar-collapsed .admin-nav button span,
 .admin-shell.is-sidebar-collapsed .admin-collapse span {
-  display: none;
+  display: none !important;
 }
 
 .admin-shell.is-sidebar-collapsed .admin-nav button {
@@ -3830,9 +3830,9 @@ body:has(.admin-shell) {
 }
 
 .admin-sidebar {
-  background: var(--admin-shell-bar-bg);
-  background-image: none;
-  border-right: 0;
+  background: var(--admin-shell-bar-bg) !important;
+  background-image: none !important;
+  border-right: 0 !important;
   box-shadow: none;
 }
 
@@ -3843,7 +3843,7 @@ body:has(.admin-shell) {
 }
 
 .admin-main {
-  background: var(--admin-shell-page-bg);
+  background: var(--admin-shell-page-bg) !important;
 }
 
 .admin-main::before {
@@ -3856,11 +3856,11 @@ body:has(.admin-shell) {
   position: sticky;
   top: 0;
   z-index: 50;
-  margin: 0 0 10px;
-  padding: 14px 10px;
-  background: var(--admin-shell-bar-bg);
-  background-image: none;
-  border-bottom: 0;
+  margin: 0 0 10px !important;
+  padding: 14px 10px !important;
+  background: var(--admin-shell-bar-bg) !important;
+  background-image: none !important;
+  border-bottom: 0 !important;
   box-shadow: none;
 }
 
@@ -3896,9 +3896,9 @@ body:has(.admin-shell) {
 
 .admin-nav button.is-active {
   background: #167a5f;
-  background-image: linear-gradient(135deg, #1a916f 0%, #157457 100%);
+  background-image: linear-gradient(135deg, #1a916f 0%, #157457 100%) !important;
   border-color: rgba(26, 145, 111, 0.35);
-  box-shadow: none;
+  box-shadow: none !important;
 }
 
 .admin-nav button.is-active::before {
@@ -3924,7 +3924,7 @@ body,
 .admin-main,
 .admin-sidebar,
 .admin-nav {
-  scrollbar-width: none;
+  scrollbar-width: none !important;
   -ms-overflow-style: none;
 }
 
@@ -4080,7 +4080,7 @@ body::-webkit-scrollbar,
 
 /* Collapsed sidebar: hide submenus + chevrons entirely */
 .admin-shell.is-sidebar-collapsed .admin-nav-sub {
-  display: none;
+  display: none !important;
 }
 
 /* ════════ Sidebar — reference layout in admin colors ════════ */
@@ -4110,9 +4110,9 @@ body::-webkit-scrollbar,
 .admin-nav-group__toggle.is-active {
   color: #ffffff;
   background: #167a5f;
-  background-image: linear-gradient(135deg, #1a916f 0%, #157457 100%);
+  background-image: linear-gradient(135deg, #1a916f 0%, #157457 100%) !important;
   border-color: rgba(26, 145, 111, 0.35);
-  box-shadow: none;
+  box-shadow: none !important;
 }
 .admin-nav > button.is-active i,
 .admin-nav-group__toggle.is-active i {
@@ -4305,7 +4305,7 @@ body::-webkit-scrollbar,
 }
 .admin-shell.is-sidebar-collapsed .admin-profile-card__info,
 .admin-shell.is-sidebar-collapsed .admin-profile-card__chevron {
-  display: none;
+  display: none !important;
 }
 
 /* ════════ Light central content (contrast with dark sidebar + header) ════════ */
@@ -11012,23 +11012,23 @@ body:has(.admin-shell),
 }
 
 .admin-content .admin-dashboard-grid--chart-summary {
-  grid-template-columns: minmax(0, calc(100% - 346px)) minmax(300px, 336px);
+  grid-template-columns: minmax(0, calc(100% - 346px)) minmax(300px, 336px) !important;
   align-items: stretch;
   gap: 16px;
-  overflow: visible;
+  overflow: visible !important;
 }
 
 .admin-content .admin-dashboard-grid--chart-summary .admin-center {
   min-width: 0;
-  max-width: 100%;
-  overflow: visible;
+  max-width: 100% !important;
+  overflow: visible !important;
 }
 
 .admin-content .admin-chart-side-cards {
-  position: relative;
-  z-index: 120;
+  position: relative !important;
+  z-index: 120 !important;
   min-width: 0;
-  max-width: 100%;
+  max-width: 100% !important;
   min-height: 474px;
   display: grid;
   grid-template-rows: repeat(6, minmax(0, 1fr));
@@ -11039,7 +11039,7 @@ body:has(.admin-shell),
   --admin-chart-side-soft: #f2fbf7;
   --admin-chart-side-border: rgba(26, 145, 111, 0.15);
   --admin-chart-side-glow: rgba(26, 145, 111, 0.075);
-  position: relative;
+  position: relative !important;
   min-height: 72px;
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) 16px;
@@ -11050,7 +11050,7 @@ body:has(.admin-shell),
   border-radius: 14px;
   background: #ffffff;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
-  overflow: hidden;
+  overflow: hidden !important;
 }
 
 .admin-content .admin-chart-side-card::before {
@@ -11067,7 +11067,7 @@ body:has(.admin-shell),
 }
 
 .admin-content button.admin-chart-side-card {
-  width: 100%;
+  width: 100% !important;
   color: inherit;
   font: inherit;
   text-align: left;
@@ -11117,7 +11117,7 @@ body:has(.admin-shell),
   min-width: 0;
   display: flex;
   align-items: center;
-  overflow: hidden;
+  overflow: hidden !important;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -11140,7 +11140,7 @@ body:has(.admin-shell),
 
 .admin-content .admin-chart-side-card__value > span {
   min-width: 0;
-  overflow: hidden;
+  overflow: hidden !important;
   text-overflow: ellipsis;
 }
 
@@ -11219,13 +11219,13 @@ body:has(.admin-shell),
 
 /* Platform chart aligned with the Marjon Cafe dashboard reference. */
 .admin-content .admin-chart-card {
-  position: relative;
-  z-index: 1;
+  position: relative !important;
+  z-index: 1 !important;
   box-sizing: border-box;
   width: 100%;
-  max-width: 100%;
+  max-width: 100% !important;
   min-height: 474px;
-  overflow: visible;
+  overflow: visible !important;
   padding: 20px 16px 18px;
   border-radius: 18px;
   background: #ffffff;
@@ -11314,8 +11314,8 @@ body:has(.admin-shell),
 }
 
 .admin-content .admin-chart-controls {
-  position: relative;
-  z-index: 120;
+  position: relative !important;
+  z-index: 120 !important;
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
@@ -11573,7 +11573,7 @@ body:has(.admin-shell),
 }
 
 .admin-content .admin-chart {
-  position: relative;
+  position: relative !important;
   min-height: 346px;
   height: 346px;
   display: block;
@@ -11582,20 +11582,20 @@ body:has(.admin-shell),
 
 .admin-content .admin-chart-card .admin-chart {
   width: 100%;
-  max-width: 100%;
-  overflow: hidden;
+  max-width: 100% !important;
+  overflow: hidden !important;
 }
 
 .admin-content .admin-chart canvas {
   display: block;
   width: 100%;
-  max-width: 100%;
+  max-width: 100% !important;
   height: 334px;
 }
 
 .admin-content .admin-chart-card .admin-chart canvas {
   width: 100%;
-  max-width: 100%;
+  max-width: 100% !important;
 }
 
 .admin-content .admin-tooltip {
@@ -11684,7 +11684,7 @@ body:has(.admin-shell),
   }
 
   .admin-content .admin-chart-controls {
-    width: 100%;
+    width: 100% !important;
     justify-content: flex-start;
   }
 
@@ -11726,7 +11726,7 @@ body:has(.admin-shell),
   }
 
   .admin-content .admin-tooltip {
-    display: none;
+    display: none !important;
   }
 }
 
@@ -11767,21 +11767,21 @@ body:has(.admin-shell),
     min-height: 0;
     display: flex;
     flex-direction: column;
-    padding: 0;
+    padding: 0 !important;
     border-top-left-radius: 0;
     border-bottom-left-radius: 0;
     overflow: hidden;
     background: var(--admin-shell-bar-bg) !important;
-    background-image: none;
+    background-image: none !important;
     box-shadow: -7px 0 20px rgba(15, 23, 42, 0.04);
   }
 
   .admin-header {
     flex: 0 0 auto;
-    height: var(--admin-owner-header-h);
+    height: var(--admin-owner-header-h) !important;
     min-height: var(--admin-owner-header-h);
-    margin: 0 0 10px;
-    padding: 14px 10px;
+    margin: 0 0 10px !important;
+    padding: 14px 10px !important;
     border-top-left-radius: 0;
   }
 
@@ -11929,10 +11929,10 @@ body:has(.admin-shell),
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 0;
+  padding: 0 !important;
   overflow: hidden;
   background: var(--admin-shell-bar-bg) !important;
-  background-image: none;
+  background-image: none !important;
 }
 
 .admin-main > .admin-header,
@@ -11945,7 +11945,7 @@ body:has(.admin-shell),
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  scrollbar-width: none;
+  scrollbar-width: none !important;
   -ms-overflow-style: none;
 }
 
@@ -14651,7 +14651,7 @@ body:has(.admin-shell),
   border-radius: 10px;
   background: #ffffff;
   box-shadow: none;
-  overflow: hidden;
+  overflow: hidden !important;
 }
 
 .admin-history-page .admin-income-head {
@@ -16580,7 +16580,7 @@ body:has(.admin-shell),
   .admin-shell .admin-sidebar .brand-mark--button,
   .admin-shell .admin-sidebar.is-collapsed .brand-mark,
   .admin-shell .admin-sidebar.is-collapsed .brand-mark--button {
-    width: var(--admin-sidebar-logo-box);
+    width: var(--admin-sidebar-logo-box) !important;
     min-width: var(--admin-sidebar-logo-box);
     max-width: var(--admin-sidebar-logo-box);
     height: var(--admin-sidebar-logo-box);
@@ -16598,7 +16598,7 @@ body:has(.admin-shell),
     border-radius: 17px;
     color: inherit;
     background: transparent;
-    background-image: none;
+    background-image: none !important;
     box-shadow: none;
     cursor: pointer;
     transform: none;
@@ -16619,7 +16619,7 @@ body:has(.admin-shell),
     object-fit: contain;
     object-position: center;
     margin: 0;
-    padding: 0;
+    padding: 0 !important;
     border: 0;
     border-radius: 0;
     transform: none;
@@ -16730,7 +16730,7 @@ body:has(.admin-shell),
   .admin-shell .admin-sidebar .brand-mark--button,
   .admin-shell .admin-sidebar.is-collapsed .brand-mark,
   .admin-shell .admin-sidebar.is-collapsed .brand-mark--button {
-    width: var(--admin-sidebar-logo-box);
+    width: var(--admin-sidebar-logo-box) !important;
     min-width: var(--admin-sidebar-logo-box);
     max-width: var(--admin-sidebar-logo-box);
     height: var(--admin-sidebar-logo-box);
@@ -16918,14 +16918,14 @@ body:has(.admin-shell),
 .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-brand.sidebar-brand .brand-mark--button:active {
   background: transparent;
   background-color: transparent;
-  padding: 0;
+  padding: 0 !important;
 }
 
 .admin-shell .admin-sidebar .admin-brand.sidebar-brand .brand-mark .marjon-logo,
 .admin-shell .admin-sidebar .admin-brand.sidebar-brand .brand-mark--button .marjon-logo,
 .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-brand.sidebar-brand .brand-mark .marjon-logo,
 .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-brand.sidebar-brand .brand-mark--button .marjon-logo {
-  background-image: none;
+  background-image: none !important;
   border-radius: 14px;
   clip-path: inset(1px round 14px);
   overflow: hidden;
@@ -16985,7 +16985,7 @@ body:has(.admin-shell),
   width: 44px;
   align-items: center;
   gap: 0;
-  margin-left: 10px;
+  margin-left: 10px !important;
 }
 
 .admin-back-button {
@@ -17092,7 +17092,7 @@ body:has(.admin-shell),
   box-shadow:
     0 7px 18px rgba(15, 23, 42, 0.07),
     0 1px 0 rgba(255, 255, 255, 0.672) inset;
-  overflow: hidden;
+  overflow: hidden !important;
   transform: none !important;
 }
 
@@ -17165,7 +17165,7 @@ body:has(.admin-shell),
   min-width: 0;
   display: block;
   margin: 0 0 8px;
-  overflow: hidden;
+  overflow: hidden !important;
   color: #111827 !important;
   font-size: 13px;
   font-weight: 700;
@@ -17182,7 +17182,7 @@ body:has(.admin-shell),
   gap: 6px;
   align-self: center;
   margin: 0 0 10px;
-  overflow: hidden;
+  overflow: hidden !important;
   color: #000000;
   font-size: clamp(24px, 1.95vw, 30px);
   font-weight: 700;
@@ -17195,7 +17195,7 @@ body:has(.admin-shell),
 
 .admin-content .admin-kpi > strong span {
   min-width: 0;
-  overflow: hidden;
+  overflow: hidden !important;
   color: #000000;
   text-overflow: ellipsis;
 }
@@ -17267,7 +17267,7 @@ body:has(.admin-shell),
   margin: 0;
   padding-top: 10px;
   border-top: 1px solid rgba(226, 232, 240, 0.92);
-  overflow: hidden;
+  overflow: hidden !important;
   color: #52647d !important;
   font-size: 12px;
   font-weight: 600;
@@ -17306,7 +17306,7 @@ body:has(.admin-shell),
 
 .admin-content .admin-kpi__delta-text {
   min-width: 0;
-  overflow: hidden;
+  overflow: hidden !important;
   text-overflow: ellipsis;
 }
 
@@ -17933,7 +17933,7 @@ body:has(.admin-shell),
 .admin-content .admin-revenue-switcher,
 .admin-content .admin-revenue-range.report-actions,
 .admin-content .admin-revenue-range .report-period-picker {
-  overflow: visible;
+  overflow: visible !important;
 }
 
 .admin-content .admin-chart-card,
@@ -17944,7 +17944,7 @@ body:has(.admin-shell),
 }
 
 .admin-content .admin-revenue-switcher {
-  position: relative;
+  position: relative !important;
   z-index: 800;
   display: inline-flex;
   align-items: center;
@@ -17959,7 +17959,7 @@ body:has(.admin-shell),
   --admin-dashboard-green-dark: #178061;
   --admin-dashboard-green-soft: rgba(26, 145, 111, 0.1);
   --admin-dashboard-green-border: rgba(26, 145, 111, 0.36);
-  position: relative;
+  position: relative !important;
   z-index: 900;
   display: inline-flex;
   align-items: center;
@@ -17973,7 +17973,7 @@ body:has(.admin-shell),
 }
 
 .admin-content .admin-revenue-range .report-period-picker {
-  position: relative;
+  position: relative !important;
   display: inline-flex;
   width: auto;
   min-width: 118px;
@@ -18019,7 +18019,7 @@ body:has(.admin-shell),
 .admin-content .admin-revenue-range .report-period-button.period-dropdown__button span,
 .admin-content .admin-revenue-range .report-period-button.period-dropdown__button strong {
   min-width: 0;
-  overflow: hidden;
+  overflow: hidden !important;
   color: #000000;
   font-size: 15px;
   font-weight: 600;
@@ -18358,7 +18358,7 @@ body:has(.admin-shell),
 
 @media (max-width: 768px) {
   .admin-content .admin-revenue-switcher {
-    width: 100%;
+    width: 100% !important;
     justify-content: flex-start;
   }
 
@@ -22160,21 +22160,21 @@ body:has(.admin-shell),
   }
 
   .admin-shell .admin-main {
-    padding: 0;
+    padding: 0 !important;
     background: var(--admin-shell-bar-bg) !important;
-    background-image: none;
+    background-image: none !important;
   }
 
   .admin-shell .admin-main > .admin-content {
-    background: #eef6ff;
-    background-image: none;
+    background: #eef6ff !important;
+    background-image: none !important;
   }
 
   .admin-shell .admin-header {
-    height: var(--admin-owner-header-h);
+    height: var(--admin-owner-header-h) !important;
     min-height: var(--admin-owner-header-h);
-    margin: 0 0 10px;
-    padding: 10px 10px 12px;
+    margin: 0 0 10px !important;
+    padding: 10px 10px 12px !important;
   }
 
   .admin-shell .admin-sidebar .admin-brand.sidebar-brand,
@@ -22396,7 +22396,7 @@ body:has(.admin-shell),
     left: auto;
     right: auto;
     bottom: auto;
-    width: var(--admin-sidebar-logo-box);
+    width: var(--admin-sidebar-logo-box) !important;
     min-width: var(--admin-sidebar-logo-box);
     max-width: var(--admin-sidebar-logo-box);
     height: var(--admin-sidebar-logo-box);
@@ -22442,7 +22442,7 @@ body:has(.admin-shell),
     min-height: 100%;
     max-height: 100%;
     margin: 0;
-    padding: 0;
+    padding: 0 !important;
     object-fit: contain;
     object-position: center;
     transform: none;
