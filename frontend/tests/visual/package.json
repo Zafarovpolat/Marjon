@@ -1,0 +1,12 @@
+{
+  "name": "marjon-visual-regression",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Сравнение скриншотов до/после — страховка при чистке CSS. Зависимости держим отдельно от приложения, чтобы не трогать его дерево пакетов.",
+  "dependencies": {
+    "playwright": "1.49.1",
+    "pixelmatch": "5.3.0",
+    "pngjs": "7.0.0"
+  }
+}

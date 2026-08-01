@@ -1,0 +1,128 @@
+name: visual
+
+# Визуальная регрессия: собираем фронт ДО и ПОСЛЕ изменений в одном прогоне и
+# сравниваем скриншоты попиксельно.
+#
+# Почему так, а не «эталоны в репозитории»: бинарные эталоны пришлось бы
+# коммитить и постоянно перегенерировать, они протухают и раздувают историю.
+# Сборка обеих версий подряд отвечает ровно на нужный вопрос — «изменилась ли
+# картинка от ЭТОЙ правки» — и не требует хранить ни одного png.
+#
+# Это страховка для чистки !important: там любое изменение вёрстки считается
+# регрессией, даже если код формально корректен.
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: "С чем сравнивать (ветка/SHA)"
+        required: false
+        default: "front"
+
+jobs:
+  visual:
+    name: Скриншоты до/после
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      DATABASE_URL: "sqlite+aiosqlite:///./ci.db"
+      SECRET_KEY: "ci-only-secret-key-at-least-32-characters"
+      DEBUG: "true"
+      ALLOWED_ORIGINS: "*"
+      API_URL: "http://127.0.0.1:8000/api/v1"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # нужен базовый коммит для второй сборки
+
+      - name: Определить базовый коммит
+        id: base
+        run: |
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE=$(git rev-parse "origin/${{ github.event.inputs.base_ref || 'front' }}")
+          fi
+          echo "sha=$BASE" >> "$GITHUB_OUTPUT"
+          echo "База: $BASE ($(git log -1 --format=%s "$BASE" | head -c 80))"
+
+      # ── Бэкенд: экраны без данных сравнивать бессмысленно ──────────────────
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Поднять бэкенд с демо-данными
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python create_tables.py
+          python migrate_add_permissions.py
+          python seed.py
+          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/backend.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8000/docs > /dev/null && { echo "бэкенд поднялся"; exit 0; }
+            sleep 1
+          done
+          echo "бэкенд не поднялся"; tail -40 /tmp/backend.log; exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Поставить инструменты сравнения
+        working-directory: frontend/tests/visual
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      # ── Снимок ПОСЛЕ (текущая ветка) ──────────────────────────────────────
+      - name: Сборка и снимки — HEAD
+        working-directory: frontend
+        env:
+          VITE_API_URL: ${{ env.API_URL }}
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          node tests/visual/serve.mjs dist 4173 > /tmp/serve-head.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4173/ >/dev/null && break; sleep 1; done
+          cd tests/visual
+          node capture.mjs --base-url http://127.0.0.1:4173 --api "$VITE_API_URL" --out "$GITHUB_WORKSPACE/shots/head"
+          pkill -f "serve.mjs dist 4173" || true
+
+      # ── Снимок ДО (базовый коммит) ────────────────────────────────────────
+      - name: Сборка и снимки — BASE
+        env:
+          VITE_API_URL: ${{ env.API_URL }}
+        run: |
+          git worktree add /tmp/base "${{ steps.base.outputs.sha }}"
+          cd /tmp/base/frontend
+          npm install --no-audit --no-fund
+          npm run build
+          node "$GITHUB_WORKSPACE/frontend/tests/visual/serve.mjs" dist 4174 > /tmp/serve-base.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4174/ >/dev/null && break; sleep 1; done
+          cd "$GITHUB_WORKSPACE/frontend/tests/visual"
+          node capture.mjs --base-url http://127.0.0.1:4174 --api "$VITE_API_URL" --out "$GITHUB_WORKSPACE/shots/base"
+          pkill -f "serve.mjs dist 4174" || true
+
+      - name: Сравнить
+        id: cmp
+        working-directory: frontend/tests/visual
+        run: |
+          node compare.mjs \
+            --base "$GITHUB_WORKSPACE/shots/base" \
+            --head "$GITHUB_WORKSPACE/shots/head" \
+            --diff "$GITHUB_WORKSPACE/shots/diff"
+
+      - name: Выложить скриншоты
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-shots
+          path: shots
+          retention-days: 14
+          if-no-files-found: warn
