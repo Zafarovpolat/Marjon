@@ -547,30 +547,40 @@ function Set-FrontendLanEnv {
 }
 
 # ── Клиенты ───────────────────────────────────────────────────────────────────
-function Get-NpmBootstrap {
-    # $Bin — исполняемый файл, которым реально запускается дев-сервер
-    # (vite / electron-vite). Проверяем именно ЕГО, а не наличие каталога
-    # node_modules: каталог может существовать после прерванной или частичной
-    # установки, `npm ls` при этом молчит, и дальше окно выдавало
-    # «"vite" не является внутренней или внешней командой» — то есть сервис
-    # молча не поднимался, а лаунчер рапортовал «окно запущено».
+function Install-NodeDeps {
+    param([string]$Dir, [string]$Bin, [string]$Label)
+    # Проверяем и ставим зависимости ЗДЕСЬ, в родительском процессе, а в окно
+    # уходит только `npm run dev`.
     #
-    # Одной строкой: команда уходит в Start-Process единым аргументом.
-    param([string]$Bin)
-    # ${Bin} в фигурных скобках обязательно: без них PowerShell разберёт
-    # "$Bin.cmd" как обращение к свойству .cmd и подставит пустую строку.
-    $binPath = "node_modules\.bin\${Bin}.cmd"
-    return '$bin = "' + $binPath + '"; ' +
-           '$need = -not (Test-Path $bin); ' +
-           'if ($need) { Write-Host "Ставлю зависимости (npm install)..." -ForegroundColor Yellow; npm install }; ' +
-           # Если установка не помогла — честно останавливаемся с понятным текстом,
-           # а не уходим в невнятную ошибку интерпретатора команд.
-           'if (-not (Test-Path $bin)) { ' +
-             'Write-Host ""; ' +
-             'Write-Host "[ОШИБКА] Зависимости не установились: нет $bin" -ForegroundColor Red; ' +
-             'Write-Host "Прокрутите вывод npm install выше — там причина (нет сети, прокси, права)." -ForegroundColor Yellow; ' +
-             'Write-Host "Можно попробовать вручную: npm ci  (или удалить node_modules и package-lock.json, затем npm install)" -ForegroundColor Yellow; ' +
-             'Write-Host ""; Read-Host "Enter чтобы закрыть окно" | Out-Null; exit 1 }; '
+    # Раньше проверка вклеивалась в команду дочернего окна, и это дважды
+    # выстрелило: Start-Process -ArgumentList срезает двойные кавычки, поэтому
+    # путь приезжал без них и PowerShell пытался выполнить его как команду
+    # («Не удалось загрузить модуль node_modules»). Собирать строку с
+    # вложенными кавычками для чужого процесса — заведомо хрупко.
+    #
+    # Проверяется сам исполняемый файл, а не каталог node_modules: каталог
+    # остаётся и после прерванной установки, и тогда окно выдавало
+    # «"vite" не является внутренней или внешней командой», а лаунчер при этом
+    # рапортовал «окно запущено».
+    $binPath = Join-Path $Dir ('node_modules\.bin\' + $Bin + '.cmd')
+    if (Test-Path -LiteralPath $binPath) { return $true }
+
+    Write-Warn2 "$Label`: зависимости не установлены — ставлю (npm install), это займёт пару минут"
+    Push-Location $Dir
+    # Out-Host обязателен. В PowerShell всё, что команда пишет в поток вывода,
+    # становится возвращаемым значением функции — без него сотни строк вывода
+    # npm приехали бы вместе с $true/$false, и проверка `if (-not (...))`
+    # сработала бы на массиве, а не на булеве.
+    try { & npm install 2>&1 | Out-Host } catch { } finally { Pop-Location }
+
+    if (Test-Path -LiteralPath $binPath) {
+        Write-Ok "$Label`: зависимости установлены"
+        return $true
+    }
+    Write-Err2 "$Label`: зависимости не установились — нет $binPath"
+    Write-Warn2 'Причина — в выводе npm выше (нет сети, прокси, права).'
+    Write-Warn2 'Обходной путь: удалить node_modules и package-lock.json, затем npm install'
+    return $false
 }
 
 function Start-Frontend {
@@ -580,8 +590,8 @@ function Start-Frontend {
     if (Test-Port -Port $FrontendPort) { Write-Warn2 "порт $FrontendPort занят — возможно, dev-сервер уже запущен" }
     Set-FrontendLanEnv -LanIp $LanIp
 
-    $cmd = (Get-NpmBootstrap) + 'npm run dev'
-    Start-Win -Title 'Marjon Frontend :5173' -WorkDir $FrontendDir -Command $cmd
+    if (-not (Install-NodeDeps -Dir $FrontendDir -Bin 'vite' -Label 'Frontend')) { return }
+    Start-Win -Title 'Marjon Frontend :5173' -WorkDir $FrontendDir -Command 'npm run dev'
     Write-Info "веб:    http://localhost:$FrontendPort/"
     Write-Info "админка: http://localhost:$FrontendPort/admin.html"
     Write-Info ("с других устройств: http://{0}:{1}/" -f $LanIp, $FrontendPort)
@@ -591,8 +601,9 @@ function Start-Desktop {
     Write-Head 'Desktop (Electron)'
     if (-not (Test-Cmd 'npm')) { Write-Err2 'npm не найден в PATH (нужен Node.js)'; return }
 
-    $cmd = (Get-NpmBootstrap) + 'npm run dev'
-    Start-Win -Title 'Marjon Desktop' -WorkDir $DesktopDir -Command $cmd
+    # desktop/scripts/dev.js запускает npx electron-vite — проверяем именно его.
+    if (-not (Install-NodeDeps -Dir $DesktopDir -Bin 'electron-vite' -Label 'Desktop')) { return }
+    Start-Win -Title 'Marjon Desktop' -WorkDir $DesktopDir -Command 'npm run dev'
     Write-Info 'адрес сервера в десктопе: http://127.0.0.1:8000/api/v1'
 }
 
