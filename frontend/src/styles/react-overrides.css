@@ -10695,8 +10695,7 @@ html,#root {background:var(--neutral-50,#f4f7fc) !important;}
   max-height: 140px !important;
   resize: vertical ;
 }
-.staff-form__grid--edit label:has(input[pattern="[0-9] {4}
-"]),
+.staff-form__grid--edit label:has(input[pattern="[0-9]{4}"]),
 .staff-form__grid--edit .staff-form__comment {
   display: none !important;
 }
@@ -11196,8 +11195,7 @@ html,#root {background:var(--neutral-50,#f4f7fc) !important;}
   height: 48px;
   border-radius: 12px !important;
 }
-.staff-form .staff-form__grid.staff-form__grid--edit > label:has(input[pattern="[0-9] {4}
-"]) {
+.staff-form .staff-form__grid.staff-form__grid--edit > label:has(input[pattern="[0-9]{4}"]) {
   display: none !important;
 }
 .staff-form .staff-form__grid.staff-form__grid--edit > .staff-permission-switches {
@@ -12053,8 +12051,7 @@ body:has(.admin-income-modal) .support-widget {
   width: 34px !important;
   height: 34px !important;
 }
-.staff-form .staff-form__grid.staff-form__grid--edit > label:has(input[pattern="[0-9] {4}
-"]),
+.staff-form .staff-form__grid.staff-form__grid--edit > label:has(input[pattern="[0-9]{4}"]),
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-form__comment {
   display: none !important;
 }

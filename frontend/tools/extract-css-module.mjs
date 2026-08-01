@@ -36,11 +36,53 @@ const APPLY = process.argv.includes("--apply");
 const css = fs.readFileSync(SRC, "utf8");
 
 // ── Разбор в дерево ──────────────────────────────────────────────────────────
+/**
+ * Сканер, пропускающий строки и комментарии.
+ *
+ * Наивный подсчёт скобок ломается на CSS вида content: "[0-9]{4}" — фигурные
+ * скобки внутри кавычек он принимает за границы блоков и режет файл не там.
+ * Ровно на этом первая версия инструмента развалила стили целиком: страница
+ * рендерилась вообще без CSS. Проверка тогда не помогла, потому что была
+ * написана с тем же дефектом и подтвердила сама себя.
+ */
+function skipLiteral(s, i) {
+  const c = s[i];
+  if (c === '"' || c === "'") {
+    let j = i + 1;
+    while (j < s.length) {
+      if (s[j] === "\\") { j += 2; continue; }
+      if (s[j] === c) return j + 1;
+      j++;
+    }
+    return s.length;
+  }
+  if (c === "/" && s[i + 1] === "*") {
+    const j = s.indexOf("*/", i + 2);
+    return j === -1 ? s.length : j + 2;
+  }
+  return -1;   // не литерал
+}
+
+/** Индекс символа ch на верхнем уровне (вне строк и комментариев). */
+function findTop(s, ch, from) {
+  let i = from;
+  while (i < s.length) {
+    const skip = skipLiteral(s, i);
+    if (skip !== -1) { i = skip; continue; }
+    if (s[i] === ch) return i;
+    i++;
+  }
+  return -1;
+}
+
 function matchBrace(s, open) {
-  let d = 0;
-  for (let i = open; i < s.length; i++) {
+  let d = 0, i = open;
+  while (i < s.length) {
+    const skip = skipLiteral(s, i);
+    if (skip !== -1) { i = skip; continue; }
     if (s[i] === "{") d++;
     else if (s[i] === "}") { d--; if (!d) return i; }
+    i++;
   }
   return -1;
 }
@@ -62,8 +104,8 @@ function parse(text) {
     const ws = /^\s+/.exec(text.slice(i));
     if (ws) { nodes.push({ type: "raw", text: ws[0] }); i += ws[0].length; continue; }
 
-    const brace = text.indexOf("{", i);
-    const semi = text.indexOf(";", i);
+    const brace = findTop(text, "{", i);
+    const semi = findTop(text, ";", i);
     if (brace === -1) { nodes.push({ type: "raw", text: text.slice(i) }); break; }
     // @import/@charset и подобное без блока
     if (text[i] === "@" && semi !== -1 && semi < brace) {
