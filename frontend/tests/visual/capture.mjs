@@ -57,7 +57,10 @@ const ROUTES = [
   ["settings-receipt", "/settings/receipt"],
   ["settings-printers", "/settings/printers"],
   ["users-waiter", "/users/waiter"],
-  ["store", "/store"],
+  // /store — это алиас: в App.jsx он рендерит тот же <OrdersPage/>, что и
+  // /orders, и кадр получался побайтово дублирующим. Берём вместо него экран
+  // с другой вёрсткой.
+  ["reports-tables", "/reports/tables"],
 ];
 
 /** Разделы админки: навигация внутри неё на состоянии, а не на маршрутах,
@@ -147,6 +150,21 @@ async function main() {
 
   const page = await ctx.newPage();
   page.on("pageerror", (e) => console.log(`  [js] ${String(e).slice(0, 160)}`));
+
+  // Неудачные ответы API — главная причина, по которой экран рендерит заглушку
+  // вместо данных (дашборд грузит 13 эндпоинтов через Promise.all: падает один —
+  // пустеет весь экран). Без этого лога причина не видна: скриншот молча
+  // показывает «недоступен». Каждый URL печатаем один раз.
+  const seenBad = new Set();
+  page.on("response", (r) => {
+    const s = r.status();
+    if (s < 400) return;
+    const u = r.url().replace(/^https?:\/\/[^/]+/, "");
+    const k = `${s} ${u.split("?")[0]}`;
+    if (seenBad.has(k)) return;
+    seenBad.add(k);
+    console.log(`  [api ${s}] ${u.slice(0, 120)}`);
+  });
 
   const settle = async () => {
     await page.waitForLoadState("domcontentloaded");
