@@ -34,7 +34,7 @@
     background: var(--neutral-50);
     color: var(--neutral-600);
     font-size: 12px;
-    text-transform: uppercase;
+    
     letter-spacing: .02em;
 }
 

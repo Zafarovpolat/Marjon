@@ -9,7 +9,6 @@ body {
   height: 100%;
 }
 
-
 body.dashboard-body {
   margin: 0;
   color: var(--text);
@@ -193,7 +192,7 @@ body.dashboard-body::before {
 }
 
 .sidebar-user__meta em {
-  display: block;
+  
   margin-top: 3px;
   color: rgba(255, 255, 255, 0.42);
   font-size: 11px;
@@ -1472,7 +1471,7 @@ body.dashboard-body::before {
   justify-content: center;
   padding: 0 14px;
   border-radius: 13px;
-  color: var(--muted);
+  
   text-decoration: none;
   font-size: 13px;
   font-weight: 500;
@@ -2830,17 +2829,10 @@ body,
   width: 260px;
   min-width: 260px;
   height: 100vh;
-  border-radius: 0 !important;
+  
   background: var(--neutral-950);
   border-right: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: none !important;
-}
-
-.dashboard-sidebar::before,
-.dashboard-sidebar::after,
-.marjon-owner-dashboard .sidebar::before,
-.marjon-owner-dashboard .sidebar::after {
-  border-radius: 0 !important;
+  
 }
 
 .dashboard-main {
@@ -2861,9 +2853,7 @@ body,
 .marjon-owner-dashboard .main-content {
   margin-left: var(--sidebar-width);
   min-height: 100vh;
-  padding-left: 32px !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
+
   background: var(--main-bg);
 }
 
@@ -2880,7 +2870,7 @@ body,
 .sidebar-link.is-active,
 .marjon-owner-dashboard .nav-item.active {
   background: rgba(29, 181, 181, 0.94);
-  box-shadow: 0 6px 17px rgba(29, 181, 181, 0.154) !important;
+  
 }
 
 .sidebar-user,
@@ -2896,10 +2886,6 @@ body,
     position: fixed;
   }
 
-  .marjon-owner-dashboard .main-content {
-    margin-left: 0 !important;
-    padding-left: 18px !important;
-  }
 }
 
 @media (max-width: 1280px) {
@@ -3053,22 +3039,22 @@ body,
 
 .premium-kpi--revenue .premium-kpi__icon {
   background: var(--color-brand);
-  box-shadow: 0 10px 18px rgba(29, 181, 181, 0.252);
+  
 }
 
 .premium-kpi--orders .premium-kpi__icon {
   background: var(--color-interactive);
-  box-shadow: 0 10px 18px rgba(47, 128, 237, 0.21);
+  
 }
 
 .premium-kpi--avg .premium-kpi__icon {
   background: #6d36e9;
-  box-shadow: 0 10px 18px rgba(139, 92, 246, 0.224);
+  
 }
 
 .premium-kpi--tables .premium-kpi__icon {
   background: var(--color-brand);
-  box-shadow: 0 10px 18px rgba(34, 199, 216, 0.21);
+  
 }
 
 .premium-kpi .kpi-value {
@@ -3121,9 +3107,7 @@ body,
 
 .period-switcher a {
   min-height: 42px;
-  border: 1px solid rgba(228, 231, 236, 0.9);
-  background: #fff;
-  box-shadow: 0 6px 14px rgba(13, 39, 72, 0.042);
+
 }
 
 .period-switcher a.is-active {
@@ -3195,7 +3179,6 @@ body,
     gap: 8px;
   }
 }
-
 
 /* Shift summary card */
 .shift-summary-card {
@@ -3870,11 +3853,7 @@ body,
   font-size: 13px;
 }
 
-
 /* Top dishes photo-list refinement */
-.top-dishes-card .section-header h2 {
-  letter-spacing: -0.03em;
-}
 
 .top-dishes-list {
   gap: 9px;
@@ -4158,10 +4137,9 @@ body,
 
 .top-dishes-card .section-header h2 {
   max-width: 260px;
-  color: var(--neutral-900);
-  font-size: clamp(19px, 1.55vw, 25px);
+
   line-height: 1.08;
-  letter-spacing: -0.045em;
+  
 }
 
 .top-dishes-card .section-header .btn-ghost {
@@ -4171,7 +4149,7 @@ body,
   color: var(--color-brand);
   background: rgba(29, 181, 181, 0.045);
   border: 1px solid rgba(29, 181, 181, 0.24);
-  box-shadow: 0 7px 18px rgba(29, 181, 181, 0.056);
+  
 }
 
 .top-dishes-card .section-header .btn-ghost::after {
@@ -4547,7 +4525,7 @@ body,
   margin-left: auto;
   color: rgba(191, 219, 254, 0.88);
   font-size: 14px;
-  transition: transform 0.22s ease, color 0.22s ease;
+  
 }
 
 .sidebar-nav-item.has-submenu:hover .sidebar-link__chevron,
@@ -4594,7 +4572,7 @@ body,
   text-decoration: none;
   font-size: 14px;
   font-weight: 500;
-  transition: color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+  
 }
 
 .sidebar-submenu__link::before {
@@ -4640,16 +4618,8 @@ body,
 
 /* Refined employee submenu: close on mouse leave, cleaner nested style */
 .sidebar-nav-item.has-submenu:not(:hover):not(:focus-within) .sidebar-submenu {
-  max-height: 0 !important;
-  opacity: 0 !important;
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-  transform: translateY(-6px) !important;
-  pointer-events: none;
-}
 
-.sidebar-nav-item.has-submenu:not(:hover):not(:focus-within) .sidebar-link__chevron {
-  transform: rotate(0deg) !important;
+  pointer-events: none;
 }
 
 .sidebar-submenu {
@@ -4663,18 +4633,8 @@ body,
 
 .sidebar-nav-item.has-submenu:hover .sidebar-submenu,
 .sidebar-nav-item.has-submenu:focus-within .sidebar-submenu {
-  max-height: 280px !important;
-  opacity: 1 !important;
-  padding: 8px 6px 8px 12px !important;
-  transform: translateY(0) !important;
-  pointer-events: auto;
-}
 
-.sidebar-nav-item.has-submenu.is-active:not(:hover):not(:focus-within) .sidebar-submenu {
-  max-height: 0 !important;
-  opacity: 0 !important;
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
+  pointer-events: auto;
 }
 
 .sidebar-submenu__link {
@@ -4719,99 +4679,47 @@ body,
   cursor: pointer;
 }
 
-.sidebar-nav-item.has-submenu .sidebar-submenu,
-.sidebar-nav-item.has-submenu:hover .sidebar-submenu,
-.sidebar-nav-item.has-submenu:focus-within .sidebar-submenu,
-.sidebar-nav-item.has-submenu.is-active .sidebar-submenu,
-.sidebar-nav-item.has-submenu.is-active:not(:hover):not(:focus-within) .sidebar-submenu {
-  max-height: 0 !important;
-  opacity: 0 !important;
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-  transform: translateY(-6px) !important;
-  pointer-events: none !important;
-}
-
-.sidebar-nav-item.has-submenu .sidebar-link__chevron,
-.sidebar-nav-item.has-submenu:hover .sidebar-link__chevron,
-.sidebar-nav-item.has-submenu:focus-within .sidebar-link__chevron,
-.sidebar-nav-item.has-submenu.is-active .sidebar-link__chevron {
-  transform: rotate(0deg) !important;
-}
-
 .sidebar-nav-item.has-submenu.is-open .sidebar-submenu,
 .sidebar-nav-item.has-submenu.is-open:hover .sidebar-submenu,
 .sidebar-nav-item.has-submenu.is-open:focus-within .sidebar-submenu {
   max-height: 320px;
-  opacity: 1 !important;
-  padding-top: 8px !important;
-  padding-bottom: 8px !important;
-  transform: translateY(0) !important;
-  pointer-events: auto !important;
+
 }
 
 .sidebar-nav-item.has-submenu.is-open .sidebar-link__chevron,
 .sidebar-nav-item.has-submenu.is-open:hover .sidebar-link__chevron,
 .sidebar-nav-item.has-submenu.is-open:focus-within .sidebar-link__chevron {
-  transform: rotate(180deg) !important;
+  
   color: #fff;
 }
 
 /* Fix closed submenu parent visual state */
-.sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link.is-active,
-.sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link--button.is-active {
-  color: rgba(255, 255, 255, 0.76) !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-.sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link.is-active::before,
-.sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link--button.is-active::before {
-  opacity: 0 !important;
-}
 
 .sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link:hover,
 .sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link--button:hover {
-  color: #fff !important;
-  background: rgba(255, 255, 255, 0.09) !important;
+
   transform: translateX(3px);
 }
 
 .sidebar-nav-item.has-submenu.is-open > .sidebar-link,
 .sidebar-nav-item.has-submenu.is-open > .sidebar-link--button {
-  color: #fff !important;
+  
   background: rgba(29, 181, 181, 0.94);
-  box-shadow: 0 6px 17px rgba(29, 181, 181, 0.154) !important;
+  
 }
 
 /* Reset submenu parent button native styles */
-.sidebar-link--button,
-.sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link--button,
-.sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link--button.is-active {
-  appearance: none !important;
-  -webkit-appearance: none !important;
-  color: rgba(255, 255, 255, 0.76) !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-.sidebar-link--button span,
-.sidebar-link--button .sidebar-icon,
-.sidebar-link--button .sidebar-link__chevron {
-  color: inherit !important;
-}
 
 .sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link--button:hover,
 .sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link--button:focus-visible {
-  color: #fff !important;
-  background: rgba(255, 255, 255, 0.09) !important;
+
   outline: 0;
 }
 
 .sidebar-nav-item.has-submenu.is-open > .sidebar-link--button {
-  color: #fff !important;
+  
   background: rgba(29, 181, 181, 0.94);
-  box-shadow: 0 6px 17px rgba(29, 181, 181, 0.154) !important;
+  
 }
 
 /* Subcategory section windows */
@@ -4826,12 +4734,6 @@ body,
   right: auto;
   width: 120px;
   background: var(--color-brand);
-}
-
-.section-window .section-header h2 {
-  color: var(--neutral-900);
-  font-size: clamp(23px, 2.2vw, 2rem);
-  letter-spacing: -0.045em;
 }
 
 .section-window__description {
@@ -5024,13 +4926,9 @@ body,
 body.dashboard-body {
   min-height: 100%;
   margin: 0;
-  background: var(--mj-page-bg) !important;
+  
   color: var(--mj-text);
   font-family: var(--mj-font-body);
-}
-
-body.dashboard-body::before {
-  display: none !important;
 }
 
 /* ===================== Generic dashboard shell ===================== */
@@ -5050,7 +4948,7 @@ body.dashboard-body::before {
   height: 100vh;
   padding: 22px 20px;
   overflow: hidden;
-  color: #fff !important;
+  
   border-right: 0;
   border-radius: 0;
   box-shadow: none;
@@ -5059,11 +4957,7 @@ body.dashboard-body::before {
 
 .dashboard-sidebar::before {
   content: "";
-  position: absolute !important;
-  inset: 0 !important;
-  z-index: 0 !important;
-  border-radius: 0 !important;
-  pointer-events: none !important;
+
   background: transparent;
 }
 
@@ -5099,14 +4993,13 @@ body.dashboard-body::before {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  color: #fff !important;
+  
   border: 0;
   border-radius: 0;
   box-shadow: none;
   backdrop-filter: none;
   background: var(--mj-shell-mid);
 }
-
 
 .dashboard-topbar > * {
   position: relative;
@@ -5132,201 +5025,42 @@ body.dashboard-body::before {
 }
 
 /* ===================== Shared sidebar elements ===================== */
-.sidebar-brand,
-.marjon-owner-dashboard .sidebar-logo {
-  position: relative !important;
-  z-index: 2 !important;
-  padding: 8px 4px 24px !important;
-  border-bottom: 1px solid rgba(255,255,255,0.085) !important;
-}
-
-.sidebar-link,
-.sidebar-link--button,
-.marjon-owner-dashboard .nav-item {
-  position: relative !important;
-  min-height: 52px !important;
-  border-radius: 16px !important;
-  color: rgba(255,255,255,0.75) !important;
-  background: transparent !important;
-  border: 1px solid transparent !important;
-  box-shadow: none !important;
-  transition: background var(--mj-ease-final), color var(--mj-ease-final), border-color var(--mj-ease-final), box-shadow var(--mj-ease-final), transform var(--mj-ease-final) !important;
-}
-
-.sidebar-link:hover,
-.sidebar-link--button:hover,
-.marjon-owner-dashboard .nav-item:hover {
-  color: #fff !important;
-  background: rgba(255,255,255,0.075) !important;
-  border-color: rgba(255,255,255,0.075) !important;
-  transform: none !important;
-}
 
 .sidebar-link.is-active,
 .sidebar-link--button.is-active,
 .sidebar-nav-item.has-submenu.is-open > .sidebar-link,
 .sidebar-nav-item.has-submenu.is-open > .sidebar-link--button,
 .marjon-owner-dashboard .nav-item.active {
-  color: #fff !important;
+  
   background: var(--mj-cyan);
-  border-color: rgba(109, 255, 246, 0.48) !important;
-  box-shadow: 0 10px 20px rgba(32, 201, 201, 0.182),
-    inset 0 1px 0 rgba(255,255,255, 0.168) !important;
-}
 
-.sidebar-link.is-active::before,
-.sidebar-link--button.is-active::before,
-.marjon-owner-dashboard .nav-item.active::before {
-  display: none !important;
-}
-
-.sidebar-icon,
-.sidebar-link span,
-.sidebar-link__chevron,
-.sidebar-link--button span,
-.sidebar-link--button .sidebar-icon,
-.sidebar-link--button .sidebar-link__chevron,
-.marjon-owner-dashboard .nav-item i {
-  color: currentColor !important;
 }
 
 .sidebar-user,
 .marjon-owner-dashboard .sidebar-user {
-  position: relative !important;
-  z-index: 2 !important;
-  min-height: 78px !important;
-  border-radius: 20px !important;
+
   background: rgba(255,255,255,0.11);
-  border: 1px solid rgba(255,255,255,0.12) !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255, 0.053) !important;
+
 }
 
 /* ===================== Standalone /dashboard owner layout ===================== */
-.marjon-owner-dashboard {
-  --sidebar-width: var(--mj-sidebar-w) !important;
-  --sidebar-bg: linear-gradient(180deg, var(--mj-shell-mid) 0%, var(--mj-shell-start) 48%, var(--mj-shell-deep) 100%) !important;
-  --sidebar-active: linear-gradient(135deg, var(--mj-cyan), var(--mj-cyan-dark)) !important;
-  --main-bg: var(--mj-page-bg) !important;
-  --card-bg: var(--mj-panel-bg) !important;
-  --card-radius: 24px !important;
-  --card-shadow: var(--mj-card-shadow) !important;
-  --orange: var(--mj-orange) !important;
-  --blue: var(--mj-blue) !important;
-  --purple: var(--mj-purple) !important;
-  --teal: var(--mj-cyan) !important;
-  --green: var(--color-success) !important;
-  --text-primary: var(--mj-text) !important;
-  --text-secondary: var(--mj-muted-text) !important;
-  --text-muted: var(--neutral-400) !important;
-  min-height: 100vh !important;
-  overflow: hidden !important;
-  background: var(--mj-shell-start) !important;
-  color: var(--mj-text) !important;
-  font-family: var(--mj-font-body) !important;
-}
-
-.marjon-owner-dashboard .app-layout {
-  display: block !important;
-  min-height: 100vh !important;
-  background: var(--mj-shell-start) !important;
-}
 
 .marjon-owner-dashboard .sidebar {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  bottom: 0 !important;
-  z-index: 100 !important;
-  width: var(--mj-sidebar-w) !important;
-  min-width: var(--mj-sidebar-w) !important;
-  padding: 24px 20px !important;
-  display: flex !important;
-  flex-direction: column !important;
-  overflow: hidden !important;
-  color: #fff !important;
-  border-radius: 0 !important;
-  border-right: 0 !important;
-  box-shadow: none !important;
+
+  
+
   background: var(--mj-shell-mid);
 }
 
 .marjon-owner-dashboard .sidebar::before {
-  content: "" !important;
-  position: absolute !important;
-  inset: 0 !important;
-  z-index: 0 !important;
-  pointer-events: none !important;
+
   background: transparent;
 }
 
-.marjon-owner-dashboard .sidebar::after {
-  display: none !important;
-}
-
-.marjon-owner-dashboard .sidebar-logo,
-.marjon-owner-dashboard .sidebar-nav,
-.marjon-owner-dashboard .sidebar-user {
-  position: relative !important;
-  z-index: 2 !important;
-}
-
-.marjon-owner-dashboard .logo-icon {
-  background: #fff !important;
-  color: var(--mj-shell-start) !important;
-  border-radius: 16px !important;
-  box-shadow: 0 7px 18px rgba(0,0,0, 0.126) !important;
-}
-
-.marjon-owner-dashboard .logo-name {
-  color: #fff !important;
-  letter-spacing: 0.055em !important;
-}
-
-.marjon-owner-dashboard .logo-sub {
-  color: rgba(255,255,255,0.60) !important;
-}
-
-.marjon-owner-dashboard .sidebar-nav {
-  gap: 8px !important;
-  padding: 24px 0 18px !important;
-  overflow-y: auto !important;
-  scrollbar-width: none !important;
-}
-
-.marjon-owner-dashboard .sidebar-nav::-webkit-scrollbar {
-  display: none !important;
-}
-
-.marjon-owner-dashboard .nav-item {
-  min-height: 54px !important;
-  padding: 0 18px !important;
-  font-size: 1rem !important;
-  font-weight: 700 !important;
-  margin-bottom: 0 !important;
-}
-
-.marjon-owner-dashboard .main-content {
-  margin-left: var(--mj-sidebar-w) !important;
-  min-height: 100vh !important;
-  padding: 0 !important;
-  overflow: hidden auto !important;
-  background: var(--mj-page-bg) !important;
-}
-
 .marjon-owner-dashboard .top-bar {
-  position: sticky !important;
-  top: 0 !important;
-  z-index: 90 !important;
-  min-height: var(--mj-header-h) !important;
-  margin: 0 !important;
-  padding: 24px 34px 22px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  gap: 20px !important;
-  color: #fff !important;
-  border: 0 !important;
-  box-shadow: none !important;
+
+  
+  
   background: var(--mj-shell-mid);
 }
 
@@ -5346,129 +5080,27 @@ body.dashboard-body::before {
   z-index: 1;
 }
 
-.marjon-owner-dashboard .page-title {
-  margin: 0 !important;
-  color: #fff !important;
-  font-size: clamp(30px, 2.25vw, 2.45rem) !important;
-  line-height: 1.04 !important;
-  font-weight: 700 !important;
-  letter-spacing: -0.055em !important;
-  text-shadow: 0 12px 28px rgba(0,0,0,0.28) !important;
-}
-
-.marjon-owner-dashboard .page-subtitle {
-  margin-top: 8px !important;
-  color: rgba(255,255,255,0.72) !important;
-  font-size: 1rem !important;
-}
-
-.marjon-owner-dashboard .top-bar-right {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: flex-end !important;
-  gap: 12px !important;
-  flex-wrap: nowrap !important;
-}
-
-.marjon-owner-dashboard .top-date,
-.marjon-owner-dashboard .restaurant-selector,
-.marjon-owner-dashboard .notif-bell,
-.marjon-owner-dashboard .logout-btn,
-.marjon-owner-dashboard .lang-switcher {
-  min-height: 46px !important;
-  border-radius: 16px !important;
-  border: 1px solid rgba(255,255,255,0.12) !important;
-  background: rgba(2, 12, 28, 0.34) !important;
-  color: rgba(255,255,255,0.90) !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255, 0.042) !important;
-}
-
-.marjon-owner-dashboard .restaurant-selector select {
-  color: inherit !important;
-}
-
 .marjon-owner-dashboard .logout-btn,
 .marjon-owner-dashboard .balance-btn,
 .marjon-owner-dashboard .btn-primary {
-  min-height: 46px !important;
-  color: #fff !important;
-  border-color: rgba(109,255,246,0.36) !important;
+
   background: var(--mj-cyan);
-  box-shadow: 0 11px 20px rgba(32,201,201, 0.196) !important;
-}
-
-.marjon-owner-dashboard .logout-btn:hover,
-.marjon-owner-dashboard .balance-btn:hover,
-.marjon-owner-dashboard .btn-primary:hover {
-  color: #fff !important;
-  transform: translateY(-1px) !important;
-  filter: brightness(1.04) !important;
-}
-
-.marjon-owner-dashboard .notif-bell {
-  width: 46px !important;
-  padding: 0 !important;
-}
-
-.marjon-owner-dashboard .notif-badge {
-  top: -7px !important;
-  right: -6px !important;
-  background: var(--mj-cyan) !important;
-  color: #fff !important;
-  box-shadow: 0 0 0 2px rgba(32,201,201, 0.112) !important;
+  
 }
 
 .marjon-owner-dashboard .dashboard-body {
-  min-width: 0 !important;
-  padding: 28px 34px 42px !important;
+
   background: var(--neutral-50);
 }
 
 /* ===================== Owner cards and grids ===================== */
-.marjon-owner-dashboard .kpi-grid,
-.kpi-grid--premium {
-  display: grid !important;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-  gap: clamp(18px, 1.45vw, 24px) !important;
-  margin-bottom: 26px !important;
-  padding: 0 !important;
-}
 
 .marjon-owner-dashboard .kpi-card,
 .premium-kpi,
 .card {
-  position: relative !important;
-  overflow: hidden !important;
-  min-width: 0 !important;
-  border-radius: var(--mj-radius-xl) !important;
+
   background: var(--neutral-50);
-  border: 1px solid var(--mj-card-border) !important;
-  box-shadow: var(--mj-card-shadow) !important;
-}
 
-.marjon-owner-dashboard .kpi-card {
-  min-height: 190px !important;
-  padding: 24px !important;
-}
-
-.marjon-owner-dashboard .kpi-card:hover,
-.premium-kpi:hover,
-.card:hover {
-  transform: translate3d(0, -2px, 0) !important;
-  box-shadow: 0 16px 41px rgba(13, 39, 72, 0.091) !important;
-}
-
-.marjon-owner-dashboard .kpi-card::before {
-  content: "" !important;
-  position: absolute !important;
-  left: 24px !important;
-  right: auto !important;
-  top: 0 !important;
-  bottom: auto !important;
-  width: 42% !important;
-  height: 3px !important;
-  border-radius: 0 0 999px 999px !important;
-  opacity: 0.95 !important;
 }
 
 .marjon-owner-dashboard .kpi-orange::before,
@@ -5493,13 +5125,9 @@ body.dashboard-body::before {
 
 .marjon-owner-dashboard .kpi-icon,
 .premium-kpi__icon {
-  width: 54px !important;
-  height: 54px !important;
-  border-radius: 18px !important;
-  display: grid !important;
+
   place-items: center;
-  color: #fff !important;
-  box-shadow: 0 10px 19px rgba(16,24,40, 0.105), inset 0 1px 0 rgba(255,255,255, 0.168) !important;
+
 }
 
 .marjon-owner-dashboard .kpi-orange .kpi-icon,
@@ -5522,230 +5150,60 @@ body.dashboard-body::before {
   background: var(--mj-cyan);
 }
 
-.marjon-owner-dashboard .kpi-badge,
-.trend {
-  min-height: 30px !important;
-  padding: 0 12px !important;
-  border-radius: 999px !important;
-  border: 1px solid rgba(208,213,221,0.9) !important;
-  background: rgba(248,250,252,0.94) !important;
-  color: var(--neutral-600) !important;
-  font-weight: 700 !important;
-}
-
-.marjon-owner-dashboard .kpi-label,
-.kpi-label {
-  color: var(--neutral-500) !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.085em !important;
-}
-
-.marjon-owner-dashboard .kpi-value,
-.kpi-value {
-  color: var(--mj-text) !important;
-  font-size: clamp(2rem, 2.45vw, 2.75rem) !important;
-  line-height: 1.05 !important;
-  font-weight: 700 !important;
-  letter-spacing: -0.055em !important;
-}
-
-.marjon-owner-dashboard .kpi-desc,
-.kpi-note {
-  color: var(--neutral-500) !important;
-  font-size: 14px !important;
-  font-weight: 500 !important;
-}
-
-.marjon-owner-dashboard .bottom-grid,
-.owner-main-grid {
-  display: grid !important;
-  grid-template-columns: minmax(0, 1.55fr) minmax(360px, 0.9fr) !important;
-  gap: 24px !important;
-  align-items: stretch !important;
-  margin-top: 0 !important;
-}
-
 .marjon-owner-dashboard .chart-card,
 .marjon-owner-dashboard .top-dishes-card,
 .premium-chart,
 .top-dishes-card {
-  position: relative !important;
-  overflow: hidden !important;
-  min-width: 0 !important;
-  border-radius: var(--mj-radius-xl) !important;
-  padding: 28px !important;
+
   background: var(--neutral-50);
-  border: 1px solid var(--mj-card-border) !important;
-  box-shadow: var(--mj-card-shadow) !important;
+
 }
 
 .marjon-owner-dashboard .chart-card::before,
 .marjon-owner-dashboard .top-dishes-card::before,
 .premium-chart::before,
 .top-dishes-card::before {
-  content: "" !important;
-  position: absolute !important;
-  top: 0 !important;
-  left: 28px !important;
-  right: auto !important;
-  width: 126px !important;
-  height: 3px !important;
-  border-radius: 0 0 999px 999px !important;
+
   background: var(--mj-cyan);
-}
-
-.marjon-owner-dashboard .section-label,
-.eyebrow {
-  color: var(--mj-cyan) !important;
-  font-size: 12px !important;
-  font-weight: 500 !important;
-  letter-spacing: 0.14em !important;
-}
-
-.marjon-owner-dashboard .chart-card .section-label,
-.premium-chart .eyebrow {
-  color: var(--mj-orange) !important;
-}
-
-.marjon-owner-dashboard .section-title,
-.section-header h2 {
-  color: var(--mj-text) !important;
-  font-size: clamp(19px, 1.35vw, 23px) !important;
-  font-weight: 700 !important;
-  letter-spacing: -0.035em !important;
-}
-
-.marjon-owner-dashboard .section-desc,
-.section-header p {
-  color: var(--neutral-500) !important;
-  font-weight: 500 !important;
-}
-
-.marjon-owner-dashboard .btn-outline,
-.marjon-owner-dashboard .btn-link,
-.period-switcher,
-.period-chip,
-.btn-ghost {
-  border-color: rgba(213,220,232,0.92) !important;
-  background: rgba(255,255,255,0.92) !important;
-  color: var(--neutral-800) !important;
-  box-shadow: 0 7px 17px rgba(13,39,72, 0.039) !important;
-}
-
-.marjon-owner-dashboard .btn-outline:hover,
-.marjon-owner-dashboard .btn-link:hover,
-.btn-ghost:hover {
-  color: var(--mj-cyan-dark) !important;
-  border-color: rgba(32,201,201,0.28) !important;
-  background: rgba(32,201,201,0.065) !important;
-}
-
-.marjon-owner-dashboard .chart-canvas,
-.chart-wrap {
-  height: 318px !important;
-  min-width: 0 !important;
-  border-radius: 22px !important;
-  background: transparent !important;
 }
 
 .marjon-owner-dashboard .chart-insight,
 .revenue-insight {
-  border-radius: 20px !important;
-  border: 1px solid rgba(228,231,236,0.95) !important;
-  border-left: 0 !important;
+
   background: var(--neutral-50);
-  box-shadow: var(--mj-card-shadow-soft) !important;
+  
 }
 
 .marjon-owner-dashboard .insight-icon,
 .revenue-insight__icon {
   background: var(--mj-orange);
-  box-shadow: 0 8px 17px rgba(29, 181, 181, 0.168) !important;
-}
-
-.marjon-owner-dashboard .insight-badge,
-.revenue-insight__badge {
-  color: var(--color-success) !important;
-  background: var(--color-success-bg) !important;
+  
 }
 
 /* ===================== Dishes ===================== */
-.marjon-owner-dashboard .top-dishes-list,
-.top-dishes-list {
-  display: grid !important;
-  gap: 14px !important;
-}
 
 .marjon-owner-dashboard .dish-row,
 .top-dish {
-  display: grid !important;
-  grid-template-columns: 52px minmax(0, 1fr) auto !important;
-  align-items: center !important;
-  gap: 14px !important;
-  padding: 14px !important;
-  border-radius: 20px !important;
-  border: 1px solid rgba(228,231,236,0.95) !important;
-  background: var(--neutral-50);
-  box-shadow: var(--mj-card-shadow-soft) !important;
-  transition: transform var(--mj-ease-final), box-shadow var(--mj-ease-final), border-color var(--mj-ease-final) !important;
-}
 
-.marjon-owner-dashboard .dish-row:hover,
-.top-dish:hover {
-  transform: translate3d(0, -2px, 0) !important;
-  border-color: rgba(32,201,201,0.22) !important;
-  box-shadow: 0 11px 24px rgba(13,39,72, 0.06) !important;
+  
+  background: var(--neutral-50);
+
 }
 
 .marjon-owner-dashboard .dish-rank,
 .top-dish__rank {
-  width: 46px !important;
-  height: 46px !important;
-  display: grid !important;
+
   place-items: center;
-  border-radius: 14px !important;
-  color: #fff !important;
+
   background: var(--neutral-950);
-  box-shadow: 0 8px 17px rgba(7,20,43, 0.154), inset 0 1px 0 rgba(255,255,255, 0.126) !important;
-  font-weight: 700 !important;
-}
 
-.marjon-owner-dashboard .dish-name,
-.top-dish__line strong {
-  color: var(--mj-text) !important;
-  font-weight: 500 !important;
-}
-
-.marjon-owner-dashboard .dish-sales,
-.badge-info {
-  color: var(--blue-600) !important;
-  background: var(--blue-50) !important;
-  font-weight: 700 !important;
-}
-
-.marjon-owner-dashboard .dish-bar-wrap,
-.top-dish__bar {
-  height: 8px !important;
-  border-radius: 999px !important;
-  overflow: hidden !important;
-  background: var(--neutral-100) !important;
 }
 
 .marjon-owner-dashboard .dish-bar,
 .top-dish__bar i {
-  height: 100% !important;
-  border-radius: inherit !important;
-  background: var(--mj-cyan);
-  box-shadow: 0 5px 11px rgba(32,201,201, 0.168) !important;
-}
 
-.marjon-owner-dashboard .dish-revenue,
-.top-dish__price,
-.top-dish__line span {
-  color: var(--mj-text) !important;
-  font-weight: 500 !important;
+  background: var(--mj-cyan);
+  
 }
 
 /* ===================== Buttons and utility cards ===================== */
@@ -5753,71 +5211,34 @@ body.dashboard-body::before {
 .lang-switch button.is-active,
 .lang-switch button.active,
 .period-switcher a.is-active {
-  color: #fff !important;
+  
   background: var(--mj-cyan);
-  box-shadow: 0 8px 17px rgba(32,201,201, 0.168) !important;
+  
 }
 
 .quick-actions__grid a,
 .restaurant-health .health-grid > div,
 .empty-state,
 .message {
-  border-color: var(--mj-card-border) !important;
+  
   background: var(--neutral-50);
-  box-shadow: var(--mj-card-shadow-soft) !important;
-}
-
-.quick-actions__grid i {
-  color: var(--mj-cyan-dark) !important;
-  background: rgba(32,201,201,0.10) !important;
+  
 }
 
 /* ===================== Responsive ===================== */
 @media (max-width: 1280px) {
   :root { --mj-sidebar-w: 280px; }
 
-  .dashboard-content,
-  .dashboard-topbar,
-  .marjon-owner-dashboard .top-bar,
-  .marjon-owner-dashboard .dashboard-body {
-    padding-left: 28px !important;
-    padding-right: 28px !important;
-  }
-
-  .marjon-owner-dashboard .bottom-grid,
-  .owner-main-grid {
-    grid-template-columns: minmax(0, 1.42fr) minmax(340px, 0.86fr) !important;
-    gap: 20px !important;
-  }
-}
-
-@media (max-width: 1280px) {
-  .marjon-owner-dashboard .kpi-grid,
-  .kpi-grid--premium,
-  .kpi-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-
-  .marjon-owner-dashboard .bottom-grid,
-  .owner-main-grid,
-  .content-grid,
-  .owner-widgets {
-    grid-template-columns: 1fr !important;
-  }
 }
 
 @media (max-width: 1024px) {
   :root { --mj-sidebar-w: 260px; }
 
-  .dashboard-shell {
-    display: flex !important;
-  }
-
   .dashboard-sidebar,
   .marjon-owner-dashboard .sidebar {
-    position: fixed !important;
+    
     transform: translateX(-100%);
-    transition: transform 0.28s ease !important;
+    
   }
 
   .dashboard-sidebar.is-open,
@@ -5825,47 +5246,5 @@ body.dashboard-body::before {
     transform: translateX(0);
   }
 
-  .dashboard-main,
-  .marjon-owner-dashboard .main-content {
-    margin-left: 0 !important;
-  }
-
-  .dashboard-topbar,
-  .marjon-owner-dashboard .top-bar {
-    min-height: auto !important;
-    align-items: flex-start !important;
-    flex-direction: column !important;
-  }
-
-  .topbar-actions,
-  .marjon-owner-dashboard .top-bar-right {
-    width: 100% !important;
-    justify-content: flex-start !important;
-    flex-wrap: wrap !important;
-  }
 }
 
-@media (max-width: 480px) {
-  .dashboard-content,
-  .dashboard-topbar,
-  .marjon-owner-dashboard .top-bar,
-  .marjon-owner-dashboard .dashboard-body {
-    padding-left: 18px !important;
-    padding-right: 18px !important;
-  }
-  .marjon-owner-dashboard .kpi-grid,
-  .kpi-grid--premium,
-  .kpi-grid {
-    grid-template-columns: 1fr !important;
-  }
-  .marjon-owner-dashboard .dish-row,
-  .top-dish {
-    grid-template-columns: 44px minmax(0, 1fr) !important;
-  }
-  .marjon-owner-dashboard .dish-revenue,
-  .top-dish__price {
-    grid-column: 2 !important;
-    justify-self: start !important;
-    text-align: left !important;
-  }
-}

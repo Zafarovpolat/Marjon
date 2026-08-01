@@ -501,7 +501,7 @@
     padding: 10px;
     border-radius: 18px;
     background: rgba(255,255,255,.52);
-    transition: var(--transition);
+    
 }
 
 .top-dish:hover {
@@ -664,9 +664,9 @@
 
 .dish-stat-card strong {
     display: block;
-    margin: 12px 0;
+    
     color: var(--neutral-950);
-    font-size: 31px;
+    
     line-height: 1;
     font-weight: 800;
 }
@@ -946,21 +946,16 @@
 }
 
 .dish-toggle span {
-    width: 20px;
-    height: 20px;
+
     border-radius: 999px;
     background: #fff;
     box-shadow: 0 1px 4px rgba(15, 23, 42, 0.126);
-    transform: translateX(-9px);
+    
     transition: transform 0.18s ease;
 }
 
 .dish-toggle.is-on {
     background: var(--color-brand, #1db5b5);
-}
-
-.dish-toggle.is-on span {
-    transform: translateX(9px);
 }
 
 .dish-toggle-empty {
@@ -1276,7 +1271,7 @@
     margin-top: 24px;
     color: var(--text-primary);
     font-family: var(--font-display);
-    font-size: clamp(26px, 2.2vw, 36px);
+    
     line-height: 1;
     letter-spacing: 0;
 }
@@ -1387,8 +1382,7 @@
 }
 
 .dc-table th {
-    color: var(--text-secondary);
-    background: rgba(233, 240, 250, .95);
+
     font-size: 12px;
     font-weight: 500;
     letter-spacing: .08em;
@@ -1396,9 +1390,9 @@
 }
 
 .dc-table__amount {
-    text-align: right !important;
+    
     font-weight: 800;
-    color: var(--accent-secondary);
+    
 }
 
 .dc-total-row td {
@@ -1750,8 +1744,7 @@
 }
 
 .cancelled-table th {
-    color: var(--text-secondary);
-    background: rgba(233, 240, 250, .96);
+
     font-size: 12px;
     font-weight: 500;
     letter-spacing: .08em;
@@ -1796,7 +1789,7 @@
 }
 
 .cancelled-empty-row td {
-    padding: 30px;
+    
     color: var(--text-secondary);
     text-align: center;
 }
@@ -2091,7 +2084,7 @@
 }
 
 .dishes-report-page .report-table-wrapper {
-    max-width: 100%;
+    
     overflow-x: auto;
     border: 1px solid rgba(194, 206, 226, .92);
     border-radius: 24px;
@@ -2131,8 +2124,7 @@
 }
 
 .dishes-report-page .report-table th {
-    color: var(--text-secondary);
-    background: rgba(233, 240, 250, .96);
+
     font-size: 12px;
     font-weight: 500;
     letter-spacing: .08em;
@@ -2189,16 +2181,6 @@
 
 .dishes-report-page .report-dish-name a:hover {
     color: var(--accent-secondary);
-}
-
-.dishes-report-page .report-profit-negative {
-    color: var(--danger) !important;
-    font-weight: 800 !important;
-}
-
-.dishes-report-page .report-profit-positive {
-    color: var(--color-success) !important;
-    font-weight: 800 !important;
 }
 
 .dishes-report-page .report-status-badge {
@@ -2736,18 +2718,13 @@
 
 .report-actions .report-mini-calendar__today {
     width: 128px;
-    min-height: 22px !important;
+    
     display: grid;
     place-items: center;
     margin: 8px auto 0;
-    padding: 0 !important;
-    color: #020617 !important;
-    border: 0 !important;
-    border-radius: 6px !important;
-    background: rgba(15, 23, 42, .08) !important;
-    box-shadow: none !important;
+
     font-size: 13px;
-    font-weight: 500 !important;
+    
 }
 
 .report-actions .report-mini-time {
@@ -2796,106 +2773,13 @@
 }
 
 /* Report date picker: compact native datetime popup like the owner reference. */
-.report-actions .report-period-picker {
-    grid-template-columns: minmax(164px, auto) !important;
-    min-height: 28px !important;
-    border-color: #d4deec !important;
-    border-radius: 5px !important;
-    background: #dbe5f5 !important;
-}
-
-.report-actions .report-period-picker .report-period-button,
-.report-actions .report-period-picker .report-period-nav {
-    min-height: 28px !important;
-    font-size: 11px !important;
-}
-
-.report-actions .report-period-picker .report-period-button {
-    width: 100% !important;
-    padding: 0 12px !important;
-    font-weight: 600 !important;
-}
-
-.report-actions .report-period-picker .report-period-nav {
-    width: 28px !important;
-}
-
-.report-actions .report-date-menu {
-    width: min(620px, calc(100vw - 42px)) !important;
-    max-height: none !important;
-    overflow: visible !important;
-    padding: 12px 10px 14px !important;
-    border: 1px solid #d6dce6 !important;
-    border-radius: 10px !important;
-    background: #fff !important;
-    box-shadow: 0 12px 28px rgba(15, 23, 42, .18) !important;
-}
-
-.report-actions .report-date-presets {
-    gap: 0 !important;
-    padding-bottom: 10px !important;
-    margin-bottom: 10px !important;
-    border-bottom: 1px solid #d5dbe5 !important;
-}
-
-.report-actions .report-date-presets button {
-    min-height: 24px !important;
-    padding: 0 6px !important;
-    color: #102033 !important;
-    border-radius: 4px !important;
-    font-size: 11px !important;
-    font-weight: 400 !important;
-}
-
-.report-actions .report-date-presets button:hover,
-.report-actions .report-date-presets button.is-active {
-    color: #102033 !important;
-    background: #edf3fb !important;
-}
-
-.report-actions .report-date-range {
-    position: relative !important;
-    bottom: auto !important;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) 27px !important;
-    gap: 5px !important;
-    padding: 4px 0 0 !important;
-    margin-bottom: 0 !important;
-    background: #fff !important;
-}
 
 .report-actions .report-date-input {
-    min-width: 0 !important;
-    width: 100% !important;
-    min-height: 22px !important;
-    height: 22px !important;
-    padding: 0 2px !important;
-    color: #0f172a !important;
-    border: 1px solid #cfd6df !important;
-    border-radius: 3px !important;
-    background: #fff !important;
-    box-shadow: none !important;
-    font-size: 12px !important;
-    font-weight: 400 !important;
-    line-height: 20px !important;
-    letter-spacing: 0 !important;
+
+    
+
     font-variant-numeric: tabular-nums;
-    text-align: center !important;
-}
-
-.report-actions .report-date-range span {
-    color: #3f4b5f !important;
-    font-size: 11px !important;
-    font-weight: 400 !important;
-}
-
-.report-actions .report-date-ok {
-    min-height: 22px !important;
-    height: 22px !important;
-    padding: 0 !important;
-    border-radius: 6px !important;
-    background: var(--teal-500, #1db5b5) !important;
-    font-size: 10px !important;
-    font-weight: 700 !important;
+    
 }
 
 .report-actions .report-date-calendar-popover {
@@ -3265,7 +3149,7 @@
 }
 
 .tables-report-page .report-table-wrapper {
-    max-width: 100%;
+    
     overflow-x: auto;
     border: 1px solid rgba(194, 206, 226, .92);
     border-radius: 24px;
@@ -3290,8 +3174,7 @@
 }
 
 .tables-report-page .report-table th {
-    color: var(--text-secondary);
-    background: rgba(233, 240, 250, .96);
+
     font-size: 12px;
     font-weight: 500;
     letter-spacing: .08em;
@@ -3706,8 +3589,7 @@
 }
 
 .orders-report-page .report-table th {
-    color: var(--text-secondary);
-    background: rgba(233, 240, 250, .96);
+
     font-size: 12px;
     font-weight: 500;
     letter-spacing: .08em;
@@ -3733,11 +3615,6 @@
     background: rgba(29, 181, 181, .10);
     font-size: 12px;
     font-weight: 500;
-}
-
-.orders-report-page .report-muted-cell {
-    color: var(--text-secondary) !important;
-    font-weight: 600 !important;
 }
 
 .orders-report-page td.report-muted-cell {
@@ -4117,8 +3994,7 @@
 
 .staff-table th {
     padding: 15px 16px;
-    background: var(--blue-50);
-    color: #456174;
+
     font-size: 12px;
     font-weight: 500;
     letter-spacing: .03em;
@@ -4136,9 +4012,9 @@
 }
 
 .staff-table td {
-    padding: 15px 16px;
+    
     border-top: 1px solid rgba(226, 234, 244, .95);
-    color: var(--neutral-800);
+    
     font-size: 14px;
     font-weight: 500;
     vertical-align: middle;
@@ -4176,11 +4052,6 @@
 .staff-avatar--large {
     width: 64px;
     height: 64px;
-}
-
-.staff-name-cell {
-    color: #0f5fa8 !important;
-    font-weight: 800 !important;
 }
 
 .staff-role-badge,
@@ -4259,8 +4130,7 @@
 }
 
 .staff-empty-cell {
-    padding: 36px 16px !important;
-    color: #64748b !important;
+
     text-align: center;
 }
 
@@ -4504,13 +4374,9 @@
     justify-content: center;
     gap: 9px;
     padding: 0 16px;
-    border: 1px solid rgba(14, 165, 233, .28);
-    border-radius: 14px;
-    background: #fff;
-    color: #0369a1;
-    font-weight: 800;
+
     cursor: pointer;
-    box-shadow: 0 6px 13px rgba(15, 23, 42, 0.042);
+    
 }
 
 .nomenclature-actions .nomenclature-primary-action {
@@ -4667,8 +4533,7 @@
 
 .nomenclature-table th {
     padding: 15px 16px;
-    background: var(--blue-50);
-    color: #456174;
+
     font-size: 12px;
     font-weight: 500;
     letter-spacing: .03em;
@@ -4697,11 +4562,6 @@
 
 .nomenclature-table tbody tr:hover {
     background: var(--neutral-50);
-}
-
-.nomenclature-name-cell {
-    color: #0f5fa8 !important;
-    font-weight: 800 !important;
 }
 
 .nomenclature-photo {
@@ -4751,11 +4611,6 @@
     color: #0369a1;
 }
 
-.nomenclature-margin-positive {
-    color: #15803d !important;
-    font-weight: 800 !important;
-}
-
 .nomenclature-row-actions {
     display: flex;
     gap: 8px;
@@ -4778,12 +4633,11 @@
 
 .nomenclature-row-actions button.is-danger {
     border-color: rgba(239, 68, 68, .34);
-    color: #dc2626;
+    
 }
 
 .nomenclature-empty {
-    padding: 36px 16px !important;
-    color: #64748b !important;
+
     text-align: center;
 }
 
@@ -5027,18 +4881,6 @@
     text-transform: none;
 }
 
-.nomenclature-summary-card--green span {
-    color: #16a34a !important;
-}
-
-.nomenclature-summary-card--orange span {
-    color: #f97316 !important;
-}
-
-.nomenclature-summary-card--purple span {
-    color: #8b5cf6 !important;
-}
-
 .nomenclature-card--reference .nomenclature-summary-card strong {
     display: block;
     margin-top: 8px;
@@ -5067,21 +4909,6 @@
     font-style: normal;
 }
 
-.nomenclature-summary-card--green i {
-    background: rgba(34, 197, 94, .13) !important;
-    color: #16a34a !important;
-}
-
-.nomenclature-summary-card--orange i {
-    background: rgba(249, 115, 22, .14) !important;
-    color: #f97316 !important;
-}
-
-.nomenclature-summary-card--purple i {
-    background: rgba(168, 85, 247, .14) !important;
-    color: #8b5cf6 !important;
-}
-
 .nomenclature-table-panel {
     border: 1px solid rgba(226, 232, 240, .96);
     border-radius: 14px;
@@ -5102,10 +4929,6 @@
 
 .nomenclature-search-control {
     position: relative;
-}
-
-.nomenclature-search-control input {
-    padding-right: 40px !important;
 }
 
 .nomenclature-search-control svg {
@@ -5189,11 +5012,6 @@
     height: 48px;
     border-radius: 7px;
     background: var(--blue-50);
-}
-
-.nomenclature-card--reference .nomenclature-name-cell {
-    color: var(--neutral-800) !important;
-    font-weight: 800 !important;
 }
 
 .nomenclature-card--reference .nomenclature-category-badge,
@@ -5431,7 +5249,7 @@
     padding: 18px;
     border: 1px solid rgba(218, 228, 239, .9);
     border-radius: 20px;
-    box-shadow: 0 8px 19px rgba(15, 23, 42, 0.049);
+    
 }
 
 .warehouse-summary-card--blue {
@@ -5591,8 +5409,7 @@
 
 .warehouse-table th {
     padding: 15px 16px;
-    background: var(--blue-50);
-    color: #456174;
+
     font-size: 12px;
     font-weight: 500;
     letter-spacing: .03em;
@@ -5610,9 +5427,9 @@
 }
 
 .warehouse-table td {
-    padding: 15px 16px;
+    
     border-top: 1px solid rgba(226, 234, 244, .95);
-    color: var(--neutral-800);
+    
     font-size: 14px;
     font-weight: 500;
     vertical-align: middle;
@@ -5686,8 +5503,7 @@
 }
 
 .warehouse-empty-cell {
-    padding: 34px 16px !important;
-    color: #64748b !important;
+
     text-align: center;
 }
 
@@ -6166,8 +5982,7 @@
 
 .finance-table th {
     padding: 15px 16px;
-    background: var(--blue-50);
-    color: #456174;
+
     font-size: 12px;
     font-weight: 500;
     letter-spacing: .03em;
@@ -6204,16 +6019,6 @@
     color: #94a3b8;
     font-size: 12px;
     font-weight: 500;
-}
-
-.finance-amount-income {
-    color: #15803d !important;
-    font-weight: 800 !important;
-}
-
-.finance-amount-expense {
-    color: #dc2626 !important;
-    font-weight: 800 !important;
 }
 
 .finance-action-edit,
@@ -6603,8 +6408,7 @@
 
 .settings-table th {
     padding: 15px 16px;
-    background: var(--blue-50);
-    color: #456174;
+
     font-size: 12px;
     font-weight: 500;
     letter-spacing: .03em;
@@ -6675,13 +6479,7 @@
 .settings-action-delete {
     width: 34px;
     height: 34px;
-    min-height: 34px !important;
-    padding: 0 !important;
-}
 
-.settings-action-delete {
-    border-color: rgba(239, 68, 68, .34) !important;
-    color: #dc2626 !important;
 }
 
 .settings-link-cell {
@@ -6710,7 +6508,7 @@
     inset: 0;
     z-index: 1200;
     display: flex;
-    justify-content: flex-end;ымыфсы
+    justify-content: flex-end;
 }
 
 .settings-drawer__backdrop {
@@ -6838,7 +6636,7 @@
 }
 
 .settings-toggle-row {
-    display: flex !important;
+    
     align-items: center;
     justify-content: space-between;
     min-height: 44px;
@@ -6846,11 +6644,6 @@
     border: 1px solid var(--blue-100);
     border-radius: 12px;
     background: #fff;
-}
-
-.settings-toggle-row input {
-    width: 18px !important;
-    min-height: 18px !important;
 }
 
 .settings-profile-footer {

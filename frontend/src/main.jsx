@@ -17,6 +17,7 @@ import "./styles/react-overrides.css";
 import "./styles/receipt.css";
 import "./styles/auth.css";
 import "./styles/login-extras.css";
+import "./styles/marjon-restore.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
