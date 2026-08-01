@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.analytics.schemas import AvgCheckSegment, DashboardResponse, OrderLocationSummary, PaymentMethodSummary, SalesReport, TopProduct, UserActivityRank, ZReportResponse
 from app.modules.auth.models import RefreshToken, User
@@ -141,9 +141,18 @@ class AnalyticsService:
         tz = await self._company_tz(company_id)
         start, _ = self._date_bounds(date_from, tz)
         _, end    = self._date_bounds(date_to, tz)
+        # Группировка по ПОРЯДКОВОМУ НОМЕРУ колонки, а не по повторению выражения.
+        # str(tz) уходит в запрос как bind-параметр, поэтому в PostgreSQL
+        # выражение в GROUP BY и такое же выражение в SELECT — это разные
+        # параметры ($1 и $2), и планировщик их не отождествляет:
+        #   GroupingError: column "orders.created_at" must appear in the
+        #   GROUP BY clause or be used in an aggregate function
+        # Эндпоинт из-за этого отдавал 500 на любом Postgres, то есть и в бою.
+        # "GROUP BY 1" понимают и PostgreSQL, и SQLite.
+        day_expr = func.date(func.timezone(str(tz), Order.created_at))
         result = await self.db.execute(
             select(
-                func.date(func.timezone(str(tz), Order.created_at)).label("day"),
+                day_expr.label("day"),
                 func.count(Order.id).label("cnt"),
                 func.coalesce(func.sum(Order.total_amount), 0).label("rev"),
             )
@@ -153,8 +162,8 @@ class AnalyticsService:
                 Order.created_at >= start,
                 Order.created_at < end,
             )
-            .group_by(func.date(func.timezone(str(tz), Order.created_at)))
-            .order_by(func.date(func.timezone(str(tz), Order.created_at)))
+            .group_by(text("1"))
+            .order_by(text("1"))
         )
         rows = result.all()
         return [

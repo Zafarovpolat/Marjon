@@ -1471,12 +1471,17 @@ export default function OwnerDashboard() {
     const dayParams = { date_from: selectedDate, date_to: selectedDate };
 
     Promise.all([
+      // Без запасного значения остаётся только основной запрос: если не пришли
+      // ключевые показатели — рисовать нечего, и экран честно сообщает об ошибке.
       api.get("/analytics/dashboard", { params: { date: selectedDate } }),
-      api.get("/analytics/sales", { params }),
-      api.get("/analytics/products/top", { params: { limit: 5, ...dayParams } }),
-      api.get("/inventory/products"),
-      api.get("/hr/employees"),
-      api.get("/pos/orders", { params: { date: selectedDate } }),
+      // Остальные блоки деградируют поодиночке. Раньше падение любого из них
+      // роняло весь экран: сломанный /analytics/sales (500 на Postgres) давал
+      // «Dashboard недоступен» целиком, хотя все прочие данные приходили.
+      api.get("/analytics/sales", { params }).catch(() => ({ data: [] })),
+      api.get("/analytics/products/top", { params: { limit: 5, ...dayParams } }).catch(() => ({ data: [] })),
+      api.get("/inventory/products").catch(() => ({ data: [] })),
+      api.get("/hr/employees").catch(() => ({ data: [] })),
+      api.get("/pos/orders", { params: { date: selectedDate } }).catch(() => ({ data: [] })),
       api.get("/settings/places").catch(() => ({ data: [] })),
       api.get("/finance/transactions", { params: { date_from: selectedDate, date_to: selectedDate } }).catch(() => ({ data: [] })),
       api.get("/reports/incomes", { params: dayParams }).catch(() => ({ data: [] })),
