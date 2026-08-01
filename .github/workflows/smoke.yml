@@ -236,20 +236,15 @@ jobs:
         working-directory: backend
         run: alembic upgrade head
 
-      - name: Схема совпадает с моделями (autogenerate пуст)
+      # Штатная команда alembic: сравнивает модели с фактической схемой и
+      # возвращает ненулевой код, если autogenerate нашёл бы новые операции —
+      # то есть кто-то поменял модель и забыл миграцию.
+      # (Свой велосипед на `revision --autogenerate` тут не годится: у alembic
+      # нет флага -o, ревизия не создавалась, а проверка подхватывала последний
+      # существующий файл миграции и всегда «находила» add_column.)
+      - name: Схема совпадает с моделями (alembic check)
         working-directory: backend
-        run: |
-          # Если после миграций autogenerate находит отличия — значит модели и
-          # схема разъехались и кто-то забыл миграцию.
-          alembic revision --autogenerate -m "ci-drift-check" -o /tmp/drift || true
-          NEW=$(ls -t migrations/versions/*.py | head -1)
-          if grep -qE "op\.(create_table|add_column|drop_column|alter_column|create_index)" "$NEW"; then
-            echo "РАСХОЖДЕНИЕ схемы и моделей — не хватает миграции:"
-            grep -nE "op\.(create_table|add_column|drop_column|alter_column|create_index)" "$NEW" | head -20
-            exit 1
-          fi
-          echo "расхождений нет"
-          rm -f "$NEW"
+        run: alembic check
 
       - name: Демо-данные поверх миграций
         working-directory: backend
