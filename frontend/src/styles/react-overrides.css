@@ -1489,7 +1489,7 @@ body {
   font-size: 20px !important;
 }
 .kpi-grid--premium .premium-kpi__icon svg {
-  stroke-width: 2.5px !important;
+  stroke-width: 2.5px ;
 }
 .kpi-grid--premium .trend {
   border: 1px solid rgba(29, 181, 181, 0.18);
@@ -6028,7 +6028,7 @@ body {
   border-radius: 50% !important;
   background: #ffffff !important;
   transform: translateY(-50%) !important;
-  box-shadow: 0 1px 1px rgba(4, 31, 58, 0.182) !important;
+  box-shadow: 0 1px 1px rgba(4, 31, 58, 0.182) ;
 }
 
 /* Remove the decorative wallet tail after the "Баланс" label. */
@@ -9421,7 +9421,7 @@ body {
 }
 .staff-photo-upload,
 .staff-form__grid {
-  margin-inline: 24px !important;
+  margin-inline: 24px ;
 }
 
 .staff-photo-upload {
@@ -9628,7 +9628,7 @@ body {
   height: 24px !important;
   border-radius: 50% !important;
   background: #ffffff !important;
-  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.18) !important;
+  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.18) ;
   transition: transform 0.16s ease !important;
 }
 .staff-permission-switch.is-on .staff-switch {
@@ -9811,7 +9811,7 @@ body {
   color: var(--neutral-950, #0b1f3f) !important;
 }
 .staff-form__grid--edit {
-  margin-inline: 22px !important;
+  margin-inline: 22px ;
   padding-top: 22px !important;
   padding-bottom: 14px !important;
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -10025,7 +10025,7 @@ body {
 
 
 .staff-form .staff-form__grid.staff-form__grid--edit {
-  margin-inline: 34px !important;
+  margin-inline: 34px ;
 }
 
 
@@ -10684,7 +10684,7 @@ body:has(.admin-income-modal) .support-widget {
   height: 14px !important;
   border-radius: 50% !important;
   background: #fff !important;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25) !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25) ;
 }
 .staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch.is-on .staff-switch,
 .staff-access-toggle.is-on .staff-mini-switch,
@@ -11764,7 +11764,7 @@ body:has(.admin-income-modal) .support-widget {
   color: var(--teal-500, #1db5b5) !important;
 }
 .report-actions .report-date-calendar-toolbar button svg {
-  stroke-width: 2.5 !important;
+  stroke-width: 2.5 ;
 }
 .report-actions .report-date-calendar-toolbar button:hover {
   background: rgba(29, 181, 181, 0.08) !important;
@@ -11831,7 +11831,7 @@ body:has(.admin-income-modal) .support-widget {
 }
 .report-actions .report-date-time-title svg {
   color: var(--teal-500, #1db5b5) !important;
-  stroke-width: 2 !important;
+  stroke-width: 2 ;
 }
 .report-actions .report-date-time-columns {
   display: grid !important;
@@ -15649,7 +15649,7 @@ body:has(.admin-income-modal) .support-widget {
 .login-pro-input-wrap input:-webkit-autofill:hover,
 .login-pro-input-wrap input:-webkit-autofill:focus {
   -webkit-text-fill-color: #fff8e6 !important;
-  -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.1) inset !important;
+  -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.1) inset ;
   transition: background-color 9999s ease-out 0s;
 }
 @media (max-width: 640px) {
@@ -15685,7 +15685,7 @@ body:has(.admin-income-modal) .support-widget {
 .login-pro-card .login-pro-input-wrap input:-webkit-autofill:hover,
 .login-pro-card .login-pro-input-wrap input:-webkit-autofill:focus {
   -webkit-text-fill-color: #fff8e6;
-  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+  -webkit-box-shadow: 0 0 0 1000px transparent inset ;
   box-shadow: none !important;
   caret-color: #fff8e6;
   transition: background-color 9999s ease-out 0s;

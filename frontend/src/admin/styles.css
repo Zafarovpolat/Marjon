@@ -3457,7 +3457,7 @@ body::-webkit-scrollbar,
 .admin-login__input input:-webkit-autofill:focus,
 .admin-login__input input:-webkit-autofill:active {
   -webkit-text-fill-color: #fff8e6 ;
-  -webkit-box-shadow: 0 0 0 1000px rgba(9, 24, 30, 0.78) inset !important;
+  -webkit-box-shadow: 0 0 0 1000px rgba(9, 24, 30, 0.78) inset ;
   box-shadow: 0 0 0 1000px rgba(9, 24, 30, 0.78) inset !important;
   caret-color: #fff8e6;
 }

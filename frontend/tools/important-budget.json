@@ -1,7 +1,7 @@
 {
-  "total": 11083,
+  "total": 11059,
   "files": {
-    "admin/styles.css": 2563,
+    "admin/styles.css": 2562,
     "styles/app.css": 74,
     "styles/auth.css": 0,
     "styles/brand.css": 0,
@@ -11,8 +11,8 @@
     "styles/loader.css": 1,
     "styles/login-extras.css": 0,
     "styles/marjon-tokens.css": 0,
-    "styles/modules/dashboard.css": 3302,
-    "styles/react-overrides.css": 4777,
+    "styles/modules/dashboard.css": 3290,
+    "styles/react-overrides.css": 4766,
     "styles/receipt.css": 0,
     "styles/responsive.css": 3,
     "styles/staff-pos.css": 0,

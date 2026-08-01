@@ -730,7 +730,7 @@
   content: "" !important;
   position: absolute !important;
   top: 50% !important;
-  margin: 0 !important;
+  margin: 0 ;
   border-radius: 999px !important;
   background: var(--neutral-300) !important;
   box-shadow: 0 0 0 2px rgba(8, 29, 63, 0.665),
@@ -1093,7 +1093,7 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link.is-active::before {
   left: 3px !important;
   width: 9px !important;
-  min-width: 9px !important;
+  min-width: 9px ;
   height: 9px !important;
 }
 .dashboard-sidebar .sidebar-submenu::before {
@@ -1508,13 +1508,13 @@ body.dashboard-body,
   display: none !important;
   content: none !important;
   width: 0 !important;
-  min-width: 0 !important;
+  min-width: 0 ;
   height: 0 !important;
-  margin: 0 !important;
+  margin: 0 ;
   padding: 0 ;
   background: transparent !important;
   box-shadow: none !important;
-  transform: none !important;
+  transform: none ;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-submenu__icon,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-submenu__link:hover .sidebar-submenu__icon,
@@ -1599,7 +1599,7 @@ body.dashboard-body,
   display: none !important;
   content: none !important;
   width: 0 !important;
-  min-width: 0 !important;
+  min-width: 0 ;
   height: 0 !important;
   box-shadow: none !important;
   background: transparent !important;
@@ -1816,7 +1816,7 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link:hover::before,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible::before,
 .dashboard-sidebar .sidebar-submenu__link.is-active::before {
-  transform: translateY(-50%) !important;
+  transform: translateY(-50%) ;
 }
 /* Lock collapsed sidebar icon positions on hover */
 .dashboard-sidebar.is-collapsed .sidebar-nav-item,
@@ -2718,7 +2718,7 @@ html,
   border-left: 1px solid rgba(255, 255, 255, 0.12) ;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12) ;
   background: rgba(6, 26, 53, 0.98) !important;
-  transform: rotate(45deg) !important;
+  transform: rotate(45deg) ;
 }
 .dashboard-sidebar.is-collapsed .sidebar-nav-item.has-submenu::after,
 .dashboard-sidebar.is-collapsed .sidebar-account::after {
@@ -2802,7 +2802,7 @@ html,
 }
 
 .dashboard-sidebar.is-collapsed .sidebar-brand__identity {
-  margin-inline: auto !important;
+  margin-inline: auto ;
 }
 .dashboard-sidebar.is-collapsed .brand-title,
 .dashboard-sidebar.is-collapsed .brand-subtitle {
@@ -5505,7 +5505,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   top: 50% !important;
   width: 8px !important;
   height: 42px !important;
-  transform: translateY(-50%) !important;
+  transform: translateY(-50%) ;
   background: transparent !important;
 }
 .dashboard-sidebar .sidebar-account__lang-panel button,
@@ -6286,7 +6286,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .dashboard-shell .warehouse-summary-item__icon svg {
   width: 22px !important;
   height: 22px !important;
-  stroke-width: 2.15 !important;
+  stroke-width: 2.15 ;
 }
 .dashboard-shell .warehouse-summary-item--income .warehouse-summary-item__icon {
   color: #0fafa4 !important;
@@ -7769,7 +7769,7 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   height: 24px !important;
   color: #8ff9ff !important;
   stroke: currentColor !important;
-  stroke-width: 3.2 !important;
+  stroke-width: 3.2 ;
   filter: drop-shadow(0 0 7px rgba(143, 249, 255, 0.46)) !important;
 }
 body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashboard-back-button span {
