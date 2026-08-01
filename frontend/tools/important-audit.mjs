@@ -575,6 +575,69 @@ ev.trustMarkup = args.includes("--trust-markup");
 console.log(`Режим: ${ev.trustMarkup ? "доверять разметке (агрессивно)" : "консервативный"}`);
 console.log(`Свидетельств из разметки: пар классов ${ev.pairs.size}, классов с тегами ${ev.classTags.size}, id ${ev.idInfo.size}\n`);
 
+/**
+ * Оценка последствий перехода на @layer.
+ *
+ * Слой сравнивается РАНЬШЕ специфичности: правило из старшего слоя побеждает
+ * любое правило из младшего, как бы специфично то ни было. Поэтому @layer —
+ * не рефакторинг, а смена семантики каскада:
+ *   • там, где оверрайд сейчас держится на !important, поведение сохранится
+ *     (он и так побеждает) — такие флаги станут не нужны;
+ *   • НО там, где базовое правило сейчас честно выигрывает по специфичности,
+ *     после введения слоёв выиграет оверрайд — картинка изменится.
+ * Второй случай и есть радиус поражения. Его надо измерить ДО внедрения,
+ * иначе «оптимизация» тихо перекрасит половину приложения.
+ */
+function layerImpact(bundleName, ev, baseCount) {
+  const bundle = BUNDLES[bundleName];
+  const decls = [];
+  bundle.files.forEach((rel, idx) => {
+    const abs = path.join(SRC, rel);
+    if (fs.existsSync(abs)) decls.push(...parseDeclarations(fs.readFileSync(abs, "utf8"), idx, rel));
+  });
+  const byProp = new Map();
+  for (const d of decls) {
+    if (!byProp.has(d.prop)) byProp.set(d.prop, []);
+    byProp.get(d.prop).push(d);
+  }
+  const flips = [];
+  for (const [, list] of byProp) {
+    const base = list.filter((d) => d.fileIndex < baseCount && !d.important);
+    const over = list.filter((d) => d.fileIndex >= baseCount && !d.important);
+    for (const b of base) {
+      for (const o of over) {
+        if (b.media !== o.media || !mayShareElement(b, o, ev)) continue;
+        // сейчас базовое побеждает оверрайд -> после слоёв перевернётся
+        if (beatsNormally(b, o)) { flips.push({ base: b, over: o }); break; }
+      }
+    }
+  }
+  return flips;
+}
+
+if (args.includes("--layer-impact")) {
+  // Граница: файлы до react-overrides.css считаем базой, дальше — оверрайдами.
+  for (const name of Object.keys(BUNDLES)) {
+    const files = BUNDLES[name].files;
+    const cut = files.findIndex((f) => f.includes("react-overrides"));
+    if (cut < 0) { console.log(`── «${name}» ── границы слоёв нет, пропуск`); continue; }
+    const flips = layerImpact(name, ev, cut);
+    const props = new Map();
+    for (const f of flips) props.set(f.base.prop, (props.get(f.base.prop) || 0) + 1);
+    console.log(`── бандл «${name}» ──`);
+    console.log(`  база: ${files.slice(0, cut).length} файлов, оверрайды: ${files.length - cut}`);
+    console.log(`  ПЕРЕВЕРНЁТСЯ правил: ${flips.length}`);
+    for (const [p, n] of [...props].sort((a, b) => b[1] - a[1]).slice(0, 12)) {
+      console.log(`      ${p}: ${n}`);
+    }
+    for (const f of flips.slice(0, 6)) {
+      console.log(`    пример: {${f.base.selector}} (${f.base.fileName}) уступит {${f.over.selector}} (${f.over.fileName}) по ${f.base.prop}`);
+    }
+    console.log();
+  }
+  process.exit(0);
+}
+
 let grandSafe = 0, grandTotal = 0;
 for (const name of Object.keys(BUNDLES)) {
   if (only && name !== only) continue;
