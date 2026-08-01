@@ -93,6 +93,7 @@ export function parseDeclarations(css) {
       }
 
       const selectors = splitTop(prelude, ",").map((s) => s.trim().replace(/\s+/g, " ")).filter(Boolean);
+      const selStart = i;                       // начало селектора — нужно для перезаписи правила целиком
       // Границы каждого объявления внутри тела правила
       let p = brace + 1;
       for (const seg of splitTopWithPos(css, brace + 1, close, ";")) {
@@ -109,7 +110,7 @@ export function parseDeclarations(css) {
                 order: order++,
                 media: ctx.join(" && "),
                 selector, prop, value, important,
-                ruleStart: brace + 1, ruleEnd: close,
+                selStart, ruleStart: brace + 1, ruleEnd: close, allSelectors: selectors,
                 start: seg.start, end: seg.endWithSemi,
               });
             }
