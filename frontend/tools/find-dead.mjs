@@ -70,7 +70,9 @@ let stamp = 0;
 
 for (const f of fs.readdirSync(domDir).filter((x) => x.endsWith(".html")).sort()) {
   const page = f.replace(/\.html$/, "");
-  const dom = new JSDOM(`<!doctype html><html><body>${fs.readFileSync(path.join(domDir, f), "utf8")}</body></html>`);
+  const __h = fs.readFileSync(path.join(domDir, f), "utf8");
+  const __cls = /dashboard-shell/.test(__h) ? " class=\"dashboard-body\"" : "";
+  const dom = new JSDOM(`<!doctype html><html><body${__cls}>${__h}</body></html>`);
   const els = dom.window.document.querySelectorAll("*");
   els.forEach((el, i) => {
     const bs = before.get(`${page}#${i}`);

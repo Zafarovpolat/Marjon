@@ -214,11 +214,9 @@ class Stylesheet:
                 i += 1
                 continue
 
-            if c == ";" and not pending.strip().startswith("@") is False:
-                pass
-
-            # at-правило без блока (@import, @charset)
-            if c == ";" and pending.strip().startswith("@"):
+            # at-инструкция без блока (@import, @charset, @layer a, b;).
+            # Комментарий перед ней не должен её маскировать.
+            if c == ";" and re.sub(r"/\*.*?\*/", " ", pending, flags=re.S).strip().startswith("@"):
                 pending = ""
                 i += 1
                 continue

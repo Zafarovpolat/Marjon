@@ -71,7 +71,8 @@ let stamp = 0;
 for (const file of files) {
   const page = file.replace(/\.html$/, "");
   const html = fs.readFileSync(path.join(domDir, file), "utf8");
-  const dom = new JSDOM(`<!doctype html><html><body>${html}</body></html>`);
+  const bodyCls = /dashboard-shell/.test(html) ? ' class="dashboard-body"' : "";
+  const dom = new JSDOM(`<!doctype html><html><body${bodyCls}>${html}</body></html>`);
   const doc = dom.window.document;
   const els = doc.querySelectorAll("*");
   meta.pages.push({ page, count: els.length });
