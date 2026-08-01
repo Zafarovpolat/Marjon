@@ -192,6 +192,45 @@ jobs:
           flutter pub get
           flutter analyze --no-fatal-infos --no-fatal-warnings
 
+  desktop-size:
+    name: Desktop (замер размера сборки)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Размер .exe обсуждался «на словах» (77 МБ со слов пользователя), а в CI
+    # никогда не измерялся — значит любые обещания «ужмём до N МБ» проверить
+    # нечем. Здесь собирается РАСПАКОВАННОЕ Windows-приложение (--dir, без NSIS:
+    # установщику нужен wine) и печатается его размер. Это и валидация конфига
+    # electron-builder, которую `npm run build` не делает, и опорная цифра:
+    # размер установщика — это сжатая версия этого каталога.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Установить зависимости
+        working-directory: desktop
+        run: npm install --no-audit --no-fund
+
+      - name: Собрать распакованное Windows-приложение
+        working-directory: desktop
+        run: npx electron-vite build && npx electron-builder --win --dir
+
+      - name: Размер
+        working-directory: desktop
+        run: |
+          DIR=$(find dist -maxdepth 1 -type d -name "win-unpacked*" | head -1)
+          [ -z "$DIR" ] && DIR=$(find dist -maxdepth 1 -mindepth 1 -type d | head -1)
+          echo "каталог: $DIR"
+          echo "ИТОГО: $(du -sh "$DIR" | cut -f1)"
+          echo "--- крупнейшее ---"
+          du -ah "$DIR" | sort -rh | head -25
+          echo "--- локали ---"
+          echo "файлов .pak в locales: $(find "$DIR" -path '*locales*' -name '*.pak' | wc -l)"
+          du -sh "$DIR"/locales 2>/dev/null || true
+
   migrations:
     name: Миграции (alembic на чистом Postgres)
     runs-on: ubuntu-latest
