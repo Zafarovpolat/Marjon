@@ -1,15 +1,11 @@
 @media (max-width: 1024px) {
-    .dashboard-sidebar { width: 240px; }
+    
     .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .content-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 768px) {
-    .dashboard-sidebar {
-        left: -280px;
-        z-index: 40;
-        transition: left .2s ease;
-    }
+    
     .dashboard-sidebar.is-open { left: 0; }
     .sidebar-toggle {
         display: inline-flex;
@@ -21,9 +17,9 @@
         border-radius: 10px;
         background: #fff;
     }
-    .dashboard-topbar { align-items: flex-start; padding: 14px 16px; flex-wrap: wrap; }
+    
     .topbar-actions { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
-    .dashboard-content { padding: 16px; }
+    
     
     .form-grid { grid-template-columns: 1fr; }
     .data-table { display: block; overflow-x: auto; }

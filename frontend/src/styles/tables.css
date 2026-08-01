@@ -12,13 +12,7 @@
     flex-wrap: wrap;
 }
 
-.data-table {
-    width: 100%;
-    border-collapse: separate;
-    overflow: hidden;
-    background: #fff;
-    border: 1px solid var(--border);
-}
+
 
 .data-table th,
 .data-table td {
