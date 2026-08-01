@@ -18,6 +18,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { chromium } from "playwright";
+import { ROUTES, ADMIN_SECTIONS, DETERMINISM, login, prepareContext, settle } from "./harness.mjs";
 
 const arg = (name, def) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -36,151 +37,17 @@ const PASSWORD = arg("password", "102938");
 // прогонов, так что детерминизм сохраняется.
 const FREEZE = arg("freeze", "2026-07-14T18:00:00+05:00");
 
-/** Экраны основного приложения. Список намеренно широкий, но не все 88 маршрутов:
- *  берём по одному представителю каждого раздела — этого достаточно, чтобы
- *  заметить сдвиг общей вёрстки, и CI не растягивается на десятки минут. */
-const ROUTES = [
-  ["login", "/login"],
-  ["dashboard", "/"],
-  ["orders", "/orders"],
-  ["menu", "/menu"],
-  ["staff", "/staff"],
-  ["analytics", "/analytics"],
-  ["finance-transactions", "/finance/transactions"],
-  ["finance-income-cat", "/finance/income-categories"],
-  ["nomenclature-dishes", "/nomenclature/dishes"],
-  ["warehouse-incoming", "/warehouse/incoming"],
-  ["warehouse-balance", "/warehouse/balance"],
-  ["reports-orders", "/reports/orders"],
-  ["reports-z", "/reports/z-report"],
-  ["settings", "/settings"],
-  ["settings-receipt", "/settings/receipt"],
-  ["settings-printers", "/settings/printers"],
-  ["users-waiter", "/users/waiter"],
-  // /store — это алиас: в App.jsx он рендерит тот же <OrdersPage/>, что и
-  // /orders, и кадр получался побайтово дублирующим. Берём вместо него экран
-  // с другой вёрсткой.
-  ["reports-tables", "/reports/tables"],
 
-  // ── Расширение покрытия ───────────────────────────────────────────────────
-  // 18 экранов из 78 маршрутов — слишком узкая сеть для правок, меняющих
-  // каскад глобально (например @layer): поломка на непокрытом экране прошла бы
-  // незамеченной. Ниже добрано по представителю на каждый крупный раздел.
-  ["reports-dishes", "/reports/dishes"],
-  ["reports-waiters", "/reports/waiters"],
-  ["reports-cancelled", "/reports/cancelled-dishes"],
-  ["reports-debtors", "/reports/debtors-creditors"],
-  ["nomenclature-menu", "/nomenclature/menu"],
-  ["nomenclature-raw", "/nomenclature/raw-materials"],
-  ["nomenclature-semi", "/nomenclature/semi-finished"],
-  ["nomenclature-cats", "/nomenclature/dish-categories"],
-  ["finance-operations", "/finance/operations"],
-  ["finance-expense-cat", "/finance/expense-categories"],
-  ["finance-debtors", "/finance/debtors-creditors"],
-  ["warehouse-inventory", "/warehouse/inventory"],
-  ["warehouse-writeoff", "/warehouse/write-off"],
-  ["warehouse-transfer", "/warehouse/transfer"],
-  ["stock-incoming", "/stock-report/incoming"],
-  ["stock-stock", "/stock-report/stock"],
-  ["users-attendance", "/users/attendance"],
-  ["users-cashier", "/users/cashier"],
-  // /users/login-history сознательно НЕ снимаем: экран показывает записи о
-  // входах, а сам харнесс логинится через API — каждый прогон дописывает
-  // строку, таблица сдвигается, и сравнение «front с самим собой» давало
-  // ложное расхождение. Наблюдатель меняет наблюдаемое.
-  ["settings-place", "/settings/place"],
-  ["settings-units", "/settings/units"],
-  ["settings-payment", "/settings/payment-methods"],
-  ["settings-profile", "/settings/profile"],
-  ["settings-clients", "/settings/clients"],
-  ["settings-chef-receipt", "/settings/chef-receipt"],
-  ["reviews", "/reviews"],
-];
 
-/** Разделы админки: навигация внутри неё на состоянии, а не на маршрутах,
- *  поэтому переключаемся кликом по пункту меню (по видимому тексту). */
-const ADMIN_SECTIONS = [
-  ["admin-dashboard", null],
-  ["admin-organizations", "Организации"],
-  ["admin-storage", "Склад"],
-  ["admin-nomenclature", "Номенклатура"],
-  ["admin-handbook", "Справочник"],
-  ["admin-finance", "Финансы"],
-];
 
-const DETERMINISM = `
-  *, *::before, *::after {
-    animation: none !important;
-    transition: none !important;
-    caret-color: transparent !important;
-  }
-  html { scroll-behavior: auto !important; }
-`;
-
-async function login() {
-  const res = await fetch(`${API}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone: PHONE, password: PASSWORD }),
-  });
-  if (!res.ok) throw new Error(`login ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  const data = await res.json();
-  if (!data.access_token) throw new Error("в ответе нет access_token");
-  return data;
-}
 
 async function main() {
   console.log(`время заморожено на: ${FREEZE}`);
   fs.mkdirSync(OUT, { recursive: true });
-  const tokens = await login();
+  const tokens = await login(API);
 
   const browser = await chromium.launch({ args: ["--font-render-hinting=none", "--disable-lcd-text"] });
-  const ctx = await browser.newContext({
-    viewport: { width: 1440, height: 900 },
-    deviceScaleFactor: 1,
-    locale: "ru-RU",
-    timezoneId: "Asia/Tashkent",
-    reducedMotion: "reduce",
-  });
-
-  // Внешние ресурсы (шрифты/аналитика) — мимо: они делают прогоны несравнимыми.
-  await ctx.route("**/*", (route) => {
-    const url = route.request().url();
-    if (/fonts\.googleapis\.com|fonts\.gstatic\.com|google-analytics|googletagmanager/.test(url)) {
-      return route.abort();
-    }
-    return route.continue();
-  });
-
-  await ctx.addInitScript(
-    ({ access, refresh, frozenAt }) => {
-      try {
-        localStorage.setItem("access_token", access);
-        localStorage.setItem("refresh_token", refresh || access);
-        localStorage.setItem("admin_access_token", access);
-        localStorage.setItem("admin_refresh_token", refresh || access);
-      } catch { /* приватный режим — не критично */ }
-      // Замораживаем время и случайность: иначе «сегодня» и сгенерированные id
-      // отличаются между прогонами и дают ложные диффы.
-      // Всё в try/catch и через globalThis: если подмена почему-то не пройдёт,
-      // страница должна остаться рабочей — иначе сломаем сам прогон.
-      try {
-        const _D = Date;
-        const FIXED = new _D(frozenAt).getTime();
-        const Frozen = class extends _D {
-          constructor(...a) { super(...(a.length ? a : [FIXED])); }
-          static now() { return FIXED; }
-        };
-        Frozen.UTC = _D.UTC; Frozen.parse = _D.parse;
-        globalThis.Date = Frozen;
-      } catch { /* оставляем настоящий Date */ }
-      try {
-        let seed = 42;
-        Math.random = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
-      } catch { /* неважно */ }
-    },
-    { access: tokens.access_token, refresh: tokens.refresh_token, frozenAt: FREEZE }
-  );
+  const ctx = await prepareContext(browser, tokens, FREEZE);
 
   const page = await ctx.newPage();
   page.on("pageerror", (e) => console.log(`  [js] ${String(e).slice(0, 160)}`));
@@ -213,18 +80,9 @@ async function main() {
     console.log(`  [api ОБРЫВ] ${u.slice(0, 110)} — ${r.failure()?.errorText || "?"}`);
   });
 
-  const settle = async () => {
-    await page.waitForLoadState("domcontentloaded");
-    await page.waitForLoadState("networkidle").catch(() => {});
-    await page.addStyleTag({ content: DETERMINISM }).catch(() => {});
-    // .ready резолвится FontFaceSet — его нельзя сериализовать через evaluate,
-    // поэтому возвращаем булево.
-    await page.evaluate(() => (document.fonts ? document.fonts.ready.then(() => true) : true)).catch(() => {});
-    await page.waitForTimeout(500);
-  };
 
   const shoot = async (name) => {
-    await settle();
+    await settle(page);
     await page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: true });
     console.log(`  ✓ ${name}`);
   };

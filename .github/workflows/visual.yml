@@ -117,6 +117,7 @@ jobs:
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:4173/ >/dev/null && break; sleep 1; done
           cd tests/visual
           node capture.mjs --base-url http://127.0.0.1:4173 --api "$VITE_API_URL" --out "$GITHUB_WORKSPACE/shots/head"
+          node dump-styles.mjs --base-url http://127.0.0.1:4173 --api "$VITE_API_URL" --out "$GITHUB_WORKSPACE/styles/head.json.gz"
           pkill -f "serve.mjs dist 4173" || true
 
       # ── Снимок ДО (базовый коммит) ────────────────────────────────────────
@@ -132,7 +133,19 @@ jobs:
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:4174/ >/dev/null && break; sleep 1; done
           cd "$GITHUB_WORKSPACE/frontend/tests/visual"
           node capture.mjs --base-url http://127.0.0.1:4174 --api "$VITE_API_URL" --out "$GITHUB_WORKSPACE/shots/base"
+          node dump-styles.mjs --base-url http://127.0.0.1:4174 --api "$VITE_API_URL" --out "$GITHUB_WORKSPACE/styles/base.json.gz"
           pkill -f "serve.mjs dist 4174" || true
+
+      # Сравнение ВЫЧИСЛЕННЫХ стилей — точнее скриншотов: видит различия у
+      # скрытых и перекрытых элементов и называет конкретное свойство. Пока
+      # информационно: сначала смотрим, что оно показывает на реальных правках.
+      - name: Сравнить вычисленные стили
+        continue-on-error: true
+        working-directory: frontend/tests/visual
+        run: |
+          node compare-styles.mjs \
+            --base "$GITHUB_WORKSPACE/styles/base.json.gz" \
+            --head "$GITHUB_WORKSPACE/styles/head.json.gz"
 
       - name: Сравнить
         id: cmp
@@ -158,6 +171,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: visual-shots
-          path: shots
+          path: |
+            shots
+            styles
           retention-days: 14
           if-no-files-found: warn
