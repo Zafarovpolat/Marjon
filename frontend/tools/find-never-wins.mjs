@@ -18,7 +18,14 @@ const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
 const LAYER_ORDER = ["marjon-base", "marjon-important"];
 const rank = (n) => (!n ? LAYER_ORDER.length : (LAYER_ORDER.indexOf(n) === -1 ? 0 : LAYER_ORDER.indexOf(n)));
 
-/** Селектор зависит от состояния, которого нет в снятом DOM? */
+/**
+ * Селектор зависит от состояния, которое нельзя надёжно проверить.
+ *
+ * Псевдоклассы jsdom не вычисляет в принципе. Классы-состояния сняты
+ * отдельными вариантами DOM (tools/audit/harvest-states.jsx), но покрыты
+ * не все их сочетания — попытка ослабить это условие дала регрессию
+ * на 38 свойствах сайдбара. Пока держим строго.
+ */
 const STATEFUL = /:(hover|focus|focus-within|focus-visible|active|checked|disabled|target|placeholder-shown|valid|invalid)\b|\.is-|\.has-|\.show|\.open|\baria-expanded="true"/;
 
 function mediaApplies(ctx, width) {
