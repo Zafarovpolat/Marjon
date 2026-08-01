@@ -33,6 +33,16 @@ const bIdx = common.map((p) => base.props.indexOf(p));
 const hIdx = common.map((p) => head.props.indexOf(p));
 
 const SEP = "\u0001";
+
+/**
+ * Убирает различия, порождённые самим стендом, а не правкой стилей.
+ *
+ * База и голова отдаются двумя РАЗНЫМИ локальными серверами (порты 4174 и
+ * 4173), поэтому любое значение с url(...) — фоновая картинка, шрифт, иконка —
+ * отличается портом и попадает в отчёт ложным расхождением. На экране логина
+ * такие «изменения» шли первыми и маскировали настоящие.
+ */
+const normalize = (v) => v.replace(/http:\/\/127\.0\.0\.1:\d+/g, "http://host");
 let screensCompared = 0;
 let changed = 0;
 const examples = [];
@@ -52,13 +62,13 @@ for (const name of Object.keys(base.screens)) {
     continue;
   }
   for (let i = 0; i < b.vals.length; i++) {
-    if (b.vals[i] === h.vals[i]) continue;
+    if (normalize(b.vals[i]) === normalize(h.vals[i])) continue;
     // Строки разошлись — раскладываем на свойства и называем каждое.
     const bv = b.vals[i].split(SEP);
     const hv = h.vals[i].split(SEP);
     for (let k = 0; k < common.length; k++) {
-      const wasV = bv[bIdx[k]];
-      const nowV = hv[hIdx[k]];
+      const wasV = normalize(bv[bIdx[k]]);
+      const nowV = normalize(hv[hIdx[k]]);
       if (wasV === nowV) continue;
       changed++;
       byScreen.set(name, (byScreen.get(name) || 0) + 1);
