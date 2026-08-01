@@ -15,6 +15,9 @@ import "./styles/app.css";
 import "./styles/dashboard-curve.css";
 import "./styles/loader.css";
 import "./styles/react-overrides.css";
+// Модуль дашборда вынесен из react-overrides.css; подключается сразу после
+// него, чтобы порядок в каскаде остался прежним.
+import "./styles/modules/dashboard.css";
 import "./styles/receipt.css";
 import "./styles/auth.css";
 import "./styles/login-extras.css";
