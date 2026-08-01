@@ -135,6 +135,11 @@ fs.writeFileSync(OUT, banner + [...neededImports].join("\n") + (neededImports.si
 const removeRanges = extracted.map((d) => [d.start, d.end]).sort((a, b) => b[0] - a[0]);
 let out = [...lines];
 for (const [s, e] of removeRanges) out.splice(s, e - s);
+// Импортируем ВСЕ вынесенные имена, не пытаясь отсеять «неиспользуемые».
+// Наивный отсев (поиск имени в тексте с вырезанными литералами) теряет ссылки
+// внутри `${...}` шаблонных строк: так из 154 нужных импортов осталось 54 и
+// админка падала в ErrorBoundary. Неиспользуемые импорты безвредны — сборщик
+// их вырежет.
 const importLine = `import {\n${extracted.map((d) => `  ${d.name},`).join("\n")}\n} from "./adminData";`;
 // вставляем после последнего import в шапке
 let lastImport = 0;
