@@ -36,7 +36,7 @@
   height: 100% !important;
   border-radius: 0 !important;
   background: var(--mj-main-bg) !important;
-  pointer-events: none !important;
+  pointer-events: none ;
 }
 
 
@@ -100,7 +100,7 @@
     border-color 0.22s ease !important;
 }
 .dashboard-sidebar .sidebar-submenu {
-  will-change: max-height, opacity, transform !important;
+  will-change: max-height, opacity, transform ;
 }
 .dashboard-sidebar .sidebar-submenu__link,
 .dashboard-sidebar .sidebar-submenu__link:hover,
@@ -131,7 +131,7 @@
 .dashboard-sidebar .sidebar-nav-item.has-submenu:hover .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu:focus-within .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-active .sidebar-submenu {
-  transform-origin: top left !important;
+  transform-origin: top left ;
   background: rgba(10, 31, 72, 0.98);
   box-shadow: 0 12px 25px rgba(2, 8, 23, 0.196),
     inset 0 1px 0 rgba(255, 255, 255, 0.042);
@@ -152,32 +152,32 @@
 .dashboard-sidebar .sidebar-nav-item.has-submenu:hover .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu:focus-within .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-active .sidebar-submenu {
-  top: auto !important;
-  left: auto !important;
-  right: auto !important;
+  top: auto ;
+  left: auto ;
+  right: auto ;
   background: rgba(255, 255, 255, 0.035);
 }
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open:hover .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open:focus-within .sidebar-submenu {
   padding-top: 4px !important;
-  padding-bottom: 4px !important;
+  padding-bottom: 4px ;
 }
 
 
 /* Keep sidebar user card above long submenus */
 .dashboard-sidebar .sidebar-nav {
-  padding-bottom: 18px !important;
+  padding-bottom: 18px ;
 }
 
 .dashboard-sidebar .sidebar-user::before {
-  position: absolute !important;
-  left: -10px !important;
-  right: -10px !important;
-  top: -16px !important;
-  height: 24px !important;
-  z-index: -1 !important;
-  pointer-events: none !important;
+  position: absolute ;
+  left: -10px ;
+  right: -10px ;
+  top: -16px ;
+  height: 24px ;
+  z-index: -1 ;
+  pointer-events: none ;
 }
 
 /* Remove accidental dark overlay from sidebar top */
@@ -269,7 +269,7 @@
 .dashboard-sidebar .sidebar-nav-item.has-submenu:hover .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu:focus-within .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-active .sidebar-submenu {
-  inset: auto !important;
+  inset: auto ;
   z-index: auto !important;
   background: rgba(255, 255, 255, 0.025);
 }
@@ -305,7 +305,7 @@
 .dashboard-sidebar .sidebar-user::before,
 .dashboard-sidebar .sidebar-user::after {
   display: none !important;
-  content: none !important;
+  content: none ;
 }
 @media (max-height: 768px) {
   .dashboard-sidebar .sidebar-nav {
@@ -341,7 +341,7 @@
    2 класса → перебивает все одноклассовые padding/padding-left !important,
    не затрагивая top/right/bottom. margin-left не трогаем (завязан на коллапс сайдбара). */
 .dashboard-shell .dashboard-topbar {
-  padding-left: 0 !important;
+  padding-left: 0 ;
 }
 
 .dashboard-topbar p {
@@ -535,7 +535,7 @@
 .dashboard-sidebar .sidebar-nav-item.has-submenu:hover .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu:focus-within .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-active .sidebar-submenu {
-  padding-left: 0 !important;
+  padding-left: 0 ;
   background: rgba(8, 29, 63, 0.82);
   box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.017);
 }
@@ -563,9 +563,9 @@
 .dashboard-sidebar .sidebar-nav-item.has-submenu:hover .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu:focus-within .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-active .sidebar-submenu {
-  margin-left: 10px !important;
-  margin-right: 6px !important;
-  border-left: 0 !important;
+  margin-left: 10px ;
+  margin-right: 6px ;
+  border-left: 0 ;
   background: rgba(8, 29, 63, 0.74);
   box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.056);
 }
@@ -576,7 +576,7 @@
 .dashboard-sidebar .sidebar-submenu__link:hover::before,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible::before,
 .dashboard-sidebar .sidebar-submenu__link.is-active::before {
-  z-index: 2 !important;
+  z-index: 2 ;
   box-shadow: 0 0 0 2px rgba(8, 29, 63, 0.658),
     0 0 6px rgba(157, 184, 216, 0.14);
 }
@@ -665,8 +665,8 @@
   -ms-overflow-style: none;
 }
 .dashboard-sidebar .sidebar-nav::-webkit-scrollbar {
-  width: 0 !important;
-  height: 0 !important;
+  width: 0 ;
+  height: 0 ;
   display: none !important;
 }
 .dashboard-sidebar .sidebar-nav-item.has-submenu,
@@ -684,9 +684,9 @@
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-active .sidebar-submenu {
   position: relative !important;
   width: auto !important;
-  max-height: 0 !important;
+  max-height: 0 ;
   overflow: hidden !important;
-  opacity: 0 !important;
+  opacity: 0 ;
   pointer-events: none !important;
   background: transparent !important;
   box-shadow: none;
@@ -705,9 +705,9 @@
   transform: translateY(0) !important;
 }
 .dashboard-sidebar .sidebar-submenu::before {
-  position: absolute !important;
-  border-radius: 999px !important;
-  pointer-events: none !important;
+  position: absolute ;
+  border-radius: 999px ;
+  pointer-events: none ;
 }
 .dashboard-sidebar .sidebar-submenu__link,
 .dashboard-sidebar .sidebar-submenu__link:hover,
@@ -727,11 +727,11 @@
 .dashboard-sidebar .sidebar-submenu__link:hover::before,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible::before,
 .dashboard-sidebar .sidebar-submenu__link.is-active::before {
-  content: "" !important;
-  position: absolute !important;
-  top: 50% !important;
-  margin: 0 !important;
-  border-radius: 999px !important;
+  content: "" ;
+  position: absolute ;
+  top: 50% ;
+  margin: 0 ;
+  border-radius: 999px ;
   background: var(--neutral-300) !important;
   box-shadow: 0 0 0 2px rgba(8, 29, 63, 0.665),
     0 0 6px rgba(157, 184, 216, 0.154);
@@ -786,7 +786,7 @@
 
 .dashboard-sidebar .sidebar-user.sidebar-user--button:focus-visible {
   outline: 2px solid rgba(147, 197, 253, 0.7) !important;
-  outline-offset: 2px !important;
+  outline-offset: 2px ;
 }
 
 .dashboard-sidebar .sidebar-user__arrow {
@@ -941,7 +941,7 @@ body,
 body.dashboard-body,
 .dashboard-main,
 .dashboard-content {
-  overflow-x: hidden !important;
+  overflow-x: hidden ;
 }
 /* Premium one-page Z-report print layout */
 @media print {
@@ -984,7 +984,7 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-nav-item.has-submenu:hover .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu:focus-within .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-active .sidebar-submenu {
-  margin: 8px 9px 0 !important;
+  margin: 8px 9px 0 ;
   padding: 0 !important;
   border: 0 !important;
   border-radius: 12px !important;
@@ -995,15 +995,15 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open:hover .sidebar-submenu,
 .dashboard-sidebar .sidebar-nav-item.has-submenu.is-open:focus-within .sidebar-submenu {
-  max-height: 620px !important;
+  max-height: 620px ;
   padding: 7px !important;
 }
 .dashboard-sidebar .sidebar-submenu::before {
-  top: 18px !important;
-  bottom: 18px !important;
-  width: 1px !important;
+  top: 18px ;
+  bottom: 18px ;
+  width: 1px ;
   background: rgba(31, 202, 194, 0.45);
-  box-shadow: 0 0 8px rgba(29, 181, 181, 0.126) !important;
+  box-shadow: 0 0 8px rgba(29, 181, 181, 0.126) ;
 }
 .dashboard-sidebar .sidebar-submenu__link,
 .dashboard-sidebar .sidebar-submenu__link:hover,
@@ -1091,13 +1091,13 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link:hover::before,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible::before,
 .dashboard-sidebar .sidebar-submenu__link.is-active::before {
-  left: 3px !important;
-  width: 9px !important;
-  min-width: 9px !important;
-  height: 9px !important;
+  left: 3px ;
+  width: 9px ;
+  min-width: 9px ;
+  height: 9px ;
 }
 .dashboard-sidebar .sidebar-submenu::before {
-  left: 7px !important;
+  left: 7px ;
 }
 /* Prevent closed active parent categories from looking stuck */
 .dashboard-sidebar .sidebar-link--button,
@@ -1145,12 +1145,12 @@ body.dashboard-body,
 }
 .dashboard-sidebar.is-collapsed .sidebar-brand {
   gap: 0 !important;
-  margin-bottom: 4px !important;
+  margin-bottom: 4px ;
 }
 
 
 .dashboard-sidebar.is-collapsed .sidebar-nav {
-  overflow-x: visible !important;
+  overflow-x: visible ;
   overflow-y: auto !important;
 }
 .dashboard-sidebar.is-collapsed .sidebar-nav-item,
@@ -1298,25 +1298,25 @@ body.dashboard-body,
   isolation: isolate;
 }
 .dashboard-shell::before {
-  position: absolute !important;
-  top: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  z-index: 0 !important;
-  pointer-events: none !important;
+  position: absolute ;
+  top: 0 ;
+  right: 0 ;
+  bottom: 0 ;
+  left: 0 ;
+  z-index: 0 ;
+  pointer-events: none ;
   background: var(--neutral-50) !important;
 }
 
 
 .dashboard-main::before {
-  position: absolute !important;
-  top: 0 !important;
-  left: -48px !important;
+  position: absolute ;
+  top: 0 ;
+  left: -48px ;
   width: 96px !important;
   height: 96px !important;
-  z-index: -1 !important;
-  pointer-events: none !important;
+  z-index: -1 ;
+  pointer-events: none ;
   background: var(--neutral-50) !important;
 }
 
@@ -1366,7 +1366,7 @@ body.dashboard-body,
   transform: none !important;
   translate: 0 0 ;
   scale: 1 ;
-  animation: none !important;
+  animation: none ;
   transition: none !important;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu .sidebar-submenu__link:hover,
@@ -1396,7 +1396,7 @@ body.dashboard-body,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu .sidebar-submenu__link.is-active:focus-visible::before,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu .sidebar-submenu__link.is-active:active::before {
   display: none !important;
-  content: none !important;
+  content: none ;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu .sidebar-submenu__icon,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu .sidebar-submenu__link:hover .sidebar-submenu__icon,
@@ -1414,11 +1414,11 @@ body.dashboard-body,
   max-width: 24px !important;
   height: 24px !important;
   min-height: 24px !important;
-  max-height: 24px !important;
+  max-height: 24px ;
   margin: 0 !important;
   padding: 0 !important;
   display: grid !important;
-  place-items: center !important;
+  place-items: center ;
   border-radius: 8px !important;
   color: rgba(191, 219, 254, 0.78) !important;
   background: rgba(255, 255, 255, 0.055) !important;
@@ -1472,7 +1472,7 @@ body.dashboard-body,
   letter-spacing: 0 !important;
   transform: none !important;
   translate: none ;
-  animation: none !important;
+  animation: none ;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-submenu__link:hover,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-submenu__link:focus,
@@ -1506,15 +1506,15 @@ body.dashboard-body,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-submenu__link.is-active:focus-visible::before,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-submenu__link.is-active:active::before {
   display: none !important;
-  content: none !important;
-  width: 0 !important;
-  min-width: 0 !important;
-  height: 0 !important;
-  margin: 0 !important;
+  content: none ;
+  width: 0 ;
+  min-width: 0 ;
+  height: 0 ;
+  margin: 0 ;
   padding: 0 ;
   background: transparent !important;
   box-shadow: none !important;
-  transform: none !important;
+  transform: none ;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-submenu__icon,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-submenu__link:hover .sidebar-submenu__icon,
@@ -1532,11 +1532,11 @@ body.dashboard-body,
   max-width: 24px !important;
   height: 24px !important;
   min-height: 24px !important;
-  max-height: 24px !important;
-  margin: 0 !important;
+  max-height: 24px ;
+  margin: 0 ;
   padding: 0 !important;
   display: grid !important;
-  place-items: center !important;
+  place-items: center ;
   border-radius: 8px !important;
   line-height: 1 !important;
   transform: none !important;
@@ -1597,27 +1597,27 @@ body.dashboard-body,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-submenu__link:focus-visible::before,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-submenu__link.is-active::before {
   display: none !important;
-  content: none !important;
-  width: 0 !important;
-  min-width: 0 !important;
-  height: 0 !important;
+  content: none ;
+  width: 0 ;
+  min-width: 0 ;
+  height: 0 ;
   box-shadow: none !important;
   background: transparent !important;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-submenu__icon {
-  margin-left: 0 !important;
+  margin-left: 0 ;
 }
 /* Sidebar submenu pinning: only clicked/open category keeps its submenu visible */
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu:not(.is-open) .sidebar-submenu,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu:not(.is-open):hover .sidebar-submenu,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu:not(.is-open):focus-within .sidebar-submenu,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu:not(.is-open).is-active .sidebar-submenu {
-  max-height: 0 !important;
+  max-height: 0 ;
   height: 0 !important;
   min-height: 0 !important;
   opacity: 0 !important;
   padding-top: 0 !important;
-  padding-bottom: 0 !important;
+  padding-bottom: 0 ;
   margin-top: 0 !important;
   overflow: hidden !important;
   pointer-events: none !important;
@@ -1636,14 +1636,14 @@ body.dashboard-body,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-link--button .sidebar-link__chevron,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-link--button:hover .sidebar-link__chevron,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-link--button:focus-visible .sidebar-link__chevron {
-  transform: rotate(0deg) !important;
-  transition: transform 180ms ease !important;
+  transform: rotate(0deg) ;
+  transition: transform 180ms ease ;
   font-size: 15px !important;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-open > .sidebar-link--button .sidebar-link__chevron,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-open > .sidebar-link--button:hover .sidebar-link__chevron,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-open > .sidebar-link--button:focus-visible .sidebar-link__chevron {
-  transform: rotate(90deg) !important;
+  transform: rotate(90deg) ;
 }
 /* Stable, darker submenu hover/active state */
 .dashboard-sidebar:not(.is-collapsed) .sidebar-submenu__link,
@@ -1695,10 +1695,10 @@ body.dashboard-body,
   max-width: 24px !important;
   height: 24px !important;
   min-height: 24px !important;
-  max-height: 24px !important;
-  margin: 0 !important;
+  max-height: 24px ;
+  margin: 0 ;
   display: grid !important;
-  place-items: center !important;
+  place-items: center ;
   border-radius: 8px !important;
   color: rgba(191, 219, 254, 0.78) !important;
   background: rgba(255, 255, 255, 0.055) !important;
@@ -1747,8 +1747,8 @@ body.dashboard-body,
 }
 .dashboard-topbar,
 .dashboard-content {
-  min-width: 0 !important;
-  max-width: 100% !important;
+  min-width: 0 ;
+  max-width: 100% ;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-brand > div:not(.brand-mark),
 .dashboard-sidebar:not(.is-collapsed) .sidebar-link > span:not(.sidebar-icon),
@@ -1760,13 +1760,13 @@ body.dashboard-body,
 
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav {
   overflow-y: auto !important;
-  overflow-x: hidden !important;
+  overflow-x: hidden ;
 }
 .dashboard-sidebar.is-collapsed .sidebar-nav {
-  overflow: visible !important;
+  overflow: visible ;
 }
 .dashboard-sidebar.is-collapsed .sidebar-collapsed-popover {
-  left: calc(100% + 12px) !important;
+  left: calc(100% + 12px) ;
 }
 /* Sidebar toggle lives in the main topbar before the page title */
 
@@ -1816,7 +1816,7 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link:hover::before,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible::before,
 .dashboard-sidebar .sidebar-submenu__link.is-active::before {
-  transform: translateY(-50%) !important;
+  transform: translateY(-50%) ;
 }
 /* Lock collapsed sidebar icon positions on hover */
 .dashboard-sidebar.is-collapsed .sidebar-nav-item,
@@ -1880,14 +1880,14 @@ body.dashboard-body,
 .dashboard-sidebar.is-collapsed .sidebar-link--button:focus-visible .sidebar-icon,
 .dashboard-sidebar.is-collapsed .sidebar-link--button.is-active .sidebar-icon,
 .dashboard-sidebar.is-collapsed .sidebar-link--button.is-active:hover .sidebar-icon {
-  flex: 0 0 24px !important;
+  flex: 0 0 24px ;
   width: 24px !important;
   min-width: 24px !important;
   max-width: 24px !important;
   height: 24px !important;
   min-height: 24px !important;
-  max-height: 24px !important;
-  margin: 0 !important;
+  max-height: 24px ;
+  margin: 0 ;
   padding: 0 !important;
   display: grid !important;
   place-items: center;
@@ -1922,9 +1922,9 @@ body.dashboard-body,
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__menu {
   position: absolute !important;
-  left: 50% !important;
+  left: 50% ;
   right: auto !important;
-  bottom: calc(100% + 12px) !important;
+  bottom: calc(100% + 12px) ;
   z-index: 160 !important;
   width: 94% !important;
   min-width: 0 !important;
@@ -1940,10 +1940,10 @@ body.dashboard-body,
   overflow: hidden !important;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__menu::before {
-  content: "" !important;
-  position: absolute !important;
-  inset: 0 !important;
-  pointer-events: none !important;
+  content: "" ;
+  position: absolute ;
+  inset: 0 ;
+  pointer-events: none ;
   background: transparent;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__menu > * {
@@ -1956,14 +1956,14 @@ body.dashboard-body,
   align-items: center !important;
   gap: 12px !important;
   padding: 0 0 13px !important;
-  margin: 0 0 2px !important;
+  margin: 0 0 2px ;
   border-bottom: 1px solid rgba(148, 163, 184, 0.18) !important;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__head-avatar {
   width: 44px !important;
   height: 44px !important;
   display: grid !important;
-  place-items: center !important;
+  place-items: center ;
   border-radius: 14px !important;
   background: rgba(255, 255, 255, 0.96) !important;
   box-shadow: 0 6px 13px rgba(2, 8, 23, 0.182),
@@ -2000,7 +2000,7 @@ body.dashboard-body,
   width: 24px !important;
   height: 24px !important;
   display: grid !important;
-  place-items: center !important;
+  place-items: center ;
   border-radius: 9px !important;
   color: rgba(219, 234, 254, 0.86) !important;
   background: rgba(255, 255, 255, 0.07) !important;
@@ -2023,7 +2023,7 @@ body.dashboard-body,
   font-weight: 500 !important;
   line-height: 1.2 !important;
   text-align: left !important;
-  text-decoration: none !important;
+  text-decoration: none ;
   transition:
     background 180ms ease,
     color 180ms ease,
@@ -2129,7 +2129,7 @@ body.dashboard-body,
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user__arrow {
   display: grid !important;
-  place-items: center !important;
+  place-items: center ;
   border-radius: 10px !important;
   color: rgba(219, 234, 254, 0.82) !important;
   background: rgba(255, 255, 255, 0.06) !important;
@@ -2146,7 +2146,7 @@ body.dashboard-body {
   background: var(--neutral-50) !important;
 }
 body.dashboard-body {
-  overflow-x: hidden !important;
+  overflow-x: hidden ;
 }
 .dashboard-shell {
   position: relative !important;
@@ -2157,7 +2157,7 @@ body.dashboard-body {
   margin: 0 !important;
   padding: 0 !important;
   gap: 0 !important;
-  column-gap: 0 !important;
+  column-gap: 0 ;
   overflow: hidden !important;
 }
 .dashboard-shell::before,
@@ -2191,8 +2191,8 @@ body.dashboard-body {
   content: none !important;
 }
 .dashboard-topbar {
-  margin-left: 0 !important;
-  padding-left: 30px !important;
+  margin-left: 0 ;
+  padding-left: 30px ;
 }
 .dashboard-content {
   margin-left: 0 !important;
@@ -2216,9 +2216,9 @@ body.dashboard-body {
 /* Compact premium dashboard header */
 
 .dashboard-topbar {
-  gap: 18px !important;
-  border-top-left-radius: 0 !important;
-  backdrop-filter: none !important;
+  gap: 18px ;
+  border-top-left-radius: 0 ;
+  backdrop-filter: none ;
 }
 .dashboard-topbar .mj-datepicker {
   z-index: 80 !important;
@@ -2230,7 +2230,7 @@ body.dashboard-body {
 
 .dashboard-topbar h1 {
   margin: 0 !important;
-  text-shadow: 0 10px 30px rgba(2, 8, 23, 0.34) !important;
+  text-shadow: 0 10px 30px rgba(2, 8, 23, 0.34) ;
 }
 .dashboard-topbar .sidebar-collapse-control,
 .dashboard-topbar .sidebar-collapse-control:hover,
@@ -2277,7 +2277,7 @@ body.dashboard-body {
   background: rgba(255, 255, 255, 0.08) !important;
 }
 .dashboard-topbar .topbar-notification__badge {
-  top: -8px !important;
+  top: -8px ;
   right: -8px !important;
   min-width: 20px !important;
   height: 20px !important;
@@ -2322,7 +2322,7 @@ body.dashboard-body {
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.is-active > .sidebar-link--button,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-link.is-active,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-link--button.is-active {
-  background-size: 100% 100% !important;
+  background-size: 100% 100% ;
   background-position: 0 50% ;
   border-color: rgba(29, 181, 181, 0.46) !important;
   box-shadow: 0 11px 25px rgba(29, 181, 181, 0.21),
@@ -2367,7 +2367,7 @@ body.dashboard-body {
   border-radius: 12px !important;
   font-size: 15px !important;
   opacity: 1 !important;
-  visibility: visible !important;
+  visibility: visible ;
 }
 /* Final dashboard shell: dark star header + rounded light content */
 .dashboard-main {
@@ -2381,18 +2381,18 @@ body.dashboard-body {
 }
 .dashboard-topbar {
   position: sticky !important;
-  top: 0 !important;
+  top: 0 ;
   z-index: 20 !important;
   display: flex !important;
   align-items: center !important;
-  justify-content: space-between !important;
-  margin: 0 !important;
+  justify-content: space-between ;
+  margin: 0 ;
   border-radius: 0 !important;
 }
 .dashboard-topbar .topbar-left {
   overflow: visible !important;
   gap: 16px !important;
-  padding-left: 4px !important;
+  padding-left: 4px ;
 }
 .dashboard-topbar h1 {
   line-height: 1 !important;
@@ -2406,24 +2406,24 @@ body.dashboard-body {
   line-height: 1.25 !important;
 }
 .dashboard-topbar .topbar-actions {
-  flex: 0 0 auto !important;
+  flex: 0 0 auto ;
   display: flex !important;
   align-items: center !important;
   justify-content: flex-end !important;
   gap: 12px !important;
-  margin-left: auto !important;
+  margin-left: auto ;
 }
 .dashboard-topbar .mj-datepicker__trigger,
 .dashboard-topbar .global-search__field,
 .dashboard-topbar .topbar-icon {
-  backdrop-filter: blur(14px) !important;
+  backdrop-filter: blur(14px) ;
 }
 .dashboard-content {
   position: relative !important;
   z-index: 3 !important;
   margin: 0 !important;
   border: 0 !important;
-  clip-path: none !important;
+  clip-path: none ;
   overflow: visible !important;
 }
 @media (max-width: 768px) {
@@ -2454,8 +2454,8 @@ body,
 html::-webkit-scrollbar,
 body::-webkit-scrollbar,
 .dashboard-main::-webkit-scrollbar {
-  width: 0 !important;
-  height: 0 !important;
+  width: 0 ;
+  height: 0 ;
   display: none !important;
 }
 body.dashboard-body,
@@ -2550,7 +2550,7 @@ html,
 /* Sidebar brand toggle */
 
 .dashboard-sidebar.is-collapsed .sidebar-brand {
-  padding-inline: 0 !important;
+  padding-inline: 0 ;
 }
 
 
@@ -2607,7 +2607,7 @@ html,
 }
 
 .dashboard-topbar {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) ;
 }
 .dashboard-sidebar::before {
   background: rgba(255, 255, 255, 0.035);
@@ -2636,8 +2636,8 @@ html,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-brand > div.sidebar-brand__identity:not(.brand-mark) {
   min-width: 0 !important;
   display: flex !important;
-  flex: 1 1 auto !important;
-  flex-direction: row !important;
+  flex: 1 1 auto ;
+  flex-direction: row ;
   align-items: center !important;
   justify-content: flex-start !important;
   gap: 12px !important;
@@ -2661,8 +2661,8 @@ html,
   box-sizing: border-box;
   display: grid !important;
   place-items: center;
-  overflow: hidden !important;
-  line-height: 0 !important;
+  overflow: hidden ;
+  line-height: 0 ;
 }
 .dashboard-sidebar .brand-mark .marjon-logo,
 .dashboard-sidebar .brand-mark--button .marjon-logo {
@@ -2684,14 +2684,14 @@ html,
 .dashboard-sidebar.is-collapsed .sidebar-account.is-open .sidebar-account__menu {
   display: grid !important;
   position: absolute !important;
-  left: calc(100% + 12px) !important;
+  left: calc(100% + 12px) ;
   right: auto !important;
   top: auto !important;
-  bottom: 0 !important;
+  bottom: 0 ;
   width: 292px !important;
   max-width: calc(100vw - 120px) !important;
   max-height: min(520px, calc(100vh - 24px)) !important;
-  overflow-y: auto !important;
+  overflow-y: auto ;
   z-index: 90 !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 22px !important;
@@ -2700,33 +2700,33 @@ html,
 }
 .dashboard-sidebar.is-collapsed .sidebar-account__hover-bridge {
   position: absolute !important;
-  left: 100% !important;
-  bottom: 0 !important;
+  left: 100% ;
+  bottom: 0 ;
   width: 24px !important;
   height: min(520px, calc(100vh - 24px)) !important;
   z-index: 89 !important;
-  pointer-events: auto !important;
+  pointer-events: auto ;
   background: transparent !important;
 }
 .dashboard-sidebar.is-collapsed .sidebar-account.is-open .sidebar-account__menu::before {
-  content: "" !important;
-  position: absolute !important;
-  left: -7px !important;
-  bottom: 24px !important;
-  width: 14px !important;
-  height: 14px !important;
+  content: "" ;
+  position: absolute ;
+  left: -7px ;
+  bottom: 24px ;
+  width: 14px ;
+  height: 14px ;
   border-left: 1px solid rgba(255, 255, 255, 0.12) ;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12) ;
-  background: rgba(6, 26, 53, 0.98) !important;
-  transform: rotate(45deg) !important;
+  background: rgba(6, 26, 53, 0.98) ;
+  transform: rotate(45deg) ;
 }
 .dashboard-sidebar.is-collapsed .sidebar-nav-item.has-submenu::after,
 .dashboard-sidebar.is-collapsed .sidebar-account::after {
   content: "" !important;
   position: absolute !important;
-  left: 100% !important;
+  left: 100% ;
   width: 18px !important;
-  pointer-events: auto !important;
+  pointer-events: auto ;
   background: transparent !important;
 }
 .dashboard-sidebar.is-collapsed .sidebar-nav-item.has-submenu::after {
@@ -2735,18 +2735,18 @@ html,
 }
 .dashboard-sidebar.is-collapsed .sidebar-account::after {
   top: 0 !important;
-  bottom: 0 !important;
+  bottom: 0 ;
 }
 .dashboard-sidebar.is-collapsed .sidebar-collapsed-popover::after,
 .dashboard-sidebar.is-collapsed .sidebar-account.is-open .sidebar-account__menu::after {
-  content: "" !important;
-  position: absolute !important;
-  right: 100% !important;
-  top: 0 !important;
-  width: 18px !important;
-  height: 100% !important;
-  pointer-events: auto !important;
-  background: transparent !important;
+  content: "" ;
+  position: absolute ;
+  right: 100% ;
+  top: 0 ;
+  width: 18px ;
+  height: 100% ;
+  pointer-events: auto ;
+  background: transparent ;
 }
 /* Align top header bottom border with sidebar logo divider */
 .dashboard-topbar {
@@ -2767,7 +2767,7 @@ html,
 }
 /* Sidebar collapse motion: keep the logo/icon column fixed, collapse text area */
 .dashboard-sidebar {
-  transform-origin: left center !important;
+  transform-origin: left center ;
 }
 
 .dashboard-sidebar .sidebar-brand__identity,
@@ -2802,12 +2802,12 @@ html,
 }
 
 .dashboard-sidebar.is-collapsed .sidebar-brand__identity {
-  margin-inline: auto !important;
+  margin-inline: auto ;
 }
 .dashboard-sidebar.is-collapsed .brand-title,
 .dashboard-sidebar.is-collapsed .brand-subtitle {
-  max-width: 0 !important;
-  opacity: 0 !important;
+  max-width: 0 ;
+  opacity: 0 ;
   transform: translateX(-8px) !important;
 }
 .dashboard-sidebar.is-collapsed .sidebar-link,
@@ -2836,10 +2836,10 @@ html,
 .dashboard-sidebar.is-collapsed .sidebar-brand,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-brand {
   position: relative !important;
-  box-sizing: border-box !important;
+  box-sizing: border-box ;
   height: 72px !important;
   min-height: 72px !important;
-  margin: 0 !important;
+  margin: 0 ;
   padding: 0 !important;
   align-items: flex-start !important;
   justify-content: flex-start !important;
@@ -2849,13 +2849,13 @@ html,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-brand__identity {
   width: 100% !important;
   min-width: 0 !important;
-  max-width: none !important;
-  margin: 0 !important;
+  max-width: none ;
+  margin: 0 ;
   display: grid !important;
   grid-template-columns: var(--sidebar-icon-box) minmax(0, 1fr) !important;
   align-items: center !important;
   justify-content: stretch !important;
-  justify-items: stretch !important;
+  justify-items: stretch ;
   gap: 8px !important;
 }
 .dashboard-sidebar .brand-mark,
@@ -2865,20 +2865,20 @@ html,
 .dashboard-sidebar:not(.is-collapsed) .brand-mark {
   width: 48px !important;
   min-width: 48px !important;
-  max-width: 48px !important;
+  max-width: 48px ;
   height: 48px !important;
   min-height: 48px !important;
-  max-height: 48px !important;
+  max-height: 48px ;
   flex: 0 0 48px !important;
-  grid-column: 1 !important;
+  grid-column: 1 ;
   justify-self: center !important;
-  margin: 0 !important;
+  margin: 0 ;
   transform: none !important;
 }
 .dashboard-sidebar .sidebar-brand__identity > div:not(.brand-mark),
 .dashboard-sidebar .sidebar-brand__identity > button + div,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-brand__identity > div:not(.brand-mark) {
-  grid-column: 2 !important;
+  grid-column: 2 ;
   min-width: 0 !important;
 }
 .dashboard-sidebar .sidebar-link,
@@ -2905,8 +2905,8 @@ html,
   grid-template-columns: var(--sidebar-icon-box) minmax(0, 1fr) 18px !important;
   align-items: center !important;
   justify-content: stretch !important;
-  justify-items: stretch !important;
-  column-gap: 8px !important;
+  justify-items: stretch ;
+  column-gap: 8px ;
   width: 100% !important;
   min-width: 0 !important;
   max-width: none !important;
@@ -2942,27 +2942,27 @@ html,
 .dashboard-sidebar.is-collapsed .sidebar-link--button:hover .sidebar-icon,
 .dashboard-sidebar.is-collapsed .sidebar-link--button:focus-visible .sidebar-icon,
 .dashboard-sidebar.is-collapsed .sidebar-link--button.is-active .sidebar-icon {
-  grid-column: 1 !important;
+  grid-column: 1 ;
   justify-self: center !important;
-  align-self: center !important;
+  align-self: center ;
   width: var(--sidebar-icon-size) !important;
   min-width: var(--sidebar-icon-size) !important;
-  max-width: var(--sidebar-icon-size) !important;
+  max-width: var(--sidebar-icon-size) ;
   height: var(--sidebar-icon-size) !important;
   min-height: var(--sidebar-icon-size) !important;
-  max-height: var(--sidebar-icon-size) !important;
-  flex: 0 0 var(--sidebar-icon-size) !important;
-  margin: 0 !important;
+  max-height: var(--sidebar-icon-size) ;
+  flex: 0 0 var(--sidebar-icon-size) ;
+  margin: 0 ;
 }
 .dashboard-sidebar .sidebar-link > span:not(.sidebar-icon),
 .dashboard-sidebar .sidebar-link--button > span:not(.sidebar-icon) {
-  grid-column: 2 !important;
+  grid-column: 2 ;
   min-width: 0 !important;
 }
 .dashboard-sidebar .sidebar-link__chevron {
-  grid-column: 3 !important;
-  justify-self: center !important;
-  margin: 0 !important;
+  grid-column: 3 ;
+  justify-self: center ;
+  margin: 0 ;
 }
 .dashboard-sidebar .sidebar-user,
 .dashboard-sidebar .sidebar-user:hover,
@@ -2971,7 +2971,7 @@ html,
   display: grid !important;
   grid-template-columns: var(--sidebar-icon-box) minmax(0, 1fr) 28px !important;
   align-items: center !important;
-  column-gap: 8px !important;
+  column-gap: 8px ;
   width: 100% !important;
   padding: 10px 0 !important;
   margin: 0 !important;
@@ -2991,7 +2991,7 @@ html,
 .dashboard-sidebar .sidebar-user:hover .sidebar-user__avatar,
 .dashboard-sidebar.is-collapsed .sidebar-user__avatar,
 .dashboard-sidebar.is-collapsed .sidebar-user:hover .sidebar-user__avatar {
-  grid-column: 1 !important;
+  grid-column: 1 ;
   justify-self: center !important;
   width: 48px !important;
   min-width: 48px !important;
@@ -3011,7 +3011,7 @@ html,
   display: block !important;
   object-fit: contain !important;
   object-position: center;
-  margin: auto !important;
+  margin: auto ;
 }
 .dashboard-sidebar .brand-mark,
 .dashboard-sidebar .brand-mark--button,
@@ -3038,7 +3038,7 @@ html,
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  margin: 14px 0 6px !important;
+  margin: 14px 0 6px ;
   padding: 0 0 10px !important;
 }
 .dashboard-sidebar.is-collapsed .sidebar-brand__identity {
@@ -3049,7 +3049,7 @@ html,
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  margin: 0 !important;
+  margin: 0 ;
   padding: 0 !important;
 }
 .dashboard-sidebar.is-collapsed .brand-mark,
@@ -3063,7 +3063,7 @@ html,
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  margin: 0 auto !important;
+  margin: 0 auto ;
   padding: 5px !important;
   border: 0 !important;
   border-radius: 16px !important;
@@ -3088,7 +3088,7 @@ html,
 .dashboard-sidebar.is-collapsed .sidebar-nav {
   width: 100% !important;
   display: flex !important;
-  flex-direction: column !important;
+  flex-direction: column ;
   align-items: center !important;
   gap: 12px !important;
   padding: 14px 0 0 !important;
@@ -3158,12 +3158,12 @@ html,
   max-width: 24px !important;
   height: 24px !important;
   min-height: 24px !important;
-  max-height: 24px !important;
+  max-height: 24px ;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  margin: 0 !important;
-  flex: 0 0 24px !important;
+  margin: 0 ;
+  flex: 0 0 24px ;
   transform: none !important;
 }
 .dashboard-sidebar.is-collapsed .sidebar-icon .bi,
@@ -3338,7 +3338,7 @@ html,
 }
 /* Absolute sidebar hover lock: hover must not change category layout */
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav {
-  padding-top: 0 !important;
+  padding-top: 0 ;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item:hover,
@@ -3360,13 +3360,13 @@ html,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu:not(.is-open):focus-within .sidebar-submenu {
   display: block !important;
   padding-top: 0 !important;
-  padding-bottom: 0 !important;
+  padding-bottom: 0 ;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-open .sidebar-submenu,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-open:hover .sidebar-submenu,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-open:focus-within .sidebar-submenu {
-  max-height: 540px !important;
-  margin: 0 !important;
+  max-height: 540px ;
+  margin: 0 ;
   padding: 8px 0 0 !important;
   opacity: 1 !important;
   pointer-events: auto !important;
@@ -3434,7 +3434,7 @@ html,
 .dashboard-sidebar.is-collapsed .sidebar-brand__toggle.sidebar-brand__toggle--collapsed:focus-visible {
   position: absolute !important;
   top: 13px !important;
-  left: 61px !important;
+  left: 61px ;
   z-index: 8 !important;
   display: grid !important;
   place-items: center;
@@ -3508,9 +3508,9 @@ html,
   box-sizing: border-box !important;
   display: grid !important;
   grid-template-columns: var(--sidebar-row-icon) minmax(0, 1fr) var(--sidebar-row-chevron) !important;
-  column-gap: var(--sidebar-row-gap) !important;
+  column-gap: var(--sidebar-row-gap) ;
   align-items: center !important;
-  justify-items: start !important;
+  justify-items: start ;
   width: 100% !important;
   min-width: 0 !important;
   max-width: none !important;
@@ -3519,7 +3519,7 @@ html,
   max-height: var(--sidebar-row-height) !important;
   margin: 0 !important;
   padding: 0 var(--sidebar-row-padding-x) !important;
-  border-width: 1px !important;
+  border-width: 1px ;
   font-size: 15px !important;
   line-height: 1.2 !important;
   transform: none !important;
@@ -3534,15 +3534,15 @@ html,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-link--button:hover .sidebar-icon,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-link--button:focus-visible .sidebar-icon,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-link--button.is-active .sidebar-icon {
-  grid-column: 1 !important;
-  flex: 0 0 var(--sidebar-row-icon) !important;
+  grid-column: 1 ;
+  flex: 0 0 var(--sidebar-row-icon) ;
   width: var(--sidebar-row-icon) !important;
   min-width: var(--sidebar-row-icon) !important;
   max-width: var(--sidebar-row-icon) !important;
   height: var(--sidebar-row-icon) !important;
   min-height: var(--sidebar-row-icon) !important;
-  max-height: var(--sidebar-row-icon) !important;
-  margin: 0 !important;
+  max-height: var(--sidebar-row-icon) ;
+  margin: 0 ;
   transform: none !important;
   translate: none ;
   scale: none ;
@@ -3558,7 +3558,7 @@ html,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-link:hover > span:not(.sidebar-icon),
 .dashboard-sidebar:not(.is-collapsed) .sidebar-link--button > span:not(.sidebar-icon),
 .dashboard-sidebar:not(.is-collapsed) .sidebar-link--button:hover > span:not(.sidebar-icon) {
-  grid-column: 2 !important;
+  grid-column: 2 ;
   min-width: 0 !important;
   width: 100% !important;
   margin: 0 !important;
@@ -3573,31 +3573,31 @@ html,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-link:hover .sidebar-link__chevron,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-link--button .sidebar-link__chevron,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-link--button:hover .sidebar-link__chevron {
-  grid-column: 3 !important;
-  justify-self: end !important;
-  align-self: center !important;
+  grid-column: 3 ;
+  justify-self: end ;
+  align-self: center ;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  flex: 0 0 var(--sidebar-row-chevron) !important;
+  flex: 0 0 var(--sidebar-row-chevron) ;
   width: var(--sidebar-row-chevron) !important;
-  min-width: var(--sidebar-row-chevron) !important;
-  max-width: var(--sidebar-row-chevron) !important;
+  min-width: var(--sidebar-row-chevron) ;
+  max-width: var(--sidebar-row-chevron) ;
   height: var(--sidebar-row-chevron) !important;
   min-height: var(--sidebar-row-chevron) !important;
-  max-height: var(--sidebar-row-chevron) !important;
-  margin: 0 !important;
+  max-height: var(--sidebar-row-chevron) ;
+  margin: 0 ;
   padding: 0 !important;
   font-size: 15px !important;
-  line-height: 1 !important;
+  line-height: 1 ;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu:not(.is-open) .sidebar-submenu,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu:not(.is-open):hover .sidebar-submenu,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu:not(.is-open):focus-within .sidebar-submenu {
   height: 0 !important;
   min-height: 0 !important;
-  max-height: 0 !important;
-  margin: 0 !important;
+  max-height: 0 ;
+  margin: 0 ;
   padding: 0 !important;
   opacity: 0 !important;
   overflow: hidden !important;
@@ -3618,7 +3618,7 @@ html,
   max-height: 78px !important;
   margin: 0 !important;
   padding: 12px !important;
-  border-width: 1px !important;
+  border-width: 1px ;
   gap: 8px !important;
   transform: none !important;
   translate: none ;
@@ -3641,19 +3641,19 @@ html,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user:hover .sidebar-user__meta {
   min-width: 0 !important;
   gap: 2px !important;
-  line-height: 1.1 !important;
+  line-height: 1.1 ;
   transform: none !important;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user__arrow,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user:hover .sidebar-user__arrow {
-  flex: 0 0 28px !important;
+  flex: 0 0 28px ;
   width: 28px !important;
-  min-width: 28px !important;
-  max-width: 28px !important;
+  min-width: 28px ;
+  max-width: 28px ;
   height: 28px !important;
   min-height: 28px !important;
-  max-height: 28px !important;
-  margin-left: auto !important;
+  max-height: 28px ;
+  margin-left: auto ;
 }
 .dashboard-sidebar.is-collapsed .sidebar-link,
 .dashboard-sidebar.is-collapsed .sidebar-link:hover,
@@ -3712,7 +3712,7 @@ html,
   max-height: 56px !important;
   margin: 0 !important;
   padding: 0 !important;
-  border-width: 1px !important;
+  border-width: 1px ;
   gap: 0 !important;
   transform: none !important;
   translate: none ;
@@ -3722,14 +3722,14 @@ html,
 .dashboard-sidebar.is-collapsed .sidebar-link:hover .sidebar-icon,
 .dashboard-sidebar.is-collapsed .sidebar-link--button .sidebar-icon,
 .dashboard-sidebar.is-collapsed .sidebar-link--button:hover .sidebar-icon {
-  flex: 0 0 var(--sidebar-row-icon) !important;
+  flex: 0 0 var(--sidebar-row-icon) ;
   width: var(--sidebar-row-icon) !important;
   min-width: var(--sidebar-row-icon) !important;
   max-width: var(--sidebar-row-icon) !important;
   height: var(--sidebar-row-icon) !important;
   min-height: var(--sidebar-row-icon) !important;
-  max-height: var(--sidebar-row-icon) !important;
-  margin: 0 auto !important;
+  max-height: var(--sidebar-row-icon) ;
+  margin: 0 auto ;
   transform: none !important;
   translate: none ;
   scale: none ;
@@ -3778,7 +3778,7 @@ html,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-active .sidebar-submenu {
   position: static !important;
   height: auto !important;
-  max-height: none !important;
+  max-height: none ;
   opacity: 1 !important;
   overflow: visible !important;
   pointer-events: auto !important;
@@ -3788,10 +3788,10 @@ html,
 
 
 .dashboard-topbar {
-  border-left: 0 !important;
-  border-right: 0 !important;
-  border-top: 0 !important;
-  outline: 0 !important;
+  border-left: 0 ;
+  border-right: 0 ;
+  border-top: 0 ;
+  outline: 0 ;
 }
 /* Remove the visible rounded corner under the header. */
 .dashboard-content {
@@ -3800,7 +3800,7 @@ html,
 /* Remove the vertical rail line on the left of the submenu icons. */
 .dashboard-sidebar .sidebar-submenu::before {
   display: none !important;
-  content: none !important;
+  content: none ;
 }
 /* Make the open submenu parent (e.g. "Отчеты") match the active "Дашборд" button exactly. */
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu.is-open > .sidebar-link,
@@ -3811,7 +3811,7 @@ html,
 }
 /* Stable topbar date/time widget. */
 .dashboard-topbar .topbar-left {
-  flex: 1 1 auto !important;
+  flex: 1 1 auto ;
   min-width: 0 !important;
   display: flex !important;
   align-items: center !important;
@@ -3847,7 +3847,7 @@ html,
   letter-spacing: 0.01em !important;
 }
 .dashboard-topbar .topbar-left .mj-datepicker__value {
-  flex: 0 0 auto !important;
+  flex: 0 0 auto ;
 }
 .dashboard-topbar .topbar-left .mj-datepicker__date {
   display: inline-flex !important;
@@ -3855,14 +3855,14 @@ html,
   gap: 6px !important;
 }
 .dashboard-topbar .topbar-left .mj-datepicker__divider {
-  flex: 0 0 1px !important;
+  flex: 0 0 1px ;
   width: 1px !important;
-  align-self: stretch !important;
+  align-self: stretch ;
   margin-block: 10px;
   background: rgba(226, 232, 240, 0.4) !important;
 }
 .dashboard-topbar .topbar-left .mj-datepicker__time {
-  flex: 0 0 auto !important;
+  flex: 0 0 auto ;
   gap: 6px !important;
   padding-left: 0 !important;
   border-left: none !important;
@@ -3912,12 +3912,12 @@ html,
 
 .dashboard-back-button {
   position: sticky !important;
-  top: 124px !important;
+  top: 124px ;
   z-index: 80 !important;
   min-height: 40px !important;
   height: 40px !important;
   gap: 7px !important;
-  margin: 0 !important;
+  margin: 0 ;
   padding: 8px 16px 8px 14px !important;
   border-radius: 12px !important;
   font-size: 14px !important;
@@ -3948,7 +3948,7 @@ html,
 }
 /* Header info widgets: USD rate and weather. */
 .dashboard-topbar .topbar-info-widgets {
-  flex: 0 0 auto !important;
+  flex: 0 0 auto ;
   display: flex !important;
   align-items: center !important;
   gap: 14px !important;
@@ -3964,7 +3964,7 @@ html,
   background: rgba(6, 26, 52, 0.52) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.042),
     0 7px 16px rgba(2, 8, 23, 0.098) !important;
-  backdrop-filter: blur(14px) !important;
+  backdrop-filter: blur(14px) ;
   white-space: nowrap;
   cursor: pointer !important;
 }
@@ -3979,7 +3979,7 @@ html,
 }
 .dashboard-topbar .topbar-info-widget__body {
   display: grid !important;
-  gap: 2px !important;
+  gap: 2px ;
   min-width: 0 !important;
 }
 .dashboard-topbar .topbar-info-widget__body span {
@@ -3990,7 +3990,7 @@ html,
 .dashboard-topbar strong.topbar-info-widget__body {
   display: flex !important;
   align-items: center !important;
-  gap: 4px !important;
+  gap: 4px ;
   color: #ffffff !important;
   font-size: 14px !important;
   font-weight: 500 !important;
@@ -4001,10 +4001,10 @@ html,
   font-weight: inherit !important;
 }
 .dashboard-topbar .topbar-info-widget__trend {
-  margin-left: 2px !important;
+  margin-left: 2px ;
   color: var(--color-success) !important;
   font-size: 22px !important;
-  line-height: 1 !important;
+  line-height: 1 ;
 }
 @media (max-width: 1100px) {
   .dashboard-topbar .topbar-info-widget__num {
@@ -4018,7 +4018,7 @@ html,
 .dashboard-topbar .topbar-info-widget--weather .topbar-info-widget__icon {
   color: var(--color-warning) !important;
   background: rgba(250, 204, 21, 0.10) !important;
-  border-color: rgba(250, 204, 21, 0.22) !important;
+  border-color: rgba(250, 204, 21, 0.22) ;
 }
 .dashboard-topbar .topbar-info-widget--rate.is-open,
 .dashboard-topbar .topbar-info-widget--rate:hover,
@@ -4093,10 +4093,10 @@ html,
 }
 .dashboard-topbar {
   isolation: isolate;
-  overflow: visible !important;
-  background: var(--shell-header-bg) !important;
-  border: 0 !important;
-  box-shadow: none !important;
+  overflow: visible ;
+  background: var(--shell-header-bg) ;
+  border: 0 ;
+  box-shadow: none ;
 }
 .dashboard-topbar > * {
   position: relative !important;
@@ -4124,13 +4124,13 @@ html,
 .dashboard-sidebar .sidebar-user__arrow,
 .dashboard-sidebar .sidebar-user:hover .sidebar-user__arrow,
 .dashboard-sidebar .sidebar-user:focus-visible .sidebar-user__arrow {
-  transform: rotate(0deg) !important;
-  transition: transform 180ms ease !important;
+  transform: rotate(0deg) ;
+  transition: transform 180ms ease ;
 }
 .dashboard-sidebar .sidebar-account.is-open .sidebar-user__arrow,
 .dashboard-sidebar .sidebar-account.is-open .sidebar-user:hover .sidebar-user__arrow,
 .dashboard-sidebar .sidebar-account.is-open .sidebar-user:focus-visible .sidebar-user__arrow {
-  transform: rotate(90deg) !important;
+  transform: rotate(90deg) ;
 }
 .dashboard-sidebar,
 .dashboard-sidebar.is-collapsed,
@@ -4189,7 +4189,7 @@ html,
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.056),
     0 5px 12px rgba(2, 8, 23, 0.126) !important;
   transform: none !important;
-  filter: none !important;
+  filter: none ;
 }
 /* pay button: сплошной тил, все градиенты убраны */
 .dashboard-topbar .topbar-balance-pill .topbar-pay-button {
@@ -4218,7 +4218,7 @@ html,
 /* иконка datepicker — без подложки, размер по иконке */
 .dashboard-topbar .mj-datepicker__icon,
 .dashboard-topbar .topbar-left .mj-datepicker__icon {
-  flex: 0 0 auto !important;
+  flex: 0 0 auto ;
   width: auto !important;
   height: auto !important;
   background: none !important;
@@ -4231,7 +4231,7 @@ html,
 }
 /* иконка курса — чуть меньше, без фона и бордера */
 .dashboard-topbar .topbar-info-widget__icon {
-  flex: 0 0 22px !important;
+  flex: 0 0 22px ;
   width: 22px !important;
   height: 22px !important;
   background: none !important;
@@ -4243,7 +4243,7 @@ html,
     width 240ms cubic-bezier(0.4, 0, 0.2, 1),
     min-width 240ms cubic-bezier(0.4, 0, 0.2, 1),
     flex-basis 240ms cubic-bezier(0.4, 0, 0.2, 1) !important;
-  will-change: width !important;
+  will-change: width ;
   overflow: hidden !important;
 }
 /* Scroll only inside the dashboard content area. */
@@ -4254,9 +4254,9 @@ html,
 .dashboard-content {
   flex: 1 1 auto !important;
   min-height: 0 !important;
-  max-height: calc(100vh - 82px) !important;
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
+  max-height: calc(100vh - 82px) ;
+  overflow-x: hidden ;
+  overflow-y: auto ;
   overscroll-behavior: contain;
   scrollbar-width: none !important;
   -ms-overflow-style: none;
@@ -4302,7 +4302,7 @@ html,
   }
 }
 .dashboard-main.is-sidebar-collapsed .warehouse-report-backdrop {
-  left: 88px !important;
+  left: 88px ;
   width: calc(100vw - 88px) !important;
 }
 /* Center USD converter popover in the visible workspace, adapting to sidebar width. */
@@ -4311,14 +4311,14 @@ html,
 }
 .dashboard-topbar .usd-rate-popover {
   position: fixed !important;
-  top: 68px !important;
-  left: calc(var(--mj-sidebar-w, 292px) + ((100vw - var(--mj-sidebar-w, 292px)) / 2)) !important;
-  right: auto !important;
+  top: 68px ;
+  left: calc(var(--mj-sidebar-w, 292px) + ((100vw - var(--mj-sidebar-w, 292px)) / 2)) ;
+  right: auto ;
   transform: translateX(-50%) !important;
   z-index: 240 !important;
 }
 .dashboard-main.is-sidebar-collapsed .dashboard-topbar .usd-rate-popover {
-  left: calc(72px + ((100vw - 72px) / 2)) !important;
+  left: calc(72px + ((100vw - 72px) / 2)) ;
 }
 @media (max-width: 1024px) {
   .dashboard-topbar .usd-rate-popover {
@@ -4335,8 +4335,8 @@ html,
 
 .dashboard-back-slot:has(+ .z-report-page--print-only) {
   background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
+  border: 0 ;
+  box-shadow: none ;
 }
 .dashboard-back-slot:has(+ .z-report-page--print-only) .dashboard-back-button {
   border: 1px solid rgba(203, 213, 225, 0.86) !important;
@@ -4377,14 +4377,14 @@ html,
   top: auto !important;
   height: 40px !important;
   min-height: 40px !important;
-  margin: 0 !important;
+  margin: 0 ;
   padding: 8px 14px 8px 12px !important;
   border: 1px solid rgba(203, 213, 225, 0.86) !important;
   border-radius: 12px !important;
   color: var(--neutral-700) !important;
   background: #ffffff !important;
   box-shadow: 0 6px 14px rgba(15, 23, 42, 0.056) !important;
-  pointer-events: auto !important;
+  pointer-events: auto ;
 }
 .dashboard-back-slot .dashboard-back-button:hover,
 .dashboard-back-slot .dashboard-back-button:focus-visible {
@@ -4446,7 +4446,7 @@ html,
 .dashboard-sidebar .sidebar-link--button:hover,
 .dashboard-sidebar .sidebar-nav-item > .sidebar-link:hover,
 .dashboard-sidebar .sidebar-nav-item > .sidebar-link--button:hover {
-  border-width: 1px !important;
+  border-width: 1px ;
   border-style: solid;
 }
 /* ============ UNIFIED FORM CONTROLS + SIDEBAR HOVER STABILITY (master) ============ */
@@ -4515,7 +4515,7 @@ html,
 .dashboard-shell input[type="checkbox"]:checked::after {
   content: "" !important;
   position: absolute !important;
-  left: 5px !important;
+  left: 5px ;
   top: 1.5px !important;
   width: 5px !important;
   height: 9px !important;
@@ -4538,7 +4538,7 @@ html,
 }
 .dashboard-shell input[type="radio"]:checked { border-color: var(--accent,#1db5b5) !important; }
 .dashboard-shell input[type="radio"]:checked::after {
-  content: "" !important; position: absolute !important; left: 4px !important; top: 4px !important;
+  content: "" !important; position: absolute !important; left: 4px ; top: 4px !important;
   width: 8px !important; height: 8px !important; border-radius: 50% !important; background: var(--accent,#1db5b5) !important;
 }
 /* ---- Sidebar hover stability: одинаковые габариты в base и hover ---- */
@@ -4609,7 +4609,7 @@ html,
   box-sizing: border-box;
   width: 100% !important;
   margin: 0 !important;
-  border-width: 1px !important;
+  border-width: 1px ;
   transform: none !important;
   translate: none ;
   scale: none ;
@@ -4623,7 +4623,7 @@ html,
   display: grid !important;
   grid-template-columns: 48px minmax(0, 1fr) 28px !important;
   align-items: center !important;
-  column-gap: 8px !important;
+  column-gap: 8px ;
   height: 78px !important;
   min-height: 78px !important;
   max-height: 78px !important;
@@ -4633,9 +4633,9 @@ html,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user.sidebar-user--button:hover .sidebar-user__avatar,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user.sidebar-user--button:focus .sidebar-user__avatar,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user.sidebar-user--button:active .sidebar-user__avatar {
-  grid-column: 1 !important;
+  grid-column: 1 ;
   justify-self: center !important;
-  align-self: center !important;
+  align-self: center ;
   flex: 0 0 48px !important;
   width: 48px !important;
   min-width: 48px !important;
@@ -4654,12 +4654,12 @@ html,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user.sidebar-user--button:hover .sidebar-user__meta,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user.sidebar-user--button:focus .sidebar-user__meta,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user.sidebar-user--button:active .sidebar-user__meta {
-  grid-column: 2 !important;
-  justify-self: stretch !important;
-  align-self: center !important;
+  grid-column: 2 ;
+  justify-self: stretch ;
+  align-self: center ;
   min-width: 0 !important;
-  max-width: none !important;
-  margin: 0 !important;
+  max-width: none ;
+  margin: 0 ;
   transform: none !important;
   translate: none ;
   scale: none ;
@@ -4669,21 +4669,21 @@ html,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user.sidebar-user--button:hover .sidebar-user__arrow,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user.sidebar-user--button:focus .sidebar-user__arrow,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user.sidebar-user--button:active .sidebar-user__arrow {
-  grid-column: 3 !important;
-  justify-self: center !important;
-  align-self: center !important;
-  flex: 0 0 28px !important;
+  grid-column: 3 ;
+  justify-self: center ;
+  align-self: center ;
+  flex: 0 0 28px ;
   width: 28px !important;
   min-width: 28px !important;
-  max-width: 28px !important;
+  max-width: 28px ;
   height: 28px !important;
   min-height: 28px !important;
-  max-height: 28px !important;
-  margin: 0 !important;
-  transform: none !important;
+  max-height: 28px ;
+  margin: 0 ;
+  transform: none ;
   translate: none ;
   scale: none ;
-  transition: none !important;
+  transition: none ;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user.sidebar-user--button .sidebar-user-logo,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user.sidebar-user--button:hover .sidebar-user-logo,
@@ -4698,7 +4698,7 @@ html,
   transform: none !important;
   translate: none ;
   scale: none ;
-  transition: none !important;
+  transition: none ;
 }
 .dashboard-back-slot + .dish-catalog-page {
   margin-top: 14px !important;
@@ -4716,7 +4716,7 @@ html,
   margin-top: 14px !important;
 }
 .dashboard-back-slot + .z-report-page--print-only {
-  padding-top: 18px !important;
+  padding-top: 18px ;
 }
 /* Match top KPI hover motion to the warehouse buttons beside the chart. */
 .dashboard-shell .kpi-grid--premium .premium-kpi {
@@ -4770,9 +4770,9 @@ html,
 /* 4) top-dish body — vertically centered text against photo height */
 .dashboard-shell .top-dish__body {
   display: flex !important;
-  flex-direction: column !important;
+  flex-direction: column ;
   justify-content: center !important;
-  align-self: stretch !important;
+  align-self: stretch ;
   min-width: 0 !important;
 }
 .dashboard-shell .top-dish__body .top-dish__line { display: flex !important; align-items: center !important; min-width: 0 !important; }
@@ -4782,7 +4782,7 @@ html,
   flex-wrap: wrap !important;
   align-items: center !important;
   gap: 4px 10px !important;
-  overflow: visible !important;
+  overflow: visible ;
 }
 .dashboard-shell .recent-orders-list .recent-order > * { min-width: 0 !important; }
 .dashboard-shell .recent-orders-list .recent-order em { margin-left: auto !important; }
@@ -4972,7 +4972,7 @@ body:has(.balance-payment-modal) .dashboard-main {
 }
 /* Белая тень при открытой модалке — изолируем sidebar от blur оверлея */
 body:has(.balance-payment-modal) .dashboard-sidebar {
-  isolation: isolate !important;
+  isolation: isolate ;
   overflow: hidden !important;
 }
 /* Sidebar: submenu-button hover height jump fix.
@@ -5280,8 +5280,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 /* Waiters report: restore the previous compact table layout. */
 .dashboard-back-slot + .waiters-report-page,
 .waiters-report-page {
-  width: 100% !important;
-  max-width: none !important;
+  width: 100% ;
+  max-width: none ;
   margin-top: 0 !important;
   padding: 0 6px 24px !important;
 }
@@ -5338,7 +5338,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .dashboard-sidebar .sidebar-account__lang-chevron {
-  transition: transform 160ms ease !important;
+  transition: transform 160ms ease ;
 }
 
 
@@ -5379,26 +5379,26 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account.is-open .sidebar-user.sidebar-user--button:active {
   background: #0b1f3f !important;
   background-color: #0b1f3f ;
-  background-image: none !important;
+  background-image: none ;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account .sidebar-account__menu,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account.is-open .sidebar-account__menu {
   background: #0b1f3f !important;
   background-color: #0b1f3f ;
-  background-image: none !important;
+  background-image: none ;
 }
 /* Profile arrow: point up while the profile menu is open. */
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account .sidebar-user__arrow,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account .sidebar-user:hover .sidebar-user__arrow,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account .sidebar-user:focus-visible .sidebar-user__arrow {
-  transform: rotate(0deg) !important;
-  transition: transform 180ms ease !important;
+  transform: rotate(0deg) ;
+  transition: transform 180ms ease ;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account.is-open .sidebar-user__arrow,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account.is-open .sidebar-user:hover .sidebar-user__arrow,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account.is-open .sidebar-user:focus-visible .sidebar-user__arrow {
-  transform: rotate(-90deg) !important;
-  transition: transform 180ms ease !important;
+  transform: rotate(-90deg) ;
+  transition: transform 180ms ease ;
 }
 /* Compact language popover: opens to the side like the requested reference. */
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account .sidebar-account__menu,
@@ -5449,21 +5449,21 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   color: inherit !important;
 }
 .dashboard-sidebar .sidebar-account__lang-label svg {
-  grid-column: 1 !important;
+  grid-column: 1 ;
   color: rgba(181, 210, 255, 0.86) !important;
 }
 .dashboard-sidebar .sidebar-account__lang-label > :not(svg) {
-  grid-column: 2 !important;
+  grid-column: 2 ;
 }
 .dashboard-sidebar .sidebar-account__lang-current,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__lang-current {
-  grid-column: 3 !important;
+  grid-column: 3 ;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   min-width: 36px !important;
   height: 24px !important;
-  margin-left: 0 !important;
+  margin-left: 0 ;
   border: 1px solid rgba(42, 69, 109, 0.95) !important;
   border-radius: 999px !important;
   color: #dff7ff !important;
@@ -5474,19 +5474,19 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 .dashboard-sidebar .sidebar-account__lang-chevron,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__lang-chevron {
-  grid-column: 4 !important;
-  margin-left: 0 !important;
+  grid-column: 4 ;
+  margin-left: 0 ;
   color: rgba(226, 236, 255, 0.56) !important;
 }
 .dashboard-sidebar .sidebar-account__lang.is-open .sidebar-account__lang-chevron,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__lang.is-open .sidebar-account__lang-chevron {
-  transform: rotate(180deg) !important;
+  transform: rotate(180deg) ;
 }
 .dashboard-sidebar .sidebar-account__lang-panel,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__lang-panel {
   position: absolute !important;
-  left: calc(100% + 8px) !important;
-  top: 50% !important;
+  left: calc(100% + 8px) ;
+  top: 50% ;
   z-index: 25 !important;
   display: grid !important;
   gap: 7px !important;
@@ -5499,14 +5499,14 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   transform: translateY(-50%) !important;
 }
 .dashboard-sidebar .sidebar-account__lang-panel::before {
-  content: "" !important;
-  position: absolute !important;
-  left: -8px !important;
-  top: 50% !important;
-  width: 8px !important;
-  height: 42px !important;
-  transform: translateY(-50%) !important;
-  background: transparent !important;
+  content: "" ;
+  position: absolute ;
+  left: -8px ;
+  top: 50% ;
+  width: 8px ;
+  height: 42px ;
+  transform: translateY(-50%) ;
+  background: transparent ;
 }
 .dashboard-sidebar .sidebar-account__lang-panel button,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__lang-panel button {
@@ -5570,14 +5570,14 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     ) !important;
 }
 .dashboard-sidebar .sidebar-account__lang-panel .sidebar-account__lang-flag--uz::before {
-  content: "" !important;
-  position: absolute !important;
-  left: 4px !important;
-  top: 3px !important;
-  width: 5px !important;
-  height: 5px !important;
-  border-radius: 999px !important;
-  box-shadow: -2px 0 0 0 #1eb7d9, -1px 0 0 1px #ffffff !important;
+  content: "" ;
+  position: absolute ;
+  left: 4px ;
+  top: 3px ;
+  width: 5px ;
+  height: 5px ;
+  border-radius: 999px ;
+  box-shadow: -2px 0 0 0 #1eb7d9, -1px 0 0 1px #ffffff ;
 }
 .dashboard-sidebar .sidebar-account__lang-panel .sidebar-account__lang-flag--ru {
   background:
@@ -5610,7 +5610,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .dashboard-sidebar .sidebar-account__lang-panel .sidebar-account__lang-flag::before,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__lang-panel .sidebar-account__lang-flag::before {
   display: none !important;
-  content: none !important;
+  content: none ;
 }
 .dashboard-sidebar .sidebar-account__lang-panel .sidebar-account__lang-flag img,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__lang-panel .sidebar-account__lang-flag img {
@@ -6228,14 +6228,14 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .dashboard-shell .chart-card,
 .dashboard-shell .premium-chart {
   transition: box-shadow 0.34s ease !important;
-  animation: none !important;
+  animation: none ;
   transform: none !important;
 }
 .dashboard-shell .chart-card:hover,
 .dashboard-shell .chart-card:focus-within,
 .dashboard-shell .premium-chart:hover,
 .dashboard-shell .premium-chart:focus-within {
-  animation: none !important;
+  animation: none ;
   transform: none !important;
   box-shadow: 0 18px 52px rgba(13, 39, 72, 0.10),
     inset 0 1px 0 rgba(255, 255, 255, 0.63) !important;
@@ -6246,8 +6246,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .dashboard-shell .owner-top-sales-card:focus-within,
 .dashboard-shell .recent-orders-card:hover,
 .dashboard-shell .recent-orders-card:focus-within {
-  transition: none !important;
-  animation: none !important;
+  transition: none ;
+  animation: none ;
   transform: none !important;
   box-shadow: var(--owner-shadow, var(--mj-card-shadow)) !important;
 }
@@ -6261,7 +6261,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .dashboard-shell .owner-top-sales-card .top-dish--compact:focus-visible,
 .dashboard-shell .recent-orders-card .recent-order:focus-visible {
   transition: none !important;
-  animation: none !important;
+  animation: none ;
   transform: none !important;
   background: #f7f9fc !important;
   border-color: rgba(15,35,70,0.08) !important;
@@ -6271,8 +6271,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   width: 44px !important;
   height: 44px !important;
   min-width: 44px !important;
-  max-width: 44px !important;
-  flex: 0 0 44px !important;
+  max-width: 44px ;
+  flex: 0 0 44px ;
   display: grid !important;
   place-items: center;
   border-radius: 14px !important;
@@ -6286,7 +6286,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .dashboard-shell .warehouse-summary-item__icon svg {
   width: 22px !important;
   height: 22px !important;
-  stroke-width: 2.15 !important;
+  stroke-width: 2.15 ;
 }
 .dashboard-shell .warehouse-summary-item--income .warehouse-summary-item__icon {
   color: #0fafa4 !important;
@@ -6506,7 +6506,7 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
 .dashboard-shell .dashboard-sidebar .sidebar-brand,
 .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-brand,
 .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .sidebar-brand {
-  left: 12px !important;
+  left: 12px ;
 }
 /* Enlarge the brand button when the sidebar is collapsed */
 .dashboard-shell .dashboard-sidebar.is-collapsed .brand-mark--button {
@@ -6518,7 +6518,7 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
 /* Offset the collapsed sidebar brand from the left edge */
 .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar .sidebar-brand,
 .dashboard-shell.is-sidebar-collapsed .dashboard-sidebar.is-collapsed .sidebar-brand {
-  left: 16px !important;
+  left: 16px ;
 }
 /* Sidebar nav top margin: 76px by default, 88px on wide screens */
 .dashboard-sidebar .sidebar-nav,
@@ -6902,12 +6902,12 @@ body.dashboard-body .dashboard-shell .dashboard-content.dashboard-content--staff
 }
 body.dashboard-body .dashboard-shell .dashboard-content.dashboard-content--staff .staff-page {
   display: flex !important;
-  flex: 1 1 auto !important;
+  flex: 1 1 auto ;
   min-height: 0 !important;
   padding: 0 !important;
 }
 body.dashboard-body .dashboard-shell .dashboard-content.dashboard-content--staff .staff-card {
-  flex: 1 1 auto !important;
+  flex: 1 1 auto ;
   min-height: 0 !important;
   border-radius: var(--mj-main-curve, 34px) !important;
 }
@@ -6923,27 +6923,27 @@ body.dashboard-body:has(.staff-modal) .staff-modal {
 body.dashboard-body:has(.staff-modal) .staff-form {
   height: calc(100vh - 84px) !important;
   max-height: calc(100vh - 84px) !important;
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
+  overflow-x: hidden ;
+  overflow-y: auto ;
 }
 body.dashboard-body:has(.staff-modal) .staff-form__header {
   min-height: 54px !important;
   padding: 12px 16px !important;
-  overflow: visible !important;
+  overflow: visible ;
 }
 body.dashboard-body:has(.staff-modal) .staff-form__header button {
   width: 34px !important;
   height: 34px !important;
   min-width: 34px !important;
   min-height: 34px !important;
-  align-self: center !important;
+  align-self: center ;
 }
 body.dashboard-body:has(.staff-modal) .staff-form__footer {
-  bottom: 0 !important;
+  bottom: 0 ;
   min-height: 66px !important;
   padding: 10px 14px 14px !important;
-  box-sizing: border-box !important;
-  overflow: visible !important;
+  box-sizing: border-box ;
+  overflow: visible ;
 }
 body.dashboard-body:has(.staff-modal) .staff-form__footer button {
   min-height: 42px !important;
@@ -6966,18 +6966,18 @@ body.dashboard-body .dashboard-shell .dashboard-content > .nomenclature-page--ra
 }
 body.dashboard-body .nomenclature-page--raw .nomenclature-card {
   width: calc(100% + 12px) !important;
-  max-width: none !important;
+  max-width: none ;
   height: auto !important;
   min-height: 0 !important;
-  margin-left: -6px !important;
-  margin-right: -6px !important;
+  margin-left: -6px ;
+  margin-right: -6px ;
   padding: 16px 18px 14px !important;
   border-radius: 24px !important;
 }
 body.dashboard-body .nomenclature-page--raw .nomenclature-header {
   align-items: center !important;
   min-height: 88px !important;
-  margin-bottom: 12px !important;
+  margin-bottom: 12px ;
   gap: 14px !important;
 }
 body.dashboard-body .nomenclature-page--raw .report-title-group {
@@ -7000,7 +7000,7 @@ body.dashboard-body .nomenclature-page--raw .nomenclature-actions button {
   border-radius: 10px !important;
 }
 body.dashboard-body .nomenclature-page--raw .nomenclature-table-wrapper {
-  overflow-x: hidden !important;
+  overflow-x: hidden ;
   border-radius: 16px !important;
 }
 body.dashboard-body .nomenclature-page--raw .nomenclature-table {
@@ -7114,18 +7114,18 @@ body.dashboard-body .dashboard-shell .dashboard-content > .nomenclature-page--se
 }
 body.dashboard-body .nomenclature-page--semi .nomenclature-card {
   width: calc(100% + 12px) !important;
-  max-width: none !important;
+  max-width: none ;
   height: auto !important;
   min-height: 0 !important;
-  margin-left: -6px !important;
-  margin-right: -6px !important;
+  margin-left: -6px ;
+  margin-right: -6px ;
   padding: 16px 18px 14px !important;
   border-radius: 24px !important;
 }
 body.dashboard-body .nomenclature-page--semi .nomenclature-header {
   align-items: center !important;
   min-height: 88px !important;
-  margin-bottom: 12px !important;
+  margin-bottom: 12px ;
   gap: 14px !important;
 }
 body.dashboard-body .nomenclature-page--semi .report-title-group {
@@ -7148,7 +7148,7 @@ body.dashboard-body .nomenclature-page--semi .nomenclature-actions button {
   border-radius: 10px !important;
 }
 body.dashboard-body .nomenclature-page--semi .nomenclature-table-wrapper {
-  overflow-x: hidden !important;
+  overflow-x: hidden ;
   border-radius: 16px !important;
 }
 body.dashboard-body .nomenclature-page--semi .nomenclature-table {
@@ -7236,7 +7236,7 @@ body.dashboard-body .nomenclature-page--semi .nomenclature-status-badge {
 body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band {
   display: block !important;
   width: calc(100% + 32px) !important;
-  margin: -12px -16px 12px !important;
+  margin: -12px -16px 12px ;
 }
 body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band > .kpi-grid.kpi-grid--premium {
   display: grid !important;
@@ -7244,7 +7244,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
   gap: 14px !important;
   width: 100% !important;
   min-width: 0 !important;
-  margin: 0 !important;
+  margin: 0 ;
 }
 body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band > .owner-kpi-band__side {
   display: none !important;
@@ -7332,7 +7332,7 @@ body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-br
 body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .sidebar-brand {
   background: transparent !important;
   background-color: transparent ;
-  background-image: none !important;
+  background-image: none ;
 }
 .dashboard-sidebar .sidebar-brand::before,
 .dashboard-sidebar .sidebar-brand::after,
@@ -7340,7 +7340,7 @@ body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .side
 .dashboard-shell .dashboard-sidebar .sidebar-brand::after,
 body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand::before,
 body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand::after {
-  background: transparent !important;
+  background: transparent ;
   background-color: transparent ;
   background-image: none ;
 }
@@ -7351,7 +7351,7 @@ body.dashboard-body .dashboard-shell.is-sidebar-collapsed::after {
   content: none !important;
   opacity: 0 !important;
   visibility: hidden ;
-  pointer-events: none !important;
+  pointer-events: none ;
   background: none !important;
 }
 @media (max-width: 1440px) {
@@ -7436,7 +7436,7 @@ body.dashboard-body .dashboard-shell.is-sidebar-collapsed::after {
 /* Owner dashboard: revenue date range picker without time columns. */
 body.dashboard-body .dashboard-shell .owner-revenue-switcher,
 body.dashboard-body .dashboard-shell .premium-chart .owner-revenue-switcher {
-  overflow: visible !important;
+  overflow: visible ;
 }
 body.dashboard-body .dashboard-shell .owner-revenue-range.report-actions {
   position: relative !important;
@@ -7446,11 +7446,11 @@ body.dashboard-body .dashboard-shell .owner-revenue-range.report-actions {
   justify-content: flex-start !important;
   width: auto !important;
   min-width: 0 !important;
-  max-width: none !important;
+  max-width: none ;
   height: auto !important;
   min-height: 0 !important;
   padding: 0 !important;
-  overflow: visible !important;
+  overflow: visible ;
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -7464,7 +7464,7 @@ body.dashboard-body .dashboard-shell .owner-revenue-range.report-actions .report
   min-width: 0 !important;
   height: auto !important;
   min-height: 0 !important;
-  overflow: visible !important;
+  overflow: visible ;
   border: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
@@ -7513,23 +7513,23 @@ body.dashboard-body .dashboard-shell .owner-revenue-range.report-actions .report
   color: var(--accent, #1db5b5) !important;
 }
 body.dashboard-body .dashboard-shell .owner-revenue-range.report-actions .report-date-menu {
-  top: calc(100% + 8px) !important;
-  right: 0 !important;
-  left: auto !important;
+  top: calc(100% + 8px) ;
+  right: 0 ;
+  left: auto ;
   z-index: 170 !important;
   width: min(420px, calc(100vw - 32px)) !important;
-  max-height: none !important;
+  max-height: none ;
   overflow: visible !important;
 }
 body.dashboard-body .dashboard-shell .owner-revenue-range.report-actions .report-date-calendar-popover {
   right: 0 !important;
-  left: auto !important;
+  left: auto ;
   z-index: 180 !important;
   width: min(410px, calc(100vw - 32px)) !important;
 }
 body.dashboard-body .dashboard-shell .owner-revenue-range.report-actions .report-date-calendar-popover::before {
-  right: 44px !important;
-  left: auto !important;
+  right: 44px ;
+  left: auto ;
 }
 body.dashboard-body .dashboard-shell .owner-revenue-range.report-actions .report-date-picker-body--date-only {
   grid-template-columns: minmax(0, 1fr) !important;
@@ -7601,7 +7601,7 @@ body.dashboard-body .dashboard-shell .owner-revenue-switcher .period-dropdown__b
   align-items: center !important;
   justify-content: center !important;
   grid-template-columns: none !important;
-  grid-template-rows: none !important;
+  grid-template-rows: none ;
   gap: 7px !important;
   padding: 0 13px !important;
   overflow: visible !important;
@@ -7625,7 +7625,7 @@ body.dashboard-body .dashboard-shell .owner-revenue-switcher .period-dropdown__b
 }
 body.dashboard-body .dashboard-shell .owner-revenue-switcher .period-dropdown__menu {
   right: 0 !important;
-  left: auto !important;
+  left: auto ;
   width: 100% !important;
   min-width: 104px !important;
   z-index: 170 !important;
@@ -7645,7 +7645,7 @@ body.dashboard-body .dashboard-shell .premium-chart .section-header,
 body.dashboard-body .dashboard-shell .premium-chart .owner-revenue-switcher,
 body.dashboard-body .dashboard-shell .premium-chart .owner-revenue-range.report-actions,
 body.dashboard-body .dashboard-shell .premium-chart .report-period-picker {
-  overflow: visible !important;
+  overflow: visible ;
 }
 body.dashboard-body .dashboard-shell .premium-chart {
   z-index: 40 !important;
@@ -7670,7 +7670,7 @@ body.dashboard-body .dashboard-shell .premium-chart .owner-revenue-range.report-
   background: #ffffff !important;
   opacity: 1 !important;
   isolation: isolate;
-  backdrop-filter: none !important;
+  backdrop-filter: none ;
 }
 body.dashboard-body .dashboard-shell .premium-chart .revenue-stat-grid,
 body.dashboard-body .dashboard-shell .premium-chart .chart-wrap {
@@ -7697,7 +7697,7 @@ body.dashboard-body .dashboard-shell .premium-chart .owner-revenue-switcher .own
 }
 /* Owner dashboard: make the gap between top sales and recent orders tighter. */
 body.dashboard-body .dashboard-shell .owner-widgets {
-  gap: 14px !important;
+  gap: 14px ;
 }
 @media (max-width: 768px) {
   body.dashboard-body .dashboard-shell .owner-widgets {
@@ -7711,7 +7711,7 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-left {
 }
 body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot,
 body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-date-slot {
-  flex: 0 0 auto !important;
+  flex: 0 0 auto ;
   display: inline-flex !important;
   align-items: center !important;
 }
@@ -7729,7 +7729,7 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   height: 38px !important;
   min-height: 38px !important;
   max-height: 38px !important;
-  margin: 0 !important;
+  margin: 0 ;
   padding: 0 !important;
   display: inline-flex !important;
   align-items: center !important;
@@ -7743,7 +7743,7 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   font-size: 14px !important;
   font-weight: 700 !important;
   line-height: 1 !important;
-  letter-spacing: 0 !important;
+  letter-spacing: 0 ;
   box-shadow:
     inset 0 5px 8px rgba(255, 255, 255, 0.1),
     inset 0 -8px 12px rgba(4, 31, 58, 0.62),
@@ -7758,18 +7758,18 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
 }
 body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashboard-back-button::before {
   display: none !important;
-  content: none !important;
+  content: none ;
 }
 body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashboard-back-button::after {
   display: none !important;
-  content: none !important;
+  content: none ;
 }
 body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashboard-back-button svg {
   width: 24px !important;
   height: 24px !important;
   color: #8ff9ff !important;
   stroke: currentColor !important;
-  stroke-width: 3.2 !important;
+  stroke-width: 3.2 ;
   filter: drop-shadow(0 0 7px rgba(143, 249, 255, 0.46)) !important;
 }
 body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashboard-back-button span {
@@ -7780,7 +7780,7 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   transform: translateY(-1px) !important;
   outline: 0 !important;
   border-color: rgba(32, 232, 255, 0.38) !important;
-  filter: brightness(1.08) saturate(1.04) !important;
+  filter: brightness(1.08) saturate(1.04) ;
   box-shadow:
     inset 0 5px 8px rgba(255, 255, 255, 0.16),
     inset 0 -8px 12px rgba(4, 31, 58, 0.58),
@@ -7790,7 +7790,7 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
 }
 body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashboard-back-button:active {
   transform: translateY(3px) scale(0.985) !important;
-  filter: brightness(0.94) !important;
+  filter: brightness(0.94) ;
   box-shadow:
     inset 0 3px 12px rgba(4, 31, 58, 0.68),
     inset 0 -4px 9px rgba(255, 255, 255, 0.07),

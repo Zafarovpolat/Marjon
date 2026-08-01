@@ -2629,7 +2629,7 @@
 
 .report-actions .report-date-menu {
     width: min(620px, calc(100vw - 42px)) !important;
-    max-height: none !important;
+    max-height: none ;
     overflow: visible !important;
     background: #fff !important;
 }

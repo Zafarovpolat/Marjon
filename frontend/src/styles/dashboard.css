@@ -3309,16 +3309,16 @@ body,
 
 /* Refined employee submenu: close on mouse leave, cleaner nested style */
 .sidebar-nav-item.has-submenu:not(:hover):not(:focus-within) .sidebar-submenu {
-  max-height: 0 !important;
+  max-height: 0 ;
   opacity: 0 !important;
   padding-top: 0 !important;
-  padding-bottom: 0 !important;
+  padding-bottom: 0 ;
   transform: translateY(-6px) !important;
   pointer-events: none;
 }
 
 .sidebar-nav-item.has-submenu:not(:hover):not(:focus-within) .sidebar-link__chevron {
-  transform: rotate(0deg) !important;
+  transform: rotate(0deg) ;
 }
 
 .sidebar-submenu {
@@ -3383,10 +3383,10 @@ body,
 .sidebar-nav-item.has-submenu:focus-within .sidebar-submenu,
 .sidebar-nav-item.has-submenu.is-active .sidebar-submenu,
 .sidebar-nav-item.has-submenu.is-active:not(:hover):not(:focus-within) .sidebar-submenu {
-  max-height: 0 !important;
-  opacity: 0 !important;
+  max-height: 0 ;
+  opacity: 0 ;
   padding-top: 0 !important;
-  padding-bottom: 0 !important;
+  padding-bottom: 0 ;
   transform: translateY(-6px) !important;
   pointer-events: none !important;
 }
@@ -3395,15 +3395,15 @@ body,
 .sidebar-nav-item.has-submenu:hover .sidebar-link__chevron,
 .sidebar-nav-item.has-submenu:focus-within .sidebar-link__chevron,
 .sidebar-nav-item.has-submenu.is-active .sidebar-link__chevron {
-  transform: rotate(0deg) !important;
+  transform: rotate(0deg) ;
 }
 
 .sidebar-nav-item.has-submenu.is-open .sidebar-submenu,
 .sidebar-nav-item.has-submenu.is-open:hover .sidebar-submenu,
 .sidebar-nav-item.has-submenu.is-open:focus-within .sidebar-submenu {
-  opacity: 1 !important;
+  opacity: 1 ;
   padding-top: 8px !important;
-  padding-bottom: 8px !important;
+  padding-bottom: 8px ;
   transform: translateY(0) !important;
   pointer-events: auto !important;
 }
@@ -3411,7 +3411,7 @@ body,
 .sidebar-nav-item.has-submenu.is-open .sidebar-link__chevron,
 .sidebar-nav-item.has-submenu.is-open:hover .sidebar-link__chevron,
 .sidebar-nav-item.has-submenu.is-open:focus-within .sidebar-link__chevron {
-  transform: rotate(180deg) !important;
+  transform: rotate(180deg) ;
   color: #fff;
 }
 
@@ -3636,11 +3636,11 @@ body.dashboard-body::before {
 }
 
 .dashboard-sidebar::before {
-  position: absolute !important;
-  inset: 0 !important;
-  z-index: 0 !important;
+  position: absolute ;
+  inset: 0 ;
+  z-index: 0 ;
   border-radius: 0 !important;
-  pointer-events: none !important;
+  pointer-events: none ;
 }
 
 
@@ -3764,14 +3764,14 @@ body.dashboard-body::before {
 .marjon-owner-dashboard .sidebar {
   position: fixed !important;
   top: 0 !important;
-  left: 0 !important;
-  bottom: 0 !important;
+  left: 0 ;
+  bottom: 0 ;
   z-index: 100 !important;
   width: var(--mj-sidebar-w) !important;
   min-width: var(--mj-sidebar-w) !important;
   padding: 24px 20px !important;
   display: flex !important;
-  flex-direction: column !important;
+  flex-direction: column ;
   overflow: hidden !important;
   color: #fff !important;
   border-radius: 0 !important;
@@ -3781,11 +3781,11 @@ body.dashboard-body::before {
 }
 
 .marjon-owner-dashboard .sidebar::before {
-  content: "" !important;
-  position: absolute !important;
-  inset: 0 !important;
-  z-index: 0 !important;
-  pointer-events: none !important;
+  content: "" ;
+  position: absolute ;
+  inset: 0 ;
+  z-index: 0 ;
+  pointer-events: none ;
   background: transparent;
 }
 
@@ -3883,7 +3883,7 @@ body.dashboard-body::before {
   line-height: 1.04 !important;
   font-weight: 700 !important;
   letter-spacing: -0.055em !important;
-  text-shadow: 0 12px 28px rgba(0,0,0,0.28) !important;
+  text-shadow: 0 12px 28px rgba(0,0,0,0.28) ;
 }
 
 .marjon-owner-dashboard .page-subtitle {
@@ -3932,7 +3932,7 @@ body.dashboard-body::before {
 .marjon-owner-dashboard .btn-primary:hover {
   color: #fff !important;
   transform: translateY(-1px) !important;
-  filter: brightness(1.04) !important;
+  filter: brightness(1.04) ;
 }
 
 .marjon-owner-dashboard .notif-bell {
@@ -3989,15 +3989,15 @@ body.dashboard-body::before {
 }
 
 .marjon-owner-dashboard .kpi-card::before {
-  content: "" !important;
-  position: absolute !important;
-  left: 24px !important;
-  right: auto !important;
-  top: 0 !important;
-  bottom: auto !important;
-  width: 42% !important;
-  height: 3px !important;
-  border-radius: 0 0 999px 999px !important;
+  content: "" ;
+  position: absolute ;
+  left: 24px ;
+  right: auto ;
+  top: 0 ;
+  bottom: auto ;
+  width: 42% ;
+  height: 3px ;
+  border-radius: 0 0 999px 999px ;
   opacity: 0.95 ;
 }
 
@@ -4115,14 +4115,14 @@ body.dashboard-body::before {
 .marjon-owner-dashboard .top-dishes-card::before,
 .premium-chart::before,
 .top-dishes-card::before {
-  content: "" !important;
-  position: absolute !important;
-  top: 0 !important;
+  content: "" ;
+  position: absolute ;
+  top: 0 ;
   left: 28px !important;
   right: auto !important;
   width: 126px !important;
   height: 3px !important;
-  border-radius: 0 0 999px 999px !important;
+  border-radius: 0 0 999px 999px ;
   background: var(--mj-cyan);
 }
 

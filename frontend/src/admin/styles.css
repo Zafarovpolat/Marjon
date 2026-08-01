@@ -3457,7 +3457,7 @@ body::-webkit-scrollbar,
 .admin-login__input input:-webkit-autofill:focus,
 .admin-login__input input:-webkit-autofill:active {
   -webkit-text-fill-color: #fff8e6 ;
-  -webkit-box-shadow: 0 0 0 1000px rgba(9, 24, 30, 0.78) inset !important;
+  -webkit-box-shadow: 0 0 0 1000px rgba(9, 24, 30, 0.78) inset ;
   box-shadow: 0 0 0 1000px rgba(9, 24, 30, 0.78) inset !important;
   caret-color: #fff8e6;
 }
@@ -15990,7 +15990,7 @@ body:has(.admin-shell),
 .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-brand.sidebar-brand .brand-mark--button:focus-visible,
 .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-brand.sidebar-brand .brand-mark--button:active {
   background: #ffffff !important;
-  background-color: #ffffff !important;
+  background-color: #ffffff ;
   background-image: none !important;
   border: 0 !important;
   border-radius: 14px !important;
