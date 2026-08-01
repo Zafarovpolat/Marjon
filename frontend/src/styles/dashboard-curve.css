@@ -31,15 +31,15 @@ body.dashboard-body::before {
   height: 100vh;
   padding: 20px 14px 18px;
   border: 0;
-  border-radius: 0 !important;
-  box-shadow: none !important;
+  border-radius: 0;
+  box-shadow: none;
   overflow: hidden;
   background: linear-gradient(180deg, var(--neutral-800) 0%, var(--neutral-900) 55%, var(--neutral-950) 100%) !important;
 }
 
 .dashboard-sidebar::before,
 .dashboard-sidebar::after {
-  display: none !important;
+  display: none;
 }
 
 .sidebar-nav {
@@ -79,18 +79,18 @@ body.dashboard-body::before {
   flex: 1;
   min-width: 0;
   height: 100vh;
-  margin-left: 0 !important;
-  padding-left: 0 !important;
+  margin-left: 0;
+  padding-left: 0;
   overflow: hidden auto;
   border: none !important;
-  border-top-left-radius: var(--mj-main-curve) !important;
-  background: var(--neutral-50) !important;
-  box-shadow: none !important;
+  border-top-left-radius: var(--mj-main-curve);
+  background: var(--neutral-50);
+  box-shadow: none;
 }
 
 .dashboard-main::before,
 .dashboard-main::after {
-  display: none !important;
+  display: none;
 }
 
 .dashboard-topbar {
@@ -98,11 +98,11 @@ body.dashboard-body::before {
   top: 0;
   z-index: 10;
   margin: 0;
-  border-top-left-radius: var(--mj-main-curve) !important;
-  border-bottom: 1px solid var(--neutral-200) !important;
-  background: var(--neutral-50) !important;
-  backdrop-filter: none !important;
-  box-shadow: none !important;
+  border-top-left-radius: var(--mj-main-curve);
+  border-bottom: 1px solid var(--neutral-200);
+  background: var(--neutral-50);
+  backdrop-filter: none;
+  box-shadow: none;
 }
 
 .dashboard-content {
@@ -112,7 +112,7 @@ body.dashboard-body::before {
 @media (max-width: 1024px) {
   .dashboard-main,
   .dashboard-topbar {
-    border-top-left-radius: 0 !important;
+    border-top-left-radius: 0;
   }
 
   .dashboard-sidebar {
