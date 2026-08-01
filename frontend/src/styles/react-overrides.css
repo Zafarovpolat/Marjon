@@ -2113,7 +2113,7 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link::before {
   width: 5px !important;
   height: 5px !important;
-  margin-right: 9px !important;
+  margin-right: 9px ;
 }
 
 .dashboard-sidebar .sidebar-brand {
@@ -2563,7 +2563,7 @@ body.dashboard-body,
 .dashboard-sidebar .sidebar-submenu__link:hover::before,
 .dashboard-sidebar .sidebar-submenu__link:focus-visible::before,
 .dashboard-sidebar .sidebar-submenu__link.is-active::before {
-  flex: 0 0 5px !important;
+  flex: 0 0 5px ;
   width: 5px;
   min-width: 5px;
   height: 5px;
@@ -2713,7 +2713,7 @@ body.dashboard-body,
   z-index: -2 !important;
   border-radius: inherit !important;
   background: transparent;
-  opacity: 1 !important;
+  opacity: 1 ;
 }
 
 .kpi-grid--premium .premium-kpi::after {
@@ -8217,7 +8217,7 @@ body.dashboard-body,
 }
 
 .dashboard-sidebar.is-collapsed {
-  flex-basis: 88px !important;
+  flex-basis: 88px ;
 }
 
 .dashboard-main {
@@ -8336,8 +8336,8 @@ body.dashboard-body {
   letter-spacing: 0 !important;
   text-decoration: none !important;
   transform: none !important;
-  translate: 0 0 !important;
-  scale: 1 !important;
+  translate: 0 0 ;
+  scale: 1 ;
   animation: none !important;
   transition: none !important;
 }
@@ -8451,7 +8451,7 @@ body.dashboard-body {
   line-height: 1.2 !important;
   letter-spacing: 0 !important;
   transform: none !important;
-  translate: none !important;
+  translate: none ;
   animation: none !important;
 }
 
@@ -8494,7 +8494,7 @@ body.dashboard-body {
   min-width: 0 !important;
   height: 0 !important;
   margin: 0 !important;
-  padding: 0 !important;
+  padding: 0 ;
   background: transparent !important;
   box-shadow: none !important;
   transform: none !important;
@@ -9764,7 +9764,7 @@ body.dashboard-body {
 .dashboard-sidebar:not(.is-collapsed) .sidebar-link--button.is-active {
   background: var(--color-brand);
   background-size: 100% 100% !important;
-  background-position: 0 50% !important;
+  background-position: 0 50% ;
   border-color: rgba(29, 181, 181, 0.46) !important;
   box-shadow: 0 11px 25px rgba(29, 181, 181, 0.21),
     0 5px 14px rgba(29, 181, 181, 0.14),
@@ -9802,7 +9802,7 @@ body.dashboard-body {
   z-index: 2 !important;
   display: grid !important;
   place-items: center;
-  flex-basis: 44px !important;
+  flex-basis: 44px ;
   width: 44px !important;
   height: 44px !important;
   min-width: 44px !important;
@@ -11301,7 +11301,7 @@ html,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__menu {
   border-color: var(--marjon-border) !important;
   background: var(--neutral-900);
-  background-color: var(--neutral-950) !important;
+  background-color: var(--neutral-950) ;
 }
 
 /* Brand block alignment with top header */
@@ -11419,8 +11419,8 @@ html,
   bottom: 24px !important;
   width: 14px !important;
   height: 14px !important;
-  border-left: 1px solid rgba(255, 255, 255, 0.12) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.12) ;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) ;
   background: rgba(6, 26, 53, 0.98) !important;
   transform: rotate(45deg) !important;
 }
@@ -12040,7 +12040,7 @@ html,
   border-color: var(--marjon-border) !important;
   color: #ffffff !important;
   background: var(--neutral-900);
-  background-color: var(--neutral-950) !important;
+  background-color: var(--neutral-950) ;
   transform: none !important;
 }
 
@@ -12382,7 +12382,7 @@ html,
   max-height: 42px !important;
   margin: 0 !important;
   transform: none !important;
-  translate: none !important;
+  translate: none ;
 }
 
 /* Absolute final: no sidebar hover layout shift */
@@ -12481,8 +12481,8 @@ html,
   margin: 0 !important;
   padding: 0 !important;
   transform: none !important;
-  translate: none !important;
-  scale: none !important;
+  translate: none ;
+  scale: none ;
 }
 
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item:not(.is-open),
@@ -12531,8 +12531,8 @@ html,
   font-size: 15px !important;
   line-height: 1.2 !important;
   transform: none !important;
-  translate: none !important;
-  scale: none !important;
+  translate: none ;
+  scale: none ;
   transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease !important;
 }
 
@@ -12553,8 +12553,8 @@ html,
   max-height: var(--sidebar-row-icon) !important;
   margin: 0 !important;
   transform: none !important;
-  translate: none !important;
-  scale: none !important;
+  translate: none ;
+  scale: none ;
 }
 
 .dashboard-sidebar:not(.is-collapsed) .sidebar-icon .bi,
@@ -12635,8 +12635,8 @@ html,
   border-width: 1px !important;
   gap: 8px !important;
   transform: none !important;
-  translate: none !important;
-  scale: none !important;
+  translate: none ;
+  scale: none ;
   transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
 }
 
@@ -12685,8 +12685,8 @@ html,
 .dashboard-sidebar.is-collapsed .sidebar-user.sidebar-user--button:hover,
 .dashboard-sidebar.is-collapsed .sidebar-user.sidebar-user--button:focus-visible {
   transform: none !important;
-  translate: none !important;
-  scale: none !important;
+  translate: none ;
+  scale: none ;
   transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease !important;
 }
 
@@ -12705,8 +12705,8 @@ html,
   margin: 0 auto !important;
   padding: 0 !important;
   transform: none !important;
-  translate: none !important;
-  scale: none !important;
+  translate: none ;
+  scale: none ;
 }
 
 .dashboard-sidebar.is-collapsed .sidebar-link,
@@ -12735,8 +12735,8 @@ html,
   border-width: 1px !important;
   gap: 0 !important;
   transform: none !important;
-  translate: none !important;
-  scale: none !important;
+  translate: none ;
+  scale: none ;
 }
 
 .dashboard-sidebar.is-collapsed .sidebar-link .sidebar-icon,
@@ -12752,8 +12752,8 @@ html,
   max-height: var(--sidebar-row-icon) !important;
   margin: 0 auto !important;
   transform: none !important;
-  translate: none !important;
-  scale: none !important;
+  translate: none ;
+  scale: none ;
 }
 
 .sidebar-collapsed-popover__link,
@@ -12774,8 +12774,8 @@ html,
   font-size: 14px !important;
   line-height: 1.2 !important;
   transform: none !important;
-  translate: none !important;
-  scale: none !important;
+  translate: none ;
+  scale: none ;
   transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease !important;
 }
 
@@ -12790,8 +12790,8 @@ html,
   max-height: 18px !important;
   margin: 0 !important;
   transform: none !important;
-  translate: none !important;
-  scale: none !important;
+  translate: none ;
+  scale: none ;
 }
 
 /* Active sidebar item: match the bright cyan reference without clipping open submenus. */
@@ -12815,8 +12815,8 @@ html,
     0 6px 13px rgba(29, 181, 181, 0.126) !important;
   filter: none !important;
   transform: none !important;
-  translate: none !important;
-  scale: none !important;
+  translate: none ;
+  scale: none ;
 }
 
 .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.is-active > .sidebar-link .sidebar-icon,
@@ -13063,7 +13063,7 @@ body.dashboard-body,
 .topbar-balance-pill .topbar-pay-button::after {
   right: 14px;
   border-radius: 999px;
-  z-index: 1 !important;
+  z-index: 1 ;
 }
 
 .topbar-balance-pill .topbar-pay-button:hover,
@@ -13207,7 +13207,7 @@ body.dashboard-body,
   width: 32px;
   border-radius: 12px 18px 18px 12px;
   border: 0;
-  border-left: 1px solid rgba(4, 31, 58, 0.16) !important;
+  border-left: 1px solid rgba(4, 31, 58, 0.16) ;
   background: rgba(4, 31, 58, 0.10);
   box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.07),
     inset 0 1px 0 rgba(255, 255, 255, 0.126),
@@ -13245,7 +13245,7 @@ body.dashboard-body,
   width: 46px !important;
   height: 24px !important;
   border-radius: 14px 18px 18px 14px !important;
-  border: 1px solid rgba(5, 55, 82, 0.22) !important;
+  border: 1px solid rgba(5, 55, 82, 0.22) ;
   border-right: 0;
   background: rgba(255, 255, 255, 0.18);
   box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.126),
@@ -13503,7 +13503,7 @@ body.dashboard-body,
 
 .balance-payment-dialog__field--required > span::after {
   content: " *" !important;
-  color: var(--color-danger) !important;
+  color: var(--color-danger) ;
 }
 
 .balance-payment-visa-extra .balance-payment-dialog__field {
@@ -15163,14 +15163,14 @@ body.dashboard-body,
 
 .support-widget__field textarea {
   min-height: 142px;
-  resize: none !important;
+  resize: none ;
   padding: 16px;
   line-height: 1.45 !important;
 }
 
 .support-widget__field textarea::placeholder {
-  color: var(--neutral-400) !important;
-  font-weight: 600 !important;
+  color: var(--neutral-400) ;
+  font-weight: 600 ;
 }
 
 .support-widget__phone:focus-within,
@@ -15742,7 +15742,7 @@ body.dashboard-body,
 }
 
 .dashboard-sidebar * {
-  transition-property: background-color, color, border-color, box-shadow, opacity, transform !important;
+  transition-property: background-color, color, border-color, box-shadow, opacity, transform ;
 }
 
 .dashboard-content {
@@ -16514,7 +16514,7 @@ body.dashboard-body,
   border-radius: 12px !important;
   border: 1px solid rgba(226, 232, 240, 0.82) !important;
   background-size: cover !important;
-  background-position: center !important;
+  background-position: center ;
   box-shadow: 0 5px 11px rgba(15, 23, 42, 0.084) !important;
 }
 
@@ -16887,10 +16887,10 @@ body.dashboard-body,
 
 .z-report-print-toolbar .mj-datepicker__trigger::before {
   content: "Выберите дату" !important;
-  margin-right: 12px !important;
-  color: var(--neutral-500) !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
+  margin-right: 12px ;
+  color: var(--neutral-500) ;
+  font-size: 13px ;
+  font-weight: 500 ;
 }
 
 .z-report-print-toolbar .mj-datepicker__time,
@@ -17837,7 +17837,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   border-radius: 12px !important;
   background: var(--neutral-50) !important;
   line-height: 1.6 !important;
-  resize: vertical !important;
+  resize: vertical ;
 }
 .dashboard-shell input:focus,
 .dashboard-shell select:focus,
@@ -17849,7 +17849,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   box-shadow: 0 0 0 3px rgba(29,181,181,0.15) !important;
 }
 .dashboard-shell input::placeholder,
-.dashboard-shell textarea::placeholder { color: var(--neutral-400, #94a3b8) !important; font-weight: 400 !important; }
+.dashboard-shell textarea::placeholder { color: var(--neutral-400, #94a3b8) !important; font-weight: 400 ; }
 /* подписи полей — нормальный вес */
 .balance-payment-dialog__field > span,
 .balance-card-field > span { font-weight: 500 !important; font-size: 13px !important; color: var(--neutral-600,#475569) !important; }
@@ -17882,8 +17882,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   top: 1.5px !important;
   width: 5px !important;
   height: 9px !important;
-  border: solid #ffffff !important;
-  border-width: 0 2px 2px 0 !important;
+  border: solid #ffffff ;
+  border-width: 0 2px 2px 0 ;
   transform: rotate(45deg) !important;
 }
 .dashboard-shell input[type="checkbox"]:focus-visible {
@@ -18244,9 +18244,9 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   margin: 0 !important;
   border-width: 1px !important;
   transform: none !important;
-  translate: none !important;
-  scale: none !important;
-  transition-property: background-color, border-color, box-shadow, color !important;
+  translate: none ;
+  scale: none ;
+  transition-property: background-color, border-color, box-shadow, color ;
 }
 
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user.sidebar-user--button,
@@ -18281,8 +18281,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   margin: 0 !important;
   padding: 0 !important;
   transform: none !important;
-  translate: none !important;
-  scale: none !important;
+  translate: none ;
+  scale: none ;
   transition: none !important;
 }
 
@@ -18297,8 +18297,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   max-width: none !important;
   margin: 0 !important;
   transform: none !important;
-  translate: none !important;
-  scale: none !important;
+  translate: none ;
+  scale: none ;
   transition: none !important;
 }
 
@@ -18318,8 +18318,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
   max-height: 28px !important;
   margin: 0 !important;
   transform: none !important;
-  translate: none !important;
-  scale: none !important;
+  translate: none ;
+  scale: none ;
   transition: none !important;
 }
 
@@ -18334,8 +18334,8 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user.sidebar-user--button .sidebar-user__meta em,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user.sidebar-user--button:hover .sidebar-user__meta em {
   transform: none !important;
-  translate: none !important;
-  scale: none !important;
+  translate: none ;
+  scale: none ;
   transition: none !important;
 }
 
@@ -18832,7 +18832,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar * { box-shadow: none !import
 .staff-form textarea {
   min-height: 74px !important;
   max-height: 140px !important;
-  resize: vertical !important;
+  resize: vertical ;
 }
 
 .staff-form__grid--edit label:has(input[pattern="[0-9]{4}"]),
@@ -19321,8 +19321,8 @@ body:has(.balance-payment-modal) .dashboard-main {
   top: 1px !important;
   width: 6px !important;
   height: 11px !important;
-  border: 2.5px solid transparent !important;
-  border-top: 0 !important;
+  border: 2.5px solid transparent ;
+  border-top: 0 ;
   border-left: 0;
   transform: rotate(45deg) scale(0.5) !important;
   opacity: 0 !important;
@@ -19338,7 +19338,7 @@ body:has(.balance-payment-modal) .dashboard-main {
   box-shadow: 0 2px 8px rgba(29, 181, 181, 0.32) !important;
 }
 .balance-offer--check input[type="checkbox"]:checked::after {
-  border-color: #ffffff !important;
+  border-color: #ffffff ;
   opacity: 1 !important;
   transform: rotate(45deg) scale(1) !important;
 }
@@ -20101,8 +20101,8 @@ body:has(.balance-payment-modal) .dashboard-main {
 
 .support-widget__phone input::placeholder {
   color: var(--neutral-400, #94a3b8) !important;
-  opacity: 1 !important;
-  font-weight: 400 !important;
+  opacity: 1 ;
+  font-weight: 400 ;
 }
 
 /* Final table action buttons: icon-only shape with requested colors. */
@@ -22117,14 +22117,14 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account.is-open .sidebar-user.sidebar-user--button:focus,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account.is-open .sidebar-user.sidebar-user--button:active {
   background: #0b1f3f !important;
-  background-color: #0b1f3f !important;
+  background-color: #0b1f3f ;
   background-image: none !important;
 }
 
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account .sidebar-account__menu,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account.is-open .sidebar-account__menu {
   background: #0b1f3f !important;
-  background-color: #0b1f3f !important;
+  background-color: #0b1f3f ;
   background-image: none !important;
 }
 
@@ -22642,12 +22642,12 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .tables-report-page .report-date-menu::-webkit-scrollbar-track { background: transparent !important; }
 .report-actions .report-date-menu::-webkit-scrollbar-thumb,
 .tables-report-page .report-date-menu::-webkit-scrollbar-thumb {
-  background: rgba(29, 181, 181, 0.35) !important;
+  background: rgba(29, 181, 181, 0.35) ;
   border-radius: 4px !important;
 }
 .report-actions .report-date-menu::-webkit-scrollbar-thumb:hover,
 .tables-report-page .report-date-menu::-webkit-scrollbar-thumb:hover {
-  background: rgba(29, 181, 181, 0.6) !important;
+  background: rgba(29, 181, 181, 0.6) ;
 }
 
 /* Скроллбар списков часов/минут */
@@ -22661,16 +22661,16 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .report-actions .report-date-time-list::-webkit-scrollbar-track,
 .tables-report-page .report-date-time-list::-webkit-scrollbar-track {
   background: transparent !important;
-  margin: 8px 0 !important;
+  margin: 8px 0 ;
 }
 .report-actions .report-date-time-list::-webkit-scrollbar-thumb,
 .tables-report-page .report-date-time-list::-webkit-scrollbar-thumb {
-  background: rgba(29, 181, 181, 0.4) !important;
+  background: rgba(29, 181, 181, 0.4) ;
   border-radius: 3px !important;
 }
 .report-actions .report-date-time-list::-webkit-scrollbar-thumb:hover,
 .tables-report-page .report-date-time-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(29, 181, 181, 0.7) !important;
+  background: rgba(29, 181, 181, 0.7) ;
 }
 
 /* ---- МЕНЮ (дропдаун) ---- */
@@ -22835,7 +22835,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 /* Стрелка-указатель */
 .report-actions .report-date-calendar-popover::before {
   background: #ffffff !important;
-  border-color: rgba(194, 212, 234, 0.65) !important;
+  border-color: rgba(194, 212, 234, 0.65) ;
 }
 
 /* Лейаут тела */
@@ -25349,12 +25349,12 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .dish-catalog-page .dish-grid-wrap::-webkit-scrollbar-thumb {
-  min-height: 42px !important;
+  min-height: 42px ;
   border: 2px solid #e8f7f7;
 }
 
 .dish-catalog-page .dish-grid-wrap::-webkit-scrollbar-thumb:hover {
-  background: #0f9f98 !important;
+  background: #0f9f98 ;
 }
 
 /* Dish catalog bugfix pass: restore header flow and always show the bottom scrollbar. */
@@ -25417,7 +25417,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 
 .dish-catalog-page .dish-grid-wrap::-webkit-scrollbar-track {
-  border: 1px solid rgba(24, 182, 173, 0.16) !important;
+  border: 1px solid rgba(24, 182, 173, 0.16) ;
   border-radius: 999px !important;
   background: #e6f8f7 !important;
 }
@@ -25425,7 +25425,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .dish-catalog-page .dish-grid-wrap::-webkit-scrollbar-thumb {
   border: 2px solid #e6f8f7 !important;
   border-radius: 999px !important;
-  background: #18b6ad !important;
+  background: #18b6ad ;
 }
 
 /* Menu categories page: custom list layout in the Marjon dashboard style. */
@@ -27270,13 +27270,13 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
 
 .clients-directory-page .settings-table th:first-child {
   border-top-left-radius: 13px !important;
-  border-bottom-left-radius: 0 !important;
+  border-bottom-left-radius: 0 ;
 }
 
 .clients-directory-page .settings-table th:last-child {
   width: 106px !important;
   border-top-right-radius: 13px !important;
-  border-bottom-right-radius: 0 !important;
+  border-bottom-right-radius: 0 ;
 }
 
 .clients-directory-page .settings-table td {
@@ -27296,12 +27296,12 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
 
 .clients-directory-page .settings-table tbody td:first-child {
   border-top-left-radius: 0 !important;
-  border-bottom-left-radius: 0 !important;
+  border-bottom-left-radius: 0 ;
 }
 
 .clients-directory-page .settings-table tbody td:last-child {
   border-top-right-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
+  border-bottom-right-radius: 0 ;
 }
 
 .clients-directory-page .settings-table tbody tr:last-child td {
@@ -27309,11 +27309,11 @@ body.dashboard-body .dish-catalog-page .dish-grid-table .dish-col-actions {
 }
 
 .clients-directory-page .settings-table tbody tr:last-child td:first-child {
-  border-bottom-left-radius: 13px !important;
+  border-bottom-left-radius: 13px ;
 }
 
 .clients-directory-page .settings-table tbody tr:last-child td:last-child {
-  border-bottom-right-radius: 13px !important;
+  border-bottom-right-radius: 13px ;
 }
 
 .clients-directory-page .settings-status-badge {
@@ -29016,7 +29016,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
     radial-gradient(circle at 12% 14%, rgba(242, 151, 76, 0.18), transparent 26%),
     radial-gradient(circle at 88% 82%, rgba(0, 190, 192, 0.24), transparent 30%),
     rgba(2, 10, 14, 0.34) !important;
-  backdrop-filter: blur(14px) saturate(0.86) !important;
+  backdrop-filter: blur(14px) saturate(0.86) ;
 }
 
 .login-pro-frame {
@@ -29377,7 +29377,7 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-head h2::before {
-  margin-bottom: 4px !important;
+  margin-bottom: 4px ;
 }
 
 .login-pro-head p {
@@ -29653,8 +29653,8 @@ body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner
 }
 
 .login-pro-card .login-pro-input-wrap input::selection {
-  background: rgba(20, 184, 166, 0.34) !important;
-  color: #fff8e6 !important;
+  background: rgba(20, 184, 166, 0.34) ;
+  color: #fff8e6 ;
 }
 
 .login-pro-card .login-pro-eye {
@@ -30059,7 +30059,7 @@ body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand,
 body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-brand,
 body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .sidebar-brand {
   background: transparent !important;
-  background-color: transparent !important;
+  background-color: transparent ;
   background-image: none !important;
 }
 
@@ -30070,8 +30070,8 @@ body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .side
 body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand::before,
 body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand::after {
   background: transparent !important;
-  background-color: transparent !important;
-  background-image: none !important;
+  background-color: transparent ;
+  background-image: none ;
 }
 
 body.dashboard-body .dashboard-shell::after,
@@ -30080,7 +30080,7 @@ body.dashboard-body .dashboard-shell.is-sidebar-collapsed::after {
   display: none !important;
   content: none !important;
   opacity: 0 !important;
-  visibility: hidden !important;
+  visibility: hidden ;
   pointer-events: none !important;
   background: none !important;
 }
@@ -31357,8 +31357,8 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   top: 2px !important;
   width: 5px !important;
   height: 9px !important;
-  border: solid #ffffff !important;
-  border-width: 0 2px 2px 0 !important;
+  border: solid #ffffff ;
+  border-width: 0 2px 2px 0 ;
   transform: rotate(45deg) !important;
 }
 
@@ -31506,8 +31506,8 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   top: 2px !important;
   width: 5px !important;
   height: 9px !important;
-  border: solid #ffffff !important;
-  border-width: 0 2px 2px 0 !important;
+  border: solid #ffffff ;
+  border-width: 0 2px 2px 0 ;
   transform: rotate(45deg) !important;
 }
 

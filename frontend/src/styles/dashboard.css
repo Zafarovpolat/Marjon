@@ -4767,7 +4767,7 @@ body,
 
 .sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link.is-active::before,
 .sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link--button.is-active::before {
-  opacity: 0 !important;
+  opacity: 0 ;
 }
 
 .sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link:hover,
@@ -5468,7 +5468,7 @@ body.dashboard-body::before {
   width: 42% !important;
   height: 3px !important;
   border-radius: 0 0 999px 999px !important;
-  opacity: 0.95 !important;
+  opacity: 0.95 ;
 }
 
 .marjon-owner-dashboard .kpi-orange::before,
