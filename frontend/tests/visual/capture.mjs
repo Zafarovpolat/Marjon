@@ -61,6 +61,37 @@ const ROUTES = [
   // /orders, и кадр получался побайтово дублирующим. Берём вместо него экран
   // с другой вёрсткой.
   ["reports-tables", "/reports/tables"],
+
+  // ── Расширение покрытия ───────────────────────────────────────────────────
+  // 18 экранов из 78 маршрутов — слишком узкая сеть для правок, меняющих
+  // каскад глобально (например @layer): поломка на непокрытом экране прошла бы
+  // незамеченной. Ниже добрано по представителю на каждый крупный раздел.
+  ["reports-dishes", "/reports/dishes"],
+  ["reports-waiters", "/reports/waiters"],
+  ["reports-cancelled", "/reports/cancelled-dishes"],
+  ["reports-debtors", "/reports/debtors-creditors"],
+  ["nomenclature-menu", "/nomenclature/menu"],
+  ["nomenclature-raw", "/nomenclature/raw-materials"],
+  ["nomenclature-semi", "/nomenclature/semi-finished"],
+  ["nomenclature-cats", "/nomenclature/dish-categories"],
+  ["finance-operations", "/finance/operations"],
+  ["finance-expense-cat", "/finance/expense-categories"],
+  ["finance-debtors", "/finance/debtors-creditors"],
+  ["warehouse-inventory", "/warehouse/inventory"],
+  ["warehouse-writeoff", "/warehouse/write-off"],
+  ["warehouse-transfer", "/warehouse/transfer"],
+  ["stock-incoming", "/stock-report/incoming"],
+  ["stock-stock", "/stock-report/stock"],
+  ["users-attendance", "/users/attendance"],
+  ["users-cashier", "/users/cashier"],
+  ["users-login-history", "/users/login-history"],
+  ["settings-place", "/settings/place"],
+  ["settings-units", "/settings/units"],
+  ["settings-payment", "/settings/payment-methods"],
+  ["settings-profile", "/settings/profile"],
+  ["settings-clients", "/settings/clients"],
+  ["settings-chef-receipt", "/settings/chef-receipt"],
+  ["reviews", "/reviews"],
 ];
 
 /** Разделы админки: навигация внутри неё на состоянии, а не на маршрутах,
