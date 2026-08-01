@@ -117,7 +117,6 @@
   border-radius: 12px;
   background: transparent;
   color: rgba(255, 255, 255, 0.82);
-  font: inherit;
   font-weight: 700;
   text-align: left;
   cursor: pointer;
@@ -146,7 +145,6 @@
 .pos-sidebar--ownerlike .pos-nav a.is-active {
   min-height: 106px;
   color: #fff;
-  background: var(--color-brand);
   box-shadow: 0 11px 26px rgba(29, 181, 181, 0.196);
 }
 .pos-sidebar--ownerlike .pos-nav a.is-active .pos-nav__icon {
@@ -671,8 +669,6 @@
   font-weight: 500;
 }
 .kitchen-body-react {
-  min-height: 100vh;
-  background: var(--neutral-950);
   color: var(--neutral-50);
   font-family: var(--mj-font-body);
 }
@@ -704,7 +700,6 @@
 .login-pro-shell {
   height: 100dvh;
   overflow: hidden;
-  display: grid;
   grid-template-columns: 1fr 1fr;
   background: var(--neutral-50);
   font-family: var(--mj-font-body, Inter, sans-serif);
@@ -798,7 +793,6 @@
    поэтому при уменьшении высоты экрана содержимое уменьшается пропорционально.
    overflow: hidden — скроллбар исключён физически. */
 .login-pro-panel {
-  height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -888,7 +882,6 @@
   min-height: clamp(44px, 6.4vh, 60px);
   padding: 0 18px;
   border: 1px solid var(--neutral-300);
-  border-radius: 17px;
   background: var(--neutral-50);
   box-shadow: inset 0 1px 0 rgba(255,255,255, 0.63);
   transition: 0.18s ease;
@@ -957,9 +950,7 @@
   width: 100%;
   min-height: clamp(46px, 6.6vh, 62px);
   border: 0;
-  border-radius: 16px;
   background: var(--color-brand);
-  color: #fff;
   font-size: clamp(14px, 1.9vh, 17px);
   font-weight: 700;
   cursor: pointer;
@@ -1639,7 +1630,6 @@ body {
   isolation: isolate;
 }
 .kpi-grid--premium .premium-kpi::before {
-  background: transparent;
   pointer-events: none !important;
 }
 .kpi-grid--premium .premium-kpi:hover {
@@ -1876,7 +1866,6 @@ body {
   transform: none !important;
 }
 .top-dish:hover {
-  transform: translateY(-3px) !important;
   box-shadow: 0 11px 22px rgba(15, 23, 42, 0.077),
     inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
 }
@@ -1902,7 +1891,6 @@ body {
   height: 5px;
 }
 .top-dish__bar i {
-  background: var(--color-brand);
   box-shadow: 0 3px 7px rgba(29, 181, 181, 0.154) !important;
 }
 .top-dish__price {
@@ -1910,9 +1898,7 @@ body {
   font-weight: 700;
 }
 @media (max-width: 1280px) {
-  .owner-main-grid {
-    grid-template-columns: 1fr !important;
-  }
+  
 }
 /* Unified teal KPI icons */
 .kpi-grid--premium .premium-kpi__icon,
@@ -1931,7 +1917,6 @@ body {
 /* Waiter POS sidebar aligned with owner category panel */
 .pos-sidebar.pos-sidebar--ownerlike {
   padding: 14px 10px 14px;
-  background: var(--neutral-950);
   box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.028) !important;
 }
 .pos-sidebar--ownerlike .pos-brand {
@@ -1995,7 +1980,6 @@ body {
   background: rgba(255, 255, 255, 0.055);
 }
 .pos-sidebar--ownerlike .pos-nav a.is-active {
-  background: var(--color-brand);
   border-color: rgba(83, 242, 237, 0.48) !important;
   box-shadow: 0 10px 20px rgba(29, 181, 181, 0.224),
     0 5px 11px rgba(29, 181, 181, 0.098),
@@ -2673,7 +2657,6 @@ body {
   border: 3px solid #ffffff;
   border-radius: 999px;
   color: #ffffff;
-  background: var(--color-brand);
   box-shadow: 0 7px 14px rgba(29, 181, 181, 0.238),
     inset 0 1px 0 rgba(255, 255, 255, 0.245);
   font-size: 13px;
@@ -3633,7 +3616,6 @@ body {
     border-radius: 0;
     background: #ffffff !important;
     box-shadow: none;
-    break-inside: avoid;
   }
   .z-report-card__head {
     margin-bottom: 10px;
@@ -4186,7 +4168,6 @@ body {
   overflow: hidden;
   padding: 28px;
   border-radius: 30px;
-  background: var(--neutral-50);
   border: 1px solid rgba(226, 232, 240, 0.96);
   box-shadow: 0 23px 52px rgba(15, 23, 42, 0.112),
     0 10px 18px rgba(15, 23, 42, 0.056),
@@ -4228,8 +4209,6 @@ body {
   padding: 0 18px;
   border: 0;
   border-radius: 12px;
-  color: #ffffff;
-  background: var(--color-interactive);
   box-shadow: 0 10px 17px rgba(37, 99, 235, 0.168),
     inset 0 1px 0 rgba(255, 255, 255, 0.154);
   font-weight: 700;
@@ -4249,7 +4228,6 @@ body {
   display: grid;
   gap: 4px;
   min-width: 0;
-  overflow-x: auto;
   padding-bottom: 2px;
 }
 .warehouse-money-table__head,
@@ -4265,7 +4243,6 @@ body {
   padding: 0 14px;
   border-radius: 14px 14px 0 0;
   color: var(--neutral-600);
-  background: var(--neutral-100);
   border: 1px solid var(--neutral-200);
   font-size: 13px;
   font-weight: 500;
@@ -4283,7 +4260,6 @@ body {
   background: var(--neutral-50);
 }
 .warehouse-money-table__row.is-total {
-  background: var(--neutral-50);
   font-weight: 700;
 }
 .warehouse-money-table__row span,
@@ -4452,7 +4428,6 @@ body {
     grid-template-columns: 1fr;
   }
   .warehouse-board {
-    padding: 20px;
     border-radius: 24px;
   }
 }
@@ -5175,9 +5150,7 @@ body {
 .z-report-page--print-only {
   max-width: 1180px;
 }
-.z-report-page--print-only::before {
-  display: none !important;
-}
+
 .z-report-page--print-only .z-report-print-panel {
   grid-column: 1 / -1;
 }
@@ -5249,11 +5222,7 @@ body {
     0 0 0 2px rgba(29, 181, 181, 0.07);
 }
 /* Final layout seam cleanup: keep the sidebar dark, everything behind main light */
-html,
-body,
-#root {
-  background: var(--neutral-50) !important;
-}
+
 /* Wide tabular Z-report print center */
 .z-report-page--print-only {
   max-width: 1600px;
@@ -5344,17 +5313,11 @@ body,
 .z-report-page--print-only .z-report-print-row__action {
   min-width: 168px;
   min-height: 44px;
-  justify-content: center;
   gap: 8px;
   padding: 0 16px;
-  border: 0;
   border-radius: 13px;
-  color: #ffffff;
   background: var(--color-interactive);
   box-shadow: 0 7px 13px rgba(23, 105, 232, 0.14);
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
 }
 .z-report-page--print-only .z-report-print-row__action:hover {
   transform: translateY(-1px) !important;
@@ -5368,10 +5331,7 @@ body,
   .z-report-page--print-only {
     padding: 0 16px 24px;
   }
-  .z-report-page--print-only .z-report-card__head {
-    flex-direction: column !important;
-    align-items: stretch !important;
-  }
+  
   .z-report-page--print-only .z-report-print-panel__main {
     align-self: flex-start !important;
   }
@@ -6553,7 +6513,6 @@ body,
   border-radius: 10px 15px 15px 10px;
   border: 1px solid rgba(226, 252, 252, 0.24);
   border-left-color: rgba(4, 31, 58, 0.16);
-  background: rgba(4, 31, 58, 0.10);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14),
     inset 0 -1px 0 rgba(4, 31, 58, 0.098),
     -3px 0 7px rgba(4, 31, 58, 0.07);
@@ -6623,10 +6582,7 @@ body,
 .data-table .badge::before {
   display: none !important;
 }
-.data-table .badge-success {
-  background: rgba(29, 181, 181, 0.14) !important;
-  color: #138a8a !important;
-}
+
 .data-table .badge-info {
   background: rgba(37, 99, 235, 0.1) !important;
   color: var(--blue-600) !important;
@@ -6709,11 +6665,7 @@ body,
   width: auto;
   padding-right: 18px !important;
 }
-.topbar-balance-pill .topbar-pay-button::before,
-.topbar-balance-pill .topbar-pay-button::after {
-  display: none !important;
-  content: none !important;
-}
+
 /* Final calm flat balance button. */
 .topbar-balance-pill .topbar-pay-button {
   border-radius: 16px;
@@ -7035,7 +6987,6 @@ body,
 .balance-card-step__side h2 {
   max-width: 340px;
   margin: 24px 0 16px;
-  color: #ffffff !important;
   font-size: 2rem;
   line-height: 1.18;
   font-weight: 700 !important;
@@ -7594,7 +7545,6 @@ body,
   padding: 12px 12px 10px;
   border-radius: 16px;
   border: 1px solid var(--neutral-100) !important;
-  background: var(--neutral-50);
 }
 .usd-rate-chart svg {
   display: block !important;
@@ -8646,8 +8596,6 @@ body,
   background: transparent !important;
 }
 .z-waiters-report {
-  display: grid !important;
-  gap: 14px !important;
   padding: 18px !important;
   border: 1px solid rgba(226, 232, 240, 0.95) !important;
   border-radius: 18px !important;
@@ -8703,7 +8651,6 @@ body,
   border-radius: 10px !important;
   background: #059669;
   box-shadow: 0 7px 13px rgba(22, 163, 74, 0.154) !important;
-  font-size: 14px !important;
   font-weight: 500;
   cursor: pointer !important;
 }
@@ -8752,7 +8699,6 @@ body,
   }
 }
 .waiters-report-page {
-  width: 100% !important;
   padding: 22px 30px 34px !important;
 }
 .waiters-report-card {
@@ -9192,7 +9138,6 @@ body,
   text-transform: none !important;
   letter-spacing: 0 !important;
   font-size: 13px !important;
-  font-weight: 500 !important;
   line-height: 1.2 !important;
   white-space: nowrap;
 }
@@ -9249,8 +9194,6 @@ body,
 }
 /* MARJON Print Center: final Z-report page layout. */
 .z-report-page--print-only {
-  width: 100%;
-  max-width: none;
   margin: 0;
   padding: 22px 30px 34px !important;
 }
@@ -9260,11 +9203,8 @@ body,
   content: none !important;
 }
 .z-report-page--print-only .z-report-print-panel {
-  width: 100%;
-  max-width: none;
   margin: 0;
   padding: 30px;
-  overflow: visible;
   border: 1px solid rgba(226, 232, 240, 0.88);
   border-radius: 24px;
   background: #ffffff;
@@ -9988,10 +9928,7 @@ html,#root {background:var(--neutral-50,#f4f7fc) !important;}
 .balance-payment-method__logos { display: inline-flex !important; align-items: center !important; gap: 8px !important; }
 .balance-payment-method__logos img { height: 22px; width: auto !important; max-width: 64px; display: block !important; }
 /* polish: оферта в палитре (не зелёный) */
-.balance-offer strong,
-.balance-payment-dialog .balance-offer strong {
-  color: var(--neutral-900, #0b1f3f) !important;
-}
+
 .balance-offer a,
 .balance-payment-dialog .balance-offer a {
   color: var(--accent, #1db5b5) !important;
@@ -10061,13 +9998,13 @@ html,#root {background:var(--neutral-50,#f4f7fc) !important;}
   fill: #ffffff;
 }
 /* фоны иконок только в палитре (teal/navy), без purple/blue */
-.premium-kpi--revenue .premium-kpi__icon { background: var(--accent, #1db5b5); }
+
 .premium-kpi--orders  .premium-kpi__icon { background: var(--primary, #0b1f3f); }
-.premium-kpi--avg     .premium-kpi__icon { background: var(--accent, #1db5b5); }
+
 .premium-kpi--tables  .premium-kpi__icon { background: var(--primary, #0b1f3f); }
 .premium-kpi--expense .premium-kpi__icon { background: var(--accent, #1db5b5); }
 /* угловой "глоу" тоже только в палитре */
-.premium-kpi--avg::after { background: var(--accent, #1db5b5) !important; }
+
 .premium-kpi--orders::after { background: var(--primary, #0b1f3f) !important; }
 .premium-kpi--expense::after { background: var(--accent, #1db5b5) !important; }
 /* 2) 5 KPI-карт в один аккуратный ряд (без карты-сироты) */
@@ -10419,7 +10356,6 @@ html,#root {background:var(--neutral-50,#f4f7fc) !important;}
   min-width: 34px;
   min-height: 34px;
   border: 1px solid var(--neutral-200, #e2e8f0);
-  border-radius: 12px;
   color: var(--neutral-600, #475569);
   background: #ffffff;
 }
@@ -10438,25 +10374,14 @@ html,#root {background:var(--neutral-50,#f4f7fc) !important;}
   background: rgba(220, 38, 38, 0.12);
   color: #dc2626;
 }
-.dish-catalog-page .dish-photo-button,
-.dish-catalog-page .dish-photo,
-.dish-catalog-page .dish-photo-placeholder {
-  border-radius: 12px;
-}
+
 .dish-catalog-page .dish-more-btn {
   width: 48px;
   min-width: 48px;
   height: 48px !important;
   min-height: 48px !important;
 }
-.dish-catalog-page .dish-toolbar button,
-.dish-catalog-page .dish-header-actions button,
-.dish-catalog-page .dish-mini-input,
-.dish-catalog-page .dish-price-input,
-.dish-catalog-page .dish-search,
-.dish-catalog-page .dish-toolbar select {
-  border-radius: 12px;
-}
+
 .z-report-page--print-only,
 .waiters-report-page,
 .dishes-report-page,
@@ -10823,7 +10748,6 @@ html,#root {background:var(--neutral-50,#f4f7fc) !important;}
 /* usd-converter input: drop duplicated border */
 .usd-converter input {
   border: 0 !important;
-  box-shadow: none !important;
   outline: none !important;
   background: transparent !important;
 }
@@ -11195,9 +11119,7 @@ html,#root {background:var(--neutral-50,#f4f7fc) !important;}
   height: 48px;
   border-radius: 12px !important;
 }
-.staff-form .staff-form__grid.staff-form__grid--edit > label:has(input[pattern="[0-9]{4}"]) {
-  display: none !important;
-}
+
 .staff-form .staff-form__grid.staff-form__grid--edit > .staff-permission-switches {
   grid-row: 4 !important;
   margin-top: 18px;
@@ -11484,10 +11406,7 @@ html,#root {background:var(--neutral-50,#f4f7fc) !important;}
   padding: 8px 12px 8px 28px;
   flex: 0 0 auto !important;
 }
-.staff-form__footer button {
-  min-height: 42px !important;
-  font-size: 13px !important;
-}
+
 .staff-form__footer button[type="button"] {
   min-width: 118px !important;
 }
@@ -11495,13 +11414,7 @@ html,#root {background:var(--neutral-50,#f4f7fc) !important;}
   min-width: 205px !important;
 }
 /* Permission matrix behavior: switch-only toggles and animated sub-actions. */
-.staff-switch-button,
-.staff-access-action {
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  cursor: pointer !important;
-}
+
 .staff-access-row.is-open .staff-access-actions {
   max-height: 42px;
 }
@@ -11754,11 +11667,7 @@ html,#root {background:var(--neutral-50,#f4f7fc) !important;}
 .staff-mini-switch::after {
   transform: translateX(0) !important;
 }
-.staff-form .staff-form__grid.staff-form__grid--edit .staff-permission-switch.is-on .staff-switch::after,
-.staff-switch-button.is-on .staff-mini-switch::after,
-.staff-access-action.is-on .staff-mini-switch::after {
-  transform: translateX(14px) !important;
-}
+
 /* Hide floating support while any edit/add modal or drawer is open. */
 body:has(.staff-modal) .support-widget,
 body:has(.nomenclature-drawer) .support-widget,
@@ -14554,16 +14463,10 @@ body:has(.admin-income-modal) .support-widget {
 }
 @media (min-width: 1025px) {
   .dish-catalog-page .dish-catalog-card {
-    flex: 1 1 auto;
-    min-height: 0;
     padding-bottom: 12px;
   }
   .dish-catalog-page .dish-grid-wrap {
     min-height: 220px;
-    max-height: none;
-    overflow: auto;
-    overscroll-behavior: contain;
-    scrollbar-gutter: stable both-edges;
   }
   .dish-catalog-page .dish-grid-table {
     min-height: 100%;
@@ -14575,7 +14478,6 @@ body:has(.admin-income-modal) .support-widget {
     flex: 0 0 auto;
     height: calc(100dvh - 318px);
     min-height: 320px;
-    margin-bottom: 0;
   }
   .dish-catalog-page .dish-catalog-card {
     padding-bottom: 0;
@@ -14602,27 +14504,16 @@ body:has(.admin-income-modal) .support-widget {
 @media (min-width: 1025px) {
   .dish-catalog-page .dish-catalog-card {
     min-height: calc(100dvh - 52px);
-    display: flex;
-    flex-direction: column;
     padding: 20px 18px 12px;
-    overflow: hidden;
   }
   .dish-catalog-page .dish-catalog-header {
-    flex: 0 0 auto;
     min-height: 48px;
     margin-bottom: 16px;
   }
-  .dish-catalog-page .dish-stat-grid,
-  .dish-catalog-page .dish-toolbar {
-    flex: 0 0 auto;
-  }
+  
   .dish-catalog-page .dish-grid-wrap {
-    flex: 1 1 auto;
-    height: auto;
     min-height: 330px;
     max-height: calc(100dvh - 352px);
-    overflow-x: scroll;
-    overflow-y: auto;
   }
 }
 .dish-catalog-page .report-title-group,
@@ -16865,7 +16756,6 @@ body:has(.admin-income-modal) .support-widget {
   border-bottom: 1px solid rgba(248, 250, 252, 0.92);
 }
 .login-pro-register {
-  display: inline-flex;
   align-items: center;
   min-height: 34px;
   padding: 0 16px;
@@ -16874,9 +16764,7 @@ body:has(.admin-income-modal) .support-widget {
   background: #f8fafc;
 }
 .login-pro-body {
-  display: grid;
   grid-template-columns: minmax(0, 1.22fr) minmax(420px, 0.78fr);
-  min-height: 0;
 }
 .login-pro-media {
   position: relative;
@@ -17014,7 +16902,6 @@ body:has(.admin-income-modal) .support-widget {
   backdrop-filter: blur(16px) saturate(1.08);
 }
 .login-pro-body {
-  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   min-height: 0;
@@ -17146,7 +17033,6 @@ body:has(.admin-income-modal) .support-widget {
   min-width: 194px;
 }
 .login-pro-lang {
-  position: relative;
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
@@ -17186,10 +17072,8 @@ body:has(.admin-income-modal) .support-widget {
 .login-pro-lang__menu {
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
   z-index: 30;
   width: 92px;
-  padding: 6px;
   border: 1px solid rgba(148, 163, 184, 0.26);
   border-radius: 12px;
   background: rgba(5, 24, 35, 0.96);
@@ -17241,10 +17125,8 @@ body:has(.admin-income-modal) .support-widget {
 }
 .login-pro-lang__flag {
   width: 22px;
-  height: 14px;
   display: inline-block;
   border: 1px solid rgba(255, 255, 255, 0.48);
-  border-radius: 3px;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
   overflow: hidden;
 }
@@ -17849,39 +17731,27 @@ body .support-widget .support-widget__country-menu b {
 }
 .z-report-page--print-only .z-report-period-toolbar .report-period-button.z-report-period-button {
   min-width: 206px;
-  height: 34px;
-  min-height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 0 11px;
   border: 1px solid rgba(194, 212, 234, 0.95);
-  border-radius: 9px;
   background: #ffffff;
   color: #10233d;
   box-shadow: 0 5px 11px rgba(15, 23, 42, 0.035);
   font-size: 14px;
   font-weight: 800;
-  white-space: nowrap;
 }
 .z-report-page--print-only .z-report-period-toolbar .report-period-button.z-report-period-button span {
   min-width: 0;
   overflow: hidden;
   color: #10233d;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .z-report-page--print-only .z-report-period-toolbar .report-period-button.z-report-period-button svg {
   flex: 0 0 auto;
   color: #6680a3;
 }
-.z-report-page--print-only .z-report-period-toolbar .report-period-button.z-report-period-button:hover,
-.z-report-page--print-only .z-report-period-toolbar .report-period-button.z-report-period-button[aria-expanded="true"] {
-  border-color: rgba(29, 181, 181, 0.48) !important;
-  box-shadow: 0 0 0 3px rgba(29, 181, 181, 0.10) !important;
-  transform: none !important;
-}
+
 .z-report-page--print-only .z-report-period-toolbar .report-period-button.z-report-period-button[aria-expanded="true"] svg {
   color: var(--color-brand, #1db5b5) !important;
   transform: rotate(180deg) !important;

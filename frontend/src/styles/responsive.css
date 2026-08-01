@@ -6,7 +6,6 @@
 
 @media (max-width: 768px) {
     .dashboard-sidebar {
-        position: fixed;
         left: -280px;
         z-index: 40;
         transition: left .2s ease;
@@ -25,7 +24,7 @@
     .dashboard-topbar { align-items: flex-start; padding: 14px 16px; flex-wrap: wrap; }
     .topbar-actions { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
     .dashboard-content { padding: 16px; }
-    .kpi-grid { grid-template-columns: 1fr; }
+    
     .form-grid { grid-template-columns: 1fr; }
     .data-table { display: block; overflow-x: auto; }
 }

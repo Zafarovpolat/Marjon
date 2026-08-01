@@ -333,13 +333,10 @@
   min-height: 640px;
   padding: 38px 22px 44px;
   color: var(--neutral-950);
-  background: #fff;
   border: 0;
   box-shadow: 0 20px 50px rgba(17, 24, 39, 0.18);
-  font-family: "Courier New", "Liberation Mono", monospace;
   font-size: 16px;
   line-height: 1.18;
-  letter-spacing: 0;
   clip-path: polygon(
     0 10px,
     1.8% 0,
@@ -573,7 +570,6 @@
   height: 58px;
   display: block;
   margin: 0 auto 10px;
-  object-fit: contain;
 }
 
 .receipt-preview__brand {
@@ -582,8 +578,6 @@
   font-family: Inter, Arial, sans-serif;
   font-size: 34px;
   line-height: 1.05;
-  font-weight: 900;
-  letter-spacing: 0;
 }
 
 .receipt-preview__editable {
@@ -687,11 +681,9 @@
 }
 
 .receipt-preview__items-head {
-  display: grid;
   grid-template-columns: minmax(0, 1.85fr) 46px 72px 78px;
   gap: 8px;
   align-items: end;
-  font-weight: 900;
 }
 
 .receipt-preview__item {
@@ -733,17 +725,13 @@
 
 .receipt-preview__total {
   display: flex;
-  align-items: baseline;
   justify-content: space-between;
   gap: 12px;
   font-size: 29px;
-  line-height: 1;
-  text-transform: uppercase;
 }
 
 .receipt-preview__total b {
   font-weight: 500;
-  white-space: nowrap;
 }
 
 .receipt-preview__payments {
@@ -793,11 +781,8 @@
 }
 
 .receipt-preview__bottom-order {
-  display: grid;
-  justify-items: center;
   gap: 12px;
   margin-top: 10px;
-  text-align: center;
 }
 
 .receipt-preview__bottom-order strong {
@@ -812,8 +797,6 @@
 .receipt-preview__bottom-order b {
   font-family: Inter, Arial, sans-serif;
   font-size: 62px;
-  line-height: 0.95;
-  font-weight: 900;
 }
 
 .receipt-preview--kitchen {
@@ -831,9 +814,7 @@
 
 .receipt-preview__kitchen-number {
   margin: 0 0 10px;
-  text-align: center;
   font-size: 34px;
-  font-weight: 900;
 }
 
 .receipt-preview__kitchen-item {
@@ -1394,9 +1375,7 @@
     min-height: 0;
     margin: 0;
     padding: 3mm 4mm 4mm;
-    color: #000;
     background: #fff;
-    box-shadow: none;
     clip-path: none;
     overflow: visible;
     page-break-after: avoid;
