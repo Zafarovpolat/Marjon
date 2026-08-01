@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const app = readFileSync(new URL("../src/admin/AdminApp.jsx", import.meta.url), "utf8");
+// Исходники админки теперь в двух файлах: компоненты в AdminApp.jsx, демо-данные
+// и чистые хелперы — в adminData.js. Проверки ниже смотрят на ТЕКСТ исходников,
+// поэтому читаем оба: иначе перенос кода между файлами «ломает» тест, хотя
+// проверяемое содержимое никуда не делось.
+const app = [
+  readFileSync(new URL("../src/admin/AdminApp.jsx", import.meta.url), "utf8"),
+  readFileSync(new URL("../src/admin/adminData.js", import.meta.url), "utf8"),
+].join("\n");
 const restaurantLogin = readFileSync(new URL("../src/pages/LoginPage.jsx", import.meta.url), "utf8");
 const tablesReport = readFileSync(new URL("../src/pages/TablesReportPage.jsx", import.meta.url), "utf8");
 const ordersReport = readFileSync(new URL("../src/pages/OrdersReportPage.jsx", import.meta.url), "utf8");
