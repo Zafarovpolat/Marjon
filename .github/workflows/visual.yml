@@ -143,6 +143,16 @@ jobs:
             --head "$GITHUB_WORKSPACE/shots/head" \
             --diff "$GITHUB_WORKSPACE/shots/diff"
 
+      # Бэкенд пишется в /tmp/backend.log, но раньше лог нигде не показывался —
+      # из-за этого причину обрыва /analytics/sales пришлось искать вслепую.
+      - name: Лог бэкенда
+        if: always()
+        run: |
+          echo "--- последние 120 строк ---"
+          tail -120 /tmp/backend.log || echo "(лога нет)"
+          echo "--- исключения ---"
+          grep -nE "Traceback|Error|Exception|CRITICAL" /tmp/backend.log | tail -40 || echo "(нет)"
+
       - name: Выложить скриншоты
         if: always()
         uses: actions/upload-artifact@v4
