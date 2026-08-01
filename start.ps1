@@ -209,7 +209,13 @@ function Test-DbConnection {
     # иначе неверный пароль вылезал 400-строчным трейсбеком уже при логине.
     if (-not $Python) { return }
     $probe = @(
-        'import asyncio, sys',
+        'import asyncio, os, sys',
+        # Скрипт лежит во временном каталоге, а Python кладёт в sys.path каталог
+        # СКРИПТА, а не текущий. Без этой строки "from app.config" падал с
+        # ModuleNotFoundError ещё до попытки подключения, и проверка ВСЕГДА
+        # рапортовала «подключиться не удалось» — причём без пояснения, потому
+        # что до печати DB_FAIL дело не доходило.
+        'sys.path.insert(0, os.getcwd())',
         'from app.config import settings',
         'from sqlalchemy import text',
         'from sqlalchemy.ext.asyncio import create_async_engine',
@@ -253,7 +259,15 @@ function Test-DbConnection {
         }
         else {
             $line = ($out | Where-Object { $_ -match 'DB_FAIL' } | Select-Object -First 1)
-            if ($line) { Write-Warn2 ([string]$line) }
+            if ($line) {
+                Write-Warn2 ([string]$line)
+            } else {
+                # Проба не дошла даже до печати DB_FAIL — значит упала раньше
+                # (например, на импорте). Показываем хвост вывода: без него
+                # пользователь видел голое [ERR] без единой подсказки.
+                Write-Warn2 'проба завершилась до проверки подключения, вывод:'
+                $out | Select-Object -Last 8 | ForEach-Object { Write-Host "         $_" -ForegroundColor DarkGray }
+            }
         }
     } catch {
         Write-Warn2 ("проверку подключения выполнить не удалось: {0}" -f $_.Exception.Message)
@@ -379,9 +393,12 @@ function Invoke-Migrations {
         if ($code -eq 0) {
             Write-Ok 'alembic upgrade head выполнен'
         }
-        elseif ($text -match 'already exists') {
-            # Типичная ситуация: таблицы созданы через create_tables.py, а alembic не проинициализирован.
-            Write-Warn2 'таблицы в БД уже есть, но alembic об этом не знает (нет отметки версии).'
+        elseif ($text -match 'already exists' -or $text -match 'duplicate column') {
+            # Типичная ситуация: схему создал create_tables.py (из моделей, сразу
+            # со всеми колонками), а alembic об этом не знает и пытается их
+            # доводить. SQLite в этом случае говорит «duplicate column name:
+            # pin_hash», Postgres — «already exists». Разные слова, причина одна.
+            Write-Warn2 'схема в БД уже полная, но alembic об этом не знает (нет отметки версии).'
             if (Confirm-Yes 'Отметить БД как актуальную (alembic stamp head)?' -DefaultYes) {
                 & $Python -m alembic stamp head
                 if ($LASTEXITCODE -eq 0) {
@@ -531,12 +548,29 @@ function Set-FrontendLanEnv {
 
 # ── Клиенты ───────────────────────────────────────────────────────────────────
 function Get-NpmBootstrap {
-    # Одной строкой (без переводов строк — команда уходит в Start-Process как один аргумент):
-    #  - нет node_modules            -> npm install
-    #  - есть, но состав неполный    -> npm install  (случай отсутствующего 'ws' после обновления package.json)
-    return '$need = -not (Test-Path node_modules); ' +
-           'if (-not $need) { npm ls --depth=0 --silent 2>$null | Out-Null; $need = ($LASTEXITCODE -ne 0) }; ' +
-           'if ($need) { Write-Host "Ставлю зависимости (npm install)..." -ForegroundColor Yellow; npm install }; '
+    # $Bin — исполняемый файл, которым реально запускается дев-сервер
+    # (vite / electron-vite). Проверяем именно ЕГО, а не наличие каталога
+    # node_modules: каталог может существовать после прерванной или частичной
+    # установки, `npm ls` при этом молчит, и дальше окно выдавало
+    # «"vite" не является внутренней или внешней командой» — то есть сервис
+    # молча не поднимался, а лаунчер рапортовал «окно запущено».
+    #
+    # Одной строкой: команда уходит в Start-Process единым аргументом.
+    param([string]$Bin)
+    # ${Bin} в фигурных скобках обязательно: без них PowerShell разберёт
+    # "$Bin.cmd" как обращение к свойству .cmd и подставит пустую строку.
+    $binPath = "node_modules\.bin\${Bin}.cmd"
+    return '$bin = "' + $binPath + '"; ' +
+           '$need = -not (Test-Path $bin); ' +
+           'if ($need) { Write-Host "Ставлю зависимости (npm install)..." -ForegroundColor Yellow; npm install }; ' +
+           # Если установка не помогла — честно останавливаемся с понятным текстом,
+           # а не уходим в невнятную ошибку интерпретатора команд.
+           'if (-not (Test-Path $bin)) { ' +
+             'Write-Host ""; ' +
+             'Write-Host "[ОШИБКА] Зависимости не установились: нет $bin" -ForegroundColor Red; ' +
+             'Write-Host "Прокрутите вывод npm install выше — там причина (нет сети, прокси, права)." -ForegroundColor Yellow; ' +
+             'Write-Host "Можно попробовать вручную: npm ci  (или удалить node_modules и package-lock.json, затем npm install)" -ForegroundColor Yellow; ' +
+             'Write-Host ""; Read-Host "Enter чтобы закрыть окно" | Out-Null; exit 1 }; '
 }
 
 function Start-Frontend {
