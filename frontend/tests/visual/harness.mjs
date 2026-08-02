@@ -114,27 +114,38 @@ export async function gotoAdminSection(page, baseUrl, group, item) {
     await page.goto(`${baseUrl}/admin.html`, { waitUntil: "domcontentloaded", timeout: 30000 });
     return true;
   }
-  // Группу раскрываем ТОЛЬКО если нужный пункт ещё не виден. Клик по уже
-  // раскрытой группе её схлопывает — из-за этого второй подряд экран одной
-  // группы («Склад → Приход товаров», затем «Склад → Журнал приходов») не
-  // открывался и снятие кадра падало по таймауту. Ровно три таких пары в
-  // списке — ровно три кадра и не снялись.
-  //
-  // Поиск НЕ сужен до `.admin-nav`, хотя так и просится: я попробовал, и вместо
-  // трёх кадров перестали сниматься все одиннадцать. Внутри меню первым
-  // совпадением оказывается пункт скрытого всплывающего подменю — оно есть в
-  // разметке всегда. Здесь важнее рабочий обход, чем красивый селектор.
-  const find = (text) => page.getByText(text, { exact: true }).first();
+  // Названия пунктов присутствуют в разметке НЕСКОЛЬКО раз: у свёрнутого меню
+  // есть всплывающее подменю, которое всегда есть в DOM и просто скрыто.
+  // Поэтому `.first()` регулярно указывал на невидимую копию, и клик уходил в
+  // таймаут. Берём первое ВИДИМОЕ совпадение, перебирая явно.
+  const clickVisible = async (text) => {
+    const loc = page.getByText(text, { exact: true });
+    const n = await loc.count();
+    for (let i = 0; i < n; i++) {
+      const el = loc.nth(i);
+      if (await el.isVisible().catch(() => false)) {
+        await el.click({ timeout: 8000 });
+        return true;
+      }
+    }
+    return false;
+  };
+  const isShown = async (text) => {
+    const loc = page.getByText(text, { exact: true });
+    const n = await loc.count();
+    for (let i = 0; i < n; i++) if (await loc.nth(i).isVisible().catch(() => false)) return true;
+    return false;
+  };
 
-  if (!(await find(item).isVisible().catch(() => false))) {
-    const groupEl = find(group);
-    if (!(await groupEl.count())) return false;
-    await groupEl.click({ timeout: 8000 });
+  // Группу раскрываем ТОЛЬКО если нужный пункт ещё не виден: клик по уже
+  // раскрытой группе её схлопывает. Из-за этого второй подряд экран одной
+  // группы («Склад → Приход товаров», затем «Склад → Журнал приходов») не
+  // открывался.
+  if (!(await isShown(item))) {
+    if (!(await clickVisible(group))) return false;
+    await page.waitForTimeout(300);   // подменю раскрывается не мгновенно
   }
-  const itemEl = find(item);
-  if (!(await itemEl.count())) return false;
-  await itemEl.click({ timeout: 8000 });
-  return true;
+  return clickVisible(item);
 }
 
 export { ADMIN_SECTIONS };
