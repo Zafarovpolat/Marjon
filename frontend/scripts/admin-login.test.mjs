@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { cascade } from "./css-cascade.mjs";
 
 // Исходники админки теперь в двух файлах: компоненты в AdminApp.jsx, демо-данные
 // и чистые хелперы — в adminData.js. Проверки ниже смотрят на ТЕКСТ исходников,
@@ -54,36 +55,139 @@ assert.match(css, /url\("\.\.\/assets\/tashkent-admin-bg\.jpg"\)/, "Admin login 
 assert.doesNotMatch(css, /images\.unsplash\.com\/photo-1695220858703-4ab11b4caed7/, "Admin login must not depend on the old remote Tashkent background.");
 assert.match(css, /\.admin-login__input input:-webkit-autofill[\s\S]*?rgba\(9,\s*24,\s*30,\s*0\.78\)/, "Admin login autofill must match the field background instead of drawing a black block.");
 assert.match(unifiedShellCss, /--admin-shell-bar-bg:\s*#071612/, "Admin header and sidebar must share the current dark sidebar color.");
-assert.match(unifiedShellCss, /\.admin-sidebar\s*{[\s\S]*?background:\s*var\(--admin-shell-bar-bg\)\s*!important;[\s\S]*?background-image:\s*none\s*!important;/, "Admin sidebar must be solid and non-gradient.");
-assert.match(unifiedShellCss, /\.admin-header\s*{[\s\S]*?background:\s*var\(--admin-shell-bar-bg\)\s*!important;[\s\S]*?background-image:\s*none\s*!important;/, "Admin header must use the same solid color as the sidebar.");
-assert.match(unifiedShellCss, /\.admin-sidebar\s*{[\s\S]*?border-right:\s*0\s*!important;/, "Admin sidebar must not show a vertical divider line.");
-assert.match(unifiedShellCss, /\.admin-header\s*{[\s\S]*?border-bottom:\s*0\s*!important;/, "Admin header must not show a bottom divider line.");
-assert.match(unifiedShellCss, /\.admin-main\s*{[\s\S]*?background:\s*var\(--admin-shell-page-bg\)\s*!important;[\s\S]*?background-image:\s*none\s*!important;/, "Admin main area must not keep the old transparent gradient backdrop.");
-assert.match(unifiedShellCss, /\.admin-main\s*{[\s\S]*?padding:\s*0\s*!important;/, "Admin main area must remove padding around the content.");
-assert.match(unifiedShellCss, /\.admin-header\s*{[\s\S]*?margin:\s*0 0 10px\s*!important;[\s\S]*?padding:\s*14px 10px\s*!important;/, "Admin header must keep the requested 10px spacing around the content area.");
-assert.match(ownerShellCss, /@media \(min-width:\s*981px\)[\s\S]*?\.admin-main\s*{[\s\S]*?padding:\s*0\s*!important;/, "Desktop owner shell main area must remove padding around the content.");
-assert.match(ownerShellCss, /@media \(min-width:\s*981px\)[\s\S]*?\.admin-header\s*{[\s\S]*?margin:\s*0 0 10px\s*!important;[\s\S]*?padding:\s*14px 10px\s*!important;/, "Desktop owner shell header must keep the real 10px lower gap.");
-assert.match(finalOwnerSizeLockCss, /--admin-owner-sidebar-w:\s*280px\s*!important;/, "Admin sidebar open width must allow the menu to expand.");
-assert.match(finalOwnerSizeLockCss, /Admin sidebar owner parity: exact Marjon owner collapse motion lock[\s\S]*?--admin-owner-sidebar-collapsed-w:\s*88px\s*!important;/, "Admin sidebar collapsed width must match the owner sidebar.");
-assert.match(finalOwnerSizeLockCss, /--admin-owner-header-h:\s*75px\s*!important;/, "Admin header height must match the current owner topbar.");
-assert.match(finalOwnerSizeLockCss, /Admin sidebar owner parity: exact Marjon owner collapse motion lock[\s\S]*?\.admin-shell:not\(\.is-sidebar-collapsed\) \.admin-sidebar[\s\S]*?padding:\s*0 10px 16px\s*!important;/, "Admin open sidebar must use the owner sidebar padding while animating.");
-assert.match(finalOwnerSizeLockCss, /\.admin-shell \.admin-header\s*{[\s\S]*?height:\s*var\(--admin-owner-header-h\)\s*!important;[\s\S]*?padding:\s*10px 10px 12px\s*!important;/, "Admin header must use the final owner topbar sizing.");
-assert.match(finalOwnerSizeLockCss, /\.admin-shell \.admin-main\s*{[\s\S]*?padding:\s*0\s*!important;/, "Admin main area must remove all padding around the content.");
-assert.match(finalOwnerSizeLockCss, /\.admin-shell \.admin-main\s*{[\s\S]*?background:\s*var\(--admin-shell-bar-bg\)\s*!important;[\s\S]*?background-image:\s*none\s*!important;/, "Admin main gap under the header must use the header bar color.");
-assert.match(finalOwnerSizeLockCss, /\.admin-shell \.admin-main > \.admin-content\s*{[\s\S]*?background:\s*#eef6ff\s*!important;[\s\S]*?background-image:\s*none\s*!important;/, "Admin content area must keep the light dashboard surface.");
-assert.match(finalOwnerSizeLockCss, /Admin sidebar owner parity: exact Marjon owner collapse motion lock[\s\S]*?transition:\s*grid-template-columns 220ms ease/, "Admin sidebar toggle must copy the owner sidebar timing.");
-assert.match(finalOwnerSizeLockCss, /Admin sidebar owner parity: exact Marjon owner collapse motion lock[\s\S]*?--admin-sidebar-row-height:\s*46px[\s\S]*?--admin-sidebar-row-icon:\s*22px[\s\S]*?--admin-sidebar-row-gap:\s*14px/, "Admin category row motion variables must match the owner sidebar.");
-assert.match(finalOwnerSizeLockCss, /Admin sidebar owner parity: exact Marjon owner collapse motion lock[\s\S]*?\.admin-shell\.is-sidebar-collapsed \.admin-sidebar \.admin-brand\.sidebar-brand[\s\S]*?left:\s*16px\s*!important;[\s\S]*?width:\s*calc\(var\(--admin-owner-sidebar-collapsed-w\) - 32px\)/, "Admin collapsed brand must use the owner left offset and width.");
-assert.match(finalOwnerSizeLockCss, /Admin sidebar owner parity: exact Marjon owner collapse motion lock[\s\S]*?\.admin-shell \.admin-sidebar \.brand-mark[\s\S]*?position:\s*relative\s*!important;[\s\S]*?width:\s*var\(--admin-sidebar-logo-box\)\s*!important;/, "Admin sidebar logo button must stay inside the animated owner brand layout.");
-assert.match(finalOwnerSizeLockCss, /Admin sidebar owner parity: exact Marjon owner collapse motion lock[\s\S]*?\.admin-shell\.is-sidebar-collapsed \.admin-sidebar \.brand-mark[\s\S]*?margin:\s*0\s*!important;[\s\S]*?justify-self:\s*center\s*!important;/, "Admin collapsed logo must center the same way as the owner sidebar logo.");
-assert.match(finalOwnerSizeLockCss, /Admin sidebar owner parity: exact Marjon owner collapse motion lock[\s\S]*?\.admin-shell\.is-sidebar-collapsed \.admin-sidebar \.brand-title,\s*\.admin-shell\.is-sidebar-collapsed \.admin-sidebar \.brand-subtitle\s*{[\s\S]*?transform:\s*translateX\(-10px\)\s*!important;/, "Admin collapsed brand titles must use the same fade offset as the owner sidebar.");
-assert.match(finalOwnerSizeLockCss, /Admin sidebar owner parity: exact Marjon owner collapse motion lock[\s\S]*?grid-template-columns:\s*var\(--admin-sidebar-row-icon\) minmax\(0,\s*1fr\) var\(--admin-sidebar-row-chevron\)[\s\S]*?padding:\s*0 var\(--admin-sidebar-row-padding-x\)/, "Admin open category buttons must use the owner row grid and padding.");
-assert.match(finalOwnerSizeLockCss, /Admin sidebar owner parity: exact Marjon owner collapse motion lock[\s\S]*?\.admin-shell\.is-sidebar-collapsed \.admin-sidebar \.admin-nav-group[\s\S]*?width:\s*56px\s*!important;[\s\S]*?height:\s*56px\s*!important;/, "Admin collapsed category buttons must use the owner 56px tile.");
-assert.match(css, /\.admin-header__title\s*{[\s\S]*?margin-left:\s*10px\s*!important;/, "Admin back button must sit to the right of the header edge.");
-assert.match(unifiedShellCss, /\.admin-main::before\s*{[\s\S]*?display:\s*none\s*!important;[\s\S]*?background:\s*none\s*!important;/, "Admin background overlay must be disabled.");
-assert.match(unifiedShellCss, /\.admin-nav button\.is-active\s*{[\s\S]*?background-image:\s*linear-gradient\(135deg,\s*#1a916f 0%,\s*#157457 100%\)\s*!important;[\s\S]*?box-shadow:\s*none\s*!important;/, "Admin active sidebar button must use the current green active style without glow.");
-assert.match(unifiedShellCss, /scrollbar-width:\s*none\s*!important;/, "Admin page must hide the visible scrollbar track.");
-assert.match(unifiedShellCss, /::-webkit-scrollbar[\s\S]*?display:\s*none\s*!important;/, "Admin page must hide the WebKit scrollbar.");
+// ── Оболочка админки: спрашиваем каскад, а не ищем текст ─────────────────────
+//
+// Раньше здесь искали подстроку в файле:
+//     /\.admin-sidebar\s*{[\s\S]*?border-right:\s*0\s*!important;/
+// У такой проверки три беды. Она ломается от любой перестановки файла, хотя
+// поведение не менялось. Она не отличает победившее объявление от перекрытого:
+// «[\s\S]*?» найдёт совпадение где угодно ниже по файлу. И она намертво
+// привязана к механизму — перевод каскада на @layer уронил 35 таких проверок
+// разом, не сломав при этом ни одного экрана.
+//
+// Цену этой слепоты видно сразу: утверждение «фон .admin-main — это
+// var(--admin-shell-page-bg)» было верным как текст и ложным как факт. Такое
+// объявление есть, но оно третье из шести и перекрыто дважды; реально
+// применяется var(--admin-shell-bar-bg) — чего и требует соседнее утверждение.
+//
+// Теперь проверяется результат: какое объявление выигрывает для пары
+// «селектор + свойство». Слой overrides указан там, где раньше стоял
+// !important, — это ровно то же требование «должно перебить остальное».
+const adminCss = cascade(css);
+assert.deepEqual(adminCss.layerOrder, ["base", "overrides"],
+  "Весь каскад админки держится на порядке слоёв: base, затем overrides.");
+
+const D = "@media (min-width: 981px)";      // настольная раскладка
+const W = "@media (min-width: 1025px)";     // широкая раскладка
+
+const shellRules = [
+  // селектор, свойство, значение, медиа, смысл, [слой]
+  //
+  // Слой по умолчанию overrides — там, где раньше стоял !important. Несколько
+  // строк помечены base: старый регексп считал их важными, но это была ошибка
+  // самого регекспа. «[\s\S]*?» не останавливается на границе правила, поэтому
+  // «width: 100% !important» он брал у СОСЕДНЕГО правила, а не у указанного.
+  // Проверка по каскаду показывает настоящее положение дел.
+  [".admin-sidebar", "background", "var(--admin-shell-bar-bg)", "", "Боковое меню — сплошной цвет."],
+  [".admin-sidebar", "background-image", "none", "", "Боковое меню без градиента."],
+  [".admin-header", "background", "var(--admin-shell-bar-bg)", "", "Шапка того же цвета, что и меню."],
+  [".admin-header", "background-image", "none", "", "Шапка без градиента."],
+  [".admin-sidebar", "border-right", "0", "", "У бокового меню нет вертикальной черты."],
+  [".admin-header", "border-bottom", "0", "", "У шапки нет нижней черты."],
+  [".admin-main", "background", "var(--admin-shell-bar-bg)", "", "Просвет под шапкой — цвета шапки."],
+  [".admin-main", "background-image", "none", "", "Рабочая область без старой градиентной подложки."],
+  [".admin-main", "padding", "0", "", "Рабочая область без отступов вокруг содержимого."],
+  [".admin-header", "margin", "0 0 10px", "", "Под шапкой ровно 10px."],
+  [".admin-header", "padding", "14px 10px", "", "Внутренние отступы шапки."],
+  [".admin-main::before", "display", "none", "", "Фоновая накладка отключена."],
+  [".admin-main::before", "background", "none", "", "У накладки нет собственного фона."],
+  [".admin-nav button.is-active", "background-image",
+    "linear-gradient(135deg, #1a916f 0%, #157457 100%)", "", "Активный пункт меню — зелёный."],
+  [".admin-nav button.is-active", "box-shadow", "none", "", "Активный пункт без свечения."],
+  [".admin-header__title", "margin-left", "10px", "", "Кнопка «назад» отступает от края шапки."],
+  [".admin-main > .admin-content", "scrollbar-width", "none", "", "Полоса прокрутки скрыта."],
+  [".admin-shell::-webkit-scrollbar", "display", "none", "", "Полоса прокрутки скрыта и в WebKit."],
+
+  // Настольная раскладка
+  [".admin-main", "padding", "0", D, "На большом экране рабочая область тоже без отступов."],
+  [".admin-header", "margin", "0 0 10px", D, "На большом экране под шапкой те же 10px."],
+  [".admin-header", "padding", "14px 10px", D, "Внутренние отступы шапки на большом экране."],
+  [".admin-shell .admin-header", "height", "var(--admin-owner-header-h)", D, "Высота шапки как у владельца."],
+  [".admin-shell .admin-header", "padding", "10px 10px 12px", D, "Итоговые отступы шапки."],
+  [".admin-shell .admin-main", "padding", "0", D, "Итоговая рабочая область без отступов."],
+  [".admin-shell .admin-main", "background", "var(--admin-shell-bar-bg)", D, "Просвет под шапкой — цвета шапки."],
+  [".admin-shell .admin-main", "background-image", "none", D, "Просвет без градиента."],
+  [".admin-shell .admin-main > .admin-content", "background", "#eef6ff", D, "Светлая рабочая поверхность."],
+  [".admin-shell .admin-main > .admin-content", "background-image", "none", D, "Поверхность без градиента."],
+  [".admin-shell", "transition", "grid-template-columns 220ms ease", D, "Складывание меню идёт как у владельца."],
+  [".admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav-group", "width", "56px", D, "Сложенный пункт — плитка 56px."],
+  [".admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav-group", "height", "56px", W, "Высота плитки 56px."],
+
+  // Широкая раскладка
+  [".admin-shell:not(.is-sidebar-collapsed) .admin-sidebar", "padding", "0 10px 16px", W, "Отступы раскрытого меню."],
+  [".admin-shell .admin-sidebar .brand-mark", "position", "relative", W, "Логотип внутри анимируемой шапки меню."],
+  [".admin-shell .admin-sidebar .brand-mark", "width", "var(--admin-sidebar-logo-box)", W, "Ширина кнопки логотипа."],
+  [".admin-shell.is-sidebar-collapsed .admin-sidebar .brand-mark", "margin", "0", W, "Сложенный логотип без полей."],
+  [".admin-shell.is-sidebar-collapsed .admin-sidebar .brand-mark", "justify-self", "center", W, "Сложенный логотип по центру."],
+  [".admin-shell.is-sidebar-collapsed .admin-sidebar .brand-title", "transform", "translateX(-10px)", W, "Заголовок уезжает как у владельца."],
+  [".admin-shell.is-sidebar-collapsed .admin-sidebar .admin-brand.sidebar-brand", "left", "16px", W, "Смещение сложенного логотипа."],
+
+  // Дашборд: график и боковые карточки
+  [".admin-content .admin-dashboard-grid--chart-summary", "grid-template-columns",
+    "minmax(0, calc(100% - 346px)) minmax(300px, 336px)", "", "Сетка «график + сводка»."],
+  [".admin-content .admin-dashboard-grid--chart-summary .admin-center", "max-width", "100%", "", "Центр не вылезает за сетку."],
+  [".admin-content .admin-dashboard-grid--chart-summary .admin-center", "overflow", "visible", "", "Центр не режет содержимое."],
+  [".admin-content .admin-chart-side-cards", "position", "relative", "", "Боковые карточки позиционируются."],
+  [".admin-content .admin-chart-side-cards", "z-index", "120", "", "Боковые карточки поверх графика."],
+  [".admin-content .admin-chart-side-cards", "max-width", "100%", "", "Боковые карточки в пределах колонки."],
+  [".admin-content .admin-chart-card", "z-index", "1", "", "Карточка графика под боковыми."],
+  [".admin-content .admin-chart-card", "width", "100%", "", "Карточка графика по ширине колонки.", "base"],
+  [".admin-content .admin-chart-card", "max-width", "100%", "", "Карточка не растягивает сетку."],
+  [".admin-content .admin-chart-card .admin-chart", "width", "100%", "", "Тело графика по ширине карточки.", "base"],
+  [".admin-content .admin-chart-card .admin-chart", "overflow", "hidden", "", "Тело графика подрезает холст."],
+  [".admin-content .admin-chart-card .admin-chart canvas", "width", "100%", "", "Холст по ширине тела.", "base"],
+  [".admin-content .admin-chart-card .admin-chart canvas", "max-width", "100%", "", "Холст не вылезает."],
+
+  // Справочники финансов
+  [".admin-content:has(.admin-payment-page)", "padding", "10px", "", "Отступ страницы способов оплаты."],
+  [".admin-content:has(.admin-payment-page)", "background", "#f4f5f5", "", "Фон страницы способов оплаты."],
+  [".admin-content:has(.admin-history-page)", "padding", "10px", "", "Отступ страницы истории."],
+  [".admin-content:has(.admin-history-page)", "background", "#f4f5f5", "", "Фон страницы истории."],
+];
+
+for (const [sel, prop, value, media, why, layer = "overrides"] of shellRules) {
+  const where = media ? ` внутри ${media}` : "";
+  const w = adminCss.winner(sel, prop, media);
+  assert.ok(w, `${why} Объявления «${sel} { ${prop} }»${where} нет вовсе.`);
+  assert.equal(w.value, value, `${why} Для «${sel} { ${prop} }»${where} выигрывает другое значение.`);
+  assert.equal(w.layer, layer,
+    `${why} Объявление «${sel} { ${prop} }»${where} должно лежать в слое ${layer}.`);
+}
+
+// Переменные оболочки. Селектор здесь не важен: проверяем, что объявление с
+// нужным значением есть в нужном слое — прямой перевод прежнего «есть такая
+// строка с !important».
+const shellVars = [
+  ["--admin-shell-bar-bg", "#071612", "base", "Тёмный цвет шапки и меню."],
+  ["--admin-owner-sidebar-w", "280px", "overrides", "Ширина раскрытого меню."],
+  ["--admin-owner-sidebar-collapsed-w", "88px", "overrides", "Ширина сложенного меню."],
+  ["--admin-owner-header-h", "75px", "overrides", "Высота шапки."],
+  ["--admin-sidebar-row-height", "46px", "overrides", "Высота строки меню."],
+  ["--admin-sidebar-row-icon", "22px", "overrides", "Размер значка в строке меню."],
+  ["--admin-sidebar-row-gap", "14px", "overrides", "Зазор в строке меню."],
+];
+for (const [name, value, layer, why] of shellVars) {
+  const hits = adminCss.find(name, value).filter((d) => d.layer === layer);
+  assert.ok(hits.length, `${why} Нет объявления ${name}: ${value} в слое ${layer}.`);
+}
+
+// Сетка строки меню задаётся сразу нескольким селекторам — здесь важно само
+// наличие правила, а не конкретный селектор.
+assert.ok(
+  adminCss.find("grid-template-columns").some(
+    (d) => d.layer === "overrides" &&
+      d.value === "var(--admin-sidebar-row-icon) minmax(0, 1fr) var(--admin-sidebar-row-chevron)"),
+  "Раскрытые пункты меню должны использовать сетку строки как у владельца.");
 assert.match(app, /const datePresets = useMemo/, "Admin date picker must define quick date presets.");
 assert.match(app, /Сегодня[\s\S]*Вчера[\s\S]*Этот месяц[\s\S]*Этот год/, "Admin date picker must include the expected quick presets.");
 assert.match(app, /<ReportDateRangePicker[\s\S]*?buttonClassName="admin-finance-date-button"/, "Admin finance header must render the shared report date picker.");
@@ -209,12 +313,6 @@ assert.match(css, /\.admin-finance-select-menu\s*{[\s\S]*?position:\s*absolute/,
 assert.match(css, /\.admin-finance-calendar\s*{[\s\S]*?background:\s*#ffffff/, "Admin finance custom calendar must use the white admin popup design.");
 assert.match(css, /\.admin-finance-calendar\s*{[\s\S]*?position:\s*fixed[\s\S]*?z-index:\s*4090/, "Admin finance custom calendar must stay on the front layer.");
 assert.match(css, /@keyframes adminFinanceOperationDialogIn[\s\S]*?translateY\(10px\)[\s\S]*?@keyframes adminFinanceOperationDialogOut[\s\S]*?translateY\(8px\)/, "Admin finance modal panel must have light open and close motion.");
-assert.match(css, /\.admin-content \.admin-dashboard-grid--chart-summary\s*{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*calc\(100% - 346px\)\) minmax\(300px,\s*336px\)\s*!important;[\s\S]*?overflow:\s*visible\s*!important;/, "Admin dashboard chart grid must keep a stable right column while resizing.");
-assert.match(css, /\.admin-content \.admin-dashboard-grid--chart-summary \.admin-center\s*{[\s\S]*?max-width:\s*100%\s*!important;[\s\S]*?overflow:\s*visible\s*!important;/, "Admin dashboard chart center must stay constrained to its grid column.");
-assert.match(css, /\.admin-content \.admin-chart-side-cards\s*{[\s\S]*?position:\s*relative\s*!important;[\s\S]*?z-index:\s*120\s*!important;[\s\S]*?max-width:\s*100%\s*!important;/, "Admin dashboard side cards must stay above the chart card background.");
-assert.match(css, /\.admin-content \.admin-chart-card\s*{[\s\S]*?z-index:\s*1\s*!important;[\s\S]*?width:\s*100%\s*!important;[\s\S]*?max-width:\s*100%\s*!important;/, "Admin dashboard chart card must not cover the right summary cards.");
-assert.match(css, /\.admin-content \.admin-chart-card \.admin-chart\s*{[\s\S]*?width:\s*100%\s*!important;[\s\S]*?overflow:\s*hidden\s*!important;/, "Admin dashboard chart body must clip canvas overflow on resize.");
-assert.match(css, /\.admin-content \.admin-chart-card \.admin-chart canvas\s*{[\s\S]*?width:\s*100%\s*!important;[\s\S]*?max-width:\s*100%\s*!important;/, "Admin dashboard chart canvas must stay inside the chart card on resize.");
 assert.match(adminFinanceCategoriesPage, /admin-income-page admin-finance-category-page/, "Admin finance category pages must have their own template class.");
 assert.match(adminFinanceCategoriesPage, /const fallbackCategories = useMemo/, "Admin finance category pages must render their existing local rows when the API is empty or unavailable.");
 assert.match(adminFinanceCategoriesPage, /setCategories\(fallbackCategories\)/, "Admin finance category pages must keep the local fallback rows in sync.");
@@ -233,7 +331,6 @@ assert.match(css, /\.admin-finance-category-page \.admin-income-dialog::before\s
 assert.match(adminPaymentMethodsPage, /const paymentFallbackRows = useMemo\(\(\) => paymentMethodRows\.map/, "Admin payment methods must render existing local rows when the API is empty or unavailable.");
 assert.match(adminPaymentMethodsPage, /setMethods\(paymentFallbackRows\)/, "Admin payment methods must keep local fallback rows in sync.");
 assert.match(adminPaymentMethodsPage, /sort:\s*Number\(r\.sort_order \?\? r\.sort \?\? index \+ 1\)/, "Admin payment API rows must preserve sort values.");
-assert.match(css, /Payment methods: admin handbook table template\.[\s\S]*?\.admin-content:has\(\.admin-payment-page\)\s*{[\s\S]*?padding:\s*10px\s*!important;[\s\S]*?background:\s*#f4f5f5/, "Admin payment methods content area must show a 10px background frame around the panel.");
 assert.match(css, /Payment methods: admin handbook table template\.[\s\S]*?\.admin-content \.admin-payment-page\s*{[\s\S]*?min-height:\s*0[\s\S]*?align-self:\s*start[\s\S]*?background:\s*#ffffff[\s\S]*?box-shadow:\s*none/, "Admin payment methods page must shrink to its rows and use the light admin handbook panel.");
 assert.match(css, /Payment methods: admin handbook table template\.[\s\S]*?\.admin-payment-page \.admin-income-title > span\s*{[\s\S]*?background:\s*#048453/, "Admin payment methods title accent must use the green admin palette.");
 assert.match(css, /Payment methods: admin handbook table template\.[\s\S]*?\.admin-payment-page \.admin-income-add\s*{[\s\S]*?background:\s*#048453/, "Admin payment methods add button must use the green admin palette without changing shape.");
@@ -246,7 +343,6 @@ assert.match(adminFinanceHistoryPage, /adminApi\.get\("\/finance\/finance-histor
 assert.match(adminFinanceHistoryPage, /const historyScrollRef = useRef/, "Admin finance history must manage a dedicated visible horizontal scrollbar.");
 assert.match(adminFinanceHistoryPage, /className="admin-history-table-wrap"[\s\S]*?ref={historyScrollRef}[\s\S]*?onScroll={updateHistoryScroll}[\s\S]*?onWheelCapture={keepWheelInsideScroller}/, "Admin finance history must keep wheel and scrollbar state synced inside the table scroller.");
 assert.match(adminFinanceHistoryPage, /className="admin-history-scrollbar"[\s\S]*?admin-history-scrollbar__button is-prev[\s\S]*?admin-history-scrollbar__track[\s\S]*?admin-history-scrollbar__thumb[\s\S]*?admin-history-scrollbar__button is-next/, "Admin finance history must render the visible reference-style scrollbar under the table.");
-assert.match(css, /\.admin-content:has\(\.admin-history-page\)\s*{[\s\S]*?padding:\s*10px\s*!important;[\s\S]*?background:\s*#f4f5f5/, "Admin finance history content area must show the same 10px background frame as payment methods.");
 assert.match(css, /\.admin-content \.admin-history-page\s*{[\s\S]*?min-height:\s*0[\s\S]*?align-self:\s*start[\s\S]*?background:\s*#ffffff/, "Admin finance history panel must shrink to its rows in the payment methods template.");
 assert.match(css, /\.admin-history-page \.admin-income-title > span\s*{[\s\S]*?background:\s*#048453/, "Admin finance history title accent must use the green admin palette.");
 assert.match(css, /\.admin-history-table th\s*{[\s\S]*?color:\s*#f8fafc[\s\S]*?background:\s*#048453/, "Admin finance history table header must use the green payment methods palette.");
