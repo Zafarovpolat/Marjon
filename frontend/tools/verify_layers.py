@@ -64,10 +64,18 @@ def strip_comments(s):
     return "".join(out)
 
 
-def walk(css, ctx=(), layer=None, acc=None):
-    """Плоский список (контекст, слой, селектор, свойство, значение, важное)."""
+def walk(css, ctx=(), layer=None, acc=None, ids=None):
+    """Плоский список (контекст, слой, селектор, свойство, значение, важное, id).
+
+    id — номер физического объявления. У правила `.a, .b { x: 1 }` строки
+    получаются на каждый селектор, но текст объявления ОДИН, и флаг у него тоже
+    один на всех. Без этого невозможно отличить «флаг оставлен осознанно» от
+    «флаг заодно достался соседнему селектору по запятой».
+    """
     if acc is None:
         acc = []
+    if ids is None:
+        ids = [0]
     i, buf, paren = 0, "", 0
     while i < len(css):
         c = css[i]
@@ -114,11 +122,11 @@ def walk(css, ctx=(), layer=None, acc=None):
             buf, i = "", j + 1
             if head.startswith("@layer"):
                 name = head[6:].strip().strip("{").strip() or "?"
-                walk(body, ctx, name, acc)
+                walk(body, ctx, name, acc, ids)
             elif head.startswith("@keyframes") or head.startswith("@font-face"):
                 pass  # вне каскада селекторов
             elif head.startswith("@"):
-                walk(body, ctx + (head,), layer, acc)
+                walk(body, ctx + (head,), layer, acc, ids)
             else:
                 for d in split_decls(body):
                     d = d.strip()
@@ -127,9 +135,10 @@ def walk(css, ctx=(), layer=None, acc=None):
                     p, v = d.split(":", 1)
                     imp = bool(re.search(r"!\s*important\b", v, re.I))
                     v = re.sub(r"!\s*important", "", v, flags=re.I)
+                    ids[0] += 1
                     for sel in split_sel(head):
                         acc.append((ctx, layer, sel, p.strip().lower(),
-                                    " ".join(v.split()), imp))
+                                    " ".join(v.split()), imp, ids[0]))
             continue
         if c == ";" and not paren:
             buf = ""
@@ -342,23 +351,51 @@ def main():
         return bool(re.search(r"(^|[.:])sidebar-user(\b|--)", last)
                     or re.search(r"(^|[.:])sidebar-account__menu\b", last))
 
+    def is_canvas_exception(sel, prop):
+        # Chart.js пишет холсту style.width и style.height при каждом пересчёте.
+        # Правило без флага такой inline-стиль не перекроет.
+        last = re.split(r"[\s>+~]+", sel.strip())[-1] if sel.strip() else ""
+        if not re.match(r"^(width|height|min-width|min-height|max-width|max-height|display|box-sizing)$", prop):
+            return False
+        return bool(re.search(r"(^|[.])canvas$", last) or re.search(r"(^|[.:])chart-canvas\b", last))
+
+    allowed = lambda sel, prop: is_exception(sel, prop) or is_canvas_exception(sel, prop)
     left = [r for r in after if r[6]]
-    unexpected = [r for r in left if not is_exception(r[3], r[4])]
-    was_imp = {(r[0], r[1], r[3], r[4]) for r in before if r[6] and is_exception(r[3], r[4])}
-    now_imp = {(r[0], r[1], r[3], r[4]) for r in left}
-    print(f"4. важных объявлений осталось: {len(left)} — исключение «перебить inline-стиль»")
+
+    # Флаг стоит на ОБЪЯВЛЕНИИ, а у объявления может быть несколько селекторов
+    # через запятую. Если хоть одному из них флаг нужен, он сохраняется всем — и
+    # это правильно: в исходнике объявление тоже было важным для всех своих
+    # селекторов. Поэтому «лишним» флаг считается только тогда, когда НИ ОДИН из
+    # селекторов его не оправдывает.
+    ok_decl = {r[7] for r in left if allowed(r[3], r[4])}
+    unexpected = [r for r in left if r[7] not in ok_decl]
+
+    # Ничего нового: всё, что важно сейчас, было важным и раньше.
+    was_all = {(r[0], r[3], r[4], r[5]) for r in before if r[6]}
+    now_all = {(r[0], r[3], r[4], r[5]) for r in left}
+    added = now_all - was_all
+    # Ничего не потеряно: всё, что подпадает под исключение и было важным,
+    # важным и осталось.
+    was_need = {(r[0], r[3], r[4], r[5]) for r in before if r[6] and allowed(r[3], r[4])}
+    lost_flags = was_need - now_all
+
+    print(f"4. важных объявлений осталось: {len(left)} строк на {len(set(r[7] for r in left))} объявлениях"
+          f" — исключение «перебить inline-стиль»")
     if unexpected:
         ok = False
-        print(f"      не входят в исключение: {len(unexpected)}")
+        print(f"      ни один селектор не оправдывает флаг: {len(unexpected)}")
         for r in unexpected[:5]:
-            print(f"        {r[3][:60]} | {r[4]}")
-    if was_imp != now_imp:
+            print(f"        {r[2][:60]} | {r[3]}")
+    if added:
         ok = False
-        print(f"      набор не совпал с исходным: было {len(was_imp)}, стало {len(now_imp)}")
-        for x in list(was_imp - now_imp)[:4]:
-            print(f"        потеряно: {x[2][:60]} | {x[3]}")
-        for x in list(now_imp - was_imp)[:4]:
-            print(f"        лишнее  : {x[2][:60]} | {x[3]}")
+        print(f"      флагов, которых не было в исходнике: {len(added)}")
+        for x in list(added)[:4]:
+            print(f"        {x[1][:60]} | {x[2]}")
+    if lost_flags:
+        ok = False
+        print(f"      потеряно флагов, нужных исключению: {len(lost_flags)}")
+        for x in list(lost_flags)[:4]:
+            print(f"        {x[1][:60]} | {x[2]}")
 
     # 5. Порядок объявления слоёв
     bad_order = []

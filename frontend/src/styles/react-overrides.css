@@ -8659,7 +8659,7 @@ body {
 
 @layer overrides {
 .chart-wrap canvas {
-  width: 100%;
+  width: 100% !important;
 }
 .kpi-grid--premium .premium-kpi::before {
   pointer-events: none;

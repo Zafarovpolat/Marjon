@@ -3381,8 +3381,8 @@ body.dashboard-body::before {
 }
 .marjon-owner-dashboard .chart-canvas,
 .chart-wrap {
-  height: 318px;
-  min-width: 0;
+  height: 318px !important;
+  min-width: 0 !important;
   border-radius: 22px;
   background: transparent;
 }

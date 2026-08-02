@@ -161,6 +161,18 @@ const dropFlag = (t) => t.replace(/!\s*important\s*/i, "").replace(/\s+$/, "");
 const KEEP_FLAG = [
   { last: /(^|[.:])sidebar-user(\b|--)/, prop: /^background(-color|-image)?$/ },
   { last: /(^|[.:])sidebar-account__menu\b/, prop: /^background(-color|-image)?$/ },
+
+  // Второй случай оказался тоньше первого: inline-стиль ставит не разметка, а
+  // БИБЛИОТЕКА во время работы. Chart.js при каждом пересчёте пишет холсту
+  // style.width и style.height. Правило `.admin-chart canvas { height: 374px }`
+  // было важным и эти значения перекрывало; без флага побеждает библиотека, и
+  // высота холста становится 382px вместо 374px — график перерисовывается в
+  // другом масштабе.
+  //
+  // Мой разбор inline-стилей смотрел только на style={{...}} в JSX и про
+  // библиотеки не подумал вовсе. Нашлось единственным способом, каким такое
+  // вообще находится, — сравнением вычисленных стилей в живом браузере.
+  { last: /(^|[.\s])canvas$|(^|[.:])chart-canvas\b/, prop: /^(width|height|min-width|min-height|max-width|max-height|display|box-sizing)$/ },
 ];
 
 /** Последний «кусок» селектора — то, на что правило нацелено. */

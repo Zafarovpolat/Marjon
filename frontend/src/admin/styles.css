@@ -16455,10 +16455,10 @@ body:has(.admin-shell),
   overflow: hidden;
 }
 .admin-content .admin-chart canvas {
-  max-width: 100%;
+  max-width: 100% !important;
 }
 .admin-content .admin-chart-card .admin-chart canvas {
-  max-width: 100%;
+  max-width: 100% !important;
 }
 .admin-content .admin-tooltip.is-visible {
   transform: translate(-50%, -108%) scale(1);
@@ -18180,7 +18180,7 @@ body:has(.admin-shell),
   font-weight: 500;
 }
 .admin-content:has(.admin-kpi-grid) .admin-dashboard-grid--chart-summary .admin-chart canvas {
-  height: 374px;
+  height: 374px !important;
 }
 .admin-content:has(.admin-kpi-grid) .admin-chart-filter-bar {
   width: 100%;
