@@ -185,15 +185,30 @@ function render(nodes, wantImportant, depth = 0) {
   return parts.join("\n");
 }
 
-/** Собирает узлы, которые обязаны остаться вне слоёв. */
-function collectUnlayered(nodes, top, outside) {
+/**
+ * Собирает узлы, которые обязаны остаться вне слоёв.
+ *
+ * `wrappers` — цепочка объемлющих at-правил. Она нужна, потому что @keyframes
+ * может лежать ВНУТРИ @media, и тогда набор кадров существует только на своей
+ * ширине экрана. Первая версия выносила такие блоки на верхний уровень, и
+ * анимация начинала существовать всегда — тихое изменение поведения. В проекте
+ * ровно один такой блок (в react-overrides.css внутри @media (max-width:
+ * 1024px)), и найден он был не рассуждением, а отдельной проверкой на
+ * вложенность.
+ */
+function collectUnlayered(nodes, top, outside, wrappers = []) {
+  const wrap = (text) =>
+    wrappers.reduceRight((inner, prelude) => `${prelude} {\n${inner}\n}`, text);
   for (const n of nodes) {
     if (n.type === "stmt" && TOP.test(n.text)) { top.push(n.text); continue; }
     if (n.type === "at" && UNLAYERED.test(n.prelude)) {
-      (TOP.test(n.prelude) ? top : outside).push(`${n.prelude} {${n.body}}`);
+      // @import и @charset обязаны стоять в начале файла, поэтому обёртку для
+      // них не восстанавливаем — но их и не бывает внутри блоков.
+      if (TOP.test(n.prelude)) top.push(`${n.prelude} {${n.body}}`);
+      else outside.push(wrap(`${n.prelude} {${n.body}}`));
       continue;
     }
-    if (n.type === "at") collectUnlayered(parseNodes(n.body), top, outside);
+    if (n.type === "at") collectUnlayered(parseNodes(n.body), top, outside, [...wrappers, n.prelude]);
   }
 }
 

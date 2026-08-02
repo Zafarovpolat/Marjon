@@ -374,6 +374,56 @@ def main():
     if misplaced:
         ok = False
 
+    # 7. Окружение @keyframes сохранено.
+    #
+    # Добавлено по факту, как и проверка 6. Набор кадров может лежать ВНУТРИ
+    # @media — тогда анимация существует только на своей ширине экрана. Первая
+    # версия преобразования выносила такие блоки на верхний уровень, и анимация
+    # начинала существовать всегда. Проверки 1-5 слепы к этому: @keyframes не
+    # объявление и в каскаде селекторов не участвует.
+    def keyframe_contexts(text):
+        out, stack, i, depth = {}, [], 0, 0
+        while i < len(text):
+            if text[i] == "@":
+                m = re.match(r"@(?:-\w+-)?keyframes\s+([-\w]+)", text[i:])
+                if m:
+                    out.setdefault(m.group(1), []).append(tuple(stack))
+            if text[i] == "{":
+                k = max(text.rfind("}", 0, i), text.rfind("{", 0, i)) + 1
+                stack.append(" ".join(text[k:i].split())[:80])
+                depth += 1
+            elif text[i] == "}":
+                depth -= 1
+                if stack:
+                    stack.pop()
+            i += 1
+        return out
+
+    kf_bad = []
+    for f in css_files():
+        try:
+            now = strip_comments(open(f, encoding="utf8").read())
+        except OSError:
+            continue
+        r = subprocess.run(["git", "show", f"{(ref or 'HEAD')}:frontend/{f}"],
+                           capture_output=True, text=True)
+        if r.returncode:
+            continue
+        was = keyframe_contexts(strip_comments(r.stdout))
+        got = keyframe_contexts(now)
+        for name, ctxs in was.items():
+            # Слои — наша собственная обёртка, их из сравнения убираем.
+            clean = [tuple(c for c in ctx if not c.startswith("@layer")) for ctx in ctxs]
+            mine = [tuple(c for c in ctx if not c.startswith("@layer"))
+                    for ctx in got.get(name, [])]
+            if sorted(clean) != sorted(mine):
+                kf_bad.append(f"{f}: @keyframes {name}: было {clean}, стало {mine}")
+    print(f"7. @keyframes с изменившимся окружением: {len(kf_bad)}")
+    for x in kf_bad[:5]:
+        print("      " + x)
+    if kf_bad:
+        ok = False
+
     print("\nИТОГ: " + ("преобразование эквивалентно" if ok else "ЕСТЬ РАСХОЖДЕНИЯ"))
     sys.exit(0 if ok else 1)
 

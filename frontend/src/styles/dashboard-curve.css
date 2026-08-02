@@ -5,56 +5,52 @@
 @layer base, overrides;
 
 @layer base {
-/* Каскад держится на слоях, а не на !important: overrides объявлен после
-   base и потому бьёт его. Порядок и специфичность внутри слоёв исходные. */
-@layer base, overrides;
-@layer base {
-  /**
+/**
  * MARJON — стык сайдбар / контент (без наложения на меню)
  */
-  :root {
-    --mj-sidebar-width: 260px;
-    --mj-main-curve: 32px;
-  }
+:root {
+  --mj-sidebar-width: 260px;
+  --mj-main-curve: 32px;
+}
+.dashboard-sidebar {
+  flex-shrink: 0;
+  border: 0;
+}
+.sidebar-nav {
+  padding-right: 4px;
+}
+.sidebar-link {
+  max-width: 100%;
+  margin-right: 0;
+  overflow: hidden;
+}
+@media (max-width: 1024px) {
   .dashboard-sidebar {
-    flex-shrink: 0;
-    border: 0;
-  }
-  .sidebar-nav {
-    padding-right: 4px;
-  }
-  .sidebar-link {
-    max-width: 100%;
-    margin-right: 0;
-    overflow: hidden;
-  }
-  @media (max-width: 1024px) {
-    .dashboard-sidebar {
-      left: 0;
-      z-index: 40;
-    }
+    left: 0;
+    z-index: 40;
   }
 }
+}
+
 @layer overrides {
-  .sidebar-link.is-active {
-    background: linear-gradient(90deg, var(--color-brand) 0%, var(--color-brand-hover) 100%);
-    border-color: transparent;
-    box-shadow: 0 8px 20px rgba(29, 181, 181, 0.25);
-  }
-  .sidebar-link.is-active::before {
-    display: none;
-  }
-  .sidebar-user {
-    background: rgba(255, 255, 255, 0.07);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: none;
-    backdrop-filter: none;
-  }
-  .sidebar-user::after {
-    display: none;
-  }
-  .dashboard-main {
-    border: none;
-  }
+.sidebar-link.is-active {
+  background: linear-gradient(90deg, var(--color-brand) 0%, var(--color-brand-hover) 100%);
+  border-color: transparent;
+  box-shadow: 0 8px 20px rgba(29, 181, 181, 0.25);
+}
+.sidebar-link.is-active::before {
+  display: none;
+}
+.sidebar-user {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.sidebar-user::after {
+  display: none;
+}
+.dashboard-main {
+  border: none;
 }
 }
