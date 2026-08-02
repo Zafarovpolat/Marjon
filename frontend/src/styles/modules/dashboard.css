@@ -1992,7 +1992,7 @@ body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-back-slot .dashbo
   pointer-events: none;
 }
 .dashboard-sidebar .sidebar-user::before {
-  background: transparent;
+  background: transparent !important;
 }
 .dashboard-sidebar .sidebar-submenu__link,
 .dashboard-sidebar .sidebar-submenu__link:hover,
@@ -3072,7 +3072,7 @@ body.dashboard-body,
   display: grid;
   place-items: center;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.96) !important;
   box-shadow: 0 6px 13px rgba(2, 8, 23, 0.182),
     inset 0 0 0 1px rgba(255, 255, 255, 0.532);
 }
@@ -3110,7 +3110,7 @@ body.dashboard-body,
   place-items: center;
   border-radius: 9px;
   color: rgba(219, 234, 254, 0.86);
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.07) !important;
   font-size: 13px;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__item,
@@ -3124,7 +3124,7 @@ body.dashboard-body,
   border: 0;
   border-radius: 13px;
   color: rgba(236, 244, 255, 0.9);
-  background: transparent;
+  background: transparent !important;
   box-shadow: none;
   font-size: 13px;
   font-weight: 500;
@@ -3139,7 +3139,7 @@ body.dashboard-body,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__item:hover,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__item:focus-visible {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.06) !important;
   outline: 0;
   transform: translateX(2px);
 }
@@ -3177,7 +3177,7 @@ body.dashboard-body,
   padding: 3px;
   border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 999px;
-  background: rgba(2, 8, 23, 0.24);
+  background: rgba(2, 8, 23, 0.24) !important;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__lang-switch button {
   min-width: 34px;
@@ -3186,7 +3186,7 @@ body.dashboard-body,
   border: 0;
   border-radius: 999px;
   color: rgba(219, 234, 254, 0.68);
-  background: transparent;
+  background: transparent !important;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -3220,7 +3220,7 @@ body.dashboard-body,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__item--danger:hover,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__item--danger:focus-visible {
   color: #ffffff;
-  background: rgba(29, 181, 181, 0.16);
+  background: rgba(29, 181, 181, 0.16) !important;
 }
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-user:hover {
@@ -3237,7 +3237,7 @@ body.dashboard-body,
   place-items: center;
   border-radius: 10px;
   color: rgba(219, 234, 254, 0.82);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.06) !important;
   font-size: 13px;
 }
 .dashboard-sidebar.is-collapsed .sidebar-account__menu {
@@ -3720,7 +3720,7 @@ html,
   height: min(520px, calc(100vh - 24px));
   z-index: 89;
   pointer-events: auto;
-  background: transparent;
+  background: transparent !important;
 }
 .dashboard-sidebar.is-collapsed .sidebar-account.is-open .sidebar-account__menu::before {
   content: "";
@@ -3729,7 +3729,7 @@ html,
   bottom: 24px;
   width: 14px;
   height: 14px;
-  background: rgba(6, 26, 53, 0.98);
+  background: rgba(6, 26, 53, 0.98) !important;
 }
 .dashboard-sidebar.is-collapsed .sidebar-nav-item.has-submenu::after,
 .dashboard-sidebar.is-collapsed .sidebar-account::after {
@@ -3738,7 +3738,7 @@ html,
   left: 100%;
   width: 18px;
   pointer-events: auto;
-  background: transparent;
+  background: transparent !important;
 }
 .dashboard-sidebar.is-collapsed .sidebar-nav-item.has-submenu::after {
   top: 0;
@@ -3757,7 +3757,7 @@ html,
   width: 18px;
   height: 100%;
   pointer-events: auto;
-  background: transparent;
+  background: transparent !important;
 }
 .dashboard-topbar {
   height: 86px;
@@ -4219,7 +4219,7 @@ html,
   padding: 5px;
   border: 0;
   border-radius: 16px;
-  background: transparent;
+  background: transparent !important;
   box-shadow: none;
   transform: none;
 }
@@ -4256,7 +4256,7 @@ html,
 .dashboard-sidebar.is-collapsed .sidebar-user:hover .sidebar-user__avatar.sidebar-user__avatar--photo {
   overflow: hidden;
   padding: 0;
-  background: var(--neutral-900);
+  background: var(--neutral-900) !important;
 }
 .dashboard-sidebar .sidebar-user__avatar.sidebar-user__avatar--photo img,
 .dashboard-sidebar .sidebar-user__avatar.sidebar-user__avatar--photo .sidebar-user-logo,
@@ -5439,7 +5439,7 @@ html,
 .dashboard-sidebar .sidebar-account,
 .dashboard-sidebar .sidebar-account:hover {
   border: 1px solid transparent;
-  background: transparent;
+  background: transparent !important;
   box-shadow: none;
   transform: none;
 }
@@ -6030,7 +6030,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 .dashboard-sidebar .sidebar-account__item:hover,
 .dashboard-sidebar .sidebar-account__lang-switch button:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.08) !important;
   color: #ffffff;
 }
 .dashboard-sidebar .sidebar-account__lang {
@@ -6051,7 +6051,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 .dashboard-sidebar .sidebar-account__lang-panel button:hover,
 .dashboard-sidebar .sidebar-account__lang-panel button.is-active {
-  background: rgba(29, 181, 181, 0.14);
+  background: rgba(29, 181, 181, 0.14) !important;
 }
 .dashboard-sidebar .sidebar-account__lang-panel strong {
   overflow: hidden;
@@ -6107,7 +6107,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   padding: 0;
   border: 0;
   border-radius: 0;
-  background: transparent;
+  background: transparent !important;
   box-shadow: none;
 }
 .dashboard-sidebar .sidebar-account__lang-trigger,
@@ -6123,7 +6123,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 10px;
   color: rgba(226, 236, 255, 0.88);
-  background: rgba(255, 255, 255, 0.045);
+  background: rgba(255, 255, 255, 0.045) !important;
   font-size: 13px;
   font-weight: 800;
   cursor: pointer;
@@ -6133,7 +6133,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__lang-trigger:hover,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__lang.is-open .sidebar-account__lang-trigger {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.105);
+  background: rgba(255, 255, 255, 0.105) !important;
 }
 .dashboard-sidebar .sidebar-account__lang-label,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__lang-label {
@@ -6159,7 +6159,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   border: 1px solid rgba(42, 69, 109, 0.95);
   border-radius: 999px;
   color: #dff7ff;
-  background: rgba(2, 12, 27, 0.48);
+  background: rgba(2, 12, 27, 0.48) !important;
   font-size: 11px;
   font-weight: 900;
   line-height: 1;
@@ -6186,7 +6186,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   padding: 9px 7px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 13px;
-  background: #0b1f3f;
+  background: #0b1f3f !important;
   box-shadow: 0 16px 32px rgba(2, 8, 23, 0.28);
   transform: translateY(-50%);
 }
@@ -6197,7 +6197,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   top: 50%;
   width: 8px;
   height: 42px;
-  background: transparent;
+  background: transparent !important;
 }
 .dashboard-sidebar .sidebar-account__lang-panel button,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__lang-panel button {
@@ -6212,7 +6212,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   border: 1px solid transparent;
   border-radius: 9px;
   color: rgba(226, 236, 255, 0.9);
-  background: rgba(255, 255, 255, 0.055);
+  background: rgba(255, 255, 255, 0.055) !important;
   cursor: pointer;
 }
 .dashboard-sidebar .sidebar-account__lang-panel button:hover,
@@ -6221,7 +6221,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__lang-panel button.is-active {
   border-color: rgba(45, 220, 215, 0.32);
   color: #ffffff;
-  background: rgba(29, 181, 181, 0.3);
+  background: rgba(29, 181, 181, 0.3) !important;
   box-shadow: 0 0 0 1px rgba(29, 181, 181, 0.1);
 }
 .dashboard-sidebar .sidebar-account__lang-panel button > span,
@@ -6234,7 +6234,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
   border: 0;
   border-radius: 0;
   color: inherit;
-  background: transparent;
+  background: transparent !important;
   font-size: 11px;
   font-weight: 900;
   line-height: 1;
@@ -6258,7 +6258,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
       #ffffff 36% 64%,
       #d82735 64% 69%,
       #20a462 69% 100%
-    );
+    ) !important;
 }
 .dashboard-sidebar .sidebar-account__lang-panel .sidebar-account__lang-flag--uz::before {
   content: "";
@@ -6277,7 +6277,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
       #ffffff 0 33.33%,
       #2f57b7 33.33% 66.66%,
       #d52b1e 66.66% 100%
-    );
+    ) !important;
 }
 .dashboard-sidebar .sidebar-account__lang-panel .sidebar-account__lang-flag--en {
   background:
@@ -6285,7 +6285,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     linear-gradient(to right, transparent 38%, #ffffff 38% 44%, #c8102e 44% 56%, #ffffff 56% 62%, transparent 62%),
     linear-gradient(27deg, transparent 43%, #ffffff 43% 48%, #c8102e 48% 53%, #ffffff 53% 58%, transparent 58%),
     linear-gradient(153deg, transparent 43%, #ffffff 43% 48%, #c8102e 48% 53%, #ffffff 53% 58%, transparent 58%),
-    #012169;
+    #012169 !important;
 }
 .dashboard-sidebar .sidebar-account__lang-panel .sidebar-account__lang-code,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__lang-panel .sidebar-account__lang-code {
@@ -6296,7 +6296,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
 }
 .dashboard-sidebar .sidebar-account__lang-panel .sidebar-account__lang-flag,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__lang-panel .sidebar-account__lang-flag {
-  background: #ffffff;
+  background: #ffffff !important;
 }
 .dashboard-sidebar .sidebar-account__lang-panel .sidebar-account__lang-flag::before,
 .dashboard-sidebar:not(.is-collapsed) .sidebar-account__lang-panel .sidebar-account__lang-flag::before {
@@ -6336,7 +6336,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     width: 15px;
     height: 42px;
     border-radius: 0 999px 999px 0;
-    background: rgba(29, 181, 181, 0.72);
+    background: rgba(29, 181, 181, 0.72) !important;
     box-shadow: 0 0 18px rgba(29, 181, 181, 0.22);
     transform: translateY(-50%);
   }
@@ -6346,7 +6346,7 @@ body:has(.balance-payment-modal) .dashboard-sidebar {
     width: 76px;
     gap: 8px;
     padding: 10px 8px;
-    background: #0b1f3f;
+    background: #0b1f3f !important;
     border-color: rgba(91, 220, 216, 0.2);
     box-shadow:
       0 18px 36px rgba(2, 8, 23, 0.34),

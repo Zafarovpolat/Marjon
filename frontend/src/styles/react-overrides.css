@@ -8808,7 +8808,7 @@ body {
   font-size: 18px;
 }
 .pos-sidebar--ownerlike .pos-sidebar-user__avatar {
-  background: #ffffff;
+  background: #ffffff !important;
 }
 .pos-sidebar--ownerlike .pos-sidebar-user__meta {
   line-height: 1.05;
@@ -8889,7 +8889,7 @@ body {
   padding: 14px;
   gap: 10px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.07) !important;
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: none;
 }
@@ -10328,7 +10328,7 @@ body {
   font-weight: 500;
 }
 .chart-wrap {
-  height: 324px;
+  height: 324px !important;
   margin-top: 12px;
 }
 .top-dishes-card {
@@ -15237,8 +15237,8 @@ body:has(.admin-income-modal) .support-widget {
     min-height: auto;
   }
   .chart-wrap {
-    height: 200px;
-    min-height: 180px;
+    height: 200px !important;
+    min-height: 180px !important;
     margin-top: 8px;
   }
   .revenue-stat-grid {
@@ -15872,8 +15872,8 @@ body:has(.admin-income-modal) .support-widget {
     font-size: 15px;
   }
   .premium-chart .chart-wrap {
-    height: 292px;
-    min-height: 292px;
+    height: 292px !important;
+    min-height: 292px !important;
     margin-top: 6px;
     padding-top: 0;
   }

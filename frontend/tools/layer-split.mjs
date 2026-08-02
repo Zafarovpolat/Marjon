@@ -159,34 +159,33 @@ const dropFlag = (t) => t.replace(/!\s*important\s*/i, "").replace(/\s+$/, "");
  * а элемент зовётся .sidebar-user--button. Нашёл только прогон в браузере.
  */
 const KEEP_FLAG = [
-  { last: /(^|[.:])sidebar-user(\b|--)/, prop: /^background(-color|-image)?$/ },
-  { last: /(^|[.:])sidebar-account__menu\b/, prop: /^background(-color|-image)?$/ },
-
-  // Второй случай оказался тоньше первого: inline-стиль ставит не разметка, а
-  // БИБЛИОТЕКА во время работы. Chart.js при каждом пересчёте пишет холсту
-  // style.width и style.height. Правило `.admin-chart canvas { height: 374px }`
-  // было важным и эти значения перекрывало; без флага побеждает библиотека, и
-  // высота холста становится 382px вместо 374px — график перерисовывается в
-  // другом масштабе.
-  //
-  // Мой разбор inline-стилей смотрел только на style={{...}} в JSX и про
-  // библиотеки не подумал вовсе. Нашлось единственным способом, каким такое
-  // вообще находится, — сравнением вычисленных стилей в живом браузере.
-  { last: /(^|[.\s])canvas$|(^|[.:])chart-canvas\b/, prop: /^(width|height|min-width|min-height|max-width|max-height|display|box-sizing)$/ },
+  // Фон кнопки профиля и панели аккаунта: значение задаёт JSX через style={{...}}.
+  { token: /sidebar-user|sidebar-account/, prop: /^background(-color|-image)?$/ },
+  // Размеры графиков: значения пишет Chart.js прямо в элемент при пересчёте.
+  { token: /canvas|chart-wrap/, prop: /^(width|height|min-width|min-height|max-width|max-height|display|box-sizing)$/ },
 ];
 
-/** Последний «кусок» селектора — то, на что правило нацелено. */
-const lastCompound = (sel) => sel.trim().split(/[\s>+~]+/).filter(Boolean).pop() || "";
-
+/**
+ * ПОЧЕМУ ИСКЛЮЧЕНИЕ ЗАДАНО ПО «СЕМЕЙСТВУ», А НЕ ПО ТОЧНОМУ СЕЛЕКТОРУ.
+ *
+ * Первая версия сохраняла флаг ровно там, где он спорил с inline-стилем, — и
+ * этого оказалось мало. Флаги нельзя возвращать поодиночке: если два важных
+ * правила спорили между собой, а флаг вернулся только одному, побеждать начнёт
+ * оно, хотя раньше выигрывал соперник.
+ *
+ * Так и вышло. `.chart-wrap { height: 318px }` получил флаг обратно, а его
+ * соперник `.premium-chart .chart-wrap { height: 292px }` (специфичнее, внутри
+ * @media) — нет. Высота графика на дашборде владельца поехала с 292px на 318px.
+ *
+ * Поэтому набор задан по УПОМИНАНИЮ имени в селекторе, а не по последнему
+ * куску: соперник за то же свойство обязан подходить к тому же элементу, а
+ * значит упоминает тот же класс. Набор получается замкнутым.
+ */
 /** Нужно ли сохранить флаг у этого объявления. */
 function mustKeepFlag(prelude, decl) {
   const prop = (decl.split(":")[0] || "").trim().toLowerCase();
-  return prelude.split(",").some((sel) => {
-    const lc = lastCompound(sel);
-    if (lc.includes("::")) return false;               // псевдоэлемент — не сам элемент
-    if (/__(?!menu\b)/.test(lc)) return false;         // потомок вроде __avatar или __arrow
-    return KEEP_FLAG.some((r) => r.last.test(lc) && r.prop.test(prop));
-  });
+  return prelude.split(",").some((sel) =>
+    KEEP_FLAG.some((r) => r.token.test(sel) && r.prop.test(prop)));
 }
 
 // ── Сборка одной половины ────────────────────────────────────────────────────

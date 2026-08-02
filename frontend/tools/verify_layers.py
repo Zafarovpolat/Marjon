@@ -342,60 +342,55 @@ def main():
     # перекрыть, флаг должен сохраниться. Требовать здесь строгий ноль значило
     # бы подгонять красивую цифру ценой поведения: набор исключений сверяется с
     # тем, что было важным в исходнике, — не больше и не меньше.
-    def is_exception(sel, prop):
-        last = re.split(r"[\s>+~]+", sel.strip())[-1] if sel.strip() else ""
-        if "::" in last or re.search(r"__(?!menu\b)", last):
-            return False
-        if not re.match(r"^background(-color|-image)?$", prop):
-            return False
-        return bool(re.search(r"(^|[.:])sidebar-user(\b|--)", last)
-                    or re.search(r"(^|[.:])sidebar-account__menu\b", last))
+    # Исключение задано по УПОМИНАНИЮ имени в селекторе, а не по последнему
+    # куску. Причина не в удобстве, а в замкнутости: соперник за то же свойство
+    # обязан подходить к тому же элементу, значит упоминает тот же класс. Если
+    # вернуть флаг только части спорящих правил, победитель сменится — так и
+    # случилось с высотой графика на дашборде владельца (292px против 318px).
+    EXC = [
+        (re.compile(r"sidebar-user|sidebar-account"),
+         re.compile(r"^background(-color|-image)?$")),
+        (re.compile(r"canvas|chart-wrap"),
+         re.compile(r"^(width|height|min-width|min-height|max-width|max-height|display|box-sizing)$")),
+    ]
 
-    def is_canvas_exception(sel, prop):
-        # Chart.js пишет холсту style.width и style.height при каждом пересчёте.
-        # Правило без флага такой inline-стиль не перекроет.
-        last = re.split(r"[\s>+~]+", sel.strip())[-1] if sel.strip() else ""
-        if not re.match(r"^(width|height|min-width|min-height|max-width|max-height|display|box-sizing)$", prop):
-            return False
-        return bool(re.search(r"(^|[.])canvas$", last) or re.search(r"(^|[.:])chart-canvas\b", last))
+    def allowed(sel, prop):
+        return any(t.search(sel) and p.match(prop) for t, p in EXC)
 
-    allowed = lambda sel, prop: is_exception(sel, prop) or is_canvas_exception(sel, prop)
     left = [r for r in after if r[6]]
+    ident = lambda r: (r[0], r[1], r[3], r[4], r[5])
 
-    # Флаг стоит на ОБЪЯВЛЕНИИ, а у объявления может быть несколько селекторов
-    # через запятую. Если хоть одному из них флаг нужен, он сохраняется всем — и
-    # это правильно: в исходнике объявление тоже было важным для всех своих
-    # селекторов. Поэтому «лишним» флаг считается только тогда, когда НИ ОДИН из
-    # селекторов его не оправдывает.
+    # Множество должно совпасть ТОЧНО с тем, что было важным в исходнике и
+    # подпадает под исключение. Не подмножество и не надмножество: лишний флаг
+    # ломает чужой спор, потерянный — проигрывает inline-стилю.
+    want = {ident(r) for r in before if r[6] and allowed(r[3], r[4])}
+    got = {ident(r) for r in left}
+    # Флаг стоит на ОБЪЯВЛЕНИИ, а у него бывает несколько селекторов через
+    # запятую: если исключение нужно хотя бы одному, флаг достаётся всем. В
+    # исходнике объявление тоже было важным для всех своих селекторов, так что
+    # это не расширение, а сохранение.
     ok_decl = {r[7] for r in left if allowed(r[3], r[4])}
-    unexpected = [r for r in left if r[7] not in ok_decl]
-
-    # Ничего нового: всё, что важно сейчас, было важным и раньше.
-    was_all = {(r[0], r[3], r[4], r[5]) for r in before if r[6]}
-    now_all = {(r[0], r[3], r[4], r[5]) for r in left}
-    added = now_all - was_all
-    # Ничего не потеряно: всё, что подпадает под исключение и было важным,
-    # важным и осталось.
-    was_need = {(r[0], r[3], r[4], r[5]) for r in before if r[6] and allowed(r[3], r[4])}
-    lost_flags = was_need - now_all
-
+    got_core = {ident(r) for r in left if allowed(r[3], r[4])}
+    shared = {ident(r) for r in left if r[7] in ok_decl and not allowed(r[3], r[4])}
     print(f"4. важных объявлений осталось: {len(left)} строк на {len(set(r[7] for r in left))} объявлениях"
-          f" — исключение «перебить inline-стиль»")
-    if unexpected:
+          f" ({len(shared)} досталось соседям по запятой)")
+    if got_core != want:
         ok = False
-        print(f"      ни один селектор не оправдывает флаг: {len(unexpected)}")
-        for r in unexpected[:5]:
-            print(f"        {r[2][:60]} | {r[3]}")
-    if added:
+        print(f"      набор не совпал: нужно {len(want)}, получилось {len(got_core)}")
+        for x in list(want - got_core)[:4]:
+            print(f"        потеряно: {x[2][:58]} | {x[3]}")
+        for x in list(got_core - want)[:4]:
+            print(f"        лишнее  : {x[2][:58]} | {x[3]}")
+    stray = [r for r in left if r[7] not in ok_decl]
+    if stray:
         ok = False
-        print(f"      флагов, которых не было в исходнике: {len(added)}")
-        for x in list(added)[:4]:
-            print(f"        {x[1][:60]} | {x[2]}")
-    if lost_flags:
+        print(f"      флаг без оправдания: {len(stray)}")
+        for r in stray[:4]:
+            print(f"        {r[3][:58]} | {r[4]}")
+    extra_new = got - {ident(r) for r in before if r[6]}
+    if extra_new:
         ok = False
-        print(f"      потеряно флагов, нужных исключению: {len(lost_flags)}")
-        for x in list(lost_flags)[:4]:
-            print(f"        {x[1][:60]} | {x[2]}")
+        print(f"      флагов, которых не было в исходнике: {len(extra_new)}")
 
     # 5. Порядок объявления слоёв
     bad_order = []
