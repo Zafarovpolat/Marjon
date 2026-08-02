@@ -114,12 +114,26 @@ export async function gotoAdminSection(page, baseUrl, group, item) {
     await page.goto(`${baseUrl}/admin.html`, { waitUntil: "domcontentloaded", timeout: 30000 });
     return true;
   }
-  const groupEl = page.getByText(group, { exact: true }).first();
-  if (!(await groupEl.count())) return false;
-  await groupEl.click({ timeout: 5000 });
-  const itemEl = page.getByText(item, { exact: true }).first();
+  // Ищем строго внутри меню. Названия пунктов («Заказы», «Сотрудники») легко
+  // встречаются и в содержимом страницы, а .first() взял бы первое попавшееся.
+  const nav = page.locator(".admin-nav");
+
+  // Группу раскрываем ТОЛЬКО если нужный пункт ещё не виден. Клик по уже
+  // раскрытой группе её схлопывает — из-за этого второй подряд экран одной
+  // группы («Склад → Приход товаров», затем «Склад → Журнал приходов») не
+  // открывался, и снятие кадра падало по таймауту. Ровно три таких пары в
+  // списке — ровно три кадра и не снялись.
+  let itemEl = nav.getByText(item, { exact: true }).first();
+  if (!(await itemEl.isVisible().catch(() => false))) {
+    const groupEl = nav.getByText(group, { exact: true }).first();
+    if (!(await groupEl.count())) return false;
+    await groupEl.scrollIntoViewIfNeeded().catch(() => {});
+    await groupEl.click({ timeout: 8000 });
+    itemEl = nav.getByText(item, { exact: true }).first();
+  }
   if (!(await itemEl.count())) return false;
-  await itemEl.click({ timeout: 5000 });
+  await itemEl.scrollIntoViewIfNeeded().catch(() => {});
+  await itemEl.click({ timeout: 8000 });
   return true;
 }
 
