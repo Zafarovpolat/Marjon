@@ -18,7 +18,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { chromium } from "playwright";
-import { ROUTES, ADMIN_SECTIONS, DETERMINISM, login, prepareContext, settle } from "./harness.mjs";
+import { ROUTES, ADMIN_SECTIONS, DETERMINISM, login, prepareContext, settle, gotoAdminSection } from "./harness.mjs";
 
 const arg = (name, def) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -96,14 +96,13 @@ async function main() {
     }
   }
 
-  for (const [name, label] of ADMIN_SECTIONS) {
+  for (const [name, group, item] of ADMIN_SECTIONS) {
     try {
-      if (label === null) {
-        await page.goto(`${BASE}/admin.html`, { waitUntil: "domcontentloaded", timeout: 30000 });
-      } else {
-        const item = page.getByText(label, { exact: true }).first();
-        if (!(await item.count())) { console.log(`  – ${name}: пункт «${label}» не найден`); continue; }
-        await item.click({ timeout: 5000 });
+      // Навигация админки живёт на состоянии, а не на маршрутах: сначала
+      // раскрываем группу меню, затем жмём пункт внутри неё.
+      if (!(await gotoAdminSection(page, BASE, group, item))) {
+        console.log(`  – ${name}: пункт «${group} → ${item}» не найден`);
+        continue;
       }
       await shoot(name);
     } catch (e) {

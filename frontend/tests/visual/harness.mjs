@@ -76,16 +76,52 @@ const ROUTES = [
 
 export { ROUTES };
 
-/** Разделы админки: навигация внутри неё на состоянии, а не на маршрутах,
- *  поэтому переключаемся кликом по пункту меню (по видимому тексту). */
+/**
+ * Экраны админки: [имя кадра, группа меню, пункт внутри группы].
+ *
+ * Раньше здесь были только названия ГРУПП — «Организации», «Склад» и так далее.
+ * Но клик по группе её лишь раскрывает, никуда не переходя, поэтому все шесть
+ * кадров оказывались одной и той же страницей дашборда. Это вскрылось на
+ * сравнении картинок: шесть «разных» экранов разошлись на в точности одинаковое
+ * число пикселей. Админка при этом фактически не проверялась вовсе — а в ней
+ * половина всех стилей проекта.
+ *
+ * Теперь указывается конкретный пункт, и кадры действительно разные. Набор
+ * подобран по самым крупным экранам админки.
+ */
 const ADMIN_SECTIONS = [
-  ["admin-dashboard", null],
-  ["admin-organizations", "Организации"],
-  ["admin-storage", "Склад"],
-  ["admin-nomenclature", "Номенклатура"],
-  ["admin-handbook", "Справочник"],
-  ["admin-finance", "Финансы"],
+  ["admin-dashboard", null, null],
+  ["admin-org-list", "Организации", "Организация"],
+  ["admin-storage-income", "Склад", "Приход товаров"],
+  ["admin-storage-journal", "Склад", "Журнал приходов"],
+  ["admin-storage-inventory", "Склад", "Инвентаризация"],
+  ["admin-nom-product", "Номенклатура", "Продукт"],
+  ["admin-nom-orders", "Номенклатура", "Заказы"],
+  ["admin-handbook-countries", "Справочник", "Страны"],
+  ["admin-service-employees", "Услуга", "Сотрудники"],
+  ["admin-bank-transactions", "Банк", "Транзакции банка"],
+  ["admin-finance-operations", "Финансы", "Денежные операции"],
+  ["admin-finance-history", "Финансы", "История изменений"],
 ];
+
+/**
+ * Переход к экрану админки. Возвращает false, если пункт не найден, — тогда
+ * кадр не снимается, и недобор кадров валит прогон. Молча пропустить экран
+ * нельзя: сравнение отчиталось бы «расхождений нет», ничего не сравнив.
+ */
+export async function gotoAdminSection(page, baseUrl, group, item) {
+  if (group === null) {
+    await page.goto(`${baseUrl}/admin.html`, { waitUntil: "domcontentloaded", timeout: 30000 });
+    return true;
+  }
+  const groupEl = page.getByText(group, { exact: true }).first();
+  if (!(await groupEl.count())) return false;
+  await groupEl.click({ timeout: 5000 });
+  const itemEl = page.getByText(item, { exact: true }).first();
+  if (!(await itemEl.count())) return false;
+  await itemEl.click({ timeout: 5000 });
+  return true;
+}
 
 export { ADMIN_SECTIONS };
 
@@ -101,9 +137,19 @@ const DETERMINISM = `
 export { DETERMINISM };
 
 /**
- * Свойства, которые вообще встречаются в проекте с !important.
- * Считываются из самих стилей, а не выписываются руками: список меняется вместе
- * с кодом, и захардкоженный вариант неизбежно бы отстал.
+ * Свойства, которые вообще объявляются в стилях проекта.
+ *
+ * Раньше здесь брались только свойства, помеченные !important, — и это чуть не
+ * обесценило всю проверку. После перевода каскада на @layer флагов не осталось,
+ * список стал пустым, а сравнение бодро отчиталось «расхождений 0», сравнив
+ * ноль свойств. Отчёт выглядел как успех, хотя не проверялось ничего.
+ *
+ * Вывод общий: нельзя строить проверку на признаке, который сам является
+ * предметом правки. Полный список от этого избавляет и заодно ловит побочные
+ * сдвиги вёрстки, до которых важным свойствам дела не было.
+ *
+ * Считывается из самих стилей, а не выписывается руками: список меняется
+ * вместе с кодом, захардкоженный неизбежно отстал бы.
  */
 export const WATCHED_PROPS = (() => {
   const dir = path.resolve(__dirname, "..", "..", "src");
@@ -118,12 +164,21 @@ export const WATCHED_PROPS = (() => {
   if (fs.existsSync(dir)) walk(dir);
   const props = new Set();
   for (const f of files) {
-    for (const m of fs.readFileSync(f, "utf8").matchAll(/([-a-zA-Z]+)\s*:\s*[^;{}]*?!\s*important/gi)) {
+    const text = fs.readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, " ");
+    for (const m of text.matchAll(/(?:^|[;{])\s*(-{0,2}[a-zA-Z][-a-zA-Z0-9]*)\s*:/g)) {
       const p = m[1].toLowerCase();
       if (!p.startsWith("--")) props.add(p);
     }
   }
-  return [...props].sort();
+  const out = [...props].sort();
+  // Страховка от повторения той же ошибки: пустой или подозрительно короткий
+  // список — это сломанный инструмент, а не хорошая новость.
+  if (out.length < 50) {
+    throw new Error(
+      `наблюдаемых свойств всего ${out.length} — так сравнение стилей ничего не проверит; почини сбор списка`
+    );
+  }
+  return out;
 })();
 
 export async function login(api, phone = "+998900078779", password = "102938") {

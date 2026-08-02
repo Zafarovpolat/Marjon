@@ -24,7 +24,7 @@ import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
 import { chromium } from "playwright";
-import { ROUTES, ADMIN_SECTIONS, WATCHED_PROPS, login, prepareContext, settle } from "./harness.mjs";
+import { ROUTES, ADMIN_SECTIONS, WATCHED_PROPS, login, prepareContext, settle, gotoAdminSection } from "./harness.mjs";
 
 const arg = (n, d) => { const i = process.argv.indexOf(`--${n}`); return i > -1 ? process.argv[i + 1] : d; };
 const BASE = arg("base-url", "http://127.0.0.1:4173");
@@ -69,14 +69,11 @@ async function main() {
       await grab(name);
     } catch (e) { console.log(`  ✗ ${name}: ${String(e).slice(0, 120)}`); }
   }
-  for (const [name, label] of ADMIN_SECTIONS) {
+  for (const [name, group, item] of ADMIN_SECTIONS) {
     try {
-      if (label === null) {
-        await page.goto(`${BASE}/admin.html`, { waitUntil: "domcontentloaded", timeout: 30000 });
-      } else {
-        const item = page.getByText(label, { exact: true }).first();
-        if (!(await item.count())) { console.log(`  – ${name}: пункт «${label}» не найден`); continue; }
-        await item.click({ timeout: 5000 });
+      if (!(await gotoAdminSection(page, BASE, group, item))) {
+        console.log(`  – ${name}: пункт «${group} → ${item}» не найден`);
+        continue;
       }
       await grab(name);
     } catch (e) { console.log(`  ✗ ${name}: ${String(e).slice(0, 120)}`); }
