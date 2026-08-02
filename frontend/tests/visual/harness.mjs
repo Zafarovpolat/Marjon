@@ -143,13 +143,35 @@ export async function gotoAdminSection(page, baseUrl, group, item) {
 
 export { ADMIN_SECTIONS };
 
+/**
+ * Отключение анимаций, курсора и плавной прокрутки — чтобы два прогона были
+ * сопоставимы.
+ *
+ * ЗАЧЕМ ТАКОЙ СЕЛЕКТОР. Раньше здесь стояло обычное `*`, и это не работало:
+ * специфичность `*` — нулевая, а в стилях проекта были правила вроде
+ * `.dashboard-sidebar { transition: ... !important }`. При равной важности спор
+ * решает специфичность, и переходы оставались включёнными.
+ *
+ * Само по себе это ещё полбеды. Беда в том, что после перевода каскада на слои
+ * те же правила перестали быть важными — и отключение внезапно заработало. В
+ * итоге база и голова оказались в РАЗНЫХ условиях: сравнение вычисленных стилей
+ * показало 6506 расхождений по transition, а график на дашборде админки
+ * измерил себя иначе и получился на 8px выше. Ни то, ни другое не имеет
+ * отношения к продукту — это стенд мерил разными линейками.
+ *
+ * `:not(#нет-такого)` трижды даёт специфичность (3,0,0) и перекрывает любое
+ * реальное правило проекта. В продуктовом CSS такой приём — плохая идея, но
+ * здесь он ровно на своём месте: цель стенда — заглушить страницу целиком,
+ * а не встроиться в чужой каскад.
+ */
+const NO_MATCH = ":not(#нет-такого-элемента)".repeat(3);
 const DETERMINISM = `
-  *, *::before, *::after {
+  *${NO_MATCH}, *${NO_MATCH}::before, *${NO_MATCH}::after {
     animation: none !important;
     transition: none !important;
     caret-color: transparent !important;
   }
-  html { scroll-behavior: auto !important; }
+  html${NO_MATCH} { scroll-behavior: auto !important; }
 `;
 
 export { DETERMINISM };
@@ -225,7 +247,22 @@ export async function prepareContext(browser, tokens, frozenAt = "2026-07-14T18:
     return route.continue();
   });
   await ctx.addInitScript(
-    ({ access, refresh, at }) => {
+    ({ access, refresh, at, determinism }) => {
+      // Глушим анимации С САМОГО НАЧАЛА, а не перед снимком. Иначе приложение
+      // успевает смонтироваться, пока переходы ещё живы, и то, что меряет себя
+      // по размеру контейнера (график на дашборде админки), получает другое
+      // число. Один и тот же стиль ставится и здесь, и в settle: здесь — чтобы
+      // застать монтирование, там — чтобы накрыть дорисованное позже.
+      try {
+        const install = () => {
+          const st = document.createElement("style");
+          st.setAttribute("data-harness", "determinism");
+          st.textContent = determinism;
+          (document.head || document.documentElement).appendChild(st);
+        };
+        if (document.head || document.documentElement) install();
+        else document.addEventListener("DOMContentLoaded", install, { once: true });
+      } catch { /* стенд не должен ронять страницу */ }
       try {
         localStorage.setItem("access_token", access);
         localStorage.setItem("refresh_token", refresh || access);
@@ -247,7 +284,7 @@ export async function prepareContext(browser, tokens, frozenAt = "2026-07-14T18:
         Math.random = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
       } catch { /* неважно */ }
     },
-    { access: tokens.access_token, refresh: tokens.refresh_token, at: frozenAt }
+    { access: tokens.access_token, refresh: tokens.refresh_token, at: frozenAt, determinism: DETERMINISM }
   );
   return ctx;
 }

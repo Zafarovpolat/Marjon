@@ -140,6 +140,43 @@ const isImportant = (t) => /!\s*important\b/i.test(stripComments(t));
 /** Убирает флаг, сохраняя остальной текст объявления. */
 const dropFlag = (t) => t.replace(/!\s*important\s*/i, "").replace(/\s+$/, "");
 
+/**
+ * Единственная работа, которую слои сделать НЕ могут: перебить inline-стиль.
+ *
+ * Обычное объявление в слое проигрывает атрибуту style, а важное — выигрывает.
+ * Поэтому там, где разметка задаёт значение прямо в элементе, а таблица стилей
+ * обязана его перекрыть, флаг остаётся. Это не поблажка, а ровно тот случай,
+ * ради которого !important и существует.
+ *
+ * Список закрытый и выведен из ИЗМЕРЕНИЯ, а не из осторожности: сравнение
+ * вычисленных стилей до и после нашло ровно один такой элемент — кнопку
+ * профиля в боковом меню. JSX задаёт ей background #041c18, таблица стилей
+ * перекрывает на #0b1f3f (или #ffffff у свёрнутого меню). Без флага побеждал бы
+ * inline, и цвет менялся бы на 42 экранах.
+ *
+ * Ранняя проверка этот случай пропустила, потому что я искал селекторы по
+ * догадке об именах классов — по названию константы SIDEBAR_PROFILE_PANEL_BG, —
+ * а элемент зовётся .sidebar-user--button. Нашёл только прогон в браузере.
+ */
+const KEEP_FLAG = [
+  { last: /(^|[.:])sidebar-user(\b|--)/, prop: /^background(-color|-image)?$/ },
+  { last: /(^|[.:])sidebar-account__menu\b/, prop: /^background(-color|-image)?$/ },
+];
+
+/** Последний «кусок» селектора — то, на что правило нацелено. */
+const lastCompound = (sel) => sel.trim().split(/[\s>+~]+/).filter(Boolean).pop() || "";
+
+/** Нужно ли сохранить флаг у этого объявления. */
+function mustKeepFlag(prelude, decl) {
+  const prop = (decl.split(":")[0] || "").trim().toLowerCase();
+  return prelude.split(",").some((sel) => {
+    const lc = lastCompound(sel);
+    if (lc.includes("::")) return false;               // псевдоэлемент — не сам элемент
+    if (/__(?!menu\b)/.test(lc)) return false;         // потомок вроде __avatar или __arrow
+    return KEEP_FLAG.some((r) => r.last.test(lc) && r.prop.test(prop));
+  });
+}
+
 // ── Сборка одной половины ────────────────────────────────────────────────────
 
 /**
@@ -177,7 +214,10 @@ function render(nodes, wantImportant, depth = 0) {
       if (!d.trim()) continue;
       const imp = isImportant(d);
       if (imp !== wantImportant) continue;
-      keep.push((wantImportant ? dropFlag(d) : d).trim());
+      // Флаг снимаем у всех, кроме документированных исключений: только он
+      // умеет перебивать inline-стиль, слой этого не может.
+      const text = wantImportant && !mustKeepFlag(n.prelude, d) ? dropFlag(d) : d;
+      keep.push(text.trim());
     }
     if (!keep.length) continue;
     parts.push(`${pad}${n.prelude} {\n${keep.map((d) => `${pad}  ${d};`).join("\n")}\n${pad}}`);

@@ -326,11 +326,39 @@ def main():
                     print(f"        стало: {y[2][:60]} | {y[3]}: {y[4][:30]}")
                     break
 
-    # 4. Флагов не осталось
-    left = sum(1 for r in after if r[6])
-    print(f"4. осталось важных объявлений: {left}")
-    if left:
+    # 4. Флаги остались ТОЛЬКО у документированного исключения.
+    #
+    # Единственное, чего слои не умеют, — перебивать inline-стиль. Там, где
+    # разметка задаёт значение прямо в элементе, а таблица стилей обязана его
+    # перекрыть, флаг должен сохраниться. Требовать здесь строгий ноль значило
+    # бы подгонять красивую цифру ценой поведения: набор исключений сверяется с
+    # тем, что было важным в исходнике, — не больше и не меньше.
+    def is_exception(sel, prop):
+        last = re.split(r"[\s>+~]+", sel.strip())[-1] if sel.strip() else ""
+        if "::" in last or re.search(r"__(?!menu\b)", last):
+            return False
+        if not re.match(r"^background(-color|-image)?$", prop):
+            return False
+        return bool(re.search(r"(^|[.:])sidebar-user(\b|--)", last)
+                    or re.search(r"(^|[.:])sidebar-account__menu\b", last))
+
+    left = [r for r in after if r[6]]
+    unexpected = [r for r in left if not is_exception(r[3], r[4])]
+    was_imp = {(r[0], r[1], r[3], r[4]) for r in before if r[6] and is_exception(r[3], r[4])}
+    now_imp = {(r[0], r[1], r[3], r[4]) for r in left}
+    print(f"4. важных объявлений осталось: {len(left)} — исключение «перебить inline-стиль»")
+    if unexpected:
         ok = False
+        print(f"      не входят в исключение: {len(unexpected)}")
+        for r in unexpected[:5]:
+            print(f"        {r[3][:60]} | {r[4]}")
+    if was_imp != now_imp:
+        ok = False
+        print(f"      набор не совпал с исходным: было {len(was_imp)}, стало {len(now_imp)}")
+        for x in list(was_imp - now_imp)[:4]:
+            print(f"        потеряно: {x[2][:60]} | {x[3]}")
+        for x in list(now_imp - was_imp)[:4]:
+            print(f"        лишнее  : {x[2][:60]} | {x[3]}")
 
     # 5. Порядок объявления слоёв
     bad_order = []
