@@ -114,38 +114,31 @@ export async function gotoAdminSection(page, baseUrl, group, item) {
     await page.goto(`${baseUrl}/admin.html`, { waitUntil: "domcontentloaded", timeout: 30000 });
     return true;
   }
-  // Названия пунктов присутствуют в разметке НЕСКОЛЬКО раз: у свёрнутого меню
-  // есть всплывающее подменю, которое всегда есть в DOM и просто скрыто.
-  // Поэтому `.first()` регулярно указывал на невидимую копию, и клик уходил в
-  // таймаут. Берём первое ВИДИМОЕ совпадение, перебирая явно.
-  const clickVisible = async (text) => {
-    const loc = page.getByText(text, { exact: true });
+  // Раскрыта ли группа, спрашиваем у самой разметки через aria-expanded.
+  //
+  // Соблазнительная альтернатива — «виден ли уже нужный пункт» — не работает, и
+  // это стоило трёх прогонов. Свёрнутое подменю скрыто через max-height: 0 и
+  // overflow: hidden; у элемента внутри такого контейнера рамка НЕ пустая, и
+  // isVisible() отвечает «да». Проверка всегда считала пункт видимым, группа не
+  // раскрывалась, а клик по обрезанному элементу уходил в таймаут.
+  //
+  // Меню работает как гармошка (открыта ровно одна группа), поэтому кликать по
+  // уже раскрытой нельзя — она схлопнется.
+  const clickAny = async (name) => {
+    const loc = page.getByRole("button", { name, exact: true });
     const n = await loc.count();
     for (let i = 0; i < n; i++) {
-      const el = loc.nth(i);
-      if (await el.isVisible().catch(() => false)) {
-        await el.click({ timeout: 8000 });
-        return true;
-      }
+      try { await loc.nth(i).click({ timeout: 4000 }); return true; } catch { /* пробуем следующее совпадение */ }
     }
     return false;
   };
-  const isShown = async (text) => {
-    const loc = page.getByText(text, { exact: true });
-    const n = await loc.count();
-    for (let i = 0; i < n; i++) if (await loc.nth(i).isVisible().catch(() => false)) return true;
-    return false;
-  };
 
-  // Группу раскрываем ТОЛЬКО если нужный пункт ещё не виден: клик по уже
-  // раскрытой группе её схлопывает. Из-за этого второй подряд экран одной
-  // группы («Склад → Приход товаров», затем «Склад → Журнал приходов») не
-  // открывался.
-  if (!(await isShown(item))) {
-    if (!(await clickVisible(group))) return false;
+  const groupBtn = page.getByRole("button", { name: group, exact: true }).first();
+  if ((await groupBtn.getAttribute("aria-expanded").catch(() => null)) !== "true") {
+    if (!(await clickAny(group))) return false;
     await page.waitForTimeout(300);   // подменю раскрывается не мгновенно
   }
-  return clickVisible(item);
+  return clickAny(item);
 }
 
 export { ADMIN_SECTIONS };
