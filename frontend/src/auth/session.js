@@ -151,14 +151,7 @@ export function getAuthScope(value) {
 }
 
 export function resolveAdminAuthSession() {
-  const adminRecord = getTokenRecord(AUTH_SCOPES.ADMIN);
-  if (adminRecord.accessToken) return adminRecord;
-
-  const defaultRecord = getTokenRecord(AUTH_SCOPES.DEFAULT);
-  if (defaultRecord.accessToken) return defaultRecord;
-
-  if (adminRecord.refreshToken) return adminRecord;
-  return defaultRecord;
+  return getTokenRecord(AUTH_SCOPES.ADMIN);
 }
 
 export function prepareAuthRequest(config, { scope = AUTH_SCOPES.DEFAULT, accessToken = "" } = {}) {
