@@ -1,7 +1,12 @@
 import { waitFor } from "@testing-library/react";
 import axios from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { adminApi } from "../admin/api";
+import {
+  adminApi,
+  adminLogin,
+  adminLogout,
+  isAdminAuthenticated,
+} from "../admin/api";
 import { api, API_BASE_URL, logout } from "../api/client";
 import {
   AUTH_SCOPES,
@@ -137,6 +142,24 @@ describe("auth session and axios clients", () => {
     expect(getHeader(adapter.mock.calls[0][0].headers, "Authorization")).toBeUndefined();
   });
 
+  it("does not authenticate the admin application with default tokens", () => {
+    setDefaultTokens("default-access-a", "default-refresh-a");
+
+    expect(isAdminAuthenticated()).toBe(false);
+    expect(resolveAdminAuthSession()).toEqual({
+      scope: AUTH_SCOPES.ADMIN,
+      accessToken: "",
+      refreshToken: "",
+    });
+  });
+
+  it("authenticates the admin application only with an admin access token", () => {
+    setDefaultTokens("default-access-a", "default-refresh-a");
+    setAdminTokens("admin-access-a", "admin-refresh-a");
+
+    expect(isAdminAuthenticated()).toBe(true);
+  });
+
   it("adminApi with admin tokens uses admin access token", async () => {
     setDefaultTokens("default-access-a", "default-refresh-a");
     setAdminTokens("admin-access-a", "admin-refresh-a");
@@ -149,16 +172,48 @@ describe("auth session and axios clients", () => {
     expect(getHeader(adapter.mock.calls[0][0].headers, "Authorization")).toBe("Bearer admin-access-a");
   });
 
-  it("adminApi without admin tokens uses default legacy scope", async () => {
+  it("adminApi without admin tokens never attaches default tokens", async () => {
     setDefaultTokens("default-access-a", "default-refresh-a");
     const adapter = vi.fn((config) => resolveResponse(config));
     adminApi.defaults.adapter = adapter;
 
     await adminApi.get("/admin-reports/dashboard-kpis");
 
-    expect(resolveAdminAuthSession().scope).toBe(AUTH_SCOPES.DEFAULT);
-    expect(adapter.mock.calls[0][0]._authScope).toBe(AUTH_SCOPES.DEFAULT);
-    expect(getHeader(adapter.mock.calls[0][0].headers, "Authorization")).toBe("Bearer default-access-a");
+    expect(resolveAdminAuthSession().scope).toBe(AUTH_SCOPES.ADMIN);
+    expect(adapter.mock.calls[0][0]._authScope).toBe(AUTH_SCOPES.ADMIN);
+    expect(getHeader(adapter.mock.calls[0][0].headers, "Authorization")).toBeUndefined();
+  });
+
+  it("failed admin login does not create an admin or local session", async () => {
+    const login = vi.spyOn(adminApi, "post").mockRejectedValue({ response: { status: 401 } });
+
+    await expect(adminLogin("900000000", "invalid-password")).rejects.toMatchObject({
+      response: { status: 401 },
+    });
+
+    expect(login).toHaveBeenCalledTimes(1);
+    expect(isAdminAuthenticated()).toBe(false);
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBeNull();
+    expect(localStorage.getItem("admin_local_login")).toBeNull();
+  });
+
+  it("legacy local admin flag does not authenticate the admin application", () => {
+    localStorage.setItem("admin_local_login", "true");
+
+    expect(isAdminAuthenticated()).toBe(false);
+  });
+
+  it("admin logout clears only the administrative session", () => {
+    setDefaultTokens("default-access-a", "default-refresh-a");
+    setAdminTokens("admin-access-a", "admin-refresh-a");
+
+    adminLogout();
+
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBe("default-access-a");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe("default-refresh-a");
   });
 
   it("logout removes default and admin tokens", () => {
@@ -304,19 +359,16 @@ describe("auth session and axios clients", () => {
     expect(adminAdapter.mock.calls.slice(5).some(([config]) => getHeader(config.headers, "Authorization") === "Bearer new-default-access")).toBe(false);
   });
 
-  it("legacy adminApi refreshes and retries through default scope when admin tokens are absent", async () => {
+  it("adminApi never refreshes through default scope when admin tokens are absent", async () => {
     setDefaultTokens("old-default-access", "default-refresh");
-    const refresh = mockRefreshByToken({
-      "default-refresh": { access_token: "new-default-access", refresh_token: "new-default-refresh" },
-    });
-    const adapter = retryingAdapter();
-    adminApi.defaults.adapter = adapter;
+    const refresh = vi.spyOn(axios, "post");
+    adminApi.defaults.adapter = vi.fn((config) => rejectStatus(config, 401));
 
-    await adminApi.get("/admin-resource");
+    await expect(adminApi.get("/admin-resource")).rejects.toThrow("missing_refresh_token");
 
-    expect(refresh).toHaveBeenCalledTimes(1);
-    expect(adapter.mock.calls[1][0]._authScope).toBe(AUTH_SCOPES.DEFAULT);
-    expect(getHeader(adapter.mock.calls[1][0].headers, "Authorization")).toBe("Bearer new-default-access");
+    expect(refresh).not.toHaveBeenCalled();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBe("old-default-access");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe("default-refresh");
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBeNull();
   });
 
@@ -373,16 +425,19 @@ describe("auth session and axios clients", () => {
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe("default-refresh");
   });
 
-  it("legacy adminApi through default scope clears only default tokens on refresh failure", async () => {
+  it("missing admin refresh token clears only admin tokens and preserves default tokens", async () => {
     setDefaultTokens("default-access", "default-refresh");
-    vi.spyOn(axios, "post").mockRejectedValue({ response: { status: 401 } });
+    localStorage.setItem(AUTH_STORAGE_KEYS.adminAccessToken, "admin-access");
+    const refresh = vi.spyOn(axios, "post");
     adminApi.defaults.adapter = vi.fn((config) => rejectStatus(config, 401));
 
-    await expect(adminApi.get("/admin-resource")).rejects.toMatchObject({ response: { status: 401 } });
+    await expect(adminApi.get("/admin-resource")).rejects.toThrow("missing_refresh_token");
 
-    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBeNull();
-    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBeNull();
+    expect(refresh).not.toHaveBeenCalled();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBe("default-access");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe("default-refresh");
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBeNull();
   });
 
   it("clears the scoped refresh promise after success and allows a later refresh", async () => {
