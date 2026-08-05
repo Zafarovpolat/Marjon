@@ -57,6 +57,15 @@ class PrintKitchenRequest(BaseSchema):
     copies: int = 1
 
 
+class PrintSummaryRequest(BaseSchema):
+    """Общий чек (сводка из Истории/Отчётов) — произвольные строки."""
+    printer_id: UUID
+    title: str
+    lines: list[str] = Field(default_factory=list)
+    footer: str | None = None
+    copies: int = 1
+
+
 class PrintJobResponse(BaseResponseSchema):
     company_id: UUID
     printer_id: UUID

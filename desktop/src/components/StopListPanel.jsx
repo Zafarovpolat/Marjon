@@ -1,11 +1,19 @@
 import { useState, useEffect, useCallback } from 'react'
 import { X, Ban, Search, Check } from 'lucide-react'
 import { menu } from '../shared/api'
+import { can } from '../shared/permissions'
 import { t } from '../shared/i18n'
+import { toast } from './Toast'
 
 function isStopped(p) { return p.is_available === false || p.in_stop_list === true }
 
-export default function StopListPanel({ onClose }) {
+/**
+ * Стоп-лист = доступность блюд. Редактирование gated правом 'can_edit_stop_list':
+ * сейчас право приходит из user.permissions (веб-админка владельца),
+ * пустой объект прав = разрешено всё (совместимость со старыми аккаунтами).
+ */
+export default function StopListPanel({ user, onClose }) {
+  const canEdit = can(user, 'can_edit_stop_list')
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -22,10 +30,13 @@ export default function StopListPanel({ onClose }) {
   useEffect(load, [load])
 
   async function toggle(p) {
+    if (!canEdit) return
     const makeAvailable = isStopped(p) // сейчас в стопе → делаем доступным
     setBusyId(p.id)
     setProducts((prev) => prev.map((x) => x.id === p.id ? { ...x, is_available: makeAvailable, in_stop_list: !makeAvailable } : x))
-    try { await menu.setAvailable(p.id, makeAvailable) } catch { load() } finally { setBusyId(null) }
+    try { await menu.setAvailable(p.id, makeAvailable) }
+    catch (e) { toast(e?.response?.data?.detail || e.message, 'error'); load() }
+    finally { setBusyId(null) }
   }
 
   const shown = products.filter((p) => {
@@ -67,8 +78,8 @@ export default function StopListPanel({ onClose }) {
                       <span className="stop-row__price">{Number(p.price || 0).toLocaleString('ru-RU')} {t('currency')}</span>
                     </div>
                     <button
-                      className={`btn btn--sm ${stopped ? 'btn--primary' : 'btn--danger'}`}
-                      disabled={busyId === p.id}
+                      className={`btn btn--sm ${stopped ? 'btn--primary' : 'btn--danger-soft'}`}
+                      disabled={!canEdit || busyId === p.id}
                       onClick={() => toggle(p)}
                     >
                       {stopped ? <><Check size={16} /> {t('return_item')}</> : <><Ban size={16} /> {t('to_stop')}</>}

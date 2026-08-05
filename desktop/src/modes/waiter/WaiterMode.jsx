@@ -6,6 +6,7 @@ import {
 import { orders, menu, halls as hallsApi, printers as printersApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
 import DishModal from '../../components/DishModal'
+import { toast } from '../../components/Toast'
 import { t } from '../../shared/i18n'
 
 const STATUS_COLORS = {
@@ -192,15 +193,15 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
           branch_id: user.branch_id,
           order_type: 'dine_in',
           table_number: selectedTable?.number != null ? String(selectedTable.number) : null,
-          guests_count: guests,
+          persons_count: guests,
           note: orderNote || null,
-          items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, price: i.price, note: i.note || null, takeaway: !!i.takeaway })),
+          items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, note: i.note || null, takeaway: !!i.takeaway })),
         })
       }
       setAddToOrderId(null)
       setView('floor'); loadData()
     } catch (err) {
-      alert(err?.response?.data?.detail || t('create_order_error'))
+      toast(err?.response?.data?.detail || t('create_order_error'), 'error')
     } finally {
       setSubmitting(false)
     }
@@ -373,7 +374,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                   <label>{t('guests')}:
                     <input type="number" min="1" max="20" value={guests} onChange={(e) => setGuests(Number(e.target.value) || 1)} />
                   </label>
-                  <input className="waiter-cart__note" placeholder={t('order_comment')} value={orderNote} onChange={(e) => setOrderNote(e.target.value)} />
+                  <input className="waiter-cart__note" placeholder={t('order_comment')} value={orderNote} onChange={(e) => setOrderNote(e.target.value)} title={t('order_comment')} />
                 </div>
                 <div className="waiter-cart__items">
                   {cart.length === 0 ? (

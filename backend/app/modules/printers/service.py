@@ -100,6 +100,21 @@ class PrinterService:
         raw = fmt.format_kitchen_ticket(ticket_data)
         return await self._enqueue_and_send(company_id, printer, "kitchen", order_id, raw, copies)
 
+    async def print_summary(
+        self,
+        company_id: UUID,
+        printer_id: UUID,
+        title: str,
+        lines: list[str],
+        footer: str | None = None,
+        copies: int = 1,
+    ) -> PrintJob:
+        """Общий чек-сводка (История/Отчёты): строки формирует клиент."""
+        printer = await self.get(company_id, printer_id)
+        fmt = EscPosFormatter(printer.paper_width, charset=(printer.settings or {}).get("charset", "cp866"))
+        raw = fmt.format_summary(title, lines, footer)
+        return await self._enqueue_and_send(company_id, printer, "summary", None, raw, copies)
+
     # Auto-print: find printers by type and print
     async def auto_print_receipt(self, company_id: UUID, branch_id: UUID, order_id: UUID) -> list[PrintJob]:
         printers = await self.repo.get_by_type(company_id, branch_id, "receipt")

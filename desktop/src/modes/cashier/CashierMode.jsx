@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
-  Search, Plus, Minus, Trash2, CreditCard, Banknote, X, ShoppingBag, Bike, Utensils,
-  Percent, LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock, Wallet, History, BarChart3, LogOut,
+  Search, Plus, Minus, Trash2, Utensils,
+  LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock, Wallet, History, BarChart3, LogOut, Ban, ShoppingBag, Bike,
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi, printers as printersApi, customers as customersApi, auth as authApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
@@ -9,9 +9,11 @@ import DishModal from '../../components/DishModal'
 import FinancePanel from '../../components/FinancePanel'
 import HistoryPanel from '../../components/HistoryPanel'
 import ReportsPanel from '../../components/ReportsPanel'
+import StopListPanel from '../../components/StopListPanel'
 import PaymentModal from '../../components/PaymentModal'
 import { t } from '../../shared/i18n'
 import { can } from '../../shared/permissions'
+import { toast } from '../../components/Toast'
 
 const ACTIVE = new Set(['new', 'accepted', 'cooking', 'ready', 'pending'])
 
@@ -43,17 +45,16 @@ export default function CashierMode({ user = {}, onBack }) {
   const [activeCat, setActiveCat] = useState(null)
   const [search, setSearch] = useState('')
   const [cart, setCart] = useState([])
-  const [discount, setDiscount] = useState(0)
   const [orderNote, setOrderNote] = useState('')
   const [deliveryPhone, setDeliveryPhone] = useState('')
   const [deliveryAddress, setDeliveryAddress] = useState('')
   const [custId, setCustId] = useState(null)
   const [custMatches, setCustMatches] = useState([])
   const [editLine, setEditLine] = useState(null)
-  const [payModal, setPayModal] = useState(false)
   const [finOpen, setFinOpen] = useState(false)
   const [histOpen, setHistOpen] = useState(false)
   const [repOpen, setRepOpen] = useState(false)
+  const [stopOpen, setStopOpen] = useState(false)
   const [payExisting, setPayExisting] = useState(null)   // существующий заказ на оплату/закрытие
   const [staff, setStaff] = useState([])                 // сотрудники (для смены официанта)
   const [printerMap, setPrinterMap] = useState({})
@@ -92,7 +93,7 @@ export default function CashierMode({ user = {}, onBack }) {
       try {
         await window.electron?.print({ ip: printer.ip_address, port: printer.port ?? 9100, payloadBase64: msg.payload, copies: msg.copies ?? 1 })
         await printersApi.jobDone(msg.job_id)
-      } catch (err) { console.error('[print]', err) }
+      } catch (err) { console.error('[print]', err); toast(t('print_failed')) }
     })
   }, [printerMap])
 
@@ -115,7 +116,7 @@ export default function CashierMode({ user = {}, onBack }) {
 
   function openOrder(type, table) {
     setOrderType(type); setSelectedTable(table || null)
-    setCart([]); setDiscount(0); setOrderNote(''); setSearch(''); setActiveCat(null)
+    setCart([]); setOrderNote(''); setSearch(''); setActiveCat(null)
     setDeliveryPhone(''); setDeliveryAddress(''); setCustId(null); setCustMatches([])
     setView('order')
   }
@@ -142,9 +143,9 @@ export default function CashierMode({ user = {}, onBack }) {
   }
   async function printOrderReceipt(order) {
     const pr = receiptPrinter()
-    if (!pr) { alert(t('no_receipt_printer')); return }
+    if (!pr) { toast(t('no_receipt_printer')); return }
     try { await printersApi.printReceipt({ order_id: order.id, printer_id: pr.id, copies: 1 }) }
-    catch (e) { alert(e?.response?.data?.detail || e.message) }
+    catch (e) { toast(t('print_failed') + (e?.response?.data?.detail ? `: ${e.response.data.detail}` : '')) }
   }
   // Закрыть заказ (оплата подтверждена кассиром). Способ оплаты фиксируется вручную —
   // платёжку интегрируем позже; сейчас просто переводим заказ в completed.
@@ -163,7 +164,17 @@ export default function CashierMode({ user = {}, onBack }) {
   // Смена официанта заказа
   async function setOrderWaiter(order, waiterId) {
     try { await orders.update(order.id, { waiter_id: waiterId }); setPayExisting({ ...order, waiter_id: waiterId }); loadFloor() }
-    catch (e) { alert(e?.response?.data?.detail || e.message) }
+    catch (e) { toast(e?.response?.data?.detail || e.message) }
+  }
+  // Скидка на существующий заказ — применяется в модалке оплаты (сервер пересчитывает итог)
+  async function applyOrderDiscount(order, amount) {
+    const upd = await orders.update(order.id, { discount_amount: amount })
+    setPayExisting(upd); loadFloor()
+  }
+  // «Готово» вручную: статус ready ставит кассир/менеджер, повар готовность не отмечает
+  async function markReady(order) {
+    try { await orders.updateStatus(order.id, 'ready'); setPayExisting({ ...order, status: 'ready' }); loadFloor() }
+    catch (e) { toast(e?.response?.data?.detail || e.message, 'error') }
   }
   // Перенос заказа на другой стол
   async function reassignTable(order) {
@@ -192,31 +203,30 @@ export default function CashierMode({ user = {}, onBack }) {
   function removeLine(lineId) { setCart((prev) => prev.filter((i) => i.lineId !== lineId)) }
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0)
-  const discountAmount = subtotal * (discount / 100)
-  const total = subtotal - discountAmount
+  const total = subtotal
   const itemCount = cart.reduce((s, i) => s + i.qty, 0)
 
-  async function handlePayment(method) {
+  // Создание заказа: позиции уходят повару (авто-печать кухонного чека на бэкенде),
+  // оплата/закрытие — потом через модалку заказа (тап по столу).
+  async function createOrder() {
     if (!cart.length) return
-    setPayModal(false)
     try {
       const order = await orders.create({
         branch_id: user.branch_id,
         order_type: orderType,
         table_number: orderType === 'dine_in' && selectedTable?.number != null ? String(selectedTable.number) : undefined,
-        discount_amount: discountAmount ? Math.round(discountAmount) : undefined,
         note: orderNote || undefined,
         customer_id: custId || undefined,
         customer_phone: orderType === 'delivery' ? (deliveryPhone || undefined) : undefined,
         customer_address: orderType === 'delivery' ? (deliveryAddress || undefined) : undefined,
-        payment_method: method,
-        items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, price: i.price, note: i.note || null, takeaway: !!i.takeaway })),
+        items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, note: i.note || null, takeaway: !!i.takeaway })),
       })
-      const receiptPrinter = Object.values(printerMap).find((p) => p.printer_type === 'receipt' && p.branch_id === user.branch_id)
-      if (receiptPrinter) await printersApi.printReceipt({ order_id: order.id, printer_id: receiptPrinter.id, copies: 1 }).catch(() => {})
       setView('floor'); loadFloor()
+      // С собой/доставка без стола — сразу открываем модалку для завершения и оплаты
+      if (orderType !== 'dine_in') setPayExisting(order)
+      else toast(t('order_created'))
     } catch (err) {
-      alert(t('create_order_error') + ': ' + (err.response?.data?.detail || err.message))
+      toast(t('create_order_error') + ': ' + (err?.response?.data?.detail || err.message), 'error')
     }
   }
 
@@ -248,6 +258,7 @@ export default function CashierMode({ user = {}, onBack }) {
               <button className="btn btn--outline btn--sm" onClick={() => setFinOpen(true)}><Wallet size={18} /> {t('finance')}</button>
               {can(user, 'can_view_closed_orders') && <button className="btn btn--outline btn--sm" onClick={() => setHistOpen(true)}><History size={18} /> {t('history')}</button>}
               <button className="btn btn--outline btn--sm" onClick={() => setRepOpen(true)}><BarChart3 size={18} /> {t('reports')}</button>
+              {can(user, 'can_view_stop_list') && <button className="btn btn--outline btn--sm" onClick={() => setStopOpen(true)}><Ban size={18} /> {t('stoplist')}</button>}
             </div>
           </div>
           <div className="board__scroll">
@@ -282,6 +293,7 @@ export default function CashierMode({ user = {}, onBack }) {
         {finOpen && <FinancePanel branch={{ id: user.branch_id }} onClose={() => setFinOpen(false)} />}
         {histOpen && <HistoryPanel branch={{ id: user.branch_id }} onClose={() => setHistOpen(false)} />}
         {repOpen && <ReportsPanel branch={{ id: user.branch_id }} onClose={() => setRepOpen(false)} />}
+        {stopOpen && <StopListPanel user={user} onClose={() => setStopOpen(false)} />}
         {payExisting && (
           <PaymentModal
             order={payExisting}
@@ -291,6 +303,8 @@ export default function CashierMode({ user = {}, onBack }) {
             onReassign={reassignTable}
             staff={staff}
             onSetWaiter={setOrderWaiter}
+            onApplyDiscount={applyOrderDiscount}
+            onMarkReady={markReady}
             canClose={can(user, 'can_close_bill')}
             onClose={() => setPayExisting(null)}
           />
@@ -389,20 +403,13 @@ export default function CashierMode({ user = {}, onBack }) {
               ))}
             </div>
             {cart.length > 0 && (
-              <div className="cashier-cart__discount">
-                <Percent size={16} />
-                <input type="number" min="0" max="100" value={discount || ''} onChange={(e) => setDiscount(Math.min(100, Math.max(0, Number(e.target.value))))} placeholder={t('discount')} className="discount-input" />
-              </div>
-            )}
-            {cart.length > 0 && (
               <input className="cashier-cart__note" value={orderNote} onChange={(e) => setOrderNote(e.target.value)} placeholder={t('comment')} />
             )}
             <div className="cashier-cart__total">
-              {discount > 0 && <div className="total-row total-row--discount"><span>{t('discount_word')} {discount}%</span><span>−{discountAmount.toLocaleString('ru-RU')}</span></div>}
               <div className="total-row total-row--final"><span>{t('total')}</span><span>{total.toLocaleString('ru-RU')} {t('currency')}</span></div>
             </div>
             <div className="cashier-cart__actions">
-              <button className="cart-btn cart-btn--pay" disabled={cart.length === 0 || !can(user, 'can_close_bill')} onClick={() => setPayModal(true)}><CreditCard size={20} /> {t('pay')}</button>
+              <button className="cart-btn cart-btn--pay" disabled={cart.length === 0} onClick={createOrder}><Plus size={20} /> {t('create_order')}</button>
             </div>
           </aside>
         </div>
@@ -416,20 +423,6 @@ export default function CashierMode({ user = {}, onBack }) {
           onRemove={() => { removeLine(editLine.lineId); setEditLine(null) }}
           onClose={() => setEditLine(null)}
         />
-      )}
-
-      {payModal && (
-        <div className="modal-overlay" onClick={() => setPayModal(false)}>
-          <div className="modal pay-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal__header"><h3>{t('pay')}</h3><button className="icon-btn" onClick={() => setPayModal(false)}><X size={22} /></button></div>
-            <div className="pay-modal__total"><span>{t('to_pay')}:</span><strong>{total.toLocaleString('ru-RU')} {t('currency')}</strong></div>
-            <div className="pay-modal__methods">
-              <button className="pay-method-btn" onClick={() => handlePayment('cash')}><Banknote size={32} /><span>{t('cash')}</span></button>
-              <button className="pay-method-btn" onClick={() => handlePayment('card')}><CreditCard size={32} /><span>{t('card')}</span></button>
-              <button className="pay-method-btn" onClick={() => handlePayment('mixed')}><Banknote size={24} /><CreditCard size={24} /><span>{t('mixed')}</span></button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   )

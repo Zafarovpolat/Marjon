@@ -6,7 +6,7 @@ function initials(name = '') {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('') || '?'
 }
 
-/** PinPad — ввод PIN выбранного сотрудника. onSubmit(pin) → Promise. */
+/** PinPad — ввод PIN выбранного сотрудника. onSubmit(pin) → Promise. Минимум 2 цифры. */
 export default function PinPad({ employee = {}, onSubmit, onBack }) {
   const [pin, setPin] = useState('')
   const [error, setError] = useState(false)
@@ -14,7 +14,7 @@ export default function PinPad({ employee = {}, onSubmit, onBack }) {
   const role = employee.role_slug || (employee.role_slugs && employee.role_slugs[0])
 
   const submit = useCallback(async (value) => {
-    if (busy || value.length < 4) return
+    if (busy || value.length < 2) return
     setBusy(true); setError(false)
     try {
       await onSubmit(value)
@@ -31,6 +31,7 @@ export default function PinPad({ employee = {}, onSubmit, onBack }) {
     setPin((prev) => {
       if (prev.length >= 8) return prev
       const next = prev + d
+      // Авто-отправка только на 4 цифры; короткий PIN (2–3) вводится кнопкой «Войти»
       if (next.length === 4) setTimeout(() => submit(next), 120)
       return next
     })
@@ -81,7 +82,7 @@ export default function PinPad({ employee = {}, onSubmit, onBack }) {
           })}
         </div>
 
-        <button className="pinpad__submit" onClick={() => submit(pin)} disabled={pin.length < 4 || busy}>
+        <button className="pinpad__submit" onClick={() => submit(pin)} disabled={pin.length < 2 || busy}>
           {busy ? t('check') : t('enter')}
         </button>
       </div>

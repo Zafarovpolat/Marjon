@@ -1,38 +1,56 @@
 import { useState } from 'react'
-import { X, Printer, Banknote, CreditCard, CheckCircle } from 'lucide-react'
+import { X, Printer, Banknote, CreditCard, CheckCircle, Percent, ChefHat } from 'lucide-react'
 import { t } from '../shared/i18n'
+import { toast } from './Toast'
 
 /**
  * PaymentModal — оплата и закрытие СУЩЕСТВУЮЩЕГО заказа (переданного официантом).
- * Кассир: печатает чек → выбирает способ оплаты → закрывает заказ.
+ * Кассир: печатает чек → при необходимости даёт скидку → выбирает способ оплаты → закрывает заказ.
  * Оплату (платёжку) интегрируем позже — сейчас способ фиксируется вручную.
  *
  * props:
  *   order — заказ ({ order_number, table_number, items[], total_amount })
  *   onPrint(order) — печать чека (через сетевой принтер)
  *   onComplete(order, method) — закрыть заказ (status → completed)
+ *   onApplyDiscount(order, amount) — применить скидку к заказу (PATCH /orders)
  *   onClose()
  */
 function fmt(n) { return Number(n || 0).toLocaleString('ru-RU') }
 
-export default function PaymentModal({ order, onPrint, onComplete, onCancel, onReassign, onClose, canClose = true, staff = [], onSetWaiter }) {
+export default function PaymentModal({ order, onPrint, onComplete, onCancel, onReassign, onClose, canClose = true, staff = [], onSetWaiter, onApplyDiscount, onMarkReady }) {
   const [method, setMethod] = useState('cash')
   const [received, setReceived] = useState('')
   const [cashPart, setCashPart] = useState('')   // при смешанной оплате
   const [cardPart, setCardPart] = useState('')
   const [busy, setBusy] = useState(false)
   const [printed, setPrinted] = useState(false)
+  const [discPct, setDiscPct] = useState('')
 
   const total = Number(order?.total_amount || 0)
   const items = order?.items || []
-  const change = method === 'cash' && received ? Math.max(0, Number(received) - total) : 0
+  // «Готово» вручную доступно пока заказ в работе (new/accepted/cooking)
+  const canMarkReady = !!onMarkReady && ['new', 'accepted', 'cooking'].includes(order?.status)
+  const subtotal = items.reduce((s, it) => s + Number(it.total ?? (Number(it.price) * Number(it.quantity))), 0)
+  const receivedNum = Number(received) || 0
+  const change = method === 'cash' && received ? Math.max(0, receivedNum - total) : 0
+  const cashShort = method === 'cash' && received !== '' ? Math.max(0, total - receivedNum) : 0
   const mixedSum = (Number(cashPart) || 0) + (Number(cardPart) || 0)
   const mixedLeft = Math.max(0, total - mixedSum)
-  const canComplete = method !== 'mixed' || mixedSum >= total
+  // Наличные: нужно получить всю сумму (недостающее показываем как «не хватает» и не закрываем)
+  const canComplete = method === 'mixed'
+    ? mixedSum >= total
+    : method === 'cash' ? received !== '' && receivedNum >= total : true
 
   async function doPrint() {
     setPrinted(true)
     try { await onPrint(order) } finally { setTimeout(() => setPrinted(false), 1600) }
+  }
+  // Скидка применяется к самому заказу (сервер пересчитает итог) — на этом экране
+  // просто показываем текущую применённую скидку и % поле.
+  async function applyDiscount(pct) {
+    if (!onApplyDiscount) return
+    const amount = Math.round(subtotal * pct / 100)
+    try { await onApplyDiscount(order, amount) } catch { toast(t('create_order_error')) }
   }
   async function doComplete() {
     if (busy || !canComplete) return
@@ -67,6 +85,22 @@ export default function PaymentModal({ order, onPrint, onComplete, onCancel, onR
             <strong>{fmt(total)} {t('currency')}</strong>
           </div>
 
+          {Number(order?.discount_amount) > 0 && (
+            <div className="pay-order__change pay-order__change--discount">
+              <span>{t('discount_word')}</span>
+              <strong>−{fmt(order.discount_amount)} {t('currency')}</strong>
+            </div>
+          )}
+
+          {onApplyDiscount && (
+            <div className="pay-order__mixrow pay-order__discount">
+              <label><Percent size={14} /> {t('discount')}</label>
+              <input type="number" min="0" max="100" className="input" value={discPct}
+                onChange={(e) => setDiscPct(e.target.value)} placeholder="0"
+                onBlur={() => { const p = Math.min(100, Math.max(0, Number(discPct) || 0)); if (p > 0) applyDiscount(p) }} />
+            </div>
+          )}
+
           {onSetWaiter && staff.length > 0 && (
             <div className="pay-order__mixrow" style={{ marginBottom: 12 }}>
               <label>{t('change_waiter')}</label>
@@ -98,8 +132,11 @@ export default function PaymentModal({ order, onPrint, onComplete, onCancel, onR
               <label>{t('cash_received')}</label>
               <input type="number" min="0" className="input" value={received}
                 onChange={(e) => setReceived(e.target.value)} placeholder={String(total)} />
-              {received !== '' && Number(received) >= total && (
+              {received !== '' && receivedNum >= total && (
                 <div className="pay-order__change"><span>{t('change')}</span><strong>{fmt(change)} {t('currency')}</strong></div>
+              )}
+              {cashShort > 0 && (
+                <div className="pay-order__change pay-order__change--short"><span>{t('not_enough')}</span><strong>{fmt(cashShort)} {t('currency')}</strong></div>
               )}
             </div>
           )}
@@ -125,6 +162,11 @@ export default function PaymentModal({ order, onPrint, onComplete, onCancel, onR
         </div>
 
         <div className="pay-order__actions">
+          {canMarkReady && (
+            <button className="btn btn--success" disabled={busy} onClick={() => onMarkReady(order)}>
+              <ChefHat size={18} /> {t('mark_ready')}
+            </button>
+          )}
           {onReassign && order?.table_number && (
             <button className="btn btn--outline" disabled={busy} onClick={() => onReassign(order)}>
               {t('move_table')}

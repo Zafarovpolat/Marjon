@@ -5,11 +5,9 @@ import Icon from "../components/Icon";
 const roleOptions = [
   { key: "cashier", label: "Кассир", title: "Кассиры" },
   { key: "waiter", label: "Официант", title: "Официанты" },
-  { key: "courier", label: "Курьер", title: "Курьеры" },
   { key: "monoblock", label: "Моноблок", title: "Моноблок" },
   { key: "kitchen", label: "Повар", title: "Повара" },
   { key: "manager", label: "Менеджер", title: "Менеджеры" },
-  { key: "warehouse", label: "Завсклад", title: "Завсклад" },
 ];
 
 const roleMap = roleOptions.reduce((acc, item) => {
@@ -110,6 +108,7 @@ const emptyForm = {
   canCloseBill: false,
   canOpenCashDrawerAfterPayment: false,
   canViewClosedOrders: false,
+  canEditStopList: false,
   status: "active",
   comment: "",
   photo: "",
@@ -124,6 +123,7 @@ const getPermissionSummary = (values) => {
     values.canCloseBill && "Закрытие счета",
     values.canOpenCashDrawerAfterPayment && "Открытие денежного ящика",
     values.canViewClosedOrders && "Просмотр закрытых заказов",
+    values.canEditStopList && "Редактирование стоп-листа",
   ].filter(Boolean);
 
   return permissions.join(", ") || values.permission || "Базовый доступ";
@@ -226,6 +226,7 @@ function StaffRolePage({ role = "all" }) {
             canCloseBill: !!perm.can_close_bill,
             canOpenCashDrawerAfterPayment: !!perm.can_open_cash_drawer,
             canViewClosedOrders: !!perm.can_view_closed_orders,
+            canEditStopList: !!perm.can_edit_stop_list,
             comment: "",
             photo: "",
             access: perm.modules || {},
@@ -359,6 +360,7 @@ const saveStaff = async (event) => {
     can_close_bill: !!form.canCloseBill,
     can_open_cash_drawer: !!form.canOpenCashDrawerAfterPayment,
     can_view_closed_orders: !!form.canViewClosedOrders,
+    can_edit_stop_list: !!form.canEditStopList,
     modules: form.access || {},
   };
   const staffFields = {
@@ -839,6 +841,14 @@ const saveStaff = async (event) => {
                   onClick={() => toggleForm("canViewClosedOrders")}
                 >
                   <span>Просмотр закрытых заказов</span>
+                  <b className="staff-switch" aria-hidden="true" />
+                </button>
+                <button
+                  className={`staff-permission-switch ${form.canEditStopList ? "is-on" : ""}`}
+                  type="button"
+                  onClick={() => toggleForm("canEditStopList")}
+                >
+                  <span>Редактирование стоп-листа</span>
                   <b className="staff-switch" aria-hidden="true" />
                 </button>
               </div>

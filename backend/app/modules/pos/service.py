@@ -414,17 +414,23 @@ class OrderService:
         try:
             tz = ZoneInfo(tz_str)
         except (ZoneInfoNotFoundError, KeyError):
-            tz = ZoneInfo("Asia/Tashkent")
+            try:
+                tz = ZoneInfo("Asia/Tashkent")
+            except (ZoneInfoNotFoundError, KeyError):
+                # Windows без пакета tzdata — не роняем создание заказа
+                tz = timezone.utc
 
         now_local = datetime.now(tz)
         today_local = now_local.date()
 
         # Serialize concurrent requests for the same company/branch/day
-        lock_key = int.from_bytes(
-            hashlib.sha256(f"{company_id}:{branch_id}:{today_local}".encode()).digest()[:8],
-            "big", signed=True,
-        )
-        await self.db.execute(text("SELECT pg_advisory_xact_lock(:k)").bindparams(k=lock_key))
+        # (pg_advisory_xact_lock — только Postgres; на SQLite пропускаем)
+        if self.db.bind.dialect.name == "postgresql":
+            lock_key = int.from_bytes(
+                hashlib.sha256(f"{company_id}:{branch_id}:{today_local}".encode()).digest()[:8],
+                "big", signed=True,
+            )
+            await self.db.execute(text("SELECT pg_advisory_xact_lock(:k)").bindparams(k=lock_key))
 
         # Count in UTC range that corresponds to local calendar day
         day_start = datetime.combine(today_local, datetime.min.time()).replace(tzinfo=tz).astimezone(timezone.utc)

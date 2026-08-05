@@ -1790,7 +1790,7 @@ body.vkb-open .login-card {
   color: #fff;
   border-color: transparent;
 }
-.btn--success:hover { background: #059669; }
+.btn--success:hover { background: var(--green-600); }
 
 .btn--outline {
   background: transparent;
@@ -2130,7 +2130,8 @@ body.vkb-open .login-card {
   text-align: center;
   transition: all var(--transition-fast);
 }
-.product-card:hover { background: var(--color-surface-hover); border-color: var(--color-brand); }
+/* Ховер блюда: фон не меняется — только рамка и лёгкая тень */
+.product-card:hover { border-color: var(--color-brand); box-shadow: var(--shadow-sm); }
 .product-card:active { transform: scale(0.95); }
 .product-card__img {
   width: 56px;
@@ -2566,12 +2567,12 @@ body.vkb-open .login-card {
 .waiter-cart { display: flex; flex-direction: column; background: var(--color-card); overflow: hidden; }
 .waiter-cart__meta {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: var(--spacing-sm);
   padding: var(--spacing-md);
   border-bottom: 1px solid var(--color-border-light);
 }
-.waiter-cart__meta label { display: flex; align-items: center; gap: var(--spacing-sm); font-size: var(--text-sm); color: var(--color-text-secondary); }
+.waiter-cart__meta label { display: flex; align-items: center; gap: var(--spacing-sm); font-size: var(--text-sm); color: var(--color-text-secondary); white-space: nowrap; }
 .waiter-cart__meta label input {
   width: 64px;
   min-height: 40px;
@@ -2583,6 +2584,8 @@ body.vkb-open .login-card {
   color: var(--color-text-primary);
 }
 .waiter-cart__note {
+  flex: 1;
+  min-width: 0;
   min-height: var(--touch-min);
   padding: 0 var(--spacing-md);
   background: var(--color-subtle);
@@ -3282,7 +3285,10 @@ body.vkb-open .login-card {
 
 /* Кнопка удаления в модалке блюда */
 .btn--danger { background: var(--color-danger); color: #fff; border-color: transparent; }
-.btn--danger:hover { background: #dc2626; }
+.btn--danger:hover { background: var(--red-600); }
+/* Мягкая danger-кнопка (стоп-лист «В стоп») — по палитре */
+.btn--danger-soft { background: var(--color-danger-bg); color: var(--color-danger); border-color: transparent; }
+.btn--danger-soft:hover { background: var(--color-danger); color: #fff; }
 .dish-modal__del { flex: 0 0 auto; width: 56px; padding: 0; }
 
 /* ── Хром без бордеров (шапка/сайдбар/боттомбар) ── */
@@ -3374,10 +3380,11 @@ body.vkb-open .login-card {
 .fin-form .input { flex: 1; min-height: 48px; }
 .fin-actions { display: flex; gap: var(--spacing-md); }
 .fin-btn { flex: 1; min-height: 54px; font-weight: 700; color: #fff; border: none; }
-.fin-btn--in { background: var(--color-success); }
-.fin-btn--in:hover { background: #15803d; }
+/* Приход — фирменный teal, расход — danger; ховеры по токенам палитры */
+.fin-btn--in { background: var(--color-brand); }
+.fin-btn--in:hover { background: var(--color-brand-dark); }
 .fin-btn--out { background: var(--color-danger); }
-.fin-btn--out:hover { background: #dc2626; }
+.fin-btn--out:hover { background: var(--red-600); }
 .fin-list { display: flex; flex-direction: column; gap: 6px; }
 .fin-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-subtle); }
 .fin-row__dir { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px; flex-shrink: 0; }
@@ -3421,10 +3428,28 @@ body.vkb-open .login-card {
 .hist-modal .modal__body, .rep-modal .modal__body, .stop-modal .modal__body { padding-top: var(--spacing-md); }
 .rep-controls { padding: var(--spacing-lg) var(--spacing-xl) var(--spacing-md); display: flex; flex-direction: column; gap: var(--spacing-md); }
 .rep-controls .hist-tabs { padding: 0; }
-.rep-dates { display: flex; align-items: center; gap: var(--spacing-sm); }
+.rep-dates { display: flex; align-items: center; gap: var(--spacing-sm); flex-wrap: wrap; }
 .rep-dates .input { min-height: 44px; width: auto; }
 .rep-table-wrap { overflow: auto; }
 .rep-print { margin-top: var(--spacing-lg); }
+
+/* ── Кастомный календарь (отчёты) ── */
+.cal-field { position: relative; }
+.cal-field__btn { display: inline-flex; align-items: center; gap: var(--spacing-xs); cursor: pointer; min-height: 44px; padding: 0 var(--spacing-md); white-space: nowrap; font-weight: 600; }
+.cal-field__btn > svg { color: var(--color-brand); flex-shrink: 0; }
+.cal-pop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 40; width: 272px; padding: var(--spacing-md); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); }
+.cal-pop__head { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-xs); margin-bottom: var(--spacing-sm); }
+.cal-pop__title { font-weight: 700; font-size: 14px; }
+.cal-pop__nav { width: 32px; height: 32px; min-width: 32px; }
+.cal-pop__days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 4px; }
+.cal-pop__days > span { text-align: center; font-size: 11px; font-weight: 700; color: var(--color-text-secondary); padding: 4px 0; text-transform: uppercase; }
+.cal-pop__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal-day { display: grid; place-items: center; height: 34px; border: none; border-radius: var(--radius-sm); background: transparent; font-size: 13px; font-weight: 600; color: var(--color-text-primary); cursor: pointer; }
+.cal-day:hover:not(.cal-day--pad) { background: var(--color-brand-subtle); }
+.cal-day--pad { cursor: default; }
+.cal-day--today { box-shadow: inset 0 0 0 1px var(--color-brand); }
+.cal-day--selected { background: var(--color-brand); color: #fff; }
+.cal-day--selected:hover { background: var(--color-brand-hover); }
 
 /* ── Стоп-лист ── */
 .stop-modal { width: 640px; max-width: 96vw; }
@@ -3506,10 +3531,7 @@ body.vkb-open .login-card {
 [data-theme="dark"] .vkb__key--medium { background: var(--neutral-600); color: #cdd7e6; }
 [data-theme="dark"] .vkb__close { background: var(--neutral-700); color: #cdd7e6; }
 
-/* Столы — busy(синий)/check(тил) на тёмном фоне, строго по палитре */
-[data-theme="dark"] .tcard--busy { background: rgba(37, 99, 235, 0.18); border-color: rgba(37, 99, 235, 0.42); }
-[data-theme="dark"] .tcard--check { background: rgba(29, 181, 181, 0.16); border-color: rgba(29, 181, 181, 0.42); }
-[data-theme="dark"] .tcard--pay { background: rgba(22, 163, 74, 0.18); border-color: rgba(22, 163, 74, 0.45); }
+/* Столы — статусы заданы токенами (--status-*), тёмная тема наследует их автоматически */
 [data-theme="dark"] .tcard--free .tcard__status { background: var(--color-subtle); color: var(--color-text-secondary); }
 
 /* Кнопка выхода/назад наверху сайдбара */
@@ -3517,11 +3539,14 @@ body.vkb-open .login-card {
 .zone--exit > svg { color: rgba(255,255,255,0.85); }
 .zone--exit:hover { background: rgba(255,255,255,0.12); }
 
-/* Кнопки — по палитре и крупнее (в т.ч. Финансы/История/Отчёты в шапке) */
+/* Кнопки — по палитре и крупнее (в т.ч. Финансы/История/Отчёты в шапке).
+   Ховер: акцентный фон + белые иконка и текст */
 .btn--outline { border-color: var(--color-border-strong); color: var(--color-text-secondary); background: var(--color-surface); }
-.btn--outline:hover { border-color: var(--color-brand); color: var(--color-brand); background: var(--color-brand-bg); }
+.btn--outline:hover { border-color: var(--color-brand); color: #fff; background: var(--color-brand); }
+.btn--outline:hover > svg { color: #fff; }
 .board__head-right .btn--sm { min-height: 46px; padding: 0 16px; font-size: var(--text-sm); font-weight: 600; }
 .board__head-right .btn--sm > svg { color: var(--color-brand); }
+.board__head-right .btn--sm:hover > svg { color: #fff; }
 
 /* ═══════════════════════════════════════════════════════════════════
    ЭКРАННАЯ КЛАВИАТУРА И МОДАЛКИ — поле ввода не должно перекрываться
@@ -3539,3 +3564,67 @@ body.vkb-open .modal-overlay {
 body.vkb-open .modal {
   max-height: 100%;
 }
+/* Вне модалок (корзина заказа): пока клавиатура открыта, сжимаем весь
+   рабочий каркас на её высоту — инпут «комментарий» не уходит под неё,
+   а scrollIntoView доводит его до центра видимой области. */
+body.vkb-open .app-shell {
+  height: calc(100vh - var(--vkb-height, 0px));
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ТОСТЫ — ошибки печати и прочие сбои внизу экрана (вместо alert)
+   ═══════════════════════════════════════════════════════════════════ */
+.toast-stack {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 300;
+  pointer-events: none;
+}
+.toast {
+  padding: 12px 20px;
+  border-radius: var(--radius-md, 10px);
+  background: var(--color-danger);
+  color: var(--color-text-inverse);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  max-width: 480px;
+  animation: toast-in 0.2s ease-out;
+}
+.toast--ok { background: var(--color-success); }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Модалка оплаты нового заказа: скидка перенесена из корзины сюда */
+.pay-modal__discount {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: var(--spacing-md) 20px 0;
+}
+.pay-modal__discount > svg { color: var(--color-text-muted); }
+.pay-modal__discount-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 20px 0;
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+/* Модалка оплаты существующего заказа: скидка и «не хватает» */
+.pay-order__discount { margin-top: var(--spacing-md); }
+.pay-order__change--discount strong { color: var(--color-danger); }
+.pay-order__change--short {
+  background: var(--color-danger-bg, rgba(239, 68, 68, 0.12));
+  border-radius: var(--radius-sm, 8px);
+}
+.pay-order__change--short span,
+.pay-order__change--short strong { color: var(--color-danger); }

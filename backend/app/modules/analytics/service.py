@@ -25,7 +25,11 @@ class AnalyticsService:
         try:
             return ZoneInfo(tz_str)
         except (ZoneInfoNotFoundError, KeyError):
-            return ZoneInfo("Asia/Tashkent")
+            try:
+                return ZoneInfo("Asia/Tashkent")
+            except (ZoneInfoNotFoundError, KeyError):
+                # Windows без пакета tzdata — не роняем аналитику
+                return timezone.utc
 
     @staticmethod
     def _date_bounds(selected_date: date, tz: ZoneInfo) -> tuple[datetime, datetime]:

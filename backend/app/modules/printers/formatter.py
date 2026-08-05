@@ -51,6 +51,18 @@ class KitchenTicketData:
     printed_at: datetime = field(default_factory=datetime.now)
 
 
+# Тип заказа на печати: dine_in не пишем вообще (лишняя строка «DINING»),
+# «с собой» и доставку подписываем по-русски.
+_ORDER_TYPE_LABELS = {
+    "takeaway": "С СОБОЙ",
+    "delivery": "ДОСТАВКА",
+}
+
+
+def order_type_label(order_type: str | None) -> str:
+    return _ORDER_TYPE_LABELS.get((order_type or "").lower(), "")
+
+
 class EscPosFormatter:
     """
     Generates ESC/POS byte sequences for thermal printers.
@@ -122,7 +134,11 @@ class EscPosFormatter:
         out += self._divider()
 
         # Order info
-        out += self._two_col(f"Заказ #{data.order_number}", data.order_type)
+        type_label = order_type_label(data.order_type)
+        if type_label:
+            out += self._two_col(f"Заказ #{data.order_number}", type_label)
+        else:
+            out += self._line(f"Заказ #{data.order_number}")
         if data.table_number:
             out += self._line(f"Стол: {data.table_number}")
         if data.customer_name:
@@ -193,7 +209,9 @@ class EscPosFormatter:
         out += self.BOLD_ON + self.DOUBLE_HEIGHT
         out += self._line(f"ЗАКАЗ #{data.order_number}")
         out += self.NORMAL_SIZE + self.BOLD_OFF
-        out += self._two_col(data.order_type.upper(), data.printed_at.strftime("%H:%M"))
+        # «DINING» не печатаем; тип показываем только для «с собой»/доставки
+        type_label = order_type_label(data.order_type)
+        out += self._two_col(type_label, data.printed_at.strftime("%H:%M"))
         if data.table_number:
             out += self.BOLD_ON
             out += self._line(f"СТОЛ: {data.table_number}")
@@ -230,6 +248,32 @@ class EscPosFormatter:
             out += self._line(f"КОММЕНТАРИЙ: {data.note}")
 
         out += self._divider("=")
+        out += self.LF * 3
+        out += self.CUT
+        return bytes(out)
+
+    def format_summary(self, title: str, lines: list[str], footer: str | None = None) -> bytes:
+        """
+        Общий чек: заголовок по центру + произвольные строки + итог.
+        Используется для сводной печати из Истории и Отчётов.
+        """
+        out = bytearray()
+        out += self.INIT
+        out += self._set_codepage
+        out += self.ALIGN_CENTER
+        out += self.BOLD_ON + self.DOUBLE_HEIGHT
+        out += self._line(title[: self.cols])
+        out += self.NORMAL_SIZE + self.BOLD_OFF
+        out += self._line(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+        out += self._divider()
+        out += self.ALIGN_LEFT
+        for ln in lines:
+            out += self._line(ln[: self.cols])
+        if footer:
+            out += self._divider()
+            out += self.BOLD_ON
+            out += self._line(footer[: self.cols])
+            out += self.BOLD_OFF
         out += self.LF * 3
         out += self.CUT
         return bytes(out)

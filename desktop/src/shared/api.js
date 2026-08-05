@@ -213,6 +213,8 @@ export const printers = {
   jobDone: (jobId) => api.post(`/printers/jobs/${jobId}/done`).then((r) => r.data),
   printReceipt: (data) => api.post('/printers/print/receipt', data).then((r) => r.data),
   printKitchen: (data) => api.post('/printers/print/kitchen', data).then((r) => r.data),
+  // Общий чек-сводка (История/Отчёты)
+  printSummary: (data) => api.post('/printers/print/summary', data).then((r) => r.data),
 }
 
 export const orders = {

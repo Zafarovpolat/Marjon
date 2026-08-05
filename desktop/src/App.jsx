@@ -10,8 +10,8 @@ import TopBar from './components/TopBar'
 import BottomBar from './components/BottomBar'
 import SettingsModal from './components/SettingsModal'
 import CashierMode from './modes/cashier/CashierMode'
-import KitchenMode from './modes/kitchen/KitchenMode'
 import WaiterMode from './modes/waiter/WaiterMode'
+import ManagerMode from './modes/manager/ManagerMode'
 import { auth, branding, flushQueue, queueSize } from './shared/api'
 import { t } from './shared/i18n'
 import { kitchenWS } from './services/kitchenWS'
@@ -19,15 +19,15 @@ import { connectPrinterWS, disconnectPrinterWS } from './shared/ws'
 
 const MODES = {
   cashier: { component: CashierMode, label: 'Касса' },
-  kitchen: { component: KitchenMode, label: 'Кухня' },
   waiter: { component: WaiterMode, label: 'Официант' },
+  manager: { component: ManagerMode, label: 'Менеджер' },
 }
 
-// Роль → рабочий режим. Роли пока только официант/кассир; повар → кухня (KDS).
-// Владелец/менеджер/админ и прочие по умолчанию → касса (полный доступ кассира).
+// Роль → рабочий режим. Базовые роли: кассир, официант, менеджер.
+// Повар/шеф/бармен/владелец и прочие → менеджер (кухонный режим убран).
 const ROLE_TO_MODE = {
   waiter: 'waiter', cashier: 'cashier',
-  cook: 'kitchen', chef: 'kitchen', kitchen: 'kitchen', bartender: 'kitchen',
+  manager: 'manager', owner: 'manager', admin: 'manager',
 }
 function roleToMode(user, employee) {
   const slugs = [...(user?.role_slugs || [])]
@@ -271,7 +271,7 @@ export default function App() {
     )
   }
 
-  // ── Рабочий режим (только официант/кассир/кухня; дефолт — касса) ──
+  // ── Рабочий режим (только кассир/официант/менеджер; дефолт — касса) ──
   const activeMode = mode && MODES[mode] ? mode : 'cashier'
   const { component: ModeComponent } = MODES[activeMode]
   const modeLabel = t('mode_' + activeMode)
@@ -291,7 +291,13 @@ export default function App() {
       />
 
       <main className="app-shell__content">
-        <ModeComponent user={userWithBranch} branch={branch} onLogout={handleStaffLogout} onBack={handleAccount} />
+        <ModeComponent
+          user={userWithBranch}
+          branch={branch}
+          onLogout={handleStaffLogout}
+          onBack={handleAccount}
+          onSwitchMode={(m) => { if (MODES[m]) { localStorage.setItem('marjon_mode', m); setMode(m) } }}
+        />
       </main>
 
       <BottomBar userName={staffUser?.name} branchName={branch?.name} mode={modeLabel} />

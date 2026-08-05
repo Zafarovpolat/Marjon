@@ -1,7 +1,9 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { X, BarChart3, Printer } from 'lucide-react'
-import { reports } from '../shared/api'
+import { reports, printers as printersApi } from '../shared/api'
 import { t } from '../shared/i18n'
+import CalendarField from './CalendarField'
+import { toast } from './Toast'
 
 // Ключ колонки с сервера → ключ словаря
 const COL_KEY = {
@@ -34,6 +36,14 @@ export default function ReportsPanel({ branch, onClose }) {
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(false)
 
+  // Чековый принтер филиала — тот же поиск, что у кассира (для общего чека)
+  const [receiptPrinter, setReceiptPrinter] = useState(null)
+  useEffect(() => {
+    printersApi.list()
+      .then((list) => setReceiptPrinter((Array.isArray(list) ? list : []).find((p) => p.printer_type === 'receipt' && p.branch_id === branch?.id) || null))
+      .catch(() => setReceiptPrinter(null))
+  }, [branch?.id])
+
   const run = useCallback((which) => {
     const active = which || tab
     setTab(active); setLoading(true); setErr(false); setRows(null)
@@ -42,13 +52,50 @@ export default function ReportsPanel({ branch, onClose }) {
         const arr = Array.isArray(d) ? d : d?.items || d?.rows || d?.data || (d && typeof d === 'object' ? [d] : [])
         setRows(arr)
       })
-      .catch(() => { setErr(true); setRows([]) })
+      .catch((e) => {
+        // Ошибка видна всегда: и в таблице, и тостом с причиной
+        setErr(true); setRows([])
+        const detail = e?.response?.data?.detail || e?.message
+        toast(detail ? `${t('rep_error')}: ${detail}` : t('rep_error'))
+      })
       .finally(() => setLoading(false))
   }, [tab, from, to, branch?.id])
 
   const cols = rows && rows.length
     ? Object.keys(rows[0]).filter((k) => typeof rows[0][k] !== 'object' && !/_id$|^id$/i.test(k)).slice(0, 8)
     : []
+
+  function fmtDate(isoStr) {
+    if (!isoStr) return ''
+    const [y, m, d] = isoStr.split('-')
+    return `${d}.${m}.${y}`
+  }
+
+  // Общий чек: текущая таблица отчёта → строки → чековый принтер
+  async function printSummary() {
+    if (!rows?.length) return
+    if (!receiptPrinter) { toast(t('no_receipt_printer')); return }
+    const nameCol = cols.find((c) => /name|title/i.test(c)) || cols[0]
+    const sumCol = cols.find((c) => /total|amount|revenue|sum/i.test(c))
+    const lines = rows.map((r) => {
+      const name = String(r[nameCol] ?? '—')
+      return sumCol ? `${name} — ${Number(r[sumCol] || 0).toLocaleString('ru-RU')}` : name
+    })
+    const footer = sumCol
+      ? `${t('total')}: ${rows.reduce((s, r) => s + (Number(r[sumCol]) || 0), 0).toLocaleString('ru-RU')} ${t('currency')}`
+      : `${t('total')}: ${rows.length}`
+    const label = TABS.find((x) => x.id === tab)?.label || t('reports')
+    try {
+      await printersApi.printSummary({
+        printer_id: receiptPrinter.id,
+        title: label,
+        lines: [`${fmtDate(from)} — ${fmtDate(to)}`, ...lines],
+        footer,
+        copies: 1,
+      })
+      toast(t('receipt_sent'), 'ok')
+    } catch (e) { toast(t('print_failed') + (e?.response?.data?.detail ? `: ${e.response.data.detail}` : '')) }
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -65,9 +112,9 @@ export default function ReportsPanel({ branch, onClose }) {
             ))}
           </div>
           <div className="rep-dates">
-            <input type="date" className="input" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <CalendarField value={from} onChange={setFrom} />
             <span>—</span>
-            <input type="date" className="input" value={to} onChange={(e) => setTo(e.target.value)} />
+            <CalendarField value={to} onChange={setTo} />
             <button className="btn btn--primary" onClick={() => run()}>{t('generate')}</button>
           </div>
         </div>
@@ -91,7 +138,7 @@ export default function ReportsPanel({ branch, onClose }) {
                   </tbody>
                 </table>
               </div>
-              <button className="btn btn--outline rep-print" onClick={() => window.print()}><Printer size={18} /> {t('print')}</button>
+              <button className="btn btn--outline rep-print" onClick={printSummary}><Printer size={18} /> {t('print_summary')}</button>
             </>
           )}
         </div>

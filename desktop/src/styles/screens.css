@@ -19,7 +19,8 @@
   overflow: hidden;
 }
 .floor .ws-side { padding-top: 14px; }
-.floor .ws__main { border-top-left-radius: 24px; border-bottom-left-radius: 24px; }
+/* У сайдбара и main одна плоскость — без радиуса слева */
+.floor .ws__main { border-radius: 0; }
 
 /* ── Каркас рабочего экрана ── */
 .ws {
@@ -241,8 +242,8 @@
 .legend__item { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--color-text-secondary); }
 .legend__swatch { width: 12px; height: 12px; border-radius: 4px; }
 .legend__swatch--free { background: var(--neutral-0); border: 1.5px solid var(--neutral-300); }
-.legend__swatch--busy { background: var(--amber-500); }
-.legend__swatch--check { background: var(--color-brand); }
+.legend__swatch--busy { background: var(--color-warning); }
+.legend__swatch--check { background: var(--color-success); }
 
 .board__scroll { flex: 1; overflow-y: auto; padding: 22px 26px 28px; }
 .tgroup { margin-bottom: 28px; }
@@ -273,12 +274,13 @@
   gap: 10px;
   min-height: 140px;
   padding: 15px 15px 15px 20px;
-  border-radius: 16px;
+  border-radius: var(--radius-md);
   background: var(--color-card);
   border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-xs);
   text-align: left;
   cursor: pointer;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
 }
 /* Цветная полоса статуса слева */
 .tcard::before {
@@ -313,21 +315,22 @@
   letter-spacing: 0.01em;
 }
 
-/* Статусы столов — насыщенные, строго по палитре (teal / amber) */
+/* Статусы столов — строго по токенам палитры:
+   free = белый, busy = жёлтый (готовится), check = зелёный (готов), pay = teal (ждёт оплату) */
 .tcard--free::before { background: var(--neutral-300); }
 .tcard--free .tcard__status { background: var(--neutral-100); color: var(--neutral-600); }
 
-.tcard--busy { background: var(--blue-50); border-color: var(--blue-200); }
-.tcard--busy::before { background: var(--blue-600); }
-.tcard--busy .tcard__status { background: var(--blue-600); color: #fff; }
+.tcard--busy { background: var(--status-busy-bg); border-color: var(--status-busy-border); }
+.tcard--busy::before { background: var(--color-warning); }
+.tcard--busy .tcard__status { background: var(--color-warning); color: #fff; }
 
-.tcard--check { background: var(--teal-50); border-color: var(--teal-200); }
-.tcard--check::before { background: var(--color-brand); }
-.tcard--check .tcard__status { background: var(--color-brand); color: #fff; }
-/* Ожидает оплату (чек напечатан) — зелёный */
-.tcard--pay { background: var(--green-100); border-color: var(--green-300); }
-.tcard--pay::before { background: var(--color-success); }
-.tcard--pay .tcard__status { background: var(--color-success); color: #fff; }
+.tcard--check { background: var(--status-check-bg); border-color: var(--status-check-border); }
+.tcard--check::before { background: var(--color-success); }
+.tcard--check .tcard__status { background: var(--color-success); color: #fff; }
+/* Ожидает оплату — фирменный teal */
+.tcard--pay { background: var(--status-pay-bg); border-color: var(--status-pay-border); }
+.tcard--pay::before { background: var(--color-brand); }
+.tcard--pay .tcard__status { background: var(--color-brand); color: #fff; }
 
 /* ═══ Нижний статус-бар ═══ */
 .ws-bottom {

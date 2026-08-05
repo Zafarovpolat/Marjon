@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, History } from 'lucide-react'
-import { orders } from '../shared/api'
+import { X, History, Printer } from 'lucide-react'
+import { orders, printers as printersApi } from '../shared/api'
 import { t } from '../shared/i18n'
+import { toast } from './Toast'
 
 function fmtDt(iso) { return iso ? new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '' }
 
@@ -16,6 +17,14 @@ export default function HistoryPanel({ branch, onClose }) {
   const [loading, setLoading] = useState(true)
   const [type, setType] = useState('all')
 
+  // Чековый принтер филиала — для печати общего чека по списку
+  const [receiptPrinter, setReceiptPrinter] = useState(null)
+  useEffect(() => {
+    printersApi.list()
+      .then((list) => setReceiptPrinter((Array.isArray(list) ? list : []).find((p) => p.printer_type === 'receipt' && p.branch_id === branch?.id) || null))
+      .catch(() => setReceiptPrinter(null))
+  }, [branch?.id])
+
   const load = useCallback(() => {
     setLoading(true)
     orders.list({ branch_id: branch?.id })
@@ -26,6 +35,28 @@ export default function HistoryPanel({ branch, onClose }) {
   useEffect(load, [load])
 
   const shown = type === 'all' ? rows : rows.filter((o) => o.order_type === type)
+
+  // Общий чек: список заказов текущего фильтра → строки → чековый принтер
+  async function printSummary() {
+    if (!shown.length) return
+    if (!receiptPrinter) { toast(t('no_receipt_printer')); return }
+    const lines = shown.map((o) => {
+      const sum = Number(o.total_amount || 0).toLocaleString('ru-RU')
+      const where = o.table_number ? `${t('table')} ${o.table_number}` : t.type(o.order_type)
+      return `#${o.order_number ?? '—'} ${where} — ${sum}`
+    })
+    const grand = shown.reduce((s, o) => s + (Number(o.total_amount) || 0), 0)
+    try {
+      await printersApi.printSummary({
+        printer_id: receiptPrinter.id,
+        title: t('hist_title'),
+        lines,
+        footer: `${t('total')}: ${grand.toLocaleString('ru-RU')} ${t('currency')} (${shown.length})`,
+        copies: 1,
+      })
+      toast(t('receipt_sent'), 'ok')
+    } catch (e) { toast(t('print_failed') + (e?.response?.data?.detail ? `: ${e.response.data.detail}` : '')) }
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -64,6 +95,9 @@ export default function HistoryPanel({ branch, onClose }) {
                 ))}
               </tbody>
             </table>
+          )}
+          {!loading && shown.length > 0 && (
+            <button className="btn btn--outline rep-print" onClick={printSummary}><Printer size={18} /> {t('print_summary')}</button>
           )}
         </div>
       </div>
