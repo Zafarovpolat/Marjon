@@ -413,7 +413,6 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
           product={editLine.product}
           line={editLine}
           onSubmit={saveEdit}
-          onRemove={() => { updateQty(editLine.lineId, -editLine.qty); setEditLine(null) }}
           onClose={() => setEditLine(null)}
         />
       )}

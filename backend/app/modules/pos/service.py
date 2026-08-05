@@ -8,6 +8,8 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.modules.auth.models import User
+from app.modules.auth.security import verify_pin
 from app.modules.companies.models import Branch, Company
 from app.modules.inventory.models import Product
 from app.modules.kitchen.websocket import kitchen_manager
@@ -127,6 +129,7 @@ class OrderService:
         order = await self.repo.get_by_id(order_id, company_id)
         if not order:
             raise NotFoundError("Order not found")
+        await self._attach_waiter_names([order])
         return order
 
     async def list(
@@ -141,16 +144,31 @@ class OrderService:
         offset: int = 0,
     ) -> list[Order]:
         if status:
-            return await self.repo.get_by_status(company_id, status, branch_id, selected_date)
-        return await self.repo.get_all(
-            company_id,
-            selected_date=selected_date,
-            branch_id=branch_id,
-            active_only=active_only,
-            table_number=table_number,
-            limit=limit,
-            offset=offset,
-        )
+            orders = await self.repo.get_by_status(company_id, status, branch_id, selected_date)
+        else:
+            orders = await self.repo.get_all(
+                company_id,
+                selected_date=selected_date,
+                branch_id=branch_id,
+                active_only=active_only,
+                table_number=table_number,
+                limit=limit,
+                offset=offset,
+            )
+        await self._attach_waiter_names(orders)
+        return orders
+
+    async def _attach_waiter_names(self, orders: list[Order]) -> None:
+        """Подставляет order.waiter_name (имя создавшего сотрудника) для ответа API."""
+        ids = {o.waiter_id for o in orders if o.waiter_id}
+        names: dict[UUID, str] = {}
+        if ids:
+            rows = (await self.db.execute(
+                select(User.id, User.name, User.email).where(User.id.in_(ids))
+            )).all()
+            names = {r.id: (r.name or r.email or "") for r in rows}
+        for o in orders:
+            o.waiter_name = names.get(o.waiter_id) if o.waiter_id else None
 
     # ── Update status (state machine) ─────────────────────────────────────────
 
@@ -187,16 +205,39 @@ class OrderService:
 
     # ── Cancel ────────────────────────────────────────────────────────────────
 
-    async def cancel(self, company_id: UUID, order_id: UUID, password: str | None = None) -> Order:
+    async def cancel(
+        self,
+        company_id: UUID,
+        order_id: UUID,
+        password: str | None = None,
+        comment: str | None = None,
+        user: User | None = None,
+    ) -> Order:
         order = await self.get(company_id, order_id)
         if order.status in ("completed", "cancelled"):
             raise ValidationError(f"Невозможно отменить заказ в статусе '{order.status}'")
-        # Спец-пароль отмены (если задан в админке) обязателен
+        # Пароль отмены обязателен всегда: сначала спец-пароль из админки,
+        # если он не задан — личный пароль сотрудника, который отменяет.
         company = (await self.db.execute(select(Company).where(Company.id == company_id))).scalar_one_or_none()
+        if not password:
+            raise ValidationError("Введите пароль отмены заказа")
         if company and company.cancel_password:
-            if not password or password != company.cancel_password:
+            if password != company.cancel_password:
+                raise ValidationError("Неверный пароль отмены заказа")
+        else:
+            ok = False
+            if user:
+                fresh = (await self.db.execute(select(User).where(User.id == user.id))).scalar_one_or_none()
+                # Сотрудники входят по PIN — принимаем и пароль, и PIN
+                ok = bool(fresh) and (
+                    verify_pin(password, fresh.password_hash)
+                    or verify_pin(password, fresh.pin_hash)
+                    or bool(fresh.pin_code and password == fresh.pin_code)
+                )
+            if not ok:
                 raise ValidationError("Неверный пароль отмены заказа")
         order.status = "cancelled"
+        order.cancel_comment = (comment or "").strip() or None
         saved = await self.repo.save(order)
         try:
             await kitchen_manager.broadcast(

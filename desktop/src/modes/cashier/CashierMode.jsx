@@ -11,6 +11,7 @@ import HistoryPanel from '../../components/HistoryPanel'
 import ReportsPanel from '../../components/ReportsPanel'
 import StopListPanel from '../../components/StopListPanel'
 import PaymentModal from '../../components/PaymentModal'
+import InputPromptModal from '../../components/InputPromptModal'
 import { t } from '../../shared/i18n'
 import { can } from '../../shared/permissions'
 import { toast } from '../../components/Toast'
@@ -56,6 +57,8 @@ export default function CashierMode({ user = {}, onBack }) {
   const [repOpen, setRepOpen] = useState(false)
   const [stopOpen, setStopOpen] = useState(false)
   const [payExisting, setPayExisting] = useState(null)   // существующий заказ на оплату/закрытие
+  const [promptCfg, setPromptCfg] = useState(null)        // модалка ввода (пароль отмены / новый стол)
+  const [creating, setCreating] = useState(false)         // создание заказа (лоадер кнопки)
   const [staff, setStaff] = useState([])                 // сотрудники (для смены официанта)
   const [printerMap, setPrinterMap] = useState({})
 
@@ -154,12 +157,20 @@ export default function CashierMode({ user = {}, onBack }) {
     setPayExisting(null)
     loadFloor()
   }
-  // Отмена заказа — со спец-паролем (проверяется на бэкенде)
-  async function cancelOrder(order) {
-    const password = window.prompt(t('cancel_password_prompt'))
-    if (password === null) return
-    try { await orders.cancel(order.id, password); setPayExisting(null); loadFloor() }
-    catch (e) { alert(e?.response?.data?.detail || t('cancel_error')) }
+  // Отмена заказа — со спец-паролем (проверяется на бэкенде) + комментарий причины.
+  // window.prompt в Electron не работает — спрашиваем пароль в своей модалке.
+  function cancelOrder(order) {
+    setPromptCfg({
+      title: t('cancel_order'),
+      hint: t('cancel_password_prompt'),
+      type: 'password',
+      extra: { label: t('cancel_comment'), placeholder: t('cancel_comment_ph') },
+      submitLabel: t('cancel_order'),
+      onSubmit: async (pwd, comment) => {
+        await orders.cancel(order.id, pwd, comment || undefined)
+        setPromptCfg(null); setPayExisting(null); loadFloor()
+      },
+    })
   }
   // Смена официанта заказа
   async function setOrderWaiter(order, waiterId) {
@@ -171,17 +182,19 @@ export default function CashierMode({ user = {}, onBack }) {
     const upd = await orders.update(order.id, { discount_amount: amount })
     setPayExisting(upd); loadFloor()
   }
-  // «Готово» вручную: статус ready ставит кассир/менеджер, повар готовность не отмечает
-  async function markReady(order) {
-    try { await orders.updateStatus(order.id, 'ready'); setPayExisting({ ...order, status: 'ready' }); loadFloor() }
-    catch (e) { toast(e?.response?.data?.detail || e.message, 'error') }
-  }
-  // Перенос заказа на другой стол
-  async function reassignTable(order) {
-    const num = window.prompt(t('move_table'), order.table_number || '')
-    if (num === null || String(num).trim() === '') return
-    try { await orders.update(order.id, { table_number: String(num).trim() }); setPayExisting(null); loadFloor() }
-    catch (e) { alert(e?.response?.data?.detail || e.message) }
+  // Перенос заказа на другой стол — номер спрашиваем в своей модалке
+  function reassignTable(order) {
+    setPromptCfg({
+      title: t('move_table'),
+      hint: t('move_to_table'),
+      type: 'number',
+      initial: order.table_number || '',
+      submitLabel: t('save'),
+      onSubmit: async (num) => {
+        await orders.update(order.id, { table_number: num })
+        setPromptCfg(null); setPayExisting(null); loadFloor()
+      },
+    })
   }
 
   // ── Каталог/корзина ──
@@ -209,9 +222,10 @@ export default function CashierMode({ user = {}, onBack }) {
   // Создание заказа: позиции уходят повару (авто-печать кухонного чека на бэкенде),
   // оплата/закрытие — потом через модалку заказа (тап по столу).
   async function createOrder() {
-    if (!cart.length) return
+    if (!cart.length || creating) return
+    setCreating(true)
     try {
-      const order = await orders.create({
+      await orders.create({
         branch_id: user.branch_id,
         order_type: orderType,
         table_number: orderType === 'dine_in' && selectedTable?.number != null ? String(selectedTable.number) : undefined,
@@ -221,12 +235,13 @@ export default function CashierMode({ user = {}, onBack }) {
         customer_address: orderType === 'delivery' ? (deliveryAddress || undefined) : undefined,
         items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, note: i.note || null, takeaway: !!i.takeaway })),
       })
+      // Возвращаемся к столам; оплата — отдельно (тап по столу / история)
       setView('floor'); loadFloor()
-      // С собой/доставка без стола — сразу открываем модалку для завершения и оплаты
-      if (orderType !== 'dine_in') setPayExisting(order)
-      else toast(t('order_created'))
+      toast(t('order_created'))
     } catch (err) {
       toast(t('create_order_error') + ': ' + (err?.response?.data?.detail || err.message), 'error')
+    } finally {
+      setCreating(false)
     }
   }
 
@@ -304,11 +319,11 @@ export default function CashierMode({ user = {}, onBack }) {
             staff={staff}
             onSetWaiter={setOrderWaiter}
             onApplyDiscount={applyOrderDiscount}
-            onMarkReady={markReady}
             canClose={can(user, 'can_close_bill')}
             onClose={() => setPayExisting(null)}
           />
         )}
+        {promptCfg && <InputPromptModal {...promptCfg} onClose={() => setPromptCfg(null)} />}
       </div>
     )
   }
@@ -368,23 +383,6 @@ export default function CashierMode({ user = {}, onBack }) {
 
           <aside className="cashier-cart">
             <div className="cashier-cart__header"><ShoppingBag size={20} /><span>{t('order')}</span><span className="cart-count">{itemCount}</span></div>
-            {orderType === 'delivery' && (
-              <div className="cashier-delivery">
-                <div className="cashier-delivery__phone">
-                  <input className="cashier-cart__note" placeholder={t('phone')} value={deliveryPhone} onChange={(e) => onDeliveryPhone(e.target.value)} />
-                  {custMatches.length > 0 && (
-                    <div className="cashier-delivery__suggest">
-                      {custMatches.map((c) => (
-                        <button key={c.id} type="button" onClick={() => pickCustomer(c)}>
-                          {c.phone}{c.name ? ` · ${c.name}` : ''}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <input className="cashier-cart__note" placeholder={t('address')} value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} />
-              </div>
-            )}
             <div className="cashier-cart__items">
               {cart.length === 0 ? <p className="cart-empty">{t('tap_dish_hint')}</p> : cart.map((item) => (
                 <div key={item.lineId} className="cart-item">
@@ -402,6 +400,23 @@ export default function CashierMode({ user = {}, onBack }) {
                 </div>
               ))}
             </div>
+            {orderType === 'delivery' && (
+              <div className="cashier-delivery">
+                <div className="cashier-delivery__phone">
+                  <input className="cashier-cart__note" placeholder={t('phone')} value={deliveryPhone} onChange={(e) => onDeliveryPhone(e.target.value)} />
+                  {custMatches.length > 0 && (
+                    <div className="cashier-delivery__suggest">
+                      {custMatches.map((c) => (
+                        <button key={c.id} type="button" onClick={() => pickCustomer(c)}>
+                          {c.phone}{c.name ? ` · ${c.name}` : ''}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <input className="cashier-cart__note" placeholder={t('address')} value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} />
+              </div>
+            )}
             {cart.length > 0 && (
               <input className="cashier-cart__note" value={orderNote} onChange={(e) => setOrderNote(e.target.value)} placeholder={t('comment')} />
             )}
@@ -409,7 +424,9 @@ export default function CashierMode({ user = {}, onBack }) {
               <div className="total-row total-row--final"><span>{t('total')}</span><span>{total.toLocaleString('ru-RU')} {t('currency')}</span></div>
             </div>
             <div className="cashier-cart__actions">
-              <button className="cart-btn cart-btn--pay" disabled={cart.length === 0} onClick={createOrder}><Plus size={20} /> {t('create_order')}</button>
+              <button className="cart-btn cart-btn--pay" disabled={cart.length === 0 || creating} onClick={createOrder}>
+                {creating ? <span className="btn-spinner" aria-hidden="true" /> : <Plus size={20} />} {t('create_order')}
+              </button>
             </div>
           </aside>
         </div>
@@ -420,7 +437,6 @@ export default function CashierMode({ user = {}, onBack }) {
           product={editLine.product}
           line={editLine}
           onSubmit={saveEdit}
-          onRemove={() => { removeLine(editLine.lineId); setEditLine(null) }}
           onClose={() => setEditLine(null)}
         />
       )}

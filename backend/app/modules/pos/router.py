@@ -63,8 +63,8 @@ async def update_order_status(order_id: UUID, data: OrderStatusUpdate, user: Use
 
 
 @router.delete("/orders/{order_id}", response_model=OrderResponse)
-async def cancel_order(order_id: UUID, password: str | None = Query(None), user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    return await OrderService(db).cancel(user.company_id, order_id, password)
+async def cancel_order(order_id: UUID, password: str | None = Query(None), comment: str | None = Query(None), user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await OrderService(db).cancel(user.company_id, order_id, password, comment, user)
 
 
 @router.post("/orders/{order_id}/items", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)

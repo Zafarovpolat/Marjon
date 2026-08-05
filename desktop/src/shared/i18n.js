@@ -35,6 +35,7 @@ const DICT = {
     not_enough: 'Не хватает', print_failed: 'Ошибка печати чека',
     order_items: 'Позиции заказа', to_pay_label: 'К оплате', phone: 'Телефон', address: 'Адрес доставки', move_table: 'Сменить стол',
     cancel_order: 'Отменить заказ', cancel_password_prompt: 'Введите пароль отмены', cancel_error: 'Не удалось отменить заказ',
+    cancel_comment: 'Комментарий к отмене (необязательно)', cancel_comment_ph: 'Например: гость ушёл, ошибка в позициях…',
     no_permission: 'Нет прав на это действие', move_to_table: 'Переместить на стол №', change_waiter: 'Сменить официанта',
     // Техкарта
     tech_card: 'Техкарта', ingredient: 'Ингредиент', amount: 'Кол-во',
@@ -76,6 +77,8 @@ const DICT = {
     col_name: 'Название', col_product: 'Блюдо', col_staff: 'Сотрудник', col_cashier: 'Кассир',
     col_count: 'Кол-во', col_orders: 'Заказы', col_revenue: 'Выручка', col_date: 'Дата',
     col_service: 'Обслуга', col_share: 'Доля официанта', col_price: 'Цена', col_unit: 'Ед.', col_profit: 'Прибыль',
+        col_order_no: '№ заказа', col_created: 'Создан', col_waiter: 'Официант', col_items: 'Позиций',
+        col_discount: 'Скидка', col_pay_method: 'Оплата', col_avg: 'Средний чек',
     // Стоп-лист
     only_stop: 'Только в стопе', nothing_found: 'Ничего не найдено.', return_item: 'Вернуть', to_stop: 'В стоп',
     // Настройки
@@ -141,6 +144,7 @@ const DICT = {
     not_enough: 'Yetarli emas', print_failed: 'Chek chop etishda xato',
     order_items: 'Buyurtma tarkibi', to_pay_label: 'To‘lash kerak', phone: 'Telefon', address: 'Yetkazish manzili', move_table: 'Stolni almashtirish',
     cancel_order: 'Buyurtmani bekor qilish', cancel_password_prompt: 'Bekor qilish parolini kiriting', cancel_error: 'Buyurtmani bekor qilib bo‘lmadi',
+    cancel_comment: 'Bekor sababi (ixtiyoriy)', cancel_comment_ph: 'Masalan: mehmon ketdi, pozitsiyada xato…',
     no_permission: 'Bu amal uchun ruxsat yo‘q', move_to_table: 'Boshqa stolga №', change_waiter: 'Ofitsiantni almashtirish',
     // Texkarta
     tech_card: 'Texkarta', ingredient: 'Ingredient', amount: 'Miqdor',
@@ -182,6 +186,8 @@ const DICT = {
     col_name: 'Nomi', col_product: 'Taom', col_staff: 'Xodim', col_cashier: 'Kassir',
     col_count: 'Miqdor', col_orders: 'Buyurtmalar', col_revenue: 'Tushum', col_date: 'Sana',
     col_service: 'Xizmat haqi', col_share: 'Ofitsiant ulushi', col_price: 'Narx', col_unit: 'Birlik', col_profit: 'Foyda',
+    col_order_no: 'Buyurtma №', col_created: 'Yaratilgan', col_waiter: 'Ofitsiant', col_items: 'Pozitsiyalar',
+    col_discount: 'Chegirma', col_pay_method: "To'lov", col_avg: "O'rtacha chek",
     // Stop-ro‘yxat
     only_stop: 'Faqat stopda', nothing_found: 'Hech narsa topilmadi.', return_item: 'Qaytarish', to_stop: 'Stopga',
     // Sozlamalar

@@ -81,6 +81,9 @@ class OrderResponse(BaseResponseSchema):
     customer_phone: str | None = None
     customer_address: str | None = None
     receipt_printed_at: datetime | None = None
+    waiter_id: UUID | None = None
+    waiter_name: str | None = None
+    cancel_comment: str | None = None
     items: list[OrderItemResponse] = Field(default_factory=list)
 
 

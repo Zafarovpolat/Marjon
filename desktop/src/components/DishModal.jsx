@@ -1,14 +1,14 @@
 import { useState } from 'react'
-import { X, Plus, Minus, Trash2 } from 'lucide-react'
+import { X, Plus, Minus } from 'lucide-react'
 import { t } from '../shared/i18n'
 
 /**
  * DishModal — правка позиции заказа: количество, цена за порцию, комментарий.
  * Открывается по клику на позицию В КОРЗИНЕ (не в меню).
  * props: product (для названия), line ({qty,price,note}) — начальные значения,
- *        onSubmit({ quantity, price, note }), onRemove?(), onClose().
+ *        onSubmit({ quantity, price, note }), onClose().
  */
-export default function DishModal({ product, line, onSubmit, onRemove, onClose }) {
+export default function DishModal({ product, line, onSubmit, onClose }) {
   const [qty, setQty] = useState(line?.qty ?? 1)
   const [price, setPrice] = useState(line?.price ?? (Number(product?.price) || 0))
   const [note, setNote] = useState(line?.note ?? '')
@@ -62,7 +62,6 @@ export default function DishModal({ product, line, onSubmit, onRemove, onClose }
         </div>
 
         <div className="dish-modal__actions">
-          {onRemove && <button className="btn btn--danger dish-modal__del" onClick={onRemove}><Trash2 size={18} /></button>}
           <button className="btn btn--primary" onClick={() => onSubmit({ quantity: qty, price, note, takeaway })}>{t('save')}</button>
         </div>
       </div>

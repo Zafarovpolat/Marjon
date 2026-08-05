@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Printer, Banknote, CreditCard, CheckCircle, Percent, ChefHat } from 'lucide-react'
+import { X, Printer, Banknote, CreditCard, CheckCircle, Percent, User, Clock } from 'lucide-react'
 import { t } from '../shared/i18n'
 import { toast } from './Toast'
 
@@ -9,28 +9,31 @@ import { toast } from './Toast'
  * Оплату (платёжку) интегрируем позже — сейчас способ фиксируется вручную.
  *
  * props:
- *   order — заказ ({ order_number, table_number, items[], total_amount })
+ *   order — заказ ({ order_number, table_number, items[], total_amount, waiter_id, created_at })
+ *   staff — сотрудники (для «кто добавил» и смены официанта)
  *   onPrint(order) — печать чека (через сетевой принтер)
  *   onComplete(order, method) — закрыть заказ (status → completed)
  *   onApplyDiscount(order, amount) — применить скидку к заказу (PATCH /orders)
  *   onClose()
  */
 function fmt(n) { return Number(n || 0).toLocaleString('ru-RU') }
+function fmtTime(iso) { return iso ? new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '' }
 
-export default function PaymentModal({ order, onPrint, onComplete, onCancel, onReassign, onClose, canClose = true, staff = [], onSetWaiter, onApplyDiscount, onMarkReady }) {
+export default function PaymentModal({ order, onPrint, onComplete, onCancel, onReassign, onClose, canClose = true, staff = [], onSetWaiter, onApplyDiscount }) {
   const [method, setMethod] = useState('cash')
   const [received, setReceived] = useState('')
   const [cashPart, setCashPart] = useState('')   // при смешанной оплате
   const [cardPart, setCardPart] = useState('')
   const [busy, setBusy] = useState(false)
+  const [act, setAct] = useState('')             // какое действие выполняется (для лоадера кнопки)
   const [printed, setPrinted] = useState(false)
   const [discPct, setDiscPct] = useState('')
 
   const total = Number(order?.total_amount || 0)
   const items = order?.items || []
-  // «Готово» вручную доступно пока заказ в работе (new/accepted/cooking)
-  const canMarkReady = !!onMarkReady && ['new', 'accepted', 'cooking'].includes(order?.status)
   const subtotal = items.reduce((s, it) => s + Number(it.total ?? (Number(it.price) * Number(it.quantity))), 0)
+  const waiter = staff.find((s) => String(s.id) === String(order?.waiter_id || '')) || null
+  const creatorName = waiter ? (waiter.name || waiter.email) : (order?.waiter_name || '—')
   const receivedNum = Number(received) || 0
   const change = method === 'cash' && received ? Math.max(0, receivedNum - total) : 0
   const cashShort = method === 'cash' && received !== '' ? Math.max(0, total - receivedNum) : 0
@@ -41,16 +44,26 @@ export default function PaymentModal({ order, onPrint, onComplete, onCancel, onR
     ? mixedSum >= total
     : method === 'cash' ? received !== '' && receivedNum >= total : true
 
-  async function doPrint() {
-    setPrinted(true)
-    try { await onPrint(order) } finally { setTimeout(() => setPrinted(false), 1600) }
+  // Любое серверное действие — с лоадером внутри кнопки
+  async function run(name, fn) {
+    if (act || busy) return
+    setAct(name)
+    try { await fn() } finally { setAct('') }
   }
-  // Скидка применяется к самому заказу (сервер пересчитает итог) — на этом экране
-  // просто показываем текущую применённую скидку и % поле.
+
+  async function doPrint() {
+    await run('print', async () => {
+      setPrinted(true)
+      try { await onPrint(order) } finally { setTimeout(() => setPrinted(false), 1600) }
+    })
+  }
+  // Скидка применяется к самому заказу (сервер пересчитает итог). 0 — снять скидку.
   async function applyDiscount(pct) {
     if (!onApplyDiscount) return
     const amount = Math.round(subtotal * pct / 100)
-    try { await onApplyDiscount(order, amount) } catch { toast(t('create_order_error')) }
+    await run('discount', async () => {
+      try { await onApplyDiscount(order, amount) } catch { toast(t('create_order_error')) }
+    })
   }
   async function doComplete() {
     if (busy || !canComplete) return
@@ -58,6 +71,7 @@ export default function PaymentModal({ order, onPrint, onComplete, onCancel, onR
     const detail = method === 'mixed' ? { cash: Number(cashPart) || 0, card: Number(cardPart) || 0 } : undefined
     try { await onComplete(order, method, detail) } finally { setBusy(false) }
   }
+  const spin = <span className="btn-spinner" aria-hidden="true" />
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -68,6 +82,12 @@ export default function PaymentModal({ order, onPrint, onComplete, onCancel, onR
         </div>
 
         <div className="modal__body">
+          {/* Кто и когда добавил заказ */}
+          <div className="pay-order__meta">
+            <span><User size={15} /> {creatorName}</span>
+            {order?.created_at && <span><Clock size={15} /> {fmtTime(order.created_at)}</span>}
+          </div>
+
           <div className="pay-order__items">
             {items.length === 0 ? (
               <p className="settings-hint">{t('order_items')}: —</p>
@@ -95,24 +115,27 @@ export default function PaymentModal({ order, onPrint, onComplete, onCancel, onR
           {onApplyDiscount && (
             <div className="pay-order__mixrow pay-order__discount">
               <label><Percent size={14} /> {t('discount')}</label>
-              <input type="number" min="0" max="100" className="input" value={discPct}
+              <input type="number" min="0" max="100" className="input" value={discPct} disabled={act === 'discount'}
                 onChange={(e) => setDiscPct(e.target.value)} placeholder="0"
-                onBlur={() => { const p = Math.min(100, Math.max(0, Number(discPct) || 0)); if (p > 0) applyDiscount(p) }} />
+                onBlur={() => { const p = Math.min(100, Math.max(0, Number(discPct) || 0)); setDiscPct(p ? String(p) : ''); applyDiscount(p) }} />
+              {act === 'discount' && spin}
             </div>
           )}
 
           {onSetWaiter && staff.length > 0 && (
-            <div className="pay-order__mixrow" style={{ marginBottom: 12 }}>
+            <div className="pay-order__mixrow">
               <label>{t('change_waiter')}</label>
-              <select className="input" value={order?.waiter_id || ''} onChange={(e) => onSetWaiter(order, e.target.value || null)}>
+              <select className="input" value={order?.waiter_id || ''} disabled={act === 'waiter'}
+                onChange={(e) => run('waiter', () => onSetWaiter(order, e.target.value || null))}>
                 <option value="">—</option>
                 {staff.map((s) => <option key={s.id} value={s.id}>{s.name || s.email}</option>)}
               </select>
+              {act === 'waiter' && spin}
             </div>
           )}
 
-          <button className={`btn btn--outline pay-order__print ${printed ? 'is-done' : ''}`} onClick={doPrint}>
-            {printed ? <CheckCircle size={18} /> : <Printer size={18} />} {t('print_receipt')}
+          <button className={`btn btn--outline pay-order__print ${printed ? 'is-done' : ''}`} disabled={act === 'print'} onClick={doPrint}>
+            {act === 'print' ? spin : printed ? <CheckCircle size={18} /> : <Printer size={18} />} {t('print_receipt')}
           </button>
 
           <div className="pay-order__methods pay-order__methods--3">
@@ -162,23 +185,18 @@ export default function PaymentModal({ order, onPrint, onComplete, onCancel, onR
         </div>
 
         <div className="pay-order__actions">
-          {canMarkReady && (
-            <button className="btn btn--success" disabled={busy} onClick={() => onMarkReady(order)}>
-              <ChefHat size={18} /> {t('mark_ready')}
-            </button>
-          )}
           {onReassign && order?.table_number && (
-            <button className="btn btn--outline" disabled={busy} onClick={() => onReassign(order)}>
+            <button className="btn btn--outline" onClick={() => onReassign(order)}>
               {t('move_table')}
             </button>
           )}
           {onCancel && (
-            <button className="btn btn--outline pay-order__cancel" disabled={busy} onClick={() => onCancel(order)}>
+            <button className="btn btn--outline pay-order__cancel" onClick={() => onCancel(order)}>
               {t('cancel_order')}
             </button>
           )}
-          <button className="btn btn--primary btn--lg" disabled={busy || !canComplete || !canClose} onClick={doComplete}>
-            <CheckCircle size={20} /> {t('complete_order')}
+          <button className="btn btn--primary btn--lg pay-order__close" disabled={busy || !canComplete || !canClose} onClick={doComplete}>
+            {busy ? spin : <CheckCircle size={20} />} {t('complete_order')}
           </button>
         </div>
       </div>

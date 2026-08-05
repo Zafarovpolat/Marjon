@@ -57,6 +57,8 @@ class Order(TimeStampedModel):
     customer_address: Mapped[str | None] = mapped_column(Text)
     # Чек напечатан → стол «ожидает оплату» (зелёный). Сбрасывается при дозаказе.
     receipt_printed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Комментарий при отмене заказа (почему отменили)
+    cancel_comment: Mapped[str | None] = mapped_column(Text)
 
     items: Mapped[list[OrderItem]] = relationship(back_populates="order", cascade="all, delete-orphan")
 

@@ -69,7 +69,12 @@ export default function VirtualKeyboard({ onVisibilityChange }) {
   useEffect(() => {
     onVisibilityChange?.(!!activeInput)
     // Глобальный сигнал для CSS (сдвиг карточек входа), т.к. клавиатура смонтирована один раз в корне
-    try { document.body.classList.toggle('vkb-open', !!activeInput) } catch { /* no body */ }
+    try {
+      document.body.classList.toggle('vkb-open', !!activeInput)
+      // Вне модалок рабочий экран поднимается целиком (vkb-lift);
+      // внутри модалок оверлей сам сжимается на высоту клавиатуры
+      document.body.classList.toggle('vkb-lift', !!activeInput && !activeInput.closest('.modal-overlay'))
+    } catch { /* no body */ }
   }, [activeInput, onVisibilityChange])
 
   // Реальная высота клавиатуры → CSS-переменная --vkb-height.
