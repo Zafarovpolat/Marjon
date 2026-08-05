@@ -1,4 +1,5 @@
 import axios from "axios";
+import { normalizeTokenResponse } from "../api/normalizers";
 
 export const AUTH_SCOPES = {
   DEFAULT: "default",
@@ -103,10 +104,6 @@ function getTokenRecord(scope) {
     accessToken: readStorageKey(keys.accessToken),
     refreshToken: readStorageKey(keys.refreshToken),
   };
-}
-
-function isValidTokenResponse(data) {
-  return Boolean(data?.access_token && data?.refresh_token);
 }
 
 function isFormDataBody(data) {
@@ -254,11 +251,14 @@ export async function refreshAuthSession({ baseURL, scope = AUTH_SCOPES.DEFAULT 
     headers: { "Content-Type": "application/json" },
   })
     .then(({ data }) => {
-      if (!isValidTokenResponse(data)) {
-        throw new Error("invalid_refresh_response");
+      let tokens;
+      try {
+        tokens = normalizeTokenResponse(data, { requireRefreshToken: true });
+      } catch (error) {
+        throw new Error("invalid_refresh_response", { cause: error });
       }
-      saveAuthTokens(data, { scope: normalizedScope });
-      return data.access_token;
+      saveAuthTokens(tokens, { scope: normalizedScope });
+      return tokens.access_token;
     })
     .catch((error) => {
       endAuthSession("refresh_failed", { scope: normalizedScope });
