@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { getCategories } from "../api/categories";
 import { api } from "../api/client";
 import Icon from "../components/Icon";
 
@@ -74,7 +75,7 @@ export default function CategoriesPage({ type = "dishes" }) {
     setLoading(true);
     setError("");
     try {
-      const { data } = await api.get("/inventory/categories");
+      const { data } = await getCategories();
       const loadedCategories = Array.isArray(data) ? data : [];
       setRows(loadedCategories.length ? loadedCategories : demoCategories(type));
     } catch (err) {
