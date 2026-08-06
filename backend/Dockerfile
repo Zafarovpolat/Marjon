@@ -4,13 +4,15 @@ WORKDIR /app
 
 # System deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libpq-dev && \
+    gcc libpq-dev curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Python deps
-COPY pyproject.toml .
-RUN pip install --no-cache-dir . && \
-    pip install --no-cache-dir alembic
+# Python deps: единый источник истины — requirements.txt (тот же, что у лаунчера
+# и CI). Раньше стояло `pip install .` из pyproject.toml: hatchling падал на
+# сборке ("app не найден"), т.к. исходники ещё не скопированы, а набор зависимостей
+# в pyproject расходился с рабочим requirements.txt (tzdata и др.).
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # App source
 COPY . .

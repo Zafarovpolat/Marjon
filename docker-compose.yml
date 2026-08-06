@@ -73,7 +73,8 @@ services:
     container_name: marjon-frontend
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "5173:80"
     # nginx внутри контейнера проксирует /api и /ws на backend:8000,
@@ -81,7 +82,8 @@ services:
 
   # ── Опционально: хранилище файлов (профиль storage) ────────────────────────
   minio:
-    image: minio/minio:latest
+    # Тег зафиксирован: `latest` у MinIO меняется ежедневно и ломал запуск.
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: marjon-minio
     profiles: ["storage", "ngrok"]
     restart: unless-stopped
@@ -95,13 +97,14 @@ services:
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      # `mc` в образе minio/minio нет — проверяем HTTP-эндпоинт готовности.
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 5s
       timeout: 3s
       retries: 10
 
   minio-init:
-    image: minio/mc:latest
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
     container_name: marjon-minio-init
     profiles: ["storage", "ngrok"]
     depends_on:

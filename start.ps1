@@ -9,6 +9,7 @@
     4) Owner   (Flutter)    + Backend
     5) Всё вместе
     6) Только Backend
+    7) Docker (БД + бэкенд + веб) — Python на машине не нужен
 
   Каждый сервис поднимается в отдельном окне PowerShell, чтобы логи не смешивались.
   Скрипт ничего не меняет в коде проекта: только запуск и (по запросу) установка
@@ -20,7 +21,7 @@
 
 [CmdletBinding()]
 param(
-    [ValidateSet('front', 'desktop', 'mobile', 'owner', 'all', 'backend', '')]
+    [ValidateSet('front', 'desktop', 'mobile', 'owner', 'all', 'backend', 'docker', '')]
     [string]$Mode = ''
 )
 
@@ -149,6 +150,8 @@ function Resolve-Python {
     # без venv — пробуем системный python
     if (Test-Cmd 'python') { Write-Warn2 'использую системный python (без venv)'; return 'python' }
     Write-Err2 'Python не найден.'
+    Write-Warn2 'Не ломайтесь — запустите проект через Docker (без Python вообще):'
+    Write-Warn2 'двойной клик по docker-start.cmd, либо пункт 7 этого меню.'
     return $null
 }
 
@@ -619,6 +622,24 @@ function Start-FlutterApp {
     Write-Info ('адрес сервера в приложении: http://' + $LanIp + ':' + $BackendPort + '/api/v1')
 }
 
+function Start-Docker {
+    Write-Head 'Docker (БД + backend + frontend)'
+    if (-not (Test-Cmd 'docker')) {
+        Write-Err2 'Docker не найден в PATH.'
+        Write-Warn2 'Установите Docker Desktop: https://www.docker.com/products/docker-desktop/'
+        return $false
+    }
+    $script = Join-Path $Root 'docker-start.ps1'
+    if (Test-Path -LiteralPath $script) {
+        & $script
+        return $true
+    }
+    Write-Warn2 'docker-start.ps1 не найден — запускаю docker compose напрямую'
+    Push-Location $Root
+    try { & docker compose up -d --build } finally { Pop-Location }
+    return ($LASTEXITCODE -eq 0)
+}
+
 # ── Итоговая сводка ───────────────────────────────────────────────────────────
 function Show-Summary {
     param([string]$LanIp)
@@ -654,6 +675,7 @@ function Invoke-Mode {
         'desktop' { Start-Backend -LanIp $lanIp | Out-Null; Start-Desktop }
         'mobile'  { Start-Backend -LanIp $lanIp | Out-Null; Start-FlutterApp -Title 'Marjon Mobile (Flutter)' -Dir $MobileDir -LanIp $lanIp }
         'owner'   { Start-Backend -LanIp $lanIp | Out-Null; Start-FlutterApp -Title 'Marjon Owner (Flutter)'  -Dir $OwnerDir  -LanIp $lanIp }
+        'docker'  { Start-Docker; return }   # Docker сам печатает свою сводку
         'all'     {
             Start-Backend -LanIp $lanIp | Out-Null
             Start-Frontend -LanIp $lanIp
@@ -678,6 +700,7 @@ function Show-Menu {
     Write-Host '  4) Owner (Flutter)           + Backend'
     Write-Host '  5) Всё вместе'
     Write-Host '  6) Только Backend'
+    Write-Host '  7) Docker (БД + бэкенд + веб) — Python не нужен'
     Write-Host '  0) Выход'
     Write-Host ''
 }
@@ -698,8 +721,9 @@ while ($true) {
         '4' { Invoke-Mode -Selected 'owner';   break }
         '5' { Invoke-Mode -Selected 'all';     break }
         '6' { Invoke-Mode -Selected 'backend'; break }
+        '7' { Invoke-Mode -Selected 'docker';  break }
         '0' { Write-Host 'Выход.'; exit 0 }
-        default { Write-Warn2 'Нет такого пункта. Введите 0-6.'; continue }
+        default { Write-Warn2 'Нет такого пункта. Введите 0-7.'; continue }
     }
     Write-Host ''
     if (-not (Confirm-Yes 'Запустить ещё связку?')) { break }
