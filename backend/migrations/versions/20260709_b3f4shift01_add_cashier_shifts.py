@@ -24,11 +24,11 @@ def upgrade() -> None:
         sa.Column("cashier_id", Uuid(as_uuid=True), sa.ForeignKey("users.id"), nullable=False, index=True),
         sa.Column("opened_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("closed_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("opening_cash", sa.Numeric(15, 2), server_default="0"),
+        sa.Column("opening_cash", sa.Numeric(15, 2), server_default="0", nullable=False),
         sa.Column("closing_cash", sa.Numeric(15, 2), nullable=True),
-        sa.Column("status", sa.String(20), server_default="open"),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()),
+        sa.Column("status", sa.String(20), server_default="open", nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now(), nullable=False),
     )
 
 
