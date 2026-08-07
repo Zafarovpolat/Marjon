@@ -10,6 +10,7 @@ from app.modules.auth.repository import RefreshTokenRepository, UserRepository
 from app.modules.auth.security import (
     create_access_token,
     create_refresh_token,
+    get_refresh_token_auth_scope,
     hash_password,
     hash_refresh_token,
     verify_password,
@@ -129,7 +130,7 @@ class AuthService:
             raise ForbiddenError("HQ admin access required")
 
         access_token = create_access_token(user.id, user.company_id, auth_scope="hq_admin")
-        refresh_token = create_refresh_token()
+        refresh_token = create_refresh_token(auth_scope="hq_admin")
         await self._save_refresh_token(user.id, refresh_token)
 
         return user, access_token, refresh_token
@@ -234,47 +235,53 @@ class AuthService:
 
     async def refresh(self, refresh_token: str) -> tuple[str, str]:
         token_hash = hash_refresh_token(refresh_token)
-        stored = await self.token_repo.get_by_hash(token_hash)
-        if not stored:
-            # Covers "not found", "already revoked" and "expired" alike —
-            # get_by_hash() filters on all three, so a reused/revoked
-            # refresh token is rejected the same way an unknown one is.
-            raise UnauthorizedError("Invalid or expired refresh token")
+        async with self.db.begin():
+            # PostgreSQL row locking makes one active token a one-shot
+            # credential even when requests arrive at the same instant. The
+            # loser waits for this transaction, then observes revoked_at and
+            # is rejected without issuing a second successor.
+            stored = await self.token_repo.get_by_hash_for_update(token_hash)
+            if not stored:
+                raise UnauthorizedError("Invalid or expired refresh token")
 
-        user = await self.user_repo.get_by_id(stored.user_id)
-        if not user or not user.is_active:
-            raise UnauthorizedError("User not found or inactive")
+            user = await self.user_repo.get_by_id(stored.user_id)
+            if not user or not user.is_active:
+                raise UnauthorizedError("User not found or inactive")
 
-        # BE-06: atomic rotation — revoke the old token and persist the new
-        # one in a single commit. Previously these were two separate
-        # commits; a crash between them would revoke the old token without
-        # ever persisting its replacement, silently locking the user out.
-        new_access = create_access_token(user.id, user.company_id)
-        new_refresh = create_refresh_token()
-        expires_at = datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
+            # The token marker identifies which kind of server-issued session
+            # is being rotated. Current privilege and tenant context still
+            # come from the database; removal of superadmin rights therefore
+            # downgrades an HQ session instead of copying stale authority.
+            requested_scope = get_refresh_token_auth_scope(refresh_token)
+            auth_scope = (
+                "hq_admin"
+                if requested_scope == "hq_admin" and user.is_superadmin
+                else "app"
+            )
+            new_access = create_access_token(
+                user.id, user.company_id, auth_scope=auth_scope
+            )
+            new_refresh = create_refresh_token(auth_scope=auth_scope)
+            now = datetime.now(timezone.utc)
+            expires_at = now + timedelta(days=settings.refresh_token_expire_days)
 
-        stored.revoked_at = datetime.now(timezone.utc)
-        self.db.add(RefreshToken(
-            user_id=user.id,
-            token_hash=hash_refresh_token(new_refresh),
-            expires_at=expires_at,
-        ))
-        await self.db.commit()
+            stored.revoked_at = now
+            self.db.add(RefreshToken(
+                user_id=user.id,
+                token_hash=hash_refresh_token(new_refresh),
+                expires_at=expires_at,
+            ))
 
         return new_access, new_refresh
 
-    async def logout(self, user_id: UUID, refresh_token: str | None = None) -> None:
-        """BE-06: scoped by default — pass the session's own refresh_token
-        and only that session is revoked, leaving the user's other logged-in
-        devices untouched. Falls back to revoking every session when no
-        refresh_token is given (backward compatible with callers that
-        predate scoped logout — see logout_all() for an explicit,
-        intentional "sign out everywhere")."""
-        if refresh_token:
-            token_hash = hash_refresh_token(refresh_token)
-            await self.token_repo.revoke_by_hash(token_hash, user_id)
-        else:
-            await self.token_repo.revoke_all_for_user(user_id)
+    async def logout(self, user_id: UUID, refresh_token: str) -> None:
+        """Revoke exactly one token owned by the authenticated user.
+
+        A missing token is a request-validation error at the API boundary;
+        revoking all sessions is available only through logout_all().
+        """
+        token_hash = hash_refresh_token(refresh_token)
+        await self.token_repo.revoke_by_hash(token_hash, user_id)
 
     async def logout_all(self, user_id: UUID) -> None:
         await self.token_repo.revoke_all_for_user(user_id)

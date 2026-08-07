@@ -47,7 +47,7 @@ class LoginRequest(BaseSchema):
 
 
 class RefreshRequest(BaseSchema):
-    refresh_token: str
+    refresh_token: str = Field(..., min_length=1)
 
 
 class PinSetRequest(BaseSchema):
@@ -67,11 +67,14 @@ class PinLoginRequest(BaseSchema):
 
 
 class LogoutRequest(BaseSchema):
-    # BE-06: when given, only THIS session's refresh token is revoked.
-    # Omitted (or a client that sends no body at all) falls back to
-    # revoking every session for the user — kept for backward
-    # compatibility with any caller that predates scoped logout.
-    refresh_token: str | None = None
+    refresh_token: str = Field(..., min_length=1)
+
+    @field_validator("refresh_token")
+    @classmethod
+    def reject_blank_refresh_token(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("refresh_token must not be blank")
+        return value
 
 
 class TokenResponse(BaseSchema):

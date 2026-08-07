@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.modules.auth.models import User
-from app.modules.auth.security import hash_password
+from app.modules.auth.security import decode_token, hash_password
 from tests.conftest import register_company
 
 
@@ -56,6 +57,61 @@ async def test_hq_endpoint_allows_hq_admin_session(client, db_engine):
     headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
     resp = await client.get("/organizations", headers=headers)
     assert resp.status_code == 200
+
+
+async def test_hq_refresh_preserves_hq_session_scope(client, db_engine):
+    email, password = await _create_superadmin(db_engine)
+    login = await client.post("/auth/admin/login", json={"email": email, "password": password})
+
+    refreshed = await client.post(
+        "/auth/refresh", json={"refresh_token": login.json()["refresh_token"]}
+    )
+    assert refreshed.status_code == 200
+    tokens = refreshed.json()
+    assert decode_token(tokens["access_token"])["auth_scope"] == "hq_admin"
+
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+    resp = await client.get("/organizations", headers=headers)
+    assert resp.status_code == 200
+
+
+async def test_regular_superadmin_refresh_does_not_escalate_to_hq(client, db_engine):
+    email, password = await _create_superadmin(db_engine)
+    login = await client.post("/auth/login", json={"email": email, "password": password})
+
+    refreshed = await client.post(
+        "/auth/refresh", json={"refresh_token": login.json()["refresh_token"]}
+    )
+    assert refreshed.status_code == 200
+    tokens = refreshed.json()
+    assert decode_token(tokens["access_token"])["auth_scope"] == "app"
+
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+    resp = await client.get("/organizations", headers=headers)
+    assert resp.status_code == 403
+
+
+async def test_hq_refresh_uses_current_server_privilege_state(client, db_engine):
+    email, password = await _create_superadmin(db_engine)
+    login = await client.post("/auth/admin/login", json={"email": email, "password": password})
+
+    session_factory = async_sessionmaker(db_engine, expire_on_commit=False)
+    async with session_factory() as session:
+        await session.execute(
+            update(User).where(User.email == email).values(is_superadmin=False)
+        )
+        await session.commit()
+
+    refreshed = await client.post(
+        "/auth/refresh", json={"refresh_token": login.json()["refresh_token"]}
+    )
+    assert refreshed.status_code == 200
+    tokens = refreshed.json()
+    assert decode_token(tokens["access_token"])["auth_scope"] == "app"
+
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+    resp = await client.get("/organizations", headers=headers)
+    assert resp.status_code == 403
 
 
 async def test_superadmin_via_regular_login_cannot_reach_hq_endpoint(client, db_engine):

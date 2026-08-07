@@ -105,15 +105,12 @@ async def refresh(data: RefreshRequest, db: AsyncSession = Depends(get_db)):
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
-    data: LogoutRequest | None = None,
+    data: LogoutRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """BE-06: pass {"refresh_token": "..."} to revoke only this session.
-    Called with no body (or an empty one), every session for the user is
-    revoked — see /auth/logout-all for the same behaviour requested
-    explicitly."""
-    await AuthService(db).logout(current_user.id, data.refresh_token if data else None)
+    """Revoke one refresh session; an explicit token is always required."""
+    await AuthService(db).logout(current_user.id, data.refresh_token)
 
 
 @router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)

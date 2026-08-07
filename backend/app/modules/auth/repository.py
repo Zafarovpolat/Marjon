@@ -57,6 +57,19 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
         )
         return result.scalar_one_or_none()
 
+    async def get_by_hash_for_update(self, token_hash: str) -> Optional[RefreshToken]:
+        """Lock one active token until the caller's transaction completes."""
+        result = await self.db.execute(
+            select(RefreshToken)
+            .where(
+                RefreshToken.token_hash == token_hash,
+                RefreshToken.revoked_at == None,
+                RefreshToken.expires_at > datetime.now(timezone.utc),
+            )
+            .with_for_update()
+        )
+        return result.scalar_one_or_none()
+
     async def revoke_all_for_user(self, user_id: UUID) -> None:
         from sqlalchemy import update
         await self.db.execute(
