@@ -1,13 +1,7 @@
 from __future__ import annotations
-from datetime import datetime
-from sqlalchemy import event
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from app.config import settings
 from app.shared.base_model import Base
-
-
-def _register_sqlite_functions(dbapi_conn, connection_record):
-    dbapi_conn.create_function("now", 0, lambda: datetime.utcnow().isoformat())
 
 
 def _make_engine():
@@ -21,6 +15,8 @@ def _make_engine():
         connect_args = {
             "prepared_statement_cache_size": 0,
         }
+        # Enable SSL for remote PostgreSQL (Neon, Supabase, etc.)
+        # Skip SSL only for local Docker (DATABASE_URL contains @db: or @localhost)
         is_local = any(h in url for h in ("@db:", "@localhost", "@127.0.0.1"))
         if not is_local:
             connect_args["ssl"] = "require"
@@ -31,14 +27,10 @@ def _make_engine():
             "pool_pre_ping": True,
         })
     else:
+        # SQLite (dev fallback)
         connect_args = {"check_same_thread": False}
 
-    eng = create_async_engine(url, connect_args=connect_args, **engine_kwargs)
-
-    if not is_postgres:
-        event.listen(eng.sync_engine, "connect", _register_sqlite_functions)
-
-    return eng
+    return create_async_engine(url, connect_args=connect_args, **engine_kwargs)
 
 
 engine = _make_engine()

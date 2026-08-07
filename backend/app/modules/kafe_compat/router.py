@@ -22,7 +22,9 @@ from app.modules.auth.dependencies import get_current_user, require_company_admi
 from app.modules.auth.models import User
 from app.modules.companies.models import Branch, Company
 from app.modules.finance.models import Counterparty, FinTransaction, PaymentType, TransactionCategory
-from app.modules.kafe_compat.models import SupportTicket
+from app.modules.kafe_compat.models import ReceiptTemplateSettings, SupportTicket
+from app.modules.kafe_compat.schemas import ReceiptTemplateUpdate
+from app.shared.exceptions import ConflictError
 from app.modules.pos.models import Order, OrderItem
 from app.modules.subscriptions.models import Invoice, Plan, Subscription
 from app.shared.exceptions import NotFoundError
@@ -46,7 +48,12 @@ async def kafe_list_transactions(
     direction: str | None = Query(None),
     user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db),
 ):
-    q = select(FinTransaction).where(FinTransaction.deleted_at.is_(None))
+    # BE-04: was unfiltered (despite the module docstring claiming
+    # "company-scoped") — every company saw every other company's transactions.
+    q = select(FinTransaction).where(
+        FinTransaction.deleted_at.is_(None),
+        FinTransaction.company_id == user.company_id,
+    )
     if date_from:
         q = q.where(func.date(FinTransaction.date) >= date_from)
     if date_to:
@@ -67,6 +74,7 @@ async def kafe_create_transaction(data: dict, user: User = Depends(get_current_u
         payment_type_id=data.get("payment_type_id"),
         counterparty_id=data.get("counterparty_id"),
         user_id=user.id,
+        company_id=user.company_id,
     )
     db.add(t)
     await db.commit()
@@ -77,7 +85,7 @@ async def kafe_create_transaction(data: dict, user: User = Depends(get_current_u
 @router.patch("/finance/transactions/{tx_id}", tags=["finance-kafe"])
 async def kafe_update_transaction(tx_id: UUID, data: dict, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     t = await db.get(FinTransaction, tx_id)
-    if not t:
+    if not t or t.company_id != user.company_id:
         raise NotFoundError("Transaction not found")
     if data.get("amount") is not None:
         t.amount = abs(float(data["amount"]))
@@ -143,7 +151,7 @@ def _org_dict(c: Company) -> dict:
         "id": c.id, "name": c.name, "slug": c.slug,
         "currency": c.currency, "timezone": c.timezone,
         "country_code": c.country_code, "vat_rate": 12, "service_fee": 0,
-        "logo": None, "address": "", "phone": "",
+        "logo": c.logo_url, "address": c.address or "", "phone": c.phone or "",
     }
 
 
@@ -258,6 +266,72 @@ async def delete_payment_method(item_id: UUID, user: User = Depends(require_comp
     if p:
         await db.delete(p)
         await db.commit()
+
+
+# ── Настройки: шаблоны чеков (customer + kitchen) ────────────────────────────
+async def _get_or_create_receipt_settings(db: AsyncSession, company_id: UUID) -> ReceiptTemplateSettings:
+    row = (
+        await db.execute(select(ReceiptTemplateSettings).where(ReceiptTemplateSettings.company_id == company_id))
+    ).scalar_one_or_none()
+    if row is None:
+        row = ReceiptTemplateSettings(company_id=company_id, customer_template={}, kitchen_template={})
+        db.add(row)
+        await db.flush()
+    return row
+
+
+@router.get("/settings/receipt-template", tags=["settings"])
+async def get_receipt_template(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    row = (
+        await db.execute(select(ReceiptTemplateSettings).where(ReceiptTemplateSettings.company_id == user.company_id))
+    ).scalar_one_or_none()
+    if not row:
+        return {}
+    return {**(row.customer_template or {}), "version": row.customer_version}
+
+
+@router.patch("/settings/receipt-template", tags=["settings"])
+async def update_receipt_template(
+    data: ReceiptTemplateUpdate, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)
+):
+    """BE-11: `version`, if sent, must match the stored version or this
+    409s — the caller read a template that's since been changed by
+    someone else. Omitting version keeps the old last-write-wins
+    behavior (see ReceiptTemplateUpdate's docstring)."""
+    row = await _get_or_create_receipt_settings(db, user.company_id)
+    if data.version is not None and data.version != row.customer_version:
+        raise ConflictError("Шаблон был изменён другим пользователем — обновите страницу и повторите")
+    payload = data.model_dump(exclude={"version"}, exclude_unset=True)
+    row.customer_template = {**(row.customer_template or {}), **payload}
+    row.customer_version += 1
+    await db.commit()
+    await db.refresh(row)
+    return {**(row.customer_template or {}), "version": row.customer_version}
+
+
+@router.get("/settings/kitchen-receipt-template", tags=["settings"])
+async def get_kitchen_receipt_template(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    row = (
+        await db.execute(select(ReceiptTemplateSettings).where(ReceiptTemplateSettings.company_id == user.company_id))
+    ).scalar_one_or_none()
+    if not row:
+        return {}
+    return {**(row.kitchen_template or {}), "version": row.kitchen_version}
+
+
+@router.patch("/settings/kitchen-receipt-template", tags=["settings"])
+async def update_kitchen_receipt_template(
+    data: ReceiptTemplateUpdate, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)
+):
+    row = await _get_or_create_receipt_settings(db, user.company_id)
+    if data.version is not None and data.version != row.kitchen_version:
+        raise ConflictError("Шаблон был изменён другим пользователем — обновите страницу и повторите")
+    payload = data.model_dump(exclude={"version"}, exclude_unset=True)
+    row.kitchen_template = {**(row.kitchen_template or {}), **payload}
+    row.kitchen_version += 1
+    await db.commit()
+    await db.refresh(row)
+    return {**(row.kitchen_template or {}), "version": row.kitchen_version}
 
 
 # ── CRM: контрагенты (клиенты/поставщики) ────────────────────────────────────

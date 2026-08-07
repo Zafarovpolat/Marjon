@@ -11,7 +11,7 @@ from app.modules.admin_reports.schemas import (
     LoginHistoryRow, OrderReportRow, TableReportRow, WaiterReportRow,
 )
 from app.modules.admin_reports.service import AdminReportService, xlsx_response
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import get_current_user, require_hq_admin
 from app.modules.auth.models import User
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -123,35 +123,28 @@ async def cancelled_report(
 
 
 @admin_reports_router.get("/dashboard-kpis")
-async def dashboard_kpis(db: AsyncSession = Depends(get_db)):
+async def dashboard_kpis(
+    _: User = Depends(require_hq_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """BE-02: was completely unauthenticated — leaked platform-wide revenue/
+    org/branch/employee counts across every tenant to anyone with the URL."""
     from sqlalchemy import func, select
-    from app.modules.companies.models import Branch
+    from app.modules.companies.models import Company, Branch
     from app.modules.hr.models import Employee
-    from app.modules.organizations.models import Organization
-    from app.modules.pos.models import Order, PosTerminal
-    from app.modules.subscriptions.models import Subscription
+    from app.modules.pos.models import Order
 
-    orgs = (await db.execute(
-        select(func.count(Organization.id)).where(Organization.deleted_at.is_(None))
-    )).scalar_one()
-    branches = (await db.execute(
-        select(func.count(Branch.id)).where(Branch.is_active.is_(True))
-    )).scalar_one()
+    orgs = (await db.execute(select(func.count(Company.id)))).scalar_one()
+    branches = (await db.execute(select(func.count(Branch.id)))).scalar_one()
     revenue = (await db.execute(
         select(func.coalesce(func.sum(Order.total_amount), 0)).where(Order.status == "completed")
     )).scalar_one()
     employees = (await db.execute(select(func.count(Employee.id)))).scalar_one()
-    subscriptions = (await db.execute(
-        select(func.count(Subscription.id)).where(Subscription.status.in_(("trial", "active")))
-    )).scalar_one()
-    cashboxes = (await db.execute(
-        select(func.count(PosTerminal.id)).where(PosTerminal.is_active.is_(True))
-    )).scalar_one()
     return {
         "organizations": orgs,
         "branches": branches,
         "revenue": float(revenue),
-        "subscriptions": subscriptions,
+        "subscriptions": 0,
         "employees": employees,
-        "cashboxes": cashboxes,
+        "cashboxes": 0,
     }

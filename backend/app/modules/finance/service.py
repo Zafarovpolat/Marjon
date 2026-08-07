@@ -11,13 +11,11 @@ from app.modules.finance.models import (
     FinanceHistory,
     FinanceTemplate,
     FinTransaction,
-    PaymentType,
-    TransactionCategory,
 )
 from app.modules.finance.schemas import PayRequest, TransactionCreate, TransactionUpdate
 from app.modules.organizations.models import Organization
-from app.shared.admin_crud import CRUDService, OrgScope
-from app.shared.exceptions import ForbiddenError, NotFoundError, ValidationError
+from app.shared.admin_crud import CRUDService
+from app.shared.exceptions import NotFoundError
 from pydantic_core import to_jsonable_python
 
 
@@ -30,34 +28,6 @@ class TransactionService(CRUDService[FinTransaction]):
     @staticmethod
     def _delta(direction: str, amount: Decimal) -> Decimal:
         return amount if direction == "income" else -amount
-
-    @staticmethod
-    def _assert_organization_allowed(
-        organization_id: UUID | None,
-        org_scope: OrgScope = None,
-    ) -> None:
-        if org_scope is None or organization_id is None:
-            return
-        if organization_id not in org_scope:
-            raise ForbiddenError("Organization access denied")
-
-    async def _validate_references(
-        self,
-        *,
-        direction: str,
-        payment_type_id: UUID | None = None,
-        category_id: UUID | None = None,
-    ) -> None:
-        if payment_type_id:
-            payment_type = await self.db.get(PaymentType, payment_type_id)
-            if payment_type is None or payment_type.status is False:
-                raise NotFoundError("Payment type not found")
-        if category_id:
-            category = await self.db.get(TransactionCategory, category_id)
-            if category is None or category.status is False:
-                raise NotFoundError("Transaction category not found")
-            if category.kind != direction:
-                raise ValidationError("Transaction category does not match operation type")
 
     async def _locked_counterparty(self, counterparty_id: UUID) -> Counterparty:
         cp = (
@@ -101,7 +71,6 @@ class TransactionService(CRUDService[FinTransaction]):
         data: TransactionCreate,
         user_id: UUID,
         idempotency_key: str | None = None,
-        org_scope: OrgScope = None,
     ) -> FinTransaction:
         if idempotency_key:
             existing = (
@@ -114,12 +83,6 @@ class TransactionService(CRUDService[FinTransaction]):
             if existing:
                 return existing
 
-        self._assert_organization_allowed(data.organization_id, org_scope)
-        await self._validate_references(
-            direction=data.direction,
-            payment_type_id=data.payment_type_id,
-            category_id=data.category_id,
-        )
         tx = FinTransaction(
             **data.model_dump(exclude_unset=True),
             user_id=user_id,
@@ -188,11 +151,7 @@ class TransactionService(CRUDService[FinTransaction]):
         await self.db.commit()
 
     async def pay(
-        self,
-        data: PayRequest,
-        user_id: UUID,
-        idempotency_key: str | None = None,
-        org_scope: OrgScope = None,
+        self, data: PayRequest, user_id: UUID, idempotency_key: str | None = None
     ) -> list[FinTransaction]:
         """Разбивка оплаты: несколько транзакций одной операцией (ТЗ §6)."""
         if idempotency_key:
@@ -205,14 +164,6 @@ class TransactionService(CRUDService[FinTransaction]):
             ).scalars().all()
             if existing:
                 return list(existing)
-
-        self._assert_organization_allowed(data.organization_id, org_scope)
-        for item in data.items:
-            await self._validate_references(
-                direction=data.direction,
-                payment_type_id=item.payment_type_id,
-                category_id=item.category_id,
-            )
 
         if data.save_as_template:
             self.db.add(FinanceTemplate(

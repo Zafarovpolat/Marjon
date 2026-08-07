@@ -46,12 +46,32 @@ class LoginRequest(BaseSchema):
     password: str
 
 
-class PinLoginRequest(BaseSchema):
-    pin: str = Field(..., min_length=4, max_length=8, pattern=r"^\d+$")
-
-
 class RefreshRequest(BaseSchema):
     refresh_token: str
+
+
+class PinSetRequest(BaseSchema):
+    pin: str = Field(..., min_length=4, max_length=8)
+
+    @field_validator("pin")
+    @classmethod
+    def check_pin(cls, v: str) -> str:
+        if not re.fullmatch(r"\d{4,8}", v):
+            raise ValueError("PIN должен состоять из 4-8 цифр")
+        return v
+
+
+class PinLoginRequest(BaseSchema):
+    employee_id: UUID
+    pin: str = Field(..., min_length=4, max_length=8)
+
+
+class LogoutRequest(BaseSchema):
+    # BE-06: when given, only THIS session's refresh token is revoked.
+    # Omitted (or a client that sends no body at all) falls back to
+    # revoking every session for the user — kept for backward
+    # compatibility with any caller that predates scoped logout.
+    refresh_token: str | None = None
 
 
 class TokenResponse(BaseSchema):
@@ -68,6 +88,27 @@ class UserResponse(BaseResponseSchema):
     is_superadmin: bool
     company_id: UUID | None
     role_slugs: list[str] = Field(default_factory=list)
+    avatar_url: str | None = None
+    auth_scope: str = "app"  # "app" | "hq_admin" — BE-01, set per-session, not persisted
+
+
+class CompanyUserUpdate(BaseSchema):
+    name: str | None = None
+    email: EmailStr | None = None
+    phone: str | None = None
+    password: str | None = None
+    role_slug: str | None = None
+    # BE-07: was missing entirely — a deactivated employee (DELETE
+    # /auth/users/{id} soft-deactivates, doesn't hard-delete) had no way to
+    # be reactivated through the API.
+    is_active: bool | None = None
+
+    @field_validator("password")
+    @classmethod
+    def check_password(cls, v: str | None) -> str | None:
+        if v is not None:
+            return _validate_password(v)
+        return v
 
 
 class CompanyUserResponse(UserResponse):

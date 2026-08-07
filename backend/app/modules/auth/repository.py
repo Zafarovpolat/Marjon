@@ -27,23 +27,20 @@ class UserRepository(BaseRepository[User]):
         )
         return result.scalar_one_or_none()
 
+    async def get_by_phone(self, phone: str) -> Optional[User]:
+        result = await self.db.execute(select(User).where(User.phone == phone))
+        return result.scalar_one_or_none()
+
     async def get_company_users(self, company_id: UUID) -> list[User]:
+        # BE-07: was filtered to is_active == True, which made a deactivated
+        # employee (DELETE /auth/users/{id} soft-deactivates) permanently
+        # invisible to the staff list — with no way to find them again to
+        # flip is_active back on. Now returns everyone; the response's
+        # is_active field lets the frontend badge/filter as it likes.
         result = await self.db.execute(
             select(User).where(User.company_id == company_id)
         )
         return list(result.scalars().all())
-
-    async def get_by_pin(self, company_id: UUID, pin: str) -> Optional[User]:
-        """PIN-вход сотрудника: поиск активного пользователя по PIN в рамках company.
-        PIN уникален только внутри организации, поэтому scope по company_id обязателен."""
-        result = await self.db.execute(
-            select(User).where(
-                User.company_id == company_id,
-                User.pin_code == pin,
-                User.is_active == True,  # noqa: E712
-            ).limit(1)
-        )
-        return result.scalar_one_or_none()
 
 
 class RefreshTokenRepository(BaseRepository[RefreshToken]):
@@ -68,3 +65,21 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
             .values(revoked_at=datetime.now(timezone.utc))
         )
         await self.db.commit()
+
+    async def revoke_by_hash(self, token_hash: str, user_id: UUID) -> bool:
+        """BE-06: revoke exactly one session's refresh token. Scoped to
+        `user_id` so a token can never be used to revoke someone else's
+        session even if a hash collision were somehow guessed. Returns
+        whether an active token was found and revoked."""
+        from sqlalchemy import update
+        result = await self.db.execute(
+            update(RefreshToken)
+            .where(
+                RefreshToken.token_hash == token_hash,
+                RefreshToken.user_id == user_id,
+                RefreshToken.revoked_at == None,
+            )
+            .values(revoked_at=datetime.now(timezone.utc))
+        )
+        await self.db.commit()
+        return result.rowcount > 0

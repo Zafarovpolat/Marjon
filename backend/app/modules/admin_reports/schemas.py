@@ -53,10 +53,6 @@ class CancelledItemRow(BaseModel):
     price: Decimal
     waiter_name: str | None
     unit: str
-    order_type: str | None = None
-    comment: str | None = None
-    author: str | None = None
-    station: str | None = None
 
 
 class LoginHistoryRow(BaseModel):

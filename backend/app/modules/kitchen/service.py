@@ -73,11 +73,15 @@ class KitchenService:
         await self.db.commit()
         await self.db.refresh(item)
         try:
-            await kitchen_manager.broadcast(company_id, "item_status_changed", {
-                "order_item_id": str(item.id),
-                "order_id": str(item.order_id),
-                "status": target,
-            })
+            # Reload branch_id from the parent order for scoped broadcast
+            order_result = await self.db.execute(
+                select(Order.branch_id).where(Order.id == item.order_id)
+            )
+            branch_id = order_result.scalar_one()
+            await kitchen_manager.broadcast(
+                company_id, branch_id, "item_status_changed",
+                {"order_item_id": str(item.id), "order_id": str(item.order_id), "status": target},
+            )
         except Exception:
             pass
         return item
