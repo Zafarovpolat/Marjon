@@ -1,4 +1,6 @@
-from __future__ import annotations
+# SlowAPI registers a wrapper whose global namespace is ``slowapi.extension``.
+# Keep endpoint annotations runtime-evaluated in this module so FastAPI sees
+# the concrete OrderCreate body after ``@limiter.limit`` wraps the function.
 from datetime import date
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request, status

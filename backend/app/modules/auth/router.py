@@ -1,4 +1,6 @@
-from __future__ import annotations
+# SlowAPI registers a wrapper whose global namespace is ``slowapi.extension``.
+# Keep endpoint annotations runtime-evaluated in this module so FastAPI sees
+# concrete request models after ``@limiter.limit`` wraps the function.
 from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, Request, status, UploadFile
 from fastapi.security import OAuth2PasswordRequestForm
