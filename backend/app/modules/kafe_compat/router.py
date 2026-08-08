@@ -13,7 +13,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Header, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +22,7 @@ from app.modules.auth.dependencies import get_current_user, require_company_admi
 from app.modules.auth.models import User
 from app.modules.companies.models import Branch, Company
 from app.modules.finance.models import Counterparty, FinTransaction, PaymentType, TransactionCategory
+from app.modules.finance.service import TransactionService
 from app.modules.kafe_compat.models import ReceiptTemplateSettings, SupportTicket
 from app.modules.kafe_compat.schemas import ReceiptTemplateUpdate
 from app.shared.exceptions import ConflictError
@@ -65,21 +66,19 @@ async def kafe_list_transactions(
 
 
 @router.post("/finance/transactions", status_code=status.HTTP_201_CREATED, tags=["finance-kafe"])
-async def kafe_create_transaction(data: dict, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    t = FinTransaction(
-        amount=abs(float(data.get("amount") or 0)),
-        direction=data.get("direction") or "income",
-        comment=data.get("comment"),
-        category_id=data.get("category_id"),
-        payment_type_id=data.get("payment_type_id"),
-        counterparty_id=data.get("counterparty_id"),
-        user_id=user.id,
-        company_id=user.company_id,
+async def kafe_create_transaction(
+    data: dict,
+    idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    transaction = await TransactionService(db).create_company_transaction(
+        data,
+        user.id,
+        user.company_id,
+        idempotency_key,
     )
-    db.add(t)
-    await db.commit()
-    await db.refresh(t)
-    return _tx_dict(t)
+    return _tx_dict(transaction)
 
 
 @router.patch("/finance/transactions/{tx_id}", tags=["finance-kafe"])

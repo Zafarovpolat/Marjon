@@ -1,7 +1,16 @@
 from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Uuid
 from app.shared.base_model import SoftDeleteMixin, TimeStampedModel
@@ -71,6 +80,34 @@ class FinTransaction(TimeStampedModel, SoftDeleteMixin):
     idempotency_key: Mapped[str | None] = mapped_column(String(128), index=True)
 
     counterparty: Mapped[Counterparty | None] = relationship()
+
+
+class FinancialOperation(TimeStampedModel):
+    """Durable idempotency reservation for money-changing operations."""
+
+    __tablename__ = "financial_operations"
+    __table_args__ = (
+        UniqueConstraint(
+            "scope_kind",
+            "scope_id",
+            "operation_type",
+            "idempotency_key",
+            name="uq_financial_operations_scope_operation_key",
+        ),
+    )
+
+    # Polymorphic tenant boundary: company for app/POS operations and
+    # organization for HQ finance operations. The application derives and
+    # authorizes this scope; it is never accepted as a free-form API field.
+    scope_kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    scope_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    operation_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="processing"
+    )
+    result_metadata: Mapped[dict | None] = mapped_column(JsonType)
 
 
 class FinanceTemplate(TimeStampedModel):

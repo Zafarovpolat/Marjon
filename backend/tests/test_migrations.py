@@ -27,7 +27,7 @@ from app.shared.base_model import Base
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 VERSIONS_DIR = BACKEND_ROOT / "migrations" / "versions"
-EXPECTED_HEAD = "bi02idx18"
+EXPECTED_HEAD = "bi05bfin19"
 EXPECTED_NULLABLE_COLUMN_COUNT = 262
 EXPECTED_PARITY_OPERATIONS = {"remove_index", "remove_table_comment"}
 FIXTURES_DIR = BACKEND_ROOT / "tests" / "fixtures"
@@ -136,7 +136,7 @@ def test_revision_graph_is_linear_complete_and_has_one_head() -> None:
         visited.add(cursor)
         cursor = revisions[cursor][0]
     assert visited == set(revisions)
-    assert len(revisions) == 39
+    assert len(revisions) == 40
 
     nullable_columns = _bi02_nullable_columns()
     assert len(nullable_columns) == EXPECTED_NULLABLE_COLUMN_COUNT
@@ -907,6 +907,13 @@ def test_postgresql_fresh_upgrade_timing_downgrade_and_second_fresh() -> None:
 
         _run_alembic(first_url, "downgrade", "-1")
         assert asyncio.run(_current_revision(first_url)) != EXPECTED_HEAD
+        assert asyncio.run(
+            _index_exists(first_url, "ix_attendance_logs_shift_id")
+        )
+        assert asyncio.run(
+            _column_exists(first_url, "ingredients", "supplier_name")
+        )
+        _run_alembic(first_url, "downgrade", "-1")
         assert not asyncio.run(
             _index_exists(first_url, "ix_attendance_logs_shift_id")
         )
@@ -1109,6 +1116,16 @@ def test_postgresql_concurrent_index_recovery_and_idempotency(
         finally:
             await connection.close()
 
+    async def remove_stamped_new_head_table(database_url: str) -> None:
+        """Undo schema leaked intentionally by the attendance stamp test."""
+        connection = await _connect(make_url(database_url))
+        try:
+            await connection.execute(
+                "DROP TABLE IF EXISTS financial_operations"
+            )
+        finally:
+            await connection.close()
+
     _run_alembic(valid_url, "upgrade", "bi02wh17")
     asyncio.run(remove_historical_index(valid_url))
     assert not asyncio.run(
@@ -1122,13 +1139,14 @@ def test_postgresql_concurrent_index_recovery_and_idempotency(
 
     _run_alembic(valid_url, "stamp", "bi02wh17")
     original_oid = valid_state["index_oid"]
-    _run_alembic(valid_url, "upgrade", "head")
+    _run_alembic(valid_url, "upgrade", "bi02idx18")
     no_op_state = asyncio.run(
         _index_state(valid_url, "ix_attendance_logs_shift_id")
     )
     _assert_valid_attendance_index(no_op_state)
     assert no_op_state["index_oid"] == original_oid
 
+    asyncio.run(remove_stamped_new_head_table(valid_url))
     _run_alembic(valid_url, "downgrade", "bi02wh17")
     assert not asyncio.run(
         _index_exists(valid_url, "ix_attendance_logs_shift_id")

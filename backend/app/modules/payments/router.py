@@ -1,6 +1,6 @@
 ﻿from __future__ import annotations
 from uuid import UUID
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Header, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.session import get_db
@@ -19,10 +19,13 @@ router = APIRouter(prefix="/payments", tags=["payments"])
 @router.post("", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
 async def process_payment(
     data: PaymentCreate,
+    idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await PaymentService(db).process(user.company_id, user.id, data)
+    return await PaymentService(db).process(
+        user.company_id, user.id, data, idempotency_key
+    )
 
 
 @router.get("/order/{order_id}", response_model=list[PaymentResponse])

@@ -1,5 +1,6 @@
 from __future__ import annotations
 from decimal import Decimal
+import hashlib
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
@@ -9,8 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.infrastructure.database.session import get_db
+from app.modules.finance.idempotency import (
+    OP_PAYMENT_WEBHOOK_CONFIRM,
+    SCOPE_COMPANY,
+    FinancialOperationService,
+    request_fingerprint,
+)
 from app.modules.payments.models import Payment
-from app.modules.payments.repository import PaymentRepository
 from app.modules.pos.models import Order
 from app.modules.kitchen.websocket import kitchen_manager
 
@@ -51,14 +57,52 @@ class PaymentWebhookIn(BaseModel):
 @router.post("/payment-webhook", dependencies=[Depends(verify_secret)],
              status_code=status.HTTP_200_OK)
 async def payment_webhook(data: PaymentWebhookIn, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Order).where(Order.id == data.order_id))
+    result = await db.execute(
+        select(Order).where(Order.id == data.order_id).with_for_update()
+    )
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
     if data.action == "confirm":
+        claim = await FinancialOperationService(db).claim(
+            scope_kind=SCOPE_COMPANY,
+            scope_id=order.company_id,
+            operation_type=OP_PAYMENT_WEBHOOK_CONFIRM,
+            # Gateway identifiers may exceed the public 128-char header
+            # contract; hash them without logging or truncation collisions.
+            idempotency_key=hashlib.sha256(
+                data.gateway_tx_id.encode("utf-8")
+            ).hexdigest(),
+            fingerprint=request_fingerprint(data),
+        )
+        if not claim.is_new:
+            await db.commit()
+            return {"ok": True}
+
         if order.status == "completed":
-            # Idempotent — already confirmed, just return ok
+            FinancialOperationService.complete(
+                claim.operation,
+                {"order_id": str(order.id), "already_completed": True},
+            )
+            await db.commit()
+            return {"ok": True}
+
+        completed_payment_id = await db.scalar(
+            select(Payment.id)
+            .where(
+                Payment.company_id == order.company_id,
+                Payment.order_id == order.id,
+                Payment.status == "completed",
+            )
+            .limit(1)
+        )
+        if completed_payment_id is not None:
+            FinancialOperationService.complete(
+                claim.operation,
+                {"order_id": str(order.id), "already_completed": True},
+            )
+            await db.commit()
             return {"ok": True}
 
         payment = Payment(
@@ -69,11 +113,14 @@ async def payment_webhook(data: PaymentWebhookIn, db: AsyncSession = Depends(get
             status="completed",
             fiscal_code=data.gateway_tx_id,
         )
-        repo = PaymentRepository(db)
-        await repo.save(payment)
-
+        db.add(payment)
         order.status = "completed"
         db.add(order)
+        await db.flush()
+        FinancialOperationService.complete(
+            claim.operation,
+            {"order_id": str(order.id), "payment_id": str(payment.id)},
+        )
         await db.commit()
 
         try:

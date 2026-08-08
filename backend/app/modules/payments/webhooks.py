@@ -27,6 +27,54 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/payments/webhooks", tags=["payment-webhooks"])
 
 
+async def _lock_order_then_payment(
+    db: AsyncSession,
+    payment: Payment,
+) -> tuple[Order | None, Payment | None]:
+    """Use the same lock order as PaymentService for every completion path."""
+
+    order = (
+        await db.execute(
+            select(Order)
+            .where(
+                Order.id == payment.order_id,
+                Order.company_id == payment.company_id,
+            )
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    locked_payment = (
+        await db.execute(
+            select(Payment)
+            .where(
+                Payment.id == payment.id,
+                Payment.company_id == payment.company_id,
+                Payment.order_id == payment.order_id,
+            )
+            .execution_options(populate_existing=True)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    return order, locked_payment
+
+
+async def _has_other_completed_payment(
+    db: AsyncSession,
+    payment: Payment,
+) -> bool:
+    payment_id = await db.scalar(
+        select(Payment.id)
+        .where(
+            Payment.company_id == payment.company_id,
+            Payment.order_id == payment.order_id,
+            Payment.status == "completed",
+            Payment.id != payment.id,
+        )
+        .limit(1)
+    )
+    return payment_id is not None
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Click (2-фазный, form data: action=0 prepare, action=1 complete)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -82,22 +130,46 @@ async def click_webhook(request: Request, db: AsyncSession = Depends(get_db)):
 
     if action == "1":
         if str(error) != "0":
+            payment = (
+                await db.execute(
+                    select(Payment)
+                    .where(Payment.id == payment_id)
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            if payment is None:
+                return {"error": -5, "error_note": "Payment not found"}
             payment.status = "failed"
             payment.provider_data = {**payment.provider_data, "click_error": error}
             db.add(payment)
             await db.commit()
             return {"error": -9, "error_note": f"Transaction cancelled by Click (error={error})"}
 
+        order, payment = await _lock_order_then_payment(db, payment)
+        if order is None or payment is None:
+            return {"error": -5, "error_note": "Payment not found"}
+        if payment.status == "completed":
+            await db.commit()
+            return {
+                "click_trans_id": int(click_trans_id),
+                "merchant_trans_id": merchant_trans_id,
+                "merchant_confirm_id": str(payment.id),
+                "error": 0,
+                "error_note": "Success",
+            }
+        if order.status == "completed" or await _has_other_completed_payment(
+            db, payment
+        ):
+            await db.commit()
+            return {"error": -4, "error_note": "Already completed"}
+
         payment.status = "completed"
         payment.provider_tx_id = str(click_trans_id)
         payment.provider_data = {**payment.provider_data, "click_trans_id": click_trans_id, "sign_time": sign_time}
         db.add(payment)
 
-        order_result = await db.execute(select(Order).where(Order.id == payment.order_id))
-        order = order_result.scalar_one_or_none()
-        if order and order.status != "completed":
-            order.status = "completed"
-            db.add(order)
+        order.status = "completed"
+        db.add(order)
 
         await db.commit()
         logger.info("Click: payment %s completed, click_trans_id=%s", payment.id, click_trans_id)
@@ -195,7 +267,9 @@ async def payme_webhook(
         except (ValueError, TypeError):
             return _payme_error(rpc_id, "OrderNotFound")
 
-        result = await db.execute(select(Payment).where(Payment.id == pid))
+        result = await db.execute(
+            select(Payment).where(Payment.id == pid).with_for_update()
+        )
         payment = result.scalar_one_or_none()
         if not payment:
             return _payme_error(rpc_id, "OrderNotFound")
@@ -229,24 +303,30 @@ async def payme_webhook(
         if not payment:
             return _payme_error(rpc_id, "TransactionNotFound")
 
+        order, payment = await _lock_order_then_payment(db, payment)
+        if order is None or payment is None:
+            return _payme_error(rpc_id, "TransactionNotFound")
         if payment.status == "completed":
             perform_time = payment.provider_data.get("perform_time", int(datetime.now(timezone.utc).timestamp() * 1000))
+            await db.commit()
             return _payme_result(rpc_id, {
                 "transaction": str(payment.id),
                 "perform_time": perform_time,
                 "state": 2,
             })
+        if order.status == "completed" or await _has_other_completed_payment(
+            db, payment
+        ):
+            await db.commit()
+            return _payme_error(rpc_id, "AlreadyDone")
 
         payment.status = "completed"
         perform_time = int(datetime.now(timezone.utc).timestamp() * 1000)
         payment.provider_data = {**payment.provider_data, "payme_state": 2, "perform_time": perform_time}
         db.add(payment)
 
-        order_result = await db.execute(select(Order).where(Order.id == payment.order_id))
-        order = order_result.scalar_one_or_none()
-        if order and order.status != "completed":
-            order.status = "completed"
-            db.add(order)
+        order.status = "completed"
+        db.add(order)
 
         await db.commit()
         logger.info("Payme: payment %s completed, payme_id=%s", payment.id, payme_id)
@@ -262,7 +342,9 @@ async def payme_webhook(
         reason = params.get("reason", 0)
 
         result = await db.execute(
-            select(Payment).where(Payment.provider_tx_id == payme_id)
+            select(Payment)
+            .where(Payment.provider_tx_id == payme_id)
+            .with_for_update()
         )
         payment = result.scalar_one_or_none()
         if not payment:
@@ -359,21 +441,39 @@ async def uzum_webhook(
         return {"status": "error", "message": "Payment not found"}
 
     if event == "payment.success" or status_val == "success":
+        order, payment = await _lock_order_then_payment(db, payment)
+        if order is None or payment is None:
+            return {"status": "error", "message": "Payment not found"}
+        if payment.status == "completed":
+            await db.commit()
+            return {"status": "ok"}
+        if order.status == "completed" or await _has_other_completed_payment(
+            db, payment
+        ):
+            await db.commit()
+            return {"status": "error", "message": "Order already completed"}
+
         payment.status = "completed"
         payment.provider_tx_id = str(uzum_trans_id)
         payment.provider_data = {**payment.provider_data, "uzum_trans_id": uzum_trans_id, "uzum_event": event}
         db.add(payment)
 
-        order_result = await db.execute(select(Order).where(Order.id == payment.order_id))
-        order = order_result.scalar_one_or_none()
-        if order and order.status != "completed":
-            order.status = "completed"
-            db.add(order)
+        order.status = "completed"
+        db.add(order)
 
         await db.commit()
         logger.info("Uzum: payment %s completed, trans_id=%s", payment.id, uzum_trans_id)
 
     elif event == "payment.cancelled" or status_val == "cancelled":
+        payment = (
+            await db.execute(
+                select(Payment)
+                .where(Payment.id == payment_id)
+                .with_for_update()
+            )
+        ).scalar_one_or_none()
+        if payment is None:
+            return {"status": "error", "message": "Payment not found"}
         payment.status = "failed"
         payment.provider_data = {**payment.provider_data, "uzum_event": event}
         db.add(payment)

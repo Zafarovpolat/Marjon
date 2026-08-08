@@ -6,16 +6,26 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.finance.idempotency import (
+    OP_COMPANY_FINANCE_CREATE,
+    OP_FINANCE_CREATE,
+    OP_FINANCE_PAY,
+    SCOPE_COMPANY,
+    SCOPE_ORGANIZATION,
+    FinancialOperationService,
+    request_fingerprint,
+)
 from app.modules.finance.models import (
     Counterparty,
     FinanceHistory,
     FinanceTemplate,
     FinTransaction,
+    FinancialOperation,
 )
 from app.modules.finance.schemas import PayRequest, TransactionCreate, TransactionUpdate
 from app.modules.organizations.models import Organization
-from app.shared.admin_crud import CRUDService
-from app.shared.exceptions import NotFoundError
+from app.shared.admin_crud import CRUDService, OrgScope
+from app.shared.exceptions import ConflictError, NotFoundError, ValidationError
 from pydantic_core import to_jsonable_python
 
 
@@ -28,6 +38,50 @@ class TransactionService(CRUDService[FinTransaction]):
     @staticmethod
     def _delta(direction: str, amount: Decimal) -> Decimal:
         return amount if direction == "income" else -amount
+
+    @staticmethod
+    def _authorize_organization(
+        organization_id: UUID | None,
+        org_scope: OrgScope,
+    ) -> None:
+        if org_scope is not None and organization_id not in org_scope:
+            # Fail closed without disclosing whether an out-of-scope
+            # organization exists.
+            raise NotFoundError("FinTransaction organization not found")
+
+    async def _operation_transactions(
+        self,
+        operation: FinancialOperation,
+        *,
+        organization_id: UUID | None = None,
+        company_id: UUID | None = None,
+    ) -> list[FinTransaction]:
+        metadata = operation.result_metadata or {}
+        try:
+            transaction_ids = [
+                UUID(value) for value in metadata["transaction_ids"]
+            ]
+        except (KeyError, TypeError, ValueError):
+            raise ConflictError("Stored idempotency result is unavailable")
+        if not transaction_ids:
+            raise ConflictError("Stored idempotency result is unavailable")
+
+        query = select(FinTransaction).where(
+            FinTransaction.id.in_(transaction_ids),
+            FinTransaction.deleted_at.is_(None),
+        )
+        if organization_id is not None:
+            query = query.where(
+                FinTransaction.organization_id == organization_id
+            )
+        if company_id is not None:
+            query = query.where(FinTransaction.company_id == company_id)
+        rows = (await self.db.execute(query)).scalars().all()
+        by_id = {row.id: row for row in rows}
+        try:
+            return [by_id[transaction_id] for transaction_id in transaction_ids]
+        except KeyError:
+            raise ConflictError("Stored idempotency result is unavailable")
 
     async def _locked_counterparty(self, counterparty_id: UUID) -> Counterparty:
         cp = (
@@ -71,17 +125,29 @@ class TransactionService(CRUDService[FinTransaction]):
         data: TransactionCreate,
         user_id: UUID,
         idempotency_key: str | None = None,
+        org_scope: OrgScope = None,
     ) -> FinTransaction:
-        if idempotency_key:
-            existing = (
-                await self.db.execute(
-                    select(FinTransaction).where(
-                        FinTransaction.idempotency_key == idempotency_key
-                    )
+        self._authorize_organization(data.organization_id, org_scope)
+        operation = None
+        if idempotency_key is not None:
+            if data.organization_id is None:
+                raise ValidationError(
+                    "organization_id is required when Idempotency-Key is used"
                 )
-            ).scalars().first()
-            if existing:
-                return existing
+            claim = await FinancialOperationService(self.db).claim(
+                scope_kind=SCOPE_ORGANIZATION,
+                scope_id=data.organization_id,
+                operation_type=OP_FINANCE_CREATE,
+                idempotency_key=idempotency_key,
+                fingerprint=request_fingerprint(data),
+            )
+            operation = claim.operation
+            if not claim.is_new:
+                transactions = await self._operation_transactions(
+                    operation, organization_id=data.organization_id
+                )
+                await self.db.commit()
+                return transactions[0]
 
         tx = FinTransaction(
             **data.model_dump(exclude_unset=True),
@@ -94,9 +160,64 @@ class TransactionService(CRUDService[FinTransaction]):
         await self._apply_balance(
             tx.counterparty_id, tx.organization_id, self._delta(tx.direction, data.amount)
         )
+        await self.db.flush()
+        if operation is not None:
+            FinancialOperationService.complete(
+                operation, {"transaction_ids": [str(tx.id)]}
+            )
         await self.db.commit()
         await self.db.refresh(tx)
         return tx
+
+    async def create_company_transaction(
+        self,
+        data: dict,
+        user_id: UUID,
+        company_id: UUID,
+        idempotency_key: str | None = None,
+    ) -> FinTransaction:
+        """Preserve the kafe compatibility payload while adding safe replay."""
+
+        normalized = {
+            "amount": abs(float(data.get("amount") or 0)),
+            "direction": data.get("direction") or "income",
+            "comment": data.get("comment"),
+            "category_id": data.get("category_id"),
+            "payment_type_id": data.get("payment_type_id"),
+            "counterparty_id": data.get("counterparty_id"),
+        }
+        operation = None
+        if idempotency_key is not None:
+            claim = await FinancialOperationService(self.db).claim(
+                scope_kind=SCOPE_COMPANY,
+                scope_id=company_id,
+                operation_type=OP_COMPANY_FINANCE_CREATE,
+                idempotency_key=idempotency_key,
+                fingerprint=request_fingerprint(normalized),
+            )
+            operation = claim.operation
+            if not claim.is_new:
+                transactions = await self._operation_transactions(
+                    operation, company_id=company_id
+                )
+                await self.db.commit()
+                return transactions[0]
+
+        transaction = FinTransaction(
+            **normalized,
+            user_id=user_id,
+            company_id=company_id,
+            idempotency_key=idempotency_key,
+        )
+        self.db.add(transaction)
+        await self.db.flush()
+        if operation is not None:
+            FinancialOperationService.complete(
+                operation, {"transaction_ids": [str(transaction.id)]}
+            )
+        await self.db.commit()
+        await self.db.refresh(transaction)
+        return transaction
 
     async def update_transaction(
         self, tx_id: UUID, data: TransactionUpdate, user_id: UUID
@@ -151,19 +272,34 @@ class TransactionService(CRUDService[FinTransaction]):
         await self.db.commit()
 
     async def pay(
-        self, data: PayRequest, user_id: UUID, idempotency_key: str | None = None
+        self,
+        data: PayRequest,
+        user_id: UUID,
+        idempotency_key: str | None = None,
+        org_scope: OrgScope = None,
     ) -> list[FinTransaction]:
         """Разбивка оплаты: несколько транзакций одной операцией (ТЗ §6)."""
-        if idempotency_key:
-            existing = (
-                await self.db.execute(
-                    select(FinTransaction).where(
-                        FinTransaction.idempotency_key == idempotency_key
-                    )
+        self._authorize_organization(data.organization_id, org_scope)
+        operation = None
+        if idempotency_key is not None:
+            if data.organization_id is None:
+                raise ValidationError(
+                    "organization_id is required when Idempotency-Key is used"
                 )
-            ).scalars().all()
-            if existing:
-                return list(existing)
+            claim = await FinancialOperationService(self.db).claim(
+                scope_kind=SCOPE_ORGANIZATION,
+                scope_id=data.organization_id,
+                operation_type=OP_FINANCE_PAY,
+                idempotency_key=idempotency_key,
+                fingerprint=request_fingerprint(data),
+            )
+            operation = claim.operation
+            if not claim.is_new:
+                transactions = await self._operation_transactions(
+                    operation, organization_id=data.organization_id
+                )
+                await self.db.commit()
+                return transactions
 
         if data.save_as_template:
             self.db.add(FinanceTemplate(
@@ -192,6 +328,12 @@ class TransactionService(CRUDService[FinTransaction]):
                 self._delta(data.direction, item.amount),
             )
             transactions.append(tx)
+        await self.db.flush()
+        if operation is not None:
+            FinancialOperationService.complete(
+                operation,
+                {"transaction_ids": [str(tx.id) for tx in transactions]},
+            )
         await self.db.commit()
         for tx in transactions:
             await self.db.refresh(tx)
