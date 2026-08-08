@@ -12,8 +12,9 @@ from sqlalchemy.orm import selectinload
 from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User
+from app.modules.companies.models import Branch
 from app.modules.rbac.dependencies import require_permission
-from app.modules.inventory.models import StockItem, StockMovement, Warehouse
+from app.modules.inventory.models import Ingredient, StockItem, StockMovement, Warehouse
 from app.modules.inventory.warehouse_models import (
     PurchaseDocument, PurchaseDocumentItem,
     TransferDocument, InventoryCheck, WriteOffDocument,
@@ -26,6 +27,7 @@ from app.modules.inventory.warehouse_schemas import (
     WriteOffCreate, WriteOffResponse,
 )
 from app.shared.exceptions import NotFoundError
+from app.shared.tenant_scope import require_company_resource, require_company_resource_ids
 
 router = APIRouter(prefix="/warehouse", tags=["warehouse"])
 
@@ -73,6 +75,9 @@ async def create_warehouse(
     user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_company_resource(
+        db, Branch, data.branch_id, user.company_id, detail="Branch not found"
+    )
     wh = Warehouse(company_id=user.company_id, **data.model_dump())
     db.add(wh)
     await db.commit()
@@ -132,6 +137,16 @@ async def create_purchase(
     user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_company_resource(
+        db, Warehouse, data.warehouse_id, user.company_id, detail="Warehouse not found"
+    )
+    await require_company_resource_ids(
+        db,
+        Ingredient,
+        (item.ingredient_id for item in data.items),
+        user.company_id,
+        detail="Ingredient not found",
+    )
     number = await _next_doc_number(db, user.company_id, PurchaseDocument)
     now = _now()
     total = sum(item.quantity * item.cost_price for item in data.items)
@@ -193,10 +208,24 @@ async def update_purchase(
     if not doc:
         raise NotFoundError("Purchase document not found")
 
+    await require_company_resource(
+        db, Warehouse, data.warehouse_id, user.company_id, detail="Warehouse not found"
+    )
+
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(doc, field, value)
 
     if data.status == "accepted" and not doc.accepted_at:
+        await require_company_resource(
+            db, Warehouse, doc.warehouse_id, user.company_id, detail="Warehouse not found"
+        )
+        await require_company_resource_ids(
+            db,
+            Ingredient,
+            (item.ingredient_id for item in doc.items),
+            user.company_id,
+            detail="Ingredient not found",
+        )
         # BE-18: accepting a purchase previously had ZERO effect on stock —
         # this just stamped a timestamp. The entire "purchases" document
         # trail was disconnected from real inventory levels; StockItem
@@ -288,6 +317,13 @@ async def create_transfer(
     user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_company_resource_ids(
+        db,
+        Warehouse,
+        (data.from_warehouse_id, data.to_warehouse_id),
+        user.company_id,
+        detail="Warehouse not found",
+    )
     doc = TransferDocument(
         company_id=user.company_id,
         created_by=user.id,
@@ -349,6 +385,9 @@ async def create_inventory_check(
     user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_company_resource(
+        db, Warehouse, data.warehouse_id, user.company_id, detail="Warehouse not found"
+    )
     doc = InventoryCheck(
         company_id=user.company_id,
         created_by=user.id,
@@ -382,6 +421,9 @@ async def update_inventory_check(
     doc = result.scalar_one_or_none()
     if not doc:
         raise NotFoundError("Inventory check not found")
+    await require_company_resource(
+        db, Warehouse, data.warehouse_id, user.company_id, detail="Warehouse not found"
+    )
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(doc, field, value)
     await db.commit()

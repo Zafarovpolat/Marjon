@@ -35,10 +35,10 @@ async def list_roles(
 @router.post("/user-roles", response_model=UserRoleResponse, status_code=status.HTTP_201_CREATED)
 async def assign_role(
     data: UserRoleAssign,
-    _: User = Depends(require_company_admin),
+    current_user: User = Depends(require_company_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    return await RBACService(db).assign_role(data)
+    return await RBACService(db).assign_role(current_user.company_id, data)
 
 
 @router.get("/me/permissions", response_model=list[str])
@@ -46,7 +46,9 @@ async def my_permissions(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await RBACService(db).get_user_permissions(current_user.id)
+    return await RBACService(db).get_user_permissions(
+        current_user.id, current_user.company_id
+    )
 
 
 @router.get("/permissions", response_model=list[PermissionResponse])

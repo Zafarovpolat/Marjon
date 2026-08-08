@@ -5,12 +5,13 @@ from sqlalchemy import delete as sql_delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.modules.inventory.models import Ingredient, StockItem, StockMovement
+from app.modules.inventory.models import Category, Ingredient, StockItem, StockMovement, Warehouse
 from app.modules.inventory.semi_product_models import SemiProduct, SemiProductIngredient
 from app.modules.inventory.semi_product_schemas import (
     SemiProductCreate, SemiProductIngredientIn, SemiProductUpdate,
 )
 from app.shared.exceptions import NotFoundError, ValidationError
+from app.shared.tenant_scope import require_company_resource, require_company_resource_ids
 
 _LOAD = selectinload(SemiProduct.ingredients).selectinload(SemiProductIngredient.ingredient)
 
@@ -34,13 +35,20 @@ class SemiProductService:
         return Decimal(str(avg)) if avg is not None else Decimal("0")
 
     async def _replace_ingredients(
-        self, semi_product_id: UUID, lines: list[SemiProductIngredientIn]
+        self, company_id: UUID, semi_product_id: UUID, lines: list[SemiProductIngredientIn]
     ) -> None:
         """Explicit DELETE + INSERT rather than mutating the ORM
         relationship collection — `.ingredients.clear()`/`.append()` on a
         collection that hasn't been eagerly loaded triggers a synchronous
         lazy-load, which blows up under the async engine (MissingGreenlet).
         """
+        await require_company_resource_ids(
+            self.db,
+            Ingredient,
+            (line.ingredient_id for line in lines),
+            company_id,
+            detail="Ingredient not found",
+        )
         await self.db.execute(
             sql_delete(SemiProductIngredient).where(
                 SemiProductIngredient.semi_product_id == semi_product_id
@@ -63,6 +71,7 @@ class SemiProductService:
         await self.db.flush()
 
     async def create(self, company_id: UUID, data: SemiProductCreate) -> SemiProduct:
+        await self._validate_relations(company_id, data)
         sp = SemiProduct(
             company_id=company_id, name=data.name, category_id=data.category_id,
             subcategory_id=data.subcategory_id, unit=data.unit, is_active=data.is_active,
@@ -70,7 +79,7 @@ class SemiProductService:
         self.db.add(sp)
         await self.db.flush()
         if data.ingredients:
-            await self._replace_ingredients(sp.id, data.ingredients)
+            await self._replace_ingredients(company_id, sp.id, data.ingredients)
         sp = await self.get(company_id, sp.id)
         await self._recalc_cost(sp)
         await self.db.commit()
@@ -105,16 +114,36 @@ class SemiProductService:
 
     async def update(self, company_id: UUID, semi_product_id: UUID, data: SemiProductUpdate) -> SemiProduct:
         sp = await self.get(company_id, semi_product_id)
+        await self._validate_relations(company_id, data)
         for field in ("name", "category_id", "subcategory_id", "unit", "is_active"):
             value = getattr(data, field)
             if value is not None:
                 setattr(sp, field, value)
         if data.ingredients is not None:
-            await self._replace_ingredients(sp.id, data.ingredients)
+            await self._replace_ingredients(company_id, sp.id, data.ingredients)
             sp = await self.get(company_id, semi_product_id)
         await self._recalc_cost(sp)
         await self.db.commit()
         return await self.get(company_id, semi_product_id)
+
+    async def _validate_relations(
+        self, company_id: UUID, data: SemiProductCreate | SemiProductUpdate
+    ) -> None:
+        await require_company_resource_ids(
+            self.db,
+            Category,
+            (data.category_id, data.subcategory_id),
+            company_id,
+            detail="Category not found",
+        )
+        if data.ingredients is not None:
+            await require_company_resource_ids(
+                self.db,
+                Ingredient,
+                (line.ingredient_id for line in data.ingredients),
+                company_id,
+                detail="Ingredient not found",
+            )
 
     async def delete(self, company_id: UUID, semi_product_id: UUID) -> None:
         sp = await self.get(company_id, semi_product_id)
@@ -130,6 +159,9 @@ class SemiProductService:
         ingredient BEFORE any row is mutated, so a shortage on the last
         ingredient doesn't leave earlier ones partially deducted."""
         sp = await self.get(company_id, semi_product_id)
+        await require_company_resource(
+            self.db, Warehouse, warehouse_id, company_id, detail="Warehouse not found"
+        )
         if not sp.ingredients:
             raise ValidationError("У полуфабриката не задан состав")
 

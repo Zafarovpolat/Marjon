@@ -18,6 +18,7 @@ from app.modules.inventory.schemas import (
 )
 from app.modules.printers.models import Printer
 from app.shared.exceptions import NotFoundError
+from app.shared.tenant_scope import require_company_resource, require_company_resource_ids
 
 _PRODUCT_LOAD = selectinload(Product.ingredients).selectinload(ProductIngredient.ingredient)
 
@@ -27,6 +28,9 @@ class CategoryService:
         self.repo = CategoryRepository(db)
 
     async def create(self, company_id: UUID, data: CategoryCreate) -> Category:
+        await require_company_resource(
+            self.repo.db, Category, data.parent_id, company_id, detail="Parent category not found"
+        )
         return await self.repo.save(Category(company_id=company_id, **data.model_dump()))
 
     async def list(self, company_id: UUID) -> list[Category]:
@@ -44,11 +48,20 @@ class ProductService:
         self.db = db
         self.repo = ProductRepository(db)
 
-    async def _replace_ingredients(self, product_id: UUID, lines: list[ProductIngredientIn]) -> None:
+    async def _replace_ingredients(
+        self, company_id: UUID, product_id: UUID, lines: list[ProductIngredientIn]
+    ) -> None:
         """Explicit DELETE + INSERT, not ORM-collection mutation — see
         SemiProductService (BE-10) for why: mutating `.ingredients` on a
         not-fully-loaded object triggers a sync lazy-load that blows up
         under the async engine."""
+        await require_company_resource_ids(
+            self.db,
+            Ingredient,
+            (line.ingredient_id for line in lines),
+            company_id,
+            detail="Ingredient not found",
+        )
         await self.db.execute(
             sql_delete(ProductIngredient).where(ProductIngredient.product_id == product_id)
         )
@@ -72,7 +85,9 @@ class ProductService:
         cat_names: dict[UUID, str] = {}
         if cat_ids:
             rows = (await self.db.execute(
-                select(Category.id, Category.name).where(Category.id.in_(cat_ids))
+                select(Category.id, Category.name).where(
+                    Category.id.in_(cat_ids), Category.company_id == company_id
+                )
             )).all()
             cat_names = dict(rows)
 
@@ -80,7 +95,9 @@ class ProductService:
         printer_names: dict[UUID, str] = {}
         if printer_ids:
             rows = (await self.db.execute(
-                select(Printer.id, Printer.name).where(Printer.id.in_(printer_ids))
+                select(Printer.id, Printer.name).where(
+                    Printer.id.in_(printer_ids), Printer.company_id == company_id
+                )
             )).all()
             printer_names = dict(rows)
 
@@ -116,12 +133,13 @@ class ProductService:
         return products
 
     async def create(self, company_id: UUID, data: ProductCreate) -> Product:
+        await self._validate_relations(company_id, data)
         payload = data.model_dump(exclude={"ingredients"})
         product = Product(company_id=company_id, **payload)
         self.db.add(product)
         await self.db.flush()
         if data.ingredients:
-            await self._replace_ingredients(product.id, data.ingredients)
+            await self._replace_ingredients(company_id, product.id, data.ingredients)
         await self.db.commit()
         return await self.get(company_id, product.id)
 
@@ -160,12 +178,35 @@ class ProductService:
 
     async def update(self, company_id: UUID, product_id: UUID, data: ProductUpdate) -> Product:
         p = await self.get(company_id, product_id)
+        await self._validate_relations(company_id, data)
         for field, value in data.model_dump(exclude_unset=True, exclude={"ingredients"}).items():
             setattr(p, field, value)
         if data.ingredients is not None:
-            await self._replace_ingredients(p.id, data.ingredients)
+            await self._replace_ingredients(company_id, p.id, data.ingredients)
         await self.db.commit()
         return await self.get(company_id, product_id)
+
+    async def _validate_relations(
+        self, company_id: UUID, data: ProductCreate | ProductUpdate
+    ) -> None:
+        await require_company_resource_ids(
+            self.db,
+            Category,
+            (data.category_id, data.subcategory_id),
+            company_id,
+            detail="Category not found",
+        )
+        await require_company_resource(
+            self.db, Printer, data.printer_id, company_id, detail="Printer not found"
+        )
+        if data.ingredients is not None:
+            await require_company_resource_ids(
+                self.db,
+                Ingredient,
+                (line.ingredient_id for line in data.ingredients),
+                company_id,
+                detail="Ingredient not found",
+            )
 
     async def update_image(self, company_id: UUID, product_id: UUID, image_url: str) -> Product:
         p = await self.get(company_id, product_id)
@@ -262,6 +303,12 @@ class StockService:
     async def create_movement(
         self, company_id: UUID, created_by: UUID, data: StockMovementCreate
     ) -> StockMovement:
+        await require_company_resource(
+            self.db, Warehouse, data.warehouse_id, company_id, detail="Warehouse not found"
+        )
+        await require_company_resource(
+            self.db, Ingredient, data.ingredient_id, company_id, detail="Ingredient not found"
+        )
         total = data.quantity * data.cost_price
         movement = StockMovement(
             company_id=company_id,

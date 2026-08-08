@@ -308,10 +308,22 @@ class PrinterService:
         from app.modules.companies.models import Company, Branch
         from app.modules.auth.models import User as _User
         company = (await self.db.execute(select(Company).where(Company.id == company_id))).scalar_one_or_none()
-        branch = (await self.db.execute(select(Branch).where(Branch.id == order.branch_id))).scalar_one_or_none()
+        branch = (
+            await self.db.execute(
+                select(Branch).where(
+                    Branch.id == order.branch_id, Branch.company_id == company_id
+                )
+            )
+        ).scalar_one_or_none()
         waiter = None
         if order.waiter_id:
-            waiter = (await self.db.execute(select(_User).where(_User.id == order.waiter_id))).scalar_one_or_none()
+            waiter = (
+                await self.db.execute(
+                    select(_User).where(
+                        _User.id == order.waiter_id, _User.company_id == company_id
+                    )
+                )
+            ).scalar_one_or_none()
 
         return ReceiptData(
             company_name=(company.name if company else "—"),

@@ -236,6 +236,13 @@ class OfflineJobService:
 
     async def submit(self, data) -> OfflineJob:
         """Идемпотентный приём офлайн-операций мобильных клиентов (ТЗ §8)."""
+        organization = (
+            await self.db.execute(
+                select(Organization).where(Organization.id == data.organization_id)
+            )
+        ).scalar_one_or_none()
+        if organization is None:
+            raise NotFoundError("Organization not found")
         if data.idempotency_key:
             existing = (
                 await self.db.execute(

@@ -200,8 +200,12 @@ async def create_place(data: dict, user: User = Depends(require_company_admin), 
 
 @router.patch("/settings/places/{item_id}", tags=["settings"])
 async def update_place(item_id: UUID, data: dict, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)):
-    b = await db.get(Branch, item_id)
-    if not b or b.company_id != user.company_id:
+    b = (
+        await db.execute(
+            select(Branch).where(Branch.id == item_id, Branch.company_id == user.company_id)
+        )
+    ).scalar_one_or_none()
+    if not b:
         raise NotFoundError("Branch not found")
     for field in ("name", "address", "city", "is_active"):
         if data.get(field) is not None:
@@ -213,10 +217,15 @@ async def update_place(item_id: UUID, data: dict, user: User = Depends(require_c
 
 @router.delete("/settings/places/{item_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["settings"])
 async def delete_place(item_id: UUID, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)):
-    b = await db.get(Branch, item_id)
-    if b and b.company_id == user.company_id:
-        b.is_active = False
-        await db.commit()
+    b = (
+        await db.execute(
+            select(Branch).where(Branch.id == item_id, Branch.company_id == user.company_id)
+        )
+    ).scalar_one_or_none()
+    if not b:
+        raise NotFoundError("Branch not found")
+    b.is_active = False
+    await db.commit()
 
 
 # ── Настройки: способы оплаты ────────────────────────────────────────────────
@@ -480,7 +489,11 @@ async def report_waiters(
     for waiter_id, total, cnt in rows:
         name = "—"
         if waiter_id:
-            u = await db.get(User, waiter_id)
+            u = (
+                await db.execute(
+                    select(User).where(User.id == waiter_id, User.company_id == user.company_id)
+                )
+            ).scalar_one_or_none()
             if u:
                 name = u.name or (u.email.split("@")[0] if u.email else "—")
         items.append({

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.modules.companies.models import Branch, Company
+from app.modules.crm.models import Customer
 from app.modules.inventory.models import Product
 from app.modules.kitchen.websocket import kitchen_manager
 from app.modules.audit.service import AuditService
@@ -19,6 +20,7 @@ from app.modules.pos.schemas import (
     OrderUpdate, TerminalCreate, ShiftOpen, ShiftClose,
 )
 from app.shared.exceptions import NotFoundError, ValidationError
+from app.shared.tenant_scope import require_company_resource
 
 # ── Order status state machine ───────────────────────────────────────────────
 VALID_TRANSITIONS: dict[str, set[str]] = {
@@ -44,6 +46,12 @@ class OrderService:
 
     async def create(self, company_id: UUID, waiter_id: UUID, data: OrderCreate) -> Order:
         await self._get_branch(company_id, data.branch_id)
+        await require_company_resource(
+            self.db, PosTerminal, data.terminal_id, company_id, detail="POS terminal not found"
+        )
+        await require_company_resource(
+            self.db, Customer, data.customer_id, company_id, detail="Customer not found"
+        )
         order_number = await self._generate_daily_number(company_id, data.branch_id)
 
         order = Order(
@@ -355,9 +363,13 @@ class OrderService:
 
 class TerminalService:
     def __init__(self, db: AsyncSession):
+        self.db = db
         self.repo = TerminalRepository(db)
 
     async def create(self, company_id: UUID, data: TerminalCreate) -> PosTerminal:
+        await require_company_resource(
+            self.db, Branch, data.branch_id, company_id, detail="Branch not found"
+        )
         return await self.repo.save(PosTerminal(company_id=company_id, **data.model_dump()))
 
     async def list(self, company_id: UUID) -> list[PosTerminal]:
@@ -369,6 +381,9 @@ class ShiftService:
         self.db = db
 
     async def open_shift(self, company_id: UUID, cashier_id: UUID, data: ShiftOpen) -> CashierShift:
+        await require_company_resource(
+            self.db, Branch, data.branch_id, company_id, detail="Branch not found"
+        )
         existing = await self._get_open_shift(company_id, data.branch_id)
         if existing:
             raise ValidationError("Смена уже открыта. Закройте текущую смену перед открытием новой.")

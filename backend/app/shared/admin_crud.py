@@ -15,7 +15,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, status
 from pydantic import BaseModel
-from sqlalchemy import Boolean, Date, DateTime, Integer, Numeric, asc, desc, func, or_, select
+from sqlalchemy import Boolean, Date, DateTime, Integer, Numeric, asc, desc, func, inspect, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.types import Uuid
 
@@ -31,6 +31,10 @@ M = TypeVar("M", bound=TimeStampedModel)
 # Org scope: None means "all organizations" (superadmin), otherwise an
 # allow-list of organization ids the current account is linked to.
 OrgScope = Optional[list[UUID]]
+
+
+class OrgScopeConfigurationError(RuntimeError):
+    """Restricted CRUD scope was configured without a usable tenant column."""
 
 
 async def unrestricted_scope() -> OrgScope:
@@ -74,6 +78,33 @@ class CRUDService(Generic[M]):
         if hasattr(self.model, "deleted_at"):
             query = query.where(self.model.deleted_at.is_(None))
         return query
+
+    def _apply_org_scope(
+        self, query, org_scope: OrgScope, org_field: str | None
+    ):
+        org_column = self._org_scope_column(org_scope, org_field)
+        if org_column is not None:
+            query = query.where(org_column.in_(org_scope))
+        return query
+
+    def _org_scope_column(self, org_scope: OrgScope, org_field: str | None):
+        """Return the tenant column or fail closed for a restricted scope.
+
+        ``None`` is the explicit unrestricted/global sentinel.  Every list,
+        including an empty list, is restricted and therefore requires a real
+        mapped organization field before any query or mutation may proceed.
+        """
+        if org_scope is None:
+            return None
+        if not org_field:
+            raise OrgScopeConfigurationError(
+                f"{self.model.__name__} restricted CRUD scope requires org_field"
+            )
+        if org_field not in inspect(self.model).columns:
+            raise OrgScopeConfigurationError(
+                f"{self.model.__name__} has no organization field '{org_field}'"
+            )
+        return getattr(self.model, org_field)
 
     def _apply_sort(self, query, sort: str | None, default_sort: str):
         for token in (sort or default_sort).split(","):
@@ -131,8 +162,7 @@ class CRUDService(Generic[M]):
             if date_to:
                 query = query.where(func.date(dcol) <= date_to)
 
-        if org_scope is not None and org_field and hasattr(self.model, org_field):
-            query = query.where(getattr(self.model, org_field).in_(org_scope))
+        query = self._apply_org_scope(query, org_scope, org_field)
 
         count_q = select(func.count()).select_from(query.subquery())
         total = (await self.db.execute(count_q)).scalar_one()
@@ -142,35 +172,72 @@ class CRUDService(Generic[M]):
         items = list((await self.db.execute(query)).scalars().all())
         return items, total
 
-    async def get(self, id: UUID) -> M:
+    async def get(
+        self,
+        id: UUID,
+        *,
+        org_scope: OrgScope = None,
+        org_field: str | None = None,
+    ) -> M:
+        query = self._alive(select(self.model)).where(self.model.id == id)
+        query = self._apply_org_scope(query, org_scope, org_field)
         obj = (
-            await self.db.execute(self._alive(select(self.model)).where(self.model.id == id))
+            await self.db.execute(query)
         ).scalar_one_or_none()
         if obj is None:
             raise NotFoundError(f"{self.model.__name__} not found")
         return obj
 
-    async def create(self, data: BaseModel | dict, **extra: Any) -> M:
+    async def create(
+        self,
+        data: BaseModel | dict,
+        *,
+        org_scope: OrgScope = None,
+        org_field: str | None = None,
+        **extra: Any,
+    ) -> M:
+        self._org_scope_column(org_scope, org_field)
         payload = data if isinstance(data, dict) else data.model_dump(exclude_unset=True)
         payload = _json_safe(self.model, payload)
+        if org_scope is not None:
+            requested_org = payload.get(org_field, extra.get(org_field))
+            if requested_org not in org_scope:
+                raise NotFoundError(f"{self.model.__name__} organization not found")
         obj = self.model(**payload, **extra)
         self.db.add(obj)
         await self.db.commit()
         await self.db.refresh(obj)
         return obj
 
-    async def update(self, id: UUID, data: BaseModel | dict) -> M:
-        obj = await self.get(id)
+    async def update(
+        self,
+        id: UUID,
+        data: BaseModel | dict,
+        *,
+        org_scope: OrgScope = None,
+        org_field: str | None = None,
+    ) -> M:
+        self._org_scope_column(org_scope, org_field)
+        obj = await self.get(id, org_scope=org_scope, org_field=org_field)
         payload = data if isinstance(data, dict) else data.model_dump(exclude_unset=True)
         payload = _json_safe(self.model, payload)
+        if org_scope is not None and org_field in payload:
+            if payload[org_field] not in org_scope:
+                raise NotFoundError(f"{self.model.__name__} organization not found")
         for key, value in payload.items():
             setattr(obj, key, value)
         await self.db.commit()
         await self.db.refresh(obj)
         return obj
 
-    async def delete(self, id: UUID) -> None:
-        obj = await self.get(id)
+    async def delete(
+        self,
+        id: UUID,
+        *,
+        org_scope: OrgScope = None,
+        org_field: str | None = None,
+    ) -> None:
+        obj = await self.get(id, org_scope=org_scope, org_field=org_field)
         if hasattr(obj, "deleted_at"):
             obj.deleted_at = datetime.now(timezone.utc)
         else:
@@ -257,43 +324,58 @@ def crud_router(
     async def create_item(
         data: create_schema,  # type: ignore[valid-type]
         user: User = Depends(w_dep),
+        org_scope: OrgScope = Depends(scope_dep),
         db: AsyncSession = Depends(get_db),
     ):
-        return await CRUDService(model, db).create(data)
+        return await CRUDService(model, db).create(
+            data, org_scope=org_scope, org_field=org_field
+        )
 
     @r.get("/{item_id}", response_model=response_schema, summary=f"Get {model.__name__}")
     async def get_item(
         item_id: UUID,
         user: User = Depends(user_dep),
+        org_scope: OrgScope = Depends(scope_dep),
         db: AsyncSession = Depends(get_db),
     ):
-        return await CRUDService(model, db).get(item_id)
+        return await CRUDService(model, db).get(
+            item_id, org_scope=org_scope, org_field=org_field
+        )
 
     @r.patch("/{item_id}", response_model=response_schema, summary=f"Update {model.__name__}")
     async def update_item(
         item_id: UUID,
         data: update_schema,  # type: ignore[valid-type]
         user: User = Depends(w_dep),
+        org_scope: OrgScope = Depends(scope_dep),
         db: AsyncSession = Depends(get_db),
     ):
-        return await CRUDService(model, db).update(item_id, data)
+        return await CRUDService(model, db).update(
+            item_id, data, org_scope=org_scope, org_field=org_field
+        )
 
     @r.put("/{item_id}", response_model=response_schema, include_in_schema=False)
     async def replace_item(
         item_id: UUID,
         data: update_schema,  # type: ignore[valid-type]
         user: User = Depends(w_dep),
+        org_scope: OrgScope = Depends(scope_dep),
         db: AsyncSession = Depends(get_db),
     ):
-        return await CRUDService(model, db).update(item_id, data)
+        return await CRUDService(model, db).update(
+            item_id, data, org_scope=org_scope, org_field=org_field
+        )
 
     @r.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT,
               summary=f"Delete {model.__name__}")
     async def delete_item(
         item_id: UUID,
         user: User = Depends(w_dep),
+        org_scope: OrgScope = Depends(scope_dep),
         db: AsyncSession = Depends(get_db),
     ):
-        await CRUDService(model, db).delete(item_id)
+        await CRUDService(model, db).delete(
+            item_id, org_scope=org_scope, org_field=org_field
+        )
 
     return r

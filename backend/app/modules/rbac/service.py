@@ -1,13 +1,16 @@
 from __future__ import annotations
 from uuid import UUID
-from sqlalchemy import delete as sql_delete, select
+from sqlalchemy import and_, delete as sql_delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.modules.auth.models import User
+from app.modules.companies.models import Branch
 from app.modules.rbac.constants import COMPANY_ROLE_SLUGS
 from app.modules.rbac.models import Role, Permission, RolePermission, UserRole
 from app.modules.rbac.permissions import sync_role_permissions
 from app.modules.rbac.repository import RoleRepository, PermissionRepository, UserRoleRepository
 from app.modules.rbac.schemas import RoleCreate, UserRoleAssign
 from app.shared.exceptions import ConflictError, NotFoundError, ValidationError
+from app.shared.tenant_scope import require_company_resource
 
 
 class RBACService:
@@ -60,7 +63,26 @@ class RBACService:
         system_roles = await self.role_repo.get_system_roles()
         return system_roles + company_roles
 
-    async def assign_role(self, data: UserRoleAssign) -> UserRole:
+    async def assign_role(self, company_id: UUID, data: UserRoleAssign) -> UserRole:
+        await require_company_resource(
+            self.db, User, data.user_id, company_id, detail="User not found"
+        )
+        role = (
+            await self.db.execute(
+                select(Role).where(
+                    Role.id == data.role_id,
+                    or_(
+                        Role.company_id == company_id,
+                        and_(Role.is_system.is_(True), Role.company_id.is_(None)),
+                    ),
+                )
+            )
+        ).scalar_one_or_none()
+        if role is None:
+            raise NotFoundError("Role not found")
+        await require_company_resource(
+            self.db, Branch, data.branch_id, company_id, detail="Branch not found"
+        )
         user_role = UserRole(
             user_id=data.user_id,
             role_id=data.role_id,
@@ -72,8 +94,18 @@ class RBACService:
         return await self.perm_repo.get_all()
 
     async def _get_scoped_role(self, role_id: UUID, company_id: UUID | None) -> Role:
-        role = await self.db.get(Role, role_id)
-        if role is None or (not role.is_system and role.company_id != company_id):
+        role = (
+            await self.db.execute(
+                select(Role).where(
+                    Role.id == role_id,
+                    or_(
+                        Role.company_id == company_id,
+                        and_(Role.is_system.is_(True), Role.company_id.is_(None)),
+                    ),
+                )
+            )
+        ).scalar_one_or_none()
+        if role is None:
             raise NotFoundError("Role not found")
         return role
 
@@ -113,7 +145,21 @@ class RBACService:
             return False
         module, action = parts[0], ":".join(parts[1:])
 
-        user_roles = await self.user_role_repo.get_user_roles(user_id)
+        user_roles = list(
+            (
+                await self.db.execute(
+                    select(UserRole)
+                    .join(Role, Role.id == UserRole.role_id)
+                    .where(
+                        UserRole.user_id == user_id,
+                        or_(
+                            Role.company_id == company_id,
+                            and_(Role.is_system.is_(True), Role.company_id.is_(None)),
+                        ),
+                    )
+                )
+            ).scalars()
+        )
         for user_role in user_roles:
             perms = await self.user_role_repo.get_role_permissions(user_role.role_id)
             for perm in perms:
@@ -121,8 +167,22 @@ class RBACService:
                     return True
         return False
 
-    async def get_user_permissions(self, user_id: UUID) -> list[str]:
-        user_roles = await self.user_role_repo.get_user_roles(user_id)
+    async def get_user_permissions(self, user_id: UUID, company_id: UUID) -> list[str]:
+        user_roles = list(
+            (
+                await self.db.execute(
+                    select(UserRole)
+                    .join(Role, Role.id == UserRole.role_id)
+                    .where(
+                        UserRole.user_id == user_id,
+                        or_(
+                            Role.company_id == company_id,
+                            and_(Role.is_system.is_(True), Role.company_id.is_(None)),
+                        ),
+                    )
+                )
+            ).scalars()
+        )
         permissions: set[str] = set()
         for user_role in user_roles:
             perms = await self.user_role_repo.get_role_permissions(user_role.role_id)

@@ -30,7 +30,9 @@ async def list_employees(user: User = Depends(get_current_user), db: AsyncSessio
     result = []
     for emp in employees:
         user_row = await db.execute(
-            select(User.name, User.phone, User.email).where(User.id == emp.user_id)
+            select(User.name, User.phone, User.email).where(
+                User.id == emp.user_id, User.company_id == user.company_id
+            )
         )
         row = user_row.one_or_none()
         resp = EmployeeResponse.model_validate(emp)
@@ -67,18 +69,7 @@ async def update_employee(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    from sqlalchemy import update as sql_update
-    from app.modules.hr.models import Employee
-    values = data.model_dump(exclude_none=True)
-    if values:
-        await db.execute(
-            sql_update(Employee).where(
-                Employee.id == employee_id, Employee.company_id == user.company_id
-            ).values(**values)
-        )
-        await db.commit()
-    result = await db.get(Employee, employee_id)
-    return EmployeeResponse.model_validate(result)
+    return await HRService(db).update_employee(user.company_id, employee_id, data)
 
 
 @router.delete("/employees/{employee_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -87,14 +78,7 @@ async def delete_employee(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    from sqlalchemy import update as sql_update
-    from app.modules.hr.models import Employee
-    await db.execute(
-        sql_update(Employee).where(
-            Employee.id == employee_id, Employee.company_id == user.company_id
-        ).values(is_active=False)
-    )
-    await db.commit()
+    await HRService(db).delete_employee(user.company_id, employee_id)
 
 
 @router.get("/login-history", response_model=list[LoginHistoryRow])

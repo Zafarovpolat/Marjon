@@ -7,6 +7,7 @@ from app.modules.companies.models import Branch
 from app.modules.halls.models import Hall, Table
 from app.modules.halls.schemas import HallCreate, HallUpdate, TableCreate, TableUpdate
 from app.shared.exceptions import NotFoundError
+from app.shared.tenant_scope import require_company_resource
 
 
 class HallService:
@@ -45,6 +46,9 @@ class HallService:
 
     async def create(self, company_id: UUID, data: HallCreate) -> Hall:
         branch_id = data.branch_id or await self._resolve_default_branch(company_id)
+        await require_company_resource(
+            self.db, Branch, branch_id, company_id, detail="Branch not found"
+        )
         hall = Hall(
             company_id=company_id, branch_id=branch_id,
             name=data.name, description=data.description,
@@ -55,7 +59,9 @@ class HallService:
         await self.db.commit()
         await self.db.refresh(hall)
         result = await self.db.execute(
-            select(Hall).options(selectinload(Hall.tables)).where(Hall.id == hall.id)
+            select(Hall).options(selectinload(Hall.tables)).where(
+                Hall.id == hall.id, Hall.company_id == company_id
+            )
         )
         return result.scalar_one()
 

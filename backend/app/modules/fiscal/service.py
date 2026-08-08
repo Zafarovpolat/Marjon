@@ -9,16 +9,26 @@ from app.config import settings
 from app.modules.fiscal.models import FiscalReceipt
 from app.modules.fiscal.repository import FiscalReceiptRepository
 from app.modules.fiscal.schemas import FiscalReceiptCreate
+from app.modules.payments.models import Payment
+from app.modules.pos.models import Order
 from app.shared.exceptions import NotFoundError
+from app.shared.tenant_scope import require_company_resource
 
 logger = logging.getLogger(__name__)
 
 
 class FiscalService:
     def __init__(self, db: AsyncSession):
+        self.db = db
         self.repo = FiscalReceiptRepository(db)
 
     async def create(self, company_id: UUID, data: FiscalReceiptCreate) -> FiscalReceipt:
+        await require_company_resource(
+            self.db, Order, data.order_id, company_id, detail="Order not found"
+        )
+        await require_company_resource(
+            self.db, Payment, data.payment_id, company_id, detail="Payment not found"
+        )
         receipt = FiscalReceipt(company_id=company_id, **data.model_dump())
         saved = await self.repo.save(receipt)
 

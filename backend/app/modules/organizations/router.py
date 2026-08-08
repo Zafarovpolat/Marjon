@@ -130,7 +130,7 @@ offline = crud_router(
 
 @offline.post("/submit", response_model=schemas.OfflineJobResponse, status_code=status.HTTP_201_CREATED,
               summary="Идемпотентный приём офлайн-операций")
-async def submit_offline_job(data: schemas.OfflineJobCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def submit_offline_job(data: schemas.OfflineJobCreate, user: User = Depends(require_hq_admin), db: AsyncSession = Depends(get_db)):
     return await OfflineJobService(db).submit(data)
 
 
