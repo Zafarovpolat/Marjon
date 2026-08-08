@@ -3,7 +3,7 @@ uvicorn[standard]==0.30.6
 python-jose[cryptography]==3.3.0
 bcrypt==5.0.0
 python-multipart==0.0.12
-sqlalchemy==2.0.52
+sqlalchemy==2.0.51
 asyncpg==0.31.0
 aiosqlite==0.22.1
 pydantic-settings==2.5.2
