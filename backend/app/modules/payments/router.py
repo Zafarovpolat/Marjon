@@ -4,7 +4,10 @@ from fastapi import APIRouter, Depends, Header, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user, require_company_admin
+from app.modules.auth.dependencies import (
+    require_company_admin,
+    require_company_app_user,
+)
 from app.modules.auth.models import User
 from app.modules.payments.models import PaymentGatewaySettings
 from app.modules.fiscal.runtime import FiscalRuntime, get_fiscal_runtime
@@ -21,7 +24,7 @@ router = APIRouter(prefix="/payments", tags=["payments"])
 async def process_payment(
     data: PaymentCreate,
     idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
     runtime: FiscalRuntime = Depends(get_fiscal_runtime),
 ):
@@ -33,7 +36,7 @@ async def process_payment(
 @router.get("/order/{order_id}", response_model=list[PaymentResponse])
 async def order_payments(
     order_id: UUID,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     return await PaymentService(db).list_for_order(user.company_id, order_id)
@@ -41,7 +44,11 @@ async def order_payments(
 
 # ── Gateway settings (owner only) ─────────────────────────────────────────────
 
-@router.get("/gateway-settings", response_model=GatewaySettingsResponse)
+@router.get(
+    "/gateway-settings",
+    response_model=GatewaySettingsResponse,
+    dependencies=[Depends(require_company_app_user)],
+)
 async def get_gateway_settings(
     user: User = Depends(require_company_admin),
     db: AsyncSession = Depends(get_db),
@@ -69,7 +76,11 @@ async def get_gateway_settings(
     )
 
 
-@router.put("/gateway-settings", response_model=GatewaySettingsResponse)
+@router.put(
+    "/gateway-settings",
+    response_model=GatewaySettingsResponse,
+    dependencies=[Depends(require_company_app_user)],
+)
 async def save_gateway_settings(
     data: GatewaySettingsUpdate,
     user: User = Depends(require_company_admin),

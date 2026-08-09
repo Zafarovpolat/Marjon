@@ -13,8 +13,11 @@ from app.modules.finance.idempotency import (
     SCOPE_COMPANY,
     SCOPE_ORGANIZATION,
     FinancialOperationService,
-    request_fingerprint,
+    legacy_v1_company_transaction_fingerprint,
+    legacy_v1_fingerprint_compatibility,
+    request_fingerprint_v2,
 )
+from app.modules.finance.money import canonical_money_amount
 from app.modules.finance.models import (
     Counterparty,
     FinanceHistory,
@@ -139,6 +142,9 @@ class TransactionService(CRUDService[FinTransaction]):
         idempotency_key: str | None = None,
         org_scope: OrgScope = None,
     ) -> FinTransaction:
+        canonical_data = data.model_copy(
+            update={"amount": canonical_money_amount(data.amount)}
+        )
         self._authorize_organization(data.organization_id, org_scope)
         if data.organization_id is None:
             raise ValidationError("organization_id is required")
@@ -162,7 +168,10 @@ class TransactionService(CRUDService[FinTransaction]):
                 scope_id=data.organization_id,
                 operation_type=OP_FINANCE_CREATE,
                 idempotency_key=idempotency_key,
-                fingerprint=request_fingerprint(data),
+                fingerprint=request_fingerprint_v2(canonical_data),
+                legacy_v1_fingerprint=lambda: (
+                    legacy_v1_fingerprint_compatibility(data)
+                ),
             )
             operation = claim.operation
             if not claim.is_new:
@@ -173,7 +182,7 @@ class TransactionService(CRUDService[FinTransaction]):
                 return transactions[0]
 
         tx = FinTransaction(
-            **data.model_dump(exclude_unset=True),
+            **canonical_data.model_dump(exclude_unset=True),
             user_id=user_id,
             idempotency_key=idempotency_key,
         )
@@ -183,7 +192,7 @@ class TransactionService(CRUDService[FinTransaction]):
         await self._apply_balance(
             tx.counterparty_id,
             tx.organization_id,
-            self._delta(tx.direction, data.amount),
+            self._delta(tx.direction, canonical_data.amount),
             scope,
         )
         await self.db.flush()
@@ -205,7 +214,7 @@ class TransactionService(CRUDService[FinTransaction]):
         """Preserve the kafe compatibility payload while adding safe replay."""
 
         normalized = {
-            "amount": abs(float(data.get("amount") or 0)),
+            "amount": canonical_money_amount(data.get("amount")),
             "direction": data.get("direction") or "income",
             "comment": data.get("comment"),
             "category_id": data.get("category_id"),
@@ -229,7 +238,10 @@ class TransactionService(CRUDService[FinTransaction]):
                 scope_id=company_id,
                 operation_type=OP_COMPANY_FINANCE_CREATE,
                 idempotency_key=idempotency_key,
-                fingerprint=request_fingerprint(normalized),
+                fingerprint=request_fingerprint_v2(normalized),
+                legacy_v1_fingerprint=lambda: (
+                    legacy_v1_company_transaction_fingerprint(data)
+                ),
             )
             operation = claim.operation
             if not claim.is_new:
@@ -390,11 +402,21 @@ class TransactionService(CRUDService[FinTransaction]):
         org_scope: OrgScope = None,
     ) -> list[FinTransaction]:
         """Разбивка оплаты: несколько транзакций одной операцией (ТЗ §6)."""
+        canonical_data = data.model_copy(
+            update={
+                "items": [
+                    item.model_copy(
+                        update={"amount": canonical_money_amount(item.amount)}
+                    )
+                    for item in data.items
+                ]
+            }
+        )
         self._authorize_organization(data.organization_id, org_scope)
         if data.organization_id is None:
             raise ValidationError("organization_id is required")
         scope = FinanceScope("organization", data.organization_id)
-        for item in data.items:
+        for item in canonical_data.items:
             await validate_transaction_references(
                 self.db,
                 scope,
@@ -414,7 +436,10 @@ class TransactionService(CRUDService[FinTransaction]):
                 scope_id=data.organization_id,
                 operation_type=OP_FINANCE_PAY,
                 idempotency_key=idempotency_key,
-                fingerprint=request_fingerprint(data),
+                fingerprint=request_fingerprint_v2(canonical_data),
+                legacy_v1_fingerprint=lambda: (
+                    legacy_v1_fingerprint_compatibility(data)
+                ),
             )
             operation = claim.operation
             if not claim.is_new:
@@ -424,10 +449,12 @@ class TransactionService(CRUDService[FinTransaction]):
                 await self.db.commit()
                 return transactions
 
-        if data.save_as_template:
+        if canonical_data.save_as_template:
             self.db.add(FinanceTemplate(
-                name=data.save_as_template,
-                payload=to_jsonable_python(data.model_dump(exclude={"save_as_template"})),
+                name=canonical_data.save_as_template,
+                payload=to_jsonable_python(
+                    canonical_data.model_dump(exclude={"save_as_template"})
+                ),
                 scope_kind="organization",
                 company_id=None,
                 organization_id=data.organization_id,
@@ -435,7 +462,7 @@ class TransactionService(CRUDService[FinTransaction]):
 
         now = datetime.now(timezone.utc)
         transactions = []
-        for item in data.items:
+        for item in canonical_data.items:
             tx = FinTransaction(
                 date=now,
                 amount=item.amount,

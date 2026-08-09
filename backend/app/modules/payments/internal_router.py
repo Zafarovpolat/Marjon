@@ -14,7 +14,8 @@ from app.modules.finance.idempotency import (
     OP_PAYMENT_WEBHOOK_CONFIRM,
     SCOPE_COMPANY,
     FinancialOperationService,
-    request_fingerprint,
+    legacy_v1_fingerprint_compatibility,
+    request_fingerprint_v2,
 )
 from app.modules.fiscal.runtime import FiscalRuntime, get_fiscal_runtime
 from app.modules.fiscal.service import FiscalService
@@ -80,7 +81,10 @@ async def payment_webhook(
             idempotency_key=hashlib.sha256(
                 data.gateway_tx_id.encode("utf-8")
             ).hexdigest(),
-            fingerprint=request_fingerprint(data),
+            fingerprint=request_fingerprint_v2(data),
+            legacy_v1_fingerprint=lambda: (
+                legacy_v1_fingerprint_compatibility(data)
+            ),
         )
         if not claim.is_new:
             await db.commit()

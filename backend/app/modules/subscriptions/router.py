@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user, require_superadmin
+from app.modules.auth.dependencies import require_company_app_user, require_superadmin
 from app.modules.auth.models import User
 from app.modules.subscriptions.schemas import (
     PlanCreate, PlanResponse, SubscriptionCreate, SubscriptionResponse,
@@ -23,10 +23,10 @@ async def create_plan(data: PlanCreate, user: User = Depends(require_superadmin)
 
 
 @router.post("", response_model=SubscriptionResponse, status_code=status.HTTP_201_CREATED)
-async def subscribe(data: SubscriptionCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def subscribe(data: SubscriptionCreate, user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db)):
     return await SubscriptionService(db).subscribe(user.company_id, data)
 
 
 @router.get("/current", response_model=SubscriptionResponse | None)
-async def current_subscription(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def current_subscription(user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db)):
     return await SubscriptionService(db).get_current(user.company_id)

@@ -185,6 +185,10 @@ class FinancialOperation(TimeStampedModel):
 
     __tablename__ = "financial_operations"
     __table_args__ = (
+        CheckConstraint(
+            "fingerprint_version IN (1, 2)",
+            name="ck_financial_operations_fingerprint_version",
+        ),
         UniqueConstraint(
             "scope_kind",
             "scope_id",
@@ -202,6 +206,11 @@ class FinancialOperation(TimeStampedModel):
     operation_type: Mapped[str] = mapped_column(String(64), nullable=False)
     idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
     request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    fingerprint_version: Mapped[int] = mapped_column(
+        nullable=False,
+        default=2,
+        server_default=text("2"),
+    )
     status: Mapped[str] = mapped_column(
         String(16), nullable=False, default="processing"
     )

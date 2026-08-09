@@ -40,7 +40,7 @@ from app.shared.exceptions import ConflictError, NotFoundError, ValidationError
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 BI05C1_BASELINE = "bi05aown20"
-BI05C1_HEAD = "bi05c1loc21"
+BI05C1_HEAD = "bi05e1fp22"
 
 
 class FakeResolver:

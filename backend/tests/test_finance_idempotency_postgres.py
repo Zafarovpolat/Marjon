@@ -17,12 +17,18 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.modules.auth.models import User
 from app.modules.companies.models import Branch, Company
 from app.modules.finance.idempotency import (
+    FINGERPRINT_V1,
+    FINGERPRINT_V2,
+    OP_COMPANY_FINANCE_CREATE,
     OP_FINANCE_CREATE,
     OP_FINANCE_PAY,
     OP_PAYMENT_PROCESS,
     SCOPE_COMPANY,
     SCOPE_ORGANIZATION,
+    legacy_v1_company_transaction_fingerprint,
+    request_fingerprint_v2,
 )
+from app.modules.finance.money import canonical_money_amount
 from app.modules.finance.models import (
     FinancialOperation,
     FinTransaction,
@@ -34,11 +40,11 @@ from app.modules.payments.models import Payment
 from app.modules.payments.schemas import PaymentCreate
 from app.modules.payments.service import PaymentService
 from app.modules.pos.models import Order
-from app.shared.exceptions import ConflictError
+from app.shared.exceptions import ConflictError, ValidationError
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-CURRENT_HEAD = "bi05c1loc21"
+CURRENT_HEAD = "bi05e1fp22"
 BI05B_BASELINE = "bi02idx18"
 
 
@@ -668,5 +674,257 @@ def test_j_migration_zero_head_baseline_downgrade_cycle() -> None:
         asyncio.run(assert_baseline())
         _run_alembic(database_url, "upgrade", "head")
         asyncio.run(assert_head())
+    finally:
+        asyncio.run(_drop_database(control_url, database_name))
+
+
+def test_k_bi05e1_decimal_v2_precision_replay_and_tenant_isolation(
+    postgres_database_url,
+) -> None:
+    async def scenario(sessions):
+        ids = await _seed_tenants(sessions)
+        cases = (
+            ("0.01", Decimal("0.01")),
+            ("0.10", Decimal("0.10")),
+            (Decimal("0.20"), Decimal("0.20")),
+            (0.30, Decimal("0.30")),
+            (10, Decimal("10.00")),
+            ("99999999999999.99", Decimal("99999999999999.99")),
+        )
+        transaction_ids = []
+        for index, (raw, expected) in enumerate(cases):
+            async with sessions() as db:
+                transaction = await TransactionService(
+                    db
+                ).create_company_transaction(
+                    {"amount": raw, "direction": "income"},
+                    ids["user_one"],
+                    ids["company_one"],
+                    f"decimal-v2-{index}",
+                )
+                assert transaction.amount == expected
+                transaction_ids.append(transaction.id)
+
+        async with sessions() as db:
+            operations = (
+                await db.execute(
+                    select(FinancialOperation).where(
+                        FinancialOperation.idempotency_key.like("decimal-v2-%")
+                    )
+                )
+            ).scalars().all()
+            assert len(operations) == len(cases)
+            assert {row.fingerprint_version for row in operations} == {
+                FINGERPRINT_V2
+            }
+
+        business_key = "decimal-business-equivalent"
+        async with sessions() as db:
+            first = await TransactionService(db).create_company_transaction(
+                {"amount": 10, "direction": "income"},
+                ids["user_one"],
+                ids["company_one"],
+                business_key,
+            )
+            replay = await TransactionService(db).create_company_transaction(
+                {"amount": "10.00", "direction": "income"},
+                ids["user_one"],
+                ids["company_one"],
+                business_key,
+            )
+            assert replay.id == first.id
+
+        async with sessions() as db:
+            with pytest.raises(ConflictError):
+                await TransactionService(db).create_company_transaction(
+                    {"amount": "10.01", "direction": "income"},
+                    ids["user_one"],
+                    ids["company_one"],
+                    business_key,
+                )
+            await db.rollback()
+
+        async with sessions() as db:
+            independent = await TransactionService(
+                db
+            ).create_company_transaction(
+                {"amount": "10.01", "direction": "income"},
+                ids["user_two"],
+                ids["company_two"],
+                business_key,
+            )
+            assert independent.company_id == ids["company_two"]
+
+        for invalid in ("NaN", "Infinity", "-Infinity"):
+            async with sessions() as db:
+                with pytest.raises(ValidationError, match="finite decimal"):
+                    await TransactionService(db).create_company_transaction(
+                        {"amount": invalid, "direction": "income"},
+                        ids["user_one"],
+                        ids["company_one"],
+                    )
+
+        assert canonical_money_amount("1.005") == Decimal("1.01")
+        with pytest.raises(ValidationError, match="exceeds NUMERIC"):
+            canonical_money_amount("100000000000000.00")
+        assert request_fingerprint_v2(
+            {"amount": Decimal("0.10")}
+        ) == request_fingerprint_v2({"amount": Decimal("0.1")})
+        assert request_fingerprint_v2(
+            {"amount": Decimal("-10.00")}
+        ) != request_fingerprint_v2({"amount": Decimal("10.00")})
+        assert request_fingerprint_v2(
+            {"amount": Decimal("-0.00")}
+        ) == request_fingerprint_v2({"amount": Decimal("0.00")})
+
+    asyncio.run(_with_database(postgres_database_url, scenario))
+
+
+def test_l_bi05e1_existing_v1_company_operation_replays_and_conflicts(
+    postgres_database_url,
+) -> None:
+    async def scenario(sessions):
+        ids = await _seed_tenants(sessions)
+        key = "legacy-v1-company-key"
+        payload = {"amount": "31.00", "direction": "expense", "comment": "old"}
+
+        async with sessions() as db:
+            transaction = FinTransaction(
+                amount=Decimal("31.00"),
+                direction="expense",
+                comment="old",
+                user_id=ids["user_one"],
+                company_id=ids["company_one"],
+                idempotency_key=key,
+            )
+            db.add(transaction)
+            await db.flush()
+            db.add(
+                FinancialOperation(
+                    scope_kind=SCOPE_COMPANY,
+                    scope_id=ids["company_one"],
+                    operation_type=OP_COMPANY_FINANCE_CREATE,
+                    idempotency_key=key,
+                    request_fingerprint=(
+                        legacy_v1_company_transaction_fingerprint(payload)
+                    ),
+                    fingerprint_version=FINGERPRINT_V1,
+                    status="completed",
+                    result_metadata={"transaction_ids": [str(transaction.id)]},
+                )
+            )
+            await db.commit()
+            transaction_id = transaction.id
+
+        async with sessions() as db:
+            replay = await TransactionService(db).create_company_transaction(
+                payload,
+                ids["user_one"],
+                ids["company_one"],
+                key,
+            )
+            assert replay.id == transaction_id
+
+        async with sessions() as db:
+            with pytest.raises(ConflictError):
+                await TransactionService(db).create_company_transaction(
+                    {**payload, "amount": "31.01"},
+                    ids["user_one"],
+                    ids["company_one"],
+                    key,
+                )
+            await db.rollback()
+
+        async with sessions() as db:
+            assert await db.scalar(
+                select(func.count(FinancialOperation.id)).where(
+                    FinancialOperation.idempotency_key == key,
+                    FinancialOperation.fingerprint_version == FINGERPRINT_V1,
+                )
+            ) == 1
+
+    asyncio.run(_with_database(postgres_database_url, scenario))
+
+
+def test_m_bi05e1_migration_marks_existing_v1_and_reupgrades() -> None:
+    control_url = _control_url()
+    database_name = f"marjon_bi05e1_migration_{uuid4().hex[:10]}"
+    asyncio.run(_create_database(control_url, database_name))
+    database_url = _database_url(control_url, database_name)
+    operation_id = uuid4()
+    new_operation_id = uuid4()
+    try:
+        _run_alembic(database_url, "upgrade", "bi05c1loc21")
+
+        async def insert_v1_without_version():
+            connection = await _connect(database_url)
+            try:
+                await connection.execute(
+                    """
+                    INSERT INTO financial_operations(
+                        id, scope_kind, scope_id, operation_type,
+                        idempotency_key, request_fingerprint, status,
+                        created_at, updated_at
+                    ) VALUES($1, 'company', $2, $3, 'pre-e1', $4,
+                             'completed', now(), now())
+                    """,
+                    operation_id,
+                    uuid4(),
+                    OP_COMPANY_FINANCE_CREATE,
+                    "0" * 64,
+                )
+            finally:
+                await connection.close()
+
+        asyncio.run(insert_v1_without_version())
+        _run_alembic(database_url, "upgrade", "head")
+
+        async def assert_v1_at_head():
+            connection = await _connect(database_url)
+            try:
+                assert await connection.fetchval(
+                    "SELECT version_num FROM alembic_version"
+                ) == CURRENT_HEAD
+                assert await connection.fetchval(
+                    "SELECT fingerprint_version FROM financial_operations WHERE id=$1",
+                    operation_id,
+                ) == FINGERPRINT_V1
+            finally:
+                await connection.close()
+
+        asyncio.run(assert_v1_at_head())
+
+        async def assert_new_rows_default_to_v2():
+            connection = await _connect(database_url)
+            try:
+                await connection.execute(
+                    """
+                    INSERT INTO financial_operations(
+                        id, scope_kind, scope_id, operation_type,
+                        idempotency_key, request_fingerprint, status,
+                        created_at, updated_at
+                    ) VALUES($1, 'company', $2, $3, 'post-e1', $4,
+                             'completed', now(), now())
+                    """,
+                    new_operation_id,
+                    uuid4(),
+                    OP_COMPANY_FINANCE_CREATE,
+                    "1" * 64,
+                )
+                assert await connection.fetchval(
+                    "SELECT fingerprint_version FROM financial_operations WHERE id=$1",
+                    new_operation_id,
+                ) == FINGERPRINT_V2
+                await connection.execute(
+                    "DELETE FROM financial_operations WHERE id=$1",
+                    new_operation_id,
+                )
+            finally:
+                await connection.close()
+
+        asyncio.run(assert_new_rows_default_to_v2())
+        _run_alembic(database_url, "downgrade", "bi05c1loc21")
+        _run_alembic(database_url, "upgrade", "head")
+        asyncio.run(assert_v1_at_head())
     finally:
         asyncio.run(_drop_database(control_url, database_name))

@@ -34,6 +34,7 @@ from app.modules.finance.ownership import (
     validate_transaction_references,
 )
 from app.modules.finance.ownership_router import get_company_finance_scope
+from app.modules.finance.money import canonical_money_amount
 from app.modules.finance.schemas import (
     CounterpartyCreate,
     CounterpartyUpdate,
@@ -126,7 +127,7 @@ async def kafe_update_transaction(
     )
     if data.get("amount") is not None:
         old_amount = Decimal(t.amount)
-        new_amount = Decimal(str(abs(float(data["amount"]))))
+        new_amount = canonical_money_amount(data["amount"])
         if new_amount != old_amount:
             db.add(FinanceHistory(
                 status="updated",

@@ -2,19 +2,24 @@ from __future__ import annotations
 
 import asyncio
 from collections import Counter, defaultdict
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 import os
+from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 import asyncpg
 from fastapi.routing import APIRoute
 from httpx import ASGITransport, AsyncClient
+from jose import jwt
 import pytest
 import pytest_asyncio
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.engine import make_url
 
 from app.infrastructure.database.session import get_db
+from app.config import settings
 from app.main import app
 from app.modules.auth.dependencies import require_hq_admin
 from app.modules.auth.models import User
@@ -25,6 +30,7 @@ from app.modules.inventory.models import Product
 from app.modules.organizations.dependencies import get_org_scope
 from app.modules.organizations.models import Organization
 from app.modules.pos.models import Order, OrderItem
+from app.modules.payments import webhooks as payment_webhooks
 from app.modules.rbac.permissions import seed_permissions
 from app.shared.base_model import Base
 from tests.conftest import register_company
@@ -486,3 +492,143 @@ async def test_g_j_hq_org_scope_and_bidirectional_auth_scope_denial(
     ):
         response = await client.get(endpoint, headers=hq_headers)
         assert response.status_code == 403, (endpoint, response.text)
+
+
+@pytest.mark.asyncio
+async def test_bi05e1_company_payment_fiscal_subscription_routes_require_app_scope(
+    reports_api,
+    monkeypatch,
+) -> None:
+    client, sessions = reports_api
+    app_headers, _b_headers, company_a, _company_b = await _companies(client)
+    admin_email = f"bi05e1-hq-{uuid4().hex[:8]}@example.com"
+    admin_password = "RootPass1!"
+
+    async with sessions() as db:
+        app_user = (
+            await db.execute(
+                select(User).where(
+                    User.company_id == company_a,
+                    User.is_superadmin.is_(False),
+                )
+            )
+        ).scalars().first()
+        assert app_user is not None
+        db.add(
+            User(
+                company_id=company_a,
+                email=admin_email,
+                password_hash=hash_password(admin_password),
+                is_superadmin=True,
+                is_active=True,
+            )
+        )
+        await db.commit()
+        legacy_payload = {
+            "sub": str(app_user.id),
+            "company_id": str(company_a),
+            "type": "access",
+            "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+        }
+        legacy_headers = {
+            "Authorization": "Bearer "
+            + jwt.encode(
+                legacy_payload,
+                settings.secret_key,
+                algorithm=settings.algorithm,
+            )
+        }
+
+    login = await client.post(
+        "/auth/admin/login",
+        json={"email": admin_email, "password": admin_password},
+    )
+    assert login.status_code == 200, login.text
+    hq_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    writes = (
+        (
+            "POST",
+            "/payments",
+            {"order_id": str(uuid4()), "amount": "10.00", "method": "cash"},
+        ),
+        (
+            "POST",
+            "/fiscal/receipts",
+            {
+                "order_id": str(uuid4()),
+                "payment_id": str(uuid4()),
+                "provider": "ofd_uz",
+            },
+        ),
+        ("PUT", "/fiscal/settings", {"enabled": False}),
+        (
+            "POST",
+            "/subscriptions",
+            {"plan_id": str(uuid4()), "billing_cycle": "monthly"},
+        ),
+    )
+    for method, path, payload in writes:
+        denied = await client.request(
+            method, path, headers=hq_headers, json=payload
+        )
+        assert denied.status_code == 403, (path, denied.text)
+
+        app_response = await client.request(
+            method, path, headers=app_headers, json=payload
+        )
+        assert app_response.status_code != 403, (path, app_response.text)
+
+        legacy_response = await client.request(
+            method, path, headers=legacy_headers, json=payload
+        )
+        assert legacy_response.status_code != 403, (path, legacy_response.text)
+
+    reads = (
+        f"/payments/order/{uuid4()}",
+        "/payments/gateway-settings",
+        "/fiscal/receipts",
+        f"/fiscal/receipts/{uuid4()}",
+        "/fiscal/settings",
+        "/subscriptions/current",
+    )
+    for path in reads:
+        denied = await client.get(path, headers=hq_headers)
+        assert denied.status_code == 403, (path, denied.text)
+        app_response = await client.get(path, headers=app_headers)
+        assert app_response.status_code != 403, (path, app_response.text)
+        legacy_response = await client.get(path, headers=legacy_headers)
+        assert legacy_response.status_code != 403, (path, legacy_response.text)
+
+    internal = await client.post(
+        "/internal/payment-webhook",
+        json={
+            "order_id": str(uuid4()),
+            "amount": "10.00",
+            "method": "payme",
+            "gateway_tx_id": "bi05e1-provider",
+            "action": "confirm",
+        },
+    )
+    assert internal.status_code == 422
+    assert internal.headers.get("www-authenticate") != "Bearer"
+
+    monkeypatch.setattr(
+        payment_webhooks,
+        "settings",
+        SimpleNamespace(
+            click_secret_key="",
+            payme_merchant_id="",
+            payme_secret_key="",
+            uzum_secret_key="",
+        ),
+    )
+    provider_requests = (
+        ("/payments/webhooks/click", {"data": {}}),
+        ("/payments/webhooks/payme", {"json": {}}),
+        ("/payments/webhooks/uzum", {"json": {}}),
+    )
+    for path, request_kwargs in provider_requests:
+        provider_response = await client.post(path, **request_kwargs)
+        assert provider_response.headers.get("www-authenticate") != "Bearer"
+        assert "Not authenticated" not in provider_response.text

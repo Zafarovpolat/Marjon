@@ -11,7 +11,8 @@ from app.modules.finance.idempotency import (
     OP_PAYMENT_PROCESS,
     SCOPE_COMPANY,
     FinancialOperationService,
-    request_fingerprint,
+    legacy_v1_fingerprint_compatibility,
+    request_fingerprint_v2,
 )
 from app.modules.finance.models import FinancialOperation
 from app.modules.fiscal.runtime import FiscalRuntime, get_fiscal_runtime
@@ -89,7 +90,10 @@ class PaymentService:
                     scope_id=company_id,
                     operation_type=OP_PAYMENT_PROCESS,
                     idempotency_key=idempotency_key,
-                    fingerprint=request_fingerprint(data),
+                    fingerprint=request_fingerprint_v2(data),
+                    legacy_v1_fingerprint=lambda: (
+                        legacy_v1_fingerprint_compatibility(data)
+                    ),
                 )
                 operation = claim.operation
                 if not claim.is_new:
