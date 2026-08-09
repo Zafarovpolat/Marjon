@@ -68,6 +68,7 @@ router.include_router(crud_router(
     org_field="id",
     scope_dep=get_org_scope,
     router=organizations,
+    include_list=False,
 ))
 
 router.include_router(crud_router(

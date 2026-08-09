@@ -6,7 +6,7 @@ from typing import Iterable, Sequence
 from uuid import UUID
 
 from fastapi.responses import StreamingResponse
-from sqlalchemy import case, func, select
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.admin_reports.schemas import (
@@ -16,10 +16,12 @@ from app.modules.admin_reports.schemas import (
 )
 from app.modules.auth.models import RefreshToken, User
 from app.modules.finance.models import Counterparty, FinTransaction
+from app.modules.finance.ownership import FinanceScope, require_finance_reference
 from app.modules.hr.models import Employee, WorkShift
-from app.modules.nomenclature.models import NomProduct
+from app.modules.companies.models import Branch
+from app.modules.inventory.models import Product
 from app.modules.pos.models import Order, OrderItem
-from app.modules.storage.models import StorageMovement
+from app.shared.tenant_scope import require_company_resource
 
 
 def xlsx_response(filename: str, headers: Sequence[str], rows: Iterable[Sequence]) -> StreamingResponse:
@@ -45,48 +47,78 @@ class AdminReportService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    def _movement_period(self, query, date_from: date | None, date_to: date | None):
-        if date_from:
-            query = query.where(func.date(StorageMovement.date) >= date_from)
-        if date_to:
-            query = query.where(func.date(StorageMovement.date) <= date_to)
-        return query
+    async def _validate_branch(
+        self, company_id: UUID, branch_id: UUID | None
+    ) -> None:
+        if branch_id is not None:
+            await require_company_resource(
+                self.db,
+                Branch,
+                branch_id,
+                company_id,
+                detail="Branch not found",
+            )
 
     async def products(
-        self, date_from: date | None, date_to: date | None
+        self,
+        company_id: UUID,
+        date_from: date | None,
+        date_to: date | None,
+        branch_id: UUID | None = None,
     ) -> list[ProductReportRow]:
-        """Отчёт по продуктам: кол-во, цена, сумма, себестоимость, прибыль (ТЗ §6).
-
-        Продажи — расходные движения склада; себестоимость — средняя цена прихода.
-        """
-        expense_qty = func.sum(StorageMovement.qty)
-        expense_sum = func.sum(StorageMovement.qty * StorageMovement.price)
+        """Completed company sales grouped by tenant-owned product identity."""
+        await self._validate_branch(company_id, branch_id)
+        quantity = func.sum(OrderItem.quantity)
+        total_amount = func.sum(OrderItem.total)
         query = (
-            select(StorageMovement.product_id, NomProduct.name, expense_qty, expense_sum)
-            .join(NomProduct, NomProduct.id == StorageMovement.product_id)
-            .where(StorageMovement.direction == "expense")
-            .group_by(StorageMovement.product_id, NomProduct.name)
+            select(
+                Product.id,
+                Product.name,
+                quantity,
+                total_amount,
+                func.coalesce(Product.cost_price, 0),
+            )
+            .select_from(OrderItem)
+            .join(
+                Order,
+                and_(
+                    Order.id == OrderItem.order_id,
+                    Order.company_id == company_id,
+                ),
+            )
+            .join(
+                Product,
+                and_(
+                    Product.id == OrderItem.product_id,
+                    Product.company_id == company_id,
+                ),
+            )
+            .join(
+                Branch,
+                and_(
+                    Branch.id == Order.branch_id,
+                    Branch.company_id == company_id,
+                ),
+            )
+            .where(
+                Order.company_id == company_id,
+                Product.company_id == company_id,
+                Branch.company_id == company_id,
+                Order.status == "completed",
+                OrderItem.status != "cancelled",
+            )
+            .group_by(Product.id, Product.name, Product.cost_price)
         )
-        query = self._movement_period(query, date_from, date_to)
+        if branch_id is not None:
+            query = query.where(Order.branch_id == branch_id)
+        query = self._order_date_filter(query, date_from, date_to)
         sales = (await self.db.execute(query)).all()
 
-        # средняя себестоимость по всем приходам
-        cost_query = (
-            select(
-                StorageMovement.product_id,
-                func.sum(StorageMovement.qty * StorageMovement.price)
-                / func.nullif(func.sum(StorageMovement.qty), 0),
-            )
-            .where(StorageMovement.direction == "income")
-            .group_by(StorageMovement.product_id)
-        )
-        costs = dict((await self.db.execute(cost_query)).all())
-
         rows = []
-        for product_id, name, qty, total in sales:
+        for product_id, name, qty, total, unit_cost in sales:
             qty = Decimal(qty or 0)
             total = Decimal(total or 0)
-            unit_cost = Decimal(costs.get(product_id) or 0)
+            unit_cost = Decimal(unit_cost or 0)
             cost = (unit_cost * qty).quantize(Decimal("0.01"))
             rows.append(ProductReportRow(
                 product_id=product_id,
@@ -100,34 +132,83 @@ class AdminReportService:
         return rows
 
     async def products_count(
-        self, date_from: date | None, date_to: date | None
+        self,
+        company_id: UUID,
+        date_from: date | None,
+        date_to: date | None,
+        branch_id: UUID | None = None,
     ) -> list[ProductCountRow]:
-        income = func.sum(case(
-            (StorageMovement.direction == "income", StorageMovement.qty), else_=0
-        ))
-        expense = func.sum(case(
-            (StorageMovement.direction == "expense", StorageMovement.qty), else_=0
-        ))
+        """Known product outflow from completed sales in the company schema."""
+        await self._validate_branch(company_id, branch_id)
+        expense = func.sum(OrderItem.quantity)
         query = (
-            select(StorageMovement.product_id, NomProduct.name, income, expense)
-            .join(NomProduct, NomProduct.id == StorageMovement.product_id)
-            .group_by(StorageMovement.product_id, NomProduct.name)
-        )
-        query = self._movement_period(query, date_from, date_to)
-        rows = (await self.db.execute(query)).all()
-        return [
-            ProductCountRow(
-                product_id=r[0], product_name=r[1],
-                income_qty=r[2] or 0, expense_qty=r[3] or 0,
-                balance_qty=(r[2] or 0) - (r[3] or 0),
+            select(Product.id, Product.name, expense)
+            .select_from(OrderItem)
+            .join(
+                Order,
+                and_(
+                    Order.id == OrderItem.order_id,
+                    Order.company_id == company_id,
+                ),
             )
-            for r in rows
-        ]
+            .join(
+                Product,
+                and_(
+                    Product.id == OrderItem.product_id,
+                    Product.company_id == company_id,
+                ),
+            )
+            .join(
+                Branch,
+                and_(
+                    Branch.id == Order.branch_id,
+                    Branch.company_id == company_id,
+                ),
+            )
+            .where(
+                Order.company_id == company_id,
+                Product.company_id == company_id,
+                Branch.company_id == company_id,
+                Order.status == "completed",
+                OrderItem.status != "cancelled",
+            )
+            .group_by(Product.id, Product.name)
+        )
+        if branch_id is not None:
+            query = query.where(Order.branch_id == branch_id)
+        query = self._order_date_filter(query, date_from, date_to)
+        rows = (await self.db.execute(query)).all()
+        result = []
+        for product_id, product_name, expense_qty in rows:
+            expense_qty = Decimal(expense_qty or 0)
+            result.append(
+                ProductCountRow(
+                    product_id=product_id,
+                    product_name=product_name,
+                    income_qty=Decimal("0"),
+                    expense_qty=expense_qty,
+                    balance_qty=-expense_qty,
+                )
+            )
+        return result
 
     async def debt_credit(
-        self, date_from: date | None, date_to: date | None
+        self,
+        company_id: UUID,
+        date_from: date | None,
+        date_to: date | None,
+        counterparty_id: UUID | None = None,
     ) -> list[DebtCreditRow]:
         """Дебет/кредит по контрагентам: остатки и обороты за период (ТЗ §6)."""
+        scope = FinanceScope("company", company_id)
+        await require_finance_reference(
+            self.db,
+            Counterparty,
+            counterparty_id,
+            scope,
+            allow_system=False,
+            detail="Counterparty not found",
+        )
         signed = case(
             (FinTransaction.direction == "income", FinTransaction.amount),
             else_=-FinTransaction.amount,
@@ -147,10 +228,28 @@ class AdminReportService:
 
         query = (
             select(FinTransaction.counterparty_id, Counterparty.full_name, opening, debit, credit)
-            .join(Counterparty, Counterparty.id == FinTransaction.counterparty_id)
-            .where(FinTransaction.deleted_at.is_(None), FinTransaction.counterparty_id.is_not(None))
+            .join(
+                Counterparty,
+                and_(
+                    Counterparty.id == FinTransaction.counterparty_id,
+                    Counterparty.scope_kind == "company",
+                    Counterparty.company_id == company_id,
+                    Counterparty.organization_id.is_(None),
+                    Counterparty.deleted_at.is_(None),
+                ),
+            )
+            .where(
+                FinTransaction.deleted_at.is_(None),
+                FinTransaction.counterparty_id.is_not(None),
+                FinTransaction.company_id == company_id,
+                FinTransaction.organization_id.is_(None),
+                Counterparty.scope_kind == "company",
+                Counterparty.company_id == company_id,
+            )
             .group_by(FinTransaction.counterparty_id, Counterparty.full_name)
         )
+        if counterparty_id is not None:
+            query = query.where(FinTransaction.counterparty_id == counterparty_id)
         if date_to:
             query = query.where(func.date(FinTransaction.date) <= date_to)
         rows = (await self.db.execute(query)).all()

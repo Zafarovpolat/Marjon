@@ -9,21 +9,20 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user, require_hq_admin
+from app.modules.auth.dependencies import require_company_app_user, require_hq_admin
 from app.modules.auth.models import User
 from app.modules.finance.ownership import FinanceDictionaryService, FinanceScope
 from app.modules.organizations.dependencies import get_org_scope
 from app.modules.organizations.models import Organization
 from app.shared.admin_crud import OrgScope
-from app.shared.exceptions import ForbiddenError, NotFoundError
+from app.shared.exceptions import NotFoundError
 from app.shared.pagination import Page, PageParams
 
 
 async def get_company_finance_scope(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
 ) -> FinanceScope:
-    if user.company_id is None:
-        raise ForbiddenError("User is not assigned to a company")
+    assert user.company_id is not None
     return FinanceScope("company", user.company_id)
 
 

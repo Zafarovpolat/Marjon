@@ -53,6 +53,17 @@ async def get_current_active_user(
     return current_user
 
 
+async def require_company_app_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Require an app-scoped session with a server-owned company context."""
+    if getattr(current_user, "auth_scope", "app") != "app":
+        raise ForbiddenError("Company app session required")
+    if current_user.company_id is None:
+        raise ForbiddenError("User is not assigned to a company")
+    return current_user
+
+
 async def require_company_admin(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

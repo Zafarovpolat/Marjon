@@ -262,6 +262,7 @@ def crud_router(
     user_dep: Callable[..., Any] = require_hq_admin,
     write_dep: Callable[..., Any] | None = None,
     router: APIRouter | None = None,
+    include_list: bool = True,
 ) -> APIRouter:
     """Build a standard CRUD router for one resource.
 
@@ -318,6 +319,13 @@ def crud_router(
         return Page.create(
             [response_schema.model_validate(i) for i in items], total, params
         )
+
+    if not include_list:
+        r.routes = [
+            route
+            for route in r.routes
+            if getattr(route, "endpoint", None) is not list_items
+        ]
 
     @r.post("", response_model=response_schema, status_code=status.HTTP_201_CREATED,
             summary=f"Create {model.__name__}")
