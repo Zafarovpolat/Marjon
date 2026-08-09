@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Uuid
 from app.shared.base_model import TimeStampedModel
@@ -19,6 +19,9 @@ class PosTerminal(TimeStampedModel):
 
 class Order(TimeStampedModel):
     __tablename__ = "orders"
+    __table_args__ = (
+        UniqueConstraint("id", "company_id", name="uq_orders_id_company"),
+    )
 
     company_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("companies.id"), index=True)
     branch_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("branches.id"), index=True)

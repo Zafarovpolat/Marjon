@@ -16,6 +16,8 @@ from app.modules.finance.idempotency import (
     FinancialOperationService,
     request_fingerprint,
 )
+from app.modules.fiscal.runtime import FiscalRuntime, get_fiscal_runtime
+from app.modules.fiscal.service import FiscalService
 from app.modules.payments.models import Payment
 from app.modules.pos.models import Order
 from app.modules.kitchen.websocket import kitchen_manager
@@ -56,7 +58,11 @@ class PaymentWebhookIn(BaseModel):
 
 @router.post("/payment-webhook", dependencies=[Depends(verify_secret)],
              status_code=status.HTTP_200_OK)
-async def payment_webhook(data: PaymentWebhookIn, db: AsyncSession = Depends(get_db)):
+async def payment_webhook(
+    data: PaymentWebhookIn,
+    db: AsyncSession = Depends(get_db),
+    runtime: FiscalRuntime = Depends(get_fiscal_runtime),
+):
     result = await db.execute(
         select(Order).where(Order.id == data.order_id).with_for_update()
     )
@@ -105,6 +111,9 @@ async def payment_webhook(data: PaymentWebhookIn, db: AsyncSession = Depends(get
             await db.commit()
             return {"ok": True}
 
+        fiscal = FiscalService(db, runtime)
+        fiscal_plan = await fiscal.prepare_company(order.company_id)
+
         payment = Payment(
             company_id=order.company_id,
             order_id=order.id,
@@ -114,9 +123,17 @@ async def payment_webhook(data: PaymentWebhookIn, db: AsyncSession = Depends(get
             fiscal_code=data.gateway_tx_id,
         )
         db.add(payment)
+        await db.flush()
         order.status = "completed"
         db.add(order)
         await db.flush()
+        if fiscal_plan is not None:
+            await fiscal.schedule_payment(
+                company_id=order.company_id,
+                order=order,
+                payment=payment,
+                plan=fiscal_plan,
+            )
         FinancialOperationService.complete(
             claim.operation,
             {"order_id": str(order.id), "payment_id": str(payment.id)},

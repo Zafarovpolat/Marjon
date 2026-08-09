@@ -19,6 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.infrastructure.database.session import get_db
+from app.modules.fiscal.runtime import FiscalRuntime, get_fiscal_runtime
+from app.modules.fiscal.service import FiscalService
 from app.modules.payments.models import Payment
 from app.modules.pos.models import Order
 
@@ -85,7 +87,11 @@ def _click_sign(click_trans_id, service_id, secret, merchant_trans_id, amount, a
 
 
 @router.post("/click")
-async def click_webhook(request: Request, db: AsyncSession = Depends(get_db)):
+async def click_webhook(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    runtime: FiscalRuntime = Depends(get_fiscal_runtime),
+):
     form = await request.form()
     click_trans_id = form.get("click_trans_id", "")
     service_id = form.get("service_id", "")
@@ -163,6 +169,9 @@ async def click_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             await db.commit()
             return {"error": -4, "error_note": "Already completed"}
 
+        fiscal = FiscalService(db, runtime)
+        fiscal_plan = await fiscal.prepare_company(payment.company_id)
+
         payment.status = "completed"
         payment.provider_tx_id = str(click_trans_id)
         payment.provider_data = {**payment.provider_data, "click_trans_id": click_trans_id, "sign_time": sign_time}
@@ -170,6 +179,14 @@ async def click_webhook(request: Request, db: AsyncSession = Depends(get_db)):
 
         order.status = "completed"
         db.add(order)
+
+        if fiscal_plan is not None:
+            await fiscal.schedule_payment(
+                company_id=payment.company_id,
+                order=order,
+                payment=payment,
+                plan=fiscal_plan,
+            )
 
         await db.commit()
         logger.info("Click: payment %s completed, click_trans_id=%s", payment.id, click_trans_id)
@@ -226,6 +243,7 @@ async def payme_webhook(
     request: Request,
     authorization: str = Header(""),
     db: AsyncSession = Depends(get_db),
+    runtime: FiscalRuntime = Depends(get_fiscal_runtime),
 ):
     body = await request.json()
     rpc_id = body.get("id")
@@ -320,6 +338,9 @@ async def payme_webhook(
             await db.commit()
             return _payme_error(rpc_id, "AlreadyDone")
 
+        fiscal = FiscalService(db, runtime)
+        fiscal_plan = await fiscal.prepare_company(payment.company_id)
+
         payment.status = "completed"
         perform_time = int(datetime.now(timezone.utc).timestamp() * 1000)
         payment.provider_data = {**payment.provider_data, "payme_state": 2, "perform_time": perform_time}
@@ -327,6 +348,14 @@ async def payme_webhook(
 
         order.status = "completed"
         db.add(order)
+
+        if fiscal_plan is not None:
+            await fiscal.schedule_payment(
+                company_id=payment.company_id,
+                order=order,
+                payment=payment,
+                plan=fiscal_plan,
+            )
 
         await db.commit()
         logger.info("Payme: payment %s completed, payme_id=%s", payment.id, payme_id)
@@ -408,6 +437,7 @@ def _verify_uzum_signature(body_bytes: bytes, signature: str) -> bool:
 async def uzum_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db),
+    runtime: FiscalRuntime = Depends(get_fiscal_runtime),
 ):
     body_bytes = await request.body()
     signature = request.headers.get("X-Signature", "")
@@ -453,6 +483,9 @@ async def uzum_webhook(
             await db.commit()
             return {"status": "error", "message": "Order already completed"}
 
+        fiscal = FiscalService(db, runtime)
+        fiscal_plan = await fiscal.prepare_company(payment.company_id)
+
         payment.status = "completed"
         payment.provider_tx_id = str(uzum_trans_id)
         payment.provider_data = {**payment.provider_data, "uzum_trans_id": uzum_trans_id, "uzum_event": event}
@@ -460,6 +493,14 @@ async def uzum_webhook(
 
         order.status = "completed"
         db.add(order)
+
+        if fiscal_plan is not None:
+            await fiscal.schedule_payment(
+                company_id=payment.company_id,
+                order=order,
+                payment=payment,
+                plan=fiscal_plan,
+            )
 
         await db.commit()
         logger.info("Uzum: payment %s completed, trans_id=%s", payment.id, uzum_trans_id)

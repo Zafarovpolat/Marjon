@@ -7,6 +7,7 @@ from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import get_current_user, require_company_admin
 from app.modules.auth.models import User
 from app.modules.payments.models import PaymentGatewaySettings
+from app.modules.fiscal.runtime import FiscalRuntime, get_fiscal_runtime
 from app.modules.payments.schemas import (
     GatewaySettingsResponse, GatewaySettingsUpdate,
     PaymentCreate, PaymentResponse,
@@ -22,8 +23,9 @@ async def process_payment(
     idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    runtime: FiscalRuntime = Depends(get_fiscal_runtime),
 ):
-    return await PaymentService(db).process(
+    return await PaymentService(db, runtime).process(
         user.company_id, user.id, data, idempotency_key
     )
 

@@ -38,7 +38,7 @@ from app.shared.exceptions import ConflictError
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-CURRENT_HEAD = "bi05aown20"
+CURRENT_HEAD = "bi05c1loc21"
 BI05B_BASELINE = "bi02idx18"
 
 
@@ -105,6 +105,7 @@ def _run_alembic(database_url: str, command: str, target: str) -> None:
         ],
         cwd=BACKEND_ROOT,
         env=env,
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         timeout=180,

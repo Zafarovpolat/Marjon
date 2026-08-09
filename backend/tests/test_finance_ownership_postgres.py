@@ -98,6 +98,7 @@ def _alembic(database_url: str, command: str, target: str, *, success: bool = Tr
         [sys.executable, "-m", "alembic", "-c", "alembic.ini", command, target],
         cwd=BACKEND_ROOT,
         env=env,
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         timeout=180,
