@@ -83,9 +83,13 @@ export function AuthProvider({ children }) {
   }, [loadProfile]);
 
   const logout = useCallback(() => {
-    apiLogout();
+    const logoutRequest = apiLogout();
+    // The UI logs out locally even when server-side revocation is unavailable.
+    // Keep returning the original promise so callers and tests can observe the failure.
+    logoutRequest.catch(() => {});
     setUser(null);
     setSessionExpired(false);
+    return logoutRequest;
   }, []);
 
   const value = useMemo(() => ({

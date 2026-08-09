@@ -1,7 +1,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chart, CategoryScale, Filler, LineController, LineElement, LinearScale, PointElement, Tooltip } from "chart.js";
 import logo from "../assets/marjon-logo.svg";
-import { adminApi, adminLogin, adminLogout, isAdminAuthenticated } from "./api";
+import { adminApi, adminLogin, adminLogout, getValidatedAdminProfile, isAdminAuthenticated } from "./api";
+import { AUTH_SCOPES, subscribeToAuthSessionEnded } from "../auth/session";
 import Icon from '../components/Icon';
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import { createPortal } from "react-dom";
@@ -2968,7 +2969,8 @@ function LoginView({ onLogin }) {
     setError("");
     try {
       await adminLogin(phone, password);
-      onLogin();
+      const validated = await onLogin();
+      if (!validated) throw new Error("HQ admin session validation failed");
     } catch {
       setError("Не удалось войти в Marjon Admin.");
     } finally {
@@ -12237,11 +12239,10 @@ function DetailModal({ data, onClose }) {
   );
 }
 
-function AdminShell({ onLogout }) {
+function AdminShell({ onLogout, user }) {
   const [active, setActive] = useState("dashboard");
   const navigationHistoryRef = useRef([]);
   const innerBackRef = useRef(null);
-  const [user, setUser] = useState(null);
   const [message, setMessage] = useState("");
   const [collapsed, setCollapsed] = useState(false);
   const search = "";
@@ -12274,9 +12275,6 @@ function AdminShell({ onLogout }) {
 
   useEffect(() => {
     let mounted = true;
-    adminApi.get("/auth/me")
-      .then(({ data }) => mounted && setUser(data))
-      .catch(() => mounted && setMessage("Профиль не загружен. Проверьте права доступа."));
     adminApi.get("/organizations", { params: { size: 5 } })
       .then(({ data }) => {
         if (!mounted) return;
@@ -12488,8 +12486,12 @@ function AdminShell({ onLogout }) {
   ), [active, approvals, categoryRows, dashKpis, dashboardView, filteredOrganizations, navigateTo, search, segment, setInnerBackHandler]);
 
   function logout() {
-    adminLogout();
+    const logoutRequest = adminLogout();
+    // Local shell teardown is immediate; the returned promise still exposes
+    // a revocation failure to direct callers and behavioral tests.
+    logoutRequest.catch(() => {});
     onLogout();
+    return logoutRequest;
   }
 
   function handleHeaderBack() {
@@ -12549,10 +12551,51 @@ function AdminShell({ onLogout }) {
 }
 
 export default function AdminApp() {
-  const [authenticated, setAuthenticated] = useState(() => isAdminAuthenticated());
-  return authenticated ? (
-    <AdminShell onLogout={() => setAuthenticated(false)} />
+  const [sessionState, setSessionState] = useState(() => (
+    isAdminAuthenticated() ? "validating" : "logged_out"
+  ));
+  const [adminUser, setAdminUser] = useState(null);
+  const validationAttemptRef = useRef(0);
+
+  const markLoggedOut = useCallback(() => {
+    validationAttemptRef.current += 1;
+    setAdminUser(null);
+    setSessionState("logged_out");
+  }, []);
+
+  const validateSession = useCallback(async ({ hideLogin = false } = {}) => {
+    const attempt = validationAttemptRef.current + 1;
+    validationAttemptRef.current = attempt;
+    if (!isAdminAuthenticated()) {
+      markLoggedOut();
+      return false;
+    }
+
+    if (hideLogin) setSessionState("validating");
+    try {
+      const profile = await getValidatedAdminProfile();
+      if (validationAttemptRef.current !== attempt) return false;
+      setAdminUser(profile);
+      setSessionState("authenticated");
+      return true;
+    } catch {
+      if (validationAttemptRef.current === attempt) markLoggedOut();
+      return false;
+    }
+  }, [markLoggedOut]);
+
+  useEffect(() => {
+    if (isAdminAuthenticated()) validateSession({ hideLogin: true });
+  }, [validateSession]);
+
+  useEffect(() => subscribeToAuthSessionEnded(({ scope }) => {
+    if (scope === AUTH_SCOPES.ADMIN || scope === AUTH_SCOPES.ALL) markLoggedOut();
+  }), [markLoggedOut]);
+
+  if (sessionState === "validating") return null;
+  return sessionState === "authenticated" ? (
+    <AdminShell user={adminUser} onLogout={markLoggedOut} />
   ) : (
-    <LoginView onLogin={() => setAuthenticated(true)} />
+    <LoginView onLogin={validateSession} />
   );
 }

@@ -102,6 +102,9 @@ describe("fetch transport", () => {
     vi.useRealTimers();
     localStorage.clear();
     resetAuthSessionStateForTest();
+    vi.spyOn(axios, "get").mockResolvedValue({
+      data: { id: "hq", auth_scope: "hq_admin", is_superadmin: true },
+    });
     api.defaults.adapter = apiTransportAdapter;
     adminApi.defaults.adapter = adminTransportAdapter;
   });

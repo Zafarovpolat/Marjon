@@ -2,13 +2,16 @@ import { waitFor } from "@testing-library/react";
 import axios from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  ADMIN_API_BASE_URL,
   adminApi,
   adminLogin,
   adminLogout,
+  getValidatedAdminProfile,
   isAdminAuthenticated,
 } from "../admin/api";
 import { api, API_BASE_URL, logout } from "../api/client";
 import {
+  AUTH_BACKGROUND_REQUEST_TIMEOUT_MS,
   AUTH_SCOPES,
   AUTH_SESSION_ENDED_EVENT,
   AUTH_STORAGE_KEYS,
@@ -117,6 +120,9 @@ describe("auth session and axios clients", () => {
     vi.restoreAllMocks();
     localStorage.clear();
     resetAuthSessionStateForTest();
+    vi.spyOn(axios, "get").mockResolvedValue({
+      data: { id: "hq", auth_scope: "hq_admin", is_superadmin: true },
+    });
     api.defaults.adapter = undefined;
     adminApi.defaults.adapter = undefined;
   });
@@ -172,6 +178,18 @@ describe("auth session and axios clients", () => {
     expect(getHeader(adapter.mock.calls[0][0].headers, "Authorization")).toBe("Bearer admin-access-a");
   });
 
+  it("preserves an explicit snapshot bearer instead of overwriting it from storage", async () => {
+    setAdminTokens("newer-admin-access", "newer-admin-refresh");
+    const adapter = vi.fn((config) => resolveResponse(config));
+    adminApi.defaults.adapter = adapter;
+
+    await adminApi.post("/auth/logout", { refresh_token: "snapshot-refresh" }, {
+      headers: { Authorization: "Bearer snapshot-access" },
+    });
+
+    expect(getHeader(adapter.mock.calls[0][0].headers, "Authorization")).toBe("Bearer snapshot-access");
+  });
+
   it("adminApi without admin tokens never attaches default tokens", async () => {
     setDefaultTokens("default-access-a", "default-refresh-a");
     const adapter = vi.fn((config) => resolveResponse(config));
@@ -192,10 +210,54 @@ describe("auth session and axios clients", () => {
     });
 
     expect(login).toHaveBeenCalledTimes(1);
+    expect(login).toHaveBeenCalledWith("/auth/admin/login", {
+      phone: "+998900000000",
+      password: "invalid-password",
+    });
     expect(isAdminAuthenticated()).toBe(false);
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBeNull();
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBeNull();
     expect(localStorage.getItem("admin_local_login")).toBeNull();
+  });
+
+  it("successful admin login stores only the normalized ADMIN token pair", async () => {
+    setDefaultTokens("default-access-a", "default-refresh-a");
+    const login = vi.spyOn(adminApi, "post").mockResolvedValue({
+      data: {
+        access_token: "admin-access-b",
+        refresh_token: "admin-refresh-b",
+        token_type: "bearer",
+      },
+    });
+
+    await adminLogin("90 000-00-00", "valid-password");
+
+    expect(login).toHaveBeenCalledWith("/auth/admin/login", {
+      phone: "+998900000000",
+      password: "valid-password",
+    });
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBe("admin-access-b");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBe("admin-refresh-b");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBe("default-access-a");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe("default-refresh-a");
+  });
+
+  it("does not refresh or fall back to APP login when admin login returns 401", async () => {
+    setDefaultTokens("default-access-a", "default-refresh-a");
+    setAdminTokens("stale-admin-access", "stale-admin-refresh");
+    const refresh = vi.spyOn(axios, "post");
+    const adapter = vi.fn((config) => rejectStatus(config, 401));
+    adminApi.defaults.adapter = adapter;
+
+    await expect(adminLogin("900000000", "invalid-password")).rejects.toMatchObject({
+      response: { status: 401 },
+    });
+
+    expect(adapter).toHaveBeenCalledTimes(1);
+    expect(adapter.mock.calls[0][0].url).toBe("/auth/admin/login");
+    expect(refresh).not.toHaveBeenCalled();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBe("default-access-a");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe("default-refresh-a");
   });
 
   it("legacy local admin flag does not authenticate the admin application", () => {
@@ -204,11 +266,50 @@ describe("auth session and axios clients", () => {
     expect(isAdminAuthenticated()).toBe(false);
   });
 
-  it("admin logout clears only the administrative session", () => {
+  it("admin logout revokes the current refresh session and clears only ADMIN", async () => {
     setDefaultTokens("default-access-a", "default-refresh-a");
     setAdminTokens("admin-access-a", "admin-refresh-a");
+    const post = vi.spyOn(adminApi, "post").mockResolvedValue({ status: 204, data: "" });
 
-    adminLogout();
+    await adminLogout();
+
+    expect(post).toHaveBeenCalledWith(
+      "/auth/logout",
+      { refresh_token: "admin-refresh-a" },
+      { headers: { Authorization: "Bearer admin-access-a" } },
+    );
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBe("default-access-a");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe("default-refresh-a");
+  });
+
+  it.each([
+    [
+      "network",
+      { message: "Network Error", request: {}, config: { headers: { Authorization: "Bearer secret-admin-access" } } },
+      { message: "Network Error", code: "logout_failed" },
+    ],
+    [
+      "401",
+      { response: { status: 401 }, config: { data: { refresh_token: "secret-admin-refresh" } } },
+      { code: "logout_failed", response: { status: 401 } },
+    ],
+  ])("admin logout exposes redacted %s failure but still clears only ADMIN", async (_label, error, expected) => {
+    setDefaultTokens("default-access-a", "default-refresh-a");
+    setAdminTokens("admin-access-a", "admin-refresh-a");
+    vi.spyOn(adminApi, "post").mockRejectedValue(error);
+
+    let received;
+    try {
+      await adminLogout();
+    } catch (logoutError) {
+      received = logoutError;
+    }
+
+    expect(received).toMatchObject(expected);
+    expect(JSON.stringify(received)).not.toContain("secret-admin-access");
+    expect(JSON.stringify(received)).not.toContain("secret-admin-refresh");
 
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBeNull();
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBeNull();
@@ -216,16 +317,85 @@ describe("auth session and axios clients", () => {
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe("default-refresh-a");
   });
 
-  it("logout removes default and admin tokens", () => {
-    setDefaultTokens();
-    setAdminTokens();
+  it("does not refresh a backend 401 from the ADMIN logout endpoint", async () => {
+    setDefaultTokens("default-access-a", "default-refresh-a");
+    setAdminTokens("admin-access-a", "admin-refresh-a");
+    const refresh = vi.spyOn(axios, "post");
+    const adapter = vi.fn((config) => rejectStatus(config, 401));
+    adminApi.defaults.adapter = adapter;
 
-    logout();
+    await expect(adminLogout()).rejects.toMatchObject({ response: { status: 401 } });
 
-    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBeNull();
-    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBeNull();
+    expect(adapter).toHaveBeenCalledTimes(1);
+    expect(adapter.mock.calls[0][0].url).toBe("/auth/logout");
+    expect(refresh).not.toHaveBeenCalled();
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBeNull();
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBe("default-access-a");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe("default-refresh-a");
+  });
+
+  it("APP logout revokes the APP refresh session and leaves ADMIN intact", async () => {
+    setDefaultTokens("default-access-a", "default-refresh-a");
+    setAdminTokens("admin-access-a", "admin-refresh-a");
+    const post = vi.spyOn(api, "post").mockResolvedValue({ status: 204, data: "" });
+
+    await logout();
+
+    expect(post).toHaveBeenCalledWith(
+      "/auth/logout",
+      { refresh_token: "default-refresh-a" },
+      { headers: { Authorization: "Bearer default-access-a" } },
+    );
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBe("admin-access-a");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBe("admin-refresh-a");
+  });
+
+  it("APP logout failure clears APP locally without touching ADMIN", async () => {
+    setDefaultTokens("default-access-a", "default-refresh-a");
+    setAdminTokens("admin-access-a", "admin-refresh-a");
+    const error = {
+      message: "Network Error",
+      request: {},
+      config: { data: { refresh_token: "secret-default-refresh" } },
+    };
+    vi.spyOn(api, "post").mockRejectedValue(error);
+
+    let received;
+    try {
+      await logout();
+    } catch (logoutError) {
+      received = logoutError;
+    }
+
+    expect(received).toMatchObject({ message: "Network Error", code: "logout_failed" });
+    expect(JSON.stringify(received)).not.toContain("secret-default-refresh");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBe("admin-access-a");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBe("admin-refresh-a");
+  });
+
+  it("validates an HQ profile from /auth/me and rejects wrong auth_scope", async () => {
+    setDefaultTokens("default-access-a", "default-refresh-a");
+    setAdminTokens("admin-access-a", "admin-refresh-a");
+    const get = vi.spyOn(adminApi, "get")
+      .mockResolvedValueOnce({ data: { id: "hq", is_superadmin: true, auth_scope: "hq_admin" } })
+      .mockResolvedValueOnce({ data: { id: "hq", is_superadmin: true, auth_scope: "app" } });
+
+    await expect(getValidatedAdminProfile()).resolves.toMatchObject({ auth_scope: "hq_admin" });
+    await expect(getValidatedAdminProfile()).rejects.toMatchObject({
+      code: "HQ_ADMIN_SESSION_REQUIRED",
+    });
+
+    expect(get).toHaveBeenNthCalledWith(1, "/auth/me");
+    expect(get).toHaveBeenNthCalledWith(2, "/auth/me");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBe("default-access-a");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe("default-refresh-a");
   });
 
   it("saves refreshed token pairs in the requested scope", () => {
@@ -267,6 +437,85 @@ describe("auth session and axios clients", () => {
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBe("new-admin-refresh");
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBe("old-default-access");
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe("old-default-refresh");
+    expect(axios.get).toHaveBeenCalledWith(`${ADMIN_API_BASE_URL}/auth/me`, {
+      headers: { Authorization: "Bearer new-admin-access" },
+      timeout: AUTH_BACKGROUND_REQUEST_TIMEOUT_MS,
+    });
+  });
+
+  it("ends only ADMIN when refresh is downgraded to an APP session", async () => {
+    setDefaultTokens("default-access", "default-refresh");
+    setAdminTokens("old-admin-access", "admin-refresh");
+    const refresh = mockRefreshByToken({
+      "admin-refresh": { access_token: "downgraded-access", refresh_token: "downgraded-refresh" },
+    });
+    vi.mocked(axios.get).mockResolvedValueOnce({
+      data: { id: "former-hq", auth_scope: "app", is_superadmin: false },
+    });
+    const events = [];
+    window.addEventListener(AUTH_SESSION_ENDED_EVENT, (event) => events.push(event.detail));
+    const adapter = vi.fn((config) => rejectStatus(config, 401));
+    adminApi.defaults.adapter = adapter;
+
+    await expect(adminApi.get("/organizations")).rejects.toMatchObject({
+      code: "HQ_ADMIN_SESSION_REQUIRED",
+    });
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(axios.get).toHaveBeenCalledWith(`${ADMIN_API_BASE_URL}/auth/me`, {
+      headers: { Authorization: "Bearer downgraded-access" },
+      timeout: AUTH_BACKGROUND_REQUEST_TIMEOUT_MS,
+    });
+    expect(adapter).toHaveBeenCalledTimes(1);
+    expect(events).toEqual([{ reason: "refresh_failed", scope: AUTH_SCOPES.ADMIN }]);
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBe("default-access");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe("default-refresh");
+  });
+
+  it("revalidates an ADMIN 403 and ends stale HQ when server privilege was revoked", async () => {
+    setDefaultTokens("default-access", "default-refresh");
+    setAdminTokens("admin-access", "admin-refresh");
+    vi.mocked(axios.get).mockResolvedValueOnce({
+      data: { id: "former-hq", auth_scope: "hq_admin", is_superadmin: false },
+    });
+    const refresh = vi.spyOn(axios, "post");
+    const events = [];
+    window.addEventListener(AUTH_SESSION_ENDED_EVENT, (event) => events.push(event.detail));
+    const adapter = vi.fn((config) => rejectStatus(config, 403));
+    adminApi.defaults.adapter = adapter;
+
+    await expect(adminApi.get("/organizations")).rejects.toMatchObject({
+      response: { status: 403 },
+    });
+
+    expect(refresh).not.toHaveBeenCalled();
+    expect(axios.get).toHaveBeenCalledWith(`${ADMIN_API_BASE_URL}/auth/me`, {
+      headers: { Authorization: "Bearer admin-access" },
+      timeout: AUTH_BACKGROUND_REQUEST_TIMEOUT_MS,
+    });
+    expect(events).toEqual([{ reason: "admin_validation_failed", scope: AUTH_SCOPES.ADMIN }]);
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBe("default-access");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe("default-refresh");
+  });
+
+  it("preserves ADMIN tokens for a legitimate 403 when /auth/me still proves HQ scope", async () => {
+    setAdminTokens("admin-access", "admin-refresh");
+    const events = [];
+    window.addEventListener(AUTH_SESSION_ENDED_EVENT, (event) => events.push(event.detail));
+    adminApi.defaults.adapter = vi.fn((config) => rejectStatus(config, 403));
+
+    await expect(adminApi.get("/admin-forbidden")).rejects.toMatchObject({
+      response: { status: 403 },
+    });
+
+    expect(axios.get).toHaveBeenCalledTimes(1);
+    expect(events).toEqual([]);
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBe("admin-access");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBe("admin-refresh");
   });
 
   it("one default 401 starts one default refresh and retries the original request", async () => {
@@ -281,7 +530,10 @@ describe("auth session and axios clients", () => {
 
     expect(response.data).toEqual({ retried: true });
     expect(refresh).toHaveBeenCalledTimes(1);
-    expect(refresh).toHaveBeenCalledWith(`${API_BASE_URL}/auth/refresh`, { refresh_token: "default-refresh" }, expect.any(Object));
+    expect(refresh).toHaveBeenCalledWith(`${API_BASE_URL}/auth/refresh`, { refresh_token: "default-refresh" }, {
+      headers: { "Content-Type": "application/json" },
+      timeout: AUTH_BACKGROUND_REQUEST_TIMEOUT_MS,
+    });
     expect(adapter).toHaveBeenCalledTimes(2);
     expect(adapter.mock.calls[1][0]._authScope).toBe(AUTH_SCOPES.DEFAULT);
     expect(getHeader(adapter.mock.calls[1][0].headers, "Authorization")).toBe("Bearer new-default-access");
@@ -327,6 +579,172 @@ describe("auth session and axios clients", () => {
     expect(adapter.mock.calls.slice(5).every(([config]) => config._authScope === AUTH_SCOPES.ADMIN)).toBe(true);
     expect(adapter.mock.calls.slice(5).every(([config]) => getHeader(config.headers, "Authorization") === "Bearer new-admin-access")).toBe(true);
     expect(getAuthRefreshPromiseForTest(AUTH_SCOPES.ADMIN)).toBeNull();
+  });
+
+  it("serializes ADMIN logout behind an in-flight refresh and revokes the rotated session", async () => {
+    setDefaultTokens("default-access", "default-refresh");
+    setAdminTokens("old-admin-access", "admin-refresh-one");
+    const pendingRefresh = deferred();
+    const refresh = mockRefreshByToken({ "admin-refresh-one": pendingRefresh.promise });
+    adminApi.defaults.adapter = retryingAdapter();
+
+    const protectedRequest = adminApi.get("/admin-resource");
+    const protectedAssertion = expect(protectedRequest).rejects.toThrow("logout_in_progress");
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    const post = vi.spyOn(adminApi, "post").mockResolvedValue({ status: 204, data: "" });
+    const logoutRequest = adminLogout();
+
+    expect(post).not.toHaveBeenCalled();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBe("default-access");
+    pendingRefresh.resolve({
+      data: { access_token: "new-admin-access", refresh_token: "admin-refresh-two" },
+    });
+    await Promise.all([protectedAssertion, logoutRequest]);
+
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledWith(
+      "/auth/logout",
+      { refresh_token: "admin-refresh-two" },
+      { headers: { Authorization: "Bearer new-admin-access" } },
+    );
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBe("default-access");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe("default-refresh");
+  });
+
+  it("reports timed-out HQ validation during logout and revokes the known rotated session", async () => {
+    setDefaultTokens("default-access", "default-refresh");
+    setAdminTokens("old-admin-access", "admin-refresh-one");
+    const pendingValidation = deferred();
+    const refresh = mockRefreshByToken({
+      "admin-refresh-one": {
+        access_token: "rotated-admin-access",
+        refresh_token: "admin-refresh-two",
+      },
+    });
+    vi.mocked(axios.get).mockReturnValueOnce(pendingValidation.promise);
+    adminApi.defaults.adapter = retryingAdapter();
+
+    const protectedRequest = adminApi.get("/admin-resource");
+    const protectedAssertion = expect(protectedRequest).rejects.toMatchObject({
+      code: "ECONNABORTED",
+      isTimeout: true,
+    });
+    await waitFor(() => expect(axios.get).toHaveBeenCalledTimes(1));
+    const post = vi.spyOn(adminApi, "post").mockResolvedValue({ status: 204, data: "" });
+    const logoutRequest = adminLogout();
+
+    pendingValidation.reject({
+      message: "Request timed out",
+      code: "ECONNABORTED",
+      isTimeout: true,
+    });
+
+    await protectedAssertion;
+    await expect(logoutRequest).rejects.toMatchObject({
+      message: "Request timed out",
+      code: "ECONNABORTED",
+      isTimeout: true,
+    });
+    expect(axios.get).toHaveBeenCalledWith(`${ADMIN_API_BASE_URL}/auth/me`, {
+      headers: { Authorization: "Bearer rotated-admin-access" },
+      timeout: AUTH_BACKGROUND_REQUEST_TIMEOUT_MS,
+    });
+    expect(post).toHaveBeenCalledWith(
+      "/auth/logout",
+      { refresh_token: "admin-refresh-two" },
+      { headers: { Authorization: "Bearer rotated-admin-access" } },
+    );
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBe("default-access");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe("default-refresh");
+  });
+
+  it("waits for pending ADMIN logout before creating and storing a new HQ session", async () => {
+    setDefaultTokens("default-access", "default-refresh");
+    setAdminTokens("old-admin-access", "admin-refresh-one");
+    const pendingRefresh = deferred();
+    const refresh = mockRefreshByToken({ "admin-refresh-one": pendingRefresh.promise });
+    adminApi.defaults.adapter = retryingAdapter();
+
+    const protectedRequest = adminApi.get("/admin-resource");
+    const protectedAssertion = expect(protectedRequest).rejects.toThrow("logout_in_progress");
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    const post = vi.spyOn(adminApi, "post").mockImplementation((path) => {
+      if (path === "/auth/logout") return Promise.resolve({ status: 204, data: "" });
+      return Promise.resolve({
+        data: {
+          access_token: "new-login-access",
+          refresh_token: "new-login-refresh",
+          token_type: "bearer",
+        },
+      });
+    });
+
+    const logoutRequest = adminLogout();
+    const loginRequest = adminLogin("900000000", "new-password");
+    await Promise.resolve();
+    expect(post).not.toHaveBeenCalled();
+
+    pendingRefresh.resolve({
+      data: { access_token: "rotated-old-access", refresh_token: "admin-refresh-two" },
+    });
+    await protectedAssertion;
+    await logoutRequest;
+    await loginRequest;
+
+    expect(post).toHaveBeenNthCalledWith(
+      1,
+      "/auth/logout",
+      { refresh_token: "admin-refresh-two" },
+      { headers: { Authorization: "Bearer rotated-old-access" } },
+    );
+    expect(post).toHaveBeenNthCalledWith(2, "/auth/admin/login", {
+      phone: "+998900000000",
+      password: "new-password",
+    });
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBe("new-login-access");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBe("new-login-refresh");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBe("default-access");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe("default-refresh");
+  });
+
+  it("serializes APP logout behind an in-flight refresh without touching ADMIN", async () => {
+    setDefaultTokens("old-default-access", "default-refresh-one");
+    setAdminTokens("admin-access", "admin-refresh");
+    const pendingRefresh = deferred();
+    const refresh = mockRefreshByToken({ "default-refresh-one": pendingRefresh.promise });
+    api.defaults.adapter = retryingAdapter();
+
+    const protectedRequest = api.get("/resource");
+    const protectedAssertion = expect(protectedRequest).rejects.toThrow("logout_in_progress");
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    const post = vi.spyOn(api, "post").mockResolvedValue({ status: 204, data: "" });
+    const logoutRequest = logout();
+
+    expect(post).not.toHaveBeenCalled();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBe("admin-access");
+    pendingRefresh.resolve({
+      data: { access_token: "new-default-access", refresh_token: "default-refresh-two" },
+    });
+    await Promise.all([protectedAssertion, logoutRequest]);
+
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledWith(
+      "/auth/logout",
+      { refresh_token: "default-refresh-two" },
+      { headers: { Authorization: "Bearer new-default-access" } },
+    );
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBe("admin-access");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBe("admin-refresh");
   });
 
   it("simultaneous default and admin 401 responses create independent refresh requests", async () => {
@@ -481,7 +899,14 @@ describe("auth session and axios clients", () => {
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBeNull();
   });
 
-  it.each(["/auth/login", "/auth/pin-login", "/auth/refresh?source=retry"])("does not refresh auth endpoint %s", async (url) => {
+  it.each([
+    "/auth/login",
+    "/auth/admin/login",
+    "/auth/pin-login",
+    "/auth/refresh?source=retry",
+    "/auth/logout",
+    "/auth/logout-all",
+  ])("does not refresh auth endpoint %s", async (url) => {
     setDefaultTokens("old-default-access", "default-refresh");
     const refresh = vi.spyOn(axios, "post");
     api.defaults.adapter = vi.fn((config) => rejectStatus(config, 401));

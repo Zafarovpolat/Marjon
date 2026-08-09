@@ -1,9 +1,10 @@
 import {
   AUTH_SCOPES,
-  endAuthSession,
   getAccessToken as readAccessToken,
   hasAccessToken,
+  logoutAuthSession,
   saveAuthTokens,
+  waitForAuthLogout,
 } from "../auth/session";
 import { normalizeTokenResponse } from "./normalizers";
 import { createApiTransport } from "./transport";
@@ -16,6 +17,7 @@ export const api = createApiTransport({
 });
 
 export async function login(email, password) {
+  await waitForAuthLogout({ scope: AUTH_SCOPES.DEFAULT });
   const { data } = await api.post("/auth/login", { email, password });
   const tokens = normalizeTokenResponse(data);
   saveTokens(tokens);
@@ -23,6 +25,7 @@ export async function login(email, password) {
 }
 
 export async function loginByPhone(phone, password) {
+  await waitForAuthLogout({ scope: AUTH_SCOPES.DEFAULT });
   const { data } = await api.post("/auth/login", { phone, password });
   const tokens = normalizeTokenResponse(data);
   saveTokens(tokens);
@@ -30,6 +33,7 @@ export async function loginByPhone(phone, password) {
 }
 
 export async function loginByPin(employee_id, pin) {
+  await waitForAuthLogout({ scope: AUTH_SCOPES.DEFAULT });
   const { data } = await api.post("/auth/pin-login", { employee_id, pin });
   const tokens = normalizeTokenResponse(data);
   saveTokens(tokens);
@@ -45,8 +49,15 @@ function saveTokens(data) {
   saveAuthTokens(data, { scope: AUTH_SCOPES.DEFAULT });
 }
 
-export function logout() {
-  endAuthSession("logout", { scope: AUTH_SCOPES.ALL });
+export async function logout() {
+  return logoutAuthSession({
+    scope: AUTH_SCOPES.DEFAULT,
+    revoke: (refreshToken, accessToken) => api.post(
+      "/auth/logout",
+      { refresh_token: refreshToken },
+      accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : undefined,
+    ),
+  });
 }
 
 export function isAuthenticated() {

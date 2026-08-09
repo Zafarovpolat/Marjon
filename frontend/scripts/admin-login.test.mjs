@@ -13,6 +13,10 @@ const css = readFileSync(new URL("../src/admin/styles.css", import.meta.url), "u
 const ruLocale = readFileSync(new URL("../src/i18n/ru.json", import.meta.url), "utf8");
 
 const loginSection = app.slice(app.indexOf("function LoginView"), app.indexOf("function Sidebar"));
+const adminLoginContract = adminApiSource.slice(
+  adminApiSource.indexOf("export async function adminLogin"),
+  adminApiSource.indexOf("export async function getValidatedAdminProfile"),
+);
 const adminSessionResolver = authSessionSource.slice(
   authSessionSource.indexOf("export function resolveAdminAuthSession"),
   authSessionSource.indexOf("export function prepareAuthRequest"),
@@ -20,6 +24,9 @@ const adminSessionResolver = authSessionSource.slice(
 
 assert.match(loginSection, /const \[phone, setPhone\]/, "Login form must use phone state.");
 assert.match(loginSection, /adminLogin\(phone, password\)/, "Login submit must send phone and password.");
+assert.match(adminLoginContract, /adminApi\.post\("\/auth\/admin\/login"/, "HQ login must use the dedicated backend admin endpoint.");
+assert.doesNotMatch(adminLoginContract, /adminApi\.post\("\/auth\/login"/, "HQ login must never fall back to the APP login endpoint.");
+assert.match(loginSection, /await onLogin\(\)/, "HQ login must validate the backend session before entering the shell.");
 assert.match(loginSection, /admin-login__field admin-login__field--phone/, "Phone field must use the compact phone structure.");
 assert.match(loginSection, /admin-login__field admin-login__field--password/, "Password field must use the compact password structure.");
 assert.match(loginSection, /admin-login__eye/, "Password visibility button must be rendered.");
