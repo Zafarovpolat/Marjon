@@ -27,7 +27,7 @@ from app.shared.base_model import Base
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 VERSIONS_DIR = BACKEND_ROOT / "migrations" / "versions"
-EXPECTED_HEAD = "bi05bfin19"
+EXPECTED_HEAD = "bi05aown20"
 EXPECTED_NULLABLE_COLUMN_COUNT = 262
 EXPECTED_PARITY_OPERATIONS = {"remove_index", "remove_table_comment"}
 FIXTURES_DIR = BACKEND_ROOT / "tests" / "fixtures"
@@ -136,7 +136,7 @@ def test_revision_graph_is_linear_complete_and_has_one_head() -> None:
         visited.add(cursor)
         cursor = revisions[cursor][0]
     assert visited == set(revisions)
-    assert len(revisions) == 40
+    assert len(revisions) == 41
 
     nullable_columns = _bi02_nullable_columns()
     assert len(nullable_columns) == EXPECTED_NULLABLE_COLUMN_COUNT
@@ -914,6 +914,10 @@ def test_postgresql_fresh_upgrade_timing_downgrade_and_second_fresh() -> None:
             _column_exists(first_url, "ingredients", "supplier_name")
         )
         _run_alembic(first_url, "downgrade", "-1")
+        assert asyncio.run(
+            _index_exists(first_url, "ix_attendance_logs_shift_id")
+        )
+        _run_alembic(first_url, "downgrade", "-1")
         assert not asyncio.run(
             _index_exists(first_url, "ix_attendance_logs_shift_id")
         )
@@ -1131,7 +1135,10 @@ def test_postgresql_concurrent_index_recovery_and_idempotency(
     assert not asyncio.run(
         _index_exists(valid_url, "ix_attendance_logs_shift_id")
     )
-    _run_alembic(valid_url, "upgrade", "head")
+    # This test exercises the historical BI-02 index recovery path. Stop at
+    # BI-05B so its deliberate stamp-back cleanup does not strand BI-05A's
+    # ownership columns/triggers while pretending the database is at BI-02.
+    _run_alembic(valid_url, "upgrade", "bi05bfin19")
     valid_state = asyncio.run(
         _index_state(valid_url, "ix_attendance_logs_shift_id")
     )

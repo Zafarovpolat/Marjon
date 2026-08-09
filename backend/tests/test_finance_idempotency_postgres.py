@@ -38,7 +38,7 @@ from app.shared.exceptions import ConflictError
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-BI05B_HEAD = "bi05bfin19"
+CURRENT_HEAD = "bi05aown20"
 BI05B_BASELINE = "bi02idx18"
 
 
@@ -623,7 +623,7 @@ def test_j_migration_zero_head_baseline_downgrade_cycle() -> None:
             try:
                 assert await connection.fetchval(
                     "SELECT version_num FROM alembic_version"
-                ) == BI05B_HEAD
+                ) == CURRENT_HEAD
                 assert await connection.fetchval(
                     "SELECT to_regclass('public.financial_operations') IS NOT NULL"
                 ) is True

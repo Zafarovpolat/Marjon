@@ -11,6 +11,8 @@ from app.modules.halls.schemas import (
     TableCreate, TableResponse, TableUpdate,
 )
 from app.modules.halls.service import HallService
+from app.modules.finance.ownership import FinanceScope
+from app.modules.finance.ownership_router import get_company_finance_scope
 
 router = APIRouter(prefix="/halls", tags=["halls"])
 
@@ -28,9 +30,10 @@ async def list_halls(
 async def create_hall(
     data: HallCreate,
     user: User = Depends(require_company_admin),
+    scope: FinanceScope = Depends(get_company_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
-    return await HallService(db).create(user.company_id, data)
+    return await HallService(db).create(scope.tenant_id, data)
 
 
 @router.get("/{hall_id}", response_model=HallResponse)
@@ -47,9 +50,10 @@ async def update_hall(
     hall_id: UUID,
     data: HallUpdate,
     user: User = Depends(require_company_admin),
+    scope: FinanceScope = Depends(get_company_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
-    return await HallService(db).update(user.company_id, hall_id, data)
+    return await HallService(db).update(scope.tenant_id, hall_id, data)
 
 
 @router.delete("/{hall_id}", status_code=status.HTTP_204_NO_CONTENT)

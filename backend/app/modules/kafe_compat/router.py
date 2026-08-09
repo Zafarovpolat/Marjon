@@ -21,7 +21,27 @@ from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import get_current_user, require_company_admin
 from app.modules.auth.models import User
 from app.modules.companies.models import Branch, Company
-from app.modules.finance.models import Counterparty, FinTransaction, PaymentType, TransactionCategory
+from app.modules.finance.models import (
+    Counterparty,
+    FinanceHistory,
+    FinTransaction,
+    PaymentType,
+    TransactionCategory,
+)
+from app.modules.finance.ownership import (
+    FinanceDictionaryService,
+    FinanceScope,
+    validate_transaction_references,
+)
+from app.modules.finance.ownership_router import get_company_finance_scope
+from app.modules.finance.schemas import (
+    CounterpartyCreate,
+    CounterpartyUpdate,
+    PaymentTypeCreate,
+    PaymentTypeUpdate,
+    TransactionCategoryCreate,
+    TransactionCategoryUpdate,
+)
 from app.modules.finance.service import TransactionService
 from app.modules.kafe_compat.models import ReceiptTemplateSettings, SupportTicket
 from app.modules.kafe_compat.schemas import ReceiptTemplateUpdate
@@ -29,6 +49,7 @@ from app.shared.exceptions import ConflictError
 from app.modules.pos.models import Order, OrderItem
 from app.modules.subscriptions.models import Invoice, Plan, Subscription
 from app.shared.exceptions import NotFoundError
+from app.shared.pagination import PageParams
 
 router = APIRouter()
 
@@ -38,7 +59,8 @@ def _tx_dict(t: FinTransaction) -> dict:
     return {
         "id": t.id, "date": t.date, "amount": float(t.amount or 0), "direction": t.direction,
         "payment_type_id": t.payment_type_id, "counterparty_id": t.counterparty_id,
-        "category_id": t.category_id, "comment": t.comment, "user_id": t.user_id,
+        "category_id": t.category_id, "finance_template_id": t.finance_template_id,
+        "comment": t.comment, "user_id": t.user_id,
         "payment_type_name": None, "counterparty_name": None, "category_name": None,
     }
 
@@ -47,13 +69,15 @@ def _tx_dict(t: FinTransaction) -> dict:
 async def kafe_list_transactions(
     date_from: date | None = Query(None), date_to: date | None = Query(None),
     direction: str | None = Query(None),
-    user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
 ):
     # BE-04: was unfiltered (despite the module docstring claiming
     # "company-scoped") — every company saw every other company's transactions.
     q = select(FinTransaction).where(
         FinTransaction.deleted_at.is_(None),
-        FinTransaction.company_id == user.company_id,
+        FinTransaction.company_id == scope.tenant_id,
     )
     if date_from:
         q = q.where(func.date(FinTransaction.date) >= date_from)
@@ -70,30 +94,62 @@ async def kafe_create_transaction(
     data: dict,
     idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
     user: User = Depends(get_current_user),
+    scope: FinanceScope = Depends(get_company_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
     transaction = await TransactionService(db).create_company_transaction(
         data,
         user.id,
-        user.company_id,
+        scope.tenant_id,
         idempotency_key,
     )
     return _tx_dict(transaction)
 
 
 @router.patch("/finance/transactions/{tx_id}", tags=["finance-kafe"])
-async def kafe_update_transaction(tx_id: UUID, data: dict, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def kafe_update_transaction(
+    tx_id: UUID,
+    data: dict,
+    user: User = Depends(get_current_user),
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
+):
     t = await db.get(FinTransaction, tx_id)
-    if not t or t.company_id != user.company_id:
+    if not t or t.company_id != scope.tenant_id:
         raise NotFoundError("Transaction not found")
+    await validate_transaction_references(
+        db,
+        scope,
+        payment_type_id=data.get("payment_type_id", t.payment_type_id),
+        category_id=data.get("category_id", t.category_id),
+        counterparty_id=data.get("counterparty_id", t.counterparty_id),
+        finance_template_id=data.get("finance_template_id", t.finance_template_id),
+    )
     if data.get("amount") is not None:
-        t.amount = abs(float(data["amount"]))
+        old_amount = Decimal(t.amount)
+        new_amount = Decimal(str(abs(float(data["amount"]))))
+        if new_amount != old_amount:
+            db.add(FinanceHistory(
+                status="updated",
+                ref_id=t.id,
+                scope_kind="company",
+                company_id=scope.tenant_id,
+                organization_id=None,
+                old_amount=old_amount,
+                new_amount=new_amount,
+                type=t.direction,
+                user_id=user.id,
+                comment=data.get("comment", t.comment),
+            ))
+        t.amount = new_amount
     if data.get("direction"):
         t.direction = data["direction"]
     if data.get("comment") is not None:
         t.comment = data["comment"]
     if data.get("category_id") is not None:
         t.category_id = data["category_id"]
+    if data.get("finance_template_id") is not None:
+        t.finance_template_id = data["finance_template_id"]
     await db.commit()
     await db.refresh(t)
     return _tx_dict(t)
@@ -107,42 +163,83 @@ def _cat_dict(c: TransactionCategory) -> dict:
 @router.get("/finance/transaction-categories", tags=["finance-kafe"])
 async def kafe_list_categories(
     kind: str | None = Query(None),
-    user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
 ):
-    q = select(TransactionCategory)
-    if kind:
-        q = q.where(TransactionCategory.kind == kind)
-    rows = (await db.execute(q.order_by(TransactionCategory.name))).scalars().all()
+    rows, _ = await FinanceDictionaryService(
+        TransactionCategory, db, system_enabled=True
+    ).list(
+        scope,
+        PageParams(page=1, size=1_000_000),
+        raw_filters={"kind": kind} if kind else None,
+        default_sort="name",
+    )
     return {"items": [_cat_dict(c) for c in rows]}
 
 
 @router.post("/finance/transaction-categories", status_code=status.HTTP_201_CREATED, tags=["finance-kafe"])
-async def kafe_create_category(data: dict, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)):
-    c = TransactionCategory(
-        name=data.get("name") or "Категория",
-        kind=data.get("kind") or "income",
-        status=bool(data.get("status", True)),
+async def kafe_create_category(
+    data: dict,
+    user: User = Depends(require_company_admin),
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
+):
+    c = await FinanceDictionaryService(
+        TransactionCategory, db, system_enabled=True
+    ).create(
+        TransactionCategoryCreate(
+            name=data.get("name") or "Категория",
+            kind=data.get("kind") or "income",
+            status=bool(data.get("status", True)),
+            parent_id=data.get("parent_id"),
+            source_template_id=data.get("source_template_id"),
+        ),
+        scope,
     )
-    db.add(c)
-    await db.commit()
-    await db.refresh(c)
     return _cat_dict(c)
 
 
 @router.patch("/finance/transaction-categories/{cat_id}", tags=["finance-kafe"])
-async def kafe_update_category(cat_id: UUID, data: dict, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)):
-    c = await db.get(TransactionCategory, cat_id)
-    if not c:
-        raise NotFoundError("Category not found")
-    if data.get("name"):
-        c.name = data["name"]
-    if data.get("kind"):
-        c.kind = data["kind"]
-    if data.get("status") is not None:
-        c.status = bool(data["status"])
-    await db.commit()
-    await db.refresh(c)
+async def kafe_update_category(
+    cat_id: UUID,
+    data: dict,
+    user: User = Depends(require_company_admin),
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
+):
+    c = await FinanceDictionaryService(
+        TransactionCategory, db, system_enabled=True
+    ).update(
+        cat_id,
+        TransactionCategoryUpdate.model_validate(data),
+        scope,
+    )
     return _cat_dict(c)
+
+
+@router.get("/finance/transaction-categories/{cat_id}", tags=["finance-kafe"])
+async def kafe_get_category(
+    cat_id: UUID,
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
+):
+    c = await FinanceDictionaryService(
+        TransactionCategory, db, system_enabled=True
+    ).get(cat_id, scope)
+    return _cat_dict(c)
+
+
+@router.delete("/finance/transaction-categories/{cat_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["finance-kafe"])
+async def kafe_delete_category(
+    cat_id: UUID,
+    user: User = Depends(require_company_admin),
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
+):
+    await FinanceDictionaryService(
+        TransactionCategory, db, system_enabled=True
+    ).delete(cat_id, scope)
 
 
 def _org_dict(c: Company) -> dict:
@@ -234,46 +331,78 @@ def _pm_dict(p: PaymentType) -> dict:
 
 
 @router.get("/settings/payment-methods", tags=["settings"])
-async def list_payment_methods(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    rows = (await db.execute(select(PaymentType).order_by(PaymentType.sort))).scalars().all()
+async def list_payment_methods(
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
+):
+    rows, _ = await FinanceDictionaryService(
+        PaymentType, db, system_enabled=True
+    ).list(
+        scope,
+        PageParams(page=1, size=1_000_000),
+        default_sort="sort",
+    )
     return {"items": [_pm_dict(p) for p in rows]}
 
 
 @router.post("/settings/payment-methods", status_code=status.HTTP_201_CREATED, tags=["settings"])
-async def create_payment_method(data: dict, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)):
-    p = PaymentType(name=data.get("name") or "Способ оплаты", type=data.get("type"),
-                    sort=int(data.get("sort") or data.get("sort_order") or 0),
-                    status=bool(data.get("status", True)))
-    db.add(p)
-    await db.commit()
-    await db.refresh(p)
+async def create_payment_method(
+    data: dict,
+    user: User = Depends(require_company_admin),
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
+):
+    p = await FinanceDictionaryService(PaymentType, db, system_enabled=True).create(
+        PaymentTypeCreate.model_validate({
+            "name": data.get("name") or "Способ оплаты",
+            "type": data.get("type"),
+            "sort": int(data.get("sort") or data.get("sort_order") or 0),
+            "status": bool(data.get("status", True)),
+            "source_template_id": data.get("source_template_id"),
+        }),
+        scope,
+    )
     return _pm_dict(p)
 
 
 @router.patch("/settings/payment-methods/{item_id}", tags=["settings"])
-async def update_payment_method(item_id: UUID, data: dict, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)):
-    p = await db.get(PaymentType, item_id)
-    if not p:
-        raise NotFoundError("Payment type not found")
-    if data.get("name") is not None:
-        p.name = data["name"]
-    if data.get("type") is not None:
-        p.type = data["type"]
-    if data.get("sort") is not None or data.get("sort_order") is not None:
-        p.sort = int(data.get("sort") or data.get("sort_order") or 0)
-    if data.get("status") is not None:
-        p.status = bool(data["status"])
-    await db.commit()
-    await db.refresh(p)
+async def update_payment_method(
+    item_id: UUID,
+    data: dict,
+    user: User = Depends(require_company_admin),
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
+):
+    p = await FinanceDictionaryService(PaymentType, db, system_enabled=True).update(
+        item_id,
+        PaymentTypeUpdate.model_validate(data),
+        scope,
+    )
     return _pm_dict(p)
 
 
 @router.delete("/settings/payment-methods/{item_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["settings"])
-async def delete_payment_method(item_id: UUID, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)):
-    p = await db.get(PaymentType, item_id)
-    if p:
-        await db.delete(p)
-        await db.commit()
+async def delete_payment_method(
+    item_id: UUID,
+    user: User = Depends(require_company_admin),
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
+):
+    await FinanceDictionaryService(PaymentType, db, system_enabled=True).delete(
+        item_id, scope
+    )
+
+
+@router.get("/settings/payment-methods/{item_id}", tags=["settings"])
+async def get_payment_method(
+    item_id: UUID,
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
+):
+    p = await FinanceDictionaryService(PaymentType, db, system_enabled=True).get(
+        item_id, scope
+    )
+    return _pm_dict(p)
 
 
 # ── Настройки: шаблоны чеков (customer + kitchen) ────────────────────────────
@@ -349,43 +478,82 @@ def _cp_dict(c: Counterparty) -> dict:
 
 
 @router.get("/crm/counterparties", tags=["crm"])
-async def list_counterparties(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    rows = (await db.execute(select(Counterparty).where(Counterparty.deleted_at.is_(None)))).scalars().all()
+async def list_counterparties(
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
+):
+    rows, _ = await FinanceDictionaryService(
+        Counterparty, db, system_enabled=False
+    ).list(
+        scope,
+        PageParams(page=1, size=1_000_000),
+        default_sort="full_name",
+    )
     return {"items": [_cp_dict(c) for c in rows]}
 
 
 @router.post("/crm/counterparties", status_code=status.HTTP_201_CREATED, tags=["crm"])
-async def create_counterparty(data: dict, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)):
-    c = Counterparty(full_name=data.get("full_name") or data.get("name") or "Контрагент",
-                     phone=data.get("phone"), type=data.get("type") or data.get("kind") or "client")
-    db.add(c)
-    await db.commit()
-    await db.refresh(c)
+async def create_counterparty(
+    data: dict,
+    user: User = Depends(require_company_admin),
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
+):
+    c = await FinanceDictionaryService(Counterparty, db, system_enabled=False).create(
+        CounterpartyCreate(
+            full_name=data.get("full_name") or data.get("name") or "Контрагент",
+            phone=data.get("phone"),
+            balance=Decimal(data.get("balance") or 0),
+            type=data.get("type") or data.get("kind") or "client",
+        ),
+        scope,
+    )
     return _cp_dict(c)
 
 
 @router.patch("/crm/counterparties/{item_id}", tags=["crm"])
-async def update_counterparty(item_id: UUID, data: dict, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)):
-    c = await db.get(Counterparty, item_id)
-    if not c:
-        raise NotFoundError("Counterparty not found")
-    if data.get("full_name") or data.get("name"):
-        c.full_name = data.get("full_name") or data.get("name")
-    if data.get("phone") is not None:
-        c.phone = data["phone"]
-    if data.get("type") or data.get("kind"):
-        c.type = data.get("type") or data.get("kind")
-    await db.commit()
-    await db.refresh(c)
+async def update_counterparty(
+    item_id: UUID,
+    data: dict,
+    user: User = Depends(require_company_admin),
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
+):
+    normalized = dict(data)
+    if "name" in normalized and "full_name" not in normalized:
+        normalized["full_name"] = normalized.pop("name")
+    if "kind" in normalized and "type" not in normalized:
+        normalized["type"] = normalized.pop("kind")
+    c = await FinanceDictionaryService(Counterparty, db, system_enabled=False).update(
+        item_id,
+        CounterpartyUpdate.model_validate(normalized),
+        scope,
+    )
     return _cp_dict(c)
 
 
 @router.delete("/crm/counterparties/{item_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["crm"])
-async def delete_counterparty(item_id: UUID, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)):
-    c = await db.get(Counterparty, item_id)
-    if c:
-        c.deleted_at = datetime.utcnow()
-        await db.commit()
+async def delete_counterparty(
+    item_id: UUID,
+    user: User = Depends(require_company_admin),
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
+):
+    await FinanceDictionaryService(Counterparty, db, system_enabled=False).delete(
+        item_id, scope
+    )
+
+
+@router.get("/crm/counterparties/{item_id}", tags=["crm"])
+async def get_counterparty(
+    item_id: UUID,
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
+):
+    c = await FinanceDictionaryService(Counterparty, db, system_enabled=False).get(
+        item_id, scope
+    )
+    return _cp_dict(c)
 
 
 # ── Биллинг: баланс подписки (для Topbar) ────────────────────────────────────

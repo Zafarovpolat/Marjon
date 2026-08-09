@@ -42,6 +42,9 @@ class CounterpartyResponse(BaseResponseSchema):
     phone: str | None
     balance: Decimal
     type: str
+    scope_kind: str
+    company_id: UUID | None
+    organization_id: UUID | None
 
 
 class PaymentTypeCreate(BaseModel):
@@ -49,6 +52,7 @@ class PaymentTypeCreate(BaseModel):
     type: str | None = None
     sort: int = 0
     status: bool = True
+    source_template_id: UUID | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -73,6 +77,10 @@ class PaymentTypeResponse(BaseResponseSchema):
     type: str | None
     sort: int
     status: bool
+    scope_kind: str
+    company_id: UUID | None
+    organization_id: UUID | None
+    source_template_id: UUID | None
     # Mirrors of sort/status under the owner-app's naming convention — see
     # _normalize_sort_status. Keeping both names live (not renaming sort/
     # status outright) avoids a breaking change for any HQ-side caller
@@ -92,6 +100,7 @@ class TransactionCategoryCreate(BaseModel):
     kind: str = Field(..., pattern="^(income|expense)$")
     parent_id: UUID | None = None
     status: bool = True
+    source_template_id: UUID | None = None
 
 
 class TransactionCategoryUpdate(BaseModel):
@@ -106,6 +115,10 @@ class TransactionCategoryResponse(BaseResponseSchema):
     kind: str
     parent_id: UUID | None
     status: bool
+    scope_kind: str
+    company_id: UUID | None
+    organization_id: UUID | None
+    source_template_id: UUID | None
 
 
 class TransactionCreate(BaseModel):
@@ -115,6 +128,7 @@ class TransactionCreate(BaseModel):
     payment_type_id: UUID | None = None
     counterparty_id: UUID | None = None
     category_id: UUID | None = None
+    finance_template_id: UUID | None = None
     organization_id: UUID | None = None
     comment: str | None = None
 
@@ -125,6 +139,7 @@ class TransactionUpdate(BaseModel):
     payment_type_id: UUID | None = None
     counterparty_id: UUID | None = None
     category_id: UUID | None = None
+    finance_template_id: UUID | None = None
     comment: str | None = None
 
 
@@ -135,6 +150,7 @@ class TransactionResponse(BaseResponseSchema):
     payment_type_id: UUID | None
     counterparty_id: UUID | None
     category_id: UUID | None
+    finance_template_id: UUID | None
     organization_id: UUID | None
     comment: str | None
     user_id: UUID | None
@@ -145,6 +161,7 @@ class PayItem(BaseModel):
     category_id: UUID | None = None
     counterparty_id: UUID | None = None
     payment_type_id: UUID | None = None
+    finance_template_id: UUID | None = None
     comment: str | None = None
 
 
@@ -160,17 +177,29 @@ class PayRequest(BaseModel):
 class FinanceTemplateCreate(BaseModel):
     name: str
     payload: dict | None = None
+    source_template_id: UUID | None = None
+
+
+class FinanceTemplateUpdate(BaseModel):
+    name: str | None = None
+    payload: dict | None = None
 
 
 class FinanceTemplateResponse(BaseResponseSchema):
     name: str
     payload: dict | None
+    scope_kind: str
+    company_id: UUID | None
+    organization_id: UUID | None
+    source_template_id: UUID | None
 
 
 class FinanceHistoryResponse(BaseResponseSchema):
     status: str | None
     ref_id: UUID | None
     date: datetime
+    scope_kind: str
+    company_id: UUID | None
     organization_id: UUID | None
     new_amount: Decimal | None
     old_amount: Decimal | None

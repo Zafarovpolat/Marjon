@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.finance.idempotency import (
@@ -21,6 +21,10 @@ from app.modules.finance.models import (
     FinanceTemplate,
     FinTransaction,
     FinancialOperation,
+)
+from app.modules.finance.ownership import (
+    FinanceScope,
+    validate_transaction_references,
 )
 from app.modules.finance.schemas import PayRequest, TransactionCreate, TransactionUpdate
 from app.modules.organizations.models import Organization
@@ -83,11 +87,18 @@ class TransactionService(CRUDService[FinTransaction]):
         except KeyError:
             raise ConflictError("Stored idempotency result is unavailable")
 
-    async def _locked_counterparty(self, counterparty_id: UUID) -> Counterparty:
+    async def _locked_counterparty(
+        self, counterparty_id: UUID, scope: FinanceScope
+    ) -> Counterparty:
         cp = (
             await self.db.execute(
                 select(Counterparty)
-                .where(Counterparty.id == counterparty_id, Counterparty.deleted_at.is_(None))
+                .where(
+                    Counterparty.id == counterparty_id,
+                    Counterparty.deleted_at.is_(None),
+                    Counterparty.scope_kind == scope.kind,
+                    getattr(Counterparty, scope.owner_field) == scope.tenant_id,
+                )
                 .with_for_update()
             )
         ).scalar_one_or_none()
@@ -112,9 +123,10 @@ class TransactionService(CRUDService[FinTransaction]):
         counterparty_id: UUID | None,
         organization_id: UUID | None,
         delta: Decimal,
+        scope: FinanceScope,
     ) -> None:
         if counterparty_id:
-            cp = await self._locked_counterparty(counterparty_id)
+            cp = await self._locked_counterparty(counterparty_id, scope)
             cp.balance = (cp.balance or 0) + delta
         if organization_id:
             org = await self._locked_organization(organization_id)
@@ -128,6 +140,17 @@ class TransactionService(CRUDService[FinTransaction]):
         org_scope: OrgScope = None,
     ) -> FinTransaction:
         self._authorize_organization(data.organization_id, org_scope)
+        if data.organization_id is None:
+            raise ValidationError("organization_id is required")
+        scope = FinanceScope("organization", data.organization_id)
+        await validate_transaction_references(
+            self.db,
+            scope,
+            payment_type_id=data.payment_type_id,
+            category_id=data.category_id,
+            counterparty_id=data.counterparty_id,
+            finance_template_id=data.finance_template_id,
+        )
         operation = None
         if idempotency_key is not None:
             if data.organization_id is None:
@@ -158,7 +181,10 @@ class TransactionService(CRUDService[FinTransaction]):
             tx.date = datetime.now(timezone.utc)
         self.db.add(tx)
         await self._apply_balance(
-            tx.counterparty_id, tx.organization_id, self._delta(tx.direction, data.amount)
+            tx.counterparty_id,
+            tx.organization_id,
+            self._delta(tx.direction, data.amount),
+            scope,
         )
         await self.db.flush()
         if operation is not None:
@@ -185,7 +211,17 @@ class TransactionService(CRUDService[FinTransaction]):
             "category_id": data.get("category_id"),
             "payment_type_id": data.get("payment_type_id"),
             "counterparty_id": data.get("counterparty_id"),
+            "finance_template_id": data.get("finance_template_id"),
         }
+        scope = FinanceScope("company", company_id)
+        await validate_transaction_references(
+            self.db,
+            scope,
+            payment_type_id=normalized["payment_type_id"],
+            category_id=normalized["category_id"],
+            counterparty_id=normalized["counterparty_id"],
+            finance_template_id=normalized["finance_template_id"],
+        )
         operation = None
         if idempotency_key is not None:
             claim = await FinancialOperationService(self.db).claim(
@@ -219,26 +255,95 @@ class TransactionService(CRUDService[FinTransaction]):
         await self.db.refresh(transaction)
         return transaction
 
-    async def update_transaction(
-        self, tx_id: UUID, data: TransactionUpdate, user_id: UUID
+    async def get_organization_transaction(
+        self, tx_id: UUID, org_scope: OrgScope = None
     ) -> FinTransaction:
-        tx = await self.get(tx_id)
+        query = select(FinTransaction).where(
+            FinTransaction.id == tx_id,
+            FinTransaction.deleted_at.is_(None),
+            FinTransaction.company_id.is_(None),
+            FinTransaction.organization_id.is_not(None),
+        )
+        if org_scope is not None:
+            query = query.where(FinTransaction.organization_id.in_(org_scope))
+        tx = (await self.db.execute(query)).scalar_one_or_none()
+        if tx is None:
+            raise NotFoundError("FinTransaction not found")
+        return tx
+
+    async def list_organization_transactions(
+        self,
+        params,
+        *,
+        org_scope: OrgScope,
+        raw_filters: dict[str, str] | None = None,
+        sort: str | None = None,
+        date_from=None,
+        date_to=None,
+    ) -> tuple[list[FinTransaction], int]:
+        query = select(FinTransaction).where(
+            FinTransaction.deleted_at.is_(None),
+            FinTransaction.company_id.is_(None),
+            FinTransaction.organization_id.is_not(None),
+        )
+        if org_scope is not None:
+            query = query.where(FinTransaction.organization_id.in_(org_scope))
+        if raw_filters:
+            query = self._apply_filters(query, raw_filters)
+        if date_from:
+            query = query.where(func.date(FinTransaction.date) >= date_from)
+        if date_to:
+            query = query.where(func.date(FinTransaction.date) <= date_to)
+        total = (await self.db.execute(
+            select(func.count()).select_from(query.subquery())
+        )).scalar_one()
+        query = self._apply_sort(query, sort, "-date")
+        rows = (await self.db.execute(
+            query.offset(params.offset).limit(params.size)
+        )).scalars().all()
+        return list(rows), total
+
+    async def update_transaction(
+        self,
+        tx_id: UUID,
+        data: TransactionUpdate,
+        user_id: UUID,
+        org_scope: OrgScope = None,
+    ) -> FinTransaction:
+        tx = await self.get_organization_transaction(tx_id, org_scope)
         payload = data.model_dump(exclude_unset=True)
+        scope = FinanceScope("organization", tx.organization_id)
+        await validate_transaction_references(
+            self.db,
+            scope,
+            payment_type_id=payload.get("payment_type_id", tx.payment_type_id),
+            category_id=payload.get("category_id", tx.category_id),
+            counterparty_id=payload.get("counterparty_id", tx.counterparty_id),
+            finance_template_id=payload.get(
+                "finance_template_id", tx.finance_template_id
+            ),
+        )
 
         if "amount" in payload and Decimal(payload["amount"]) != Decimal(tx.amount):
             old_amount, new_amount = Decimal(tx.amount), Decimal(payload["amount"])
             # откат старой суммы и применение новой
             await self._apply_balance(
-                tx.counterparty_id, tx.organization_id, -self._delta(tx.direction, old_amount)
+                tx.counterparty_id,
+                tx.organization_id,
+                -self._delta(tx.direction, old_amount),
+                scope,
             )
             await self._apply_balance(
                 payload.get("counterparty_id", tx.counterparty_id),
                 tx.organization_id,
                 self._delta(tx.direction, new_amount),
+                scope,
             )
             self.db.add(FinanceHistory(
                 status="updated",
                 ref_id=tx.id,
+                scope_kind="organization",
+                company_id=None,
                 organization_id=tx.organization_id,
                 old_amount=old_amount,
                 new_amount=new_amount,
@@ -253,15 +358,21 @@ class TransactionService(CRUDService[FinTransaction]):
         await self.db.refresh(tx)
         return tx
 
-    async def delete_transaction(self, tx_id: UUID, user_id: UUID) -> None:
-        tx = await self.get(tx_id)
+    async def delete_transaction(
+        self, tx_id: UUID, user_id: UUID, org_scope: OrgScope = None
+    ) -> None:
+        tx = await self.get_organization_transaction(tx_id, org_scope)
+        scope = FinanceScope("organization", tx.organization_id)
         await self._apply_balance(
             tx.counterparty_id, tx.organization_id,
             -self._delta(tx.direction, Decimal(tx.amount)),
+            scope,
         )
         self.db.add(FinanceHistory(
             status="deleted",
             ref_id=tx.id,
+            scope_kind="organization",
+            company_id=None,
             organization_id=tx.organization_id,
             old_amount=Decimal(tx.amount),
             new_amount=None,
@@ -280,6 +391,18 @@ class TransactionService(CRUDService[FinTransaction]):
     ) -> list[FinTransaction]:
         """Разбивка оплаты: несколько транзакций одной операцией (ТЗ §6)."""
         self._authorize_organization(data.organization_id, org_scope)
+        if data.organization_id is None:
+            raise ValidationError("organization_id is required")
+        scope = FinanceScope("organization", data.organization_id)
+        for item in data.items:
+            await validate_transaction_references(
+                self.db,
+                scope,
+                payment_type_id=item.payment_type_id,
+                category_id=item.category_id,
+                counterparty_id=item.counterparty_id,
+                finance_template_id=item.finance_template_id,
+            )
         operation = None
         if idempotency_key is not None:
             if data.organization_id is None:
@@ -305,6 +428,9 @@ class TransactionService(CRUDService[FinTransaction]):
             self.db.add(FinanceTemplate(
                 name=data.save_as_template,
                 payload=to_jsonable_python(data.model_dump(exclude={"save_as_template"})),
+                scope_kind="organization",
+                company_id=None,
+                organization_id=data.organization_id,
             ))
 
         now = datetime.now(timezone.utc)
@@ -317,6 +443,7 @@ class TransactionService(CRUDService[FinTransaction]):
                 payment_type_id=item.payment_type_id,
                 counterparty_id=item.counterparty_id,
                 category_id=item.category_id,
+                finance_template_id=item.finance_template_id,
                 organization_id=data.organization_id,
                 comment=item.comment,
                 user_id=user_id,
@@ -326,6 +453,7 @@ class TransactionService(CRUDService[FinTransaction]):
             await self._apply_balance(
                 item.counterparty_id, data.organization_id,
                 self._delta(data.direction, item.amount),
+                scope,
             )
             transactions.append(tx)
         await self.db.flush()

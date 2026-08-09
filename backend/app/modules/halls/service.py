@@ -4,6 +4,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.companies.models import Branch
+from app.modules.finance.models import PaymentType
+from app.modules.finance.ownership import FinanceScope, require_finance_reference
 from app.modules.halls.models import Hall, Table
 from app.modules.halls.schemas import HallCreate, HallUpdate, TableCreate, TableUpdate
 from app.shared.exceptions import NotFoundError
@@ -49,6 +51,14 @@ class HallService:
         await require_company_resource(
             self.db, Branch, branch_id, company_id, detail="Branch not found"
         )
+        await require_finance_reference(
+            self.db,
+            PaymentType,
+            data.payment_type_id,
+            FinanceScope("company", company_id),
+            allow_system=True,
+            detail="PaymentType not found",
+        )
         hall = Hall(
             company_id=company_id, branch_id=branch_id,
             name=data.name, description=data.description,
@@ -67,6 +77,15 @@ class HallService:
 
     async def update(self, company_id: UUID, hall_id: UUID, data: HallUpdate) -> Hall:
         hall = await self.get(company_id, hall_id)
+        if "payment_type_id" in data.model_fields_set:
+            await require_finance_reference(
+                self.db,
+                PaymentType,
+                data.payment_type_id,
+                FinanceScope("company", company_id),
+                allow_system=True,
+                detail="PaymentType not found",
+            )
         for field, value in data.model_dump(exclude_none=True).items():
             setattr(hall, field, value)
         await self.db.commit()

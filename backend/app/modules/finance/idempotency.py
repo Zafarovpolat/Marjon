@@ -33,6 +33,22 @@ def request_fingerprint(payload: BaseModel | dict[str, Any]) -> str:
         normalized = payload.model_dump(mode="json")
     else:
         normalized = to_jsonable_python(payload)
+
+    # BI-05A added an optional transaction/template reference. Omitting it
+    # must serialize exactly like pre-BI-05A requests so durable BI-05B
+    # reservations remain replayable across the deployment boundary.
+    def without_absent_template(value):
+        if isinstance(value, dict):
+            return {
+                key: without_absent_template(item)
+                for key, item in value.items()
+                if not (key == "finance_template_id" and item is None)
+            }
+        if isinstance(value, list):
+            return [without_absent_template(item) for item in value]
+        return value
+
+    normalized = without_absent_template(normalized)
     canonical = json.dumps(
         normalized,
         ensure_ascii=False,
