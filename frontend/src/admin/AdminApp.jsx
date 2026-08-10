@@ -2,6 +2,8 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { Chart, CategoryScale, Filler, LineController, LineElement, LinearScale, PointElement, Tooltip } from "chart.js";
 import logo from "../assets/marjon-logo.svg";
 import { adminApi, adminLogin, adminLogout, getValidatedAdminProfile, isAdminAuthenticated } from "./api";
+import { adminFinanceApi, resolveHqTransactionSubmission } from "./financeApi";
+import { normalizePaginatedList } from "../api/normalizers";
 import { AUTH_SCOPES, subscribeToAuthSessionEnded } from "../auth/session";
 import Icon from '../components/Icon';
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
@@ -28,25 +30,31 @@ const SECTION_API_MAP = {
   "srv-employees": { endpoint: "/departments", mapRow: (r) => [r.name || "", r.position || r.role || "—", r.department || "—", r.privileges || "—", r.status !== false ? "Активна" : "Неактивна"] },
   "srv-source": { endpoint: "/sources", mapRow: (r) => [r.name || "", r.type || "—", r.url || "—", String(r.leads_count || 0), r.status !== false ? "Активна" : "Неактивна"] },
   "bank-stats": { endpoint: "/reports/debt-credit", mapRow: null },
-  "bank-transactions": { endpoint: "/finance/transactions", mapRow: null },
+  "bank-transactions": { load: () => adminFinanceApi.listTransactions({ size: 100 }), mapRow: null },
   "set-store": { endpoint: "/store-versions", mapRow: (r) => [r.version || r.name || "", r.platform || "—", r.release_date || "—", r.status || "Активна"] },
   "set-cashier-bg": { endpoint: "/image-backgrounds", mapRow: null },
   "set-languages": { endpoint: "/languages", mapRow: (r) => [r.name || "", r.code || "", r.is_default ? "Да" : "Нет", r.status !== false ? "Активна" : "Неактивна"] },
 };
 
-function useAdminData(sectionKey) {
+function useAdminData(sectionKey, onNotify) {
   const [apiRows, setApiRows] = useState([]);
 
   useEffect(() => {
     const mapping = SECTION_API_MAP[sectionKey];
     if (!mapping) return;
-    adminApi.get(mapping.endpoint, { params: { size: 100 } })
+    const request = mapping.load
+      ? mapping.load()
+      : adminApi.get(mapping.endpoint, { params: { size: 100 } });
+    request
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.results || [];
         setApiRows(mapping.mapRow ? items.map(mapping.mapRow) : []);
       })
-      .catch(() => setApiRows([]));
-  }, [sectionKey]);
+      .catch((error) => {
+        setApiRows([]);
+        if (mapping.load) onNotify?.(getAdminFinanceLoadMessage(error));
+      });
+  }, [onNotify, sectionKey]);
 
   return { apiRows };
 }
@@ -8294,31 +8302,8 @@ const ADMIN_FINANCE_MODAL_ANIMATION_MS = 180;
 const ADMIN_FINANCE_COMMENT_LIMIT = 500;
 const ADMIN_FINANCE_REQUIRED_FIELDS = ["amount", "paymentTypeId", "organizationId", "date", "categoryId"];
 
-const adminFinanceApi = {
-  listTransactions(params = {}) {
-    return adminApi.get("/finance/transactions", { params: { size: 100, ...params } });
-  },
-  createTransaction(payload, idempotencyKey) {
-    return adminApi.post("/finance/transactions", payload, {
-      headers: { "Idempotency-Key": idempotencyKey },
-    });
-  },
-  listPaymentTypes() {
-    return adminApi.get("/finance/payment-types", { params: { size: 100, status: true } });
-  },
-  listOrganizations() {
-    return adminApi.get("/organizations", { params: { size: 100, status: "active" } });
-  },
-  listCategories(kind) {
-    return adminApi.get("/finance/transaction-categories", { params: { size: 200, kind, status: true } });
-  },
-  listCounterparties(type) {
-    return adminApi.get("/finance/counterparties", { params: { size: 200, type } });
-  },
-};
-
 function extractAdminFinanceItems(data) {
-  return Array.isArray(data) ? data : data?.items || data?.results || [];
+  return normalizePaginatedList(data).items;
 }
 
 function isUuidLike(value) {
@@ -8417,6 +8402,41 @@ function getAdminFinanceBackendMessage(error) {
     return detail.message || JSON.stringify(detail);
   }
   return detail || "Не удалось добавить операцию. Проверьте данные и попробуйте ещё раз.";
+}
+
+function getAdminFinanceLoadMessage(error) {
+  const detail = error?.response?.data?.detail;
+  if (Array.isArray(detail)) {
+    return detail.map((item) => item?.msg || item?.message || String(item)).join("; ");
+  }
+  if (detail && typeof detail === "object") {
+    return detail.message || JSON.stringify(detail);
+  }
+  return detail || "Не удалось загрузить финансовые данные.";
+}
+
+function useDefaultAdminFinanceOrganizationId(onNotify) {
+  const [organizationId, setOrganizationId] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+    adminApi.get("/organizations", { params: { size: 1, status: "active" } })
+      .then(({ data }) => {
+        if (!mounted) return;
+        const first = extractAdminFinanceItems(data)[0];
+        setOrganizationId(isUuidLike(first?.id) ? String(first.id) : "");
+      })
+      .catch((error) => {
+        if (!mounted) return;
+        setOrganizationId("");
+        onNotify?.(getAdminFinanceLoadMessage(error));
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [onNotify]);
+
+  return organizationId;
 }
 
 function validateAdminFinanceDraft(draft) {
@@ -8946,7 +8966,7 @@ function AdminFinanceFilterDrawer({
 
 function AdminFinanceOperationsPage({ search, onNotify }) {
   const [range, setRange] = useState(() => buildAdminDashboardDateRange("Этот месяц"));
-  const [operations, setOperations] = useState(() => financeOperationRows);
+  const [operations, setOperations] = useState([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
   const [counterpartyFilter, setCounterpartyFilter] = useState("all");
@@ -8961,17 +8981,15 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
   const [financeSubmitError, setFinanceSubmitError] = useState("");
   const [financeSubmitting, setFinanceSubmitting] = useState(false);
   const [referencesLoading, setReferencesLoading] = useState(false);
-  const [paymentTypes, setPaymentTypes] = useState(() => ADMIN_FINANCE_FALLBACK_PAYMENT_TYPES);
+  const [paymentTypes, setPaymentTypes] = useState([]);
   const [organizations, setOrganizations] = useState([]);
-  const [categoriesByKind, setCategoriesByKind] = useState(() => ({
-    income: ADMIN_FINANCE_FALLBACK_INCOME_CATEGORIES,
-    expense: [],
-  }));
+  const [categoriesByKind, setCategoriesByKind] = useState({ income: [], expense: [] });
   const [counterpartiesByType, setCounterpartiesByType] = useState(() => (
     Object.fromEntries(ADMIN_FINANCE_COUNTERPARTY_TYPES.map((item) => [item.value, []]))
   ));
   const financeFieldRefs = useRef({});
   const financeCloseTimerRef = useRef(null);
+  const financeSubmissionRef = useRef(null);
   const query = (search || "").trim().toLowerCase();
   const datePresets = useMemo(() => (
     ADMIN_DASHBOARD_DATE_PRESET_LABELS.map((label) => ({
@@ -8980,6 +8998,9 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
     }))
   ), []);
   const transactionCategories = categoriesByKind[financeModalType] || [];
+  const referenceOrganization = organizations.find((item) => item.id === financeDraft.organizationId)
+    || organizations[0];
+  const referenceOrganizationId = referenceOrganization?.apiId || "";
 
   useEffect(() => () => {
     if (financeCloseTimerRef.current) {
@@ -8996,14 +9017,14 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
     try {
       const { data } = await adminFinanceApi.listTransactions(params);
       const items = extractAdminFinanceItems(data);
-      if (items.length) {
-        setOperations(items.map(normalizeAdminFinanceTransaction));
-      }
+      setOperations(items.map(normalizeAdminFinanceTransaction));
       return items;
-    } catch {
+    } catch (error) {
+      setOperations([]);
+      onNotify?.(getAdminFinanceLoadMessage(error));
       return null;
     }
-  }, [range]);
+  }, [onNotify, range]);
 
   useEffect(() => {
     loadFinanceOperations();
@@ -9012,67 +9033,108 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
   useEffect(() => {
     let mounted = true;
 
+    async function loadOrganizations() {
+      setReferencesLoading(true);
+      try {
+        const { data } = await adminApi.get("/organizations", {
+          params: { size: 100, status: "active" },
+        });
+        if (!mounted) return;
+        const nextOrganizations = extractAdminFinanceItems(data)
+          .filter((item) => item.status !== "blocked")
+          .map((item, index) => normalizeAdminFinanceOption(item, index, ["name", "company_name"]));
+        setOrganizations(nextOrganizations);
+      } catch (error) {
+        if (!mounted) return;
+        setOrganizations([]);
+        onNotify?.(getAdminFinanceLoadMessage(error));
+      } finally {
+        if (mounted) setReferencesLoading(false);
+      }
+    }
+
+    loadOrganizations();
+    return () => {
+      mounted = false;
+    };
+  }, [onNotify]);
+
+  useEffect(() => {
+    if (!referenceOrganizationId) {
+      setPaymentTypes([]);
+      setCategoriesByKind({ income: [], expense: [] });
+      setCounterpartiesByType(Object.fromEntries(
+        ADMIN_FINANCE_COUNTERPARTY_TYPES.map((item) => [item.value, []]),
+      ));
+      return undefined;
+    }
+
+    let mounted = true;
+
     async function loadReferences() {
       setReferencesLoading(true);
-      const [
-        paymentResult,
-        organizationResult,
-        incomeCategoryResult,
-        expenseCategoryResult,
-        ...counterpartyResults
-      ] = await Promise.allSettled([
-        adminFinanceApi.listPaymentTypes(),
-        adminFinanceApi.listOrganizations(),
-        adminFinanceApi.listCategories("income"),
-        adminFinanceApi.listCategories("expense"),
-        ...ADMIN_FINANCE_COUNTERPARTY_TYPES.map((item) => adminFinanceApi.listCounterparties(item.value)),
-      ]);
-      if (!mounted) return;
+      setPaymentTypes([]);
+      setCategoriesByKind({ income: [], expense: [] });
+      setCounterpartiesByType(Object.fromEntries(
+        ADMIN_FINANCE_COUNTERPARTY_TYPES.map((item) => [item.value, []]),
+      ));
+      try {
+        const [
+          paymentResponse,
+          incomeCategoryResponse,
+          expenseCategoryResponse,
+          ...counterpartyResponses
+        ] = await Promise.all([
+          adminFinanceApi.listPaymentTypes(referenceOrganizationId, { status: true }),
+          adminFinanceApi.listCategories(referenceOrganizationId, "income", { status: true }),
+          adminFinanceApi.listCategories(referenceOrganizationId, "expense", { status: true }),
+          ...ADMIN_FINANCE_COUNTERPARTY_TYPES.map((item) => (
+            adminFinanceApi.listCounterparties(referenceOrganizationId, item.value)
+          )),
+        ]);
+        if (!mounted) return;
 
-      const nextPaymentTypes = paymentResult.status === "fulfilled"
-        ? extractAdminFinanceItems(paymentResult.value.data)
+        const nextPaymentTypes = extractAdminFinanceItems(paymentResponse.data)
           .filter((item) => item.status !== false)
-          .map((item, index) => normalizeAdminFinanceOption(item, index, ["name", "type"]))
-        : [];
-      const nextOrganizations = organizationResult.status === "fulfilled"
-        ? extractAdminFinanceItems(organizationResult.value.data)
-          .filter((item) => item.status !== "blocked")
-          .map((item, index) => normalizeAdminFinanceOption(item, index, ["name", "company_name"]))
-        : [];
-      const nextIncomeCategories = incomeCategoryResult.status === "fulfilled"
-        ? extractAdminFinanceItems(incomeCategoryResult.value.data)
+          .map((item, index) => normalizeAdminFinanceOption(item, index, ["name", "type"]));
+        const nextIncomeCategories = extractAdminFinanceItems(incomeCategoryResponse.data)
           .filter((item) => item.kind === "income" && item.status !== false)
-          .map((item, index) => ({ ...normalizeAdminFinanceOption(item, index, ["name"]), kind: "income" }))
-        : [];
-      const nextExpenseCategories = expenseCategoryResult.status === "fulfilled"
-        ? extractAdminFinanceItems(expenseCategoryResult.value.data)
+          .map((item, index) => ({ ...normalizeAdminFinanceOption(item, index, ["name"]), kind: "income" }));
+        const nextExpenseCategories = extractAdminFinanceItems(expenseCategoryResponse.data)
           .filter((item) => item.kind === "expense" && item.status !== false)
-          .map((item, index) => ({ ...normalizeAdminFinanceOption(item, index, ["name"]), kind: "expense" }))
-        : [];
-      const nextCounterparties = {};
-      ADMIN_FINANCE_COUNTERPARTY_TYPES.forEach((item, index) => {
-        const result = counterpartyResults[index];
-        nextCounterparties[item.value] = result?.status === "fulfilled"
-          ? extractAdminFinanceItems(result.value.data)
-            .map((row, rowIndex) => normalizeAdminFinanceOption(row, rowIndex, ["full_name", "name", "phone"]))
-          : [];
-      });
+          .map((item, index) => ({ ...normalizeAdminFinanceOption(item, index, ["name"]), kind: "expense" }));
+        const nextCounterparties = Object.fromEntries(
+          ADMIN_FINANCE_COUNTERPARTY_TYPES.map((item, index) => [
+            item.value,
+            extractAdminFinanceItems(counterpartyResponses[index].data)
+              .map((row, rowIndex) => normalizeAdminFinanceOption(row, rowIndex, ["full_name", "name", "phone"])),
+          ]),
+        );
 
-      setPaymentTypes(nextPaymentTypes.length ? nextPaymentTypes : ADMIN_FINANCE_FALLBACK_PAYMENT_TYPES);
-      setOrganizations(nextOrganizations);
-      setCategoriesByKind({
-        income: nextIncomeCategories.length ? nextIncomeCategories : ADMIN_FINANCE_FALLBACK_INCOME_CATEGORIES,
-        expense: nextExpenseCategories,
-      });
-      setCounterpartiesByType(nextCounterparties);
-      setReferencesLoading(false);
+        setPaymentTypes(nextPaymentTypes);
+        setCategoriesByKind({ income: nextIncomeCategories, expense: nextExpenseCategories });
+        setCounterpartiesByType(nextCounterparties);
+        setFinanceDraft((current) => {
+          if (current.organizationId !== referenceOrganization?.id) return current;
+          return {
+            ...current,
+            paymentTypeId: nextPaymentTypes[0]?.id || "",
+            categoryId: (current.operationType === "income" ? nextIncomeCategories : nextExpenseCategories)[0]?.id || "",
+            counterpartyId: "",
+          };
+        });
+      } catch (error) {
+        if (mounted) onNotify?.(getAdminFinanceLoadMessage(error));
+      } finally {
+        if (mounted) setReferencesLoading(false);
+      }
     }
 
     loadReferences();
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [onNotify, referenceOrganization?.id, referenceOrganizationId]);
 
   useEffect(() => {
     if (!financeModalOpen || typeof document === "undefined") return undefined;
@@ -9156,6 +9218,7 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
   }
 
   function openFinanceModal(operationType = "income") {
+    financeSubmissionRef.current = null;
     if (financeCloseTimerRef.current) {
       window.clearTimeout(financeCloseTimerRef.current);
       financeCloseTimerRef.current = null;
@@ -9229,6 +9292,11 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
       if (field === "counterpartyType") {
         next.counterpartyId = "";
       }
+      if (field === "organizationId") {
+        next.paymentTypeId = "";
+        next.categoryId = "";
+        next.counterpartyId = "";
+      }
       return next;
     });
     setFinanceErrors((current) => {
@@ -9272,8 +9340,10 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
     setFinanceSubmitError("");
 
     try {
-      const idempotencyKey = `admin-finance-${financeDraft.operationType}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      const { data } = await adminFinanceApi.createTransaction(payload, idempotencyKey);
+      const submission = resolveHqTransactionSubmission(financeSubmissionRef.current, payload);
+      financeSubmissionRef.current = submission;
+      const { data } = await adminFinanceApi.createTransaction(payload, submission.idempotencyKey);
+      financeSubmissionRef.current = null;
       const refreshedItems = await loadFinanceOperations();
       if ((!refreshedItems || !refreshedItems.length) && data?.id) {
         setOperations((current) => [
@@ -9445,34 +9515,25 @@ function AdminFinanceCategoriesPage({
   search,
   onNotify,
   title,
-  initialRows,
   localPrefix,
   modalCreateTitle,
   modalEditTitle,
   emptyText,
-  apiEndpoint,
+  categoryKind,
 }) {
-  const fallbackCategories = useMemo(() => (initialRows || []).map((row, index) => ({
-    id: row.id || `${localPrefix}-${index + 1}`,
-    name: row.name || "",
-    status: row.status || "#активно",
-    locked: Boolean(row.locked),
-  })), [initialRows, localPrefix]);
-  const [categories, setCategories] = useState(fallbackCategories);
+  const organizationId = useDefaultAdminFinanceOrganizationId(onNotify);
+  const [categories, setCategories] = useState([]);
   const [editor, setEditor] = useState(null);
   const [draftName, setDraftName] = useState("");
   const [draftStatus, setDraftStatus] = useState("#активно");
   const query = search.trim().toLowerCase();
 
   useEffect(() => {
-    setCategories(fallbackCategories);
-  }, [fallbackCategories]);
-
-  useEffect(() => {
-    if (!apiEndpoint) return;
-    adminApi.get(apiEndpoint, { params: { size: 100 } })
+    if (!organizationId) return;
+    adminFinanceApi.listCategories(organizationId, categoryKind, { size: 100 })
       .then(({ data }) => {
-        const items = Array.isArray(data) ? data : data?.items || [];
+        const items = extractAdminFinanceItems(data);
+        if (!items.length) setCategories([]);
         if (items.length) {
           setCategories(items.map((r, index) => {
             const rawStatus = typeof r.status === "string" ? r.status.toLowerCase() : r.status;
@@ -9486,8 +9547,11 @@ function AdminFinanceCategoriesPage({
           }).filter((row) => row.name));
         }
       })
-      .catch(() => {});
-  }, [apiEndpoint, localPrefix]);
+      .catch((error) => {
+        setCategories([]);
+        onNotify?.(getAdminFinanceLoadMessage(error));
+      });
+  }, [categoryKind, localPrefix, onNotify, organizationId]);
 
   const filteredCategories = categories.filter((row) => (
     !query || row.name.toLowerCase().includes(query) || row.status.toLowerCase().includes(query)
@@ -9680,14 +9744,13 @@ function AdminIncomeCategoriesPage({ search, onNotify }) {
       search={search}
       onNotify={onNotify}
       title="Категории приходов"
-      initialRows={incomeCategoryRows}
       localPrefix="income"
       modalCreateTitle="Добавить категорию приходов"
       modalEditTitle="Изменить категорию приходов"
       createDescription="Создайте новую категорию для приходных операций."
       editDescription="Измените название и статус категории."
       emptyText="Категории приходов не найдены."
-      apiEndpoint="/finance/transaction-categories?kind=income"
+      categoryKind="income"
     />
   );
 }
@@ -9698,28 +9761,20 @@ function AdminExpenseCategoriesPage({ search, onNotify }) {
       search={search}
       onNotify={onNotify}
       title="Категории расходов"
-      initialRows={expenseCategoryRows}
       localPrefix="expense"
       modalCreateTitle="Добавить категорию расходов"
       modalEditTitle="Изменить категорию расходов"
       createDescription="Создайте новую категорию для расходных операций."
       editDescription="Измените название и статус категории расходов."
       emptyText="Категории расходов не найдены."
-      apiEndpoint="/finance/transaction-categories?kind=expense"
+      categoryKind="expense"
     />
   );
 }
 
 function AdminPaymentMethodsPage({ search, onNotify }) {
-  const paymentFallbackRows = useMemo(() => paymentMethodRows.map((row, index) => ({
-    id: row.id || `payment-${index + 1}`,
-    sort: Number(row.sort) || index + 1,
-    name: row.name || "",
-    type: row.type || "Карта",
-    status: row.status || "#активно",
-    vip: Boolean(row.vip),
-  })), []);
-  const [methods, setMethods] = useState(paymentFallbackRows);
+  const organizationId = useDefaultAdminFinanceOrganizationId(onNotify);
+  const [methods, setMethods] = useState([]);
   const [editor, setEditor] = useState(null);
   const [draftName, setDraftName] = useState("");
   const [draftType, setDraftType] = useState("Карта");
@@ -9728,13 +9783,11 @@ function AdminPaymentMethodsPage({ search, onNotify }) {
   const query = search.trim().toLowerCase();
 
   useEffect(() => {
-    setMethods(paymentFallbackRows);
-  }, [paymentFallbackRows]);
-
-  useEffect(() => {
-    adminApi.get("/finance/payment-types", { params: { size: 100 } })
+    if (!organizationId) return;
+    adminFinanceApi.listPaymentTypes(organizationId, { size: 100 })
       .then(({ data }) => {
-        const items = Array.isArray(data) ? data : data?.items || [];
+        const items = extractAdminFinanceItems(data);
+        if (!items.length) setMethods([]);
         if (items.length) {
           setMethods(items.map((r, index) => ({
             id: String(r.id ?? r.payment_type_id ?? `payment-api-${index + 1}`),
@@ -9746,8 +9799,11 @@ function AdminPaymentMethodsPage({ search, onNotify }) {
           })).filter((row) => row.name));
         }
       })
-      .catch(() => {});
-  }, []);
+      .catch((error) => {
+        setMethods([]);
+        onNotify?.(getAdminFinanceLoadMessage(error));
+      });
+  }, [onNotify, organizationId]);
   const filteredMethods = methods
     .filter((row) => !query || [row.name, row.type, row.status].some((value) => value.toLowerCase().includes(query)))
     .sort((a, b) => a.sort - b.sort);
@@ -9946,11 +10002,8 @@ function AdminPaymentMethodsPage({ search, onNotify }) {
 }
 
 function AdminFinanceHistoryPage({ search, onNotify }) {
-  const historyFallbackRows = useMemo(() => financeHistoryRows.map((row, index) => ({
-    ...row,
-    number: index + 1,
-  })), []);
-  const [rows, setRows] = useState(historyFallbackRows);
+  const organizationId = useDefaultAdminFinanceOrganizationId(onNotify);
+  const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
   const historyScrollRef = useRef(null);
   const [historyScroll, setHistoryScroll] = useState({
@@ -9987,11 +10040,11 @@ function AdminFinanceHistoryPage({ search, onNotify }) {
   }, []);
 
   useEffect(() => {
-    setRows(historyFallbackRows);
-
-    adminApi.get("/finance/finance-history", { params: { size: 200 } })
+    if (!organizationId) return;
+    adminFinanceApi.listFinanceHistory(organizationId, { size: 200 })
       .then(({ data }) => {
-        const items = Array.isArray(data) ? data : data?.items || [];
+        const items = extractAdminFinanceItems(data);
+        if (!items.length) setRows([]);
         if (items.length) {
           setRows(items.map((r, i) => ({
             id: r.id || `fh-${i}`,
@@ -10008,8 +10061,11 @@ function AdminFinanceHistoryPage({ search, onNotify }) {
           })));
         }
       })
-      .catch(() => setRows(historyFallbackRows));
-  }, [historyFallbackRows]);
+      .catch((error) => {
+        setRows([]);
+        onNotify?.(getAdminFinanceLoadMessage(error));
+      });
+  }, [onNotify, organizationId]);
 
   const filteredRows = rows.filter((row) => (
     !query || [
@@ -10408,7 +10464,7 @@ function AdminCashierBackgroundPage({ search, onNotify }) {
 
 function CategoryPage({ active, rowsOverride, search, onCreate, onRowDetail, onNotify, onInnerBackChange }) {
   const content = categoryContent[active] || categoryContent["org-list"];
-  const { apiRows } = useAdminData(active);
+  const { apiRows } = useAdminData(active, onNotify);
   if (active === "org-list") {
     return <OrganizationDirectoryPage search={search} onNotify={onNotify} onInnerBackChange={onInnerBackChange} />;
   }
@@ -11092,7 +11148,7 @@ const dashboardSalesReportRows = [
   },
 ];
 
-function TransactionsTable() {
+function TransactionsTable({ onNotify }) {
   const [rows, setRows] = useState(() => (ADMIN_DASHBOARD_DEMO_MODE ? demoTransactions : []));
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -11107,7 +11163,7 @@ function TransactionsTable() {
 
   useEffect(() => {
     if (ADMIN_DASHBOARD_DEMO_MODE) return;
-    adminApi.get("/finance/transactions", { params: { size: 50 } })
+    adminFinanceApi.listTransactions({ size: 50 })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
         setRows(items.map((r, i) => ({
@@ -11124,8 +11180,11 @@ function TransactionsTable() {
             comment: r.comment || "",
           })));
       })
-      .catch(() => {});
-  }, []);
+      .catch((error) => {
+        setRows([]);
+        onNotify?.(getAdminFinanceLoadMessage(error));
+      });
+  }, [onNotify]);
 
   useEffect(() => { setPage(1); }, [query, pageSize]);
 
@@ -11839,7 +11898,7 @@ function DashboardSalesReportPage() {
   );
 }
 
-function DashboardPage({ segment, onSegmentChange, organizationRows, approvals, dashKpis, onExport, onRowAction, onApprovalAction, onShowApprovals, onKpiClick, onOrgClick, onApprovalClick, onSystemClick, dashboardView, onOpenTransactions, onOpenSales, onOpenSection }) {
+function DashboardPage({ segment, onSegmentChange, organizationRows, approvals, dashKpis, onExport, onRowAction, onApprovalAction, onShowApprovals, onKpiClick, onOrgClick, onApprovalClick, onSystemClick, dashboardView, onOpenTransactions, onOpenSales, onOpenSection, onNotify }) {
   if (dashboardView === "transactions") {
     return <DashboardTransactionsReportPage />;
   }
@@ -11860,7 +11919,7 @@ function DashboardPage({ segment, onSegmentChange, organizationRows, approvals, 
         </main>
         <DashboardWarehouseCards onOpenSection={onOpenSection} />
       </div>
-      <TransactionsTable />
+      <TransactionsTable onNotify={onNotify} />
     </>
   );
 }
@@ -12479,6 +12538,7 @@ function AdminShell({ onLogout, user }) {
         onOpenTransactions={() => setDashboardView("transactions")}
         onOpenSales={() => setDashboardView("sales")}
         onOpenSection={navigateTo}
+        onNotify={setMessage}
       />
     ) : (
       <CategoryPage active={active} rowsOverride={categoryRows[active]} search={search} onCreate={handleCreate} onRowDetail={openCategoryRowDetail} onNotify={setMessage} onInnerBackChange={setInnerBackHandler} />

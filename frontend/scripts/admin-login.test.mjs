@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 
 const app = readFileSync(new URL("../src/admin/AdminApp.jsx", import.meta.url), "utf8");
 const adminApiSource = readFileSync(new URL("../src/admin/api.js", import.meta.url), "utf8");
+const adminFinanceApiSource = readFileSync(new URL("../src/admin/financeApi.js", import.meta.url), "utf8");
 const authSessionSource = readFileSync(new URL("../src/auth/session.js", import.meta.url), "utf8");
 const restaurantLogin = readFileSync(new URL("../src/pages/LoginPage.jsx", import.meta.url), "utf8");
 const tablesReport = readFileSync(new URL("../src/pages/TablesReportPage.jsx", import.meta.url), "utf8");
@@ -133,9 +134,22 @@ const adminFinanceHistoryPage = app.slice(
   app.indexOf("function AdminFinanceHistoryPage"),
   app.indexOf("function AdminCashierBackgroundPage")
 );
+const adminDataHook = app.slice(
+  app.indexOf("function useAdminData"),
+  app.indexOf("const navItems")
+);
+const adminDashboardTransactions = app.slice(
+  app.indexOf("function TransactionsTable"),
+  app.indexOf("function EmployeeSalesTable")
+);
 
-assert.match(app, /const adminFinanceApi = {[\s\S]*?createTransaction\(payload, idempotencyKey\)[\s\S]*?adminApi\.post\("\/finance\/transactions", payload/, "Admin finance must create transactions through the existing finance endpoint.");
-assert.match(app, /headers:\s*{ "Idempotency-Key": idempotencyKey }/, "Admin finance submit must send an idempotency key to protect repeated requests.");
+assert.match(app, /import { adminFinanceApi, resolveHqTransactionSubmission } from "\.\/financeApi";/, "Admin finance consumers must use the extracted HQ finance service.");
+assert.match(adminFinanceApiSource, /HQ_FINANCE_BASE_PATH = "\/hq\/finance"/, "Admin finance service must use the HQ finance prefix.");
+assert.ok(adminFinanceApiSource.includes("adminApi.post(HQ_FINANCE_PATHS.transactions, payload"), "Admin finance must create transactions through the HQ endpoint.");
+assert.match(adminFinanceApiSource, /headers:\s*{ "Idempotency-Key": idempotencyKey }/, "Admin finance submit must send an idempotency key to protect repeated requests.");
+assert.match(adminFinanceSection, /resolveHqTransactionSubmission\(financeSubmissionRef\.current, payload\)/, "Admin finance retries must reuse the submission idempotency key for unchanged payloads.");
+assert.match(adminDataHook, /if \(mapping\.load\) onNotify\?\.\(getAdminFinanceLoadMessage\(error\)\)/, "Mapped HQ finance reads must expose request failures.");
+assert.match(adminDashboardTransactions, /\.catch\(\(error\) => \{[\s\S]*?setRows\(\[\]\)[\s\S]*?onNotify\?\.\(getAdminFinanceLoadMessage\(error\)\)/, "Dashboard HQ transaction failures must remain visible.");
 assert.match(adminFinanceSection, /if \(financeSubmitting\) return;/, "Admin finance submit must block repeated clicks while a request is in flight.");
 assert.match(adminFinanceSection, /direction:\s*financeDraft\.operationType/, "Admin finance payload must send backend direction income or expense.");
 assert.doesNotMatch(adminFinanceSection, /window\.confirm/, "Admin finance close confirmation must not use the native browser confirm dialog.");
@@ -156,16 +170,15 @@ assert.doesNotMatch(adminFinanceDateInput, /type="date"/, "Admin finance date fi
 assert.match(adminFinanceDateInput, /createPortal\([\s\S]*?admin-finance-calendar[\s\S]*?document\.body/, "Admin finance date calendar must render through a portal above scrollable modal content.");
 assert.match(adminFinanceDateInput, /admin-finance-calendar__today[\s\S]*?Сегодня[\s\S]*?admin-finance-calendar__ok[\s\S]*?OK/, "Admin finance date field must render the custom admin calendar footer.");
 assert.match(adminFinanceCategoriesPage, /admin-income-page admin-finance-category-page/, "Admin finance category pages must have their own template class.");
-assert.match(adminFinanceCategoriesPage, /const fallbackCategories = useMemo/, "Admin finance category pages must render their existing local rows when the API is empty or unavailable.");
-assert.match(adminFinanceCategoriesPage, /setCategories\(fallbackCategories\)/, "Admin finance category pages must keep the local fallback rows in sync.");
+assert.match(adminFinanceCategoriesPage, /adminFinanceApi\.listCategories\(organizationId, categoryKind/, "Admin finance category pages must use the organization-scoped HQ service.");
+assert.doesNotMatch(adminFinanceCategoriesPage, /setCategories\(fallbackCategories\)/, "Admin finance category failures must not become fake successful local data.");
 assert.match(adminFinanceCategoriesPage, /admin-income-table-shell[\s\S]*?admin-income-list-head[\s\S]*?admin-income-list/, "Admin finance category page must render a clear table shell with column headings.");
 assert.match(adminFinanceCategoriesPage, /editor\.mode === "create" \? "Добавить" : "Сохранить"/, "Admin finance category create modal must use an add action label.");
-assert.match(adminPaymentMethodsPage, /const paymentFallbackRows = useMemo\(\(\) => paymentMethodRows\.map/, "Admin payment methods must render existing local rows when the API is empty or unavailable.");
-assert.match(adminPaymentMethodsPage, /setMethods\(paymentFallbackRows\)/, "Admin payment methods must keep local fallback rows in sync.");
+assert.match(adminPaymentMethodsPage, /adminFinanceApi\.listPaymentTypes\(organizationId/, "Admin payment methods must use the organization-scoped HQ service.");
+assert.doesNotMatch(adminPaymentMethodsPage, /setMethods\(paymentFallbackRows\)/, "Admin payment method failures must not become fake successful local data.");
 assert.match(adminPaymentMethodsPage, /sort:\s*Number\(r\.sort_order \?\? r\.sort \?\? index \+ 1\)/, "Admin payment API rows must preserve sort values.");
-assert.match(adminFinanceHistoryPage, /const historyFallbackRows = useMemo/, "Admin finance history must render existing local rows when the API is empty or unavailable.");
-assert.match(adminFinanceHistoryPage, /setRows\(historyFallbackRows\)/, "Admin finance history must keep local fallback rows in sync.");
-assert.match(adminFinanceHistoryPage, /adminApi\.get\("\/finance\/finance-history"/, "Admin finance history must use the existing finance history endpoint.");
+assert.match(adminFinanceHistoryPage, /adminFinanceApi\.listFinanceHistory\(organizationId/, "Admin finance history must use the organization-scoped HQ service.");
+assert.doesNotMatch(adminFinanceHistoryPage, /setRows\(historyFallbackRows\)/, "Admin finance history failures must not become fake successful local data.");
 assert.match(adminFinanceHistoryPage, /const historyScrollRef = useRef/, "Admin finance history must manage a dedicated visible horizontal scrollbar.");
 assert.match(adminFinanceHistoryPage, /className="admin-history-table-wrap"[\s\S]*?ref={historyScrollRef}[\s\S]*?onScroll={updateHistoryScroll}[\s\S]*?onWheelCapture={keepWheelInsideScroller}/, "Admin finance history must keep wheel and scrollbar state synced inside the table scroller.");
 assert.match(adminFinanceHistoryPage, /className="admin-history-scrollbar"[\s\S]*?admin-history-scrollbar__button is-prev[\s\S]*?admin-history-scrollbar__track[\s\S]*?admin-history-scrollbar__thumb[\s\S]*?admin-history-scrollbar__button is-next/, "Admin finance history must render the visible reference-style scrollbar under the table.");
