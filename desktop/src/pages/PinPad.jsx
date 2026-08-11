@@ -6,7 +6,7 @@ function initials(name = '') {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('') || '?'
 }
 
-/** PinPad — ввод PIN выбранного сотрудника. onSubmit(pin) → Promise. Минимум 2 цифры. */
+/** PinPad — ввод PIN выбранного сотрудника. onSubmit(pin) → Promise. Минимум 1 цифра. */
 export default function PinPad({ employee = {}, onSubmit, onBack }) {
   const [pin, setPin] = useState('')
   const [error, setError] = useState(false)
@@ -14,7 +14,7 @@ export default function PinPad({ employee = {}, onSubmit, onBack }) {
   const role = employee.role_slug || (employee.role_slugs && employee.role_slugs[0])
 
   const submit = useCallback(async (value) => {
-    if (busy || value.length < 2) return
+    if (busy || value.length < 1) return
     setBusy(true); setError(false)
     try {
       await onSubmit(value)
@@ -82,7 +82,7 @@ export default function PinPad({ employee = {}, onSubmit, onBack }) {
           })}
         </div>
 
-        <button className="pinpad__submit" onClick={() => submit(pin)} disabled={pin.length < 2 || busy}>
+        <button className="pinpad__submit" onClick={() => submit(pin)} disabled={pin.length < 1 || busy}>
           {busy ? t('check') : t('enter')}
         </button>
       </div>

@@ -12,6 +12,7 @@ import ReportsPanel from '../../components/ReportsPanel'
 import StopListPanel from '../../components/StopListPanel'
 import PaymentModal from '../../components/PaymentModal'
 import InputPromptModal from '../../components/InputPromptModal'
+import HeaderMenu from '../../components/HeaderMenu'
 import { t } from '../../shared/i18n'
 import { can } from '../../shared/permissions'
 import { toast } from '../../components/Toast'
@@ -271,9 +272,14 @@ export default function CashierMode({ user = {}, onBack }) {
             <div className="board__head-right">
               {can(user, 'can_change_order_type') && <button className="btn btn--outline btn--sm" onClick={() => openOrder('takeaway', null)}><ShoppingBag size={18} /> {t('takeaway')}</button>}
               {can(user, 'can_change_order_type') && <button className="btn btn--outline btn--sm" onClick={() => openOrder('delivery', null)}><Bike size={18} /> {t('delivery')}</button>}
-              <button className="btn btn--outline btn--sm" onClick={() => setFinOpen(true)}><Wallet size={18} /> {t('finance')}</button>
-              {can(user, 'can_view_closed_orders') && <button className="btn btn--outline btn--sm" onClick={() => setHistOpen(true)}><History size={18} /> {t('history')}</button>}
-              <button className="btn btn--outline btn--sm" onClick={() => setRepOpen(true)}><BarChart3 size={18} /> {t('reports')}</button>
+              <HeaderMenu
+                label={t('menu_more')}
+                items={[
+                  { id: 'fin', label: t('finance'), Icon: Wallet, onClick: () => setFinOpen(true) },
+                  ...(can(user, 'can_view_closed_orders') ? [{ id: 'hist', label: t('history'), Icon: History, onClick: () => setHistOpen(true) }] : []),
+                  { id: 'rep', label: t('reports'), Icon: BarChart3, onClick: () => setRepOpen(true) },
+                ]}
+              />
               {can(user, 'can_view_stop_list') && <button className="btn btn--outline btn--sm" onClick={() => setStopOpen(true)}><Ban size={18} /> {t('stoplist')}</button>}
             </div>
           </div>

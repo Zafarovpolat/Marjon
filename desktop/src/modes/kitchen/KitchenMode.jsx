@@ -148,41 +148,34 @@ export default function KitchenMode({ user = {}, onBack }) {
 
   return (
     <div className="floor">
-      <aside className="ws-side">
-        <button className="zone zone--exit" onClick={onBack}>
-          <LogOut size={20} />
-          <span className="zone__name">{t('logout')}</span>
-        </button>
-        <div className="ws-side__label">{t('queue')}</div>
-        <nav className="ws-side__nav">
-          {FILTERS.map(({ id, label, Icon }) => {
-            const count = id === 'all' ? orders.length : orders.filter((o) => matchFilter(o, id)).length
-            return (
-              <button key={id} className={`zone ${filter === id ? 'zone--active' : ''}`} onClick={() => setFilter(id)}>
-                <Icon size={20} />
-                <span className="zone__name">{label}</span>
-                <span className="zone__count">{count}</span>
-              </button>
-            )
-          })}
-        </nav>
-        <div className="ws-side__spacer" />
-        <button className="zone" onClick={() => setStopOpen(true)}>
-          <Ban size={20} />
-          <span className="zone__name">{t('stoplist')}</span>
-        </button>
-      </aside>
-
-      <main className="ws__main">
+      <main className="ws__main ws__main--full">
         <div className="board__head">
           <div className="board__title">
             <h2>{t('mode_kitchen')}</h2>
             <span className="board__subtitle">{orders.length} {t('orders_low')} · {inWork} {t('in_work')}</span>
           </div>
           <div className="board__head-right">
+            {FILTERS.map(({ id, label, Icon }) => {
+              const count = id === 'all' ? orders.length : orders.filter((o) => matchFilter(o, id)).length
+              return (
+                <button key={id} className={`btn btn--outline btn--sm ${filter === id ? 'is-active' : ''}`} onClick={() => setFilter(id)}>
+                  <Icon size={18} />
+                  {label}
+                  <span className="board__filter-count">{count}</span>
+                </button>
+              )
+            })}
+            <button className="btn btn--outline btn--sm" onClick={() => setStopOpen(true)}>
+              <Ban size={18} />
+              {t('stoplist')}
+            </button>
             <button className={`btn btn--outline btn--sm ${soundOn ? '' : 'is-muted'}`} onClick={toggleSound}>
               {soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
               {soundOn ? t('sound_on') : t('sound_off')}
+            </button>
+            <button className="btn btn--outline btn--sm" onClick={onBack}>
+              <LogOut size={18} />
+              {t('logout')}
             </button>
           </div>
         </div>
