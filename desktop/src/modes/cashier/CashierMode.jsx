@@ -15,6 +15,7 @@ import InputPromptModal from '../../components/InputPromptModal'
 import { t } from '../../shared/i18n'
 import { can } from '../../shared/permissions'
 import { toast } from '../../components/Toast'
+import { formatPhone, extractPhoneDigits, fullPhone } from '../../shared/phone'
 
 const ACTIVE = new Set(['new', 'accepted', 'cooking', 'ready', 'pending'])
 
@@ -124,14 +125,14 @@ export default function CashierMode({ user = {}, onBack }) {
     setView('order')
   }
   // Автокомплит постоянных клиентов по номеру
-  function onDeliveryPhone(v) {
-    setDeliveryPhone(v); setCustId(null)
-    const q = v.replace(/[^\d+]/g, '')
-    if (q.length < 3) { setCustMatches([]); return }
+  function onDeliveryPhone(raw) {
+    const digits = extractPhoneDigits(raw); setDeliveryPhone(digits); setCustId(null)
+    const q = fullPhone(digits)
+    if (digits.length < 3) { setCustMatches([]); return }
     customersApi.search(q).then((list) => setCustMatches((Array.isArray(list) ? list : []).slice(0, 6))).catch(() => setCustMatches([]))
   }
   function pickCustomer(c) {
-    setDeliveryPhone(c.phone || ''); setCustId(c.id); setCustMatches([])
+    setDeliveryPhone(extractPhoneDigits(c.phone || '')); setCustId(c.id); setCustMatches([])
   }
   // Клик по столу: есть заказ (передан официантом) → оплата/закрытие; пусто → новый заказ
   function tapTable(tbl) {
@@ -153,7 +154,7 @@ export default function CashierMode({ user = {}, onBack }) {
   // Закрыть заказ (оплата подтверждена кассиром). Способ оплаты фиксируется вручную —
   // платёжку интегрируем позже; сейчас просто переводим заказ в completed.
   async function completeExistingOrder(order /* , method */) {
-    try { await orders.updateStatus(order.id, 'completed') } catch { /* офлайн-очередь досошлёт */ }
+    try { await orders.updateStatus(order.id, 'completed'); toast(t('order_closed')) } catch (e) { toast(t('close_order_error') + (e?.response?.data?.detail ? ': ' + e.response.data.detail : ''), 'error') }
     setPayExisting(null)
     loadFloor()
   }
@@ -403,7 +404,7 @@ export default function CashierMode({ user = {}, onBack }) {
             {orderType === 'delivery' && (
               <div className="cashier-delivery">
                 <div className="cashier-delivery__phone">
-                  <input className="cashier-cart__note" placeholder={t('phone')} value={deliveryPhone} onChange={(e) => onDeliveryPhone(e.target.value)} />
+                  <input className="cashier-cart__note" type="tel" inputMode="numeric" placeholder="+998 90 123-45-67" value={formatPhone(deliveryPhone)} onChange={(e) => onDeliveryPhone(e.target.value)} />
                   {custMatches.length > 0 && (
                     <div className="cashier-delivery__suggest">
                       {custMatches.map((c) => (

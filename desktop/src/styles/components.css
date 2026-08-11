@@ -3497,10 +3497,10 @@ body.vkb-open .login-card {
 .cashier-cart__note { margin: 0 var(--spacing-md) var(--spacing-sm); min-height: 44px; padding: 0 var(--spacing-md); background: var(--color-subtle); border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text-primary); font-size: var(--text-sm); }
 .cashier-cart__note:focus { border-color: var(--color-brand); outline: none; }
 /* Доставка: телефон с автокомплитом + адрес — компактно, рядом, под списком блюд */
-.cashier-delivery { display: flex; gap: 10px; margin: 10px var(--spacing-md) 12px; }
-.cashier-delivery .cashier-cart__note { width: auto; margin: 0; min-height: 40px; font-size: 13px; }
-.cashier-delivery__phone { position: relative; flex: 1; min-width: 0; }
-.cashier-delivery > .cashier-cart__note { flex: 1.3; min-width: 0; }
+.cashier-delivery { display: flex; flex-direction: column; gap: 8px; margin: 10px var(--spacing-md) 12px; }
+.cashier-delivery .cashier-cart__note { width: 100%; margin: 0; min-height: 40px; font-size: 13px; }
+.cashier-delivery__phone { position: relative; width: 100%; min-width: 0; }
+.cashier-delivery > .cashier-cart__note { width: 100%; min-width: 0; }
 .cashier-delivery__suggest { position: absolute; left: 0; right: 0; top: 44px; z-index: 20; background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-sm); box-shadow: var(--shadow-md); overflow: hidden; }
 .cashier-delivery__suggest button { display: block; width: 100%; text-align: left; padding: 10px 12px; background: transparent; border: none; color: var(--color-text-primary); font-size: var(--text-sm); cursor: pointer; }
 .cashier-delivery__suggest button:hover { background: var(--color-brand-bg); color: var(--color-brand); }

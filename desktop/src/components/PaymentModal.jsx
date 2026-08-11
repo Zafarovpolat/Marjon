@@ -114,7 +114,7 @@ export default function PaymentModal({ order, onPrint, onComplete, onCancel, onR
 
           {onApplyDiscount && (
             <div className="pay-order__mixrow pay-order__discount">
-              <label><Percent size={14} /> {t('discount')}</label>
+              <label><Percent size={14} /> {t('discount_word')}</label>
               <input type="number" min="0" max="100" className="input" value={discPct} disabled={act === 'discount'}
                 onChange={(e) => setDiscPct(e.target.value)} placeholder="0"
                 onBlur={() => { const p = Math.min(100, Math.max(0, Number(discPct) || 0)); setDiscPct(p ? String(p) : ''); applyDiscount(p) }} />

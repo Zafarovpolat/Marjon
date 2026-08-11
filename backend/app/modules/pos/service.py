@@ -24,9 +24,9 @@ from app.shared.exceptions import NotFoundError, ValidationError
 
 # ── Order status state machine ───────────────────────────────────────────────
 VALID_TRANSITIONS: dict[str, set[str]] = {
-    "new":       {"accepted", "cooking", "cancelled"},
-    "accepted":  {"cooking", "cancelled"},
-    "cooking":   {"ready", "cancelled"},
+    "new":       {"accepted", "cooking", "ready", "completed", "cancelled"},
+    "accepted":  {"cooking", "ready", "completed", "cancelled"},
+    "cooking":   {"ready", "completed", "cancelled"},
     "ready":     {"completed", "cancelled"},
     "completed": set(),           # final state — no transitions
     "cancelled": set(),           # final state — no transitions
