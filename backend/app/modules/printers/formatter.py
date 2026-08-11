@@ -160,6 +160,10 @@ class EscPosFormatter:
                 str(item.qty),
                 f"{item.total:,.0f}",
             )
+            # При количестве > 1 показываем цену за единицу отдельной строкой,
+            # чтобы в чеке была видна не только сумма позиции, но и цена штуки.
+            if item.qty and Decimal(item.qty) != 1 and item.price:
+                out += self._line(f"  {item.qty} x {item.price:,.0f}")
             for mod in item.modifiers:
                 out += self._line(f"  + {mod}")
 
