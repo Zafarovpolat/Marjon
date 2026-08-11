@@ -6,6 +6,7 @@ import {
 import { orders, menu, halls as hallsApi, printers as printersApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
 import DishModal from '../../components/DishModal'
+import InputPromptModal from '../../components/InputPromptModal'
 import { toast } from '../../components/Toast'
 import { t } from '../../shared/i18n'
 
@@ -53,6 +54,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
   const [editLine, setEditLine] = useState(null)
   const [printerMap, setPrinterMap] = useState({})
   const [addToOrderId, setAddToOrderId] = useState(null)   // id заказа, в который ДОБАВЛЯЕМ блюда
+  const [promptCfg, setPromptCfg] = useState(null)         // модалка ввода (номер стола при переносе блюда)
 
   const loadData = useCallback(() => {
     hallsApi.list(user.branch_id)
@@ -97,24 +99,31 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
       try {
         await window.electron?.print({ ip: printer.ip_address, port: printer.port ?? 9100, payloadBase64: msg.payload, copies: msg.copies ?? 1 })
         await printersApi.jobDone(msg.job_id)
-      } catch (err) { console.error('[print]', err) }
+      } catch (err) { console.error('[print]', err); toast(t('print_failed'), 'error') }
     })
   }, [printerMap])
 
-  // Перекинуть позицию на другой стол
-  async function moveItemToTable(order, item) {
-    const num = window.prompt(t('move_to_table'))
-    if (num === null || String(num).trim() === '') return
-    try { await orders.moveItem(order.id, item.id, String(num).trim()); setView('floor'); loadData() }
-    catch (e) { alert(e?.response?.data?.detail || e.message) }
+  // Перекинуть позицию на другой стол. window.prompt в Electron не работает —
+  // номер спрашиваем в своей модалке (как в кассе).
+  function moveItemToTable(order, item) {
+    setPromptCfg({
+      title: t('move_to_table'),
+      hint: t('move_to_table'),
+      type: 'number',
+      submitLabel: t('save'),
+      onSubmit: async (num) => {
+        await orders.moveItem(order.id, item.id, String(num).trim())
+        setPromptCfg(null); setView('floor'); loadData()
+      },
+    })
   }
   // Печать чека клиента (официант печатает сам)
   async function printReceipt(order) {
     if (!order?.id) return
     const pr = Object.values(printerMap).find((p) => p.printer_type === 'receipt' && p.branch_id === user.branch_id)
-    if (!pr) { alert(t('no_receipt_printer')); return }
-    try { await printersApi.printReceipt({ order_id: order.id, printer_id: pr.id, copies: 1 }) }
-    catch (e) { alert(e?.response?.data?.detail || e.message) }
+    if (!pr) { toast(t('no_receipt_printer'), 'error'); return }
+    try { await printersApi.printReceipt({ order_id: order.id, printer_id: pr.id, copies: 1 }); toast(t('receipt_sent')) }
+    catch (e) { toast(t('print_failed') + (e?.response?.data?.detail ? `: ${e.response.data.detail}` : ''), 'error') }
   }
 
   // ── Данные столов ──
@@ -314,7 +323,15 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                 {(selectedTable.order?.items ?? []).map((item) => (
                   <li key={item.id} className={`detail-item detail-item--${item.status || 'new'}`}>
                     <span className="detail-item__qty">×{item.quantity}</span>
-                    <span className="detail-item__name">{item.name || item.product_name}{item.takeaway ? <span className="cart-tag">{t('takeaway')}</span> : null}</span>
+                    <div className="detail-item__body">
+                      <span className="detail-item__name">{item.name || item.product_name}{item.takeaway ? <span className="cart-tag">{t('takeaway')}</span> : null}</span>
+                      {/* Цена, кто добавил и во сколько (кто/время — если бэкенд их отдаёт) */}
+                      <span className="detail-item__sub">
+                        {Number(item.total ?? (Number(item.price) * Number(item.quantity))).toLocaleString('ru-RU')} {t('currency')}
+                        {(item.waiter_name || item.added_by_name) && <> · {item.waiter_name || item.added_by_name}</>}
+                        {item.created_at && <> · {formatTime(item.created_at)}</>}
+                      </span>
+                    </div>
                     <button type="button" className="detail-item__move" title={t('move_to_table')} onClick={() => moveItemToTable(selectedTable.order, item)}>
                       <ArrowLeft size={15} style={{ transform: 'rotate(180deg)' }} />
                     </button>
@@ -416,6 +433,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
           onClose={() => setEditLine(null)}
         />
       )}
+      {promptCfg && <InputPromptModal {...promptCfg} onClose={() => setPromptCfg(null)} />}
     </div>
   )
 }

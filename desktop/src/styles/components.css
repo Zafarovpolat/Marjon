@@ -2466,7 +2466,9 @@ body.vkb-open .login-card {
 .detail-item--cooking { border-left-color: var(--color-warning); }
 .detail-item--ready { border-left-color: var(--color-success); }
 .detail-item__qty { font-weight: var(--font-weight-bold); color: var(--color-brand); min-width: 32px; }
+.detail-item__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .detail-item__name { flex: 1; }
+.detail-item__sub { font-size: var(--text-xs); color: var(--color-text-muted); }
 .detail-item__status {
   display: inline-flex;
   align-items: center;
