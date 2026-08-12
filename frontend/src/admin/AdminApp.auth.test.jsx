@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import axios from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AUTH_SCOPES, AUTH_STORAGE_KEYS, endAuthSession, resetAuthSessionStateForTest } from "../auth/session";
-import AdminApp, { CategoryPage, StorageInventoryPage, StorageWriteoffPage } from "./AdminApp";
+import AdminApp, { CategoryPage, normalizeAdminProduct, StorageInventoryPage, StorageWriteoffPage } from "./AdminApp";
 import { adminApi } from "./api";
 
 const adminTransportAdapter = adminApi.defaults.adapter;
@@ -232,6 +232,81 @@ describe("AdminApp HQ session gate", () => {
     expect(get).not.toHaveBeenCalled();
     expect(screen.queryByText("Список пуст")).not.toBeInTheDocument();
     expect(screen.queryByText("Инвентаризации не найдены.")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["storage-income", "Данные прихода недоступны"],
+    ["storage-expense", "Данные расхода недоступны"],
+    ["storage-balance", "Остатки недоступны"],
+    ["storage-income-journal", "Журнал прихода недоступен"],
+    ["storage-writeoff", "Документы списания недоступны"],
+    ["storage-inventory", "Инвентаризация недоступна"],
+  ])("keeps deferred HQ storage route %s request-free", async (active, message) => {
+    const get = vi.spyOn(adminApi, "get");
+
+    render(
+      <CategoryPage
+        active={active}
+        search=""
+        onCreate={vi.fn()}
+        onRowDetail={vi.fn()}
+        onNotify={vi.fn()}
+        onInnerBackChange={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByRole("status")).toHaveTextContent(message);
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it("does not invent a warehouse for a backend HQ product", () => {
+    const product = normalizeAdminProduct({
+      id: "product-uuid",
+      name: "Backend product",
+      category_id: null,
+      price: 125000,
+      unit_id: null,
+      status: true,
+      is_used: false,
+      is_archived: false,
+    });
+
+    expect(product).toMatchObject({ id: "product-uuid", name: "Backend product", price: 125000 });
+    expect(product).not.toHaveProperty("warehouse");
+    expect(product).not.toHaveProperty("storage_name");
+    expect(JSON.stringify(product)).not.toContain("Главный склад");
+  });
+
+  it("renders null HQ identity with neutral placeholders", async () => {
+    setAdminTokens();
+    vi.spyOn(adminApi, "get").mockImplementation((path) => (
+      path === "/auth/me"
+        ? Promise.resolve({ data: { ...validHqProfile, name: null, phone: null } })
+        : Promise.resolve({ data: [] })
+    ));
+
+    const { container } = render(<AdminApp />);
+    await waitFor(() => expect(container.querySelector(".admin-shell")).toBeInTheDocument());
+
+    expect(container.querySelector(".admin-profile__meta strong")).toHaveTextContent("Не указано");
+    expect(container.querySelector(".admin-profile-card__info strong")).toHaveTextContent("Не указано");
+    expect(screen.queryByText("Александр П.")).not.toBeInTheDocument();
+    expect(screen.queryByText("900000777")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Профиль администратора" }));
+    expect(screen.getByText("Телефон").closest("div")).toHaveTextContent("—");
+  });
+
+  it("renders server-provided HQ identity unchanged", async () => {
+    setAdminTokens();
+    vi.spyOn(adminApi, "get").mockImplementation(resolveAdminGet);
+
+    const { container } = render(<AdminApp />);
+    await waitFor(() => expect(container.querySelector(".admin-shell")).toBeInTheDocument());
+
+    expect(container.querySelector(".admin-profile__meta strong")).toHaveTextContent("HQ User");
+    fireEvent.click(screen.getByRole("button", { name: "Профиль администратора" }));
+    expect(screen.getByText("Телефон").closest("div")).toHaveTextContent("+998900000000");
   });
 
   it("does not call an APP-only debt-credit report from HQ bank statistics", async () => {

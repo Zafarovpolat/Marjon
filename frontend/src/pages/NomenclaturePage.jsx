@@ -109,6 +109,48 @@ function matchesDishStatFilter(row, filterKey) {
   }
 }
 
+export function mapNomenclatureProduct(item) {
+  return {
+    id: item.id,
+    name: item.name || "",
+    sort: item.sort_order != null ? String(item.sort_order) : "—",
+    type: item.product_type === "sale" ? "Реализация" : "Блюда",
+    unit: item.unit || "—",
+    cost: item.cost_price != null ? `${Number(item.cost_price).toLocaleString("ru-RU")} UZS` : "—",
+    price: item.price != null ? String(item.price) : "—",
+    menu: item.category_name || "",
+    subcategory: item.subcategory_name || "",
+    printer: item.printer_name || "",
+    recipe: `Рецепт (${item.ingredients_count ?? 0} шт)`,
+    stock: item.stock != null ? String(item.stock) : "-",
+    auto: null,
+    set: null,
+    category: item.category_name || "",
+    chef: "",
+    photo: item.image_url || "",
+  };
+}
+
+function parseNomenclatureMoney(value, fallback = null) {
+  const normalized = String(value ?? "").replace(/[^\d,.-]/g, "").replace(",", ".");
+  if (!normalized) return fallback;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+export function buildNomenclatureProductPayload(form, { isUpdate = false } = {}) {
+  const payload = {
+    name: String(form.name || "").trim(),
+    sort_order: Number.parseInt(form.sort, 10) || 1,
+    product_type: form.type === "Реализация" ? "sale" : "dish",
+    price: parseNomenclatureMoney(form.price, 0),
+  };
+  const costPrice = parseNomenclatureMoney(form.cost);
+  if (costPrice !== null) payload.cost_price = costPrice;
+  if (!isUpdate) payload.unit = form.unit || "шт";
+  return payload;
+}
+
 function demoDishRows() {
   return [
     {
@@ -251,25 +293,7 @@ function DishesCatalogPage() {
     api.get("/inventory/products")
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
-        const mapped = items.map((item) => ({
-            id: item.id,
-            name: item.name || "",
-            sort: String(item.sort_order ?? "1"),
-            type: item.product_type === "sale" ? "Реализация" : "Блюда",
-            unit: item.unit || "шт",
-            cost: item.cost_price != null ? `${Number(item.cost_price).toLocaleString("ru-RU")} UZS` : "—",
-            price: String(item.price || "0"),
-            menu: item.category_name || item.menu || "",
-            subcategory: item.subcategory_name || item.subcategory || item.specification || "",
-            printer: item.printer_name || "",
-            recipe: `Рецепт (${item.ingredients_count ?? 0} шт)`,
-            stock: item.stock !== undefined ? String(item.stock) : "-",
-            auto: item.auto_write_off ?? false,
-            set: item.is_set ?? false,
-            category: item.category_name || "",
-            chef: item.station || "",
-            photo: item.image_url || "",
-          }));
+        const mapped = items.map(mapNomenclatureProduct);
         setRows(mapped);
       })
       .catch((err) => {
@@ -319,33 +343,25 @@ function DishesCatalogPage() {
   };
 
   const saveDish = async () => {
-    const payload = {
-      name: form.name,
-      sort_order: parseInt(form.sort, 10) || 1,
-      product_type: form.type === "Реализация" ? "sale" : "dish",
-      unit: form.unit,
-      price: parseInt(form.price, 10) || 0,
-      category_name: form.menu || form.category,
-      subcategory_name: form.subcategory,
-      station: form.chef,
-      auto_write_off: form.auto,
-      is_set: form.set,
-    };
+    const isUpdate = Boolean(editing);
+    const payload = buildNomenclatureProductPayload(form, { isUpdate });
+    setActionError("");
     try {
-      if (editing) {
-        await api.patch(`/inventory/products/${editing.id}`, payload);
-      } else {
-        const { data } = await api.post("/inventory/products", payload);
-        if (data?.id) form.id = data.id;
-      }
+      const { data } = isUpdate
+        ? await api.patch(`/inventory/products/${editing.id}`, payload)
+        : await api.post("/inventory/products", payload);
+      if (!data?.id) throw new Error("Backend не вернул сохранённый продукт.");
+      const serverRow = mapNomenclatureProduct(data);
+      setRows((current) => (
+        isUpdate
+          ? current.map((row) => (row.id === editing.id ? serverRow : row))
+          : [serverRow, ...current]
+      ));
     } catch (err) {
-      window.alert(err.response?.data?.detail || "Ошибка сохранения");
+      const message = err.response?.data?.detail || err.message || "Ошибка сохранения";
+      setActionError(message);
+      window.alert(message);
       return;
-    }
-    if (editing) {
-      setRows((prev) => prev.map((row) => (row.id === editing.id ? { ...row, ...form } : row)));
-    } else {
-      setRows((prev) => [{ ...form, id: form.id || Date.now(), photo: "" }, ...prev]);
     }
     setDrawerOpen(false);
   };
@@ -396,6 +412,8 @@ function DishesCatalogPage() {
             </button>
           </div>
         </div>
+
+        {actionError ? <div className="login-error" role="alert">{actionError}</div> : null}
 
         <div className="dish-stat-grid">
           {computedStats.map((stat) => (
@@ -586,12 +604,20 @@ function DishesCatalogPage() {
               <button type="button" onClick={() => setDrawerOpen(false)}><Icon name="bi-x-lg" /></button>
             </div>
             <div className="nomenclature-form">
-              {["name", "sort", "price", "cost", "menu", "subcategory", "printer", "category", "chef"].map((field) => (
+              {["name", "sort", "price", "cost", "menu", "subcategory", "printer", "category", "chef"].map((field) => {
+                const unsupported = ["menu", "subcategory", "printer", "category", "chef"].includes(field);
+                return (
                 <label key={field}>
                   <span>{fieldLabels[field]}</span>
-                  <input value={form[field] || ""} onChange={(event) => setForm((prev) => ({ ...prev, [field]: event.target.value }))} />
+                  <input
+                    value={form[field] || ""}
+                    disabled={unsupported}
+                    title={unsupported ? "Поле доступно только для чтения: write contract не подключён." : undefined}
+                    onChange={(event) => setForm((prev) => ({ ...prev, [field]: event.target.value }))}
+                  />
                 </label>
-              ))}
+                );
+              })}
               <label>
                 <span>Тип</span>
                 <select value={form.type} onChange={(event) => setForm((prev) => ({ ...prev, type: event.target.value }))}>
@@ -601,7 +627,12 @@ function DishesCatalogPage() {
               </label>
               <label>
                 <span>Ед. изм</span>
-                <select value={form.unit} onChange={(event) => setForm((prev) => ({ ...prev, unit: event.target.value }))}>
+                <select
+                  value={form.unit}
+                  disabled={Boolean(editing)}
+                  title={editing ? "Изменение единицы измерения не поддерживается backend update contract." : undefined}
+                  onChange={(event) => setForm((prev) => ({ ...prev, unit: event.target.value }))}
+                >
                   <option>шт</option>
                   <option>порция</option>
                   <option>кг</option>

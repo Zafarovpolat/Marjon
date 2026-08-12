@@ -14,10 +14,6 @@ Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryS
 const SECTION_API_MAP = {
   "org-list": { endpoint: "/organizations", mapRow: (r) => [r.company_name || r.name || "", r.type || "Ресторан", String(r.branches_count || r.branch_count || 0), r.admin_name || r.owner_name || "—", r.status || "Активна"] },
   "org-status": { endpoint: "/organization-statuses", mapRow: (r) => [r.name || "", r.status || "", r.updated_at || "—", r.manager || "—", r.state || r.status || ""] },
-  "storage-income": { endpoint: "/comings", mapRow: (r) => [r.document_number || r.id || "", r.provider_name || r.supplier || "", String(r.items_count || 0), `${Number(r.total || 0).toLocaleString("ru-RU")} UZS`, r.status || "Проведен"] },
-  "storage-expense": { endpoint: "/storage-movements", mapRow: (r) => [r.document_number || r.id || "", r.receiver || r.destination || "", String(r.items_count || 0), `${Number(r.total || 0).toLocaleString("ru-RU")} UZS`, r.status || "Проведен"] },
-  "storage-balance": { endpoint: "/reports/storage-balances", mapRow: (r) => [r.name || "", r.category || "", String(r.quantity || r.balance || 0), r.unit || "", r.status || "В норме"] },
-  "storage-income-journal": { endpoint: "/reports/incomes", mapRow: (r) => [r.date || "", r.document_number || "", r.provider_name || "", `${Number(r.total || 0).toLocaleString("ru-RU")} UZS`, r.status || "Проведен"] },
   "nom-product": { endpoint: "/products", mapRow: null },
   "nom-sale-category": { endpoint: "/categories", mapRow: (r) => [r.name || "", r.slug || "", String(r.products_count || 0), r.sort_order != null ? String(r.sort_order) : "—", r.status ? "Активна" : "Неактивна"] },
   "nom-orders": { endpoint: "/orders", mapRow: (r) => [r.order_number || r.id || "", r.date || r.created_at || "", r.customer || "—", `${Number(r.total || 0).toLocaleString("ru-RU")} UZS`, r.status || ""] },
@@ -597,12 +593,6 @@ const adminProductUnits = [
   "Грамм (г)",
 ];
 
-const adminProductWarehouses = [
-  "Главный склад",
-  "Склад Тошкент",
-  "Склад расхода",
-];
-
 const adminProductRows = [
   { id: "tenda-sg108", name: "Tenda SG 108 8 Gigabit Power", category: "Хап", price: 240000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
   { id: "menyu-xolder", name: "MENYU XOLDER", category: "Ускуналар (оборудование)", price: 15000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
@@ -648,7 +638,7 @@ function saveStoredAdminProducts(rows) {
   }
 }
 
-function normalizeAdminProduct(row, index = 0) {
+export function normalizeAdminProduct(row, index = 0) {
   const rawStatus = String(row.status ?? "").toLowerCase();
   const isInactive = row.status === false || rawStatus.includes("inactive") || rawStatus.includes("неак");
   const isArchived = Boolean(row.archived) || rawStatus.includes("archiv") || rawStatus.includes("архив");
@@ -660,7 +650,6 @@ function normalizeAdminProduct(row, index = 0) {
     price: Number(row.price ?? row.sale_price ?? row.cost_price ?? 0),
     unit: row.unit_name || row.unit?.name || row.unit || row.measure || "Штук (шт)",
     status: isInactive ? "inactive" : "active",
-    warehouse: row.warehouse || row.storage_name || "Главный склад",
     photo: row.photo || row.image || row.image_url || "",
     archived: isArchived,
   };
@@ -674,7 +663,6 @@ function createAdminProductDraft(row = null) {
     price: row?.price != null ? String(row.price) : "",
     unit: row?.unit || "Штук (шт)",
     status: row?.status || "active",
-    warehouse: row?.warehouse || "Главный склад",
     photo: row?.photo || "",
     archived: Boolean(row?.archived),
   };
@@ -1782,7 +1770,7 @@ const categoryContent = {
     text: "Текущие статусы подключения, модерации и блокировки клиентов.",
     columns: ["Организация", "Статус", "Изменён", "Ответственный", "Состояние"],
     rows: [
-      ["Bella Italia Group", "Активна", "11.06.2026", "Александр П.", "Активна"],
+      ["Bella Italia Group", "Активна", "11.06.2026", "Не указано", "Активна"],
       ["Coffee House", "Активна", "11.06.2026", "О. Ташматов", "Активна"],
       ["Sushi Master", "На модерации", "11.06.2026", "Д. Юнусов", "На модерации"],
       ["Burger Station", "Новый", "10.06.2026", "М. Саидов", "Новый"],
@@ -1795,7 +1783,7 @@ const categoryContent = {
     text: "Сотрудники платформы, роли, отделы и настройка привилегий доступа.",
     columns: ["Сотрудник", "Должность", "Отдел", "Привилегии", "Статус"],
     rows: [
-      ["Александр П.", "Суперадмин", "Управление", "Полный доступ", "Активна"],
+      ["Не указано", "Суперадмин", "Управление", "Полный доступ", "Активна"],
       ["М. Саидов", "Менеджер продаж", "Продажи", "Продажи, Отчеты", "Активна"],
       ["Д. Юнусов", "Внедренец", "Внедрение", "Организации, Склад", "Активна"],
       ["С. Абдуллаев", "Поддержка", "Поддержка", "Заявки, Чаты", "Активна"],
@@ -2021,7 +2009,7 @@ const categoryContent = {
     text: "Журнал изменений финансовых настроек и объектов.",
     columns: ["Дата", "Объект", "Действие", "Автор", "Статус"],
     rows: [
-      ["11.06.2026 11:42", "Тариф Bella Italia", "Изменён", "Александр П.", "Завершено"],
+      ["11.06.2026 11:42", "Тариф Bella Italia", "Изменён", "Не указано", "Завершено"],
       ["10.06.2026 17:40", "Категория расходов", "Создана", "О. Ташматов", "Завершено"],
       ["09.06.2026 09:18", "Способ оплаты", "Удалён", "Д. Юнусов", "Ожидает"],
     ],
@@ -2960,9 +2948,9 @@ function Sidebar({ active, onSelect, collapsed, onToggle, user, onProfile }) {
         })}
       </nav>
       <button className="admin-profile-card" type="button" onClick={onProfile}>
-        <span className="admin-profile-card__avatar">{(user?.name || "Александр П.").trim().slice(0, 1)}</span>
+        <span className="admin-profile-card__avatar">{(user?.name || "—").trim().slice(0, 1)}</span>
         <span className="admin-profile-card__info">
-          <strong>{user?.name || "Александр П."}</strong>
+          <strong>{user?.name || "Не указано"}</strong>
           <small>{user?.is_superadmin ? "Суперадмин" : "Администратор"}</small>
         </span>
         <Icon name="bi-chevron-right" size={16} className="admin-profile-card__chevron" />
@@ -2984,8 +2972,8 @@ function Header({ user, onBack, notifications = [], onNotificationRefresh, onNot
   const [now, setNow] = useState(() => new Date());
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
-  const profileName = user?.name || "Александр П.";
-  const profileInitial = profileName.trim().slice(0, 1) || "А";
+  const profileName = user?.name || "Не указано";
+  const profileInitial = user?.name?.trim().slice(0, 1) || "—";
   const profileRole = user?.is_superadmin ? "Суперадмин" : "Администратор";
   const notificationCount = notifications.length;
   const notificationLabel = notificationCount ? `Уведомления: ${notificationCount}` : "Уведомлений нет";
@@ -6234,10 +6222,8 @@ function ProductNomenclaturePage({ search, onNotify }) {
 
           <label className="admin-product-field admin-product-field--wide">
             <span>Склад для расхода</span>
-            <select value={editor.warehouse} onChange={(event) => updateEditor("warehouse", event.target.value)}>
-              {adminProductWarehouses.map((warehouse) => (
-                <option value={warehouse} key={warehouse}>{warehouse}</option>
-              ))}
+            <select value="" disabled aria-label="Склад для расхода">
+              <option value="">Не подключено</option>
             </select>
           </label>
 
@@ -11816,12 +11802,12 @@ function AdminShell({ onLogout, user }) {
 
   function openProfileDetail() {
     setDetail({
-      title: user?.name || "Александр П.",
+      title: user?.name || "Не указано",
       subtitle: "Профиль администратора",
       status: "Активна",
       fields: [
         { label: "Роль", value: user?.is_superadmin ? "Суперадмин" : "Администратор" },
-        { label: "Телефон", value: user?.phone || "900000777" },
+        { label: "Телефон", value: user?.phone || "—" },
         { label: "Доступ", value: "Полный доступ" },
       ],
       actions: [
