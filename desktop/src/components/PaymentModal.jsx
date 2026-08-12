@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Printer, Banknote, CreditCard, CheckCircle, Percent, User, Clock } from 'lucide-react'
+import { X, Printer, Banknote, CreditCard, CheckCircle, Percent, User, Clock, Plus } from 'lucide-react'
 import { t } from '../shared/i18n'
 import { toast } from './Toast'
 
@@ -14,12 +14,13 @@ import { toast } from './Toast'
  *   onPrint(order) — печать чека (через сетевой принтер)
  *   onComplete(order, method) — закрыть заказ (status → completed)
  *   onApplyDiscount(order, amount) — применить скидку к заказу (PATCH /orders)
+ *   onAddItems(order) — дозаказ: открыть меню и добавить блюда в этот заказ
  *   onClose()
  */
 function fmt(n) { return Number(n || 0).toLocaleString('ru-RU') }
 function fmtTime(iso) { return iso ? new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '' }
 
-export default function PaymentModal({ order, onPrint, onComplete, onCancel, onReassign, onClose, canClose = true, staff = [], onSetWaiter, onApplyDiscount }) {
+export default function PaymentModal({ order, onPrint, onComplete, onCancel, onReassign, onClose, canClose = true, staff = [], onSetWaiter, onApplyDiscount, onAddItems }) {
   const [method, setMethod] = useState('cash')
   const [received, setReceived] = useState('')
   const [cashPart, setCashPart] = useState('')   // при смешанной оплате
@@ -94,7 +95,16 @@ export default function PaymentModal({ order, onPrint, onComplete, onCancel, onR
             ) : items.map((it) => (
               <div className="pay-order__row" key={it.id}>
                 <span className="pay-order__qty">{Number(it.quantity)}×</span>
-                <span className="pay-order__name">{it.name}</span>
+                <span className="pay-order__name">
+                  {it.name}
+                  {it.takeaway && <span className="pay-order__take">{t('takeaway')}</span>}
+                  {(it.created_at || it.added_by_name || it.waiter_name) && (
+                    <span className="pay-order__added">
+                      {it.created_at ? fmtTime(it.created_at) : ''}
+                      {(it.added_by_name || it.waiter_name) ? `${it.created_at ? ' · ' : ''}${it.added_by_name || it.waiter_name}` : ''}
+                    </span>
+                  )}
+                </span>
                 <span className="pay-order__sum">{fmt(it.total ?? (Number(it.price) * Number(it.quantity)))} {t('currency')}</span>
               </div>
             ))}
@@ -185,6 +195,11 @@ export default function PaymentModal({ order, onPrint, onComplete, onCancel, onR
         </div>
 
         <div className="pay-order__actions">
+          {onAddItems && (
+            <button className="btn btn--outline" onClick={() => onAddItems(order)}>
+              <Plus size={18} /> {t('add_dishes')}
+            </button>
+          )}
           {onReassign && order?.table_number && (
             <button className="btn btn--outline" onClick={() => onReassign(order)}>
               {t('move_table')}

@@ -7,7 +7,7 @@ const DICT = {
     choose_employee: 'Выберите сотрудника', enter_pin: 'Введите PIN', check: 'Проверка...',
     settings: 'Настройки', switch_mode: 'Сменить режим', logout: 'Выйти',
     online: 'Онлайн', offline: 'Офлайн', queue_hint: 'Записей ждут синхронизации',
-    refresh: 'Обновить', lock_screen: 'Заблокировать экран', account: 'Аккаунт', minimize: 'Свернуть окно',
+    refresh: 'Обновить', lock_screen: 'Заблокировать экран', locked_title: 'Экран заблокирован', account: 'Аккаунт', minimize: 'Свернуть окно',
     all: 'Все', locations: 'Локации', overview: 'Обзор', categories: 'Категории',
     stoplist: 'Стоп-лист', finance: 'Финансы', reports: 'Отчёты', history: 'История', queue: 'Очередь', menu_more: 'Меню',
     mode_cashier: 'Касса', mode_kitchen: 'Кухня', mode_waiter: 'Официант', mode_manager: 'Менеджер',
@@ -37,7 +37,7 @@ const DICT = {
     order_items: 'Позиции заказа', to_pay_label: 'К оплате', phone: 'Телефон', address: 'Адрес доставки', move_table: 'Сменить стол',
     cancel_order: 'Отменить заказ', cancel_password_prompt: 'Введите пароль отмены', cancel_error: 'Не удалось отменить заказ',
     cancel_comment: 'Комментарий к отмене (необязательно)', cancel_comment_ph: 'Например: гость ушёл, ошибка в позициях…',
-    no_permission: 'Нет прав на это действие', move_to_table: 'Переместить на стол №', change_waiter: 'Сменить официанта',
+    no_permission: 'Нет прав на это действие', move_to_table: 'Переместить на стол №', change_waiter: 'Сменить официанта', move_item: 'Перенести',
     // Техкарта
     tech_card: 'Техкарта', ingredient: 'Ингредиент', amount: 'Кол-во',
     recipe_yield: 'Выход', portion: 'порция', recipe_empty: 'Техкарта для этого блюда ещё не заполнена.',
@@ -70,7 +70,7 @@ const DICT = {
     // Отчёты
     rep_sales: 'Продажи', rep_products: 'Блюда', rep_staff: 'Сотрудники',
     generate: 'Сформировать', generating: 'Формируем отчёт...',
-    rep_hint: 'Выберите тип отчёта и период, затем нажмите «Сформировать».',
+    rep_hint: 'Выберите тип отчёта и период, затем нажмите «Сформировать».', rep_filter: 'Фильтр по названию…',
     rep_unavailable: 'Отчёт недоступен (нет связи или данных).', rep_no_data: 'Нет данных за период.', print: 'Печать',
     rep_error: 'Не удалось сформировать отчёт', print_summary: 'Печать общего чека',
     cal_months: 'Январь,Февраль,Март,Апрель,Май,Июнь,Июль,Август,Сентябрь,Октябрь,Ноябрь,Декабрь',
@@ -117,7 +117,7 @@ const DICT = {
     choose_employee: 'Xodimni tanlang', enter_pin: 'PIN kiriting', check: 'Tekshirilmoqda...',
     settings: 'Sozlamalar', switch_mode: 'Rejimni almashtirish', logout: 'Chiqish',
     online: 'Onlayn', offline: 'Oflayn', queue_hint: 'Yozuvlar sinxronlashni kutmoqda',
-    refresh: 'Yangilash', lock_screen: 'Ekranni bloklash', account: 'Hisob', minimize: 'Oynani yig‘ish',
+    refresh: 'Yangilash', lock_screen: 'Ekranni bloklash', locked_title: 'Ekran bloklangan', account: 'Hisob', minimize: 'Oynani yig‘ish',
     all: 'Hammasi', locations: 'Joylar', overview: 'Umumiy', categories: 'Turkumlar',
     stoplist: 'Stop-ro‘yxat', finance: 'Moliya', reports: 'Hisobotlar', history: 'Tarix', queue: 'Navbat', menu_more: 'Menyu',
     mode_cashier: 'Kassa', mode_kitchen: 'Oshxona', mode_waiter: 'Ofitsiant', mode_manager: 'Menejer',
@@ -147,7 +147,7 @@ const DICT = {
     order_items: 'Buyurtma tarkibi', to_pay_label: 'To‘lash kerak', phone: 'Telefon', address: 'Yetkazish manzili', move_table: 'Stolni almashtirish',
     cancel_order: 'Buyurtmani bekor qilish', cancel_password_prompt: 'Bekor qilish parolini kiriting', cancel_error: 'Buyurtmani bekor qilib bo‘lmadi',
     cancel_comment: 'Bekor sababi (ixtiyoriy)', cancel_comment_ph: 'Masalan: mehmon ketdi, pozitsiyada xato…',
-    no_permission: 'Bu amal uchun ruxsat yo‘q', move_to_table: 'Boshqa stolga №', change_waiter: 'Ofitsiantni almashtirish',
+    no_permission: 'Bu amal uchun ruxsat yo‘q', move_to_table: 'Boshqa stolga №', change_waiter: 'Ofitsiantni almashtirish', move_item: 'Ko‘chirish',
     // Texkarta
     tech_card: 'Texkarta', ingredient: 'Ingredient', amount: 'Miqdor',
     recipe_yield: 'Chiqishi', portion: 'porsiya', recipe_empty: 'Bu taom uchun texkarta hali to‘ldirilmagan.',
@@ -180,7 +180,7 @@ const DICT = {
     // Hisobotlar
     rep_sales: 'Sotuvlar', rep_products: 'Taomlar', rep_staff: 'Xodimlar',
     generate: 'Shakllantirish', generating: 'Hisobot shakllantirilmoqda...',
-    rep_hint: 'Hisobot turi va davrni tanlang, so‘ng «Shakllantirish»ni bosing.',
+    rep_hint: 'Hisobot turi va davrni tanlang, so‘ng «Shakllantirish»ni bosing.', rep_filter: 'Nomi bo‘yicha filtr…',
     rep_unavailable: 'Hisobot mavjud emas (aloqa yoki ma’lumot yo‘q).', rep_no_data: 'Davr uchun ma’lumot yo‘q.', print: 'Chop etish',
     rep_error: 'Hisobotni shakllantirib bo‘lmadi', print_summary: 'Umumiy chekni chop etish',
     cal_months: 'Yanvar,Fevral,Mart,Aprel,May,Iyun,Iyul,Avgust,Sentabr,Oktabr,Noyabr,Dekabr',

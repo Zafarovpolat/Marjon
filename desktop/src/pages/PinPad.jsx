@@ -6,8 +6,10 @@ function initials(name = '') {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('') || '?'
 }
 
-/** PinPad — ввод PIN выбранного сотрудника. onSubmit(pin) → Promise. Минимум 1 цифра. */
-export default function PinPad({ employee = {}, onSubmit, onBack }) {
+/** PinPad — ввод PIN выбранного сотрудника. onSubmit(pin) → Promise. Минимум 1 цифра.
+ *  title — необязательный заголовок (напр. «Экран заблокирован»).
+ *  onBack — если не передан, кнопка «Назад» скрыта (режим блокировки). */
+export default function PinPad({ employee = {}, onSubmit, onBack, title }) {
   const [pin, setPin] = useState('')
   const [error, setError] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -54,7 +56,9 @@ export default function PinPad({ employee = {}, onSubmit, onBack }) {
   return (
     <div className="pinpad-screen">
       <div className="pinpad">
-        <button className="pinpad__back" onClick={onBack}><ArrowLeft size={20} /> {t('back')}</button>
+        {onBack && <button className="pinpad__back" onClick={onBack}><ArrowLeft size={20} /> {t('back')}</button>}
+
+        {title && <h2 className="pinpad__title">{title}</h2>}
 
         <div className="pinpad__user">
           <span className="pinpad__avatar">{initials(employee.name || employee.email)}</span>

@@ -184,6 +184,10 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
   function updateQty(lineId, d) {
     setCart((prev) => prev.map((i) => i.lineId === lineId ? { ...i, qty: i.qty + d } : i).filter((i) => i.qty > 0))
   }
+  // «С собой» переключается прямо в строке корзины (не заходя в модалку блюда)
+  function toggleTakeaway(lineId) {
+    setCart((prev) => prev.map((i) => i.lineId === lineId ? { ...i, takeaway: !i.takeaway } : i))
+  }
   const cartTotal = cart.reduce((s, i) => s + Number(i.price || 0) * i.qty, 0)
 
   async function submitOrder() {
@@ -332,8 +336,9 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                         {item.created_at && <> · {formatTime(item.created_at)}</>}
                       </span>
                     </div>
-                    <button type="button" className="detail-item__move" title={t('move_to_table')} onClick={() => moveItemToTable(selectedTable.order, item)}>
-                      <ArrowLeft size={15} style={{ transform: 'rotate(180deg)' }} />
+                    <button type="button" className="detail-item__move" onClick={() => moveItemToTable(selectedTable.order, item)}>
+                      <ArrowLeft size={16} style={{ transform: 'rotate(180deg)' }} />
+                      <span>{t('move_item')}</span>
                     </button>
                     <span className="detail-item__status">
                       {item.status === 'ready' && <CheckCircle size={16} />}
@@ -399,9 +404,15 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                   ) : cart.map((item) => (
                     <div key={item.lineId} className="cart-row">
                       <button type="button" className="cart-row__info" onClick={() => setEditLine(item)} title={t('edit')}>
-                        <span className="cart-row__name">{item.product.name}{item.takeaway && <span className="cart-tag">{t('takeaway')}</span>}</span>
+                        <span className="cart-row__name">{item.product.name}</span>
                         {item.note && <span className="cart-row__note">{item.note}</span>}
                       </button>
+                      <button
+                        type="button"
+                        className={`cart-take ${item.takeaway ? 'cart-take--on' : ''}`}
+                        onClick={() => toggleTakeaway(item.lineId)}
+                        title={t('takeaway')}
+                      >{t('takeaway')}</button>
                       <div className="cart-row__qty">
                         <button onClick={() => updateQty(item.lineId, -1)}><Minus size={16} /></button>
                         <span>{item.qty}</span>

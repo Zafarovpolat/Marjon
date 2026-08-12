@@ -63,6 +63,7 @@ export default function CashierMode({ user = {}, onBack }) {
   const [creating, setCreating] = useState(false)         // создание заказа (лоадер кнопки)
   const [staff, setStaff] = useState([])                 // сотрудники (для смены официанта)
   const [printerMap, setPrinterMap] = useState({})
+  const [addToOrderId, setAddToOrderId] = useState(null) // id заказа, в который ДОБАВЛЯЕМ блюда (иначе создаём новый)
 
   const loadFloor = useCallback(() => {
     hallsApi.list(user.branch_id)
@@ -123,6 +124,16 @@ export default function CashierMode({ user = {}, onBack }) {
     setOrderType(type); setSelectedTable(table || null)
     setCart([]); setOrderNote(''); setSearch(''); setActiveCat(null)
     setDeliveryPhone(''); setDeliveryAddress(''); setCustId(null); setCustMatches([])
+    setAddToOrderId(null)   // новый заказ (не дозаказ)
+    setView('order')
+  }
+  // Дозаказ: добавляем блюда в уже открытый заказ стола (из модалки оплаты)
+  function addDishesToOrder(order) {
+    setPayExisting(null)
+    setOrderType('dine_in'); setSelectedTable({ number: order.table_number })
+    setCart([]); setOrderNote(''); setSearch(''); setActiveCat(null)
+    setDeliveryPhone(''); setDeliveryAddress(''); setCustId(null); setCustMatches([])
+    setAddToOrderId(order.id)
     setView('order')
   }
   // Автокомплит постоянных клиентов по номеру
@@ -216,6 +227,8 @@ export default function CashierMode({ user = {}, onBack }) {
   }
   function updateQty(lineId, d) { setCart((prev) => prev.map((i) => i.lineId === lineId ? { ...i, qty: i.qty + d } : i).filter((i) => i.qty > 0)) }
   function removeLine(lineId) { setCart((prev) => prev.filter((i) => i.lineId !== lineId)) }
+  // «С собой» переключается прямо в строке корзины (не заходя в модалку блюда)
+  function toggleTakeaway(lineId) { setCart((prev) => prev.map((i) => i.lineId === lineId ? { ...i, takeaway: !i.takeaway } : i)) }
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0)
   const total = subtotal
@@ -227,16 +240,25 @@ export default function CashierMode({ user = {}, onBack }) {
     if (!cart.length || creating) return
     setCreating(true)
     try {
-      await orders.create({
-        branch_id: user.branch_id,
-        order_type: orderType,
-        table_number: orderType === 'dine_in' && selectedTable?.number != null ? String(selectedTable.number) : undefined,
-        note: orderNote || undefined,
-        customer_id: custId || undefined,
-        customer_phone: orderType === 'delivery' ? (deliveryPhone || undefined) : undefined,
-        customer_address: orderType === 'delivery' ? (deliveryAddress || undefined) : undefined,
-        items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, note: i.note || null, takeaway: !!i.takeaway })),
-      })
+      if (addToOrderId) {
+        // Дозаказ: досылаем позиции в существующий заказ и возвращаем его на кухню
+        for (const i of cart) {
+          await orders.addItem(addToOrderId, { product_id: i.product.id, quantity: i.qty, note: i.note || null, takeaway: !!i.takeaway })
+        }
+        await orders.updateStatus(addToOrderId, 'cooking')
+        setAddToOrderId(null)
+      } else {
+        await orders.create({
+          branch_id: user.branch_id,
+          order_type: orderType,
+          table_number: orderType === 'dine_in' && selectedTable?.number != null ? String(selectedTable.number) : undefined,
+          note: orderNote || undefined,
+          customer_id: custId || undefined,
+          customer_phone: orderType === 'delivery' ? (deliveryPhone || undefined) : undefined,
+          customer_address: orderType === 'delivery' ? (deliveryAddress || undefined) : undefined,
+          items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, note: i.note || null, takeaway: !!i.takeaway })),
+        })
+      }
       // Возвращаемся к столам; оплата — отдельно (тап по столу / история)
       setView('floor'); loadFloor()
       toast(t('order_created'))
@@ -323,6 +345,7 @@ export default function CashierMode({ user = {}, onBack }) {
             onComplete={completeExistingOrder}
             onCancel={cancelOrder}
             onReassign={reassignTable}
+            onAddItems={addDishesToOrder}
             staff={staff}
             onSetWaiter={setOrderWaiter}
             onApplyDiscount={applyOrderDiscount}
@@ -394,11 +417,17 @@ export default function CashierMode({ user = {}, onBack }) {
               {cart.length === 0 ? <p className="cart-empty">{t('tap_dish_hint')}</p> : cart.map((item) => (
                 <div key={item.lineId} className="cart-item">
                   <button type="button" className="cart-item__info" onClick={() => setEditLine(item)} title={t('edit')}>
-                    <span className="cart-item__name">{item.name}{item.takeaway && <span className="cart-tag">{t('takeaway')}</span>}</span>
+                    <span className="cart-item__name">{item.name}</span>
                     {item.note && <span className="cart-row__note">{item.note}</span>}
                     <span className="cart-item__price">{(item.price * item.qty).toLocaleString('ru-RU')} {t('currency')}</span>
                   </button>
                   <div className="cart-item__controls">
+                    <button
+                      type="button"
+                      className={`cart-take ${item.takeaway ? 'cart-take--on' : ''}`}
+                      onClick={() => toggleTakeaway(item.lineId)}
+                      title={t('takeaway')}
+                    >{t('takeaway')}</button>
                     <button className="qty-btn" onClick={() => updateQty(item.lineId, -1)}><Minus size={16} /></button>
                     <span className="qty-value">{item.qty}</span>
                     <button className="qty-btn" onClick={() => updateQty(item.lineId, 1)}><Plus size={16} /></button>
@@ -432,7 +461,7 @@ export default function CashierMode({ user = {}, onBack }) {
             </div>
             <div className="cashier-cart__actions">
               <button className="cart-btn cart-btn--pay" disabled={cart.length === 0 || creating} onClick={createOrder}>
-                {creating ? <span className="btn-spinner" aria-hidden="true" /> : <Plus size={20} />} {t('create_order')}
+                {creating ? <span className="btn-spinner" aria-hidden="true" /> : <Plus size={20} />} {addToOrderId ? t('add_dishes') : t('create_order')}
               </button>
             </div>
           </aside>

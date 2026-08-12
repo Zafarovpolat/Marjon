@@ -49,6 +49,7 @@ export default function ReportsPanel({ branch, onClose }) {
   const [rows, setRows] = useState(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(false)
+  const [filter, setFilter] = useState('')   // клиентский фильтр по названию (блюдо/сотрудник)
 
   // Чековый принтер филиала — тот же поиск, что у кассира (для общего чека)
   const [receiptPrinter, setReceiptPrinter] = useState(null)
@@ -60,7 +61,7 @@ export default function ReportsPanel({ branch, onClose }) {
 
   const run = useCallback((which) => {
     const active = which || tab
-    setTab(active); setLoading(true); setErr(false); setRows(null)
+    setTab(active); setLoading(true); setErr(false); setRows(null); setFilter('')
     reports[active]?.({ date_from: from, date_to: to, branch_id: branch?.id })
       .then((d) => {
         const arr = Array.isArray(d) ? d : d?.items || d?.rows || d?.data || (d && typeof d === 'object' ? [d] : [])
@@ -79,6 +80,13 @@ export default function ReportsPanel({ branch, onClose }) {
     ? Object.keys(rows[0]).filter((k) => typeof rows[0][k] !== 'object' && !/_id$|^id$/i.test(k)).slice(0, 8)
     : []
 
+  // Колонка с названием (блюдо/сотрудник) для клиентского фильтра
+  const nameCol = cols.find((c) => /name|title|product|staff|cashier|waiter/i.test(c)) || cols[0]
+  const shown = (rows || []).filter((r) => {
+    if (!filter.trim() || !nameCol) return true
+    return String(r[nameCol] ?? '').toLowerCase().includes(filter.trim().toLowerCase())
+  })
+
   function fmtDate(isoStr) {
     if (!isoStr) return ''
     const [y, m, d] = isoStr.split('-')
@@ -87,17 +95,17 @@ export default function ReportsPanel({ branch, onClose }) {
 
   // Общий чек: текущая таблица отчёта → строки → чековый принтер
   async function printSummary() {
-    if (!rows?.length) return
+    if (!shown?.length) return
     if (!receiptPrinter) { toast(t('no_receipt_printer')); return }
-    const nameCol = cols.find((c) => /name|title/i.test(c)) || cols[0]
+    const nameC = nameCol || cols[0]
     const sumCol = cols.find((c) => /total|amount|revenue|sum/i.test(c))
-    const lines = rows.map((r) => {
-      const name = String(r[nameCol] ?? '—')
+    const lines = shown.map((r) => {
+      const name = String(r[nameC] ?? '—')
       return sumCol ? `${name} — ${Number(r[sumCol] || 0).toLocaleString('ru-RU')}` : name
     })
     const footer = sumCol
-      ? `${t('total')}: ${rows.reduce((s, r) => s + (Number(r[sumCol]) || 0), 0).toLocaleString('ru-RU')} ${t('currency')}`
-      : `${t('total')}: ${rows.length}`
+      ? `${t('total')}: ${shown.reduce((s, r) => s + (Number(r[sumCol]) || 0), 0).toLocaleString('ru-RU')} ${t('currency')}`
+      : `${t('total')}: ${shown.length}`
     const label = TABS.find((x) => x.id === tab)?.label || t('reports')
     try {
       await printersApi.printSummary({
@@ -131,6 +139,14 @@ export default function ReportsPanel({ branch, onClose }) {
             <CalendarField value={to} onChange={setTo} />
             <button className="btn btn--primary" onClick={() => run()}>{t('generate')}</button>
           </div>
+          {rows?.length > 0 && (
+            <input
+              className="input rep-filter"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder={t('rep_filter')}
+            />
+          )}
         </div>
 
         <div className="modal__body rep-body">
@@ -140,13 +156,15 @@ export default function ReportsPanel({ branch, onClose }) {
             <p className="settings-hint">{t('rep_hint')}</p>
           ) : rows.length === 0 ? (
             <p className="settings-hint">{err ? t('rep_unavailable') : t('rep_no_data')}</p>
+          ) : shown.length === 0 ? (
+            <p className="settings-hint">{t('nothing_found')}</p>
           ) : (
             <>
               <div className="rep-table-wrap">
                 <table className="hist-table">
                   <thead><tr>{cols.map((c) => <th key={c} className={/total|amount|revenue|sum|fee|share|price|profit|cost/i.test(c) ? 'ta-r' : ''}>{colLabel(c)}</th>)}</tr></thead>
                   <tbody>
-                    {rows.map((r, i) => (
+                    {shown.map((r, i) => (
                       <tr key={i}>{cols.map((c) => <td key={c} className={/total|amount|revenue|sum|fee|share|price|profit|cost/i.test(c) ? 'ta-r hist-sum' : ''}>{fmtCell(c, r[c])}</td>)}</tr>
                     ))}
                   </tbody>

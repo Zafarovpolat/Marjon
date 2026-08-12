@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Lock } from 'lucide-react'
 import ServerSetup from './pages/ServerSetup'
 import LoginPage from './pages/LoginPage'
 import BranchSelector from './pages/BranchSelector'
@@ -11,7 +10,6 @@ import BottomBar from './components/BottomBar'
 import SettingsModal from './components/SettingsModal'
 import CashierMode from './modes/cashier/CashierMode'
 import WaiterMode from './modes/waiter/WaiterMode'
-import ManagerMode from './modes/manager/ManagerMode'
 import { auth, branding, flushQueue, queueSize } from './shared/api'
 import { t } from './shared/i18n'
 import { kitchenWS } from './services/kitchenWS'
@@ -20,14 +18,13 @@ import { connectPrinterWS, disconnectPrinterWS } from './shared/ws'
 const MODES = {
   cashier: { component: CashierMode, label: 'Касса' },
   waiter: { component: WaiterMode, label: 'Официант' },
-  manager: { component: ManagerMode, label: 'Менеджер' },
 }
 
-// Роль → рабочий режим. Базовые роли: кассир, официант, менеджер.
-// Повар/шеф/бармен/владелец и прочие → менеджер (кухонный режим убран).
+// Роль → рабочий режим. На десктопе только касса и официант.
+// Менеджер/владелец/админ и прочие роли → касса (режим менеджера убран, кухня — на десктоп-KDS).
 const ROLE_TO_MODE = {
   waiter: 'waiter', cashier: 'cashier',
-  manager: 'manager', owner: 'manager', admin: 'manager',
+  manager: 'cashier', owner: 'cashier', admin: 'cashier',
 }
 function roleToMode(user, employee) {
   const slugs = [...(user?.role_slugs || [])]
@@ -62,7 +59,6 @@ export default function App() {
   const [queued, setQueued] = useState(() => queueSize())
   const [, setLangVersion] = useState(0)   // бамп для перерисовки при смене языка
   const [isLocked, setIsLocked] = useState(false)
-  const [lockPin, setLockPin] = useState('')
   const [showSettings, setShowSettings] = useState(false)
 
   const isStaffLoggedIn = !!(staffToken && staffUser)
@@ -188,7 +184,7 @@ export default function App() {
   const handleUnlock = useCallback((pin) => {
     const exitPin = localStorage.getItem('marjon_exit_pin')
     if (pin === staffUser?.pin_code || (exitPin && pin === exitPin)) {
-      setIsLocked(false); setLockPin('')
+      setIsLocked(false)
       try { window.electron?.setLocked?.(false) } catch { /* not in electron */ }
       return true
     }
@@ -200,31 +196,14 @@ export default function App() {
     try { window.electron?.onRequestExitPin?.(() => setIsLocked(true)) } catch { /* not in electron */ }
   }, [])
 
-  // ── Экран блокировки ──
-  if (isLocked) {
+  // ── Экран блокировки: тот же пин-пад с уже выбранным сотрудником ──
+  if (isLocked && isStaffLoggedIn) {
     return (
-      <div className="lock-screen">
-        <div className="lock-screen__content">
-          <div className="lock-screen__icon"><Lock size={40} strokeWidth={2} /></div>
-          <h2 className="lock-screen__title">Экран заблокирован</h2>
-          <p className="lock-screen__user">{staffUser?.name || staffUser?.email}</p>
-          <div className="pin-input-group">
-            <input
-              type="password"
-              className="pin-input"
-              maxLength={4}
-              placeholder="PIN"
-              value={lockPin}
-              onChange={(e) => setLockPin(e.target.value.replace(/\D/g, ''))}
-              onKeyDown={(e) => { if (e.key === 'Enter' && lockPin.length === 4) { if (!handleUnlock(lockPin)) setLockPin('') } }}
-              autoFocus
-            />
-            <button className="btn btn--primary" disabled={lockPin.length < 4} onClick={() => { if (!handleUnlock(lockPin)) setLockPin('') }}>
-              Разблокировать
-            </button>
-          </div>
-        </div>
-      </div>
+      <PinPad
+        employee={staffUser || {}}
+        title={t('locked_title')}
+        onSubmit={(pin) => { if (!handleUnlock(pin)) throw new Error('bad-pin') }}
+      />
     )
   }
 
