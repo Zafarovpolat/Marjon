@@ -2,25 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { api, formatMoney } from "../api/client";
 import Icon from "../components/Icon";
 
-const DEMO_FINANCE_CATEGORIES = {
-  income: [
-    { id: "demo-income-sales", name: "Продажи", description: "Приход", operations: "86", total: "8 420 000 UZS", status: "Активно" },
-    { id: "demo-income-delivery", name: "Доставка", description: "Приход", operations: "18", total: "1 260 000 UZS", status: "Активно" },
-    { id: "demo-income-other", name: "Прочие поступления", description: "Приход", operations: "4", total: "380 000 UZS", status: "Активно" },
-    { id: "demo-income-archive", name: "Старые бонусы", description: "Приход", operations: "2", total: "90 000 UZS", status: "Архив" },
-  ],
-  expense: [
-    { id: "demo-expense-products", name: "Закупка продуктов", description: "Расход", operations: "24", total: "3 180 000 UZS", status: "Активно" },
-    { id: "demo-expense-salary", name: "Зарплата", description: "Расход", operations: "8", total: "2 400 000 UZS", status: "Активно" },
-    { id: "demo-expense-utility", name: "Коммунальные", description: "Расход", operations: "5", total: "740 000 UZS", status: "Активно" },
-    { id: "demo-expense-archive", name: "Старые расходы", description: "Расход", operations: "1", total: "120 000 UZS", status: "Архив" },
-  ],
-};
-
-function demoFinanceCategories(kind) {
-  return DEMO_FINANCE_CATEGORIES[kind] || DEMO_FINANCE_CATEGORIES.income;
-}
-
 function FinanceCategoriesPage({ title, kind }) {
   const [rows, setRows] = useState([]);
   const [activeTab, setActiveTab] = useState("Активно");
@@ -29,8 +10,12 @@ function FinanceCategoriesPage({ title, kind }) {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ name: "", description: "" });
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   async function loadCategories() {
+    setLoading(true);
+    setError("");
     try {
       const { data } = await api.get("/finance/transaction-categories", { params: { kind } });
       const items = Array.isArray(data) ? data : data?.items || [];
@@ -42,9 +27,12 @@ function FinanceCategoriesPage({ title, kind }) {
           total: "—",
           status: item.status ? "Активно" : "Архив",
         }));
-      setRows(mapped.length ? mapped : demoFinanceCategories(kind));
-    } catch {
-      setRows(demoFinanceCategories(kind));
+      setRows(mapped);
+    } catch (err) {
+      setRows([]);
+      setError(err.response?.data?.detail || "Не удалось загрузить финансовые категории.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -144,6 +132,8 @@ function FinanceCategoriesPage({ title, kind }) {
               </tr>
             </thead>
             <tbody>
+              {loading ? <tr><td colSpan={6}>Загрузка...</td></tr> : null}
+              {!loading && error ? <tr><td colSpan={6}><div className="login-error" role="alert">{error}</div></td></tr> : null}
               {visibleRows.map((row) => (
                 <tr key={row.id}>
                   <td><strong>{row.name}</strong></td>
@@ -161,6 +151,7 @@ function FinanceCategoriesPage({ title, kind }) {
                   </td>
                 </tr>
               ))}
+              {!loading && !error && !visibleRows.length ? <tr><td colSpan={6}>Категорий нет.</td></tr> : null}
             </tbody>
           </table>
         </div>

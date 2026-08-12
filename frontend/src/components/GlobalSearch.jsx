@@ -47,17 +47,23 @@ export default function GlobalSearch() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [employees, setEmployees] = useState([]);
   const [products, setProducts] = useState([]);
+  const [dynamicError, setDynamicError] = useState("");
 
   useEffect(() => {
     let mounted = true;
-    Promise.all([
-      api.get("/hr/employees").catch(() => ({ data: [] })),
-      api.get("/inventory/products").catch(() => ({ data: [] })),
-    ]).then(([emp, prod]) => {
-      if (!mounted) return;
-      setEmployees(Array.isArray(emp.data) ? emp.data : []);
-      setProducts(Array.isArray(prod.data) ? prod.data : []);
-    });
+    setDynamicError("");
+    Promise.all([api.get("/hr/employees"), api.get("/inventory/products")])
+      .then(([emp, prod]) => {
+        if (!mounted) return;
+        setEmployees(Array.isArray(emp.data) ? emp.data : []);
+        setProducts(Array.isArray(prod.data) ? prod.data : []);
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setEmployees([]);
+        setProducts([]);
+        setDynamicError(err.response?.data?.detail || "Динамический поиск недоступен.");
+      });
     return () => { mounted = false; };
   }, []);
 
@@ -161,7 +167,12 @@ export default function GlobalSearch() {
 
       {open && query ? (
         <div className="global-search__panel" role="listbox">
-          {results.length === 0 ? (
+          {results.length === 0 && dynamicError ? (
+            <div className="global-search__empty" role="alert">
+              <Icon name="bi-exclamation-triangle" size={18} />
+              <p>{dynamicError}</p>
+            </div>
+          ) : results.length === 0 ? (
             <div className="global-search__empty">
               <Icon name="bi-search" size={18} />
               <p>Ничего не найдено по «{query}»</p>

@@ -64,35 +64,22 @@ const photoLibrary = {
   ],
 };
 
-const fallbackConfigs = {
+const nomenclatureConfigs = {
   raw: {
     title: "Сырьё",
     action: "Добавить +",
     columns: ["Название", "Категория", "Подкатегория", "Ед. изм", "Остаток", "Мин. остаток", "Цена закупки", "Поставщик", "Статус", "Действия"],
-    rows: [
-      ["Говядина", "Мясо", "Красное мясо", "кг", "24.5", "5", "78 000 UZS", "Fresh Meat", ACTIVE],
-      ["Куриное филе", "Мясо", "Птица", "кг", "18", "4", "42 000 UZS", "Bozor", ACTIVE],
-      ["Рис лазер", "Крупы", "Для плова", "кг", "38", "10", "15 000 UZS", "Bozor", ACTIVE],
-      ["Помидоры", "Овощи", "Свежие овощи", "кг", "32", "6", "9 000 UZS", "Green Market", ACTIVE],
-      ["Зира", "Специи", "Восточные специи", "кг", "4", "1", "65 000 UZS", "Spice House", ACTIVE],
-    ],
   },
   semi: {
     title: "Полуфабрикаты",
     action: "Добавить +",
     columns: ["Название", "Категория", "Подкатегория", "Ед. изм", "Себестоимость", "Состав", "Статус", "Действия"],
-    rows: [
-      ["Маринад для шашлыка", "Заготовки", "Маринады", "кг", "28 000 UZS", "5 ингредиентов", ACTIVE],
-      ["Тесто для самсы", "Тесто", "Слоеное тесто", "кг", "12 500 UZS", "4 ингредиента", ACTIVE],
-      ["Соус томатный", "Соусы", "Горячие соусы", "л", "18 000 UZS", "6 ингредиентов", ACTIVE],
-      ["Фарш для мант", "Заготовки", "Мясные заготовки", "кг", "54 000 UZS", "7 ингредиентов", ACTIVE],
-    ],
   },
 };
 
 function NomenclaturePage({ type = "dishes" }) {
   if (type === "dishes") return <DishesCatalogPage />;
-  return <SimpleNomenclaturePage key={type} config={fallbackConfigs[type] || fallbackConfigs.raw} />;
+  return <SimpleNomenclaturePage key={type} config={nomenclatureConfigs[type] || nomenclatureConfigs.raw} />;
 }
 
 function matchesDishStatFilter(row, filterKey) {
@@ -225,6 +212,8 @@ function demoDishRows() {
 function DishesCatalogPage() {
   const [rows, setRows] = useState([]);
   const [apiLoading, setApiLoading] = useState(true);
+  const [apiError, setApiError] = useState("");
+  const [actionError, setActionError] = useState("");
   const [draftFilters, setDraftFilters] = useState({ search: "", chef: "", category: "" });
   const [filters, setFilters] = useState(draftFilters);
   const [statFilter, setStatFilter] = useState(null);
@@ -258,6 +247,7 @@ function DishesCatalogPage() {
 
   useEffect(() => {
     setApiLoading(true);
+    setApiError("");
     api.get("/inventory/products")
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
@@ -267,7 +257,7 @@ function DishesCatalogPage() {
             sort: String(item.sort_order ?? "1"),
             type: item.product_type === "sale" ? "Реализация" : "Блюда",
             unit: item.unit || "шт",
-            cost: item.cost_price ? `${Number(item.cost_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            cost: item.cost_price != null ? `${Number(item.cost_price).toLocaleString("ru-RU")} UZS` : "—",
             price: String(item.price || "0"),
             menu: item.category_name || item.menu || "",
             subcategory: item.subcategory_name || item.subcategory || item.specification || "",
@@ -280,9 +270,12 @@ function DishesCatalogPage() {
             chef: item.station || "",
             photo: item.image_url || "",
           }));
-        setRows(mapped.length ? mapped : demoDishRows());
+        setRows(mapped);
       })
-      .catch(() => setRows(demoDishRows()))
+      .catch((err) => {
+        setRows([]);
+        setApiError(err.response?.data?.detail || "Не удалось загрузить каталог блюд.");
+      })
       .finally(() => setApiLoading(false));
   }, []);
 
@@ -291,12 +284,12 @@ function DishesCatalogPage() {
     const dishes = rows.filter((r) => r.type === "Блюда").length;
     const realization = total - dishes;
     const withRecipe = rows.filter((r) => r.recipe && !r.recipe.includes("(0")).length;
-    const withCost = rows.filter((r) => r.cost && r.cost !== "0 UZS").length;
+    const withCost = rows.filter((r) => r.cost && r.cost !== "0 UZS" && r.cost !== "—").length;
     const withPrinter = rows.filter((r) => r.printer).length;
     return [
       { label: "Кол-во товаров", value: String(total), rows: [["Реализация", String(realization)], ["Блюда", String(dishes)]], icon: "bi-basket", tone: "blue" },
       { label: "Рецепт", value: String(total), rows: [["С рецептом", String(withRecipe)], ["Без рецепта", String(total - withRecipe)]], icon: "bi-journal-bookmark", tone: "green" },
-      { label: "ИКПУ", value: String(total), rows: [["Заполнен", "0"], ["Не заполнен", String(total)]], icon: "bi-card-heading", tone: "cyan" },
+      { label: "ИКПУ", value: "—", rows: [["Статус", "Данные недоступны"]], icon: "bi-card-heading", tone: "cyan" },
       { label: "Себестоимость", value: String(total), rows: [["Заполнен", String(withCost)], ["Не заполнен", String(total - withCost)]], icon: "bi-cash-coin", tone: "orange" },
       { label: "Принтер", value: String(total), rows: [["Подключен", String(withPrinter)], ["Не подключен", String(total - withPrinter)]], icon: "bi-printer", tone: "violet" },
     ];
@@ -313,7 +306,10 @@ function DishesCatalogPage() {
   }, [rows, filters, statFilter]);
 
   const updateRow = (id, key, value) => {
-    setRows((prev) => prev.map((row) => (row.id === id ? { ...row, [key]: value } : row)));
+    void id;
+    void key;
+    void value;
+    setActionError("Быстрое изменение недоступно: backend mutation contract не подключён.");
   };
 
   const openDrawer = (row = null) => {
@@ -375,6 +371,10 @@ function DishesCatalogPage() {
     setPhotoPicker(null);
     setPhotoSearch("");
   };
+
+  if (apiError && !apiLoading) {
+    return <section className="nomenclature-page dish-catalog-page"><div className="login-error" role="alert">{apiError}</div></section>;
+  }
 
   return (
     <section className="nomenclature-page dish-catalog-page">
@@ -692,6 +692,8 @@ const fieldLabels = {
 function SimpleNomenclaturePage({ config }) {
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState([]);
+  const [apiLoading, setApiLoading] = useState(true);
+  const [apiError, setApiError] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState(null);
   const [form, setForm] = useState({});
@@ -719,6 +721,8 @@ function SimpleNomenclaturePage({ config }) {
 
   useEffect(() => {
     if (!apiEndpoint) return;
+    setApiLoading(true);
+    setApiError("");
     api.get(apiEndpoint)
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
@@ -729,26 +733,28 @@ function SimpleNomenclaturePage({ config }) {
                 item.category || "",
                 item.subcategory_name || item.subcategory || item.specification || "",
                 item.unit || "кг",
-                String(item.stock ?? "0"), String(item.min_stock ?? "0"),
-                item.purchase_price ? `${Number(item.purchase_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
+                String(item.stock ?? "—"), String(item.min_stock ?? "—"),
+                item.purchase_price != null ? `${Number(item.purchase_price).toLocaleString("ru-RU")} UZS` : "—",
                 item.supplier_name || "", item.is_active !== false ? ACTIVE : ARCHIVED,
               ];
             }
             return [
               item.name || "", item.category || "", item.subcategory_name || item.subcategory || item.specification || "", item.unit || "кг",
-              item.cost_price ? `${Number(item.cost_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
+              item.cost_price != null ? `${Number(item.cost_price).toLocaleString("ru-RU")} UZS` : "—",
               `${item.ingredients_count ?? 0} ингредиента`, item.is_active !== false ? ACTIVE : ARCHIVED,
             ];
           });
-        setRows(mapped.length ? mapped : config.rows);
+        setRows(mapped);
       })
-      .catch(() => setRows(config.rows));
-  }, [apiEndpoint, config.rows]);
+      .catch((err) => {
+        setRows([]);
+        setApiError(err.response?.data?.detail || `Не удалось загрузить: ${config.title}.`);
+      })
+      .finally(() => setApiLoading(false));
+  }, [apiEndpoint, config.title]);
 
   const openEditor = (row = null, index = null) => {
-    setEditingIndex(index);
-    setForm(makeFormFromRow(row || []));
-    setDrawerOpen(true);
+    setApiError(`${index === null ? "Создание" : "Редактирование"} недоступно: backend mutation contract пока не подключён.`);
   };
 
   const closeEditor = () => {
@@ -758,21 +764,18 @@ function SimpleNomenclaturePage({ config }) {
 
   const saveRow = (event) => {
     event.preventDefault();
-    const nextRow = makeRowFromForm();
-    setRows((currentRows) => {
-      if (editingIndex === null) return [nextRow, ...currentRows];
-      return currentRows.map((row, rowIndex) => (rowIndex === editingIndex ? nextRow : row));
-    });
-    closeEditor();
+    setApiError("Сохранение недоступно: backend mutation contract пока не подключён.");
   };
 
   const removeRow = (rowIndex) => {
-    setRows((currentRows) => currentRows.filter((_, index) => index !== rowIndex));
+    setApiError(`Удаление строки ${rowIndex + 1} недоступно: backend mutation contract пока не подключён.`);
   };
 
   const visibleRows = rows
     .map((row, rowIndex) => ({ row, rowIndex }))
     .filter(({ row }) => !showSearch || row.join(" ").toLowerCase().includes(query.toLowerCase()));
+
+  if (apiLoading) return <section className="nomenclature-page"><div className="dashboard-empty" role="status">Загрузка...</div></section>;
 
   return (
     <section className={`nomenclature-page ${isRawMaterials ? "nomenclature-page--raw" : "nomenclature-page--semi"}`}>
@@ -791,6 +794,8 @@ function SimpleNomenclaturePage({ config }) {
             </button>
           </div>
         </div>
+        {actionError ? <div className="login-error" role="alert">{actionError}</div> : null}
+        {apiError ? <div className="login-error" role="alert">{apiError}</div> : null}
         {showSearch && (
           <div className="nomenclature-filters">
             <label>

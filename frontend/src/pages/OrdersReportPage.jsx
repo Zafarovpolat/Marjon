@@ -86,8 +86,12 @@ export default function OrdersReportPage() {
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    setLoading(true);
+    setError("");
     api.get("/reports/orders", { params: { date_from: toApiDate(dateRange.start), date_to: toApiDate(dateRange.end) } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.orders || [];
@@ -117,7 +121,11 @@ export default function OrdersReportPage() {
           };
         }));
       })
-      .catch(() => setRows([]));
+      .catch((err) => {
+        setRows([]);
+        setError(err.response?.data?.detail || "Не удалось загрузить отчёт по заказам.");
+      })
+      .finally(() => setLoading(false));
   }, [dateRange.start, dateRange.end]);
 
   useEffect(() => {
@@ -227,6 +235,9 @@ export default function OrdersReportPage() {
     ];
     exportToExcel(filteredRows, cols, "orders-report");
   }
+
+  if (loading) return <section className="orders-report-page"><div className="dashboard-empty" role="status">Загрузка отчёта...</div></section>;
+  if (error) return <section className="orders-report-page"><div className="login-error" role="alert">{error}</div></section>;
 
   return (
     <section className="orders-report-page">

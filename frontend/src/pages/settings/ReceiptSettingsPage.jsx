@@ -35,7 +35,7 @@ export default function ReceiptSettingsPage() {
     let active = true;
     setLoading(true);
     getCustomerTemplate(org)
-      .then(({ template: loaded, source }) => {
+      .then(({ template: loaded }) => {
         if (!active) return;
         setTemplate({
           ...defaults,
@@ -44,9 +44,9 @@ export default function ReceiptSettingsPage() {
           blockStyles: { ...defaults.blockStyles, ...loaded.blockStyles },
           positions: { ...defaults.positions, ...loaded.positions },
         });
-        setMessage(source === "local" ? "Шаблон загружен из локального кеша." : "");
+        setMessage("");
       })
-      .catch(() => setError("Не удалось загрузить шаблон чека. Используются значения по умолчанию."))
+      .catch(() => setError("Не удалось загрузить серверный шаблон чека. Показан локальный черновик по умолчанию."))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
   }, [defaults, org]);
@@ -89,9 +89,14 @@ export default function ReceiptSettingsPage() {
     setSaving(true);
     setError("");
     setMessage("");
-    const { source } = await saveCustomerTemplate(template);
-    setSaving(false);
-    setMessage(source === "api" ? "Шаблон чека сохранён." : "API недоступен. Шаблон сохранён локально.");
+    try {
+      await saveCustomerTemplate(template);
+      setMessage("Шаблон чека сохранён на сервере.");
+    } catch (err) {
+      setError(err.response?.data?.detail || "Не удалось сохранить шаблон чека на сервере. Изменения остались только в текущем черновике.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleTestPrint() {

@@ -31,6 +31,7 @@ function FinanceTransactionsPage() {
   const { selectedDate = todayInputValue() } = outlet || {};
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [filters, setFilters] = useState({ type: "all", paymentType: "", category: "", counterparty: "", min: "", max: "" });
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -40,6 +41,7 @@ function FinanceTransactionsPage() {
 
   useEffect(() => {
     setLoading(true);
+    setError("");
     api.get("/finance/transactions", { params: { date_from: selectedDate, date_to: selectedDate } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
@@ -54,7 +56,10 @@ function FinanceTransactionsPage() {
             comment: tx.comment || "",
           })));
       })
-      .catch(() => setRows([]))
+      .catch((err) => {
+        setRows([]);
+        setError(err.response?.data?.detail || "Не удалось загрузить финансовые транзакции.");
+      })
       .finally(() => setLoading(false));
   }, [selectedDate]);
 
@@ -124,11 +129,11 @@ function FinanceTransactionsPage() {
           <div className="finance-summary-row">
             <article className="finance-summary-pill finance-income-pill">
               <span>Приход</span>
-              <strong>{formatMoney(totals.income)}</strong>
+              <strong>{error ? "Недоступно" : formatMoney(totals.income)}</strong>
             </article>
             <article className="finance-summary-pill finance-expense-pill">
               <span>Расход</span>
-              <strong>{formatMoney(totals.expense)}</strong>
+              <strong>{error ? "Недоступно" : formatMoney(totals.expense)}</strong>
             </article>
           </div>
           <div className="finance-actions">
@@ -168,6 +173,8 @@ function FinanceTransactionsPage() {
             <tbody>
               {loading ? (
                 <tr><td colSpan={7} style={{ textAlign: "center", padding: 24 }}>Загрузка...</td></tr>
+              ) : error ? (
+                <tr><td colSpan={7} style={{ textAlign: "center", padding: 24 }}><div className="login-error" role="alert">{error}</div></td></tr>
               ) : visibleRows.map((row) => {
                 const [day, time] = String(row.date || "").split(" / ");
                 return (
@@ -188,7 +195,7 @@ function FinanceTransactionsPage() {
                   </tr>
                 );
               })}
-              {!loading && !visibleRows.length ? (
+              {!loading && !error && !visibleRows.length ? (
                 <tr><td colSpan={7} style={{ textAlign: "center", padding: 24 }}>Транзакций нет.</td></tr>
               ) : null}
             </tbody>

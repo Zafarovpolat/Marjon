@@ -1,15 +1,12 @@
 import { useState } from "react";
-import DataTableView from "../components/DataTableView";
 import Icon from '../components/Icon';
-import { getReportTable } from "../data/reportDemo";
 
 export default function SectionPage({ eyebrow, title, description, items = [], sectionKey }) {
   const [activeTile, setActiveTile] = useState(null);
 
-  const tableFor = (item) => getReportTable(sectionKey, item?.tableKey);
+  const tableFor = (item) => Boolean(sectionKey && item?.tableKey);
 
   if (activeTile) {
-    const table = tableFor(activeTile);
     return (
       <section className="card card-pad section-window">
         <div className="section-header">
@@ -23,7 +20,9 @@ export default function SectionPage({ eyebrow, title, description, items = [], s
             <span>Назад</span>
           </button>
         </div>
-        <DataTableView columns={table?.columns} rows={table?.rows} />
+        <div className="dashboard-empty" role="status">
+          <p>Данные недоступны: backend contract для этого отчёта пока не подключён.</p>
+        </div>
       </section>
     );
   }

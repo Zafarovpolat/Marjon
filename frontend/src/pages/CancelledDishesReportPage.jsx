@@ -41,8 +41,12 @@ export default function CancelledDishesReportPage() {
   const [appliedFilters, setAppliedFilters] = useState(filters);
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    setLoading(true);
+    setError("");
     api.get("/reports/cancelled", { params: { date_from: appliedFilters.from, date_to: appliedFilters.to } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
@@ -63,7 +67,11 @@ export default function CancelledDishesReportPage() {
             author: item.author_name || item.author || "",
           })));
       })
-      .catch(() => setRows([]));
+      .catch((err) => {
+        setRows([]);
+        setError(err.response?.data?.detail || "Не удалось загрузить отчёт по отменённым блюдам.");
+      })
+      .finally(() => setLoading(false));
   }, [appliedFilters.from, appliedFilters.to]);
 
   const waiters = useMemo(() => Array.from(new Set(rows.map((row) => row.waiter))), [rows]);
@@ -125,6 +133,9 @@ export default function CancelledDishesReportPage() {
     link.remove();
     URL.revokeObjectURL(url);
   }
+
+  if (loading) return <section className="cancelled-report-page"><div className="dashboard-empty" role="status">Загрузка отчёта...</div></section>;
+  if (error) return <section className="cancelled-report-page"><div className="login-error" role="alert">{error}</div></section>;
 
   return (
     <section className="cancelled-report-page">

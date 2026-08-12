@@ -39,8 +39,12 @@ export default function DishesReportPage() {
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
   const [expandedRow, setExpandedRow] = useState("");
   const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    setLoading(true);
+    setError("");
     api.get("/reports/dishes", { params: { date_from: toApiDate(dateRange.start), date_to: toApiDate(dateRange.end) } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.dishes || [];
@@ -70,7 +74,11 @@ export default function DishesReportPage() {
           };
         }));
       })
-      .catch(() => setRows([]));
+      .catch((err) => {
+        setRows([]);
+        setError(err.response?.data?.detail || "Не удалось загрузить отчёт по блюдам.");
+      })
+      .finally(() => setLoading(false));
   }, [dateRange.start, dateRange.end]);
 
   const filteredRows = useMemo(() => {
@@ -122,6 +130,9 @@ export default function DishesReportPage() {
     ];
     exportToExcel(filteredRows, cols, "dishes-report");
   }
+
+  if (loading) return <section className="dishes-report-page"><div className="dashboard-empty" role="status">Загрузка отчёта...</div></section>;
+  if (error) return <section className="dishes-report-page"><div className="login-error" role="alert">{error}</div></section>;
 
   return (
     <section className="dishes-report-page">

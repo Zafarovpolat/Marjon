@@ -81,20 +81,6 @@ export const KITCHEN_BLOCK_LABELS = {
   priority: "Приоритет",
 };
 
-function readStorage(key, fallback) {
-  try {
-    const value = JSON.parse(localStorage.getItem(key) || "null");
-    return value ? { ...fallback, ...value } : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeStorage(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
-  return value;
-}
-
 export function buildCustomerTemplate(org = {}) {
   const organization = org || {};
   const enabled = CUSTOMER_BLOCKS.reduce((acc, key) => ({ ...acc, [key]: true }), {});
@@ -149,25 +135,13 @@ export function buildKitchenTemplate() {
 }
 
 async function getTemplate(url, key, fallback) {
-  try {
-    const { data } = await api.get(url);
-    const template = { ...fallback, ...data };
-    writeStorage(key, template);
-    return { template, source: "api" };
-  } catch {
-    return { template: readStorage(key, fallback), source: "local" };
-  }
+  const { data } = await api.get(url);
+  return { template: { ...fallback, ...data }, source: "api", cacheKey: key };
 }
 
 async function saveTemplate(url, key, template) {
-  try {
-    const { data } = await api.patch(url, template);
-    const saved = { ...template, ...data };
-    writeStorage(key, saved);
-    return { template: saved, source: "api" };
-  } catch {
-    return { template: writeStorage(key, template), source: "local" };
-  }
+  const { data } = await api.patch(url, template);
+  return { template: { ...template, ...data }, source: "api", cacheKey: key };
 }
 
 async function postPrint(url, payload) {

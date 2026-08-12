@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, formatMoney } from "../../api/client";
+import { api } from "../../api/client";
 import Icon from "../../components/Icon";
 
 const STATUS_ACTIVE = "#активно";
@@ -25,8 +25,9 @@ function SettingsResourcePage({
   apiMapRow,
   apiMapFormToPayload,
 }) {
-  const [rows, setRows] = useState(apiEndpoint ? [] : initialRows);
+  const [rows, setRows] = useState([]);
   const [apiLoading, setApiLoading] = useState(!!apiEndpoint);
+  const [apiError, setApiError] = useState(apiEndpoint ? "" : "Данные недоступны: backend contract для этого справочника не подключён.");
   const [activeTab, setActiveTab] = useState(tabs?.[0]?.key || "");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("");
@@ -34,17 +35,20 @@ function SettingsResourcePage({
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({});
   const [historyRow, setHistoryRow] = useState(null);
-  const [historyMode, setHistoryMode] = useState("detailed");
 
   useEffect(() => {
     if (!apiEndpoint) return;
     setApiLoading(true);
+    setApiError("");
     api.get(apiEndpoint)
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.results || [];
         setRows(apiMapRow ? items.map(apiMapRow) : []);
       })
-      .catch(() => setRows([]))
+      .catch((err) => {
+        setRows([]);
+        setApiError(err.response?.data?.detail || "Не удалось загрузить данные справочника.");
+      })
       .finally(() => setApiLoading(false));
   }, [apiEndpoint]);
 
@@ -60,6 +64,10 @@ function SettingsResourcePage({
   }, [activeTab, filter, rows, search, tabs]);
 
   const openAdd = () => {
+    if (!apiEndpoint) {
+      setApiError("Создание недоступно: backend contract для этого справочника не подключён.");
+      return;
+    }
     const defaults = formFields.reduce((acc, field) => ({ ...acc, [field.key]: field.defaultValue || "" }), {});
     setEditingId(null);
     setForm({ ...defaults, type: activeTab || tabs?.[0]?.key || "", status: STATUS_ACTIVE });
@@ -67,6 +75,10 @@ function SettingsResourcePage({
   };
 
   const openEdit = (row) => {
+    if (!apiEndpoint) {
+      setApiError("Редактирование недоступно: backend contract для этого справочника не подключён.");
+      return;
+    }
     setEditingId(row.id);
     setForm({ ...row });
     setDrawerMode("edit");
@@ -95,9 +107,7 @@ function SettingsResourcePage({
       return;
     }
 
-    const next = { ...form, id: editingId || Date.now(), type: form.type || activeTab };
-    setRows((current) => editingId ? current.map((row) => row.id === editingId ? next : row) : [next, ...current]);
-    setDrawerMode(null);
+    setApiError("Сохранение недоступно: backend contract для этого справочника не подключён.");
   };
 
   const archive = (row) => {
@@ -107,7 +117,7 @@ function SettingsResourcePage({
         .catch(() => window.alert("Не удалось удалить. Попробуйте позже."));
       return;
     }
-    setRows((current) => current.map((item) => item.id === row.id ? { ...item, status: STATUS_ARCHIVE } : item));
+    setApiError("Удаление недоступно: backend contract для этого справочника не подключён.");
   };
 
   const renderActions = () => (
@@ -119,7 +129,7 @@ function SettingsResourcePage({
           {filterOptions.map((option) => <option key={option} value={option}>{option}</option>)}
         </select>
       ) : null}
-      <button type="button" onClick={openAdd}>{addLabel}</button>
+      <button type="button" onClick={openAdd} disabled={!apiEndpoint}>{addLabel}</button>
     </div>
   );
 
@@ -134,10 +144,6 @@ function SettingsResourcePage({
   );
 
   if (historyRow && statementHistory) {
-    const statementRows = buildStatementRows(historyRow);
-    const totalDebit = statementRows.reduce((sum, item) => sum + item.debit, 0);
-    const totalCredit = statementRows.reduce((sum, item) => sum + item.credit, 0);
-
     return (
       <div className={`settings-page ${pageClassName} client-statement-page`.trim()}>
         <section className="client-statement-card">
@@ -146,93 +152,17 @@ function SettingsResourcePage({
               <button type="button" className="client-statement-back" onClick={() => setHistoryRow(null)} aria-label="Назад">
                 <Icon name="bi-chevron-left" size={18} />
               </button>
-              <button type="button" className="client-statement-date">
-                <Icon name="bi-calendar3" size={15} />
-                Выберите дату
-              </button>
-              <div className="client-statement-mode" role="group" aria-label="Вид истории">
-                <button
-                  type="button"
-                  className={historyMode === "simple" ? "is-active" : ""}
-                  onClick={() => setHistoryMode("simple")}
-                >
-                  Простой
-                </button>
-                <button
-                  type="button"
-                  className={historyMode === "detailed" ? "is-active" : ""}
-                  onClick={() => setHistoryMode("detailed")}
-                >
-                  Подробный
-                </button>
-              </div>
             </div>
-            <button type="button" className="client-statement-filter">
-              <span>Фильтр по контрагентам</span>
-              <Icon name="bi-chevron-down" size={15} />
-            </button>
           </header>
 
           <div className="client-statement-panel">
             <div className="client-statement-heading">
               <span>История транзакций</span>
               <h1>Акт сверки</h1>
-              <p>Взаимные расчеты за период: 01.01.2026 - 31.12.2026</p>
               <strong>{historyRow.name}</strong>
             </div>
-
-            <div className="client-statement-summary">
-              <article>
-                <span>Дебет</span>
-                <strong>{formatMoney(totalDebit)}</strong>
-              </article>
-              <article>
-                <span>Кредит</span>
-                <strong>{formatMoney(totalCredit)}</strong>
-              </article>
-              <article>
-                <span>Баланс</span>
-                <strong>{formatMoney(totalDebit - totalCredit)}</strong>
-              </article>
-            </div>
-
-            <div className="client-statement-table-wrap">
-              <table className="client-statement-table">
-                <thead>
-                  <tr>
-                    <th>Дата</th>
-                    <th>Документ</th>
-                    <th>Дебет</th>
-                    <th>Кредит</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {statementRows.map((item) => (
-                    <tr key={item.label} className={item.strong ? "is-total" : ""}>
-                      <td>{item.date}</td>
-                      <td>{item.label}</td>
-                      <td>{item.debit ? formatMoney(item.debit) : "0"}</td>
-                      <td>{item.credit ? formatMoney(item.credit) : "0"}</td>
-                    </tr>
-                  ))}
-                  {historyMode === "detailed" ? (
-                    <>
-                      <tr>
-                        <td>20.06.2026</td>
-                        <td>Оплата по заказу</td>
-                        <td>{formatMoney(80000)}</td>
-                        <td>0</td>
-                      </tr>
-                      <tr>
-                        <td>21.06.2026</td>
-                        <td>Корректировка</td>
-                        <td>0</td>
-                        <td>{formatMoney(35000)}</td>
-                      </tr>
-                    </>
-                  ) : null}
-                </tbody>
-              </table>
+            <div className="settings-empty-state" role="status">
+              Финансовая история недоступна: backend contract для транзакций контрагента не подключён.
             </div>
           </div>
         </section>
@@ -297,7 +227,8 @@ function SettingsResourcePage({
                 </tr>
               ))}
               {apiLoading ? <tr><td colSpan={columns.length + 1}><div className="settings-empty-state">Загрузка...</div></td></tr> : null}
-              {!apiLoading && !visibleRows.length ? <tr><td colSpan={columns.length + 1}><div className="settings-empty-state">Нет данных</div></td></tr> : null}
+              {!apiLoading && apiError ? <tr><td colSpan={columns.length + 1}><div className="settings-empty-state" role="alert">{apiError}</div></td></tr> : null}
+              {!apiLoading && !apiError && !visibleRows.length ? <tr><td colSpan={columns.length + 1}><div className="settings-empty-state">Нет данных</div></td></tr> : null}
             </tbody>
           </table>
         </div>
@@ -355,39 +286,14 @@ function SettingsResourcePage({
               </div>
               <button type="button" onClick={() => setHistoryRow(null)}><Icon name="bi-x-lg" size={20} /></button>
             </header>
-            <div className="settings-history-list">
-              {[
-                ["22.06.2026", "Приход", "120 000 UZS", "Заказ №39957057"],
-                ["21.06.2026", "Расход", "35 000 UZS", "Корректировка"],
-                ["20.06.2026", "Приход", "80 000 UZS", "Оплата"],
-              ].map(([date, type, amount, comment]) => (
-                <div key={`${date}-${comment}`}>
-                  <span>{date}</span>
-                  <strong>{type}</strong>
-                  <b>{amount}</b>
-                  <p>{comment}</p>
-                </div>
-              ))}
+            <div className="settings-empty-state" role="status">
+              История недоступна: backend contract для транзакций не подключён.
             </div>
           </aside>
         </div>
       ) : null}
     </div>
   );
-}
-
-function buildStatementRows(row) {
-  const openingDebit = row?.openingDebit ?? (row?.id === 1 ? 56000 : 42000 + (row?.id || 1) * 7000);
-  const turnoverDebit = row?.turnoverDebit ?? 0;
-  const turnoverCredit = row?.turnoverCredit ?? 0;
-  const closingDebit = Math.max(openingDebit + turnoverDebit - turnoverCredit, 0);
-  const closingCredit = Math.max(turnoverCredit - openingDebit - turnoverDebit, 0);
-
-  return [
-    { date: "01.01.2026", label: "Сальдо начальное", debit: openingDebit, credit: 0, strong: true },
-    { date: "05.07.2026", label: "Обороты за период", debit: turnoverDebit, credit: turnoverCredit },
-    { date: "31.12.2026", label: "Сальдо конечное", debit: closingDebit, credit: closingCredit, strong: true },
-  ];
 }
 
 function renderCell(column, row, setForm) {

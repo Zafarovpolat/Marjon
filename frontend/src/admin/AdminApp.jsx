@@ -38,10 +38,16 @@ const SECTION_API_MAP = {
 
 function useAdminData(sectionKey, onNotify) {
   const [apiRows, setApiRows] = useState([]);
+  const [loadState, setLoadState] = useState("idle");
 
   useEffect(() => {
     const mapping = SECTION_API_MAP[sectionKey];
-    if (!mapping) return;
+    if (!mapping) {
+      setApiRows([]);
+      setLoadState("unsupported");
+      return;
+    }
+    setLoadState("loading");
     const request = mapping.load
       ? mapping.load()
       : adminApi.get(mapping.endpoint, { params: { size: 100 } });
@@ -49,14 +55,16 @@ function useAdminData(sectionKey, onNotify) {
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.results || [];
         setApiRows(mapping.mapRow ? items.map(mapping.mapRow) : []);
+        setLoadState(items.length ? "success" : "empty");
       })
       .catch((error) => {
         setApiRows([]);
+        setLoadState("error");
         if (mapping.load) onNotify?.(getAdminFinanceLoadMessage(error));
       });
   }, [onNotify, sectionKey]);
 
-  return { apiRows };
+  return { apiRows, loadState };
 }
 
 const navItems = [
@@ -130,9 +138,6 @@ const navItems = [
   },
 ];
 
-const DEMO_ORGANIZATION_ROW_COUNT = 240;
-const DEMO_TRANSACTION_ROW_COUNT = 96;
-
 const kpis = [
   {
     title: "Всего организаций",
@@ -186,41 +191,6 @@ const kpis = [
   },
 ];
 
-const ADMIN_DASHBOARD_DEMO_MODE = true;
-
-const demoKpiOverrides = {
-  organizations: {
-    value: DEMO_ORGANIZATION_ROW_COUNT.toLocaleString("ru-RU"),
-    delta: "Демо-база клиентов",
-    points: [1, 1, 1, 1, 1, 1, 1, 1],
-    desc: "Демо-база организаций для проверки админского дашборда без записи данных в backend.",
-  },
-  branches: {
-    value: "2",
-    delta: "+2 активных филиала",
-    points: [1, 1, 1, 2, 2, 2, 2, 2],
-    desc: "Два активных филиала Marjon Cafe с рабочими кассами и синхронизацией.",
-  },
-  subscriptions: {
-    value: "1",
-    delta: "1 заявка на одобрение",
-    points: [0, 1, 1, 0, 1, 1, 1, 1],
-    desc: "Одна демо-заявка Marjon Cafe ожидает решения администратора.",
-  },
-  revenue: {
-    value: "187 450 000 UZS",
-    delta: "+24% к прошлому месяцу",
-    points: [18, 42, 76, 119, 156, 187],
-    desc: "Демо-оборот Marjon Cafe за текущий месяц.",
-  },
-  cashboxes: {
-    value: "4",
-    delta: "3 онлайн, 1 резерв",
-    points: [2, 2, 3, 3, 4, 4, 4, 4],
-    desc: "Кассовые рабочие места Marjon Cafe: три активные кассы и одна резервная.",
-  },
-};
-
 const dashboardKpiOrder = ["revenue", "organizations", "subscriptions", "branches", "cashboxes"];
 
 function orderDashboardKpis(items) {
@@ -231,18 +201,13 @@ function orderDashboardKpis(items) {
   });
 }
 
-const demoKpis = orderDashboardKpis(kpis.map((kpi) => ({
-  ...kpi,
-  ...(demoKpiOverrides[kpi.dataKey] || {}),
-})));
-
 const dashboardWarehouseCards = [
-  { title: "Приход товаров", value: "11 575 000 UZS", subtitle: "За всё время", icon: "bi-box-arrow-in-down", tone: "income", route: "storage-income" },
-  { title: "Расход товаров", value: "0 UZS", subtitle: "За всё время", icon: "bi-box-arrow-up", tone: "expense", route: "storage-expense" },
-  { title: "Остаток склада", value: "958 892 000 UZS", subtitle: "Текущий остаток", icon: "bi-boxes", tone: "stock", route: "storage-balance" },
-  { title: "Общие затраты", value: "0 UZS", subtitle: "За всё время", icon: "bi-receipt", tone: "cost" },
-  { title: "Кредиторка", value: "994 000 UZS", subtitle: "Текущая задолженность", icon: "bi-credit-card", tone: "payable" },
-  { title: "Дебиторка", value: "0 UZS", subtitle: "Текущая задолженность", icon: "bi-wallet2", tone: "receivable" },
+  { title: "Приход товаров", value: "Данные недоступны", subtitle: "Inventory Core отложен", icon: "bi-box-arrow-in-down", tone: "income" },
+  { title: "Расход товаров", value: "Данные недоступны", subtitle: "Inventory Core отложен", icon: "bi-box-arrow-up", tone: "expense" },
+  { title: "Остаток склада", value: "Данные недоступны", subtitle: "Inventory Core отложен", icon: "bi-boxes", tone: "stock" },
+  { title: "Общие затраты", value: "Данные недоступны", subtitle: "Backend источник не подключён", icon: "bi-receipt", tone: "cost" },
+  { title: "Кредиторка", value: "Данные недоступны", subtitle: "Backend источник не подключён", icon: "bi-credit-card", tone: "payable" },
+  { title: "Дебиторка", value: "Данные недоступны", subtitle: "Backend источник не подключён", icon: "bi-wallet2", tone: "receivable" },
 ];
 
 const organizationRows = [];
@@ -569,78 +534,9 @@ const organizationDirectoryRows = [
   },
 ];
 
-const demoOrganizationNames = [
-  "MARJON CAFE", "MUSTAFO CAFE", "BAYKAL RESTAURANT", "SAMARKAND PLOV", "CHILONZOR GRILL",
-  "YUNUSABAD COFFEE", "BESH QOZON", "TASHKENT FOOD HALL", "NAVOI STEAK HOUSE", "BUKHARA LAGMAN",
-  "ANDIJON OSH MARKAZI", "FARGONA FAMILY CAFE", "NAMANGAN BURGER", "QARSHI DONER", "NUKUS BBQ",
-  "URGENCH TERRACE", "JIZZAX SOMSA", "DENOV TEA HOUSE", "KOKAND BISTRO", "TERMIZ GARDEN",
-  "SIRDARYO FAST FOOD", "ZARAFSHON BALIQ", "RISHTON CHOYXONA", "SHAHRISABZ CAFE",
-];
-
-const demoOrganizationRegions = [
-  "Toshkent", "Andijon", "Samarqand", "Fargona", "Namangan", "Buxoro", "JIZZAX", "Navoiy",
-  "Qashqadaryo", "Surxondaryo", "Xorazm", "Qoraqalpogiston", "Sirdaryo",
-];
-
-const demoOrganizationManagers = [
-  "SAITOV SARVAR", "HAMZAYEV SARDOR", "MIRYEVANOV BOTUV", "ALAMAT SOTUV", "BOBOMURODOV",
-  "ZARIPOV JASUR", "ABDULLAYEV AKMAL", "RAHIMOV AZIZ", "KARIMOVA DILNOZA", "USMONOV BEKZOD",
-  "TURSUNOV JAMSHID", "IBRAGIMOV RUSTAM",
-];
-
-const demoOrganizationSources = ["Diler", "Instagram", "Telegram", "Facebook", "Sarlavha", "Referral", "Call center"];
-const demoOrganizationStatuses = ["Доступен", "Активно", "Не активно"];
-const demoOrganizationOrgStatuses = ["ISHLA TURGAN", "USTANOVKA JARAYONIDA", "HALI ULANMAGAN", "VAQTICHALI ISHLAMAYOTGAN", "TEST"];
-const demoOrganizationPaymentKinds = ["Тариф платежи", "Тест платежи", "Абонентская оплата", "Разовая оплата"];
-
-function formatDemoMoney(value) {
+function formatAdminMoney(value) {
   return Math.round(value).toLocaleString("ru-RU").replace(/\u00a0/g, " ");
 }
-
-function buildDemoOrganizationRows() {
-  return Array.from({ length: DEMO_ORGANIZATION_ROW_COUNT }, (_, index) => {
-    const id = 1003001 + index;
-    const name = `${demoOrganizationNames[index % demoOrganizationNames.length]} ${index % 4 === 0 ? "MAIN" : `FILIAL ${index % 9 + 1}`}`;
-    const debt = index % 5 === 0 ? 0 : (index % 7 + 1) * 180000;
-    const deposit = index % 6 === 0 ? -(index % 8 + 1) * 250000 : (index % 9) * 150000;
-    const contract = index % 3 === 0 ? (index % 12 + 2) * 500000 : 0;
-    const day = String(1 + (index % 28)).padStart(2, "0");
-    const month = String(6 + (index % 2)).padStart(2, "0");
-    const phoneTail = String(1000000 + ((index * 3791) % 8999999)).padStart(7, "0");
-
-    return {
-      id: String(id),
-      message: index % 3 === 0,
-      service: index % 4 === 0 ? "Yangi" : "Xizmat",
-      paymentType: index % 6 === 0 ? "Тест" : index % 2 === 0 ? "Тариф" : "Без оплаты",
-      name,
-      clientId: String(id),
-      terminals: String(index % 5),
-      cashboxes: String((index % 4) + (index % 10 === 0 ? 2 : 0)),
-      deposit: formatDemoMoney(deposit),
-      debt: formatDemoMoney(debt),
-      overdue: index % 8 === 0 ? formatDemoMoney((index % 6 + 1) * 90000) : "0",
-      contract: formatDemoMoney(contract),
-      tariff: formatDemoMoney(250000 + (index % 5) * 50000),
-      currency: "UZS",
-      contact: `998 ${90 + (index % 9)} ${phoneTail.slice(0, 3)} ${phoneTail.slice(3, 5)} ${phoneTail.slice(5)}`,
-      region: demoOrganizationRegions[index % demoOrganizationRegions.length],
-      manager: demoOrganizationManagers[index % demoOrganizationManagers.length],
-      date: `${day}.${month}.2026`,
-      source: demoOrganizationSources[index % demoOrganizationSources.length],
-      version: index % 7 === 0 ? "" : `15.${String(index % 6).padStart(2, "0")}`,
-      orgStatus: demoOrganizationOrgStatuses[index % demoOrganizationOrgStatuses.length],
-      identification: index % 4 === 0 ? "Ожидает" : "Проверено",
-      paymentKind: demoOrganizationPaymentKinds[index % demoOrganizationPaymentKinds.length],
-      status: demoOrganizationStatuses[index % demoOrganizationStatuses.length],
-      onlineMenu: index % 5 === 0 ? "Не активно" : "Активно",
-      warehouse: index % 4 === 0 ? "Не активно" : "Активно",
-      cashboxOnline: index % 6 === 0 ? "Не активно" : "Активно",
-    };
-  });
-}
-
-const demoOrganizationDirectoryRows = buildDemoOrganizationRows();
 
 const approvalItems = [];
 
@@ -2637,65 +2533,15 @@ function buildAdminChartTickLabels(labels) {
   }, []);
 }
 
-function buildAdminDemoCurvePoints(count, target) {
-  if (count <= 0) return [];
-  if (count === 1) return [Number(target.toFixed(2))];
-
-  const startValue = target * 0.12;
-  const availableValue = Math.max(0, target - startValue);
-  const increments = Array.from({ length: count - 1 }, (_, index) => {
-    const progress = (index + 1) / Math.max(1, count - 1);
-    const weeklyWave = Math.sin(progress * Math.PI * 4.2 - 0.45) * 0.34;
-    const shortWave = Math.sin((index + 1) * 1.45) * 0.14;
-    const lunchPulse = Math.exp(-Math.pow((progress - 0.38) / 0.13, 2)) * 0.42;
-    const weekendPulse = Math.exp(-Math.pow((progress - 0.78) / 0.11, 2)) * 0.34;
-    const quietWindow = Math.exp(-Math.pow((progress - 0.58) / 0.09, 2)) * 0.28;
-
-    return Math.max(0.32, 1 + weeklyWave + shortWave + lunchPulse + weekendPulse - quietWindow);
-  });
-  const totalWeight = increments.reduce((sum, value) => sum + value, 0) || 1;
-  let runningValue = startValue;
-  const points = [Number(runningValue.toFixed(2))];
-
-  increments.forEach((weight) => {
-    runningValue += availableValue * (weight / totalWeight);
-    points.push(Number(runningValue.toFixed(2)));
-  });
-
-  points[points.length - 1] = Number(target.toFixed(2));
-  return points;
-}
-
-function demoAdminChartRangeData(range) {
-  const labels = buildAdminRangeLabels(range);
-  const days = getAdminChartDaysBetween(range.start, range.end);
-  const target = Math.max(12, days * 6.25);
-  const points = buildAdminDemoCurvePoints(labels.length, target);
-  const yMax = Math.ceil(Math.max(...points) / 10) * 10;
-  const value = formatAdminRawMoney(adminChartPointToMoney(points.at(-1)));
-
-  return {
-    value,
-    delta: `Период: ${range.start} - ${range.end}`,
-    points,
-    labels,
-    tickLabels: buildAdminChartTickLabels(labels),
-    tooltip: { label: range.end, value },
-    tooltipIndex: Math.max(0, labels.length - 1),
-    yMax,
-    yStep: Math.max(5, yMax / 4),
-  };
-}
-
 function emptyAdminChartRangeData(range) {
   const labels = buildAdminRangeLabels(range);
   return {
-    value: "0 UZS",
-    delta: `Нет данных backend за ${range.start} - ${range.end}`,
+    value: "Данные недоступны",
+    delta: `Backend источник графика не подключён (${range.start} - ${range.end})`,
     points: labels.map(() => 0),
     labels,
     tickLabels: buildAdminChartTickLabels(labels),
-    tooltip: { label: range.end, value: "0 UZS" },
+    tooltip: { label: range.end, value: "Данные недоступны" },
     tooltipIndex: Math.max(0, labels.length - 1),
     yMax: 1,
     yStep: 0.25,
@@ -2721,55 +2567,6 @@ function emptyAdminChartData(segment) {
     tooltipIndex: Math.max(0, labels.length - 1),
     yMax: 1,
     yStep: 0.25,
-  };
-}
-
-const adminDemoChartBySegment = {
-  "День": {
-    value: "24 850 000 UZS",
-    delta: "Демо-оборот Marjon Cafe за сегодня",
-    labels: ["09:00", "12:00", "15:00", "18:00", "21:00", "00:00"],
-    points: [1.8, 4.2, 8.9, 13.4, 20.1, 24.85],
-    tooltip: { label: "00:00", value: "24 850 000 UZS" },
-    yMax: 30,
-    yStep: 7.5,
-  },
-  "Неделя": {
-    value: "187 450 000 UZS",
-    delta: "+16% к прошлой неделе",
-    labels: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
-    points: [18.5, 22.4, 19.8, 26.1, 31.6, 38.4, 30.65],
-    tooltip: { label: "Вс", value: "30 650 000 UZS" },
-    yMax: 45,
-    yStep: 15,
-  },
-  "Месяц": {
-    value: "187 450 000 UZS",
-    delta: "+24% к прошлому месяцу",
-    labels: ["01", "07", "14", "21", "28", "31"],
-    points: [18.4, 42.8, 76.3, 118.9, 155.6, 187.45],
-    tooltip: { label: "31 июля", value: "187 450 000 UZS" },
-    yMax: 220,
-    yStep: 55,
-  },
-  "Год": {
-    value: "1 048 000 000 UZS",
-    delta: "Демо-оборот за 2026 год",
-    labels: ["Янв", "Мар", "Май", "Июл", "Сен", "Ноя"],
-    points: [62, 211, 389, 604, 832, 1048],
-    tooltip: { label: "Ноябрь", value: "1 048 000 000 UZS" },
-    yMax: 1200,
-    yStep: 300,
-  },
-};
-
-function demoAdminChartData(segment, range) {
-  if (range) return demoAdminChartRangeData(range);
-  const data = adminDemoChartBySegment[segment] || adminDemoChartBySegment["Месяц"];
-  return {
-    ...data,
-    tickLabels: data.labels.map((label, index) => [index, label]),
-    tooltipIndex: Math.max(0, data.points.length - 1),
   };
 }
 
@@ -3575,7 +3372,7 @@ function AdminChartRangePicker({ range, onChange }) {
 function PlatformChart({ segment, onSegmentChange }) {
   const [range, setRange] = useState(() => adminChartRangeEndingAt(7));
   const normalizedRange = useMemo(() => normalizeAdminReportRange(range), [range]);
-  const data = ADMIN_DASHBOARD_DEMO_MODE ? demoAdminChartData(segment, normalizedRange) : emptyAdminChartRangeData(normalizedRange);
+  const data = emptyAdminChartRangeData(normalizedRange);
   const presetOptions = useMemo(() => (
     ADMIN_CHART_PRESET_DAYS.map((days) => ({
       label: `${days} дней`,
@@ -3815,18 +3612,10 @@ function OrganizationMessageScreen({ row, onBack, onSave, onNotify }) {
       cashboxOnline: settings.cashboxOnline ? "Активно" : "Не активно",
       message: true,
     });
-    onNotify?.(`${form.name}: данные сохранены.`);
   }
 
   function sendMessage() {
-    const text = chatText.trim();
-    if (!text) return;
-    setMessages((current) => [
-      ...current,
-      { id: Date.now(), author: "Super Admin", text, time: "сейчас" },
-    ]);
-    setChatText("");
-    onNotify?.(`${form.name}: сообщение отправлено.`);
+    onNotify?.("Отправка сообщения недоступна: backend mutation contract не подключён.");
   }
 
   const formGroups = [
@@ -4262,7 +4051,8 @@ function OrganizationEditScreen({ row, onBack, onSave }) {
 }
 
 function OrganizationDirectoryPage({ search, onNotify, onInnerBackChange }) {
-  const [rows, setRows] = useState(() => (ADMIN_DASHBOARD_DEMO_MODE ? demoOrganizationDirectoryRows : []));
+  const [rows, setRows] = useState([]);
+  const [loadState, setLoadState] = useState("loading");
   const [messageRow, setMessageRow] = useState(null);
   const [editorRow, setEditorRow] = useState(null);
   const [query, setQuery] = useState("");
@@ -4276,8 +4066,8 @@ function OrganizationDirectoryPage({ search, onNotify, onInnerBackChange }) {
   const [dragColumnKey, setDragColumnKey] = useState("");
   const [dragColumnTarget, setDragColumnTarget] = useState(null);
   const [page, setPage] = useState(1);
-  const pageSizeOptions = ADMIN_DASHBOARD_DEMO_MODE ? [20, 50, 100] : [10, 20, 50];
-  const [pageSize, setPageSize] = useState(() => (ADMIN_DASHBOARD_DEMO_MODE ? 50 : 20));
+  const pageSizeOptions = [10, 20, 50];
+  const [pageSize, setPageSize] = useState(20);
   const visibleColumns = columnSettings.visible;
 
   useEffect(() => {
@@ -4297,24 +4087,24 @@ function OrganizationDirectoryPage({ search, onNotify, onInnerBackChange }) {
   }, [editorRow, messageRow, onInnerBackChange]);
 
   useEffect(() => {
-    if (ADMIN_DASHBOARD_DEMO_MODE) return;
+    setLoadState("loading");
     adminApi.get("/organizations", { params: { size: 100 } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
         setRows(items.map((r) => ({
             id: String(r.id || ""),
             message: Boolean(r.has_message),
-            service: r.service_type || "Xizmat",
-            paymentType: r.payment_type || "Без оплаты",
+            service: r.service_type || "—",
+            paymentType: r.payment_type || "—",
             name: r.company_name || r.name || "",
             clientId: String(r.client_id || r.virtual_cash_register_number || r.id || ""),
-            terminals: String(r.terminals_count || 0),
-            cashboxes: String(r.cashboxes_count || (r.virtual_cash_register_number ? 1 : 0)),
-            deposit: String(r.deposit ?? (Number(r.cash_balance || 0) > 0 ? r.cash_balance : 0)),
-            debt: String(r.debt ?? (Number(r.cash_balance || 0) < 0 ? Math.abs(Number(r.cash_balance || 0)) : 0)),
-            overdue: String(r.overdue || 0),
-            contract: String(r.contract_amount || 0),
-            tariff: String(r.tariff_amount || r.tariff || r.tariff_price || "300 000"),
+            terminals: String(r.terminals_count ?? "—"),
+            cashboxes: String(r.cashboxes_count ?? "—"),
+            deposit: String(r.deposit ?? "—"),
+            debt: String(r.debt ?? "—"),
+            overdue: String(r.overdue ?? "—"),
+            contract: String(r.contract_amount ?? "—"),
+            tariff: String(r.tariff_amount ?? r.tariff ?? r.tariff_price ?? "—"),
             currency: r.currency || "UZS",
             contact: r.phone || r.contact || "",
             region: r.region || "",
@@ -4330,8 +4120,12 @@ function OrganizationDirectoryPage({ search, onNotify, onInnerBackChange }) {
             warehouse: (r.warehouse_enabled ?? r.enabled_storage_integration) ? "Активно" : "—",
             cashboxOnline: (r.cashbox_online ?? Boolean(r.virtual_cash_register_number)) ? "Активно" : "—",
           })));
+        setLoadState(items.length ? "success" : "empty");
       })
-      .catch(() => setRows([]));
+      .catch(() => {
+        setRows([]);
+        setLoadState("error");
+      });
   }, []);
 
   useEffect(() => {
@@ -4368,28 +4162,32 @@ function OrganizationDirectoryPage({ search, onNotify, onInnerBackChange }) {
     const active = rows.filter((row) => row.status === "Активно" || row.status === "Доступен").length;
     const debt = rows.reduce((sum, row) => sum + Number(String(row.debt).replace(/[^\d-]/g, "") || 0), 0);
     const online = rows.filter((row) => row.onlineMenu === "Активно").length;
-    return { active, debt: debt.toLocaleString("ru-RU"), online };
+    const debtKnown = rows.every((row) => row.debt !== "—");
+    return { active, debt: debtKnown ? debt.toLocaleString("ru-RU") : "Недоступно", online };
   }, [rows]);
 
   function updateRow(id, patch) {
-    setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+    void id;
+    void patch;
+    onNotify?.("Изменение недоступно: backend mutation contract не подключён.");
   }
 
   function saveMessageRow(id, patch) {
-    updateRow(id, patch);
-    setMessageRow((current) => (current?.id === id ? { ...current, ...patch } : current));
+    void id;
+    void patch;
+    onNotify?.("Сохранение недоступно: backend mutation contract не подключён.");
   }
 
   function saveEditorRow(id, patch) {
-    updateRow(id, patch);
-    setEditorRow(null);
-    onNotify?.(`${patch.name || "Организация"}: данные сохранены.`);
+    void id;
+    void patch;
+    onNotify?.("Сохранение недоступно: backend mutation contract не подключён.");
   }
 
   function toggleAvailability(row, key) {
-    const next = row[key] === "Активно" || row[key] === "Доступен" ? "Не активно" : "Активно";
-    updateRow(row.id, { [key]: key === "status" && row[key] === "Доступен" ? "Не активно" : next });
-    onNotify?.(`${row.name}: статус обновлен.`);
+    void row;
+    void key;
+    onNotify?.("Изменение статуса недоступно: backend mutation contract не подключён.");
   }
 
   function copyClientIdFallback(value) {
@@ -4648,12 +4446,15 @@ function OrganizationDirectoryPage({ search, onNotify, onInnerBackChange }) {
         </button>
       </div>
 
-      <div className="org-directory-metrics">
+      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка организаций...</div> : null}
+      {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить организации.</div> : null}
+
+      {loadState === "success" || loadState === "empty" ? <div className="org-directory-metrics">
         <span><b>{rows.length}</b> всего</span>
         <span><b>{totals.active}</b> активных</span>
         <span><b>{totals.online}</b> онлайн меню</span>
         <span><b>{totals.debt}</b> долг</span>
-      </div>
+      </div> : null}
 
       <div className="org-directory-toolbar">
         <label className="org-directory-search">
@@ -4813,7 +4614,7 @@ function OrganizationDirectoryPage({ search, onNotify, onInnerBackChange }) {
             ))}
           </tbody>
         </table>
-        {!pageRows.length ? <div className="org-directory-empty">Записей не найдено.</div> : null}
+        {loadState === "empty" || (loadState === "success" && !pageRows.length) ? <div className="org-directory-empty">Записей не найдено.</div> : null}
       </div>
 
       <div className="org-directory-footer">
@@ -4942,29 +4743,28 @@ function mergeOrganizationStatusRows(localRows, remoteRows) {
 }
 
 function OrganizationStatusPage({ search, onNotify }) {
-  const [rows, setRows] = useState(loadOrganizationStatusRows);
+  const [rows, setRows] = useState([]);
+  const [loadState, setLoadState] = useState("loading");
   const [sortDirection, setSortDirection] = useState("asc");
   const [editor, setEditor] = useState(null);
-
-  useEffect(() => {
-    saveOrganizationStatusRows(rows);
-  }, [rows]);
 
   useEffect(() => {
     adminApi.get("/organization-statuses", { params: { size: 100 } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
-        if (items.length) {
-          const remoteRows = items.map((r, i) => ({
-            id: r.id || String(i),
-            name: r.name || "",
-            sort: r.sort_order ?? r.sort ?? i + 1,
-            active: r.status !== false,
-          }));
-          setRows((current) => mergeOrganizationStatusRows(current, remoteRows));
-        }
+        const remoteRows = items.map((r, i) => ({
+          id: r.id || String(i),
+          name: r.name || "",
+          sort: r.sort_order ?? r.sort ?? i + 1,
+          active: r.status !== false,
+        }));
+        setRows(remoteRows);
+        setLoadState(remoteRows.length ? "success" : "empty");
       })
-      .catch(() => {});
+      .catch(() => {
+        setRows([]);
+        setLoadState("error");
+      });
   }, []);
 
   const filteredRows = useMemo(() => {
@@ -4986,62 +4786,46 @@ function OrganizationStatusPage({ search, onNotify }) {
   }
 
   function saveEditor() {
-    if (!editor?.name.trim()) {
-      onNotify?.("Введите название статуса.");
-      return;
-    }
-    const payload = {
-      id: editor.id || `status-${Date.now()}`,
-      name: editor.name.trim().toUpperCase(),
-      sort: Number(editor.sort) || 1,
-      active: Boolean(editor.active),
-    };
-    setRows((current) => (
-      editor.mode === "edit"
-        ? current.map((row) => (row.id === editor.id ? payload : row))
-        : [...current, payload]
-    ));
-    setEditor(null);
-    onNotify?.(editor.mode === "edit" ? "Статус обновлен." : "Статус добавлен.");
+    onNotify?.("Сохранение статуса недоступно: backend mutation contract не подключён.");
   }
 
   function deleteRow(row) {
-    setRows((current) => current.filter((item) => item.id !== row.id));
-    onNotify?.(`${row.name}: статус удален.`);
+    void row;
+    onNotify?.("Удаление статуса недоступно: backend mutation contract не подключён.");
   }
 
   function refreshRows() {
     setEditor(null);
+    setLoadState("loading");
     adminApi.get("/organization-statuses", { params: { size: 100 } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
-        if (!items.length) {
-          onNotify?.("Backend вернул пустой список. Локальные статусы сохранены.");
-          return;
-        }
-
         const remoteRows = items.map((r, i) => ({
           id: r.id || String(i),
           name: r.name || "",
           sort: r.sort_order ?? r.sort ?? i + 1,
           active: r.status !== false,
         }));
-        setRows((current) => mergeOrganizationStatusRows(current, remoteRows));
-        onNotify?.("Список статусов обновлен без удаления локальных изменений.");
+        setRows(remoteRows);
+        setLoadState(remoteRows.length ? "success" : "empty");
+        onNotify?.("Список статусов обновлен.");
       })
       .catch(() => {
-        onNotify?.("Backend недоступен. Локальные статусы сохранены.");
+        setRows([]);
+        setLoadState("error");
+        onNotify?.("Не удалось загрузить статусы организаций.");
       });
   }
 
   function toggleActive(row) {
-    setRows((current) => current.map((item) => (
-      item.id === row.id ? { ...item, active: !item.active } : item
-    )));
+    void row;
+    onNotify?.("Изменение статуса недоступно: backend mutation contract не подключён.");
   }
 
   return (
     <section className="org-status-page">
+      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка статусов...</div> : null}
+      {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить статусы организаций.</div> : null}
       <div className="org-status-header">
         <div className="org-status-title">
           <span aria-hidden="true" />
@@ -5127,7 +4911,7 @@ function OrganizationStatusPage({ search, onNotify }) {
             ))}
           </tbody>
         </table>
-        {!filteredRows.length ? <div className="org-status-empty">Статусы не найдены.</div> : null}
+        {loadState === "empty" || (loadState === "success" && !filteredRows.length) ? <div className="org-status-empty">Статусы не найдены.</div> : null}
       </div>
     </section>
   );
@@ -5200,12 +4984,22 @@ function StorageIncomeDateControl({ range, onChange, presets }) {
   );
 }
 
-function StorageIncomePage({ search, onNotify, onInnerBackChange }) {
+function StorageIncomePage() {
+  return (
+    <section className="admin-storage-income-page">
+      <div className="org-directory-empty" role="status">
+        Данные прихода недоступны до завершения Inventory Core. Backend contract не подключён.
+      </div>
+    </section>
+  );
+}
+
+function DeferredStorageIncomePrototype({ search, onNotify, onInnerBackChange }) {
   const [range, setRange] = useState(() => buildAdminDashboardDateRange("Этот месяц"));
   const [selectedBranch, setSelectedBranch] = useState(null);
   const [expandedIncomeRows, setExpandedIncomeRows] = useState(() => ({}));
   const query = search.trim().toLowerCase();
-  const rows = storageIncomeBranchRows.filter((row) => !query || row.branch.toLowerCase().includes(query));
+  const rows = [];
   const datePresets = useMemo(() => (
     ADMIN_DASHBOARD_DATE_PRESET_LABELS.map((label) => ({
       label,
@@ -5308,6 +5102,7 @@ function StorageIncomePage({ search, onNotify, onInnerBackChange }) {
 
   return (
     <section className="admin-storage-income-page">
+      <div className="org-directory-empty" role="status">Данные прихода недоступны до завершения Inventory Core.</div>
       <div className="admin-storage-income-head">
         <StorageIncomeDateControl range={range} onChange={setRange} presets={datePresets} />
         <h2>Приход товаров</h2>
@@ -5338,7 +5133,7 @@ function StorageIncomePage({ search, onNotify, onInnerBackChange }) {
             ))}
             {!rows.length ? (
               <tr>
-                <td colSpan="4" className="admin-storage-income-empty">Филиал не найден.</td>
+                <td colSpan="4" className="admin-storage-income-empty">Backend источник не подключён.</td>
               </tr>
             ) : null}
           </tbody>
@@ -5348,8 +5143,18 @@ function StorageIncomePage({ search, onNotify, onInnerBackChange }) {
   );
 }
 
-function StorageIncomeJournalPage({ search, onNotify, onInnerBackChange }) {
-  const [rows, setRows] = useState(() => storageIncomeJournalRows);
+function StorageIncomeJournalPage() {
+  return (
+    <section className="admin-storage-income-page admin-storage-income-journal-page">
+      <div className="org-directory-empty" role="status">
+        Журнал прихода недоступен до завершения Inventory Core. Backend contract не подключён.
+      </div>
+    </section>
+  );
+}
+
+function DeferredStorageIncomeJournalPrototype({ search, onNotify, onInnerBackChange }) {
+  const [rows] = useState([]);
   const [selectedRow, setSelectedRow] = useState(null);
   const [detailSearch, setDetailSearch] = useState("");
   const [sortState, setSortState] = useState({ key: "number", direction: "desc" });
@@ -5436,9 +5241,8 @@ function StorageIncomeJournalPage({ search, onNotify, onInnerBackChange }) {
   }
 
   function deleteRow(row) {
-    setRows((current) => current.filter((item) => item.id !== row.id));
-    if (selectedRow?.id === row.id) setSelectedRow(null);
-    onNotify?.(`Поступление №${row.number}: строка удалена локально.`);
+    void row;
+    onNotify?.("Удаление недоступно: backend mutation contract не подключён.");
   }
 
   function renderDateCell(value, actor) {
@@ -5568,6 +5372,7 @@ function StorageIncomeJournalPage({ search, onNotify, onInnerBackChange }) {
 
   return (
     <section className="admin-storage-income-page admin-storage-income-journal-page">
+      <div className="org-directory-empty" role="status">Источник журнала поступлений не подключён.</div>
       <div className="admin-storage-income-journal-head">
         <div className="admin-storage-income-journal-title">
           <span aria-hidden="true" />
@@ -5637,7 +5442,7 @@ function StorageIncomeJournalPage({ search, onNotify, onInnerBackChange }) {
                 </td>
               </tr>
             ))}
-            {!filteredRows.length ? (
+            {rows.length > 0 && !filteredRows.length ? (
               <tr>
                 <td colSpan={columns.length} className="admin-storage-income-empty">Поступления не найдены.</td>
               </tr>
@@ -5650,7 +5455,8 @@ function StorageIncomeJournalPage({ search, onNotify, onInnerBackChange }) {
 }
 
 function StorageWriteoffPage({ search, onNotify }) {
-  const [rows, setRows] = useState(() => storageWriteoffRows);
+  const [rows, setRows] = useState([]);
+  const [loadState, setLoadState] = useState("loading");
   const [sortState, setSortState] = useState({ key: "number", direction: "desc" });
   const query = search.trim().toLowerCase();
   const columns = [
@@ -5669,14 +5475,13 @@ function StorageWriteoffPage({ search, onNotify }) {
     adminApi.get("/reports/consumption", { params: { size: 100 } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
-        if (!items.length) {
-          setRows(storageWriteoffRows);
-          return;
-        }
-
         setRows(items.map((row, index) => normalizeStorageWriteoffRow(row, index)));
+        setLoadState(items.length ? "success" : "empty");
       })
-      .catch(() => {});
+      .catch(() => {
+        setRows([]);
+        setLoadState("error");
+      });
   }, []);
 
   const filteredRows = useMemo(() => {
@@ -5740,6 +5545,8 @@ function StorageWriteoffPage({ search, onNotify }) {
 
   return (
     <section className="admin-storage-income-page admin-storage-writeoff-page">
+      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка списаний...</div> : null}
+      {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить списания.</div> : null}
       <div className="admin-storage-writeoff-card">
         <div className="admin-storage-writeoff-head">
           <div className="admin-storage-writeoff-title">
@@ -5782,7 +5589,7 @@ function StorageWriteoffPage({ search, onNotify }) {
                   <td><span className="admin-storage-income-journal-status">{row.status}</span></td>
                 </tr>
               ))}
-              {!filteredRows.length ? (
+              {(loadState === "empty" || loadState === "success") && !filteredRows.length ? (
                 <tr className="admin-storage-writeoff-empty-row">
                   <td colSpan={columns.length}>
                     <div className="admin-storage-writeoff-empty">
@@ -5808,7 +5615,8 @@ function StorageWriteoffPage({ search, onNotify }) {
 }
 
 function StorageInventoryPage({ search, onNotify, onInnerBackChange }) {
-  const [rows, setRows] = useState(() => storageInventoryRows);
+  const [rows, setRows] = useState([]);
+  const [loadState, setLoadState] = useState("loading");
   const [selectedRow, setSelectedRow] = useState(null);
   const [sortState, setSortState] = useState({ key: "id", direction: "desc" });
   const query = search.trim().toLowerCase();
@@ -5823,19 +5631,16 @@ function StorageInventoryPage({ search, onNotify, onInnerBackChange }) {
   ];
 
   useEffect(() => {
-    if (ADMIN_DASHBOARD_DEMO_MODE) return;
-
     adminApi.get("/storages", { params: { size: 100 } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
-        if (!items.length) {
-          setRows(storageInventoryRows);
-          return;
-        }
-
         setRows(items.map((row, index) => normalizeStorageInventoryRow(row, index)));
+        setLoadState(items.length ? "success" : "empty");
       })
-      .catch(() => {});
+      .catch(() => {
+        setRows([]);
+        setLoadState("error");
+      });
   }, []);
 
   useEffect(() => {
@@ -5948,6 +5753,8 @@ function StorageInventoryPage({ search, onNotify, onInnerBackChange }) {
 
   return (
     <section className="admin-storage-income-page admin-storage-inventory-page">
+      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка складов...</div> : null}
+      {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить склады.</div> : null}
       <div className="admin-storage-inventory-card">
         <div className="admin-storage-inventory-head">
           <div className="admin-storage-inventory-title">
@@ -6010,7 +5817,7 @@ function StorageInventoryPage({ search, onNotify, onInnerBackChange }) {
                   </td>
                 </tr>
               ))}
-              {!filteredRows.length ? (
+              {(loadState === "empty" || loadState === "success") && !filteredRows.length ? (
                 <tr className="admin-storage-inventory-empty-row">
                   <td colSpan={columns.length}>Инвентаризации не найдены.</td>
                 </tr>
@@ -6075,12 +5882,22 @@ function StorageInventoryPage({ search, onNotify, onInnerBackChange }) {
   );
 }
 
-function StorageExpensePage({ search, onNotify, onInnerBackChange }) {
+function StorageExpensePage() {
+  return (
+    <section className="admin-storage-income-page admin-storage-expense-page">
+      <div className="org-directory-empty" role="status">
+        Данные расхода недоступны до завершения Inventory Core. Backend contract не подключён.
+      </div>
+    </section>
+  );
+}
+
+function DeferredStorageExpensePrototype({ search, onNotify, onInnerBackChange }) {
   const [range, setRange] = useState(() => buildAdminDashboardDateRange("Этот месяц"));
   const [selectedBranch, setSelectedBranch] = useState(null);
   const [expandedExpenseRows, setExpandedExpenseRows] = useState(() => ({}));
   const query = search.trim().toLowerCase();
-  const rows = storageExpenseBranchRows.filter((row) => !query || row.branch.toLowerCase().includes(query));
+  const rows = [];
   const datePresets = useMemo(() => (
     ADMIN_DASHBOARD_DATE_PRESET_LABELS.map((label) => ({
       label,
@@ -6183,6 +6000,7 @@ function StorageExpensePage({ search, onNotify, onInnerBackChange }) {
 
   return (
     <section className="admin-storage-income-page admin-storage-expense-page">
+      <div className="org-directory-empty" role="status">Данные расхода недоступны до завершения Inventory Core.</div>
       <div className="admin-storage-income-head">
         <StorageIncomeDateControl range={range} onChange={setRange} presets={datePresets} />
         <h2>Расход товаров</h2>
@@ -6213,7 +6031,7 @@ function StorageExpensePage({ search, onNotify, onInnerBackChange }) {
             ))}
             {!rows.length ? (
               <tr>
-                <td colSpan="4" className="admin-storage-income-empty">Филиал не найден.</td>
+                <td colSpan="4" className="admin-storage-income-empty">Backend источник не подключён.</td>
               </tr>
             ) : null}
           </tbody>
@@ -6223,12 +6041,22 @@ function StorageExpensePage({ search, onNotify, onInnerBackChange }) {
   );
 }
 
-function StorageBalancePage({ search, onNotify, onInnerBackChange }) {
+function StorageBalancePage() {
+  return (
+    <section className="admin-storage-income-page admin-storage-balance-page">
+      <div className="org-directory-empty" role="status">
+        Остатки недоступны до завершения Inventory Core. Backend contract не подключён.
+      </div>
+    </section>
+  );
+}
+
+function DeferredStorageBalancePrototype({ search, onNotify, onInnerBackChange }) {
   const [range, setRange] = useState(() => buildAdminDashboardDateRange("Этот месяц"));
   const [selectedBranch, setSelectedBranch] = useState(null);
   const [expandedBalanceRows, setExpandedBalanceRows] = useState(() => ({}));
   const query = search.trim().toLowerCase();
-  const rows = storageBalanceBranchRows.filter((row) => !query || row.branch.toLowerCase().includes(query));
+  const rows = [];
   const datePresets = useMemo(() => (
     ADMIN_DASHBOARD_DATE_PRESET_LABELS.map((label) => ({
       label,
@@ -6330,6 +6158,7 @@ function StorageBalancePage({ search, onNotify, onInnerBackChange }) {
 
   return (
     <section className="admin-storage-income-page admin-storage-balance-page">
+      <div className="org-directory-empty" role="status">Остатки недоступны до завершения Inventory Core.</div>
       <div className="admin-storage-income-head">
         <StorageIncomeDateControl range={range} onChange={setRange} presets={datePresets} />
         <h2>Остаток</h2>
@@ -6360,7 +6189,7 @@ function StorageBalancePage({ search, onNotify, onInnerBackChange }) {
             ))}
             {!rows.length ? (
               <tr>
-                <td colSpan="4" className="admin-storage-income-empty">Филиал не найден.</td>
+                <td colSpan="4" className="admin-storage-income-empty">Backend источник не подключён.</td>
               </tr>
             ) : null}
           </tbody>
@@ -6371,31 +6200,27 @@ function StorageBalancePage({ search, onNotify, onInnerBackChange }) {
 }
 
 function ProductNomenclaturePage({ search, onNotify }) {
-  const [rows, setRows] = useState(() => readStoredAdminProducts() || adminProductRows);
+  const [rows, setRows] = useState([]);
+  const [loadState, setLoadState] = useState("loading");
   const [nameFilter, setNameFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [sortDirection, setSortDirection] = useState("asc");
   const [showArchive, setShowArchive] = useState(false);
   const [editor, setEditor] = useState(null);
-  const hasStoredRowsRef = useRef(readStoredAdminProducts() !== null);
   const query = search.trim().toLowerCase();
 
   useEffect(() => {
-    if (hasStoredRowsRef.current) return;
-
     adminApi.get("/products", { params: { size: 100 } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.results || [];
-        if (items.length) {
-          setRows(items.map(normalizeAdminProduct));
-        }
+        setRows(items.map(normalizeAdminProduct));
+        setLoadState(items.length ? "success" : "empty");
       })
-      .catch(() => {});
+      .catch(() => {
+        setRows([]);
+        setLoadState("error");
+      });
   }, []);
-
-  useEffect(() => {
-    saveStoredAdminProducts(rows);
-  }, [rows]);
 
   const categoryOptions = useMemo(() => {
     const values = rows.map((row) => row.category).filter(Boolean);
@@ -6447,38 +6272,17 @@ function ProductNomenclaturePage({ search, onNotify }) {
 
   function saveProduct(event) {
     event.preventDefault();
-    if (!editor) return;
-
-    const name = editor.name.trim();
-    if (!name) return;
-
-    const nextProduct = {
-      ...editor,
-      id: editor.id || `product-${Date.now()}`,
-      name,
-      price: Number(String(editor.price).replace(/\s/g, "").replace(",", ".")) || 0,
-      archived: Boolean(editor.archived),
-    };
-
-    setRows((current) => {
-      const exists = current.some((row) => row.id === nextProduct.id);
-      return exists
-        ? current.map((row) => row.id === nextProduct.id ? nextProduct : row)
-        : [nextProduct, ...current];
-    });
-    setShowArchive(Boolean(nextProduct.archived));
-    closeEditor();
-    onNotify?.("Продукт сохранён.");
+    onNotify?.("Сохранение продукта недоступно: backend mutation contract не подключён.");
   }
 
   function archiveProduct(row) {
-    setRows((current) => current.map((item) => item.id === row.id ? { ...item, archived: true } : item));
-    onNotify?.(`${row.name} перемещён в архив.`);
+    void row;
+    onNotify?.("Архивация недоступна: backend mutation contract не подключён.");
   }
 
   function restoreProduct(row) {
-    setRows((current) => current.map((item) => item.id === row.id ? { ...item, archived: false } : item));
-    onNotify?.(`${row.name} возвращён в список.`);
+    void row;
+    onNotify?.("Восстановление недоступно: backend mutation contract не подключён.");
   }
 
   function clearFilters() {
@@ -6578,6 +6382,8 @@ function ProductNomenclaturePage({ search, onNotify }) {
 
   return (
     <section className="admin-product-page">
+      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка продуктов...</div> : null}
+      {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить продукты.</div> : null}
       <div className="admin-product-card">
         <div className="admin-product-toolbar">
           <div className="admin-product-title">
@@ -6676,7 +6482,7 @@ function ProductNomenclaturePage({ search, onNotify }) {
                 </tr>
               ))}
 
-              {!visibleRows.length ? (
+              {(loadState === "empty" || loadState === "success") && !visibleRows.length ? (
                 <tr>
                   <td colSpan="7" className="admin-product-empty">
                     {showArchive ? "Архив пуст" : "Список пуст"}
@@ -6694,28 +6500,24 @@ function ProductNomenclaturePage({ search, onNotify }) {
 }
 
 function SaleCategoryPage({ search, onNotify }) {
-  const [rows, setRows] = useState(() => readStoredAdminSaleCategories() || adminSaleCategoryRows);
+  const [rows, setRows] = useState([]);
+  const [loadState, setLoadState] = useState("loading");
   const [editor, setEditor] = useState(null);
-  const hasStoredRowsRef = useRef(readStoredAdminSaleCategories() !== null);
   const query = (search || "").trim().toLowerCase();
 
   useEffect(() => {
-    if (hasStoredRowsRef.current) return;
-
     adminApi.get("/categories", { params: { size: 100 } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.results || [];
         const nextRows = items.map(normalizeAdminSaleCategory).filter((row) => row.name);
-        if (nextRows.length) {
-          setRows(nextRows);
-        }
+        setRows(nextRows);
+        setLoadState(nextRows.length ? "success" : "empty");
       })
-      .catch(() => {});
+      .catch(() => {
+        setRows([]);
+        setLoadState("error");
+      });
   }, []);
-
-  useEffect(() => {
-    saveStoredAdminSaleCategories(rows);
-  }, [rows]);
 
   useEffect(() => {
     if (!editor) return undefined;
@@ -6752,30 +6554,12 @@ function SaleCategoryPage({ search, onNotify }) {
 
   function saveCategory(event) {
     event.preventDefault();
-    if (!editor) return;
-
-    const name = editor.name.trim();
-    if (!name) return;
-
-    const nextCategory = {
-      ...editor,
-      id: editor.id || `sale-category-${Date.now()}`,
-      name,
-    };
-
-    setRows((current) => {
-      const exists = current.some((row) => row.id === nextCategory.id);
-      return exists
-        ? current.map((row) => row.id === nextCategory.id ? nextCategory : row)
-        : [nextCategory, ...current];
-    });
-    closeEditor();
-    onNotify?.("Категория реализации сохранена.");
+    onNotify?.("Сохранение недоступно: backend mutation contract не подключён.");
   }
 
   function deleteCategory(row) {
-    setRows((current) => current.filter((item) => item.id !== row.id));
-    onNotify?.(`${row.name} удалена из категории реализации.`);
+    void row;
+    onNotify?.("Удаление недоступно: backend mutation contract не подключён.");
   }
 
   const modal = editor ? createPortal(
@@ -6823,6 +6607,8 @@ function SaleCategoryPage({ search, onNotify }) {
 
   return (
     <section className="admin-sale-category-page">
+      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка категорий...</div> : null}
+      {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить категории.</div> : null}
       <div className="admin-sale-category-card">
         <div className="admin-sale-category-head">
           <div className="admin-sale-category-title">
@@ -6854,7 +6640,7 @@ function SaleCategoryPage({ search, onNotify }) {
             </div>
           ))}
 
-          {!visibleRows.length ? (
+          {(loadState === "empty" || loadState === "success") && !visibleRows.length ? (
             <div className="admin-sale-category-empty">Список пуст</div>
           ) : null}
         </div>
@@ -6866,29 +6652,25 @@ function SaleCategoryPage({ search, onNotify }) {
 }
 
 function AdminSourcesPage({ search, onNotify }) {
-  const [rows, setRows] = useState(() => readStoredAdminSources() || adminSourceRows);
+  const [rows, setRows] = useState([]);
+  const [loadState, setLoadState] = useState("loading");
   const [editor, setEditor] = useState(null);
   const [sortState, setSortState] = useState({ key: "id", direction: "desc" });
-  const hasStoredRowsRef = useRef(readStoredAdminSources() !== null);
   const query = (search || "").trim().toLowerCase();
 
   useEffect(() => {
-    if (hasStoredRowsRef.current) return;
-
     adminApi.get("/sources", { params: { size: 100 } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.results || [];
         const nextRows = items.map(normalizeAdminSource).filter((row) => row.name);
-        if (nextRows.length) {
-          setRows(nextRows);
-        }
+        setRows(nextRows);
+        setLoadState(nextRows.length ? "success" : "empty");
       })
-      .catch(() => {});
+      .catch(() => {
+        setRows([]);
+        setLoadState("error");
+      });
   }, []);
-
-  useEffect(() => {
-    saveStoredAdminSources(rows);
-  }, [rows]);
 
   useEffect(() => {
     if (!editor) return undefined;
@@ -6943,30 +6725,12 @@ function AdminSourcesPage({ search, onNotify }) {
 
   function saveSource(event) {
     event.preventDefault();
-    if (!editor) return;
-
-    const name = editor.name.trim();
-    if (!name) {
-      onNotify?.("Введите название источника.");
-      return;
-    }
-
-    const nextId = editor.id || String(rows.reduce((max, row) => Math.max(max, Number(row.id) || 0), 0) + 1);
-    const nextSource = { id: nextId, name };
-
-    setRows((current) => {
-      const exists = current.some((row) => row.id === nextSource.id);
-      return exists
-        ? current.map((row) => row.id === nextSource.id ? nextSource : row)
-        : [nextSource, ...current];
-    });
-    closeEditor();
-    onNotify?.("Источник сохранён.");
+    onNotify?.("Сохранение недоступно: backend mutation contract не подключён.");
   }
 
   function deleteSource(row) {
-    setRows((current) => current.filter((item) => item.id !== row.id));
-    onNotify?.(`${row.name}: источник удалён.`);
+    void row;
+    onNotify?.("Удаление недоступно: backend mutation contract не подключён.");
   }
 
   const modal = editor ? createPortal(
@@ -7003,6 +6767,8 @@ function AdminSourcesPage({ search, onNotify }) {
 
   return (
     <section className="admin-source-page">
+      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка источников...</div> : null}
+      {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить источники.</div> : null}
       <div className="admin-source-card">
         <div className="admin-source-head">
           <div className="admin-source-title">
@@ -7057,7 +6823,7 @@ function AdminSourcesPage({ search, onNotify }) {
             </div>
           ))}
 
-          {!visibleRows.length ? (
+          {(loadState === "empty" || loadState === "success") && !visibleRows.length ? (
             <div className="admin-source-empty">Источники не найдены</div>
           ) : null}
         </div>
@@ -7069,31 +6835,27 @@ function AdminSourcesPage({ search, onNotify }) {
 }
 
 function OrdersNomenclaturePage({ search, onNotify }) {
-  const [rows, setRows] = useState(() => readStoredAdminOrders() || adminOrderRows);
+  const [rows, setRows] = useState([]);
+  const [loadState, setLoadState] = useState("loading");
   const [editor, setEditor] = useState(null);
   const [sortState, setSortState] = useState({ key: "id", direction: "desc" });
   const [page, setPage] = useState(1);
-  const hasStoredRowsRef = useRef(readStoredAdminOrders() !== null);
   const pageSize = 14;
   const query = (search || "").trim().toLowerCase();
 
   useEffect(() => {
-    if (hasStoredRowsRef.current) return;
-
     adminApi.get("/orders", { params: { size: 100 } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.results || [];
         const nextRows = items.map(normalizeAdminOrder).filter((row) => row.id);
-        if (nextRows.length) {
-          setRows(nextRows);
-        }
+        setRows(nextRows);
+        setLoadState(nextRows.length ? "success" : "empty");
       })
-      .catch(() => {});
+      .catch(() => {
+        setRows([]);
+        setLoadState("error");
+      });
   }, []);
-
-  useEffect(() => {
-    saveStoredAdminOrders(rows);
-  }, [rows]);
 
   useEffect(() => {
     setPage(1);
@@ -7207,49 +6969,22 @@ function OrdersNomenclaturePage({ search, onNotify }) {
 
   function saveOrder(event) {
     event.preventDefault();
-    if (!editor) return;
-
-    const items = editor.items.map((item) => ({
-      id: item.id,
-      product: item.product || adminOrderProducts[0],
-      quantity: Number(String(item.quantity).replace(",", ".")) || 0,
-      price: Number(String(item.price).replace(/\s/g, "").replace(",", ".")) || 0,
-      comment: item.comment?.trim() || "-",
-    }));
-
-    const nextOrder = {
-      id: editor.id || String(Date.now()).slice(-8),
-      organization: editor.organization || adminOrderOrganizations[0],
-      paymentId: editor.paymentId || String(1000000 + Math.floor(Math.random() * 9000)),
-      items,
-      total: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
-      comment: items.find((item) => item.comment && item.comment !== "-")?.comment || "-",
-      status: editor.status || "new",
-    };
-
-    setRows((current) => {
-      const exists = current.some((row) => row.id === nextOrder.id);
-      return exists
-        ? current.map((row) => row.id === nextOrder.id ? nextOrder : row)
-        : [nextOrder, ...current];
-    });
-    closeEditor();
-    onNotify?.("Заказ сохранён.");
+    onNotify?.("Сохранение заказа недоступно: backend mutation contract не подключён.");
   }
 
   function confirmOrder(row) {
-    setRows((current) => current.map((item) => item.id === row.id ? { ...item, status: "accepted" } : item));
-    onNotify?.(`Заказ ${row.id} подтверждён.`);
+    void row;
+    onNotify?.("Подтверждение недоступно: backend mutation contract не подключён.");
   }
 
   function cancelOrder(row) {
-    setRows((current) => current.map((item) => item.id === row.id ? { ...item, status: "cancelled" } : item));
-    onNotify?.(`Заказ ${row.id} отменён.`);
+    void row;
+    onNotify?.("Отмена недоступна: backend mutation contract не подключён.");
   }
 
   function deleteOrder(row) {
-    setRows((current) => current.filter((item) => item.id !== row.id));
-    onNotify?.(`Заказ ${row.id} удалён.`);
+    void row;
+    onNotify?.("Удаление недоступно: backend mutation contract не подключён.");
   }
 
   function statusLabel(status) {
@@ -7327,6 +7062,8 @@ function OrdersNomenclaturePage({ search, onNotify }) {
 
   return (
     <section className="admin-orders-page">
+      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка заказов...</div> : null}
+      {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить заказы.</div> : null}
       <div className="admin-orders-card">
         <div className="admin-orders-head">
           <div className="admin-orders-title">
@@ -7412,7 +7149,7 @@ function OrdersNomenclaturePage({ search, onNotify }) {
                 </tr>
               ))}
 
-              {!pageRows.length ? (
+              {(loadState === "empty" || loadState === "success") && !pageRows.length ? (
                 <tr>
                   <td colSpan="9" className="admin-orders-empty">Список пуст</td>
                 </tr>
@@ -7444,28 +7181,24 @@ function OrdersNomenclaturePage({ search, onNotify }) {
 }
 
 function UnitNomenclaturePage({ search, onNotify }) {
-  const [rows, setRows] = useState(() => readStoredAdminUnits() || adminUnitRows);
+  const [rows, setRows] = useState([]);
+  const [loadState, setLoadState] = useState("loading");
   const [editor, setEditor] = useState(null);
-  const hasStoredRowsRef = useRef(readStoredAdminUnits() !== null);
   const query = (search || "").trim().toLowerCase();
 
   useEffect(() => {
-    if (hasStoredRowsRef.current) return;
-
     adminApi.get("/units", { params: { size: 100 } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.results || [];
         const nextRows = items.map(normalizeAdminUnit).filter((row) => row.name);
-        if (nextRows.length) {
-          setRows(nextRows);
-        }
+        setRows(nextRows);
+        setLoadState(nextRows.length ? "success" : "empty");
       })
-      .catch(() => {});
+      .catch(() => {
+        setRows([]);
+        setLoadState("error");
+      });
   }, []);
-
-  useEffect(() => {
-    saveStoredAdminUnits(rows);
-  }, [rows]);
 
   useEffect(() => {
     if (!editor) return undefined;
@@ -7510,40 +7243,19 @@ function UnitNomenclaturePage({ search, onNotify }) {
   }
 
   function updateSort(row, value) {
-    setRows((current) => current.map((item) => (
-      item.id === row.id ? { ...item, sort: Number(value) || 1 } : item
-    )));
+    void row;
+    void value;
+    onNotify?.("Изменение порядка недоступно: backend mutation contract не подключён.");
   }
 
   function saveUnit(event) {
     event.preventDefault();
-    if (!editor) return;
-
-    const name = editor.name.trim();
-    const shortName = editor.shortName.trim();
-    if (!name || !shortName) return;
-
-    const nextUnit = {
-      ...editor,
-      id: editor.id || `unit-${Date.now()}`,
-      sort: Number(editor.sort) || 1,
-      name,
-      shortName,
-    };
-
-    setRows((current) => {
-      const exists = current.some((row) => row.id === nextUnit.id);
-      return exists
-        ? current.map((row) => row.id === nextUnit.id ? nextUnit : row)
-        : [...current, nextUnit];
-    });
-    closeEditor();
-    onNotify?.("Единица измерения сохранена.");
+    onNotify?.("Сохранение недоступно: backend mutation contract не подключён.");
   }
 
   function deleteUnit(row) {
-    setRows((current) => current.filter((item) => item.id !== row.id));
-    onNotify?.(`${row.name} удалена из единиц измерения.`);
+    void row;
+    onNotify?.("Удаление недоступно: backend mutation contract не подключён.");
   }
 
   const modal = editor ? createPortal(
@@ -7591,6 +7303,8 @@ function UnitNomenclaturePage({ search, onNotify }) {
 
   return (
     <section className="admin-unit-page">
+      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка единиц измерения...</div> : null}
+      {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить единицы измерения.</div> : null}
       <div className="admin-unit-card">
         <div className="admin-unit-head">
           <div className="admin-unit-title">
@@ -7646,7 +7360,7 @@ function UnitNomenclaturePage({ search, onNotify }) {
                 </tr>
               ))}
 
-              {!visibleRows.length ? (
+              {(loadState === "empty" || loadState === "success") && !visibleRows.length ? (
                 <tr>
                   <td colSpan="5" className="admin-unit-empty">Список пуст</td>
                 </tr>
@@ -7661,8 +7375,18 @@ function UnitNomenclaturePage({ search, onNotify }) {
   );
 }
 
-function AdminEmployeesPage({ search, onNotify }) {
-  const [rows, setRows] = useState(() => readStoredAdminEmployees() || adminEmployeeRows.map(normalizeAdminEmployee));
+function AdminEmployeesPage() {
+  return (
+    <section className="admin-employee-page">
+      <div className="org-directory-empty" role="status">
+        Список сотрудников недоступен: backend contract не подключён.
+      </div>
+    </section>
+  );
+}
+
+function DeferredAdminEmployeesPrototype({ search, onNotify }) {
+  const [rows] = useState([]);
   const [query, setQuery] = useState("");
   const [sortState, setSortState] = useState({ key: "id", direction: "desc" });
   const [page, setPage] = useState(1);
@@ -7670,10 +7394,6 @@ function AdminEmployeesPage({ search, onNotify }) {
   const pageSize = 16;
   const globalQuery = (search || "").trim().toLowerCase();
   const localQuery = query.trim().toLowerCase();
-
-  useEffect(() => {
-    saveStoredAdminEmployees(rows);
-  }, [rows]);
 
   useEffect(() => {
     setPage(1);
@@ -7769,35 +7489,12 @@ function AdminEmployeesPage({ search, onNotify }) {
 
   function saveEmployee(event) {
     event.preventDefault();
-    if (!editor) return;
-
-    const name = editor.name.trim();
-    const phone = editor.phone.trim();
-    const login = editor.login.trim();
-    if (!name || !login) return;
-
-    const nextEmployee = normalizeAdminEmployee({
-      ...editor,
-      id: editor.id || String(Date.now()).slice(-5),
-      name,
-      phone,
-      login,
-      balance: Number(String(editor.balance || 0).replace(/\s/g, "")) || 0,
-    });
-
-    setRows((current) => {
-      const exists = current.some((row) => row.id === nextEmployee.id);
-      return exists
-        ? current.map((row) => row.id === nextEmployee.id ? nextEmployee : row)
-        : [nextEmployee, ...current];
-    });
-    closeEditor();
-    onNotify?.("Сотрудник сохранён.");
+    onNotify?.("Сохранение сотрудника недоступно: backend contract не подключён.");
   }
 
   function deleteEmployee(row) {
-    setRows((current) => current.filter((item) => item.id !== row.id));
-    onNotify?.(`${row.name} удалён из списка сотрудников.`);
+    void row;
+    onNotify?.("Удаление сотрудника недоступно: backend contract не подключён.");
   }
 
   function renderSortableHead(label, key) {
@@ -7922,6 +7619,7 @@ function AdminEmployeesPage({ search, onNotify }) {
 
   return (
     <section className="admin-employee-page">
+      <div className="org-directory-empty" role="status">Backend contract для сотрудников не подключён.</div>
       <div className="admin-employee-card">
         <div className="admin-employee-head">
           <div className="admin-employee-title">
@@ -7930,7 +7628,7 @@ function AdminEmployeesPage({ search, onNotify }) {
           </div>
 
           <div className="admin-employee-head__actions">
-            <button type="button" className="admin-employee-refresh" onClick={() => onNotify?.("Список сотрудников обновлён.")}>
+            <button type="button" className="admin-employee-refresh" onClick={() => onNotify?.("Обновление недоступно: backend contract не подключён.")}>
               Обновить список (devent)
             </button>
             <button type="button" className="admin-employee-add" onClick={openCreate}>
@@ -7999,7 +7697,7 @@ function AdminEmployeesPage({ search, onNotify }) {
                 </tr>
               ))}
 
-              {!pageRows.length ? (
+              {rows.length > 0 && !pageRows.length ? (
                 <tr>
                   <td colSpan="7" className="admin-employee-empty">Сотрудники не найдены</td>
                 </tr>
@@ -8036,16 +7734,12 @@ function AdminEmployeesPage({ search, onNotify }) {
 function HandbookLocationPage({ active, search, onNotify }) {
   const kind = adminHandbookActiveKind[active] || "countries";
   const config = adminHandbookConfig[kind];
-  const [locations, setLocations] = useState(() => readStoredAdminHandbookLocations() || normalizeAdminHandbookState());
+  const [locations] = useState({ countries: [], regions: [], districts: [] });
   const [editor, setEditor] = useState(null);
   const query = (search || "").trim().toLowerCase();
   const rows = locations[kind] || [];
-  const countryOptions = locations.countries?.length ? locations.countries : adminHandbookDefaultRows.countries;
-  const regionOptions = locations.regions?.length ? locations.regions : adminHandbookDefaultRows.regions;
-
-  useEffect(() => {
-    saveStoredAdminHandbookLocations(locations);
-  }, [locations]);
+  const countryOptions = locations.countries || [];
+  const regionOptions = locations.regions || [];
 
   useEffect(() => {
     setEditor(null);
@@ -8095,43 +7789,12 @@ function HandbookLocationPage({ active, search, onNotify }) {
 
   function saveRow(event) {
     event.preventDefault();
-    if (!editor) return;
-
-    const name = editor.name.trim();
-    if (!name) return;
-
-    const nextRow = normalizeAdminHandbookRow(kind, {
-      ...editor,
-      id: editor.id || `${kind}-${Date.now()}`,
-      name,
-    }, rows.length);
-
-    setLocations((current) => {
-      const currentRows = current[kind] || [];
-      const exists = currentRows.some((row) => row.id === nextRow.id);
-      const nextRows = kind !== "districts"
-        ? [nextRow]
-        : exists
-          ? currentRows.map((row) => row.id === nextRow.id ? nextRow : row)
-          : [...currentRows, nextRow];
-
-      return normalizeAdminHandbookState({ ...current, [kind]: nextRows });
-    });
-    closeEditor();
-    onNotify?.(`${config.title}: запись сохранена.`);
+    onNotify?.("Сохранение справочника недоступно: backend contract не подключён.");
   }
 
   function deleteRow(row) {
-    if (kind !== "districts") {
-      onNotify?.(`${config.title}: эта запись обязательна.`);
-      return;
-    }
-
-    setLocations((current) => normalizeAdminHandbookState({
-      ...current,
-      districts: current.districts.filter((item) => item.id !== row.id),
-    }));
-    onNotify?.(`${row.name} удалён из справочника районов.`);
+    void row;
+    onNotify?.("Удаление справочника недоступно: backend contract не подключён.");
   }
 
   function renderParentCell(row) {
@@ -8219,6 +7882,7 @@ function HandbookLocationPage({ active, search, onNotify }) {
 
   return (
     <section className={`admin-handbook-page admin-handbook-page--${kind}`}>
+      <div className="org-directory-empty" role="status">Backend contract справочника не подключён.</div>
       <div className="admin-handbook-card">
         <div className="admin-handbook-head">
           <div className="admin-handbook-title">
@@ -8264,7 +7928,7 @@ function HandbookLocationPage({ active, search, onNotify }) {
                 </tr>
               ))}
 
-              {!visibleRows.length ? (
+              {rows.length > 0 && !visibleRows.length ? (
                 <tr>
                   <td colSpan={config.columns.length + 1} className="admin-handbook-empty">Список пуст</td>
                 </tr>
@@ -8417,6 +8081,7 @@ function getAdminFinanceLoadMessage(error) {
 
 function useDefaultAdminFinanceOrganizationId(onNotify) {
   const [organizationId, setOrganizationId] = useState("");
+  const [loadState, setLoadState] = useState("loading");
 
   useEffect(() => {
     let mounted = true;
@@ -8425,10 +8090,12 @@ function useDefaultAdminFinanceOrganizationId(onNotify) {
         if (!mounted) return;
         const first = extractAdminFinanceItems(data)[0];
         setOrganizationId(isUuidLike(first?.id) ? String(first.id) : "");
+        setLoadState(first ? "success" : "empty");
       })
       .catch((error) => {
         if (!mounted) return;
         setOrganizationId("");
+        setLoadState("error");
         onNotify?.(getAdminFinanceLoadMessage(error));
       });
     return () => {
@@ -8436,7 +8103,7 @@ function useDefaultAdminFinanceOrganizationId(onNotify) {
     };
   }, [onNotify]);
 
-  return organizationId;
+  return { organizationId, loadState };
 }
 
 function validateAdminFinanceDraft(draft) {
@@ -8967,6 +8634,7 @@ function AdminFinanceFilterDrawer({
 function AdminFinanceOperationsPage({ search, onNotify }) {
   const [range, setRange] = useState(() => buildAdminDashboardDateRange("Этот месяц"));
   const [operations, setOperations] = useState([]);
+  const [operationsLoadState, setOperationsLoadState] = useState("loading");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
   const [counterpartyFilter, setCounterpartyFilter] = useState("all");
@@ -9014,13 +8682,16 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
       date_from: adminReportDateToInputDate(normalizedRange.start),
       date_to: adminReportDateToInputDate(normalizedRange.end),
     };
+    setOperationsLoadState("loading");
     try {
       const { data } = await adminFinanceApi.listTransactions(params);
       const items = extractAdminFinanceItems(data);
       setOperations(items.map(normalizeAdminFinanceTransaction));
+      setOperationsLoadState(items.length ? "success" : "empty");
       return items;
     } catch (error) {
       setOperations([]);
+      setOperationsLoadState("error");
       onNotify?.(getAdminFinanceLoadMessage(error));
       return null;
     }
@@ -9191,8 +8862,8 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
     return typeMatches && counterpartyMatches && categoryMatches && queryMatches;
   });
   function deleteOperation(row) {
-    setOperations((current) => current.filter((item) => item.id !== row.id));
-    onNotify?.(`Операция ${formatSignedFinanceAmount(row.amount)} удалена локально.`);
+    void row;
+    onNotify?.("Удаление операции недоступно: backend mutation contract не подключён.");
   }
 
   function fieldRef(name) {
@@ -9394,11 +9065,11 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
         </div>
         <div className="admin-finance-summary is-income">
           <span>Приход</span>
-          <strong>{formatCurrency(financeTotals.income)}</strong>
+          <strong>{operationsLoadState === "error" ? "Недоступно" : formatCurrency(financeTotals.income)}</strong>
         </div>
         <div className="admin-finance-summary is-expense">
           <span>Расход</span>
-          <strong>{formatCurrency(financeTotals.expense)}</strong>
+          <strong>{operationsLoadState === "error" ? "Недоступно" : formatCurrency(financeTotals.expense)}</strong>
         </div>
         <div className="admin-finance-actions">
           <button type="button" className="admin-finance-action is-income" onClick={() => openFinanceModal("income")}>
@@ -9471,7 +9142,9 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
                 </td>
               </tr>
             ))}
-            {!filteredOperations.length ? (
+            {operationsLoadState === "error" ? (
+              <tr><td colSpan="9" className="admin-finance-empty" role="alert">Не удалось загрузить денежные операции.</td></tr>
+            ) : !filteredOperations.length ? (
               <tr>
                 <td colSpan="9" className="admin-finance-empty">Операции не найдены.</td>
               </tr>
@@ -9521,8 +9194,9 @@ function AdminFinanceCategoriesPage({
   emptyText,
   categoryKind,
 }) {
-  const organizationId = useDefaultAdminFinanceOrganizationId(onNotify);
+  const { organizationId, loadState: organizationLoadState } = useDefaultAdminFinanceOrganizationId(onNotify);
   const [categories, setCategories] = useState([]);
+  const [loadState, setLoadState] = useState("idle");
   const [editor, setEditor] = useState(null);
   const [draftName, setDraftName] = useState("");
   const [draftStatus, setDraftStatus] = useState("#активно");
@@ -9530,6 +9204,7 @@ function AdminFinanceCategoriesPage({
 
   useEffect(() => {
     if (!organizationId) return;
+    setLoadState("loading");
     adminFinanceApi.listCategories(organizationId, categoryKind, { size: 100 })
       .then(({ data }) => {
         const items = extractAdminFinanceItems(data);
@@ -9546,9 +9221,11 @@ function AdminFinanceCategoriesPage({
             };
           }).filter((row) => row.name));
         }
+        setLoadState(items.length ? "success" : "empty");
       })
       .catch((error) => {
         setCategories([]);
+        setLoadState("error");
         onNotify?.(getAdminFinanceLoadMessage(error));
       });
   }, [categoryKind, localPrefix, onNotify, organizationId]);
@@ -9593,36 +9270,12 @@ function AdminFinanceCategoriesPage({
 
   function saveCategory(event) {
     event.preventDefault();
-    const nextName = draftName.trim();
-    if (!nextName) {
-      onNotify?.("Введите название категории.");
-      return;
-    }
-    if (editor?.mode === "create") {
-      const next = {
-        id: `${localPrefix}-local-${Date.now()}`,
-        name: nextName,
-        status: draftStatus,
-        locked: false,
-      };
-      setCategories((current) => [next, ...current]);
-      onNotify?.(`${nextName}: категория добавлена.`);
-    } else if (editor?.row) {
-      setCategories((current) => current.map((item) => (
-        item.id === editor.row.id ? { ...item, name: nextName, status: draftStatus } : item
-      )));
-      onNotify?.(`${nextName}: категория сохранена.`);
-    }
-    closeEditor();
+    onNotify?.("Сохранение категории недоступно: backend mutation contract не подключён.");
   }
 
   function deleteCategory(row) {
-    if (row.locked) {
-      onNotify?.(`${row.name}: системную категорию нельзя удалить.`);
-      return;
-    }
-    setCategories((current) => current.filter((item) => item.id !== row.id));
-    onNotify?.(`${row.name}: категория удалена локально.`);
+    void row;
+    onNotify?.("Удаление категории недоступно: backend mutation contract не подключён.");
   }
 
   return (
@@ -9688,7 +9341,9 @@ function AdminFinanceCategoriesPage({
               </div>
             </div>
           ))}
-          {!filteredCategories.length ? (
+          {loadState === "error" || organizationLoadState === "error" ? (
+            <div className="admin-income-empty" role="alert">Не удалось загрузить финансовые категории.</div>
+          ) : !filteredCategories.length ? (
             <div className="admin-income-empty">{emptyText}</div>
           ) : null}
         </div>
@@ -9773,8 +9428,9 @@ function AdminExpenseCategoriesPage({ search, onNotify }) {
 }
 
 function AdminPaymentMethodsPage({ search, onNotify }) {
-  const organizationId = useDefaultAdminFinanceOrganizationId(onNotify);
+  const { organizationId, loadState: organizationLoadState } = useDefaultAdminFinanceOrganizationId(onNotify);
   const [methods, setMethods] = useState([]);
+  const [loadState, setLoadState] = useState("idle");
   const [editor, setEditor] = useState(null);
   const [draftName, setDraftName] = useState("");
   const [draftType, setDraftType] = useState("Карта");
@@ -9784,6 +9440,7 @@ function AdminPaymentMethodsPage({ search, onNotify }) {
 
   useEffect(() => {
     if (!organizationId) return;
+    setLoadState("loading");
     adminFinanceApi.listPaymentTypes(organizationId, { size: 100 })
       .then(({ data }) => {
         const items = extractAdminFinanceItems(data);
@@ -9798,9 +9455,11 @@ function AdminPaymentMethodsPage({ search, onNotify }) {
             vip: Boolean(r.is_vip || r.vip),
           })).filter((row) => row.name));
         }
+        setLoadState(items.length ? "success" : "empty");
       })
       .catch((error) => {
         setMethods([]);
+        setLoadState("error");
         onNotify?.(getAdminFinanceLoadMessage(error));
       });
   }, [onNotify, organizationId]);
@@ -9843,43 +9502,18 @@ function AdminPaymentMethodsPage({ search, onNotify }) {
 
   function saveMethod(event) {
     event.preventDefault();
-    const nextName = draftName.trim();
-    if (!nextName) {
-      onNotify?.("Введите название способа оплаты.");
-      return;
-    }
-    if (editor?.mode === "create") {
-      const nextSort = methods.reduce((max, row) => Math.max(max, Number(row.sort) || 0), 0) + 1;
-      setMethods((current) => [{
-        id: `payment-local-${Date.now()}`,
-        sort: nextSort,
-        name: nextName,
-        type: draftType,
-        status: draftStatus,
-        vip: draftVip,
-      }, ...current]);
-      onNotify?.(`${nextName}: способ оплаты добавлен.`);
-    } else if (editor?.row) {
-      setMethods((current) => current.map((item) => (
-        item.id === editor.row.id
-          ? { ...item, name: nextName, type: draftType, status: draftStatus, vip: draftVip }
-          : item
-      )));
-      onNotify?.(`${nextName}: способ оплаты сохранён.`);
-    }
-    closeEditor();
+    onNotify?.("Сохранение способа оплаты недоступно: backend mutation contract не подключён.");
   }
 
   function deleteMethod(row) {
-    setMethods((current) => current.filter((item) => item.id !== row.id));
-    onNotify?.(`${row.name}: способ оплаты удалён локально.`);
+    void row;
+    onNotify?.("Удаление способа оплаты недоступно: backend mutation contract не подключён.");
   }
 
   function updateSort(row, value) {
-    const nextSort = Math.max(1, Number(value) || 1);
-    setMethods((current) => current.map((item) => (
-      item.id === row.id ? { ...item, sort: nextSort } : item
-    )));
+    void row;
+    void value;
+    onNotify?.("Изменение порядка недоступно: backend mutation contract не подключён.");
   }
 
   return (
@@ -9930,7 +9564,9 @@ function AdminPaymentMethodsPage({ search, onNotify }) {
             </span>
           </div>
         ))}
-        {!filteredMethods.length ? (
+        {loadState === "error" || organizationLoadState === "error" ? (
+          <div className="admin-income-empty" role="alert">Не удалось загрузить способы оплаты.</div>
+        ) : !filteredMethods.length ? (
           <div className="admin-income-empty">Способы оплаты не найдены.</div>
         ) : null}
       </div>
@@ -10002,8 +9638,9 @@ function AdminPaymentMethodsPage({ search, onNotify }) {
 }
 
 function AdminFinanceHistoryPage({ search, onNotify }) {
-  const organizationId = useDefaultAdminFinanceOrganizationId(onNotify);
+  const { organizationId, loadState: organizationLoadState } = useDefaultAdminFinanceOrganizationId(onNotify);
   const [rows, setRows] = useState([]);
+  const [loadState, setLoadState] = useState("idle");
   const [page, setPage] = useState(1);
   const historyScrollRef = useRef(null);
   const [historyScroll, setHistoryScroll] = useState({
@@ -10041,6 +9678,7 @@ function AdminFinanceHistoryPage({ search, onNotify }) {
 
   useEffect(() => {
     if (!organizationId) return;
+    setLoadState("loading");
     adminFinanceApi.listFinanceHistory(organizationId, { size: 200 })
       .then(({ data }) => {
         const items = extractAdminFinanceItems(data);
@@ -10060,9 +9698,11 @@ function AdminFinanceHistoryPage({ search, onNotify }) {
             comment: r.comment || "",
           })));
         }
+        setLoadState(items.length ? "success" : "empty");
       })
       .catch((error) => {
         setRows([]);
+        setLoadState("error");
         onNotify?.(getAdminFinanceLoadMessage(error));
       });
   }, [onNotify, organizationId]);
@@ -10194,7 +9834,9 @@ function AdminFinanceHistoryPage({ search, onNotify }) {
                 <td className="admin-history-comment">{row.comment || "—"}</td>
               </tr>
             ))}
-            {!pageRows.length ? (
+            {loadState === "error" || organizationLoadState === "error" ? (
+              <tr><td colSpan="10" className="admin-history-empty" role="alert">Не удалось загрузить историю изменений.</td></tr>
+            ) : !pageRows.length ? (
               <tr>
                 <td colSpan="10" className="admin-history-empty">История изменений не найдена.</td>
               </tr>
@@ -10259,6 +9901,7 @@ function AdminFinanceHistoryPage({ search, onNotify }) {
 
 function AdminCashierBackgroundPage({ search, onNotify }) {
   const [backgrounds, setBackgrounds] = useState([]);
+  const [loadState, setLoadState] = useState("loading");
   const [editor, setEditor] = useState(null);
   const [draftName, setDraftName] = useState("");
   const [draftSort, setDraftSort] = useState("1");
@@ -10267,19 +9910,22 @@ function AdminCashierBackgroundPage({ search, onNotify }) {
   const query = search.trim().toLowerCase();
 
   useEffect(() => {
+    setLoadState("loading");
     adminApi.get("/image-backgrounds", { params: { size: 100 } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
-        if (items.length) {
-          setBackgrounds(items.map((r, i) => ({
+        setBackgrounds(items.map((r, i) => ({
             id: r.id || `bg-${i}`,
             name: r.name || "",
             sort: r.sort_order || i + 1,
             photo: r.image_url || r.photo || "",
           })));
-        }
+        setLoadState(items.length ? "success" : "empty");
       })
-      .catch(() => {});
+      .catch(() => {
+        setBackgrounds([]);
+        setLoadState("error");
+      });
   }, []);
   const filteredBackgrounds = backgrounds
     .filter((row) => !query || row.name.toLowerCase().includes(query) || row.photo.toLowerCase().includes(query))
@@ -10333,33 +9979,12 @@ function AdminCashierBackgroundPage({ search, onNotify }) {
 
   function saveBackground(event) {
     event.preventDefault();
-    const nextName = draftName.trim();
-    const nextSort = Math.max(1, Number(draftSort) || 1);
-    const nextPhoto = draftPhoto.trim();
-    if (!nextName || !nextPhoto) {
-      onNotify?.("Введите название и выберите изображение.");
-      return;
-    }
-    if (editor?.mode === "create") {
-      setBackgrounds((current) => [{
-        id: `cashier-bg-local-${Date.now()}`,
-        name: nextName,
-        sort: nextSort,
-        photo: nextPhoto,
-      }, ...current]);
-      onNotify?.(`${nextName}: фон добавлен.`);
-    } else if (editor?.row) {
-      setBackgrounds((current) => current.map((row) => (
-        row.id === editor.row.id ? { ...row, name: nextName, sort: nextSort, photo: nextPhoto } : row
-      )));
-      onNotify?.(`${nextName}: фон обновлён.`);
-    }
-    closeEditor();
+    onNotify?.("Сохранение фона недоступно: backend mutation contract не подключён.");
   }
 
   function deleteBackground(row) {
-    setBackgrounds((current) => current.filter((item) => item.id !== row.id));
-    onNotify?.(`${row.name}: фон удалён локально.`);
+    void row;
+    onNotify?.("Удаление фона недоступно: backend mutation contract не подключён.");
   }
 
   return (
@@ -10400,7 +10025,9 @@ function AdminCashierBackgroundPage({ search, onNotify }) {
             </span>
           </div>
         ))}
-        {!filteredBackgrounds.length ? (
+        {loadState === "error" ? (
+          <div className="admin-income-empty" role="alert">Не удалось загрузить фоны кассира.</div>
+        ) : !filteredBackgrounds.length ? (
           <div className="admin-income-empty">Фоны для кассира не найдены.</div>
         ) : null}
       </div>
@@ -10464,7 +10091,7 @@ function AdminCashierBackgroundPage({ search, onNotify }) {
 
 function CategoryPage({ active, rowsOverride, search, onCreate, onRowDetail, onNotify, onInnerBackChange }) {
   const content = categoryContent[active] || categoryContent["org-list"];
-  const { apiRows } = useAdminData(active, onNotify);
+  const { apiRows, loadState } = useAdminData(active, onNotify);
   if (active === "org-list") {
     return <OrganizationDirectoryPage search={search} onNotify={onNotify} onInnerBackChange={onInnerBackChange} />;
   }
@@ -10536,6 +10163,9 @@ function CategoryPage({ active, rowsOverride, search, onCreate, onRowDetail, onN
   });
   return (
     <section className="admin-category-page">
+      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка данных...</div> : null}
+      {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить данные.</div> : null}
+      {loadState === "unsupported" ? <div className="org-directory-empty" role="status">Backend источник не подключён.</div> : null}
       <div className="admin-panel-head">
         <div>
           <h2>{content.title}</h2>
@@ -10669,7 +10299,7 @@ function formatTransactionAmountParts(value) {
   }
 
   return {
-    value: formatDemoMoney(numericValue),
+    value: formatAdminMoney(numericValue),
     currency,
   };
 }
@@ -10701,7 +10331,7 @@ function transactionAmountToDraftValue(value) {
 
 function formatTransactionAmountDraft(value) {
   const numericValue = Number(String(value ?? "").replace(/[^\d-]/g, ""));
-  return Number.isFinite(numericValue) ? formatDemoMoney(Math.abs(numericValue)) : "0";
+  return Number.isFinite(numericValue) ? formatAdminMoney(Math.abs(numericValue)) : "0";
 }
 
 function AdminPageSizeDropdown({ value, options, onChange }) {
@@ -10769,228 +10399,6 @@ function AdminPageSizeDropdown({ value, options, onChange }) {
     </div>
   );
 }
-
-const demoTransactionSeeds = [
-  {
-    id: 1,
-    uuid: "demo-marjon-0001",
-    date: "15.07.2026 16:42",
-    orgId: "1003001",
-    name: "Marjon Cafe - Yunusabad",
-    payType: "Payme",
-    amount: "2 450 000 UZS",
-    kind: "Приход",
-    status: "PAID",
-    paymentFor: "Обеденный зал",
-    comment: "Демо: столы 4-7",
-  },
-  {
-    id: 2,
-    uuid: "demo-marjon-0002",
-    date: "15.07.2026 15:18",
-    orgId: "1003001",
-    name: "Marjon Cafe - Chilonzor",
-    payType: "Uzcard",
-    amount: "1 860 000 UZS",
-    kind: "Приход",
-    status: "PAID",
-    paymentFor: "Банкет",
-    comment: "Демо: предоплата",
-  },
-  {
-    id: 3,
-    uuid: "demo-marjon-0003",
-    date: "15.07.2026 14:05",
-    orgId: "1003001",
-    name: "Marjon Cafe - Yunusabad",
-    payType: "Наличные",
-    amount: "740 000 UZS",
-    kind: "Приход",
-    status: "PAID",
-    paymentFor: "Доставка",
-    comment: "Демо: курьерская смена",
-  },
-  {
-    id: 4,
-    uuid: "demo-marjon-0004",
-    date: "15.07.2026 12:34",
-    orgId: "1003001",
-    name: "Marjon Cafe - Chilonzor",
-    payType: "Humo",
-    amount: "3 210 000 UZS",
-    kind: "Приход",
-    status: "PAID",
-    paymentFor: "Зал и летняя терраса",
-    comment: "Демо: обеденный пик",
-  },
-  {
-    id: 5,
-    uuid: "demo-marjon-0005",
-    date: "15.07.2026 11:20",
-    orgId: "1003001",
-    name: "Marjon Cafe - Yunusabad",
-    payType: "Click",
-    amount: "580 000 UZS",
-    kind: "Приход",
-    status: "PAID",
-    paymentFor: "Кофе-бар",
-    comment: "Демо: утренние продажи",
-  },
-  {
-    id: 6,
-    uuid: "demo-marjon-0006",
-    date: "14.07.2026 22:10",
-    orgId: "1003001",
-    name: "Marjon Cafe - Chilonzor",
-    payType: "Payme",
-    amount: "4 980 000 UZS",
-    kind: "Приход",
-    status: "PAID",
-    paymentFor: "Вечерняя смена",
-    comment: "Демо: закрытие смены",
-  },
-  {
-    id: 7,
-    uuid: "demo-marjon-0007",
-    date: "14.07.2026 19:46",
-    orgId: "1003001",
-    name: "Marjon Cafe - Yunusabad",
-    payType: "Uzcard",
-    amount: "2 125 000 UZS",
-    kind: "Приход",
-    status: "PAID",
-    paymentFor: "Семейный зал",
-    comment: "Демо: бронирование",
-  },
-  {
-    id: 8,
-    uuid: "demo-marjon-0008",
-    date: "14.07.2026 17:02",
-    orgId: "1003001",
-    name: "Marjon Cafe - Chilonzor",
-    payType: "Наличные",
-    amount: "690 000 UZS",
-    kind: "Расход",
-    status: "PAID",
-    paymentFor: "Хозяйственные расходы",
-    comment: "Демо: расходные материалы",
-  },
-  {
-    id: 9,
-    uuid: "demo-marjon-0009",
-    date: "14.07.2026 13:30",
-    orgId: "1003001",
-    name: "Marjon Cafe - Yunusabad",
-    payType: "Humo",
-    amount: "1 340 000 UZS",
-    kind: "Приход",
-    status: "PAID",
-    paymentFor: "Бизнес-ланч",
-    comment: "Демо: корпоративный заказ",
-  },
-  {
-    id: 10,
-    uuid: "demo-marjon-0010",
-    date: "13.07.2026 21:15",
-    orgId: "1003001",
-    name: "Marjon Cafe - Chilonzor",
-    payType: "Click",
-    amount: "3 780 000 UZS",
-    kind: "Приход",
-    status: "PAID",
-    paymentFor: "Вечерний зал",
-    comment: "Демо: пятничная загрузка",
-  },
-  {
-    id: 11,
-    uuid: "demo-marjon-0011",
-    date: "13.07.2026 18:06",
-    orgId: "1003001",
-    name: "Marjon Cafe - Yunusabad",
-    payType: "Payme",
-    amount: "920 000 UZS",
-    kind: "Приход",
-    status: "PAID",
-    paymentFor: "Доставка",
-    comment: "Демо: онлайн-меню",
-  },
-  {
-    id: 12,
-    uuid: "demo-marjon-0012",
-    date: "13.07.2026 10:44",
-    orgId: "1003001",
-    name: "Marjon Cafe - Chilonzor",
-    payType: "Наличные",
-    amount: "450 000 UZS",
-    kind: "Расход",
-    status: "PAID",
-    paymentFor: "Склад",
-    comment: "Демо: закупка зелени",
-  },
-];
-
-const demoTransactionBranches = [
-  "Marjon Cafe - Yunusabad",
-  "Marjon Cafe - Chilonzor",
-  "Marjon Cafe - Mirabad",
-  "Marjon Cafe - Sergeli",
-];
-
-const demoTransactionPayTypes = ["Payme", "Uzcard", "Humo", "Click", "Наличные"];
-const demoTransactionTargets = [
-  "Обеденный зал",
-  "Банкет",
-  "Доставка",
-  "Кофе-бар",
-  "Вечерняя смена",
-  "Семейный зал",
-  "Склад",
-  "Летняя терраса",
-];
-const demoTransactionComments = [
-  "Демо: столы 4-7",
-  "Демо: предоплата",
-  "Демо: курьерская смена",
-  "Демо: обеденный пик",
-  "Демо: закрытие смены",
-  "Демо: закупка",
-  "Демо: онлайн-меню",
-  "Демо: корпоративный заказ",
-];
-
-function formatDemoTransactionDate(value) {
-  return `${padDate(value.getDate())}.${padDate(value.getMonth() + 1)}.${value.getFullYear()} ${padDate(value.getHours())}:${padDate(value.getMinutes())}`;
-}
-
-function buildDemoTransactions() {
-  const baseDate = new Date(2026, 6, 15, 16, 42);
-  return Array.from({ length: DEMO_TRANSACTION_ROW_COUNT }, (_, index) => {
-    const seed = demoTransactionSeeds[index % demoTransactionSeeds.length];
-    const date = new Date(baseDate);
-    date.setMinutes(baseDate.getMinutes() - index * 127);
-    const isExpense = index % 11 === 7 || seed.kind === "Расход";
-    const amount = isExpense
-      ? 320000 + (index % 9) * 85000
-      : 520000 + ((index * 337000) % 4300000);
-
-    return {
-      ...seed,
-      id: index + 1,
-      uuid: `demo-marjon-${String(index + 1).padStart(4, "0")}`,
-      date: formatDemoTransactionDate(date),
-      orgId: String(1003001 + (index % 4)),
-      name: demoTransactionBranches[index % demoTransactionBranches.length],
-      payType: demoTransactionPayTypes[index % demoTransactionPayTypes.length],
-      amount: `${formatDemoMoney(amount)} UZS`,
-      kind: isExpense ? "Расход" : "Приход",
-      status: "PAID",
-      paymentFor: demoTransactionTargets[index % demoTransactionTargets.length],
-      comment: `${demoTransactionComments[index % demoTransactionComments.length]} #${String(index + 1).padStart(3, "0")}`,
-    };
-  });
-}
-
-const demoTransactions = buildDemoTransactions();
 
 const dashboardTransactionReportRows = [
   {
@@ -11149,11 +10557,12 @@ const dashboardSalesReportRows = [
 ];
 
 function TransactionsTable({ onNotify }) {
-  const [rows, setRows] = useState(() => (ADMIN_DASHBOARD_DEMO_MODE ? demoTransactions : []));
+  const [rows, setRows] = useState([]);
+  const [loadState, setLoadState] = useState("loading");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
-  const pageSizeOptions = ADMIN_DASHBOARD_DEMO_MODE ? [12, 25, 50] : [10, 20, 50];
-  const [pageSize, setPageSize] = useState(() => (ADMIN_DASHBOARD_DEMO_MODE ? 12 : 20));
+  const pageSizeOptions = [10, 20, 50];
+  const [pageSize, setPageSize] = useState(20);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [columnSettings, setColumnSettings] = useState(loadTransactionColumnSettings);
   const [dragColumnKey, setDragColumnKey] = useState("");
@@ -11162,7 +10571,7 @@ function TransactionsTable({ onNotify }) {
   const visibleColumns = columnSettings.visible;
 
   useEffect(() => {
-    if (ADMIN_DASHBOARD_DEMO_MODE) return;
+    setLoadState("loading");
     adminFinanceApi.listTransactions({ size: 50 })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
@@ -11173,15 +10582,17 @@ function TransactionsTable({ onNotify }) {
             orgId: r.organization_id || "",
             name: r.organization_name || r.counterparty_name || "",
             payType: r.payment_type_name || r.payment_type || "",
-            amount: r.amount ? `${Number(r.amount).toLocaleString("ru-RU")} UZS` : "0 UZS",
+            amount: r.amount != null ? `${Number(r.amount).toLocaleString("ru-RU")} UZS` : "—",
             kind: r.direction === "income" ? "Приход" : "Расход",
             status: r.status || "PAID",
             paymentFor: r.payment_for || r.category_name || "",
             comment: r.comment || "",
           })));
+        setLoadState(items.length ? "success" : "empty");
       })
       .catch((error) => {
         setRows([]);
+        setLoadState("error");
         onNotify?.(getAdminFinanceLoadMessage(error));
       });
   }, [onNotify]);
@@ -11289,17 +10700,8 @@ function TransactionsTable({ onNotify }) {
   }
 
   function openTransactionEditor(row) {
-    setTransactionEditor({
-      id: row.id,
-      name: row.name || "",
-      date: transactionDateToInputValue(row.date),
-      amount: transactionAmountToDraftValue(row.amount),
-      kind: row.kind || "Приход",
-      payType: row.payType || demoTransactionPayTypes[0],
-      status: row.status || "PAID",
-      paymentFor: row.paymentFor || "",
-      comment: row.comment || "",
-    });
+    void row;
+    onNotify?.("Редактирование недоступно: backend mutation contract не подключён.");
   }
 
   function updateTransactionEditor(key, value) {
@@ -11308,27 +10710,7 @@ function TransactionsTable({ onNotify }) {
 
   function saveTransactionEditor(event) {
     event.preventDefault();
-
-    if (!transactionEditor) {
-      return;
-    }
-
-    const amount = Math.abs(Number(String(transactionEditor.amount).replace(/[^\d-]/g, "")) || 0);
-    const nextRow = {
-      name: transactionEditor.name.trim() || "—",
-      date: transactionInputDateToDisplay(transactionEditor.date),
-      amount: `${formatDemoMoney(amount)} UZS`,
-      kind: transactionEditor.kind,
-      payType: transactionEditor.payType,
-      status: transactionEditor.status.trim() || "PAID",
-      paymentFor: transactionEditor.paymentFor.trim(),
-      comment: transactionEditor.comment.trim(),
-    };
-
-    setRows((current) => current.map((row) => (
-      row.id === transactionEditor.id ? { ...row, ...nextRow } : row
-    )));
-    setTransactionEditor(null);
+    onNotify?.("Сохранение недоступно: backend mutation contract не подключён.");
   }
 
   const allColumns = [
@@ -11442,7 +10824,7 @@ function TransactionsTable({ onNotify }) {
             <label className="admin-income-field admin-transaction-field">
               <span>Тип оплаты</span>
               <select value={transactionEditor.payType} onChange={(event) => updateTransactionEditor("payType", event.target.value)}>
-                {demoTransactionPayTypes.map((type) => <option value={type} key={type}>{type}</option>)}
+                <option value={transactionEditor.payType}>{transactionEditor.payType || "Не указано"}</option>
               </select>
             </label>
 
@@ -11624,7 +11006,9 @@ function TransactionsTable({ onNotify }) {
             ))}
           </tbody>
         </table>
-        {!pageRows.length ? <div className="org-directory-empty">Транзакции не найдены.</div> : null}
+        {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка транзакций...</div> : null}
+        {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить транзакции.</div> : null}
+        {loadState === "empty" || (loadState === "success" && !pageRows.length) ? <div className="org-directory-empty">Транзакции не найдены.</div> : null}
       </div>
 
       <div className="org-directory-footer admin-transactions__footer">
@@ -11694,6 +11078,7 @@ function DashboardTransactionsReportPage() {
 
   return (
     <section className="admin-dashboard-transactions-report">
+      <div className="org-directory-empty" role="status">Backend источник отчёта транзакций не подключён.</div>
       <div className="admin-dashboard-transactions-report__filters">
         <div className="admin-dashboard-transactions-report__date-picker admin-chart-filter-date-picker admin-revenue-range">
           <ReportDateRangePicker
@@ -11712,7 +11097,7 @@ function DashboardTransactionsReportPage() {
         </div>
         <button className="admin-dashboard-transactions-report__branch" type="button">
           <Icon name="bi-geo-alt" size={16} />
-          <span>Тошкент филиал</span>
+          <span>Филиал недоступен</span>
         </button>
       </div>
 
@@ -11733,7 +11118,7 @@ function DashboardTransactionsReportPage() {
               </tr>
             </thead>
             <tbody>
-              {dashboardTransactionReportRows.map((row, index) => {
+              {[].map((row, index) => {
                 const isOpen = Boolean(openRows[row.id]);
 
                 return (
@@ -11804,6 +11189,7 @@ function DashboardSalesReportPage() {
 
   return (
     <section className="admin-dashboard-transactions-report admin-dashboard-sales-report">
+      <div className="org-directory-empty" role="status">Backend источник отчёта продаж не подключён.</div>
       <div className="admin-dashboard-transactions-report__filters">
         <div className="admin-dashboard-transactions-report__date-picker admin-chart-filter-date-picker admin-revenue-range">
           <ReportDateRangePicker
@@ -11822,7 +11208,7 @@ function DashboardSalesReportPage() {
         </div>
         <button className="admin-dashboard-transactions-report__branch" type="button">
           <Icon name="bi-geo-alt" size={16} />
-          <span>Тошкент филиал</span>
+          <span>Филиал недоступен</span>
         </button>
       </div>
 
@@ -11843,7 +11229,7 @@ function DashboardSalesReportPage() {
               </tr>
             </thead>
             <tbody>
-              {dashboardSalesReportRows.map((row, index) => {
+              {[].map((row, index) => {
                 const hasChildren = row.children.length > 0;
                 const isOpen = Boolean(openRows[row.id]);
 
@@ -11898,7 +11284,7 @@ function DashboardSalesReportPage() {
   );
 }
 
-function DashboardPage({ segment, onSegmentChange, organizationRows, approvals, dashKpis, onExport, onRowAction, onApprovalAction, onShowApprovals, onKpiClick, onOrgClick, onApprovalClick, onSystemClick, dashboardView, onOpenTransactions, onOpenSales, onOpenSection, onNotify }) {
+function DashboardPage({ segment, onSegmentChange, organizationRows, approvals, dashKpis, dashboardLoadState, onExport, onRowAction, onApprovalAction, onShowApprovals, onKpiClick, onOrgClick, onApprovalClick, onSystemClick, dashboardView, onOpenTransactions, onOpenSales, onOpenSection, onNotify }) {
   if (dashboardView === "transactions") {
     return <DashboardTransactionsReportPage />;
   }
@@ -11906,12 +11292,16 @@ function DashboardPage({ segment, onSegmentChange, organizationRows, approvals, 
     return <DashboardSalesReportPage />;
   }
 
-  const displayKpis = dashKpis || kpis;
+  const displayKpis = dashKpis || [];
   return (
     <>
-      <section className="admin-kpi-grid">
-        {displayKpis.map((item) => <KpiCard item={item} key={item.title} onClick={onKpiClick} />)}
-      </section>
+      {dashboardLoadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка показателей...</div> : null}
+      {dashboardLoadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить показатели платформы.</div> : null}
+      {dashboardLoadState === "success" ? (
+        <section className="admin-kpi-grid">
+          {displayKpis.map((item) => <KpiCard item={item} key={item.title} onClick={onKpiClick} />)}
+        </section>
+      ) : null}
       <div className="admin-dashboard-grid admin-dashboard-grid--chart-summary">
         <main className="admin-center">
           <DashboardChartFilterBar onOpenTransactions={onOpenTransactions} onOpenSales={onOpenSales} />
@@ -12201,7 +11591,6 @@ function AdminInstallDateModal({ onClose }) {
 }
 
 function DashboardChartFilterBar({ onOpenTransactions, onOpenSales }) {
-  const [installDateOpen, setInstallDateOpen] = useState(false);
   const [dateRange, setDateRange] = useState(() => buildAdminDashboardDateRange("Этот месяц"));
   const datePresets = useMemo(() => (
     ADMIN_DASHBOARD_DATE_PRESET_LABELS.map((label) => ({
@@ -12235,15 +11624,14 @@ function DashboardChartFilterBar({ onOpenTransactions, onOpenSales }) {
         <Icon name="bi-receipt" size={16} />
         <span>Транзакции</span>
       </button>
-      <button className="admin-chart-filter admin-chart-filter--install admin-chart-filter--with-icon" type="button" onClick={() => setInstallDateOpen(true)}>
+      <button className="admin-chart-filter admin-chart-filter--install admin-chart-filter--with-icon" type="button" disabled>
         <Icon name="bi-pc-display" size={16} />
-        <span>Дата установки</span>
+        <span>Дата установки недоступна</span>
       </button>
       <button className="admin-chart-filter admin-chart-filter--with-icon" type="button">
         <Icon name="bi-graph-up" size={16} />
         <span>Аналитика</span>
       </button>
-      {installDateOpen ? <AdminInstallDateModal onClose={() => setInstallDateOpen(false)} /> : null}
     </div>
   );
 }
@@ -12311,7 +11699,8 @@ function AdminShell({ onLogout, user }) {
   const [approvals, setApprovals] = useState([]);
   const [categoryRows, setCategoryRows] = useState({});
   const [detail, setDetail] = useState(null);
-  const [dashKpis, setDashKpis] = useState(() => (ADMIN_DASHBOARD_DEMO_MODE ? demoKpis : orderDashboardKpis(kpis)));
+  const [dashKpis, setDashKpis] = useState([]);
+  const [dashboardLoadState, setDashboardLoadState] = useState("loading");
   const [dashboardView, setDashboardView] = useState(null);
 
   const closeDetail = () => setDetail(null);
@@ -12347,17 +11736,29 @@ function AdminShell({ onLogout, user }) {
         }
       })
       .catch(() => {});
-    if (!ADMIN_DASHBOARD_DEMO_MODE) {
-      adminApi.get("/admin-reports/dashboard-kpis")
-        .then(({ data }) => {
-          if (!mounted || !data) return;
-          setDashKpis((prev) => prev.map((kpi) => {
-            const v = data[kpi.dataKey];
-            return v != null ? { ...kpi, value: typeof v === "number" ? v.toLocaleString("ru-RU") : String(v) } : kpi;
-          }));
-        })
-        .catch(() => {});
-    }
+    adminApi.get("/admin-reports/dashboard-kpis")
+      .then(({ data }) => {
+        if (!mounted) return;
+        if (!data || typeof data !== "object") {
+          setDashKpis([]);
+          setDashboardLoadState("empty");
+          return;
+        }
+        setDashKpis(orderDashboardKpis(kpis.map((kpi) => {
+          const value = data[kpi.dataKey];
+          return {
+            ...kpi,
+            value: value == null ? "Данные недоступны" : (typeof value === "number" ? value.toLocaleString("ru-RU") : String(value)),
+            delta: value == null ? "Backend не вернул показатель" : kpi.delta,
+          };
+        })));
+        setDashboardLoadState("success");
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setDashKpis([]);
+        setDashboardLoadState("error");
+      });
     return () => { mounted = false; };
   }, []);
 
@@ -12393,31 +11794,18 @@ function AdminShell({ onLogout, user }) {
   }
 
   function handleCreate(section) {
-    const content = categoryContent[section] || categoryContent["org-list"];
-    const nextRow = content.columns.map((column, index) => {
-      if (index === 0) return `Новая запись ${Date.now().toString().slice(-4)}`;
-      if (index === content.columns.length - 1) return "Новый";
-      return "—";
-    });
-    setCategoryRows((current) => ({
-      ...current,
-      [section]: [nextRow, ...(current[section] || content.rows)],
-    }));
-    setMessage("Запись создана локально.");
+    void section;
+    setMessage("Создание недоступно: backend mutation contract не подключён.");
   }
 
   function handleRowAction(name) {
-    setOrganizations((current) => current.map((row) => (
-      row[0] === name
-        ? row.map((cell, index) => (index === row.length - 1 ? (cell === "Активна" ? "На модерации" : "Активна") : cell))
-        : row
-    )));
-    setMessage(`Статус обновлен: ${name}`);
+    void name;
+    setMessage("Изменение статуса недоступно: backend mutation contract не подключён.");
   }
 
   function handleApprovalAction(item) {
-    setApprovals((current) => current.filter((entry) => entry !== item));
-    setMessage(`${item[0]}: заявка обработана.`);
+    void item;
+    setMessage("Обработка заявки недоступна: backend mutation contract не подключён.");
   }
 
   function openKpiDetail(item) {
@@ -12526,6 +11914,7 @@ function AdminShell({ onLogout, user }) {
         organizationRows={filteredOrganizations}
         approvals={approvals}
         dashKpis={dashKpis}
+        dashboardLoadState={dashboardLoadState}
         onExport={() => downloadCsv("marjon-organizations.csv", [["Организация", "Тип", "Филиалов", "Админ", "Дата регистрации", "Статус"], ...filteredOrganizations])}
         onRowAction={handleRowAction}
         onApprovalAction={handleApprovalAction}
@@ -12543,7 +11932,7 @@ function AdminShell({ onLogout, user }) {
     ) : (
       <CategoryPage active={active} rowsOverride={categoryRows[active]} search={search} onCreate={handleCreate} onRowDetail={openCategoryRowDetail} onNotify={setMessage} onInnerBackChange={setInnerBackHandler} />
     )
-  ), [active, approvals, categoryRows, dashKpis, dashboardView, filteredOrganizations, navigateTo, search, segment, setInnerBackHandler]);
+  ), [active, approvals, categoryRows, dashKpis, dashboardLoadState, dashboardView, filteredOrganizations, navigateTo, search, segment, setInnerBackHandler]);
 
   function logout() {
     const logoutRequest = adminLogout();

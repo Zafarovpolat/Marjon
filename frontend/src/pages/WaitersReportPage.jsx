@@ -40,8 +40,12 @@ export default function WaitersReportPage() {
     return { preset: "", start, end };
   });
   const [waiters, setWaiters] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    setLoading(true);
+    setError("");
     const params = {};
     if (dateRange.start) params.date_from = toApiDate(dateRange.start);
     if (dateRange.end) params.date_to = toApiDate(dateRange.end);
@@ -58,7 +62,11 @@ export default function WaitersReportPage() {
             dishes: Number(item.dishes_count || item.dishes || 0),
           })));
       })
-      .catch(() => setWaiters([]));
+      .catch((err) => {
+        setWaiters([]);
+        setError(err.response?.data?.detail || "Не удалось загрузить отчёт по официантам.");
+      })
+      .finally(() => setLoading(false));
   }, [dateRange.start, dateRange.end]);
 
   const visibleRows = useMemo(() => {
@@ -120,6 +128,9 @@ export default function WaitersReportPage() {
     link.remove();
     URL.revokeObjectURL(url);
   }
+
+  if (loading) return <section className="z-waiters-report"><div className="dashboard-empty" role="status">Загрузка отчёта...</div></section>;
+  if (error) return <section className="z-waiters-report"><div className="login-error" role="alert">{error}</div></section>;
 
   return (
     <section className="waiters-report-page">

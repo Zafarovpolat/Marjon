@@ -42,8 +42,12 @@ export default function DebtorsCreditorsReportPage() {
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState("");
   const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    setLoading(true);
+    setError("");
     api.get("/reports/debt-credit", { params: { date: selectedDate } })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.parties || [];
@@ -66,7 +70,11 @@ export default function DebtorsCreditorsReportPage() {
           };
         }));
       })
-      .catch(() => setRows([]));
+      .catch((err) => {
+        setRows([]);
+        setError(err.response?.data?.detail || "Не удалось загрузить отчёт по задолженностям.");
+      })
+      .finally(() => setLoading(false));
   }, [selectedDate]);
 
   const totals = useMemo(() => {
@@ -95,6 +103,9 @@ export default function DebtorsCreditorsReportPage() {
   }, [rows, activeTab, search]);
 
   const activeTotal = activeTab === "debtors" ? totals.debt : totals.credit;
+
+  if (loading) return <section className="dc-report-page"><div className="dashboard-empty" role="status">Загрузка отчёта...</div></section>;
+  if (error) return <section className="dc-report-page"><div className="login-error" role="alert">{error}</div></section>;
 
   return (
     <section className="dc-report-page">
