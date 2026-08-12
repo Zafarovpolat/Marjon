@@ -57,6 +57,19 @@ describe("Sidebar", () => {
     expect(document.querySelector('img[src="data:image/png;base64,owner-private"]')).not.toBeInTheDocument();
   });
 
+  it("preserves the server OWNER role instead of displaying manager semantics", () => {
+    renderSidebar(users.owner);
+
+    expect(screen.getAllByText("owner").length).toBeGreaterThan(0);
+    expect(screen.queryByText("manager")).not.toBeInTheDocument();
+  });
+
+  it("keeps manager semantics when the backend actually returns manager", () => {
+    renderSidebar(users.manager);
+
+    expect(screen.getAllByText("manager").length).toBeGreaterThan(0);
+  });
+
   it("shows an allowed navigation link and hides a forbidden one", () => {
     renderSidebar(users.cashier);
 

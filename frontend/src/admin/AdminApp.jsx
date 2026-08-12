@@ -572,27 +572,6 @@ const productBranchRows = [
 
 const ADMIN_PRODUCTS_STORAGE_KEY = "marjon-admin-products-v1";
 
-const adminProductCategories = [
-  "Хап",
-  "Ускуналар (оборудование)",
-  "Компьютер",
-  "Моноблок",
-  "Wi-Fi",
-  "Принтер",
-  "Кабель",
-  "Сканер",
-  "Хизматлар (услуги)",
-];
-
-const adminProductUnits = [
-  "Метр (м)",
-  "Килограмм (кг)",
-  "Литр (л)",
-  "Штук (шт)",
-  "Порция (пр)",
-  "Грамм (г)",
-];
-
 const adminProductRows = [
   { id: "tenda-sg108", name: "Tenda SG 108 8 Gigabit Power", category: "Хап", price: 240000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
   { id: "menyu-xolder", name: "MENYU XOLDER", category: "Ускуналар (оборудование)", price: 15000, unit: "Штук (шт)", status: "active", warehouse: "Главный склад", photo: "" },
@@ -638,17 +617,21 @@ function saveStoredAdminProducts(rows) {
   }
 }
 
-export function normalizeAdminProduct(row, index = 0) {
+export function normalizeAdminProduct(row, index = 0, dictionaries = {}) {
   const rawStatus = String(row.status ?? "").toLowerCase();
   const isInactive = row.status === false || rawStatus.includes("inactive") || rawStatus.includes("неак");
   const isArchived = Boolean(row.archived) || rawStatus.includes("archiv") || rawStatus.includes("архив");
+  const categoryId = row.category_id ? String(row.category_id) : "";
+  const unitId = row.unit_id ? String(row.unit_id) : "";
 
   return {
     id: String(row.id ?? row.product_id ?? `product-${index + 1}`),
     name: row.name || row.product_name || row.title || "",
-    category: row.category_name || row.category?.name || row.category || "Без категории",
+    category: categoryId ? dictionaries.categories?.get(categoryId) || `ID: ${categoryId}` : "—",
+    categoryId,
     price: Number(row.price ?? row.sale_price ?? row.cost_price ?? 0),
-    unit: row.unit_name || row.unit?.name || row.unit || row.measure || "Штук (шт)",
+    unit: unitId ? dictionaries.units?.get(unitId) || `ID: ${unitId}` : "—",
+    unitId,
     status: isInactive ? "inactive" : "active",
     photo: row.photo || row.image || row.image_url || "",
     archived: isArchived,
@@ -659,9 +642,9 @@ function createAdminProductDraft(row = null) {
   return {
     id: row?.id || "",
     name: row?.name || "",
-    category: row?.category || adminProductCategories[0],
+    category: row?.category || "—",
     price: row?.price != null ? String(row.price) : "",
-    unit: row?.unit || "Штук (шт)",
+    unit: row?.unit || "—",
     status: row?.status || "active",
     photo: row?.photo || "",
     archived: Boolean(row?.archived),
@@ -870,7 +853,7 @@ function normalizeAdminOrderStatus(status) {
   return "new";
 }
 
-function normalizeAdminOrder(row, index = 0) {
+export function normalizeAdminOrder(row, index = 0) {
   const rawItems = Array.isArray(row.items)
     ? row.items
     : Array.isArray(row.products)
@@ -889,10 +872,10 @@ function normalizeAdminOrder(row, index = 0) {
 
   return {
     id: String(row.id || row.order_number || `order-${index + 1}`),
-    organization: row.organization_name || row.branch_name || row.customer_name || row.customer || row.name || "—",
+    organization: row.organization_name || (row.organization_id ? `ID: ${row.organization_id}` : "—"),
     paymentId: String(row.payment_id || row.paymentId || row.transaction_id || row.pay_id || "—"),
     items,
-    total: Number(row.total || row.amount || items.reduce((sum, item) => sum + item.price * item.quantity, 0)),
+    total: Number(row.price ?? row.total ?? row.amount ?? items.reduce((sum, item) => sum + item.price * item.quantity, 0)),
     comment: row.comment || "-",
     status: normalizeAdminOrderStatus(row.status),
   };
@@ -918,12 +901,16 @@ function createAdminOrderDraft(row = null) {
   };
 }
 
-function getAdminOrderTotal(row) {
+export function getAdminOrderTotal(row) {
+  if (row.total != null) {
+    return Number(row.total || 0);
+  }
+
   if (row.items?.length) {
     return row.items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0);
   }
 
-  return Number(row.total || 0);
+  return 0;
 }
 
 function getAdminOrderProductsLabel(row) {
@@ -6112,7 +6099,7 @@ function DeferredStorageBalancePrototype({ search, onNotify, onInnerBackChange }
   );
 }
 
-function ProductNomenclaturePage({ search, onNotify }) {
+export function ProductNomenclaturePage({ search, onNotify }) {
   const [rows, setRows] = useState([]);
   const [loadState, setLoadState] = useState("loading");
   const [nameFilter, setNameFilter] = useState("");
@@ -6123,10 +6110,27 @@ function ProductNomenclaturePage({ search, onNotify }) {
   const query = search.trim().toLowerCase();
 
   useEffect(() => {
-    adminApi.get("/products", { params: { size: 100 } })
-      .then(({ data }) => {
-        const items = Array.isArray(data) ? data : data?.items || data?.results || [];
-        setRows(items.map(normalizeAdminProduct));
+    Promise.allSettled([
+      adminApi.get("/products", { params: { size: 100 } }),
+      adminApi.get("/categories", { params: { size: 100 } }),
+      adminApi.get("/units", { params: { size: 100 } }),
+    ])
+      .then(([productsResult, categoriesResult, unitsResult]) => {
+        if (productsResult.status === "rejected") throw productsResult.reason;
+
+        const items = normalizePaginatedList(productsResult.value.data).items;
+        const categories = categoriesResult.status === "fulfilled"
+          ? normalizePaginatedList(categoriesResult.value.data).items
+          : [];
+        const units = unitsResult.status === "fulfilled"
+          ? normalizePaginatedList(unitsResult.value.data).items
+          : [];
+        const dictionaries = {
+          categories: new Map(categories.map((row) => [String(row.id), row.name]).filter(([, name]) => name)),
+          units: new Map(units.map((row) => [String(row.id), row.name]).filter(([, name]) => name)),
+        };
+
+        setRows(items.map((row, index) => normalizeAdminProduct(row, index, dictionaries)));
         setLoadState(items.length ? "success" : "empty");
       })
       .catch(() => {
@@ -6137,7 +6141,7 @@ function ProductNomenclaturePage({ search, onNotify }) {
 
   const categoryOptions = useMemo(() => {
     const values = rows.map((row) => row.category).filter(Boolean);
-    return Array.from(new Set([...adminProductCategories, ...values]));
+    return Array.from(new Set(values));
   }, [rows]);
 
   const visibleRows = useMemo(() => {
@@ -6245,10 +6249,8 @@ function ProductNomenclaturePage({ search, onNotify }) {
           <div className="admin-product-form-grid">
             <label className="admin-product-field">
               <span>Категория товара</span>
-              <select value={editor.category} onChange={(event) => updateEditor("category", event.target.value)}>
-                {categoryOptions.map((category) => (
-                  <option value={category} key={category}>{category}</option>
-                ))}
+              <select value={editor.category} disabled aria-label="Категория товара">
+                <option value={editor.category}>{editor.category || "Не подключено"}</option>
               </select>
             </label>
 
@@ -6268,16 +6270,9 @@ function ProductNomenclaturePage({ search, onNotify }) {
           <div className="admin-product-unit-field">
             <span>Выберите единицу измерения <b>*</b></span>
             <div>
-              {adminProductUnits.map((unit) => (
-                <button
-                  type="button"
-                  className={editor.unit === unit ? "is-selected" : ""}
-                  onClick={() => updateEditor("unit", unit)}
-                  key={unit}
-                >
-                  {unit}
-                </button>
-              ))}
+              <button type="button" className="is-selected" disabled>
+                {editor.unit || "Не подключено"}
+              </button>
             </div>
           </div>
         </div>
@@ -6745,10 +6740,9 @@ function AdminSourcesPage({ search, onNotify }) {
   );
 }
 
-function OrdersNomenclaturePage({ search, onNotify }) {
+export function OrdersNomenclaturePage({ search, onNotify }) {
   const [rows, setRows] = useState([]);
   const [loadState, setLoadState] = useState("loading");
-  const [editor, setEditor] = useState(null);
   const [sortState, setSortState] = useState({ key: "id", direction: "desc" });
   const [page, setPage] = useState(1);
   const pageSize = 14;
@@ -6771,19 +6765,6 @@ function OrdersNomenclaturePage({ search, onNotify }) {
   useEffect(() => {
     setPage(1);
   }, [query]);
-
-  useEffect(() => {
-    if (!editor) return undefined;
-
-    function closeOnEscape(event) {
-      if (event.key === "Escape") {
-        setEditor(null);
-      }
-    }
-
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [editor]);
 
   const filteredRows = useMemo(() => {
     const nextRows = rows.filter((row) => {
@@ -6839,48 +6820,12 @@ function OrdersNomenclaturePage({ search, onNotify }) {
   }
 
   function openCreate() {
-    setEditor(createAdminOrderDraft());
+    onNotify?.("Добавление заказа недоступно: полный backend editor contract не подключён.");
   }
 
   function openEdit(row) {
-    setEditor(createAdminOrderDraft(row));
-  }
-
-  function closeEditor() {
-    setEditor(null);
-  }
-
-  function updateEditor(field, value) {
-    setEditor((current) => current ? { ...current, [field]: value } : current);
-  }
-
-  function updateEditorItem(itemId, field, value) {
-    setEditor((current) => current ? {
-      ...current,
-      items: current.items.map((item) => item.id === itemId ? { ...item, [field]: value } : item),
-    } : current);
-  }
-
-  function addEditorItem() {
-    setEditor((current) => current ? {
-      ...current,
-      items: [
-        ...current.items,
-        { id: `order-item-${Date.now()}`, product: adminOrderProducts[0], quantity: "1", price: "0", comment: "" },
-      ],
-    } : current);
-  }
-
-  function removeEditorItem(itemId) {
-    setEditor((current) => current ? {
-      ...current,
-      items: current.items.length > 1 ? current.items.filter((item) => item.id !== itemId) : current.items,
-    } : current);
-  }
-
-  function saveOrder(event) {
-    event.preventDefault();
-    onNotify?.("Сохранение заказа недоступно: backend mutation contract не подключён.");
+    void row;
+    onNotify?.("Редактирование заказа недоступно: полный backend editor contract не подключён.");
   }
 
   function confirmOrder(row) {
@@ -6904,73 +6849,6 @@ function OrdersNomenclaturePage({ search, onNotify }) {
     return "Новые";
   }
 
-  const drawer = editor ? createPortal(
-    <div className="admin-orders-drawer" role="dialog" aria-modal="true" aria-label="Заказ">
-      <button type="button" className="admin-orders-drawer__shade" onClick={closeEditor} aria-label="Закрыть форму" />
-      <form className="admin-orders-panel" onSubmit={saveOrder}>
-        <div className="admin-orders-panel__body">
-          <h3>{editor.id ? "Изменить заказы" : "Добавить заказы"}</h3>
-
-          <label className="admin-orders-field admin-orders-field--wide">
-            <span>Организация</span>
-            <select value={editor.organization} onChange={(event) => updateEditor("organization", event.target.value)}>
-              {adminOrderOrganizations.map((organization) => (
-                <option value={organization} key={organization}>{organization}</option>
-              ))}
-            </select>
-          </label>
-
-          <div className="admin-orders-items">
-            {editor.items.map((item) => (
-              <div className="admin-orders-item" key={item.id}>
-                <label className="admin-orders-field">
-                  <span>Продукт</span>
-                  <select value={item.product} onChange={(event) => updateEditorItem(item.id, "product", event.target.value)}>
-                    {adminOrderProducts.map((product) => (
-                      <option value={product} key={product}>{product}</option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="admin-orders-field">
-                  <span>Цена</span>
-                  <input value={item.price} inputMode="numeric" onChange={(event) => updateEditorItem(item.id, "price", event.target.value)} />
-                </label>
-
-                <label className="admin-orders-field">
-                  <span>Количество</span>
-                  <input value={item.quantity} inputMode="decimal" onChange={(event) => updateEditorItem(item.id, "quantity", event.target.value)} />
-                </label>
-
-                <label className="admin-orders-field">
-                  <span>Комментария</span>
-                  <input value={item.comment} onChange={(event) => updateEditorItem(item.id, "comment", event.target.value)} placeholder="Комментария" />
-                </label>
-
-                {editor.items.length > 1 ? (
-                  <button type="button" className="admin-orders-item-remove" onClick={() => removeEditorItem(item.id)} aria-label="Удалить продукт">
-                    <Icon name="bi-trash3" size={14} />
-                  </button>
-                ) : null}
-              </div>
-            ))}
-          </div>
-
-          <button type="button" className="admin-orders-add-item" onClick={addEditorItem}>
-            <Icon name="bi-plus" size={14} />
-            <span>Добавить</span>
-          </button>
-        </div>
-
-        <div className="admin-orders-panel__footer">
-          <button type="button" onClick={closeEditor}>Отменить</button>
-          <button type="submit">Сохранить</button>
-        </div>
-      </form>
-    </div>,
-    document.body,
-  ) : null;
-
   return (
     <section className="admin-orders-page">
       {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка заказов...</div> : null}
@@ -6982,7 +6860,7 @@ function OrdersNomenclaturePage({ search, onNotify }) {
             <h2>Список заказов</h2>
           </div>
 
-          <button type="button" className="admin-orders-add" onClick={openCreate}>
+          <button type="button" className="admin-orders-add" onClick={openCreate} aria-label="Добавление заказа недоступно">
             <span>Добавить</span>
             <Icon name="bi-plus" size={15} />
           </button>
@@ -7049,7 +6927,7 @@ function OrdersNomenclaturePage({ search, onNotify }) {
                   </td>
                   <td>
                     <div className="admin-orders-actions">
-                      <button type="button" className="is-edit" onClick={() => openEdit(row)} aria-label="Редактировать заказ">
+                      <button type="button" className="is-edit" onClick={() => openEdit(row)} aria-label="Редактирование заказа недоступно">
                         <Icon name="bi-pencil" size={15} />
                       </button>
                       <button type="button" className="is-delete" onClick={() => deleteOrder(row)} aria-label="Удалить заказ">
@@ -7086,7 +6964,6 @@ function OrdersNomenclaturePage({ search, onNotify }) {
         </div>
       </div>
 
-      {drawer}
     </section>
   );
 }
@@ -7914,7 +7791,7 @@ function normalizeAdminFinanceTransaction(row, index = 0) {
     paymentType: row.payment_type_name || row.payment_type || "—",
     counterparty: row.counterparty_name || row.counterparty || "—",
     category: row.category_name || row.category || "—",
-    status: row.status || "Проведен",
+    status: "—",
     comment: row.comment || "—",
   };
 }
@@ -10467,7 +10344,23 @@ const dashboardSalesReportRows = [
   },
 ];
 
-function TransactionsTable({ onNotify }) {
+export function normalizeHqDashboardTransaction(row, index = 0) {
+  return {
+    id: row.id_num || index + 1,
+    uuid: row.id || "",
+    date: row.date || row.created_at || "",
+    orgId: row.organization_id || "",
+    name: row.organization_name || row.counterparty_name || "",
+    payType: row.payment_type_name || row.payment_type || "",
+    amount: row.amount != null ? `${Number(row.amount).toLocaleString("ru-RU")} UZS` : "—",
+    kind: row.direction === "income" ? "Приход" : "Расход",
+    status: "—",
+    paymentFor: row.payment_for || row.category_name || "",
+    comment: row.comment || "",
+  };
+}
+
+export function TransactionsTable({ onNotify }) {
   const [rows, setRows] = useState([]);
   const [loadState, setLoadState] = useState("loading");
   const [query, setQuery] = useState("");
@@ -10486,19 +10379,7 @@ function TransactionsTable({ onNotify }) {
     adminFinanceApi.listTransactions({ size: 50 })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
-        setRows(items.map((r, i) => ({
-            id: r.id_num || i + 1,
-            uuid: r.id || "",
-            date: r.date || r.created_at || "",
-            orgId: r.organization_id || "",
-            name: r.organization_name || r.counterparty_name || "",
-            payType: r.payment_type_name || r.payment_type || "",
-            amount: r.amount != null ? `${Number(r.amount).toLocaleString("ru-RU")} UZS` : "—",
-            kind: r.direction === "income" ? "Приход" : "Расход",
-            status: r.status || "PAID",
-            paymentFor: r.payment_for || r.category_name || "",
-            comment: r.comment || "",
-          })));
+        setRows(items.map(normalizeHqDashboardTransaction));
         setLoadState(items.length ? "success" : "empty");
       })
       .catch((error) => {
@@ -10660,7 +10541,7 @@ function TransactionsTable({ onNotify }) {
         );
       }
       case "kind": return <span className={`org-directory-flag ${row.kind === "Расход" ? "org-directory-flag--warning" : "org-directory-flag--success"}`}>{row.kind}</span>;
-      case "status": return <span className="org-directory-flag org-directory-flag--success">{row.status}</span>;
+      case "status": return <span className="org-directory-flag">{row.status}</span>;
       case "comment": return row.comment ? row.comment : "—";
       case "actions": return (
         <button type="button" className="admin-tx-edit" onClick={() => openTransactionEditor(row)} aria-label={`Редактировать транзакцию ${row.id}`}>
@@ -10741,11 +10622,7 @@ function TransactionsTable({ onNotify }) {
 
             <label className="admin-income-field admin-transaction-field">
               <span>Status</span>
-              <select value={transactionEditor.status} onChange={(event) => updateTransactionEditor("status", event.target.value)}>
-                <option value="PAID">PAID</option>
-                <option value="PENDING">PENDING</option>
-                <option value="CANCELLED">CANCELLED</option>
-              </select>
+              <input value="Недоступно" disabled />
             </label>
 
             <label className="admin-income-field admin-transaction-field">

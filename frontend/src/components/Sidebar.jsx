@@ -150,7 +150,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
   const role = getRole(user) || "owner";
   const displayName = user?.full_name || user?.name || user?.email || "Owner";
   const profileCardName = user?.full_name || user?.name || (user?.email ? `${user.email.slice(0, 14)}...` : "manager@marjon...");
-  const profileCardRole = role === "owner" ? "manager" : role;
+  const profileCardRole = role;
   const profilePhoto = storedProfile.photo || logo;
 
   // Ролевая фильтрация пунктов меню (ТЗ §2.2)
