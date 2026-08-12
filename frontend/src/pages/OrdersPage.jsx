@@ -24,9 +24,15 @@ export default function OrdersPage() {
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : [];
         setOrders(items);
-        setSelectedOrderId((current) => current || items[0]?.id || null);
+        setSelectedOrderId((current) => (
+          items.some((item) => String(item.id) === String(current)) ? current : items[0]?.id || null
+        ));
       })
-      .catch((err) => { setOrders([]); setError(err.response?.data?.detail || "Не удалось загрузить заказы."); });
+      .catch((err) => {
+        setOrders([]);
+        setSelectedOrderId(null);
+        setError(err.response?.data?.detail || "Не удалось загрузить заказы.");
+      });
   }, [selectedDate]);
 
   const selectedOrder = useMemo(
@@ -56,7 +62,7 @@ export default function OrdersPage() {
           <h2>Заказы за {formatDateLabel(selectedDate)}</h2>
         </div>
       </div>
-      {error ? <div className="login-error">{error}</div> : null}
+      {error ? <div className="login-error" role="alert">{error}</div> : null}
       {printState.error ? <div className="message message-error">{printState.error}</div> : null}
       {printState.message ? <div className="message message-success">{printState.message}</div> : null}
       <div className="table-responsive">
@@ -94,7 +100,7 @@ export default function OrdersPage() {
                 </tr>
               );
             })}
-            {!orders.length ? <tr><td colSpan="6">Заказов за этот день нет.</td></tr> : null}
+            {!error && !orders.length ? <tr><td colSpan="6">Заказов за этот день нет.</td></tr> : null}
           </tbody>
         </table>
       </div>

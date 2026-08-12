@@ -1,30 +1,22 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import logo from "../assets/marjon-logo.svg";
 import Icon from "../components/Icon";
-
-const PROFILE_STORAGE_KEY = "marjon_profile_settings";
-
-function readStoredProfile() {
-  try {
-    return JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
+import { readStoredProfile, updateStoredProfile } from "../utils/profileCache";
 
 export default function ProfileSettingsPage() {
   const { user } = useOutletContext();
-  const storedProfile = useMemo(() => readStoredProfile(), []);
+  const storedProfile = useMemo(() => readStoredProfile(user?.id), [user?.id]);
   const defaultName = user?.full_name || user?.email || "manager@marjon.uz";
-  const [name, setName] = useState(storedProfile.name || defaultName);
+  const [name, setName] = useState(defaultName);
   const [photo, setPhoto] = useState(storedProfile.photo || "");
   const [message, setMessage] = useState("");
 
-  function updateStoredProfile(nextProfile) {
-    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(nextProfile));
-    window.dispatchEvent(new CustomEvent("marjon-profile-updated", { detail: nextProfile }));
-  }
+  useEffect(() => {
+    setName(defaultName);
+    setPhoto(storedProfile.photo || "");
+    setMessage("");
+  }, [defaultName, storedProfile.photo, user?.id]);
 
   function handlePhotoChange(event) {
     const file = event.target.files?.[0];
@@ -50,7 +42,7 @@ export default function ProfileSettingsPage() {
       return;
     }
 
-    updateStoredProfile({ name: trimmedName, photo });
+    updateStoredProfile(user?.id, { name: trimmedName, photo });
     setName(trimmedName);
     setMessage("Профиль обновлен.");
   }

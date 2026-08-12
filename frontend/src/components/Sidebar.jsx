@@ -3,9 +3,9 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/marjon-logo.svg";
 import { logout } from "../api/client";
 import { canAccessPath, filterNavItems, getRole } from "../utils/permissions";
+import { readStoredProfile } from "../utils/profileCache";
 import Icon from "./Icon";
 
-const PROFILE_STORAGE_KEY = "marjon_profile_settings";
 const sidebarLanguages = [
   {
     code: "uz",
@@ -29,14 +29,6 @@ const sidebarLanguages = [
     flagUrl: "https://upload.wikimedia.org/wikipedia/en/a/ae/Flag_of_the_United_Kingdom.svg",
   },
 ];
-
-function readStoredProfile() {
-  try {
-    return JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
 
 const navItems = [
   { key: "dashboard", label: "Дашборд", icon: "bi-bar-chart-line", to: "/" },
@@ -153,11 +145,11 @@ export default function Sidebar({ user, collapsed, onToggle }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [langPanelOpen, setLangPanelOpen] = useState(false);
   const [lang, setLang] = useState(() => localStorage.getItem("marjon_lang") || "ru");
-  const [storedProfile, setStoredProfile] = useState(() => readStoredProfile());
+  const [storedProfile, setStoredProfile] = useState(() => readStoredProfile(user?.id));
   const accountRef = useRef(null);
   const role = getRole(user) || "owner";
-  const displayName = storedProfile.name || user?.full_name || user?.email || "Owner";
-  const profileCardName = storedProfile.name || (user?.email ? `${user.email.slice(0, 14)}...` : "manager@marjon...");
+  const displayName = user?.full_name || user?.name || user?.email || "Owner";
+  const profileCardName = user?.full_name || user?.name || (user?.email ? `${user.email.slice(0, 14)}...` : "manager@marjon...");
   const profileCardRole = role === "owner" ? "manager" : role;
   const profilePhoto = storedProfile.photo || logo;
 
@@ -187,14 +179,18 @@ export default function Sidebar({ user, collapsed, onToggle }) {
   useEffect(() => { setMoreOpen(false); }, [location.pathname]);
 
   useEffect(() => {
-    const syncStoredProfile = () => setStoredProfile(readStoredProfile());
+    setStoredProfile(readStoredProfile(user?.id));
+    const syncStoredProfile = (event) => {
+      if (event?.detail?.userId && String(event.detail.userId) !== String(user?.id || "")) return;
+      setStoredProfile(readStoredProfile(user?.id));
+    };
     window.addEventListener("storage", syncStoredProfile);
     window.addEventListener("marjon-profile-updated", syncStoredProfile);
     return () => {
       window.removeEventListener("storage", syncStoredProfile);
       window.removeEventListener("marjon-profile-updated", syncStoredProfile);
     };
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => () => {
     if (closePopoverTimer.current) clearTimeout(closePopoverTimer.current);

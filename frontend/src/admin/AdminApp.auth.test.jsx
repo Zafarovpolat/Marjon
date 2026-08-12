@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import axios from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AUTH_SCOPES, AUTH_STORAGE_KEYS, endAuthSession, resetAuthSessionStateForTest } from "../auth/session";
-import AdminApp from "./AdminApp";
+import AdminApp, { CategoryPage, StorageInventoryPage, StorageWriteoffPage } from "./AdminApp";
 import { adminApi } from "./api";
 
 const adminTransportAdapter = adminApi.defaults.adapter;
@@ -218,5 +218,37 @@ describe("AdminApp HQ session gate", () => {
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBeNull();
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBe("app-access");
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe("app-refresh");
+  });
+
+  it.each([
+    [StorageWriteoffPage, "Документы списания недоступны"],
+    [StorageInventoryPage, "Инвентаризация недоступна"],
+  ])("keeps deferred HQ storage page %p explicit and request-free", async (Page, message) => {
+    const get = vi.spyOn(adminApi, "get");
+
+    render(<Page search="" onNotify={vi.fn()} onInnerBackChange={vi.fn()} />);
+
+    expect(await screen.findByRole("status")).toHaveTextContent(message);
+    expect(get).not.toHaveBeenCalled();
+    expect(screen.queryByText("Список пуст")).not.toBeInTheDocument();
+    expect(screen.queryByText("Инвентаризации не найдены.")).not.toBeInTheDocument();
+  });
+
+  it("does not call an APP-only debt-credit report from HQ bank statistics", async () => {
+    const get = vi.spyOn(adminApi, "get");
+
+    render(
+      <CategoryPage
+        active="bank-stats"
+        search=""
+        onCreate={vi.fn()}
+        onRowDetail={vi.fn()}
+        onNotify={vi.fn()}
+        onInnerBackChange={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Backend источник не подключён.");
+    expect(get).not.toHaveBeenCalled();
   });
 });

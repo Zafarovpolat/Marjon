@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client";
 import logo from "../../assets/marjon-logo.svg";
 import Icon from "../../components/Icon";
-
-const PROFILE_STORAGE_KEY = "marjon_profile_settings";
+import { useAuth } from "../../context/AuthContext";
+import { readStoredProfile, updateStoredProfile } from "../../utils/profileCache";
 
 const profileSections = [
   { key: "basic", label: "Основные данные", icon: "bi-file-earmark-text" },
@@ -20,19 +20,6 @@ const profileSections = [
   { key: "legacy", label: "Старая версия", icon: "bi-arrow-counterclockwise" },
 ];
 
-function readStoredProfile() {
-  try {
-    return JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
-
-function updateStoredProfile(nextProfile) {
-  localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(nextProfile));
-  window.dispatchEvent(new CustomEvent("marjon-profile-updated", { detail: nextProfile }));
-}
-
 const emptyForm = {
   name: "",
   phone: "",
@@ -44,7 +31,8 @@ const emptyForm = {
 };
 
 export default function SettingsProfilePage() {
-  const storedProfile = useMemo(() => readStoredProfile(), []);
+  const { user } = useAuth();
+  const storedProfile = useMemo(() => readStoredProfile(user?.id), [user?.id]);
   const [form, setForm] = useState({ ...emptyForm, profileLogo: storedProfile.photo || "" });
   const [savedForm, setSavedForm] = useState({ ...emptyForm, profileLogo: storedProfile.photo || "" });
   const [activeSection, setActiveSection] = useState("basic");
@@ -57,7 +45,7 @@ export default function SettingsProfilePage() {
     api.get("/companies/me")
       .then(({ data }) => {
         const next = {
-          name: data.name || storedProfile.name || "",
+          name: data.name || "",
           phone: data.phone || "",
           address: data.address || "",
           inn: data.inn || "",
@@ -70,7 +58,7 @@ export default function SettingsProfilePage() {
       })
       .catch((err) => setError(err.response?.data?.detail || "Не удалось загрузить профиль."))
       .finally(() => setLoading(false));
-  }, [storedProfile.companyLogo, storedProfile.name, storedProfile.photo]);
+  }, [storedProfile.companyLogo, storedProfile.name, storedProfile.photo, user?.id]);
 
   const activeMeta = profileSections.find((section) => section.key === activeSection) || profileSections[0];
   const profilePreview = form.profileLogo || form.companyLogo || logo;
@@ -120,12 +108,12 @@ export default function SettingsProfilePage() {
       };
       await api.patch("/companies/me", payload);
       const nextStored = {
-        ...readStoredProfile(),
+        ...readStoredProfile(user?.id),
         name: form.name.trim() || "MARJON",
         photo: form.profileLogo,
         companyLogo: form.companyLogo,
       };
-      updateStoredProfile(nextStored);
+      updateStoredProfile(user?.id, nextStored);
       setSavedForm(form);
       setSuccess("Профиль сохранён.");
     } catch (err) {

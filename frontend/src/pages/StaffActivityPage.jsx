@@ -9,9 +9,11 @@ function StaffActivityPage({ type = "login-history" }) {
   const eyebrow = isAttendance ? "Смены сотрудников" : "Безопасность";
   const [loginRows, setLoginRows] = useState([]);
   const [shiftRows, setShiftRows] = useState([]);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const endpoint = isAttendance ? "/hr/attendance" : "/hr/login-history";
+    setError("");
     api.get(endpoint)
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
@@ -40,6 +42,7 @@ function StaffActivityPage({ type = "login-history" }) {
       .catch(() => {
         if (isAttendance) setShiftRows([]);
         else setLoginRows([]);
+        setError("Не удалось загрузить данные активности сотрудников.");
       });
   }, [isAttendance]);
 
@@ -89,6 +92,7 @@ function StaffActivityPage({ type = "login-history" }) {
           </button>
         </header>
 
+        {error ? <div className="login-error" role="alert">{error}</div> : null}
         <div className="staff-table-wrapper">
           {isAttendance ? (
             <table className="staff-table">
@@ -119,6 +123,9 @@ function StaffActivityPage({ type = "login-history" }) {
                     </td>
                   </tr>
                 ))}
+                {!error && !displayAttendanceRows.length ? (
+                  <tr><td colSpan="7">Данных о посещаемости пока нет.</td></tr>
+                ) : null}
               </tbody>
             </table>
           ) : (
@@ -150,6 +157,9 @@ function StaffActivityPage({ type = "login-history" }) {
                     </td>
                   </tr>
                 ))}
+                {!error && !displayLoginRows.length ? (
+                  <tr><td colSpan="7">Истории входов пока нет.</td></tr>
+                ) : null}
               </tbody>
             </table>
           )}

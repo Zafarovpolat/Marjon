@@ -96,24 +96,14 @@ const normalizePhone = (value = "", countryKey = "UZ") => {
 
 const emptyForm = {
   fullName: "",
+  email: "",
   phone: "",
   phoneCountry: "UZ",
   roleKey: "",
-  permission: "",
   pin: "",
   password: "",
-  printerIp: "",
-  nfcId: "",
-  canDeleteDishes: false,
-  canTakeawayAtTable: false,
-  canChangeOrderType: false,
-  canCloseBill: false,
-  canOpenCashDrawerAfterPayment: false,
-  canViewClosedOrders: false,
   status: "active",
-  comment: "",
   photo: "",
-  access: {},
 };
 
 const getPermissionSummary = (values) => {
@@ -196,6 +186,21 @@ const staffOrderTypeActions = [
   { key: "new", label: "Новый" },
 ];
 
+function mapStaffUser(user) {
+  const roleKey = user.role_slug || user.role_slugs?.[0] || "cashier";
+  return {
+    id: user.id,
+    fullName: user.name || user.email?.split("@")[0] || "—",
+    email: user.email || "",
+    phone: user.phone || "",
+    roleKey,
+    status: user.is_active !== false ? "active" : "archived",
+    pin: "",
+    password: "",
+    photo: user.avatar_url || "",
+  };
+}
+
 function StaffRolePage({ role = "all" }) {
   const routeRole = roleMap[role] ? role : "all";
   const pageTitle =
@@ -203,26 +208,20 @@ function StaffRolePage({ role = "all" }) {
 
   const [staff, setStaff] = useState([]);
   const [staffLoading, setStaffLoading] = useState(true);
+  const [staffError, setStaffError] = useState("");
 
   useEffect(() => {
+    setStaffError("");
     fetchStaffUsers()
       .then((data) => {
-        const mapped = (data || []).map((user) => ({
-          id: user.id,
-          fullName: user.name || user.role_name || user.email?.split("@")[0] || "—",
-          phone: user.phone || "",
-          roleKey: user.role_slug || "cashier",
-          permission: user.role_slug || "Базовый доступ",
-          status: user.is_active !== false ? "active" : "archived",
-          pin: "",
-          password: "",
-          comment: "",
-          photo: "",
-          access: {},
-        }));
+        const mapped = (data || []).map(mapStaffUser);
         setStaff(mapped);
       })
-      .catch((err) => console.warn("Не удалось загрузить сотрудников:", err.message))
+      .catch((err) => {
+        console.warn("Не удалось загрузить сотрудников:", err.message);
+        setStaff([]);
+        setStaffError("Не удалось загрузить сотрудников.");
+      })
       .finally(() => setStaffLoading(false));
   }, []);
 
@@ -273,7 +272,6 @@ function StaffRolePage({ role = "all" }) {
       ...emptyForm,
       phoneCountry: "UZ",
       roleKey: routeRole === "all" ? "cashier" : routeRole,
-      access: {},
     });
     setModalOpen(true);
   };
@@ -339,40 +337,42 @@ function StaffRolePage({ role = "all" }) {
 const saveStaff = async (event) => {
   event.preventDefault();
   const phone = normalizePhone(form.phone, form.phoneCountry);
-  const email = `${phone || Date.now()}@staff.marjon`;
+  const email = form.email.trim();
 
   try {
     if (!editingId) {
-      const { data: newUser } = await api.post("/auth/users", {
+      const { data: createdUser } = await api.post("/auth/users", {
         email,
-        password: form.password || "Pass1234",
+        password: form.password,
         phone: phone || null,
         role_slug: form.roleKey || "cashier",
-        role_name: form.fullName,
       });
-      setStaff((current) => [{
-        id: newUser.id,
-        fullName: form.fullName,
-        phone,
-        roleKey: form.roleKey || "cashier",
-        permission: getPermissionSummary(form),
-        status: "active",
-        pin: form.pin,
-        password: form.password,
-        comment: form.comment,
-        photo: form.photo || "",
-        access: form.access || {},
-      }, ...current]);
+      let newUser = createdUser;
+      if (form.fullName.trim() || form.status === "archived") {
+        const { data } = await api.patch(`/auth/users/${createdUser.id}`, {
+          name: form.fullName.trim() || undefined,
+          is_active: form.status !== "archived",
+        });
+        newUser = data;
+      }
+      if (form.pin) {
+        await api.patch(`/auth/users/${createdUser.id}/pin`, { pin: form.pin });
+      }
+      setStaff((current) => [mapStaffUser(newUser), ...current]);
     } else {
-      await api.patch(`/auth/users/${editingId}`, {
+      const { data: updatedUser } = await api.patch(`/auth/users/${editingId}`, {
+        name: form.fullName,
         email,
         password: form.password || undefined,
         phone: phone || null,
         role_slug: form.roleKey || "cashier",
-        role_name: form.fullName,
+        is_active: form.status !== "archived",
       });
+      if (form.pin) {
+        await api.patch(`/auth/users/${editingId}/pin`, { pin: form.pin });
+      }
       setStaff((current) => current.map((emp) =>
-        emp.id === editingId ? { ...emp, ...form, permission: getPermissionSummary(form) } : emp
+        emp.id === editingId ? mapStaffUser(updatedUser) : emp
       ));
     }
     closeModal();
@@ -382,20 +382,26 @@ const saveStaff = async (event) => {
   }
 };
 
-  const archiveStaff = (id) => {
-    setStaff((current) =>
-      current.map((employee) =>
-        employee.id === id ? { ...employee, status: "archived" } : employee,
-      ),
-    );
+  const archiveStaff = async (id) => {
+    try {
+      await api.delete(`/auth/users/${id}`);
+      setStaff((current) => current.map((employee) => (
+        employee.id === id ? { ...employee, status: "archived" } : employee
+      )));
+    } catch (err) {
+      window.alert(err.response?.data?.detail || "Не удалось архивировать сотрудника.");
+    }
   };
 
-  const restoreStaff = (id) => {
-    setStaff((current) =>
-      current.map((employee) =>
-        employee.id === id ? { ...employee, status: "active" } : employee,
-      ),
-    );
+  const restoreStaff = async (id) => {
+    try {
+      await api.patch(`/auth/users/${id}`, { is_active: true });
+      setStaff((current) => current.map((employee) => (
+        employee.id === id ? { ...employee, status: "active" } : employee
+      )));
+    } catch (err) {
+      window.alert(err.response?.data?.detail || "Не удалось восстановить сотрудника.");
+    }
   };
 
   const applyFilters = () => {
@@ -505,6 +511,8 @@ const saveStaff = async (event) => {
           </div>
         </div>
 
+        {staffLoading ? <div className="staff-empty-cell" role="status">Загрузка сотрудников...</div> : null}
+        {staffError ? <div className="login-error" role="alert">{staffError}</div> : null}
         <div className="staff-table-wrapper">
           <table className="staff-table">
             <thead>
@@ -514,7 +522,7 @@ const saveStaff = async (event) => {
                 <th>ФИО</th>
                 <th>Номер телефона</th>
                 <th>Роль</th>
-                <th>Доступ</th>
+                <th>Доступ RBAC</th>
                 <th>Статус</th>
                 <th>Действия</th>
               </tr>
@@ -542,7 +550,7 @@ const saveStaff = async (event) => {
                   <td>
                     <span className="staff-permission">
                       <span className="staff-permission-dot" aria-hidden="true" />
-                      {employee.permission || "Базовый доступ"}
+                      Недоступно до BI-06
                     </span>
                   </td>
                   <td>
@@ -590,7 +598,7 @@ const saveStaff = async (event) => {
                   </td>
                 </tr>
               ))}
-              {visibleStaff.length === 0 && (
+              {!staffLoading && !staffError && visibleStaff.length === 0 && (
                 <tr>
                   <td colSpan={8} className="staff-empty-cell">
                     Сотрудники не найдены
@@ -626,18 +634,16 @@ const saveStaff = async (event) => {
             </div>
 
             <div className="staff-form__grid staff-form__grid--edit">
-              <label className="staff-photo-upload">
-                <span>Фото сотрудника</span>
-                <div>
-                  <div className="staff-avatar staff-avatar--large">
-                    {form.photo ? (
-                      <img src={form.photo} alt="Avatar preview" />
-                    ) : (
-                      <Icon name="bi-camera" size={34} />
-                    )}
-                  </div>
-                  <input type="file" accept="image/*" onChange={handlePhotoChange} />
-                </div>
+              <label>
+                <span>Email *</span>
+                <input
+                  required
+                  type="email"
+                  autoComplete="off"
+                  value={form.email}
+                  onChange={(event) => updateForm("email", event.target.value)}
+                  placeholder="employee@example.com"
+                />
               </label>
               <label>
                 <span>Имя *</span>
@@ -698,10 +704,10 @@ const saveStaff = async (event) => {
                 </div>
               </label>
               <label>
-                <span>Пароль *</span>
+                <span>{editingId ? "Новый пароль" : "Пароль *"}</span>
                 <div className="staff-password-field">
                   <input
-                    required
+                    required={!editingId}
                     autoComplete="new-password"
                     type={showPassword ? "text" : "password"}
                     value={form.password}
@@ -717,25 +723,6 @@ const saveStaff = async (event) => {
                     <Icon name={showPassword ? "bi-eye-slash" : "bi-eye"} size={18} />
                   </button>
                 </div>
-              </label>
-              <label className="staff-form__printer-ip">
-                <span>IP адрес принтера *</span>
-                <input
-                  required
-                  autoComplete="off"
-                  value={form.printerIp}
-                  onChange={(event) => updateForm("printerIp", event.target.value)}
-                  placeholder="192.168.0.100"
-                />
-              </label>
-              <label>
-                <span>NFC-идентификатор</span>
-                <input
-                  autoComplete="off"
-                  value={form.nfcId}
-                  onChange={(event) => updateForm("nfcId", event.target.value)}
-                  placeholder="ID карты"
-                />
               </label>
               <label>
                 <span>PIN-код 4 цифры</span>
@@ -763,6 +750,8 @@ const saveStaff = async (event) => {
                 <button
                   className={`staff-permission-switch ${form.canDeleteDishes ? "is-on" : ""}`}
                   type="button"
+                  disabled
+                  title="Недоступно до BI-06"
                   onClick={() => toggleForm("canDeleteDishes")}
                 >
                   <span>Удаления блюд</span>
@@ -771,6 +760,8 @@ const saveStaff = async (event) => {
                 <button
                   className={`staff-permission-switch ${form.canTakeawayAtTable ? "is-on" : ""}`}
                   type="button"
+                  disabled
+                  title="Недоступно до BI-06"
                   onClick={() => toggleForm("canTakeawayAtTable")}
                 >
                   <span>Заказ на вынос за столом</span>
@@ -779,6 +770,8 @@ const saveStaff = async (event) => {
                 <button
                   className={`staff-permission-switch ${form.canChangeOrderType ? "is-on" : ""}`}
                   type="button"
+                  disabled
+                  title="Недоступно до BI-06"
                   onClick={() => toggleForm("canChangeOrderType")}
                 >
                   <span>Изменить тип заказа</span>
@@ -787,6 +780,8 @@ const saveStaff = async (event) => {
                 <button
                   className={`staff-permission-switch ${form.canCloseBill ? "is-on" : ""}`}
                   type="button"
+                  disabled
+                  title="Недоступно до BI-06"
                   onClick={() => toggleForm("canCloseBill")}
                 >
                   <span>Может закрыть счет</span>
@@ -797,6 +792,8 @@ const saveStaff = async (event) => {
                     form.canOpenCashDrawerAfterPayment ? "is-on" : ""
                   }`}
                   type="button"
+                  disabled
+                  title="Недоступно до BI-06"
                   onClick={() => toggleForm("canOpenCashDrawerAfterPayment")}
                 >
                   <span>Открыть денежный ящик после оплаты</span>
@@ -805,12 +802,17 @@ const saveStaff = async (event) => {
                 <button
                   className={`staff-permission-switch ${form.canViewClosedOrders ? "is-on" : ""}`}
                   type="button"
+                  disabled
+                  title="Недоступно до BI-06"
                   onClick={() => toggleForm("canViewClosedOrders")}
                 >
                   <span>Просмотр закрытых заказов</span>
                   <b className="staff-switch" aria-hidden="true" />
                 </button>
               </div>
+              <p id="staff-rbac-unavailable" className="muted" role="status">
+                Детальные права доступа недоступны до BI-06. Изменения здесь не сохраняются.
+              </p>
               <div className="staff-permission-matrix">
                 {staffAccessModules.map((module) => {
                   const moduleAccess = form.access?.[module.key] || {};
@@ -826,6 +828,8 @@ const saveStaff = async (event) => {
                         <button
                           className={`staff-switch-button ${moduleAccess.enabled ? "is-on" : ""}`}
                           type="button"
+                          disabled
+                          title="Недоступно до BI-06"
                           onClick={() => toggleAccess(module.key)}
                           aria-pressed={Boolean(moduleAccess.enabled)}
                           aria-label={`${module.label}: ${moduleAccess.enabled ? "выключить" : "включить"}`}
@@ -859,10 +863,11 @@ const saveStaff = async (event) => {
                 })}
               </div>
               <label className="staff-form__comment">
-                <span>Комментарий</span>
+                <span>Комментарий (недоступно)</span>
                 <textarea
-                  value={form.comment}
-                  onChange={(event) => updateForm("comment", event.target.value)}
+                  value=""
+                  disabled
+                  title="Backend contract отсутствует"
                   placeholder="Заметка по сотруднику"
                 />
               </label>

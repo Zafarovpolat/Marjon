@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
+import { updateStoredProfile } from "../utils/profileCache";
 import Sidebar from "./Sidebar";
 
 const users = {
@@ -37,6 +38,23 @@ describe("Sidebar", () => {
     renderSidebar(null);
 
     expect(screen.getByAltText("Owner")).toBeInTheDocument();
+  });
+
+  it("uses server identity instead of a cached display name", () => {
+    updateStoredProfile("owner", { name: "Stale cached name", photo: "data:image/png;base64,owner" });
+
+    renderSidebar({ ...users.owner, full_name: "Server Owner" });
+
+    expect(screen.getAllByText("Server Owner").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Stale cached name")).not.toBeInTheDocument();
+  });
+
+  it("does not leak another user's cached photo into the current account", () => {
+    updateStoredProfile("owner", { photo: "data:image/png;base64,owner-private" });
+
+    renderSidebar(users.cashier);
+
+    expect(document.querySelector('img[src="data:image/png;base64,owner-private"]')).not.toBeInTheDocument();
   });
 
   it("shows an allowed navigation link and hides a forbidden one", () => {

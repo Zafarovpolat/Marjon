@@ -18,8 +18,6 @@ const SECTION_API_MAP = {
   "storage-expense": { endpoint: "/storage-movements", mapRow: (r) => [r.document_number || r.id || "", r.receiver || r.destination || "", String(r.items_count || 0), `${Number(r.total || 0).toLocaleString("ru-RU")} UZS`, r.status || "Проведен"] },
   "storage-balance": { endpoint: "/reports/storage-balances", mapRow: (r) => [r.name || "", r.category || "", String(r.quantity || r.balance || 0), r.unit || "", r.status || "В норме"] },
   "storage-income-journal": { endpoint: "/reports/incomes", mapRow: (r) => [r.date || "", r.document_number || "", r.provider_name || "", `${Number(r.total || 0).toLocaleString("ru-RU")} UZS`, r.status || "Проведен"] },
-  "storage-writeoff": { endpoint: "/reports/consumption", mapRow: (r) => [r.document_number || r.id || "", r.reason || "", String(r.items_count || 0), `${Number(r.total || 0).toLocaleString("ru-RU")} UZS`, r.status || "Проведен"] },
-  "storage-inventory": { endpoint: "/storages", mapRow: (r) => [r.name || r.id || "", r.warehouse || r.storage_name || "", String(r.discrepancies || 0), r.date || "—", r.status || "Завершено"] },
   "nom-product": { endpoint: "/products", mapRow: null },
   "nom-sale-category": { endpoint: "/categories", mapRow: (r) => [r.name || "", r.slug || "", String(r.products_count || 0), r.sort_order != null ? String(r.sort_order) : "—", r.status ? "Активна" : "Неактивна"] },
   "nom-orders": { endpoint: "/orders", mapRow: (r) => [r.order_number || r.id || "", r.date || r.created_at || "", r.customer || "—", `${Number(r.total || 0).toLocaleString("ru-RU")} UZS`, r.status || ""] },
@@ -29,7 +27,6 @@ const SECTION_API_MAP = {
   "hb-districts": { endpoint: "/districts", mapRow: (r) => [r.name || "", r.region_name || r.region || "", r.code || "—", "—", r.status !== false ? "Активна" : "Неактивна"] },
   "srv-employees": { endpoint: "/departments", mapRow: (r) => [r.name || "", r.position || r.role || "—", r.department || "—", r.privileges || "—", r.status !== false ? "Активна" : "Неактивна"] },
   "srv-source": { endpoint: "/sources", mapRow: (r) => [r.name || "", r.type || "—", r.url || "—", String(r.leads_count || 0), r.status !== false ? "Активна" : "Неактивна"] },
-  "bank-stats": { endpoint: "/reports/debt-credit", mapRow: null },
   "bank-transactions": { load: () => adminFinanceApi.listTransactions({ size: 100 }), mapRow: null },
   "set-store": { endpoint: "/store-versions", mapRow: (r) => [r.version || r.name || "", r.platform || "—", r.release_date || "—", r.status || "Активна"] },
   "set-cashier-bg": { endpoint: "/image-backgrounds", mapRow: null },
@@ -1851,21 +1848,13 @@ const categoryContent = {
     title: "Отход товаров",
     text: "Списание товаров по причинам брака, порчи и истечения срока.",
     columns: ["Документ", "Причина", "Позиций", "Сумма", "Статус"],
-    rows: [
-      ["WO-321", "Истёк срок", "6", "420 000 UZS", "Проведен"],
-      ["WO-318", "Брак", "3", "180 000 UZS", "Проведен"],
-      ["WO-314", "Порча", "8", "640 000 UZS", "Ожидает"],
-    ],
+    rows: [],
   },
   "storage-inventory": {
     title: "Инвентаризация",
     text: "Сверка фактических остатков со складским учётом и расхождения.",
     columns: ["Документ", "Склад", "Расхождений", "Дата", "Статус"],
-    rows: [
-      ["INV-077", "Главный склад", "4", "11.06.2026", "Завершено"],
-      ["INV-076", "Бар", "0", "08.06.2026", "Завершено"],
-      ["INV-075", "Кухня", "2", "01.06.2026", "Черновик"],
-    ],
+    rows: [],
   },
 
   // 4) Номенклатура
@@ -5454,9 +5443,9 @@ function DeferredStorageIncomeJournalPrototype({ search, onNotify, onInnerBackCh
   );
 }
 
-function StorageWriteoffPage({ search, onNotify }) {
-  const [rows, setRows] = useState([]);
-  const [loadState, setLoadState] = useState("loading");
+export function StorageWriteoffPage({ search, onNotify }) {
+  const [rows] = useState([]);
+  const [loadState] = useState("unsupported");
   const [sortState, setSortState] = useState({ key: "number", direction: "desc" });
   const query = search.trim().toLowerCase();
   const columns = [
@@ -5470,19 +5459,6 @@ function StorageWriteoffPage({ search, onNotify }) {
     { key: "total", label: "Итоговая сумма", sortable: true },
     { key: "status", label: "Статус", sortable: true },
   ];
-
-  useEffect(() => {
-    adminApi.get("/reports/consumption", { params: { size: 100 } })
-      .then(({ data }) => {
-        const items = Array.isArray(data) ? data : data?.items || [];
-        setRows(items.map((row, index) => normalizeStorageWriteoffRow(row, index)));
-        setLoadState(items.length ? "success" : "empty");
-      })
-      .catch(() => {
-        setRows([]);
-        setLoadState("error");
-      });
-  }, []);
 
   const filteredRows = useMemo(() => {
     const nextRows = rows.filter((row) => {
@@ -5510,21 +5486,6 @@ function StorageWriteoffPage({ search, onNotify }) {
     });
   }, [query, rows, sortState]);
 
-  function normalizeStorageWriteoffRow(row, index) {
-    return {
-      id: String(row.id || row.document_number || `writeoff-${index}`),
-      number: String(row.document_number || row.number || row.id || `WO-${index + 1}`),
-      supplier: row.provider_name || row.supplier || row.reason || "—",
-      warehouse: row.warehouse || row.storage_name || row.to_storage || "Главный склад",
-      incomingDate: row.date || row.incoming_date || row.created_date || "—",
-      registeredAt: row.registered_at || row.created_at || "—",
-      acceptedAt: row.accepted_at || row.completed_at || row.updated_at || "—",
-      itemCount: Number(row.items_count || row.item_count || row.quantity || 0),
-      total: Number(row.total || row.amount || 0),
-      status: row.status || "принято",
-    };
-  }
-
   function getStorageWriteoffSortValue(row, key) {
     if (key === "total" || key === "itemCount") return Number(row[key] || 0);
     return String(row[key] || "").toLowerCase();
@@ -5547,6 +5508,7 @@ function StorageWriteoffPage({ search, onNotify }) {
     <section className="admin-storage-income-page admin-storage-writeoff-page">
       {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка списаний...</div> : null}
       {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить списания.</div> : null}
+      {loadState === "unsupported" ? <div className="org-directory-empty" role="status">Документы списания недоступны до подключения подтверждённого HQ backend contract.</div> : null}
       <div className="admin-storage-writeoff-card">
         <div className="admin-storage-writeoff-head">
           <div className="admin-storage-writeoff-title">
@@ -5614,9 +5576,9 @@ function StorageWriteoffPage({ search, onNotify }) {
   );
 }
 
-function StorageInventoryPage({ search, onNotify, onInnerBackChange }) {
-  const [rows, setRows] = useState([]);
-  const [loadState, setLoadState] = useState("loading");
+export function StorageInventoryPage({ search, onNotify, onInnerBackChange }) {
+  const [rows] = useState([]);
+  const [loadState] = useState("unsupported");
   const [selectedRow, setSelectedRow] = useState(null);
   const [sortState, setSortState] = useState({ key: "id", direction: "desc" });
   const query = search.trim().toLowerCase();
@@ -5629,19 +5591,6 @@ function StorageInventoryPage({ search, onNotify, onInnerBackChange }) {
     { key: "status", label: "Статус", sortable: true },
     { key: "actions", label: "", sortable: false },
   ];
-
-  useEffect(() => {
-    adminApi.get("/storages", { params: { size: 100 } })
-      .then(({ data }) => {
-        const items = Array.isArray(data) ? data : data?.items || [];
-        setRows(items.map((row, index) => normalizeStorageInventoryRow(row, index)));
-        setLoadState(items.length ? "success" : "empty");
-      })
-      .catch(() => {
-        setRows([]);
-        setLoadState("error");
-      });
-  }, []);
 
   useEffect(() => {
     if (!onInnerBackChange) return undefined;
@@ -5691,32 +5640,6 @@ function StorageInventoryPage({ search, onNotify, onInnerBackChange }) {
     });
   }, [query, rows, sortState]);
 
-  function normalizeStorageInventoryRow(row, index) {
-    const items = Array.isArray(row.items) ? row.items : Array.isArray(row.products) ? row.products : [];
-    return {
-      id: String(row.id || row.document_number || row.number || index + 1),
-      registeredAt: row.registered_at || row.created_at || row.date || "—",
-      registeredBy: row.registered_by || row.created_by || row.user_name || row.manager || "",
-      warehouse: row.warehouse || row.storage_name || row.name || "Главный склад",
-      comment: row.comment || row.description || row.note || "-",
-      type: row.type || row.operation_type || "Приход и расход учтены",
-      status: row.status || "принято",
-      items: items.map((item, itemIndex) => ({
-        id: String(item.id || `${row.id || index}-${itemIndex}`),
-        name: item.name || item.product_name || item.title || "—",
-        quantity: formatInventoryQuantity(item.quantity ?? item.diff ?? item.balance_delta ?? 0),
-        unit: item.unit || item.unit_name || "Штук (шт)",
-      })),
-    };
-  }
-
-  function formatInventoryQuantity(value) {
-    const number = Number(value);
-    if (Number.isFinite(number) && number > 0) return `+ ${number.toLocaleString("ru-RU")}`;
-    if (Number.isFinite(number)) return number.toLocaleString("ru-RU");
-    return String(value || "0");
-  }
-
   function getStorageInventorySortValue(row, key) {
     if (key === "id") return Number(row.id) || row.id;
     return String(row[key] || "").toLowerCase();
@@ -5755,6 +5678,7 @@ function StorageInventoryPage({ search, onNotify, onInnerBackChange }) {
     <section className="admin-storage-income-page admin-storage-inventory-page">
       {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка складов...</div> : null}
       {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить склады.</div> : null}
+      {loadState === "unsupported" ? <div className="org-directory-empty" role="status">Инвентаризация недоступна до подключения подтверждённого HQ backend contract.</div> : null}
       <div className="admin-storage-inventory-card">
         <div className="admin-storage-inventory-head">
           <div className="admin-storage-inventory-title">
@@ -5764,7 +5688,8 @@ function StorageInventoryPage({ search, onNotify, onInnerBackChange }) {
           <button
             type="button"
             className="admin-storage-inventory-create"
-            onClick={() => onNotify?.("Создание инвентаризации: форма будет подключена к API.")}
+            disabled
+            title="Создание недоступно: HQ backend contract не подключён."
           >
             <span>Создать</span>
             <Icon name="bi-plus" size={15} />
@@ -10089,7 +10014,7 @@ function AdminCashierBackgroundPage({ search, onNotify }) {
   );
 }
 
-function CategoryPage({ active, rowsOverride, search, onCreate, onRowDetail, onNotify, onInnerBackChange }) {
+export function CategoryPage({ active, rowsOverride, search, onCreate, onRowDetail, onNotify, onInnerBackChange }) {
   const content = categoryContent[active] || categoryContent["org-list"];
   const { apiRows, loadState } = useAdminData(active, onNotify);
   if (active === "org-list") {
