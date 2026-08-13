@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getCategories } from "../api/categories";
@@ -321,7 +321,11 @@ describe("truthful production data states", () => {
 
   it("keeps covered production source paths disconnected from hidden fallbacks", () => {
     const ownerSource = readFileSync(`${process.cwd()}/src/pages/OwnerDashboard.jsx`, "utf8");
-    const adminSource = readFileSync(`${process.cwd()}/src/admin/AdminApp.jsx`, "utf8");
+    const adminDirectory = `${process.cwd()}/src/admin`;
+    const adminSource = readdirSync(adminDirectory)
+      .filter((file) => /^Admin.*\.jsx$/.test(file) && !file.includes(".test."))
+      .map((file) => readFileSync(`${adminDirectory}/${file}`, "utf8"))
+      .join("\n");
     const warehouseSource = readFileSync(`${process.cwd()}/src/pages/WarehousePage.jsx`, "utf8");
     const staffRoleSource = readFileSync(`${process.cwd()}/src/pages/StaffRolePage.jsx`, "utf8");
     const sidebarSource = readFileSync(`${process.cwd()}/src/components/Sidebar.jsx`, "utf8");

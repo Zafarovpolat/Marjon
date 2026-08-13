@@ -11,6 +11,8 @@ vi.mock("chart.js", () => {
   class ChartMock {
     static register = vi.fn();
 
+    draw() {}
+
     destroy() {}
   }
 
@@ -112,6 +114,30 @@ describe("AdminApp HQ session gate", () => {
 
     await waitFor(() => expect(container.querySelector(".admin-shell")).toBeInTheDocument());
     expect(get.mock.calls[0]).toEqual(["/auth/me"]);
+  });
+
+  it("preserves the mounted dashboard request lifecycle across HQ section navigation", async () => {
+    setAdminTokens();
+    const get = vi.spyOn(adminApi, "get").mockImplementation(resolveAdminGet);
+
+    const { container } = render(<AdminApp />);
+    await waitFor(() => expect(container.querySelector(".admin-shell")).toBeInTheDocument());
+    await waitFor(() => {
+      expect(get.mock.calls.filter(([path]) => path === "/organizations")).toHaveLength(1);
+      expect(get.mock.calls.filter(([path]) => path === "/admin-reports/dashboard-kpis")).toHaveLength(1);
+    });
+
+    fireEvent.click(container.querySelectorAll(".admin-chart-filter--with-icon")[1]);
+    expect(container.querySelector(".admin-dashboard-transactions-report")).toBeInTheDocument();
+
+    const handbookToggle = container.querySelectorAll(".admin-nav-group__toggle")[3];
+    fireEvent.click(handbookToggle);
+    fireEvent.click(container.querySelector(".admin-nav-group.is-open .admin-nav-sub__item"));
+    fireEvent.click(container.querySelector(".admin-nav > button"));
+
+    await waitFor(() => expect(container.querySelector(".admin-chart-card")).toBeInTheDocument());
+    expect(get.mock.calls.filter(([path]) => path === "/organizations")).toHaveLength(1);
+    expect(get.mock.calls.filter(([path]) => path === "/admin-reports/dashboard-kpis")).toHaveLength(1);
   });
 
   it.each([

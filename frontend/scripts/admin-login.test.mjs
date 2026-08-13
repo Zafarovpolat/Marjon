@@ -1,7 +1,27 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const app = readFileSync(new URL("../src/admin/AdminApp.jsx", import.meta.url), "utf8");
+const adminSourceByFile = Object.fromEntries([
+  "AdminApp.jsx",
+  "AdminLayout.jsx",
+  "AdminDashboard.jsx",
+  "AdminDashboardCharts.jsx",
+  "AdminDashboardTransactions.jsx",
+  "AdminDashboardOverview.jsx",
+  "AdminFinance.jsx",
+  "AdminFinanceOperations.jsx",
+  "AdminFinanceReferences.jsx",
+  "AdminFinanceHistory.jsx",
+  "AdminSectionRouter.jsx",
+  "AdminShared.jsx",
+].map((file) => [file, readFileSync(new URL(`../src/admin/${file}`, import.meta.url), "utf8")]));
+const app = Object.values(adminSourceByFile).join("\n");
+const layoutSource = adminSourceByFile["AdminLayout.jsx"];
+const financeSource = ["AdminFinanceOperations.jsx", "AdminFinanceReferences.jsx", "AdminFinanceHistory.jsx"]
+  .map((file) => adminSourceByFile[file]).join("\n");
+const routerSource = adminSourceByFile["AdminSectionRouter.jsx"];
+const dashboardSource = ["AdminDashboardCharts.jsx", "AdminDashboardTransactions.jsx", "AdminDashboardOverview.jsx"]
+  .map((file) => adminSourceByFile[file]).join("\n");
 const adminApiSource = readFileSync(new URL("../src/admin/api.js", import.meta.url), "utf8");
 const adminFinanceApiSource = readFileSync(new URL("../src/admin/financeApi.js", import.meta.url), "utf8");
 const authSessionSource = readFileSync(new URL("../src/auth/session.js", import.meta.url), "utf8");
@@ -13,7 +33,7 @@ const reportDateRangePicker = readFileSync(new URL("../src/components/ReportDate
 const css = readFileSync(new URL("../src/admin/styles.css", import.meta.url), "utf8");
 const ruLocale = readFileSync(new URL("../src/i18n/ru.json", import.meta.url), "utf8");
 
-const loginSection = app.slice(app.indexOf("function LoginView"), app.indexOf("function Sidebar"));
+const loginSection = layoutSource.slice(layoutSource.indexOf("function LoginView"), layoutSource.indexOf("function Sidebar"));
 const adminLoginContract = adminApiSource.slice(
   adminApiSource.indexOf("export async function adminLogin"),
   adminApiSource.indexOf("export async function getValidatedAdminProfile"),
@@ -106,41 +126,41 @@ assert.match(tablesReport, /<ReportDateRangePicker[\s\S]*?value={dateRange}[\s\S
 assert.match(ordersReport, /<ReportDateRangePicker[\s\S]*?value={dateRange}[\s\S]*?onChange={setDateRange}/, "Orders report must use the shared date picker.");
 assert.match(dishesReport, /<ReportDateRangePicker[\s\S]*?value={dateRange}[\s\S]*?onChange={setDateRange}/, "Dishes report must use the shared date picker.");
 
-const adminFinanceSection = app.slice(
-  app.indexOf("function AdminFinanceOperationsPage"),
-  app.indexOf("function AdminFinanceCategoriesPage")
+const adminFinanceSection = financeSource.slice(
+  financeSource.indexOf("function AdminFinanceOperationsPage"),
+  financeSource.indexOf("function AdminFinanceCategoriesPage")
 );
-const adminFinanceModal = app.slice(
-  app.indexOf("function AdminFinanceTransactionModal"),
-  app.indexOf("function AdminFinanceOperationsPage")
+const adminFinanceModal = financeSource.slice(
+  financeSource.indexOf("function AdminFinanceTransactionModal"),
+  financeSource.indexOf("function AdminFinanceOperationsPage")
 );
-const adminFinanceFilterDrawer = app.slice(
-  app.indexOf("function AdminFinanceFilterDrawer"),
-  app.indexOf("function AdminFinanceOperationsPage")
+const adminFinanceFilterDrawer = financeSource.slice(
+  financeSource.indexOf("function AdminFinanceFilterDrawer"),
+  financeSource.indexOf("function AdminFinanceOperationsPage")
 );
-const adminFinanceDateInput = app.slice(
-  app.indexOf("function AdminFinanceDateInput"),
-  app.indexOf("function AdminFinanceTransactionModal")
+const adminFinanceDateInput = financeSource.slice(
+  financeSource.indexOf("function AdminFinanceDateInput"),
+  financeSource.indexOf("function AdminFinanceTransactionModal")
 );
-const adminFinanceCategoriesPage = app.slice(
-  app.indexOf("function AdminFinanceCategoriesPage"),
-  app.indexOf("function AdminIncomeCategoriesPage")
+const adminFinanceCategoriesPage = financeSource.slice(
+  financeSource.indexOf("function AdminFinanceCategoriesPage"),
+  financeSource.indexOf("function AdminIncomeCategoriesPage")
 );
-const adminPaymentMethodsPage = app.slice(
-  app.indexOf("function AdminPaymentMethodsPage"),
-  app.indexOf("function AdminFinanceHistoryPage")
+const adminPaymentMethodsPage = financeSource.slice(
+  financeSource.indexOf("function AdminPaymentMethodsPage"),
+  financeSource.indexOf("function AdminFinanceHistoryPage")
 );
-const adminFinanceHistoryPage = app.slice(
-  app.indexOf("function AdminFinanceHistoryPage"),
-  app.indexOf("function AdminCashierBackgroundPage")
+const adminFinanceHistoryPage = financeSource.slice(
+  financeSource.indexOf("function AdminFinanceHistoryPage"),
+  financeSource.indexOf("function AdminCashierBackgroundPage")
 );
-const adminDataHook = app.slice(
-  app.indexOf("function useAdminData"),
-  app.indexOf("const navItems")
+const adminDataHook = routerSource.slice(
+  routerSource.indexOf("function useAdminData"),
+  routerSource.indexOf("const categoryContent")
 );
-const adminDashboardTransactions = app.slice(
-  app.indexOf("function TransactionsTable"),
-  app.indexOf("function EmployeeSalesTable")
+const adminDashboardTransactions = dashboardSource.slice(
+  dashboardSource.indexOf("function TransactionsTable"),
+  dashboardSource.indexOf("function DashboardTransactionsReportPage")
 );
 
 assert.match(app, /import { adminFinanceApi, resolveHqTransactionSubmission } from "\.\/financeApi";/, "Admin finance consumers must use the extracted HQ finance service.");

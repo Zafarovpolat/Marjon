@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -115,7 +115,11 @@ describe("HQ finance API contract", () => {
   });
 
   it("guards AdminApp against direct APP-finance API paths", () => {
-    const adminApp = readFileSync(resolve(process.cwd(), "src/admin/AdminApp.jsx"), "utf8");
+    const adminDirectory = resolve(process.cwd(), "src/admin");
+    const adminApp = readdirSync(adminDirectory)
+      .filter((file) => /^Admin.*\.jsx$/.test(file) && !file.includes(".test."))
+      .map((file) => readFileSync(resolve(adminDirectory, file), "utf8"))
+      .join("\n");
 
     expect(adminApp).not.toMatch(/["'`]\/finance\/(transactions|payment-types|transaction-categories|counterparties|finance-history)/);
   });
