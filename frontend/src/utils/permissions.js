@@ -12,52 +12,26 @@ export const ROLES = {
   MONOBLOCK: "monoblock",
 };
 
-// Какие верхнеуровневые разделы доступны каждой роли.
-// "*" — все разделы.
-const ACCOUNT_SECTIONS = ["settings.profile", "settings.support"];
-const COMPANY_ADMIN_SECTIONS = [
-  "dashboard",
-  "reports",
-  "users",
-  "nomenclature",
-  "warehouse",
-  "warehouse-report",
-  "finance",
-  "settings",
-  ...ACCOUNT_SECTIONS,
-  "orders",
-  "reviews",
-  "qr",
-  "subscription",
-];
-
+// Web Launch V1 exposes the APP shell only to the canonical OWNER identity.
+// Operational roles remain valid staff-management values, but are not Web clients.
 const ROLE_SECTIONS = {
   owner: "*",
-  superadmin: "*",
-  admin: COMPANY_ADMIN_SECTIONS,
-  manager: COMPANY_ADMIN_SECTIONS,
-  cashier: ["dashboard", "orders", ...ACCOUNT_SECTIONS],
-  waiter: ["waiter", ...ACCOUNT_SECTIONS],
-  kitchen: ["kitchen", ...ACCOUNT_SECTIONS],
-  monoblock: ["orders", "waiter"],
 };
+
+const OWNER_UI_ACTIONS = new Set([
+  "employees.write",
+  "orders.write",
+  "finance.write",
+  "settings.write",
+]);
 
 // Стартовая страница по роли (для редиректа после логина).
 export const ROLE_HOME = {
   owner: "/",
-  superadmin: "/",
-  admin: "/",
-  manager: "/",
-  cashier: "/orders",
-  waiter: "/waiter",
-  kitchen: "/kitchen",
-  monoblock: "/waiter",
 };
 
 const ROUTE_SECTION_RULES = [
   { exact: "/", sectionKey: "dashboard" },
-  { prefixes: ["/waiter"], sectionKey: "waiter" },
-  { prefixes: ["/kitchen"], sectionKey: "kitchen" },
   { prefixes: ["/finance"], sectionKey: "finance" },
   { prefixes: ["/users", "/staff"], sectionKey: "users" },
   { prefixes: ["/reports", "/analytics"], sectionKey: "reports" },
@@ -103,13 +77,20 @@ export function getRole(user) {
   return roles[0] || null;
 }
 
+export function isOwnerWebUser(user) {
+  const roles = Array.isArray(user?.role_slugs) ? user.role_slugs : [];
+  return Boolean(
+    user
+      && user.auth_scope === "app"
+      && user.company_id
+      && user.is_superadmin !== true
+      && roles.length === 1
+      && roles[0] === ROLES.OWNER,
+  );
+}
+
 export function canAccessSection(user, sectionKey) {
-  const role = getRole(user);
-  if (!role) return false;
-  const allowed = ROLE_SECTIONS[role];
-  if (allowed === "*") return true;
-  if (!allowed) return false;
-  return allowed.includes(sectionKey);
+  return isOwnerWebUser(user) && ROLE_SECTIONS.owner === "*" && Boolean(sectionKey);
 }
 
 // Route guard helpers.
@@ -128,28 +109,15 @@ export function canAccessPath(user, pathname) {
 }
 
 export function getRoleHomePath(user) {
-  const role = getRole(user);
-  return ROLE_HOME[role] || "/login";
+  return isOwnerWebUser(user) ? ROLE_HOME.owner : "/login";
 }
 
 // Применить ролевой фильтр к массиву пунктов меню Sidebar.
 export function filterNavItems(navItems, user) {
-  const role = getRole(user);
-  if (!role) return [];
-  if (ROLE_SECTIONS[role] === "*") return navItems;
-  return navItems.filter((item) => canAccessSection(user, item.key));
+  return isOwnerWebUser(user) ? navItems : [];
 }
 
 // Универсальная проверка действий (PATCH/DELETE).
 export function canPerform(user, action) {
-  const role = getRole(user);
-  if (role === ROLES.OWNER || role === ROLES.SUPERADMIN) return true;
-  const actionMap = {
-    "employees.write": [ROLES.MANAGER],
-    "warehouse.write": [ROLES.MANAGER],
-    "orders.write": [ROLES.MANAGER, ROLES.CASHIER, ROLES.WAITER],
-    "finance.write": [ROLES.MANAGER],
-    "settings.write": [ROLES.MANAGER],
-  };
-  return (actionMap[action] || []).includes(role);
+  return isOwnerWebUser(user) && OWNER_UI_ACTIONS.has(action);
 }

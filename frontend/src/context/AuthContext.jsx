@@ -4,7 +4,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api, isAuthenticated, login as apiLogin, loginByPhone as apiLoginByPhone, loginByPin as apiLoginByPin, logout as apiLogout } from "../api/client";
 import { AUTH_SCOPES, subscribeToAuthSessionEnded } from "../auth/session";
-import { getRole, ROLE_HOME } from "../utils/permissions";
+import { getRole, getRoleHomePath } from "../utils/permissions";
 
 const AuthContext = createContext(null);
 
@@ -104,7 +104,7 @@ export function AuthProvider({ children }) {
     loginPin,
     logout,
     reload: loadProfile,
-    homeFor: (u) => ROLE_HOME[getRole(u || user)] || "/",
+    homeFor: (u) => getRoleHomePath(u || user),
   }), [user, loading, sessionExpired, error, loginEmail, loginPhone, loginPin, logout, loadProfile]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

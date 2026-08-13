@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
-import { getRole, ROLE_HOME } from "../utils/permissions";
+import { isOwnerWebUser } from "../utils/permissions";
 import logo from "../assets/marjon-logo.svg";
 import Icon from "../components/Icon";
 
@@ -37,7 +37,7 @@ function getLanguageCode(i18n) {
 export default function LoginPage() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-  const { loginPhone } = useAuth();
+  const { loginPhone, logout } = useAuth();
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -117,8 +117,12 @@ export default function LoginPage() {
     try {
       const user = await loginPhone(phone, password);
       if (!remember) localStorage.removeItem("refresh_token");
-      const role = getRole(user);
-      navigate(ROLE_HOME[role] || "/", { replace: true });
+      if (!isOwnerWebUser(user)) {
+        await logout().catch(() => {});
+        setError("Эта учётная запись не поддерживается в Web Launch V1.");
+        return;
+      }
+      navigate("/", { replace: true });
     } catch {
       setError(t("auth.login_error"));
     } finally {

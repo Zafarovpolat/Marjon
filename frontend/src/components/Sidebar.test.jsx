@@ -5,15 +5,30 @@ import { describe, expect, it, vi } from "vitest";
 import { updateStoredProfile } from "../utils/profileCache";
 import Sidebar from "./Sidebar";
 
+const appUser = (role, id = role) => ({
+  id,
+  role_slugs: [role],
+  email: `${id}@marjon.test`,
+  auth_scope: "app",
+  company_id: "company-1",
+  is_superadmin: false,
+});
+
 const users = {
-  owner: { id: "owner", role_slugs: ["owner"], email: "owner@marjon.test" },
-  superadmin: { id: "superadmin", is_superadmin: true, role_slugs: [], email: "superadmin@marjon.test" },
-  admin: { id: "admin", role_slugs: ["admin"], email: "admin@marjon.test" },
-  manager: { id: "manager", role_slugs: ["manager"], email: "manager@marjon.test" },
-  cashier: { id: "cashier", role_slugs: ["cashier"], email: "cashier@marjon.test" },
-  waiter: { id: "waiter", role_slugs: ["waiter"], email: "waiter@marjon.test" },
-  kitchen: { id: "kitchen", role_slugs: ["kitchen"], email: "kitchen@marjon.test" },
-  unknown: { id: "unknown", role_slugs: ["auditor"], email: "unknown@marjon.test" },
+  owner: appUser("owner"),
+  manager: appUser("manager"),
+  cashier: appUser("cashier"),
+  waiter: appUser("waiter"),
+  kitchen: appUser("kitchen"),
+  admin: appUser("admin"),
+  superadmin: {
+    id: "superadmin",
+    is_superadmin: true,
+    auth_scope: "hq_admin",
+    company_id: null,
+    role_slugs: [],
+    email: "superadmin@marjon.test",
+  },
 };
 
 function renderSidebar(user, initialPath = "/") {
@@ -33,111 +48,65 @@ async function openAccountMenu() {
   await user.click(document.querySelector(".sidebar-user--button"));
 }
 
-describe("Sidebar", () => {
-  it("does not crash when user data is missing", () => {
+describe("OWNER Sidebar", () => {
+  it("does not crash when user data is missing and exposes no protected navigation", () => {
     renderSidebar(null);
 
     expect(screen.getByAltText("Owner")).toBeInTheDocument();
+    expect(getLinkByHref("/finance")).not.toBeInTheDocument();
   });
 
   it("uses server identity instead of a cached display name", () => {
     updateStoredProfile("owner", { name: "Stale cached name", photo: "data:image/png;base64,owner" });
-
     renderSidebar({ ...users.owner, full_name: "Server Owner" });
 
     expect(screen.getAllByText("Server Owner").length).toBeGreaterThan(0);
     expect(screen.queryByText("Stale cached name")).not.toBeInTheDocument();
   });
 
-  it("does not leak another user's cached photo into the current account", () => {
-    updateStoredProfile("owner", { photo: "data:image/png;base64,owner-private" });
-
-    renderSidebar(users.cashier);
-
-    expect(document.querySelector('img[src="data:image/png;base64,owner-private"]')).not.toBeInTheDocument();
-  });
-
-  it("preserves the server OWNER role instead of displaying manager semantics", () => {
+  it("preserves the server OWNER role", () => {
     renderSidebar(users.owner);
 
     expect(screen.getAllByText("owner").length).toBeGreaterThan(0);
-    expect(screen.queryByText("manager")).not.toBeInTheDocument();
+    expect(getLinkByHref("/finance/transactions")).toBeInTheDocument();
   });
 
-  it("keeps manager semantics when the backend actually returns manager", () => {
-    renderSidebar(users.manager);
+  it("keeps operational role links under OWNER staff management", () => {
+    renderSidebar(users.owner);
 
-    expect(screen.getAllByText("manager").length).toBeGreaterThan(0);
+    [
+      "/users/cashier",
+      "/users/waiter",
+      "/users/courier",
+      "/users/monoblock",
+      "/users/kitchen",
+      "/users/manager",
+      "/users/warehouse",
+    ].forEach((href) => expect(getLinkByHref(href)).toBeInTheDocument());
   });
 
-  it("shows an allowed navigation link and hides a forbidden one", () => {
-    renderSidebar(users.cashier);
-
-    expect(getLinkByHref("/")).toBeInTheDocument();
-    expect(getLinkByHref("/finance")).not.toBeInTheDocument();
-  });
-
-  it.each([
-    ["owner", users.owner],
-    ["cashier", users.cashier],
-    ["waiter", users.waiter],
-    ["kitchen", users.kitchen],
-  ])("shows profile in the account menu for %s", async (_, user) => {
-    renderSidebar(user);
+  it("shows OWNER account links", async () => {
+    renderSidebar(users.owner);
     await openAccountMenu();
 
     expect(getLinkByHref("/settings/profile")).toBeInTheDocument();
+    expect(getLinkByHref("/settings/support")).toBeInTheDocument();
+    expect(getLinkByHref("/store")).toBeInTheDocument();
+    expect(getLinkByHref("/reviews")).toBeInTheDocument();
   });
 
   it.each([
-    ["owner", users.owner],
-    ["superadmin", users.superadmin],
-    ["admin", users.admin],
     ["manager", users.manager],
     ["cashier", users.cashier],
     ["waiter", users.waiter],
     ["kitchen", users.kitchen],
-  ])("shows support in the account menu for %s", async (_, user) => {
-    renderSidebar(user);
+    ["legacy admin", users.admin],
+    ["SUPER_ADMIN", users.superadmin],
+  ])("does not build a Web client menu for %s", async (_, actor) => {
+    renderSidebar(actor);
     await openAccountMenu();
 
-    expect(getLinkByHref("/settings/support")).toBeInTheDocument();
-  });
-
-  it("shows store and hides reviews for cashier", async () => {
-    renderSidebar(users.cashier);
-    await openAccountMenu();
-
-    expect(getLinkByHref("/store")).toBeInTheDocument();
-    expect(getLinkByHref("/reviews")).not.toBeInTheDocument();
-  });
-
-  it.each([
-    ["waiter", users.waiter],
-    ["kitchen", users.kitchen],
-  ])("hides store and reviews for %s", async (_, user) => {
-    renderSidebar(user);
-    await openAccountMenu();
-
-    expect(getLinkByHref("/store")).not.toBeInTheDocument();
-    expect(getLinkByHref("/reviews")).not.toBeInTheDocument();
-  });
-
-  it.each([
-    ["owner", users.owner],
-    ["admin", users.admin],
-    ["manager", users.manager],
-  ])("shows reviews for %s", async (_, user) => {
-    renderSidebar(user);
-    await openAccountMenu();
-
-    expect(getLinkByHref("/reviews")).toBeInTheDocument();
-  });
-
-  it("hides protected account links for an unknown role", async () => {
-    renderSidebar(users.unknown);
-    await openAccountMenu();
-
+    expect(getLinkByHref("/")).not.toBeInTheDocument();
     expect(getLinkByHref("/settings/profile")).not.toBeInTheDocument();
     expect(getLinkByHref("/settings/support")).not.toBeInTheDocument();
     expect(getLinkByHref("/store")).not.toBeInTheDocument();
