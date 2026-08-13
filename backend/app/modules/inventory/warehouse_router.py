@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import require_company_app_user
 from app.modules.auth.models import User
 from app.modules.companies.models import Branch
 from app.modules.rbac.dependencies import require_permission
@@ -55,7 +55,7 @@ async def _next_doc_number(db: AsyncSession, company_id: UUID, model) -> int:
 # ── Warehouses ───────────────────────────────────────────────
 @router.get("/list", response_model=list[WarehouseResponse])
 async def list_warehouses(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -70,8 +70,8 @@ async def create_warehouse(
     # BE-05: was require_company_admin (owner/admin/manager slug check).
     # Switched to a real permission check so a "warehouse" role — one of
     # the canonical role slugs — can actually do warehouse mutations
-    # instead of being locked out entirely; owner/admin/manager still pass
-    # via their default permission set (see rbac/permissions.py).
+    # instead of being locked out entirely. BI-06 deliberately removes this
+    # deferred Inventory/Warehouse capability from the frozen Web OWNER.
     user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
@@ -89,7 +89,7 @@ async def create_warehouse(
 @router.get("/purchases", response_model=list[PurchaseDocumentResponse])
 async def list_purchases(
     search: str = Query("", alias="q"),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     query = (
@@ -111,7 +111,7 @@ async def list_purchases(
 @router.get("/purchases/{doc_id}", response_model=PurchaseDocumentResponse)
 async def get_purchase(
     doc_id: UUID,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -132,8 +132,7 @@ async def create_purchase(
     # BE-05: was require_company_admin (owner/admin/manager slug check).
     # Switched to a real permission check so a "warehouse" role — one of
     # the canonical role slugs — can actually do warehouse mutations
-    # instead of being locked out entirely; owner/admin/manager still pass
-    # via their default permission set (see rbac/permissions.py).
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
     user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
@@ -191,8 +190,7 @@ async def update_purchase(
     # BE-05: was require_company_admin (owner/admin/manager slug check).
     # Switched to a real permission check so a "warehouse" role — one of
     # the canonical role slugs — can actually do warehouse mutations
-    # instead of being locked out entirely; owner/admin/manager still pass
-    # via their default permission set (see rbac/permissions.py).
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
     user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
@@ -274,8 +272,7 @@ async def delete_purchase(
     # BE-05: was require_company_admin (owner/admin/manager slug check).
     # Switched to a real permission check so a "warehouse" role — one of
     # the canonical role slugs — can actually do warehouse mutations
-    # instead of being locked out entirely; owner/admin/manager still pass
-    # via their default permission set (see rbac/permissions.py).
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
     user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
@@ -295,7 +292,7 @@ async def delete_purchase(
 # ── Transfers ────────────────────────────────────────────────
 @router.get("/transfers", response_model=list[TransferResponse])
 async def list_transfers(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -312,8 +309,7 @@ async def create_transfer(
     # BE-05: was require_company_admin (owner/admin/manager slug check).
     # Switched to a real permission check so a "warehouse" role — one of
     # the canonical role slugs — can actually do warehouse mutations
-    # instead of being locked out entirely; owner/admin/manager still pass
-    # via their default permission set (see rbac/permissions.py).
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
     user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
@@ -342,8 +338,7 @@ async def delete_transfer(
     # BE-05: was require_company_admin (owner/admin/manager slug check).
     # Switched to a real permission check so a "warehouse" role — one of
     # the canonical role slugs — can actually do warehouse mutations
-    # instead of being locked out entirely; owner/admin/manager still pass
-    # via their default permission set (see rbac/permissions.py).
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
     user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
@@ -363,7 +358,7 @@ async def delete_transfer(
 # ── Inventory Checks ─────────────────────────────────────────
 @router.get("/inventory-checks", response_model=list[InventoryCheckResponse])
 async def list_inventory_checks(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -380,8 +375,7 @@ async def create_inventory_check(
     # BE-05: was require_company_admin (owner/admin/manager slug check).
     # Switched to a real permission check so a "warehouse" role — one of
     # the canonical role slugs — can actually do warehouse mutations
-    # instead of being locked out entirely; owner/admin/manager still pass
-    # via their default permission set (see rbac/permissions.py).
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
     user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
@@ -407,8 +401,7 @@ async def update_inventory_check(
     # BE-05: was require_company_admin (owner/admin/manager slug check).
     # Switched to a real permission check so a "warehouse" role — one of
     # the canonical role slugs — can actually do warehouse mutations
-    # instead of being locked out entirely; owner/admin/manager still pass
-    # via their default permission set (see rbac/permissions.py).
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
     user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
@@ -437,8 +430,7 @@ async def delete_inventory_check(
     # BE-05: was require_company_admin (owner/admin/manager slug check).
     # Switched to a real permission check so a "warehouse" role — one of
     # the canonical role slugs — can actually do warehouse mutations
-    # instead of being locked out entirely; owner/admin/manager still pass
-    # via their default permission set (see rbac/permissions.py).
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
     user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
@@ -458,7 +450,7 @@ async def delete_inventory_check(
 # ── Write-Offs ───────────────────────────────────────────────
 @router.get("/write-offs", response_model=list[WriteOffResponse])
 async def list_write_offs(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -475,8 +467,7 @@ async def create_write_off(
     # BE-05: was require_company_admin (owner/admin/manager slug check).
     # Switched to a real permission check so a "warehouse" role — one of
     # the canonical role slugs — can actually do warehouse mutations
-    # instead of being locked out entirely; owner/admin/manager still pass
-    # via their default permission set (see rbac/permissions.py).
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
     user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
@@ -498,8 +489,7 @@ async def delete_write_off(
     # BE-05: was require_company_admin (owner/admin/manager slug check).
     # Switched to a real permission check so a "warehouse" role — one of
     # the canonical role slugs — can actually do warehouse mutations
-    # instead of being locked out entirely; owner/admin/manager still pass
-    # via their default permission set (see rbac/permissions.py).
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
     user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):

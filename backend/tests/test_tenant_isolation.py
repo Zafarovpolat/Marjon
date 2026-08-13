@@ -27,7 +27,7 @@ from app.shared.admin_crud import (
 from app.shared.base_model import Base
 from app.shared.exceptions import NotFoundError
 from app.shared.pagination import PageParams
-from tests.conftest import register_company
+from tests.conftest import create_staff_headers, register_company
 
 
 async def _create_product(client, headers, name="Plov", price="50000"):
@@ -300,6 +300,12 @@ async def test_postgresql_product_crud_idor_and_query_filters_do_not_cross_tenan
 async def test_postgresql_rejects_cross_tenant_inventory_relations(postgres_tenant_client):
     client, _ = postgres_tenant_client
     a_headers, b_headers, *_, b_branch = await _register_tenant_pair(client, "inventory")
+    stock_headers = await create_staff_headers(
+        client,
+        a_headers,
+        email="warehouse-a-inventory@example.com",
+        role_slug="warehouse",
+    )
 
     category = await client.post(
         "/inventory/categories",
@@ -336,14 +342,14 @@ async def test_postgresql_rejects_cross_tenant_inventory_relations(postgres_tena
 
     warehouse = await client.post(
         "/warehouse/list",
-        headers=a_headers,
+        headers=stock_headers,
         json={"name": "Invalid warehouse", "branch_id": b_branch["id"]},
     )
     assert warehouse.status_code == 404
 
     movement = await client.post(
         "/inventory/stock/movements",
-        headers=a_headers,
+        headers=stock_headers,
         json={
             "warehouse_id": str(uuid4()),
             "ingredient_id": ingredient.json()["id"],

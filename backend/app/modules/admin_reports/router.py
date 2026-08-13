@@ -13,7 +13,7 @@ from app.modules.admin_reports.schemas import (
     ProductReportRow, TableReportRow, WaiterReportRow,
 )
 from app.modules.admin_reports.service import AdminReportService, xlsx_response
-from app.modules.auth.dependencies import require_company_app_user, require_hq_admin
+from app.modules.auth.dependencies import require_hq_admin, require_web_owner
 from app.modules.auth.models import User
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -30,7 +30,7 @@ async def products_report(
     date_to: date | None = Query(None),
     branch_id: UUID | None = Query(None),
     export: str | None = Query(None, description="excel — выгрузка в .xlsx"),
-    user: User = Depends(require_company_app_user),
+    user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
 ):
     assert user.company_id is not None
@@ -56,7 +56,7 @@ async def products_count_report(
     date_to: date | None = Query(None),
     branch_id: UUID | None = Query(None),
     export: str | None = Query(None),
-    user: User = Depends(require_company_app_user),
+    user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
 ):
     assert user.company_id is not None
@@ -82,7 +82,7 @@ async def debt_credit_report(
     date_to: date | None = Query(None),
     counterparty_id: UUID | None = Query(None),
     export: str | None = Query(None),
-    user: User = Depends(require_company_app_user),
+    user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
 ):
     assert user.company_id is not None
@@ -102,7 +102,7 @@ async def debt_credit_report(
 async def orders_report(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
-    user: User = Depends(require_company_app_user),
+    user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
 ):
     return await AdminReportService(db).orders_report(user.company_id, date_from, date_to)
@@ -112,7 +112,7 @@ async def orders_report(
 async def tables_report(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
-    user: User = Depends(require_company_app_user),
+    user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
 ):
     return await AdminReportService(db).tables_report(user.company_id, date_from, date_to)
@@ -122,7 +122,7 @@ async def tables_report(
 async def waiters_report(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
-    user: User = Depends(require_company_app_user),
+    user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
 ):
     return await AdminReportService(db).waiters_report(user.company_id, date_from, date_to)
@@ -132,7 +132,7 @@ async def waiters_report(
 async def dishes_report(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
-    user: User = Depends(require_company_app_user),
+    user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
 ):
     return await AdminReportService(db).dishes_report(user.company_id, date_from, date_to)
@@ -142,7 +142,7 @@ async def dishes_report(
 async def cancelled_report(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
-    user: User = Depends(require_company_app_user),
+    user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
 ):
     return await AdminReportService(db).cancelled_items(user.company_id, date_from, date_to)

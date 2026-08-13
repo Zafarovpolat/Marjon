@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user, require_company_admin
+from app.modules.auth.dependencies import require_company_admin, require_company_app_user
 from app.modules.auth.models import User
 from app.modules.halls.schemas import (
     HallCreate, HallResponse, HallUpdate,
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/halls", tags=["halls"])
 @router.get("", response_model=list[HallResponse])
 async def list_halls(
     branch_id: UUID | None = Query(None),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     return await HallService(db).list(user.company_id, branch_id)
@@ -39,7 +39,7 @@ async def create_hall(
 @router.get("/{hall_id}", response_model=HallResponse)
 async def get_hall(
     hall_id: UUID,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     return await HallService(db).get(user.company_id, hall_id)
@@ -68,7 +68,7 @@ async def delete_hall(
 @router.get("/{hall_id}/tables", response_model=list[TableResponse])
 async def list_tables(
     hall_id: UUID,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     return await HallService(db).list_tables(user.company_id, hall_id)
@@ -108,7 +108,7 @@ async def delete_table(
 @router.get("/branch/{branch_id}/tables", response_model=list[TableResponse])
 async def branch_tables(
     branch_id: UUID,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     """All active tables in a branch (for waiter table picker)."""

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user, require_company_admin, require_superadmin
+from app.modules.auth.dependencies import require_company_app_user, require_company_admin, require_hq_admin
 from app.modules.auth.models import User
 from app.modules.companies.schemas import (
     BranchCreate, BranchResponse, BranchUpdate,
@@ -22,7 +22,7 @@ router = APIRouter(prefix="/companies", tags=["companies"])
 @router.post("", response_model=CompanyResponse, status_code=status.HTTP_201_CREATED)
 async def create_company(
     data: CompanyCreate,
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_hq_admin),
     db: AsyncSession = Depends(get_db),
 ):
     return await CompanyService(db).create(data)
@@ -30,7 +30,7 @@ async def create_company(
 
 @router.get("/me", response_model=CompanyResponse)
 async def get_my_company(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     return await CompanyService(db).get(current_user.company_id)
@@ -93,7 +93,7 @@ async def create_branch(
 
 @router.get("/me/branches", response_model=list[BranchResponse])
 async def list_branches(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     branches = await BranchService(db).list(current_user.company_id)

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user, require_company_admin
+from app.modules.auth.dependencies import require_company_app_user, require_company_admin
 from app.modules.auth.models import User
 from app.modules.rbac.schemas import (
     PermissionResponse, RoleCreate, RolePermissionAssign, RoleResponse,
@@ -26,7 +26,7 @@ async def create_role(
 
 @router.get("/roles", response_model=list[RoleResponse])
 async def list_roles(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     return await RBACService(db).list_roles(current_user.company_id)
@@ -38,12 +38,14 @@ async def assign_role(
     current_user: User = Depends(require_company_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    return await RBACService(db).assign_role(current_user.company_id, data)
+    return await RBACService(db).assign_role(
+        current_user.company_id, current_user.id, data
+    )
 
 
 @router.get("/me/permissions", response_model=list[str])
 async def my_permissions(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     return await RBACService(db).get_user_permissions(
@@ -53,7 +55,7 @@ async def my_permissions(
 
 @router.get("/permissions", response_model=list[PermissionResponse])
 async def list_permissions(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_company_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """BE-05: full catalog of permissions the system knows about, for

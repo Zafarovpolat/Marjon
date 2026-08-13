@@ -8,7 +8,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user, require_company_admin
+from app.modules.auth.dependencies import (
+    get_current_user,
+    require_company_admin,
+    require_company_app_user,
+    require_web_owner,
+)
 from app.modules.auth.models import User
 from app.modules.auth.schemas import (
     CompanyUserCreate,
@@ -25,6 +30,7 @@ from app.modules.auth.schemas import (
 )
 from app.modules.auth.service import AuthService
 from app.modules.rbac.models import Role, UserRole
+from app.modules.rbac.constants import OWNER_ASSIGNABLE_ROLE_SLUGS
 from app.shared.rate_limit import limiter
 from app.shared.storage import storage
 
@@ -83,7 +89,8 @@ async def create_company_user(
         password=data.password,
         phone=data.phone,
         role_slug=data.role_slug,
-        role_name=data.role_name,
+        name=data.role_name,
+        assignable_role_slugs=OWNER_ASSIGNABLE_ROLE_SLUGS,
     )
     return CompanyUserResponse.model_validate(user).model_copy(update={"role_slug": role.slug})
 
@@ -146,6 +153,8 @@ async def list_company_users(
     users = await UserRepository(db).get_company_users(current_user.company_id)
     result = []
     for user in users:
+        if user.is_superadmin:
+            continue
         roles_res = await db.execute(
             select(Role.slug)
             .join(UserRole, UserRole.role_id == Role.id)
@@ -170,12 +179,14 @@ async def update_company_user(
     user, slugs = await AuthService(db).update_company_user(
         user_id,
         current_user.company_id,
-        name=data.name,
+        name=data.name if data.name is not None else data.role_name,
         email=str(data.email) if data.email else None,
         phone=data.phone,
         password=data.password,
         role_slug=data.role_slug,
         is_active=data.is_active,
+        assignable_role_slugs=OWNER_ASSIGNABLE_ROLE_SLUGS,
+        actor_user_id=current_user.id,
     )
     return CompanyUserResponse.model_validate(user).model_copy(
         update={"role_slugs": slugs, "role_slug": slugs[0] if slugs else None}
@@ -188,17 +199,9 @@ async def delete_company_user(
     current_user: User = Depends(require_company_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    from sqlalchemy import update as sql_update
-    from app.modules.auth.repository import UserRepository
-    repo = UserRepository(db)
-    user = await repo.get_by_id(user_id)
-    if not user or user.company_id != current_user.company_id:
-        from app.shared.exceptions import NotFoundError
-        raise NotFoundError("User not found")
-    await db.execute(
-        sql_update(User).where(User.id == user_id).values(is_active=False)
+    await AuthService(db).deactivate_company_user(
+        current_user.id, user_id, current_user.company_id
     )
-    await db.commit()
 
 
 _ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
@@ -256,11 +259,13 @@ async def pin_login(request: Request, data: PinLoginRequest, db: AsyncSession = 
 
 
 @router.get("/staff-users", response_model=list[CompanyUserResponse])
-async def staff_users(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def staff_users(current_user: User = Depends(require_web_owner), db: AsyncSession = Depends(get_db)):
     from app.modules.auth.repository import UserRepository
     users = await UserRepository(db).get_company_users(current_user.company_id)
     result = []
     for user in users:
+        if user.is_superadmin:
+            continue
         roles_res = await db.execute(
             select(Role.slug).join(UserRole, UserRole.role_id == Role.id).where(UserRole.user_id == user.id)
         )

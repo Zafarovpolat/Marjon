@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user, require_company_admin
+from app.modules.auth.dependencies import require_company_admin, require_company_app_user
 from app.modules.auth.models import User
 from app.modules.inventory.semi_product_models import SemiProduct
 from app.modules.inventory.semi_product_schemas import (
@@ -15,6 +15,7 @@ from app.modules.inventory.semi_product_schemas import (
     SemiProductResponse, SemiProductUpdate,
 )
 from app.modules.inventory.semi_product_service import SemiProductService
+from app.modules.rbac.dependencies import require_permission
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/inventory/semi-products", tags=["inventory"])
@@ -40,7 +41,7 @@ def _to_response(sp: SemiProduct) -> SemiProductResponse:
 
 @router.get("", response_model=list[SemiProductResponse])
 async def list_semi_products(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     items = await SemiProductService(db).list(user.company_id)
@@ -60,7 +61,7 @@ async def create_semi_product(
 @router.get("/{semi_product_id}", response_model=SemiProductResponse)
 async def get_semi_product(
     semi_product_id: UUID,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     sp = await SemiProductService(db).get(user.company_id, semi_product_id)
@@ -92,7 +93,7 @@ async def delete_semi_product(
 async def produce_semi_product(
     semi_product_id: UUID,
     data: SemiProductProduceRequest,
-    user: User = Depends(require_company_admin),
+    user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
     sp = await SemiProductService(db).produce(

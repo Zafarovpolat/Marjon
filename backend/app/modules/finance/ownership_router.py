@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import require_company_app_user, require_hq_admin
+from app.modules.auth.dependencies import require_company_app_user, require_hq_admin, require_web_owner
 from app.modules.auth.models import User
 from app.modules.finance.ownership import FinanceDictionaryService, FinanceScope
 from app.modules.organizations.dependencies import get_org_scope
@@ -22,6 +22,14 @@ from app.shared.pagination import Page, PageParams
 async def get_company_finance_scope(
     user: User = Depends(require_company_app_user),
 ) -> FinanceScope:
+    assert user.company_id is not None
+    return FinanceScope("company", user.company_id)
+
+
+async def get_owner_finance_scope(
+    user: User = Depends(require_web_owner),
+) -> FinanceScope:
+    """Frozen Web OWNER finance scope for sensitive financial records."""
     assert user.company_id is not None
     return FinanceScope("company", user.company_id)
 

@@ -17,6 +17,33 @@ from app.shared.exceptions import UnauthorizedError
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login/form")
 
 
+async def ensure_company_app_identity(
+    current_user: User,
+    db: AsyncSession,
+    *,
+    auth_scope: str,
+) -> User:
+    """Validate authoritative APP identity, including manual WS auth."""
+    if auth_scope != "app":
+        raise ForbiddenError("Company app session required")
+    if current_user.company_id is None or current_user.is_superadmin:
+        raise ForbiddenError("Company app identity required")
+    roles = list((await db.execute(
+        select(Role)
+        .join(UserRole, UserRole.role_id == Role.id)
+        .where(UserRole.user_id == current_user.id)
+    )).scalars().all())
+    from app.modules.rbac.constants import APP_COMPANY_ROLE_SLUGS
+    if (
+        len(roles) != 1
+        or roles[0].company_id != current_user.company_id
+        or roles[0].is_system
+        or roles[0].slug not in APP_COMPANY_ROLE_SLUGS
+    ):
+        raise ForbiddenError("Unambiguous company role required")
+    return current_user
+
+
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
@@ -55,44 +82,59 @@ async def get_current_active_user(
 
 async def require_company_app_user(
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Require an app-scoped session with a server-owned company context."""
-    if getattr(current_user, "auth_scope", "app") != "app":
-        raise ForbiddenError("Company app session required")
-    if current_user.company_id is None:
-        raise ForbiddenError("User is not assigned to a company")
+    """Require an app-scoped session and one unambiguous company role."""
+    return await ensure_company_app_identity(
+        current_user,
+        db,
+        auth_scope=getattr(current_user, "auth_scope", "app"),
+    )
+
+
+async def require_web_owner(
+    current_user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Require the frozen BI-06 Web OWNER identity.
+
+    Client/session scope, tenant membership and business role are independent
+    assertions.  A company id in a JWT is not an OWNER role, and an HQ session
+    must never inherit restaurant-app authority from ``is_superadmin``.
+    """
+    roles = list((await db.execute(
+        select(Role)
+        .join(UserRole, UserRole.role_id == Role.id)
+        .where(UserRole.user_id == current_user.id)
+    )).scalars().all())
+    if (
+        len(roles) != 1
+        or roles[0].company_id != current_user.company_id
+        or roles[0].is_system
+        or roles[0].slug != "owner"
+    ):
+        raise ForbiddenError("Company owner role required")
     return current_user
 
 
 async def require_company_admin(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_web_owner),
 ) -> User:
-    if current_user.is_superadmin:
-        return current_user
-    if not current_user.company_id:
-        raise ForbiddenError("User is not assigned to a company")
+    """Backward-compatible name for the frozen Web OWNER admin guard.
 
-    result = await db.execute(
-        select(Role.slug)
-        .join(UserRole, UserRole.role_id == Role.id)
-        .where(
-            UserRole.user_id == current_user.id,
-            Role.company_id == current_user.company_id,
-            Role.slug.in_(("owner", "admin", "manager")),
-        )
-    )
-    if result.scalars().first():
-        return current_user
-    raise ForbiddenError("Company admin role required")
+    Operational admin/manager semantics are explicitly deferred.  Existing
+    assignments remain in the database, but they do not receive OWNER's Web
+    administration ceiling in BI-06.
+    """
+    return current_user
 
 
 async def require_superadmin(
     current_user: User = Depends(get_current_user),
 ) -> User:
-    if current_user.is_superadmin:
+    if current_user.is_superadmin and getattr(current_user, "auth_scope", "app") == "hq_admin":
         return current_user
-    raise ForbiddenError("Superadmin role required")
+    raise ForbiddenError("HQ admin session required")
 
 
 async def require_hq_admin(

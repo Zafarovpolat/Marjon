@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user, require_company_admin
+from app.modules.auth.dependencies import require_company_app_user, require_company_admin
 from app.modules.auth.models import User
 from app.modules.inventory.models import Product
 from app.modules.inventory.schemas import (
@@ -14,6 +14,7 @@ from app.modules.inventory.schemas import (
     StockItemResponse, StockMovementCreate, StockMovementResponse,
 )
 from app.modules.inventory.service import CategoryService, IngredientService, ProductService, StockService
+from app.modules.rbac.dependencies import require_permission
 from app.shared.storage import storage
 
 _ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
@@ -59,7 +60,7 @@ async def create_category(data: CategoryCreate, user: User = Depends(require_com
 
 
 @router.get("/categories", response_model=list[CategoryResponse])
-async def list_categories(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def list_categories(user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db)):
     return await CategoryService(db).list(user.company_id)
 
 
@@ -71,7 +72,7 @@ async def create_product(data: ProductCreate, user: User = Depends(require_compa
 @router.get("/products", response_model=list[ProductResponse])
 async def list_products(
     include_all: bool = Query(False),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     svc = ProductService(db)
@@ -80,7 +81,7 @@ async def list_products(
 
 
 @router.get("/products/{product_id}", response_model=ProductResponse)
-async def get_product(product_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def get_product(product_id: UUID, user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db)):
     return _product_to_response(await ProductService(db).get(user.company_id, product_id))
 
 
@@ -139,12 +140,12 @@ async def create_ingredient(data: IngredientCreate, user: User = Depends(require
 
 
 @router.get("/ingredients", response_model=list[IngredientResponse])
-async def list_ingredients(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def list_ingredients(user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db)):
     return await IngredientService(db).list(user.company_id)
 
 
 @router.get("/ingredients/{ingredient_id}", response_model=IngredientResponse)
-async def get_ingredient(ingredient_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def get_ingredient(ingredient_id: UUID, user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db)):
     return await IngredientService(db).get(user.company_id, ingredient_id)
 
 
@@ -157,7 +158,7 @@ async def update_ingredient(ingredient_id: UUID, data: IngredientUpdate, user: U
 async def get_stock(
     warehouse_id: UUID | None = Query(None),
     low_stock: bool = Query(False),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("inventory:stock:read")),
     db: AsyncSession = Depends(get_db),
 ):
     svc = StockService(db)
@@ -167,5 +168,9 @@ async def get_stock(
 
 
 @router.post("/stock/movements", response_model=StockMovementResponse, status_code=status.HTTP_201_CREATED)
-async def create_movement(data: StockMovementCreate, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)):
+async def create_movement(
+    data: StockMovementCreate,
+    user: User = Depends(require_permission("inventory:stock:write")),
+    db: AsyncSession = Depends(get_db),
+):
     return await StockService(db).create_movement(user.company_id, user.id, data)

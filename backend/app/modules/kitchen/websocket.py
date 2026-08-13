@@ -4,11 +4,17 @@ import json
 import logging
 from uuid import UUID
 
-from fastapi import WebSocket, WebSocketDisconnect, Query
+from fastapi import Depends, Query, WebSocket, WebSocketDisconnect
 from jose import JWTError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.infrastructure.database.session import get_db
+from app.modules.auth.dependencies import ensure_company_app_identity
+from app.modules.auth.repository import UserRepository
 from app.modules.auth.security import decode_token
+from app.modules.companies.models import Branch
+from app.shared.tenant_scope import require_company_resource
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +142,7 @@ async def kitchen_ws_endpoint(
     ws: WebSocket,
     token: str = Query(...),
     branch_id: UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
 ) -> None:
     try:
         payload = decode_token(token)
@@ -143,12 +150,29 @@ async def kitchen_ws_endpoint(
         await ws.close(code=4001, reason="Invalid token")
         return
 
-    company_id_str = payload.get("company_id")
-    if not company_id_str:
-        await ws.close(code=4002, reason="No company")
+    user_id_str = payload.get("sub")
+    if not user_id_str:
+        await ws.close(code=4002, reason="Company app session required")
+        return
+    try:
+        user = await UserRepository(db).get_by_id(UUID(user_id_str))
+    except (ValueError, TypeError):
+        user = None
+    if not user or not user.is_active:
+        await ws.close(code=4001, reason="Unauthorized")
+        return
+    try:
+        await ensure_company_app_identity(
+            user, db, auth_scope=payload.get("auth_scope", "app")
+        )
+        await require_company_resource(
+            db, Branch, branch_id, user.company_id, detail="Branch not found"
+        )
+    except Exception:
+        await ws.close(code=4003, reason="Branch not found")
         return
 
-    company_id = UUID(company_id_str)
+    company_id = user.company_id
     await kitchen_manager.connect(ws, company_id, branch_id)
     try:
         while True:

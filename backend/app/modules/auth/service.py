@@ -2,6 +2,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -18,7 +19,8 @@ from app.modules.auth.security import (
 from app.modules.audit.service import AuditService
 from app.modules.companies.models import Company
 from app.modules.rbac.models import Role, UserRole
-from app.modules.rbac.permissions import sync_role_permissions
+from app.modules.rbac.constants import COMPANY_ROLE_SLUGS
+from app.modules.rbac.permissions import reconcile_frozen_owner_permissions, sync_role_permissions
 from app.modules.rbac.service import RBACService
 from app.shared.exceptions import ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError
 
@@ -35,6 +37,23 @@ class AuthService:
         self.db = db
         self.user_repo = UserRepository(db)
         self.token_repo = RefreshTokenRepository(db)
+
+    async def _manageable_company_role_slug(
+        self, user_id: UUID, company_id: UUID
+    ) -> str:
+        roles = list((await self.db.execute(
+            select(Role)
+            .join(UserRole, UserRole.role_id == Role.id)
+            .where(UserRole.user_id == user_id)
+        )).scalars().all())
+        if (
+            len(roles) != 1
+            or roles[0].company_id != company_id
+            or roles[0].is_system
+            or roles[0].slug not in COMPANY_ROLE_SLUGS
+        ):
+            raise ForbiddenError("User role state is ambiguous")
+        return roles[0].slug
 
     async def register(
         self, company_name: str, company_slug: str, email: str, password: str
@@ -62,7 +81,7 @@ class AuthService:
         )
         self.db.add(owner_role)
         await self.db.flush()
-        await sync_role_permissions(self.db, owner_role)  # BE-05: owner gets every permission
+        await reconcile_frozen_owner_permissions(self.db, owner_role)
 
         self.db.add(UserRole(user_id=user.id, role_id=owner_role.id))
         await self.db.commit()
@@ -141,8 +160,9 @@ class AuthService:
         email: str,
         password: str,
         role_slug: str,
-        role_name: str | None = None,
+        name: str | None = None,
         phone: str | None = None,
+        assignable_role_slugs: frozenset[str] | None = None,
     ) -> tuple[User, Role]:
         if not company_id:
             raise ValidationError("Current user is not assigned to a company")
@@ -154,18 +174,26 @@ class AuthService:
             # a duplicate phone would make login resolution ambiguous.
             raise ConflictError("Phone already registered")
 
+        if role_slug not in COMPANY_ROLE_SLUGS:
+            raise ValidationError(
+                f"Unknown role_slug '{role_slug}'. Allowed: {', '.join(sorted(COMPANY_ROLE_SLUGS))}"
+            )
+        if assignable_role_slugs is not None and role_slug not in assignable_role_slugs:
+            raise ForbiddenError("Role is outside the actor's privilege ceiling")
+
         # BE-05: role_slug is validated against the canonical allowlist here
         # (raises ValidationError otherwise) and the role's default
         # permission set is attached the first time it's created for this
         # company — see RBACService.get_or_create_company_role.
         role = await RBACService(self.db).get_or_create_company_role(
-            company_id, role_slug, name=role_name
+            company_id, role_slug
         )
 
         user = User(
             company_id=company_id,
             email=email,
             phone=phone,
+            name=name,
             password_hash=hash_password(password),
         )
         self.db.add(user)
@@ -189,13 +217,36 @@ class AuthService:
         password: str | None = None,
         role_slug: str | None = None,
         is_active: bool | None = None,
+        assignable_role_slugs: frozenset[str] | None = None,
+        actor_user_id: UUID | None = None,
     ) -> tuple[User, list[str]]:
         if not company_id:
             raise ValidationError("Current user is not assigned to a company")
 
         user = await self.user_repo.get_by_id(user_id)
-        if not user or user.company_id != company_id:
+        if not user or user.company_id != company_id or user.is_superadmin:
             raise NotFoundError("User not found")
+
+        if actor_user_id is not None:
+            target_role_slug = await self._manageable_company_role_slug(
+                user_id, company_id
+            )
+            if (
+                actor_user_id == user_id
+                or assignable_role_slugs is None
+                or target_role_slug not in assignable_role_slugs
+            ):
+                raise ForbiddenError("Protected company identity cannot be changed")
+
+        if actor_user_id == user_id and role_slug is not None:
+            raise ForbiddenError("Self role changes are not allowed")
+        if role_slug is not None:
+            if role_slug not in COMPANY_ROLE_SLUGS:
+                raise ValidationError(
+                    f"Unknown role_slug '{role_slug}'. Allowed: {', '.join(sorted(COMPANY_ROLE_SLUGS))}"
+                )
+            if assignable_role_slugs is not None and role_slug not in assignable_role_slugs:
+                raise ForbiddenError("Role is outside the actor's privilege ceiling")
 
         if name is not None:
             user.name = name
@@ -226,7 +277,6 @@ class AuthService:
         await self.db.commit()
         await self.db.refresh(user)
 
-        from sqlalchemy import select
         roles_res = await self.db.execute(
             select(Role.slug).join(UserRole, UserRole.role_id == Role.id).where(UserRole.user_id == user_id)
         )
@@ -297,8 +347,10 @@ class AuthService:
             raise ValidationError("Current user is not assigned to a company")
 
         target = await self.user_repo.get_by_id(target_user_id)
-        if not target or target.company_id != company_id:
+        if not target or target.company_id != company_id or target.is_superadmin:
             raise NotFoundError("User not found")
+        if await self._manageable_company_role_slug(target_user_id, company_id) == "owner":
+            raise ForbiddenError("Protected company identity cannot be changed")
 
         # PIN uniqueness within the company. Pins are hashed (salted), so
         # this can't be a plain equality lookup — verify against every
@@ -318,6 +370,22 @@ class AuthService:
             company_id=company_id, user_id=actor_user_id,
             action="user.pin_reset", entity_type="user", entity_id=target.id,
         )
+
+    async def deactivate_company_user(
+        self, actor_user_id: UUID, target_user_id: UUID, company_id: UUID | None
+    ) -> None:
+        if not company_id:
+            raise ValidationError("Current user is not assigned to a company")
+        target = await self.user_repo.get_by_id(target_user_id)
+        if not target or target.company_id != company_id or target.is_superadmin:
+            raise NotFoundError("User not found")
+        target_role_slug = await self._manageable_company_role_slug(
+            target_user_id, company_id
+        )
+        if actor_user_id == target_user_id or target_role_slug == "owner":
+            raise ForbiddenError("Protected company identity cannot be changed")
+        target.is_active = False
+        await self.db.commit()
 
     async def pin_login(self, employee_id: UUID, pin: str) -> tuple[User, str, str]:
         """BE-08: PIN identifies the SESSION (via employee_id), the PIN

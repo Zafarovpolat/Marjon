@@ -18,7 +18,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user, require_company_admin
+from app.modules.auth.dependencies import (
+    require_company_admin,
+    require_company_app_user,
+    require_web_owner,
+)
 from app.modules.auth.models import User
 from app.modules.companies.models import Branch, Company
 from app.modules.finance.models import (
@@ -69,7 +73,7 @@ def _tx_dict(t: FinTransaction) -> dict:
 async def kafe_list_transactions(
     date_from: date | None = Query(None), date_to: date | None = Query(None),
     direction: str | None = Query(None),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_web_owner),
     scope: FinanceScope = Depends(get_company_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
@@ -93,7 +97,7 @@ async def kafe_list_transactions(
 async def kafe_create_transaction(
     data: dict,
     idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_web_owner),
     scope: FinanceScope = Depends(get_company_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
@@ -110,7 +114,7 @@ async def kafe_create_transaction(
 async def kafe_update_transaction(
     tx_id: UUID,
     data: dict,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_web_owner),
     scope: FinanceScope = Depends(get_company_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
@@ -163,7 +167,7 @@ def _cat_dict(c: TransactionCategory) -> dict:
 @router.get("/finance/transaction-categories", tags=["finance-kafe"])
 async def kafe_list_categories(
     kind: str | None = Query(None),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_web_owner),
     scope: FinanceScope = Depends(get_company_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
@@ -253,7 +257,7 @@ def _org_dict(c: Company) -> dict:
 
 # ── Настройки: организация ───────────────────────────────────────────────────
 @router.get("/settings/organization", tags=["settings"])
-async def get_organization(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def get_organization(user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db)):
     c = await db.get(Company, user.company_id)
     if not c:
         raise NotFoundError("Company not found")
@@ -279,7 +283,7 @@ def _branch_dict(b: Branch) -> dict:
 
 
 @router.get("/settings/places", tags=["settings"])
-async def list_places(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def list_places(user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db)):
     rows = (await db.execute(select(Branch).where(Branch.company_id == user.company_id))).scalars().all()
     return {"items": [_branch_dict(b) for b in rows]}
 
@@ -418,7 +422,7 @@ async def _get_or_create_receipt_settings(db: AsyncSession, company_id: UUID) ->
 
 
 @router.get("/settings/receipt-template", tags=["settings"])
-async def get_receipt_template(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def get_receipt_template(user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db)):
     row = (
         await db.execute(select(ReceiptTemplateSettings).where(ReceiptTemplateSettings.company_id == user.company_id))
     ).scalar_one_or_none()
@@ -447,7 +451,7 @@ async def update_receipt_template(
 
 
 @router.get("/settings/kitchen-receipt-template", tags=["settings"])
-async def get_kitchen_receipt_template(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def get_kitchen_receipt_template(user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db)):
     row = (
         await db.execute(select(ReceiptTemplateSettings).where(ReceiptTemplateSettings.company_id == user.company_id))
     ).scalar_one_or_none()
@@ -558,7 +562,7 @@ async def get_counterparty(
 
 # ── Биллинг: баланс подписки (для Topbar) ────────────────────────────────────
 @router.get("/billing/balance", tags=["billing"])
-async def billing_balance(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def billing_balance(user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db)):
     c = await db.get(Company, user.company_id) if user.company_id else None
     currency = c.currency if c else "UZS"
     row = (
@@ -599,7 +603,7 @@ async def billing_balance(user: User = Depends(get_current_user), db: AsyncSessi
 
 # ── Поддержка: тикеты ────────────────────────────────────────────────────────
 @router.post("/support/tickets", status_code=status.HTTP_201_CREATED, tags=["support"])
-async def create_support_ticket(data: dict, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def create_support_ticket(data: dict, user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db)):
     ticket = SupportTicket(
         company_id=user.company_id, user_id=user.id,
         phone=data.get("phone"), country=data.get("country"),

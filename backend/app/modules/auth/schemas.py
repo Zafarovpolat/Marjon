@@ -16,6 +16,8 @@ def _validate_password(v: str) -> str:
 
 
 class RegisterRequest(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
     company_name: str = Field(..., min_length=1, max_length=255)
     company_slug: str = Field(..., min_length=1, max_length=100, pattern=r"^[a-z0-9_-]+$")
     email: EmailStr
@@ -28,6 +30,8 @@ class RegisterRequest(BaseSchema):
 
 
 class CompanyUserCreate(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
     email: EmailStr
     password: str
     phone: str | None = None
@@ -41,6 +45,8 @@ class CompanyUserCreate(BaseSchema):
 
 
 class LoginRequest(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
     email: str | None = Field(None, min_length=1, max_length=255)
     phone: str | None = Field(None, min_length=1, max_length=30)
     password: str
@@ -96,11 +102,16 @@ class UserResponse(BaseResponseSchema):
 
 
 class CompanyUserUpdate(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
     name: str | None = None
     email: EmailStr | None = None
     phone: str | None = None
     password: str | None = None
     role_slug: str | None = None
+    # Legacy Web field name for the employee display name. It never names or
+    # mutates the Role definition.
+    role_name: str | None = None
     # BE-07: was missing entirely — a deactivated employee (DELETE
     # /auth/users/{id} soft-deactivates, doesn't hard-delete) had no way to
     # be reactivated through the API.

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user, require_hq_admin, require_superadmin
+from app.modules.auth.dependencies import get_current_user, require_hq_admin
 from app.modules.auth.models import User
 from app.modules.organizations import models, schemas
 from app.modules.organizations.dependencies import get_org_scope
@@ -88,28 +88,28 @@ accounts = APIRouter(prefix="/accounts", tags=["accounts"])
 
 
 @accounts.get("", response_model=list[schemas.AccountResponse])
-async def list_accounts(user: User = Depends(require_superadmin), db: AsyncSession = Depends(get_db)):
+async def list_accounts(user: User = Depends(require_hq_admin), db: AsyncSession = Depends(get_db)):
     return await AccountService(db).list()
 
 
 @accounts.post("", response_model=schemas.AccountResponse, status_code=status.HTTP_201_CREATED)
-async def create_account(data: schemas.AccountCreate, user: User = Depends(require_superadmin), db: AsyncSession = Depends(get_db)):
+async def create_account(data: schemas.AccountCreate, user: User = Depends(require_hq_admin), db: AsyncSession = Depends(get_db)):
     return await AccountService(db).create(data)
 
 
 @accounts.get("/{account_id}", response_model=schemas.AccountResponse)
-async def get_account(account_id: UUID, user: User = Depends(require_superadmin), db: AsyncSession = Depends(get_db)):
+async def get_account(account_id: UUID, user: User = Depends(require_hq_admin), db: AsyncSession = Depends(get_db)):
     svc = AccountService(db)
     return await svc.to_response(await svc.get(account_id))
 
 
 @accounts.patch("/{account_id}", response_model=schemas.AccountResponse)
-async def update_account(account_id: UUID, data: schemas.AccountUpdate, user: User = Depends(require_superadmin), db: AsyncSession = Depends(get_db)):
+async def update_account(account_id: UUID, data: schemas.AccountUpdate, user: User = Depends(require_hq_admin), db: AsyncSession = Depends(get_db)):
     return await AccountService(db).update(account_id, data)
 
 
 @accounts.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def deactivate_account(account_id: UUID, user: User = Depends(require_superadmin), db: AsyncSession = Depends(get_db)):
+async def deactivate_account(account_id: UUID, user: User = Depends(require_hq_admin), db: AsyncSession = Depends(get_db)):
     await AccountService(db).delete(account_id)
 
 

@@ -7,13 +7,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user, require_hq_admin
+from app.modules.auth.dependencies import require_company_app_user, require_hq_admin
 from app.modules.auth.models import User
 from app.modules.finance import models, schemas
 from app.modules.finance.ownership import FinanceDictionaryService, FinanceScope
 from app.modules.finance.ownership_router import (
     get_company_finance_scope,
     get_hq_finance_scope,
+    get_owner_finance_scope,
     scoped_dictionary_router,
 )
 from app.modules.finance.service import TransactionService
@@ -111,8 +112,7 @@ async def counterparty_transactions(
     size: int = Query(20, ge=1, le=200),
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
-    user: User = Depends(get_current_user),
-    scope: FinanceScope = Depends(get_company_finance_scope),
+    scope: FinanceScope = Depends(get_owner_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
     await FinanceDictionaryService(
@@ -272,8 +272,7 @@ async def list_finance_history(
     ref_id: UUID | None = Query(None),
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
-    user: User = Depends(get_current_user),
-    scope: FinanceScope = Depends(get_company_finance_scope),
+    scope: FinanceScope = Depends(get_owner_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
     params = PageParams(page=page, size=size)
@@ -291,7 +290,7 @@ async def list_finance_history(
 @history.get("/{history_id}", response_model=schemas.FinanceHistoryResponse)
 async def get_finance_history(
     history_id: UUID,
-    scope: FinanceScope = Depends(get_company_finance_scope),
+    scope: FinanceScope = Depends(get_owner_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
     row = (await db.execute(

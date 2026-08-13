@@ -1,26 +1,34 @@
 from __future__ import annotations
 
-from tests.conftest import register_company
+from tests.conftest import create_staff_headers, register_company
 
 
 async def _setup_stocked_ingredient(client, headers, *, name, qty, cost):
-    wh = await client.post("/warehouse/list", headers=headers, json={"name": "Main"})
+    stock_headers = await create_staff_headers(
+        client,
+        headers,
+        email=f"warehouse-{name.lower()}@acme.example.com",
+        role_slug="warehouse",
+    )
+    wh = await client.post(
+        "/warehouse/list", headers=stock_headers, json={"name": f"Main {name}"
+    })
     ing = await client.post("/inventory/ingredients", headers=headers, json={"name": name, "unit": "кг"})
     ing = ing.json()
     await client.post(
-        "/inventory/stock/movements", headers=headers,
+        "/inventory/stock/movements", headers=stock_headers,
         json={
             "warehouse_id": wh.json()["id"], "ingredient_id": ing["id"],
             "movement_type": "purchase", "quantity": qty, "unit": "кг", "cost_price": cost,
         },
     )
-    return wh.json()["id"], ing
+    return wh.json()["id"], ing, stock_headers
 
 
 async def test_semi_product_create_computes_cost_from_composition(client):
     headers, _ = await register_company(client, slug="acme", email="owner@acme.example.com")
-    wh_id, tomato = await _setup_stocked_ingredient(client, headers, name="Tomato", qty=10, cost=5000)
-    _, onion = await _setup_stocked_ingredient(client, headers, name="Onion", qty=5, cost=3000)
+    wh_id, tomato, _ = await _setup_stocked_ingredient(client, headers, name="Tomato", qty=10, cost=5000)
+    _, onion, _ = await _setup_stocked_ingredient(client, headers, name="Onion", qty=5, cost=3000)
 
     resp = await client.post(
         "/inventory/semi-products", headers=headers,
@@ -43,25 +51,31 @@ async def test_semi_product_stock_creates_stockitem_on_first_purchase(client):
     StockItem row, never create one — a brand-new ingredient's first
     purchase was logged as a movement but never actually added stock."""
     headers, _ = await register_company(client, slug="acme", email="owner@acme.example.com")
-    wh = await client.post("/warehouse/list", headers=headers, json={"name": "Main"})
+    stock_headers = await create_staff_headers(
+        client,
+        headers,
+        email="warehouse-salt@acme.example.com",
+        role_slug="warehouse",
+    )
+    wh = await client.post("/warehouse/list", headers=stock_headers, json={"name": "Main"})
     ing = await client.post("/inventory/ingredients", headers=headers, json={"name": "Salt", "unit": "кг"})
     ing = ing.json()
 
     await client.post(
-        "/inventory/stock/movements", headers=headers,
+        "/inventory/stock/movements", headers=stock_headers,
         json={
             "warehouse_id": wh.json()["id"], "ingredient_id": ing["id"],
             "movement_type": "purchase", "quantity": 5, "unit": "кг", "cost_price": 1000,
         },
     )
-    stock = await client.get("/inventory/stock", headers=headers)
+    stock = await client.get("/inventory/stock", headers=stock_headers)
     row = next(s for s in stock.json() if s["ingredient_id"] == ing["id"])
     assert float(row["quantity"]) == 5
 
 
 async def test_semi_product_update_replaces_composition(client):
     headers, _ = await register_company(client, slug="acme", email="owner@acme.example.com")
-    _, tomato = await _setup_stocked_ingredient(client, headers, name="Tomato", qty=10, cost=5000)
+    _, tomato, _ = await _setup_stocked_ingredient(client, headers, name="Tomato", qty=10, cost=5000)
 
     created = await client.post(
         "/inventory/semi-products", headers=headers,
@@ -87,7 +101,7 @@ async def test_semi_product_update_replaces_composition(client):
 
 async def test_semi_product_produce_deducts_stock(client):
     headers, _ = await register_company(client, slug="acme", email="owner@acme.example.com")
-    wh_id, tomato = await _setup_stocked_ingredient(client, headers, name="Tomato", qty=10, cost=5000)
+    wh_id, tomato, stock_headers = await _setup_stocked_ingredient(client, headers, name="Tomato", qty=10, cost=5000)
 
     created = await client.post(
         "/inventory/semi-products", headers=headers,
@@ -96,19 +110,19 @@ async def test_semi_product_produce_deducts_stock(client):
     sp_id = created.json()["id"]
 
     produce = await client.post(
-        f"/inventory/semi-products/{sp_id}/produce", headers=headers,
+        f"/inventory/semi-products/{sp_id}/produce", headers=stock_headers,
         json={"warehouse_id": wh_id, "quantity": 2},
     )
     assert produce.status_code == 200
 
-    stock = await client.get("/inventory/stock", headers=headers)
+    stock = await client.get("/inventory/stock", headers=stock_headers)
     row = next(s for s in stock.json() if s["ingredient_id"] == tomato["id"])
     assert float(row["quantity"]) == 10 - 6
 
 
 async def test_semi_product_produce_rejects_insufficient_stock(client):
     headers, _ = await register_company(client, slug="acme", email="owner@acme.example.com")
-    wh_id, tomato = await _setup_stocked_ingredient(client, headers, name="Tomato", qty=5, cost=5000)
+    wh_id, tomato, stock_headers = await _setup_stocked_ingredient(client, headers, name="Tomato", qty=5, cost=5000)
 
     created = await client.post(
         "/inventory/semi-products", headers=headers,
@@ -117,13 +131,13 @@ async def test_semi_product_produce_rejects_insufficient_stock(client):
     sp_id = created.json()["id"]
 
     resp = await client.post(
-        f"/inventory/semi-products/{sp_id}/produce", headers=headers,
+        f"/inventory/semi-products/{sp_id}/produce", headers=stock_headers,
         json={"warehouse_id": wh_id, "quantity": 100},
     )
     assert resp.status_code == 422
 
     # Stock must be unchanged after a rejected production.
-    stock = await client.get("/inventory/stock", headers=headers)
+    stock = await client.get("/inventory/stock", headers=stock_headers)
     row = next(s for s in stock.json() if s["ingredient_id"] == tomato["id"])
     assert float(row["quantity"]) == 5
 

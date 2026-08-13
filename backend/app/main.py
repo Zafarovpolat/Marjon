@@ -99,6 +99,7 @@ async def lifespan(app: FastAPI):
             if count:
                 logger.info("Seeded %d new RBAC permissions", count)
         except Exception as e:
+            await db.rollback()
             logger.warning("Could not seed permissions (table may not exist yet): %s", e)
         try:
             # BE-05: attach default permissions to roles created before this
@@ -108,7 +109,23 @@ async def lifespan(app: FastAPI):
             if synced:
                 logger.info("Backfilled %d RBAC role-permission links", synced)
         except Exception as e:
-            logger.warning("Could not backfill role permissions: %s", e)
+            await db.rollback()
+            # A brand-new/unmigrated database has no legacy privileges to
+            # reconcile.  Once the RBAC tables exist, every reconciliation
+            # failure is security-significant and startup must fail closed.
+            original = getattr(e, "orig", None)
+            sqlstate = getattr(original, "sqlstate", None)
+            missing_schema = (
+                sqlstate == "42P01"
+                or "no such table: roles" in str(e).lower()
+            )
+            if missing_schema:
+                logger.warning("RBAC schema is not installed yet: %s", e)
+            else:
+                logger.exception("Could not reconcile authoritative Web RBAC: %s", e)
+                raise RuntimeError(
+                    "Authoritative Web RBAC reconciliation failed; refusing startup"
+                ) from e
     yield
 
 

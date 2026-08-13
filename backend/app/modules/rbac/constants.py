@@ -22,3 +22,21 @@ COMPANY_ROLE_SLUGS: frozenset[str] = frozenset({
 })
 
 PLATFORM_ROLE_SLUGS: frozenset[str] = frozenset({"superadmin", "hq_admin"})
+
+# Frozen BI-06 Web identities.  The remaining canonical company roles are
+# retained for existing operational assignments, but their final semantics are
+# intentionally deferred to the Staff Mobile/Desktop RBAC wave.
+WEB_OWNER_ROLE_SLUG = "owner"
+# ``admin`` is a retained legacy database slug whose historical wildcard
+# cannot be classified safely in this wave.  Keep the record/assignment, but
+# do not accept it as an authoritative APP identity.
+LEGACY_AMBIGUOUS_ROLE_SLUGS: frozenset[str] = frozenset({"admin"})
+APP_COMPANY_ROLE_SLUGS: frozenset[str] = (
+    COMPANY_ROLE_SLUGS - LEGACY_AMBIGUOUS_ROLE_SLUGS
+)
+
+# Confirmed by the production Web staff editor. Operational-role semantics
+# remain deferred; this set is only the OWNER delegation ceiling.
+OWNER_ASSIGNABLE_ROLE_SLUGS: frozenset[str] = frozenset({
+    "manager", "cashier", "waiter", "kitchen", "monoblock", "courier", "warehouse",
+})

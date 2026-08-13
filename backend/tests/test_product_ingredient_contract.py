@@ -1,17 +1,25 @@
 from __future__ import annotations
 
-from tests.conftest import register_company
+from tests.conftest import create_staff_headers, register_company
 
 
 async def _setup_beef(client, headers):
-    wh = await client.post("/warehouse/list", headers=headers, json={"name": "Main"})
+    stock_headers = await create_staff_headers(
+        client,
+        headers,
+        email="warehouse@acme.example.com",
+        role_slug="warehouse",
+    )
+    wh = await client.post(
+        "/warehouse/list", headers=stock_headers, json={"name": "Main"}
+    )
     ing = await client.post(
         "/inventory/ingredients", headers=headers,
         json={"name": "Beef", "unit": "кг", "supplier_name": "MeatCo"},
     )
     ing = ing.json()
     await client.post(
-        "/inventory/stock/movements", headers=headers,
+        "/inventory/stock/movements", headers=stock_headers,
         json={
             "warehouse_id": wh.json()["id"], "ingredient_id": ing["id"],
             "movement_type": "purchase", "quantity": 20, "unit": "кг", "cost_price": 60000,

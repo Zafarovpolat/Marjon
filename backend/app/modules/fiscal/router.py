@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import require_company_app_user
+from app.modules.auth.dependencies import require_company_app_user, require_web_owner
 from app.modules.auth.models import User
 from app.modules.fiscal.runtime import FiscalRuntime, get_fiscal_runtime
 from app.modules.fiscal.schemas import (
@@ -39,7 +39,7 @@ async def get_receipt(receipt_id: UUID, user: User = Depends(require_company_app
 
 @router.get("/settings", response_model=FiscalSettingsResponse)
 async def get_fiscal_settings(
-    user: User = Depends(require_company_app_user),
+    user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
 ):
     settings = await FiscalService(db).get_settings(user.company_id)
@@ -57,7 +57,7 @@ async def get_fiscal_settings(
 @router.put("/settings", response_model=FiscalSettingsResponse)
 async def save_fiscal_settings(
     data: FiscalSettingsUpdate,
-    user: User = Depends(require_company_app_user),
+    user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
     runtime: FiscalRuntime = Depends(get_fiscal_runtime),
 ):

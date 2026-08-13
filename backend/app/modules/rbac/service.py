@@ -1,15 +1,19 @@
 from __future__ import annotations
 from uuid import UUID
-from sqlalchemy import and_, delete as sql_delete, or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.auth.models import User
 from app.modules.companies.models import Branch
-from app.modules.rbac.constants import COMPANY_ROLE_SLUGS
-from app.modules.rbac.models import Role, Permission, RolePermission, UserRole
-from app.modules.rbac.permissions import sync_role_permissions
+from app.modules.rbac.constants import (
+    APP_COMPANY_ROLE_SLUGS,
+    COMPANY_ROLE_SLUGS,
+    OWNER_ASSIGNABLE_ROLE_SLUGS,
+)
+from app.modules.rbac.models import Role, Permission, UserRole
+from app.modules.rbac.permissions import DEFAULT_ROLE_PERMISSIONS, sync_role_permissions
 from app.modules.rbac.repository import RoleRepository, PermissionRepository, UserRoleRepository
 from app.modules.rbac.schemas import RoleCreate, UserRoleAssign
-from app.shared.exceptions import ConflictError, NotFoundError, ValidationError
+from app.shared.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.shared.tenant_scope import require_company_resource
 
 
@@ -21,16 +25,9 @@ class RBACService:
         self.user_role_repo = UserRoleRepository(db)
 
     async def create_role(self, company_id: UUID, data: RoleCreate) -> Role:
-        if data.slug not in COMPANY_ROLE_SLUGS:
-            raise ValidationError(
-                f"Unknown role_slug '{data.slug}'. Allowed: {', '.join(sorted(COMPANY_ROLE_SLUGS))}"
-            )
-        if await self.role_repo.get_by_slug(data.slug, company_id):
-            raise ConflictError(f"Role slug '{data.slug}' already exists")
-        role = Role(company_id=company_id, **data.model_dump())
-        role = await self.role_repo.save(role)
-        await sync_role_permissions(self.db, role)
-        return role
+        raise ForbiddenError(
+            "Custom role definitions are deferred until the operational RBAC wave"
+        )
 
     async def get_or_create_company_role(
         self, company_id: UUID, slug: str, name: str | None = None
@@ -59,22 +56,31 @@ class RBACService:
         return role
 
     async def list_roles(self, company_id: UUID) -> list[Role]:
-        company_roles = await self.role_repo.get_all(company_id)
-        system_roles = await self.role_repo.get_system_roles()
-        return system_roles + company_roles
+        return list((await self.db.execute(
+            select(Role).where(
+                Role.company_id == company_id,
+                Role.is_system.is_(False),
+                Role.slug.in_(COMPANY_ROLE_SLUGS),
+            )
+        )).scalars().all())
 
-    async def assign_role(self, company_id: UUID, data: UserRoleAssign) -> UserRole:
-        await require_company_resource(
+    async def assign_role(
+        self, company_id: UUID, actor_user_id: UUID, data: UserRoleAssign
+    ) -> UserRole:
+        if data.user_id == actor_user_id:
+            raise ForbiddenError("Self role changes are not allowed")
+        target = await require_company_resource(
             self.db, User, data.user_id, company_id, detail="User not found"
         )
+        if target is None or target.is_superadmin:
+            raise NotFoundError("User not found")
         role = (
             await self.db.execute(
                 select(Role).where(
                     Role.id == data.role_id,
-                    or_(
-                        Role.company_id == company_id,
-                        and_(Role.is_system.is_(True), Role.company_id.is_(None)),
-                    ),
+                    Role.company_id == company_id,
+                    Role.is_system.is_(False),
+                    Role.slug.in_(OWNER_ASSIGNABLE_ROLE_SLUGS),
                 )
             )
         ).scalar_one_or_none()
@@ -83,15 +89,14 @@ class RBACService:
         await require_company_resource(
             self.db, Branch, data.branch_id, company_id, detail="Branch not found"
         )
-        user_role = UserRole(
-            user_id=data.user_id,
-            role_id=data.role_id,
-            branch_id=data.branch_id,
+        raise ForbiddenError(
+            "Direct role assignment is deferred; use the guarded company-user contract"
         )
-        return await self.user_role_repo.save(user_role)
 
     async def list_permissions(self) -> list[Permission]:
-        return await self.perm_repo.get_all()
+        raise ForbiddenError(
+            "Permission catalog management is deferred until the operational RBAC wave"
+        )
 
     async def _get_scoped_role(self, role_id: UUID, company_id: UUID | None) -> Role:
         role = (
@@ -110,31 +115,14 @@ class RBACService:
         return role
 
     async def assign_permission(self, role_id: UUID, permission_id: UUID, company_id: UUID | None) -> None:
-        role = await self._get_scoped_role(role_id, company_id)
-        permission = await self.db.get(Permission, permission_id)
-        if permission is None:
-            raise NotFoundError("Permission not found")
-        exists = (
-            await self.db.execute(
-                select(RolePermission).where(
-                    RolePermission.role_id == role.id,
-                    RolePermission.permission_id == permission.id,
-                )
-            )
-        ).scalar_one_or_none()
-        if exists is None:
-            self.db.add(RolePermission(role_id=role.id, permission_id=permission.id))
-            await self.db.commit()
+        raise ForbiddenError(
+            "Permission assignment is deferred until the operational RBAC wave"
+        )
 
     async def revoke_permission(self, role_id: UUID, permission_id: UUID, company_id: UUID | None) -> None:
-        role = await self._get_scoped_role(role_id, company_id)
-        await self.db.execute(
-            sql_delete(RolePermission).where(
-                RolePermission.role_id == role.id,
-                RolePermission.permission_id == permission_id,
-            )
+        raise ForbiddenError(
+            "Permission assignment is deferred until the operational RBAC wave"
         )
-        await self.db.commit()
 
     async def check_permission(
         self, user_id: UUID, permission: str, company_id: UUID
@@ -145,47 +133,48 @@ class RBACService:
             return False
         module, action = parts[0], ":".join(parts[1:])
 
-        user_roles = list(
-            (
-                await self.db.execute(
-                    select(UserRole)
-                    .join(Role, Role.id == UserRole.role_id)
-                    .where(
-                        UserRole.user_id == user_id,
-                        or_(
-                            Role.company_id == company_id,
-                            and_(Role.is_system.is_(True), Role.company_id.is_(None)),
-                        ),
-                    )
-                )
-            ).scalars()
+        roles = list((await self.db.execute(
+            select(Role)
+            .join(UserRole, UserRole.role_id == Role.id)
+            .where(UserRole.user_id == user_id)
+        )).scalars().all())
+        if (
+            len(roles) != 1
+            or roles[0].company_id != company_id
+            or roles[0].is_system
+            or roles[0].slug not in APP_COMPANY_ROLE_SLUGS
+        ):
+            return False
+        if (
+            roles[0].slug == "owner"
+            and permission not in DEFAULT_ROLE_PERMISSIONS["owner"]
+        ):
+            # The frozen OWNER ceiling is authoritative even if a legacy DB
+            # still contains pre-BI-06 wildcard links.
+            return False
+        perms = await self.user_role_repo.get_role_permissions(roles[0].id)
+        return any(
+            perm.module == module and perm.action == action for perm in perms
         )
-        for user_role in user_roles:
-            perms = await self.user_role_repo.get_role_permissions(user_role.role_id)
-            for perm in perms:
-                if perm.module == module and perm.action == action:
-                    return True
-        return False
 
     async def get_user_permissions(self, user_id: UUID, company_id: UUID) -> list[str]:
-        user_roles = list(
-            (
-                await self.db.execute(
-                    select(UserRole)
-                    .join(Role, Role.id == UserRole.role_id)
-                    .where(
-                        UserRole.user_id == user_id,
-                        or_(
-                            Role.company_id == company_id,
-                            and_(Role.is_system.is_(True), Role.company_id.is_(None)),
-                        ),
-                    )
-                )
-            ).scalars()
-        )
+        roles = list((await self.db.execute(
+            select(Role)
+            .join(UserRole, UserRole.role_id == Role.id)
+            .where(UserRole.user_id == user_id)
+        )).scalars().all())
+        if (
+            len(roles) != 1
+            or roles[0].company_id != company_id
+            or roles[0].is_system
+            or roles[0].slug not in APP_COMPANY_ROLE_SLUGS
+        ):
+            return []
         permissions: set[str] = set()
-        for user_role in user_roles:
-            perms = await self.user_role_repo.get_role_permissions(user_role.role_id)
-            for perm in perms:
-                permissions.add(f"{perm.module}:{perm.action}")
+        perms = await self.user_role_repo.get_role_permissions(roles[0].id)
+        owner_ceiling = set(DEFAULT_ROLE_PERMISSIONS["owner"])
+        for perm in perms:
+            value = f"{perm.module}:{perm.action}"
+            if roles[0].slug != "owner" or value in owner_ceiling:
+                permissions.add(value)
         return list(permissions)

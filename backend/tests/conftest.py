@@ -95,3 +95,25 @@ async def register_company(client, *, slug: str, email: str, password: str = "Pa
     data = resp.json()
     headers = {"Authorization": f"Bearer {data['access_token']}"}
     return headers, data
+
+
+async def create_staff_headers(
+    client,
+    owner_headers,
+    *,
+    email: str,
+    role_slug: str,
+    password: str = "Passw0rd!",
+):
+    """Create an existing operational-role account and return its app session."""
+    created = await client.post(
+        "/auth/users",
+        headers=owner_headers,
+        json={"email": email, "password": password, "role_slug": role_slug},
+    )
+    assert created.status_code == 201, created.text
+    login = await client.post(
+        "/auth/login", json={"email": email, "password": password}
+    )
+    assert login.status_code == 200, login.text
+    return {"Authorization": f"Bearer {login.json()['access_token']}"}
