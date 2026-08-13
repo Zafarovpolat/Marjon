@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { api, formatMoney } from "../api/client";
+import { formatMoney } from "../api/client";
+import { ordersService } from "../api/orders";
 import { printKitchenReceipt, printOrderReceipt } from "../api/receipt";
 import { formatDateLabel, todayInputValue } from "../utils/date";
 
@@ -20,7 +21,7 @@ export default function OrdersPage() {
 
   useEffect(() => {
     setError("");
-    api.get("/pos/orders", { params: { date: selectedDate } })
+    ordersService.list({ date: selectedDate })
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : [];
         setOrders(items);
@@ -42,16 +43,18 @@ export default function OrdersPage() {
 
   async function handlePrint(order, type) {
     setPrintState({ id: order.id, type, loading: true, message: "", error: "" });
-    const result = type === "kitchen"
-      ? await printKitchenReceipt(order.id)
-      : await printOrderReceipt(order.id);
-    setPrintState({
-      id: order.id,
-      type,
-      loading: false,
-      message: result.ok ? "Печать отправлена." : "",
-      error: result.ok ? "" : result.detail,
-    });
+    try {
+      await (type === "kitchen" ? printKitchenReceipt(order.id) : printOrderReceipt(order.id));
+      setPrintState({ id: order.id, type, loading: false, message: "Печать отправлена.", error: "" });
+    } catch (error) {
+      setPrintState({
+        id: order.id,
+        type,
+        loading: false,
+        message: "",
+        error: error.response?.data?.detail || "Принтер API недоступен.",
+      });
+    }
   }
 
   return (

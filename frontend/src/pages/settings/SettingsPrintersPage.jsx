@@ -31,7 +31,7 @@ function SettingsPrintersPage() {
       title="Настройка принтеров"
       addLabel="Добавить принтер +"
       initialRows={rows}
-      apiEndpoint="/printers"
+      resourceKey="printers"
       apiMapRow={apiMapRow}
       apiMapFormToPayload={apiMapFormToPayload}
       columns={[

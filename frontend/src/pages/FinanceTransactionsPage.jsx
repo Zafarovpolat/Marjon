@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
+import { financeService } from "../api/finance";
 import Icon from "../components/Icon";
 import FinanceTransactionDrawer from "./FinanceTransactionDrawer";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
@@ -98,10 +98,10 @@ export default function FinanceTransactionsPage() {
     const params = { date_from: toApiDate(dateRange.start), date_to: toApiDate(dateRange.end) };
     if (direction !== "all") params.direction = direction;
     const [transactionsResult, paymentsResult, categoriesResult, counterpartiesResult] = await Promise.allSettled([
-      api.get("/finance/transactions", { params }),
-      api.get("/finance/payment-types", { params: { page: 1, size: 200 } }),
-      api.get("/finance/transaction-categories"),
-      api.get("/finance/counterparties", { params: { page: 1, size: 200 } }),
+      financeService.listTransactions({ dateFrom: params.date_from, dateTo: params.date_to, direction: params.direction }),
+      financeService.listPaymentTypes(),
+      financeService.listTransactionCategories(),
+      financeService.listCounterparties(),
     ]);
     if (transactionsResult.status === "rejected") {
       const err = transactionsResult.reason;
@@ -174,8 +174,8 @@ export default function FinanceTransactionsPage() {
       if (form.financeTemplateId) payload.finance_template_id = form.financeTemplateId;
     }
     try {
-      if (editingId) await api.patch(`/finance/transactions/${editingId}`, payload);
-      else await api.post("/finance/transactions", payload);
+      if (editingId) await financeService.updateTransaction(editingId, payload);
+      else await financeService.createTransaction(payload);
       const refreshed = await loadData({ showLoader: false });
       if (refreshed) setDrawerOpen(false);
       else setMutationError("Операция сохранена, но обновить список не удалось.");

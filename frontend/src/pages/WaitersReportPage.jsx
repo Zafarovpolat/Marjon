@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
+import { reportsService } from "../api/reports";
 import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import { exportToExcel } from "../utils/excel";
@@ -33,7 +33,7 @@ export default function WaitersReportPage() {
   useEffect(() => {
     setLoading(true);
     setError("");
-    api.get("/reports/waiters", { params: { date_from: toApiDate(dateRange.start), date_to: toApiDate(dateRange.end) } })
+    reportsService.listWaiters(toApiDate(dateRange.start), toApiDate(dateRange.end))
       .then(({ data }) => {
         if (!Array.isArray(data)) throw new Error("Invalid waiters report response");
         const items = data;

@@ -145,16 +145,8 @@ async function saveTemplate(url, key, template) {
 }
 
 async function postPrint(url, payload) {
-  try {
-    const { data } = await api.post(url, payload || {});
-    return { ok: true, data, source: "api" };
-  } catch (error) {
-    return {
-      ok: false,
-      source: "offline",
-      detail: error.response?.data?.detail || "Принтер API недоступен.",
-    };
-  }
+  const { data } = await api.post(url, payload || {});
+  return { ok: true, data, source: "api" };
 }
 
 function localTestPrint() {

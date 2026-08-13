@@ -1,7 +1,7 @@
 // Контекст организации: настройки заведения, валюта, timezone, тема чека.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../api/client";
+import { settingsService } from "../api/settings";
 import { useAuth } from "./AuthContext";
 
 const OrgContext = createContext(null);
@@ -53,7 +53,7 @@ export function OrgProvider({ children }) {
     }
     setLoading(true);
     try {
-      const { data } = await api.get("/companies/me");
+      const { data } = await settingsService.getCompanyProfile();
       if (currentUserIdRef.current !== identity) return;
       const merged = { ...DEFAULT_ORG, ...data };
       setOrg(merged);
@@ -75,7 +75,7 @@ export function OrgProvider({ children }) {
   const update = useCallback(async (patch) => {
     const identity = String(user?.id || "");
     const storageKey = getOrgStorageKey(identity);
-    const { data } = await api.patch("/companies/me", patch);
+    const { data } = await settingsService.updateCompanyProfile(patch);
     if (!storageKey || currentUserIdRef.current !== identity) return data;
     const merged = { ...org, ...data };
     setOrg(merged);

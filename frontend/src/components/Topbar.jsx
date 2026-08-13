@@ -1,17 +1,13 @@
 import uzcardLogo from "../assets/paylogos/uzcard-humo.jpg";
 import visaLogo from "../assets/paylogos/visa-mastercard.jpg";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../api/client";
+import { settingsService } from "../api/settings";
+import { exchangeRatesService } from "../api/exchangeRates";
 import { clampToToday, todayInputValue } from "../utils/date";
 import BackButton from "./BackButton";
 import DatePicker from "./DatePicker";
 import Icon from "./Icon";
 import { InlineLoader } from "./Loader";
-
-const USD_RATE_URL = "https://cbu.uz/ru/arkhiv-kursov-valyut/json/USD/";
-const RUB_RATE_URL = "https://cbu.uz/ru/arkhiv-kursov-valyut/json/RUB/";
-const KZT_RATE_URL = "https://cbu.uz/ru/arkhiv-kursov-valyut/json/KZT/";
-const KGS_RATE_URL = "https://cbu.uz/ru/arkhiv-kursov-valyut/json/KGS/";
 
 function parseMoneyInput(value) {
   const normalized = String(value).replace(/\s/g, "").replace(",", ".");
@@ -181,7 +177,7 @@ const converterDirectionLabel = converterDirection === "usd-to-uzs"
 
   useEffect(() => {
     setBalanceError("");
-    api.get("/billing/balance")
+    settingsService.getBillingBalance()
       .then(({ data }) => {
         const value = Number(data?.balance ?? data?.amount);
         if (Number.isFinite(value)) {
@@ -201,9 +197,8 @@ const converterDirectionLabel = converterDirection === "usd-to-uzs"
 useEffect(() => {
   const controller = new AbortController();
 
-  function fetchRate(url, setter) {
-    return fetch(url, { signal: controller.signal })
-      .then((res) => { if (!res.ok) throw new Error("rate"); return res.json(); })
+  function fetchRate(currency, setter) {
+    return exchangeRatesService.get(currency, { signal: controller.signal })
       .then((data) => {
         const rate = Number(data?.[0]?.Rate);
         const nominal = Number(data?.[0]?.Nominal) || 1;
@@ -215,10 +210,10 @@ useEffect(() => {
   function loadInfoWidgets() {
     setWidgetError(false);
     Promise.all([
-      fetchRate(USD_RATE_URL, setUsdRate),
-      fetchRate(RUB_RATE_URL, setRubRate),
-      fetchRate(KZT_RATE_URL, setKztRate),
-      fetchRate(KGS_RATE_URL, setKgsRate),
+      fetchRate("USD", setUsdRate),
+      fetchRate("RUB", setRubRate),
+      fetchRate("KZT", setKztRate),
+      fetchRate("KGS", setKgsRate),
     ]);
   }
 

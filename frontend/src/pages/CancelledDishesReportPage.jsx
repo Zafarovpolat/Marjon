@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, formatMoney } from "../api/client";
+import { formatMoney } from "../api/client";
+import { reportsService } from "../api/reports";
 import Icon from "../components/Icon";
 import { exportToExcel } from "../utils/excel";
 
@@ -28,7 +29,7 @@ export default function CancelledDishesReportPage() {
   useEffect(() => {
     setLoading(true);
     setError("");
-    api.get("/reports/cancelled", { params: { date_from: appliedFilters.from, date_to: appliedFilters.to } })
+    reportsService.listCancelledDishes(appliedFilters.from, appliedFilters.to)
       .then(({ data }) => {
         if (!Array.isArray(data)) throw new Error("Invalid cancelled-items report response");
         const items = data;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
+import { catalogService } from "../api/catalog";
 import Icon from "../components/Icon";
 
 const ACTIVE = "Активно";
@@ -303,7 +303,7 @@ function DishesCatalogPage() {
   useEffect(() => {
     setApiLoading(true);
     setApiError("");
-    api.get("/inventory/products")
+    catalogService.listProducts()
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
         const mapped = items.map(mapNomenclatureProduct);
@@ -361,8 +361,8 @@ function DishesCatalogPage() {
     setActionError("");
     try {
       const { data } = isUpdate
-        ? await api.patch(`/inventory/products/${editing.id}`, payload)
-        : await api.post("/inventory/products", payload);
+        ? await catalogService.updateProduct(editing.id, payload)
+        : await catalogService.createProduct(payload);
       if (!data?.id) throw new Error("Backend не вернул сохранённый продукт.");
       const serverRow = mapNomenclatureProduct(data);
       setRows((current) => (
@@ -381,7 +381,7 @@ function DishesCatalogPage() {
 
   const archiveDish = async (id) => {
     try {
-      await api.delete(`/inventory/products/${id}`);
+      await catalogService.deleteProduct(id);
     } catch (err) {
       window.alert(err.response?.data?.detail || "Ошибка удаления");
       return;

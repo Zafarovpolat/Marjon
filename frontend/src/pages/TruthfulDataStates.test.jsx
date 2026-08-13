@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getCategories } from "../api/categories";
-import { api, fetchStaffUsers } from "../api/client";
+import { api } from "../api/client";
 import { getCustomerTemplate, saveCustomerTemplate } from "../api/receipt";
 import { readStoredProfile, updateStoredProfile } from "../utils/profileCache";
 import AnalyticsPage from "./AnalyticsPage";
@@ -27,7 +27,6 @@ vi.mock("../api/client", () => ({
   },
   formatMoney: (value) => `${Number(value).toLocaleString("ru-RU")} UZS`,
   formatNumber: (value) => Number(value).toLocaleString("ru-RU"),
-  fetchStaffUsers: vi.fn(),
 }));
 
 vi.mock("chart.js", () => {
@@ -244,7 +243,7 @@ describe("truthful production data states", () => {
   });
 
   it("shows staff load failure as an error rather than a confirmed empty directory", async () => {
-    fetchStaffUsers.mockRejectedValue(new Error("offline"));
+    api.get.mockRejectedValue(new Error("offline"));
 
     render(<StaffRolePage />);
 
@@ -253,14 +252,14 @@ describe("truthful production data states", () => {
   });
 
   it("archives and restores staff only through confirmed backend mutations", async () => {
-    fetchStaffUsers.mockResolvedValue([{
+    api.get.mockResolvedValue({ data: [{
       id: "staff-uuid",
       name: "Backend Employee",
       email: "employee@example.com",
       phone: "998901234567",
       role_slug: "cashier",
       is_active: true,
-    }]);
+    }] });
     api.delete.mockResolvedValue({ data: {} });
     api.patch.mockResolvedValue({ data: { id: "staff-uuid", is_active: true } });
 
@@ -279,13 +278,13 @@ describe("truthful production data states", () => {
 
   it("does not move staff to archive when the backend mutation fails", async () => {
     vi.spyOn(window, "alert").mockImplementation(() => {});
-    fetchStaffUsers.mockResolvedValue([{
+    api.get.mockResolvedValue({ data: [{
       id: "staff-uuid",
       name: "Still Active",
       email: "active@example.com",
       role_slug: "cashier",
       is_active: true,
-    }]);
+    }] });
     api.delete.mockRejectedValue(new Error("offline"));
 
     render(<StaffRolePage />);
@@ -361,8 +360,8 @@ describe("truthful production data states", () => {
     expect(warehouseSource).not.toContain("api.patch(");
     expect(warehouseSource).not.toContain("api.delete(");
     expect(warehouseSource).not.toContain("typeof editingId");
-    expect(staffRoleSource).toContain('api.delete(`/auth/users/${id}`)');
-    expect(staffRoleSource).toContain('api.patch(`/auth/users/${id}`, { is_active: true })');
+    expect(staffRoleSource).toContain("staffService.deleteCompanyUser(id)");
+    expect(staffRoleSource).toContain("staffService.updateCompanyUser(id, { is_active: true })");
     expect(sidebarSource).not.toContain('"marjon_profile_settings"');
     expect(settingsProfileSource).not.toContain('"marjon_profile_settings"');
     expect(orgContextSource).not.toContain('"marjon_org_cache"');

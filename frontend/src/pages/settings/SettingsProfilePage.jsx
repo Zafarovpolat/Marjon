@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../../api/client";
+import { settingsService } from "../../api/settings";
 import logo from "../../assets/marjon-logo.svg";
 import Icon from "../../components/Icon";
 import { useAuth } from "../../context/AuthContext";
@@ -42,7 +42,7 @@ export default function SettingsProfilePage() {
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    api.get("/companies/me")
+    settingsService.getCompanyProfile()
       .then(({ data }) => {
         const next = {
           name: data.name || "",
@@ -106,7 +106,7 @@ export default function SettingsProfilePage() {
         inn: form.inn,
         currency: form.currency,
       };
-      await api.patch("/companies/me", payload);
+      await settingsService.updateCompanyProfile(payload);
       const nextStored = {
         ...readStoredProfile(user?.id),
         name: form.name.trim() || "MARJON",

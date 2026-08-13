@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../api/client";
+import { catalogService } from "../api/catalog";
+import { staffService } from "../api/staff";
 import Icon from "./Icon";
 
 // Static catalog of navigable destinations. Covers the role/terminal entities
@@ -52,7 +53,7 @@ export default function GlobalSearch() {
   useEffect(() => {
     let mounted = true;
     setDynamicError("");
-    Promise.all([api.get("/hr/employees"), api.get("/inventory/products")])
+    Promise.all([staffService.listEmployees(), catalogService.listProducts()])
       .then(([emp, prod]) => {
         if (!mounted) return;
         setEmployees(Array.isArray(emp.data) ? emp.data : []);

@@ -2,7 +2,8 @@
 import { createPortal } from "react-dom";
 import { Chart, Filler, LineController, LineElement, LinearScale, PointElement, CategoryScale, Tooltip } from "chart.js";
 import { Link, useNavigate, useOutletContext } from "react-router-dom";
-import { api, formatMoney, formatNumber } from "../api/client";
+import { formatMoney, formatNumber } from "../api/client";
+import { dashboardService } from "../api/dashboard";
 import { formatDateLabel, todayInputValue, toDateInputValue } from "../utils/date";
 import Icon from "../components/Icon";
 import { PageLoader } from "../components/Loader";
@@ -1449,19 +1450,11 @@ export default function OwnerDashboard() {
     let mounted = true;
     setLoading(!hasLoadedRef.current);
     setError("");
-    const params = revenueParams;
-    const dayParams = { date_from: selectedDate, date_to: selectedDate };
-
-    Promise.all([
-      api.get("/analytics/dashboard", { params: { date: selectedDate } }),
-      api.get("/analytics/sales", { params }),
-      api.get("/analytics/products/top", { params: { limit: 5, ...dayParams } }),
-      api.get("/inventory/products"),
-      api.get("/hr/employees"),
-      api.get("/pos/orders", { params: { date: selectedDate } }),
-      api.get("/settings/places"),
-      api.get("/finance/transactions", { params: { date_from: selectedDate, date_to: selectedDate } }),
-    ]).then(([
+    dashboardService.loadOwnerOverview({
+      selectedDate,
+      dateFrom: revenueParams.date_from,
+      dateTo: revenueParams.date_to,
+    }).then(([
       dashboardRes,
       salesRes,
       topRes,

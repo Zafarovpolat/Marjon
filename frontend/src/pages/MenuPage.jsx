@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, formatMoney } from "../api/client";
+import { formatMoney } from "../api/client";
+import { catalogService } from "../api/catalog";
+import { ordersService } from "../api/orders";
 import Icon from "../components/Icon";
 
 const salesColumnOptions = [
@@ -84,9 +86,9 @@ export default function MenuPage() {
       setError("");
       try {
         const [ordersRes, productsRes, categoriesRes] = await Promise.all([
-          api.get("/pos/orders"),
-          api.get("/inventory/products"),
-          api.get("/inventory/categories"),
+          ordersService.list(),
+          catalogService.listProducts(),
+          catalogService.listCategories(),
         ]);
         if (!mounted) return;
 

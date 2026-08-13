@@ -12,7 +12,6 @@ const authClient = vi.hoisted(() => ({
   loginByPhone: vi.fn(),
   loginByPin: vi.fn(),
   logout: vi.fn(),
-  fetchStaffUsers: vi.fn(),
 }));
 
 vi.mock("./api/client", () => ({
@@ -27,7 +26,6 @@ vi.mock("./api/client", () => ({
   loginByPhone: authClient.loginByPhone,
   loginByPin: authClient.loginByPin,
   logout: authClient.logout,
-  fetchStaffUsers: authClient.fetchStaffUsers,
   formatMoney: (value, currency = "UZS") => `${Number(value || 0)} ${currency}`,
   formatNumber: (value) => String(Number(value || 0)),
 }));
@@ -71,11 +69,12 @@ function emptyApiResponse(url) {
   return [];
 }
 
-function mockAuthenticatedUser(user) {
+function mockAuthenticatedUser(user, staffUsers = []) {
   localStorage.setItem("access_token", "test-token");
   authClient.isAuthenticated.mockReturnValue(true);
   authClient.get.mockImplementation((url) => {
     if (url === "/auth/me") return Promise.resolve({ data: user });
+    if (url === "/auth/staff-users") return Promise.resolve({ data: staffUsers });
     return Promise.resolve({ data: emptyApiResponse(url) });
   });
 }
@@ -93,7 +92,6 @@ describe("Web Launch V1 route surfaces", () => {
   beforeEach(() => {
     authClient.isAuthenticated.mockReturnValue(false);
     authClient.get.mockResolvedValue({ data: null });
-    authClient.fetchStaffUsers.mockResolvedValue([]);
   });
 
   it("redirects an unauthenticated protected route to the OWNER login", async () => {
@@ -144,11 +142,11 @@ describe("Web Launch V1 route surfaces", () => {
   });
 
   it("preserves OWNER staff-role filtering and all assignable operational role values", async () => {
-    authClient.fetchStaffUsers.mockResolvedValue([
+    const staffUsers = [
       { id: "cashier-1", email: "cashier1@marjon.test", name: "Cashier One", role_slug: "cashier", role_slugs: ["cashier"], is_active: true },
       { id: "waiter-1", email: "waiter1@marjon.test", name: "Waiter One", role_slug: "waiter", role_slugs: ["waiter"], is_active: true },
-    ]);
-    mockAuthenticatedUser(users.owner);
+    ];
+    mockAuthenticatedUser(users.owner, staffUsers);
     renderAt("/users/cashier");
 
     await waitForPath("/users/cashier");

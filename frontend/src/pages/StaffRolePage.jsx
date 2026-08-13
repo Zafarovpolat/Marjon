@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, fetchStaffUsers } from "../api/client";
+import { staffService } from "../api/staff";
 import Icon from "../components/Icon";
 
 const roleOptions = [
@@ -212,8 +212,8 @@ function StaffRolePage({ role = "all" }) {
 
   useEffect(() => {
     setStaffError("");
-    fetchStaffUsers()
-      .then((data) => {
+    staffService.listStaffUsers()
+      .then(({ data }) => {
         const mapped = (data || []).map(mapStaffUser);
         setStaff(mapped);
       })
@@ -341,7 +341,7 @@ const saveStaff = async (event) => {
 
   try {
     if (!editingId) {
-      const { data: createdUser } = await api.post("/auth/users", {
+      const { data: createdUser } = await staffService.createCompanyUser({
         email,
         password: form.password,
         phone: phone || null,
@@ -349,18 +349,18 @@ const saveStaff = async (event) => {
       });
       let newUser = createdUser;
       if (form.fullName.trim() || form.status === "archived") {
-        const { data } = await api.patch(`/auth/users/${createdUser.id}`, {
+        const { data } = await staffService.updateCompanyUser(createdUser.id, {
           name: form.fullName.trim() || undefined,
           is_active: form.status !== "archived",
         });
         newUser = data;
       }
       if (form.pin) {
-        await api.patch(`/auth/users/${createdUser.id}/pin`, { pin: form.pin });
+        await staffService.updateUserPin(createdUser.id, form.pin);
       }
       setStaff((current) => [mapStaffUser(newUser), ...current]);
     } else {
-      const { data: updatedUser } = await api.patch(`/auth/users/${editingId}`, {
+      const { data: updatedUser } = await staffService.updateCompanyUser(editingId, {
         name: form.fullName,
         email,
         password: form.password || undefined,
@@ -369,7 +369,7 @@ const saveStaff = async (event) => {
         is_active: form.status !== "archived",
       });
       if (form.pin) {
-        await api.patch(`/auth/users/${editingId}/pin`, { pin: form.pin });
+        await staffService.updateUserPin(editingId, form.pin);
       }
       setStaff((current) => current.map((emp) =>
         emp.id === editingId ? mapStaffUser(updatedUser) : emp
@@ -384,7 +384,7 @@ const saveStaff = async (event) => {
 
   const archiveStaff = async (id) => {
     try {
-      await api.delete(`/auth/users/${id}`);
+      await staffService.deleteCompanyUser(id);
       setStaff((current) => current.map((employee) => (
         employee.id === id ? { ...employee, status: "archived" } : employee
       )));
@@ -395,7 +395,7 @@ const saveStaff = async (event) => {
 
   const restoreStaff = async (id) => {
     try {
-      await api.patch(`/auth/users/${id}`, { is_active: true });
+      await staffService.updateCompanyUser(id, { is_active: true });
       setStaff((current) => current.map((employee) => (
         employee.id === id ? { ...employee, status: "active" } : employee
       )));

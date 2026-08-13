@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../api/client";
+import { staffService } from "../api/staff";
 import Icon from "../components/Icon";
 import { exportToExcel } from "../utils/excel";
 
@@ -12,9 +12,8 @@ function StaffActivityPage({ type = "login-history" }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const endpoint = isAttendance ? "/hr/attendance" : "/hr/login-history";
     setError("");
-    api.get(endpoint)
+    staffService.listActivity(type)
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
         if (isAttendance) {

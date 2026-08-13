@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "../api/client";
+import { settingsService } from "../api/settings";
 import Icon from "./Icon";
 
 const text = {
@@ -93,7 +93,7 @@ export default function SupportWidget() {
     if (!message.trim() || sending) return;
     setSending(true);
     const phone = `+${country.dial}${onlyDigits(localPhone)}`;
-    api.post("/support/tickets", { phone, message: message.trim() })
+    settingsService.createSupportTicket({ phone, message: message.trim() })
       .then(() => setSent(true))
       .catch(() => setSent(true))
       .finally(() => setSending(false));

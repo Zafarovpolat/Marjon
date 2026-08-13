@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { catalogService } from "./catalog";
 import { normalizeApiError } from "./errors";
 
 function isNormalizedApiError(error) {
@@ -15,7 +15,7 @@ function isNormalizedApiError(error) {
 
 export async function getCategories() {
   try {
-    return await api.get("/inventory/categories");
+    return await catalogService.listCategories();
   } catch (error) {
     if (isNormalizedApiError(error)) throw error;
     throw normalizeApiError(error);

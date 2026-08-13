@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, formatMoney } from "../api/client";
+import { formatMoney } from "../api/client";
+import { financeService } from "../api/finance";
 import Icon from "../components/Icon";
 
 function FinanceCategoriesPage({ title, kind }) {
@@ -17,7 +18,7 @@ function FinanceCategoriesPage({ title, kind }) {
     setLoading(true);
     setError("");
     try {
-      const { data } = await api.get("/finance/transaction-categories", { params: { kind } });
+      const { data } = await financeService.listTransactionCategories(kind);
       const items = Array.isArray(data) ? data : data?.items || [];
       const mapped = items.map((item) => ({
           id: item.id,
@@ -57,7 +58,7 @@ function FinanceCategoriesPage({ title, kind }) {
 
   const archive = async (row) => {
     try {
-      await api.patch(`/finance/transaction-categories/${row.id}`, { status: false });
+      await financeService.updateTransactionCategory(row.id, { status: false });
       await loadCategories();
     } catch {
       window.alert("Ошибка архивирования");
@@ -66,7 +67,7 @@ function FinanceCategoriesPage({ title, kind }) {
 
   const restore = async (row) => {
     try {
-      await api.patch(`/finance/transaction-categories/${row.id}`, { status: true });
+      await financeService.updateTransactionCategory(row.id, { status: true });
       await loadCategories();
     } catch {
       window.alert("Ошибка восстановления");
@@ -78,9 +79,9 @@ function FinanceCategoriesPage({ title, kind }) {
     setSaving(true);
     try {
       if (editingId) {
-        await api.patch(`/finance/transaction-categories/${editingId}`, { name: form.name });
+        await financeService.updateTransactionCategory(editingId, { name: form.name });
       } else {
-        await api.post("/finance/transaction-categories", { name: form.name, kind });
+        await financeService.createTransactionCategory({ name: form.name, kind });
       }
       await loadCategories();
       setDrawerOpen(false);

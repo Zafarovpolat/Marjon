@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { api, formatMoney, formatNumber } from "../api/client";
+import { formatMoney, formatNumber } from "../api/client";
+import { analyticsService } from "../api/reports";
 import { formatDateLabel, todayInputValue } from "../utils/date";
 import Icon from "../components/Icon";
 
@@ -15,7 +16,7 @@ export default function FinancePage() {
 
   useEffect(() => {
     setError("");
-    api.get("/analytics/sales", { params: getDayRange(selectedDate) })
+    analyticsService.listSales(getDayRange(selectedDate).date_from, getDayRange(selectedDate).date_to)
       .then(({ data }) => { setRows(Array.isArray(data) ? data : []); })
       .catch((err) => { setRows([]); setError(err.response?.data?.detail || "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u0444\u0438\u043d\u0430\u043d\u0441\u044b."); });
   }, [selectedDate]);

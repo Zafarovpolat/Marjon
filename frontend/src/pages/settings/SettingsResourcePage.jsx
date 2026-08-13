@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../../api/client";
+import { settingsService } from "../../api/settings";
 import Icon from "../../components/Icon";
 
 const STATUS_ACTIVE = "#активно";
@@ -21,13 +21,13 @@ function SettingsResourcePage({
   compactHeader = false,
   actionsLabel = "Действия",
   statementHistory = false,
-  apiEndpoint,
+  resourceKey,
   apiMapRow,
   apiMapFormToPayload,
 }) {
   const [rows, setRows] = useState([]);
-  const [apiLoading, setApiLoading] = useState(!!apiEndpoint);
-  const [apiError, setApiError] = useState(apiEndpoint ? "" : "Данные недоступны: backend contract для этого справочника не подключён.");
+  const [apiLoading, setApiLoading] = useState(!!resourceKey);
+  const [apiError, setApiError] = useState(resourceKey ? "" : "Данные недоступны: backend contract для этого справочника не подключён.");
   const [activeTab, setActiveTab] = useState(tabs?.[0]?.key || "");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("");
@@ -37,10 +37,10 @@ function SettingsResourcePage({
   const [historyRow, setHistoryRow] = useState(null);
 
   useEffect(() => {
-    if (!apiEndpoint) return;
+    if (!resourceKey) return;
     setApiLoading(true);
     setApiError("");
-    api.get(apiEndpoint)
+    settingsService.listResource(resourceKey)
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.results || [];
         setRows(apiMapRow ? items.map(apiMapRow) : []);
@@ -50,7 +50,7 @@ function SettingsResourcePage({
         setApiError(err.response?.data?.detail || "Не удалось загрузить данные справочника.");
       })
       .finally(() => setApiLoading(false));
-  }, [apiEndpoint]);
+  }, [resourceKey]);
 
   const visibleRows = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -64,7 +64,7 @@ function SettingsResourcePage({
   }, [activeTab, filter, rows, search, tabs]);
 
   const openAdd = () => {
-    if (!apiEndpoint) {
+    if (!resourceKey) {
       setApiError("Создание недоступно: backend contract для этого справочника не подключён.");
       return;
     }
@@ -75,7 +75,7 @@ function SettingsResourcePage({
   };
 
   const openEdit = (row) => {
-    if (!apiEndpoint) {
+    if (!resourceKey) {
       setApiError("Редактирование недоступно: backend contract для этого справочника не подключён.");
       return;
     }
@@ -86,12 +86,12 @@ function SettingsResourcePage({
 
   const save = (event) => {
     event.preventDefault();
-    const payload = apiEndpoint && apiMapFormToPayload ? apiMapFormToPayload(form) : null;
+    const payload = resourceKey && apiMapFormToPayload ? apiMapFormToPayload(form) : null;
 
-    if (apiEndpoint && payload) {
+    if (resourceKey && payload) {
       const request = editingId
-        ? api.patch(`${apiEndpoint}/${editingId}`, payload)
-        : api.post(apiEndpoint, payload);
+        ? settingsService.updateResource(resourceKey, editingId, payload)
+        : settingsService.createResource(resourceKey, payload);
 
       request
         .then(({ data }) => {
@@ -111,8 +111,8 @@ function SettingsResourcePage({
   };
 
   const archive = (row) => {
-    if (apiEndpoint) {
-      api.delete(`${apiEndpoint}/${row.id}`)
+    if (resourceKey) {
+      settingsService.deleteResource(resourceKey, row.id)
         .then(() => setRows((current) => current.filter((item) => item.id !== row.id)))
         .catch(() => window.alert("Не удалось удалить. Попробуйте позже."));
       return;
@@ -129,7 +129,7 @@ function SettingsResourcePage({
           {filterOptions.map((option) => <option key={option} value={option}>{option}</option>)}
         </select>
       ) : null}
-      <button type="button" onClick={openAdd} disabled={!apiEndpoint}>{addLabel}</button>
+      <button type="button" onClick={openAdd} disabled={!resourceKey}>{addLabel}</button>
     </div>
   );
 

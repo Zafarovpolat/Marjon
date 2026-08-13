@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCategories } from "../api/categories";
-import { api } from "../api/client";
+import { catalogService } from "../api/catalog";
 import Icon from "../components/Icon";
 
 const TYPE_CONFIG = {
@@ -116,7 +116,7 @@ function ProductCategoriesPage({ type }) {
     setError("");
     try {
       if (!editingId) {
-        const { data } = await api.post("/inventory/categories", categoryPayload);
+        const { data } = await catalogService.createCategory(categoryPayload);
         if (data?.id) {
           setRows((current) => [...current, data]);
         } else {

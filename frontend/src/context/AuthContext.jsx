@@ -2,7 +2,8 @@
 // Содержит текущего user, роль, методы login/logout, статус загрузки.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { api, isAuthenticated, login as apiLogin, loginByPhone as apiLoginByPhone, loginByPin as apiLoginByPin, logout as apiLogout } from "../api/client";
+import { isAuthenticated, login as apiLogin, loginByPhone as apiLoginByPhone, loginByPin as apiLoginByPin, logout as apiLogout } from "../api/client";
+import { authService } from "../api/auth";
 import { AUTH_SCOPES, subscribeToAuthSessionEnded } from "../auth/session";
 import { getRole, getRoleHomePath } from "../utils/permissions";
 
@@ -22,7 +23,7 @@ export function AuthProvider({ children }) {
       return null;
     }
     try {
-      const { data } = await api.get("/auth/me");
+      const { data } = await authService.getCurrentUser();
       setUser(data);
       setSessionExpired(false);
       return data;

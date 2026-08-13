@@ -120,15 +120,19 @@ describe("HQ finance API contract", () => {
     expect(adminApp).not.toMatch(/["'`]\/finance\/(transactions|payment-types|transaction-categories|counterparties|finance-history)/);
   });
 
-  it("keeps known APP finance consumers on /finance paths", () => {
+  it("keeps known APP finance consumers behind the APP finance service", () => {
     const transactions = readFileSync(resolve(process.cwd(), "src/pages/FinanceTransactionsPage.jsx"), "utf8");
     const categories = readFileSync(resolve(process.cwd(), "src/pages/FinanceCategoriesPage.jsx"), "utf8");
     const paymentTypes = readFileSync(resolve(process.cwd(), "src/pages/settings/SettingsPaymentMethodsPage.jsx"), "utf8");
+    const financeService = readFileSync(resolve(process.cwd(), "src/api/finance.js"), "utf8");
+    const settingsService = readFileSync(resolve(process.cwd(), "src/api/settings.js"), "utf8");
 
-    expect(transactions).toContain('api.get("/finance/transactions"');
-    expect(transactions).toContain('api.post("/finance/transactions"');
-    expect(categories).toContain('api.get("/finance/transaction-categories"');
-    expect(paymentTypes).toContain('apiEndpoint="/finance/payment-types"');
-    expect([transactions, categories, paymentTypes].join("\n")).not.toContain("/hq/finance/");
+    expect(transactions).toContain("financeService.listTransactions");
+    expect(transactions).toContain("financeService.createTransaction");
+    expect(categories).toContain("financeService.listTransactionCategories");
+    expect(paymentTypes).toContain('resourceKey="paymentMethods"');
+    expect(financeService).toContain('api.get("/finance/transactions"');
+    expect(settingsService).toContain('paymentMethods: "/finance/payment-types"');
+    expect([transactions, categories, paymentTypes, financeService, settingsService].join("\n")).not.toContain("/hq/finance/");
   });
 });

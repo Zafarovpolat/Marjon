@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
+import { warehouseService } from "../api/warehouse";
 import Icon from "../components/Icon";
 
 const ACTIVE = "active";
@@ -152,11 +152,6 @@ const warehouseConfigs = {
   },
 };
 
-const sectionApiEndpoints = {
-  incoming: "/warehouse/purchases",
-  transfer: "/warehouse/transfers",
-};
-
 const sectionUnavailableMessages = {
   outgoing: "Расход товаров недоступен: подтверждённый backend contract не соответствует семантике этого экрана.",
   stock: "Товарные остатки недоступны до завершения Inventory Core.",
@@ -241,16 +236,9 @@ function WarehousePage({ initialSection = "incoming" }) {
       setLoading(false);
       return;
     }
-    const endpoint = sectionApiEndpoints[section];
-    if (!endpoint) {
-      setRows([]);
-      setLoading(false);
-      setError("Данные недоступны: backend contract не подключён.");
-      return;
-    }
     setLoading(true);
     setError("");
-    api.get(endpoint)
+    Promise.resolve().then(() => warehouseService.list(section))
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
         setRows(items.map((item) => mapWarehouseReadRow(section, item)));

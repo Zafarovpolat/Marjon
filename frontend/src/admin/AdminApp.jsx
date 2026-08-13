@@ -1,8 +1,9 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chart, CategoryScale, Filler, LineController, LineElement, LinearScale, PointElement, Tooltip } from "chart.js";
 import logo from "../assets/marjon-logo.svg";
-import { adminApi, adminLogin, adminLogout, getValidatedAdminProfile, isAdminAuthenticated } from "./api";
+import { adminLogin, adminLogout, getValidatedAdminProfile, isAdminAuthenticated } from "./api";
 import { adminFinanceApi, resolveHqTransactionSubmission } from "./financeApi";
+import { hqService } from "./hqService";
 import { normalizePaginatedList } from "../api/normalizers";
 import { AUTH_SCOPES, subscribeToAuthSessionEnded } from "../auth/session";
 import Icon from '../components/Icon';
@@ -12,14 +13,14 @@ import { createPortal } from "react-dom";
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler);
 
 const SECTION_API_MAP = {
-  "org-list": { endpoint: "/organizations", mapRow: (r) => [r.company_name || r.name || "", r.type || "Ресторан", String(r.branches_count || r.branch_count || 0), r.admin_name || r.owner_name || "—", r.status || "Активна"] },
-  "org-status": { endpoint: "/organization-statuses", mapRow: (r) => [r.name || "", r.status || "", r.updated_at || "—", r.manager || "—", r.state || r.status || ""] },
-  "nom-product": { endpoint: "/products", mapRow: null },
-  "nom-sale-category": { endpoint: "/categories", mapRow: (r) => [r.name || "", r.slug || "", String(r.products_count || 0), r.sort_order != null ? String(r.sort_order) : "—", r.status ? "Активна" : "Неактивна"] },
-  "nom-orders": { endpoint: "/orders", mapRow: (r) => [r.order_number || r.id || "", r.date || r.created_at || "", r.customer || "—", `${Number(r.total || 0).toLocaleString("ru-RU")} UZS`, r.status || ""] },
-  "nom-unit": { endpoint: "/units", mapRow: (r) => [r.name || "", r.short_name || r.code || "", r.type || "—", r.is_base ? "Базовая" : "—", r.status !== false ? "Активна" : "Неактивна"] },
-  "srv-employees": { endpoint: "/departments", mapRow: (r) => [r.name || "", r.position || r.role || "—", r.department || "—", r.privileges || "—", r.status !== false ? "Активна" : "Неактивна"] },
-  "srv-source": { endpoint: "/sources", mapRow: (r) => [r.name || "", r.type || "—", r.url || "—", String(r.leads_count || 0), r.status !== false ? "Активна" : "Неактивна"] },
+  "org-list": { serviceKey: "organizations", mapRow: (r) => [r.company_name || r.name || "", r.type || "Ресторан", String(r.branches_count || r.branch_count || 0), r.admin_name || r.owner_name || "—", r.status || "Активна"] },
+  "org-status": { serviceKey: "organizationStatuses", mapRow: (r) => [r.name || "", r.status || "", r.updated_at || "—", r.manager || "—", r.state || r.status || ""] },
+  "nom-product": { serviceKey: "products", mapRow: null },
+  "nom-sale-category": { serviceKey: "categories", mapRow: (r) => [r.name || "", r.slug || "", String(r.products_count || 0), r.sort_order != null ? String(r.sort_order) : "—", r.status ? "Активна" : "Неактивна"] },
+  "nom-orders": { serviceKey: "orders", mapRow: (r) => [r.order_number || r.id || "", r.date || r.created_at || "", r.customer || "—", `${Number(r.total || 0).toLocaleString("ru-RU")} UZS`, r.status || ""] },
+  "nom-unit": { serviceKey: "units", mapRow: (r) => [r.name || "", r.short_name || r.code || "", r.type || "—", r.is_base ? "Базовая" : "—", r.status !== false ? "Активна" : "Неактивна"] },
+  "srv-employees": { serviceKey: "departments", mapRow: (r) => [r.name || "", r.position || r.role || "—", r.department || "—", r.privileges || "—", r.status !== false ? "Активна" : "Неактивна"] },
+  "srv-source": { serviceKey: "sources", mapRow: (r) => [r.name || "", r.type || "—", r.url || "—", String(r.leads_count || 0), r.status !== false ? "Активна" : "Неактивна"] },
   "bank-transactions": {
     load: () => adminFinanceApi.listTransactions({ size: 100 }),
     mapRow: (row) => [
@@ -31,9 +32,9 @@ const SECTION_API_MAP = {
       row.comment ?? "—",
     ],
   },
-  "set-store": { endpoint: "/store-versions", mapRow: (r) => [r.version || r.name || "", r.platform || "—", r.release_date || "—", r.status || "Активна"] },
-  "set-cashier-bg": { endpoint: "/image-backgrounds", mapRow: null },
-  "set-languages": { endpoint: "/languages", mapRow: (r) => [r.name || "", r.code || "", r.is_default ? "Да" : "Нет", r.status !== false ? "Активна" : "Неактивна"] },
+  "set-store": { serviceKey: "storeVersions", mapRow: (r) => [r.version || r.name || "", r.platform || "—", r.release_date || "—", r.status || "Активна"] },
+  "set-cashier-bg": { serviceKey: "imageBackgrounds", mapRow: null },
+  "set-languages": { serviceKey: "languages", mapRow: (r) => [r.name || "", r.code || "", r.is_default ? "Да" : "Нет", r.status !== false ? "Активна" : "Неактивна"] },
 };
 
 function useAdminData(sectionKey, onNotify) {
@@ -50,7 +51,7 @@ function useAdminData(sectionKey, onNotify) {
     setLoadState("loading");
     const request = mapping.load
       ? mapping.load()
-      : adminApi.get(mapping.endpoint, { params: { size: 100 } });
+      : hqService.listSection(mapping.serviceKey);
     request
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.results || [];
@@ -4055,7 +4056,7 @@ function OrganizationDirectoryPage({ search, onNotify, onInnerBackChange }) {
 
   useEffect(() => {
     setLoadState("loading");
-    adminApi.get("/organizations", { params: { size: 100 } })
+    hqService.listOrganizations()
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
         setRows(items.map((r) => ({
@@ -4716,7 +4717,7 @@ function OrganizationStatusPage({ search, onNotify }) {
   const [editor, setEditor] = useState(null);
 
   useEffect(() => {
-    adminApi.get("/organization-statuses", { params: { size: 100 } })
+    hqService.listOrganizationStatuses()
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
         const remoteRows = items.map((r, i) => ({
@@ -4764,7 +4765,7 @@ function OrganizationStatusPage({ search, onNotify }) {
   function refreshRows() {
     setEditor(null);
     setLoadState("loading");
-    adminApi.get("/organization-statuses", { params: { size: 100 } })
+    hqService.listOrganizationStatuses()
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
         const remoteRows = items.map((r, i) => ({
@@ -6114,9 +6115,9 @@ export function ProductNomenclaturePage({ search, onNotify }) {
 
   useEffect(() => {
     Promise.allSettled([
-      adminApi.get("/products", { params: { size: 100 } }),
-      adminApi.get("/categories", { params: { size: 100 } }),
-      adminApi.get("/units", { params: { size: 100 } }),
+      hqService.listProducts(),
+      hqService.listCategories(),
+      hqService.listUnits(),
     ])
       .then(([productsResult, categoriesResult, unitsResult]) => {
         if (productsResult.status === "rejected") throw productsResult.reason;
@@ -6415,7 +6416,7 @@ function SaleCategoryPage({ search, onNotify }) {
   const query = (search || "").trim().toLowerCase();
 
   useEffect(() => {
-    adminApi.get("/categories", { params: { size: 100 } })
+    hqService.listCategories()
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.results || [];
         const nextRows = items.map(normalizeAdminSaleCategory).filter((row) => row.name);
@@ -6568,7 +6569,7 @@ function AdminSourcesPage({ search, onNotify }) {
   const query = (search || "").trim().toLowerCase();
 
   useEffect(() => {
-    adminApi.get("/sources", { params: { size: 100 } })
+    hqService.listSources()
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.results || [];
         const nextRows = items.map(normalizeAdminSource).filter((row) => row.name);
@@ -6752,7 +6753,7 @@ export function OrdersNomenclaturePage({ search, onNotify }) {
   const query = (search || "").trim().toLowerCase();
 
   useEffect(() => {
-    adminApi.get("/orders", { params: { size: 100 } })
+    hqService.listOrders()
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.results || [];
         const nextRows = items.map(normalizeAdminOrder).filter((row) => row.id);
@@ -6978,7 +6979,7 @@ function UnitNomenclaturePage({ search, onNotify }) {
   const query = (search || "").trim().toLowerCase();
 
   useEffect(() => {
-    adminApi.get("/units", { params: { size: 100 } })
+    hqService.listUnits()
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || data?.results || [];
         const nextRows = items.map(normalizeAdminUnit).filter((row) => row.name);
@@ -7533,9 +7534,9 @@ export function TruthfulHandbookLocationPage({ active, search }) {
     let activeRequest = true;
     setLoadStates({ countries: "loading", regions: "loading", districts: "loading" });
     Promise.allSettled([
-      adminApi.get("/countries", { params: { size: 100 } }),
-      adminApi.get("/regions", { params: { size: 100 } }),
-      adminApi.get("/districts", { params: { size: 100 } }),
+      hqService.listCountries(),
+      hqService.listRegions(),
+      hqService.listDistricts(),
     ])
       .then(([countriesResult, regionsResult, districtsResult]) => {
         if (!activeRequest) return;
@@ -7953,7 +7954,7 @@ function useDefaultAdminFinanceOrganizationId(onNotify) {
 
   useEffect(() => {
     let mounted = true;
-    adminApi.get("/organizations", { params: { size: 1, status: "active" } })
+    hqService.listOrganizations({ size: 1, status: "active" })
       .then(({ data }) => {
         if (!mounted) return;
         const first = extractAdminFinanceItems(data)[0];
@@ -8575,9 +8576,7 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
     async function loadOrganizations() {
       setReferencesLoading(true);
       try {
-        const { data } = await adminApi.get("/organizations", {
-          params: { size: 100, status: "active" },
-        });
+        const { data } = await hqService.listOrganizations({ size: 100, status: "active" });
         if (!mounted) return;
         const nextOrganizations = extractAdminFinanceItems(data)
           .filter((item) => item.status !== "blocked")
@@ -9779,7 +9778,7 @@ function AdminCashierBackgroundPage({ search, onNotify }) {
 
   useEffect(() => {
     setLoadState("loading");
-    adminApi.get("/image-backgrounds", { params: { size: 100 } })
+    hqService.listImageBackgrounds()
       .then(({ data }) => {
         const items = Array.isArray(data) ? data : data?.items || [];
         setBackgrounds(items.map((r, i) => ({
@@ -11592,7 +11591,7 @@ function AdminShell({ onLogout, user }) {
 
   useEffect(() => {
     let mounted = true;
-    adminApi.get("/organizations", { params: { size: 5 } })
+    hqService.listOrganizations({ size: 5 })
       .then(({ data }) => {
         if (!mounted) return;
         const items = Array.isArray(data) ? data : data?.items || [];
@@ -11605,7 +11604,7 @@ function AdminShell({ onLogout, user }) {
         }
       })
       .catch(() => {});
-    adminApi.get("/admin-reports/dashboard-kpis")
+    hqService.getDashboardKpis()
       .then(({ data }) => {
         if (!mounted) return;
         if (!data || typeof data !== "object") {

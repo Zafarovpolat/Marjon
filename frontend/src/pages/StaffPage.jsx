@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, formatMoney } from "../api/client";
+import { formatMoney } from "../api/client";
+import { settingsService } from "../api/settings";
+import { staffService } from "../api/staff";
 import Icon from "../components/Icon";
 
 const STAFF_ROLE_SLUGS = new Set(["manager", "cashier", "waiter", "kitchen", "monoblock", "courier", "warehouse"]);
@@ -25,9 +27,9 @@ export default function StaffPage() {
     setError("");
     try {
       const [{ data: employeeRows }, { data: companyUsers }, { data: companyBranches }] = await Promise.all([
-        api.get("/hr/employees"),
-        api.get("/auth/users"),
-        api.get("/companies/me/branches"),
+        staffService.listEmployees(),
+        staffService.listCompanyUsers(),
+        settingsService.listBranches(),
       ]);
       if (!Array.isArray(employeeRows) || !Array.isArray(companyUsers) || !Array.isArray(companyBranches)) {
         throw new Error("Invalid staff response");
@@ -101,9 +103,9 @@ export default function StaffPage() {
     };
     try {
       if (editingId) {
-        await api.patch(`/hr/employees/${editingId}`, commonPayload);
+        await staffService.updateEmployee(editingId, commonPayload);
       } else {
-        await api.post("/hr/employees", {
+        await staffService.createEmployee({
           user_id: form.user_id,
           ...commonPayload,
           hire_date: new Date().toISOString().slice(0, 10),
@@ -122,7 +124,7 @@ export default function StaffPage() {
   async function handleDelete(employee) {
     if (!window.confirm(`Удалить сотрудника «${employee.position}»?`)) return;
     try {
-      await api.delete(`/hr/employees/${employee.id}`);
+      await staffService.deleteEmployee(employee.id);
       await loadPage();
     } catch (err) {
       setError(err.response?.data?.detail || "Ошибка удаления сотрудника.");

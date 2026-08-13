@@ -43,7 +43,7 @@ function SettingsClientsPage() {
       title="Клиенты"
       tabs={tabs}
       initialRows={rows}
-      apiEndpoint="/crm/counterparties"
+      resourceKey="clients"
       apiMapRow={apiMapRow}
       apiMapFormToPayload={apiMapFormToPayload}
       transactionHistory

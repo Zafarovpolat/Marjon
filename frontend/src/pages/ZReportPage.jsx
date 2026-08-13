@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../api/client";
+import { reportsService } from "../api/reports";
 import Icon from "../components/Icon";
 import { todayInputValue } from "../utils/date";
 
@@ -71,7 +71,7 @@ export default function ZReportPage() {
     setLoading(true);
     setError("");
     setReport(null);
-    api.get("/analytics/z-report", { params: { date: selectedDate } })
+    reportsService.getZReport(selectedDate)
       .then(({ data }) => {
         if (!data || typeof data !== "object" || !Array.isArray(data.payment_methods)) {
           throw new Error("Invalid Z-report response");
