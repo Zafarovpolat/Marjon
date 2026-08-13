@@ -33,6 +33,26 @@ function sortCategories(a, b) {
 }
 
 export default function CategoriesPage({ type = "dishes" }) {
+  if (type === "raw" || type === "semi") {
+    const config = TYPE_CONFIG[type];
+    return (
+      <section className="nomenclature-page menu-categories-page">
+        <div className="menu-categories-card">
+          <div className="menu-categories-header">
+            <div className="menu-categories-title">
+              <span className="menu-categories-accent" />
+              <div><h1>{config.title}</h1><p>Функция пока недоступна: отдельный backend-контракт категорий сырья не зафиксирован.</p></div>
+            </div>
+          </div>
+          <div className="menu-category-empty" role="status"><Icon name="bi-inbox" /><span>ProductCategory не используется как категория сырья или полуфабриката.</span></div>
+        </div>
+      </section>
+    );
+  }
+  return <ProductCategoriesPage type={type} />;
+}
+
+function ProductCategoriesPage({ type }) {
   const config = TYPE_CONFIG[type] || TYPE_CONFIG.dishes;
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);

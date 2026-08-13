@@ -79,7 +79,20 @@ const nomenclatureConfigs = {
 
 function NomenclaturePage({ type = "dishes" }) {
   if (type === "dishes") return <DishesCatalogPage />;
-  return <SimpleNomenclaturePage key={type} config={nomenclatureConfigs[type] || nomenclatureConfigs.raw} />;
+  const config = nomenclatureConfigs[type] || nomenclatureConfigs.raw;
+  return (
+    <section className="nomenclature-page">
+      <div className="nomenclature-card">
+        <div className="nomenclature-header">
+          <div className="report-title-group">
+            <span className="report-accent-bar" />
+            <div><h1>{config.title}</h1><p>Функция пока недоступна: Raw/Semi и Inventory Core отложены.</p></div>
+          </div>
+        </div>
+        <div className="dashboard-empty" role="status">Backend-контракт для этого раздела не зафиксирован.</div>
+      </div>
+    </section>
+  );
 }
 
 function matchesDishStatFilter(row, filterKey) {
@@ -719,202 +732,5 @@ const fieldLabels = {
   category: "Категория",
   chef: "Повар",
 };
-
-function SimpleNomenclaturePage({ config }) {
-  const [query, setQuery] = useState("");
-  const [rows, setRows] = useState([]);
-  const [apiLoading, setApiLoading] = useState(true);
-  const [apiError, setApiError] = useState("");
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editingIndex, setEditingIndex] = useState(null);
-  const [form, setForm] = useState({});
-
-  const isRawMaterials = config.title === "Сырьё";
-  const isSemiProducts = config.title === "Полуфабрикаты";
-  const showSearch = !(isRawMaterials || isSemiProducts);
-  const apiEndpoint = config.title === "Сырьё" ? "/inventory/ingredients" : config.title === "Полуфабрикаты" ? "/inventory/semi-products" : null;
-  const editableColumns = useMemo(() => config.columns.filter((column) => column !== "Действия"), [config.columns]);
-
-  const getDefaultCellValue = (column) => {
-    if (column === "Статус") return ACTIVE;
-    if (column === "Ед. изм") return "кг";
-    if (column === "Состав") return "0 ингредиента";
-    if (column.includes("Цена") || column.includes("Себестоимость")) return "0 UZS";
-    if (column.includes("Остаток")) return "0";
-    return "";
-  };
-
-  const makeFormFromRow = (row = []) => Object.fromEntries(
-    editableColumns.map((column, index) => [column, row[index] ?? getDefaultCellValue(column)]),
-  );
-
-  const makeRowFromForm = () => editableColumns.map((column) => String(form[column] ?? getDefaultCellValue(column)).trim());
-
-  useEffect(() => {
-    if (!apiEndpoint) return;
-    setApiLoading(true);
-    setApiError("");
-    api.get(apiEndpoint)
-      .then(({ data }) => {
-        const items = Array.isArray(data) ? data : data?.items || [];
-        const mapped = items.map((item) => {
-            if (config.title === "Сырьё") {
-              return [
-                item.name || "",
-                item.category || "",
-                item.subcategory_name || item.subcategory || item.specification || "",
-                item.unit || "кг",
-                String(item.stock ?? "—"), String(item.min_stock ?? "—"),
-                item.purchase_price != null ? `${Number(item.purchase_price).toLocaleString("ru-RU")} UZS` : "—",
-                item.supplier_name || "", item.is_active !== false ? ACTIVE : ARCHIVED,
-              ];
-            }
-            return [
-              item.name || "", item.category || "", item.subcategory_name || item.subcategory || item.specification || "", item.unit || "кг",
-              item.cost_price != null ? `${Number(item.cost_price).toLocaleString("ru-RU")} UZS` : "—",
-              `${item.ingredients_count ?? 0} ингредиента`, item.is_active !== false ? ACTIVE : ARCHIVED,
-            ];
-          });
-        setRows(mapped);
-      })
-      .catch((err) => {
-        setRows([]);
-        setApiError(err.response?.data?.detail || `Не удалось загрузить: ${config.title}.`);
-      })
-      .finally(() => setApiLoading(false));
-  }, [apiEndpoint, config.title]);
-
-  const openEditor = (row = null, index = null) => {
-    setApiError(`${index === null ? "Создание" : "Редактирование"} недоступно: backend mutation contract пока не подключён.`);
-  };
-
-  const closeEditor = () => {
-    setDrawerOpen(false);
-    setEditingIndex(null);
-  };
-
-  const saveRow = (event) => {
-    event.preventDefault();
-    setApiError("Сохранение недоступно: backend mutation contract пока не подключён.");
-  };
-
-  const removeRow = (rowIndex) => {
-    setApiError(`Удаление строки ${rowIndex + 1} недоступно: backend mutation contract пока не подключён.`);
-  };
-
-  const visibleRows = rows
-    .map((row, rowIndex) => ({ row, rowIndex }))
-    .filter(({ row }) => !showSearch || row.join(" ").toLowerCase().includes(query.toLowerCase()));
-
-  if (apiLoading) return <section className="nomenclature-page"><div className="dashboard-empty" role="status">Загрузка...</div></section>;
-
-  return (
-    <section className={`nomenclature-page ${isRawMaterials ? "nomenclature-page--raw" : "nomenclature-page--semi"}`}>
-      <div className="nomenclature-card">
-        <div className="nomenclature-header">
-          <div className="report-title-group">
-            <span className="report-accent-bar" />
-            <div>
-              <h1>{config.title}</h1>
-              <p>Справочник склада в Marjon-дизайне.</p>
-            </div>
-          </div>
-          <div className="nomenclature-actions">
-            <button type="button" className="btn-primary" onClick={() => openEditor()}>
-              <Icon name="bi-plus" /> {config.action}
-            </button>
-          </div>
-        </div>
-        {actionError ? <div className="login-error" role="alert">{actionError}</div> : null}
-        {apiError ? <div className="login-error" role="alert">{apiError}</div> : null}
-        {showSearch && (
-          <div className="nomenclature-filters">
-            <label>
-              <Icon name="bi-search" />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск" />
-            </label>
-          </div>
-        )}
-        <div className="nomenclature-table-wrapper">
-          <table className="nomenclature-table">
-            <thead>
-              <tr>{config.columns.map((column) => <th key={column}>{column}</th>)}</tr>
-            </thead>
-            <tbody>
-              {visibleRows.map(({ row, rowIndex }) => (
-                <tr key={`${row[0]}-${rowIndex}`}>
-                  {row.map((cell, index) => (
-                    <td key={`${row[0]}-${index}`}>
-                      {index === row.length - 1 ? (
-                        <span className={`nomenclature-status-badge ${cell === ARCHIVED ? "is-archived" : ""}`}>
-                          {cell}
-                        </span>
-                      ) : cell}
-                    </td>
-                  ))}
-                  <td>
-                    <div className="nomenclature-row-actions">
-                      <button type="button" className="edit-action-button" onClick={() => openEditor(row, rowIndex)} aria-label="Редактировать">
-                        <Icon name="bi-pencil" size={15} />
-                      </button>
-                      <button type="button" className="is-danger" onClick={() => removeRow(rowIndex)} aria-label="Удалить">
-                        <Icon name="bi-trash3" size={15} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {drawerOpen && (
-        <div className="nomenclature-drawer" role="dialog" aria-modal="true">
-          <button type="button" className="nomenclature-drawer__backdrop" onClick={closeEditor} aria-label="Закрыть" />
-          <form className="nomenclature-form" onSubmit={saveRow}>
-            <div className="nomenclature-form__header">
-              <div>
-                <p>{config.title}</p>
-                <h2>{editingIndex === null ? "Добавить позицию" : "Редактировать позицию"}</h2>
-              </div>
-              <button type="button" onClick={closeEditor} aria-label="Закрыть">
-                <Icon name="bi-x-lg" />
-              </button>
-            </div>
-
-            <div className="nomenclature-form__grid">
-              {editableColumns.map((column) => (
-                <label key={column}>
-                  <span>{column}</span>
-                  {column === "Статус" ? (
-                    <select value={form[column] || ACTIVE} onChange={(event) => setForm((prev) => ({ ...prev, [column]: event.target.value }))}>
-                      <option value={ACTIVE}>{ACTIVE}</option>
-                      <option value={ARCHIVED}>{ARCHIVED}</option>
-                    </select>
-                  ) : column === "Ед. изм" ? (
-                    <select value={form[column] || "кг"} onChange={(event) => setForm((prev) => ({ ...prev, [column]: event.target.value }))}>
-                      <option>кг</option>
-                      <option>шт</option>
-                      <option>л</option>
-                      <option>порция</option>
-                    </select>
-                  ) : (
-                    <input value={form[column] || ""} onChange={(event) => setForm((prev) => ({ ...prev, [column]: event.target.value }))} />
-                  )}
-                </label>
-              ))}
-            </div>
-
-            <div className="nomenclature-form__footer">
-              <button type="button" onClick={closeEditor}>Отмена</button>
-              <button type="submit">Сохранить</button>
-            </div>
-          </form>
-        </div>
-      )}
-    </section>
-  );
-}
 
 export default NomenclaturePage;

@@ -18,12 +18,19 @@ const SECTION_API_MAP = {
   "nom-sale-category": { endpoint: "/categories", mapRow: (r) => [r.name || "", r.slug || "", String(r.products_count || 0), r.sort_order != null ? String(r.sort_order) : "—", r.status ? "Активна" : "Неактивна"] },
   "nom-orders": { endpoint: "/orders", mapRow: (r) => [r.order_number || r.id || "", r.date || r.created_at || "", r.customer || "—", `${Number(r.total || 0).toLocaleString("ru-RU")} UZS`, r.status || ""] },
   "nom-unit": { endpoint: "/units", mapRow: (r) => [r.name || "", r.short_name || r.code || "", r.type || "—", r.is_base ? "Базовая" : "—", r.status !== false ? "Активна" : "Неактивна"] },
-  "hb-countries": { endpoint: "/countries", mapRow: (r) => [r.name || "", r.code || r.iso || "", r.phone_code || "", r.currency || "—", r.status !== false ? "Активна" : "Неактивна"] },
-  "hb-regions": { endpoint: "/regions", mapRow: (r) => [r.name || "", r.country_name || r.country || "", r.code || "—", String(r.districts_count || 0), r.status !== false ? "Активна" : "Неактивна"] },
-  "hb-districts": { endpoint: "/districts", mapRow: (r) => [r.name || "", r.region_name || r.region || "", r.code || "—", "—", r.status !== false ? "Активна" : "Неактивна"] },
   "srv-employees": { endpoint: "/departments", mapRow: (r) => [r.name || "", r.position || r.role || "—", r.department || "—", r.privileges || "—", r.status !== false ? "Активна" : "Неактивна"] },
   "srv-source": { endpoint: "/sources", mapRow: (r) => [r.name || "", r.type || "—", r.url || "—", String(r.leads_count || 0), r.status !== false ? "Активна" : "Неактивна"] },
-  "bank-transactions": { load: () => adminFinanceApi.listTransactions({ size: 100 }), mapRow: null },
+  "bank-transactions": {
+    load: () => adminFinanceApi.listTransactions({ size: 100 }),
+    mapRow: (row) => [
+      String(row.id),
+      row.organization_id ? String(row.organization_id) : "—",
+      String(row.date),
+      `${Number(row.amount).toLocaleString("ru-RU")} UZS`,
+      row.direction,
+      row.comment ?? "—",
+    ],
+  },
   "set-store": { endpoint: "/store-versions", mapRow: (r) => [r.version || r.name || "", r.platform || "—", r.release_date || "—", r.status || "Активна"] },
   "set-cashier-bg": { endpoint: "/image-backgrounds", mapRow: null },
   "set-languages": { endpoint: "/languages", mapRow: (r) => [r.name || "", r.code || "", r.is_default ? "Да" : "Нет", r.status !== false ? "Активна" : "Неактивна"] },
@@ -1941,13 +1948,9 @@ const categoryContent = {
   },
   "bank-transactions": {
     title: "Транзакции банка",
-    text: "Банковские транзакции по платежам и возвратам.",
-    columns: ["ID", "Тип", "Сумма", "Время", "Статус"],
-    rows: [
-      ["TXN-88421", "Поступление", "240 600 UZS", "20:57", "Завершено"],
-      ["TXN-88417", "Поступление", "177 100 UZS", "20:56", "Завершено"],
-      ["TXN-88410", "Возврат", "110 000 UZS", "17:59", "Ожидает"],
-    ],
+    text: "Транзакции HQ Finance по авторитетному backend-ответу.",
+    columns: ["ID", "Организация", "Дата", "Сумма", "Направление", "Комментарий"],
+    rows: [],
   },
 
   // 8) Финансы
@@ -7519,6 +7522,83 @@ function DeferredAdminEmployeesPrototype({ search, onNotify }) {
   );
 }
 
+export function TruthfulHandbookLocationPage({ active, search }) {
+  const kind = adminHandbookActiveKind[active] || "countries";
+  const config = adminHandbookConfig[kind];
+  const [locations, setLocations] = useState({ countries: [], regions: [], districts: [] });
+  const [loadStates, setLoadStates] = useState({ countries: "loading", regions: "loading", districts: "loading" });
+  const query = (search || "").trim().toLowerCase();
+
+  useEffect(() => {
+    let activeRequest = true;
+    setLoadStates({ countries: "loading", regions: "loading", districts: "loading" });
+    Promise.allSettled([
+      adminApi.get("/countries", { params: { size: 100 } }),
+      adminApi.get("/regions", { params: { size: 100 } }),
+      adminApi.get("/districts", { params: { size: 100 } }),
+    ])
+      .then(([countriesResult, regionsResult, districtsResult]) => {
+        if (!activeRequest) return;
+        const countries = countriesResult.status === "fulfilled" ? normalizePaginatedList(countriesResult.value.data).items : [];
+        const regions = regionsResult.status === "fulfilled" ? normalizePaginatedList(regionsResult.value.data).items : [];
+        const districts = districtsResult.status === "fulfilled" ? normalizePaginatedList(districtsResult.value.data).items : [];
+        const countryNames = new Map(countries.map((row) => [String(row.id), row.name]));
+        const regionNames = new Map(regions.map((row) => [String(row.id), row.name]));
+        setLocations({
+          countries: countries.map((row) => ({ id: String(row.id), name: row.name, status: row.status })),
+          regions: regions.map((row) => ({
+            id: String(row.id),
+            name: row.name,
+            countryId: String(row.country_id),
+            country: countryNames.get(String(row.country_id)) || `ID: ${row.country_id}`,
+            status: row.status,
+          })),
+          districts: districts.map((row) => ({
+            id: String(row.id),
+            name: row.name,
+            regionId: String(row.region_id),
+            region: regionNames.get(String(row.region_id)) || `ID: ${row.region_id}`,
+            status: row.status,
+          })),
+        });
+        setLoadStates({
+          countries: countriesResult.status === "fulfilled" ? "success" : "error",
+          regions: regionsResult.status === "fulfilled" ? "success" : "error",
+          districts: districtsResult.status === "fulfilled" ? "success" : "error",
+        });
+      });
+    return () => { activeRequest = false; };
+  }, []);
+
+  const rows = locations[kind];
+  const loadState = loadStates[kind];
+  const visibleRows = rows.filter((row) => !query || Object.values(row).some((value) => String(value).toLowerCase().includes(query)));
+
+  return (
+    <section className={`admin-handbook-page admin-handbook-page--${kind}`}>
+      <div className="admin-handbook-card">
+        <div className="admin-handbook-head"><div className="admin-handbook-title"><span aria-hidden="true" /><h2>{config.title}</h2></div></div>
+        {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка справочника...</div> : null}
+        {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить справочник.</div> : null}
+        {loadState === "success" ? <div className="admin-handbook-table-wrap" onWheelCapture={keepWheelInsideScroller}>
+          <table className={`admin-handbook-table admin-handbook-table--${kind}`}>
+            <thead><tr>{config.columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
+            <tbody>
+              {visibleRows.map((row, index) => <tr key={row.id} data-handbook-id={row.id}>
+                <td>{index + 1}</td><td><strong>{row.name}</strong></td>
+                {kind === "regions" ? <td data-country-id={row.countryId}>{row.country}</td> : null}
+                {kind === "districts" ? <td data-region-id={row.regionId}>{row.region}</td> : null}
+                <td><span className={`admin-handbook-status ${row.status ? "is-active" : "is-inactive"}`}>{row.status ? "#активно" : "#неактивно"}</span></td>
+              </tr>)}
+              {!visibleRows.length ? <tr><td colSpan={config.columns.length} className="admin-handbook-empty">{rows.length ? "Поиск не дал результатов" : "Список пуст"}</td></tr> : null}
+            </tbody>
+          </table>
+        </div> : null}
+      </div>
+    </section>
+  );
+}
+
 function HandbookLocationPage({ active, search, onNotify }) {
   const kind = adminHandbookActiveKind[active] || "countries";
   const config = adminHandbookConfig[kind];
@@ -9917,7 +9997,7 @@ export function CategoryPage({ active, rowsOverride, search, onCreate, onRowDeta
     return <UnitNomenclaturePage search={search} onNotify={onNotify} />;
   }
   if (active === "hb-countries" || active === "hb-regions" || active === "hb-districts") {
-    return <HandbookLocationPage active={active} search={search} onNotify={onNotify} />;
+    return <TruthfulHandbookLocationPage active={active} search={search} />;
   }
   if (active === "srv-employees") {
     return <AdminEmployeesPage search={search} onNotify={onNotify} />;
@@ -9959,7 +10039,7 @@ export function CategoryPage({ active, rowsOverride, search, onCreate, onRowDeta
           <h2>{content.title}</h2>
           <p>{content.text}</p>
         </div>
-        <button type="button" onClick={() => onCreate(active)}>Создать</button>
+        {active !== "bank-transactions" ? <button type="button" onClick={() => onCreate(active)}>Создать</button> : null}
       </div>
       <div className="admin-category-table">
         <div className="admin-category-table__row admin-category-table__head" style={{ gridTemplateColumns: `repeat(${content.columns.length}, minmax(0, 1fr))` }}>
@@ -9967,9 +10047,10 @@ export function CategoryPage({ active, rowsOverride, search, onCreate, onRowDeta
         </div>
         {rows.map((row, rowIndex) => (
           <div className="admin-category-table__row" style={{ gridTemplateColumns: `repeat(${content.columns.length}, minmax(0, 1fr))` }} key={rowIndex} role="button" tabIndex={0} onClick={() => onRowDetail(content.title, content.columns, row)} onKeyDown={(event) => { if (event.key === "Enter") onRowDetail(content.title, content.columns, row); }}>
-            {row.map((cell, index) => index === row.length - 1 ? <StatusBadge status={cell} key={index} /> : <span key={index}>{cell}</span>)}
+            {row.map((cell, index) => content.columns[index] === "Статус" ? <StatusBadge status={cell} key={index} /> : <span key={index}>{cell}</span>)}
           </div>
         ))}
+        {loadState === "empty" ? <div className="org-directory-empty" role="status">Список пуст.</div> : null}
       </div>
     </section>
   );
