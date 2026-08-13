@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { reportsService } from "../api/reports";
+import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 import Icon from "../components/Icon";
 import { todayInputValue } from "../utils/date";
 
@@ -65,30 +66,30 @@ export default function ZReportPage() {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const beginRequest = useLatestRequest();
 
   useEffect(() => {
-    let active = true;
+    const request = beginRequest();
     setLoading(true);
     setError("");
     setReport(null);
-    reportsService.getZReport(selectedDate)
+    reportsService.getZReport(selectedDate, { signal: request.signal })
       .then(({ data }) => {
         if (!data || typeof data !== "object" || !Array.isArray(data.payment_methods)) {
           throw new Error("Invalid Z-report response");
         }
-        if (active) setReport(data);
+        if (request.isCurrent()) setReport(data);
       })
       .catch((err) => {
-        if (!active) return;
+        if (!request.isCurrent() || isAbortError(err)) return;
         setError(err.response?.status === 403
           ? "Доступ к Z-отчёту запрещён."
           : err.response?.data?.detail || "Не удалось загрузить Z-отчёт.");
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (request.isCurrent()) setLoading(false);
       });
-    return () => { active = false; };
-  }, [selectedDate]);
+  }, [beginRequest, selectedDate]);
 
   function handlePrint() {
     if (!report || loading || error) return;

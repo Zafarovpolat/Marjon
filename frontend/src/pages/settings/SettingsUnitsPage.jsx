@@ -29,6 +29,7 @@ function SettingsUnitsPage() {
       title="Единица измерения"
       initialRows={rows}
       resourceKey="units"
+      readOnly
       apiMapRow={apiMapRow}
       apiMapFormToPayload={apiMapFormToPayload}
       columns={[

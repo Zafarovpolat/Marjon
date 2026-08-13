@@ -8,6 +8,7 @@ import { formatDateLabel, todayInputValue, toDateInputValue } from "../utils/dat
 import Icon from "../components/Icon";
 import { PageLoader } from "../components/Loader";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
+import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler);
 
@@ -1416,7 +1417,6 @@ export default function OwnerDashboard() {
   const [revenueRange, setRevenueRange] = useState(() => reportRangeEndingAt(7, selectedDate));
   const [selectedKpi, setSelectedKpi] = useState(null);
   const [selectedWarehouseReport, setSelectedWarehouseReport] = useState(null);
-  const hasLoadedRef = useRef(false);
   const lastSelectedDateRef = useRef(selectedDate);
   const [dashboard, setDashboard] = useState(null);
   const [sales, setSales] = useState([]);
@@ -1428,6 +1428,7 @@ export default function OwnerDashboard() {
   const [financeTransactions, setFinanceTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const beginRequest = useLatestRequest();
   const normalizedRevenueRange = useMemo(() => normalizeReportRange(revenueRange), [revenueRange]);
   const revenueParams = useMemo(() => reportRangeToApiParams(normalizedRevenueRange), [normalizedRevenueRange]);
   const revenuePeriod = useMemo(() => reportRangeDays(normalizedRevenueRange), [normalizedRevenueRange]);
@@ -1447,13 +1448,14 @@ export default function OwnerDashboard() {
   }, [selectedDate]);
 
   useEffect(() => {
-    let mounted = true;
-    setLoading(!hasLoadedRef.current);
+    const request = beginRequest();
+    setLoading(true);
     setError("");
     dashboardService.loadOwnerOverview({
       selectedDate,
       dateFrom: revenueParams.date_from,
       dateTo: revenueParams.date_to,
+      signal: request.signal,
     }).then(([
       dashboardRes,
       salesRes,
@@ -1464,7 +1466,7 @@ export default function OwnerDashboard() {
       placesRes,
       financeRes,
     ]) => {
-      if (!mounted) return;
+      if (!request.isCurrent()) return;
       setDashboard(dashboardRes.data);
       setSales(apiList(salesRes.data));
       setTopProducts(apiList(topRes.data));
@@ -1476,13 +1478,12 @@ export default function OwnerDashboard() {
       setPlaceSettings(placeList);
       const financeList = apiList(financeRes.data);
       setFinanceTransactions(financeList);
-      hasLoadedRef.current = true;
     }).catch((err) => {
-      if (mounted) setError(err.response?.data?.detail || "Не удалось загрузить dashboard данные.");
-    }).finally(() => mounted && setLoading(false));
-
-    return () => { mounted = false; };
-  }, [revenueParams, selectedDate]);
+      if (request.isCurrent() && !isAbortError(err)) setError(err.response?.data?.detail || "Не удалось загрузить dashboard данные.");
+    }).finally(() => {
+      if (request.isCurrent()) setLoading(false);
+    });
+  }, [beginRequest, revenueParams, selectedDate]);
 
   const displaySales = useMemo(() => sales, [sales]);
   const revenueChartSales = useMemo(

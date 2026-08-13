@@ -6,24 +6,35 @@ const rows = [
   { name: "Бар", typeLabel: "Кухонный", endpoint: "192.168.1.52:9100", zone: "Бар", status: "#не активно", testPrint: true },
 ].map((row, index) => ({ id: index + 1, ...row }));
 
-const apiMapRow = (item) => ({
+export const apiMapRow = (item) => ({
   id: item.id,
   name: item.name || "",
-  typeLabel: item.type || item.printer_type || "",
-  endpoint: item.ip_address ? `${item.ip_address}:${item.port || 9100}` : "",
+  typeLabel: ({ receipt: "Чековый", kitchen: "Кухонный", bar: "Бар", label: "Этикетка" })[item.printer_type] || item.printer_type || "",
+  printerType: item.printer_type || "",
+  connectionType: item.connection_type || "",
+  ip: item.ip_address || "",
+  port: item.port == null ? "" : String(item.port),
+  endpoint: item.ip_address && item.port != null ? `${item.ip_address}:${item.port}` : "",
   zone: item.zone || item.print_zone || "",
   status: item.is_active !== false ? "Активно" : "#не активно",
   testPrint: true,
 });
 
-const apiMapFormToPayload = (form) => ({
-  name: form.name,
-  type: form.typeLabel,
-  ip_address: form.ip,
-  port: parseInt(form.port, 10) || 9100,
-  zone: form.zone,
-  is_active: form.status === "Активно",
-});
+export const apiMapFormToPayload = (form, { editing }) => {
+  const portInput = String(form.port ?? "").trim();
+  if (!/^\d+$/.test(portInput)) return null;
+  const port = Number(portInput);
+  if (!form.name.trim() || !form.printerType || !Number.isInteger(port) || port <= 0 || port > 65535) return null;
+  return {
+    name: form.name.trim(),
+    printer_type: form.printerType,
+    connection_type: form.connectionType || "network",
+    ip_address: form.ip.trim() || null,
+    port,
+    zone: form.zone.trim() || null,
+    ...(editing ? { is_active: form.status === "Активно" } : {}),
+  };
+};
 
 function SettingsPrintersPage() {
   return (
@@ -44,7 +55,8 @@ function SettingsPrintersPage() {
       ]}
       formFields={[
         { key: "name", label: "Название" },
-        { key: "typeLabel", label: "Тип принтера", type: "select", options: ["Чековый", "Кухонный"] },
+        { key: "printerType", label: "Тип принтера", type: "select", options: [{ value: "receipt", label: "Чековый" }, { value: "kitchen", label: "Кухонный" }, { value: "bar", label: "Бар" }, { value: "label", label: "Этикетка" }] },
+        { key: "connectionType", label: "Тип подключения", type: "select", options: [{ value: "network", label: "Сеть" }, { value: "usb", label: "USB" }, { value: "serial", label: "Serial" }] },
         { key: "ip", label: "IP" },
         { key: "port", label: "Порт" },
         { key: "zone", label: "Зона печати" },

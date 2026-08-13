@@ -87,7 +87,7 @@ describe("CTR-01 critical financial truth", () => {
 
     expect(await screen.findByText("Backend card")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Дата Z-отчёта"), { target: { value: "2026-08-13" } });
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/analytics/z-report", { params: { date: "2026-08-13" } }));
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/analytics/z-report", expect.objectContaining({ params: { date: "2026-08-13" }, signal: expect.any(AbortSignal) })));
     expect(screen.getAllByText(/123[\s\u00a0]?456 UZS/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/0 UZS/).length).toBeGreaterThan(0);
   });
@@ -172,7 +172,7 @@ describe("CTR-01 critical financial truth", () => {
     fireEvent.change(screen.getByLabelText("Конец периода"), { target: { value: "12.08.2026" } });
     await screen.findByText("Backend Counterparty");
     fireEvent.change(screen.getByLabelText("Начало периода"), { target: { value: "02.08.2026" } });
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/reports/debt-credit", { params: { date_from: "2026-08-02", date_to: "2026-08-12" } }));
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/reports/debt-credit", expect.objectContaining({ params: { date_from: "2026-08-02", date_to: "2026-08-12" }, signal: expect.any(AbortSignal) })));
     expect(screen.queryByText("USD")).not.toBeInTheDocument();
   });
 
@@ -186,7 +186,7 @@ describe("CTR-01 critical financial truth", () => {
     fireEvent.change(screen.getByLabelText("Начало периода"), { target: { value: "02.08.2026" } });
     fireEvent.change(screen.getByLabelText("Конец периода"), { target: { value: "12.08.2026" } });
     fireEvent.change(screen.getByLabelText("Направление"), { target: { value: "income" } });
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/finance/transactions", { params: { date_from: "2026-08-02", date_to: "2026-08-12", direction: "income" } }));
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/finance/transactions", expect.objectContaining({ params: { date_from: "2026-08-02", date_to: "2026-08-12", direction: "income" }, signal: expect.any(AbortSignal) })));
 
     fireEvent.click(screen.getByRole("button", { name: "Редактировать транзакцию tx-1" }));
     expect(screen.queryByLabelText("Дата")).not.toBeInTheDocument();
@@ -221,7 +221,11 @@ describe("CTR-01 critical financial truth", () => {
     fireEvent.change(screen.getByLabelText("Категория"), { target: { value: "cat-1" } });
     fireEvent.change(screen.getByLabelText("Комментарий"), { target: { value: "Created" } });
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
-    await waitFor(() => expect(api.post).toHaveBeenCalledWith("/finance/transactions", { amount: 500, direction: "income", comment: "Created", category_id: "cat-1", payment_type_id: "pay-1", counterparty_id: "cp-1" }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith(
+      "/finance/transactions",
+      { amount: 500, direction: "income", comment: "Created", category_id: "cat-1", payment_type_id: "pay-1", counterparty_id: "cp-1" },
+      { headers: { "Idempotency-Key": expect.stringMatching(/^owner-finance-/) } },
+    ));
   });
 
   it("contains no scoped fake markers or unsupported report mappings in production sources", () => {

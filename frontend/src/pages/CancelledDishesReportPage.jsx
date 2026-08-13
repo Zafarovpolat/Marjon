@@ -3,6 +3,7 @@ import { formatMoney } from "../api/client";
 import { reportsService } from "../api/reports";
 import Icon from "../components/Icon";
 import { exportToExcel } from "../utils/excel";
+import { isAbortError, isOrderedDateRange, useLatestRequest } from "../hooks/useAsyncSafety";
 
 const rowsPerPage = 5;
 
@@ -25,12 +26,21 @@ export default function CancelledDishesReportPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const beginRequest = useLatestRequest();
 
   useEffect(() => {
+    const request = beginRequest();
     setLoading(true);
     setError("");
-    reportsService.listCancelledDishes(appliedFilters.from, appliedFilters.to)
+    if (!isOrderedDateRange(appliedFilters.from, appliedFilters.to)) {
+      setRows([]);
+      setError("Дата начала периода не может быть позже даты окончания.");
+      setLoading(false);
+      return;
+    }
+    reportsService.listCancelledDishes(appliedFilters.from, appliedFilters.to, { signal: request.signal })
       .then(({ data }) => {
+        if (!request.isCurrent()) return;
         if (!Array.isArray(data)) throw new Error("Invalid cancelled-items report response");
         const items = data;
         setRows(items.map((item, index) => ({
@@ -47,11 +57,12 @@ export default function CancelledDishesReportPage() {
         })));
       })
       .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
         setRows([]);
         setError(err.response?.data?.detail || "Не удалось загрузить отчёт по отменённым блюдам.");
       })
-      .finally(() => setLoading(false));
-  }, [appliedFilters.from, appliedFilters.to]);
+      .finally(() => { if (request.isCurrent()) setLoading(false); });
+  }, [appliedFilters.from, appliedFilters.to, beginRequest]);
 
   const waiters = useMemo(() => [...new Set(rows.map((row) => row.waiterName).filter(Boolean))], [rows]);
   const filteredRows = useMemo(() => {

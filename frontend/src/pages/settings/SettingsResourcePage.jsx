@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { settingsService } from "../../api/settings";
 import Icon from "../../components/Icon";
+import { isAbortError, useLatestRequest, useMutationLocks } from "../../hooks/useAsyncSafety";
 
 const STATUS_ACTIVE = "#активно";
 const STATUS_INACTIVE = "#не активно";
@@ -24,6 +25,7 @@ function SettingsResourcePage({
   resourceKey,
   apiMapRow,
   apiMapFormToPayload,
+  readOnly = false,
 }) {
   const [rows, setRows] = useState([]);
   const [apiLoading, setApiLoading] = useState(!!resourceKey);
@@ -35,22 +37,30 @@ function SettingsResourcePage({
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({});
   const [historyRow, setHistoryRow] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState("");
+  const beginRequest = useLatestRequest();
+  const mutationLocks = useMutationLocks();
+  const canMutate = Boolean(resourceKey) && !readOnly;
 
   useEffect(() => {
     if (!resourceKey) return;
+    const request = beginRequest();
     setApiLoading(true);
     setApiError("");
-    settingsService.listResource(resourceKey)
+    settingsService.listResource(resourceKey, { signal: request.signal })
       .then(({ data }) => {
+        if (!request.isCurrent()) return;
         const items = Array.isArray(data) ? data : data?.items || data?.results || [];
         setRows(apiMapRow ? items.map(apiMapRow) : []);
       })
       .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
         setRows([]);
         setApiError(err.response?.data?.detail || "Не удалось загрузить данные справочника.");
       })
-      .finally(() => setApiLoading(false));
-  }, [resourceKey]);
+      .finally(() => { if (request.isCurrent()) setApiLoading(false); });
+  }, [beginRequest, resourceKey]);
 
   const visibleRows = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -64,7 +74,7 @@ function SettingsResourcePage({
   }, [activeTab, filter, rows, search, tabs]);
 
   const openAdd = () => {
-    if (!resourceKey) {
+    if (!canMutate) {
       setApiError("Создание недоступно: backend contract для этого справочника не подключён.");
       return;
     }
@@ -75,7 +85,7 @@ function SettingsResourcePage({
   };
 
   const openEdit = (row) => {
-    if (!resourceKey) {
+    if (!canMutate) {
       setApiError("Редактирование недоступно: backend contract для этого справочника не подключён.");
       return;
     }
@@ -84,40 +94,47 @@ function SettingsResourcePage({
     setDrawerMode("edit");
   };
 
-  const save = (event) => {
+  const save = async (event) => {
     event.preventDefault();
-    const payload = resourceKey && apiMapFormToPayload ? apiMapFormToPayload(form) : null;
+    if (!canMutate || !mutationLocks.acquire("resource-save")) return;
+    const payload = apiMapFormToPayload ? apiMapFormToPayload(form, { editing: Boolean(editingId) }) : null;
 
-    if (resourceKey && payload) {
-      const request = editingId
-        ? settingsService.updateResource(resourceKey, editingId, payload)
-        : settingsService.createResource(resourceKey, payload);
-
-      request
-        .then(({ data }) => {
-          const mapped = apiMapRow ? apiMapRow(data) : data;
-          setRows((current) => editingId
-            ? current.map((row) => row.id === editingId ? mapped : row)
-            : [mapped, ...current]);
-          setDrawerMode(null);
-        })
-        .catch(() => {
-          window.alert("Не удалось сохранить. Попробуйте позже.");
-        });
+    if (!payload) {
+      setApiError("Проверьте обязательные поля формы.");
+      mutationLocks.release("resource-save");
       return;
     }
-
-    setApiError("Сохранение недоступно: backend contract для этого справочника не подключён.");
+    setSaving(true);
+    try {
+      const { data } = editingId
+        ? await settingsService.updateResource(resourceKey, editingId, payload)
+        : await settingsService.createResource(resourceKey, payload);
+      if (!data?.id) throw new Error("Backend не вернул сохранённую запись.");
+      const mapped = apiMapRow ? apiMapRow(data) : data;
+      setRows((current) => editingId
+        ? current.map((row) => row.id === editingId ? mapped : row)
+        : [mapped, ...current]);
+      setDrawerMode(null);
+    } catch (error) {
+      setApiError(error.response?.data?.detail || "Не удалось сохранить. Попробуйте позже.");
+    } finally {
+      setSaving(false);
+      mutationLocks.release("resource-save");
+    }
   };
 
-  const archive = (row) => {
-    if (resourceKey) {
-      settingsService.deleteResource(resourceKey, row.id)
-        .then(() => setRows((current) => current.filter((item) => item.id !== row.id)))
-        .catch(() => window.alert("Не удалось удалить. Попробуйте позже."));
-      return;
+  const archive = async (row) => {
+    if (!canMutate || !mutationLocks.acquire(`resource-delete:${row.id}`)) return;
+    setPendingDeleteId(String(row.id));
+    try {
+      await settingsService.deleteResource(resourceKey, row.id);
+      setRows((current) => current.filter((item) => item.id !== row.id));
+    } catch (error) {
+      setApiError(error.response?.data?.detail || "Не удалось удалить. Попробуйте позже.");
+    } finally {
+      setPendingDeleteId("");
+      mutationLocks.release(`resource-delete:${row.id}`);
     }
-    setApiError("Удаление недоступно: backend contract для этого справочника не подключён.");
   };
 
   const renderActions = () => (
@@ -129,7 +146,7 @@ function SettingsResourcePage({
           {filterOptions.map((option) => <option key={option} value={option}>{option}</option>)}
         </select>
       ) : null}
-      <button type="button" onClick={openAdd} disabled={!resourceKey}>{addLabel}</button>
+      <button type="button" onClick={openAdd} disabled={!canMutate}>{addLabel}</button>
     </div>
   );
 
@@ -220,8 +237,8 @@ function SettingsResourcePage({
                   <td>
                     <div className="settings-row-actions">
                       {row.testPrint ? <button type="button" onClick={() => window.alert("Тест печати будет доступен в следующей версии")}>Тест печати</button> : null}
-                      <button type="button" className="settings-action-edit" onClick={() => openEdit(row)}><Icon name="bi-pencil" size={15} /></button>
-                      <button type="button" className="settings-action-delete" onClick={() => archive(row)}><Icon name="bi-trash3" size={15} /></button>
+                      <button type="button" disabled={!canMutate || saving} className="settings-action-edit" onClick={() => openEdit(row)}><Icon name="bi-pencil" size={15} /></button>
+                      <button type="button" disabled={!canMutate || pendingDeleteId === String(row.id)} className="settings-action-delete" onClick={() => archive(row)}><Icon name="bi-trash3" size={15} /></button>
                     </div>
                   </td>
                 </tr>
@@ -236,7 +253,7 @@ function SettingsResourcePage({
 
       {drawerMode === "edit" ? (
         <div className="settings-drawer" role="dialog" aria-modal="true">
-          <div className="settings-drawer__backdrop" onClick={() => setDrawerMode(null)} />
+          <div className="settings-drawer__backdrop" onClick={saving ? undefined : () => setDrawerMode(null)} />
           <form className="settings-form" onSubmit={save}>
             <header className="settings-form__header">
               <span className="settings-accent-bar" />
@@ -244,7 +261,7 @@ function SettingsResourcePage({
                 <p>{editingId ? "Редактирование" : "Новая запись"}</p>
                 <h2>{title}</h2>
               </div>
-              <button type="button" onClick={() => setDrawerMode(null)}><Icon name="bi-x-lg" size={20} /></button>
+              <button type="button" disabled={saving} onClick={() => setDrawerMode(null)}><Icon name="bi-x-lg" size={20} /></button>
             </header>
             <div className="settings-form__grid">
               {formFields.map((field) => (
@@ -267,8 +284,8 @@ function SettingsResourcePage({
               ))}
             </div>
             <footer className="settings-form__footer">
-              <button type="button" onClick={() => setDrawerMode(null)}>Отмена</button>
-              <button type="submit">Сохранить</button>
+              <button type="button" disabled={saving} onClick={() => setDrawerMode(null)}>Отмена</button>
+              <button type="submit" disabled={saving}>{saving ? "Сохранение..." : "Сохранить"}</button>
             </footer>
           </form>
         </div>

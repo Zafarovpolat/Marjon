@@ -78,6 +78,24 @@ describe("APP nomenclature product contract", () => {
     });
   });
 
+  it("rejects malformed money and sort text instead of partially coercing it", async () => {
+    render(<NomenclaturePage />);
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    fireEvent.change(screen.getByLabelText("Название"), { target: { value: "Invalid draft" } });
+    fireEvent.change(screen.getByLabelText("Сорт"), { target: { value: "1e2" } });
+    fireEvent.change(screen.getByLabelText("Цена"), { target: { value: "12abc34" } });
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+    expect(api.post).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Сорт"), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText("Цена"), { target: { value: "100" } });
+    fireEvent.change(screen.getByLabelText("Себестоимость"), { target: { value: "12abc34" } });
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
   it("maps only backend-confirmed response values", () => {
     expect(mapNomenclatureProduct(backendProduct)).toMatchObject({
       id: "product-uuid",
@@ -96,7 +114,7 @@ describe("APP nomenclature product contract", () => {
     api.post.mockResolvedValue({ data: { ...backendProduct, id: "created-uuid", name: "Server-created name", price: 777 } });
     render(<NomenclaturePage />);
 
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/inventory/products"));
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/inventory/products", expect.objectContaining({ signal: expect.any(AbortSignal) })));
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
     fireEvent.change(screen.getByLabelText("Название"), { target: { value: "Local-only name" } });
     fireEvent.change(screen.getByLabelText("Цена"), { target: { value: "999" } });

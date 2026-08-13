@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { staffService } from "../api/staff";
 import Icon from "../components/Icon";
+import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 
 const roleOptions = [
   { key: "cashier", label: "Кассир", title: "Кассиры" },
@@ -209,21 +210,28 @@ function StaffRolePage({ role = "all" }) {
   const [staff, setStaff] = useState([]);
   const [staffLoading, setStaffLoading] = useState(true);
   const [staffError, setStaffError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [pendingActionId, setPendingActionId] = useState("");
+  const beginRequest = useLatestRequest();
+  const mutationLocks = useMutationLocks();
 
   useEffect(() => {
+    const request = beginRequest();
     setStaffError("");
-    staffService.listStaffUsers()
+    staffService.listStaffUsers({ signal: request.signal })
       .then(({ data }) => {
+        if (!request.isCurrent()) return;
         const mapped = (data || []).map(mapStaffUser);
         setStaff(mapped);
       })
       .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
         console.warn("Не удалось загрузить сотрудников:", err.message);
         setStaff([]);
         setStaffError("Не удалось загрузить сотрудников.");
       })
-      .finally(() => setStaffLoading(false));
-  }, []);
+      .finally(() => { if (request.isCurrent()) setStaffLoading(false); });
+  }, [beginRequest]);
 
   const defaultFilters = useMemo(() => ({
     query: "",
@@ -336,8 +344,26 @@ function StaffRolePage({ role = "all" }) {
 
 const saveStaff = async (event) => {
   event.preventDefault();
+  if (!mutationLocks.acquire("staff-save")) return;
   const phone = normalizePhone(form.phone, form.phoneCountry);
   const email = form.email.trim();
+  const roleKey = form.roleKey || "cashier";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !roleOptions.some((option) => option.key === roleKey)) {
+    window.alert("Укажите email и допустимую роль сотрудника.");
+    mutationLocks.release("staff-save");
+    return;
+  }
+  if ((!editingId || form.password) && (form.password.length < 8 || !/[A-Za-z]/.test(form.password) || !/\d/.test(form.password))) {
+    window.alert("Пароль должен содержать минимум 8 символов, букву и цифру.");
+    mutationLocks.release("staff-save");
+    return;
+  }
+  if (form.pin && !/^\d{4,8}$/.test(form.pin)) {
+    window.alert("PIN должен содержать от 4 до 8 цифр.");
+    mutationLocks.release("staff-save");
+    return;
+  }
+  setSaving(true);
 
   try {
     if (!editingId) {
@@ -345,8 +371,10 @@ const saveStaff = async (event) => {
         email,
         password: form.password,
         phone: phone || null,
-        role_slug: form.roleKey || "cashier",
+        role_slug: roleKey,
       });
+      setEditingId(createdUser.id);
+      setStaff((current) => [mapStaffUser(createdUser), ...current.filter((item) => item.id !== createdUser.id)]);
       let newUser = createdUser;
       if (form.fullName.trim() || form.status === "archived") {
         const { data } = await staffService.updateCompanyUser(createdUser.id, {
@@ -358,14 +386,14 @@ const saveStaff = async (event) => {
       if (form.pin) {
         await staffService.updateUserPin(createdUser.id, form.pin);
       }
-      setStaff((current) => [mapStaffUser(newUser), ...current]);
+      setStaff((current) => [mapStaffUser(newUser), ...current.filter((item) => item.id !== newUser.id)]);
     } else {
       const { data: updatedUser } = await staffService.updateCompanyUser(editingId, {
         name: form.fullName,
         email,
         password: form.password || undefined,
         phone: phone || null,
-        role_slug: form.roleKey || "cashier",
+        role_slug: roleKey,
         is_active: form.status !== "archived",
       });
       if (form.pin) {
@@ -379,10 +407,16 @@ const saveStaff = async (event) => {
   } catch (err) {
     console.error("Ошибка сохранения:", err.response?.data?.detail || err.message);
     window.alert(err.response?.data?.detail || "Ошибка сохранения");
+  } finally {
+    setSaving(false);
+    mutationLocks.release("staff-save");
   }
 };
 
   const archiveStaff = async (id) => {
+    const key = `staff-action:${id}`;
+    if (!mutationLocks.acquire(key)) return;
+    setPendingActionId(String(id));
     try {
       await staffService.deleteCompanyUser(id);
       setStaff((current) => current.map((employee) => (
@@ -390,10 +424,16 @@ const saveStaff = async (event) => {
       )));
     } catch (err) {
       window.alert(err.response?.data?.detail || "Не удалось архивировать сотрудника.");
+    } finally {
+      setPendingActionId("");
+      mutationLocks.release(key);
     }
   };
 
   const restoreStaff = async (id) => {
+    const key = `staff-action:${id}`;
+    if (!mutationLocks.acquire(key)) return;
+    setPendingActionId(String(id));
     try {
       await staffService.updateCompanyUser(id, { is_active: true });
       setStaff((current) => current.map((employee) => (
@@ -401,6 +441,9 @@ const saveStaff = async (event) => {
       )));
     } catch (err) {
       window.alert(err.response?.data?.detail || "Не удалось восстановить сотрудника.");
+    } finally {
+      setPendingActionId("");
+      mutationLocks.release(key);
     }
   };
 
@@ -576,6 +619,7 @@ const saveStaff = async (event) => {
                       {employee.status === "archived" ? (
                         <button
                           type="button"
+                          disabled={pendingActionId === String(employee.id)}
                           className="staff-restore-action"
                           onClick={() => restoreStaff(employee.id)}
                           aria-label="Restore"
@@ -586,6 +630,7 @@ const saveStaff = async (event) => {
                       ) : (
                         <button
                           type="button"
+                          disabled={pendingActionId === String(employee.id)}
                           className="staff-delete-action"
                           onClick={() => archiveStaff(employee.id)}
                           aria-label="Archive"
@@ -612,7 +657,7 @@ const saveStaff = async (event) => {
 
       {modalOpen && (
         <div className="staff-modal" role="dialog" aria-modal="true">
-          <div className="staff-modal__backdrop" onClick={closeModal} />
+          <div className="staff-modal__backdrop" onClick={saving ? undefined : closeModal} />
           <form
             key={editingId ? `staff-edit-${editingId}` : "staff-add-empty"}
             className="staff-form"
@@ -628,7 +673,7 @@ const saveStaff = async (event) => {
                 <p>{editingId ? "Редактирование" : "Новый сотрудник"}</p>
                 <h2>{editingId ? "Изменить сотрудника" : "Добавить сотрудника"}</h2>
               </div>
-              <button type="button" onClick={closeModal} aria-label="Закрыть">
+              <button type="button" disabled={saving} onClick={closeModal} aria-label="Закрыть">
                 <Icon name="bi-x-lg" size={20} />
               </button>
             </div>
@@ -983,10 +1028,10 @@ const saveStaff = async (event) => {
             )}
 
             <div className="staff-form__footer">
-              <button type="button" onClick={closeModal}>
+              <button type="button" disabled={saving} onClick={closeModal}>
                 Отмена
               </button>
-              <button type="submit">{editingId ? "Сохранить" : "Добавить"}</button>
+              <button type="submit" disabled={saving}>{saving ? "Сохранение..." : editingId ? "Сохранить" : "Добавить"}</button>
             </div>
           </form>
         </div>

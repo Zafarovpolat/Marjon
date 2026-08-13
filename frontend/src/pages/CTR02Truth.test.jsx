@@ -114,6 +114,7 @@ describe("CTR-02 remaining critical truth gaps", () => {
     fireEvent.change(screen.getByLabelText("Учётная запись сотрудника"), { target: { value: "staff-uuid" } });
     fireEvent.change(screen.getByLabelText("Филиал"), { target: { value: "branch-uuid" } });
     fireEvent.change(screen.getByLabelText("Позиция"), { target: { value: "Кассир" } });
+    fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "500" } });
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Backend rejected employee");
     expect(screen.getByRole("dialog")).toBeInTheDocument();

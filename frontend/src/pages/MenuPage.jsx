@@ -3,6 +3,7 @@ import { formatMoney } from "../api/client";
 import { catalogService } from "../api/catalog";
 import { ordersService } from "../api/orders";
 import Icon from "../components/Icon";
+import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 
 const salesColumnOptions = [
   { key: "index", label: "№", width: 56 },
@@ -77,20 +78,21 @@ export default function MenuPage() {
   const [query, setQuery] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState(defaultSalesColumnVisibility);
+  const beginRequest = useLatestRequest();
 
   useEffect(() => {
-    let mounted = true;
+    const request = beginRequest();
 
     async function loadSales() {
       setLoading(true);
       setError("");
       try {
         const [ordersRes, productsRes, categoriesRes] = await Promise.all([
-          ordersService.list(),
-          catalogService.listProducts(),
-          catalogService.listCategories(),
+          ordersService.list(undefined, { signal: request.signal }),
+          catalogService.listProducts({ signal: request.signal }),
+          catalogService.listCategories({ signal: request.signal }),
         ]);
-        if (!mounted) return;
+        if (!request.isCurrent()) return;
 
         const orders = Array.isArray(ordersRes.data) ? ordersRes.data : [];
         const products = Array.isArray(productsRes.data) ? productsRes.data : [];
@@ -100,20 +102,17 @@ export default function MenuPage() {
         setRows(builtRows);
         setOrdersCount(orders.length);
       } catch (err) {
-        if (!mounted) return;
+        if (!request.isCurrent() || isAbortError(err)) return;
         setRows([]);
         setOrdersCount(null);
         setError(err.response?.data?.detail || "Не удалось загрузить продажи.");
       } finally {
-        if (mounted) setLoading(false);
+        if (request.isCurrent()) setLoading(false);
       }
     }
 
     loadSales();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  }, [beginRequest]);
 
   const visibleRows = useMemo(() => {
     const normalized = query.trim().toLowerCase();

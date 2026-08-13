@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { settingsService } from "../api/settings";
 import { useAuth } from "./AuthContext";
+import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 
 const OrgContext = createContext(null);
 
@@ -42,8 +43,10 @@ export function OrgProvider({ children }) {
   currentUserIdRef.current = String(user?.id || "");
   const [org, setOrg] = useState(() => readCachedOrg(user?.id));
   const [loading, setLoading] = useState(false);
+  const beginRequest = useLatestRequest();
 
   const reload = useCallback(async () => {
+    const request = beginRequest();
     const identity = String(user?.id || "");
     const storageKey = getOrgStorageKey(identity);
     if (!isAuthenticated || !storageKey) {
@@ -53,19 +56,19 @@ export function OrgProvider({ children }) {
     }
     setLoading(true);
     try {
-      const { data } = await settingsService.getCompanyProfile();
-      if (currentUserIdRef.current !== identity) return;
+      const { data } = await settingsService.getCompanyProfile({ signal: request.signal });
+      if (!request.isCurrent() || currentUserIdRef.current !== identity) return;
       const merged = { ...DEFAULT_ORG, ...data };
       setOrg(merged);
       localStorage.setItem(storageKey, JSON.stringify(merged));
     } catch (err) {
-      if (currentUserIdRef.current !== identity) return;
+      if (!request.isCurrent() || currentUserIdRef.current !== identity || isAbortError(err)) return;
       console.warn("companies/me не найден:", err.response?.status);
       setOrg(null);
     } finally {
-      if (currentUserIdRef.current === identity) setLoading(false);
+      if (request.isCurrent() && currentUserIdRef.current === identity) setLoading(false);
     }
-  }, [isAuthenticated, user?.id]);
+  }, [beginRequest, isAuthenticated, user?.id]);
 
   useEffect(() => {
     setOrg(readCachedOrg(user?.id));

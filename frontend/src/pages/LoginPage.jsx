@@ -5,6 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import { isOwnerWebUser } from "../utils/permissions";
 import logo from "../assets/marjon-logo.svg";
 import Icon from "../components/Icon";
+import { useMutationLocks } from "../hooks/useAsyncSafety";
 
 const LANGUAGES = [
   { code: "uz", short: "UZ", label: "Uzbek", flagUrl: "https://flagcdn.com/w40/uz.png" },
@@ -48,6 +49,7 @@ export default function LoginPage() {
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const languageCloseTimerRef = useRef(null);
   const languageMenuRef = useRef(null);
+  const { acquire, release } = useMutationLocks();
 
   useEffect(() => {
     function handleDocumentPointerDown(event) {
@@ -112,6 +114,12 @@ export default function LoginPage() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (!acquire("owner-login")) return;
+    if (getLocalPhoneDigits(phone).length !== 9 || !password) {
+      setError("Укажите полный номер телефона и пароль.");
+      release("owner-login");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
@@ -127,6 +135,7 @@ export default function LoginPage() {
       setError(t("auth.login_error"));
     } finally {
       setLoading(false);
+      release("owner-login");
     }
   }
 

@@ -210,7 +210,7 @@ describe("truthful production data states", () => {
     expect(screen.getAllByText(/125[\s\u00a0]?000 UZS/).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Редактирование недоступно" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Архивирование недоступно" })).toBeDisabled();
-    expect(api.get).toHaveBeenCalledWith("/warehouse/purchases");
+    expect(api.get).toHaveBeenCalledWith("/warehouse/purchases", expect.objectContaining({ signal: expect.any(AbortSignal) }));
     expect(api.post).not.toHaveBeenCalled();
     expect(api.patch).not.toHaveBeenCalled();
     expect(api.delete).not.toHaveBeenCalled();

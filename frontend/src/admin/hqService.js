@@ -21,17 +21,17 @@ function sectionPath(sectionKey) {
 }
 
 export const hqService = {
-  listSection(sectionKey, params = { size: 100 }) {
-    return adminApi.get(sectionPath(sectionKey), { params });
+  listSection(sectionKey, params = { size: 100 }, config = {}) {
+    return adminApi.get(sectionPath(sectionKey), { params, ...config });
   },
-  listOrganizations(params = { size: 100 }) {
-    return adminApi.get("/organizations", { params });
+  listOrganizations(params = { size: 100 }, config = {}) {
+    return adminApi.get("/organizations", { params, ...config });
   },
   listOrganizationStatuses(params = { size: 100 }) {
     return adminApi.get("/organization-statuses", { params });
   },
-  listProducts(params = { size: 100 }) {
-    return adminApi.get("/products", { params });
+  listProducts(params = { size: 100 }, config = {}) {
+    return adminApi.get("/products", { params, ...config });
   },
   listCategories(params = { size: 100 }) {
     return adminApi.get("/categories", { params });
@@ -57,7 +57,7 @@ export const hqService = {
   listImageBackgrounds(params = { size: 100 }) {
     return adminApi.get("/image-backgrounds", { params });
   },
-  getDashboardKpis() {
-    return adminApi.get("/admin-reports/dashboard-kpis");
+  getDashboardKpis(config) {
+    return config ? adminApi.get("/admin-reports/dashboard-kpis", config) : adminApi.get("/admin-reports/dashboard-kpis");
   },
 };

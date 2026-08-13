@@ -23,9 +23,10 @@ function organizationParams(organizationId, params) {
 }
 
 export const adminFinanceApi = {
-  listTransactions(params = {}) {
+  listTransactions(params = {}, config = {}) {
     return adminApi.get(HQ_FINANCE_PATHS.transactions, {
       params: { size: 100, ...params },
+      ...config,
     });
   },
 
@@ -35,31 +36,35 @@ export const adminFinanceApi = {
     });
   },
 
-  listPaymentTypes(organizationId, params = {}) {
+  listPaymentTypes(organizationId, params = {}, config = {}) {
     return adminApi.get(HQ_FINANCE_PATHS.paymentTypes, {
       params: organizationParams(organizationId, { size: 100, ...params }),
+      ...config,
     });
   },
 
-  listCategories(organizationId, kind, params = {}) {
+  listCategories(organizationId, kind, params = {}, config = {}) {
     return adminApi.get(HQ_FINANCE_PATHS.transactionCategories, {
       params: organizationParams(organizationId, {
         size: 200,
         ...params,
         kind,
       }),
+      ...config,
     });
   },
 
-  listCounterparties(organizationId, type, params = {}) {
+  listCounterparties(organizationId, type, params = {}, config = {}) {
     return adminApi.get(HQ_FINANCE_PATHS.counterparties, {
       params: organizationParams(organizationId, { size: 200, ...params, type }),
+      ...config,
     });
   },
 
-  listFinanceHistory(organizationId, params = {}) {
+  listFinanceHistory(organizationId, params = {}, config = {}) {
     return adminApi.get(HQ_FINANCE_PATHS.financeHistory, {
       params: organizationParams(organizationId, { size: 200, ...params }),
+      ...config,
     });
   },
 };

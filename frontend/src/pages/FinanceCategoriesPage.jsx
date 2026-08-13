@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { formatMoney } from "../api/client";
 import { financeService } from "../api/finance";
 import Icon from "../components/Icon";
+import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 
 function FinanceCategoriesPage({ title, kind }) {
   const [rows, setRows] = useState([]);
@@ -13,12 +14,17 @@ function FinanceCategoriesPage({ title, kind }) {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [pendingAction, setPendingAction] = useState("");
+  const beginRequest = useLatestRequest();
+  const mutationLocks = useMutationLocks();
 
   async function loadCategories() {
+    const request = beginRequest();
     setLoading(true);
     setError("");
     try {
-      const { data } = await financeService.listTransactionCategories(kind);
+      const { data } = await financeService.listTransactionCategories(kind, { signal: request.signal });
+      if (!request.isCurrent()) return false;
       const items = Array.isArray(data) ? data : data?.items || [];
       const mapped = items.map((item) => ({
           id: item.id,
@@ -30,11 +36,13 @@ function FinanceCategoriesPage({ title, kind }) {
         }));
       setRows(mapped);
     } catch (err) {
+      if (!request.isCurrent() || isAbortError(err)) return false;
       setRows([]);
       setError(err.response?.data?.detail || "Не удалось загрузить финансовые категории.");
     } finally {
-      setLoading(false);
+      if (request.isCurrent()) setLoading(false);
     }
+    return true;
   }
 
   useEffect(() => { loadCategories(); }, [kind]);
@@ -57,31 +65,47 @@ function FinanceCategoriesPage({ title, kind }) {
   };
 
   const archive = async (row) => {
+    if (!mutationLocks.acquire("category-action")) return;
+    setPendingAction(String(row.id));
     try {
       await financeService.updateTransactionCategory(row.id, { status: false });
       await loadCategories();
     } catch {
       window.alert("Ошибка архивирования");
+    } finally {
+      setPendingAction("");
+      mutationLocks.release("category-action");
     }
   };
 
   const restore = async (row) => {
+    if (!mutationLocks.acquire("category-action")) return;
+    setPendingAction(String(row.id));
     try {
       await financeService.updateTransactionCategory(row.id, { status: true });
       await loadCategories();
     } catch {
       window.alert("Ошибка восстановления");
+    } finally {
+      setPendingAction("");
+      mutationLocks.release("category-action");
     }
   };
 
   const save = async (event) => {
     event.preventDefault();
+    if (!mutationLocks.acquire("category-save")) return;
+    const name = form.name.trim();
+    if (!name) {
+      mutationLocks.release("category-save");
+      return;
+    }
     setSaving(true);
     try {
       if (editingId) {
-        await financeService.updateTransactionCategory(editingId, { name: form.name });
+        await financeService.updateTransactionCategory(editingId, { name });
       } else {
-        await financeService.createTransactionCategory({ name: form.name, kind });
+        await financeService.createTransactionCategory({ name, kind });
       }
       await loadCategories();
       setDrawerOpen(false);
@@ -89,6 +113,7 @@ function FinanceCategoriesPage({ title, kind }) {
       window.alert(e.response?.data?.detail || "Ошибка сохранения");
     } finally {
       setSaving(false);
+      mutationLocks.release("category-save");
     }
   };
 
@@ -145,7 +170,7 @@ function FinanceCategoriesPage({ title, kind }) {
                   <td>
                     <div className="finance-category-actions">
                       <button type="button" className="finance-action-edit" onClick={() => openEdit(row)}><Icon name="bi-pencil" size={15} /></button>
-                      <button type="button" className={row.status === "Архив" ? "is-restore" : "is-danger"} onClick={() => row.status === "Архив" ? restore(row) : archive(row)}>
+                      <button type="button" disabled={pendingAction === String(row.id)} className={row.status === "Архив" ? "is-restore" : "is-danger"} onClick={() => row.status === "Архив" ? restore(row) : archive(row)}>
                         <Icon name={row.status === "Архив" ? "bi-recycle" : "bi-trash3"} size={15} />
                       </button>
                     </div>
@@ -160,7 +185,7 @@ function FinanceCategoriesPage({ title, kind }) {
 
       {drawerOpen ? (
         <div className="finance-drawer" role="dialog" aria-modal="true">
-          <div className="finance-drawer__backdrop" onClick={() => setDrawerOpen(false)} />
+          <div className="finance-drawer__backdrop" onClick={saving ? undefined : () => setDrawerOpen(false)} />
           <form className="finance-form" onSubmit={save}>
             <header className="finance-form__header">
               <span className="finance-accent-bar" />
@@ -168,14 +193,14 @@ function FinanceCategoriesPage({ title, kind }) {
                 <p>Категория</p>
                 <h2>{title}</h2>
               </div>
-              <button type="button" onClick={() => setDrawerOpen(false)}><Icon name="bi-x-lg" size={20} /></button>
+              <button type="button" disabled={saving} onClick={() => setDrawerOpen(false)}><Icon name="bi-x-lg" size={20} /></button>
             </header>
             <div className="finance-form__grid">
               <label><span>Название</span><input required value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></label>
               <label className="finance-form__wide"><span>Описание</span><textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></label>
             </div>
             <footer className="finance-form__footer">
-              <button type="button" onClick={() => setDrawerOpen(false)}>Отмена</button>
+              <button type="button" disabled={saving} onClick={() => setDrawerOpen(false)}>Отмена</button>
               <button type="submit" disabled={saving}>{saving ? "Сохранение..." : "Сохранить"}</button>
             </footer>
           </form>

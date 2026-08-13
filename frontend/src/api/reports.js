@@ -5,41 +5,43 @@ function rangeParams(dateFrom, dateTo, extra = {}) {
 }
 
 export const reportsService = {
-  getZReport(date) {
-    return api.get("/analytics/z-report", { params: { date } });
+  getZReport(date, config = {}) {
+    return api.get("/analytics/z-report", { params: { date }, ...config });
   },
-  listOrders(dateFrom, dateTo) {
-    return api.get("/reports/orders", { params: rangeParams(dateFrom, dateTo) });
+  listOrders(dateFrom, dateTo, config = {}) {
+    return api.get("/reports/orders", { params: rangeParams(dateFrom, dateTo), ...config });
   },
-  listTables(dateFrom, dateTo) {
-    return api.get("/reports/tables", { params: rangeParams(dateFrom, dateTo) });
+  listTables(dateFrom, dateTo, config = {}) {
+    return api.get("/reports/tables", { params: rangeParams(dateFrom, dateTo), ...config });
   },
-  listWaiters(dateFrom, dateTo) {
-    return api.get("/reports/waiters", { params: rangeParams(dateFrom, dateTo) });
+  listWaiters(dateFrom, dateTo, config = {}) {
+    return api.get("/reports/waiters", { params: rangeParams(dateFrom, dateTo), ...config });
   },
-  listDishes(dateFrom, dateTo) {
-    return api.get("/reports/dishes", { params: rangeParams(dateFrom, dateTo) });
+  listDishes(dateFrom, dateTo, config = {}) {
+    return api.get("/reports/dishes", { params: rangeParams(dateFrom, dateTo), ...config });
   },
-  listCancelledDishes(dateFrom, dateTo) {
-    return api.get("/reports/cancelled", { params: rangeParams(dateFrom, dateTo) });
+  listCancelledDishes(dateFrom, dateTo, config = {}) {
+    return api.get("/reports/cancelled", { params: rangeParams(dateFrom, dateTo), ...config });
   },
-  listDebtCredit(dateFrom, dateTo, counterpartyId) {
+  listDebtCredit(dateFrom, dateTo, counterpartyId, config = {}) {
     return api.get("/reports/debt-credit", {
       params: rangeParams(dateFrom, dateTo, counterpartyId ? { counterparty_id: counterpartyId } : {}),
+      ...config,
     });
   },
 };
 
 export const analyticsService = {
-  getDashboard(date) {
-    return api.get("/analytics/dashboard", { params: { date } });
+  getDashboard(date, config = {}) {
+    return api.get("/analytics/dashboard", { params: { date }, ...config });
   },
-  listSales(dateFrom, dateTo) {
-    return api.get("/analytics/sales", { params: rangeParams(dateFrom, dateTo) });
+  listSales(dateFrom, dateTo, config = {}) {
+    return api.get("/analytics/sales", { params: rangeParams(dateFrom, dateTo), ...config });
   },
-  listTopProducts({ limit = 20, dateFrom, dateTo } = {}) {
+  listTopProducts({ limit = 20, dateFrom, dateTo, signal } = {}) {
     return api.get("/analytics/products/top", {
       params: rangeParams(dateFrom, dateTo, { limit }),
+      ...(signal ? { signal } : {}),
     });
   },
 };

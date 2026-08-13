@@ -8,6 +8,7 @@ import {
   saveKitchenTemplate,
   testPrintKitchen,
 } from "../../api/receipt";
+import { isAbortError } from "../../hooks/useAsyncSafety";
 
 function moveBlock(blocks, block, direction) {
   const index = blocks.indexOf(block);
@@ -30,16 +31,19 @@ export default function ChefReceiptSettingsPage() {
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     setLoading(true);
-    getKitchenTemplate()
+    getKitchenTemplate({ signal: controller.signal })
       .then(({ template: loaded }) => {
         if (!active) return;
         setTemplate({ ...defaults, ...loaded, enabled: { ...defaults.enabled, ...loaded.enabled } });
         setMessage("");
       })
-      .catch(() => setError("Не удалось загрузить серверный шаблон кухни. Показан локальный черновик по умолчанию."))
+      .catch((requestError) => {
+        if (active && !isAbortError(requestError)) setError("Не удалось загрузить серверный шаблон кухни. Показан локальный черновик по умолчанию.");
+      })
       .finally(() => active && setLoading(false));
-    return () => { active = false; };
+    return () => { active = false; controller.abort(); };
   }, [defaults]);
 
   function patchTemplate(patch) {

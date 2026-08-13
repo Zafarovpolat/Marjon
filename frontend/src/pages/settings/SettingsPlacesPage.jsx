@@ -8,20 +8,28 @@ const rows = [
   { name: "Бар", condition: "Цена за час: 20 000 UZS", percent: "10%", status: STATUS_ACTIVE },
 ].map((row, index) => ({ id: index + 1, ...row }));
 
-const apiMapRow = (item) => ({
+export const apiMapRow = (item) => ({
   id: item.id,
   name: item.name || "",
   condition: item.condition || item.price_description || "",
   percent: item.percent ? `${item.percent}%` : "0%",
+  pricingType: item.pricing_type || "",
   status: item.is_active !== false ? STATUS_ACTIVE : "#не активно",
 });
 
-const apiMapFormToPayload = (form) => ({
-  name: form.name,
-  condition: form.condition,
-  percent: parseFloat(form.percent) || 0,
-  payment_type: form.paymentType,
-});
+export const apiMapFormToPayload = (form, { editing }) => {
+  const percentInput = String(form.percent ?? "").trim().replace(",", ".");
+  if (percentInput && !/^\d+(?:\.\d+)?$/.test(percentInput)) return null;
+  const percent = percentInput === "" ? null : Number(percentInput);
+  if (!form.name.trim() || (percent !== null && (!Number.isFinite(percent) || percent < 0 || percent > 100))) return null;
+  return {
+    name: form.name.trim(),
+    condition: form.condition.trim() || null,
+    percent,
+    pricing_type: form.pricingType || null,
+    ...(editing ? { is_active: form.status === STATUS_ACTIVE } : {}),
+  };
+};
 
 function SettingsPlacesPage() {
   return (
@@ -39,7 +47,7 @@ function SettingsPlacesPage() {
       ]}
       formFields={[
         { key: "name", label: "Название" },
-        { key: "paymentType", label: "Тип оплаты места", type: "select", options: ["процент", "цена за час", "фиксированная цена", "цена по времени"] },
+        { key: "pricingType", label: "Тип оплаты места", type: "select", options: [{ value: "percent", label: "процент" }, { value: "hourly", label: "цена за час" }, { value: "fixed", label: "фиксированная цена" }, { value: "time_based", label: "цена по времени" }] },
         { key: "percent", label: "Процент" },
         { key: "condition", label: "Цена" },
         { key: "status", label: "Статус active", type: "select", options: [STATUS_ACTIVE, "#не активно"] },

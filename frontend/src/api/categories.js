@@ -13,9 +13,9 @@ function isNormalizedApiError(error) {
   );
 }
 
-export async function getCategories() {
+export async function getCategories(config) {
   try {
-    return await catalogService.listCategories();
+    return await catalogService.listCategories(config);
   } catch (error) {
     if (isNormalizedApiError(error)) throw error;
     throw normalizeApiError(error);

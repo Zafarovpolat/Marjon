@@ -3,6 +3,7 @@ import { reportsService } from "../api/reports";
 import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import { exportToExcel } from "../utils/excel";
+import { isAbortError, isOrderedDateRange, useLatestRequest } from "../hooks/useAsyncSafety";
 
 function toApiDate(ddmmyyyy) {
   if (!ddmmyyyy) return undefined;
@@ -41,12 +42,23 @@ export default function DishesReportPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const beginRequest = useLatestRequest();
 
   useEffect(() => {
+    const request = beginRequest();
+    const dateFrom = toApiDate(dateRange.start);
+    const dateTo = toApiDate(dateRange.end);
     setLoading(true);
     setError("");
-    reportsService.listDishes(toApiDate(dateRange.start), toApiDate(dateRange.end))
+    if (!isOrderedDateRange(dateFrom, dateTo)) {
+      setRows([]);
+      setError("Дата начала периода не может быть позже даты окончания.");
+      setLoading(false);
+      return;
+    }
+    reportsService.listDishes(dateFrom, dateTo, { signal: request.signal })
       .then(({ data }) => {
+        if (!request.isCurrent()) return;
         const items = Array.isArray(data) ? data : data?.items || data?.dishes || [];
         setRows(items.map((item, index) => {
           const quantityValue = Number(item.quantity || 0);
@@ -75,11 +87,12 @@ export default function DishesReportPage() {
         }));
       })
       .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
         setRows([]);
         setError(err.response?.data?.detail || "Не удалось загрузить отчёт по блюдам.");
       })
-      .finally(() => setLoading(false));
-  }, [dateRange.start, dateRange.end]);
+      .finally(() => { if (request.isCurrent()) setLoading(false); });
+  }, [beginRequest, dateRange.start, dateRange.end]);
 
   const filteredRows = useMemo(() => {
     const query = appliedFilters.query.trim().toLowerCase();

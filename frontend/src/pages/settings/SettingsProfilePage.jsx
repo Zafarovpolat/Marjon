@@ -4,6 +4,7 @@ import logo from "../../assets/marjon-logo.svg";
 import Icon from "../../components/Icon";
 import { useAuth } from "../../context/AuthContext";
 import { readStoredProfile, updateStoredProfile } from "../../utils/profileCache";
+import { isAbortError, useLatestRequest, useMutationLocks } from "../../hooks/useAsyncSafety";
 
 const profileSections = [
   { key: "basic", label: "Основные данные", icon: "bi-file-earmark-text" },
@@ -40,10 +41,14 @@ export default function SettingsProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const beginRequest = useLatestRequest();
+  const { acquire, release } = useMutationLocks();
 
   useEffect(() => {
-    settingsService.getCompanyProfile()
+    const request = beginRequest();
+    settingsService.getCompanyProfile({ signal: request.signal })
       .then(({ data }) => {
+        if (!request.isCurrent()) return;
         const next = {
           name: data.name || "",
           phone: data.phone || "",
@@ -56,9 +61,11 @@ export default function SettingsProfilePage() {
         setForm(next);
         setSavedForm(next);
       })
-      .catch((err) => setError(err.response?.data?.detail || "Не удалось загрузить профиль."))
-      .finally(() => setLoading(false));
-  }, [storedProfile.companyLogo, storedProfile.name, storedProfile.photo, user?.id]);
+      .catch((err) => {
+        if (request.isCurrent() && !isAbortError(err)) setError(err.response?.data?.detail || "Не удалось загрузить профиль.");
+      })
+      .finally(() => { if (request.isCurrent()) setLoading(false); });
+  }, [beginRequest, storedProfile.companyLogo, storedProfile.name, storedProfile.photo, user?.id]);
 
   const activeMeta = profileSections.find((section) => section.key === activeSection) || profileSections[0];
   const profilePreview = form.profileLogo || form.companyLogo || logo;
@@ -94,6 +101,12 @@ export default function SettingsProfilePage() {
 
   async function handleSave(event) {
     event.preventDefault();
+    if (!acquire("company-profile-save")) return;
+    if (!form.name.trim()) {
+      setError("Укажите название компании.");
+      release("company-profile-save");
+      return;
+    }
     setSaving(true);
     setError("");
     setSuccess("");
@@ -106,20 +119,31 @@ export default function SettingsProfilePage() {
         inn: form.inn,
         currency: form.currency,
       };
-      await settingsService.updateCompanyProfile(payload);
+      const { data } = await settingsService.updateCompanyProfile(payload);
+      if (!data || typeof data !== "object") throw new Error("Backend не вернул сохранённый профиль.");
+      const confirmed = {
+        ...form,
+        name: data.name || "",
+        phone: data.phone || "",
+        address: data.address || "",
+        inn: data.inn || "",
+        currency: data.currency || "UZS",
+      };
       const nextStored = {
         ...readStoredProfile(user?.id),
-        name: form.name.trim() || "MARJON",
+        name: confirmed.name,
         photo: form.profileLogo,
         companyLogo: form.companyLogo,
       };
       updateStoredProfile(user?.id, nextStored);
-      setSavedForm(form);
+      setForm(confirmed);
+      setSavedForm(confirmed);
       setSuccess("Профиль сохранён.");
     } catch (err) {
       setError(err.response?.data?.detail || "Не удалось сохранить профиль.");
     } finally {
       setSaving(false);
+      release("company-profile-save");
     }
   }
 

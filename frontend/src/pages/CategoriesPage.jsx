@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getCategories } from "../api/categories";
 import { catalogService } from "../api/catalog";
 import Icon from "../components/Icon";
+import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 
 const TYPE_CONFIG = {
   dishes: { label: "Категории блюд", title: "Меню", slug_prefix: "dish" },
@@ -61,19 +62,24 @@ function ProductCategoriesPage({ type }) {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(DEFAULT_FORM);
   const [saving, setSaving] = useState(false);
+  const beginRequest = useLatestRequest();
+  const { acquire, release } = useMutationLocks();
 
   async function load() {
+    const request = beginRequest();
     setLoading(true);
     setError("");
     try {
       const { data } = await getCategories();
+      if (!request.isCurrent()) return;
       const loadedCategories = Array.isArray(data) ? data : [];
       setRows(loadedCategories);
     } catch (err) {
+      if (!request.isCurrent() || isAbortError(err)) return;
       setRows([]);
       setError(err.response?.data?.detail || "Не удалось загрузить категории.");
     } finally {
-      setLoading(false);
+      if (request.isCurrent()) setLoading(false);
     }
   }
 
@@ -99,17 +105,19 @@ function ProductCategoriesPage({ type }) {
 
   async function handleSave(event) {
     event.preventDefault();
-    if (!form.name.trim()) return;
+    if (!acquire("category-save")) return;
+    const sortOrder = Number(form.sort_order);
+    if (!form.name.trim() || !Number.isInteger(sortOrder) || sortOrder < 0) {
+      setError("Укажите название и корректный неотрицательный порядок сортировки.");
+      release("category-save");
+      return;
+    }
 
     const slug = form.slug.trim() || makeSlug(form.name, config.slug_prefix);
     const categoryPayload = {
       name: form.name.trim(),
       slug,
-      sort_order: Number(form.sort_order || 0),
-    };
-    const localPayload = {
-      ...categoryPayload,
-      is_active: true,
+      sort_order: sortOrder,
     };
 
     setSaving(true);
@@ -128,6 +136,7 @@ function ProductCategoriesPage({ type }) {
       setError(err.response?.data?.detail || "Не удалось сохранить категорию.");
     } finally {
       setSaving(false);
+      release("category-save");
     }
   }
 
@@ -148,7 +157,7 @@ function ProductCategoriesPage({ type }) {
               <p>{config.label}</p>
             </div>
           </div>
-          <button type="button" className="menu-category-add" onClick={openCreate}>
+          <button type="button" className="menu-category-add" disabled={saving} onClick={openCreate}>
             <span>Добавить</span>
             <Icon name="bi-plus" />
           </button>
@@ -160,7 +169,7 @@ function ProductCategoriesPage({ type }) {
           <form className="menu-category-form" onSubmit={handleSave}>
             <div className="menu-category-form-title">
               <strong>{editingId ? "Изменить категорию" : "Новая категория"}</strong>
-              <button type="button" onClick={closeForm} aria-label="Закрыть">
+              <button type="button" disabled={saving} onClick={closeForm} aria-label="Закрыть">
                 <Icon name="bi-x-lg" />
               </button>
             </div>
@@ -194,7 +203,7 @@ function ProductCategoriesPage({ type }) {
               <button className="menu-category-save" type="submit" disabled={saving || !form.name.trim()}>
                 {saving ? "Сохранение..." : "Сохранить"}
               </button>
-              <button className="menu-category-cancel" type="button" onClick={closeForm}>
+              <button className="menu-category-cancel" type="button" disabled={saving} onClick={closeForm}>
                 Отмена
               </button>
             </div>

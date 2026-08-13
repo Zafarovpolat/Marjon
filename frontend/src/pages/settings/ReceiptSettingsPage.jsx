@@ -10,6 +10,7 @@ import {
   saveCustomerTemplate,
   testPrintReceipt,
 } from "../../api/receipt";
+import { isAbortError } from "../../hooks/useAsyncSafety";
 
 function moveBlock(blocks, block, direction) {
   const index = blocks.indexOf(block);
@@ -33,8 +34,9 @@ export default function ReceiptSettingsPage() {
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     setLoading(true);
-    getCustomerTemplate(org)
+    getCustomerTemplate(org, { signal: controller.signal })
       .then(({ template: loaded }) => {
         if (!active) return;
         setTemplate({
@@ -46,9 +48,11 @@ export default function ReceiptSettingsPage() {
         });
         setMessage("");
       })
-      .catch(() => setError("Не удалось загрузить серверный шаблон чека. Показан локальный черновик по умолчанию."))
+      .catch((requestError) => {
+        if (active && !isAbortError(requestError)) setError("Не удалось загрузить серверный шаблон чека. Показан локальный черновик по умолчанию.");
+      })
       .finally(() => active && setLoading(false));
-    return () => { active = false; };
+    return () => { active = false; controller.abort(); };
   }, [defaults, org]);
 
   function patchTemplate(patch) {

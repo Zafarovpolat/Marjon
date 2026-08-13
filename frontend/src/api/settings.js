@@ -15,8 +15,8 @@ function resourcePath(resource) {
 }
 
 export const settingsService = Object.freeze({
-  listResource(resource) {
-    return api.get(resourcePath(resource));
+  listResource(resource, config) {
+    return config ? api.get(resourcePath(resource), config) : api.get(resourcePath(resource));
   },
   createResource(resource, payload) {
     return api.post(resourcePath(resource), payload);
@@ -27,17 +27,17 @@ export const settingsService = Object.freeze({
   deleteResource(resource, id) {
     return api.delete(`${resourcePath(resource)}/${id}`);
   },
-  getCompanyProfile() {
-    return api.get("/companies/me");
+  getCompanyProfile(config) {
+    return config ? api.get("/companies/me", config) : api.get("/companies/me");
   },
   updateCompanyProfile(payload) {
     return api.patch("/companies/me", payload);
   },
-  listBranches() {
-    return api.get("/companies/me/branches");
+  listBranches(config) {
+    return config ? api.get("/companies/me/branches", config) : api.get("/companies/me/branches");
   },
-  listDashboardPlaces() {
-    return api.get("/settings/places");
+  listDashboardPlaces(config) {
+    return config ? api.get("/settings/places", config) : api.get("/settings/places");
   },
   getBillingBalance() {
     return api.get("/billing/balance");

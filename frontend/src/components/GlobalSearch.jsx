@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { catalogService } from "../api/catalog";
 import { staffService } from "../api/staff";
 import Icon from "./Icon";
+import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 
 // Static catalog of navigable destinations. Covers the role/terminal entities
 // the owner searches by name ("моноблок", "официант", "кассир", …) plus the
@@ -49,24 +50,27 @@ export default function GlobalSearch() {
   const [employees, setEmployees] = useState([]);
   const [products, setProducts] = useState([]);
   const [dynamicError, setDynamicError] = useState("");
+  const beginRequest = useLatestRequest();
 
   useEffect(() => {
-    let mounted = true;
+    const request = beginRequest();
     setDynamicError("");
-    Promise.all([staffService.listEmployees(), catalogService.listProducts()])
+    Promise.all([
+      staffService.listEmployees({ signal: request.signal }),
+      catalogService.listProducts({ signal: request.signal }),
+    ])
       .then(([emp, prod]) => {
-        if (!mounted) return;
+        if (!request.isCurrent()) return;
         setEmployees(Array.isArray(emp.data) ? emp.data : []);
         setProducts(Array.isArray(prod.data) ? prod.data : []);
       })
       .catch((err) => {
-        if (!mounted) return;
+        if (!request.isCurrent() || isAbortError(err)) return;
         setEmployees([]);
         setProducts([]);
         setDynamicError(err.response?.data?.detail || "Динамический поиск недоступен.");
       });
-    return () => { mounted = false; };
-  }, []);
+  }, [beginRequest]);
 
   const dynamicIndex = useMemo(() => {
     const emp = employees.map((e) => ({

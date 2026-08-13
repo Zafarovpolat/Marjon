@@ -6,10 +6,10 @@ const READ_PATHS = Object.freeze({
 });
 
 export const warehouseService = Object.freeze({
-  list(section) {
+  list(section, config) {
     const path = READ_PATHS[section];
     if (!path) throw new TypeError(`Unsupported warehouse read section: ${section}`);
-    return api.get(path);
+    return config ? api.get(path, config) : api.get(path);
   },
 });
 

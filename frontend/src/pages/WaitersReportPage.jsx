@@ -3,6 +3,7 @@ import { reportsService } from "../api/reports";
 import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import { exportToExcel } from "../utils/excel";
+import { isAbortError, isOrderedDateRange, useLatestRequest } from "../hooks/useAsyncSafety";
 
 function toApiDate(value) {
   if (!value) return undefined;
@@ -29,12 +30,23 @@ export default function WaitersReportPage() {
   const [waiters, setWaiters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const beginRequest = useLatestRequest();
 
   useEffect(() => {
+    const request = beginRequest();
+    const dateFrom = toApiDate(dateRange.start);
+    const dateTo = toApiDate(dateRange.end);
     setLoading(true);
     setError("");
-    reportsService.listWaiters(toApiDate(dateRange.start), toApiDate(dateRange.end))
+    if (!isOrderedDateRange(dateFrom, dateTo)) {
+      setWaiters([]);
+      setError("Дата начала периода не может быть позже даты окончания.");
+      setLoading(false);
+      return;
+    }
+    reportsService.listWaiters(dateFrom, dateTo, { signal: request.signal })
       .then(({ data }) => {
+        if (!request.isCurrent()) return;
         if (!Array.isArray(data)) throw new Error("Invalid waiters report response");
         const items = data;
         setWaiters(items.map((item, index) => ({
@@ -47,11 +59,12 @@ export default function WaitersReportPage() {
         })));
       })
       .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
         setWaiters([]);
         setError(err.response?.data?.detail || "Не удалось загрузить отчёт по официантам.");
       })
-      .finally(() => setLoading(false));
-  }, [dateRange.start, dateRange.end]);
+      .finally(() => { if (request.isCurrent()) setLoading(false); });
+  }, [beginRequest, dateRange.start, dateRange.end]);
 
   const visibleRows = useMemo(() => selectedWaiter === "all" ? waiters : waiters.filter((waiter) => waiter.key === selectedWaiter), [selectedWaiter, waiters]);
   const totals = useMemo(() => visibleRows.reduce((acc, waiter) => ({

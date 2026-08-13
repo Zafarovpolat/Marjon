@@ -6,11 +6,11 @@ const ACTIVITY_PATHS = Object.freeze({
 });
 
 export const staffService = Object.freeze({
-  listStaffUsers() {
-    return api.get("/auth/staff-users");
+  listStaffUsers(config) {
+    return config ? api.get("/auth/staff-users", config) : api.get("/auth/staff-users");
   },
-  listCompanyUsers() {
-    return api.get("/auth/users");
+  listCompanyUsers(config) {
+    return config ? api.get("/auth/users", config) : api.get("/auth/users");
   },
   createCompanyUser(payload) {
     return api.post("/auth/users", payload);
@@ -24,8 +24,8 @@ export const staffService = Object.freeze({
   updateUserPin(id, pin) {
     return api.patch(`/auth/users/${id}/pin`, { pin });
   },
-  listEmployees() {
-    return api.get("/hr/employees");
+  listEmployees(config) {
+    return config ? api.get("/hr/employees", config) : api.get("/hr/employees");
   },
   createEmployee(payload) {
     return api.post("/hr/employees", payload);
@@ -36,10 +36,10 @@ export const staffService = Object.freeze({
   deleteEmployee(id) {
     return api.delete(`/hr/employees/${id}`);
   },
-  listActivity(type) {
+  listActivity(type, config) {
     const path = ACTIVITY_PATHS[type];
     if (!path) throw new TypeError(`Unknown staff activity type: ${type}`);
-    return api.get(path);
+    return config ? api.get(path, config) : api.get(path);
   },
 });
 

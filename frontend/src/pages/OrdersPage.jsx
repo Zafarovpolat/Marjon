@@ -4,6 +4,7 @@ import { formatMoney } from "../api/client";
 import { ordersService } from "../api/orders";
 import { printKitchenReceipt, printOrderReceipt } from "../api/receipt";
 import { formatDateLabel, todayInputValue } from "../utils/date";
+import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 
 function orderItemsLabel(order) {
   const items = order.items || [];
@@ -15,14 +16,22 @@ export default function OrdersPage() {
   const outlet = useOutletContext();
   const { selectedDate = todayInputValue() } = outlet || {};
   const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [error, setError] = useState("");
   const [printState, setPrintState] = useState({ id: "", type: "", loading: false, message: "", error: "" });
+  const beginRequest = useLatestRequest();
+  const { acquire, release } = useMutationLocks();
 
   useEffect(() => {
+    const request = beginRequest();
+    setOrders([]);
+    setSelectedOrderId(null);
+    setLoading(true);
     setError("");
-    ordersService.list({ date: selectedDate })
+    ordersService.list({ date: selectedDate }, { signal: request.signal })
       .then(({ data }) => {
+        if (!request.isCurrent()) return;
         const items = Array.isArray(data) ? data : [];
         setOrders(items);
         setSelectedOrderId((current) => (
@@ -30,11 +39,13 @@ export default function OrdersPage() {
         ));
       })
       .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
         setOrders([]);
         setSelectedOrderId(null);
         setError(err.response?.data?.detail || "Не удалось загрузить заказы.");
-      });
-  }, [selectedDate]);
+      })
+      .finally(() => { if (request.isCurrent()) setLoading(false); });
+  }, [beginRequest, selectedDate]);
 
   const selectedOrder = useMemo(
     () => orders.find((order) => String(order.id) === String(selectedOrderId)) || null,
@@ -42,6 +53,8 @@ export default function OrdersPage() {
   );
 
   async function handlePrint(order, type) {
+    const lockKey = `order-print:${order.id}:${type}`;
+    if (!acquire(lockKey)) return;
     setPrintState({ id: order.id, type, loading: true, message: "", error: "" });
     try {
       await (type === "kitchen" ? printKitchenReceipt(order.id) : printOrderReceipt(order.id));
@@ -54,6 +67,8 @@ export default function OrdersPage() {
         message: "",
         error: error.response?.data?.detail || "Принтер API недоступен.",
       });
+    } finally {
+      release(lockKey);
     }
   }
 
@@ -81,7 +96,7 @@ export default function OrdersPage() {
             </tr>
           </thead>
           <tbody>
-            {orders.map((order) => {
+            {loading ? <tr><td colSpan="6" role="status">Загрузка...</td></tr> : orders.map((order) => {
               const printing = printState.loading && printState.id === order.id;
               return (
                 <tr key={order.id}>
@@ -103,7 +118,7 @@ export default function OrdersPage() {
                 </tr>
               );
             })}
-            {!error && !orders.length ? <tr><td colSpan="6">Заказов за этот день нет.</td></tr> : null}
+            {!loading && !error && !orders.length ? <tr><td colSpan="6">Заказов за этот день нет.</td></tr> : null}
           </tbody>
         </table>
       </div>

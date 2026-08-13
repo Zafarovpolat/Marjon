@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { settingsService } from "../api/settings";
 import Icon from "./Icon";
+import { useMutationLocks } from "../hooks/useAsyncSafety";
 
 const text = {
   title: "Связь с поддержкой",
@@ -57,9 +58,11 @@ export default function SupportWidget() {
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
   const [menuPos, setMenuPos] = useState(null);
   const menuRef = useRef(null);
   const btnRef = useRef(null);
+  const mutationLocks = useMutationLocks();
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -88,20 +91,28 @@ export default function SupportWidget() {
     setLocalPhone(onlyDigits(e.target.value).slice(0, country.max));
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    if (!message.trim() || sending) return;
+    if (!message.trim() || !mutationLocks.acquire("support-send")) return;
     setSending(true);
+    setSendError("");
     const phone = `+${country.dial}${onlyDigits(localPhone)}`;
-    settingsService.createSupportTicket({ phone, message: message.trim() })
-      .then(() => setSent(true))
-      .catch(() => setSent(true))
-      .finally(() => setSending(false));
+    try {
+      await settingsService.createSupportTicket({ phone, message: message.trim() });
+      setSent(true);
+    } catch (error) {
+      setSendError(error.response?.data?.detail || "Не удалось отправить сообщение. Попробуйте ещё раз.");
+    } finally {
+      setSending(false);
+      mutationLocks.release("support-send");
+    }
   }
 
   function closeWidget() {
+    if (sending) return;
     setOpen(false);
     setSent(false);
+    setSendError("");
   }
 
   const phonePlaceholder = country.max === 10 ? "XXX XXX-XX-XX" : "XX XXX-XX-XX";
@@ -118,7 +129,7 @@ export default function SupportWidget() {
               <strong>{text.title}</strong>
               <small>{text.subtitle}</small>
             </div>
-            <button className="support-widget__close" type="button" aria-label={text.close} onClick={closeWidget}>
+            <button className="support-widget__close" type="button" aria-label={text.close} onClick={closeWidget} disabled={sending}>
               <Icon name="bi-x-lg" size={18} />
             </button>
           </header>
@@ -146,6 +157,7 @@ export default function SupportWidget() {
                     aria-haspopup="listbox"
                     ref={btnRef}
                     onClick={openMenu}
+                    disabled={sending}
                   >
                     <img src={flagUrl(country.code)} alt={country.name} />
                   </button>
@@ -181,6 +193,7 @@ export default function SupportWidget() {
                     placeholder={phonePlaceholder}
                     inputMode="tel"
                     aria-label={text.phone}
+                    disabled={sending}
                   />
                 </div>
               </label>
@@ -189,11 +202,14 @@ export default function SupportWidget() {
                 <span>{text.message}</span>
                 <textarea
                   value={message}
-                  onChange={(e) => setMessage(e.target.value)}
+                  onChange={(e) => { setMessage(e.target.value); setSendError(""); }}
                   placeholder={text.placeholder}
                   rows={4}
+                  disabled={sending}
                 />
               </label>
+
+              {sendError ? <div className="login-error" role="alert">{sendError}</div> : null}
 
               <button className="support-widget__submit" type="submit" disabled={!message.trim() || sending}>
                 <Icon name={sending ? "bi-arrow-repeat" : "bi-send"} size={16} />
@@ -209,7 +225,8 @@ export default function SupportWidget() {
         type="button"
         aria-label={open ? text.close : text.open}
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => { if (!sending) setOpen((v) => !v); }}
+        disabled={open && sending}
       >
         <Icon name={open ? "bi-x-lg" : "bi-headset"} size={20} />
       </button>

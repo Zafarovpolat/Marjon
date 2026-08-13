@@ -134,8 +134,8 @@ export function buildKitchenTemplate() {
   };
 }
 
-async function getTemplate(url, key, fallback) {
-  const { data } = await api.get(url);
+async function getTemplate(url, key, fallback, { signal } = {}) {
+  const { data } = await (signal ? api.get(url, { signal }) : api.get(url));
   return { template: { ...fallback, ...data }, source: "api", cacheKey: key };
 }
 
@@ -156,16 +156,16 @@ function localTestPrint() {
   return Promise.resolve({ ok: true, source: "local" });
 }
 
-export function getCustomerTemplate(org) {
-  return getTemplate("/settings/receipt-template", CUSTOMER_TEMPLATE_KEY, buildCustomerTemplate(org));
+export function getCustomerTemplate(org, options) {
+  return getTemplate("/settings/receipt-template", CUSTOMER_TEMPLATE_KEY, buildCustomerTemplate(org), options);
 }
 
 export function saveCustomerTemplate(template) {
   return saveTemplate("/settings/receipt-template", CUSTOMER_TEMPLATE_KEY, template);
 }
 
-export function getKitchenTemplate() {
-  return getTemplate("/settings/kitchen-receipt-template", KITCHEN_TEMPLATE_KEY, buildKitchenTemplate());
+export function getKitchenTemplate(options) {
+  return getTemplate("/settings/kitchen-receipt-template", KITCHEN_TEMPLATE_KEY, buildKitchenTemplate(), options);
 }
 
 export function saveKitchenTemplate(template) {

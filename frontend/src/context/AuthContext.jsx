@@ -6,6 +6,7 @@ import { isAuthenticated, login as apiLogin, loginByPhone as apiLoginByPhone, lo
 import { authService } from "../api/auth";
 import { AUTH_SCOPES, subscribeToAuthSessionEnded } from "../auth/session";
 import { getRole, getRoleHomePath } from "../utils/permissions";
+import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 
 const AuthContext = createContext(null);
 
@@ -14,8 +15,10 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const beginProfileRequest = useLatestRequest();
 
   const loadProfile = useCallback(async () => {
+    const request = beginProfileRequest();
     if (!isAuthenticated()) {
       setUser(null);
       setSessionExpired(false);
@@ -23,18 +26,20 @@ export function AuthProvider({ children }) {
       return null;
     }
     try {
-      const { data } = await authService.getCurrentUser();
+      const { data } = await authService.getCurrentUser({ signal: request.signal });
+      if (!request.isCurrent()) return null;
       setUser(data);
       setSessionExpired(false);
       return data;
     } catch (e) {
+      if (!request.isCurrent() || isAbortError(e)) return null;
       setUser(null);
       if (e?.response?.status === 401) setSessionExpired(true);
       return null;
     } finally {
-      setLoading(false);
+      if (request.isCurrent()) setLoading(false);
     }
-  }, []);
+  }, [beginProfileRequest]);
 
   useEffect(() => {
     loadProfile();
@@ -42,10 +47,11 @@ export function AuthProvider({ children }) {
 
   useEffect(() => subscribeToAuthSessionEnded(({ reason, scope }) => {
     if (scope === AUTH_SCOPES.ADMIN) return;
+    beginProfileRequest();
     setUser(null);
     setLoading(false);
     setSessionExpired(reason !== "logout");
-  }), []);
+  }), [beginProfileRequest]);
 
   const loginEmail = useCallback(async (email, password) => {
     setError(null);

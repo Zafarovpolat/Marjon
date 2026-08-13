@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { staffService } from "../api/staff";
 import Icon from "../components/Icon";
 import { exportToExcel } from "../utils/excel";
+import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 
 function StaffActivityPage({ type = "login-history" }) {
   const isAttendance = type === "attendance";
@@ -10,11 +11,14 @@ function StaffActivityPage({ type = "login-history" }) {
   const [loginRows, setLoginRows] = useState([]);
   const [shiftRows, setShiftRows] = useState([]);
   const [error, setError] = useState("");
+  const beginRequest = useLatestRequest();
 
   useEffect(() => {
+    const request = beginRequest();
     setError("");
-    staffService.listActivity(type)
+    staffService.listActivity(type, { signal: request.signal })
       .then(({ data }) => {
+        if (!request.isCurrent()) return;
         const items = Array.isArray(data) ? data : data?.items || [];
         if (isAttendance) {
           setShiftRows(items.map((item) => ({
@@ -24,7 +28,7 @@ function StaffActivityPage({ type = "login-history" }) {
               start: item.start_time || item.start || "",
               end: item.end_time || item.end || "",
               hours: item.hours || "",
-              status: item.status || "Закрыта",
+              status: item.status || "—",
             })));
         } else {
           setLoginRows(items.map((item) => ({
@@ -34,16 +38,17 @@ function StaffActivityPage({ type = "login-history" }) {
               device: item.device || `${item.ip || ""} / ${item.device_name || ""}`,
               login: item.login_time || item.login || "",
               logout: item.logout_time || item.logout || "",
-              status: item.status || "Успешно",
+              status: item.status || "—",
             })));
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
         if (isAttendance) setShiftRows([]);
         else setLoginRows([]);
         setError("Не удалось загрузить данные активности сотрудников.");
       });
-  }, [isAttendance]);
+  }, [beginRequest, isAttendance, type]);
 
   const displayLoginRows = loginRows;
   const displayAttendanceRows = shiftRows;

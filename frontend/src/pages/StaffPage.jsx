@@ -3,6 +3,7 @@ import { formatMoney } from "../api/client";
 import { settingsService } from "../api/settings";
 import { staffService } from "../api/staff";
 import Icon from "../components/Icon";
+import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 
 const STAFF_ROLE_SLUGS = new Set(["manager", "cashier", "waiter", "kitchen", "monoblock", "courier", "warehouse"]);
 const emptyForm = { user_id: "", branch_id: "", position: "", salary_type: "fixed", salary_amount: "" };
@@ -22,15 +23,20 @@ export default function StaffPage() {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState("");
+  const beginRequest = useLatestRequest();
+  const mutationLocks = useMutationLocks();
 
   async function loadPage() {
+    const request = beginRequest();
     setError("");
     try {
       const [{ data: employeeRows }, { data: companyUsers }, { data: companyBranches }] = await Promise.all([
-        staffService.listEmployees(),
-        staffService.listCompanyUsers(),
-        settingsService.listBranches(),
+        staffService.listEmployees({ signal: request.signal }),
+        staffService.listCompanyUsers({ signal: request.signal }),
+        settingsService.listBranches({ signal: request.signal }),
       ]);
+      if (!request.isCurrent()) return false;
       if (!Array.isArray(employeeRows) || !Array.isArray(companyUsers) || !Array.isArray(companyBranches)) {
         throw new Error("Invalid staff response");
       }
@@ -39,10 +45,11 @@ export default function StaffPage() {
       setBranches(companyBranches);
       return true;
     } catch (err) {
+      if (!request.isCurrent() || isAbortError(err)) return false;
       setError(err.response?.data?.detail || "Не удалось загрузить сотрудников и доступные учётные записи.");
       return false;
     } finally {
-      setLoading(false);
+      if (request.isCurrent()) setLoading(false);
     }
   }
 
@@ -84,12 +91,21 @@ export default function StaffPage() {
 
   async function handleSave(event) {
     event.preventDefault();
+    if (!mutationLocks.acquire("employee-save")) return;
     if (!editingId && !eligibleUsers.some((user) => String(user.id) === form.user_id)) {
       setMutationError("Выберите доступную учётную запись сотрудника.");
+      mutationLocks.release("employee-save");
       return;
     }
     if (!branches.some((branch) => String(branch.id) === form.branch_id)) {
       setMutationError("Выберите филиал сотрудника.");
+      mutationLocks.release("employee-save");
+      return;
+    }
+    const salaryAmount = Number(form.salary_amount);
+    if (!form.position.trim() || form.salary_amount === "" || !Number.isFinite(salaryAmount) || salaryAmount < 0) {
+      setMutationError("Укажите должность и корректную сумму зарплаты.");
+      mutationLocks.release("employee-save");
       return;
     }
 
@@ -99,35 +115,48 @@ export default function StaffPage() {
       branch_id: form.branch_id,
       position: form.position.trim(),
       salary_type: form.salary_type,
-      salary_amount: Number(form.salary_amount || 0),
+      salary_amount: salaryAmount,
     };
     try {
+      let confirmedEmployee;
       if (editingId) {
-        await staffService.updateEmployee(editingId, commonPayload);
+        const { data } = await staffService.updateEmployee(editingId, commonPayload);
+        confirmedEmployee = data;
       } else {
-        await staffService.createEmployee({
+        const { data } = await staffService.createEmployee({
           user_id: form.user_id,
           ...commonPayload,
           hire_date: new Date().toISOString().slice(0, 10),
         });
+        confirmedEmployee = data;
       }
-      const refreshed = await loadPage();
-      if (refreshed) setDrawerOpen(false);
-      else setMutationError("Изменение сохранено, но обновить список не удалось.");
+      if (!confirmedEmployee?.id) throw new Error("Backend не вернул сохранённого сотрудника.");
+      setEmployees((current) => editingId
+        ? current.map((employee) => employee.id === editingId ? confirmedEmployee : employee)
+        : [confirmedEmployee, ...current.filter((employee) => employee.id !== confirmedEmployee.id)]);
+      await loadPage();
+      setDrawerOpen(false);
     } catch (err) {
       setMutationError(err.response?.data?.detail || "Ошибка сохранения сотрудника.");
     } finally {
       setSaving(false);
+      mutationLocks.release("employee-save");
     }
   }
 
   async function handleDelete(employee) {
     if (!window.confirm(`Удалить сотрудника «${employee.position}»?`)) return;
+    const key = `employee-delete:${employee.id}`;
+    if (!mutationLocks.acquire(key)) return;
+    setPendingDeleteId(String(employee.id));
     try {
       await staffService.deleteEmployee(employee.id);
       await loadPage();
     } catch (err) {
       setError(err.response?.data?.detail || "Ошибка удаления сотрудника.");
+    } finally {
+      setPendingDeleteId("");
+      mutationLocks.release(key);
     }
   }
 
@@ -135,7 +164,7 @@ export default function StaffPage() {
     <section className="card card-pad">
       <div className="section-header">
         <div><span className="eyebrow">Staff</span><h2>Сотрудники</h2></div>
-        <button type="button" className="btn btn-primary" onClick={openCreate} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <button type="button" className="btn btn-primary" disabled={saving} onClick={openCreate} style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <Icon name="bi-plus-circle" size={16} /> Добавить
         </button>
       </div>
@@ -150,7 +179,7 @@ export default function StaffPage() {
               <td>{employee.position}</td><td>{employee.hire_date}</td>
               <td>{employee.salary_type === "fixed" ? "Фиксированная" : employee.salary_type === "hourly" ? "Почасовая" : employee.salary_type}</td>
               <td>{formatMoney(employee.salary_amount)}</td>
-              <td><div style={{ display: "flex", gap: 8 }}><button type="button" className="finance-action-edit" onClick={() => openEdit(employee)} aria-label={`Редактировать ${employee.position}`}><Icon name="bi-pencil" size={15} /></button><button type="button" className="is-danger" onClick={() => handleDelete(employee)} aria-label={`Удалить ${employee.position}`}><Icon name="bi-trash3" size={15} /></button></div></td>
+              <td><div style={{ display: "flex", gap: 8 }}><button type="button" className="finance-action-edit" disabled={saving || Boolean(pendingDeleteId)} onClick={() => openEdit(employee)} aria-label={`Редактировать ${employee.position}`}><Icon name="bi-pencil" size={15} /></button><button type="button" className="is-danger" disabled={pendingDeleteId === String(employee.id)} onClick={() => handleDelete(employee)} aria-label={`Удалить ${employee.position}`}><Icon name="bi-trash3" size={15} /></button></div></td>
             </tr>)}
             {!employees.length ? <tr><td colSpan="6">Сотрудников пока нет.</td></tr> : null}
           </tbody>
@@ -158,9 +187,9 @@ export default function StaffPage() {
       </div> : null}
 
       {drawerOpen ? <div className="finance-drawer" role="dialog" aria-modal="true">
-        <div className="finance-drawer__backdrop" onClick={() => setDrawerOpen(false)} />
+        <div className="finance-drawer__backdrop" onClick={saving ? undefined : () => setDrawerOpen(false)} />
         <form className="finance-form" onSubmit={handleSave}>
-          <header className="finance-form__header"><span className="finance-accent-bar" /><div><p>Сотрудник</p><h2>{editingId ? "Редактировать" : "Новый сотрудник"}</h2></div><button type="button" onClick={() => setDrawerOpen(false)} aria-label="Закрыть"><Icon name="bi-x-lg" size={20} /></button></header>
+          <header className="finance-form__header"><span className="finance-accent-bar" /><div><p>Сотрудник</p><h2>{editingId ? "Редактировать" : "Новый сотрудник"}</h2></div><button type="button" disabled={saving} onClick={() => setDrawerOpen(false)} aria-label="Закрыть"><Icon name="bi-x-lg" size={20} /></button></header>
           <div className="finance-form__grid">
             {!editingId ? <label><span>Учётная запись сотрудника</span><select aria-label="Учётная запись сотрудника" required value={form.user_id} onChange={(event) => setForm((current) => ({ ...current, user_id: event.target.value }))}><option value="">Выберите сотрудника</option>{eligibleUsers.map((user) => <option key={user.id} value={user.id}>{userLabel(user)}</option>)}</select></label> : null}
             <label><span>Филиал</span><select aria-label="Филиал" required value={form.branch_id} onChange={(event) => setForm((current) => ({ ...current, branch_id: event.target.value }))}><option value="">Выберите филиал</option>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label>

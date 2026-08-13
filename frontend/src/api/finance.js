@@ -4,16 +4,29 @@ function definedParams(entries) {
   return Object.fromEntries(Object.entries(entries).filter(([, value]) => value !== undefined));
 }
 
+function createTransactionIdempotencyKey() {
+  const randomPart = globalThis.crypto?.randomUUID?.()
+    || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `owner-finance-${randomPart}`;
+}
+
+export function resolveTransactionSubmission(previous, payload, keyFactory = createTransactionIdempotencyKey) {
+  const fingerprint = JSON.stringify(payload);
+  if (previous?.fingerprint === fingerprint && previous.idempotencyKey) return previous;
+  return { fingerprint, idempotencyKey: keyFactory() };
+}
+
 export const financeService = {
-  listTransactions({ dateFrom, dateTo, direction } = {}) {
+  listTransactions({ dateFrom, dateTo, direction, signal } = {}) {
     return api.get("/finance/transactions", {
       params: definedParams({ date_from: dateFrom, date_to: dateTo, direction }),
+      ...(signal ? { signal } : {}),
     });
   },
 
-  createTransaction(payload, config) {
-    return config
-      ? api.post("/finance/transactions", payload, config)
+  createTransaction(payload, idempotencyKey) {
+    return idempotencyKey
+      ? api.post("/finance/transactions", payload, { headers: { "Idempotency-Key": idempotencyKey } })
       : api.post("/finance/transactions", payload);
   },
 
@@ -21,13 +34,16 @@ export const financeService = {
     return api.patch(`/finance/transactions/${transactionId}`, payload);
   },
 
-  listPaymentTypes({ page = 1, size = 200, ...params } = {}) {
-    return api.get("/finance/payment-types", { params: { page, size, ...params } });
+  listPaymentTypes({ page = 1, size = 200, signal, ...params } = {}) {
+    return api.get("/finance/payment-types", { params: { page, size, ...params }, ...(signal ? { signal } : {}) });
   },
 
-  listTransactionCategories(kind) {
-    return kind
-      ? api.get("/finance/transaction-categories", { params: { kind } })
+  listTransactionCategories(kind, { signal } = {}) {
+    if (kind) {
+      return api.get("/finance/transaction-categories", { params: { kind }, ...(signal ? { signal } : {}) });
+    }
+    return signal
+      ? api.get("/finance/transaction-categories", { signal })
       : api.get("/finance/transaction-categories");
   },
 
@@ -43,8 +59,8 @@ export const financeService = {
     return api.delete(`/finance/transaction-categories/${categoryId}`);
   },
 
-  listCounterparties({ page = 1, size = 200, ...params } = {}) {
-    return api.get("/finance/counterparties", { params: { page, size, ...params } });
+  listCounterparties({ page = 1, size = 200, signal, ...params } = {}) {
+    return api.get("/finance/counterparties", { params: { page, size, ...params }, ...(signal ? { signal } : {}) });
   },
 
   listFinanceHistory({ page = 1, size = 20, ...params } = {}) {

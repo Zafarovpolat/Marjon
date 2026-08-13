@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { financeService } from "../api/finance";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { financeService, resolveTransactionSubmission } from "../api/finance";
 import Icon from "../components/Icon";
 import FinanceTransactionDrawer from "./FinanceTransactionDrawer";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import { exportToExcel } from "../utils/excel";
+import { isAbortError, isOrderedDateRange, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 
 const emptyForm = {
   type: "income",
@@ -34,7 +35,9 @@ function toApiDate(value) {
 }
 
 function parseAmount(value) {
-  return Number(String(value || "").replace(/[^\d.-]/g, ""));
+  const normalized = String(value ?? "").trim().replace(",", ".");
+  if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) return Number.NaN;
+  return Number(normalized);
 }
 
 function formatMoney(value) {
@@ -91,20 +94,34 @@ export default function FinanceTransactionsPage() {
   const [saving, setSaving] = useState(false);
   const [mutationError, setMutationError] = useState("");
   const [dateRange, setDateRange] = useState(currentMonthRange);
+  const beginRequest = useLatestRequest();
+  const mutationLocks = useMutationLocks();
+  const createSubmissionRef = useRef(null);
 
   const loadData = useCallback(async ({ showLoader = true } = {}) => {
+    const request = beginRequest();
     if (showLoader) setLoading(true);
     setError("");
     const params = { date_from: toApiDate(dateRange.start), date_to: toApiDate(dateRange.end) };
+    if (!isOrderedDateRange(params.date_from, params.date_to)) {
+      if (request.isCurrent()) {
+        setRows([]);
+        setError("Начальная дата не может быть позже конечной.");
+        if (showLoader) setLoading(false);
+      }
+      return false;
+    }
     if (direction !== "all") params.direction = direction;
     const [transactionsResult, paymentsResult, categoriesResult, counterpartiesResult] = await Promise.allSettled([
-      financeService.listTransactions({ dateFrom: params.date_from, dateTo: params.date_to, direction: params.direction }),
-      financeService.listPaymentTypes(),
-      financeService.listTransactionCategories(),
-      financeService.listCounterparties(),
+      financeService.listTransactions({ dateFrom: params.date_from, dateTo: params.date_to, direction: params.direction, signal: request.signal }),
+      financeService.listPaymentTypes({ signal: request.signal }),
+      financeService.listTransactionCategories(undefined, { signal: request.signal }),
+      financeService.listCounterparties({ signal: request.signal }),
     ]);
+    if (!request.isCurrent()) return false;
     if (transactionsResult.status === "rejected") {
       const err = transactionsResult.reason;
+      if (isAbortError(err)) return false;
       setRows([]);
       setError(err.response?.data?.detail || "Не удалось загрузить финансовые транзакции.");
       if (showLoader) setLoading(false);
@@ -125,7 +142,7 @@ export default function FinanceTransactionsPage() {
     setRows(mapTransactions(transactionsResult.value.data.items, nextPaymentTypes, nextCategories, nextCounterparties));
     if (showLoader) setLoading(false);
     return true;
-  }, [dateRange.start, dateRange.end, direction]);
+  }, [beginRequest, dateRange.start, dateRange.end, direction]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -135,6 +152,7 @@ export default function FinanceTransactionsPage() {
   }, { income: 0, expense: 0 }), [rows]);
 
   const openCreate = (type) => {
+    createSubmissionRef.current = null;
     setEditingId(null);
     setMutationError("");
     setForm({ ...emptyForm, type });
@@ -142,6 +160,7 @@ export default function FinanceTransactionsPage() {
   };
 
   const openEdit = (row) => {
+    createSubmissionRef.current = null;
     setEditingId(row.id);
     setMutationError("");
     setForm({
@@ -157,9 +176,11 @@ export default function FinanceTransactionsPage() {
   };
 
   const save = async () => {
+    if (!mutationLocks.acquire("transaction-save")) return;
     const amount = parseAmount(form.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
       setMutationError("Введите положительную сумму.");
+      mutationLocks.release("transaction-save");
       return;
     }
     setSaving(true);
@@ -174,15 +195,28 @@ export default function FinanceTransactionsPage() {
       if (form.financeTemplateId) payload.finance_template_id = form.financeTemplateId;
     }
     try {
-      if (editingId) await financeService.updateTransaction(editingId, payload);
-      else await financeService.createTransaction(payload);
-      const refreshed = await loadData({ showLoader: false });
-      if (refreshed) setDrawerOpen(false);
-      else setMutationError("Операция сохранена, но обновить список не удалось.");
+      let response;
+      if (editingId) {
+        response = await financeService.updateTransaction(editingId, payload);
+      } else {
+        const submission = resolveTransactionSubmission(createSubmissionRef.current, payload);
+        createSubmissionRef.current = submission;
+        response = await financeService.createTransaction(payload, submission.idempotencyKey);
+      }
+      const { data } = response;
+      if (!data?.id) throw new Error("Backend не вернул сохранённую транзакцию.");
+      createSubmissionRef.current = null;
+      const [confirmed] = mapTransactions([data], paymentTypes, categories, counterparties);
+      setRows((current) => editingId
+        ? current.map((row) => row.id === editingId ? confirmed : row)
+        : [confirmed, ...current.filter((row) => row.id !== confirmed.id)]);
+      await loadData({ showLoader: false });
+      setDrawerOpen(false);
     } catch (err) {
       setMutationError(err.response?.data?.detail || "Ошибка сохранения.");
     } finally {
       setSaving(false);
+      mutationLocks.release("transaction-save");
     }
   };
 
@@ -211,7 +245,7 @@ export default function FinanceTransactionsPage() {
         </div>
       </section>
 
-      {drawerOpen ? <FinanceTransactionDrawer form={form} setForm={setForm} onClose={() => setDrawerOpen(false)} onSave={save} editing={Boolean(editingId)} paymentTypes={paymentTypes} counterparties={counterparties} categories={categories} saving={saving} error={mutationError} /> : null}
+      {drawerOpen ? <FinanceTransactionDrawer form={form} setForm={setForm} onClose={() => { if (!saving) { createSubmissionRef.current = null; setDrawerOpen(false); } }} onSave={save} editing={Boolean(editingId)} paymentTypes={paymentTypes} counterparties={counterparties} categories={categories} saving={saving} error={mutationError} /> : null}
     </div>
   );
 }

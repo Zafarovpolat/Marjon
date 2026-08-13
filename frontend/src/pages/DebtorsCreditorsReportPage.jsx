@@ -3,6 +3,7 @@ import { reportsService } from "../api/reports";
 import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import { exportToExcel } from "../utils/excel";
+import { isAbortError, isOrderedDateRange, useLatestRequest } from "../hooks/useAsyncSafety";
 
 function toApiDate(value) {
   if (!value) return undefined;
@@ -29,12 +30,23 @@ export default function DebtorsCreditorsReportPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const beginRequest = useLatestRequest();
 
   useEffect(() => {
+    const request = beginRequest();
+    const dateFrom = toApiDate(dateRange.start);
+    const dateTo = toApiDate(dateRange.end);
     setLoading(true);
     setError("");
-    reportsService.listDebtCredit(toApiDate(dateRange.start), toApiDate(dateRange.end))
+    if (!isOrderedDateRange(dateFrom, dateTo)) {
+      setRows([]);
+      setError("Дата начала периода не может быть позже даты окончания.");
+      setLoading(false);
+      return;
+    }
+    reportsService.listDebtCredit(dateFrom, dateTo, undefined, { signal: request.signal })
       .then(({ data }) => {
+        if (!request.isCurrent()) return;
         if (!Array.isArray(data)) throw new Error("Invalid debt-credit report response");
         const items = data;
         setRows(items.map((item) => ({
@@ -47,11 +59,12 @@ export default function DebtorsCreditorsReportPage() {
         })));
       })
       .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
         setRows([]);
         setError(err.response?.data?.detail || "Не удалось загрузить отчёт по дебету и кредиту.");
       })
-      .finally(() => setLoading(false));
-  }, [dateRange.start, dateRange.end]);
+      .finally(() => { if (request.isCurrent()) setLoading(false); });
+  }, [beginRequest, dateRange.start, dateRange.end]);
 
   const visibleRows = useMemo(() => {
     const query = search.trim().toLowerCase();

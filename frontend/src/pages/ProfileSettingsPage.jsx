@@ -44,7 +44,7 @@ export default function ProfileSettingsPage() {
 
     updateStoredProfile(user?.id, { name: trimmedName, photo });
     setName(trimmedName);
-    setMessage("Профиль обновлен.");
+    setMessage("Локальные настройки профиля сохранены на этом устройстве.");
   }
 
   function removePhoto() {

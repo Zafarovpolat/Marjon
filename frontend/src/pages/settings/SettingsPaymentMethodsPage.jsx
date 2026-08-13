@@ -10,19 +10,26 @@ const rows = [
   [7, "UzumBank", "Карта", STATUS_INACTIVE],
 ].map(([sort, name, typeLabel, status], index) => ({ id: index + 1, sort, name, typeLabel, status }));
 
-const apiMapRow = (item) => ({
+export const apiMapRow = (item) => ({
   id: item.id,
-  sort: item.sort_order ?? item.sort ?? 0,
+  sort: item.sort_order ?? item.sort ?? "—",
   name: item.name || "",
   typeLabel: item.type || item.typeLabel || "",
-  status: item.is_active !== false ? STATUS_ACTIVE : STATUS_INACTIVE,
+  status: (item.status ?? item.is_active) !== false ? STATUS_ACTIVE : STATUS_INACTIVE,
 });
 
-const apiMapFormToPayload = (form) => ({
-  name: form.name,
-  sort_order: parseInt(form.sort, 10) || 0,
-  type: form.typeLabel,
-});
+export const apiMapFormToPayload = (form) => {
+  const sortInput = String(form.sort ?? "").trim();
+  if (!/^\d+$/.test(sortInput)) return null;
+  const sort = Number(sortInput);
+  if (!form.name.trim() || !Number.isSafeInteger(sort)) return null;
+  return {
+    name: form.name.trim(),
+    sort,
+    type: form.typeLabel || null,
+    status: form.status === STATUS_ACTIVE,
+  };
+};
 
 function SettingsPaymentMethodsPage() {
   return (

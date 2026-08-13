@@ -1,8 +1,8 @@
 import { api } from "./client";
 
 export const catalogService = Object.freeze({
-  listProducts() {
-    return api.get("/inventory/products");
+  listProducts(config) {
+    return config ? api.get("/inventory/products", config) : api.get("/inventory/products");
   },
   createProduct(payload) {
     return api.post("/inventory/products", payload);
@@ -13,8 +13,8 @@ export const catalogService = Object.freeze({
   deleteProduct(id) {
     return api.delete(`/inventory/products/${id}`);
   },
-  listCategories() {
-    return api.get("/inventory/categories");
+  listCategories(config) {
+    return config ? api.get("/inventory/categories", config) : api.get("/inventory/categories");
   },
   createCategory(payload) {
     return api.post("/inventory/categories", payload);

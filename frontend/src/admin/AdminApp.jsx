@@ -9,6 +9,7 @@ import { AUTH_SCOPES, subscribeToAuthSessionEnded } from "../auth/session";
 import Icon from '../components/Icon';
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import { createPortal } from "react-dom";
+import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler);
 
@@ -22,7 +23,7 @@ const SECTION_API_MAP = {
   "srv-employees": { serviceKey: "departments", mapRow: (r) => [r.name || "", r.position || r.role || "—", r.department || "—", r.privileges || "—", r.status !== false ? "Активна" : "Неактивна"] },
   "srv-source": { serviceKey: "sources", mapRow: (r) => [r.name || "", r.type || "—", r.url || "—", String(r.leads_count || 0), r.status !== false ? "Активна" : "Неактивна"] },
   "bank-transactions": {
-    load: () => adminFinanceApi.listTransactions({ size: 100 }),
+    load: (config) => adminFinanceApi.listTransactions({ size: 100 }, config),
     mapRow: (row) => [
       String(row.id),
       row.organization_id ? String(row.organization_id) : "—",
@@ -40,8 +41,10 @@ const SECTION_API_MAP = {
 function useAdminData(sectionKey, onNotify) {
   const [apiRows, setApiRows] = useState([]);
   const [loadState, setLoadState] = useState("idle");
+  const beginRequest = useLatestRequest();
 
   useEffect(() => {
+    const ownership = beginRequest();
     const mapping = SECTION_API_MAP[sectionKey];
     if (!mapping) {
       setApiRows([]);
@@ -50,20 +53,22 @@ function useAdminData(sectionKey, onNotify) {
     }
     setLoadState("loading");
     const request = mapping.load
-      ? mapping.load()
-      : hqService.listSection(mapping.serviceKey);
+      ? mapping.load({ signal: ownership.signal })
+      : hqService.listSection(mapping.serviceKey, { size: 100 }, { signal: ownership.signal });
     request
       .then(({ data }) => {
+        if (!ownership.isCurrent()) return;
         const items = Array.isArray(data) ? data : data?.items || data?.results || [];
         setApiRows(mapping.mapRow ? items.map(mapping.mapRow) : []);
         setLoadState(items.length ? "success" : "empty");
       })
       .catch((error) => {
+        if (!ownership.isCurrent() || isAbortError(error)) return;
         setApiRows([]);
         setLoadState("error");
         if (mapping.load) onNotify?.(getAdminFinanceLoadMessage(error));
       });
-  }, [onNotify, sectionKey]);
+  }, [beginRequest, onNotify, sectionKey]);
 
   return { apiRows, loadState };
 }
@@ -2735,9 +2740,16 @@ function LoginView({ onLogin }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const { acquire, release } = useMutationLocks();
 
   async function submit(event) {
     event.preventDefault();
+    if (!acquire("hq-login")) return;
+    if (getAdminPhoneDigits(phone).length !== ADMIN_PHONE_MAX_DIGITS || !password) {
+      setError("Укажите полный номер телефона и пароль.");
+      release("hq-login");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -2748,6 +2760,7 @@ function LoginView({ onLogin }) {
       setError("Не удалось войти в Marjon Admin.");
     } finally {
       setLoading(false);
+      release("hq-login");
     }
   }
 
@@ -4055,9 +4068,11 @@ function OrganizationDirectoryPage({ search, onNotify, onInnerBackChange }) {
   }, [editorRow, messageRow, onInnerBackChange]);
 
   useEffect(() => {
+    let activeRequest = true;
     setLoadState("loading");
     hqService.listOrganizations()
       .then(({ data }) => {
+        if (!activeRequest) return;
         const items = Array.isArray(data) ? data : data?.items || [];
         setRows(items.map((r) => ({
             id: String(r.id || ""),
@@ -4091,9 +4106,11 @@ function OrganizationDirectoryPage({ search, onNotify, onInnerBackChange }) {
         setLoadState(items.length ? "success" : "empty");
       })
       .catch(() => {
+        if (!activeRequest) return;
         setRows([]);
         setLoadState("error");
       });
+    return () => { activeRequest = false; };
   }, []);
 
   useEffect(() => {
@@ -4717,8 +4734,10 @@ function OrganizationStatusPage({ search, onNotify }) {
   const [editor, setEditor] = useState(null);
 
   useEffect(() => {
+    let activeRequest = true;
     hqService.listOrganizationStatuses()
       .then(({ data }) => {
+        if (!activeRequest) return;
         const items = Array.isArray(data) ? data : data?.items || [];
         const remoteRows = items.map((r, i) => ({
           id: r.id || String(i),
@@ -4730,6 +4749,7 @@ function OrganizationStatusPage({ search, onNotify }) {
         setLoadState(remoteRows.length ? "success" : "empty");
       })
       .catch(() => {
+        if (!activeRequest) return;
         setRows([]);
         setLoadState("error");
       });
@@ -6114,12 +6134,14 @@ export function ProductNomenclaturePage({ search, onNotify }) {
   const query = search.trim().toLowerCase();
 
   useEffect(() => {
+    let activeRequest = true;
     Promise.allSettled([
       hqService.listProducts(),
       hqService.listCategories(),
       hqService.listUnits(),
     ])
       .then(([productsResult, categoriesResult, unitsResult]) => {
+        if (!activeRequest) return;
         if (productsResult.status === "rejected") throw productsResult.reason;
 
         const items = normalizePaginatedList(productsResult.value.data).items;
@@ -6138,9 +6160,11 @@ export function ProductNomenclaturePage({ search, onNotify }) {
         setLoadState(items.length ? "success" : "empty");
       })
       .catch(() => {
+        if (!activeRequest) return;
         setRows([]);
         setLoadState("error");
       });
+    return () => { activeRequest = false; };
   }, []);
 
   const categoryOptions = useMemo(() => {
@@ -6427,6 +6451,7 @@ function SaleCategoryPage({ search, onNotify }) {
         setRows([]);
         setLoadState("error");
       });
+    return () => { activeRequest = false; };
   }, []);
 
   useEffect(() => {
@@ -7951,26 +7976,24 @@ function getAdminFinanceLoadMessage(error) {
 function useDefaultAdminFinanceOrganizationId(onNotify) {
   const [organizationId, setOrganizationId] = useState("");
   const [loadState, setLoadState] = useState("loading");
+  const beginRequest = useLatestRequest();
 
   useEffect(() => {
-    let mounted = true;
-    hqService.listOrganizations({ size: 1, status: "active" })
+    const request = beginRequest();
+    hqService.listOrganizations({ size: 1, status: "active" }, { signal: request.signal })
       .then(({ data }) => {
-        if (!mounted) return;
+        if (!request.isCurrent()) return;
         const first = extractAdminFinanceItems(data)[0];
         setOrganizationId(isUuidLike(first?.id) ? String(first.id) : "");
         setLoadState(first ? "success" : "empty");
       })
       .catch((error) => {
-        if (!mounted) return;
+        if (!request.isCurrent() || isAbortError(error)) return;
         setOrganizationId("");
         setLoadState("error");
         onNotify?.(getAdminFinanceLoadMessage(error));
       });
-    return () => {
-      mounted = false;
-    };
-  }, [onNotify]);
+  }, [beginRequest, onNotify]);
 
   return { organizationId, loadState };
 }
@@ -8527,6 +8550,10 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
   const financeFieldRefs = useRef({});
   const financeCloseTimerRef = useRef(null);
   const financeSubmissionRef = useRef(null);
+  const beginOperationsRequest = useLatestRequest();
+  const beginOrganizationsRequest = useLatestRequest();
+  const beginReferencesRequest = useLatestRequest();
+  const { acquire: acquireFinanceLock, release: releaseFinanceLock } = useMutationLocks();
   const query = (search || "").trim().toLowerCase();
   const datePresets = useMemo(() => (
     ADMIN_DASHBOARD_DATE_PRESET_LABELS.map((label) => ({
@@ -8546,58 +8573,60 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
   }, []);
 
   const loadFinanceOperations = useCallback(async () => {
+    const request = beginOperationsRequest();
     const normalizedRange = normalizeAdminReportRange(range);
     const params = {
       date_from: adminReportDateToInputDate(normalizedRange.start),
       date_to: adminReportDateToInputDate(normalizedRange.end),
     };
     setOperationsLoadState("loading");
+    setOperations([]);
     try {
-      const { data } = await adminFinanceApi.listTransactions(params);
+      const { data } = await adminFinanceApi.listTransactions(params, { signal: request.signal });
+      if (!request.isCurrent()) return null;
       const items = extractAdminFinanceItems(data);
       setOperations(items.map(normalizeAdminFinanceTransaction));
       setOperationsLoadState(items.length ? "success" : "empty");
       return items;
     } catch (error) {
+      if (!request.isCurrent() || isAbortError(error)) return null;
       setOperations([]);
       setOperationsLoadState("error");
       onNotify?.(getAdminFinanceLoadMessage(error));
       return null;
     }
-  }, [onNotify, range]);
+  }, [beginOperationsRequest, onNotify, range]);
 
   useEffect(() => {
     loadFinanceOperations();
   }, [loadFinanceOperations]);
 
   useEffect(() => {
-    let mounted = true;
+    const request = beginOrganizationsRequest();
 
     async function loadOrganizations() {
       setReferencesLoading(true);
       try {
-        const { data } = await hqService.listOrganizations({ size: 100, status: "active" });
-        if (!mounted) return;
+        const { data } = await hqService.listOrganizations({ size: 100, status: "active" }, { signal: request.signal });
+        if (!request.isCurrent()) return;
         const nextOrganizations = extractAdminFinanceItems(data)
           .filter((item) => item.status !== "blocked")
           .map((item, index) => normalizeAdminFinanceOption(item, index, ["name", "company_name"]));
         setOrganizations(nextOrganizations);
       } catch (error) {
-        if (!mounted) return;
+        if (!request.isCurrent() || isAbortError(error)) return;
         setOrganizations([]);
         onNotify?.(getAdminFinanceLoadMessage(error));
       } finally {
-        if (mounted) setReferencesLoading(false);
+        if (request.isCurrent()) setReferencesLoading(false);
       }
     }
 
     loadOrganizations();
-    return () => {
-      mounted = false;
-    };
-  }, [onNotify]);
+  }, [beginOrganizationsRequest, onNotify]);
 
   useEffect(() => {
+    const request = beginReferencesRequest();
     if (!referenceOrganizationId) {
       setPaymentTypes([]);
       setCategoriesByKind({ income: [], expense: [] });
@@ -8606,8 +8635,6 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
       ));
       return undefined;
     }
-
-    let mounted = true;
 
     async function loadReferences() {
       setReferencesLoading(true);
@@ -8623,14 +8650,14 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
           expenseCategoryResponse,
           ...counterpartyResponses
         ] = await Promise.all([
-          adminFinanceApi.listPaymentTypes(referenceOrganizationId, { status: true }),
-          adminFinanceApi.listCategories(referenceOrganizationId, "income", { status: true }),
-          adminFinanceApi.listCategories(referenceOrganizationId, "expense", { status: true }),
+          adminFinanceApi.listPaymentTypes(referenceOrganizationId, { status: true }, { signal: request.signal }),
+          adminFinanceApi.listCategories(referenceOrganizationId, "income", { status: true }, { signal: request.signal }),
+          adminFinanceApi.listCategories(referenceOrganizationId, "expense", { status: true }, { signal: request.signal }),
           ...ADMIN_FINANCE_COUNTERPARTY_TYPES.map((item) => (
-            adminFinanceApi.listCounterparties(referenceOrganizationId, item.value)
+            adminFinanceApi.listCounterparties(referenceOrganizationId, item.value, {}, { signal: request.signal })
           )),
         ]);
-        if (!mounted) return;
+        if (!request.isCurrent()) return;
 
         const nextPaymentTypes = extractAdminFinanceItems(paymentResponse.data)
           .filter((item) => item.status !== false)
@@ -8662,17 +8689,14 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
           };
         });
       } catch (error) {
-        if (mounted) onNotify?.(getAdminFinanceLoadMessage(error));
+        if (request.isCurrent() && !isAbortError(error)) onNotify?.(getAdminFinanceLoadMessage(error));
       } finally {
-        if (mounted) setReferencesLoading(false);
+        if (request.isCurrent()) setReferencesLoading(false);
       }
     }
 
     loadReferences();
-    return () => {
-      mounted = false;
-    };
-  }, [onNotify, referenceOrganization?.id, referenceOrganizationId]);
+  }, [beginReferencesRequest, onNotify, referenceOrganization?.id, referenceOrganizationId]);
 
   useEffect(() => {
     if (!financeModalOpen || typeof document === "undefined") return undefined;
@@ -8849,11 +8873,13 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
   async function saveFinanceOperation(event) {
     event.preventDefault();
     if (financeSubmitting) return;
+    if (!acquireFinanceLock("hq-finance-create")) return;
 
     const errors = validateAdminFinanceDraft(financeDraft);
     if (Object.keys(errors).length) {
       setFinanceErrors(errors);
       focusFirstInvalidField(errors);
+      releaseFinanceLock("hq-finance-create");
       return;
     }
 
@@ -8907,6 +8933,7 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
       onNotify?.(message);
     } finally {
       setFinanceSubmitting(false);
+      releaseFinanceLock("hq-finance-create");
     }
   }
 
@@ -8932,11 +8959,11 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
         </div>
         <div className="admin-finance-summary is-income">
           <span>Приход</span>
-          <strong>{operationsLoadState === "error" ? "Недоступно" : formatCurrency(financeTotals.income)}</strong>
+          <strong>{operationsLoadState === "loading" ? "Загрузка..." : operationsLoadState === "error" ? "Недоступно" : formatCurrency(financeTotals.income)}</strong>
         </div>
         <div className="admin-finance-summary is-expense">
           <span>Расход</span>
-          <strong>{operationsLoadState === "error" ? "Недоступно" : formatCurrency(financeTotals.expense)}</strong>
+          <strong>{operationsLoadState === "loading" ? "Загрузка..." : operationsLoadState === "error" ? "Недоступно" : formatCurrency(financeTotals.expense)}</strong>
         </div>
         <div className="admin-finance-actions">
           <button type="button" className="admin-finance-action is-income" onClick={() => openFinanceModal("income")}>
@@ -8985,7 +9012,7 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
             </tr>
           </thead>
           <tbody>
-            {filteredOperations.map((row) => (
+            {operationsLoadState !== "loading" ? filteredOperations.map((row) => (
               <tr key={row.id}>
                 <td>
                   <strong>{row.date}</strong>
@@ -9008,8 +9035,10 @@ function AdminFinanceOperationsPage({ search, onNotify }) {
                   </button>
                 </td>
               </tr>
-            ))}
-            {operationsLoadState === "error" ? (
+            )) : null}
+            {operationsLoadState === "loading" ? (
+              <tr><td colSpan="9" className="admin-finance-empty" role="status">Загрузка денежных операций...</td></tr>
+            ) : operationsLoadState === "error" ? (
               <tr><td colSpan="9" className="admin-finance-empty" role="alert">Не удалось загрузить денежные операции.</td></tr>
             ) : !filteredOperations.length ? (
               <tr>
@@ -9068,12 +9097,15 @@ function AdminFinanceCategoriesPage({
   const [draftName, setDraftName] = useState("");
   const [draftStatus, setDraftStatus] = useState("#активно");
   const query = search.trim().toLowerCase();
+  const beginRequest = useLatestRequest();
 
   useEffect(() => {
+    const request = beginRequest();
     if (!organizationId) return;
     setLoadState("loading");
-    adminFinanceApi.listCategories(organizationId, categoryKind, { size: 100 })
+    adminFinanceApi.listCategories(organizationId, categoryKind, { size: 100 }, { signal: request.signal })
       .then(({ data }) => {
+        if (!request.isCurrent()) return;
         const items = extractAdminFinanceItems(data);
         if (!items.length) setCategories([]);
         if (items.length) {
@@ -9091,11 +9123,12 @@ function AdminFinanceCategoriesPage({
         setLoadState(items.length ? "success" : "empty");
       })
       .catch((error) => {
+        if (!request.isCurrent() || isAbortError(error)) return;
         setCategories([]);
         setLoadState("error");
         onNotify?.(getAdminFinanceLoadMessage(error));
       });
-  }, [categoryKind, localPrefix, onNotify, organizationId]);
+  }, [beginRequest, categoryKind, localPrefix, onNotify, organizationId]);
 
   const filteredCategories = categories.filter((row) => (
     !query || row.name.toLowerCase().includes(query) || row.status.toLowerCase().includes(query)
@@ -9304,12 +9337,15 @@ function AdminPaymentMethodsPage({ search, onNotify }) {
   const [draftStatus, setDraftStatus] = useState("#активно");
   const [draftVip, setDraftVip] = useState(false);
   const query = search.trim().toLowerCase();
+  const beginRequest = useLatestRequest();
 
   useEffect(() => {
+    const request = beginRequest();
     if (!organizationId) return;
     setLoadState("loading");
-    adminFinanceApi.listPaymentTypes(organizationId, { size: 100 })
+    adminFinanceApi.listPaymentTypes(organizationId, { size: 100 }, { signal: request.signal })
       .then(({ data }) => {
+        if (!request.isCurrent()) return;
         const items = extractAdminFinanceItems(data);
         if (!items.length) setMethods([]);
         if (items.length) {
@@ -9325,11 +9361,12 @@ function AdminPaymentMethodsPage({ search, onNotify }) {
         setLoadState(items.length ? "success" : "empty");
       })
       .catch((error) => {
+        if (!request.isCurrent() || isAbortError(error)) return;
         setMethods([]);
         setLoadState("error");
         onNotify?.(getAdminFinanceLoadMessage(error));
       });
-  }, [onNotify, organizationId]);
+  }, [beginRequest, onNotify, organizationId]);
   const filteredMethods = methods
     .filter((row) => !query || [row.name, row.type, row.status].some((value) => value.toLowerCase().includes(query)))
     .sort((a, b) => a.sort - b.sort);
@@ -9517,6 +9554,7 @@ function AdminFinanceHistoryPage({ search, onNotify }) {
   });
   const pageSize = 15;
   const query = search.trim().toLowerCase();
+  const beginRequest = useLatestRequest();
 
   const updateHistoryScroll = useCallback(() => {
     const scroller = historyScrollRef.current;
@@ -9544,10 +9582,12 @@ function AdminFinanceHistoryPage({ search, onNotify }) {
   }, []);
 
   useEffect(() => {
+    const request = beginRequest();
     if (!organizationId) return;
     setLoadState("loading");
-    adminFinanceApi.listFinanceHistory(organizationId, { size: 200 })
+    adminFinanceApi.listFinanceHistory(organizationId, { size: 200 }, { signal: request.signal })
       .then(({ data }) => {
+        if (!request.isCurrent()) return;
         const items = extractAdminFinanceItems(data);
         if (!items.length) setRows([]);
         if (items.length) {
@@ -9568,11 +9608,12 @@ function AdminFinanceHistoryPage({ search, onNotify }) {
         setLoadState(items.length ? "success" : "empty");
       })
       .catch((error) => {
+        if (!request.isCurrent() || isAbortError(error)) return;
         setRows([]);
         setLoadState("error");
         onNotify?.(getAdminFinanceLoadMessage(error));
       });
-  }, [onNotify, organizationId]);
+  }, [beginRequest, onNotify, organizationId]);
 
   const filteredRows = rows.filter((row) => (
     !query || [
@@ -10453,21 +10494,25 @@ export function TransactionsTable({ onNotify }) {
   const [dragColumnTarget, setDragColumnTarget] = useState(null);
   const [transactionEditor, setTransactionEditor] = useState(null);
   const visibleColumns = columnSettings.visible;
+  const beginRequest = useLatestRequest();
 
   useEffect(() => {
+    const request = beginRequest();
     setLoadState("loading");
-    adminFinanceApi.listTransactions({ size: 50 })
+    adminFinanceApi.listTransactions({ size: 50 }, { signal: request.signal })
       .then(({ data }) => {
+        if (!request.isCurrent()) return;
         const items = Array.isArray(data) ? data : data?.items || [];
         setRows(items.map(normalizeHqDashboardTransaction));
         setLoadState(items.length ? "success" : "empty");
       })
       .catch((error) => {
+        if (!request.isCurrent() || isAbortError(error)) return;
         setRows([]);
         setLoadState("error");
         onNotify?.(getAdminFinanceLoadMessage(error));
       });
-  }, [onNotify]);
+  }, [beginRequest, onNotify]);
 
   useEffect(() => { setPage(1); }, [query, pageSize]);
 
@@ -11570,6 +11615,8 @@ function AdminShell({ onLogout, user }) {
   const [dashKpis, setDashKpis] = useState([]);
   const [dashboardLoadState, setDashboardLoadState] = useState("loading");
   const [dashboardView, setDashboardView] = useState(null);
+  const beginOrganizationsRequest = useLatestRequest();
+  const beginKpisRequest = useLatestRequest();
 
   const closeDetail = () => setDetail(null);
   const setInnerBackHandler = useCallback((handler) => {
@@ -11590,10 +11637,11 @@ function AdminShell({ onLogout, user }) {
   }, [active]);
 
   useEffect(() => {
-    let mounted = true;
-    hqService.listOrganizations({ size: 5 })
+    const organizationsRequest = beginOrganizationsRequest();
+    const kpisRequest = beginKpisRequest();
+    hqService.listOrganizations({ size: 5 }, { signal: organizationsRequest.signal })
       .then(({ data }) => {
-        if (!mounted) return;
+        if (!organizationsRequest.isCurrent()) return;
         const items = Array.isArray(data) ? data : data?.items || [];
         if (items.length) {
           setOrganizations(items.map((r) => [
@@ -11604,9 +11652,9 @@ function AdminShell({ onLogout, user }) {
         }
       })
       .catch(() => {});
-    hqService.getDashboardKpis()
+    hqService.getDashboardKpis({ signal: kpisRequest.signal })
       .then(({ data }) => {
-        if (!mounted) return;
+        if (!kpisRequest.isCurrent()) return;
         if (!data || typeof data !== "object") {
           setDashKpis([]);
           setDashboardLoadState("empty");
@@ -11622,13 +11670,12 @@ function AdminShell({ onLogout, user }) {
         })));
         setDashboardLoadState("success");
       })
-      .catch(() => {
-        if (!mounted) return;
+      .catch((error) => {
+        if (!kpisRequest.isCurrent() || isAbortError(error)) return;
         setDashKpis([]);
         setDashboardLoadState("error");
       });
-    return () => { mounted = false; };
-  }, []);
+  }, [beginKpisRequest, beginOrganizationsRequest]);
 
   useEffect(() => {
     if (!message) return undefined;

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { warehouseService } from "../api/warehouse";
+import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 import Icon from "../components/Icon";
 
 const ACTIVE = "active";
@@ -228,8 +229,10 @@ function WarehousePage({ initialSection = "incoming" }) {
   const [activeTab, setActiveTab] = useState(ACTIVE);
   const [draftFilters, setDraftFilters] = useState({ search: "", date: "01.06.2026 - 23.06.2026", warehouse: "", supplier: "", status: "", receiver: "", category: "", author: "", from: "", to: "" });
   const [filters, setFilters] = useState(draftFilters);
+  const beginRequest = useLatestRequest();
 
   useEffect(() => {
+    const request = beginRequest();
     if (unavailableMessage) {
       setRows([]);
       setError("");
@@ -238,18 +241,20 @@ function WarehousePage({ initialSection = "incoming" }) {
     }
     setLoading(true);
     setError("");
-    Promise.resolve().then(() => warehouseService.list(section))
+    Promise.resolve().then(() => warehouseService.list(section, { signal: request.signal }))
       .then(({ data }) => {
+        if (!request.isCurrent()) return;
         const items = Array.isArray(data) ? data : data?.items || [];
         setRows(items.map((item) => mapWarehouseReadRow(section, item)));
         setLoading(false);
       })
       .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
         setRows([]);
         setError(err.response?.data?.detail || "Не удалось загрузить складские данные.");
         setLoading(false);
       });
-  }, [section, unavailableMessage]);
+  }, [beginRequest, section, unavailableMessage]);
 
   const computedSummary = useMemo(() => {
     if (!config.summary || loading || error) return null;
