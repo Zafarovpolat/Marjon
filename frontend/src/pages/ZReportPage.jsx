@@ -1,310 +1,113 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "../api/client";
 import Icon from "../components/Icon";
-import ReportDateRangePicker from "../components/ReportDateRangePicker";
-
-const printReports = [
-  { key: "cashiers", title: "Отчет по кассирам", icon: "bi-person-badge", fields: [{ type: "select", label: "Кассир", options: ["Все кассиры", "Administrator", "Кассир 1"] }] },
-  { key: "waiters", title: "Отчет по официантам", icon: "bi-person-lines-fill", fields: [{ type: "select", label: "Официант", options: ["Все официанты", "Азизбек", "Алишер"] }, { type: "input", label: "Процент", suffix: "%" }] },
-  { key: "cooks", title: "Отчет по поварам", icon: "bi-egg-fried", fields: [{ type: "select", label: "Повар", options: ["Все повара", "Повар 1", "Повар 2"] }] },
-  { key: "places", title: "Отчет по местам", icon: "bi-grid-3x3-gap", fields: [{ type: "select", label: "Место", options: ["Все места", "Основной зал", "Летняя зона"] }] },
-  { key: "menu", title: "Отчет по меню", icon: "bi-journal-text", fields: [{ type: "select", label: "Категория", options: ["Все категории", "Горячее", "Напитки", "Салаты"] }] },
-];
-
-function ReportSelect({ field }) {
-  const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState("");
-  const ref = useRef(null);
-  const value = selected || field.label;
-
-  useEffect(() => {
-    if (!open) return undefined;
-    function handlePointerDown(e) { if (!ref.current?.contains(e.target)) setOpen(false); }
-    function handleKeyDown(e) { if (e.key === "Escape") setOpen(false); }
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => { document.removeEventListener("mousedown", handlePointerDown); document.removeEventListener("keydown", handleKeyDown); };
-  }, [open]);
-
-  return (
-    <div className={`z-report-select ${open ? "is-open" : ""}`} ref={ref}>
-      <button className="z-report-select__trigger z-report-filter z-report-print-table__field" type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((c) => !c)}>
-        <span>{value}</span>
-        <Icon name="bi-chevron-down" size={18} />
-      </button>
-      {open ? (
-        <div className="z-report-select__menu" role="listbox">
-          {field.options.map((opt) => {
-            const active = opt === selected || (!selected && opt === field.options[0]);
-            return <button className={active ? "is-active" : ""} type="button" role="option" aria-selected={active} key={opt} onClick={() => { setSelected(opt); setOpen(false); }}>{opt}</button>;
-          })}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function ReportField({ field }) {
-  if (!field) return <span className="z-report-print-table__empty">—</span>;
-  if (field.type === "select") return <ReportSelect field={field} />;
-  return (
-    <label className="z-report-filter z-report-print-table__field z-report-print-table__field--input">
-      <input placeholder={field.label} inputMode="decimal" />
-      {field.suffix ? <span>{field.suffix}</span> : null}
-    </label>
-  );
-}
-
-function padDate(value) {
-  return String(value).padStart(2, "0");
-}
-
-function formatRangeDate(date) {
-  return `${padDate(date.getDate())}.${padDate(date.getMonth() + 1)}.${date.getFullYear()}`;
-}
-
-function defaultReportRange() {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  return {
-    preset: "Этот месяц",
-    start: formatRangeDate(start),
-    end: formatRangeDate(now),
-    startTime: "00:00",
-    endTime: "00:00",
-  };
-}
+import { todayInputValue } from "../utils/date";
 
 function escapeHtml(value) {
-  return String(value)
+  return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
 
-function formatPrintMoment(date = new Date()) {
-  return `${formatRangeDate(date)}, ${padDate(date.getHours())}:${padDate(date.getMinutes())}`;
+function formatMoney(value) {
+  return `${new Intl.NumberFormat("ru-RU").format(Number(value))} UZS`;
 }
 
-function buildPaymentRows() {
-  return [
-    ["Terminal", "0"],
-    ["NAXT", "0"],
-    ["CLICK", "0"],
-    ["Humo", "0"],
-    ["Payme", "0"],
-    ["Vip", "0"],
-    ["UzumBank", "0"],
-    ["Долг", "0"],
-  ];
+function formatNullable(value) {
+  return value == null || value === "" ? "Недоступно" : String(value);
 }
 
-function buildReportSection(title, rows = buildPaymentRows()) {
-  return `
-    <section class="print-section">
-      ${title ? `<h3>${escapeHtml(title)}</h3>` : ""}
-      <div class="dash-line"></div>
-      <table>
-        <tbody>
-          ${rows.map(([label, value]) => `
-            <tr>
-              <td>${escapeHtml(label)}:</td>
-              <td>${escapeHtml(value)}</td>
-            </tr>
-          `).join("")}
-          <tr class="total">
-            <td>Итого:</td>
-            <td>0</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
-  `;
-}
+const financialRows = [
+  ["Валовые продажи", "gross_sales"],
+  ["Скидки", "discounts_total"],
+  ["Сервисный сбор", "service_fee_total"],
+  ["Налог", "tax_total"],
+  ["Возвраты", "refunds_total"],
+  ["Чистые продажи", "net_sales"],
+  ["Наличные", "cash_total"],
+  ["Получено наличными", "cash_received_total"],
+  ["Выдано сдачи", "change_given_total"],
+  ["Безналичные оплаты", "non_cash_total"],
+  ["Средний чек", "avg_check"],
+];
 
-function buildPrintDocument(report, range) {
-  const title = report?.title || "Отчет";
-  const period = `${range.start || ""} ${range.startTime || "00:00"} - ${range.end || ""} ${range.endTime || "00:00"}`;
+const countRows = [
+  ["Заказы", "orders_count"],
+  ["Отменённые заказы", "cancelled_orders_count"],
+  ["Оплаты", "payments_count"],
+  ["Фискальные чеки", "fiscal_receipts_count"],
+];
+
+export function buildPrintDocument(report) {
+  const paymentRows = report.payment_methods.map((item) => `
+    <tr><td>${escapeHtml(item.method)}</td><td>${escapeHtml(item.count)}</td><td>${escapeHtml(formatMoney(item.amount))}</td></tr>
+  `).join("");
+  const metrics = financialRows.map(([label, key]) => `
+    <tr><td>${escapeHtml(label)}</td><td>${escapeHtml(formatMoney(report[key]))}</td></tr>
+  `).join("");
+  const counts = countRows.map(([label, key]) => `
+    <tr><td>${escapeHtml(label)}</td><td>${escapeHtml(report[key])}</td></tr>
+  `).join("");
 
   return `<!doctype html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8" />
-  <title>MARJON - ${escapeHtml(title)}</title>
-  <style>
-    @page { size: A4 portrait; margin: 12mm 14mm; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      background: #ffffff;
-      color: #111827;
-      font-family: Arial, Helvetica, sans-serif;
-      font-size: 12px;
-      line-height: 1.35;
-    }
-    .sheet {
-      width: 100%;
-      max-width: 520px;
-      margin: 0 auto;
-      padding: 6px 0 0;
-    }
-    .topline {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items: start;
-      color: #111827;
-      font-size: 10px;
-    }
-    .topline strong {
-      justify-self: center;
-      font-size: 10px;
-      font-weight: 700;
-    }
-    .brand {
-      margin-top: 20px;
-      text-align: center;
-    }
-    .brand b {
-      display: block;
-      font-size: 15px;
-      font-weight: 800;
-      letter-spacing: 0.06em;
-    }
-    .brand span {
-      display: block;
-      margin-top: 2px;
-      font-size: 10px;
-      color: #4b5563;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-    h1 {
-      margin: 18px 0 8px;
-      text-align: center;
-      font-size: 15px;
-      font-weight: 800;
-      font-style: italic;
-    }
-    .period {
-      margin: 0 0 14px;
-      text-align: center;
-      font-size: 12px;
-      font-weight: 700;
-    }
-    .cashbox {
-      margin: 0 0 2px;
-      text-align: center;
-      font-size: 12px;
-      font-weight: 800;
-    }
-    .dash-line {
-      height: 1px;
-      margin: 4px 0 6px;
-      border-top: 1px dashed #111827;
-    }
-    .print-section {
-      margin: 0 0 7px;
-    }
-    .print-section h3 {
-      margin: 0;
-      text-align: center;
-      font-size: 12px;
-      font-weight: 800;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-    }
-    td {
-      padding: 2px 0;
-      vertical-align: top;
-      font-size: 12px;
-      font-weight: 700;
-    }
-    td:first-child {
-      width: 68%;
-    }
-    td:last-child {
-      width: 32%;
-      text-align: right;
-    }
-    tr.total td {
-      padding-top: 4px;
-      font-weight: 800;
-    }
-    .footer {
-      margin-top: 16px;
-      text-align: center;
-      font-size: 11px;
-      font-weight: 700;
-    }
-    .page-foot {
-      position: fixed;
-      left: 14mm;
-      right: 14mm;
-      bottom: 7mm;
-      display: flex;
-      justify-content: space-between;
-      color: #111827;
-      font-size: 10px;
-    }
-  </style>
-</head>
-<body>
-  <main class="sheet">
-    <div class="topline">
-      <span>${escapeHtml(formatPrintMoment())}</span>
-      <strong>MARJON</strong>
-      <span></span>
-    </div>
-    <div class="brand">
-      <b>MARJON</b>
-      <span>Restaurant OS</span>
-    </div>
-    <h1>${escapeHtml(title)}</h1>
-    <p class="period">Дата: ${escapeHtml(period)}</p>
-    <p class="cashbox">КАССА 2</p>
-    ${buildReportSection("Итого приходов")}
-    ${buildReportSection("Итого расходов")}
-    ${buildReportSection("Кассир: Khusniddin Khusanboyev")}
-    <div class="footer">Итого по отчету: 0</div>
-  </main>
-  <div class="page-foot">
-    <span>MARJON</span>
-    <span>1/1</span>
-  </div>
-</body>
-</html>`;
+<html lang="ru"><head><meta charset="UTF-8"><title>MARJON — Z-отчёт ${escapeHtml(report.date)}</title>
+<style>body{font-family:Arial,sans-serif;color:#111827;margin:24px}h1{text-align:center}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid #d1d5db;padding:8px;text-align:left}th{background:#f3f4f6}.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px}</style>
+</head><body><h1>Z-отчёт</h1><div class="meta"><span>Дата: ${escapeHtml(report.date)}</span><span>Смена закрыта: ${report.is_closed ? "Да" : "Нет"}</span><span>Открыта: ${escapeHtml(formatNullable(report.shift_opened_at))}</span><span>Закрыта: ${escapeHtml(formatNullable(report.shift_closed_at))}</span></div>
+<h2>Показатели</h2><table><tbody>${metrics}${counts}</tbody></table>
+<h2>Способы оплаты</h2><table><thead><tr><th>Способ</th><th>Количество</th><th>Сумма</th></tr></thead><tbody>${paymentRows || '<tr><td colspan="3">Нет оплат за выбранную дату</td></tr>'}</tbody></table>
+</body></html>`;
 }
 
 export default function ZReportPage() {
-  const [dateRange, setDateRange] = useState(() => defaultReportRange());
+  const [selectedDate, setSelectedDate] = useState(todayInputValue());
+  const [report, setReport] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  function handlePrintReport(report) {
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    setReport(null);
+    api.get("/analytics/z-report", { params: { date: selectedDate } })
+      .then(({ data }) => {
+        if (!data || typeof data !== "object" || !Array.isArray(data.payment_methods)) {
+          throw new Error("Invalid Z-report response");
+        }
+        if (active) setReport(data);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err.response?.status === 403
+          ? "Доступ к Z-отчёту запрещён."
+          : err.response?.data?.detail || "Не удалось загрузить Z-отчёт.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, [selectedDate]);
+
+  function handlePrint() {
+    if (!report || loading || error) return;
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
     iframe.style.width = "0";
     iframe.style.height = "0";
     iframe.style.border = "0";
     iframe.setAttribute("aria-hidden", "true");
     document.body.appendChild(iframe);
-
     const printWindow = iframe.contentWindow;
     const printDocument = printWindow?.document;
     if (!printWindow || !printDocument) {
       iframe.remove();
-      window.print();
       return;
     }
-
     printDocument.open();
-    printDocument.write(buildPrintDocument(report, dateRange));
+    printDocument.write(buildPrintDocument(report));
     printDocument.close();
-
     printWindow.onafterprint = () => iframe.remove();
     window.setTimeout(() => {
       printWindow.focus();
@@ -315,51 +118,54 @@ export default function ZReportPage() {
 
   return (
     <section className="z-report-page z-report-page--print-only">
-      {/* Печатные отчёты */}
-      <div className="z-report-period-toolbar report-actions" aria-label="Период отчетов">
+      <div className="z-report-period-toolbar report-actions" aria-label="Параметры Z-отчёта">
         <h1 className="z-report-page-title">Z-отчёт</h1>
-        <ReportDateRangePicker
-          value={dateRange}
-          onChange={setDateRange}
-          buttonClassName="z-report-period-button"
-          showDropdownIcon
+        <input
+          className="z-report-period-button"
+          type="date"
+          aria-label="Дата Z-отчёта"
+          value={selectedDate}
+          onChange={(event) => setSelectedDate(event.target.value)}
         />
+        <button className="z-report-print-row__action" type="button" onClick={handlePrint} disabled={!report || loading || Boolean(error)}>
+          <Icon name="bi-printer" size={18} /> Печать Z-отчёта
+        </button>
       </div>
-      <article className="z-report-card z-report-print-panel">
-        <div className="z-report-print-table-wrap">
-          <table className="z-report-print-table">
-            <thead>
-              <tr>
-                <th>№</th>
-                <th>Отчет</th>
-                <th>Параметр 1</th>
-                <th>Параметр 2 (опционально)</th>
-                <th>Действие</th>
-              </tr>
-            </thead>
-            <tbody>
-              {printReports.map((item, i) => (
-                <tr key={item.key}>
-                  <td className="z-report-print-table__number">{i + 1}</td>
-                  <td>
-                    <div className="z-report-print-table__report">
-                      <span className="z-report-print-table__icon"><Icon name={item.icon} size={18} /></span>
-                      <strong>{item.title}</strong>
-                    </div>
-                  </td>
-                  <td><ReportField field={item.fields[0]} /></td>
-                  <td><ReportField field={item.fields[1]} /></td>
-                  <td>
-                    <button className="z-report-print-row__action" type="button" onClick={() => handlePrintReport(item)}>
-                      <Icon name="bi-printer" size={18} /> Печатать отчет
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </article>
+
+      {loading ? <div className="dashboard-empty" role="status">Загрузка Z-отчёта...</div> : null}
+      {!loading && error ? <div className="login-error" role="alert">{error}</div> : null}
+      {!loading && !error && report ? (
+        <article className="z-report-card z-report-print-panel">
+          <div className="report-summary-grid">
+            <article className="report-summary-card"><div><span>Дата</span><strong>{report.date}</strong></div></article>
+            <article className="report-summary-card"><div><span>Смена закрыта</span><strong>{report.is_closed ? "Да" : "Нет"}</strong></div></article>
+            <article className="report-summary-card"><div><span>Открытие смены</span><strong>{formatNullable(report.shift_opened_at)}</strong></div></article>
+            <article className="report-summary-card"><div><span>Закрытие смены</span><strong>{formatNullable(report.shift_closed_at)}</strong></div></article>
+          </div>
+
+          <div className="z-report-print-table-wrap">
+            <table className="z-report-print-table">
+              <thead><tr><th>Показатель</th><th>Значение</th></tr></thead>
+              <tbody>
+                {financialRows.map(([label, key]) => <tr key={key}><td>{label}</td><td>{formatMoney(report[key])}</td></tr>)}
+                {countRows.map(([label, key]) => <tr key={key}><td>{label}</td><td>{report[key]}</td></tr>)}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="z-report-print-table-wrap">
+            <table className="z-report-print-table">
+              <thead><tr><th>Способ оплаты</th><th>Количество</th><th>Сумма</th></tr></thead>
+              <tbody>
+                {report.payment_methods.map((item) => (
+                  <tr key={item.method}><td>{item.method}</td><td>{item.count}</td><td>{formatMoney(item.amount)}</td></tr>
+                ))}
+                {!report.payment_methods?.length ? <tr><td colSpan={3}>Нет оплат за выбранную дату.</td></tr> : null}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      ) : null}
     </section>
   );
 }

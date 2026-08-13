@@ -581,13 +581,10 @@ function buildRealKpis(dash, sales, selectedDate, placeSettings = [], financeRow
 
   const cashTotal = dash.cash_total;
   const nonCashTotal = dash.non_cash_total;
-  const financeIncomeTotal = groupFinanceRows(financeRows, "income").reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  const financeExpenseTotal = groupFinanceRows(financeRows, "expense").reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const financeIncomeTotal = groupFinanceRows(financeRows, "income").reduce((sum, row) => sum + Number(row.amount), 0);
+  const financeExpenseTotal = groupFinanceRows(financeRows, "expense").reduce((sum, row) => sum + Number(row.amount), 0);
   const income = dash.income_total ?? financeIncomeTotal;
   const expense = dash.expense_total ?? financeExpenseTotal;
-  const prevIncome = prev.revenue || 1;
-  const incomeChange = pctChange(income, prevIncome);
-  const expenseChange = expense > 0 ? pctChange(expense, Math.round(prevIncome * 0.31)) : 0;
 
   return [
     {
@@ -657,8 +654,8 @@ function buildRealKpis(dash, sales, selectedDate, placeSettings = [], financeRow
       label: "Денежный приход",
       value: formatNumber(income),
       suffix: "UZS",
-      note: `${signed(incomeChange)}% к вчерашнему дню`,
-      noteClass: noteClassFor(incomeChange),
+      note: "",
+      noteClass: "kpi-note--neutral",
       progress: Math.max(8, Math.min(100, Math.round((income / Math.max(revenue, 1)) * 100))),
       description: "Фактически полученные деньги за выбранную дату.",
       details: [
@@ -682,8 +679,8 @@ function buildRealKpis(dash, sales, selectedDate, placeSettings = [], financeRow
       label: "Денежные расходы",
       value: formatNumber(expense),
       suffix: "UZS",
-      note: expense > 0 ? `${signed(expenseChange)}% к вчерашнему дню` : "—",
-      noteClass: expense > 0 ? noteClassFor(expenseChange) : "kpi-note--neutral",
+      note: "",
+      noteClass: "kpi-note--neutral",
       progress: Math.max(8, Math.min(100, Math.round((expense / Math.max(revenue, 1)) * 100))),
       description: "Фактические расходы за выбранную дату.",
       details: [],
