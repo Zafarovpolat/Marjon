@@ -470,14 +470,17 @@ export function SaleCategoryPage({ search, onNotify }) {
   const query = (search || "").trim().toLowerCase();
 
   useEffect(() => {
+    let activeRequest = true;
     hqService.listCategories()
       .then(({ data }) => {
+        if (!activeRequest) return;
         const items = Array.isArray(data) ? data : data?.items || data?.results || [];
         const nextRows = items.map(normalizeAdminSaleCategory).filter((row) => row.name);
         setRows(nextRows);
         setLoadState(nextRows.length ? "success" : "empty");
       })
       .catch(() => {
+        if (!activeRequest) return;
         setRows([]);
         setLoadState("error");
       });
