@@ -4,12 +4,7 @@ import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import { exportToExcel } from "../utils/excel";
 import { isAbortError, isOrderedDateRange, useLatestRequest } from "../hooks/useAsyncSafety";
-
-function toApiDate(ddmmyyyy) {
-  if (!ddmmyyyy) return undefined;
-  const [d, m, y] = ddmmyyyy.split(".");
-  return `${y}-${m}-${d}`;
-}
+import { toApiDate } from "./reports/reportPeriod";
 
 const initialFilters = {
   query: "",

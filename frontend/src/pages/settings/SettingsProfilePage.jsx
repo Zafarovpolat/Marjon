@@ -1,151 +1,32 @@
-import { useEffect, useMemo, useState } from "react";
-import { settingsService } from "../../api/settings";
+// Оркестратор страницы «Профиль компании»: связывает контроллер данных
+// (useCompanyProfileForm) с представлением. Конфигурация секций и логика
+// загрузки/сохранения вынесены в ./profile; здесь только вывод разметки.
 import logo from "../../assets/marjon-logo.svg";
 import Icon from "../../components/Icon";
 import { useAuth } from "../../context/AuthContext";
-import { readStoredProfile, updateStoredProfile } from "../../utils/profileCache";
-import { isAbortError, useLatestRequest, useMutationLocks } from "../../hooks/useAsyncSafety";
-
-const profileSections = [
-  { key: "basic", label: "Основные данные", icon: "bi-file-earmark-text" },
-  { key: "main", label: "Основные настройки", icon: "bi-sliders" },
-  { key: "receipt", label: "Настройки для чека", icon: "bi-receipt" },
-  { key: "cashier", label: "Настройки кассира", icon: "bi-person" },
-  { key: "online", label: "Настройки для онлайн меню", icon: "bi-list" },
-  { key: "other", label: "Другие настройки", icon: "bi-three-dots" },
-  { key: "discounts", label: "Скидки", icon: "bi-percent" },
-  { key: "profile", label: "Настройка профиля", icon: "bi-person-gear" },
-  { key: "constructor", label: "Чек конструктор", icon: "bi-ticket-perforated" },
-  { key: "import", label: "Импорт", icon: "bi-box-arrow-in-down" },
-  { key: "telegram", label: "Telegram бот настройки", icon: "bi-chat-left" },
-  { key: "legacy", label: "Старая версия", icon: "bi-arrow-counterclockwise" },
-];
-
-const emptyForm = {
-  name: "",
-  phone: "",
-  address: "",
-  inn: "",
-  currency: "UZS",
-  companyLogo: "",
-  profileLogo: "",
-};
+import { profileSections } from "./profile/profileSections";
+import { useCompanyProfileForm } from "./profile/useCompanyProfileForm";
 
 export default function SettingsProfilePage() {
   const { user } = useAuth();
-  const storedProfile = useMemo(() => readStoredProfile(user?.id), [user?.id]);
-  const [form, setForm] = useState({ ...emptyForm, profileLogo: storedProfile.photo || "" });
-  const [savedForm, setSavedForm] = useState({ ...emptyForm, profileLogo: storedProfile.photo || "" });
-  const [activeSection, setActiveSection] = useState("basic");
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const beginRequest = useLatestRequest();
-  const { acquire, release } = useMutationLocks();
-
-  useEffect(() => {
-    const request = beginRequest();
-    settingsService.getCompanyProfile({ signal: request.signal })
-      .then(({ data }) => {
-        if (!request.isCurrent()) return;
-        const next = {
-          name: data.name || "",
-          phone: data.phone || "",
-          address: data.address || "",
-          inn: data.inn || "",
-          currency: data.currency || "UZS",
-          companyLogo: storedProfile.companyLogo || "",
-          profileLogo: storedProfile.photo || "",
-        };
-        setForm(next);
-        setSavedForm(next);
-      })
-      .catch((err) => {
-        if (request.isCurrent() && !isAbortError(err)) setError(err.response?.data?.detail || "Не удалось загрузить профиль.");
-      })
-      .finally(() => { if (request.isCurrent()) setLoading(false); });
-  }, [beginRequest, storedProfile.companyLogo, storedProfile.name, storedProfile.photo, user?.id]);
+  const {
+    form,
+    activeSection,
+    setActiveSection,
+    loading,
+    saving,
+    error,
+    success,
+    setSuccess,
+    set,
+    handleImageChange,
+    resetForm,
+    clearLogo,
+    handleSave,
+  } = useCompanyProfileForm(user);
 
   const activeMeta = profileSections.find((section) => section.key === activeSection) || profileSections[0];
   const profilePreview = form.profileLogo || form.companyLogo || logo;
-
-  const set = (key, value) => {
-    setForm((current) => ({ ...current, [key]: value }));
-    setError("");
-    setSuccess("");
-  };
-
-  function handleImageChange(key, event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setError("Выберите файл изображения.");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => set(key, String(reader.result || ""));
-    reader.readAsDataURL(file);
-  }
-
-  function resetForm() {
-    setForm(savedForm);
-    setError("");
-    setSuccess("Изменения отменены.");
-  }
-
-  function clearLogo(key) {
-    set(key, "");
-  }
-
-  async function handleSave(event) {
-    event.preventDefault();
-    if (!acquire("company-profile-save")) return;
-    if (!form.name.trim()) {
-      setError("Укажите название компании.");
-      release("company-profile-save");
-      return;
-    }
-    setSaving(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      const payload = {
-        name: form.name,
-        phone: form.phone,
-        address: form.address,
-        inn: form.inn,
-        currency: form.currency,
-      };
-      const { data } = await settingsService.updateCompanyProfile(payload);
-      if (!data || typeof data !== "object") throw new Error("Backend не вернул сохранённый профиль.");
-      const confirmed = {
-        ...form,
-        name: data.name || "",
-        phone: data.phone || "",
-        address: data.address || "",
-        inn: data.inn || "",
-        currency: data.currency || "UZS",
-      };
-      const nextStored = {
-        ...readStoredProfile(user?.id),
-        name: confirmed.name,
-        photo: form.profileLogo,
-        companyLogo: form.companyLogo,
-      };
-      updateStoredProfile(user?.id, nextStored);
-      setForm(confirmed);
-      setSavedForm(confirmed);
-      setSuccess("Профиль сохранён.");
-    } catch (err) {
-      setError(err.response?.data?.detail || "Не удалось сохранить профиль.");
-    } finally {
-      setSaving(false);
-      release("company-profile-save");
-    }
-  }
 
   if (loading) {
     return (

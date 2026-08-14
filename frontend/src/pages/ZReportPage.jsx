@@ -3,6 +3,7 @@ import { reportsService } from "../api/reports";
 import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 import Icon from "../components/Icon";
 import { todayInputValue } from "../utils/date";
+import { formatMoney } from "./reports/reportMoney";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -10,10 +11,6 @@ function escapeHtml(value) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-}
-
-function formatMoney(value) {
-  return `${new Intl.NumberFormat("ru-RU").format(Number(value))} UZS`;
 }
 
 function formatNullable(value) {
