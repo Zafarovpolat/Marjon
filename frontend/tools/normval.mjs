@@ -7,7 +7,7 @@
 import fs from "node:fs";
 
 /* ---- карта токенов из marjon-tokens.css ---- */
-export function loadTokens(file = "src/styles/marjon-tokens.css") {
+export function loadTokens(file = "src/styles/global/marjon-tokens.css") {
   const map = new Map();
   if (!fs.existsSync(file)) return map;
   const txt = fs.readFileSync(file, "utf8");
