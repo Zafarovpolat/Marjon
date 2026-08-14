@@ -63,6 +63,7 @@ const OWNER = {
   id: "owner",
   role_slugs: ["owner"],
   roles: ["owner"],
+  auth_scope: "app",
   email: "owner@marjon.test",
   full_name: "Владелец Тестов",
   company_id: "c1",

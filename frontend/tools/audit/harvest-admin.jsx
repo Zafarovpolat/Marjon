@@ -29,6 +29,15 @@ vi.mock("../../src/admin/api", () => ({
   adminLogin: vi.fn(() => Promise.resolve({ ok: true })),
   adminLogout: vi.fn(),
   isAdminAuthenticated: () => state.authed,
+  // FE-08A: AdminApp теперь валидирует сессию через getValidatedAdminProfile.
+  // Фикстура возвращает валидный HQ-профиль, иначе оболочка уходит в LoginView.
+  getValidatedAdminProfile: vi.fn(() => Promise.resolve({
+    id: "a1",
+    email: "admin@marjon.uz",
+    full_name: "Админ",
+    is_superadmin: true,
+    auth_scope: "hq_admin",
+  })),
 }));
 
 /** Разделы навигации: сначала родители (раскрыть), затем дети. */
