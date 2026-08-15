@@ -115,36 +115,10 @@
     background: var(--neutral-950);
   }
 
-  .pos-sidebar--ownerlike .pos-brand {
-    gap: 14px;
-    padding: 0 0 24px;
-    margin: 0 0 18px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  }
 
-  .pos-sidebar--ownerlike .pos-brand__mark {
-    width: 58px;
-    height: 58px;
-    border-radius: 0;
-    padding: 5px;
-    box-shadow: 0 7px 17px rgba(0, 0, 0, 0.126);
-  }
 
-  .pos-sidebar--ownerlike .pos-brand strong {
-    font-size: 21px;
-    letter-spacing: 0.04em;
-  }
 
-  .pos-sidebar--ownerlike .pos-brand span {
-    margin-top: 4px;
-    color: rgba(255, 255, 255, 0.66);
-    letter-spacing: 0.04em;
-  }
 
-  .pos-sidebar--ownerlike .pos-nav {
-    gap: 20px;
-    padding: 10px 0 20px;
-  }
 
   .pos-sidebar--ownerlike .pos-nav a,
   .pos-sidebar--ownerlike .pos-nav-button {
@@ -1887,9 +1861,6 @@
     background: var(--mj-main-bg);
   }
 
-  .dashboard-sidebar {
-    background: var(--neutral-950);
-  }
 
   .dashboard-sidebar::after {
     content: "";
@@ -1909,10 +1880,6 @@
   }
 
   /* Unified premium shell color - no grey sidebar gutter */
-  body.dashboard-body,
-  .dashboard-shell {
-    background: var(--neutral-950);
-  }
 
   .dashboard-sidebar {
     z-index: 3;
@@ -1943,10 +1910,6 @@
     isolation: isolate;
   }
 
-  .kpi-grid--premium .premium-kpi::before {
-    background: transparent;
-  
-  }
 
   .kpi-grid--premium .premium-kpi:hover {
     transform: translateY(-4px);
@@ -2432,9 +2395,6 @@
   }
 
   /* Owner dashboard 3D reference polish */
-  .dashboard-main {
-    background: var(--neutral-50);
-  }
 
   .dashboard-content {
     padding: 24px 30px 38px;
@@ -2614,10 +2574,6 @@
     height: 5px;
   }
 
-  .top-dish__bar i {
-    background: var(--color-brand);
-  
-  }
 
   .top-dish__price {
     color: var(--neutral-900);
@@ -3137,10 +3093,6 @@
   }
 
   /* Reference seam: large white curve, dark background behind it */
-  body.dashboard-body,
-  .dashboard-shell {
-    background: var(--neutral-950);
-  }
 
   .dashboard-sidebar {
     background: var(--neutral-950);
@@ -18530,9 +18482,6 @@ html,body,.dashboard-shell,.warehouse-workspace,.warehouse-workspace__content {
 
   /* Final layout seam cleanup: keep the sidebar dark, everything behind main light */
   
-#root {
-  background: var(--neutral-50);
-}
 
   .dashboard-shell::before {
     content: "";
