@@ -45,6 +45,17 @@ vi.mock("../../src/api/receipt", () => ({
   printTestKitchenReceipt: vi.fn(() => Promise.resolve()),
 }));
 
+// FE-08D-ORACLE-RATES: deterministic exchange-rate fixture for the OWNER visual
+// audit (same audit fixture as harvest-dom.jsx). Prevents the Topbar rate
+// widget's numeric span from depending on the live cbu.uz fetch timing. Fixture
+// data only; production exchangeRatesService is unchanged.
+vi.mock("../../src/api/exchangeRates", () => ({
+  exchangeRatesService: {
+    get: () => Promise.resolve([{ Rate: "12500.0", Nominal: "1" }]),
+  },
+  RATE_URLS: {},
+}));
+
 const OWNER = { id: "owner", role_slugs: ["owner"], roles: ["owner"], auth_scope: "app",
   email: "owner@marjon.test", full_name: "Владелец Тестов", company_id: "c1" };
 
