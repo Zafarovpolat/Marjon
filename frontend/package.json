@@ -9,6 +9,7 @@
     "test": "npm run test:admin && npm run test:unit",
     "test:admin": "node scripts/admin-login.test.mjs",
     "test:unit": "vitest run",
+    "verify": "npm run test:admin && npm run test:unit && npm run build && npm run css:verify",
     "preview": "vite preview",
     "css:verify": "bash tools/css-verify.sh check",
     "css:baseline": "bash tools/css-verify.sh baseline"
