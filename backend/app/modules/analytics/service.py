@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from sqlalchemy import func, select
+from sqlalchemy import bindparam, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.analytics.schemas import DashboardResponse, PaymentMethodSummary, SalesReport, TopProduct, UserActivityRank, ZReportResponse
 from app.modules.auth.models import RefreshToken, User
@@ -76,9 +76,15 @@ class AnalyticsService:
         tz = await self._company_tz(company_id)
         start, _ = self._date_bounds(date_from, tz)
         _, end    = self._date_bounds(date_to, tz)
+        # One reusable day-bucket expression with a single named bind for the
+        # timezone, so SELECT / GROUP BY / ORDER BY compile to the *same*
+        # PostgreSQL expression (same bind identity). Rebuilding it per clause
+        # emitted a distinct bind per clause and tripped PostgreSQL's
+        # "must appear in the GROUP BY clause" rule (SQLite masks this).
+        day = func.date(func.timezone(bindparam("sales_tz", str(tz)), Order.created_at))
         result = await self.db.execute(
             select(
-                func.date(func.timezone(str(tz), Order.created_at)).label("day"),
+                day.label("day"),
                 func.count(Order.id).label("cnt"),
                 func.coalesce(func.sum(Order.total_amount), 0).label("rev"),
             )
@@ -88,8 +94,8 @@ class AnalyticsService:
                 Order.created_at >= start,
                 Order.created_at < end,
             )
-            .group_by(func.date(func.timezone(str(tz), Order.created_at)))
-            .order_by(func.date(func.timezone(str(tz), Order.created_at)))
+            .group_by(day)
+            .order_by(day)
         )
         rows = result.all()
         return [
