@@ -93,7 +93,10 @@ export function KpiInfoDialog({ kpi, onClose }) {
 
   if (!kpi) return null;
 
-  const container = document.querySelector(".dashboard-main") || document.body;
+  // Portal to <body> so the backdrop is a top-level fixed layer above the whole
+  // shell (sidebar + topbar + main); inside .dashboard-main its stacking context
+  // trapped the dim below the sidebar, leaving it undimmed.
+  const container = document.body;
 
   return createPortal(
     <div className="kpi-info-backdrop" role="presentation" onMouseDown={onClose}>
