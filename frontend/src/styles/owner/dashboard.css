@@ -6351,3 +6351,96 @@ body.dashboard-body .dashboard-shell .recent-orders-card:focus-within {
     padding-bottom: 14px;
   }
 }
+
+/* ============================================================
+   OWNER dashboard surface / hover / modal — canonical ownership,
+   migrated verbatim from react-overrides.css (Phase 2). Byte-identical
+   rules + selectors; only the owning file changed. Real-browser oracle
+   (npm run test:browser) proves resting/hover/focus/modal unchanged.
+   ------------------------------------------------------------
+   Surface refinement — geometry / surface / elevation only. Radius set
+   unconditionally; calmer border/shadow apply only at rest via
+   :not(:hover):not(:focus-visible), leaving hover/focus elevation intact. */
+body.dashboard-body .dashboard-shell .kpi-grid--premium .premium-kpi {
+  border-radius: 16px;
+}
+body.dashboard-body .dashboard-shell .premium-chart {
+  border-radius: 16px;
+}
+body.dashboard-body .dashboard-shell .premium-chart .revenue-stat-grid div {
+  border: 1px solid rgba(15, 35, 60, 0.07);
+  border-radius: 11px;
+  box-shadow: none;
+}
+body.dashboard-body .dashboard-shell .warehouse-summary-item {
+  border-radius: 13px;
+}
+body.dashboard-body .dashboard-shell .kpi-grid--premium .premium-kpi:not(:hover):not(:focus-visible) {
+  border: 1px solid rgba(15, 35, 60, 0.08);
+  box-shadow: 0 2px 8px rgba(15, 35, 60, 0.05);
+}
+body.dashboard-body .dashboard-shell .premium-chart:not(:hover):not(:focus-visible) {
+  border: 1px solid rgba(15, 35, 60, 0.08);
+  box-shadow: 0 1px 6px rgba(15, 35, 60, 0.04);
+}
+body.dashboard-body .dashboard-shell .warehouse-summary-item:not(:hover):not(:focus-visible) {
+  border: 1px solid rgba(15, 35, 60, 0.09);
+  box-shadow: 0 3px 10px rgba(15, 35, 60, 0.06);
+}
+/* KPI density — desktop only, so the tablet/mobile compaction stays. */
+@media (min-width: 769px) {
+  body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band .premium-kpi {
+    min-height: 152px;
+    padding: 15px 16px 14px;
+  }
+}
+/* Hover / modal corrections. No layout-affecting properties animate. */
+
+/* Right-side warehouse cards — calm, isolated hover (no lift; explicit 1px
+   border in both states so nothing reflows). */
+body.dashboard-body .dashboard-shell .warehouse-summary-item:hover,
+body.dashboard-body .dashboard-shell .warehouse-summary-item:focus-visible {
+  transform: none;
+  border: 1px solid rgba(15, 35, 60, 0.14);
+  box-shadow: 0 6px 16px rgba(15, 35, 60, 0.08);
+}
+
+/* Large Revenue Analytics card — softened hover: modest shadow step-up only,
+   explicit 1px border, no transform, controlled ~170ms transition. */
+body.dashboard-body .dashboard-shell .premium-chart {
+  transition: box-shadow 170ms ease, border-color 170ms ease;
+}
+body.dashboard-body .dashboard-shell .premium-chart:hover,
+body.dashboard-body .dashboard-shell .premium-chart:focus-within {
+  transform: none;
+  border: 1px solid rgba(15, 35, 60, 0.12);
+  box-shadow: 0 8px 20px rgba(15, 35, 60, 0.07);
+}
+
+/* KPI detail modal — single full-viewport backdrop over the whole shell
+   (dialog is portalled to document.body); the redundant ::before is switched
+   off so the two dim layers can't stack. Same rgba(2,8,23,.54)+blur(5px). */
+body.dashboard-body .kpi-info-backdrop:not(.warehouse-report-backdrop) {
+  left: 0;
+  right: 0;
+  width: auto;
+  background: rgba(2, 8, 23, 0.54);
+  backdrop-filter: blur(5px);
+}
+body.dashboard-body .kpi-info-backdrop:not(.warehouse-report-backdrop)::before {
+  display: none;
+}
+
+/* KPI detail modal title — centre the title+date group over the full modal
+   width; a 40px left spacer mirrors the 40px close column, X stays right. */
+body.dashboard-body .kpi-info-window--payment-table .kpi-info-window__head--payment-table {
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+}
+body.dashboard-body .kpi-info-window--payment-table .kpi-info-window__head--payment-table > div {
+  grid-column: 2;
+  justify-content: center;
+  text-align: center;
+}
+body.dashboard-body .kpi-info-window--payment-table .kpi-info-window__head--payment-table > .kpi-info-window__close {
+  grid-column: 3;
+}

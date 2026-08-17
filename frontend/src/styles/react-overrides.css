@@ -11522,9 +11522,8 @@
     /* === RECENT ORDERS CARD === */
 
     /* === LAYOUT GAPS === */
-    .owner-main-grid,
-    .owner-widgets {
-    
+    .owner-main-grid {
+
       margin-top: 12px;
     }
   }
@@ -20614,11 +20613,8 @@ body,#root {
     background: var(--neutral-100);
   }
 
-  .owner-widgets {
-  
-    margin-top: 24px;
-  
-  }
+  /* .owner-widgets margin-top is owned by styles/owner/dashboard.css now;
+     the obsolete legacy override was removed here. */
 
   .quick-actions--command {
     grid-column: 1;
@@ -32640,7 +32636,6 @@ body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-br
 body.dashboard-body .dashboard-shell .premium-chart .revenue-stat-grid div {
   padding-left: 16px;
   padding-right: 16px;
-  border-radius: 12px;
 }
 
   }
@@ -34760,136 +34755,7 @@ body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand__identity
 
 }
 
-/* ============================================================
-   OWNER dashboard surface refinement — geometry / surface / elevation
-   only. Palette, text, graph, layout, typography unchanged. Appended
-   last so it wins the cascade for exactly these OWNER dashboard
-   surfaces (KPI cards, analytics panel, inner stat cells, right cards).
-   Three elevation levels: analytics almost-flat < KPI subtle < right
-   cards slightly more separated; inner stat cells fully flat.
-   Radius is set unconditionally; the calmer border/shadow apply only in
-   the resting state via :not(:hover):not(:focus-visible), so the
-   existing hover/focus elevation + teal accent are left untouched.
-   ============================================================ */
-body.dashboard-body .dashboard-shell .kpi-grid--premium .premium-kpi {
-  border-radius: 16px;
-}
-body.dashboard-body .dashboard-shell .premium-chart {
-  border-radius: 16px;
-}
-body.dashboard-body .dashboard-shell .premium-chart .revenue-stat-grid div {
-  border: 1px solid rgba(15, 35, 60, 0.07);
-  border-radius: 11px;
-  box-shadow: none;
-}
-body.dashboard-body .dashboard-shell .warehouse-summary-item {
-  border-radius: 13px;
-}
-body.dashboard-body .dashboard-shell .kpi-grid--premium .premium-kpi:not(:hover):not(:focus-visible) {
-  border: 1px solid rgba(15, 35, 60, 0.08);
-  box-shadow: 0 2px 8px rgba(15, 35, 60, 0.05);
-}
-body.dashboard-body .dashboard-shell .premium-chart:not(:hover):not(:focus-visible) {
-  border: 1px solid rgba(15, 35, 60, 0.08);
-  box-shadow: 0 1px 6px rgba(15, 35, 60, 0.04);
-}
-body.dashboard-body .dashboard-shell .warehouse-summary-item:not(:hover):not(:focus-visible) {
-  border: 1px solid rgba(15, 35, 60, 0.09);
-  box-shadow: 0 3px 10px rgba(15, 35, 60, 0.06);
-}
-/* KPI density — desktop only, so the tablet/mobile compaction stays. */
-@media (min-width: 769px) {
-  body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band .premium-kpi {
-    min-height: 152px;
-    padding: 15px 16px 14px;
-  }
-}
-
-/* ============================================================
-   OWNER dashboard hover / modal corrections (on top of the surface
-   refinement WIP above). Three isolated fixes, no layout-affecting
-   properties animate, no inner elements move.
-   ============================================================ */
-
-/* 1 + 2 + 3) RIGHT-SIDE WAREHOUSE CARDS — calm, isolated hover.
-   Root cause of the perceived sibling "jitter": the resting hover rule
-   `.dashboard-shell .warehouse-summary-item:hover` applied
-   `transform: translateY(-2px)`, so the hovered card physically lifted;
-   against the tight vertical stack its shifted position + enlarged shadow
-   read as the neighbours reacting. Fix = remove the lift entirely and keep
-   only a gentle border/shadow change on the hovered card itself. Border
-   width is stated explicitly (1px in both rest and hover) so nothing
-   reflows. Transition inherited from the base rule is scoped
-   (transform/box-shadow/border-color .15s) — with transform now constant
-   only box-shadow + border-color animate, all non-layout. */
-body.dashboard-body .dashboard-shell .warehouse-summary-item:hover,
-body.dashboard-body .dashboard-shell .warehouse-summary-item:focus-visible {
-  transform: none;
-  border: 1px solid rgba(15, 35, 60, 0.14);
-  box-shadow: 0 6px 16px rgba(15, 35, 60, 0.08);
-}
-
-/* 4) LARGE REVENUE ANALYTICS CARD — soften the hover.
-   Root cause of the "too sharp / too strong" shadow: the effective hover
-   shadow was `0 18px 52px rgba(13,39,72,.10)` while the WIP resting shadow
-   is almost flat (`0 1px 6px rgba(15,35,60,.04)`), so the jump was huge.
-   Fix = a modest step-up only, explicit 1px border (no width change), no
-   transform/scale, and a controlled ~170ms transition. */
-body.dashboard-body .dashboard-shell .premium-chart {
-  transition: box-shadow 170ms ease, border-color 170ms ease;
-}
-body.dashboard-body .dashboard-shell .premium-chart:hover,
-body.dashboard-body .dashboard-shell .premium-chart:focus-within {
-  transform: none;
-  border: 1px solid rgba(15, 35, 60, 0.12);
-  box-shadow: 0 8px 20px rgba(15, 35, 60, 0.07);
-}
-
-/* 6 + 7 + 8) KPI DETAIL MODAL — single full-viewport backdrop over the whole
-   shell. The dialog is portalled to document.body (see DashboardDialogs.jsx)
-   so `.kpi-info-backdrop` becomes a top-level fixed layer above sidebar +
-   topbar + main. The previous design offset the backdrop to the workspace
-   (left: 260px) and painted the dim through a `::before`, which — inside
-   .dashboard-main's stacking context — never reached the sidebar, so it read
-   as "too separate". Here the KPI backdrop (not the warehouse report) is made
-   a true inset:0 layer with a SINGLE dim (same rgba(2,8,23,.54) + blur 5px as
-   before — not stronger); the redundant `::before` is switched off so the two
-   dim layers can't stack and darken. One darkened scene over sidebar + header
-   + main; sidebar navy is preserved (only dimmed), everything behind is
-   covered so it is non-interactive, and backdrop-click still closes. Robust
-   across expanded/collapsed sidebar because it no longer depends on its width.
-   The modal centres over the viewport via the existing place-items: center. */
-body.dashboard-body .kpi-info-backdrop:not(.warehouse-report-backdrop) {
-  left: 0;
-  right: 0;
-  width: auto;
-  background: rgba(2, 8, 23, 0.54);
-  backdrop-filter: blur(5px);
-}
-body.dashboard-body .kpi-info-backdrop:not(.warehouse-report-backdrop)::before {
-  display: none;
-}
-
-/* 9 + 10) KPI DETAIL MODAL TITLE — centre the title+date group relative to
-   the full modal width. A 40px left spacer mirrors the 40px close column so
-   the centre column is truly centred; the X stays right and does not pull
-   the title off-centre. Applies to the shared payment-table head, so every
-   KPI detail modal (Выручка / Заказов / Средний чек / приход / расходы)
-   centres consistently. flex-wrap + centred justify keeps the date under the
-   title, still centred, on narrow widths. */
-body.dashboard-body .kpi-info-window--payment-table .kpi-info-window__head--payment-table {
-  grid-template-columns: 40px minmax(0, 1fr) 40px;
-}
-body.dashboard-body .kpi-info-window--payment-table .kpi-info-window__head--payment-table > div {
-  grid-column: 2;
-  justify-content: center;
-  text-align: center;
-}
-body.dashboard-body .kpi-info-window--payment-table .kpi-info-window__head--payment-table > .kpi-info-window__close {
-  grid-column: 3;
-}
-
-/* Lower workspace panels + revenue-chart empty + composition spacing were
-   migrated to styles/owner/dashboard.css (OWNER dashboard CSS ownership stage).
-   The obsolete `.owner-widgets { gap: 14px }` override that previously lived
-   here was removed so the accepted 16px value no longer depends on source order. */
+/* OWNER dashboard surface / hover / modal rules were migrated to
+   styles/owner/dashboard.css (canonical owner) in the Phase-2 CSS ownership
+   stage — verbatim, real-browser verified. Do NOT add new OWNER dashboard
+   design here; react-overrides is the legacy layer only. */

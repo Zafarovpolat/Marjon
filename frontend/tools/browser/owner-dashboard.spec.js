@@ -159,5 +159,39 @@ test.describe("OWNER dashboard real-browser oracle", () => {
     await expect(backdrop).toHaveCount(0);
   });
 
+  // Fine-grained accepted surface-refinement values (the e2b383d-controlled
+  // resting geometry/border/elevation + KPI density). Asserted at one clean
+  // desktop width so the CSS-ownership migration can be proven byte-for-byte.
+  test("surface-refinement detail @ 1280", async ({ page }) => {
+    await page.mouse.move(0, 0);
+    await page.evaluate(() => document.activeElement && document.activeElement.blur());
+
+    // inner revenue Max/Min/Avg stat cells — flat, 11px, hairline border
+    const cell = page.locator(".premium-chart .revenue-stat-grid div").first();
+    await expect(cell).toHaveCSS("border-radius", "11px");
+    await expect(cell).toHaveCSS("border-top-width", "1px");
+    await expect(cell).toHaveCSS("border-top-color", "rgba(15, 35, 60, 0.07)");
+    await expect(cell).toHaveCSS("box-shadow", "none");
+
+    // KPI resting border + accepted desktop density
+    const kpi = page.locator(".premium-kpi").first();
+    await expect(kpi).toHaveCSS("border-top-width", "1px");
+    await expect(kpi).toHaveCSS("border-top-color", "rgba(15, 35, 60, 0.08)");
+    await expect(kpi).toHaveCSS("min-height", "152px");
+    await expect(kpi).toHaveCSS("padding-top", "15px");
+
+    // Revenue Analytics resting border + controlled transition
+    const chart = page.locator(".premium-chart");
+    await expect(chart).toHaveCSS("border-top-width", "1px");
+    await expect(chart).toHaveCSS("border-top-color", "rgba(15, 35, 60, 0.08)");
+    await expect(chart).toHaveCSS("transition", "box-shadow 0.17s, border-color 0.17s");
+
+    // right-summary resting border
+    const wh = page.locator(".warehouse-summary-item").first();
+    await expect(wh).toHaveCSS("border-top-width", "1px");
+    await expect(wh).toHaveCSS("border-top-color", "rgba(15, 35, 60, 0.09)");
+  });
+
+
 
 });
