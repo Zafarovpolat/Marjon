@@ -298,6 +298,11 @@ export function buildRealKpis(dash, sales, selectedDate, placeSettings = [], fin
   const day = sales.at(-1) || { revenue: 0, orders_count: 0, avg_check: 0 };
   const prev = sales.at(-2) || day;
 
+  // A truthful day-over-day comparison needs a real previous datapoint. A new
+  // company with no sales history (sales.length < 2) has no "вчера" to compare
+  // to, so we must not print a fabricated "±0% к вчерашнему дню".
+  const hasHistory = Array.isArray(sales) && sales.length >= 2;
+
   const revenue = dash.today_revenue ?? day.revenue;
   const orders = dash.today_orders ?? day.orders_count;
   const avgCheck = dash.avg_check ?? day.avg_check;
@@ -322,8 +327,8 @@ export function buildRealKpis(dash, sales, selectedDate, placeSettings = [], fin
       label: "Выручка за день",
       value: formatNumber(revenue),
       suffix: "UZS",
-      note: `${signed(revChange)}% к вчерашнему дню`,
-      noteClass: noteClassFor(revChange),
+      note: hasHistory ? `${signed(revChange)}% к вчерашнему дню` : "Нет данных для сравнения",
+      noteClass: hasHistory ? noteClassFor(revChange) : "kpi-note--neutral",
       progress: Math.max(8, Math.min(100, 72)),
       description: "Дневная выручка по всем закрытым заказам за выбранную дату.",
       details: [
@@ -332,9 +337,11 @@ export function buildRealKpis(dash, sales, selectedDate, placeSettings = [], fin
         ["Активные заказы", `${activeOrders}`],
       ],
       paymentRows: realPaymentRows(dash, revenue),
-      insight: revChange >= 0
-        ? `Темп выше вчерашнего дня на ${Math.abs(revChange)}%.`
-        : `Темп ниже вчерашнего дня на ${Math.abs(revChange)}%.`,
+      insight: !hasHistory
+        ? "Пока нет данных за предыдущий день для сравнения."
+        : revChange >= 0
+          ? `Темп выше вчерашнего дня на ${Math.abs(revChange)}%.`
+          : `Темп ниже вчерашнего дня на ${Math.abs(revChange)}%.`,
     },
     {
       className: "premium-kpi--orders",
@@ -342,8 +349,8 @@ export function buildRealKpis(dash, sales, selectedDate, placeSettings = [], fin
       badge: "Live",
       label: "Заказов",
       value: formatNumber(orders),
-      note: `${signed(ordChange)} к вчерашнему дню`,
-      noteClass: noteClassFor(ordChange),
+      note: hasHistory ? `${signed(ordChange)} к вчерашнему дню` : "Заказов пока нет",
+      noteClass: hasHistory ? noteClassFor(ordChange) : "kpi-note--neutral",
       progress: Math.max(8, Math.min(100, Math.round((orders / Math.max(orders + 28, 1)) * 100))),
       description: "Количество заказов за день.",
       details: [
@@ -360,8 +367,8 @@ export function buildRealKpis(dash, sales, selectedDate, placeSettings = [], fin
       label: "Средний чек",
       value: formatNumber(avgCheck),
       suffix: "UZS",
-      note: `${signed(avgChange)}% к вчерашнему дню`,
-      noteClass: noteClassFor(avgChange),
+      note: hasHistory ? `${signed(avgChange)}% к вчерашнему дню` : "Появится после первых заказов",
+      noteClass: hasHistory ? noteClassFor(avgChange) : "kpi-note--neutral",
       progress: Math.max(8, 65),
       description: "Средняя сумма одного заказа за выбранный день.",
       details: [],

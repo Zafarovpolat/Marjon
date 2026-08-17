@@ -34894,3 +34894,106 @@ body.dashboard-body .kpi-info-window--payment-table .kpi-info-window__head--paym
 body.dashboard-body .kpi-info-window--payment-table .kpi-info-window__head--payment-table > .kpi-info-window__close {
   grid-column: 3;
 }
+
+/* ============================================================
+   OWNER DASHBOARD — EMPTY CONTENT & COMPOSITION (stage 2)
+   Success+empty presentation only. No fake data, no fake rows.
+   Palette / typography scale unchanged. Sidebar / topbar / modal /
+   hover work from the previous accepted stage untouched.
+   ============================================================ */
+
+/* Shared intentional empty-state (revenue chart + lower sections). Centred
+   in the usable body so the region reads as designed, not unfinished. The
+   inner mark uses a smaller radius (12px) than the outer 16px card — one
+   subtle level, no card-in-card. */
+body.dashboard-body .dashboard-shell .owner-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-height: 180px;
+  padding: 24px 18px;
+}
+body.dashboard-body .dashboard-shell .owner-empty__mark {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 6px;
+  border-radius: 12px;
+  color: var(--color-brand);
+  background: rgba(29, 181, 181, 0.10);
+}
+body.dashboard-body .dashboard-shell .owner-empty__mark svg,
+body.dashboard-body .dashboard-shell .owner-empty__mark svg * {
+  color: var(--color-brand);
+  stroke: currentColor;
+  fill: none;
+}
+body.dashboard-body .dashboard-shell .owner-empty__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--neutral-900);
+}
+body.dashboard-body .dashboard-shell .owner-empty__text {
+  margin: 0;
+  max-width: 300px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--neutral-500);
+}
+/* Revenue chart empty fills the stable chart height (no shrink, no jump when
+   the real chart returns) and sits in the visual centre. */
+body.dashboard-body .dashboard-shell .premium-chart .chart-wrap .owner-empty--chart {
+  height: 100%;
+  min-height: 0;
+  justify-content: center;
+}
+
+/* Lower workspace panels: disciplined 16px corners aligned with the refined
+   OWNER surfaces; subtle border + very light shadow, no hover lift / no
+   shadow change on hover (resting == hover == focus). */
+body.dashboard-body .dashboard-shell .owner-top-sales-card,
+body.dashboard-body .dashboard-shell .recent-orders-card,
+body.dashboard-body .dashboard-shell .owner-top-sales-card:hover,
+body.dashboard-body .dashboard-shell .owner-top-sales-card:focus-within,
+body.dashboard-body .dashboard-shell .recent-orders-card:hover,
+body.dashboard-body .dashboard-shell .recent-orders-card:focus-within {
+  border-radius: 16px;
+  border: 1px solid rgba(15, 35, 60, 0.08);
+  box-shadow: 0 2px 8px rgba(15, 35, 60, 0.05);
+  transform: none;
+}
+/* Composition spacing between the big sections — deliberate, tighter rhythm.
+   Kept per-breakpoint so the responsive tightening is preserved. */
+@media (min-width: 1281px) {
+  body.dashboard-body .dashboard-shell .owner-widgets {
+    margin-top: 20px;
+    gap: 16px;
+  }
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) {
+    padding-bottom: 24px;
+  }
+}
+@media (max-width: 1280px) {
+  body.dashboard-body .dashboard-shell .owner-widgets {
+    margin-top: 16px;
+    gap: 16px;
+  }
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) {
+    padding-bottom: 16px;
+  }
+}
+@media (max-width: 768px) {
+  body.dashboard-body .dashboard-shell .owner-widgets {
+    margin-top: 12px;
+    gap: 12px;
+  }
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) {
+    padding-bottom: 14px;
+  }
+}

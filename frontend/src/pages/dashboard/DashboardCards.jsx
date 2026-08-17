@@ -43,6 +43,20 @@ export function EmptyState({ title, text }) {
   );
 }
 
+// Intentional empty state for a healthy company with no business activity yet
+// (success + empty — NOT loading, NOT error). No fake rows, no fabricated
+// figures. Shared across the revenue chart and the lower dashboard sections so
+// every empty region reads as the same designed state.
+export function SectionEmpty({ icon = "bi-inbox", title, text, className = "" }) {
+  return (
+    <div className={`owner-empty ${className}`.trim()}>
+      <div className="owner-empty__mark"><Icon name={icon} size={22} /></div>
+      <p className="owner-empty__title">{title}</p>
+      <p className="owner-empty__text">{text}</p>
+    </div>
+  );
+}
+
 export function ShiftSummaryCard({ summary }) {
   return (
     <aside className="card card-pad shift-summary-card shift-summary-card--window">
@@ -173,13 +187,11 @@ export function RecentOrdersCard({ orders }) {
             <small className={order.ready ? "is-ready" : "is-progress"}>{order.status}</small>
           </div>
         )) : (
-          <div className="recent-order">
-            <strong>—</strong>
-            <span>Нет заказов за выбранную дату</span>
-            <span>—</span>
-            <em>{formatMoney(0)}</em>
-            <small>—</small>
-          </div>
+          <SectionEmpty
+            icon="bi-receipt"
+            title="Заказов пока нет"
+            text="Новые заказы будут отображаться здесь."
+          />
         )}
       </div>
     </section>
@@ -212,17 +224,11 @@ export function TopSalesCard({ dishes }) {
             <div className="top-dish__price">{formatMoney(item.revenue)}</div>
           </div>
         )) : (
-          <div className="top-dish top-dish--compact">
-            <div className="top-dish__rank">—</div>
-            <div className="top-dish__photo dish-photo--1" aria-hidden="true" />
-            <div className="top-dish__body">
-              <div className="top-dish__line">
-                <strong>Нет продаж за выбранную дату</strong>
-              </div>
-            </div>
-            <div className="top-dish__qty">0 шт</div>
-            <div className="top-dish__price">{formatMoney(0)}</div>
-          </div>
+          <SectionEmpty
+            icon="bi-basket"
+            title="Продаж пока нет"
+            text="После первых заказов здесь появятся самые продаваемые позиции."
+          />
         )}
       </div>
     </section>

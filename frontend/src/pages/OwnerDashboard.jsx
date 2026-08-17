@@ -34,7 +34,7 @@ import {
 } from "./dashboard/simulation";
 import RevenueChart from "./dashboard/RevenueChart";
 import { KpiInfoDialog, WarehouseReportDialog } from "./dashboard/DashboardDialogs";
-import { EmptyState, TopSalesCard, RecentOrdersCard } from "./dashboard/DashboardCards";
+import { EmptyState, TopSalesCard, RecentOrdersCard, SectionEmpty } from "./dashboard/DashboardCards";
 
 // Оркестратор OWNER-дашборда (FE-07B). Владеет верхнеуровневым состоянием
 // (период выручки, выбранные KPI/склад-отчёт, данные запроса) и раздаёт его
@@ -302,7 +302,18 @@ export default function OwnerDashboard() {
             <div><span>Минимум</span><strong>{formatMoney(revenueStats.min)}</strong></div>
             <div><span>Среднее</span><strong>{formatMoney(revenueStats.avg)}</strong></div>
           </div>
-          <div className="chart-wrap"><RevenueChart sales={revenueChartSales} /></div>
+          <div className="chart-wrap">
+            {revenueChartSales.length ? (
+              <RevenueChart sales={revenueChartSales} />
+            ) : (
+              <SectionEmpty
+                className="owner-empty--chart"
+                icon="bi-graph-up"
+                title="Продаж пока нет"
+                text="После первых закрытых заказов здесь появится динамика выручки за выбранный период."
+              />
+            )}
+          </div>
         </div>
 
         <aside className="warehouse-summary-card">
@@ -318,7 +329,7 @@ export default function OwnerDashboard() {
                 <span className="warehouse-summary-item__icon"><Icon name={item.icon} size={18} /></span>
                 <div>
                   <strong>{item.label}</strong>
-                  <span>{item.unavailable ? "Данные недоступны" : formatMoney(item.value)}</span>
+                  <span>{item.unavailable ? "Скоро" : formatMoney(item.value)}</span>
                 </div>
               </button>
             ))}
