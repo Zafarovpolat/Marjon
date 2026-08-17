@@ -1,5 +1,6 @@
 from __future__ import annotations
 from uuid import UUID
+from decimal import Decimal
 from pydantic import Field
 from app.shared.base_schema import BaseSchema, BaseResponseSchema
 
@@ -63,6 +64,28 @@ class PrintSummaryRequest(BaseSchema):
     title: str
     lines: list[str] = Field(default_factory=list)
     footer: str | None = None
+    copies: int = 1
+
+
+# 2.1 — раздельный чек.
+class SplitPartItem(BaseSchema):
+    """Позиция в части раздельного чека (ссылка на строку заказа по индексу)."""
+    index: int                       # индекс позиции в order.items
+    qty: Decimal | None = None       # сколько штук в этой части (None → вся строка)
+
+
+class PrintSplitRequest(BaseSchema):
+    """
+    Раздельный чек. Два режима:
+      • mode="even"  — поделить сумму заказа поровну на `ways` частей;
+      • mode="items" — каждая часть `parts[i]` печатает выбранные позиции
+        (со своим итогом и пропорциональной долей скидки/сбора/НДС).
+    """
+    order_id: UUID
+    printer_id: UUID
+    mode: str = "items"              # items | even
+    parts: list[list[SplitPartItem]] | None = None
+    ways: int | None = None
     copies: int = 1
 
 

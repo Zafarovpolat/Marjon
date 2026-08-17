@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Plus, Minus, Search, X, Users, Clock, CheckCircle, Coffee, Utensils,
   LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, RefreshCw, ArrowLeft, LogOut, Printer,
+  Trash2, Ban, Shuffle,
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi, printers as printersApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
@@ -9,6 +10,7 @@ import DishModal from '../../components/DishModal'
 import InputPromptModal from '../../components/InputPromptModal'
 import { toast } from '../../components/Toast'
 import { t } from '../../shared/i18n'
+import { can } from '../../shared/permissions'
 
 const STATUS_COLORS = {
   new: 'var(--color-info)', accepted: 'var(--color-brand)',
@@ -113,6 +115,54 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
       submitLabel: t('save'),
       onSubmit: async (num) => {
         await orders.moveItem(order.id, item.id, String(num).trim())
+        setPromptCfg(null); setView('floor'); loadData()
+      },
+    })
+  }
+  // Удаление позиции из заказа официантом (если есть право). Причина обязательна —
+  // журналируется на бэкенде (аудит удалений/переносов).
+  function removeDishItem(order, item) {
+    setPromptCfg({
+      title: t('delete_dish'),
+      hint: t('delete_reason'),
+      placeholder: t('delete_reason_ph'),
+      submitLabel: t('delete_dish'),
+      onSubmit: async (reason) => {
+        await orders.removeItem(order.id, item.id, reason)
+        setPromptCfg(null)
+        // Обновляем открытый заказ свежими данными; если он опустел и закрылся — к столам
+        try {
+          const fresh = await orders.get(order.id)
+          setSelectedTable((prev) => (prev ? { ...prev, order: fresh } : prev))
+        } catch { setView('floor') }
+        loadData()
+      },
+    })
+  }
+  // Отмена всего заказа официантом (если есть право). Причина обязательна.
+  function cancelWholeOrder(order) {
+    setPromptCfg({
+      title: t('cancel_order'),
+      hint: t('cancel_comment'),
+      placeholder: t('cancel_comment_ph'),
+      submitLabel: t('cancel_order'),
+      onSubmit: async (reason) => {
+        await orders.cancel(order.id, undefined, reason)
+        setPromptCfg(null); setView('floor'); loadData()
+      },
+    })
+  }
+  // Передать ВЕСЬ заказ на другой стол (не отдельное блюдо) — 3.1: смена стола заказа.
+  function reassignTable(order) {
+    setPromptCfg({
+      title: t('move_table'),
+      hint: t('move_to_table'),
+      type: 'number',
+      initial: order.table_number || '',
+      extra: { label: t('move_reason'), placeholder: t('move_reason_ph') },
+      submitLabel: t('save'),
+      onSubmit: async (num, reason) => {
+        await orders.update(order.id, { table_number: String(num).trim(), reason: reason || undefined })
         setPromptCfg(null); setView('floor'); loadData()
       },
     })
@@ -340,6 +390,11 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                       <ArrowLeft size={16} style={{ transform: 'rotate(180deg)' }} />
                       <span>{t('move_item')}</span>
                     </button>
+                    {can(user, 'can_delete_dishes') && (
+                      <button type="button" className="detail-item__delete" onClick={() => removeDishItem(selectedTable.order, item)} title={t('delete_dish')}>
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                     <span className="detail-item__status">
                       {item.status === 'ready' && <CheckCircle size={16} />}
                       {item.status === 'cooking' && <Coffee size={16} />}
@@ -355,6 +410,14 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                 <button className="btn-success btn--lg" onClick={() => printReceipt(selectedTable.order)}>
                   <Printer size={18} /> {t('print_receipt')}
                 </button>
+                <button className="btn-ghost btn--lg" onClick={() => reassignTable(selectedTable.order)}>
+                  <Shuffle size={18} /> {t('move_table')}
+                </button>
+                {can(user, 'can_cancel_orders') && (
+                  <button className="btn-danger btn--lg" onClick={() => cancelWholeOrder(selectedTable.order)}>
+                    <Ban size={18} /> {t('cancel_order')}
+                  </button>
+                )}
               </div>
             </div>
           </div>

@@ -24,7 +24,10 @@ export default function EmployeeSelector({ branch, onSelect, onBack }) {
     setLoading(true); setError(false)
     auth.staffUsers(branch?.id)
       .then((data) => {
-        const list = (Array.isArray(data) ? data : data?.items || []).filter((u) => u.is_active !== false)
+        // Склад (кладовщик) не работает на кассе-терминале — прячем из выбора сотрудника
+        const empRole = (u) => String(u.role_slug || u.role_slugs?.[0] || '').toLowerCase()
+        const list = (Array.isArray(data) ? data : data?.items || [])
+          .filter((u) => u.is_active !== false && empRole(u) !== 'warehouse')
         setStaff(list.length ? list : DEMO_STAFF)
       })
       .catch(() => { setStaff(DEMO_STAFF); setError(true) })

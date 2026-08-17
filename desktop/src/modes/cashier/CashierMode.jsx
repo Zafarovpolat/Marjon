@@ -10,7 +10,9 @@ import FinancePanel from '../../components/FinancePanel'
 import HistoryPanel from '../../components/HistoryPanel'
 import ReportsPanel from '../../components/ReportsPanel'
 import StopListPanel from '../../components/StopListPanel'
+import AttendancePanel from '../../components/AttendancePanel'
 import PaymentModal from '../../components/PaymentModal'
+import SplitReceiptModal from '../../components/SplitReceiptModal'
 import InputPromptModal from '../../components/InputPromptModal'
 import HeaderMenu from '../../components/HeaderMenu'
 import { t } from '../../shared/i18n'
@@ -33,14 +35,15 @@ function initials(name = '') {
 }
 function fmtTime(iso) { return iso ? new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '' }
 
-export default function CashierMode({ user = {}, onBack }) {
+export default function CashierMode({ user = {}, onBack, courier = false }) {
   const [zones, setZones] = useState([])
   const [orderList, setOrderList] = useState([])
   const [activeZone, setActiveZone] = useState('all')
   const [loading, setLoading] = useState(true)
 
-  const [view, setView] = useState('floor')        // floor | order
-  const [orderType, setOrderType] = useState('dine_in')
+  // Курьер стартует сразу на выборе блюд «с собой» — столов у него нет
+  const [view, setView] = useState(courier ? 'order' : 'floor')  // floor | order
+  const [orderType, setOrderType] = useState(courier ? 'takeaway' : 'dine_in')
   const [selectedTable, setSelectedTable] = useState(null)
 
   const [categories, setCategories] = useState([])
@@ -58,7 +61,9 @@ export default function CashierMode({ user = {}, onBack }) {
   const [histOpen, setHistOpen] = useState(false)
   const [repOpen, setRepOpen] = useState(false)
   const [stopOpen, setStopOpen] = useState(false)
+  const [attOpen, setAttOpen] = useState(false)
   const [payExisting, setPayExisting] = useState(null)   // существующий заказ на оплату/закрытие
+  const [splitOrder, setSplitOrder] = useState(null)      // 2.1 — заказ для раздельного чека
   const [promptCfg, setPromptCfg] = useState(null)        // модалка ввода (пароль отмены / новый стол)
   const [creating, setCreating] = useState(false)         // создание заказа (лоадер кнопки)
   const [staff, setStaff] = useState([])                 // сотрудники (для смены официанта)
@@ -163,6 +168,13 @@ export default function CashierMode({ user = {}, onBack }) {
     try { await printersApi.printReceipt({ order_id: order.id, printer_id: pr.id, copies: 1 }) }
     catch (e) { toast(t('print_failed') + (e?.response?.data?.detail ? `: ${e.response.data.detail}` : '')) }
   }
+  // 2.1 — раздельный чек: печатает заказ несколькими чеками-частями.
+  async function printSplitReceipt(order, payload) {
+    const pr = receiptPrinter()
+    if (!pr) { toast(t('no_receipt_printer')); throw new Error('no printer') }
+    await printersApi.printSplit({ order_id: order.id, printer_id: pr.id, copies: 1, ...payload })
+    toast(t('split_done'), 'success')
+  }
   // Закрыть заказ (оплата подтверждена кассиром). Способ оплаты фиксируется вручную —
   // платёжку интегрируем позже; сейчас просто переводим заказ в completed.
   async function completeExistingOrder(order /* , method */) {
@@ -202,9 +214,10 @@ export default function CashierMode({ user = {}, onBack }) {
       hint: t('move_to_table'),
       type: 'number',
       initial: order.table_number || '',
+      extra: { label: t('move_reason'), placeholder: t('move_reason_ph') },
       submitLabel: t('save'),
-      onSubmit: async (num) => {
-        await orders.update(order.id, { table_number: num })
+      onSubmit: async (num, reason) => {
+        await orders.update(order.id, { table_number: num, reason: reason || undefined })
         setPromptCfg(null); setPayExisting(null); loadFloor()
       },
     })
@@ -241,11 +254,13 @@ export default function CashierMode({ user = {}, onBack }) {
     setCreating(true)
     try {
       if (addToOrderId) {
-        // Дозаказ: досылаем позиции в существующий заказ и возвращаем его на кухню
+        // Дозаказ: досылаем позиции в существующий заказ.
+        // Бэкенд в add_item сам возвращает заказ в статус «готовится» (service.py),
+        // отдельный updateStatus('cooking') не нужен — и ломал дозаказ в уже готовящийся стол
+        // (переход cooking→cooking запрещён state-machine → «нельзя добавить»).
         for (const i of cart) {
           await orders.addItem(addToOrderId, { product_id: i.product.id, quantity: i.qty, note: i.note || null, takeaway: !!i.takeaway })
         }
-        await orders.updateStatus(addToOrderId, 'cooking')
         setAddToOrderId(null)
       } else {
         await orders.create({
@@ -259,8 +274,10 @@ export default function CashierMode({ user = {}, onBack }) {
           items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, note: i.note || null, takeaway: !!i.takeaway })),
         })
       }
-      // Возвращаемся к столам; оплата — отдельно (тап по столу / история)
-      setView('floor'); loadFloor()
+      // Курьер работает только «с собой»: после создания — сразу новый заказ (столов у него нет).
+      // Кассир возвращается к столам; оплата — отдельно (тап по столу / история).
+      if (courier) openOrder('takeaway')
+      else { setView('floor'); loadFloor() }
       toast(t('order_created'))
     } catch (err) {
       toast(t('create_order_error') + ': ' + (err?.response?.data?.detail || err.message), 'error')
@@ -270,7 +287,7 @@ export default function CashierMode({ user = {}, onBack }) {
   }
 
   // ═══ Вид: столы ═══
-  if (view === 'floor') {
+  if (view === 'floor' && !courier) {
     return (
       <div className="floor">
         <aside className="ws-side">
@@ -298,6 +315,7 @@ export default function CashierMode({ user = {}, onBack }) {
                 label={t('menu_more')}
                 items={[
                   { id: 'fin', label: t('finance'), Icon: Wallet, onClick: () => setFinOpen(true) },
+                  ...(can(user, 'can_approve_attendance') ? [{ id: 'att', label: t('attendance'), Icon: Clock, onClick: () => setAttOpen(true) }] : []),
                   ...(can(user, 'can_view_closed_orders') ? [{ id: 'hist', label: t('history'), Icon: History, onClick: () => setHistOpen(true) }] : []),
                   { id: 'rep', label: t('reports'), Icon: BarChart3, onClick: () => setRepOpen(true) },
                 ]}
@@ -338,10 +356,12 @@ export default function CashierMode({ user = {}, onBack }) {
         {histOpen && <HistoryPanel branch={{ id: user.branch_id }} onClose={() => setHistOpen(false)} />}
         {repOpen && <ReportsPanel branch={{ id: user.branch_id }} onClose={() => setRepOpen(false)} />}
         {stopOpen && <StopListPanel user={user} onClose={() => setStopOpen(false)} />}
+        {attOpen && <AttendancePanel onClose={() => setAttOpen(false)} />}
         {payExisting && (
           <PaymentModal
             order={payExisting}
             onPrint={printOrderReceipt}
+            onSplit={(o) => setSplitOrder(o)}
             onComplete={completeExistingOrder}
             onCancel={cancelOrder}
             onReassign={reassignTable}
@@ -354,6 +374,13 @@ export default function CashierMode({ user = {}, onBack }) {
           />
         )}
         {promptCfg && <InputPromptModal {...promptCfg} onClose={() => setPromptCfg(null)} />}
+        {splitOrder && (
+          <SplitReceiptModal
+            order={splitOrder}
+            onPrint={(payload) => printSplitReceipt(splitOrder, payload)}
+            onClose={() => setSplitOrder(null)}
+          />
+        )}
       </div>
     )
   }
@@ -362,7 +389,10 @@ export default function CashierMode({ user = {}, onBack }) {
   return (
     <div className="floor">
       <aside className="ws-side">
-        <button className="zone zone--exit" onClick={() => setView('floor')}><ArrowLeft size={20} /><span className="zone__name">{t('to_tables')}</span></button>
+        <button className="zone zone--exit" onClick={() => (courier ? onBack?.() : setView('floor'))}>
+          {courier ? <LogOut size={20} /> : <ArrowLeft size={20} />}
+          <span className="zone__name">{courier ? t('logout') : t('to_tables')}</span>
+        </button>
         <div className="ws-side__label">{t('categories')}</div>
         <nav className="ws-side__nav">
           <button className={`zone ${!activeCat ? 'zone--active' : ''}`} onClick={() => setActiveCat(null)}>

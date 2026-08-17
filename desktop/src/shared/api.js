@@ -27,6 +27,7 @@ api.interceptors.response.use(
     // выбора сотрудника 401 сбрасывал бы экран (баг «окно закрывается»).
     const skipReload =
       url.includes('/auth/login') ||
+      url.includes('/auth/branch-login') ||
       url.includes('/auth/pin-login') ||
       url.includes('/auth/staff-users')
     const hasStaffSession = !!localStorage.getItem('marjon_token')
@@ -159,6 +160,11 @@ export const auth = {
       : { email: id, password }
     return api.post('/auth/login', body).then((r) => r.data)
   },
+  // 6.2 — вход на кассе одним шагом по логину/паролю филиала (без выбора филиала
+  // и без личного логина владельца). Логин филиала глобально уникален и определяет
+  // и организацию, и филиал. Ответ несёт токен терминала + сведения о branch/company.
+  loginByBranch: (login, password) =>
+    api.post('/auth/branch-login', { login, password }).then((r) => r.data),
   // Список сотрудников филиала (для выбора перед PIN-входом) — под org-токеном с авто-refresh.
   staffUsers: (branchId) =>
     withOrgRefresh((tok) =>
@@ -215,6 +221,8 @@ export const printers = {
   printKitchen: (data) => api.post('/printers/print/kitchen', data).then((r) => r.data),
   // Общий чек-сводка (История/Отчёты)
   printSummary: (data) => api.post('/printers/print/summary', data).then((r) => r.data),
+  // 2.1 — раздельный чек: печатает заказ несколькими чеками-частями
+  printSplit: (data) => api.post('/printers/print/split', data).then((r) => r.data),
 }
 
 export const orders = {
@@ -223,7 +231,10 @@ export const orders = {
   create: (data) => api.post('/pos/orders', data).then((r) => r.data),
   update: (id, data) => api.patch(`/pos/orders/${id}`, data).then((r) => r.data),
   addItem: (orderId, data) => api.post(`/pos/orders/${orderId}/items`, data).then((r) => r.data),
-  removeItem: (orderId, itemId) => api.delete(`/pos/orders/${orderId}/items/${itemId}`).then((r) => r.data),
+  // reason — причина удаления (журналируется на бэкенде: кто/когда/почему удалил позицию)
+  removeItem: (orderId, itemId, reason) => api.delete(`/pos/orders/${orderId}/items/${itemId}`, {
+    params: reason ? { reason } : {},
+  }).then((r) => r.data),
   moveItem: (orderId, itemId, table) => api.post(`/pos/orders/${orderId}/items/${itemId}/move`, null, { params: { table } }).then((r) => r.data),
   updateStatus: (id, status) => writeQueued('patch', `/pos/orders/${id}/status`, { status }),
   cancel: (id, password, comment) => api.delete(`/pos/orders/${id}`, {
@@ -297,4 +308,11 @@ export const stopList = {
   list: (branchId) => api.get('/inventory/stop-list', { params: { branch_id: branchId } }).then((r) => r.data),
   add: (productId, branchId) => api.post('/inventory/stop-list', { product_id: productId, branch_id: branchId }).then((r) => r.data),
   remove: (id) => api.delete(`/inventory/stop-list/${id}`).then((r) => r.data),
+}
+
+// 5.5 — вход/уход повара (attendance): кассир видит очередь на подтверждение и одобряет/отклоняет
+export const attendance = {
+  pending: () => api.get('/hr/attendance/pending').then((r) => r.data),
+  approve: (logId, note) => api.post(`/hr/attendance/${logId}/approve`, { approve: true, note }).then((r) => r.data),
+  reject: (logId, note) => api.post(`/hr/attendance/${logId}/approve`, { approve: false, note }).then((r) => r.data),
 }

@@ -42,6 +42,7 @@ class OrderUpdate(BaseSchema):
     waiter_id: UUID | None = None
     discount_amount: Decimal | None = None
     service_fee_rate: float | None = None
+    reason: str | None = None  # 3.3 — причина смены стола/официанта (пишется в audit)
 
 
 class OrderStatusUpdate(BaseSchema):
@@ -61,6 +62,9 @@ class OrderItemResponse(BaseResponseSchema):
     modifiers: list
     course: int
     takeaway: bool = False
+    # 9.4 — кто и когда добавил позицию (created_at из BaseResponseSchema = время добавления)
+    added_by: UUID | None = None
+    added_by_name: str | None = None
 
 
 class OrderResponse(BaseResponseSchema):

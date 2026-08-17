@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Printer, Banknote, CreditCard, CheckCircle, Percent, User, Clock, Plus } from 'lucide-react'
+import { X, Printer, Banknote, CreditCard, CheckCircle, Percent, User, Clock, Plus, Split as SplitIcon } from 'lucide-react'
 import { t } from '../shared/i18n'
 import { toast } from './Toast'
 
@@ -20,7 +20,7 @@ import { toast } from './Toast'
 function fmt(n) { return Number(n || 0).toLocaleString('ru-RU') }
 function fmtTime(iso) { return iso ? new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '' }
 
-export default function PaymentModal({ order, onPrint, onComplete, onCancel, onReassign, onClose, canClose = true, staff = [], onSetWaiter, onApplyDiscount, onAddItems }) {
+export default function PaymentModal({ order, onPrint, onSplit, onComplete, onCancel, onReassign, onClose, canClose = true, staff = [], onSetWaiter, onApplyDiscount, onAddItems }) {
   const [method, setMethod] = useState('cash')
   const [received, setReceived] = useState('')
   const [cashPart, setCashPart] = useState('')   // при смешанной оплате
@@ -147,6 +147,12 @@ export default function PaymentModal({ order, onPrint, onComplete, onCancel, onR
           <button className={`btn btn--outline pay-order__print ${printed ? 'is-done' : ''}`} disabled={act === 'print'} onClick={doPrint}>
             {act === 'print' ? spin : printed ? <CheckCircle size={18} /> : <Printer size={18} />} {t('print_receipt')}
           </button>
+
+          {onSplit && items.length > 0 && (
+            <button className="btn btn--outline pay-order__split" onClick={() => onSplit(order)}>
+              <SplitIcon size={18} /> {t('split_receipt')}
+            </button>
+          )}
 
           <div className="pay-order__methods pay-order__methods--3">
             <button className={`pay-method-btn ${method === 'cash' ? 'is-active' : ''}`} onClick={() => setMethod('cash')}>

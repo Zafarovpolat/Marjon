@@ -15,6 +15,8 @@ from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import get_current_user, require_company_admin
 from app.modules.auth.models import RefreshToken, User
 from app.modules.auth.schemas import (
+    BranchLoginRequest,
+    BranchLoginResponse,
     CompanyUserCreate,
     CompanyUserResponse,
     CompanyUserUpdate,
@@ -122,6 +124,30 @@ async def refresh(request: Request, data: RefreshRequest, db: AsyncSession = Dep
     svc = AuthService(db)
     access_token, refresh_token = await svc.refresh(data.refresh_token)
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+
+
+@router.post("/branch-login", response_model=BranchLoginResponse)
+@limiter.limit("10/minute")
+async def branch_login(request: Request, data: BranchLoginRequest, db: AsyncSession = Depends(get_db)):
+    """6.2 — вход на кассе одним шагом по логину/паролю филиала.
+    Логин филиала глобально уникален и определяет и организацию, и филиал.
+    Токен выпускается на служебного (терминального) пользователя филиала, поэтому
+    pin-login / staff-users / refresh работают дальше без изменений."""
+    svc = AuthService(db)
+    terminal, branch, company, access_token, refresh_token = await svc.login_by_branch(
+        data.login, data.password
+    )
+    return BranchLoginResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        branch={"id": branch.id, "name": branch.name, "company_id": branch.company_id},
+        company={
+            "id": company.id,
+            "name": company.name,
+            "slug": company.slug,
+            "currency": company.currency,
+        },
+    )
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -283,11 +309,13 @@ async def active_staff(
     refresh-токен, выданный в течение текущей смены. Схему БД не меняем —
     используем существующую таблицу refresh_tokens."""
     now = datetime.now(timezone.utc)
+    from app.modules.auth.security import TERMINAL_EMAIL_LIKE
     rows = await db.execute(
         select(RefreshToken.user_id)
         .join(User, User.id == RefreshToken.user_id)
         .where(
             User.company_id == current_user.company_id,
+            ~User.email.like(TERMINAL_EMAIL_LIKE),
             RefreshToken.revoked_at.is_(None),
             RefreshToken.expires_at > now,
             RefreshToken.created_at > now - _SESSION_WINDOW,

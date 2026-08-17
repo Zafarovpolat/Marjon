@@ -92,6 +92,7 @@ class OrderService:
                 modifiers=item_data.modifiers,
                 course=item_data.course,
                 takeaway=item_data.takeaway,
+                added_by=waiter_id,
             )
             self.db.add(item)
 
@@ -121,7 +122,64 @@ class OrderService:
             )
         except Exception:
             pass
+        # 7.4 — постоянные клиенты: регистрируем/обновляем карточку клиента по телефону,
+        # чтобы номер попадал в автокомплит при следующем заказе. Не фатально для заказа.
+        try:
+            await self._upsert_customer(company_id, created_order)
+        except Exception:
+            pass
         return created_order
+
+    async def _upsert_customer(self, company_id: UUID, order: Order) -> None:
+        """7.4 — при создании заказа заводим/обновляем клиента по телефону.
+
+        Если официант/кассир выбрал клиента из автокомплита — приходит customer_id.
+        Если ввёл новый номер (доставка) — customer_id пустой, но есть customer_phone:
+        создаём новую карточку, чтобы номер стал «постоянным» и всплывал в подсказках
+        в следующий раз. Обновляем счётчики визитов/суммы и время последнего визита.
+        """
+        from app.modules.crm.models import Customer
+
+        customer: Customer | None = None
+        if order.customer_id:
+            customer = (
+                await self.db.execute(
+                    select(Customer).where(
+                        Customer.id == order.customer_id,
+                        Customer.company_id == company_id,
+                    )
+                )
+            ).scalar_one_or_none()
+
+        phone = (order.customer_phone or "").strip()
+        if customer is None and phone:
+            customer = (
+                await self.db.execute(
+                    select(Customer).where(
+                        Customer.company_id == company_id,
+                        Customer.phone == phone,
+                    )
+                )
+            ).scalar_one_or_none()
+            if customer is None:
+                customer = Customer(
+                    company_id=company_id,
+                    phone=phone,
+                    source=order.order_type or "pos",
+                )
+                self.db.add(customer)
+                await self.db.flush()
+            # проставляем связь заказ → клиент, если её не было
+            if not order.customer_id:
+                order.customer_id = customer.id
+
+        if customer is None:
+            return
+
+        customer.total_orders = (customer.total_orders or 0) + 1
+        customer.total_spent = (customer.total_spent or Decimal("0")) + (order.total_amount or Decimal("0"))
+        customer.last_visit_at = datetime.now(timezone.utc)
+        await self.db.commit()
 
     # ── Read ──────────────────────────────────────────────────────────────────
 
@@ -159,8 +217,13 @@ class OrderService:
         return orders
 
     async def _attach_waiter_names(self, orders: list[Order]) -> None:
-        """Подставляет order.waiter_name (имя создавшего сотрудника) для ответа API."""
-        ids = {o.waiter_id for o in orders if o.waiter_id}
+        """Подставляет order.waiter_name (кто создал заказ) и item.added_by_name
+        (кто добавил позицию — 9.4) для ответа API. Имена резолвим одним запросом."""
+        ids: set[UUID] = {o.waiter_id for o in orders if o.waiter_id}
+        for o in orders:
+            for it in o.items:
+                if getattr(it, "added_by", None):
+                    ids.add(it.added_by)
         names: dict[UUID, str] = {}
         if ids:
             rows = (await self.db.execute(
@@ -169,6 +232,8 @@ class OrderService:
             names = {r.id: (r.name or r.email or "") for r in rows}
         for o in orders:
             o.waiter_name = names.get(o.waiter_id) if o.waiter_id else None
+            for it in o.items:
+                it.added_by_name = names.get(it.added_by) if getattr(it, "added_by", None) else None
 
     # ── Update status (state machine) ─────────────────────────────────────────
 
@@ -176,6 +241,11 @@ class OrderService:
         order = await self.get(company_id, order_id)
         current = order.status
         target = data.status
+
+        # Один и тот же статус — не ошибка, а no-op (напр. дозаказ в уже готовящийся стол:
+        # add_item сам держит заказ в «cooking», а cooking→cooking запрещён переходами ниже).
+        if target == current:
+            return await self.get(company_id, order_id)
 
         if target not in VALID_TRANSITIONS.get(current, set()):
             raise ValidationError(
@@ -249,7 +319,7 @@ class OrderService:
 
     # ── Add item to existing order ────────────────────────────────────────────
 
-    async def add_item(self, company_id: UUID, order_id: UUID, item_data: OrderItemCreate) -> Order:
+    async def add_item(self, company_id: UUID, order_id: UUID, item_data: OrderItemCreate, user: User | None = None) -> Order:
         order = await self.get(company_id, order_id)
         if order.status in ("completed", "cancelled"):
             raise ValidationError("Нельзя добавить позицию к завершённому или отменённому заказу")
@@ -271,6 +341,8 @@ class OrderService:
             modifiers=item_data.modifiers,
             course=item_data.course,
             takeaway=item_data.takeaway,
+            # 9.4 — кто добавил дозаказ (иначе автор заказа-создателя)
+            added_by=(user.id if user else order.waiter_id),
         )
         self.db.add(item)
         await self.db.flush()
@@ -286,17 +358,31 @@ class OrderService:
 
     # ── Remove item from order ────────────────────────────────────────────────
 
-    async def remove_item(self, company_id: UUID, order_id: UUID, item_id: UUID) -> Order:
+    async def remove_item(
+        self, company_id: UUID, order_id: UUID, item_id: UUID,
+        reason: str | None = None, user: User | None = None,
+    ) -> Order:
         order = await self.get(company_id, order_id)
         if order.status in ("completed", "cancelled"):
             raise ValidationError("Нельзя удалить позицию из завершённого или отменённого заказа")
 
         item = await self._get_order_item(order, item_id)
+        removed = {"item_id": str(item.id), "name": item.name, "qty": str(item.quantity), "total": str(item.total)}
         order.subtotal -= item.total
         item.status = "cancelled"
         item.total = Decimal("0")
         self._recalculate_totals(order, service_base=await self._service_base_q(order.id))
         await self.db.commit()
+        # 3.3 — журналируем удаление позиции: кто, когда, что, причина.
+        try:
+            await AuditService(self.db).log(
+                company_id, user.id if user else None, "order.item_remove", "order",
+                entity_id=order_id,
+                old_data=removed,
+                new_data={"reason": (reason or "").strip() or None},
+            )
+        except Exception:
+            pass
         return await self.get(company_id, order_id)
 
     async def _subtotal_q(self, order_id: UUID) -> Decimal:
@@ -309,7 +395,7 @@ class OrderService:
 
     # ── Move item to another table ────────────────────────────────────────────
 
-    async def move_item(self, company_id: UUID, order_id: UUID, item_id: UUID, target_table: str) -> Order:
+    async def move_item(self, company_id: UUID, order_id: UUID, item_id: UUID, target_table: str, user: User | None = None) -> Order:
         """Перекинуть позицию на другой стол. Находит/создаёт заказ на целевом столе,
         помечает позицию «перемещено», перепечатывает кухонный чек, пустой исходный отменяет."""
         order = await self.get(company_id, order_id)
@@ -363,6 +449,17 @@ class OrderService:
 
         await self.db.commit()
 
+        # 3.3 — журналируем перенос позиции между столами.
+        try:
+            await AuditService(self.db).log(
+                company_id, user.id if user else None, "order.item_move", "order",
+                entity_id=order.id,
+                old_data={"item_id": str(item.id), "name": item.name, "from_table": order.table_number},
+                new_data={"to_table": target_table, "target_order_id": str(target.id)},
+            )
+        except Exception:
+            pass
+
         # Повторная печать кухонного чека целевого заказа + уведомления
         try:
             from app.modules.printers.service import PrinterService
@@ -370,18 +467,22 @@ class OrderService:
         except Exception:
             pass
         try:
-            await kitchen_manager.broadcast(company_id, "order_updated", {"order_id": str(target.id)})
-            await kitchen_manager.broadcast(company_id, "order_updated", {"order_id": str(order.id)})
+            await kitchen_manager.broadcast(company_id, target.branch_id, "order_updated", {"order_id": str(target.id)})
+            await kitchen_manager.broadcast(company_id, order.branch_id, "order_updated", {"order_id": str(order.id)})
         except Exception:
             pass
         return await self.get(company_id, target.id)
 
     # ── Update order (discount / service fee / note) ──────────────────────────
 
-    async def update_order(self, company_id: UUID, order_id: UUID, data: OrderUpdate) -> Order:
+    async def update_order(self, company_id: UUID, order_id: UUID, data: OrderUpdate, user: User | None = None) -> Order:
         order = await self.get(company_id, order_id)
         if order.status in ("completed", "cancelled"):
             raise ValidationError("Нельзя редактировать завершённый или отменённый заказ")
+
+        # 3.3 — фиксируем «до», чтобы залогировать смену стола/официанта.
+        old_table = order.table_number
+        old_waiter = order.waiter_id
 
         if data.note is not None:
             order.note = data.note
@@ -399,6 +500,23 @@ class OrderService:
         self._recalculate_totals(order, data.discount_amount, data.service_fee_rate,
                                  service_base=await self._service_base_q(order.id))
         await self.repo.save(order)
+        # Журналируем только реальные изменения стола/официанта.
+        reason = (data.reason or "").strip() or None
+        try:
+            if (data.table_number is not None and str(data.table_number) != str(old_table or "")):
+                await AuditService(self.db).log(
+                    company_id, user.id if user else None, "order.table_change", "order",
+                    entity_id=order_id, old_data={"table": old_table},
+                    new_data={"table": order.table_number, "reason": reason},
+                )
+            if (data.waiter_id is not None and str(data.waiter_id) != str(old_waiter or "")):
+                await AuditService(self.db).log(
+                    company_id, user.id if user else None, "order.waiter_change", "order",
+                    entity_id=order_id, old_data={"waiter_id": str(old_waiter) if old_waiter else None},
+                    new_data={"waiter_id": str(order.waiter_id) if order.waiter_id else None, "reason": reason},
+                )
+        except Exception:
+            pass
         return await self.get(company_id, order_id)
 
     # ── Internals ─────────────────────────────────────────────────────────────

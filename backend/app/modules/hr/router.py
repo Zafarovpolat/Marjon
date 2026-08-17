@@ -6,7 +6,7 @@ from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User
 from app.modules.hr.schemas import (
-    AttendanceCreate, AttendanceResponse,
+    AttendanceApprove, AttendanceCreate, AttendanceResponse,
     EmployeeCreate, EmployeeUpdate, EmployeeResponse,
     ShiftCreate, ShiftResponse,
 )
@@ -63,6 +63,23 @@ async def list_shifts(user: User = Depends(get_current_user), db: AsyncSession =
 @router.post("/attendance", response_model=AttendanceResponse, status_code=status.HTTP_201_CREATED)
 async def log_attendance(data: AttendanceCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     return await HRService(db).log_attendance(user.company_id, data)
+
+
+# 5.5 — очередь неподтверждённых отметок (вход/уход повара) для экрана кассира
+@router.get("/attendance/pending", response_model=list[AttendanceResponse])
+async def pending_attendance(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await HRService(db).list_pending_attendance(user.company_id)
+
+
+# 5.5 — кассир подтверждает/отклоняет вход-уход повара (логируется в audit)
+@router.post("/attendance/{log_id}/approve", response_model=AttendanceResponse)
+async def approve_attendance(
+    log_id: UUID,
+    data: AttendanceApprove,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await HRService(db).approve_attendance(user.company_id, log_id, user.id, data)
 
 
 @router.get("/attendance", response_model=list[AttendanceRow])

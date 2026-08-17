@@ -10,6 +10,17 @@ from jose import JWTError, jwt
 from app.config import settings
 
 
+# 6.2 — «терминальный» служебный пользователь филиала. При входе по логину филиала
+# (branch-login) токен выпускается на такого пользователя: он несёт company_id и
+# branch_id, поэтому pin-login/staff-users/refresh работают без изменений. От списков
+# персонала эти учётки скрыты по маске e-mail (TERMINAL_EMAIL_LIKE).
+TERMINAL_EMAIL_LIKE = "terminal+%@marjon.local"
+
+
+def terminal_email(branch_id) -> str:
+    return f"terminal+{branch_id}@marjon.local"
+
+
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 

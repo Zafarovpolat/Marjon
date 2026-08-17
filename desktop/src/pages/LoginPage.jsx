@@ -1,71 +1,57 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { auth } from '../shared/api'
 import { Eye, EyeOff, Delete, LogOut } from 'lucide-react'
 import { t } from '../shared/i18n'
-
-// Оставляет только 9 локальных цифр номера (отбрасывает код страны 998)
-function extractPhoneDigits(raw) {
-  let d = String(raw).replace(/\D/g, '')
-  if (d.startsWith('998')) d = d.slice(3)
-  return d.slice(0, 9)
-}
-
-// Форматирует цифры в маску: +998 XX XXX-XX-XX
-function formatPhone(digits) {
-  let out = '+998'
-  if (digits.length > 0) out += ' ' + digits.slice(0, 2)
-  if (digits.length > 2) out += ' ' + digits.slice(2, 5)
-  if (digits.length > 5) out += '-' + digits.slice(5, 7)
-  if (digits.length > 7) out += '-' + digits.slice(7, 9)
-  return out
-}
+import { formatPhone, fullPhone, isPhoneComplete, extractPhoneDigits } from '../shared/phone'
 
 /**
  * LoginPage — двухрежимная страница входа.
  *
- * mode="admin" — первый вход: логин/пароль + настройка сервера.
- *   Привязывает терминал к организации.
+ * mode="admin" — первый вход на кассе: 6.2 — логин/пароль ФИЛИАЛА (не владельца).
+ *   Логин филиала глобально уникален → определяет и организацию, и филиал за один
+ *   шаг (без выбора филиала). Личный логин владельца сотрудникам не показывается.
  *
  * mode="pin" — ежедневный вход сотрудников по PIN.
- *   Показывается когда терминал уже привязан.
+ *   Показывается когда терминал уже привязан к филиалу.
  */
 export default function LoginPage({ mode = 'admin', onLogin, onReset, branchName, orgName }) {
   if (mode === 'pin') {
     return <PinLogin onLogin={onLogin} onReset={onReset} branchName={branchName} orgName={orgName} />
   }
-  return <AdminLogin onLogin={onLogin} />
+  return <BranchLogin onLogin={onLogin} />
 }
 
 // ═══════════════════════════════════════════════════
-// Админ-вход (логин + пароль)
+// Вход по телефону/паролю филиала (6.2) — один шаг, без выбора филиала.
+// Логин филиала — номер телефона под маской +998 XX XXX-XX-XX (как в 1.4).
 // ═══════════════════════════════════════════════════
-function AdminLogin({ onLogin }) {
-  // Храним только 9 локальных цифр номера; отображаем через маску
-  const [phoneDigits, setPhoneDigits] = useState('')
+function BranchLogin({ onLogin }) {
+  const [phone, setPhone] = useState('')          // 9 локальных цифр номера филиала
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const phoneComplete = phoneDigits.length === 9
-
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!phoneComplete) {
+    if (!isPhoneComplete(phone)) {
       setError(t('lp_phone_incomplete'))
+      return
+    }
+    if (!password) {
+      setError(t('lp_branch_bad_creds'))
       return
     }
     setError('')
     setLoading(true)
     try {
-      // Бэкенд нормализует 9-значный номер в +998XXXXXXXXX
-      const tokens = await auth.login('+998' + phoneDigits, password)
-      localStorage.setItem('marjon_token', tokens.access_token)
-      const user = await auth.me()
-      onLogin({ ...tokens, user })
+      // Логин филиала — номер телефона в каноничном виде (+998XXXXXXXXX).
+      // Ответ несёт токен терминала филиала + сведения о branch/company —
+      // App сохранит всё атомарно и сразу перейдёт к PIN-входу сотрудника.
+      const data = await auth.loginByBranch(fullPhone(phone), password)
+      onLogin(data)
     } catch (err) {
-      localStorage.removeItem('marjon_token')
-      setError(err.response?.data?.detail || t('lp_bad_creds'))
+      setError(err.response?.data?.detail || t('lp_branch_bad_creds'))
     } finally {
       setLoading(false)
     }
@@ -76,20 +62,22 @@ function AdminLogin({ onLogin }) {
       <div className="login-card">
         <div className="login-card__header">
           <div className="login-card__logo">MARJON</div>
-          <p className="login-card__subtitle">{t('srv_setup')}</p>
+          <p className="login-card__subtitle">{t('lp_branch_subtitle')}</p>
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="login-field">
-            <label className="login-field__label">{t('lp_phone')}</label>
+            <label className="login-field__label">{t('lp_branch_login')}</label>
             <input
               className="login-field__input"
               type="tel"
-              inputMode="numeric"
-              value={formatPhone(phoneDigits)}
-              onChange={(e) => setPhoneDigits(extractPhoneDigits(e.target.value))}
-              placeholder="+998 90 123-45-67"
+              inputMode="tel"
+              value={formatPhone(phone)}
+              onChange={(e) => setPhone(extractPhoneDigits(e.target.value))}
+              placeholder={t('lp_branch_login_ph')}
               autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
             />
           </div>
 
@@ -117,7 +105,7 @@ function AdminLogin({ onLogin }) {
           {error && <p className="login-error">{error}</p>}
 
           <button type="submit" className="login-btn" disabled={loading}>
-            {loading ? t('lp_logging_in') : t('lp_bind')}
+            {loading ? t('lp_logging_in') : t('lp_branch_enter')}
           </button>
         </form>
       </div>

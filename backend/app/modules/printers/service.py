@@ -94,7 +94,7 @@ class PrinterService:
     ) -> PrintJob:
         printer = await self.get(company_id, printer_id)
         order = await self._get_order(company_id, order_id)
-        ticket_data = await self._build_kitchen_data(order)
+        ticket_data = await self._build_kitchen_data(order, company_id)
 
         fmt = EscPosFormatter(printer.paper_width, charset=(printer.settings or {}).get("charset", "cp866"))
         raw = fmt.format_kitchen_ticket(ticket_data)
@@ -115,6 +115,122 @@ class PrinterService:
         raw = fmt.format_summary(title, lines, footer)
         return await self._enqueue_and_send(company_id, printer, "summary", None, raw, copies)
 
+    async def print_split_receipt(
+        self,
+        company_id: UUID,
+        order_id: UUID,
+        printer_id: UUID,
+        mode: str = "items",
+        parts: list | None = None,
+        ways: int | None = None,
+        copies: int = 1,
+    ) -> list[PrintJob]:
+        """2.1 — раздельный чек: печатает несколько чеков-частей одного заказа.
+
+        mode="even"  → делит сумму поровну на `ways` частей (без списка блюд);
+        mode="items" → каждая часть печатает выбранные позиции с пропорциональной
+        долей скидки/сервисного сбора/НДС. Возвращает список PrintJob по частям.
+        """
+        printer = await self.get(company_id, printer_id)
+        order = await self._get_order(company_id, order_id)
+        base = await self._build_receipt_data(company_id, order)
+
+        slices = self._build_split_slices(base, mode, parts, ways)
+        if not slices:
+            raise NotFoundError("Нет позиций для раздельного чека")
+
+        fmt = EscPosFormatter(printer.paper_width, charset=(printer.settings or {}).get("charset", "cp866"))
+        jobs: list[PrintJob] = []
+        for sl in slices:
+            raw = fmt.format_receipt(sl)
+            jobs.append(await self._enqueue_and_send(company_id, printer, "receipt", order_id, raw, copies))
+
+        try:
+            if order.status not in ("completed", "cancelled"):
+                order.receipt_printed_at = datetime.now(timezone.utc)
+                await self.db.commit()
+        except Exception:
+            pass
+        return jobs
+
+    def _split_child(self, base: ReceiptData, note: str, items, subtotal, discount, service_fee, tax, total) -> ReceiptData:
+        """Копия шапки базового чека с итогами конкретной части."""
+        return ReceiptData(
+            company_name=base.company_name,
+            branch_name=base.branch_name,
+            order_number=base.order_number,
+            order_type=base.order_type,
+            cashier_name=base.cashier_name,
+            items=items,
+            subtotal=subtotal,
+            discount=discount,
+            tax=tax,
+            total=total,
+            payment_method=base.payment_method,
+            cash_received=None,          # по части наличные/сдача не считаем
+            change_given=None,
+            table_number=base.table_number,
+            customer_name=base.customer_name,
+            fiscal_code=None,            # фискальный код — только на общем чеке
+            service_fee=service_fee,
+            waiter_name=base.waiter_name,
+            template=base.template,
+            split_note=note,
+        )
+
+    def _build_split_slices(self, base: ReceiptData, mode: str, parts, ways) -> list[ReceiptData]:
+        if mode == "even":
+            n = max(1, int(ways or 1))
+            zero = Decimal("0")
+            out: list[ReceiptData] = []
+            for i in range(1, n + 1):
+                out.append(self._split_child(
+                    base,
+                    f"Поровну: {i} из {n}",
+                    [],                                   # деление поровну — без списка блюд
+                    (base.subtotal or zero) / n,
+                    (base.discount or zero) / n,
+                    (base.service_fee or zero) / n,
+                    (base.tax or zero) / n,
+                    (base.total or zero) / n,
+                ))
+            return out
+
+        # mode == "items"
+        src = base.items
+        base_subtotal = base.subtotal or Decimal("0")
+        out = []
+        parts = parts or []
+        for pi, part in enumerate(parts, 1):
+            lines: list[ReceiptLine] = []
+            part_subtotal = Decimal("0")
+            for ref in part:
+                idx = getattr(ref, "index", None)
+                if idx is None or idx < 0 or idx >= len(src):
+                    continue
+                orig = src[idx]
+                ref_qty = getattr(ref, "qty", None)
+                qty = orig.qty if ref_qty is None else Decimal(ref_qty)
+                if qty <= 0:
+                    continue
+                total = (orig.price or Decimal("0")) * qty
+                lines.append(ReceiptLine(
+                    name=orig.name, qty=qty, price=orig.price, total=total, modifiers=orig.modifiers,
+                ))
+                part_subtotal += total
+            if not lines:
+                continue
+            # Долю скидки/сбора/НДС делим пропорционально сумме позиций части.
+            ratio = (part_subtotal / base_subtotal) if base_subtotal > 0 else Decimal("0")
+            discount = (base.discount or Decimal("0")) * ratio
+            fee = (base.service_fee or Decimal("0")) * ratio
+            tax = (base.tax or Decimal("0")) * ratio
+            total = part_subtotal - discount + fee + tax
+            out.append(self._split_child(
+                base, f"Часть {pi} из {len(parts)}", lines, part_subtotal, discount, fee, tax, total,
+            ))
+        return out
+
     # Auto-print: find printers by type and print
     async def auto_print_receipt(self, company_id: UUID, branch_id: UUID, order_id: UUID) -> list[PrintJob]:
         printers = await self.repo.get_by_type(company_id, branch_id, "receipt")
@@ -133,7 +249,7 @@ class PrinterService:
         jobs = []
         for printer in printers:
             order = await self._get_order(company_id, order_id)
-            ticket_data = await self._build_kitchen_data(order)
+            ticket_data = await self._build_kitchen_data(order, company_id)
             fmt = EscPosFormatter(printer.paper_width, charset=(printer.settings or {}).get("charset", "cp866"))
             raw = fmt.format_kitchen_ticket(ticket_data)
             job = await self._enqueue_and_send(company_id, printer, "kitchen", order_id, raw)
@@ -281,9 +397,17 @@ class PrinterService:
             table_number=order.table_number,
             service_fee=order.service_fee,
             waiter_name=(waiter.name if waiter else None),
+            # 2.5 — шаблон конструктора чека (может быть None → печать по умолчанию)
+            template=(company.receipt_template if company else None),
         )
 
-    async def _build_kitchen_data(self, order: Order) -> KitchenTicketData:
+    async def _build_kitchen_data(self, order: Order, company_id: UUID | None = None) -> KitchenTicketData:
+        # 2.5 — шаблон кухонного чека из конструктора (companies.kitchen_receipt_template)
+        kitchen_template = None
+        if company_id:
+            from app.modules.companies.models import Company
+            company = (await self.db.execute(select(Company).where(Company.id == company_id))).scalar_one_or_none()
+            kitchen_template = company.kitchen_receipt_template if company else None
         items = [
             {
                 "name": item.name,
@@ -302,4 +426,5 @@ class PrinterService:
             waiter_name=None,
             items=items,
             note=order.note,
+            template=kitchen_template,
         )

@@ -80,6 +80,8 @@ class OrderItem(TimeStampedModel):
     course: Mapped[int] = mapped_column(Integer, default=1)
     # Позиция «с собой» — не облагается сервисным сбором
     takeaway: Mapped[bool] = mapped_column(Boolean, default=False)
+    # 9.4 — кто добавил позицию (для модалки оплаты: время добавления = created_at, кем = added_by)
+    added_by: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
     order: Mapped[Order] = relationship(back_populates="items")
 

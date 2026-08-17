@@ -38,6 +38,13 @@ class ReceiptData:
     service_fee: Decimal = Decimal("0")
     waiter_name: str | None = None
     printed_at: datetime = field(default_factory=datetime.now)
+    # 2.1 — раздельный чек: подпись части («Часть 1 из 3» / «Поровну: 1 из 4»).
+    # None → обычный (общий) чек, печатается как раньше.
+    split_note: str | None = None
+    # 2.5 — JSON-шаблон из конструктора чека (companies.receipt_template).
+    # None → печать по умолчанию (обратная совместимость). Форма: см.
+    # frontend/src/api/receipt.js (enabled{}, thankYouText, footerText, ...).
+    template: dict | None = None
 
 
 @dataclass
@@ -49,6 +56,8 @@ class KitchenTicketData:
     items: list[dict]  # [{name, qty, note, modifiers, course}]
     note: str | None = None
     printed_at: datetime = field(default_factory=datetime.now)
+    # 2.5 — JSON-шаблон кухонного чека (companies.kitchen_receipt_template)
+    template: dict | None = None
 
 
 # Тип заказа на печати: dine_in не пишем вообще (лишняя строка «DINING»),
@@ -61,6 +70,27 @@ _ORDER_TYPE_LABELS = {
 
 def order_type_label(order_type: str | None) -> str:
     return _ORDER_TYPE_LABELS.get((order_type or "").lower(), "")
+
+
+# 2.5 — хелперы чтения шаблона конструктора чека. При template=None (шаблон не
+# настроен) все блоки считаются включёнными, тексты берутся дефолтные — печать
+# ведёт себя ровно как раньше (полная обратная совместимость).
+def _tpl_on(template: dict | None, key: str, default: bool = True) -> bool:
+    """Включён ли блок `key` в шаблоне. Отсутствие ключа → default."""
+    if not isinstance(template, dict):
+        return default
+    enabled = template.get("enabled")
+    if not isinstance(enabled, dict) or key not in enabled:
+        return default
+    return bool(enabled[key])
+
+
+def _tpl_text(template: dict | None, key: str) -> str | None:
+    """Непустой текстовый параметр шаблона (restaurantName/thankYouText/...)."""
+    if not isinstance(template, dict):
+        return None
+    value = template.get(key)
+    return value if isinstance(value, str) and value.strip() else None
 
 
 class EscPosFormatter:
@@ -120,73 +150,94 @@ class EscPosFormatter:
         return self._line(name_trunc + qty.rjust(qty_w) + total.rjust(total_w))
 
     def format_receipt(self, data: ReceiptData) -> bytes:
+        tpl = data.template
         out = bytearray()
         out += self.INIT
         out += self._set_codepage   # кириллическая кодовая страница (ESC @ сбрасывает её)
 
         # Header
         out += self.ALIGN_CENTER
-        out += self.BOLD_ON + self.DOUBLE_HEIGHT
-        out += self._line(data.company_name[:self.cols])
-        out += self.NORMAL_SIZE + self.BOLD_OFF
+        if _tpl_on(tpl, "restaurantName"):
+            # Название из конструктора (если задано) перекрывает имя компании
+            title = _tpl_text(tpl, "restaurantName") or data.company_name
+            out += self.BOLD_ON + self.DOUBLE_HEIGHT
+            out += self._line(title[:self.cols])
+            out += self.NORMAL_SIZE + self.BOLD_OFF
         out += self._line(data.branch_name[:self.cols])
+        # Адрес/телефон — по умолчанию выключены в конструкторе, печатаем только
+        # если блок включён и текст задан.
+        address = _tpl_text(tpl, "address")
+        if _tpl_on(tpl, "address", default=False) and address:
+            out += self._line(address[:self.cols])
+        phone = _tpl_text(tpl, "phone")
+        if _tpl_on(tpl, "phone", default=False) and phone:
+            out += self._line(phone[:self.cols])
         out += self.ALIGN_LEFT
         out += self._divider()
 
         # Order info
         type_label = order_type_label(data.order_type)
-        if type_label:
-            out += self._two_col(f"Заказ #{data.order_number}", type_label)
-        else:
-            out += self._line(f"Заказ #{data.order_number}")
-        if data.table_number:
+        if _tpl_on(tpl, "orderNumber"):
+            if type_label:
+                out += self._two_col(f"Заказ #{data.order_number}", type_label)
+            else:
+                out += self._line(f"Заказ #{data.order_number}")
+        if data.table_number and _tpl_on(tpl, "table"):
             out += self._line(f"Стол: {data.table_number}")
         if data.customer_name:
             out += self._line(f"Клиент: {data.customer_name}")
-        out += self._line(f"Кассир: {data.cashier_name}")
-        out += self._line(data.printed_at.strftime("%d.%m.%Y %H:%M:%S"))
+        if _tpl_on(tpl, "waiter"):
+            out += self._line(f"Кассир: {data.cashier_name}")
+        if _tpl_on(tpl, "dateTime"):
+            out += self._line(data.printed_at.strftime("%d.%m.%Y %H:%M:%S"))
+        # 2.1 — раздельный чек: подпись части выделяем жирным
+        if data.split_note:
+            out += self.BOLD_ON
+            out += self._line(data.split_note[:self.cols])
+            out += self.BOLD_OFF
         out += self._divider()
 
-        # Items header
-        out += self.BOLD_ON
-        out += self._three_col("Наименование", "Кол.", "Сумма")
-        out += self.BOLD_OFF
-        out += self._divider()
-
-        # Items
-        for item in data.items:
-            out += self._three_col(
-                item.name,
-                str(item.qty),
-                f"{item.total:,.0f}",
-            )
-            # При количестве > 1 показываем цену за единицу отдельной строкой,
-            # чтобы в чеке была видна не только сумма позиции, но и цена штуки.
-            if item.qty and Decimal(item.qty) != 1 and item.price:
-                out += self._line(f"  {item.qty} x {item.price:,.0f}")
-            for mod in item.modifiers:
-                out += self._line(f"  + {mod}")
-
-        out += self._divider()
+        # Items — при раздельном чекe у части могут отсутствовать позиции
+        # (деление «поровну»), тогда таблицу блюд не печатаем.
+        if _tpl_on(tpl, "items") and data.items:
+            out += self.BOLD_ON
+            out += self._three_col("Наименование", "Кол.", "Сумма")
+            out += self.BOLD_OFF
+            out += self._divider()
+            for item in data.items:
+                out += self._three_col(
+                    item.name,
+                    str(item.qty),
+                    f"{item.total:,.0f}",
+                )
+                # При количестве > 1 показываем цену за единицу отдельной строкой,
+                # чтобы в чеке была видна не только сумма позиции, но и цена штуки.
+                if item.qty and Decimal(item.qty) != 1 and item.price:
+                    out += self._line(f"  {item.qty} x {item.price:,.0f}")
+                for mod in item.modifiers:
+                    out += self._line(f"  + {mod}")
+            out += self._divider()
 
         # Totals
         out += self._two_col("Итого:", f"{data.subtotal:,.0f}")
-        if data.discount > 0:
+        if data.discount > 0 and _tpl_on(tpl, "discount"):
             out += self._two_col("Скидка:", f"-{data.discount:,.0f}")
-        if getattr(data, "service_fee", 0) and data.service_fee > 0:
+        if getattr(data, "service_fee", 0) and data.service_fee > 0 and _tpl_on(tpl, "serviceFee"):
             out += self._two_col("Обслуживание:", f"{data.service_fee:,.0f}")
-        if data.tax > 0:
+        if data.tax > 0 and _tpl_on(tpl, "vat"):
             out += self._two_col("НДС (12%):", f"{data.tax:,.0f}")
-        out += self.BOLD_ON
-        out += self._two_col("К ОПЛАТЕ:", f"{data.total:,.0f}")
-        out += self.BOLD_OFF
+        if _tpl_on(tpl, "total"):
+            out += self.BOLD_ON
+            out += self._two_col("К ОПЛАТЕ:", f"{data.total:,.0f}")
+            out += self.BOLD_OFF
         out += self._divider()
 
         # Payment
-        out += self._two_col("Оплата:", data.payment_method)
-        if data.cash_received is not None:
-            out += self._two_col("Получено:", f"{data.cash_received:,.0f}")
-            out += self._two_col("Сдача:", f"{data.change_given or 0:,.0f}")
+        if _tpl_on(tpl, "paymentMethod"):
+            out += self._two_col("Оплата:", data.payment_method)
+            if data.cash_received is not None:
+                out += self._two_col("Получено:", f"{data.cash_received:,.0f}")
+                out += self._two_col("Сдача:", f"{data.change_given or 0:,.0f}")
 
         # Fiscal code
         if data.fiscal_code:
@@ -195,10 +246,17 @@ class EscPosFormatter:
             out += self._line(f"ФН: {data.fiscal_code}")
             out += self.ALIGN_LEFT
 
-        # Footer
+        # Footer — текст «спасибо» из конструктора (иначе дефолт), затем нижний текст
         out += self._divider()
         out += self.ALIGN_CENTER
-        out += self._line("Спасибо за покупку!")
+        if _tpl_on(tpl, "thankYouText"):
+            thank_you = _tpl_text(tpl, "thankYouText") or "Спасибо за покупку!"
+            for ln in thank_you.split("\n"):
+                out += self._line(ln[:self.cols])
+        footer_text = _tpl_text(tpl, "footerText")
+        if _tpl_on(tpl, "footerText") and footer_text:
+            for ln in footer_text.split("\n"):
+                out += self._line(ln[:self.cols])
         out += self.ALIGN_LEFT
         out += self.LF * 3
         out += self.CUT
@@ -206,6 +264,7 @@ class EscPosFormatter:
         return bytes(out)
 
     def format_kitchen_ticket(self, data: KitchenTicketData) -> bytes:
+        tpl = data.template
         out = bytearray()
         out += self.INIT
         out += self._set_codepage   # кириллическая кодовая страница (ESC @ сбрасывает её)
@@ -215,12 +274,14 @@ class EscPosFormatter:
         out += self.NORMAL_SIZE + self.BOLD_OFF
         # «DINING» не печатаем; тип показываем только для «с собой»/доставки
         type_label = order_type_label(data.order_type)
-        out += self._two_col(type_label, data.printed_at.strftime("%H:%M"))
-        if data.table_number:
+        time_str = data.printed_at.strftime("%H:%M") if _tpl_on(tpl, "createdAt") else ""
+        if type_label or time_str:
+            out += self._two_col(type_label, time_str)
+        if data.table_number and _tpl_on(tpl, "table"):
             out += self.BOLD_ON
             out += self._line(f"СТОЛ: {data.table_number}")
             out += self.BOLD_OFF
-        if data.waiter_name:
+        if data.waiter_name and _tpl_on(tpl, "waiter"):
             out += self._line(f"Официант: {data.waiter_name}")
         out += self.ALIGN_LEFT
         out += self._divider("=")
@@ -231,6 +292,8 @@ class EscPosFormatter:
             c = item.get("course", 1)
             courses.setdefault(c, []).append(item)
 
+        show_mods = _tpl_on(tpl, "modifiers")
+        show_notes = _tpl_on(tpl, "itemComments")
         for course_num in sorted(courses):
             if len(courses) > 1:
                 out += self.BOLD_ON
@@ -242,12 +305,13 @@ class EscPosFormatter:
                 out += self.BOLD_ON
                 out += self._line(f"  x{qty}  {name}")
                 out += self.BOLD_OFF
-                for mod in item.get("modifiers", []):
-                    out += self._line(f"       + {mod}")
-                if item.get("note"):
+                if show_mods:
+                    for mod in item.get("modifiers", []):
+                        out += self._line(f"       + {mod}")
+                if show_notes and item.get("note"):
                     out += self._line(f"       ! {item['note']}")
 
-        if data.note:
+        if data.note and _tpl_on(tpl, "orderNote"):
             out += self._divider()
             out += self._line(f"КОММЕНТАРИЙ: {data.note}")
 

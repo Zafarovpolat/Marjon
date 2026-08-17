@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -14,12 +14,14 @@ from app.modules.auth.security import (
     hash_password,
     hash_pin,
     hash_refresh_token,
+    terminal_email,
     verify_password,
 )
-from app.modules.companies.models import Company
+from app.modules.companies.models import Branch, Company
 from app.modules.rbac.models import Role, UserRole
 from app.modules.rbac.repository import RoleRepository
 from app.shared.exceptions import ConflictError, NotFoundError, UnauthorizedError, ValidationError
+from app.shared.phone import normalize_branch_login
 
 
 class AuthService:
@@ -116,6 +118,79 @@ class AuthService:
         await self._save_refresh_token(user.id, refresh_token)
 
         return user, access_token, refresh_token
+
+    async def _get_or_create_terminal_user(self, branch: Branch) -> User:
+        """Служебный пользователь-терминал филиала (6.2). Один на филиал.
+        Не входит по паролю/PIN (пароль случайный, pin_hash пуст) и скрыт из
+        списков персонала по маске e-mail. Несёт company_id + branch_id."""
+        email = terminal_email(branch.id)
+        user = await self.user_repo.get_by_email(email)
+        if user:
+            changed = False
+            if user.branch_id != branch.id:
+                user.branch_id = branch.id
+                changed = True
+            if user.company_id != branch.company_id:
+                user.company_id = branch.company_id
+                changed = True
+            if not user.is_active:
+                user.is_active = True
+                changed = True
+            if changed:
+                await self.db.commit()
+                await self.db.refresh(user)
+            return user
+
+        import secrets as _secrets
+        user = User(
+            company_id=branch.company_id,
+            email=email,
+            name=branch.name,
+            branch_id=branch.id,
+            is_active=True,
+            # Пароль случайный: вход в этот аккаунт возможен только через branch-login
+            password_hash=hash_password(_secrets.token_urlsafe(32)),
+        )
+        self.db.add(user)
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user
+
+    async def login_by_branch(self, login: str, password: str) -> tuple[User, Branch, Company, str, str]:
+        """6.2 — вход на кассе одним шагом по логину/паролю филиала.
+        Логин филиала определяет и организацию, и филиал. Возвращает служебный
+        токен, привязанный к company+branch (через терминального пользователя)."""
+        import logging
+        log = logging.getLogger(__name__)
+
+        # 6.2 — филиалы логинятся по номеру телефона: приводим к каноничному
+        # +998XXXXXXXXX так же, как на записи (BranchService/seed), чтобы сравнение
+        # по глобально уникальному индексу ix_branches_login было консистентным.
+        norm = normalize_branch_login(login)
+        if not norm:
+            raise UnauthorizedError("Invalid credentials")
+
+        branch = (await self.db.execute(
+            select(Branch).where(func.lower(Branch.login) == norm.lower())
+        )).scalar_one_or_none()
+
+        if not branch or not branch.password_hash:
+            log.warning("Branch login failed: no branch for login=%s", login)
+            raise UnauthorizedError("Invalid credentials")
+        if not verify_password(password, branch.password_hash):
+            log.warning("Branch login failed: wrong password for login=%s", login)
+            raise UnauthorizedError("Invalid credentials")
+        if not branch.is_active:
+            raise UnauthorizedError("Branch is inactive")
+
+        terminal = await self._get_or_create_terminal_user(branch)
+        company = await self.db.get(Company, branch.company_id)
+
+        access_token = create_access_token(terminal.id, terminal.company_id)
+        refresh_token = create_refresh_token()
+        await self._save_refresh_token(terminal.id, refresh_token)
+
+        return terminal, branch, company, access_token, refresh_token
 
     async def _ensure_role(self, company_id: UUID, role_slug: str, role_name: str | None) -> Role:
         role_repo = RoleRepository(self.db)

@@ -2476,12 +2476,33 @@ body.vkb-open .login-card {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
-.waiter-detail__actions { display: flex; gap: var(--spacing-md); }
+.waiter-detail__actions { display: flex; gap: var(--spacing-md); flex-wrap: wrap; }
 .waiter-detail__actions .btn-primary,
-.waiter-detail__actions .btn-success { flex: 1; }
+.waiter-detail__actions .btn-success,
+.waiter-detail__actions .btn-ghost,
+.waiter-detail__actions .btn-danger { flex: 1; }
 
 /* Новый заказ */
-.waiter-new-order { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+/* 7.1 — Экран заказа за столом всегда тёмный (просьба заказчика), независимо
+   от глобальной темы. Переопределяем семантические токены локально на контейнере —
+   все вложенные правила (каталог, плитки, корзина) берут тёмные значения сами. */
+.waiter-new-order {
+  --color-card:          var(--color-dark-card);
+  --color-surface:       var(--color-dark-card);
+  --color-surface-hover: var(--neutral-800);
+  --color-subtle:        var(--neutral-800);
+  --color-text-primary:   var(--color-dark-text);
+  --color-text-secondary: var(--neutral-300);
+  --color-text-muted:     var(--neutral-400);
+  --color-border:         rgba(255, 255, 255, 0.12);
+  --color-border-light:   rgba(255, 255, 255, 0.07);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-dark-bg);
+  color: var(--color-text-primary);
+}
 .waiter-new-order__header {
   display: flex;
   align-items: center;
@@ -3237,7 +3258,7 @@ body.vkb-open .login-card {
 .vkb__rows { display: flex; flex-direction: column; gap: 8px; }
 .vkb__row { display: flex; gap: 8px; }
 .vkb__key {
-  flex: 1 1 0; min-width: 0; height: 58px;
+  flex: 1 1 0; min-width: 0; max-width: none; height: 58px;
   display: flex; align-items: center; justify-content: center;
   border-radius: 10px; background: #ffffff; color: var(--neutral-900);
   font-size: 19px; font-weight: 600;
@@ -3247,7 +3268,7 @@ body.vkb-open .login-card {
 }
 .vkb__key:active { transform: translateY(1px); background: #eef1f5; }
 .vkb__key--num { font-weight: 700; }
-.vkb__key--medium { flex: 1.4 1 0; background: #dfe3ea; color: var(--neutral-700); font-size: 15px; }
+.vkb__key--medium { flex: 1.4 1 0; max-width: none; background: #dfe3ea; color: var(--neutral-700); font-size: 15px; }
 .vkb__key--wide { flex: 5 1 0; }
 .vkb__key--active { background: var(--color-brand); color: #fff; }
 .vkb__key--active svg { color: #fff; }
@@ -3474,6 +3495,39 @@ body.vkb-open .login-card {
 .stop-row__price { font-size: var(--text-xs); color: var(--color-text-muted); }
 .product-card--stop { opacity: 0.55; }
 
+/* ── 5.5 Приход/уход повара: очередь на подтверждение кассиром ── */
+.att-modal { width: 620px; max-width: 96vw; }
+.att-modal .modal__body.att-body { padding-top: var(--spacing-md); }
+.att-list { display: flex; flex-direction: column; gap: 8px; padding: 0 var(--spacing-xl) var(--spacing-lg); }
+.att-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-subtle); }
+.att-row__badge { display: grid; place-items: center; width: 38px; height: 38px; border-radius: var(--radius-sm); flex-shrink: 0; }
+.att-row__badge--in { background: var(--color-success-bg); color: var(--color-success); }
+.att-row__badge--out { background: var(--color-danger-bg); color: var(--color-danger); }
+.att-row__info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.att-row__name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--color-text-primary); }
+.att-row__meta { font-size: var(--text-xs); color: var(--color-text-muted); }
+.att-row__actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+/* ── 2.1 Раздельный чек ─────────────────────────────────────────────── */
+.split-modal { width: 560px; max-width: 94vw; max-height: 92vh; }
+.pay-order__split { width: 100%; justify-content: center; margin-bottom: var(--spacing-md); }
+.split-tabs { display: flex; gap: 8px; margin-bottom: var(--spacing-md); }
+.split-tab { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-secondary); font-weight: 600; cursor: pointer; }
+.split-tab.is-active { border-color: var(--color-brand); background: var(--color-brand-soft, var(--color-surface)); color: var(--color-brand); }
+.split-even { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: var(--spacing-md) 0; }
+.split-even > label, .split-parts-row > label { font-weight: 600; color: var(--color-text-secondary); }
+.split-stepper { display: inline-flex; align-items: center; gap: 14px; }
+.split-stepper .btn { min-width: 46px; font-size: 22px; line-height: 1; padding: 6px 0; }
+.split-stepper__val { min-width: 40px; text-align: center; font-size: 24px; font-weight: 700; color: var(--color-text-primary); }
+.split-parts-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--spacing-md); }
+.split-items { display: flex; flex-direction: column; }
+.split-list { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; }
+.split-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); }
+.split-item__name { font-size: var(--text-sm); color: var(--color-text-primary); }
+.split-item__parts { display: inline-flex; gap: 6px; flex-shrink: 0; }
+.split-chip { width: 34px; height: 34px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg); color: var(--color-text-secondary); font-weight: 700; cursor: pointer; }
+.split-chip.is-active { border-color: var(--color-brand); background: var(--color-brand); color: #fff; }
+
 /* ── Оплата существующего заказа (касса): позиции + печать + способ + закрыть ── */
 /* Шире и растягивается по контенту — без скролла внутри */
 .pay-order-modal { width: 600px; max-width: 94vw; max-height: 92vh; }
@@ -3526,6 +3580,8 @@ body.vkb-open .login-card {
 /* Кнопка «переместить позицию» в деталях официанта — с подписью, крупнее для тач */
 .detail-item__move { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid var(--color-border); color: var(--color-text-secondary); cursor: pointer; padding: 6px 12px; border-radius: var(--radius-sm); font-size: var(--text-sm); font-weight: 600; }
 .detail-item__move:hover { background: var(--color-brand-bg); border-color: var(--color-brand); color: var(--color-brand); }
+.detail-item__delete { display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--color-border); color: var(--color-text-muted); cursor: pointer; padding: 6px 10px; border-radius: var(--radius-sm); }
+.detail-item__delete:hover { background: var(--color-danger-bg, rgba(239, 68, 68, 0.12)); border-color: var(--color-danger); color: var(--color-danger); }
 .pay-order__methods .pay-method-btn { min-height: 78px; gap: 6px; font-size: var(--text-sm); }
 .pay-order__methods .pay-method-btn.is-active { border-color: var(--color-brand); background: var(--color-brand-bg); color: var(--color-brand); box-shadow: 0 0 0 1px var(--color-brand) inset; }
 .pay-order__cash { display: flex; flex-direction: column; gap: 8px; }

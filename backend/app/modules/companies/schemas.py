@@ -33,6 +33,9 @@ class BranchCreate(BaseSchema):
     name: str
     address: str | None = None
     city: str | None = None
+    # 6.2 — учётные данные филиала (задаются в веб-админке)
+    login: str | None = None
+    password: str | None = None
 
 
 class BranchUpdate(BaseSchema):
@@ -40,6 +43,8 @@ class BranchUpdate(BaseSchema):
     address: str | None = None
     city: str | None = None
     is_active: bool | None = None
+    login: str | None = None
+    password: str | None = None
 
 
 class BranchResponse(BaseResponseSchema):
@@ -48,3 +53,5 @@ class BranchResponse(BaseResponseSchema):
     address: str | None
     city: str | None
     is_active: bool
+    # Логин филиала показываем (для веб-админки); хеш/пароль — никогда
+    login: str | None = None

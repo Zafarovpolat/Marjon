@@ -12,6 +12,7 @@ from app.modules.auth.security import decode_token
 from app.modules.printers.schemas import (
     PrinterCreate, PrinterResponse, PrinterTestRequest, PrinterUpdate,
     PrintJobResponse, PrintKitchenRequest, PrintReceiptRequest, PrintSummaryRequest,
+    PrintSplitRequest,
 )
 from app.modules.printers.service import PrinterService
 from app.modules.printers.printer_client import send_to_network_printer, PrinterError
@@ -136,6 +137,19 @@ async def print_summary(
     """Print summary receipt (общий чек из Истории/Отчётов) from raw lines."""
     return await PrinterService(db).print_summary(
         user.company_id, data.printer_id, data.title, data.lines, data.footer, data.copies
+    )
+
+
+@router.post("/print/split", response_model=list[PrintJobResponse])
+async def print_split(
+    data: PrintSplitRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """2.1 — раздельный чек: печатает заказ несколькими чеками-частями."""
+    return await PrinterService(db).print_split_receipt(
+        user.company_id, data.order_id, data.printer_id,
+        data.mode, data.parts, data.ways, data.copies,
     )
 
 

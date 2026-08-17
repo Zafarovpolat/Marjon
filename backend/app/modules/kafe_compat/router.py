@@ -169,6 +169,50 @@ async def update_organization(data: dict, user: User = Depends(require_company_a
     return _org_dict(c)
 
 
+# ── Настройки: конструктор чека (2.5) ────────────────────────────────────────
+# Веб-админка собирает JSON-шаблон чека и раньше клала его только в localStorage —
+# до принтера он не доходил. Теперь шаблон хранится на companies.* и читается
+# форматтером ESC/POS при печати (см. printers/formatter.py). GET возвращает
+# сохранённый шаблон или {} (тогда фронт подставит свои дефолты); PATCH
+# перезаписывает шаблон целиком тем, что прислал фронт.
+@router.get("/settings/receipt-template", tags=["settings"])
+async def get_receipt_template(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    c = await db.get(Company, user.company_id)
+    if not c:
+        raise NotFoundError("Company not found")
+    return c.receipt_template or {}
+
+
+@router.patch("/settings/receipt-template", tags=["settings"])
+async def update_receipt_template(data: dict, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)):
+    c = await db.get(Company, user.company_id)
+    if not c:
+        raise NotFoundError("Company not found")
+    c.receipt_template = data or {}
+    await db.commit()
+    await db.refresh(c)
+    return c.receipt_template or {}
+
+
+@router.get("/settings/kitchen-receipt-template", tags=["settings"])
+async def get_kitchen_receipt_template(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    c = await db.get(Company, user.company_id)
+    if not c:
+        raise NotFoundError("Company not found")
+    return c.kitchen_receipt_template or {}
+
+
+@router.patch("/settings/kitchen-receipt-template", tags=["settings"])
+async def update_kitchen_receipt_template(data: dict, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)):
+    c = await db.get(Company, user.company_id)
+    if not c:
+        raise NotFoundError("Company not found")
+    c.kitchen_receipt_template = data or {}
+    await db.commit()
+    await db.refresh(c)
+    return c.kitchen_receipt_template or {}
+
+
 # ── Настройки: заведения (филиалы) ───────────────────────────────────────────
 def _branch_dict(b: Branch) -> dict:
     return {"id": b.id, "name": b.name, "address": b.address, "city": b.city, "is_active": b.is_active}

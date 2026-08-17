@@ -10,7 +10,7 @@ const DICT = {
     refresh: 'Обновить', lock_screen: 'Заблокировать экран', locked_title: 'Экран заблокирован', account: 'Аккаунт', minimize: 'Свернуть окно',
     all: 'Все', locations: 'Локации', overview: 'Обзор', categories: 'Категории',
     stoplist: 'Стоп-лист', finance: 'Финансы', reports: 'Отчёты', history: 'История', queue: 'Очередь', menu_more: 'Меню',
-    mode_cashier: 'Касса', mode_kitchen: 'Кухня', mode_waiter: 'Официант', mode_manager: 'Менеджер',
+    mode_cashier: 'Касса', mode_kitchen: 'Кухня', mode_waiter: 'Официант', mode_manager: 'Менеджер', mode_courier: 'Курьер',
     manager_hint: 'Выберите раздел в меню слева',
     pay: 'Оплата', add: 'Добавить', save: 'Сохранить', back: 'Назад', cancel: 'Отмена', edit: 'Изменить',
     free: 'Свободен', busy: 'Занят', ready: 'Готов', await: 'Ожидает оплату', tables: 'Столы', table: 'Стол',
@@ -38,6 +38,8 @@ const DICT = {
     cancel_order: 'Отменить заказ', cancel_password_prompt: 'Введите пароль отмены', cancel_error: 'Не удалось отменить заказ',
     cancel_comment: 'Комментарий к отмене (необязательно)', cancel_comment_ph: 'Например: гость ушёл, ошибка в позициях…',
     no_permission: 'Нет прав на это действие', move_to_table: 'Переместить на стол №', change_waiter: 'Сменить официанта', move_item: 'Перенести',
+    move_reason: 'Причина смены стола (необязательно)', move_reason_ph: 'Например: гостей пересадили, объединили столы…',
+    delete_dish: 'Удалить блюдо', delete_reason: 'Причина удаления', delete_reason_ph: 'Например: гость передумал, ошибка при вводе…',
     // Техкарта
     tech_card: 'Техкарта', ingredient: 'Ингредиент', amount: 'Кол-во',
     recipe_yield: 'Выход', portion: 'порция', recipe_empty: 'Техкарта для этого блюда ещё не заполнена.',
@@ -82,6 +84,15 @@ const DICT = {
         col_discount: 'Скидка', col_pay_method: 'Оплата', col_avg: 'Средний чек',
     // Стоп-лист
     only_stop: 'Только в стопе', nothing_found: 'Ничего не найдено.', return_item: 'Вернуть', to_stop: 'В стоп',
+    // 5.5 — подтверждение прихода/ухода повара кассиром
+    attendance: 'Приход/уход', att_pending: 'Ожидают подтверждения', att_empty: 'Нет отметок на подтверждение.',
+    att_check_in: 'Приход', att_check_out: 'Уход', att_approve: 'Подтвердить', att_reject: 'Отклонить',
+    att_approved: 'Подтверждено', att_rejected: 'Отклонено', att_err: 'Не удалось обновить отметку',
+    // 2.1 — раздельный чек
+    split_receipt: 'Раздельный чек', split_even: 'Поровну', split_by_items: 'По позициям',
+    split_ways: 'На сколько частей делить', split_each: 'Каждому', split_parts: 'Число частей',
+    split_print: 'Печать чеков', split_need_two: 'Разложите позиции минимум на 2 части',
+    split_done: 'Раздельные чеки отправлены на печать',
     // Настройки
     s_sound: 'Звук', s_sound_notif: 'Звуковые уведомления', s_volume: 'Громкость',
     s_test_sound: 'Проверить звук', s_play: 'Проиграть', s_kitchen_timers: 'Таймеры кухни',
@@ -107,6 +118,9 @@ const DICT = {
     md_back: 'Назад к филиалам', md_title: 'Рабочее место', md_hint: 'Выберите режим работы',
     lp_phone: 'Номер телефона', lp_password: 'Пароль', lp_phone_incomplete: 'Введите номер телефона полностью',
     lp_bad_creds: 'Неверный телефон или пароль', lp_logging_in: 'Вход...', lp_bind: 'Привязать терминал',
+    lp_branch_login: 'Телефон филиала', lp_branch_login_ph: '+998 90 000 00 10',
+    lp_branch_subtitle: 'Вход на кассе', lp_branch_enter: 'Войти',
+    lp_branch_bad_creds: 'Неверный логин или пароль филиала',
     lp_bad_pin: 'Неверный PIN-код', lp_enter_pin_hint: 'Введите PIN для входа',
     bs_load_err: 'Не удалось загрузить список филиалов', bs_title: 'Выберите филиал', bs_loading: 'Загрузка филиалов...',
     retry: 'Повторить', bs_empty: 'Нет доступных филиалов',
@@ -120,7 +134,7 @@ const DICT = {
     refresh: 'Yangilash', lock_screen: 'Ekranni bloklash', locked_title: 'Ekran bloklangan', account: 'Hisob', minimize: 'Oynani yig‘ish',
     all: 'Hammasi', locations: 'Joylar', overview: 'Umumiy', categories: 'Turkumlar',
     stoplist: 'Stop-ro‘yxat', finance: 'Moliya', reports: 'Hisobotlar', history: 'Tarix', queue: 'Navbat', menu_more: 'Menyu',
-    mode_cashier: 'Kassa', mode_kitchen: 'Oshxona', mode_waiter: 'Ofitsiant', mode_manager: 'Menejer',
+    mode_cashier: 'Kassa', mode_kitchen: 'Oshxona', mode_waiter: 'Ofitsiant', mode_manager: 'Menejer', mode_courier: 'Kuryer',
     manager_hint: 'Chap menyudan bo‘limni tanlang',
     pay: 'To‘lov', add: 'Qo‘shish', save: 'Saqlash', back: 'Orqaga', cancel: 'Bekor', edit: 'O‘zgartirish',
     free: 'Bo‘sh', busy: 'Band', ready: 'Tayyor', await: 'To‘lovni kutmoqda', tables: 'Stollar', table: 'Stol',
@@ -148,6 +162,8 @@ const DICT = {
     cancel_order: 'Buyurtmani bekor qilish', cancel_password_prompt: 'Bekor qilish parolini kiriting', cancel_error: 'Buyurtmani bekor qilib bo‘lmadi',
     cancel_comment: 'Bekor sababi (ixtiyoriy)', cancel_comment_ph: 'Masalan: mehmon ketdi, pozitsiyada xato…',
     no_permission: 'Bu amal uchun ruxsat yo‘q', move_to_table: 'Boshqa stolga №', change_waiter: 'Ofitsiantni almashtirish', move_item: 'Ko‘chirish',
+    move_reason: 'Stol almashtirish sababi (ixtiyoriy)', move_reason_ph: 'Masalan: mehmonlar boshqa stolga o‘tdi, stollar birlashtirildi…',
+    delete_dish: 'Taomni o‘chirish', delete_reason: 'O‘chirish sababi', delete_reason_ph: 'Masalan: mehmon fikridan qaytdi, kiritishda xato…',
     // Texkarta
     tech_card: 'Texkarta', ingredient: 'Ingredient', amount: 'Miqdor',
     recipe_yield: 'Chiqishi', portion: 'porsiya', recipe_empty: 'Bu taom uchun texkarta hali to‘ldirilmagan.',
@@ -192,6 +208,15 @@ const DICT = {
     col_discount: 'Chegirma', col_pay_method: "To'lov", col_avg: "O'rtacha chek",
     // Stop-ro‘yxat
     only_stop: 'Faqat stopda', nothing_found: 'Hech narsa topilmadi.', return_item: 'Qaytarish', to_stop: 'Stopga',
+    // 5.5 — oshpaz keldi/ketdi tasdiqlash (kassir)
+    attendance: 'Keldi/ketdi', att_pending: 'Tasdiqlash kutilmoqda', att_empty: 'Tasdiqlash uchun belgilar yo‘q.',
+    att_check_in: 'Keldi', att_check_out: 'Ketdi', att_approve: 'Tasdiqlash', att_reject: 'Rad etish',
+    att_approved: 'Tasdiqlandi', att_rejected: 'Rad etildi', att_err: 'Belgini yangilab bo‘lmadi',
+    // 2.1 — alohida chek
+    split_receipt: 'Alohida chek', split_even: 'Teng', split_by_items: 'Taomlar bo‘yicha',
+    split_ways: 'Nechta qismga bo‘lish', split_each: 'Har biriga', split_parts: 'Qismlar soni',
+    split_print: 'Cheklarni chop etish', split_need_two: 'Taomlarni kamida 2 qismga taqsimlang',
+    split_done: 'Alohida cheklar chop etishga yuborildi',
     // Sozlamalar
     s_sound: 'Ovoz', s_sound_notif: 'Ovozli bildirishnomalar', s_volume: 'Balandlik',
     s_test_sound: 'Ovozni tekshirish', s_play: 'Ijro etish', s_kitchen_timers: 'Oshxona taymerlari',
@@ -217,6 +242,9 @@ const DICT = {
     md_back: 'Filiallarga qaytish', md_title: 'Ish o‘rni', md_hint: 'Ish rejimini tanlang',
     lp_phone: 'Telefon raqami', lp_password: 'Parol', lp_phone_incomplete: 'Telefon raqamini to‘liq kiriting',
     lp_bad_creds: 'Telefon yoki parol noto‘g‘ri', lp_logging_in: 'Kirish...', lp_bind: 'Terminalni bog‘lash',
+    lp_branch_login: 'Filial telefoni', lp_branch_login_ph: '+998 90 000 00 10',
+    lp_branch_subtitle: 'Kassaga kirish', lp_branch_enter: 'Kirish',
+    lp_branch_bad_creds: 'Filial logini yoki paroli noto‘g‘ri',
     lp_bad_pin: 'PIN-kod noto‘g‘ri', lp_enter_pin_hint: 'Kirish uchun PIN kiriting',
     bs_load_err: 'Filiallar ro‘yxatini yuklab bo‘lmadi', bs_title: 'Filialni tanlang', bs_loading: 'Filiallar yuklanmoqda...',
     retry: 'Qayta urinish', bs_empty: 'Mavjud filiallar yo‘q',

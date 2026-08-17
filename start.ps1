@@ -5,28 +5,36 @@
   Запускает связки:
     1) Frontend (web+admin) + Backend
     2) Desktop (Electron)   + Backend
-    3) Mobile  (Flutter)    + Backend
-    4) Owner   (Flutter)    + Backend
-    5) Всё вместе
-    6) Только Backend
-    7) Docker (БД + бэкенд + веб) — Python на машине не нужен
+    3) Frontend + Desktop   + Backend  (без Flutter — веб, админка, касса)
+    4) Mobile  (Flutter)    + Backend
+    5) Owner   (Flutter)    + Backend
+    6) Всё вместе
+    7) Только Backend
+    8) Docker (БД + бэкенд + веб) — Python на машине не нужен
 
   Каждый сервис поднимается в отдельном окне PowerShell, чтобы логи не смешивались.
   Скрипт ничего не меняет в коде проекта: только запуск и (по запросу) установка
   зависимостей / миграции.
 
   Запуск: двойной клик по start.cmd  (или:  powershell -ExecutionPolicy Bypass -File .\start.ps1)
-  Непереключаемый режим:  .\start.ps1 -Mode front | desktop | mobile | owner | all | backend
+  Непереключаемый режим:  .\start.ps1 -Mode front | desktop | web-desktop | mobile | owner | all | backend | docker
 #>
 
 [CmdletBinding()]
 param(
-    [ValidateSet('front', 'desktop', 'mobile', 'owner', 'all', 'backend', 'docker', '')]
+    [ValidateSet('front', 'desktop', 'web-desktop', 'mobile', 'owner', 'all', 'backend', 'docker', '')]
     [string]$Mode = ''
 )
 
 $ErrorActionPreference = 'Stop'
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
+
+# Python по умолчанию берёт кодировку stdout из локали Windows (cp1251) и падает
+# на узбекской кириллице (ғ, қ, ў…) при печати из seed.py и логов SQLAlchemy.
+# UTF-8 Mode (Python 3.7+) заставляет ВСЕ дочерние python-процессы (сид, миграции,
+# бэкенд) выводить UTF-8. Дочерние окна из Start-Win наследуют эти переменные.
+$env:PYTHONUTF8 = '1'
+$env:PYTHONIOENCODING = 'utf-8'
 
 $Root         = $PSScriptRoot
 $BackendDir   = Join-Path $Root 'backend'
@@ -37,6 +45,10 @@ $OwnerDir     = Join-Path $Root 'owner'
 
 $BackendPort  = 8000
 $FrontendPort = 5173
+# Рендерер десктопа (Electron/electron-vite) держит СВОЙ Vite-порт 5174 (см.
+# desktop/electron.vite.config.js, strictPort). Его origin тоже нужно пускать в CORS,
+# иначе preflight OPTIONS /auth/branch-login отдаёт 400 и вход в кассу не работает.
+$DesktopPort  = 5174
 
 # ── Вывод ─────────────────────────────────────────────────────────────────────
 function Write-Head { param([string]$Text) Write-Host ''; Write-Host "== $Text" -ForegroundColor Cyan }
@@ -380,6 +392,19 @@ function Show-PythonInfo {
     }
 }
 
+function Get-SqliteDbPath {
+    # Возвращает полный путь к файлу SQLite-БД из backend\.env, или $null если БД не SQLite.
+    # Формат URL: sqlite+aiosqlite:///./dev.db  (путь относителен $BackendDir).
+    param([string]$EnvFile)
+    if (-not (Test-Path -LiteralPath $EnvFile)) { return $null }
+    $line = Select-String -LiteralPath $EnvFile -Pattern '^\s*DATABASE_URL\s*=' | Select-Object -First 1
+    if (-not $line) { return $null }
+    if ($line.Line -notmatch 'sqlite(?:\+[a-z0-9]+)?:///(.+?)\s*$') { return $null }
+    $rel = $matches[1] -replace '^\./', ''
+    if ([System.IO.Path]::IsPathRooted($rel)) { return $rel }
+    return (Join-Path $BackendDir $rel)
+}
+
 function Invoke-Migrations {
     param([string]$Python)
     if (-not (Confirm-Yes 'Выполнить миграции (alembic upgrade head + migrate_add_permissions.py)?')) { return }
@@ -388,6 +413,30 @@ function Invoke-Migrations {
     $ErrorActionPreference = 'Continue'
     Push-Location $BackendDir
     try {
+        # Локальная SQLite с пустой/отсутствующей БД: миграции написаны под
+        # PostgreSQL (Supabase) и НЕ реплеятся на SQLite (ALTER ... ADD CONSTRAINT
+        # не поддерживается — alembic падает на j6k7usr02). Поэтому чистую SQLite
+        # строим из моделей (create_tables.py) и помечаем актуальной (stamp head).
+        $sqliteDb = Get-SqliteDbPath -EnvFile (Join-Path $BackendDir '.env')
+        if ($sqliteDb -and (-not (Test-Path -LiteralPath $sqliteDb) -or ((Get-Item -LiteralPath $sqliteDb).Length -eq 0))) {
+            Write-Warn2 'SQLite-БД пустая/отсутствует — строю схему из моделей (миграции на SQLite не реплеятся).'
+            Write-Info 'python create_tables.py...'
+            & $Python create_tables.py *> $null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Ok 'create_tables.py — схема создана из моделей'
+                & $Python -m alembic stamp head *> $null
+                if ($LASTEXITCODE -eq 0) { Write-Ok 'alembic stamp head выполнен' }
+                else { Write-Err2 "alembic stamp head не удался (код $LASTEXITCODE)" }
+            } else {
+                Write-Err2 "create_tables.py упал (код $LASTEXITCODE)"
+            }
+            Write-Info 'migrate_add_permissions.py...'
+            & $Python migrate_add_permissions.py *> $null
+            if ($LASTEXITCODE -eq 0) { Write-Ok 'migrate_add_permissions.py выполнен' }
+            else { Write-Err2 "migrate_add_permissions.py упал (код $LASTEXITCODE)" }
+            return
+        }
+
         Write-Info 'alembic upgrade head...'
         $out  = & $Python -m alembic upgrade head 2>&1
         $code = $LASTEXITCODE
@@ -429,6 +478,33 @@ function Invoke-Migrations {
     }
 }
 
+function Invoke-Seed {
+    param([string]$Python)
+    # seed.py идемпотентен (get-or-create + update) — повторный запуск безопасен.
+    # Он провижинит демо-филиалы с телефон-логином и паролем; без него
+    # /auth/branch-login отдаёт 401 и в десктоп-кассу не войти (у филиалов нет учёток).
+    # Именно это ломало вход: миграция создаёт таблицу branches, но НЕ заполняет
+    # login/password_hash — их пишет только сид.
+    if (-not (Confirm-Yes 'Заполнить БД демо-данными (seed.py: филиалы с логином/паролем, сотрудники и PIN)?')) { return }
+
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    Push-Location $BackendDir
+    try {
+        Write-Info 'python seed.py (может занять до минуты)...'
+        & $Python seed.py
+        if ($LASTEXITCODE -eq 0) {
+            Write-Ok 'seed.py выполнен — демо-данные загружены'
+            Write-Info 'Вход в кассу: филиал  +998 90 000-00-10  / пароль  Branch1234,  затем PIN кассира 3333'
+        } else {
+            Write-Err2 "seed.py упал (код $LASTEXITCODE) — см. вывод выше"
+        }
+    } finally {
+        Pop-Location
+        $ErrorActionPreference = $prevEap
+    }
+}
+
 function Start-Backend {
     param([string]$LanIp = '127.0.0.1')
     Write-Head 'Backend (FastAPI)'
@@ -450,12 +526,16 @@ function Start-Backend {
     $envFile = Initialize-BackendEnv
     Test-Database -EnvFile $envFile -Python $py
     Invoke-Migrations -Python $py
+    Invoke-Seed -Python $py
 
     # Разрешённые origin: по умолчанию в config.py только localhost/127.0.0.1, поэтому
     # веб, открытый с планшета по http://<LAN-IP>:5173, получал бы CORS-ошибку на каждый
     # запрос. Передаём список через переменную окружения — она приоритетнее .env,
     # сам .env не трогаем.
-    $origins = "http://localhost:$FrontendPort,http://127.0.0.1:$FrontendPort,http://$($LanIp):$FrontendPort"
+    # Десктоп-рендерер (5174) — на этой же машине, поэтому LAN-IP для него не нужен,
+    # хватает localhost/127.0.0.1; без него preflight branch-login падал с 400.
+    $origins = "http://localhost:$FrontendPort,http://127.0.0.1:$FrontendPort,http://$($LanIp):$FrontendPort" +
+               ",http://localhost:$DesktopPort,http://127.0.0.1:$DesktopPort"
     Write-Info "CORS разрешён для: $origins"
 
     # host 0.0.0.0 — чтобы телефон/планшет в той же сети могли достучаться
@@ -673,6 +753,13 @@ function Invoke-Mode {
         'backend' { Start-Backend -LanIp $lanIp | Out-Null }
         'front'   { Start-Backend -LanIp $lanIp | Out-Null; Start-Frontend -LanIp $lanIp }
         'desktop' { Start-Backend -LanIp $lanIp | Out-Null; Start-Desktop }
+        'web-desktop' {
+            # То, что просил заказчик: веб + админка (один Vite на :5173) + касса + бэкенд.
+            # Без Flutter — mobile/owner здесь не поднимаются.
+            Start-Backend -LanIp $lanIp | Out-Null
+            Start-Frontend -LanIp $lanIp
+            Start-Desktop
+        }
         'mobile'  { Start-Backend -LanIp $lanIp | Out-Null; Start-FlutterApp -Title 'Marjon Mobile (Flutter)' -Dir $MobileDir -LanIp $lanIp }
         'owner'   { Start-Backend -LanIp $lanIp | Out-Null; Start-FlutterApp -Title 'Marjon Owner (Flutter)'  -Dir $OwnerDir  -LanIp $lanIp }
         'docker'  { Start-Docker; return }   # Docker сам печатает свою сводку
@@ -696,11 +783,12 @@ function Show-Menu {
     Write-Host '=============================================' -ForegroundColor Cyan
     Write-Host '  1) Frontend (веб + админка)  + Backend'
     Write-Host '  2) Desktop (касса/кухня)     + Backend'
-    Write-Host '  3) Mobile (Flutter)          + Backend'
-    Write-Host '  4) Owner (Flutter)           + Backend'
-    Write-Host '  5) Всё вместе'
-    Write-Host '  6) Только Backend'
-    Write-Host '  7) Docker (БД + бэкенд + веб) — Python не нужен'
+    Write-Host '  3) Frontend + Desktop        + Backend   (веб, админка, касса; без Flutter)'
+    Write-Host '  4) Mobile (Flutter)          + Backend'
+    Write-Host '  5) Owner (Flutter)           + Backend'
+    Write-Host '  6) Всё вместе'
+    Write-Host '  7) Только Backend'
+    Write-Host '  8) Docker (БД + бэкенд + веб) — Python не нужен'
     Write-Host '  0) Выход'
     Write-Host ''
 }
@@ -717,13 +805,14 @@ while ($true) {
     switch ($choice) {
         '1' { Invoke-Mode -Selected 'front';   break }
         '2' { Invoke-Mode -Selected 'desktop'; break }
-        '3' { Invoke-Mode -Selected 'mobile';  break }
-        '4' { Invoke-Mode -Selected 'owner';   break }
-        '5' { Invoke-Mode -Selected 'all';     break }
-        '6' { Invoke-Mode -Selected 'backend'; break }
-        '7' { Invoke-Mode -Selected 'docker';  break }
+        '3' { Invoke-Mode -Selected 'web-desktop'; break }
+        '4' { Invoke-Mode -Selected 'mobile';  break }
+        '5' { Invoke-Mode -Selected 'owner';   break }
+        '6' { Invoke-Mode -Selected 'all';     break }
+        '7' { Invoke-Mode -Selected 'backend'; break }
+        '8' { Invoke-Mode -Selected 'docker';  break }
         '0' { Write-Host 'Выход.'; exit 0 }
-        default { Write-Warn2 'Нет такого пункта. Введите 0-7.'; continue }
+        default { Write-Warn2 'Нет такого пункта. Введите 0-8.'; continue }
     }
     Write-Host ''
     if (-not (Confirm-Yes 'Запустить ещё связку?')) { break }

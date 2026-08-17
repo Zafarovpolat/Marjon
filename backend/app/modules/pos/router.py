@@ -54,7 +54,7 @@ async def get_order(order_id: UUID, user: User = Depends(get_current_user), db: 
 
 @router.patch("/orders/{order_id}", response_model=OrderResponse)
 async def update_order(order_id: UUID, data: OrderUpdate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    return await OrderService(db).update_order(user.company_id, order_id, data)
+    return await OrderService(db).update_order(user.company_id, order_id, data, user)
 
 
 @router.patch("/orders/{order_id}/status", response_model=OrderResponse)
@@ -69,18 +69,18 @@ async def cancel_order(order_id: UUID, password: str | None = Query(None), comme
 
 @router.post("/orders/{order_id}/items", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
 async def add_item(order_id: UUID, data: OrderItemCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    return await OrderService(db).add_item(user.company_id, order_id, data)
+    return await OrderService(db).add_item(user.company_id, order_id, data, user)
 
 
 @router.delete("/orders/{order_id}/items/{item_id}", response_model=OrderResponse)
-async def remove_item(order_id: UUID, item_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    return await OrderService(db).remove_item(user.company_id, order_id, item_id)
+async def remove_item(order_id: UUID, item_id: UUID, reason: str | None = Query(None), user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await OrderService(db).remove_item(user.company_id, order_id, item_id, reason, user)
 
 
 @router.post("/orders/{order_id}/items/{item_id}/move", response_model=OrderResponse)
 async def move_item(order_id: UUID, item_id: UUID, table: str = Query(...), user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Перекинуть позицию на другой стол (создаёт/дополняет заказ целевого стола)."""
-    return await OrderService(db).move_item(user.company_id, order_id, item_id, table)
+    return await OrderService(db).move_item(user.company_id, order_id, item_id, table, user)
 
 
 # ── Terminals ─────────────────────────────────────────────────────────────────

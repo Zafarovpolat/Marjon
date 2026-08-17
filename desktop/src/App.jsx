@@ -18,12 +18,14 @@ import { connectPrinterWS, disconnectPrinterWS } from './shared/ws'
 const MODES = {
   cashier: { component: CashierMode, label: 'Касса' },
   waiter: { component: WaiterMode, label: 'Официант' },
+  // Курьер = урезанная касса: только заказы «с собой», без столов и кнопок кассира
+  courier: { component: CashierMode, label: 'Курьер' },
 }
 
 // Роль → рабочий режим. На десктопе только касса и официант.
 // Менеджер/владелец/админ и прочие роли → касса (режим менеджера убран, кухня — на десктоп-KDS).
 const ROLE_TO_MODE = {
-  waiter: 'waiter', cashier: 'cashier',
+  waiter: 'waiter', cashier: 'cashier', courier: 'courier',
   manager: 'cashier', owner: 'cashier', admin: 'cashier',
 }
 function roleToMode(user, employee) {
@@ -54,6 +56,7 @@ export default function App() {
   // Под-поток входа сотрудника
   const [staffView, setStaffView] = useState('org')      // org | employees | pin
   const [pinEmployee, setPinEmployee] = useState(null)
+  const [sessionPin, setSessionPin] = useState('')       // PIN текущего входа — для разблокировки экрана
 
   const [isOnline, setIsOnline] = useState(true)
   const [queued, setQueued] = useState(() => queueSize())
@@ -109,19 +112,31 @@ export default function App() {
       .catch(() => { /* нет фона — остаётся дефолтный */ })
   }, [orgToken])
 
-  // 1. Админ привязывает терминал (логин/пароль)
-  const handleAdminLogin = useCallback((data) => {
+  // 1. Вход на кассе по логину/паролю филиала (6.2/6.3) — один шаг.
+  // Ответ /auth/branch-login несёт токен терминала + сведения о branch/company:
+  // сохраняем и организацию, и филиал атомарно, поэтому шаг выбора филиала пропускается.
+  const handleBranchLogin = useCallback((data) => {
     localStorage.setItem('marjon_org_token', data.access_token)
     if (data.refresh_token) localStorage.setItem('marjon_org_refresh', data.refresh_token)
-    localStorage.setItem('marjon_org_user', JSON.stringify(data.user))
-    // Не оставляем админа как «сотрудника»: вход сотрудника идёт через выбор + PIN
+    // Синтетический org-user из company: сотрудникам не показываем личный логин владельца
+    const orgU = {
+      name: data.company?.name,
+      company_name: data.company?.name,
+      company_id: data.company?.id,
+      currency: data.company?.currency,
+    }
+    localStorage.setItem('marjon_org_user', JSON.stringify(orgU))
+    const br = data.branch || null
+    if (br) localStorage.setItem('marjon_branch', JSON.stringify(br))
+    // Не оставляем терминал как «сотрудника»: вход сотрудника идёт через выбор + PIN
     localStorage.removeItem('marjon_token')
     localStorage.removeItem('marjon_user')
     setOrgToken(data.access_token)
-    setOrgUser(data.user)
+    setOrgUser(orgU)
+    if (br) setBranch(br)
   }, [])
 
-  // 2. Выбор филиала
+  // 2. Выбор филиала (legacy-фолбэк: при branch-login филиал уже привязан)
   const handleBranchSelect = useCallback((selectedBranch) => {
     localStorage.setItem('marjon_branch', JSON.stringify(selectedBranch))
     setBranch(selectedBranch)
@@ -145,6 +160,7 @@ export default function App() {
     const user = me || pinEmployee || {}
     localStorage.setItem('marjon_user', JSON.stringify(user))
     setStaffUser(user)
+    setSessionPin(pin)   // запомнили PIN входа — им же разблокируется экран
 
     const m = roleToMode(user, pinEmployee)   // всегда вернёт режим (дефолт — касса)
     localStorage.setItem('marjon_mode', m); setMode(m)
@@ -160,6 +176,7 @@ export default function App() {
     setStaffToken(null)
     setStaffUser(null)
     setMode(null)
+    setSessionPin('')
     setStaffView(toEmployees === true ? 'employees' : 'org')
     setPinEmployee(null)
     kitchenWS.disconnect()
@@ -183,13 +200,14 @@ export default function App() {
   }, [])
   const handleUnlock = useCallback((pin) => {
     const exitPin = localStorage.getItem('marjon_exit_pin')
-    if (pin === staffUser?.pin_code || (exitPin && pin === exitPin)) {
+    // Разблокировка: PIN текущего входа, сохранённый pin_code сотрудника или служебный exit-pin
+    if ((sessionPin && pin === sessionPin) || pin === staffUser?.pin_code || (exitPin && pin === exitPin)) {
       setIsLocked(false)
       try { window.electron?.setLocked?.(false) } catch { /* not in electron */ }
       return true
     }
     return false
-  }, [staffUser])
+  }, [staffUser, sessionPin])
 
   // Electron: при попытке закрыть окно в режиме блокировки — показываем PIN-экран
   useEffect(() => {
@@ -214,8 +232,8 @@ export default function App() {
   const serverUrl = localStorage.getItem('marjon_server_url')
   if (!serverUrl) return <ServerSetup onComplete={() => window.location.reload()} />
 
-  // Шаг 1: терминал не привязан — вход администратора
-  if (!orgToken || !orgUser) return <LoginPage mode="admin" onLogin={handleAdminLogin} />
+  // Шаг 1: терминал не привязан — вход по логину/паролю филиала (6.2)
+  if (!orgToken || !orgUser) return <LoginPage mode="admin" onLogin={handleBranchLogin} />
 
   // Шаг 2: выбор филиала
   if (!branch) {
@@ -273,6 +291,7 @@ export default function App() {
         <ModeComponent
           user={userWithBranch}
           branch={branch}
+          courier={activeMode === 'courier'}
           onLogout={handleStaffLogout}
           onBack={handleAccount}
           onSwitchMode={(m) => { if (MODES[m]) { localStorage.setItem('marjon_mode', m); setMode(m) } }}

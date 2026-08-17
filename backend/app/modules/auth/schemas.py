@@ -78,6 +78,25 @@ class PinLoginRequest(BaseSchema):
     pin: str = Field(..., min_length=4, max_length=8, pattern=r"^\d+$")
 
 
+class BranchLoginRequest(BaseSchema):
+    """6.2 — вход на кассе по логину/паролю филиала (без выбора филиала)."""
+    login: str = Field(..., min_length=1, max_length=100)
+    password: str = Field(..., min_length=1)
+
+
+class BranchInfo(BaseSchema):
+    id: UUID
+    name: str
+    company_id: UUID
+
+
+class CompanyInfo(BaseSchema):
+    id: UUID
+    name: str
+    slug: str
+    currency: str = "UZS"
+
+
 class RefreshRequest(BaseSchema):
     refresh_token: str
 
@@ -86,6 +105,13 @@ class TokenResponse(BaseSchema):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
+
+class BranchLoginResponse(TokenResponse):
+    """Токен терминала филиала + сведения о филиале и организации, чтобы
+    десктоп сохранил всё за один шаг (без BranchSelector)."""
+    branch: BranchInfo
+    company: CompanyInfo
 
 
 class UserResponse(BaseResponseSchema):

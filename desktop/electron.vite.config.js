@@ -19,6 +19,12 @@ export default defineConfig({
   },
   renderer: {
     root: 'src',
+    // Явный порт dev-сервера рендерера. Веб-фронт (frontend/) уже держит
+    // дефолтный Vite-порт 5173; без этой строки electron-vite поднимал бы
+    // рендерер тоже на 5173, и в режиме «фронт + десктоп» два Vite-сервера
+    // дрались за порт (второй молча уезжал на 5174 — недетерминированно).
+    // strictPort фиксирует 5174 и падает явно при реальном конфликте.
+    server: { port: 5174, strictPort: true },
     plugins: [react()],
     build: {
       rollupOptions: {

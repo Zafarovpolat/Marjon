@@ -16,6 +16,17 @@ from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 
+# Windows-консоль (cp1251) не умеет печатать узбекскую кириллицу (ғ, қ, ў…),
+# из-за чего print() названий филиалов вроде «Фарғона филиал» падал с
+# UnicodeEncodeError. Принудительно переводим stdout/stderr на UTF-8
+# (Python 3.7+) до первого вывода — сид работает при любом запуске:
+# и напрямую (python seed.py), и через start.cmd/start.ps1.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+
 from sqlalchemy import or_, select
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -25,6 +36,7 @@ from app.modules.admin_settings.models import ImageBackground, Language, StoreVe
 from app.modules.auth.models import RefreshToken, User
 from app.modules.auth.security import hash_password, hash_pin
 from app.modules.companies.models import Branch, Company
+from app.shared.phone import normalize_branch_login
 from app.modules.crm.models import Customer, CustomerNote
 from app.modules.delivery.models import Courier, DeliveryOrder, DeliveryZone
 from app.modules.departments.models import Department
@@ -77,10 +89,15 @@ TODAY = date(2026, 7, 14)
 NOW = datetime(2026, 7, 14, 15, 30, tzinfo=timezone.utc)
 
 
+# 6.2 — у каждого филиала свой логин (номер телефона) + пароль для входа на кассе.
+# Логин хранится каноничным (+998XXXXXXXXX) и глобально уникален (ix_branches_login).
 BRANCHES = [
-    {"name": "Главный зал", "address": "ул. Навои 12, Ташкент", "city": "Ташкент"},
-    {"name": "Терраса", "address": "ул. Навои 12, летняя терраса", "city": "Ташкент"},
-    {"name": "Доставка", "address": "ул. Навои 12, зона доставки", "city": "Ташкент"},
+    {"name": "Главный зал", "address": "ул. Навои 12, Ташкент", "city": "Ташкент",
+     "login": "+998900000010", "password": "Branch1234"},
+    {"name": "Терраса", "address": "ул. Навои 12, летняя терраса", "city": "Ташкент",
+     "login": "+998900000020", "password": "Branch1234"},
+    {"name": "Доставка", "address": "ул. Навои 12, зона доставки", "city": "Ташкент",
+     "login": "+998900000030", "password": "Branch1234"},
 ]
 
 USERS = [
@@ -114,6 +131,29 @@ USERS = [
         "pin": "4444",
         "role_slug": "waiter",
         "role_name": "Waiter",
+    },
+    # Кладовщик и курьер обязательны: на них ссылаются сидеры доставки
+    # (users["courier"]) и HR-смен (positions warehouse/courier). Без них
+    # seed падал с KeyError. Телефоны совпадают с блоком Credentials ниже.
+    {
+        "email": "sklad@marjon.uz",
+        "username": "sklad",
+        "name": "Кладовщик",
+        "phone": "+998901234572",
+        "password": "Staff1234",
+        "pin": "5555",
+        "role_slug": "warehouse",
+        "role_name": "Warehouse",
+    },
+    {
+        "email": "kuryer@marjon.uz",
+        "username": "kuryer",
+        "name": "Курьер",
+        "phone": "+998901234573",
+        "password": "Staff1234",
+        "pin": "6666",
+        "role_slug": "courier",
+        "role_name": "Courier",
     },
 ]
 
@@ -241,14 +281,22 @@ async def seed_company_users(db):
 
     branches: dict[str, Branch] = {}
     for data in BRANCHES:
+        fields = dict(data)
+        # password — не колонка Branch: хешируем отдельно в password_hash
+        branch_password = fields.pop("password", None)
+        # login — каноничный номер телефона (как на входе через branch-login)
+        if fields.get("login"):
+            fields["login"] = normalize_branch_login(fields["login"])
         branch, created = await ensure(
             db,
             Branch,
-            defaults={**data, "is_active": True},
+            defaults={**fields, "is_active": True},
             update=True,
             company_id=company.id,
             name=data["name"],
         )
+        if branch_password:
+            branch.password_hash = hash_password(branch_password)
         branches[branch.name] = branch
         print(f"  {'created' if created else 'ready'} branch: {branch.name}")
 
@@ -1514,7 +1562,9 @@ async def seed_hr_sessions_notifications(db, company, branches, users):
             await ensure(
                 db,
                 AttendanceLog,
-                defaults={"timestamp": when, "method": "pin", "note": "seed"},
+                # 5.5 — исторические отметки уже подтверждены кассиром (approved),
+                # чтобы демо не стартовало с очередью на подтверждение входа/ухода.
+                defaults={"timestamp": when, "method": "pin", "note": "seed", "status": "approved"},
                 update=True,
                 company_id=company.id,
                 employee_id=employee.id,
@@ -1985,11 +2035,16 @@ async def seed():
         print("OK Seed complete")
         print()
         print("Credentials:")
-        print("  90 123 45 66  / Staff1234  (manager + superadmin)")
-        print("  90 123 45 68  / Staff1234  (cashier)")
-        print("  90 123 45 69  / Staff1234  (waiter)")
-        print("  90 123 45 72  / Staff1234  (warehouse)")
-        print("  90 123 45 73  / Staff1234  (courier)")
+        print("  Сотрудники (PIN / пароль):")
+        print("    90 123 45 66  / Staff1234  (manager + superadmin)")
+        print("    90 123 45 68  / Staff1234  (cashier)")
+        print("    90 123 45 69  / Staff1234  (waiter)")
+        print("    90 123 45 72  / Staff1234  (warehouse)")
+        print("    90 123 45 73  / Staff1234  (courier)")
+        print("  Филиалы (branch-login по номеру телефона):")
+        print("    90 000 00 10  / Branch1234  (Главный зал)")
+        print("    90 000 00 20  / Branch1234  (Терраса)")
+        print("    90 000 00 30  / Branch1234  (Доставка)")
 
 
 if __name__ == "__main__":

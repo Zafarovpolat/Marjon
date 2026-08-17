@@ -53,5 +53,10 @@ class AttendanceLog(TimeStampedModel):
     # pin | qr | manual
     method: Mapped[str] = mapped_column(String(20), default="manual")
     note: Mapped[str | None] = mapped_column(Text)
+    # 5.5 — вход/уход повара подтверждает кассир. pending → approved | rejected.
+    # По умолчанию pending: отметка появляется у кассира на подтверждение.
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    approved_by: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     shift: Mapped[WorkShift] = relationship(back_populates="attendance_logs")

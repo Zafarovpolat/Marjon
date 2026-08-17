@@ -4,6 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.companies.models import Company, Branch
 from app.modules.companies.repository import CompanyRepository, BranchRepository
 from app.modules.companies.schemas import CompanyCreate, CompanyUpdate, BranchCreate, BranchUpdate
+from app.modules.auth.security import hash_password
+from app.shared.phone import normalize_branch_login
 from app.shared.exceptions import NotFoundError, ConflictError
 
 
@@ -34,7 +36,15 @@ class BranchService:
         self.repo = BranchRepository(db)
 
     async def create(self, company_id: UUID, data: BranchCreate) -> Branch:
-        return await self.repo.save(Branch(company_id=company_id, **data.model_dump()))
+        payload = data.model_dump(exclude_none=True)
+        password = payload.pop("password", None)
+        # 6.2 — логин филиала = номер телефона в каноничном виде +998XXXXXXXXX
+        if payload.get("login"):
+            payload["login"] = normalize_branch_login(payload["login"])
+        branch = Branch(company_id=company_id, **payload)
+        if password:
+            branch.password_hash = hash_password(password)
+        return await self.repo.save(branch)
 
     async def list(self, company_id: UUID) -> list[Branch]:
         return await self.repo.get_active(company_id)
@@ -47,6 +57,13 @@ class BranchService:
 
     async def update(self, branch_id: UUID, company_id: UUID, data: BranchUpdate) -> Branch:
         branch = await self.get(branch_id, company_id)
-        for field, value in data.model_dump(exclude_none=True).items():
+        payload = data.model_dump(exclude_none=True)
+        password = payload.pop("password", None)
+        # 6.2 — логин филиала = номер телефона в каноничном виде +998XXXXXXXXX
+        if payload.get("login"):
+            payload["login"] = normalize_branch_login(payload["login"])
+        for field, value in payload.items():
             setattr(branch, field, value)
+        if password:
+            branch.password_hash = hash_password(password)
         return await self.repo.save(branch)

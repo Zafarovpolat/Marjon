@@ -32,8 +32,13 @@ class UserRepository(BaseRepository[User]):
         return result.scalar_one_or_none()
 
     async def get_company_users(self, company_id: UUID) -> list[User]:
+        # 6.2 — служебные терминальные учётки филиалов скрыты из списка персонала
+        from app.modules.auth.security import TERMINAL_EMAIL_LIKE
         result = await self.db.execute(
-            select(User).where(User.company_id == company_id)
+            select(User).where(
+                User.company_id == company_id,
+                ~User.email.like(TERMINAL_EMAIL_LIKE),
+            )
         )
         return list(result.scalars().all())
 
