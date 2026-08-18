@@ -1,121 +1,158 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../Icon";
 import { InlineLoader } from "../Loader";
+import { reportsService } from "../../api/reports";
+import { formatMoney } from "../../api/client";
+import { todayInputValue } from "../../utils/date";
+import { isAbortError, useLatestRequest } from "../../hooks/useAsyncSafety";
 
-// Складские уведомления Topbar (низкие остатки).
-// Вынесено из Topbar.jsx (FE-07B). Inventory Core остаётся DEFERRED —
-// loadLowStock намеренно возвращает пустой список и явное сообщение,
-// складская бизнес-логика НЕ восстанавливается.
+// OWNER notification center. Truthful, empty-first:
+//  • CANCELLED ORDERS — real, derived from GET /reports/orders (status
+//    "cancelled") for today. Only backend-supplied fields (№, стол, время,
+//    сумма) are shown. Empty company → no rows (healthy empty).
+//  • LOW STOCK — backend contract (ingredient min-stock threshold) does NOT
+//    exist yet (Inventory Core deferred), so it is shown as a small CALM
+//    deferred note, NOT a red error and NOT fake data.
+function apiList(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.results)) return data.results;
+  return [];
+}
+
+function formatTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+}
+
 export default function TopbarNotifications() {
-  const notificationsRef = useRef(null);
-  const [stockOpen, setStockOpen] = useState(false);
-  const [stockLoading, setStockLoading] = useState(false);
-  const [stockError, setStockError] = useState("");
-  const [lowStock, setLowStock] = useState([]);
-  const [ingredients, setIngredients] = useState([]);
+  const ref = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [orders, setOrders] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const beginRequest = useLatestRequest();
+  const [today] = useState(() => todayInputValue());
 
-  const ingredientById = useMemo(() => new Map(ingredients.map((item) => [item.id, item])), [ingredients]);
-  const visibleLowStock = useMemo(
-    () => lowStock.filter((item) => Number(item.quantity || 0) <= Number(item.min_quantity || 0)).slice(0, 8),
-    [lowStock],
+  const cancelled = useMemo(
+    () => orders
+      .filter((order) => String(order.status || "").toLowerCase() === "cancelled")
+      .map((order) => ({
+        id: order.order_id || order.id || order.order_number,
+        number: order.order_number ?? order.order_id ?? "",
+        table: order.table_number,
+        time: formatTime(order.created_at),
+        amount: order.total_amount,
+      })),
+    [orders],
   );
-  const stockNotifications = useMemo(() => {
-    if (visibleLowStock.length) {
-      return visibleLowStock.map((item) => {
-        const ingredient = ingredientById.get(item.ingredient_id);
-        const quantity = Number(item.quantity || 0);
-        const minQuantity = Number(item.min_quantity || 0);
-        return {
-          id: item.id,
-          title: ingredient?.name || `${"Ингредиент"} ${String(item.ingredient_id).slice(0, 8)}`,
-          text: `${quantity.toLocaleString("ru-RU")} ${item.unit} / min ${minQuantity.toLocaleString("ru-RU")} ${item.unit}`,
-        };
+  const count = cancelled.length;
+
+  function load() {
+    const request = beginRequest();
+    setLoading(true);
+    setError("");
+    reportsService.listOrders(today, today, { signal: request.signal })
+      .then(({ data }) => {
+        if (request.isCurrent()) {
+          setOrders(apiList(data));
+          setLoaded(true);
+        }
+      })
+      .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
+        setError("Не удалось загрузить уведомления");
+      })
+      .finally(() => {
+        if (request.isCurrent()) setLoading(false);
       });
-    }
-
-    return [];
-  }, [ingredientById, visibleLowStock]);
-  const notificationCount = stockError ? 0 : stockNotifications.length;
-  const notificationLabel = notificationCount
-    ? `Уведомления: ${notificationCount}`
-    : "Уведомлений нет";
-
-  function loadLowStock() {
-    setStockLoading(false);
-    setLowStock([]);
-    setIngredients([]);
-    setStockError("Остатки недоступны до завершения Inventory Core.");
   }
 
-  function toggleStockNotifications() {
-    setStockOpen((current) => {
+  function toggle() {
+    setOpen((current) => {
       const next = !current;
-      if (next && !lowStock.length && !stockLoading) {
-        loadLowStock();
-      }
+      if (next && !loaded && !loading) load();
       return next;
     });
   }
 
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (!notificationsRef.current?.contains(event.target)) {
-        setStockOpen(false);
-      }
+    function onDocDown(event) {
+      if (!ref.current?.contains(event.target)) setOpen(false);
     }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    function onKey(event) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocDown);
+      document.removeEventListener("keydown", onKey);
+    };
   }, []);
 
-  useEffect(() => {
-    loadLowStock();
-  }, []);
+  const label = count ? `Уведомления: ${count}` : "Уведомлений нет";
 
   return (
-    <div className="topbar-notification-wrap" ref={notificationsRef}>
+    <div className="topbar-notification-wrap" ref={ref}>
       <button
-        className={`topbar-icon topbar-notification ${stockOpen ? "is-open" : ""}`}
+        className={`topbar-icon topbar-notification ${open ? "is-open" : ""}`}
         type="button"
-        aria-label={notificationLabel}
+        aria-label={label}
         aria-haspopup="dialog"
-        aria-expanded={stockOpen}
-        onClick={toggleStockNotifications}
+        aria-expanded={open}
+        onClick={toggle}
       >
         <Icon name="bi-bell" size={18} />
-        {notificationCount ? (
+        {count ? (
           <span className="topbar-notification__badge" aria-hidden="true">
-            {notificationCount > 99 ? "99+" : notificationCount}
+            {count > 99 ? "99+" : count}
           </span>
         ) : null}
       </button>
-      {stockOpen ? (
-        <div className="stock-alert-popover" role="dialog" aria-label={"Складские уведомления"}>
+      {open ? (
+        <div className="stock-alert-popover owner-notif" role="dialog" aria-label="Уведомления">
           <div className="stock-alert-popover__head">
             <div>
-              <span>{"Уведомления"}</span>
-              <strong>{notificationCount ? `${notificationCount} ${notificationCount === 1 ? "сообщение" : "сообщений"}` : "Нет сообщений"}</strong>
+              <span>Уведомления</span>
+              <strong>{count ? `${count} ${count === 1 ? "новое" : "новых"}` : "Новых уведомлений нет"}</strong>
             </div>
-            <button className={stockLoading ? "is-loading" : ""} type="button" onClick={loadLowStock} disabled={stockLoading} aria-label={"Обновить"}>
+            <button className={loading ? "is-loading" : ""} type="button" onClick={load} disabled={loading} aria-label="Обновить">
               <Icon name="bi-arrow-clockwise" size={16} />
             </button>
           </div>
           <div className="stock-alert-popover__body">
-            {stockLoading ? <div className="stock-alert-popover__empty"><InlineLoader text="Загрузка..." /></div> : null}
-            {stockError ? <p className="stock-alert-popover__error">{stockError}</p> : null}
-            {!stockLoading && !stockError ? stockNotifications.map((item) => {
-              return (
-                <div className="stock-alert-item" key={item.id}>
-                  <div className="stock-alert-item__icon"><Icon name="bi-exclamation-triangle" size={16} /></div>
-                  <div>
-                    <strong>{item.title}</strong>
-                    <span>{item.text}</span>
-                  </div>
+            {loading ? <div className="stock-alert-popover__empty"><InlineLoader text="Загрузка..." /></div> : null}
+            {!loading && error ? (
+              <div className="owner-notif__error" role="alert">
+                <span>{error}</span>
+                <button type="button" onClick={load}>Повторить</button>
+              </div>
+            ) : null}
+            {!loading && !error ? cancelled.map((item) => (
+              <div className="stock-alert-item owner-notif__item owner-notif__item--cancel" key={item.id}>
+                <div className="stock-alert-item__icon owner-notif__icon--cancel"><Icon name="bi-x-circle" size={16} /></div>
+                <div>
+                  <strong>Заказ №{item.number} отменён</strong>
+                  <span>
+                    {[item.table ? `Стол ${item.table}` : null, item.time || null]
+                      .filter(Boolean).join(" · ")}
+                    {item.amount != null ? ` · ${formatMoney(item.amount)}` : ""}
+                  </span>
                 </div>
-              );
-            }) : null}
-            {!stockLoading && !stockError && !stockNotifications.length ? (
-              <p className="stock-alert-popover__empty">{"Новых сообщений нет"}</p>
+              </div>
+            )) : null}
+            {!loading && !error && !count ? (
+              <div className="owner-notif__empty">
+                <p className="owner-notif__empty-title">Новых уведомлений нет</p>
+                <p className="owner-notif__empty-text">Здесь появятся важные события по складу и заказам.</p>
+              </div>
+            ) : null}
+            {!loading && !error ? (
+              <p className="owner-notif__deferred">Низкие остатки появятся после подключения склада.</p>
             ) : null}
           </div>
         </div>
