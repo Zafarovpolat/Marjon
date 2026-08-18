@@ -18,6 +18,7 @@ import "./styles/owner/nomenclature.css";
 import "./styles/owner/warehouse.css";
 import "./styles/owner/finance.css";
 import "./styles/owner/settings.css";
+import "./styles/owner/reports.css";
 import "./styles/shared/dashboard-curve.css";
 import "./styles/global/loader.css";
 import "./styles/react-overrides.css";

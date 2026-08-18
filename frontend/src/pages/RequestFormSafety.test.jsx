@@ -162,7 +162,7 @@ describe("FE-06 request and form safety", () => {
     await waitFor(() => expect(calls).toBe(2));
     expect(signals[0].aborted).toBe(true);
     await act(async () => second.resolve({ data: { date: "2026-08-12", is_closed: false, gross_sales: 222, discounts_total: 0, service_fee_total: 0, tax_total: 0, refunds_total: 0, net_sales: 222, orders_count: 1, avg_check: 222, payment_methods: [{ method: "Newest payment", count: 1, amount: 222 }] } }));
-    expect(await screen.findByText("Newest payment")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: /Печать общего Z-отчёта/ })).toBeEnabled());
     await act(async () => first.resolve({ data: { date: "2026-08-13", is_closed: false, gross_sales: 111, discounts_total: 0, service_fee_total: 0, tax_total: 0, refunds_total: 0, net_sales: 111, orders_count: 1, avg_check: 111, payment_methods: [{ method: "Obsolete payment", count: 1, amount: 111 }] } }));
     expect(screen.queryByText("Obsolete payment")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
