@@ -81,20 +81,6 @@ export const KITCHEN_BLOCK_LABELS = {
   priority: "Приоритет",
 };
 
-function readStorage(key, fallback) {
-  try {
-    const value = JSON.parse(localStorage.getItem(key) || "null");
-    return value ? { ...fallback, ...value } : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeStorage(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
-  return value;
-}
-
 export function buildCustomerTemplate(org = {}) {
   const organization = org || {};
   const enabled = CUSTOMER_BLOCKS.reduce((acc, key) => ({ ...acc, [key]: true }), {});
@@ -148,39 +134,19 @@ export function buildKitchenTemplate() {
   };
 }
 
-async function getTemplate(url, key, fallback) {
-  try {
-    const { data } = await api.get(url);
-    const template = { ...fallback, ...data };
-    writeStorage(key, template);
-    return { template, source: "api" };
-  } catch {
-    return { template: readStorage(key, fallback), source: "local" };
-  }
+async function getTemplate(url, key, fallback, { signal } = {}) {
+  const { data } = await (signal ? api.get(url, { signal }) : api.get(url));
+  return { template: { ...fallback, ...data }, source: "api", cacheKey: key };
 }
 
 async function saveTemplate(url, key, template) {
-  try {
-    const { data } = await api.patch(url, template);
-    const saved = { ...template, ...data };
-    writeStorage(key, saved);
-    return { template: saved, source: "api" };
-  } catch {
-    return { template: writeStorage(key, template), source: "local" };
-  }
+  const { data } = await api.patch(url, template);
+  return { template: { ...template, ...data }, source: "api", cacheKey: key };
 }
 
 async function postPrint(url, payload) {
-  try {
-    const { data } = await api.post(url, payload || {});
-    return { ok: true, data, source: "api" };
-  } catch (error) {
-    return {
-      ok: false,
-      source: "offline",
-      detail: error.response?.data?.detail || "Принтер API недоступен.",
-    };
-  }
+  const { data } = await api.post(url, payload || {});
+  return { ok: true, data, source: "api" };
 }
 
 function localTestPrint() {
@@ -190,16 +156,16 @@ function localTestPrint() {
   return Promise.resolve({ ok: true, source: "local" });
 }
 
-export function getCustomerTemplate(org) {
-  return getTemplate("/settings/receipt-template", CUSTOMER_TEMPLATE_KEY, buildCustomerTemplate(org));
+export function getCustomerTemplate(org, options) {
+  return getTemplate("/settings/receipt-template", CUSTOMER_TEMPLATE_KEY, buildCustomerTemplate(org), options);
 }
 
 export function saveCustomerTemplate(template) {
   return saveTemplate("/settings/receipt-template", CUSTOMER_TEMPLATE_KEY, template);
 }
 
-export function getKitchenTemplate() {
-  return getTemplate("/settings/kitchen-receipt-template", KITCHEN_TEMPLATE_KEY, buildKitchenTemplate());
+export function getKitchenTemplate(options) {
+  return getTemplate("/settings/kitchen-receipt-template", KITCHEN_TEMPLATE_KEY, buildKitchenTemplate(), options);
 }
 
 export function saveKitchenTemplate(template) {

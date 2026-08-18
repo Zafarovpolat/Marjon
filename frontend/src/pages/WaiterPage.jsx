@@ -64,8 +64,7 @@ function formatOrderTime(value) {
 async function ensureBranch() {
   const { data } = await api.get("/companies/me/branches");
   if (data.length) return data[0];
-  const created = await api.post("/companies/me/branches", { name: "MARJON Main", address: "Tashkent", city: "Tashkent" });
-  return created.data;
+  throw new Error("Филиал не настроен. Создайте филиал в настройках перед открытием POS.");
 }
 
 function WaiterShell({ children }) {

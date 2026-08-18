@@ -6,95 +6,151 @@ import {
   filterNavItems,
   getRole,
   getRoleHomePath,
+  isOwnerWebUser,
 } from "./permissions";
 
+const companyId = "company-1";
+const appUser = (role) => ({
+  auth_scope: "app",
+  company_id: companyId,
+  is_superadmin: false,
+  role_slugs: role ? [role] : [],
+});
+
 const users = {
-  owner: { role_slugs: ["owner"] },
-  superadmin: { is_superadmin: true, role_slugs: [] },
-  admin: { role_slugs: ["admin"] },
-  manager: { role_slugs: ["manager"] },
-  cashier: { role_slugs: ["cashier"] },
-  waiter: { role_slugs: ["waiter"] },
-  kitchen: { role_slugs: ["kitchen"] },
-  unknown: { role_slugs: ["auditor"] },
-  noRole: { role_slugs: [] },
+  owner: appUser("owner"),
+  superadmin: { auth_scope: "hq_admin", company_id: null, is_superadmin: true, role_slugs: [] },
+  admin: appUser("admin"),
+  manager: appUser("manager"),
+  cashier: appUser("cashier"),
+  waiter: appUser("waiter"),
+  kitchen: appUser("kitchen"),
+  monoblock: appUser("monoblock"),
+  courier: appUser("courier"),
+  warehouse: appUser("warehouse"),
+  unknown: appUser("auditor"),
+  noRole: appUser(null),
 };
 
-describe("permissions", () => {
-  it("allows owner and super admin to access all sections", () => {
-    const owner = { role_slugs: ["owner"] };
-    const admin = { is_superadmin: true, role_slugs: [] };
+const nonWebActors = [
+  users.superadmin,
+  users.admin,
+  users.manager,
+  users.cashier,
+  users.waiter,
+  users.kitchen,
+  users.monoblock,
+  users.courier,
+  users.warehouse,
+  users.unknown,
+  users.noRole,
+];
 
-    expect(getRole(owner)).toBe("owner");
-    expect(getRole(admin)).toBe("superadmin");
-    expect(canAccessSection(owner, "finance")).toBe(true);
-    expect(canAccessSection(admin, "unknown-section")).toBe(true);
+describe("Web Launch V1 permissions", () => {
+  it("recognizes role labels without turning operational roles into Web clients", () => {
+    expect(getRole(users.owner)).toBe("owner");
+    expect(getRole(users.superadmin)).toBe("superadmin");
+    expect(getRole(users.manager)).toBe("manager");
+    expect(getRole(users.warehouse)).toBe("warehouse");
   });
 
-  it("keeps cashier access limited to cashier sections", () => {
-    const cashier = { role_slugs: ["cashier"] };
-
-    expect(getRole(cashier)).toBe("cashier");
-    expect(canAccessSection(cashier, "orders")).toBe(true);
-    expect(canAccessSection(cashier, "settings.profile")).toBe(true);
-    expect(canAccessSection(cashier, "finance")).toBe(false);
+  it("accepts only an exact canonical OWNER identity for the APP shell", () => {
+    expect(isOwnerWebUser(users.owner)).toBe(true);
+    expect(isOwnerWebUser({ ...users.owner, auth_scope: "hq_admin" })).toBe(false);
+    expect(isOwnerWebUser({ ...users.owner, company_id: null })).toBe(false);
+    expect(isOwnerWebUser({ ...users.owner, is_superadmin: true })).toBe(false);
+    expect(isOwnerWebUser({ ...users.owner, role_slugs: ["owner", "cashier"] })).toBe(false);
+    nonWebActors.forEach((user) => expect(isOwnerWebUser(user)).toBe(false));
   });
 
-  it("filters navigation safely when user data is missing", () => {
-    expect(filterNavItems([{ key: "orders" }], null)).toEqual([]);
+  it.each([
+    ["wrong session scope", { ...users.owner, auth_scope: "hq_admin" }],
+    ["missing company", { ...users.owner, company_id: null }],
+    ["SUPER_ADMIN flag", { ...users.owner, is_superadmin: true }],
+    ["ambiguous OWNER roles", { ...users.owner, role_slugs: ["owner", "cashier"] }],
+    ["system-like OWNER role", { ...users.owner, role_slugs: ["owner"], system_role: true, is_superadmin: true }],
+  ])("fails closed for %s", (_, user) => {
+    expect(isOwnerWebUser(user)).toBe(false);
+    expect(getRoleHomePath(user)).toBe("/login");
   });
 
-  it("allows profile and support to approved known roles only", () => {
-    [users.owner, users.superadmin, users.admin, users.manager, users.cashier, users.waiter, users.kitchen]
-      .forEach((user) => {
-        expect(canAccessPath(user, "/settings/profile")).toBe(true);
-        expect(canAccessPath(user, "/settings/support")).toBe(true);
-      });
-
-    expect(canAccessPath(users.unknown, "/settings/profile")).toBe(false);
-    expect(canAccessPath(users.noRole, "/settings/support")).toBe(false);
+  it("keeps OWNER Web navigation and direct APP routes available", () => {
+    expect(canAccessSection(users.owner, "finance")).toBe(true);
+    expect(canAccessPath(users.owner, "/")).toBe(true);
+    expect(canAccessPath(users.owner, "/orders")).toBe(true);
+    expect(canAccessPath(users.owner, "/users/cashier")).toBe(true);
   });
 
-  it("keeps store access aligned with orders", () => {
-    [users.owner, users.superadmin, users.admin, users.manager, users.cashier].forEach((user) => {
-      expect(canAccessPath(user, "/orders")).toBe(true);
-      expect(canAccessPath(user, "/store")).toBe(true);
-    });
+  it.each([
+    "/",
+    "/orders",
+    "/store",
+    "/finance/transactions",
+    "/users",
+    "/staff",
+    "/reports",
+    "/analytics",
+    "/stock-report/incoming",
+    "/warehouse/stock",
+    "/settings/profile",
+    "/settings/support",
+    "/nomenclature/dishes",
+    "/menu",
+    "/reviews",
+  ])("keeps the OWNER route family %s available", (pathname) => {
+    expect(canAccessPath(users.owner, pathname)).toBe(true);
+  });
 
-    [users.waiter, users.kitchen, users.unknown, users.noRole].forEach((user) => {
+  it("does not give SUPER_ADMIN or operational roles an APP wildcard", () => {
+    nonWebActors.forEach((user) => {
+      expect(canAccessSection(user, "dashboard")).toBe(false);
+      expect(canAccessPath(user, "/")).toBe(false);
       expect(canAccessPath(user, "/orders")).toBe(false);
-      expect(canAccessPath(user, "/store")).toBe(false);
+      expect(canAccessPath(user, "/settings/profile")).toBe(false);
     });
   });
 
-  it("limits reviews to owner, superadmin, admin, and manager", () => {
-    [users.owner, users.superadmin, users.admin, users.manager].forEach((user) => {
-      expect(canAccessPath(user, "/reviews")).toBe(true);
-    });
-
-    [users.cashier, users.waiter, users.kitchen, users.unknown, users.noRole].forEach((user) => {
-      expect(canAccessPath(user, "/reviews")).toBe(false);
-    });
+  it.each([
+    ["legacy admin", users.admin],
+    ["manager", users.manager],
+    ["cashier", users.cashier],
+    ["waiter", users.waiter],
+    ["kitchen", users.kitchen],
+    ["monoblock", users.monoblock],
+    ["courier", users.courier],
+    ["warehouse", users.warehouse],
+  ])("denies direct OWNER route access to %s", (_, user) => {
+    expect(canAccessPath(user, "/")).toBe(false);
+    expect(canAccessPath(user, "/finance/transactions")).toBe(false);
+    expect(canAccessPath(user, "/users")).toBe(false);
   });
 
-  it("keeps admin route access aligned with manager without granting write permissions", () => {
-    expect(canAccessPath(users.admin, "/finance/transactions")).toBe(canAccessPath(users.manager, "/finance/transactions"));
-    expect(canAccessPath(users.admin, "/store")).toBe(canAccessPath(users.manager, "/store"));
-    expect(canAccessPath(users.admin, "/reviews")).toBe(canAccessPath(users.manager, "/reviews"));
-    expect(canPerform(users.admin, "finance.write")).toBe(false);
-    expect(canPerform(users.admin, "orders.write")).toBe(false);
-    expect(canPerform(users.manager, "finance.write")).toBe(true);
-  });
+  it.each(["/waiter", "/waiter/orders", "/kitchen", "/login/staff"])(
+    "does not classify the removed Web client path %s as an OWNER APP section",
+    (pathname) => {
+      expect(canAccessPath(users.owner, pathname)).toBe(false);
+    },
+  );
 
-  it("returns safe role homes without falling back to owner", () => {
+  it("uses only OWNER as a Web landing and fails every other role closed", () => {
     expect(getRoleHomePath(users.owner)).toBe("/");
-    expect(getRoleHomePath(users.superadmin)).toBe("/");
-    expect(getRoleHomePath(users.admin)).toBe("/");
-    expect(getRoleHomePath(users.manager)).toBe("/");
-    expect(getRoleHomePath(users.cashier)).toBe("/orders");
-    expect(getRoleHomePath(users.waiter)).toBe("/waiter");
-    expect(getRoleHomePath(users.kitchen)).toBe("/kitchen");
-    expect(getRoleHomePath(users.unknown)).toBe("/login");
-    expect(getRoleHomePath(users.noRole)).toBe("/login");
+    nonWebActors.forEach((user) => expect(getRoleHomePath(user)).toBe("/login"));
+  });
+
+  it("filters the OWNER menu without removing staff-management labels", () => {
+    const items = [{ key: "dashboard" }, { key: "users" }];
+    expect(filterNavItems(items, users.owner)).toEqual(items);
+    nonWebActors.forEach((user) => expect(filterNavItems(items, user)).toEqual([]));
+    expect(filterNavItems(items, null)).toEqual([]);
+  });
+
+  it("does not infer Web write authority for operational roles or SUPER_ADMIN", () => {
+    expect(canPerform(users.owner, "employees.write")).toBe(true);
+    expect(canPerform(users.owner, "warehouse.write")).toBe(false);
+    expect(canPerform(users.owner, "unknown.write")).toBe(false);
+    nonWebActors.forEach((user) => {
+      expect(canPerform(user, "employees.write")).toBe(false);
+      expect(canPerform(user, "finance.write")).toBe(false);
+    });
   });
 });

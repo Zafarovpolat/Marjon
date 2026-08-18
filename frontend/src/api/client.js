@@ -1,52 +1,43 @@
-import axios from "axios";
 import {
   AUTH_SCOPES,
-  endAuthSession,
   getAccessToken as readAccessToken,
-  handleAuthResponseError,
   hasAccessToken,
-  prepareAuthRequest,
+  logoutAuthSession,
   saveAuthTokens,
+  waitForAuthLogout,
 } from "../auth/session";
-import { createFetchAdapter, DEFAULT_HTTP_TIMEOUT_MS } from "./transport";
+import { normalizeTokenResponse } from "./normalizers";
+import { createApiTransport } from "./transport";
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api/v1";
 
-export const api = axios.create({
+export const api = createApiTransport({
   baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-  timeout: DEFAULT_HTTP_TIMEOUT_MS,
-  adapter: createFetchAdapter({ defaultTimeout: DEFAULT_HTTP_TIMEOUT_MS }),
+  scope: AUTH_SCOPES.DEFAULT,
 });
-
-api.interceptors.request.use((config) => {
-  const token = readAccessToken({ scope: AUTH_SCOPES.DEFAULT });
-  return prepareAuthRequest(config, { scope: AUTH_SCOPES.DEFAULT, accessToken: token });
-});
-
-api.interceptors.response.use(
-  (response) => response,
-  (error) => handleAuthResponseError(error, { client: api, baseURL: API_BASE_URL, scope: AUTH_SCOPES.DEFAULT }),
-);
 
 export async function login(email, password) {
+  await waitForAuthLogout({ scope: AUTH_SCOPES.DEFAULT });
   const { data } = await api.post("/auth/login", { email, password });
-  saveTokens(data);
-  return data;
+  const tokens = normalizeTokenResponse(data);
+  saveTokens(tokens);
+  return tokens;
 }
 
 export async function loginByPhone(phone, password) {
+  await waitForAuthLogout({ scope: AUTH_SCOPES.DEFAULT });
   const { data } = await api.post("/auth/login", { phone, password });
-  saveTokens(data);
-  return data;
+  const tokens = normalizeTokenResponse(data);
+  saveTokens(tokens);
+  return tokens;
 }
 
 export async function loginByPin(employee_id, pin) {
+  await waitForAuthLogout({ scope: AUTH_SCOPES.DEFAULT });
   const { data } = await api.post("/auth/pin-login", { employee_id, pin });
-  saveTokens(data);
-  return data;
+  const tokens = normalizeTokenResponse(data);
+  saveTokens(tokens);
+  return tokens;
 }
 
 export async function fetchStaffUsers() {
@@ -58,8 +49,15 @@ function saveTokens(data) {
   saveAuthTokens(data, { scope: AUTH_SCOPES.DEFAULT });
 }
 
-export function logout() {
-  endAuthSession("logout", { scope: AUTH_SCOPES.ALL });
+export async function logout() {
+  return logoutAuthSession({
+    scope: AUTH_SCOPES.DEFAULT,
+    revoke: (refreshToken, accessToken) => api.post(
+      "/auth/logout",
+      { refresh_token: refreshToken },
+      accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : undefined,
+    ),
+  });
 }
 
 export function isAuthenticated() {

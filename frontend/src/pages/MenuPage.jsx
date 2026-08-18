@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, formatMoney } from "../api/client";
+import { formatMoney } from "../api/client";
+import { catalogService } from "../api/catalog";
+import { ordersService } from "../api/orders";
 import Icon from "../components/Icon";
+import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 
 const salesColumnOptions = [
   { key: "index", label: "№", width: 56 },
@@ -30,16 +33,6 @@ function enrichRows(rows) {
       share: totalRevenue ? Math.round((row.revenue / totalRevenue) * 100) : 0,
     }))
     .sort((first, second) => second.revenue - first.revenue);
-}
-
-function buildDemoSalesRows() {
-  return enrichRows([
-    { id: "demo-sale-1", dish: "Плов", category: "Горячие блюда", sold: 42, revenue: 1_890_000, orders: 34 },
-    { id: "demo-sale-2", dish: "Шашлык", category: "Гриль", sold: 36, revenue: 1_620_000, orders: 29 },
-    { id: "demo-sale-3", dish: "Лагман", category: "Горячие блюда", sold: 31, revenue: 1_085_000, orders: 24 },
-    { id: "demo-sale-4", dish: "Салат микс", category: "Салаты", sold: 24, revenue: 720_000, orders: 19 },
-    { id: "demo-sale-5", dish: "Айран", category: "Напитки", sold: 54, revenue: 540_000, orders: 38 },
-  ]);
 }
 
 function buildSalesRows(orders, products, categories) {
@@ -79,42 +72,47 @@ function buildSalesRows(orders, products, categories) {
 
 export default function MenuPage() {
   const [rows, setRows] = useState([]);
-  const [ordersCount, setOrdersCount] = useState(0);
+  const [ordersCount, setOrdersCount] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState(defaultSalesColumnVisibility);
+  const beginRequest = useLatestRequest();
 
   useEffect(() => {
-    let mounted = true;
+    const request = beginRequest();
 
     async function loadSales() {
       setLoading(true);
+      setError("");
       try {
         const [ordersRes, productsRes, categoriesRes] = await Promise.all([
-          api.get("/pos/orders").catch(() => ({ data: [] })),
-          api.get("/inventory/products").catch(() => ({ data: [] })),
-          api.get("/inventory/categories").catch(() => ({ data: [] })),
+          ordersService.list(undefined, { signal: request.signal }),
+          catalogService.listProducts({ signal: request.signal }),
+          catalogService.listCategories({ signal: request.signal }),
         ]);
-        if (!mounted) return;
+        if (!request.isCurrent()) return;
 
         const orders = Array.isArray(ordersRes.data) ? ordersRes.data : [];
         const products = Array.isArray(productsRes.data) ? productsRes.data : [];
         const categories = Array.isArray(categoriesRes.data) ? categoriesRes.data : [];
         const builtRows = buildSalesRows(orders, products, categories);
 
-        setRows(builtRows.length ? builtRows : buildDemoSalesRows());
-        setOrdersCount(orders.length || 38);
+        setRows(builtRows);
+        setOrdersCount(orders.length);
+      } catch (err) {
+        if (!request.isCurrent() || isAbortError(err)) return;
+        setRows([]);
+        setOrdersCount(null);
+        setError(err.response?.data?.detail || "Не удалось загрузить продажи.");
       } finally {
-        if (mounted) setLoading(false);
+        if (request.isCurrent()) setLoading(false);
       }
     }
 
     loadSales();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  }, [beginRequest]);
 
   const visibleRows = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -194,6 +192,16 @@ export default function MenuPage() {
         return null;
     }
   };
+
+  if (error && !loading) {
+    return (
+      <section className="sales-page">
+        <div className="sales-card">
+          <div className="login-error" role="alert">{error}</div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="sales-page">

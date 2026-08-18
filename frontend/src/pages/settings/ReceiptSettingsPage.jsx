@@ -10,6 +10,7 @@ import {
   saveCustomerTemplate,
   testPrintReceipt,
 } from "../../api/receipt";
+import { isAbortError } from "../../hooks/useAsyncSafety";
 
 function moveBlock(blocks, block, direction) {
   const index = blocks.indexOf(block);
@@ -33,9 +34,10 @@ export default function ReceiptSettingsPage() {
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     setLoading(true);
-    getCustomerTemplate(org)
-      .then(({ template: loaded, source }) => {
+    getCustomerTemplate(org, { signal: controller.signal })
+      .then(({ template: loaded }) => {
         if (!active) return;
         setTemplate({
           ...defaults,
@@ -44,11 +46,13 @@ export default function ReceiptSettingsPage() {
           blockStyles: { ...defaults.blockStyles, ...loaded.blockStyles },
           positions: { ...defaults.positions, ...loaded.positions },
         });
-        setMessage(source === "local" ? "Шаблон загружен из локального кеша." : "");
+        setMessage("");
       })
-      .catch(() => setError("Не удалось загрузить шаблон чека. Используются значения по умолчанию."))
+      .catch((requestError) => {
+        if (active && !isAbortError(requestError)) setError("Не удалось загрузить серверный шаблон чека. Показан локальный черновик по умолчанию.");
+      })
       .finally(() => active && setLoading(false));
-    return () => { active = false; };
+    return () => { active = false; controller.abort(); };
   }, [defaults, org]);
 
   function patchTemplate(patch) {
@@ -89,9 +93,14 @@ export default function ReceiptSettingsPage() {
     setSaving(true);
     setError("");
     setMessage("");
-    const { source } = await saveCustomerTemplate(template);
-    setSaving(false);
-    setMessage(source === "api" ? "Шаблон чека сохранён." : "API недоступен. Шаблон сохранён локально.");
+    try {
+      await saveCustomerTemplate(template);
+      setMessage("Шаблон чека сохранён на сервере.");
+    } catch (err) {
+      setError(err.response?.data?.detail || "Не удалось сохранить шаблон чека на сервере. Изменения остались только в текущем черновике.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleTestPrint() {

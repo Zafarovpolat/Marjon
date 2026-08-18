@@ -1,256 +1,119 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
-import { useOutletContext } from "react-router-dom";
-import { api } from "../api/client";
-import DatePicker from "../components/DatePicker";
+import { useEffect, useMemo, useState } from "react";
+import { reportsService } from "../api/reports";
 import Icon from "../components/Icon";
-import { formatMoney } from "../api/client";
-import { todayInputValue } from "../utils/date";
+import ReportDateRangePicker from "../components/ReportDateRangePicker";
+import { exportToExcel } from "../utils/excel";
+import { isAbortError, isOrderedDateRange, useLatestRequest } from "../hooks/useAsyncSafety";
 
-const exchangeRate = 12650;
-
-const tabLabels = {
-  debtors: "Дебиторы",
-  creditors: "Кредиторы",
-};
-
-const statusLabels = {
-  active: "В работе",
-  watch: "Контроль",
-  overdue: "Просрочено",
-};
-
-function displayAmount(value, currency) {
-  if (currency === "USD") {
-    return `$${(Number(value || 0) / exchangeRate).toLocaleString("ru-RU", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
-  }
-  return formatMoney(value, "UZS");
+function toApiDate(value) {
+  if (!value) return undefined;
+  const [day, month, year] = value.split(".");
+  return `${year}-${month}-${day}`;
 }
 
-function formatDate(value) {
-  if (!value) return "—";
-  const [year, month, day] = value.split("-");
-  return `${day}.${month}.${year}`;
+function currentMonthRange() {
+  const now = new Date();
+  return {
+    preset: "",
+    start: `01.${String(now.getMonth() + 1).padStart(2, "0")}.${now.getFullYear()}`,
+    end: `${String(now.getDate()).padStart(2, "0")}.${String(now.getMonth() + 1).padStart(2, "0")}.${now.getFullYear()}`,
+  };
+}
+
+function displayAmount(value) {
+  return `${new Intl.NumberFormat("ru-RU").format(Number(value))} UZS`;
 }
 
 export default function DebtorsCreditorsReportPage() {
-  const { selectedDate = todayInputValue(), setSelectedDate } = useOutletContext();
-  const [activeTab, setActiveTab] = useState("debtors");
-  const [currency, setCurrency] = useState("UZS");
+  const [dateRange, setDateRange] = useState(currentMonthRange);
   const [search, setSearch] = useState("");
-  const [expandedId, setExpandedId] = useState("");
   const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const beginRequest = useLatestRequest();
 
   useEffect(() => {
-    api.get("/reports/debt-credit", { params: { date: selectedDate } })
+    const request = beginRequest();
+    const dateFrom = toApiDate(dateRange.start);
+    const dateTo = toApiDate(dateRange.end);
+    setLoading(true);
+    setError("");
+    if (!isOrderedDateRange(dateFrom, dateTo)) {
+      setRows([]);
+      setError("Дата начала периода не может быть позже даты окончания.");
+      setLoading(false);
+      return;
+    }
+    reportsService.listDebtCredit(dateFrom, dateTo, undefined, { signal: request.signal })
       .then(({ data }) => {
-        const items = Array.isArray(data) ? data : data?.items || data?.parties || [];
-        setRows(items.map((item) => {
-          const balance = Number(item.closing_balance ?? item.closingBalance ?? item.balance ?? item.amount ?? 0);
-          const amount = Math.abs(Number(item.amount ?? balance) || 0);
-
-          return {
-            id: String(item.id || ""),
-            type: item.type || (balance < 0 ? "creditors" : "debtors"),
-            name: item.name || item.counterparty_name || item.counterparty || "",
-            category: item.category || item.kind || "",
-            phone: item.phone || "",
-            owner: item.owner || "",
-            amount,
-            dueDate: item.due_date || item.dueDate || "",
-            status: item.status || "active",
-            note: item.note || "",
-            operations: item.operations || [],
-          };
-        }));
+        if (!request.isCurrent()) return;
+        if (!Array.isArray(data)) throw new Error("Invalid debt-credit report response");
+        const items = data;
+        setRows(items.map((item) => ({
+          id: String(item.counterparty_id),
+          name: item.counterparty_name,
+          openingBalance: Number(item.opening_balance),
+          debit: Number(item.debit),
+          credit: Number(item.credit),
+          closingBalance: Number(item.closing_balance),
+        })));
       })
-      .catch(() => setRows([]));
-  }, [selectedDate]);
-
-  const totals = useMemo(() => {
-    const debtors = rows.filter((party) => party.type === "debtors");
-    const creditors = rows.filter((party) => party.type === "creditors");
-    const debt = debtors.reduce((sum, party) => sum + party.amount, 0);
-    const credit = creditors.reduce((sum, party) => sum + party.amount, 0);
-    return {
-      debt,
-      credit,
-      balance: debt - credit,
-      debtorsCount: debtors.length,
-      creditorsCount: creditors.length,
-    };
-  }, [rows]);
+      .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
+        setRows([]);
+        setError(err.response?.data?.detail || "Не удалось загрузить отчёт по дебету и кредиту.");
+      })
+      .finally(() => { if (request.isCurrent()) setLoading(false); });
+  }, [beginRequest, dateRange.start, dateRange.end]);
 
   const visibleRows = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    return rows
-      .filter((party) => party.type === activeTab)
-      .filter((party) => {
-        if (!needle) return true;
-        return [party.name, party.category, party.phone, party.owner]
-          .some((value) => value.toLowerCase().includes(needle));
-      });
-  }, [rows, activeTab, search]);
+    const query = search.trim().toLowerCase();
+    return query ? rows.filter((row) => row.name.toLowerCase().includes(query)) : rows;
+  }, [rows, search]);
+  const totals = useMemo(() => visibleRows.reduce((acc, row) => ({
+    openingBalance: acc.openingBalance + row.openingBalance,
+    debit: acc.debit + row.debit,
+    credit: acc.credit + row.credit,
+    closingBalance: acc.closingBalance + row.closingBalance,
+  }), { openingBalance: 0, debit: 0, credit: 0, closingBalance: 0 }), [visibleRows]);
 
-  const activeTotal = activeTab === "debtors" ? totals.debt : totals.credit;
+  function downloadExcel() {
+    exportToExcel(visibleRows, [
+      { key: "id", label: "ID контрагента" },
+      { key: "name", label: "Контрагент" },
+      { key: "openingBalance", label: "Начальный остаток" },
+      { key: "debit", label: "Дебет" },
+      { key: "credit", label: "Кредит" },
+      { key: "closingBalance", label: "Конечный остаток" },
+    ], "debt-credit-report");
+  }
+
+  if (loading) return <section className="debt-credit-page"><div className="dashboard-empty" role="status">Загрузка отчёта...</div></section>;
+  if (error) return <section className="debt-credit-page"><div className="login-error" role="alert">{error}</div></section>;
 
   return (
-    <section className="dc-report-page">
-      <article className="dc-report-card">
-        <div className="dc-report-head">
-          <div>
-            <span className="dc-report-eyebrow">Marjon finance</span>
-            <h2>Дебиторы и кредиторы</h2>
-            <p>Сводка задолженностей по гостям, партнерам и поставщикам на выбранную дату.</p>
-          </div>
-          <DatePicker
-            value={selectedDate}
-            max={todayInputValue()}
-            onChange={setSelectedDate}
-          />
+    <section className="debt-credit-page">
+      <article className="debt-credit-card">
+        <div className="dc-page-head">
+          <div><span className="report-accent-bar" aria-hidden="true" /><div><span>Marjon reports</span><h2>Дебиторы и кредиторы</h2></div></div>
+          <div className="report-actions"><ReportDateRangePicker value={dateRange} onChange={setDateRange} showDropdownIcon /><button className="report-excel-button" type="button" onClick={downloadExcel}><Icon name="bi-file-earmark-excel" size={18} /> Скачать Excel</button></div>
         </div>
 
         <div className="dc-summary-grid">
-          <article className="dc-summary-card dc-summary-card--debt">
-            <div className="dc-summary-card__top">
-              <span>Дебиторская задолженность</span>
-              <Icon name="bi-arrow-down-left-circle" size={22} />
-            </div>
-            <strong>{displayAmount(totals.debt, currency)}</strong>
-            <small>Количество контрагентов: {totals.debtorsCount}</small>
-          </article>
-          <article className="dc-summary-card dc-summary-card--credit">
-            <div className="dc-summary-card__top">
-              <span>Кредиторская задолженность</span>
-              <Icon name="bi-arrow-up-right-circle" size={22} />
-            </div>
-            <strong>{displayAmount(totals.credit, currency)}</strong>
-            <small>Количество контрагентов: {totals.creditorsCount}</small>
-          </article>
-          <article className="dc-summary-card dc-summary-card--balance">
-            <div className="dc-summary-card__top">
-              <span>Сальдо</span>
-              <Icon name="bi-bank" size={22} />
-            </div>
-            <strong>{displayAmount(totals.balance, currency)}</strong>
-            <small>Разница между дебиторской и кредиторской задолженностью</small>
-          </article>
+          <article className="dc-summary-card dc-summary-card--debt"><div className="dc-summary-card__top"><span>Дебет</span><Icon name="bi-arrow-down-left-circle" size={22} /></div><strong>{displayAmount(totals.debit)}</strong></article>
+          <article className="dc-summary-card dc-summary-card--credit"><div className="dc-summary-card__top"><span>Кредит</span><Icon name="bi-arrow-up-right-circle" size={22} /></div><strong>{displayAmount(totals.credit)}</strong></article>
+          <article className="dc-summary-card dc-summary-card--balance"><div className="dc-summary-card__top"><span>Конечный остаток</span><Icon name="bi-bank" size={22} /></div><strong>{displayAmount(totals.closingBalance)}</strong></article>
         </div>
 
-        <div className="dc-toolbar">
-          <div className="dc-tabs" role="tablist" aria-label="Тип задолженности">
-            {Object.entries(tabLabels).map(([key, label]) => (
-              <button
-                type="button"
-                key={key}
-                className={activeTab === key ? "is-active" : ""}
-                onClick={() => {
-                  setActiveTab(key);
-                  setExpandedId("");
-                }}
-                role="tab"
-                aria-selected={activeTab === key}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <div className="dc-toolbar__right">
-            <div className="dc-currency" role="group" aria-label="Валюта">
-              {["UZS", "USD"].map((item) => (
-                <button
-                  type="button"
-                  key={item}
-                  className={currency === item ? "is-active" : ""}
-                  onClick={() => setCurrency(item)}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-            <label className="dc-search">
-              <Icon name="bi-search" size={18} />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Поиск по контрагенту"
-              />
-            </label>
-          </div>
-        </div>
+        <div className="dc-toolbar"><label className="dc-search"><Icon name="bi-search" size={18} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по контрагенту" /></label></div>
 
         <div className="dc-table-wrap">
           <table className="dc-table">
-            <thead>
-              <tr>
-                <th>Контрагент</th>
-                <th>Категория</th>
-                <th>Ответственный</th>
-                <th>Срок оплаты</th>
-                <th className="dc-table__amount">{activeTab === "debtors" ? "Дебет" : "Кредит"}</th>
-                <th>Статус</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Контрагент</th><th>Начальный остаток</th><th>Дебет</th><th>Кредит</th><th>Конечный остаток</th></tr></thead>
             <tbody>
-              <tr className="dc-total-row">
-                <td colSpan="4">Итого {activeTab === "debtors" ? "дебиторка" : "кредиторка"}</td>
-                <td className="dc-table__amount">{displayAmount(activeTotal, currency)}</td>
-                <td>{visibleRows.length} строк</td>
-              </tr>
-              {visibleRows.map((party) => {
-                const expanded = expandedId === party.id;
-                return (
-                  <Fragment key={party.id}>
-                    <tr
-                      className={`dc-party-row ${expanded ? "is-expanded" : ""}`}
-                      onClick={() => setExpandedId(expanded ? "" : party.id)}
-                    >
-                      <td>
-                        <div className="dc-party">
-                          <button type="button" aria-label={expanded ? "Свернуть строку" : "Раскрыть строку"}>
-                            <Icon name={expanded ? "bi-dash" : "bi-plus"} size={16} />
-                          </button>
-                          <div>
-                            <strong>{party.name}</strong>
-                            <span>{party.phone}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td>{party.category}</td>
-                      <td>{party.owner}</td>
-                      <td>{formatDate(party.dueDate)}</td>
-                      <td className="dc-table__amount">{displayAmount(party.amount, currency)}</td>
-                      <td><span className={`dc-status dc-status--${party.status}`}>{statusLabels[party.status]}</span></td>
-                    </tr>
-                    {expanded ? (
-                      <tr className="dc-detail-row">
-                        <td colSpan="6">
-                          <div className="dc-detail">
-                            <p>{party.note}</p>
-                            <div className="dc-detail__operations">
-                              {party.operations.map((operation) => (
-                                <div key={`${party.id}-${operation.document}`}>
-                                  <span>{formatDate(operation.date)}</span>
-                                  <strong>{operation.document}</strong>
-                                  <em>{displayAmount(operation.amount, currency)}</em>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : null}
-                  </Fragment>
-                );
-              })}
-              {!visibleRows.length ? (
-                <tr className="dc-empty-row">
-                  <td colSpan="6">По запросу ничего не найдено</td>
-                </tr>
-              ) : null}
+              <tr className="dc-total-row"><td>Итого</td><td>{displayAmount(totals.openingBalance)}</td><td>{displayAmount(totals.debit)}</td><td>{displayAmount(totals.credit)}</td><td>{displayAmount(totals.closingBalance)}</td></tr>
+              {visibleRows.map((row) => <tr className="dc-party-row" key={row.id} data-counterparty-id={row.id}><td><strong>{row.name}</strong></td><td>{displayAmount(row.openingBalance)}</td><td>{displayAmount(row.debit)}</td><td>{displayAmount(row.credit)}</td><td>{displayAmount(row.closingBalance)}</td></tr>)}
+              {!visibleRows.length ? <tr className="dc-empty-row"><td colSpan={5}>По запросу ничего не найдено</td></tr> : null}
             </tbody>
           </table>
         </div>

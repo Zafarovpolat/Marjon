@@ -1,11 +1,10 @@
-﻿import { Outlet, useLocation, useNavigate } from "react-router-dom";
+﻿import { Outlet, useLocation } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "./Sidebar";
 import SupportWidget from "./SupportWidget";
 import Topbar from "./Topbar";
 import { clampToToday, todayInputValue } from "../utils/date";
 import { useAuth } from "../hooks/useAuth";
-import { canAccessPath, getRole } from "../utils/permissions";
 
 const pageMeta = {
   "/": ["Owner Dashboard", "Ключевые показатели ресторана"],
@@ -62,8 +61,7 @@ const pageMeta = {
 
 export default function DashboardLayout() {
   const location = useLocation();
-  const navigate = useNavigate();
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState(() => todayInputValue());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -79,18 +77,6 @@ export default function DashboardLayout() {
     document.body.classList.add("dashboard-body");
     return () => document.body.classList.remove("dashboard-body");
   }, []);
-
-  // Редирект waiter/kitchen на их рабочие места
-  useEffect(() => {
-    if (loading || !user) return;
-    const role = getRole(user);
-    const canOpenCurrentPath = canAccessPath(user, location.pathname);
-    if (role === "waiter" && !location.pathname.startsWith("/waiter") && !canOpenCurrentPath) {
-      navigate("/waiter", { replace: true });
-    } else if (role === "kitchen" && !location.pathname.startsWith("/kitchen") && !canOpenCurrentPath) {
-      navigate("/kitchen", { replace: true });
-    }
-  }, [user, loading, location.pathname, navigate]);
 
   return (
     <div>

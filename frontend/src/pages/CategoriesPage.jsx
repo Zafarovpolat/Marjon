@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
+import { getCategories } from "../api/categories";
+import { catalogService } from "../api/catalog";
 import Icon from "../components/Icon";
+import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 
 const TYPE_CONFIG = {
   dishes: { label: "Категории блюд", title: "Меню", slug_prefix: "dish" },
@@ -10,35 +12,6 @@ const TYPE_CONFIG = {
 };
 
 const DEFAULT_FORM = { name: "", slug: "", sort_order: 0 };
-
-const DEMO_CATEGORIES = {
-  dishes: [
-    { id: "demo-dish-hot", name: "Горячие блюда", slug: "hot-dishes", sort_order: 1, is_active: true },
-    { id: "demo-dish-grill", name: "Гриль", slug: "grill", sort_order: 2, is_active: true },
-    { id: "demo-dish-salads", name: "Салаты", slug: "salads", sort_order: 3, is_active: true },
-    { id: "demo-dish-drinks", name: "Напитки", slug: "drinks", sort_order: 4, is_active: true },
-  ],
-  raw: [
-    { id: "demo-raw-meat", name: "Мясо", slug: "meat", sort_order: 1, is_active: true },
-    { id: "demo-raw-grocery", name: "Крупы", slug: "grocery", sort_order: 2, is_active: true },
-    { id: "demo-raw-vegetables", name: "Овощи", slug: "vegetables", sort_order: 3, is_active: true },
-    { id: "demo-raw-spices", name: "Специи", slug: "spices", sort_order: 4, is_active: true },
-  ],
-  semi: [
-    { id: "demo-semi-dough", name: "Тесто", slug: "dough", sort_order: 1, is_active: true },
-    { id: "demo-semi-marinade", name: "Маринады", slug: "marinades", sort_order: 2, is_active: true },
-    { id: "demo-semi-sauces", name: "Соусы", slug: "sauces", sort_order: 3, is_active: true },
-  ],
-  sales: [
-    { id: "demo-sales-hall", name: "Зал", slug: "hall", sort_order: 1, is_active: true },
-    { id: "demo-sales-delivery", name: "Доставка", slug: "delivery", sort_order: 2, is_active: true },
-    { id: "demo-sales-pickup", name: "Самовывоз", slug: "pickup", sort_order: 3, is_active: true },
-  ],
-};
-
-function demoCategories(type) {
-  return DEMO_CATEGORIES[type] || DEMO_CATEGORIES.dishes;
-}
 
 function makeSlug(name, prefix) {
   const clean = name
@@ -61,6 +34,26 @@ function sortCategories(a, b) {
 }
 
 export default function CategoriesPage({ type = "dishes" }) {
+  if (type === "raw" || type === "semi") {
+    const config = TYPE_CONFIG[type];
+    return (
+      <section className="nomenclature-page menu-categories-page">
+        <div className="menu-categories-card">
+          <div className="menu-categories-header">
+            <div className="menu-categories-title">
+              <span className="menu-categories-accent" />
+              <div><h1>{config.title}</h1><p>Функция пока недоступна: отдельный backend-контракт категорий сырья не зафиксирован.</p></div>
+            </div>
+          </div>
+          <div className="menu-category-empty" role="status"><Icon name="bi-inbox" /><span>ProductCategory не используется как категория сырья или полуфабриката.</span></div>
+        </div>
+      </section>
+    );
+  }
+  return <ProductCategoriesPage type={type} />;
+}
+
+function ProductCategoriesPage({ type }) {
   const config = TYPE_CONFIG[type] || TYPE_CONFIG.dishes;
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -69,19 +62,24 @@ export default function CategoriesPage({ type = "dishes" }) {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(DEFAULT_FORM);
   const [saving, setSaving] = useState(false);
+  const beginRequest = useLatestRequest();
+  const { acquire, release } = useMutationLocks();
 
   async function load() {
+    const request = beginRequest();
     setLoading(true);
     setError("");
     try {
-      const { data } = await api.get("/inventory/categories");
+      const { data } = await getCategories();
+      if (!request.isCurrent()) return;
       const loadedCategories = Array.isArray(data) ? data : [];
-      setRows(loadedCategories.length ? loadedCategories : demoCategories(type));
+      setRows(loadedCategories);
     } catch (err) {
-      setRows(demoCategories(type));
-      setError("");
+      if (!request.isCurrent() || isAbortError(err)) return;
+      setRows([]);
+      setError(err.response?.data?.detail || "Не удалось загрузить категории.");
     } finally {
-      setLoading(false);
+      if (request.isCurrent()) setLoading(false);
     }
   }
 
@@ -96,13 +94,7 @@ export default function CategoriesPage({ type = "dishes" }) {
   }
 
   function openEdit(row) {
-    setEditingId(row.id);
-    setForm({
-      name: row.name || "",
-      slug: row.slug || "",
-      sort_order: row.sort_order ?? 0,
-    });
-    setShowForm(true);
+    setError(`Редактирование категории «${row.name}» пока не подключено к backend.`);
   }
 
   function closeForm() {
@@ -113,39 +105,43 @@ export default function CategoriesPage({ type = "dishes" }) {
 
   async function handleSave(event) {
     event.preventDefault();
-    if (!form.name.trim()) return;
+    if (!acquire("category-save")) return;
+    const sortOrder = Number(form.sort_order);
+    if (!form.name.trim() || !Number.isInteger(sortOrder) || sortOrder < 0) {
+      setError("Укажите название и корректный неотрицательный порядок сортировки.");
+      release("category-save");
+      return;
+    }
 
     const slug = form.slug.trim() || makeSlug(form.name, config.slug_prefix);
     const categoryPayload = {
       name: form.name.trim(),
       slug,
-      sort_order: Number(form.sort_order || 0),
-    };
-    const localPayload = {
-      ...categoryPayload,
-      is_active: true,
+      sort_order: sortOrder,
     };
 
     setSaving(true);
     setError("");
     try {
-      if (editingId) {
-        setRows((current) => current.map((row) => (row.id === editingId ? { ...row, ...localPayload } : row)));
-      } else {
-        const { data } = await api.post("/inventory/categories", categoryPayload);
-        setRows((current) => [...current, data || { ...localPayload, id: `local-${Date.now()}` }]);
+      if (!editingId) {
+        const { data } = await catalogService.createCategory(categoryPayload);
+        if (data?.id) {
+          setRows((current) => [...current, data]);
+        } else {
+          await load();
+        }
       }
       closeForm();
     } catch (err) {
       setError(err.response?.data?.detail || "Не удалось сохранить категорию.");
     } finally {
       setSaving(false);
+      release("category-save");
     }
   }
 
   function handleDelete(row) {
-    setRows((current) => current.filter((item) => item.id !== row.id));
-    if (editingId === row.id) closeForm();
+    setError(`Удаление категории «${row.name}» пока не подключено к backend.`);
   }
 
   const visible = useMemo(() => [...rows].sort(sortCategories), [rows]);
@@ -161,7 +157,7 @@ export default function CategoriesPage({ type = "dishes" }) {
               <p>{config.label}</p>
             </div>
           </div>
-          <button type="button" className="menu-category-add" onClick={openCreate}>
+          <button type="button" className="menu-category-add" disabled={saving} onClick={openCreate}>
             <span>Добавить</span>
             <Icon name="bi-plus" />
           </button>
@@ -173,7 +169,7 @@ export default function CategoriesPage({ type = "dishes" }) {
           <form className="menu-category-form" onSubmit={handleSave}>
             <div className="menu-category-form-title">
               <strong>{editingId ? "Изменить категорию" : "Новая категория"}</strong>
-              <button type="button" onClick={closeForm} aria-label="Закрыть">
+              <button type="button" disabled={saving} onClick={closeForm} aria-label="Закрыть">
                 <Icon name="bi-x-lg" />
               </button>
             </div>
@@ -207,7 +203,7 @@ export default function CategoriesPage({ type = "dishes" }) {
               <button className="menu-category-save" type="submit" disabled={saving || !form.name.trim()}>
                 {saving ? "Сохранение..." : "Сохранить"}
               </button>
-              <button className="menu-category-cancel" type="button" onClick={closeForm}>
+              <button className="menu-category-cancel" type="button" disabled={saving} onClick={closeForm}>
                 Отмена
               </button>
             </div>
@@ -241,7 +237,7 @@ export default function CategoriesPage({ type = "dishes" }) {
                 </article>
               ))}
 
-          {!loading && !visible.length ? (
+          {!loading && !error && !visible.length ? (
             <div className="menu-category-empty">
               <Icon name="bi-inbox" />
               <span>Категорий пока нет.</span>

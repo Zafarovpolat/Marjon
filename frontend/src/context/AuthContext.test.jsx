@@ -152,7 +152,10 @@ describe("AuthContext", () => {
   it("logout clears tokens and user state", async () => {
     localStorage.setItem(AUTH_STORAGE_KEYS.accessToken, "access-a");
     localStorage.setItem(AUTH_STORAGE_KEYS.refreshToken, "refresh-a");
-    api.defaults.adapter = vi.fn((config) => resolveResponse(config, ownerUser));
+    localStorage.setItem(AUTH_STORAGE_KEYS.adminAccessToken, "admin-access-a");
+    localStorage.setItem(AUTH_STORAGE_KEYS.adminRefreshToken, "admin-refresh-a");
+    const adapter = vi.fn((config) => resolveResponse(config, ownerUser));
+    api.defaults.adapter = adapter;
 
     renderAuth();
     await waitFor(() => expect(screen.getByTestId("user")).toHaveTextContent("present"));
@@ -163,6 +166,9 @@ describe("AuthContext", () => {
     expect(screen.getByTestId("authenticated")).toHaveTextContent("false");
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBeNull();
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBe("admin-access-a");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBe("admin-refresh-a");
+    expect(adapter.mock.calls.some(([config]) => config.url === "/auth/logout")).toBe(true);
   });
 
   it("does not clear the main user state for an admin session-ended event", async () => {

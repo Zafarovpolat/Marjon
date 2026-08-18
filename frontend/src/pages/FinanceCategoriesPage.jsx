@@ -1,25 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, formatMoney } from "../api/client";
+import { formatMoney } from "../api/client";
+import { financeService } from "../api/finance";
 import Icon from "../components/Icon";
-
-const DEMO_FINANCE_CATEGORIES = {
-  income: [
-    { id: "demo-income-sales", name: "Продажи", description: "Приход", operations: "86", total: "8 420 000 UZS", status: "Активно" },
-    { id: "demo-income-delivery", name: "Доставка", description: "Приход", operations: "18", total: "1 260 000 UZS", status: "Активно" },
-    { id: "demo-income-other", name: "Прочие поступления", description: "Приход", operations: "4", total: "380 000 UZS", status: "Активно" },
-    { id: "demo-income-archive", name: "Старые бонусы", description: "Приход", operations: "2", total: "90 000 UZS", status: "Архив" },
-  ],
-  expense: [
-    { id: "demo-expense-products", name: "Закупка продуктов", description: "Расход", operations: "24", total: "3 180 000 UZS", status: "Активно" },
-    { id: "demo-expense-salary", name: "Зарплата", description: "Расход", operations: "8", total: "2 400 000 UZS", status: "Активно" },
-    { id: "demo-expense-utility", name: "Коммунальные", description: "Расход", operations: "5", total: "740 000 UZS", status: "Активно" },
-    { id: "demo-expense-archive", name: "Старые расходы", description: "Расход", operations: "1", total: "120 000 UZS", status: "Архив" },
-  ],
-};
-
-function demoFinanceCategories(kind) {
-  return DEMO_FINANCE_CATEGORIES[kind] || DEMO_FINANCE_CATEGORIES.income;
-}
+import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 
 function FinanceCategoriesPage({ title, kind }) {
   const [rows, setRows] = useState([]);
@@ -29,10 +12,19 @@ function FinanceCategoriesPage({ title, kind }) {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ name: "", description: "" });
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [pendingAction, setPendingAction] = useState("");
+  const beginRequest = useLatestRequest();
+  const mutationLocks = useMutationLocks();
 
   async function loadCategories() {
+    const request = beginRequest();
+    setLoading(true);
+    setError("");
     try {
-      const { data } = await api.get("/finance/transaction-categories", { params: { kind } });
+      const { data } = await financeService.listTransactionCategories(kind, { signal: request.signal });
+      if (!request.isCurrent()) return false;
       const items = Array.isArray(data) ? data : data?.items || [];
       const mapped = items.map((item) => ({
           id: item.id,
@@ -42,10 +34,15 @@ function FinanceCategoriesPage({ title, kind }) {
           total: "—",
           status: item.status ? "Активно" : "Архив",
         }));
-      setRows(mapped.length ? mapped : demoFinanceCategories(kind));
-    } catch {
-      setRows(demoFinanceCategories(kind));
+      setRows(mapped);
+    } catch (err) {
+      if (!request.isCurrent() || isAbortError(err)) return false;
+      setRows([]);
+      setError(err.response?.data?.detail || "Не удалось загрузить финансовые категории.");
+    } finally {
+      if (request.isCurrent()) setLoading(false);
     }
+    return true;
   }
 
   useEffect(() => { loadCategories(); }, [kind]);
@@ -68,31 +65,47 @@ function FinanceCategoriesPage({ title, kind }) {
   };
 
   const archive = async (row) => {
+    if (!mutationLocks.acquire("category-action")) return;
+    setPendingAction(String(row.id));
     try {
-      await api.patch(`/finance/transaction-categories/${row.id}`, { status: false });
+      await financeService.updateTransactionCategory(row.id, { status: false });
       await loadCategories();
     } catch {
       window.alert("Ошибка архивирования");
+    } finally {
+      setPendingAction("");
+      mutationLocks.release("category-action");
     }
   };
 
   const restore = async (row) => {
+    if (!mutationLocks.acquire("category-action")) return;
+    setPendingAction(String(row.id));
     try {
-      await api.patch(`/finance/transaction-categories/${row.id}`, { status: true });
+      await financeService.updateTransactionCategory(row.id, { status: true });
       await loadCategories();
     } catch {
       window.alert("Ошибка восстановления");
+    } finally {
+      setPendingAction("");
+      mutationLocks.release("category-action");
     }
   };
 
   const save = async (event) => {
     event.preventDefault();
+    if (!mutationLocks.acquire("category-save")) return;
+    const name = form.name.trim();
+    if (!name) {
+      mutationLocks.release("category-save");
+      return;
+    }
     setSaving(true);
     try {
       if (editingId) {
-        await api.patch(`/finance/transaction-categories/${editingId}`, { name: form.name });
+        await financeService.updateTransactionCategory(editingId, { name });
       } else {
-        await api.post("/finance/transaction-categories", { name: form.name, kind });
+        await financeService.createTransactionCategory({ name, kind });
       }
       await loadCategories();
       setDrawerOpen(false);
@@ -100,6 +113,7 @@ function FinanceCategoriesPage({ title, kind }) {
       window.alert(e.response?.data?.detail || "Ошибка сохранения");
     } finally {
       setSaving(false);
+      mutationLocks.release("category-save");
     }
   };
 
@@ -144,6 +158,8 @@ function FinanceCategoriesPage({ title, kind }) {
               </tr>
             </thead>
             <tbody>
+              {loading ? <tr><td colSpan={6}>Загрузка...</td></tr> : null}
+              {!loading && error ? <tr><td colSpan={6}><div className="login-error" role="alert">{error}</div></td></tr> : null}
               {visibleRows.map((row) => (
                 <tr key={row.id}>
                   <td><strong>{row.name}</strong></td>
@@ -154,13 +170,14 @@ function FinanceCategoriesPage({ title, kind }) {
                   <td>
                     <div className="finance-category-actions">
                       <button type="button" className="finance-action-edit" onClick={() => openEdit(row)}><Icon name="bi-pencil" size={15} /></button>
-                      <button type="button" className={row.status === "Архив" ? "is-restore" : "is-danger"} onClick={() => row.status === "Архив" ? restore(row) : archive(row)}>
+                      <button type="button" disabled={pendingAction === String(row.id)} className={row.status === "Архив" ? "is-restore" : "is-danger"} onClick={() => row.status === "Архив" ? restore(row) : archive(row)}>
                         <Icon name={row.status === "Архив" ? "bi-recycle" : "bi-trash3"} size={15} />
                       </button>
                     </div>
                   </td>
                 </tr>
               ))}
+              {!loading && !error && !visibleRows.length ? <tr><td colSpan={6}>Категорий нет.</td></tr> : null}
             </tbody>
           </table>
         </div>
@@ -168,7 +185,7 @@ function FinanceCategoriesPage({ title, kind }) {
 
       {drawerOpen ? (
         <div className="finance-drawer" role="dialog" aria-modal="true">
-          <div className="finance-drawer__backdrop" onClick={() => setDrawerOpen(false)} />
+          <div className="finance-drawer__backdrop" onClick={saving ? undefined : () => setDrawerOpen(false)} />
           <form className="finance-form" onSubmit={save}>
             <header className="finance-form__header">
               <span className="finance-accent-bar" />
@@ -176,14 +193,14 @@ function FinanceCategoriesPage({ title, kind }) {
                 <p>Категория</p>
                 <h2>{title}</h2>
               </div>
-              <button type="button" onClick={() => setDrawerOpen(false)}><Icon name="bi-x-lg" size={20} /></button>
+              <button type="button" disabled={saving} onClick={() => setDrawerOpen(false)}><Icon name="bi-x-lg" size={20} /></button>
             </header>
             <div className="finance-form__grid">
               <label><span>Название</span><input required value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></label>
               <label className="finance-form__wide"><span>Описание</span><textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></label>
             </div>
             <footer className="finance-form__footer">
-              <button type="button" onClick={() => setDrawerOpen(false)}>Отмена</button>
+              <button type="button" disabled={saving} onClick={() => setDrawerOpen(false)}>Отмена</button>
               <button type="submit" disabled={saving}>{saving ? "Сохранение..." : "Сохранить"}</button>
             </footer>
           </form>

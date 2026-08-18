@@ -1,8 +1,9 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
+import { reportsService } from "../api/reports";
 import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import { exportToExcel } from "../utils/excel";
+import { isAbortError, isOrderedDateRange, useLatestRequest } from "../hooks/useAsyncSafety";
 
 function toApiDate(ddmmyyyy) {
   if (!ddmmyyyy) return undefined;
@@ -39,10 +40,25 @@ export default function DishesReportPage() {
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
   const [expandedRow, setExpandedRow] = useState("");
   const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const beginRequest = useLatestRequest();
 
   useEffect(() => {
-    api.get("/reports/dishes", { params: { date_from: toApiDate(dateRange.start), date_to: toApiDate(dateRange.end) } })
+    const request = beginRequest();
+    const dateFrom = toApiDate(dateRange.start);
+    const dateTo = toApiDate(dateRange.end);
+    setLoading(true);
+    setError("");
+    if (!isOrderedDateRange(dateFrom, dateTo)) {
+      setRows([]);
+      setError("Дата начала периода не может быть позже даты окончания.");
+      setLoading(false);
+      return;
+    }
+    reportsService.listDishes(dateFrom, dateTo, { signal: request.signal })
       .then(({ data }) => {
+        if (!request.isCurrent()) return;
         const items = Array.isArray(data) ? data : data?.items || data?.dishes || [];
         setRows(items.map((item, index) => {
           const quantityValue = Number(item.quantity || 0);
@@ -70,8 +86,13 @@ export default function DishesReportPage() {
           };
         }));
       })
-      .catch(() => setRows([]));
-  }, [dateRange.start, dateRange.end]);
+      .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
+        setRows([]);
+        setError(err.response?.data?.detail || "Не удалось загрузить отчёт по блюдам.");
+      })
+      .finally(() => { if (request.isCurrent()) setLoading(false); });
+  }, [beginRequest, dateRange.start, dateRange.end]);
 
   const filteredRows = useMemo(() => {
     const query = appliedFilters.query.trim().toLowerCase();
@@ -122,6 +143,9 @@ export default function DishesReportPage() {
     ];
     exportToExcel(filteredRows, cols, "dishes-report");
   }
+
+  if (loading) return <section className="dishes-report-page"><div className="dashboard-empty" role="status">Загрузка отчёта...</div></section>;
+  if (error) return <section className="dishes-report-page"><div className="login-error" role="alert">{error}</div></section>;
 
   return (
     <section className="dishes-report-page">

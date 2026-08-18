@@ -3,8 +3,6 @@ import { Navigate, RouterProvider, createBrowserRouter, useLocation } from "reac
 import { PageLoader } from "./components/Loader";
 import DashboardLayout from "./components/DashboardLayout";
 import LoginPage from "./pages/LoginPage";
-import StaffLoginPage from "./pages/auth/StaffLoginPage";
-import PinLoginPage from "./pages/auth/PinLoginPage";
 import OwnerDashboard from "./pages/OwnerDashboard";
 import OrdersPage from "./pages/OrdersPage";
 import MenuPage from "./pages/MenuPage";
@@ -20,13 +18,11 @@ import StaffRolePage from "./pages/StaffRolePage";
 import StaffActivityPage from "./pages/StaffActivityPage";
 import NomenclaturePage from "./pages/NomenclaturePage";
 import CategoriesPage from "./pages/CategoriesPage";
-import WaiterPage from "./pages/WaiterPage";
 import WaitersReportPage from "./pages/WaitersReportPage";
 import TablesReportPage from "./pages/TablesReportPage";
 import DishesReportPage from "./pages/DishesReportPage";
 import CancelledDishesReportPage from "./pages/CancelledDishesReportPage";
 import DebtorsCreditorsReportPage from "./pages/DebtorsCreditorsReportPage";
-import KitchenPage from "./pages/KitchenPage";
 import ZReportPage from "./pages/ZReportPage";
 import WarehousePage from "./pages/WarehousePage";
 import SettingsClientsPage from "./pages/settings/SettingsClientsPage";
@@ -41,7 +37,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { OrgProvider } from "./context/OrgContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { useAuth } from "./hooks/useAuth";
-import { canAccessPath, canAccessSection, getRoleHomePath } from "./utils/permissions";
+import { canAccessPath, canAccessSection, isOwnerWebUser } from "./utils/permissions";
 
 function ProtectedRoute({ children, sectionKey = "" }) {
   const { user, isAuthenticated, loading } = useAuth();
@@ -49,15 +45,14 @@ function ProtectedRoute({ children, sectionKey = "" }) {
 
   if (loading) return <PageLoader />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isOwnerWebUser(user)) return <Navigate to="/login" replace />;
 
   const allowed = sectionKey
     ? canAccessSection(user, sectionKey)
     : canAccessPath(user, location.pathname);
 
   if (!allowed) {
-    const homePath = getRoleHomePath(user);
-    if (location.pathname === homePath) return <Navigate to="/login" replace />;
-    return <Navigate to={homePath} replace />;
+    return <Navigate to="/login" replace />;
   }
 
   return children;
@@ -67,13 +62,10 @@ export function createAppRouter() {
   return createBrowserRouter([
   { path: "/index.html", element: <Navigate to="/" replace /> },
   { path: "/login", element: <LoginPage /> },
-  { path: "/login/staff", element: <StaffLoginPage /> },
-  { path: "/login/pin/:employeeId", element: <PinLoginPage /> },
-  { path: "/waiter", element: <ProtectedRoute sectionKey="waiter"><WaiterPage /></ProtectedRoute> },
-  { path: "/waiter/new", element: <ProtectedRoute sectionKey="waiter"><WaiterPage mode="new" /></ProtectedRoute> },
-  { path: "/waiter/order/:orderId", element: <ProtectedRoute sectionKey="waiter"><WaiterPage mode="order" /></ProtectedRoute> },
-  { path: "/waiter/orders", element: <ProtectedRoute sectionKey="waiter"><WaiterPage mode="orders" /></ProtectedRoute> },
-  { path: "/kitchen", element: <ProtectedRoute sectionKey="kitchen"><KitchenPage /></ProtectedRoute> },
+  { path: "/login/staff/*", element: <Navigate to="/login" replace /> },
+  { path: "/login/pin/:employeeId/*", element: <Navigate to="/login" replace /> },
+  { path: "/waiter/*", element: <Navigate to="/login" replace /> },
+  { path: "/kitchen/*", element: <Navigate to="/login" replace /> },
   {
     path: "/",
     element: <ProtectedRoute><DashboardLayout /></ProtectedRoute>,

@@ -2,9 +2,11 @@
 // Содержит текущего user, роль, методы login/logout, статус загрузки.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { api, isAuthenticated, login as apiLogin, loginByPhone as apiLoginByPhone, loginByPin as apiLoginByPin, logout as apiLogout } from "../api/client";
+import { isAuthenticated, login as apiLogin, loginByPhone as apiLoginByPhone, loginByPin as apiLoginByPin, logout as apiLogout } from "../api/client";
+import { authService } from "../api/auth";
 import { AUTH_SCOPES, subscribeToAuthSessionEnded } from "../auth/session";
-import { getRole, ROLE_HOME } from "../utils/permissions";
+import { getRole, getRoleHomePath } from "../utils/permissions";
+import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 
 const AuthContext = createContext(null);
 
@@ -13,8 +15,10 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const beginProfileRequest = useLatestRequest();
 
   const loadProfile = useCallback(async () => {
+    const request = beginProfileRequest();
     if (!isAuthenticated()) {
       setUser(null);
       setSessionExpired(false);
@@ -22,18 +26,20 @@ export function AuthProvider({ children }) {
       return null;
     }
     try {
-      const { data } = await api.get("/auth/me");
+      const { data } = await authService.getCurrentUser({ signal: request.signal });
+      if (!request.isCurrent()) return null;
       setUser(data);
       setSessionExpired(false);
       return data;
     } catch (e) {
+      if (!request.isCurrent() || isAbortError(e)) return null;
       setUser(null);
       if (e?.response?.status === 401) setSessionExpired(true);
       return null;
     } finally {
-      setLoading(false);
+      if (request.isCurrent()) setLoading(false);
     }
-  }, []);
+  }, [beginProfileRequest]);
 
   useEffect(() => {
     loadProfile();
@@ -41,10 +47,11 @@ export function AuthProvider({ children }) {
 
   useEffect(() => subscribeToAuthSessionEnded(({ reason, scope }) => {
     if (scope === AUTH_SCOPES.ADMIN) return;
+    beginProfileRequest();
     setUser(null);
     setLoading(false);
     setSessionExpired(reason !== "logout");
-  }), []);
+  }), [beginProfileRequest]);
 
   const loginEmail = useCallback(async (email, password) => {
     setError(null);
@@ -83,9 +90,13 @@ export function AuthProvider({ children }) {
   }, [loadProfile]);
 
   const logout = useCallback(() => {
-    apiLogout();
+    const logoutRequest = apiLogout();
+    // The UI logs out locally even when server-side revocation is unavailable.
+    // Keep returning the original promise so callers and tests can observe the failure.
+    logoutRequest.catch(() => {});
     setUser(null);
     setSessionExpired(false);
+    return logoutRequest;
   }, []);
 
   const value = useMemo(() => ({
@@ -100,7 +111,7 @@ export function AuthProvider({ children }) {
     loginPin,
     logout,
     reload: loadProfile,
-    homeFor: (u) => ROLE_HOME[getRole(u || user)] || "/",
+    homeFor: (u) => getRoleHomePath(u || user),
   }), [user, loading, sessionExpired, error, loginEmail, loginPhone, loginPin, logout, loadProfile]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

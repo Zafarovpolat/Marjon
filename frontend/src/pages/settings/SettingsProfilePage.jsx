@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client";
+import { settingsService } from "../../api/settings";
 import logo from "../../assets/marjon-logo.svg";
 import Icon from "../../components/Icon";
-
-const PROFILE_STORAGE_KEY = "marjon_profile_settings";
+import { useAuth } from "../../context/AuthContext";
+import { readStoredProfile, updateStoredProfile } from "../../utils/profileCache";
+import { isAbortError, useLatestRequest, useMutationLocks } from "../../hooks/useAsyncSafety";
 
 const profileSections = [
   { key: "basic", label: "Основные данные", icon: "bi-file-earmark-text" },
@@ -20,19 +22,6 @@ const profileSections = [
   { key: "legacy", label: "Старая версия", icon: "bi-arrow-counterclockwise" },
 ];
 
-function readStoredProfile() {
-  try {
-    return JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
-
-function updateStoredProfile(nextProfile) {
-  localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(nextProfile));
-  window.dispatchEvent(new CustomEvent("marjon-profile-updated", { detail: nextProfile }));
-}
-
 const emptyForm = {
   name: "",
   phone: "",
@@ -44,7 +33,8 @@ const emptyForm = {
 };
 
 export default function SettingsProfilePage() {
-  const storedProfile = useMemo(() => readStoredProfile(), []);
+  const { user } = useAuth();
+  const storedProfile = useMemo(() => readStoredProfile(user?.id), [user?.id]);
   const [form, setForm] = useState({ ...emptyForm, profileLogo: storedProfile.photo || "" });
   const [savedForm, setSavedForm] = useState({ ...emptyForm, profileLogo: storedProfile.photo || "" });
   const [activeSection, setActiveSection] = useState("basic");
@@ -52,7 +42,11 @@ export default function SettingsProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  // Спец-пароль отмены заказа (самодостаточный блок, отдельно от основного сохранения профиля)
+  const beginRequest = useLatestRequest();
+  const { acquire, release } = useMutationLocks();
+
+  // Спец-пароль отмены заказа и доля обслуги официанту — самодостаточные блоки,
+  // сохраняются отдельно от основного профиля (свои эндпоинты).
   const [cancelPw, setCancelPw] = useState("");
   const [cancelPwSet, setCancelPwSet] = useState(false);
   const [cancelPwSaving, setCancelPwSaving] = useState(false);
@@ -60,11 +54,9 @@ export default function SettingsProfilePage() {
   const [waiterPctSaving, setWaiterPctSaving] = useState(false);
 
   useEffect(() => {
+    // Статус пароля отмены — отдельный эндпоинт (не входит в профиль компании).
     api.get("/companies/me/cancel-password")
       .then(({ data }) => setCancelPwSet(Boolean(data?.is_set)))
-      .catch(() => {});
-    api.get("/companies/me")
-      .then(({ data }) => setWaiterPct(data?.waiter_service_percent != null ? String(data.waiter_service_percent) : ""))
       .catch(() => {});
   }, []);
 
@@ -72,6 +64,7 @@ export default function SettingsProfilePage() {
     setWaiterPctSaving(true);
     try {
       await api.patch("/companies/me", { waiter_service_percent: Math.max(0, Math.min(100, Number(waiterPct) || 0)) });
+      setError("");
       setSuccess("Доля обслуги официанту сохранена.");
     } catch (err) {
       setError(err.response?.data?.detail || "Не удалось сохранить долю обслуги");
@@ -86,6 +79,7 @@ export default function SettingsProfilePage() {
       const { data } = await api.post("/companies/me/cancel-password", { password: cancelPw || null });
       setCancelPwSet(Boolean(data?.is_set));
       setCancelPw("");
+      setError("");
       setSuccess("Пароль отмены сохранён.");
     } catch (err) {
       setError(err.response?.data?.detail || "Не удалось сохранить пароль отмены");
@@ -95,10 +89,12 @@ export default function SettingsProfilePage() {
   };
 
   useEffect(() => {
-    api.get("/companies/me")
+    const request = beginRequest();
+    settingsService.getCompanyProfile({ signal: request.signal })
       .then(({ data }) => {
+        if (!request.isCurrent()) return;
         const next = {
-          name: data.name || storedProfile.name || "",
+          name: data.name || "",
           phone: data.phone || "",
           address: data.address || "",
           inn: data.inn || "",
@@ -108,10 +104,14 @@ export default function SettingsProfilePage() {
         };
         setForm(next);
         setSavedForm(next);
+        // Доля обслуги приходит в том же профиле компании — отдельный запрос не нужен.
+        setWaiterPct(data?.waiter_service_percent != null ? String(data.waiter_service_percent) : "");
       })
-      .catch((err) => setError(err.response?.data?.detail || "Не удалось загрузить профиль."))
-      .finally(() => setLoading(false));
-  }, [storedProfile.companyLogo, storedProfile.name, storedProfile.photo]);
+      .catch((err) => {
+        if (request.isCurrent() && !isAbortError(err)) setError(err.response?.data?.detail || "Не удалось загрузить профиль.");
+      })
+      .finally(() => { if (request.isCurrent()) setLoading(false); });
+  }, [beginRequest, storedProfile.companyLogo, storedProfile.name, storedProfile.photo, user?.id]);
 
   const activeMeta = profileSections.find((section) => section.key === activeSection) || profileSections[0];
   const profilePreview = form.profileLogo || form.companyLogo || logo;
@@ -147,6 +147,12 @@ export default function SettingsProfilePage() {
 
   async function handleSave(event) {
     event.preventDefault();
+    if (!acquire("company-profile-save")) return;
+    if (!form.name.trim()) {
+      setError("Укажите название компании.");
+      release("company-profile-save");
+      return;
+    }
     setSaving(true);
     setError("");
     setSuccess("");
@@ -159,20 +165,31 @@ export default function SettingsProfilePage() {
         inn: form.inn,
         currency: form.currency,
       };
-      await api.patch("/companies/me", payload);
+      const { data } = await settingsService.updateCompanyProfile(payload);
+      if (!data || typeof data !== "object") throw new Error("Backend не вернул сохранённый профиль.");
+      const confirmed = {
+        ...form,
+        name: data.name || "",
+        phone: data.phone || "",
+        address: data.address || "",
+        inn: data.inn || "",
+        currency: data.currency || "UZS",
+      };
       const nextStored = {
-        ...readStoredProfile(),
-        name: form.name.trim() || "MARJON",
+        ...readStoredProfile(user?.id),
+        name: confirmed.name,
         photo: form.profileLogo,
         companyLogo: form.companyLogo,
       };
-      updateStoredProfile(nextStored);
-      setSavedForm(form);
+      updateStoredProfile(user?.id, nextStored);
+      setForm(confirmed);
+      setSavedForm(confirmed);
       setSuccess("Профиль сохранён.");
     } catch (err) {
       setError(err.response?.data?.detail || "Не удалось сохранить профиль.");
     } finally {
       setSaving(false);
+      release("company-profile-save");
     }
   }
 

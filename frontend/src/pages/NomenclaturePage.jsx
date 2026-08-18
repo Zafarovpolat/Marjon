@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
+import { catalogService } from "../api/catalog";
 import Icon from "../components/Icon";
+import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 
 const ACTIVE = "Активно";
 const ARCHIVED = "Архив";
@@ -64,35 +65,35 @@ const photoLibrary = {
   ],
 };
 
-const fallbackConfigs = {
+const nomenclatureConfigs = {
   raw: {
     title: "Сырьё",
     action: "Добавить +",
     columns: ["Название", "Категория", "Подкатегория", "Ед. изм", "Остаток", "Мин. остаток", "Цена закупки", "Поставщик", "Статус", "Действия"],
-    rows: [
-      ["Говядина", "Мясо", "Красное мясо", "кг", "24.5", "5", "78 000 UZS", "Fresh Meat", ACTIVE],
-      ["Куриное филе", "Мясо", "Птица", "кг", "18", "4", "42 000 UZS", "Bozor", ACTIVE],
-      ["Рис лазер", "Крупы", "Для плова", "кг", "38", "10", "15 000 UZS", "Bozor", ACTIVE],
-      ["Помидоры", "Овощи", "Свежие овощи", "кг", "32", "6", "9 000 UZS", "Green Market", ACTIVE],
-      ["Зира", "Специи", "Восточные специи", "кг", "4", "1", "65 000 UZS", "Spice House", ACTIVE],
-    ],
   },
   semi: {
     title: "Полуфабрикаты",
     action: "Добавить +",
     columns: ["Название", "Категория", "Подкатегория", "Ед. изм", "Себестоимость", "Состав", "Статус", "Действия"],
-    rows: [
-      ["Маринад для шашлыка", "Заготовки", "Маринады", "кг", "28 000 UZS", "5 ингредиентов", ACTIVE],
-      ["Тесто для самсы", "Тесто", "Слоеное тесто", "кг", "12 500 UZS", "4 ингредиента", ACTIVE],
-      ["Соус томатный", "Соусы", "Горячие соусы", "л", "18 000 UZS", "6 ингредиентов", ACTIVE],
-      ["Фарш для мант", "Заготовки", "Мясные заготовки", "кг", "54 000 UZS", "7 ингредиентов", ACTIVE],
-    ],
   },
 };
 
 function NomenclaturePage({ type = "dishes" }) {
   if (type === "dishes") return <DishesCatalogPage />;
-  return <SimpleNomenclaturePage key={type} config={fallbackConfigs[type] || fallbackConfigs.raw} />;
+  const config = nomenclatureConfigs[type] || nomenclatureConfigs.raw;
+  return (
+    <section className="nomenclature-page">
+      <div className="nomenclature-card">
+        <div className="nomenclature-header">
+          <div className="report-title-group">
+            <span className="report-accent-bar" />
+            <div><h1>{config.title}</h1><p>Функция пока недоступна: Raw/Semi и Inventory Core отложены.</p></div>
+          </div>
+        </div>
+        <div className="dashboard-empty" role="status">Backend-контракт для этого раздела не зафиксирован.</div>
+      </div>
+    </section>
+  );
 }
 
 function matchesDishStatFilter(row, filterKey) {
@@ -120,6 +121,54 @@ function matchesDishStatFilter(row, filterKey) {
     default:
       return true;
   }
+}
+
+export function mapNomenclatureProduct(item) {
+  return {
+    id: item.id,
+    name: item.name || "",
+    sort: item.sort_order != null ? String(item.sort_order) : "—",
+    type: item.product_type === "sale" ? "Реализация" : "Блюда",
+    unit: item.unit || "—",
+    cost: item.cost_price != null ? `${Number(item.cost_price).toLocaleString("ru-RU")} UZS` : "—",
+    price: item.price != null ? String(item.price) : "—",
+    menu: item.category_name || "",
+    subcategory: item.subcategory_name || "",
+    printer: item.printer_name || "",
+    recipe: `Рецепт (${item.ingredients_count ?? 0} шт)`,
+    stock: item.stock != null ? String(item.stock) : "-",
+    auto: null,
+    set: null,
+    category: item.category_name || "",
+    chef: "",
+    photo: item.image_url || "",
+  };
+}
+
+function parseNomenclatureMoney(value, fallback = null) {
+  const input = String(value ?? "").trim().replace(/\s*UZS$/i, "").trim();
+  if (!input) return fallback;
+  if (!/^(?:\d+|\d{1,3}(?:[ \u00a0]\d{3})+)(?:[.,]\d{1,2})?$/.test(input)) return fallback;
+  const parsed = Number(input.replace(/[ \u00a0]/g, "").replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function parseNomenclatureSort(value) {
+  const input = String(value ?? "").trim();
+  return /^[1-9]\d*$/.test(input) ? Number(input) : Number.NaN;
+}
+
+export function buildNomenclatureProductPayload(form, { isUpdate = false } = {}) {
+  const payload = {
+    name: String(form.name || "").trim(),
+    sort_order: parseNomenclatureSort(form.sort),
+    product_type: form.type === "Реализация" ? "sale" : "dish",
+    price: parseNomenclatureMoney(form.price, 0),
+  };
+  const costPrice = parseNomenclatureMoney(form.cost);
+  if (costPrice !== null) payload.cost_price = costPrice;
+  if (!isUpdate) payload.unit = form.unit || "шт";
+  return payload;
 }
 
 function demoDishRows() {
@@ -225,6 +274,10 @@ function demoDishRows() {
 function DishesCatalogPage() {
   const [rows, setRows] = useState([]);
   const [apiLoading, setApiLoading] = useState(true);
+  const [apiError, setApiError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
   const [draftFilters, setDraftFilters] = useState({ search: "", chef: "", category: "" });
   const [filters, setFilters] = useState(draftFilters);
   const [statFilter, setStatFilter] = useState(null);
@@ -235,6 +288,8 @@ function DishesCatalogPage() {
   const [form, setForm] = useState({ name: "", sort: "1", type: "Блюда", unit: "шт", cost: "0 UZS", price: "", menu: "", subcategory: "", printer: "", recipe: "Рецепт (0 шт)", stock: "-", auto: false, set: false, category: "", chef: "" });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState(defaultDishColumnVisibility);
+  const beginRequest = useLatestRequest();
+  const { acquire, release } = useMutationLocks();
 
   const visibleColumnKeys = useMemo(
     () => dishColumnOptions.filter((column) => visibleColumns[column.key] !== false).map((column) => column.key),
@@ -257,46 +312,37 @@ function DishesCatalogPage() {
   };
 
   useEffect(() => {
+    const request = beginRequest();
     setApiLoading(true);
-    api.get("/inventory/products")
+    setApiError("");
+    catalogService.listProducts({ signal: request.signal })
       .then(({ data }) => {
+        if (!request.isCurrent()) return;
         const items = Array.isArray(data) ? data : data?.items || [];
-        const mapped = items.map((item) => ({
-            id: item.id,
-            name: item.name || "",
-            sort: String(item.sort_order ?? "1"),
-            type: item.product_type === "sale" ? "Реализация" : "Блюда",
-            unit: item.unit || "шт",
-            cost: item.cost_price ? `${Number(item.cost_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
-            price: String(item.price || "0"),
-            menu: item.category_name || item.menu || "",
-            subcategory: item.subcategory_name || item.subcategory || item.specification || "",
-            printer: item.printer_name || "",
-            recipe: `Рецепт (${item.ingredients_count ?? 0} шт)`,
-            stock: item.stock !== undefined ? String(item.stock) : "-",
-            auto: item.auto_write_off ?? false,
-            set: item.is_set ?? false,
-            category: item.category_name || "",
-            chef: item.station || "",
-            photo: item.image_url || "",
-          }));
-        setRows(mapped.length ? mapped : demoDishRows());
+        const mapped = items.map(mapNomenclatureProduct);
+        setRows(mapped);
       })
-      .catch(() => setRows(demoDishRows()))
-      .finally(() => setApiLoading(false));
-  }, []);
+      .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
+        setRows([]);
+        setApiError(err.response?.data?.detail || "Не удалось загрузить каталог блюд.");
+      })
+      .finally(() => {
+        if (request.isCurrent()) setApiLoading(false);
+      });
+  }, [beginRequest]);
 
   const computedStats = useMemo(() => {
     const total = rows.length;
     const dishes = rows.filter((r) => r.type === "Блюда").length;
     const realization = total - dishes;
     const withRecipe = rows.filter((r) => r.recipe && !r.recipe.includes("(0")).length;
-    const withCost = rows.filter((r) => r.cost && r.cost !== "0 UZS").length;
+    const withCost = rows.filter((r) => r.cost && r.cost !== "0 UZS" && r.cost !== "—").length;
     const withPrinter = rows.filter((r) => r.printer).length;
     return [
       { label: "Кол-во товаров", value: String(total), rows: [["Реализация", String(realization)], ["Блюда", String(dishes)]], icon: "bi-basket", tone: "blue" },
       { label: "Рецепт", value: String(total), rows: [["С рецептом", String(withRecipe)], ["Без рецепта", String(total - withRecipe)]], icon: "bi-journal-bookmark", tone: "green" },
-      { label: "ИКПУ", value: String(total), rows: [["Заполнен", "0"], ["Не заполнен", String(total)]], icon: "bi-card-heading", tone: "cyan" },
+      { label: "ИКПУ", value: "—", rows: [["Статус", "Данные недоступны"]], icon: "bi-card-heading", tone: "cyan" },
       { label: "Себестоимость", value: String(total), rows: [["Заполнен", String(withCost)], ["Не заполнен", String(total - withCost)]], icon: "bi-cash-coin", tone: "orange" },
       { label: "Принтер", value: String(total), rows: [["Подключен", String(withPrinter)], ["Не подключен", String(total - withPrinter)]], icon: "bi-printer", tone: "violet" },
     ];
@@ -313,53 +359,70 @@ function DishesCatalogPage() {
   }, [rows, filters, statFilter]);
 
   const updateRow = (id, key, value) => {
-    setRows((prev) => prev.map((row) => (row.id === id ? { ...row, [key]: value } : row)));
+    void id;
+    void key;
+    void value;
+    setActionError("Быстрое изменение недоступно: backend mutation contract не подключён.");
   };
 
   const openDrawer = (row = null) => {
+    if (saving) return;
     setEditing(row);
     setForm(row || { name: "", sort: "1", type: "Блюда", unit: "шт", cost: "0 UZS", price: "", menu: "", subcategory: "", printer: "", recipe: "Рецепт (0 шт)", stock: "-", auto: false, set: false, category: "", chef: "" });
     setDrawerOpen(true);
   };
 
   const saveDish = async () => {
-    const payload = {
-      name: form.name,
-      sort_order: parseInt(form.sort, 10) || 1,
-      product_type: form.type === "Реализация" ? "sale" : "dish",
-      unit: form.unit,
-      price: parseInt(form.price, 10) || 0,
-      category_name: form.menu || form.category,
-      subcategory_name: form.subcategory,
-      station: form.chef,
-      auto_write_off: form.auto,
-      is_set: form.set,
-    };
-    try {
-      if (editing) {
-        await api.patch(`/inventory/products/${editing.id}`, payload);
-      } else {
-        const { data } = await api.post("/inventory/products", payload);
-        if (data?.id) form.id = data.id;
-      }
-    } catch (err) {
-      window.alert(err.response?.data?.detail || "Ошибка сохранения");
+    if (!acquire("product-save")) return;
+    const isUpdate = Boolean(editing);
+    setActionError("");
+    const name = String(form.name || "").trim();
+    const sortOrder = parseNomenclatureSort(form.sort);
+    const price = parseNomenclatureMoney(form.price);
+    const costInput = String(form.cost ?? "").trim();
+    const costPrice = parseNomenclatureMoney(form.cost);
+    if (!name || !Number.isInteger(sortOrder) || sortOrder < 1 || price === null || price < 0 || (costInput && costPrice === null) || (costPrice !== null && costPrice < 0)) {
+      setActionError("Заполните название и укажите корректные неотрицательные цену, себестоимость и порядок сортировки.");
+      release("product-save");
       return;
     }
-    if (editing) {
-      setRows((prev) => prev.map((row) => (row.id === editing.id ? { ...row, ...form } : row)));
-    } else {
-      setRows((prev) => [{ ...form, id: form.id || Date.now(), photo: "" }, ...prev]);
+    const payload = buildNomenclatureProductPayload(form, { isUpdate });
+    setSaving(true);
+    try {
+      const { data } = isUpdate
+        ? await catalogService.updateProduct(editing.id, payload)
+        : await catalogService.createProduct(payload);
+      if (!data?.id) throw new Error("Backend не вернул сохранённый продукт.");
+      const serverRow = mapNomenclatureProduct(data);
+      setRows((current) => (
+        isUpdate
+          ? current.map((row) => (row.id === editing.id ? serverRow : row))
+          : [serverRow, ...current]
+      ));
+    } catch (err) {
+      const message = err.response?.data?.detail || err.message || "Ошибка сохранения";
+      setActionError(message);
+      window.alert(message);
+      return;
+    } finally {
+      setSaving(false);
+      release("product-save");
     }
     setDrawerOpen(false);
   };
 
   const archiveDish = async (id) => {
+    const lockKey = `product-delete:${id}`;
+    if (!acquire(lockKey)) return;
+    setPendingDeleteId(id);
     try {
-      await api.delete(`/inventory/products/${id}`);
+      await catalogService.deleteProduct(id);
     } catch (err) {
       window.alert(err.response?.data?.detail || "Ошибка удаления");
       return;
+    } finally {
+      setPendingDeleteId(null);
+      release(lockKey);
     }
     setRows((prev) => prev.filter((row) => row.id !== id));
   };
@@ -375,6 +438,10 @@ function DishesCatalogPage() {
     setPhotoPicker(null);
     setPhotoSearch("");
   };
+
+  if (apiError && !apiLoading) {
+    return <section className="nomenclature-page dish-catalog-page"><div className="login-error" role="alert">{apiError}</div></section>;
+  }
 
   return (
     <section className="nomenclature-page dish-catalog-page">
@@ -396,6 +463,8 @@ function DishesCatalogPage() {
             </button>
           </div>
         </div>
+
+        {actionError ? <div className="login-error" role="alert">{actionError}</div> : null}
 
         <div className="dish-stat-grid">
           {computedStats.map((stat) => (
@@ -562,10 +631,10 @@ function DishesCatalogPage() {
                   {isColumnVisible("actions") ? (
                   <td className="dish-col-actions">
                     <div className="dish-row-actions">
-                      <button type="button" onClick={() => openDrawer(row)} aria-label="Редактировать">
+                      <button type="button" disabled={saving || pendingDeleteId === row.id} onClick={() => openDrawer(row)} aria-label="Редактировать">
                         <Icon name="bi-pencil" size={15} />
                       </button>
-                      <button type="button" className="danger" onClick={() => archiveDish(row.id)} aria-label="Удалить">
+                      <button type="button" className="danger" disabled={pendingDeleteId === row.id} onClick={() => archiveDish(row.id)} aria-label="Удалить">
                         <Icon name="bi-trash3" size={15} />
                       </button>
                     </div>
@@ -583,15 +652,23 @@ function DishesCatalogPage() {
           <div className="nomenclature-drawer-card">
             <div className="nomenclature-drawer-header">
               <h2>{editing ? "Редактировать блюдо" : "Добавить блюдо"}</h2>
-              <button type="button" onClick={() => setDrawerOpen(false)}><Icon name="bi-x-lg" /></button>
+              <button type="button" disabled={saving} onClick={() => setDrawerOpen(false)}><Icon name="bi-x-lg" /></button>
             </div>
             <div className="nomenclature-form">
-              {["name", "sort", "price", "cost", "menu", "subcategory", "printer", "category", "chef"].map((field) => (
+              {["name", "sort", "price", "cost", "menu", "subcategory", "printer", "category", "chef"].map((field) => {
+                const unsupported = ["menu", "subcategory", "printer", "category", "chef"].includes(field);
+                return (
                 <label key={field}>
                   <span>{fieldLabels[field]}</span>
-                  <input value={form[field] || ""} onChange={(event) => setForm((prev) => ({ ...prev, [field]: event.target.value }))} />
+                  <input
+                    value={form[field] || ""}
+                    disabled={unsupported}
+                    title={unsupported ? "Поле доступно только для чтения: write contract не подключён." : undefined}
+                    onChange={(event) => setForm((prev) => ({ ...prev, [field]: event.target.value }))}
+                  />
                 </label>
-              ))}
+                );
+              })}
               <label>
                 <span>Тип</span>
                 <select value={form.type} onChange={(event) => setForm((prev) => ({ ...prev, type: event.target.value }))}>
@@ -601,7 +678,12 @@ function DishesCatalogPage() {
               </label>
               <label>
                 <span>Ед. изм</span>
-                <select value={form.unit} onChange={(event) => setForm((prev) => ({ ...prev, unit: event.target.value }))}>
+                <select
+                  value={form.unit}
+                  disabled={Boolean(editing)}
+                  title={editing ? "Изменение единицы измерения не поддерживается backend update contract." : undefined}
+                  onChange={(event) => setForm((prev) => ({ ...prev, unit: event.target.value }))}
+                >
                   <option>шт</option>
                   <option>порция</option>
                   <option>кг</option>
@@ -610,8 +692,8 @@ function DishesCatalogPage() {
               </label>
             </div>
             <div className="nomenclature-drawer-footer">
-              <button type="button" className="btn-soft" onClick={() => setDrawerOpen(false)}>Отмена</button>
-              <button type="button" className="btn-primary" onClick={saveDish}>Сохранить</button>
+              <button type="button" className="btn-soft" disabled={saving} onClick={() => setDrawerOpen(false)}>Отмена</button>
+              <button type="button" className="btn-primary" disabled={saving} onClick={saveDish}>{saving ? "Сохранение…" : "Сохранить"}</button>
             </div>
           </div>
         </div>
@@ -688,197 +770,5 @@ const fieldLabels = {
   category: "Категория",
   chef: "Повар",
 };
-
-function SimpleNomenclaturePage({ config }) {
-  const [query, setQuery] = useState("");
-  const [rows, setRows] = useState([]);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editingIndex, setEditingIndex] = useState(null);
-  const [form, setForm] = useState({});
-
-  const isRawMaterials = config.title === "Сырьё";
-  const isSemiProducts = config.title === "Полуфабрикаты";
-  const showSearch = !(isRawMaterials || isSemiProducts);
-  const apiEndpoint = config.title === "Сырьё" ? "/inventory/ingredients" : config.title === "Полуфабрикаты" ? "/inventory/semi-products" : null;
-  const editableColumns = useMemo(() => config.columns.filter((column) => column !== "Действия"), [config.columns]);
-
-  const getDefaultCellValue = (column) => {
-    if (column === "Статус") return ACTIVE;
-    if (column === "Ед. изм") return "кг";
-    if (column === "Состав") return "0 ингредиента";
-    if (column.includes("Цена") || column.includes("Себестоимость")) return "0 UZS";
-    if (column.includes("Остаток")) return "0";
-    return "";
-  };
-
-  const makeFormFromRow = (row = []) => Object.fromEntries(
-    editableColumns.map((column, index) => [column, row[index] ?? getDefaultCellValue(column)]),
-  );
-
-  const makeRowFromForm = () => editableColumns.map((column) => String(form[column] ?? getDefaultCellValue(column)).trim());
-
-  useEffect(() => {
-    if (!apiEndpoint) return;
-    api.get(apiEndpoint)
-      .then(({ data }) => {
-        const items = Array.isArray(data) ? data : data?.items || [];
-        const mapped = items.map((item) => {
-            if (config.title === "Сырьё") {
-              return [
-                item.name || "",
-                item.category || "",
-                item.subcategory_name || item.subcategory || item.specification || "",
-                item.unit || "кг",
-                String(item.stock ?? "0"), String(item.min_stock ?? "0"),
-                item.purchase_price ? `${Number(item.purchase_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
-                item.supplier_name || "", item.is_active !== false ? ACTIVE : ARCHIVED,
-              ];
-            }
-            return [
-              item.name || "", item.category || "", item.subcategory_name || item.subcategory || item.specification || "", item.unit || "кг",
-              item.cost_price ? `${Number(item.cost_price).toLocaleString("ru-RU")} UZS` : "0 UZS",
-              `${item.ingredients_count ?? 0} ингредиента`, item.is_active !== false ? ACTIVE : ARCHIVED,
-            ];
-          });
-        setRows(mapped.length ? mapped : config.rows);
-      })
-      .catch(() => setRows(config.rows));
-  }, [apiEndpoint, config.rows]);
-
-  const openEditor = (row = null, index = null) => {
-    setEditingIndex(index);
-    setForm(makeFormFromRow(row || []));
-    setDrawerOpen(true);
-  };
-
-  const closeEditor = () => {
-    setDrawerOpen(false);
-    setEditingIndex(null);
-  };
-
-  const saveRow = (event) => {
-    event.preventDefault();
-    const nextRow = makeRowFromForm();
-    setRows((currentRows) => {
-      if (editingIndex === null) return [nextRow, ...currentRows];
-      return currentRows.map((row, rowIndex) => (rowIndex === editingIndex ? nextRow : row));
-    });
-    closeEditor();
-  };
-
-  const removeRow = (rowIndex) => {
-    setRows((currentRows) => currentRows.filter((_, index) => index !== rowIndex));
-  };
-
-  const visibleRows = rows
-    .map((row, rowIndex) => ({ row, rowIndex }))
-    .filter(({ row }) => !showSearch || row.join(" ").toLowerCase().includes(query.toLowerCase()));
-
-  return (
-    <section className={`nomenclature-page ${isRawMaterials ? "nomenclature-page--raw" : "nomenclature-page--semi"}`}>
-      <div className="nomenclature-card">
-        <div className="nomenclature-header">
-          <div className="report-title-group">
-            <span className="report-accent-bar" />
-            <div>
-              <h1>{config.title}</h1>
-              <p>Справочник склада в Marjon-дизайне.</p>
-            </div>
-          </div>
-          <div className="nomenclature-actions">
-            <button type="button" className="btn-primary" onClick={() => openEditor()}>
-              <Icon name="bi-plus" /> {config.action}
-            </button>
-          </div>
-        </div>
-        {showSearch && (
-          <div className="nomenclature-filters">
-            <label>
-              <Icon name="bi-search" />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск" />
-            </label>
-          </div>
-        )}
-        <div className="nomenclature-table-wrapper">
-          <table className="nomenclature-table">
-            <thead>
-              <tr>{config.columns.map((column) => <th key={column}>{column}</th>)}</tr>
-            </thead>
-            <tbody>
-              {visibleRows.map(({ row, rowIndex }) => (
-                <tr key={`${row[0]}-${rowIndex}`}>
-                  {row.map((cell, index) => (
-                    <td key={`${row[0]}-${index}`}>
-                      {index === row.length - 1 ? (
-                        <span className={`nomenclature-status-badge ${cell === ARCHIVED ? "is-archived" : ""}`}>
-                          {cell}
-                        </span>
-                      ) : cell}
-                    </td>
-                  ))}
-                  <td>
-                    <div className="nomenclature-row-actions">
-                      <button type="button" className="edit-action-button" onClick={() => openEditor(row, rowIndex)} aria-label="Редактировать">
-                        <Icon name="bi-pencil" size={15} />
-                      </button>
-                      <button type="button" className="is-danger" onClick={() => removeRow(rowIndex)} aria-label="Удалить">
-                        <Icon name="bi-trash3" size={15} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {drawerOpen && (
-        <div className="nomenclature-drawer" role="dialog" aria-modal="true">
-          <button type="button" className="nomenclature-drawer__backdrop" onClick={closeEditor} aria-label="Закрыть" />
-          <form className="nomenclature-form" onSubmit={saveRow}>
-            <div className="nomenclature-form__header">
-              <div>
-                <p>{config.title}</p>
-                <h2>{editingIndex === null ? "Добавить позицию" : "Редактировать позицию"}</h2>
-              </div>
-              <button type="button" onClick={closeEditor} aria-label="Закрыть">
-                <Icon name="bi-x-lg" />
-              </button>
-            </div>
-
-            <div className="nomenclature-form__grid">
-              {editableColumns.map((column) => (
-                <label key={column}>
-                  <span>{column}</span>
-                  {column === "Статус" ? (
-                    <select value={form[column] || ACTIVE} onChange={(event) => setForm((prev) => ({ ...prev, [column]: event.target.value }))}>
-                      <option value={ACTIVE}>{ACTIVE}</option>
-                      <option value={ARCHIVED}>{ARCHIVED}</option>
-                    </select>
-                  ) : column === "Ед. изм" ? (
-                    <select value={form[column] || "кг"} onChange={(event) => setForm((prev) => ({ ...prev, [column]: event.target.value }))}>
-                      <option>кг</option>
-                      <option>шт</option>
-                      <option>л</option>
-                      <option>порция</option>
-                    </select>
-                  ) : (
-                    <input value={form[column] || ""} onChange={(event) => setForm((prev) => ({ ...prev, [column]: event.target.value }))} />
-                  )}
-                </label>
-              ))}
-            </div>
-
-            <div className="nomenclature-form__footer">
-              <button type="button" onClick={closeEditor}>Отмена</button>
-              <button type="submit">Сохранить</button>
-            </div>
-          </form>
-        </div>
-      )}
-    </section>
-  );
-}
 
 export default NomenclaturePage;

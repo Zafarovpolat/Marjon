@@ -1,8 +1,9 @@
 // Контекст организации: настройки заведения, валюта, timezone, тема чека.
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { settingsService } from "../api/settings";
 import { useAuth } from "./AuthContext";
+import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 
 const OrgContext = createContext(null);
 
@@ -17,47 +18,73 @@ const DEFAULT_ORG = {
   phone: "",
 };
 
-const STORAGE_KEY = "marjon_org_cache";
+const STORAGE_PREFIX = "marjon_org_cache:";
+
+function getOrgStorageKey(userId) {
+  const identity = String(userId || "").trim();
+  return identity ? `${STORAGE_PREFIX}${identity}` : "";
+}
+
+function readCachedOrg(userId) {
+  const key = getOrgStorageKey(userId);
+  if (!key) return DEFAULT_ORG;
+
+  try {
+    const cached = JSON.parse(localStorage.getItem(key) || "null");
+    return cached ? { ...DEFAULT_ORG, ...cached } : DEFAULT_ORG;
+  } catch {
+    return DEFAULT_ORG;
+  }
+}
 
 export function OrgProvider({ children }) {
   const { isAuthenticated, user } = useAuth();
-  const [org, setOrg] = useState(() => {
-    try {
-      const cached = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-      return cached || DEFAULT_ORG;
-    } catch {
-      return DEFAULT_ORG;
-    }
-  });
+  const currentUserIdRef = useRef("");
+  currentUserIdRef.current = String(user?.id || "");
+  const [org, setOrg] = useState(() => readCachedOrg(user?.id));
   const [loading, setLoading] = useState(false);
+  const beginRequest = useLatestRequest();
 
   const reload = useCallback(async () => {
-    if (!isAuthenticated) return;
+    const request = beginRequest();
+    const identity = String(user?.id || "");
+    const storageKey = getOrgStorageKey(identity);
+    if (!isAuthenticated || !storageKey) {
+      setOrg(DEFAULT_ORG);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const { data } = await api.get("/companies/me");
+      const { data } = await settingsService.getCompanyProfile({ signal: request.signal });
+      if (!request.isCurrent() || currentUserIdRef.current !== identity) return;
       const merged = { ...DEFAULT_ORG, ...data };
       setOrg(merged);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      localStorage.setItem(storageKey, JSON.stringify(merged));
     } catch (err) {
+      if (!request.isCurrent() || currentUserIdRef.current !== identity || isAbortError(err)) return;
       console.warn("companies/me не найден:", err.response?.status);
       setOrg(null);
     } finally {
-      setLoading(false);
+      if (request.isCurrent() && currentUserIdRef.current === identity) setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [beginRequest, isAuthenticated, user?.id]);
 
   useEffect(() => {
+    setOrg(readCachedOrg(user?.id));
     reload();
   }, [reload, user?.id]);
 
   const update = useCallback(async (patch) => {
-    const { data } = await api.patch("/companies/me", patch);
+    const identity = String(user?.id || "");
+    const storageKey = getOrgStorageKey(identity);
+    const { data } = await settingsService.updateCompanyProfile(patch);
+    if (!storageKey || currentUserIdRef.current !== identity) return data;
     const merged = { ...org, ...data };
     setOrg(merged);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    localStorage.setItem(storageKey, JSON.stringify(merged));
     return merged;
-  }, [org]);
+  }, [org, user?.id]);
 
   const value = useMemo(() => ({ org, loading, reload, update }), [org, loading, reload, update]);
 

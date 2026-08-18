@@ -1,4 +1,10 @@
 import axios from "axios";
+import {
+  AUTH_SCOPES,
+  getAccessToken,
+  handleAuthResponseError,
+  prepareAuthRequest,
+} from "../auth/session";
 
 export const API_ERROR_CODES = {
   HTTP_ERROR: "HTTP_ERROR",
@@ -295,4 +301,42 @@ export function createFetchAdapter({ defaultTimeout = DEFAULT_HTTP_TIMEOUT_MS } 
       requestSignal.cleanup();
     }
   };
+}
+
+const CLIENT_AUTH_SCOPES = new Set([AUTH_SCOPES.DEFAULT, AUTH_SCOPES.ADMIN]);
+
+export function createApiTransport({
+  baseURL,
+  scope,
+  timeout = DEFAULT_HTTP_TIMEOUT_MS,
+  adapter,
+} = {}) {
+  if (!CLIENT_AUTH_SCOPES.has(scope)) {
+    throw new TypeError("API transport requires an explicit default or admin auth scope.");
+  }
+
+  const client = axios.create({
+    baseURL,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    timeout,
+    adapter: adapter || createFetchAdapter({ defaultTimeout: timeout }),
+  });
+
+  client.interceptors.request.use((config) => prepareAuthRequest(config, {
+    scope,
+    accessToken: getAccessToken({ scope }),
+  }));
+
+  client.interceptors.response.use(
+    (response) => response,
+    (error) => handleAuthResponseError(error, {
+      client,
+      baseURL,
+      scope,
+    }),
+  );
+
+  return client;
 }

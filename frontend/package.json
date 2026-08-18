@@ -10,7 +10,8 @@
     "test:admin": "node scripts/admin-login.test.mjs",
     "test:unit": "vitest run",
     "preview": "vite preview",
-    "lint:important": "node tools/important-budget.mjs"
+    "css:verify": "bash tools/css-verify.sh check",
+    "css:baseline": "bash tools/css-verify.sh baseline"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.0",

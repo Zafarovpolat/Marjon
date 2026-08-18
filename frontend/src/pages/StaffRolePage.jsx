@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, fetchStaffUsers } from "../api/client";
+import { staffService } from "../api/staff";
 import Icon from "../components/Icon";
+import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 
 const roleOptions = [
   { key: "cashier", label: "Кассир", title: "Кассиры" },
   { key: "waiter", label: "Официант", title: "Официанты" },
+  { key: "courier", label: "Курьер", title: "Курьеры" },
   { key: "monoblock", label: "Моноблок", title: "Моноблок" },
   { key: "kitchen", label: "Повар", title: "Повара" },
   { key: "manager", label: "Менеджер", title: "Менеджеры" },
+  { key: "warehouse", label: "Завсклад", title: "Завсклад" },
 ];
 
 const roleMap = roleOptions.reduce((acc, item) => {
@@ -94,12 +97,16 @@ const normalizePhone = (value = "", countryKey = "UZ") => {
 
 const emptyForm = {
   fullName: "",
+  email: "",
   phone: "",
   phoneCountry: "UZ",
   roleKey: "",
-  permission: "",
   pin: "",
   password: "",
+  status: "active",
+  photo: "",
+  // Гранулярные права (наша фича): сериализуются в permissions.* на бэкенд,
+  // применяются на кассе/десктопе. printer_ip/nfc_id — привязка POS-терминала.
   printerIp: "",
   nfcId: "",
   canDeleteDishes: false,
@@ -109,9 +116,6 @@ const emptyForm = {
   canOpenCashDrawerAfterPayment: false,
   canViewClosedOrders: false,
   canEditStopList: false,
-  status: "active",
-  comment: "",
-  photo: "",
   access: {},
 };
 
@@ -196,6 +200,34 @@ const staffOrderTypeActions = [
   { key: "new", label: "Новый" },
 ];
 
+function mapStaffUser(user) {
+  const roleKey = user.role_slug || user.role_slugs?.[0] || "cashier";
+  const perm = user.permissions || {};
+  return {
+    id: user.id,
+    fullName: user.name || user.email?.split("@")[0] || "—",
+    email: user.email || "",
+    phone: user.phone || "",
+    roleKey,
+    status: user.is_active !== false ? "active" : "archived",
+    pin: "",
+    password: "",
+    photo: user.avatar_url || "",
+    // Десериализация гранулярных прав из permissions.* (наш бэкенд их хранит).
+    // pin_code бэкенд не возвращает — PIN всегда пустой при префилле формы.
+    printerIp: user.printer_ip || "",
+    nfcId: user.nfc_id || "",
+    canDeleteDishes: !!perm.can_delete_dishes,
+    canTakeawayAtTable: !!perm.can_takeaway_at_table,
+    canChangeOrderType: !!perm.can_change_order_type,
+    canCloseBill: !!perm.can_close_bill,
+    canOpenCashDrawerAfterPayment: !!perm.can_open_cash_drawer,
+    canViewClosedOrders: !!perm.can_view_closed_orders,
+    canEditStopList: !!perm.can_edit_stop_list,
+    access: perm.modules || {},
+  };
+}
+
 function StaffRolePage({ role = "all" }) {
   const routeRole = roleMap[role] ? role : "all";
   const pageTitle =
@@ -203,40 +235,29 @@ function StaffRolePage({ role = "all" }) {
 
   const [staff, setStaff] = useState([]);
   const [staffLoading, setStaffLoading] = useState(true);
+  const [staffError, setStaffError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [pendingActionId, setPendingActionId] = useState("");
+  const beginRequest = useLatestRequest();
+  const mutationLocks = useMutationLocks();
 
   useEffect(() => {
-    fetchStaffUsers()
-      .then((data) => {
-        const mapped = (data || []).map((user) => {
-          const perm = user.permissions || {};
-          return {
-            id: user.id,
-            fullName: user.name || user.role_name || user.email?.split("@")[0] || "—",
-            phone: user.phone || "",
-            roleKey: user.role_slug || "cashier",
-            permission: user.role_slug || "Базовый доступ",
-            status: user.is_active !== false ? "active" : "archived",
-            pin: user.pin_code || "",
-            password: "",
-            printerIp: user.printer_ip || "",
-            nfcId: user.nfc_id || "",
-            canDeleteDishes: !!perm.can_delete_dishes,
-            canTakeawayAtTable: !!perm.can_takeaway_at_table,
-            canChangeOrderType: !!perm.can_change_order_type,
-            canCloseBill: !!perm.can_close_bill,
-            canOpenCashDrawerAfterPayment: !!perm.can_open_cash_drawer,
-            canViewClosedOrders: !!perm.can_view_closed_orders,
-            canEditStopList: !!perm.can_edit_stop_list,
-            comment: "",
-            photo: "",
-            access: perm.modules || {},
-          };
-        });
+    const request = beginRequest();
+    setStaffError("");
+    staffService.listStaffUsers({ signal: request.signal })
+      .then(({ data }) => {
+        if (!request.isCurrent()) return;
+        const mapped = (data || []).map(mapStaffUser);
         setStaff(mapped);
       })
-      .catch((err) => console.warn("Не удалось загрузить сотрудников:", err.message))
-      .finally(() => setStaffLoading(false));
-  }, []);
+      .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
+        console.warn("Не удалось загрузить сотрудников:", err.message);
+        setStaff([]);
+        setStaffError("Не удалось загрузить сотрудников.");
+      })
+      .finally(() => { if (request.isCurrent()) setStaffLoading(false); });
+  }, [beginRequest]);
 
   const defaultFilters = useMemo(() => ({
     query: "",
@@ -285,7 +306,6 @@ function StaffRolePage({ role = "all" }) {
       ...emptyForm,
       phoneCountry: "UZ",
       roleKey: routeRole === "all" ? "cashier" : routeRole,
-      access: {},
     });
     setModalOpen(true);
   };
@@ -348,87 +368,124 @@ function StaffRolePage({ role = "all" }) {
     reader.readAsDataURL(file);
   };
 
-const saveStaff = async (event) => {
-  event.preventDefault();
-  const phone = normalizePhone(form.phone, form.phoneCountry);
-  const email = `${phone || Date.now()}@staff.marjon`;
-  // Права сотрудника → на бэкенд (десктоп будет их применять)
-  const permissions = {
-    can_delete_dishes: !!form.canDeleteDishes,
-    can_takeaway_at_table: !!form.canTakeawayAtTable,
-    can_change_order_type: !!form.canChangeOrderType,
-    can_close_bill: !!form.canCloseBill,
-    can_open_cash_drawer: !!form.canOpenCashDrawerAfterPayment,
-    can_view_closed_orders: !!form.canViewClosedOrders,
-    can_edit_stop_list: !!form.canEditStopList,
-    modules: form.access || {},
-  };
-  const staffFields = {
-    name: form.fullName,
-    pin_code: form.pin || null,
-    printer_ip: form.printerIp || null,
-    nfc_id: form.nfcId || null,
-    is_active: form.status === "active",
-    permissions,
-  };
-
-  try {
-    if (!editingId) {
-      const { data: newUser } = await api.post("/auth/users", {
-        email,
-        password: form.password || "Pass1234",
-        phone: phone || null,
-        role_slug: form.roleKey || "cashier",
-        role_name: form.fullName,
-        ...staffFields,
-      });
-      setStaff((current) => [{
-        id: newUser.id,
-        fullName: form.fullName,
-        phone,
-        roleKey: form.roleKey || "cashier",
-        permission: getPermissionSummary(form),
-        status: "active",
-        pin: form.pin,
-        password: form.password,
-        comment: form.comment,
-        photo: form.photo || "",
-        access: form.access || {},
-      }, ...current]);
-    } else {
-      await api.patch(`/auth/users/${editingId}`, {
-        email,
-        password: form.password || undefined,
-        phone: phone || null,
-        role_slug: form.roleKey || "cashier",
-        role_name: form.fullName,
-        ...staffFields,
-      });
-      setStaff((current) => current.map((emp) =>
-        emp.id === editingId ? { ...emp, ...form, permission: getPermissionSummary(form) } : emp
-      ));
+  const saveStaff = async (event) => {
+    event.preventDefault();
+    if (!mutationLocks.acquire("staff-save")) return;
+    const phone = normalizePhone(form.phone, form.phoneCountry);
+    const roleKey = form.roleKey || "cashier";
+    // Email опционален: для POS-персонала (вход по PIN на кассе/десктопе)
+    // генерируем синтетический, чтобы бэкенд (email обязателен) принял запись.
+    // Менеджер может задать реальный email — тогда сотрудник войдёт в веб-панель.
+    const email = form.email.trim() || `${phone || Date.now()}@staff.marjon`;
+    if (!roleOptions.some((option) => option.key === roleKey)) {
+      window.alert("Укажите допустимую роль сотрудника.");
+      mutationLocks.release("staff-save");
+      return;
     }
-    closeModal();
-  } catch (err) {
-    console.error("Ошибка сохранения:", err.response?.data?.detail || err.message);
-    window.alert(err.response?.data?.detail || "Ошибка сохранения");
-  }
-};
+    // Пароль валидируем только когда он задан: пустое поле при редактировании
+    // означает «не менять», при создании подставляется дефолт для PIN-персонала.
+    if (form.password && (form.password.length < 8 || !/[A-Za-z]/.test(form.password) || !/\d/.test(form.password))) {
+      window.alert("Пароль должен содержать минимум 8 символов, букву и цифру.");
+      mutationLocks.release("staff-save");
+      return;
+    }
+    if (form.pin && !/^\d{4,8}$/.test(form.pin)) {
+      window.alert("PIN должен содержать от 4 до 8 цифр.");
+      mutationLocks.release("staff-save");
+      return;
+    }
+    setSaving(true);
 
-  const archiveStaff = (id) => {
-    setStaff((current) =>
-      current.map((employee) =>
-        employee.id === id ? { ...employee, status: "archived" } : employee,
-      ),
-    );
+    // Толстый payload: наш бэкенд хранит permissions.* (гранулярные права),
+    // printer_ip, nfc_id, pin_code (хешируется на бэкенде) и is_active.
+    // Отдельного /pin-эндпоинта нет — PIN уходит в теле общего запроса.
+    const permissions = {
+      can_delete_dishes: !!form.canDeleteDishes,
+      can_takeaway_at_table: !!form.canTakeawayAtTable,
+      can_change_order_type: !!form.canChangeOrderType,
+      can_close_bill: !!form.canCloseBill,
+      can_open_cash_drawer: !!form.canOpenCashDrawerAfterPayment,
+      can_view_closed_orders: !!form.canViewClosedOrders,
+      can_edit_stop_list: !!form.canEditStopList,
+      modules: form.access || {},
+    };
+    const staffFields = {
+      name: form.fullName.trim() || undefined,
+      role_name: roleMap[roleKey]?.label || roleKey,
+      pin_code: form.pin || null,
+      printer_ip: form.printerIp || null,
+      nfc_id: form.nfcId || null,
+      is_active: form.status !== "archived",
+      permissions,
+    };
+
+    try {
+      if (!editingId) {
+        const { data: createdUser } = await staffService.createCompanyUser({
+          email,
+          password: form.password || "Pass1234",
+          phone: phone || null,
+          role_slug: roleKey,
+          ...staffFields,
+        });
+        setStaff((current) => [
+          mapStaffUser(createdUser),
+          ...current.filter((item) => item.id !== createdUser.id),
+        ]);
+      } else {
+        const { data: updatedUser } = await staffService.updateCompanyUser(editingId, {
+          email,
+          password: form.password || undefined,
+          phone: phone || null,
+          role_slug: roleKey,
+          ...staffFields,
+        });
+        setStaff((current) =>
+          current.map((emp) => (emp.id === editingId ? mapStaffUser(updatedUser) : emp)),
+        );
+      }
+      closeModal();
+    } catch (err) {
+      console.error("Ошибка сохранения:", err.response?.data?.detail || err.message);
+      window.alert(err.response?.data?.detail || "Ошибка сохранения");
+    } finally {
+      setSaving(false);
+      mutationLocks.release("staff-save");
+    }
   };
 
-  const restoreStaff = (id) => {
-    setStaff((current) =>
-      current.map((employee) =>
-        employee.id === id ? { ...employee, status: "active" } : employee,
-      ),
-    );
+  const archiveStaff = async (id) => {
+    const key = `staff-action:${id}`;
+    if (!mutationLocks.acquire(key)) return;
+    setPendingActionId(String(id));
+    try {
+      await staffService.deleteCompanyUser(id);
+      setStaff((current) => current.map((employee) => (
+        employee.id === id ? { ...employee, status: "archived" } : employee
+      )));
+    } catch (err) {
+      window.alert(err.response?.data?.detail || "Не удалось архивировать сотрудника.");
+    } finally {
+      setPendingActionId("");
+      mutationLocks.release(key);
+    }
+  };
+
+  const restoreStaff = async (id) => {
+    const key = `staff-action:${id}`;
+    if (!mutationLocks.acquire(key)) return;
+    setPendingActionId(String(id));
+    try {
+      await staffService.updateCompanyUser(id, { is_active: true });
+      setStaff((current) => current.map((employee) => (
+        employee.id === id ? { ...employee, status: "active" } : employee
+      )));
+    } catch (err) {
+      window.alert(err.response?.data?.detail || "Не удалось восстановить сотрудника.");
+    } finally {
+      setPendingActionId("");
+      mutationLocks.release(key);
+    }
   };
 
   const applyFilters = () => {
@@ -538,6 +595,8 @@ const saveStaff = async (event) => {
           </div>
         </div>
 
+        {staffLoading ? <div className="staff-empty-cell" role="status">Загрузка сотрудников...</div> : null}
+        {staffError ? <div className="login-error" role="alert">{staffError}</div> : null}
         <div className="staff-table-wrapper">
           <table className="staff-table">
             <thead>
@@ -547,7 +606,7 @@ const saveStaff = async (event) => {
                 <th>ФИО</th>
                 <th>Номер телефона</th>
                 <th>Роль</th>
-                <th>Доступ</th>
+                <th>Доступ RBAC</th>
                 <th>Статус</th>
                 <th>Действия</th>
               </tr>
@@ -575,7 +634,7 @@ const saveStaff = async (event) => {
                   <td>
                     <span className="staff-permission">
                       <span className="staff-permission-dot" aria-hidden="true" />
-                      {employee.permission || "Базовый доступ"}
+                      {getPermissionSummary(employee)}
                     </span>
                   </td>
                   <td>
@@ -601,6 +660,7 @@ const saveStaff = async (event) => {
                       {employee.status === "archived" ? (
                         <button
                           type="button"
+                          disabled={pendingActionId === String(employee.id)}
                           className="staff-restore-action"
                           onClick={() => restoreStaff(employee.id)}
                           aria-label="Restore"
@@ -611,6 +671,7 @@ const saveStaff = async (event) => {
                       ) : (
                         <button
                           type="button"
+                          disabled={pendingActionId === String(employee.id)}
                           className="staff-delete-action"
                           onClick={() => archiveStaff(employee.id)}
                           aria-label="Archive"
@@ -623,7 +684,7 @@ const saveStaff = async (event) => {
                   </td>
                 </tr>
               ))}
-              {visibleStaff.length === 0 && (
+              {!staffLoading && !staffError && visibleStaff.length === 0 && (
                 <tr>
                   <td colSpan={8} className="staff-empty-cell">
                     Сотрудники не найдены
@@ -637,7 +698,7 @@ const saveStaff = async (event) => {
 
       {modalOpen && (
         <div className="staff-modal" role="dialog" aria-modal="true">
-          <div className="staff-modal__backdrop" onClick={closeModal} />
+          <div className="staff-modal__backdrop" onClick={saving ? undefined : closeModal} />
           <form
             key={editingId ? `staff-edit-${editingId}` : "staff-add-empty"}
             className="staff-form"
@@ -653,24 +714,21 @@ const saveStaff = async (event) => {
                 <p>{editingId ? "Редактирование" : "Новый сотрудник"}</p>
                 <h2>{editingId ? "Изменить сотрудника" : "Добавить сотрудника"}</h2>
               </div>
-              <button type="button" onClick={closeModal} aria-label="Закрыть">
+              <button type="button" disabled={saving} onClick={closeModal} aria-label="Закрыть">
                 <Icon name="bi-x-lg" size={20} />
               </button>
             </div>
 
             <div className="staff-form__grid staff-form__grid--edit">
-              <label className="staff-photo-upload">
-                <span>Фото сотрудника</span>
-                <div>
-                  <div className="staff-avatar staff-avatar--large">
-                    {form.photo ? (
-                      <img src={form.photo} alt="Avatar preview" />
-                    ) : (
-                      <Icon name="bi-camera" size={34} />
-                    )}
-                  </div>
-                  <input type="file" accept="image/*" onChange={handlePhotoChange} />
-                </div>
+              <label>
+                <span>Email (необязательно)</span>
+                <input
+                  type="email"
+                  autoComplete="off"
+                  value={form.email}
+                  onChange={(event) => updateForm("email", event.target.value)}
+                  placeholder="Только для входа в веб-панель"
+                />
               </label>
               <label>
                 <span>Имя *</span>
@@ -731,10 +789,10 @@ const saveStaff = async (event) => {
                 </div>
               </label>
               <label>
-                <span>Пароль *</span>
+                <span>{editingId ? "Новый пароль" : "Пароль *"}</span>
                 <div className="staff-password-field">
                   <input
-                    required
+                    required={!editingId}
                     autoComplete="new-password"
                     type={showPassword ? "text" : "password"}
                     value={form.password}
@@ -751,25 +809,6 @@ const saveStaff = async (event) => {
                   </button>
                 </div>
               </label>
-              <label className="staff-form__printer-ip">
-                <span>IP адрес принтера *</span>
-                <input
-                  required
-                  autoComplete="off"
-                  value={form.printerIp}
-                  onChange={(event) => updateForm("printerIp", event.target.value)}
-                  placeholder="192.168.0.100"
-                />
-              </label>
-              <label>
-                <span>NFC-идентификатор</span>
-                <input
-                  autoComplete="off"
-                  value={form.nfcId}
-                  onChange={(event) => updateForm("nfcId", event.target.value)}
-                  placeholder="ID карты"
-                />
-              </label>
               <label>
                 <span>PIN-код 4 цифры</span>
                 <input
@@ -779,6 +818,24 @@ const saveStaff = async (event) => {
                   pattern="[0-9]{4}"
                   onChange={(event) => updateForm("pin", event.target.value.replace(/\D/g, ""))}
                   placeholder="0000"
+                />
+              </label>
+              <label>
+                <span>IP принтера</span>
+                <input
+                  autoComplete="off"
+                  value={form.printerIp}
+                  onChange={(event) => updateForm("printerIp", event.target.value)}
+                  placeholder="Напр. 192.168.0.50 (POS-терминал)"
+                />
+              </label>
+              <label>
+                <span>NFC-идентификатор</span>
+                <input
+                  autoComplete="off"
+                  value={form.nfcId}
+                  onChange={(event) => updateForm("nfcId", event.target.value)}
+                  placeholder="Карта/брелок для быстрого входа"
                 />
               </label>
               <div className="staff-permission-switches">
@@ -852,6 +909,9 @@ const saveStaff = async (event) => {
                   <b className="staff-switch" aria-hidden="true" />
                 </button>
               </div>
+              <p className="muted" role="status">
+                Права применяются на кассе и десктопе после сохранения.
+              </p>
               <div className="staff-permission-matrix">
                 {staffAccessModules.map((module) => {
                   const moduleAccess = form.access?.[module.key] || {};
@@ -900,10 +960,11 @@ const saveStaff = async (event) => {
                 })}
               </div>
               <label className="staff-form__comment">
-                <span>Комментарий</span>
+                <span>Комментарий (недоступно)</span>
                 <textarea
-                  value={form.comment}
-                  onChange={(event) => updateForm("comment", event.target.value)}
+                  value=""
+                  disabled
+                  title="Backend contract отсутствует"
                   placeholder="Заметка по сотруднику"
                 />
               </label>
@@ -1019,10 +1080,10 @@ const saveStaff = async (event) => {
             )}
 
             <div className="staff-form__footer">
-              <button type="button" onClick={closeModal}>
+              <button type="button" disabled={saving} onClick={closeModal}>
                 Отмена
               </button>
-              <button type="submit">{editingId ? "Сохранить" : "Добавить"}</button>
+              <button type="submit" disabled={saving}>{saving ? "Сохранение..." : editingId ? "Сохранить" : "Добавить"}</button>
             </div>
           </form>
         </div>

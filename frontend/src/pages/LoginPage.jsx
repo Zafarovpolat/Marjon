@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
-import { getRole, ROLE_HOME } from "../utils/permissions";
+import { isOwnerWebUser } from "../utils/permissions";
 import logo from "../assets/marjon-logo.svg";
 import Icon from "../components/Icon";
+import { useMutationLocks } from "../hooks/useAsyncSafety";
 
 const LANGUAGES = [
   { code: "uz", short: "UZ", label: "Uzbek", flagUrl: "https://flagcdn.com/w40/uz.png" },
@@ -37,7 +38,7 @@ function getLanguageCode(i18n) {
 export default function LoginPage() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-  const { loginPhone } = useAuth();
+  const { loginPhone, logout } = useAuth();
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -48,6 +49,7 @@ export default function LoginPage() {
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const languageCloseTimerRef = useRef(null);
   const languageMenuRef = useRef(null);
+  const { acquire, release } = useMutationLocks();
 
   useEffect(() => {
     function handleDocumentPointerDown(event) {
@@ -112,17 +114,28 @@ export default function LoginPage() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (!acquire("owner-login")) return;
+    if (getLocalPhoneDigits(phone).length !== 9 || !password) {
+      setError("Укажите полный номер телефона и пароль.");
+      release("owner-login");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
       const user = await loginPhone(phone, password);
       if (!remember) localStorage.removeItem("refresh_token");
-      const role = getRole(user);
-      navigate(ROLE_HOME[role] || "/", { replace: true });
+      if (!isOwnerWebUser(user)) {
+        await logout().catch(() => {});
+        setError("Эта учётная запись не поддерживается в Web Launch V1.");
+        return;
+      }
+      navigate("/", { replace: true });
     } catch {
       setError(t("auth.login_error"));
     } finally {
       setLoading(false);
+      release("owner-login");
     }
   }
 

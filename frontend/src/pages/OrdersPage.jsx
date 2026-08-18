@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { api, formatMoney } from "../api/client";
+import { formatMoney } from "../api/client";
+import { ordersService } from "../api/orders";
 import { printKitchenReceipt, printOrderReceipt } from "../api/receipt";
 import { getWsConnection } from "../api/ws";
 import { formatDateLabel, todayInputValue } from "../utils/date";
+import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 
 function orderItemsLabel(order) {
   const items = order.items || [];
@@ -15,44 +17,77 @@ export default function OrdersPage() {
   const outlet = useOutletContext();
   const { selectedDate = todayInputValue() } = outlet || {};
   const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [error, setError] = useState("");
   const [printState, setPrintState] = useState({ id: "", type: "", loading: false, message: "", error: "" });
-
-  const loadOrders = useCallback(() => {
-    setError("");
-    return api.get("/pos/orders", { params: { date: selectedDate } })
-      .then(({ data }) => {
-        const items = Array.isArray(data) ? data : [];
-        setOrders(items);
-        setSelectedOrderId((current) => current || items[0]?.id || null);
-      })
-      .catch((err) => { setOrders([]); setError(err.response?.data?.detail || "Не удалось загрузить заказы."); });
-  }, [selectedDate]);
+  const beginRequest = useLatestRequest();
+  const { acquire, release } = useMutationLocks();
 
   useEffect(() => {
-    loadOrders();
+    const request = beginRequest();
+    setOrders([]);
+    setSelectedOrderId(null);
+    setLoading(true);
+    setError("");
+    ordersService.list({ date: selectedDate }, { signal: request.signal })
+      .then(({ data }) => {
+        if (!request.isCurrent()) return;
+        const items = Array.isArray(data) ? data : [];
+        setOrders(items);
+        setSelectedOrderId((current) => (
+          items.some((item) => String(item.id) === String(current)) ? current : items[0]?.id || null
+        ));
+      })
+      .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
+        setOrders([]);
+        setSelectedOrderId(null);
+        setError(err.response?.data?.detail || "Не удалось загрузить заказы.");
+      })
+      .finally(() => { if (request.isCurrent()) setLoading(false); });
+  }, [beginRequest, selectedDate]);
 
+  // Тихое обновление для WebSocket/поллинга: без сброса списка и выбранного
+  // заказа, чтобы live-обновление не «моргало» и не закрывало открытые детали.
+  const refresh = useCallback(() => {
+    const request = beginRequest();
+    return ordersService.list({ date: selectedDate }, { signal: request.signal })
+      .then(({ data }) => {
+        if (!request.isCurrent()) return;
+        const items = Array.isArray(data) ? data : [];
+        setOrders(items);
+        setSelectedOrderId((current) => (
+          items.some((item) => String(item.id) === String(current)) ? current : items[0]?.id || null
+        ));
+      })
+      .catch((err) => {
+        // Молча: не роняем уже показанный список из-за фонового обновления.
+        if (!request.isCurrent() || isAbortError(err)) return;
+      });
+  }, [beginRequest, selectedDate]);
+
+  useEffect(() => {
     const ws = getWsConnection("/ws/kitchen");
     let fallbackTimer = null;
-    const refresh = () => loadOrders();
+    const doRefresh = () => refresh();
 
     const unsubs = [
-      ws.on("new_order",       refresh),
-      ws.on("order_updated",   refresh),
-      ws.on("order_cancelled", refresh),
+      ws.on("new_order",       doRefresh),
+      ws.on("order_updated",   doRefresh),
+      ws.on("order_cancelled", doRefresh),
     ];
     ws.onOpen(() => { if (fallbackTimer) { clearInterval(fallbackTimer); fallbackTimer = null; } });
-    ws.onClose(() => { if (!fallbackTimer) fallbackTimer = window.setInterval(refresh, 15_000); });
+    ws.onClose(() => { if (!fallbackTimer) fallbackTimer = window.setInterval(doRefresh, 15_000); });
     ws.connect();
-    fallbackTimer = window.setInterval(refresh, 15_000);
+    fallbackTimer = window.setInterval(doRefresh, 15_000);
 
     return () => {
       unsubs.forEach((fn) => fn());
       ws.disconnect();
       if (fallbackTimer) clearInterval(fallbackTimer);
     };
-  }, [loadOrders]);
+  }, [refresh]);
 
   const selectedOrder = useMemo(
     () => orders.find((order) => String(order.id) === String(selectedOrderId)) || null,
@@ -60,17 +95,23 @@ export default function OrdersPage() {
   );
 
   async function handlePrint(order, type) {
+    const lockKey = `order-print:${order.id}:${type}`;
+    if (!acquire(lockKey)) return;
     setPrintState({ id: order.id, type, loading: true, message: "", error: "" });
-    const result = type === "kitchen"
-      ? await printKitchenReceipt(order.id)
-      : await printOrderReceipt(order.id);
-    setPrintState({
-      id: order.id,
-      type,
-      loading: false,
-      message: result.ok ? "Печать отправлена." : "",
-      error: result.ok ? "" : result.detail,
-    });
+    try {
+      await (type === "kitchen" ? printKitchenReceipt(order.id) : printOrderReceipt(order.id));
+      setPrintState({ id: order.id, type, loading: false, message: "Печать отправлена.", error: "" });
+    } catch (error) {
+      setPrintState({
+        id: order.id,
+        type,
+        loading: false,
+        message: "",
+        error: error.response?.data?.detail || "Принтер API недоступен.",
+      });
+    } finally {
+      release(lockKey);
+    }
   }
 
   return (
@@ -81,7 +122,7 @@ export default function OrdersPage() {
           <h2>Заказы за {formatDateLabel(selectedDate)}</h2>
         </div>
       </div>
-      {error ? <div className="login-error">{error}</div> : null}
+      {error ? <div className="login-error" role="alert">{error}</div> : null}
       {printState.error ? <div className="message message-error">{printState.error}</div> : null}
       {printState.message ? <div className="message message-success">{printState.message}</div> : null}
       <div className="table-responsive">
@@ -97,7 +138,7 @@ export default function OrdersPage() {
             </tr>
           </thead>
           <tbody>
-            {orders.map((order) => {
+            {loading ? <tr><td colSpan="6" role="status">Загрузка...</td></tr> : orders.map((order) => {
               const printing = printState.loading && printState.id === order.id;
               return (
                 <tr key={order.id}>
@@ -119,7 +160,7 @@ export default function OrdersPage() {
                 </tr>
               );
             })}
-            {!orders.length ? <tr><td colSpan="6">Заказов за этот день нет.</td></tr> : null}
+            {!loading && !error && !orders.length ? <tr><td colSpan="6">Заказов за этот день нет.</td></tr> : null}
           </tbody>
         </table>
       </div>

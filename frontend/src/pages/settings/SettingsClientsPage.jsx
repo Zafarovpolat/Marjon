@@ -21,21 +21,23 @@ const rows = [
   ["other", "Контрагент 1", "998909999999", STATUS_ACTIVE],
 ].map(([type, name, phone, status], index) => ({ id: index + 1, type, name, phone, status, comment: "" }));
 
-const apiMapRow = (item) => ({
+export const apiMapRow = (item) => ({
   id: item.id,
-  type: item.type || item.counterparty_type || "clients",
+  type: ({ client: "clients", supplier: "suppliers", employee: "staff" })[item.type] || item.type || "other",
   name: item.name || item.full_name || "",
   phone: item.phone || "",
-  status: item.status === "pending" ? STATUS_PENDING : STATUS_ACTIVE,
-  comment: item.comment || item.note || "",
+  status: "—",
 });
 
-const apiMapFormToPayload = (form) => ({
-  name: form.name,
-  phone: form.phone,
-  type: form.type,
-  comment: form.comment,
-});
+export const apiMapFormToPayload = (form) => {
+  const fullName = form.name.trim();
+  if (!fullName) return null;
+  return {
+    full_name: fullName,
+    phone: form.phone.trim() || null,
+    type: ({ clients: "client", suppliers: "supplier", staff: "employee" })[form.type] || form.type,
+  };
+};
 
 function SettingsClientsPage() {
   return (
@@ -43,7 +45,7 @@ function SettingsClientsPage() {
       title="Клиенты"
       tabs={tabs}
       initialRows={rows}
-      apiEndpoint="/crm/counterparties"
+      resourceKey="clients"
       apiMapRow={apiMapRow}
       apiMapFormToPayload={apiMapFormToPayload}
       transactionHistory
@@ -61,8 +63,6 @@ function SettingsClientsPage() {
         { key: "type", label: "Тип контрагента", type: "select", options: tabs.map((tab) => ({ value: tab.key, label: tab.label })) },
         { key: "name", label: "ФИО / название" },
         { key: "phone", label: "Номер телефона" },
-        { key: "status", label: "Статус", type: "select", options: [STATUS_ACTIVE, STATUS_PENDING] },
-        { key: "comment", label: "Комментарий", type: "textarea" },
       ]}
     />
   );

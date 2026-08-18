@@ -1,17 +1,13 @@
 import uzcardLogo from "../assets/paylogos/uzcard-humo.jpg";
 import visaLogo from "../assets/paylogos/visa-mastercard.jpg";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../api/client";
+import { settingsService } from "../api/settings";
+import { exchangeRatesService } from "../api/exchangeRates";
 import { clampToToday, todayInputValue } from "../utils/date";
 import BackButton from "./BackButton";
 import DatePicker from "./DatePicker";
 import Icon from "./Icon";
 import { InlineLoader } from "./Loader";
-
-const USD_RATE_URL = "https://cbu.uz/ru/arkhiv-kursov-valyut/json/USD/";
-const RUB_RATE_URL = "https://cbu.uz/ru/arkhiv-kursov-valyut/json/RUB/";
-const KZT_RATE_URL = "https://cbu.uz/ru/arkhiv-kursov-valyut/json/KZT/";
-const KGS_RATE_URL = "https://cbu.uz/ru/arkhiv-kursov-valyut/json/KGS/";
 
 function parseMoneyInput(value) {
   const normalized = String(value).replace(/\s/g, "").replace(",", ".");
@@ -64,8 +60,9 @@ const activeRate = activeCurrency === "USD" ? usdRate
   const [usdAmount, setUsdAmount] = useState("1");
   const [converterDirection, setConverterDirection] = useState("usd-to-uzs");
   const [widgetError, setWidgetError] = useState(false);
-  const [balance, setBalance] = useState(0);
+  const [balance, setBalance] = useState(null);
   const [balanceLoading, setBalanceLoading] = useState(true);
+  const [balanceError, setBalanceError] = useState("");
   const ingredientById = useMemo(() => new Map(ingredients.map((item) => [item.id, item])), [ingredients]);
   const visibleLowStock = useMemo(
     () => lowStock.filter((item) => Number(item.quantity || 0) <= Number(item.min_quantity || 0)).slice(0, 8),
@@ -109,20 +106,10 @@ const converterDirectionLabel = converterDirection === "usd-to-uzs"
   ? `${activeCurrency} → UZS` : `UZS → ${activeCurrency}`;
 
   function loadLowStock() {
-    setStockLoading(true);
-    setStockError("");
-    api.get("/inventory/stock", { params: { low_stock: true } })
-      .then((stockRes) => {
-        setLowStock(stockRes.data);
-        return api.get("/inventory/ingredients")
-          .then((ingredientsRes) => setIngredients(ingredientsRes.data))
-          .catch(() => setIngredients([]));
-      })
-      .catch((err) => {
-        setLowStock([]);
-        setStockError(err.response?.data?.detail || "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u043e\u0441\u0442\u0430\u0442\u043a\u0438.");
-      })
-      .finally(() => setStockLoading(false));
+    setStockLoading(false);
+    setLowStock([]);
+    setIngredients([]);
+    setStockError("Остатки недоступны до завершения Inventory Core.");
   }
 
   function toggleStockNotifications() {
@@ -189,21 +176,29 @@ const converterDirectionLabel = converterDirection === "usd-to-uzs"
   }, []);
 
   useEffect(() => {
-    api.get("/billing/balance")
+    setBalanceError("");
+    settingsService.getBillingBalance()
       .then(({ data }) => {
         const value = Number(data?.balance ?? data?.amount);
-        if (Number.isFinite(value)) setBalance(value);
+        if (Number.isFinite(value)) {
+          setBalance(value);
+        } else {
+          setBalance(null);
+          setBalanceError("Backend не вернул баланс.");
+        }
       })
-      .catch(() => {})
+      .catch((err) => {
+        setBalance(null);
+        setBalanceError(err.response?.data?.detail || "Баланс недоступен.");
+      })
       .finally(() => setBalanceLoading(false));
   }, []);
 
 useEffect(() => {
   const controller = new AbortController();
 
-  function fetchRate(url, setter) {
-    return fetch(url, { signal: controller.signal })
-      .then((res) => { if (!res.ok) throw new Error("rate"); return res.json(); })
+  function fetchRate(currency, setter) {
+    return exchangeRatesService.get(currency, { signal: controller.signal })
       .then((data) => {
         const rate = Number(data?.[0]?.Rate);
         const nominal = Number(data?.[0]?.Nominal) || 1;
@@ -215,10 +210,10 @@ useEffect(() => {
   function loadInfoWidgets() {
     setWidgetError(false);
     Promise.all([
-      fetchRate(USD_RATE_URL, setUsdRate),
-      fetchRate(RUB_RATE_URL, setRubRate),
-      fetchRate(KZT_RATE_URL, setKztRate),
-      fetchRate(KGS_RATE_URL, setKgsRate),
+      fetchRate("USD", setUsdRate),
+      fetchRate("RUB", setRubRate),
+      fetchRate("KZT", setKztRate),
+      fetchRate("KGS", setKgsRate),
     ]);
   }
 
@@ -399,8 +394,8 @@ useEffect(() => {
               </div>
             ) : null}
           </div>
-          <div className="topbar-balance-pill" aria-label={`Баланс ${balance.toLocaleString("ru-RU")} UZS`}>
-            <span className="topbar-balance-amount">{balanceLoading ? "..." : `${balance.toLocaleString("ru-RU")} UZS`}</span>
+          <div className="topbar-balance-pill" aria-label={balanceError ? `Баланс недоступен: ${balanceError}` : `Баланс ${Number(balance || 0).toLocaleString("ru-RU")} UZS`}>
+            <span className="topbar-balance-amount">{balanceLoading ? "..." : balanceError ? "Недоступно" : `${Number(balance).toLocaleString("ru-RU")} UZS`}</span>
             <button className="topbar-pay-button" type="button" onClick={() => {
               setPaymentStep("method");
               setPaymentOpen(true);
@@ -427,11 +422,11 @@ useEffect(() => {
                 </div>
                 <div className="balance-payment-dialog__notice">
                   <Icon name="bi-credit-card-2-front" size={20} />
-                  <span>Выберите способ оплаты</span>
+                  <span>Платёжный процессор пока не подключён. Пополнение баланса недоступно.</span>
                 </div>
                 <div className="balance-payment-dialog__field">
                   <span>Payment ID</span>
-                  <strong>1001162</strong>
+                  <strong>Недоступно</strong>
                 </div>
                 <div className="balance-payment-methods" role="radiogroup" aria-label="Способ оплаты">
                   <button
@@ -462,8 +457,8 @@ useEffect(() => {
                   </button>
                 </div>
                 {null}
-                <button className="balance-payment-submit" type="button" onClick={() => setPaymentStep("card")}>
-                  Оплатить
+                <button className="balance-payment-submit" type="button" disabled>
+                  Оплата недоступна
                 </button>
               </>
             ) : (

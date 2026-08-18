@@ -8,6 +8,7 @@ import {
   saveKitchenTemplate,
   testPrintKitchen,
 } from "../../api/receipt";
+import { isAbortError } from "../../hooks/useAsyncSafety";
 
 function moveBlock(blocks, block, direction) {
   const index = blocks.indexOf(block);
@@ -30,16 +31,19 @@ export default function ChefReceiptSettingsPage() {
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     setLoading(true);
-    getKitchenTemplate()
-      .then(({ template: loaded, source }) => {
+    getKitchenTemplate({ signal: controller.signal })
+      .then(({ template: loaded }) => {
         if (!active) return;
         setTemplate({ ...defaults, ...loaded, enabled: { ...defaults.enabled, ...loaded.enabled } });
-        setMessage(source === "local" ? "Шаблон загружен из локального кеша." : "");
+        setMessage("");
       })
-      .catch(() => setError("Не удалось загрузить шаблон кухни. Используются значения по умолчанию."))
+      .catch((requestError) => {
+        if (active && !isAbortError(requestError)) setError("Не удалось загрузить серверный шаблон кухни. Показан локальный черновик по умолчанию.");
+      })
       .finally(() => active && setLoading(false));
-    return () => { active = false; };
+    return () => { active = false; controller.abort(); };
   }, [defaults]);
 
   function patchTemplate(patch) {
@@ -61,9 +65,14 @@ export default function ChefReceiptSettingsPage() {
     setSaving(true);
     setError("");
     setMessage("");
-    const { source } = await saveKitchenTemplate(template);
-    setSaving(false);
-    setMessage(source === "api" ? "Шаблон кухонного чека сохранён." : "API недоступен. Шаблон сохранён локально.");
+    try {
+      await saveKitchenTemplate(template);
+      setMessage("Шаблон кухонного чека сохранён на сервере.");
+    } catch (err) {
+      setError(err.response?.data?.detail || "Не удалось сохранить шаблон кухни на сервере. Изменения остались только в текущем черновике.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleTestPrint() {

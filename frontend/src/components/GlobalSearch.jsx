@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../api/client";
+import { catalogService } from "../api/catalog";
+import { staffService } from "../api/staff";
 import Icon from "./Icon";
+import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 
 // Static catalog of navigable destinations. Covers the role/terminal entities
 // the owner searches by name ("моноблок", "официант", "кассир", …) plus the
@@ -47,19 +49,28 @@ export default function GlobalSearch() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [employees, setEmployees] = useState([]);
   const [products, setProducts] = useState([]);
+  const [dynamicError, setDynamicError] = useState("");
+  const beginRequest = useLatestRequest();
 
   useEffect(() => {
-    let mounted = true;
+    const request = beginRequest();
+    setDynamicError("");
     Promise.all([
-      api.get("/hr/employees").catch(() => ({ data: [] })),
-      api.get("/inventory/products").catch(() => ({ data: [] })),
-    ]).then(([emp, prod]) => {
-      if (!mounted) return;
-      setEmployees(Array.isArray(emp.data) ? emp.data : []);
-      setProducts(Array.isArray(prod.data) ? prod.data : []);
-    });
-    return () => { mounted = false; };
-  }, []);
+      staffService.listEmployees({ signal: request.signal }),
+      catalogService.listProducts({ signal: request.signal }),
+    ])
+      .then(([emp, prod]) => {
+        if (!request.isCurrent()) return;
+        setEmployees(Array.isArray(emp.data) ? emp.data : []);
+        setProducts(Array.isArray(prod.data) ? prod.data : []);
+      })
+      .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
+        setEmployees([]);
+        setProducts([]);
+        setDynamicError(err.response?.data?.detail || "Динамический поиск недоступен.");
+      });
+  }, [beginRequest]);
 
   const dynamicIndex = useMemo(() => {
     const emp = employees.map((e) => ({
@@ -161,7 +172,12 @@ export default function GlobalSearch() {
 
       {open && query ? (
         <div className="global-search__panel" role="listbox">
-          {results.length === 0 ? (
+          {results.length === 0 && dynamicError ? (
+            <div className="global-search__empty" role="alert">
+              <Icon name="bi-exclamation-triangle" size={18} />
+              <p>{dynamicError}</p>
+            </div>
+          ) : results.length === 0 ? (
             <div className="global-search__empty">
               <Icon name="bi-search" size={18} />
               <p>Ничего не найдено по «{query}»</p>

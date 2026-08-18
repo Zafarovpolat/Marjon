@@ -102,6 +102,9 @@ describe("fetch transport", () => {
     vi.useRealTimers();
     localStorage.clear();
     resetAuthSessionStateForTest();
+    vi.spyOn(axios, "get").mockResolvedValue({
+      data: { id: "hq", auth_scope: "hq_admin", is_superadmin: true },
+    });
     api.defaults.adapter = apiTransportAdapter;
     adminApi.defaults.adapter = adminTransportAdapter;
   });
@@ -493,21 +496,21 @@ describe("fetch transport", () => {
     expect(getFetchHeader(fetchMock, 1, "Authorization")).toBe("Bearer new-admin-access");
   });
 
-  it("legacy adminApi without admin token refreshes through default scope", async () => {
+  it("adminApi without admin tokens never refreshes through default scope", async () => {
     setDefaultTokens("old-default-access", "default-refresh");
-    const refresh = mockRefreshByToken({
-      "default-refresh": { access_token: "new-default-access", refresh_token: "new-default-refresh" },
-    });
+    const refresh = vi.spyOn(axios, "post");
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({ detail: "expired" }, { status: 401 }))
-      .mockResolvedValueOnce(jsonResponse({ ok: true }));
+      .mockResolvedValueOnce(jsonResponse({ detail: "expired" }, { status: 401 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await adminApi.get("/admin-protected");
+    await expect(adminApi.get("/admin-protected")).rejects.toThrow("missing_refresh_token");
 
-    expect(refresh).toHaveBeenCalledTimes(1);
-    expect(getFetchHeader(fetchMock, 1, "Authorization")).toBe("Bearer new-default-access");
+    expect(refresh).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(getFetchHeader(fetchMock, 0, "Authorization")).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBe("old-default-access");
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe("default-refresh");
     expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBeNull();
   });
 

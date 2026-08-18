@@ -2,11 +2,13 @@
 import { createPortal } from "react-dom";
 import { Chart, Filler, LineController, LineElement, LinearScale, PointElement, CategoryScale, Tooltip } from "chart.js";
 import { Link, useNavigate, useOutletContext } from "react-router-dom";
-import { api, formatMoney, formatNumber } from "../api/client";
+import { formatMoney, formatNumber } from "../api/client";
+import { dashboardService } from "../api/dashboard";
 import { formatDateLabel, todayInputValue, toDateInputValue } from "../utils/date";
 import Icon from "../components/Icon";
 import { PageLoader } from "../components/Loader";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
+import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler);
 
@@ -218,28 +220,6 @@ function realPaymentRows(dash = {}, total = 0) {
         amount: row.amount ?? row.total ?? row.revenue ?? row.value ?? 0,
       };
     }), revenue);
-  }
-
-  if (Array.isArray(sourceRows)) {
-    return revenue > 0 ? normalizePaymentRows([{ name: "Не указано", amount: revenue }], revenue) : [];
-  }
-
-  const cash = clampAmount(dash.cash_total ?? dash.cash ?? 0, revenue);
-  const nonCash = clampAmount(dash.non_cash_total ?? dash.card_total ?? dash.card ?? Math.max(0, revenue - cash), revenue - cash);
-
-  if (cash > 0 || nonCash > 0) {
-    const card = clampAmount(dash.card_total ?? Math.round(nonCash * 0.42), nonCash);
-    const click = clampAmount(dash.click_total ?? dash.click ?? Math.round(nonCash * 0.25), nonCash - card);
-    const payme = clampAmount(dash.payme_total ?? dash.pay_me_total ?? dash.payme ?? Math.round(nonCash * 0.20), nonCash - card - click);
-    const other = clampAmount(nonCash - card - click - payme);
-
-    return normalizePaymentRows([
-      { name: "Наличные", amount: cash },
-      { name: "Карта", amount: card },
-      { name: "CLICK", amount: click },
-      { name: "Pay me", amount: payme },
-      { name: "Другие оплаты", amount: other },
-    ], revenue);
   }
 
   return [];
@@ -601,15 +581,12 @@ function buildRealKpis(dash, sales, selectedDate, placeSettings = [], financeRow
   const ordChange = orders - (prev.orders_count || 0);
   const avgChange = pctChange(avgCheck, prev.avg_check);
 
-  const cashTotal = dash.cash_total ?? 0;
-  const nonCashTotal = dash.non_cash_total ?? 0;
-  const financeIncomeTotal = groupFinanceRows(financeRows, "income").reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  const financeExpenseTotal = groupFinanceRows(financeRows, "expense").reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  const income = dash.income_total ?? (financeIncomeTotal > 0 ? financeIncomeTotal : revenue);
+  const cashTotal = dash.cash_total;
+  const nonCashTotal = dash.non_cash_total;
+  const financeIncomeTotal = groupFinanceRows(financeRows, "income").reduce((sum, row) => sum + Number(row.amount), 0);
+  const financeExpenseTotal = groupFinanceRows(financeRows, "expense").reduce((sum, row) => sum + Number(row.amount), 0);
+  const income = dash.income_total ?? financeIncomeTotal;
   const expense = dash.expense_total ?? financeExpenseTotal;
-  const prevIncome = prev.revenue || 1;
-  const incomeChange = pctChange(income, prevIncome);
-  const expenseChange = expense > 0 ? pctChange(expense, Math.round(prevIncome * 0.31)) : 0;
 
   return [
     {
@@ -624,8 +601,8 @@ function buildRealKpis(dash, sales, selectedDate, placeSettings = [], financeRow
       progress: Math.max(8, Math.min(100, 72)),
       description: "Дневная выручка по всем закрытым заказам за выбранную дату.",
       details: [
-        ["Наличные", `${formatNumber(cashTotal)} UZS`],
-        ["Безнал", `${formatNumber(nonCashTotal)} UZS`],
+        ["Наличные", cashTotal == null ? "Недоступно" : `${formatNumber(cashTotal)} UZS`],
+        ["Безнал", nonCashTotal == null ? "Недоступно" : `${formatNumber(nonCashTotal)} UZS`],
         ["Активные заказы", `${activeOrders}`],
       ],
       paymentRows: realPaymentRows(dash, revenue),
@@ -679,13 +656,13 @@ function buildRealKpis(dash, sales, selectedDate, placeSettings = [], financeRow
       label: "Денежный приход",
       value: formatNumber(income),
       suffix: "UZS",
-      note: `${signed(incomeChange)}% к вчерашнему дню`,
-      noteClass: noteClassFor(incomeChange),
+      note: "",
+      noteClass: "kpi-note--neutral",
       progress: Math.max(8, Math.min(100, Math.round((income / Math.max(revenue, 1)) * 100))),
       description: "Фактически полученные деньги за выбранную дату.",
       details: [
-        ["Наличные", `${formatNumber(cashTotal)} UZS`],
-        ["Безнал", `${formatNumber(nonCashTotal)} UZS`],
+        ["Наличные", cashTotal == null ? "Недоступно" : `${formatNumber(cashTotal)} UZS`],
+        ["Безнал", nonCashTotal == null ? "Недоступно" : `${formatNumber(nonCashTotal)} UZS`],
       ],
       table: {
         rows: realIncomeRows(dash, income, financeRows),
@@ -704,8 +681,8 @@ function buildRealKpis(dash, sales, selectedDate, placeSettings = [], financeRow
       label: "Денежные расходы",
       value: formatNumber(expense),
       suffix: "UZS",
-      note: expense > 0 ? `${signed(expenseChange)}% к вчерашнему дню` : "—",
-      noteClass: expense > 0 ? noteClassFor(expenseChange) : "kpi-note--neutral",
+      note: "",
+      noteClass: "kpi-note--neutral",
       progress: Math.max(8, Math.min(100, Math.round((expense / Math.max(revenue, 1)) * 100))),
       description: "Фактические расходы за выбранную дату.",
       details: [],
@@ -795,6 +772,17 @@ function buildWarehouseSummary(reports = EMPTY_WAREHOUSE_REPORTS, financeRows = 
   ];
 }
 
+function buildUnavailableWarehouseSummary() {
+  return [
+    { label: "Приход товаров", icon: "bi-download", tone: "income" },
+    { label: "Расход товаров", icon: "bi-upload", tone: "expense" },
+    { label: "Остаток склада", icon: "bi-box", tone: "stock" },
+    { label: "Общие затраты", icon: "bi-wallet2", tone: "costs" },
+    { label: "Кредиторка", icon: "bi-arrow-up-right-circle", tone: "creditor" },
+    { label: "Дебиторка", icon: "bi-arrow-down-left-circle", tone: "debtor" },
+  ].map((item) => ({ ...item, value: null, rows: [], unavailable: true }));
+}
+
 function dishDisplayName(name = "") {
   const normalized = name.toLowerCase().replaceAll("'", "").replaceAll("‘", "").replaceAll("’", "");
   const translations = {
@@ -866,11 +854,8 @@ function buildSimulatedRevenueSales(range) {
   });
 }
 
-function buildRevenueChartSales(rows, range) {
-  const source = Array.isArray(rows) ? rows : [];
-  return source.some((item) => Number(item.revenue || 0) > 0)
-    ? source
-    : buildSimulatedRevenueSales(range);
+function buildRevenueChartSales(rows) {
+  return Array.isArray(rows) ? rows : [];
 }
 
 function RevenueChart({ sales }) {
@@ -1432,7 +1417,6 @@ export default function OwnerDashboard() {
   const [revenueRange, setRevenueRange] = useState(() => reportRangeEndingAt(7, selectedDate));
   const [selectedKpi, setSelectedKpi] = useState(null);
   const [selectedWarehouseReport, setSelectedWarehouseReport] = useState(null);
-  const hasLoadedRef = useRef(false);
   const lastSelectedDateRef = useRef(selectedDate);
   const [dashboard, setDashboard] = useState(null);
   const [sales, setSales] = useState([]);
@@ -1442,9 +1426,9 @@ export default function OwnerDashboard() {
   const [recentOrders, setRecentOrders] = useState([]);
   const [placeSettings, setPlaceSettings] = useState([]);
   const [financeTransactions, setFinanceTransactions] = useState([]);
-  const [warehouseReports, setWarehouseReports] = useState(EMPTY_WAREHOUSE_REPORTS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const beginRequest = useLatestRequest();
   const normalizedRevenueRange = useMemo(() => normalizeReportRange(revenueRange), [revenueRange]);
   const revenueParams = useMemo(() => reportRangeToApiParams(normalizedRevenueRange), [normalizedRevenueRange]);
   const revenuePeriod = useMemo(() => reportRangeDays(normalizedRevenueRange), [normalizedRevenueRange]);
@@ -1464,32 +1448,15 @@ export default function OwnerDashboard() {
   }, [selectedDate]);
 
   useEffect(() => {
-    let mounted = true;
-    setLoading(!hasLoadedRef.current);
+    const request = beginRequest();
+    setLoading(true);
     setError("");
-    const params = revenueParams;
-    const dayParams = { date_from: selectedDate, date_to: selectedDate };
-
-    Promise.all([
-      // Без запасного значения остаётся только основной запрос: если не пришли
-      // ключевые показатели — рисовать нечего, и экран честно сообщает об ошибке.
-      api.get("/analytics/dashboard", { params: { date: selectedDate } }),
-      // Остальные блоки деградируют поодиночке. Раньше падение любого из них
-      // роняло весь экран: сломанный /analytics/sales (500 на Postgres) давал
-      // «Dashboard недоступен» целиком, хотя все прочие данные приходили.
-      api.get("/analytics/sales", { params }).catch(() => ({ data: [] })),
-      api.get("/analytics/products/top", { params: { limit: 5, ...dayParams } }).catch(() => ({ data: [] })),
-      api.get("/inventory/products").catch(() => ({ data: [] })),
-      api.get("/hr/employees").catch(() => ({ data: [] })),
-      api.get("/pos/orders", { params: { date: selectedDate } }).catch(() => ({ data: [] })),
-      api.get("/settings/places").catch(() => ({ data: [] })),
-      api.get("/finance/transactions", { params: { date_from: selectedDate, date_to: selectedDate } }).catch(() => ({ data: [] })),
-      api.get("/reports/incomes", { params: dayParams }).catch(() => ({ data: [] })),
-      api.get("/reports/consumption", { params: dayParams }).catch(() => ({ data: [] })),
-      api.get("/reports/storage-balances", { params: dayParams }).catch(() => ({ data: [] })),
-      api.get("/reports/debt-credit", { params: dayParams }).catch(() => ({ data: [] })),
-      api.get("/inventory/stock").catch(() => ({ data: [] })),
-    ]).then(([
+    dashboardService.loadOwnerOverview({
+      selectedDate,
+      dateFrom: revenueParams.date_from,
+      dateTo: revenueParams.date_to,
+      signal: request.signal,
+    }).then(([
       dashboardRes,
       salesRes,
       topRes,
@@ -1498,13 +1465,8 @@ export default function OwnerDashboard() {
       ordersRes,
       placesRes,
       financeRes,
-      incomeRes,
-      consumptionRes,
-      balanceRes,
-      debtCreditRes,
-      stockRes,
     ]) => {
-      if (!mounted) return;
+      if (!request.isCurrent()) return;
       setDashboard(dashboardRes.data);
       setSales(apiList(salesRes.data));
       setTopProducts(apiList(topRes.data));
@@ -1516,48 +1478,25 @@ export default function OwnerDashboard() {
       setPlaceSettings(placeList);
       const financeList = apiList(financeRes.data);
       setFinanceTransactions(financeList);
-      setWarehouseReports({
-        incomes: apiList(incomeRes.data),
-        consumption: apiList(consumptionRes.data),
-        balances: apiList(balanceRes.data),
-        debtCredit: apiList(debtCreditRes.data),
-        stock: apiList(stockRes.data),
-      });
-      hasLoadedRef.current = true;
     }).catch((err) => {
-      if (mounted) setError(err.response?.data?.detail || "Не удалось загрузить dashboard данные.");
-    }).finally(() => mounted && setLoading(false));
-
-    return () => { mounted = false; };
-  }, [revenueParams, selectedDate]);
+      if (request.isCurrent() && !isAbortError(err)) setError(err.response?.data?.detail || "Не удалось загрузить dashboard данные.");
+    }).finally(() => {
+      if (request.isCurrent()) setLoading(false);
+    });
+  }, [beginRequest, revenueParams, selectedDate]);
 
   const displaySales = useMemo(() => sales, [sales]);
   const revenueChartSales = useMemo(
-    () => buildRevenueChartSales(displaySales, normalizedRevenueRange),
-    [displaySales, normalizedRevenueRange]
+    () => buildRevenueChartSales(displaySales),
+    [displaySales]
   );
-  const displayPlaceSettings = useMemo(
-    () => (hasRows(placeSettings) ? placeSettings : DEMO_PLACE_SETTINGS),
-    [placeSettings]
-  );
-  const displayFinanceTransactions = useMemo(
-    () => (hasPositiveAmount(financeTransactions, ["amount", "total", "value"]) ? financeTransactions : buildSimulatedFinanceTransactions(selectedDate)),
-    [financeTransactions, selectedDate]
-  );
-  const displayWarehouseReports = useMemo(
-    () => mergeWarehouseReportsWithSimulation(warehouseReports),
-    [warehouseReports]
-  );
-  const displayDashboard = useMemo(() => (
-    mergeDashboardWithSimulation(dashboard && dashboard.today_revenue !== undefined ? dashboard : EMPTY_DASHBOARD, revenueChartSales)
-  ), [dashboard, revenueChartSales]);
+  const displayPlaceSettings = useMemo(() => placeSettings, [placeSettings]);
+  const displayFinanceTransactions = useMemo(() => financeTransactions, [financeTransactions]);
+  const displayDashboard = useMemo(() => dashboard || EMPTY_DASHBOARD, [dashboard]);
   const kpis = useMemo(() => {
     return buildRealKpis(displayDashboard, revenueChartSales, selectedDate, displayPlaceSettings, displayFinanceTransactions);
   }, [displayDashboard, revenueChartSales, selectedDate, displayPlaceSettings, displayFinanceTransactions]);
-  const displayTopProducts = useMemo(
-    () => (hasPositiveAmount(topProducts, ["revenue"]) ? topProducts : DEMO_TOP_PRODUCTS),
-    [topProducts]
-  );
+  const displayTopProducts = useMemo(() => topProducts, [topProducts]);
   const displayTopDishes = useMemo(() => {
   if (displayTopProducts.length > 0) {
     const maxRevenue = Math.max(1, ...displayTopProducts.map((item) => Number(item.revenue || 0)));
@@ -1573,14 +1512,8 @@ export default function OwnerDashboard() {
   }
   return [];
 }, [displayTopProducts]);
-  const warehouseSummary = useMemo(
-    () => buildWarehouseSummary(displayWarehouseReports, displayFinanceTransactions, selectedDate),
-    [displayWarehouseReports, displayFinanceTransactions, selectedDate]
-  );
-  const displayRecentOrders = useMemo(
-    () => (hasRows(recentOrders) ? recentOrders : buildSimulatedRecentOrders(selectedDate)),
-    [recentOrders, selectedDate]
-  );
+  const warehouseSummary = useMemo(() => buildUnavailableWarehouseSummary(), []);
+  const displayRecentOrders = useMemo(() => recentOrders, [recentOrders]);
   const recentOrdersList = useMemo(() => {
     if (displayRecentOrders.length > 0) {
       return displayRecentOrders.map((order) => {
@@ -1610,6 +1543,7 @@ export default function OwnerDashboard() {
     };
   }, [revenueChartSales]);
   const handleWarehouseSummaryClick = (item) => {
+    if (item.unavailable) return;
     if (item.to) {
       navigate(item.to);
       return;
@@ -1689,7 +1623,7 @@ export default function OwnerDashboard() {
                 <span className="warehouse-summary-item__icon"><Icon name={item.icon} size={18} /></span>
                 <div>
                   <strong>{item.label}</strong>
-                  <span>{formatMoney(item.value)}</span>
+                  <span>{item.unavailable ? "Данные недоступны" : formatMoney(item.value)}</span>
                 </div>
               </button>
             ))}

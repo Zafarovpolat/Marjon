@@ -1,4 +1,5 @@
 import axios from "axios";
+import { normalizeTokenResponse } from "../api/normalizers";
 
 export const AUTH_SCOPES = {
   DEFAULT: "default",
@@ -14,15 +15,33 @@ export const AUTH_STORAGE_KEYS = {
 };
 
 export const AUTH_SESSION_ENDED_EVENT = "marjon:auth-session-ended";
+export const HQ_AUTH_SCOPE = "hq_admin";
+export const AUTH_BACKGROUND_REQUEST_TIMEOUT_MS = 20000;
 
 const AUTH_REFRESH_PATH = "/auth/refresh";
-const AUTH_REFRESH_EXCLUDED_PATHS = ["/auth/login", "/auth/pin-login", AUTH_REFRESH_PATH];
+const AUTH_REFRESH_EXCLUDED_PATHS = [
+  "/auth/login",
+  "/auth/admin/login",
+  "/auth/pin-login",
+  AUTH_REFRESH_PATH,
+  "/auth/logout",
+  "/auth/logout-all",
+];
 const AUTH_SCOPE_VALUES = new Set([AUTH_SCOPES.DEFAULT, AUTH_SCOPES.ADMIN]);
 
 const refreshPromises = {
   [AUTH_SCOPES.DEFAULT]: null,
   [AUTH_SCOPES.ADMIN]: null,
 };
+const logoutPromises = {
+  [AUTH_SCOPES.DEFAULT]: null,
+  [AUTH_SCOPES.ADMIN]: null,
+};
+const refreshLogoutSnapshots = {
+  [AUTH_SCOPES.DEFAULT]: null,
+  [AUTH_SCOPES.ADMIN]: null,
+};
+const logoutInProgressScopes = new Set();
 const sessionEndEmittedScopes = new Set();
 
 function storage() {
@@ -105,10 +124,6 @@ function getTokenRecord(scope) {
   };
 }
 
-function isValidTokenResponse(data) {
-  return Boolean(data?.access_token && data?.refresh_token);
-}
-
 function isFormDataBody(data) {
   return typeof FormData !== "undefined" && data instanceof FormData;
 }
@@ -128,6 +143,14 @@ function setAuthorizationHeader(config, token) {
   config.headers.Authorization = `Bearer ${token}`;
 }
 
+function hasAuthorizationHeader(headers) {
+  if (!headers) return false;
+  if (typeof headers.get === "function") {
+    return Boolean(headers.get("Authorization"));
+  }
+  return Object.keys(headers).some((key) => key.toLowerCase() === "authorization");
+}
+
 function getCallerSignal(config) {
   return config?._callerSignal || config?.signal;
 }
@@ -138,6 +161,21 @@ function createRequestAbortedError(config) {
   error.code = "ABORTED";
   error.config = config;
   return error;
+}
+
+function createRedactedAuthError(error, fallbackCode) {
+  const sanitized = new Error(error?.message || fallbackCode);
+  sanitized.name = error?.name || "AuthError";
+  sanitized.code = error?.code || fallbackCode;
+  const status = error?.status ?? error?.response?.status;
+  if (status !== undefined) {
+    sanitized.status = status;
+    sanitized.response = { status };
+  }
+  if (error?.isNetworkError) sanitized.isNetworkError = true;
+  if (error?.isTimeout) sanitized.isTimeout = true;
+  if (error?.isAborted) sanitized.isAborted = true;
+  return sanitized;
 }
 
 function resetSessionEventForScope(scope) {
@@ -151,14 +189,7 @@ export function getAuthScope(value) {
 }
 
 export function resolveAdminAuthSession() {
-  const adminRecord = getTokenRecord(AUTH_SCOPES.ADMIN);
-  if (adminRecord.accessToken) return adminRecord;
-
-  const defaultRecord = getTokenRecord(AUTH_SCOPES.DEFAULT);
-  if (defaultRecord.accessToken) return defaultRecord;
-
-  if (adminRecord.refreshToken) return adminRecord;
-  return defaultRecord;
+  return getTokenRecord(AUTH_SCOPES.ADMIN);
 }
 
 export function prepareAuthRequest(config, { scope = AUTH_SCOPES.DEFAULT, accessToken = "" } = {}) {
@@ -171,7 +202,7 @@ export function prepareAuthRequest(config, { scope = AUTH_SCOPES.DEFAULT, access
   if (isFormDataBody(config.data)) {
     removeContentTypeHeader(config.headers);
   }
-  if (accessToken) {
+  if (accessToken && !hasAuthorizationHeader(config.headers)) {
     setAuthorizationHeader(config, accessToken);
   }
   return config;
@@ -200,6 +231,10 @@ export function saveAuthTokens(data, { scope = AUTH_SCOPES.DEFAULT } = {}) {
   }
   resetSessionEventForScope(normalizedScope);
   return true;
+}
+
+export function isValidatedHqProfile(data) {
+  return data?.auth_scope === HQ_AUTH_SCOPE && data?.is_superadmin === true;
 }
 
 export function clearAuthTokens({ scope = AUTH_SCOPES.ALL } = {}) {
@@ -245,9 +280,25 @@ export function shouldSkipAuthRefresh(url) {
   ));
 }
 
+async function validateHqAccessToken(baseURL, accessToken) {
+  const { data: profile } = await axios.get(joinUrl(baseURL, "/auth/me"), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    timeout: AUTH_BACKGROUND_REQUEST_TIMEOUT_MS,
+  });
+  if (!isValidatedHqProfile(profile)) {
+    const error = new Error("HQ admin session required");
+    error.code = "HQ_ADMIN_SESSION_REQUIRED";
+    throw error;
+  }
+  return profile;
+}
+
 export async function refreshAuthSession({ baseURL, scope = AUTH_SCOPES.DEFAULT } = {}) {
   const normalizedScope = normalizeScope(scope);
   if (refreshPromises[normalizedScope]) return refreshPromises[normalizedScope];
+  if (logoutInProgressScopes.has(normalizedScope)) {
+    return Promise.reject(new Error("logout_in_progress"));
+  }
 
   const refreshToken = getRefreshToken({ scope: normalizedScope });
   if (!refreshToken) {
@@ -255,27 +306,104 @@ export async function refreshAuthSession({ baseURL, scope = AUTH_SCOPES.DEFAULT 
     return Promise.reject(new Error("missing_refresh_token"));
   }
 
+  refreshLogoutSnapshots[normalizedScope] = {
+    accessToken: getAccessToken({ scope: normalizedScope }),
+    refreshToken,
+  };
+
   refreshPromises[normalizedScope] = axios.post(joinUrl(baseURL, AUTH_REFRESH_PATH), {
     refresh_token: refreshToken,
   }, {
     headers: { "Content-Type": "application/json" },
+    timeout: AUTH_BACKGROUND_REQUEST_TIMEOUT_MS,
   })
-    .then(({ data }) => {
-      if (!isValidTokenResponse(data)) {
-        throw new Error("invalid_refresh_response");
+    .then(async ({ data }) => {
+      let tokens;
+      try {
+        tokens = normalizeTokenResponse(data, { requireRefreshToken: true });
+      } catch (error) {
+        throw new Error("invalid_refresh_response", { cause: error });
       }
-      saveAuthTokens(data, { scope: normalizedScope });
-      return data.access_token;
+      refreshLogoutSnapshots[normalizedScope] = {
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+      };
+      if (
+        normalizedScope === AUTH_SCOPES.ADMIN
+        && !logoutInProgressScopes.has(normalizedScope)
+      ) {
+        await validateHqAccessToken(baseURL, tokens.access_token);
+      }
+      if (!logoutInProgressScopes.has(normalizedScope)) {
+        saveAuthTokens(tokens, { scope: normalizedScope });
+      }
+      return tokens.access_token;
     })
     .catch((error) => {
       endAuthSession("refresh_failed", { scope: normalizedScope });
-      throw error;
+      throw createRedactedAuthError(error, "refresh_failed");
     })
     .finally(() => {
       refreshPromises[normalizedScope] = null;
+      if (!logoutInProgressScopes.has(normalizedScope)) {
+        refreshLogoutSnapshots[normalizedScope] = null;
+      }
     });
 
   return refreshPromises[normalizedScope];
+}
+
+export function logoutAuthSession({ scope = AUTH_SCOPES.DEFAULT, revoke } = {}) {
+  const normalizedScope = normalizeScope(scope);
+  if (logoutPromises[normalizedScope]) return logoutPromises[normalizedScope];
+
+  logoutInProgressScopes.add(normalizedScope);
+  const pendingRefresh = refreshPromises[normalizedScope];
+  if (!refreshLogoutSnapshots[normalizedScope]) {
+    refreshLogoutSnapshots[normalizedScope] = getTokenRecord(normalizedScope);
+  }
+  endAuthSession("logout", { scope: normalizedScope });
+  logoutPromises[normalizedScope] = (async () => {
+    let pendingRefreshError = null;
+    if (pendingRefresh) {
+      try {
+        await pendingRefresh;
+      } catch (error) {
+        pendingRefreshError = error;
+      }
+    }
+
+    const { accessToken, refreshToken } = (
+      refreshLogoutSnapshots[normalizedScope] || getTokenRecord(normalizedScope)
+    );
+    if (refreshToken && typeof revoke === "function") {
+      try {
+        await revoke(refreshToken, accessToken);
+      } catch (error) {
+        throw createRedactedAuthError(error, "logout_failed");
+      }
+    }
+    if (pendingRefreshError) {
+      throw createRedactedAuthError(pendingRefreshError, "refresh_failed_during_logout");
+    }
+  })()
+    .finally(() => {
+      refreshLogoutSnapshots[normalizedScope] = null;
+      logoutInProgressScopes.delete(normalizedScope);
+      logoutPromises[normalizedScope] = null;
+    });
+
+  return logoutPromises[normalizedScope];
+}
+
+export async function waitForAuthLogout({ scope = AUTH_SCOPES.DEFAULT } = {}) {
+  const pendingLogout = logoutPromises[normalizeScope(scope)];
+  if (!pendingLogout) return;
+  try {
+    await pendingLogout;
+  } catch {
+    // Local cleanup already completed; a new explicit login may proceed.
+  }
 }
 
 export async function handleAuthResponseError(error, { client, baseURL, scope = AUTH_SCOPES.DEFAULT, resolveScope } = {}) {
@@ -283,13 +411,30 @@ export async function handleAuthResponseError(error, { client, baseURL, scope = 
   const status = error?.response?.status;
   const requestUrl = getRequestUrl(originalRequest);
 
-  if (status !== 401 || !originalRequest || shouldSkipAuthRefresh(requestUrl)) {
+  if (!originalRequest) {
     return Promise.reject(error);
   }
 
   const requestScope = normalizeScope(
     originalRequest._authScope || (typeof resolveScope === "function" ? resolveScope().scope : scope),
   );
+  const skipAuthRecovery = shouldSkipAuthRefresh(requestUrl);
+
+  if (status === 403 && requestScope === AUTH_SCOPES.ADMIN && !skipAuthRecovery) {
+    try {
+      await validateHqAccessToken(
+        getRequestBaseURL(originalRequest, baseURL),
+        getAccessToken({ scope: AUTH_SCOPES.ADMIN }),
+      );
+    } catch {
+      endAuthSession("admin_validation_failed", { scope: AUTH_SCOPES.ADMIN });
+    }
+    return Promise.reject(error);
+  }
+
+  if (status !== 401 || skipAuthRecovery) {
+    return Promise.reject(error);
+  }
 
   if (originalRequest._authRetry) {
     endAuthSession("retry_unauthorized", { scope: requestScope });
@@ -304,6 +449,9 @@ export async function handleAuthResponseError(error, { client, baseURL, scope = 
       baseURL: getRequestBaseURL(originalRequest, baseURL),
       scope: requestScope,
     });
+    if (logoutInProgressScopes.has(requestScope)) {
+      return Promise.reject(new Error("logout_in_progress"));
+    }
     if (getCallerSignal(originalRequest)?.aborted) {
       return Promise.reject(createRequestAbortedError(originalRequest));
     }
@@ -321,5 +469,10 @@ export function getAuthRefreshPromiseForTest(scope = AUTH_SCOPES.DEFAULT) {
 export function resetAuthSessionStateForTest() {
   refreshPromises[AUTH_SCOPES.DEFAULT] = null;
   refreshPromises[AUTH_SCOPES.ADMIN] = null;
+  logoutPromises[AUTH_SCOPES.DEFAULT] = null;
+  logoutPromises[AUTH_SCOPES.ADMIN] = null;
+  refreshLogoutSnapshots[AUTH_SCOPES.DEFAULT] = null;
+  refreshLogoutSnapshots[AUTH_SCOPES.ADMIN] = null;
+  logoutInProgressScopes.clear();
   sessionEndEmittedScopes.clear();
 }

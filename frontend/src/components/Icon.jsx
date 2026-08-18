@@ -187,6 +187,7 @@ const ICON_MAP = {
   'bi-pc-display':             Monitor,
   'bi-display':                Monitor,
   'bi-lightning-charge-fill':  Zap,
+  'bi-arrow-up-right-circle':  CircleArrowUp,
 
   /* ── Extra ───────────────────────── */
   'bi-clipboard-check':        ClipboardCheck,
