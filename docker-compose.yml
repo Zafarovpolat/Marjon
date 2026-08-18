@@ -21,7 +21,7 @@ services:
     environment:
       POSTGRES_DB: marjon
       POSTGRES_USER: marjon
-      POSTGRES_PASSWORD: marjon_secret
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-marjon}
     ports:
       # Наружу отдаём 55432, чтобы не конфликтовать с локально установленным
       # Postgres на 5432. Внутри сети контейнеров адрес остаётся db:5432.
@@ -45,7 +45,7 @@ services:
       - "8000:8000"
     environment:
       # Внутри сети контейнеров БД доступна по имени сервиса
-      DATABASE_URL: postgresql+asyncpg://marjon:marjon_secret@db:5432/marjon
+      DATABASE_URL: postgresql+asyncpg://marjon:${POSTGRES_PASSWORD:-marjon}@db:5432/marjon
       SECRET_KEY: local-dev-secret-key-change-in-prod
       DEBUG: "true"
       PORT: "8000"
@@ -59,7 +59,7 @@ services:
       MINIO_ENDPOINT: http://minio:9000
       MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
       MINIO_ACCESS_KEY: marjon
-      MINIO_SECRET_KEY: marjon_secret
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-marjon}
       MINIO_BUCKET: marjon-media
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/docs', timeout=3).status==200 else 1)\""]
@@ -90,7 +90,7 @@ services:
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: marjon
-      MINIO_ROOT_PASSWORD: marjon_secret
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-marjon}
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -112,7 +112,7 @@ services:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-        mc alias set local http://minio:9000 marjon marjon_secret &&
+        mc alias set local http://minio:9000 marjon ${POSTGRES_PASSWORD:-marjon} &&
         mc mb --ignore-existing local/marjon-media &&
         mc anonymous set public local/marjon-media &&
         echo 'MinIO bucket ready'
@@ -150,7 +150,7 @@ services:
       - "8001:8001"
     environment:
       PORT: "8001"
-      DATABASE_URL: postgres://marjon:marjon_secret@db:5432/marjon?sslmode=disable
+      DATABASE_URL: postgres://marjon:${POSTGRES_PASSWORD:-marjon}@db:5432/marjon?sslmode=disable
       WEBHOOK_SECRET: ${WEBHOOK_SECRET:-local-dev-webhook-secret}
       BACKEND_URL: http://backend:8000/api/v1
 
@@ -168,7 +168,7 @@ services:
       - "8002:8002"
     environment:
       PORT: "8002"
-      DATABASE_URL: postgres://marjon:marjon_secret@db:5432/marjon?sslmode=disable
+      DATABASE_URL: postgres://marjon:${POSTGRES_PASSWORD:-marjon}@db:5432/marjon?sslmode=disable
       WEBHOOK_SECRET: ${WEBHOOK_SECRET:-local-dev-webhook-secret}
       BACKEND_URL: http://backend:8000/api/v1
 
@@ -186,7 +186,7 @@ services:
       - "8003:8003"
     environment:
       PORT: "8003"
-      DATABASE_URL: postgres://marjon:marjon_secret@db:5432/marjon?sslmode=disable
+      DATABASE_URL: postgres://marjon:${POSTGRES_PASSWORD:-marjon}@db:5432/marjon?sslmode=disable
       WEBHOOK_SECRET: ${WEBHOOK_SECRET:-local-dev-webhook-secret}
       BACKEND_URL: http://backend:8000/api/v1
 
