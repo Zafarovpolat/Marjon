@@ -38,6 +38,10 @@ async def get_current_user(
     user = await UserRepository(db).get_by_id(user_id)
     if not user or not user.is_active:
         raise UnauthorizedError("User not found or inactive")
+    # Транзиентное поле, не пишется в БД — фиксирует scope ТЕКУЩЕЙ сессии
+    # (BE-01), чтобы гарды могли отличить hq_admin-сессию от обычной даже для
+    # одного и того же суперадмина.
+    user.auth_scope = payload.get("auth_scope", "app")
     return user
 
 
@@ -78,3 +82,61 @@ async def require_superadmin(
     if current_user.is_superadmin:
         return current_user
     raise ForbiddenError("Superadmin role required")
+
+
+# --- Web-RBAC гарды (BE-01/BI-06), долиты из backend-integration-v1 -----------
+# Дополняют нашу базу (require_company_admin / require_superadmin остаются как
+# были — на них завязаны наши роутеры). Пока НЕ потребляются нашими роутерами:
+# заготовлены для pre-rbac фронта и отложенного full-backend пути.
+
+
+async def ensure_company_app_identity(
+    current_user: User,
+    db: AsyncSession,
+    *,
+    auth_scope: str,
+) -> User:
+    """Проверяет авторитетную APP-личность (включая ручную WS-аутентификацию)."""
+    if auth_scope != "app":
+        raise ForbiddenError("Company app session required")
+    if current_user.company_id is None or current_user.is_superadmin:
+        raise ForbiddenError("Company app identity required")
+    roles = list((await db.execute(
+        select(Role).join(UserRole, UserRole.role_id == Role.id)
+        .where(UserRole.user_id == current_user.id)
+    )).scalars().all())
+    from app.modules.rbac.constants import APP_COMPANY_ROLE_SLUGS
+    if (len(roles) != 1 or roles[0].company_id != current_user.company_id
+            or roles[0].is_system or roles[0].slug not in APP_COMPANY_ROLE_SLUGS):
+        raise ForbiddenError("Unambiguous company role required")
+    return current_user
+
+
+async def require_company_app_user(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    return await ensure_company_app_identity(
+        current_user, db, auth_scope=getattr(current_user, "auth_scope", "app"))
+
+
+async def require_web_owner(
+    current_user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    roles = list((await db.execute(
+        select(Role).join(UserRole, UserRole.role_id == Role.id)
+        .where(UserRole.user_id == current_user.id)
+    )).scalars().all())
+    if (len(roles) != 1 or roles[0].company_id != current_user.company_id
+            or roles[0].is_system or roles[0].slug != "owner"):
+        raise ForbiddenError("Company owner role required")
+    return current_user
+
+
+async def require_hq_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    if current_user.is_superadmin and getattr(current_user, "auth_scope", "app") == "hq_admin":
+        return current_user
+    raise ForbiddenError("HQ admin session required")

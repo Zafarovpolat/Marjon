@@ -60,6 +60,20 @@ async def login(request: Request, data: LoginRequest, db: AsyncSession = Depends
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
+@router.post("/admin/login", response_model=TokenResponse)
+@limiter.limit("10/minute")
+async def login_admin(request: Request, data: LoginRequest, db: AsyncSession = Depends(get_db)):
+    # BE-01: вход в HQ-админку. Тот же контракт, что /login, но токен получает
+    # scope="hq_admin" и пускает только суперадмина (проверка в service.login_admin).
+    svc = AuthService(db)
+    identifier = data.phone or data.email
+    if not identifier:
+        from app.shared.exceptions import UnauthorizedError
+        raise UnauthorizedError("phone или email обязателен")
+    _, access_token, refresh_token = await svc.login_admin(identifier, data.password)
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+
+
 @router.post("/users", response_model=CompanyUserResponse, status_code=status.HTTP_201_CREATED)
 async def create_company_user(
     data: CompanyUserCreate,

@@ -11,6 +11,7 @@ from app.modules.auth.repository import RefreshTokenRepository, UserRepository
 from app.modules.auth.security import (
     create_access_token,
     create_refresh_token,
+    get_refresh_token_auth_scope,
     hash_password,
     hash_pin,
     hash_refresh_token,
@@ -20,7 +21,7 @@ from app.modules.auth.security import (
 from app.modules.companies.models import Branch, Company
 from app.modules.rbac.models import Role, UserRole
 from app.modules.rbac.repository import RoleRepository
-from app.shared.exceptions import ConflictError, NotFoundError, UnauthorizedError, ValidationError
+from app.shared.exceptions import ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError
 from app.shared.phone import normalize_branch_login
 
 
@@ -101,6 +102,25 @@ class AuthService:
         refresh_token = create_refresh_token()
         await self._save_refresh_token(user.id, refresh_token)
 
+        return user, access_token, refresh_token
+
+    async def login_admin(self, email: str, password: str) -> tuple[User, str, str]:
+        """BE-01: вход в HQ-админку. Выдаёт токен со scope="hq_admin" только
+        суперадмину; обычный /auth/login такой scope не выдаёт (см. security.py)."""
+        import logging
+        log = logging.getLogger(__name__)
+        user = await self.user_repo.get_by_login(self._normalize_identifier(email))
+        if not user or not verify_password(password, user.password_hash):
+            log.warning("Admin login failed: bad credentials — login=%s", email)
+            raise UnauthorizedError("Invalid credentials")
+        if not user.is_active:
+            raise UnauthorizedError("Account is inactive")
+        if not user.is_superadmin:
+            log.warning("Admin login denied: not superadmin — user_id=%s", user.id)
+            raise ForbiddenError("HQ admin access required")
+        access_token = create_access_token(user.id, user.company_id, auth_scope="hq_admin")
+        refresh_token = create_refresh_token(auth_scope="hq_admin")
+        await self._save_refresh_token(user.id, refresh_token)
         return user, access_token, refresh_token
 
     async def login_by_pin(self, company_id: UUID, pin: str) -> tuple[User, str, str]:
@@ -299,8 +319,13 @@ class AuthService:
         stored.revoked_at = datetime.now(timezone.utc)
         await self.db.commit()
 
-        new_access = create_access_token(user.id, user.company_id)
-        new_refresh = create_refresh_token()
+        # Сохраняем scope сессии при ротации: hq_admin остаётся hq_admin только
+        # если это по-прежнему суперадмин; иначе — обычная app-сессия. Сам маркер
+        # scope не доверенный — он уже подтверждён совпадением хеша строки токена.
+        requested_scope = get_refresh_token_auth_scope(refresh_token)
+        auth_scope = "hq_admin" if requested_scope == "hq_admin" and user.is_superadmin else "app"
+        new_access = create_access_token(user.id, user.company_id, auth_scope=auth_scope)
+        new_refresh = create_refresh_token(auth_scope=auth_scope)
         await self._save_refresh_token(user.id, new_refresh)
 
         return new_access, new_refresh
