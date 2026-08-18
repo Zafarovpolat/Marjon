@@ -7,8 +7,9 @@ import { t } from '../shared/i18n'
  * Открывается по клику на позицию В КОРЗИНЕ (не в меню).
  * props: product (для названия), line ({qty,price,note}) — начальные значения,
  *        onSubmit({ quantity, price, note }), onClose().
+ *        hideTakeaway — скрыть переключатель «с собой» (у курьера заказ всегда «с собой»).
  */
-export default function DishModal({ product, line, onSubmit, onClose }) {
+export default function DishModal({ product, line, onSubmit, onClose, hideTakeaway = false }) {
   const [qty, setQty] = useState(line?.qty ?? 1)
   const [price, setPrice] = useState(line?.price ?? (Number(product?.price) || 0))
   const [note, setNote] = useState(line?.note ?? '')
@@ -45,12 +46,14 @@ export default function DishModal({ product, line, onSubmit, onClose }) {
               className="input dish-modal__price" />
           </div>
 
-          <div className="dish-modal__row">
-            <label>{t('takeaway')}</label>
-            <button type="button" className={`toggle ${takeaway ? 'toggle--on' : ''}`} onClick={() => setTakeaway((v) => !v)}>
-              <span className="toggle__dot" />
-            </button>
-          </div>
+          {!hideTakeaway && (
+            <div className="dish-modal__row">
+              <label>{t('takeaway')}</label>
+              <button type="button" className={`toggle ${takeaway ? 'toggle--on' : ''}`} onClick={() => setTakeaway((v) => !v)}>
+                <span className="toggle__dot" />
+              </button>
+            </div>
+          )}
 
           <div className="dish-modal__row dish-modal__row--col">
             <label>{t('comment')}</label>

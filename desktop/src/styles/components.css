@@ -3149,12 +3149,13 @@ body.vkb-open .login-card {
 /* ── Пин-пад ── */
 .pinpad {
   position: relative;
-  width: min(400px, 92vw);
+  width: min(452px, 94vw);
   display: flex; flex-direction: column; align-items: center;
   background: rgba(255, 255, 255, 0.98);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl);
-  padding: var(--spacing-xl) var(--spacing-2xl) var(--spacing-2xl);
+  /* Объёмнее: более глубокая тень + чуть больше внутренних отступов */
+  box-shadow: 0 32px 80px rgba(11, 31, 63, 0.34), 0 8px 24px rgba(11, 31, 63, 0.18);
+  padding: var(--spacing-2xl) var(--spacing-2xl) calc(var(--spacing-2xl) + 6px);
 }
 .pinpad__back {
   align-self: flex-start;
@@ -3171,9 +3172,9 @@ body.vkb-open .login-card {
 }
 .pinpad__user { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: var(--spacing-lg); }
 .pinpad__avatar {
-  width: 64px; height: 64px; display: grid; place-items: center;
+  width: 72px; height: 72px; display: grid; place-items: center;
   border-radius: var(--radius-full); background: var(--color-brand); color: #fff;
-  font-family: var(--font-display); font-weight: 700; font-size: 22px;
+  font-family: var(--font-display); font-weight: 700; font-size: 26px;
 }
 .pinpad__name { font-size: var(--text-lg); font-weight: 700; }
 .pinpad__role { font-size: var(--text-sm); color: var(--color-text-muted); }
@@ -3187,7 +3188,7 @@ body.vkb-open .login-card {
 .pinpad__dots--error .pinpad__dot { border-color: var(--color-danger); }
 .pinpad__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--spacing-md); width: 100%; }
 .pinpad__key {
-  height: 72px; border-radius: var(--radius-md);
+  height: 82px; border-radius: var(--radius-md);
   background: var(--color-subtle); color: var(--color-text-primary);
   font-family: var(--font-display); font-size: var(--text-2xl); font-weight: 600;
   display: grid; place-items: center;
@@ -3199,7 +3200,7 @@ body.vkb-open .login-card {
 .pinpad__key--action:hover { background: var(--color-subtle); }
 .pinpad__key--empty { visibility: hidden; }
 .pinpad__submit {
-  width: 100%; min-height: 60px; margin-top: var(--spacing-xl);
+  width: 100%; min-height: 66px; margin-top: var(--spacing-xl);
   border-radius: var(--radius-md);
   background: var(--color-brand); color: #fff;
   font-size: var(--text-lg); font-weight: 700;
@@ -3249,7 +3250,8 @@ body.vkb-open .login-card {
 .vkb {
   background: #d8dde4;
   border-top: 1px solid var(--color-border);
-  padding: 8px 12px 14px;
+  /* Больше боковых отступов → клавиши чуть у́же и компактнее (просьба заказчика) */
+  padding: 8px 28px 14px;
   box-shadow: 0 -10px 40px rgba(11, 31, 63, 0.16);
 }
 .vkb__header { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 8px; }
@@ -3575,6 +3577,29 @@ body.vkb-open .login-card {
 /* «Кто/когда добавил» и бейдж «с собой» у позиции в модалке оплаты */
 .pay-order__take { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: var(--radius-full); background: var(--color-brand-bg); color: var(--color-brand); font-size: 10px; font-weight: 700; vertical-align: middle; }
 .pay-order__added { display: block; margin-top: 2px; font-size: var(--text-xs); color: var(--color-text-muted); }
+
+/* Поле «Гостей» в корзине официанта (экран добавления блюд как у кассы) */
+.cashier-cart__guests { display: flex; align-items: center; gap: 8px; padding: 12px 16px 0; font-size: var(--text-sm); color: var(--color-text-secondary); }
+.cashier-cart__guests input { width: 68px; margin-left: auto; text-align: center; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text-primary); font-size: var(--text-md); }
+
+/* Экран успеха курьера — после отправки заказа «с собой» на кухню */
+.courier-done { align-items: center; justify-content: center; }
+.courier-done__card {
+  width: min(460px, 92vw); max-height: 92%; overflow-y: auto;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: 36px 32px 28px;
+  background: var(--color-card); border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl); text-align: center;
+}
+.courier-done__icon { color: var(--color-success); display: grid; place-items: center; }
+.courier-done__title { margin: 0; font-family: var(--font-display); font-size: var(--text-2xl); font-weight: 800; color: var(--color-text-primary); }
+.courier-done__no { font-size: var(--text-lg); font-weight: 700; color: var(--color-brand); }
+.courier-done__wait { margin: 0; color: var(--color-text-secondary); font-size: var(--text-md); }
+.courier-done__items { list-style: none; margin: 6px 0 0; padding: 12px 0 0; width: 100%; border-top: 1px solid var(--color-border); display: flex; flex-direction: column; gap: 8px; }
+.courier-done__items li { display: flex; justify-content: space-between; gap: 12px; font-size: var(--text-md); color: var(--color-text-primary); }
+.courier-done__total { display: flex; justify-content: space-between; width: 100%; padding-top: 12px; border-top: 1px solid var(--color-border); font-size: var(--text-lg); font-weight: 700; color: var(--color-text-primary); }
+.courier-done__new { width: 100%; margin-top: 8px; }
+.courier-done__exit { width: 100%; }
 /* Клиентский фильтр в отчётах (по названию блюда/сотрудника) */
 .rep-filter { width: 100%; max-width: 320px; }
 /* Кнопка «переместить позицию» в деталях официанта — с подписью, крупнее для тач */
@@ -3631,6 +3656,8 @@ body.vkb-open .login-card {
 .btn--outline:hover > svg { color: #fff; }
 .board__head-right .btn--sm { min-height: 46px; padding: 0 16px; font-size: var(--text-sm); font-weight: 600; }
 .board__head-right .btn--sm > svg { color: var(--color-brand); }
+/* На основной (залитой) кнопке иконка должна быть белой, а не бирюзовой (сливалась с фоном) */
+.board__head-right .btn--primary.btn--sm > svg { color: #fff; }
 .board__head-right .btn--sm:hover > svg { color: #fff; }
 
 /* Кухня без сайдбара (5.3): фильтры-чипы + стоп-лист вынесены в шапку.

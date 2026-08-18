@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Plus, Minus, Search, X, Users, Clock, CheckCircle, Coffee, Utensils,
   LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, RefreshCw, ArrowLeft, LogOut, Printer,
-  Trash2, Ban, Shuffle,
+  Trash2, Ban, Shuffle, ShoppingBag,
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi, printers as printersApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
@@ -196,8 +196,14 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     ...zones.map((z) => ({ id: z.id, name: z.name, count: freeCount(z.tables || []), Icon: zoneIcon(z.name) })),
   ]
   const shownZones = activeZone === 'all' ? zones : zones.filter((z) => z.id === activeZone)
-  const busyCount = allTables.filter((t) => tableStatus(t.number) !== 'free').length
-  const shownCount = (activeZone === 'all' ? allTables : allTables.filter((t) => t.zoneId === activeZone)).length
+  // Считаем ТОЛЬКО по видимой вкладке (иначе «Кабина» показывала занятость всех зон).
+  const shownTables = activeZone === 'all' ? allTables : allTables.filter((tb) => tb.zoneId === activeZone)
+  const shownCount = shownTables.length
+  const busyCount = shownTables.filter((tb) => tableStatus(tb.number) !== 'free').length
+  // Разбивка для легенды (сумма = shownCount): свободно / занято / готово.
+  const cFree = shownTables.filter((tb) => tableStatus(tb.number) === 'free').length
+  const cReady = shownTables.filter((tb) => tableStatus(tb.number) === 'ready').length
+  const cBusy = shownCount - cFree - cReady
 
   function handleTableTap(table) {
     const o = orderFor(table.number)
@@ -234,11 +240,13 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
   function updateQty(lineId, d) {
     setCart((prev) => prev.map((i) => i.lineId === lineId ? { ...i, qty: i.qty + d } : i).filter((i) => i.qty > 0))
   }
+  function removeLine(lineId) { setCart((prev) => prev.filter((i) => i.lineId !== lineId)) }
   // «С собой» переключается прямо в строке корзины (не заходя в модалку блюда)
   function toggleTakeaway(lineId) {
     setCart((prev) => prev.map((i) => i.lineId === lineId ? { ...i, takeaway: !i.takeaway } : i))
   }
   const cartTotal = cart.reduce((s, i) => s + Number(i.price || 0) * i.qty, 0)
+  const itemCount = cart.reduce((s, i) => s + i.qty, 0)
 
   async function submitOrder() {
     if (!cart.length) return
@@ -268,6 +276,118 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     } finally {
       setSubmitting(false)
     }
+  }
+
+  // ═══ Вид: новый заказ (меню + корзина) — светлый, идентичен экрану кассира ═══
+  if (view === 'new') {
+    return (
+      <div className="floor">
+        <aside className="ws-side">
+          <button className="zone zone--exit" onClick={() => setView('floor')}>
+            <ArrowLeft size={20} />
+            <span className="zone__name">{t('to_tables')}</span>
+          </button>
+          <div className="ws-side__label">{t('categories')}</div>
+          <nav className="ws-side__nav">
+            <button className={`zone ${!activeCat ? 'zone--active' : ''}`} onClick={() => setActiveCat(null)}>
+              <LayoutGrid size={20} /><span className="zone__name">{t('all')}</span>
+            </button>
+            {categories.map((c) => (
+              <button key={c.id} className={`zone ${activeCat === c.id ? 'zone--active' : ''}`} onClick={() => setActiveCat(c.id)}>
+                <span className="zone__name">{c.name}</span>
+              </button>
+            ))}
+          </nav>
+        </aside>
+
+        <main className="ws__main">
+          <div className="board__head">
+            <div className="board__title">
+              <h2>{selectedTable ? `${t('table')} ${selectedTable.number}` : t('new_order')}</h2>
+              <span className="board__subtitle">{itemCount} {t('items_low')} · {cartTotal.toLocaleString('ru-RU')} {t('currency')}</span>
+            </div>
+            <div className="board__head-right">
+              <div className="cashier-products__search" style={{ padding: 0, border: 'none' }}>
+                <Search size={18} className="search-icon" />
+                <input className="search-input" placeholder={t('search_dish')} value={search} onChange={(e) => setSearch(e.target.value)} />
+              </div>
+            </div>
+          </div>
+
+          <div className="cashier-work">
+            <div className="cashier-products">
+              <div className="cashier-products__grid">
+                {filteredProducts.length === 0 ? <p className="empty-text">{t('no_dishes')}</p> : filteredProducts.map((p) => {
+                  const stopped = p.is_available === false || p.in_stop_list
+                  return (
+                    <button key={p.id} className={`product-card ${stopped ? 'product-card--stop' : ''}`} onClick={() => addToCart(p)}>
+                      <span className="product-card__thumb">
+                        {p.image_url ? <img src={p.image_url} alt="" loading="lazy" /> : <Utensils size={26} />}
+                      </span>
+                      <span className="product-card__name">{p.name}</span>
+                      <span className="product-card__price">{Number(p.price || 0).toLocaleString('ru-RU')} {t('currency')}</span>
+                      {stopped && <span className="product-card__stop">STOP</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <aside className="cashier-cart">
+              <div className="cashier-cart__header"><ShoppingBag size={20} /><span>{t('order')}</span><span className="cart-count">{itemCount}</span></div>
+              <div className="cashier-cart__items">
+                {cart.length === 0 ? <p className="cart-empty">{t('tap_dish_hint')}</p> : cart.map((item) => (
+                  <div key={item.lineId} className="cart-item">
+                    <button type="button" className="cart-item__info" onClick={() => setEditLine(item)} title={t('edit')}>
+                      <span className="cart-item__name">{item.product?.name}</span>
+                      {item.note && <span className="cart-row__note">{item.note}</span>}
+                      <span className="cart-item__price">{(Number(item.price || 0) * item.qty).toLocaleString('ru-RU')} {t('currency')}</span>
+                    </button>
+                    <div className="cart-item__controls">
+                      <button
+                        type="button"
+                        className={`cart-take ${item.takeaway ? 'cart-take--on' : ''}`}
+                        onClick={() => toggleTakeaway(item.lineId)}
+                        title={t('takeaway')}
+                      >{t('takeaway')}</button>
+                      <button className="qty-btn" onClick={() => updateQty(item.lineId, -1)}><Minus size={16} /></button>
+                      <span className="qty-value">{item.qty}</span>
+                      <button className="qty-btn" onClick={() => updateQty(item.lineId, 1)}><Plus size={16} /></button>
+                      {can(user, 'can_delete_dishes') && <button className="qty-btn qty-btn--delete" onClick={() => removeLine(item.lineId)}><Trash2 size={16} /></button>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="cashier-cart__guests">
+                <label>{t('guests')}</label>
+                <input type="number" min="1" max="50" value={guests} onChange={(e) => setGuests(Number(e.target.value) || 1)} />
+              </div>
+              {cart.length > 0 && (
+                <input className="cashier-cart__note" value={orderNote} onChange={(e) => setOrderNote(e.target.value)} placeholder={t('comment')} />
+              )}
+              <div className="cashier-cart__total">
+                <div className="total-row total-row--final"><span>{t('total')}</span><span>{cartTotal.toLocaleString('ru-RU')} {t('currency')}</span></div>
+              </div>
+              <div className="cashier-cart__actions">
+                <button className="cart-btn cart-btn--pay" disabled={cart.length === 0 || submitting} onClick={submitOrder}>
+                  {submitting ? <span className="btn-spinner" aria-hidden="true" /> : <Plus size={20} />} {addToOrderId ? t('add_dishes') : t('to_kitchen')}
+                </button>
+              </div>
+            </aside>
+          </div>
+        </main>
+
+        {editLine && (
+          <DishModal
+            product={editLine.product}
+            line={editLine}
+            onSubmit={saveEdit}
+            onClose={() => setEditLine(null)}
+          />
+        )}
+        {promptCfg && <InputPromptModal {...promptCfg} onClose={() => setPromptCfg(null)} />}
+      </div>
+    )
   }
 
   return (
@@ -305,9 +425,9 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
               </div>
               <div className="board__head-right">
                 <div className="legend">
-                  <span className="legend__item"><span className="legend__swatch legend__swatch--free" /> {t('free')}</span>
-                  <span className="legend__item"><span className="legend__swatch legend__swatch--busy" /> {t('busy')}</span>
-                  <span className="legend__item"><span className="legend__swatch legend__swatch--check" /> {t('ready')}</span>
+                  <span className="legend__item" title={t('free')}><span className="legend__swatch legend__swatch--free" /> {cFree}</span>
+                  <span className="legend__item" title={t('busy')}><span className="legend__swatch legend__swatch--busy" /> {cBusy}</span>
+                  <span className="legend__item" title={t('ready')}><span className="legend__swatch legend__swatch--check" /> {cReady}</span>
                 </div>
                 <button className="btn btn--primary btn--sm" onClick={() => openNewOrder(null)}>
                   <Plus size={18} /> {t('new_order')}
@@ -423,80 +543,6 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
           </div>
         )}
 
-        {view === 'new' && (
-          <div className="waiter-new-order">
-            <header className="waiter-new-order__header">
-              <button className="btn-ghost" onClick={() => setView('floor')}><X size={20} /></button>
-              <h2>{selectedTable ? `${t('table')} ${selectedTable.number}` : t('no_table')}{' · ' + t('new_order')}</h2>
-            </header>
-            <div className="waiter-new-order__body">
-              <div className="waiter-catalog">
-                <div className="waiter-catalog__search">
-                  <Search size={18} />
-                  <input placeholder={t('search_dish')} value={search} onChange={(e) => setSearch(e.target.value)} />
-                  {search && <button className="btn-icon-sm" onClick={() => setSearch('')}><X size={16} /></button>}
-                </div>
-                <div className="waiter-catalog__cats">
-                  <button className={`cat-btn ${!activeCat ? 'cat-btn--active' : ''}`} onClick={() => setActiveCat(null)}>{t('all')}</button>
-                  {categories.map((c) => (
-                    <button key={c.id} className={`cat-btn ${activeCat === c.id ? 'cat-btn--active' : ''}`} onClick={() => setActiveCat(c.id)}>{c.name}</button>
-                  ))}
-                </div>
-                <div className="waiter-catalog__grid">
-                  {filteredProducts.length === 0 ? (
-                    <p className="empty-text">{t('no_dishes')}</p>
-                  ) : filteredProducts.map((p) => (
-                    <button key={p.id} className="product-tile" onClick={() => addToCart(p)}>
-                      <Utensils size={20} />
-                      <span className="product-tile__name">{p.name}</span>
-                      <span className="product-tile__price">{Number(p.price || 0).toLocaleString('ru-RU')} {t('currency')}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="waiter-cart">
-                <div className="waiter-cart__meta">
-                  <label>{t('guests')}:
-                    <input type="number" min="1" max="20" value={guests} onChange={(e) => setGuests(Number(e.target.value) || 1)} />
-                  </label>
-                  <input className="waiter-cart__note" placeholder={t('order_comment')} value={orderNote} onChange={(e) => setOrderNote(e.target.value)} title={t('order_comment')} />
-                </div>
-                <div className="waiter-cart__items">
-                  {cart.length === 0 ? (
-                    <p className="empty-text">{t('add_dishes_empty')}</p>
-                  ) : cart.map((item) => (
-                    <div key={item.lineId} className="cart-row">
-                      <button type="button" className="cart-row__info" onClick={() => setEditLine(item)} title={t('edit')}>
-                        <span className="cart-row__name">{item.product.name}</span>
-                        {item.note && <span className="cart-row__note">{item.note}</span>}
-                      </button>
-                      <button
-                        type="button"
-                        className={`cart-take ${item.takeaway ? 'cart-take--on' : ''}`}
-                        onClick={() => toggleTakeaway(item.lineId)}
-                        title={t('takeaway')}
-                      >{t('takeaway')}</button>
-                      <div className="cart-row__qty">
-                        <button onClick={() => updateQty(item.lineId, -1)}><Minus size={16} /></button>
-                        <span>{item.qty}</span>
-                        <button onClick={() => updateQty(item.lineId, 1)}><Plus size={16} /></button>
-                      </div>
-                      <span className="cart-row__sum">{(Number(item.price || 0) * item.qty).toLocaleString('ru-RU')}</span>
-                    </div>
-                  ))}
-                </div>
-                {cart.length > 0 && (
-                  <div className="waiter-cart__footer">
-                    <div className="waiter-cart__total">{t('total')}: <strong>{cartTotal.toLocaleString('ru-RU')} {t('currency')}</strong></div>
-                    <button className="btn-primary btn--xl" onClick={submitOrder} disabled={submitting}>
-                      {submitting ? t('sending') : t('to_kitchen')}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
       </main>
 
       {editLine && (

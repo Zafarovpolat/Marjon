@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   Search, Plus, Minus, Trash2, Utensils,
-  LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock, Wallet, History, BarChart3, LogOut, Ban, ShoppingBag, Bike,
+  LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock, Wallet, History, BarChart3, LogOut, Ban, ShoppingBag, Bike, CheckCircle,
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi, printers as printersApi, customers as customersApi, auth as authApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
@@ -35,6 +35,21 @@ function initials(name = '') {
 }
 function fmtTime(iso) { return iso ? new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '' }
 
+// Снимок заказа для экрана успеха курьера: берём данные с сервера, иначе — из корзины
+function buildCourierSuccess(created, cartSnap, totalSnap) {
+  const src = created?.items?.length ? created.items : cartSnap
+  const items = (src || []).map((i) => ({
+    qty: i.quantity ?? i.qty ?? 1,
+    name: i.name || i.product_name || i.product?.name || '',
+    sum: Number(i.total ?? (Number(i.price || 0) * Number(i.quantity ?? i.qty ?? 1))) || 0,
+  }))
+  return {
+    order_number: created?.order_number ?? null,
+    total: Number(created?.total_amount ?? totalSnap) || 0,
+    items,
+  }
+}
+
 export default function CashierMode({ user = {}, onBack, courier = false }) {
   const [zones, setZones] = useState([])
   const [orderList, setOrderList] = useState([])
@@ -66,6 +81,7 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
   const [splitOrder, setSplitOrder] = useState(null)      // 2.1 — заказ для раздельного чека
   const [promptCfg, setPromptCfg] = useState(null)        // модалка ввода (пароль отмены / новый стол)
   const [creating, setCreating] = useState(false)         // создание заказа (лоадер кнопки)
+  const [successOrder, setSuccessOrder] = useState(null)  // экран успеха курьера (после отправки заказа)
   const [staff, setStaff] = useState([])                 // сотрудники (для смены официанта)
   const [printerMap, setPrinterMap] = useState({})
   const [addToOrderId, setAddToOrderId] = useState(null) // id заказа, в который ДОБАВЛЯЕМ блюда (иначе создаём новый)
@@ -123,7 +139,9 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     ...zones.map((z) => ({ id: z.id, name: z.name, count: freeCount(z.tables || []), Icon: zoneIcon(z.name) })),
   ]
   const shownZones = activeZone === 'all' ? zones : zones.filter((z) => z.id === activeZone)
-  const busyCount = allTables.filter((t) => tableStatus(t.number) !== 'free').length
+  // Счётчики в шапке — по ПОКАЗАННОЙ зоне (а не по всем столам): иначе «занято N» не совпадало с видимым
+  const shownTables = activeZone === 'all' ? allTables : allTables.filter((tb) => tb.zoneId === activeZone)
+  const busyCount = shownTables.filter((tb) => tableStatus(tb.number) !== 'free').length
 
   function openOrder(type, table) {
     setOrderType(type); setSelectedTable(table || null)
@@ -228,10 +246,10 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     if (search) { const q = search.toLowerCase(); return p.name?.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q) }
     return activeCat ? p.category_id === activeCat : true
   })
-  // Клик по блюду в меню — сразу в заказ (без модалки)
+  // Клик по блюду в меню — сразу в заказ (без модалки). У курьера всё «с собой» по умолчанию.
   function addToCart(product) {
     if (product.is_available === false || product.in_stop_list) return // в стоп-листе
-    setCart((prev) => [...prev, { lineId: `${Date.now()}-${Math.random()}`, product, name: product.name, price: Number(product.price) || 0, qty: 1, note: '' }])
+    setCart((prev) => [...prev, { lineId: `${Date.now()}-${Math.random()}`, product, name: product.name, price: Number(product.price) || 0, qty: 1, note: '', takeaway: courier }])
   }
   // Правка позиции В ЗАКАЗЕ (кол-во/цена/комментарий)
   function saveEdit({ quantity, price, note, takeaway }) {
@@ -253,6 +271,7 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     if (!cart.length || creating) return
     setCreating(true)
     try {
+      let created = null
       if (addToOrderId) {
         // Дозаказ: досылаем позиции в существующий заказ.
         // Бэкенд в add_item сам возвращает заказ в статус «готовится» (service.py),
@@ -263,7 +282,7 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
         }
         setAddToOrderId(null)
       } else {
-        await orders.create({
+        created = await orders.create({
           branch_id: user.branch_id,
           order_type: orderType,
           table_number: orderType === 'dine_in' && selectedTable?.number != null ? String(selectedTable.number) : undefined,
@@ -271,13 +290,15 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
           customer_id: custId || undefined,
           customer_phone: orderType === 'delivery' ? (deliveryPhone || undefined) : undefined,
           customer_address: orderType === 'delivery' ? (deliveryAddress || undefined) : undefined,
-          items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, note: i.note || null, takeaway: !!i.takeaway })),
+          // Курьер: все позиции всегда «с собой» → бэкенд не начисляет сервисный сбор.
+          items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, note: i.note || null, takeaway: courier ? true : !!i.takeaway })),
         })
       }
-      // Курьер работает только «с собой»: после создания — сразу новый заказ (столов у него нет).
-      // Кассир возвращается к столам; оплата — отдельно (тап по столу / история).
-      if (courier) openOrder('takeaway')
-      else { setView('floor'); loadFloor() }
+      if (courier) {
+        // Курьер: показываем экран успеха с номером заказа (столов и оплаты у него нет).
+        setSuccessOrder(buildCourierSuccess(created, cart, total))
+        setCart([]); setOrderNote('')
+      } else { setView('floor'); loadFloor() }
       toast(t('order_created'))
     } catch (err) {
       toast(t('create_order_error') + ': ' + (err?.response?.data?.detail || err.message), 'error')
@@ -306,7 +327,7 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
           <div className="board__head">
             <div className="board__title">
               <h2>{t('tables')}</h2>
-              <span className="board__subtitle">{allTables.length} {t('tables_low')} · {busyCount} {t('busy_low')}</span>
+              <span className="board__subtitle">{shownTables.length} {t('tables_low')} · {busyCount} {t('busy_low')}</span>
             </div>
             <div className="board__head-right">
               {can(user, 'can_change_order_type') && <button className="btn btn--outline btn--sm" onClick={() => openOrder('takeaway', null)}><ShoppingBag size={18} /> {t('takeaway')}</button>}
@@ -385,6 +406,40 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     )
   }
 
+  // ═══ Вид: экран успеха курьера (после отправки заказа) ═══
+  if (courier && successOrder) {
+    return (
+      <div className="floor courier-done">
+        <div className="courier-done__card">
+          <div className="courier-done__icon"><CheckCircle size={56} /></div>
+          <h2 className="courier-done__title">{t('order_accepted')}</h2>
+          {successOrder.order_number != null && (
+            <div className="courier-done__no">{t('order_no')} #{successOrder.order_number}</div>
+          )}
+          <p className="courier-done__wait">{t('courier_wait')}</p>
+          {successOrder.items.length > 0 && (
+            <ul className="courier-done__items">
+              {successOrder.items.map((it, idx) => (
+                <li key={idx}>
+                  <span>{it.qty} × {it.name}</span>
+                  <span>{it.sum.toLocaleString('ru-RU')} {t('currency')}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="courier-done__total">
+            <span>{t('total')}</span>
+            <strong>{successOrder.total.toLocaleString('ru-RU')} {t('currency')}</strong>
+          </div>
+          <button className="courier-done__new cart-btn cart-btn--pay" onClick={() => { setSuccessOrder(null); openOrder('takeaway') }}>
+            <Plus size={20} /> {t('new_order')}
+          </button>
+          <button className="courier-done__exit btn-ghost" onClick={onBack}>{t('logout')}</button>
+        </div>
+      </div>
+    )
+  }
+
   // ═══ Вид: заказ (меню + корзина) ═══
   return (
     <div className="floor">
@@ -452,12 +507,14 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
                     <span className="cart-item__price">{(item.price * item.qty).toLocaleString('ru-RU')} {t('currency')}</span>
                   </button>
                   <div className="cart-item__controls">
-                    <button
-                      type="button"
-                      className={`cart-take ${item.takeaway ? 'cart-take--on' : ''}`}
-                      onClick={() => toggleTakeaway(item.lineId)}
-                      title={t('takeaway')}
-                    >{t('takeaway')}</button>
+                    {!courier && (
+                      <button
+                        type="button"
+                        className={`cart-take ${item.takeaway ? 'cart-take--on' : ''}`}
+                        onClick={() => toggleTakeaway(item.lineId)}
+                        title={t('takeaway')}
+                      >{t('takeaway')}</button>
+                    )}
                     <button className="qty-btn" onClick={() => updateQty(item.lineId, -1)}><Minus size={16} /></button>
                     <span className="qty-value">{item.qty}</span>
                     <button className="qty-btn" onClick={() => updateQty(item.lineId, 1)}><Plus size={16} /></button>
@@ -504,6 +561,7 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
           line={editLine}
           onSubmit={saveEdit}
           onClose={() => setEditLine(null)}
+          hideTakeaway={courier}
         />
       )}
     </div>

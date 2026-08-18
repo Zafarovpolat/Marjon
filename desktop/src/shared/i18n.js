@@ -53,6 +53,8 @@ const DICT = {
     close_order: 'Закрыть заказ', no_table: 'Без стола', guests: 'Гостей',
     order_comment: 'Комментарий к заказу...', add_dishes_empty: 'Добавьте блюда',
     sending: 'Отправка...', to_kitchen: 'Отправить на кухню',
+    // Экран успеха курьера
+    order_accepted: 'Заказ принят', courier_wait: 'Ожидайте — заказ передан на кухню и готовится',
     // Менеджер
     today: 'сегодня', orders_today: 'Заказов сегодня', revenue: 'Выручка', avg_check: 'Средний чек',
     recent_orders: 'Последние заказы', no_orders_yet: 'Заказов пока нет.',
@@ -177,6 +179,8 @@ const DICT = {
     close_order: 'Buyurtmani yopish', no_table: 'Stolsiz', guests: 'Mehmonlar',
     order_comment: 'Buyurtmaga izoh...', add_dishes_empty: 'Taom qo‘shing',
     sending: 'Yuborilmoqda...', to_kitchen: 'Oshxonaga yuborish',
+    // Kuryer muvaffaqiyat ekrani
+    order_accepted: 'Buyurtma qabul qilindi', courier_wait: 'Kuting — buyurtma oshxonaga yuborildi',
     // Menejer
     today: 'bugun', orders_today: 'Bugungi buyurtmalar', revenue: 'Tushum', avg_check: 'O‘rtacha chek',
     recent_orders: 'So‘nggi buyurtmalar', no_orders_yet: 'Hozircha buyurtma yo‘q.',
