@@ -6444,3 +6444,1188 @@ body.dashboard-body .kpi-info-window--payment-table .kpi-info-window__head--paym
 body.dashboard-body .kpi-info-window--payment-table .kpi-info-window__head--payment-table > .kpi-info-window__close {
   grid-column: 3;
 }
+
+/* ============================================================
+   OWNER WHITE SHELL — sidebar + topbar recolored navy → white.
+   OWNER only (kafe bundle; HQ/admin untouched). Unlayered so these win
+   over the layered react-overrides navy shell without source-order
+   fragility. WHITE surfaces + NAVY text/icons + TURQUOISE active/action
+   + subtle blue-gray borders + minimal shadow. Layout/width unchanged.
+   ============================================================ */
+
+/* ---- Sidebar surface ---- */
+body.dashboard-body .dashboard-shell .dashboard-sidebar {
+  background: #ffffff;
+  color: var(--neutral-900, #0b1f3f);
+  border-right: none;
+  box-shadow: none;
+}
+body.dashboard-body .dashboard-shell .dashboard-sidebar::before,
+body.dashboard-body .dashboard-shell .dashboard-sidebar::after {
+  display: none;
+}
+/* ---- Brand ---- */
+/* Brand block (base pins it position:fixed) — nudge down so logo+MARJON sit
+   optically centered between the sidebar top edge and the search bar. */
+body.dashboard-body .dashboard-shell .sidebar-brand {
+  border-bottom-color: rgba(15, 35, 60, 0.08);
+  top: 14px;
+}
+body.dashboard-body .dashboard-shell .brand-title {
+  color: var(--neutral-900, #0b1f3f);
+}
+body.dashboard-body .dashboard-shell .brand-subtitle {
+  color: var(--neutral-500, #536d8e);
+}
+/* ---- Inactive navigation ---- */
+body.dashboard-body .dashboard-shell .sidebar-link {
+  background: transparent;
+  color: rgba(11, 31, 63, 0.78);
+}
+body.dashboard-body .dashboard-shell .sidebar-link .sidebar-icon,
+body.dashboard-body .dashboard-shell .sidebar-link .sidebar-icon svg,
+body.dashboard-body .dashboard-shell .sidebar-link .sidebar-icon svg *,
+body.dashboard-body .dashboard-shell .sidebar-link__chevron {
+  color: rgba(11, 31, 63, 0.72);
+  stroke: rgba(11, 31, 63, 0.72);
+}
+body.dashboard-body .dashboard-shell .sidebar-link:hover:not(.is-active) {
+  background: rgba(29, 181, 181, 0.08);
+  color: var(--neutral-900, #0b1f3f);
+}
+body.dashboard-body .dashboard-shell .sidebar-link:hover:not(.is-active) .sidebar-icon svg,
+body.dashboard-body .dashboard-shell .sidebar-link:hover:not(.is-active) .sidebar-icon svg * {
+  stroke: var(--neutral-900, #0b1f3f);
+}
+body.dashboard-body .dashboard-shell .sidebar-link:focus-visible {
+  outline: 2px solid var(--color-brand, #1db5b5);
+  outline-offset: -2px;
+}
+/* ---- Active navigation (keep turquoise identity) ---- */
+body.dashboard-body .dashboard-shell .sidebar-link.is-active {
+  background: var(--color-brand, #1db5b5);
+  color: #ffffff;
+}
+body.dashboard-body .dashboard-shell .sidebar-link.is-active .sidebar-icon,
+body.dashboard-body .dashboard-shell .sidebar-link.is-active .sidebar-icon svg,
+body.dashboard-body .dashboard-shell .sidebar-link.is-active .sidebar-icon svg *,
+body.dashboard-body .dashboard-shell .sidebar-link.is-active .sidebar-link__chevron {
+  color: #ffffff;
+  stroke: #ffffff;
+}
+
+/* ---- Submenu ---- */
+body.dashboard-body .dashboard-shell .sidebar-submenu {
+  background: transparent;
+  color: rgba(11, 31, 63, 0.78);
+}
+body.dashboard-body .dashboard-shell .sidebar-submenu__dot,
+body.dashboard-body .dashboard-shell .sidebar-submenu__icon,
+body.dashboard-body .dashboard-shell .sidebar-submenu__icon svg,
+body.dashboard-body .dashboard-shell .sidebar-submenu__icon svg * {
+  color: rgba(11, 31, 63, 0.6);
+  stroke: rgba(11, 31, 63, 0.6);
+}
+/* ---- Collapsed flyout popover ---- */
+body.dashboard-body .sidebar-collapsed-popover {
+  background: #ffffff;
+  color: var(--neutral-900, #0b1f3f);
+  border: 1px solid rgba(15, 35, 60, 0.10);
+  box-shadow: 0 12px 32px rgba(15, 35, 60, 0.14);
+}
+/* ---- Account / profile block ---- */
+body.dashboard-body .dashboard-shell .sidebar-user,
+body.dashboard-body .dashboard-shell .sidebar-user--button {
+  background: rgba(15, 35, 60, 0.03);
+  color: var(--neutral-900, #0b1f3f);
+  border: 1px solid rgba(15, 35, 60, 0.08);
+  box-shadow: none;
+}
+body.dashboard-body .dashboard-shell .sidebar-user__meta,
+body.dashboard-body .dashboard-shell .sidebar-user__meta strong {
+  color: var(--neutral-900, #0b1f3f);
+}
+body.dashboard-body .dashboard-shell .sidebar-user__arrow,
+body.dashboard-body .dashboard-shell .sidebar-user__arrow svg {
+  color: rgba(11, 31, 63, 0.6);
+  stroke: rgba(11, 31, 63, 0.6);
+}
+body.dashboard-body .sidebar-account__menu {
+  background: #ffffff;
+  color: var(--neutral-900, #0b1f3f);
+  border: 1px solid rgba(15, 35, 60, 0.10);
+  box-shadow: 0 14px 36px rgba(15, 35, 60, 0.16);
+}
+
+/* ---- Topbar surface ---- */
+body.dashboard-body .dashboard-shell .dashboard-topbar {
+  background: #ffffff;
+  color: var(--neutral-900, #0b1f3f);
+  border-bottom: none;
+  box-shadow: none;
+}
+/* ---- Topbar widgets: light surfaces, navy foreground, subtle borders ---- */
+/* ---- Topbar Back button: compact light navigation control (NOT a primary
+   action). Light white surface, subtle border, radius 12, centered navy arrow
+   at a calmer optical size/stroke, no resting shadow / lift. Hover = light
+   turquoise tint; focus-visible = turquoise ring. Overrides the layered navy
+   3D base (unlayered wins). ---- */
+body.dashboard-body .dashboard-shell .dashboard-topbar .dashboard-back-button--topbar-3d {
+  border-radius: 12px;
+  border: 1px solid rgba(15, 35, 60, 0.12);
+  background: #ffffff;
+  color: var(--neutral-900, #0b1f3f);
+  box-shadow: none;
+  transform: none;
+  filter: none;
+}
+body.dashboard-body .dashboard-shell .dashboard-topbar .dashboard-back-button--topbar-3d svg,
+body.dashboard-body .dashboard-shell .dashboard-topbar .dashboard-back-button--topbar-3d svg * {
+  width: 18px;
+  height: 18px;
+  color: var(--neutral-900, #0b1f3f);
+  stroke: currentColor;
+  stroke-width: 2.2;
+  filter: none;
+}
+body.dashboard-body .dashboard-shell .dashboard-topbar .dashboard-back-button--topbar-3d:hover,
+body.dashboard-body .dashboard-shell .dashboard-topbar .dashboard-back-button--topbar-3d:focus-visible {
+  background: rgba(29, 181, 181, 0.08);
+  border-color: rgba(29, 181, 181, 0.45);
+  color: var(--color-brand, #1db5b5);
+  box-shadow: none;
+  transform: none;
+  filter: none;
+}
+body.dashboard-body .dashboard-shell .dashboard-topbar .dashboard-back-button--topbar-3d:hover svg,
+body.dashboard-body .dashboard-shell .dashboard-topbar .dashboard-back-button--topbar-3d:hover svg *,
+body.dashboard-body .dashboard-shell .dashboard-topbar .dashboard-back-button--topbar-3d:focus-visible svg,
+body.dashboard-body .dashboard-shell .dashboard-topbar .dashboard-back-button--topbar-3d:focus-visible svg * {
+  color: var(--color-brand, #1db5b5);
+  stroke: var(--color-brand, #1db5b5);
+}
+body.dashboard-body .dashboard-shell .dashboard-topbar .dashboard-back-button--topbar-3d:focus-visible {
+  outline: 2px solid var(--color-brand, #1db5b5);
+  outline-offset: 2px;
+}
+body.dashboard-body .dashboard-shell .dashboard-topbar .dashboard-back-button--topbar-3d:active {
+  transform: none;
+  box-shadow: none;
+  filter: none;
+}
+body.dashboard-body .dashboard-shell .mj-datepicker__trigger,
+body.dashboard-body .dashboard-shell .topbar-info-widget,
+body.dashboard-body .dashboard-shell .topbar-notification {
+  background: #ffffff;
+  color: var(--neutral-900, #0b1f3f);
+  border: 1px solid rgba(15, 35, 60, 0.12);
+  box-shadow: none;
+}
+body.dashboard-body .dashboard-shell .mj-datepicker__trigger .mj-datepicker__icon,
+body.dashboard-body .dashboard-shell .mj-datepicker__trigger .mj-datepicker__icon svg,
+body.dashboard-body .dashboard-shell .topbar-info-widget__icon,
+body.dashboard-body .dashboard-shell .topbar-notification svg {
+  color: rgba(11, 31, 63, 0.7);
+  stroke: rgba(11, 31, 63, 0.7);
+}
+body.dashboard-body .dashboard-shell .mj-datepicker__value,
+body.dashboard-body .dashboard-shell .mj-datepicker__date,
+body.dashboard-body .dashboard-shell .mj-datepicker__time,
+body.dashboard-body .dashboard-shell .topbar-info-widget__num,
+body.dashboard-body .dashboard-shell .topbar-info-widget__body {
+  color: var(--neutral-900, #0b1f3f);
+}
+body.dashboard-body .dashboard-shell .topbar-notification.is-open,
+body.dashboard-body .dashboard-shell .topbar-notification:hover {
+  background: rgba(29, 181, 181, 0.08);
+  border-color: rgba(29, 181, 181, 0.45);
+}
+body.dashboard-body .dashboard-shell .topbar-notification.is-open svg,
+body.dashboard-body .dashboard-shell .topbar-notification:hover svg {
+  color: var(--color-brand, #1db5b5);
+  stroke: var(--color-brand, #1db5b5);
+}
+/* Balance: amount in a light neutral container, keep turquoise action */
+body.dashboard-body .dashboard-shell .topbar-balance-amount {
+  color: var(--neutral-900, #0b1f3f);
+}
+
+/* ---- White-shell coverage: child foregrounds that carry their own layered
+   near-white color (submenu links, account dropdown, collapsed flyout). The
+   container recolor above doesn't reach these, so flip them explicitly to
+   navy/slate — no white-on-white in any resting/open/collapsed state. ---- */
+body.dashboard-body .dashboard-shell .sidebar-submenu__link:not(.is-active) {
+  color: rgba(11, 31, 63, 0.78);
+}
+body.dashboard-body .dashboard-shell .sidebar-submenu__link:not(.is-active):hover {
+  color: var(--neutral-900, #0b1f3f);
+  background: rgba(29, 181, 181, 0.08);
+}
+body.dashboard-body .sidebar-account__menu .sidebar-account__head-meta strong {
+  color: var(--neutral-900, #0b1f3f);
+}
+body.dashboard-body .sidebar-account__menu .sidebar-account__head-meta span {
+  color: var(--neutral-500, #536d8e);
+}
+body.dashboard-body .sidebar-account__menu .sidebar-account__lang-label,
+body.dashboard-body .sidebar-account__menu .sidebar-account__lang-current,
+body.dashboard-body .sidebar-account__menu .sidebar-account__lang-chevron {
+  color: var(--neutral-900, #0b1f3f);
+}
+body.dashboard-body .sidebar-collapsed-popover .sidebar-collapsed-popover__link {
+  color: rgba(11, 31, 63, 0.82);
+}
+body.dashboard-body .sidebar-collapsed-popover .sidebar-collapsed-popover__icon {
+  color: rgba(11, 31, 63, 0.72);
+  background: rgba(15, 35, 60, 0.05);
+}
+
+/* Account menu logout ("Выйти") + keyboard focus: the old rules used cyan /
+   white foregrounds tuned for the navy menu; on the white menu recolor them to
+   a readable danger red and a visible focus tint (no cyan-on-white / white-on-white). */
+body.dashboard-body .sidebar-account__menu .sidebar-account__item--danger {
+  color: #e5484d;
+}
+body.dashboard-body .sidebar-account__menu .sidebar-account__item:focus-visible {
+  color: var(--neutral-900, #0b1f3f);
+  background: rgba(29, 181, 181, 0.10);
+}
+body.dashboard-body .sidebar-account__menu .sidebar-account__item--danger:focus-visible {
+  color: #e5484d;
+  background: rgba(229, 72, 77, 0.10);
+}
+
+/* ---- White-shell junction + submenu + profile-role fixes ----
+   The shell/body/main backgrounds stayed navy behind the now-white sidebar/
+   topbar; their rounded top-left corners revealed it as a dark wedge. Recolor
+   the OWNER shell surfaces to white so nothing navy shows through the curve. */
+body.dashboard-body,
+body.dashboard-body .dashboard-shell,
+body.dashboard-body .dashboard-shell .dashboard-main {
+  background: #ffffff;
+}
+/* Expanded submenu parent must not read as a tinted/dark block on white. */
+body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu.is-open {
+  background: transparent;
+}
+/* Profile role/company sub-text was light-blue (tuned for navy) → readable slate. */
+body.dashboard-body .dashboard-shell .sidebar-user__meta span,
+body.dashboard-body .dashboard-shell .sidebar-user__meta em {
+  color: var(--neutral-500, #536d8e);
+}
+
+/* ============================================================
+   OWNER white-shell polish: soft workspace tint, topbar-left air,
+   resting shadow removal, subtle shell borders, logo de-shadow.
+   Unlayered OWNER rules; react-overrides untouched.
+   ============================================================ */
+/* 1. Flat cool workspace behind the cards (sidebar/topbar/cards stay white).
+   Solid #E9F0FA — no gradient. */
+body.dashboard-body .dashboard-shell .dashboard-content {
+  background: #E9F0FA;
+}
+/* 2. Left topbar cluster (back + date) — nudged right off the workspace edge
+   for breathing room; the whole [Back][Date] cluster shifts together (they
+   live inside .topbar-left, internal 12px gap preserved). */
+body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-left {
+  padding-left: 10px;
+}
+/* 3. Balance control — TWO individually-rounded controls that visually join
+   (matches the user's reference): the light "0 UZS" control on the left, and
+   the turquoise "Баланс" button with its OWN FULL radius on all four corners
+   (its left edge visibly curves), overlapping the junction slightly and sitting
+   above via z-index. The parent no longer clips — no shared pill, no flat
+   internal split. White-shell: navy "0 UZS" + turquoise "Баланс" + white text.
+   Resting shadow OFF; hover/focus subtle. */
+body.dashboard-body .dashboard-shell .topbar-balance-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+/* "0 UZS": a READ-ONLY DISPLAY FIELD (it is a <span>, not a button). Own light
+   surface, subtle border, full radius, navy text, compact padding. It must NOT
+   look or behave interactive — no hover/focus shadow, no transform, default
+   cursor. The subtle overlap covers its border-less right edge. */
+body.dashboard-body .dashboard-shell .topbar-balance-amount {
+  position: relative;
+  z-index: 1;
+  background: rgba(246, 248, 252, 0.96);
+  border: 1px solid rgba(15, 35, 60, 0.10);
+  border-right: 0;
+  border-radius: 12px;
+  box-shadow: none;
+  color: var(--neutral-900, #0b1f3f);
+  cursor: default;
+  transform: none;
+}
+/* "Баланс": complete turquoise button with FULL radius on ALL FOUR corners
+   (left edge curves), pulled left with a SUBTLE controlled overlap (old
+   proportions) and stacked above the amount so it sits over the junction.
+   Turquoise bg + white text inherit from the committed pay-button rule. */
+body.dashboard-body .dashboard-shell .topbar-pay-button {
+  position: relative;
+  z-index: 2;
+  margin-left: -6px;
+  border-radius: 12px;
+  box-shadow: none;
+}
+/* Controlled hover/focus — ONLY the Баланс button reacts (subtle, lift-free).
+   The amount is a display field and must stay identical at rest/hover. */
+body.dashboard-body .dashboard-shell .topbar-pay-button:hover,
+body.dashboard-body .dashboard-shell .topbar-pay-button:focus-visible {
+  box-shadow: 0 4px 12px rgba(29, 181, 181, 0.25);
+}
+/* 5. Brand/logo mark: no heavy shadow (not a floating card); subtle border only. */
+body.dashboard-body .dashboard-shell .brand-mark {
+  box-shadow: none;
+  border: 1px solid rgba(15, 35, 60, 0.08);
+}
+
+/* Topbar borderless into a solid-white main; workspace top-left curve 24px. */
+body.dashboard-body .dashboard-shell .dashboard-main {
+  background: #ffffff;
+}
+body.dashboard-body .dashboard-shell .dashboard-content {
+  border-top-left-radius: 24px;
+}
+
+/* ============================================================
+   OWNER dashboard card ICONS — unified presentation.
+   Before: KPI icons were 40px / radius 18 / svg 20 / stroke 2.5; summary icons
+   were 44px / radius 14 / svg 22 / stroke 2.15 — inconsistent box size, radius,
+   optical size and (most visibly) stroke weight. Normalize BOTH families to a
+   single deliberate spec so KPI and summary read as one system, and apply a
+   restrained 2-accent semantic tint (turquoise = incoming/positive/neutral,
+   muted coral = outgoing/liability). Glyphs unchanged (still correct); only
+   container + optical size + stroke + tint are touched. Unlayered → wins over
+   the many layered icon rules. react-overrides untouched.
+   ============================================================ */
+/* Container: 42px square, radius 12, centered. flex/max-width reset because a
+   layered rule pins the summary icon to `flex: 0 0 44px` (flex-basis wins over
+   width in the summary's flex row). */
+body.dashboard-body .dashboard-shell .premium-kpi__icon,
+body.dashboard-body .dashboard-shell .warehouse-summary-item__icon {
+  width: 42px;
+  min-width: 42px;
+  max-width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+/* SVG: 19px optical, consistent stroke weight across every card. */
+body.dashboard-body .dashboard-shell .premium-kpi__icon svg,
+body.dashboard-body .dashboard-shell .premium-kpi__icon svg *,
+body.dashboard-body .dashboard-shell .warehouse-summary-item__icon svg,
+body.dashboard-body .dashboard-shell .warehouse-summary-item__icon svg * {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+/* --- Semantic tint: turquoise default (incoming / positive / neutral) --- */
+body.dashboard-body .dashboard-shell .premium-kpi--revenue .premium-kpi__icon,
+body.dashboard-body .dashboard-shell .premium-kpi--orders .premium-kpi__icon,
+body.dashboard-body .dashboard-shell .premium-kpi--avg .premium-kpi__icon,
+body.dashboard-body .dashboard-shell .premium-kpi--tables .premium-kpi__icon,
+body.dashboard-body .dashboard-shell .warehouse-summary-item--income .warehouse-summary-item__icon,
+body.dashboard-body .dashboard-shell .warehouse-summary-item--stock .warehouse-summary-item__icon,
+body.dashboard-body .dashboard-shell .warehouse-summary-item--costs .warehouse-summary-item__icon,
+body.dashboard-body .dashboard-shell .warehouse-summary-item--debtor .warehouse-summary-item__icon {
+  background: rgba(29, 181, 181, 0.12);
+}
+body.dashboard-body .dashboard-shell .premium-kpi--revenue .premium-kpi__icon svg,
+body.dashboard-body .dashboard-shell .premium-kpi--revenue .premium-kpi__icon svg *,
+body.dashboard-body .dashboard-shell .premium-kpi--orders .premium-kpi__icon svg,
+body.dashboard-body .dashboard-shell .premium-kpi--orders .premium-kpi__icon svg *,
+body.dashboard-body .dashboard-shell .premium-kpi--avg .premium-kpi__icon svg,
+body.dashboard-body .dashboard-shell .premium-kpi--avg .premium-kpi__icon svg *,
+body.dashboard-body .dashboard-shell .premium-kpi--tables .premium-kpi__icon svg,
+body.dashboard-body .dashboard-shell .premium-kpi--tables .premium-kpi__icon svg *,
+body.dashboard-body .dashboard-shell .warehouse-summary-item--income .warehouse-summary-item__icon svg,
+body.dashboard-body .dashboard-shell .warehouse-summary-item--income .warehouse-summary-item__icon svg *,
+body.dashboard-body .dashboard-shell .warehouse-summary-item--stock .warehouse-summary-item__icon svg,
+body.dashboard-body .dashboard-shell .warehouse-summary-item--stock .warehouse-summary-item__icon svg *,
+body.dashboard-body .dashboard-shell .warehouse-summary-item--costs .warehouse-summary-item__icon svg,
+body.dashboard-body .dashboard-shell .warehouse-summary-item--costs .warehouse-summary-item__icon svg *,
+body.dashboard-body .dashboard-shell .warehouse-summary-item--debtor .warehouse-summary-item__icon svg,
+body.dashboard-body .dashboard-shell .warehouse-summary-item--debtor .warehouse-summary-item__icon svg * {
+  color: rgb(29, 181, 181);
+  stroke: rgb(29, 181, 181);
+}
+/* --- Semantic tint: muted coral (outgoing / liability) --- */
+body.dashboard-body .dashboard-shell .premium-kpi--expense .premium-kpi__icon,
+body.dashboard-body .dashboard-shell .warehouse-summary-item--expense .warehouse-summary-item__icon,
+body.dashboard-body .dashboard-shell .warehouse-summary-item--creditor .warehouse-summary-item__icon {
+  background: rgba(224, 106, 90, 0.12);
+}
+body.dashboard-body .dashboard-shell .premium-kpi--expense .premium-kpi__icon svg,
+body.dashboard-body .dashboard-shell .premium-kpi--expense .premium-kpi__icon svg *,
+body.dashboard-body .dashboard-shell .warehouse-summary-item--expense .warehouse-summary-item__icon svg,
+body.dashboard-body .dashboard-shell .warehouse-summary-item--expense .warehouse-summary-item__icon svg *,
+body.dashboard-body .dashboard-shell .warehouse-summary-item--creditor .warehouse-summary-item__icon svg,
+body.dashboard-body .dashboard-shell .warehouse-summary-item--creditor .warehouse-summary-item__icon svg * {
+  color: rgb(224, 106, 90);
+  stroke: rgb(224, 106, 90);
+}
+
+/* ============================================================
+   OWNER top KPI icons — per-card premium tint (overrides the shared turquoise
+   above for the 5 KPI cards only; right-summary cards keep their turquoise/coral
+   system). Rounded-square container (radius 18), unified 42px box / 19px svg /
+   stroke 2. Soft tinted background + saturated line icon per semantic:
+   revenue=teal-mint, orders=blue, avg=violet, income=amber, expense=coral-red.
+   ============================================================ */
+/* KPI icon = crisp rounded SQUARE (not a squircle/oval). On the 42px box a
+   14px radius keeps clear straight edges; enforce equal w/h + aspect 1/1 so the
+   flex row can never stretch it oval. */
+body.dashboard-body .dashboard-shell .premium-kpi__icon {
+  width: 42px;
+  min-width: 42px;
+  max-width: 42px;
+  height: 42px;
+  min-height: 42px;
+  max-height: 42px;
+  aspect-ratio: 1 / 1;
+  flex: 0 0 42px;
+  align-self: center;
+  padding: 0;
+  border-radius: 14px;
+}
+/* Выручка — teal / mint */
+body.dashboard-body .dashboard-shell .premium-kpi--revenue .premium-kpi__icon {
+  background: rgba(16, 185, 129, 0.12);
+}
+body.dashboard-body .dashboard-shell .premium-kpi--revenue .premium-kpi__icon svg,
+body.dashboard-body .dashboard-shell .premium-kpi--revenue .premium-kpi__icon svg * {
+  color: rgb(13, 148, 116);
+  stroke: rgb(13, 148, 116);
+}
+/* Заказов — blue */
+body.dashboard-body .dashboard-shell .premium-kpi--orders .premium-kpi__icon {
+  background: rgba(59, 130, 246, 0.12);
+}
+body.dashboard-body .dashboard-shell .premium-kpi--orders .premium-kpi__icon svg,
+body.dashboard-body .dashboard-shell .premium-kpi--orders .premium-kpi__icon svg * {
+  color: rgb(37, 99, 235);
+  stroke: rgb(37, 99, 235);
+}
+/* Средний чек — violet / lavender */
+body.dashboard-body .dashboard-shell .premium-kpi--avg .premium-kpi__icon {
+  background: rgba(139, 92, 246, 0.12);
+}
+body.dashboard-body .dashboard-shell .premium-kpi--avg .premium-kpi__icon svg,
+body.dashboard-body .dashboard-shell .premium-kpi--avg .premium-kpi__icon svg * {
+  color: rgb(124, 58, 237);
+  stroke: rgb(124, 58, 237);
+}
+/* Денежный приход — amber / orange */
+body.dashboard-body .dashboard-shell .premium-kpi--tables .premium-kpi__icon {
+  background: rgba(245, 158, 11, 0.14);
+}
+body.dashboard-body .dashboard-shell .premium-kpi--tables .premium-kpi__icon svg,
+body.dashboard-body .dashboard-shell .premium-kpi--tables .premium-kpi__icon svg * {
+  color: rgb(217, 119, 6);
+  stroke: rgb(217, 119, 6);
+}
+/* Денежные расходы — coral / red */
+body.dashboard-body .dashboard-shell .premium-kpi--expense .premium-kpi__icon {
+  background: rgba(244, 63, 94, 0.12);
+}
+body.dashboard-body .dashboard-shell .premium-kpi--expense .premium-kpi__icon svg,
+body.dashboard-body .dashboard-shell .premium-kpi--expense .premium-kpi__icon svg * {
+  color: rgb(225, 74, 90);
+  stroke: rgb(225, 74, 90);
+}
+
+/* ============================================================
+   OWNER expanded subcategory panel (.sidebar-submenu, e.g. under "Отчёты").
+   Panel-only polish INSIDE the existing 280px sidebar (sidebar width NOT
+   changed). Goals: the panel fills a touch more of the rail (outer margin
+   ~10px), reads as a structured nav group (1px hairline, no floating shadow),
+   compact rows, and a clear active-parent(strong turquoise) → active-child
+   (light turquoise secondary) hierarchy. Unlayered OWNER rules; react-overrides
+   untouched.
+   ============================================================ */
+/* Panel: widen slightly via small negative side margin (outer ~10px, still
+   fully inside 280px), turquoise hairline border (#4FE1E5, matches reference),
+   disciplined radius. The panel's OWN box-shadow is removed — depth is provided
+   by a decorative ::after layer (below) that is fully decoupled from the child
+   cascade, so selecting a subcategory can never repaint panel depth.
+   ROOT CAUSE of the old "shadow changes on child click": react-overrides
+   declares box-shadow on `.sidebar-nav-item…is-active/.is-open/:hover/:focus-within
+   .sidebar-submenu` (many layered variants, e.g. L2109/2938/2989); those state
+   rules drove panel depth as the active child moved. Removing box-shadow from the
+   panel entirely (below) + a stateless ::after eliminates the coupling at the source. */
+body.dashboard-body .dashboard-shell .sidebar-submenu {
+  box-sizing: border-box;
+  position: relative;
+  margin-left: 0;
+  margin-right: 0;
+  padding: 4px;
+  background: #ffffff;
+  border: 1px solid rgb(79, 225, 229);
+  border-radius: 12px;
+  box-shadow: none;
+}
+/* Decorative, STATE-INDEPENDENT depth: a soft blurred radial ellipse under the
+   panel. It is an ::after (not box-shadow), so no box-shadow cascade/state can
+   touch it; its computed style is identical in every child/parent state. The
+   ellipse + blur dissolves toward the left/right edges (no sharp side walls, no
+   straight band, no glow). z-index:-1 keeps it behind the white panel; the open
+   panel has overflow:visible so the overhang shows, while the closed panel
+   (opacity:0 + max-height:0 + overflow:hidden) hides it. */
+body.dashboard-body .dashboard-shell .sidebar-submenu::after {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 100%;
+  margin-top: -6px;
+  height: 16px;
+  background: rgba(15, 35, 60, 0.20);
+  filter: blur(13px);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+}
+/* Authoritative state-invariance pin: force the SAME border + no-box-shadow in
+   every child/parent state, so selecting a subcategory can never repaint depth. */
+body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu .sidebar-submenu,
+body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu.is-open .sidebar-submenu,
+body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu.is-active .sidebar-submenu,
+body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu:hover .sidebar-submenu,
+body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu:focus-within .sidebar-submenu,
+body.dashboard-body .dashboard-shell .sidebar-submenu:has(.sidebar-submenu__link.is-active),
+body.dashboard-body .dashboard-shell .sidebar-submenu:hover,
+body.dashboard-body .dashboard-shell .sidebar-submenu:focus-within {
+  border-color: rgb(79, 225, 229);
+  background: #ffffff;
+  box-shadow: none;
+}
+/* Motion parity: the active "Отчёты" parent (has-submenu) used a DIFFERENT
+   resting box-shadow — `0 6px 17px rgba(20,199,197,.15)` — than a normal active
+   item (`inset 0 1px 0 rgba(255,255,255,.114), 0 6px 13px rgba(29,181,181,.125)`),
+   so it read as a slightly different active state. Pin it to the standard active
+   shadow so every active nav item shares the same look + motion. */
+body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu .sidebar-link.is-active,
+body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu.is-open > .sidebar-link.is-active {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.114),
+    0 6px 13px rgba(29, 181, 181, 0.125);
+}
+/* Open parent button wears the SAME turquoise hairline as the submenu panel, so
+   the open category (button + panel) reads as one connected system. Coordinated
+   radius; border-color animates via the shared transition family. box-sizing
+   border-box keeps the 1px border from shifting layout. */
+body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu.is-open > .sidebar-link {
+  box-sizing: border-box;
+  border: 1px solid rgb(79, 225, 229);
+  border-radius: 24px;
+  overflow: visible;
+  background-image: none;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+/* Guard: open parent must carry NO overlay/mask layer near the chevron — kill any
+   decorative ::after and keep the chevron wrapper fully transparent. */
+body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu.is-open > .sidebar-link::after {
+  content: none;
+  background: none;
+  box-shadow: none;
+}
+body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu.is-open > .sidebar-link .sidebar-link__chevron {
+  background: transparent;
+  box-shadow: none;
+  filter: none;
+}
+body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu.is-open > .sidebar-link .sidebar-link__chevron::before,
+body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu.is-open > .sidebar-link .sidebar-link__chevron::after {
+  content: none;
+}
+/* Soft open/close: closed slides up + fades (base sets max-height:0/opacity:0),
+   open settles to translateY(0). Transition owns transform + opacity + max-height. */
+body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu .sidebar-submenu {
+  transform: translateY(-6px);
+  transition: transform 200ms ease, opacity 190ms ease,
+    max-height 220ms cubic-bezier(0.22, 1, 0.36, 1), padding 190ms ease, margin 190ms ease;
+}
+body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu.is-open .sidebar-submenu {
+  transform: none;
+}
+/* Chevron on the parent rotates smoothly when its group opens. */
+body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu .sidebar-link__chevron {
+  transition: transform 200ms ease;
+}
+body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu.is-open .sidebar-link__chevron {
+  transform: rotate(90deg);
+}
+/* Rows: compact, aligned, calmer type; disciplined radius. Long report names
+   wrap onto a second line instead of ellipsis-clipping (rows grow from the
+   38px floor), so labels like "Отчёт по отменённым блюдам" read fully. */
+body.dashboard-body .dashboard-shell .sidebar-submenu__link {
+  min-height: 38px;
+  height: auto;
+  align-items: center;
+  padding: 6px 12px;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.25;
+  border-radius: 8px;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+body.dashboard-body .dashboard-shell .sidebar-submenu__link .sidebar-submenu__icon svg {
+  width: 17px;
+  height: 17px;
+}
+/* Inactive child: transparent, muted navy/slate; gentle turquoise hover. */
+body.dashboard-body .dashboard-shell .sidebar-submenu__link:not(.is-active) {
+  background: transparent;
+  color: rgba(11, 31, 63, 0.78);
+}
+body.dashboard-body .dashboard-shell .sidebar-submenu__link:not(.is-active):hover {
+  background: rgba(29, 181, 181, 0.07);
+  color: var(--neutral-900, #0b1f3f);
+}
+/* Active child: SECONDARY to the strong-turquoise parent — light turquoise
+   tint, navy text (weight 600), turquoise icon/dot. Not another full block. */
+body.dashboard-body .dashboard-shell .sidebar-submenu__link.is-active {
+  background: rgba(29, 181, 181, 0.12);
+  color: var(--neutral-900, #0b1f3f);
+  font-weight: 600;
+  border-radius: 8px;
+}
+/* Active child icon → turquoise glyph (no box). */
+body.dashboard-body .dashboard-shell .sidebar-submenu__link.is-active .sidebar-submenu__icon,
+body.dashboard-body .dashboard-shell .sidebar-submenu__link.is-active .sidebar-submenu__icon svg,
+body.dashboard-body .dashboard-shell .sidebar-submenu__link.is-active .sidebar-submenu__icon svg * {
+  color: var(--color-brand, #1db5b5);
+  stroke: var(--color-brand, #1db5b5);
+}
+/* Active child dot is a filled marker → turquoise fill. */
+body.dashboard-body .dashboard-shell .sidebar-submenu__link.is-active .sidebar-submenu__dot {
+  background: var(--color-brand, #1db5b5);
+  stroke: none;
+}
+
+/* ============================================================
+   OWNER sidebar MOTION + ICON cleanup.
+   1) One calm transition family for ALL nav items (main + submenu) so hover
+      and inactive→active feel identical — submenu links had NO transition
+      (instant), main links animated: that mismatch is the "sometimes smooth,
+      sometimes snaps" bug. 2) Remove the dark/tinted icon-box that layered base
+      rules paint behind submenu icons on hover/active (bg + inset ring + white
+      glyph = a square that flashes on the light row). Icons now live directly
+      in the row. Unlayered OWNER; react-overrides untouched.
+   ============================================================ */
+/* 1a. Unified row motion — includes a gentle transform so hover can nudge. */
+body.dashboard-body .dashboard-shell .sidebar-link,
+body.dashboard-body .dashboard-shell .sidebar-submenu__link {
+  transition: transform 180ms ease, background-color 160ms ease,
+    color 160ms ease, border-color 160ms ease, box-shadow 180ms ease;
+}
+/* Gentle hover nudge (inactive only): a small rightward slide, no scale/bounce,
+   no layout shift (transform doesn't reflow). Active/open items stay put. */
+body.dashboard-body .dashboard-shell .sidebar-link:not(.is-active):hover,
+body.dashboard-body .dashboard-shell .sidebar-submenu__link:not(.is-active):hover {
+  transform: translateX(3px);
+}
+/* 1b. Unified icon motion. */
+body.dashboard-body .dashboard-shell .sidebar-link .sidebar-icon,
+body.dashboard-body .dashboard-shell .sidebar-link .sidebar-icon svg,
+body.dashboard-body .dashboard-shell .sidebar-link .sidebar-icon svg *,
+body.dashboard-body .dashboard-shell .sidebar-submenu__icon,
+body.dashboard-body .dashboard-shell .sidebar-submenu__icon svg,
+body.dashboard-body .dashboard-shell .sidebar-submenu__icon svg * {
+  transition: color 160ms ease, stroke 160ms ease, opacity 160ms ease;
+}
+/* 2. Kill the icon-box on submenu icons in EVERY state (rest/hover/focus/active)
+   — no background, no ring/shadow, no filter; the glyph sits bare in the row. */
+body.dashboard-body .dashboard-shell .sidebar-submenu__icon,
+body.dashboard-body .dashboard-shell .sidebar-submenu__link:hover .sidebar-submenu__icon,
+body.dashboard-body .dashboard-shell .sidebar-submenu__link:focus-visible .sidebar-submenu__icon,
+body.dashboard-body .dashboard-shell .sidebar-submenu__link.is-active .sidebar-submenu__icon {
+  background: transparent;
+  box-shadow: none;
+  filter: none;
+  outline: none;
+  flex-shrink: 0;
+}
+body.dashboard-body .dashboard-shell .sidebar-submenu__icon svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 2;
+}
+/* 3. Icon glyph colour per state (base painted hover icons #ffffff → invisible
+   on the light row; fix to turquoise). Inactive muted slate, hover/active
+   turquoise. */
+body.dashboard-body .dashboard-shell .sidebar-submenu__link:not(.is-active) .sidebar-submenu__icon,
+body.dashboard-body .dashboard-shell .sidebar-submenu__link:not(.is-active) .sidebar-submenu__icon svg,
+body.dashboard-body .dashboard-shell .sidebar-submenu__link:not(.is-active) .sidebar-submenu__icon svg * {
+  color: rgba(11, 31, 63, 0.60);
+  stroke: rgba(11, 31, 63, 0.60);
+}
+body.dashboard-body .dashboard-shell .sidebar-submenu__link:not(.is-active):hover .sidebar-submenu__icon,
+body.dashboard-body .dashboard-shell .sidebar-submenu__link:not(.is-active):hover .sidebar-submenu__icon svg,
+body.dashboard-body .dashboard-shell .sidebar-submenu__link:not(.is-active):hover .sidebar-submenu__icon svg *,
+body.dashboard-body .dashboard-shell .sidebar-submenu__link:not(.is-active):focus-visible .sidebar-submenu__icon svg,
+body.dashboard-body .dashboard-shell .sidebar-submenu__link:not(.is-active):focus-visible .sidebar-submenu__icon svg * {
+  color: var(--color-brand, #1db5b5);
+  stroke: var(--color-brand, #1db5b5);
+}
+/* 4. Submenu row hover: gentle turquoise tint (base was a heavier .17), navy
+   text, no dark box, no layout shift. */
+body.dashboard-body .dashboard-shell .sidebar-submenu__link:not(.is-active):hover,
+body.dashboard-body .dashboard-shell .sidebar-submenu__link:not(.is-active):focus-visible {
+  background: rgba(29, 181, 181, 0.08);
+  color: var(--neutral-900, #0b1f3f);
+  box-shadow: none;
+}
+/* 5. Respect reduced-motion: near-instant, no easing. No forced priority — each
+   selector here MATCHES the specificity of the rule that sets its duration and
+   sits later in source, so it wins deterministically (unlayered also beats the
+   layered base). The submenu panel + chevron use the higher-specificity
+   `.sidebar-nav-item.has-submenu …` form to match their open/close rules. */
+@media (prefers-reduced-motion: reduce) {
+  body.dashboard-body .dashboard-shell .sidebar-link,
+  body.dashboard-body .dashboard-shell .sidebar-submenu__link,
+  body.dashboard-body .dashboard-shell .sidebar-link .sidebar-icon,
+  body.dashboard-body .dashboard-shell .sidebar-link .sidebar-icon svg,
+  body.dashboard-body .dashboard-shell .sidebar-submenu__icon,
+  body.dashboard-body .dashboard-shell .sidebar-submenu__icon svg,
+  body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu .sidebar-submenu,
+  body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu .sidebar-link__chevron {
+    transition-duration: 0.01ms;
+  }
+}
+
+/* ============================================================
+   OWNER balance payment modal ("Оплата баланса").
+   The modal is portaled to <body>, so it escapes .dashboard-main's stacking
+   context and the fixed sidebar (z:180): the backdrop now dims the WHOLE shell
+   (sidebar + topbar + main) uniformly and the card centres on the viewport.
+   Also compacts the too-tall header. Selectors scoped to body.dashboard-body
+   (NOT .dashboard-shell) because the portal renders outside the shell.
+   Unlayered OWNER; react-overrides untouched.
+   ============================================================ */
+/* Overlay: sit above everything, dim uniformly (soft, not too dark), centre the
+   card. Force FULL-viewport size — base media rules shrink it to
+   `calc(100vw - 260px)` etc. (a leftover from when it lived inside .dashboard-main
+   offset by the sidebar); after portaling to <body> it must span the whole screen. */
+body.dashboard-body .balance-payment-modal {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  margin: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 35, 60, 0.34);
+  backdrop-filter: blur(5px);
+}
+/* Card: compact the header — trim the empty top zone ~40% (padding + gaps). */
+body.dashboard-body .balance-payment-dialog__head {
+  padding: 11px 28px 10px;
+}
+body.dashboard-body .balance-payment-dialog__head span {
+  margin-bottom: 2px;
+}
+body.dashboard-body .balance-payment-dialog__head h2 {
+  font-size: 21px;
+  line-height: 1.15;
+}
+
+/* ============================================================
+   OWNER account/profile dropdown — light, tidy entrance in the same motion
+   family as the submenus (opacity + small y-offset). The base centres the menu
+   with transform: translateX(-50%); the keyframe keeps that translateX so the
+   panel never shifts. Trigger chevron rotates on open. Single soft shadow
+   (set by the white-shell rule) — no double shadow. Non-collapsed only.
+   ============================================================ */
+@keyframes owner-account-menu-in {
+  from { opacity: 0; transform: translate(-50%, 6px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+@keyframes owner-account-menu-out {
+  from { opacity: 1; transform: translate(-50%, 0); }
+  to   { opacity: 0; transform: translate(-50%, 6px); }
+}
+body.dashboard-body .dashboard-sidebar:not(.is-collapsed) .sidebar-account__menu {
+  animation: owner-account-menu-in 180ms ease both;
+  transform-origin: bottom center;
+}
+/* Smooth CLOSE: exit animation runs while `.is-closing`, then the component
+   unmounts on animationend (presence model) — no hard snap. */
+body.dashboard-body .dashboard-sidebar:not(.is-collapsed) .sidebar-account__menu.is-closing {
+  animation: owner-account-menu-out 180ms ease both;
+}
+body.dashboard-body .sidebar-account .sidebar-user__arrow {
+  transition: transform 200ms ease;
+}
+/* Profile trigger chevron: closed → points right (bi-chevron-right, no rotation);
+   open → points up (rotate -90°). Smooth 90° turn, icon size/position unchanged. */
+body.dashboard-body .sidebar-account.is-open .sidebar-user__arrow {
+  transform: rotate(-90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  body.dashboard-body .dashboard-sidebar:not(.is-collapsed) .sidebar-account__menu,
+  body.dashboard-body .dashboard-sidebar:not(.is-collapsed) .sidebar-account__menu.is-closing {
+    animation-duration: 0.01ms;
+  }
+  body.dashboard-body .sidebar-account .sidebar-user__arrow {
+    transition-duration: 0.01ms;
+  }
+}
+
+/* ============================================================
+   OWNER account/profile menu — white-shell text + language control.
+   Fixes near-white (invisible) row text and the dark navy language popup so the
+   whole menu reads as one light, premium surface. Unlayered OWNER; react-overrides
+   untouched.
+   ============================================================ */
+/* Neutralize the legacy full-cover ::before sheen (a dark-theme overlay). */
+body.dashboard-body .sidebar-account__menu::before {
+  background: none;
+  box-shadow: none;
+}
+/* Row text hierarchy: actionable rows = readable navy, icons = muted slate. */
+body.dashboard-body .sidebar-account__menu .sidebar-account__item {
+  color: var(--neutral-900, #0b1f3f);
+}
+body.dashboard-body .sidebar-account__menu .sidebar-account__item span {
+  color: var(--neutral-900, #0b1f3f);
+}
+body.dashboard-body .sidebar-account__menu .sidebar-account__item svg {
+  color: var(--neutral-500, #536d8e);
+  stroke: var(--neutral-500, #536d8e);
+}
+body.dashboard-body .sidebar-account__menu .sidebar-account__item:hover {
+  background: rgba(29, 181, 181, 0.08);
+  color: var(--neutral-900, #0b1f3f);
+}
+body.dashboard-body .sidebar-account__menu .sidebar-account__item:hover svg {
+  color: var(--color-brand, #1db5b5);
+  stroke: var(--color-brand, #1db5b5);
+}
+/* Logout: readable soft danger red. */
+body.dashboard-body .sidebar-account__menu .sidebar-account__item--danger,
+body.dashboard-body .sidebar-account__menu .sidebar-account__item--danger span,
+body.dashboard-body .sidebar-account__menu .sidebar-account__item--danger svg {
+  color: #e5484d;
+  stroke: #e5484d;
+}
+body.dashboard-body .sidebar-account__menu .sidebar-account__item--danger:hover {
+  background: rgba(229, 72, 77, 0.10);
+}
+
+/* ---- Language control: white-shell, integrated with the profile menu ---- */
+/* Trigger row: readable navy, compact selected flag + code. */
+body.dashboard-body .sidebar-account__lang-trigger {
+  color: var(--neutral-900, #0b1f3f);
+}
+body.dashboard-body .sidebar-account__lang-label,
+body.dashboard-body .sidebar-account__lang-current,
+body.dashboard-body .sidebar-account__lang-chevron {
+  color: var(--neutral-900, #0b1f3f);
+}
+body.dashboard-body .sidebar-account__lang-label svg,
+body.dashboard-body .sidebar-account__lang-chevron {
+  color: var(--neutral-500, #536d8e);
+  stroke: var(--neutral-500, #536d8e);
+}
+body.dashboard-body .sidebar-account__lang-current {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+}
+body.dashboard-body .sidebar-account__lang-current-flag {
+  display: inline-flex;
+  width: 18px;
+  height: 13px;
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(15, 35, 60, 0.10);
+}
+body.dashboard-body .sidebar-account__lang-current-flag img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* Popup: light surface, subtle border, soft shadow, gentle entrance. */
+body.dashboard-body .sidebar-account__lang-panel {
+  background: #ffffff;
+  border: 1px solid rgba(15, 35, 60, 0.10);
+  box-shadow: 0 10px 26px -8px rgba(15, 35, 60, 0.18);
+  color: var(--neutral-900, #0b1f3f);
+  animation: owner-lang-panel-in 160ms ease both;
+}
+@keyframes owner-lang-panel-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+body.dashboard-body .sidebar-account__lang-panel button {
+  background: transparent;
+  color: var(--neutral-900, #0b1f3f);
+  transition: background-color 160ms ease, color 160ms ease;
+}
+body.dashboard-body .sidebar-account__lang-panel button:hover {
+  background: rgba(29, 181, 181, 0.08);
+}
+body.dashboard-body .sidebar-account__lang-panel button.is-active {
+  background: rgba(29, 181, 181, 0.12);
+  color: var(--neutral-900, #0b1f3f);
+}
+body.dashboard-body .sidebar-account__lang-code {
+  color: var(--neutral-900, #0b1f3f);
+}
+@media (prefers-reduced-motion: reduce) {
+  body.dashboard-body .sidebar-account__lang-panel { animation-duration: 0.01ms; }
+}
+
+/* ---- Sidebar padding (exact requested value) ---- */
+body.dashboard-body .dashboard-shell .dashboard-sidebar {
+  padding: 10px 6px 15px;
+}
+
+/* ============================================================
+   OWNER sidebar NAVIGATION search (under brand, above "Дашборд").
+   Root is a positioning wrapper for the results popover; the field is the light
+   recessed input. Unlayered OWNER; react-overrides untouched.
+   ============================================================ */
+body.dashboard-body .dashboard-shell .sidebar-search {
+  position: relative;
+  margin: 72px 4px 0;
+  z-index: 30;
+}
+body.dashboard-body .dashboard-shell .sidebar-search__field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  height: 38px;
+  background: rgba(15, 35, 60, 0.055);
+  border: 1px solid rgba(15, 35, 60, 0.06);
+  border-radius: 12px;
+  box-shadow: none;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+/* The base pins .sidebar-brand (position:fixed) and reserves clearance via
+   .sidebar-nav margin-top:76px. With the search now occupying that clearance,
+   the nav follows the search with a small gap (non-collapsed only; the collapsed
+   rail hides the search and keeps the base clearance). */
+body.dashboard-body .dashboard-sidebar:not(.is-collapsed) .sidebar-nav {
+  margin-top: 6px;
+}
+body.dashboard-body .dashboard-shell .sidebar-search__field:focus-within {
+  background: #ffffff;
+  border-color: rgba(29, 181, 181, 0.55);
+  box-shadow: 0 0 0 3px rgba(29, 181, 181, 0.08);
+}
+/* Collapsed rail has no room for a text field → hide the search cleanly. */
+body.dashboard-body .dashboard-sidebar.is-collapsed .sidebar-search {
+  display: none;
+}
+/* Active sidebar buttons: pill radius 24px (active leaf + active/open parent).
+   Inactive buttons keep their default radius. */
+body.dashboard-body .dashboard-shell .sidebar-link.is-active {
+  border-radius: 24px;
+}
+@media (prefers-reduced-motion: reduce) {
+  body.dashboard-body .dashboard-shell .sidebar-search__field,
+  body.dashboard-body .dashboard-shell .sidebar-search__clear,
+  body.dashboard-body .dashboard-shell .sidebar-search__result {
+    transition-duration: 0.01ms;
+  }
+}
+
+/* ---- Search field internals: icon, input, clear X ---- */
+body.dashboard-body .dashboard-shell .sidebar-search__icon,
+body.dashboard-body .dashboard-shell .sidebar-search__icon svg {
+  color: rgba(11, 31, 63, 0.55);
+  stroke: rgba(11, 31, 63, 0.55);
+  flex-shrink: 0;
+}
+body.dashboard-body .dashboard-shell .sidebar-search__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--neutral-900, #0b1f3f);
+  font-size: 14px;
+  line-height: 1;
+}
+body.dashboard-body .dashboard-shell .sidebar-search__input::placeholder {
+  color: rgba(11, 31, 63, 0.45);
+}
+body.dashboard-body .dashboard-shell .sidebar-search__input::-webkit-search-cancel-button {
+  display: none;
+}
+body.dashboard-body .dashboard-shell .sidebar-search__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(11, 31, 63, 0.5);
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+body.dashboard-body .dashboard-shell .sidebar-search__clear:hover {
+  background: rgba(15, 35, 60, 0.06);
+  color: var(--neutral-900, #0b1f3f);
+}
+/* ---- Results popover ---- */
+body.dashboard-body .dashboard-shell .sidebar-search__results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 35, 60, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(15, 35, 60, 0.10);
+}
+body.dashboard-body .dashboard-shell .sidebar-search__result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 140ms ease;
+}
+body.dashboard-body .dashboard-shell .sidebar-search__result.is-active,
+body.dashboard-body .dashboard-shell .sidebar-search__result:hover {
+  background: rgba(29, 181, 181, 0.08);
+}
+body.dashboard-body .dashboard-shell .sidebar-search__result-icon,
+body.dashboard-body .dashboard-shell .sidebar-search__result-icon svg {
+  color: rgba(11, 31, 63, 0.7);
+  stroke: rgba(11, 31, 63, 0.7);
+  flex-shrink: 0;
+}
+body.dashboard-body .dashboard-shell .sidebar-search__result.is-active .sidebar-search__result-icon svg,
+body.dashboard-body .dashboard-shell .sidebar-search__result:hover .sidebar-search__result-icon svg {
+  color: var(--color-brand, #1db5b5);
+  stroke: var(--color-brand, #1db5b5);
+}
+body.dashboard-body .dashboard-shell .sidebar-search__result-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+body.dashboard-body .dashboard-shell .sidebar-search__result-label {
+  color: var(--neutral-900, #0b1f3f);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+body.dashboard-body .dashboard-shell .sidebar-search__result-parent {
+  color: var(--neutral-500, #536d8e);
+  font-size: 11.5px;
+  line-height: 1.2;
+}
+body.dashboard-body .dashboard-shell .sidebar-search__empty {
+  padding: 14px 12px;
+  text-align: center;
+}
+body.dashboard-body .dashboard-shell .sidebar-search__empty-title {
+  color: var(--neutral-900, #0b1f3f);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+body.dashboard-body .dashboard-shell .sidebar-search__empty-sub {
+  color: var(--neutral-500, #536d8e);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+/* ============================================================
+   OWNER right-summary cards: match the top KPI hover motion.
+   Top KPI (winning rule) hover = translateY(-2px) + box-shadow 0 6px 16px
+   rgba(16,24,40,.08) + subtle turquoise border, transition
+   transform/box-shadow/border-color 0.15s ease. The summary cards already share
+   that transition; here we add the same lift + shadow + border response.
+   Transform-only lift → GPU-safe, no layout reflow, no sibling jitter.
+   Resting state untouched (hover/focus only). Semantic icon tints preserved.
+   ============================================================ */
+body.dashboard-body .dashboard-shell .warehouse-summary-item:hover,
+body.dashboard-body .dashboard-shell .warehouse-summary-item:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(16, 24, 40, 0.08);
+  border-color: rgba(29, 181, 181, 0.30);
+}
+@media (prefers-reduced-motion: reduce) {
+  body.dashboard-body .dashboard-shell .warehouse-summary-item {
+    transition-duration: 0.01ms;
+  }
+  body.dashboard-body .dashboard-shell .warehouse-summary-item:hover,
+  body.dashboard-body .dashboard-shell .warehouse-summary-item:focus-visible {
+    transform: none;
+  }
+}
+
+/* ============================================================
+   OWNER topbar ~15% shorter (vertical compaction only).
+   Base explicit heights: >1440 = 86px, 1025–1440 = 64px, ≤1024 = 54px.
+   Reduce the two DESKTOP buckets ~15% (86→73, 64→54); mobile (≤1024) is left
+   as-is (already compact). Controls/fonts/icons and horizontal composition are
+   untouched — only the bar's own height + vertical padding shrink, so the
+   content rises naturally (no compensating margin). react-overrides untouched.
+   ============================================================ */
+@media (min-width: 1440px) {
+  body.dashboard-body .dashboard-shell .dashboard-topbar {
+    height: 73px;
+    min-height: 73px;
+    max-height: 73px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+}
+@media (min-width: 1025px) and (max-width: 1439px) {
+  body.dashboard-body .dashboard-shell .dashboard-topbar {
+    height: 54px;
+    min-height: 54px;
+    max-height: 54px;
+  }
+}

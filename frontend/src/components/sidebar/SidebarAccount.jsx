@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Icon from "../Icon";
 import { sidebarLanguages } from "./navConfig";
@@ -30,6 +31,21 @@ export default function SidebarAccount({
   openCollapsedAccount,
   closeCollapsedAccount,
 }) {
+  // Presence model so the panel animates OUT before unmounting (smooth close),
+  // not just a hard conditional unmount. `render` keeps the node mounted while
+  // closing; `closing` drives the exit animation; animationend clears it.
+  const [render, setRender] = useState(accountOpen);
+  const [closing, setClosing] = useState(false);
+  useEffect(() => {
+    if (accountOpen) { setRender(true); setClosing(false); }
+    else if (render) { setClosing(true); }
+  }, [accountOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  const handleMenuAnimEnd = () => {
+    if (closing) { setClosing(false); setRender(false); }
+  };
+  // Selected-language binding: the compact trigger reflects the actual `lang`.
+  const activeLang = sidebarLanguages.find((l) => l.code === lang) || sidebarLanguages[1];
+
   return (
     <div
       className={`sidebar-account ${accountOpen ? "is-open" : ""}`}
@@ -37,10 +53,11 @@ export default function SidebarAccount({
       onMouseEnter={openCollapsedAccount}
       onMouseLeave={closeCollapsedAccount}
     >
-      {accountOpen ? (
+      {render ? (
         <div
-          className="sidebar-account__menu"
+          className={`sidebar-account__menu ${closing ? "is-closing" : ""}`}
           role="menu"
+          onAnimationEnd={handleMenuAnimEnd}
           onMouseEnter={openCollapsedAccount}
           onMouseLeave={closeCollapsedAccount}
         >
@@ -79,7 +96,12 @@ export default function SidebarAccount({
                 <Icon name="bi-translate" size={16} />
                 Язык
               </span>
-              <span className="sidebar-account__lang-current">{lang.toUpperCase()}</span>
+              <span className="sidebar-account__lang-current">
+                <span className="sidebar-account__lang-current-flag" aria-hidden="true">
+                  <img src={activeLang.flagUrl} alt="" loading="lazy" decoding="async" />
+                </span>
+                {activeLang.short}
+              </span>
               <Icon name="bi-chevron-down" size={14} className="sidebar-account__lang-chevron" aria-hidden="true" />
             </button>
             {langPanelOpen ? (

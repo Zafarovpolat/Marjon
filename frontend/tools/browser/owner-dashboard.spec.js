@@ -14,7 +14,7 @@ const ACCEPTED = {
   chartShadowResting: "rgba(15, 35, 60, 0.04) 0px 1px 6px 0px",
   chartShadowHover: "rgba(15, 35, 60, 0.07) 0px 8px 20px 0px",
   warehouseShadowResting: "rgba(15, 35, 60, 0.06) 0px 3px 10px 0px",
-  warehouseShadowHover: "rgba(15, 35, 60, 0.08) 0px 6px 16px 0px",
+  warehouseShadowHover: "rgba(16, 24, 40, 0.08) 0px 6px 16px 0px",
   lowerCardShadow: "rgba(15, 35, 60, 0.05) 0px 2px 8px 0px",
   kpiTransformResting: "matrix(1, 0, 0, 1, 0, 0)",
   kpiTransformHover: "matrix(1, 0, 0, 1, 0, -2)",
@@ -87,12 +87,13 @@ test.describe("OWNER dashboard real-browser oracle", () => {
     await kpi.hover();
     await expect(kpi).toHaveCSS("transform", ACCEPTED.kpiTransformHover);
 
-    // Right-summary card hover is calm: NO transform lift, gentle border+shadow
+    // Right-summary card hover now matches the KPI motion: lift (translateY -2),
+    // elevated shadow, gentle turquoise border.
     const wh = page.locator(".warehouse-summary-item").first();
     await wh.hover();
-    await expect(wh).toHaveCSS("transform", "none");
+    await expect(wh).toHaveCSS("transform", ACCEPTED.kpiTransformHover);
     await expect(wh).toHaveCSS("box-shadow", ACCEPTED.warehouseShadowHover);
-    await expect(wh).toHaveCSS("border-top-color", "rgba(15, 35, 60, 0.14)");
+    await expect(wh).toHaveCSS("border-top-color", "rgba(29, 181, 181, 0.3)");
 
     // Revenue Analytics hover: no lift, soft shadow step-up only
     const chart = page.locator(".premium-chart");

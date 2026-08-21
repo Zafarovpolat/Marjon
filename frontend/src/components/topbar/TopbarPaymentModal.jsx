@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import uzcardLogo from "../../assets/paylogos/uzcard-humo.jpg";
 import visaLogo from "../../assets/paylogos/visa-mastercard.jpg";
 import Icon from "../Icon";
@@ -27,7 +28,10 @@ export default function TopbarPaymentModal({
 }) {
   if (!paymentOpen) return null;
 
-  return (
+  // Portal to <body> so the fixed overlay escapes the .dashboard-main stacking
+  // context (z-index:1) and the fixed sidebar (z-index:180): the backdrop then
+  // covers the WHOLE shell (sidebar + topbar + main) and centres on the viewport.
+  return createPortal(
     <div className="balance-payment-modal" role="presentation" onMouseDown={() => setPaymentOpen(false)}>
       <section className={`balance-payment-dialog ${paymentStep === "card" ? "balance-payment-dialog--card" : ""}`} role="dialog" aria-modal="true" aria-labelledby="balance-payment-title" onMouseDown={(event) => event.stopPropagation()}>
         {paymentStep === "method" ? (
@@ -170,6 +174,7 @@ export default function TopbarPaymentModal({
           </div>
         )}
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }

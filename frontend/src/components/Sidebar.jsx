@@ -5,6 +5,7 @@ import { logout } from "../api/client";
 import { canAccessPath, filterNavItems, getRole } from "../utils/permissions";
 import { readStoredProfile } from "../utils/profileCache";
 import { navItems } from "./sidebar/navConfig";
+import SidebarSearch from "./sidebar/SidebarSearch";
 import SidebarNav from "./sidebar/SidebarNav";
 import SidebarAccount from "./sidebar/SidebarAccount";
 import SidebarMobileNav from "./sidebar/SidebarMobileNav";
@@ -161,6 +162,13 @@ export default function Sidebar({ user, collapsed, onToggle }) {
           </div>
         </div>
       </div>
+
+      <SidebarSearch
+        navItems={visibleNavItems}
+        navigate={navigate}
+        setPinnedMenu={setPinnedMenu}
+        setOpenMenu={setOpenMenu}
+      />
 
       <SidebarNav
         visibleNavItems={visibleNavItems}

@@ -322,7 +322,7 @@ export function buildRealKpis(dash, sales, selectedDate, placeSettings = [], fin
   return [
     {
       className: "premium-kpi--revenue",
-      icon: "bi-currency-exchange",
+      icon: "bi-wallet2",
       badge: formatDateLabel(selectedDate),
       label: "Выручка за день",
       value: formatNumber(revenue),
@@ -362,7 +362,7 @@ export function buildRealKpis(dash, sales, selectedDate, placeSettings = [], fin
     },
     {
       className: "premium-kpi--avg",
-      icon: "bi-graph-up-arrow",
+      icon: "bi-file-earmark-bar-graph",
       badge: "Среднее",
       label: "Средний чек",
       value: formatNumber(avgCheck),
@@ -384,7 +384,7 @@ export function buildRealKpis(dash, sales, selectedDate, placeSettings = [], fin
     },
     {
       className: "premium-kpi--tables",
-      icon: "bi-cash-coin",
+      icon: "bi-arrow-down-left-circle",
       badge: "Приход",
       label: "Денежный приход",
       value: formatNumber(income),

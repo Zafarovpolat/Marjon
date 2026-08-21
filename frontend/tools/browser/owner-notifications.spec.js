@@ -36,8 +36,9 @@ test.describe("OWNER notification center", () => {
     await expect(popover).toBeVisible();
     // legacy red infrastructure block must be gone
     await expect(page.getByText("Остатки недоступны до завершения Inventory Core.")).toHaveCount(0);
-    // healthy empty + calm deferred note
-    await expect(page.getByText("Новых уведомлений нет")).toBeVisible();
+    // healthy empty + calm deferred note (target the empty-title specifically —
+    // the header summary reuses the same phrase, so scope to avoid ambiguity)
+    await expect(page.locator(".owner-notif__empty-title")).toHaveText("Новых уведомлений нет");
     await expect(page.locator(".owner-notif__deferred")).toBeVisible();
     await expect(page.locator(".owner-notif__item--cancel")).toHaveCount(0);
   });
