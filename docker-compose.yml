@@ -2,6 +2,9 @@ version: "3.9"
 
 services:
   db:
+    # This stack is isolated test infrastructure, not the canonical local DB.
+    # Start it only with: docker compose --profile frontend-prerbac-integration up
+    profiles: ["frontend-prerbac-integration"]
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
@@ -9,7 +12,7 @@ services:
       POSTGRES_USER: marjon
       POSTGRES_PASSWORD: marjon_secret
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -19,13 +22,15 @@ services:
       retries: 5
 
   backend:
+    # Never claim the canonical backend port during ordinary frontend work.
+    profiles: ["frontend-prerbac-integration"]
     build: ./backend
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     ports:
-      - "8000:8000"
+      - "${FRONTEND_PRERBAC_BACKEND_HOST_PORT:-18000}:8000"
     environment:
       DATABASE_URL: postgresql+asyncpg://marjon:marjon_secret@db:5432/marjon
       SECRET_KEY: local-dev-secret-key-change-in-prod

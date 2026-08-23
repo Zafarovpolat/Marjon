@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
+    "dev": "vite --host localhost --port 5173 --strictPort",
     "build": "vite build",
     "test": "npm run test:admin && npm run test:unit",
     "test:admin": "node scripts/admin-login.test.mjs",
