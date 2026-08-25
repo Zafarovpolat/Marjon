@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.session import get_db
 from app.modules.admin_reports import schemas
 from app.modules.admin_reports.schemas import (
-    AttendanceRow, CancelledItemRow, DishReportRow,
+    AttendanceRow, CancelledItemRow, DishReportFiltersResponse, DishReportRow,
     DebtCreditRow, LoginHistoryRow, OrderReportRow, ProductCountRow,
     ProductReportRow, TableReportRow, WaiterReportRow,
 )
@@ -132,10 +132,36 @@ async def waiters_report(
 async def dishes_report(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    query: str | None = Query(None, max_length=200),
+    author_id: UUID | None = Query(None),
+    product_id: UUID | None = Query(None),
+    order_type: str | None = Query(None, max_length=50),
+    order_status: str | None = Query(None, max_length=50),
+    category_id: UUID | None = Query(None),
+    payment_method: str | None = Query(None, max_length=50),
     user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
 ):
-    return await AdminReportService(db).dishes_report(user.company_id, date_from, date_to)
+    return await AdminReportService(db).dishes_report(
+        user.company_id,
+        date_from,
+        date_to,
+        search=query,
+        author_id=author_id,
+        product_id=product_id,
+        order_type=order_type,
+        order_status=order_status,
+        category_id=category_id,
+        payment_method=payment_method,
+    )
+
+
+@router.get("/dishes/filters", response_model=DishReportFiltersResponse)
+async def dishes_report_filters(
+    user: User = Depends(require_web_owner),
+    db: AsyncSession = Depends(get_db),
+):
+    return await AdminReportService(db).dishes_report_filters(user.company_id)
 
 
 @router.get("/cancelled", response_model=list[CancelledItemRow])

@@ -43,6 +43,22 @@ class DishReportRow(BaseModel):
     status: str
 
 
+class ReportFilterOption(BaseModel):
+    value: str
+    label: str
+
+
+class DishReportFiltersResponse(BaseModel):
+    authors: list[ReportFilterOption]
+    cooks: list[ReportFilterOption]
+    products: list[ReportFilterOption]
+    categories: list[ReportFilterOption]
+    order_types: list[ReportFilterOption]
+    order_statuses: list[ReportFilterOption]
+    payment_methods: list[ReportFilterOption]
+    cook_filter_supported: bool = False
+
+
 class CancelledItemRow(BaseModel):
     date: str
     time: str

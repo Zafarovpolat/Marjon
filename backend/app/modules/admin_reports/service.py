@@ -6,12 +6,13 @@ from typing import Iterable, Sequence
 from uuid import UUID
 
 from fastapi.responses import StreamingResponse
-from sqlalchemy import and_, case, func, select
+from sqlalchemy import and_, case, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.admin_reports.schemas import (
     AttendanceRow, CancelledItemRow, DebtCreditRow,
-    DishReportRow, LoginHistoryRow, OrderReportRow,
+    DishReportFiltersResponse, DishReportRow, LoginHistoryRow, OrderReportRow,
+    ReportFilterOption,
     ProductCountRow, ProductReportRow, TableReportRow, WaiterReportRow,
 )
 from app.modules.auth.models import RefreshToken, User
@@ -19,9 +20,36 @@ from app.modules.finance.models import Counterparty, FinTransaction
 from app.modules.finance.ownership import FinanceScope, require_finance_reference
 from app.modules.hr.models import Employee, WorkShift
 from app.modules.companies.models import Branch
-from app.modules.inventory.models import Product
+from app.modules.inventory.models import Category, Product
+from app.modules.payments.models import Payment
 from app.modules.pos.models import Order, OrderItem
 from app.shared.tenant_scope import require_company_resource
+
+
+ORDER_TYPE_LABELS = {
+    "dine_in": "На месте",
+    "takeaway": "На вынос",
+    "delivery": "Доставка",
+    "qr": "QR",
+}
+
+ORDER_STATUS_LABELS = {
+    "new": "Новый",
+    "accepted": "Принят",
+    "cooking": "Готовится",
+    "ready": "Готов",
+    "completed": "Завершён",
+}
+
+PAYMENT_METHOD_LABELS = {
+    "cash": "Наличные",
+    "card": "Карта",
+    "payme": "Payme",
+    "click": "Click",
+    "uzum": "Uzum",
+    "loyalty": "Лояльность",
+    "mixed": "Смешанная оплата",
+}
 
 
 def xlsx_response(filename: str, headers: Sequence[str], rows: Iterable[Sequence]) -> StreamingResponse:
@@ -361,9 +389,20 @@ class AdminReportService:
         ]
 
     async def dishes_report(
-        self, company_id: UUID, date_from: date | None, date_to: date | None
+        self,
+        company_id: UUID,
+        date_from: date | None,
+        date_to: date | None,
+        *,
+        search: str | None = None,
+        author_id: UUID | None = None,
+        product_id: UUID | None = None,
+        order_type: str | None = None,
+        order_status: str | None = None,
+        category_id: UUID | None = None,
+        payment_method: str | None = None,
     ) -> list[DishReportRow]:
-        query = (
+        report_query = (
             select(
                 OrderItem.product_id,
                 OrderItem.name,
@@ -372,12 +411,36 @@ class AdminReportService:
                 func.sum(OrderItem.total).label("total"),
             )
             .join(Order, Order.id == OrderItem.order_id)
-            .where(Order.company_id == company_id, Order.status.notin_(["cancelled"]))
+            .join(Product, Product.id == OrderItem.product_id)
+            .where(Order.company_id == company_id, Product.company_id == company_id)
             .group_by(OrderItem.product_id, OrderItem.name)
             .order_by(func.sum(OrderItem.total).desc())
         )
-        query = self._order_date_filter(query, date_from, date_to)
-        rows = (await self.db.execute(query)).all()
+        if order_status:
+            report_query = report_query.where(Order.status == order_status)
+        else:
+            report_query = report_query.where(Order.status.notin_(["cancelled"]))
+        if search and search.strip():
+            report_query = report_query.where(OrderItem.name.ilike(f"%{search.strip()}%"))
+        if author_id:
+            report_query = report_query.where(Order.waiter_id == author_id)
+        if product_id:
+            report_query = report_query.where(OrderItem.product_id == product_id)
+        if order_type:
+            report_query = report_query.where(Order.order_type == order_type)
+        if category_id:
+            report_query = report_query.where(Product.category_id == category_id)
+        if payment_method:
+            report_query = report_query.where(exists(
+                select(Payment.id).where(
+                    Payment.order_id == Order.id,
+                    Payment.company_id == company_id,
+                    Payment.method == payment_method,
+                )
+            ))
+        report_query = self._order_date_filter(report_query, date_from, date_to)
+        rows = (await self.db.execute(report_query)).all()
+        status_label = ORDER_STATUS_LABELS.get(order_status, order_status) if order_status else "Завершено"
         return [
             DishReportRow(
                 product_id=r.product_id, name=r.name, unit="Порция",
@@ -385,10 +448,70 @@ class AdminReportService:
                 price=Decimal(str(r.avg_price or 0)),
                 amount=Decimal(str(r.total or 0)),
                 cost=Decimal("0"), profit=Decimal(str(r.total or 0)),
-                status="Завершено",
+                status=status_label,
             )
             for r in rows
         ]
+
+    async def dishes_report_filters(self, company_id: UUID) -> DishReportFiltersResponse:
+        author_rows = (await self.db.execute(
+            select(User.id, User.name, User.email)
+            .join(Order, Order.waiter_id == User.id)
+            .where(Order.company_id == company_id, User.company_id == company_id)
+            .distinct()
+            .order_by(User.name, User.email)
+        )).all()
+        product_rows = (await self.db.execute(
+            select(Product.id, Product.name)
+            .where(Product.company_id == company_id, Product.is_active.is_(True))
+            .order_by(Product.name)
+        )).all()
+        category_rows = (await self.db.execute(
+            select(Category.id, Category.name)
+            .where(Category.company_id == company_id, Category.is_active.is_(True))
+            .order_by(Category.name)
+        )).all()
+        order_type_rows = (await self.db.execute(
+            select(Order.order_type)
+            .where(Order.company_id == company_id)
+            .distinct()
+            .order_by(Order.order_type)
+        )).scalars().all()
+        order_status_rows = (await self.db.execute(
+            select(Order.status)
+            .where(Order.company_id == company_id, Order.status != "cancelled")
+            .distinct()
+            .order_by(Order.status)
+        )).scalars().all()
+        payment_method_rows = (await self.db.execute(
+            select(Payment.method)
+            .where(Payment.company_id == company_id)
+            .distinct()
+            .order_by(Payment.method)
+        )).scalars().all()
+
+        return DishReportFiltersResponse(
+            authors=[
+                ReportFilterOption(value=str(row.id), label=row.name or row.email)
+                for row in author_rows
+            ],
+            cooks=[],
+            products=[ReportFilterOption(value=str(row.id), label=row.name) for row in product_rows],
+            categories=[ReportFilterOption(value=str(row.id), label=row.name) for row in category_rows],
+            order_types=[
+                ReportFilterOption(value=value, label=ORDER_TYPE_LABELS.get(value, value))
+                for value in order_type_rows if value
+            ],
+            order_statuses=[
+                ReportFilterOption(value=value, label=ORDER_STATUS_LABELS.get(value, value))
+                for value in order_status_rows if value
+            ],
+            payment_methods=[
+                ReportFilterOption(value=value, label=PAYMENT_METHOD_LABELS.get(value, value))
+                for value in payment_method_rows if value
+            ],
+            cook_filter_supported=False,
+        )
 
     async def cancelled_items(
         self, company_id: UUID, date_from: date | None, date_to: date | None
