@@ -10,11 +10,22 @@ from app.modules.admin_reports.schemas import DishReportFiltersResponse, ReportF
 from app.modules.admin_reports.service import AdminReportService
 from app.modules.auth.models import User
 from app.modules.companies.models import Branch
+from app.modules.finance.models import PaymentType
 from app.modules.inventory.models import Category, Product
 from app.modules.payments.models import Payment
 from app.modules.pos.models import Order, OrderItem
 from tests.conftest import register_company
 from tests.test_reports_tenant_scope_postgres import reports_api, reports_database_url
+
+
+async def _create_staff(client, owner_headers, *, email: str, role_slug: str):
+    response = await client.post(
+        "/auth/users",
+        headers=owner_headers,
+        json={"email": email, "password": "Passw0rd!", "role_slug": role_slug},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
 
 
 @pytest.mark.asyncio
@@ -91,8 +102,14 @@ async def test_dishes_filters_preserve_tenant_scope_and_payment_aggregation(clie
     b_identity = (await client.get("/auth/me", headers=b_headers)).json()
     company_a = UUID(a_identity["company_id"])
     company_b = UUID(b_identity["company_id"])
-    user_a = UUID(a_identity["id"])
-    user_b = UUID(b_identity["id"])
+    waiter_a_email = f"dish-waiter-a-{suffix}@example.com"
+    waiter_b_email = f"dish-waiter-b-{suffix}@example.com"
+    user_a = UUID((await _create_staff(
+        client, a_headers, email=waiter_a_email, role_slug="waiter"
+    ))["id"])
+    user_b = UUID((await _create_staff(
+        client, b_headers, email=waiter_b_email, role_slug="waiter"
+    ))["id"])
 
     ids = {name: uuid4() for name in (
         "branch_a", "branch_b", "category_a", "category_b",
@@ -190,6 +207,18 @@ async def test_dishes_filters_preserve_tenant_scope_and_payment_aggregation(clie
                 company_id=company_b, order_id=ids["order_b"],
                 amount=Decimal("900"), method="payme", status="completed",
             ),
+            PaymentType(
+                company_id=company_a, scope_kind="company",
+                name="Cash A", type="cash", sort=10, status=True,
+            ),
+            PaymentType(
+                company_id=company_a, scope_kind="company",
+                name="Card A", type="card", sort=20, status=True,
+            ),
+            PaymentType(
+                company_id=company_b, scope_kind="company",
+                name="Company B Payment Secret", type="payme", sort=10, status=True,
+            ),
         ])
         await db.commit()
 
@@ -239,6 +268,213 @@ async def test_dishes_filters_preserve_tenant_scope_and_payment_aggregation(clie
     assert {row["value"] for row in options["payment_methods"]} == {"cash", "card"}
     assert "Company B Secret" not in metadata.text
     assert b_email not in metadata.text
+    assert waiter_b_email not in metadata.text
+
+
+async def _assert_reference_metadata_is_available_without_history(client, sessions):
+    suffix = uuid4().hex[:8]
+    a_headers, _ = await register_company(
+        client,
+        slug=f"reference-meta-a-{suffix}",
+        email=f"reference-meta-owner-a-{suffix}@example.com",
+    )
+    b_headers, _ = await register_company(
+        client,
+        slug=f"reference-meta-b-{suffix}",
+        email=f"reference-meta-owner-b-{suffix}@example.com",
+    )
+    company_a = UUID((await client.get("/auth/me", headers=a_headers)).json()["company_id"])
+    company_b = UUID((await client.get("/auth/me", headers=b_headers)).json()["company_id"])
+    ids = {name: uuid4() for name in (
+        "category_a", "category_a_inactive", "category_b",
+        "product_a", "product_a_unavailable", "product_b",
+    )}
+
+    async with sessions() as db:
+        db.add_all([
+            Category(
+                id=ids["category_a"], company_id=company_a,
+                name="Zero History Category A", slug=f"zero-history-a-{suffix}",
+                is_active=True,
+            ),
+            Category(
+                id=ids["category_a_inactive"], company_id=company_a,
+                name="Inactive Category A", slug=f"inactive-a-{suffix}",
+                is_active=False,
+            ),
+            Category(
+                id=ids["category_b"], company_id=company_b,
+                name="Foreign Category Secret", slug=f"foreign-b-{suffix}",
+                is_active=True,
+            ),
+        ])
+        await db.flush()
+        db.add_all([
+            Product(
+                id=ids["product_a"], company_id=company_a,
+                category_id=ids["category_a"], name="Zero History Product A",
+                price=Decimal("100"), is_active=True, is_available=True,
+            ),
+            Product(
+                id=ids["product_a_unavailable"], company_id=company_a,
+                category_id=ids["category_a"], name="Unavailable Product A",
+                price=Decimal("100"), is_active=True, is_available=False,
+            ),
+            Product(
+                id=ids["product_b"], company_id=company_b,
+                category_id=ids["category_b"], name="Foreign Product Secret",
+                price=Decimal("100"), is_active=True, is_available=True,
+            ),
+            PaymentType(
+                company_id=company_a, scope_kind="company",
+                name="Tenant Cash", type="cash", sort=10, status=True,
+            ),
+            PaymentType(
+                company_id=company_a, scope_kind="company",
+                name="Inactive Payment", type="inactive", sort=20, status=False,
+            ),
+            PaymentType(
+                company_id=company_b, scope_kind="company",
+                name="Foreign Payment Secret", type="foreign", sort=10, status=True,
+            ),
+            PaymentType(
+                scope_kind="system",
+                name="System Card", type="card", sort=20, status=True,
+            ),
+        ])
+        await db.commit()
+
+    metadata = await client.get("/reports/dishes/filters", headers=a_headers)
+    assert metadata.status_code == 200, metadata.text
+    options = metadata.json()
+    assert options["products"] == [
+        {"value": str(ids["product_a"]), "label": "Zero History Product A"}
+    ]
+    assert options["categories"] == [
+        {"value": str(ids["category_a"]), "label": "Zero History Category A"}
+    ]
+    assert [row["value"] for row in options["order_types"]] == [
+        "dine_in", "takeaway", "delivery", "qr",
+    ]
+    assert [row["value"] for row in options["order_statuses"]] == [
+        "new", "accepted", "cooking", "ready", "completed",
+    ]
+    assert options["payment_methods"] == [
+        {"value": "cash", "label": "Tenant Cash"},
+        {"value": "card", "label": "System Card"},
+    ]
+    assert options["cooks"] == []
+    assert options["cook_filter_supported"] is False
+    assert "Inactive Category A" not in metadata.text
+    assert "Unavailable Product A" not in metadata.text
+    assert "Inactive Payment" not in metadata.text
+    assert "Foreign Category Secret" not in metadata.text
+    assert "Foreign Product Secret" not in metadata.text
+    assert "Foreign Payment Secret" not in metadata.text
+
+
+@pytest.mark.asyncio
+async def test_reference_metadata_is_available_without_history(client, db_engine):
+    sessions = async_sessionmaker(db_engine, expire_on_commit=False)
+    await _assert_reference_metadata_is_available_without_history(client, sessions)
+
+
+@pytest.mark.asyncio
+async def test_reference_metadata_is_available_without_history_postgres(reports_api):
+    client, sessions = reports_api
+    await _assert_reference_metadata_is_available_without_history(client, sessions)
+
+
+async def _assert_waiter_metadata_uses_current_company_roles(client, sessions):
+    suffix = uuid4().hex[:8]
+    a_headers, _ = await register_company(
+        client,
+        slug=f"waiter-meta-a-{suffix}",
+        email=f"waiter-meta-owner-a-{suffix}@example.com",
+    )
+    b_headers, _ = await register_company(
+        client,
+        slug=f"waiter-meta-b-{suffix}",
+        email=f"waiter-meta-owner-b-{suffix}@example.com",
+    )
+    a_identity = (await client.get("/auth/me", headers=a_headers)).json()
+    company_a = UUID(a_identity["company_id"])
+
+    waiter_a_email = f"zero-order-waiter-a-{suffix}@example.com"
+    cashier_a_email = f"cashier-only-a-{suffix}@example.com"
+    waiter_b_email = f"foreign-waiter-b-{suffix}@example.com"
+    waiter_a = await _create_staff(
+        client, a_headers, email=waiter_a_email, role_slug="waiter"
+    )
+    cashier_a = await _create_staff(
+        client, a_headers, email=cashier_a_email, role_slug="cashier"
+    )
+    waiter_b = await _create_staff(
+        client, b_headers, email=waiter_b_email, role_slug="waiter"
+    )
+
+    metadata_before_orders = await client.get(
+        "/reports/dishes/filters", headers=a_headers
+    )
+    assert metadata_before_orders.status_code == 200, metadata_before_orders.text
+    authors = metadata_before_orders.json()["authors"]
+    assert authors == [{"value": waiter_a["id"], "label": waiter_a_email}]
+    assert cashier_a["id"] not in metadata_before_orders.text
+    assert cashier_a_email not in metadata_before_orders.text
+    assert waiter_b["id"] not in metadata_before_orders.text
+    assert waiter_b_email not in metadata_before_orders.text
+
+    ids = {name: uuid4() for name in ("branch", "category", "product", "order")}
+    async with sessions() as db:
+        db.add_all([
+            Branch(id=ids["branch"], company_id=company_a, name="Waiter Metadata Branch"),
+            Category(
+                id=ids["category"], company_id=company_a,
+                name="Waiter Metadata Category", slug=f"waiter-meta-{suffix}",
+            ),
+        ])
+        await db.flush()
+        db.add(Product(
+            id=ids["product"], company_id=company_a,
+            category_id=ids["category"], name="Waiter Metadata Dish",
+            price=Decimal("75"), cost_price=Decimal("25"),
+        ))
+        await db.flush()
+        db.add(Order(
+            id=ids["order"], company_id=company_a, branch_id=ids["branch"],
+            waiter_id=UUID(waiter_a["id"]), order_number="WAITER-METADATA",
+            order_type="dine_in", status="completed",
+            subtotal=Decimal("75"), total_amount=Decimal("75"),
+        ))
+        await db.flush()
+        db.add(OrderItem(
+            order_id=ids["order"], product_id=ids["product"],
+            name="Waiter Metadata Dish", price=Decimal("75"),
+            quantity=Decimal("1"), total=Decimal("75"),
+        ))
+        await db.commit()
+
+    filtered = await client.get(
+        "/reports/dishes",
+        headers=a_headers,
+        params={"author_id": waiter_a["id"]},
+    )
+    assert filtered.status_code == 200, filtered.text
+    assert [row["product_id"] for row in filtered.json()] == [str(ids["product"])]
+
+
+@pytest.mark.asyncio
+async def test_waiter_with_zero_orders_is_available_in_dishes_metadata(client, db_engine):
+    sessions = async_sessionmaker(db_engine, expire_on_commit=False)
+    await _assert_waiter_metadata_uses_current_company_roles(client, sessions)
+
+
+@pytest.mark.asyncio
+async def test_waiter_with_zero_orders_is_available_in_dishes_metadata_postgres(
+    reports_api,
+):
+    client, sessions = reports_api
+    await _assert_waiter_metadata_uses_current_company_roles(client, sessions)
 
 
 async def _assert_each_supported_dishes_predicate_independently_constrains_results(

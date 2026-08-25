@@ -2,7 +2,7 @@ from __future__ import annotations
 import io
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from typing import Iterable, Sequence
+from typing import Iterable, Sequence, get_args
 from uuid import UUID
 
 from fastapi.responses import StreamingResponse
@@ -16,13 +16,21 @@ from app.modules.admin_reports.schemas import (
     ProductCountRow, ProductReportRow, TableReportRow, WaiterReportRow,
 )
 from app.modules.auth.models import RefreshToken, User
-from app.modules.finance.models import Counterparty, FinTransaction
-from app.modules.finance.ownership import FinanceScope, require_finance_reference
+from app.modules.finance.models import Counterparty, FinTransaction, PaymentType
+from app.modules.finance.ownership import (
+    FinanceDictionaryService,
+    FinanceScope,
+    SCOPE_COMPANY,
+    require_finance_reference,
+)
 from app.modules.hr.models import Employee, WorkShift
 from app.modules.companies.models import Branch
 from app.modules.inventory.models import Category, Product
 from app.modules.payments.models import Payment
 from app.modules.pos.models import Order, OrderItem
+from app.modules.pos.schemas import OrderCreate, OrderStatusUpdate
+from app.modules.rbac.models import Role, UserRole
+from app.shared.pagination import PageParams
 from app.shared.tenant_scope import require_company_resource
 
 
@@ -41,15 +49,8 @@ ORDER_STATUS_LABELS = {
     "completed": "Завершён",
 }
 
-PAYMENT_METHOD_LABELS = {
-    "cash": "Наличные",
-    "card": "Карта",
-    "payme": "Payme",
-    "click": "Click",
-    "uzum": "Uzum",
-    "loyalty": "Лояльность",
-    "mixed": "Смешанная оплата",
-}
+ORDER_TYPE_VALUES = get_args(OrderCreate.model_fields["order_type"].annotation)
+ORDER_STATUS_VALUES = get_args(OrderStatusUpdate.model_fields["status"].annotation)
 
 
 def xlsx_response(filename: str, headers: Sequence[str], rows: Iterable[Sequence]) -> StreamingResponse:
@@ -456,39 +457,54 @@ class AdminReportService:
     async def dishes_report_filters(self, company_id: UUID) -> DishReportFiltersResponse:
         author_rows = (await self.db.execute(
             select(User.id, User.name, User.email)
-            .join(Order, Order.waiter_id == User.id)
-            .where(Order.company_id == company_id, User.company_id == company_id)
-            .distinct()
-            .order_by(User.name, User.email)
+            .where(
+                User.company_id == company_id,
+                User.is_active.is_(True),
+                exists(
+                    select(UserRole.id)
+                    .join(Role, Role.id == UserRole.role_id)
+                    .where(
+                        UserRole.user_id == User.id,
+                        Role.company_id == company_id,
+                        Role.slug == "waiter",
+                        Role.is_system.is_(False),
+                    )
+                ),
+            )
+            .order_by(func.coalesce(User.name, User.email), User.email, User.id)
         )).all()
         product_rows = (await self.db.execute(
             select(Product.id, Product.name)
-            .where(Product.company_id == company_id, Product.is_active.is_(True))
-            .order_by(Product.name)
+            .where(
+                Product.company_id == company_id,
+                Product.is_active.is_(True),
+                Product.is_available.is_(True),
+            )
+            .order_by(Product.name, Product.id)
         )).all()
         category_rows = (await self.db.execute(
             select(Category.id, Category.name)
             .where(Category.company_id == company_id, Category.is_active.is_(True))
-            .order_by(Category.name)
+            .order_by(Category.name, Category.id)
         )).all()
-        order_type_rows = (await self.db.execute(
-            select(Order.order_type)
-            .where(Order.company_id == company_id)
-            .distinct()
-            .order_by(Order.order_type)
-        )).scalars().all()
-        order_status_rows = (await self.db.execute(
-            select(Order.status)
-            .where(Order.company_id == company_id, Order.status != "cancelled")
-            .distinct()
-            .order_by(Order.status)
-        )).scalars().all()
-        payment_method_rows = (await self.db.execute(
-            select(Payment.method)
-            .where(Payment.company_id == company_id)
-            .distinct()
-            .order_by(Payment.method)
-        )).scalars().all()
+        payment_method_rows, _ = await FinanceDictionaryService(
+            PaymentType,
+            self.db,
+            system_enabled=True,
+        ).list(
+            FinanceScope(SCOPE_COMPANY, company_id),
+            PageParams(page=1, size=1_000_000),
+            raw_filters={"status": True},
+            default_sort="sort,name,id",
+        )
+        payment_methods = []
+        seen_payment_methods = set()
+        for row in payment_method_rows:
+            value = (row.type or "").strip()
+            if not value or value in seen_payment_methods:
+                continue
+            seen_payment_methods.add(value)
+            payment_methods.append(ReportFilterOption(value=value, label=row.name))
 
         return DishReportFiltersResponse(
             authors=[
@@ -500,16 +516,13 @@ class AdminReportService:
             categories=[ReportFilterOption(value=str(row.id), label=row.name) for row in category_rows],
             order_types=[
                 ReportFilterOption(value=value, label=ORDER_TYPE_LABELS.get(value, value))
-                for value in order_type_rows if value
+                for value in ORDER_TYPE_VALUES
             ],
             order_statuses=[
                 ReportFilterOption(value=value, label=ORDER_STATUS_LABELS.get(value, value))
-                for value in order_status_rows if value
+                for value in ORDER_STATUS_VALUES if value != "cancelled"
             ],
-            payment_methods=[
-                ReportFilterOption(value=value, label=PAYMENT_METHOD_LABELS.get(value, value))
-                for value in payment_method_rows if value
-            ],
+            payment_methods=payment_methods,
             cook_filter_supported=False,
         )
 
