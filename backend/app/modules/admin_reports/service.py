@@ -13,7 +13,8 @@ from app.modules.admin_reports.schemas import (
     AttendanceRow, CancelledItemRow, DebtCreditRow,
     DishReportFiltersResponse, DishReportRow, LoginHistoryRow, OrderReportRow,
     OrderReportFiltersResponse, ReportFilterOption,
-    ProductCountRow, ProductReportRow, TableReportRow, WaiterReportRow,
+    ProductCountRow, ProductReportRow, TableReportFiltersResponse,
+    TableReportRow, WaiterReportRow,
 )
 from app.modules.auth.models import RefreshToken, User
 from app.modules.finance.models import Counterparty, FinTransaction, PaymentType
@@ -410,7 +411,15 @@ class AdminReportService:
         ]
 
     async def tables_report(
-        self, company_id: UUID, date_from: date | None, date_to: date | None
+        self,
+        company_id: UUID,
+        date_from: date | None,
+        date_to: date | None,
+        *,
+        table_number: str | None = None,
+        waiter_id: UUID | None = None,
+        payment_method: str | None = None,
+        cashier_id: UUID | None = None,
     ) -> list[TableReportRow]:
         query = (
             select(
@@ -426,6 +435,57 @@ class AdminReportService:
             .group_by(Order.table_number)
             .order_by(func.sum(Order.total_amount).desc())
         )
+        if table_number and (normalized_table_number := table_number.strip()):
+            query = query.where(Order.table_number.ilike(f"%{normalized_table_number}%"))
+        if waiter_id:
+            waiter_is_eligible = exists(
+                select(UserRole.id)
+                .join(Role, Role.id == UserRole.role_id)
+                .join(User, User.id == UserRole.user_id)
+                .where(
+                    UserRole.user_id == waiter_id,
+                    User.company_id == company_id,
+                    User.is_active.is_(True),
+                    Role.company_id == company_id,
+                    Role.slug == "waiter",
+                    Role.is_system.is_(False),
+                )
+            )
+            query = query.where(Order.waiter_id == waiter_id, waiter_is_eligible)
+        if payment_method:
+            query = query.where(
+                exists(
+                    select(Payment.id).where(
+                        Payment.company_id == company_id,
+                        Payment.order_id == Order.id,
+                        Payment.method == payment_method,
+                    )
+                )
+            )
+        if cashier_id:
+            cashier_is_eligible = exists(
+                select(UserRole.id)
+                .join(Role, Role.id == UserRole.role_id)
+                .join(User, User.id == UserRole.user_id)
+                .where(
+                    UserRole.user_id == cashier_id,
+                    User.company_id == company_id,
+                    User.is_active.is_(True),
+                    Role.company_id == company_id,
+                    Role.slug == "cashier",
+                    Role.is_system.is_(False),
+                )
+            )
+            query = query.where(
+                cashier_is_eligible,
+                exists(
+                    select(Payment.id).where(
+                        Payment.company_id == company_id,
+                        Payment.order_id == Order.id,
+                        Payment.cashier_id == cashier_id,
+                    )
+                ),
+            )
         query = self._order_date_filter(query, date_from, date_to)
         rows = (await self.db.execute(query)).all()
         return [
@@ -436,6 +496,58 @@ class AdminReportService:
             )
             for r in rows
         ]
+
+    async def tables_report_filters(self, company_id: UUID) -> TableReportFiltersResponse:
+        staff_rows = (await self.db.execute(
+            select(User.id, User.name, User.email, Role.slug)
+            .join(UserRole, UserRole.user_id == User.id)
+            .join(Role, Role.id == UserRole.role_id)
+            .where(
+                User.company_id == company_id,
+                User.is_active.is_(True),
+                Role.company_id == company_id,
+                Role.slug.in_(["waiter", "cashier"]),
+                Role.is_system.is_(False),
+            )
+            .order_by(Role.slug, func.coalesce(User.name, User.email), User.email, User.id)
+        )).all()
+        payment_method_rows, _ = await FinanceDictionaryService(
+            PaymentType,
+            self.db,
+            system_enabled=True,
+        ).list(
+            FinanceScope(SCOPE_COMPANY, company_id),
+            PageParams(page=1, size=1_000_000),
+            raw_filters={"status": True},
+            default_sort="sort,name,id",
+        )
+
+        staff_options = {"waiter": [], "cashier": []}
+        seen_staff = {"waiter": set(), "cashier": set()}
+        for row in staff_rows:
+            if row.id in seen_staff[row.slug]:
+                continue
+            seen_staff[row.slug].add(row.id)
+            staff_options[row.slug].append(
+                ReportFilterOption(value=str(row.id), label=row.name or row.email)
+            )
+
+        payment_methods = []
+        seen_payment_methods = set()
+        for row in payment_method_rows:
+            value = (row.type or "").strip()
+            if not value or value in seen_payment_methods:
+                continue
+            seen_payment_methods.add(value)
+            payment_methods.append(ReportFilterOption(value=value, label=row.name))
+
+        return TableReportFiltersResponse(
+            waiters=staff_options["waiter"],
+            cashiers=staff_options["cashier"],
+            payment_methods=payment_methods,
+            places=[],
+            place_filter_supported=False,
+        )
 
     async def waiters_report(
         self, company_id: UUID, date_from: date | None, date_to: date | None

@@ -57,6 +57,14 @@ class OrderReportFiltersResponse(BaseModel):
     payment_methods: list[ReportFilterOption]
 
 
+class TableReportFiltersResponse(BaseModel):
+    waiters: list[ReportFilterOption]
+    cashiers: list[ReportFilterOption]
+    payment_methods: list[ReportFilterOption]
+    places: list[ReportFilterOption]
+    place_filter_supported: bool = False
+
+
 class DishReportFiltersResponse(BaseModel):
     authors: list[ReportFilterOption]
     cooks: list[ReportFilterOption]

@@ -10,7 +10,7 @@ from app.modules.admin_reports import schemas
 from app.modules.admin_reports.schemas import (
     AttendanceRow, CancelledItemRow, DishReportFiltersResponse, DishReportRow,
     DebtCreditRow, LoginHistoryRow, OrderReportFiltersResponse, OrderReportRow, ProductCountRow,
-    ProductReportRow, TableReportRow, WaiterReportRow,
+    ProductReportRow, TableReportFiltersResponse, TableReportRow, WaiterReportRow,
 )
 from app.modules.admin_reports.service import AdminReportService, xlsx_response
 from app.modules.auth.dependencies import require_hq_admin, require_web_owner
@@ -140,10 +140,32 @@ async def orders_report_filters(
 async def tables_report(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    table_number: str | None = Query(None, max_length=100),
+    waiter_id: UUID | None = Query(None),
+    payment_method: str | None = Query(None, max_length=50),
+    cashier_id: UUID | None = Query(None),
     user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
 ):
-    return await AdminReportService(db).tables_report(user.company_id, date_from, date_to)
+    assert user.company_id is not None
+    return await AdminReportService(db).tables_report(
+        user.company_id,
+        date_from,
+        date_to,
+        table_number=table_number,
+        waiter_id=waiter_id,
+        payment_method=payment_method,
+        cashier_id=cashier_id,
+    )
+
+
+@router.get("/tables/filters", response_model=TableReportFiltersResponse)
+async def tables_report_filters(
+    user: User = Depends(require_web_owner),
+    db: AsyncSession = Depends(get_db),
+):
+    assert user.company_id is not None
+    return await AdminReportService(db).tables_report_filters(user.company_id)
 
 
 @router.get("/waiters", response_model=list[WaiterReportRow])
