@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.admin_reports.schemas import (
     AttendanceRow, CancelledItemRow, DebtCreditRow,
     DishReportFiltersResponse, DishReportRow, LoginHistoryRow, OrderReportRow,
-    ReportFilterOption,
+    OrderReportFiltersResponse, ReportFilterOption,
     ProductCountRow, ProductReportRow, TableReportRow, WaiterReportRow,
 )
 from app.modules.auth.models import RefreshToken, User
@@ -299,23 +299,104 @@ class AdminReportService:
         return query
 
     async def orders_report(
-        self, company_id: UUID, date_from: date | None, date_to: date | None
+        self,
+        company_id: UUID,
+        date_from: date | None,
+        date_to: date | None,
+        *,
+        order_number: str | None = None,
+        waiter_id: UUID | None = None,
+        cashier_id: UUID | None = None,
+        product_id: UUID | None = None,
+        order_type: str | None = None,
+        order_status: str | None = None,
+        payment_method: str | None = None,
     ) -> list[OrderReportRow]:
+        items_count = (
+            select(func.count(OrderItem.id))
+            .where(OrderItem.order_id == Order.id)
+            .correlate(Order)
+            .scalar_subquery()
+        )
         query = (
             select(
                 Order.id, Order.order_number, Order.created_at,
                 Order.status, Order.table_number,
                 User.name.label("waiter_name"),
-                func.count(OrderItem.id).label("items_count"),
+                items_count.label("items_count"),
                 Order.total_amount,
             )
-            .outerjoin(User, User.id == Order.waiter_id)
-            .outerjoin(OrderItem, OrderItem.order_id == Order.id)
+            .outerjoin(
+                User,
+                and_(User.id == Order.waiter_id, User.company_id == company_id),
+            )
             .where(Order.company_id == company_id, Order.status.notin_(["cancelled"]))
-            .group_by(Order.id, Order.order_number, Order.created_at,
-                      Order.status, Order.table_number, User.name, Order.total_amount)
             .order_by(Order.created_at.desc())
         )
+        if order_number and (normalized_order_number := order_number.strip()):
+            query = query.where(Order.order_number.ilike(f"%{normalized_order_number}%"))
+        if waiter_id:
+            waiter_has_company_role = exists(
+                select(UserRole.id)
+                .join(Role, Role.id == UserRole.role_id)
+                .where(
+                    UserRole.user_id == waiter_id,
+                    Role.company_id == company_id,
+                    Role.slug == "waiter",
+                    Role.is_system.is_(False),
+                )
+            )
+            query = query.where(
+                Order.waiter_id == waiter_id,
+                waiter_has_company_role,
+            )
+        if cashier_id:
+            cashier_has_company_role = exists(
+                select(UserRole.id)
+                .join(Role, Role.id == UserRole.role_id)
+                .where(
+                    UserRole.user_id == cashier_id,
+                    Role.company_id == company_id,
+                    Role.slug == "cashier",
+                    Role.is_system.is_(False),
+                )
+            )
+            query = query.where(
+                cashier_has_company_role,
+                exists(
+                    select(Payment.id).where(
+                        Payment.company_id == company_id,
+                        Payment.order_id == Order.id,
+                        Payment.cashier_id == cashier_id,
+                    )
+                ),
+            )
+        if product_id:
+            query = query.where(
+                exists(
+                    select(OrderItem.id)
+                    .join(Product, Product.id == OrderItem.product_id)
+                    .where(
+                        OrderItem.order_id == Order.id,
+                        OrderItem.product_id == product_id,
+                        Product.company_id == company_id,
+                    )
+                )
+            )
+        if order_type:
+            query = query.where(Order.order_type == order_type)
+        if order_status:
+            query = query.where(Order.status == order_status)
+        if payment_method:
+            query = query.where(
+                exists(
+                    select(Payment.id).where(
+                        Payment.company_id == company_id,
+                        Payment.order_id == Order.id,
+                        Payment.method == payment_method,
+                    )
+                )
+            )
         query = self._order_date_filter(query, date_from, date_to)
         rows = (await self.db.execute(query)).all()
         return [
@@ -453,6 +534,77 @@ class AdminReportService:
             )
             for r in rows
         ]
+
+    async def orders_report_filters(self, company_id: UUID) -> OrderReportFiltersResponse:
+        staff_rows = (await self.db.execute(
+            select(User.id, User.name, User.email, Role.slug)
+            .join(UserRole, UserRole.user_id == User.id)
+            .join(Role, Role.id == UserRole.role_id)
+            .where(
+                User.company_id == company_id,
+                User.is_active.is_(True),
+                Role.company_id == company_id,
+                Role.slug.in_(["waiter", "cashier"]),
+                Role.is_system.is_(False),
+            )
+            .order_by(Role.slug, func.coalesce(User.name, User.email), User.email, User.id)
+        )).all()
+        product_rows = (await self.db.execute(
+            select(Product.id, Product.name)
+            .where(
+                Product.company_id == company_id,
+                Product.is_active.is_(True),
+                Product.is_available.is_(True),
+            )
+            .order_by(Product.name, Product.id)
+        )).all()
+        payment_method_rows, _ = await FinanceDictionaryService(
+            PaymentType,
+            self.db,
+            system_enabled=True,
+        ).list(
+            FinanceScope(SCOPE_COMPANY, company_id),
+            PageParams(page=1, size=1_000_000),
+            raw_filters={"status": True},
+            default_sort="sort,name,id",
+        )
+
+        staff_options = {"waiter": [], "cashier": []}
+        seen_staff = {"waiter": set(), "cashier": set()}
+        for row in staff_rows:
+            if row.id in seen_staff[row.slug]:
+                continue
+            seen_staff[row.slug].add(row.id)
+            staff_options[row.slug].append(
+                ReportFilterOption(value=str(row.id), label=row.name or row.email)
+            )
+
+        payment_methods = []
+        seen_payment_methods = set()
+        for row in payment_method_rows:
+            value = (row.type or "").strip()
+            if not value or value in seen_payment_methods:
+                continue
+            seen_payment_methods.add(value)
+            payment_methods.append(ReportFilterOption(value=value, label=row.name))
+
+        return OrderReportFiltersResponse(
+            waiters=staff_options["waiter"],
+            cashiers=staff_options["cashier"],
+            products=[
+                ReportFilterOption(value=str(row.id), label=row.name)
+                for row in product_rows
+            ],
+            order_types=[
+                ReportFilterOption(value=value, label=ORDER_TYPE_LABELS.get(value, value))
+                for value in ORDER_TYPE_VALUES
+            ],
+            order_statuses=[
+                ReportFilterOption(value=value, label=ORDER_STATUS_LABELS.get(value, value))
+                for value in ORDER_STATUS_VALUES if value != "cancelled"
+            ],
+            payment_methods=payment_methods,
+        )
 
     async def dishes_report_filters(self, company_id: UUID) -> DishReportFiltersResponse:
         author_rows = (await self.db.execute(

@@ -48,6 +48,15 @@ class ReportFilterOption(BaseModel):
     label: str
 
 
+class OrderReportFiltersResponse(BaseModel):
+    waiters: list[ReportFilterOption]
+    cashiers: list[ReportFilterOption]
+    products: list[ReportFilterOption]
+    order_types: list[ReportFilterOption]
+    order_statuses: list[ReportFilterOption]
+    payment_methods: list[ReportFilterOption]
+
+
 class DishReportFiltersResponse(BaseModel):
     authors: list[ReportFilterOption]
     cooks: list[ReportFilterOption]

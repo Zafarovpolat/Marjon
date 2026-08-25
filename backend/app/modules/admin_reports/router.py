@@ -9,7 +9,7 @@ from app.infrastructure.database.session import get_db
 from app.modules.admin_reports import schemas
 from app.modules.admin_reports.schemas import (
     AttendanceRow, CancelledItemRow, DishReportFiltersResponse, DishReportRow,
-    DebtCreditRow, LoginHistoryRow, OrderReportRow, ProductCountRow,
+    DebtCreditRow, LoginHistoryRow, OrderReportFiltersResponse, OrderReportRow, ProductCountRow,
     ProductReportRow, TableReportRow, WaiterReportRow,
 )
 from app.modules.admin_reports.service import AdminReportService, xlsx_response
@@ -102,10 +102,38 @@ async def debt_credit_report(
 async def orders_report(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    order_number: str | None = Query(None, max_length=100),
+    waiter_id: UUID | None = Query(None),
+    cashier_id: UUID | None = Query(None),
+    product_id: UUID | None = Query(None),
+    order_type: str | None = Query(None, max_length=50),
+    order_status: str | None = Query(None, max_length=50),
+    payment_method: str | None = Query(None, max_length=50),
     user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
 ):
-    return await AdminReportService(db).orders_report(user.company_id, date_from, date_to)
+    assert user.company_id is not None
+    return await AdminReportService(db).orders_report(
+        user.company_id,
+        date_from,
+        date_to,
+        order_number=order_number,
+        waiter_id=waiter_id,
+        cashier_id=cashier_id,
+        product_id=product_id,
+        order_type=order_type,
+        order_status=order_status,
+        payment_method=payment_method,
+    )
+
+
+@router.get("/orders/filters", response_model=OrderReportFiltersResponse)
+async def orders_report_filters(
+    user: User = Depends(require_web_owner),
+    db: AsyncSession = Depends(get_db),
+):
+    assert user.company_id is not None
+    return await AdminReportService(db).orders_report_filters(user.company_id)
 
 
 @router.get("/tables", response_model=list[TableReportRow])
