@@ -4,6 +4,7 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
+from sqlalchemy import func, select
 
 from app.modules.admin_reports.service import AdminReportService
 from app.modules.companies.models import Branch
@@ -60,6 +61,35 @@ async def test_tables_report_maps_supported_read_only_filters(client, monkeypatc
     assert captured["waiter_id"] == waiter_id
     assert captured["payment_method"] == "cash"
     assert captured["cashier_id"] == cashier_id
+
+
+@pytest.mark.asyncio
+async def test_tables_report_zero_orders_returns_empty_http_response(reports_api):
+    client, sessions = reports_api
+    suffix = uuid4().hex[:8]
+    owner_headers, _ = await register_company(
+        client,
+        slug=f"tables-zero-{suffix}",
+        email=f"tables-zero-{suffix}@example.com",
+    )
+    profile = await client.get("/auth/me", headers=owner_headers)
+    assert profile.status_code == 200, profile.text
+    company_id = UUID(profile.json()["company_id"])
+
+    async with sessions() as db:
+        order_count = await db.scalar(
+            select(func.count()).select_from(Order).where(Order.company_id == company_id)
+        )
+    assert order_count == 0
+
+    response = await client.get(
+        "/reports/tables",
+        headers=owner_headers,
+        params={"date_from": "2026-08-01", "date_to": "2026-08-25"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json() == []
 
 
 @pytest.mark.asyncio
