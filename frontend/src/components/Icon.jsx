@@ -39,6 +39,28 @@ function SidebarCollapseIcon({ size = 16, strokeWidth = 3.2, className, style })
   )
 }
 
+function ExcelExportIcon({ size = 18, strokeWidth = 1.8, className, style }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      style={style}
+      focusable="false"
+      aria-hidden="true"
+    >
+      <path d="M8.5 3.5H17L20.5 7V20.5H8.5" stroke="currentColor" strokeWidth={strokeWidth} strokeLinejoin="round" />
+      <path d="M17 3.5V7H20.5" stroke="currentColor" strokeWidth={strokeWidth} strokeLinejoin="round" />
+      <rect x="3.5" y="7.5" width="11" height="10" rx="1.5" stroke="currentColor" strokeWidth={strokeWidth} />
+      <path d="M6.5 10.5L11.5 14.5M11.5 10.5L6.5 14.5" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" />
+      <path d="M16.5 11H18M16.5 14H18M16.5 17H18" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" />
+    </svg>
+  )
+}
+
 const ICON_MAP = {
   /* ── Navigation ─────────────────── */
   'bi-arrow-left':             ArrowLeft,
@@ -130,6 +152,7 @@ const ICON_MAP = {
   'bi-bar-chart-line':         BarChart2,
   'bi-file-earmark-bar-graph': FileBarChart,
   'bi-file-earmark-spreadsheet': FileSpreadsheet,
+  'bi-filetype-xlsx':           ExcelExportIcon,
   'bi-journal-plus':           FilePlus,
   'bi-journal-text':           FileText,
   'bi-stars':                  Sparkles,

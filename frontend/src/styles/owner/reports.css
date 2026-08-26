@@ -67,20 +67,442 @@
   cursor: not-allowed;
 }
 
-.owner-reports__date {
+.owner-reports__period {
+  position: relative;
+  min-width: 0;
+}
+.owner-reports__period.report-actions .report-period-picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: auto;
   height: 42px;
+  min-width: 0;
+  min-height: 42px;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.owner-reports__period.report-actions .owner-reports__period-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: auto;
+  min-width: 146px;
+  max-width: min(290px, 45vw);
+  height: 42px;
+  min-height: 42px;
   padding: 0 12px;
-  border-radius: 10px;
   border: 1px solid rgba(15, 35, 60, 0.12);
+  border-radius: 10px;
   background: var(--color-card, #ffffff);
   color: var(--neutral-900, #0b1f3f);
+  box-shadow: none;
   font: inherit;
   font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
-.owner-reports__date:focus-visible {
+.owner-reports__period.report-actions .owner-reports__period-button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.owner-reports__period.report-actions .owner-reports__period-button:hover,
+.owner-reports__period.report-actions .owner-reports__period-button[aria-expanded="true"] {
   outline: 0;
-  border-color: var(--color-brand, #1db5b5);
-  box-shadow: 0 0 0 3px rgba(29, 181, 181, 0.16);
+  border-color: rgba(29, 181, 181, 0.72);
+  background: #ffffff;
+  box-shadow: none;
+}
+.owner-reports__period.report-actions .owner-reports__period-button:focus-visible {
+  outline: 0;
+  border-color: rgba(29, 181, 181, 0.72);
+  background: #ffffff;
+  box-shadow: none;
+}
+
+/* Canonical OWNER Reports picker: shared compact trigger and popover. */
+.owner-reports__period.report-actions .report-date-menu {
+  position: absolute;
+  z-index: 120;
+  top: calc(100% + 10px);
+  right: 0;
+  left: auto;
+  width: min(580px, calc(100vw - 32px));
+  max-height: none;
+  margin: 0;
+  padding: 10px;
+  overflow: visible;
+  border: 1px solid rgba(15, 35, 60, 0.12);
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 18px 50px rgba(15, 35, 60, 0.16);
+}
+.owner-reports__period.report-actions .report-date-menu--date-only {
+  width: min(540px, calc(100vw - 32px));
+}
+.owner-reports__period.report-actions .report-date-presets {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+  margin: 0 0 8px;
+}
+.owner-reports__period.report-actions .report-date-presets button {
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 6px;
+  border: 1px solid rgba(15, 35, 60, 0.1);
+  border-radius: 9px;
+  background: #ffffff;
+  color: var(--neutral-700, #334155);
+  box-shadow: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.owner-reports__period.report-actions .report-date-presets button:hover {
+  border-color: rgba(15, 35, 60, 0.16);
+  background: #f8fafc;
+}
+.owner-reports__period.report-actions .report-date-presets button:focus-visible {
+  outline: 0;
+  border-color: rgba(29, 181, 181, 0.58);
+  background: #ffffff;
+}
+.owner-reports__period.report-actions .report-date-presets button.is-active {
+  outline: 0;
+  border-color: rgba(29, 181, 181, 0.48);
+  background: rgba(29, 181, 181, 0.08);
+  color: #0b7777;
+}
+.owner-reports__period.report-actions .report-date-range--labeled {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+.owner-reports__period.report-actions .report-date-range--labeled > span {
+  align-self: end;
+  padding-bottom: 11px;
+  color: var(--neutral-400, #94a3b8);
+}
+.owner-reports__period.report-actions .report-date-field {
+  position: relative;
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.owner-reports__period.report-actions .report-date-field::after {
+  position: absolute;
+  z-index: 3;
+  bottom: -16px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  border-right: 1px solid rgba(15, 35, 60, 0.14);
+  border-bottom: 1px solid rgba(15, 35, 60, 0.14);
+  background: #ffffff;
+  transform: translate(-50%, -3px) rotate(45deg);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+.owner-reports__period.report-actions .report-date-field.is-active::after {
+  opacity: 1;
+  transform: translate(-50%, 0) rotate(45deg);
+}
+.owner-reports__period.report-actions .report-date-field > span {
+  display: block;
+  color: var(--neutral-500, #64748b);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.owner-reports__period.report-actions .report-date-field.is-active > span {
+  color: #0b7777;
+}
+.owner-reports__period.report-actions .report-date-input {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid rgba(15, 35, 60, 0.14);
+  border-radius: 9px;
+  background: #ffffff;
+  color: var(--neutral-900, #0b1f3f);
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.owner-reports__period.report-actions .report-date-input:focus {
+  outline: 0;
+  border-color: rgba(29, 181, 181, 0.72);
+  background: #ffffff;
+  box-shadow: none;
+}
+.owner-reports__period.report-actions .report-date-field.is-active .report-date-input {
+  border-color: rgba(29, 181, 181, 0.72);
+  background: #ffffff;
+  box-shadow: none;
+}
+.owner-reports__period.report-actions .report-date-ok,
+.owner-reports__period.report-actions .report-date-calendar-ok {
+  min-width: 68px;
+  height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--color-brand, #1db5b5);
+  color: #ffffff;
+  box-shadow: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+.owner-reports__period.report-actions .report-date-ok:hover,
+.owner-reports__period.report-actions .report-date-ok:focus-visible,
+.owner-reports__period.report-actions .report-date-calendar-ok:hover,
+.owner-reports__period.report-actions .report-date-calendar-ok:focus-visible {
+  outline: 0;
+  background: var(--color-brand-dark, #0fa3a3);
+}
+.owner-reports__period.report-actions .report-date-error {
+  margin-top: 8px;
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 600;
+}
+.owner-reports__period.report-actions .report-date-calendar-shell {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: 0;
+  opacity: 0;
+  transition: grid-template-rows 180ms ease, margin-top 180ms ease, opacity 150ms ease;
+}
+.owner-reports__period.report-actions .report-date-calendar-shell.is-expanded {
+  grid-template-rows: 1fr;
+  margin-top: 8px;
+  opacity: 1;
+}
+.owner-reports__period.report-actions .report-date-calendar-shell__inner {
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 16px;
+}
+.owner-reports__period.report-actions .report-date-calendar-popover {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  width: 100%;
+  margin-top: 0;
+  overflow: hidden;
+  border: 1px solid rgba(15, 35, 60, 0.1);
+  border-radius: 16px;
+  box-shadow: none;
+}
+.owner-reports__period.report-actions .report-date-calendar-popover::before { display: none; }
+.owner-reports__period.report-actions .report-date-picker-body {
+  grid-template-columns: minmax(0, 1fr) 148px;
+  min-height: 270px;
+}
+.owner-reports__period.report-actions .report-date-picker-body--date-only {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+}
+.owner-reports__period.report-actions .report-date-picker-body--date-only .report-date-time-panel {
+  display: none;
+}
+.owner-reports__period.report-actions .report-date-calendar-panel { padding: 10px 10px 6px; }
+.owner-reports__period.report-actions .report-date-calendar-toolbar {
+  grid-template-columns: 34px 80px minmax(100px, 1fr) 34px;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.owner-reports__period.report-actions .report-date-calendar-toolbar button,
+.owner-reports__period.report-actions .report-date-calendar-toolbar select {
+  min-height: 34px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+.owner-reports__period.report-actions .report-date-calendar-toolbar button:hover {
+  border-color: rgba(29, 181, 181, 0.46);
+  background: rgba(29, 181, 181, 0.07);
+}
+.owner-reports__period.report-actions .report-date-calendar-toolbar button:focus-visible,
+.owner-reports__period.report-actions .report-date-calendar-toolbar select:focus-visible,
+.owner-reports__period.report-actions .report-date-today-button:focus-visible {
+  outline: 0;
+  border-color: rgba(29, 181, 181, 0.68);
+  box-shadow: none;
+}
+.owner-reports__period.report-actions .report-date-calendar-select {
+  position: relative;
+  min-width: 0;
+}
+.owner-reports__period.report-actions .report-date-calendar-select__trigger {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  border: 1px solid rgba(15, 35, 60, 0.14);
+  background: #ffffff;
+  color: var(--neutral-900, #0b1f3f);
+  box-shadow: none;
+  font-weight: 650;
+}
+.owner-reports__period.report-actions .report-date-calendar-select__trigger:hover,
+.owner-reports__period.report-actions .report-date-calendar-select.is-open .report-date-calendar-select__trigger,
+.owner-reports__period.report-actions .report-date-calendar-select__trigger:focus-visible {
+  outline: 0;
+  border-color: rgba(29, 181, 181, 0.68);
+  background: #ffffff;
+  box-shadow: none;
+}
+.owner-reports__period.report-actions .report-date-calendar-select__trigger > svg {
+  flex: 0 0 auto;
+  color: var(--neutral-500, #64748b);
+  transition: transform 160ms ease;
+}
+.owner-reports__period.report-actions .report-date-calendar-select.is-open .report-date-calendar-select__trigger > svg {
+  transform: rotate(180deg);
+}
+.owner-reports__period.report-actions .report-date-calendar-select__menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 5px);
+  right: 0;
+  left: 0;
+  max-height: 200px;
+  padding: 5px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid rgba(15, 35, 60, 0.13);
+  border-radius: 11px;
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(15, 35, 60, 0.14);
+}
+.owner-reports__period.report-actions .report-date-calendar-toolbar .report-date-calendar-select__option {
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--neutral-800, #1e293b);
+  box-shadow: none;
+  font-size: 13px;
+  font-weight: 550;
+  text-align: left;
+}
+.owner-reports__period.report-actions .report-date-calendar-toolbar .report-date-calendar-select__option:hover,
+.owner-reports__period.report-actions .report-date-calendar-toolbar .report-date-calendar-select__option:focus-visible {
+  outline: 0;
+  border: 0;
+  background: rgba(29, 181, 181, 0.06);
+  box-shadow: none;
+}
+.owner-reports__period.report-actions .report-date-calendar-toolbar .report-date-calendar-select__option.is-selected {
+  background: rgba(29, 181, 181, 0.1);
+  color: #0b7777;
+  font-weight: 700;
+}
+.owner-reports__period.report-actions .report-date-calendar-week span {
+  padding-bottom: 5px;
+  font-size: 12px;
+}
+.owner-reports__period.report-actions .report-date-calendar-grid button {
+  min-height: 29px;
+  border-radius: 5px;
+  font-size: 13px;
+}
+.owner-reports__period.report-actions .report-date-calendar-grid button.is-in-range {
+  border-radius: 0;
+  color: #0b7777;
+  background: rgba(29, 181, 181, 0.075);
+  font-weight: 600;
+}
+.owner-reports__period.report-actions .report-date-calendar-grid button.is-in-range:nth-child(7n + 1) {
+  border-radius: 5px 0 0 5px;
+}
+.owner-reports__period.report-actions .report-date-calendar-grid button.is-in-range:nth-child(7n) {
+  border-radius: 0 5px 5px 0;
+}
+.owner-reports__period.report-actions .report-date-calendar-grid button.is-today:not(.is-selected):not(.is-in-range) {
+  box-shadow: inset 0 0 0 1px rgba(29, 181, 181, 0.72);
+  color: #0b7777;
+  font-weight: 700;
+}
+.owner-reports__period.report-actions .report-date-calendar-grid button.is-selected {
+  color: #ffffff;
+  background: var(--color-brand, #1db5b5);
+  box-shadow: none;
+}
+.owner-reports__period.report-actions .report-date-calendar-grid button.is-selected.is-range-start:not(.is-range-end) {
+  border-radius: 6px 2px 2px 6px;
+}
+.owner-reports__period.report-actions .report-date-calendar-grid button.is-selected.is-range-end:not(.is-range-start) {
+  border-radius: 2px 6px 6px 2px;
+}
+.owner-reports__period.report-actions .report-date-calendar-grid button.is-selected.is-range-start.is-range-end {
+  border-radius: 6px;
+}
+.owner-reports__period.report-actions .report-date-calendar-grid button:focus-visible:not(.is-selected) {
+  outline: 0;
+  box-shadow: inset 0 0 0 1px rgba(29, 181, 181, 0.72);
+}
+.owner-reports__period.report-actions .report-date-time-panel { padding: 10px 7px 7px; }
+.owner-reports__period.report-actions .report-date-time-title {
+  min-height: 32px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.owner-reports__period.report-actions .report-date-time-column-label {
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+.owner-reports__period.report-actions .report-date-time-list { max-height: 190px; }
+.owner-reports__period.report-actions .report-date-time-list button {
+  min-height: 29px;
+  font-size: 13px;
+}
+.owner-reports__period.report-actions .report-date-time-list button.is-selected {
+  color: #0b7777;
+  background: rgba(29, 181, 181, 0.11);
+  font-weight: 700;
+}
+.owner-reports__period.report-actions .report-date-time-list button:focus-visible {
+  outline: 0;
+  box-shadow: inset 0 0 0 1px rgba(29, 181, 181, 0.58);
+}
+.owner-reports__period.report-actions .report-date-calendar-footer {
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  padding: 7px 9px;
+}
+.owner-reports__period.report-actions .report-date-today-button {
+  justify-self: start;
+  min-width: 124px;
+  min-height: 36px;
+  border-radius: 9px;
+  box-shadow: none;
+  font-size: 13px;
 }
 
 .owner-reports__note {
@@ -232,8 +654,35 @@
   .owner-report-row__select { max-width: none; width: 100%; }
   .owner-report-row__action { justify-content: flex-start; }
   .owner-reports__head-actions { width: 100%; }
-  .owner-reports__date { flex: 1 1 auto; }
+  .owner-reports__period { flex: 1 1 100%; }
+  .owner-reports__period.report-actions .report-period-picker,
+  .owner-reports__period.report-actions .owner-reports__period-button { width: 100%; max-width: none; }
+  .owner-reports__period.report-actions .report-date-menu {
+    right: auto;
+    left: 0;
+  }
   .owner-msel { max-width: none; width: 100%; }
+}
+
+@media (max-width: 600px) {
+  .owner-reports__period.report-actions .report-date-menu {
+    right: auto;
+    left: 0;
+    width: min(580px, calc(100vw - 64px));
+    max-height: calc(100vh - 206px);
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  .owner-reports__period.report-actions .report-date-presets { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .owner-reports__period.report-actions .report-date-range--labeled { grid-template-columns: 1fr; }
+  .owner-reports__period.report-actions .report-date-range--labeled > span { display: none; }
+  .owner-reports__period.report-actions .report-date-picker-body { grid-template-columns: 1fr; }
+  .owner-reports__period.report-actions .report-date-time-panel {
+    grid-template-rows: auto auto;
+    border-top: 1px solid rgba(15, 35, 60, 0.1);
+    border-left: 0;
+  }
+  .owner-reports__period.report-actions .report-date-time-list { max-height: 116px; }
 }
 
 /* ---- Employee multi-select dropdown (cashier / waiter / cook) ---- */
@@ -325,3 +774,711 @@
   fill: none;
 }
 
+
+/* ============================================================
+   OWNER Reports — shared empty-state visual system.
+   This file is imported after react-overrides.css and is the final,
+   domain-scoped owner for the six Reports pages. Existing page classes
+   remain in place for behavior and compatibility; these shared classes
+   normalize only presentation.
+   ============================================================ */
+
+/* Z-report is an intentionally separate report-generator workspace.
+   It opts out of this table-report layer by using the generator modifier
+   without owner-report-view/header/surface classes. */
+.dashboard-content.dashboard-content--table-report {
+  padding-top: 14px;
+  padding-inline: 16px;
+}
+
+.owner-report-view,
+.dashboard-back-slot + .owner-report-view {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.owner-report-surface {
+  width: 100%;
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid rgba(15, 35, 60, 0.09);
+  border-radius: 18px;
+  background: var(--color-card, #ffffff);
+  box-shadow: 0 3px 12px rgba(15, 35, 60, 0.055);
+}
+
+.owner-report-view > .owner-report-surface {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+}
+
+.owner-reports__workspace {
+  display: grid;
+  gap: 18px;
+}
+
+.owner-report-header,
+.owner-reports__head.owner-report-header,
+.report-page-header.owner-report-header,
+.z-waiters-report__head.owner-report-header,
+.cancelled-report-head.owner-report-header {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 0 0 18px;
+}
+
+.owner-reports__head.owner-report-header {
+  margin-bottom: 0;
+}
+
+.owner-report-heading,
+.report-title-group.owner-report-heading,
+.z-waiters-report__title.owner-report-heading,
+.cancelled-report-title.owner-report-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  transform: none;
+}
+
+.owner-report-heading > div,
+.report-title-group.owner-report-heading > div {
+  display: grid;
+  align-items: start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.owner-report-heading > span[aria-hidden="true"],
+.owner-report-heading .report-accent-bar,
+.owner-report-heading .cancelled-report-title__mark {
+  width: 4px;
+  height: 42px;
+  min-width: 4px;
+  margin: 1px 0 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-brand, #1db5b5);
+}
+
+.owner-report-kicker,
+.owner-report-heading .owner-report-kicker,
+.report-eyebrow.owner-report-kicker,
+.cancelled-report-eyebrow.owner-report-kicker {
+  display: block;
+  margin: 0;
+  color: var(--neutral-500, #64748b);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.owner-report-heading .owner-report-kicker,
+.z-waiters-report__title.owner-report-heading .owner-report-kicker {
+  width: auto;
+  height: auto;
+  min-width: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.owner-report-heading h1,
+.owner-reports__title,
+.report-title-group.owner-report-heading h1,
+.z-waiters-report__title.owner-report-heading h1,
+.cancelled-report-title.owner-report-heading h1 {
+  margin: 0;
+  color: var(--neutral-900, #0b1f3f);
+  font-size: 24px;
+  font-weight: 750;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.owner-report-actions,
+.report-actions.owner-report-actions,
+.z-waiters-report__controls.owner-report-actions,
+.owner-reports__head-actions.owner-report-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  flex-wrap: wrap;
+  transform: none;
+}
+
+.owner-report-view :is(
+  .report-period-button,
+  .orders-filter-toggle,
+  .dishes-filter-toggle,
+  .tables-filter-toggle,
+  .owner-report-excel,
+  .owner-reports__date,
+  .owner-reports__shift-print,
+  .z-waiters-report__select select,
+  .cancelled-filter-button
+) {
+  height: 43px;
+  min-height: 43px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.owner-report-view .report-period-picker {
+  width: auto;
+  height: 43px;
+  min-height: 43px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.owner-report-view .report-period-button {
+  width: auto;
+  min-width: 198px;
+  padding: 0 14px;
+  border: 1px solid rgba(15, 35, 60, 0.14);
+  background: #ffffff;
+  color: var(--neutral-800, #1e293b);
+  box-shadow: none;
+}
+
+.owner-report-view .report-period-button:hover,
+.owner-report-view .report-period-button[aria-expanded="true"],
+.owner-report-view .report-period-button:focus-visible {
+  border-color: rgba(29, 181, 181, 0.7);
+  background: rgba(29, 181, 181, 0.035);
+  box-shadow: 0 0 0 3px rgba(29, 181, 181, 0.13);
+  outline: 0;
+}
+
+.owner-report-view .orders-filter-toggle,
+.owner-report-view .dishes-filter-toggle,
+.owner-report-view .tables-filter-toggle,
+.owner-report-view .cancelled-filter-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 15px;
+  border: 1px solid rgba(15, 35, 60, 0.14);
+  background: #ffffff;
+  color: var(--neutral-800, #1e293b);
+  box-shadow: none;
+}
+
+.owner-report-view .orders-filter-toggle:hover,
+.owner-report-view .orders-filter-toggle:focus-visible,
+.owner-report-view .dishes-filter-toggle:hover,
+.owner-report-view .dishes-filter-toggle:focus-visible,
+.owner-report-view .dishes-filter-toggle[aria-expanded="true"],
+.owner-report-view .tables-filter-toggle:hover,
+.owner-report-view .tables-filter-toggle:focus-visible,
+.owner-report-view .tables-filter-toggle[aria-expanded="true"],
+.owner-report-view .cancelled-filter-button:hover,
+.owner-report-view .cancelled-filter-button:focus-visible {
+  border-color: rgba(29, 181, 181, 0.68);
+  background: rgba(29, 181, 181, 0.045);
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(29, 181, 181, 0.12);
+}
+
+.orders-report-page .orders-filter-toggle,
+.dishes-report-page .dishes-filter-toggle,
+.tables-report-page .tables-filter-toggle {
+  border-color: var(--color-brand, #1db5b5);
+  background: var(--color-brand, #1db5b5);
+  color: #ffffff;
+}
+
+.orders-report-page .orders-filter-toggle:hover,
+.orders-report-page .orders-filter-toggle:focus-visible,
+.orders-report-page .orders-filter-toggle[aria-expanded="true"],
+.dishes-report-page .dishes-filter-toggle:hover,
+.dishes-report-page .dishes-filter-toggle:focus-visible,
+.dishes-report-page .dishes-filter-toggle[aria-expanded="true"],
+.tables-report-page .tables-filter-toggle:hover,
+.tables-report-page .tables-filter-toggle:focus-visible,
+.tables-report-page .tables-filter-toggle[aria-expanded="true"] {
+  border-color: var(--color-brand-dark, #0fa3a3);
+  background: var(--color-brand-dark, #0fa3a3);
+  color: #ffffff;
+}
+
+.owner-report-view .owner-report-excel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 142px;
+  padding: 0 15px;
+  border: 1px solid rgba(18, 142, 103, 0.34);
+  background: rgba(18, 142, 103, 0.075);
+  color: #147a5c;
+  box-shadow: none;
+}
+
+.owner-report-view .owner-report-excel:hover,
+.owner-report-view .owner-report-excel:focus-visible {
+  border-color: rgba(18, 142, 103, 0.58);
+  background: rgba(18, 142, 103, 0.12);
+  color: #0f684e;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(18, 142, 103, 0.11);
+}
+
+.orders-report-page .owner-report-excel,
+.dishes-report-page .owner-report-excel,
+.tables-report-page .owner-report-excel {
+  border-color: #1fb141;
+  background: #1fb141;
+  color: #ffffff;
+}
+
+.orders-report-page .owner-report-excel:hover,
+.orders-report-page .owner-report-excel:focus-visible,
+.dishes-report-page .owner-report-excel:hover,
+.dishes-report-page .owner-report-excel:focus-visible,
+.tables-report-page .owner-report-excel:hover,
+.tables-report-page .owner-report-excel:focus-visible {
+  border-color: #30c146;
+  background: #30c146;
+  color: #ffffff;
+}
+
+.owner-report-view .owner-report-xlsx-icon {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+}
+
+.owner-report-view :is(input, select, button) {
+  transition: border-color 170ms ease, background-color 170ms ease, box-shadow 170ms ease, color 170ms ease;
+}
+
+.owner-report-view :is(input, select):focus-visible {
+  border-color: rgba(29, 181, 181, 0.76);
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(29, 181, 181, 0.13);
+}
+
+.owner-report-view .report-filter-panel,
+.owner-report-view .cancelled-filter-panel,
+.owner-report-view .report-filters-grid {
+  margin: 0 0 16px;
+  padding: 12px;
+  border: 1px solid rgba(15, 35, 60, 0.08);
+  border-radius: 12px;
+  background: #f8fafc;
+  box-shadow: none;
+}
+
+.owner-report-view .report-filter-panel label,
+.owner-report-view .cancelled-filter-panel label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.owner-report-view .report-filter-panel label > span,
+.owner-report-view .cancelled-filter-panel label > span {
+  color: var(--neutral-600, #475569);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.owner-report-view .report-filter-panel :is(input, select),
+.owner-report-view .cancelled-filter-panel :is(input, select),
+.owner-report-view .report-filters-grid :is(input, select) {
+  height: 43px;
+  min-height: 43px;
+  width: 100%;
+  min-width: 0;
+  padding: 0 12px;
+  border: 1px solid rgba(15, 35, 60, 0.14);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--neutral-900, #0b1f3f);
+  font: inherit;
+  font-size: 13px;
+}
+
+.orders-report-page .report-filters-grid,
+.dishes-report-page .report-filters-grid,
+.tables-report-page .report-filters-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(260px, 1fr);
+  align-items: stretch;
+  gap: 10px 12px;
+  min-height: 0;
+  padding: 12px;
+}
+
+.orders-report-page .orders-filter-panel[hidden],
+.dishes-report-page .dishes-filter-panel[hidden],
+.tables-report-page .tables-filter-panel[hidden] {
+  display: none;
+}
+
+.owner-report-view .report-filter-input,
+.owner-report-view .report-filter-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.owner-report-view .report-filter-input > svg {
+  position: absolute;
+  left: 13px;
+  z-index: 1;
+  color: var(--neutral-500, #64748b);
+  pointer-events: none;
+}
+
+.owner-report-view .report-filter-input input {
+  padding-left: 40px;
+}
+
+.owner-report-view .report-filter-select > svg {
+  position: absolute;
+  right: 13px;
+  color: var(--neutral-500, #64748b);
+  pointer-events: none;
+}
+
+.owner-report-view .report-filter-select select {
+  appearance: none;
+  padding-right: 38px;
+}
+
+.owner-report-view .report-filter-select select:disabled {
+  cursor: not-allowed;
+  opacity: 1;
+  border-color: rgba(15, 35, 60, 0.11);
+  background: #f3f6f9;
+  color: var(--neutral-500, #64748b);
+  -webkit-text-fill-color: var(--neutral-500, #64748b);
+}
+
+.owner-report-view .report-filter-select:has(select:disabled) > svg {
+  color: #7c8ca1;
+}
+
+.owner-report-view .report-filter-buttons {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0;
+}
+
+.owner-report-view .report-filter-buttons button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 43px;
+  min-height: 43px;
+  min-width: 112px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.owner-report-view .report-filter-apply {
+  border: 1px solid var(--color-brand, #1db5b5);
+  background: var(--color-brand, #1db5b5);
+  color: #ffffff;
+}
+
+.owner-report-view .report-filter-apply:hover,
+.owner-report-view .report-filter-apply:focus-visible {
+  border-color: var(--color-brand-dark, #0fa3a3);
+  background: var(--color-brand-dark, #0fa3a3);
+}
+
+.owner-report-view .report-filter-clear {
+  border: 1px solid rgba(245, 1, 1, 0.26);
+  background: #ffffff;
+  color: #c84237;
+}
+
+.owner-report-view .report-filter-clear:hover,
+.owner-report-view .report-filter-clear:focus-visible {
+  border-color: rgba(200, 66, 55, 0.44);
+  background: #fff7f6;
+  color: #ad382f;
+}
+
+.owner-report-view .report-filter-buttons button:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(29, 181, 181, 0.14);
+}
+
+.owner-report-table-scroll,
+.owner-report-view .report-table-wrapper,
+.owner-report-view .cancelled-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid rgba(15, 35, 60, 0.09);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.owner-report-table,
+.owner-report-view .report-table,
+.owner-report-view .cancelled-table {
+  display: table;
+  width: 100%;
+  min-width: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  background: #ffffff;
+}
+
+.owner-report-view .owner-report-table th,
+.owner-report-view .owner-report-table td {
+  display: table-cell;
+  height: auto;
+  padding: 12px 14px;
+  border: 0;
+  border-bottom: 1px solid rgba(15, 35, 60, 0.07);
+  color: var(--neutral-700, #334155);
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: left;
+  vertical-align: middle;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.owner-report-view .owner-report-table th {
+  height: 46px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  background: #f3f6fa;
+  color: var(--neutral-700, #334155);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.15;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.owner-report-view .owner-report-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.owner-report-view .owner-report-table tbody tr:not(.report-empty-row):not(.cancelled-empty-row):hover td {
+  background: rgba(29, 181, 181, 0.035);
+}
+
+.owner-report-view .report-total-row td,
+.owner-report-view .z-waiters-report__row--total td {
+  background: #f8fafc;
+  color: var(--neutral-900, #0b1f3f);
+  font-weight: 650;
+}
+
+.owner-report-view :is(.report-empty-row, .cancelled-empty-row) td {
+  height: auto;
+  padding: 0;
+  border-bottom: 0;
+  background: #ffffff;
+}
+
+.owner-report-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 116px;
+  padding: 20px;
+  color: var(--neutral-600, #475569);
+  text-align: left;
+}
+
+.owner-report-empty__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 10px;
+  background: rgba(29, 181, 181, 0.09);
+  color: #148e8e;
+}
+
+.owner-report-empty > div {
+  display: grid;
+  gap: 3px;
+}
+
+.owner-report-empty strong {
+  color: var(--neutral-800, #1e293b);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.owner-report-empty div > span {
+  color: var(--neutral-500, #64748b);
+  font-size: 12px;
+  font-weight: 450;
+}
+
+@media (max-width: 1024px) {
+  .owner-report-header,
+  .owner-reports__head.owner-report-header,
+  .report-page-header.owner-report-header,
+  .z-waiters-report__head.owner-report-header,
+  .cancelled-report-head.owner-report-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .owner-report-actions,
+  .report-actions.owner-report-actions,
+  .z-waiters-report__controls.owner-report-actions,
+  .owner-reports__head-actions.owner-report-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .orders-report-page .report-filters-grid,
+  .dishes-report-page .report-filters-grid,
+  .tables-report-page .report-filters-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+}
+
+@media (max-width: 768px) {
+  .owner-report-surface,
+  .owner-reports__workspace {
+    padding: 16px;
+  }
+
+  .owner-reports__workspace {
+    border-radius: 12px;
+  }
+
+  .owner-report-heading h1,
+  .owner-reports__title,
+  .report-title-group.owner-report-heading h1,
+  .z-waiters-report__title.owner-report-heading h1,
+  .cancelled-report-title.owner-report-heading h1 {
+    font-size: 21px;
+  }
+
+  .owner-report-heading > span[aria-hidden="true"],
+  .owner-report-heading .report-accent-bar,
+  .owner-report-heading .cancelled-report-title__mark {
+    height: 38px;
+  }
+
+  .owner-report-view .report-period-picker,
+  .owner-report-view .report-period-button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .owner-report-actions > *,
+  .z-waiters-report__controls.owner-report-actions > *,
+  .owner-reports__head-actions.owner-report-actions > * {
+    flex: 1 1 180px;
+  }
+
+
+  .orders-report-page .owner-report-actions,
+  .dishes-report-page .owner-report-actions,
+  .tables-report-page .owner-report-actions {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) auto auto;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .orders-report-page .owner-report-actions > *,
+  .dishes-report-page .owner-report-actions > *,
+  .tables-report-page .owner-report-actions > * {
+    height: 43px;
+    min-height: 43px;
+    flex: none;
+  }
+
+  .orders-report-page .owner-report-actions :is(.orders-filter-toggle, .owner-report-excel),
+  .dishes-report-page .owner-report-actions :is(.dishes-filter-toggle, .owner-report-excel),
+  .tables-report-page .owner-report-actions :is(.tables-filter-toggle, .owner-report-excel) {
+    width: auto;
+  }
+  .owner-report-empty {
+    min-height: 108px;
+    padding: 18px 14px;
+  }
+}
+
+@media (max-width: 600px) {
+  .orders-report-page .owner-report-actions,
+  .dishes-report-page .owner-report-actions,
+  .tables-report-page .owner-report-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .orders-report-page .owner-report-actions :is(.orders-filter-toggle, .owner-report-excel),
+  .dishes-report-page .owner-report-actions :is(.dishes-filter-toggle, .owner-report-excel),
+  .tables-report-page .owner-report-actions :is(.tables-filter-toggle, .owner-report-excel) {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .owner-report-actions > *,
+  .z-waiters-report__controls.owner-report-actions > *,
+  .owner-reports__head-actions.owner-report-actions > * {
+    flex-basis: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .owner-reports__period.report-actions .report-date-calendar-shell {
+    transition-duration: 0.01ms;
+  }
+
+  .owner-report-view :is(input, select, button) {
+    transition-duration: 0.01ms;
+  }
+}
