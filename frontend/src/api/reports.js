@@ -21,6 +21,7 @@ export const reportsService = {
       waiter_id: filters.waiterId,
       payment_method: filters.paymentMethod,
       cashier_id: filters.cashierId,
+      hall_id: filters.hallId,
     });
     return api.get("/reports/tables", { params: rangeParams(dateFrom, dateTo, filterParams), ...config });
   },

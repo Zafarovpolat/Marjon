@@ -79,6 +79,7 @@ describe("TablesReportPage filters", () => {
           waiterId: "waiter-1",
           paymentMethod: "cash",
           cashierId: "cashier-1",
+          hallId: "all",
         },
       }),
     );
@@ -89,5 +90,89 @@ describe("TablesReportPage filters", () => {
     ["Официант", "Кассир", "Тип оплаты"].forEach((label) => {
       expect(screen.getByLabelText(label)).toHaveValue("all");
     });
+  });
+});
+
+const placesMeta = {
+  waiters: [{ value: "waiter-1", label: "Официант 1" }],
+  cashiers: [{ value: "cashier-1", label: "Кассир 1" }],
+  payment_methods: [{ value: "cash", label: "Наличные" }],
+  places: [
+    { value: "hall-zal", label: "Зал" },
+    { value: "hall-bar", label: "Бар" },
+    { value: "hall-balcony", label: "Балкон" },
+  ],
+  place_filter_supported: true,
+};
+
+describe("TablesReportPage — Место (Place) filter", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    reportsService.listTables.mockResolvedValue({ data: [] }); // zero rows on purpose
+    reportsService.getTablesFilters.mockResolvedValue({ data: placesMeta });
+  });
+
+  async function openPlace() {
+    render(<TablesReportPage />);
+    const toggle = await screen.findByRole("button", { name: "Фильтровать" }); // waits for load
+    fireEvent.click(toggle); // open panel
+    const place = screen.getByLabelText("Место");
+    await waitFor(() => expect(place).not.toBeDisabled());
+    return place;
+  }
+
+  it("exposes canonical Hall options from metadata (not hardcoded, not history-derived)", async () => {
+    const place = await openPlace();
+    const opts = Array.from(place.querySelectorAll("option"));
+    expect(opts.map((o) => o.value)).toEqual(expect.arrayContaining(["hall-zal", "hall-bar", "hall-balcony"]));
+    expect(opts.map((o) => o.textContent)).toEqual(expect.arrayContaining(["Зал", "Бар", "Балкон"]));
+    // "Балкон" is present even though listTables returned [] → options come from
+    // the filters metadata (Hall directory), not from report rows.
+    expect(opts.map((o) => o.textContent)).toContain("Балкон");
+  });
+
+  it("sends hall_id only after Apply (draft-only before)", async () => {
+    const place = await openPlace();
+    expect(reportsService.listTables).toHaveBeenCalledTimes(1); // initial load only
+    fireEvent.change(place, { target: { value: "hall-zal" } });
+    expect(reportsService.listTables).toHaveBeenCalledTimes(1); // still draft — no refetch
+
+    const panel = document.getElementById("tables-report-filters");
+    fireEvent.click(within(panel).getByRole("button", { name: "Фильтровать" }));
+    await waitFor(() => expect(reportsService.listTables).toHaveBeenCalledTimes(2));
+    expect(reportsService.listTables.mock.calls[1][2].filters.hallId).toBe("hall-zal");
+  });
+
+  it("Clear resets the Hall selection back to all", async () => {
+    const place = await openPlace();
+    const panel = document.getElementById("tables-report-filters");
+    fireEvent.change(place, { target: { value: "hall-bar" } });
+    fireEvent.click(within(panel).getByRole("button", { name: "Фильтровать" }));
+    await waitFor(() => expect(reportsService.listTables).toHaveBeenCalledTimes(2));
+
+    fireEvent.click(screen.getByRole("button", { name: "Очистить" }));
+    await waitFor(() => expect(reportsService.listTables).toHaveBeenCalledTimes(3));
+    expect(reportsService.listTables.mock.calls[2][2].filters.hallId).toBe("all");
+    expect(screen.getByLabelText("Место")).toHaveValue("all");
+  });
+});
+
+describe("TablesReportPage — Место backward compatibility", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    reportsService.listTables.mockResolvedValue({ data: [] });
+    reportsService.getTablesFilters.mockResolvedValue({
+      data: { waiters: [], cashiers: [], payment_methods: [], places: [], place_filter_supported: false },
+    });
+  });
+
+  it("keeps Место disabled and applies no specific hall when unsupported", async () => {
+    render(<TablesReportPage />);
+    const toggle = await screen.findByRole("button", { name: "Фильтровать" });
+    fireEvent.click(toggle);
+    const place = screen.getByLabelText("Место");
+    expect(place).toBeDisabled();
+    // Applied hallId stays "all" → reports.js compactParams omits hall_id.
+    expect(reportsService.listTables.mock.calls.at(-1)[2].filters.hallId).toBe("all");
   });
 });

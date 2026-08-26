@@ -12,6 +12,7 @@ const initialFilters = {
   waiterId: "all",
   paymentMethod: "all",
   cashierId: "all",
+  hallId: "all",
 };
 
 const emptyFilterOptions = {
@@ -100,6 +101,7 @@ export default function TablesReportPage() {
     appliedFilters.waiterId,
     appliedFilters.paymentMethod,
     appliedFilters.cashierId,
+    appliedFilters.hallId,
   ]);
 
   function updateFilter(key, value) {
@@ -145,7 +147,7 @@ export default function TablesReportPage() {
             <input aria-label="Номер стола" value={filters.tableNumber} onChange={(event) => updateFilter("tableNumber", event.target.value)} placeholder="Введите номер стола" />
           </label>
           <FilterSelect label="Официант" placeholder="Выберите официанта" value={filters.waiterId} options={filterOptions.waiters} onChange={(event) => updateFilter("waiterId", event.target.value)} disabled={filterOptionsLoading || !filterOptions.waiters.length} />
-          <FilterSelect label="Место" placeholder={filterOptions.place_filter_supported ? "Выберите место" : "Нет связи заказа с местом"} value="all" options={filterOptions.places} onChange={() => {}} disabled={!filterOptions.place_filter_supported || filterOptionsLoading || !filterOptions.places.length} />
+          <FilterSelect label="Место" placeholder={filterOptions.place_filter_supported ? "Выберите место" : "Нет связи заказа с местом"} value={filters.hallId} options={filterOptions.places} onChange={(event) => updateFilter("hallId", event.target.value)} disabled={!filterOptions.place_filter_supported || filterOptionsLoading || !filterOptions.places.length} />
           <FilterSelect label="Кассир" placeholder="Выберите кассира" value={filters.cashierId} options={filterOptions.cashiers} onChange={(event) => updateFilter("cashierId", event.target.value)} disabled={filterOptionsLoading || !filterOptions.cashiers.length} />
           <FilterSelect label="Тип оплаты" placeholder="Выберите тип оплаты" value={filters.paymentMethod} options={filterOptions.payment_methods} onChange={(event) => updateFilter("paymentMethod", event.target.value)} disabled={filterOptionsLoading || !filterOptions.payment_methods.length} />
           <div className="report-filter-buttons">
