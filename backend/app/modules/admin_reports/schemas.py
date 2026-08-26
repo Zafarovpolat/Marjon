@@ -21,6 +21,13 @@ class TableReportRow(BaseModel):
     orders_count: int
     revenue: Decimal
     avg_check: Decimal
+    # Canonical seating identity (Phase 2). Null for legacy orders that predate
+    # the Order.table_id relation; present for orders linked to a real Table so
+    # the frontend can key rows stably and distinguish same-number tables across
+    # different halls.
+    table_id: UUID | None = None
+    hall_id: UUID | None = None
+    hall_name: str | None = None
 
 
 class WaiterReportRow(BaseModel):

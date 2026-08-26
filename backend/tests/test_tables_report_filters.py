@@ -165,7 +165,7 @@ async def test_tables_filters_are_tenant_safe_zero_history_and_do_not_multiply_r
         {"value": "card", "label": "System Card"},
     ]
     assert options["places"] == []
-    assert options["place_filter_supported"] is False
+    assert options["place_filter_supported"] is True
     assert waiter_b["id"] not in metadata.text
     assert cashier_b["id"] not in metadata.text
     assert "Foreign Secret" not in metadata.text
@@ -224,9 +224,13 @@ async def test_tables_filters_are_tenant_safe_zero_history_and_do_not_multiply_r
         return response.json()
 
     unfiltered = await table_rows()
+    # Legacy orders (table_number only, no canonical table_id) → canonical identity
+    # fields are null but present (additive Phase 2 contract).
     assert unfiltered == [
-        {"table_number": "12A", "orders_count": 2, "revenue": "250.00", "avg_check": "125.00"},
-        {"table_number": "7", "orders_count": 1, "revenue": "75.00", "avg_check": "75.00"},
+        {"table_number": "12A", "orders_count": 2, "revenue": "250.00", "avg_check": "125.00",
+         "table_id": None, "hall_id": None, "hall_name": None},
+        {"table_number": "7", "orders_count": 1, "revenue": "75.00", "avg_check": "75.00",
+         "table_id": None, "hall_id": None, "hall_name": None},
     ]
     assert [row["table_number"] for row in await table_rows(table_number="12")] == ["12A"]
     assert (await table_rows(waiter_id=waiter_a["id"]))[0]["orders_count"] == 1

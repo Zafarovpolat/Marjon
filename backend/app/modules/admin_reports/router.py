@@ -144,6 +144,7 @@ async def tables_report(
     waiter_id: UUID | None = Query(None),
     payment_method: str | None = Query(None, max_length=50),
     cashier_id: UUID | None = Query(None),
+    hall_id: UUID | None = Query(None),
     user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
 ):
@@ -156,6 +157,7 @@ async def tables_report(
         waiter_id=waiter_id,
         payment_method=payment_method,
         cashier_id=cashier_id,
+        hall_id=hall_id,
     )
 
 

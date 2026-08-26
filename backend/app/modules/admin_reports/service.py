@@ -26,6 +26,7 @@ from app.modules.finance.ownership import (
 )
 from app.modules.hr.models import Employee, WorkShift
 from app.modules.companies.models import Branch
+from app.modules.halls.models import Hall, Table
 from app.modules.inventory.models import Category, Product
 from app.modules.payments.models import Payment
 from app.modules.pos.models import Order, OrderItem
@@ -420,21 +421,42 @@ class AdminReportService:
         waiter_id: UUID | None = None,
         payment_method: str | None = None,
         cashier_id: UUID | None = None,
+        hall_id: UUID | None = None,
     ) -> list[TableReportRow]:
+        # Row identity is the canonical Table when the order carries one, else the
+        # legacy free-text number. Grouping by (table_id, table_number) keeps those
+        # two identity classes distinct — so Table #5 in "Зал" and Table #5 in "Бар"
+        # never collapse into one row, and a legacy NULL-table_id "5" stays separate
+        # from a canonical Table #5. Hall is joined only for display/predicate; both
+        # joins are on primary keys, so they never multiply orders/revenue.
         query = (
             select(
+                Order.table_id,
                 Order.table_number,
+                Table.hall_id.label("hall_id"),
+                Hall.name.label("hall_name"),
                 func.count(Order.id).label("cnt"),
                 func.coalesce(func.sum(Order.total_amount), 0).label("rev"),
             )
+            .outerjoin(Table, Table.id == Order.table_id)
+            .outerjoin(Hall, Hall.id == Table.hall_id)
             .where(
                 Order.company_id == company_id,
                 Order.status == "completed",
                 Order.table_number.is_not(None),
             )
-            .group_by(Order.table_number)
+            .group_by(Order.table_id, Order.table_number, Table.hall_id, Hall.name)
             .order_by(func.sum(Order.total_amount).desc())
         )
+        if hall_id is not None:
+            # Tenant-safe: 404 (not a leak) if the hall isn't this company's. Hall has
+            # a direct company_id, so the shared resolver applies. Filtering on the
+            # canonical Table.hall_id (never table_number) also excludes legacy
+            # NULL-table_id orders, which cannot truthfully belong to any hall.
+            await require_company_resource(
+                self.db, Hall, hall_id, company_id, detail="Hall not found"
+            )
+            query = query.where(Table.hall_id == hall_id)
         if table_number and (normalized_table_number := table_number.strip()):
             query = query.where(Order.table_number.ilike(f"%{normalized_table_number}%"))
         if waiter_id:
@@ -493,6 +515,7 @@ class AdminReportService:
                 table_number=r.table_number, orders_count=r.cnt,
                 revenue=Decimal(str(r.rev)),
                 avg_check=Decimal(str(r.rev)) / r.cnt if r.cnt else Decimal("0"),
+                table_id=r.table_id, hall_id=r.hall_id, hall_name=r.hall_name,
             )
             for r in rows
         ]
@@ -541,12 +564,24 @@ class AdminReportService:
             seen_payment_methods.add(value)
             payment_methods.append(ReportFilterOption(value=value, label=row.name))
 
+        # Places = the current company's active Hall directory (not derived from
+        # order history), so an active hall with zero orders still appears and a
+        # soft-deleted hall never does. Tenant-scoped by company_id.
+        place_rows = (await self.db.execute(
+            select(Hall.id, Hall.name)
+            .where(Hall.company_id == company_id, Hall.is_active.is_(True))
+            .order_by(Hall.name, Hall.id)
+        )).all()
+        places = [
+            ReportFilterOption(value=str(row.id), label=row.name) for row in place_rows
+        ]
+
         return TableReportFiltersResponse(
             waiters=staff_options["waiter"],
             cashiers=staff_options["cashier"],
             payment_methods=payment_methods,
-            places=[],
-            place_filter_supported=False,
+            places=places,
+            place_filter_supported=True,
         )
 
     async def waiters_report(
