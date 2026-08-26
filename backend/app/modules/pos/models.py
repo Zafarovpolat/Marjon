@@ -34,6 +34,13 @@ class Order(TimeStampedModel):
     # new | accepted | cooking | ready | completed | cancelled
     status: Mapped[str] = mapped_column(String(20), default="new")
     table_number: Mapped[str | None] = mapped_column(String(20))
+    # Canonical relation to the seating chart (Table → Hall → company).
+    # Nullable: takeaway/delivery/QR orders and legacy rows carry no table.
+    # ON DELETE SET NULL so archiving a table never destroys order history;
+    # table_number above is retained as the display/history snapshot.
+    table_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("tables.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     persons_count: Mapped[int] = mapped_column(Integer, default=1)
     subtotal: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=Decimal("0"))
     discount_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=Decimal("0"))

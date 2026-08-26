@@ -17,7 +17,14 @@ class HallService:
         self.db = db
 
     async def list(self, company_id: UUID, branch_id: UUID | None = None) -> list[Hall]:
-        q = select(Hall).options(selectinload(Hall.tables)).where(Hall.company_id == company_id)
+        # Soft-deleted halls (is_active=False) drop out of the places directory;
+        # their tables are likewise loaded active-only so archived seating never
+        # reappears in settings. Historical orders keep their table_id regardless.
+        q = (
+            select(Hall)
+            .options(selectinload(Hall.tables.and_(Table.is_active.is_(True))))
+            .where(Hall.company_id == company_id, Hall.is_active.is_(True))
+        )
         if branch_id:
             q = q.where(Hall.branch_id == branch_id)
         result = await self.db.execute(q)
@@ -25,7 +32,7 @@ class HallService:
 
     async def get(self, company_id: UUID, hall_id: UUID) -> Hall:
         result = await self.db.execute(
-            select(Hall).options(selectinload(Hall.tables))
+            select(Hall).options(selectinload(Hall.tables.and_(Table.is_active.is_(True))))
             .where(Hall.id == hall_id, Hall.company_id == company_id)
         )
         hall = result.scalar_one_or_none()
@@ -93,14 +100,23 @@ class HallService:
         return await self.get(company_id, hall_id)
 
     async def delete(self, company_id: UUID, hall_id: UUID) -> None:
+        # Soft-delete: historical Orders may reference tables in this hall via
+        # Order.table_id, so we never physically drop the hall (which would
+        # CASCADE-delete its tables and strand that history). Deactivate the hall
+        # and its still-active tables instead; the DB FK ON DELETE SET NULL remains
+        # only as a safety net for exceptional physical deletion.
         hall = await self.get(company_id, hall_id)
-        await self.db.delete(hall)
+        hall.is_active = False
+        for table in hall.tables:
+            table.is_active = False
         await self.db.commit()
 
     async def list_tables(self, company_id: UUID, hall_id: UUID) -> list[Table]:
         hall = await self.get(company_id, hall_id)
         result = await self.db.execute(
-            select(Table).where(Table.hall_id == hall.id).order_by(Table.number)
+            select(Table)
+            .where(Table.hall_id == hall.id, Table.is_active.is_(True))
+            .order_by(Table.number)
         )
         return list(result.scalars().all())
 
@@ -134,7 +150,9 @@ class HallService:
         table = result.scalar_one_or_none()
         if not table:
             raise NotFoundError("Table not found")
-        await self.db.delete(table)
+        # Soft-delete: a historical Order.table_id may point here. Deactivate rather
+        # than physically remove so order history keeps its canonical seating link.
+        table.is_active = False
         await self.db.commit()
 
     async def branch_tables(self, company_id: UUID, branch_id: UUID) -> list[Table]:

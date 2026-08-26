@@ -27,7 +27,7 @@ from app.shared.base_model import Base
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 VERSIONS_DIR = BACKEND_ROOT / "migrations" / "versions"
-EXPECTED_HEAD = "bi05e1fp22"
+EXPECTED_HEAD = "bi06tid01"
 EXPECTED_NULLABLE_COLUMN_COUNT = 262
 EXPECTED_PARITY_OPERATIONS = {"remove_index", "remove_table_comment"}
 FIXTURES_DIR = BACKEND_ROOT / "tests" / "fixtures"
@@ -136,7 +136,7 @@ def test_revision_graph_is_linear_complete_and_has_one_head() -> None:
         visited.add(cursor)
         cursor = revisions[cursor][0]
     assert visited == set(revisions)
-    assert len(revisions) == 43
+    assert len(revisions) == 44
 
     nullable_columns = _bi02_nullable_columns()
     assert len(nullable_columns) == EXPECTED_NULLABLE_COLUMN_COUNT
@@ -905,9 +905,25 @@ def test_postgresql_fresh_upgrade_timing_downgrade_and_second_fresh() -> None:
         assert asyncio.run(
             _column_exists(first_url, "ingredients", "supplier_name")
         )
+        assert asyncio.run(
+            _column_exists(first_url, "orders", "table_id")
+        )
+        assert asyncio.run(
+            _index_exists(first_url, "ix_orders_table_id")
+        )
 
+        # BI-06 head peels off first: orders.table_id + its index are removed,
+        # leaving the historical BI-05E1 fingerprint chain below intact.
         _run_alembic(first_url, "downgrade", "-1")
         assert asyncio.run(_current_revision(first_url)) != EXPECTED_HEAD
+        assert not asyncio.run(
+            _column_exists(first_url, "orders", "table_id")
+        )
+        assert not asyncio.run(
+            _index_exists(first_url, "ix_orders_table_id")
+        )
+
+        _run_alembic(first_url, "downgrade", "-1")
         assert not asyncio.run(
             _column_exists(first_url, "financial_operations", "fingerprint_version")
         )
