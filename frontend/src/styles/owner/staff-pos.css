@@ -522,6 +522,21 @@
     }
   }
 
+  /* POS board must scroll as one page at mobile/tablet widths. The global owner
+     shell locks html/body to overflow:hidden + height:100% (dashboard.css) for
+     its fixed-height desktop layout; on desktop the POS scrolls inside
+     .pos-main. At <=768px the POS switches to natural vertical flow (pos-body
+     taller than the viewport), so the locked root prevented scrolling and hid
+     the stacked board below the fold. Restore document scroll for POS pages
+     only (scoped via :has(.pos-body)) so other screens are unaffected. */
+  @media (max-width: 768px) {
+    html:has(.pos-body),
+    body:has(.pos-body) {
+      height: auto;
+      overflow: visible;
+    }
+  }
+
   /* Kitchen */
   .kitchen-body {
     margin: 0;

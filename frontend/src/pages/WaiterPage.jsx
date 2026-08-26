@@ -2,12 +2,12 @@
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import logo from "../assets/marjon-logo.svg";
 import { api, formatMoney, logout } from "../api/client";
+import { settingsService } from "../api/settings";
 import { printKitchenReceipt, printOrderReceipt } from "../api/receipt";
 import Icon from '../components/Icon';
 
-const tableStatuses = ["free", "occupied", "reserved"];
-const TABLE_COUNT = 50;
-const statusLabels = { free: "Bo'sh", occupied: "Band", reserved: "Bron" };
+const tableStatuses = ["free", "occupied"];
+const statusLabels = { free: "Bo'sh", occupied: "Band" };
 const activeOrderStatuses = ["new", "accepted", "cooking", "ready"];
 const orderStatusLabels = {
   new: "Yangi",
@@ -17,36 +17,59 @@ const orderStatusLabels = {
   completed: "Yakunlangan",
   cancelled: "Bekor qilingan",
 };
-const tableAreas = [
-  { key: "hall", label: "Зал", from: 1, to: 9 },
-  { key: "terrace", label: "Терраса", from: 10, to: 14 },
-  { key: "vip", label: "VIP", from: 15, to: 18 },
-  { key: "cabins", label: "Кабинки", from: 19, to: 30 },
-  { key: "second_hall", label: "Зал 2", from: 31, to: 40 },
-  { key: "banquet", label: "Банкет", from: 41, to: 50 },
-];
 
-function getTableArea(number) {
-  return tableAreas.find((area) => number >= area.from && number <= area.to) || tableAreas[0];
+// ── Canonical Hall/Table helpers (Phase 3) ──────────────────────────────────
+// Real seating replaces the old hardcoded 1..50 grid. Identity is Table.id;
+// Table.number/Hall.name are display-only. Backend already returns active-only
+// data post-Phase-1; the is_active filters below are defensive.
+function activeHalls(halls) {
+  return (Array.isArray(halls) ? halls : [])
+    .filter((hall) => hall && hall.is_active !== false)
+    .map((hall) => ({
+      id: hall.id,
+      name: hall.name,
+      tables: (Array.isArray(hall.tables) ? hall.tables : [])
+        .filter((table) => table && table.is_active !== false)
+        .map((table) => ({
+          id: table.id,
+          number: table.number,
+          hallId: hall.id,
+          hallName: hall.name,
+        })),
+    }));
 }
 
-function buildTables(orders) {
-  const activeByTable = new Map();
-  orders
-    .filter((order) => activeOrderStatuses.includes(order.status) && order.table_number)
-    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
-    .forEach((order) => {
-      const tableNumber = String(order.table_number);
-      if (!activeByTable.has(tableNumber)) activeByTable.set(tableNumber, order);
-    });
+function flattenTables(halls) {
+  return activeHalls(halls).flatMap((hall) => hall.tables);
+}
 
-  return Array.from({ length: TABLE_COUNT }, (_, index) => {
-    const number = String(index + 1);
-    const area = getTableArea(index + 1);
-    const order = activeByTable.get(number);
-    const status = order ? "occupied" : number === "8" ? "reserved" : "free";
-    return { id: number, number, zone: area.label, areaKey: area.key, status, order };
-  });
+// Occupancy map: Table.id -> active Order.
+//  * Canonical: order.table_id === table.id is authoritative.
+//  * Legacy (order.table_id == null): attributed by table_number ONLY when that
+//    number is unique across loaded tables. A legacy order whose number exists
+//    in multiple halls is NOT attributed to any tile — never lighting up two
+//    same-number tables from one ambiguous order.
+function computeOccupancy(tables, orders) {
+  const activeOrders = (Array.isArray(orders) ? orders : [])
+    .filter((order) => activeOrderStatuses.includes(order.status))
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  const occupied = new Map();
+  for (const order of activeOrders) {
+    if (order.table_id && !occupied.has(order.table_id)) occupied.set(order.table_id, order);
+  }
+  const tablesByNumber = new Map();
+  for (const table of tables) {
+    const key = String(table.number);
+    tablesByNumber.set(key, (tablesByNumber.get(key) || []).concat(table));
+  }
+  for (const order of activeOrders) {
+    if (order.table_id || order.table_number == null) continue;
+    const matches = tablesByNumber.get(String(order.table_number));
+    if (matches && matches.length === 1 && !occupied.has(matches[0].id)) {
+      occupied.set(matches[0].id, order);
+    }
+  }
+  return occupied;
 }
 
 function formatOrderTime(value) {
@@ -106,14 +129,39 @@ function WaiterShell({ children }) {
   );
 }
 
-function TablesView({ orders }) {
+function TablesView({ halls, hallsState, orders, onRetry }) {
   const [status, setStatus] = useState("all");
-  const [area, setArea] = useState("all");
-  const tables = useMemo(() => buildTables(orders), [orders]);
-  const areaTables = area === "all" ? tables : tables.filter((table) => table.areaKey === area);
-  const visible = status === "all" ? areaTables : areaTables.filter((table) => table.status === status);
-  const stats = tableStatuses.reduce((acc, value) => ({ ...acc, [value]: areaTables.filter((table) => table.status === value).length }), { total: areaTables.length });
-  const selectedArea = area === "all" ? null : tableAreas.find((item) => item.key === area);
+  const [hallFilter, setHallFilter] = useState("all");
+  const hallGroups = useMemo(() => activeHalls(halls), [halls]);
+  const tables = useMemo(() => hallGroups.flatMap((hall) => hall.tables), [hallGroups]);
+  const occupancy = useMemo(() => computeOccupancy(tables, orders), [tables, orders]);
+
+  const statusOf = (table) => (occupancy.has(table.id) ? "occupied" : "free");
+  const visibleHalls = hallFilter === "all" ? hallGroups : hallGroups.filter((hall) => hall.id === hallFilter);
+  const scopedTables = visibleHalls.flatMap((hall) => hall.tables);
+  const stats = {
+    total: scopedTables.length,
+    free: scopedTables.filter((table) => statusOf(table) === "free").length,
+    occupied: scopedTables.filter((table) => statusOf(table) === "occupied").length,
+  };
+  const matchesStatus = (table) => status === "all" || statusOf(table) === status;
+
+  function renderTile(table) {
+    const isOccupied = occupancy.has(table.id);
+    const order = occupancy.get(table.id);
+    const content = (
+      <>
+        <span className="pos-table__status">{statusLabels[isOccupied ? "occupied" : "free"]}</span>
+        <span className="pos-table__num">{table.number}</span>
+        <span className="pos-table__meta">{table.hallName}</span>
+        <small>{isOccupied ? `Buyurtma #${order?.order_number}` : "Yangi buyurtma"}</small>
+      </>
+    );
+    if (isOccupied) {
+      return <Link key={table.id} className="pos-table pos-table--occupied" to={`/waiter/order/${order?.id}`}>{content}</Link>;
+    }
+    return <Link key={table.id} className="pos-table pos-table--free" to={`/waiter/new?table_id=${table.id}`}>{content}</Link>;
+  }
 
   return (
     <>
@@ -125,16 +173,15 @@ function TablesView({ orders }) {
         <div className="pos-stat"><span>Jami</span><strong>{stats.total}</strong></div>
         <div className="pos-stat pos-stat--free"><span>Bo'sh</span><strong>{stats.free}</strong></div>
         <div className="pos-stat pos-stat--occupied"><span>Band</span><strong>{stats.occupied}</strong></div>
-        <div className="pos-stat pos-stat--reserved"><span>Bron</span><strong>{stats.reserved}</strong></div>
       </section>
       <section className="pos-workspace pos-workspace--tables">
         <section className="pos-table-board pos-card-soft">
           <div className="pos-table-toolbar">
             <div className="pos-combo-field">
-              <label htmlFor="waiter-area-filter">Местоположение</label>
-              <select id="waiter-area-filter" value={area} onChange={(event) => setArea(event.target.value)} className="pos-select">
-                <option value="all">Все зоны</option>
-                {tableAreas.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+              <label htmlFor="waiter-hall-filter">Zal</label>
+              <select id="waiter-hall-filter" value={hallFilter} onChange={(event) => setHallFilter(event.target.value)} className="pos-select">
+                <option value="all">Barcha zallar</option>
+                {hallGroups.map((hall) => <option key={hall.id} value={hall.id}>{hall.name}</option>)}
               </select>
             </div>
             <div className="pos-combo-field">
@@ -145,28 +192,41 @@ function TablesView({ orders }) {
               </select>
             </div>
           </div>
-          <div className="pos-board-head"><div><h2>Joylar xaritasi</h2><p>{selectedArea ? `${selectedArea.label}: stol ${selectedArea.from}-${selectedArea.to}` : "Barcha zonalar"} · Bo'sh stol yangi buyurtma ochadi, band stol buyurtma sahifasiga olib o'tadi.</p></div></div>
-          <div className="pos-table-grid">
-            {visible.map((table) => {
-              const content = <><span className="pos-table__status">{statusLabels[table.status]}</span><span className="pos-table__num">{table.number}</span><span className="pos-table__meta">{table.zone}</span><small>{table.status === "occupied" ? `Buyurtma #${table.order?.order_number}` : "Yangi buyurtma"}</small></>;
-              if (table.status === "occupied") {
-                return <Link key={table.id} className={`pos-table pos-table--${table.status}`} to={`/waiter/order/${table.order?.id}`}>{content}</Link>;
-              }
-              return <Link key={table.id} className={`pos-table pos-table--${table.status}`} to={`/waiter/new?table=${table.number}`}>{content}</Link>;
-            })}
-          </div>
-          {!visible.length ? <div className="pos-empty-inline">Bu filtr bo'yicha stol topilmadi.</div> : null}
+          <div className="pos-board-head"><div><h2>Joylar xaritasi</h2><p>Bo'sh stol yangi buyurtma ochadi, band stol buyurtma sahifasiga olib o'tadi.</p></div></div>
+          {hallsState === "loading" ? (
+            <div className="pos-empty-inline" role="status">Stollar yuklanmoqda...</div>
+          ) : hallsState === "error" ? (
+            <div className="pos-empty-inline" role="alert">
+              Stollarni yuklab bo'lmadi.{" "}
+              <button type="button" className="pos-btn pos-btn--ghost" onClick={onRetry}>Qayta urinish</button>
+            </div>
+          ) : !tables.length ? (
+            <div className="pos-empty-inline" role="status">Faol stollar yo'q. Zal va stollarni sozlamalarda qo'shing.</div>
+          ) : (
+            visibleHalls.map((hall) => {
+              const tiles = hall.tables.filter(matchesStatus);
+              if (!tiles.length) return null;
+              return (
+                <div key={hall.id} className="pos-hall-group">
+                  <div className="pos-board-head"><div><h2>{hall.name}</h2></div></div>
+                  <div className="pos-table-grid">{tiles.map(renderTile)}</div>
+                </div>
+              );
+            })
+          )}
         </section>
       </section>
     </>
   );
 }
 
-function NewOrderView({ branch, categories, products, onCreated }) {
+function NewOrderView({ branch, categories, products, halls, hallsState, onCreated, onRetry }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const selectedTable = new URLSearchParams(location.search).get("table") || "1";
-  const [table, setTable] = useState(selectedTable);
+  const hallGroups = useMemo(() => activeHalls(halls), [halls]);
+  const tables = useMemo(() => hallGroups.flatMap((hall) => hall.tables), [hallGroups]);
+  const requestedTableId = new URLSearchParams(location.search).get("table_id") || "";
+  const [tableId, setTableId] = useState("");
   const [cart, setCart] = useState([]);
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -174,6 +234,16 @@ function NewOrderView({ branch, categories, products, onCreated }) {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const total = cart.reduce((sum, row) => sum + Number(row.price || 0) * row.qty, 0);
   const totalItems = cart.reduce((sum, row) => sum + row.qty, 0);
+
+  // Preselect ONLY a valid ?table_id that exists in the loaded active tables
+  // (free-tile / "+доп заказ" navigation). No table_id, a stale/foreign id, or
+  // no tables → nothing selected. Never auto-pick a table for the waiter.
+  useEffect(() => {
+    const valid = requestedTableId && tables.some((table) => table.id === requestedTableId);
+    setTableId(valid ? requestedTableId : "");
+  }, [tables, requestedTableId]);
+
+  const selectedTable = tables.find((table) => table.id === tableId) || null;
 
   const grouped = useMemo(() => {
     const byCategory = new Map(categories.map((category) => [category.id, { ...category, items: [] }]));
@@ -204,13 +274,19 @@ function NewOrderView({ branch, categories, products, onCreated }) {
 
   async function submitOrder() {
     if (!cart.length || !branch?.id) return;
+    if (!selectedTable) {
+      setMessage("Stol tanlang.");
+      return;
+    }
     setSubmitting(true);
     setMessage("");
     try {
+      // Canonical identity: send table_id only. The backend validates
+      // tenant/branch/active ownership and owns the table_number snapshot.
       const { data: order } = await api.post("/pos/orders", {
         branch_id: branch.id,
         order_type: "dine_in",
-        table_number: String(table),
+        table_id: selectedTable.id,
         persons_count: 1,
         note,
         items: cart.map((row) => ({ product_id: row.id, quantity: row.qty })),
@@ -228,12 +304,16 @@ function NewOrderView({ branch, categories, products, onCreated }) {
     }
   }
 
+  const heroTitle = selectedTable
+    ? `${selectedTable.hallName} · Stol ${selectedTable.number}`
+    : "Stol tanlanmagan";
+
   return (
     <>
       <div className="pos-top pos-hero-card pos-order-hero">
         <div>
           <span className="pos-kicker">Yangi buyurtma</span>
-          <h1>Stol #{table}</h1>
+          <h1>{heroTitle}</h1>
           <p>{"Stol -> menyu -> savat -> oshxona"}</p>
         </div>
         <div className="pos-order-hero__meta">
@@ -245,14 +325,28 @@ function NewOrderView({ branch, categories, products, onCreated }) {
       <div className="pos-layout pos-order-layout">
         <section className="pos-menu-terminal">
           <div className="pos-card pos-card-soft pos-table-picker">
-            <label><strong>Stol</strong></label>
-            <select value={table} onChange={(event) => setTable(event.target.value)} className="pos-select">
-              {Array.from({ length: TABLE_COUNT }, (_, index) => {
-                const number = index + 1;
-                const area = getTableArea(number);
-                return <option key={number} value={number}>№{number} - {area.label}</option>;
-              })}
-            </select>
+            <label htmlFor="waiter-table-picker"><strong>Stol</strong></label>
+            {hallsState === "loading" ? (
+              <div className="pos-empty-inline" role="status">Stollar yuklanmoqda...</div>
+            ) : hallsState === "error" ? (
+              <div className="pos-empty-inline" role="alert">
+                Stollarni yuklab bo'lmadi.{" "}
+                <button type="button" className="pos-btn pos-btn--ghost" onClick={onRetry}>Qayta urinish</button>
+              </div>
+            ) : !tables.length ? (
+              <div className="pos-empty-inline" role="status">Faol stollar yo'q. Zal va stollarni sozlamalarda qo'shing.</div>
+            ) : (
+              <select id="waiter-table-picker" value={tableId} onChange={(event) => setTableId(event.target.value)} className="pos-select">
+                <option value="">— Stolni tanlang —</option>
+                {hallGroups.map((hall) => (
+                  <optgroup key={hall.id} label={hall.name}>
+                    {hall.tables.map((table) => (
+                      <option key={table.id} value={table.id}>№{table.number}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            )}
           </div>
           <div className="pos-order-screen">
             <div className="pos-menu-category-combo">
@@ -299,7 +393,7 @@ function NewOrderView({ branch, categories, products, onCreated }) {
         <aside className="pos-card pos-cart-card">
           <div className="pos-cart-head">
             <div>
-              <span>Stol #{table}</span>
+              <span>{selectedTable ? `${selectedTable.hallName} · Stol ${selectedTable.number}` : "Stol tanlanmagan"}</span>
               <h2>Savat</h2>
             </div>
             <strong>{totalItems}</strong>
@@ -308,7 +402,7 @@ function NewOrderView({ branch, categories, products, onCreated }) {
           <div className="pos-cart-total"><span>Jami</span><strong>{formatMoney(total)}</strong></div>
           <label>Izoh</label>
           <textarea value={note} onChange={(event) => setNote(event.target.value)} rows="3" className="pos-textarea" />
-          <div className="pos-cart-actions"><button className="pos-btn pos-btn--ghost" type="button" onClick={() => setCart([])}>Tozalash</button><button className="pos-btn" type="button" disabled={!cart.length || submitting} onClick={submitOrder}>{submitting ? "Yuborilmoqda..." : "Oshxonaga"}</button></div>
+          <div className="pos-cart-actions"><button className="pos-btn pos-btn--ghost" type="button" onClick={() => setCart([])}>Tozalash</button><button className="pos-btn" type="button" disabled={!cart.length || submitting || !selectedTable} onClick={submitOrder}>{submitting ? "Yuborilmoqda..." : "Oshxonaga"}</button></div>
         </aside>
       </div>
     </>
@@ -369,7 +463,7 @@ function OrderDetailView({ orders }) {
           <button className="pos-btn pos-btn--ghost" type="button" disabled={printState.loading} onClick={() => handlePrint("kitchen")}>
             {printState.loading ? "Chop..." : "Печать на кухню"}
           </button>
-          <Link className="pos-btn" to={`/waiter/new?table=${order.table_number}`}>+ Qo'shimcha buyurtma</Link>
+          <Link className="pos-btn" to={order.table_id ? `/waiter/new?table_id=${order.table_id}` : "/waiter/new"}>+ Qo'shimcha buyurtma</Link>
         </div>
       </div>
       {printState.error ? <div className="pos-msg">{printState.error}</div> : null}
@@ -399,7 +493,24 @@ export default function WaiterPage({ mode = "tables" }) {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [branch, setBranch] = useState(null);
+  const [halls, setHalls] = useState([]);
+  const [hallsState, setHallsState] = useState("loading"); // loading | ready | error
   const [error, setError] = useState("");
+
+  // Hall/Table loading is isolated from the menu/orders load so a seating fetch
+  // failure surfaces its own retry in the table area without blanking the page.
+  async function loadHalls(branchId) {
+    if (!branchId) return;
+    setHallsState("loading");
+    try {
+      const { data } = await settingsService.listResource("places", { params: { branch_id: branchId } });
+      setHalls(Array.isArray(data) ? data : data?.items || []);
+      setHallsState("ready");
+    } catch {
+      setHalls([]);
+      setHallsState("error");
+    }
+  }
 
   async function loadData() {
     const activeBranch = await ensureBranch();
@@ -412,16 +523,23 @@ export default function WaiterPage({ mode = "tables" }) {
     setOrders(ordersRes.data);
     setProducts(productsRes.data.filter((product) => product.is_active && product.is_available));
     setCategories(categoriesRes.data.filter((category) => category.is_active));
+    await loadHalls(activeBranch.id);
   }
 
   useEffect(() => {
     loadData().catch((err) => setError(err.response?.data?.detail || "POS ma'lumotlarini yuklab bo'lmadi."));
   }, []);
 
+  const retryHalls = () => loadHalls(branch?.id);
+
   return (
     <WaiterShell>
       {error ? <div className="pos-msg">{error}</div> : null}
-      {mode === "new" ? <NewOrderView branch={branch} categories={categories} products={products} onCreated={loadData} /> : mode === "orders" ? <OrdersView orders={orders} /> : mode === "order" ? <OrderDetailView orders={orders} /> : <TablesView orders={orders} />}
+      {mode === "new"
+        ? <NewOrderView branch={branch} categories={categories} products={products} halls={halls} hallsState={hallsState} onCreated={loadData} onRetry={retryHalls} />
+        : mode === "orders" ? <OrdersView orders={orders} />
+        : mode === "order" ? <OrderDetailView orders={orders} />
+        : <TablesView halls={halls} hallsState={hallsState} orders={orders} onRetry={retryHalls} />}
     </WaiterShell>
   );
 }
