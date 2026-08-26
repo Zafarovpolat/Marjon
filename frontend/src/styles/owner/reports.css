@@ -1360,6 +1360,10 @@
   font-weight: 450;
 }
 
+.tables-report-page .report-filter-buttons {
+  grid-column: 4;
+}
+
 @media (max-width: 1024px) {
   .owner-report-header,
   .owner-reports__head.owner-report-header,
@@ -1382,6 +1386,10 @@
   .dishes-report-page .report-filters-grid,
   .tables-report-page .report-filters-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tables-report-page .report-filter-buttons {
+    grid-column: 1 / -1;
   }
 
 }
@@ -1449,6 +1457,10 @@
     min-height: 108px;
     padding: 18px 14px;
   }
+  .tables-report-page .owner-report-table {
+    min-width: 680px;
+  }
+
 }
 
 @media (max-width: 600px) {
@@ -1471,6 +1483,18 @@
   .owner-reports__head-actions.owner-report-actions > * {
     flex-basis: 100%;
   }
+  .tables-report-page .report-filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tables-report-page .report-filter-buttons {
+    flex-direction: column;
+  }
+
+  .tables-report-page .report-filter-buttons > button {
+    width: 100%;
+  }
+
 }
 
 @media (prefers-reduced-motion: reduce) {

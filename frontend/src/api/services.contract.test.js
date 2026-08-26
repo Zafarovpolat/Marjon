@@ -97,6 +97,24 @@ describe("Web domain service contracts", () => {
       });
     });
 
+    it("maps the four supported Tables filters and keeps Place UI-only", async () => {
+      await reportsService.listTables("2026-08-01", "2026-08-13", {
+        filters: {
+          tableNumber: "  12A  ", waiterId: "waiter-1", paymentMethod: "cash",
+          cashierId: "cashier-1", placeId: "unsupported-place",
+        },
+      });
+      expect(api.get).toHaveBeenLastCalledWith("/reports/tables", {
+        params: {
+          date_from: "2026-08-01", date_to: "2026-08-13", table_number: "12A",
+          waiter_id: "waiter-1", payment_method: "cash", cashier_id: "cashier-1",
+        },
+      });
+
+      await reportsService.getTablesFilters();
+      expect(api.get).toHaveBeenLastCalledWith("/reports/tables/filters", {});
+    });
+
     it("maps dashboard analytics without fallback data", async () => {
       await analyticsService.getDashboard("2026-08-13");
       await analyticsService.listSales("2026-08-01", "2026-08-13");
