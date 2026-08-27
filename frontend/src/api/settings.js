@@ -36,6 +36,33 @@ export const settingsService = Object.freeze({
   listBranches(config) {
     return config ? api.get("/companies/me/branches", config) : api.get("/companies/me/branches");
   },
+  // Canonical Место (Hall) + Столы (Table) management. Halls are returned with
+  // their active nested tables, so the Places page needs one authoritative list
+  // request (no per-hall N+1). Deactivate maps to the backend soft-delete.
+  listPlaces(config) {
+    return config ? api.get("/halls", config) : api.get("/halls");
+  },
+  createPlace(payload) {
+    return api.post("/halls", payload);
+  },
+  updatePlace(id, payload) {
+    return api.patch(`/halls/${id}`, payload);
+  },
+  deactivatePlace(id) {
+    return api.delete(`/halls/${id}`);
+  },
+  listPlaceTables(hallId, config) {
+    return config ? api.get(`/halls/${hallId}/tables`, config) : api.get(`/halls/${hallId}/tables`);
+  },
+  createPlaceTable(hallId, payload) {
+    return api.post(`/halls/${hallId}/tables`, payload);
+  },
+  updatePlaceTable(hallId, tableId, payload) {
+    return api.patch(`/halls/${hallId}/tables/${tableId}`, payload);
+  },
+  deactivatePlaceTable(hallId, tableId) {
+    return api.delete(`/halls/${hallId}/tables/${tableId}`);
+  },
   listDashboardPlaces(config) {
     return config ? api.get("/settings/places", config) : api.get("/settings/places");
   },
