@@ -108,7 +108,7 @@ describe("SettingsPlacesPage — place drawer (free-text name)", () => {
     renderPage();
     await screen.findByText("Зал");
     fireEvent.click(screen.getByRole("button", { name: "Добавить место" }));
-    const nameInput = screen.getByPlaceholderText("Введите название");
+    const nameInput = screen.getByPlaceholderText("Введите название места");
     expect(nameInput.tagName).toBe("INPUT");
     // there is no preset hall-name <select> in the drawer
     const form = document.querySelector(".settings-form");
@@ -124,7 +124,7 @@ describe("SettingsPlacesPage — place drawer (free-text name)", () => {
     renderPage();
     await screen.findByText("Зал");
     fireEvent.click(screen.getAllByRole("button", { name: "Редактировать" })[0]);
-    const nameInput = screen.getByPlaceholderText("Введите название");
+    const nameInput = screen.getByPlaceholderText("Введите название места");
     expect(nameInput.tagName).toBe("INPUT");
     expect(nameInput).toHaveValue("Зал");
   });
@@ -157,15 +157,17 @@ describe("SettingsPlacesPage — place drawer (free-text name)", () => {
     expect(document.querySelector(".settings-modal-overlay")).toBeInTheDocument();
   });
 
-  it('"Место" is a free-text input, never a select/preset', async () => {
+  it("has no second «Место» field and no temporary persistence helper", async () => {
     renderPage();
     await screen.findByText("Зал");
     fireEvent.click(screen.getByRole("button", { name: "Добавить место" }));
     const form = document.querySelector(".settings-form");
-    const placeField = within(form).getByText("Место").parentElement.querySelector("input, select, textarea");
-    expect(placeField.tagName).toBe("INPUT");
-    fireEvent.change(placeField, { target: { value: "Второй этаж, у окна" } });
-    expect(placeField).toHaveValue("Второй этаж, у окна");
+    // the sole hall-name input is "Название места"; there is no separate «Место» field
+    expect(within(form).getByText("Название места *")).toBeInTheDocument();
+    expect(within(form).queryByPlaceholderText("Введите место")).toBeNull();
+    expect(within(form).queryByText("Место")).toBeNull();
+    // the temporary Phase 5C helper note is gone
+    expect(within(form).queryByText("Сохранение будет подключено на следующем этапе")).toBeNull();
   });
 
   it("renders service percent and Доп. цена selector; reveals the matching price field", async () => {
@@ -173,7 +175,7 @@ describe("SettingsPlacesPage — place drawer (free-text name)", () => {
     await screen.findByText("Зал");
     fireEvent.click(screen.getByRole("button", { name: "Добавить место" }));
     const form = document.querySelector(".settings-form");
-    expect(within(form).getByPlaceholderText("Введите % обслуживания")).toBeInTheDocument();
+    expect(within(form).getByPlaceholderText("Введите %")).toBeInTheDocument();
     const select = within(form).getByRole("combobox");
     // no additional-price field until a type is chosen
     expect(within(form).queryByText("Дополнительная цена *")).toBeNull();
@@ -269,7 +271,7 @@ describe("SettingsPlacesPage — modal micro-interactions", () => {
     fireEvent.change(price, { target: { value: "1 2a3" } });
     expect(price).toHaveValue("123");
     // submit → canonical condition is raw digits, never the grouped string
-    fireEvent.change(within(form).getByPlaceholderText("Введите название"), { target: { value: "VIP" } });
+    fireEvent.change(within(form).getByPlaceholderText("Введите название места"), { target: { value: "VIP" } });
     fireEvent.change(price, { target: { value: "12500000" } });
     fireEvent.click(within(form).getByRole("button", { name: "Добавить" }));
     await waitFor(() => expect(settingsService.createPlace).toHaveBeenCalledWith(
@@ -278,29 +280,24 @@ describe("SettingsPlacesPage — modal micro-interactions", () => {
 
   it("does not thousands-format the service percent", async () => {
     const form = await openAddPlace();
-    const percent = within(form).getByPlaceholderText("Введите % обслуживания");
+    const percent = within(form).getByPlaceholderText("Введите %");
     fireEvent.change(percent, { target: { value: "10" } });
     expect(percent).toHaveValue("10");
   });
 
-  it("Место is a non-persisted text field (Phase 5C helper) and percent label matches its optional behavior", async () => {
+  it("percent is optional and its label carries no required asterisk", async () => {
     const form = await openAddPlace();
-    // Место = free-text input (never a select) with the temporary Phase 5C note
-    const place = within(form).getByText("Место").parentElement.querySelector("input, select, textarea");
-    expect(place.tagName).toBe("INPUT");
-    expect(within(form).getByText("Сохранение будет подключено на следующем этапе")).toBeInTheDocument();
-    // percent label carries NO required asterisk (behavior is optional)
+    // percent label has no `*` (optional canonical behavior)
     expect(within(form).getByText("% обслуживания в заведении")).toBeInTheDocument();
-    // name + Место only, no percent → create succeeds; Место is NOT persisted
-    fireEvent.change(within(form).getByPlaceholderText("Введите название"), { target: { value: "Терраса" } });
-    fireEvent.change(place, { target: { value: "у окна" } });
+    // name only, no percent → create succeeds; percent sent as null (never fabricated)
+    fireEvent.change(within(form).getByPlaceholderText("Введите название места"), { target: { value: "Терраса" } });
     fireEvent.click(within(form).getByRole("button", { name: "Добавить" }));
     await waitFor(() => expect(settingsService.createPlace).toHaveBeenCalledTimes(1));
     const payload = settingsService.createPlace.mock.calls[0][0];
     expect(payload).toEqual(expect.objectContaining({ name: "Терраса" }));
     expect(payload).not.toHaveProperty("place");
     expect(payload).not.toHaveProperty("location");
-    expect(payload.percent).toBeNull(); // optional, never fabricated
+    expect(payload.percent).toBeNull();
   });
 
   it("restores a grouped price when editing a place", async () => {

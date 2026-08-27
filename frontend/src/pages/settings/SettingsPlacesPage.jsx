@@ -10,7 +10,7 @@ import { isAbortError, useLatestRequest, useMutationLocks } from "../../hooks/us
 // Only the two additional-price kinds are offered here; the service % is its
 // own field, so pricing_type=percent is not surfaced as an "additional price".
 const ADDITIONAL_PRICE_TYPES = [
-  { value: "", label: "—" },
+  { value: "", label: "Выберите..." },
   { value: "fixed", label: "Дополнительная цена" },
   { value: "hourly", label: "Цена за час" },
 ];
@@ -38,11 +38,9 @@ function prefersReducedMotion() {
     && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-// `place` (Место) has NO canonical Hall field, so it is kept in form state for
-// the approved layout but intentionally NOT persisted (Phase 5C backend gap).
-// `price` (additional-price value) has no structured numeric column either; it
-// round-trips only through the canonical free-text Hall.condition.
-const EMPTY_HALL_FORM = { name: "", place: "", percent: "", pricing_type: "", price: "", is_active: true };
+// `price` (additional-price value) has no structured numeric column; it
+// round-trips only through the canonical free-text Hall.condition (Phase 5C gap).
+const EMPTY_HALL_FORM = { name: "", percent: "", pricing_type: "", price: "", is_active: true };
 const EMPTY_TABLE_FORM = { number: "", capacity: "4", is_active: true };
 
 function tablesLabel(count) {
@@ -166,7 +164,6 @@ export default function SettingsPlacesPage() {
     resetCloseState();
     setHallForm({
       name: hall.name || "",
-      place: "", // no canonical field — not restored (Phase 5C gap)
       percent: hall.percent == null ? "" : String(hall.percent),
       pricing_type: hall.pricing_type === "hourly" || hall.pricing_type === "fixed" ? hall.pricing_type : "",
       price: parseMoneyInput(hall.condition || ""), // RAW digits; displayed grouped
@@ -187,8 +184,7 @@ export default function SettingsPlacesPage() {
     }
     const pricing_type = hallForm.pricing_type || null;
     // Additional-price value persists only via the canonical free-text
-    // Hall.condition (no structured numeric column — Phase 5C gap). `place`
-    // (Место) is intentionally omitted: no canonical Hall field exists for it.
+    // Hall.condition (no structured numeric column — Phase 5C gap).
     const condition = pricing_type ? (String(hallForm.price).trim() || null) : null;
     const base = { name, percent, pricing_type, condition };
     return hallDrawer?.mode === "edit" ? { ...base, is_active: hallForm.is_active } : base;
@@ -381,9 +377,8 @@ export default function SettingsPlacesPage() {
               <button type="button" disabled={saving} onClick={requestClose} aria-label="Закрыть"><Icon name="bi-x-lg" size={20} /></button>
             </header>
             <div className="settings-form__body">
-              <label className="settings-form__wide"><span>Название *</span><input autoFocus value={hallForm.name} placeholder="Введите название" onChange={(e) => setHallForm((f) => ({ ...f, name: e.target.value }))} /></label>
-              <label className="settings-form__wide"><span>Место</span><input value={hallForm.place} placeholder="Введите место" onChange={(e) => setHallForm((f) => ({ ...f, place: e.target.value }))} /><small className="settings-form__note">Сохранение будет подключено на следующем этапе</small></label>
-              <label className="settings-form__wide"><span>% обслуживания в заведении</span><input value={hallForm.percent} inputMode="decimal" placeholder="Введите % обслуживания" onChange={(e) => setHallForm((f) => ({ ...f, percent: e.target.value }))} /></label>
+              <label className="settings-form__wide"><span>Название места *</span><input autoFocus value={hallForm.name} placeholder="Введите название места" onChange={(e) => setHallForm((f) => ({ ...f, name: e.target.value }))} /></label>
+              <label className="settings-form__wide"><span>% обслуживания в заведении</span><input value={hallForm.percent} inputMode="decimal" placeholder="Введите %" onChange={(e) => setHallForm((f) => ({ ...f, percent: e.target.value }))} /></label>
               <label className="settings-form__wide"><span>Доп. цена</span>
                 <select value={hallForm.pricing_type} onChange={(e) => setHallForm((f) => ({ ...f, pricing_type: e.target.value }))}>
                   {ADDITIONAL_PRICE_TYPES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
