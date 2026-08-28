@@ -1,6 +1,7 @@
 from __future__ import annotations
 from uuid import UUID
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.companies.models import Branch
@@ -136,13 +137,56 @@ class HallService:
         )
         return list(result.scalars().all())
 
-    async def create_table(self, company_id: UUID, hall_id: UUID, data: TableCreate) -> Table:
-        await self.get(company_id, hall_id)
-        table = Table(hall_id=hall_id, number=data.number, capacity=data.capacity)
-        self.db.add(table)
-        await self.db.commit()
+    # Phase 5C-3: (hall_id, number) is unique among ACTIVE tables. The partial
+    # unique index `uq_tables_hall_number_active` is the concurrency-safe final
+    # authority; these helpers only turn it into a friendly domain 409.
+    _TABLE_NUMBER_INDEX = "uq_tables_hall_number_active"
+    _DUPLICATE_TABLE_DETAIL = "Стол с таким номером уже существует в этом месте"
+
+    def _is_table_number_violation(self, exc: IntegrityError) -> bool:
+        """True only for our named partial unique index — never swallow other
+        integrity errors under the duplicate-table message."""
+        original = getattr(exc, "orig", None)
+        for candidate in (
+            getattr(original, "constraint_name", None),
+            getattr(getattr(original, "diag", None), "constraint_name", None),
+        ):
+            if candidate:
+                return candidate == self._TABLE_NUMBER_INDEX
+        return self._TABLE_NUMBER_INDEX in str(original or exc)
+
+    async def _assert_table_number_free(
+        self, hall_id: UUID, number: int | None, *, exclude_table_id: UUID | None = None
+    ) -> None:
+        if number is None:
+            return
+        query = select(Table.id).where(
+            Table.hall_id == hall_id,
+            Table.number == number,
+            Table.is_active.is_(True),
+        )
+        if exclude_table_id is not None:
+            query = query.where(Table.id != exclude_table_id)
+        if (await self.db.execute(query.limit(1))).scalar_one_or_none() is not None:
+            raise ConflictError(self._DUPLICATE_TABLE_DETAIL)
+
+    async def _commit_table(self, table: Table) -> Table:
+        try:
+            await self.db.commit()
+        except IntegrityError as exc:
+            await self.db.rollback()
+            if self._is_table_number_violation(exc):
+                raise ConflictError(self._DUPLICATE_TABLE_DETAIL) from exc
+            raise
         await self.db.refresh(table)
         return table
+
+    async def create_table(self, company_id: UUID, hall_id: UUID, data: TableCreate) -> Table:
+        await self.get(company_id, hall_id)
+        await self._assert_table_number_free(hall_id, data.number)
+        table = Table(hall_id=hall_id, number=data.number, capacity=data.capacity)
+        self.db.add(table)
+        return await self._commit_table(table)
 
     async def update_table(self, company_id: UUID, hall_id: UUID, table_id: UUID, data: TableUpdate) -> Table:
         await self.get(company_id, hall_id)
@@ -152,11 +196,18 @@ class HallService:
         table = result.scalar_one_or_none()
         if not table:
             raise NotFoundError("Table not found")
-        for field, value in data.model_dump(exclude_none=True).items():
+        payload = data.model_dump(exclude_none=True)
+        # A row moving to a new number, or being re-activated, must not collide
+        # with another ACTIVE table holding that number in the same hall.
+        target_number = payload.get("number", table.number)
+        will_be_active = payload.get("is_active", table.is_active)
+        if will_be_active:
+            await self._assert_table_number_free(
+                hall_id, target_number, exclude_table_id=table.id
+            )
+        for field, value in payload.items():
             setattr(table, field, value)
-        await self.db.commit()
-        await self.db.refresh(table)
-        return table
+        return await self._commit_table(table)
 
     async def delete_table(self, company_id: UUID, hall_id: UUID, table_id: UUID) -> None:
         await self.get(company_id, hall_id)

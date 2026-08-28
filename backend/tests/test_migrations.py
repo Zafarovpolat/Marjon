@@ -27,7 +27,7 @@ from app.shared.base_model import Base
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 VERSIONS_DIR = BACKEND_ROOT / "migrations" / "versions"
-EXPECTED_HEAD = "bi06hpa02"
+EXPECTED_HEAD = "bi06tnu03"
 EXPECTED_NULLABLE_COLUMN_COUNT = 262
 EXPECTED_PARITY_OPERATIONS = {"remove_index", "remove_table_comment"}
 FIXTURES_DIR = BACKEND_ROOT / "tests" / "fixtures"
@@ -136,7 +136,7 @@ def test_revision_graph_is_linear_complete_and_has_one_head() -> None:
         visited.add(cursor)
         cursor = revisions[cursor][0]
     assert visited == set(revisions)
-    assert len(revisions) == 45
+    assert len(revisions) == 46
 
     nullable_columns = _bi02_nullable_columns()
     assert len(nullable_columns) == EXPECTED_NULLABLE_COLUMN_COUNT
@@ -162,6 +162,33 @@ def test_phase5c2_price_amount_migration_is_additive_and_chains_from_bi06tid01()
     assert "create_index" not in source
     assert "create_unique_constraint" not in source
     assert "include_inactive" not in source
+
+
+def test_phase5c3_table_unique_migration_is_partial_and_chains_from_bi06hpa02() -> None:
+    path = VERSIONS_DIR / "20260828_bi06tnu03_table_number_unique.py"
+    revision, down_revision = _revision_metadata(path)
+    assert revision == "bi06tnu03"
+    assert down_revision == "bi06hpa02"
+
+    source = path.read_text(encoding="utf-8")
+    # PARTIAL unique index over (hall_id, number) for ACTIVE rows only
+    assert '_INDEX = "uq_tables_hall_number_active"' in source
+    assert 'op.create_index' in source
+    assert 'unique=True' in source
+    assert 'postgresql_where' in source
+    assert '_PREDICATE = "is_active"' in source
+    assert 'op.drop_index' in source
+    # never an unconditional uniqueness rule
+    assert "create_unique_constraint" not in source
+    # duplicate preflight must fail loudly and never repair data
+    assert "HAVING count(*) > 1" in source
+    assert "RuntimeError" in source
+    for destructive in ("DELETE FROM tables", "UPDATE tables", "op.execute"):
+        assert destructive not in source
+    # Phase 5C-3 is scoped: no price/branch/inactive-directory work here
+    assert "price_amount" not in source
+    assert "include_inactive" not in source
+    assert "location" not in source
 
 
 def test_historical_migrations_do_not_use_mutable_application_metadata() -> None:
@@ -935,11 +962,24 @@ def test_postgresql_fresh_upgrade_timing_downgrade_and_second_fresh() -> None:
         assert asyncio.run(
             _column_exists(first_url, "halls", "price_amount")
         )
+        assert asyncio.run(
+            _index_exists(first_url, "uq_tables_hall_number_active")
+        )
 
-        # Phase 5C-2 head peels off first: halls.price_amount is dropped while
-        # the BI-06 orders.table_id layer underneath stays intact.
+        # Phase 5C-3 head peels off first: the partial table-number unique index
+        # goes, while halls.price_amount and orders.table_id below stay intact.
         _run_alembic(first_url, "downgrade", "-1")
         assert asyncio.run(_current_revision(first_url)) != EXPECTED_HEAD
+        assert not asyncio.run(
+            _index_exists(first_url, "uq_tables_hall_number_active")
+        )
+        assert asyncio.run(
+            _column_exists(first_url, "halls", "price_amount")
+        )
+
+        # Phase 5C-2 layer next: halls.price_amount is dropped while
+        # the BI-06 orders.table_id layer underneath stays intact.
+        _run_alembic(first_url, "downgrade", "-1")
         assert not asyncio.run(
             _column_exists(first_url, "halls", "price_amount")
         )

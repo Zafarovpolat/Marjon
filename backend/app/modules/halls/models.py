@@ -1,7 +1,7 @@
 from __future__ import annotations
 from decimal import Decimal
 from uuid import UUID
-from sqlalchemy import Numeric, String, Boolean, Integer, ForeignKey, Text
+from sqlalchemy import Numeric, String, Boolean, Integer, ForeignKey, Text, Index, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Uuid
 from app.shared.base_model import TimeStampedModel
@@ -48,6 +48,19 @@ class Hall(TimeStampedModel):
 
 class Table(TimeStampedModel):
     __tablename__ = "tables"
+    # Phase 5C-3: a table number is human-facing and unique only among the
+    # ACTIVE tables of its hall. Partial (active-only) so soft-deleted seating
+    # never blocks reusing its number, and so #5 may exist in several halls.
+    # Mirrors the finance partial-unique convention (Index + *_where).
+    __table_args__ = (
+        Index(
+            "uq_tables_hall_number_active",
+            "hall_id", "number",
+            unique=True,
+            postgresql_where=text("is_active"),
+            sqlite_where=text("is_active"),
+        ),
+    )
 
     hall_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("halls.id", ondelete="CASCADE"), nullable=False, index=True
