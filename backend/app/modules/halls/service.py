@@ -17,26 +17,62 @@ class HallService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def list(self, company_id: UUID, branch_id: UUID | None = None) -> list[Hall]:
-        # Soft-deleted halls (is_active=False) drop out of the places directory;
-        # their tables are likewise loaded active-only so archived seating never
-        # reappears in settings. Historical orders keep their table_id regardless.
+    @staticmethod
+    def _tables_loader(include_inactive_tables: bool):
+        """Eager-load nested tables in one extra query for the whole result set
+        (selectinload, so no N+1). The flag controls VISIBILITY only — never
+        uniqueness (Phase 5C-3) and never lifecycle rules."""
+        if include_inactive_tables:
+            return selectinload(Hall.tables)
+        return selectinload(Hall.tables.and_(Table.is_active.is_(True)))
+
+    async def list(
+        self,
+        company_id: UUID,
+        branch_id: UUID | None = None,
+        *,
+        include_inactive: bool = False,
+    ) -> list[Hall]:
+        # Default stays ACTIVE-ONLY for backward compatibility: soft-deleted
+        # halls drop out of the places directory and their tables are likewise
+        # loaded active-only. Phase 5C-4: `include_inactive=True` exposes the
+        # archive (halls AND their nested tables) for the Settings management
+        # view. Tenant/branch scoping is untouched — the flag never widens
+        # ownership. Historical orders keep their table_id regardless.
         q = (
             select(Hall)
-            .options(selectinload(Hall.tables.and_(Table.is_active.is_(True))))
-            .where(Hall.company_id == company_id, Hall.is_active.is_(True))
+            .options(self._tables_loader(include_inactive))
+            .where(Hall.company_id == company_id)
         )
+        if not include_inactive:
+            q = q.where(Hall.is_active.is_(True))
         if branch_id:
             q = q.where(Hall.branch_id == branch_id)
         result = await self.db.execute(q)
         return list(result.scalars().all())
 
-    async def get(self, company_id: UUID, hall_id: UUID) -> Hall:
-        result = await self.db.execute(
-            select(Hall).options(selectinload(Hall.tables.and_(Table.is_active.is_(True))))
+    async def get(
+        self,
+        company_id: UUID,
+        hall_id: UUID,
+        *,
+        include_inactive_tables: bool = False,
+        refresh_tables: bool = False,
+    ) -> Hall:
+        # An archived hall is still addressable by id (unchanged pre-5C-4
+        # behaviour) — `include_inactive_tables` only widens the NESTED tables
+        # collection.
+        query = (
+            select(Hall).options(self._tables_loader(include_inactive_tables))
             .where(Hall.id == hall_id, Hall.company_id == company_id)
         )
-        hall = result.scalar_one_or_none()
+        if refresh_tables:
+            # SQLAlchemy leaves an already-loaded relationship untouched on a
+            # plain re-select, so a hall whose tables were just mutated would
+            # serialize the stale collection. Post-write reads must re-populate
+            # it or the response could contradict the active-only contract.
+            query = query.execution_options(populate_existing=True)
+        hall = (await self.db.execute(query)).scalar_one_or_none()
         if not hall:
             raise NotFoundError("Hall not found")
         return hall
@@ -98,6 +134,8 @@ class HallService:
     _PRICING_CLEARABLE = ("price_amount", "pricing_type")
 
     async def update(self, company_id: UUID, hall_id: UUID, data: HallUpdate) -> Hall:
+        # Active-only nested tables: that is both the response shape callers
+        # already receive and exactly the set a deactivation cascade must flip.
         hall = await self.get(company_id, hall_id)
         if "payment_type_id" in data.model_fields_set:
             await require_finance_reference(
@@ -108,13 +146,48 @@ class HallService:
                 allow_system=True,
                 detail="PaymentType not found",
             )
-        for field, value in data.model_dump(exclude_unset=True).items():
+        payload = data.model_dump(exclude_unset=True)
+        # Phase 5C-4 lifecycle transitions. An archived hall stays freely
+        # editable (name/pricing/...); only the is_active edges are gated.
+        reactivating = payload.get("is_active") is True and not hall.is_active
+        deactivating = payload.get("is_active") is False and hall.is_active
+        if reactivating:
+            # Phase 5C-1 invariant: a hall may only become operational under an
+            # ACTIVE branch of its own company. Child tables are deliberately
+            # NOT resurrected — see _deactivate_child_tables.
+            await self._assert_branch_active(company_id, hall.branch_id)
+        for field, value in payload.items():
             if value is None and field not in self._PRICING_CLEARABLE:
                 continue
             setattr(hall, field, value)
+        if deactivating:
+            # Same cascade as DELETE, so "hall inactive + table active" is
+            # unreachable through either deactivation route.
+            self._deactivate_child_tables(hall)
         await self.db.commit()
         await self.db.refresh(hall)
-        return await self.get(company_id, hall_id)
+        return await self.get(company_id, hall_id, refresh_tables=True)
+
+    async def _assert_branch_active(self, company_id: UUID, branch_id: UUID) -> None:
+        """A hall may only become operational under an active branch of its own
+        company. Never creates or reactivates a branch as a side effect."""
+        branch = await require_company_resource(
+            self.db, Branch, branch_id, company_id, detail="Branch not found"
+        )
+        if branch.is_active is False:
+            raise ConflictError("Филиал неактивен")
+
+    @staticmethod
+    def _deactivate_child_tables(hall: Hall) -> None:
+        """Archive the hall's still-active tables (soft only).
+
+        Reactivating the hall later does NOT resurrect them: some tables may
+        have been deliberately inactive beforehand, no prior-state record
+        exists, and guessing would destroy that distinction. Each table is
+        re-enabled by hand instead. Numbers and Order.table_id are untouched.
+        """
+        for table in hall.tables:
+            table.is_active = False
 
     async def delete(self, company_id: UUID, hall_id: UUID) -> None:
         # Soft-delete: historical Orders may reference tables in this hall via
@@ -124,17 +197,20 @@ class HallService:
         # only as a safety net for exceptional physical deletion.
         hall = await self.get(company_id, hall_id)
         hall.is_active = False
-        for table in hall.tables:
-            table.is_active = False
+        self._deactivate_child_tables(hall)
         await self.db.commit()
 
-    async def list_tables(self, company_id: UUID, hall_id: UUID) -> list[Table]:
+    async def list_tables(
+        self, company_id: UUID, hall_id: UUID, *, include_inactive: bool = False
+    ) -> list[Table]:
+        # Default ACTIVE-ONLY (unchanged); include_inactive exposes the archive
+        # for the Settings management view. Ownership is still proven by
+        # resolving the hall inside the tenant first.
         hall = await self.get(company_id, hall_id)
-        result = await self.db.execute(
-            select(Table)
-            .where(Table.hall_id == hall.id, Table.is_active.is_(True))
-            .order_by(Table.number)
-        )
+        query = select(Table).where(Table.hall_id == hall.id)
+        if not include_inactive:
+            query = query.where(Table.is_active.is_(True))
+        result = await self.db.execute(query.order_by(Table.number))
         return list(result.scalars().all())
 
     # Phase 5C-3: (hall_id, number) is unique among ACTIVE tables. The partial
@@ -181,15 +257,21 @@ class HallService:
         await self.db.refresh(table)
         return table
 
+    _INACTIVE_HALL_DETAIL = "Место неактивно — сначала активируйте место"
+
     async def create_table(self, company_id: UUID, hall_id: UUID, data: TableCreate) -> Table:
-        await self.get(company_id, hall_id)
+        # Phase 5C-4: a new table is an operational row, so the parent hall must
+        # be active. Never silently activates the hall.
+        hall = await self.get(company_id, hall_id)
+        if not hall.is_active:
+            raise ConflictError(self._INACTIVE_HALL_DETAIL)
         await self._assert_table_number_free(hall_id, data.number)
         table = Table(hall_id=hall_id, number=data.number, capacity=data.capacity)
         self.db.add(table)
         return await self._commit_table(table)
 
     async def update_table(self, company_id: UUID, hall_id: UUID, table_id: UUID, data: TableUpdate) -> Table:
-        await self.get(company_id, hall_id)
+        hall = await self.get(company_id, hall_id)
         result = await self.db.execute(
             select(Table).where(Table.id == table_id, Table.hall_id == hall_id)
         )
@@ -201,6 +283,12 @@ class HallService:
         # with another ACTIVE table holding that number in the same hall.
         target_number = payload.get("number", table.number)
         will_be_active = payload.get("is_active", table.is_active)
+        # Phase 5C-4: activation is the only transition gated on the hall, and
+        # it is what keeps "hall inactive + table active" unreachable. Ordinary
+        # metadata edits of an archived table stay allowed, so an archived hall
+        # never becomes an administrative dead end.
+        if will_be_active and not hall.is_active:
+            raise ConflictError(self._INACTIVE_HALL_DETAIL)
         if will_be_active:
             await self._assert_table_number_free(
                 hall_id, target_number, exclude_table_id=table.id
