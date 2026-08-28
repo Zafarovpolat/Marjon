@@ -8,7 +8,7 @@ from app.modules.finance.models import PaymentType
 from app.modules.finance.ownership import FinanceScope, require_finance_reference
 from app.modules.halls.models import Hall, Table
 from app.modules.halls.schemas import HallCreate, HallUpdate, TableCreate, TableUpdate
-from app.shared.exceptions import NotFoundError
+from app.shared.exceptions import ConflictError, NotFoundError
 from app.shared.tenant_scope import require_company_resource
 
 
@@ -40,24 +40,32 @@ class HallService:
             raise NotFoundError("Hall not found")
         return hall
 
-    async def _resolve_default_branch(self, company_id: UUID) -> UUID:
-        """BE-14: same reasoning as PrinterService — the live places form
-        never sends branch_id, so it's optional and resolved here instead
-        of 422ing on every place the frontend creates."""
+    async def _resolve_branch(self, company_id: UUID, branch_id: UUID | None) -> UUID:
+        """BE-14 / Phase 5C-1: resolve the branch a place attaches to.
+
+        Explicit branch_id is validated for tenant ownership (+ active). When
+        omitted the sole active branch is used; zero or many active branches are
+        a deliberate configuration conflict rather than a silent first-branch
+        pick, so the caller must onboard/choose."""
+        if branch_id is not None:
+            branch = await require_company_resource(
+                self.db, Branch, branch_id, company_id, detail="Branch not found"
+            )
+            if branch.is_active is False:
+                raise ConflictError("Филиал неактивен")
+            return branch.id
         result = await self.db.execute(
-            select(Branch).where(Branch.company_id == company_id)
-            .order_by(Branch.created_at.asc()).limit(1)
+            select(Branch).where(Branch.company_id == company_id, Branch.is_active.is_(True))
         )
-        branch = result.scalars().first()
-        if not branch:
-            raise NotFoundError("Company has no branch to attach this place to — create one first")
-        return branch.id
+        branches = list(result.scalars().all())
+        if not branches:
+            raise ConflictError("Не настроен филиал. Создайте филиал, чтобы добавить место.")
+        if len(branches) > 1:
+            raise ConflictError("Укажите филиал")
+        return branches[0].id
 
     async def create(self, company_id: UUID, data: HallCreate) -> Hall:
-        branch_id = data.branch_id or await self._resolve_default_branch(company_id)
-        await require_company_resource(
-            self.db, Branch, branch_id, company_id, detail="Branch not found"
-        )
+        branch_id = await self._resolve_branch(company_id, data.branch_id)
         await require_finance_reference(
             self.db,
             PaymentType,

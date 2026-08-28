@@ -1,16 +1,25 @@
 from __future__ import annotations
 
+from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import async_sessionmaker
+
+from app.modules.companies.models import Branch
 from tests.conftest import register_company
+
+
+async def _default_branch_id(client, headers):
+    resp = await client.get("/companies/me/branches", headers=headers)
+    assert resp.status_code == 200, resp.text
+    return resp.json()[0]["id"]
 
 
 async def test_frontend_payload_shape_now_works(client):
     """SettingsPrintersPage.jsx's apiMapFormToPayload sends {name, type,
-    ip_address, port, zone, is_active} — no branch_id, no connection_type,
-    `type` (not printer_type) with Russian labels. This used to always
-    422 (branch_id was required and printer_type was never satisfied)."""
+    ip_address, port, zone, is_active} — no branch_id. Since Phase 5C-1
+    registration seeds one default branch, the omitted branch_id resolves to
+    it (PrinterService still uses its earliest-branch fallback)."""
     headers, _ = await register_company(client, slug="acme", email="owner@acme.example.com")
-    branch = await client.post("/companies/me/branches", headers=headers, json={"name": "Main"})
-    branch_id = branch.json()["id"]
+    branch_id = await _default_branch_id(client, headers)
 
     resp = await client.post(
         "/printers", headers=headers,
@@ -28,8 +37,7 @@ async def test_frontend_payload_shape_now_works(client):
 
 async def test_branch_id_auto_resolves_when_omitted(client):
     headers, _ = await register_company(client, slug="acme", email="owner@acme.example.com")
-    branch = await client.post("/companies/me/branches", headers=headers, json={"name": "Main"})
-    branch_id = branch.json()["id"]
+    branch_id = await _default_branch_id(client, headers)
 
     resp = await client.post(
         "/printers", headers=headers, json={"name": "Kitchen", "printer_type": "kitchen"}
@@ -38,8 +46,15 @@ async def test_branch_id_auto_resolves_when_omitted(client):
     assert resp.json()["branch_id"] == branch_id
 
 
-async def test_no_branch_gives_clear_error_not_a_guess(client):
+async def test_no_branch_gives_clear_error_not_a_guess(client, db_engine):
+    """Legacy/broken company with no branch at all: printer create without
+    branch_id fails clearly (registration normally seeds one; here it is
+    removed to reproduce the zero-branch configuration)."""
     headers, _ = await register_company(client, slug="acme", email="owner@acme.example.com")
+    session_factory = async_sessionmaker(db_engine, expire_on_commit=False)
+    async with session_factory() as session:
+        await session.execute(delete(Branch))
+        await session.commit()
     resp = await client.post(
         "/printers", headers=headers, json={"name": "Kitchen", "printer_type": "kitchen"}
     )

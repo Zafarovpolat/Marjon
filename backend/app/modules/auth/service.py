@@ -17,7 +17,7 @@ from app.modules.auth.security import (
     verify_password,
 )
 from app.modules.audit.service import AuditService
-from app.modules.companies.models import Company
+from app.modules.companies.models import Branch, Company
 from app.modules.rbac.models import Role, UserRole
 from app.modules.rbac.constants import COMPANY_ROLE_SLUGS
 from app.modules.rbac.permissions import reconcile_frozen_owner_permissions, sync_role_permissions
@@ -63,6 +63,12 @@ class AuthService:
 
         company = Company(name=company_name, slug=company_slug)
         self.db.add(company)
+        await self.db.flush()
+
+        # Onboarding: every company starts with one default branch so places,
+        # printers, etc. have a tenant to attach to (Settings → Место resolves
+        # the sole branch automatically). Multi-branch companies stay valid.
+        self.db.add(Branch(company_id=company.id, name="Основной филиал"))
         await self.db.flush()
 
         user = User(
