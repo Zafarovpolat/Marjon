@@ -39,8 +39,12 @@ from app.shared.exceptions import ConflictError, NotFoundError, ValidationError
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
+# Historical checkpoint this suite intentionally downgrades to — NOT the head.
 BI05C1_BASELINE = "bi05aown20"
-BI05C1_HEAD = "bi05e1fp22"
+# Current Alembic SOURCE head — reuse the single canonical reference from
+# test_migrations.py so this suite never goes stale when new layers land
+# (it used to hardcode bi05e1fp22, which broke once bi06tid01/bi06hpa02 landed).
+from tests.test_migrations import EXPECTED_HEAD as CURRENT_HEAD  # noqa: E402
 
 
 class FakeResolver:
@@ -684,7 +688,7 @@ def test_migration_fresh_existing_downgrade_reupgrade() -> None:
         async def assert_head(database_url):
             connection = await _connect(database_url)
             try:
-                assert await connection.fetchval("SELECT version_num FROM alembic_version") == BI05C1_HEAD
+                assert await connection.fetchval("SELECT version_num FROM alembic_version") == CURRENT_HEAD
                 assert await connection.fetchval(
                     "SELECT to_regclass('public.fiscal_settings') IS NOT NULL"
                 ) is True

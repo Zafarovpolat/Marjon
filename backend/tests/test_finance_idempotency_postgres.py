@@ -44,7 +44,11 @@ from app.shared.exceptions import ConflictError, ValidationError
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-CURRENT_HEAD = "bi05e1fp22"
+# Current Alembic SOURCE head — reuse the single canonical reference from
+# test_migrations.py instead of re-hardcoding it here (this constant went stale
+# once the bi06tid01 → bi06hpa02 layers landed above bi05e1fp22).
+from tests.test_migrations import EXPECTED_HEAD as CURRENT_HEAD  # noqa: E402
+# Historical checkpoint this suite intentionally downgrades to — NOT the head.
 BI05B_BASELINE = "bi02idx18"
 
 
