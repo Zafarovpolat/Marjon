@@ -28,6 +28,12 @@ class Hall(TimeStampedModel):
     # sub-fields, so it's stored as-is rather than parsed.
     condition: Mapped[str | None] = mapped_column(Text)
     percent: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    # BI-06 / Phase 5C-2: structured monetary amount for the "Доп. цена"
+    # models (pricing_type fixed | hourly). Canonical Marjon money convention
+    # (Numeric(15, 2) + Decimal). Nullable: historical rows and legacy clients
+    # carry the amount only inside the free-text `condition`, and are never
+    # backfilled from it.
+    price_amount: Mapped[Decimal | None] = mapped_column(Numeric(15, 2))
     # percent | hourly | fixed | time_based — how this place's fee is
     # calculated. Distinct from payment_type_id (an actual PaymentType —
     # cash/card/transfer); the frontend's "Тип оплаты места" dropdown is

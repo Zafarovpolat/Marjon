@@ -1,4 +1,5 @@
 from __future__ import annotations
+from decimal import Decimal
 from uuid import UUID
 from pydantic import Field, model_validator
 from app.shared.base_schema import BaseSchema, BaseResponseSchema
@@ -37,6 +38,9 @@ class HallCreate(BaseSchema):
     description: str | None = None
     condition: str | None = None
     percent: float | None = Field(None, ge=0, le=100)
+    # Phase 5C-2: structured "Доп. цена" amount for pricing_type fixed|hourly.
+    # Optional so legacy payloads (amount only inside `condition`) stay valid.
+    price_amount: Decimal | None = Field(None, ge=0)
     pricing_type: str | None = None
     payment_type_id: UUID | None = None
 
@@ -58,6 +62,7 @@ class HallUpdate(BaseSchema):
     is_active: bool | None = None
     condition: str | None = None
     percent: float | None = Field(None, ge=0, le=100)
+    price_amount: Decimal | None = Field(None, ge=0)
     pricing_type: str | None = None
     payment_type_id: UUID | None = None
 
@@ -99,6 +104,7 @@ class HallResponse(BaseResponseSchema):
     is_active: bool
     condition: str | None = None
     percent: float | None = None
+    price_amount: Decimal | None = None
     pricing_type: str | None = None
     payment_type_id: UUID | None = None
     tables: list[TableResponse] = []

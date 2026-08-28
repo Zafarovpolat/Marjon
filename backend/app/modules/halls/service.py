@@ -78,6 +78,7 @@ class HallService:
             company_id=company_id, branch_id=branch_id,
             name=data.name, description=data.description,
             condition=data.condition, percent=data.percent,
+            price_amount=data.price_amount,
             pricing_type=data.pricing_type, payment_type_id=data.payment_type_id,
         )
         self.db.add(hall)
@@ -90,6 +91,11 @@ class HallService:
         )
         return result.scalar_one()
 
+    # Phase 5C-2: only the structured pricing fields honour an EXPLICIT null so
+    # the settings UI can clear "Доп. цена". Every other field keeps the
+    # historical behaviour (explicit null ignored) to avoid a broad regression.
+    _PRICING_CLEARABLE = ("price_amount", "pricing_type")
+
     async def update(self, company_id: UUID, hall_id: UUID, data: HallUpdate) -> Hall:
         hall = await self.get(company_id, hall_id)
         if "payment_type_id" in data.model_fields_set:
@@ -101,7 +107,9 @@ class HallService:
                 allow_system=True,
                 detail="PaymentType not found",
             )
-        for field, value in data.model_dump(exclude_none=True).items():
+        for field, value in data.model_dump(exclude_unset=True).items():
+            if value is None and field not in self._PRICING_CLEARABLE:
+                continue
             setattr(hall, field, value)
         await self.db.commit()
         await self.db.refresh(hall)

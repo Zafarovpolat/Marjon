@@ -27,7 +27,7 @@ from app.shared.base_model import Base
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 VERSIONS_DIR = BACKEND_ROOT / "migrations" / "versions"
-EXPECTED_HEAD = "bi06tid01"
+EXPECTED_HEAD = "bi06hpa02"
 EXPECTED_NULLABLE_COLUMN_COUNT = 262
 EXPECTED_PARITY_OPERATIONS = {"remove_index", "remove_table_comment"}
 FIXTURES_DIR = BACKEND_ROOT / "tests" / "fixtures"
@@ -136,11 +136,32 @@ def test_revision_graph_is_linear_complete_and_has_one_head() -> None:
         visited.add(cursor)
         cursor = revisions[cursor][0]
     assert visited == set(revisions)
-    assert len(revisions) == 44
+    assert len(revisions) == 45
 
     nullable_columns = _bi02_nullable_columns()
     assert len(nullable_columns) == EXPECTED_NULLABLE_COLUMN_COUNT
     assert len(set(nullable_columns)) == EXPECTED_NULLABLE_COLUMN_COUNT
+
+
+def test_phase5c2_price_amount_migration_is_additive_and_chains_from_bi06tid01() -> None:
+    path = VERSIONS_DIR / "20260828_bi06hpa02_hall_price_amount.py"
+    revision, down_revision = _revision_metadata(path)
+    assert revision == "bi06hpa02"
+    assert down_revision == "bi06tid01"
+
+    source = path.read_text(encoding="utf-8")
+    # upgrade adds halls.price_amount, downgrade drops it
+    assert "op.add_column" in source
+    assert "op.drop_column" in source
+    assert '_TABLE = "halls"' in source
+    assert '_COLUMN = "price_amount"' in source
+    assert "Numeric(15, 2)" in source
+    assert "nullable=True" in source
+    # Phase 5C-2 is schema-additive only: no out-of-scope Phase 5C work here
+    assert "location" not in source
+    assert "create_index" not in source
+    assert "create_unique_constraint" not in source
+    assert "include_inactive" not in source
 
 
 def test_historical_migrations_do_not_use_mutable_application_metadata() -> None:
@@ -911,11 +932,24 @@ def test_postgresql_fresh_upgrade_timing_downgrade_and_second_fresh() -> None:
         assert asyncio.run(
             _index_exists(first_url, "ix_orders_table_id")
         )
+        assert asyncio.run(
+            _column_exists(first_url, "halls", "price_amount")
+        )
 
-        # BI-06 head peels off first: orders.table_id + its index are removed,
-        # leaving the historical BI-05E1 fingerprint chain below intact.
+        # Phase 5C-2 head peels off first: halls.price_amount is dropped while
+        # the BI-06 orders.table_id layer underneath stays intact.
         _run_alembic(first_url, "downgrade", "-1")
         assert asyncio.run(_current_revision(first_url)) != EXPECTED_HEAD
+        assert not asyncio.run(
+            _column_exists(first_url, "halls", "price_amount")
+        )
+        assert asyncio.run(
+            _column_exists(first_url, "orders", "table_id")
+        )
+
+        # BI-06 layer next: orders.table_id + its index are removed,
+        # leaving the historical BI-05E1 fingerprint chain below intact.
+        _run_alembic(first_url, "downgrade", "-1")
         assert not asyncio.run(
             _column_exists(first_url, "orders", "table_id")
         )
