@@ -208,6 +208,32 @@
       color: #dc2626;
   }
 
+  /* Places uses one compact, text-first status component for Hall and Table
+     rows. The dot is supplementary; the state remains explicit in text. */
+  .settings-places-page .settings-status-badge {
+      gap: 7px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+  }
+  .settings-places-page .settings-status-badge.is-active {
+      border: 0;
+      background: transparent;
+      color: #00dc3b;
+  }
+  .settings-places-page .settings-status-badge.is-inactive {
+      border: 0;
+      background: transparent;
+      color: var(--color-danger, #ef4444);
+  }
+  .settings-status-badge__dot {
+      width: 8px;
+      height: 8px;
+      flex: 0 0 8px;
+      border-radius: 50%;
+      background: currentColor;
+  }
+
   .settings-row-actions {
       display: flex;
       align-items: center;
@@ -522,6 +548,9 @@
       box-shadow: 0 3px 12px rgba(15, 35, 60, 0.055);
   }
   .settings-owner-view .settings-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
       margin-bottom: 18px;
   }
   /* Align header density with Reports; accent keeps its turquoise/shape. */
@@ -539,18 +568,24 @@
      system (.owner-report-view .report-filter-apply primary /
      .report-period-button secondary). Scoped to the foundation so only
      Место adopts it; the sky-blue base stays for other Settings pages.
-     Primary   = --color-brand teal, white text, 10px radius, teal focus ring.
+     Primary   = --color-brand teal, white text, teal focus ring.
      Secondary = drawer «Отмена»: neutral hairline outline, teal hover.
      ------------------------------------------------------------ */
   .settings-owner-view .settings-actions button,
   .settings-owner-view .settings-places-empty button,
   .settings-owner-view .settings-form__footer button[type="submit"] {
       border: 1px solid var(--color-brand, #1db5b5);
-      border-radius: 10px;
       background: var(--color-brand, #1db5b5);
       color: #fff;
       box-shadow: none;
       font-weight: 700;
+  }
+  .settings-owner-view .settings-actions button {
+      border-radius: 22px;
+  }
+  .settings-owner-view .settings-places-empty button,
+  .settings-owner-view .settings-form__footer button[type="submit"] {
+      border-radius: 10px;
   }
   .settings-owner-view .settings-actions button:hover,
   .settings-owner-view .settings-places-empty button:hover,
@@ -769,21 +804,16 @@
       }
   }
 
-  .settings-places-subtitle {
-      display: block;
-      margin-top: 2px;
-      color: var(--neutral-500, #64748b);
-      font-size: 13px;
-  }
   .settings-places-list {
       display: flex;
       flex-direction: column;
       gap: 10px;
   }
   .settings-place {
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
-      gap: 12px;
+      gap: 18px;
       padding: 12px 14px;
       border: 1px solid rgba(215, 226, 240, .9);
       border-radius: 14px;
@@ -792,32 +822,48 @@
   }
   .settings-place:hover { border-color: rgba(22, 198, 200, .5); box-shadow: 0 6px 16px rgba(20, 44, 72, .06); }
   .settings-place__main {
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(135px, 1fr) minmax(210px, 270px) 100px;
       align-items: center;
-      gap: 12px;
-      flex: 1 1 auto;
+      gap: 16px;
       min-width: 0;
+      padding: 0;
       border: 0;
       background: transparent;
       cursor: pointer;
       font: inherit;
       text-align: left;
   }
-  .settings-place__icon {
-      display: grid;
-      place-items: center;
-      width: 38px;
-      height: 38px;
-      flex: 0 0 auto;
-      border-radius: 10px;
-      background: rgba(22, 198, 200, .12);
-      color: #0f99b8;
-  }
   .settings-place__info { display: flex; flex-direction: column; min-width: 0; }
-  .settings-place__name { font-weight: 600; color: #0b1f3f; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .settings-place__name { color: #0b1f3f; font-size: 20px; font-weight: 600; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .settings-place__count { color: var(--neutral-500, #64748b); font-size: 13px; }
+  .settings-place__price {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--neutral-700, #334155);
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.35;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+  }
+  .settings-place__price strong { font-weight: 600; }
+  .settings-place__percent {
+      justify-self: start;
+      color: var(--neutral-800, #1e293b);
+      font-size: 14px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      white-space: nowrap;
+  }
   /* PLACES_CSS_MORE */
-  .settings-place__meta { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+  .settings-place__meta {
+      display: grid;
+      grid-template-columns: 86px auto 34px;
+      align-items: center;
+      gap: 10px;
+  }
+  .settings-place__meta .settings-status-badge { justify-self: start; }
   .settings-place__edit {
       border: 1px solid rgba(215, 226, 240, .95);
       background: #fff;
@@ -830,12 +876,9 @@
       cursor: pointer;
   }
   .settings-place__edit:hover { border-color: rgba(22, 198, 200, .6); }
-  .settings-place__chevron { color: var(--neutral-400, #94a3b8); display: inline-flex; }
   .settings-places-empty { display: flex; flex-direction: column; gap: 8px; align-items: center; text-align: center; padding: 40px 16px; }
   .settings-places-empty__icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px; background: rgba(22, 198, 200, .12); color: #0f99b8; margin-bottom: 4px; }
   .settings-places-retry { margin-left: 8px; }
-  .settings-places-breadcrumb { margin-bottom: 10px; }
-  .settings-back { display: inline-flex; align-items: center; gap: 4px; border: 0; background: transparent; color: #0f99b8; font: inherit; font-weight: 500; cursor: pointer; padding: 4px 0; }
   .settings-tbl { display: flex; flex-direction: column; gap: 8px; }
   .settings-tbl__row {
       display: grid;
@@ -854,9 +897,193 @@
   .settings-form__context { margin: 0 0 12px; color: var(--neutral-600, #475569); font-size: 14px; }
   .settings-form__error { margin: 10px 0 0; color: #b42318; font-size: 13px; }
   .settings-form__hint { margin: 10px 0 0; color: #b54708; font-size: 13px; }
+  /* Phase 5C-5 — archived (is_active=false) rows stay listed and manageable.
+     Status is carried by the existing .settings-status-badge text ("Неактивен"),
+     so these rules only add a secondary, non-color-only cue: a muted surface
+     and a dashed edge. Never color alone. */
+  .settings-place.is-inactive,
+  .settings-tbl__row.is-inactive {
+      border-style: dashed;
+      background: var(--neutral-50, #f4f7fc);
+  }
+  .settings-place.is-inactive .settings-place__name,
+  .settings-tbl__row.is-inactive .settings-tbl__cell strong {
+      color: var(--neutral-600, #475569);
+  }
+  /* Reactivate — the counterpart of .settings-action-delete, same 34px icon
+     geometry, brand-teal instead of danger-red. */
+  .settings-action-restore {
+      display: inline-grid;
+      place-items: center;
+      width: 34px;
+      min-width: 34px;
+      height: 34px;
+      min-height: 34px;
+      padding: 0;
+      border: 1px solid rgba(22, 198, 200, .55);
+      border-radius: 8px;
+      background: rgba(22, 198, 200, .08);
+      color: #0f99b8;
+      cursor: pointer;
+  }
+  .settings-action-restore:hover:not(:disabled) { border-color: rgba(22, 198, 200, .9); }
+  /* Scoped to the Places page so no other Settings screen's buttons drift. */
+  .settings-places-page .settings-action-restore:disabled,
+  .settings-places-page .settings-actions button:disabled,
+  .settings-places-page .settings-places-empty button:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+  }
+  /* Phase 5C-5.2 — Marjon custom listbox. Replaces the native <select>, whose
+     open panel is OS-drawn (Windows-blue selection, browser chrome) and cannot
+     be styled. The trigger keeps the exact form-input geometry; the menu reuses
+     the OWNER report multi-select treatment (.owner-msel__menu) so both read as
+     one system. */
+  .settings-select {
+      position: relative;
+      display: block;
+  }
+  .settings-field {
+      display: grid;
+      gap: 7px;
+  }
+  .settings-field__label {
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 500;
+  }
+  .settings-owner-view .settings-form .settings-select__trigger {
+      width: 100%;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 42px 0 13px;
+      border: 1px solid var(--blue-100);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--neutral-950);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 140ms ease, box-shadow 140ms ease;
+  }
+  /* The hint is trigger text only — it is never a row in the panel. */
+  .settings-owner-view .settings-form .settings-select__trigger.is-placeholder {
+      color: var(--neutral-500, #94a3b8);
+  }
+  .settings-owner-view .settings-form .settings-select__trigger:hover {
+      border-color: rgba(22, 198, 200, .55);
+  }
+  .settings-owner-view .settings-form .settings-select__trigger:focus-visible,
+  .settings-owner-view .settings-form .settings-select__trigger[aria-expanded="true"] {
+      border-color: var(--color-brand, #1db5b5);
+      box-shadow: 0 0 0 3px rgba(29, 181, 181, .18);
+      outline: none;
+  }
+  .settings-select__value {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+  }
+  .settings-select__menu {
+      position: absolute;
+      z-index: 40;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      margin: 0;
+      padding: 6px;
+      list-style: none;
+      background: var(--color-card, #fff);
+      border: 1px solid rgba(15, 35, 60, .12);
+      border-radius: 12px;
+      box-shadow: 0 12px 32px rgba(15, 35, 60, .14);
+  }
+  .settings-owner-view .settings-form .settings-select__option {
+      width: 100%;
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 0 10px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--neutral-900, #0b1f3f);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+  }
+  /* Hover and keyboard focus share one highlight, so pointer and keyboard
+     users see the same active row. Turquoise wash, never native blue. */
+  .settings-owner-view .settings-form .settings-select__option:hover,
+  .settings-owner-view .settings-form .settings-select__option.is-active {
+      background: rgba(29, 181, 181, .1);
+  }
+  .settings-owner-view .settings-form .settings-select__option.is-selected {
+      color: var(--color-brand-dark, #0fa3a3);
+  }
+  .settings-owner-view .settings-form .settings-select__option:focus-visible {
+      outline: 2px solid rgba(29, 181, 181, .5);
+      outline-offset: -2px;
+  }
+  .settings-select__chevron,
+  .settings-select__clear {
+      position: absolute;
+      top: 22px;
+      right: 12px;
+      transform: translateY(-50%);
+      display: inline-grid;
+      place-items: center;
+      color: var(--neutral-500, #94a3b8);
+      pointer-events: none;
+  }
+  /* Clearing the selection is a real action, so it takes pointer events back
+     and is keyboard-reachable. */
+  .settings-owner-view .settings-form .settings-select__clear {
+      width: 24px;
+      height: 24px;
+      min-height: 0;
+      padding: 0;
+      border: 0;
+      border-radius: 7px;
+      background: rgba(15, 35, 60, .06);
+      color: var(--neutral-600, #475569);
+      cursor: pointer;
+      pointer-events: auto;
+  }
+  .settings-owner-view .settings-form .settings-select__clear:hover {
+      background: rgba(15, 35, 60, .12);
+      color: var(--neutral-950, #071428);
+  }
+  .settings-owner-view .settings-form .settings-select__clear:focus-visible {
+      outline: 2px solid rgba(29, 181, 181, .5);
+      outline-offset: 2px;
+  }
+  /* The conditional money field is revealed by the select above it; a short
+     fade keeps that from feeling like a layout jump. */
+  .settings-owner-view .settings-form__conditional {
+      animation: settings-field-in 150ms ease-out both;
+  }
+  @keyframes settings-field-in {
+      from { opacity: 0; transform: translateY(-3px); }
+      to { opacity: 1; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+      .settings-owner-view .settings-form__conditional { animation-duration: 0.01ms; }
+  }
   /* Phase 5B — mobile card density matches OWNER (.owner-report-surface: 16px).
      Placed after the desktop scope so it wins on source order (same specificity). */
   @media (max-width: 768px) {
+      .settings-owner-view .settings-header {
+          grid-template-columns: 1fr;
+          align-items: stretch;
+      }
       .settings-owner-view .settings-card {
           padding: 16px;
           border-radius: 18px;
@@ -865,8 +1092,16 @@
           min-height: 200px;
       }
   }
+  @media (max-width: 900px) {
+      .settings-place { grid-template-columns: 1fr; }
+      .settings-place__meta { justify-content: end; }
+  }
   @media (max-width: 640px) {
-      .settings-place { flex-wrap: wrap; }
+      .settings-place__main {
+          grid-template-columns: 1fr;
+          gap: 4px;
+      }
+      .settings-place__percent { justify-self: start; }
       .settings-place__meta { width: 100%; justify-content: space-between; }
       .settings-tbl__head { display: none; }
       .settings-tbl__row { grid-template-columns: 1fr; gap: 6px; }
