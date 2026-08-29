@@ -42,11 +42,33 @@ class OrderRepository(TenantRepository[Order]):
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    async def get_all(self, company_id: UUID, params=None, selected_date: date | None = None) -> list[Order]:  # type: ignore[override]
-        query = self._base_query(company_id).options(selectinload(Order.items)).order_by(Order.created_at.desc())
+    async def get_all(
+        self,
+        company_id: UUID,
+        params=None,
+        selected_date: date | None = None,
+        branch_id: UUID | None = None,
+        active_only: bool = False,
+        table_number: str | None = None,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> list[Order]:  # type: ignore[override]
+        query = (
+            self._base_query(company_id)
+            .options(selectinload(Order.items))
+            .order_by(Order.created_at.desc())
+        )
+        if branch_id:
+            query = query.where(Order.branch_id == branch_id)
+        if active_only:
+            query = query.where(Order.status.in_(["new", "accepted", "cooking", "ready"]))
+        if table_number:
+            query = query.where(Order.table_number == table_number)
         query = apply_order_date_filter(query, selected_date)
-        if params:
+        if params:  # legacy pagination object
             query = query.offset(params.offset).limit(params.size)
+        else:
+            query = query.offset(offset).limit(limit)
         result = await self.db.execute(query)
         return list(result.scalars().all())
 

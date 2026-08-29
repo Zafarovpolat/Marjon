@@ -1,12 +1,16 @@
 from __future__ import annotations
-from datetime import date, datetime, timezone
+import hashlib
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
-from sqlalchemy import func, select
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.modules.companies.models import Branch
+from app.modules.companies.models import Branch, Company
+from app.modules.crm.models import Customer
+from app.modules.halls.models import Hall, Table
 from app.modules.inventory.models import Product
 from app.modules.kitchen.websocket import kitchen_manager
 from app.modules.audit.service import AuditService
@@ -16,7 +20,8 @@ from app.modules.pos.schemas import (
     OrderCreate, OrderItemCreate, OrderStatusUpdate,
     OrderUpdate, TerminalCreate, ShiftOpen, ShiftClose,
 )
-from app.shared.exceptions import NotFoundError, ValidationError
+from app.shared.exceptions import ConflictError, NotFoundError, ValidationError
+from app.shared.tenant_scope import require_company_resource
 
 # ── Order status state machine ───────────────────────────────────────────────
 VALID_TRANSITIONS: dict[str, set[str]] = {
@@ -42,6 +47,21 @@ class OrderService:
 
     async def create(self, company_id: UUID, waiter_id: UUID, data: OrderCreate) -> Order:
         await self._get_branch(company_id, data.branch_id)
+        await require_company_resource(
+            self.db, PosTerminal, data.terminal_id, company_id, detail="POS terminal not found"
+        )
+        await require_company_resource(
+            self.db, Customer, data.customer_id, company_id, detail="Customer not found"
+        )
+        # Canonical table relation: when table_id is supplied it is authoritative —
+        # validate tenant/branch ownership + active state and let the server own the
+        # table_number snapshot. Otherwise fall back to the legacy free-text number.
+        table_id = None
+        table_number = data.table_number
+        if data.table_id is not None:
+            table = await self._resolve_table(company_id, data.table_id, data.branch_id)
+            table_id = table.id
+            table_number = str(table.number)
         order_number = await self._generate_daily_number(company_id, data.branch_id)
 
         order = Order(
@@ -52,7 +72,8 @@ class OrderService:
             terminal_id=data.terminal_id,
             customer_id=data.customer_id,
             order_type=data.order_type,
-            table_number=data.table_number,
+            table_id=table_id,
+            table_number=table_number,
             persons_count=data.persons_count,
             note=data.note,
         )
@@ -89,7 +110,9 @@ class OrderService:
         await self.db.commit()
         created_order = await self.get(company_id, order.id)
         try:
-            await kitchen_manager.broadcast(company_id, "new_order", {"order_id": str(created_order.id)})
+            await kitchen_manager.broadcast(
+                company_id, data.branch_id, "new_order", {"order_id": str(created_order.id)}
+            )
         except Exception:
             pass
         try:
@@ -116,10 +139,22 @@ class OrderService:
         branch_id: UUID | None = None,
         status: str | None = None,
         selected_date: date | None = None,
+        active_only: bool = False,
+        table_number: str | None = None,
+        limit: int = 200,
+        offset: int = 0,
     ) -> list[Order]:
         if status:
             return await self.repo.get_by_status(company_id, status, branch_id, selected_date)
-        return await self.repo.get_all(company_id, selected_date=selected_date)
+        return await self.repo.get_all(
+            company_id,
+            selected_date=selected_date,
+            branch_id=branch_id,
+            active_only=active_only,
+            table_number=table_number,
+            limit=limit,
+            offset=offset,
+        )
 
     # ── Update status (state machine) ─────────────────────────────────────────
 
@@ -135,10 +170,19 @@ class OrderService:
             )
 
         order.status = target
+        if target == "cooking":
+            # Kitchen accepted the whole order — move its pending items into cooking too,
+            # otherwise "mark item ready" fails validation (pending can't skip to ready).
+            for item in order.items:
+                if item.status == "pending":
+                    item.status = "cooking"
         await self.repo.save(order)
         updated_order = await self.get(company_id, order_id)
         try:
-            await kitchen_manager.broadcast(company_id, "order_updated", {"order_id": str(order_id), "status": target})
+            await kitchen_manager.broadcast(
+                company_id, order.branch_id, "order_updated",
+                {"order_id": str(order_id), "status": target},
+            )
         except Exception:
             pass
         try:
@@ -160,7 +204,9 @@ class OrderService:
         order.status = "cancelled"
         saved = await self.repo.save(order)
         try:
-            await kitchen_manager.broadcast(company_id, "order_cancelled", {"order_id": str(order_id)})
+            await kitchen_manager.broadcast(
+                company_id, order.branch_id, "order_cancelled", {"order_id": str(order_id)}
+            )
         except Exception:
             pass
         return saved
@@ -218,10 +264,35 @@ class OrderService:
         if order.status in ("completed", "cancelled"):
             raise ValidationError("Нельзя редактировать завершённый или отменённый заказ")
 
+        table_id_provided = "table_id" in data.model_fields_set
+        table_number_provided = "table_number" in data.model_fields_set
+        # Snapshot invariant: while an authoritative table_id is set, table_number is
+        # a server-owned snapshot of Table.number — not an independently editable
+        # field. A table_number-only PATCH (table_id omitted) on such an order would
+        # let the snapshot drift from the relation, so reject it. The client must
+        # change the relation explicitly (send table_id, or table_id=null to detach).
+        # Legacy orders (table_id already NULL) keep free-text table_number edits.
+        if table_number_provided and not table_id_provided and order.table_id is not None:
+            raise ConflictError(
+                "Заказ привязан к столу (table_id) — table_number является снимком "
+                "и не редактируется отдельно. Передайте table_id (или table_id=null, "
+                "чтобы отвязать) для изменения привязки."
+            )
+
         if data.note is not None:
             order.note = data.note
         if data.table_number is not None:
             order.table_number = data.table_number
+        # table_id is authoritative: applied after table_number so that when both
+        # are sent the canonical Table.number snapshot wins. An explicit null clears
+        # the relation without touching the retained table_number snapshot.
+        if table_id_provided:
+            if data.table_id is None:
+                order.table_id = None
+            else:
+                table = await self._resolve_table(company_id, data.table_id, order.branch_id)
+                order.table_id = table.id
+                order.table_number = str(table.number)
         if data.persons_count is not None:
             order.persons_count = data.persons_count
 
@@ -259,22 +330,43 @@ class OrderService:
         order.total_amount = _quantize(after_discount + order.tax_amount + order.service_fee)
 
     async def _generate_daily_number(self, company_id: UUID, branch_id: UUID) -> str:
-        """Generate daily order number: YYYYMMDD-NNNN."""
-        today = datetime.now(timezone.utc).date()
-        today_start = datetime.combine(today, datetime.min.time())
-        today_end = datetime.combine(today, datetime.max.time())
+        """Generate daily order number: YYYYMMDD-NNNN (serialized via advisory lock)."""
+        tz_str = await self._get_company_timezone(company_id)
+        try:
+            tz = ZoneInfo(tz_str)
+        except (ZoneInfoNotFoundError, KeyError):
+            tz = ZoneInfo("Asia/Tashkent")
+
+        now_local = datetime.now(tz)
+        today_local = now_local.date()
+
+        # Serialize concurrent requests for the same company/branch/day
+        lock_key = int.from_bytes(
+            hashlib.sha256(f"{company_id}:{branch_id}:{today_local}".encode()).digest()[:8],
+            "big", signed=True,
+        )
+        await self.db.execute(text("SELECT pg_advisory_xact_lock(:k)").bindparams(k=lock_key))
+
+        # Count in UTC range that corresponds to local calendar day
+        day_start = datetime.combine(today_local, datetime.min.time()).replace(tzinfo=tz).astimezone(timezone.utc)
+        day_end   = datetime.combine(today_local + timedelta(days=1), datetime.min.time()).replace(tzinfo=tz).astimezone(timezone.utc)
 
         result = await self.db.execute(
             select(func.count(Order.id)).where(
                 Order.company_id == company_id,
                 Order.branch_id == branch_id,
-                Order.created_at >= today_start,
-                Order.created_at <= today_end,
+                Order.created_at >= day_start,
+                Order.created_at < day_end,
             )
         )
         count = result.scalar_one()
-        seq = str(count + 1).zfill(4)
-        return f"{today.strftime('%Y%m%d')}-{seq}"
+        return f"{today_local.strftime('%Y%m%d')}-{str(count + 1).zfill(4)}"
+
+    async def _get_company_timezone(self, company_id: UUID) -> str:
+        result = await self.db.execute(
+            select(Company.timezone).where(Company.id == company_id)
+        )
+        return result.scalar_one_or_none() or "Asia/Tashkent"
 
     async def _get_branch(self, company_id: UUID, branch_id: UUID) -> Branch:
         result = await self.db.execute(
@@ -284,6 +376,33 @@ class OrderService:
         if not branch:
             raise NotFoundError("Branch not found")
         return branch
+
+    async def _resolve_table(self, company_id: UUID, table_id: UUID, branch_id: UUID) -> Table:
+        """Resolve a canonical Table for an order.
+
+        Table has no direct company_id — ownership is proven through its Hall
+        (Table.hall_id → Hall.company_id), so a plain company-scoped lookup is not
+        enough. We join Hall and require:
+          - Hall.company_id == the order's company (tenant isolation)
+          - Hall.branch_id == the order's branch (branch compatibility)
+          - both Table and Hall active (no new orders against archived seating)
+        Never loads another tenant's row; a miss on any condition is a 404.
+        """
+        result = await self.db.execute(
+            select(Table)
+            .join(Hall, Hall.id == Table.hall_id)
+            .where(
+                Table.id == table_id,
+                Table.is_active.is_(True),
+                Hall.company_id == company_id,
+                Hall.branch_id == branch_id,
+                Hall.is_active.is_(True),
+            )
+        )
+        table = result.scalar_one_or_none()
+        if table is None:
+            raise NotFoundError("Table not found")
+        return table
 
     async def _get_product(self, company_id: UUID, product_id: UUID) -> Product:
         result = await self.db.execute(
@@ -307,9 +426,13 @@ class OrderService:
 
 class TerminalService:
     def __init__(self, db: AsyncSession):
+        self.db = db
         self.repo = TerminalRepository(db)
 
     async def create(self, company_id: UUID, data: TerminalCreate) -> PosTerminal:
+        await require_company_resource(
+            self.db, Branch, data.branch_id, company_id, detail="Branch not found"
+        )
         return await self.repo.save(PosTerminal(company_id=company_id, **data.model_dump()))
 
     async def list(self, company_id: UUID) -> list[PosTerminal]:
@@ -321,6 +444,9 @@ class ShiftService:
         self.db = db
 
     async def open_shift(self, company_id: UUID, cashier_id: UUID, data: ShiftOpen) -> CashierShift:
+        await require_company_resource(
+            self.db, Branch, data.branch_id, company_id, detail="Branch not found"
+        )
         existing = await self._get_open_shift(company_id, data.branch_id)
         if existing:
             raise ValidationError("Смена уже открыта. Закройте текущую смену перед открытием новой.")

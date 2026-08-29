@@ -1,7 +1,7 @@
 from __future__ import annotations
 import asyncio
 from logging.config import fileConfig
-from sqlalchemy import pool
+from sqlalchemy import event, pool
 from sqlalchemy.engine import Connection
 from alembic import context
 
@@ -22,6 +22,8 @@ import app.modules.audit.models          # noqa: F401
 import app.modules.fiscal.models         # noqa: F401
 import app.modules.subscriptions.models  # noqa: F401
 import app.modules.printers.models       # noqa: F401
+import app.modules.halls.models          # noqa: F401
+import app.modules.kafe_compat.models    # noqa: F401
 # Главная админка (HQ admin panel)
 import app.modules.handbook.models        # noqa: F401
 import app.modules.organizations.models   # noqa: F401
@@ -33,6 +35,8 @@ import app.modules.finance.models         # noqa: F401
 import app.modules.field_service.models   # noqa: F401
 import app.modules.tasks.models           # noqa: F401
 import app.modules.admin_settings.models  # noqa: F401
+import app.modules.inventory.warehouse_models  # noqa: F401
+import app.modules.inventory.semi_product_models  # noqa: F401
 
 from app.config import settings
 
@@ -41,6 +45,9 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+
+_POSTGRESQL_LOCK_TIMEOUT = "5s"
+_POSTGRESQL_STATEMENT_TIMEOUT = "10min"
 
 config.set_main_option(
     "sqlalchemy.url",
@@ -55,13 +62,31 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        transaction_per_migration=True,
     )
     with context.begin_transaction():
         context.run_migrations()
 
 
+def _set_postgresql_transaction_timeouts(connection: Connection) -> None:
+    if connection.dialect.name != "postgresql":
+        return
+    if connection.get_execution_options().get("isolation_level") == "AUTOCOMMIT":
+        return
+    connection.exec_driver_sql(
+        f"SET LOCAL lock_timeout = '{_POSTGRESQL_LOCK_TIMEOUT}'"
+    )
+    connection.exec_driver_sql(
+        f"SET LOCAL statement_timeout = '{_POSTGRESQL_STATEMENT_TIMEOUT}'"
+    )
+
+
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        transaction_per_migration=True,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
@@ -78,6 +103,11 @@ async def run_async_migrations() -> None:
         migration_url,
         poolclass=pool.NullPool,
         connect_args=connect_args,
+    )
+    event.listen(
+        connectable.sync_engine,
+        "begin",
+        _set_postgresql_transaction_timeouts,
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)

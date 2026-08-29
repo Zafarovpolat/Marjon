@@ -1,7 +1,7 @@
 """kafe_compat: user pin_code + support_tickets
 
 Revision ID: c5d6kafe01
-Revises: b3f4shift01
+Revises: b4c5hall0
 Create Date: 2026-07-12
 """
 from typing import Sequence, Union
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 
 revision: str = "c5d6kafe01"
-down_revision: Union[str, None] = "b3f4shift01"
+down_revision: Union[str, None] = "b4c5hall0"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -27,10 +27,10 @@ def upgrade() -> None:
         sa.Column("user_id", UUID(as_uuid=True), nullable=True),
         sa.Column("phone", sa.String(32), nullable=True),
         sa.Column("country", sa.String(8), nullable=True),
-        sa.Column("message", sa.Text(), server_default=""),
-        sa.Column("status", sa.String(20), server_default="new"),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()),
+        sa.Column("message", sa.Text(), server_default="", nullable=False),
+        sa.Column("status", sa.String(20), server_default="new", nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now(), nullable=False),
     )
 
 

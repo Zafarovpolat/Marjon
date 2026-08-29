@@ -21,6 +21,11 @@ class OrderCreate(BaseSchema):
     terminal_id: UUID | None = None
     customer_id: UUID | None = None
     order_type: Literal["dine_in", "takeaway", "delivery", "qr"] = "dine_in"
+    # Canonical seating relation. Optional for backward compatibility: legacy
+    # clients still send only ``table_number``. When ``table_id`` is supplied the
+    # server validates tenant/branch ownership and snapshots ``table_number`` from
+    # the canonical Table — ``table_id`` is authoritative over any sent number.
+    table_id: UUID | None = None
     table_number: str | None = None
     persons_count: int = 1
     note: str | None = None
@@ -32,6 +37,7 @@ class OrderCreate(BaseSchema):
 class OrderUpdate(BaseSchema):
     """Partial update for order-level fields."""
     note: str | None = None
+    table_id: UUID | None = None
     table_number: str | None = None
     persons_count: int | None = None
     discount_amount: Decimal | None = None
@@ -63,6 +69,7 @@ class OrderResponse(BaseResponseSchema):
     order_type: str
     status: str
     table_number: str | None
+    table_id: UUID | None = None
     persons_count: int
     subtotal: Decimal
     discount_amount: Decimal

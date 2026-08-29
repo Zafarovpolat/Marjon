@@ -23,40 +23,26 @@ class Settings(BaseSettings):
     allowed_origins: list[str] = [
         "http://localhost:3000",
         "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:5175",
-        "http://localhost:5176",
-        "http://localhost:5177",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-        "http://127.0.0.1:5175",
-        "http://127.0.0.1:5176",
-        "http://127.0.0.1:5177",
     ]
-
-    # Бизнес-настройки
-    default_tax_rate: float = 0.12  # НДС 12% (Узбекистан)
-    default_service_fee_rate: float = 0.0  # Сервисный сбор (0% по умолчанию)
-    password_min_length: int = 8
 
     # Интеграции главной админки (ТЗ §8); пустые значения = интеграция выключена
     devent_base_url: str | None = None
     devent_api_key: str | None = None
 
-    # ОФД фискализация (soliq.uz / ЦОТУ)
-    fiscal_enabled: bool = False
-    ofd_api_url: str = "https://ofd.soliq.uz/api/v1"
-    ofd_api_key: str | None = None
-    ofd_tin: str | None = None
+    # Payment gateway webhooks
+    webhook_secret: str = "change-me-in-production"
 
-    # Платёжные провайдеры
-    click_merchant_id: str | None = None
-    click_service_id: str | None = None
-    click_secret_key: str | None = None
-    payme_merchant_id: str | None = None
-    payme_secret_key: str | None = None
-    uzum_service_id: str | None = None
-    uzum_secret_key: str | None = None
+    # MinIO / S3 file storage
+    minio_endpoint: str = "http://localhost:9000"    # internal URL (used by backend to upload)
+    minio_public_url: str = "http://localhost:9000"  # external URL (returned to clients)
+    minio_access_key: str = "marjon"
+    minio_secret_key: str = "marjon_secret"
+    minio_bucket: str = "marjon-media"
+
+    # Бизнес-настройки
+    default_tax_rate: float = 0.12  # НДС 12% (Узбекистан)
+    default_service_fee_rate: float = 0.0  # Сервисный сбор (0% по умолчанию)
+    password_min_length: int = 8
 
     class Config:
         env_file = ".env"

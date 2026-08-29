@@ -1,4 +1,5 @@
 ﻿from __future__ import annotations
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone, timedelta
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,10 +10,20 @@ from app.shared.exceptions import NotFoundError
 
 
 class SubscriptionService:
-    def __init__(self, db: AsyncSession):
+    def __init__(
+        self,
+        db: AsyncSession,
+        failure_injector: Callable[[str], Awaitable[None]] | None = None,
+    ):
+        self.db = db
+        self.failure_injector = failure_injector
         self.plan_repo = PlanRepository(db)
         self.sub_repo = SubscriptionRepository(db)
         self.inv_repo = InvoiceRepository(db)
+
+    async def _checkpoint(self, name: str) -> None:
+        if self.failure_injector is not None:
+            await self.failure_injector(name)
 
     async def list_plans(self) -> list[Plan]:
         return await self.plan_repo.get_active()
@@ -35,18 +46,28 @@ class SubscriptionService:
             current_period_start=now,
             current_period_end=now + timedelta(days=30),
         )
-        saved = await self.sub_repo.save(sub)
+        try:
+            self.db.add(sub)
+            await self.db.flush()
+            await self._checkpoint("after_subscription")
 
-        price = plan.price_monthly if data.billing_cycle == "monthly" else plan.price_yearly
-        invoice = Invoice(
-            company_id=company_id,
-            subscription_id=saved.id,
-            amount=price,
-            status="open",
-            due_date=now + timedelta(days=14),
-        )
-        await self.inv_repo.save(invoice)
-        return saved
+            price = plan.price_monthly if data.billing_cycle == "monthly" else plan.price_yearly
+            invoice = Invoice(
+                company_id=company_id,
+                subscription_id=sub.id,
+                amount=price,
+                status="open",
+                due_date=now + timedelta(days=14),
+            )
+            self.db.add(invoice)
+            await self.db.flush()
+            await self._checkpoint("after_invoice")
+            await self.db.commit()
+            await self.db.refresh(sub)
+            return sub
+        except Exception:
+            await self.db.rollback()
+            raise
 
     async def get_current(self, company_id: UUID) -> Subscription | None:
         return await self.sub_repo.get_active(company_id)

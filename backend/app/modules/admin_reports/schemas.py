@@ -21,6 +21,13 @@ class TableReportRow(BaseModel):
     orders_count: int
     revenue: Decimal
     avg_check: Decimal
+    # Canonical seating identity (Phase 2). Null for legacy orders that predate
+    # the Order.table_id relation; present for orders linked to a real Table so
+    # the frontend can key rows stably and distinguish same-number tables across
+    # different halls.
+    table_id: UUID | None = None
+    hall_id: UUID | None = None
+    hall_name: str | None = None
 
 
 class WaiterReportRow(BaseModel):
@@ -43,6 +50,39 @@ class DishReportRow(BaseModel):
     status: str
 
 
+class ReportFilterOption(BaseModel):
+    value: str
+    label: str
+
+
+class OrderReportFiltersResponse(BaseModel):
+    waiters: list[ReportFilterOption]
+    cashiers: list[ReportFilterOption]
+    products: list[ReportFilterOption]
+    order_types: list[ReportFilterOption]
+    order_statuses: list[ReportFilterOption]
+    payment_methods: list[ReportFilterOption]
+
+
+class TableReportFiltersResponse(BaseModel):
+    waiters: list[ReportFilterOption]
+    cashiers: list[ReportFilterOption]
+    payment_methods: list[ReportFilterOption]
+    places: list[ReportFilterOption]
+    place_filter_supported: bool = False
+
+
+class DishReportFiltersResponse(BaseModel):
+    authors: list[ReportFilterOption]
+    cooks: list[ReportFilterOption]
+    products: list[ReportFilterOption]
+    categories: list[ReportFilterOption]
+    order_types: list[ReportFilterOption]
+    order_statuses: list[ReportFilterOption]
+    payment_methods: list[ReportFilterOption]
+    cook_filter_supported: bool = False
+
+
 class CancelledItemRow(BaseModel):
     date: str
     time: str
@@ -53,10 +93,6 @@ class CancelledItemRow(BaseModel):
     price: Decimal
     waiter_name: str | None
     unit: str
-    order_type: str | None = None
-    comment: str | None = None
-    author: str | None = None
-    station: str | None = None
 
 
 class LoginHistoryRow(BaseModel):

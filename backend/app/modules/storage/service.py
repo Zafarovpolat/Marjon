@@ -149,24 +149,17 @@ class StorageReportService:
             query = query.where(StorageMovement.storage_id == storage_id)
 
         rows = (await self.db.execute(query)).all()
-        result = []
-        for r in rows:
-            closing_qty = (r[4] or 0) + (r[5] or 0) - (r[6] or 0)
-            result.append(StorageBalanceRow(
+        return [
+            StorageBalanceRow(
                 storage_id=r[0], storage_name=r[1],
                 product_id=r[2], product_name=r[3],
                 opening_qty=r[4] or 0,
                 income_qty=r[5] or 0,
                 expense_qty=r[6] or 0,
-                closing_qty=closing_qty,
-                name=r[3],
-                category=r[1],
-                quantity=closing_qty,
-                balance=closing_qty,
-                unit="кг",
-                status="В норме" if closing_qty > 0 else "Низкий",
-            ))
-        return result
+                closing_qty=(r[4] or 0) + (r[5] or 0) - (r[6] or 0),
+            )
+            for r in rows
+        ]
 
     async def flow(
         self,
@@ -202,12 +195,6 @@ class StorageReportService:
                 storage_id=r[0], storage_name=r[1],
                 product_id=r[2], product_name=r[3],
                 qty=r[4] or 0, total=r[5] or 0,
-                date=r[1],
-                document_number=r[3],
-                provider_name=r[1],
-                reason=r[1],
-                items_count=int(r[4] or 0),
-                status="Проведен",
             )
             for r in rows
         ]
