@@ -27,8 +27,26 @@ export const hqService = {
   listOrganizations(params = { size: 100 }, config = {}) {
     return adminApi.get("/organizations", { params, ...config });
   },
-  listOrganizationStatuses(params = { size: 100 }) {
-    return adminApi.get("/organization-statuses", { params });
+  listOrganizationStatuses(params = { size: 100 }, config = {}) {
+    return adminApi.get("/organization-statuses", { params, ...config });
+  },
+  createOrganization(payload, config = {}) {
+    return adminApi.post("/organizations", payload, config);
+  },
+  updateOrganization(organizationId, payload, config = {}) {
+    return adminApi.patch(`/organizations/${organizationId}`, payload, config);
+  },
+  archiveOrganization(organizationId, config = {}) {
+    return adminApi.delete(`/organizations/${organizationId}`, config);
+  },
+  createOrganizationStatus(payload, config = {}) {
+    return adminApi.post("/organization-statuses", payload, config);
+  },
+  updateOrganizationStatus(statusId, payload, config = {}) {
+    return adminApi.patch(`/organization-statuses/${statusId}`, payload, config);
+  },
+  deleteOrganizationStatus(statusId, config = {}) {
+    return adminApi.delete(`/organization-statuses/${statusId}`, config);
   },
   listProducts(params = { size: 100 }, config = {}) {
     return adminApi.get("/products", { params, ...config });

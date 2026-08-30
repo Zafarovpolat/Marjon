@@ -4932,6 +4932,149 @@
     }
   }
 
+  .org-directory-row-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+
+  .org-directory-edit.is-danger {
+    color: #c2414f;
+    background: rgba(225, 72, 84, 0.1);
+  }
+
+  .org-directory-icon:disabled {
+    color: #94a3b8;
+    cursor: not-allowed;
+    opacity: 0.72;
+  }
+
+  .org-directory-notice {
+    margin: 0 16px 12px;
+    padding: 9px 12px;
+    border: 1px solid rgba(217, 151, 38, 0.25);
+    border-radius: 10px;
+    color: #7c5a17;
+    background: rgba(252, 229, 174, 0.34);
+    font-size: 12px;
+  }
+
+  .org-directory-modal__panel {
+    width: min(720px, 100%);
+  }
+
+  .org-directory-modal__panel.is-danger {
+    border-color: rgba(225, 72, 84, 0.42);
+  }
+
+  .org-directory-modal__form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 13px;
+  }
+
+  .org-directory-modal__form > label {
+    display: grid;
+    gap: 6px;
+  }
+
+  .org-directory-modal__form > label > span {
+    color: rgba(234, 250, 244, 0.68);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .org-directory-modal__form input,
+  .org-directory-modal__form select {
+    width: 100%;
+    min-height: 42px;
+    padding: 0 11px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
+    outline: none;
+    color: #eafaf4;
+    background: rgba(255, 255, 255, 0.055);
+    font: inherit;
+  }
+
+  .org-directory-modal__form select option {
+    color: #102033;
+    background: #fff;
+  }
+
+  .org-directory-modal__form input:focus,
+  .org-directory-modal__form select:focus {
+    border-color: rgba(79, 225, 229, 0.75);
+    box-shadow: 0 0 0 3px rgba(79, 225, 229, 0.13);
+  }
+
+  .org-directory-modal__form .is-wide {
+    grid-column: 1 / -1;
+  }
+
+  .org-directory-modal__checks {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 16px;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.025);
+  }
+
+  .org-directory-modal__checks label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(234, 250, 244, 0.82);
+    font-size: 13px;
+  }
+
+  .org-directory-modal__checks input {
+    width: 16px;
+    min-height: 16px;
+    accent-color: #1a916f;
+  }
+
+  .org-directory-modal__error,
+  .org-status-mutation-error {
+    padding: 9px 11px;
+    border: 1px solid rgba(225, 72, 84, 0.32);
+    border-radius: 10px;
+    color: #ffd9dc;
+    background: rgba(225, 72, 84, 0.13);
+    font-size: 12px;
+  }
+
+  .org-directory-modal__confirmation {
+    margin: 0;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.035);
+    font-weight: 800;
+  }
+
+  @media (max-width: 760px), (max-height: 740px) {
+    .org-directory-modal {
+      align-items: flex-start;
+      padding: 16px;
+    }
+
+    .org-directory-modal__panel {
+      max-height: calc(100dvh - 32px);
+    }
+
+    .org-directory-modal__form {
+      grid-template-columns: 1fr;
+    }
+
+    .org-directory-modal__form .is-wide {
+      grid-column: auto;
+    }
+  }
+
   .org-status-page {
     min-height: 640px;
     overflow: hidden;
@@ -5057,6 +5200,60 @@
   .org-status-summary b {
     color: #0f172a;
     font-size: 13px;
+  }
+
+  .org-status-filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 9px;
+    padding: 0 20px 12px;
+  }
+
+  .org-status-filters label {
+    min-width: 260px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 11px;
+    border: 1px solid rgba(197, 211, 231, 0.82);
+    border-radius: 10px;
+    background: #fff;
+  }
+
+  .org-status-filters input,
+  .org-status-filters select {
+    min-height: 38px;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font: inherit;
+  }
+
+  .org-status-filters label input {
+    width: 100%;
+  }
+
+  .org-status-filters select {
+    padding: 0 10px;
+    border: 1px solid rgba(197, 211, 231, 0.82);
+    border-radius: 10px;
+    background: #fff;
+  }
+
+  .org-status-mutation-error {
+    margin: 0 20px 12px;
+    color: #9f2432;
+    background: rgba(225, 72, 84, 0.08);
+  }
+
+  .org-status-editor .org-status-mutation-error {
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+
+  .org-status-footer {
+    border-top: 1px solid rgba(197, 211, 231, 0.72);
   }
 
   .org-status-editor {
