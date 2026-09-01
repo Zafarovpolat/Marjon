@@ -24762,3 +24762,219 @@
   }
 
 }
+
+/* Keep admin menu copy on the same collapse timeline as the owner sidebar. */
+@media (min-width: 1025px) {
+  .admin-shell .admin-sidebar .admin-nav > button span,
+  .admin-shell .admin-sidebar .admin-nav > button em,
+  .admin-shell .admin-sidebar .admin-nav-group__toggle span,
+  .admin-shell .admin-sidebar .admin-nav-group__chevron {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    visibility: visible;
+    transform-origin: left center;
+    transition:
+      opacity 180ms ease,
+      max-width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      margin 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .admin-shell:not(.is-sidebar-collapsed) .admin-sidebar .admin-nav > button span,
+  .admin-shell:not(.is-sidebar-collapsed) .admin-sidebar .admin-nav-group__toggle span {
+    width: 100%;
+    max-width: 180px;
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+
+  .admin-shell:not(.is-sidebar-collapsed) .admin-sidebar .admin-nav > button em,
+  .admin-shell:not(.is-sidebar-collapsed) .admin-sidebar .admin-nav-group__chevron {
+    max-width: var(--admin-sidebar-row-chevron, 22px);
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav > button,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav-group__toggle {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    grid-template-columns: var(--admin-sidebar-row-icon) minmax(0, 1fr) 0;
+    justify-items: start;
+    padding-inline: var(--admin-sidebar-row-padding-x);
+  }
+
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav > button span,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav > button em,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav-group__toggle span,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav-group__chevron {
+    width: 100%;
+    max-width: 0;
+    margin: 0;
+    opacity: 0;
+    visibility: visible;
+    pointer-events: none;
+    transform: translateX(-8px);
+  }
+}
+
+/* Keep the HQ brand spatially anchored while the sidebar contracts around it. */
+@media (min-width: 981px) {
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-brand.sidebar-brand,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar.is-collapsed .admin-brand.sidebar-brand {
+    left: var(--admin-sidebar-brand-left, 12px);
+    justify-items: start;
+  }
+
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .sidebar-brand__identity,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar.is-collapsed .sidebar-brand__identity {
+    width: calc(var(--admin-sidebar-logo-box) + 3px);
+    min-width: calc(var(--admin-sidebar-logo-box) + 3px);
+    max-width: calc(var(--admin-sidebar-logo-box) + 3px);
+    grid-template-columns: var(--admin-sidebar-logo-box) minmax(0, 1fr);
+    gap: 7px;
+    justify-content: start;
+    justify-items: stretch;
+  }
+
+  .admin-shell .admin-sidebar .brand-mark,
+  .admin-shell .admin-sidebar .brand-mark--button {
+    position: absolute;
+    top: 1px;
+    left: 3px;
+    width: var(--admin-sidebar-logo-box);
+    min-width: var(--admin-sidebar-logo-box);
+    max-width: var(--admin-sidebar-logo-box);
+    height: var(--admin-sidebar-logo-box);
+    min-height: var(--admin-sidebar-logo-box);
+    max-height: var(--admin-sidebar-logo-box);
+    margin: 0;
+    justify-self: start;
+  }
+
+  .admin-shell .admin-sidebar .admin-brand.sidebar-brand .brand-mark .marjon-logo,
+  .admin-shell .admin-sidebar .admin-brand.sidebar-brand .brand-mark--button .marjon-logo {
+    width: calc(var(--admin-sidebar-logo-box) - 8px);
+    min-width: calc(var(--admin-sidebar-logo-box) - 8px);
+    max-width: calc(var(--admin-sidebar-logo-box) - 8px);
+    height: calc(var(--admin-sidebar-logo-box) - 8px);
+    min-height: calc(var(--admin-sidebar-logo-box) - 8px);
+    max-height: calc(var(--admin-sidebar-logo-box) - 8px);
+  }
+
+  .admin-shell .admin-sidebar .sidebar-brand__identity > div:not(.brand-mark),
+  .admin-shell .admin-sidebar .sidebar-brand__identity > button + div,
+  .admin-shell .admin-sidebar .brand-title,
+  .admin-shell .admin-sidebar .brand-subtitle {
+    white-space: nowrap;
+    transform: none;
+    translate: none;
+    transition:
+      width 220ms ease,
+      max-width 220ms ease,
+      opacity 180ms ease,
+      visibility 180ms ease;
+  }
+
+  .admin-shell .admin-sidebar .sidebar-brand__identity > div:not(.brand-mark),
+  .admin-shell .admin-sidebar .sidebar-brand__identity > button + div {
+    position: absolute;
+    top: 0;
+    left: calc(var(--admin-sidebar-logo-box) + 15px);
+    grid-column: 1;
+    grid-row: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin-left: 0;
+  }
+
+  .admin-shell .admin-sidebar .brand-title,
+  .admin-shell .admin-sidebar .brand-subtitle {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .sidebar-brand__identity > div:not(.brand-mark),
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .sidebar-brand__identity > button + div {
+    margin-left: 0;
+    transform: none;
+    translate: none;
+  }
+
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .brand-title,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .brand-subtitle {
+    transform: none;
+    translate: none;
+  }
+}
+
+@media (min-width: 981px) and (max-width: 1024px) {
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-brand.sidebar-brand,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar.is-collapsed .admin-brand.sidebar-brand,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .sidebar-brand__identity,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar.is-collapsed .sidebar-brand__identity {
+    width: calc(var(--admin-sidebar-logo-box) + 4px);
+    min-width: calc(var(--admin-sidebar-logo-box) + 4px);
+    max-width: calc(var(--admin-sidebar-logo-box) + 4px);
+  }
+
+  .admin-shell .admin-sidebar .brand-mark,
+  .admin-shell .admin-sidebar .brand-mark--button {
+    top: 0;
+    left: 4px;
+  }
+
+  .admin-shell .admin-sidebar .sidebar-brand__identity > div:not(.brand-mark),
+  .admin-shell .admin-sidebar .sidebar-brand__identity > button + div {
+    left: calc(var(--admin-sidebar-logo-box) + 16px);
+  }
+}
+
+@media (min-width: 1441px) {
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-brand.sidebar-brand,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar.is-collapsed .admin-brand.sidebar-brand,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .sidebar-brand__identity,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar.is-collapsed .sidebar-brand__identity {
+    width: calc(var(--admin-sidebar-logo-box) + 4px);
+    min-width: calc(var(--admin-sidebar-logo-box) + 4px);
+    max-width: calc(var(--admin-sidebar-logo-box) + 4px);
+  }
+
+  .admin-shell .admin-sidebar .brand-mark,
+  .admin-shell .admin-sidebar .brand-mark--button {
+    top: 0;
+    left: 4px;
+  }
+
+  .admin-shell .admin-sidebar .sidebar-brand__identity > div:not(.brand-mark),
+  .admin-shell .admin-sidebar .sidebar-brand__identity > button + div {
+    left: calc(var(--admin-sidebar-logo-box) + 16px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell,
+  .admin-shell .admin-sidebar,
+  .admin-shell .admin-sidebar .admin-brand,
+  .admin-shell .admin-sidebar .sidebar-brand__identity,
+  .admin-shell .admin-sidebar .sidebar-brand__identity > div,
+  .admin-shell .admin-sidebar .brand-title,
+  .admin-shell .admin-sidebar .brand-subtitle,
+  .admin-shell .admin-sidebar .admin-nav,
+  .admin-shell .admin-sidebar .admin-nav-group,
+  .admin-shell .admin-sidebar .admin-nav > button,
+  .admin-shell .admin-sidebar .admin-nav-group__toggle,
+  .admin-shell .admin-sidebar .admin-nav > button span,
+  .admin-shell .admin-sidebar .admin-nav > button em,
+  .admin-shell .admin-sidebar .admin-nav-group__toggle span,
+  .admin-shell .admin-sidebar .admin-nav-group__chevron {
+    transition-duration: 0.01ms;
+    transition-delay: 0ms;
+  }
+}
