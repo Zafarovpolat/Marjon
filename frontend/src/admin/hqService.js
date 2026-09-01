@@ -75,7 +75,4 @@ export const hqService = {
   listImageBackgrounds(params = { size: 100 }) {
     return adminApi.get("/image-backgrounds", { params });
   },
-  getDashboardKpis(config) {
-    return config ? adminApi.get("/admin-reports/dashboard-kpis", config) : adminApi.get("/admin-reports/dashboard-kpis");
-  },
 };

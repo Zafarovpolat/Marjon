@@ -5,7 +5,6 @@ const adminSourceByFile = Object.fromEntries([
   "AdminApp.jsx",
   "AdminLayout.jsx",
   "AdminDashboard.jsx",
-  "AdminDashboardCharts.jsx",
   "AdminDashboardTransactions.jsx",
   "AdminDashboardOverview.jsx",
   "AdminFinance.jsx",
@@ -20,7 +19,7 @@ const layoutSource = adminSourceByFile["AdminLayout.jsx"];
 const financeSource = ["AdminFinanceOperations.jsx", "AdminFinanceReferences.jsx", "AdminFinanceHistory.jsx"]
   .map((file) => adminSourceByFile[file]).join("\n");
 const routerSource = adminSourceByFile["AdminSectionRouter.jsx"];
-const dashboardSource = ["AdminDashboardCharts.jsx", "AdminDashboardTransactions.jsx", "AdminDashboardOverview.jsx"]
+const dashboardSource = ["AdminDashboardTransactions.jsx", "AdminDashboardOverview.jsx"]
   .map((file) => adminSourceByFile[file]).join("\n");
 const adminApiSource = readFileSync(new URL("../src/admin/api.js", import.meta.url), "utf8");
 const adminFinanceApiSource = readFileSync(new URL("../src/admin/financeApi.js", import.meta.url), "utf8");
@@ -160,7 +159,6 @@ const adminDataHook = routerSource.slice(
 );
 const adminDashboardTransactions = dashboardSource.slice(
   dashboardSource.indexOf("function TransactionsTable"),
-  dashboardSource.indexOf("function DashboardTransactionsReportPage")
 );
 
 assert.match(app, /import { adminFinanceApi, resolveHqTransactionSubmission } from "\.\/financeApi";/, "Admin finance consumers must use the extracted HQ finance service.");

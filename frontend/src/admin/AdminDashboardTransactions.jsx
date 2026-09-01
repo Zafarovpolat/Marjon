@@ -1,29 +1,25 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { adminFinanceApi } from "./financeApi";
 
 import Icon from '../components/Icon';
 
-import ReportDateRangePicker from "../components/ReportDateRangePicker";
-
-import { createPortal } from "react-dom";
-
 import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 
-import { ADMIN_DASHBOARD_DATE_PRESET_LABELS, AdminPageSizeDropdown, buildAdminDashboardDateRange, formatAdminDashboardDateRangeButton, formatAdminMoney, getAdminFinanceLoadMessage, getPageList, keepWheelInsideScroller, normalizeAdminReportRange } from "./AdminShared";
+import { AdminPageSizeDropdown, formatAdminMoney, getAdminFinanceLoadMessage, getPageList, keepWheelInsideScroller } from "./AdminShared";
 
 const transactionColumnKeys = [
-  "id", "uuid", "date", "orgId", "name", "payType",
-  "amount", "kind", "status", "paymentFor", "comment", "actions",
+  "id", "uuid", "date", "orgId", "organization", "counterparty",
+  "payType", "amount", "kind", "paymentFor", "comment",
 ];
 
 const TRANSACTION_COLUMN_SETTINGS_STORAGE_KEY = "marjon.admin.transactions.columns.v1";
 
-const TRANSACTION_COLUMN_SETTINGS_LAYOUT_VERSION = 2;
+const TRANSACTION_COLUMN_SETTINGS_LAYOUT_VERSION = 4;
 
 const defaultTransactionColumnOrder = [
-  "id", "uuid", "name", "date", "orgId", "payType",
-  "amount", "kind", "status", "paymentFor", "comment", "actions",
+  "id", "uuid", "organization", "counterparty", "date", "orgId",
+  "payType", "amount", "kind", "paymentFor", "comment",
 ];
 
 function normalizeTransactionColumnKeys(keys) {
@@ -46,7 +42,9 @@ function normalizeTransactionColumnSettings(settings) {
     ...defaultTransactionColumnOrder.filter((key) => !savedOrder.includes(key)),
     ...transactionColumnKeys.filter((key) => !savedOrder.includes(key) && !defaultTransactionColumnOrder.includes(key)),
   ];
-  const visibleSource = Array.isArray(settings) ? settings : settings?.visible;
+  const visibleSource = settings?.layoutVersion === TRANSACTION_COLUMN_SETTINGS_LAYOUT_VERSION
+    ? settings.visible
+    : null;
   const visible = normalizeTransactionColumnKeys(visibleSource || transactionColumnKeys)
     .filter((key) => order.includes(key));
 
@@ -92,7 +90,7 @@ function formatTransactionAmountParts(value) {
   const numericValue = Number(numberSource.replace(/[^\d-]/g, ""));
 
   if (!Number.isFinite(numericValue)) {
-    return { value: numberSource || "0", currency };
+    return { value: numberSource || "—", currency: numberSource ? currency : "" };
   }
 
   return {
@@ -101,22 +99,23 @@ function formatTransactionAmountParts(value) {
   };
 }
 
-function formatTransactionAmountDraft(value) {
-  const numericValue = Number(String(value ?? "").replace(/[^\d-]/g, ""));
-  return Number.isFinite(numericValue) ? formatAdminMoney(Math.abs(numericValue)) : "0";
-}
-
 export function normalizeHqDashboardTransaction(row, index = 0) {
+  const amount = Number(row.amount);
+  const direction = {
+    income: "Приход",
+    expense: "Расход",
+  }[row.direction] || "—";
+
   return {
-    id: row.id_num || index + 1,
+    id: row.id_num ?? index + 1,
     uuid: row.id || "",
     date: row.date || row.created_at || "",
     orgId: row.organization_id || "",
-    name: row.organization_name || row.counterparty_name || "",
+    organization: row.organization_name || "",
+    counterparty: row.counterparty_name || "",
     payType: row.payment_type_name || row.payment_type || "",
-    amount: row.amount != null ? `${Number(row.amount).toLocaleString("ru-RU")} UZS` : "—",
-    kind: row.direction === "income" ? "Приход" : "Расход",
-    status: "—",
+    amount: row.amount != null && Number.isFinite(amount) ? `${amount.toLocaleString("ru-RU")} UZS` : "—",
+    kind: direction,
     paymentFor: row.payment_for || row.category_name || "",
     comment: row.comment || "",
   };
@@ -133,7 +132,6 @@ export function TransactionsTable({ onNotify }) {
   const [columnSettings, setColumnSettings] = useState(loadTransactionColumnSettings);
   const [dragColumnKey, setDragColumnKey] = useState("");
   const [dragColumnTarget, setDragColumnTarget] = useState(null);
-  const [transactionEditor, setTransactionEditor] = useState(null);
   const visibleColumns = columnSettings.visible;
   const beginRequest = useLatestRequest();
 
@@ -160,19 +158,6 @@ export function TransactionsTable({ onNotify }) {
   useEffect(() => {
     saveTransactionColumnSettings(columnSettings);
   }, [columnSettings]);
-
-  useEffect(() => {
-    if (!transactionEditor) return undefined;
-
-    function closeOnEscape(event) {
-      if (event.key === "Escape") {
-        setTransactionEditor(null);
-      }
-    }
-
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [transactionEditor]);
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -257,46 +242,31 @@ export function TransactionsTable({ onNotify }) {
     setColumnSettings(normalizeTransactionColumnSettings());
   }
 
-  function openTransactionEditor(row) {
-    void row;
-    onNotify?.("Редактирование недоступно: backend mutation contract не подключён.");
-  }
-
-  function updateTransactionEditor(key, value) {
-    setTransactionEditor((current) => (current ? { ...current, [key]: value } : current));
-  }
-
-  function saveTransactionEditor(event) {
-    event.preventDefault();
-    onNotify?.("Сохранение недоступно: backend mutation contract не подключён.");
-  }
-
   const allColumns = [
-    { key: "id", label: "ID", width: 66 },
+    { key: "id", label: "№", width: 66 },
     { key: "uuid", label: "UUID", width: 214 },
     { key: "date", label: "Дата", width: 150 },
     { key: "orgId", label: "ID Организация", width: 120 },
-    { key: "name", label: "Названия", width: 200 },
+    { key: "organization", label: "Организация", width: 200 },
+    { key: "counterparty", label: "Контрагент", width: 200 },
     { key: "payType", label: "Тип оплаты", width: 120 },
     { key: "amount", label: "Сумма", width: 156 },
     { key: "kind", label: "Тип", width: 92 },
-    { key: "status", label: "Status", width: 90 },
     { key: "paymentFor", label: "Оплата за", width: 180 },
     { key: "comment", label: "Комментария", width: 220 },
-    { key: "actions", label: "", width: 58 },
   ];
 
   const orderedColumns = columnSettings.order
     .map((key) => allColumns.find((column) => column.key === key))
     .filter(Boolean);
   const columns = orderedColumns.filter((column) => visibleColumns.includes(column.key));
-  const actionsColumnIsLast = columns.at(-1)?.key === "actions";
 
   function renderCell(column, row) {
     switch (column.key) {
       case "id": return <span className="admin-tx-id">{row.id}</span>;
       case "uuid": return <span className="admin-tx-uuid">{row.uuid}</span>;
-      case "name": return <strong className="org-directory-name">{row.name}</strong>;
+      case "organization": return row.organization ? <strong className="org-directory-name">{row.organization}</strong> : "—";
+      case "counterparty": return row.counterparty || "—";
       case "amount": {
         const amount = formatTransactionAmountParts(row.amount);
         return (
@@ -306,120 +276,11 @@ export function TransactionsTable({ onNotify }) {
           </span>
         );
       }
-      case "kind": return <span className={`org-directory-flag ${row.kind === "Расход" ? "org-directory-flag--warning" : "org-directory-flag--success"}`}>{row.kind}</span>;
-      case "status": return <span className="org-directory-flag">{row.status}</span>;
+      case "kind": return row.kind === "—" ? "—" : <span className={`org-directory-flag ${row.kind === "Расход" ? "org-directory-flag--warning" : "org-directory-flag--success"}`}>{row.kind}</span>;
       case "comment": return row.comment ? row.comment : "—";
-      case "actions": return (
-        <button type="button" className="admin-tx-edit" onClick={() => openTransactionEditor(row)} aria-label={`Редактировать транзакцию ${row.id}`}>
-          <Icon name="bi-pencil" size={14} />
-        </button>
-      );
-      default: return row[column.key];
+      default: return row[column.key] || "—";
     }
   }
-
-  const transactionEditorModal = transactionEditor && typeof document !== "undefined"
-    ? createPortal(
-      <div
-        className="admin-income-modal admin-transaction-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Редактировать транзакцию ${transactionEditor.id}`}
-        onClick={() => setTransactionEditor(null)}
-      >
-        <form className="admin-income-dialog admin-transaction-dialog" onSubmit={saveTransactionEditor} onClick={(event) => event.stopPropagation()}>
-          <div className="admin-income-dialog__head admin-transaction-dialog__head">
-            <div>
-              <h3>Редактировать транзакцию</h3>
-              <p>ID {transactionEditor.id}. Изменения применятся к строке таблицы.</p>
-            </div>
-            <button type="button" className="admin-income-dialog__close" onClick={() => setTransactionEditor(null)} aria-label="Закрыть">
-              <Icon name="bi-x-lg" size={16} />
-            </button>
-          </div>
-
-          <div className="admin-transaction-dialog__grid">
-            <label className="admin-income-field admin-transaction-field admin-transaction-field--wide">
-              <span>Название</span>
-              <input
-                value={transactionEditor.name}
-                onChange={(event) => updateTransactionEditor("name", event.target.value)}
-                placeholder="Название организации"
-                autoFocus
-              />
-            </label>
-
-            <label className="admin-income-field admin-transaction-field">
-              <span>Сумма</span>
-              <div className="admin-transaction-amount-input">
-                <input
-                  value={transactionEditor.amount}
-                  inputMode="numeric"
-                  onChange={(event) => updateTransactionEditor("amount", formatTransactionAmountDraft(event.target.value))}
-                  placeholder="0"
-                />
-                <strong>UZS</strong>
-              </div>
-            </label>
-
-            <label className="admin-income-field admin-transaction-field">
-              <span>Дата и время</span>
-              <input
-                type="datetime-local"
-                value={transactionEditor.date}
-                onChange={(event) => updateTransactionEditor("date", event.target.value)}
-              />
-            </label>
-
-            <label className="admin-income-field admin-transaction-field">
-              <span>Тип</span>
-              <select value={transactionEditor.kind} onChange={(event) => updateTransactionEditor("kind", event.target.value)}>
-                <option value="Приход">Приход</option>
-                <option value="Расход">Расход</option>
-              </select>
-            </label>
-
-            <label className="admin-income-field admin-transaction-field">
-              <span>Тип оплаты</span>
-              <select value={transactionEditor.payType} onChange={(event) => updateTransactionEditor("payType", event.target.value)}>
-                <option value={transactionEditor.payType}>{transactionEditor.payType || "Не указано"}</option>
-              </select>
-            </label>
-
-            <label className="admin-income-field admin-transaction-field">
-              <span>Status</span>
-              <input value="Недоступно" disabled />
-            </label>
-
-            <label className="admin-income-field admin-transaction-field">
-              <span>Оплата за</span>
-              <input
-                value={transactionEditor.paymentFor}
-                onChange={(event) => updateTransactionEditor("paymentFor", event.target.value)}
-                placeholder="Назначение оплаты"
-              />
-            </label>
-
-            <label className="admin-income-field admin-transaction-field admin-transaction-field--wide">
-              <span>Комментария</span>
-              <textarea
-                value={transactionEditor.comment}
-                onChange={(event) => updateTransactionEditor("comment", event.target.value)}
-                placeholder="Комментарий к транзакции"
-                rows={3}
-              />
-            </label>
-          </div>
-
-          <div className="admin-income-dialog__actions admin-transaction-dialog__actions">
-            <button type="button" className="is-ghost" onClick={() => setTransactionEditor(null)}>Отмена</button>
-            <button type="submit" className="is-primary">Сохранить</button>
-          </div>
-        </form>
-      </div>,
-      document.body,
-    )
-    : null;
 
   return (
     <>
@@ -535,7 +396,7 @@ export function TransactionsTable({ onNotify }) {
       ) : null}
 
       <div className="org-directory-table-shell admin-transactions__table-shell" onWheelCapture={keepWheelInsideScroller}>
-        <table className={`org-directory-table admin-transactions__table ${actionsColumnIsLast ? "is-actions-sticky" : ""}`}>
+        <table className="org-directory-table admin-transactions__table">
           <colgroup>
             {columns.map((column) => <col key={column.key} style={{ width: column.width }} />)}
           </colgroup>
@@ -608,232 +469,6 @@ export function TransactionsTable({ onNotify }) {
         </div>
       </div>
       </section>
-      {transactionEditorModal}
     </>
-  );
-}
-
-export function DashboardTransactionsReportPage() {
-  const [openRows, setOpenRows] = useState(() => ({}));
-  const [dateRange, setDateRange] = useState(() => buildAdminDashboardDateRange("Этот год"));
-  const datePresets = useMemo(() => (
-    ADMIN_DASHBOARD_DATE_PRESET_LABELS.map((label) => ({
-      label,
-      getRange: () => buildAdminDashboardDateRange(label),
-    }))
-  ), []);
-
-  function toggleRow(rowId) {
-    setOpenRows((current) => ({
-      ...current,
-      [rowId]: !current[rowId],
-    }));
-  }
-
-  return (
-    <section className="admin-dashboard-transactions-report">
-      <div className="org-directory-empty" role="status">Backend источник отчёта транзакций не подключён.</div>
-      <div className="admin-dashboard-transactions-report__filters">
-        <div className="admin-dashboard-transactions-report__date-picker admin-chart-filter-date-picker admin-revenue-range">
-          <ReportDateRangePicker
-            value={dateRange}
-            onChange={(nextRange) => setDateRange(normalizeAdminReportRange(nextRange))}
-            buttonClassName="admin-chart-filter admin-chart-filter--date admin-dashboard-transactions-report__date"
-            showTime={false}
-            presets={datePresets}
-            formatButtonLabel={formatAdminDashboardDateRangeButton}
-            blockPageScrollOnWheel
-            applyPresetOnSelect
-            showMenuOk={false}
-            leadingIconName="bi-calendar3"
-            leadingIconSize={16}
-          />
-        </div>
-        <button className="admin-dashboard-transactions-report__branch" type="button">
-          <Icon name="bi-geo-alt" size={16} />
-          <span>Филиал недоступен</span>
-        </button>
-      </div>
-
-      <div className="admin-dashboard-transactions-report__card">
-        <div className="admin-dashboard-transactions-report__table-wrap">
-          <table className="admin-dashboard-transactions-report__table">
-            <thead>
-              <tr>
-                <th>№</th>
-                <th>Модуль</th>
-                <th>По договору</th>
-                <th>Выполненный</th>
-                <th>Оплачено</th>
-                <th>Не оплачено</th>
-                <th>Сумма активных заказов</th>
-                <th>Отклонено</th>
-                <th>Просроченный долг</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[].map((row, index) => {
-                const isOpen = Boolean(openRows[row.id]);
-
-                return (
-                  <Fragment key={row.id}>
-                    <tr className={`is-parent${isOpen ? " is-open" : ""}`}>
-                      <td>{index + 1}</td>
-                      <td>
-                        <span className="admin-dashboard-transactions-report__module">
-                          <strong>{row.module}</strong>
-                          <button
-                            type="button"
-                            onClick={() => toggleRow(row.id)}
-                            aria-expanded={isOpen}
-                            aria-label={`${isOpen ? "Скрыть" : "Показать"} ${row.module}`}
-                          >
-                            <span aria-hidden="true" />
-                          </button>
-                        </span>
-                      </td>
-                      <td>{row.contract}</td>
-                      <td>{row.completed}</td>
-                      <td>{row.paid}</td>
-                      <td>{row.unpaid}</td>
-                      <td>{row.activeOrders}</td>
-                      <td>{row.rejected}</td>
-                      <td>{row.overdue}</td>
-                    </tr>
-                    {isOpen ? row.children.map((child, childIndex) => (
-                      <tr className="is-child" key={child.id}>
-                        <td />
-                        <td>{childIndex + 1}. {child.module}</td>
-                        <td>{child.contract}</td>
-                        <td>{child.completed}</td>
-                        <td>{child.paid}</td>
-                        <td>{child.unpaid}</td>
-                        <td>{child.activeOrders}</td>
-                        <td>{child.rejected}</td>
-                        <td>{child.overdue}</td>
-                      </tr>
-                    )) : null}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-export function DashboardSalesReportPage() {
-  const [openRows, setOpenRows] = useState(() => ({}));
-  const [dateRange, setDateRange] = useState(() => buildAdminDashboardDateRange("Этот год"));
-  const datePresets = useMemo(() => (
-    ADMIN_DASHBOARD_DATE_PRESET_LABELS.map((label) => ({
-      label,
-      getRange: () => buildAdminDashboardDateRange(label),
-    }))
-  ), []);
-
-  function toggleRow(rowId) {
-    setOpenRows((current) => ({
-      ...current,
-      [rowId]: !current[rowId],
-    }));
-  }
-
-  return (
-    <section className="admin-dashboard-transactions-report admin-dashboard-sales-report">
-      <div className="org-directory-empty" role="status">Backend источник отчёта продаж не подключён.</div>
-      <div className="admin-dashboard-transactions-report__filters">
-        <div className="admin-dashboard-transactions-report__date-picker admin-chart-filter-date-picker admin-revenue-range">
-          <ReportDateRangePicker
-            value={dateRange}
-            onChange={(nextRange) => setDateRange(normalizeAdminReportRange(nextRange))}
-            buttonClassName="admin-chart-filter admin-chart-filter--date admin-dashboard-transactions-report__date"
-            showTime={false}
-            presets={datePresets}
-            formatButtonLabel={formatAdminDashboardDateRangeButton}
-            blockPageScrollOnWheel
-            applyPresetOnSelect
-            showMenuOk={false}
-            leadingIconName="bi-calendar3"
-            leadingIconSize={16}
-          />
-        </div>
-        <button className="admin-dashboard-transactions-report__branch" type="button">
-          <Icon name="bi-geo-alt" size={16} />
-          <span>Филиал недоступен</span>
-        </button>
-      </div>
-
-      <div className="admin-dashboard-transactions-report__card">
-        <div className="admin-dashboard-transactions-report__table-wrap">
-          <table className="admin-dashboard-transactions-report__table">
-            <thead>
-              <tr>
-                <th>№</th>
-                <th>Сотрудник</th>
-                <th>По договору</th>
-                <th>Выполненный</th>
-                <th>Оплачено</th>
-                <th>Не оплачено</th>
-                <th>Сумма активных заказов</th>
-                <th>Отклонено</th>
-                <th>Просроченный долг</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[].map((row, index) => {
-                const hasChildren = row.children.length > 0;
-                const isOpen = Boolean(openRows[row.id]);
-
-                return (
-                  <Fragment key={row.id}>
-                    <tr className={`is-parent${isOpen ? " is-open" : ""}`}>
-                      <td>{index + 1}</td>
-                      <td>
-                        <span className="admin-dashboard-transactions-report__module">
-                          <strong>{row.employee}</strong>
-                          {hasChildren ? (
-                            <button
-                              type="button"
-                              onClick={() => toggleRow(row.id)}
-                              aria-expanded={isOpen}
-                              aria-label={`${isOpen ? "Скрыть" : "Показать"} ${row.employee}`}
-                            >
-                              <span aria-hidden="true" />
-                            </button>
-                          ) : null}
-                        </span>
-                      </td>
-                      <td>{row.contract}</td>
-                      <td>{row.completed}</td>
-                      <td>{row.paid}</td>
-                      <td>{row.unpaid}</td>
-                      <td>{row.activeOrders}</td>
-                      <td>{row.rejected}</td>
-                      <td>{row.overdue}</td>
-                    </tr>
-                    {isOpen ? row.children.map((child, childIndex) => (
-                      <tr className="is-child" key={child.id}>
-                        <td />
-                        <td>{childIndex + 1}. {child.employee}</td>
-                        <td>{child.contract}</td>
-                        <td>{child.completed}</td>
-                        <td>{child.paid}</td>
-                        <td>{child.unpaid}</td>
-                        <td>{child.activeOrders}</td>
-                        <td>{child.rejected}</td>
-                        <td>{child.overdue}</td>
-                      </tr>
-                    )) : null}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
   );
 }

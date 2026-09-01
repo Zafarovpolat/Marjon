@@ -12,25 +12,6 @@ import {
 import { adminApi } from "./api";
 import { adminFinanceApi } from "./financeApi";
 
-vi.mock("chart.js", () => {
-  class ChartMock {
-    static register = vi.fn();
-
-    destroy() {}
-  }
-
-  return {
-    Chart: ChartMock,
-    CategoryScale: {},
-    Filler: {},
-    LineController: {},
-    LineElement: {},
-    LinearScale: {},
-    PointElement: {},
-    Tooltip: {},
-  };
-});
-
 describe("FE-PRE-RBAC-04R3 truthful HQ data", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -45,8 +26,19 @@ describe("FE-PRE-RBAC-04R3 truthful HQ data", () => {
       status: "PAID",
     });
 
-    expect(row.status).toBe("—");
+    expect(row).not.toHaveProperty("status");
     expect(JSON.stringify(row)).not.toMatch(/PAID|SUCCESS|Оплачено|Завершено/);
+  });
+
+  it("does not mislabel an unknown HQ transaction direction as expense", () => {
+    const row = normalizeHqDashboardTransaction({
+      id: "transaction-uuid",
+      amount: 125000,
+      direction: "unsupported",
+    });
+
+    expect(row.kind).toBe("—");
+    expect(row.kind).not.toBe("Расход");
   });
 
   it("renders an unsupported HQ transaction status neutrally", async () => {

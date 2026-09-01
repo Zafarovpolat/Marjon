@@ -24978,3 +24978,123 @@
     transition-delay: 0ms;
   }
 }
+
+/* HQ-DASH-02: truthful dashboard introduction without unsupported KPI values. */
+.admin-dashboard-truth-shell {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 22px;
+  padding: 26px 28px;
+  overflow: hidden;
+  color: #173f36;
+  border: 1px solid rgba(20, 92, 73, 0.12);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 12px 34px rgba(32, 72, 92, 0.08);
+}
+
+.admin-dashboard-truth-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: #c89a43;
+  pointer-events: none;
+}
+
+.admin-dashboard-truth-shell__icon {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  color: #f2c76e;
+  border-radius: 15px;
+  background: #174f42;
+  box-shadow: 0 9px 22px rgba(23, 79, 66, 0.18);
+}
+
+.admin-dashboard-truth-shell__content {
+  min-width: 0;
+}
+
+.admin-dashboard-truth-shell__eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: #9a7028;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.12em;
+}
+
+.admin-dashboard-truth-shell h1 {
+  margin: 0;
+  color: #173f36;
+  font-size: clamp(24px, 2.3vw, 32px);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+}
+
+.admin-dashboard-truth-shell p {
+  max-width: 760px;
+  margin: 8px 0 0;
+  color: #60746f;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+.admin-dashboard-truth-shell__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 13px;
+  color: #286b58;
+  border: 1px solid rgba(40, 107, 88, 0.16);
+  border-radius: 999px;
+  background: #eef8f4;
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.admin-dashboard-truth-shell + .admin-transactions {
+  margin-top: 20px;
+}
+
+@media (max-width: 1100px) {
+  .admin-dashboard-truth-shell {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 24px;
+  }
+
+  .admin-dashboard-truth-shell__state {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-dashboard-truth-shell {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 21px 18px;
+  }
+
+  .admin-dashboard-truth-shell__icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 13px;
+  }
+
+  .admin-dashboard-truth-shell__state {
+    grid-column: 1;
+    max-width: 100%;
+    white-space: normal;
+  }
+}
