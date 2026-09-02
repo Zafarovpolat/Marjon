@@ -14,7 +14,7 @@ import { AdminCashierBackgroundPage, AdminExpenseCategoriesPage, AdminFinanceHis
 
 import { TruthfulHandbookLocationPage } from "./AdminHandbook";
 
-import { OrganizationDirectoryPage, OrganizationStatusPage, organizationRows } from "./AdminOrganizations";
+import { OrganizationDirectoryPage, OrganizationStatusPage, organizationRows } from "./features/organizations";
 
 import { StatusBadge, getAdminFinanceLoadMessage } from "./AdminShared";
 
@@ -447,9 +447,9 @@ export function CategoryPage({ active, search, onCreate, onRowDetail, onNotify, 
   });
   return (
     <section className="admin-category-page">
-      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка данных...</div> : null}
-      {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить данные.</div> : null}
-      {loadState === "unsupported" ? <div className="org-directory-empty" role="status">Backend источник не подключён.</div> : null}
+      {loadState === "loading" ? <div className="admin-data-state" role="status">Загрузка данных...</div> : null}
+      {loadState === "error" ? <div className="admin-data-state" role="alert">Не удалось загрузить данные.</div> : null}
+      {loadState === "unsupported" ? <div className="admin-data-state" role="status">Backend источник не подключён.</div> : null}
       <div className="admin-panel-head">
         <div>
           <h2>{content.title}</h2>
@@ -466,7 +466,7 @@ export function CategoryPage({ active, search, onCreate, onRowDetail, onNotify, 
             {row.map((cell, index) => content.columns[index] === "Статус" ? <StatusBadge status={cell} key={index} /> : <span key={index}>{cell}</span>)}
           </div>
         ))}
-        {loadState === "empty" ? <div className="org-directory-empty" role="status">Список пуст.</div> : null}
+        {loadState === "empty" ? <div className="admin-data-state" role="status">Список пуст.</div> : null}
       </div>
     </section>
   );

@@ -4,49 +4,6 @@ import Icon from '../components/Icon';
 
 import { StatusBadge } from "./AdminShared";
 
-import { TransactionsTable } from "./AdminDashboardTransactions";
-
-export function AdminDashboardContainer({ isActive, onInnerBackChange, onNotify }) {
-
-  useEffect(() => {
-    if (!isActive) return undefined;
-    onInnerBackChange(null);
-    return () => onInnerBackChange(null);
-  }, [isActive, onInnerBackChange]);
-
-  if (!isActive) return null;
-
-  return (
-    <DashboardPage onNotify={onNotify} />
-  );
-}
-
-export function DashboardPage({ onNotify }) {
-  return (
-    <>
-      <section className="admin-dashboard-truth-shell" aria-labelledby="admin-dashboard-title">
-        <span className="admin-dashboard-truth-shell__icon" aria-hidden="true">
-          <Icon name="bi-grid-1x2-fill" size={26} />
-        </span>
-        <div className="admin-dashboard-truth-shell__content">
-          <span className="admin-dashboard-truth-shell__eyebrow">MARJON HQ</span>
-          <h1 id="admin-dashboard-title">Дашборд</h1>
-          <p>
-            Сводные показатели платформы появятся после подключения подтверждённого
-            контракта показателей организаций. До этого раздел не показывает
-            неподтверждённые числа или искусственную динамику.
-          </p>
-        </div>
-        <div className="admin-dashboard-truth-shell__state">
-          <Icon name="bi-shield-check" size={17} />
-          <span>Только подтверждённые данные</span>
-        </div>
-      </section>
-      <TransactionsTable onNotify={onNotify} />
-    </>
-  );
-}
-
 export function DetailModal({ data, onClose }) {
   useEffect(() => {
     function onKey(event) { if (event.key === "Escape") onClose(); }

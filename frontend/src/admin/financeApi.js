@@ -36,6 +36,12 @@ export const adminFinanceApi = {
     });
   },
 
+  updateTransaction(transactionId, payload, config = {}) {
+    const id = String(transactionId || "").trim();
+    if (!id) throw new TypeError("transactionId is required");
+    return adminApi.patch(`${HQ_FINANCE_PATHS.transactions}/${encodeURIComponent(id)}`, payload, config);
+  },
+
   listPaymentTypes(organizationId, params = {}, config = {}) {
     return adminApi.get(HQ_FINANCE_PATHS.paymentTypes, {
       params: organizationParams(organizationId, { size: 100, ...params }),

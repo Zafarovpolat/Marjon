@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { adminFinanceApi, resolveHqTransactionSubmission } from "./financeApi";
 
-import { hqService } from "./hqService";
+import { organizationsApi } from "./features/organizations/organizationsApi";
 
 import { normalizePaginatedList } from "../api/normalizers";
 
@@ -140,7 +140,7 @@ export function useDefaultAdminFinanceOrganizationId(onNotify) {
 
   useEffect(() => {
     const request = beginRequest();
-    hqService.listOrganizations({ size: 1, status: "active" }, { signal: request.signal })
+    organizationsApi.listOrganizations({ size: 1, status: "active" }, { signal: request.signal })
       .then(({ data }) => {
         if (!request.isCurrent()) return;
         const first = extractAdminFinanceItems(data)[0];
@@ -767,7 +767,7 @@ export function AdminFinanceOperationsPage({ search, onNotify }) {
     async function loadOrganizations() {
       setReferencesLoading(true);
       try {
-        const { data } = await hqService.listOrganizations({ size: 100, status: "active" }, { signal: request.signal });
+        const { data } = await organizationsApi.listOrganizations({ size: 100, status: "active" }, { signal: request.signal });
         if (!request.isCurrent()) return;
         const nextOrganizations = extractAdminFinanceItems(data)
           .filter((item) => item.status !== "blocked")

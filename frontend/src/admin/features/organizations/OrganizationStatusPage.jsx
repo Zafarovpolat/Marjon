@@ -1,17 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 
-import Icon from "../components/Icon";
-import { AdminPageSizeDropdown, getPageList } from "./AdminShared";
-import { hqService } from "./hqService";
-import { normalizeOrganizationStatus } from "./AdminOrganizationDirectory";
+import { normalizePaginatedList } from "../../../api/normalizers";
+import Icon from "../../../components/Icon";
+import { AdminPageSizeDropdown, getPageList } from "../../AdminShared";
+import { normalizeOrganizationStatus } from "./OrganizationDirectoryPage";
+import { organizationErrorMessage } from "./organizationErrors";
+import { organizationsApi } from "./organizationsApi";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
-
-function statusErrorMessage(error, fallback) {
-  const detail = typeof error?.detail === "string" ? error.detail : "";
-  const message = detail || (typeof error?.message === "string" ? error.message : "");
-  return message && message.length <= 240 ? message : fallback;
-}
 
 function StatusDeleteDialog({ row, busy, error, onClose, onConfirm }) {
   const panelRef = useRef(null);
@@ -84,23 +80,23 @@ export function OrganizationStatusPage({ search = "", onNotify }) {
 
     setLoadState("loading");
     setLoadError("");
-    hqService.listOrganizationStatuses(params, { signal: controller.signal })
+    organizationsApi.listOrganizationStatuses(params, { signal: controller.signal })
       .then(({ data }) => {
-        const items = Array.isArray(data) ? data : data?.items || [];
-        setRows(items.map(normalizeOrganizationStatus));
+        const normalizedPage = normalizePaginatedList(data);
+        setRows(normalizedPage.items.map(normalizeOrganizationStatus));
         setPageMeta({
-          total: Number(data?.total ?? items.length),
-          page: Number(data?.page ?? page),
-          size: Number(data?.size ?? pageSize),
-          pages: Math.max(1, Number(data?.pages ?? 1)),
+          total: normalizedPage.total,
+          page: normalizedPage.page,
+          size: normalizedPage.size,
+          pages: normalizedPage.pages,
         });
-        setLoadState(items.length ? "success" : "empty");
+        setLoadState(normalizedPage.items.length ? "success" : "empty");
       })
       .catch((error) => {
         if (error?.isAborted || error?.code === "ABORTED") return;
         setRows([]);
         setLoadState("error");
-        setLoadError(statusErrorMessage(error, "Не удалось загрузить статусы организаций."));
+        setLoadError(organizationErrorMessage(error, "Не удалось загрузить статусы организаций."));
       });
     return () => controller.abort();
   }, [appliedActive, appliedSearch, page, pageSize, reloadKey, search, sortDirection]);
@@ -148,13 +144,13 @@ export function OrganizationStatusPage({ search = "", onNotify }) {
     setMutationError("");
     try {
       const payload = { name, sort, status: editor.active };
-      if (editor.mode === "create") await hqService.createOrganizationStatus(payload);
-      else await hqService.updateOrganizationStatus(editor.id, payload);
+      if (editor.mode === "create") await organizationsApi.createOrganizationStatus(payload);
+      else await organizationsApi.updateOrganizationStatus(editor.id, payload);
       onNotify?.(editor.mode === "create" ? "Статус создан." : "Статус обновлён.");
       setEditor(null);
       setReloadKey((value) => value + 1);
     } catch (error) {
-      setMutationError(statusErrorMessage(error, "Не удалось сохранить статус."));
+      setMutationError(organizationErrorMessage(error, "Не удалось сохранить статус."));
     } finally {
       setMutationBusy(false);
     }
@@ -165,11 +161,11 @@ export function OrganizationStatusPage({ search = "", onNotify }) {
     setMutationBusy(true);
     setMutationError("");
     try {
-      await hqService.updateOrganizationStatus(row.id, { status: !row.active });
+      await organizationsApi.updateOrganizationStatus(row.id, { status: !row.active });
       onNotify?.(!row.active ? "Статус активирован." : "Статус деактивирован.");
       setReloadKey((value) => value + 1);
     } catch (error) {
-      setMutationError(statusErrorMessage(error, "Не удалось изменить статус."));
+      setMutationError(organizationErrorMessage(error, "Не удалось изменить статус."));
     } finally {
       setMutationBusy(false);
     }
@@ -180,13 +176,13 @@ export function OrganizationStatusPage({ search = "", onNotify }) {
     setMutationBusy(true);
     setMutationError("");
     try {
-      await hqService.deleteOrganizationStatus(deleteRow.id);
+      await organizationsApi.deleteOrganizationStatus(deleteRow.id);
       onNotify?.("Статус удалён.");
       setDeleteRow(null);
       if (rows.length === 1 && page > 1) setPage((value) => value - 1);
       else setReloadKey((value) => value + 1);
     } catch (error) {
-      setMutationError(statusErrorMessage(error, "Не удалось удалить статус."));
+      setMutationError(organizationErrorMessage(error, "Не удалось удалить статус."));
     } finally {
       setMutationBusy(false);
     }
@@ -224,8 +220,8 @@ export function OrganizationStatusPage({ search = "", onNotify }) {
         {mutationError ? <div className="org-status-mutation-error" role="alert">{mutationError}</div> : null}
       </form> : mutationError && !deleteRow ? <div className="org-status-mutation-error" role="alert">{mutationError}</div> : null}
 
-      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка статусов...</div> : null}
-      {loadState === "error" ? <div className="org-directory-empty" role="alert">{loadError}</div> : null}
+      {loadState === "loading" ? <div className="admin-data-state" role="status">Загрузка статусов...</div> : null}
+      {loadState === "error" ? <div className="admin-data-state" role="alert">{loadError}</div> : null}
 
       {loadState !== "error" ? <div className="org-status-table-shell">
         <table className="org-status-table">
@@ -239,9 +235,9 @@ export function OrganizationStatusPage({ search = "", onNotify }) {
         {loadState === "empty" ? <div className="org-status-empty">{hasFilters ? "По заданным условиям статусы не найдены." : "Статусы не найдены."}</div> : null}
       </div> : null}
 
-      <div className="org-directory-footer org-status-footer">
-        <span className="org-directory-footer__summary">{pageMeta.total ? `${startIndex + 1}-${endIndex} из ${pageMeta.total}` : "0 из 0"}<small>Страница {pageMeta.page} из {pageMeta.pages}</small></span>
-        <div className="org-directory-pager"><AdminPageSizeDropdown value={pageSize} options={PAGE_SIZE_OPTIONS} onChange={(value) => { setPageSize(value); setPage(1); }} /><button type="button" disabled={pageMeta.page === 1 || loadState === "loading"} onClick={() => setPage((value) => Math.max(1, value - 1))} aria-label="Предыдущая страница"><Icon name="bi-chevron-left" size={15} /></button>{pageList.map((item, index) => item === "…" ? <span className="org-directory-ellipsis" key={`gap-${index}`}>…</span> : <button type="button" className={`org-directory-page-btn ${item === pageMeta.page ? "is-active" : ""}`} key={item} onClick={() => setPage(item)} aria-current={item === pageMeta.page ? "page" : undefined}>{item}</button>)}<button type="button" disabled={pageMeta.page === pageMeta.pages || loadState === "loading"} onClick={() => setPage((value) => Math.min(pageMeta.pages, value + 1))} aria-label="Следующая страница"><Icon name="bi-chevron-right" size={15} /></button></div>
+      <div className="admin-data-footer org-status-footer">
+        <span className="admin-data-footer__summary">{pageMeta.total ? `${startIndex + 1}-${endIndex} из ${pageMeta.total}` : "0 из 0"}<small>Страница {pageMeta.page} из {pageMeta.pages}</small></span>
+        <div className="admin-data-pager"><AdminPageSizeDropdown value={pageSize} options={PAGE_SIZE_OPTIONS} onChange={(value) => { setPageSize(value); setPage(1); }} /><button type="button" disabled={pageMeta.page === 1 || loadState === "loading"} onClick={() => setPage((value) => Math.max(1, value - 1))} aria-label="Предыдущая страница"><Icon name="bi-chevron-left" size={15} /></button>{pageList.map((item, index) => item === "…" ? <span className="admin-data-ellipsis" key={`gap-${index}`}>…</span> : <button type="button" className={`admin-data-page-btn ${item === pageMeta.page ? "is-active" : ""}`} key={item} onClick={() => setPage(item)} aria-current={item === pageMeta.page ? "page" : undefined}>{item}</button>)}<button type="button" disabled={pageMeta.page === pageMeta.pages || loadState === "loading"} onClick={() => setPage((value) => Math.min(pageMeta.pages, value + 1))} aria-label="Следующая страница"><Icon name="bi-chevron-right" size={15} /></button></div>
       </div>
 
       {deleteRow ? <StatusDeleteDialog row={deleteRow} busy={mutationBusy} error={mutationError} onClose={() => { if (!mutationBusy) setDeleteRow(null); }} onConfirm={confirmDelete} /> : null}

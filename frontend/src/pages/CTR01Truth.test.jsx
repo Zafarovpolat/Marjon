@@ -174,9 +174,9 @@ describe("CTR-01 critical financial truth", () => {
     render(<DebtorsCreditorsReportPage />);
     const row = await screen.findByText("Backend Counterparty");
     expect(row.closest("tr")).toHaveAttribute("data-counterparty-id", "cp-real");
-    fireEvent.change(screen.getByLabelText("Конец периода"), { target: { value: "12.08.2026" } });
-    await screen.findByText("Backend Counterparty");
     fireEvent.change(screen.getByLabelText("Начало периода"), { target: { value: "02.08.2026" } });
+    await screen.findByText("Backend Counterparty");
+    fireEvent.change(screen.getByLabelText("Конец периода"), { target: { value: "12.08.2026" } });
     await waitFor(() => expect(api.get).toHaveBeenCalledWith("/reports/debt-credit", expect.objectContaining({ params: { date_from: "2026-08-02", date_to: "2026-08-12" }, signal: expect.any(AbortSignal) })));
     expect(screen.queryByText("USD")).not.toBeInTheDocument();
   });

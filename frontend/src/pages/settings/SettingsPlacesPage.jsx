@@ -94,6 +94,33 @@ function prefersReducedMotion() {
 const EMPTY_HALL_FORM = { name: "", percent: "", pricing_type: "", price: "", is_active: true, branch_id: "" };
 const EMPTY_TABLE_FORM = { number: "", capacity: "4", is_active: true };
 
+export function apiMapFormToPayload(form, { editing = false, includeBranch = false } = {}) {
+  const name = String(form?.name ?? "").trim();
+  if (!name) return null;
+
+  const rawPercent = String(form?.percent ?? "").trim().replace(",", ".");
+  let percent = null;
+  if (rawPercent !== "") {
+    if (!/^\d+(?:\.\d+)?$/.test(rawPercent)) return null;
+    percent = Number(rawPercent);
+    if (!Number.isFinite(percent) || percent < 0 || percent > 100) return null;
+  }
+
+  const pricing_type = form?.pricing_type || null;
+  if (pricing_type !== null && pricing_type !== "fixed" && pricing_type !== "hourly") return null;
+  const digits = parseMoneyInput(form?.price);
+  const base = {
+    name,
+    percent,
+    pricing_type,
+    price_amount: pricing_type ? (digits || null) : null,
+  };
+
+  if (editing) return { ...base, is_active: form?.is_active !== false };
+  if (includeBranch && form?.branch_id) return { ...base, branch_id: form.branch_id };
+  return base;
+}
+
 function tablesLabel(count) {
   const n = Number(count) || 0;
   const mod10 = n % 10;
@@ -380,31 +407,10 @@ export default function SettingsPlacesPage() {
     setHallDrawer({ mode: "edit", id: hall.id, branch_id: hall.branch_id });
   }
   function hallPayload() {
-    const name = hallForm.name.trim();
-    if (!name) return null;
-    const raw = String(hallForm.percent).trim().replace(",", ".");
-    let percent = null;
-    if (raw !== "") {
-      if (!/^\d+(?:\.\d+)?$/.test(raw)) return null;
-      percent = Number(raw);
-      if (!Number.isFinite(percent) || percent < 0 || percent > 100) return null;
-    }
-    const pricing_type = hallForm.pricing_type || null;
-    // Phase 5C-2: the structured amount goes to price_amount as a decimal-safe
-    // STRING (never a binary float, never the grouped display value). Dropping
-    // the extra-price option sends BOTH fields as explicit null, because the
-    // backend distinguishes "omitted" from "explicitly cleared" — omitting
-    // would leave the stale pricing in place.
-    const digits = parseMoneyInput(hallForm.price);
-    const price_amount = pricing_type ? (digits || null) : null;
-    // condition is deliberately absent from the payload: it is a legacy
-    // human-readable note with no field in this form, so it is never written.
-    const base = { name, percent, pricing_type, price_amount };
-    if (hallDrawer?.mode === "edit") return { ...base, is_active: hallForm.is_active };
-    // HallCreate has no is_active (create is always active) and only accepts
-    // branch_id — sent solely when the user actually had to choose.
-    if (needsBranchChoice && hallForm.branch_id) return { ...base, branch_id: hallForm.branch_id };
-    return base;
+    return apiMapFormToPayload(hallForm, {
+      editing: hallDrawer?.mode === "edit",
+      includeBranch: needsBranchChoice,
+    });
   }
   async function saveHall(event) {
     event.preventDefault();

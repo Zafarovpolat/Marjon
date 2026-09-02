@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { adminFinanceApi } from "./financeApi";
 
@@ -10,16 +11,16 @@ import { AdminPageSizeDropdown, formatAdminMoney, getAdminFinanceLoadMessage, ge
 
 const transactionColumnKeys = [
   "id", "uuid", "date", "orgId", "organization", "counterparty",
-  "payType", "amount", "kind", "paymentFor", "comment",
+  "payType", "amount", "kind", "paymentFor", "comment", "actions",
 ];
 
 const TRANSACTION_COLUMN_SETTINGS_STORAGE_KEY = "marjon.admin.transactions.columns.v1";
 
-const TRANSACTION_COLUMN_SETTINGS_LAYOUT_VERSION = 4;
+const TRANSACTION_COLUMN_SETTINGS_LAYOUT_VERSION = 5;
 
 const defaultTransactionColumnOrder = [
   "id", "uuid", "organization", "counterparty", "date", "orgId",
-  "payType", "amount", "kind", "paymentFor", "comment",
+  "payType", "amount", "kind", "paymentFor", "comment", "actions",
 ];
 
 function normalizeTransactionColumnKeys(keys) {
@@ -99,6 +100,23 @@ function formatTransactionAmountParts(value) {
   };
 }
 
+function transactionDateToInputValue(value) {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return "";
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return localDate.toISOString().slice(0, 16);
+}
+
+function transactionAmountToInputValue(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? String(Math.abs(numeric)) : "";
+}
+
+function transactionMutationMessage(error) {
+  const detail = error?.response?.data?.detail ?? error?.detail ?? error?.message;
+  return typeof detail === "string" && detail.trim() ? detail : "Не удалось обновить транзакцию.";
+}
+
 export function normalizeHqDashboardTransaction(row, index = 0) {
   const amount = Number(row.amount);
   const direction = {
@@ -118,6 +136,11 @@ export function normalizeHqDashboardTransaction(row, index = 0) {
     kind: direction,
     paymentFor: row.payment_for || row.category_name || "",
     comment: row.comment || "",
+    editable: {
+      amount: row.amount,
+      date: row.date || row.created_at || "",
+      comment: row.comment || "",
+    },
   };
 }
 
@@ -132,6 +155,9 @@ export function TransactionsTable({ onNotify }) {
   const [columnSettings, setColumnSettings] = useState(loadTransactionColumnSettings);
   const [dragColumnKey, setDragColumnKey] = useState("");
   const [dragColumnTarget, setDragColumnTarget] = useState(null);
+  const [transactionEditor, setTransactionEditor] = useState(null);
+  const [transactionSaving, setTransactionSaving] = useState(false);
+  const [transactionError, setTransactionError] = useState("");
   const visibleColumns = columnSettings.visible;
   const beginRequest = useLatestRequest();
 
@@ -158,6 +184,15 @@ export function TransactionsTable({ onNotify }) {
   useEffect(() => {
     saveTransactionColumnSettings(columnSettings);
   }, [columnSettings]);
+
+  useEffect(() => {
+    if (!transactionEditor || transactionSaving) return undefined;
+    function closeOnEscape(event) {
+      if (event.key === "Escape") setTransactionEditor(null);
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [transactionEditor, transactionSaving]);
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -242,6 +277,75 @@ export function TransactionsTable({ onNotify }) {
     setColumnSettings(normalizeTransactionColumnSettings());
   }
 
+  function openTransactionEditor(row) {
+    setTransactionError("");
+    setTransactionEditor({
+      uuid: row.uuid,
+      number: row.id,
+      organization: row.organization,
+      amount: transactionAmountToInputValue(row.editable?.amount),
+      date: transactionDateToInputValue(row.editable?.date),
+      kind: row.kind,
+      payType: row.payType,
+      paymentFor: row.paymentFor,
+      comment: row.comment,
+    });
+  }
+
+  function updateTransactionEditor(key, value) {
+    setTransactionEditor((current) => ({ ...current, [key]: value }));
+    setTransactionError("");
+  }
+
+  async function saveTransactionEditor(event) {
+    event.preventDefault();
+    if (!transactionEditor || transactionSaving) return;
+
+    const amount = Number(String(transactionEditor.amount).replace(",", "."));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setTransactionError("Сумма должна быть больше нуля.");
+      return;
+    }
+    const date = new Date(transactionEditor.date || "");
+    if (Number.isNaN(date.getTime())) {
+      setTransactionError("Укажите корректные дату и время.");
+      return;
+    }
+
+    setTransactionSaving(true);
+    setTransactionError("");
+    try {
+      const payload = {
+        amount,
+        date: date.toISOString(),
+        comment: transactionEditor.comment.trim() || null,
+      };
+      const { data } = await adminFinanceApi.updateTransaction(transactionEditor.uuid, payload);
+      if (!data?.id) throw new Error("Backend не вернул обновлённую транзакцию.");
+      setRows((current) => current.map((row, index) => {
+        if (row.uuid !== transactionEditor.uuid) return row;
+        return normalizeHqDashboardTransaction({
+          ...data,
+          id_num: data.id_num ?? row.id,
+          organization_id: data.organization_id ?? row.orgId,
+          organization_name: data.organization_name ?? row.organization,
+          counterparty_name: data.counterparty_name ?? row.counterparty,
+          payment_type_name: data.payment_type_name ?? row.payType,
+          category_name: data.category_name ?? row.paymentFor,
+          direction: data.direction ?? (row.kind === "Расход" ? "expense" : row.kind === "Приход" ? "income" : null),
+        }, index);
+      }));
+      setTransactionEditor(null);
+      onNotify?.("Транзакция обновлена.");
+    } catch (error) {
+      const message = transactionMutationMessage(error);
+      setTransactionError(message);
+      onNotify?.(message);
+    } finally {
+      setTransactionSaving(false);
+    }
+  }
+
   const allColumns = [
     { key: "id", label: "№", width: 66 },
     { key: "uuid", label: "UUID", width: 214 },
@@ -254,18 +358,20 @@ export function TransactionsTable({ onNotify }) {
     { key: "kind", label: "Тип", width: 92 },
     { key: "paymentFor", label: "Оплата за", width: 180 },
     { key: "comment", label: "Комментария", width: 220 },
+    { key: "actions", label: "", width: 58 },
   ];
 
   const orderedColumns = columnSettings.order
     .map((key) => allColumns.find((column) => column.key === key))
     .filter(Boolean);
   const columns = orderedColumns.filter((column) => visibleColumns.includes(column.key));
+  const actionsColumnIsLast = columns.at(-1)?.key === "actions";
 
   function renderCell(column, row) {
     switch (column.key) {
       case "id": return <span className="admin-tx-id">{row.id}</span>;
       case "uuid": return <span className="admin-tx-uuid">{row.uuid}</span>;
-      case "organization": return row.organization ? <strong className="org-directory-name">{row.organization}</strong> : "—";
+      case "organization": return row.organization ? <strong className="admin-data-name">{row.organization}</strong> : "—";
       case "counterparty": return row.counterparty || "—";
       case "amount": {
         const amount = formatTransactionAmountParts(row.amount);
@@ -276,11 +382,61 @@ export function TransactionsTable({ onNotify }) {
           </span>
         );
       }
-      case "kind": return row.kind === "—" ? "—" : <span className={`org-directory-flag ${row.kind === "Расход" ? "org-directory-flag--warning" : "org-directory-flag--success"}`}>{row.kind}</span>;
+      case "kind": return row.kind === "—" ? "—" : <span className={`admin-data-flag ${row.kind === "Расход" ? "admin-data-flag--warning" : "admin-data-flag--success"}`}>{row.kind}</span>;
       case "comment": return row.comment ? row.comment : "—";
+      case "actions": return <button type="button" className="admin-tx-edit" onClick={() => openTransactionEditor(row)} aria-label={`Редактировать транзакцию ${row.uuid}`}><Icon name="bi-pencil" size={14} /></button>;
       default: return row[column.key] || "—";
     }
   }
+
+  const transactionEditorModal = transactionEditor && typeof document !== "undefined" ? createPortal(
+    <div className="admin-income-modal admin-transaction-modal" role="dialog" aria-modal="true" aria-label={`Редактировать транзакцию ${transactionEditor.uuid}`} onClick={() => { if (!transactionSaving) setTransactionEditor(null); }}>
+      <form className="admin-income-dialog admin-transaction-dialog" onSubmit={saveTransactionEditor} onClick={(event) => event.stopPropagation()}>
+        <div className="admin-income-dialog__head admin-transaction-dialog__head">
+          <div><h3>Редактировать транзакцию</h3><p>ID {transactionEditor.uuid}. Сохраняются только поля канонического контракта.</p></div>
+          <button type="button" className="admin-income-dialog__close" onClick={() => setTransactionEditor(null)} disabled={transactionSaving} aria-label="Закрыть"><Icon name="bi-x-lg" size={16} /></button>
+        </div>
+
+        <div className="admin-transaction-dialog__grid">
+          <label className="admin-income-field admin-transaction-field admin-transaction-field--wide">
+            <span>Организация</span>
+            <input value={transactionEditor.organization || "Не указана"} disabled aria-label="Организация" />
+          </label>
+          <label className="admin-income-field admin-transaction-field">
+            <span>Сумма</span>
+            <div className="admin-transaction-amount-input"><input value={transactionEditor.amount} inputMode="decimal" onChange={(event) => updateTransactionEditor("amount", event.target.value)} autoFocus aria-label="Сумма" /><strong>UZS</strong></div>
+          </label>
+          <label className="admin-income-field admin-transaction-field">
+            <span>Дата и время</span>
+            <input type="datetime-local" value={transactionEditor.date} onChange={(event) => updateTransactionEditor("date", event.target.value)} aria-label="Дата и время" />
+          </label>
+          <label className="admin-income-field admin-transaction-field">
+            <span>Тип</span>
+            <input value={transactionEditor.kind || "Не указан"} disabled aria-label="Тип" />
+          </label>
+          <label className="admin-income-field admin-transaction-field">
+            <span>Тип оплаты</span>
+            <input value={transactionEditor.payType || "Не указан"} disabled aria-label="Тип оплаты" />
+          </label>
+          <label className="admin-income-field admin-transaction-field admin-transaction-field--wide">
+            <span>Оплата за</span>
+            <input value={transactionEditor.paymentFor || "Не указано"} disabled aria-label="Оплата за" />
+          </label>
+          <label className="admin-income-field admin-transaction-field admin-transaction-field--wide">
+            <span>Комментарий</span>
+            <textarea value={transactionEditor.comment} onChange={(event) => updateTransactionEditor("comment", event.target.value)} rows={3} aria-label="Комментарий" />
+          </label>
+        </div>
+
+        {transactionError ? <div className="admin-transaction-dialog__error" role="alert">{transactionError}</div> : null}
+        <div className="admin-income-dialog__actions admin-transaction-dialog__actions">
+          <button type="button" className="is-ghost" onClick={() => setTransactionEditor(null)} disabled={transactionSaving}>Отмена</button>
+          <button type="submit" className="is-primary" disabled={transactionSaving}>{transactionSaving ? "Сохранение..." : "Сохранить"}</button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  ) : null;
 
   return (
     <>
@@ -298,14 +454,14 @@ export function TransactionsTable({ onNotify }) {
             <Icon name="bi-sliders" size={15} />
             <span>Настроить таблицу</span>
           </button>
-          <label className="org-directory-search admin-transactions__search">
+          <label className="admin-data-search admin-transactions__search">
             <Icon name="bi-search" size={15} />
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск" />
           </label>
         </div>
 
       {settingsOpen ? (
-        <div className="org-directory-column-panel admin-transactions__column-panel">
+        <div className="admin-data-column-panel admin-transactions__column-panel">
           <div className="admin-transactions__column-panel-head">
             <span>Столбцы</span>
             <button type="button" onClick={resetColumnSettings}>Сброс</button>
@@ -395,8 +551,8 @@ export function TransactionsTable({ onNotify }) {
         </div>
       ) : null}
 
-      <div className="org-directory-table-shell admin-transactions__table-shell" onWheelCapture={keepWheelInsideScroller}>
-        <table className="org-directory-table admin-transactions__table">
+      <div className="admin-data-table-shell admin-transactions__table-shell" onWheelCapture={keepWheelInsideScroller}>
+        <table className={`admin-data-table admin-transactions__table ${actionsColumnIsLast ? "is-actions-sticky" : ""}`}>
           <colgroup>
             {columns.map((column) => <col key={column.key} style={{ width: column.width }} />)}
           </colgroup>
@@ -413,7 +569,7 @@ export function TransactionsTable({ onNotify }) {
           </thead>
           <tbody>
             {pageRows.map((row) => (
-              <tr key={row.id}>
+              <tr key={row.uuid || row.id}>
                 {columns.map((column) => (
                   <td className={`admin-transactions__cell admin-transactions__cell--${column.key}`} key={column.key}>{renderCell(column, row)}</td>
                 ))}
@@ -421,20 +577,20 @@ export function TransactionsTable({ onNotify }) {
             ))}
           </tbody>
         </table>
-        {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка транзакций...</div> : null}
-        {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить транзакции.</div> : null}
-        {loadState === "empty" || (loadState === "success" && !pageRows.length) ? <div className="org-directory-empty">Транзакции не найдены.</div> : null}
+        {loadState === "loading" ? <div className="admin-data-state" role="status">Загрузка транзакций...</div> : null}
+        {loadState === "error" ? <div className="admin-data-state" role="alert">Не удалось загрузить транзакции.</div> : null}
+        {loadState === "empty" || (loadState === "success" && !pageRows.length) ? <div className="admin-data-state">Транзакции не найдены.</div> : null}
       </div>
 
-      <div className="org-directory-footer admin-transactions__footer">
-        <span className="org-directory-footer__summary">
+      <div className="admin-data-footer admin-transactions__footer">
+        <span className="admin-data-footer__summary">
           {filteredRows.length ? `${startIndex + 1}-${Math.min(startIndex + pageSize, filteredRows.length)} из ${filteredRows.length}` : "0 из 0"}
           <small>Страница {currentPage} из {totalPages}</small>
         </span>
-        <div className="org-directory-pager admin-transactions__pager">
+        <div className="admin-data-pager admin-transactions__pager">
           <AdminPageSizeDropdown value={pageSize} options={pageSizeOptions} onChange={setPageSize} />
           <button type="button" disabled={currentPage === 1} onClick={() => goToPage(1)} aria-label="Первая страница">
-            <span className="org-directory-double-icon" aria-hidden="true">
+            <span className="admin-data-double-icon" aria-hidden="true">
               <Icon name="bi-chevron-left" size={13} />
               <Icon name="bi-chevron-left" size={13} />
             </span>
@@ -444,12 +600,12 @@ export function TransactionsTable({ onNotify }) {
           </button>
           {pageList.map((item, index) => (
             item === "…" ? (
-              <span className="org-directory-ellipsis" key={`gap-${index}`}>…</span>
+              <span className="admin-data-ellipsis" key={`gap-${index}`}>…</span>
             ) : (
               <button
                 type="button"
                 key={item}
-                className={`org-directory-page-btn ${item === currentPage ? "is-active" : ""}`}
+                className={`admin-data-page-btn ${item === currentPage ? "is-active" : ""}`}
                 onClick={() => goToPage(item)}
                 aria-current={item === currentPage ? "page" : undefined}
               >
@@ -461,7 +617,7 @@ export function TransactionsTable({ onNotify }) {
             <Icon name="bi-chevron-right" size={15} />
           </button>
           <button type="button" disabled={currentPage === totalPages} onClick={() => goToPage(totalPages)} aria-label="Последняя страница">
-            <span className="org-directory-double-icon" aria-hidden="true">
+            <span className="admin-data-double-icon" aria-hidden="true">
               <Icon name="bi-chevron-right" size={13} />
               <Icon name="bi-chevron-right" size={13} />
             </span>
@@ -469,6 +625,7 @@ export function TransactionsTable({ onNotify }) {
         </div>
       </div>
       </section>
+      {transactionEditorModal}
     </>
   );
 }

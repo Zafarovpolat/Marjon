@@ -167,8 +167,8 @@ test.describe("HQ-01 organizations contract replay", () => {
       await browserPage.setViewportSize({ width: viewport.width, height: viewport.height });
       await openOrganizations(browserPage);
       await expect(browserPage.locator(".org-directory-toolbar")).toBeVisible();
-      await expect(browserPage.locator(".org-directory-table-shell")).toBeVisible();
-      await expect(browserPage.locator(".org-directory-footer")).toBeVisible();
+      await expect(browserPage.locator(".admin-data-table-shell")).toBeVisible();
+      await expect(browserPage.locator(".admin-data-footer")).toBeVisible();
       await browserPage.getByRole("button", { name: /^Добавить/ }).click();
       const dialog = browserPage.getByRole("dialog", { name: "Добавить организацию" });
       await expect(dialog).toBeVisible();

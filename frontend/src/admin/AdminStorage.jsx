@@ -9,7 +9,7 @@ import { formatCurrency } from "./AdminShared";
 export function StorageIncomePage() {
   return (
     <section className="admin-storage-income-page">
-      <div className="org-directory-empty" role="status">
+      <div className="admin-data-state" role="status">
         Данные прихода недоступны до завершения Inventory Core. Backend contract не подключён.
       </div>
     </section>
@@ -19,7 +19,7 @@ export function StorageIncomePage() {
 export function StorageIncomeJournalPage() {
   return (
     <section className="admin-storage-income-page admin-storage-income-journal-page">
-      <div className="org-directory-empty" role="status">
+      <div className="admin-data-state" role="status">
         Журнал прихода недоступен до завершения Inventory Core. Backend contract не подключён.
       </div>
     </section>
@@ -89,9 +89,9 @@ export function StorageWriteoffPage({ search, onNotify }) {
 
   return (
     <section className="admin-storage-income-page admin-storage-writeoff-page">
-      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка списаний...</div> : null}
-      {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить списания.</div> : null}
-      {loadState === "unsupported" ? <div className="org-directory-empty" role="status">Документы списания недоступны до подключения подтверждённого HQ backend contract.</div> : null}
+      {loadState === "loading" ? <div className="admin-data-state" role="status">Загрузка списаний...</div> : null}
+      {loadState === "error" ? <div className="admin-data-state" role="alert">Не удалось загрузить списания.</div> : null}
+      {loadState === "unsupported" ? <div className="admin-data-state" role="status">Документы списания недоступны до подключения подтверждённого HQ backend contract.</div> : null}
       <div className="admin-storage-writeoff-card">
         <div className="admin-storage-writeoff-head">
           <div className="admin-storage-writeoff-title">
@@ -259,9 +259,9 @@ export function StorageInventoryPage({ search, onNotify, onInnerBackChange }) {
 
   return (
     <section className="admin-storage-income-page admin-storage-inventory-page">
-      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка складов...</div> : null}
-      {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить склады.</div> : null}
-      {loadState === "unsupported" ? <div className="org-directory-empty" role="status">Инвентаризация недоступна до подключения подтверждённого HQ backend contract.</div> : null}
+      {loadState === "loading" ? <div className="admin-data-state" role="status">Загрузка складов...</div> : null}
+      {loadState === "error" ? <div className="admin-data-state" role="alert">Не удалось загрузить склады.</div> : null}
+      {loadState === "unsupported" ? <div className="admin-data-state" role="status">Инвентаризация недоступна до подключения подтверждённого HQ backend contract.</div> : null}
       <div className="admin-storage-inventory-card">
         <div className="admin-storage-inventory-head">
           <div className="admin-storage-inventory-title">
@@ -393,7 +393,7 @@ export function StorageInventoryPage({ search, onNotify, onInnerBackChange }) {
 export function StorageExpensePage() {
   return (
     <section className="admin-storage-income-page admin-storage-expense-page">
-      <div className="org-directory-empty" role="status">
+      <div className="admin-data-state" role="status">
         Данные расхода недоступны до завершения Inventory Core. Backend contract не подключён.
       </div>
     </section>
@@ -403,7 +403,7 @@ export function StorageExpensePage() {
 export function StorageBalancePage() {
   return (
     <section className="admin-storage-income-page admin-storage-balance-page">
-      <div className="org-directory-empty" role="status">
+      <div className="admin-data-state" role="status">
         Остатки недоступны до завершения Inventory Core. Backend contract не подключён.
       </div>
     </section>

@@ -92,7 +92,7 @@ describe("AdminApp HQ session gate", () => {
     expect(get.mock.calls[0]).toEqual(["/auth/me"]);
   });
 
-  it("keeps the dashboard on truthful HQ transactions without legacy KPI requests", async () => {
+  it("keeps the dashboard on truthful HQ transactions and a bounded Organization total", async () => {
     setAdminTokens();
     const get = vi.spyOn(adminApi, "get").mockImplementation(resolveAdminGet);
 
@@ -103,7 +103,9 @@ describe("AdminApp HQ session gate", () => {
     });
     expect(screen.getByRole("heading", { name: "Дашборд" })).toBeInTheDocument();
     expect(container.querySelector(".admin-chart-card")).not.toBeInTheDocument();
-    expect(get.mock.calls.filter(([path]) => path === "/organizations")).toHaveLength(0);
+    expect(get.mock.calls.filter(([path]) => path === "/organizations")).toEqual([
+      ["/organizations", { params: { page: 1, size: 1 } }],
+    ]);
     expect(get.mock.calls.filter(([path]) => path === "/admin-reports/dashboard-kpis")).toHaveLength(0);
 
     const handbookToggle = container.querySelectorAll(".admin-nav-group__toggle")[3];
@@ -112,7 +114,10 @@ describe("AdminApp HQ session gate", () => {
     fireEvent.click(container.querySelector(".admin-nav > button"));
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Дашборд" })).toBeInTheDocument());
-    expect(get.mock.calls.filter(([path]) => path === "/organizations")).toHaveLength(0);
+    expect(get.mock.calls.filter(([path]) => path === "/organizations")).toEqual([
+      ["/organizations", { params: { page: 1, size: 1 } }],
+      ["/organizations", { params: { page: 1, size: 1 } }],
+    ]);
     expect(get.mock.calls.filter(([path]) => path === "/admin-reports/dashboard-kpis")).toHaveLength(0);
   });
 
