@@ -5,7 +5,6 @@ export const ROLES = {
   OWNER: "owner",
   SUPERADMIN: "superadmin",
   ADMIN: "admin",
-  MANAGER: "manager",
   CASHIER: "cashier",
   WAITER: "waiter",
   KITCHEN: "kitchen",
@@ -69,7 +68,6 @@ export function getRole(user) {
   const roles = user.role_slugs || [];
   if (roles.includes(ROLES.OWNER)) return ROLES.OWNER;
   if (roles.includes(ROLES.ADMIN)) return ROLES.ADMIN;
-  if (roles.includes(ROLES.MANAGER)) return ROLES.MANAGER;
   if (roles.includes(ROLES.CASHIER)) return ROLES.CASHIER;
   if (roles.includes(ROLES.WAITER)) return ROLES.WAITER;
   if (roles.includes(ROLES.KITCHEN)) return ROLES.KITCHEN;

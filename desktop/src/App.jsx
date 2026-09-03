@@ -8,6 +8,7 @@ import PinPad from './pages/PinPad'
 import TopBar from './components/TopBar'
 import BottomBar from './components/BottomBar'
 import SettingsModal from './components/SettingsModal'
+import DeveloperPanel from './components/DeveloperPanel'
 import CashierMode from './modes/cashier/CashierMode'
 import WaiterMode from './modes/waiter/WaiterMode'
 import { auth, branding, flushQueue, queueSize } from './shared/api'
@@ -22,11 +23,11 @@ const MODES = {
   courier: { component: CashierMode, label: 'Курьер' },
 }
 
-// Роль → рабочий режим. На десктопе только касса и официант.
-// Менеджер/владелец/админ и прочие роли → касса (режим менеджера убран, кухня — на десктоп-KDS).
+// Роль → рабочий режим. На десктопе только касса, официант и курьер.
+// Владелец и менеджер на кассе-терминале не работают: владелец управляет через
+// веб-админку, роль менеджера удалена. Прочие роли → касса по умолчанию (см. roleToMode).
 const ROLE_TO_MODE = {
   waiter: 'waiter', cashier: 'cashier', courier: 'courier',
-  manager: 'cashier', owner: 'cashier', admin: 'cashier',
 }
 function roleToMode(user, employee) {
   const slugs = [...(user?.role_slugs || [])]
@@ -63,6 +64,7 @@ export default function App() {
   const [, setLangVersion] = useState(0)   // бамп для перерисовки при смене языка
   const [isLocked, setIsLocked] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showDev, setShowDev] = useState(false)   // скрытая панель разработчика (пакетная печать)
 
   const isStaffLoggedIn = !!(staffToken && staffUser)
 
@@ -144,14 +146,16 @@ export default function App() {
 
   // 3. PIN-вход выбранного сотрудника → авто-маршрут по роли
   const handleEmployeePin = useCallback(async (pin) => {
-    const data = await auth.loginByPin(pin)         // бросит при неверном PIN → PinPad покажет ошибку
+    // PIN должен принадлежать ВЫБРАННОМУ сотруднику (иначе вход был бы «по любому PIN»)
+    const isRealEmp = pinEmployee?.id && /^[0-9a-f-]{16,}$/i.test(String(pinEmployee.id))
+    // Отдаём id выбранного сотрудника: бэкенд сверит PIN только с ним, иначе при
+    // одинаковых PIN у двоих токен приходил чужой и вход отклонялся ниже.
+    const data = await auth.loginByPin(pin, isRealEmp ? pinEmployee.id : undefined)
     localStorage.setItem('marjon_token', data.access_token)
 
     let me = null
     try { me = await auth.me() } catch { /* ignore — используем выбранного сотрудника */ }
 
-    // PIN должен принадлежать ВЫБРАННОМУ сотруднику (иначе вход был бы «по любому PIN»)
-    const isRealEmp = pinEmployee?.id && /^[0-9a-f-]{16,}$/i.test(String(pinEmployee.id))
     if (isRealEmp && me?.id && String(me.id) !== String(pinEmployee.id)) {
       localStorage.removeItem('marjon_token')
       throw new Error('PIN не соответствует выбранному сотруднику')
@@ -198,21 +202,54 @@ export default function App() {
     setIsLocked(true)
     try { window.electron?.setLocked?.(true) } catch { /* not in electron */ }
   }, [])
-  const handleUnlock = useCallback((pin) => {
+  const doUnlock = useCallback(() => {
+    setIsLocked(false)
+    try { window.electron?.setLocked?.(false) } catch { /* not in electron */ }
+  }, [])
+  const handleUnlock = useCallback(async (pinRaw) => {
+    const pin = String(pinRaw || '').trim()
+    if (!pin) return false
+    // 1) Быстрый локальный путь: PIN текущего входа или служебный exit-pin.
+    //    Работает офлайн и мгновенно, пока сессия жива в памяти.
     const exitPin = localStorage.getItem('marjon_exit_pin')
-    // Разблокировка: PIN текущего входа, сохранённый pin_code сотрудника или служебный exit-pin
-    if ((sessionPin && pin === sessionPin) || pin === staffUser?.pin_code || (exitPin && pin === exitPin)) {
-      setIsLocked(false)
-      try { window.electron?.setLocked?.(false) } catch { /* not in electron */ }
-      return true
+    if ((sessionPin && pin === sessionPin) || (exitPin && pin === exitPin)) {
+      doUnlock(); return true
     }
+    // 2) После перезагрузки sessionPin теряется (токен сотрудника хранится в
+    //    localStorage, а PIN — нет), поэтому раньше разблокировка не срабатывала
+    //    никогда. Подтверждаем PIN на сервере тем же механизмом, что и вход
+    //    (verifyPin не меняет сессию). ВАЖНО: сверяем с id текущего сотрудника —
+    //    без user_id бэкенд отдаёт «первого совпавшего», и при одинаковых PIN у
+    //    двух сотрудников /me возвращал чужого → верный PIN считался неверным.
+    try {
+      const me = await auth.verifyPin(pin, staffUser?.id)
+      if (!staffUser?.id || String(me?.id) === String(staffUser.id)) {
+        setSessionPin(pin)   // восстановили — следующие разблокировки снова офлайн
+        doUnlock(); return true
+      }
+    } catch { /* неверный PIN или сервер недоступен — отказ ниже */ }
     return false
-  }, [staffUser, sessionPin])
+  }, [staffUser, sessionPin, doUnlock])
 
   // Electron: при попытке закрыть окно в режиме блокировки — показываем PIN-экран
   useEffect(() => {
     try { window.electron?.onRequestExitPin?.(() => setIsLocked(true)) } catch { /* not in electron */ }
   }, [])
+
+  // Секретный доступ к панели разработчика: Ctrl+Shift+D — только в рабочем режиме
+  // (вошедший сотрудник, выбран филиал, экран не заблокирован). Второй путь входа —
+  // 7 быстрых тапов по часам в шапке (см. TopBar → onDevAccess).
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')
+          && isStaffLoggedIn && branch && !isLocked) {
+        e.preventDefault()
+        setShowDev(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isStaffLoggedIn, branch, isLocked])
 
   // ── Экран блокировки: тот же пин-пад с уже выбранным сотрудником ──
   if (isLocked && isStaffLoggedIn) {
@@ -220,7 +257,7 @@ export default function App() {
       <PinPad
         employee={staffUser || {}}
         title={t('locked_title')}
-        onSubmit={(pin) => { if (!handleUnlock(pin)) throw new Error('bad-pin') }}
+        onSubmit={async (pin) => { if (!(await handleUnlock(pin))) throw new Error('bad-pin') }}
       />
     )
   }
@@ -268,7 +305,7 @@ export default function App() {
     )
   }
 
-  // ── Рабочий режим (только кассир/официант/менеджер; дефолт — касса) ──
+  // ── Рабочий режим (только кассир/официант/курьер; дефолт — касса) ──
   const activeMode = mode && MODES[mode] ? mode : 'cashier'
   const { component: ModeComponent } = MODES[activeMode]
   const modeLabel = t('mode_' + activeMode)
@@ -278,13 +315,13 @@ export default function App() {
     <div className="app-shell">
       <TopBar
         title={modeLabel}
-        subtitle={branch?.name}
         isOnline={isOnline}
         queued={queued}
         onRefresh={() => window.location.reload()}
         onLock={handleLock}
         onSettings={() => setShowSettings(true)}
         onAccount={handleAccount}
+        onDevAccess={() => setShowDev(true)}
       />
 
       <main className="app-shell__content">
@@ -300,6 +337,7 @@ export default function App() {
 
       <BottomBar userName={staffUser?.name} branchName={branch?.name} mode={modeLabel} />
       {settingsOverlay}
+      {showDev && <DeveloperPanel branch={branch} user={userWithBranch} onClose={() => setShowDev(false)} />}
     </div>
   )
 }

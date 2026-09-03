@@ -80,7 +80,6 @@ describe("OWNER Sidebar", () => {
       "/users/courier",
       "/users/monoblock",
       "/users/kitchen",
-      "/users/manager",
       "/users/warehouse",
     ].forEach((href) => expect(getLinkByHref(href)).toBeInTheDocument());
   });

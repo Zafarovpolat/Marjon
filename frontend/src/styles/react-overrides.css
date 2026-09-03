@@ -27126,7 +27126,8 @@ body,#root {
     resize: vertical;
   }
 
-  .staff-form__grid--edit label:has(input[pattern="[0-9]{4}"]),
+  /* PIN-поле показываем в веб-редакторе персонала (нужно для входа по PIN на кассе).
+     Скрываем только disabled-комментарий «недоступно». */
   .staff-form__grid--edit .staff-form__comment {
     display: none;
   }
@@ -27814,9 +27815,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     border-radius: 12px;
   }
 
-  .staff-form .staff-form__grid.staff-form__grid--edit > label:has(input[pattern="[0-9]{4}"]) {
-    display: none;
-  }
+  /* PIN-поле остаётся видимым: сетка отводит ему col 2 / row 3 (см. nth-child(5) выше). */
 
   .staff-form .staff-form__grid.staff-form__grid--edit > .staff-permission-switches {
     grid-row: 4;
@@ -28553,7 +28552,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     height: 34px;
   }
 
-  .staff-form .staff-form__grid.staff-form__grid--edit > label:has(input[pattern="[0-9]{4}"]),
+  /* PIN-поле показываем; скрываем только disabled-комментарий «недоступно». */
   .staff-form .staff-form__grid.staff-form__grid--edit .staff-form__comment {
     display: none;
   }

@@ -3,6 +3,7 @@ import { X, BarChart3, Printer } from 'lucide-react'
 import { reports, printers as printersApi } from '../shared/api'
 import { t } from '../shared/i18n'
 import CalendarField from './CalendarField'
+import CustomSelect from './CustomSelect'
 import { toast } from './Toast'
 
 // Ключ колонки с сервера → ключ словаря
@@ -17,6 +18,18 @@ const COL_KEY = {
   discount_amount: 'col_discount', payment_method: 'col_pay_method', order_type: 'col_type', avg_check: 'col_avg',
 }
 function colLabel(c) { return COL_KEY[c] ? t(COL_KEY[c]) : c }
+
+// Z-отчёт: строки показателей (метка-ключ словаря → поле ответа сервера)
+const Z_FIN = [
+  ['z_gross', 'gross_sales'], ['z_discounts', 'discounts_total'], ['z_service', 'service_fee_total'],
+  ['z_tax', 'tax_total'], ['z_refunds', 'refunds_total'], ['z_net', 'net_sales'],
+  ['z_cash', 'cash_total'], ['z_cash_received', 'cash_received_total'], ['z_change', 'change_given_total'],
+  ['z_non_cash', 'non_cash_total'], ['z_avg', 'avg_check'],
+]
+const Z_CNT = [
+  ['z_orders', 'orders_count'], ['z_cancelled', 'cancelled_orders_count'],
+  ['z_payments', 'payments_count'], ['z_fiscal', 'fiscal_receipts_count'],
+]
 
 function today() { return new Date().toISOString().slice(0, 10) }
 function isNum(v) { return typeof v === 'number' || (typeof v === 'string' && v !== '' && !isNaN(Number(v)) && /[0-9]/.test(v)) }
@@ -39,14 +52,15 @@ function fmtCell(k, v) {
 
 export default function ReportsPanel({ branch, onClose }) {
   const TABS = [
-    { id: 'sales', label: t('rep_sales') },
     { id: 'products', label: t('rep_products') },
     { id: 'staff', label: t('rep_staff') },
+    { id: 'z', label: t('rep_z') },
   ]
-  const [tab, setTab] = useState('sales')
+  const [tab, setTab] = useState('products')
   const [from, setFrom] = useState(today())
   const [to, setTo] = useState(today())
   const [rows, setRows] = useState(null)
+  const [zData, setZData] = useState(null)   // структурированный Z-отчёт (своя форма, не таблица)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(false)
   const [filter, setFilter] = useState('')   // клиентский фильтр по названию (блюдо/сотрудник)
@@ -61,12 +75,16 @@ export default function ReportsPanel({ branch, onClose }) {
 
   const run = useCallback((which) => {
     const active = which || tab
-    setTab(active); setLoading(true); setErr(false); setRows(null); setFilter('')
-    reports[active]?.({ date_from: from, date_to: to, branch_id: branch?.id })
-      .then((d) => {
-        const arr = Array.isArray(d) ? d : d?.items || d?.rows || d?.data || (d && typeof d === 'object' ? [d] : [])
-        setRows(arr)
-      })
+    setTab(active); setLoading(true); setErr(false); setRows(null); setZData(null); setFilter('')
+    // Z-отчёт — свой эндпоинт (одна дата) и своя форма ответа
+    const req = active === 'z'
+      ? reports.zReport(from).then((d) => setZData(d))
+      : reports[active]?.({ date_from: from, date_to: to, branch_id: branch?.id })
+          .then((d) => {
+            const arr = Array.isArray(d) ? d : d?.items || d?.rows || d?.data || (d && typeof d === 'object' ? [d] : [])
+            setRows(arr)
+          })
+    Promise.resolve(req)
       .catch((e) => {
         // Ошибка видна всегда: и в таблице, и тостом с причиной
         setErr(true); setRows([])
@@ -80,11 +98,16 @@ export default function ReportsPanel({ branch, onClose }) {
     ? Object.keys(rows[0]).filter((k) => typeof rows[0][k] !== 'object' && !/_id$|^id$/i.test(k)).slice(0, 8)
     : []
 
-  // Колонка с названием (блюдо/сотрудник) для клиентского фильтра
+  // Колонка с названием (блюдо/сотрудник) для фильтра
   const nameCol = cols.find((c) => /name|title|product|staff|cashier|waiter/i.test(c)) || cols[0]
+  // Уникальные названия из отчёта — пункты выпадающего фильтра «по определённому блюду/сотруднику»
+  const nameOptions = nameCol
+    ? [...new Set((rows || []).map((r) => String(r[nameCol] ?? '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'))
+    : []
+  // filter хранит точное выбранное название ('' = показать все)
   const shown = (rows || []).filter((r) => {
-    if (!filter.trim() || !nameCol) return true
-    return String(r[nameCol] ?? '').toLowerCase().includes(filter.trim().toLowerCase())
+    if (!filter || !nameCol) return true
+    return String(r[nameCol] ?? '').trim() === filter
   })
 
   function fmtDate(isoStr) {
@@ -119,6 +142,29 @@ export default function ReportsPanel({ branch, onClose }) {
     } catch (e) { toast(t('print_failed') + (e?.response?.data?.detail ? `: ${e.response.data.detail}` : '')) }
   }
 
+  // Печать Z-отчёта на чековом принтере: показатели + разбивка по оплатам
+  async function printZReport() {
+    if (!zData) return
+    if (!receiptPrinter) { toast(t('no_receipt_printer')); return }
+    const money = (v) => Number(v || 0).toLocaleString('ru-RU')
+    const lines = [
+      ...Z_FIN.map(([label, key]) => `${t(label)} — ${money(zData[key])}`),
+      ...Z_CNT.map(([label, key]) => `${t(label)} — ${zData[key] ?? 0}`),
+      `${t('z_pay_methods')}:`,
+      ...((zData.payment_methods || []).map((m) => `  ${m.method} ×${m.count} — ${money(m.amount)}`)),
+    ]
+    try {
+      await printersApi.printSummary({
+        printer_id: receiptPrinter.id,
+        title: `${t('rep_z')} · ${fmtDate(from)}`,
+        lines,
+        footer: `${t('z_net')}: ${money(zData.net_sales)} ${t('currency')}`,
+        copies: 1,
+      })
+      toast(t('receipt_sent'), 'ok')
+    } catch (e) { toast(t('print_failed') + (e?.response?.data?.detail ? `: ${e.response.data.detail}` : '')) }
+  }
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal rep-modal" onClick={(e) => e.stopPropagation()}>
@@ -135,16 +181,21 @@ export default function ReportsPanel({ branch, onClose }) {
           </div>
           <div className="rep-dates">
             <CalendarField value={from} onChange={setFrom} />
-            <span>—</span>
-            <CalendarField value={to} onChange={setTo} />
+            {tab !== 'z' && <><span>—</span><CalendarField value={to} onChange={setTo} /></>}
             <button className="btn btn--primary" onClick={() => run()}>{t('generate')}</button>
           </div>
-          {rows?.length > 0 && (
-            <input
-              className="input rep-filter"
+          {/* Селект показываем, как только в отчёте есть хоть одно имя: в отчёте по
+              сотрудникам часто одна строка, а фильтр всё равно должен быть виден */}
+          {tab !== 'z' && nameOptions.length > 0 && (
+            <CustomSelect
+              className="rep-filter"
               value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder={t('rep_filter')}
+              onChange={setFilter}
+              placeholder={tab === 'staff' ? t('rep_all_staff') : t('rep_all_dishes')}
+              options={[
+                { value: '', label: tab === 'staff' ? t('rep_all_staff') : t('rep_all_dishes') },
+                ...nameOptions.map((name) => ({ value: name, label: name })),
+              ]}
             />
           )}
         </div>
@@ -152,6 +203,46 @@ export default function ReportsPanel({ branch, onClose }) {
         <div className="modal__body rep-body">
           {loading ? (
             <div className="kitchen-empty"><div className="spinner" /><p>{t('generating')}</p></div>
+          ) : tab === 'z' ? (
+            zData == null ? (
+              <p className="settings-hint">{err ? t('rep_unavailable') : t('rep_hint')}</p>
+            ) : (
+              <div className="z-report">
+                <div className="z-report__head">
+                  <div className="z-report__meta">
+                    <span>{t('col_date')}: <strong>{fmtDate(zData.date)}</strong></span>
+                    <span>{t('z_closed')}: <strong>{zData.is_closed ? t('z_yes') : t('z_no')}</strong></span>
+                    <span>{t('z_shift_open')}: <strong>{zData.shift_opened_at || '—'}</strong></span>
+                    <span>{t('z_shift_close')}: <strong>{zData.shift_closed_at || '—'}</strong></span>
+                  </div>
+                  <button className="btn btn--outline" onClick={printZReport}><Printer size={18} /> {t('z_print')}</button>
+                </div>
+                <div className="rep-table-wrap">
+                  <table className="hist-table">
+                    <tbody>
+                      {Z_FIN.map(([label, key]) => (
+                        <tr key={key}><td>{t(label)}</td><td className="ta-r hist-sum">{Number(zData[key] || 0).toLocaleString('ru-RU')} {t('currency')}</td></tr>
+                      ))}
+                      {Z_CNT.map(([label, key]) => (
+                        <tr key={key}><td>{t(label)}</td><td className="ta-r">{zData[key] ?? 0}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="rep-table-wrap">
+                  <table className="hist-table">
+                    <thead><tr><th>{t('z_method')}</th><th className="ta-r">{t('z_count')}</th><th className="ta-r">{t('z_amount')}</th></tr></thead>
+                    <tbody>
+                      {(zData.payment_methods || []).length === 0 ? (
+                        <tr><td colSpan={3}>{t('z_no_data')}</td></tr>
+                      ) : zData.payment_methods.map((m) => (
+                        <tr key={m.method}><td>{m.method}</td><td className="ta-r">{m.count}</td><td className="ta-r hist-sum">{Number(m.amount || 0).toLocaleString('ru-RU')} {t('currency')}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )
           ) : rows == null ? (
             <p className="settings-hint">{t('rep_hint')}</p>
           ) : rows.length === 0 ? (

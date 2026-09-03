@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   Search, Plus, Minus, Trash2, Utensils,
-  LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock, Wallet, History, BarChart3, LogOut, Ban, ShoppingBag, Bike, CheckCircle,
+  LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock, Wallet, History, BarChart3, LogOut, Ban, ShoppingBag, Bike,
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi, printers as printersApi, customers as customersApi, auth as authApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
@@ -12,11 +12,10 @@ import ReportsPanel from '../../components/ReportsPanel'
 import StopListPanel from '../../components/StopListPanel'
 import AttendancePanel from '../../components/AttendancePanel'
 import PaymentModal from '../../components/PaymentModal'
-import SplitReceiptModal from '../../components/SplitReceiptModal'
 import InputPromptModal from '../../components/InputPromptModal'
 import HeaderMenu from '../../components/HeaderMenu'
 import { t } from '../../shared/i18n'
-import { can } from '../../shared/permissions'
+import { can, must } from '../../shared/permissions'
 import { toast } from '../../components/Toast'
 import { formatPhone, extractPhoneDigits, fullPhone } from '../../shared/phone'
 
@@ -35,30 +34,15 @@ function initials(name = '') {
 }
 function fmtTime(iso) { return iso ? new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '' }
 
-// Снимок заказа для экрана успеха курьера: берём данные с сервера, иначе — из корзины
-function buildCourierSuccess(created, cartSnap, totalSnap) {
-  const src = created?.items?.length ? created.items : cartSnap
-  const items = (src || []).map((i) => ({
-    qty: i.quantity ?? i.qty ?? 1,
-    name: i.name || i.product_name || i.product?.name || '',
-    sum: Number(i.total ?? (Number(i.price || 0) * Number(i.quantity ?? i.qty ?? 1))) || 0,
-  }))
-  return {
-    order_number: created?.order_number ?? null,
-    total: Number(created?.total_amount ?? totalSnap) || 0,
-    items,
-  }
-}
-
 export default function CashierMode({ user = {}, onBack, courier = false }) {
   const [zones, setZones] = useState([])
   const [orderList, setOrderList] = useState([])
-  const [activeZone, setActiveZone] = useState('all')
+  const [activeZone, setActiveZone] = useState(courier ? 'delivery' : 'all')
   const [loading, setLoading] = useState(true)
 
-  // Курьер стартует сразу на выборе блюд «с собой» — столов у него нет
-  const [view, setView] = useState(courier ? 'order' : 'floor')  // floor | order
-  const [orderType, setOrderType] = useState(courier ? 'takeaway' : 'dine_in')
+  // Курьер стартует на доске своих заказов (доставка). Физических столов у него нет
+  const [view, setView] = useState('floor')  // floor | order
+  const [orderType, setOrderType] = useState(courier ? 'delivery' : 'dine_in')
   const [selectedTable, setSelectedTable] = useState(null)
 
   const [categories, setCategories] = useState([])
@@ -78,10 +62,8 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
   const [stopOpen, setStopOpen] = useState(false)
   const [attOpen, setAttOpen] = useState(false)
   const [payExisting, setPayExisting] = useState(null)   // существующий заказ на оплату/закрытие
-  const [splitOrder, setSplitOrder] = useState(null)      // 2.1 — заказ для раздельного чека
   const [promptCfg, setPromptCfg] = useState(null)        // модалка ввода (пароль отмены / новый стол)
   const [creating, setCreating] = useState(false)         // создание заказа (лоадер кнопки)
-  const [successOrder, setSuccessOrder] = useState(null)  // экран успеха курьера (после отправки заказа)
   const [staff, setStaff] = useState([])                 // сотрудники (для смены официанта)
   const [printerMap, setPrinterMap] = useState({})
   const [addToOrderId, setAddToOrderId] = useState(null) // id заказа, в который ДОБАВЛЯЕМ блюда (иначе создаём новый)
@@ -134,10 +116,16 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     return o.status === 'ready' ? 'ready' : 'busy'
   }
   const freeCount = (list) => list.filter((t) => tableStatus(t.number) === 'free').length
+  // Заказы доставки и «с собой» — свои доски (карточки заказов, а не столов)
+  const deliveryOrders = orderList.filter((o) => o.order_type === 'delivery')
+  const takeawayOrders = orderList.filter((o) => o.order_type === 'takeaway')
   const zoneNav = [
     { id: 'all', name: t('all'), count: freeCount(allTables), Icon: LayoutGrid },
     ...zones.map((z) => ({ id: z.id, name: z.name, count: freeCount(z.tables || []), Icon: zoneIcon(z.name) })),
   ]
+  // Активна доска заказов (доставка/с собой), а не столов
+  const orderBoard = activeZone === 'delivery' || activeZone === 'takeaway'
+  const boardOrders = activeZone === 'delivery' ? deliveryOrders : takeawayOrders
   const shownZones = activeZone === 'all' ? zones : zones.filter((z) => z.id === activeZone)
   // Счётчики в шапке — по ПОКАЗАННОЙ зоне (а не по всем столам): иначе «занято N» не совпадало с видимым
   const shownTables = activeZone === 'all' ? allTables : allTables.filter((tb) => tb.zoneId === activeZone)
@@ -150,14 +138,22 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     setAddToOrderId(null)   // новый заказ (не дозаказ)
     setView('order')
   }
-  // Дозаказ: добавляем блюда в уже открытый заказ стола (из модалки оплаты)
+  // Дозаказ: добавляем блюда в уже открытый заказ стола (из модалки оплаты).
+  // payExisting НЕ гасим: экран оплаты рендерится только во виде floor, поэтому
+  // он просто ждёт «под» меню — и «Назад» возвращает в тот же счёт, а не к столам.
   function addDishesToOrder(order) {
-    setPayExisting(null)
     setOrderType('dine_in'); setSelectedTable({ number: order.table_number })
     setCart([]); setOrderNote(''); setSearch(''); setActiveCat(null)
     setDeliveryPhone(''); setDeliveryAddress(''); setCustId(null); setCustMatches([])
     setAddToOrderId(order.id)
     setView('order')
+  }
+  // Выход из меню назад: дозаказ → в тот же счёт (payExisting уже открыт),
+  // новый заказ → к столам. Корзину и признак дозаказа сбрасываем, иначе
+  // выбранные блюда «переехали» бы в следующий заказ.
+  function backFromOrder() {
+    setCart([]); setOrderNote(''); setEditLine(null); setAddToOrderId(null)
+    setView('floor')
   }
   // Автокомплит постоянных клиентов по номеру
   function onDeliveryPhone(raw) {
@@ -186,13 +182,6 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     try { await printersApi.printReceipt({ order_id: order.id, printer_id: pr.id, copies: 1 }) }
     catch (e) { toast(t('print_failed') + (e?.response?.data?.detail ? `: ${e.response.data.detail}` : '')) }
   }
-  // 2.1 — раздельный чек: печатает заказ несколькими чеками-частями.
-  async function printSplitReceipt(order, payload) {
-    const pr = receiptPrinter()
-    if (!pr) { toast(t('no_receipt_printer')); throw new Error('no printer') }
-    await printersApi.printSplit({ order_id: order.id, printer_id: pr.id, copies: 1, ...payload })
-    toast(t('split_done'), 'success')
-  }
   // Закрыть заказ (оплата подтверждена кассиром). Способ оплаты фиксируется вручную —
   // платёжку интегрируем позже; сейчас просто переводим заказ в completed.
   async function completeExistingOrder(order /* , method */) {
@@ -218,6 +207,13 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
   // Смена официанта заказа
   async function setOrderWaiter(order, waiterId) {
     try { await orders.update(order.id, { waiter_id: waiterId }); setPayExisting({ ...order, waiter_id: waiterId }); loadFloor() }
+    catch (e) { toast(e?.response?.data?.detail || e.message) }
+  }
+  // Смена ответственного официанта у ОДНОЙ позиции: официант 1 мог случайно
+  // внести блюдо в стол официанта 2, а доля обслуги считается по ответственному.
+  async function setItemWaiter(order, item, waiterId) {
+    if (!waiterId) return
+    try { const upd = await orders.setItemWaiter(order.id, item.id, waiterId); setPayExisting(upd); loadFloor() }
     catch (e) { toast(e?.response?.data?.detail || e.message) }
   }
   // Скидка на существующий заказ — применяется в модалке оплаты (сервер пересчитывает итог)
@@ -271,7 +267,6 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     if (!cart.length || creating) return
     setCreating(true)
     try {
-      let created = null
       if (addToOrderId) {
         // Дозаказ: досылаем позиции в существующий заказ.
         // Бэкенд в add_item сам возвращает заказ в статус «готовится» (service.py),
@@ -280,25 +275,28 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
         for (const i of cart) {
           await orders.addItem(addToOrderId, { product_id: i.product.id, quantity: i.qty, note: i.note || null, takeaway: !!i.takeaway })
         }
+        // Освежаем снимок заказа: после «Назад»/возврата счёт показывает новые позиции и сумму
+        try { const fresh = await orders.get(addToOrderId); if (fresh) setPayExisting(fresh) }
+        catch { /* нет связи — останется прежний снимок, состав подтянется при перезаходе */ }
         setAddToOrderId(null)
       } else {
-        created = await orders.create({
+        await orders.create({
           branch_id: user.branch_id,
           order_type: orderType,
           table_number: orderType === 'dine_in' && selectedTable?.number != null ? String(selectedTable.number) : undefined,
           note: orderNote || undefined,
           customer_id: custId || undefined,
-          customer_phone: orderType === 'delivery' ? (deliveryPhone || undefined) : undefined,
+          customer_phone: orderType === 'delivery' ? (fullPhone(deliveryPhone) || undefined) : undefined,
           customer_address: orderType === 'delivery' ? (deliveryAddress || undefined) : undefined,
           // Курьер: все позиции всегда «с собой» → бэкенд не начисляет сервисный сбор.
           items: cart.map((i) => ({ product_id: i.product.id, quantity: i.qty, note: i.note || null, takeaway: courier ? true : !!i.takeaway })),
         })
       }
-      if (courier) {
-        // Курьер: показываем экран успеха с номером заказа (столов и оплаты у него нет).
-        setSuccessOrder(buildCourierSuccess(created, cart, total))
-        setCart([]); setOrderNote('')
-      } else { setView('floor'); loadFloor() }
+      // Курьер: экрана успеха нет — уходим на доску доставки, там виден новый заказ.
+      // Касса: после доставки/«с собой» — на доску этих заказов (item 4/5), иначе на столы.
+      if (courier) setActiveZone('delivery')
+      else if (orderType === 'delivery' || orderType === 'takeaway') setActiveZone(orderType)
+      setView('floor'); loadFloor()
       toast(t('order_created'))
     } catch (err) {
       toast(t('create_order_error') + ': ' + (err?.response?.data?.detail || err.message), 'error')
@@ -307,45 +305,89 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     }
   }
 
-  // ═══ Вид: столы ═══
-  if (view === 'floor' && !courier) {
+  // ═══ Вид: столы (кассир) / доска заказов (курьер) ═══
+  if (view === 'floor') {
     return (
       <div className="floor">
         <aside className="ws-side">
           <button className="zone zone--exit" onClick={onBack}><LogOut size={20} /><span className="zone__name">{t('logout')}</span></button>
-          <div className="ws-side__label">{t('locations')}</div>
-          <nav className="ws-side__nav">
-            {zoneNav.map(({ id, name, count, Icon }) => (
-              <button key={id} className={`zone ${activeZone === id ? 'zone--active' : ''}`} onClick={() => setActiveZone(id)}>
-                <Icon size={20} /><span className="zone__name">{name}</span><span className="zone__count">{count}</span>
-              </button>
-            ))}
-          </nav>
+          {courier ? (
+            <>
+              {/* Курьер: только его доска доставки, без физических зон и «с собой» */}
+              <div className="ws-side__label">{t('orders')}</div>
+              <nav className="ws-side__nav">
+                <button className={`zone ${activeZone === 'delivery' ? 'zone--active' : ''}`} onClick={() => setActiveZone('delivery')}>
+                  <Bike size={20} /><span className="zone__name">{t('delivery')}</span><span className="zone__count">{deliveryOrders.length}</span>
+                </button>
+              </nav>
+            </>
+          ) : (
+            <>
+              <div className="ws-side__label">{t('locations')}</div>
+              <nav className="ws-side__nav">
+                {zoneNav.map(({ id, name, count, Icon }) => (
+                  <button key={id} className={`zone ${activeZone === id ? 'zone--active' : ''}`} onClick={() => setActiveZone(id)}>
+                    <Icon size={20} /><span className="zone__name">{name}</span><span className="zone__count">{count}</span>
+                  </button>
+                ))}
+              </nav>
+            </>
+          )}
         </aside>
 
         <main className="ws__main">
           <div className="board__head">
             <div className="board__title">
-              <h2>{t('tables')}</h2>
-              <span className="board__subtitle">{shownTables.length} {t('tables_low')} · {busyCount} {t('busy_low')}</span>
+              <h2>{orderBoard ? t(activeZone) : t('tables')}</h2>
+              <span className="board__subtitle">
+                {orderBoard
+                  ? `${boardOrders.length} ${t('orders_low')}`
+                  : `${shownTables.length} ${t('tables_low')} · ${busyCount} ${t('busy_low')}`}
+              </span>
             </div>
             <div className="board__head-right">
-              {can(user, 'can_change_order_type') && <button className="btn btn--outline btn--sm" onClick={() => openOrder('takeaway', null)}><ShoppingBag size={18} /> {t('takeaway')}</button>}
-              {can(user, 'can_change_order_type') && <button className="btn btn--outline btn--sm" onClick={() => openOrder('delivery', null)}><Bike size={18} /> {t('delivery')}</button>}
-              <HeaderMenu
-                label={t('menu_more')}
-                items={[
-                  { id: 'fin', label: t('finance'), Icon: Wallet, onClick: () => setFinOpen(true) },
-                  ...(can(user, 'can_approve_attendance') ? [{ id: 'att', label: t('attendance'), Icon: Clock, onClick: () => setAttOpen(true) }] : []),
-                  ...(can(user, 'can_view_closed_orders') ? [{ id: 'hist', label: t('history'), Icon: History, onClick: () => setHistOpen(true) }] : []),
-                  { id: 'rep', label: t('reports'), Icon: BarChart3, onClick: () => setRepOpen(true) },
-                ]}
-              />
-              {can(user, 'can_view_stop_list') && <button className="btn btn--outline btn--sm" onClick={() => setStopOpen(true)}><Ban size={18} /> {t('stoplist')}</button>}
+              {orderBoard && !courier && <button className="btn btn--outline btn--sm" onClick={() => setActiveZone('all')}><ArrowLeft size={18} /> {t('to_tables')}</button>}
+              {orderBoard && <button className="btn btn--primary btn--sm" onClick={() => openOrder(activeZone, null)}><Plus size={18} /> {t('new_order')}</button>}
+              {!courier && can(user, 'can_change_order_type') && <button className="btn btn--outline btn--sm" onClick={() => setActiveZone('takeaway')}><ShoppingBag size={18} /> {t('takeaway')}</button>}
+              {!courier && can(user, 'can_change_order_type') && <button className="btn btn--outline btn--sm" onClick={() => setActiveZone('delivery')}><Bike size={18} /> {t('delivery')}</button>}
+              {!courier && (
+                <HeaderMenu
+                  label={t('menu_more')}
+                  items={[
+                    ...(must(user, 'can_view_finance') ? [{ id: 'fin', label: t('finance'), Icon: Wallet, onClick: () => setFinOpen(true) }] : []),
+                    ...(can(user, 'can_approve_attendance') ? [{ id: 'att', label: t('attendance_page'), Icon: Clock, onClick: () => setAttOpen(true) }] : []),
+                    ...(can(user, 'can_view_closed_orders') ? [{ id: 'hist', label: t('history'), Icon: History, onClick: () => setHistOpen(true) }] : []),
+                    { id: 'rep', label: t('reports'), Icon: BarChart3, onClick: () => setRepOpen(true) },
+                  ]}
+                />
+              )}
+              {!courier && can(user, 'can_view_stop_list') && <button className="btn btn--outline btn--sm" onClick={() => setStopOpen(true)}><Ban size={18} /> {t('stoplist')}</button>}
             </div>
           </div>
           <div className="board__scroll">
-            {loading ? <p className="empty-text">{t('loading')}</p> : shownZones.map((z) => (
+            {orderBoard ? (
+              boardOrders.length === 0 ? <p className="empty-text">{t('no_orders')}</p> : (
+                <div className="tgrid">
+                  {boardOrders.map((o) => {
+                    const variant = o.status === 'ready' ? 'check' : o.receipt_printed_at ? 'pay' : 'busy'
+                    return (
+                      <button key={o.id} className={`tcard tcard--${variant}`} onClick={() => { if (!courier) setPayExisting(o) }}>
+                        <div className="tcard__top">
+                          <span className="tcard__num">#{o.order_number ?? ''}</span>
+                          <span className="tcard__seats">{activeZone === 'delivery' ? <Bike /> : <ShoppingBag />}</span>
+                        </div>
+                        {o.customer_phone && <span className="tcard__client">{formatPhone(extractPhoneDigits(o.customer_phone)) || o.customer_phone}</span>}
+                        {activeZone === 'delivery' && o.customer_address && <span className="tcard__client">{o.customer_address}</span>}
+                        <span className="tcard__meta"><Clock /> {fmtTime(o.created_at)}
+                          {o.total_amount != null && <span className="tcard__amount">{Number(o.total_amount).toLocaleString('ru-RU')} {t('currency')}</span>}
+                        </span>
+                        <span className="tcard__status">{t.status(o.status)}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            ) : loading ? <p className="empty-text">{t('loading')}</p> : shownZones.map((z) => (
               <section className="tgroup" key={z.id}>
                 <div className="tgroup__title">{z.name} <span>{(z.tables || []).length} {t('tables_low')}</span></div>
                 <div className="tgrid">
@@ -373,69 +415,29 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
             ))}
           </div>
         </main>
-        {finOpen && <FinancePanel branch={{ id: user.branch_id }} onClose={() => setFinOpen(false)} />}
+        {finOpen && <FinancePanel branch={{ id: user.branch_id }} user={user} onClose={() => setFinOpen(false)} />}
         {histOpen && <HistoryPanel branch={{ id: user.branch_id }} onClose={() => setHistOpen(false)} />}
         {repOpen && <ReportsPanel branch={{ id: user.branch_id }} onClose={() => setRepOpen(false)} />}
         {stopOpen && <StopListPanel user={user} onClose={() => setStopOpen(false)} />}
-        {attOpen && <AttendancePanel onClose={() => setAttOpen(false)} />}
+        {attOpen && <AttendancePanel user={user} onClose={() => setAttOpen(false)} />}
         {payExisting && (
           <PaymentModal
             order={payExisting}
+            fullscreen
             onPrint={printOrderReceipt}
-            onSplit={(o) => setSplitOrder(o)}
             onComplete={completeExistingOrder}
             onCancel={cancelOrder}
             onReassign={reassignTable}
             onAddItems={addDishesToOrder}
             staff={staff}
             onSetWaiter={setOrderWaiter}
+            onSetItemWaiter={setItemWaiter}
             onApplyDiscount={applyOrderDiscount}
             canClose={can(user, 'can_close_bill')}
             onClose={() => setPayExisting(null)}
           />
         )}
         {promptCfg && <InputPromptModal {...promptCfg} onClose={() => setPromptCfg(null)} />}
-        {splitOrder && (
-          <SplitReceiptModal
-            order={splitOrder}
-            onPrint={(payload) => printSplitReceipt(splitOrder, payload)}
-            onClose={() => setSplitOrder(null)}
-          />
-        )}
-      </div>
-    )
-  }
-
-  // ═══ Вид: экран успеха курьера (после отправки заказа) ═══
-  if (courier && successOrder) {
-    return (
-      <div className="floor courier-done">
-        <div className="courier-done__card">
-          <div className="courier-done__icon"><CheckCircle size={56} /></div>
-          <h2 className="courier-done__title">{t('order_accepted')}</h2>
-          {successOrder.order_number != null && (
-            <div className="courier-done__no">{t('order_no')} #{successOrder.order_number}</div>
-          )}
-          <p className="courier-done__wait">{t('courier_wait')}</p>
-          {successOrder.items.length > 0 && (
-            <ul className="courier-done__items">
-              {successOrder.items.map((it, idx) => (
-                <li key={idx}>
-                  <span>{it.qty} × {it.name}</span>
-                  <span>{it.sum.toLocaleString('ru-RU')} {t('currency')}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="courier-done__total">
-            <span>{t('total')}</span>
-            <strong>{successOrder.total.toLocaleString('ru-RU')} {t('currency')}</strong>
-          </div>
-          <button className="courier-done__new cart-btn cart-btn--pay" onClick={() => { setSuccessOrder(null); openOrder('takeaway') }}>
-            <Plus size={20} /> {t('new_order')}
-          </button>
-          <button className="courier-done__exit btn-ghost" onClick={onBack}>{t('logout')}</button>
-        </div>
       </div>
     )
   }
@@ -444,9 +446,10 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
   return (
     <div className="floor">
       <aside className="ws-side">
-        <button className="zone zone--exit" onClick={() => (courier ? onBack?.() : setView('floor'))}>
-          {courier ? <LogOut size={20} /> : <ArrowLeft size={20} />}
-          <span className="zone__name">{courier ? t('logout') : t('to_tables')}</span>
+        <button className="zone zone--exit" onClick={backFromOrder}>
+          <ArrowLeft size={20} />
+          {/* Дозаказ возвращает в счёт, а не к столам — подпись должна совпадать с действием */}
+          <span className="zone__name">{courier || addToOrderId ? t('back') : t('to_tables')}</span>
         </button>
         <div className="ws-side__label">{t('categories')}</div>
         <nav className="ws-side__nav">
@@ -507,7 +510,8 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
                     <span className="cart-item__price">{(item.price * item.qty).toLocaleString('ru-RU')} {t('currency')}</span>
                   </button>
                   <div className="cart-item__controls">
-                    {!courier && (
+                    {/* «С собой» за столом — под правом can_takeaway_at_table; для доставки/навынос доступно всегда */}
+                    {!courier && (orderType !== 'dine_in' || can(user, 'can_takeaway_at_table')) && (
                       <button
                         type="button"
                         className={`cart-take ${item.takeaway ? 'cart-take--on' : ''}`}
@@ -561,7 +565,7 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
           line={editLine}
           onSubmit={saveEdit}
           onClose={() => setEditLine(null)}
-          hideTakeaway={courier}
+          hideTakeaway={courier || (orderType === 'dine_in' && !can(user, 'can_takeaway_at_table'))}
         />
       )}
     </div>

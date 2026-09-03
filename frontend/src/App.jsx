@@ -112,7 +112,6 @@ export function createAppRouter() {
       { path: "users/delivery", element: <StaffRolePage role="courier" /> },
       { path: "users/monoblock", element: <StaffRolePage role="monoblock" /> },
       { path: "users/kitchen", element: <StaffRolePage role="kitchen" /> },
-      { path: "users/manager", element: <StaffRolePage role="manager" /> },
       { path: "users/warehouse", element: <StaffRolePage role="warehouse" /> },
       { path: "users/login-history", element: <StaffActivityPage type="login-history" /> },
       { path: "users/attendance", element: <StaffActivityPage type="attendance" /> },

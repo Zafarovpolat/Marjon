@@ -9,7 +9,6 @@ const roleOptions = [
   { key: "courier", label: "Курьер", title: "Курьеры" },
   { key: "monoblock", label: "Моноблок", title: "Моноблок" },
   { key: "kitchen", label: "Повар", title: "Повара" },
-  { key: "manager", label: "Менеджер", title: "Менеджеры" },
   { key: "warehouse", label: "Завсклад", title: "Завсклад" },
 ];
 
@@ -102,6 +101,8 @@ const emptyForm = {
   phoneCountry: "UZ",
   roleKey: "",
   pin: "",
+  // Длина PIN выбирается в форме: 2 цифры (быстрее на кассе) или 4 (по умолчанию).
+  pinLen: 4,
   password: "",
   status: "active",
   photo: "",
@@ -110,24 +111,46 @@ const emptyForm = {
   printerIp: "",
   nfcId: "",
   canDeleteDishes: false,
-  canTakeawayAtTable: false,
+  // can_manage_orders — на десктопе это must() (строгая проверка): официанту
+  // отмена/перенос/удаление отправленных блюд доступны ТОЛЬКО при явном true.
+  // Дефолт OFF: опасное право выдаётся осознанно (иначе оно недостижимо у официанта).
+  canManageOrders: false,
+  // can_takeaway_at_table — на десктопе это can() (мягкая проверка): без явного false
+  // «с собой» за столом доступно. Дефолт ON сохраняет текущее поведение — тумблер лишь ОГРАНИЧИВАЕТ.
+  canTakeawayAtTable: true,
   canChangeOrderType: false,
   canCloseBill: false,
   canOpenCashDrawerAfterPayment: false,
   canViewClosedOrders: false,
   canEditStopList: false,
+  // can_view_stop_list / can_approve_attendance — на десктопе это can() (мягкая
+  // проверка): без явного false доступ РАЗРЕШЁН. Дефолт ON сохраняет текущее
+  // поведение (кассир их и так видит) — владелец может лишь ОГРАНИЧИТЬ.
+  canViewStopList: true,
+  canViewFinance: false,
+  canCashOps: false,
+  canApproveAttendance: true,
+  // Спец-права десктопа: открывают «режим разработчика» на терминале
+  // (управление персоналом/правами и складские записи) кассиру-менеджеру.
+  // Дефолт OFF — единственная точка эскалации, выдаёт осознанно только владелец здесь.
+  canManageStaff: false,
+  canManageWarehouse: false,
   access: {},
 };
 
 const getPermissionSummary = (values) => {
   const permissions = [
     values.canDeleteDishes && "Удаление блюд",
-    values.canTakeawayAtTable && "Заказ на вынос",
+    values.canManageOrders && "Управление заказами",
     values.canChangeOrderType && "Изменение типа заказа",
     values.canCloseBill && "Закрытие счета",
     values.canOpenCashDrawerAfterPayment && "Открытие денежного ящика",
     values.canViewClosedOrders && "Просмотр закрытых заказов",
     values.canEditStopList && "Редактирование стоп-листа",
+    values.canViewFinance && "Просмотр финансов",
+    values.canCashOps && "Приход/расход",
+    values.canManageStaff && "Управление персоналом",
+    values.canManageWarehouse && "Управление складом",
   ].filter(Boolean);
 
   return permissions.join(", ") || values.permission || "Базовый доступ";
@@ -218,12 +241,25 @@ function mapStaffUser(user) {
     printerIp: user.printer_ip || "",
     nfcId: user.nfc_id || "",
     canDeleteDishes: !!perm.can_delete_dishes,
-    canTakeawayAtTable: !!perm.can_takeaway_at_table,
+    // must() на десктопе → absent трактуем как false (тумблер OFF)
+    canManageOrders: !!perm.can_manage_orders,
+    // can() на десктопе → absent означает «разрешено»: absent/true = ON, только явный false = OFF.
+    canTakeawayAtTable: perm.can_takeaway_at_table !== false,
     canChangeOrderType: !!perm.can_change_order_type,
     canCloseBill: !!perm.can_close_bill,
     canOpenCashDrawerAfterPayment: !!perm.can_open_cash_drawer,
     canViewClosedOrders: !!perm.can_view_closed_orders,
     canEditStopList: !!perm.can_edit_stop_list,
+    // can() на десктопе → absent означает «разрешено», поэтому absent = true (ON).
+    // Явный false в БД → тумблер OFF. Так владелец видит реальное состояние.
+    canViewStopList: perm.can_view_stop_list !== false,
+    canViewFinance: !!perm.can_view_finance,
+    canCashOps: !!perm.can_cash_ops,
+    canApproveAttendance: perm.can_approve_attendance !== false,
+    // Спец-права десктопа (must() на бэкенде): absent трактуем как false —
+    // показываем реальное состояние, чтобы владелец видел, у кого есть эскалация.
+    canManageStaff: !!perm.can_manage_staff,
+    canManageWarehouse: !!perm.can_manage_warehouse,
     access: perm.modules || {},
   };
 }
@@ -329,6 +365,12 @@ function StaffRolePage({ role = "all" }) {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
+  // Смена длины PIN: лишние цифры обрезаем сразу (maxLength уже введённое не режет),
+  // иначе при переключении 4 → 2 в поле осталось бы «1234» и сохранение упало бы.
+  const setPinLen = (len) => {
+    setForm((current) => ({ ...current, pinLen: len, pin: current.pin.slice(0, len) }));
+  };
+
   const toggleForm = (field) => {
     setForm((current) => ({ ...current, [field]: !current[field] }));
   };
@@ -389,8 +431,9 @@ function StaffRolePage({ role = "all" }) {
       mutationLocks.release("staff-save");
       return;
     }
-    if (form.pin && !/^\d{4,8}$/.test(form.pin)) {
-      window.alert("PIN должен содержать от 4 до 8 цифр.");
+    const pinLen = Number(form.pinLen) || 4;
+    if (form.pin && !new RegExp(`^\\d{${pinLen}}$`).test(form.pin)) {
+      window.alert(`PIN должен содержать ровно ${pinLen} цифры.`);
       mutationLocks.release("staff-save");
       return;
     }
@@ -401,12 +444,19 @@ function StaffRolePage({ role = "all" }) {
     // Отдельного /pin-эндпоинта нет — PIN уходит в теле общего запроса.
     const permissions = {
       can_delete_dishes: !!form.canDeleteDishes,
+      can_manage_orders: !!form.canManageOrders,
       can_takeaway_at_table: !!form.canTakeawayAtTable,
       can_change_order_type: !!form.canChangeOrderType,
       can_close_bill: !!form.canCloseBill,
       can_open_cash_drawer: !!form.canOpenCashDrawerAfterPayment,
       can_view_closed_orders: !!form.canViewClosedOrders,
       can_edit_stop_list: !!form.canEditStopList,
+      can_view_stop_list: !!form.canViewStopList,
+      can_view_finance: !!form.canViewFinance,
+      can_cash_ops: !!form.canCashOps,
+      can_approve_attendance: !!form.canApproveAttendance,
+      can_manage_staff: !!form.canManageStaff,
+      can_manage_warehouse: !!form.canManageWarehouse,
       modules: form.access || {},
     };
     const staffFields = {
@@ -810,14 +860,21 @@ function StaffRolePage({ role = "all" }) {
                 </div>
               </label>
               <label>
-                <span>PIN-код 4 цифры</span>
+                <span>Длина PIN</span>
+                <select value={form.pinLen} onChange={(event) => setPinLen(Number(event.target.value))}>
+                  <option value={2}>2 цифры</option>
+                  <option value={4}>4 цифры</option>
+                </select>
+              </label>
+              <label>
+                <span>PIN-код {form.pinLen} цифры</span>
                 <input
                   value={form.pin}
-                  maxLength={4}
+                  maxLength={form.pinLen}
                   inputMode="numeric"
-                  pattern="[0-9]{4}"
+                  pattern={`[0-9]{${form.pinLen}}`}
                   onChange={(event) => updateForm("pin", event.target.value.replace(/\D/g, ""))}
-                  placeholder="0000"
+                  placeholder={"0".repeat(form.pinLen)}
                 />
               </label>
               <label>
@@ -856,6 +913,16 @@ function StaffRolePage({ role = "all" }) {
                   onClick={() => toggleForm("canDeleteDishes")}
                 >
                   <span>Удаления блюд</span>
+                  <b className="staff-switch" aria-hidden="true" />
+                </button>
+                {/* can_manage_orders — must() на десктопе: без этого права официант
+                    НЕ может отменять/переносить/удалять отправленные блюда и заказы. */}
+                <button
+                  className={`staff-permission-switch ${form.canManageOrders ? "is-on" : ""}`}
+                  type="button"
+                  onClick={() => toggleForm("canManageOrders")}
+                >
+                  <span>Управление заказами (отмена / перенос / удаление)</span>
                   <b className="staff-switch" aria-hidden="true" />
                 </button>
                 <button
@@ -906,6 +973,64 @@ function StaffRolePage({ role = "all" }) {
                   onClick={() => toggleForm("canEditStopList")}
                 >
                   <span>Редактирование стоп-листа</span>
+                  <b className="staff-switch" aria-hidden="true" />
+                </button>
+                {/* can_view_stop_list — can() на десктопе: по умолчанию включено,
+                    выключение ОГРАНИЧИВАЕТ просмотр стоп-листа на кассе. */}
+                <button
+                  className={`staff-permission-switch ${form.canViewStopList ? "is-on" : ""}`}
+                  type="button"
+                  onClick={() => toggleForm("canViewStopList")}
+                >
+                  <span>Просмотр стоп-листа</span>
+                  <b className="staff-switch" aria-hidden="true" />
+                </button>
+                <button
+                  className={`staff-permission-switch ${form.canViewFinance ? "is-on" : ""}`}
+                  type="button"
+                  onClick={() => toggleForm("canViewFinance")}
+                >
+                  <span>Просмотр финансов</span>
+                  <b className="staff-switch" aria-hidden="true" />
+                </button>
+                <button
+                  className={`staff-permission-switch ${form.canCashOps ? "is-on" : ""}`}
+                  type="button"
+                  onClick={() => toggleForm("canCashOps")}
+                >
+                  <span>Приход / расход (касса)</span>
+                  <b className="staff-switch" aria-hidden="true" />
+                </button>
+                {/* can_approve_attendance — can() на десктопе: по умолчанию включено,
+                    выключение убирает у кассира одобрение прихода/ухода поваров. */}
+                <button
+                  className={`staff-permission-switch ${form.canApproveAttendance ? "is-on" : ""}`}
+                  type="button"
+                  onClick={() => toggleForm("canApproveAttendance")}
+                >
+                  <span>Подтверждение прихода / ухода повара</span>
+                  <b className="staff-switch" aria-hidden="true" />
+                </button>
+                {/* Спец-права десктопа: открывают «режим разработчика» на терминале.
+                    can_manage_staff — хаб управления персоналом и правами кассиров;
+                    can_manage_warehouse — складские записи (приход/списание/инвентаризация).
+                    Единственная точка эскалации — выдаёт только владелец здесь. Бэкенд
+                    (require_permission_or_admin) не позволит кассиру-менеджеру выдать эти
+                    права дальше, поэтому на кассе/десктопе их в тумблерах прав НЕТ. */}
+                <button
+                  className={`staff-permission-switch ${form.canManageStaff ? "is-on" : ""}`}
+                  type="button"
+                  onClick={() => toggleForm("canManageStaff")}
+                >
+                  <span>Управление персоналом (режим разработчика на терминале)</span>
+                  <b className="staff-switch" aria-hidden="true" />
+                </button>
+                <button
+                  className={`staff-permission-switch ${form.canManageWarehouse ? "is-on" : ""}`}
+                  type="button"
+                  onClick={() => toggleForm("canManageWarehouse")}
+                >
+                  <span>Управление складом (приход / списание / инвентаризация)</span>
                   <b className="staff-switch" aria-hidden="true" />
                 </button>
               </div>
@@ -1019,14 +1144,21 @@ function StaffRolePage({ role = "all" }) {
                 </select>
               </label>
               <label>
-                <span>PIN-код 4 цифры</span>
+                <span>Длина PIN</span>
+                <select value={form.pinLen} onChange={(event) => setPinLen(Number(event.target.value))}>
+                  <option value={2}>2 цифры</option>
+                  <option value={4}>4 цифры</option>
+                </select>
+              </label>
+              <label>
+                <span>PIN-код {form.pinLen} цифры</span>
                 <input
                   value={form.pin}
-                  maxLength={4}
+                  maxLength={form.pinLen}
                   inputMode="numeric"
-                  pattern="[0-9]{4}"
+                  pattern={`[0-9]{${form.pinLen}}`}
                   onChange={(event) => updateForm("pin", event.target.value.replace(/\D/g, ""))}
-                  placeholder="0000"
+                  placeholder={"0".repeat(form.pinLen)}
                 />
               </label>
               <label>

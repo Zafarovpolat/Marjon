@@ -4,13 +4,13 @@ import {
   LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, RefreshCw, ArrowLeft, LogOut, Printer,
   Trash2, Ban, Shuffle, ShoppingBag,
 } from 'lucide-react'
-import { orders, menu, halls as hallsApi, printers as printersApi } from '../../shared/api'
+import { orders, menu, halls as hallsApi, printers as printersApi, auth } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
 import DishModal from '../../components/DishModal'
 import InputPromptModal from '../../components/InputPromptModal'
 import { toast } from '../../components/Toast'
 import { t } from '../../shared/i18n'
-import { can } from '../../shared/permissions'
+import { can, must } from '../../shared/permissions'
 
 const STATUS_COLORS = {
   new: 'var(--color-info)', accepted: 'var(--color-brand)',
@@ -104,6 +104,25 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
       } catch (err) { console.error('[print]', err); toast(t('print_failed'), 'error') }
     })
   }, [printerMap])
+
+  // Опасные действия официанта (перенос/удаление блюда, смена стола, отмена
+  // заказа) разрешены ТОЛЬКО при праве can_manage_orders из админки И
+  // подтверждаются отдельным PIN. verifyPin логинит по PIN и проверяет право
+  // у введённого сотрудника, не меняя текущую сессию. При успехе — запускаем
+  // само действие (оно откроет свою модалку поверх этой).
+  function requirePin(action) {
+    setPromptCfg({
+      title: t('confirm_pin'),
+      hint: t('enter_pin'),
+      type: 'password',
+      submitLabel: t('pin_confirm'),
+      onSubmit: async (pin) => {
+        const u = await auth.verifyPin(pin)
+        if (!must(u, 'can_manage_orders')) throw new Error(t('no_permission'))
+        action()
+      },
+    })
+  }
 
   // Перекинуть позицию на другой стол. window.prompt в Electron не работает —
   // номер спрашиваем в своей модалке (как в кассе).
@@ -344,12 +363,15 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                       <span className="cart-item__price">{(Number(item.price || 0) * item.qty).toLocaleString('ru-RU')} {t('currency')}</span>
                     </button>
                     <div className="cart-item__controls">
-                      <button
-                        type="button"
-                        className={`cart-take ${item.takeaway ? 'cart-take--on' : ''}`}
-                        onClick={() => toggleTakeaway(item.lineId)}
-                        title={t('takeaway')}
-                      >{t('takeaway')}</button>
+                      {/* «С собой» за столом — под правом can_takeaway_at_table (веб-админка) */}
+                      {can(user, 'can_takeaway_at_table') && (
+                        <button
+                          type="button"
+                          className={`cart-take ${item.takeaway ? 'cart-take--on' : ''}`}
+                          onClick={() => toggleTakeaway(item.lineId)}
+                          title={t('takeaway')}
+                        >{t('takeaway')}</button>
+                      )}
                       <button className="qty-btn" onClick={() => updateQty(item.lineId, -1)}><Minus size={16} /></button>
                       <span className="qty-value">{item.qty}</span>
                       <button className="qty-btn" onClick={() => updateQty(item.lineId, 1)}><Plus size={16} /></button>
@@ -383,6 +405,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
             line={editLine}
             onSubmit={saveEdit}
             onClose={() => setEditLine(null)}
+            hideTakeaway={!can(user, 'can_takeaway_at_table')}
           />
         )}
         {promptCfg && <InputPromptModal {...promptCfg} onClose={() => setPromptCfg(null)} />}
@@ -506,12 +529,14 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                         {item.created_at && <> · {formatTime(item.created_at)}</>}
                       </span>
                     </div>
-                    <button type="button" className="detail-item__move" onClick={() => moveItemToTable(selectedTable.order, item)}>
-                      <ArrowLeft size={16} style={{ transform: 'rotate(180deg)' }} />
-                      <span>{t('move_item')}</span>
-                    </button>
-                    {can(user, 'can_delete_dishes') && (
-                      <button type="button" className="detail-item__delete" onClick={() => removeDishItem(selectedTable.order, item)} title={t('delete_dish')}>
+                    {must(user, 'can_manage_orders') && (
+                      <button type="button" className="detail-item__move" onClick={() => requirePin(() => moveItemToTable(selectedTable.order, item))}>
+                        <ArrowLeft size={16} style={{ transform: 'rotate(180deg)' }} />
+                        <span>{t('move_item')}</span>
+                      </button>
+                    )}
+                    {must(user, 'can_manage_orders') && (
+                      <button type="button" className="detail-item__delete" onClick={() => requirePin(() => removeDishItem(selectedTable.order, item))} title={t('delete_dish')}>
                         <Trash2 size={16} />
                       </button>
                     )}
@@ -530,11 +555,13 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                 <button className="btn-success btn--lg" onClick={() => printReceipt(selectedTable.order)}>
                   <Printer size={18} /> {t('print_receipt')}
                 </button>
-                <button className="btn-ghost btn--lg" onClick={() => reassignTable(selectedTable.order)}>
-                  <Shuffle size={18} /> {t('move_table')}
-                </button>
-                {can(user, 'can_cancel_orders') && (
-                  <button className="btn-danger btn--lg" onClick={() => cancelWholeOrder(selectedTable.order)}>
+                {must(user, 'can_manage_orders') && (
+                  <button className="btn-ghost btn--lg" onClick={() => requirePin(() => reassignTable(selectedTable.order))}>
+                    <Shuffle size={18} /> {t('move_table')}
+                  </button>
+                )}
+                {must(user, 'can_manage_orders') && (
+                  <button className="btn-danger btn--lg" onClick={() => requirePin(() => cancelWholeOrder(selectedTable.order))}>
                     <Ban size={18} /> {t('cancel_order')}
                   </button>
                 )}
@@ -551,6 +578,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
           line={editLine}
           onSubmit={saveEdit}
           onClose={() => setEditLine(null)}
+          hideTakeaway={!can(user, 'can_takeaway_at_table')}
         />
       )}
       {promptCfg && <InputPromptModal {...promptCfg} onClose={() => setPromptCfg(null)} />}

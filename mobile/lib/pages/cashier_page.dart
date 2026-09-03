@@ -125,6 +125,11 @@ class _CashierPageState extends State<CashierPage>
         title: Text('Касса — ${state.displayName}'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.how_to_reg_outlined),
+            tooltip: 'Посещаемость',
+            onPressed: () => context.push('/attendance'),
+          ),
+          IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => context.push('/settings'),
           ),

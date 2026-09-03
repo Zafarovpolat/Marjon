@@ -9,6 +9,7 @@ import '../pages/waiter_page.dart';
 import '../pages/kitchen_page.dart';
 import '../pages/settings_page.dart';
 import '../pages/privacy_policy_page.dart';
+import '../pages/attendance_page.dart';
 import '../core/theme.dart';
 
 class Routes {
@@ -21,6 +22,7 @@ class Routes {
   static const bar      = '/bar';
   static const settings = '/settings';
   static const privacy  = '/privacy';
+  static const attendance = '/attendance';
 }
 
 CustomTransitionPage<void> _fadePage(GoRouterState state, Widget child) =>
@@ -64,8 +66,12 @@ GoRouter buildRouter(AppState appState) => GoRouter(
       return loc == Routes.mode ? null : Routes.mode;
     }
 
-    // Settings and privacy are always accessible
-    if (loc == Routes.settings || loc == Routes.privacy) return null;
+    // Settings, privacy and attendance are always accessible
+    if (loc == Routes.settings ||
+        loc == Routes.privacy ||
+        loc == Routes.attendance) {
+      return null;
+    }
 
     final target = '/$mode';
     return loc == target ? null : target;
@@ -81,6 +87,7 @@ GoRouter buildRouter(AppState appState) => GoRouter(
       title: 'Бар', accentColor: AppTheme.purple))),
     GoRoute(path: Routes.settings, pageBuilder: (c, s) => _slidePage(s, const SettingsPage())),
     GoRoute(path: Routes.privacy,  pageBuilder: (c, s) => _slidePage(s, const PrivacyPolicyPage())),
+    GoRoute(path: Routes.attendance, pageBuilder: (c, s) => _slidePage(s, const AttendancePage())),
   ],
   errorBuilder: (context, state) => Scaffold(
     body: Center(child: Text('Страница не найдена: ${state.error}')),

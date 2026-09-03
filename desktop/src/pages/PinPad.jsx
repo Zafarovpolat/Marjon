@@ -1,12 +1,16 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { ArrowLeft, Delete } from 'lucide-react'
 import { t } from '../shared/i18n'
+
+// Длина PIN-кода фиксирована: все PIN 4-значные. Пад не принимает 5-ю цифру
+// и отправляет автоматически по вводу 4-й (без задержки).
+const PIN_LENGTH = 4
 
 function initials(name = '') {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('') || '?'
 }
 
-/** PinPad — ввод PIN выбранного сотрудника. onSubmit(pin) → Promise. Минимум 1 цифра.
+/** PinPad — ввод PIN выбранного сотрудника. onSubmit(pin) → Promise. Ровно 4 цифры.
  *  title — необязательный заголовок (напр. «Экран заблокирован»).
  *  onBack — если не передан, кнопка «Назад» скрыта (режим блокировки). */
 export default function PinPad({ employee = {}, onSubmit, onBack, title }) {
@@ -15,41 +19,54 @@ export default function PinPad({ employee = {}, onSubmit, onBack, title }) {
   const [busy, setBusy] = useState(false)
   const role = employee.role_slug || (employee.role_slugs && employee.role_slugs[0])
 
+  // pinRef — синхронный источник истины: гасит гонку при быстром вводе (state
+  // обновляется асинхронно, ref — сразу). lockRef — синхронный замок отправки.
+  const pinRef = useRef('')
+  const lockRef = useRef(false)
+
   const submit = useCallback(async (value) => {
-    if (busy || value.length < 1) return
+    if (lockRef.current || value.length < PIN_LENGTH) return
+    lockRef.current = true   // замок сразу — быстрые клики после 4-й цифры игнорируются
     setBusy(true); setError(false)
     try {
       await onSubmit(value)
     } catch {
-      setError(true)
+      // Неверный PIN — сбрасываем ввод и точки (иначе следующая попытка
+      // «дублирует» цифры поверх старых).
+      pinRef.current = ''
       setPin('')
+      setError(true)
       setTimeout(() => setError(false), 600)
     } finally {
+      lockRef.current = false
       setBusy(false)
     }
-  }, [busy, onSubmit])
+  }, [onSubmit])
 
   const press = useCallback((d) => {
-    setPin((prev) => {
-      if (prev.length >= 8) return prev
-      const next = prev + d
-      // Авто-отправка только на 4 цифры; короткий PIN (2–3) вводится кнопкой «Войти»
-      if (next.length === 4) setTimeout(() => submit(next), 120)
-      return next
-    })
+    // Жёсткий лимит длины: 5-ю цифру не набрать даже при очень быстрых кликах
+    if (lockRef.current || pinRef.current.length >= PIN_LENGTH) return
+    const next = pinRef.current + d
+    pinRef.current = next
+    setPin(next)
+    // Набрали полный PIN — сразу проверяем (без задержки)
+    if (next.length >= PIN_LENGTH) submit(next)
   }, [submit])
 
-  const back = useCallback(() => setPin((p) => p.slice(0, -1)), [])
+  const back = useCallback(() => {
+    pinRef.current = pinRef.current.slice(0, -1)
+    setPin(pinRef.current)
+  }, [])
 
   useEffect(() => {
     function onKey(e) {
       if (/^[0-9]$/.test(e.key)) press(e.key)
       else if (e.key === 'Backspace') back()
-      else if (e.key === 'Enter') submit(pin)
+      else if (e.key === 'Enter') submit(pinRef.current)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [press, back, submit, pin])
+  }, [press, back, submit])
 
   const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back']
 
@@ -67,7 +84,8 @@ export default function PinPad({ employee = {}, onSubmit, onBack, title }) {
         </div>
 
         <div className={`pinpad__dots ${error ? 'pinpad__dots--error' : ''}`}>
-          {[0, 1, 2, 3].map((i) => (
+          {/* Фиксированные 4 точки: PIN всегда 4-значный */}
+          {Array.from({ length: PIN_LENGTH }, (_, i) => (
             <span key={i} className={`pinpad__dot ${i < pin.length ? 'pinpad__dot--filled' : ''}`} />
           ))}
         </div>
@@ -86,7 +104,7 @@ export default function PinPad({ employee = {}, onSubmit, onBack, title }) {
           })}
         </div>
 
-        <button className="pinpad__submit" onClick={() => submit(pin)} disabled={pin.length < 1 || busy}>
+        <button className="pinpad__submit" onClick={() => submit(pin)} disabled={pin.length < PIN_LENGTH || busy}>
           {busy ? t('check') : t('enter')}
         </button>
       </div>

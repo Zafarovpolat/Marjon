@@ -71,6 +71,36 @@ class ProductService:
             p.is_available = False
         await self.repo.save(p)
 
+    async def set_availability(
+        self, company_id: UUID, product_id: UUID, is_available: bool
+    ) -> Product:
+        """Стоп-лист: снять/вернуть блюдо в продажу (product-level is_available).
+
+        Отдельный метод под отдельный узкий эндпоинт — чтобы кассир мог править
+        только доступность, но НЕ цену/название/прочие поля (для этого остаётся
+        админский PATCH /products/{id}).
+        """
+        p = await self.get(company_id, product_id)
+        p.is_available = is_available
+        return await self.repo.save(p)
+
+    async def set_daily_limit(
+        self, company_id: UUID, product_id: UUID, daily_limit: int | None
+    ) -> Product:
+        """D3 «максимум блюда»: задать/снять дневной лимит порций.
+
+        Задание числа — это «пополнение» на новый день: обнуляем счётчик
+        проданного и возвращаем блюдо в продажу (сброс ручной, по образцу
+        тумблера стоп-листа). daily_limit=None снимает лимит (без ограничения),
+        текущий стоп при этом НЕ трогаем.
+        """
+        p = await self.get(company_id, product_id)
+        p.daily_limit = daily_limit
+        if daily_limit is not None:
+            p.sold_count = 0
+            p.is_available = True
+        return await self.repo.save(p)
+
 
 class IngredientService:
     def __init__(self, db: AsyncSession):

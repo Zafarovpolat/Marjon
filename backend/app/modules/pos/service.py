@@ -16,8 +16,9 @@ from app.modules.kitchen.websocket import kitchen_manager
 from app.modules.audit.service import AuditService
 from app.modules.pos.models import Order, OrderItem, PosTerminal, CashierShift
 from app.modules.pos.repository import OrderRepository, OrderItemRepository, TerminalRepository
+from app.modules.rbac.models import Role, UserRole
 from app.modules.pos.schemas import (
-    OrderCreate, OrderItemCreate, OrderStatusUpdate,
+    OrderCreate, OrderItemCreate, OrderItemWaiterUpdate, OrderStatusUpdate,
     OrderUpdate, TerminalCreate, ShiftOpen, ShiftClose,
 )
 from app.shared.exceptions import NotFoundError, ValidationError
@@ -32,6 +33,11 @@ VALID_TRANSITIONS: dict[str, set[str]] = {
     "cancelled": set(),           # final state — no transitions
 }
 
+# 9 — роли, которым «опасные» действия с заказом (удаление/перенос позиции,
+# смена стола, отмена) разрешены без отдельного права. Официант — deny-by-default:
+# ему нужно И право can_manage_orders (выдаётся в веб-админке), И отдельный PIN.
+PRIVILEGED_ORDER_ROLES = {"owner", "admin", "cashier"}
+
 
 def _quantize(v: Decimal) -> Decimal:
     return v.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -42,11 +48,80 @@ class OrderService:
         self.db = db
         self.repo = OrderRepository(db)
 
+    # ── Права на «опасные» действия официанта (9) ──────────────────────────────
+
+    async def _user_role_slugs(self, user: User | None) -> set[str]:
+        """Слаги ролей пользователя (Role⋈UserRole). Пусто → привилегий нет."""
+        if not user:
+            return set()
+        rows = (await self.db.execute(
+            select(Role.slug).join(UserRole, UserRole.role_id == Role.id).where(
+                UserRole.user_id == user.id
+            )
+        )).scalars().all()
+        return set(rows)
+
+    async def _require_order_permission(self, user: User | None, action_label: str) -> None:
+        """Проверка ТОЛЬКО права (без PIN). Привилегированные роли — сразу ок;
+        официант — только с явным правом can_manage_orders из веб-админки;
+        остальные без права — запрет (deny-by-default)."""
+        slugs = await self._user_role_slugs(user)
+        if slugs & PRIVILEGED_ORDER_ROLES:
+            return
+        perms = (user.permissions or {}) if user else {}
+        if not perms.get("can_manage_orders"):
+            raise ValidationError(f"Нет прав для {action_label}. Обратитесь к менеджеру.")
+
+    async def _verify_action_pin(self, company_id: UUID, user: User | None, pin: str | None) -> None:
+        """Отдельный PIN подтверждения опасного действия. По образцу cancel():
+        сначала спец-пароль компании, иначе личный PIN/пароль сотрудника."""
+        if not pin:
+            raise ValidationError("Введите PIN подтверждения")
+        company = (await self.db.execute(select(Company).where(Company.id == company_id))).scalar_one_or_none()
+        if company and company.cancel_password:
+            if pin != company.cancel_password:
+                raise ValidationError("Неверный PIN подтверждения")
+            return
+        ok = False
+        if user:
+            fresh = (await self.db.execute(select(User).where(User.id == user.id))).scalar_one_or_none()
+            ok = bool(fresh) and (
+                verify_pin(pin, fresh.password_hash)
+                or verify_pin(pin, fresh.pin_hash)
+                or bool(fresh.pin_code and pin == fresh.pin_code)
+            )
+        if not ok:
+            raise ValidationError("Неверный PIN подтверждения")
+
+    async def _guard_order_action(
+        self, company_id: UUID, user: User | None, pin: str | None, action_label: str
+    ) -> None:
+        """Гейт «опасного» действия: право + отдельный PIN.
+        Привилегированные роли (владелец/админ/менеджер/кассир) — без PIN;
+        официант с правом can_manage_orders — обязан подтвердить отдельным PIN."""
+        slugs = await self._user_role_slugs(user)
+        if slugs & PRIVILEGED_ORDER_ROLES:
+            return
+        perms = (user.permissions or {}) if user else {}
+        if not perms.get("can_manage_orders"):
+            raise ValidationError(f"Нет прав для {action_label}. Обратитесь к менеджеру.")
+        await self._verify_action_pin(company_id, user, pin)
+
+    async def _assert_company_waiter(self, company_id: UUID, waiter_id: UUID) -> User:
+        """Назначаемый официант должен быть сотрудником ЭТОЙ компании (tenant isolation):
+        иначе через waiter_id можно было бы привязать чужого пользователя и его долю обслуги."""
+        target = (await self.db.execute(
+            select(User).where(User.id == waiter_id, User.company_id == company_id)
+        )).scalar_one_or_none()
+        if not target:
+            raise NotFoundError("Сотрудник не найден в этой компании")
+        return target
+
     # ── Create ────────────────────────────────────────────────────────────────
 
     async def create(self, company_id: UUID, waiter_id: UUID, data: OrderCreate) -> Order:
         await self._get_branch(company_id, data.branch_id)
-        order_number = await self._generate_daily_number(company_id, data.branch_id)
+        order_number = await self._generate_daily_number(company_id)
 
         order = Order(
             company_id=company_id,
@@ -96,39 +171,49 @@ class OrderService:
             )
             self.db.add(item)
 
+            # D3: списываем порции из дневного лимита блюда (авто-стоп при исчерпании).
+            try:
+                self._apply_sale_to_limit(product, item_data.quantity)
+            except Exception:
+                pass
+
         # Calculate totals (обслуга — только с позиций «в зале»)
         order.subtotal = subtotal
         self._recalculate_totals(order, data.discount_amount, data.service_fee_rate, service_base=service_base)
         await self.db.commit()
-        created_order = await self.get(company_id, order.id)
         try:
             await kitchen_manager.broadcast(
-                company_id, data.branch_id, "new_order", {"order_id": str(created_order.id)}
+                company_id, data.branch_id, "new_order", {"order_id": str(order.id)}
             )
         except Exception:
             pass
         try:
             from app.modules.printers.service import PrinterService
             await PrinterService(self.db).auto_print_kitchen(
-                company_id, created_order.branch_id, created_order.id
+                company_id, order.branch_id, order.id
             )
         except Exception:
             pass
         try:
             await AuditService(self.db).log(
                 company_id, waiter_id, "order.create", "order",
-                entity_id=created_order.id,
-                new_data={"order_number": created_order.order_number, "total": str(created_order.total_amount)},
+                entity_id=order.id,
+                new_data={"order_number": order.order_number, "total": str(order.total_amount)},
             )
         except Exception:
             pass
         # 7.4 — постоянные клиенты: регистрируем/обновляем карточку клиента по телефону,
         # чтобы номер попадал в автокомплит при следующем заказе. Не фатально для заказа.
         try:
-            await self._upsert_customer(company_id, created_order)
+            await self._upsert_customer(company_id, order)
         except Exception:
             pass
-        return created_order
+        # Ответ собираем ПОСЛЕДНИМ действием, как и в остальных методах сервиса.
+        # Любой UPDATE выше (customer_id при доставке, receipt_printed_at при
+        # авто-печати) делает updated_at устаревшим (onupdate=func.now()), и Pydantic
+        # на сериализации полез бы за ним в БД уже вне greenlet-контекста:
+        # MissingGreenlet → 500 без CORS-заголовков → в кассе это «Network Error».
+        return await self.get(company_id, order.id)
 
     async def _upsert_customer(self, company_id: UUID, order: Order) -> None:
         """7.4 — при создании заказа заводим/обновляем клиента по телефону.
@@ -286,6 +371,9 @@ class OrderService:
         order = await self.get(company_id, order_id)
         if order.status in ("completed", "cancelled"):
             raise ValidationError(f"Невозможно отменить заказ в статусе '{order.status}'")
+        # 9 — официанту отмена доступна только с правом can_manage_orders.
+        # Отдельный PIN тут — существующий пароль отмены (ниже), повторный не требуем.
+        await self._require_order_permission(user, "отмены заказа")
         # Пароль отмены обязателен всегда: сначала спец-пароль из админки,
         # если он не задан — личный пароль сотрудника, который отменяет.
         company = (await self.db.execute(select(Company).where(Company.id == company_id))).scalar_one_or_none()
@@ -308,6 +396,13 @@ class OrderService:
                 raise ValidationError("Неверный пароль отмены заказа")
         order.status = "cancelled"
         order.cancel_comment = (comment or "").strip() or None
+        # D3: возвращаем списанные порции в дневной лимит по всем позициям заказа.
+        for it in order.items:
+            if it.status != "cancelled":
+                try:
+                    await self._restore_to_limit(company_id, it.product_id, it.quantity)
+                except Exception:
+                    pass
         saved = await self.repo.save(order)
         try:
             await kitchen_manager.broadcast(
@@ -347,6 +442,12 @@ class OrderService:
         self.db.add(item)
         await self.db.flush()
 
+        # D3: дозаказ тоже списывает порции из дневного лимита (авто-стоп при исчерпании).
+        try:
+            self._apply_sale_to_limit(product, item_data.quantity)
+        except Exception:
+            pass
+
         order.subtotal += item_total_after_discount
         # Дозаказ → снова «готовится», сбрасываем отметку печати чека (стол снова занят)
         order.receipt_printed_at = None
@@ -360,17 +461,24 @@ class OrderService:
 
     async def remove_item(
         self, company_id: UUID, order_id: UUID, item_id: UUID,
-        reason: str | None = None, user: User | None = None,
+        reason: str | None = None, user: User | None = None, pin: str | None = None,
     ) -> Order:
         order = await self.get(company_id, order_id)
         if order.status in ("completed", "cancelled"):
             raise ValidationError("Нельзя удалить позицию из завершённого или отменённого заказа")
+        # 9 — удаление позиции: право + отдельный PIN (для официанта).
+        await self._guard_order_action(company_id, user, pin, "удаления позиции")
 
         item = await self._get_order_item(order, item_id)
         removed = {"item_id": str(item.id), "name": item.name, "qty": str(item.quantity), "total": str(item.total)}
         order.subtotal -= item.total
         item.status = "cancelled"
         item.total = Decimal("0")
+        # D3: возвращаем списанную порцию в дневной лимит удаляемой позиции.
+        try:
+            await self._restore_to_limit(company_id, item.product_id, item.quantity)
+        except Exception:
+            pass
         self._recalculate_totals(order, service_base=await self._service_base_q(order.id))
         await self.db.commit()
         # 3.3 — журналируем удаление позиции: кто, когда, что, причина.
@@ -395,12 +503,14 @@ class OrderService:
 
     # ── Move item to another table ────────────────────────────────────────────
 
-    async def move_item(self, company_id: UUID, order_id: UUID, item_id: UUID, target_table: str, user: User | None = None) -> Order:
+    async def move_item(self, company_id: UUID, order_id: UUID, item_id: UUID, target_table: str, user: User | None = None, pin: str | None = None) -> Order:
         """Перекинуть позицию на другой стол. Находит/создаёт заказ на целевом столе,
         помечает позицию «перемещено», перепечатывает кухонный чек, пустой исходный отменяет."""
         order = await self.get(company_id, order_id)
         if order.status in ("completed", "cancelled"):
             raise ValidationError("Нельзя перемещать позицию завершённого/отменённого заказа")
+        # 9 — перенос позиции: право + отдельный PIN (для официанта).
+        await self._guard_order_action(company_id, user, pin, "переноса позиции")
         item = await self._get_order_item(order, item_id)
         if item.status == "cancelled":
             raise ValidationError("Позиция отменена")
@@ -419,7 +529,7 @@ class OrderService:
         if not target:
             target = Order(
                 company_id=company_id, branch_id=order.branch_id, waiter_id=order.waiter_id,
-                order_number=await self._generate_daily_number(company_id, order.branch_id),
+                order_number=await self._generate_daily_number(company_id),
                 order_type="dine_in", table_number=target_table, status="cooking",
             )
             self.db.add(target)
@@ -473,6 +583,41 @@ class OrderService:
             pass
         return await self.get(company_id, target.id)
 
+    # ── Смена ответственного официанта у позиции ──────────────────────────────
+
+    async def set_item_waiter(
+        self, company_id: UUID, order_id: UUID, item_id: UUID,
+        data: OrderItemWaiterUpdate, user: User | None = None,
+    ) -> Order:
+        """Переназначить ответственного официанта у ОДНОЙ позиции заказа.
+        Нужно кассиру: официант 1 мог случайно внести блюдо в стол официанта 2,
+        а доля обслуги считается по ответственному. Пишем в OrderItem.added_by."""
+        order = await self.get(company_id, order_id)
+        if order.status in ("completed", "cancelled"):
+            raise ValidationError("Нельзя редактировать завершённый или отменённый заказ")
+        await self._guard_order_action(company_id, user, data.action_pin, "смены официанта у позиции")
+        item = await self._get_order_item(order, item_id)
+        target = await self._assert_company_waiter(company_id, data.waiter_id)
+
+        old_waiter = item.added_by
+        if str(old_waiter or "") == str(target.id):
+            return order  # ничего не меняется — не пишем в журнал
+        item.added_by = target.id
+        await self.db.commit()
+
+        try:
+            await AuditService(self.db).log(
+                company_id, user.id if user else None, "order.item_waiter_change", "order",
+                entity_id=order.id,
+                old_data={"item_id": str(item.id), "name": item.name,
+                          "waiter_id": str(old_waiter) if old_waiter else None},
+                new_data={"waiter_id": str(target.id),
+                          "reason": (data.reason or "").strip() or None},
+            )
+        except Exception:
+            pass
+        return await self.get(company_id, order_id)
+
     # ── Update order (discount / service fee / note) ──────────────────────────
 
     async def update_order(self, company_id: UUID, order_id: UUID, data: OrderUpdate, user: User | None = None) -> Order:
@@ -483,6 +628,25 @@ class OrderService:
         # 3.3 — фиксируем «до», чтобы залогировать смену стола/официанта.
         old_table = order.table_number
         old_waiter = order.waiter_id
+
+        # 9 — смена стола: право + отдельный PIN (для официанта). Гейтим до мутации,
+        # только если стол реально меняется (прочие правки заказа не ограничены).
+        table_changing = (
+            data.table_number is not None
+            and str(data.table_number) != str(old_table or "")
+        )
+        if table_changing:
+            await self._guard_order_action(company_id, user, data.action_pin, "смены стола")
+
+        # Смена ответственного официанта двигает долю обслуги → тот же гейт, что у смены стола
+        # (кассир/владелец/админ — без PIN, официант — только с правом can_manage_orders и PIN).
+        waiter_changing = (
+            data.waiter_id is not None
+            and str(data.waiter_id) != str(old_waiter or "")
+        )
+        if waiter_changing:
+            await self._guard_order_action(company_id, user, data.action_pin, "смены официанта")
+            await self._assert_company_waiter(company_id, data.waiter_id)
 
         if data.note is not None:
             order.note = data.note
@@ -567,8 +731,16 @@ class OrderService:
         result = await self.db.execute(select(Company.timezone).where(Company.id == company_id))
         return result.scalar_one_or_none() or "Asia/Tashkent"
 
-    async def _generate_daily_number(self, company_id: UUID, branch_id: UUID) -> str:
-        """Generate daily order number: YYYYMMDD-NNNN (serialized via advisory lock)."""
+    async def _generate_daily_number(self, company_id: UUID) -> str:
+        """Сформировать номер заказа вида YYMMDD-NNN.
+
+        Номер уникален в пределах компании и НИКОГДА не повторяется:
+        - префикс локальной даты (YYMMDD) — номера не совпадают в разные дни;
+        - порядковый счётчик считается по всей компании за день, без привязки
+          к филиалу/залу/типу заказа — одинаковый номер не выдаётся в разных залах.
+        Конкурентные запросы сериализуются advisory-lock'ом на Postgres; на SQLite
+        запись и так сериализуется самим движком.
+        """
         tz_str = await self._get_company_timezone(company_id)
         try:
             tz = ZoneInfo(tz_str)
@@ -582,30 +754,29 @@ class OrderService:
         now_local = datetime.now(tz)
         today_local = now_local.date()
 
-        # Serialize concurrent requests for the same company/branch/day
+        # Сериализуем конкурентные запросы в пределах компании за день
         # (pg_advisory_xact_lock — только Postgres; на SQLite пропускаем)
         if self.db.bind.dialect.name == "postgresql":
             lock_key = int.from_bytes(
-                hashlib.sha256(f"{company_id}:{branch_id}:{today_local}".encode()).digest()[:8],
+                hashlib.sha256(f"{company_id}:{today_local}".encode()).digest()[:8],
                 "big", signed=True,
             )
             await self.db.execute(text("SELECT pg_advisory_xact_lock(:k)").bindparams(k=lock_key))
 
-        # Count in UTC range that corresponds to local calendar day
+        # Считаем заказы компании за локальный календарный день (в UTC-границах)
         day_start = datetime.combine(today_local, datetime.min.time()).replace(tzinfo=tz).astimezone(timezone.utc)
         day_end   = datetime.combine(today_local + timedelta(days=1), datetime.min.time()).replace(tzinfo=tz).astimezone(timezone.utc)
 
         result = await self.db.execute(
             select(func.count(Order.id)).where(
                 Order.company_id == company_id,
-                Order.branch_id == branch_id,
                 Order.created_at >= day_start,
                 Order.created_at < day_end,
             )
         )
         count = result.scalar_one()
-        # Простой порядковый номер (по очереди), сбрасывается ежедневно по филиалу
-        return str(count + 1)
+        # Номер вида YYMMDD-NNN — глобально уникален по компании, не повторяется между днями
+        return f"{today_local:%y%m%d}-{count + 1:03d}"
 
     async def _get_branch(self, company_id: UUID, branch_id: UUID) -> Branch:
         result = await self.db.execute(
@@ -628,6 +799,34 @@ class OrderService:
         if not product:
             raise NotFoundError("Product not found or inactive")
         return product
+
+    # ── D3 «максимум блюда»: списание/возврат порций дневного лимита ────────────
+    def _apply_sale_to_limit(self, product: Product, quantity: Decimal) -> None:
+        """Списать порции из дневного лимита блюда; при исчерпании — авто-стоп.
+
+        Лимит на всю компанию (product.daily_limit). NULL = без ограничения.
+        Количество может быть дробным (весовые позиции) — берём целые порции.
+        Вызывать под try: сбой учёта не должен ронять оформление заказа.
+        """
+        if getattr(product, "daily_limit", None) is None:
+            return
+        product.sold_count = (product.sold_count or 0) + int(quantity)
+        if product.sold_count >= product.daily_limit:
+            product.is_available = False  # авто-стоп: «само ставится в стоп»
+
+    async def _restore_to_limit(self, company_id: UUID, product_id: UUID, quantity: Decimal) -> None:
+        """Вернуть порции в дневной лимит при отмене заказа/удалении позиции.
+
+        Счётчик не опускаем ниже нуля. Стоп НЕ снимаем автоматически — возврат
+        блюда в продажу ручной (по образцу ручного пополнения/тумблера).
+        Ищем товар без фильтра is_active (могли снять со стопа). Best-effort.
+        """
+        product = (await self.db.execute(
+            select(Product).where(Product.id == product_id, Product.company_id == company_id)
+        )).scalar_one_or_none()
+        if product is None or getattr(product, "daily_limit", None) is None:
+            return
+        product.sold_count = max(0, (product.sold_count or 0) - int(quantity))
 
     async def _get_order_item(self, order: Order, item_id: UUID) -> OrderItem:
         for item in order.items:

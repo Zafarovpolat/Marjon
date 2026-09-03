@@ -162,7 +162,6 @@ describe("Web Launch V1 route surfaces", () => {
       "courier",
       "monoblock",
       "kitchen",
-      "manager",
       "warehouse",
     ]);
   });

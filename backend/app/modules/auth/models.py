@@ -22,7 +22,7 @@ class User(TimeStampedModel):
     username: Mapped[str | None] = mapped_column(String(150), unique=True, index=True)
     name: Mapped[str | None] = mapped_column(String(255))
     phone: Mapped[str | None] = mapped_column(String(20))
-    # 4–8 значный PIN для быстрого входа сотрудников (ТЗ §3.2 экран официанта/кассира)
+    # 2–8 значный PIN для быстрого входа сотрудников (ТЗ §3.2 экран официанта/кассира)
     pin_code: Mapped[str | None] = mapped_column(String(8))
     # PIN хранится хешированным (bcrypt); pin_code оставлен для обратной совместимости
     # и обнуляется миграцией после бэкфилла в pin_hash.

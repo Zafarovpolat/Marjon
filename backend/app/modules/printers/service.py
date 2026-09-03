@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.companies.models import Branch
 from app.modules.printers.formatter import (
-    EscPosFormatter, KitchenTicketData, ReceiptData, ReceiptLine,
+    EscPosFormatter, KitchenTicketData, ReceiptData, ReceiptLine, payment_method_label,
 )
 from app.modules.printers.models import PrintJob, Printer
 from app.modules.printers.printer_client import PrinterError, print_raw
@@ -215,7 +215,8 @@ class PrinterService:
                     continue
                 total = (orig.price or Decimal("0")) * qty
                 lines.append(ReceiptLine(
-                    name=orig.name, qty=qty, price=orig.price, total=total, modifiers=orig.modifiers,
+                    name=orig.name, qty=qty, price=orig.price, total=total,
+                    modifiers=orig.modifiers, takeaway=orig.takeaway,
                 ))
                 part_subtotal += total
             if not lines:
@@ -350,15 +351,18 @@ class PrinterService:
         return order
 
     async def _build_receipt_data(self, company_id: UUID, order: Order) -> ReceiptData:
-        # Get last payment
+        # Все завершённые оплаты заказа (при смешанной оплате их несколько) —
+        # в превью конструктора печатается строка на каждую оплату.
         pay_result = await self.db.execute(
             select(Payment).where(
                 Payment.company_id == company_id,
                 Payment.order_id == order.id,
                 Payment.status == "completed",
-            )
+            ).order_by(Payment.created_at)
         )
-        payment = pay_result.scalars().first()
+        payments = list(pay_result.scalars().all())
+        payment = payments[-1] if payments else None
+        fiscal_code = next((p.fiscal_code for p in payments if p.fiscal_code), None)
 
         lines = [
             ReceiptLine(
@@ -367,6 +371,7 @@ class PrinterService:
                 price=item.price,
                 total=item.total,
                 modifiers=[m.get("name", "") for m in (item.modifiers or [])],
+                takeaway=bool(item.takeaway),
             )
             for item in order.items
         ]
@@ -391,12 +396,18 @@ class PrinterService:
             discount=order.discount_amount,
             tax=order.tax_amount,
             total=order.total_amount,
-            payment_method=payment.method if payment else "—",
+            # Пусто, если оплаты ещё нет: чек-предсчёт печатают до оплаты, и блок
+            # оплаты в таком чеке не выводится (как в превью конструктора).
+            payment_method=(payment.method if payment else ""),
+            payments=[(payment_method_label(p.method), p.amount) for p in payments],
             cash_received=payment.cash_received if payment else None,
             change_given=payment.change_given if payment else None,
             table_number=order.table_number,
             service_fee=order.service_fee,
             waiter_name=(waiter.name if waiter else None),
+            fiscal_code=fiscal_code,
+            # Дата в чеке — время создания заказа (в превью выводится created_at)
+            created_at=order.created_at,
             # 2.5 — шаблон конструктора чека (может быть None → печать по умолчанию)
             template=(company.receipt_template if company else None),
         )
@@ -408,6 +419,12 @@ class PrinterService:
             from app.modules.companies.models import Company
             company = (await self.db.execute(select(Company).where(Company.id == company_id))).scalar_one_or_none()
             kitchen_template = company.kitchen_receipt_template if company else None
+        # Официант нужен и на кухонном чеке (блок waiter конструктора)
+        waiter_name = None
+        if order.waiter_id:
+            from app.modules.auth.models import User as _User
+            waiter = (await self.db.execute(select(_User).where(_User.id == order.waiter_id))).scalar_one_or_none()
+            waiter_name = waiter.name if waiter else None
         items = [
             {
                 "name": item.name,
@@ -423,8 +440,9 @@ class PrinterService:
             order_number=order.order_number,
             order_type=order.order_type,
             table_number=order.table_number,
-            waiter_name=None,
+            waiter_name=waiter_name,
             items=items,
             note=order.note,
+            created_at=order.created_at,
             template=kitchen_template,
         )

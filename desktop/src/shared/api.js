@@ -181,13 +181,36 @@ export const auth = {
       }).then((r) => r.data)
     ),
   // PIN-вход сотрудника: company_id берётся из org-токена терминала (с авто-refresh).
-  loginByPin: (pin) =>
+  // userId — выбранный на кассе сотрудник: бэкенд сверит PIN только с ним, иначе при
+  // одинаковых PIN у двоих токен уходил «первому совпавшему».
+  loginByPin: (pin, userId) =>
     withOrgRefresh((tok) =>
-      api.post('/auth/pin-login', { pin }, {
+      api.post('/auth/pin-login', { pin, ...(userId ? { user_id: userId } : {}) }, {
         headers: tok ? { Authorization: `Bearer ${tok}` } : {},
       }).then((r) => r.data)
     ),
+  // Проверка PIN без смены сессии: логинимся по PIN и под полученным токеном
+  // забираем сотрудника через /me (сам токен НЕ сохраняем — сессия официанта
+  // остаётся прежней). Нужна для подтверждения опасных действий отдельным PIN.
+  // userId — если PIN нужно сверить с КОНКРЕТНЫМ сотрудником (разблокировка экрана).
+  // Без него бэкенд отдаёт «первого совпавшего», и при одинаковых PIN у двух
+  // сотрудников /me возвращал чужого — проверка ложно падала.
+  verifyPin: (pin, userId) =>
+    withOrgRefresh((tok) =>
+      api.post('/auth/pin-login', { pin, ...(userId ? { user_id: userId } : {}) }, {
+        headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+      }).then((r) => r.data)
+    ).then(({ access_token }) =>
+      api.get('/auth/me', { headers: { Authorization: `Bearer ${access_token}` } }).then((r) => r.data)
+    ),
   me: () => api.get('/auth/me').then((r) => r.data),
+  // Управление сотрудниками из режима разработчика (хаб «Сотрудники»/«Права»).
+  // Идут под токеном сотрудника (marjon_token) → несут его permissions, которые
+  // читает бэкенд-гейт require_permission_or_admin('can_manage_staff'). Онлайн-only:
+  // управленческие операции через офлайн-очередь НЕ гоняем.
+  users: () => api.get('/auth/users').then((r) => r.data),
+  createUser: (payload) => api.post('/auth/users', payload).then((r) => r.data),
+  updateUser: (id, payload) => api.patch(`/auth/users/${id}`, payload).then((r) => r.data),
 }
 
 export const companies = {
@@ -221,8 +244,6 @@ export const printers = {
   printKitchen: (data) => api.post('/printers/print/kitchen', data).then((r) => r.data),
   // Общий чек-сводка (История/Отчёты)
   printSummary: (data) => api.post('/printers/print/summary', data).then((r) => r.data),
-  // 2.1 — раздельный чек: печатает заказ несколькими чеками-частями
-  printSplit: (data) => api.post('/printers/print/split', data).then((r) => r.data),
 }
 
 export const orders = {
@@ -236,6 +257,11 @@ export const orders = {
     params: reason ? { reason } : {},
   }).then((r) => r.data),
   moveItem: (orderId, itemId, table) => api.post(`/pos/orders/${orderId}/items/${itemId}/move`, null, { params: { table } }).then((r) => r.data),
+  // Смена ответственного официанта у ОДНОЙ позиции (кассир исправляет путаницу: доля обслуги идёт по ответственному)
+  setItemWaiter: (orderId, itemId, waiterId, reason) =>
+    api.patch(`/pos/orders/${orderId}/items/${itemId}/waiter`, {
+      waiter_id: waiterId, ...(reason ? { reason } : {}),
+    }).then((r) => r.data),
   updateStatus: (id, status) => writeQueued('patch', `/pos/orders/${id}/status`, { status }),
   cancel: (id, password, comment) => api.delete(`/pos/orders/${id}`, {
     params: { ...(password ? { password } : {}), ...(comment ? { comment } : {}) },
@@ -263,9 +289,27 @@ export const menu = {
   categories: () => cached('categories', api.get('/inventory/categories').then((r) => r.data)),
   product: (id) => api.get(`/inventory/products/${id}`).then((r) => r.data),
   // Стоп-лист = доступность блюда (is_available). false → в стопе.
-  setAvailable: (id, isAvailable) => api.patch(`/inventory/products/${id}`, { is_available: isAvailable }).then((r) => r.data),
+  // Узкий эндпоинт /availability доступен кассиру (в отличие от общего PATCH продукта — только админ).
+  setAvailable: (id, isAvailable) => api.patch(`/inventory/products/${id}/availability`, { is_available: isAvailable }).then((r) => r.data),
+  // D3 «максимум блюда»: дневной лимит порций. null → снять лимит; число ≥1 → задать
+  // максимум и обнулить счётчик (блюдо само встанет в стоп при достижении лимита).
+  // Тот же гейт, что у стоп-листа (кассир/повар/владелец/админ).
+  setLimit: (id, dailyLimit) => api.patch(`/inventory/products/${id}/limit`, { daily_limit: dailyLimit }).then((r) => r.data),
   // Техкарта блюда (ингредиенты)
   recipe: (id) => api.get(`/inventory/products/${id}/recipe`).then((r) => r.data),
+}
+
+// Склад: приходы и инвентаризации (для пакетной печати в режиме разработчика).
+// GET-эндпоинты гейтятся только get_current_user — токена сотрудника/терминала
+// достаточно. Записи (create*) гейтятся require_permission_or_admin('can_manage_warehouse')
+// и идут под токеном сотрудника; онлайн-only, без офлайн-очереди.
+export const warehouse = {
+  purchases: (params) => api.get('/warehouse/purchases', { params }).then((r) => r.data),
+  inventoryChecks: (params) => api.get('/warehouse/inventory-checks', { params }).then((r) => r.data),
+  writeOffs: (params) => api.get('/warehouse/write-offs', { params }).then((r) => r.data),
+  createPurchase: (payload) => api.post('/warehouse/purchases', payload).then((r) => r.data),
+  createWriteOff: (payload) => api.post('/warehouse/write-offs', payload).then((r) => r.data),
+  createInventoryCheck: (payload) => api.post('/warehouse/inventory-checks', payload).then((r) => r.data),
 }
 
 // Залы (зоны) с вложенными столами: GET /halls?branch_id= → [{id,name,tables:[{id,number,capacity}]}]
@@ -302,6 +346,8 @@ export const reports = {
   sales: (params) => api.get('/reports/orders', { params }).then((r) => r.data),
   products: (params) => api.get('/reports/dishes', { params }).then((r) => r.data),
   staff: (params) => api.get('/reports/waiters', { params }).then((r) => r.data),
+  // Z-отчёт за день (как в веб-админке): показатели смены + разбивка по оплатам
+  zReport: (date) => api.get('/analytics/z-report', { params: { date } }).then((r) => r.data),
 }
 
 export const stopList = {
@@ -310,9 +356,14 @@ export const stopList = {
   remove: (id) => api.delete(`/inventory/stop-list/${id}`).then((r) => r.data),
 }
 
-// 5.5 — вход/уход повара (attendance): кассир видит очередь на подтверждение и одобряет/отклоняет
+// 5.5 — вход/уход повара (attendance): кассир видит очередь на подтверждение и одобряет/отклоняет,
+// а также сам отмечает приход/уход любого сотрудника (mark) и смотрит журнал за день (log).
 export const attendance = {
   pending: () => api.get('/hr/attendance/pending').then((r) => r.data),
   approve: (logId, note) => api.post(`/hr/attendance/${logId}/approve`, { approve: true, note }).then((r) => r.data),
   reject: (logId, note) => api.post(`/hr/attendance/${logId}/approve`, { approve: false, note }).then((r) => r.data),
+  // Кассир отмечает сотрудника: action = 'check_in' | 'check_out'. Отметка сразу подтверждается.
+  mark: (userId, action) => api.post('/hr/attendance/mark', { user_id: userId, action }).then((r) => r.data),
+  // Журнал отметок за день (по умолчанию — сегодня). date — ISO 'YYYY-MM-DD'.
+  log: (date) => api.get('/hr/attendance/log', { params: date ? { date } : {} }).then((r) => r.data),
 }

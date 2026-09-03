@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.analytics.schemas import AvgCheckSegment, DashboardResponse, OrderLocationSummary, PaymentMethodSummary, SalesReport, TopProduct, UserActivityRank, ZReportResponse
 from app.modules.auth.models import RefreshToken, User
@@ -144,40 +144,46 @@ class AnalyticsService:
     async def sales_report(self, company_id: UUID, date_from: date, date_to: date) -> list[SalesReport]:
         tz = await self._company_tz(company_id)
         start, _ = self._date_bounds(date_from, tz)
-        _, end    = self._date_bounds(date_to, tz)
-        # Группировка по ПОРЯДКОВОМУ НОМЕРУ колонки, а не по повторению выражения.
-        # str(tz) уходит в запрос как bind-параметр, поэтому в PostgreSQL
-        # выражение в GROUP BY и такое же выражение в SELECT — это разные
-        # параметры ($1 и $2), и планировщик их не отождествляет:
-        #   GroupingError: column "orders.created_at" must appear in the
-        #   GROUP BY clause or be used in an aggregate function
-        # Эндпоинт из-за этого отдавал 500 на любом Postgres, то есть и в бою.
-        # "GROUP BY 1" понимают и PostgreSQL, и SQLite.
-        day_expr = func.date(func.timezone(str(tz), Order.created_at))
+        _, end   = self._date_bounds(date_to, tz)
+        # Раскладываем заказы по локальным календарным дням в Python, а не в SQL.
+        # Конвертация зоны прямо в запросе (func.timezone) требует SQL-функции
+        # timezone(), которой нет в SQLite (dev-БД) → "no such function: timezone"
+        # и 500; та же конвертация роняла GroupingError и на PostgreSQL.
+        # Тянем сырые строки в UTC-окне [start, end) и группируем на стороне
+        # приложения по той же company-tz, что использует _date_bounds —
+        # результат одинаков и на SQLite, и на PostgreSQL.
         result = await self.db.execute(
-            select(
-                day_expr.label("day"),
-                func.count(Order.id).label("cnt"),
-                func.coalesce(func.sum(Order.total_amount), 0).label("rev"),
-            )
+            select(Order.created_at, Order.total_amount)
             .where(
                 Order.company_id == company_id,
                 Order.status.notin_(["cancelled"]),
                 Order.created_at >= start,
                 Order.created_at < end,
             )
-            .group_by(text("1"))
-            .order_by(text("1"))
         )
-        rows = result.all()
+
+        buckets = {}
+        for created_at, total_amount in result.all():
+            # SQLite отдаёт naive-datetime (время храним в UTC), Postgres — aware.
+            # Приводим к aware-UTC, затем к зоне компании и берём календарный день.
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            local_day = created_at.astimezone(tz).date()
+            bucket = buckets.get(local_day)
+            if bucket is None:
+                bucket = {"cnt": 0, "rev": Decimal("0")}
+                buckets[local_day] = bucket
+            bucket["cnt"] += 1
+            bucket["rev"] += Decimal(str(total_amount or 0))
+
         return [
             SalesReport(
-                date=row.day,
-                orders_count=row.cnt,
-                revenue=Decimal(str(row.rev)),
-                avg_check=Decimal(str(row.rev)) / row.cnt if row.cnt > 0 else Decimal("0"),
+                date=day,
+                orders_count=bucket["cnt"],
+                revenue=bucket["rev"],
+                avg_check=bucket["rev"] / bucket["cnt"] if bucket["cnt"] else Decimal("0"),
             )
-            for row in rows
+            for day, bucket in sorted(buckets.items())
         ]
 
     async def top_products(

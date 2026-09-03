@@ -57,7 +57,6 @@ const navItems = [
       { key: "courier", label: "Курьер", to: "/users/courier", icon: "bi-send" },
       { key: "monoblock", label: "Моноблок", to: "/users/monoblock", icon: "bi-pc-display" },
       { key: "kitchen", label: "Повар", to: "/users/kitchen", icon: "bi-display" },
-      { key: "manager", label: "Менеджер", to: "/users/manager", icon: "bi-shield-lock" },
       { key: "warehouse", label: "Завсклад", to: "/users/warehouse", icon: "bi-box-seam" },
       { key: "login-history", label: "История входа", to: "/users/login-history", icon: "bi-clock-history" },
       { key: "attendance", label: "Посещаемость", to: "/users/attendance", icon: "bi-calendar-check" },

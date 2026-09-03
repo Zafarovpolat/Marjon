@@ -101,15 +101,17 @@ BRANCHES = [
 ]
 
 USERS = [
+    # 14 — менеджер убран из сида: запись переведена в роль владельца (owner).
+    # Телефон 90 123 45 66 сохранён как демо-логин HQ-суперадмина.
     {
-        "email": "manager@marjon.uz",
-        "username": "manager",
-        "name": "Менеджер зала",
+        "email": "director@marjon.uz",
+        "username": "director",
+        "name": "Директор",
         "phone": "+998901234566",
         "password": "Staff1234",
         "pin": "2222",
-        "role_slug": "manager",
-        "role_name": "Manager",
+        "role_slug": "owner",
+        "role_name": "Owner",
         "is_superadmin": True,
     },
     {
@@ -131,6 +133,20 @@ USERS = [
         "pin": "4444",
         "role_slug": "waiter",
         "role_name": "Waiter",
+    },
+    # 9 — второй официант С правом can_manage_orders (для теста опасных действий:
+    # удаление/перенос позиции, смена стола, отмена — доступны только с этим правом
+    # И отдельным PIN). Первый официант (4444) остаётся без права — deny-by-default.
+    {
+        "email": "ofitsiant_pro@marjon.uz",
+        "username": "ofitsiant_pro",
+        "name": "Официант (с правами)",
+        "phone": "+998901234570",
+        "password": "Staff1234",
+        "pin": "4445",
+        "role_slug": "waiter",
+        "role_name": "Waiter",
+        "permissions": {"can_manage_orders": True},
     },
     # Кладовщик и курьер обязательны: на них ссылаются сидеры доставки
     # (users["courier"]) и HR-смен (positions warehouse/courier). Без них
@@ -335,6 +351,7 @@ async def seed_company_users(db):
                 password_hash=hash_password(data["password"]),
                 is_active=True,
                 is_superadmin=bool(data.get("is_superadmin")),
+                permissions=data.get("permissions") or {},  # 9 — гранулярные права (can_manage_orders)
             )
             db.add(user)
             await db.flush()
@@ -349,6 +366,7 @@ async def seed_company_users(db):
             user.is_active = True
             if data.get("is_superadmin"):
                 user.is_superadmin = True
+            user.permissions = data.get("permissions") or {}  # 9 — синхронизируем права из сида
             created = False
 
         await ensure(db, UserRole, user_id=user.id, role_id=role.id, branch_id=main_branch.id)
@@ -431,7 +449,7 @@ async def seed_handbook_and_hq(db, users):
             name=name,
         )
         organizations[name] = organization
-        await ensure_user_org(db, users["manager"].id, organization.id)
+        await ensure_user_org(db, users["owner"].id, organization.id)
         print(f"  {'created' if created else 'ready'} organization: {name}")
 
     for name, dep_type in [
@@ -665,7 +683,7 @@ async def seed_menu_inventory(db, company, branches, users):
                 "unit": ingredient.unit,
                 "cost_price": dec(cost_price),
                 "total_cost": dec(quantity) * dec(cost_price),
-                "created_by": users["manager"].id,
+                "created_by": users["owner"].id,
                 "note": note,
                 "created_at": dt(offset, 11, 20),
             },
@@ -689,8 +707,8 @@ async def seed_menu_inventory(db, company, branches, users):
             "items_count": 3,
             "total_amount": dec(1936000),
             "status": "accepted",
-            "created_by": users["manager"].id,
-            "created_by_name": users["manager"].name,
+            "created_by": users["owner"].id,
+            "created_by_name": users["owner"].name,
             "note": "Тестовый приход для склада",
         },
         update=True,
@@ -741,8 +759,8 @@ async def seed_menu_inventory(db, company, branches, users):
                 "items_count": items_count,
                 "total_amount": total_amount,
                 "status": status,
-                "created_by": users["manager"].id,
-                "created_by_name": users["manager"].name,
+                "created_by": users["owner"].id,
+                "created_by_name": users["owner"].name,
                 "note": f"Demo IN-{number}",
             },
             update=True,
@@ -778,8 +796,8 @@ async def seed_menu_inventory(db, company, branches, users):
             "date": day_text(0),
             "items_count": 4,
             "status": "accepted",
-            "created_by": users["manager"].id,
-            "created_by_name": users["manager"].name,
+            "created_by": users["owner"].id,
+            "created_by_name": users["owner"].name,
             "note": "Передача продуктов на кухню",
         },
         update=True,
@@ -796,8 +814,8 @@ async def seed_menu_inventory(db, company, branches, users):
             "comment": "Плановая проверка остатков",
             "check_type": "Плановая инвентаризация",
             "status": "completed",
-            "created_by": users["manager"].id,
-            "created_by_name": users["manager"].name,
+            "created_by": users["owner"].id,
+            "created_by_name": users["owner"].name,
         },
         update=True,
         company_id=company.id,
@@ -816,8 +834,8 @@ async def seed_menu_inventory(db, company, branches, users):
                 "comment": comment,
                 "check_type": check_type,
                 "status": status,
-                "created_by": users["manager"].id,
-                "created_by_name": users["manager"].name,
+                "created_by": users["owner"].id,
+                "created_by_name": users["owner"].name,
             },
             update=True,
             company_id=company.id,
@@ -831,8 +849,8 @@ async def seed_menu_inventory(db, company, branches, users):
         defaults={
             "items_count": 2,
             "status": "accepted",
-            "created_by": users["manager"].id,
-            "created_by_name": users["manager"].name,
+            "created_by": users["owner"].id,
+            "created_by_name": users["owner"].name,
             "note": "Тестовое списание",
         },
         update=True,
@@ -851,8 +869,8 @@ async def seed_menu_inventory(db, company, branches, users):
             defaults={
                 "items_count": items_count,
                 "status": status,
-                "created_by": users["manager"].id,
-                "created_by_name": users["manager"].name,
+                "created_by": users["owner"].id,
+                "created_by_name": users["owner"].name,
                 "note": note,
             },
             update=True,
@@ -1132,7 +1150,7 @@ async def seed_customers_orders_payments(db, company, branches, users, products,
 
     note_exists = await get_or_none(db, CustomerNote, customer_id=customers["+998901111111"].id, body="VIP клиент, любит террасу")
     if not note_exists:
-        db.add(CustomerNote(customer_id=customers["+998901111111"].id, author_id=users["manager"].id, body="VIP клиент, любит террасу"))
+        db.add(CustomerNote(customer_id=customers["+998901111111"].id, author_id=users["owner"].id, body="VIP клиент, любит террасу"))
         await db.flush()
 
     order_specs = [
@@ -1170,7 +1188,7 @@ async def seed_customers_orders_payments(db, company, branches, users, products,
             "status": "completed",
             "table": None,
             "persons": 1,
-            "waiter": "manager",
+            "waiter": "owner",
             "customer": "+998902222222",
             "payment": "payme",
             "items": [("Пепперони", 1), ("Салат Цезарь", 1), ("Вода 0.5л", 2)],
@@ -1220,7 +1238,7 @@ async def seed_customers_orders_payments(db, company, branches, users, products,
             "status": "new",
             "table": None,
             "persons": 1,
-            "waiter": "manager",
+            "waiter": "owner",
             "customer": "+998902222222",
             "items": [("Маргарита", 1), ("Капучино", 2)],
         },
@@ -1272,7 +1290,7 @@ async def seed_customers_orders_payments(db, company, branches, users, products,
                 "status": "completed",
                 "table": str((i % 6) + 3) if i % 2 == 0 else None,
                 "persons": 1 + (i % 4),
-                "waiter": "manager",
+                "waiter": "owner",
                 "customer": "+998903333333",
                 "payment": "payme" if i % 2 else "click",
                 "items": daily_templates[(i + 2) % len(daily_templates)],
@@ -1516,7 +1534,6 @@ async def seed_hr_sessions_notifications(db, company, branches, users):
     print("--- HR, sessions and notifications ---")
     employees = {}
     positions = {
-        "manager": ("Менеджер", 7000000),
         "cashier": ("Кассир", 4500000),
         "waiter": ("Официант", 3800000),
         "warehouse": ("Кладовщик", 4300000),
@@ -1572,7 +1589,7 @@ async def seed_hr_sessions_notifications(db, company, branches, users):
                 action=action,
             )
 
-    for i, role_slug in enumerate(("manager", "cashier", "waiter"), start=1):
+    for i, role_slug in enumerate(("owner", "cashier", "waiter"), start=1):
         created_at = dt(0, 8 + i, 5)
         await ensure(
             db,
@@ -1580,7 +1597,7 @@ async def seed_hr_sessions_notifications(db, company, branches, users):
             defaults={
                 "device_id": f"seed-device-{role_slug}",
                 "expires_at": created_at + timedelta(days=7),
-                "revoked_at": created_at + timedelta(hours=2, minutes=15) if role_slug not in ("manager", "cashier") else None,
+                "revoked_at": created_at + timedelta(hours=2, minutes=15) if role_slug not in ("owner", "cashier") else None,
                 "created_at": created_at,
             },
             update=True,
@@ -1589,9 +1606,9 @@ async def seed_hr_sessions_notifications(db, company, branches, users):
         )
 
     for title, body, user_key, n_type in [
-        ("Низкий остаток", "Куриное филе ниже минимального остатка", "manager", "stock"),
+        ("Низкий остаток", "Куриное филе ниже минимального остатка", "owner", "stock"),
         ("Новый заказ", "Заказ MJ-260714-007 ожидает подтверждения", "cashier", "order"),
-        ("Смена открыта", "Кассовая смена открыта в 08:00", "manager", "shift"),
+        ("Смена открыта", "Кассовая смена открыта в 08:00", "owner", "shift"),
     ]:
         await ensure(
             db,
@@ -1749,7 +1766,7 @@ async def seed_finance_and_subscription(db, company, users, organizations):
                 "category_id": categories[(direction, category)].id,
                 "organization_id": organizations["Marjon Cafe"].id,
                 "comment": comment,
-                "user_id": users["manager"].id,
+                "user_id": users["owner"].id,
                 "deleted_at": None,
             },
             update=True,
@@ -1766,7 +1783,7 @@ async def seed_finance_and_subscription(db, company, users, organizations):
                 "new_amount": tx.amount,
                 "old_amount": dec(0),
                 "type": direction,
-                "user_id": users["manager"].id,
+                "user_id": users["owner"].id,
                 "comment": f"Seed history: {comment}",
             },
             update=True,
@@ -1802,7 +1819,7 @@ async def seed_finance_and_subscription(db, company, users, organizations):
                 "category_id": categories[(direction, category)].id,
                 "organization_id": organizations.get(organization_name, organizations["Marjon Cafe"]).id,
                 "comment": comment,
-                "user_id": users["manager"].id,
+                "user_id": users["owner"].id,
                 "deleted_at": None,
             },
             update=True,
@@ -1819,7 +1836,7 @@ async def seed_finance_and_subscription(db, company, users, organizations):
                 "new_amount": tx.amount,
                 "old_amount": dec(0),
                 "type": direction,
-                "user_id": users["manager"].id,
+                "user_id": users["owner"].id,
                 "comment": f"Seed history: {comment}",
             },
             update=True,
@@ -1909,7 +1926,7 @@ async def seed_marketing_tasks_services(db, users, region, district, organizatio
             "quality": "hot",
             "quantity": 1,
             "comment": "Хочет подключить доставку",
-            "user_id": users["manager"].id,
+            "user_id": users["owner"].id,
             "organization_id": organizations["Marjon Cafe"].id,
         },
         update=True,
@@ -1960,7 +1977,7 @@ async def seed_marketing_tasks_services(db, users, region, district, organizatio
         db,
         Task,
         defaults={
-            "user_id": users["manager"].id,
+            "user_id": users["owner"].id,
             "organization_id": organizations["Marjon Cafe"].id,
             "region_id": region.id,
             "description": "Проверить кассу и принтеры",
@@ -1981,7 +1998,7 @@ async def seed_marketing_tasks_services(db, users, region, district, organizatio
         defaults={
             "change": {"status": "completed", "comment": "Готово после проверки"},
             "status": "pending",
-            "user_id": users["manager"].id,
+            "user_id": users["owner"].id,
             "resolved_by": None,
         },
         update=True,
@@ -2036,9 +2053,10 @@ async def seed():
         print()
         print("Credentials:")
         print("  Сотрудники (PIN / пароль):")
-        print("    90 123 45 66  / Staff1234  (manager + superadmin)")
+        print("    90 123 45 66  / Staff1234  (owner + superadmin)")
         print("    90 123 45 68  / Staff1234  (cashier)")
         print("    90 123 45 69  / Staff1234  (waiter)")
+        print("    90 123 45 70  / Staff1234  (waiter + can_manage_orders)")
         print("    90 123 45 72  / Staff1234  (warehouse)")
         print("    90 123 45 73  / Staff1234  (courier)")
         print("  Филиалы (branch-login по номеру телефона):")

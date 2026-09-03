@@ -10,7 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user, require_company_admin
+from app.modules.auth.dependencies import (
+    get_current_user,
+    require_company_admin,
+    require_permission_or_admin,
+)
 from app.modules.auth.models import User
 from app.modules.inventory.models import Warehouse
 from app.modules.inventory.warehouse_models import (
@@ -118,7 +122,7 @@ async def get_purchase(
 @router.post("/purchases", response_model=PurchaseDocumentResponse, status_code=status.HTTP_201_CREATED)
 async def create_purchase(
     data: PurchaseDocumentCreate,
-    user: User = Depends(require_company_admin),
+    user: User = Depends(require_permission_or_admin("can_manage_warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     number = await _next_doc_number(db, user.company_id, PurchaseDocument)
@@ -162,7 +166,7 @@ async def create_purchase(
 async def update_purchase(
     doc_id: UUID,
     data: PurchaseDocumentUpdate,
-    user: User = Depends(require_company_admin),
+    user: User = Depends(require_permission_or_admin("can_manage_warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -273,7 +277,7 @@ async def list_inventory_checks(
 @router.post("/inventory-checks", response_model=InventoryCheckResponse, status_code=status.HTTP_201_CREATED)
 async def create_inventory_check(
     data: InventoryCheckCreate,
-    user: User = Depends(require_company_admin),
+    user: User = Depends(require_permission_or_admin("can_manage_warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     doc = InventoryCheck(
@@ -292,7 +296,7 @@ async def create_inventory_check(
 async def update_inventory_check(
     doc_id: UUID,
     data: InventoryCheckCreate,
-    user: User = Depends(require_company_admin),
+    user: User = Depends(require_permission_or_admin("can_manage_warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -347,7 +351,7 @@ async def list_write_offs(
 @router.post("/write-offs", response_model=WriteOffResponse, status_code=status.HTTP_201_CREATED)
 async def create_write_off(
     data: WriteOffCreate,
-    user: User = Depends(require_company_admin),
+    user: User = Depends(require_permission_or_admin("can_manage_warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     doc = WriteOffDocument(

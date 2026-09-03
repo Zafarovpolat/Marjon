@@ -45,6 +45,40 @@
     gap: 10px;
   }
 
+  /* Кнопки конструктора чека: сохранить / тест печати / сбросить */
+  .receipt-page__btn {
+    min-height: 40px;
+    padding: 0 18px;
+    border: 1px solid var(--mj-border);
+    border-radius: 12px;
+    background: var(--mj-card);
+    color: var(--mj-text);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
+  }
+
+  .receipt-page__btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .receipt-page__btn--primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--color-text-inverse);
+  }
+
+  .receipt-page__btn--primary:hover:not(:disabled) {
+    border-color: var(--accent-2);
+    background: var(--accent-2);
+    color: var(--color-text-inverse);
+  }
+
+  .receipt-page__btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
   .receipt-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(420px, 520px);
@@ -108,6 +142,12 @@
     color: var(--mj-text);
     background: #fff;
     font: inherit;
+  }
+
+  .receipt-field small {
+    color: var(--mj-muted);
+    font-size: 11px;
+    line-height: 1.3;
   }
 
   .receipt-switch,
@@ -448,12 +488,76 @@
     font-weight: var(--weight-bold);
   }
 
+  /* Владелец снял жирность в конструкторе — блок печатается обычным начертанием */
+  .receipt-preview__block--weight-normal,
+  .receipt-preview__block--weight-normal b,
+  .receipt-preview__block--weight-normal strong {
+    font-weight: var(--weight-regular);
+  }
+
   .receipt-preview__block--size-large {
     font-size: 1.12em;
   }
 
   .receipt-preview__block--size-xlarge {
     font-size: 1.28em;
+  }
+
+  /* Блоки с абсолютным pt (шкала термопечати) не берут em-множитель:
+     пересчитываем их от собственного шага по умолчанию — large у названия и
+     подвала, xlarge у ИТОГО. Шаги те же: standard 1, large 1.12, xlarge 1.28. */
+  .receipt-preview__brand.receipt-preview__block--size-standard {
+    font-size: calc(var(--receipt-font-brand) / 1.12);
+  }
+
+  .receipt-preview__brand.receipt-preview__block--size-xlarge {
+    font-size: calc(var(--receipt-font-brand) / 1.12 * 1.28);
+  }
+
+  .receipt-preview__total.receipt-preview__block--size-standard {
+    font-size: calc(var(--receipt-font-total) / 1.28);
+  }
+
+  .receipt-preview__total.receipt-preview__block--size-large {
+    font-size: calc(var(--receipt-font-total) / 1.28 * 1.12);
+  }
+
+  .receipt-preview__customer-footer strong.receipt-preview__block--size-standard {
+    font-size: calc(var(--receipt-font-thanks) / 1.12);
+  }
+
+  .receipt-preview__customer-footer strong.receipt-preview__block--size-xlarge {
+    font-size: calc(var(--receipt-font-thanks) / 1.12 * 1.28);
+  }
+
+  .receipt-preview__customer-footer b.receipt-preview__block--size-standard {
+    font-size: calc(var(--receipt-font-contact) / 1.12);
+  }
+
+  .receipt-preview__customer-footer b.receipt-preview__block--size-xlarge {
+    font-size: calc(var(--receipt-font-contact) / 1.12 * 1.28);
+  }
+
+  /* Своя жирность 900 сильнее общего класса — снимаем её адресно */
+  .receipt-preview__brand.receipt-preview__block--weight-normal,
+  .receipt-preview__total.receipt-preview__block--weight-normal,
+  .receipt-preview__total.receipt-preview__block--weight-normal b,
+  .receipt-preview__customer-footer .receipt-preview__block--weight-normal,
+  .receipt-preview__info-row.receipt-preview__block--weight-normal b {
+    font-weight: var(--weight-regular);
+  }
+
+  /* Выравнивание внутри grid-контейнеров с justify-items: center */
+  .receipt-preview__brand.receipt-preview__block--align-left,
+  .receipt-preview__customer-footer .receipt-preview__block--align-left {
+    justify-self: start;
+    text-align: left;
+  }
+
+  .receipt-preview__brand.receipt-preview__block--align-right,
+  .receipt-preview__customer-footer .receipt-preview__block--align-right {
+    justify-self: end;
+    text-align: right;
   }
 
   .receipt-preview__block--align-center .receipt-preview__line,
@@ -747,6 +851,15 @@
     background: var(--neutral-950);
   }
 
+  .receipt-preview__qr-url {
+    margin: 0 auto 10px;
+    max-width: 100%;
+    text-align: center;
+    word-break: break-all;
+    font-size: 0.82em;
+    line-height: 1.25;
+  }
+
   .receipt-preview__thanks {
     display: grid;
     gap: 8px;
@@ -970,6 +1083,8 @@
     --receipt-font-table: 9.4pt;
     --receipt-font-brand: 27pt;
     --receipt-font-total: 27pt;
+    --receipt-font-thanks: 18pt;
+    --receipt-font-contact: 18pt;
     --receipt-font-bottom-order: 52pt;
     --receipt-font-kitchen-order: 48pt;
     --receipt-font-kitchen-urgent: 24pt;
@@ -992,6 +1107,8 @@
     --receipt-font-table: 7.5pt;
     --receipt-font-brand: 22pt;
     --receipt-font-total: 20pt;
+    --receipt-font-thanks: 14pt;
+    --receipt-font-contact: 13pt;
     --receipt-font-bottom-order: 42pt;
     --receipt-font-kitchen-order: 34pt;
     --receipt-font-kitchen-urgent: 19pt;
@@ -1162,23 +1279,15 @@
     white-space: pre-line;
     overflow-wrap: anywhere;
     font-family: Arial, "Helvetica Neue", sans-serif;
-    font-size: 18pt;
+    font-size: var(--receipt-font-thanks);
     line-height: 1.08;
     font-weight: 900;
   }
 
-  .receipt-preview[data-paper-size="58"] .receipt-preview__customer-footer strong {
-    font-size: 14pt;
-  }
-
   .receipt-preview__customer-footer b {
-    font-size: 18pt;
+    font-size: var(--receipt-font-contact);
     line-height: 1;
     font-weight: 900;
-  }
-
-  .receipt-preview[data-paper-size="58"] .receipt-preview__customer-footer b {
-    font-size: 13pt;
   }
 
   .receipt-preview__bottom-order {
@@ -1321,6 +1430,7 @@
     .dashboard-topbar,
     .receipt-settings,
     .receipt-preview-shell__label,
+    .receipt-page__actions,
     .receipt-page > .message,
     .receipt-mini-btn,
     .receipt-section-editor,

@@ -45,8 +45,12 @@ class AttendanceLog(TimeStampedModel):
     __tablename__ = "attendance_logs"
 
     company_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("companies.id"), index=True)
-    employee_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("employees.id"), index=True)
-    shift_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("work_shifts.id"), index=True)
+    # 5.5 — отметку кассир ставит по сотруднику (users), а не по HR-employee: карточек
+    # employees/смен в кассе нет. Поэтому employee_id/shift_id теперь необязательны,
+    # а прямая ссылка на пользователя (user_id) — основной способ идентификации отметки.
+    user_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), index=True)
+    employee_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("employees.id"), index=True)
+    shift_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("work_shifts.id"), index=True)
     # check_in | check_out
     action: Mapped[str] = mapped_column(String(20), nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

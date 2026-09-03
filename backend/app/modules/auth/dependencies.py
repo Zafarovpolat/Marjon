@@ -68,12 +68,52 @@ async def require_company_admin(
         .where(
             UserRole.user_id == current_user.id,
             Role.company_id == current_user.company_id,
-            Role.slug.in_(("owner", "admin", "manager")),
+            Role.slug.in_(("owner", "admin")),
         )
     )
     if result.scalars().first():
         return current_user
     raise ForbiddenError("Company admin role required")
+
+
+async def user_is_company_admin(current_user: User, db: AsyncSession) -> bool:
+    """owner/admin роль или суперадмин — но как булев признак, а не гейт.
+    Нужен для ветвления анти-эскалации в сервисе: под токеном не-админа
+    (кассир со спец-правом) правила создания/правки сотрудников строже."""
+    if current_user.is_superadmin:
+        return True
+    if not current_user.company_id:
+        return False
+    result = await db.execute(
+        select(Role.slug)
+        .join(UserRole, UserRole.role_id == Role.id)
+        .where(
+            UserRole.user_id == current_user.id,
+            Role.company_id == current_user.company_id,
+            Role.slug.in_(("owner", "admin")),
+        )
+    )
+    return result.scalars().first() is not None
+
+
+def require_permission_or_admin(flag: str):
+    """Гейт мягче require_company_admin: пропускает owner/admin/суперадмина ИЛИ
+    сотрудника компании, которому владелец в веб-админке выдал
+    permissions[flag] === true («кассир со спец-правом» на десктопе-терминале).
+    Веб-админка (owner/admin) проходит без изменений — регрессий нет.
+    Реальная защита от эскалации — в AuthService (роль/права проверяются там)."""
+    async def _dep(
+        current_user: User = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db),
+    ) -> User:
+        if await user_is_company_admin(current_user, db):
+            return current_user
+        perms = current_user.permissions if isinstance(current_user.permissions, dict) else {}
+        if current_user.company_id and perms.get(flag) is True:
+            return current_user
+        raise ForbiddenError("Permission required")
+
+    return _dep
 
 
 async def require_superadmin(

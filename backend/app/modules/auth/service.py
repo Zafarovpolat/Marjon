@@ -1,6 +1,7 @@
 from __future__ import annotations
+import secrets
 from datetime import datetime, timedelta, timezone
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,10 +20,15 @@ from app.modules.auth.security import (
     verify_password,
 )
 from app.modules.companies.models import Branch, Company
+from app.modules.rbac.constants import OWNER_ASSIGNABLE_ROLE_SLUGS
 from app.modules.rbac.models import Role, UserRole
 from app.modules.rbac.repository import RoleRepository
 from app.shared.exceptions import ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError
 from app.shared.phone import normalize_branch_login
+
+# Права-эскалаторы: не-админ (кассир со спец-правом) не может ни выдать их
+# другому, ни присвоить себе — иначе «менеджер» бесконтрольно плодил бы «менеджеров».
+_ESCALATION_PERMISSION_KEYS = ("can_manage_staff", "can_manage_warehouse")
 
 
 class AuthService:
@@ -123,12 +129,15 @@ class AuthService:
         await self._save_refresh_token(user.id, refresh_token)
         return user, access_token, refresh_token
 
-    async def login_by_pin(self, company_id: UUID, pin: str) -> tuple[User, str, str]:
-        """Быстрый вход сотрудника по PIN в рамках его организации."""
+    async def login_by_pin(
+        self, company_id: UUID, pin: str, user_id: UUID | None = None
+    ) -> tuple[User, str, str]:
+        """Быстрый вход сотрудника по PIN в рамках его организации.
+        user_id — сотрудник, выбранный на кассе; сверяем PIN только с ним."""
         import logging
         log = logging.getLogger(__name__)
 
-        user = await self.user_repo.get_by_pin(company_id, pin)
+        user = await self.user_repo.get_by_pin(company_id, pin, user_id)
         if not user:
             log.warning("PIN login failed: no active user for pin in company=%s", company_id)
             raise UnauthorizedError("Invalid PIN")
@@ -226,11 +235,34 @@ class AuthService:
             await self.db.flush()
         return role
 
+    async def _user_has_admin_role(self, company_id: UUID, user_id: UUID) -> bool:
+        """Есть ли у пользователя роль owner/admin в этой компании."""
+        res = await self.db.execute(
+            select(Role.slug)
+            .join(UserRole, UserRole.role_id == Role.id)
+            .where(
+                UserRole.user_id == user_id,
+                Role.company_id == company_id,
+                Role.slug.in_(("owner", "admin")),
+            )
+        )
+        return res.scalars().first() is not None
+
+    @staticmethod
+    def _reject_escalation_permissions(permissions: dict | None) -> None:
+        """Не-админ не может выставить can_manage_* в true (§анти-эскалация)."""
+        if isinstance(permissions, dict):
+            for key in _ESCALATION_PERMISSION_KEYS:
+                if permissions.get(key) is True:
+                    raise ForbiddenError(
+                        "Недостаточно прав для выдачи административных полномочий"
+                    )
+
     async def create_company_user(
         self,
         company_id: UUID | None,
-        email: str,
-        password: str,
+        email: str | None,
+        password: str | None,
         role_slug: str,
         role_name: str | None = None,
         phone: str | None = None,
@@ -242,14 +274,36 @@ class AuthService:
         branch_id: UUID | None = None,
         is_active: bool | None = None,
         permissions: dict | None = None,
+        actor_is_admin: bool = True,
     ) -> tuple[User, Role]:
         if not company_id:
             raise ValidationError("Current user is not assigned to a company")
+
+        # Анти-эскалация: не-админ (кассир со спец-правом) создаёт только рядовые
+        # роли и не может выдать административные права. Владелец/админ — без ограничений.
+        if not actor_is_admin:
+            if role_slug not in OWNER_ASSIGNABLE_ROLE_SLUGS:
+                raise ForbiddenError("Недостаточно прав для назначения этой роли")
+            self._reject_escalation_permissions(permissions)
+
+        # PIN-вход не требует email/пароля — синтезируем служебные (по образцу
+        # терминального пользователя). Пароль/PIN нигде наружу не возвращаем.
+        if not email:
+            company = await self.db.get(Company, company_id)
+            slug = (company.slug if company and company.slug else "staff")
+            email = f"staff.{uuid4().hex[:10]}@{slug}.local"
+        if not password:
+            password = secrets.token_urlsafe(24)
 
         if await self.user_repo.get_by_email(email):
             raise ConflictError("Email already registered")
 
         role = await self._ensure_role(company_id, role_slug, role_name)
+
+        # Одинаковый PIN у двух сотрудников делает вход по PIN неоднозначным
+        # (кассир мог получить сессию владельца), поэтому такой PIN не принимаем.
+        if pin_code and await self.user_repo.pin_taken_by_other(company_id, pin_code):
+            raise ConflictError("PIN уже используется другим сотрудником")
 
         user = User(
             company_id=company_id,
@@ -267,14 +321,24 @@ class AuthService:
         self.db.add(user)
         await self.db.flush()
 
-        self.db.add(UserRole(user_id=user.id, role_id=role.id))
+        # Привязываем роль к филиалу так же, как и сам аккаунт (User.branch_id),
+        # иначе фильтр staff-users по branch_id не найдёт сотрудника (branch_id останется NULL).
+        self.db.add(UserRole(user_id=user.id, role_id=role.id, branch_id=branch_id))
         await self.db.commit()
         await self.db.refresh(user)
         await self.db.refresh(role)
 
         return user, role
 
-    async def update_company_user(self, company_id: UUID | None, user_id: UUID, data: dict) -> User:
+    async def update_company_user(
+        self,
+        company_id: UUID | None,
+        user_id: UUID,
+        data: dict,
+        *,
+        actor_is_admin: bool = True,
+        actor_id: UUID | None = None,
+    ) -> User:
         if not company_id:
             raise ValidationError("Current user is not assigned to a company")
         user = (await self.db.execute(
@@ -283,12 +347,28 @@ class AuthService:
         if not user:
             raise NotFoundError("User not found")
 
+        # Анти-эскалация: не-админ (кассир со спец-правом) не правит ни себя,
+        # ни владельца/админа, не переводит сотрудника в админскую роль и не
+        # раздаёт can_manage_* — иначе «менеджер» бесконтрольно плодил бы «менеджеров».
+        if not actor_is_admin:
+            if actor_id is not None and actor_id == user.id:
+                raise ForbiddenError("Нельзя редактировать собственную учётную запись")
+            if await self._user_has_admin_role(company_id, user.id):
+                raise ForbiddenError("Недостаточно прав для правки этого сотрудника")
+            if data.get("role_slug") and data["role_slug"] not in OWNER_ASSIGNABLE_ROLE_SLUGS:
+                raise ForbiddenError("Недостаточно прав для назначения этой роли")
+            self._reject_escalation_permissions(data.get("permissions"))
+
         # Скалярные поля
         for f in ("phone", "name", "printer_ip", "nfc_id", "branch_id", "is_active", "permissions"):
             if data.get(f) is not None:
                 setattr(user, f, data[f])
         # PIN — только в хеш, plaintext не сохраняем
         if data.get("pin_code") is not None:
+            if data["pin_code"] and await self.user_repo.pin_taken_by_other(
+                company_id, data["pin_code"], exclude_user_id=user.id
+            ):
+                raise ConflictError("PIN уже используется другим сотрудником")
             user.pin_hash = hash_pin(data["pin_code"]) if data["pin_code"] else None
         if data.get("email"):
             user.email = data["email"]

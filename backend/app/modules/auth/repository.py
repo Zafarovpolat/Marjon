@@ -42,19 +42,44 @@ class UserRepository(BaseRepository[User]):
         )
         return list(result.scalars().all())
 
-    async def get_by_pin(self, company_id: UUID, pin: str) -> Optional[User]:
+    async def get_by_pin(
+        self, company_id: UUID, pin: str, user_id: Optional[UUID] = None
+    ) -> Optional[User]:
         """PIN-вход сотрудника: перебираем активных сотрудников компании и сверяем
         bcrypt-хеш. Plaintext-PIN в БД больше не хранится (см. pin_hash).
-        PIN уникален только внутри организации, поэтому scope по company_id обязателен."""
+        PIN уникален только внутри организации, поэтому scope по company_id обязателен.
+        user_id — сотрудник, выбранный на кассе: сверяем PIN ТОЛЬКО с ним, иначе при
+        одинаковых PIN у двух сотрудников выигрывал случайный «первый совпавший»."""
+        from app.modules.auth.security import verify_pin
+        conditions = [
+            User.company_id == company_id,
+            User.is_active == True,  # noqa: E712
+            User.pin_hash.is_not(None),
+        ]
+        if user_id is not None:
+            conditions.append(User.id == user_id)
+        result = await self.db.execute(select(User).where(*conditions))
+        for user in result.scalars().all():
+            if verify_pin(pin, user.pin_hash):
+                return user
+        return None
+
+    async def pin_taken_by_other(
+        self, company_id: UUID, pin: str, exclude_user_id: Optional[UUID] = None
+    ) -> Optional[User]:
+        """Есть ли в компании ДРУГОЙ сотрудник с таким же PIN. Одинаковые PIN делают
+        вход неоднозначным (кассир мог получить сессию владельца), поэтому такой
+        PIN не даём сохранить."""
         from app.modules.auth.security import verify_pin
         result = await self.db.execute(
             select(User).where(
                 User.company_id == company_id,
-                User.is_active == True,  # noqa: E712
                 User.pin_hash.is_not(None),
             )
         )
         for user in result.scalars().all():
+            if exclude_user_id is not None and user.id == exclude_user_id:
+                continue
             if verify_pin(pin, user.pin_hash):
                 return user
         return None

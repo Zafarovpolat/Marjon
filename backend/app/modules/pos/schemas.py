@@ -43,10 +43,20 @@ class OrderUpdate(BaseSchema):
     discount_amount: Decimal | None = None
     service_fee_rate: float | None = None
     reason: str | None = None  # 3.3 — причина смены стола/официанта (пишется в audit)
+    action_pin: str | None = None  # 9 — отдельный PIN подтверждения смены стола (для официанта)
 
 
 class OrderStatusUpdate(BaseSchema):
     status: Literal["new", "accepted", "cooking", "ready", "completed", "cancelled"]
+
+
+class OrderItemWaiterUpdate(BaseSchema):
+    """Смена ответственного официанта у ОТДЕЛЬНОЙ позиции заказа.
+    Кассир исправляет путаницу, когда блюдо внёс не тот официант
+    (доля обслуги считается по ответственному)."""
+    waiter_id: UUID
+    reason: str | None = None       # причина (пишется в audit)
+    action_pin: str | None = None   # PIN подтверждения (для официанта; кассир — без PIN)
 
 
 class OrderItemResponse(BaseResponseSchema):

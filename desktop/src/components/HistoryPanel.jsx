@@ -41,17 +41,15 @@ export default function HistoryPanel({ branch, onClose }) {
     if (!shown.length) return
     if (!receiptPrinter) { toast(t('no_receipt_printer')); return }
     const lines = shown.map((o) => {
-      const sum = Number(o.total_amount || 0).toLocaleString('ru-RU')
       const where = o.table_number ? `${t('table')} ${o.table_number}` : t.type(o.order_type)
-      return `#${o.order_number ?? '—'} ${where} — ${sum}`
+      return `#${o.order_number ?? '—'} ${where}`
     })
-    const grand = shown.reduce((s, o) => s + (Number(o.total_amount) || 0), 0)
     try {
       await printersApi.printSummary({
         printer_id: receiptPrinter.id,
         title: t('hist_title'),
         lines,
-        footer: `${t('total')}: ${grand.toLocaleString('ru-RU')} ${t('currency')} (${shown.length})`,
+        footer: `${t('total')}: ${shown.length}`,
         copies: 1,
       })
       toast(t('receipt_sent'), 'ok')
@@ -80,7 +78,7 @@ export default function HistoryPanel({ branch, onClose }) {
           ) : (
             <table className="hist-table">
               <thead>
-                <tr><th>{t('col_no')}</th><th>{t('col_type')}</th><th>{t('col_table')}</th><th>{t('col_status')}</th><th>{t('col_time')}</th><th className="ta-r">{t('col_sum')}</th></tr>
+                <tr><th>{t('col_no')}</th><th>{t('col_type')}</th><th>{t('col_table')}</th><th>{t('col_status')}</th><th>{t('col_time')}</th></tr>
               </thead>
               <tbody>
                 {shown.map((o) => (
@@ -90,7 +88,6 @@ export default function HistoryPanel({ branch, onClose }) {
                     <td>{o.table_number || '—'}</td>
                     <td><span className={`hist-status hist-status--${o.status}`}>{t.status(o.status)}</span></td>
                     <td className="hist-date">{fmtDt(o.created_at)}</td>
-                    <td className="ta-r hist-sum">{Number(o.total_amount || 0).toLocaleString('ru-RU')} {t('currency')}</td>
                   </tr>
                 ))}
               </tbody>

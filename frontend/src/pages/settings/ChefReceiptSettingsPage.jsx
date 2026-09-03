@@ -61,6 +61,12 @@ export default function ChefReceiptSettingsPage() {
     setTemplate((current) => ({ ...current, blocks: moveBlock(current.blocks, block, direction) }));
   }
 
+  function handleReset() {
+    setTemplate(JSON.parse(JSON.stringify(defaults)));
+    setError("");
+    setMessage("Шаблон сброшен к стандартному виду. Нажмите «Сохранить», чтобы применить.");
+  }
+
   async function handleSave() {
     setSaving(true);
     setError("");
@@ -90,7 +96,24 @@ export default function ChefReceiptSettingsPage() {
 
   return (
     <section className="receipt-page">
+      <div className="receipt-page__actions">
+        <button type="button" className="receipt-page__btn" onClick={handleReset} disabled={saving || printing}>
+          Сбросить
+        </button>
+        <button type="button" className="receipt-page__btn" onClick={handleTestPrint} disabled={saving || printing}>
+          {printing ? "Печать..." : "Тест печати"}
+        </button>
+        <button
+          type="button"
+          className="receipt-page__btn receipt-page__btn--primary"
+          onClick={handleSave}
+          disabled={loading || saving || printing}
+        >
+          {saving ? "Сохранение..." : "Сохранить"}
+        </button>
+      </div>
 
+      {message ? <div className="message message-success">{message}</div> : null}
       {error ? <div className="message message-error">{error}</div> : null}
 
       <div className="receipt-layout">

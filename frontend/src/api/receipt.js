@@ -119,6 +119,9 @@ export function buildCustomerTemplate(org = {}) {
     restaurantName: organization.name || "MARJON",
     address: organization.address || "",
     phone: organization.phone || "",
+    // Ссылка для QR-кода: вводится в веб-конструкторе, печатается нативным
+    // QR принтера (ESC/POS GS ( k). Пустая строка → блок QR ничего не печатает.
+    qrUrl: "",
     currency: organization.currency || "UZS",
     vatRate: Number(organization.vat_rate || 0),
     serviceFee: Number(organization.service_fee || 0),
@@ -180,10 +183,27 @@ export function testPrintKitchen(template) {
   return localTestPrint(template);
 }
 
-export function printOrderReceipt(orderId) {
-  return postPrint(`/printers/print/orders/${orderId}/receipt`);
+// Бэкенд ждёт printer_id: подбираем активный принтер нужного типа (receipt | kitchen)
+async function resolvePrinterId(printerType, printerId) {
+  if (printerId) return printerId;
+  const { data } = await api.get("/printers");
+  const printers = Array.isArray(data) ? data : data?.items || [];
+  const active = printers.filter((printer) => printer.is_active !== false);
+  const match = active.find((printer) => printer.printer_type === printerType) || active[0];
+  if (!match?.id) {
+    const error = new Error("Принтер не настроен");
+    error.response = { data: { detail: "Принтер не настроен. Добавьте принтер в настройках." } };
+    throw error;
+  }
+  return match.id;
 }
 
-export function printKitchenReceipt(orderId) {
-  return postPrint(`/printers/print/orders/${orderId}/kitchen`);
+export async function printOrderReceipt(orderId, { printerId, copies = 1 } = {}) {
+  const printer = await resolvePrinterId("receipt", printerId);
+  return postPrint("/printers/print/receipt", { order_id: orderId, printer_id: printer, copies });
+}
+
+export async function printKitchenReceipt(orderId, { printerId, copies = 1 } = {}) {
+  const printer = await resolvePrinterId("kitchen", printerId);
+  return postPrint("/printers/print/kitchen", { order_id: orderId, printer_id: printer, copies });
 }

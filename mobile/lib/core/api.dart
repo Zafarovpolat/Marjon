@@ -81,6 +81,42 @@ class Api {
     return res.data as Map<String, dynamic>;
   }
 
+  // Список сотрудников организации/филиала (ростер для экрана посещаемости).
+  Future<List<dynamic>> staffUsers({String? branchId}) async {
+    final res = await dio.get('/auth/staff-users',
+        queryParameters: branchId != null ? {'branch_id': branchId} : null);
+    return res.data as List<dynamic>;
+  }
+
+  // ── Attendance (5.5) ────────────────────────────────────────────────────────
+
+  // Журнал отметок за день (по умолчанию — сегодня).
+  Future<List<dynamic>> attendanceLog({String? date}) async {
+    final res = await dio.get('/hr/attendance/log',
+        queryParameters: date != null ? {'date': date} : null);
+    return res.data as List<dynamic>;
+  }
+
+  // Очередь самостоятельных отметок, ожидающих подтверждения кассиром.
+  Future<List<dynamic>> attendancePending() async {
+    final res = await dio.get('/hr/attendance/pending');
+    return res.data as List<dynamic>;
+  }
+
+  // Кассир отмечает сотрудника: action = 'check_in' | 'check_out' (сразу approved).
+  Future<Map<String, dynamic>> attendanceMark(String userId, String action) async {
+    final res = await dio.post('/hr/attendance/mark',
+        data: {'user_id': userId, 'action': action});
+    return res.data as Map<String, dynamic>;
+  }
+
+  // Подтверждение (approve=true) или отклонение (false) отметки из очереди.
+  Future<Map<String, dynamic>> attendanceApprove(String logId, bool approve) async {
+    final res = await dio.post('/hr/attendance/$logId/approve',
+        data: {'approve': approve});
+    return res.data as Map<String, dynamic>;
+  }
+
   // ── Branches ──────────────────────────────────────────────────────────────
 
   Future<List<dynamic>> branches() async {

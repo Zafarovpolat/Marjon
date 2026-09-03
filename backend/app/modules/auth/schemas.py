@@ -15,6 +15,20 @@ def _validate_password(v: str) -> str:
     return v
 
 
+def _validate_pin(v: str | None) -> str | None:
+    """PIN сотрудника: 2–8 цифр. Пусто (None/"") — «снять PIN», это допустимо.
+    Короче 2 цифр не принимаем: на кассе такой PIN нельзя ввести (пин-пад
+    отправляет от 2 цифр), да и подобрать его тривиально."""
+    if v is None:
+        return None
+    v = v.strip()
+    if not v:
+        return ""
+    if not re.fullmatch(r"\d{2,8}", v):
+        raise ValueError("PIN должен содержать от 2 до 8 цифр")
+    return v
+
+
 class RegisterRequest(BaseSchema):
     company_name: str = Field(..., min_length=1, max_length=255)
     company_slug: str = Field(..., min_length=1, max_length=100, pattern=r"^[a-z0-9_-]+$")
@@ -28,8 +42,10 @@ class RegisterRequest(BaseSchema):
 
 
 class CompanyUserCreate(BaseSchema):
-    email: EmailStr
-    password: str
+    # email/password опциональны: кассиры/официанты входят по PIN. Если не заданы —
+    # сервер синтезирует служебный email и случайный пароль (см. AuthService).
+    email: EmailStr | None = None
+    password: str | None = None
     phone: str | None = None
     role_slug: str
     role_name: str | None = None
@@ -43,8 +59,13 @@ class CompanyUserCreate(BaseSchema):
 
     @field_validator("password")
     @classmethod
-    def check_password(cls, v: str) -> str:
-        return _validate_password(v)
+    def check_password(cls, v: str | None) -> str | None:
+        return _validate_password(v) if v else v
+
+    @field_validator("pin_code")
+    @classmethod
+    def check_pin(cls, v: str | None) -> str | None:
+        return _validate_pin(v)
 
 
 class CompanyUserUpdate(BaseSchema):
@@ -67,6 +88,11 @@ class CompanyUserUpdate(BaseSchema):
     def check_password(cls, v: str | None) -> str | None:
         return _validate_password(v) if v else v
 
+    @field_validator("pin_code")
+    @classmethod
+    def check_pin(cls, v: str | None) -> str | None:
+        return _validate_pin(v)
+
 
 class LoginRequest(BaseSchema):
     email: str | None = Field(None, min_length=1, max_length=255)
@@ -75,7 +101,12 @@ class LoginRequest(BaseSchema):
 
 
 class PinLoginRequest(BaseSchema):
-    pin: str = Field(..., min_length=4, max_length=8, pattern=r"^\d+$")
+    # 2–8 цифр: короткий PIN (2 цифры) разрешён для быстрого входа на кассе.
+    pin: str = Field(..., min_length=2, max_length=8, pattern=r"^\d+$")
+    # Кого именно логиним (сотрудник выбран на кассе). Если PIN совпал у двух
+    # сотрудников, без этого поля вход отдавал токен «первого совпавшего» —
+    # десктоп потом отвергал его как «PIN не соответствует выбранному».
+    user_id: UUID | None = None
 
 
 class BranchLoginRequest(BaseSchema):
@@ -120,6 +151,10 @@ class UserResponse(BaseResponseSchema):
     phone: str | None = None
     is_active: bool
     is_superadmin: bool
+    # Scope ТЕКУЩЕЙ сессии (BE-01): "app" | "hq_admin". Проставляется транзиентно
+    # в get_current_user; веб-фронт (owner-gating в isOwnerWebUser) требует это
+    # поле в теле /auth/me — без него вход в веб молча редиректит на /login.
+    auth_scope: str = "app"
     company_id: UUID | None
     branch_id: UUID | None = None
     printer_ip: str | None = None

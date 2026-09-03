@@ -24,11 +24,15 @@ export default function EmployeeSelector({ branch, onSelect, onBack }) {
     setLoading(true); setError(false)
     auth.staffUsers(branch?.id)
       .then((data) => {
-        // Склад (кладовщик) не работает на кассе-терминале — прячем из выбора сотрудника
+        // Владелец, менеджер и кладовщик не работают на кассе-терминале — прячем из выбора.
+        // Владелец управляет через веб-админку; роль менеджера удалена из системы.
+        const HIDDEN_ROLES = ['owner', 'manager', 'warehouse']
         const empRole = (u) => String(u.role_slug || u.role_slugs?.[0] || '').toLowerCase()
         const list = (Array.isArray(data) ? data : data?.items || [])
-          .filter((u) => u.is_active !== false && empRole(u) !== 'warehouse')
-        setStaff(list.length ? list : DEMO_STAFF)
+          .filter((u) => u.is_active !== false && !HIDDEN_ROLES.includes(empRole(u)))
+        // Пустой реальный список — это валидное состояние (сотрудников ещё нет),
+        // показываем подсказку, а не демо-заглушку. DEMO_STAFF — только при ошибке связи.
+        setStaff(list)
       })
       .catch(() => { setStaff(DEMO_STAFF); setError(true) })
       .finally(() => setLoading(false))
@@ -59,6 +63,11 @@ export default function EmployeeSelector({ branch, onSelect, onBack }) {
 
         {loading ? (
           <div className="emp-screen__state"><div className="spinner" /><p>{t('loading')}</p></div>
+        ) : staff.length === 0 ? (
+          <div className="emp-screen__state">
+            <p>{t('emp_empty')}</p>
+            <p className="emp-screen__note">{t('emp_empty_hint')}</p>
+          </div>
         ) : (
           <div className="emp-grid">
             {staff.map((u) => {
@@ -88,5 +97,4 @@ const DEMO_STAFF = [
   { id: 'd2', name: 'Зохида Каримова', role_slug: 'waiter', is_active: true },
   { id: 'd3', name: 'Азиз Рахимов', role_slug: 'cook', is_active: true },
   { id: 'd4', name: 'Дилноза Юсупова', role_slug: 'waiter', is_active: true },
-  { id: 'd5', name: 'Женис Абдуллаев', role_slug: 'manager', is_active: true },
 ]

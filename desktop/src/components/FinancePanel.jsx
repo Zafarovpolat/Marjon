@@ -2,11 +2,19 @@ import { useState, useEffect, useCallback } from 'react'
 import { X, Wallet, TrendingUp, TrendingDown, Play, Square } from 'lucide-react'
 import { shifts as shiftsApi, finance } from '../shared/api'
 import { t } from '../shared/i18n'
+import { must } from '../shared/permissions'
 
 function fmt(n) { return Number(n || 0).toLocaleString('ru-RU') }
 function fmtDt(iso) { return iso ? new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '' }
+// Операция за сегодня? (сравниваем локальную дату — год/месяц/день)
+function isToday(iso) {
+  if (!iso) return false
+  const d = new Date(iso)
+  const now = new Date()
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
+}
 
-export default function FinancePanel({ branch, onClose }) {
+export default function FinancePanel({ branch, user, onClose }) {
   const [shift, setShift] = useState(null)
   const [txs, setTxs] = useState([])
   const [amount, setAmount] = useState('')
@@ -44,6 +52,7 @@ export default function FinancePanel({ branch, onClose }) {
   }
 
   const isOpen = shift && shift.status === 'open'
+  const todayTxs = txs.filter((tx) => isToday(tx.date))   // #6: показываем только сегодняшние операции
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -81,27 +90,29 @@ export default function FinancePanel({ branch, onClose }) {
             )}
           </section>
 
-          {/* Приход / расход */}
-          <section className="settings-section">
-            <h3>{t('income_expense')}</h3>
-            <div className="fin-form">
-              <input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} className="input" placeholder={t('amount_sum')} />
-              <input type="text" value={comment} onChange={(e) => setComment(e.target.value)} className="input" placeholder={t('comment')} />
-            </div>
-            <div className="fin-actions">
-              <button className="btn fin-btn fin-btn--in" disabled={busy} onClick={() => add('income')}><TrendingUp size={18} /> {t('income')}</button>
-              <button className="btn fin-btn fin-btn--out" disabled={busy} onClick={() => add('expense')}><TrendingDown size={18} /> {t('expense')}</button>
-            </div>
-          </section>
+          {/* Приход / расход — только при разрешении владельца (#5) */}
+          {must(user, 'can_cash_ops') && (
+            <section className="settings-section">
+              <h3>{t('income_expense')}</h3>
+              <div className="fin-form">
+                <input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} className="input" placeholder={t('amount_sum')} />
+                <input type="text" value={comment} onChange={(e) => setComment(e.target.value)} className="input" placeholder={t('comment')} />
+              </div>
+              <div className="fin-actions">
+                <button className="btn fin-btn fin-btn--in" disabled={busy} onClick={() => add('income')}><TrendingUp size={18} /> {t('income')}</button>
+                <button className="btn fin-btn fin-btn--out" disabled={busy} onClick={() => add('expense')}><TrendingDown size={18} /> {t('expense')}</button>
+              </div>
+            </section>
+          )}
 
-          {/* История операций */}
+          {/* История операций — только сегодняшние (#6) */}
           <section className="settings-section">
             <h3>{t('recent_ops')}</h3>
-            {txs.length === 0 ? (
+            {todayTxs.length === 0 ? (
               <p className="settings-hint">{t('no_ops')}</p>
             ) : (
               <div className="fin-list">
-                {txs.map((tx) => (
+                {todayTxs.map((tx) => (
                   <div className="fin-row" key={tx.id}>
                     <span className={`fin-row__dir fin-row__dir--${tx.direction}`}>
                       {tx.direction === 'income' ? <TrendingUp size={16} /> : <TrendingDown size={16} />}

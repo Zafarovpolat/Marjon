@@ -8,11 +8,16 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, Request, status, UploadFile
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user, require_company_admin
+from app.modules.auth.dependencies import (
+    get_current_user,
+    require_company_admin,
+    require_permission_or_admin,
+    user_is_company_admin,
+)
 from app.modules.auth.models import RefreshToken, User
 from app.modules.auth.schemas import (
     BranchLoginRequest,
@@ -77,9 +82,11 @@ async def login_admin(request: Request, data: LoginRequest, db: AsyncSession = D
 @router.post("/users", response_model=CompanyUserResponse, status_code=status.HTTP_201_CREATED)
 async def create_company_user(
     data: CompanyUserCreate,
-    current_user: User = Depends(require_company_admin),
+    current_user: User = Depends(require_permission_or_admin("can_manage_staff")),
     db: AsyncSession = Depends(get_db),
 ):
+    # Владелец/админ проходят без ограничений; кассир со спец-правом — под анти-эскалацией.
+    actor_is_admin = await user_is_company_admin(current_user, db)
     user, role = await AuthService(db).create_company_user(
         company_id=current_user.company_id,
         email=data.email,
@@ -94,6 +101,7 @@ async def create_company_user(
         branch_id=data.branch_id,
         is_active=data.is_active,
         permissions=data.permissions,
+        actor_is_admin=actor_is_admin,
     )
     return CompanyUserResponse.model_validate(user).model_copy(update={"role_slug": role.slug})
 
@@ -102,11 +110,16 @@ async def create_company_user(
 async def update_company_user(
     user_id: UUID,
     data: CompanyUserUpdate,
-    current_user: User = Depends(require_company_admin),
+    current_user: User = Depends(require_permission_or_admin("can_manage_staff")),
     db: AsyncSession = Depends(get_db),
 ):
+    actor_is_admin = await user_is_company_admin(current_user, db)
     user = await AuthService(db).update_company_user(
-        current_user.company_id, user_id, data.model_dump(exclude_unset=True)
+        current_user.company_id,
+        user_id,
+        data.model_dump(exclude_unset=True),
+        actor_is_admin=actor_is_admin,
+        actor_id=current_user.id,
     )
     roles_res = await db.execute(
         select(Role.slug).join(UserRole, UserRole.role_id == Role.id).where(UserRole.user_id == user.id)
@@ -185,7 +198,7 @@ async def me(current_user: User = Depends(get_current_user), db: AsyncSession = 
 
 @router.get("/users", response_model=list[CompanyUserResponse])
 async def list_company_users(
-    current_user: User = Depends(require_company_admin),
+    current_user: User = Depends(require_permission_or_admin("can_manage_staff")),
     db: AsyncSession = Depends(get_db),
 ):
     from app.modules.auth.repository import UserRepository
@@ -209,16 +222,23 @@ async def list_company_users(
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_company_user(
     user_id: UUID,
-    current_user: User = Depends(require_company_admin),
+    current_user: User = Depends(require_permission_or_admin("can_manage_staff")),
     db: AsyncSession = Depends(get_db),
 ):
     from sqlalchemy import update as sql_update
     from app.modules.auth.repository import UserRepository
+    from app.shared.exceptions import ForbiddenError
     repo = UserRepository(db)
     user = await repo.get_by_id(user_id)
     if not user or user.company_id != current_user.company_id:
         from app.shared.exceptions import NotFoundError
         raise NotFoundError("User not found")
+    # Анти-эскалация: кассир со спец-правом не увольняет ни себя, ни владельца/админа.
+    if not await user_is_company_admin(current_user, db):
+        if user.id == current_user.id:
+            raise ForbiddenError("Нельзя деактивировать собственную учётную запись")
+        if await AuthService(db)._user_has_admin_role(current_user.company_id, user.id):
+            raise ForbiddenError("Недостаточно прав для деактивации этого сотрудника")
     await db.execute(
         sql_update(User).where(User.id == user_id).values(is_active=False)
     )
@@ -265,13 +285,15 @@ async def pin_login(
 
     Терминал привязан к организации токеном админа (передаётся в Authorization).
     PIN ищется в рамках этой организации — так один и тот же PIN в разных
-    компаниях не пересекается.
+    компаниях не пересекается. data.user_id — сотрудник, выбранный на кассе:
+    PIN сверяется только с ним (иначе при совпадении PIN у двух сотрудников
+    токен уходил «первому совпавшему», и десктоп отвергал вход).
     """
     if not current_user.company_id:
         from app.shared.exceptions import ForbiddenError
         raise ForbiddenError("Терминал не привязан к организации")
     _, access_token, refresh_token = await AuthService(db).login_by_pin(
-        current_user.company_id, data.pin
+        current_user.company_id, data.pin, data.user_id
     )
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
@@ -282,15 +304,18 @@ async def staff_users(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Список сотрудников организации. При указании branch_id — только те,
-    кто привязан к этому филиалу через UserRole.branch_id."""
+    """Список сотрудников организации. При указании branch_id — сотрудники
+    этого филиала плюс те, у кого филиал не задан (UserRole.branch_id IS NULL):
+    аккаунты из веб-панели создаются без филиала и должны быть видны на кассе."""
     from app.modules.auth.repository import UserRepository
     users = await UserRepository(db).get_company_users(current_user.company_id)
 
     branch_user_ids: set[UUID] | None = None
     if branch_id is not None:
         rows = await db.execute(
-            select(UserRole.user_id).where(UserRole.branch_id == branch_id)
+            select(UserRole.user_id).where(
+                or_(UserRole.branch_id == branch_id, UserRole.branch_id.is_(None))
+            )
         )
         branch_user_ids = set(rows.scalars().all())
 

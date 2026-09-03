@@ -59,8 +59,6 @@ EXTRA_USERS = [
     # more kitchen
     {"email": "kuxna2@marjon.uz", "username": "kuxna2", "name": "Бахтиёр Сулейманов", "phone": "+998904444201", "password": "Staff1234", "pin": "4201", "role_slug": "kitchen", "role_name": "Kitchen"},
     {"email": "kuxna3@marjon.uz", "username": "kuxna3", "name": "Ойбек Назаров", "phone": "+998904444202", "password": "Staff1234", "pin": "4202", "role_slug": "kitchen", "role_name": "Kitchen"},
-    # more managers
-    {"email": "manager2@marjon.uz", "username": "manager2", "name": "Зафар Усманов", "phone": "+998906666201", "password": "Staff1234", "pin": "6201", "role_slug": "manager", "role_name": "Manager"},
     # bar
     {"email": "bar2@marjon.uz", "username": "bar2", "name": "Лазиз Файзуллаев", "phone": "+998908888201", "password": "Staff1234", "pin": "8201", "role_slug": "bar", "role_name": "Bar"},
     # archived users

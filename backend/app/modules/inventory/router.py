@@ -9,13 +9,14 @@ from app.modules.auth.models import User
 from app.modules.inventory.schemas import (
     CategoryCreate, CategoryResponse,
     IngredientCreate, IngredientResponse,
-    ProductCreate, ProductResponse, ProductUpdate,
+    ProductAvailabilityUpdate, ProductCreate, ProductLimitUpdate, ProductResponse, ProductUpdate,
     StockItemResponse, StockMovementCreate, StockMovementResponse,
 )
 from app.modules.inventory.service import CategoryService, IngredientService, ProductService, StockService
 from sqlalchemy import select
 from app.modules.inventory.models import Product, Ingredient, ProductRecipe
-from app.shared.exceptions import NotFoundError
+from app.modules.rbac.models import Role, UserRole
+from app.shared.exceptions import ForbiddenError, NotFoundError
 from app.shared.storage import storage
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
@@ -24,6 +25,33 @@ router = APIRouter(prefix="/inventory", tags=["inventory"])
 # Раньше эти имена использовались в хендлерах, но нигде не определялись — NameError.
 _ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
 _EXT_MAP = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+
+# Стоп-лист правят с десктопа кассир и повар (плюс владелец/админ и HQ-суперадмин).
+# Официанту и курьеру — запрещено (deny-by-default). Гвард отдельный от
+# require_company_admin: тот НЕ пускает кассира/повара, а здесь они — основные редакторы.
+_STOP_LIST_EDITOR_ROLES = ("owner", "admin", "cashier", "kitchen")
+
+
+async def require_stop_list_editor(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    if user.is_superadmin:
+        return user
+    if not user.company_id:
+        raise ForbiddenError("User is not assigned to a company")
+    result = await db.execute(
+        select(Role.slug)
+        .join(UserRole, UserRole.role_id == Role.id)
+        .where(
+            UserRole.user_id == user.id,
+            Role.company_id == user.company_id,
+            Role.slug.in_(_STOP_LIST_EDITOR_ROLES),
+        )
+    )
+    if result.scalars().first():
+        return user
+    raise ForbiddenError("Cashier role required to edit stop-list")
 
 
 @router.get("/products/{product_id}/recipe")
@@ -91,6 +119,43 @@ async def get_product(product_id: UUID, user: User = Depends(get_current_user), 
 @router.patch("/products/{product_id}", response_model=ProductResponse)
 async def update_product(product_id: UUID, data: ProductUpdate, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)):
     return await ProductService(db).update(user.company_id, product_id, data)
+
+
+@router.patch("/products/{product_id}/availability", response_model=ProductResponse)
+async def set_product_availability(
+    product_id: UUID,
+    data: ProductAvailabilityUpdate,
+    user: User = Depends(require_stop_list_editor),
+    db: AsyncSession = Depends(get_db),
+):
+    """Стоп-лист: снять/вернуть блюдо в продажу. Доступно только кассиру.
+
+    Узкий эндпоинт правит ТОЛЬКО is_available — в отличие от админского
+    PATCH /products/{id}, который меняет любые поля блюда. Так кассир управляет
+    стоп-листом с десктопа, но не может трогать цены/названия.
+    """
+    return await ProductService(db).set_availability(
+        user.company_id, product_id, data.is_available
+    )
+
+
+@router.patch("/products/{product_id}/limit", response_model=ProductResponse)
+async def set_product_daily_limit(
+    product_id: UUID,
+    data: ProductLimitUpdate,
+    user: User = Depends(require_stop_list_editor),
+    db: AsyncSession = Depends(get_db),
+):
+    """D3 «максимум блюда»: задать дневной лимит порций (или снять — null).
+
+    Тот же гейт, что у стоп-листа (кассир/повар/владелец/админ): задание числа
+    обнуляет счётчик и возвращает блюдо в продажу; при достижении лимита в ходе
+    продаж блюдо авто-встаёт в стоп. Так повар/кассир регулируют «максимум»
+    с десктопа, не трогая цену/название.
+    """
+    return await ProductService(db).set_daily_limit(
+        user.company_id, product_id, data.daily_limit
+    )
 
 
 @router.post("/upload-image", response_model=dict)

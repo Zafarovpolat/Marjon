@@ -6,7 +6,7 @@ from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User
 from app.modules.hr.schemas import (
-    AttendanceApprove, AttendanceCreate, AttendanceResponse,
+    AttendanceApprove, AttendanceCreate, AttendanceMark, AttendanceResponse,
     EmployeeCreate, EmployeeUpdate, EmployeeResponse,
     ShiftCreate, ShiftResponse,
 )
@@ -63,6 +63,29 @@ async def list_shifts(user: User = Depends(get_current_user), db: AsyncSession =
 @router.post("/attendance", response_model=AttendanceResponse, status_code=status.HTTP_201_CREATED)
 async def log_attendance(data: AttendanceCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     return await HRService(db).log_attendance(user.company_id, data)
+
+
+# 5.5 — кассир отмечает приход/уход сотрудника (сразу approved, логируется в audit)
+@router.post("/attendance/mark", response_model=AttendanceResponse, status_code=status.HTTP_201_CREATED)
+async def mark_attendance(data: AttendanceMark, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await HRService(db).mark_attendance(user.company_id, user.id, data)
+
+
+# 5.5 — журнал отметок за день (все статусы) для экрана посещаемости кассира
+@router.get("/attendance/log", response_model=list[AttendanceResponse])
+async def attendance_log(
+    date: str | None = None,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from datetime import datetime as _dt, timezone as _tz
+    day = _dt.now(_tz.utc)
+    if date:
+        try:
+            day = _dt.fromisoformat(date).replace(tzinfo=_tz.utc)
+        except ValueError:
+            pass
+    return await HRService(db).list_attendance_log(user.company_id, day)
 
 
 # 5.5 — очередь неподтверждённых отметок (вход/уход повара) для экрана кассира

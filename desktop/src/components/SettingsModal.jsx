@@ -1,10 +1,38 @@
 import { useState, useEffect } from 'react'
-import { X, Volume2, Server, Monitor, Timer, Globe, Maximize, ZoomIn, ZoomOut, Check, Printer, Wifi } from 'lucide-react'
+import { X, Volume2, Server, Monitor, Timer, Globe, Maximize, ZoomIn, ZoomOut, Check, Printer, Wifi, Minus, Plus } from 'lucide-react'
 import { soundService } from '../services/sound'
 import { printers as printersApi, queueSize } from '../shared/api'
 import { t } from '../shared/i18n'
 
 const el = () => (typeof window !== 'undefined' ? window.electron : null)
+
+// Тач-степпер целых значений: крупные кнопки −/+ вместо число-инпута (кухонный терминал).
+function Stepper({ value, onChange, min = 1, max = 99, step = 1, unit }) {
+  const clamp = (n) => Math.min(max, Math.max(min, n))
+  return (
+    <div className="stepper" role="group">
+      <button
+        type="button"
+        className="stepper__btn"
+        onClick={() => onChange(clamp(value - step))}
+        disabled={value <= min}
+        aria-label="−"
+      >
+        <Minus size={20} />
+      </button>
+      <span className="stepper__value">{value}{unit ? ` ${unit}` : ''}</span>
+      <button
+        type="button"
+        className="stepper__btn"
+        onClick={() => onChange(clamp(value + step))}
+        disabled={value >= max}
+        aria-label="+"
+      >
+        <Plus size={20} />
+      </button>
+    </div>
+  )
+}
 
 export default function SettingsModal({ open, onClose }) {
   const [soundEnabled, setSoundEnabled] = useState(soundService.enabled)
@@ -111,11 +139,11 @@ export default function SettingsModal({ open, onClose }) {
             <p className="settings-hint">{t('s_timers_hint')}</p>
             <div className="settings-row">
               <span>{t('s_yellow_after')}</span>
-              <input type="number" min="1" max="60" value={timerYellow} onChange={(e) => setTimerYellow(Number(e.target.value) || 5)} className="input settings-num" />
+              <Stepper value={timerYellow} onChange={setTimerYellow} min={1} max={60} unit={t('unit_min')} />
             </div>
             <div className="settings-row">
               <span>{t('s_red_after')}</span>
-              <input type="number" min="1" max="120" value={timerRed} onChange={(e) => setTimerRed(Number(e.target.value) || 10)} className="input settings-num" />
+              <Stepper value={timerRed} onChange={setTimerRed} min={1} max={120} unit={t('unit_min')} />
             </div>
             <div className="settings-row">
               <span>{t('s_save_thresholds')}</span>

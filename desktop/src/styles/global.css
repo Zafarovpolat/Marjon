@@ -49,10 +49,10 @@ body {
   background-clip: padding-box;
 }
 
-/* Тёмный скроллбар внутри хрома / тёмных панелей */
+/* Скроллбар внутри хрома / панелей — виден и на светлой, и на тёмной теме */
 .chrome-scroll::-webkit-scrollbar-thumb,
 .sidebar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--color-border-strong);
 }
 
 /* ── Ссылки ── */

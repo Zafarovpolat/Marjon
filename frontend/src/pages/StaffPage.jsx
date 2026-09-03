@@ -5,7 +5,7 @@ import { staffService } from "../api/staff";
 import Icon from "../components/Icon";
 import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 
-const STAFF_ROLE_SLUGS = new Set(["manager", "cashier", "waiter", "kitchen", "monoblock", "courier", "warehouse"]);
+const STAFF_ROLE_SLUGS = new Set(["cashier", "waiter", "kitchen", "monoblock", "courier", "warehouse"]);
 const emptyForm = { user_id: "", branch_id: "", position: "", salary_type: "fixed", salary_amount: "" };
 
 function userLabel(user) {

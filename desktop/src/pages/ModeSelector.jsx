@@ -1,11 +1,10 @@
-import { ShoppingCart, UtensilsCrossed, Briefcase, LogOut, ArrowLeft } from 'lucide-react'
+import { ShoppingCart, UtensilsCrossed, LogOut, ArrowLeft } from 'lucide-react'
 import { t } from '../shared/i18n'
 
 export default function ModeSelector({ user, branch, onSelect, onBack, onLogout }) {
   const MODES = [
     { id: 'cashier', label: t('mode_cashier'), description: t('md_cashier_desc'), icon: ShoppingCart, color: 'var(--color-brand)' },
     { id: 'waiter', label: t('mode_waiter'), description: t('md_waiter_desc'), icon: UtensilsCrossed, color: 'var(--color-success)' },
-    { id: 'manager', label: t('mode_manager'), description: t('md_manager_desc'), icon: Briefcase, color: 'var(--color-info)' },
   ]
   return (
     <div className="login-page">

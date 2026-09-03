@@ -119,6 +119,7 @@
 .topbar {
   display: flex;
   align-items: center;
+  gap: var(--spacing-lg);
   height: var(--topbar-height);
   padding: 0 var(--spacing-lg);
   background: var(--color-card);
@@ -157,6 +158,68 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Курсы валют ЦБ РУз в шапке — дропдаун-кнопка (как в веб-панели) */
+.topbar__rates-dd {
+  position: relative;
+}
+.topbar__rates-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+.topbar__rates-lead {
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.topbar__rates-caret {
+  transition: transform var(--transition-fast) ease;
+}
+.topbar__rates-caret.is-open {
+  transform: rotate(180deg);
+}
+.topbar__rates-menu {
+  position: absolute;
+  top: calc(100% + var(--spacing-xs));
+  left: 0;
+  min-width: 180px;
+  padding: var(--spacing-xs);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: var(--z-dropdown);
+}
+.topbar__rates-title {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: var(--spacing-xs) var(--spacing-sm) 4px;
+}
+.topbar__rates-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: 6px var(--spacing-sm);
+  border-radius: var(--radius-sm);
+}
+.topbar__rates-item:hover {
+  background: var(--color-surface-hover);
+}
+.topbar__rate-ccy {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+}
+.topbar__rate-val {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 .topbar__status {
@@ -1637,9 +1700,9 @@ body.vkb-open .login-card {
   right: 0;
   z-index: var(--z-modal);
   background: var(--color-card);
-  border-top: 2px solid var(--color-border-light);
-  padding: var(--spacing-sm) var(--spacing-md) var(--spacing-lg);
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
+  border-top: 1px solid var(--color-border);
+  padding: var(--spacing-xs) var(--spacing-sm) var(--spacing-md);
+  box-shadow: none;
   animation: vkb-slide-up 0.2s ease-out;
 }
 
@@ -1666,23 +1729,23 @@ body.vkb-open .login-card {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--radius-sm);
-  background: var(--neutral-700);
+  background: var(--color-surface-hover);
   color: var(--color-text-primary);
 }
-.vkb__close:hover { background: var(--neutral-600); }
+.vkb__close:hover { background: var(--color-subtle); }
 
 .vkb__rows {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .vkb__row {
   display: flex;
-  gap: 6px;
+  gap: 5px;
   justify-content: center;
 }
 
@@ -1691,13 +1754,14 @@ body.vkb-open .login-card {
   align-items: center;
   justify-content: center;
   flex: 1;
-  min-width: 44px;
-  max-width: 84px;
-  height: 60px;
-  border-radius: var(--radius-sm);
-  background: var(--neutral-800);
+  min-width: 40px;
+  max-width: 78px;
+  height: 46px;
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border-light);
   color: var(--color-text-primary);
-  font-size: var(--text-lg);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   user-select: none;
@@ -1705,7 +1769,7 @@ body.vkb-open .login-card {
 }
 .vkb__key:active {
   background: var(--color-brand);
-  color: #fff;
+  color: var(--color-text-inverse);
   transform: scale(0.95);
 }
 
@@ -1718,26 +1782,26 @@ body.vkb-open .login-card {
 /* Служебные клавиши (backspace, shift, enter, lang, num, abc, sym) */
 .vkb__key--medium {
   flex: 1.5;
-  max-width: 110px;
-  background: var(--neutral-700);
+  max-width: 104px;
+  background: var(--color-subtle);
   color: var(--color-text-secondary);
-  font-size: var(--text-md);
+  font-size: var(--text-sm);
 }
 .vkb__key--medium:active {
   background: var(--color-brand);
-  color: #fff;
+  color: var(--color-text-inverse);
 }
 
 /* Многосимвольные клавиши (http, .com, ://) */
 .vkb__key--multi {
   font-size: var(--text-sm);
-  background: var(--neutral-700);
+  background: var(--color-subtle);
 }
 
 /* Активный shift */
 .vkb__key--active {
   background: var(--color-brand);
-  color: #fff;
+  color: var(--color-text-inverse);
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -1917,8 +1981,10 @@ body.vkb-open .login-card {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--touch-min);
-  height: var(--touch-min);
+  height: 100%;
+  width: auto;
+  min-width: var(--bottombar-height);
+  padding: 0 var(--spacing-sm);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-secondary);
@@ -2067,6 +2133,8 @@ body.vkb-open .login-card {
 .cashier-products {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 .cashier-products__search {
@@ -2107,8 +2175,9 @@ body.vkb-open .login-card {
 }
 .cashier-products__grid {
   flex: 1;
+  min-height: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: var(--spacing-md);
   padding: var(--spacing-md);
   overflow-y: auto;
@@ -2291,8 +2360,8 @@ body.vkb-open .login-card {
 .total-row--sub { color: var(--color-text-muted); }
 .total-row--discount { color: var(--color-danger); }
 .total-row--final {
-  font-size: var(--text-xl);
-  font-weight: var(--font-weight-bold);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-weight-extrabold);
   color: var(--color-text-primary);
 }
 .cashier-cart__actions {
@@ -2465,10 +2534,10 @@ body.vkb-open .login-card {
 .detail-item--new { border-left-color: var(--color-info); }
 .detail-item--cooking { border-left-color: var(--color-warning); }
 .detail-item--ready { border-left-color: var(--color-success); }
-.detail-item__qty { font-weight: var(--font-weight-bold); color: var(--color-brand); min-width: 32px; }
+.detail-item__qty { font-weight: var(--font-weight-bold); color: var(--color-brand-dark); min-width: 32px; }
 .detail-item__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .detail-item__name { flex: 1; }
-.detail-item__sub { font-size: var(--text-xs); color: var(--color-text-muted); }
+.detail-item__sub { font-size: var(--text-sm); color: var(--color-text-secondary); }
 .detail-item__status {
   display: inline-flex;
   align-items: center;
@@ -2677,6 +2746,13 @@ body.vkb-open .login-card {
 }
 .filter-chip:hover { background: var(--color-surface-hover); }
 .filter-chip--active { background: var(--color-brand); color: #fff; }
+/* Активная пилюля при ховере: НЕ подменяем фон на светлый (белый текст на нём
+   был не читаем) — уходим в тёмный бренд + мягкое бирюзовое свечение */
+.filter-chip--active:hover {
+  background: var(--color-brand-dark);
+  color: var(--color-text-inverse);
+  box-shadow: 0 2px 10px var(--color-brand-glow);
+}
 .filter-chip__count {
   display: inline-flex;
   align-items: center;
@@ -2893,12 +2969,14 @@ body.vkb-open .login-card {
 .icon-btn--danger:hover { background: var(--color-danger-bg); color: var(--color-danger); }
 
 /* ═══════════════════════════════════════════════════════════════════
-   PHASE 1 — СВЕТЛАЯ ТЕМА: ХРОМ (navy) + ПОЛИРОВКА
-   Хедер, сайдбар и боттомбар — тёмно-синие; рабочий экран — белый.
+   СВЕТЛАЯ ТЕМА: ХРОМ (белый) + ПОЛИРОВКА
+   Хедер, сайдбар и боттомбар — белые (1:1 с палитрой фронта);
+   рабочий экран — светлый. Цвета берутся из --chrome-* и семантических
+   токенов, поэтому тёмная тема (data-theme="dark") включается автоматически.
    Эти правила идут последними и переопределяют базовые.
    ═══════════════════════════════════════════════════════════════════ */
 
-/* ── App shell: navy подложка + белый скруглённый рабочий экран ── */
+/* ── App shell: подложка хрома + скруглённый рабочий экран ── */
 .app-shell { background: var(--chrome-bg); }
 .app-shell__content {
   background: var(--color-bg);
@@ -2906,24 +2984,27 @@ body.vkb-open .login-card {
 }
 .app-shell--kitchen { background: var(--chrome-bg); }
 
-/* ── TopBar (navy) ── */
+/* ── TopBar ── */
 .topbar {
   background: var(--chrome-bg);
   color: var(--chrome-text);
   border-bottom: 1px solid var(--chrome-border);
   box-shadow: var(--shadow-sm);
 }
-.topbar__title { color: #fff; }
+.topbar__title { color: var(--chrome-text); }
 .topbar__subtitle,
 .topbar__status-text { color: var(--chrome-text-muted); }
-.topbar__clock { color: var(--teal-300); }
-.topbar .icon-btn { color: rgba(255, 255, 255, 0.82); }
-.topbar .icon-btn:hover { background: var(--chrome-hover); color: #fff; }
-.topbar .filter-chip { background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.78); }
-.topbar .filter-chip:hover { background: var(--chrome-hover); color: #fff; }
-.topbar .filter-chip--active { background: var(--color-brand); color: #fff; }
+.topbar__clock { color: var(--color-brand-dark); }
+.topbar .icon-btn { color: var(--color-text-secondary); }
+.topbar .icon-btn:hover { background: var(--chrome-hover); color: var(--chrome-text); }
+.topbar .filter-chip { background: var(--color-subtle); color: var(--color-text-secondary); }
+.topbar .filter-chip:hover { background: var(--chrome-hover); color: var(--chrome-text); }
+.topbar .filter-chip--active { background: var(--color-brand); color: var(--color-text-inverse); }
+/* Тот же приоритет, что у .topbar .filter-chip:hover — иначе активная пилюля
+   топбара при наведении теряет бренд-фон и текст «пропадает» */
+.topbar .filter-chip--active:hover { background: var(--color-brand-dark); color: var(--color-text-inverse); }
 
-/* ── BottomBar (navy) ── */
+/* ── BottomBar ── */
 .bottombar {
   background: var(--chrome-bg);
   color: var(--chrome-text-muted);
@@ -2933,31 +3014,31 @@ body.vkb-open .login-card {
   justify-content: space-between;
 }
 .bottombar__info { color: var(--chrome-text-muted); }
-.bottombar__minimize { color: rgba(255, 255, 255, 0.8); }
-.bottombar__minimize:hover { background: var(--chrome-hover); color: #fff; }
-.bottom-action { color: rgba(255, 255, 255, 0.8); }
-.bottom-action:hover { background: var(--chrome-hover); color: #fff; }
-.bottom-action--muted { color: rgba(255, 255, 255, 0.5); }
+.bottombar__minimize { color: var(--color-text-secondary); }
+.bottombar__minimize:hover { background: var(--chrome-hover); color: var(--chrome-text); }
+.bottom-action { color: var(--color-text-secondary); }
+.bottom-action:hover { background: var(--chrome-hover); color: var(--chrome-text); }
+.bottom-action--muted { color: var(--color-text-muted); }
 .bottom-stats,
 .bottom-stats__item { color: var(--chrome-text-muted); }
-.bottom-stats__item strong { color: #fff; }
+.bottom-stats__item strong { color: var(--chrome-text); }
 
-/* ── Sidebar (navy, одного цвета с хедером) ── */
+/* ── Sidebar (одного цвета с хедером) ── */
 .sidebar {
   background: var(--chrome-bg);
   border-right: 1px solid var(--chrome-border);
 }
 .sidebar__header {
   border-bottom: 1px solid var(--chrome-border);
-  color: #fff;
+  color: var(--chrome-text);
 }
-.sidebar__mode-label { color: rgba(255, 255, 255, 0.55); }
+.sidebar__mode-label { color: var(--color-text-muted); }
 .sidebar__item { color: var(--chrome-text-muted); }
-.sidebar__item:hover { background: var(--chrome-hover); color: #fff; }
+.sidebar__item:hover { background: var(--chrome-hover); color: var(--chrome-text); }
 .sidebar__item--active,
 .sidebar__item.active {
   background: var(--chrome-active);
-  color: #fff;
+  color: var(--color-brand-dark);
   box-shadow: inset 3px 0 0 var(--color-brand);
 }
 .sidebar__item--active:hover,
@@ -2995,7 +3076,7 @@ body.vkb-open .login-card {
 .vkb {
   background: var(--color-card);
   border-top: 1px solid var(--color-border);
-  box-shadow: 0 -10px 40px rgba(11, 31, 63, 0.16);
+  box-shadow: none;
 }
 .vkb__lang { color: var(--color-brand); }
 .vkb__close { background: var(--color-subtle); color: var(--color-text-secondary); }
@@ -3010,7 +3091,7 @@ body.vkb-open .login-card {
 .vkb__key--multi { background: var(--neutral-100); color: var(--color-text-secondary); }
 .vkb__key--num { color: var(--color-brand); font-weight: var(--font-weight-bold); }
 
-/* ── Панель-обёртки режимов, ставшие белыми: тонкая тень + бордер ── */
+/* ── Панель-обёртки режимов, ставшие белыми: без тени, чистый фон ── */
 .kitchen-header,
 .mode-topbar,
 .waiter-hall__header,
@@ -3018,7 +3099,7 @@ body.vkb-open .login-card {
 .waiter-new-order__header,
 .cashier-products__search {
   background: var(--color-card);
-  box-shadow: var(--shadow-xs);
+  box-shadow: none;
 }
 
 
@@ -3252,15 +3333,19 @@ body.vkb-open .login-card {
   border-top: 1px solid var(--color-border);
   /* Больше боковых отступов → клавиши чуть у́же и компактнее (просьба заказчика) */
   padding: 8px 28px 14px;
-  box-shadow: 0 -10px 40px rgba(11, 31, 63, 0.16);
+  box-shadow: none;
 }
 .vkb__header { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 8px; }
 .vkb__lang { font-size: 13px; font-weight: 700; color: var(--color-interactive); letter-spacing: 1px; }
-.vkb__close { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; background: #fff; color: var(--neutral-600); }
-.vkb__rows { display: flex; flex-direction: column; gap: 8px; }
-.vkb__row { display: flex; gap: 8px; }
+.vkb__close { width: clamp(32px, 4.8vh, 40px); height: clamp(32px, 4.8vh, 40px); display: grid; place-items: center; border-radius: 10px; background: #fff; color: var(--neutral-600); }
+.vkb__rows { display: flex; flex-direction: column; gap: clamp(5px, 0.9vh, 8px); }
+.vkb__row { display: flex; gap: clamp(5px, 0.9vh, 8px); }
+/* Высота клавиши тянется от высоты экрана: при фиксированных 58px
+   5 рядов занимали 395px из 669px рабочей высоты (59%) — после сжатия
+   .app-shell на корзину оставалось ~67px и поля у нижнего края обрезались
+   клавиатурой. На больших мониторах остаётся прежние 58px. */
 .vkb__key {
-  flex: 1 1 0; min-width: 0; max-width: none; height: 58px;
+  flex: 1 1 0; min-width: 0; max-width: none; height: clamp(40px, 6.2vh, 58px);
   display: flex; align-items: center; justify-content: center;
   border-radius: 10px; background: #ffffff; color: var(--neutral-900);
   font-size: 19px; font-weight: 600;
@@ -3308,6 +3393,43 @@ body.vkb-open .login-card {
 .range-input::-moz-range-thumb { width: 22px; height: 22px; border: none; border-radius: 50%; background: var(--color-brand); cursor: pointer; }
 .settings-hint { font-size: var(--text-sm); color: var(--color-text-muted); margin: 2px 0 18px; line-height: 1.5; }
 .settings-num { width: 104px; text-align: center; }
+
+/* ── Тач-степпер порогов таймера кухни (−/+ вместо число-инпута) ── */
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-2xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.stepper__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+}
+.stepper__btn:hover:not(:disabled) { background: var(--color-brand); color: var(--color-text-inverse); }
+.stepper__btn:active:not(:disabled) { background: var(--color-brand-dark); transform: scale(0.94); }
+.stepper__btn:disabled { opacity: 0.4; cursor: default; }
+.stepper__value {
+  min-width: 84px;
+  text-align: center;
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
 .settings-modal .btn { min-height: 48px; padding: 0 20px; font-size: var(--text-base); white-space: nowrap; }
 .settings-save { min-width: 132px; }
 .settings-icon-btn { width: 52px; padding: 0; }
@@ -3321,18 +3443,16 @@ body.vkb-open .login-card {
 .dish-modal__del { flex: 0 0 auto; width: 56px; padding: 0; }
 
 /* ── Хром без бордеров (шапка/сайдбар/боттомбар) ── */
-.topbar, .ws-top { border-bottom: none; }
+.topbar, .ws-top { border-bottom: none; box-shadow: none; }
 .sidebar, .ws-side, .floor .ws-side { border-right: none; }
 .bottombar, .ws-bottom { border-top: none; }
 
-/* ── Активная кнопка локации в сайдбаре — как во фронте ── */
+/* ── Активная кнопка локации в сайдбаре — акцентная полоса слева.
+   Цвета (фон/текст/иконка/счётчик) заданы в screens.css через токены
+   и корректно работают на светлой и тёмной теме; здесь — только акцент. */
 .zone--active {
-  background: rgba(29, 181, 181, 0.30);
-  color: #fff;
-  box-shadow: inset 3px 0 0 var(--color-brand), 0 10px 26px rgba(29, 181, 181, 0.14);
+  box-shadow: inset 3px 0 0 var(--color-brand), 0 10px 26px var(--color-brand-glow);
 }
-.zone--active > svg { color: var(--teal-300); }
-.zone--active .zone__count { background: rgba(29, 181, 181, 0.45); color: #fff; }
 
 /* ═══════════════════════════════════════════════════════════════════
    ПРАВКИ ПО ФИДБЕКУ: карточки блюд, корзина, оплата, режимы, кухня
@@ -3366,12 +3486,36 @@ body.vkb-open .login-card {
 .cashier-cart__items .cart-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--color-card); border: 1px solid var(--color-border-light); border-radius: var(--radius-sm); margin-bottom: 6px; }
 .cart-item__info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; text-align: left; background: transparent; border: none; cursor: pointer; padding: 0; }
 .cart-item__name { font-size: var(--text-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--color-text-primary); }
-.cart-item__price { font-size: var(--text-xs); color: var(--color-brand); font-weight: 600; }
+.cart-item__price { font-size: var(--text-sm); color: var(--color-brand); font-weight: 700; white-space: nowrap; }
 .cart-item__controls { flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
 .cashier-cart .qty-btn { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 9px; background: var(--color-subtle); color: var(--color-text-primary); }
 .cashier-cart .qty-btn:hover { background: var(--neutral-200); }
 .cashier-cart .qty-btn--delete { background: var(--color-danger-bg); color: var(--color-danger); }
 .cashier-cart .qty-value { min-width: 22px; text-align: center; font-weight: 700; }
+
+/* Экранная клавиатура уменьшает рабочую высоту (body.vkb-lift), и у flex-детей
+   колонки заказа по умолчанию flex-shrink: 1 — строки блюд и нижние блоки
+   сплющивались друг в друга. Фиксируем их размер: сжимается только список
+   позиций (у него overflow-y: auto), то есть контент обрезается и скроллится. */
+.cashier-cart__items { min-height: 0; }
+.cashier-cart__items > * { flex-shrink: 0; }
+.cashier-cart__header,
+.cashier-delivery,
+.cashier-cart > .cashier-cart__note,
+.cashier-cart__total,
+.cashier-cart__actions { flex-shrink: 0; }
+
+/* Плитки блюд не должны сжиматься: у .cashier-products__grid неявные строки
+   auto, а такой трек при нехватке места падает до min-content — карточки
+   сплющивались (с поднятой клавиатурой — до нечитаемых 22px). max-content
+   фиксирует высоту строки, поэтому сетка обрезает лишнее и скроллится. */
+.cashier-products__grid { grid-auto-rows: max-content; }
+
+/* Та же клавиатура: колонка заказа (overflow: hidden) на узкой высоте
+   прятала итог и кнопку «Отправить» — при поднятой клавиатуре разрешаем
+   ей скроллиться и не даём списку позиций схлопнуться в ноль. */
+body.vkb-lift .cashier-cart { overflow-y: auto; }
+body.vkb-lift .cashier-cart__items { min-height: 140px; }
 
 /* Модалка оплаты — нормальная стилизация */
 .pay-modal { width: 480px; max-width: 94vw; }
@@ -3463,38 +3607,96 @@ body.vkb-open .login-card {
 .rep-controls .hist-tabs { padding: 0; }
 .rep-dates { display: flex; align-items: center; gap: var(--spacing-sm); flex-wrap: wrap; }
 .rep-dates .input { min-height: 44px; width: auto; }
+/* Единый размер контролов шапки отчётов: вкладки-пилюли, поля дат, селект и
+   кнопка «Сформировать» — одна высота 44px и один кегль, чтобы ряд был ровным */
+.rep-controls .filter-chip { min-height: 44px; padding: var(--spacing-sm) var(--spacing-lg); font-size: var(--text-md); font-weight: var(--font-weight-semibold); }
+.rep-dates .btn { min-height: 44px; padding: 0 var(--spacing-lg); }
 .rep-table-wrap { overflow: auto; }
 .rep-print { margin-top: var(--spacing-lg); }
+
+/* ── Z-отчёт (сводка смены) ── */
+.z-report { display: flex; flex-direction: column; gap: var(--spacing-lg); }
+.z-report__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--spacing-md); flex-wrap: wrap; }
+.z-report__meta { display: grid; grid-template-columns: 1fr 1fr; gap: 4px var(--spacing-lg); font-size: var(--text-sm); color: var(--color-text-secondary); }
+.z-report__meta strong { color: var(--color-text-primary); font-weight: var(--font-weight-bold); }
 
 /* ── Кастомный календарь (отчёты) ── */
 .cal-field { position: relative; }
 .cal-field__btn { display: inline-flex; align-items: center; gap: var(--spacing-xs); cursor: pointer; min-height: 44px; padding: 0 var(--spacing-md); white-space: nowrap; font-weight: 600; }
 .cal-field__btn > svg { color: var(--color-brand); flex-shrink: 0; }
-.cal-pop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 40; width: 272px; padding: var(--spacing-md); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); }
-.cal-pop__head { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-xs); margin-bottom: var(--spacing-sm); }
-.cal-pop__title { font-weight: 700; font-size: 14px; }
-.cal-pop__nav { width: 32px; height: 32px; min-width: 32px; }
+/* Ширина 316px подобрана под квадратные ячейки: (316 − 24 паддинга − 2 бордера
+   − 6×2 gap) / 7 ≈ 40px, ровно как height у .cal-day */
+.cal-pop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 40; width: 316px; padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); }
+.cal-pop__head { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-xs); margin-bottom: var(--spacing-xs); }
+.cal-pop__title { font-weight: 700; font-size: 15px; }
+/* min-height обязателен: базовый .icon-btn ставит min-height 60px (--touch-min)
+   и растягивал шапку календаря — height:36px сам по себе его не перебивает */
+.cal-pop__nav { width: 36px; height: 36px; min-width: 36px; min-height: 36px; }
 .cal-pop__days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 4px; }
-.cal-pop__days > span { text-align: center; font-size: 11px; font-weight: 700; color: var(--color-text-secondary); padding: 4px 0; text-transform: uppercase; }
+.cal-pop__days > span { text-align: center; font-size: 12px; font-weight: 700; color: var(--color-text-secondary); padding: 4px 0; text-transform: uppercase; }
 .cal-pop__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-.cal-day { display: grid; place-items: center; height: 34px; border: none; border-radius: var(--radius-sm); background: transparent; font-size: 13px; font-weight: 600; color: var(--color-text-primary); cursor: pointer; }
+.cal-day { display: grid; place-items: center; height: 40px; border: none; border-radius: var(--radius-sm); background: transparent; font-size: 15px; font-weight: 600; color: var(--color-text-primary); cursor: pointer; }
 .cal-day:hover:not(.cal-day--pad) { background: var(--color-brand-subtle); }
 .cal-day--pad { cursor: default; }
 .cal-day--today { box-shadow: inset 0 0 0 1px var(--color-brand); }
 .cal-day--selected { background: var(--color-brand); color: #fff; }
 .cal-day--selected:hover { background: var(--color-brand-hover); }
 
+/* ── Кастомный селект (.cselect) — единый вид с .cal-field, замена нативного <select> ── */
+.cselect { position: relative; display: inline-block; vertical-align: middle; }
+.cselect__btn { display: inline-flex; align-items: center; justify-content: space-between; gap: var(--spacing-xs); width: 100%; min-height: 44px; cursor: pointer; font-weight: 600; text-align: left; }
+.cselect__value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cselect__caret { color: var(--color-text-muted); flex-shrink: 0; transition: transform 0.15s ease; }
+.cselect__caret--open { transform: rotate(180deg); }
+.cselect__pop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 40; width: 100%; min-width: 200px; max-height: 320px; overflow-y: auto; padding: var(--spacing-xs); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); }
+.cselect__opt { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-sm); width: 100%; padding: 10px var(--spacing-sm); border: none; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-primary); font-size: var(--text-sm); font-weight: 600; text-align: left; cursor: pointer; }
+.cselect__opt:hover { background: var(--color-brand-subtle); }
+.cselect__opt--active { color: var(--color-brand); }
+.cselect__opt-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cselect__opt > svg { flex-shrink: 0; }
+
 /* ── Стоп-лист ── */
 .stop-modal { width: 640px; max-width: 96vw; }
 .stop-count { display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--color-danger); color: #fff; font-size: 12px; font-weight: 700; margin-left: 8px; }
 .stop-controls { display: flex; align-items: center; gap: var(--spacing-md); padding: var(--spacing-lg) var(--spacing-xl) var(--spacing-md); }
-.stop-list { display: flex; flex-direction: column; gap: 6px; }
-.stop-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-subtle); }
-.stop-row--off { background: var(--color-danger-bg); }
-.stop-row__info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.stop-row__name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--color-text-primary); }
-.stop-row--off .stop-row__name { text-decoration: line-through; color: var(--color-danger); }
-.stop-row__price { font-size: var(--text-xs); color: var(--color-text-muted); }
+/* Заголовок стоп-экрана: иконка/«назад» + название блюда с усечением */
+.stop-title { display: flex; align-items: center; gap: var(--spacing-sm); min-width: 0; }
+.stop-title > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Сетка блюд крупными карточками с фото — тот же вид, что в выборе блюд на кассе */
+.stop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--spacing-md); align-content: start; }
+.stop-grid .product-card { align-items: stretch; text-align: left; gap: 6px; padding: 10px; min-height: 0; }
+.stop-grid .product-card__name { font-size: var(--text-sm); font-weight: 600; line-height: 1.25; }
+.stop-grid .product-card__price { font-size: var(--text-sm); color: var(--color-brand); font-weight: 700; }
+/* Бейдж «продано/лимит» на карточке (слева сверху; STOP — справа сверху) */
+.product-card__limit { position: absolute; top: var(--spacing-xs); left: var(--spacing-xs); padding: 2px 6px; border-radius: var(--radius-xs); background: var(--color-warning); color: var(--neutral-0); font-size: var(--text-xs); font-weight: 700; line-height: 1.4; }
+
+/* Экран блюда: крупное фото + доступность + дневной лимит */
+/* Экран блюда: фото-панель слева + управление справа; заполняет ширину, на узких — стопкой */
+.stop-detail { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: var(--spacing-2xl); align-items: start; width: 100%; max-width: 1200px; margin-inline: auto; }
+.stop-detail__aside { display: flex; flex-direction: column; align-items: center; gap: var(--spacing-sm); text-align: center; }
+.stop-detail__thumb { width: 100%; aspect-ratio: 1 / 1; border-radius: var(--radius-lg); background: var(--color-subtle); display: grid; place-items: center; color: var(--neutral-400); overflow: hidden; }
+.stop-detail__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.stop-detail__name { margin-top: var(--spacing-xs); font-size: var(--text-2xl); font-weight: 700; color: var(--color-text-primary); line-height: 1.2; }
+.stop-detail__price { font-size: var(--text-lg); color: var(--color-brand); font-weight: 700; }
+.stop-detail__status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; font-size: var(--text-sm); font-weight: 600; color: var(--neutral-0); }
+.stop-detail__status.is-ok { background: var(--color-success); }
+.stop-detail__status.is-stop { background: var(--color-danger); }
+.stop-detail__main { display: flex; flex-direction: column; gap: var(--spacing-lg); min-width: 0; }
+.stop-detail__section { display: flex; flex-direction: column; gap: var(--spacing-md); padding: var(--spacing-xl); border: 1px solid var(--color-border-light); border-radius: var(--radius-md); background: var(--color-card); }
+.stop-detail__section-title { font-size: var(--text-lg); font-weight: 700; color: var(--color-text-primary); }
+.stop-detail__hint { margin: 0; font-size: var(--text-sm); color: var(--color-text-muted); line-height: 1.45; }
+.stop-detail__toggle { width: 100%; justify-content: center; }
+.stop-detail__limit-row { display: flex; align-items: stretch; gap: var(--spacing-md); }
+.stop-detail__limit-input { flex: 1; min-width: 0; min-height: 56px; padding: var(--spacing-sm) var(--spacing-lg); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-card); color: var(--color-text-primary); font-size: var(--text-xl); font-weight: 600; text-align: center; }
+.stop-detail__limit-input:focus { outline: none; border-color: var(--color-border-focus); }
+.stop-detail__limit-row .btn { flex-shrink: 0; }
+.stop-detail__sold { margin: 0; font-size: var(--text-md); color: var(--color-text-muted); }
+.stop-detail__sold strong { color: var(--color-text-primary); }
+@media (max-width: 860px) {
+  .stop-detail { grid-template-columns: 1fr; gap: var(--spacing-lg); max-width: 560px; margin-inline: auto; }
+  .stop-detail__thumb { max-width: 320px; margin-inline: auto; }
+}
 .product-card--stop { opacity: 0.55; }
 
 /* ── 5.5 Приход/уход повара: очередь на подтверждение кассиром ── */
@@ -3510,37 +3712,151 @@ body.vkb-open .login-card {
 .att-row__meta { font-size: var(--text-xs); color: var(--color-text-muted); }
 .att-row__actions { display: flex; gap: 8px; flex-shrink: 0; }
 
-/* ── 2.1 Раздельный чек ─────────────────────────────────────────────── */
-.split-modal { width: 560px; max-width: 94vw; max-height: 92vh; }
-.pay-order__split { width: 100%; justify-content: center; margin-bottom: var(--spacing-md); }
-.split-tabs { display: flex; gap: 8px; margin-bottom: var(--spacing-md); }
-.split-tab { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-secondary); font-weight: 600; cursor: pointer; }
-.split-tab.is-active { border-color: var(--color-brand); background: var(--color-brand-soft, var(--color-surface)); color: var(--color-brand); }
-.split-even { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: var(--spacing-md) 0; }
-.split-even > label, .split-parts-row > label { font-weight: 600; color: var(--color-text-secondary); }
-.split-stepper { display: inline-flex; align-items: center; gap: 14px; }
-.split-stepper .btn { min-width: 46px; font-size: 22px; line-height: 1; padding: 6px 0; }
-.split-stepper__val { min-width: 40px; text-align: center; font-size: 24px; font-weight: 700; color: var(--color-text-primary); }
-.split-parts-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--spacing-md); }
-.split-items { display: flex; flex-direction: column; }
-.split-list { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; }
-.split-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); }
-.split-item__name { font-size: var(--text-sm); color: var(--color-text-primary); }
-.split-item__parts { display: inline-flex; gap: 6px; flex-shrink: 0; }
-.split-chip { width: 34px; height: 34px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg); color: var(--color-text-secondary); font-weight: 700; cursor: pointer; }
-.split-chip.is-active { border-color: var(--color-brand); background: var(--color-brand); color: #fff; }
+/* ── 5.5 Экран посещаемости кассира (во весь экран, а не модалка) ── */
+.attn-screen { position: fixed; inset: 0; z-index: var(--z-modal); background: var(--color-bg); display: flex; flex-direction: column; }
+.attn-screen__panel { flex: 1; min-height: 0; display: flex; flex-direction: column; width: 100%; }
+.attn-head { display: flex; align-items: center; gap: var(--spacing-xl); padding: var(--spacing-lg) var(--spacing-2xl); background: var(--color-surface); border-bottom: 1px solid var(--color-border); flex-shrink: 0; }
+.attn-head__title { display: flex; align-items: center; gap: var(--spacing-md); }
+.attn-head__ico { display: grid; place-items: center; width: 52px; height: 52px; border-radius: var(--radius-md); background: var(--color-brand-bg); color: var(--color-brand); flex-shrink: 0; }
+.attn-head__title h1 { font-family: var(--font-display); font-size: var(--text-2xl); font-weight: 800; color: var(--color-text-primary); line-height: 1.1; }
+.attn-head__title p { font-size: var(--text-sm); color: var(--color-text-muted); text-transform: capitalize; }
+.attn-head__stats { display: flex; gap: var(--spacing-md); margin-left: auto; }
+.attn-stat { min-width: 96px; padding: 10px 18px; border-radius: var(--radius-md); background: var(--color-subtle); text-align: center; }
+.attn-stat span { display: block; font-family: var(--font-display); font-size: var(--text-2xl); font-weight: 800; color: var(--color-text-primary); line-height: 1; }
+.attn-stat label { font-size: var(--text-xs); color: var(--color-text-muted); font-weight: 600; }
+.attn-stat--on { background: var(--color-success-bg); }
+.attn-stat--on span { color: var(--color-success); }
+.attn-stat--off span { color: var(--color-text-secondary); }
+.attn-head__actions { display: flex; gap: var(--spacing-sm); }
+
+.attn-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.7fr 1fr; gap: var(--spacing-lg); padding: var(--spacing-lg) var(--spacing-2xl) var(--spacing-2xl); overflow: hidden; }
+.attn-col { display: flex; flex-direction: column; min-height: 0; }
+.attn-col--side { gap: var(--spacing-lg); overflow-y: auto; }
+.attn-col__head { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-md); margin-bottom: var(--spacing-md); flex-shrink: 0; }
+.attn-col__head h2, .attn-block h2 { display: flex; align-items: center; gap: 8px; font-size: var(--text-lg); font-weight: 700; color: var(--color-text-primary); }
+.attn-col__head h2 svg, .attn-block h2 svg { color: var(--color-brand); }
+.attn-count { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 7px; border-radius: var(--radius-full); background: var(--color-subtle); color: var(--color-text-secondary); font-size: var(--text-xs); font-weight: 700; }
+.attn-count--warn { background: var(--color-warning-bg); color: var(--color-warning); }
+.attn-search { display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 14px; border-radius: var(--radius-full); background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text-muted); }
+.attn-search input { border: none; background: transparent; outline: none; font-size: var(--text-sm); color: var(--color-text-primary); width: 200px; }
+/* CSS_ATTN_MORE */
+.attn-roster { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); grid-auto-rows: min-content; gap: var(--spacing-md); padding: 2px; }
+.attn-card { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: 'avatar info badge' 'actions actions actions'; align-items: center; gap: 10px 14px; padding: var(--spacing-lg); border-radius: var(--radius-lg); background: var(--color-card); border: 1px solid var(--color-border); transition: border-color var(--transition-fast), box-shadow var(--transition-fast); }
+.attn-card--on { border-color: var(--color-success); box-shadow: 0 0 0 1px var(--color-success) inset; }
+.attn-card__avatar { grid-area: avatar; width: 52px; height: 52px; display: grid; place-items: center; border-radius: var(--radius-full); color: #fff; font-family: var(--font-display); font-weight: 700; font-size: var(--text-lg); }
+.attn-card__info { grid-area: info; min-width: 0; display: flex; flex-direction: column; }
+.attn-card__name { font-size: var(--text-md); font-weight: 600; color: var(--color-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.attn-card__role { font-size: var(--text-sm); color: var(--color-text-muted); }
+.attn-badge { grid-area: badge; align-self: start; padding: 4px 12px; border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: 700; white-space: nowrap; }
+.attn-badge--on { background: var(--color-success-bg); color: var(--color-success); }
+.attn-badge--off { background: var(--color-subtle); color: var(--color-text-muted); }
+.attn-card__actions { grid-area: actions; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+.attn-card__actions .btn { height: 48px; justify-content: center; font-size: var(--text-sm); }
+.attn-card__actions .btn:disabled { opacity: 0.5; }
+
+.attn-block { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--spacing-lg); }
+.attn-block--journal { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.attn-block h2 { margin-bottom: var(--spacing-md); }
+.attn-pending { display: flex; flex-direction: column; gap: 8px; }
+.attn-prow { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-warning-bg); }
+.attn-prow__badge { display: grid; place-items: center; width: 36px; height: 36px; border-radius: var(--radius-sm); flex-shrink: 0; }
+.attn-prow__badge--in { background: var(--color-success-bg); color: var(--color-success); }
+.attn-prow__badge--out { background: var(--color-danger-bg); color: var(--color-danger); }
+.attn-prow__info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.attn-prow__name { font-weight: 600; color: var(--color-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.attn-prow__meta { font-size: var(--text-xs); color: var(--color-text-secondary); }
+.attn-prow__actions { display: flex; gap: 6px; flex-shrink: 0; }
+.attn-prow__actions .btn { width: 42px; justify-content: center; padding: 0; }
+.attn-journal { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+.attn-jrow { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--color-border-light); }
+.attn-jrow:last-child { border-bottom: none; }
+.attn-jrow__dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.attn-jrow__dot--in { background: var(--color-success); }
+.attn-jrow__dot--out { background: var(--color-danger); }
+.attn-jrow__name { flex: 1; min-width: 0; font-weight: 600; color: var(--color-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.attn-jrow__action { font-size: var(--text-sm); color: var(--color-text-muted); }
+.attn-jrow__time { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-text-secondary); font-weight: 600; }
+.attn-state { display: flex; flex-direction: column; align-items: center; gap: var(--spacing-md); padding: var(--spacing-3xl); color: var(--color-text-muted); }
+.attn-empty { padding: var(--spacing-2xl); text-align: center; color: var(--color-text-muted); font-size: var(--text-sm); }
+
+@media (max-width: 1100px) {
+  .attn-body { grid-template-columns: 1fr; overflow-y: auto; }
+  .attn-roster { overflow: visible; }
+  .attn-head { flex-wrap: wrap; }
+  .attn-head__stats { margin-left: 0; }
+}
 
 /* ── Оплата существующего заказа (касса): позиции + печать + способ + закрыть ── */
 /* Шире и растягивается по контенту — без скролла внутри */
 .pay-order-modal { width: 600px; max-width: 94vw; max-height: 92vh; }
-.pay-order__meta { display: flex; align-items: center; gap: 16px; margin-bottom: var(--spacing-md); font-size: var(--text-sm); font-weight: 600; color: var(--color-text-secondary); }
+
+/* Экран оплаты (заход в стол на кассе) — во весь экран, а не модалка */
+.pay-screen {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  background: var(--color-bg);
+}
+.pay-screen__panel {
+  width: 100%;
+  /* Во весь экран: ширину не ограничиваем — раскладка живёт в двух колонках
+     внутри .pay-order__cols, а не в одной узкой центральной колонке. */
+  max-width: none;
+  max-height: 100vh;
+  height: 100%;
+  background: var(--color-surface);
+  border-radius: 0;
+  border: none;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+/* Тело экрана оплаты — две колонки: слева состав заказа, справа «касса»
+   (итог → скидка → официант → печать → способ оплаты → сдача). На узком
+   экране и в модальном варианте складываются в одну колонку. */
+.pay-order__cols { display: grid; grid-template-columns: 1fr; gap: var(--spacing-xl); align-items: start; }
+.pay-order__col { display: flex; flex-direction: column; min-width: 0; }
+@media (min-width: 900px) {
+  .pay-order__cols { grid-template-columns: minmax(0, 1fr) minmax(380px, 30%); }
+}
+
+/* Полноэкранный вариант: само тело НЕ прокручивается — высоту делят колонки,
+   поэтому длинный заказ не уводит способ оплаты и кнопки за край экрана.
+   align-items: stretch обязателен: без него колонка не получает высоту строки
+   и overflow-y внутри неё не сработал бы. */
+.pay-screen .modal__header { min-height: var(--topbar-height); padding-inline: var(--spacing-2xl); }
+.pay-screen .modal__body { overflow: hidden; padding: 0 var(--spacing-2xl); }
+.pay-screen .pay-order__cols { height: 100%; align-items: stretch; gap: var(--spacing-2xl); }
+.pay-screen .pay-order__col { min-height: 0; overflow-y: auto; padding-block: var(--spacing-lg); }
+/* Небольшой запас справа у списка позиций — полоса прокрутки не наезжает на суммы */
+.pay-screen .pay-order__col--items { padding-right: var(--spacing-sm); }
+/* Разделитель колонок — во всю высоту тела: вертикальные отступы живут внутри
+   самих колонок (.pay-order__col), поэтому линия идёт от шапки до кнопок */
+.pay-screen .pay-order__col--pay { padding-left: var(--spacing-2xl); border-left: 1px solid var(--color-border-light); }
+/* «К оплате» — первый блок колонки: снимаем верхнюю линию и отступ,
+   иначе он читается как обведённый квадрат в углу экрана */
+.pay-screen .pay-order__col--pay .pay-order__total { border-top: none; padding-top: 0; }
+/* Позиции — плитками: на широком экране заказ из 10–15 блюд виден целиком */
+/* align-items: start — плитки НЕ растягиваются по высоте соседа: когда в одной
+   раскрыт список официанта (WaiterPicker раскрывается в потоке), вторая позиция
+   остаётся своей высоты, а не тянется вместе с ней. */
+.pay-screen .pay-order__items { display: grid; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); gap: var(--spacing-sm); align-content: start; align-items: start; margin-bottom: 0; }
+/* Полоса действий: второстепенные кнопки слева, «Завершить заказ» — справа */
+.pay-screen .pay-order__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-md); padding: var(--spacing-md) var(--spacing-2xl) var(--spacing-lg); }
+.pay-screen .pay-order__actions .btn { width: auto; }
+.pay-screen .pay-order__close { margin-left: auto; min-width: 340px; }
+
+.pay-order__meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; margin-bottom: var(--spacing-md); font-size: var(--text-sm); font-weight: 600; color: var(--color-text-secondary); }
 .pay-order__meta span { display: inline-flex; align-items: center; gap: 6px; }
 .pay-order__meta svg { color: var(--color-brand); }
-.pay-order__items { display: flex; flex-direction: column; gap: 4px; margin-bottom: var(--spacing-md); }
-.pay-order__row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--color-subtle); }
-.pay-order__qty { font-weight: 700; color: var(--color-brand); min-width: 30px; }
-.pay-order__name { flex: 1; min-width: 0; font-size: var(--text-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pay-order__sum { font-size: var(--text-sm); font-weight: 700; white-space: nowrap; }
+.pay-order__items { display: flex; flex-direction: column; gap: 8px; margin-bottom: var(--spacing-md); }
+.pay-order__row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; row-gap: 10px; padding: 14px 16px; border-radius: var(--radius-md); background: var(--color-subtle); }
+.pay-order__qty { font-size: var(--text-lg); font-weight: 800; color: var(--color-brand); min-width: 40px; }
+.pay-order__name { flex: 1; min-width: 0; font-size: var(--text-lg); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pay-order__sum { font-size: var(--text-xl); font-weight: 800; color: var(--color-text-primary); white-space: nowrap; }
 .pay-order__total { display: flex; align-items: baseline; justify-content: space-between; padding: var(--spacing-md) 0; border-top: 1px solid var(--color-border-light); }
 .pay-order__total span { color: var(--color-text-secondary); }
 .pay-order__total strong { font-size: var(--text-2xl); font-weight: 800; color: var(--color-brand); }
@@ -3571,35 +3887,63 @@ body.vkb-open .login-card {
 /* Бейдж «с собой» у позиции */
 .cart-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: var(--radius-full); background: var(--blue-100); color: var(--blue-700); font-size: 10px; font-weight: 700; vertical-align: middle; }
 /* Переключатель «с собой» прямо в строке корзины (касса + официант) */
-.cart-take { flex-shrink: 0; padding: 3px 9px; border-radius: var(--radius-full); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text-muted); font-size: var(--text-xs); font-weight: 700; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s, border-color .15s; }
+.cart-take { flex-shrink: 0; margin-top: 4px; align-self: flex-start; transform: translateY(5px); padding: 3px 9px; border-radius: var(--radius-full); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text-muted); font-size: var(--text-xs); font-weight: 700; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s, border-color .15s; }
 .cart-take:hover { border-color: var(--color-brand); color: var(--color-brand); }
 .cart-take--on { background: var(--color-brand-bg); border-color: var(--color-brand); color: var(--color-brand); }
 /* «Кто/когда добавил» и бейдж «с собой» у позиции в модалке оплаты */
 .pay-order__take { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: var(--radius-full); background: var(--color-brand-bg); color: var(--color-brand); font-size: 10px; font-weight: 700; vertical-align: middle; }
 .pay-order__added { display: block; margin-top: 2px; font-size: var(--text-xs); color: var(--color-text-muted); }
+/* Выбор ответственного официанта у ОДНОЙ позиции (кассир исправляет путаницу).
+   Своя строка на всю ширину под блюдом — .pay-order__row переносит её вниз. */
+.pay-order__waiter { flex: 1 0 100%; }
+.wpick { position: relative; }
+.wpick__trigger {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px;
+  padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  background: var(--color-surface); color: var(--color-text-primary); font-size: var(--text-base);
+  font-weight: 600; text-align: left; cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+.wpick__trigger:hover:not(:disabled) { border-color: var(--color-brand); }
+.wpick__trigger:disabled { opacity: .6; cursor: default; }
+.wpick--open .wpick__trigger { border-color: var(--color-brand); background: var(--color-brand-bg); }
+.wpick__label { flex-shrink: 0; font-size: var(--text-xs); font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.wpick__value { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wpick__value--empty { color: var(--color-text-muted); font-weight: 500; }
+.wpick__chev { flex-shrink: 0; color: var(--color-text-muted); transition: transform var(--transition-fast); }
+.wpick--open .wpick__chev { transform: rotate(180deg); color: var(--color-brand); }
+.wpick__ico { flex-shrink: 0; color: var(--color-text-muted); }
+.wpick__avatar {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: var(--radius-full);
+  background: var(--color-brand-bg); color: var(--color-brand);
+  font-size: var(--text-xs); font-weight: 800;
+}
+/* Список раскрывается в потоке (не absolute): .modal__body скроллится и обрезал бы панель */
+.wpick__list {
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 264px; overflow-y: auto; margin-top: 6px; padding: 6px;
+  background: var(--color-card); border: 1px solid var(--color-brand); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+.wpick__opt {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px;
+  padding: 8px 12px; border: none; border-radius: var(--radius-sm);
+  background: transparent; color: var(--color-text-primary);
+  font-size: var(--text-base); font-weight: 500; text-align: left; cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.wpick__opt:hover { background: var(--color-surface-hover); }
+.wpick__opt-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wpick__opt > svg:last-child { flex-shrink: 0; color: var(--color-brand); }
+.wpick__opt--on { background: var(--color-brand-bg); color: var(--color-brand); font-weight: 700; }
+.wpick__opt--on:hover { background: var(--color-brand-bg); }
+.wpick__opt--on .wpick__ico { color: var(--color-brand); }
 
 /* Поле «Гостей» в корзине официанта (экран добавления блюд как у кассы) */
-.cashier-cart__guests { display: flex; align-items: center; gap: 8px; padding: 12px 16px 0; font-size: var(--text-sm); color: var(--color-text-secondary); }
+.cashier-cart__guests { display: flex; align-items: center; gap: 8px; padding: 12px 16px 12px; margin-bottom: var(--spacing-sm); font-size: var(--text-sm); color: var(--color-text-secondary); }
 .cashier-cart__guests input { width: 68px; margin-left: auto; text-align: center; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text-primary); font-size: var(--text-md); }
 
-/* Экран успеха курьера — после отправки заказа «с собой» на кухню */
-.courier-done { align-items: center; justify-content: center; }
-.courier-done__card {
-  width: min(460px, 92vw); max-height: 92%; overflow-y: auto;
-  display: flex; flex-direction: column; align-items: center; gap: 14px;
-  padding: 36px 32px 28px;
-  background: var(--color-card); border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl); text-align: center;
-}
-.courier-done__icon { color: var(--color-success); display: grid; place-items: center; }
-.courier-done__title { margin: 0; font-family: var(--font-display); font-size: var(--text-2xl); font-weight: 800; color: var(--color-text-primary); }
-.courier-done__no { font-size: var(--text-lg); font-weight: 700; color: var(--color-brand); }
-.courier-done__wait { margin: 0; color: var(--color-text-secondary); font-size: var(--text-md); }
-.courier-done__items { list-style: none; margin: 6px 0 0; padding: 12px 0 0; width: 100%; border-top: 1px solid var(--color-border); display: flex; flex-direction: column; gap: 8px; }
-.courier-done__items li { display: flex; justify-content: space-between; gap: 12px; font-size: var(--text-md); color: var(--color-text-primary); }
-.courier-done__total { display: flex; justify-content: space-between; width: 100%; padding-top: 12px; border-top: 1px solid var(--color-border); font-size: var(--text-lg); font-weight: 700; color: var(--color-text-primary); }
-.courier-done__new { width: 100%; margin-top: 8px; }
-.courier-done__exit { width: 100%; }
 /* Клиентский фильтр в отчётах (по названию блюда/сотрудника) */
 .rep-filter { width: 100%; max-width: 320px; }
 /* Кнопка «переместить позицию» в деталях официанта — с подписью, крупнее для тач */
@@ -3635,7 +3979,7 @@ body.vkb-open .login-card {
 [data-theme="dark"] .server-setup__icon { background: rgba(29, 181, 181, 0.18); }
 
 /* Экранная клавиатура — тёмные клавиши */
-[data-theme="dark"] .vkb { background: var(--neutral-800); border-top-color: var(--color-border); box-shadow: 0 -10px 40px rgba(0,0,0,0.45); }
+[data-theme="dark"] .vkb { background: var(--neutral-800); border-top-color: var(--color-border); box-shadow: none; }
 [data-theme="dark"] .vkb__key { background: var(--neutral-700); color: #e7edf6; box-shadow: 0 1px 0 rgba(0,0,0,0.35); }
 [data-theme="dark"] .vkb__key:active { background: var(--neutral-600); }
 [data-theme="dark"] .vkb__key--medium { background: var(--neutral-600); color: #cdd7e6; }
@@ -3644,10 +3988,11 @@ body.vkb-open .login-card {
 /* Столы — статусы заданы токенами (--status-*), тёмная тема наследует их автоматически */
 [data-theme="dark"] .tcard--free .tcard__status { background: var(--color-subtle); color: var(--color-text-secondary); }
 
-/* Кнопка выхода/назад наверху сайдбара */
-.zone--exit { margin-bottom: 10px; background: rgba(255,255,255,0.06); color: #fff; }
-.zone--exit > svg { color: rgba(255,255,255,0.85); }
-.zone--exit:hover { background: rgba(255,255,255,0.12); }
+/* Кнопка выхода/назад наверху сайдбара — токены хрома (видна и на белом, и на тёмном) */
+.zone--exit { margin-bottom: 10px; background: transparent; color: var(--color-text-secondary); }
+.zone--exit > svg { color: var(--color-text-muted); }
+.zone--exit:hover { background: var(--chrome-hover); color: var(--chrome-text); }
+.zone--exit:hover > svg { color: var(--chrome-text); }
 
 /* Кнопки — по палитре и крупнее (в т.ч. Финансы/История/Отчёты в шапке).
    Ховер: акцентный фон + белые иконка и текст */
@@ -3730,13 +4075,35 @@ body.vkb-open .modal-overlay {
 body.vkb-open .modal {
   max-height: 100%;
 }
-/* Вне модалок (корзина кассы): рабочий экран не сжимается, а целиком
-   поднимается на высоту клавиатуры — layout столов не перестраивается,
-   а scrollIntoView доводит инпут «комментарий» до видимой области.
+/* Экран оплаты — тот же приём: position: fixed; inset: 0 не знает про
+   клавиатуру, поэтому поля «Получено»/«Наличные+Карта» уходили под неё.
+   Поднимаем низ оверлея — колонки (overflow-y: auto) сжимаются, а
+   scrollIntoView из VirtualKeyboard доводит активное поле в зону видимости. */
+body.vkb-open .pay-screen {
+  bottom: var(--vkb-height, 0px);
+}
+body.vkb-open .pay-screen__panel {
+  max-height: 100%;
+}
+/* Экран посещаемости — тоже position: fixed; inset: 0, и поиск
+   сотрудника уходил под клавиатуру: внутри есть свои скролл-колонки
+   (.attn-roster / .attn-journal / .attn-col--side), поэтому достаточно поднять низ. */
+body.vkb-open .attn-screen {
+  bottom: var(--vkb-height, 0px);
+}
+/* Тосты живут внизу экрана — при открытой клавиатуре поднимаем их над ней. */
+body.vkb-open .toast-stack {
+  bottom: calc(24px + var(--vkb-height, 0px));
+}
+/* Вне модалок (корзина/поиск блюд кассы): НЕ поднимаем весь экран трансформом
+   (из-за этого верхний поиск блюд уезжал за край экрана), а сжимаем рабочую
+   высоту на высоту клавиатуры. .app-shell — flex-колонка с overflow:hidden,
+   поэтому топбар и шапка с поиском остаются на месте, а внутренний скролл
+   .app-shell__content вместе со scrollIntoView доводит активное поле в зону.
    Класс vkb-lift ставит VirtualKeyboard только для полей вне модалок. */
 body.vkb-lift .app-shell {
-  transform: translateY(calc(-1 * var(--vkb-height, 0px)));
-  transition: transform 0.22s ease-out;
+  height: calc(100vh - var(--vkb-height, 0px));
+  transition: height 0.22s ease-out;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -3841,3 +4208,346 @@ body.vkb-lift .app-shell {
 [data-theme="dark"] .board__head-right .btn { color: rgba(255, 255, 255, 0.88); border-color: rgba(255, 255, 255, 0.22); }
 [data-theme="dark"] .board__head-right .btn svg { color: rgba(255, 255, 255, 0.88); }
 [data-theme="dark"] .board__head-right .btn:hover { background: rgba(255, 255, 255, 0.08); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   РЕДИЗАЙН — ЭКРАНЫ ВМЕСТО МОДАЛОК (белый холст + бирюза)
+   Каждая «модалка» рендерится как полноэкранный экран: белый фон на
+   весь вьюпорт, центрированная колонка контента во всю высоту, крупные
+   удобные зоны клика. JSX не меняем — работаем только через классы.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Оверлей → полноэкранный белый холст (без затемнения и размытия) */
+.modal-overlay {
+  background: var(--color-bg);
+  backdrop-filter: none;
+  align-items: stretch;
+  padding: 0;
+  animation: screen-in var(--transition-normal) ease;
+}
+@keyframes screen-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Панель → во всю высоту, без скруглений, тонкие боковые границы как рамка */
+.modal-overlay .modal {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
+  border: none;
+  border-inline: 1px solid var(--color-border-light);
+  box-shadow: none;
+}
+/* Панель занимает ВЕСЬ экран без ограничения ширины — это отдельный экран,
+   а не центрированная колонка. Логика раскладки — внутри __body у каждого типа. */
+.modal-overlay .modal.dish-modal,
+.modal-overlay .modal.recipe-modal,
+.modal-overlay .modal.prompt-modal,
+.modal-overlay .modal.settings-modal,
+.modal-overlay .modal.pay-order-modal,
+.modal-overlay .modal.pos-payment-modal,
+.modal-overlay .modal.pay-modal,
+.modal-overlay .modal.rep-modal,
+.modal-overlay .modal.fin-modal,
+.modal-overlay .modal.hist-modal,
+.modal-overlay .modal.att-modal,
+.modal-overlay .modal.stop-modal { max-width: none; }
+
+/* Шапка экрана — «липкая» сверху, крупная зона закрытия */
+.modal-overlay .modal__header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  min-height: var(--topbar-height);
+  padding-inline: var(--spacing-2xl);
+  background: var(--color-surface);
+}
+.modal-overlay .modal__body { padding: var(--spacing-2xl); }
+
+/* ── Формы-колонки: холст на весь экран, контент читаемой шириной по центру ──
+   Форму нельзя растягивать на 1920px (поля были бы уродливо длинными),
+   поэтому центрируем колонку — но сам ЭКРАН полноэкранный. */
+.modal-overlay .modal.dish-modal .modal__body,
+.modal-overlay .modal.recipe-modal .modal__body,
+.modal-overlay .modal.prompt-modal .modal__body,
+.modal-overlay .modal.pay-order-modal .modal__body,
+.modal-overlay .modal.pos-payment-modal .modal__body,
+.modal-overlay .modal.pay-modal .modal__body {
+  width: 100%;
+  max-width: 900px;
+  margin-inline: auto;
+}
+
+/* ── НАСТРОЙКИ: настоящий полноэкранный макет ──
+   Секции раскладываются карточками в адаптивную сетку и заполняют экран,
+   а не тянутся одной узкой колонкой (главная претензия пользователя). */
+.modal-overlay .modal.settings-modal .modal__body {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+  gap: var(--spacing-xl);
+  align-content: start;
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+}
+.modal-overlay .modal.settings-modal .settings-section {
+  margin: 0;
+  padding: var(--spacing-xl);
+  background: var(--color-card);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+}
+
+/* ── Панели с таблицами (отчёты/финансы/история/посещаемость/стоп-лист) ──
+   Заполняют экран целиком; ограничиваем только на сверхшироких мониторах. */
+.modal-overlay .modal.rep-modal .modal__body,
+.modal-overlay .modal.fin-modal .modal__body,
+.modal-overlay .modal.hist-modal .modal__body,
+.modal-overlay .modal.att-modal .modal__body,
+.modal-overlay .modal.stop-modal .modal__body {
+  width: 100%;
+  max-width: 1600px;
+  margin-inline: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   РЕЖИМ РАЗРАБОТЧИКА — рабочее пространство с боковым меню слева.
+   Полноэкранный экран: слева навигация по разделам (Печать / Сотрудники /
+   Права / Склад), справа — область содержимого. Скроллится ТОЛЬКО область
+   содержимого при длинных списках; хром (шапка + меню) остаётся на месте —
+   никакого общего скролл-бара. Не затрагивает settings-modal (реальные
+   «Настройки»): используем отдельный класс .dev-workspace.
+   ═══════════════════════════════════════════════════════════════════ */
+.modal-overlay .modal.dev-workspace { max-width: none; }
+.dev-workspace .modal__body {
+  display: flex;
+  padding: 0;
+  overflow: hidden;   /* прокрутка — только внутри .dev-content */
+}
+
+/* Боковое меню */
+.dev-nav {
+  flex-shrink: 0;
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-lg) var(--spacing-md);
+  background: var(--color-surface);
+  border-inline-end: 1px solid var(--color-border-light);
+  overflow-y: auto;
+}
+.dev-nav__item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  width: 100%;
+  min-height: 56px;
+  padding: 0 var(--spacing-lg);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-medium);
+  text-align: start;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.dev-nav__item svg { flex-shrink: 0; color: var(--color-brand); }
+.dev-nav__item:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
+.dev-nav__item.is-active { background: var(--color-brand); color: var(--color-text-inverse); }
+.dev-nav__item.is-active svg { color: var(--color-text-inverse); }
+
+/* Область содержимого — единственная прокручиваемая зона */
+.dev-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-y: auto;
+  padding: var(--spacing-2xl);
+}
+
+/* Экран раздела: читаемая колонка по центру, не на весь монитор */
+.dev-screen { width: 100%; max-width: 920px; margin-inline: auto; }
+.dev-screen__head {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+.dev-screen__head h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+.dev-screen__head h3 svg { color: var(--color-brand); }
+.dev-screen__spacer { flex: 1 1 auto; }
+
+/* Плитки пакетной печати — крупные удобные зоны клика в адаптивной сетке */
+.dev-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--spacing-lg);
+  margin-top: var(--spacing-lg);
+}
+.dev-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  min-height: 128px;
+  padding: var(--spacing-xl);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  background: var(--color-card);
+  color: var(--color-text-primary);
+  text-align: start;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+.dev-tile svg { color: var(--color-brand); }
+.dev-tile:hover:not(:disabled) { border-color: var(--color-brand); box-shadow: var(--shadow-sm); }
+.dev-tile:active:not(:disabled) { transform: translateY(1px); }
+.dev-tile:disabled { opacity: 0.5; cursor: not-allowed; }
+.dev-tile__label { font-size: var(--text-base); font-weight: var(--font-weight-semibold); }
+.dev-tile__hint { margin-top: auto; font-size: var(--text-sm); color: var(--color-text-muted); }
+
+/* ≤900px (узкие/повёрнутые терминалы): меню сверху лентой, контент — снизу */
+@media (max-width: 900px) {
+  .dev-workspace .modal__body { flex-direction: column; }
+  .dev-nav {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    border-inline-end: none;
+    border-block-end: 1px solid var(--color-border-light);
+  }
+  .dev-nav__item { width: auto; white-space: nowrap; }
+  .dev-content { padding: var(--spacing-lg); }
+}
+
+
+/* ── Кнопки: фокус-кольцо, глубина, тактильный отклик, токен-цвета ── */
+/* Видимое кольцо фокуса для клавиатуры/доступности (было пропущено) */
+.btn:focus-visible,
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-danger:focus-visible,
+.btn-ghost:focus-visible,
+.btn-success:focus-visible,
+.icon-btn:focus-visible,
+.btn-icon-sm:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+}
+/* Белый текст — через токен, а не хардкод #fff */
+.btn-primary,
+.btn--primary,
+.btn-danger,
+.btn--danger,
+.btn-success,
+.btn--success { color: var(--color-text-inverse); }
+/* Ховеры без хардкод-хексов */
+.btn-danger:hover { background: var(--red-600); }
+.btn-success:hover { background: var(--green-600); }
+/* Основная кнопка — мягкая бирюзовая тень для глубины */
+.btn-primary,
+.btn--primary {
+  box-shadow: 0 2px 8px var(--color-brand-glow);
+  transition: background var(--transition-normal), transform var(--transition-fast), box-shadow var(--transition-normal);
+}
+.btn-primary:hover,
+.btn--primary:hover { box-shadow: 0 4px 16px var(--color-brand-glow); }
+/* Единый тактильный отклик при нажатии */
+.btn:active,
+.btn-primary:active,
+.btn--primary:active,
+.btn-secondary:active,
+.btn-danger:active,
+.btn-success:active { transform: scale(0.98); }
+
+/* ── Поля ввода: мягкое бирюзовое кольцо фокуса вместо голого бордера ── */
+.input:focus,
+textarea.input:focus,
+select.input:focus {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px var(--color-brand-bg);
+  background: var(--color-surface);
+}
+
+/* ── Сайдбар без правого бордера (по просьбе клиента — плоский хром) ── */
+/* Разделительная линия справа убрана: навигация сливается с холстом (border-right:none выше). */
+
+/* ═══════════════════════════════════════════════════════════════════
+   РЕДИЗАЙН · ФИНАЛЬНАЯ ПОЛИРОВКА
+   Фокус-кольца на всех тач-целях, тактильный отклик, чистые состояния,
+   лёгкий подъём карточек, токен-цвета вместо хардкода. Только CSS.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Единое кольцо фокуса для всех интерактивных зон (клавиатура/доступность).
+   Ничего другого не ставит outline на эти селекторы → правило применяется
+   независимо от порядка загрузки components.css / screens.css. ── */
+.tcard:focus-visible,
+.zone:focus-visible,
+.seg__btn:focus-visible,
+.ws-iconbtn:focus-visible,
+.product-card:focus-visible,
+.product-tile:focus-visible,
+.cart-btn:focus-visible,
+.qty-btn:focus-visible,
+.cart-row__qty button:focus-visible,
+.branch-card:focus-visible,
+.emp-card:focus-visible,
+.mode-card:focus-visible,
+.pinpad__key:focus-visible,
+.pinpad__submit:focus-visible,
+.pinpad__back:focus-visible,
+.login-pin__key:focus-visible,
+.login-btn:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+}
+/* ── Карточки: единый лёгкий подъём при наведении (в тон .tcard / .emp-card).
+   Свойство transform больше нигде для этих карточек не задано → later-source
+   и дополняет уже существующие :hover (border/box-shadow), не перетирая их. ── */
+.product-card:hover,
+.product-tile:hover { transform: translateY(-2px); }
+
+/* ── Плитки дашборда менеджера: оживить наведением (базовое правило в screens.css
+   без :hover; наша :hover-специфичность (0,1,1) выигрывает независимо от порядка) ── */
+.mgr-tile {
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+.mgr-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-brand);
+}
+
+/* ── Токен-цвет вместо хардкод #fff в ключевых кнопках корзины (POS) ── */
+.cart-btn--pay,
+.cart-btn--pay:hover,
+.cart-btn--clear:hover { color: var(--color-text-inverse); }
+
+/* ── Пустые/загрузочные состояния выглядят задуманными, а не «оборванными» ── */
+.empty-text,
+.loading-text {
+  max-width: 34ch;
+  margin-inline: auto;
+  line-height: 1.5;
+  text-wrap: balance;
+  opacity: 0.85;
+}
+.cart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  font-style: italic;
+  text-wrap: balance;
+}

@@ -260,13 +260,34 @@ describe("Web domain service contracts", () => {
 
   describe("receipt and printer", () => {
     it("owns print endpoints and propagates printer failures", async () => {
+      api.get.mockResolvedValue({
+        data: [
+          { id: "printer-receipt", printer_type: "receipt", is_active: true },
+          { id: "printer-kitchen", printer_type: "kitchen", is_active: true },
+        ],
+      });
       await printOrderReceipt("order-1");
       await printKitchenReceipt("order-2");
-      expect(api.post).toHaveBeenNthCalledWith(1, "/printers/print/orders/order-1/receipt", {});
-      expect(api.post).toHaveBeenNthCalledWith(2, "/printers/print/orders/order-2/kitchen", {});
+      expect(api.get).toHaveBeenCalledWith("/printers");
+      expect(api.post).toHaveBeenNthCalledWith(1, "/printers/print/receipt", {
+        order_id: "order-1",
+        printer_id: "printer-receipt",
+        copies: 1,
+      });
+      expect(api.post).toHaveBeenNthCalledWith(2, "/printers/print/kitchen", {
+        order_id: "order-2",
+        printer_id: "printer-kitchen",
+        copies: 1,
+      });
       const error = new Error("printer unavailable");
       api.post.mockRejectedValueOnce(error);
       await expect(printOrderReceipt("order-3")).rejects.toBe(error);
+    });
+
+    it("does not call the print endpoint when no printer is configured", async () => {
+      api.get.mockResolvedValue({ data: [] });
+      await expect(printOrderReceipt("order-4")).rejects.toThrow("Принтер не настроен");
+      expect(api.post).not.toHaveBeenCalled();
     });
   });
 

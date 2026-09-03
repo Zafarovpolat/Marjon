@@ -4,7 +4,7 @@ Returns bytes that can be sent directly to the printer.
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from datetime import datetime
 
 
@@ -15,6 +15,9 @@ class ReceiptLine:
     price: Decimal
     total: Decimal
     modifiers: list[str] = field(default_factory=list)
+    # Позиция «с собой» внутри зального/доставочного заказа (сервисный сбор
+    # на неё не начисляется). Помечается в чеке отдельной строкой.
+    takeaway: bool = False
 
 
 @dataclass
@@ -45,6 +48,12 @@ class ReceiptData:
     # None → печать по умолчанию (обратная совместимость). Форма: см.
     # frontend/src/api/receipt.js (enabled{}, thankYouText, footerText, ...).
     template: dict | None = None
+    # Строки оплаты как в превью конструктора: [(подпись, сумма)]. Пусто →
+    # блок оплаты не печатается вообще (чек-предсчёт печатают до оплаты).
+    payments: list[tuple[str, Decimal]] = field(default_factory=list)
+    # Дата в чеке — время создания заказа (в превью выводится order.created_at),
+    # а не время печати. None → печатаем printed_at.
+    created_at: datetime | None = None
 
 
 @dataclass
@@ -58,31 +67,173 @@ class KitchenTicketData:
     printed_at: datetime = field(default_factory=datetime.now)
     # 2.5 — JSON-шаблон кухонного чека (companies.kitchen_receipt_template)
     template: dict | None = None
+    # Время заказа (как в превью — order.created_at); None → printed_at
+    created_at: datetime | None = None
+    # Срочный заказ → блок «! СРОЧНО !» (блок priority конструктора)
+    is_urgent: bool = False
 
 
-# Тип заказа на печати: dine_in не пишем вообще (лишняя строка «DINING»),
-# «с собой» и доставку подписываем по-русски.
+# Тип заказа на печати — подписи как в превью конструктора (там выводится
+# order.order_type строкой «На стол» / «С собой» / «Доставка»).
 _ORDER_TYPE_LABELS = {
-    "takeaway": "С СОБОЙ",
-    "delivery": "ДОСТАВКА",
+    "dine_in": "На стол",
+    "takeaway": "С собой",
+    "delivery": "Доставка",
 }
 
 
 def order_type_label(order_type: str | None) -> str:
-    return _ORDER_TYPE_LABELS.get((order_type or "").lower(), "")
+    key = (order_type or "").strip().lower()
+    return _ORDER_TYPE_LABELS.get(key, (order_type or "").strip())
+
+
+# Способ оплаты → подпись строки оплаты (как getPaymentRows() в превью)
+_PAYMENT_METHOD_LABELS = {
+    "cash": "Наличные",
+    "card": "Карта",
+    "transfer": "Перечисление",
+    "mixed": "Смешанная оплата",
+    "click": "Click",
+    "payme": "Payme",
+    "uzum": "Uzum",
+}
+
+
+def payment_method_label(method: str | None) -> str:
+    key = (method or "").strip().lower()
+    return _PAYMENT_METHOD_LABELS.get(key, (method or "").strip() or "Оплата")
+
+
+# ── Контракт конструктора чека ─────────────────────────────────────────────
+# blocks — порядок блоков, enabled — галочки, blockStyles — размер/выравнивание/
+# жирность. Те же карты живут во фронте (frontend/src/api/receipt.js и
+# components/receipt/ReceiptPreview.jsx) — поэтому печать повторяет превью.
+CUSTOMER_BLOCKS = [
+    "logo", "restaurantName", "address", "phone", "orderNumber", "table", "waiter",
+    "dateTime", "items", "discount", "serviceFee", "vat", "total", "paymentMethod",
+    "qr", "thankYouText", "footerText",
+]
+
+KITCHEN_BLOCKS = [
+    "orderNumber", "table", "waiter", "createdAt", "items", "modifiers",
+    "itemComments", "orderNote", "priority",
+]
+
+# Блок → визуальная группа. Группы разделяются линией; порядок групп задаёт
+# первый встреченный в blocks блок группы.
+_CUSTOMER_GROUPS = {
+    "logo": "head", "restaurantName": "head",
+    "orderNumber": "info", "table": "info", "waiter": "info", "dateTime": "info",
+    "items": "items",
+    "discount": "summary", "serviceFee": "summary", "vat": "summary",
+    "total": "total",
+    "paymentMethod": "pay",
+    "qr": "qr",
+    # Адрес и телефон печатаются в подвале рядом с footerText
+    "thankYouText": "foot", "footerText": "foot", "address": "foot", "phone": "foot",
+}
+
+_KITCHEN_GROUPS = {
+    "orderNumber": "head", "table": "head", "waiter": "head", "createdAt": "head",
+    "items": "items", "modifiers": "items", "itemComments": "items",
+    "orderNote": "note",
+    "priority": "urgent",
+}
+
+# Эти блоки не занимают своё место в порядке групп — печатаются внутри подвала
+_POSITIONLESS_BLOCKS = {"address", "phone"}
+
+# Выключены по умолчанию (buildCustomerTemplate во фронте)
+_DEFAULT_OFF_BLOCKS = {"address", "phone", "qr", "vat"}
+
+_BASE_STYLE = {"size": "standard", "align": "left", "weight": "standard"}
+
+# Стили по умолчанию — копия дефолтов buildCustomerTemplate()
+_CUSTOMER_STYLES = {
+    "restaurantName": {"size": "large", "align": "center", "weight": "bold"},
+    "orderNumber": {"size": "standard", "align": "center", "weight": "bold"},
+    "dateTime": {"size": "standard", "align": "center", "weight": "bold"},
+    "total": {"size": "xlarge", "align": "left", "weight": "standard"},
+    "thankYouText": {"size": "large", "align": "center", "weight": "bold"},
+    "footerText": {"size": "large", "align": "center", "weight": "bold"},
+}
+
+# У кухонного чека своего редактора стилей нет: размеры зашиты как в превью
+# (крупный номер, увеличенный текст — повар читает с расстояния).
+_KITCHEN_STYLES = {
+    "orderNumber": {"size": "xlarge", "align": "center", "weight": "bold"},
+    "table": {"size": "large", "align": "left", "weight": "standard"},
+    "waiter": {"size": "large", "align": "left", "weight": "standard"},
+    "createdAt": {"size": "large", "align": "left", "weight": "standard"},
+    "items": {"size": "large", "align": "left", "weight": "bold"},
+    "modifiers": {"size": "large", "align": "left", "weight": "standard"},
+    "itemComments": {"size": "large", "align": "left", "weight": "standard"},
+    "orderNote": {"size": "large", "align": "left", "weight": "standard"},
+    "priority": {"size": "large", "align": "center", "weight": "bold"},
+}
 
 
 # 2.5 — хелперы чтения шаблона конструктора чека. При template=None (шаблон не
-# настроен) все блоки считаются включёнными, тексты берутся дефолтные — печать
-# ведёт себя ровно как раньше (полная обратная совместимость).
-def _tpl_on(template: dict | None, key: str, default: bool = True) -> bool:
-    """Включён ли блок `key` в шаблоне. Отсутствие ключа → default."""
+# настроен) блоки берут дефолты конструктора, тексты — дефолтные подписи.
+def _tpl_blocks(template: dict | None, fallback: list[str]) -> list[str]:
+    """Порядок блоков из шаблона: неизвестные отбрасываем, пропущенные дописываем."""
+    saved: list[str] = []
+    if isinstance(template, dict) and isinstance(template.get("blocks"), list):
+        for block in template["blocks"]:
+            if block in fallback and block not in saved:
+                saved.append(block)
+    return saved + [b for b in fallback if b not in saved]
+
+
+def _tpl_enabled(template: dict | None, block: str) -> bool:
+    """Включён ли блок. Ключа нет → дефолт конструктора."""
+    default = block not in _DEFAULT_OFF_BLOCKS
     if not isinstance(template, dict):
         return default
     enabled = template.get("enabled")
-    if not isinstance(enabled, dict) or key not in enabled:
+    if not isinstance(enabled, dict) or block not in enabled:
         return default
-    return bool(enabled[key])
+    return bool(enabled[block])
+
+
+def _tpl_style(template: dict | None, block: str, defaults: dict) -> dict:
+    """Стиль блока: значения из blockStyles поверх дефолта этого блока."""
+    style = dict(defaults.get(block) or _BASE_STYLE)
+    if isinstance(template, dict):
+        raw = template.get("blockStyles")
+        if isinstance(raw, dict) and isinstance(raw.get(block), dict):
+            for key in ("size", "align", "weight"):
+                value = raw[block].get(key)
+                if isinstance(value, str) and value:
+                    style[key] = value
+    return style
+
+
+def _group_order(blocks: list[str], groups: dict[str, str]) -> list[str]:
+    """Порядок групп по порядку блоков (первое вхождение)."""
+    order: list[str] = []
+    for block in blocks:
+        if block in _POSITIONLESS_BLOCKS:
+            continue
+        group = groups.get(block)
+        if group and group not in order:
+            order.append(group)
+    return order
+
+
+def _money(value) -> str:
+    """Как money() в превью: без символа валюты, разряды — пробел."""
+    try:
+        return f"{Decimal(str(value or 0)):,.0f}".replace(",", " ")
+    except (InvalidOperation, TypeError, ValueError):
+        return str(value or "")
+
+
+def _positive(value) -> bool:
+    try:
+        return Decimal(str(value or 0)) > 0
+    except (InvalidOperation, TypeError, ValueError):
+        return False
 
 
 def _tpl_text(template: dict | None, key: str) -> str | None:
@@ -110,8 +261,13 @@ class EscPosFormatter:
     ALIGN_CENTER = ESC + b"\x61\x01"
     ALIGN_RIGHT = ESC + b"\x61\x02"
     DOUBLE_HEIGHT = GS + b"\x21\x01"
+    DOUBLE_BOTH   = GS + b"\x21\x11"   # двойная ширина + высота
     NORMAL_SIZE   = GS + b"\x21\x00"
     INIT          = ESC + b"\x40"
+
+    # Стиль блока из конструктора → ESC/POS
+    _SIZE_BYTES = {"standard": b"\x00", "large": b"\x01", "xlarge": b"\x11"}
+    _ALIGN_BYTES = {"left": b"\x00", "center": b"\x01", "right": b"\x02"}
 
     # Кодовые страницы для кириллицы. Термопринтер ESC/POS НЕ понимает UTF-8 —
     # надо командой ESC t n выбрать однобайтовую страницу И кодировать текст в неё.
@@ -138,186 +294,340 @@ class EscPosFormatter:
     def _divider(self, char: str = "-") -> bytes:
         return self._line(char * self.cols)
 
-    def _two_col(self, left: str, right: str) -> bytes:
-        pad = self.cols - len(left) - len(right)
+    def _dashed(self) -> bytes:
+        """Пунктирная линия — как .receipt-preview__rule (не solid) в превью."""
+        return self._line(("- " * (self.cols // 2)).rstrip())
+
+    def _two_col(self, left: str, right: str, cols: int | None = None) -> bytes:
+        width = cols or self.cols
+        pad = width - len(left) - len(right)
         return self._line(left + " " * max(pad, 1) + right)
 
-    def _three_col(self, name: str, qty: str, total: str) -> bytes:
-        qty_w = 6
-        total_w = 10
-        name_w = self.cols - qty_w - total_w
-        name_trunc = name[:name_w].ljust(name_w)
-        return self._line(name_trunc + qty.rjust(qty_w) + total.rjust(total_w))
+    # ── Стили блоков конструктора ──────────────────────────────────────────
+    def _style_on(self, style: dict) -> bytes:
+        """Размер (GS ! n) + выравнивание (ESC a n) + жирность (ESC E) блока."""
+        out = self.GS + b"\x21" + self._SIZE_BYTES.get(style.get("size"), b"\x00")
+        out += self.ESC + b"\x61" + self._ALIGN_BYTES.get(style.get("align"), b"\x00")
+        if style.get("weight") == "bold":
+            out += self.BOLD_ON
+        return out
+
+    def _style_off(self) -> bytes:
+        return self.NORMAL_SIZE + self.BOLD_OFF + self.ALIGN_LEFT
+
+    def _style_cols(self, style: dict) -> int:
+        """При двойной ширине (xlarge) в строку влезает вдвое меньше символов."""
+        return self.cols // 2 if style.get("size") == "xlarge" else self.cols
+
+    def _styled(self, style: dict, *chunks: bytes) -> bytes:
+        return self._style_on(style) + b"".join(chunks) + self._style_off()
+
+    # ── Текст ──────────────────────────────────────────────────────────────
+    def _wrap(self, text: str, width: int) -> list[str]:
+        """Перенос по словам: превью длинные названия не обрезает, а переносит."""
+        text = (text or "").strip()
+        if not text or width < 1:
+            return []
+        lines: list[str] = []
+        current = ""
+        for word in text.split():
+            while len(word) > width:        # одно слово длиннее строки — рвём
+                if current:
+                    lines.append(current)
+                    current = ""
+                lines.append(word[:width])
+                word = word[width:]
+            candidate = f"{current} {word}".strip()
+            if len(candidate) > width:
+                lines.append(current)
+                current = word
+            else:
+                current = candidate
+        if current:
+            lines.append(current)
+        return lines
+
+    def _text_block(self, text: str, style: dict) -> bytes:
+        """Многострочный текст с переносом под ширину выбранного размера."""
+        out = bytearray()
+        for raw in (text or "").split("\n"):
+            for line in self._wrap(raw, self._style_cols(style)) or [""]:
+                out += self._line(line)
+        return bytes(out)
+
+    def _qr(self, data: str) -> bytes:
+        """Нативный QR-код принтера (ESC/POS GS ( k): принтер сам строит матрицу
+        из строки-ссылки, растровая графика не нужна. Печатается по центру."""
+        payload = (data or "").strip().encode("utf-8", errors="ignore")
+        if not payload:
+            return b""
+        module = b"\x06" if self.cols >= 48 else b"\x04"   # размер модуля под ширину бумаги
+        store_len = len(payload) + 3                       # cn+fn+m + данные
+        out = bytearray()
+        out += self.ALIGN_CENTER
+        out += self.GS + b"\x28\x6b\x04\x00\x31\x41\x32\x00"                     # модель 2
+        out += self.GS + b"\x28\x6b\x03\x00\x31\x43" + module                    # размер модуля
+        out += self.GS + b"\x28\x6b\x03\x00\x31\x45\x31"                         # коррекция M
+        out += (self.GS + b"\x28\x6b"
+                + bytes([store_len & 0xff, (store_len >> 8) & 0xff])
+                + b"\x31\x50\x30" + payload)                                     # запись данных
+        out += self.GS + b"\x28\x6b\x03\x00\x31\x51\x30"                         # печать символа
+        out += self.ALIGN_LEFT
+        return bytes(out)
+
+    def _label_value(self, label: str, value: str, cols: int | None = None) -> bytes:
+        """Строка «подпись | значение»: значение начинается ровно в правой половине
+        строки и выравнивается влево — как .receipt-preview__info-row в превью."""
+        width = cols or self.cols
+        half = max(width // 2, 1)
+        head = label if len(label) < half else label[:half - 1] + " "
+        out = bytearray()
+        chunks = self._wrap(value, width - half) or [""]
+        out += self._line(head.ljust(half) + chunks[0])
+        for extra in chunks[1:]:
+            out += self._line(" " * half + extra)
+        return bytes(out)
+
+    # ── Таблица блюд (4 колонки, как grid в превью) ─────────────────────────
+    def _item_cols(self, cols: int) -> tuple[int, int, int, int]:
+        if cols >= 48:
+            qty_w, price_w, total_w = 6, 10, 11
+        else:
+            qty_w, price_w, total_w = 4, 7, 8
+        return cols - qty_w - price_w - total_w, qty_w, price_w, total_w
+
+    def _four_col(self, name: str, qty: str, price: str, total: str, cols: int) -> bytes:
+        name_w, qty_w, price_w, total_w = self._item_cols(cols)
+        chunks = self._wrap(name, name_w) or [""]
+        out = bytearray()
+        out += self._line(
+            chunks[0].ljust(name_w) + qty.rjust(qty_w) + price.rjust(price_w) + total.rjust(total_w)
+        )
+        for extra in chunks[1:]:          # длинное название переносим, не обрезаем
+            out += self._line(extra)
+        return bytes(out)
 
     def format_receipt(self, data: ReceiptData) -> bytes:
+        """Собирает чек ровно так, как его показывает конструктор во фронте:
+        порядок групп — из template.blocks, видимость — из enabled, размеры и
+        выравнивание — из blockStyles (см. components/receipt/ReceiptPreview.jsx)."""
         tpl = data.template
+        blocks = _tpl_blocks(tpl, CUSTOMER_BLOCKS)
+        on = {b: _tpl_enabled(tpl, b) for b in blocks}
+
+        sections: list[bytes] = []
+        for group in _group_order(blocks, _CUSTOMER_GROUPS):
+            chunk = self._receipt_group(group, data, tpl, on)
+            if chunk:
+                sections.append(chunk)
+
         out = bytearray()
         out += self.INIT
         out += self._set_codepage   # кириллическая кодовая страница (ESC @ сбрасывает её)
-
-        # Header
-        out += self.ALIGN_CENTER
-        if _tpl_on(tpl, "restaurantName"):
-            # Название из конструктора (если задано) перекрывает имя компании
-            title = _tpl_text(tpl, "restaurantName") or data.company_name
-            out += self.BOLD_ON + self.DOUBLE_HEIGHT
-            out += self._line(title[:self.cols])
-            out += self.NORMAL_SIZE + self.BOLD_OFF
-        out += self._line(data.branch_name[:self.cols])
-        # Адрес/телефон — по умолчанию выключены в конструкторе, печатаем только
-        # если блок включён и текст задан.
-        address = _tpl_text(tpl, "address")
-        if _tpl_on(tpl, "address", default=False) and address:
-            out += self._line(address[:self.cols])
-        phone = _tpl_text(tpl, "phone")
-        if _tpl_on(tpl, "phone", default=False) and phone:
-            out += self._line(phone[:self.cols])
-        out += self.ALIGN_LEFT
-        out += self._divider()
-
-        # Order info
-        type_label = order_type_label(data.order_type)
-        if _tpl_on(tpl, "orderNumber"):
-            if type_label:
-                out += self._two_col(f"Заказ #{data.order_number}", type_label)
-            else:
-                out += self._line(f"Заказ #{data.order_number}")
-        if data.table_number and _tpl_on(tpl, "table"):
-            out += self._line(f"Стол: {data.table_number}")
-        if data.customer_name:
-            out += self._line(f"Клиент: {data.customer_name}")
-        if _tpl_on(tpl, "waiter"):
-            out += self._line(f"Кассир: {data.cashier_name}")
-        if _tpl_on(tpl, "dateTime"):
-            out += self._line(data.printed_at.strftime("%d.%m.%Y %H:%M:%S"))
-        # 2.1 — раздельный чек: подпись части выделяем жирным
-        if data.split_note:
-            out += self.BOLD_ON
-            out += self._line(data.split_note[:self.cols])
-            out += self.BOLD_OFF
-        out += self._divider()
-
-        # Items — при раздельном чекe у части могут отсутствовать позиции
-        # (деление «поровну»), тогда таблицу блюд не печатаем.
-        if _tpl_on(tpl, "items") and data.items:
-            out += self.BOLD_ON
-            out += self._three_col("Наименование", "Кол.", "Сумма")
-            out += self.BOLD_OFF
-            out += self._divider()
-            for item in data.items:
-                out += self._three_col(
-                    item.name,
-                    str(item.qty),
-                    f"{item.total:,.0f}",
-                )
-                # При количестве > 1 показываем цену за единицу отдельной строкой,
-                # чтобы в чеке была видна не только сумма позиции, но и цена штуки.
-                if item.qty and Decimal(item.qty) != 1 and item.price:
-                    out += self._line(f"  {item.qty} x {item.price:,.0f}")
-                for mod in item.modifiers:
-                    out += self._line(f"  + {mod}")
-            out += self._divider()
-
-        # Totals
-        out += self._two_col("Итого:", f"{data.subtotal:,.0f}")
-        if data.discount > 0 and _tpl_on(tpl, "discount"):
-            out += self._two_col("Скидка:", f"-{data.discount:,.0f}")
-        if getattr(data, "service_fee", 0) and data.service_fee > 0 and _tpl_on(tpl, "serviceFee"):
-            out += self._two_col("Обслуживание:", f"{data.service_fee:,.0f}")
-        if data.tax > 0 and _tpl_on(tpl, "vat"):
-            out += self._two_col("НДС (12%):", f"{data.tax:,.0f}")
-        if _tpl_on(tpl, "total"):
-            out += self.BOLD_ON
-            out += self._two_col("К ОПЛАТЕ:", f"{data.total:,.0f}")
-            out += self.BOLD_OFF
-        out += self._divider()
-
-        # Payment
-        if _tpl_on(tpl, "paymentMethod"):
-            out += self._two_col("Оплата:", data.payment_method)
-            if data.cash_received is not None:
-                out += self._two_col("Получено:", f"{data.cash_received:,.0f}")
-                out += self._two_col("Сдача:", f"{data.change_given or 0:,.0f}")
-
-        # Fiscal code
-        if data.fiscal_code:
-            out += self._divider()
-            out += self.ALIGN_CENTER
-            out += self._line(f"ФН: {data.fiscal_code}")
-            out += self.ALIGN_LEFT
-
-        # Footer — текст «спасибо» из конструктора (иначе дефолт), затем нижний текст
-        out += self._divider()
-        out += self.ALIGN_CENTER
-        if _tpl_on(tpl, "thankYouText"):
-            thank_you = _tpl_text(tpl, "thankYouText") or "Спасибо за покупку!"
-            for ln in thank_you.split("\n"):
-                out += self._line(ln[:self.cols])
-        footer_text = _tpl_text(tpl, "footerText")
-        if _tpl_on(tpl, "footerText") and footer_text:
-            for ln in footer_text.split("\n"):
-                out += self._line(ln[:self.cols])
-        out += self.ALIGN_LEFT
+        for index, chunk in enumerate(sections):
+            if index:
+                out += self._divider()      # сплошная линия между группами
+            out += chunk
+        # Низ чека: пунктир + «НОМЕР ЗАКАЗА» крупно — в превью есть всегда
+        out += self._dashed()
+        out += self._styled({"size": "standard", "align": "center", "weight": "bold"},
+                            self._line("НОМЕР ЗАКАЗА"))
+        out += self._styled({"size": "xlarge", "align": "center", "weight": "bold"},
+                            self._line(str(data.order_number or "-")))
         out += self.LF * 3
         out += self.CUT
+        return bytes(out)
+
+    def _receipt_group(self, group: str, data: ReceiptData, tpl: dict | None, on: dict) -> bytes:
+        """Одна группа чека покупателя. Пусто → группа не печатается вообще."""
+        def style(block: str) -> dict:
+            return _tpl_style(tpl, block, _CUSTOMER_STYLES)
+
+        out = bytearray()
+
+        # Логотип не печатаем: в шаблоне это SVG, растровой печати нет
+        if group == "head":
+            if on.get("restaurantName"):
+                title = _tpl_text(tpl, "restaurantName") or data.company_name
+                st = style("restaurantName")
+                out += self._styled(st, self._text_block(title, st))
+
+        elif group == "info":
+            rows: list[tuple[str, str, dict]] = []
+            if on.get("orderNumber"):
+                rows.append(("Номер заказа:", str(data.order_number or "-"), style("orderNumber")))
+                type_label = order_type_label(data.order_type)
+                if type_label:
+                    rows.append(("Тип заказа:", type_label, style("orderNumber")))
+            if on.get("table") and data.table_number:
+                rows.append(("Номер стола:", str(data.table_number), style("table")))
+            waiter = data.waiter_name or data.cashier_name
+            if on.get("waiter") and waiter:
+                rows.append(("Официант:", waiter, style("waiter")))
+            if on.get("dateTime"):
+                stamp = data.created_at or data.printed_at
+                rows.append(("Дата:", stamp.strftime("%d.%m.%Y %H:%M"), style("dateTime")))
+            for label, value, st in rows:
+                out += self._styled(st, self._label_value(label, value, self._style_cols(st)))
+            # 2.1 — раздельный чек: своего блока в конструкторе нет, подпись части
+            # печатаем отдельной жирной строкой
+            if data.split_note:
+                out += self._styled({"size": "standard", "align": "center", "weight": "bold"},
+                                    self._text_block(data.split_note, _BASE_STYLE))
+
+        # Таблица блюд: 4 колонки как grid в превью. При раздельном чеке у части
+        # может не быть позиций («поровну») — тогда группа пустая.
+        elif group == "items":
+            if on.get("items") and data.items:
+                st = style("items")
+                cols = self._style_cols(st)
+                out += self._styled({**st, "weight": "bold"},
+                                    self._four_col("НАИМЕНОВАНИЕ", "КОЛ-ВО", "ЦЕНА", "ИТОГО", cols))
+                for item in data.items:
+                    out += self._styled(st, self._four_col(
+                        item.name, _money(item.qty), _money(item.price), _money(item.total), cols,
+                    ))
+
+        elif group == "summary":
+            # «Сумма товаров» отдельного блока не имеет — печатается всегда,
+            # остальные строки только при значении > 0 (как в превью)
+            rows = [
+                ("Сумма товаров", data.subtotal, True),
+                ("Скидка", data.discount, on.get("discount")),
+                ("Обслуживание", getattr(data, "service_fee", 0), on.get("serviceFee")),
+                ("Налог", data.tax, on.get("vat")),
+            ]
+            for label, value, allowed in rows:
+                if allowed and _positive(value):
+                    out += self._two_col(label, _money(value))
+
+        elif group == "total":
+            if on.get("total"):
+                st = style("total")
+                out += self._styled(st, self._two_col("ИТОГО:", _money(data.total),
+                                                      self._style_cols(st)))
+
+        elif group == "pay":
+            # Оплат ещё нет (чек-предсчёт печатают до оплаты) → блок пропускаем
+            if on.get("paymentMethod"):
+                st = style("paymentMethod")
+                for label, amount in self._payment_rows(data):
+                    out += self._styled(st, self._two_col(f"{label}:", _money(amount),
+                                                          self._style_cols(st)))
+
+        elif group == "qr":
+            # Ссылку из конструктора печатаем НАСТОЯЩИМ QR (нативная команда
+            # принтера). Фискальный номер, если есть, — подписью снизу, как в превью.
+            if on.get("qr"):
+                qr_url = _tpl_text(tpl, "qrUrl")
+                if qr_url:
+                    out += self._qr(qr_url)
+                if data.fiscal_code:
+                    out += self._styled({"size": "standard", "align": "center", "weight": "standard"},
+                                        self._line(f"ФН: {data.fiscal_code}"))
+
+        elif group == "foot":
+            if on.get("thankYouText"):
+                st = style("thankYouText")
+                text = _tpl_text(tpl, "thankYouText") or "XARIDINGIZ UCHUN RAXMAT!"
+                out += self._styled(st, self._text_block(text, st))
+            # Контакты подвала: footerText, затем телефон и адрес (если включены)
+            st = style("footerText")
+            contacts = []
+            if on.get("footerText"):
+                contacts.append(_tpl_text(tpl, "footerText"))
+            if on.get("phone"):
+                contacts.append(_tpl_text(tpl, "phone"))
+            if on.get("address"):
+                contacts.append(_tpl_text(tpl, "address"))
+            for contact in [c for c in contacts if c]:
+                out += self._styled(st, self._text_block(contact, st))
 
         return bytes(out)
 
+    def _payment_rows(self, data: ReceiptData) -> list[tuple[str, Decimal]]:
+        """Как getPaymentRows() в превью: строки с суммой > 0, иначе одна строка
+        по способу оплаты. Ни того, ни другого → блока оплаты в чеке нет."""
+        rows = [(label, amount) for label, amount in (data.payments or []) if _positive(amount)]
+        if not rows and data.payment_method and _positive(data.total):
+            rows.append((payment_method_label(data.payment_method), data.total))
+        return rows
+
     def format_kitchen_ticket(self, data: KitchenTicketData) -> bytes:
+        """Кухонный чек — как превью конструктора чека повара: крупный номер,
+        строки «Стол/Официант/Время», позиции, комментарий, «! СРОЧНО !»."""
         tpl = data.template
+        blocks = _tpl_blocks(tpl, KITCHEN_BLOCKS)
+        on = {b: _tpl_enabled(tpl, b) for b in blocks}
+
+        sections: list[bytes] = []
+        for group in _group_order(blocks, _KITCHEN_GROUPS):
+            chunk = self._kitchen_group(group, data, tpl, on)
+            if chunk:
+                sections.append(chunk)
+
         out = bytearray()
         out += self.INIT
         out += self._set_codepage   # кириллическая кодовая страница (ESC @ сбрасывает её)
-        out += self.ALIGN_CENTER
-        out += self.BOLD_ON + self.DOUBLE_HEIGHT
-        out += self._line(f"ЗАКАЗ #{data.order_number}")
-        out += self.NORMAL_SIZE + self.BOLD_OFF
-        # «DINING» не печатаем; тип показываем только для «с собой»/доставки
-        type_label = order_type_label(data.order_type)
-        time_str = data.printed_at.strftime("%H:%M") if _tpl_on(tpl, "createdAt") else ""
-        if type_label or time_str:
-            out += self._two_col(type_label, time_str)
-        if data.table_number and _tpl_on(tpl, "table"):
-            out += self.BOLD_ON
-            out += self._line(f"СТОЛ: {data.table_number}")
-            out += self.BOLD_OFF
-        if data.waiter_name and _tpl_on(tpl, "waiter"):
-            out += self._line(f"Официант: {data.waiter_name}")
-        out += self.ALIGN_LEFT
-        out += self._divider("=")
-
-        # Group items by course
-        courses: dict[int, list[dict]] = {}
-        for item in data.items:
-            c = item.get("course", 1)
-            courses.setdefault(c, []).append(item)
-
-        show_mods = _tpl_on(tpl, "modifiers")
-        show_notes = _tpl_on(tpl, "itemComments")
-        for course_num in sorted(courses):
-            if len(courses) > 1:
-                out += self.BOLD_ON
-                out += self._line(f"--- Подача {course_num} ---")
-                out += self.BOLD_OFF
-            for item in courses[course_num]:
-                qty = item.get("qty", 1)
-                name = item.get("name", "")
-                out += self.BOLD_ON
-                out += self._line(f"  x{qty}  {name}")
-                out += self.BOLD_OFF
-                if show_mods:
-                    for mod in item.get("modifiers", []):
-                        out += self._line(f"       + {mod}")
-                if show_notes and item.get("note"):
-                    out += self._line(f"       ! {item['note']}")
-
-        if data.note and _tpl_on(tpl, "orderNote"):
-            out += self._divider()
-            out += self._line(f"КОММЕНТАРИЙ: {data.note}")
-
-        out += self._divider("=")
+        for index, chunk in enumerate(sections):
+            if index:
+                out += self._dashed()   # в превью кухонный чек делят пунктиры
+            out += chunk
         out += self.LF * 3
         out += self.CUT
+        return bytes(out)
+
+    def _kitchen_group(self, group: str, data: KitchenTicketData, tpl: dict | None, on: dict) -> bytes:
+        """Одна группа кухонного чека. Пусто → группа не печатается."""
+        def style(block: str) -> dict:
+            return _tpl_style(tpl, block, _KITCHEN_STYLES)
+
+        out = bytearray()
+
+        if group == "head":
+            if on.get("orderNumber"):
+                st = style("orderNumber")
+                out += self._styled(st, self._line(f"#{data.order_number}"))
+            # Значение справа — как .receipt-preview--kitchen .receipt-preview__info-row
+            rows: list[tuple[str, str, dict]] = []
+            if on.get("table") and data.table_number:
+                rows.append(("Стол:", str(data.table_number), style("table")))
+            if on.get("waiter") and data.waiter_name:
+                rows.append(("Официант:", data.waiter_name, style("waiter")))
+            if on.get("createdAt"):
+                stamp = data.created_at or data.printed_at
+                rows.append(("Время:", stamp.strftime("%d.%m.%Y, %H:%M"), style("createdAt")))
+            for label, value, st in rows:
+                out += self._styled(st, self._two_col(label, value, self._style_cols(st)))
+
+        elif group == "items":
+            if on.get("items"):
+                st_item = style("items")
+                st_note = style("modifiers")
+                for item in data.items:
+                    name = f"{_money(item.get('qty', 1))} x {item.get('name', '')}"
+                    out += self._styled(st_item, self._text_block(name, st_item))
+                    notes = []
+                    if on.get("modifiers"):
+                        mods = ", ".join(str(m) for m in (item.get("modifiers") or []) if m)
+                        if mods:
+                            notes.append(mods)
+                    if on.get("itemComments") and item.get("note"):
+                        notes.append(str(item["note"]))
+                    for note in notes:
+                        out += self._styled(st_note, self._text_block(f"- {note}", st_note))
+
+        elif group == "note":
+            if on.get("orderNote") and data.note:
+                st = style("orderNote")
+                out += self._styled({**st, "weight": "bold"}, self._line("Комментарий:"))
+                out += self._styled(st, self._text_block(f"- {data.note}", st))
+
+        elif group == "urgent":
+            if on.get("priority") and data.is_urgent:
+                st = style("priority")
+                out += self._styled(st, self._text_block("! СРОЧНО !", st))
+
         return bytes(out)
 
     def format_summary(self, title: str, lines: list[str], footer: str | None = None) -> bytes:

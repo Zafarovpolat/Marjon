@@ -72,8 +72,10 @@ export default function VirtualKeyboard({ onVisibilityChange }) {
     try {
       document.body.classList.toggle('vkb-open', !!activeInput)
       // Вне модалок рабочий экран поднимается целиком (vkb-lift);
-      // внутри модалок оверлей сам сжимается на высоту клавиатуры
-      document.body.classList.toggle('vkb-lift', !!activeInput && !activeInput.closest('.modal-overlay'))
+      // внутри модалок оверлей сам сжимается на высоту клавиатуры.
+      // .pay-screen — полноэкранный оверлей (position: fixed), сжимается сам:
+      // поднимать под ним .app-shell бессмысленно, поэтому он тоже в списке.
+      document.body.classList.toggle('vkb-lift', !!activeInput && !activeInput.closest('.modal-overlay, .pay-screen, .attn-screen'))
     } catch { /* no body */ }
   }, [activeInput, onVisibilityChange])
 
@@ -92,13 +94,15 @@ export default function VirtualKeyboard({ onVisibilityChange }) {
       root.style.setProperty('--vkb-height', `${h}px`)
     }
     apply()
-    // Клавиатура уже смонтирована и область сжалась — доводим поле до центра видимой части
-    const timer = setTimeout(() => {
-      apply()
-      try { activeInput.scrollIntoView({ block: 'center', behavior: 'smooth' }) } catch { /* ignore */ }
-    }, 90)
+    const reveal = () => { try { activeInput.scrollIntoView({ block: 'center', behavior: 'smooth' }) } catch { /* ignore */ } }
+    // Доводим поле до центра видимой части дважды: сразу после монтажа
+    // клавиатуры и после анимации высоты .app-shell (0.22s). Без второго
+    // прохода прокрутка считалась по старой геометрии и поле у нижнего края
+    // оставалось под клавиатурой (скролл-контейнер сжимается по ходу анимации).
+    const t1 = setTimeout(() => { apply(); reveal() }, 90)
+    const t2 = setTimeout(() => { apply(); reveal() }, 320)
     window.addEventListener('resize', apply)
-    return () => { clearTimeout(timer); window.removeEventListener('resize', apply) }
+    return () => { clearTimeout(t1); clearTimeout(t2); window.removeEventListener('resize', apply) }
   }, [activeInput, layout])
 
   function close() { activeInput?.blur(); setActiveInput(null) }

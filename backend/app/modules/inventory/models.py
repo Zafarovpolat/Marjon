@@ -39,6 +39,12 @@ class Product(TimeStampedModel):
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_available: Mapped[bool] = mapped_column(Boolean, default=True)
+    # D3 «максимум блюда»: дневной лимит порций и счётчик проданного (на всю
+    # компанию, по образцу is_available). NULL лимит = без ограничения (как было).
+    # При достижении sold_count >= daily_limit блюдо авто-встаёт в стоп
+    # (is_available=False). Сброс счётчика — ручной (см. ProductService.set_daily_limit).
+    daily_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sold_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     category: Mapped[Category | None] = relationship(back_populates="products")
     modifier_groups: Mapped[list[ModifierGroup]] = relationship(back_populates="product", cascade="all, delete-orphan")

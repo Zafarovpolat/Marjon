@@ -118,7 +118,24 @@ export default function ReceiptSettingsPage() {
 
   return (
     <section className="receipt-page">
+      <div className="receipt-page__actions">
+        <button type="button" className="receipt-page__btn" onClick={handleReset} disabled={saving || printing}>
+          Сбросить
+        </button>
+        <button type="button" className="receipt-page__btn" onClick={handleTestPrint} disabled={saving || printing}>
+          {printing ? "Печать..." : "Тест печати"}
+        </button>
+        <button
+          type="button"
+          className="receipt-page__btn receipt-page__btn--primary"
+          onClick={handleSave}
+          disabled={loading || saving || printing}
+        >
+          {saving ? "Сохранение..." : "Сохранить"}
+        </button>
+      </div>
 
+      {message ? <div className="message message-success">{message}</div> : null}
       {error ? <div className="message message-error">{error}</div> : null}
 
       <div className="receipt-layout">
@@ -157,6 +174,17 @@ export default function ReceiptSettingsPage() {
           <label className="receipt-field">
             <span>Нижний текст</span>
             <textarea rows="3" value={template.footerText || ""} onChange={(event) => patchTemplate({ footerText: event.target.value })} />
+          </label>
+          <label className="receipt-field">
+            <span>Ссылка QR</span>
+            <input
+              type="url"
+              inputMode="url"
+              placeholder="https://…"
+              value={template.qrUrl || ""}
+              onChange={(event) => patchTemplate({ qrUrl: event.target.value })}
+            />
+            <small>Печатается как QR-код на чеке. Включите блок «QR» ниже.</small>
           </label>
 
           <div className="receipt-panel-title">
