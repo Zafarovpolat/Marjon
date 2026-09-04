@@ -105,7 +105,7 @@ export default function StopListPanel({ user, onClose }) {
         {/* Поиск/фильтр — только на экране сетки */}
         {!selected && (
           <div className="stop-controls">
-            <div className="cashier-products__search" style={{ padding: 0, border: 'none', flex: 1 }}>
+            <div className="cashier-products__search" style={{ flex: 1 }}>
               <Search size={18} className="search-icon" />
               <input className="search-input" placeholder={t('search_dish')} value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>

@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Search, Plus, Minus, Trash2, Utensils,
-  LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock, Wallet, History, BarChart3, LogOut, Ban, ShoppingBag, Bike,
+  LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock, Wallet, History, BarChart3, Ban, ShoppingBag, Bike,
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi, printers as printersApi, customers as customersApi, auth as authApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
@@ -67,6 +68,14 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
   const [staff, setStaff] = useState([])                 // сотрудники (для смены официанта)
   const [printerMap, setPrinterMap] = useState({})
   const [addToOrderId, setAddToOrderId] = useState(null) // id заказа, в который ДОБАВЛЯЕМ блюда (иначе создаём новый)
+
+  // Слот шапки (TopBar в App.jsx): меню разделов рендерим порталом, чтобы кнопка
+  // жила в шапке, а состояние осталось здесь. DOM шапки готов к моменту первого
+  // эффекта, поэтому ищем узел один раз при монтировании.
+  const [hdrActionsSlot, setHdrActionsSlot] = useState(null)
+  useEffect(() => {
+    setHdrActionsSlot(document.getElementById('topbar-actions-slot'))
+  }, [])
 
   const loadFloor = useCallback(() => {
     hallsApi.list(user.branch_id)
@@ -310,7 +319,6 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     return (
       <div className="floor">
         <aside className="ws-side">
-          <button className="zone zone--exit" onClick={onBack}><LogOut size={20} /><span className="zone__name">{t('logout')}</span></button>
           {courier ? (
             <>
               {/* Курьер: только его доска доставки, без физических зон и «с собой» */}
@@ -350,18 +358,6 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
               {orderBoard && <button className="btn btn--primary btn--sm" onClick={() => openOrder(activeZone, null)}><Plus size={18} /> {t('new_order')}</button>}
               {!courier && can(user, 'can_change_order_type') && <button className="btn btn--outline btn--sm" onClick={() => setActiveZone('takeaway')}><ShoppingBag size={18} /> {t('takeaway')}</button>}
               {!courier && can(user, 'can_change_order_type') && <button className="btn btn--outline btn--sm" onClick={() => setActiveZone('delivery')}><Bike size={18} /> {t('delivery')}</button>}
-              {!courier && (
-                <HeaderMenu
-                  label={t('menu_more')}
-                  items={[
-                    ...(must(user, 'can_view_finance') ? [{ id: 'fin', label: t('finance'), Icon: Wallet, onClick: () => setFinOpen(true) }] : []),
-                    ...(can(user, 'can_approve_attendance') ? [{ id: 'att', label: t('attendance_page'), Icon: Clock, onClick: () => setAttOpen(true) }] : []),
-                    ...(can(user, 'can_view_closed_orders') ? [{ id: 'hist', label: t('history'), Icon: History, onClick: () => setHistOpen(true) }] : []),
-                    { id: 'rep', label: t('reports'), Icon: BarChart3, onClick: () => setRepOpen(true) },
-                  ]}
-                />
-              )}
-              {!courier && can(user, 'can_view_stop_list') && <button className="btn btn--outline btn--sm" onClick={() => setStopOpen(true)}><Ban size={18} /> {t('stoplist')}</button>}
             </div>
           </div>
           <div className="board__scroll">
@@ -415,6 +411,20 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
             ))}
           </div>
         </main>
+        {/* Меню разделов — иконка-кнопка в шапке рядом с блокировкой и настройками */}
+        {hdrActionsSlot && !courier && createPortal(
+          <HeaderMenu
+            title={t('menu_more')}
+            items={[
+              ...(can(user, 'can_view_stop_list') ? [{ id: 'stop', label: t('stoplist'), Icon: Ban, onClick: () => setStopOpen(true) }] : []),
+              ...(must(user, 'can_view_finance') ? [{ id: 'fin', label: t('finance'), Icon: Wallet, onClick: () => setFinOpen(true) }] : []),
+              ...(must(user, 'can_approve_attendance') ? [{ id: 'att', label: t('attendance_page'), Icon: Clock, onClick: () => setAttOpen(true) }] : []),
+              ...(can(user, 'can_view_closed_orders') ? [{ id: 'hist', label: t('history'), Icon: History, onClick: () => setHistOpen(true) }] : []),
+              { id: 'rep', label: t('reports'), Icon: BarChart3, onClick: () => setRepOpen(true) },
+            ]}
+          />,
+          hdrActionsSlot,
+        )}
         {finOpen && <FinancePanel branch={{ id: user.branch_id }} user={user} onClose={() => setFinOpen(false)} />}
         {histOpen && <HistoryPanel branch={{ id: user.branch_id }} onClose={() => setHistOpen(false)} />}
         {repOpen && <ReportsPanel branch={{ id: user.branch_id }} onClose={() => setRepOpen(false)} />}
@@ -473,7 +483,7 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
             <span className="board__subtitle">{itemCount} {t('items_low')} · {total.toLocaleString('ru-RU')} {t('currency')}</span>
           </div>
           <div className="board__head-right">
-            <div className="cashier-products__search" style={{ padding: 0, border: 'none' }}>
+            <div className="cashier-products__search">
               <Search size={18} className="search-icon" />
               <input className="search-input" placeholder={t('search_dish')} value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
@@ -509,16 +519,21 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
                     {item.note && <span className="cart-row__note">{item.note}</span>}
                     <span className="cart-item__price">{(item.price * item.qty).toLocaleString('ru-RU')} {t('currency')}</span>
                   </button>
+                  {/* «С собой» — тумблер рядом с названием и ценой; за столом по праву
+                      can_takeaway_at_table, для доставки/навынос доступно всегда */}
+                  {!courier && (orderType !== 'dine_in' || can(user, 'can_takeaway_at_table')) && (
+                    <button
+                      type="button"
+                      className={`cart-take ${item.takeaway ? 'cart-take--on' : ''}`}
+                      onClick={() => toggleTakeaway(item.lineId)}
+                      title={t('takeaway')}
+                      aria-pressed={item.takeaway ? 'true' : 'false'}
+                    >
+                      <span className="cart-take__label">{t('takeaway')}</span>
+                      <span className={`toggle ${item.takeaway ? 'toggle--on' : ''}`}><span className="toggle__dot" /></span>
+                    </button>
+                  )}
                   <div className="cart-item__controls">
-                    {/* «С собой» за столом — под правом can_takeaway_at_table; для доставки/навынос доступно всегда */}
-                    {!courier && (orderType !== 'dine_in' || can(user, 'can_takeaway_at_table')) && (
-                      <button
-                        type="button"
-                        className={`cart-take ${item.takeaway ? 'cart-take--on' : ''}`}
-                        onClick={() => toggleTakeaway(item.lineId)}
-                        title={t('takeaway')}
-                      >{t('takeaway')}</button>
-                    )}
                     <button className="qty-btn" onClick={() => updateQty(item.lineId, -1)}><Minus size={16} /></button>
                     <span className="qty-value">{item.qty}</span>
                     <button className="qty-btn" onClick={() => updateQty(item.lineId, 1)}><Plus size={16} /></button>

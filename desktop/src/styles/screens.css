@@ -66,7 +66,7 @@
   background: var(--color-brand);
   color: var(--color-text-inverse);
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: 700;
   font-size: 19px;
   box-shadow: 0 4px 14px var(--color-brand-glow);
 }
@@ -160,23 +160,31 @@
 }
 .ws-side__nav { display: flex; flex-direction: column; gap: 4px; }
 .zone {
-  display: flex;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 14px;
+  column-gap: 14px;
   width: 100%;
   height: 62px;
+  min-height: 62px;
   padding: 0 16px;
-  border-radius: 14px;
+  border-radius: 18px;
   background: transparent;
   color: var(--color-text-secondary);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
+  line-height: 1.2;
   text-align: left;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast),
+              box-shadow var(--transition-fast);
 }
-.zone > svg { color: var(--color-text-muted); transition: color var(--transition-fast); }
-.zone__name { flex: 1; }
+.zone > svg { grid-column: 1; justify-self: center; color: var(--color-text-muted); transition: color var(--transition-fast); }
+/* Подпись всегда во второй колонке: у кнопок категорий иконки нет,
+   и пустая первая колонка выравнивает их со строками, где иконка есть. */
+.zone__name { grid-column: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .zone__count {
+  grid-column: 3;
   display: inline-grid;
   place-items: center;
   min-width: 28px;
@@ -186,16 +194,21 @@
   background: var(--color-subtle);
   color: var(--color-text-secondary);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
 }
+/* Ховер меняет только фон и цвет текста — строка не сдвигается */
 .zone:hover { background: var(--chrome-hover); color: var(--chrome-text); }
 .zone:hover > svg { color: var(--chrome-text); }
+/* Активная — сплошная заливка брендом и белый текст, без рамки.
+   Тень задана в components.css (одно место на весь проект). */
 .zone--active {
-  background: var(--chrome-active);
-  color: var(--color-brand-dark);
+  background: var(--color-brand);
+  color: var(--color-text-inverse);
 }
-.zone--active > svg { color: var(--color-brand-dark); }
-.zone--active .zone__count { background: var(--color-brand); color: var(--color-text-inverse); }
+.zone--active > svg { color: var(--color-text-inverse); }
+.zone--active .zone__count { background: rgba(255, 255, 255, 0.22); color: var(--color-text-inverse); }
+.zone--active:hover { background: var(--color-brand-dark); color: var(--color-text-inverse); }
+.zone--active:hover > svg { color: var(--color-text-inverse); }
 
 .ws-side__spacer { flex: 1; }
 .ws-user {
@@ -251,9 +264,19 @@
 .board__head-right .btn svg { width: 18px; height: 18px; }
 
 .legend { display: flex; align-items: center; gap: 16px; }
-.legend__item { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--color-text-secondary); }
-.legend__swatch { width: 12px; height: 12px; border-radius: 4px; }
-.legend__swatch--free { background: var(--neutral-0); border: 1.5px solid var(--neutral-300); }
+.legend__item { display: inline-flex; align-items: center; gap: 9px; font-size: 13px; color: var(--color-text-secondary); }
+/* Квадратики статусов — ровный квадрат 20px. Размер фиксируем со всех сторон
+   (min-* + aspect-ratio): во флекс-строке иначе может вытянуться в прямоугольник */
+.legend__swatch {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
+  border-radius: 5px;
+}
+.legend__swatch--free { background: var(--neutral-0); border: 2px solid var(--neutral-300); }
 .legend__swatch--busy { background: var(--color-warning); }
 .legend__swatch--check { background: var(--color-success); }
 
@@ -277,9 +300,10 @@
   gap: 16px;
 }
 
-/* Карточка стола — нейтральная поверхность, статус пилюлей, сумма акцентом.
-   Свободный стол — пунктирная рамка, занятый — цвет статуса. */
+/* Карточка стола всегда белая с нейтральной рамкой и обычной серой тенью:
+   статус читается только пилюлей с подписью, цветного свечения нет. */
 .tcard {
+  --tcard-accent: var(--color-border-light);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -288,7 +312,7 @@
   padding: 16px;
   border-radius: 16px;
   background: var(--color-card);
-  border: 1px solid var(--color-border-light);
+  border: 1px solid var(--tcard-accent);
   box-shadow: var(--shadow-xs);
   text-align: left;
   cursor: pointer;
@@ -298,7 +322,8 @@
 .tcard:active { transform: translateY(0) scale(0.985); }
 
 .tcard__top { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 12px; }
-.tcard__num { font-family: var(--font-display); font-size: 26px; font-weight: 800; color: var(--color-text-primary); line-height: 1; letter-spacing: -0.01em; }
+/* Номер стола: 800 читался слишком жирно — берём semibold */
+.tcard__num { font-family: var(--font-display); font-size: 26px; font-weight: 600; color: var(--color-text-primary); line-height: 1; letter-spacing: -0.01em; }
 /* Места — спокойный чип в углу */
 .tcard__seats {
   display: inline-flex; align-items: center; gap: 5px;
@@ -313,7 +338,9 @@
 .tcard__client { font-size: 13.5px; font-weight: 600; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tcard__meta { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-text-muted); }
 .tcard__meta > svg { width: 13px; height: 13px; flex-shrink: 0; }
-.tcard__amount { margin-left: auto; font-size: 15px; font-weight: 800; color: var(--color-brand); }
+/* Сумма заказа в карточке стола: 800 читалось слишком жирно — тонкий вес,
+   акцент и так держит брендовый цвет */
+.tcard__amount { margin-left: auto; font-size: 15px; font-weight: 500; color: var(--color-brand); }
 
 /* Статус-пилюля с точкой */
 .tcard__status {
@@ -338,11 +365,12 @@
   opacity: 0.9;
 }
 
-/* Статусы — мягкая палитра: карточка нейтральная, читается пилюлей.
-   Свободный стол — пунктир; готовится — янтарный; готов — зелёный; ждёт оплату — teal */
-.tcard--free { border-style: dashed; }
+/* Статус — только цвет пилюли: готовится — янтарный, готов — зелёный,
+   ждёт оплату — teal. Свободный стол отличается пунктирной рамкой —
+   так занятые заметнее в общей сетке. */
+.tcard--free { --tcard-accent: var(--color-border); border-style: dashed; }
 .tcard--free .tcard__status { background: var(--color-subtle); color: var(--color-text-muted); }
-.tcard--busy .tcard__status { background: var(--color-warning-bg); color: #b45309; }
+.tcard--busy .tcard__status { background: var(--color-warning-bg); color: var(--amber-700); }
 .tcard--check .tcard__status { background: var(--color-success-bg); color: var(--green-600); }
 .tcard--pay .tcard__status { background: var(--color-brand-bg); color: var(--color-brand-dark); }
 
@@ -391,7 +419,7 @@
 .mgr-tile__icon--a { background: var(--color-brand-bg); color: var(--color-brand); }
 .mgr-tile__icon--b { background: var(--color-success-bg); color: var(--green-600); }
 .mgr-tile__icon--c { background: var(--color-info-bg); color: var(--color-info); }
-.mgr-tile__val { font-family: var(--font-display); font-size: 26px; font-weight: 800; color: var(--color-text-primary); }
+.mgr-tile__val { font-family: var(--font-display); font-size: 26px; font-weight: 700; color: var(--color-text-primary); }
 .mgr-tile__lbl { font-size: var(--text-sm); color: var(--color-text-muted); }
 .mgr-recent { background: var(--color-card); border: 1px solid var(--color-border); border-radius: 16px; padding: 20px 22px; box-shadow: var(--shadow-xs); }
 .mgr-recent__title { font-size: 16px; font-weight: 700; margin-bottom: 14px; color: var(--color-text-primary); }

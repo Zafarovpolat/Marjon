@@ -238,7 +238,7 @@ export default function App() {
 
   // Секретный доступ к панели разработчика: Ctrl+Shift+D — только в рабочем режиме
   // (вошедший сотрудник, выбран филиал, экран не заблокирован). Второй путь входа —
-  // 7 быстрых тапов по часам в шапке (см. TopBar → onDevAccess).
+  // 7 быстрых тапов по часам в нижней панели (см. BottomBar → onDevAccess).
   useEffect(() => {
     const onKey = (e) => {
       if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')
@@ -314,14 +314,10 @@ export default function App() {
   return (
     <div className="app-shell">
       <TopBar
-        title={modeLabel}
-        isOnline={isOnline}
-        queued={queued}
         onRefresh={() => window.location.reload()}
         onLock={handleLock}
         onSettings={() => setShowSettings(true)}
         onAccount={handleAccount}
-        onDevAccess={() => setShowDev(true)}
       />
 
       <main className="app-shell__content">
@@ -335,7 +331,9 @@ export default function App() {
         />
       </main>
 
-      <BottomBar userName={staffUser?.name} branchName={branch?.name} mode={modeLabel} />
+      <BottomBar userName={staffUser?.name} branchName={branch?.name} mode={modeLabel}
+                 isOnline={isOnline} queued={queued}
+                 onDevAccess={() => setShowDev(true)} />
       {settingsOverlay}
       {showDev && <DeveloperPanel branch={branch} user={userWithBranch} onClose={() => setShowDev(false)} />}
     </div>

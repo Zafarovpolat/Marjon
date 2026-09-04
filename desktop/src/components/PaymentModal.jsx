@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { X, Printer, Banknote, CreditCard, CheckCircle, Percent, User, Clock, Plus, Phone, MapPin } from 'lucide-react'
 import { t } from '../shared/i18n'
 import { formatPhone } from '../shared/phone'
+import { formatQty } from '../shared/qty'
 import { toast } from './Toast'
 import WaiterPicker from './WaiterPicker'
 
@@ -106,7 +107,7 @@ export default function PaymentModal({ order, onPrint, onComplete, onCancel, onR
                   <p className="settings-hint">{t('order_items')}: —</p>
                 ) : items.map((it) => (
                   <div className="pay-order__row" key={it.id}>
-                    <span className="pay-order__qty">{Number(it.quantity)}×</span>
+                    <span className="pay-order__qty">{formatQty(it.quantity)}×</span>
                     <span className="pay-order__name">
                       {it.name}
                       {it.takeaway && <span className="pay-order__take">{t('takeaway')}</span>}

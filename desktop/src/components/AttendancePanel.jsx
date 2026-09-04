@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { X, Clock, LogIn, LogOut, Check, Ban, RefreshCw, Search, Users, History } from 'lucide-react'
 import { attendance, auth } from '../shared/api'
 import { t } from '../shared/i18n'
+import { must } from '../shared/permissions'
+import CalendarField from './CalendarField'
 import { toast } from './Toast'
 
 // 5.5 — экран посещаемости кассира. Кассир отмечает приход/уход любого сотрудника
@@ -33,6 +35,11 @@ export default function AttendancePanel({ user, onClose }) {
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState(null)
   const [q, setQ] = useState('')
+  // Прошлые дни журнала — только по тумблеру владельца (can_view_past_periods);
+  // без права бэкенд игнорирует date и всегда отдаёт сегодняшний журнал.
+  const canPast = must(user, 'can_view_past_periods')
+  const [day, setDay] = useState('')          // '' = сегодня
+  const [pastLog, setPastLog] = useState([])
 
   const loadStaff = useCallback(() => {
     return auth.staffUsers(user?.branch_id)
@@ -61,6 +68,16 @@ export default function AttendancePanel({ user, onClose }) {
     Promise.all([loadStaff(), loadJournal(), loadPending()]).finally(() => setLoading(false))
   }, [loadStaff, loadJournal, loadPending])
   useEffect(reload, [reload])
+
+  // Журнал за прошлый день держим отдельно: сегодняшний journal кормит ростер
+  // (последняя отметка, кнопки прихода/ухода) — подменять его нельзя.
+  useEffect(() => {
+    if (!canPast || !day) { setPastLog([]); return }
+    attendance.log(day)
+      .then((d) => setPastLog(Array.isArray(d) ? d : d?.items || []))
+      .catch(() => setPastLog([]))
+  }, [canPast, day])
+  const viewLog = (canPast && day) ? pastLog : journal
 
   // user_id → последнее действие за сегодня (journal отсортирован desc → первое совпадение свежее)
   const lastAction = useMemo(() => {
@@ -197,14 +214,22 @@ export default function AttendancePanel({ user, onClose }) {
               </div>
             )}
             <div className="attn-block attn-block--journal">
-              <h2><History size={18} /> {t('att_journal')} <span className="attn-count">{journal.length}</span></h2>
+              <h2><History size={18} /> {day ? t('att_journal_day') : t('att_journal')} <span className="attn-count">{viewLog.length}</span></h2>
+              {canPast ? (
+                <div className="attn-period">
+                  <CalendarField value={day} onChange={setDay} />
+                  {day && <button className="btn btn--sm" onClick={() => setDay('')}>{t('today')}</button>}
+                </div>
+              ) : (
+                <p className="attn-empty">{t('past_locked')}</p>
+              )}
               {loading ? (
                 <div className="attn-state"><div className="spinner" /></div>
-              ) : journal.length === 0 ? (
+              ) : viewLog.length === 0 ? (
                 <p className="attn-empty">{t('att_journal_empty')}</p>
               ) : (
                 <div className="attn-journal">
-                  {journal.map((r) => {
+                  {viewLog.map((r) => {
                     const isIn = r.action === 'check_in'
                     return (
                       <div className="attn-jrow" key={r.id}>

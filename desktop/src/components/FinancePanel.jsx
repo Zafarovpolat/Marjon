@@ -3,17 +3,10 @@ import { X, Wallet, TrendingUp, TrendingDown, Play, Square } from 'lucide-react'
 import { shifts as shiftsApi, finance } from '../shared/api'
 import { t } from '../shared/i18n'
 import { must } from '../shared/permissions'
+import CalendarField from './CalendarField'
 
 function fmt(n) { return Number(n || 0).toLocaleString('ru-RU') }
 function fmtDt(iso) { return iso ? new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '' }
-// Операция за сегодня? (сравниваем локальную дату — год/месяц/день)
-function isToday(iso) {
-  if (!iso) return false
-  const d = new Date(iso)
-  const now = new Date()
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
-}
-
 export default function FinancePanel({ branch, user, onClose }) {
   const [shift, setShift] = useState(null)
   const [txs, setTxs] = useState([])
@@ -21,11 +14,16 @@ export default function FinancePanel({ branch, user, onClose }) {
   const [comment, setComment] = useState('')
   const [cash, setCash] = useState('')
   const [busy, setBusy] = useState(false)
+  // Прошлые дни — только по тумблеру владельца в веб-админке (can_view_past_periods).
+  // Без права бэкенд всё равно отдаёт только сегодня, UI-гейт — косметика.
+  const canPast = must(user, 'can_view_past_periods')
+  const [day, setDay] = useState('')          // '' = сегодня (период считает сервер)
 
   const load = useCallback(() => {
     shiftsApi.current(branch?.id).then((d) => setShift(d && d.id ? d : null)).catch(() => setShift(null))
-    finance.incomeExpense({ size: 30 }).then((d) => setTxs(Array.isArray(d) ? d : d?.items || [])).catch(() => setTxs([]))
-  }, [branch?.id])
+    const params = day ? { size: 30, date_from: day, date_to: day } : { size: 30 }
+    finance.incomeExpense(params).then((d) => setTxs(Array.isArray(d) ? d : d?.items || [])).catch(() => setTxs([]))
+  }, [branch?.id, day])
   useEffect(load, [load])
 
   async function openShift() {
@@ -52,7 +50,6 @@ export default function FinancePanel({ branch, user, onClose }) {
   }
 
   const isOpen = shift && shift.status === 'open'
-  const todayTxs = txs.filter((tx) => isToday(tx.date))   // #6: показываем только сегодняшние операции
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -105,14 +102,23 @@ export default function FinancePanel({ branch, user, onClose }) {
             </section>
           )}
 
-          {/* История операций — только сегодняшние (#6) */}
+          {/* История операций: по умолчанию только сегодня. Прошлые дни — по
+              праву can_view_past_periods (тумблер владельца в веб-админке). */}
           <section className="settings-section">
             <h3>{t('recent_ops')}</h3>
-            {todayTxs.length === 0 ? (
+            {canPast ? (
+              <div className="fin-period">
+                <CalendarField value={day} onChange={setDay} />
+                {day && <button className="btn btn--sm" onClick={() => setDay('')}>{t('today')}</button>}
+              </div>
+            ) : (
+              <p className="settings-hint">{t('past_locked')}</p>
+            )}
+            {txs.length === 0 ? (
               <p className="settings-hint">{t('no_ops')}</p>
             ) : (
               <div className="fin-list">
-                {todayTxs.map((tx) => (
+                {txs.map((tx) => (
                   <div className="fin-row" key={tx.id}>
                     <span className={`fin-row__dir fin-row__dir--${tx.direction}`}>
                       {tx.direction === 'income' ? <TrendingUp size={16} /> : <TrendingDown size={16} />}

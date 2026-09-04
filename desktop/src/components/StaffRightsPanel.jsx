@@ -7,8 +7,11 @@ import { toast } from './Toast'
 // Права, которые кассир-менеджер вправе переключать сотрудникам.
 // can_manage_staff / can_manage_warehouse СЮДА НЕ входят — их выдаёт только
 // владелец в веб-админке (анти-эскалация: «менеджер» не плодит «менеджеров»).
+// can_view_finance / can_approve_attendance / can_view_past_periods — тоже только
+// владелец с веба: с терминала доступ к финансам, приходу/уходу и прошлым периодам
+// не выдаётся (бэкенд закрыт теми же флагами, см. finance/router.py и hr/router.py).
 const EDITABLE_PERMS = [
-  'can_change_order_type', 'can_view_finance', 'can_approve_attendance',
+  'can_change_order_type',
   'can_view_closed_orders', 'can_view_stop_list', 'can_edit_stop_list',
   'can_close_bill', 'can_takeaway_at_table', 'can_delete_dishes',
   'can_manage_orders', 'can_cash_ops',

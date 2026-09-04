@@ -8,7 +8,6 @@ const DICT = {
     settings: 'Настройки', switch_mode: 'Сменить режим', logout: 'Выйти',
     online: 'Онлайн', offline: 'Офлайн', queue_hint: 'Записей ждут синхронизации',
     refresh: 'Обновить', lock_screen: 'Заблокировать экран', locked_title: 'Экран заблокирован', account: 'Аккаунт', minimize: 'Свернуть окно',
-    exchange_rates: 'Курсы валют (ЦБ РУз, сум)',
     all: 'Все', locations: 'Локации', overview: 'Обзор', categories: 'Категории',
     stoplist: 'Стоп-лист', finance: 'Финансы', reports: 'Отчёты', history: 'История', queue: 'Очередь', menu_more: 'Меню',
     mode_cashier: 'Касса', mode_kitchen: 'Кухня', mode_waiter: 'Официант', mode_manager: 'Менеджер', mode_courier: 'Курьер',
@@ -71,6 +70,7 @@ const DICT = {
     cash_start_input: 'Наличные на начало смены, сум', open_shift: 'Открыть смену',
     income_expense: 'Приход / расход', amount_sum: 'Сумма, сум', income: 'Приход', expense: 'Расход',
     recent_ops: 'Последние операции', no_ops: 'Операций пока нет.',
+    past_locked: 'Только за сегодня. Прошлые дни — по разрешению владельца.',
     shift_open_err: 'Не удалось открыть смену', shift_close_err: 'Не удалось закрыть смену', op_err: 'Ошибка операции',
     // История
     hist_title: 'История заказов', no_orders_found: 'Заказов не найдено.',
@@ -110,6 +110,7 @@ const DICT = {
     // 5.5 — экран посещаемости кассира (отметка прихода/ухода всех сотрудников)
     attendance_page: 'Посещаемость', att_mark_in: 'Пришёл', att_mark_out: 'Ушёл',
     att_on_shift: 'На смене', att_off_shift: 'Отсутствует', att_staff: 'Сотрудники', att_journal: 'Журнал за сегодня',
+    att_journal_day: 'Журнал за день',
     att_journal_empty: 'Отметок сегодня ещё нет.', att_no_staff: 'Сотрудники не найдены.', att_search: 'Поиск сотрудника…',
     att_marked_in: 'Отмечен приход', att_marked_out: 'Отмечен уход', att_last: 'посл. отметка',
     att_cnt_on: 'На смене', att_cnt_off: 'Отсутствуют', att_cnt_marks: 'Отметок сегодня', att_refresh: 'Обновить',
@@ -179,7 +180,6 @@ const DICT = {
     settings: 'Sozlamalar', switch_mode: 'Rejimni almashtirish', logout: 'Chiqish',
     online: 'Onlayn', offline: 'Oflayn', queue_hint: 'Yozuvlar sinxronlashni kutmoqda',
     refresh: 'Yangilash', lock_screen: 'Ekranni bloklash', locked_title: 'Ekran bloklangan', account: 'Hisob', minimize: 'Oynani yig‘ish',
-    exchange_rates: 'Valyuta kurslari (MB, so‘m)',
     all: 'Hammasi', locations: 'Joylar', overview: 'Umumiy', categories: 'Turkumlar',
     stoplist: 'Stop-ro‘yxat', finance: 'Moliya', reports: 'Hisobotlar', history: 'Tarix', queue: 'Navbat', menu_more: 'Menyu',
     mode_cashier: 'Kassa', mode_kitchen: 'Oshxona', mode_waiter: 'Ofitsiant', mode_manager: 'Menejer', mode_courier: 'Kuryer',
@@ -242,6 +242,7 @@ const DICT = {
     cash_start_input: 'Smena boshidagi naqd, so‘m', open_shift: 'Smenani ochish',
     income_expense: 'Kirim / chiqim', amount_sum: 'Summa, so‘m', income: 'Kirim', expense: 'Chiqim',
     recent_ops: 'So‘nggi operatsiyalar', no_ops: 'Hozircha operatsiya yo‘q.',
+    past_locked: 'Faqat bugun uchun. O‘tgan kunlar — ega ruxsati bilan.',
     shift_open_err: 'Smenani ochib bo‘lmadi', shift_close_err: 'Smenani yopib bo‘lmadi', op_err: 'Operatsiya xatosi',
     // Tarix
     hist_title: 'Buyurtmalar tarixi', no_orders_found: 'Buyurtma topilmadi.',
@@ -281,6 +282,7 @@ const DICT = {
     // 5.5 — kassir davomat ekrani
     attendance_page: 'Davomat', att_mark_in: 'Keldi', att_mark_out: 'Ketdi',
     att_on_shift: 'Smenada', att_off_shift: 'Yo‘q', att_staff: 'Xodimlar', att_journal: 'Bugungi jurnal',
+    att_journal_day: 'Kun jurnali',
     att_journal_empty: 'Bugun hali belgilar yo‘q.', att_no_staff: 'Xodimlar topilmadi.', att_search: 'Xodimni qidirish…',
     att_marked_in: 'Kelish belgilandi', att_marked_out: 'Ketish belgilandi', att_last: 'oxirgi belgi',
     att_cnt_on: 'Smenada', att_cnt_off: 'Yo‘q', att_cnt_marks: 'Bugungi belgilar', att_refresh: 'Yangilash',

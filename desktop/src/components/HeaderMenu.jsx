@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from 'react'
 import { MoreVertical } from 'lucide-react'
 
 /**
- * HeaderMenu — компактный дропдаун для действий шапки.
- * Собирает разделы (Финансы / История / Отчёты и т.п.) в одно меню рядом с профилем.
+ * HeaderMenu — иконка-кнопка с дропдауном для действий шапки.
+ * Собирает разделы (Финансы / История / Отчёты и т.п.) в одно меню рядом с
+ * блокировкой и настройками. Без подписи — только иконка, как остальные
+ * кнопки шапки; название меню уходит в title/aria-label.
  * items: [{ id, label, Icon, onClick }]. Закрывается по клику вне и по Esc.
  */
-export default function HeaderMenu({ label, Icon = MoreVertical, items = [] }) {
+export default function HeaderMenu({ title, Icon = MoreVertical, items = [] }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -26,9 +28,14 @@ export default function HeaderMenu({ label, Icon = MoreVertical, items = [] }) {
 
   return (
     <div className="hmenu" ref={ref}>
-      <button className={`btn btn--outline btn--sm ${open ? 'is-active' : ''}`} onClick={() => setOpen((v) => !v)}>
-        <Icon size={18} />
-        {label}
+      <button
+        className={`icon-btn ${open ? 'is-active' : ''}`}
+        onClick={() => setOpen((v) => !v)}
+        title={title}
+        aria-label={title}
+        aria-expanded={open ? 'true' : 'false'}
+      >
+        <Icon size={22} />
       </button>
       {open && (
         <div className="hmenu__dropdown" role="menu">

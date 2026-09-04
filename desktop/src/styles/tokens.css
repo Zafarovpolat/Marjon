@@ -51,6 +51,7 @@
   --amber-100: #fef3c7;
   --amber-400: #fbbf24;
   --amber-500: #f59e0b;
+  --amber-700: #b45309;
   --red-100:   #fee2e2;
   --red-500:   #ef4444;
   --red-600:   #dc2626;
@@ -108,16 +109,6 @@
   --color-info:       var(--blue-500);
   --color-info-bg:    var(--blue-50);
 
-  /* ── Статусы столов (по ZimZim) ── */
-  --status-free-bg:      var(--neutral-0);
-  --status-free-border:  var(--neutral-200);
-  --status-busy-bg:      #fff8e1;           /* жёлтый — занят / в ожидании */
-  --status-busy-border:  var(--amber-400);
-  --status-check-bg:     #e9f9ef;           /* зелёный — чек выдан */
-  --status-check-border: var(--green-500);
-  --status-pay-bg:       var(--color-brand-bg);
-  --status-pay-border:   var(--color-brand);
-
   /* ── Тёмные поверхности (KDS дальнего обзора / оверлеи) ── */
   --color-dark-bg:   var(--neutral-950);
   --color-dark-card: var(--neutral-900);
@@ -130,6 +121,7 @@
   --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
 
   /* Крупнее для сенсорных рабочих экранов (касса/официант/кухня) */
+  --text-2xs: 10px;
   --text-xs: 12px;
   --text-sm: 14px;
   --text-base: 16px;
@@ -141,11 +133,15 @@
   --text-4xl: 34px;
   --text-timer: 40px;
 
+  /* Вес шрифта — четыре ступени, выше 700 не поднимаемся:
+     400 — основной текст, подписи, описания;
+     500 — числовые акценты в карточках (суммы, порции);
+     600 — интерфейс: кнопки, табы, чипы, имена в списках;
+     700 — заголовки, бренд, итоговые суммы (максимум, скупо). */
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
-  --font-weight-extrabold: 800;
 
   /* ── Радиусы ── */
   --radius-xs: 6px;
@@ -236,12 +232,6 @@
   --chrome-hover:      rgba(255, 255, 255, 0.09);
   --chrome-active:     rgba(29, 181, 181, 0.22);
   --chrome-border:     rgba(255, 255, 255, 0.08);
-
-  /* Статусы столов на тёмном */
-  --status-free-bg:      var(--neutral-900);
-  --status-free-border:  rgba(255, 255, 255, 0.14);
-  --status-busy-bg:      rgba(245, 158, 11, 0.16);
-  --status-check-bg:     rgba(22, 163, 74, 0.16);
 
   /* Тени глубже на тёмном фоне */
   --shadow-xs: 0 1px 3px rgba(0, 0, 0, .35);

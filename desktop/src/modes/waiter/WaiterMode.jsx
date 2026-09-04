@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Plus, Minus, Search, X, Users, Clock, CheckCircle, Coffee, Utensils,
-  LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, RefreshCw, ArrowLeft, LogOut, Printer,
+  LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, RefreshCw, ArrowLeft, Printer,
   Trash2, Ban, Shuffle, ShoppingBag,
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi, printers as printersApi, auth } from '../../shared/api'
@@ -11,6 +11,7 @@ import InputPromptModal from '../../components/InputPromptModal'
 import { toast } from '../../components/Toast'
 import { t } from '../../shared/i18n'
 import { can, must } from '../../shared/permissions'
+import { formatQty } from '../../shared/qty'
 
 const STATUS_COLORS = {
   new: 'var(--color-info)', accepted: 'var(--color-brand)',
@@ -326,7 +327,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
               <span className="board__subtitle">{itemCount} {t('items_low')} · {cartTotal.toLocaleString('ru-RU')} {t('currency')}</span>
             </div>
             <div className="board__head-right">
-              <div className="cashier-products__search" style={{ padding: 0, border: 'none' }}>
+              <div className="cashier-products__search">
                 <Search size={18} className="search-icon" />
                 <input className="search-input" placeholder={t('search_dish')} value={search} onChange={(e) => setSearch(e.target.value)} />
               </div>
@@ -362,16 +363,21 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                       {item.note && <span className="cart-row__note">{item.note}</span>}
                       <span className="cart-item__price">{(Number(item.price || 0) * item.qty).toLocaleString('ru-RU')} {t('currency')}</span>
                     </button>
+                    {/* «С собой» — тумблер рядом с названием и ценой; за столом
+                        по праву can_takeaway_at_table (веб-админка) */}
+                    {can(user, 'can_takeaway_at_table') && (
+                      <button
+                        type="button"
+                        className={`cart-take ${item.takeaway ? 'cart-take--on' : ''}`}
+                        onClick={() => toggleTakeaway(item.lineId)}
+                        title={t('takeaway')}
+                        aria-pressed={item.takeaway ? 'true' : 'false'}
+                      >
+                        <span className="cart-take__label">{t('takeaway')}</span>
+                        <span className={`toggle ${item.takeaway ? 'toggle--on' : ''}`}><span className="toggle__dot" /></span>
+                      </button>
+                    )}
                     <div className="cart-item__controls">
-                      {/* «С собой» за столом — под правом can_takeaway_at_table (веб-админка) */}
-                      {can(user, 'can_takeaway_at_table') && (
-                        <button
-                          type="button"
-                          className={`cart-take ${item.takeaway ? 'cart-take--on' : ''}`}
-                          onClick={() => toggleTakeaway(item.lineId)}
-                          title={t('takeaway')}
-                        >{t('takeaway')}</button>
-                      )}
                       <button className="qty-btn" onClick={() => updateQty(item.lineId, -1)}><Minus size={16} /></button>
                       <span className="qty-value">{item.qty}</span>
                       <button className="qty-btn" onClick={() => updateQty(item.lineId, 1)}><Plus size={16} /></button>
@@ -417,10 +423,6 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     <div className="floor">
       {/* Сайдбар локаций */}
       <aside className="ws-side">
-        <button className="zone zone--exit" onClick={onBack}>
-          <LogOut size={20} />
-          <span className="zone__name">{t('logout')}</span>
-        </button>
         <div className="ws-side__label">{t('locations')}</div>
         <nav className="ws-side__nav">
           {zoneNav.map(({ id, name, count, Icon }) => (
@@ -519,7 +521,7 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
               <ul className="waiter-detail__items">
                 {(selectedTable.order?.items ?? []).map((item) => (
                   <li key={item.id} className={`detail-item detail-item--${item.status || 'new'}`}>
-                    <span className="detail-item__qty">×{item.quantity}</span>
+                    <span className="detail-item__qty">×{formatQty(item.quantity)}</span>
                     <div className="detail-item__body">
                       <span className="detail-item__name">{item.name || item.product_name}{item.takeaway ? <span className="cart-tag">{t('takeaway')}</span> : null}</span>
                       {/* Цена, кто добавил и во сколько (кто/время — если бэкенд их отдаёт) */}

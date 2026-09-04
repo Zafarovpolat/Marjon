@@ -9,6 +9,7 @@ import RecipeModal from '../../components/RecipeModal'
 import { kitchenWS } from '../../services/kitchenWS'
 import { soundService } from '../../services/sound'
 import { t } from '../../shared/i18n'
+import { formatQty } from '../../shared/qty'
 
 // Бэкенд может отдавать наивный UTC (без таймзоны) — считаем его UTC, иначе таймеры врут
 function parseTs(ts) {
@@ -251,7 +252,7 @@ function KitchenCard({ order, timerState, elapsed, onItemDone, onOrderDone, onSh
           const done = item.status === 'ready' || item.status === 'done'
           return (
             <li key={item.id} className={`kitchen-item ${done ? 'kitchen-item--done' : ''}`}>
-              <span className="kitchen-item__qty">{item.quantity}×</span>
+              <span className="kitchen-item__qty">{formatQty(item.quantity)}×</span>
               <div className="kitchen-item__body">
                 <span className="kitchen-item__name">{item.name || item.product_name}</span>
                 {item.note && <span className="kitchen-item__note">{item.note}</span>}

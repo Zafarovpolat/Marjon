@@ -129,24 +129,59 @@
   z-index: var(--z-dropdown);
 }
 
-.topbar__clock {
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--color-brand);
-  min-width: 80px;
-}
-
 .topbar__brand {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--spacing-sm);
 }
-.topbar__title {
+/* Карточка знака с лёгкой обводкой — повторяет .brand-mark веб-админки.
+   В светлой теме фон совпадает с хромом, так что читается только обводка.
+   Обводку берём светлым токеном: он уже задан под оба хрома. */
+.topbar__logo-mark {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+  box-shadow: var(--shadow-xs);
+}
+/* Знак задаём по ширине: пропорции держит viewBox SVG (шире, чем выше),
+   поэтому фиксированная высота выдавила бы его за края карточки. */
+.topbar__logo {
+  display: block;
+  width: 40px;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+/* Название режима видно в нижней панели, здесь — только бренд.
+   Подпись намеренно тише имени: мелкий кегль, разрядка, приглушённый цвет. */
+.topbar__brand-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+.topbar__brand-name {
   font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 700;
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.1;
+  letter-spacing: 0.04em;
   color: var(--color-text-primary);
+}
+.topbar__brand-tagline {
+  margin-top: 3px;
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
 }
 .topbar__subtitle {
   font-size: var(--text-sm);
@@ -158,91 +193,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-/* Курсы валют ЦБ РУз в шапке — дропдаун-кнопка (как в веб-панели) */
-.topbar__rates-dd {
-  position: relative;
-}
-.topbar__rates-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-}
-.topbar__rates-lead {
-  font-weight: var(--font-weight-semibold);
-  font-variant-numeric: tabular-nums;
-}
-.topbar__rates-caret {
-  transition: transform var(--transition-fast) ease;
-}
-.topbar__rates-caret.is-open {
-  transform: rotate(180deg);
-}
-.topbar__rates-menu {
-  position: absolute;
-  top: calc(100% + var(--spacing-xs));
-  left: 0;
-  min-width: 180px;
-  padding: var(--spacing-xs);
-  background: var(--color-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  z-index: var(--z-dropdown);
-}
-.topbar__rates-title {
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: .04em;
-  padding: var(--spacing-xs) var(--spacing-sm) 4px;
-}
-.topbar__rates-item {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--spacing-md);
-  padding: 6px var(--spacing-sm);
-  border-radius: var(--radius-sm);
-}
-.topbar__rates-item:hover {
-  background: var(--color-surface-hover);
-}
-.topbar__rate-ccy {
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-muted);
-}
-.topbar__rate-val {
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.topbar__status {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  margin-left: auto;
-}
-.topbar__status-text {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-.topbar__queue {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  margin-left: var(--spacing-xs);
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-  background: var(--color-warning-bg);
-  color: #b45309;
-  font-size: var(--text-xs);
-  font-weight: 700;
 }
 
 .status-dot {
@@ -262,6 +212,22 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
+  margin-left: auto;   /* раньше вправо тянул .topbar__status — он уехал в футер */
+}
+
+/* Слот шапки: дропдаун разделов приходит порталом из рабочего режима
+   (см. CashierMode). Пустой слот скрываем — иначе он забирает gap шапки
+   у курьера и в виде заказа, где этого контрола нет. */
+.topbar__actions-slot {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+.topbar__actions-slot:empty { display: none; }
+/* Открытое меню разделов — та же заливка, что у активной навигации */
+.topbar .hmenu .icon-btn.is-active {
+  background: var(--chrome-active);
+  color: var(--color-brand-dark);
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -406,7 +372,7 @@ body.vkb-open .login-card {
 .login-card__logo {
   font-family: var(--font-display);
   font-size: var(--text-4xl);
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-brand);
   letter-spacing: -0.5px;
 }
@@ -1991,6 +1957,42 @@ body.vkb-open .login-card {
   transition: background var(--transition-fast);
 }
 .bottombar__minimize:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
+/* Часы намеренно тихие: моно-цифры, приглушённый цвет, никакого акцента.
+   На них же висит скрытый вход в панель разработчика (7 быстрых тапов). */
+.bottombar__clock {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
+  opacity: 0.65;
+  user-select: none;
+}
+/* Статус связи: в норме почти незаметен (мелкая точка, приглушённый текст),
+   при обрыве — полный контраст и пульсация точки, чтобы кассир заметил. */
+.bottombar__status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  opacity: 0.65;
+  user-select: none;
+}
+.bottombar__status .status-dot {
+  width: 7px;
+  height: 7px;
+  box-shadow: none;
+}
+.bottombar__status--offline {
+  color: var(--color-danger);
+  opacity: 1;
+}
+.bottombar__queue {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--color-warning);
+}
 
 /* ── Вариантные со-классы (наследуют базовый, задают акценты) ── */
 .app-shell--kitchen { background: var(--color-bg); }
@@ -2141,26 +2143,31 @@ body.vkb-open .login-card {
   position: relative;
   display: flex;
   align-items: center;
-  padding: var(--spacing-md);
-  border-bottom: 1px solid var(--color-border-light);
 }
 .cashier-products__search .search-icon {
   position: absolute;
-  left: calc(var(--spacing-md) + var(--spacing-sm));
+  left: 14px;
   color: var(--color-text-muted);
   pointer-events: none;
 }
+/* Поле поиска блюда одинаково на всех экранах (касса, официант, стоп-лист):
+   высота 48px — как у кнопок в шапке доски, радиус и шрифт тоже общие. */
 .search-input {
   flex: 1;
-  min-height: var(--touch-min);
-  padding: 0 var(--spacing-md) 0 44px;
+  width: 100%;
+  min-width: 0;
+  height: 48px;
+  min-height: 48px;
+  padding: 0 14px 0 42px;
   background: var(--color-subtle);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--color-text-primary);
-  font-size: var(--text-md);
+  font-size: 15px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
-.search-input:focus { border-color: var(--color-brand); outline: none; }
+.search-input::placeholder { color: var(--color-text-placeholder); }
+.search-input:focus { border-color: var(--color-brand); outline: none; box-shadow: 0 0 0 3px var(--color-brand-bg); }
 .search-clear {
   position: absolute;
   right: calc(var(--spacing-md) + var(--spacing-sm));
@@ -2361,7 +2368,7 @@ body.vkb-open .login-card {
 .total-row--discount { color: var(--color-danger); }
 .total-row--final {
   font-size: var(--text-2xl);
-  font-weight: var(--font-weight-extrabold);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
 .cashier-cart__actions {
@@ -2534,7 +2541,8 @@ body.vkb-open .login-card {
 .detail-item--new { border-left-color: var(--color-info); }
 .detail-item--cooking { border-left-color: var(--color-warning); }
 .detail-item--ready { border-left-color: var(--color-success); }
-.detail-item__qty { font-weight: var(--font-weight-bold); color: var(--color-brand-dark); min-width: 32px; }
+/* Количество порций на экране стола — тонкий вес, цвет уже выделяет */
+.detail-item__qty { font-weight: var(--font-weight-medium); color: var(--color-brand-dark); min-width: 32px; }
 .detail-item__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .detail-item__name { flex: 1; }
 .detail-item__sub { font-size: var(--text-sm); color: var(--color-text-secondary); }
@@ -2991,10 +2999,11 @@ body.vkb-open .login-card {
   border-bottom: 1px solid var(--chrome-border);
   box-shadow: var(--shadow-sm);
 }
-.topbar__title { color: var(--chrome-text); }
-.topbar__subtitle,
-.topbar__status-text { color: var(--chrome-text-muted); }
-.topbar__clock { color: var(--color-brand-dark); }
+.topbar__subtitle { color: var(--chrome-text-muted); }
+.topbar__brand-name { color: var(--chrome-text); }
+.topbar__brand-tagline { color: var(--chrome-text-muted); }
+/* Тёмный элемент лого почти сливается с тёмно-синим хромом — обводим контур */
+[data-theme="dark"] .topbar__logo { filter: drop-shadow(0 0 1.5px var(--chrome-text-muted)); }
 .topbar .icon-btn { color: var(--color-text-secondary); }
 .topbar .icon-btn:hover { background: var(--chrome-hover); color: var(--chrome-text); }
 .topbar .filter-chip { background: var(--color-subtle); color: var(--color-text-secondary); }
@@ -3014,6 +3023,9 @@ body.vkb-open .login-card {
   justify-content: space-between;
 }
 .bottombar__info { color: var(--chrome-text-muted); }
+.bottombar__clock { color: var(--chrome-text-muted); }
+.bottombar__status { color: var(--chrome-text-muted); }
+.bottombar__status--offline { color: var(--color-danger); }
 .bottombar__minimize { color: var(--color-text-secondary); }
 .bottombar__minimize:hover { background: var(--chrome-hover); color: var(--chrome-text); }
 .bottom-action { color: var(--color-text-secondary); }
@@ -3096,8 +3108,7 @@ body.vkb-open .login-card {
 .mode-topbar,
 .waiter-hall__header,
 .waiter-detail__header,
-.waiter-new-order__header,
-.cashier-products__search {
+.waiter-new-order__header {
   background: var(--color-card);
   box-shadow: none;
 }
@@ -3149,11 +3160,11 @@ body.vkb-open .login-card {
 .org-screen__mark {
   width: 56px; height: 56px; display: grid; place-items: center;
   border-radius: 16px; background: var(--color-brand); color: #fff;
-  font-family: var(--font-display); font-weight: 800; font-size: 28px;
+  font-family: var(--font-display); font-weight: 700; font-size: 28px;
   box-shadow: 0 8px 28px var(--color-brand-glow);
 }
 .org-screen__names { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
-.org-screen__org { font-family: var(--font-display); font-size: 26px; font-weight: 800; color: #fff; letter-spacing: 0.02em; }
+.org-screen__org { font-family: var(--font-display); font-size: 26px; font-weight: 700; color: #fff; letter-spacing: 0.02em; }
 .org-screen__branch { font-size: 15px; color: rgba(255, 255, 255, 0.7); }
 .org-screen__clock {
   font-family: var(--font-mono); font-size: 92px; font-weight: 700; color: #fff;
@@ -3383,7 +3394,7 @@ body.vkb-open .login-card {
 /* Строка корзины: название + примечание из модалки блюда */
 .cart-row__info { flex: 1; display: flex; flex-direction: column; min-width: 0; gap: 2px; background: transparent; border: none; padding: 0; text-align: left; cursor: pointer; color: var(--color-text-primary); }
 .cart-row__name { flex: none; font-size: var(--text-md); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cart-row__note { font-size: var(--text-xs); color: var(--color-warning); font-style: italic; }
+.cart-row__note { max-width: 100%; font-size: var(--text-xs); color: var(--color-warning); font-style: italic; overflow-wrap: anywhere; }
 
 /* ── Настройки: фиксы (тумблер красится, ползунок, крупные кнопки, подсказки) ── */
 .toggle.toggle--on { background: var(--color-brand); }
@@ -3447,11 +3458,11 @@ body.vkb-open .login-card {
 .sidebar, .ws-side, .floor .ws-side { border-right: none; }
 .bottombar, .ws-bottom { border-top: none; }
 
-/* ── Активная кнопка локации в сайдбаре — акцентная полоса слева.
-   Цвета (фон/текст/иконка/счётчик) заданы в screens.css через токены
-   и корректно работают на светлой и тёмной теме; здесь — только акцент. */
+/* ── Активная кнопка локации в сайдбаре — тень как в вебе: светлый блик
+   сверху внутри кнопки и мягкая брендовая тень под ней. Полосы слева нет:
+   кнопка залита брендом целиком (цвета — в screens.css через токены). ── */
 .zone--active {
-  box-shadow: inset 3px 0 0 var(--color-brand), 0 10px 26px var(--color-brand-glow);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 6px 14px var(--color-brand-glow);
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -3485,8 +3496,8 @@ body.vkb-open .login-card {
 /* Строка корзины кассы — без наложений и переносов */
 .cashier-cart__items .cart-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--color-card); border: 1px solid var(--color-border-light); border-radius: var(--radius-sm); margin-bottom: 6px; }
 .cart-item__info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; text-align: left; background: transparent; border: none; cursor: pointer; padding: 0; }
-.cart-item__name { font-size: var(--text-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--color-text-primary); }
-.cart-item__price { font-size: var(--text-sm); color: var(--color-brand); font-weight: 700; white-space: nowrap; }
+.cart-item__name { max-width: 100%; font-size: var(--text-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--color-text-primary); }
+.cart-item__price { max-width: 100%; font-size: var(--text-sm); color: var(--color-brand); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cart-item__controls { flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
 .cashier-cart .qty-btn { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 9px; background: var(--color-subtle); color: var(--color-text-primary); }
 .cashier-cart .qty-btn:hover { background: var(--neutral-200); }
@@ -3521,7 +3532,7 @@ body.vkb-lift .cashier-cart__items { min-height: 140px; }
 .pay-modal { width: 480px; max-width: 94vw; }
 .pay-modal__total { margin: 0 var(--spacing-xl); padding: var(--spacing-lg) 0; display: flex; align-items: baseline; justify-content: space-between; border-bottom: 1px solid var(--color-border-light); }
 .pay-modal__total span { color: var(--color-text-secondary); }
-.pay-modal__total strong { font-size: var(--text-3xl); font-weight: 800; color: var(--color-brand); }
+.pay-modal__total strong { font-size: var(--text-3xl); font-weight: 700; color: var(--color-brand); }
 .pay-modal__methods { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--spacing-md); padding: var(--spacing-xl); }
 .pay-method-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 104px; padding: var(--spacing-lg); border-radius: var(--radius-md); background: var(--color-subtle); border: 1.5px solid var(--color-border-light); color: var(--color-text-primary); font-weight: 600; transition: all var(--transition-fast); }
 .pay-method-btn:hover { border-color: var(--color-brand); color: var(--color-brand); background: var(--color-card); transform: translateY(-2px); }
@@ -3534,7 +3545,7 @@ body.vkb-lift .cashier-cart__items { min-height: 140px; }
 /* Кухня — полировка карточек, галочек, таймера */
 .kitchen-card { border-radius: 16px; box-shadow: var(--shadow-sm); }
 .kitchen-card__header { padding: 12px 14px; }
-.kitchen-card__number { font-family: var(--font-display); font-weight: 800; }
+.kitchen-card__number { font-family: var(--font-display); font-weight: 700; }
 .kitchen-card__timer { font-family: var(--font-mono); font-weight: 700; padding: 4px 10px; border-radius: var(--radius-full); background: var(--color-subtle); }
 .kitchen-card.timer-yellow .kitchen-card__timer { background: var(--color-warning-bg); color: #b45309; }
 .kitchen-card.timer-red .kitchen-card__timer { background: var(--color-danger-bg); color: var(--color-danger); }
@@ -3560,6 +3571,8 @@ body.vkb-lift .cashier-cart__items { min-height: 140px; }
 .fin-btn--out { background: var(--color-danger); }
 .fin-btn--out:hover { background: var(--red-600); }
 .fin-list { display: flex; flex-direction: column; gap: 6px; }
+/* Выбор дня в истории (финансы, приход/уход) — виден только с can_view_past_periods */
+.fin-period, .attn-period { display: flex; align-items: center; gap: var(--spacing-sm); flex-wrap: wrap; margin-bottom: var(--spacing-sm); }
 .fin-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-subtle); }
 .fin-row__dir { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px; flex-shrink: 0; }
 .fin-row__dir--income { background: var(--color-success-bg); color: var(--green-600); }
@@ -3718,11 +3731,11 @@ body.vkb-lift .cashier-cart__items { min-height: 140px; }
 .attn-head { display: flex; align-items: center; gap: var(--spacing-xl); padding: var(--spacing-lg) var(--spacing-2xl); background: var(--color-surface); border-bottom: 1px solid var(--color-border); flex-shrink: 0; }
 .attn-head__title { display: flex; align-items: center; gap: var(--spacing-md); }
 .attn-head__ico { display: grid; place-items: center; width: 52px; height: 52px; border-radius: var(--radius-md); background: var(--color-brand-bg); color: var(--color-brand); flex-shrink: 0; }
-.attn-head__title h1 { font-family: var(--font-display); font-size: var(--text-2xl); font-weight: 800; color: var(--color-text-primary); line-height: 1.1; }
+.attn-head__title h1 { font-family: var(--font-display); font-size: var(--text-2xl); font-weight: 700; color: var(--color-text-primary); line-height: 1.1; }
 .attn-head__title p { font-size: var(--text-sm); color: var(--color-text-muted); text-transform: capitalize; }
 .attn-head__stats { display: flex; gap: var(--spacing-md); margin-left: auto; }
 .attn-stat { min-width: 96px; padding: 10px 18px; border-radius: var(--radius-md); background: var(--color-subtle); text-align: center; }
-.attn-stat span { display: block; font-family: var(--font-display); font-size: var(--text-2xl); font-weight: 800; color: var(--color-text-primary); line-height: 1; }
+.attn-stat span { display: block; font-family: var(--font-display); font-size: var(--text-2xl); font-weight: 700; color: var(--color-text-primary); line-height: 1; }
 .attn-stat label { font-size: var(--text-xs); color: var(--color-text-muted); font-weight: 600; }
 .attn-stat--on { background: var(--color-success-bg); }
 .attn-stat--on span { color: var(--color-success); }
@@ -3854,12 +3867,12 @@ body.vkb-lift .cashier-cart__items { min-height: 140px; }
 .pay-order__meta svg { color: var(--color-brand); }
 .pay-order__items { display: flex; flex-direction: column; gap: 8px; margin-bottom: var(--spacing-md); }
 .pay-order__row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; row-gap: 10px; padding: 14px 16px; border-radius: var(--radius-md); background: var(--color-subtle); }
-.pay-order__qty { font-size: var(--text-lg); font-weight: 800; color: var(--color-brand); min-width: 40px; }
+.pay-order__qty { font-size: var(--text-lg); font-weight: 500; color: var(--color-brand); min-width: 40px; }
 .pay-order__name { flex: 1; min-width: 0; font-size: var(--text-lg); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pay-order__sum { font-size: var(--text-xl); font-weight: 800; color: var(--color-text-primary); white-space: nowrap; }
+.pay-order__sum { font-size: var(--text-xl); font-weight: 600; color: var(--color-text-primary); white-space: nowrap; }
 .pay-order__total { display: flex; align-items: baseline; justify-content: space-between; padding: var(--spacing-md) 0; border-top: 1px solid var(--color-border-light); }
 .pay-order__total span { color: var(--color-text-secondary); }
-.pay-order__total strong { font-size: var(--text-2xl); font-weight: 800; color: var(--color-brand); }
+.pay-order__total strong { font-size: var(--text-2xl); font-weight: 700; color: var(--color-brand); }
 .pay-order__print { width: 100%; justify-content: center; margin-bottom: var(--spacing-md); }
 .pay-order__print.is-done { border-color: var(--color-success); color: var(--color-success); }
 .pay-order__methods { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md); margin-bottom: var(--spacing-md); }
@@ -3886,10 +3899,23 @@ body.vkb-lift .cashier-cart__items { min-height: 140px; }
 
 /* Бейдж «с собой» у позиции */
 .cart-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: var(--radius-full); background: var(--blue-100); color: var(--blue-700); font-size: 10px; font-weight: 700; vertical-align: middle; }
-/* Переключатель «с собой» прямо в строке корзины (касса + официант) */
-.cart-take { flex-shrink: 0; margin-top: 4px; align-self: flex-start; transform: translateY(5px); padding: 3px 9px; border-radius: var(--radius-full); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text-muted); font-size: var(--text-xs); font-weight: 700; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s, border-color .15s; }
-.cart-take:hover { border-color: var(--color-brand); color: var(--color-brand); }
-.cart-take--on { background: var(--color-brand-bg); border-color: var(--color-brand); color: var(--color-brand); }
+/* В корзине 360px старая пилюля «с собой» + четыре кнопки количества занимали
+   228px из 318px, на название оставалось 79px — длинные названия лезли под
+   пилюлю (замер: до 84px наезда). Теперь «с собой» — тумблер (тот же .toggle,
+   что в настройках) справа от названия и цены, а «−/количество/+/удалить»
+   уходят на вторую строку и растягиваются на всю ширину. Строки без тумблера
+   (курьер) остаются однострочными и компактными. */
+.cashier-cart__items .cart-item:has(.cart-take) { flex-wrap: wrap; row-gap: 8px; }
+.cashier-cart__items .cart-item:has(.cart-take) .cart-item__controls { flex-basis: 100%; }
+.cashier-cart__items .cart-item:has(.cart-take) .cart-item__controls .qty-btn { flex: 1 1 0; width: auto; min-width: 0; }
+.cashier-cart__items .cart-item:has(.cart-take) .cart-item__controls .qty-value { flex: 0 0 34px; }
+/* Переключатель «с собой» прямо в строке корзины (касса + официант):
+   подпись + тумблер .toggle/.toggle__dot из настроек, без своей рамки. */
+.cart-take { flex-shrink: 0; align-self: center; display: flex; align-items: center; gap: 8px; padding: 0; border: none; background: transparent; color: var(--color-text-muted); font-size: var(--text-xs); font-weight: 700; cursor: pointer; white-space: nowrap; }
+.cart-take__label { transition: color var(--transition-fast); }
+.cart-take:hover .cart-take__label { color: var(--color-brand); }
+.cart-take--on .cart-take__label { color: var(--color-brand); }
+.cart-take .toggle { display: block; flex-shrink: 0; }
 /* «Кто/когда добавил» и бейдж «с собой» у позиции в модалке оплаты */
 .pay-order__take { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: var(--radius-full); background: var(--color-brand-bg); color: var(--color-brand); font-size: 10px; font-weight: 700; vertical-align: middle; }
 .pay-order__added { display: block; margin-top: 2px; font-size: var(--text-xs); color: var(--color-text-muted); }
@@ -3917,7 +3943,7 @@ body.vkb-lift .cashier-cart__items { min-height: 140px; }
   flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
   width: 28px; height: 28px; border-radius: var(--radius-full);
   background: var(--color-brand-bg); color: var(--color-brand);
-  font-size: var(--text-xs); font-weight: 800;
+  font-size: var(--text-xs); font-weight: 700;
 }
 /* Список раскрывается в потоке (не absolute): .modal__body скроллится и обрезал бы панель */
 .wpick__list {
@@ -3956,7 +3982,7 @@ body.vkb-lift .cashier-cart__items { min-height: 140px; }
 .pay-order__cash { display: flex; flex-direction: column; gap: 8px; }
 .pay-order__cash label { font-size: var(--text-sm); color: var(--color-text-secondary); font-weight: 600; }
 .pay-order__change { display: flex; align-items: baseline; justify-content: space-between; padding: 0; margin-top: 10px; }
-.pay-order__change strong { font-size: var(--text-lg); font-weight: 800; color: var(--color-success); }
+.pay-order__change strong { font-size: var(--text-lg); font-weight: 700; color: var(--color-success); }
 /* Кнопки почти вплотную, по две в ряд; «Закрыть заказ» — во всю ширину */
 .pay-order__actions { padding: var(--spacing-md) var(--spacing-xl) var(--spacing-lg); border-top: 1px solid var(--color-border-light); display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .pay-order__actions .btn { width: 100%; justify-content: center; }
@@ -3964,9 +3990,8 @@ body.vkb-lift .cashier-cart__items { min-height: 140px; }
 .pay-order__cancel { color: var(--color-danger); border-color: var(--color-danger); }
 .pay-order__cancel:hover { background: var(--color-danger-bg); color: var(--color-danger); }
 
-/* Поиск блюда в шапке кассы — длиннее */
-.board__head-right .cashier-products__search { width: 380px; max-width: 42vw; background: transparent; box-shadow: none; border-bottom: none; padding: 0; }
-.board__head-right .search-input { width: 100%; }
+/* Поиск блюда в шапке доски — фиксированная длина, поле тянется на всю ширину */
+.board__head-right .cashier-products__search { width: 340px; max-width: 42vw; }
 
 /* ═══════════════════════════════════════════════════════════════════
    ТЁМНАЯ ТЕМА — экраны входа, клавиатура, столы (были жёстко белые)
@@ -4203,7 +4228,6 @@ body.vkb-lift .app-shell {
 [data-theme="dark"] .tcard--busy .tcard__status { background: var(--color-warning-bg); color: var(--amber-400); }
 [data-theme="dark"] .tcard--check .tcard__status { background: var(--color-success-bg); color: var(--green-300); }
 [data-theme="dark"] .tcard--pay .tcard__status { background: var(--color-brand-bg); color: var(--teal-300); }
-[data-theme="dark"] .tcard--free { border-color: rgba(255, 255, 255, 0.22); }
 /* Верхние кнопки экрана столов — светлый текст и иконки, не teal */
 [data-theme="dark"] .board__head-right .btn { color: rgba(255, 255, 255, 0.88); border-color: rgba(255, 255, 255, 0.22); }
 [data-theme="dark"] .board__head-right .btn svg { color: rgba(255, 255, 255, 0.88); }
