@@ -123,13 +123,18 @@ const emptyForm = {
   canOpenCashDrawerAfterPayment: false,
   canViewClosedOrders: false,
   canEditStopList: false,
-  // can_view_stop_list / can_approve_attendance — на десктопе это can() (мягкая
-  // проверка): без явного false доступ РАЗРЕШЁН. Дефолт ON сохраняет текущее
-  // поведение (кассир их и так видит) — владелец может лишь ОГРАНИЧИТЬ.
+  // can_view_stop_list — на десктопе это can() (мягкая проверка): без явного
+  // false доступ РАЗРЕШЁН. Дефолт ON сохраняет текущее поведение (кассир его и
+  // так видит) — владелец может лишь ОГРАНИЧИТЬ.
   canViewStopList: true,
   canViewFinance: false,
   canCashOps: false,
-  canApproveAttendance: true,
+  // can_approve_attendance — приход/уход: на десктопе must() и бэкенд-гейт
+  // (hr/router.py). Дефолт OFF — право выдаёт только владелец здесь, с терминала
+  // оно не выдаётся. can_view_past_periods — прошлые периоды в финансах и
+  // приходе/уходе: без него сервер отдаёт ТОЛЬКО сегодняшний день.
+  canApproveAttendance: false,
+  canViewPastPeriods: false,
   // Спец-права десктопа: открывают «режим разработчика» на терминале
   // (управление персоналом/правами и складские записи) кассиру-менеджеру.
   // Дефолт OFF — единственная точка эскалации, выдаёт осознанно только владелец здесь.
@@ -149,6 +154,8 @@ const getPermissionSummary = (values) => {
     values.canEditStopList && "Редактирование стоп-листа",
     values.canViewFinance && "Просмотр финансов",
     values.canCashOps && "Приход/расход",
+    values.canApproveAttendance && "Приход/уход сотрудников",
+    values.canViewPastPeriods && "Прошлые периоды",
     values.canManageStaff && "Управление персоналом",
     values.canManageWarehouse && "Управление складом",
   ].filter(Boolean);
@@ -255,7 +262,9 @@ function mapStaffUser(user) {
     canViewStopList: perm.can_view_stop_list !== false,
     canViewFinance: !!perm.can_view_finance,
     canCashOps: !!perm.can_cash_ops,
-    canApproveAttendance: perm.can_approve_attendance !== false,
+    // must() на десктопе + бэкенд-гейт → absent трактуем как false (OFF).
+    canApproveAttendance: !!perm.can_approve_attendance,
+    canViewPastPeriods: !!perm.can_view_past_periods,
     // Спец-права десктопа (must() на бэкенде): absent трактуем как false —
     // показываем реальное состояние, чтобы владелец видел, у кого есть эскалация.
     canManageStaff: !!perm.can_manage_staff,
@@ -455,6 +464,7 @@ function StaffRolePage({ role = "all" }) {
       can_view_finance: !!form.canViewFinance,
       can_cash_ops: !!form.canCashOps,
       can_approve_attendance: !!form.canApproveAttendance,
+      can_view_past_periods: !!form.canViewPastPeriods,
       can_manage_staff: !!form.canManageStaff,
       can_manage_warehouse: !!form.canManageWarehouse,
       modules: form.access || {},
@@ -1001,14 +1011,26 @@ function StaffRolePage({ role = "all" }) {
                   <span>Приход / расход (касса)</span>
                   <b className="staff-switch" aria-hidden="true" />
                 </button>
-                {/* can_approve_attendance — can() на десктопе: по умолчанию включено,
-                    выключение убирает у кассира одобрение прихода/ухода поваров. */}
+                {/* can_approve_attendance — экран прихода/ухода на терминале: на
+                    десктопе must(), на бэкенде гейт на /hr/attendance/*. Дефолт OFF,
+                    выдаёт только владелец здесь — с терминала право не выдаётся. */}
                 <button
                   className={`staff-permission-switch ${form.canApproveAttendance ? "is-on" : ""}`}
                   type="button"
                   onClick={() => toggleForm("canApproveAttendance")}
                 >
-                  <span>Подтверждение прихода / ухода повара</span>
+                  <span>Приход / уход сотрудников</span>
+                  <b className="staff-switch" aria-hidden="true" />
+                </button>
+                {/* can_view_past_periods — прошлые периоды в финансах и приходе/уходе.
+                    Без него сервер отдаёт ТОЛЬКО сегодняшний день (date_from/date_to из
+                    запроса игнорируются), поэтому ограничение не обойти прямым вызовом API. */}
+                <button
+                  className={`staff-permission-switch ${form.canViewPastPeriods ? "is-on" : ""}`}
+                  type="button"
+                  onClick={() => toggleForm("canViewPastPeriods")}
+                >
+                  <span>Прошлые периоды (финансы, приход / уход)</span>
                   <b className="staff-switch" aria-hidden="true" />
                 </button>
                 {/* Спец-права десктопа: открывают «режим разработчика» на терминале.
