@@ -3,7 +3,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import (
+    get_current_user, require_permission_or_admin, user_can_view_past_periods,
+)
 from app.modules.auth.models import User
 from app.modules.hr.schemas import (
     AttendanceApprove, AttendanceCreate, AttendanceMark, AttendanceResponse,
@@ -16,6 +18,14 @@ from app.modules.admin_reports.schemas import AttendanceRow, LoginHistoryRow
 from app.modules.admin_reports.service import AdminReportService
 
 router = APIRouter(prefix="/hr", tags=["hr"])
+
+# 5.5 — приход/уход (attendance) доступен владельцу/админу компании либо
+# сотруднику, которому владелец выдал permissions.can_approve_attendance в
+# веб-админке. С терминала это право не выдаётся (см. desktop StaffRightsPanel),
+# поэтому гейт закрывает и прямой вызов API в обход UI.
+require_attendance_access = require_permission_or_admin("can_approve_attendance")
+# Прошлые дни (история отметок) — отдельный тумблер владельца.
+require_past_periods = require_permission_or_admin("can_view_past_periods")
 
 
 @router.post("/employees", response_model=EmployeeResponse, status_code=status.HTTP_201_CREATED)
@@ -67,7 +77,7 @@ async def log_attendance(data: AttendanceCreate, user: User = Depends(get_curren
 
 # 5.5 — кассир отмечает приход/уход сотрудника (сразу approved, логируется в audit)
 @router.post("/attendance/mark", response_model=AttendanceResponse, status_code=status.HTTP_201_CREATED)
-async def mark_attendance(data: AttendanceMark, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def mark_attendance(data: AttendanceMark, user: User = Depends(require_attendance_access), db: AsyncSession = Depends(get_db)):
     return await HRService(db).mark_attendance(user.company_id, user.id, data)
 
 
@@ -75,12 +85,14 @@ async def mark_attendance(data: AttendanceMark, user: User = Depends(get_current
 @router.get("/attendance/log", response_model=list[AttendanceResponse])
 async def attendance_log(
     date: str | None = None,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_attendance_access),
     db: AsyncSession = Depends(get_db),
 ):
     from datetime import datetime as _dt, timezone as _tz
     day = _dt.now(_tz.utc)
-    if date:
+    # Другой день можно запросить только с правом can_view_past_periods:
+    # без него параметр date игнорируется и журнал всегда за сегодня.
+    if date and await user_can_view_past_periods(user, db):
         try:
             day = _dt.fromisoformat(date).replace(tzinfo=_tz.utc)
         except ValueError:
@@ -90,7 +102,7 @@ async def attendance_log(
 
 # 5.5 — очередь неподтверждённых отметок (вход/уход повара) для экрана кассира
 @router.get("/attendance/pending", response_model=list[AttendanceResponse])
-async def pending_attendance(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def pending_attendance(user: User = Depends(require_attendance_access), db: AsyncSession = Depends(get_db)):
     return await HRService(db).list_pending_attendance(user.company_id)
 
 
@@ -99,14 +111,15 @@ async def pending_attendance(user: User = Depends(get_current_user), db: AsyncSe
 async def approve_attendance(
     log_id: UUID,
     data: AttendanceApprove,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_attendance_access),
     db: AsyncSession = Depends(get_db),
 ):
     return await HRService(db).approve_attendance(user.company_id, log_id, user.id, data)
 
 
 @router.get("/attendance", response_model=list[AttendanceRow])
-async def list_attendance(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+# История отметок за всё время (отчёт веб-админки) — это и есть «прошлые дни».
+async def list_attendance(user: User = Depends(require_past_periods), db: AsyncSession = Depends(get_db)):
     return await AdminReportService(db).attendance_history(user.company_id)
 
 

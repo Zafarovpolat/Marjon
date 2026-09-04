@@ -96,6 +96,17 @@ async def user_is_company_admin(current_user: User, db: AsyncSession) -> bool:
     return result.scalars().first() is not None
 
 
+async def user_can_view_past_periods(current_user: User, db: AsyncSession) -> bool:
+    """Прошлые периоды (финансы, приход/уход) — владельцу/админу либо сотруднику
+    с permissions.can_view_past_periods (тумблер владельца в веб-админке).
+    Всем остальным отчёты отдают ТОЛЬКО сегодняшний день — независимо от
+    query-параметров, поэтому ограничение нельзя обойти прямым вызовом API."""
+    if await user_is_company_admin(current_user, db):
+        return True
+    perms = current_user.permissions if isinstance(current_user.permissions, dict) else {}
+    return perms.get("can_view_past_periods") is True
+
+
 def require_permission_or_admin(flag: str):
     """Гейт мягче require_company_admin: пропускает owner/admin/суперадмина ИЛИ
     сотрудника компании, которому владелец в веб-админке выдал

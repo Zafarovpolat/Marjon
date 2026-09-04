@@ -18,7 +18,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user, require_company_admin
+from app.modules.auth.dependencies import (get_current_user, require_company_admin,
+                                          require_permission_or_admin)
 from app.modules.auth.models import User
 from app.modules.companies.models import Branch, Company
 from app.modules.finance.models import Counterparty, FinTransaction, PaymentType, TransactionCategory
@@ -28,6 +29,12 @@ from app.modules.subscriptions.models import Invoice, Plan, Subscription
 from app.shared.exceptions import NotFoundError
 
 router = APIRouter()
+
+# Финансы: то же право, что в основном finance-роутере (владелец/админ либо
+# permissions.can_view_finance, выданное владельцем в веб-админке). Эти пути
+# перекрыты finance-роутером по порядку регистрации, но гейт ставим и здесь,
+# чтобы доступ не зависел от порядка include_router в main.py.
+require_finance_access = require_permission_or_admin("can_view_finance")
 
 
 # ── Финансы: транзакции (company-scoped, без org-фильтра HQ-админки) ──────────
@@ -40,7 +47,8 @@ def _tx_dict(t: FinTransaction) -> dict:
     }
 
 
-@router.get("/finance/transactions", tags=["finance-kafe"])
+@router.get("/finance/transactions", tags=["finance-kafe"],
+            dependencies=[Depends(require_finance_access)])
 async def kafe_list_transactions(
     date_from: date | None = Query(None), date_to: date | None = Query(None),
     direction: str | None = Query(None),
@@ -57,7 +65,8 @@ async def kafe_list_transactions(
     return {"items": [_tx_dict(t) for t in rows], "count": len(rows)}
 
 
-@router.post("/finance/transactions", status_code=status.HTTP_201_CREATED, tags=["finance-kafe"])
+@router.post("/finance/transactions", status_code=status.HTTP_201_CREATED,
+             tags=["finance-kafe"], dependencies=[Depends(require_finance_access)])
 async def kafe_create_transaction(data: dict, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     t = FinTransaction(
         amount=abs(float(data.get("amount") or 0)),
@@ -74,7 +83,8 @@ async def kafe_create_transaction(data: dict, user: User = Depends(get_current_u
     return _tx_dict(t)
 
 
-@router.patch("/finance/transactions/{tx_id}", tags=["finance-kafe"])
+@router.patch("/finance/transactions/{tx_id}", tags=["finance-kafe"],
+              dependencies=[Depends(require_finance_access)])
 async def kafe_update_transaction(tx_id: UUID, data: dict, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     t = await db.get(FinTransaction, tx_id)
     if not t:

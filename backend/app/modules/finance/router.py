@@ -1,12 +1,14 @@
 from __future__ import annotations
-from datetime import date
+from datetime import date, datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import (
+    get_current_user, require_permission_or_admin, user_can_view_past_periods,
+)
 from app.modules.auth.models import User
 from app.modules.finance import models, schemas
 from app.modules.finance.service import TransactionService
@@ -16,6 +18,26 @@ from app.shared.admin_crud import CRUDService, OrgScope, crud_router
 from app.shared.pagination import Page, PageParams
 
 router = APIRouter(prefix="/finance", tags=["finance"])
+
+# Финансы доступны владельцу/админу компании (веб-админка) либо сотруднику,
+# которому владелец выдал permissions.can_view_finance в веб-админке. С терминала
+# это право не выдаётся (см. desktop StaffRightsPanel), поэтому гейт закрывает и
+# прямой вызов API в обход UI: раньше хватало любого валидного токена.
+require_finance_access = require_permission_or_admin("can_view_finance")
+
+
+async def _clamp_period(
+    user: User, db: AsyncSession,
+    date_from: date | None, date_to: date | None,
+) -> tuple[date | None, date | None]:
+    """Без can_view_past_periods финансы отдают ТОЛЬКО сегодняшний день:
+    date_from/date_to из запроса игнорируются, иначе ограничение обходилось бы
+    прямым вызовом API. Владелец/админ и сотрудник с правом — без ограничений."""
+    if await user_can_view_past_periods(user, db):
+        return date_from, date_to
+    today = datetime.now(timezone.utc).date()
+    return today, today
+
 
 router.include_router(crud_router(
     prefix="/payment-types", tags=["finance"],
@@ -65,6 +87,7 @@ counterparties = crud_router(
 
 @counterparties.get("/{counterparty_id}/transactions",
                     response_model=Page[schemas.TransactionResponse],
+                    dependencies=[Depends(require_finance_access)],
                     summary="Транзакции контрагента")
 async def counterparty_transactions(
     counterparty_id: UUID,
@@ -75,6 +98,7 @@ async def counterparty_transactions(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    date_from, date_to = await _clamp_period(user, db, date_from, date_to)
     params = PageParams(page=page, size=size)
     items, total = await TransactionService(db).list(
         params,
@@ -93,7 +117,8 @@ router.include_router(counterparties)
 
 
 # ── Транзакции ───────────────────────────────────────────────────────────────
-transactions = APIRouter(prefix="/transactions", tags=["finance"])
+transactions = APIRouter(prefix="/transactions", tags=["finance"],
+                         dependencies=[Depends(require_finance_access)])
 
 TX_FILTERS = ("direction", "payment_type_id", "counterparty_id", "category_id", "organization_id")
 
@@ -136,6 +161,7 @@ async def list_transactions(
     org_scope: OrgScope = Depends(get_org_scope),
     db: AsyncSession = Depends(get_db),
 ):
+    date_from, date_to = await _clamp_period(user, db, date_from, date_to)
     params = PageParams(page=page, size=size)
     raw_filters = {f: request.query_params[f] for f in TX_FILTERS if f in request.query_params}
     items, total = await TransactionService(db).list(
@@ -196,7 +222,8 @@ router.include_router(transactions)
 
 
 # ── История изменений сумм (только чтение) ──────────────────────────────────
-history = APIRouter(prefix="/finance-history", tags=["finance"])
+history = APIRouter(prefix="/finance-history", tags=["finance"],
+                    dependencies=[Depends(require_finance_access)])
 
 
 @history.get("", response_model=Page[schemas.FinanceHistoryResponse])
@@ -209,6 +236,7 @@ async def list_finance_history(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    date_from, date_to = await _clamp_period(user, db, date_from, date_to)
     params = PageParams(page=page, size=size)
     raw_filters = {"ref_id": str(ref_id)} if ref_id else {}
     items, total = await CRUDService(models.FinanceHistory, db).list(
@@ -233,7 +261,8 @@ class IncomeExpenseCreate(schemas.TransactionCreate):
     pass
 
 
-income_expense = APIRouter(prefix="/income-expense", tags=["finance"])
+income_expense = APIRouter(prefix="/income-expense", tags=["finance"],
+                           dependencies=[Depends(require_finance_access)])
 
 
 @income_expense.get("", response_model=Page[schemas.TransactionResponse],
@@ -248,6 +277,7 @@ async def list_income_expense(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    date_from, date_to = await _clamp_period(user, db, date_from, date_to)
     params = PageParams(page=page, size=size)
     raw_filters: dict = {}
     if direction:
