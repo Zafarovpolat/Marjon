@@ -5,7 +5,7 @@ import {
   ChevronRight, ChevronUp, Circle, CircleArrowDown, CircleArrowUp, Clock,
   ClipboardCheck, ClipboardList, Coffee, Coins, Columns2, Combine, Contact2, CornerDownLeft,
   CreditCard, Delete, Download, Droplet, Egg, Eye, EyeOff, FileBarChart, FileSpreadsheet,
-  FilePlus, FileText, Filter, Gauge, Gift, Grid3X3, Hash, Headphones,
+  FilePlus, FileText, Filter, Gauge, Gift, Grid3X3, Hash, Headphones, ChefHat,
   History, Image, Info, Languages, LayoutGrid, LayoutPanelTop, LifeBuoy,
   ListChecks, ListOrdered, Lock, LogOut, MapPin, MessageCircle, MessageSquare,
   Minus, Monitor, MoreHorizontal, OctagonX, Package, PackageCheck, PackageOpen,
@@ -35,6 +35,28 @@ function SidebarCollapseIcon({ size = 16, strokeWidth = 3.2, className, style })
       <path d="M19 19H26" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" />
       <path d="M6 25.5H26" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" />
       <path d="M14.5 12L7.5 16L14.5 20V12Z" stroke="currentColor" strokeWidth={strokeWidth} strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function ExcelExportIcon({ size = 18, strokeWidth = 1.8, className, style }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      style={style}
+      focusable="false"
+      aria-hidden="true"
+    >
+      <path d="M8.5 3.5H17L20.5 7V20.5H8.5" stroke="currentColor" strokeWidth={strokeWidth} strokeLinejoin="round" />
+      <path d="M17 3.5V7H20.5" stroke="currentColor" strokeWidth={strokeWidth} strokeLinejoin="round" />
+      <rect x="3.5" y="7.5" width="11" height="10" rx="1.5" stroke="currentColor" strokeWidth={strokeWidth} />
+      <path d="M6.5 10.5L11.5 14.5M11.5 10.5L6.5 14.5" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" />
+      <path d="M16.5 11H18M16.5 14H18M16.5 17H18" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" />
     </svg>
   )
 }
@@ -130,6 +152,7 @@ const ICON_MAP = {
   'bi-bar-chart-line':         BarChart2,
   'bi-file-earmark-bar-graph': FileBarChart,
   'bi-file-earmark-spreadsheet': FileSpreadsheet,
+  'bi-filetype-xlsx':           ExcelExportIcon,
   'bi-journal-plus':           FilePlus,
   'bi-journal-text':           FileText,
   'bi-stars':                  Sparkles,
@@ -150,6 +173,7 @@ const ICON_MAP = {
   'bi-basket':                 ShoppingBasket,
   'bi-archive':                Archive,
   'bi-egg-fried':              Egg,
+  'bi-chef-hat':               ChefHat,
   'bi-cup-hot':                Coffee,
   'bi-rulers':                 Ruler,
   'bi-droplet':                Droplet,

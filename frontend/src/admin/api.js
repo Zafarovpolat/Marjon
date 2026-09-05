@@ -11,7 +11,7 @@ import {
 import { normalizeTokenResponse } from "../api/normalizers";
 import { createApiTransport } from "../api/transport";
 
-export const ADMIN_API_BASE_URL = import.meta.env.VITE_ADMIN_API_URL || "http://127.0.0.1:8000/api/v1";
+export const ADMIN_API_BASE_URL = import.meta.env.VITE_ADMIN_API_URL || "http://localhost:8000/api/v1";
 
 export const adminApi = createApiTransport({
   baseURL: ADMIN_API_BASE_URL,

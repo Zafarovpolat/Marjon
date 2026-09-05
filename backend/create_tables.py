@@ -22,6 +22,7 @@ import app.modules.subscriptions.models
 import app.modules.printers.models
 import app.modules.halls.models
 import app.modules.inventory.warehouse_models
+import app.modules.inventory.semi_product_models
 import app.modules.kafe_compat.models
 import app.modules.handbook.models
 import app.modules.organizations.models

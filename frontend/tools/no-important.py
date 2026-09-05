@@ -10,6 +10,13 @@
 from __future__ import annotations
 import sys, os, re, glob
 
+# На Windows консоль по умолчанию cp1251 и падает на символах ✓/✗ (FE-08A:
+# делаем вывод UTF-8-безопасным, чтобы css:verify не падал из-за кодировки).
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except (AttributeError, ValueError):
+    pass
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cssx
 

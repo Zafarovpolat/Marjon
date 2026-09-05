@@ -2,7 +2,7 @@ from __future__ import annotations
 from uuid import UUID
 from datetime import datetime
 from typing import TYPE_CHECKING
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, JSON, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Uuid
 from app.shared.base_model import TimeStampedModel
@@ -27,6 +27,9 @@ class User(TimeStampedModel):
     # PIN хранится хешированным (bcrypt); pin_code оставлен для обратной совместимости
     # и обнуляется миграцией после бэкфилла в pin_hash.
     pin_hash: Mapped[str | None] = mapped_column(String(255))
+    # Блокировка по неудачным попыткам PIN (счётчик и «до какого времени заперт»)
+    pin_failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    pin_locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_superadmin: Mapped[bool] = mapped_column(Boolean, default=False)

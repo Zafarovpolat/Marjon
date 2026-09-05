@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Icon from "./Icon";
 
 const datePresets = [
@@ -13,6 +13,8 @@ const shortMonths = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн",
 const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
 const weekDays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const yearOptions = Array.from({ length: 13 }, (_, index) => 2020 + index);
+const calendarYearSelectOptions = yearOptions.map((year) => ({ value: year, label: String(year) }));
+const calendarMonthSelectOptions = monthNames.map((month, index) => ({ value: index, label: month }));
 const hourOptions = Array.from({ length: 24 }, (_, hour) => padDate(hour));
 const minuteOptions = Array.from({ length: 60 }, (_, minute) => padDate(minute));
 
@@ -132,9 +134,111 @@ function fromDateInputText(value) {
   };
 }
 
+function canonicalCurrentMonthRange() {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const year = now.getFullYear();
+  const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+  return {
+    preset: "Этот месяц",
+    start: `01.${month}.${year}`,
+    end: `${String(lastDay).padStart(2, "0")}.${month}.${year}`,
+    startTime: "00:00",
+    endTime: "00:00",
+  };
+}
+
+const canonicalDatePresets = [
+  "Сегодня",
+  "Вчера",
+  "Эта неделя",
+  { label: "Этот месяц", getRange: canonicalCurrentMonthRange },
+  "Этот год",
+];
+
+export function formatCanonicalReportPeriodLabel(range = {}) {
+  if (!range.start || !range.end) return "Выберите дату";
+  return range.start === range.end ? range.start : `${range.start} – ${range.end}`;
+}
+
+function strictPickerDate(value) {
+  if (!/^\d{2}\.\d{2}\.\d{4}$/.test(value || "")) return null;
+  const [day, month, year] = value.split(".").map(Number);
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+  return date;
+}
+
+export function validateCanonicalReportPeriod(range = {}) {
+  const start = strictPickerDate(range.start);
+  const end = strictPickerDate(range.end);
+  if (!start || !end) return "Введите даты в формате ДД.ММ.ГГГГ";
+  if (start > end) return "Дата начала не может быть позже даты окончания";
+  return "";
+}
+
+function CalendarToolbarSelect({
+  label,
+  value,
+  options,
+  open,
+  onToggle,
+  onSelect,
+  buttonRef,
+  listRef,
+  onListKeyDown,
+}) {
+  const selectedOption = options.find((option) => String(option.value) === String(value));
+
+  return (
+    <div className={`report-date-calendar-select${open ? " is-open" : ""}`}>
+      <button
+        ref={buttonRef}
+        className="report-date-calendar-select__trigger"
+        type="button"
+        aria-label={label}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={onToggle}
+      >
+        <span>{selectedOption?.label || value}</span>
+        <Icon name="bi-chevron-down" size={13} />
+      </button>
+      {open ? (
+        <div
+          ref={listRef}
+          className="report-date-calendar-select__menu"
+          role="listbox"
+          aria-label={label === "Год" ? "Выбор года" : "Выбор месяца"}
+          onKeyDown={onListKeyDown}
+        >
+          {options.map((option) => {
+            const selected = String(option.value) === String(value);
+            return (
+              <button
+                className={`report-date-calendar-select__option${selected ? " is-selected" : ""}`}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                data-value={option.value}
+                key={option.value}
+                onClick={() => onSelect(option.value)}
+              >
+                <span>{option.label}</span>
+                {selected ? <Icon name="bi-check2" size={14} /> : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function ReportDateRangePicker({
   value,
   onChange,
+  variant = "default",
   buttonClassName = "",
   showChevrons = false,
   showTime = true,
@@ -150,13 +254,51 @@ export default function ReportDateRangePicker({
   leadingIconSize = 16,
   trailingIconName = "",
   trailingIconSize = 16,
+  buttonAriaLabel = "",
+  dateFieldLabels = null,
+  validateRange,
+  enableEscapeClose = false,
+  restoreFocusOnApply = false,
+  containTimeListScroll = false,
+  exposeCalendarA11y = false,
+  showRangeHighlight = false,
+  collapseCalendarOnOk = false,
+  useCustomCalendarSelects = false,
 }) {
+  const canonical = variant === "canonical";
+  const effectiveButtonClassName = [canonical ? "owner-reports__period-button" : "", buttonClassName].filter(Boolean).join(" ");
+  const effectiveShowTime = canonical || showTime;
+  const effectiveShowDropdownIcon = canonical ? false : showDropdownIcon;
+  const effectivePresets = canonical ? canonicalDatePresets : presets;
+  const effectiveFormatButtonLabel = canonical ? formatCanonicalReportPeriodLabel : formatButtonLabel;
+  const effectiveBlockPageScrollOnWheel = canonical || blockPageScrollOnWheel;
+  const effectiveTrailingIconName = canonical ? "bi-calendar3" : trailingIconName;
+  const effectiveTrailingIconSize = canonical ? 16 : trailingIconSize;
+  const effectiveDateFieldLabels = canonical ? { start: "Дата с", end: "Дата по" } : dateFieldLabels;
+  const effectiveValidateRange = canonical ? validateCanonicalReportPeriod : validateRange;
+  const effectiveEnableEscapeClose = canonical || enableEscapeClose;
+  const effectiveRestoreFocusOnApply = canonical || restoreFocusOnApply;
+  const effectiveContainTimeListScroll = canonical || containTimeListScroll;
+  const effectiveExposeCalendarA11y = canonical || exposeCalendarA11y;
+  const effectiveShowRangeHighlight = canonical || showRangeHighlight;
+  const effectiveCollapseCalendarOnOk = canonical || collapseCalendarOnOk;
+  const effectiveUseCustomCalendarSelects = canonical || useCustomCalendarSelects;
   const rootRef = useRef(null);
+  const buttonRef = useRef(null);
+  const menuOkRef = useRef(null);
+  const menuId = useId();
   const hourListRef = useRef(null);
   const minuteListRef = useRef(null);
+  const calendarToolbarRef = useRef(null);
+  const yearSelectButtonRef = useRef(null);
+  const monthSelectButtonRef = useRef(null);
+  const yearSelectListRef = useRef(null);
+  const monthSelectListRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => withDefaultTimes(value));
   const [activePicker, setActivePicker] = useState(null);
+  const [validationError, setValidationError] = useState("");
+  const [openCalendarSelect, setOpenCalendarSelect] = useState(null);
   const activeDate = parseDate(draft[activePicker] || draft.start);
   const [calendarView, setCalendarView] = useState(() => new Date(activeDate.getFullYear(), activeDate.getMonth(), 1));
 
@@ -164,6 +306,8 @@ export default function ReportDateRangePicker({
     if (open) {
       setDraft(withDefaultTimes(value));
       setActivePicker(openCalendarOnOpen ? "start" : null);
+      setValidationError("");
+      setOpenCalendarSelect(null);
     }
   }, [open, value, openCalendarOnOpen]);
 
@@ -174,7 +318,35 @@ export default function ReportDateRangePicker({
 
     const date = parseDate(draft[activePicker]);
     setCalendarView(new Date(date.getFullYear(), date.getMonth(), 1));
+    setOpenCalendarSelect(null);
   }, [activePicker]);
+
+  useEffect(() => {
+    if (!openCalendarSelect) return undefined;
+
+    function closeCalendarSelectOnOutside(event) {
+      if (!calendarToolbarRef.current?.contains(event.target)) {
+        setOpenCalendarSelect(null);
+      }
+    }
+
+    document.addEventListener("mousedown", closeCalendarSelectOnOutside);
+    return () => document.removeEventListener("mousedown", closeCalendarSelectOnOutside);
+  }, [openCalendarSelect]);
+
+  useEffect(() => {
+    if (!openCalendarSelect) return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      const list = openCalendarSelect === "year" ? yearSelectListRef.current : monthSelectListRef.current;
+      const selected = list?.querySelector('[aria-selected="true"]');
+      if (!list || !selected) return;
+      list.scrollTop = selected.offsetTop - (list.clientHeight - selected.offsetHeight) / 2;
+      selected.focus();
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [openCalendarSelect]);
 
   useEffect(() => {
     if (!open) {
@@ -184,6 +356,9 @@ export default function ReportDateRangePicker({
     function closeOnOutsideClick(event) {
       if (!rootRef.current?.contains(event.target)) {
         setOpen(false);
+        setActivePicker(null);
+        setValidationError("");
+        setOpenCalendarSelect(null);
       }
     }
 
@@ -191,21 +366,67 @@ export default function ReportDateRangePicker({
     return () => document.removeEventListener("mousedown", closeOnOutsideClick);
   }, [open]);
 
+  useEffect(() => {
+    if (!open || !effectiveEnableEscapeClose) {
+      return undefined;
+    }
+
+    function closeOnEscape(event) {
+      if (event.key !== "Escape") {
+        return;
+      }
+      setOpen(false);
+      setActivePicker(null);
+      setValidationError("");
+      setOpenCalendarSelect(null);
+      window.requestAnimationFrame(() => buttonRef.current?.focus());
+    }
+
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [effectiveEnableEscapeClose, open]);
+
   function openPicker() {
     setDraft(withDefaultTimes(value));
+    setValidationError("");
     setOpen((current) => {
       const nextOpen = !current;
       if (!nextOpen) {
         setActivePicker(null);
+        setOpenCalendarSelect(null);
       }
       return nextOpen;
     });
   }
 
   function applyDraft() {
-    onChange(withDefaultTimes(draft));
+    const nextRange = withDefaultTimes(draft);
+    const nextError = effectiveValidateRange?.(nextRange) || "";
+    if (nextError) {
+      setValidationError(nextError);
+      return;
+    }
+
+    onChange(nextRange);
     setActivePicker(null);
     setOpen(false);
+    setValidationError("");
+    setOpenCalendarSelect(null);
+    if (effectiveRestoreFocusOnApply) {
+      window.requestAnimationFrame(() => buttonRef.current?.focus());
+    }
+  }
+
+  function handleCalendarOk() {
+    if (!effectiveCollapseCalendarOnOk) {
+      applyDraft();
+      return;
+    }
+
+    setActivePicker(null);
+    setValidationError("");
+    setOpenCalendarSelect(null);
+    window.requestAnimationFrame(() => menuOkRef.current?.focus());
   }
 
   function selectPreset(preset) {
@@ -216,6 +437,7 @@ export default function ReportDateRangePicker({
       preset: option.label,
     };
     setDraft(nextDraft);
+    setValidationError("");
 
     if (applyPresetOnSelect) {
       onChange(nextDraft);
@@ -225,6 +447,7 @@ export default function ReportDateRangePicker({
   }
 
   function updateDateTime(key, nextValue) {
+    setValidationError("");
     const parsed = fromDateInputText(nextValue);
 
     if (!parsed) {
@@ -245,6 +468,7 @@ export default function ReportDateRangePicker({
   }
 
   function openDateTimePicker(key) {
+    setOpenCalendarSelect(null);
     setActivePicker(key);
   }
 
@@ -254,6 +478,51 @@ export default function ReportDateRangePicker({
 
   function updateCalendarMonth(month) {
     setCalendarView(new Date(calendarView.getFullYear(), Number(month), 1));
+  }
+
+  function toggleCalendarSelect(kind) {
+    setOpenCalendarSelect((current) => (current === kind ? null : kind));
+  }
+
+  function selectCalendarOption(kind, nextValue) {
+    if (kind === "year") updateCalendarYear(nextValue);
+    else updateCalendarMonth(nextValue);
+    setOpenCalendarSelect(null);
+    const triggerRef = kind === "year" ? yearSelectButtonRef : monthSelectButtonRef;
+    window.requestAnimationFrame(() => triggerRef.current?.focus());
+  }
+
+  function handleCalendarSelectKeyDown(event, kind) {
+    if (["Enter", " "].includes(event.key) && document.activeElement?.getAttribute("role") === "option") {
+      event.preventDefault();
+      selectCalendarOption(kind, document.activeElement.dataset.value);
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      setOpenCalendarSelect(null);
+      const triggerRef = kind === "year" ? yearSelectButtonRef : monthSelectButtonRef;
+      window.requestAnimationFrame(() => triggerRef.current?.focus());
+      return;
+    }
+
+    if (event.key === "Tab") {
+      setOpenCalendarSelect(null);
+      return;
+    }
+
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const options = Array.from(event.currentTarget.querySelectorAll('[role="option"]'));
+    const currentIndex = options.indexOf(document.activeElement);
+    let nextIndex = currentIndex;
+    if (event.key === "Home") nextIndex = 0;
+    else if (event.key === "End") nextIndex = options.length - 1;
+    else if (event.key === "ArrowDown") nextIndex = Math.min(options.length - 1, currentIndex + 1);
+    else if (event.key === "ArrowUp") nextIndex = Math.max(0, currentIndex - 1);
+    options[nextIndex]?.focus();
   }
 
   function selectCalendarDate(date) {
@@ -305,35 +574,67 @@ export default function ReportDateRangePicker({
   }
 
   const selectedCalendarDate = activePicker ? formatDate(parseDate(draft[activePicker])) : "";
+  const todayCalendarDate = formatDate(new Date());
+  const draftStartDate = fromDateInputText(draft.start)?.date;
+  const draftEndDate = fromDateInputText(draft.end)?.date;
+  const draftStartTime = draftStartDate ? parseDate(draftStartDate).getTime() : Number.NaN;
+  const draftEndTime = draftEndDate ? parseDate(draftEndDate).getTime() : Number.NaN;
   const activeTime = activePicker ? draft[`${activePicker}Time`] || "00:00" : "00:00";
   const [activeHour = "00", activeMinute = "00"] = activeTime.split(":");
 
   useEffect(() => {
-    if (!showTime || !activePicker) {
+    if (!effectiveShowTime || !activePicker) {
       return;
     }
 
     const frame = window.requestAnimationFrame(() => {
-      hourListRef.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block: "center" });
-      minuteListRef.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block: "center" });
+      [hourListRef.current, minuteListRef.current].forEach((list) => {
+        const activeOption = list?.querySelector('[data-active="true"]');
+        if (!list || !activeOption) return;
+        if (effectiveContainTimeListScroll) {
+          list.scrollTop = activeOption.offsetTop - (list.clientHeight - activeOption.offsetHeight) / 2;
+        } else {
+          activeOption.scrollIntoView({ block: "center" });
+        }
+      });
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [activePicker, activeTime, showTime]);
+  }, [activePicker, activeTime, effectiveContainTimeListScroll, effectiveShowTime]);
 
-  const presetOptions = presets.map((preset) => (typeof preset === "string" ? { label: preset } : preset));
-  const periodLabel = formatButtonLabel ? formatButtonLabel(value) : formatPeriodLabel(value);
-  const buttonClasses = ["report-period-button", buttonClassName].filter(Boolean).join(" ");
-  const blockWheelScroll = blockPageScrollOnWheel
+  const presetOptions = effectivePresets.map((preset) => (typeof preset === "string" ? { label: preset } : preset));
+  const periodLabel = effectiveFormatButtonLabel ? effectiveFormatButtonLabel(value) : formatPeriodLabel(value);
+  const buttonClasses = ["report-period-button", effectiveButtonClassName].filter(Boolean).join(" ");
+  const blockWheelScroll = effectiveBlockPageScrollOnWheel
     ? (event) => {
       event.preventDefault();
       event.stopPropagation();
     }
     : undefined;
+  const renderDateInput = (key, ariaLabel) => (
+    <input
+      className="report-date-input"
+      type="text"
+      inputMode="numeric"
+      value={toDateInputText(draft, key, effectiveShowTime)}
+      onChange={(event) => updateDateTime(key, event.target.value)}
+      onClick={() => openDateTimePicker(key)}
+      onFocus={() => openDateTimePicker(key)}
+      aria-label={ariaLabel}
+    />
+  );
 
-  return (
+  const picker = (
     <div className="report-period-picker" ref={rootRef}>
-      <button className={buttonClasses} type="button" onClick={openPicker} aria-expanded={open}>
+      <button
+        ref={buttonRef}
+        className={buttonClasses}
+        type="button"
+        onClick={openPicker}
+        aria-expanded={open}
+        aria-controls={effectiveExposeCalendarA11y && open ? menuId : undefined}
+        aria-label={buttonAriaLabel || undefined}
+      >
         {showChevrons ? <Icon name="bi-chevron-left" size={18} /> : null}
         {leadingIconName ? <Icon name={leadingIconName} size={leadingIconSize} /> : null}
         {labelPrefix ? (
@@ -345,11 +646,15 @@ export default function ReportDateRangePicker({
           <span>{periodLabel}</span>
         )}
         {showChevrons ? <Icon name="bi-chevron-right" size={18} /> : null}
-        {showDropdownIcon ? <Icon name="bi-chevron-down" size={18} /> : null}
-        {trailingIconName ? <Icon name={trailingIconName} size={trailingIconSize} /> : null}
+        {effectiveShowDropdownIcon ? <Icon name="bi-chevron-down" size={18} /> : null}
+        {effectiveTrailingIconName ? <Icon name={effectiveTrailingIconName} size={effectiveTrailingIconSize} /> : null}
       </button>
       {open ? (
-        <div className="report-date-menu" onWheel={blockWheelScroll}>
+        <div
+          className={`report-date-menu${effectiveShowTime ? "" : " report-date-menu--date-only"}`}
+          id={effectiveExposeCalendarA11y ? menuId : undefined}
+          onWheel={blockWheelScroll}
+        >
           <div className="report-date-presets">
             {presetOptions.map((preset) => (
               <button className={draft.preset === preset.label ? "is-active" : ""} type="button" key={preset.value || preset.label} onClick={() => selectPreset(preset)}>
@@ -357,45 +662,66 @@ export default function ReportDateRangePicker({
               </button>
             ))}
           </div>
-          <div className="report-date-range">
-            <input
-              className="report-date-input"
-              type="text"
-              inputMode="numeric"
-              value={toDateInputText(draft, "start", showTime)}
-              onChange={(event) => updateDateTime("start", event.target.value)}
-              onClick={() => openDateTimePicker("start")}
-              onFocus={() => openDateTimePicker("start")}
-              aria-label="Начало периода"
-            />
+          <div className={`report-date-range${effectiveDateFieldLabels ? " report-date-range--labeled" : ""}`}>
+            {effectiveDateFieldLabels ? <label className={`report-date-field${activePicker === "start" ? " is-active" : ""}`}><span>{effectiveDateFieldLabels.start}</span>{renderDateInput("start", "Начало периода")}</label> : renderDateInput("start", "Начало периода")}
             <span>-</span>
-            <input
-              className="report-date-input"
-              type="text"
-              inputMode="numeric"
-              value={toDateInputText(draft, "end", showTime)}
-              onChange={(event) => updateDateTime("end", event.target.value)}
-              onClick={() => openDateTimePicker("end")}
-              onFocus={() => openDateTimePicker("end")}
-              aria-label="Конец периода"
-            />
-            {showMenuOk ? <button className="report-date-ok" type="button" onClick={applyDraft}>ОК</button> : null}
+            {effectiveDateFieldLabels ? <label className={`report-date-field${activePicker === "end" ? " is-active" : ""}`}><span>{effectiveDateFieldLabels.end}</span>{renderDateInput("end", "Конец периода")}</label> : renderDateInput("end", "Конец периода")}
+            {showMenuOk ? <button ref={menuOkRef} className="report-date-ok" type="button" onClick={applyDraft}>ОК</button> : null}
           </div>
-          {activePicker ? (
-            <div className={`report-date-calendar-popover report-date-calendar-popover--${activePicker}`}>
-              <div className={`report-date-picker-body ${showTime ? "" : "report-date-picker-body--date-only"}`.trim()}>
+          {validationError ? <div className="report-date-error" role="alert">{validationError}</div> : null}
+          {activePicker || effectiveCollapseCalendarOnOk ? (
+            <div
+              className={effectiveCollapseCalendarOnOk ? `report-date-calendar-shell${activePicker ? " is-expanded" : ""}` : undefined}
+              style={effectiveCollapseCalendarOnOk ? undefined : { display: "contents" }}
+              aria-hidden={effectiveCollapseCalendarOnOk && !activePicker ? true : undefined}
+              {...(effectiveCollapseCalendarOnOk && !activePicker ? { inert: true } : {})}
+            >
+              <div
+                className={effectiveCollapseCalendarOnOk ? "report-date-calendar-shell__inner" : undefined}
+                style={effectiveCollapseCalendarOnOk ? undefined : { display: "contents" }}
+              >
+            <div className={`report-date-calendar-popover report-date-calendar-popover--${activePicker || "start"}`}>
+              <div className={`report-date-picker-body ${effectiveShowTime ? "" : "report-date-picker-body--date-only"}`.trim()}>
                 <div className="report-date-calendar-panel">
-                  <div className="report-date-calendar-toolbar">
-                    <button type="button" onClick={() => setCalendarView(new Date(calendarView.getFullYear(), calendarView.getMonth() - 1, 1))} aria-label="Предыдущий месяц">
+                  <div className="report-date-calendar-toolbar" ref={calendarToolbarRef}>
+                    <button type="button" onClick={() => { setOpenCalendarSelect(null); setCalendarView(new Date(calendarView.getFullYear(), calendarView.getMonth() - 1, 1)); }} aria-label="Предыдущий месяц">
                       <Icon name="bi-chevron-left" size={17} />
                     </button>
-                    <select value={calendarView.getFullYear()} onChange={(event) => updateCalendarYear(event.target.value)} aria-label="Год">
-                      {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
-                    </select>
-                    <select value={calendarView.getMonth()} onChange={(event) => updateCalendarMonth(event.target.value)} aria-label="Месяц">
-                      {monthNames.map((month, index) => <option key={month} value={index}>{month}</option>)}
-                    </select>
-                    <button type="button" onClick={() => setCalendarView(new Date(calendarView.getFullYear(), calendarView.getMonth() + 1, 1))} aria-label="Следующий месяц">
+                    {effectiveUseCustomCalendarSelects ? (
+                      <CalendarToolbarSelect
+                        label="Год"
+                        value={calendarView.getFullYear()}
+                        options={calendarYearSelectOptions}
+                        open={openCalendarSelect === "year"}
+                        onToggle={() => toggleCalendarSelect("year")}
+                        onSelect={(nextValue) => selectCalendarOption("year", nextValue)}
+                        buttonRef={yearSelectButtonRef}
+                        listRef={yearSelectListRef}
+                        onListKeyDown={(event) => handleCalendarSelectKeyDown(event, "year")}
+                      />
+                    ) : (
+                      <select value={calendarView.getFullYear()} onChange={(event) => updateCalendarYear(event.target.value)} aria-label="Год">
+                        {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
+                      </select>
+                    )}
+                    {effectiveUseCustomCalendarSelects ? (
+                      <CalendarToolbarSelect
+                        label="Месяц"
+                        value={calendarView.getMonth()}
+                        options={calendarMonthSelectOptions}
+                        open={openCalendarSelect === "month"}
+                        onToggle={() => toggleCalendarSelect("month")}
+                        onSelect={(nextValue) => selectCalendarOption("month", nextValue)}
+                        buttonRef={monthSelectButtonRef}
+                        listRef={monthSelectListRef}
+                        onListKeyDown={(event) => handleCalendarSelectKeyDown(event, "month")}
+                      />
+                    ) : (
+                      <select value={calendarView.getMonth()} onChange={(event) => updateCalendarMonth(event.target.value)} aria-label="Месяц">
+                        {monthNames.map((month, index) => <option key={month} value={index}>{month}</option>)}
+                      </select>
+                    )}
+                    <button type="button" onClick={() => { setOpenCalendarSelect(null); setCalendarView(new Date(calendarView.getFullYear(), calendarView.getMonth() + 1, 1)); }} aria-label="Следующий месяц">
                       <Icon name="bi-chevron-right" size={17} />
                     </button>
                   </div>
@@ -405,12 +731,34 @@ export default function ReportDateRangePicker({
                   <div className="report-date-calendar-grid">
                     {calendarDays(calendarView).map((day) => {
                       const formatted = formatDate(day);
+                      const dayTime = day.getTime();
+                       const isRangeStart = effectiveShowRangeHighlight && formatted === draftStartDate;
+                       const isRangeEnd = effectiveShowRangeHighlight && formatted === draftEndDate;
+                      const isRangeBoundary = isRangeStart || isRangeEnd;
+                       const isSelected = effectiveShowRangeHighlight ? isRangeBoundary : formatted === selectedCalendarDate;
+                       const isInRange = effectiveShowRangeHighlight
+                        && Number.isFinite(draftStartTime)
+                        && Number.isFinite(draftEndTime)
+                        && dayTime > draftStartTime
+                        && dayTime < draftEndTime;
+                      const isToday = formatted === todayCalendarDate;
+                      const dayClasses = [
+                        day.getMonth() === calendarView.getMonth() ? "" : "is-muted",
+                        isInRange ? "is-in-range" : "",
+                        isRangeStart ? "is-range-start" : "",
+                        isRangeEnd ? "is-range-end" : "",
+                        isToday ? "is-today" : "",
+                        isSelected ? "is-selected" : "",
+                      ].filter(Boolean).join(" ");
                       return (
                         <button
-                          className={`${day.getMonth() === calendarView.getMonth() ? "" : "is-muted"} ${formatted === selectedCalendarDate ? "is-selected" : ""}`}
+                          className={dayClasses}
                           type="button"
                           key={formatted}
                           onClick={() => selectCalendarDate(day)}
+                           aria-label={effectiveExposeCalendarA11y ? formatted : undefined}
+                           aria-pressed={effectiveExposeCalendarA11y ? isSelected : undefined}
+                           aria-current={effectiveExposeCalendarA11y && isToday ? "date" : undefined}
                         >
                           {day.getDate()}
                         </button>
@@ -418,7 +766,7 @@ export default function ReportDateRangePicker({
                     })}
                   </div>
                 </div>
-                <div className="report-date-time-panel">
+                {effectiveShowTime ? <div className="report-date-time-panel">
                   <div className="report-date-time-title">
                     <Icon name="bi-clock" size={18} />
                     <span>Время</span>
@@ -457,14 +805,16 @@ export default function ReportDateRangePicker({
                       </div>
                     </div>
                   </div>
-                </div>
+                </div> : null}
               </div>
               <div className="report-date-calendar-footer">
                 <button className="report-date-today-button" type="button" onClick={selectToday}>
                   <Icon name="bi-calendar3" size={17} />
                   <span>Сегодня</span>
                 </button>
-                <button className="report-date-calendar-ok" type="button" onClick={applyDraft}>ОК</button>
+                <button className="report-date-calendar-ok" type="button" onClick={handleCalendarOk}>ОК</button>
+              </div>
+            </div>
               </div>
             </div>
           ) : null}
@@ -472,4 +822,6 @@ export default function ReportDateRangePicker({
       ) : null}
     </div>
   );
+
+  return canonical ? <div className="owner-reports__period report-actions">{picker}</div> : picker;
 }

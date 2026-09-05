@@ -11,6 +11,7 @@ from slowapi import _rate_limit_exceeded_handler
 from app.config import settings
 from app.middleware.tenant_middleware import TenantMiddleware
 from app.infrastructure.database.session import AsyncSessionLocal
+from app.shared.error_handlers import register_error_handlers
 from app.shared.rate_limit import limiter
 
 # ── Register all models with SQLAlchemy metadata ────────────────────────────
@@ -32,6 +33,7 @@ import app.modules.subscriptions.models   # noqa: F401
 import app.modules.printers.models        # noqa: F401
 import app.modules.halls.models              # noqa: F401
 import app.modules.inventory.warehouse_models  # noqa: F401
+import app.modules.inventory.semi_product_models  # noqa: F401
 import app.modules.kafe_compat.models     # noqa: F401
 # Главная админка (HQ admin panel)
 import app.modules.handbook.models        # noqa: F401
@@ -68,6 +70,7 @@ from app.modules.subscriptions.router import router as subscriptions_router
 from app.modules.printers.router      import router as printers_router
 from app.modules.halls.router                  import router as halls_router
 from app.modules.inventory.warehouse_router    import router as warehouse_router
+from app.modules.inventory.semi_product_router import router as semi_product_router
 from app.modules.kafe_compat.router   import router as kafe_compat_router
 # Главная админка (HQ admin panel)
 from app.modules.handbook.router       import router as handbook_router
@@ -76,7 +79,7 @@ from app.modules.departments.router    import router as departments_router
 from app.modules.marketing.router      import router as marketing_router
 from app.modules.nomenclature.router   import router as nomenclature_router
 from app.modules.storage.router        import router as storage_router
-from app.modules.finance.router        import router as finance_router
+from app.modules.finance.router        import router as finance_router, hq_router as finance_hq_router
 from app.modules.field_service.router  import router as field_service_router
 from app.modules.tasks.router          import router as tasks_router
 from app.modules.ratings.router        import router as ratings_router
@@ -89,14 +92,40 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Seed RBAC permissions on startup
-    from app.modules.rbac.permissions import seed_permissions
+    from app.modules.rbac.permissions import seed_permissions, backfill_role_permissions
     async with AsyncSessionLocal() as db:
         try:
             count = await seed_permissions(db)
             if count:
                 logger.info("Seeded %d new RBAC permissions", count)
         except Exception as e:
+            await db.rollback()
             logger.warning("Could not seed permissions (table may not exist yet): %s", e)
+        try:
+            # BE-05: attach default permissions to roles created before this
+            # feature existed (idempotent — only adds missing RolePermission
+            # links, safe to run on every boot).
+            synced = await backfill_role_permissions(db)
+            if synced:
+                logger.info("Backfilled %d RBAC role-permission links", synced)
+        except Exception as e:
+            await db.rollback()
+            # A brand-new/unmigrated database has no legacy privileges to
+            # reconcile.  Once the RBAC tables exist, every reconciliation
+            # failure is security-significant and startup must fail closed.
+            original = getattr(e, "orig", None)
+            sqlstate = getattr(original, "sqlstate", None)
+            missing_schema = (
+                sqlstate == "42P01"
+                or "no such table: roles" in str(e).lower()
+            )
+            if missing_schema:
+                logger.warning("RBAC schema is not installed yet: %s", e)
+            else:
+                logger.exception("Could not reconcile authoritative Web RBAC: %s", e)
+                raise RuntimeError(
+                    "Authoritative Web RBAC reconciliation failed; refusing startup"
+                ) from e
     yield
 
 
@@ -109,6 +138,7 @@ app = FastAPI(
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+register_error_handlers(app)  # BE-21: единый конверт ошибок
 app.add_middleware(SlowAPIMiddleware)
 # CORS: не допускаем опасную связку "*" + credentials (иначе можно отразить
 # произвольный origin с куками). Если сконфигурирован конкретный список origin —
@@ -131,11 +161,11 @@ routers = [
     delivery_router, hr_router, analytics_router,
     notifications_router, audit_router,
     fiscal_router, subscriptions_router, printers_router,
-    halls_router, warehouse_router,
+    halls_router, warehouse_router, semi_product_router,
     # Главная админка
     handbook_router, organizations_router, departments_router,
     marketing_router, nomenclature_router, storage_router,
-    finance_router, field_service_router, tasks_router,
+    finance_router, finance_hq_router, field_service_router, tasks_router,
     ratings_router, admin_settings_router, admin_reports_router,
     hq_reports_router,
 ]

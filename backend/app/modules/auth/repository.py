@@ -31,7 +31,14 @@ class UserRepository(BaseRepository[User]):
         )
         return result.scalar_one_or_none()
 
+    async def get_by_phone(self, phone: str) -> Optional[User]:
+        result = await self.db.execute(select(User).where(User.phone == phone))
+        return result.scalar_one_or_none()
+
     async def get_company_users(self, company_id: UUID) -> list[User]:
+        # BE-07: фильтра по is_active здесь сознательно нет: DELETE /auth/users/{id}
+        # только деактивирует сотрудника, и без него его было бы не найти,
+        # чтобы вернуть is_active назад. Фронт сам решает, как показывать неактивных.
         # 6.2 — служебные терминальные учётки филиалов скрыты из списка персонала
         from app.modules.auth.security import TERMINAL_EMAIL_LIKE
         result = await self.db.execute(
@@ -99,6 +106,19 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
         )
         return result.scalar_one_or_none()
 
+    async def get_by_hash_for_update(self, token_hash: str) -> Optional[RefreshToken]:
+        """Блокирует один активный токен до конца транзакции вызывающего кода."""
+        result = await self.db.execute(
+            select(RefreshToken)
+            .where(
+                RefreshToken.token_hash == token_hash,
+                RefreshToken.revoked_at == None,
+                RefreshToken.expires_at > datetime.now(timezone.utc),
+            )
+            .with_for_update()
+        )
+        return result.scalar_one_or_none()
+
     async def revoke_all_for_user(self, user_id: UUID) -> None:
         from sqlalchemy import update
         await self.db.execute(
@@ -107,3 +127,20 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
             .values(revoked_at=datetime.now(timezone.utc))
         )
         await self.db.commit()
+
+    async def revoke_by_hash(self, token_hash: str, user_id: UUID) -> bool:
+        """BE-06: отзыв refresh-токена ровно одной сессии. Ограничено user_id,
+        чтобы чужую сессию нельзя было закрыть даже при угаданном хеше.
+        Возвращает, был ли найден и отозван активный токен."""
+        from sqlalchemy import update
+        result = await self.db.execute(
+            update(RefreshToken)
+            .where(
+                RefreshToken.token_hash == token_hash,
+                RefreshToken.user_id == user_id,
+                RefreshToken.revoked_at == None,
+            )
+            .values(revoked_at=datetime.now(timezone.utc))
+        )
+        await self.db.commit()
+        return result.rowcount > 0

@@ -477,6 +477,88 @@ describe("fetch transport", () => {
     expect(getFetchHeader(fetchMock, 1, "Authorization")).toBe("Bearer new-default-access");
   });
 
+  it("holds requests created during refresh until the rotated access token is available", async () => {
+    setDefaultTokens("old-default-access", "default-refresh");
+    const pendingRefresh = deferred();
+    const refresh = mockRefreshByToken({ "default-refresh": pendingRefresh.promise });
+    const fetchMock = vi.fn((url, options) => {
+      const auth = options.headers.get("Authorization");
+      if (auth === "Bearer old-default-access") {
+        return Promise.resolve(jsonResponse({ detail: "expired" }, { status: 401 }));
+      }
+      return Promise.resolve(jsonResponse({ url, auth }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const firstRequest = api.get("/first-protected");
+    await vi.waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    const secondRequest = api.get("/second-protected");
+
+    pendingRefresh.resolve({
+      data: { access_token: "new-default-access", refresh_token: "new-default-refresh" },
+    });
+    await Promise.all([firstRequest, secondRequest]);
+
+    const authHeaders = fetchMock.mock.calls.map(([, options]) => options.headers.get("Authorization"));
+    expect(authHeaders.filter((header) => header === "Bearer old-default-access")).toHaveLength(1);
+    expect(authHeaders.filter((header) => header === "Bearer new-default-access")).toHaveLength(2);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a late 401 from the previous token generation without rotating refresh twice", async () => {
+    setDefaultTokens("old-default-access", "default-refresh");
+    const slowUnauthorized = deferred();
+    const refresh = mockRefreshByToken({
+      "default-refresh": { access_token: "new-default-access", refresh_token: "new-default-refresh" },
+    });
+    const fetchMock = vi.fn((url, options) => {
+      const auth = options.headers.get("Authorization");
+      if (auth === "Bearer old-default-access" && String(url).includes("slow-protected")) {
+        return slowUnauthorized.promise;
+      }
+      if (auth === "Bearer old-default-access") {
+        return Promise.resolve(jsonResponse({ detail: "expired" }, { status: 401 }));
+      }
+      return Promise.resolve(jsonResponse({ url, auth }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const slowRequest = api.get("/slow-protected");
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const fastRequest = api.get("/fast-protected");
+    await fastRequest;
+    await vi.waitFor(() => expect(getAuthRefreshPromiseForTest(AUTH_SCOPES.DEFAULT)).toBeNull());
+
+    slowUnauthorized.resolve(jsonResponse({ detail: "expired" }, { status: 401 }));
+    await expect(slowRequest).resolves.toMatchObject({
+      data: { auth: "Bearer new-default-access" },
+    });
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    const slowHeaders = fetchMock.mock.calls
+      .filter(([url]) => String(url).includes("slow-protected"))
+      .map(([, options]) => options.headers.get("Authorization"));
+    expect(slowHeaders).toEqual(["Bearer old-default-access", "Bearer new-default-access"]);
+  });
+
+  it("ends the session once when refresh fails and never retries the protected request", async () => {
+    setDefaultTokens("old-default-access", "default-refresh");
+    const refresh = vi.spyOn(axios, "post").mockRejectedValue({ response: { status: 401 } });
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ detail: "expired" }, { status: 401 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(api.get("/protected")).rejects.toMatchObject({
+      response: { status: 401 },
+    });
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBeNull();
+  });
+
   it("admin 401 uses admin refresh and retries with the new admin token", async () => {
     setDefaultTokens("old-default-access", "default-refresh");
     setAdminTokens("old-admin-access", "admin-refresh");

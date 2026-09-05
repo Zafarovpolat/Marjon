@@ -1,8 +1,6 @@
 import { adminApi } from "./api";
 
 const SECTION_PATHS = Object.freeze({
-  organizations: "/organizations",
-  organizationStatuses: "/organization-statuses",
   products: "/products",
   categories: "/categories",
   orders: "/orders",
@@ -23,12 +21,6 @@ function sectionPath(sectionKey) {
 export const hqService = {
   listSection(sectionKey, params = { size: 100 }, config = {}) {
     return adminApi.get(sectionPath(sectionKey), { params, ...config });
-  },
-  listOrganizations(params = { size: 100 }, config = {}) {
-    return adminApi.get("/organizations", { params, ...config });
-  },
-  listOrganizationStatuses(params = { size: 100 }) {
-    return adminApi.get("/organization-statuses", { params });
   },
   listProducts(params = { size: 100 }, config = {}) {
     return adminApi.get("/products", { params, ...config });
@@ -56,8 +48,5 @@ export const hqService = {
   },
   listImageBackgrounds(params = { size: 100 }) {
     return adminApi.get("/image-backgrounds", { params });
-  },
-  getDashboardKpis(config) {
-    return config ? adminApi.get("/admin-reports/dashboard-kpis", config) : adminApi.get("/admin-reports/dashboard-kpis");
   },
 };

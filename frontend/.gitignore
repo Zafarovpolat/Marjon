@@ -8,3 +8,13 @@ dist/
 # python bytecode
 __pycache__/
 *.pyc
+
+# Playwright real-browser oracle artifacts (browsers install to the user cache,
+# never into the repo; only generated run output is ignored here)
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+# Visual-evidence screenshots produced by the browser oracle — regenerated on
+# every run, reviewed locally, never committed.
+tools/browser/__screens__/

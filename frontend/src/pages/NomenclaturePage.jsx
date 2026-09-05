@@ -1,82 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
-import { catalogService } from "../api/catalog";
+// Оркестратор раздела «Номенклатура» OWNER (FE-07B).
+// Точка входа: маршрутизация по типу (dishes/raw/semi) и сборка каталога блюд
+// из выделенных секций nomenclature/*. Кросс-секционное состояние живёт в
+// useDishesCatalog, презентационные части — в отдельных компонентах.
+// Raw/Semi и Inventory Core остаются отложенными; ProductCategory не
+// переинтерпретируется как категория сырья.
 import Icon from "../components/Icon";
-import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
+import { nomenclatureConfigs } from "./nomenclature/nomenclatureConfig";
+import { useDishesCatalog } from "./nomenclature/useDishesCatalog";
+import DishesStatGrid from "./nomenclature/DishesStatGrid";
+import DishesToolbar from "./nomenclature/DishesToolbar";
+import DishesTable from "./nomenclature/DishesTable";
+import DishesDialogs from "./nomenclature/DishesDialogs";
 
-const ACTIVE = "Активно";
-const ARCHIVED = "Архив";
-
-const dishColumnOptions = [
-  { key: "photo", label: "Фото", width: 74 },
-  { key: "name", label: "Название", width: 184 },
-  { key: "type", label: "Тип", width: 118 },
-  { key: "unit", label: "Ед. изм", width: 82 },
-  { key: "cost", label: "Себестоимость", width: 132 },
-  { key: "price", label: "Цена", width: 112 },
-  { key: "menu", label: "Меню", width: 146 },
-  { key: "subcategory", label: "Подкатегория", width: 152 },
-  { key: "printer", label: "Принтер", width: 162 },
-  { key: "recipe", label: "Рецепты", width: 134 },
-  { key: "stock", label: "Остаток", width: 116 },
-  { key: "auto", label: "Авто", width: 70 },
-  { key: "set", label: "Сет", width: 70 },
-  { key: "sort", label: "Сорт", width: 78 },
-  { key: "actions", label: "Действия", width: 104 },
-];
-
-const defaultDishColumnVisibility = Object.fromEntries(dishColumnOptions.map((column) => [column.key, true]));
-
-const photoLibrary = {
-  cola: [
-    "https://images.unsplash.com/photo-1629203851122-3726ecdf080e?auto=format&fit=crop&w=260&q=80",
-    "https://images.unsplash.com/photo-1581636625402-29b2a704ef13?auto=format&fit=crop&w=260&q=80",
-    "https://images.unsplash.com/photo-1554866585-cd94860890b7?auto=format&fit=crop&w=260&q=80",
-    "https://images.unsplash.com/photo-1613478223719-2ab802602423?auto=format&fit=crop&w=260&q=80",
-  ],
-  plov: [
-    "https://images.unsplash.com/photo-1603133872878-684f208fb84b?auto=format&fit=crop&w=260&q=80",
-    "https://images.unsplash.com/photo-1633945274405-b6c8069047b0?auto=format&fit=crop&w=260&q=80",
-    "https://images.unsplash.com/photo-1617692855027-33b14f061079?auto=format&fit=crop&w=260&q=80",
-    "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=260&q=80",
-  ],
-  mastava: [
-    "https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=260&q=80",
-    "https://images.unsplash.com/photo-1604152135912-04a022e23696?auto=format&fit=crop&w=260&q=80",
-    "https://images.unsplash.com/photo-1594756202469-9ff9799b2e4e?auto=format&fit=crop&w=260&q=80",
-    "https://images.unsplash.com/photo-1603105037880-880cd4edfb0d?auto=format&fit=crop&w=260&q=80",
-  ],
-  lagman: [
-    "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=260&q=80",
-    "https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?auto=format&fit=crop&w=260&q=80",
-    "https://images.unsplash.com/photo-1626804475297-41608ea09aeb?auto=format&fit=crop&w=260&q=80",
-    "https://images.unsplash.com/photo-1516684669134-de6f7c473a2a?auto=format&fit=crop&w=260&q=80",
-  ],
-  drinks: [
-    "https://images.unsplash.com/photo-1551538827-9c037cb4f32a?auto=format&fit=crop&w=260&q=80",
-    "https://images.unsplash.com/photo-1570598912132-0ba1dc952b7d?auto=format&fit=crop&w=260&q=80",
-    "https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&w=260&q=80",
-    "https://images.unsplash.com/photo-1621263764928-df1444c5e859?auto=format&fit=crop&w=260&q=80",
-  ],
-  dishes: [
-    "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=260&q=80",
-    "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=260&q=80",
-    "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=260&q=80",
-    "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=260&q=80",
-  ],
-};
-
-const nomenclatureConfigs = {
-  raw: {
-    title: "Сырьё",
-    action: "Добавить +",
-    columns: ["Название", "Категория", "Подкатегория", "Ед. изм", "Остаток", "Мин. остаток", "Цена закупки", "Поставщик", "Статус", "Действия"],
-  },
-  semi: {
-    title: "Полуфабрикаты",
-    action: "Добавить +",
-    columns: ["Название", "Категория", "Подкатегория", "Ед. изм", "Себестоимость", "Состав", "Статус", "Действия"],
-  },
-};
+// Ре-экспорт чистых контрактных функций для совместимости с тестами и импортами.
+export { buildNomenclatureProductPayload, mapNomenclatureProduct } from "./nomenclature/nomenclatureData";
 
 function NomenclaturePage({ type = "dishes" }) {
   if (type === "dishes") return <DishesCatalogPage />;
@@ -96,351 +33,11 @@ function NomenclaturePage({ type = "dishes" }) {
   );
 }
 
-function matchesDishStatFilter(row, filterKey) {
-  switch (filterKey) {
-    case "blue:0":
-      return row.auto === null;
-    case "blue:1":
-      return row.auto !== null;
-    case "green:0":
-      return !String(row.recipe || "").includes("(0");
-    case "green:1":
-      return String(row.recipe || "").includes("(0");
-    case "cyan:0":
-      return false;
-    case "cyan:1":
-      return true;
-    case "orange:0":
-      return row.cost !== "0 UZS";
-    case "orange:1":
-      return row.cost === "0 UZS";
-    case "violet:0":
-      return Boolean(row.printer);
-    case "violet:1":
-      return !row.printer;
-    default:
-      return true;
-  }
-}
-
-export function mapNomenclatureProduct(item) {
-  return {
-    id: item.id,
-    name: item.name || "",
-    sort: item.sort_order != null ? String(item.sort_order) : "—",
-    type: item.product_type === "sale" ? "Реализация" : "Блюда",
-    unit: item.unit || "—",
-    cost: item.cost_price != null ? `${Number(item.cost_price).toLocaleString("ru-RU")} UZS` : "—",
-    price: item.price != null ? String(item.price) : "—",
-    menu: item.category_name || "",
-    subcategory: item.subcategory_name || "",
-    printer: item.printer_name || "",
-    recipe: `Рецепт (${item.ingredients_count ?? 0} шт)`,
-    stock: item.stock != null ? String(item.stock) : "-",
-    auto: null,
-    set: null,
-    category: item.category_name || "",
-    chef: "",
-    photo: item.image_url || "",
-  };
-}
-
-function parseNomenclatureMoney(value, fallback = null) {
-  const input = String(value ?? "").trim().replace(/\s*UZS$/i, "").trim();
-  if (!input) return fallback;
-  if (!/^(?:\d+|\d{1,3}(?:[ \u00a0]\d{3})+)(?:[.,]\d{1,2})?$/.test(input)) return fallback;
-  const parsed = Number(input.replace(/[ \u00a0]/g, "").replace(",", "."));
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function parseNomenclatureSort(value) {
-  const input = String(value ?? "").trim();
-  return /^[1-9]\d*$/.test(input) ? Number(input) : Number.NaN;
-}
-
-export function buildNomenclatureProductPayload(form, { isUpdate = false } = {}) {
-  const payload = {
-    name: String(form.name || "").trim(),
-    sort_order: parseNomenclatureSort(form.sort),
-    product_type: form.type === "Реализация" ? "sale" : "dish",
-    price: parseNomenclatureMoney(form.price, 0),
-  };
-  const costPrice = parseNomenclatureMoney(form.cost);
-  if (costPrice !== null) payload.cost_price = costPrice;
-  if (!isUpdate) payload.unit = form.unit || "шт";
-  return payload;
-}
-
-function demoDishRows() {
-  return [
-    {
-      id: "demo-dish-plov",
-      name: "Плов",
-      sort: "1",
-      type: "Блюда",
-      unit: "порция",
-      cost: "18 000 UZS",
-      price: "45000",
-      menu: "Горячие блюда",
-      subcategory: "Основные блюда",
-      printer: "Кухня",
-      recipe: "Рецепт (8 шт)",
-      stock: "42",
-      auto: true,
-      set: false,
-      category: "Горячие блюда",
-      chef: "Повар 1",
-      photo: "",
-    },
-    {
-      id: "demo-dish-shashlik",
-      name: "Шашлык",
-      sort: "2",
-      type: "Блюда",
-      unit: "порция",
-      cost: "32 000 UZS",
-      price: "60000",
-      menu: "Гриль",
-      subcategory: "Мясные блюда",
-      printer: "Мангал",
-      recipe: "Рецепт (6 шт)",
-      stock: "36",
-      auto: true,
-      set: false,
-      category: "Гриль",
-      chef: "Повар 2",
-      photo: "",
-    },
-    {
-      id: "demo-dish-lagman",
-      name: "Лагман",
-      sort: "3",
-      type: "Блюда",
-      unit: "порция",
-      cost: "16 000 UZS",
-      price: "35000",
-      menu: "Горячие блюда",
-      subcategory: "Супы",
-      printer: "Кухня",
-      recipe: "Рецепт (7 шт)",
-      stock: "31",
-      auto: true,
-      set: false,
-      category: "Горячие блюда",
-      chef: "Повар 1",
-      photo: "",
-    },
-    {
-      id: "demo-dish-salad",
-      name: "Салат микс",
-      sort: "4",
-      type: "Блюда",
-      unit: "порция",
-      cost: "11 000 UZS",
-      price: "30000",
-      menu: "Салаты",
-      subcategory: "Свежие салаты",
-      printer: "Холодный цех",
-      recipe: "Рецепт (5 шт)",
-      stock: "24",
-      auto: true,
-      set: false,
-      category: "Салаты",
-      chef: "Повар 2",
-      photo: "",
-    },
-    {
-      id: "demo-sale-ayran",
-      name: "Айран",
-      sort: "5",
-      type: "Реализация",
-      unit: "шт",
-      cost: "5 000 UZS",
-      price: "10000",
-      menu: "Напитки",
-      subcategory: "Кисломолочные",
-      printer: "Бар",
-      recipe: "Рецепт (2 шт)",
-      stock: "54",
-      auto: false,
-      set: false,
-      category: "Напитки",
-      chef: "Бар",
-      photo: "",
-    },
-  ];
-}
-
 function DishesCatalogPage() {
-  const [rows, setRows] = useState([]);
-  const [apiLoading, setApiLoading] = useState(true);
-  const [apiError, setApiError] = useState("");
-  const [actionError, setActionError] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState(null);
-  const [draftFilters, setDraftFilters] = useState({ search: "", chef: "", category: "" });
-  const [filters, setFilters] = useState(draftFilters);
-  const [statFilter, setStatFilter] = useState(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [photoPicker, setPhotoPicker] = useState(null);
-  const [photoSearch, setPhotoSearch] = useState("");
-  const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: "", sort: "1", type: "Блюда", unit: "шт", cost: "0 UZS", price: "", menu: "", subcategory: "", printer: "", recipe: "Рецепт (0 шт)", stock: "-", auto: false, set: false, category: "", chef: "" });
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [visibleColumns, setVisibleColumns] = useState(defaultDishColumnVisibility);
-  const beginRequest = useLatestRequest();
-  const { acquire, release } = useMutationLocks();
+  const catalog = useDishesCatalog();
 
-  const visibleColumnKeys = useMemo(
-    () => dishColumnOptions.filter((column) => visibleColumns[column.key] !== false).map((column) => column.key),
-    [visibleColumns],
-  );
-  const tableMinWidth = useMemo(() => {
-    const width = dishColumnOptions.reduce((sum, column) => (
-      visibleColumns[column.key] !== false ? sum + column.width : sum
-    ), 0);
-    return Math.max(760, width);
-  }, [visibleColumns]);
-  const visibleColumnCount = visibleColumnKeys.length;
-  const isColumnVisible = (key) => visibleColumns[key] !== false;
-  const toggleColumn = (key) => {
-    setVisibleColumns((current) => {
-      const checked = current[key] !== false;
-      if (checked && visibleColumnCount <= 1) return current;
-      return { ...current, [key]: !checked };
-    });
-  };
-
-  useEffect(() => {
-    const request = beginRequest();
-    setApiLoading(true);
-    setApiError("");
-    catalogService.listProducts({ signal: request.signal })
-      .then(({ data }) => {
-        if (!request.isCurrent()) return;
-        const items = Array.isArray(data) ? data : data?.items || [];
-        const mapped = items.map(mapNomenclatureProduct);
-        setRows(mapped);
-      })
-      .catch((err) => {
-        if (!request.isCurrent() || isAbortError(err)) return;
-        setRows([]);
-        setApiError(err.response?.data?.detail || "Не удалось загрузить каталог блюд.");
-      })
-      .finally(() => {
-        if (request.isCurrent()) setApiLoading(false);
-      });
-  }, [beginRequest]);
-
-  const computedStats = useMemo(() => {
-    const total = rows.length;
-    const dishes = rows.filter((r) => r.type === "Блюда").length;
-    const realization = total - dishes;
-    const withRecipe = rows.filter((r) => r.recipe && !r.recipe.includes("(0")).length;
-    const withCost = rows.filter((r) => r.cost && r.cost !== "0 UZS" && r.cost !== "—").length;
-    const withPrinter = rows.filter((r) => r.printer).length;
-    return [
-      { label: "Кол-во товаров", value: String(total), rows: [["Реализация", String(realization)], ["Блюда", String(dishes)]], icon: "bi-basket", tone: "blue" },
-      { label: "Рецепт", value: String(total), rows: [["С рецептом", String(withRecipe)], ["Без рецепта", String(total - withRecipe)]], icon: "bi-journal-bookmark", tone: "green" },
-      { label: "ИКПУ", value: "—", rows: [["Статус", "Данные недоступны"]], icon: "bi-card-heading", tone: "cyan" },
-      { label: "Себестоимость", value: String(total), rows: [["Заполнен", String(withCost)], ["Не заполнен", String(total - withCost)]], icon: "bi-cash-coin", tone: "orange" },
-      { label: "Принтер", value: String(total), rows: [["Подключен", String(withPrinter)], ["Не подключен", String(total - withPrinter)]], icon: "bi-printer", tone: "violet" },
-    ];
-  }, [rows]);
-
-  const filteredRows = useMemo(() => {
-    return rows.filter((row) => {
-      const searchMatch = !filters.search || row.name.toLowerCase().includes(filters.search.toLowerCase());
-      const chefMatch = !filters.chef || row.chef === filters.chef;
-      const categoryMatch = !filters.category || row.category === filters.category;
-      const statMatch = !statFilter || matchesDishStatFilter(row, statFilter);
-      return searchMatch && chefMatch && categoryMatch && statMatch;
-    });
-  }, [rows, filters, statFilter]);
-
-  const updateRow = (id, key, value) => {
-    void id;
-    void key;
-    void value;
-    setActionError("Быстрое изменение недоступно: backend mutation contract не подключён.");
-  };
-
-  const openDrawer = (row = null) => {
-    if (saving) return;
-    setEditing(row);
-    setForm(row || { name: "", sort: "1", type: "Блюда", unit: "шт", cost: "0 UZS", price: "", menu: "", subcategory: "", printer: "", recipe: "Рецепт (0 шт)", stock: "-", auto: false, set: false, category: "", chef: "" });
-    setDrawerOpen(true);
-  };
-
-  const saveDish = async () => {
-    if (!acquire("product-save")) return;
-    const isUpdate = Boolean(editing);
-    setActionError("");
-    const name = String(form.name || "").trim();
-    const sortOrder = parseNomenclatureSort(form.sort);
-    const price = parseNomenclatureMoney(form.price);
-    const costInput = String(form.cost ?? "").trim();
-    const costPrice = parseNomenclatureMoney(form.cost);
-    if (!name || !Number.isInteger(sortOrder) || sortOrder < 1 || price === null || price < 0 || (costInput && costPrice === null) || (costPrice !== null && costPrice < 0)) {
-      setActionError("Заполните название и укажите корректные неотрицательные цену, себестоимость и порядок сортировки.");
-      release("product-save");
-      return;
-    }
-    const payload = buildNomenclatureProductPayload(form, { isUpdate });
-    setSaving(true);
-    try {
-      const { data } = isUpdate
-        ? await catalogService.updateProduct(editing.id, payload)
-        : await catalogService.createProduct(payload);
-      if (!data?.id) throw new Error("Backend не вернул сохранённый продукт.");
-      const serverRow = mapNomenclatureProduct(data);
-      setRows((current) => (
-        isUpdate
-          ? current.map((row) => (row.id === editing.id ? serverRow : row))
-          : [serverRow, ...current]
-      ));
-    } catch (err) {
-      const message = err.response?.data?.detail || err.message || "Ошибка сохранения";
-      setActionError(message);
-      window.alert(message);
-      return;
-    } finally {
-      setSaving(false);
-      release("product-save");
-    }
-    setDrawerOpen(false);
-  };
-
-  const archiveDish = async (id) => {
-    const lockKey = `product-delete:${id}`;
-    if (!acquire(lockKey)) return;
-    setPendingDeleteId(id);
-    try {
-      await catalogService.deleteProduct(id);
-    } catch (err) {
-      window.alert(err.response?.data?.detail || "Ошибка удаления");
-      return;
-    } finally {
-      setPendingDeleteId(null);
-      release(lockKey);
-    }
-    setRows((prev) => prev.filter((row) => row.id !== id));
-  };
-
-  const openPhotoPicker = (row) => {
-    setPhotoPicker(row);
-    setPhotoSearch(row.name);
-  };
-
-  const selectPhoto = (photo) => {
-    if (!photoPicker) return;
-    updateRow(photoPicker.id, "photo", photo);
-    setPhotoPicker(null);
-    setPhotoSearch("");
-  };
-
-  if (apiError && !apiLoading) {
-    return <section className="nomenclature-page dish-catalog-page"><div className="login-error" role="alert">{apiError}</div></section>;
+  if (catalog.apiError && !catalog.apiLoading) {
+    return <section className="nomenclature-page dish-catalog-page"><div className="login-error" role="alert">{catalog.apiError}</div></section>;
   }
 
   return (
@@ -458,317 +55,61 @@ function DishesCatalogPage() {
             <button type="button" className="btn-soft">
               <Icon name="bi-box-arrow-in-down" /> Импорт Excel
             </button>
-            <button type="button" className="btn-primary" onClick={() => openDrawer()}>
+            <button type="button" className="btn-primary" onClick={() => catalog.openDrawer()}>
               <Icon name="bi-plus" /> Добавить
             </button>
           </div>
         </div>
 
-        {actionError ? <div className="login-error" role="alert">{actionError}</div> : null}
+        {catalog.actionError ? <div className="login-error" role="alert">{catalog.actionError}</div> : null}
 
-        <div className="dish-stat-grid">
-          {computedStats.map((stat) => (
-            <article className={`dish-stat-card dish-stat-${stat.tone}`} key={stat.label}>
-              <div className="dish-stat-top">
-                <span>{stat.label}</span>
-                <Icon name={stat.icon} size={20} />
-              </div>
-              <strong>{stat.value}</strong>
-              <div className="dish-stat-lines">
-                {stat.rows.map(([label, value], lineIndex) => {
-                  const filterKey = `${stat.tone}:${lineIndex}`;
-                  const active = statFilter === filterKey;
-                  return (
-                  <button
-                    type="button"
-                    className={active ? "is-active" : ""}
-                    key={label}
-                    onClick={() => setStatFilter((current) => (current === filterKey ? null : filterKey))}
-                    aria-pressed={active}
-                  >
-                    <em>{label}</em>
-                    <b>{value}</b>
-                  </button>
-                )})}
-              </div>
-            </article>
-          ))}
-        </div>
+        <DishesStatGrid
+          computedStats={catalog.computedStats}
+          statFilter={catalog.statFilter}
+          setStatFilter={catalog.setStatFilter}
+        />
 
-        <div className="dish-toolbar">
-          <label className="dish-search">
-            <Icon name="bi-search" />
-            <input
-              value={draftFilters.search}
-              onChange={(event) => setDraftFilters((prev) => ({ ...prev, search: event.target.value }))}
-              placeholder="Поиск"
-            />
-          </label>
-          <select value={draftFilters.chef} onChange={(event) => setDraftFilters((prev) => ({ ...prev, chef: event.target.value }))}>
-            <option value="">Выберите повара</option>
-            <option value="Повар 1">Повар 1</option>
-            <option value="Повар 2">Повар 2</option>
-            <option value="Бар">Бар</option>
-          </select>
-          <select value={draftFilters.category} onChange={(event) => setDraftFilters((prev) => ({ ...prev, category: event.target.value }))}>
-            <option value="">Категория</option>
-            <option value="Горячие блюда">Горячие блюда</option>
-            <option value="Напитки">Напитки</option>
-            <option value="Салаты">Салаты</option>
-            <option value="Игры">Игры</option>
-          </select>
-          <button type="button" className="btn-outline-primary" onClick={() => setFilters(draftFilters)}>
-            <Icon name="bi-funnel" /> Фильтровать
-          </button>
-          <div className="dish-table-settings">
-            <button
-              type="button"
-              className="dish-table-settings-btn"
-              onClick={() => setSettingsOpen((open) => !open)}
-              aria-expanded={settingsOpen}
-            >
-              <Icon name="bi-sliders" /> Настроить таблицу
-            </button>
-            {settingsOpen ? (
-              <div className="dish-table-settings-popover">
-                <div className="dish-table-settings-head">
-                  <strong>Столбцы</strong>
-                  <button type="button" onClick={() => setSettingsOpen(false)} aria-label="Закрыть">
-                    <Icon name="bi-x-lg" size={14} />
-                  </button>
-                </div>
-                <div className="dish-column-toggle-list">
-                  {dishColumnOptions.map((column) => {
-                    const checked = isColumnVisible(column.key);
-                    const disabled = checked && visibleColumnCount <= 1;
-                    return (
-                      <label className="dish-column-toggle" key={column.key}>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={disabled}
-                          onChange={() => toggleColumn(column.key)}
-                        />
-                        <span className="dish-column-toggle-box">
-                          {checked ? <Icon name="bi-check2" size={13} /> : null}
-                        </span>
-                        <span>{column.label}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-                <button
-                  type="button"
-                  className="dish-column-reset"
-                  onClick={() => setVisibleColumns(defaultDishColumnVisibility)}
-                >
-                  Показать все
-                </button>
-              </div>
-            ) : null}
-          </div>
-        </div>
+        <DishesToolbar
+          draftFilters={catalog.draftFilters}
+          setDraftFilters={catalog.setDraftFilters}
+          setFilters={catalog.setFilters}
+          settingsOpen={catalog.settingsOpen}
+          setSettingsOpen={catalog.setSettingsOpen}
+          isColumnVisible={catalog.isColumnVisible}
+          visibleColumnCount={catalog.visibleColumnCount}
+          toggleColumn={catalog.toggleColumn}
+          setVisibleColumns={catalog.setVisibleColumns}
+        />
 
-        <div className="dish-grid-wrap">
-          <table className="dish-grid-table" style={{ "--dish-grid-min-width": `${tableMinWidth}px` }}>
-            <thead>
-              <tr>
-                {isColumnVisible("photo") ? <th className="dish-col-photo">Фото</th> : null}
-                {isColumnVisible("name") ? <th className="dish-col-name">Название</th> : null}
-                {isColumnVisible("type") ? <th className="dish-col-type">Тип</th> : null}
-                {isColumnVisible("unit") ? <th className="dish-col-unit">Ед. изм</th> : null}
-                {isColumnVisible("cost") ? <th className="dish-col-cost">Себестоимость</th> : null}
-                {isColumnVisible("price") ? <th className="dish-col-price">Цена</th> : null}
-                {isColumnVisible("menu") ? <th className="dish-col-menu">Меню</th> : null}
-                {isColumnVisible("subcategory") ? <th className="dish-col-subcategory">Подкатегория</th> : null}
-                {isColumnVisible("printer") ? <th className="dish-col-printer">Принтер</th> : null}
-                {isColumnVisible("recipe") ? <th className="dish-col-recipe">Рецепты</th> : null}
-                {isColumnVisible("stock") ? <th className="dish-col-stock">Остаток</th> : null}
-                {isColumnVisible("auto") ? <th className="dish-col-auto">Авто</th> : null}
-                {isColumnVisible("set") ? <th className="dish-col-set">Сет</th> : null}
-                {isColumnVisible("sort") ? <th className="dish-col-sort">Сорт</th> : null}
-                {isColumnVisible("actions") ? <th className="dish-col-actions">Действия</th> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRows.map((row) => (
-                <tr key={row.id}>
-                  {isColumnVisible("photo") ? (
-                  <td className="dish-col-photo">
-                    <button type="button" className="dish-photo-button" onClick={() => openPhotoPicker(row)} aria-label={`Выбрать фото для ${row.name}`}>
-                      {row.photo ? (
-                        <img className="dish-photo" src={row.photo} alt={row.name} />
-                      ) : (
-                        <span className="dish-photo-placeholder"><Icon name="bi-image" /></span>
-                      )}
-                    </button>
-                  </td>
-                  ) : null}
-                  {isColumnVisible("name") ? <td className="dish-col-name"><button type="button" className="dish-name-link">{row.name}</button></td> : null}
-                  {isColumnVisible("type") ? <td className="dish-col-type"><span className={`dish-type-pill ${row.type === "Реализация" ? "realization" : ""}`}>{row.type}</span></td> : null}
-                  {isColumnVisible("unit") ? <td className="dish-col-unit">{row.unit}</td> : null}
-                  {isColumnVisible("cost") ? <td className="dish-col-cost">{row.cost}</td> : null}
-                  {isColumnVisible("price") ? (
-                  <td className="dish-col-price">
-                    <input className="dish-price-input" value={row.price} onChange={(event) => updateRow(row.id, "price", event.target.value)} />
-                  </td>
-                  ) : null}
-                  {isColumnVisible("menu") ? <td className="dish-col-menu"><span className="dish-menu-pill">{row.menu}</span></td> : null}
-                  {isColumnVisible("subcategory") ? <td className="dish-col-subcategory"><span className="dish-menu-pill">{row.subcategory || "-"}</span></td> : null}
-                  {isColumnVisible("printer") ? <td className="dish-col-printer dish-printer-cell">{row.printer || "-"}</td> : null}
-                  {isColumnVisible("recipe") ? <td className="dish-col-recipe"><button type="button" className="dish-recipe-link">{row.recipe}</button></td> : null}
-                  {isColumnVisible("stock") ? (
-                  <td className="dish-col-stock">
-                    <button type="button" className="dish-stock-box">
-                      {row.stock}
-                      {row.stock !== "-" && <Icon name="bi-arrow-repeat" size={13} />}
-                    </button>
-                  </td>
-                  ) : null}
-                  {isColumnVisible("auto") ? <td className="dish-col-auto">{renderToggle(row.auto, () => updateRow(row.id, "auto", !row.auto))}</td> : null}
-                  {isColumnVisible("set") ? <td className="dish-col-set">{renderToggle(row.set, () => updateRow(row.id, "set", !row.set))}</td> : null}
-                  {isColumnVisible("sort") ? <td className="dish-col-sort dish-sort-cell">{row.sort}</td> : null}
-                  {isColumnVisible("actions") ? (
-                  <td className="dish-col-actions">
-                    <div className="dish-row-actions">
-                      <button type="button" disabled={saving || pendingDeleteId === row.id} onClick={() => openDrawer(row)} aria-label="Редактировать">
-                        <Icon name="bi-pencil" size={15} />
-                      </button>
-                      <button type="button" className="danger" disabled={pendingDeleteId === row.id} onClick={() => archiveDish(row.id)} aria-label="Удалить">
-                        <Icon name="bi-trash3" size={15} />
-                      </button>
-                    </div>
-                  </td>
-                  ) : null}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DishesTable
+          filteredRows={catalog.filteredRows}
+          isColumnVisible={catalog.isColumnVisible}
+          tableMinWidth={catalog.tableMinWidth}
+          updateRow={catalog.updateRow}
+          openDrawer={catalog.openDrawer}
+          archiveDish={catalog.archiveDish}
+          openPhotoPicker={catalog.openPhotoPicker}
+          saving={catalog.saving}
+          pendingDeleteId={catalog.pendingDeleteId}
+        />
       </div>
 
-      {drawerOpen && (
-        <div className="nomenclature-drawer dish-drawer">
-          <div className="nomenclature-drawer-card">
-            <div className="nomenclature-drawer-header">
-              <h2>{editing ? "Редактировать блюдо" : "Добавить блюдо"}</h2>
-              <button type="button" disabled={saving} onClick={() => setDrawerOpen(false)}><Icon name="bi-x-lg" /></button>
-            </div>
-            <div className="nomenclature-form">
-              {["name", "sort", "price", "cost", "menu", "subcategory", "printer", "category", "chef"].map((field) => {
-                const unsupported = ["menu", "subcategory", "printer", "category", "chef"].includes(field);
-                return (
-                <label key={field}>
-                  <span>{fieldLabels[field]}</span>
-                  <input
-                    value={form[field] || ""}
-                    disabled={unsupported}
-                    title={unsupported ? "Поле доступно только для чтения: write contract не подключён." : undefined}
-                    onChange={(event) => setForm((prev) => ({ ...prev, [field]: event.target.value }))}
-                  />
-                </label>
-                );
-              })}
-              <label>
-                <span>Тип</span>
-                <select value={form.type} onChange={(event) => setForm((prev) => ({ ...prev, type: event.target.value }))}>
-                  <option>Блюда</option>
-                  <option>Реализация</option>
-                </select>
-              </label>
-              <label>
-                <span>Ед. изм</span>
-                <select
-                  value={form.unit}
-                  disabled={Boolean(editing)}
-                  title={editing ? "Изменение единицы измерения не поддерживается backend update contract." : undefined}
-                  onChange={(event) => setForm((prev) => ({ ...prev, unit: event.target.value }))}
-                >
-                  <option>шт</option>
-                  <option>порция</option>
-                  <option>кг</option>
-                  <option>л</option>
-                </select>
-              </label>
-            </div>
-            <div className="nomenclature-drawer-footer">
-              <button type="button" className="btn-soft" disabled={saving} onClick={() => setDrawerOpen(false)}>Отмена</button>
-              <button type="button" className="btn-primary" disabled={saving} onClick={saveDish}>{saving ? "Сохранение…" : "Сохранить"}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {photoPicker && (
-        <div className="dish-photo-modal" role="dialog" aria-modal="true">
-          <div className="dish-photo-modal__backdrop" onClick={() => setPhotoPicker(null)} />
-          <div className="dish-photo-modal__card">
-            <div className="dish-photo-modal__header">
-              <div>
-                <span>База фото</span>
-                <h2>{photoPicker.name}</h2>
-              </div>
-              <button type="button" onClick={() => setPhotoPicker(null)} aria-label="Закрыть">
-                <Icon name="bi-x-lg" />
-              </button>
-            </div>
-            <label className="dish-photo-search">
-              <Icon name="bi-search" />
-              <input
-                value={photoSearch}
-                onChange={(event) => setPhotoSearch(event.target.value)}
-                placeholder="Напишите: плов, ош, cola, мастава..."
-                autoFocus
-              />
-            </label>
-            <div className="dish-photo-modal__grid">
-              {getPhotoOptions(photoPicker, photoSearch).map((photo) => (
-                <button type="button" key={photo} className="dish-photo-option" onClick={() => selectPhoto(photo)}>
-                  <img src={photo} alt={photoPicker.name} />
-                  {photoPicker.photo === photo && <span><Icon name="bi-check2" /> Выбрано</span>}
-                </button>
-              ))}
-            </div>
-            <div className="dish-photo-modal__footer">
-              <button type="button" className="btn-soft" onClick={() => setPhotoPicker(null)}>Отмена</button>
-              <button type="button" className="btn-outline-danger" onClick={() => selectPhoto("")}>Убрать фото</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DishesDialogs
+        drawerOpen={catalog.drawerOpen}
+        editing={catalog.editing}
+        saving={catalog.saving}
+        setDrawerOpen={catalog.setDrawerOpen}
+        form={catalog.form}
+        setForm={catalog.setForm}
+        saveDish={catalog.saveDish}
+        photoPicker={catalog.photoPicker}
+        setPhotoPicker={catalog.setPhotoPicker}
+        photoSearch={catalog.photoSearch}
+        setPhotoSearch={catalog.setPhotoSearch}
+        selectPhoto={catalog.selectPhoto}
+      />
     </section>
   );
 }
-
-function getPhotoOptions(row, query = "") {
-  const normalized = `${query} ${row.name}`.toLowerCase();
-  if (normalized.includes("cola") || normalized.includes("кока") || normalized.includes("oc")) return photoLibrary.cola;
-  if (normalized.includes("плов") || normalized.includes("osh") || normalized.includes("ош")) return photoLibrary.plov;
-  if (normalized.includes("мастава") || normalized.includes("mastava")) return photoLibrary.mastava;
-  if (normalized.includes("лагман") || normalized.includes("lagman")) return photoLibrary.lagman;
-  if (row.category === "Напитки" || normalized.includes("suv") || normalized.includes("moxito") || normalized.includes("cocktail") || normalized.includes("сок")) return photoLibrary.drinks;
-  return photoLibrary.dishes;
-}
-
-function renderToggle(value, onClick) {
-  if (value === null) return <span className="dish-toggle-empty">-</span>;
-  return (
-    <button type="button" className={`dish-toggle ${value ? "is-on" : ""}`} onClick={onClick} aria-pressed={value}>
-      <span />
-    </button>
-  );
-}
-
-const fieldLabels = {
-  name: "Название",
-  sort: "Сорт",
-  price: "Цена",
-  cost: "Себестоимость",
-  menu: "Меню",
-  subcategory: "Подкатегория",
-  printer: "Принтер",
-  category: "Категория",
-  chef: "Повар",
-};
 
 export default NomenclaturePage;

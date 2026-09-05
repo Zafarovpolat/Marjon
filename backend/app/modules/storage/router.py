@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import require_hq_admin
 from app.modules.auth.models import User
 from app.modules.organizations.dependencies import get_org_scope
 from app.modules.storage import models, schemas
@@ -45,23 +45,6 @@ comings = APIRouter(prefix="/comings", tags=["storage"])
 COMING_FILTERS = ("status", "storage_id", "provider_id")
 
 
-async def _coming_response(db: AsyncSession, coming: models.Coming) -> schemas.ComingResponse:
-    payload = schemas.ComingResponse.model_validate(coming).model_dump()
-    provider = await db.get(models.Provider, coming.provider_id) if coming.provider_id else None
-    storage = await db.get(models.Storage, coming.storage_id) if coming.storage_id else None
-    items_count = sum(int(item.qty or 0) for item in coming.items) if coming.items else 0
-    payload.update({
-        "document_number": coming.number,
-        "provider_name": provider.name if provider else None,
-        "storage_name": storage.name if storage else None,
-        "items_count": items_count,
-        "total": coming.total_sum,
-        "date": coming.registration_date.isoformat() if coming.registration_date else None,
-        "status": "Проведен" if coming.status == "accepted" else "Черновик",
-    })
-    return schemas.ComingResponse.model_validate(payload)
-
-
 @comings.get("", response_model=Page[schemas.ComingResponse],
              description=f"Фильтры по полям: {', '.join(COMING_FILTERS)}")
 async def list_comings(
@@ -72,7 +55,7 @@ async def list_comings(
     sort: str | None = Query(None),
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_hq_admin),
     db: AsyncSession = Depends(get_db),
 ):
     params = PageParams(page=page, size=size)
@@ -81,32 +64,32 @@ async def list_comings(
         params, search=search, search_fields=("number",), sort=sort,
         raw_filters=raw_filters, date_from=date_from, date_to=date_to,
     )
-    return Page.create([await _coming_response(db, item) for item in items], total, params)
+    return Page.create([schemas.ComingResponse.model_validate(i) for i in items], total, params)
 
 
 @comings.post("", response_model=schemas.ComingResponse, status_code=status.HTTP_201_CREATED)
-async def create_coming(data: schemas.ComingCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def create_coming(data: schemas.ComingCreate, user: User = Depends(require_hq_admin), db: AsyncSession = Depends(get_db)):
     return await ComingService(db).create_coming(data)
 
 
 @comings.get("/{coming_id}", response_model=schemas.ComingResponse)
-async def get_coming(coming_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def get_coming(coming_id: UUID, user: User = Depends(require_hq_admin), db: AsyncSession = Depends(get_db)):
     return await ComingService(db).get(coming_id)
 
 
 @comings.patch("/{coming_id}", response_model=schemas.ComingResponse)
-async def update_coming(coming_id: UUID, data: schemas.ComingUpdate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def update_coming(coming_id: UUID, data: schemas.ComingUpdate, user: User = Depends(require_hq_admin), db: AsyncSession = Depends(get_db)):
     return await ComingService(db).update_coming(coming_id, data)
 
 
 @comings.delete("/{coming_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_coming(coming_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def delete_coming(coming_id: UUID, user: User = Depends(require_hq_admin), db: AsyncSession = Depends(get_db)):
     await ComingService(db).delete(coming_id)
 
 
 @comings.post("/{coming_id}/accept", response_model=schemas.ComingResponse,
               summary="Принять поступление (увеличивает остатки)")
-async def accept_coming(coming_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def accept_coming(coming_id: UUID, user: User = Depends(require_hq_admin), db: AsyncSession = Depends(get_db)):
     return await ComingService(db).accept(coming_id)
 
 
@@ -135,7 +118,7 @@ async def storage_balances(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     storage_id: UUID | None = Query(None),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_hq_admin),
     db: AsyncSession = Depends(get_db),
 ):
     return await StorageReportService(db).balances(date_from, date_to, storage_id)
@@ -147,7 +130,7 @@ async def storage_incomes(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     storage_id: UUID | None = Query(None),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_hq_admin),
     db: AsyncSession = Depends(get_db),
 ):
     return await StorageReportService(db).flow("income", date_from, date_to, storage_id)
@@ -159,7 +142,7 @@ async def storage_consumption(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     storage_id: UUID | None = Query(None),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_hq_admin),
     db: AsyncSession = Depends(get_db),
 ):
     return await StorageReportService(db).flow("expense", date_from, date_to, storage_id)

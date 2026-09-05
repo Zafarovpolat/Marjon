@@ -29,6 +29,15 @@ vi.mock("../../src/admin/api", () => ({
   adminLogin: vi.fn(() => Promise.resolve({ ok: true })),
   adminLogout: vi.fn(),
   isAdminAuthenticated: () => state.authed,
+  // FE-08A: AdminApp теперь валидирует сессию через getValidatedAdminProfile.
+  // Фикстура возвращает валидный HQ-профиль, иначе оболочка уходит в LoginView.
+  getValidatedAdminProfile: vi.fn(() => Promise.resolve({
+    id: "a1",
+    email: "admin@marjon.uz",
+    full_name: "Админ",
+    is_superadmin: true,
+    auth_scope: "hq_admin",
+  })),
 }));
 
 /** Разделы навигации: сначала родители (раскрыть), затем дети. */
@@ -108,5 +117,57 @@ describe("harvest admin dom", () => {
     // eslint-disable-next-line no-console
     console.log(`сохранено разделов: ${saved}`);
     expect(saved).toBeGreaterThan(10);
+  }, 120000);
+
+  // FE-08D-HQ: расширение визуального оракула HQ. Снимаем class-driven
+  // интерактивные состояния (свёрнутый сайдбар, раскрытое подменю, флайаут
+  // свёрнутой группы) — именно на них сосредоточены override-правила
+  // admin/styles.css. Состояния переключают реальные классы (is-sidebar-collapsed
+  // / is-open), которые движок каскада видит (в отличие от чистого :hover).
+  // Детерминизм: 1500мс осадка, как в OWNER-состояниях (FE-08A).
+  it("HQ интерактивные состояния", async () => {
+    state.authed = true;
+    localStorage.setItem("marjon_admin_token", "test-token");
+    localStorage.setItem("marjon_admin_user", JSON.stringify({ id: "a1", email: "admin@marjon.uz", full_name: "Админ" }));
+    const { default: AdminApp } = await import("../../src/admin/AdminApp.jsx");
+
+    const settle = async (ms = 1500) => { await act(async () => { await new Promise((r) => setTimeout(r, ms)); }); };
+
+    // 1) Раскрытое подменю (класс is-open на группе).
+    {
+      const { container } = render(<AdminApp />);
+      await settle(200);
+      const grp = screen.queryAllByText("Финансы")[0];
+      if (grp) await act(async () => { fireEvent.click(grp.closest("button") || grp); await new Promise((r) => setTimeout(r, 90)); });
+      await settle();
+      fs.writeFileSync(path.join(OUT, "state-admin-submenu-open.html"), container.innerHTML, "utf8");
+      expect(container.innerHTML).toMatch(/admin-shell/);
+    }
+
+    // 2) Свёрнутый сайдбар (класс is-sidebar-collapsed на оболочке).
+    {
+      const { container } = render(<AdminApp />);
+      await settle(200);
+      const collapse = container.querySelector('[aria-label="Свернуть меню"], [title="Свернуть меню"], .brand-mark--button');
+      if (collapse) await act(async () => { fireEvent.click(collapse); await new Promise((r) => setTimeout(r, 90)); });
+      await settle();
+      fs.writeFileSync(path.join(OUT, "state-admin-sidebar-collapsed.html"), container.innerHTML, "utf8");
+      expect(container.innerHTML).toMatch(/admin-shell/);
+    }
+
+    // 3) Открытое меню уведомлений (класс is-open на колокольчике / дропдауне).
+    //    Заменяет прежнее collapsed-flyout: флайаут open-state (has-popover)
+    //    hover-driven и ненадёжно воспроизводится в jsdom, а его базовая разметка
+    //    (.admin-nav-flyout) уже попадает в state-admin-sidebar-collapsed. Меню
+    //    уведомлений — реальный class-driven (is-open) оверлей, видимый движку.
+    {
+      const { container } = render(<AdminApp />);
+      await settle(200);
+      const bell = container.querySelector(".admin-notification, .admin-bell");
+      if (bell) await act(async () => { fireEvent.click(bell); await new Promise((r) => setTimeout(r, 90)); });
+      await settle();
+      fs.writeFileSync(path.join(OUT, "state-admin-notifications-open.html"), container.innerHTML, "utf8");
+      expect(container.innerHTML).toMatch(/admin-shell/);
+    }
   }, 120000);
 });

@@ -4,6 +4,10 @@ function rangeParams(dateFrom, dateTo, extra = {}) {
   return { date_from: dateFrom, date_to: dateTo, ...extra };
 }
 
+function compactParams(params) {
+  return Object.fromEntries(Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== "" && value !== "all"));
+}
+
 export const reportsService = {
   getZReport(date, config = {}) {
     return api.get("/analytics/z-report", { params: { date }, ...config });
@@ -11,8 +15,18 @@ export const reportsService = {
   listOrders(dateFrom, dateTo, config = {}) {
     return api.get("/reports/orders", { params: rangeParams(dateFrom, dateTo), ...config });
   },
-  listTables(dateFrom, dateTo, config = {}) {
-    return api.get("/reports/tables", { params: rangeParams(dateFrom, dateTo), ...config });
+  listTables(dateFrom, dateTo, { filters = {}, ...config } = {}) {
+    const filterParams = compactParams({
+      table_number: filters.tableNumber?.trim(),
+      waiter_id: filters.waiterId,
+      payment_method: filters.paymentMethod,
+      cashier_id: filters.cashierId,
+      hall_id: filters.hallId,
+    });
+    return api.get("/reports/tables", { params: rangeParams(dateFrom, dateTo, filterParams), ...config });
+  },
+  getTablesFilters(config = {}) {
+    return api.get("/reports/tables/filters", config);
   },
   listWaiters(dateFrom, dateTo, config = {}) {
     return api.get("/reports/waiters", { params: rangeParams(dateFrom, dateTo), ...config });

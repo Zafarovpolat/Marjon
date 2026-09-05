@@ -1,7 +1,7 @@
 from __future__ import annotations
 from decimal import Decimal
 from uuid import UUID
-from sqlalchemy import Boolean, ForeignKey, JSON, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, ForeignKeyConstraint, JSON, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import Uuid
 from app.shared.base_model import TimeStampedModel
@@ -9,6 +9,17 @@ from app.shared.base_model import TimeStampedModel
 
 class Payment(TimeStampedModel):
     __tablename__ = "payments"
+    __table_args__ = (
+        UniqueConstraint(
+            "id", "company_id", "order_id",
+            name="uq_payments_id_company_order",
+        ),
+        ForeignKeyConstraint(
+            ["order_id", "company_id"],
+            ["orders.id", "orders.company_id"],
+            name="fk_payments_order_company",
+        ),
+    )
 
     company_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("companies.id"), index=True)
     order_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("orders.id"), index=True)

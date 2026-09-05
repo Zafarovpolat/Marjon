@@ -3,9 +3,13 @@ ESC/POS receipt and kitchen ticket formatters.
 Returns bytes that can be sent directly to the printer.
 """
 from __future__ import annotations
+import io
+import logging
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -277,19 +281,86 @@ class EscPosFormatter:
     _CHARSETS = {
         "cp866": (b"\x11", "cp866"),    # ESC t 17 — PC866 (кириллица), по умолчанию
         "cp1251": (b"\x49", "cp1251"),  # ESC t 73 — WPC1251
+        # Псевдонимы имён из upstream (printer.settings["encoding"]).
+        "ibm866": (b"\x11", "cp866"),
+        "windows-1251": (b"\x49", "cp1251"),
+        # utf-8 — страницу не выбираем (пустая команда), печатаем как есть
+        "utf-8": (b"", "utf-8"),
+        "utf8": (b"", "utf-8"),
     }
 
-    def __init__(self, paper_width: int = 80, charset: str = "cp866"):
+    def __init__(self, paper_width: int = 80, charset: str = "cp866",
+                 encoding: str | None = None):
         # 80mm ≈ 48 chars; 58mm ≈ 32 chars
         self.cols = 48 if paper_width >= 80 else 32
-        page_byte, codec = self._CHARSETS.get((charset or "cp866").lower(), self._CHARSETS["cp866"])
+        # encoding= — имя kwarg из upstream (PrinterService._printer_encoding),
+        # charset= — наше. Принимаем оба, чтобы работали оба стиля вызова.
+        name = (encoding or charset or "cp866").strip().lower()
+        page_byte, codec = self._CHARSETS.get(name, self._CHARSETS["cp866"])
         self._codec = codec
         # ESC t n — выбор кодовой страницы; шлём после INIT (ESC @ её сбрасывает)
-        self._set_codepage = self.ESC + b"\x74" + page_byte
+        self._set_codepage = (self.ESC + b"\x74" + page_byte) if page_byte else b""
+        # codepage_cmd — имя этого же атрибута в upstream (PrinterService.test_print)
+        self.codepage_cmd = self._set_codepage
+
+    # Типографские символы вне CP866/CP1251 (напр. "—" как заглушка "нет данных"
+    # в service.py) без этого печатались как "?" — заменяем на ASCII-аналоги
+    # перед кодировкой, а не только заменяем неизвестное на "?" в errors=.
+    _CHAR_FALLBACKS = str.maketrans({
+        "—": "-", "–": "-",  # — –
+        "‘": "'", "’": "'",  # ' '
+        "“": '"', "”": '"',  # " "
+    })
 
     def _line(self, text: str = "") -> bytes:
-        # Кодируем в выбранную кодовую страницу принтера, НЕ в UTF-8
+        text = text.translate(self._CHAR_FALLBACKS)
         return text.encode(self._codec, errors="replace") + self.LF
+
+    def _multiline(self, text: str) -> bytes:
+        out = bytearray()
+        for line in str(text).split("\n"):
+            out += self._line(line)
+        return bytes(out)
+
+    def _logo_raster(self, logo_bytes: bytes) -> bytes | None:
+        """Конвертирует произвольное растровое изображение (jpg/png/webp) в
+        ESC/POS raster bit-image (GS v 0) — 1-бит монохром с дизерингом,
+        вписанный по ширине бумаги. Возвращает None, если Pillow не установлен
+        или файл повреждён — печать чека не должна падать из-за картинки."""
+        try:
+            from PIL import Image
+        except ImportError:
+            logger.warning("Pillow не установлен — логотип на чеке пропущен")
+            return None
+
+        max_width_px = self.cols * 12  # ~12 точек/символ при моноширинном шрифте 80/58мм
+        try:
+            img = Image.open(io.BytesIO(logo_bytes)).convert("L")
+            if img.width > max_width_px:
+                ratio = max_width_px / img.width
+                img = img.resize((max_width_px, max(1, round(img.height * ratio))))
+            img = img.convert("1")  # Floyd-Steinberg dithering по умолчанию
+        except Exception as exc:
+            logger.warning("Не удалось обработать лого для печати: %s", exc)
+            return None
+
+        width, height = img.size
+        if width <= 0 or height <= 0:
+            return None
+        width_bytes = (width + 7) // 8
+        pixels = img.load()
+        data = bytearray(width_bytes * height)
+        for y in range(height):
+            row_offset = y * width_bytes
+            for x in range(width):
+                if pixels[x, y] == 0:  # 0 = чёрный после convert("1")
+                    data[row_offset + x // 8] |= 0x80 >> (x % 8)
+
+        header = self.GS + b"v0\x00" + bytes([
+            width_bytes & 0xFF, (width_bytes >> 8) & 0xFF,
+            height & 0xFF, (height >> 8) & 0xFF,
+        ])
+        return header + bytes(data)
 
     def _divider(self, char: str = "-") -> bytes:
         return self._line(char * self.cols)
@@ -407,11 +478,14 @@ class EscPosFormatter:
             out += self._line(extra)
         return bytes(out)
 
-    def format_receipt(self, data: ReceiptData) -> bytes:
+    def format_receipt(self, data: ReceiptData, template: dict | None = None,
+                       logo_bytes: bytes | None = None) -> bytes:
         """Собирает чек ровно так, как его показывает конструктор во фронте:
         порядок групп — из template.blocks, видимость — из enabled, размеры и
         выравнивание — из blockStyles (см. components/receipt/ReceiptPreview.jsx)."""
-        tpl = data.template
+        # template= — шаблон, переданный сервисом печати; data.template — тот же
+        # шаблон из companies.receipt_template. Поддержаны оба стиля вызова.
+        tpl = template or data.template
         blocks = _tpl_blocks(tpl, CUSTOMER_BLOCKS)
         on = {b: _tpl_enabled(tpl, b) for b in blocks}
 
@@ -424,6 +498,15 @@ class EscPosFormatter:
         out = bytearray()
         out += self.INIT
         out += self._set_codepage   # кириллическая кодовая страница (ESC @ сбрасывает её)
+        # Лого — растром (GS v 0) перед всеми группами: в шаблоне это SVG, поэтому
+        # сюда приходят байты файла из storage (PrinterService._get_logo_bytes).
+        if on.get("logo") and logo_bytes:
+            raster = self._logo_raster(logo_bytes)
+            if raster:
+                out += self.ALIGN_CENTER
+                out += raster
+                out += self.LF
+                out += self.ALIGN_LEFT
         for index, chunk in enumerate(sections):
             if index:
                 out += self._divider()      # сплошная линия между группами
@@ -445,7 +528,7 @@ class EscPosFormatter:
 
         out = bytearray()
 
-        # Логотип не печатаем: в шаблоне это SVG, растровой печати нет
+        # Логотип печатается растром в format_receipt() — до групп чека
         if group == "head":
             if on.get("restaurantName"):
                 title = _tpl_text(tpl, "restaurantName") or data.company_name
@@ -553,10 +636,11 @@ class EscPosFormatter:
             rows.append((payment_method_label(data.payment_method), data.total))
         return rows
 
-    def format_kitchen_ticket(self, data: KitchenTicketData) -> bytes:
+    def format_kitchen_ticket(self, data: KitchenTicketData,
+                              template: dict | None = None) -> bytes:
         """Кухонный чек — как превью конструктора чека повара: крупный номер,
         строки «Стол/Официант/Время», позиции, комментарий, «! СРОЧНО !»."""
-        tpl = data.template
+        tpl = template or data.template
         blocks = _tpl_blocks(tpl, KITCHEN_BLOCKS)
         on = {b: _tpl_enabled(tpl, b) for b in blocks}
 

@@ -115,36 +115,10 @@
     background: var(--neutral-950);
   }
 
-  .pos-sidebar--ownerlike .pos-brand {
-    gap: 14px;
-    padding: 0 0 24px;
-    margin: 0 0 18px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  }
 
-  .pos-sidebar--ownerlike .pos-brand__mark {
-    width: 58px;
-    height: 58px;
-    border-radius: 0;
-    padding: 5px;
-    box-shadow: 0 7px 17px rgba(0, 0, 0, 0.126);
-  }
 
-  .pos-sidebar--ownerlike .pos-brand strong {
-    font-size: 21px;
-    letter-spacing: 0.04em;
-  }
 
-  .pos-sidebar--ownerlike .pos-brand span {
-    margin-top: 4px;
-    color: rgba(255, 255, 255, 0.66);
-    letter-spacing: 0.04em;
-  }
 
-  .pos-sidebar--ownerlike .pos-nav {
-    gap: 20px;
-    padding: 10px 0 20px;
-  }
 
   .pos-sidebar--ownerlike .pos-nav a,
   .pos-sidebar--ownerlike .pos-nav-button {
@@ -1887,9 +1861,6 @@
     background: var(--mj-main-bg);
   }
 
-  .dashboard-sidebar {
-    background: var(--neutral-950);
-  }
 
   .dashboard-sidebar::after {
     content: "";
@@ -1909,10 +1880,6 @@
   }
 
   /* Unified premium shell color - no grey sidebar gutter */
-  body.dashboard-body,
-  .dashboard-shell {
-    background: var(--neutral-950);
-  }
 
   .dashboard-sidebar {
     z-index: 3;
@@ -1943,10 +1910,6 @@
     isolation: isolate;
   }
 
-  .kpi-grid--premium .premium-kpi::before {
-    background: transparent;
-  
-  }
 
   .kpi-grid--premium .premium-kpi:hover {
     transform: translateY(-4px);
@@ -2432,9 +2395,6 @@
   }
 
   /* Owner dashboard 3D reference polish */
-  .dashboard-main {
-    background: var(--neutral-50);
-  }
 
   .dashboard-content {
     padding: 24px 30px 38px;
@@ -2614,10 +2574,6 @@
     height: 5px;
   }
 
-  .top-dish__bar i {
-    background: var(--color-brand);
-  
-  }
 
   .top-dish__price {
     color: var(--neutral-900);
@@ -3137,10 +3093,6 @@
   }
 
   /* Reference seam: large white curve, dark background behind it */
-  body.dashboard-body,
-  .dashboard-shell {
-    background: var(--neutral-950);
-  }
 
   .dashboard-sidebar {
     background: var(--neutral-950);
@@ -11570,9 +11522,8 @@
     /* === RECENT ORDERS CARD === */
 
     /* === LAYOUT GAPS === */
-    .owner-main-grid,
-    .owner-widgets {
-    
+    .owner-main-grid {
+
       margin-top: 12px;
     }
   }
@@ -18530,9 +18481,6 @@ html,body,.dashboard-shell,.warehouse-workspace,.warehouse-workspace__content {
 
   /* Final layout seam cleanup: keep the sidebar dark, everything behind main light */
   
-#root {
-  background: var(--neutral-50);
-}
 
   .dashboard-shell::before {
     content: "";
@@ -20665,11 +20613,8 @@ body,#root {
     background: var(--neutral-100);
   }
 
-  .owner-widgets {
-  
-    margin-top: 24px;
-  
-  }
+  /* .owner-widgets margin-top is owned by styles/owner/dashboard.css now;
+     the obsolete legacy override was removed here. */
 
   .quick-actions--command {
     grid-column: 1;
@@ -22319,7 +22264,7 @@ body,#root {
     max-height: var(--sidebar-row-height);
     padding: 0 var(--sidebar-row-padding-x);
     border: 1px solid rgba(83, 242, 237, 0.38);
-    border-radius: 13px;
+    border-radius: 8px;
     color: #ffffff;
     background: var(--color-brand);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.112),
@@ -24220,6 +24165,8 @@ body,#root {
     justify-content: center;
     border: 0;
     border-radius: 50%;
+    width: 48px;
+    height: 48px;
     color: #fff;
   
     box-shadow: 0 11px 23px rgba(37, 99, 235, 0.196),
@@ -32688,7 +32635,6 @@ body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-br
 body.dashboard-body .dashboard-shell .premium-chart .revenue-stat-grid div {
   padding-left: 16px;
   padding-right: 16px;
-  border-radius: 12px;
 }
 
   }
@@ -34134,16 +34080,10 @@ body.dashboard-body .dashboard-shell .owner-revenue-switcher .report-period-butt
     }
   }
 
-  /* Owner dashboard: make the gap between top sales and recent orders tighter. */
-  body.dashboard-body .dashboard-shell .owner-widgets {
-    gap: 14px;
-  }
-
-  @media (max-width: 768px) {
-    body.dashboard-body .dashboard-shell .owner-widgets {
-      gap: 12px;
-    }
-  }
+  /* Owner dashboard: top-sales ↔ recent-orders gap is now owned by
+     styles/owner/dashboard.css (16px desktop / 12px mobile). The obsolete
+     14px/12px override was removed here so the accepted value no longer
+     depends on this file's source order. */
 
   /* Topbar: back button takes the old date spot, date/time moves to the right. */
   body.dashboard-body .dashboard-shell .dashboard-topbar .topbar-left {
@@ -34809,7 +34749,12 @@ body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand__identity
   
     height: 38px;
     min-height: 38px;
-  
+
   }
 
 }
+
+/* OWNER dashboard surface / hover / modal rules were migrated to
+   styles/owner/dashboard.css (canonical owner) in the Phase-2 CSS ownership
+   stage — verbatim, real-browser verified. Do NOT add new OWNER dashboard
+   design here; react-overrides is the legacy layer only. */

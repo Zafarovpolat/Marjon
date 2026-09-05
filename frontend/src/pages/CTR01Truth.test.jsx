@@ -81,25 +81,30 @@ describe("CTR-01 critical financial truth", () => {
     api.patch.mockResolvedValue({ data: {} });
   });
 
-  it("loads the Z-report from the authoritative endpoint for the selected date and renders real values", async () => {
+  it("loads the Z-report from the authoritative endpoint for the selected date and enables the whole-shift print", async () => {
     api.get.mockResolvedValue({ data: zReport });
     render(<ZReportPage />);
 
-    expect(await screen.findByText("Backend card")).toBeInTheDocument();
+    // Generator page no longer renders the raw shift table; the real
+    // authoritative report drives the whole-shift print (enabled once loaded).
+    // Print-document values are covered by the buildPrintDocument test below.
+    const shiftPrint = await screen.findByRole("button", { name: /Печать общего Z-отчёта/ });
+    await waitFor(() => expect(shiftPrint).toBeEnabled());
     fireEvent.change(screen.getByLabelText("Дата Z-отчёта"), { target: { value: "2026-08-13" } });
     await waitFor(() => expect(api.get).toHaveBeenCalledWith("/analytics/z-report", expect.objectContaining({ params: { date: "2026-08-13" }, signal: expect.any(AbortSignal) })));
-    expect(screen.getAllByText(/123[\s\u00a0]?456 UZS/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/0 UZS/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Смена закрыта/)).not.toBeInTheDocument();
   });
 
-  it("keeps Z-report loading and error distinct and disables printing after failure", async () => {
+  it("keeps Z-report loading and error distinct and disables the whole-shift print after failure", async () => {
     let rejectRequest;
     api.get.mockReturnValue(new Promise((_, reject) => { rejectRequest = reject; }));
     render(<ZReportPage />);
-    expect(screen.getByRole("status")).toHaveTextContent("Загрузка Z-отчёта");
+    const shiftPrint = screen.getByRole("button", { name: /Печать общего Z-отчёта/ });
+    expect(shiftPrint).toBeDisabled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     await act(async () => rejectRequest({ response: { status: 403 } }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Доступ к Z-отчёту запрещён");
-    expect(screen.getByRole("button", { name: /Печать Z-отчёта/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Печать общего Z-отчёта/ })).toBeDisabled();
   });
 
   it("builds Z-report print output only from the loaded authoritative response", () => {
@@ -169,9 +174,9 @@ describe("CTR-01 critical financial truth", () => {
     render(<DebtorsCreditorsReportPage />);
     const row = await screen.findByText("Backend Counterparty");
     expect(row.closest("tr")).toHaveAttribute("data-counterparty-id", "cp-real");
-    fireEvent.change(screen.getByLabelText("Конец периода"), { target: { value: "12.08.2026" } });
-    await screen.findByText("Backend Counterparty");
     fireEvent.change(screen.getByLabelText("Начало периода"), { target: { value: "02.08.2026" } });
+    await screen.findByText("Backend Counterparty");
+    fireEvent.change(screen.getByLabelText("Конец периода"), { target: { value: "12.08.2026" } });
     await waitFor(() => expect(api.get).toHaveBeenCalledWith("/reports/debt-credit", expect.objectContaining({ params: { date_from: "2026-08-02", date_to: "2026-08-12" }, signal: expect.any(AbortSignal) })));
     expect(screen.queryByText("USD")).not.toBeInTheDocument();
   });

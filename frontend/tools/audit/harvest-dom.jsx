@@ -59,10 +59,25 @@ vi.mock("../../src/api/receipt", () => ({
   printTestKitchenReceipt: vi.fn(() => Promise.resolve()),
 }));
 
+// FE-08D-ORACLE-RATES: deterministic exchange-rate fixture for the OWNER visual
+// audit. Production exchangeRatesService.get() performs a REAL fetch to cbu.uz;
+// left unmocked it makes the Topbar rate widget's <span class="topbar-info-widget__num">
+// appear or not depending on network timing (nondeterministic 756↔757). This
+// AUDIT FIXTURE returns a fixed CBU-shaped rate so the widget always renders the
+// numeric span. The value is fixture data (NOT a live/today rate); production is
+// unchanged.
+vi.mock("../../src/api/exchangeRates", () => ({
+  exchangeRatesService: {
+    get: () => Promise.resolve([{ Rate: "12500.0", Nominal: "1" }]),
+  },
+  RATE_URLS: {},
+}));
+
 const OWNER = {
   id: "owner",
   role_slugs: ["owner"],
   roles: ["owner"],
+  auth_scope: "app",
   email: "owner@marjon.test",
   full_name: "Владелец Тестов",
   company_id: "c1",

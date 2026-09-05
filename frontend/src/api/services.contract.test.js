@@ -4,6 +4,8 @@ import { financeService } from "./finance";
 import { analyticsService, reportsService } from "./reports";
 import { adminApi } from "../admin/api";
 import { hqService } from "../admin/hqService";
+import { dashboardApi } from "../admin/features/dashboard/dashboardApi";
+import { organizationsApi } from "../admin/features/organizations/organizationsApi";
 import { authService } from "./auth";
 import { settingsService } from "./settings";
 import { staffService } from "./staff";
@@ -97,6 +99,24 @@ describe("Web domain service contracts", () => {
       });
     });
 
+    it("maps the four supported Tables filters and keeps Place UI-only", async () => {
+      await reportsService.listTables("2026-08-01", "2026-08-13", {
+        filters: {
+          tableNumber: "  12A  ", waiterId: "waiter-1", paymentMethod: "cash",
+          cashierId: "cashier-1", placeId: "unsupported-place",
+        },
+      });
+      expect(api.get).toHaveBeenLastCalledWith("/reports/tables", {
+        params: {
+          date_from: "2026-08-01", date_to: "2026-08-13", table_number: "12A",
+          waiter_id: "waiter-1", payment_method: "cash", cashier_id: "cashier-1",
+        },
+      });
+
+      await reportsService.getTablesFilters();
+      expect(api.get).toHaveBeenLastCalledWith("/reports/tables/filters", {});
+    });
+
     it("maps dashboard analytics without fallback data", async () => {
       await analyticsService.getDashboard("2026-08-13");
       await analyticsService.listSales("2026-08-01", "2026-08-13");
@@ -111,7 +131,7 @@ describe("Web domain service contracts", () => {
     it("uses only the canonical HQ client and preserves responses", async () => {
       const response = { data: { items: [{ id: "org-1" }] }, status: 200 };
       adminApi.get.mockResolvedValueOnce(response);
-      await expect(hqService.listOrganizations({ size: 5, status: "active" })).resolves.toBe(response);
+      await expect(organizationsApi.listOrganizations({ size: 5, status: "active" })).resolves.toBe(response);
       expect(adminApi.get).toHaveBeenCalledWith("/organizations", { params: { size: 5, status: "active" } });
       expect(api.get).not.toHaveBeenCalled();
     });
@@ -121,7 +141,6 @@ describe("Web domain service contracts", () => {
       ["categories", "/categories"],
       ["orders", "/orders"],
       ["units", "/units"],
-      ["organizationStatuses", "/organization-statuses"],
     ])("owns the %s section endpoint", async (key, endpoint) => {
       await hqService.listSection(key);
       expect(adminApi.get).toHaveBeenLastCalledWith(endpoint, { params: { size: 100 } });
@@ -134,7 +153,7 @@ describe("Web domain service contracts", () => {
     it("propagates HQ errors unchanged", async () => {
       const error = new Error("hq unavailable");
       adminApi.get.mockRejectedValueOnce(error);
-      await expect(hqService.getDashboardKpis()).rejects.toBe(error);
+      await expect(dashboardApi.getOrganizationTotal()).rejects.toBe(error);
     });
   });
 

@@ -33,6 +33,10 @@ const refreshPromises = {
   [AUTH_SCOPES.DEFAULT]: null,
   [AUTH_SCOPES.ADMIN]: null,
 };
+const lastRefreshAccessTokens = {
+  [AUTH_SCOPES.DEFAULT]: "",
+  [AUTH_SCOPES.ADMIN]: "",
+};
 const logoutPromises = {
   [AUTH_SCOPES.DEFAULT]: null,
   [AUTH_SCOPES.ADMIN]: null,
@@ -204,6 +208,7 @@ export function prepareAuthRequest(config, { scope = AUTH_SCOPES.DEFAULT, access
   }
   if (accessToken && !hasAuthorizationHeader(config.headers)) {
     setAuthorizationHeader(config, accessToken);
+    config._authAccessToken = accessToken;
   }
   return config;
 }
@@ -220,7 +225,7 @@ export function hasAccessToken({ scope = AUTH_SCOPES.DEFAULT } = {}) {
   return Boolean(getAccessToken({ scope }));
 }
 
-export function saveAuthTokens(data, { scope = AUTH_SCOPES.DEFAULT } = {}) {
+export function saveAuthTokens(data, { scope = AUTH_SCOPES.DEFAULT, source = "session" } = {}) {
   if (!data?.access_token) return false;
 
   const normalizedScope = normalizeScope(scope);
@@ -229,6 +234,7 @@ export function saveAuthTokens(data, { scope = AUTH_SCOPES.DEFAULT } = {}) {
   if (data.refresh_token) {
     writeStorageKey(keys.refreshToken, data.refresh_token);
   }
+  lastRefreshAccessTokens[normalizedScope] = source === "refresh" ? data.access_token : "";
   resetSessionEventForScope(normalizedScope);
   return true;
 }
@@ -242,10 +248,12 @@ export function clearAuthTokens({ scope = AUTH_SCOPES.ALL } = {}) {
   if (cleanupScope === AUTH_SCOPES.DEFAULT || cleanupScope === AUTH_SCOPES.ALL) {
     removeStorageKey(AUTH_STORAGE_KEYS.accessToken);
     removeStorageKey(AUTH_STORAGE_KEYS.refreshToken);
+    lastRefreshAccessTokens[AUTH_SCOPES.DEFAULT] = "";
   }
   if (cleanupScope === AUTH_SCOPES.ADMIN || cleanupScope === AUTH_SCOPES.ALL) {
     removeStorageKey(AUTH_STORAGE_KEYS.adminAccessToken);
     removeStorageKey(AUTH_STORAGE_KEYS.adminRefreshToken);
+    lastRefreshAccessTokens[AUTH_SCOPES.ADMIN] = "";
   }
 }
 
@@ -335,7 +343,7 @@ export async function refreshAuthSession({ baseURL, scope = AUTH_SCOPES.DEFAULT 
         await validateHqAccessToken(baseURL, tokens.access_token);
       }
       if (!logoutInProgressScopes.has(normalizedScope)) {
-        saveAuthTokens(tokens, { scope: normalizedScope });
+        saveAuthTokens(tokens, { scope: normalizedScope, source: "refresh" });
       }
       return tokens.access_token;
     })
@@ -351,6 +359,35 @@ export async function refreshAuthSession({ baseURL, scope = AUTH_SCOPES.DEFAULT 
     });
 
   return refreshPromises[normalizedScope];
+}
+
+export function waitForAuthRefresh({ scope = AUTH_SCOPES.DEFAULT, signal } = {}) {
+  const pendingRefresh = refreshPromises[normalizeScope(scope)];
+  if (!pendingRefresh) return Promise.resolve();
+  if (!signal) return pendingRefresh.then(() => undefined);
+  if (signal.aborted) return Promise.reject(createRequestAbortedError({ signal }));
+
+  return new Promise((resolve, reject) => {
+    function cleanup() {
+      signal.removeEventListener("abort", onAbort);
+    }
+    function onAbort() {
+      cleanup();
+      reject(createRequestAbortedError({ signal }));
+    }
+
+    signal.addEventListener("abort", onAbort, { once: true });
+    pendingRefresh.then(
+      () => {
+        cleanup();
+        resolve();
+      },
+      (error) => {
+        cleanup();
+        reject(error);
+      },
+    );
+  });
 }
 
 export function logoutAuthSession({ scope = AUTH_SCOPES.DEFAULT, revoke } = {}) {
@@ -444,6 +481,23 @@ export async function handleAuthResponseError(error, { client, baseURL, scope = 
   originalRequest._authRetry = true;
   originalRequest._authScope = requestScope;
 
+  const currentAccessToken = getAccessToken({ scope: requestScope });
+  const requestUsedSupersededToken = Boolean(
+    originalRequest._authAccessToken
+    && currentAccessToken
+    && originalRequest._authAccessToken !== currentAccessToken
+    && lastRefreshAccessTokens[requestScope] === currentAccessToken,
+  );
+
+  if (requestUsedSupersededToken) {
+    if (getCallerSignal(originalRequest)?.aborted) {
+      return Promise.reject(createRequestAbortedError(originalRequest));
+    }
+    setAuthorizationHeader(originalRequest, currentAccessToken);
+    originalRequest._authAccessToken = currentAccessToken;
+    return client(originalRequest);
+  }
+
   try {
     const newAccessToken = await refreshAuthSession({
       baseURL: getRequestBaseURL(originalRequest, baseURL),
@@ -456,6 +510,7 @@ export async function handleAuthResponseError(error, { client, baseURL, scope = 
       return Promise.reject(createRequestAbortedError(originalRequest));
     }
     setAuthorizationHeader(originalRequest, newAccessToken);
+    originalRequest._authAccessToken = newAccessToken;
     return client(originalRequest);
   } catch (refreshError) {
     return Promise.reject(refreshError);
@@ -469,6 +524,8 @@ export function getAuthRefreshPromiseForTest(scope = AUTH_SCOPES.DEFAULT) {
 export function resetAuthSessionStateForTest() {
   refreshPromises[AUTH_SCOPES.DEFAULT] = null;
   refreshPromises[AUTH_SCOPES.ADMIN] = null;
+  lastRefreshAccessTokens[AUTH_SCOPES.DEFAULT] = "";
+  lastRefreshAccessTokens[AUTH_SCOPES.ADMIN] = "";
   logoutPromises[AUTH_SCOPES.DEFAULT] = null;
   logoutPromises[AUTH_SCOPES.ADMIN] = null;
   refreshLogoutSnapshots[AUTH_SCOPES.DEFAULT] = null;

@@ -4,6 +4,8 @@ from app.shared.base_schema import BaseSchema, BaseResponseSchema
 
 
 class RoleCreate(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
     name: str
     slug: str
     description: str | None = None
@@ -29,6 +31,8 @@ class PermissionResponse(BaseResponseSchema):
 
 
 class UserRoleAssign(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
     user_id: UUID
     role_id: UUID
     branch_id: UUID | None = None
@@ -38,3 +42,9 @@ class UserRoleResponse(BaseResponseSchema):
     user_id: UUID
     role_id: UUID
     branch_id: UUID | None
+
+
+class RolePermissionAssign(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
+    permission_id: UUID

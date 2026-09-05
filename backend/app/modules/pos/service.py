@@ -11,6 +11,8 @@ from app.config import settings
 from app.modules.auth.models import User
 from app.modules.auth.security import verify_pin
 from app.modules.companies.models import Branch, Company
+from app.modules.crm.models import Customer
+from app.modules.halls.models import Hall, Table
 from app.modules.inventory.models import Product
 from app.modules.kitchen.websocket import kitchen_manager
 from app.modules.audit.service import AuditService
@@ -21,7 +23,8 @@ from app.modules.pos.schemas import (
     OrderCreate, OrderItemCreate, OrderItemWaiterUpdate, OrderStatusUpdate,
     OrderUpdate, TerminalCreate, ShiftOpen, ShiftClose,
 )
-from app.shared.exceptions import NotFoundError, ValidationError
+from app.shared.exceptions import ConflictError, NotFoundError, ValidationError
+from app.shared.tenant_scope import require_company_resource
 
 # ── Order status state machine ───────────────────────────────────────────────
 VALID_TRANSITIONS: dict[str, set[str]] = {
@@ -121,6 +124,21 @@ class OrderService:
 
     async def create(self, company_id: UUID, waiter_id: UUID, data: OrderCreate) -> Order:
         await self._get_branch(company_id, data.branch_id)
+        await require_company_resource(
+            self.db, PosTerminal, data.terminal_id, company_id, detail="POS terminal not found"
+        )
+        await require_company_resource(
+            self.db, Customer, data.customer_id, company_id, detail="Customer not found"
+        )
+        # Canonical table relation: when table_id is supplied it is authoritative —
+        # validate tenant/branch ownership + active state and let the server own the
+        # table_number snapshot. Otherwise fall back to the legacy free-text number.
+        table_id = None
+        table_number = data.table_number
+        if data.table_id is not None:
+            table = await self._resolve_table(company_id, data.table_id, data.branch_id)
+            table_id = table.id
+            table_number = str(table.number)
         order_number = await self._generate_daily_number(company_id)
 
         order = Order(
@@ -131,7 +149,8 @@ class OrderService:
             terminal_id=data.terminal_id,
             customer_id=data.customer_id,
             order_type=data.order_type,
-            table_number=data.table_number,
+            table_id=table_id,
+            table_number=table_number,
             persons_count=data.persons_count,
             note=data.note,
             customer_phone=data.customer_phone,
@@ -339,6 +358,12 @@ class OrderService:
             )
 
         order.status = target
+        if target == "cooking":
+            # Kitchen accepted the whole order — move its pending items into cooking too,
+            # otherwise "mark item ready" fails validation (pending can't skip to ready).
+            for item in order.items:
+                if item.status == "pending":
+                    item.status = "cooking"
         await self.repo.save(order)
         updated_order = await self.get(company_id, order_id)
         try:
@@ -648,10 +673,35 @@ class OrderService:
             await self._guard_order_action(company_id, user, data.action_pin, "смены официанта")
             await self._assert_company_waiter(company_id, data.waiter_id)
 
+        table_id_provided = "table_id" in data.model_fields_set
+        table_number_provided = "table_number" in data.model_fields_set
+        # Snapshot invariant: while an authoritative table_id is set, table_number is
+        # a server-owned snapshot of Table.number — not an independently editable
+        # field. A table_number-only PATCH (table_id omitted) on such an order would
+        # let the snapshot drift from the relation, so reject it. The client must
+        # change the relation explicitly (send table_id, or table_id=null to detach).
+        # Legacy orders (table_id already NULL) keep free-text table_number edits.
+        if table_number_provided and not table_id_provided and order.table_id is not None:
+            raise ConflictError(
+                "Заказ привязан к столу (table_id) — table_number является снимком "
+                "и не редактируется отдельно. Передайте table_id (или table_id=null, "
+                "чтобы отвязать) для изменения привязки."
+            )
+
         if data.note is not None:
             order.note = data.note
         if data.table_number is not None:
             order.table_number = data.table_number
+        # table_id is authoritative: applied after table_number so that when both
+        # are sent the canonical Table.number snapshot wins. An explicit null clears
+        # the relation without touching the retained table_number snapshot.
+        if table_id_provided:
+            if data.table_id is None:
+                order.table_id = None
+            else:
+                table = await self._resolve_table(company_id, data.table_id, order.branch_id)
+                order.table_id = table.id
+                order.table_number = str(table.number)
         if data.persons_count is not None:
             order.persons_count = data.persons_count
         if data.customer_phone is not None:
@@ -787,6 +837,33 @@ class OrderService:
             raise NotFoundError("Branch not found")
         return branch
 
+    async def _resolve_table(self, company_id: UUID, table_id: UUID, branch_id: UUID) -> Table:
+        """Resolve a canonical Table for an order.
+
+        Table has no direct company_id — ownership is proven through its Hall
+        (Table.hall_id → Hall.company_id), so a plain company-scoped lookup is not
+        enough. We join Hall and require:
+          - Hall.company_id == the order's company (tenant isolation)
+          - Hall.branch_id == the order's branch (branch compatibility)
+          - both Table and Hall active (no new orders against archived seating)
+        Never loads another tenant's row; a miss on any condition is a 404.
+        """
+        result = await self.db.execute(
+            select(Table)
+            .join(Hall, Hall.id == Table.hall_id)
+            .where(
+                Table.id == table_id,
+                Table.is_active.is_(True),
+                Hall.company_id == company_id,
+                Hall.branch_id == branch_id,
+                Hall.is_active.is_(True),
+            )
+        )
+        table = result.scalar_one_or_none()
+        if table is None:
+            raise NotFoundError("Table not found")
+        return table
+
     async def _get_product(self, company_id: UUID, product_id: UUID) -> Product:
         result = await self.db.execute(
             select(Product).where(
@@ -837,9 +914,13 @@ class OrderService:
 
 class TerminalService:
     def __init__(self, db: AsyncSession):
+        self.db = db
         self.repo = TerminalRepository(db)
 
     async def create(self, company_id: UUID, data: TerminalCreate) -> PosTerminal:
+        await require_company_resource(
+            self.db, Branch, data.branch_id, company_id, detail="Branch not found"
+        )
         return await self.repo.save(PosTerminal(company_id=company_id, **data.model_dump()))
 
     async def list(self, company_id: UUID) -> list[PosTerminal]:
@@ -851,6 +932,9 @@ class ShiftService:
         self.db = db
 
     async def open_shift(self, company_id: UUID, cashier_id: UUID, data: ShiftOpen) -> CashierShift:
+        await require_company_resource(
+            self.db, Branch, data.branch_id, company_id, detail="Branch not found"
+        )
         existing = await self._get_open_shift(company_id, data.branch_id)
         if existing:
             raise ValidationError("Смена уже открыта. Закройте текущую смену перед открытием новой.")

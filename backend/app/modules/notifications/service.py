@@ -2,17 +2,23 @@
 from datetime import datetime, timezone
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.modules.auth.models import User
 from app.modules.notifications.models import Notification
 from app.modules.notifications.repository import NotificationRepository
 from app.modules.notifications.schemas import NotificationCreate
 from app.shared.exceptions import NotFoundError
+from app.shared.tenant_scope import require_company_resource
 
 
 class NotificationService:
     def __init__(self, db: AsyncSession):
+        self.db = db
         self.repo = NotificationRepository(db)
 
     async def send(self, company_id: UUID, data: NotificationCreate) -> Notification:
+        await require_company_resource(
+            self.db, User, data.user_id, company_id, detail="User not found"
+        )
         n = Notification(company_id=company_id, **data.model_dump())
         n.status = "sent"
         return await self.repo.save(n)

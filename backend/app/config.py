@@ -55,14 +55,19 @@ class Settings(BaseSettings):
     payme_secret_key: str | None = None
     uzum_service_id: str | None = None
     uzum_secret_key: str | None = None
-    # Секрет внутренних вебхуков платёжек (из ветки bek)
+    # Секрет внутренних вебхуков платёжек. Дефолт пустой: verify_secret в
+    # payments/internal_router.py fail-closed, поэтому без ENV внутренние
+    # эндпоинты просто закрыты — заглушки-секрета в коде не держим.
     webhook_secret: str | None = None
-    # MinIO / S3 — загрузка аватаров и файлов (из ветки bek)
-    minio_endpoint: str | None = None
-    minio_access_key: str | None = None
-    minio_secret_key: str | None = None
-    minio_bucket: str = "marjon"
-    minio_public_url: str = "http://localhost:9000"
+
+    # MinIO / S3 — аватары, логотипы, картинки блюд. Значения по умолчанию —
+    # для локального контейнера MinIO из docker-compose (там же и бакет
+    # marjon-media); на проде переопределяются через ENV.
+    minio_endpoint: str = "http://localhost:9000"    # internal URL (backend -> MinIO)
+    minio_public_url: str = "http://localhost:9000"  # external URL (отдаём клиентам)
+    minio_access_key: str = "marjon"
+    minio_secret_key: str = "marjon_secret"
+    minio_bucket: str = "marjon-media"
 
     class Config:
         env_file = ".env"

@@ -17,7 +17,7 @@ of `COMPANY_ROLE_SLUGS` — those aren't `Role` rows at all, they're the
 from __future__ import annotations
 
 COMPANY_ROLE_SLUGS: frozenset[str] = frozenset({
-    "owner", "admin", "cashier", "waiter",
+    "owner", "admin", "manager", "cashier", "waiter",
     "kitchen", "monoblock", "courier", "warehouse",
 })
 
@@ -38,5 +38,5 @@ APP_COMPANY_ROLE_SLUGS: frozenset[str] = (
 # Confirmed by the production Web staff editor. Operational-role semantics
 # remain deferred; this set is only the OWNER delegation ceiling.
 OWNER_ASSIGNABLE_ROLE_SLUGS: frozenset[str] = frozenset({
-    "cashier", "waiter", "kitchen", "monoblock", "courier", "warehouse",
+    "manager", "cashier", "waiter", "kitchen", "monoblock", "courier", "warehouse",
 })

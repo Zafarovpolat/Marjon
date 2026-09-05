@@ -30,6 +30,8 @@ def _validate_pin(v: str | None) -> str | None:
 
 
 class RegisterRequest(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
     company_name: str = Field(..., min_length=1, max_length=255)
     company_slug: str = Field(..., min_length=1, max_length=100, pattern=r"^[a-z0-9_-]+$")
     email: EmailStr
@@ -42,6 +44,7 @@ class RegisterRequest(BaseSchema):
 
 
 class CompanyUserCreate(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
     # email/password опциональны: кассиры/официанты входят по PIN. Если не заданы —
     # сервер синтезирует служебный email и случайный пароль (см. AuthService).
     email: EmailStr | None = None
@@ -70,6 +73,8 @@ class CompanyUserCreate(BaseSchema):
 
 class CompanyUserUpdate(BaseSchema):
     """Частичное обновление сотрудника из веб-админки (все поля опциональны)."""
+
+    model_config = {"from_attributes": True, "extra": "forbid"}
     email: EmailStr | None = None
     password: str | None = None
     phone: str | None = None
@@ -95,9 +100,23 @@ class CompanyUserUpdate(BaseSchema):
 
 
 class LoginRequest(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
     email: str | None = Field(None, min_length=1, max_length=255)
     phone: str | None = Field(None, min_length=1, max_length=30)
     password: str
+
+
+class PinSetRequest(BaseSchema):
+    """Установка PIN сотруднику из веб-админки: строго 4–8 цифр."""
+    pin: str = Field(..., min_length=4, max_length=8)
+
+    @field_validator("pin")
+    @classmethod
+    def check_pin(cls, v: str) -> str:
+        if not re.fullmatch(r"\d{4,8}", v):
+            raise ValueError("PIN должен состоять из 4-8 цифр")
+        return v
 
 
 class PinLoginRequest(BaseSchema):
@@ -107,6 +126,8 @@ class PinLoginRequest(BaseSchema):
     # сотрудников, без этого поля вход отдавал токен «первого совпавшего» —
     # десктоп потом отвергал его как «PIN не соответствует выбранному».
     user_id: UUID | None = None
+    # Веб-фронт исторически шлёт то же самое как employee_id — принимаем оба ключа.
+    employee_id: UUID | None = None
 
 
 class BranchLoginRequest(BaseSchema):
@@ -129,7 +150,19 @@ class CompanyInfo(BaseSchema):
 
 
 class RefreshRequest(BaseSchema):
-    refresh_token: str
+    refresh_token: str = Field(..., min_length=1)
+
+
+class LogoutRequest(BaseSchema):
+    """BE-06: закрытие одной сессии — отзываем именно её refresh-токен."""
+    refresh_token: str = Field(..., min_length=1)
+
+    @field_validator("refresh_token")
+    @classmethod
+    def reject_blank_refresh_token(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("refresh_token must not be blank")
+        return value
 
 
 class TokenResponse(BaseSchema):

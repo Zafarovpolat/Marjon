@@ -11,12 +11,13 @@ from sqlalchemy.orm import selectinload
 
 from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import (
-    get_current_user,
-    require_company_admin,
+    require_company_app_user,
     require_permission_or_admin,
 )
 from app.modules.auth.models import User
-from app.modules.inventory.models import Warehouse
+from app.modules.companies.models import Branch
+from app.modules.rbac.dependencies import require_permission
+from app.modules.inventory.models import Ingredient, StockItem, StockMovement, Warehouse
 from app.modules.inventory.warehouse_models import (
     PurchaseDocument, PurchaseDocumentItem,
     TransferDocument, InventoryCheck, WriteOffDocument,
@@ -29,8 +30,20 @@ from app.modules.inventory.warehouse_schemas import (
     WriteOffCreate, WriteOffResponse,
 )
 from app.shared.exceptions import NotFoundError
+from app.shared.tenant_scope import require_company_resource, require_company_resource_ids
 
 router = APIRouter(prefix="/warehouse", tags=["warehouse"])
+
+# Запись складских документов проходит по любому из трёх оснований:
+#  * роль с RBAC-правом inventory:stock:write (upstream BE-05: manager,
+#    warehouse — иначе роль «склад» не могла бы вести документы вообще);
+#  * owner/admin/суперадмин (веб-админка ведёт приход отсюда же);
+#  * сотрудник с permissions.can_manage_warehouse — «кассир со спец-правом»
+#    в разделе управления на кассе (desktop).
+# Создание складов, перемещения и все DELETE остаются на require_permission.
+_require_warehouse_write = require_permission_or_admin(
+    "can_manage_warehouse", rbac_permission="inventory:stock:write"
+)
 
 
 # ── Helpers ──────────────────────────────────────────────────
@@ -56,7 +69,7 @@ async def _next_doc_number(db: AsyncSession, company_id: UUID, model) -> int:
 # ── Warehouses ───────────────────────────────────────────────
 @router.get("/list", response_model=list[WarehouseResponse])
 async def list_warehouses(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -68,9 +81,17 @@ async def list_warehouses(
 @router.post("/list", response_model=WarehouseResponse, status_code=status.HTTP_201_CREATED)
 async def create_warehouse(
     data: WarehouseCreate,
-    user: User = Depends(require_company_admin),
+    # BE-05: was require_company_admin (owner/admin/manager slug check).
+    # Switched to a real permission check so a "warehouse" role — one of
+    # the canonical role slugs — can actually do warehouse mutations
+    # instead of being locked out entirely. BI-06 deliberately removes this
+    # deferred Inventory/Warehouse capability from the frozen Web OWNER.
+    user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_company_resource(
+        db, Branch, data.branch_id, user.company_id, detail="Branch not found"
+    )
     wh = Warehouse(company_id=user.company_id, **data.model_dump())
     db.add(wh)
     await db.commit()
@@ -82,7 +103,7 @@ async def create_warehouse(
 @router.get("/purchases", response_model=list[PurchaseDocumentResponse])
 async def list_purchases(
     search: str = Query("", alias="q"),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     query = (
@@ -104,7 +125,7 @@ async def list_purchases(
 @router.get("/purchases/{doc_id}", response_model=PurchaseDocumentResponse)
 async def get_purchase(
     doc_id: UUID,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -122,9 +143,19 @@ async def get_purchase(
 @router.post("/purchases", response_model=PurchaseDocumentResponse, status_code=status.HTTP_201_CREATED)
 async def create_purchase(
     data: PurchaseDocumentCreate,
-    user: User = Depends(require_permission_or_admin("can_manage_warehouse")),
+    user: User = Depends(_require_warehouse_write),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_company_resource(
+        db, Warehouse, data.warehouse_id, user.company_id, detail="Warehouse not found"
+    )
+    await require_company_resource_ids(
+        db,
+        Ingredient,
+        (item.ingredient_id for item in data.items),
+        user.company_id,
+        detail="Ingredient not found",
+    )
     number = await _next_doc_number(db, user.company_id, PurchaseDocument)
     now = _now()
     total = sum(item.quantity * item.cost_price for item in data.items)
@@ -166,11 +197,13 @@ async def create_purchase(
 async def update_purchase(
     doc_id: UUID,
     data: PurchaseDocumentUpdate,
-    user: User = Depends(require_permission_or_admin("can_manage_warehouse")),
+    user: User = Depends(_require_warehouse_write),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(PurchaseDocument).where(
+        select(PurchaseDocument)
+        .options(selectinload(PurchaseDocument.items))
+        .where(
             PurchaseDocument.id == doc_id,
             PurchaseDocument.company_id == user.company_id,
         )
@@ -179,10 +212,59 @@ async def update_purchase(
     if not doc:
         raise NotFoundError("Purchase document not found")
 
+    await require_company_resource(
+        db, Warehouse, data.warehouse_id, user.company_id, detail="Warehouse not found"
+    )
+
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(doc, field, value)
 
     if data.status == "accepted" and not doc.accepted_at:
+        await require_company_resource(
+            db, Warehouse, doc.warehouse_id, user.company_id, detail="Warehouse not found"
+        )
+        await require_company_resource_ids(
+            db,
+            Ingredient,
+            (item.ingredient_id for item in doc.items),
+            user.company_id,
+            detail="Ingredient not found",
+        )
+        # BE-18: accepting a purchase previously had ZERO effect on stock —
+        # this just stamped a timestamp. The entire "purchases" document
+        # trail was disconnected from real inventory levels; StockItem
+        # never moved no matter how many purchase documents got accepted.
+        # Guarded by `not doc.accepted_at` (already true above) so
+        # re-accepting an already-accepted document is a no-op instead of
+        # double-adding stock — this is the idempotency the spec asks for
+        # on operations that affect остатки.
+        if doc.warehouse_id:
+            for item in doc.items:
+                if not item.ingredient_id:
+                    continue
+                stock_result = await db.execute(
+                    select(StockItem).where(
+                        StockItem.company_id == user.company_id,
+                        StockItem.warehouse_id == doc.warehouse_id,
+                        StockItem.ingredient_id == item.ingredient_id,
+                    )
+                )
+                stock = stock_result.scalar_one_or_none()
+                if stock:
+                    stock.quantity += item.quantity
+                else:
+                    db.add(StockItem(
+                        company_id=user.company_id, warehouse_id=doc.warehouse_id,
+                        ingredient_id=item.ingredient_id, quantity=item.quantity,
+                        unit=item.unit, cost_price=item.cost_price,
+                    ))
+                db.add(StockMovement(
+                    company_id=user.company_id, warehouse_id=doc.warehouse_id,
+                    ingredient_id=item.ingredient_id, movement_type="purchase",
+                    quantity=item.quantity, unit=item.unit, cost_price=item.cost_price,
+                    total_cost=item.total, ref_id=doc.id, created_by=user.id,
+                    note=f"Приход №{doc.number}" + (f" от {doc.supplier}" if doc.supplier else ""),
+                ))
         doc.accepted_at = _now()
 
     await db.commit()
@@ -193,7 +275,11 @@ async def update_purchase(
 @router.delete("/purchases/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_purchase(
     doc_id: UUID,
-    user: User = Depends(require_company_admin),
+    # BE-05: was require_company_admin (owner/admin/manager slug check).
+    # Switched to a real permission check so a "warehouse" role — one of
+    # the canonical role slugs — can actually do warehouse mutations
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
+    user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -212,7 +298,7 @@ async def delete_purchase(
 # ── Transfers ────────────────────────────────────────────────
 @router.get("/transfers", response_model=list[TransferResponse])
 async def list_transfers(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -226,9 +312,20 @@ async def list_transfers(
 @router.post("/transfers", response_model=TransferResponse, status_code=status.HTTP_201_CREATED)
 async def create_transfer(
     data: TransferCreate,
-    user: User = Depends(require_company_admin),
+    # BE-05: was require_company_admin (owner/admin/manager slug check).
+    # Switched to a real permission check so a "warehouse" role — one of
+    # the canonical role slugs — can actually do warehouse mutations
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
+    user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_company_resource_ids(
+        db,
+        Warehouse,
+        (data.from_warehouse_id, data.to_warehouse_id),
+        user.company_id,
+        detail="Warehouse not found",
+    )
     doc = TransferDocument(
         company_id=user.company_id,
         created_by=user.id,
@@ -244,7 +341,11 @@ async def create_transfer(
 @router.delete("/transfers/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_transfer(
     doc_id: UUID,
-    user: User = Depends(require_company_admin),
+    # BE-05: was require_company_admin (owner/admin/manager slug check).
+    # Switched to a real permission check so a "warehouse" role — one of
+    # the canonical role slugs — can actually do warehouse mutations
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
+    user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -263,7 +364,7 @@ async def delete_transfer(
 # ── Inventory Checks ─────────────────────────────────────────
 @router.get("/inventory-checks", response_model=list[InventoryCheckResponse])
 async def list_inventory_checks(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -277,9 +378,12 @@ async def list_inventory_checks(
 @router.post("/inventory-checks", response_model=InventoryCheckResponse, status_code=status.HTTP_201_CREATED)
 async def create_inventory_check(
     data: InventoryCheckCreate,
-    user: User = Depends(require_permission_or_admin("can_manage_warehouse")),
+    user: User = Depends(_require_warehouse_write),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_company_resource(
+        db, Warehouse, data.warehouse_id, user.company_id, detail="Warehouse not found"
+    )
     doc = InventoryCheck(
         company_id=user.company_id,
         created_by=user.id,
@@ -296,7 +400,7 @@ async def create_inventory_check(
 async def update_inventory_check(
     doc_id: UUID,
     data: InventoryCheckCreate,
-    user: User = Depends(require_permission_or_admin("can_manage_warehouse")),
+    user: User = Depends(_require_warehouse_write),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -308,6 +412,9 @@ async def update_inventory_check(
     doc = result.scalar_one_or_none()
     if not doc:
         raise NotFoundError("Inventory check not found")
+    await require_company_resource(
+        db, Warehouse, data.warehouse_id, user.company_id, detail="Warehouse not found"
+    )
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(doc, field, value)
     await db.commit()
@@ -318,7 +425,11 @@ async def update_inventory_check(
 @router.delete("/inventory-checks/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_inventory_check(
     doc_id: UUID,
-    user: User = Depends(require_company_admin),
+    # BE-05: was require_company_admin (owner/admin/manager slug check).
+    # Switched to a real permission check so a "warehouse" role — one of
+    # the canonical role slugs — can actually do warehouse mutations
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
+    user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -337,7 +448,7 @@ async def delete_inventory_check(
 # ── Write-Offs ───────────────────────────────────────────────
 @router.get("/write-offs", response_model=list[WriteOffResponse])
 async def list_write_offs(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -351,7 +462,7 @@ async def list_write_offs(
 @router.post("/write-offs", response_model=WriteOffResponse, status_code=status.HTTP_201_CREATED)
 async def create_write_off(
     data: WriteOffCreate,
-    user: User = Depends(require_permission_or_admin("can_manage_warehouse")),
+    user: User = Depends(_require_warehouse_write),
     db: AsyncSession = Depends(get_db),
 ):
     doc = WriteOffDocument(
@@ -369,7 +480,11 @@ async def create_write_off(
 @router.delete("/write-offs/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_write_off(
     doc_id: UUID,
-    user: User = Depends(require_company_admin),
+    # BE-05: was require_company_admin (owner/admin/manager slug check).
+    # Switched to a real permission check so a "warehouse" role — one of
+    # the canonical role slugs — can actually do warehouse mutations
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
+    user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(

@@ -7,7 +7,8 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.companies.models import Branch
+from app.modules.companies.models import Branch, Company
+from app.modules.kafe_compat.models import ReceiptTemplateSettings
 from app.modules.printers.formatter import (
     EscPosFormatter, KitchenTicketData, ReceiptData, ReceiptLine, payment_method_label,
 )
@@ -19,6 +20,7 @@ from app.modules.printers.schemas import PrinterCreate, PrinterUpdate
 from app.modules.pos.models import Order, OrderItem
 from app.modules.payments.models import Payment
 from app.shared.exceptions import NotFoundError
+from app.shared.storage import storage
 
 
 class PrinterService:
@@ -30,8 +32,29 @@ class PrinterService:
     # ── Printer CRUD ─────────────────────────────────────────────────────────
 
     async def create(self, company_id: UUID, data: PrinterCreate) -> Printer:
-        await self._get_branch(company_id, data.branch_id)
-        return await self.repo.save(Printer(company_id=company_id, **data.model_dump()))
+        payload = data.model_dump()
+        branch_id = payload.pop("branch_id", None) or await self._resolve_default_branch(company_id)
+        await self._get_branch(company_id, branch_id)
+        return await self.repo.save(Printer(company_id=company_id, branch_id=branch_id, **payload))
+
+    async def _resolve_default_branch(self, company_id: UUID) -> UUID:
+        """BE-13: the live printer-settings form never sends branch_id, so
+        PrinterCreate.branch_id is optional — resolve it here instead of
+        422ing on every printer the frontend creates. Branch has no
+        is_main flag, so this picks the earliest-created one (the branch
+        created at registration for a typical single-branch company);
+        raises a clear error if the company has no branch at all rather
+        than guessing further."""
+        result = await self.db.execute(
+            select(Branch)
+            .where(Branch.company_id == company_id)
+            .order_by(Branch.created_at.asc())
+            .limit(1)
+        )
+        branch = result.scalars().first()
+        if not branch:
+            raise NotFoundError("Company has no branch to attach this printer to — create one first")
+        return branch.id
 
     async def list(self, company_id: UUID) -> list[Printer]:
         return await self.repo.get_all(company_id)
@@ -54,17 +77,47 @@ class PrinterService:
 
     # ── Print actions ─────────────────────────────────────────────────────────
 
+    @staticmethod
+    def _printer_encoding(printer: Printer) -> str:
+        """Кодовая страница принтера, по умолчанию cp866 (почему — см. EscPosFormatter._CHARSETS).
+        settings.encoding приходит из веб-настроек принтера, settings.charset — из настроек кассы;
+        принимаем оба ключа, иначе один и тот же принтер печатал бы разными кодовыми страницами."""
+        settings = printer.settings or {}
+        return settings.get("encoding") or settings.get("charset") or "cp866"
+
+    async def _get_receipt_templates(self, company_id: UUID) -> tuple[dict, dict]:
+        """Шаблоны, сохранённые на фронте (ReceiptSettingsPage/ChefReceiptSettingsPage
+        через GET/PATCH /settings/receipt-template|kitchen-receipt-template).
+        Возвращает ({} , {}), если ещё не настроено — форматтер тогда печатает
+        все блоки (прежнее поведение)."""
+        row = (
+            await self.db.execute(
+                select(ReceiptTemplateSettings).where(ReceiptTemplateSettings.company_id == company_id)
+            )
+        ).scalar_one_or_none()
+        if not row:
+            return {}, {}
+        return row.customer_template or {}, row.kitchen_template or {}
+
+    async def _get_logo_bytes(self, company_id: UUID) -> bytes | None:
+        """Лого компании (Company.logo_key, загружается через POST /companies/me/logo).
+        None, если ещё не загружено — блок 'logo' в чеке тогда просто не печатается."""
+        company = await self.db.get(Company, company_id)
+        if not company or not company.logo_key:
+            return None
+        return await storage.download(company.logo_key)
+
     async def test_print(self, company_id: UUID, printer_id: UUID) -> PrintJob:
         """Print a test page."""
         printer = await self.get(company_id, printer_id)
-        fmt = EscPosFormatter(printer.paper_width, charset=(printer.settings or {}).get("charset", "cp866"))
+        fmt = EscPosFormatter(printer.paper_width, encoding=self._printer_encoding(printer))
         data = (
-            fmt.INIT + fmt.ALIGN_CENTER
+            fmt.INIT + fmt.codepage_cmd + fmt.ALIGN_CENTER
             + fmt.BOLD_ON
-            + b"=== TEST PAGE ===\n"
+            + fmt._line("=== TEST PAGE ===")
             + fmt.BOLD_OFF
-            + f"Printer: {printer.name}\n".encode()
-            + b"Connection: OK\n"
+            + fmt._line(f"Printer: {printer.name}")
+            + fmt._line("Connection: OK")
             + fmt.LF * 3
             + fmt.CUT
         )
@@ -76,9 +129,11 @@ class PrinterService:
         printer = await self.get(company_id, printer_id)
         order = await self._get_order(company_id, order_id)
         receipt_data = await self._build_receipt_data(company_id, order)
+        customer_tpl, _ = await self._get_receipt_templates(company_id)
+        logo_bytes = await self._get_logo_bytes(company_id)
 
-        fmt = EscPosFormatter(printer.paper_width, charset=(printer.settings or {}).get("charset", "cp866"))
-        raw = fmt.format_receipt(receipt_data)
+        fmt = EscPosFormatter(printer.paper_width, encoding=self._printer_encoding(printer))
+        raw = fmt.format_receipt(receipt_data, template=customer_tpl, logo_bytes=logo_bytes)
         job = await self._enqueue_and_send(company_id, printer, "receipt", order_id, raw, copies)
         # Отметка «чек напечатан» → стол «ожидает оплату» (сбросится при дозаказе)
         try:
@@ -95,9 +150,10 @@ class PrinterService:
         printer = await self.get(company_id, printer_id)
         order = await self._get_order(company_id, order_id)
         ticket_data = await self._build_kitchen_data(order, company_id)
+        _, kitchen_tpl = await self._get_receipt_templates(company_id)
 
-        fmt = EscPosFormatter(printer.paper_width, charset=(printer.settings or {}).get("charset", "cp866"))
-        raw = fmt.format_kitchen_ticket(ticket_data)
+        fmt = EscPosFormatter(printer.paper_width, encoding=self._printer_encoding(printer))
+        raw = fmt.format_kitchen_ticket(ticket_data, template=kitchen_tpl)
         return await self._enqueue_and_send(company_id, printer, "kitchen", order_id, raw, copies)
 
     async def print_summary(
@@ -111,7 +167,7 @@ class PrinterService:
     ) -> PrintJob:
         """Общий чек-сводка (История/Отчёты): строки формирует клиент."""
         printer = await self.get(company_id, printer_id)
-        fmt = EscPosFormatter(printer.paper_width, charset=(printer.settings or {}).get("charset", "cp866"))
+        fmt = EscPosFormatter(printer.paper_width, encoding=self._printer_encoding(printer))
         raw = fmt.format_summary(title, lines, footer)
         return await self._enqueue_and_send(company_id, printer, "summary", None, raw, copies)
 
@@ -134,15 +190,17 @@ class PrinterService:
         printer = await self.get(company_id, printer_id)
         order = await self._get_order(company_id, order_id)
         base = await self._build_receipt_data(company_id, order)
+        customer_tpl, _ = await self._get_receipt_templates(company_id)
+        logo_bytes = await self._get_logo_bytes(company_id)
 
         slices = self._build_split_slices(base, mode, parts, ways)
         if not slices:
             raise NotFoundError("Нет позиций для раздельного чека")
 
-        fmt = EscPosFormatter(printer.paper_width, charset=(printer.settings or {}).get("charset", "cp866"))
+        fmt = EscPosFormatter(printer.paper_width, encoding=self._printer_encoding(printer))
         jobs: list[PrintJob] = []
         for sl in slices:
-            raw = fmt.format_receipt(sl)
+            raw = fmt.format_receipt(sl, template=customer_tpl, logo_bytes=logo_bytes)
             jobs.append(await self._enqueue_and_send(company_id, printer, "receipt", order_id, raw, copies))
 
         try:
@@ -232,15 +290,24 @@ class PrinterService:
             ))
         return out
 
+    async def get_order_for_print(self, company_id: UUID, order_id: UUID) -> Order:
+        """Public wrapper around _get_order — lets the compat print-by-order
+        endpoints (BE-12) validate order ownership up front, before
+        auto-selecting a printer, so an unknown/foreign order_id 404s
+        instead of silently returning an empty job list."""
+        return await self._get_order(company_id, order_id)
+
     # Auto-print: find printers by type and print
     async def auto_print_receipt(self, company_id: UUID, branch_id: UUID, order_id: UUID) -> list[PrintJob]:
         printers = await self.repo.get_by_type(company_id, branch_id, "receipt")
         jobs = []
+        customer_tpl, _ = await self._get_receipt_templates(company_id)
+        logo_bytes = await self._get_logo_bytes(company_id)
         for printer in printers:
             order = await self._get_order(company_id, order_id)
             receipt_data = await self._build_receipt_data(company_id, order)
-            fmt = EscPosFormatter(printer.paper_width, charset=(printer.settings or {}).get("charset", "cp866"))
-            raw = fmt.format_receipt(receipt_data)
+            fmt = EscPosFormatter(printer.paper_width, encoding=self._printer_encoding(printer))
+            raw = fmt.format_receipt(receipt_data, template=customer_tpl, logo_bytes=logo_bytes)
             job = await self._enqueue_and_send(company_id, printer, "receipt", order_id, raw)
             jobs.append(job)
         return jobs
@@ -248,11 +315,12 @@ class PrinterService:
     async def auto_print_kitchen(self, company_id: UUID, branch_id: UUID, order_id: UUID) -> list[PrintJob]:
         printers = await self.repo.get_by_type(company_id, branch_id, "kitchen")
         jobs = []
+        _, kitchen_tpl = await self._get_receipt_templates(company_id)
         for printer in printers:
             order = await self._get_order(company_id, order_id)
             ticket_data = await self._build_kitchen_data(order, company_id)
-            fmt = EscPosFormatter(printer.paper_width, charset=(printer.settings or {}).get("charset", "cp866"))
-            raw = fmt.format_kitchen_ticket(ticket_data)
+            fmt = EscPosFormatter(printer.paper_width, encoding=self._printer_encoding(printer))
+            raw = fmt.format_kitchen_ticket(ticket_data, template=kitchen_tpl)
             job = await self._enqueue_and_send(company_id, printer, "kitchen", order_id, raw)
             jobs.append(job)
         return jobs
@@ -380,10 +448,22 @@ class PrinterService:
         from app.modules.companies.models import Company, Branch
         from app.modules.auth.models import User as _User
         company = (await self.db.execute(select(Company).where(Company.id == company_id))).scalar_one_or_none()
-        branch = (await self.db.execute(select(Branch).where(Branch.id == order.branch_id))).scalar_one_or_none()
+        branch = (
+            await self.db.execute(
+                select(Branch).where(
+                    Branch.id == order.branch_id, Branch.company_id == company_id
+                )
+            )
+        ).scalar_one_or_none()
         waiter = None
         if order.waiter_id:
-            waiter = (await self.db.execute(select(_User).where(_User.id == order.waiter_id))).scalar_one_or_none()
+            waiter = (
+                await self.db.execute(
+                    select(_User).where(
+                        _User.id == order.waiter_id, _User.company_id == company_id
+                    )
+                )
+            ).scalar_one_or_none()
 
         return ReceiptData(
             company_name=(company.name if company else "—"),

@@ -12,11 +12,11 @@ const [, , bundle, page, outPath] = process.argv;
 const BASE = "e85e978e8a0ea2eac17defcc8fc343469801a48a";
 
 const KAFE = [
-  "src/styles/marjon-tokens.css", "src/styles/brand.css", "src/styles/dashboard.css",
-  "src/styles/topbar-widgets.css", "src/styles/forms.css", "src/styles/tables.css",
-  "src/styles/staff-pos.css", "src/styles/responsive.css", "src/styles/app.css",
-  "src/styles/dashboard-curve.css", "src/styles/loader.css", "src/styles/react-overrides.css",
-  "src/styles/receipt.css", "src/styles/auth.css", "src/styles/login-extras.css",
+  "src/styles/global/marjon-tokens.css", "src/styles/global/brand.css", "src/styles/owner/dashboard.css",
+  "src/styles/shared/topbar-widgets.css", "src/styles/global/forms.css", "src/styles/global/tables.css",
+  "src/styles/owner/staff-pos.css", "src/styles/global/responsive.css", "src/styles/app.css",
+  "src/styles/shared/dashboard-curve.css", "src/styles/global/loader.css", "src/styles/react-overrides.css",
+  "src/styles/shared/receipt.css", "src/styles/shared/auth.css", "src/styles/shared/login-extras.css",
 ];
 const KAFE_AFTER = [...KAFE, "src/styles/marjon-restore.css"];
 const ADMIN = ["src/admin/styles.css"];

@@ -5,7 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import asyncio
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user, require_company_admin
+from app.modules.auth.dependencies import (
+    ensure_company_app_identity,
+    require_company_admin,
+    require_company_app_user,
+)
 from app.modules.auth.models import User
 from app.modules.auth.repository import UserRepository
 from app.modules.auth.security import decode_token
@@ -17,6 +21,9 @@ from app.modules.printers.schemas import (
 from app.modules.printers.service import PrinterService
 from app.modules.printers.printer_client import send_to_network_printer, PrinterError
 from app.modules.printers.ws_manager import printer_ws_manager
+from app.modules.companies.models import Branch
+from app.shared.exceptions import NotFoundError
+from app.shared.tenant_scope import require_company_resource
 
 router = APIRouter(prefix="/printers", tags=["printers"])
 
@@ -25,7 +32,7 @@ router = APIRouter(prefix="/printers", tags=["printers"])
 async def ping_printer(
     ip: str = Query(..., description="Printer IP address, e.g. 192.168.1.100"),
     port: int = Query(9100, description="Printer port (default 9100 for ESC/POS)"),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_company_app_user),
 ):
     """
     Quickly check if a printer is reachable before adding it.
@@ -58,7 +65,7 @@ async def create_printer(
 
 @router.get("", response_model=list[PrinterResponse])
 async def list_printers(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     return await PrinterService(db).list(user.company_id)
@@ -97,7 +104,7 @@ async def delete_printer(
 @router.post("/test", response_model=PrintJobResponse)
 async def test_print(
     data: PrinterTestRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Send a test page to the printer."""
@@ -107,7 +114,7 @@ async def test_print(
 @router.post("/print/receipt", response_model=PrintJobResponse)
 async def print_receipt(
     data: PrintReceiptRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Print customer receipt for an order."""
@@ -119,7 +126,7 @@ async def print_receipt(
 @router.post("/print/kitchen", response_model=PrintJobResponse)
 async def print_kitchen(
     data: PrintKitchenRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Print kitchen ticket for an order."""
@@ -131,7 +138,7 @@ async def print_kitchen(
 @router.post("/print/summary", response_model=PrintJobResponse)
 async def print_summary(
     data: PrintSummaryRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Print summary receipt (общий чек из Истории/Отчётов) from raw lines."""
@@ -143,7 +150,7 @@ async def print_summary(
 @router.post("/print/split", response_model=list[PrintJobResponse])
 async def print_split(
     data: PrintSplitRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     """2.1 — раздельный чек: печатает заказ несколькими чеками-частями."""
@@ -153,12 +160,50 @@ async def print_split(
     )
 
 
+# ── BE-12 compat shims ───────────────────────────────────────────────────────
+# The two canonical endpoints above (POST /print/receipt, POST /print/kitchen)
+# are the contract this ticket asked for — explicit printer_id, one API for
+# every client. frontend/src/api/receipt.js, however, has always called
+# POST /print/orders/{order_id}/receipt|kitchen with an EMPTY body (no
+# printer_id at all), which 404s against the canonical routes — meaning
+# receipt/kitchen printing from the web app has never actually reached this
+# backend. Per the ТЗ's "не трогать frontend" boundary, this is a backend-
+# only compat route rather than a frontend fix: it auto-selects the branch's
+# active printer(s) of the right type instead of requiring an explicit one.
+@router.post("/print/orders/{order_id}/receipt", response_model=list[PrintJobResponse])
+async def print_order_receipt_compat(
+    order_id: UUID,
+    user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    svc = PrinterService(db)
+    order = await svc.get_order_for_print(user.company_id, order_id)
+    jobs = await svc.auto_print_receipt(user.company_id, order.branch_id, order_id)
+    if not jobs:
+        raise NotFoundError("Для этого филиала не настроен принтер чеков")
+    return jobs
+
+
+@router.post("/print/orders/{order_id}/kitchen", response_model=list[PrintJobResponse])
+async def print_order_kitchen_compat(
+    order_id: UUID,
+    user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    svc = PrinterService(db)
+    order = await svc.get_order_for_print(user.company_id, order_id)
+    jobs = await svc.auto_print_kitchen(user.company_id, order.branch_id, order_id)
+    if not jobs:
+        raise NotFoundError("Для этого филиала не настроен кухонный принтер")
+    return jobs
+
+
 # ── Job queue (for local POS terminals) ───────────────────────────────────────
 
 @router.get("/{printer_id}/jobs/pending", response_model=list[PrintJobResponse])
 async def pending_jobs(
     printer_id: UUID,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     """POS terminal polls this to get queued jobs for local printing."""
@@ -168,7 +213,7 @@ async def pending_jobs(
 @router.post("/jobs/{job_id}/done", response_model=PrintJobResponse)
 async def mark_done(
     job_id: UUID,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     """POS terminal marks job as printed."""
@@ -193,9 +238,15 @@ async def printer_ws_endpoint(
         payload = decode_token(token)
         user_id = UUID(payload["sub"])
         user = await UserRepository(db).get_by_id(user_id)
-        if not user or not user.is_active or not user.company_id:
+        if not user or not user.is_active:
             await ws.close(code=4001, reason="Unauthorized")
             return
+        await ensure_company_app_identity(
+            user, db, auth_scope=payload.get("auth_scope", "app")
+        )
+        await require_company_resource(
+            db, Branch, branch_id, user.company_id, detail="Branch not found"
+        )
     except Exception:
         await ws.close(code=4001, reason="Unauthorized")
         return

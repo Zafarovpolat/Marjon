@@ -13,13 +13,20 @@ const LANGUAGES = [
   { code: "en", short: "EN", label: "English", flagUrl: "https://flagcdn.com/w40/gb.png" },
 ];
 
-function getLocalPhoneDigits(raw) {
+export function getLocalPhoneDigits(raw) {
   const digits = String(raw || "").replace(/\D/g, "");
-  const body = digits.startsWith("998") ? digits.slice(3) : digits;
+  // The +998 country code is rendered separately; this field holds only the 9
+  // local digits. Strip a leading 998 solely for a full international-length
+  // input (12 = "998" + 9 local digits) — a pasted +998 number. A bare local
+  // number is at most 9 digits, so any 10–11 digit value is over-typing of the
+  // local field and must be clamped (below), not stripped; and a local number
+  // that itself begins with 998 (or an incremental "998…" while typing) must be
+  // preserved, not reset.
+  const body = digits.length >= 12 && digits.startsWith("998") ? digits.slice(3) : digits;
   return body.slice(0, 9);
 }
 
-function formatLocalPhone(raw) {
+export function formatLocalPhone(raw) {
   const local = getLocalPhoneDigits(raw);
 
   if (local.length <= 2) return local;

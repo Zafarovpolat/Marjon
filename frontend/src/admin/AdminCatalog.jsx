@@ -346,8 +346,8 @@ export function ProductNomenclaturePage({ search, onNotify }) {
 
   return (
     <section className="admin-product-page">
-      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка продуктов...</div> : null}
-      {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить продукты.</div> : null}
+      {loadState === "loading" ? <div className="admin-data-state" role="status">Загрузка продуктов...</div> : null}
+      {loadState === "error" ? <div className="admin-data-state" role="alert">Не удалось загрузить продукты.</div> : null}
       <div className="admin-product-card">
         <div className="admin-product-toolbar">
           <div className="admin-product-title">
@@ -470,14 +470,17 @@ export function SaleCategoryPage({ search, onNotify }) {
   const query = (search || "").trim().toLowerCase();
 
   useEffect(() => {
+    let activeRequest = true;
     hqService.listCategories()
       .then(({ data }) => {
+        if (!activeRequest) return;
         const items = Array.isArray(data) ? data : data?.items || data?.results || [];
         const nextRows = items.map(normalizeAdminSaleCategory).filter((row) => row.name);
         setRows(nextRows);
         setLoadState(nextRows.length ? "success" : "empty");
       })
       .catch(() => {
+        if (!activeRequest) return;
         setRows([]);
         setLoadState("error");
       });
@@ -572,8 +575,8 @@ export function SaleCategoryPage({ search, onNotify }) {
 
   return (
     <section className="admin-sale-category-page">
-      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка категорий...</div> : null}
-      {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить категории.</div> : null}
+      {loadState === "loading" ? <div className="admin-data-state" role="status">Загрузка категорий...</div> : null}
+      {loadState === "error" ? <div className="admin-data-state" role="alert">Не удалось загрузить категории.</div> : null}
       <div className="admin-sale-category-card">
         <div className="admin-sale-category-head">
           <div className="admin-sale-category-title">
@@ -732,8 +735,8 @@ export function AdminSourcesPage({ search, onNotify }) {
 
   return (
     <section className="admin-source-page">
-      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка источников...</div> : null}
-      {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить источники.</div> : null}
+      {loadState === "loading" ? <div className="admin-data-state" role="status">Загрузка источников...</div> : null}
+      {loadState === "error" ? <div className="admin-data-state" role="alert">Не удалось загрузить источники.</div> : null}
       <div className="admin-source-card">
         <div className="admin-source-head">
           <div className="admin-source-title">
@@ -910,8 +913,8 @@ export function OrdersNomenclaturePage({ search, onNotify }) {
 
   return (
     <section className="admin-orders-page">
-      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка заказов...</div> : null}
-      {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить заказы.</div> : null}
+      {loadState === "loading" ? <div className="admin-data-state" role="status">Загрузка заказов...</div> : null}
+      {loadState === "error" ? <div className="admin-data-state" role="alert">Не удалось загрузить заказы.</div> : null}
       <div className="admin-orders-card">
         <div className="admin-orders-head">
           <div className="admin-orders-title">
@@ -1150,8 +1153,8 @@ export function UnitNomenclaturePage({ search, onNotify }) {
 
   return (
     <section className="admin-unit-page">
-      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка единиц измерения...</div> : null}
-      {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить единицы измерения.</div> : null}
+      {loadState === "loading" ? <div className="admin-data-state" role="status">Загрузка единиц измерения...</div> : null}
+      {loadState === "error" ? <div className="admin-data-state" role="alert">Не удалось загрузить единицы измерения.</div> : null}
       <div className="admin-unit-card">
         <div className="admin-unit-head">
           <div className="admin-unit-title">

@@ -1,7 +1,8 @@
 from __future__ import annotations
+from decimal import Decimal
 from uuid import UUID
 from typing import TYPE_CHECKING
-from sqlalchemy import String, Boolean, Integer, Text, ForeignKey
+from sqlalchemy import String, Boolean, Integer, Numeric, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Uuid
 from app.modules.organizations.models import JsonType
@@ -29,6 +30,26 @@ class Company(TimeStampedModel):
     # Форма см. frontend/src/api/receipt.js (buildCustomerTemplate/buildKitchenTemplate).
     receipt_template: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
     kitchen_receipt_template: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
+    # Реквизиты для профиля/чека (SettingsProfilePage, ReceiptSettingsPage)
+    address: Mapped[str | None] = mapped_column(Text)
+    phone: Mapped[str | None] = mapped_column(String(32))
+    inn: Mapped[str | None] = mapped_column(String(32))
+    # Лого компании — печатается на чеке (растром через ESC/POS) и в UI.
+    # logo_key — ключ в MinIO/S3 для серверной загрузки байт при печати;
+    # logo_url — публичная ссылка для фронтенда (тот же путь, что и avatar_url).
+    logo_url: Mapped[str | None] = mapped_column(String(512))
+    logo_key: Mapped[str | None] = mapped_column(String(255))
+    # BE-09: frontend's company-profile screen expects these; PATCH
+    # /companies/me previously silently dropped them (no such column, and
+    # CompanyUpdate had no such field — pydantic's default extra="ignore"
+    # means an unknown field is just dropped, not rejected).
+    vat_rate: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    service_fee: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+
+    @property
+    def logo(self) -> str | None:
+        """Алиас для CompanyResponse — фронтенд (OrgContext) ожидает поле 'logo'."""
+        return self.logo_url
 
     branches: Mapped[list[Branch]] = relationship(back_populates="company", cascade="all, delete-orphan")
     users: Mapped[list[User]] = relationship(back_populates="company")

@@ -6,6 +6,7 @@ vi.mock("./api", () => ({
   adminApi: {
     get: vi.fn(),
     post: vi.fn(),
+    patch: vi.fn(),
   },
 }));
 
@@ -51,6 +52,16 @@ describe("HQ finance API contract", () => {
     expect(adminApi.post).toHaveBeenCalledWith("/hq/finance/transactions", payload, {
       headers: { "Idempotency-Key": "hq-finance-key-1" },
     });
+  });
+
+  it("updates a transaction through its canonical HQ resource path", async () => {
+    const payload = { amount: 130000, date: "2026-09-02T10:00:00.000Z", comment: "confirmed" };
+    const response = { data: { id: "tx-1", ...payload } };
+    adminApi.patch.mockResolvedValueOnce(response);
+
+    await expect(adminFinanceApi.updateTransaction("tx-1", payload)).resolves.toBe(response);
+    expect(adminApi.patch).toHaveBeenCalledWith("/hq/finance/transactions/tx-1", payload, {});
+    expect(() => adminFinanceApi.updateTransaction("", payload)).toThrow("transactionId is required");
   });
 
   it("reuses one idempotency key for a retry of the same transaction payload", () => {

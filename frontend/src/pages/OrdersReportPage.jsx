@@ -4,25 +4,8 @@ import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import { exportToExcel } from "../utils/excel";
 import { isAbortError, isOrderedDateRange, useLatestRequest } from "../hooks/useAsyncSafety";
-
-function toApiDate(value) {
-  if (!value) return undefined;
-  const [day, month, year] = value.split(".");
-  return `${year}-${month}-${day}`;
-}
-
-function currentMonthRange() {
-  const now = new Date();
-  return {
-    preset: "",
-    start: `01.${String(now.getMonth() + 1).padStart(2, "0")}.${now.getFullYear()}`,
-    end: `${String(now.getDate()).padStart(2, "0")}.${String(now.getMonth() + 1).padStart(2, "0")}.${now.getFullYear()}`,
-  };
-}
-
-function formatMoney(value) {
-  return `${new Intl.NumberFormat("ru-RU").format(Number(value))} UZS`;
-}
+import { currentMonthRange, toApiDate } from "./reports/reportPeriod";
+import { formatMoney } from "./reports/reportMoney";
 
 function formatDate(value) {
   if (!value) return "—";

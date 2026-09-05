@@ -2,7 +2,6 @@
 from decimal import Decimal
 from datetime import date
 from uuid import UUID
-from pydantic import Field
 from app.shared.base_schema import BaseSchema
 
 
@@ -29,35 +28,17 @@ class TopProduct(BaseSchema):
     revenue: Decimal
 
 
-class PaymentMethodSummary(BaseSchema):
-    method: str
-    amount: Decimal
-    count: int
-
-
-class OrderLocationSummary(BaseSchema):
-    name: str
-    count: int
-    order_type: str | None = None
-
-
-class AvgCheckSegment(BaseSchema):
-    name: str
-    avg_check: Decimal
-    orders_count: int
-    order_type: str | None = None
-
-
 class DashboardResponse(BaseSchema):
     today_revenue: Decimal
     today_orders: int
     avg_check: Decimal
     active_orders: int
-    cash_total: Decimal = Decimal("0")
-    non_cash_total: Decimal = Decimal("0")
-    payment_methods: list[PaymentMethodSummary] = Field(default_factory=list)
-    order_locations: list[OrderLocationSummary] = Field(default_factory=list)
-    avg_check_segments: list[AvgCheckSegment] = Field(default_factory=list)
+
+
+class PaymentMethodSummary(BaseSchema):
+    method: str
+    amount: Decimal
+    count: int
 
 
 class ZReportResponse(BaseSchema):

@@ -45,7 +45,18 @@ vi.mock("../../src/api/receipt", () => ({
   printTestKitchenReceipt: vi.fn(() => Promise.resolve()),
 }));
 
-const OWNER = { id: "owner", role_slugs: ["owner"], roles: ["owner"],
+// FE-08D-ORACLE-RATES: deterministic exchange-rate fixture for the OWNER visual
+// audit (same audit fixture as harvest-dom.jsx). Prevents the Topbar rate
+// widget's numeric span from depending on the live cbu.uz fetch timing. Fixture
+// data only; production exchangeRatesService is unchanged.
+vi.mock("../../src/api/exchangeRates", () => ({
+  exchangeRatesService: {
+    get: () => Promise.resolve([{ Rate: "12500.0", Nominal: "1" }]),
+  },
+  RATE_URLS: {},
+}));
+
+const OWNER = { id: "owner", role_slugs: ["owner"], roles: ["owner"], auth_scope: "app",
   email: "owner@marjon.test", full_name: "Владелец Тестов", company_id: "c1" };
 
 function mockApi() {
@@ -93,6 +104,7 @@ describe("harvest interactive states", () => {
     await settle();
     const collapse = container.querySelector('[title="Свернуть меню"], .brand-mark--button');
     if (collapse) { await act(async () => { fireEvent.click(collapse); await new Promise((r) => setTimeout(r, 80)); }); }
+    await act(async () => { await new Promise((r) => setTimeout(r, 1500)); });
     fs.writeFileSync(path.join(OUT, "state-sidebar-collapsed.html"), container.innerHTML, "utf8");
     expect(container.innerHTML).toMatch(/dashboard-sidebar/);
   }, 60000);
@@ -105,6 +117,7 @@ describe("harvest interactive states", () => {
       const hit = screen.queryAllByText(label)[0];
       if (hit) await act(async () => { fireEvent.click(hit.closest("button") || hit); await new Promise((r) => setTimeout(r, 60)); });
     }
+    await act(async () => { await new Promise((r) => setTimeout(r, 1500)); });
     fs.writeFileSync(path.join(OUT, "state-submenu-open.html"), container.innerHTML, "utf8");
     expect(container.innerHTML).toMatch(/sidebar-nav-item/);
   }, 60000);
@@ -115,6 +128,7 @@ describe("harvest interactive states", () => {
     await settle();
     const user = container.querySelector(".sidebar-user--button");
     if (user) await act(async () => { fireEvent.click(user); await new Promise((r) => setTimeout(r, 80)); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 1500)); });
     fs.writeFileSync(path.join(OUT, "state-account-open.html"), container.innerHTML, "utf8");
     expect(container.innerHTML).toMatch(/sidebar-account/);
   }, 60000);
@@ -127,6 +141,10 @@ describe("harvest interactive states", () => {
     if (collapse) await act(async () => { fireEvent.click(collapse); await new Promise((r) => setTimeout(r, 80)); });
     const hit = screen.queryAllByText("Склад")[0];
     if (hit) await act(async () => { fireEvent.click(hit.closest("button") || hit); await new Promise((r) => setTimeout(r, 80)); });
+    // FE-08A: даём таймерам collapsed-поповера (260мс) и async-загрузке склада
+    // полностью осесть — иначе снимок этого состояния скачет на ±1 элемент
+    // между прогонами и ломает детерминизм визуальной проверки.
+    await act(async () => { await new Promise((r) => setTimeout(r, 1500)); });
     fs.writeFileSync(path.join(OUT, "state-collapsed-submenu.html"), container.innerHTML, "utf8");
     expect(container.innerHTML).toMatch(/dashboard-sidebar/);
   }, 60000);

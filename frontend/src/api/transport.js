@@ -4,6 +4,8 @@ import {
   getAccessToken,
   handleAuthResponseError,
   prepareAuthRequest,
+  shouldSkipAuthRefresh,
+  waitForAuthRefresh,
 } from "../auth/session";
 
 export const API_ERROR_CODES = {
@@ -324,10 +326,18 @@ export function createApiTransport({
     adapter: adapter || createFetchAdapter({ defaultTimeout: timeout }),
   });
 
-  client.interceptors.request.use((config) => prepareAuthRequest(config, {
-    scope,
-    accessToken: getAccessToken({ scope }),
-  }));
+  client.interceptors.request.use(async (config) => {
+    if (!shouldSkipAuthRefresh(config.url)) {
+      await waitForAuthRefresh({
+        scope,
+        signal: config._callerSignal || config.signal,
+      });
+    }
+    return prepareAuthRequest(config, {
+      scope,
+      accessToken: getAccessToken({ scope }),
+    });
+  });
 
   client.interceptors.response.use(
     (response) => response,

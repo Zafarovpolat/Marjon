@@ -3,12 +3,15 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from app.modules.companies.models import Branch
+from app.modules.inventory.models import Category
 from app.modules.kitchen.models import KitchenStation
 from app.modules.kitchen.repository import KitchenStationRepository
 from app.modules.kitchen.schemas import KitchenItemStatusUpdate, StationCreate
 from app.modules.kitchen.websocket import kitchen_manager
 from app.modules.pos.models import Order, OrderItem
 from app.shared.exceptions import NotFoundError, ValidationError
+from app.shared.tenant_scope import require_company_resource, require_company_resource_ids
 
 # Valid item status transitions
 ITEM_TRANSITIONS: dict[str, set[str]] = {
@@ -26,6 +29,12 @@ class KitchenService:
         self.station_repo = KitchenStationRepository(db)
 
     async def create_station(self, company_id: UUID, data: StationCreate) -> KitchenStation:
+        await require_company_resource(
+            self.db, Branch, data.branch_id, company_id, detail="Branch not found"
+        )
+        await require_company_resource_ids(
+            self.db, Category, data.category_ids, company_id, detail="Category not found"
+        )
         return await self.station_repo.save(
             KitchenStation(company_id=company_id, **data.model_dump())
         )

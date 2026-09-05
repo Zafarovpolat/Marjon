@@ -12,17 +12,31 @@ from app.modules.finance.models import PaymentType, TransactionCategory
 from app.modules.finance.schemas import TransactionCreate
 from app.modules.finance.service import TransactionService
 from app.modules.organizations.models import Organization
-from app.shared.exceptions import ForbiddenError, ValidationError as AppValidationError
+from app.shared.exceptions import NotFoundError, ValidationError as AppValidationError
 
 
 async def _seed_finance_refs(db):
     user = User(email="finance@example.com", password_hash=hash_password("Passw0rd!"))
     org = Organization(name="Main branch")
     other_org = Organization(name="Other branch")
-    payment_type = PaymentType(name="Наличные", type="cash", status=True)
-    income_category = TransactionCategory(name="Продажи", kind="income", status=True)
-    expense_category = TransactionCategory(name="Расход", kind="expense", status=True)
-    db.add_all([user, org, other_org, payment_type, income_category, expense_category])
+    db.add_all([user, org, other_org])
+    await db.flush()
+    # Справочники BI-05A видны только внутри своего scope: проводке организации
+    # нужны строки со scope_kind="organization" и её organization_id, иначе
+    # require_finance_reference не найдёт их и вернёт 404.
+    payment_type = PaymentType(
+        name="Наличные", type="cash", status=True,
+        scope_kind="organization", organization_id=org.id,
+    )
+    income_category = TransactionCategory(
+        name="Продажи", kind="income", status=True,
+        scope_kind="organization", organization_id=org.id,
+    )
+    expense_category = TransactionCategory(
+        name="Расход", kind="expense", status=True,
+        scope_kind="organization", organization_id=org.id,
+    )
+    db.add_all([payment_type, income_category, expense_category])
     await db.flush()
     return user, org, other_org, payment_type, income_category, expense_category
 
@@ -62,7 +76,9 @@ async def test_create_transaction_rejects_foreign_organization(db_engine):
     async with session_factory() as db:
         user, org, other_org, payment_type, income_category, _ = await _seed_finance_refs(db)
 
-        with pytest.raises(ForbiddenError):
+        # Чужая организация скрывается как несуществующая (fail closed,
+        # без раскрытия факта её существования) — см. finance/service.py.
+        with pytest.raises(NotFoundError):
             await TransactionService(db).create_transaction(
                 TransactionCreate(
                     amount=Decimal("1000"),

@@ -5,14 +5,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import require_hq_admin
 from app.modules.auth.models import User
 from app.modules.organizations.models import user_organizations
 from app.shared.admin_crud import OrgScope
 
 
 async def get_org_scope(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_hq_admin),
     db: AsyncSession = Depends(get_db),
 ) -> OrgScope:
     """Видимость данных ограничена организациями аккаунта (ТЗ §4.1).

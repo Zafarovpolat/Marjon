@@ -1,0 +1,363 @@
+@layer marjon-base {
+  /*
+   * HQ-SHELL-RESP-02
+   *
+   * The desktop sidebar remains governed by the approved 280/88px motion
+   * rules in styles.css. This module owns only the compact shell used below
+   * the desktop breakpoint.
+   */
+  @media (max-width: 980px) {
+    .admin-shell,
+    .admin-shell:not(.is-sidebar-collapsed),
+    .admin-shell.is-sidebar-collapsed {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      display: block;
+      overflow-x: clip;
+    }
+
+    .admin-shell .admin-sidebar,
+    .admin-shell .admin-sidebar.is-collapsed {
+      position: relative;
+      inset: auto;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      height: auto;
+      min-height: 0;
+      max-height: none;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: 56px auto;
+      gap: 12px;
+      padding: 12px;
+      overflow: visible;
+      border-width: 0 0 1px;
+      border-radius: 0;
+    }
+
+    .admin-shell .admin-sidebar .admin-brand.sidebar-brand,
+    .admin-shell .admin-sidebar.is-collapsed .admin-brand.sidebar-brand,
+    .admin-shell:not(.is-sidebar-collapsed) .admin-sidebar .admin-brand.sidebar-brand,
+    .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-brand.sidebar-brand {
+      position: relative;
+      inset: auto;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      height: 56px;
+      min-height: 56px;
+      max-height: 56px;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      overflow: visible;
+      border: 0;
+      transform: none;
+    }
+
+    .admin-shell .admin-sidebar .sidebar-brand__identity,
+    .admin-shell .admin-sidebar.is-collapsed .sidebar-brand__identity,
+    .admin-shell:not(.is-sidebar-collapsed) .admin-sidebar .sidebar-brand__identity,
+    .admin-shell.is-sidebar-collapsed .admin-sidebar .sidebar-brand__identity {
+      position: relative;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      height: 48px;
+      min-height: 48px;
+      max-height: 48px;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr);
+      align-items: center;
+      gap: 10px;
+      overflow: visible;
+      transform: none;
+    }
+
+    .admin-shell .admin-sidebar .brand-mark,
+    .admin-shell .admin-sidebar .brand-mark--button,
+    .admin-shell .admin-sidebar.is-collapsed .brand-mark,
+    .admin-shell .admin-sidebar.is-collapsed .brand-mark--button,
+    .admin-shell.is-sidebar-collapsed .admin-sidebar .brand-mark,
+    .admin-shell.is-sidebar-collapsed .admin-sidebar .brand-mark--button {
+      position: relative;
+      inset: auto;
+      width: 48px;
+      min-width: 48px;
+      max-width: 48px;
+      height: 48px;
+      min-height: 48px;
+      max-height: 48px;
+      margin: 0;
+      padding: 4px;
+      display: grid;
+      place-items: center;
+      grid-column: 1;
+      border: 0;
+      border-radius: 14px;
+      background: transparent;
+      box-shadow: none;
+      overflow: hidden;
+      transform: none;
+    }
+
+    .admin-shell .admin-sidebar .admin-brand.sidebar-brand .brand-mark .marjon-logo,
+    .admin-shell .admin-sidebar .admin-brand.sidebar-brand .brand-mark--button .marjon-logo {
+      width: 40px;
+      min-width: 40px;
+      max-width: 40px;
+      height: 40px;
+      min-height: 40px;
+      max-height: 40px;
+      margin: 0;
+      padding: 0;
+      display: block;
+      object-fit: contain;
+      border: 0;
+      border-radius: 10px;
+      transform: none;
+    }
+
+    .admin-shell .admin-sidebar .sidebar-brand__identity > div:not(.brand-mark),
+    .admin-shell .admin-sidebar .sidebar-brand__identity > button + div,
+    .admin-shell.is-sidebar-collapsed .admin-sidebar .sidebar-brand__identity > div:not(.brand-mark),
+    .admin-shell.is-sidebar-collapsed .admin-sidebar .sidebar-brand__identity > button + div {
+      position: static;
+      width: auto;
+      min-width: 0;
+      max-width: 100%;
+      height: auto;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      grid-column: 2;
+      opacity: 1;
+      visibility: visible;
+      overflow: hidden;
+      pointer-events: auto;
+      transform: none;
+    }
+
+    .admin-shell.is-sidebar-collapsed .admin-sidebar .brand-title,
+    .admin-shell.is-sidebar-collapsed .admin-sidebar .brand-subtitle,
+    .admin-shell .admin-sidebar .brand-title,
+    .admin-shell .admin-sidebar .brand-subtitle {
+      width: auto;
+      max-width: 100%;
+      opacity: 1;
+      visibility: visible;
+      white-space: nowrap;
+      transform: none;
+    }
+
+    .admin-shell .admin-sidebar .brand-title {
+      color: #f2c76e;
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: 0.04em;
+    }
+
+    .admin-shell .admin-sidebar .brand-subtitle {
+      margin-top: 3px;
+      color: rgba(244, 247, 248, 0.58);
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .admin-shell .admin-sidebar .admin-nav,
+    .admin-shell .admin-sidebar.is-collapsed .admin-nav,
+    .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      height: auto;
+      margin: 0;
+      padding: 0 0 4px;
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: max-content;
+      align-items: center;
+      gap: 8px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      overscroll-behavior-inline: contain;
+      scrollbar-width: thin;
+    }
+
+    .admin-shell .admin-sidebar .admin-nav-group,
+    .admin-shell .admin-sidebar .admin-nav > button,
+    .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav-group,
+    .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav > button {
+      width: auto;
+      min-width: max-content;
+      max-width: none;
+      margin: 0;
+    }
+
+    .admin-shell .admin-sidebar .admin-nav > button,
+    .admin-shell .admin-sidebar .admin-nav-group__toggle,
+    .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav > button,
+    .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav-group__toggle {
+      width: auto;
+      min-width: max-content;
+      max-width: none;
+      grid-template-columns: 18px max-content 14px;
+      justify-items: start;
+      padding-inline: 13px;
+    }
+
+    .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav > button span,
+    .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav > button em,
+    .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav-group__toggle span,
+    .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav-group__chevron {
+      width: auto;
+      max-width: none;
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transform: none;
+    }
+
+    .admin-shell .admin-sidebar .admin-nav-sub,
+    .admin-shell .admin-sidebar .admin-nav-flyout {
+      display: none;
+    }
+
+    .admin-shell .admin-sidebar > .admin-profile-card {
+      display: none;
+    }
+
+    .admin-shell .admin-main {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      min-height: calc(100svh - 128px);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-radius: 0;
+    }
+
+    .admin-shell .admin-header {
+      position: relative;
+      inset: auto;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      min-height: 0;
+      margin: 0;
+      padding: 10px 12px;
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+      align-items: start;
+      gap: 8px;
+      border-radius: 0;
+    }
+
+    .admin-shell .admin-header__title {
+      width: 44px;
+      min-width: 44px;
+      max-width: 44px;
+      margin: 0;
+    }
+
+    .admin-shell .admin-header__actions {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      margin: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 42px;
+      align-items: start;
+      gap: 8px;
+    }
+
+    .admin-shell .admin-date-time {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      height: 42px;
+      padding-inline: 10px;
+      justify-content: center;
+    }
+
+    .admin-shell .admin-notification-wrap,
+    .admin-shell .admin-bell.admin-notification {
+      width: 42px;
+      min-width: 42px;
+      max-width: 42px;
+      height: 42px;
+      min-height: 42px;
+      max-height: 42px;
+    }
+
+    .admin-shell .admin-header__actions .admin-profile {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      height: 46px;
+      min-height: 46px;
+      margin: 0;
+      grid-column: 1 / -1;
+      justify-content: flex-start;
+    }
+
+    .admin-shell .admin-header__actions .admin-profile__meta {
+      min-width: 0;
+      flex: 1 1 auto;
+      text-align: left;
+    }
+
+    .admin-shell .admin-notification-popover {
+      right: 0;
+      left: auto;
+      width: min(340px, calc(100vw - 24px));
+      max-width: calc(100vw - 24px);
+    }
+
+    .admin-shell .admin-content {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      margin: 0;
+      padding: 12px;
+      flex: 1 1 auto;
+      overflow-x: clip;
+      overflow-y: visible;
+    }
+
+    .admin-shell .admin-content > * {
+      min-width: 0;
+      max-width: 100%;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .admin-shell .admin-date-time {
+      padding-inline: 8px;
+      gap: 7px;
+    }
+
+    .admin-shell .admin-date-time__item {
+      gap: 5px;
+    }
+
+    .admin-shell .admin-date-time__item strong {
+      font-size: 12px;
+    }
+  }
+}
