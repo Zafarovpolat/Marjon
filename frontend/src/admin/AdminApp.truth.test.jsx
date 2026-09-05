@@ -12,25 +12,6 @@ import {
 import { adminApi } from "./api";
 import { adminFinanceApi } from "./financeApi";
 
-vi.mock("chart.js", () => {
-  class ChartMock {
-    static register = vi.fn();
-
-    destroy() {}
-  }
-
-  return {
-    Chart: ChartMock,
-    CategoryScale: {},
-    Filler: {},
-    LineController: {},
-    LineElement: {},
-    LinearScale: {},
-    PointElement: {},
-    Tooltip: {},
-  };
-});
-
 describe("FE-PRE-RBAC-04R3 truthful HQ data", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -45,8 +26,19 @@ describe("FE-PRE-RBAC-04R3 truthful HQ data", () => {
       status: "PAID",
     });
 
-    expect(row.status).toBe("—");
+    expect(row).not.toHaveProperty("status");
     expect(JSON.stringify(row)).not.toMatch(/PAID|SUCCESS|Оплачено|Завершено/);
+  });
+
+  it("does not mislabel an unknown HQ transaction direction as expense", () => {
+    const row = normalizeHqDashboardTransaction({
+      id: "transaction-uuid",
+      amount: 125000,
+      direction: "unsupported",
+    });
+
+    expect(row.kind).toBe("—");
+    expect(row.kind).not.toBe("Расход");
   });
 
   it("renders an unsupported HQ transaction status neutrally", async () => {
@@ -59,6 +51,49 @@ describe("FE-PRE-RBAC-04R3 truthful HQ data", () => {
     expect(await screen.findByText("125 000")).toBeInTheDocument();
     expect(screen.queryByText("PAID")).not.toBeInTheDocument();
     expect(screen.queryByText("SUCCESS")).not.toBeInTheDocument();
+  });
+
+  it("opens the recovered transaction editor and patches only supported fields", async () => {
+    vi.spyOn(adminFinanceApi, "listTransactions").mockResolvedValue({
+      data: [{
+        id: "transaction-uuid",
+        date: "2026-08-12T10:00:00Z",
+        amount: 125000,
+        direction: "income",
+        organization_name: "Canonical Cafe",
+        payment_type_name: "Payme",
+        category_name: "Продажи",
+        comment: "Before",
+      }],
+    });
+    const update = vi.spyOn(adminFinanceApi, "updateTransaction").mockResolvedValue({
+      data: {
+        id: "transaction-uuid",
+        date: "2026-08-12T10:00:00Z",
+        amount: 130000,
+        comment: "After",
+      },
+    });
+
+    render(<TransactionsTable onNotify={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Редактировать транзакцию transaction-uuid" }));
+    const dialog = screen.getByRole("dialog", { name: "Редактировать транзакцию transaction-uuid" });
+    expect(screen.getByLabelText("Тип")).toBeDisabled();
+    expect(screen.getByLabelText("Тип оплаты")).toBeDisabled();
+    expect(screen.getByLabelText("Оплата за")).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "130000" } });
+    fireEvent.change(screen.getByLabelText("Комментарий"), { target: { value: "After" } });
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+
+    await waitFor(() => expect(update).toHaveBeenCalledWith("transaction-uuid", expect.objectContaining({
+      amount: 130000,
+      date: expect.any(String),
+      comment: "After",
+    })));
+    expect(dialog).not.toBeInTheDocument();
+    expect(screen.getByText("Canonical Cafe")).toBeInTheDocument();
+    expect(screen.getByText("Payme")).toBeInTheDocument();
+    expect(screen.getByText("Продажи")).toBeInTheDocument();
   });
 
   it("uses raw identifiers when product dictionaries cannot resolve category and unit", () => {

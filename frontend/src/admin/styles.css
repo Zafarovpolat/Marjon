@@ -4280,1054 +4280,6 @@
     }
   }
 
-  /* Organization directory */
-  .org-directory-page {
-    min-height: 640px;
-    overflow: hidden;
-    border: 1px solid rgba(197, 211, 231, 0.72);
-    border-radius: 16px;
-    color: #102033;
-    background:
-      linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(235, 245, 255, 0.9)),
-      radial-gradient(circle at 100% 0%, rgba(26, 145, 111, 0.13), transparent 34%);
-    box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
-  }
-
-  .org-directory-topbar {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 18px 20px 14px;
-    border-bottom: 1px solid rgba(197, 211, 231, 0.72);
-  }
-
-  .org-directory-topbar h2 {
-    margin: 0;
-    color: #0f172a;
-    font-size: 24px;
-    line-height: 1.1;
-  }
-
-  .org-directory-topbar p {
-    margin: 6px 0 0;
-    color: #64748b;
-    font-size: 13px;
-  }
-
-  .org-directory-add,
-  .org-directory-soft,
-  .org-directory-settings,
-  .org-directory-switch,
-  .org-directory-icon,
-  .org-directory-edit,
-  .org-directory-footer button,
-  .org-directory-flag-button {
-    border: 0;
-    font: inherit;
-  }
-
-  .org-directory-add {
-    min-height: 36px;
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 0 13px;
-    border-radius: 10px;
-    color: #fff;
-    background: linear-gradient(135deg, #1a916f, #1a916f);
-    box-shadow: 0 12px 24px rgba(26, 145, 111, 0.2);
-    font-size: 13px;
-    font-weight: 800;
-    white-space: nowrap;
-  }
-
-  .org-directory-metrics {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 12px 20px 0;
-  }
-
-  .org-directory-metrics span {
-    min-height: 32px;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 0 11px;
-    border: 1px solid rgba(197, 211, 231, 0.74);
-    border-radius: 10px;
-    color: #64748b;
-    background: rgba(255, 255, 255, 0.72);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .org-directory-metrics b {
-    color: #0f172a;
-    font-size: 13px;
-  }
-
-  .org-directory-toolbar {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 12px 20px 14px;
-  }
-
-  .org-directory-search,
-  .org-directory-toolbar select,
-  .org-directory-soft,
-  .org-directory-settings {
-    min-height: 34px;
-    border: 1px solid rgba(197, 211, 231, 0.86);
-    border-radius: 9px;
-    background: #fff;
-    color: #0f172a;
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .org-directory-search {
-    width: min(260px, 100%);
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 0 10px;
-  }
-
-  .org-directory-search svg {
-    color: #64748b;
-  }
-
-  .org-directory-search input {
-    width: 100%;
-    min-width: 0;
-    border: 0;
-    outline: 0;
-    color: #0f172a;
-    background: transparent;
-    font-size: 12px;
-  }
-
-  .org-directory-toolbar select {
-    min-width: 132px;
-    padding: 0 28px 0 10px;
-    outline: 0;
-  }
-
-  .org-directory-soft,
-  .org-directory-settings {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 0 11px;
-    color: #1a916f;
-  }
-
-  .org-directory-settings {
-    justify-content: center;
-    color: #0f172a;
-    background: #ffffff;
-    box-shadow: none;
-    cursor: pointer;
-  }
-
-  .org-directory-settings svg {
-    color: #64748b;
-  }
-
-  .org-directory-settings:hover,
-  .org-directory-settings:focus-visible,
-  .org-directory-settings.is-open {
-    border-color: rgba(26, 145, 111, 0.34);
-    color: #1a916f;
-    background: #ffffff;
-    outline: 0;
-  }
-
-  .org-directory-settings:hover svg,
-  .org-directory-settings:focus-visible svg,
-  .org-directory-settings.is-open svg {
-    color: #1a916f;
-  }
-
-  .org-directory-switch {
-    min-height: 34px;
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 0 10px;
-    border-radius: 999px;
-    color: #475569;
-    background: rgba(226, 232, 240, 0.78);
-    font-size: 12px;
-    font-weight: 800;
-  }
-
-  .org-directory-switch span {
-    width: 28px;
-    height: 16px;
-    position: relative;
-    border-radius: 999px;
-    background: #cbd5e1;
-  }
-
-  .org-directory-switch span::after {
-    width: 12px;
-    height: 12px;
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    border-radius: 999px;
-    background: #fff;
-    content: "";
-    transition: transform 0.18s ease;
-  }
-
-  .org-directory-switch.is-on {
-    color: #1a916f;
-    background: rgba(26, 145, 111, 0.12);
-  }
-
-  .org-directory-switch.is-on span {
-    background: #1a916f;
-  }
-
-  .org-directory-switch.is-on span::after {
-    transform: translateX(12px);
-  }
-
-  .org-directory-column-panel {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-    gap: 8px;
-    margin: 0 20px 14px;
-    padding: 12px;
-    border: 1px solid rgba(197, 211, 231, 0.76);
-    border-radius: 12px;
-    background: rgba(248, 250, 252, 0.88);
-  }
-
-  .org-directory-column-panel--configurable {
-    display: block;
-  }
-
-  .org-directory-column-panel label {
-    min-height: 30px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #334155;
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .org-directory-column-panel input {
-    accent-color: #1a916f;
-  }
-
-  .org-directory-table-shell {
-    max-height: min(62vh, 680px);
-    margin: 0 20px;
-    overflow: auto;
-    overscroll-behavior: contain;
-    overscroll-behavior-block: contain;
-    overscroll-behavior-inline: contain;
-    scrollbar-gutter: stable;
-    border: 1px solid rgba(197, 211, 231, 0.78);
-    border-radius: 14px;
-    background: #fff;
-  }
-
-  .org-directory-table-shell::-webkit-scrollbar {
-    width: 12px;
-    height: 12px;
-  }
-
-  .org-directory-table-shell::-webkit-scrollbar-track {
-    background: #eef2f7;
-  }
-
-  .org-directory-table-shell::-webkit-scrollbar-thumb {
-    border: 3px solid #eef2f7;
-    border-radius: 999px;
-    background: #94a3b8;
-  }
-
-  .org-directory-table {
-    width: max-content;
-    min-width: 100%;
-    border-spacing: 0;
-    table-layout: fixed;
-  }
-
-  .org-directory-table th,
-  .org-directory-table td {
-    height: 42px;
-    padding: 0 9px;
-    border-bottom: 1px solid #edf2f7;
-    text-align: left;
-    vertical-align: middle;
-    white-space: nowrap;
-  }
-
-  .org-directory-table th {
-    position: sticky;
-    z-index: 2;
-    top: 0;
-    color: #334155;
-    background: #f8fafc;
-    font-size: 11px;
-    font-weight: 800;
-  }
-
-  .org-directory-table td {
-    overflow: hidden;
-    color: #1f2937;
-    font-size: 12px;
-    font-weight: 700;
-    text-overflow: ellipsis;
-  }
-
-  .org-directory-table--configurable th:not(:last-child),
-  .org-directory-table--configurable td:not(:last-child) {
-    border-right: 1px solid #edf2f7;
-  }
-
-  .org-directory-table--configurable th.org-directory-cell--actions {
-    text-align: center;
-  }
-
-  .org-directory-table--configurable.is-actions-sticky .org-directory-cell--actions {
-    position: sticky;
-    right: 0;
-    z-index: 3;
-    min-width: 58px;
-    text-align: center;
-    background: #ffffff;
-    box-shadow: -1px 0 0 #edf2f7;
-  }
-
-  .org-directory-table--configurable.is-actions-sticky th.org-directory-cell--actions {
-    z-index: 5;
-    background: #f8fafc;
-  }
-
-  .org-directory-actions-head {
-    display: inline-grid;
-    place-items: center;
-    width: 20px;
-    height: 20px;
-    color: #1a916f;
-  }
-
-  .org-directory-table tbody tr:hover td {
-    background: #f8fcff;
-  }
-
-  .org-directory-name {
-    display: block;
-    overflow: hidden;
-    color: #0f172a;
-    font-size: 12px;
-    text-overflow: ellipsis;
-  }
-
-  .org-directory-copy {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    max-width: 100%;
-    padding: 0;
-    border: 0;
-    color: #1e293b;
-    background: transparent;
-    font: inherit;
-    font-weight: 800;
-    cursor: pointer;
-  }
-
-  .org-directory-copy:hover {
-    color: #1a916f;
-  }
-
-  .org-directory-copy svg,
-  .org-directory-table td > svg {
-    color: #334155;
-  }
-
-  .org-directory-table b {
-    color: #0f172a;
-    font-weight: 800;
-  }
-
-  .org-directory-table .is-negative {
-    color: #dc2626;
-    font-weight: 800;
-  }
-
-  .org-directory-icon,
-  .org-directory-edit {
-    width: 28px;
-    height: 28px;
-    display: inline-grid;
-    place-items: center;
-    border-radius: 8px;
-    color: #64748b;
-    background: #eef2f7;
-  }
-
-  .org-directory-icon.is-on {
-    color: #1a916f;
-    background: rgba(26, 145, 111, 0.12);
-  }
-
-  .org-directory-edit {
-    border: 1px solid rgba(26, 145, 111, 0.24);
-    color: #1a916f;
-    background: #ffffff;
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
-    cursor: pointer;
-  }
-
-  .org-directory-edit:hover,
-  .org-directory-edit:focus-visible {
-    border-color: rgba(26, 145, 111, 0.46);
-    color: #167d61;
-    background: #f8fffc;
-    outline: 0;
-  }
-
-  .org-directory-cell-select {
-    width: 100%;
-    height: 27px;
-    border: 1px solid #dbe5f1;
-    border-radius: 8px;
-    color: #1f2937;
-    background: #fff;
-    font-size: 11px;
-    font-weight: 700;
-    outline: 0;
-  }
-
-  .org-directory-version,
-  .org-directory-payment-kind {
-    display: inline-flex;
-    align-items: center;
-    min-height: 24px;
-    padding: 0 8px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 800;
-  }
-
-  .org-directory-version {
-    color: #4338ca;
-    background: #eef2ff;
-  }
-
-  .org-directory-payment-kind {
-    color: #1f2937;
-    border: 1px solid #dbe5f1;
-    background: #fff;
-  }
-
-  .org-directory-flag-button {
-    padding: 0;
-    background: transparent;
-  }
-
-  .org-directory-flag {
-    min-height: 24px;
-    display: inline-flex;
-    align-items: center;
-    padding: 0 8px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 900;
-  }
-
-  .org-directory-flag--success {
-    color: #15803d;
-    background: #dcfce7;
-  }
-
-  .org-directory-flag--warning {
-    color: #b45309;
-    background: #fef3c7;
-  }
-
-  .org-directory-flag--danger {
-    color: #dc2626;
-    background: #fee2e2;
-  }
-
-  .org-directory-empty {
-    padding: 34px;
-    color: #334155;
-    text-align: center;
-    font-size: 13px;
-    font-weight: 700;
-  }
-
-  .org-directory-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 14px 20px 18px;
-    color: #1e293b;
-    font-size: 12px;
-    font-weight: 800;
-  }
-
-  .org-directory-footer__summary {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    min-width: max-content;
-  }
-
-  .org-directory-footer__summary small {
-    color: #64748b;
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .org-directory-pager {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .org-directory-footer button,
-  .org-directory-footer b,
-  .org-directory-ellipsis {
-    width: 30px;
-    height: 30px;
-    display: inline-grid;
-    place-items: center;
-    border-radius: 9px;
-  }
-
-  .org-directory-page-size {
-    min-height: 30px;
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 0 8px;
-    border: 1px solid #dbe5f1;
-    border-radius: 9px;
-    color: #64748b;
-    background: #fff;
-    font-size: 12px;
-    font-weight: 800;
-  }
-
-  .org-directory-page-size select {
-    min-width: 58px;
-    border: 0;
-    outline: 0;
-    color: #0f172a;
-    background: transparent;
-    font: inherit;
-    cursor: pointer;
-  }
-
-  .org-directory-footer button {
-    color: #0f172a;
-    background: #eef2f7;
-    cursor: pointer;
-  }
-
-  .org-directory-footer button:disabled {
-    color: #94a3b8;
-    cursor: not-allowed;
-    opacity: 0.72;
-  }
-
-  .org-directory-page-btn {
-    min-width: 30px;
-    padding: 0 8px;
-  }
-
-  .org-directory-page-btn.is-active,
-  .org-directory-footer b {
-    color: #fff;
-    background: #0f172a;
-  }
-
-  .org-directory-double-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-  }
-
-  .org-directory-double-icon svg + svg {
-    margin-left: -7px;
-  }
-
-  .org-directory-ellipsis {
-    color: #64748b;
-  }
-
-  @media (max-width: 760px) {
-    .org-directory-topbar,
-    .org-directory-footer {
-      align-items: stretch;
-      flex-direction: column;
-    }
-
-    .org-directory-footer__summary,
-    .org-directory-pager {
-      width: 100%;
-    }
-
-    .org-directory-pager {
-      justify-content: flex-start;
-    }
-
-    .org-directory-add,
-    .org-directory-search,
-    .org-directory-toolbar select,
-    .org-directory-soft,
-    .org-directory-settings {
-      width: 100%;
-      justify-content: center;
-    }
-
-    .org-directory-table-shell,
-    .org-directory-column-panel {
-      margin-right: 12px;
-      margin-left: 12px;
-    }
-  }
-
-  @media (min-width: 981px) {
-
-    .admin-content:has(.org-directory-page) .org-directory-page {
-      min-height: calc(100dvh - var(--admin-owner-header-h, 69px) - 16px);
-    }
-
-    .admin-content:has(.org-directory-page) .org-directory-topbar {
-      padding-right: 16px;
-      padding-left: 16px;
-    }
-
-    .admin-content:has(.org-directory-page) .org-directory-metrics,
-    .admin-content:has(.org-directory-page) .org-directory-toolbar,
-    .admin-content:has(.org-directory-page) .org-directory-footer {
-      padding-right: 16px;
-      padding-left: 16px;
-    }
-
-    .admin-content:has(.org-directory-page) .org-directory-table-shell {
-      margin-right: 16px;
-      margin-left: 16px;
-    }
-  }
-
-  .org-status-page {
-    min-height: 640px;
-    overflow: hidden;
-    border: 1px solid rgba(197, 211, 231, 0.72);
-    border-radius: 16px;
-    color: #102033;
-    background:
-      linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(239, 247, 255, 0.92)),
-      radial-gradient(circle at 100% 0%, rgba(26, 145, 111, 0.13), transparent 34%);
-    box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
-  }
-
-  .org-status-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 18px 20px 12px;
-    border-bottom: 1px solid rgba(197, 211, 231, 0.72);
-  }
-
-  .org-status-title {
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .org-status-title > span {
-    width: 9px;
-    height: 30px;
-    flex: 0 0 auto;
-    border-radius: 999px;
-    background: linear-gradient(180deg, #1a916f, #1a916f);
-    box-shadow: 0 10px 20px rgba(26, 145, 111, 0.2);
-  }
-
-  .org-status-title h2 {
-    margin: 0;
-    color: #0f172a;
-    font-size: 22px;
-    line-height: 1.15;
-  }
-
-  .org-status-title p {
-    margin: 5px 0 0;
-    color: #64748b;
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .org-status-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .org-status-refresh,
-  .org-status-add,
-  .org-status-save,
-  .org-status-cancel,
-  .org-status-toggle,
-  .org-status-badge,
-  .org-status-row-actions button,
-  .org-status-table th button {
-    border: 0;
-    font: inherit;
-  }
-
-  .org-status-refresh,
-  .org-status-add,
-  .org-status-save,
-  .org-status-cancel {
-    min-height: 34px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    padding: 0 13px;
-    border-radius: 10px;
-    font-size: 12px;
-    font-weight: 900;
-    white-space: nowrap;
-  }
-
-  .org-status-refresh,
-  .org-status-cancel {
-    border: 1px solid rgba(197, 211, 231, 0.86);
-    color: #334155;
-    background: #fff;
-  }
-
-  .org-status-add,
-  .org-status-save {
-    color: #fff;
-    background: linear-gradient(135deg, #1a916f, #1a916f);
-    box-shadow: 0 12px 24px rgba(26, 145, 111, 0.18);
-  }
-
-  .org-status-summary {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 12px 20px 0;
-  }
-
-  .org-status-summary span {
-    min-height: 32px;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 0 11px;
-    border: 1px solid rgba(197, 211, 231, 0.74);
-    border-radius: 10px;
-    color: #64748b;
-    background: rgba(255, 255, 255, 0.72);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .org-status-summary b {
-    color: #0f172a;
-    font-size: 13px;
-  }
-
-  .org-status-editor {
-    display: grid;
-    grid-template-columns: minmax(280px, 1fr) 110px auto auto;
-    align-items: end;
-    gap: 10px;
-    margin: 12px 20px 0;
-    padding: 12px;
-    border: 1px solid rgba(26, 145, 111, 0.24);
-    border-radius: 14px;
-    background: rgba(26, 145, 111, 0.08);
-  }
-
-  .org-status-editor label {
-    display: grid;
-    gap: 5px;
-  }
-
-  .org-status-editor label span {
-    color: #334155;
-    font-size: 11px;
-    font-weight: 900;
-  }
-
-  .org-status-editor input {
-    width: 100%;
-    height: 36px;
-    min-width: 0;
-    border: 1px solid #dbe5f1;
-    border-radius: 10px;
-    outline: 0;
-    padding: 0 10px;
-    color: #0f172a;
-    background: #fff;
-    font-size: 12px;
-    font-weight: 800;
-  }
-
-  .org-status-editor input:focus {
-    border-color: rgba(26, 145, 111, 0.56);
-    box-shadow: 0 0 0 3px rgba(26, 145, 111, 0.12);
-  }
-
-  .org-status-editor > div {
-    display: flex;
-    gap: 8px;
-  }
-
-  .org-status-toggle {
-    min-height: 36px;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 0 11px;
-    border-radius: 999px;
-    color: #475569;
-    background: #e2e8f0;
-    font-size: 12px;
-    font-weight: 900;
-  }
-
-  .org-status-toggle span {
-    width: 28px;
-    height: 16px;
-    position: relative;
-    border-radius: 999px;
-    background: #cbd5e1;
-  }
-
-  .org-status-toggle span::after {
-    width: 12px;
-    height: 12px;
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    border-radius: 999px;
-    background: #fff;
-    content: "";
-    transition: transform 0.18s ease;
-  }
-
-  .org-status-toggle.is-on {
-    color: #15803d;
-    background: #dcfce7;
-  }
-
-  .org-status-toggle.is-on span {
-    background: #22c55e;
-  }
-
-  .org-status-toggle.is-on span::after {
-    transform: translateX(12px);
-  }
-
-  .org-status-table-shell {
-    margin: 14px 20px 20px;
-    overflow: auto;
-    border: 1px solid rgba(197, 211, 231, 0.78);
-    border-radius: 14px;
-    background: #fff;
-  }
-
-  .org-status-table {
-    width: 100%;
-    min-width: 760px;
-    border-spacing: 0;
-    table-layout: fixed;
-  }
-
-  .org-status-table th,
-  .org-status-table td {
-    height: 42px;
-    padding: 0 14px;
-    border-bottom: 1px solid #edf2f7;
-    text-align: left;
-    vertical-align: middle;
-  }
-
-  .org-status-table th {
-    color: #64748b;
-    background: #eaf5ef;
-    font-size: 12px;
-    font-weight: 900;
-  }
-
-  .org-status-table th:nth-child(1),
-  .org-status-table td:nth-child(1) {
-    width: 64px;
-    text-align: center;
-  }
-
-  .org-status-table th:nth-child(3),
-  .org-status-table td:nth-child(3) {
-    width: 160px;
-  }
-
-  .org-status-table th:nth-child(4),
-  .org-status-table td:nth-child(4) {
-    width: 170px;
-  }
-
-  .org-status-table th:nth-child(5),
-  .org-status-table td:nth-child(5) {
-    width: 126px;
-  }
-
-  .org-status-table th button {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: #475569;
-    background: transparent;
-    font-size: 12px;
-    font-weight: 900;
-  }
-
-  .org-status-table td {
-    color: #334155;
-    background: rgba(248, 250, 252, 0.58);
-    font-size: 12px;
-    font-weight: 800;
-  }
-
-  .org-status-table tbody tr:hover td {
-    background: #f8fcff;
-  }
-
-  .org-status-table strong {
-    display: block;
-    overflow: hidden;
-    color: #0f172a;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .org-status-badge {
-    min-height: 24px;
-    display: inline-flex;
-    align-items: center;
-    padding: 0 9px;
-    border-radius: 7px;
-    font-size: 11px;
-    font-weight: 900;
-  }
-
-  .org-status-badge.is-active {
-    color: #15803d;
-    border: 1px solid rgba(34, 197, 94, 0.38);
-    background: #dcfce7;
-  }
-
-  .org-status-badge.is-disabled {
-    color: #dc2626;
-    border: 1px solid rgba(248, 113, 113, 0.38);
-    background: #fee2e2;
-  }
-
-  .org-status-row-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-  }
-
-  .org-status-row-actions button {
-    width: 30px;
-    height: 30px;
-    display: inline-grid;
-    place-items: center;
-    border-radius: 8px;
-    background: #fff;
-  }
-
-  .org-status-row-actions .is-edit {
-    color: #0ea5e9;
-    border: 1px solid rgba(14, 165, 233, 0.42);
-  }
-
-  .org-status-row-actions .is-delete {
-    color: #ef4444;
-    border: 1px solid rgba(239, 68, 68, 0.42);
-  }
-
-  .org-status-empty {
-    padding: 34px;
-    color: #64748b;
-    text-align: center;
-    font-size: 13px;
-    font-weight: 800;
-  }
-
-  @media (min-width: 981px) {
-
-    .admin-content:has(.org-status-page) .org-status-page {
-      min-height: calc(100dvh - var(--admin-owner-header-h, 69px) - 16px);
-    }
-
-    .admin-content:has(.org-status-page) .org-status-header,
-    .admin-content:has(.org-status-page) .org-status-summary {
-      padding-right: 16px;
-      padding-left: 16px;
-    }
-
-    .admin-content:has(.org-status-page) .org-status-editor,
-    .admin-content:has(.org-status-page) .org-status-table-shell {
-      margin-right: 16px;
-      margin-left: 16px;
-    }
-  }
-
-  @media (max-width: 820px) {
-    .org-status-header,
-    .org-status-actions {
-      align-items: stretch;
-      flex-direction: column;
-    }
-
-    .org-status-refresh,
-    .org-status-add {
-      width: 100%;
-    }
-
-    .org-status-editor {
-      grid-template-columns: 1fr;
-    }
-
-    .org-status-editor > div {
-      flex-direction: column;
-    }
-  }
-
   .org-edit-page {
     min-height: calc(100vh - 128px);
     overflow: hidden;
@@ -13690,7 +12642,7 @@
   }
 
   /* Последние транзакции: полноширинная таблица под графиком, дизайн-шаблон админки
-     (переиспользует org-directory-table-shell / org-directory-footer / зелёные пилюли). */
+     (переиспользует общие data-table / pagination primitives). */
   .admin-transactions {
     margin-top: 18px;
     overflow: hidden;
@@ -13907,19 +12859,6 @@
 
   .admin-transactions__search {
     margin-left: 0;
-  }
-
-  .admin-transactions .org-directory-table-shell {
-    max-height: clamp(360px, 52vh, 500px);
-    overflow: auto;
-    overscroll-behavior: contain;
-    overscroll-behavior-block: contain;
-    overscroll-behavior-inline: contain;
-    scrollbar-gutter: stable;
-  }
-
-  .admin-transactions .org-directory-table-shell::-webkit-scrollbar {
-    display: block;
   }
 
   .admin-transactions__table {
@@ -14654,145 +13593,6 @@
   .admin-transactions__pager {
     position: relative;
     align-items: center;
-  }
-
-  .admin-page-size {
-    position: relative;
-    z-index: 30;
-    flex: 0 0 auto;
-  }
-
-  .admin-transactions__footer .admin-page-size__button,
-  .org-directory-footer .admin-page-size__button {
-    box-sizing: border-box;
-    width: auto;
-    min-width: 104px;
-    height: 34px;
-    min-height: 34px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 8px;
-    padding: 0 10px 0 12px;
-    border: 1px solid rgba(197, 211, 231, 0.9);
-    border-radius: 10px;
-    color: #64748b;
-    background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-    font-family: "Golos Text", "Manrope", "Inter", sans-serif;
-    font-size: 12px;
-    font-weight: 800;
-    line-height: 1;
-    cursor: pointer;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
-  }
-
-  .admin-transactions__footer .admin-page-size__button:hover,
-  .admin-transactions__footer .admin-page-size__button:focus-visible,
-  .org-directory-footer .admin-page-size__button:hover,
-  .org-directory-footer .admin-page-size__button:focus-visible,
-  .admin-page-size.is-open .admin-page-size__button {
-    border-color: rgba(26, 145, 111, 0.42);
-    color: #1a916f;
-    background: #ffffff;
-    box-shadow: 0 0 0 3px rgba(26, 145, 111, 0.1);
-    outline: 0;
-  }
-
-  .admin-page-size__label {
-    color: inherit;
-    font-size: 12px;
-    font-weight: 800;
-    line-height: 1;
-  }
-
-  .admin-page-size__button strong {
-    color: #0f172a;
-    font-size: 14px;
-    font-weight: 900;
-    line-height: 1;
-  }
-
-  .admin-page-size__button svg {
-    width: 14px;
-    min-width: 14px;
-    height: 14px;
-    margin-left: auto;
-    color: #0f172a;
-    transition: transform 0.15s ease, color 0.15s ease;
-  }
-
-  .admin-page-size.is-open .admin-page-size__button svg {
-    color: #1a916f;
-    transform: rotate(180deg);
-  }
-
-  .admin-page-size__menu {
-    box-sizing: border-box;
-    position: absolute;
-    right: 0;
-    bottom: calc(100% + 8px);
-    z-index: 60;
-    width: 104px;
-    padding: 5px;
-    border: 1px solid rgba(197, 211, 231, 0.78);
-    border-radius: 12px;
-    background: #ffffff;
-    box-shadow:
-      0 12px 28px rgba(15, 23, 42, 0.14),
-      0 2px 6px rgba(15, 23, 42, 0.06);
-  }
-
-  .admin-page-size__menu::after {
-    content: "";
-    position: absolute;
-    right: 16px;
-    bottom: -6px;
-    width: 10px;
-    height: 10px;
-    border-right: 1px solid rgba(197, 211, 231, 0.78);
-    border-bottom: 1px solid rgba(197, 211, 231, 0.78);
-    background: #ffffff;
-    transform: rotate(45deg);
-  }
-
-  .admin-transactions__footer .admin-page-size__option,
-  .org-directory-footer .admin-page-size__option {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    height: 32px;
-    min-height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 0;
-    border-radius: 8px;
-    color: #0f172a;
-    background: transparent;
-    box-shadow: none;
-    font-family: "Golos Text", "Manrope", "Inter", sans-serif;
-    font-size: 14px;
-    font-weight: 800;
-    line-height: 1;
-    cursor: pointer;
-  }
-
-  .admin-transactions__footer .admin-page-size__option:hover,
-  .admin-transactions__footer .admin-page-size__option:focus-visible,
-  .org-directory-footer .admin-page-size__option:hover,
-  .org-directory-footer .admin-page-size__option:focus-visible {
-    color: #1a916f;
-    background: rgba(26, 145, 111, 0.08);
-    outline: 0;
-  }
-
-  .admin-transactions__footer .admin-page-size__option.is-selected,
-  .org-directory-footer .admin-page-size__option.is-selected {
-    color: #ffffff;
-    background: #1a916f;
-    box-shadow: 0 2px 8px rgba(26, 145, 111, 0.24);
   }
 
   .admin-transactions__page {
@@ -19391,10 +18191,6 @@
   /* Organization directory */
 
   @media (min-width: 981px) {
-    .admin-content:has(.org-directory-page) {
-      min-height: calc(100dvh - var(--admin-owner-header-h, 69px));
-      padding: 8px 10px;
-    }
 
   
 
@@ -19402,10 +18198,6 @@
   }
 
   @media (min-width: 981px) {
-    .admin-content:has(.org-status-page) {
-      min-height: calc(100dvh - var(--admin-owner-header-h, 69px));
-      padding: 8px 10px;
-    }
 
   
 
@@ -20905,7 +19697,7 @@
   }
 
   /* Последние транзакции: полноширинная таблица под графиком, дизайн-шаблон админки
-     (переиспользует org-directory-table-shell / org-directory-footer / зелёные пилюли). */
+     (переиспользует общие data-table / pagination primitives). */
 
   .admin-content .admin-panel-head .admin-transactions__settings {
     height: 34px;
@@ -24564,4 +23356,220 @@
     }
   }
 
+}
+
+/* Keep admin menu copy on the same collapse timeline as the owner sidebar. */
+@media (min-width: 1025px) {
+  .admin-shell .admin-sidebar .admin-nav > button span,
+  .admin-shell .admin-sidebar .admin-nav > button em,
+  .admin-shell .admin-sidebar .admin-nav-group__toggle span,
+  .admin-shell .admin-sidebar .admin-nav-group__chevron {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    visibility: visible;
+    transform-origin: left center;
+    transition:
+      opacity 180ms ease,
+      max-width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      margin 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .admin-shell:not(.is-sidebar-collapsed) .admin-sidebar .admin-nav > button span,
+  .admin-shell:not(.is-sidebar-collapsed) .admin-sidebar .admin-nav-group__toggle span {
+    width: 100%;
+    max-width: 180px;
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+
+  .admin-shell:not(.is-sidebar-collapsed) .admin-sidebar .admin-nav > button em,
+  .admin-shell:not(.is-sidebar-collapsed) .admin-sidebar .admin-nav-group__chevron {
+    max-width: var(--admin-sidebar-row-chevron, 22px);
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav > button,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav-group__toggle {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    grid-template-columns: var(--admin-sidebar-row-icon) minmax(0, 1fr) 0;
+    justify-items: start;
+    padding-inline: var(--admin-sidebar-row-padding-x);
+  }
+
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav > button span,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav > button em,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav-group__toggle span,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-nav-group__chevron {
+    width: 100%;
+    max-width: 0;
+    margin: 0;
+    opacity: 0;
+    visibility: visible;
+    pointer-events: none;
+    transform: translateX(-8px);
+  }
+}
+
+/* Keep the HQ brand spatially anchored while the sidebar contracts around it. */
+@media (min-width: 981px) {
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-brand.sidebar-brand,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar.is-collapsed .admin-brand.sidebar-brand {
+    left: var(--admin-sidebar-brand-left, 12px);
+    justify-items: start;
+  }
+
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .sidebar-brand__identity,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar.is-collapsed .sidebar-brand__identity {
+    width: calc(var(--admin-sidebar-logo-box) + 3px);
+    min-width: calc(var(--admin-sidebar-logo-box) + 3px);
+    max-width: calc(var(--admin-sidebar-logo-box) + 3px);
+    grid-template-columns: var(--admin-sidebar-logo-box) minmax(0, 1fr);
+    gap: 7px;
+    justify-content: start;
+    justify-items: stretch;
+  }
+
+  .admin-shell .admin-sidebar .brand-mark,
+  .admin-shell .admin-sidebar .brand-mark--button {
+    position: absolute;
+    top: 1px;
+    left: 3px;
+    width: var(--admin-sidebar-logo-box);
+    min-width: var(--admin-sidebar-logo-box);
+    max-width: var(--admin-sidebar-logo-box);
+    height: var(--admin-sidebar-logo-box);
+    min-height: var(--admin-sidebar-logo-box);
+    max-height: var(--admin-sidebar-logo-box);
+    margin: 0;
+    justify-self: start;
+  }
+
+  .admin-shell .admin-sidebar .admin-brand.sidebar-brand .brand-mark .marjon-logo,
+  .admin-shell .admin-sidebar .admin-brand.sidebar-brand .brand-mark--button .marjon-logo {
+    width: calc(var(--admin-sidebar-logo-box) - 8px);
+    min-width: calc(var(--admin-sidebar-logo-box) - 8px);
+    max-width: calc(var(--admin-sidebar-logo-box) - 8px);
+    height: calc(var(--admin-sidebar-logo-box) - 8px);
+    min-height: calc(var(--admin-sidebar-logo-box) - 8px);
+    max-height: calc(var(--admin-sidebar-logo-box) - 8px);
+  }
+
+  .admin-shell .admin-sidebar .sidebar-brand__identity > div:not(.brand-mark),
+  .admin-shell .admin-sidebar .sidebar-brand__identity > button + div,
+  .admin-shell .admin-sidebar .brand-title,
+  .admin-shell .admin-sidebar .brand-subtitle {
+    white-space: nowrap;
+    transform: none;
+    translate: none;
+    transition:
+      width 220ms ease,
+      max-width 220ms ease,
+      opacity 180ms ease,
+      visibility 180ms ease;
+  }
+
+  .admin-shell .admin-sidebar .sidebar-brand__identity > div:not(.brand-mark),
+  .admin-shell .admin-sidebar .sidebar-brand__identity > button + div {
+    position: absolute;
+    top: 0;
+    left: calc(var(--admin-sidebar-logo-box) + 15px);
+    grid-column: 1;
+    grid-row: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin-left: 0;
+  }
+
+  .admin-shell .admin-sidebar .brand-title,
+  .admin-shell .admin-sidebar .brand-subtitle {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .sidebar-brand__identity > div:not(.brand-mark),
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .sidebar-brand__identity > button + div {
+    margin-left: 0;
+    transform: none;
+    translate: none;
+  }
+
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .brand-title,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .brand-subtitle {
+    transform: none;
+    translate: none;
+  }
+}
+
+@media (min-width: 981px) and (max-width: 1024px) {
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-brand.sidebar-brand,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar.is-collapsed .admin-brand.sidebar-brand,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .sidebar-brand__identity,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar.is-collapsed .sidebar-brand__identity {
+    width: calc(var(--admin-sidebar-logo-box) + 4px);
+    min-width: calc(var(--admin-sidebar-logo-box) + 4px);
+    max-width: calc(var(--admin-sidebar-logo-box) + 4px);
+  }
+
+  .admin-shell .admin-sidebar .brand-mark,
+  .admin-shell .admin-sidebar .brand-mark--button {
+    top: 0;
+    left: 4px;
+  }
+
+  .admin-shell .admin-sidebar .sidebar-brand__identity > div:not(.brand-mark),
+  .admin-shell .admin-sidebar .sidebar-brand__identity > button + div {
+    left: calc(var(--admin-sidebar-logo-box) + 16px);
+  }
+}
+
+@media (min-width: 1441px) {
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .admin-brand.sidebar-brand,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar.is-collapsed .admin-brand.sidebar-brand,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar .sidebar-brand__identity,
+  .admin-shell.is-sidebar-collapsed .admin-sidebar.is-collapsed .sidebar-brand__identity {
+    width: calc(var(--admin-sidebar-logo-box) + 4px);
+    min-width: calc(var(--admin-sidebar-logo-box) + 4px);
+    max-width: calc(var(--admin-sidebar-logo-box) + 4px);
+  }
+
+  .admin-shell .admin-sidebar .brand-mark,
+  .admin-shell .admin-sidebar .brand-mark--button {
+    top: 0;
+    left: 4px;
+  }
+
+  .admin-shell .admin-sidebar .sidebar-brand__identity > div:not(.brand-mark),
+  .admin-shell .admin-sidebar .sidebar-brand__identity > button + div {
+    left: calc(var(--admin-sidebar-logo-box) + 16px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell,
+  .admin-shell .admin-sidebar,
+  .admin-shell .admin-sidebar .admin-brand,
+  .admin-shell .admin-sidebar .sidebar-brand__identity,
+  .admin-shell .admin-sidebar .sidebar-brand__identity > div,
+  .admin-shell .admin-sidebar .brand-title,
+  .admin-shell .admin-sidebar .brand-subtitle,
+  .admin-shell .admin-sidebar .admin-nav,
+  .admin-shell .admin-sidebar .admin-nav-group,
+  .admin-shell .admin-sidebar .admin-nav > button,
+  .admin-shell .admin-sidebar .admin-nav-group__toggle,
+  .admin-shell .admin-sidebar .admin-nav > button span,
+  .admin-shell .admin-sidebar .admin-nav > button em,
+  .admin-shell .admin-sidebar .admin-nav-group__toggle span,
+  .admin-shell .admin-sidebar .admin-nav-group__chevron {
+    transition-duration: 0.01ms;
+    transition-delay: 0ms;
+  }
 }

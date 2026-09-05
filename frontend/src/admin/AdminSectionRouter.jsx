@@ -14,15 +14,15 @@ import { AdminCashierBackgroundPage, AdminExpenseCategoriesPage, AdminFinanceHis
 
 import { TruthfulHandbookLocationPage } from "./AdminHandbook";
 
-import { OrganizationDirectoryPage, OrganizationStatusPage, organizationRows } from "./AdminOrganizations";
+import { OrganizationDirectoryPage, OrganizationStatusPage, organizationRows } from "./features/organizations";
 
 import { StatusBadge, getAdminFinanceLoadMessage } from "./AdminShared";
 
 import { StorageBalancePage, StorageExpensePage, StorageIncomeJournalPage, StorageIncomePage, StorageInventoryPage, StorageWriteoffPage } from "./AdminStorage";
 
 const SECTION_API_MAP = {
-  "org-list": { serviceKey: "organizations", mapRow: (r) => [r.company_name || r.name || "", r.type || "Ресторан", String(r.branches_count || r.branch_count || 0), r.admin_name || r.owner_name || "—", r.status || "Активна"] },
-  "org-status": { serviceKey: "organizationStatuses", mapRow: (r) => [r.name || "", r.status || "", r.updated_at || "—", r.manager || "—", r.state || r.status || ""] },
+  "org-list": { serviceKey: "organizations", mapRow: (r) => [r.name || "—", r.type || "—", r.branches_count == null ? "—" : String(r.branches_count), r.admin_name || r.owner_name || "—", r.status || "—"] },
+  "org-status": { serviceKey: "organizationStatuses", mapRow: (r) => [r.name || "—", r.status === true ? "Активен" : r.status === false ? "Неактивен" : "—", r.updated_at || "—", "—", "—"] },
   "nom-product": { serviceKey: "products", mapRow: null },
   "nom-sale-category": { serviceKey: "categories", mapRow: (r) => [r.name || "", r.slug || "", String(r.products_count || 0), r.sort_order != null ? String(r.sort_order) : "—", r.status ? "Активна" : "Неактивна"] },
   "nom-orders": { serviceKey: "orders", mapRow: (r) => [r.order_number || r.id || "", r.date || r.created_at || "", r.customer || "—", `${Number(r.total || 0).toLocaleString("ru-RU")} UZS`, r.status || ""] },
@@ -45,13 +45,18 @@ const SECTION_API_MAP = {
   "set-languages": { serviceKey: "languages", mapRow: (r) => [r.name || "", r.code || "", r.is_default ? "Да" : "Нет", r.status !== false ? "Активна" : "Неактивна"] },
 };
 
-function useAdminData(sectionKey, onNotify) {
+function useAdminData(sectionKey, onNotify, enabled = true) {
   const [apiRows, setApiRows] = useState([]);
   const [loadState, setLoadState] = useState("idle");
   const beginRequest = useLatestRequest();
 
   useEffect(() => {
     const ownership = beginRequest();
+    if (!enabled) {
+      setApiRows([]);
+      setLoadState("idle");
+      return;
+    }
     const mapping = SECTION_API_MAP[sectionKey];
     if (!mapping) {
       setApiRows([]);
@@ -75,7 +80,7 @@ function useAdminData(sectionKey, onNotify) {
         setLoadState("error");
         if (mapping.load) onNotify?.(getAdminFinanceLoadMessage(error));
       });
-  }, [beginRequest, onNotify, sectionKey]);
+  }, [beginRequest, enabled, onNotify, sectionKey]);
 
   return { apiRows, loadState };
 }
@@ -369,7 +374,8 @@ const categoryContent = {
 
 export function CategoryPage({ active, search, onCreate, onRowDetail, onNotify, onInnerBackChange }) {
   const content = categoryContent[active] || categoryContent["org-list"];
-  const { apiRows, loadState } = useAdminData(active, onNotify);
+  const organizationPageOwnsData = active === "org-list" || active === "org-status";
+  const { apiRows, loadState } = useAdminData(active, onNotify, !organizationPageOwnsData);
   if (active === "org-list") {
     return <OrganizationDirectoryPage search={search} onNotify={onNotify} onInnerBackChange={onInnerBackChange} />;
   }
@@ -441,9 +447,9 @@ export function CategoryPage({ active, search, onCreate, onRowDetail, onNotify, 
   });
   return (
     <section className="admin-category-page">
-      {loadState === "loading" ? <div className="org-directory-empty" role="status">Загрузка данных...</div> : null}
-      {loadState === "error" ? <div className="org-directory-empty" role="alert">Не удалось загрузить данные.</div> : null}
-      {loadState === "unsupported" ? <div className="org-directory-empty" role="status">Backend источник не подключён.</div> : null}
+      {loadState === "loading" ? <div className="admin-data-state" role="status">Загрузка данных...</div> : null}
+      {loadState === "error" ? <div className="admin-data-state" role="alert">Не удалось загрузить данные.</div> : null}
+      {loadState === "unsupported" ? <div className="admin-data-state" role="status">Backend источник не подключён.</div> : null}
       <div className="admin-panel-head">
         <div>
           <h2>{content.title}</h2>
@@ -460,7 +466,7 @@ export function CategoryPage({ active, search, onCreate, onRowDetail, onNotify, 
             {row.map((cell, index) => content.columns[index] === "Статус" ? <StatusBadge status={cell} key={index} /> : <span key={index}>{cell}</span>)}
           </div>
         ))}
-        {loadState === "empty" ? <div className="org-directory-empty" role="status">Список пуст.</div> : null}
+        {loadState === "empty" ? <div className="admin-data-state" role="status">Список пуст.</div> : null}
       </div>
     </section>
   );

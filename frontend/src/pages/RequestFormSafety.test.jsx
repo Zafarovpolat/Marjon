@@ -204,8 +204,8 @@ describe("FE-06 request and form safety", () => {
       phone: "",
       status: "—",
     });
-    expect(mapPlacePayload({ name: "Hall", condition: "", percent: "101", pricingType: "percent", status: "#активно" }, { editing: false })).toBeNull();
-    expect(mapPlacePayload({ name: "Hall", condition: "", percent: "10abc", pricingType: "percent", status: "#активно" }, { editing: false })).toBeNull();
+    expect(mapPlacePayload({ name: "Hall", percent: "101", pricing_type: "", price: "", is_active: true }, { editing: false })).toBeNull();
+    expect(mapPlacePayload({ name: "Hall", percent: "10abc", pricing_type: "", price: "", is_active: true }, { editing: false })).toBeNull();
     expect(mapPaymentPayload({ name: "Cash", sort: "x", typeLabel: "cash", status: "#активно" })).toBeNull();
     expect(mapPaymentPayload({ name: "Cash", sort: "10abc", typeLabel: "cash", status: "#активно" })).toBeNull();
     expect(mapPrinterPayload({ name: "Kitchen", printerType: "kitchen", connectionType: "network", ip: "10.0.0.2", port: "70000", zone: "Kitchen", status: "Активно" }, { editing: false })).toBeNull();
