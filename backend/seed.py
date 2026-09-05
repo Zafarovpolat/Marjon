@@ -75,6 +75,10 @@ from app.modules.nomenclature.models import NomCategory, NomOrder, NomProduct, U
 from app.modules.notifications.models import Notification
 from app.modules.organizations.models import OfflineJob, Organization, OrganizationStatus, user_organizations
 from app.modules.payments.models import Payment
+# Импорт нужен даже без сидирования принтеров: products.printer_id ссылается на
+# printers.id (BE-12), и без регистрации модели в metadata первый же flush падает
+# с NoReferencedTableError.
+from app.modules.printers.models import Printer  # noqa: F401
 from app.modules.pos.models import CashierShift, Order, OrderItem, PosTerminal
 from app.modules.rbac.models import Role, UserRole
 from app.modules.storage.models import Coming, ComingItem, Provider, Storage
