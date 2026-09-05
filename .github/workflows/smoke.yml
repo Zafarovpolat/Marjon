@@ -112,13 +112,14 @@ jobs:
         working-directory: frontend
         run: npm run test:admin
 
-      # Запрещает РОСТ числа !important. stylelint с declaration-no-important
-      # здесь не годится: правило умеет только «запрещено везде», а это 11.6k
-      # ошибок на текущей базе — шум, который начнут игнорировать. Бюджет по
-      # файлам работает как базлайн: старое терпим, новое не пропускаем.
-      - name: Бюджет !important (роста быть не должно)
+      # !important запрещён полностью — приоритет задаётся слоями
+      # @layer marjon-base / marjon-important. Бюджет по файлам
+      # (tools/important-budget.mjs) был этапом перехода и удалён вместе со своим
+      # базлайном: считать «рост» нечего, когда флагов ноль. Проверка та же, что
+      # внутри css:verify, но без снятия DOM — здесь нужен только запрет флагов.
+      - name: Запрет !important
         working-directory: frontend
-        run: node tools/important-budget.mjs
+        run: python3 tools/no-important.py
 
       - name: Production-сборка
         working-directory: frontend
