@@ -50,9 +50,7 @@ export const navItems = [
     children: [
       { key: "cashier", label: "Кассир", to: "/users/cashier", icon: "bi-cash-coin" },
       { key: "waiter", label: "Официант", to: "/users/waiter", icon: "bi-person" },
-      { key: "courier", label: "Курьер", to: "/users/courier", icon: "bi-send" },
       { key: "monoblock", label: "Моноблок", to: "/users/monoblock", icon: "bi-pc-display" },
-      { key: "kitchen", label: "Повар", to: "/users/kitchen", icon: "bi-chef-hat" },
       { key: "manager", label: "Менеджер", to: "/users/manager", icon: "bi-person-gear" },
       { key: "warehouse", label: "Завсклад", to: "/users/warehouse", icon: "bi-box-seam" },
       { key: "login-history", label: "История входа", to: "/users/login-history", icon: "bi-clock-history" },
