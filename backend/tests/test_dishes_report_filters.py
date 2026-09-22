@@ -278,7 +278,12 @@ async def test_dishes_filters_preserve_tenant_scope_and_payment_aggregation(clie
     assert foreign_product.status_code == 200
     assert foreign_product.json() == {
         "rows": [],
-        "totals": {"quantity": "0", "amount": "0.00"},
+        # DISHES-EXCEL: totals now additively carry cost/profit/coverage.
+        # Empty selection → cost/profit unknown (null), coverage False.
+        "totals": {
+            "quantity": "0", "amount": "0.00",
+            "cost_total": None, "profit": None, "cost_coverage_complete": False,
+        },
     }
 
     metadata = await client.get("/reports/dishes/filters", headers=a_headers)
@@ -546,7 +551,10 @@ async def _assert_waiter_metadata_uses_current_company_roles(client, sessions):
     assert kitchen_filtered.status_code == 200, kitchen_filtered.text
     assert kitchen_filtered.json() == {
         "rows": [],
-        "totals": {"quantity": "0", "amount": "0.00"},
+        "totals": {
+            "quantity": "0", "amount": "0.00",
+            "cost_total": None, "profit": None, "cost_coverage_complete": False,
+        },
     }
 
 
@@ -832,10 +840,14 @@ async def _assert_dishes_phase1_truth(client, sessions):
     # ORM column default fills explicit None with "шт" — still master truth,
     # and the contract tolerates null for legacy raw-SQL NULLs.
     assert by_id_name[(str(ids["unit_null"]), "No Unit Dish")]["unit"] == "шт"
-    # No fake cost/profit/status keys anywhere in Phase 1 rows.
+    # DISHES-EXCEL supersedes the Phase-1 "no cost/profit" rule: cost_total and
+    # profit are now present, but these directly-seeded OrderItems carry no
+    # cost_price_snapshot, so cost is unknown → null (never 0/fabricated) and
+    # cost_coverage_complete is False. Status is still NOT a Dishes field.
     for row in payload["rows"]:
-        assert "cost" not in row
-        assert "profit" not in row
+        assert row["cost_total"] is None
+        assert row["profit"] is None
+        assert row["cost_coverage_complete"] is False
         assert "status" not in row
     # Authoritative totals match the rows exactly.
     assert Decimal(payload["totals"]["quantity"]) == sum(
@@ -1168,3 +1180,112 @@ async def test_dishes_report_category_filter_excludes_uncategorized(client, db_e
     assert len(rows) == 1
     assert rows[0]["product_id"] == str(ids["p_in"])
     assert rows[0]["category_name"] == "Салаты"
+
+
+@pytest.mark.asyncio
+async def test_dishes_cost_snapshot_capture_and_immutability(client, db_engine):
+    """OrderItem freezes Product.cost_price at creation; later product cost
+    changes do NOT alter the snapshot; NULL cost_price → NULL snapshot."""
+    from app.modules.pos.service import OrderService
+    from app.modules.pos.schemas import OrderCreate, OrderItemCreate
+    from app.modules.pos.models import OrderItem as OI
+    from sqlalchemy import select as _select
+    suffix = uuid4().hex[:8]
+    headers, _ = await register_company(client, slug=f"snap-{suffix}", email=f"snap-{suffix}@example.com")
+    company = UUID((await client.get("/auth/me", headers=headers)).json()["company_id"])
+    ids = {n: uuid4() for n in ("branch", "p_cost", "p_nocost")}
+    sessions = async_sessionmaker(db_engine, expire_on_commit=False)
+    async with sessions() as db:
+        db.add(Branch(id=ids["branch"], company_id=company, name="Main"))
+        db.add(Product(id=ids["p_cost"], company_id=company, name="With Cost", price=Decimal("100"), cost_price=Decimal("40")))
+        db.add(Product(id=ids["p_nocost"], company_id=company, name="No Cost", price=Decimal("50"), cost_price=None))
+        await db.commit()
+    # Create an order via the canonical service (the real create path).
+    async with sessions() as db:
+        o = await OrderService(db).create(company, None, OrderCreate(
+            branch_id=ids["branch"], order_type="dine_in",
+            items=[OrderItemCreate(product_id=ids["p_cost"], quantity=Decimal("2")),
+                   OrderItemCreate(product_id=ids["p_nocost"], quantity=Decimal("1"))],
+        ))
+        oid = o.id
+    async with sessions() as db:
+        items = {i.product_id: i for i in (await db.execute(_select(OI).where(OI.order_id == oid))).scalars().all()}
+    # Snapshot frozen from product cost at creation; NULL stays NULL.
+    assert items[ids["p_cost"]].cost_price_snapshot == Decimal("40.00")
+    assert items[ids["p_nocost"]].cost_price_snapshot is None
+    # Change the product cost AFTER the sale — snapshot must not move.
+    async with sessions() as db:
+        p = await db.get(Product, ids["p_cost"]); p.cost_price = Decimal("999"); await db.commit()
+    async with sessions() as db:
+        again = (await db.execute(_select(OI).where(OI.order_id == oid, OI.product_id == ids["p_cost"]))).scalar_one()
+    assert again.cost_price_snapshot == Decimal("40.00")  # immutable
+
+
+@pytest.mark.asyncio
+async def test_dishes_report_cost_profit_coverage(client, db_engine):
+    """Report cost/profit are truthful only under full snapshot coverage; a
+    single legacy NULL-snapshot item makes that row (and grand) cost/profit
+    unknown while quantity/amount stay complete."""
+    from app.modules.pos.models import OrderItem as OI
+    suffix = uuid4().hex[:8]
+    headers, _ = await register_company(client, slug=f"cov-{suffix}", email=f"cov-{suffix}@example.com")
+    company = UUID((await client.get("/auth/me", headers=headers)).json()["company_id"])
+    ids = {n: uuid4() for n in ("branch", "cat", "p_full", "p_mixed", "o1", "o2")}
+    sessions = async_sessionmaker(db_engine, expire_on_commit=False)
+    async with sessions() as db:
+        db.add_all([
+            Branch(id=ids["branch"], company_id=company, name="Main"),
+            Category(id=ids["cat"], company_id=company, name="Кат", slug=f"k-{suffix}", sort_order=1),
+        ])
+        await db.flush()
+        db.add_all([
+            Product(id=ids["p_full"], company_id=company, category_id=ids["cat"], name="Full Cost", price=Decimal("100"), cost_price=Decimal("30")),
+            Product(id=ids["p_mixed"], company_id=company, category_id=ids["cat"], name="Mixed Cost", price=Decimal("100"), cost_price=Decimal("30")),
+        ])
+        await db.flush()
+        db.add_all([
+            Order(id=ids["o1"], company_id=company, branch_id=ids["branch"], order_number="C1",
+                  order_type="dine_in", status="completed", subtotal=Decimal("400"), total_amount=Decimal("400")),
+            Order(id=ids["o2"], company_id=company, branch_id=ids["branch"], order_number="C2",
+                  order_type="dine_in", status="completed", subtotal=Decimal("200"), total_amount=Decimal("200")),
+        ])
+        await db.flush()
+        db.add_all([
+            # p_full: two items, BOTH with snapshot → complete coverage.
+            OI(order_id=ids["o1"], product_id=ids["p_full"], name="Full Cost",
+               price=Decimal("100"), quantity=Decimal("2"), total=Decimal("200"), cost_price_snapshot=Decimal("30")),
+            OI(order_id=ids["o2"], product_id=ids["p_full"], name="Full Cost",
+               price=Decimal("100"), quantity=Decimal("1"), total=Decimal("100"), cost_price_snapshot=Decimal("30")),
+            # p_mixed: one snapshot + one legacy NULL → incomplete coverage.
+            OI(order_id=ids["o1"], product_id=ids["p_mixed"], name="Mixed Cost",
+               price=Decimal("100"), quantity=Decimal("1"), total=Decimal("100"), cost_price_snapshot=Decimal("30")),
+            OI(order_id=ids["o2"], product_id=ids["p_mixed"], name="Mixed Cost",
+               price=Decimal("100"), quantity=Decimal("1"), total=Decimal("100"), cost_price_snapshot=None),
+        ])
+        await db.commit()
+
+    resp = await client.get("/reports/dishes", headers=headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    rows = {r["name"]: r for r in body["rows"]}
+    # p_full: qty 3, amount 300, cost = 3*30 = 90, profit = 210, coverage True.
+    full = rows["Full Cost"]
+    assert Decimal(full["quantity"]) == Decimal("3")
+    assert Decimal(full["amount"]) == Decimal("300.00")
+    assert Decimal(full["cost_total"]) == Decimal("90.00")
+    assert Decimal(full["profit"]) == Decimal("210.00")
+    assert full["cost_coverage_complete"] is True
+    # p_mixed: qty/amount complete, but cost/profit UNKNOWN (null), never partial.
+    mixed = rows["Mixed Cost"]
+    assert Decimal(mixed["quantity"]) == Decimal("2")
+    assert Decimal(mixed["amount"]) == Decimal("200.00")
+    assert mixed["cost_total"] is None
+    assert mixed["profit"] is None
+    assert mixed["cost_coverage_complete"] is False
+    # Grand: qty/amount complete; cost/profit unknown because a row is partial.
+    tot = body["totals"]
+    assert Decimal(tot["quantity"]) == Decimal("5")
+    assert Decimal(tot["amount"]) == Decimal("500.00")
+    assert tot["cost_total"] is None
+    assert tot["profit"] is None
+    assert tot["cost_coverage_complete"] is False

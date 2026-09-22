@@ -939,6 +939,15 @@ class AdminReportService:
                 Category.sort_order.label("category_sort"),
                 func.sum(OrderItem.quantity).label("qty"),
                 func.sum(OrderItem.total).label("total"),
+                # DISHES-EXCEL cost truth. cost_sum = Σ(qty × sale-time cost
+                # snapshot). SQL SUM skips NULL snapshots, so a partial sum is
+                # meaningless as a complete cost — coverage is proven separately
+                # by comparing the non-null snapshot count to the total item
+                # count (portable across Postgres + SQLite; no bool_and). The
+                # Python layer returns cost/profit ONLY when coverage is full.
+                func.sum(OrderItem.quantity * OrderItem.cost_price_snapshot).label("cost_sum"),
+                func.count().label("item_count"),
+                func.count(OrderItem.cost_price_snapshot).label("cost_item_count"),
             )
             .join(Order, Order.id == OrderItem.order_id)
             .join(Product, Product.id == OrderItem.product_id)
@@ -998,6 +1007,11 @@ class AdminReportService:
         # sale prices vary within a group).
         total_quantity = Decimal("0")
         total_amount = Decimal("0")
+        # Grand cost/profit are truthful ONLY if EVERY row is fully covered.
+        # One partial row makes the grand total unknown (NULL), never a
+        # partial number presented as complete.
+        grand_cost = Decimal("0")
+        grand_coverage_complete = True
         report_rows = []
         for r in rows:
             qty = Decimal(str(r.qty or 0))
@@ -1008,16 +1022,40 @@ class AdminReportService:
             )
             total_quantity += qty
             total_amount += amount
+            # Row cost coverage: every contributing OrderItem carries a snapshot.
+            row_complete = bool(r.item_count) and r.cost_item_count == r.item_count
+            if row_complete:
+                cost_total = Decimal(str(r.cost_sum or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                profit = (amount - cost_total).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                grand_cost += cost_total
+            else:
+                # Unknown stays unknown — never 0, never a partial sum.
+                cost_total = None
+                profit = None
+                grand_coverage_complete = False
             report_rows.append(DishReportRow(
                 product_id=r.product_id, name=r.name, unit=r.unit,
                 category_id=r.category_id, category_name=r.category_name,
                 quantity=qty, price=price, amount=amount,
+                cost_total=cost_total, profit=profit,
+                cost_coverage_complete=row_complete,
             ))
         return DishReportResponse(
             rows=report_rows,
             totals=DishReportTotals(
                 quantity=total_quantity,
                 amount=total_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+                # Grand cost/profit only when the WHOLE selection is covered;
+                # otherwise unknown (NULL), never a partial number.
+                cost_total=(
+                    grand_cost.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                    if grand_coverage_complete and report_rows else None
+                ),
+                profit=(
+                    (total_amount - grand_cost).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                    if grand_coverage_complete and report_rows else None
+                ),
+                cost_coverage_complete=bool(report_rows) and grand_coverage_complete,
             ),
         )
 

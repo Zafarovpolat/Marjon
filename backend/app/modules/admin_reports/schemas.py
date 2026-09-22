@@ -126,11 +126,25 @@ class DishReportRow(BaseModel):
     # amount == quantity * price per row. Decimal(0) when quantity is 0.
     price: Decimal
     amount: Decimal
+    # DISHES-EXCEL cost truth (additive). cost_total = Σ(qty × sale-time cost
+    # snapshot) for this product's aggregated items; profit = amount − cost_total.
+    # Both are NULL when ANY contributing item lacks a snapshot (legacy/unknown):
+    # unknown is never coerced to 0 and a partial sum is never shown as complete.
+    # cost_coverage_complete tells the client which case this is, without
+    # inferring it from display strings.
+    cost_total: Decimal | None = None
+    profit: Decimal | None = None
+    cost_coverage_complete: bool = False
 
 
 class DishReportTotals(BaseModel):
     quantity: Decimal
     amount: Decimal
+    # Grand cost/profit only when the ENTIRE selection has full snapshot
+    # coverage; otherwise NULL (unknown), never a partial number.
+    cost_total: Decimal | None = None
+    profit: Decimal | None = None
+    cost_coverage_complete: bool = False
 
 
 class DishReportResponse(BaseModel):

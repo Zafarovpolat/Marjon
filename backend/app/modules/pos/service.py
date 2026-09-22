@@ -134,6 +134,9 @@ class OrderService:
                 quantity=item_data.quantity,
                 discount=item_discount,
                 total=item_total_after_discount,
+                # Freeze the sale-time per-unit cost (NULL when the product has
+                # no cost_price — unknown stays unknown, never coerced to 0).
+                cost_price_snapshot=product.cost_price,
                 note=item_data.note,
                 modifiers=item_data.modifiers,
                 course=item_data.course,
@@ -278,6 +281,9 @@ class OrderService:
             quantity=item_data.quantity,
             discount=item_discount,
             total=item_total_after_discount,
+            # Freeze the sale-time per-unit cost (NULL when the product has no
+            # cost_price — unknown stays unknown, never coerced to 0).
+            cost_price_snapshot=product.cost_price,
             note=item_data.note,
             modifiers=item_data.modifiers,
             course=item_data.course,
