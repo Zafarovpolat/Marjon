@@ -24886,7 +24886,7 @@ body,#root {
 
   /* pay button: сплошной тил, все градиенты убраны */
   .dashboard-topbar .topbar-balance-pill .topbar-pay-button {
-    background: var(--teal-500);
+    background: var(--owner-accent, #1fc9c9);
     border: 1px solid rgba(255, 255, 255, 0.14);
     box-shadow: 0 2px 7px rgba(14, 128, 128, 0.21);
   }
@@ -24895,7 +24895,7 @@ body,#root {
   .dashboard-topbar .topbar-balance-pill .topbar-pay-button:focus-visible {
     transform: none;
     filter: brightness(1.07);
-    background: var(--teal-500);
+    background: var(--owner-accent, #1fc9c9);
   }
 
   /* убрать прыжок у balance pill */
@@ -24953,7 +24953,7 @@ body,#root {
   .dashboard-content {
     flex: 1 1 auto;
     min-height: 0;
-    max-height: calc(100vh - 82px);
+    max-height: calc(100vh - 72px);
     overflow-x: hidden;
     overflow-y: auto;
   
@@ -27073,8 +27073,7 @@ body,#root {
     resize: vertical;
   }
 
-  /* PIN-поле показываем в веб-редакторе персонала (нужно для входа по PIN на кассе).
-     Скрываем только disabled-комментарий «недоступно». */
+  .staff-form__grid--edit label:has(input[pattern="[0-9]{4}"]),
   .staff-form__grid--edit .staff-form__comment {
     display: none;
   }
@@ -27762,7 +27761,9 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     border-radius: 12px;
   }
 
-  /* PIN-поле остаётся видимым: сетка отводит ему col 2 / row 3 (см. nth-child(5) выше). */
+  .staff-form .staff-form__grid.staff-form__grid--edit > label:has(input[pattern="[0-9]{4}"]) {
+    display: none;
+  }
 
   .staff-form .staff-form__grid.staff-form__grid--edit > .staff-permission-switches {
     grid-row: 4;
@@ -28499,7 +28500,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     height: 34px;
   }
 
-  /* PIN-поле показываем; скрываем только disabled-комментарий «недоступно». */
+  .staff-form .staff-form__grid.staff-form__grid--edit > label:has(input[pattern="[0-9]{4}"]),
   .staff-form .staff-form__grid.staff-form__grid--edit .staff-form__comment {
     display: none;
   }

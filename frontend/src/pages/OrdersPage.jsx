@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { formatMoney } from "../api/client";
 import { ordersService } from "../api/orders";
 import { printKitchenReceipt, printOrderReceipt } from "../api/receipt";
-import { getWsConnection } from "../api/ws";
 import { formatDateLabel, todayInputValue } from "../utils/date";
 import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 
@@ -47,47 +46,6 @@ export default function OrdersPage() {
       })
       .finally(() => { if (request.isCurrent()) setLoading(false); });
   }, [beginRequest, selectedDate]);
-
-  // Тихое обновление для WebSocket/поллинга: без сброса списка и выбранного
-  // заказа, чтобы live-обновление не «моргало» и не закрывало открытые детали.
-  const refresh = useCallback(() => {
-    const request = beginRequest();
-    return ordersService.list({ date: selectedDate }, { signal: request.signal })
-      .then(({ data }) => {
-        if (!request.isCurrent()) return;
-        const items = Array.isArray(data) ? data : [];
-        setOrders(items);
-        setSelectedOrderId((current) => (
-          items.some((item) => String(item.id) === String(current)) ? current : items[0]?.id || null
-        ));
-      })
-      .catch((err) => {
-        // Молча: не роняем уже показанный список из-за фонового обновления.
-        if (!request.isCurrent() || isAbortError(err)) return;
-      });
-  }, [beginRequest, selectedDate]);
-
-  useEffect(() => {
-    const ws = getWsConnection("/ws/kitchen");
-    let fallbackTimer = null;
-    const doRefresh = () => refresh();
-
-    const unsubs = [
-      ws.on("new_order",       doRefresh),
-      ws.on("order_updated",   doRefresh),
-      ws.on("order_cancelled", doRefresh),
-    ];
-    ws.onOpen(() => { if (fallbackTimer) { clearInterval(fallbackTimer); fallbackTimer = null; } });
-    ws.onClose(() => { if (!fallbackTimer) fallbackTimer = window.setInterval(doRefresh, 15_000); });
-    ws.connect();
-    fallbackTimer = window.setInterval(doRefresh, 15_000);
-
-    return () => {
-      unsubs.forEach((fn) => fn());
-      ws.disconnect();
-      if (fallbackTimer) clearInterval(fallbackTimer);
-    };
-  }, [refresh]);
 
   const selectedOrder = useMemo(
     () => orders.find((order) => String(order.id) === String(selectedOrderId)) || null,

@@ -20,21 +20,6 @@ vi.mock("../api/receipt", () => ({
   printOrderReceipt: vi.fn(),
 }));
 
-// Заглушка WebSocket-слоя: тесты проверяют доску столов, а не realtime.
-// Мок ../api/client здесь не отдаёт getAccessToken, поэтому реальный ws.js
-// упал бы на ws.connect(). Мок делает соединение no-op (как в TruthfulDataStates).
-vi.mock("../api/ws", () => ({
-  getWsConnection: () => ({
-    on: () => () => {},
-    onOpen: () => () => {},
-    onClose: () => () => {},
-    connect: () => {},
-    disconnect: () => {},
-    send: () => false,
-  }),
-  closeAllConnections: () => {},
-}));
-
 // Two halls each with a Table #5, plus Балкон #7 — the canonical same-number
 // scenario. Identity is Table.id, never the number.
 const HALLS = [

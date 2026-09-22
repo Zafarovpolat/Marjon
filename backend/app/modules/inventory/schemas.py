@@ -85,9 +85,6 @@ class ProductResponse(BaseResponseSchema):
     sku: str | None
     is_active: bool
     is_available: bool
-    # D3: дневной максимум порций (NULL = без лимита) и сколько уже продано сегодня.
-    daily_limit: int | None = None
-    sold_count: int = 0
     sort_order: int
     # BE-16 aggregates — real, computed from actual data (see
     # ProductService._attach_aggregates), never fabricated:
@@ -111,18 +108,6 @@ class ProductBranchUpdate(BaseSchema):
 class StopListToggle(BaseSchema):
     branch_id: UUID
     stop_list: bool
-
-
-class ProductAvailabilityUpdate(BaseSchema):
-    # Узкий контракт правки стоп-листа кассиром: только доступность блюда,
-    # без цены/названия/прочих полей (их правит админский PATCH /products/{id}).
-    is_available: bool
-
-
-class ProductLimitUpdate(BaseSchema):
-    # D3 «максимум блюда»: дневной лимит порций. None → снять лимит (без ограничения),
-    # число ≥1 → задать максимум и обнулить счётчик (см. ProductService.set_daily_limit).
-    daily_limit: int | None = Field(default=None, ge=1)
 
 
 class IngredientCreate(BaseSchema):

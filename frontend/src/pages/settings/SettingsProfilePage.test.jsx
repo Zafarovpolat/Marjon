@@ -12,10 +12,6 @@ vi.mock("../../api/settings", () => ({
   settingsService: {
     getCompanyProfile: vi.fn(),
     updateCompanyProfile: vi.fn(),
-    // Наши эндпоинты пароля отмены: хук зовёт getCancelPassword на монтировании,
-    // без них в моке компонент падал бы на TypeError ещё до рендера.
-    getCancelPassword: vi.fn(),
-    setCancelPassword: vi.fn(),
   },
 }));
 
@@ -31,9 +27,6 @@ describe("SettingsProfilePage — очистка отчетов (demo-disabled)"
     settingsService.getCompanyProfile.mockResolvedValue({
       data: { name: "Мой ресторан", phone: "", address: "", inn: "", currency: "UZS" },
     });
-    // clearAllMocks стирает вызовы, но не реализации — задаём их здесь заново.
-    settingsService.getCancelPassword.mockResolvedValue({ data: { is_set: false } });
-    settingsService.setCancelPassword.mockResolvedValue({ data: { is_set: true } });
   });
 
   it("показывает demo-сообщение и не бросает ReferenceError по клику", async () => {

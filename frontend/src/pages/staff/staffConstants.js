@@ -24,61 +24,21 @@ export const emptyForm = {
   phoneCountry: "UZ",
   roleKey: "",
   pin: "",
-  // Длина PIN выбирается в форме: 2 цифры (быстрее на кассе) или 4 (по умолчанию).
-  pinLen: 4,
   password: "",
+  // CASHIER-FE-01: visual-only field, never sent to backend (printer_ip handoff).
+  printerIp: "",
   status: "active",
   photo: "",
-  // Гранулярные права (наша фича): сериализуются в permissions.* на бэкенд,
-  // применяются на кассе/десктопе. printer_ip/nfc_id — привязка POS-терминала.
-  printerIp: "",
-  nfcId: "",
-  canDeleteDishes: false,
-  // can_manage_orders — на десктопе это must() (строгая проверка): официанту
-  // отмена/перенос/удаление отправленных блюд доступны ТОЛЬКО при явном true.
-  // Дефолт OFF: опасное право выдаётся осознанно.
-  canManageOrders: false,
-  // can_takeaway_at_table — на десктопе это can() (мягкая проверка): без явного
-  // false «с собой» за столом доступно. Дефолт ON сохраняет текущее поведение —
-  // тумблер лишь ОГРАНИЧИВАЕТ.
-  canTakeawayAtTable: true,
-  canChangeOrderType: false,
-  canCloseBill: false,
-  canOpenCashDrawerAfterPayment: false,
-  canViewClosedOrders: false,
-  canEditStopList: false,
-  // can_view_stop_list — тоже can(): дефолт ON сохраняет текущее поведение
-  // (кассир стоп-лист и так видит), владелец может лишь ОГРАНИЧИТЬ.
-  canViewStopList: true,
-  canViewFinance: false,
-  canCashOps: false,
-  // can_approve_attendance — приход/уход: must() на десктопе + гейт в hr/router.py.
-  // can_view_past_periods — прошлые периоды: без него сервер отдаёт только сегодня.
-  canApproveAttendance: false,
-  canViewPastPeriods: false,
-  // Спец-права десктопа: открывают «режим разработчика» на терминале
-  // (персонал/права и складские записи). Дефолт OFF — точка эскалации,
-  // выдаёт осознанно только владелец здесь.
-  canManageStaff: false,
-  canManageWarehouse: false,
-  access: {},
 };
 
 export const getPermissionSummary = (values) => {
   const permissions = [
     values.canDeleteDishes && "Удаление блюд",
-    values.canManageOrders && "Управление заказами",
+    values.canTakeawayAtTable && "Заказ на вынос",
     values.canChangeOrderType && "Изменение типа заказа",
     values.canCloseBill && "Закрытие счета",
     values.canOpenCashDrawerAfterPayment && "Открытие денежного ящика",
     values.canViewClosedOrders && "Просмотр закрытых заказов",
-    values.canEditStopList && "Редактирование стоп-листа",
-    values.canViewFinance && "Просмотр финансов",
-    values.canCashOps && "Приход/расход",
-    values.canApproveAttendance && "Приход/уход сотрудников",
-    values.canViewPastPeriods && "Прошлые периоды",
-    values.canManageStaff && "Управление персоналом",
-    values.canManageWarehouse && "Управление складом",
   ].filter(Boolean);
 
   return permissions.join(", ") || values.permission || "Базовый доступ";
@@ -153,7 +113,6 @@ export const staffOrderTypeActions = [
 
 export function mapStaffUser(user) {
   const roleKey = user.role_slug || user.role_slugs?.[0] || "cashier";
-  const perm = user.permissions || {};
   return {
     id: user.id,
     fullName: user.name || user.email?.split("@")[0] || "—",
@@ -164,30 +123,5 @@ export function mapStaffUser(user) {
     pin: "",
     password: "",
     photo: user.avatar_url || "",
-    // Десериализация гранулярных прав из permissions.* (наш бэкенд их хранит).
-    // pin_code сервер не возвращает — PIN в форме всегда пустой.
-    printerIp: user.printer_ip || "",
-    nfcId: user.nfc_id || "",
-    canDeleteDishes: !!perm.can_delete_dishes,
-    // must() на десктопе → отсутствие ключа трактуем как false (тумблер OFF).
-    canManageOrders: !!perm.can_manage_orders,
-    // can() на десктопе → отсутствие ключа означает «разрешено»: absent/true = ON,
-    // только явный false = OFF. Так владелец видит реальное состояние.
-    canTakeawayAtTable: perm.can_takeaway_at_table !== false,
-    canChangeOrderType: !!perm.can_change_order_type,
-    canCloseBill: !!perm.can_close_bill,
-    canOpenCashDrawerAfterPayment: !!perm.can_open_cash_drawer,
-    canViewClosedOrders: !!perm.can_view_closed_orders,
-    canEditStopList: !!perm.can_edit_stop_list,
-    canViewStopList: perm.can_view_stop_list !== false,
-    canViewFinance: !!perm.can_view_finance,
-    canCashOps: !!perm.can_cash_ops,
-    canApproveAttendance: !!perm.can_approve_attendance,
-    canViewPastPeriods: !!perm.can_view_past_periods,
-    // Спец-права десктопа показываем как есть — владелец должен видеть,
-    // у кого открыт «режим разработчика» на терминале.
-    canManageStaff: !!perm.can_manage_staff,
-    canManageWarehouse: !!perm.can_manage_warehouse,
-    access: perm.modules || {},
   };
 }

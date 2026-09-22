@@ -57,12 +57,6 @@ class Product(TimeStampedModel):
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_available: Mapped[bool] = mapped_column(Boolean, default=True)
-    # D3 «максимум блюда»: дневной лимит порций и счётчик проданного (на всю
-    # компанию, по образцу is_available). NULL лимит = без ограничения (как было).
-    # При достижении sold_count >= daily_limit блюдо авто-встаёт в стоп
-    # (is_available=False). Сброс счётчика — ручной (см. ProductService.set_daily_limit).
-    daily_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    sold_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     category: Mapped[Category | None] = relationship(back_populates="products", foreign_keys=[category_id])
     modifier_groups: Mapped[list[ModifierGroup]] = relationship(back_populates="product", cascade="all, delete-orphan")
@@ -125,23 +119,6 @@ class Ingredient(TimeStampedModel):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class ProductRecipe(TimeStampedModel):
-    """Техкарта: блюдо → ингредиенты с количеством (для попапа рецепта на кухне)."""
-    __tablename__ = "product_recipes"
-
-    company_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), index=True)
-    product_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("products.id", ondelete="CASCADE"), index=True)
-    ingredient_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("ingredients.id"), index=True)
-    quantity: Mapped[Decimal] = mapped_column(Numeric(15, 4), default=Decimal("0"))
-    unit: Mapped[str] = mapped_column(String(20), default="г")
-
-
-# ВНИМАНИЕ: рядом живут ДВЕ таблицы состава блюда, и обе нужны:
-#   product_recipes     — наша техкарта (есть unit и company_id), питает
-#                         попап рецепта на кухне (GET в inventory/router.py);
-#   product_ingredients — upstream BE-16, питает ingredients_count/stock
-#                         в ProductResponse и связь Product.ingredients.
-# Удаление любой из них ломает своего потребителя, поэтому они объединены.
 class ProductIngredient(TimeStampedModel):
     """BE-16: a dish's recipe/composition — mirrors
     semi_product_models.SemiProductIngredient exactly. Drives the

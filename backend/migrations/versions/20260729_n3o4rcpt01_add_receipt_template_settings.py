@@ -6,13 +6,14 @@ and kitchen receipt templates the frontend editor (ReceiptSettingsPage,
 ChefReceiptSettingsPage) saves — consumed by EscPosFormatter at print time.
 
 Revision ID: n3o4rcpt01
-Revises: x1y2dishlimit05
+Revises: g2h3usr01
 Create Date: 2026-07-29
 
-Note: this revision opens the upstream lineage in the merged history — it is
-chained onto x1y2dishlimit05, the last revision of the desktop/PIN lineage, so
-the graph stays linear with a single head (bi06tnu03). The table itself is
-self-contained (only FKs to companies.id), so the position is free to choose.
+Note: upstream (source repo) chains this after m1n2sync02 (halls/tables/
+product_recipes), h4i5pin01 (pin_hash), j6k7usr02, k8l9sync01 — none of
+which exist in this branch's migration history. Retargeted to our actual
+head since this table is self-contained (only FKs to companies.id, which
+already exists) and doesn't depend on any of those.
 """
 from typing import Sequence, Union
 import sqlalchemy as sa
@@ -20,7 +21,7 @@ from alembic import op
 from sqlalchemy.types import Uuid
 
 revision: str = "n3o4rcpt01"
-down_revision: Union[str, None] = "x1y2dishlimit05"
+down_revision: Union[str, None] = "g2h3usr01"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

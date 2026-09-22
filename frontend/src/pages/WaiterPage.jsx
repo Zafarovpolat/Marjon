@@ -5,7 +5,6 @@ import { api, formatMoney, logout } from "../api/client";
 import { settingsService } from "../api/settings";
 import { printKitchenReceipt, printOrderReceipt } from "../api/receipt";
 import Icon from '../components/Icon';
-import { getWsConnection } from "../api/ws";
 
 const tableStatuses = ["free", "occupied"];
 const statusLabels = { free: "Bo'sh", occupied: "Band" };
@@ -529,28 +528,6 @@ export default function WaiterPage({ mode = "tables" }) {
 
   useEffect(() => {
     loadData().catch((err) => setError(err.response?.data?.detail || "POS ma'lumotlarini yuklab bo'lmadi."));
-
-    // Realtime: зал официанта обновляется по событиям кухни. Если сокет закрыт,
-    // включается опрос раз в 10 с и гаснет обратно при успешном open.
-    const ws = getWsConnection("/ws/kitchen");
-    let fallbackTimer = null;
-    const refresh = () => loadData().catch(() => {});
-
-    const unsubs = [
-      ws.on("new_order",       refresh),
-      ws.on("order_updated",   refresh),
-      ws.on("order_cancelled", refresh),
-    ];
-    ws.onOpen(() => { if (fallbackTimer) { clearInterval(fallbackTimer); fallbackTimer = null; } });
-    ws.onClose(() => { if (!fallbackTimer) fallbackTimer = window.setInterval(refresh, 10_000); });
-    ws.connect();
-    fallbackTimer = window.setInterval(refresh, 10_000);
-
-    return () => {
-      unsubs.forEach((fn) => fn());
-      ws.disconnect();
-      if (fallbackTimer) clearInterval(fallbackTimer);
-    };
   }, []);
 
   const retryHalls = () => loadHalls(branch?.id);

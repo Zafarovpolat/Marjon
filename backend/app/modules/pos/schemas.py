@@ -14,7 +14,6 @@ class OrderItemCreate(BaseSchema):
     note: str | None = None
     modifiers: list[dict] = Field(default_factory=list)
     course: int = 1
-    takeaway: bool = False
 
 
 class OrderCreate(BaseSchema):
@@ -30,8 +29,6 @@ class OrderCreate(BaseSchema):
     table_number: str | None = None
     persons_count: int = 1
     note: str | None = None
-    customer_phone: str | None = None
-    customer_address: str | None = None
     discount_amount: Decimal | None = None
     service_fee_rate: float | None = None
     items: list[OrderItemCreate] = Field(default_factory=list)
@@ -43,26 +40,12 @@ class OrderUpdate(BaseSchema):
     table_id: UUID | None = None
     table_number: str | None = None
     persons_count: int | None = None
-    customer_phone: str | None = None
-    customer_address: str | None = None
-    waiter_id: UUID | None = None
     discount_amount: Decimal | None = None
     service_fee_rate: float | None = None
-    reason: str | None = None  # 3.3 — причина смены стола/официанта (пишется в audit)
-    action_pin: str | None = None  # 9 — отдельный PIN подтверждения смены стола (для официанта)
 
 
 class OrderStatusUpdate(BaseSchema):
     status: Literal["new", "accepted", "cooking", "ready", "completed", "cancelled"]
-
-
-class OrderItemWaiterUpdate(BaseSchema):
-    """Смена ответственного официанта у ОТДЕЛЬНОЙ позиции заказа.
-    Кассир исправляет путаницу, когда блюдо внёс не тот официант
-    (доля обслуги считается по ответственному)."""
-    waiter_id: UUID
-    reason: str | None = None       # причина (пишется в audit)
-    action_pin: str | None = None   # PIN подтверждения (для официанта; кассир — без PIN)
 
 
 class OrderItemResponse(BaseResponseSchema):
@@ -77,10 +60,9 @@ class OrderItemResponse(BaseResponseSchema):
     note: str | None
     modifiers: list
     course: int
-    takeaway: bool = False
-    # 9.4 — кто и когда добавил позицию (created_at из BaseResponseSchema = время добавления)
-    added_by: UUID | None = None
-    added_by_name: str | None = None
+    # Phase 1A cancellation truth (additive, nullable).
+    cancelled_at: datetime | None = None
+    cancelled_by_id: UUID | None = None
 
 
 class OrderResponse(BaseResponseSchema):
@@ -99,13 +81,10 @@ class OrderResponse(BaseResponseSchema):
     total_amount: Decimal
     note: str | None
     source: str
-    customer_phone: str | None = None
-    customer_address: str | None = None
-    receipt_printed_at: datetime | None = None
-    waiter_id: UUID | None = None
-    waiter_name: str | None = None
-    cancel_comment: str | None = None
     items: list[OrderItemResponse] = Field(default_factory=list)
+    # Phase 1A cancellation truth (additive, nullable).
+    cancelled_at: datetime | None = None
+    cancelled_by_id: UUID | None = None
 
 
 class TerminalCreate(BaseSchema):

@@ -45,22 +45,13 @@ class AttendanceLog(TimeStampedModel):
     __tablename__ = "attendance_logs"
 
     company_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("companies.id"), index=True)
-    # 5.5 — отметку кассир ставит по сотруднику (users), а не по HR-employee: карточек
-    # employees/смен в кассе нет. Поэтому employee_id/shift_id теперь необязательны,
-    # а прямая ссылка на пользователя (user_id) — основной способ идентификации отметки.
-    user_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), index=True)
-    employee_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("employees.id"), index=True)
-    shift_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("work_shifts.id"), index=True)
+    employee_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("employees.id"), index=True)
+    shift_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("work_shifts.id"), index=True)
     # check_in | check_out
     action: Mapped[str] = mapped_column(String(20), nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     # pin | qr | manual
     method: Mapped[str] = mapped_column(String(20), default="manual")
     note: Mapped[str | None] = mapped_column(Text)
-    # 5.5 — вход/уход повара подтверждает кассир. pending → approved | rejected.
-    # По умолчанию pending: отметка появляется у кассира на подтверждение.
-    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
-    approved_by: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"))
-    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     shift: Mapped[WorkShift] = relationship(back_populates="attendance_logs")

@@ -54,22 +54,6 @@ vi.mock("react-router-dom", () => ({
   useOutletContext: () => ({ selectedDate: "2026-08-12" }),
 }));
 
-// Заглушка WebSocket-слоя: эти тесты проверяют состояния загрузки данных
-// (ошибка / успешно-пусто), а не realtime. OrdersPage вызывает ws.connect()
-// в эффекте — с реальным ws.js он дёргает getAccessToken() из client.js,
-// который здесь замокан не полностью. Мок делает соединение no-op.
-vi.mock("../api/ws", () => ({
-  getWsConnection: () => ({
-    on: () => () => {},
-    onOpen: () => () => {},
-    onClose: () => () => {},
-    connect: () => {},
-    disconnect: () => {},
-    send: () => false,
-  }),
-  closeAllConnections: () => {},
-}));
-
 describe("truthful production data states", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -147,7 +131,7 @@ describe("truthful production data states", () => {
 
     render(<OrdersReportPage />);
 
-    expect(await screen.findByText("По выбранным фильтрам заказов не найдено")).toBeInTheDocument();
+    expect(await screen.findByText("Заказов не найдено")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -281,9 +265,8 @@ describe("truthful production data states", () => {
 
     render(<StaffRolePage />);
     expect(await screen.findByText("Backend Employee")).toBeInTheDocument();
-    // Решение A=KEEP: гранулярные права включены и хранятся на бэкенде.
-    // Сотрудник без назначенных прав показывает «Базовый доступ», а не
-    // ложную заглушку «Недоступно до BI-06».
+    // Honest generic rights display — detailed per-permission persistence is
+    // deferred to the backend handoff, so the table never fabricates rights.
     expect(screen.getByText("Базовый доступ")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTitle("Archive"));
@@ -393,7 +376,15 @@ describe("truthful production data states", () => {
     reportSources.forEach((source) => {
       expect(source).toContain('setError("")');
       expect(source).toMatch(/catch\([^)]*\)[\s\S]*setError\(/);
-      expect(source).toMatch(/if \(error\) return|!error\s*&&\s*!rows\.length|!error\s*&&\s*!visibleRows\.length/);
     });
+    // Pre-1B pages keep the early-return error shell; Cancelled Phase 1B is
+    // shell-first by product rule (item 23): headers/controls/table stay
+    // mounted and the failure renders as an inline alert, never a collapse.
+    reportSources.slice(0, 4).concat(reportSources.slice(5)).forEach((source) => {
+      expect(source).toMatch(/if \(error(?: && !hasLoaded)?\) return|!error\s*&&\s*!rows\.length|!error\s*&&\s*!visibleRows\.length/);
+    });
+    const cancelledSource = reportSources[4];
+    expect(cancelledSource).toMatch(/\{error \? <div className="login-error" role="alert">/);
+    expect(cancelledSource).not.toMatch(/if \(error\) return/);
   });
 });

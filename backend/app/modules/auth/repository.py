@@ -18,10 +18,6 @@ class UserRepository(BaseRepository[User]):
         )
         return result.scalar_one_or_none()
 
-    async def get_by_id(self, user_id: UUID) -> Optional[User]:
-        result = await self.db.execute(select(User).where(User.id == user_id))
-        return result.scalar_one_or_none()
-
     async def get_by_login(self, login: str) -> Optional[User]:
         """Login by email, username or phone."""
         result = await self.db.execute(
@@ -36,60 +32,15 @@ class UserRepository(BaseRepository[User]):
         return result.scalar_one_or_none()
 
     async def get_company_users(self, company_id: UUID) -> list[User]:
-        # BE-07: фильтра по is_active здесь сознательно нет: DELETE /auth/users/{id}
-        # только деактивирует сотрудника, и без него его было бы не найти,
-        # чтобы вернуть is_active назад. Фронт сам решает, как показывать неактивных.
-        # 6.2 — служебные терминальные учётки филиалов скрыты из списка персонала
-        from app.modules.auth.security import TERMINAL_EMAIL_LIKE
+        # BE-07: was filtered to is_active == True, which made a deactivated
+        # employee (DELETE /auth/users/{id} soft-deactivates) permanently
+        # invisible to the staff list — with no way to find them again to
+        # flip is_active back on. Now returns everyone; the response's
+        # is_active field lets the frontend badge/filter as it likes.
         result = await self.db.execute(
-            select(User).where(
-                User.company_id == company_id,
-                ~User.email.like(TERMINAL_EMAIL_LIKE),
-            )
+            select(User).where(User.company_id == company_id)
         )
         return list(result.scalars().all())
-
-    async def get_by_pin(
-        self, company_id: UUID, pin: str, user_id: Optional[UUID] = None
-    ) -> Optional[User]:
-        """PIN-вход сотрудника: перебираем активных сотрудников компании и сверяем
-        bcrypt-хеш. Plaintext-PIN в БД больше не хранится (см. pin_hash).
-        PIN уникален только внутри организации, поэтому scope по company_id обязателен.
-        user_id — сотрудник, выбранный на кассе: сверяем PIN ТОЛЬКО с ним, иначе при
-        одинаковых PIN у двух сотрудников выигрывал случайный «первый совпавший»."""
-        from app.modules.auth.security import verify_pin
-        conditions = [
-            User.company_id == company_id,
-            User.is_active == True,  # noqa: E712
-            User.pin_hash.is_not(None),
-        ]
-        if user_id is not None:
-            conditions.append(User.id == user_id)
-        result = await self.db.execute(select(User).where(*conditions))
-        for user in result.scalars().all():
-            if verify_pin(pin, user.pin_hash):
-                return user
-        return None
-
-    async def pin_taken_by_other(
-        self, company_id: UUID, pin: str, exclude_user_id: Optional[UUID] = None
-    ) -> Optional[User]:
-        """Есть ли в компании ДРУГОЙ сотрудник с таким же PIN. Одинаковые PIN делают
-        вход неоднозначным (кассир мог получить сессию владельца), поэтому такой
-        PIN не даём сохранить."""
-        from app.modules.auth.security import verify_pin
-        result = await self.db.execute(
-            select(User).where(
-                User.company_id == company_id,
-                User.pin_hash.is_not(None),
-            )
-        )
-        for user in result.scalars().all():
-            if exclude_user_id is not None and user.id == exclude_user_id:
-                continue
-            if verify_pin(pin, user.pin_hash):
-                return user
-        return None
 
 
 class RefreshTokenRepository(BaseRepository[RefreshToken]):
@@ -107,7 +58,7 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
         return result.scalar_one_or_none()
 
     async def get_by_hash_for_update(self, token_hash: str) -> Optional[RefreshToken]:
-        """Блокирует один активный токен до конца транзакции вызывающего кода."""
+        """Lock one active token until the caller's transaction completes."""
         result = await self.db.execute(
             select(RefreshToken)
             .where(
@@ -129,9 +80,10 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
         await self.db.commit()
 
     async def revoke_by_hash(self, token_hash: str, user_id: UUID) -> bool:
-        """BE-06: отзыв refresh-токена ровно одной сессии. Ограничено user_id,
-        чтобы чужую сессию нельзя было закрыть даже при угаданном хеше.
-        Возвращает, был ли найден и отозван активный токен."""
+        """BE-06: revoke exactly one session's refresh token. Scoped to
+        `user_id` so a token can never be used to revoke someone else's
+        session even if a hash collision were somehow guessed. Returns
+        whether an active token was found and revoked."""
         from sqlalchemy import update
         result = await self.db.execute(
             update(RefreshToken)

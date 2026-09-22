@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import SupportWidget from "../components/SupportWidget";
@@ -9,7 +9,12 @@ import {
   apiMapFormToPayload as mapClientPayload,
   apiMapRow as mapClientRow,
 } from "./settings/SettingsClientsPage";
-import { apiMapFormToPayload as mapPlacePayload } from "./settings/SettingsPlacesPage";
+// NOTE (TEST-SAFETY-01): SettingsPlacesPage no longer exports a pure
+// `apiMapFormToPayload` — the Place feature migrated off the shared mapper to a
+// page-local submit path (`hallPayload()`). Its payload-safety coverage (invalid
+// percent rejected without POST + canonical-fields-only, never condition-as-money)
+// now lives at the real boundary in SettingsPlacesPage.test.jsx, so it is not
+// imported here.
 import { apiMapFormToPayload as mapPaymentPayload } from "./settings/SettingsPaymentMethodsPage";
 import {
   apiMapFormToPayload as mapPrinterPayload,
@@ -145,27 +150,83 @@ describe("FE-06 request and form safety", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
-  it("keeps the newest Z-report date and treats the aborted older request as intentional", async () => {
-    const first = deferred();
-    const second = deferred();
-    const signals = [];
-    let calls = 0;
+  // ALIGNMENT-03 removed the whole-shift Z-report fetch from ZReportPage, so the
+  // page-level "newest request wins, older one aborted" case that used to be
+  // driven through /analytics/z-report has no subject here any more. The hook
+  // itself stays covered by src/hooks/useAsyncSafety.test.jsx and by the other
+  // report pages that still use it.
+  it("restores Z period presets and sends a truthful month-to-date period request", async () => {
+    const detailParams = [];
     api.get.mockImplementation((path, config) => {
-      if (path !== "/analytics/z-report") return Promise.resolve({ data: [] });
-      calls += 1;
-      signals.push(config.signal);
-      return calls === 1 ? first.promise : second.promise;
+      if (path === "/analytics/z-report/detail") {
+        detailParams.push(config?.params || {});
+        return Promise.resolve({
+          data: {
+            dimension: "hall",
+            entities: [{ entity_id: "hall-1", entity_name: "Балкон", figures: {} }],
+            totals: {},
+            coverage: [],
+          },
+        });
+      }
+      if (path === "/halls") return Promise.resolve({ data: [{ id: "hall-1", name: "Балкон" }] });
+      return Promise.resolve({ data: [] });
     });
     render(<ZReportPage />);
-    await waitFor(() => expect(calls).toBe(1));
-    fireEvent.change(screen.getByLabelText("Дата Z-отчёта"), { target: { value: "2026-08-12" } });
-    await waitFor(() => expect(calls).toBe(2));
-    expect(signals[0].aborted).toBe(true);
-    await act(async () => second.resolve({ data: { date: "2026-08-12", is_closed: false, gross_sales: 222, discounts_total: 0, service_fee_total: 0, tax_total: 0, refunds_total: 0, net_sales: 222, orders_count: 1, avg_check: 222, payment_methods: [{ method: "Newest payment", count: 1, amount: 222 }] } }));
-    await waitFor(() => expect(screen.getByRole("button", { name: /Печать общего Z-отчёта/ })).toBeEnabled());
-    await act(async () => first.resolve({ data: { date: "2026-08-13", is_closed: false, gross_sales: 111, discounts_total: 0, service_fee_total: 0, tax_total: 0, refunds_total: 0, net_sales: 111, orders_count: 1, avg_check: 111, payment_methods: [{ method: "Obsolete payment", count: 1, amount: 111 }] } }));
-    expect(screen.queryByText("Obsolete payment")).not.toBeInTheDocument();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Период Z-отчёта" }));
+    // ZR-PERIOD-01 restored the full preset set (range mode) + the end field.
+    const presets = () => within(document.querySelector(".report-date-presets"));
+    expect(screen.getByLabelText("Начало периода")).toBeInTheDocument();
+    expect(screen.getByLabelText("Конец периода")).toBeInTheDocument();
+    ["Сегодня", "Вчера", "Эта неделя", "Этот месяц", "Этот год"].forEach((preset) => {
+      expect(presets().getByRole("button", { name: preset })).toBeInTheDocument();
+    });
+
+    // ZR-PERIOD-01B: "Этот месяц" is month-TO-DATE (01 → today), never the
+    // month's future end. Derived from the real clock so it holds every day;
+    // the frozen 1st / mid / last-day cases live in the picker's own test.
+    fireEvent.click(presets().getByRole("button", { name: "Этот месяц" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "ОК" })[0]);
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const dd = pad(now.getDate());
+    const mm = pad(now.getMonth() + 1);
+    const yyyy = now.getFullYear();
+    const lastDay = pad(new Date(yyyy, now.getMonth() + 1, 0).getDate());
+    const isSingleDay = dd === "01";
+
+    expect(screen.getByRole("button", { name: "Период Z-отчёта" }).textContent)
+      .toBe(isSingleDay ? `01.${mm}.${yyyy}` : `01.${mm}.${yyyy} – ${dd}.${mm}.${yyyy}`);
+
+    // The per-entity print is the only request this page makes now, so the
+    // applied period is verified where it actually reaches the backend.
+    fireEvent.click(await screen.findByRole("button", { name: "Отчёт по местам" }));
+    fireEvent.click(screen.getByRole("option", { name: "Балкон" }));
+    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "Печать: Отчёт по местам" }));
+    const frame = document.querySelector("iframe[data-zrd-print]");
+    if (frame?.contentWindow) {
+      frame.contentWindow.print = vi.fn();
+      frame.contentWindow.focus = vi.fn();
+    }
+
+    await waitFor(() => {
+      const last = detailParams[detailParams.length - 1];
+      expect(last).toBeDefined();
+      if (isSingleDay) {
+        expect(last.date).toBe(`${yyyy}-${mm}-01`);
+        expect(last.date_from).toBeUndefined();
+      } else {
+        expect(last.date_from).toBe(`${yyyy}-${mm}-01`);
+        expect(last.date_to).toBe(`${yyyy}-${mm}-${dd}`);
+      }
+    });
+    // the month's future end is never requested (unless today IS the last day)
+    if (dd !== lastDay) {
+      expect(detailParams.some((p) => p.date_to === `${yyyy}-${mm}-${lastDay}`)).toBe(false);
+    }
+    document.querySelectorAll("iframe").forEach((node) => node.remove());
   });
 
   it("does not show support success before confirmation and allows a retry after failure", async () => {
@@ -204,20 +265,20 @@ describe("FE-06 request and form safety", () => {
       phone: "",
       status: "—",
     });
-    expect(mapPlacePayload({ name: "Hall", percent: "101", pricing_type: "", price: "", is_active: true }, { editing: false })).toBeNull();
-    expect(mapPlacePayload({ name: "Hall", percent: "10abc", pricing_type: "", price: "", is_active: true }, { editing: false })).toBeNull();
+    // Place payload safety (invalid percent rejected, canonical fields only,
+    // condition never sent) is asserted at its real boundary in
+    // SettingsPlacesPage.test.jsx — see TEST-SAFETY-01.
     expect(mapPaymentPayload({ name: "Cash", sort: "x", typeLabel: "cash", status: "#активно" })).toBeNull();
     expect(mapPaymentPayload({ name: "Cash", sort: "10abc", typeLabel: "cash", status: "#активно" })).toBeNull();
-    expect(mapPrinterPayload({ name: "Kitchen", printerType: "kitchen", connectionType: "network", branchId: "branch-uuid", ip: "10.0.0.2", port: "70000", status: "Активно" }, { editing: false })).toBeNull();
-    expect(mapPrinterPayload({ name: "Kitchen", printerType: "kitchen", connectionType: "network", branchId: "branch-uuid", ip: "10.0.0.2", port: "9100abc", status: "Активно" }, { editing: false })).toBeNull();
-    expect(mapPrinterPayload({ name: "Kitchen", printerType: "kitchen", connectionType: "network", branchId: "branch-uuid", ip: "10.0.0.2", port: "9100", paperWidth: "80", status: "Активно" }, { editing: true })).toEqual({
-      branch_id: "branch-uuid",
+    expect(mapPrinterPayload({ name: "Kitchen", printerType: "kitchen", connectionType: "network", ip: "10.0.0.2", port: "70000", zone: "Kitchen", status: "Активно" }, { editing: false })).toBeNull();
+    expect(mapPrinterPayload({ name: "Kitchen", printerType: "kitchen", connectionType: "network", ip: "10.0.0.2", port: "9100abc", zone: "Kitchen", status: "Активно" }, { editing: false })).toBeNull();
+    expect(mapPrinterPayload({ name: "Kitchen", printerType: "kitchen", connectionType: "network", ip: "10.0.0.2", port: "9100", zone: "Kitchen", status: "Активно" }, { editing: true })).toEqual({
       name: "Kitchen",
       printer_type: "kitchen",
       connection_type: "network",
       ip_address: "10.0.0.2",
       port: 9100,
-      paper_width: 80,
+      zone: "Kitchen",
       is_active: true,
     });
     expect(mapPrinterRow({ id: "p", name: "Printer", printer_type: null, connection_type: null, ip_address: "10.0.0.2", port: null })).toMatchObject({

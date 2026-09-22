@@ -10,10 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import (
-    require_company_app_user,
-    require_permission_or_admin,
-)
+from app.modules.auth.dependencies import require_company_app_user
 from app.modules.auth.models import User
 from app.modules.companies.models import Branch
 from app.modules.rbac.dependencies import require_permission
@@ -34,17 +31,6 @@ from app.shared.tenant_scope import require_company_resource, require_company_re
 
 router = APIRouter(prefix="/warehouse", tags=["warehouse"])
 
-# Запись складских документов проходит по любому из трёх оснований:
-#  * роль с RBAC-правом inventory:stock:write (upstream BE-05: manager,
-#    warehouse — иначе роль «склад» не могла бы вести документы вообще);
-#  * owner/admin/суперадмин (веб-админка ведёт приход отсюда же);
-#  * сотрудник с permissions.can_manage_warehouse — «кассир со спец-правом»
-#    в разделе управления на кассе (desktop).
-# Создание складов, перемещения и все DELETE остаются на require_permission.
-_require_warehouse_write = require_permission_or_admin(
-    "can_manage_warehouse", rbac_permission="inventory:stock:write"
-)
-
 
 # ── Helpers ──────────────────────────────────────────────────
 def _now() -> str:
@@ -55,7 +41,9 @@ def _user_display(user: User) -> str:
     name = getattr(user, "name", None) or ""
     if name:
         return name
-    return str(user.email).split("@")[0].upper()
+    # CASHIER-EMAIL-OPTIONAL-01: staff accounts may carry email None.
+    local = (getattr(user, "email", None) or "").split("@")[0]
+    return local.upper() if local else "—"
 
 
 async def _next_doc_number(db: AsyncSession, company_id: UUID, model) -> int:
@@ -143,7 +131,11 @@ async def get_purchase(
 @router.post("/purchases", response_model=PurchaseDocumentResponse, status_code=status.HTTP_201_CREATED)
 async def create_purchase(
     data: PurchaseDocumentCreate,
-    user: User = Depends(_require_warehouse_write),
+    # BE-05: was require_company_admin (owner/admin/manager slug check).
+    # Switched to a real permission check so a "warehouse" role — one of
+    # the canonical role slugs — can actually do warehouse mutations
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
+    user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
     await require_company_resource(
@@ -197,7 +189,11 @@ async def create_purchase(
 async def update_purchase(
     doc_id: UUID,
     data: PurchaseDocumentUpdate,
-    user: User = Depends(_require_warehouse_write),
+    # BE-05: was require_company_admin (owner/admin/manager slug check).
+    # Switched to a real permission check so a "warehouse" role — one of
+    # the canonical role slugs — can actually do warehouse mutations
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
+    user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -378,7 +374,11 @@ async def list_inventory_checks(
 @router.post("/inventory-checks", response_model=InventoryCheckResponse, status_code=status.HTTP_201_CREATED)
 async def create_inventory_check(
     data: InventoryCheckCreate,
-    user: User = Depends(_require_warehouse_write),
+    # BE-05: was require_company_admin (owner/admin/manager slug check).
+    # Switched to a real permission check so a "warehouse" role — one of
+    # the canonical role slugs — can actually do warehouse mutations
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
+    user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
     await require_company_resource(
@@ -400,7 +400,11 @@ async def create_inventory_check(
 async def update_inventory_check(
     doc_id: UUID,
     data: InventoryCheckCreate,
-    user: User = Depends(_require_warehouse_write),
+    # BE-05: was require_company_admin (owner/admin/manager slug check).
+    # Switched to a real permission check so a "warehouse" role — one of
+    # the canonical role slugs — can actually do warehouse mutations
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
+    user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -462,7 +466,11 @@ async def list_write_offs(
 @router.post("/write-offs", response_model=WriteOffResponse, status_code=status.HTTP_201_CREATED)
 async def create_write_off(
     data: WriteOffCreate,
-    user: User = Depends(_require_warehouse_write),
+    # BE-05: was require_company_admin (owner/admin/manager slug check).
+    # Switched to a real permission check so a "warehouse" role — one of
+    # the canonical role slugs — can actually do warehouse mutations
+    # instead of being locked out entirely. Web OWNER is intentionally absent.
+    user: User = Depends(require_permission("inventory:stock:write")),
     db: AsyncSession = Depends(get_db),
 ):
     doc = WriteOffDocument(

@@ -4,15 +4,36 @@ from uuid import UUID
 from sqlalchemy import Numeric, String, Boolean, Integer, ForeignKey, Text, Index, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Uuid
-from app.shared.base_model import TimeStampedModel
+from app.shared.base_model import SoftDeleteMixin, TimeStampedModel
 
 
-class Hall(TimeStampedModel):
+class Hall(TimeStampedModel, SoftDeleteMixin):
     """BE-14: doubles as the "places" screen's backing model
     (SettingsPlacesPage.jsx posts to this exact /halls endpoint) — the
     pricing fields below were added for that; a hall/place with no
-    pricing configured just leaves them null."""
+    pricing configured just leaves them null.
+
+    Phase 5C-6D: `deleted_at` (from SoftDeleteMixin) is the canonical
+    user-facing DELETE state — distinct from `is_active`. `is_active=false`
+    is administratively "Неактивен" and stays visible in Settings; a non-null
+    `deleted_at` archives the hall out of the Settings directory and all
+    operational selection while preserving its Tables/Orders history. Every
+    hall query that backs Settings/POS — and the report FILTER metadata —
+    filters `deleted_at IS NULL`. Historical report DATA is deliberately
+    exempt: Marjon is accounting software, so a tenant may still query a
+    deleted hall's past rows by explicit hall_id (see
+    AdminReportService.tables_report). That never resurrects the hall."""
     __tablename__ = "halls"
+    # Phase 5C-6A: composite index backing branch-scoped ordered reads
+    # (ORDER BY sort_order within a branch). Position uniqueness inside a
+    # branch is guaranteed by construction — the reorder endpoint writes a
+    # validated COMPLETE 0..n-1 permutation atomically and create() appends
+    # under a per-branch row lock — so no unique/deferrable constraint is
+    # needed here (and none is added: a strict constraint would only add
+    # transient-collision handling to an already-safe write path).
+    __table_args__ = (
+        Index("ix_halls_branch_sort_order", "branch_id", "sort_order"),
+    )
 
     company_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True
@@ -41,6 +62,16 @@ class Hall(TimeStampedModel):
     pricing_type: Mapped[str | None] = mapped_column(String(20))
     payment_type_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("fin_payment_types.id", ondelete="SET NULL"), nullable=True
+    )
+    # Phase 5C-6A: branch-scoped display position. 0-based, contiguous within a
+    # branch (0..n-1). NOT NULL — the migration backfills every existing row
+    # deterministically (per branch, ordered by created_at then id) and new
+    # halls are appended at max+1 by the service. server_default=0 is only a
+    # safety net for any non-service insert; it is never the operational value.
+    # Ordering is branch-scoped, NOT company-global: reorder never changes
+    # company_id/branch_id/is_active/pricing — only this column.
+    sort_order: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
     )
 
     tables: Mapped[list[Table]] = relationship(back_populates="hall", cascade="all, delete-orphan")
