@@ -123,6 +123,15 @@ class OrderItem(TimeStampedModel):
     quantity: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
     discount: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=Decimal("0"))
     total: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
+    # DISHES-EXCEL cost truth: per-unit cost snapshot frozen from
+    # Product.cost_price at the moment this item is created. NULLABLE and never
+    # backfilled — NULL means "cost unknown at sale time" (legacy rows, or a
+    # product with no cost_price set), NEVER treated as 0. A later change to
+    # Product.cost_price does NOT alter this snapshot; a quantity change keeps
+    # the same per-unit value. This is the ONLY historically-truthful cost
+    # source for the Dishes report (current Product.cost_price × old qty would
+    # rewrite historical economics and is forbidden).
+    cost_price_snapshot: Mapped[Decimal | None] = mapped_column(Numeric(15, 2), nullable=True)
     # pending | cooking | ready | served | cancelled
     status: Mapped[str] = mapped_column(String(20), default="pending")
     note: Mapped[str | None] = mapped_column(Text)

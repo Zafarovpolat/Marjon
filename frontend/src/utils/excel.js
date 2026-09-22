@@ -82,6 +82,7 @@ function alignmentForType(type) {
 // Row/column math is 1-based (ExcelJS convention).
 export function buildReportWorkbook(data, columns, {
   metadata = [], totals = null, autofilter = false, sheetName = "Отчёт",
+  groups = null, grandTotal = null,
 } = {}) {
   const cols = columns.map((col) => (typeof col === "object" ? col : { key: col, label: col }));
   const wb = new ExcelJS.Workbook();
@@ -123,6 +124,68 @@ export function buildReportWorkbook(data, columns, {
     cell.border = ALL_BORDERS;
   });
   ws.getRow(headerRow).height = 22;
+
+  // Write one styled cell (shared by data + subtotal + grand rows).
+  const paintCell = (excelRow, index, col, value, { bold = false, fill = null, topBorder = null } = {}) => {
+    const cell = ws.getCell(excelRow, index + 1);
+    if (value !== null && value !== undefined && value !== "") cell.value = value;
+    if (col.format) cell.numFmt = col.format;
+    cell.font = { name: FONT_NAME, size: FONT_SIZE, bold, color: { argb: HEADER_TEXT } };
+    cell.alignment = alignmentForType(col.type);
+    cell.border = topBorder ? { ...ALL_BORDERS, top: topBorder } : ALL_BORDERS;
+    if (fill) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: fill } };
+    if (col.statusColors && typeof value === "string" && STATUS_COLORS[value]) {
+      cell.font = { name: FONT_NAME, size: FONT_SIZE, color: { argb: STATUS_COLORS[value] } };
+    }
+    return cell;
+  };
+
+  // ---- DISHES-EXCEL grouped mode: category header (merged A:end) + item rows
+  // + per-category subtotal, repeated per group, then a grand total. cost/profit
+  // cells are simply left blank when their group/grand value is null (unknown
+  // coverage) — never coerced to 0.
+  if (groups) {
+    let cursorRow = headerRow;
+    groups.forEach((group) => {
+      cursorRow += 1;
+      // Category heading row, merged across the full table width.
+      ws.mergeCells(cursorRow, 1, cursorRow, cols.length);
+      const head = ws.getCell(cursorRow, 1);
+      head.value = group.title ?? "";
+      head.font = { name: FONT_NAME, bold: true, size: FONT_SIZE, color: { argb: HEADER_TEXT } };
+      head.fill = { type: "pattern", pattern: "solid", fgColor: { argb: METADATA_LABEL_FILL } };
+      head.alignment = { horizontal: "center", vertical: "middle" };
+      head.border = ALL_BORDERS;
+      ws.getRow(cursorRow).height = 20;
+      // Item rows.
+      (group.rows || []).forEach((row) => {
+        cursorRow += 1;
+        cols.forEach((col, index) => paintCell(cursorRow, index, col, typedValue(row[col.key], col)));
+        ws.getRow(cursorRow).height = 18;
+      });
+      // Per-category subtotal (label in col A; totals from group.totals values).
+      cursorRow += 1;
+      const gvals = group.totals && typeof group.totals === "object" ? group.totals : {};
+      cols.forEach((col, index) => {
+        const v = index === 0 ? (group.totalsLabel ?? "Итого по категории") : typedValue(gvals[col.key], col);
+        paintCell(cursorRow, index, col, v, { bold: true, fill: TOTALS_FILL });
+      });
+      ws.getRow(cursorRow).height = 18;
+    });
+    // Grand total row (stronger top border).
+    if (grandTotal && typeof grandTotal === "object") {
+      cursorRow += 1;
+      const src = grandTotal.values && typeof grandTotal.values === "object" ? grandTotal.values : {};
+      const strongTop = { style: "medium", color: { argb: BORDER_COLOR } };
+      cols.forEach((col, index) => {
+        const v = index === 0 ? (grandTotal.label ?? "Итого") : typedValue(src[col.key], col);
+        paintCell(cursorRow, index, col, v, { bold: true, fill: TOTALS_FILL, topBorder: strongTop });
+      });
+      ws.getRow(cursorRow).height = 20;
+    }
+    ws.views = [{ state: "frozen", ySplit: headerRow, topLeftCell: `A${headerRow + 1}` }];
+    return wb;
+  }
 
   // ---- Data rows ----------------------------------------------------------
   data.forEach((row, rowIndex) => {
