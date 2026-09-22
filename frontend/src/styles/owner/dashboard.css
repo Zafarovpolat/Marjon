@@ -7602,9 +7602,10 @@ body.dashboard-body .dashboard-shell .sidebar-search {
   overflow: visible;
   visibility: visible;
   z-index: 30;
-  transition: max-height 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    margin-top 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 140ms ease,
+  transition: max-height 180ms ease,
+    margin-top 180ms ease, opacity 120ms ease,
     visibility 0s linear;
+  transition-delay: 0ms, 0ms, 90ms, 90ms;
 }
 body.dashboard-body .dashboard-shell .sidebar-search__field {
   display: flex;
@@ -7628,12 +7629,12 @@ body.dashboard-body .dashboard-shell .sidebar-search__field:hover {
 /* The base pins .sidebar-brand (position:fixed) and reserves clearance via
    .sidebar-nav margin-top:76px. With the search now occupying that clearance,
    the nav follows the search with a small gap. During shell collapse, search
-   flow-space and nav margin move on the same 220ms rhythm. */
+   flow-space and nav margin move on the same 180ms rhythm. */
 body.dashboard-body .dashboard-sidebar:not(.is-collapsed) .sidebar-nav {
   margin-top: 6px;
 }
 body.dashboard-body .dashboard-sidebar .sidebar-nav {
-  transition: margin-top 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: margin-top 180ms ease;
 }
 /* The nav itself owns visible decorative overflow so active pills and submenu
    depth are not clipped at its edges. Vertical scrolling lives on the padded
@@ -7666,9 +7667,11 @@ body.dashboard-body .dashboard-shell .sidebar-search__field:focus-within {
   border-color: rgba(29, 181, 181, 0.55);
   box-shadow: 0 0 0 3px rgba(29, 181, 181, 0.08);
 }
-/* Collapse the search's flow space on the shell rhythm. Keeping the wrapper
-   present during the transition avoids the old instantaneous nav jump; delayed
-   visibility removes it from keyboard navigation after the fade. */
+/* Collapse the search's flow space on the shell rhythm. On expansion the field
+   starts fading in halfway through the 180ms clearance motion: this preserves
+   the overlapping feel without exposing it directly behind the fixed brand.
+   On collapse opacity still starts at once; delayed visibility removes it from
+   keyboard navigation after the fade. */
 body.dashboard-body .dashboard-sidebar.is-collapsed .sidebar-search {
   display: block;
   max-height: 0;
@@ -7677,7 +7680,7 @@ body.dashboard-body .dashboard-sidebar.is-collapsed .sidebar-search {
   overflow: hidden;
   pointer-events: none;
   visibility: hidden;
-  transition-delay: 0ms, 0ms, 0ms, 220ms;
+  transition-delay: 0ms, 0ms, 0ms, 180ms;
 }
 /* Active sidebar buttons: pill radius 24px (active leaf + active/open parent).
    Inactive buttons keep their default radius. */
@@ -7867,5 +7870,490 @@ body.dashboard-body .dashboard-shell .warehouse-summary-item:focus-visible {
     height: 54px;
     min-height: 54px;
     max-height: 54px;
+  }
+}
+
+/* ============================================================
+   OWNER sidebar collapse motion contract.
+   Geometry follows one 180ms track so a category tile cannot shrink before
+   the rail around it. Visual radii remain owned by the rules above: active
+   pills keep 24px and inactive category buttons keep their native radius.
+   ============================================================ */
+@media (min-width: 1025px) {
+  body.dashboard-body .dashboard-shell .dashboard-main {
+    transition: margin-left 180ms ease,
+      width 180ms ease,
+      max-width 180ms ease,
+      background-color 160ms ease,
+      border-radius 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed {
+    transition: width 180ms ease,
+      min-width 180ms ease,
+      max-width 180ms ease;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-nav,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-nav-item {
+    transition: width 180ms ease,
+      min-width 180ms ease,
+      max-width 180ms ease,
+      height 180ms ease,
+      min-height 180ms ease,
+      max-height 180ms ease,
+      margin 180ms ease;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-nav {
+    align-items: flex-start;
+    padding-top: 0;
+    padding-bottom: 12px;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-nav-item {
+    align-items: flex-start;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-nav-item,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-link,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-link--button {
+    align-self: flex-start;
+    margin-left: 0;
+    margin-right: 0;
+    justify-self: start;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-link,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-link--button {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) 18px;
+    column-gap: 14px;
+    align-items: center;
+    justify-content: stretch;
+    padding-inline: 17px;
+    transition: width 180ms ease,
+      min-width 180ms ease,
+      max-width 180ms ease,
+      height 180ms ease,
+      min-height 180ms ease,
+      max-height 180ms ease,
+      grid-template-columns 180ms ease,
+      column-gap 180ms ease,
+      padding 180ms ease,
+      transform 180ms ease,
+      background-color 160ms ease,
+      color 160ms ease,
+      border-color 160ms ease,
+      border-radius 180ms ease,
+      box-shadow 180ms ease;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-link .sidebar-icon,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-link--button .sidebar-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 22px;
+    width: 22px;
+    min-width: 22px;
+    max-width: 22px;
+    height: 22px;
+    min-height: 22px;
+    max-height: 22px;
+    margin: 0;
+    padding: 0;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-link > span:not(.sidebar-icon),
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-link--button > span:not(.sidebar-icon) {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    opacity: 1;
+    white-space: nowrap;
+    transform: translateX(0);
+    transition: max-width 180ms ease,
+      opacity 120ms ease,
+      transform 180ms ease;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-link__chevron {
+    display: block;
+    width: 18px;
+    min-width: 18px;
+    max-width: 18px;
+    opacity: 1;
+    overflow: hidden;
+    transition: width 180ms ease,
+      min-width 180ms ease,
+      max-width 180ms ease,
+      opacity 120ms ease,
+      transform 180ms ease,
+      color 160ms ease,
+      stroke 160ms ease;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-nav-item.has-submenu .sidebar-link__chevron {
+    transition: width 180ms ease,
+      min-width 180ms ease,
+      max-width 180ms ease,
+      opacity 120ms ease,
+      transform 180ms ease,
+      color 160ms ease,
+      stroke 160ms ease;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand__identity {
+    transition: width 180ms ease,
+      min-width 180ms ease,
+      max-width 180ms ease,
+      grid-template-columns 180ms ease,
+      gap 180ms ease;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-brand {
+    left: 12px;
+    overflow: visible;
+    justify-items: start;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand__identity,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-brand__identity {
+    position: relative;
+    overflow: visible;
+    justify-self: start;
+    justify-content: start;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .brand-mark--button,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .brand-mark--button {
+    appearance: none;
+    -webkit-appearance: none;
+    position: absolute;
+    inset: 0 auto auto 4px;
+    justify-self: start;
+    margin: 0;
+    transform: none;
+    translate: none;
+    scale: none;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .brand-mark--button:hover,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .brand-mark--button:focus,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .brand-mark--button:focus-visible,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .brand-mark--button:active {
+    transform: none;
+    translate: none;
+    scale: none;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand__identity > div,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .brand-title,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .brand-subtitle {
+    display: block;
+    max-width: 150px;
+    overflow: hidden;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition: width 250ms ease,
+      min-width 250ms ease,
+      max-width 250ms ease,
+      margin 250ms ease,
+      opacity 180ms ease,
+      transform 250ms ease,
+      visibility 180ms ease;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand__identity > div {
+    grid-column: 2;
+    width: 150px;
+    min-width: 0;
+    max-width: 150px;
+    margin-left: 8px;
+    overflow: hidden;
+    pointer-events: auto;
+    transform: none;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-brand__identity > div {
+    width: 0;
+    min-width: 0;
+    max-width: 0;
+    margin-left: 0;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: none;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .brand-title,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .brand-subtitle {
+    display: block;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(-10px);
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-account {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    width: 268px;
+    height: 92px;
+    padding-top: 12px;
+    transition: width 180ms ease,
+      height 180ms ease,
+      padding 180ms ease;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-user {
+    display: grid;
+    width: 266px;
+    min-width: 266px;
+    max-width: 266px;
+    height: 78px;
+    min-height: 78px;
+    max-height: 78px;
+    grid-template-columns: 48px minmax(0, 1fr) 28px;
+    gap: 8px;
+    padding: 12px;
+    transition: width 180ms ease,
+      min-width 180ms ease,
+      max-width 180ms ease,
+      height 180ms ease,
+      min-height 180ms ease,
+      max-height 180ms ease,
+      grid-template-columns 180ms ease,
+      gap 180ms ease,
+      padding 180ms ease,
+      background-color 160ms ease,
+      color 160ms ease,
+      box-shadow 160ms ease,
+      border-color 160ms ease;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-user__avatar {
+    display: grid;
+    transition: width 180ms ease,
+      min-width 180ms ease,
+      max-width 180ms ease,
+      height 180ms ease,
+      min-height 180ms ease,
+      max-height 180ms ease,
+      padding 180ms ease,
+      box-shadow 180ms ease,
+      background-color 180ms ease,
+      border-color 180ms ease;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-user__meta {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    opacity: 1;
+    transform: translateX(0);
+    transition: max-width 180ms ease,
+      opacity 120ms ease,
+      transform 180ms ease;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-user__arrow {
+    display: grid;
+    width: 28px;
+    min-width: 28px;
+    max-width: 28px;
+    overflow: hidden;
+    opacity: 1;
+    transition: width 180ms ease,
+      min-width 180ms ease,
+      max-width 180ms ease,
+      opacity 120ms ease,
+      transform 180ms ease;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .sidebar-nav,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .sidebar-link,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .sidebar-link--button {
+    width: 100%;
+    min-width: 100%;
+    max-width: 100%;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .sidebar-nav {
+    width: 100%;
+    min-width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .sidebar-link,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .sidebar-link--button {
+    padding-inline: 27px;
+    height: 46px;
+    min-height: 46px;
+    max-height: 46px;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item:not(.is-open) {
+    height: 46px;
+    min-height: 46px;
+    max-height: 46px;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .sidebar-link.is-active {
+    border-radius: 24px;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-nav,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-nav-item,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-link,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-link--button {
+    width: 56px;
+    min-width: 56px;
+    max-width: 56px;
+  }
+
+  /* Keep every row pinned to the rail's left axis while both widths animate.
+     An older collapsed-state rule used `margin: 0 auto`; while the nav was
+     still wider than 56px that temporarily centred the shrinking row and made
+     every icon sweep right, then back left. */
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-nav-item {
+    margin: 0;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-nav {
+    margin-left: 10px;
+    margin-right: 0;
+    margin-top: 102px;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-link,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-link--button {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 0fr) 0;
+    column-gap: 0;
+    justify-content: stretch;
+    padding-inline: 17px;
+    height: 56px;
+    min-height: 56px;
+    max-height: 56px;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-nav-item:not(.is-open) {
+    height: 56px;
+    min-height: 56px;
+    max-height: 56px;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-link > span:not(.sidebar-icon),
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-link--button > span:not(.sidebar-icon) {
+    display: block;
+    max-width: 0;
+    opacity: 0;
+    transform: translateX(-6px);
+    pointer-events: none;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-link__chevron {
+    display: block;
+    width: 0;
+    min-width: 0;
+    max-width: 0;
+    opacity: 0;
+    transform: translateX(-6px);
+    pointer-events: none;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-account {
+    display: flex;
+    width: 76px;
+    height: 58px;
+    padding-top: 0;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-user {
+    display: grid;
+    width: 56px;
+    min-width: 56px;
+    max-width: 56px;
+    height: 56px;
+    min-height: 56px;
+    max-height: 56px;
+    grid-template-columns: 56px minmax(0, 0fr) 0;
+    gap: 0;
+    padding: 0;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-user__meta {
+    display: block;
+    max-width: 0;
+    opacity: 0;
+    transform: translateX(-6px);
+    pointer-events: none;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-user__arrow {
+    display: grid;
+    width: 0;
+    min-width: 0;
+    max-width: 0;
+    opacity: 0;
+    transform: translateX(-6px);
+    pointer-events: none;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-link.is-active {
+    border-radius: 17px;
+  }
+
+  /* A closed category keeps its pale hover colour, but uses the same compact
+     geometry as an opened/active category. */
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed
+    .sidebar-link:not(.is-active):hover,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed
+    .sidebar-link:not(.is-active):focus-visible,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed
+    .sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link--button:hover,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed
+    .sidebar-nav-item.has-submenu:not(.is-open) > .sidebar-link--button:focus-visible,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed
+    .sidebar-nav-item.has-submenu.has-popover > .sidebar-link--button {
+    border-radius: 17px;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.dashboard-body .dashboard-shell .dashboard-sidebar,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed,
+  body.dashboard-body .dashboard-shell .dashboard-main,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-nav,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-nav-item,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-link,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-link--button,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-link > span:not(.sidebar-icon),
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-link--button > span:not(.sidebar-icon),
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-link__chevron,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand__identity,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand__identity > div,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-account,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-user,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-user__avatar,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-user__meta,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-user__arrow,
+  body.dashboard-body .dashboard-shell .sidebar-search {
+    transition-duration: 0.01ms;
+    transition-delay: 0ms;
   }
 }

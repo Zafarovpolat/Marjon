@@ -34,6 +34,8 @@ export const emptyForm = {
 export const getPermissionSummary = (values) => {
   const permissions = [
     values.canDeleteDishes && "Удаление блюд",
+    // WAITER-01: waiter-only switch, truthful summary like other form-state permissions.
+    values.canChangeMarkingCode && "Изменение кода маркировки",
     values.canTakeawayAtTable && "Заказ на вынос",
     values.canChangeOrderType && "Изменение типа заказа",
     values.canCloseBill && "Закрытие счета",
@@ -43,6 +45,26 @@ export const getPermissionSummary = (values) => {
 
   return permissions.join(", ") || values.permission || "Базовый доступ";
 };
+
+// WAITER-01: product drawer switch contracts. Cashier frozen at 7 total
+// (Статус + 6). Waiter exactly 5 total (Статус + 4, incl. marking code).
+// Fine-grained switches are form-state only (BACKEND_HANDOFF_REQUIRED);
+// only Статус (is_active) persists via backend.
+export const cashierSwitchFields = [
+  "canDeleteDishes",
+  "canTakeawayAtTable",
+  "canChangeOrderType",
+  "canCloseBill",
+  "canOpenCashDrawerAfterPayment",
+  "canViewClosedOrders",
+];
+
+export const waiterSwitchFields = [
+  "canDeleteDishes",
+  "canChangeMarkingCode",
+  "canTakeawayAtTable",
+  "canChangeOrderType",
+];
 
 export const staffAccessModules = [
   { key: "home", label: "Главная" },

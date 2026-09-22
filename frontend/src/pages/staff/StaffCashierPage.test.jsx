@@ -782,9 +782,13 @@ describe("cashier drawer ux: footer, animation, phone, permissions", () => {
     });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
 
-    expect(
-      await within(dialog).findByRole("alert"),
-    ).toHaveTextContent("Укажите имя и номер телефона кассира.");
+    // Empty name binds to the name field (near the fold) + drawer block.
+    const alerts = await within(dialog).findAllByRole("alert");
+    expect(alerts).toHaveLength(2);
+    for (const alert of alerts) {
+      expect(alert).toHaveTextContent("Укажите имя и номер телефона кассира.");
+    }
+    expect(dialog.querySelector(".staff-field-error")).not.toBeNull();
     expect(alertSpy).not.toHaveBeenCalled();
     expect(api.post).not.toHaveBeenCalled();
     // Drawer stays open with entered values preserved.
@@ -812,9 +816,14 @@ describe("cashier drawer ux: footer, animation, phone, permissions", () => {
     });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
 
-    expect(
-      await within(dialog).findByRole("alert"),
-    ).toHaveTextContent("Phone already registered");
+    // Shared duplicate-phone UX: Russian text at phone field + drawer block.
+    const alerts = await within(dialog).findAllByRole("alert");
+    expect(alerts).toHaveLength(2);
+    for (const alert of alerts) {
+      expect(alert).toHaveTextContent("Этот номер уже зарегистрирован");
+      expect(alert).toHaveTextContent("Phone already registered");
+    }
+    expect(dialog.querySelector(".staff-phone-error")).not.toBeNull();
     expect(alertSpy).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).not.toBeNull();
     expect(screen.getByPlaceholderText("Имя кассира").value).toBe("Cashier Two");
@@ -859,48 +868,45 @@ async function waitForExpectPatch() {
   const { waitFor } = await import("@testing-library/react");
   await waitFor(() => expect(api.patch).toHaveBeenCalled());
 }
-describe("waiter route smoke (no cashier leakage, no redesign)", () => {
+// WAITER-01: waiter reuses exact cashier presentation (1:1 oracle).
+// Legacy filter/initials expectations retired; role isolation + product layout asserted.
+describe("waiter route smoke (cashier oracle reuse, role isolation)", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
     api.get.mockResolvedValue({ data: [cashierUser, waiterUser] });
   });
 
-  it("renders waiter rows with legacy filters and without cashier layout", async () => {
+  it("renders waiter rows with product header and without legacy filters", async () => {
     render(<StaffRolePage role="waiter" />);
 
     expect(await screen.findByText("Waiter One")).toBeInTheDocument();
     expect(screen.queryByText("Cashier One")).not.toBeInTheDocument();
 
-    // Legacy filter panel untouched.
-    expect(document.querySelector(".staff-filters")).not.toBeNull();
-    expect(
-      screen.getByPlaceholderText("ФИО или телефон"),
-    ).toBeInTheDocument();
+    // Product header reused: no legacy filter block.
+    expect(document.querySelector(".staff-filters")).toBeNull();
+    expect(screen.queryByPlaceholderText("ФИО или телефон")).toBeNull();
 
-    // No cashier-only layout leaks.
+    // Same product layout classes as cashier (1:1 oracle, no new CSS).
     expect(document.querySelector(".staff-cashier-toolbar")).toBeNull();
-    expect(document.querySelector(".staff-header__actions")).toBeNull();
-    expect(document.querySelector(".staff-card--cashier")).toBeNull();
-    const legacyAdd = document.querySelector(
-      ".staff-header .staff-add-button",
+    expect(document.querySelector(".staff-header__actions")).not.toBeNull();
+    expect(document.querySelector(".staff-card--cashier")).not.toBeNull();
+    const add = document.querySelector(
+      ".staff-header .staff-add-button--cashier",
     );
-    expect(legacyAdd).not.toBeNull();
-    expect(
-      legacyAdd.classList.contains("staff-add-button--cashier"),
-    ).toBe(false);
+    expect(add).not.toBeNull();
   });
 
-  it("keeps the initials fallback for other roles", async () => {
+  it("uses the approved default avatar for waiter rows (no initials)", async () => {
     render(<StaffRolePage role="waiter" />);
 
     expect(await screen.findByText("Waiter One")).toBeInTheDocument();
 
     const table = document.querySelector(".staff-table");
-    // Waiter without avatar keeps initials; no default asset leaks in.
-    expect(within(table).getByText("WA")).toBeInTheDocument();
+    // Waiter reuses cashier avatar presentation.
+    expect(within(table).queryByText("WA")).toBeNull();
     expect(
       table.querySelector('img[src*="staff-default-avatar"]'),
-    ).toBeNull();
+    ).not.toBeNull();
   });
 });

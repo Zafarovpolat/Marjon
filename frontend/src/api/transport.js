@@ -51,7 +51,11 @@ function isAbsoluteUrl(url) {
 function getRequestUrl(config) {
   const url = axios.getUri(config);
   if (isAbsoluteUrl(url) || !config?.baseURL) return url;
-  return `${String(config.baseURL).replace(/\/+$/, "")}/${String(url).replace(/^\/+/, "")}`;
+  const base = String(config.baseURL).replace(/\/+$/, "");
+  const path = String(url);
+  // axios.getUri already joins a relative baseURL with url — never prepend twice.
+  if (path === base || path.startsWith(`${base}/`)) return path;
+  return `${base}/${path.replace(/^\/+/, "")}`;
 }
 
 function normalizeMethod(method) {

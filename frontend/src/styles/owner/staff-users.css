@@ -1024,6 +1024,27 @@ body.dashboard-body:has(.staff-modal--cashier-full) .staff-modal.staff-modal--ca
     box-shadow: 0 0 0 3px rgba(29, 181, 181, 0.12);
 }
 
+/* WAITER-01 FIX-02: field-level save error under the phone input (near the
+   fold, same MARJON danger language as .login-error / .form-errors).
+   Cashier-scoped only; renders solely on submit failure, no layout change
+   otherwise. */
+.staff-form--cashier .staff-phone-error,
+.staff-form--cashier .staff-field-error {
+    display: block;
+    margin-top: 6px;
+    color: var(--color-danger, #EF4444);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+/* WAITER table access column: OFF-state indicator for delete-dishes
+   (no persisted grant exists — FRONTEND_ONLY truth). Cashier-scoped only. */
+.staff-card--cashier .staff-table .staff-permission-dot.is-off {
+    background: #EF4444;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.098);
+}
+
 /* Permission rows: neutral dark labels; state carried by the left dot
    (green on / red off) + switch position. Dots update live via .is-on.
    Spans carry explicit colors so base button :hover can never recolor them. */
