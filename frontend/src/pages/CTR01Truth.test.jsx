@@ -148,12 +148,21 @@ describe("CTR-01 critical financial truth", () => {
     expect(within(expenseCard).queryByText(/к вчерашнему дню/)).not.toBeInTheDocument();
   });
 
+  // Accepted Orders browser contract: the visible UI carries EXACTLY eight
+  // business columns. Тип and Кассир render from the real report contract
+  // (order_type label map, cashier_names join — never waiter-as-cashier,
+  // never fabricated); ID/Цена обслуживания/Тип оплаты stay Excel-only and
+  // out of the visible table.
   it("renders only frozen Orders report fields", async () => {
-    api.get.mockResolvedValue({ data: [{ order_id: "order-1", order_number: "42", created_at: "2026-08-12T10:00:00Z", status: "completed", table_number: "7", waiter_name: "Backend Waiter", items_count: 3, total_amount: 900 }] });
+    api.get.mockResolvedValue({ data: [{ order_id: "order-1", order_number: "42", created_at: "2026-08-12T10:00:00Z", status: "completed", table_number: "7", waiter_name: "Backend Waiter", items_count: 3, total_amount: 900, order_type: "dine_in", cashier_names: ["Backend Cashier"], service_fee: 90, payment_methods: ["cash"] }] });
     render(<OrdersReportPage />);
     expect((await screen.findAllByText("Backend Waiter")).length).toBeGreaterThan(0);
-    ["Клиент", "Курьер", "Цена товаров", "Цена места", "Скидка", "Цена доставки", "Цена обслуживания", "Тип заказа"].forEach((label) => expect(screen.queryByRole("columnheader", { name: label })).not.toBeInTheDocument());
-    expect(screen.getByRole("columnheader", { name: "Количество позиций" })).toBeInTheDocument();
+    ["Номер заказа", "Тип", "Дата", "Место", "Цена всего", "Официант", "Кассир", "Статус"].forEach((label) => expect(screen.getByRole("columnheader", { name: label })).toBeInTheDocument());
+    ["Клиент", "Курьер", "Цена товаров", "Цена места", "Скидка", "Цена доставки", "Цена обслуживания", "Тип оплаты", "ID заказа", "ID", "Количество позиций", "Итоговая сумма"].forEach((label) => expect(screen.queryByRole("columnheader", { name: label })).not.toBeInTheDocument());
+    const row = screen.getByText("42").closest("tr");
+    expect(row.querySelectorAll("td")).toHaveLength(8);
+    expect(row).toHaveTextContent("На стол");
+    expect(row).toHaveTextContent("Backend Cashier");
   });
 
   it("renders the approved Tables Phase 1 columns without KPI cards", async () => {
