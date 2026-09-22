@@ -55,6 +55,9 @@ jobs:
           python create_tables.py
           python migrate_add_permissions.py
           python seed.py
+          # Канонический демо-официант для смока логина (Scenario из
+          # backend/scripts/seed_waiter_login.py: +998900078779 / 102938).
+          python scripts/seed_waiter_login.py
 
       # Главный смок: приложение реально отвечает и логин выдаёт токен.
       # Разом ловит ForwardRef (не импортируется), 422 (валидатор сломан),
