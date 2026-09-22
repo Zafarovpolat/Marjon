@@ -19,7 +19,10 @@ import StaffFormModal from "./staff/StaffFormModal";
 function StaffRolePage({ role = "all" }) {
   const routeRole = roleMap[role] ? role : "all";
   // CASHIER-FE-01: cashier route is the visual/UX reference; other roles keep legacy UI.
+  // WAITER-01: waiter reuses exact cashier presentation (1:1 oracle, 5 switches vs 7).
   const isCashierView = routeRole === "cashier";
+  const isWaiterView = routeRole === "waiter";
+  const isProductView = isCashierView || isWaiterView;
   const pageTitle =
     routeRole === "all" ? "Список сотрудников" : `Список сотрудников: ${roleMap[routeRole].title}`;
 
@@ -62,6 +65,11 @@ function StaffRolePage({ role = "all" }) {
   const [modalClosing, setModalClosing] = useState(false);
   // Cashier drawer inline submit error (no browser-native popups).
   const [saveError, setSaveError] = useState("");
+  // WAITER-01 FIX-02: which field a save error belongs to ("" = drawer-level
+  // only). Duplicate-phone 409 binds to "phone" so the message renders
+  // directly under the phone input (always near the fold), not only after
+  // the long access matrix where users never see it.
+  const [saveErrorField, setSaveErrorField] = useState("");
   const closeTimer = useRef(null);
   const [editingId, setEditingId] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -131,8 +139,8 @@ function StaffRolePage({ role = "all" }) {
   };
 
   const closeModal = () => {
-    // Cashier drawer plays a right-exit animation before unmounting.
-    if (isCashierView && modalOpen && !modalClosing) {
+    // Cashier/Waiter drawer plays a right-exit animation before unmounting.
+    if (isProductView && modalOpen && !modalClosing) {
       setModalClosing(true);
       cancelPendingCloseTimerOnly();
       closeTimer.current = window.setTimeout(() => {
@@ -159,6 +167,7 @@ function StaffRolePage({ role = "all" }) {
     setShowPassword(false);
     setPhoneCountryOpen(false);
     setSaveError("");
+    setSaveErrorField("");
   };
 
   const updateForm = (field, value) => {
@@ -207,6 +216,20 @@ function StaffRolePage({ role = "all" }) {
   // Cashier submit errors surface as drawer inline text. Backend detail can
   // be a string, a list of validation dicts, or absent — always reduce to a
   // human-readable string so React never renders [object Object].
+  // WAITER-01 LIVE-CREATE-FIX: live backend rejects an already-registered
+  // phone with 409 "Phone already registered" (POST) / "Phone already in
+  // use" (PATCH). The raw English string made owners retry blindly (9x 409
+  // observed live). Map it to a clear Russian message, keeping the original
+  // backend text as a suffix so contract tests still match by substring.
+  const toDuplicatePhoneError = (detail) => {
+    if (detail === "Phone already registered") {
+      return "Этот номер уже зарегистрирован. Используйте другой номер телефона (Phone already registered).";
+    }
+    if (detail === "Phone already in use") {
+      return "Этот номер уже используется другим сотрудником (Phone already in use).";
+    }
+    return null;
+  };
   const toCashierSaveError = (err) => {
     const data = err.response?.data;
     if (!data || typeof data !== "object") {
@@ -214,7 +237,9 @@ function StaffRolePage({ role = "all" }) {
         ? err.message
         : "Ошибка сохранения";
     }
-    if (typeof data.detail === "string" && data.detail) return data.detail;
+    if (typeof data.detail === "string" && data.detail) {
+      return toDuplicatePhoneError(data.detail) || data.detail;
+    }
     if (Array.isArray(data.detail)) {
       const first = data.detail.find((entry) => entry && typeof entry.msg === "string");
       if (first) return first.msg;
@@ -236,33 +261,45 @@ function StaffRolePage({ role = "all" }) {
     event.preventDefault();
     if (!mutationLocks.acquire("staff-save")) return;
     const phone = normalizePhone(form.phone, form.phoneCountry);
-    // CASHIER: cashier form has no Email input by product contract; the
+    // CASHIER/WAITER: product form has no Email input by product contract; the
     // canonical POST /auth/users accepts no address (nullable email).
     // Never fake an email. Edit path unchanged.
-    if (isCashierView) {
-      const cashierName = form.fullName.trim();
-      if (!cashierName || !phone) {
-        setSaveError("Укажите имя и номер телефона кассира.");
+    // WAITER-01: same generic staff create, only role_slug differs (cashier/waiter).
+    if (isProductView) {
+      const productRoleSlug = isWaiterView ? "waiter" : "cashier";
+      const productGenitive = isWaiterView ? "официанта" : "кассира";
+      const productName = form.fullName.trim();
+      if (!productName || !phone) {
+        // FIX-03: bind to the missing field so the message renders under
+        // the relevant input (near the fold), not only below the fold.
+        // Copy unchanged.
+        setSaveErrorField(!productName ? "name" : "phone");
+        setSaveError(`Укажите имя и номер телефона ${productGenitive}.`);
         mutationLocks.release("staff-save");
         return;
       }
       if ((!editingId || form.password) && (form.password.length < 8 || !/[A-Za-z]/.test(form.password) || !/\d/.test(form.password))) {
+        setSaveErrorField("password");
         setSaveError("Пароль должен содержать минимум 8 символов, букву и цифру.");
         mutationLocks.release("staff-save");
         return;
       }
       setSaveError("");
+      setSaveErrorField("");
       setSaving(true);
       try {
         // printerIp and photo are visual-only in this phase: never sent.
         // No email key is sent at all — backend persists email NULL.
+        // All fine-grained switches (incl. delete-dishes) stay form-state
+        // only (BACKEND_HANDOFF_REQUIRED): canonical :8000 has
+        // extra=forbid and would 422 unknown fields.
         let confirmedUser;
         if (!editingId) {
           const { data: createdUser } = await staffService.createCompanyUser({
             password: form.password,
             phone: phone || null,
-            role_slug: "cashier",
-            role_name: cashierName,
+            role_slug: productRoleSlug,
+            role_name: productName,
           });
           confirmedUser = createdUser;
           if (form.status === "archived") {
@@ -273,10 +310,10 @@ function StaffRolePage({ role = "all" }) {
           }
         } else {
           const { data: updatedUser } = await staffService.updateCompanyUser(editingId, {
-            name: cashierName,
+            name: productName,
             password: form.password || undefined,
             phone: phone || null,
-            role_slug: "cashier",
+            role_slug: productRoleSlug,
             is_active: form.status !== "archived",
           });
           confirmedUser = updatedUser;
@@ -290,6 +327,16 @@ function StaffRolePage({ role = "all" }) {
         closeModal();
       } catch (err) {
         console.error("Ошибка сохранения:", err.response?.data?.detail || err.message);
+        // WAITER-01 FIX-02: bind duplicate-phone 409 to the phone field so
+        // the message is visible without scrolling past the access matrix.
+        // Nothing here clears the error afterwards (finally only resets
+        // loading) — it stays until retry, close, or a new validation event.
+        const detail = err.response?.data?.detail;
+        setSaveErrorField(
+          detail === "Phone already registered" || detail === "Phone already in use"
+            ? "phone"
+            : "",
+        );
         setSaveError(toCashierSaveError(err));
       } finally {
         setSaving(false);
@@ -413,8 +460,9 @@ function StaffRolePage({ role = "all" }) {
   };
 
   return (
-    <div className={`staff-page${isCashierView ? " staff-page--cashier" : ""}`}>
-      <section className={`staff-card${isCashierView ? " staff-card--cashier" : ""}`}>
+    // WAITER-01: waiter reuses cashier scoped classes for 1:1 visuals (no new CSS).
+    <div className={`staff-page${isProductView ? " staff-page--cashier" : ""}`}>
+      <section className={`staff-card${isProductView ? " staff-card--cashier" : ""}`}>
         <StaffToolbar
           pageTitle={pageTitle}
           openAddModal={openAddModal}
@@ -425,7 +473,7 @@ function StaffRolePage({ role = "all" }) {
           routeRole={routeRole}
           applyFilters={applyFilters}
           clearFilters={clearFilters}
-          hideFilters={isCashierView}
+          hideFilters={isProductView}
         />
 
         <StaffTable
@@ -437,6 +485,7 @@ function StaffRolePage({ role = "all" }) {
           archiveStaff={archiveStaff}
           restoreStaff={restoreStaff}
           isCashier={isCashierView}
+          isWaiter={isWaiterView}
         />
       </section>
 
@@ -457,8 +506,10 @@ function StaffRolePage({ role = "all" }) {
           phoneCountryOpen={phoneCountryOpen}
           setPhoneCountryOpen={setPhoneCountryOpen}
           isCashier={isCashierView}
+          isWaiter={isWaiterView}
           closing={modalClosing}
           saveError={saveError}
+          saveErrorField={saveErrorField}
         />
       )}
     </div>

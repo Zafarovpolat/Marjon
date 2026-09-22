@@ -17,7 +17,10 @@ export default function StaffTable({
   archiveStaff,
   restoreStaff,
   isCashier = false,
+  // WAITER-01: waiter reuses exact cashier presentation (avatar/status/alignment).
+  isWaiter = false,
 }) {
+  const isProduct = isCashier || isWaiter;
   return (
     <>
       {staffLoading ? <div className="staff-empty-cell" role="status">Загрузка сотрудников...</div> : null}
@@ -44,7 +47,7 @@ export default function StaffTable({
                   <div className="staff-avatar">
                     {employee.photo ? (
                       <img src={employee.photo} alt={employee.fullName} />
-                    ) : isCashier ? (
+                    ) : isProduct ? (
                       <img src={staffDefaultAvatar} alt={employee.fullName} />
                     ) : (
                       <span>{employee.fullName.slice(0, 2).toUpperCase()}</span>
@@ -59,13 +62,25 @@ export default function StaffTable({
                   </span>
                 </td>
                 <td>
-                  <span className="staff-permission">
-                    <span className="staff-permission-dot" aria-hidden="true" />
-                    {getPermissionSummary(employee)}
-                  </span>
+                  {isWaiter ? (
+                    // WAITER access column shows ONLY delete-dishes truth.
+                    // Backend stores no per-waiter permission flags
+                    // (FRONTEND_ONLY, handoff required), so no grant is ever
+                    // on record: red OFF indicator + fixed label, never
+                    // fabricated "Базовый доступ", never green.
+                    <span className="staff-permission">
+                      <span className="staff-permission-dot is-off" aria-hidden="true" />
+                      Удаление блюд
+                    </span>
+                  ) : (
+                    <span className="staff-permission">
+                      <span className="staff-permission-dot" aria-hidden="true" />
+                      {getPermissionSummary(employee)}
+                    </span>
+                  )}
                 </td>
                 <td>
-                  {isCashier ? (
+                  {isProduct ? (
                     <span
                       className={`staff-status-badge ${
                         employee.status === "archived" ? "is-archived" : ""

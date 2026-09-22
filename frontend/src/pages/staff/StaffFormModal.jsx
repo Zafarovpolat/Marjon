@@ -40,12 +40,25 @@ export default function StaffFormModal({
   setPhoneCountryOpen,
   // CASHIER-FE-01: cashier route uses its own product form; other roles keep legacy UI.
   isCashier = false,
+  // WAITER-01: waiter reuses exact cashier drawer shell/CSS (1:1 oracle).
+  isWaiter = false,
   closing = false,
   // Cashier drawer inline submit error (no browser-native popups on this path).
   saveError = "",
+  // WAITER-01 FIX-02: field key the save error belongs to ("phone" renders
+  // the message directly under the phone input, near the fold).
+  saveErrorField = "",
 }) {
   const phoneInputRef = useRef(null);
-  if (isCashier) {
+  // WAITER-01: same drawer shell for cashier + waiter; only role strings + switch list differ.
+  const isProductDrawer = isCashier || isWaiter;
+  if (isProductDrawer) {
+    const isWaiterView = isWaiter;
+    const addTitle = isWaiterView ? "Добавить официанта" : "Добавить кассира";
+    const editTitle = isWaiterView ? "Изменить официанта" : "Изменить кассира";
+    const namePlaceholder = isWaiterView ? "Имя официанта" : "Имя кассира";
+    const photoAlt = isWaiterView ? "Фото официанта" : "Фото кассира";
+    const formKeyPrefix = isWaiterView ? "waiter" : "cashier";
     const cashierCountry = phoneCountryMap[form.phoneCountry || "UZ"] || phoneCountryMap.UZ;
     // Display-only formatting: state keeps raw normalized digits, the input
     // shows (XX) XXX-XX-XX. Caret is remapped by digit count so Backspace and
@@ -73,7 +86,7 @@ export default function StaffFormModal({
       <div className={`staff-modal staff-modal--cashier-full${closing ? " is-closing" : ""}`} role="dialog" aria-modal="true">
         <div className="staff-modal__backdrop" onClick={saving ? undefined : closeModal} />
         <form
-          key={editingId ? `cashier-edit-${editingId}` : "cashier-add-empty"}
+          key={editingId ? `${formKeyPrefix}-edit-${editingId}` : `${formKeyPrefix}-add-empty`}
           className="staff-form staff-form--cashier"
           onSubmit={saveStaff}
           autoComplete="off"
@@ -81,7 +94,7 @@ export default function StaffFormModal({
           <div className="staff-form__header">
             <div>
               <p>{editingId ? "Редактирование" : "Новый сотрудник"}</p>
-              <h2>{editingId ? "Изменить кассира" : "Добавить кассира"}</h2>
+              <h2>{editingId ? editTitle : addTitle}</h2>
             </div>
             <button type="button" disabled={saving} onClick={closeModal} aria-label="Закрыть">
               <Icon name="bi-x-lg" size={20} />
@@ -90,9 +103,9 @@ export default function StaffFormModal({
           <div className="cashier-photo">
             <div className="staff-avatar staff-avatar--large">
               {form.photo ? (
-                <img src={form.photo} alt="Фото кассира" />
+                <img src={form.photo} alt={photoAlt} />
               ) : (
-                <img src={staffDefaultAvatar} alt="Фото кассира" />
+                <img src={staffDefaultAvatar} alt={photoAlt} />
               )}
             </div>
             <div className="cashier-photo__body">
@@ -114,8 +127,13 @@ export default function StaffFormModal({
                 autoComplete="off"
                 value={form.fullName}
                 onChange={(event) => updateForm("fullName", event.target.value)}
-                placeholder="Имя кассира"
+                placeholder={namePlaceholder}
+                aria-invalid={saveErrorField === "name" && saveError ? true : undefined}
+                aria-describedby={saveErrorField === "name" && saveError ? "staff-name-error" : undefined}
               />
+              {saveErrorField === "name" && saveError ? (
+                <small className="staff-field-error" role="alert" id="staff-name-error">{saveError}</small>
+              ) : null}
             </label>
             <label>
               <span>Номер телефона</span>
@@ -161,8 +179,13 @@ export default function StaffFormModal({
                   value={formatLocalUZ(getPhoneLocal(form.phone, form.phoneCountry))}
                   onChange={handleCashierPhoneChange}
                   placeholder="Введите номер"
+                  aria-invalid={saveErrorField === "phone" && saveError ? true : undefined}
+                  aria-describedby={saveErrorField === "phone" && saveError ? "staff-phone-error" : undefined}
                 />
               </div>
+              {saveErrorField === "phone" && saveError ? (
+                <small className="staff-phone-error" role="alert" id="staff-phone-error">{saveError}</small>
+              ) : null}
             </label>
             <label>
               <span>{editingId ? "Новый пароль" : "Пароль"}</span>
@@ -173,6 +196,8 @@ export default function StaffFormModal({
                   value={form.password}
                   onChange={(event) => updateForm("password", event.target.value)}
                   placeholder="Пароль"
+                  aria-invalid={saveErrorField === "password" && saveError ? true : undefined}
+                  aria-describedby={saveErrorField === "password" && saveError ? "staff-password-error" : undefined}
                 />
                 <button
                   type="button"
@@ -183,6 +208,9 @@ export default function StaffFormModal({
                   <Icon name={showPassword ? "bi-eye-slash" : "bi-eye"} size={18} />
                 </button>
               </div>
+              {saveErrorField === "password" && saveError ? (
+                <small className="staff-field-error" role="alert" id="staff-password-error">{saveError}</small>
+              ) : null}
               {editingId ? (
                 <small className="muted">Оставьте пустым, чтобы не менять пароль.</small>
               ) : null}
@@ -224,6 +252,18 @@ export default function StaffFormModal({
               <span>Удаление блюд</span>
               <b className="staff-switch" aria-hidden="true" />
             </button>
+            {isWaiterView ? (
+            <button
+              className={`staff-permission-switch ${form.canChangeMarkingCode ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canChangeMarkingCode")}
+              aria-pressed={Boolean(form.canChangeMarkingCode)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Изменить код маркировки</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            ) : null}
             <button
               className={`staff-permission-switch ${form.canTakeawayAtTable ? "is-on" : ""}`}
               type="button"
@@ -244,6 +284,8 @@ export default function StaffFormModal({
               <span>Изменить тип заказа</span>
               <b className="staff-switch" aria-hidden="true" />
             </button>
+            {isWaiterView ? null : (
+            <>
             <button
               className={`staff-permission-switch ${form.canCloseBill ? "is-on" : ""}`}
               type="button"
@@ -274,6 +316,8 @@ export default function StaffFormModal({
               <span>Просмотр закрытых заказов</span>
               <b className="staff-switch" aria-hidden="true" />
             </button>
+            </>
+            )}
             </div>
             <div className="staff-permission-matrix">
               {staffAccessModules.map((module) => {
