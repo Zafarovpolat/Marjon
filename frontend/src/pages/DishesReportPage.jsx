@@ -89,18 +89,34 @@ function toDishesDisplayRow(item, index) {
   const quantityValue = Number(item.quantity || 0);
   const priceValue = Number(item.price || 0);
   const amountValue = Number(item.amount || 0);
+  // DISHES-EXCEL cost truth: cost_total/profit are numeric ONLY when the
+  // backend proved full snapshot coverage (cost_coverage_complete). When
+  // coverage is incomplete the backend sends null — keep it null (never 0),
+  // so the export writes a blank cell rather than a fabricated financial value.
+  const covered = item.cost_coverage_complete === true;
+  const costValue = covered && item.cost_total != null ? Number(item.cost_total) : null;
+  const profitValue = covered && item.profit != null ? Number(item.profit) : null;
 
   return {
     // product_id is canonical; item.id covers the pre-Phase-1 frontend
     // fallback (old backend always sent product_id).
     id: String(item.product_id || item.id || item.name || index),
     name: `${index + 1}. ${item.name || ""}`,
-    // Real master unit only — never a hardcoded fallback. Cost/profit/status
-    // are intentionally absent (no truthful source) and ignored when present.
+    // Real master unit only — never a hardcoded fallback.
     unit: item.unit || "",
     quantity: String(quantityValue),
     price: formatReportMoney(priceValue),
     amount: formatReportMoney(amountValue),
+    // Raw numeric snapshots for the Excel export (blank when unknown).
+    quantityNum: quantityValue,
+    priceNum: priceValue,
+    amountNum: amountValue,
+    costNum: costValue,
+    profitNum: profitValue,
+    // Canonical category dimension (live) for Excel grouping; null → frontend
+    // presentation label "Без категории".
+    categoryId: item.category_id ?? null,
+    categoryName: item.category_name ?? null,
   };
 }
 
@@ -134,7 +150,15 @@ function normalizeDishesReportResponse(data) {
     if (!Number.isFinite(quantity) || !Number.isFinite(amount)) {
       throw new Error("Invalid dishes report response");
     }
-    return { rows: data.rows.map(toDishesDisplayRow), totals: { quantity, amount } };
+    // DISHES-EXCEL grand cost/profit: numeric only under full coverage (backend
+    // sends null otherwise) — kept null here, never coerced to 0.
+    const grandCovered = data.totals.cost_coverage_complete === true;
+    const costTotal = grandCovered && data.totals.cost_total != null ? Number(data.totals.cost_total) : null;
+    const profitTotal = grandCovered && data.totals.profit != null ? Number(data.totals.profit) : null;
+    return {
+      rows: data.rows.map(toDishesDisplayRow),
+      totals: { quantity, amount, costTotal, profitTotal, coverageComplete: grandCovered },
+    };
   }
   throw new Error("Invalid dishes report response");
 }
@@ -313,31 +337,59 @@ export default function DishesReportPage() {
   }
 
   function downloadExcel() {
+    // DISHES-EXCEL-7COL: 7 business columns, no metadata block, no Статус.
+    // Money/cost/profit are numeric cells (#,##0); cost/profit are BLANK (never
+    // 0) wherever coverage is incomplete. Rows are grouped by canonical category
+    // (live), with a per-category subtotal and a grand total. Category order is
+    // the backend's row order (already category-sorted); uncategorized → the
+    // presentation label "Без категории".
     const cols = [
-      { key: "name", label: "Название" },
-      { key: "unit", label: "Ед изм" },
-      { key: "quantity", label: "Кол-во" },
-      { key: "price", label: "Цена" },
-      { key: "amount", label: "Сумма" },
+      { key: "name", label: "Название", width: 30 },
+      { key: "unit", label: "Ед изм", width: 10 },
+      { key: "quantityNum", label: "Кол-во", type: "number", format: "#,##0", width: 12 },
+      { key: "priceNum", label: "Цена", type: "number", format: "#,##0", width: 14 },
+      { key: "amountNum", label: "Сумма", type: "number", format: "#,##0", width: 16 },
+      { key: "costNum", label: "Себестоимость", type: "number", format: "#,##0", width: 18 },
+      { key: "profitNum", label: "Прибыль", type: "number", format: "#,##0", width: 16 },
     ];
-    const totalExcelRow = {
-      name: "Итого",
-      unit: "",
-      quantity: String(Number(totals.quantity || 0)),
-      price: "",
-      amount: formatReportMoney(totals.amount),
-    };
-    exportToExcel([...filteredRows, totalExcelRow], cols, "dishes-report", {
-      metadata: [
-        {
-          label: "Период",
-          value: dateRange.start === dateRange.end ? dateRange.start : `${dateRange.start} – ${dateRange.end}`,
+    const UNCATEGORIZED = "Без категории";
+    // Group in the canonical row order the backend returned (category-sorted).
+    const groupsMap = new Map();
+    for (const row of filteredRows) {
+      const key = row.categoryId ?? "__null__";
+      if (!groupsMap.has(key)) {
+        groupsMap.set(key, { title: row.categoryName || UNCATEGORIZED, rows: [] });
+      }
+      groupsMap.get(key).rows.push(row);
+    }
+    // Per-category subtotals: quantity/amount always; cost/profit only when
+    // EVERY row in the category is covered (else blank/unknown).
+    const groups = [...groupsMap.values()].map((g) => {
+      const q = g.rows.reduce((s, r) => s + (Number(r.quantityNum) || 0), 0);
+      const a = g.rows.reduce((s, r) => s + (Number(r.amountNum) || 0), 0);
+      const allCovered = g.rows.every((r) => r.costNum != null);
+      const c = allCovered ? g.rows.reduce((s, r) => s + Number(r.costNum), 0) : null;
+      const p = allCovered ? g.rows.reduce((s, r) => s + Number(r.profitNum), 0) : null;
+      return {
+        title: g.title,
+        rows: g.rows,
+        totalsLabel: "Итого по категории",
+        totals: { quantityNum: q, amountNum: a, costNum: c, profitNum: p },
+      };
+    });
+    exportToExcel([], cols, "dishes-report", {
+      sheetName: "Отчёт по блюдам",
+      groups,
+      grandTotal: {
+        label: "Общий итог",
+        values: {
+          quantityNum: Number(totals.quantity || 0),
+          amountNum: Number(totals.amount || 0),
+          // Grand cost/profit stay blank unless the whole report is covered.
+          costNum: totals.coverageComplete ? Number(totals.costTotal) : null,
+          profitNum: totals.coverageComplete ? Number(totals.profitTotal) : null,
         },
-        ...activeFilterEntries.map(([key, value]) => ({
-          label: filterNames[key],
-          value: optionLabel(key, value, filterOptions),
-        })),
-      ],
+      },
     });
   }
 

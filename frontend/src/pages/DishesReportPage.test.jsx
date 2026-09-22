@@ -330,27 +330,38 @@ describe("DishesReportPage Phase 1 truthful core", () => {
     expect(trigger.textContent).not.toContain("Выбрано");
   });
 
-  it("exports every selected filter value in Excel metadata", async () => {
+  it("DISHES-EXCEL: exports 7 grouped columns, no metadata, no Статус, category grouping + grand total", async () => {
     render(<DishesReportPage />);
     await screen.findByText("1. Плов");
     fireEvent.click(headerFilterToggle());
     openDishFilter("Автор");
     fireEvent.click(screen.getByRole("option", { name: "Официант 1" }));
     fireEvent.click(screen.getByRole("option", { name: "Кассир 1" }));
-    openDishFilter("Тип заказа");
-    fireEvent.click(screen.getByRole("option", { name: "На стол" }));
-    fireEvent.click(screen.getByRole("option", { name: "Доставка" }));
     fireEvent.click(screen.getAllByRole("button", { name: "Фильтровать" })[1]);
     await screen.findByText("Автор: Официант 1, Кассир 1");
     document.querySelector(".report-excel-button").click();
     expect(exportToExcel).toHaveBeenCalledTimes(1);
-    const [, , , options] = exportToExcel.mock.calls[0];
-    expect(options.metadata.some(
-      (item) => item.label === "Автор" && item.value === "Официант 1, Кассир 1"
-    )).toBe(true);
-    expect(options.metadata.some(
-      (item) => item.label === "Тип заказа" && item.value === "На стол, Доставка"
-    )).toBe(true);
+    const [data, cols, filename, options] = exportToExcel.mock.calls[0];
+    expect(filename).toBe("dishes-report");
+    // Exactly 7 columns, reference wording, no Статус, no ID/category columns.
+    expect(cols.map((c) => c.label)).toEqual([
+      "Название", "Ед изм", "Кол-во", "Цена", "Сумма", "Себестоимость", "Прибыль",
+    ]);
+    expect(cols.some((c) => c.label === "Статус")).toBe(false);
+    // Numeric-typed money/count columns.
+    ["quantityNum", "priceNum", "amountNum", "costNum", "profitNum"].forEach((k) => {
+      expect(cols.find((c) => c.key === k)).toMatchObject({ type: "number", format: "#,##0" });
+    });
+    // Grouped mode: data array is empty; rows live under options.groups.
+    expect(data).toEqual([]);
+    expect(options.metadata).toBeUndefined();
+    expect(Array.isArray(options.groups)).toBe(true);
+    expect(options.groups.length).toBeGreaterThanOrEqual(1);
+    expect(options.groups[0].rows.length).toBeGreaterThanOrEqual(1);
+    // Grand total present with canonical quantity/amount.
+    expect(options.grandTotal.label).toBe("Общий итог");
+    expect(options.grandTotal.values.quantityNum).toBe(999);
+    expect(options.grandTotal.values.amountNum).toBe(888888);
   });
 
   it("Очистить resets every multi-select to placeholders with no params sent", async () => {
@@ -451,7 +462,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
     expect(screen.getByRole("combobox", { name: "Тип заказа" })).toHaveAttribute("aria-expanded", "true");
   });
 
-  it("exports visible columns with backend totals and active filter metadata", async () => {
+  it("exports the current filtered dish rows grouped, with canonical grand total", async () => {
     render(<DishesReportPage />);
     await screen.findByText("1. Плов");
 
@@ -463,17 +474,21 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 
     document.querySelector(".report-excel-button").click();
     expect(exportToExcel).toHaveBeenCalledTimes(1);
-    const [rows, cols, filename, options] = exportToExcel.mock.calls[0];
-    expect(cols.map((col) => col.key)).toEqual(["name", "unit", "quantity", "price", "amount"]);
+    const [data, cols, filename, options] = exportToExcel.mock.calls[0];
+    // 7-column grouped export (raw numeric keys), no legacy string columns.
+    expect(cols.map((col) => col.key)).toEqual([
+      "name", "unit", "quantityNum", "priceNum", "amountNum", "costNum", "profitNum",
+    ]);
     expect(filename).toBe("dishes-report");
-    // Data row uses the amount key (never an empty "total" column)...
-    expect(rows[0].amount).toContain("70");
-    // ...followed by the backend-totals row, never cost/profit.
-    const totalRow = rows[rows.length - 1];
-    expect(totalRow.name).toBe("Итого");
-    expect(JSON.stringify(rows)).not.toContain("Себестоимость");
-    expect(options.metadata.some((item) => item.label === "Период")).toBe(true);
-    expect(options.metadata.some((item) => item.label === "Поиск" && item.value === "Плов")).toBe(true);
+    // Grouped mode: data empty, rows under groups; the dish row carries raw amount.
+    expect(data).toEqual([]);
+    const allRows = options.groups.flatMap((g) => g.rows);
+    expect(allRows[0].amountNum).toBe(70000);
+    // No embedded "Итого" data row; totals via grandTotal option; no metadata.
+    expect(allRows.every((r) => r.name !== "Итого")).toBe(true);
+    expect(options.grandTotal.label).toBe("Общий итог");
+    expect(options.metadata).toBeUndefined();
+    expect(JSON.stringify(options.groups)).not.toContain("Себестоимость");
   });
 
   it("keeps the real filters in an accessible toggle panel without resetting draft values", async () => {
@@ -667,33 +682,36 @@ describe("DishesReportPage zero-downtime bridge", () => {
     expect(screen.queryByText("шт.")).toBeNull();
   });
 
-  it("exports legacy transitional totals with truthful columns only", async () => {
+  it("exports legacy transitional totals grouped, cost/profit blank (no snapshot)", async () => {
     reportsService.listDishes.mockResolvedValue(legacyPayload());
     render(<DishesReportPage />);
     await screen.findByText("1. Плов");
     document.querySelector(".report-excel-button").click();
     expect(exportToExcel).toHaveBeenCalledTimes(1);
-    const [rows, cols] = exportToExcel.mock.calls[0];
-    expect(cols.map((col) => col.key)).toEqual(["name", "unit", "quantity", "price", "amount"]);
-    const totalRow = rows[rows.length - 1];
-    expect(totalRow.name).toBe("Итого");
-    expect(totalRow.quantity).toBe("5");
-    expect(totalRow.amount).toContain("204");
-    expect(JSON.stringify(rows)).not.toContain("Себестоимость");
+    const [, cols, , options] = exportToExcel.mock.calls[0];
+    expect(cols.map((col) => col.key)).toEqual([
+      "name", "unit", "quantityNum", "priceNum", "amountNum", "costNum", "profitNum",
+    ]);
+    expect(options.grandTotal.values.quantityNum).toBe(5);
+    expect(options.grandTotal.values.amountNum).toBe(204000);
+    // Legacy payload has no coverage → grand cost/profit blank (never 0).
+    expect(options.grandTotal.values.costNum).toBeNull();
+    expect(options.grandTotal.values.profitNum).toBeNull();
+    expect(JSON.stringify(options.groups)).not.toContain("Себестоимость");
   });
 
-  it("exports canonical backend totals with truthful columns only", async () => {
+  it("exports canonical backend totals grouped with grand total", async () => {
     reportsService.listDishes.mockResolvedValue(canonicalPayload());
     render(<DishesReportPage />);
     await screen.findByText("1. Плов");
     document.querySelector(".report-excel-button").click();
     expect(exportToExcel).toHaveBeenCalledTimes(1);
-    const [rows, cols] = exportToExcel.mock.calls[0];
-    expect(cols.map((col) => col.key)).toEqual(["name", "unit", "quantity", "price", "amount"]);
-    const totalRow = rows[rows.length - 1];
-    expect(totalRow.name).toBe("Итого");
-    expect(totalRow.quantity).toBe("99");
-    expect(totalRow.amount).toContain("999");
+    const [, cols, , options] = exportToExcel.mock.calls[0];
+    expect(cols.map((col) => col.key)).toEqual([
+      "name", "unit", "quantityNum", "priceNum", "amountNum", "costNum", "profitNum",
+    ]);
+    expect(options.grandTotal.values.quantityNum).toBe(99);
+    expect(options.grandTotal.values.amountNum).toBe(999999);
   });
 
   it("keeps stale legacy rows while a refetch pends", async () => {
