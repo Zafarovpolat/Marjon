@@ -17,7 +17,7 @@ from app.modules.inventory.schemas import (
     ProductIngredientIn, ProductUpdate, StockMovementCreate,
 )
 from app.modules.printers.models import Printer
-from app.shared.exceptions import NotFoundError, ValidationError
+from app.shared.exceptions import NotFoundError
 from app.shared.tenant_scope import require_company_resource, require_company_resource_ids
 
 _PRODUCT_LOAD = selectinload(Product.ingredients).selectinload(ProductIngredient.ingredient)
@@ -222,38 +222,6 @@ class ProductService:
             p.is_available = False
         await self.db.commit()
 
-    async def set_availability(
-        self, company_id: UUID, product_id: UUID, is_available: bool
-    ) -> Product:
-        """Стоп-лист: снять/вернуть блюдо в продажу (product-level is_available).
-
-        Отдельный метод под отдельный узкий эндпоинт — чтобы кассир мог править
-        только доступность, но НЕ цену/название/прочие поля (для этого остаётся
-        админский PATCH /products/{id}).
-        """
-        p = await self.get(company_id, product_id)
-        p.is_available = is_available
-        await self.db.commit()
-        return await self.get(company_id, product_id)
-
-    async def set_daily_limit(
-        self, company_id: UUID, product_id: UUID, daily_limit: int | None
-    ) -> Product:
-        """D3 «максимум блюда»: задать/снять дневной лимит порций.
-
-        Задание числа — это «пополнение» на новый день: обнуляем счётчик
-        проданного и возвращаем блюдо в продажу (сброс ручной, по образцу
-        тумблера стоп-листа). daily_limit=None снимает лимит (без ограничения),
-        текущий стоп при этом НЕ трогаем.
-        """
-        p = await self.get(company_id, product_id)
-        p.daily_limit = daily_limit
-        if daily_limit is not None:
-            p.sold_count = 0
-            p.is_available = True
-        await self.db.commit()
-        return await self.get(company_id, product_id)
-
 
 class IngredientService:
     def __init__(self, db: AsyncSession):
@@ -348,50 +316,37 @@ class StockService:
             total_cost=total,
             **data.model_dump(),
         )
-        # Остаток блокируем на время операции (FOR UPDATE): движение и остаток
-        # меняем атомарно (один commit), без гонок между параллельными операциями.
+        saved = await self.movement_repo.save(movement)
+
+        # Update stock item
         result = await self.db.execute(
             select(StockItem).where(
                 StockItem.company_id == company_id,
                 StockItem.warehouse_id == data.warehouse_id,
                 StockItem.ingredient_id == data.ingredient_id,
-            ).with_for_update()
+            )
         )
         stock = result.scalar_one_or_none()
-
-        inbound = data.movement_type in ("purchase", "adjustment")
-        outbound = data.movement_type in ("sale", "writeoff", "transfer")
-
-        if stock is None:
-            if outbound:
-                # Нельзя списать/переместить то, чего нет на складе
-                raise ValidationError("Недостаточно остатка: позиция отсутствует на складе")
-            # Приход/корректировка на отсутствующую позицию — заводим остаток.
-            # upstream BE-10: этой ветки не было вовсе — первый приход нового
-            # ингредиента писал движение, но StockItem не создавался, и остаток
-            # навсегда оставался нулевым. unit/cost_price берём из движения,
-            # иначе позиция заводилась бы с дефолтными «кг»/0.
-            stock = StockItem(
-                company_id=company_id,
-                warehouse_id=data.warehouse_id,
-                ingredient_id=data.ingredient_id,
-                quantity=Decimal("0"),
-                unit=data.unit,
-                cost_price=data.cost_price,
-            )
-            self.db.add(stock)
-
-        if inbound:
-            stock.quantity = (stock.quantity or Decimal("0")) + data.quantity
-        elif outbound:
-            new_qty = (stock.quantity or Decimal("0")) - data.quantity
-            if new_qty < 0:
-                # Запрет ухода остатка в минус
-                raise ValidationError("Недостаточно остатка для списания")
-            stock.quantity = new_qty
-
-        self.db.add(movement)
-        await self.db.flush()
-        await self.db.commit()
-        await self.db.refresh(movement)
-        return movement
+        if stock:
+            if data.movement_type in ("purchase", "adjustment"):
+                stock.quantity += data.quantity
+            elif data.movement_type in ("sale", "writeoff", "transfer"):
+                stock.quantity -= data.quantity
+            await self.stock_repo.save(stock)
+        elif data.movement_type in ("purchase", "adjustment"):
+            # BE-10 dependency fix: this branch never existed — a
+            # brand-new ingredient's very first purchase/adjustment
+            # movement was logged (StockMovement row written) but the
+            # corresponding StockItem row was never created, so the
+            # ingredient silently stayed at zero stock forever despite
+            # the movement history saying otherwise.
+            await self.stock_repo.save(StockItem(
+                company_id=company_id, warehouse_id=data.warehouse_id,
+                ingredient_id=data.ingredient_id, quantity=data.quantity,
+                unit=data.unit, cost_price=data.cost_price,
+            ))
+        # sale/writeoff/transfer against a nonexistent StockItem: left as a
+        # no-op, matching the prior behavior for the existing-row case with
+        # no clamp — out of scope here to also introduce negative-stock
+        # rejection across every movement type.
+        return saved

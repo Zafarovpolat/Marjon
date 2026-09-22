@@ -21,22 +21,6 @@ export function useCompanyProfileForm(user) {
   const beginRequest = useLatestRequest();
   const { acquire, release } = useMutationLocks();
 
-  // Спец-пароль отмены заказа и доля обслуги официанту — самодостаточные блоки
-  // страницы профиля: у каждого свой эндпоинт и своя кнопка "Сохранить",
-  // в общий payload handleSave они не входят.
-  const [cancelPw, setCancelPw] = useState("");
-  const [cancelPwSet, setCancelPwSet] = useState(false);
-  const [cancelPwSaving, setCancelPwSaving] = useState(false);
-  const [waiterPct, setWaiterPct] = useState("");
-  const [waiterPctSaving, setWaiterPctSaving] = useState(false);
-
-  useEffect(() => {
-    // Статус пароля отмены — отдельный эндпоинт, само значение наружу не отдаётся.
-    settingsService.getCancelPassword()
-      .then(({ data }) => setCancelPwSet(Boolean(data?.is_set)))
-      .catch(() => {});
-  }, []);
-
   useEffect(() => {
     const request = beginRequest();
     settingsService.getCompanyProfile({ signal: request.signal })
@@ -53,8 +37,6 @@ export function useCompanyProfileForm(user) {
         };
         setForm(next);
         setSavedForm(next);
-        // Доля обслуги приходит в том же профиле компании — отдельный запрос не нужен.
-        setWaiterPct(data?.waiter_service_percent != null ? String(data.waiter_service_percent) : "");
       })
       .catch((err) => {
         if (request.isCurrent() && !isAbortError(err)) setError(err.response?.data?.detail || "Не удалось загрузить профиль.");
@@ -89,36 +71,6 @@ export function useCompanyProfileForm(user) {
 
   function clearLogo(key) {
     set(key, "");
-  }
-
-  async function saveWaiterPct() {
-    setWaiterPctSaving(true);
-    try {
-      await settingsService.updateCompanyProfile({
-        waiter_service_percent: Math.max(0, Math.min(100, Number(waiterPct) || 0)),
-      });
-      setError("");
-      setSuccess("Доля обслуги официанту сохранена.");
-    } catch (err) {
-      setError(err.response?.data?.detail || "Не удалось сохранить долю обслуги");
-    } finally {
-      setWaiterPctSaving(false);
-    }
-  }
-
-  async function saveCancelPw() {
-    setCancelPwSaving(true);
-    try {
-      const { data } = await settingsService.setCancelPassword({ password: cancelPw || null });
-      setCancelPwSet(Boolean(data?.is_set));
-      setCancelPw("");
-      setError("");
-      setSuccess("Пароль отмены сохранён.");
-    } catch (err) {
-      setError(err.response?.data?.detail || "Не удалось сохранить пароль отмены");
-    } finally {
-      setCancelPwSaving(false);
-    }
   }
 
   async function handleSave(event) {
@@ -183,14 +135,5 @@ export function useCompanyProfileForm(user) {
     resetForm,
     clearLogo,
     handleSave,
-    cancelPw,
-    setCancelPw,
-    cancelPwSet,
-    cancelPwSaving,
-    saveCancelPw,
-    waiterPct,
-    setWaiterPct,
-    waiterPctSaving,
-    saveWaiterPct,
   };
 }

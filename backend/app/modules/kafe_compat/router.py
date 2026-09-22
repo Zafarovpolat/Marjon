@@ -19,10 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import (
-    get_current_user,
     require_company_admin,
     require_company_app_user,
-    require_permission_or_admin,
     require_web_owner,
 )
 from app.modules.auth.models import User
@@ -59,12 +57,6 @@ from app.shared.pagination import PageParams
 
 router = APIRouter()
 
-# Финансы: то же право, что в основном finance-роутере (владелец/админ либо
-# permissions.can_view_finance, выданное владельцем в веб-админке). Эти пути
-# перекрыты finance-роутером по порядку регистрации, но гейт ставим и здесь,
-# чтобы доступ не зависел от порядка include_router в main.py.
-require_finance_access = require_permission_or_admin("can_view_finance")
-
 
 # ── Финансы: транзакции (company-scoped, без org-фильтра HQ-админки) ──────────
 def _tx_dict(t: FinTransaction) -> dict:
@@ -77,15 +69,11 @@ def _tx_dict(t: FinTransaction) -> dict:
     }
 
 
-# BE-04: личность и tenant здесь задаёт get_company_finance_scope (внутри него
-# require_company_app_user), поэтому user-зависимость мягче: require_web_owner
-# гасил бы наше право can_view_finance у кассира, ничего не добавляя к защите.
-@router.get("/finance/transactions", tags=["finance-kafe"],
-            dependencies=[Depends(require_finance_access)])
+@router.get("/finance/transactions", tags=["finance-kafe"])
 async def kafe_list_transactions(
     date_from: date | None = Query(None), date_to: date | None = Query(None),
     direction: str | None = Query(None),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_web_owner),
     scope: FinanceScope = Depends(get_company_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
@@ -105,12 +93,11 @@ async def kafe_list_transactions(
     return {"items": [_tx_dict(t) for t in rows], "count": len(rows)}
 
 
-@router.post("/finance/transactions", status_code=status.HTTP_201_CREATED,
-             tags=["finance-kafe"], dependencies=[Depends(require_finance_access)])
+@router.post("/finance/transactions", status_code=status.HTTP_201_CREATED, tags=["finance-kafe"])
 async def kafe_create_transaction(
     data: dict,
     idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_web_owner),
     scope: FinanceScope = Depends(get_company_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
@@ -123,12 +110,11 @@ async def kafe_create_transaction(
     return _tx_dict(transaction)
 
 
-@router.patch("/finance/transactions/{tx_id}", tags=["finance-kafe"],
-              dependencies=[Depends(require_finance_access)])
+@router.patch("/finance/transactions/{tx_id}", tags=["finance-kafe"])
 async def kafe_update_transaction(
     tx_id: UUID,
     data: dict,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_web_owner),
     scope: FinanceScope = Depends(get_company_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
@@ -142,7 +128,6 @@ async def kafe_update_transaction(
         category_id=data.get("category_id", t.category_id),
         counterparty_id=data.get("counterparty_id", t.counterparty_id),
         finance_template_id=data.get("finance_template_id", t.finance_template_id),
-        direction=data.get("direction") or t.direction,
     )
     if data.get("amount") is not None:
         old_amount = Decimal(t.amount)

@@ -1,16 +1,21 @@
 from __future__ import annotations
 from datetime import date
+from decimal import Decimal
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import StringConstraints
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
 from app.modules.admin_reports import schemas
 from app.modules.admin_reports.schemas import (
-    AttendanceRow, CancelledItemRow, DishReportFiltersResponse, DishReportRow,
+    AttendanceRow, CancelledFiltersResponse, CancelledItemRow,
+    DishReportFiltersResponse, DishReportResponse,
     DebtCreditRow, LoginHistoryRow, OrderReportFiltersResponse, OrderReportRow, ProductCountRow,
-    ProductReportRow, TableReportFiltersResponse, TableReportRow, WaiterReportRow,
+    ProductReportRow, TableReportFiltersResponse, TableReportRow,
+    WaiterReportFiltersResponse, WaiterReportResponse,
 )
 from app.modules.admin_reports.service import AdminReportService, xlsx_response
 from app.modules.auth.dependencies import require_hq_admin, require_web_owner
@@ -18,6 +23,17 @@ from app.modules.auth.models import User
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 admin_reports_router = APIRouter(prefix="/admin-reports", tags=["admin-reports"])
+
+# REPORT-04: the Orders report filters accept MULTIPLE values per dimension using
+# this project's existing repeated-query-param pattern — the same shape
+# /analytics/z-report/detail already uses for `ids`:
+#   ?waiter_id=<a>&waiter_id=<b>&order_type=dine_in&order_type=delivery
+# Names stay singular on purpose, so a client that still sends exactly one value
+# keeps working untouched (FastAPI parses it as a one-item list) — the deployed
+# OWNER frontend and the Tables/Dishes pages need no change. Comma-separated
+# strings are deliberately NOT used; the project has no such convention.
+# Values WITHIN one dimension are OR/IN, dimensions still combine with AND.
+OrderFilterValue = Annotated[str, StringConstraints(max_length=50)]
 
 
 @router.get(
@@ -103,12 +119,12 @@ async def orders_report(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     order_number: str | None = Query(None, max_length=100),
-    waiter_id: UUID | None = Query(None),
-    cashier_id: UUID | None = Query(None),
-    product_id: UUID | None = Query(None),
-    order_type: str | None = Query(None, max_length=50),
-    order_status: str | None = Query(None, max_length=50),
-    payment_method: str | None = Query(None, max_length=50),
+    waiter_id: list[UUID] | None = Query(None),
+    cashier_id: list[UUID] | None = Query(None),
+    product_id: list[UUID] | None = Query(None),
+    order_type: list[OrderFilterValue] | None = Query(None),
+    order_status: list[OrderFilterValue] | None = Query(None),
+    payment_method: list[OrderFilterValue] | None = Query(None),
     user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
 ):
@@ -141,10 +157,10 @@ async def tables_report(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     table_number: str | None = Query(None, max_length=100),
-    waiter_id: UUID | None = Query(None),
-    payment_method: str | None = Query(None, max_length=50),
-    cashier_id: UUID | None = Query(None),
-    hall_id: UUID | None = Query(None),
+    waiter_id: list[UUID] | None = Query(None),
+    payment_method: list[OrderFilterValue] | None = Query(None),
+    cashier_id: list[UUID] | None = Query(None),
+    hall_id: list[UUID] | None = Query(None),
     user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
 ):
@@ -170,27 +186,51 @@ async def tables_report_filters(
     return await AdminReportService(db).tables_report_filters(user.company_id)
 
 
-@router.get("/waiters", response_model=list[WaiterReportRow])
+@router.get("/waiters", response_model=WaiterReportResponse)
 async def waiters_report(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    waiter_id: UUID | None = Query(None),
+    service_percent: Decimal = Query(Decimal("1"), ge=0, le=100),
+    include_orders: bool = Query(True),
+    include_takeaway_delivery: bool = Query(False),
+    include_service: bool = Query(False),
     user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
 ):
-    return await AdminReportService(db).waiters_report(user.company_id, date_from, date_to)
+    assert user.company_id is not None
+    return await AdminReportService(db).waiters_report(
+        user.company_id,
+        date_from,
+        date_to,
+        waiter_id=waiter_id,
+        service_percent=service_percent,
+        include_orders=include_orders,
+        include_takeaway_delivery=include_takeaway_delivery,
+        include_service=include_service,
+    )
 
 
-@router.get("/dishes", response_model=list[DishReportRow])
+@router.get("/waiters/filters", response_model=WaiterReportFiltersResponse)
+async def waiters_report_filters(
+    user: User = Depends(require_web_owner),
+    db: AsyncSession = Depends(get_db),
+):
+    assert user.company_id is not None
+    return await AdminReportService(db).waiters_report_filters(user.company_id)
+
+
+@router.get("/dishes", response_model=DishReportResponse)
 async def dishes_report(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     query: str | None = Query(None, max_length=200),
-    author_id: UUID | None = Query(None),
-    product_id: UUID | None = Query(None),
-    order_type: str | None = Query(None, max_length=50),
-    order_status: str | None = Query(None, max_length=50),
-    category_id: UUID | None = Query(None),
-    payment_method: str | None = Query(None, max_length=50),
+    author_id: list[UUID] | None = Query(None),
+    product_id: list[UUID] | None = Query(None),
+    order_type: list[OrderFilterValue] | None = Query(None),
+    order_status: list[OrderFilterValue] | None = Query(None),
+    category_id: list[UUID] | None = Query(None),
+    payment_method: list[OrderFilterValue] | None = Query(None),
     user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
 ):
@@ -220,10 +260,33 @@ async def dishes_report_filters(
 async def cancelled_report(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    order_number: str | None = Query(None, max_length=100),
+    author_id: list[UUID] | None = Query(None),
+    dish_name: list[str] | None = Query(None, max_length=500),
     user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
 ):
-    return await AdminReportService(db).cancelled_items(user.company_id, date_from, date_to)
+    # Phase 1A multi-select: repeated singular params are OR within a
+    # dimension (author_id=A&author_id=B, dish_name=A&dish_name=B), AND
+    # across dimensions. Scalar requests stay valid as one-item lists.
+    assert user.company_id is not None
+    return await AdminReportService(db).cancelled_items(
+        user.company_id,
+        date_from,
+        date_to,
+        order_number=order_number,
+        author_id=author_id,
+        dish_name=dish_name,
+    )
+
+
+@router.get("/cancelled/filters", response_model=CancelledFiltersResponse)
+async def cancelled_report_filters(
+    user: User = Depends(require_web_owner),
+    db: AsyncSession = Depends(get_db),
+):
+    assert user.company_id is not None
+    return await AdminReportService(db).cancelled_filters(user.company_id)
 
 
 @admin_reports_router.get("/dashboard-kpis")

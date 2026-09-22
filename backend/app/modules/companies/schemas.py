@@ -60,7 +60,6 @@ class CompanyUpdate(BaseSchema):
     country_code: str | None = None
     timezone: str | None = None
     currency: str | None = None
-    waiter_service_percent: int | None = None
     address: str | None = None
     phone: str | None = None
     inn: str | None = None
@@ -90,7 +89,6 @@ class CompanyResponse(BaseResponseSchema):
     timezone: str
     currency: str
     is_active: bool
-    waiter_service_percent: int = 0
     address: str | None = None
     phone: str | None = None
     inn: str | None = None
@@ -103,9 +101,6 @@ class BranchCreate(BaseSchema):
     name: str
     address: str | None = None
     city: str | None = None
-    # 6.2 — учётные данные филиала (задаются в веб-админке)
-    login: str | None = None
-    password: str | None = None
 
 
 class BranchUpdate(BaseSchema):
@@ -113,8 +108,6 @@ class BranchUpdate(BaseSchema):
     address: str | None = None
     city: str | None = None
     is_active: bool | None = None
-    login: str | None = None
-    password: str | None = None
 
 
 class BranchResponse(BaseResponseSchema):
@@ -123,5 +116,3 @@ class BranchResponse(BaseResponseSchema):
     address: str | None
     city: str | None
     is_active: bool
-    # Логин филиала показываем (для веб-админки); хеш/пароль — никогда
-    login: str | None = None

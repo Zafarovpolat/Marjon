@@ -320,29 +320,15 @@ async def validate_transaction_references(
     category_id: UUID | None,
     counterparty_id: UUID | None,
     finance_template_id: UUID | None = None,
-    direction: str | None = None,
 ) -> None:
-    payment_type = await require_finance_reference(
+    await require_finance_reference(
         db, PaymentType, payment_type_id, scope,
         allow_system=True, detail="PaymentType not found",
     )
-    # A disabled dictionary row is unusable for a new posting.  It is hidden
-    # behind the same detail as a foreign row, so the response still does not
-    # disclose which of the two cases applies.
-    if payment_type is not None and payment_type.status is False:
-        raise NotFoundError("PaymentType not found")
-    category = await require_finance_reference(
+    await require_finance_reference(
         db, TransactionCategory, category_id, scope,
         allow_system=True, detail="TransactionCategory not found",
     )
-    if category is not None:
-        if category.status is False:
-            raise NotFoundError("TransactionCategory not found")
-        # An income posting cannot be filed under an expense category and back.
-        if direction is not None and category.kind != direction:
-            raise ValidationError(
-                "Transaction category does not match operation type"
-            )
     await require_finance_reference(
         db, Counterparty, counterparty_id, scope,
         allow_system=False, detail="Counterparty not found",

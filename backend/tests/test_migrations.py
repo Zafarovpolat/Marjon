@@ -27,7 +27,7 @@ from app.shared.base_model import Base
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 VERSIONS_DIR = BACKEND_ROOT / "migrations" / "versions"
-EXPECTED_HEAD = "bi06tnu03"
+EXPECTED_HEAD = "bi07eml01"
 EXPECTED_NULLABLE_COLUMN_COUNT = 262
 EXPECTED_PARITY_OPERATIONS = {"remove_index", "remove_table_comment"}
 FIXTURES_DIR = BACKEND_ROOT / "tests" / "fixtures"
@@ -136,9 +136,7 @@ def test_revision_graph_is_linear_complete_and_has_one_head() -> None:
         visited.add(cursor)
         cursor = revisions[cursor][0]
     assert visited == set(revisions)
-    # 46 -> 57: the desktop/PIN lineage was linearised into this chain,
-    # n3o4rcpt01 now chaining onto x1y2dishlimit05 instead of g2h3usr01
-    assert len(revisions) == 57
+    assert len(revisions) == 52
 
     nullable_columns = _bi02_nullable_columns()
     assert len(nullable_columns) == EXPECTED_NULLABLE_COLUMN_COUNT
@@ -191,6 +189,117 @@ def test_phase5c3_table_unique_migration_is_partial_and_chains_from_bi06hpa02() 
     assert "price_amount" not in source
     assert "include_inactive" not in source
     assert "location" not in source
+
+
+def test_phase5c6a_hall_sort_order_migration_is_additive_and_chains_from_bi06tnu03() -> None:
+    path = VERSIONS_DIR / "20260829_bi06hso04_hall_sort_order.py"
+    revision, down_revision = _revision_metadata(path)
+    assert revision == "bi06hso04"
+    assert down_revision == "bi06tnu03"
+
+    source = path.read_text(encoding="utf-8")
+    # Adds halls.sort_order (Integer) + a composite branch index; downgrade
+    # drops both.
+    assert 'op.add_column' in source
+    assert '_COLUMN = "sort_order"' in source
+    assert '_TABLE = "halls"' in source
+    assert '_INDEX = "ix_halls_branch_sort_order"' in source
+    assert 'op.create_index' in source
+    assert 'op.drop_index' in source
+    assert 'op.drop_column' in source
+    # Backfill is deterministic PER BRANCH by the stable chronological key,
+    # never by physical row order — and it is a NOT NULL column afterwards.
+    assert "PARTITION BY branch_id" in source
+    assert "ORDER BY created_at, id" in source
+    assert "nullable=False" in source
+    # Ordering is a plain (non-unique) index — no strict/deferrable uniqueness.
+    assert "unique=True" not in source
+    assert "create_unique_constraint" not in source
+    assert "DEFERRABLE" not in source.upper()
+    # The backfill writes ONLY sort_order and is non-destructive — it never
+    # mutates ownership/lifecycle/pricing and deletes nothing.
+    assert "SET sort_order = ordered.position" in source
+    assert "DELETE FROM" not in source
+    assert "SET is_active" not in source
+    assert "SET branch_id" not in source
+    assert "SET company_id" not in source
+
+
+def test_phase5c6d_hall_deleted_at_migration_is_additive_and_chains_from_bi06hso04() -> None:
+    path = VERSIONS_DIR / "20260829_bi06hde05_hall_deleted_at.py"
+    revision, down_revision = _revision_metadata(path)
+    assert revision == "bi06hde05"
+    assert down_revision == "bi06hso04"
+
+    source = path.read_text(encoding="utf-8")
+    # Adds ONLY halls.deleted_at (nullable timestamptz); downgrade drops it.
+    assert 'op.add_column' in source
+    assert '_TABLE = "halls"' in source
+    assert '_COLUMN = "deleted_at"' in source
+    assert "DateTime(timezone=True)" in source
+    assert "nullable=True" in source
+    assert 'op.drop_column' in source
+    # Purely additive: no backfill, no destructive/lifecycle mutation, no index.
+    assert "op.execute" not in source
+    assert "UPDATE" not in source
+    assert "DELETE FROM" not in source
+    assert "create_index" not in source
+    assert "is_active" not in source
+
+
+def test_zrprint01b_detail_index_migration_is_additive_and_chains_from_bi06hde05() -> None:
+    path = VERSIONS_DIR / "20260901_bi06zrd06_zreport_detail_indexes.py"
+    revision, down_revision = _revision_metadata(path)
+    assert revision == "bi06zrd06"
+    assert down_revision == "bi06hde05"
+
+    source = path.read_text(encoding="utf-8")
+    # Adds ONLY the two per-entity Z-report detail predicates; downgrade drops them.
+    assert '"ix_orders_waiter_id", "orders", "waiter_id"' in source
+    assert '"ix_payments_cashier_id", "payments", "cashier_id"' in source
+    assert "op.create_index" in source
+    assert "op.drop_index" in source
+    # Index-only and non-destructive: no column/table/constraint change, no
+    # backfill, and no speculative extra index.
+    assert "add_column" not in source
+    assert "drop_column" not in source
+    assert "create_table" not in source
+    assert "drop_table" not in source
+    assert "unique=True" not in source
+    assert "op.execute" not in source
+    assert "UPDATE" not in source
+    assert "DELETE FROM" not in source
+    assert source.count("op.create_index") == 1
+    assert len([line for line in source.splitlines() if "ix_" in line and '", "' in line]) == 2
+
+
+def test_phase1a_cancellation_truth_migration_is_additive_and_chains_from_bi06zrd06() -> None:
+    path = VERSIONS_DIR / "20260918_bi06ccd07_order_cancellation_truth.py"
+    revision, down_revision = _revision_metadata(path)
+    assert revision == "bi06ccd07"
+    assert down_revision == "bi06zrd06"
+
+    source = path.read_text(encoding="utf-8")
+    # Adds ONLY the four nullable cancellation-truth columns + FKs + indexes.
+    assert "cancelled_at" in source
+    assert "cancelled_by_id" in source
+    assert "op.add_column" in source
+    assert "op.drop_column" in source
+    assert "nullable=True" in source
+    assert "DateTime(timezone=True)" in source
+    assert "ondelete" in source and "SET NULL" in source
+    assert "op.create_index" in source
+    assert "op.drop_index" in source
+    assert "ix_orders_cancelled_by_id" in source
+    assert "ix_order_items_cancelled_by_id" in source
+    # Additive only: no backfill, no destructive rewrite, no reason column.
+    assert "op.execute" not in source
+    assert "UPDATE" not in source
+    assert "DELETE FROM" not in source
+    assert "create_table" not in source
+    assert "drop_table" not in source
+    assert "cancellation_reason" not in source.lower()
+    assert "cancelled_reason" not in source.lower()
 
 
 def test_historical_migrations_do_not_use_mutable_application_metadata() -> None:
@@ -949,6 +1058,28 @@ def test_postgresql_fresh_upgrade_timing_downgrade_and_second_fresh() -> None:
 
         _run_alembic(first_url, "upgrade", "head")
         assert asyncio.run(_current_revision(first_url)) == EXPECTED_HEAD
+        # ORDERS-TRUTH-01 head (bi06oid08): public_id + order_local_date +
+        # hall_name_snapshot columns, the counter table, and the numbering
+        # backstop / uniqueness constraints.
+        assert asyncio.run(_column_exists(first_url, "orders", "public_id"))
+        assert asyncio.run(_column_exists(first_url, "orders", "order_local_date"))
+        assert asyncio.run(_column_exists(first_url, "orders", "hall_name_snapshot"))
+        assert asyncio.run(_column_exists(first_url, "order_number_counters", "last_value"))
+        assert asyncio.run(_column_exists(first_url, "order_public_id_counters", "last_value"))
+        assert asyncio.run(_index_exists(first_url, "uq_orders_company_branch_localdate_number"))
+        # public_id uniqueness is PER-COMPANY (composite), never global — the
+        # UNIQUE constraint's backing index shares its name.
+        assert asyncio.run(_index_exists(first_url, "uq_orders_company_public_id"))
+        # Phase 1A layer below: cancellation-truth columns + indexes.
+        assert asyncio.run(_column_exists(first_url, "orders", "cancelled_at"))
+        assert asyncio.run(_column_exists(first_url, "orders", "cancelled_by_id"))
+        assert asyncio.run(_column_exists(first_url, "order_items", "cancelled_at"))
+        assert asyncio.run(_column_exists(first_url, "order_items", "cancelled_by_id"))
+        assert asyncio.run(_index_exists(first_url, "ix_orders_cancelled_by_id"))
+        assert asyncio.run(_index_exists(first_url, "ix_order_items_cancelled_by_id"))
+        # ZR-PRINT-01B layer below: the two per-entity Z-report detail predicates.
+        assert asyncio.run(_index_exists(first_url, "ix_orders_waiter_id"))
+        assert asyncio.run(_index_exists(first_url, "ix_payments_cashier_id"))
         assert asyncio.run(
             _index_exists(first_url, "ix_attendance_logs_shift_id")
         )
@@ -967,11 +1098,73 @@ def test_postgresql_fresh_upgrade_timing_downgrade_and_second_fresh() -> None:
         assert asyncio.run(
             _index_exists(first_url, "uq_tables_hall_number_active")
         )
+        assert asyncio.run(
+            _column_exists(first_url, "halls", "sort_order")
+        )
+        assert asyncio.run(
+            _index_exists(first_url, "ix_halls_branch_sort_order")
+        )
+        assert asyncio.run(
+            _column_exists(first_url, "halls", "deleted_at")
+        )
 
-        # Phase 5C-3 head peels off first: the partial table-number unique index
-        # goes, while halls.price_amount and orders.table_id below stay intact.
+        # ORDERS-TRUTH-01 head (bi06oid08) peels off first: its columns, counter
+        # table and backstop index go, while the cancellation-truth layer below
+        # (and everything earlier) stays intact.
         _run_alembic(first_url, "downgrade", "-1")
         assert asyncio.run(_current_revision(first_url)) != EXPECTED_HEAD
+        assert not asyncio.run(_column_exists(first_url, "orders", "public_id"))
+        assert not asyncio.run(_column_exists(first_url, "orders", "order_local_date"))
+        assert not asyncio.run(_column_exists(first_url, "orders", "hall_name_snapshot"))
+        assert not asyncio.run(_index_exists(first_url, "uq_orders_company_branch_localdate_number"))
+        # cancellation-truth layer is still present at this point.
+        assert asyncio.run(_column_exists(first_url, "orders", "cancelled_at"))
+
+        # Phase 1A layer peels off next: cancellation-truth columns go, while
+        # every earlier column/index stays intact.
+        _run_alembic(first_url, "downgrade", "-1")
+        assert not asyncio.run(_column_exists(first_url, "orders", "cancelled_at"))
+        assert not asyncio.run(_column_exists(first_url, "orders", "cancelled_by_id"))
+        assert not asyncio.run(_column_exists(first_url, "order_items", "cancelled_at"))
+        assert not asyncio.run(_column_exists(first_url, "order_items", "cancelled_by_id"))
+        assert not asyncio.run(_index_exists(first_url, "ix_orders_cancelled_by_id"))
+        assert not asyncio.run(_index_exists(first_url, "ix_order_items_cancelled_by_id"))
+        assert asyncio.run(_index_exists(first_url, "ix_orders_waiter_id"))
+        assert asyncio.run(_index_exists(first_url, "ix_payments_cashier_id"))
+        # ZR-PRINT-01B peels next: the two detail indexes go, while
+        # every earlier column/index stays intact.
+        _run_alembic(first_url, "downgrade", "-1")
+        assert not asyncio.run(_index_exists(first_url, "ix_orders_waiter_id"))
+        assert not asyncio.run(_index_exists(first_url, "ix_payments_cashier_id"))
+        # Phase 5C-6D peels next: halls.deleted_at goes, while halls.sort_order
+        # + its branch index below stay intact.
+        _run_alembic(first_url, "downgrade", "-1")
+        assert not asyncio.run(
+            _column_exists(first_url, "halls", "deleted_at")
+        )
+        assert asyncio.run(
+            _column_exists(first_url, "halls", "sort_order")
+        )
+        assert asyncio.run(
+            _index_exists(first_url, "ix_halls_branch_sort_order")
+        )
+
+        # Phase 5C-6A layer next: halls.sort_order + its branch index go, while
+        # the Phase 5C-3 table-number index below stays intact.
+        _run_alembic(first_url, "downgrade", "-1")
+        assert not asyncio.run(
+            _column_exists(first_url, "halls", "sort_order")
+        )
+        assert not asyncio.run(
+            _index_exists(first_url, "ix_halls_branch_sort_order")
+        )
+        assert asyncio.run(
+            _index_exists(first_url, "uq_tables_hall_number_active")
+        )
+
+        # Phase 5C-3 layer next: the partial table-number unique index goes,
+        # while halls.price_amount and orders.table_id below stay intact.
+        _run_alembic(first_url, "downgrade", "-1")
         assert not asyncio.run(
             _index_exists(first_url, "uq_tables_hall_number_active")
         )

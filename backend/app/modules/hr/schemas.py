@@ -53,38 +53,17 @@ class ShiftResponse(BaseResponseSchema):
 
 
 class AttendanceCreate(BaseSchema):
-    employee_id: UUID | None = None
-    shift_id: UUID | None = None
+    employee_id: UUID
+    shift_id: UUID
     action: str
     method: str = "manual"
     note: str | None = None
 
 
-class AttendanceMark(BaseSchema):
-    # 5.5 — отметка кассира по сотруднику: приход/уход подтверждается сразу
-    # (кассир «даёт разрешение зайти»). Смена/HR-карточка не требуются.
-    user_id: UUID
-    action: str  # check_in | check_out
-    note: str | None = None
-
-
 class AttendanceResponse(BaseResponseSchema):
-    user_id: UUID | None = None
-    employee_id: UUID | None = None
-    shift_id: UUID | None = None
+    employee_id: UUID
+    shift_id: UUID
     action: str
     timestamp: datetime
     method: str
     note: str | None
-    # 5.5 — статус подтверждения кассиром
-    status: str = "pending"
-    approved_by: UUID | None = None
-    approved_at: datetime | None = None
-    # 5.5 — имя сотрудника (повара) для экрана кассира; заполняется в очереди pending
-    employee_name: str | None = None
-
-
-class AttendanceApprove(BaseSchema):
-    # 5.5 — approve=True → подтвердить вход/уход повара, False → отклонить
-    approve: bool = True
-    note: str | None = None

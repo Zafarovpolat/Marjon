@@ -16,7 +16,6 @@ from app.modules.finance.idempotency import (
 )
 from app.modules.finance.models import FinancialOperation
 from app.modules.fiscal.runtime import FiscalRuntime, get_fiscal_runtime
-from app.modules.fiscal.schemas import FiscalReceiptCreate
 from app.modules.fiscal.service import FiscalService
 from app.modules.kitchen.websocket import kitchen_manager
 from app.modules.payments.models import Payment
@@ -27,46 +26,6 @@ from app.shared.exceptions import ConflictError, NotFoundError, ValidationError
 
 
 FailureInjector = Callable[[str], Awaitable[None]]
-
-import logging
-
-logger = logging.getLogger(__name__)
-
-
-async def record_fiscal_and_audit(
-    db: AsyncSession,
-    payment: Payment,
-    *,
-    actor_id: UUID | None = None,
-    source: str = "pos",
-) -> None:
-    """Фискальный чек + запись аудита для успешно проведённой оплаты.
-
-    Единый путь и для кассы, и для вебхуков провайдеров (Click/Payme/Uzum/gateway),
-    чтобы онлайн-оплата не обходила фискализацию (ОФД soliq.uz) и журнал аудита.
-    Best-effort: не роняет уже проведённую оплату, ошибки логируются.
-    """
-    try:
-        await FiscalService(db).create(
-            payment.company_id,
-            FiscalReceiptCreate(order_id=payment.order_id, payment_id=payment.id),
-        )
-    except Exception:
-        logger.exception("Фискализация не удалась для payment %s", payment.id)
-    try:
-        await AuditService(db).log(
-            payment.company_id,
-            actor_id if actor_id is not None else payment.cashier_id,
-            f"payment.complete.{source}", "payment",
-            entity_id=payment.id,
-            new_data={
-                "order_id": str(payment.order_id),
-                "amount": str(payment.amount),
-                "method": payment.method,
-            },
-        )
-    except Exception:
-        logger.exception("Аудит не удался для payment %s", payment.id)
 
 
 class PaymentService:

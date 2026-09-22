@@ -1,11 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import axios from "axios";
 import { api } from "./client";
 import { financeService } from "./finance";
 import { analyticsService, reportsService } from "./reports";
 import { adminApi } from "../admin/api";
 import { hqService } from "../admin/hqService";
-import { dashboardApi } from "../admin/features/dashboard/dashboardApi";
-import { organizationsApi } from "../admin/features/organizations/organizationsApi";
 import { authService } from "./auth";
 import { settingsService } from "./settings";
 import { staffService } from "./staff";
@@ -80,22 +79,150 @@ describe("Web domain service contracts", () => {
   });
 
   describe("reports and analytics", () => {
-    it("keeps the authoritative Z-report endpoint", async () => {
-      await reportsService.getZReport("2026-08-13");
+    it("keeps the authoritative Z-report endpoint (single date and period modes)", async () => {
+      await reportsService.getZReport({ date: "2026-08-13" });
       expect(api.get).toHaveBeenCalledWith("/analytics/z-report", { params: { date: "2026-08-13" } });
+      await reportsService.getZReport({ date_from: "2026-08-01", date_to: "2026-08-31" });
+      expect(api.get).toHaveBeenCalledWith("/analytics/z-report", { params: { date_from: "2026-08-01", date_to: "2026-08-31" } });
     });
 
     it.each([
-      ["orders", reportsService.listOrders, "/reports/orders"],
-      ["tables", reportsService.listTables, "/reports/tables"],
-      ["waiters", reportsService.listWaiters, "/reports/waiters"],
-      ["dishes", reportsService.listDishes, "/reports/dishes"],
-      ["cancelled", reportsService.listCancelledDishes, "/reports/cancelled"],
-      ["debt-credit", reportsService.listDebtCredit, "/reports/debt-credit"],
-    ])("maps %s range parameters", async (_, request, endpoint) => {
+      ["cashier", { date: "2026-09-01" }, ["user-1", "user-2"]],
+      ["waiter", { date: "2026-09-01" }, ["user-3"]],
+      ["hall", { date_from: "2026-08-01", date_to: "2026-08-31" }, ["hall-1", "hall-2"]],
+    ])("requests the %s Z-report detail dimension with repeated ids", async (dimension, period, ids) => {
+      await reportsService.getZReportDetail({ ...period, dimension, ids });
+      expect(api.get).toHaveBeenLastCalledWith("/analytics/z-report/detail", {
+        params: { ...period, dimension, ids },
+        paramsSerializer: { indexes: null },
+      });
+      const [, config] = api.get.mock.calls.at(-1);
+      // one date mode only, no percentage, no menu dimension
+      expect(Object.keys(config.params).includes("date")).toBe(!period.date_from);
+      expect(config.params).not.toHaveProperty("waiter_percent");
+      expect(config.params.dimension).not.toBe("menu");
+    });
+
+    it("serializes detail ids as ids=A&ids=B, the form FastAPI's list[UUID] requires", () => {
+      // Axios' default array serializer emits ids[]=A&ids[]=B, which the
+      // canonical backend rejects with 422 "Field required" — so this asserts
+      // the real wire output of the exact config getZReportDetail passes.
+      const client = axios.create({ baseURL: "http://localhost:8000/api/v1" });
+      const uri = client.getUri({
+        url: "/analytics/z-report/detail",
+        params: { date: "2026-09-01", dimension: "waiter", ids: ["A", "B"] },
+        paramsSerializer: { indexes: null },
+      });
+      expect(uri).toContain("dimension=waiter&ids=A&ids=B");
+      expect(uri).not.toContain("ids%5B%5D");
+      expect(uri).not.toContain("ids=A%2CB");
+    });
+
+    it.each([
+      ["tables", reportsService.listTables, "/reports/tables", true],
+      ["dishes", reportsService.listDishes, "/reports/dishes", true],
+      ["cancelled", reportsService.listCancelledDishes, "/reports/cancelled", true],
+      ["debt-credit", reportsService.listDebtCredit, "/reports/debt-credit", false],
+    ])("maps %s range parameters", async (_, request, endpoint, withRepeatedSerializer) => {
       await request("2026-08-01", "2026-08-13");
       expect(api.get).toHaveBeenLastCalledWith(endpoint, {
         params: { date_from: "2026-08-01", date_to: "2026-08-13" },
+        ...(withRepeatedSerializer ? { paramsSerializer: { indexes: null } } : {}),
+      });
+    });
+
+    it("maps waiter report state and its canonical filter metadata endpoint", async () => {
+      await reportsService.listWaiters("2026-08-01", "2026-08-13", {
+        filters: {
+          waiterId: "waiter-1",
+          servicePercent: "12.5",
+          includeOrders: true,
+          includeTakeawayDelivery: false,
+          includeService: true,
+        },
+      });
+      expect(api.get).toHaveBeenLastCalledWith("/reports/waiters", {
+        params: {
+          date_from: "2026-08-01",
+          date_to: "2026-08-13",
+          waiter_id: "waiter-1",
+          service_percent: "12.5",
+          include_orders: true,
+          include_takeaway_delivery: false,
+          include_service: true,
+        },
+      });
+
+      await reportsService.getWaitersFilters({ signal: "signal" });
+      expect(api.get).toHaveBeenLastCalledWith("/reports/waiters/filters", { signal: "signal" });
+    });
+
+    // Orders is asserted separately: it carries the repeated-param serializer.
+    it("maps orders range parameters", async () => {
+      await reportsService.listOrders("2026-08-01", "2026-08-13");
+      expect(api.get).toHaveBeenLastCalledWith("/reports/orders", {
+        params: { date_from: "2026-08-01", date_to: "2026-08-13" },
+        paramsSerializer: { indexes: null },
+      });
+    });
+
+    it("serializes orders filters as waiter_id=A&waiter_id=B, never bracketed", () => {
+      const client = axios.create({ baseURL: "http://localhost:8000/api/v1" });
+      const uri = client.getUri({
+        url: "/reports/orders",
+        params: { waiter_id: ["A", "B"], order_type: ["dine_in", "delivery"] },
+        paramsSerializer: { indexes: null },
+      });
+      expect(uri).toContain("waiter_id=A&waiter_id=B");
+      expect(uri).toContain("order_type=dine_in&order_type=delivery");
+      expect(uri).not.toContain("waiter_id%5B%5D");
+      expect(uri).not.toContain("waiter_id=A%2CB");
+    });
+
+    it("maps the seven supported Orders report filters", async () => {
+      await reportsService.listOrders("2026-08-01", "2026-08-13", {
+        filters: {
+          orderNumber: "  A-42  ", waiterId: ["waiter-1"], cashierId: ["cashier-1"],
+          productId: ["product-1"], orderType: ["dine_in"], orderStatus: ["completed"],
+          paymentMethod: ["cash"],
+        },
+      });
+      expect(api.get).toHaveBeenLastCalledWith("/reports/orders", {
+        params: {
+          date_from: "2026-08-01", date_to: "2026-08-13", order_number: "A-42",
+          waiter_id: ["waiter-1"], cashier_id: ["cashier-1"], product_id: ["product-1"],
+          order_type: ["dine_in"], order_status: ["completed"], payment_method: ["cash"],
+        },
+        paramsSerializer: { indexes: null },
+      });
+
+      await reportsService.getOrdersFilters();
+      expect(api.get).toHaveBeenLastCalledWith("/reports/orders/filters", {});
+    });
+
+    it("sends several values per Orders dimension as repeated params and drops empty ones", async () => {
+      await reportsService.listOrders("2026-08-01", "2026-08-13", {
+        filters: {
+          orderNumber: "",
+          waiterId: ["waiter-1", "waiter-2"],
+          cashierId: [],
+          productId: [],
+          orderType: ["dine_in", "delivery"],
+          orderStatus: [],
+          paymentMethod: ["cash", "card"],
+        },
+      });
+      expect(api.get).toHaveBeenLastCalledWith("/reports/orders", {
+        params: {
+          date_from: "2026-08-01", date_to: "2026-08-13",
+          waiter_id: ["waiter-1", "waiter-2"],
+          order_type: ["dine_in", "delivery"],
+          payment_method: ["cash", "card"],
+        },
+        // REPORT-04: the backend reads repeated `waiter_id=A&waiter_id=B`; axios'
+        // default `waiter_id[]=A` form is simply ignored by FastAPI, which would
+        // silently drop the filter rather than fail loudly.
+        paramsSerializer: { indexes: null },
       });
     });
 
@@ -111,10 +238,108 @@ describe("Web domain service contracts", () => {
           date_from: "2026-08-01", date_to: "2026-08-13", table_number: "12A",
           waiter_id: "waiter-1", payment_method: "cash", cashier_id: "cashier-1",
         },
+        paramsSerializer: { indexes: null },
+      });
+
+      await reportsService.listTables("2026-08-01", "2026-08-13", {
+        filters: {
+          tableNumber: "", waiterId: ["waiter-1", "waiter-2"], paymentMethod: [],
+          cashierId: ["cashier-1"], hallId: ["hall-1", "hall-2"],
+        },
+      });
+      expect(api.get).toHaveBeenLastCalledWith("/reports/tables", {
+        params: {
+          date_from: "2026-08-01", date_to: "2026-08-13",
+          waiter_id: ["waiter-1", "waiter-2"],
+          cashier_id: ["cashier-1"],
+          hall_id: ["hall-1", "hall-2"],
+        },
+        paramsSerializer: { indexes: null },
       });
 
       await reportsService.getTablesFilters();
       expect(api.get).toHaveBeenLastCalledWith("/reports/tables/filters", {});
+    });
+
+    it("maps supported Dishes report filters without sending UI-only fields", async () => {
+      await reportsService.listDishes("2026-08-01", "2026-08-13", {
+        filters: {
+          query: "  Плов  ", authorId: "author-1", cookId: "cook-unsupported",
+          productId: "product-1", orderType: "dine_in", orderStatus: "completed",
+          categoryId: "category-1", paymentMethod: "cash",
+        },
+      });
+      expect(api.get).toHaveBeenLastCalledWith("/reports/dishes", {
+        params: {
+          date_from: "2026-08-01", date_to: "2026-08-13", query: "Плов",
+          author_id: "author-1", product_id: "product-1", order_type: "dine_in",
+          order_status: "completed", category_id: "category-1", payment_method: "cash",
+        },
+        paramsSerializer: { indexes: null },
+      });
+
+      await reportsService.listDishes("2026-08-01", "2026-08-13", {
+        filters: {
+          query: "", authorId: ["author-1", "author-2"], productId: [],
+          orderType: ["dine_in", "delivery"], orderStatus: [],
+          categoryId: ["category-1"], paymentMethod: ["cash", "card"],
+        },
+      });
+      expect(api.get).toHaveBeenLastCalledWith("/reports/dishes", {
+        params: {
+          date_from: "2026-08-01", date_to: "2026-08-13",
+          author_id: ["author-1", "author-2"],
+          order_type: ["dine_in", "delivery"],
+          category_id: ["category-1"],
+          payment_method: ["cash", "card"],
+        },
+        paramsSerializer: { indexes: null },
+      });
+
+      await reportsService.getDishesFilters();
+      expect(api.get).toHaveBeenLastCalledWith("/reports/dishes/filters", {});
+    });
+
+    // Cancelled Dishes Phase 1A truth contract: repeated singular params
+    // (author_id=A&author_id=B, dish_name=A&dish_name=B), server-side
+    // order_number, empty selections omitted — never brackets/CSV/arrays.
+    it("maps cancelled filters as repeated params and drops empty ones", async () => {
+      await reportsService.listCancelledDishes("2026-09-01", "2026-09-30", {
+        filters: {
+          orderNumber: "  A-42  ", authorId: ["author-1", "author-2"], dishName: ["Плов", "Лагман"],
+        },
+      });
+      expect(api.get).toHaveBeenLastCalledWith("/reports/cancelled", {
+        params: {
+          date_from: "2026-09-01", date_to: "2026-09-30", order_number: "A-42",
+          author_id: ["author-1", "author-2"], dish_name: ["Плов", "Лагман"],
+        },
+        paramsSerializer: { indexes: null },
+      });
+
+      await reportsService.listCancelledDishes("2026-09-01", "2026-09-30", {
+        filters: { orderNumber: "", authorId: [], dishName: [] },
+      });
+      expect(api.get).toHaveBeenLastCalledWith("/reports/cancelled", {
+        params: { date_from: "2026-09-01", date_to: "2026-09-30" },
+        paramsSerializer: { indexes: null },
+      });
+
+      await reportsService.getCancelledFilters({ signal: "signal" });
+      expect(api.get).toHaveBeenLastCalledWith("/reports/cancelled/filters", { signal: "signal" });
+    });
+
+    it("serializes cancelled filters as author_id=A&author_id=B, never bracketed", () => {
+      const client = axios.create({ baseURL: "http://localhost:8000/api/v1" });
+      const uri = client.getUri({
+        url: "/reports/cancelled",
+        params: { author_id: ["A", "B"], dish_name: ["Плов", "Лагман"] },
+        paramsSerializer: { indexes: null },
+      });
+      expect(uri).toContain("author_id=A&author_id=B");
+      expect(uri).not.toContain("author_id%5B%5D");
+      expect(uri).not.toContain("author_id=A%2CB");
+      expect(uri).not.toContain("dish_name%5B%5D");
     });
 
     it("maps dashboard analytics without fallback data", async () => {
@@ -131,7 +356,7 @@ describe("Web domain service contracts", () => {
     it("uses only the canonical HQ client and preserves responses", async () => {
       const response = { data: { items: [{ id: "org-1" }] }, status: 200 };
       adminApi.get.mockResolvedValueOnce(response);
-      await expect(organizationsApi.listOrganizations({ size: 5, status: "active" })).resolves.toBe(response);
+      await expect(hqService.listOrganizations({ size: 5, status: "active" })).resolves.toBe(response);
       expect(adminApi.get).toHaveBeenCalledWith("/organizations", { params: { size: 5, status: "active" } });
       expect(api.get).not.toHaveBeenCalled();
     });
@@ -141,6 +366,7 @@ describe("Web domain service contracts", () => {
       ["categories", "/categories"],
       ["orders", "/orders"],
       ["units", "/units"],
+      ["organizationStatuses", "/organization-statuses"],
     ])("owns the %s section endpoint", async (key, endpoint) => {
       await hqService.listSection(key);
       expect(adminApi.get).toHaveBeenLastCalledWith(endpoint, { params: { size: 100 } });
@@ -153,7 +379,7 @@ describe("Web domain service contracts", () => {
     it("propagates HQ errors unchanged", async () => {
       const error = new Error("hq unavailable");
       adminApi.get.mockRejectedValueOnce(error);
-      await expect(dashboardApi.getOrganizationTotal()).rejects.toBe(error);
+      await expect(hqService.getDashboardKpis()).rejects.toBe(error);
     });
   });
 
@@ -279,34 +505,13 @@ describe("Web domain service contracts", () => {
 
   describe("receipt and printer", () => {
     it("owns print endpoints and propagates printer failures", async () => {
-      api.get.mockResolvedValue({
-        data: [
-          { id: "printer-receipt", printer_type: "receipt", is_active: true },
-          { id: "printer-kitchen", printer_type: "kitchen", is_active: true },
-        ],
-      });
       await printOrderReceipt("order-1");
       await printKitchenReceipt("order-2");
-      expect(api.get).toHaveBeenCalledWith("/printers");
-      expect(api.post).toHaveBeenNthCalledWith(1, "/printers/print/receipt", {
-        order_id: "order-1",
-        printer_id: "printer-receipt",
-        copies: 1,
-      });
-      expect(api.post).toHaveBeenNthCalledWith(2, "/printers/print/kitchen", {
-        order_id: "order-2",
-        printer_id: "printer-kitchen",
-        copies: 1,
-      });
+      expect(api.post).toHaveBeenNthCalledWith(1, "/printers/print/orders/order-1/receipt", {});
+      expect(api.post).toHaveBeenNthCalledWith(2, "/printers/print/orders/order-2/kitchen", {});
       const error = new Error("printer unavailable");
       api.post.mockRejectedValueOnce(error);
       await expect(printOrderReceipt("order-3")).rejects.toBe(error);
-    });
-
-    it("does not call the print endpoint when no printer is configured", async () => {
-      api.get.mockResolvedValue({ data: [] });
-      await expect(printOrderReceipt("order-4")).rejects.toThrow("Принтер не настроен");
-      expect(api.post).not.toHaveBeenCalled();
     });
   });
 
