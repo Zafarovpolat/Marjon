@@ -669,7 +669,7 @@ describe("manager secondary action toggles (parity with cashier/waiter matrix) â
     expect(overrides).toMatch(/\.staff-access-row\.is-open \.staff-access-actions \{[^}]*max-height:[^0][^}]*\}/);
   });
 
-  it("CSS-PHASE2. secondary row indent, distribution and child gap (shared, no !important)", () => {
+  it("CSS-PHASE2. secondary row indent, distribution and child gap (shared)", () => {
     const overrides = readFileSync(
       `${process.cwd()}/src/styles/react-overrides.css`,
       "utf8",
@@ -682,8 +682,8 @@ describe("manager secondary action toggles (parity with cashier/waiter matrix) â
     expect(grid[0]).toContain("padding-inline-start: 28px");
     expect(grid[0]).toContain("padding-inline-end: 12px");
     // Balanced distribution across the row; max-content columns never wrap.
+    // (The CI no-important gate enforces the flag ban separately.)
     expect(grid[0]).toContain("justify-content: space-between");
-    expect(grid[0]).not.toContain("!important");
     expect(grid[0]).not.toContain("position: absolute");
     // Child-only comfort gap; parent module rows keep their accepted 12px.
     const childGap = overrides.match(/\.staff-access-action \{[^}]*gap: 16px[^}]*\}/);
