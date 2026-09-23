@@ -301,7 +301,7 @@ describe("TablesReportPage Phase 1 exact table", () => {
     expect(Array.isArray(lastListTablesFilters().cashierId)).toBe(true);
   });
 
-  it("exports every selected filter value in Excel metadata", async () => {
+  it("exports the current filtered dataset (no metadata block) with the 6-column contract", async () => {
     render(<TablesReportPage />);
     await screen.findByText("3 — Зал");
     fireEvent.click(headerFilterToggle());
@@ -315,9 +315,12 @@ describe("TablesReportPage Phase 1 exact table", () => {
     document.querySelector(".report-excel-button").click();
     expect(exportToExcel).toHaveBeenCalledTimes(1);
     const [, , , options] = exportToExcel.mock.calls[0];
-    expect(options.metadata.some(
-      (item) => item.label === "Официант" && item.value === "Официант 1, Официант 2"
-    )).toBe(true);
+    // TABLES-EXCEL-FRONTEND-V1: no metadata block; filters still build the
+    // exported population (proven above via the request), only the visible
+    // rows are omitted. Итого comes via the shared totals option.
+    expect(options.metadata).toBeUndefined();
+    expect(options.totals.label).toBe("Итого");
+    expect(options.sheetName).toBe("Отчёт по столам");
   });
 
   it("Очистить resets every multi-select to placeholders with no params sent", async () => {    render(<TablesReportPage />);
@@ -345,24 +348,67 @@ describe("TablesReportPage Phase 1 exact table", () => {
     expect(screen.queryByRole("combobox", { name: "Статус заказа" })).toBeNull();
   });
 
-  it("exports one row per order with truthful columns and metadata", async () => {
+  it("exports one row per order in the 6-column contract with backend-handoff blanks", async () => {
     render(<TablesReportPage />);
     await screen.findByText("3 — Зал");
     document.querySelector(".report-excel-button").click();
     expect(exportToExcel).toHaveBeenCalledTimes(1);
     const [lines, cols, filename, options] = exportToExcel.mock.calls[0];
-    expect(cols.map((col) => col.key)).toEqual(["table", "date", "amount"]);
-    expect(cols.map((col) => col.label)).toEqual(["Номер стола", "Дата", "Сумма"]);
+    // Exactly the 6 approved columns in order (no Зал/Средний чек/Статус/etc.).
+    expect(cols.map((col) => col.key)).toEqual(["table", "date", "serviceFee", "placeFee", "dishes", "total"]);
+    expect(cols.map((col) => col.label)).toEqual([
+      "Номер стола", "Дата", "Цена обслуживания", "Цена места", "Сумма блюд", "Сумма",
+    ]);
+    // Money columns numeric-typed; Дата a real date cell.
+    ["serviceFee", "placeFee", "dishes", "total"].forEach((k) => {
+      expect(cols.find((c) => c.key === k)).toMatchObject({ type: "number", format: "#,##0" });
+    });
+    expect(cols.find((c) => c.key === "date")).toMatchObject({ type: "date" });
     expect(filename).toBe("tables-report");
     expect(lines).toHaveLength(3);
-    expect(lines[0]).toMatchObject({ table: "3 — Зал", date: "10.09.2026 / 10:35" });
-    expect(lines[0].amount).toContain("120");
+    expect(lines[0].table).toBe("3 — Зал");
+    expect(lines[0].date).toBeInstanceOf(Date);
+    // total_amount is canonical → numeric; the backend-handoff fields are not
+    // yet supplied → null (BLANK cell, never 0).
+    expect(lines[0].total).toBe(120);
+    expect(lines[0].serviceFee).toBeNull();
+    expect(lines[0].placeFee).toBeNull();
+    expect(lines[0].dishes).toBeNull();
+    // Итого: total column complete → numeric; handoff columns incomplete → blank.
+    expect(options.totals.values.total).toBe(255); // 120 + 85 + 50
+    expect(options.totals.values.serviceFee).toBeNull();
+    expect(options.totals.values.placeFee).toBeNull();
+    expect(options.totals.values.dishes).toBeNull();
     expect(JSON.stringify(lines)).not.toContain("Посмотреть заказы");
-    expect(JSON.stringify(lines)).not.toContain("Средний чек");
-    expect(options.metadata.some((item) => item.label === "Период")).toBe(true);
+    expect(options.metadata).toBeUndefined();
   });
 
-  it("exports an empty report as metadata plus header with no fabricated total row", async () => {
+  it("uses canonical numeric values (incl. real 0) when the backend supplies handoff fields", async () => {
+    reportsService.listTables.mockResolvedValue({ data: [{
+      table_id: "t-9", table_number: "9", hall_id: "hall-zal", hall_name: "Зал",
+      orders: [
+        { order_id: "o-a", order_number: "A", created_at: "2026-09-10T10:00:00", total_amount: "200.00",
+          service_fee: "8.00", place_fee_amount: "0.00", subtotal: "180.00" },
+        { order_id: "o-b", order_number: "B", created_at: "2026-09-10T12:00:00", total_amount: "100.00",
+          service_fee: "5.00", place_fee_amount: "20.00", subtotal: "75.00" },
+      ],
+    }] });
+    render(<TablesReportPage />);
+    await screen.findByText("9 — Зал");
+    document.querySelector(".report-excel-button").click();
+    const [lines, , , options] = exportToExcel.mock.calls[0];
+    expect(lines).toHaveLength(2);
+    // Numeric values kept; a genuine 0 (place fee on order A) stays 0, not blank.
+    expect(lines[0]).toMatchObject({ serviceFee: 8, placeFee: 0, dishes: 180, total: 200 });
+    expect(lines[1]).toMatchObject({ serviceFee: 5, placeFee: 20, dishes: 75, total: 100 });
+    // Fully-known columns → numeric totals.
+    expect(options.totals.values.serviceFee).toBe(13);
+    expect(options.totals.values.placeFee).toBe(20);
+    expect(options.totals.values.dishes).toBe(255);
+    expect(options.totals.values.total).toBe(300);
+  });
+
+  it("exports an empty report as header only with no fabricated total row", async () => {
     reportsService.listTables.mockResolvedValue({ data: [] });
     render(<TablesReportPage />);
     expect(await screen.findByText("Столы не найдены")).toBeInTheDocument();
@@ -370,10 +416,13 @@ describe("TablesReportPage Phase 1 exact table", () => {
     expect(exportToExcel).toHaveBeenCalledTimes(1);
     const [lines, cols, filename, options] = exportToExcel.mock.calls[0];
     expect(lines).toEqual([]);
-    expect(cols.map((col) => col.label)).toEqual(["Номер стола", "Дата", "Сумма"]);
+    expect(cols.map((col) => col.label)).toEqual([
+      "Номер стола", "Дата", "Цена обслуживания", "Цена места", "Сумма блюд", "Сумма",
+    ]);
     expect(filename).toBe("tables-report");
-    expect(JSON.stringify(lines)).not.toContain("Итого");
-    expect(options.metadata.some((item) => item.label === "Период")).toBe(true);
+    // Empty dataset → all totals blank (no fabricated numbers), no metadata.
+    expect(options.totals.values.total).toBeNull();
+    expect(options.metadata).toBeUndefined();
   });
 
   it("keeps stale rows while a refetch pends and lets the latest win", async () => {

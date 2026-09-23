@@ -85,6 +85,26 @@ function tableDisplayLabel(row) {
   return row.hallName ? `${row.tableNumber} — ${row.hallName}` : row.tableNumber;
 }
 
+// TABLES-EXCEL-FRONTEND-V1: coerce a canonical money field to a real number,
+// or NULL when the backend did not supply truthful data. A genuine numeric 0
+// is preserved (0 is a real financial value); undefined/null/""/NaN → null
+// (unknown ≠ 0, so the Excel cell stays BLANK, never a fabricated zero).
+function toNullableNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+// A real Excel Date built from the SAME wall-clock the OWNER UI renders (no UTC
+// drift), for the "Дата" cell — consistent with Orders Excel; the column's
+// numFmt renders it dd.mm.yyyy hh:mm. Null/invalid → null (blank cell).
+function excelDateOrNull(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds());
+}
+
 export default function TablesReportPage() {
   // Tables opens on today only, same semantics as Orders/Dishes
   // (local calendar day, single-date label, preset "Сегодня").
@@ -181,6 +201,15 @@ export default function TablesReportPage() {
             type: order.order_type || "",
             status: order.status || "",
             waiter: order.waiter_name || "",
+            // TABLES-EXCEL-FRONTEND-V1 backend-handoff fields. These are the
+            // TARGET canonical per-order names the backend will later add to the
+            // Tables nested-order summary. They are NOT surfaced today, so we
+            // read them defensively: a truly numeric value (incl. 0) is kept;
+            // anything missing/non-numeric stays NULL (unknown ≠ 0). When the
+            // backend starts sending them the export lights up with no rewrite.
+            serviceFee: toNullableNumber(order.service_fee),
+            placeFeeAmount: toNullableNumber(order.place_fee_amount),
+            subtotal: toNullableNumber(order.subtotal),
           })),
         })));
       })
@@ -309,34 +338,58 @@ export default function TablesReportPage() {
   }
 
   function downloadExcel() {
+    // TABLES-EXCEL-FRONTEND-V1: user-approved flat 6-column workbook, one row
+    // per ORDER (same table repeats at different times). No metadata block, no
+    // category grouping — the shared writer's totals option renders the Итого
+    // row. Money cells are numeric (#,##0); Дата is a real Excel datetime.
+    // service_fee/place_fee_amount/subtotal are backend-handoff fields: today
+    // they arrive null → BLANK cells (never fabricated 0). A completeness gate
+    // per money column decides whether its Итого is numeric or blank.
     const cols = [
-      { key: "table", label: "Номер стола" },
-      { key: "date", label: "Дата" },
-      { key: "amount", label: "Сумма" },
+      { key: "table", label: "Номер стола", width: 20 },
+      { key: "date", label: "Дата", type: "date", format: "dd.mm.yyyy hh:mm", width: 18 },
+      { key: "serviceFee", label: "Цена обслуживания", type: "number", format: "#,##0", width: 20 },
+      { key: "placeFee", label: "Цена места", type: "number", format: "#,##0", width: 16 },
+      { key: "dishes", label: "Сумма блюд", type: "number", format: "#,##0", width: 16 },
+      { key: "total", label: "Сумма", type: "number", format: "#,##0", width: 16 },
     ];
-    // One truthful row per matching order — never multi-line cells, never the
-    // UI action text ("Посмотреть заказы") as business data.
     const lines = [];
     filteredRows.forEach((row) => {
       row.orders.forEach((order) => {
         lines.push({
           table: tableDisplayLabel(row),
-          date: formatTableDateTime(order.date),
-          amount: formatMoney(order.amount),
+          date: excelDateOrNull(order.date),
+          // null → blank cell (unknown), numeric (incl. 0) → numeric cell.
+          serviceFee: order.serviceFee,
+          placeFee: order.placeFeeAmount,
+          dishes: order.subtotal,
+          total: order.amount,
         });
       });
     });
+    // Per-column completeness: a column's Итого is numeric only when EVERY row
+    // has a known numeric value; one unknown → blank total (never partial).
+    const columnTotal = (key) => {
+      if (!lines.length) return null;
+      let sum = 0;
+      for (const line of lines) {
+        const v = line[key];
+        if (typeof v !== "number" || !Number.isFinite(v)) return null;
+        sum += v;
+      }
+      return sum;
+    };
     exportToExcel(lines, cols, "tables-report", {
-      metadata: [
-        {
-          label: "Период",
-          value: dateRange.start === dateRange.end ? dateRange.start : `${dateRange.start} – ${dateRange.end}`,
+      sheetName: "Отчёт по столам",
+      totals: {
+        label: "Итого",
+        values: {
+          serviceFee: columnTotal("serviceFee"),
+          placeFee: columnTotal("placeFee"),
+          dishes: columnTotal("dishes"),
+          total: columnTotal("total"),
         },
-        ...activeFilterEntries.map(([key, value]) => ({
-          label: filterNames[key],
-          value: optionLabel(key, value, filterOptions),
-        })),
-      ],
+      },
     });
   }
 
