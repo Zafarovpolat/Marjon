@@ -42,6 +42,8 @@ export default function StaffFormModal({
   isCashier = false,
   // WAITER-01: waiter reuses exact cashier drawer shell/CSS (1:1 oracle).
   isWaiter = false,
+  // MONOBLOCK-01: monoblock reuses the same product drawer shell.
+  isMonoblock = false,
   closing = false,
   // Cashier drawer inline submit error (no browser-native popups on this path).
   saveError = "",
@@ -51,14 +53,16 @@ export default function StaffFormModal({
 }) {
   const phoneInputRef = useRef(null);
   // WAITER-01: same drawer shell for cashier + waiter; only role strings + switch list differ.
-  const isProductDrawer = isCashier || isWaiter;
+  // MONOBLOCK-01: monoblock shares the shell with role-aware strings/switches.
+  const isProductDrawer = isCashier || isWaiter || isMonoblock;
   if (isProductDrawer) {
     const isWaiterView = isWaiter;
-    const addTitle = isWaiterView ? "Добавить официанта" : "Добавить кассира";
-    const editTitle = isWaiterView ? "Изменить официанта" : "Изменить кассира";
-    const namePlaceholder = isWaiterView ? "Имя официанта" : "Имя кассира";
-    const photoAlt = isWaiterView ? "Фото официанта" : "Фото кассира";
-    const formKeyPrefix = isWaiterView ? "waiter" : "cashier";
+    const isMonoblockView = isMonoblock;
+    const addTitle = isWaiterView ? "Добавить официанта" : isMonoblockView ? "Добавить моноблок" : "Добавить кассира";
+    const editTitle = isWaiterView ? "Изменить официанта" : isMonoblockView ? "Изменить моноблок" : "Изменить кассира";
+    const namePlaceholder = isWaiterView ? "Имя официанта" : isMonoblockView ? "Имя моноблока" : "Имя кассира";
+    const photoAlt = isWaiterView ? "Фото официанта" : isMonoblockView ? "Фото моноблока" : "Фото кассира";
+    const formKeyPrefix = isWaiterView ? "waiter" : isMonoblockView ? "monoblock" : "cashier";
     const cashierCountry = phoneCountryMap[form.phoneCountry || "UZ"] || phoneCountryMap.UZ;
     // Display-only formatting: state keeps raw normalized digits, the input
     // shows (XX) XXX-XX-XX. Caret is remapped by digit count so Backspace and
@@ -242,6 +246,7 @@ export default function StaffFormModal({
               <i>{form.status === "active" ? "Активный" : "Архив"}</i>
               <b className="staff-switch" aria-hidden="true" />
             </button>
+            {isMonoblockView ? null : (
             <button
               className={`staff-permission-switch ${form.canDeleteDishes ? "is-on" : ""}`}
               type="button"
@@ -252,6 +257,7 @@ export default function StaffFormModal({
               <span>Удаление блюд</span>
               <b className="staff-switch" aria-hidden="true" />
             </button>
+            )}
             {isWaiterView ? (
             <button
               className={`staff-permission-switch ${form.canChangeMarkingCode ? "is-on" : ""}`}
@@ -264,6 +270,7 @@ export default function StaffFormModal({
               <b className="staff-switch" aria-hidden="true" />
             </button>
             ) : null}
+            {isMonoblockView ? null : (
             <button
               className={`staff-permission-switch ${form.canTakeawayAtTable ? "is-on" : ""}`}
               type="button"
@@ -274,6 +281,8 @@ export default function StaffFormModal({
               <span>Заказ на вынос за столом</span>
               <b className="staff-switch" aria-hidden="true" />
             </button>
+            )}
+            {isMonoblockView ? null : (
             <button
               className={`staff-permission-switch ${form.canChangeOrderType ? "is-on" : ""}`}
               type="button"
@@ -284,7 +293,52 @@ export default function StaffFormModal({
               <span>Изменить тип заказа</span>
               <b className="staff-switch" aria-hidden="true" />
             </button>
-            {isWaiterView ? null : (
+            )}
+            {isMonoblockView ? (
+            <>
+            <button
+              className={`staff-permission-switch ${form.canMainMonoblock ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canMainMonoblock")}
+              aria-pressed={Boolean(form.canMainMonoblock)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Главный моноблок</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            <button
+              className={`staff-permission-switch ${form.canSeeCashiers ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canSeeCashiers")}
+              aria-pressed={Boolean(form.canSeeCashiers)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Список кассиров</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            <button
+              className={`staff-permission-switch ${form.canCookPrinter ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canCookPrinter")}
+              aria-pressed={Boolean(form.canCookPrinter)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Принтер повара</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            <button
+              className={`staff-permission-switch ${form.canPrintCancel ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canPrintCancel")}
+              aria-pressed={Boolean(form.canPrintCancel)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Печать отмены заказа</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            </>
+            ) : null}
+            {isWaiterView || isMonoblockView ? null : (
             <>
             <button
               className={`staff-permission-switch ${form.canCloseBill ? "is-on" : ""}`}

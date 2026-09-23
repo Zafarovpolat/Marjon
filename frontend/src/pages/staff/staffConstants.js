@@ -66,6 +66,15 @@ export const waiterSwitchFields = [
   "canChangeOrderType",
 ];
 
+// MONOBLOCK-01: 5 primary controls (Статус + 4). All except Статус are
+// form-state only (BACKEND_HANDOFF_REQUIRED); only is_active persists.
+export const monoblockSwitchFields = [
+  "canMainMonoblock",
+  "canSeeCashiers",
+  "canCookPrinter",
+  "canPrintCancel",
+];
+
 export const staffAccessModules = [
   { key: "home", label: "Главная" },
   { key: "warehouse_stock", label: "Склады (Остаток товаров)" },
@@ -142,6 +151,12 @@ export function mapStaffUser(user) {
     phone: user.phone || "",
     roleKey,
     status: user.is_active !== false ? "active" : "archived",
+    // Access-cell adapter (cashier/waiter delete-dishes, monoblock
+    // cashier-list): truthful future backend fields pass through when
+    // present, otherwise resolve to absent/OFF. Never fabricated.
+    canDeleteDishes: user.can_delete_dishes === true,
+    canSeeCashiers: user.can_see_cashiers === true,
+    printerIp: typeof user.printer_ip === "string" && user.printer_ip ? user.printer_ip : "",
     pin: "",
     password: "",
     photo: user.avatar_url || "",

@@ -22,7 +22,10 @@ function StaffRolePage({ role = "all" }) {
   // WAITER-01: waiter reuses exact cashier presentation (1:1 oracle, 5 switches vs 7).
   const isCashierView = routeRole === "cashier";
   const isWaiterView = routeRole === "waiter";
-  const isProductView = isCashierView || isWaiterView;
+  // MONOBLOCK-01: monoblock reuses the exact cashier/waiter product drawer
+  // shell (1:1 MARJON oracle, 5 primary switches, detailed matrix below).
+  const isMonoblockView = routeRole === "monoblock";
+  const isProductView = isCashierView || isWaiterView || isMonoblockView;
   const pageTitle =
     routeRole === "all" ? "Список сотрудников" : `Список сотрудников: ${roleMap[routeRole].title}`;
 
@@ -266,8 +269,8 @@ function StaffRolePage({ role = "all" }) {
     // Never fake an email. Edit path unchanged.
     // WAITER-01: same generic staff create, only role_slug differs (cashier/waiter).
     if (isProductView) {
-      const productRoleSlug = isWaiterView ? "waiter" : "cashier";
-      const productGenitive = isWaiterView ? "официанта" : "кассира";
+      const productRoleSlug = isWaiterView ? "waiter" : isMonoblockView ? "monoblock" : "cashier";
+      const productGenitive = isWaiterView ? "официанта" : isMonoblockView ? "моноблока" : "кассира";
       const productName = form.fullName.trim();
       if (!productName || !phone) {
         // FIX-03: bind to the missing field so the message renders under
@@ -486,6 +489,7 @@ function StaffRolePage({ role = "all" }) {
           restoreStaff={restoreStaff}
           isCashier={isCashierView}
           isWaiter={isWaiterView}
+          isMonoblock={isMonoblockView}
         />
       </section>
 
@@ -507,6 +511,7 @@ function StaffRolePage({ role = "all" }) {
           setPhoneCountryOpen={setPhoneCountryOpen}
           isCashier={isCashierView}
           isWaiter={isWaiterView}
+          isMonoblock={isMonoblockView}
           closing={modalClosing}
           saveError={saveError}
           saveErrorField={saveErrorField}

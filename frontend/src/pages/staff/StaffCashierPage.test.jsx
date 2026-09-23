@@ -123,10 +123,35 @@ describe("cashier page visual contract (/users/cashier)", () => {
     expect(screen.queryByText("Доступ RBAC")).not.toBeInTheDocument();
     const table = document.querySelector(".staff-table");
     expect(within(table).queryByText("Email")).toBeNull();
-    // Honest generic rights display — no fabricated backend permissions.
-    expect(within(table).getByText("Базовый доступ")).toBeInTheDocument();
+    // Delete-dishes access cell — never the generic label.
+    expect(within(table).queryByText("Базовый доступ")).toBeNull();
+    expect(within(table).getByText("Удаление блюд")).toBeInTheDocument();
     // ID renders the full canonical value (no truncation, no invented shorts).
     expect(within(table).getByText("cashier-uuid")).toBeInTheDocument();
+  });
+
+  it("renders red OFF delete-dishes access without backend truth", async () => {
+    render(<StaffRolePage role="cashier" />);
+    await screen.findByText("Cashier One");
+    const table = document.querySelector(".staff-table");
+    const access = within(table).getByText("Удаление блюд").closest(".staff-permission");
+    expect(access).not.toBeNull();
+    expect(access.querySelector(".staff-permission-dot.is-off")).not.toBeNull();
+  });
+
+  it("renders green ON access for a truthful future grant", async () => {
+    const { unmount } = render(<StaffRolePage role="cashier" />);
+    await screen.findByText("Cashier One");
+    unmount();
+    api.get.mockResolvedValue({
+      data: [{ ...cashierUser, can_delete_dishes: true }],
+    });
+    render(<StaffRolePage role="cashier" />);
+    await screen.findByText("Cashier One");
+    const table = document.querySelector(".staff-table");
+    const access = within(table).getByText("Удаление блюд").closest(".staff-permission");
+    expect(access.querySelector(".staff-permission-dot.is-off")).toBeNull();
+    expect(access.querySelector(".staff-permission-dot")).not.toBeNull();
   });
 
   it("uses a 47x49 rounded-square avatar like the MARJON logo mark", () => {

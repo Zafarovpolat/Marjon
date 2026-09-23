@@ -20,8 +20,11 @@ export default function StaffTable({
   isCashier = false,
   // WAITER-01: waiter reuses exact cashier presentation (avatar/status/alignment).
   isWaiter = false,
+  // MONOBLOCK-01: monoblock reuses the same product presentation; its
+  // access cell stays the generic summary (no persisted grants on record).
+  isMonoblock = false,
 }) {
-  const isProduct = isCashier || isWaiter;
+  const isProduct = isCashier || isWaiter || isMonoblock;
   return (
     <>
       {staffLoading ? <div className="staff-empty-cell" role="status">Загрузка сотрудников...</div> : null}
@@ -72,6 +75,36 @@ export default function StaffTable({
                     <span className="staff-permission">
                       <span className="staff-permission-dot is-off" aria-hidden="true" />
                       Удаление блюд
+                    </span>
+                  ) : isCashier ? (
+                    // CASHIER access column: delete-dishes truth via the
+                    // shared adapter (employee.canDeleteDishes). Backend
+                    // persists no grant yet, so red OFF unless a truthful
+                    // grant arrives; never fabricated "Базовый доступ".
+                    <span className="staff-permission">
+                      <span
+                        className={`staff-permission-dot${employee.canDeleteDishes ? "" : " is-off"}`}
+                        aria-hidden="true"
+                      />
+                      Удаление блюд
+                    </span>
+                  ) : isMonoblock ? (
+                    // MONOBLOCK access cell ("Показать кассиров" concept).
+                    // Backend persists no cashier-list/printer truth yet, so
+                    // the indicator is red OFF unless a truthful grant arrives
+                    // via employee.canSeeCashiers; printer IP renders only
+                    // from truthful row data, never fabricated.
+                    <span className="staff-permission staff-permission--column">
+                      <span className="staff-permission-main">
+                        <span
+                          className={`staff-permission-dot${employee.canSeeCashiers ? "" : " is-off"}`}
+                          aria-hidden="true"
+                        />
+                        Показать кассиров
+                      </span>
+                      {employee.printerIp ? (
+                        <small className="staff-permission-sub">{employee.printerIp}</small>
+                      ) : null}
                     </span>
                   ) : (
                     <span className="staff-permission">
