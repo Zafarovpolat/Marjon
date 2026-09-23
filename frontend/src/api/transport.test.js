@@ -10,9 +10,11 @@ import {
 import { api, API_BASE_URL } from "./client";
 import {
   API_ERROR_CODES,
+  createApiTransport,
   createFetchAdapter,
   DEFAULT_HTTP_TIMEOUT_MS,
 } from "./transport";
+import { staffService } from "./staff";
 
 const apiTransportAdapter = api.defaults.adapter;
 const adminTransportAdapter = adminApi.defaults.adapter;
@@ -753,5 +755,30 @@ describe("fetch transport", () => {
     expect(response.data).toEqual({ admin: true });
     expect(fetchMock.mock.calls[0][0]).toContain(`${ADMIN_API_BASE_URL}/organizations`);
     expect(fetchMock.mock.calls[0][0]).toContain("size=100");
+  });
+
+  // STAFF-ACTIVITY-01: activity paths must resolve UNDER the /api/v1 base
+  // path (axios join semantics keep the base path for leading-slash urls).
+  // Guards against regressions that would request /hr/* outside /api/v1
+  // (backend 404 there; dev serves the SPA shell → fake-empty table).
+  it("resolves staff activity paths under the canonical /api/v1 base", async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse([]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await staffService.listActivity("login-history");
+    expect(fetchMock.mock.calls[0][0]).toBe(`${API_BASE_URL}/hr/login-history`);
+
+    await staffService.listActivity("attendance");
+    expect(fetchMock.mock.calls[1][0]).toBe(`${API_BASE_URL}/hr/attendance`);
+  });
+
+  it("resolves staff activity paths under a relative /api/v1 base (Vite proxy)", async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse([]));
+    vi.stubGlobal("fetch", fetchMock);
+    const relativeApi = createApiTransport({ baseURL: "/api/v1", scope: AUTH_SCOPES.DEFAULT });
+
+    await relativeApi.get("/hr/login-history");
+
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/v1/hr/login-history");
   });
 });
