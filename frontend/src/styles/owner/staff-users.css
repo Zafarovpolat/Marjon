@@ -1166,3 +1166,19 @@ body.dashboard-body:has(.staff-modal--cashier-full) .staff-modal.staff-modal--ca
     border-radius: 50%;
     background: currentColor;
 }
+
+/* STAFF-EMPTY-01 (Reports parity): the empty row keeps a stable white
+   background — row hover never leaks into the illustration block — and
+   the empty cell drops table padding so the shared 270px empty artwork
+   defines the air, like `.report-empty-row` in reports.css. Unlayered so
+   it wins over the unlayered app.css `.staff-empty-cell` padding and the
+   layered row hover. Scoped to the empty row only; populated rows and
+   Reports are untouched. */
+.staff-table tbody tr.staff-empty-row:hover {
+    background: #fff;
+}
+
+.staff-table tr.staff-empty-row td.staff-empty-cell {
+    padding: 0;
+    background: #fff;
+}
