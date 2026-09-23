@@ -5,7 +5,7 @@ import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import ReportEmptyState from "../components/ReportEmptyState";
 import ReportMultiSelect from "../components/ReportMultiSelect";
-import { exportToExcel } from "../utils/excel";
+import { exportToExcel, excelLocalDateTime, excelAmountNumber } from "../utils/excel";
 import { isAbortError, isOrderedDateRange, useLatestRequest } from "../hooks/useAsyncSafety";
 import { formatDateLabel, todayInputValue } from "../utils/date";
 import { toApiDate } from "./reports/reportPeriod";
@@ -127,6 +127,13 @@ export function toCancelledDisplayRow(item, index = 0) {
     price: item.price ?? null,
     scope: item.cancellation_scope || "",
     dateSource: item.date_source || "",
+    // Excel-only truthful sources (never rendered on screen): the canonical
+    // report_event_at timestamp for a real Excel date cell, and the backend
+    // unit snapshot exported verbatim (today the backend returns a hardcoded
+    // "шт" — CANCELLED_DISHES_REAL_UNIT_REQUIRED handoff; the frontend just
+    // forwards whatever unit the row carries, never inventing one).
+    reportEventAt: eventStamp,
+    unit: item.unit ?? null,
   };
 }
 
@@ -135,31 +142,43 @@ function normalizeCancelledReportResponse(data) {
   return data.map(toCancelledDisplayRow);
 }
 
+// TABLES-family finalized contract: the user-approved 9-column workbook, one
+// row per cancelled OrderItem. Money/quantity are numeric-typed cells, Дата is
+// a real Excel datetime; missing values stay BLANK (never "—"), real 0 stays 0.
+// Официант / Тип / Действие are deliberately screen-only and never exported.
 export function cancelledExcelColumns() {
   return [
-    { key: "orderNumber", label: "Номер заказа" },
-    { key: "date", label: "Дата" },
-    { key: "name", label: "Название" },
-    { key: "tableNumber", label: "Номер стола" },
-    { key: "quantity", label: "Кол-во" },
-    { key: "waiterName", label: "Официант" },
-    { key: "orderType", label: "Тип" },
-    { key: "amount", label: "Сумма" },
-    { key: "authorName", label: "Автор" },
+    { key: "date", label: "Дата", type: "date", format: "dd.mm.yyyy hh:mm", width: 18 },
+    { key: "orderNumber", label: "Номер заказа", width: 16 },
+    { key: "tableNumber", label: "Номер стола", width: 14 },
+    { key: "name", label: "Название", width: 28 },
+    { key: "unit", label: "Ед. изм", width: 10 },
+    { key: "quantity", label: "Кол-во", type: "number", format: "#,##0.###", width: 12 },
+    { key: "price", label: "Цена", type: "number", format: "#,##0", width: 14 },
+    { key: "amount", label: "Сумма", type: "number", format: "#,##0", width: 16 },
+    { key: "authorName", label: "Автор", width: 22 },
   ];
 }
 
 export function toCancelledExcelRow(row) {
   return {
-    orderNumber: row.orderNumber,
-    date: row.date,
-    name: row.name,
-    tableNumber: row.tableNumber ?? "—",
-    quantity: row.quantity,
-    waiterName: row.waiterName ?? "—",
-    orderType: row.orderType ? (ORDER_TYPE_LABELS[row.orderType] || row.orderType) : "—",
-    amount: row.amount ?? "—",
-    authorName: row.authorName ?? "—",
+    // Дата ← report_event_at as a real Excel date (never the legacy date/time
+    // strings, which are formatted from Order.created_at); null → blank cell.
+    date: excelLocalDateTime(row.reportEventAt),
+    // order_number is a text cell (may be non-numeric); "" → blank cell.
+    orderNumber: row.orderNumber === "—" ? "" : row.orderNumber,
+    tableNumber: row.tableNumber ?? "",
+    name: row.name || "",
+    // Backend unit snapshot forwarded verbatim (hardcoded "шт" today); blank
+    // when absent — the frontend never fabricates a unit.
+    unit: row.unit ?? "",
+    // Numeric cells: genuine 0 preserved, missing/invalid → blank (null).
+    quantity: excelAmountNumber(row.quantity),
+    price: excelAmountNumber(row.price),
+    // amount is the backend snapshot (max(price*qty - discount, 0)); the
+    // frontend never recomputes it and never reads the zeroed OrderItem.total.
+    amount: excelAmountNumber(row.amount),
+    authorName: row.authorName ?? "",
   };
 }
 
@@ -385,23 +404,31 @@ export default function CancelledDishesReportPage() {
   }
 
   function downloadExcel() {
+    // Finalized family workbook: no «Период» metadata block (the sheet starts
+    // at the business header), a real Итого row via the shared totals option.
+    // Only Кол-во and Сумма are summed; Цена is never totalled. Each total is
+    // completeness-aware (Tables rule): numeric only when EVERY row's value is
+    // known, otherwise blank — never a partial total masquerading as complete.
     const lines = filteredRows.map(toCancelledExcelRow);
+    const columnTotal = (key) => {
+      if (!lines.length) return null;
+      let sum = 0;
+      for (const line of lines) {
+        const value = line[key];
+        if (typeof value !== "number" || !Number.isFinite(value)) return null;
+        sum += value;
+      }
+      return sum;
+    };
     exportToExcel(lines, cancelledExcelColumns(), "cancelled-dishes-report", {
-      metadata: [
-        {
-          label: "Период",
-          value: appliedFilters.from === appliedFilters.to
-            ? formatDateLabel(appliedFilters.from)
-            : `${formatDateLabel(appliedFilters.from)} – ${formatDateLabel(appliedFilters.to)}`,
+      sheetName: "Отчёт по отменённым блюдам",
+      totals: {
+        label: "Итого",
+        values: {
+          quantity: columnTotal("quantity"),
+          amount: columnTotal("amount"),
         },
-        ...activeFilterEntries.map(([key, value]) => ({
-          label: filterNames[key],
-          value: optionLabel(key, value, {
-            authors: normalizeAuthorOptions(filterOptions.authors),
-            dishes: normalizeDishOptions(filterOptions.dishes),
-          }),
-        })),
-      ],
+      },
     });
   }
 
