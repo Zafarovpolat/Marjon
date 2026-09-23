@@ -1,6 +1,6 @@
 from __future__ import annotations
 import hashlib
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -44,6 +44,25 @@ PRIVILEGED_ORDER_ROLES = {"owner", "admin", "cashier"}
 
 def _quantize(v: Decimal) -> Decimal:
     return v.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _modifiers_delta(modifiers) -> Decimal:
+    """Сумма наценок выбранных добавок (снапшот в позиции заказа).
+
+    modifiers — список dict'ов вида {id, name, price_delta, ...}. Считаем только
+    price_delta; неверные/пустые значения игнорируем (снапшот произвольной формы).
+    """
+    total = Decimal("0")
+    if not isinstance(modifiers, list):
+        return total
+    for mod in modifiers:
+        if not isinstance(mod, dict):
+            continue
+        try:
+            total += Decimal(str(mod.get("price_delta", 0) or 0))
+        except (ValueError, ArithmeticError):
+            continue
+    return total
 
 
 class OrderService:
@@ -165,7 +184,10 @@ class OrderService:
         service_base = Decimal("0")
         for item_data in data.items:
             product = await self._get_product(company_id, item_data.product_id)
-            item_total = _quantize(product.price * item_data.quantity)
+            # Добавки (модификаторы) поднимают цену порции: их наценки (price_delta
+            # из снапшота) прибавляем к цене блюда и умножаем на количество.
+            modifiers_delta = _modifiers_delta(item_data.modifiers)
+            item_total = _quantize((product.price + modifiers_delta) * item_data.quantity)
 
             # Apply per-item discount if provided
             item_discount = _quantize(item_data.discount) if item_data.discount else Decimal("0")
@@ -445,7 +467,9 @@ class OrderService:
             raise ValidationError("Нельзя добавить позицию к завершённому или отменённому заказу")
 
         product = await self._get_product(company_id, item_data.product_id)
-        item_total = _quantize(product.price * item_data.quantity)
+        # Добавки поднимают цену порции — см. комментарий в create().
+        modifiers_delta = _modifiers_delta(item_data.modifiers)
+        item_total = _quantize((product.price + modifiers_delta) * item_data.quantity)
         item_discount = _quantize(item_data.discount) if item_data.discount else Decimal("0")
         item_total_after_discount = max(item_total - item_discount, Decimal("0"))
 
@@ -791,7 +815,13 @@ class OrderService:
         Конкурентные запросы сериализуются advisory-lock'ом на Postgres; на SQLite
         запись и так сериализуется самим движком.
         """
-        tz_str = await self._get_company_timezone(company_id)
+        row = (await self.db.execute(
+            select(Company.timezone, Company.day_start_hour).where(Company.id == company_id)
+        )).one_or_none()
+        tz_str = (row[0] if row else None) or "Asia/Tashkent"
+        # Час старта операционного дня (0–23); заказы до него относятся к прошлым суткам
+        start_hour = int(row[1]) if row and row[1] is not None else 0
+        start_hour = min(23, max(0, start_hour))
         try:
             tz = ZoneInfo(tz_str)
         except (ZoneInfoNotFoundError, KeyError):
@@ -802,20 +832,24 @@ class OrderService:
                 tz = timezone.utc
 
         now_local = datetime.now(tz)
-        today_local = now_local.date()
+        # «Операционная» дата: сдвигаем время назад на час старта дня, чтобы заказы
+        # между полночью и start_hour попали в предыдущий день (например, при 05:00
+        # заказ в 02:30 считается за вчерашний день и продолжает вчерашнюю нумерацию).
+        business_day = (now_local - timedelta(hours=start_hour)).date()
 
         # Сериализуем конкурентные запросы в пределах компании за день
         # (pg_advisory_xact_lock — только Postgres; на SQLite пропускаем)
         if self.db.bind.dialect.name == "postgresql":
             lock_key = int.from_bytes(
-                hashlib.sha256(f"{company_id}:{today_local}".encode()).digest()[:8],
+                hashlib.sha256(f"{company_id}:{business_day}".encode()).digest()[:8],
                 "big", signed=True,
             )
             await self.db.execute(text("SELECT pg_advisory_xact_lock(:k)").bindparams(k=lock_key))
 
-        # Считаем заказы компании за локальный календарный день (в UTC-границах)
-        day_start = datetime.combine(today_local, datetime.min.time()).replace(tzinfo=tz).astimezone(timezone.utc)
-        day_end   = datetime.combine(today_local + timedelta(days=1), datetime.min.time()).replace(tzinfo=tz).astimezone(timezone.utc)
+        # Границы операционного дня: [business_day + start_hour, +24ч) в локали → UTC
+        start_time = time(hour=start_hour)
+        day_start = datetime.combine(business_day, start_time).replace(tzinfo=tz).astimezone(timezone.utc)
+        day_end   = datetime.combine(business_day + timedelta(days=1), start_time).replace(tzinfo=tz).astimezone(timezone.utc)
 
         result = await self.db.execute(
             select(func.count(Order.id)).where(
@@ -825,8 +859,9 @@ class OrderService:
             )
         )
         count = result.scalar_one()
-        # Номер вида YYMMDD-NNN — глобально уникален по компании, не повторяется между днями
-        return f"{today_local:%y%m%d}-{count + 1:03d}"
+        # Номер вида YYMMDD-NNN — префикс по операционному дню; счётчик сбрасывается
+        # в start_hour, а не в полночь. Глобально уникален по компании.
+        return f"{business_day:%y%m%d}-{count + 1:03d}"
 
     async def _get_branch(self, company_id: UUID, branch_id: UUID) -> Branch:
         result = await self.db.execute(

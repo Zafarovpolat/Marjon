@@ -80,6 +80,10 @@ class ModifierGroup(TimeStampedModel):
     max_select: Mapped[int] = mapped_column(Integer, default=1)
     is_required: Mapped[bool] = mapped_column(Boolean, default=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    # Переключатель из веб-админки: показывать ли группу добавок на кассе (десктоп).
+    # True = кассир видит и выбирает добавки в экране блюда; False = группа скрыта
+    # (настроена, но не продаётся). По умолчанию показываем.
+    show_in_pos: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
 
     product: Mapped[Product] = relationship(back_populates="modifier_groups")
     modifiers: Mapped[list[Modifier]] = relationship(back_populates="group", cascade="all, delete-orphan")

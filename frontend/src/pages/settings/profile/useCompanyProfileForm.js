@@ -29,6 +29,10 @@ export function useCompanyProfileForm(user) {
   const [cancelPwSaving, setCancelPwSaving] = useState(false);
   const [waiterPct, setWaiterPct] = useState("");
   const [waiterPctSaving, setWaiterPctSaving] = useState(false);
+  // Час старта операционного дня (0–23): когда заведение «закрывается», нумерация
+  // заказов сбрасывается. Тоже самодостаточный блок со своей кнопкой сохранения.
+  const [dayStartHour, setDayStartHour] = useState("0");
+  const [dayStartHourSaving, setDayStartHourSaving] = useState(false);
 
   useEffect(() => {
     // Статус пароля отмены — отдельный эндпоинт, само значение наружу не отдаётся.
@@ -55,6 +59,8 @@ export function useCompanyProfileForm(user) {
         setSavedForm(next);
         // Доля обслуги приходит в том же профиле компании — отдельный запрос не нужен.
         setWaiterPct(data?.waiter_service_percent != null ? String(data.waiter_service_percent) : "");
+        // Час сброса нумерации — оттуда же.
+        setDayStartHour(data?.day_start_hour != null ? String(data.day_start_hour) : "0");
       })
       .catch((err) => {
         if (request.isCurrent() && !isAbortError(err)) setError(err.response?.data?.detail || "Не удалось загрузить профиль.");
@@ -103,6 +109,21 @@ export function useCompanyProfileForm(user) {
       setError(err.response?.data?.detail || "Не удалось сохранить долю обслуги");
     } finally {
       setWaiterPctSaving(false);
+    }
+  }
+
+  async function saveDayStartHour() {
+    setDayStartHourSaving(true);
+    try {
+      await settingsService.updateCompanyProfile({
+        day_start_hour: Math.max(0, Math.min(23, Math.trunc(Number(dayStartHour) || 0))),
+      });
+      setError("");
+      setSuccess("Время сброса нумерации сохранено.");
+    } catch (err) {
+      setError(err.response?.data?.detail || "Не удалось сохранить время сброса");
+    } finally {
+      setDayStartHourSaving(false);
     }
   }
 
@@ -192,5 +213,9 @@ export function useCompanyProfileForm(user) {
     setWaiterPct,
     waiterPctSaving,
     saveWaiterPct,
+    dayStartHour,
+    setDayStartHour,
+    dayStartHourSaving,
+    saveDayStartHour,
   };
 }

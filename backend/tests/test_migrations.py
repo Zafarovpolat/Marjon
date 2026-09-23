@@ -27,7 +27,7 @@ from app.shared.base_model import Base
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 VERSIONS_DIR = BACKEND_ROOT / "migrations" / "versions"
-EXPECTED_HEAD = "bi06tnu03"
+EXPECTED_HEAD = "z3a4ordcmt07"
 EXPECTED_NULLABLE_COLUMN_COUNT = 262
 EXPECTED_PARITY_OPERATIONS = {"remove_index", "remove_table_comment"}
 FIXTURES_DIR = BACKEND_ROOT / "tests" / "fixtures"
@@ -138,7 +138,8 @@ def test_revision_graph_is_linear_complete_and_has_one_head() -> None:
     assert visited == set(revisions)
     # 46 -> 57: the desktop/PIN lineage was linearised into this chain,
     # n3o4rcpt01 now chaining onto x1y2dishlimit05 instead of g2h3usr01
-    assert len(revisions) == 57
+    # 57 -> 59: y2z3imgbg06 (image_background) + z3a4ordcmt07 (cancel_comment)
+    assert len(revisions) == 59
 
     nullable_columns = _bi02_nullable_columns()
     assert len(nullable_columns) == EXPECTED_NULLABLE_COLUMN_COUNT

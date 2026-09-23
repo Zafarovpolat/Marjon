@@ -161,9 +161,22 @@ class AnalyticsService:
             for row in result.all()
         ]
 
-    async def z_report(self, company_id: UUID, selected_date: date) -> ZReportResponse:
+    async def z_report(
+        self,
+        company_id: UUID,
+        selected_date: date | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+    ) -> ZReportResponse:
+        """Z-отчёт за один день (selected_date) или за период [date_from, date_to].
+        Без диапазона ведёт себя как раньше."""
         tz = await self._company_tz(company_id)
-        day_start, day_end = self._date_bounds(selected_date, tz)
+        start_day = date_from or selected_date or datetime.now(tz).date()
+        end_day = date_to or start_day
+        if end_day < start_day:
+            start_day, end_day = end_day, start_day
+        range_start, _ = self._date_bounds(start_day, tz)
+        _, range_end = self._date_bounds(end_day, tz)
 
         completed_orders = await self.db.execute(
             select(
@@ -177,8 +190,8 @@ class AnalyticsService:
             .where(
                 Order.company_id == company_id,
                 Order.status == "completed",
-                Order.created_at >= day_start,
-                Order.created_at <= day_end,
+                Order.created_at >= range_start,
+                Order.created_at <= range_end,
             )
         )
         orders_count, gross_sales, discounts_total, service_fee_total, tax_total, net_sales = completed_orders.one()
@@ -188,8 +201,8 @@ class AnalyticsService:
             .where(
                 Order.company_id == company_id,
                 Order.status == "cancelled",
-                Order.created_at >= day_start,
-                Order.created_at <= day_end,
+                Order.created_at >= range_start,
+                Order.created_at <= range_end,
             )
         )
         cancelled_orders_count = cancelled_orders.scalar_one()
@@ -205,8 +218,8 @@ class AnalyticsService:
             .where(
                 Payment.company_id == company_id,
                 Payment.status == "completed",
-                Payment.created_at >= day_start,
-                Payment.created_at <= day_end,
+                Payment.created_at >= range_start,
+                Payment.created_at <= range_end,
             )
             .group_by(Payment.method)
         )
@@ -231,8 +244,8 @@ class AnalyticsService:
             .where(
                 Payment.company_id == company_id,
                 Payment.status == "refunded",
-                Payment.created_at >= day_start,
-                Payment.created_at <= day_end,
+                Payment.created_at >= range_start,
+                Payment.created_at <= range_end,
             )
         )
         refunds_total = Decimal(str(refunds.scalar_one() or 0))
@@ -242,15 +255,15 @@ class AnalyticsService:
             .where(
                 FiscalReceipt.company_id == company_id,
                 FiscalReceipt.status == "sent",
-                FiscalReceipt.created_at >= day_start,
-                FiscalReceipt.created_at <= day_end,
+                FiscalReceipt.created_at >= range_start,
+                FiscalReceipt.created_at <= range_end,
             )
         )
         fiscal_receipts_count = fiscal.scalar_one()
 
         net_sales_decimal = Decimal(str(net_sales or 0))
         return ZReportResponse(
-            date=selected_date,
+            date=start_day,
             shift_opened_at="09:00",
             shift_closed_at=None,
             is_closed=False,

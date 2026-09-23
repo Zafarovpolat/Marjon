@@ -61,6 +61,7 @@ class CompanyUpdate(BaseSchema):
     timezone: str | None = None
     currency: str | None = None
     waiter_service_percent: int | None = None
+    day_start_hour: int | None = Field(None, ge=0, le=23)
     address: str | None = None
     phone: str | None = None
     inn: str | None = None
@@ -91,6 +92,7 @@ class CompanyResponse(BaseResponseSchema):
     currency: str
     is_active: bool
     waiter_service_percent: int = 0
+    day_start_hour: int = 0
     address: str | None = None
     phone: str | None = None
     inn: str | None = None

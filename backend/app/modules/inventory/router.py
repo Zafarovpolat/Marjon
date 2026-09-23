@@ -12,11 +12,14 @@ from app.modules.inventory.models import Product
 from app.modules.inventory.schemas import (
     CategoryCreate, CategoryResponse,
     IngredientCreate, IngredientResponse, IngredientUpdate,
+    ModifierGroupCreate, ModifierGroupResponse, ModifierGroupUpdate, ModifierResponse,
     ProductAvailabilityUpdate, ProductCreate, ProductIngredientResponse,
     ProductLimitUpdate, ProductResponse, ProductUpdate,
     StockItemResponse, StockMovementCreate, StockMovementResponse,
 )
-from app.modules.inventory.service import CategoryService, IngredientService, ProductService, StockService
+from app.modules.inventory.service import (
+    CategoryService, IngredientService, ModifierGroupService, ProductService, StockService
+)
 from sqlalchemy import select
 from app.modules.inventory.models import Product, Ingredient, ProductRecipe
 from app.modules.rbac.dependencies import require_permission
@@ -89,6 +92,23 @@ async def product_recipe(
     }
 
 
+def _group_to_response(g) -> ModifierGroupResponse:
+    return ModifierGroupResponse(
+        id=g.id, created_at=g.created_at, updated_at=g.updated_at,
+        company_id=g.company_id, product_id=g.product_id,
+        name=g.name, min_select=g.min_select, max_select=g.max_select,
+        is_required=g.is_required, show_in_pos=g.show_in_pos, sort_order=g.sort_order,
+        modifiers=[
+            ModifierResponse(
+                id=m.id, created_at=m.created_at, updated_at=m.updated_at,
+                group_id=m.group_id, company_id=m.company_id, name=m.name,
+                price_delta=m.price_delta, is_default=m.is_default, sort_order=m.sort_order,
+            )
+            for m in sorted(g.modifiers, key=lambda m: (m.sort_order, m.created_at))
+        ],
+    )
+
+
 def _product_to_response(p: Product) -> ProductResponse:
     """BE-16: ProductResponse.ingredients' field names (ingredient_name,
     unit) don't match the raw ProductIngredient ORM relationship
@@ -117,6 +137,10 @@ def _product_to_response(p: Product) -> ProductResponse:
                 unit=line.ingredient.unit if line.ingredient else "",
             )
             for line in p.ingredients
+        ],
+        modifier_groups=[
+            _group_to_response(g)
+            for g in sorted(p.modifier_groups, key=lambda g: (g.sort_order, g.created_at))
         ],
     )
 
@@ -232,6 +256,48 @@ async def set_product_daily_limit(
 @router.delete("/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_product(product_id: UUID, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)):
     await ProductService(db).delete(user.company_id, product_id)
+
+
+# --- Добавки (модификаторы) блюда ---------------------------------------------
+# Группы добавок настраиваются в веб-админке (владелец/админ). Чтение доступно
+# любому сотруднику компании — десктоп-касса тянет их вместе с блюдом.
+
+@router.get("/products/{product_id}/modifier-groups", response_model=list[ModifierGroupResponse])
+async def list_modifier_groups(
+    product_id: UUID,
+    user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    groups = await ModifierGroupService(db).list_for_product(user.company_id, product_id)
+    return [_group_to_response(g) for g in groups]
+
+
+@router.post("/modifier-groups", response_model=ModifierGroupResponse, status_code=status.HTTP_201_CREATED)
+async def create_modifier_group(
+    data: ModifierGroupCreate,
+    user: User = Depends(require_company_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    return _group_to_response(await ModifierGroupService(db).create(user.company_id, data))
+
+
+@router.patch("/modifier-groups/{group_id}", response_model=ModifierGroupResponse)
+async def update_modifier_group(
+    group_id: UUID,
+    data: ModifierGroupUpdate,
+    user: User = Depends(require_company_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    return _group_to_response(await ModifierGroupService(db).update(user.company_id, group_id, data))
+
+
+@router.delete("/modifier-groups/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_modifier_group(
+    group_id: UUID,
+    user: User = Depends(require_company_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    await ModifierGroupService(db).delete(user.company_id, group_id)
 
 
 @router.post("/ingredients", response_model=IngredientResponse, status_code=status.HTTP_201_CREATED)

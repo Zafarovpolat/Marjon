@@ -1637,12 +1637,25 @@ async def seed_hr_sessions_notifications(db, company, branches, users):
 
 async def seed_finance_and_subscription(db, company, users, organizations):
     print("--- Finance and subscription ---")
+    # BI-05A: справочники демо-каталога живут в системном scope. Только такие
+    # строки видны сразу и владельцу (scope company), и HQ (scope organization)
+    # — см. FinanceDictionaryService._visible в finance/ownership.py, — и только
+    # их принимает триггер fin_validate_transaction_references для проводки
+    # любой организации (allow_system=True для типов оплаты, категорий и
+    # шаблонов). Прежний дефолт модели scope_kind="legacy" не виден ни одному
+    # scope и на Postgres валит сид с "payment type is outside transaction scope".
+    system_scope = {"scope_kind": "system", "company_id": None, "organization_id": None}
+
+    def org_of(name):
+        """Организация демо-проводки; фолбэк на кафе, если филиала нет в сиде."""
+        return organizations.get(name, organizations["Marjon Cafe"])
+
     payment_types = {}
     for sort, (name, ptype) in enumerate(
         [("Наличные", "cash"), ("Terminal", "card"), ("Payme", "payme"), ("Click", "click"), ("Перечисление", "transfer")],
         start=1,
     ):
-        item, _ = await ensure(db, PaymentType, defaults={"sort": sort, "type": ptype, "status": True}, update=True, name=name)
+        item, _ = await ensure(db, PaymentType, defaults={"sort": sort, "type": ptype, "status": True, **system_scope}, update=True, name=name)
         payment_types[ptype] = item
         payment_types[name] = item
 
@@ -1655,7 +1668,7 @@ async def seed_finance_and_subscription(db, company, users, organizations):
         ],
         start=20,
     ):
-        item, _ = await ensure(db, PaymentType, defaults={"sort": sort, "type": ptype, "status": True}, update=True, name=name)
+        item, _ = await ensure(db, PaymentType, defaults={"sort": sort, "type": ptype, "status": True, **system_scope}, update=True, name=name)
         payment_types[name] = item
         payment_types.setdefault(ptype, item)
 
@@ -1665,7 +1678,7 @@ async def seed_finance_and_subscription(db, company, users, organizations):
         "expense": ["Закупка продуктов", "Зарплата", "Аренда", "Маркетинг"],
     }.items():
         for name in names:
-            category, _ = await ensure(db, TransactionCategory, defaults={"parent_id": None, "status": True}, update=True, name=name, kind=kind)
+            category, _ = await ensure(db, TransactionCategory, defaults={"parent_id": None, "status": True, **system_scope}, update=True, name=name, kind=kind)
             categories[(kind, name)] = category
 
     legacy_category_names = [
@@ -1705,13 +1718,19 @@ async def seed_finance_and_subscription(db, company, users, organizations):
             category, _ = await ensure(
                 db,
                 TransactionCategory,
-                defaults={"parent_id": None, "status": True},
+                defaults={"parent_id": None, "status": True, **system_scope},
                 update=True,
                 name=name,
                 kind=kind,
             )
             categories[(kind, name)] = category
 
+    # BI-05A: у контрагента, в отличие от типов оплаты и категорий, нет
+    # системного scope (ck_fin_counterparties_ownership; в валидаторе
+    # require_finance_reference стоит allow_system=False). Триггер
+    # fin_validate_transaction_references принимает контрагента проводки
+    # только при совпадении organization_id, поэтому контрагенты демо-проводок
+    # живут в scope той организации, чьи проводки на них ссылаются.
     counterparties = {}
     for name, phone, ctype, balance in [
         ("Fresh Market", "+998909001122", "provider", -1250000),
@@ -1723,15 +1742,25 @@ async def seed_finance_and_subscription(db, company, users, organizations):
         item, _ = await ensure(
             db,
             Counterparty,
-            defaults={"phone": phone, "balance": dec(balance), "type": ctype, "deleted_at": None},
+            defaults={
+                "phone": phone,
+                "balance": dec(balance),
+                "type": ctype,
+                "deleted_at": None,
+                "scope_kind": "organization",
+                "company_id": None,
+            },
             update=True,
             full_name=name,
+            organization_id=org_of("Marjon Cafe").id,
         )
         counterparties[name] = item
 
+    # Контрагенты legacy-выгрузки, на которых проводки не ссылаются: scope
+    # остаётся прежним (legacy). Триггер их не смотрит — он проверяет только
+    # контрагента конкретной проводки, — а менять их видимость эта правка
+    # не должна.
     for name, phone, ctype, balance in [
-        ("Admin 01", "+998900000001", "employee", 0),
-        ("Поставщик", "+998900000002", "provider", 0),
         ("Bek choyxonasi", "+998900000003", "client", 0),
         ("XAM XAM KAFE", "+998900000004", "client", 0),
         ("SHANARAQ 2", "+998900000005", "client", 0),
@@ -1747,6 +1776,33 @@ async def seed_finance_and_subscription(db, company, users, organizations):
             full_name=name,
         )
         counterparties[name] = item
+
+    # Admin 01 и Поставщик встречаются в проводках нескольких филиалов, а
+    # organization-scope допускает ровно одну организацию на строку. Системного
+    # scope у контрагента нет, поэтому заводим по копии на филиал; ключ в
+    # counterparties — (имя, филиал), как и в ссылках legacy_tx_rows.
+    for name, phone, ctype, balance, org_names in [
+        ("Admin 01", "+998900000001", "employee", 0,
+         ("Нурафшон филиал", "Наманган филиал", "Фарғона филиал")),
+        ("Поставщик", "+998900000002", "provider", 0, ("Наманган филиал",)),
+    ]:
+        for org_name in org_names:
+            item, _ = await ensure(
+                db,
+                Counterparty,
+                defaults={
+                    "phone": phone,
+                    "balance": dec(balance),
+                    "type": ctype,
+                    "deleted_at": None,
+                    "scope_kind": "organization",
+                    "company_id": None,
+                },
+                update=True,
+                full_name=name,
+                organization_id=org_of(org_name).id,
+            )
+            counterparties[(name, org_name)] = item
 
     tx_rows = [
         ("seed-fin-income-001", 385000, "income", "cash", "Aziza Karimova", "Продажи", 0, "Продажи за завтрак"),
@@ -1782,7 +1838,12 @@ async def seed_finance_and_subscription(db, company, users, organizations):
             defaults={
                 "status": "created",
                 "date": tx.date,
-                "company_id": company.id,
+                # BI-05A: у записи истории ровно один владелец
+                # (CHECK ck_fin_history_ownership). Проводка привязана к
+                # организации, поэтому и история organization-scoped —
+                # как в FinanceService (finance/service.py:357).
+                "scope_kind": "organization",
+                "company_id": None,
                 "organization_id": organizations["Marjon Cafe"].id,
                 "new_amount": tx.amount,
                 "old_amount": dec(0),
@@ -1810,7 +1871,7 @@ async def seed_finance_and_subscription(db, company, users, organizations):
     ]
     for key, tx_date, signed_amount, payment_type, counterparty, category, organization_name, comment in legacy_tx_rows:
         direction = "expense" if signed_amount < 0 else "income"
-        counterparty_obj = counterparties.get(counterparty)
+        counterparty_obj = counterparties.get((counterparty, organization_name))
         tx, _ = await ensure(
             db,
             FinTransaction,
@@ -1835,7 +1896,9 @@ async def seed_finance_and_subscription(db, company, users, organizations):
             defaults={
                 "status": "created",
                 "date": tx.date,
-                "company_id": company.id,
+                # Тот же инвариант BI-05A, что и в блоке выше.
+                "scope_kind": "organization",
+                "company_id": None,
                 "organization_id": organizations.get(organization_name, organizations["Marjon Cafe"]).id,
                 "new_amount": tx.amount,
                 "old_amount": dec(0),
@@ -1850,7 +1913,7 @@ async def seed_finance_and_subscription(db, company, users, organizations):
     await ensure(
         db,
         FinanceTemplate,
-        defaults={"payload": {"direction": "expense", "category": "Закупка продуктов", "amount": 0}},
+        defaults={"payload": {"direction": "expense", "category": "Закупка продуктов", "amount": 0}, **system_scope},
         update=True,
         name="Закупка поставщика",
     )

@@ -205,6 +205,7 @@ function StaffRolePage({ role = "all" }) {
       can_edit_stop_list: !!form.canEditStopList,
       can_view_stop_list: !!form.canViewStopList,
       can_view_finance: !!form.canViewFinance,
+      can_view_z_report: !!form.canViewZReport,
       can_cash_ops: !!form.canCashOps,
       can_approve_attendance: !!form.canApproveAttendance,
       can_view_past_periods: !!form.canViewPastPeriods,

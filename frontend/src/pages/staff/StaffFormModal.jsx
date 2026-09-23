@@ -284,6 +284,17 @@ export default function StaffFormModal({
               <span>Просмотр финансов</span>
               <b className="staff-switch" aria-hidden="true" />
             </button>
+            {/* can_view_z_report — вкладка Z-отчёта на десктопе + гейт
+                GET /analytics/z-report. Дефолт OFF: без явного true бэкенд
+                отдаёт 403, а касса прячет вкладку. */}
+            <button
+              className={`staff-permission-switch ${form.canViewZReport ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canViewZReport")}
+            >
+              <span>Z-отчёт</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
             <button
               className={`staff-permission-switch ${form.canCashOps ? "is-on" : ""}`}
               type="button"

@@ -25,6 +25,10 @@ class Company(TimeStampedModel):
     cancel_password: Mapped[str | None] = mapped_column(String(64))
     # Доля обслуги, начисляемая официанту, % (для отчёта по официантам)
     waiter_service_percent: Mapped[int] = mapped_column(Integer, default=0)
+    # Час старта «операционного дня» (0–23) для сброса нумерации заказов.
+    # 0 = сброс в полночь (как раньше); 5 = день идёт с 05:00, заказы до 05:00
+    # относятся к прошлому дню. Локальное время — по timezone компании.
+    day_start_hour: Mapped[int] = mapped_column(Integer, default=0)
     # 2.5 — конфиг конструктора чека из веб-админки (какие блоки печатать,
     # тексты «спасибо»/подвала и т.п.). Читается форматтером ESC/POS при печати.
     # Форма см. frontend/src/api/receipt.js (buildCustomerTemplate/buildKitchenTemplate).

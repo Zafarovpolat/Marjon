@@ -51,6 +51,9 @@ export const emptyForm = {
   // (кассир стоп-лист и так видит), владелец может лишь ОГРАНИЧИТЬ.
   canViewStopList: true,
   canViewFinance: false,
+  // can_view_z_report — вкладка Z-отчёта на десктопе + гейт GET /analytics/z-report.
+  // Дефолт OFF: Z-отчёт видит только тот, кому владелец явно выдал право.
+  canViewZReport: false,
   canCashOps: false,
   // can_approve_attendance — приход/уход: must() на десктопе + гейт в hr/router.py.
   // can_view_past_periods — прошлые периоды: без него сервер отдаёт только сегодня.
@@ -74,6 +77,7 @@ export const getPermissionSummary = (values) => {
     values.canViewClosedOrders && "Просмотр закрытых заказов",
     values.canEditStopList && "Редактирование стоп-листа",
     values.canViewFinance && "Просмотр финансов",
+    values.canViewZReport && "Z-отчёт",
     values.canCashOps && "Приход/расход",
     values.canApproveAttendance && "Приход/уход сотрудников",
     values.canViewPastPeriods && "Прошлые периоды",
@@ -181,6 +185,7 @@ export function mapStaffUser(user) {
     canEditStopList: !!perm.can_edit_stop_list,
     canViewStopList: perm.can_view_stop_list !== false,
     canViewFinance: !!perm.can_view_finance,
+    canViewZReport: !!perm.can_view_z_report,
     canCashOps: !!perm.can_cash_ops,
     canApproveAttendance: !!perm.can_approve_attendance,
     canViewPastPeriods: !!perm.can_view_past_periods,
