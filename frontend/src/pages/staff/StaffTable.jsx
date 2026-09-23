@@ -1,4 +1,5 @@
 import Icon from "../../components/Icon";
+import ReportEmptyState from "../../components/ReportEmptyState";
 import staffDefaultAvatar from "../../assets/staff/staff-default-avatar.png";
 import { getPermissionSummary, roleMap } from "./staffConstants";
 import { formatPhone, inferPhoneCountry } from "./staffPhone";
@@ -138,9 +139,10 @@ export default function StaffTable({
               </tr>
             ))}
             {!staffLoading && !staffError && visibleStaff.length === 0 && (
-              <tr>
+              <tr className="staff-empty-row">
                 <td colSpan={8} className="staff-empty-cell">
-                  Сотрудники не найдены
+                  {/* Reports parity: same PNG illustration + centered message. */}
+                  <ReportEmptyState title="Сотрудники не найдены" />
                 </td>
               </tr>
             )}
