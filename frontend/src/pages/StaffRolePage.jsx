@@ -25,7 +25,11 @@ function StaffRolePage({ role = "all" }) {
   // MONOBLOCK-01: monoblock reuses the exact cashier/waiter product drawer
   // shell (1:1 MARJON oracle, 5 primary switches, detailed matrix below).
   const isMonoblockView = routeRole === "monoblock";
-  const isProductView = isCashierView || isWaiterView || isMonoblockView;
+  // MANAGER-STOREKEEPER-01: manager + warehouse join the same product Staff
+  // family (7 columns, no access column, Cashier-parity drawer matrix, no HR).
+  const isManagerView = routeRole === "manager";
+  const isWarehouseView = routeRole === "warehouse";
+  const isProductView = isCashierView || isWaiterView || isMonoblockView || isManagerView || isWarehouseView;
   const pageTitle =
     routeRole === "all" ? "Список сотрудников" : `Список сотрудников: ${roleMap[routeRole].title}`;
 
@@ -269,8 +273,24 @@ function StaffRolePage({ role = "all" }) {
     // Never fake an email. Edit path unchanged.
     // WAITER-01: same generic staff create, only role_slug differs (cashier/waiter).
     if (isProductView) {
-      const productRoleSlug = isWaiterView ? "waiter" : isMonoblockView ? "monoblock" : "cashier";
-      const productGenitive = isWaiterView ? "официанта" : isMonoblockView ? "моноблока" : "кассира";
+      const productRoleSlug = isWaiterView
+        ? "waiter"
+        : isMonoblockView
+          ? "monoblock"
+          : isManagerView
+            ? "manager"
+            : isWarehouseView
+              ? "warehouse"
+              : "cashier";
+      const productGenitive = isWaiterView
+        ? "официанта"
+        : isMonoblockView
+          ? "моноблока"
+          : isManagerView
+            ? "менеджера"
+            : isWarehouseView
+              ? "завсклада"
+              : "кассира";
       const productName = form.fullName.trim();
       if (!productName || !phone) {
         // FIX-03: bind to the missing field so the message renders under
@@ -490,6 +510,8 @@ function StaffRolePage({ role = "all" }) {
           isCashier={isCashierView}
           isWaiter={isWaiterView}
           isMonoblock={isMonoblockView}
+          isManager={isManagerView}
+          isWarehouse={isWarehouseView}
         />
       </section>
 
@@ -512,6 +534,8 @@ function StaffRolePage({ role = "all" }) {
           isCashier={isCashierView}
           isWaiter={isWaiterView}
           isMonoblock={isMonoblockView}
+          isManager={isManagerView}
+          isWarehouse={isWarehouseView}
           closing={modalClosing}
           saveError={saveError}
           saveErrorField={saveErrorField}

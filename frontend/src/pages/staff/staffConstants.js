@@ -75,6 +75,15 @@ export const monoblockSwitchFields = [
   "canPrintCancel",
 ];
 
+// CASHIER-PARITY-01 (Phase 1): manager + warehouse reuse the exact Cashier
+// permission matrix source (staffAccessModules below, all 50 modules, same
+// count/text/order). No role-specific curated lists: the previous
+// managerMatrixModules / warehouseMatrixModules subsets were removed as the
+// wrong contract. Matrix switches stay FRONTEND PREPARED ONLY
+// (BACKEND_HANDOFF_REQUIRED): interactive drawer state, never sent to
+// backend, never stored in localStorage/sessionStorage. HR deliberately
+// excluded (REFERENCE_ELEMENT_REJECTED) — staffAccessModules has no HR key.
+
 export const staffAccessModules = [
   { key: "home", label: "Главная" },
   { key: "warehouse_stock", label: "Склады (Остаток товаров)" },
