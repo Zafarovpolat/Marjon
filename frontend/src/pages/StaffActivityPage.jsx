@@ -1,45 +1,60 @@
 import { useEffect, useState } from "react";
 import { staffService } from "../api/staff";
-import Icon from "../components/Icon";
-import { exportToExcel } from "../utils/excel";
+import ReportEmptyState from "../components/ReportEmptyState";
 import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 
+// STAFF-JOURNAL-01: login history (6-col contract) and attendance (7-col
+// contract) share the Staff subcategory product shell. Both are read-only
+// journals: backend truth only, honest "—" placeholders (BACKEND HANDOFF),
+// no fake enrichment, no drawers, no action buttons.
 function StaffActivityPage({ type = "login-history" }) {
   const isAttendance = type === "attendance";
   const title = isAttendance ? "Посещаемость" : "История входа";
   const eyebrow = isAttendance ? "Смены сотрудников" : "Безопасность";
   const [loginRows, setLoginRows] = useState([]);
   const [shiftRows, setShiftRows] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const beginRequest = useLatestRequest();
 
   useEffect(() => {
     const request = beginRequest();
     setError("");
+    setLoading(true);
     staffService.listActivity(type, { signal: request.signal })
       .then(({ data }) => {
         if (!request.isCurrent()) return;
         const items = Array.isArray(data) ? data : data?.items || [];
         if (isAttendance) {
           setShiftRows(items.map((item) => ({
+              // BACKEND HANDOFF: open shifts have no end/hours yet — honest "—",
+              // never fabricated checkout time or recalculated duration.
               date: item.date || "",
               employee: item.employee_name || item.employee || "",
               role: item.role || "",
               start: item.start_time || item.start || "",
-              end: item.end_time || item.end || "",
-              hours: item.hours || "",
+              end: item.end_time || item.end || "—",
+              hours: item.hours || "—",
               status: item.status || "—",
             })));
         } else {
-          setLoginRows(items.map((item) => ({
-              date: item.date || "",
-              employee: item.employee_name || item.employee || "",
+          setLoginRows(items.map((item) => {
+            // Дата и время входа: truthful composition of backend date +
+            // login parts only; nothing manufactured, no timezone conversion.
+            const when = [item.date, item.login]
+              .map((part) => (part || "").trim())
+              .filter(Boolean)
+              .join(" ");
+            return {
+              employee: item.employee || "",
               role: item.role || "",
-              device: item.device || `${item.ip || ""} / ${item.device_name || ""}`,
-              login: item.login_time || item.login || "",
-              logout: item.logout_time || item.logout || "",
-              status: item.status || "—",
-            })));
+              // BACKEND HANDOFF: login-history rows carry no phone/IP.
+              phone: "—",
+              datetime: when || "—",
+              device: item.device || "—",
+              ip: "—",
+            };
+          }));
         }
       })
       .catch((err) => {
@@ -47,16 +62,19 @@ function StaffActivityPage({ type = "login-history" }) {
         if (isAttendance) setShiftRows([]);
         else setLoginRows([]);
         setError("Не удалось загрузить данные активности сотрудников.");
-      });
+      })
+      .finally(() => { if (request.isCurrent()) setLoading(false); });
   }, [beginRequest, isAttendance, type]);
 
   const displayLoginRows = loginRows;
   const displayAttendanceRows = shiftRows;
 
   return (
-    <div className="staff-page">
-      <section className="staff-card">
-        <header className="staff-header">
+    // Both journals use the Staff subcategory product shell (same classes as
+    // Официант et al): title + table only, no action buttons.
+    <div className="staff-page staff-page--cashier">
+      <section className="staff-card staff-card--cashier">
+        <header className="staff-header staff-header--cashier">
           <div className="staff-header__title">
             <span className="staff-header__accent" aria-hidden="true" />
             <div>
@@ -64,105 +82,82 @@ function StaffActivityPage({ type = "login-history" }) {
               <h1>{title}</h1>
             </div>
           </div>
-          <button
-            className="staff-add-button staff-add-button--ghost"
-            type="button"
-            onClick={() => {
-              if (isAttendance) {
-                exportToExcel(displayAttendanceRows, [
-                  { key: "date", label: "Дата" },
-                  { key: "employee", label: "Сотрудник" },
-                  { key: "role", label: "Роль" },
-                  { key: "start", label: "Начало смены" },
-                  { key: "end", label: "Конец смены" },
-                  { key: "hours", label: "Часы" },
-                  { key: "status", label: "Статус" },
-                ], "staff-attendance");
-              } else {
-                exportToExcel(displayLoginRows, [
-                  { key: "date", label: "Дата" },
-                  { key: "employee", label: "Сотрудник" },
-                  { key: "role", label: "Роль" },
-                  { key: "device", label: "Устройство" },
-                  { key: "login", label: "Вход" },
-                  { key: "logout", label: "Выход" },
-                  { key: "status", label: "Статус" },
-                ], "staff-login-history");
-              }
-            }}
-          >
-            <Icon name="bi-file-earmark-spreadsheet" size={18} />
-            Скачать Excel
-          </button>
         </header>
 
         {error ? <div className="login-error" role="alert">{error}</div> : null}
+        {loading && !error ? (
+          <div className="staff-empty-cell" role="status">
+            {isAttendance ? "Загрузка посещаемости..." : "Загрузка истории входов..."}
+          </div>
+        ) : null}
         <div className="staff-table-wrapper">
           {isAttendance ? (
-            <table className="staff-table">
+            <table className="staff-table staff-table--attendance">
               <thead>
                 <tr>
-                  <th>Дата</th>
                   <th>Сотрудник</th>
                   <th>Роль</th>
-                  <th>Начало смены</th>
-                  <th>Конец смены</th>
-                  <th>Отработано часов</th>
+                  <th>Дата</th>
+                  <th>Время прихода</th>
+                  <th>Время ухода</th>
+                  <th>Отработано</th>
                   <th>Статус</th>
                 </tr>
               </thead>
               <tbody>
-                {displayAttendanceRows.map((row) => (
-                  <tr key={`${row.date}-${row.employee}`}>
-                    <td>{row.date}</td>
+                {displayAttendanceRows.map((row, index) => (
+                  <tr key={`${row.employee}-${row.date}-${row.start}-${index}`}>
                     <td className="staff-name-cell">{row.employee}</td>
                     <td>
                       <span className="staff-role-badge">{row.role}</span>
                     </td>
+                    <td>{row.date}</td>
                     <td>{row.start}</td>
                     <td>{row.end}</td>
                     <td>{row.hours}</td>
-                    <td>
-                      <span className="staff-status-badge">{row.status}</span>
-                    </td>
+                    <td>{row.status}</td>
                   </tr>
                 ))}
-                {!error && !displayAttendanceRows.length ? (
-                  <tr><td colSpan="7">Данных о посещаемости пока нет.</td></tr>
+                {!loading && !error && !displayAttendanceRows.length ? (
+                  <tr className="staff-empty-row">
+                    <td colSpan={7} className="staff-empty-cell">
+                      <ReportEmptyState title="Данных о посещаемости пока нет." />
+                    </td>
+                  </tr>
                 ) : null}
               </tbody>
             </table>
           ) : (
-            <table className="staff-table">
+            <table className="staff-table staff-table--login-history">
               <thead>
                 <tr>
-                  <th>Дата</th>
                   <th>Сотрудник</th>
                   <th>Роль</th>
-                  <th>IP / устройство</th>
-                  <th>Время входа</th>
-                  <th>Время выхода</th>
-                  <th>Статус</th>
+                  <th>Телефон</th>
+                  <th>Дата и время входа</th>
+                  <th>Устройство</th>
+                  <th>IP устройство</th>
                 </tr>
               </thead>
               <tbody>
-                {displayLoginRows.map((row) => (
-                  <tr key={`${row.date}-${row.employee}-${row.login}`}>
-                    <td>{row.date}</td>
+                {displayLoginRows.map((row, index) => (
+                  <tr key={`${row.employee}-${row.datetime}-${index}`}>
                     <td className="staff-name-cell">{row.employee}</td>
                     <td>
                       <span className="staff-role-badge">{row.role}</span>
                     </td>
+                    <td>{row.phone}</td>
+                    <td>{row.datetime}</td>
                     <td>{row.device}</td>
-                    <td>{row.login}</td>
-                    <td>{row.logout}</td>
-                    <td>
-                      <span className="staff-status-badge">{row.status}</span>
-                    </td>
+                    <td>{row.ip}</td>
                   </tr>
                 ))}
-                {!error && !displayLoginRows.length ? (
-                  <tr><td colSpan="7">Истории входов пока нет.</td></tr>
+                {!loading && !error && !displayLoginRows.length ? (
+                  <tr className="staff-empty-row">
+                    <td colSpan={6} className="staff-empty-cell">
+                      <ReportEmptyState title="Истории входов пока нет." />
+                    </td>
+                  </tr>
                 ) : null}
               </tbody>
             </table>
