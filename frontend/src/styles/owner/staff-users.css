@@ -1204,3 +1204,11 @@ body.dashboard-body:has(.staff-modal--cashier-full) .staff-modal.staff-modal--ca
     padding: 0;
     background: #fff;
 }
+
+/* MANAGER-STOREKEEPER-01: 7-column roles omit the access column (genuinely 7
+   columns, no invisible placeholder). Center the 7th-cell actions so the
+   Действия column keeps the 8-column product geometry. Scoped to the
+   no-access modifier only; cashier/waiter/monoblock untouched. */
+.staff-card--cashier .staff-table--no-access td:nth-child(7) .staff-actions {
+    justify-content: center;
+}

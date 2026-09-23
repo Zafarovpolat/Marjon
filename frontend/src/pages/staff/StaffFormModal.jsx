@@ -44,6 +44,10 @@ export default function StaffFormModal({
   isWaiter = false,
   // MONOBLOCK-01: monoblock reuses the same product drawer shell.
   isMonoblock = false,
+  // MANAGER-STOREKEEPER-01: manager/warehouse reuse the product drawer shell
+  // (7-col roles, exact Cashier matrix per CASHIER-PARITY-01, no HR, no printer IP).
+  isManager = false,
+  isWarehouse = false,
   closing = false,
   // Cashier drawer inline submit error (no browser-native popups on this path).
   saveError = "",
@@ -54,15 +58,65 @@ export default function StaffFormModal({
   const phoneInputRef = useRef(null);
   // WAITER-01: same drawer shell for cashier + waiter; only role strings + switch list differ.
   // MONOBLOCK-01: monoblock shares the shell with role-aware strings/switches.
-  const isProductDrawer = isCashier || isWaiter || isMonoblock;
+  // MANAGER-STOREKEEPER-01: manager/warehouse share the shell; primary
+  // switches collapse to Статус only, matrix mirrors Cashier 1:1 (FRONTEND ONLY).
+  const isProductDrawer = isCashier || isWaiter || isMonoblock || isManager || isWarehouse;
   if (isProductDrawer) {
     const isWaiterView = isWaiter;
     const isMonoblockView = isMonoblock;
-    const addTitle = isWaiterView ? "Добавить официанта" : isMonoblockView ? "Добавить моноблок" : "Добавить кассира";
-    const editTitle = isWaiterView ? "Изменить официанта" : isMonoblockView ? "Изменить моноблок" : "Изменить кассира";
-    const namePlaceholder = isWaiterView ? "Имя официанта" : isMonoblockView ? "Имя моноблока" : "Имя кассира";
-    const photoAlt = isWaiterView ? "Фото официанта" : isMonoblockView ? "Фото моноблока" : "Фото кассира";
-    const formKeyPrefix = isWaiterView ? "waiter" : isMonoblockView ? "monoblock" : "cashier";
+    const isManagerView = isManager;
+    const isWarehouseView = isWarehouse;
+    const isCuratedView = isManagerView || isWarehouseView;
+    const addTitle = isWaiterView
+      ? "Добавить официанта"
+      : isMonoblockView
+        ? "Добавить моноблок"
+        : isManagerView
+          ? "Добавить менеджера"
+          : isWarehouseView
+            ? "Добавить завсклада"
+            : "Добавить кассира";
+    const editTitle = isWaiterView
+      ? "Изменить официанта"
+      : isMonoblockView
+        ? "Изменить моноблок"
+        : isManagerView
+          ? "Изменить менеджера"
+          : isWarehouseView
+            ? "Изменить завсклада"
+            : "Изменить кассира";
+    const namePlaceholder = isWaiterView
+      ? "Имя официанта"
+      : isMonoblockView
+        ? "Имя моноблока"
+        : isManagerView
+          ? "Имя менеджера"
+          : isWarehouseView
+            ? "Имя завсклада"
+            : "Имя кассира";
+    const photoAlt = isWaiterView
+      ? "Фото официанта"
+      : isMonoblockView
+        ? "Фото моноблока"
+        : isManagerView
+          ? "Фото менеджера"
+          : isWarehouseView
+            ? "Фото завсклада"
+            : "Фото кассира";
+    const formKeyPrefix = isWaiterView
+      ? "waiter"
+      : isMonoblockView
+        ? "monoblock"
+        : isManagerView
+          ? "manager"
+          : isWarehouseView
+            ? "warehouse"
+            : "cashier";
+    // CASHIER-PARITY-01 (Phase 1): every product drawer — cashier, waiter,
+    // monoblock, manager, warehouse — renders the SAME staffAccessModules
+    // matrix (same count/text/order). No HR key exists in config; nothing
+    // added. Matrix switches stay FRONTEND PREPARED ONLY (BACKEND_HANDOFF).
+    const matrixModules = staffAccessModules;
     const cashierCountry = phoneCountryMap[form.phoneCountry || "UZ"] || phoneCountryMap.UZ;
     // Display-only formatting: state keeps raw normalized digits, the input
     // shows (XX) XXX-XX-XX. Caret is remapped by digit count so Backspace and
@@ -104,6 +158,10 @@ export default function StaffFormModal({
               <Icon name="bi-x-lg" size={20} />
             </button>
           </div>
+          {/* MANAGER-STOREKEEPER-01: staff photo upload is backend-unsupported
+              (only self-photo exists). Manager/warehouse drawers show the
+              truthful placeholder/avatar with no upload control, so no fake
+              persistence is implied. Payload never carries photo. */}
           <div className="cashier-photo">
             <div className="staff-avatar staff-avatar--large">
               {form.photo ? (
@@ -114,11 +172,13 @@ export default function StaffFormModal({
             </div>
             <div className="cashier-photo__body">
               <span>Фото</span>
+              {isCuratedView ? null : (
               <label className="cashier-photo__upload">
                 <Icon name="bi-camera" size={16} />
                 Загрузить фото
                 <input type="file" accept="image/*" onChange={handlePhotoChange} aria-label="Загрузить фото" />
               </label>
+              )}
             </div>
           </div>
 
@@ -219,6 +279,7 @@ export default function StaffFormModal({
                 <small className="muted">Оставьте пустым, чтобы не менять пароль.</small>
               ) : null}
             </label>
+            {isCuratedView ? null : (
             <label>
               <span>IP адрес принтера</span>
               <input
@@ -229,6 +290,7 @@ export default function StaffFormModal({
                 placeholder="192.168.1.10"
               />
             </label>
+            )}
           </div>
 
           <div className="cashier-permissions">
@@ -246,7 +308,7 @@ export default function StaffFormModal({
               <i>{form.status === "active" ? "Активный" : "Архив"}</i>
               <b className="staff-switch" aria-hidden="true" />
             </button>
-            {isMonoblockView ? null : (
+            {isMonoblockView || isCuratedView ? null : (
             <button
               className={`staff-permission-switch ${form.canDeleteDishes ? "is-on" : ""}`}
               type="button"
@@ -270,7 +332,7 @@ export default function StaffFormModal({
               <b className="staff-switch" aria-hidden="true" />
             </button>
             ) : null}
-            {isMonoblockView ? null : (
+            {isMonoblockView || isCuratedView ? null : (
             <button
               className={`staff-permission-switch ${form.canTakeawayAtTable ? "is-on" : ""}`}
               type="button"
@@ -282,7 +344,7 @@ export default function StaffFormModal({
               <b className="staff-switch" aria-hidden="true" />
             </button>
             )}
-            {isMonoblockView ? null : (
+            {isMonoblockView || isCuratedView ? null : (
             <button
               className={`staff-permission-switch ${form.canChangeOrderType ? "is-on" : ""}`}
               type="button"
@@ -338,7 +400,7 @@ export default function StaffFormModal({
             </button>
             </>
             ) : null}
-            {isWaiterView || isMonoblockView ? null : (
+            {isWaiterView || isMonoblockView || isCuratedView ? null : (
             <>
             <button
               className={`staff-permission-switch ${form.canCloseBill ? "is-on" : ""}`}
@@ -373,8 +435,11 @@ export default function StaffFormModal({
             </>
             )}
             </div>
+            {/* Secondary rows use the shared Cashier collapse mechanism:
+                OFF = collapsed/hidden (zero height), ON = revealed. Same for
+                every product role; no role-specific visibility system. */}
             <div className="staff-permission-matrix">
-              {staffAccessModules.map((module) => {
+              {matrixModules.map((module) => {
                 const moduleAccess = form.access?.[module.key] || {};
                 const actions =
                   module.key === "order_types" ? staffOrderTypeActions : staffAccessActions;

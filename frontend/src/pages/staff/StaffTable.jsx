@@ -23,14 +23,19 @@ export default function StaffTable({
   // MONOBLOCK-01: monoblock reuses the same product presentation; its
   // access cell stays the generic summary (no persisted grants on record).
   isMonoblock = false,
+  // MANAGER-STOREKEEPER-01: manager/warehouse reuse the product presentation
+  // but drop the access column entirely (7 columns, no invisible placeholder).
+  isManager = false,
+  isWarehouse = false,
 }) {
-  const isProduct = isCashier || isWaiter || isMonoblock;
+  const isProduct = isCashier || isWaiter || isMonoblock || isManager || isWarehouse;
+  const showAccess = !(isManager || isWarehouse);
   return (
     <>
       {staffLoading ? <div className="staff-empty-cell" role="status">Загрузка сотрудников...</div> : null}
       {staffError ? <div className="login-error" role="alert">{staffError}</div> : null}
       <div className="staff-table-wrapper">
-        <table className="staff-table">
+        <table className={`staff-table${showAccess ? "" : " staff-table--no-access"}`}>
           <thead>
             <tr>
               <th>ID</th>
@@ -38,7 +43,7 @@ export default function StaffTable({
               <th>ФИО</th>
               <th>Номер телефона</th>
               <th>Роль</th>
-              <th>Права доступа</th>
+              {showAccess ? <th>Права доступа</th> : null}
               <th>Статус</th>
               <th>Действия</th>
             </tr>
@@ -65,6 +70,7 @@ export default function StaffTable({
                     {roleMap[employee.roleKey]?.label || employee.roleKey}
                   </span>
                 </td>
+                {showAccess ? (
                 <td>
                   {isWaiter ? (
                     // WAITER access column shows ONLY delete-dishes truth.
@@ -113,6 +119,7 @@ export default function StaffTable({
                     </span>
                   )}
                 </td>
+                ) : null}
                 <td>
                   {isProduct ? (
                     <span
@@ -173,7 +180,7 @@ export default function StaffTable({
             ))}
             {!staffLoading && !staffError && visibleStaff.length === 0 && (
               <tr className="staff-empty-row">
-                <td colSpan={8} className="staff-empty-cell">
+                <td colSpan={showAccess ? 8 : 7} className="staff-empty-cell">
                   {/* Reports parity: same PNG illustration + centered message. */}
                   <ReportEmptyState title="Сотрудники не найдены" />
                 </td>
