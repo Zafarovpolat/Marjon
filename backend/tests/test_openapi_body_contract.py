@@ -15,10 +15,6 @@ REQUIRED_BODY_ROUTES = {
     "/api/v1/auth/login": "LoginRequest",
     "/api/v1/auth/admin/login": "LoginRequest",
     "/api/v1/auth/pin-login": "PinLoginRequest",
-    # Наши эндпоинты кассы тоже под rate-limit, а тест ниже требует полного
-    # совпадения множеств: любой @limiter.limit обязан быть в этой карте.
-    "/api/v1/auth/refresh": "RefreshRequest",
-    "/api/v1/auth/branch-login": "BranchLoginRequest",
     "/api/v1/pos/orders": "OrderCreate",
 }
 

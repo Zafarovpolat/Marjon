@@ -139,9 +139,11 @@ def test_k_n_route_table_has_one_canonical_contract_per_method_path() -> None:
             rows.append((method, route.path_format, route))
 
     counts = Counter((method, path) for method, path, _ in rows)
-    # 453 -> 470: the desktop/terminal routers merged into this app add
-    # method-paths; the no-duplicate invariant below is what this guards
-    assert len(rows) == len(counts) == 470
+    # 458 (upstream) + 8 восстановленных premerge-эндпоинтов (decision A):
+    # inventory modifier-groups CRUD (POST/PATCH/DELETE) + product modifier-groups
+    # list + product availability/limit тумблеры + POS item move/waiter. Дубликатов
+    # (method,path) по-прежнему нет — проверяется строкой ниже.
+    assert len(rows) == len(counts) == 466
     assert not [key for key, count in counts.items() if count > 1]
 
     expected = {
@@ -153,9 +155,13 @@ def test_k_n_route_table_has_one_canonical_contract_per_method_path() -> None:
         "/api/v1/reports/tables": "tables_report",
         "/api/v1/reports/tables/filters": "tables_report_filters",
         "/api/v1/reports/waiters": "waiters_report",
+        "/api/v1/reports/waiters/filters": "waiters_report_filters",
         "/api/v1/reports/dishes": "dishes_report",
         "/api/v1/reports/dishes/filters": "dishes_report_filters",
         "/api/v1/reports/cancelled": "cancelled_report",
+        "/api/v1/analytics/z-report": "z_report",
+        "/api/v1/analytics/z-report/detail": "z_report_detail",
+        "/api/v1/analytics/z-report/detail/filters": "z_report_detail_filters",
         "/api/v1/organizations": "list_organizations_directory",
     }
     by_path = defaultdict(list)
@@ -166,8 +172,7 @@ def test_k_n_route_table_has_one_canonical_contract_per_method_path() -> None:
         assert by_path[path] == [handler]
 
     schema = app.openapi()
-    # 247 -> 264: same merge as the route-table count above
-    assert len(schema["paths"]) == 264
+    assert len(schema["paths"]) == 259
     for path, handler in expected.items():
         route = next(
             route

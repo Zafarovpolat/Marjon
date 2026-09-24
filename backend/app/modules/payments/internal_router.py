@@ -1,8 +1,7 @@
 from __future__ import annotations
-import hashlib
-import hmac
-import logging
+from datetime import datetime, timezone
 from decimal import Decimal
+import hashlib
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
@@ -12,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.infrastructure.database.session import get_db
-from app.modules.audit.service import AuditService
 from app.modules.finance.idempotency import (
     OP_PAYMENT_WEBHOOK_CONFIRM,
     SCOPE_COMPANY,
@@ -26,15 +24,11 @@ from app.modules.payments.models import Payment
 from app.modules.pos.models import Order
 from app.modules.kitchen.websocket import kitchen_manager
 
-logger = logging.getLogger(__name__)
-
 router = APIRouter(prefix="/internal", tags=["internal"])
 
 
 def verify_secret(x_webhook_secret: str = Header(...)) -> None:
-    expected = settings.webhook_secret
-    # Fail-closed при незаданном секрете; сравнение constant-time (защита от тайминг-атак).
-    if not expected or not hmac.compare_digest(x_webhook_secret, expected):
+    if x_webhook_secret != settings.webhook_secret:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
 
@@ -159,26 +153,13 @@ async def payment_webhook(
         except Exception:
             pass
 
-        # Фискализация уже назначена выше (fiscal.schedule_payment) — здесь
-        # только журнал аудита: онлайн-оплата не должна его обходить.
-        try:
-            await AuditService(db).log(
-                order.company_id,
-                payment.cashier_id,
-                "payment.complete.gateway", "payment",
-                entity_id=payment.id,
-                new_data={
-                    "order_id": str(order.id),
-                    "amount": str(payment.amount),
-                    "method": payment.method,
-                },
-            )
-        except Exception:
-            logger.exception("Аудит не удался для payment %s", payment.id)
-
     elif data.action == "cancel":
         if order.status == "completed":
             order.status = "cancelled"
+            # Phase 1A system cancellation: no authenticated user, so
+            # cancelled_by_id stays NULL. Fill cancelled_at idempotently.
+            if getattr(order, "cancelled_at", None) is None:
+                order.cancelled_at = datetime.now(timezone.utc)
             db.add(order)
             await db.commit()
 

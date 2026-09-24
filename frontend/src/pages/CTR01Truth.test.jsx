@@ -9,7 +9,7 @@ import OrdersReportPage from "./OrdersReportPage";
 import OwnerDashboard from "./OwnerDashboard";
 import TablesReportPage from "./TablesReportPage";
 import WaitersReportPage from "./WaitersReportPage";
-import ZReportPage, { buildPrintDocument } from "./ZReportPage";
+import ZReportPage, { formatZReportPeriodLabel, validateZReportPeriod } from "./ZReportPage";
 
 vi.mock("../api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
@@ -19,14 +19,18 @@ vi.mock("../api/client", () => ({
 
 vi.mock("../utils/excel", () => ({ exportToExcel: vi.fn() }));
 
-vi.mock("../components/ReportDateRangePicker", () => ({
-  default: ({ value, onChange }) => (
-    <div>
-      <input aria-label="Начало периода" value={value?.start || ""} onChange={(event) => onChange({ ...value, start: event.target.value })} />
-      <input aria-label="Конец периода" value={value?.end || ""} onChange={(event) => onChange({ ...value, end: event.target.value })} />
-    </div>
-  ),
-}));
+vi.mock("../components/ReportDateRangePicker", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    default: ({ value, onChange }) => (
+      <div>
+        <input aria-label="Начало периода" value={value?.start || ""} onChange={(event) => onChange({ ...value, start: event.target.value })} />
+        <input aria-label="Конец периода" value={value?.end || ""} onChange={(event) => onChange({ ...value, end: event.target.value })} />
+      </div>
+    ),
+  };
+});
 
 vi.mock("react-router-dom", () => ({
   Link: ({ children, to, ...props }) => <a href={to} {...props}>{children}</a>,
@@ -81,39 +85,47 @@ describe("CTR-01 critical financial truth", () => {
     api.patch.mockResolvedValue({ data: {} });
   });
 
-  it("loads the Z-report from the authoritative endpoint for the selected date and enables the whole-shift print", async () => {
+  // ALIGNMENT-03: the whole-shift "Печать общего Z-отчёта" action was removed, so
+  // this page no longer loads /analytics/z-report at all. Per-entity print is the
+  // only print here, and its request semantics (date vs date_from/date_to) are
+  // pinned in ZReportPage.test.jsx against /analytics/z-report/detail.
+  it("no longer loads the general Z-report or offers a whole-shift print", async () => {
     api.get.mockResolvedValue({ data: zReport });
     render(<ZReportPage />);
+    await screen.findByRole("button", { name: "Отчёт по официантам" });
 
-    // Generator page no longer renders the raw shift table; the real
-    // authoritative report drives the whole-shift print (enabled once loaded).
-    // Print-document values are covered by the buildPrintDocument test below.
-    const shiftPrint = await screen.findByRole("button", { name: /Печать общего Z-отчёта/ });
-    await waitFor(() => expect(shiftPrint).toBeEnabled());
-    fireEvent.change(screen.getByLabelText("Дата Z-отчёта"), { target: { value: "2026-08-13" } });
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/analytics/z-report", expect.objectContaining({ params: { date: "2026-08-13" }, signal: expect.any(AbortSignal) })));
+    expect(screen.queryByRole("button", { name: /Печать общего Z-отчёта/ })).toBeNull();
+    fireEvent.change(screen.getByLabelText("Начало периода"), { target: { value: "01.08.2026" } });
+    fireEvent.change(screen.getByLabelText("Конец периода"), { target: { value: "31.08.2026" } });
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/auth/staff-users", expect.anything()));
+    expect(api.get.mock.calls.some((call) => call[0] === "/analytics/z-report")).toBe(false);
     expect(screen.queryByText(/Смена закрыта/)).not.toBeInTheDocument();
   });
 
-  it("keeps Z-report loading and error distinct and disables the whole-shift print after failure", async () => {
-    let rejectRequest;
-    api.get.mockReturnValue(new Promise((_, reject) => { rejectRequest = reject; }));
-    render(<ZReportPage />);
-    const shiftPrint = screen.getByRole("button", { name: /Печать общего Z-отчёта/ });
-    expect(shiftPrint).toBeDisabled();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    await act(async () => rejectRequest({ response: { status: 403 } }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Доступ к Z-отчёту запрещён");
-    expect(screen.getByRole("button", { name: /Печать общего Z-отчёта/ })).toBeDisabled();
+  it("formats and validates the applied Z-report period", () => {
+    expect(formatZReportPeriodLabel({ start: "24.08.2026", end: "24.08.2026" })).toBe("24.08.2026");
+    expect(formatZReportPeriodLabel({ start: "01.08.2026", end: "24.08.2026" })).toBe("01.08.2026 – 24.08.2026");
+    expect(validateZReportPeriod({ start: "24.08.2026", end: "23.08.2026" })).toMatch(/начала/);
+    expect(validateZReportPeriod({ start: "01.08.2026", end: "24.08.2026" })).toBe("");
   });
 
-  it("builds Z-report print output only from the loaded authoritative response", () => {
-    const html = buildPrintDocument(zReport);
-    expect(html).toContain("Backend card");
-    expect(html).toContain("123");
-    expect(html).not.toContain("КАССА 2");
-    expect(html).not.toContain("Khusniddin");
-    expect(html).not.toContain("Administrator");
+  it("enables the waiter percentage only while a waiter is selected", async () => {
+    api.get.mockImplementation((path) => {
+      if (path === "/analytics/z-report") return Promise.resolve({ data: zReport });
+      if (path === "/auth/staff-users") return Promise.resolve({ data: [{ id: "waiter-1", name: "Backend Waiter", role_slugs: ["waiter"] }] });
+      return Promise.resolve({ data: [] });
+    });
+    render(<ZReportPage />);
+
+    const percent = screen.getByRole("spinbutton", { name: "Процент официанта" });
+    expect(percent).toBeDisabled();
+    fireEvent.click(await screen.findByRole("button", { name: "Отчёт по официантам" }));
+    fireEvent.click(screen.getByRole("option", { name: "Backend Waiter" }));
+    expect(percent).toBeEnabled();
+    fireEvent.change(percent, { target: { value: "15" } });
+    expect(percent).toHaveValue(15);
+    fireEvent.click(screen.getByRole("option", { name: "Backend Waiter" }));
+    expect(percent).toBeDisabled();
   });
 
   it("preserves real dashboard finance amounts without fabricated finance deltas", async () => {
@@ -136,37 +148,126 @@ describe("CTR-01 critical financial truth", () => {
     expect(within(expenseCard).queryByText(/к вчерашнему дню/)).not.toBeInTheDocument();
   });
 
+  // Accepted Orders browser contract: the visible UI carries EXACTLY eight
+  // business columns. Тип and Кассир render from the real report contract
+  // (order_type label map, cashier_names join — never waiter-as-cashier,
+  // never fabricated); ID/Цена обслуживания/Тип оплаты stay Excel-only and
+  // out of the visible table.
   it("renders only frozen Orders report fields", async () => {
-    api.get.mockResolvedValue({ data: [{ order_id: "order-1", order_number: "42", created_at: "2026-08-12T10:00:00Z", status: "completed", table_number: "7", waiter_name: "Backend Waiter", items_count: 3, total_amount: 900 }] });
+    api.get.mockResolvedValue({ data: [{ order_id: "order-1", order_number: "42", created_at: "2026-08-12T10:00:00Z", status: "completed", table_number: "7", waiter_name: "Backend Waiter", items_count: 3, total_amount: 900, order_type: "dine_in", cashier_names: ["Backend Cashier"], service_fee: 90, payment_methods: ["cash"] }] });
     render(<OrdersReportPage />);
     expect((await screen.findAllByText("Backend Waiter")).length).toBeGreaterThan(0);
-    ["Клиент", "Курьер", "Цена товаров", "Цена места", "Скидка", "Цена доставки", "Цена обслуживания", "Тип заказа"].forEach((label) => expect(screen.queryByRole("columnheader", { name: label })).not.toBeInTheDocument());
-    expect(screen.getByRole("columnheader", { name: "Количество позиций" })).toBeInTheDocument();
+    ["Номер заказа", "Тип", "Дата", "Место", "Цена всего", "Официант", "Кассир", "Статус"].forEach((label) => expect(screen.getByRole("columnheader", { name: label })).toBeInTheDocument());
+    ["Клиент", "Курьер", "Цена товаров", "Цена места", "Скидка", "Цена доставки", "Цена обслуживания", "Тип оплаты", "ID заказа", "ID", "Количество позиций", "Итоговая сумма"].forEach((label) => expect(screen.queryByRole("columnheader", { name: label })).not.toBeInTheDocument());
+    const row = screen.getByText("42").closest("tr");
+    expect(row.querySelectorAll("td")).toHaveLength(8);
+    expect(row).toHaveTextContent("На стол");
+    expect(row).toHaveTextContent("Backend Cashier");
   });
 
-  it("renders only table_number, orders_count, revenue, and avg_check in Tables report", async () => {
-    api.get.mockResolvedValue({ data: [{ table_number: "9", orders_count: 4, revenue: 1200, avg_check: 300 }] });
+  it("renders the approved Tables Phase 1 columns without KPI cards", async () => {
+    api.get.mockResolvedValue({ data: [{ table_number: "9", orders_count: 4, revenue: 1200, avg_check: 300, table_id: null, hall_id: null, hall_name: null, orders: [] }] });
     render(<TablesReportPage />);
     expect(await screen.findByText("9")).toBeInTheDocument();
-    ["Цена обслуживания", "Скидка", "Цена места", "Сумма блюд", "Транзакции", "Действие"].forEach((label) => expect(screen.queryByRole("columnheader", { name: label })).not.toBeInTheDocument());
-    expect(screen.getByRole("columnheader", { name: "Средний чек" })).toBeInTheDocument();
+    ["Номер стола", "Дата", "Сумма", "Транзакции"].forEach((label) => expect(screen.getByRole("columnheader", { name: label })).toBeInTheDocument());
+    ["Кол-во заказов", "Выручка", "Средний чек", "Зал", "Действие", "Цена обслуживания", "Скидка", "Цена места", "Сумма блюд"].forEach((label) => expect(screen.queryByRole("columnheader", { name: label })).not.toBeInTheDocument());
+    expect(document.querySelector(".report-summary-grid")).toBeNull();
   });
 
-  it("renders only authoritative waiter aggregates and no invented zero columns", async () => {
-    api.get.mockResolvedValue({ data: [{ waiter_id: "waiter-1", name: "Backend Waiter", orders_count: 4, orders_total: 1200, dishes_count: 8 }] });
+  it("renders the canonical waiter calculation dimensions", async () => {
+    api.get.mockImplementation((path) => path === "/reports/waiters/filters"
+      ? Promise.resolve({ data: { waiters: [{ value: "waiter-1", label: "Backend Waiter" }] } })
+      : Promise.resolve({ data: {
+        rows: [{ waiter_id: "waiter-1", name: "Backend Waiter", orders_count: 4, orders_total: 1200, takeaway_delivery_total: 300, service_total: 100, waiter_service_total: 12, dishes_count: 8, dishes: [] }],
+        totals: { orders_count: 4, orders_total: 1200, takeaway_delivery_total: 300, service_total: 100, waiter_service_total: 12, dishes_count: 8 },
+      } }));
     render(<WaitersReportPage />);
-    expect((await screen.findAllByText("Backend Waiter")).length).toBe(2);
-    ["Сумма заказов на вынос", "Сумма услуги", "Обслуга официанта", "Процент"].forEach((label) => expect(screen.queryByText(label)).not.toBeInTheDocument());
-    expect(screen.getByRole("columnheader", { name: "Количество заказов" })).toBeInTheDocument();
+    // Percent starts at real muted 0 (initial DATA request fires on mount),
+    // so rows resolve without any prior selection.
+    expect(await screen.findByText("Backend Waiter")).toBeInTheDocument();
+    ["Сумма заказов", "Самовывоз и доставка", "Сумма услуги", "Обслуживание официанта", "Блюда"].forEach((label) => {
+      expect(screen.getByRole("columnheader", { name: label })).toBeInTheDocument();
+    });
   });
 
-  it("renders and exports only frozen cancelled-item metadata", async () => {
-    api.get.mockResolvedValue({ data: [{ date: "2026-08-12", time: "10:00", order_number: "42", table_number: null, name: "Backend Dish", quantity: 2, price: 300, waiter_name: null, unit: "шт" }] });
+  // CANCELLED-1B: Phase 1A truth contract — waiter and author stay separate,
+  // amount comes from the backend snapshot, never recomputed client-side.
+  it("renders cancelled truth from backend fields without fabrication", async () => {
+    api.get.mockImplementation((path) => {
+      if (path === "/reports/cancelled/filters") {
+        return Promise.resolve({ data: { authors: [], dishes: [] } });
+      }
+      return Promise.resolve({ data: [{
+        date: "12.08.2026", time: "10:00", order_number: "42", table_number: null,
+        name: "Backend Dish", quantity: 2, price: 300, waiter_name: "Официант",
+        unit: "шт", order_id: "order-1", order_item_id: "item-1",
+        order_created_at: "2026-08-12T07:00:00Z", cancelled_at: "2026-08-12T10:00:00Z",
+        cancellation_scope: "item", order_type: "dine_in", amount: 600,
+        cancelled_by_id: "author-9", cancelled_by_name: "Автор",
+        order_status: "cooking", item_status: "cancelled",
+        date_source: "cancelled_at", report_event_at: "2026-08-12T10:00:00Z",
+      }] });
+    });
     render(<CancelledDishesReportPage />);
     expect(await screen.findByText("Backend Dish")).toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { name: "Сумма" })).not.toBeInTheDocument();
-    ["Комментарий", "Тип", "Повар", "Автор"].forEach((label) => expect(screen.queryByRole("columnheader", { name: label })).not.toBeInTheDocument());
-    expect(screen.queryByText("На стол")).not.toBeInTheDocument();
+    // Truthful columns exist; author shows the cancellation actor, not the waiter.
+    ["Номер заказа", "Дата", "Название", "Номер стола", "Кол-во", "Официант", "Тип", "Сумма", "Автор", "Действие"].forEach((label) => {
+      expect(screen.getByRole("columnheader", { name: label })).toBeInTheDocument();
+    });
+    const row = screen.getByText("Backend Dish").closest("tr");
+    expect(within(row).getByText("Автор")).toBeInTheDocument();
+    expect(within(row).getByText("Официант")).toBeInTheDocument();
+    expect(within(row).getByText("600 UZS")).toBeInTheDocument();
+    expect(screen.queryByText("Комментарий")).not.toBeInTheDocument();
+    expect(screen.queryByText("Повар")).not.toBeInTheDocument();
+  });
+
+  it("renders — for missing author without substituting the waiter", async () => {
+    api.get.mockImplementation((path) => {
+      if (path === "/reports/cancelled/filters") {
+        return Promise.resolve({ data: { authors: [], dishes: [] } });
+      }
+      return Promise.resolve({ data: [{
+        order_number: "43", name: "System Dish", quantity: 1, price: 100,
+        waiter_name: "Официант", table_number: "5", order_type: "delivery",
+        amount: 100, cancelled_by_name: null, report_event_at: "2026-08-12T10:00:00Z",
+        order_id: "order-2", order_item_id: "item-2",
+      }] });
+    });
+    render(<CancelledDishesReportPage />);
+    const row = await screen.findByText("System Dish").then((node) => node.closest("tr"));
+    const cells = within(row).getAllByRole("cell");
+    // Author cell (9th) is —, waiter cell (6th) keeps the waiter.
+    expect(cells[8]).toHaveTextContent("—");
+    expect(cells[5]).toHaveTextContent("Официант");
+  });
+
+  it("keeps the Cancelled Dishes period as draft until the existing Filter action", async () => {
+    api.get.mockImplementation((path) => (
+      path === "/reports/cancelled/filters"
+        ? Promise.resolve({ data: { authors: [], dishes: [] } })
+        : Promise.resolve({ data: [] })
+    ));
+    render(<CancelledDishesReportPage />);
+    const filterButton = await screen.findAllByRole("button", { name: "Фильтровать" }).then((buttons) => (
+      buttons.find((button) => button.classList.contains("report-filter-apply"))
+    ));
+    // Mount fires the report request plus the independent filters-directory
+    // request; period edits stay draft until «Фильтровать».
+    expect(api.get).toHaveBeenCalledTimes(2);
+
+    fireEvent.change(screen.getByLabelText("Начало периода"), { target: { value: "02.08.2026" } });
+    fireEvent.change(screen.getByLabelText("Конец периода"), { target: { value: "12.08.2026" } });
+    expect(api.get).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(filterButton);
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(3));
+    const reportCalls = api.get.mock.calls.filter(([path]) => path === "/reports/cancelled");
+    expect(reportCalls).toHaveLength(2);
+    expect(reportCalls[1][1]).toEqual(expect.objectContaining({
+      params: { date_from: "2026-08-02", date_to: "2026-08-12" },
+      signal: expect.any(AbortSignal),
+    }));
   });
 
   it("uses date_from/date_to and counterparty_id for Debt/Credit without FX conversion", async () => {
@@ -174,6 +275,10 @@ describe("CTR-01 critical financial truth", () => {
     render(<DebtorsCreditorsReportPage />);
     const row = await screen.findByText("Backend Counterparty");
     expect(row.closest("tr")).toHaveAttribute("data-counterparty-id", "cp-real");
+    // TEST-SAFETY: set Начало BEFORE Конец. Setting the end first left the
+    // intermediate range inverted whenever the current month starts after the
+    // hard-coded end (e.g. any day in September vs 12.08), which tripped the
+    // page's own start>end guard. Production behaviour is unchanged.
     fireEvent.change(screen.getByLabelText("Начало периода"), { target: { value: "02.08.2026" } });
     await screen.findByText("Backend Counterparty");
     fireEvent.change(screen.getByLabelText("Конец периода"), { target: { value: "12.08.2026" } });
@@ -240,9 +345,19 @@ describe("CTR-01 critical financial truth", () => {
     expect(sources["OwnerDashboard.jsx"]).not.toContain("const expenseChange");
     expect(sources["OwnerDashboard.jsx"]).not.toContain("prevIncome * 0.31");
     expect(sources["OrdersReportPage.jsx"]).not.toMatch(/goodsPrice|servicePrice|deliveryPrice|client_name|courier_name|order_type \|\|/);
-    expect(sources["TablesReportPage.jsx"]).not.toMatch(/service_price|discount|place_price|dishes_amount/);
-    expect(sources["WaitersReportPage.jsx"]).not.toMatch(/takeaway|waiterService|service_total|percent/i);
-    expect(sources["CancelledDishesReportPage.jsx"]).not.toMatch(/order_type|chef|author|comment|На стол/);
+    expect(sources["TablesReportPage.jsx"]).not.toMatch(/service_price|place_price|dishes_amount/);
+    // Approved stored order breakdown only: real OrderResponse money fields.
+    expect(sources["TablesReportPage.jsx"]).toMatch(/discount_amount/);
+    expect(sources["TablesReportPage.jsx"]).toMatch(/service_fee/);
+    expect(sources["WaitersReportPage.jsx"]).not.toMatch(/Khusniddin|Administrator|const fake|mockWaiter/i);
+    // CANCELLED-1B truth invariants: the page may read backend order_type /
+    // author fields, but must never fabricate or misattribute them.
+    expect(sources["CancelledDishesReportPage.jsx"]).not.toMatch(/chef|comment|reason|updated_at/);
+    expect(sources["CancelledDishesReportPage.jsx"]).not.toMatch(/price\s*\*\s*quantity/);
+    expect(sources["CancelledDishesReportPage.jsx"]).not.toMatch(/item\.total/);
+    expect(sources["CancelledDishesReportPage.jsx"]).not.toMatch(/waiterName\s*\|\|\s*\w*[Aa]uthor/);
+    expect(sources["CancelledDishesReportPage.jsx"]).toMatch(/cancelled_by_name/);
+    expect(sources["CancelledDishesReportPage.jsx"]).toMatch(/report_event_at/);
     expect(sources["DebtorsCreditorsReportPage.jsx"]).not.toMatch(/12650|USD|item\.id/);
   });
 });

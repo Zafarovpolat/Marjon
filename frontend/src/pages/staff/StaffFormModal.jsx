@@ -1,4 +1,7 @@
+import { useRef } from "react";
 import Icon from "../../components/Icon";
+import { createPortal } from "react-dom";
+import staffDefaultAvatar from "../../assets/staff/staff-default-avatar.png";
 import {
   roleOptions,
   staffAccessModules,
@@ -6,8 +9,11 @@ import {
   staffOrderTypeActions,
 } from "./staffConstants";
 import {
+  caretForDigitCount,
+  formatLocalUZ,
   formatPhone,
   getPhoneFlag,
+  getPhoneLocal,
   normalizePhone,
   phoneCountries,
   phoneCountryMap,
@@ -25,7 +31,6 @@ export default function StaffFormModal({
   form,
   updateForm,
   toggleForm,
-  setPinLen,
   selectPhoneCountry,
   toggleAccess,
   handlePhotoChange,
@@ -33,7 +38,470 @@ export default function StaffFormModal({
   setShowPassword,
   phoneCountryOpen,
   setPhoneCountryOpen,
+  // CASHIER-FE-01: cashier route uses its own product form; other roles keep legacy UI.
+  isCashier = false,
+  // WAITER-01: waiter reuses exact cashier drawer shell/CSS (1:1 oracle).
+  isWaiter = false,
+  // MONOBLOCK-01: monoblock reuses the same product drawer shell.
+  isMonoblock = false,
+  // MANAGER-STOREKEEPER-01: manager/warehouse reuse the product drawer shell
+  // (7-col roles, exact Cashier matrix per CASHIER-PARITY-01, no HR, no printer IP).
+  isManager = false,
+  isWarehouse = false,
+  closing = false,
+  // Cashier drawer inline submit error (no browser-native popups on this path).
+  saveError = "",
+  // WAITER-01 FIX-02: field key the save error belongs to ("phone" renders
+  // the message directly under the phone input, near the fold).
+  saveErrorField = "",
 }) {
+  const phoneInputRef = useRef(null);
+  // WAITER-01: same drawer shell for cashier + waiter; only role strings + switch list differ.
+  // MONOBLOCK-01: monoblock shares the shell with role-aware strings/switches.
+  // MANAGER-STOREKEEPER-01: manager/warehouse share the shell; primary
+  // switches collapse to Статус only, matrix mirrors Cashier 1:1 (FRONTEND ONLY).
+  const isProductDrawer = isCashier || isWaiter || isMonoblock || isManager || isWarehouse;
+  if (isProductDrawer) {
+    const isWaiterView = isWaiter;
+    const isMonoblockView = isMonoblock;
+    const isManagerView = isManager;
+    const isWarehouseView = isWarehouse;
+    const isCuratedView = isManagerView || isWarehouseView;
+    const addTitle = isWaiterView
+      ? "Добавить официанта"
+      : isMonoblockView
+        ? "Добавить моноблок"
+        : isManagerView
+          ? "Добавить менеджера"
+          : isWarehouseView
+            ? "Добавить завсклада"
+            : "Добавить кассира";
+    const editTitle = isWaiterView
+      ? "Изменить официанта"
+      : isMonoblockView
+        ? "Изменить моноблок"
+        : isManagerView
+          ? "Изменить менеджера"
+          : isWarehouseView
+            ? "Изменить завсклада"
+            : "Изменить кассира";
+    const namePlaceholder = isWaiterView
+      ? "Имя официанта"
+      : isMonoblockView
+        ? "Имя моноблока"
+        : isManagerView
+          ? "Имя менеджера"
+          : isWarehouseView
+            ? "Имя завсклада"
+            : "Имя кассира";
+    const photoAlt = isWaiterView
+      ? "Фото официанта"
+      : isMonoblockView
+        ? "Фото моноблока"
+        : isManagerView
+          ? "Фото менеджера"
+          : isWarehouseView
+            ? "Фото завсклада"
+            : "Фото кассира";
+    const formKeyPrefix = isWaiterView
+      ? "waiter"
+      : isMonoblockView
+        ? "monoblock"
+        : isManagerView
+          ? "manager"
+          : isWarehouseView
+            ? "warehouse"
+            : "cashier";
+    // CASHIER-PARITY-01 (Phase 1): every product drawer — cashier, waiter,
+    // monoblock, manager, warehouse — renders the SAME staffAccessModules
+    // matrix (same count/text/order). No HR key exists in config; nothing
+    // added. Matrix switches stay FRONTEND PREPARED ONLY (BACKEND_HANDOFF).
+    const matrixModules = staffAccessModules;
+    const cashierCountry = phoneCountryMap[form.phoneCountry || "UZ"] || phoneCountryMap.UZ;
+    // Display-only formatting: state keeps raw normalized digits, the input
+    // shows (XX) XXX-XX-XX. Caret is remapped by digit count so Backspace and
+    // mid-string edits feel native and the +998 pill is never retyped.
+    const handleCashierPhoneChange = (event) => {
+      const input = event.target;
+      const rawValue = input.value;
+      const caret = input.selectionStart ?? rawValue.length;
+      const digitsBeforeCaret = rawValue.slice(0, caret).replace(/\D/g, "").length;
+      // No slice here: normalizePhone strips a pasted country code first and
+      // then enforces the per-country digit cap (9 for UZ).
+      const digits = rawValue.replace(/\D/g, "");
+      updateForm("phone", normalizePhone(digits, form.phoneCountry));
+      if (typeof requestAnimationFrame !== "function") return;
+      requestAnimationFrame(() => {
+        if (!phoneInputRef.current) return;
+        const position = caretForDigitCount(digitsBeforeCaret, digits);
+        phoneInputRef.current.setSelectionRange(position, position);
+      });
+    };
+    // CASHIER-FE-03: FE-01 drawer shell restored (FE-02 centered dialog undone).
+    // Overlay mounts at document.body so the backdrop covers sidebar + topbar
+    // like the reference (the page stacking contexts trap in-tree modals).
+    return createPortal(
+      <div className={`staff-modal staff-modal--cashier-full${closing ? " is-closing" : ""}`} role="dialog" aria-modal="true">
+        <div className="staff-modal__backdrop" onClick={saving ? undefined : closeModal} />
+        <form
+          key={editingId ? `${formKeyPrefix}-edit-${editingId}` : `${formKeyPrefix}-add-empty`}
+          className="staff-form staff-form--cashier"
+          onSubmit={saveStaff}
+          autoComplete="off"
+        >
+          <div className="staff-form__header">
+            <div>
+              <p>{editingId ? "Редактирование" : "Новый сотрудник"}</p>
+              <h2>{editingId ? editTitle : addTitle}</h2>
+            </div>
+            <button type="button" disabled={saving} onClick={closeModal} aria-label="Закрыть">
+              <Icon name="bi-x-lg" size={20} />
+            </button>
+          </div>
+          {/* MANAGER-STOREKEEPER-01: staff photo upload is backend-unsupported
+              (only self-photo exists). Manager/warehouse drawers show the
+              truthful placeholder/avatar with no upload control, so no fake
+              persistence is implied. Payload never carries photo. */}
+          <div className="cashier-photo">
+            <div className="staff-avatar staff-avatar--large">
+              {form.photo ? (
+                <img src={form.photo} alt={photoAlt} />
+              ) : (
+                <img src={staffDefaultAvatar} alt={photoAlt} />
+              )}
+            </div>
+            <div className="cashier-photo__body">
+              <span>Фото</span>
+              {isCuratedView ? null : (
+              <label className="cashier-photo__upload">
+                <Icon name="bi-camera" size={16} />
+                Загрузить фото
+                <input type="file" accept="image/*" onChange={handlePhotoChange} aria-label="Загрузить фото" />
+              </label>
+              )}
+            </div>
+          </div>
+
+          <div className="staff-form__grid">
+            <label>
+              <span>Имя</span>
+              {/* No native `required`: empty-field validation surfaces as the
+                  drawer inline error (saveError), never a browser bubble. */}
+              <input
+                autoComplete="off"
+                value={form.fullName}
+                onChange={(event) => updateForm("fullName", event.target.value)}
+                placeholder={namePlaceholder}
+                aria-invalid={saveErrorField === "name" && saveError ? true : undefined}
+                aria-describedby={saveErrorField === "name" && saveError ? "staff-name-error" : undefined}
+              />
+              {saveErrorField === "name" && saveError ? (
+                <small className="staff-field-error" role="alert" id="staff-name-error">{saveError}</small>
+              ) : null}
+            </label>
+            <label>
+              <span>Номер телефона</span>
+              {/* Split prefix: the country code renders as a stable visual
+                  prefix, the input holds subscriber digits only, so Backspace
+                  never destroys/recreates the prefix and caret stays put. */}
+              <div className="staff-phone-field staff-phone-field--split">
+                <button
+                  className="staff-phone-country staff-phone-country--pill"
+                  type="button"
+                  onClick={() => setPhoneCountryOpen((value) => !value)}
+                  aria-label="Выбрать страну"
+                  aria-expanded={phoneCountryOpen}
+                >
+                  <img
+                    src={getPhoneFlag(form.phoneCountry || "UZ")}
+                    alt={cashierCountry.label || ""}
+                  />
+                  <span>+{cashierCountry.dialCode}</span>
+                  <Icon name="bi-chevron-down" size={12} />
+                </button>
+                {phoneCountryOpen && (
+                  <div className="staff-phone-country-menu">
+                    {phoneCountries.map((country) => (
+                      <button
+                        className={form.phoneCountry === country.key ? "is-active" : ""}
+                        type="button"
+                        key={country.key}
+                        onClick={() => selectPhoneCountry(country.key)}
+                      >
+                        <img src={getPhoneFlag(country.key)} alt="" />
+                        <span>{country.label}</span>
+                        <b>+{country.dialCode}</b>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <input
+                  autoComplete="off"
+                  inputMode="tel"
+                  ref={phoneInputRef}
+                  aria-label="Номер телефона без кода страны"
+                  value={formatLocalUZ(getPhoneLocal(form.phone, form.phoneCountry))}
+                  onChange={handleCashierPhoneChange}
+                  placeholder="Введите номер"
+                  aria-invalid={saveErrorField === "phone" && saveError ? true : undefined}
+                  aria-describedby={saveErrorField === "phone" && saveError ? "staff-phone-error" : undefined}
+                />
+              </div>
+              {saveErrorField === "phone" && saveError ? (
+                <small className="staff-phone-error" role="alert" id="staff-phone-error">{saveError}</small>
+              ) : null}
+            </label>
+            <label>
+              <span>{editingId ? "Новый пароль" : "Пароль"}</span>
+              <div className="staff-password-field">
+                <input
+                  autoComplete="new-password"
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={(event) => updateForm("password", event.target.value)}
+                  placeholder="Пароль"
+                  aria-invalid={saveErrorField === "password" && saveError ? true : undefined}
+                  aria-describedby={saveErrorField === "password" && saveError ? "staff-password-error" : undefined}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                  aria-pressed={showPassword}
+                >
+                  <Icon name={showPassword ? "bi-eye-slash" : "bi-eye"} size={18} />
+                </button>
+              </div>
+              {saveErrorField === "password" && saveError ? (
+                <small className="staff-field-error" role="alert" id="staff-password-error">{saveError}</small>
+              ) : null}
+              {editingId ? (
+                <small className="muted">Оставьте пустым, чтобы не менять пароль.</small>
+              ) : null}
+            </label>
+            {isCuratedView ? null : (
+            <label>
+              <span>IP адрес принтера</span>
+              <input
+                autoComplete="off"
+                inputMode="decimal"
+                value={form.printerIp || ""}
+                onChange={(event) => updateForm("printerIp", event.target.value.replace(/[^0-9.]/g, ""))}
+                placeholder="192.168.1.10"
+              />
+            </label>
+            )}
+          </div>
+
+          <div className="cashier-permissions">
+            <h3>Права доступа</h3>
+            <div className="cashier-permission-switches">
+            <button
+              className={`staff-permission-switch ${form.status === "active" ? "is-on" : ""}`}
+              type="button"
+              onClick={() =>
+                updateForm("status", form.status === "active" ? "archived" : "active")
+              }
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Статус</span>
+              <i>{form.status === "active" ? "Активный" : "Архив"}</i>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            {isMonoblockView || isCuratedView ? null : (
+            <button
+              className={`staff-permission-switch ${form.canDeleteDishes ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canDeleteDishes")}
+              aria-pressed={Boolean(form.canDeleteDishes)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Удаление блюд</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            )}
+            {isWaiterView ? (
+            <button
+              className={`staff-permission-switch ${form.canChangeMarkingCode ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canChangeMarkingCode")}
+              aria-pressed={Boolean(form.canChangeMarkingCode)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Изменить код маркировки</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            ) : null}
+            {isMonoblockView || isCuratedView ? null : (
+            <button
+              className={`staff-permission-switch ${form.canTakeawayAtTable ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canTakeawayAtTable")}
+              aria-pressed={Boolean(form.canTakeawayAtTable)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Заказ на вынос за столом</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            )}
+            {isMonoblockView || isCuratedView ? null : (
+            <button
+              className={`staff-permission-switch ${form.canChangeOrderType ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canChangeOrderType")}
+              aria-pressed={Boolean(form.canChangeOrderType)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Изменить тип заказа</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            )}
+            {isMonoblockView ? (
+            <>
+            <button
+              className={`staff-permission-switch ${form.canMainMonoblock ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canMainMonoblock")}
+              aria-pressed={Boolean(form.canMainMonoblock)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Главный моноблок</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            <button
+              className={`staff-permission-switch ${form.canSeeCashiers ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canSeeCashiers")}
+              aria-pressed={Boolean(form.canSeeCashiers)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Список кассиров</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            <button
+              className={`staff-permission-switch ${form.canCookPrinter ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canCookPrinter")}
+              aria-pressed={Boolean(form.canCookPrinter)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Принтер повара</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            <button
+              className={`staff-permission-switch ${form.canPrintCancel ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canPrintCancel")}
+              aria-pressed={Boolean(form.canPrintCancel)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Печать отмены заказа</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            </>
+            ) : null}
+            {isWaiterView || isMonoblockView || isCuratedView ? null : (
+            <>
+            <button
+              className={`staff-permission-switch ${form.canCloseBill ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canCloseBill")}
+              aria-pressed={Boolean(form.canCloseBill)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Может закрыть счёт</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            <button
+              className={`staff-permission-switch ${form.canOpenCashDrawerAfterPayment ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canOpenCashDrawerAfterPayment")}
+              aria-pressed={Boolean(form.canOpenCashDrawerAfterPayment)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Открыть денежный ящик после оплаты</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            <button
+              className={`staff-permission-switch ${form.canViewClosedOrders ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canViewClosedOrders")}
+              aria-pressed={Boolean(form.canViewClosedOrders)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Просмотр закрытых заказов</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            </>
+            )}
+            </div>
+            {/* Secondary rows use the shared Cashier collapse mechanism:
+                OFF = collapsed/hidden (zero height), ON = revealed. Same for
+                every product role; no role-specific visibility system. */}
+            <div className="staff-permission-matrix">
+              {matrixModules.map((module) => {
+                const moduleAccess = form.access?.[module.key] || {};
+                const actions =
+                  module.key === "order_types" ? staffOrderTypeActions : staffAccessActions;
+
+                return (
+                  <div
+                    className={`staff-access-row ${moduleAccess.enabled ? "is-open" : ""}`}
+                    key={module.key}
+                  >
+                    <div className="staff-access-toggle">
+                      <button
+                        className={`staff-switch-button ${moduleAccess.enabled ? "is-on" : ""}`}
+                        type="button"
+                        onClick={() => toggleAccess(module.key)}
+                        aria-pressed={Boolean(moduleAccess.enabled)}
+                        aria-label={module.label}
+                      >
+                        <b className="staff-mini-switch" aria-hidden="true" />
+                      </button>
+                      <span>{module.label}</span>
+                    </div>
+                    <div
+                      className="staff-access-actions"
+                      aria-hidden={!moduleAccess.enabled}
+                    >
+                      {actions.map((action) => (
+                        <button
+                          className={`staff-access-action ${
+                            moduleAccess[action.key] ? "is-on" : ""
+                          }`}
+                          type="button"
+                          key={action.key}
+                          onClick={() => toggleAccess(module.key, action.key)}
+                          disabled={!moduleAccess.enabled}
+                          aria-pressed={Boolean(moduleAccess[action.key])}
+                        >
+                          <b className="staff-mini-switch" aria-hidden="true" />
+                          <span>{action.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {saveError ? (
+            <div className="login-error" role="alert">{saveError}</div>
+          ) : null}
+
+          <div className="staff-form__footer">
+            <button type="button" disabled={saving} onClick={closeModal}>
+              Отменить
+            </button>
+            <button type="submit" disabled={saving}>{saving ? "Сохранение..." : editingId ? "Сохранить" : "Добавить"}</button>
+          </div>
+        </form>
+      </div>,
+      document.body,
+    );
+  }
   return (
     <div className="staff-modal" role="dialog" aria-modal="true">
       <div className="staff-modal__backdrop" onClick={saving ? undefined : closeModal} />
@@ -59,16 +527,14 @@ export default function StaffFormModal({
 
         <div className="staff-form__grid staff-form__grid--edit">
           <label>
-            {/* Email опционален: кассир/официант входит по PIN, а веб-панель
-                нужна не всем. Если поле пустое, оркестратор синтезирует технический
-                адрес — сотрудник создаётся без e-mail. */}
-            <span>Email (необязательно)</span>
+            <span>Email *</span>
             <input
+              required
               type="email"
               autoComplete="off"
               value={form.email}
               onChange={(event) => updateForm("email", event.target.value)}
-              placeholder="Только для входа в веб-панель"
+              placeholder="employee@example.com"
             />
           </label>
           <label>
@@ -151,39 +617,14 @@ export default function StaffFormModal({
             </div>
           </label>
           <label>
-            <span>Длина PIN</span>
-            <select value={form.pinLen} onChange={(event) => setPinLen(Number(event.target.value))}>
-              <option value={2}>2 цифры</option>
-              <option value={4}>4 цифры</option>
-            </select>
-          </label>
-          <label>
-            <span>PIN-код {form.pinLen} цифры</span>
+            <span>PIN-код 4 цифры</span>
             <input
               value={form.pin}
-              maxLength={form.pinLen}
+              maxLength={4}
               inputMode="numeric"
-              pattern={`[0-9]{${form.pinLen}}`}
+              pattern="[0-9]{4}"
               onChange={(event) => updateForm("pin", event.target.value.replace(/\D/g, ""))}
-              placeholder={"0".repeat(form.pinLen)}
-            />
-          </label>
-          <label>
-            <span>IP принтера</span>
-            <input
-              autoComplete="off"
-              value={form.printerIp}
-              onChange={(event) => updateForm("printerIp", event.target.value)}
-              placeholder="Напр. 192.168.0.50 (POS-терминал)"
-            />
-          </label>
-          <label>
-            <span>NFC-идентификатор</span>
-            <input
-              autoComplete="off"
-              value={form.nfcId}
-              onChange={(event) => updateForm("nfcId", event.target.value)}
-              placeholder="Карта/брелок для быстрого входа"
+              placeholder="0000"
             />
           </label>
           <div className="staff-permission-switches">
@@ -201,24 +642,18 @@ export default function StaffFormModal({
             <button
               className={`staff-permission-switch ${form.canDeleteDishes ? "is-on" : ""}`}
               type="button"
+              disabled
+              title="Недоступно до BI-06"
               onClick={() => toggleForm("canDeleteDishes")}
             >
-              <span>Удаления блюд</span>
-              <b className="staff-switch" aria-hidden="true" />
-            </button>
-            {/* can_manage_orders — must() на десктопе: без этого права официант
-                НЕ может отменять/переносить/удалять отправленные блюда и заказы. */}
-            <button
-              className={`staff-permission-switch ${form.canManageOrders ? "is-on" : ""}`}
-              type="button"
-              onClick={() => toggleForm("canManageOrders")}
-            >
-              <span>Управление заказами (отмена / перенос / удаление)</span>
+              <span>Удаление блюд</span>
               <b className="staff-switch" aria-hidden="true" />
             </button>
             <button
               className={`staff-permission-switch ${form.canTakeawayAtTable ? "is-on" : ""}`}
               type="button"
+              disabled
+              title="Недоступно до BI-06"
               onClick={() => toggleForm("canTakeawayAtTable")}
             >
               <span>Заказ на вынос за столом</span>
@@ -227,6 +662,8 @@ export default function StaffFormModal({
             <button
               className={`staff-permission-switch ${form.canChangeOrderType ? "is-on" : ""}`}
               type="button"
+              disabled
+              title="Недоступно до BI-06"
               onClick={() => toggleForm("canChangeOrderType")}
             >
               <span>Изменить тип заказа</span>
@@ -235,6 +672,8 @@ export default function StaffFormModal({
             <button
               className={`staff-permission-switch ${form.canCloseBill ? "is-on" : ""}`}
               type="button"
+              disabled
+              title="Недоступно до BI-06"
               onClick={() => toggleForm("canCloseBill")}
             >
               <span>Может закрыть счет</span>
@@ -245,6 +684,8 @@ export default function StaffFormModal({
                 form.canOpenCashDrawerAfterPayment ? "is-on" : ""
               }`}
               type="button"
+              disabled
+              title="Недоступно до BI-06"
               onClick={() => toggleForm("canOpenCashDrawerAfterPayment")}
             >
               <span>Открыть денежный ящик после оплаты</span>
@@ -253,103 +694,16 @@ export default function StaffFormModal({
             <button
               className={`staff-permission-switch ${form.canViewClosedOrders ? "is-on" : ""}`}
               type="button"
+              disabled
+              title="Недоступно до BI-06"
               onClick={() => toggleForm("canViewClosedOrders")}
             >
               <span>Просмотр закрытых заказов</span>
               <b className="staff-switch" aria-hidden="true" />
             </button>
-            <button
-              className={`staff-permission-switch ${form.canEditStopList ? "is-on" : ""}`}
-              type="button"
-              onClick={() => toggleForm("canEditStopList")}
-            >
-              <span>Редактирование стоп-листа</span>
-              <b className="staff-switch" aria-hidden="true" />
-            </button>
-            {/* can_view_stop_list — can() на десктопе: по умолчанию включено,
-                выключение ОГРАНИЧИВАЕТ просмотр стоп-листа на кассе. */}
-            <button
-              className={`staff-permission-switch ${form.canViewStopList ? "is-on" : ""}`}
-              type="button"
-              onClick={() => toggleForm("canViewStopList")}
-            >
-              <span>Просмотр стоп-листа</span>
-              <b className="staff-switch" aria-hidden="true" />
-            </button>
-            <button
-              className={`staff-permission-switch ${form.canViewFinance ? "is-on" : ""}`}
-              type="button"
-              onClick={() => toggleForm("canViewFinance")}
-            >
-              <span>Просмотр финансов</span>
-              <b className="staff-switch" aria-hidden="true" />
-            </button>
-            {/* can_view_z_report — вкладка Z-отчёта на десктопе + гейт
-                GET /analytics/z-report. Дефолт OFF: без явного true бэкенд
-                отдаёт 403, а касса прячет вкладку. */}
-            <button
-              className={`staff-permission-switch ${form.canViewZReport ? "is-on" : ""}`}
-              type="button"
-              onClick={() => toggleForm("canViewZReport")}
-            >
-              <span>Z-отчёт</span>
-              <b className="staff-switch" aria-hidden="true" />
-            </button>
-            <button
-              className={`staff-permission-switch ${form.canCashOps ? "is-on" : ""}`}
-              type="button"
-              onClick={() => toggleForm("canCashOps")}
-            >
-              <span>Приход / расход (касса)</span>
-              <b className="staff-switch" aria-hidden="true" />
-            </button>
-            {/* can_approve_attendance — экран прихода/ухода на терминале: на
-                десктопе must(), на бэкенде гейт на /hr/attendance/*. Дефолт OFF,
-                выдаёт только владелец здесь — с терминала право не выдаётся. */}
-            <button
-              className={`staff-permission-switch ${form.canApproveAttendance ? "is-on" : ""}`}
-              type="button"
-              onClick={() => toggleForm("canApproveAttendance")}
-            >
-              <span>Приход / уход сотрудников</span>
-              <b className="staff-switch" aria-hidden="true" />
-            </button>
-            {/* can_view_past_periods — прошлые периоды в финансах и приходе/уходе.
-                Без него сервер отдаёт ТОЛЬКО сегодняшний день (date_from/date_to из
-                запроса игнорируются), поэтому ограничение не обойти прямым вызовом API. */}
-            <button
-              className={`staff-permission-switch ${form.canViewPastPeriods ? "is-on" : ""}`}
-              type="button"
-              onClick={() => toggleForm("canViewPastPeriods")}
-            >
-              <span>Прошлые периоды (финансы, приход / уход)</span>
-              <b className="staff-switch" aria-hidden="true" />
-            </button>
-            {/* Спец-права десктопа: открывают «режим разработчика» на терминале.
-                can_manage_staff — хаб управления персоналом и правами кассиров;
-                can_manage_warehouse — складские записи (приход/списание/инвентаризация).
-                Единственная точка эскалации — выдаёт только владелец здесь. Бэкенд
-                (require_permission_or_admin) не позволит кассиру-менеджеру выдать эти
-                права дальше, поэтому на кассе/десктопе их в тумблерах прав НЕТ. */}
-            <button
-              className={`staff-permission-switch ${form.canManageStaff ? "is-on" : ""}`}
-              type="button"
-              onClick={() => toggleForm("canManageStaff")}
-            >
-              <span>Управление персоналом (режим разработчика на терминале)</span>
-              <b className="staff-switch" aria-hidden="true" />
-            </button>
-            <button
-              className={`staff-permission-switch ${form.canManageWarehouse ? "is-on" : ""}`}
-              type="button"
-              onClick={() => toggleForm("canManageWarehouse")}
-            >
-              <span>Управление складом (приход / списание / инвентаризация)</span>
-              <b className="staff-switch" aria-hidden="true" />
-            </button>
           </div>
-          <p className="muted" role="status">
-            Права применяются на кассе и десктопе после сохранения.
+          <p id="staff-rbac-unavailable" className="muted" role="status">
+            Детальные права доступа недоступны до BI-06. Изменения здесь не сохраняются.
           </p>
           <div className="staff-permission-matrix">
             {staffAccessModules.map((module) => {
@@ -366,6 +720,8 @@ export default function StaffFormModal({
                     <button
                       className={`staff-switch-button ${moduleAccess.enabled ? "is-on" : ""}`}
                       type="button"
+                      disabled
+                      title="Недоступно до BI-06"
                       onClick={() => toggleAccess(module.key)}
                       aria-pressed={Boolean(moduleAccess.enabled)}
                       aria-label={`${module.label}: ${moduleAccess.enabled ? "выключить" : "включить"}`}
@@ -458,21 +814,14 @@ export default function StaffFormModal({
             </select>
           </label>
           <label>
-            <span>Длина PIN</span>
-            <select value={form.pinLen} onChange={(event) => setPinLen(Number(event.target.value))}>
-              <option value={2}>2 цифры</option>
-              <option value={4}>4 цифры</option>
-            </select>
-          </label>
-          <label>
-            <span>PIN-код {form.pinLen} цифры</span>
+            <span>PIN-код 4 цифры</span>
             <input
               value={form.pin}
-              maxLength={form.pinLen}
+              maxLength={4}
               inputMode="numeric"
-              pattern={`[0-9]{${form.pinLen}}`}
+              pattern="[0-9]{4}"
               onChange={(event) => updateForm("pin", event.target.value.replace(/\D/g, ""))}
-              placeholder={"0".repeat(form.pinLen)}
+              placeholder="0000"
             />
           </label>
           <label>

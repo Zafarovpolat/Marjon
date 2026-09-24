@@ -23,11 +23,6 @@ export default function SettingsProfilePage() {
     resetForm,
     clearLogo,
     handleSave,
-    cancelPw,
-    setCancelPw,
-    cancelPwSet,
-    cancelPwSaving,
-    saveCancelPw,
     waiterPct,
     setWaiterPct,
     waiterPctSaving,
@@ -168,26 +163,7 @@ export default function SettingsProfilePage() {
                 <select value={form.currency} onChange={(event) => set("currency", event.target.value)}>
                   <option value="UZS">UZS - Узбекский сум</option>
                   <option value="USD">USD - Доллар</option>
-                </select>
-              </label>
-
-              <label>
-                <span>
-                  <b>Пароль отмены заказа</b>
-                  <em>{cancelPwSet ? "Пароль задан — введите новый, чтобы изменить" : "Требуется в кассе для отмены заказа"}</em>
-                </span>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input
-                    type="text"
-                    value={cancelPw}
-                    onChange={(event) => setCancelPw(event.target.value)}
-                    placeholder={cancelPwSet ? "•••• (задан)" : "Например: 1234"}
-                    autoComplete="off"
-                  />
-                  <button type="button" className="company-profile-danger" style={{ whiteSpace: "nowrap" }} disabled={cancelPwSaving} onClick={saveCancelPw}>
-                    Сохранить
-                  </button>
-                </div>
+              </select>
               </label>
 
               <label>

@@ -1,10 +1,14 @@
 import Icon from "../../components/Icon";
+import ReportEmptyState from "../../components/ReportEmptyState";
+import staffDefaultAvatar from "../../assets/staff/staff-default-avatar.png";
 import { getPermissionSummary, roleMap } from "./staffConstants";
 import { formatPhone, inferPhoneCountry } from "./staffPhone";
 
 // Индикаторы загрузки/ошибки и таблица сотрудников OWNER.
 // Вынесено из StaffRolePage.jsx (FE-07B). Разметка, классы и текст сохранены 1:1;
 // данные и обработчики действий принадлежат оркестратору и приходят пропсами.
+// Cashier получает presentation-фолбэк staff-default-avatar.png вместо инициалов;
+// остальные роли сохраняют инициалы.
 export default function StaffTable({
   staffLoading,
   staffError,
@@ -13,13 +17,25 @@ export default function StaffTable({
   openEditModal,
   archiveStaff,
   restoreStaff,
+  isCashier = false,
+  // WAITER-01: waiter reuses exact cashier presentation (avatar/status/alignment).
+  isWaiter = false,
+  // MONOBLOCK-01: monoblock reuses the same product presentation; its
+  // access cell stays the generic summary (no persisted grants on record).
+  isMonoblock = false,
+  // MANAGER-STOREKEEPER-01: manager/warehouse reuse the product presentation
+  // but drop the access column entirely (7 columns, no invisible placeholder).
+  isManager = false,
+  isWarehouse = false,
 }) {
+  const isProduct = isCashier || isWaiter || isMonoblock || isManager || isWarehouse;
+  const showAccess = !(isManager || isWarehouse);
   return (
     <>
       {staffLoading ? <div className="staff-empty-cell" role="status">Загрузка сотрудников...</div> : null}
       {staffError ? <div className="login-error" role="alert">{staffError}</div> : null}
       <div className="staff-table-wrapper">
-        <table className="staff-table">
+        <table className={`staff-table${showAccess ? "" : " staff-table--no-access"}`}>
           <thead>
             <tr>
               <th>ID</th>
@@ -27,7 +43,7 @@ export default function StaffTable({
               <th>ФИО</th>
               <th>Номер телефона</th>
               <th>Роль</th>
-              <th>Доступ RBAC</th>
+              {showAccess ? <th>Права доступа</th> : null}
               <th>Статус</th>
               <th>Действия</th>
             </tr>
@@ -40,6 +56,8 @@ export default function StaffTable({
                   <div className="staff-avatar">
                     {employee.photo ? (
                       <img src={employee.photo} alt={employee.fullName} />
+                    ) : isProduct ? (
+                      <img src={staffDefaultAvatar} alt={employee.fullName} />
                     ) : (
                       <span>{employee.fullName.slice(0, 2).toUpperCase()}</span>
                     )}
@@ -52,20 +70,75 @@ export default function StaffTable({
                     {roleMap[employee.roleKey]?.label || employee.roleKey}
                   </span>
                 </td>
+                {showAccess ? (
                 <td>
-                  <span className="staff-permission">
-                    <span className="staff-permission-dot" aria-hidden="true" />
-                    {getPermissionSummary(employee)}
-                  </span>
+                  {isWaiter ? (
+                    // WAITER access column shows ONLY delete-dishes truth.
+                    // Backend stores no per-waiter permission flags
+                    // (FRONTEND_ONLY, handoff required), so no grant is ever
+                    // on record: red OFF indicator + fixed label, never
+                    // fabricated "Базовый доступ", never green.
+                    <span className="staff-permission">
+                      <span className="staff-permission-dot is-off" aria-hidden="true" />
+                      Удаление блюд
+                    </span>
+                  ) : isCashier ? (
+                    // CASHIER access column: delete-dishes truth via the
+                    // shared adapter (employee.canDeleteDishes). Backend
+                    // persists no grant yet, so red OFF unless a truthful
+                    // grant arrives; never fabricated "Базовый доступ".
+                    <span className="staff-permission">
+                      <span
+                        className={`staff-permission-dot${employee.canDeleteDishes ? "" : " is-off"}`}
+                        aria-hidden="true"
+                      />
+                      Удаление блюд
+                    </span>
+                  ) : isMonoblock ? (
+                    // MONOBLOCK access cell ("Показать кассиров" concept).
+                    // Backend persists no cashier-list/printer truth yet, so
+                    // the indicator is red OFF unless a truthful grant arrives
+                    // via employee.canSeeCashiers; printer IP renders only
+                    // from truthful row data, never fabricated.
+                    <span className="staff-permission staff-permission--column">
+                      <span className="staff-permission-main">
+                        <span
+                          className={`staff-permission-dot${employee.canSeeCashiers ? "" : " is-off"}`}
+                          aria-hidden="true"
+                        />
+                        Показать кассиров
+                      </span>
+                      {employee.printerIp ? (
+                        <small className="staff-permission-sub">{employee.printerIp}</small>
+                      ) : null}
+                    </span>
+                  ) : (
+                    <span className="staff-permission">
+                      <span className="staff-permission-dot" aria-hidden="true" />
+                      {getPermissionSummary(employee)}
+                    </span>
+                  )}
                 </td>
+                ) : null}
                 <td>
-                  <span
-                    className={`staff-status-badge ${
-                      employee.status === "archived" ? "is-archived" : ""
-                    }`}
-                  >
-                    {employee.status === "archived" ? "#архив" : "#активно"}
-                  </span>
+                  {isProduct ? (
+                    <span
+                      className={`staff-status-badge ${
+                        employee.status === "archived" ? "is-archived" : ""
+                      }`}
+                    >
+                      <span className="staff-status-badge__dot" aria-hidden="true" />
+                      {employee.status === "archived" ? "Неактивен" : "Активен"}
+                    </span>
+                  ) : (
+                    <span
+                      className={`staff-status-badge ${
+                        employee.status === "archived" ? "is-archived" : ""
+                      }`}
+                    >
+                      {employee.status === "archived" ? "#архив" : "#активно"}
+                    </span>
+                  )}
                 </td>
                 <td>
                   <div className="staff-actions">
@@ -106,9 +179,10 @@ export default function StaffTable({
               </tr>
             ))}
             {!staffLoading && !staffError && visibleStaff.length === 0 && (
-              <tr>
-                <td colSpan={8} className="staff-empty-cell">
-                  Сотрудники не найдены
+              <tr className="staff-empty-row">
+                <td colSpan={showAccess ? 8 : 7} className="staff-empty-cell">
+                  {/* Reports parity: same PNG illustration + centered message. */}
+                  <ReportEmptyState title="Сотрудники не найдены" />
                 </td>
               </tr>
             )}

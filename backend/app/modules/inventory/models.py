@@ -129,23 +129,6 @@ class Ingredient(TimeStampedModel):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class ProductRecipe(TimeStampedModel):
-    """Техкарта: блюдо → ингредиенты с количеством (для попапа рецепта на кухне)."""
-    __tablename__ = "product_recipes"
-
-    company_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), index=True)
-    product_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("products.id", ondelete="CASCADE"), index=True)
-    ingredient_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("ingredients.id"), index=True)
-    quantity: Mapped[Decimal] = mapped_column(Numeric(15, 4), default=Decimal("0"))
-    unit: Mapped[str] = mapped_column(String(20), default="г")
-
-
-# ВНИМАНИЕ: рядом живут ДВЕ таблицы состава блюда, и обе нужны:
-#   product_recipes     — наша техкарта (есть unit и company_id), питает
-#                         попап рецепта на кухне (GET в inventory/router.py);
-#   product_ingredients — upstream BE-16, питает ingredients_count/stock
-#                         в ProductResponse и связь Product.ingredients.
-# Удаление любой из них ломает своего потребителя, поэтому они объединены.
 class ProductIngredient(TimeStampedModel):
     """BE-16: a dish's recipe/composition — mirrors
     semi_product_models.SemiProductIngredient exactly. Drives the

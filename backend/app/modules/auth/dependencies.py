@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.session import get_db
 from app.modules.auth.models import User
 from app.modules.auth.repository import UserRepository
-from app.modules.auth.security import decode_token, TERMINAL_EMAIL_LIKE
+from app.modules.auth.security import decode_token
 from app.modules.rbac.models import Role, UserRole
 from app.shared.exceptions import ForbiddenError
 from app.shared.exceptions import UnauthorizedError
@@ -129,15 +129,17 @@ async def require_company_admin(
     return current_user
 
 
-# --- Наши гейты для терминала/десктопа (дополняют web-RBAC выше) -------------
-# Веб-гарды выше — про личность и scope сессии. Ниже — про гранулярные права
-# из permissions-JSON, которые владелец выдаёт сотруднику в веб-админке.
+# --- Гранулярные гейты терминала/десктопа (поверх web-RBAC выше) ------------
+# Дополняют owner-гарды: пропускают владельца/суперадмина, а также сотрудника,
+# которому владелец выдал точечное право. Источник права — RBAC (upstream) или,
+# если у компании ещё живёт legacy-JSON `User.permissions`, — этот JSON. Upstream
+# убрал колонку permissions в пользу RBAC, поэтому доступ к ней только через
+# getattr: на новой схеме ветка инертна, на старой (десктоп-терминал) работает.
 
 
 async def user_is_company_admin(current_user: User, db: AsyncSession) -> bool:
-    """owner/admin роль или суперадмин — но как булев признак, а не гейт.
-    Нужен для ветвления анти-эскалации в сервисе: под токеном не-админа
-    (кассир со спец-правом) правила создания/правки сотрудников строже."""
+    """owner/admin/суперадмин — как булев признак, а не гейт. Нужен для ветвления
+    анти-эскалации и для мягких гейтов ниже."""
     if current_user.is_superadmin:
         return True
     if not current_user.company_id:
@@ -154,37 +156,35 @@ async def user_is_company_admin(current_user: User, db: AsyncSession) -> bool:
     return result.scalars().first() is not None
 
 
+def _legacy_permission(current_user: User, flag: str) -> bool:
+    """Опциональный legacy-тумблер прав из JSON-колонки `User.permissions`.
+    Upstream убрал колонку; getattr держит гейт совместимым и с новой схемой
+    (колонки нет → False, инертно), и со старой (десктоп со спец-правами)."""
+    perms = getattr(current_user, "permissions", None)
+    return isinstance(perms, dict) and perms.get(flag) is True
+
+
 async def user_can_view_past_periods(current_user: User, db: AsyncSession) -> bool:
     """Прошлые периоды (финансы, приход/уход) — владельцу/админу либо сотруднику
-    с permissions.can_view_past_periods (тумблер владельца в веб-админке).
-    Всем остальным отчёты отдают ТОЛЬКО сегодняшний день — независимо от
-    query-параметров, поэтому ограничение нельзя обойти прямым вызовом API."""
+    с правом can_view_past_periods. Остальным отчёты отдают ТОЛЬКО сегодняшний
+    день независимо от query-параметров — ограничение нельзя обойти прямым API."""
     if await user_is_company_admin(current_user, db):
         return True
-    perms = current_user.permissions if isinstance(current_user.permissions, dict) else {}
-    return perms.get("can_view_past_periods") is True
+    return _legacy_permission(current_user, "can_view_past_periods")
 
 
 def require_permission_or_admin(flag: str, rbac_permission: str | None = None):
     """Гейт мягче require_company_admin: пропускает owner/admin/суперадмина ИЛИ
-    сотрудника компании, которому владелец в веб-админке выдал
-    permissions[flag] === true («кассир со спец-правом» на десктопе-терминале).
-    Веб-админка (owner) проходит без изменений — регрессий нет.
-    Реальная защита от эскалации — в AuthService (роль/права проверяются там).
-
-    rbac_permission (необязательный) добавляет третью ветку: роль сотрудника
-    имеет это право в RBAC (upstream BE-05: manager/warehouse и
-    inventory:stock:write). Нужен там, где upstream заменил ролевой гейт на
-    require_permission: без этой ветки запись склада закрылась бы либо для
-    роли warehouse, либо для кассира со спец-правом на кассе."""
+    сотрудника компании с точечным правом. Право берётся из RBAC (rbac_permission,
+    upstream) либо из legacy permissions[flag] (десктоп-терминал). Веб-owner
+    проходит без изменений — регрессий нет; защита от эскалации — в сервисах."""
     async def _dep(
         current_user: User = Depends(get_current_user),
         db: AsyncSession = Depends(get_db),
     ) -> User:
         if await user_is_company_admin(current_user, db):
             return current_user
-        perms = current_user.permissions if isinstance(current_user.permissions, dict) else {}
-        if current_user.company_id and perms.get(flag) is True:
+        if current_user.company_id and _legacy_permission(current_user, flag):
             return current_user
         if rbac_permission and current_user.company_id:
             from app.modules.rbac.service import RBACService
@@ -215,83 +215,3 @@ async def require_hq_admin(
     if current_user.is_superadmin and getattr(current_user, "auth_scope", "app") == "hq_admin":
         return current_user
     raise ForbiddenError("HQ admin session required")
-
-
-# --- Мягкое чтение токена и гейт «владелец в вебе ИЛИ терминал филиала» -------
-
-
-oauth2_scheme_optional = OAuth2PasswordBearer(
-    tokenUrl="/api/v1/auth/login/form", auto_error=False
-)
-
-
-async def get_current_user_optional(
-    token: str | None = Depends(oauth2_scheme_optional),
-    db: AsyncSession = Depends(get_db),
-) -> User | None:
-    """Пользователь, если валидный токен есть, иначе None — без 401.
-
-    Нужен для /auth/pin-login, куда веб-фронт ходит анонимно (сотрудника задаёт
-    employee_id), а касса — с org-токеном терминала. Протухший или битый токен
-    трактуем как его отсутствие: иначе старый токен в localStorage не давал бы
-    войти по PIN вместо того, чтобы просто игнорироваться."""
-    if not token:
-        return None
-    try:
-        payload = decode_token(token)
-    except JWTError:
-        return None
-    user_id_str = payload.get("sub")
-    if not user_id_str:
-        return None
-    try:
-        user_id = UUID(user_id_str)
-    except (ValueError, AttributeError):
-        return None
-    user = await UserRepository(db).get_by_id(user_id)
-    if not user or not user.is_active:
-        return None
-    user.auth_scope = payload.get("auth_scope", "app")
-    return user
-
-
-def is_terminal_service_user(user: User) -> bool:
-    """Служебный аккаунт терминала филиала (выдаётся /auth/branch-login).
-    Роли у него нет вовсе, поэтому ни один ролевой гейт он не проходит —
-    опознаём по шаблону e-mail из TERMINAL_EMAIL_LIKE."""
-    if user.is_superadmin or not user.company_id or not user.email:
-        return False
-    if getattr(user, "auth_scope", "app") != "app":
-        return False
-    prefix, _, suffix = TERMINAL_EMAIL_LIKE.partition("%")
-    return user.email.startswith(prefix) and user.email.endswith(suffix)
-
-
-async def require_web_owner_or_terminal(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> User:
-    """Список персонала читают двое: владелец в вебе (замороженный контракт
-    BI-06 — операционным ролям здесь 403) и терминал филиала, которому этот
-    список нужен ДО входа по PIN, то есть до появления сессии сотрудника."""
-    if is_terminal_service_user(current_user):
-        return current_user
-    user = await ensure_company_app_identity(
-        current_user, db, auth_scope=getattr(current_user, "auth_scope", "app")
-    )
-    return await require_web_owner(current_user=user, db=db)
-
-
-async def require_company_app_user_or_terminal(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> User:
-    """Данные организации, которые касса читает ДО входа сотрудника (список
-    филиалов для BranchSelector): пускаем служебный терминал филиала, у которого
-    роли нет вовсе. Для всех остальных вызывающих — полная проверка личности
-    app-сессии (ensure_company_app_identity), то есть контракт BI-06 не ослаблен."""
-    if is_terminal_service_user(current_user):
-        return current_user
-    return await ensure_company_app_identity(
-        current_user, db, auth_scope=getattr(current_user, "auth_scope", "app")
-    )

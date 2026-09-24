@@ -1,17 +1,10 @@
 ﻿from __future__ import annotations
 from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import (
-    get_current_user,
-    require_company_admin,
-    require_company_app_user,
-    require_company_app_user_or_terminal,
-    require_hq_admin,
-)
+from app.modules.auth.dependencies import require_company_app_user, require_company_admin, require_hq_admin
 from app.modules.auth.models import User
 from app.modules.companies.schemas import (
     BranchCreate, BranchResponse, BranchUpdate,
@@ -22,11 +15,6 @@ from app.shared.storage import storage
 
 _ALLOWED_LOGO_TYPES = {"image/jpeg", "image/png", "image/webp"}
 _LOGO_EXT_MAP = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
-
-
-class CancelPasswordSet(BaseModel):
-    password: str | None = None
-
 
 router = APIRouter(prefix="/companies", tags=["companies"])
 
@@ -105,9 +93,7 @@ async def create_branch(
 
 @router.get("/me/branches", response_model=list[BranchResponse])
 async def list_branches(
-    # Терминал филиала тянет список ДО входа по PIN (BranchSelector),
-    # поэтому здесь гейт мягче, чем на остальных /companies/me/*.
-    current_user: User = Depends(require_company_app_user_or_terminal),
+    current_user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
     branches = await BranchService(db).list(current_user.company_id)
@@ -117,27 +103,6 @@ async def list_branches(
         if scoped:
             return scoped
     return branches
-
-
-@router.get("/me/cancel-password")
-async def cancel_password_status(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    company = await CompanyService(db).get(current_user.company_id)
-    return {"is_set": bool(getattr(company, "cancel_password", None))}
-
-
-@router.post("/me/cancel-password")
-async def set_cancel_password(
-    data: CancelPasswordSet,
-    current_user: User = Depends(require_company_admin),
-    db: AsyncSession = Depends(get_db),
-):
-    company = await CompanyService(db).get(current_user.company_id)
-    company.cancel_password = (data.password or None)
-    await db.commit()
-    return {"is_set": bool(company.cancel_password)}
 
 
 @router.patch("/me/branches/{branch_id}", response_model=BranchResponse)

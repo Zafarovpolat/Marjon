@@ -138,11 +138,8 @@ app = FastAPI(
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-register_error_handlers(app)  # BE-21: единый конверт ошибок
+register_error_handlers(app)  # BE-21: unified error envelope
 app.add_middleware(SlowAPIMiddleware)
-# CORS: не допускаем опасную связку "*" + credentials (иначе можно отразить
-# произвольный origin с куками). Если сконфигурирован конкретный список origin —
-# разрешаем credentials для них; если "*"/пусто — отдаём "*" без credentials.
 _cors_origins = [o for o in settings.cors_origins if o and o != "*"]
 app.add_middleware(
     CORSMiddleware,

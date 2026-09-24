@@ -21,25 +21,14 @@ export function useCompanyProfileForm(user) {
   const beginRequest = useLatestRequest();
   const { acquire, release } = useMutationLocks();
 
-  // Спец-пароль отмены заказа и доля обслуги официанту — самодостаточные блоки
-  // страницы профиля: у каждого свой эндпоинт и своя кнопка "Сохранить",
-  // в общий payload handleSave они не входят.
-  const [cancelPw, setCancelPw] = useState("");
-  const [cancelPwSet, setCancelPwSet] = useState(false);
-  const [cancelPwSaving, setCancelPwSaving] = useState(false);
+  // Доля обслуги официанту и час старта операционного дня — самодостаточные
+  // блоки страницы профиля: у каждого своя кнопка «Сохранить», в общий payload
+  // handleSave они не входят. Оба поля бэкенд принимает в PATCH /companies/me
+  // (CompanyUpdate.waiter_service_percent / day_start_hour) и отдаёт в профиле.
   const [waiterPct, setWaiterPct] = useState("");
   const [waiterPctSaving, setWaiterPctSaving] = useState(false);
-  // Час старта операционного дня (0–23): когда заведение «закрывается», нумерация
-  // заказов сбрасывается. Тоже самодостаточный блок со своей кнопкой сохранения.
   const [dayStartHour, setDayStartHour] = useState("0");
   const [dayStartHourSaving, setDayStartHourSaving] = useState(false);
-
-  useEffect(() => {
-    // Статус пароля отмены — отдельный эндпоинт, само значение наружу не отдаётся.
-    settingsService.getCancelPassword()
-      .then(({ data }) => setCancelPwSet(Boolean(data?.is_set)))
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     const request = beginRequest();
@@ -57,9 +46,8 @@ export function useCompanyProfileForm(user) {
         };
         setForm(next);
         setSavedForm(next);
-        // Доля обслуги приходит в том же профиле компании — отдельный запрос не нужен.
+        // Доля обслуги и час сброса нумерации приходят в том же профиле компании.
         setWaiterPct(data?.waiter_service_percent != null ? String(data.waiter_service_percent) : "");
-        // Час сброса нумерации — оттуда же.
         setDayStartHour(data?.day_start_hour != null ? String(data.day_start_hour) : "0");
       })
       .catch((err) => {
@@ -127,21 +115,6 @@ export function useCompanyProfileForm(user) {
     }
   }
 
-  async function saveCancelPw() {
-    setCancelPwSaving(true);
-    try {
-      const { data } = await settingsService.setCancelPassword({ password: cancelPw || null });
-      setCancelPwSet(Boolean(data?.is_set));
-      setCancelPw("");
-      setError("");
-      setSuccess("Пароль отмены сохранён.");
-    } catch (err) {
-      setError(err.response?.data?.detail || "Не удалось сохранить пароль отмены");
-    } finally {
-      setCancelPwSaving(false);
-    }
-  }
-
   async function handleSave(event) {
     event.preventDefault();
     if (!acquire("company-profile-save")) return;
@@ -204,11 +177,6 @@ export function useCompanyProfileForm(user) {
     resetForm,
     clearLogo,
     handleSave,
-    cancelPw,
-    setCancelPw,
-    cancelPwSet,
-    cancelPwSaving,
-    saveCancelPw,
     waiterPct,
     setWaiterPct,
     waiterPctSaving,

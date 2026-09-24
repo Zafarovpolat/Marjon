@@ -2,10 +2,15 @@ from __future__ import annotations
 from uuid import UUID
 from datetime import datetime
 from typing import TYPE_CHECKING
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, JSON, Integer
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, JSON
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Uuid
 from app.shared.base_model import TimeStampedModel
+
+# Cross-СУБД JSON: JSONB на Postgres, обычный JSON на SQLite — тот же приём,
+# что в app/modules/organizations/models.py (JsonType).
+_JSON = JSON().with_variant(JSONB(), "postgresql")
 
 if TYPE_CHECKING:
     from app.modules.companies.models import Company
@@ -17,32 +22,32 @@ class User(TimeStampedModel):
     company_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("companies.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    # CASHIER-EMAIL-OPTIONAL-01: staff accounts (e.g. cashiers created without
+    # an address) may have NULL email. Non-null addresses stay globally unique
+    # (PostgreSQL treats NULL as distinct in UNIQUE constraints); Owner/Admin
+    # registration and login still require a real address at their own layer.
+    email: Mapped[str | None] = mapped_column(String(255), unique=True, index=True, nullable=True)
     # Аккаунты главной админки: логин по username (ТЗ админ-панели §4.1)
     username: Mapped[str | None] = mapped_column(String(150), unique=True, index=True)
     name: Mapped[str | None] = mapped_column(String(255))
     phone: Mapped[str | None] = mapped_column(String(20))
-    # 2–8 значный PIN для быстрого входа сотрудников (ТЗ §3.2 экран официанта/кассира)
-    pin_code: Mapped[str | None] = mapped_column(String(8))
-    # PIN хранится хешированным (bcrypt); pin_code оставлен для обратной совместимости
-    # и обнуляется миграцией после бэкфилла в pin_hash.
+    # BE-08: was pin_code String(8) — sized for a plaintext PIN and never
+    # actually written by any endpoint. Renamed + widened to hold a bcrypt
+    # hash (same hash_password()/verify_password() as the account
+    # password) so the PIN is never stored in the clear.
     pin_hash: Mapped[str | None] = mapped_column(String(255))
-    # Блокировка по неудачным попыткам PIN (счётчик и «до какого времени заперт»)
     pin_failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
     pin_locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_superadmin: Mapped[bool] = mapped_column(Boolean, default=False)
-    # Привязка сотрудника к филиалу (для «один логин = один филиал» и скоупа персонала)
-    branch_id: Mapped[UUID | None] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True, index=True
-    )
-    # Персональный принтер сотрудника (IP), NFC-карта и права доступа (из веб-админки)
-    printer_ip: Mapped[str | None] = mapped_column(String(45))
-    nfc_id: Mapped[str | None] = mapped_column(String(64))
-    permissions: Mapped[dict | None] = mapped_column(JSON, default=dict)
-    # Аватар сотрудника (загрузка через /auth/me/photo) — из ветки bek
-    avatar_url: Mapped[str | None] = mapped_column(String(512))
+    avatar_url: Mapped[str | None] = mapped_column(String(500))
+    # RBAC (app.modules.rbac) — основной механизм прав. Эта колонка —
+    # опциональный легаси-слой пер-юзерных тумблеров (can_view_z_report,
+    # can_view_finance, can_view_past_periods…), восстановленный из premerge:
+    # его читает auth.dependencies._legacy_permission через getattr, он НЕ
+    # отдаётся в UserResponse и по умолчанию NULL — RBAC-путь не меняется.
+    permissions: Mapped[dict | None] = mapped_column(_JSON, nullable=True)
 
     company: Mapped[Company | None] = relationship("Company", back_populates="users")
     refresh_tokens: Mapped[list[RefreshToken]] = relationship(back_populates="user", cascade="all, delete-orphan")

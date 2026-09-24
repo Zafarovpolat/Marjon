@@ -77,7 +77,9 @@ async def main():
     # Бэкфилл PIN: хешируем существующие plaintext-PIN (bcrypt) и стираем открытый pin_code.
     # Идемпотентно: берём только строки, где pin_code задан, а pin_hash ещё пуст.
     from sqlalchemy import text
-    from app.modules.auth.security import hash_pin
+    # Unified seam: base-era hash_pin no longer exists; canonical backend
+    # hashes PINs with hash_password (see AuthService.set_pin).
+    from app.modules.auth.security import hash_password as hash_pin
     migrated = 0
     async with engine.begin() as conn:
         existing, table_exists = await existing_columns(conn, dialect, "users")

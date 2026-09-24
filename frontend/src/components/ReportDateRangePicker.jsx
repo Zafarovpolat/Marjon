@@ -55,6 +55,12 @@ function withDefaultTimes(range = {}) {
     end: range.end || formatDate(new Date()),
     startTime: range.startTime || "00:00",
     endTime: range.endTime || "00:00",
+    // ZR-TIME-01: the 00:00 defaults above are a DISPLAY state, not a chosen
+    // boundary. `timeTouched` records that the operator actually changed a clock,
+    // which is the only thing that may turn a whole-day report into an explicit
+    // time window downstream. Carried through every draft update and committed
+    // with the range, so reopening the picker does not forget it.
+    timeTouched: Boolean(range.timeTouched),
   };
 }
 
@@ -110,17 +116,21 @@ function presetRange(label) {
   };
 }
 
+// Screen-only display contract (ZR-PRINT-FINAL-UX-05): a time-bearing input
+// always reads «DD.MM.YYYY | HH:MM» — one visible separator with balanced
+// spacing. The selected HH:MM is shown even at 00:00, because it is the real
+// UI state; it never reaches the API (the canonical detail contract is
+// date-only), and it is never printed as an accounting interval.
 function toDateInputText(range, key, showTime = true) {
   const current = withDefaultTimes(range);
   if (!showTime) {
     return current[key];
   }
-  const time = current[`${key}Time`] || "00:00";
-  return time === "00:00" ? current[key] : `${current[key]} ${time}`;
+  return `${current[key]} | ${current[`${key}Time`] || "00:00"}`;
 }
 
 function fromDateInputText(value) {
-  const trimmed = value.trim();
+  const trimmed = value.trim().replace(/\s*\|\s*/, " ");
   const match = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/);
 
   if (!match) {
@@ -134,25 +144,18 @@ function fromDateInputText(value) {
   };
 }
 
-function canonicalCurrentMonthRange() {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const year = now.getFullYear();
-  const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
-  return {
-    preset: "Этот месяц",
-    start: `01.${month}.${year}`,
-    end: `${String(lastDay).padStart(2, "0")}.${month}.${year}`,
-    startTime: "00:00",
-    endTime: "00:00",
-  };
-}
-
+// ZR-PERIOD-01B: current-period presets share ONE canonical rule —
+// start-of-period → TODAY, never a future calendar date. "Эта неделя" and
+// "Этот год" already resolved that way through presetRange(); the previous
+// canonicalCurrentMonthRange() override made only "Этот месяц" run to the
+// month's future end, which was inconsistent (and, for a report, implied a
+// wider period than the data covers). Month now falls through to the same
+// shared helper, matching each report page's own default (currentMonthRange).
 const canonicalDatePresets = [
   "Сегодня",
   "Вчера",
   "Эта неделя",
-  { label: "Этот месяц", getRange: canonicalCurrentMonthRange },
+  "Этот месяц",
   "Этот год",
 ];
 
@@ -264,6 +267,10 @@ export default function ReportDateRangePicker({
   showRangeHighlight = false,
   collapseCalendarOnOk = false,
   useCustomCalendarSelects = false,
+  animateExit = false,
+  open: controlledOpen,
+  onOpenChange,
+  onExitComplete,
 }) {
   const canonical = variant === "canonical";
   const effectiveButtonClassName = [canonical ? "owner-reports__period-button" : "", buttonClassName].filter(Boolean).join(" ");
@@ -275,7 +282,7 @@ export default function ReportDateRangePicker({
   const effectiveTrailingIconName = canonical ? "bi-calendar3" : trailingIconName;
   const effectiveTrailingIconSize = canonical ? 16 : trailingIconSize;
   const effectiveDateFieldLabels = canonical ? { start: "Дата с", end: "Дата по" } : dateFieldLabels;
-  const effectiveValidateRange = canonical ? validateCanonicalReportPeriod : validateRange;
+  const effectiveValidateRange = validateRange || (canonical ? validateCanonicalReportPeriod : undefined);
   const effectiveEnableEscapeClose = canonical || enableEscapeClose;
   const effectiveRestoreFocusOnApply = canonical || restoreFocusOnApply;
   const effectiveContainTimeListScroll = canonical || containTimeListScroll;
@@ -294,7 +301,14 @@ export default function ReportDateRangePicker({
   const monthSelectButtonRef = useRef(null);
   const yearSelectListRef = useRef(null);
   const monthSelectListRef = useRef(null);
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : internalOpen;
+  const setOpen = (nextOpen) => {
+    const resolved = typeof nextOpen === "function" ? nextOpen(open) : nextOpen;
+    if (!controlled) setInternalOpen(resolved);
+    onOpenChange?.(resolved);
+  };
   const [draft, setDraft] = useState(() => withDefaultTimes(value));
   const [activePicker, setActivePicker] = useState(null);
   const [validationError, setValidationError] = useState("");
@@ -386,6 +400,33 @@ export default function ReportDateRangePicker({
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [effectiveEnableEscapeClose, open]);
 
+  // Opt-in exit animation (REPORT-03, Orders report). `open` keeps owning every
+  // behaviour — the outside-click, Escape and focus effects above are untouched;
+  // this only keeps the panel in the DOM while its close animation plays and then
+  // drops it, so a closing panel is visible instead of vanishing in one frame.
+  // Default OFF, so every other caller (Z-report, HQ dashboards, finance) still
+  // unmounts on close exactly as before.
+  const [menuWasOpen, setMenuWasOpen] = useState(open);
+  const [menuClosing, setMenuClosing] = useState(false);
+  const menuOpenRef = useRef(open);
+  if (animateExit && open !== menuOpenRef.current) {
+    menuOpenRef.current = open;
+    if (open) {
+      if (!menuWasOpen) setMenuWasOpen(true);
+      if (menuClosing) setMenuClosing(false);
+    } else if (menuWasOpen && !menuClosing) {
+      setMenuClosing(true);
+    }
+  }
+  const menuMounted = animateExit ? (open || menuClosing) : open;
+  const handleMenuAnimationEnd = (event) => {
+    if (menuClosing && event.target === event.currentTarget) {
+      setMenuClosing(false);
+      setMenuWasOpen(false);
+      onExitComplete?.();
+    }
+  };
+
   function openPicker() {
     setDraft(withDefaultTimes(value));
     setValidationError("");
@@ -435,6 +476,9 @@ export default function ReportDateRangePicker({
     const nextDraft = {
       ...withDefaultTimes(nextRange),
       preset: option.label,
+      // a preset is a DATE range: it resets both clocks to 00:00, so it also
+      // resets them to "not chosen" (ZR-TIME-01)
+      timeTouched: false,
     };
     setDraft(nextDraft);
     setValidationError("");
@@ -464,6 +508,9 @@ export default function ReportDateRangePicker({
       preset: "",
       [key]: parsed.date,
       [`${key}Time`]: parsed.time,
+      // typing a DIFFERENT clock into the field is an explicit time choice, the
+      // same as picking one from the hour/minute lists
+      timeTouched: Boolean(current?.timeTouched) || parsed.time !== (current?.[`${key}Time`] || "00:00"),
     }));
   }
 
@@ -546,6 +593,10 @@ export default function ReportDateRangePicker({
       ...withDefaultTimes(current),
       preset: "",
       [`${activePicker}Time`]: time,
+      // ZR-TIME-01: only a CHANGED clock activates explicit time filtering, so
+      // re-picking the value that is already selected cannot silently narrow a
+      // whole-day report to a zero-length window.
+      timeTouched: Boolean(current?.timeTouched) || time !== (current?.[`${activePicker}Time`] || "00:00"),
     }));
   }
 
@@ -649,11 +700,14 @@ export default function ReportDateRangePicker({
         {effectiveShowDropdownIcon ? <Icon name="bi-chevron-down" size={18} /> : null}
         {effectiveTrailingIconName ? <Icon name={effectiveTrailingIconName} size={effectiveTrailingIconSize} /> : null}
       </button>
-      {open ? (
+      {menuMounted ? (
         <div
-          className={`report-date-menu${effectiveShowTime ? "" : " report-date-menu--date-only"}`}
+          className={`report-date-menu${effectiveShowTime ? "" : " report-date-menu--date-only"}${menuClosing ? " is-closing" : ""}`}
           id={effectiveExposeCalendarA11y ? menuId : undefined}
           onWheel={blockWheelScroll}
+          onAnimationEnd={animateExit ? handleMenuAnimationEnd : undefined}
+          aria-hidden={menuClosing ? true : undefined}
+          {...(menuClosing ? { inert: true } : {})}
         >
           <div className="report-date-presets">
             {presetOptions.map((preset) => (

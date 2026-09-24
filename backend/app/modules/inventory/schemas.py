@@ -85,7 +85,9 @@ class ProductResponse(BaseResponseSchema):
     sku: str | None
     is_active: bool
     is_available: bool
-    # D3: дневной максимум порций (NULL = без лимита) и сколько уже продано сегодня.
+    # D3 «максимум блюда»: дневной лимит порций (на всю компанию) и счётчик
+    # проданного. NULL лимит = без ограничения. Возвращаются десктопу, чтобы
+    # показывать остаток и авто-стоп при sold_count >= daily_limit.
     daily_limit: int | None = None
     sold_count: int = 0
     sort_order: int

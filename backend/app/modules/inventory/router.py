@@ -21,18 +21,16 @@ from app.modules.inventory.service import (
     CategoryService, IngredientService, ModifierGroupService, ProductService, StockService
 )
 from sqlalchemy import select
-from app.modules.inventory.models import Product, Ingredient, ProductRecipe
+from app.modules.inventory.models import Product, Ingredient
 from app.modules.rbac.dependencies import require_permission
 from app.modules.rbac.models import Role, UserRole
-from app.shared.exceptions import ForbiddenError, NotFoundError
+from app.shared.exceptions import ForbiddenError
 from app.shared.storage import storage
 
-router = APIRouter(prefix="/inventory", tags=["inventory"])
-
-# Загрузка изображений товаров (политика совпадает с auth/router: /me/photo).
-# Раньше эти имена использовались в хендлерах, но нигде не определялись — NameError.
 _ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
 _EXT_MAP = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+
+router = APIRouter(prefix="/inventory", tags=["inventory"])
 
 # Стоп-лист правят с десктопа кассир и повар (плюс владелец/админ и HQ-суперадмин).
 # Официанту и курьеру — запрещено (deny-by-default). Гвард отдельный от
@@ -60,36 +58,6 @@ async def require_stop_list_editor(
     if result.scalars().first():
         return user
     raise ForbiddenError("Cashier role required to edit stop-list")
-
-
-@router.get("/products/{product_id}/recipe")
-async def product_recipe(
-    product_id: UUID,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Техкарта блюда: ингредиенты с количеством."""
-    prod = (await db.execute(
-        select(Product).where(Product.id == product_id, Product.company_id == user.company_id)
-    )).scalar_one_or_none()
-    if not prod:
-        raise NotFoundError("Product not found")
-    rows = (await db.execute(
-        select(ProductRecipe, Ingredient)
-        .join(Ingredient, Ingredient.id == ProductRecipe.ingredient_id)
-        .where(ProductRecipe.product_id == product_id, ProductRecipe.company_id == user.company_id)
-    )).all()
-    items = [
-        {"ingredient_name": ing.name, "quantity": float(pr.quantity or 0), "unit": pr.unit or ing.unit}
-        for pr, ing in rows
-    ]
-    return {
-        "product_id": str(product_id),
-        "product_name": prod.name,
-        "unit": prod.unit,
-        "description": prod.description,
-        "items": items,
-    }
 
 
 def _group_to_response(g) -> ModifierGroupResponse:

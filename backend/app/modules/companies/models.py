@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING
 from sqlalchemy import String, Boolean, Integer, Numeric, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Uuid
-from app.modules.organizations.models import JsonType
 from app.shared.base_model import TimeStampedModel
+from app.modules.organizations.models import JsonType
 
 if TYPE_CHECKING:
     from app.modules.auth.models import User
@@ -69,10 +69,5 @@ class Branch(TimeStampedModel):
     address: Mapped[str | None] = mapped_column(Text)
     city: Mapped[str | None] = mapped_column(String(100))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    # 6.2 — собственные учётные данные филиала: вход на кассе одним шагом
-    # (логин филиала + пароль) без выбора филиала и без логина владельца.
-    # Логин глобально уникален → определяет и организацию, и филиал.
-    login: Mapped[str | None] = mapped_column(String(100), unique=True, index=True)
-    password_hash: Mapped[str | None] = mapped_column(String(255))
 
     company: Mapped[Company] = relationship(back_populates="branches")

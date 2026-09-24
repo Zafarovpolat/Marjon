@@ -1,0 +1,735 @@
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "../../api/client";
+import StaffRolePage from "../StaffRolePage";
+
+vi.mock("../../api/client", () => ({
+  api: {
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  },
+  formatMoney: (value) => `${value}`,
+  formatNumber: (value) => `${value}`,
+}));
+
+const waiterUser = {
+  id: "waiter-uuid",
+  name: "Waiter One",
+  email: null,
+  phone: "998901234567",
+  role_slug: "waiter",
+  role_slugs: ["waiter"],
+  is_active: true,
+};
+
+const cashierUser = {
+  id: "cashier-uuid",
+  name: "Cashier One",
+  email: "cashier1@marjon.test",
+  phone: "998901234567",
+  role_slug: "cashier",
+  role_slugs: ["cashier"],
+  is_active: true,
+};
+
+const EXPECTED_WAITER_SWITCHES = [
+  "Статус",
+  "Удаление блюд",
+  "Изменить код маркировки",
+  "Заказ на вынос за столом",
+  "Изменить тип заказа",
+];
+
+const CASHIER_ONLY_SWITCHES = [
+  "Может закрыть счёт",
+  "Открыть денежный ящик после оплаты",
+  "Просмотр закрытых заказов",
+];
+
+async function waitForExpectPost() {
+  await waitFor(() => expect(api.post).toHaveBeenCalled());
+}
+
+async function waitForExpectPatch() {
+  await waitFor(() => expect(api.patch).toHaveBeenCalled());
+}
+
+describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+    api.get.mockResolvedValue({ data: [waiterUser, cashierUser] });
+    api.post.mockResolvedValue({ data: waiterUser });
+    api.patch.mockResolvedValue({ data: waiterUser });
+    api.delete.mockResolvedValue({ data: {} });
+  });
+
+  it("renders title Список сотрудников: Официанты with ПОЛЬЗОВАТЕЛИ eyebrow", async () => {
+    render(<StaffRolePage role="waiter" />);
+    expect(await screen.findByText("Waiter One")).toBeInTheDocument();
+    expect(screen.getByText("Список сотрудников: Официанты")).toBeInTheDocument();
+    expect(screen.getByText("Пользователи")).toBeInTheDocument();
+  });
+
+  it("renders exactly the 8 product columns in order, role Официант", async () => {
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    const headers = screen.getAllByRole("columnheader").map((c) => c.textContent);
+    expect(headers).toEqual([
+      "ID",
+      "Фото",
+      "ФИО",
+      "Номер телефона",
+      "Роль",
+      "Права доступа",
+      "Статус",
+      "Действия",
+    ]);
+    const table = document.querySelector(".staff-table");
+    expect(within(table).queryByText("Email")).toBeNull();
+    expect(within(table).getByText("Официант")).toBeInTheDocument();
+    expect(within(table).queryByText("Кассир")).toBeNull();
+    expect(within(table).queryByText("Waiter")).toBeNull();
+    expect(within(table).getByText("waiter-uuid")).toBeInTheDocument();
+    // Access column shows ONLY delete-dishes truth, never generic text.
+    expect(within(table).queryByText("Базовый доступ")).toBeNull();
+    expect(within(table).getByText("Удаление блюд")).toBeInTheDocument();
+  });
+
+  it("renders waiter access as red OFF delete-dishes indicator (no persisted grant)", async () => {
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    const table = document.querySelector(".staff-table");
+    const access = within(table).getByText("Удаление блюд").closest(".staff-permission");
+    expect(access).not.toBeNull();
+    const dot = access.querySelector(".staff-permission-dot.is-off");
+    expect(dot).not.toBeNull();
+  });
+
+  it("uses product header: slider tabs + Add, no legacy filters", async () => {
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    expect(document.querySelector(".staff-filters")).toBeNull();
+    expect(screen.getByRole("button", { name: "Активные" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Архивированные" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Добавить/ })).toBeInTheDocument();
+    const header = document.querySelector("header.staff-header--cashier");
+    expect(header).not.toBeNull();
+    expect(header.querySelector(".staff-header__actions")).not.toBeNull();
+    expect(header.querySelector(".staff-tabs--slider")).not.toBeNull();
+  });
+
+  it("renders canonical Активен status without old pill", async () => {
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    const table = document.querySelector(".staff-table");
+    const status = within(table).getByText("Активен");
+    expect(status.classList.contains("staff-status-badge")).toBe(true);
+    expect(status.querySelector(".staff-status-badge__dot")).not.toBeNull();
+    expect(within(table).queryByText("#активно")).toBeNull();
+  });
+
+  it("add drawer shows photo + 4 fields, no Email or role selector", { timeout: 20000 }, async () => {
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.querySelector(".staff-form--cashier")).not.toBeNull();
+    expect(dialog.classList.contains("staff-modal--cashier-full")).toBe(true);
+    expect(within(dialog).getByText("Добавить официанта")).toBeInTheDocument();
+    expect(within(dialog).getByText("Загрузить фото")).toBeInTheDocument();
+    expect(within(dialog).getByText("Имя")).toBeInTheDocument();
+    expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
+    expect(within(dialog).getByText("Пароль")).toBeInTheDocument();
+    expect(within(dialog).getByText("IP адрес принтера")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Имя официанта")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Email")).toBeNull();
+    expect(dialog.querySelector("select")).toBeNull();
+    expect(localStorage.getItem("marjon_staff")).toBeNull();
+  });
+
+  it("edit drawer uses Новый пароль + waiter titles, no Email", async () => {
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByTitle("Edit"));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Изменить официанта")).toBeInTheDocument();
+    expect(within(dialog).getByText("Новый пароль")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Email")).toBeNull();
+    expect(dialog.querySelector("select")).toBeNull();
+  });
+
+  it("shows exactly the 5 primary waiter switches plus the detailed matrix", { timeout: 20000 }, async () => {
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    const dialog = await screen.findByRole("dialog");
+    const primary = dialog.querySelectorAll(
+      ".cashier-permission-switches .staff-permission-switch",
+    );
+    expect(primary).toHaveLength(5);
+    for (const label of EXPECTED_WAITER_SWITCHES) {
+      if (label === "Статус") {
+        expect(within(dialog).getByText("Статус")).toBeInTheDocument();
+      } else {
+        expect(within(dialog).getByRole("button", { name: label })).toBeInTheDocument();
+      }
+    }
+    expect([...primary].filter((b) => b.disabled)).toHaveLength(0);
+    // Additional detailed permissions below remain available (not counted).
+    expect(within(dialog).getByRole("button", { name: "Главная" })).toBeInTheDocument();
+    expect(dialog.querySelector(".staff-permission-matrix")).not.toBeNull();
+  });
+
+  it("has no cashier-only extra switches", { timeout: 20000 }, async () => {
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    const dialog = await screen.findByRole("dialog");
+    for (const label of CASHIER_ONLY_SWITCHES) {
+      expect(within(dialog).queryByRole("button", { name: label })).toBeNull();
+    }
+  });
+
+  it("toggles waiter switches incl. marking code and keeps form state", { timeout: 20000 }, async () => {
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    const dialog = await screen.findByRole("dialog");
+    for (const label of ["Удаление блюд", "Изменить код маркировки", "Заказ на вынос за столом", "Изменить тип заказа"]) {
+      const button = within(dialog).getByRole("button", { name: label });
+      expect(button.classList.contains("is-on")).toBe(false);
+      fireEvent.click(button);
+      expect(button.classList.contains("is-on")).toBe(true);
+      fireEvent.click(button);
+      expect(button.classList.contains("is-on")).toBe(false);
+    }
+  });
+
+  it("creates a waiter without Email through the real endpoint", { timeout: 20000 }, async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const created = {
+      id: "new-waiter-uuid",
+      name: "Waiter Two",
+      email: null,
+      phone: "998901112233",
+      role_slug: "waiter",
+      role_slugs: ["waiter"],
+      is_active: true,
+    };
+    api.post.mockResolvedValue({ data: created });
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(screen.getByPlaceholderText("Имя официанта"), {
+      target: { value: "Waiter Two" },
+    });
+    fireEvent.change(dialog.querySelector(".staff-phone-field input"), {
+      target: { value: "+998901112233" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Пароль"), {
+      target: { value: "Waiter123" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    await screen.findByText("Waiter Two");
+    expect(api.post).toHaveBeenCalledWith("/auth/users", {
+      password: "Waiter123",
+      phone: "998901112233",
+      role_slug: "waiter",
+      role_name: "Waiter Two",
+    });
+    const sent = api.post.mock.calls[0][1];
+    expect(sent).not.toHaveProperty("email");
+    expect(sent.role_slug).toBe("waiter");
+    expect(alertSpy).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: 2000 });
+    expect(localStorage.getItem("marjon_staff")).toBeNull();
+  });
+
+  it("edit persists truthfully without email/printer/photo payload", async () => {
+    api.patch.mockResolvedValue({ data: { ...waiterUser, name: "Waiter Two" } });
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByTitle("Edit"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(screen.getByPlaceholderText("Имя официанта"), {
+      target: { value: "Waiter Two" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("192.168.1.10"), {
+      target: { value: "192.168.1.10" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Сохранить" }));
+    await waitForExpectPatch();
+    const [, payload] = api.patch.mock.calls[0];
+    expect(payload).not.toHaveProperty("email");
+    expect(payload).not.toHaveProperty("printerIp");
+    expect(payload).not.toHaveProperty("photo");
+    expect(payload).toHaveProperty("role_slug", "waiter");
+    expect(payload.name).toBe("Waiter Two");
+  });
+
+  it("keeps phone prefix stable and formats (XX) XXX-XX-XX", async () => {
+    const { unmount } = render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    const dialog = await screen.findByRole("dialog");
+    const prefix = dialog.querySelector(".staff-phone-country--pill");
+    const input = dialog.querySelector(".staff-phone-field--split input");
+    expect(prefix.textContent).toContain("+998");
+    fireEvent.change(input, { target: { value: "90123" } });
+    expect(input.value).toBe("(90) 123");
+    fireEvent.change(input, { target: { value: "+998901234567" } });
+    expect(input.value).toBe("(90) 123-45-67");
+    expect(input.value.includes("+998")).toBe(false);
+    unmount();
+  });
+
+  it("preserves archive/restore through backend mutations", async () => {
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByTitle("Archive"));
+    await screen.findByText("Waiter One");
+    expect(api.delete).toHaveBeenCalledWith("/auth/users/waiter-uuid");
+    fireEvent.click(screen.getByRole("button", { name: "Архивированные" }));
+    expect(await screen.findByText("Waiter One")).toBeInTheDocument();
+    fireEvent.click(screen.getByTitle("Restore"));
+    await screen.findByText("Waiter One");
+    expect(api.patch).toHaveBeenCalledWith("/auth/users/waiter-uuid", { is_active: true });
+  });
+
+  it("shows inline validation without alert and keeps drawer open", async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Waiter123" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    // Empty name binds to the name field (near the fold) + drawer block.
+    const alerts = await within(dialog).findAllByRole("alert");
+    expect(alerts).toHaveLength(2);
+    for (const alert of alerts) {
+      expect(alert).toHaveTextContent("Укажите имя и номер телефона официанта.");
+    }
+    const fieldError = dialog.querySelector(".staff-field-error");
+    expect(fieldError).not.toBeNull();
+    expect(fieldError.closest("label").textContent).toContain("Имя");
+    expect(alertSpy).not.toHaveBeenCalled();
+    expect(api.post).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeNull();
+  });
+
+  it("surfaces backend failure inline, resets loading and allows retry", async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    api.post.mockRejectedValueOnce({
+      response: { data: { detail: "Phone already registered" } },
+    });
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(screen.getByPlaceholderText("Имя официанта"), { target: { value: "Waiter Two" } });
+    fireEvent.change(dialog.querySelector(".staff-phone-field input"), {
+      target: { value: "+998901112233" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Waiter123" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    // FIX-02: duplicate-phone binds to the phone field (near the fold) AND
+    // keeps the drawer-level block — both carry the Russian text.
+    const alerts = await within(dialog).findAllByRole("alert");
+    expect(alerts).toHaveLength(2);
+    for (const alert of alerts) {
+      expect(alert).toHaveTextContent("Этот номер уже зарегистрирован");
+      expect(alert).toHaveTextContent("Phone already registered");
+    }
+    const fieldError = dialog.querySelector(".staff-phone-error");
+    expect(fieldError).not.toBeNull();
+    expect(fieldError.textContent).toContain("Этот номер уже зарегистрирован");
+    // Field error sits inside the phone label, right under the input.
+    expect(fieldError.closest("label").querySelector(".staff-phone-field input")).not.toBeNull();
+    expect(alertSpy).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeNull();
+    // Submit button left loading state; entered values preserved.
+    expect(within(dialog).getByRole("button", { name: "Добавить" })).toBeEnabled();
+    expect(screen.getByPlaceholderText("Имя официанта").value).toBe("Waiter Two");
+    // Retry works after failure (loading reset).
+    api.post.mockResolvedValue({
+      data: { ...waiterUser, id: "retry-uuid", name: "Waiter Two" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    await screen.findByText("Waiter Two");
+    expect(api.post).toHaveBeenCalledTimes(2);
+  });
+
+  it("renders list validation errors as text, never [object Object]", async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    api.post.mockRejectedValue({
+      response: {
+        data: {
+          detail: [{ loc: ["body", "phone"], msg: "Field required", type: "missing" }],
+          code: "VALIDATION_ERROR",
+          message: "Ошибка валидации данных",
+        },
+      },
+    });
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(screen.getByPlaceholderText("Имя официанта"), { target: { value: "Waiter Two" } });
+    fireEvent.change(dialog.querySelector(".staff-phone-field input"), {
+      target: { value: "+998901112233" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Waiter123" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert).toHaveTextContent("Field required");
+    expect(alert.textContent).not.toContain("[object Object]");
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  it("animates drawer close before unmounting", async () => {
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    await screen.findByRole("dialog");
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(screen.getByRole("button", { name: "Отменить" }));
+      expect(screen.getByRole("dialog").classList.contains("is-closing")).toBe(true);
+      act(() => {
+        vi.advanceTimersByTime(400);
+      });
+      expect(screen.queryByRole("dialog")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("staff role isolation (cashier vs waiter)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+    api.get.mockResolvedValue({ data: [cashierUser, waiterUser] });
+    api.post.mockResolvedValue({ data: waiterUser });
+    api.patch.mockResolvedValue({ data: waiterUser });
+    api.delete.mockResolvedValue({ data: {} });
+  });
+
+  it("cashier page shows only cashiers", async () => {
+    render(<StaffRolePage role="cashier" />);
+    expect(await screen.findByText("Cashier One")).toBeInTheDocument();
+    expect(screen.queryByText("Waiter One")).not.toBeInTheDocument();
+  });
+
+  it("waiter page shows only waiters", async () => {
+    render(<StaffRolePage role="waiter" />);
+    expect(await screen.findByText("Waiter One")).toBeInTheDocument();
+    expect(screen.queryByText("Cashier One")).not.toBeInTheDocument();
+  });
+
+  it("locks primary switch sets: cashier 7, waiter 5 (matrix extra)", async () => {
+    const { unmount } = render(<StaffRolePage role="cashier" />);
+    await screen.findByText("Cashier One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    let dialog = await screen.findByRole("dialog");
+    expect(
+      dialog.querySelectorAll(".cashier-permission-switches .staff-permission-switch"),
+    ).toHaveLength(7);
+    unmount();
+
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    dialog = await screen.findByRole("dialog");
+    expect(
+      dialog.querySelectorAll(".cashier-permission-switches .staff-permission-switch"),
+    ).toHaveLength(5);
+  });
+});
+
+describe("waiter field validation matrix (name/phone/password/printer IP)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+    api.get.mockResolvedValue({ data: [waiterUser, cashierUser] });
+    api.post.mockResolvedValue({ data: waiterUser });
+    api.patch.mockResolvedValue({ data: waiterUser });
+    api.delete.mockResolvedValue({ data: {} });
+  });
+
+  async function openAddAndFill({ name = "Field Test", phone = "+998901112233", password = "Waiter123", printerIp = "" }) {
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    const dialog = await screen.findByRole("dialog");
+    if (name !== null) {
+      fireEvent.change(screen.getByPlaceholderText("Имя официанта"), { target: { value: name } });
+    }
+    if (phone !== null) {
+      fireEvent.change(dialog.querySelector(".staff-phone-field input"), { target: { value: phone } });
+    }
+    if (password !== null) {
+      fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: password } });
+    }
+    if (printerIp !== null) {
+      fireEvent.change(screen.getByPlaceholderText("192.168.1.10"), { target: { value: printerIp } });
+    }
+    return dialog;
+  }
+
+  it.each([
+    ["single Cyrillic char", "А"],
+    ["digits-only name", "12345"],
+    ["latin name with space", "John Doe"],
+  ])("name accepted: %s → POST sent", { timeout: 20000 }, async (_label, name) => {
+    const dialog = await openAddAndFill({ name });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(api.post.mock.calls[0][1].role_name).toBe(name);
+  });
+
+  it("name is trimmed: surrounding spaces stripped in payload", { timeout: 20000 }, async () => {
+    const dialog = await openAddAndFill({ name: "  Алишер  " });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(api.post.mock.calls[0][1].role_name).toBe("Алишер");
+  });
+
+  it("spaces-only name blocked with name field error, no POST", { timeout: 20000 }, async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const dialog = await openAddAndFill({ name: "   " });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    const alerts = await within(dialog).findAllByRole("alert");
+    expect(alerts).toHaveLength(2);
+    expect(dialog.querySelector(".staff-field-error")).not.toBeNull();
+    expect(alertSpy).not.toHaveBeenCalled();
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it("short phone passes frontend gate (no length floor); canonical digits sent", { timeout: 20000 }, async () => {
+    const dialog = await openAddAndFill({ phone: "123" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    // normalizePhone UZ: dial 998 + local digits.
+    expect(api.post.mock.calls[0][1].phone).toBe("998123");
+  });
+
+  it.each([
+    ["empty", ""],
+    ["too short", "Ab1"],
+    ["letters only", "Password"],
+    ["digits only", "12345678"],
+    ["cyrillic letters + digit", "Пароль12"],
+  ])("password rejected: %s → blocked before POST with password field error", { timeout: 20000 }, async (_label, password) => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const dialog = await openAddAndFill({ password });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    const alerts = await within(dialog).findAllByRole("alert");
+    expect(alerts).toHaveLength(2);
+    for (const alert of alerts) {
+      expect(alert).toHaveTextContent("Пароль должен содержать минимум 8 символов, букву и цифру.");
+    }
+    const fieldError = dialog.querySelector(".staff-field-error");
+    expect(fieldError).not.toBeNull();
+    expect(fieldError.closest("label").textContent).toContain("Пароль");
+    expect(alertSpy).not.toHaveBeenCalled();
+    expect(api.post).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeNull();
+  });
+
+  it.each([
+    ["exactly 8 letters+digits", "a1b2c3d4"],
+    ["specials and spaces", "P@ss w0rd"],
+  ])("password accepted: %s → POST sent", { timeout: 20000 }, async (_label, password) => {
+    const dialog = await openAddAndFill({ password });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+  });
+
+  it.each([
+    ["empty IP", ""],
+    ["valid IPv4", "192.168.1.10"],
+    ["other valid IPv4", "10.0.0.5"],
+    ["invalid octets", "999.999.999.999"],
+    ["plain text filtered out", "abc"],
+    ["partial", "192.168.1"],
+  ])("printer IP never blocks and never sent: %s → POST sent without printer key", { timeout: 20000 }, async (_label, printerIp) => {
+    const dialog = await openAddAndFill({ printerIp });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    const payload = api.post.mock.calls[0][1];
+    expect(payload).not.toHaveProperty("printerIp");
+    expect(payload).not.toHaveProperty("printer_ip");
+  });
+});
+
+describe("waiter live-create fix (duplicate phone 409)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+    api.get.mockResolvedValue({ data: [waiterUser, cashierUser] });
+    api.post.mockResolvedValue({ data: waiterUser });
+    api.patch.mockResolvedValue({ data: waiterUser });
+    api.delete.mockResolvedValue({ data: {} });
+  });
+
+  it("shows a clear Russian message on 409 duplicate phone, keeps drawer open for retry", { timeout: 20000 }, async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    api.post.mockRejectedValueOnce({
+      response: { data: { detail: "Phone already registered", code: "CONFLICT" } },
+    });
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(screen.getByPlaceholderText("Имя официанта"), {
+      target: { value: "Waiter Two" },
+    });
+    fireEvent.change(dialog.querySelector(".staff-phone-field input"), {
+      target: { value: "+998901112233" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Пароль"), {
+      target: { value: "Waiter123" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+
+    const alerts = await within(dialog).findAllByRole("alert");
+    expect(alerts).toHaveLength(2);
+    for (const alert of alerts) {
+      expect(alert).toHaveTextContent("Этот номер уже зарегистрирован");
+      expect(alert).toHaveTextContent("Phone already registered");
+    }
+    // Field-level error is bound to the phone label, right under the input.
+    const fieldError = dialog.querySelector(".staff-phone-error");
+    expect(fieldError).not.toBeNull();
+    expect(fieldError.closest("label").textContent).toContain("Номер телефона");
+    expect(alertSpy).not.toHaveBeenCalled();
+    // Drawer stays open with values preserved; retry with a free number works.
+    expect(screen.queryByRole("dialog")).not.toBeNull();
+    expect(screen.getByPlaceholderText("Имя официанта").value).toBe("Waiter Two");
+    api.post.mockResolvedValue({
+      data: { ...waiterUser, id: "retry-uuid", name: "Waiter Two" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    await screen.findByText("Waiter Two");
+    expect(api.post).toHaveBeenCalledTimes(2);
+  });
+
+  it("creates an archived waiter via POST then deactivate, visible under Archived", { timeout: 20000 }, async () => {
+    const created = {
+      id: "archived-waiter-uuid",
+      name: "Archived Waiter",
+      email: null,
+      phone: "998901112244",
+      role_slug: "waiter",
+      role_slugs: ["waiter"],
+      is_active: true,
+    };
+    const deactivated = { ...created, is_active: false };
+    api.post.mockResolvedValue({ data: created });
+    api.patch.mockResolvedValue({ data: deactivated });
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(screen.getByPlaceholderText("Имя официанта"), {
+      target: { value: "Archived Waiter" },
+    });
+    fireEvent.change(dialog.querySelector(".staff-phone-field input"), {
+      target: { value: "+998901112244" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Пароль"), {
+      target: { value: "Waiter123" },
+    });
+    // Switch status to archived before submit.
+    fireEvent.click(within(dialog).getByText("Статус").closest("button"));
+    expect(within(dialog).getByText("Архив")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith("/auth/users/archived-waiter-uuid", { is_active: false }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: 2000 });
+    // Active tab hides it; Archived tab shows canonical truth.
+    expect(screen.queryByText("Archived Waiter")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Архивированные" }));
+    expect(await screen.findByText("Archived Waiter")).toBeInTheDocument();
+    expect(screen.getByText("Неактивен")).toBeInTheDocument();
+  });
+
+  it("waiter survives reload: remount refetches canonical list via GET", { timeout: 20000 }, async () => {
+    const created = {
+      id: "reload-waiter-uuid",
+      name: "Reload Waiter",
+      email: null,
+      phone: "998901112255",
+      role_slug: "waiter",
+      role_slugs: ["waiter"],
+      is_active: true,
+    };
+    api.post.mockResolvedValue({ data: created });
+    const { unmount } = render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(screen.getByPlaceholderText("Имя официанта"), {
+      target: { value: "Reload Waiter" },
+    });
+    fireEvent.change(dialog.querySelector(".staff-phone-field input"), {
+      target: { value: "+998901112255" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Пароль"), {
+      target: { value: "Waiter123" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    await screen.findByText("Reload Waiter");
+    unmount();
+    // Reload: fresh mount fetches canonical GET including the new waiter.
+    api.get.mockResolvedValue({ data: [waiterUser, created] });
+    render(<StaffRolePage role="waiter" />);
+    expect(await screen.findByText("Reload Waiter")).toBeInTheDocument();
+    expect(screen.getByText("Waiter One")).toBeInTheDocument();
+  });
+
+  it("empty phone blocks before POST with phone field error", { timeout: 20000 }, async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(screen.getByPlaceholderText("Имя официанта"), { target: { value: "No Phone" } });
+    fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Waiter123" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    const alerts = await within(dialog).findAllByRole("alert");
+    expect(alerts).toHaveLength(2);
+    const fieldError = dialog.querySelector(".staff-phone-error");
+    expect(fieldError).not.toBeNull();
+    expect(fieldError.closest("label").textContent).toContain("Номер телефона");
+    expect(alertSpy).not.toHaveBeenCalled();
+    expect(api.post).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeNull();
+  });
+
+  it("maps edit-time duplicate phone to Russian without [object Object]", { timeout: 20000 }, async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    api.patch.mockRejectedValueOnce({
+      response: { data: { detail: "Phone already in use", code: "CONFLICT" } },
+    });
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByTitle("Edit"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Сохранить" }));
+    const alerts = await within(dialog).findAllByRole("alert");
+    expect(alerts).toHaveLength(2);
+    for (const alert of alerts) {
+      expect(alert).toHaveTextContent("Этот номер уже используется");
+      expect(alert.textContent).not.toContain("[object Object]");
+    }
+    expect(dialog.querySelector(".staff-phone-error")).not.toBeNull();
+    expect(alertSpy).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeNull();
+  });
+});

@@ -1,20 +1,24 @@
 from __future__ import annotations
 import io
 from datetime import date, datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Iterable, Sequence, get_args
 from uuid import UUID
 
 from fastapi.responses import StreamingResponse
-from sqlalchemy import and_, case, exists, func, select
+from sqlalchemy import and_, case, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.modules.admin_reports.schemas import (
-    AttendanceRow, CancelledItemRow, DebtCreditRow,
-    DishReportFiltersResponse, DishReportRow, LoginHistoryRow, OrderReportRow,
+    AttendanceRow, CancelledAuthorOption, CancelledFiltersResponse, CancelledItemRow,
+    DebtCreditRow,
+    DishReportFiltersResponse, DishReportResponse, DishReportRow,
+    DishReportTotals, LoginHistoryRow, OrderReportRow,
     OrderReportFiltersResponse, ReportFilterOption,
-    ProductCountRow, ProductReportRow, TableReportFiltersResponse,
-    TableReportRow, WaiterReportRow,
+    ProductCountRow, ProductReportRow, TableOrderSummary, TableReportFiltersResponse,
+    TableReportRow, WaiterDishRow, WaiterReportFiltersResponse,
+    WaiterReportResponse, WaiterReportRow, WaiterReportTotals,
 )
 from app.modules.auth.models import RefreshToken, User
 from app.modules.finance.models import Counterparty, FinTransaction, PaymentType
@@ -307,12 +311,12 @@ class AdminReportService:
         date_to: date | None,
         *,
         order_number: str | None = None,
-        waiter_id: UUID | None = None,
-        cashier_id: UUID | None = None,
-        product_id: UUID | None = None,
-        order_type: str | None = None,
-        order_status: str | None = None,
-        payment_method: str | None = None,
+        waiter_id: Sequence[UUID] | None = None,
+        cashier_id: Sequence[UUID] | None = None,
+        product_id: Sequence[UUID] | None = None,
+        order_type: Sequence[str] | None = None,
+        order_status: Sequence[str] | None = None,
+        payment_method: Sequence[str] | None = None,
     ) -> list[OrderReportRow]:
         items_count = (
             select(func.count(OrderItem.id))
@@ -322,11 +326,12 @@ class AdminReportService:
         )
         query = (
             select(
-                Order.id, Order.order_number, Order.created_at,
-                Order.status, Order.table_number,
+                Order.id, Order.public_id, Order.order_number, Order.created_at,
+                Order.status, Order.table_number, Order.hall_name_snapshot,
+                Order.order_type,
                 User.name.label("waiter_name"),
                 items_count.label("items_count"),
-                Order.total_amount,
+                Order.total_amount, Order.service_fee,
             )
             .outerjoin(
                 User,
@@ -338,78 +343,169 @@ class AdminReportService:
         if order_number and (normalized_order_number := order_number.strip()):
             query = query.where(Order.order_number.ilike(f"%{normalized_order_number}%"))
         if waiter_id:
+            # REPORT-04 multi-value: the order's waiter must be one of the selected
+            # ones. The role guard is ROW-CORRELATED — it is evaluated against the
+            # order's OWN Order.waiter_id rather than against each selected id, so no
+            # selected id is silently dropped: an id that no longer holds this
+            # company's non-system `waiter` role simply matches no order.
             waiter_has_company_role = exists(
                 select(UserRole.id)
                 .join(Role, Role.id == UserRole.role_id)
                 .where(
-                    UserRole.user_id == waiter_id,
+                    UserRole.user_id == Order.waiter_id,
                     Role.company_id == company_id,
                     Role.slug == "waiter",
                     Role.is_system.is_(False),
                 )
             )
             query = query.where(
-                Order.waiter_id == waiter_id,
+                Order.waiter_id.in_(list(waiter_id)),
                 waiter_has_company_role,
             )
         if cashier_id:
-            cashier_has_company_role = exists(
+            # Aligned with cashier_names row attribution (Variant A): the order
+            # must carry a COMPLETED payment taken by one of the selected
+            # cashiers. Pending/failed/refunded payments and NULL (gateway)
+            # cashiers never match. The role guard is correlated to that
+            # payment's own Payment.cashier_id — the ACTUALLY attributed
+            # cashier — so the guard follows the attribution instead of the
+            # selection.
+            attributed_cashier_has_role = exists(
                 select(UserRole.id)
                 .join(Role, Role.id == UserRole.role_id)
                 .where(
-                    UserRole.user_id == cashier_id,
+                    UserRole.user_id == Payment.cashier_id,
                     Role.company_id == company_id,
                     Role.slug == "cashier",
                     Role.is_system.is_(False),
                 )
             )
             query = query.where(
-                cashier_has_company_role,
                 exists(
                     select(Payment.id).where(
                         Payment.company_id == company_id,
                         Payment.order_id == Order.id,
-                        Payment.cashier_id == cashier_id,
+                        Payment.status == "completed",
+                        Payment.cashier_id.in_(list(cashier_id)),
+                        attributed_cashier_has_role,
                     )
                 ),
             )
         if product_id:
+            # Unchanged semantic, widened: the order CONTAINS at least one of the
+            # selected dishes.
             query = query.where(
                 exists(
                     select(OrderItem.id)
                     .join(Product, Product.id == OrderItem.product_id)
                     .where(
                         OrderItem.order_id == Order.id,
-                        OrderItem.product_id == product_id,
+                        OrderItem.product_id.in_(list(product_id)),
                         Product.company_id == company_id,
                     )
                 )
             )
         if order_type:
-            query = query.where(Order.order_type == order_type)
+            query = query.where(Order.order_type.in_(list(order_type)))
         if order_status:
-            query = query.where(Order.status == order_status)
+            query = query.where(Order.status.in_(list(order_status)))
         if payment_method:
+            # Aligned with payment_methods row attribution (Variant A): the
+            # order must carry a COMPLETED payment with one of the selected
+            # methods. Pending/failed/refunded payments never match.
+            # cashier_id is never required — a completed gateway payment with
+            # cashier_id NULL still matches its method.
             query = query.where(
                 exists(
                     select(Payment.id).where(
                         Payment.company_id == company_id,
                         Payment.order_id == Order.id,
-                        Payment.method == payment_method,
+                        Payment.status == "completed",
+                        Payment.method.in_(list(payment_method)),
                     )
                 )
             )
         query = self._order_date_filter(query, date_from, date_to)
         rows = (await self.db.execute(query)).all()
+        cashier_names, payment_methods = await self._order_payment_attribution(
+            company_id, [r.id for r in rows]
+        )
         return [
             OrderReportRow(
-                order_id=r.id, order_number=r.order_number,
+                order_id=r.id, public_id=r.public_id, order_number=r.order_number,
                 created_at=r.created_at, status=r.status,
-                table_number=r.table_number, waiter_name=r.waiter_name,
+                table_number=r.table_number, hall_name=r.hall_name_snapshot,
+                waiter_name=r.waiter_name,
                 items_count=r.items_count, total_amount=Decimal(str(r.total_amount or 0)),
+                order_type=r.order_type,
+                cashier_names=cashier_names.get(r.id, []),
+                service_fee=Decimal(str(r.service_fee if r.service_fee is not None else 0)),
+                payment_methods=payment_methods.get(r.id, []),
             )
             for r in rows
         ]
+
+    async def _order_payment_attribution(
+        self, company_id: UUID, order_ids: Sequence[UUID]
+    ) -> tuple[dict[UUID, list[str]], dict[UUID, list[str]]]:
+        """Variant A payment attribution for one Orders report page.
+
+        Returns (cashier_names, payment_methods), both derived from the SAME
+        single bounded query over the orders' COMPLETED payments:
+
+        Кассир = ALL UNIQUE authenticated cashiers on COMPLETED payments
+        (Payment.cashier_id → same-company User display name). Gateway/system
+        payments (cashier_id NULL), unpaid orders, and non-completed payments
+        contribute no name; waiter is never consulted.
+
+        Тип оплаты = ALL UNIQUE raw Payment.method values on COMPLETED
+        payments (never labels). A completed gateway payment with
+        cashier_id NULL still contributes its method — method attribution is
+        logically independent from cashier attribution.
+
+        One bounded query for the whole page (never per-row), ordered by
+        first completed-payment occurrence (created_at, id) with per-order
+        first-seen dedup — so one order always yields one name list and one
+        method list, and the main query can never multiply rows.
+        """
+        if not order_ids:
+            return {}, {}
+        pay_rows = (
+            await self.db.execute(
+                select(
+                    Payment.order_id,
+                    func.coalesce(User.name, User.email).label("cashier_name"),
+                    Payment.method,
+                    Payment.created_at,
+                    Payment.id,
+                )
+                .outerjoin(
+                    User,
+                    and_(
+                        User.id == Payment.cashier_id,
+                        User.company_id == company_id,
+                    ),
+                )
+                .where(
+                    Payment.company_id == company_id,
+                    Payment.status == "completed",
+                    Payment.order_id.in_(list(order_ids)),
+                )
+                .order_by(Payment.created_at.asc(), Payment.id.asc())
+            )
+        ).all()
+        cashier_names: dict[UUID, list[str]] = {}
+        payment_methods: dict[UUID, list[str]] = {}
+        for row in pay_rows:
+            if row.cashier_name is not None:
+                names = cashier_names.setdefault(row.order_id, [])
+                if row.cashier_name not in names:
+                    names.append(row.cashier_name)
+            if row.method is not None:
+                methods = payment_methods.setdefault(row.order_id, [])
+                if row.method not in methods:
+                    methods.append(row.method)
+        return cashier_names, payment_methods
 
     async def tables_report(
         self,
@@ -418,10 +514,10 @@ class AdminReportService:
         date_to: date | None,
         *,
         table_number: str | None = None,
-        waiter_id: UUID | None = None,
-        payment_method: str | None = None,
-        cashier_id: UUID | None = None,
-        hall_id: UUID | None = None,
+        waiter_id: Sequence[UUID] | None = None,
+        payment_method: Sequence[str] | None = None,
+        cashier_id: Sequence[UUID] | None = None,
+        hall_id: Sequence[UUID] | None = None,
     ) -> list[TableReportRow]:
         # Row identity is the canonical Table when the order carries one, else the
         # legacy free-text number. Grouping by (table_id, table_number) keeps those
@@ -429,6 +525,98 @@ class AdminReportService:
         # never collapse into one row, and a legacy NULL-table_id "5" stays separate
         # from a canonical Table #5. Hall is joined only for display/predicate; both
         # joins are on primary keys, so they never multiply orders/revenue.
+        #
+        # The lightweight per-row order summaries below reuse EXACTLY these
+        # predicates, so Date/Sum lines can never disagree with the aggregate.
+        conditions = [
+            Order.company_id == company_id,
+            Order.status == "completed",
+            Order.table_number.is_not(None),
+        ]
+        if hall_id:
+            # Tenant-safe: 404 (not a leak) if any hall isn't this company's. Hall has
+            # a direct company_id, so the shared resolver applies. Filtering on the
+            # canonical Table.hall_id (never table_number) also excludes legacy
+            # NULL-table_id orders, which cannot truthfully belong to any hall.
+            #
+            # Phase 5C-6D, DELIBERATE: this resolver is deleted-agnostic — a
+            # DELETED hall (deleted_at set) stays explicitly queryable here by
+            # its canonical id. Marjon is POS/accounting software, so archiving
+            # a place must not make its completed business history unreachable.
+            # The hall is still hidden everywhere it could be PICKED (Settings,
+            # POS, and the /reports/tables/filters place directory), so this is
+            # an explicit by-id historical read, never a resurrection and never
+            # a cross-tenant hole.
+            for single_hall_id in hall_id:
+                await require_company_resource(
+                    self.db, Hall, single_hall_id, company_id, detail="Hall not found"
+                )
+            conditions.append(Table.hall_id.in_(list(hall_id)))
+        if table_number and (normalized_table_number := table_number.strip()):
+            conditions.append(Order.table_number.ilike(f"%{normalized_table_number}%"))
+        if waiter_id:
+            # REPORT-04 multi-value: the order's waiter must be one of the
+            # selected ones. The role guard is ROW-CORRELATED — evaluated
+            # against the order's OWN Order.waiter_id, so no selected id is
+            # silently dropped: a foreign/ineligible/inactive id simply matches
+            # nothing. Same rule as the old scalar eligibility, widened to lists.
+            waiter_has_company_role = exists(
+                select(UserRole.id)
+                .join(Role, Role.id == UserRole.role_id)
+                .join(User, User.id == UserRole.user_id)
+                .where(
+                    UserRole.user_id == Order.waiter_id,
+                    User.company_id == company_id,
+                    User.is_active.is_(True),
+                    Role.company_id == company_id,
+                    Role.slug == "waiter",
+                    Role.is_system.is_(False),
+                )
+            )
+            conditions.append(Order.waiter_id.in_(list(waiter_id)))
+            conditions.append(waiter_has_company_role)
+        if payment_method:
+            # Completed-payment truth: pending/failed/refunded payments must not
+            # qualify a table (dishes_report parity). Multiple methods OR.
+            conditions.append(
+                exists(
+                    select(Payment.id).where(
+                        Payment.company_id == company_id,
+                        Payment.order_id == Order.id,
+                        Payment.method.in_(list(payment_method)),
+                        Payment.status == "completed",
+                    )
+                )
+            )
+        if cashier_id:
+            # Attribution is UNCHANGED: the order must carry a COMPLETED payment
+            # taken by one of the selected cashiers. The role guard is correlated
+            # to that payment's own Payment.cashier_id — the ACTUALLY attributed
+            # cashier — so the guard follows the attribution, never the selection.
+            attributed_cashier_has_role = exists(
+                select(UserRole.id)
+                .join(Role, Role.id == UserRole.role_id)
+                .join(User, User.id == UserRole.user_id)
+                .where(
+                    UserRole.user_id == Payment.cashier_id,
+                    User.company_id == company_id,
+                    User.is_active.is_(True),
+                    Role.company_id == company_id,
+                    Role.slug == "cashier",
+                    Role.is_system.is_(False),
+                )
+            )
+            conditions.append(
+                exists(
+                    select(Payment.id).where(
+                        Payment.company_id == company_id,
+                        Payment.order_id == Order.id,
+                        Payment.cashier_id.in_(list(cashier_id)),
+                        Payment.status == "completed",
+                        attributed_cashier_has_role,
+                    )
+                ),
+            )
         query = (
             select(
                 Order.table_id,
@@ -440,82 +628,53 @@ class AdminReportService:
             )
             .outerjoin(Table, Table.id == Order.table_id)
             .outerjoin(Hall, Hall.id == Table.hall_id)
-            .where(
-                Order.company_id == company_id,
-                Order.status == "completed",
-                Order.table_number.is_not(None),
-            )
+            .where(*conditions)
             .group_by(Order.table_id, Order.table_number, Table.hall_id, Hall.name)
             .order_by(func.sum(Order.total_amount).desc())
         )
-        if hall_id is not None:
-            # Tenant-safe: 404 (not a leak) if the hall isn't this company's. Hall has
-            # a direct company_id, so the shared resolver applies. Filtering on the
-            # canonical Table.hall_id (never table_number) also excludes legacy
-            # NULL-table_id orders, which cannot truthfully belong to any hall.
-            await require_company_resource(
-                self.db, Hall, hall_id, company_id, detail="Hall not found"
-            )
-            query = query.where(Table.hall_id == hall_id)
-        if table_number and (normalized_table_number := table_number.strip()):
-            query = query.where(Order.table_number.ilike(f"%{normalized_table_number}%"))
-        if waiter_id:
-            waiter_is_eligible = exists(
-                select(UserRole.id)
-                .join(Role, Role.id == UserRole.role_id)
-                .join(User, User.id == UserRole.user_id)
-                .where(
-                    UserRole.user_id == waiter_id,
-                    User.company_id == company_id,
-                    User.is_active.is_(True),
-                    Role.company_id == company_id,
-                    Role.slug == "waiter",
-                    Role.is_system.is_(False),
-                )
-            )
-            query = query.where(Order.waiter_id == waiter_id, waiter_is_eligible)
-        if payment_method:
-            query = query.where(
-                exists(
-                    select(Payment.id).where(
-                        Payment.company_id == company_id,
-                        Payment.order_id == Order.id,
-                        Payment.method == payment_method,
-                    )
-                )
-            )
-        if cashier_id:
-            cashier_is_eligible = exists(
-                select(UserRole.id)
-                .join(Role, Role.id == UserRole.role_id)
-                .join(User, User.id == UserRole.user_id)
-                .where(
-                    UserRole.user_id == cashier_id,
-                    User.company_id == company_id,
-                    User.is_active.is_(True),
-                    Role.company_id == company_id,
-                    Role.slug == "cashier",
-                    Role.is_system.is_(False),
-                )
-            )
-            query = query.where(
-                cashier_is_eligible,
-                exists(
-                    select(Payment.id).where(
-                        Payment.company_id == company_id,
-                        Payment.order_id == Order.id,
-                        Payment.cashier_id == cashier_id,
-                    )
-                ),
-            )
         query = self._order_date_filter(query, date_from, date_to)
         rows = (await self.db.execute(query)).all()
+        # One extra query (never N+1): the same population at order grain for
+        # the Date/Sum lines, deterministic created_at ascending (+ id tiebreak
+        # for identical timestamps) so lines stay aligned 1:1.
+        order_rows = (
+            select(
+                Order.id,
+                Order.order_number,
+                Order.created_at,
+                Order.total_amount,
+                Order.table_id,
+                Order.table_number,
+                Order.order_type,
+                Order.status,
+                func.coalesce(User.name, User.email).label("waiter_name"),
+            )
+            .outerjoin(Table, Table.id == Order.table_id)
+            .outerjoin(User, User.id == Order.waiter_id)
+            .where(*conditions)
+            .order_by(Order.created_at.asc(), Order.id.asc())
+        )
+        order_rows = self._order_date_filter(order_rows, date_from, date_to)
+        summaries: dict[tuple, list[TableOrderSummary]] = {}
+        for o in (await self.db.execute(order_rows)).all():
+            summaries.setdefault((o.table_id, o.table_number), []).append(
+                TableOrderSummary(
+                    order_id=o.id,
+                    order_number=o.order_number,
+                    created_at=o.created_at,
+                    total_amount=Decimal(str(o.total_amount or 0)),
+                    order_type=o.order_type,
+                    status=o.status,
+                    waiter_name=o.waiter_name,
+                )
+            )
         return [
             TableReportRow(
                 table_number=r.table_number, orders_count=r.cnt,
                 revenue=Decimal(str(r.rev)),
                 avg_check=Decimal(str(r.rev)) / r.cnt if r.cnt else Decimal("0"),
                 table_id=r.table_id, hall_id=r.hall_id, hall_name=r.hall_name,
+                orders=summaries.get((r.table_id, r.table_number), []),
             )
             for r in rows
         ]
@@ -569,7 +728,15 @@ class AdminReportService:
         # soft-deleted hall never does. Tenant-scoped by company_id.
         place_rows = (await self.db.execute(
             select(Hall.id, Hall.name)
-            .where(Hall.company_id == company_id, Hall.is_active.is_(True))
+            .where(
+                Hall.company_id == company_id,
+                Hall.is_active.is_(True),
+                # Phase 5C-6D: a DELETED hall is never offered as a SELECTABLE
+                # filter option. Its historical rows remain queryable by explicit
+                # hall_id (see tables_report) — hidden from the picker, not from
+                # the books.
+                Hall.deleted_at.is_(None),
+            )
             .order_by(Hall.name, Hall.id)
         )).all()
         places = [
@@ -585,46 +752,160 @@ class AdminReportService:
         )
 
     async def waiters_report(
-        self, company_id: UUID, date_from: date | None, date_to: date | None
-    ) -> list[WaiterReportRow]:
+        self,
+        company_id: UUID,
+        date_from: date | None,
+        date_to: date | None,
+        *,
+        waiter_id: UUID | None = None,
+        service_percent: Decimal = Decimal("1"),
+        include_orders: bool = True,
+        include_takeaway_delivery: bool = False,
+        include_service: bool = False,
+    ) -> WaiterReportResponse:
+        non_service_total = Order.total_amount - Order.service_fee
+        ordinary_total = func.coalesce(func.sum(case(
+            (Order.order_type.notin_(["takeaway", "delivery"]), non_service_total),
+            else_=Decimal("0"),
+        )), 0).label("orders_total")
+        takeaway_delivery_total = func.coalesce(func.sum(case(
+            (Order.order_type.in_(["takeaway", "delivery"]), non_service_total),
+            else_=Decimal("0"),
+        )), 0).label("takeaway_delivery_total")
+        eligible_waiter = exists(
+            select(UserRole.id)
+            .join(Role, Role.id == UserRole.role_id)
+            .where(
+                UserRole.user_id == Order.waiter_id,
+                Role.company_id == company_id,
+                Role.slug == "waiter",
+                Role.is_system.is_(False),
+            )
+        )
         query = (
             select(
                 Order.waiter_id,
-                User.name.label("waiter_name"),
+                func.coalesce(User.name, User.email).label("waiter_name"),
                 func.count(Order.id).label("orders_count"),
-                func.coalesce(func.sum(Order.total_amount), 0).label("orders_total"),
-                func.coalesce(func.sum(Order.service_fee), 0).label("service_fee"),
-                func.coalesce(func.sum(
-                    select(func.count(OrderItem.id))
-                    .where(OrderItem.order_id == Order.id)
-                    .correlate(Order)
-                    .scalar_subquery()
-                ), 0).label("dishes_count"),
+                ordinary_total,
+                takeaway_delivery_total,
+                func.coalesce(func.sum(Order.service_fee), 0).label("service_total"),
             )
-            .outerjoin(User, User.id == Order.waiter_id)
-            .where(Order.company_id == company_id, Order.status == "completed")
-            .group_by(Order.waiter_id, User.name)
+            .join(User, and_(
+                User.id == Order.waiter_id,
+                User.company_id == company_id,
+                User.is_active.is_(True),
+            ))
+            .where(
+                Order.company_id == company_id,
+                Order.status == "completed",
+                eligible_waiter,
+            )
+            .group_by(Order.waiter_id, User.name, User.email)
             .order_by(func.sum(Order.total_amount).desc())
         )
+        if waiter_id is not None:
+            query = query.where(Order.waiter_id == waiter_id)
         query = self._order_date_filter(query, date_from, date_to)
-        rows = (await self.db.execute(query)).all()
-        # Процент доли обслуги официанта — из настроек компании
-        from app.modules.companies.models import Company
-        pct = (await self.db.execute(
-            select(Company.waiter_service_percent).where(Company.id == company_id)
-        )).scalar_one_or_none() or 0
-        pct = Decimal(str(pct))
-        return [
-            WaiterReportRow(
-                waiter_id=r.waiter_id, name=r.waiter_name or "—",
-                orders_count=r.orders_count,
-                orders_total=Decimal(str(r.orders_total)),
-                dishes_count=int(r.dishes_count or 0),
-                service_fee=Decimal(str(r.service_fee)),
-                waiter_share=(Decimal(str(r.service_fee)) * pct / Decimal("100")).quantize(Decimal("0.01")),
+        aggregate_rows = (await self.db.execute(query)).all()
+
+        dishes_by_waiter: dict[UUID, list[WaiterDishRow]] = {}
+        if aggregate_rows:
+            dish_query = (
+                select(
+                    Order.waiter_id,
+                    OrderItem.product_id,
+                    OrderItem.name,
+                    func.sum(OrderItem.quantity).label("quantity"),
+                    func.sum(OrderItem.total).label("amount"),
+                )
+                .join(Order, Order.id == OrderItem.order_id)
+                .join(User, and_(
+                    User.id == Order.waiter_id,
+                    User.company_id == company_id,
+                    User.is_active.is_(True),
+                ))
+                .where(
+                    Order.company_id == company_id,
+                    Order.status == "completed",
+                    OrderItem.status != "cancelled",
+                    eligible_waiter,
+                )
+                .group_by(Order.waiter_id, OrderItem.product_id, OrderItem.name)
+                .order_by(Order.waiter_id, func.sum(OrderItem.total).desc(), OrderItem.name)
             )
-            for r in rows
-        ]
+            if waiter_id is not None:
+                dish_query = dish_query.where(Order.waiter_id == waiter_id)
+            dish_query = self._order_date_filter(dish_query, date_from, date_to)
+            for dish in (await self.db.execute(dish_query)).all():
+                dishes_by_waiter.setdefault(dish.waiter_id, []).append(WaiterDishRow(
+                    product_id=dish.product_id,
+                    name=dish.name,
+                    quantity=Decimal(str(dish.quantity or 0)),
+                    amount=Decimal(str(dish.amount or 0)),
+                ))
+
+        def money(value: Decimal) -> Decimal:
+            return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        rows: list[WaiterReportRow] = []
+        for aggregate in aggregate_rows:
+            orders_total = Decimal(str(aggregate.orders_total or 0))
+            takeaway_total = Decimal(str(aggregate.takeaway_delivery_total or 0))
+            service_total = Decimal(str(aggregate.service_total or 0))
+            service_base = (
+                (orders_total if include_orders else Decimal("0"))
+                + (takeaway_total if include_takeaway_delivery else Decimal("0"))
+                + (service_total if include_service else Decimal("0"))
+            )
+            dishes = dishes_by_waiter.get(aggregate.waiter_id, [])
+            rows.append(WaiterReportRow(
+                waiter_id=aggregate.waiter_id,
+                name=aggregate.waiter_name,
+                orders_count=aggregate.orders_count,
+                orders_total=money(orders_total),
+                takeaway_delivery_total=money(takeaway_total),
+                service_total=money(service_total),
+                waiter_service_total=money(service_base * service_percent / Decimal("100")),
+                dishes_count=sum((dish.quantity for dish in dishes), Decimal("0")),
+                dishes=dishes,
+            ))
+
+        return WaiterReportResponse(
+            rows=rows,
+            totals=WaiterReportTotals(
+                orders_count=sum(row.orders_count for row in rows),
+                orders_total=money(sum((row.orders_total for row in rows), Decimal("0"))),
+                takeaway_delivery_total=money(sum((row.takeaway_delivery_total for row in rows), Decimal("0"))),
+                service_total=money(sum((row.service_total for row in rows), Decimal("0"))),
+                waiter_service_total=money(sum((row.waiter_service_total for row in rows), Decimal("0"))),
+                dishes_count=sum((row.dishes_count for row in rows), Decimal("0")),
+            ),
+        )
+
+    async def waiters_report_filters(self, company_id: UUID) -> WaiterReportFiltersResponse:
+        rows = (await self.db.execute(
+            select(User.id, User.name, User.email)
+            .where(
+                User.company_id == company_id,
+                User.is_active.is_(True),
+                exists(
+                    select(UserRole.id)
+                    .join(Role, Role.id == UserRole.role_id)
+                    .where(
+                        UserRole.user_id == User.id,
+                        Role.company_id == company_id,
+                        Role.slug == "waiter",
+                        Role.is_system.is_(False),
+                    )
+                ),
+            )
+            .order_by(func.coalesce(User.name, User.email), User.email, User.id)
+        )).all()
+        return WaiterReportFiltersResponse(waiters=[
+            ReportFilterOption(value=str(row.id), label=row.name or row.email)
+            for row in rows
+        ])
 
     async def dishes_report(
         self,
@@ -633,63 +914,150 @@ class AdminReportService:
         date_to: date | None,
         *,
         search: str | None = None,
-        author_id: UUID | None = None,
-        product_id: UUID | None = None,
-        order_type: str | None = None,
-        order_status: str | None = None,
-        category_id: UUID | None = None,
-        payment_method: str | None = None,
-    ) -> list[DishReportRow]:
+        author_id: Sequence[UUID] | None = None,
+        product_id: Sequence[UUID] | None = None,
+        order_type: Sequence[str] | None = None,
+        order_status: Sequence[str] | None = None,
+        category_id: Sequence[UUID] | None = None,
+        payment_method: Sequence[str] | None = None,
+    ) -> DishReportResponse:
+        # DISHES-CATEGORY-01: LEFT JOIN the primary category so uncategorized
+        # products still appear (category_id/name = NULL), scoped to the same
+        # company. Category is added to SELECT + GROUP BY only — it never splits
+        # a product into duplicate rows (each product has exactly one
+        # category_id) and does not touch the qty/price/amount math. Rows are
+        # ordered by canonical category sort_order (NULLS LAST so uncategorized
+        # sink to the end), then the existing revenue-DESC business ordering
+        # within each category.
         report_query = (
             select(
                 OrderItem.product_id,
                 OrderItem.name,
+                Product.unit,
+                Product.category_id,
+                Category.name.label("category_name"),
+                Category.sort_order.label("category_sort"),
                 func.sum(OrderItem.quantity).label("qty"),
-                func.avg(OrderItem.price).label("avg_price"),
                 func.sum(OrderItem.total).label("total"),
+                # DISHES-EXCEL cost truth. cost_sum = Σ(qty × sale-time cost
+                # snapshot). SQL SUM skips NULL snapshots, so a partial sum is
+                # meaningless as a complete cost — coverage is proven separately
+                # by comparing the non-null snapshot count to the total item
+                # count (portable across Postgres + SQLite; no bool_and). The
+                # Python layer returns cost/profit ONLY when coverage is full.
+                func.sum(OrderItem.quantity * OrderItem.cost_price_snapshot).label("cost_sum"),
+                func.count().label("item_count"),
+                func.count(OrderItem.cost_price_snapshot).label("cost_item_count"),
             )
             .join(Order, Order.id == OrderItem.order_id)
             .join(Product, Product.id == OrderItem.product_id)
+            .outerjoin(
+                Category,
+                and_(Category.id == Product.category_id, Category.company_id == company_id),
+            )
             .where(Order.company_id == company_id, Product.company_id == company_id)
-            .group_by(OrderItem.product_id, OrderItem.name)
-            .order_by(func.sum(OrderItem.total).desc())
+            .group_by(
+                OrderItem.product_id, OrderItem.name, Product.unit,
+                Product.category_id, Category.name, Category.sort_order,
+            )
+            .order_by(
+                Category.sort_order.asc().nulls_last(),
+                Category.name.asc().nulls_last(),
+                func.sum(OrderItem.total).desc(),
+            )
         )
         if order_status:
-            report_query = report_query.where(Order.status == order_status)
+            report_query = report_query.where(Order.status.in_(list(order_status)))
         else:
             report_query = report_query.where(Order.status.notin_(["cancelled"]))
         if search and search.strip():
             report_query = report_query.where(OrderItem.name.ilike(f"%{search.strip()}%"))
         if author_id:
-            report_query = report_query.where(Order.waiter_id == author_id)
+            # Multi-value widening of the scalar predicate: Order.waiter_id IN
+            # selected ids (OR within the dimension). No role guard here — the
+            # author options already offer only active same-company
+            # waiter/cashier users, and the company predicate below keeps every
+            # foreign id from matching anything.
+            report_query = report_query.where(Order.waiter_id.in_(list(author_id)))
         if product_id:
-            report_query = report_query.where(OrderItem.product_id == product_id)
+            report_query = report_query.where(OrderItem.product_id.in_(list(product_id)))
         if order_type:
-            report_query = report_query.where(Order.order_type == order_type)
+            report_query = report_query.where(Order.order_type.in_(list(order_type)))
         if category_id:
-            report_query = report_query.where(Product.category_id == category_id)
+            # Primary and subcategory are both canonical category relations.
+            category_ids = list(category_id)
+            report_query = report_query.where(or_(
+                Product.category_id.in_(category_ids),
+                Product.subcategory_id.in_(category_ids),
+            ))
         if payment_method:
             report_query = report_query.where(exists(
                 select(Payment.id).where(
                     Payment.order_id == Order.id,
                     Payment.company_id == company_id,
-                    Payment.method == payment_method,
+                    Payment.method.in_(list(payment_method)),
+                    Payment.status == "completed",
                 )
             ))
         report_query = self._order_date_filter(report_query, date_from, date_to)
         rows = (await self.db.execute(report_query)).all()
-        status_label = ORDER_STATUS_LABELS.get(order_status, order_status) if order_status else "Завершено"
-        return [
-            DishReportRow(
-                product_id=r.product_id, name=r.name, unit="Порция",
-                quantity=Decimal(str(r.qty or 0)),
-                price=Decimal(str(r.avg_price or 0)),
-                amount=Decimal(str(r.total or 0)),
-                cost=Decimal("0"), profit=Decimal(str(r.total or 0)),
-                status=status_label,
+        # Monetary convention matches products(): Decimal arithmetic with
+        # ROUND_HALF_UP to 0.01. Weighted price preserves
+        # amount == quantity * price per row (AVG(price) would break it when
+        # sale prices vary within a group).
+        total_quantity = Decimal("0")
+        total_amount = Decimal("0")
+        # Grand cost/profit are truthful ONLY if EVERY row is fully covered.
+        # One partial row makes the grand total unknown (NULL), never a
+        # partial number presented as complete.
+        grand_cost = Decimal("0")
+        grand_coverage_complete = True
+        report_rows = []
+        for r in rows:
+            qty = Decimal(str(r.qty or 0))
+            amount = Decimal(str(r.total or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            price = (
+                (amount / qty).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                if qty else Decimal("0")
             )
-            for r in rows
-        ]
+            total_quantity += qty
+            total_amount += amount
+            # Row cost coverage: every contributing OrderItem carries a snapshot.
+            row_complete = bool(r.item_count) and r.cost_item_count == r.item_count
+            if row_complete:
+                cost_total = Decimal(str(r.cost_sum or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                profit = (amount - cost_total).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                grand_cost += cost_total
+            else:
+                # Unknown stays unknown — never 0, never a partial sum.
+                cost_total = None
+                profit = None
+                grand_coverage_complete = False
+            report_rows.append(DishReportRow(
+                product_id=r.product_id, name=r.name, unit=r.unit,
+                category_id=r.category_id, category_name=r.category_name,
+                quantity=qty, price=price, amount=amount,
+                cost_total=cost_total, profit=profit,
+                cost_coverage_complete=row_complete,
+            ))
+        return DishReportResponse(
+            rows=report_rows,
+            totals=DishReportTotals(
+                quantity=total_quantity,
+                amount=total_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+                # Grand cost/profit only when the WHOLE selection is covered;
+                # otherwise unknown (NULL), never a partial number.
+                cost_total=(
+                    grand_cost.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                    if grand_coverage_complete and report_rows else None
+                ),
+                profit=(
+                    (total_amount - grand_cost).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                    if grand_coverage_complete and report_rows else None
+                ),
+                cost_coverage_complete=bool(report_rows) and grand_coverage_complete,
+            ),
+        )
 
     async def orders_report_filters(self, company_id: UUID) -> OrderReportFiltersResponse:
         staff_rows = (await self.db.execute(
@@ -763,6 +1131,10 @@ class AdminReportService:
         )
 
     async def dishes_report_filters(self, company_id: UUID) -> DishReportFiltersResponse:
+        # Product rule: available authors are active same-company employees with
+        # a waiter OR cashier role (no order history required). The report
+        # predicate itself stays Order.waiter_id == author_id — Payment.cashier_id
+        # is a separate axis and is NOT merged here.
         author_rows = (await self.db.execute(
             select(User.id, User.name, User.email)
             .where(
@@ -774,7 +1146,7 @@ class AdminReportService:
                     .where(
                         UserRole.user_id == User.id,
                         Role.company_id == company_id,
-                        Role.slug == "waiter",
+                        Role.slug.in_(["waiter", "cashier"]),
                         Role.is_system.is_(False),
                     )
                 ),
@@ -834,37 +1206,269 @@ class AdminReportService:
             cook_filter_supported=False,
         )
 
+    @staticmethod
+    def _cancelled_line_amount(
+        price: Decimal | float | int | None,
+        quantity: Decimal | float | int | None,
+        discount: Decimal | float | int | None,
+    ) -> Decimal:
+        """Truthful historical line amount BEFORE cancellation zeroing.
+
+        Canonical POS formula (pos/service.py create/add_item): the stored
+        ``total`` was ``quantize(price * quantity) - quantize(discount)``
+        floored at zero. One POS cancellation path zeroes ``item.total``, so
+        the report must recompute from the preserved snapshots instead of
+        reading ``total``. Never uses Payment.amount or current Product.price.
+        """
+        p = Decimal(str(price or 0))
+        q = Decimal(str(quantity or 0))
+        d = Decimal(str(discount or 0))
+        gross = (p * q).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        disc = d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return max(gross - disc, Decimal("0"))
+
     async def cancelled_items(
-        self, company_id: UUID, date_from: date | None, date_to: date | None
+        self,
+        company_id: UUID,
+        date_from: date | None,
+        date_to: date | None,
+        *,
+        order_number: str | None = None,
+        author_id: Sequence[UUID] | None = None,
+        dish_name: Sequence[str] | None = None,
     ) -> list[CancelledItemRow]:
+        """Cancelled Dishes truth foundation (Phase 1A).
+
+        Inclusion: OrderItem.status == 'cancelled' OR Order.status ==
+        'cancelled' (item-level cancellations on live orders are included;
+        items of whole-cancelled orders are included; no duplicate row when
+        both are true — one row per OrderItem).
+
+        Scope: 'item' when the item itself is cancelled (wins when both are
+        cancelled), else 'order'. Event timestamp/author inherit from the
+        scope owner. Historical NULL timestamps use legacy fallback
+        report_event_at = COALESCE(effective cancelled_at, Order.created_at)
+        with date_source marking the fallback. Period filter applies to
+        report_event_at so legacy rows stay visible.
+        """
+        WaiterUser = aliased(User)
+        ItemAuthor = aliased(User)
+        OrderAuthor = aliased(User)
+
+        effective_cancelled = case(
+            (OrderItem.status == "cancelled", OrderItem.cancelled_at),
+            else_=Order.cancelled_at,
+        )
+        report_event = func.coalesce(effective_cancelled, Order.created_at)
+
         query = (
             select(
-                Order.created_at, Order.order_number, Order.table_number,
-                OrderItem.name, OrderItem.quantity, OrderItem.price,
-                User.name.label("waiter_name"),
+                Order.id.label("order_id"),
+                Order.order_number,
+                Order.table_number,
+                Order.order_type,
+                Order.status.label("order_status"),
+                Order.created_at.label("order_created_at"),
+                Order.cancelled_at.label("order_cancelled_at"),
+                Order.cancelled_by_id.label("order_cancelled_by_id"),
+                OrderItem.id.label("order_item_id"),
+                OrderItem.name,
+                OrderItem.quantity,
+                OrderItem.price,
+                OrderItem.discount,
+                OrderItem.status.label("item_status"),
+                OrderItem.cancelled_at.label("item_cancelled_at"),
+                OrderItem.cancelled_by_id.label("item_cancelled_by_id"),
+                WaiterUser.name.label("waiter_name"),
+                ItemAuthor.name.label("item_author_name"),
+                ItemAuthor.email.label("item_author_email"),
+                OrderAuthor.name.label("order_author_name"),
+                OrderAuthor.email.label("order_author_email"),
+                report_event.label("report_event_at"),
             )
-            .join(OrderItem, OrderItem.order_id == Order.id)
-            .outerjoin(User, User.id == Order.waiter_id)
-            .where(Order.company_id == company_id, Order.status == "cancelled")
-            .order_by(Order.created_at.desc())
+            .select_from(OrderItem)
+            .join(
+                Order,
+                and_(
+                    Order.id == OrderItem.order_id,
+                    Order.company_id == company_id,
+                ),
+            )
+            .outerjoin(
+                WaiterUser,
+                and_(
+                    WaiterUser.id == Order.waiter_id,
+                    WaiterUser.company_id == company_id,
+                ),
+            )
+            .outerjoin(
+                ItemAuthor,
+                and_(
+                    ItemAuthor.id == OrderItem.cancelled_by_id,
+                    ItemAuthor.company_id == company_id,
+                ),
+            )
+            .outerjoin(
+                OrderAuthor,
+                and_(
+                    OrderAuthor.id == Order.cancelled_by_id,
+                    OrderAuthor.company_id == company_id,
+                ),
+            )
+            .where(
+                Order.company_id == company_id,
+                or_(
+                    OrderItem.status == "cancelled",
+                    Order.status == "cancelled",
+                ),
+            )
         )
-        query = self._order_date_filter(query, date_from, date_to)
+        if order_number and (normalized_order_number := order_number.strip()):
+            query = query.where(
+                Order.order_number.ilike(f"%{normalized_order_number}%")
+            )
+        if author_id:
+            # OR within Author, targeting the TRUE actor per scope. Item scope
+            # wins when both are cancelled, so the order-scope clause requires
+            # the item NOT to be cancelled. Legacy NULL actors match nothing.
+            author_ids = list(author_id)
+            query = query.where(
+                or_(
+                    and_(
+                        OrderItem.status == "cancelled",
+                        OrderItem.cancelled_by_id.in_(author_ids),
+                    ),
+                    and_(
+                        OrderItem.status != "cancelled",
+                        Order.status == "cancelled",
+                        Order.cancelled_by_id.in_(author_ids),
+                    ),
+                )
+            )
+        if dish_name:
+            # Exact snapshot match on OrderItem.name (historical truth —
+            # survives Product renames/deletes). OR within the dimension.
+            query = query.where(OrderItem.name.in_(list(dish_name)))
+        if date_from:
+            query = query.where(
+                report_event
+                >= datetime.combine(date_from, datetime.min.time())
+            )
+        if date_to:
+            query = query.where(
+                report_event
+                <= datetime.combine(date_to, datetime.max.time())
+            )
+        query = query.order_by(
+            report_event.desc(), Order.created_at.desc(), Order.id, OrderItem.id
+        )
         rows = (await self.db.execute(query)).all()
         result = []
         for r in rows:
-            dt = r.created_at
+            is_item_cancelled = r.item_status == "cancelled"
+            scope = "item" if is_item_cancelled else "order"
+            cancelled_at = (
+                r.item_cancelled_at if is_item_cancelled else r.order_cancelled_at
+            )
+            if is_item_cancelled:
+                cancelled_by_id = r.item_cancelled_by_id
+                cancelled_by_name = r.item_author_name or r.item_author_email
+            else:
+                cancelled_by_id = r.order_cancelled_by_id
+                cancelled_by_name = r.order_author_name or r.order_author_email
+            date_source = (
+                "cancelled_at" if cancelled_at is not None else "legacy_order_created_at"
+            )
+            report_event_at = cancelled_at if cancelled_at is not None else r.order_created_at
+            # Legacy date/time stay on order-created truth for backward
+            # compatibility with the deployed frontend.
+            dt = r.order_created_at
+            quantity = Decimal(str(r.quantity or 0))
+            price = Decimal(str(r.price or 0))
+            amount = self._cancelled_line_amount(r.price, r.quantity, r.discount)
             result.append(CancelledItemRow(
                 date=dt.strftime("%d.%m.%Y") if dt else "",
                 time=dt.strftime("%H:%M") if dt else "",
                 order_number=r.order_number,
                 table_number=r.table_number,
                 name=r.name,
-                quantity=Decimal(str(r.quantity)),
-                price=Decimal(str(r.price)),
+                quantity=quantity,
+                price=price,
                 waiter_name=r.waiter_name,
                 unit="шт",
+                order_id=r.order_id,
+                order_item_id=r.order_item_id,
+                order_created_at=r.order_created_at,
+                cancelled_at=cancelled_at,
+                cancellation_scope=scope,
+                order_type=r.order_type,
+                amount=amount,
+                cancelled_by_id=cancelled_by_id,
+                cancelled_by_name=cancelled_by_name,
+                order_status=r.order_status,
+                item_status=r.item_status,
+                date_source=date_source,
+                report_event_at=report_event_at,
             ))
         return result
+
+    async def cancelled_filters(self, company_id: UUID) -> CancelledFiltersResponse:
+        """Author + dish directories for Cancelled Dishes (tenant-scoped).
+
+        Authors: active same-company users holding a non-system waiter OR
+        cashier role — no cancellation/order history required (same product
+        policy as Dishes author directory). Dishes: distinct OrderItem.name
+        snapshots among cancelled-eligible rows (survives renames/deletes).
+        """
+        staff_rows = (await self.db.execute(
+            select(User.id, User.name, User.email, Role.slug)
+            .join(UserRole, UserRole.user_id == User.id)
+            .join(Role, Role.id == UserRole.role_id)
+            .where(
+                User.company_id == company_id,
+                User.is_active.is_(True),
+                Role.company_id == company_id,
+                Role.slug.in_(["waiter", "cashier"]),
+                Role.is_system.is_(False),
+            )
+            .order_by(
+                func.coalesce(User.name, User.email), User.email, User.id
+            )
+        )).all()
+        authors: list[CancelledAuthorOption] = []
+        seen_authors: set[UUID] = set()
+        # A user holding both roles appears once (first row wins); role kept
+        # truthful per user for the filter directory.
+        for row in staff_rows:
+            if row.id in seen_authors:
+                continue
+            seen_authors.add(row.id)
+            authors.append(CancelledAuthorOption(
+                id=row.id,
+                name=row.name or row.email,
+                role=row.slug,
+            ))
+
+        dish_rows = (await self.db.execute(
+            select(OrderItem.name.distinct())
+            .join(
+                Order,
+                and_(
+                    Order.id == OrderItem.order_id,
+                    Order.company_id == company_id,
+                ),
+            )
+            .where(
+                Order.company_id == company_id,
+                or_(
+                    OrderItem.status == "cancelled",
+                    Order.status == "cancelled",
+                ),
+            )
+            .order_by(OrderItem.name)
+        )).all()
+        dishes = [r[0] for r in dish_rows if r[0]]
+        return CancelledFiltersResponse(authors=authors, dishes=dishes)
 
     async def login_history(self, company_id: UUID) -> list[LoginHistoryRow]:
         query = (

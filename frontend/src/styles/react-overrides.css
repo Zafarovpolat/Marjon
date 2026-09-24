@@ -24886,7 +24886,7 @@ body,#root {
 
   /* pay button: сплошной тил, все градиенты убраны */
   .dashboard-topbar .topbar-balance-pill .topbar-pay-button {
-    background: var(--teal-500);
+    background: var(--owner-accent, #1fc9c9);
     border: 1px solid rgba(255, 255, 255, 0.14);
     box-shadow: 0 2px 7px rgba(14, 128, 128, 0.21);
   }
@@ -24895,7 +24895,7 @@ body,#root {
   .dashboard-topbar .topbar-balance-pill .topbar-pay-button:focus-visible {
     transform: none;
     filter: brightness(1.07);
-    background: var(--teal-500);
+    background: var(--owner-accent, #1fc9c9);
   }
 
   /* убрать прыжок у balance pill */
@@ -24953,7 +24953,7 @@ body,#root {
   .dashboard-content {
     flex: 1 1 auto;
     min-height: 0;
-    max-height: calc(100vh - 82px);
+    max-height: calc(100vh - 72px);
     overflow-x: hidden;
     overflow-y: auto;
   
@@ -27073,8 +27073,7 @@ body,#root {
     resize: vertical;
   }
 
-  /* PIN-поле показываем в веб-редакторе персонала (нужно для входа по PIN на кассе).
-     Скрываем только disabled-комментарий «недоступно». */
+  .staff-form__grid--edit label:has(input[pattern="[0-9]{4}"]),
   .staff-form__grid--edit .staff-form__comment {
     display: none;
   }
@@ -27762,7 +27761,9 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     border-radius: 12px;
   }
 
-  /* PIN-поле остаётся видимым: сетка отводит ему col 2 / row 3 (см. nth-child(5) выше). */
+  .staff-form .staff-form__grid.staff-form__grid--edit > label:has(input[pattern="[0-9]{4}"]) {
+    display: none;
+  }
 
   .staff-form .staff-form__grid.staff-form__grid--edit > .staff-permission-switches {
     grid-row: 4;
@@ -28499,7 +28500,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     height: 34px;
   }
 
-  /* PIN-поле показываем; скрываем только disabled-комментарий «недоступно». */
+  .staff-form .staff-form__grid.staff-form__grid--edit > label:has(input[pattern="[0-9]{4}"]),
   .staff-form .staff-form__grid.staff-form__grid--edit .staff-form__comment {
     display: none;
   }
@@ -28601,6 +28602,13 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     font-weight: 600;
   }
 
+  /* PHASE-2 child comfort gap: toggle-to-label breathing room on secondary
+     actions only (parent module rows keep their accepted 12px). Compact,
+     not excessive; same shared rule for every Staff role. */
+  .staff-access-action {
+    gap: 16px;
+  }
+
   .staff-access-actions {
     align-items: center;
   }
@@ -28683,6 +28691,12 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.22s ease;
   }
 
+  /* PHASE-2 secondary hierarchy: the child action row reads as a nested
+     level under its parent module. Same shared rule for every Staff role;
+     parent toggle/label untouched. Indent shifts the whole row right;
+     space-between distributes the four actions across the row (no bunching
+     left, Удалить toward the safe right edge); max-content columns never
+     wrap labels. Function (collapse/expand/disabled) untouched. */
   .staff-access-actions {
     max-height: 0;
     opacity: 0;
@@ -28692,7 +28706,10 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     margin-top: 0;
     display: grid;
     grid-template-columns: repeat(4, max-content);
+    justify-content: space-between;
     gap: 10px 18px;
+    padding-inline-start: 28px;
+    padding-inline-end: 12px;
     transition:
       max-height 0.24s ease,
       opacity 0.18s ease,

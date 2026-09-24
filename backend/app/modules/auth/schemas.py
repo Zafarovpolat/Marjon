@@ -15,20 +15,6 @@ def _validate_password(v: str) -> str:
     return v
 
 
-def _validate_pin(v: str | None) -> str | None:
-    """PIN сотрудника: 2–8 цифр. Пусто (None/"") — «снять PIN», это допустимо.
-    Короче 2 цифр не принимаем: на кассе такой PIN нельзя ввести (пин-пад
-    отправляет от 2 цифр), да и подобрать его тривиально."""
-    if v is None:
-        return None
-    v = v.strip()
-    if not v:
-        return ""
-    if not re.fullmatch(r"\d{2,8}", v):
-        raise ValueError("PIN должен содержать от 2 до 8 цифр")
-    return v
-
-
 class RegisterRequest(BaseSchema):
     model_config = {"from_attributes": True, "extra": "forbid"}
 
@@ -45,58 +31,19 @@ class RegisterRequest(BaseSchema):
 
 class CompanyUserCreate(BaseSchema):
     model_config = {"from_attributes": True, "extra": "forbid"}
-    # email/password опциональны: кассиры/официанты входят по PIN. Если не заданы —
-    # сервер синтезирует служебный email и случайный пароль (см. AuthService).
+
+    # CASHIER-EMAIL-OPTIONAL-01: staff creation accepts no address.
+    # Owner/Admin registration (RegisterRequest) still requires one.
     email: EmailStr | None = None
-    password: str | None = None
+    password: str
     phone: str | None = None
     role_slug: str
     role_name: str | None = None
-    name: str | None = None
-    pin_code: str | None = None
-    printer_ip: str | None = None
-    nfc_id: str | None = None
-    branch_id: UUID | None = None
-    is_active: bool | None = None
-    permissions: dict | None = None
 
     @field_validator("password")
     @classmethod
-    def check_password(cls, v: str | None) -> str | None:
-        return _validate_password(v) if v else v
-
-    @field_validator("pin_code")
-    @classmethod
-    def check_pin(cls, v: str | None) -> str | None:
-        return _validate_pin(v)
-
-
-class CompanyUserUpdate(BaseSchema):
-    """Частичное обновление сотрудника из веб-админки (все поля опциональны)."""
-
-    model_config = {"from_attributes": True, "extra": "forbid"}
-    email: EmailStr | None = None
-    password: str | None = None
-    phone: str | None = None
-    role_slug: str | None = None
-    role_name: str | None = None
-    name: str | None = None
-    pin_code: str | None = None
-    printer_ip: str | None = None
-    nfc_id: str | None = None
-    branch_id: UUID | None = None
-    is_active: bool | None = None
-    permissions: dict | None = None
-
-    @field_validator("password")
-    @classmethod
-    def check_password(cls, v: str | None) -> str | None:
-        return _validate_password(v) if v else v
-
-    @field_validator("pin_code")
-    @classmethod
-    def check_pin(cls, v: str | None) -> str | None:
-        return _validate_pin(v)
+    def check_password(cls, v: str) -> str:
+        return _validate_password(v)
 
 
 class LoginRequest(BaseSchema):
@@ -107,8 +54,11 @@ class LoginRequest(BaseSchema):
     password: str
 
 
+class RefreshRequest(BaseSchema):
+    refresh_token: str = Field(..., min_length=1)
+
+
 class PinSetRequest(BaseSchema):
-    """Установка PIN сотруднику из веб-админки: строго 4–8 цифр."""
     pin: str = Field(..., min_length=4, max_length=8)
 
     @field_validator("pin")
@@ -120,41 +70,11 @@ class PinSetRequest(BaseSchema):
 
 
 class PinLoginRequest(BaseSchema):
-    # 2–8 цифр: короткий PIN (2 цифры) разрешён для быстрого входа на кассе.
-    pin: str = Field(..., min_length=2, max_length=8, pattern=r"^\d+$")
-    # Кого именно логиним (сотрудник выбран на кассе). Если PIN совпал у двух
-    # сотрудников, без этого поля вход отдавал токен «первого совпавшего» —
-    # десктоп потом отвергал его как «PIN не соответствует выбранному».
-    user_id: UUID | None = None
-    # Веб-фронт исторически шлёт то же самое как employee_id — принимаем оба ключа.
-    employee_id: UUID | None = None
-
-
-class BranchLoginRequest(BaseSchema):
-    """6.2 — вход на кассе по логину/паролю филиала (без выбора филиала)."""
-    login: str = Field(..., min_length=1, max_length=100)
-    password: str = Field(..., min_length=1)
-
-
-class BranchInfo(BaseSchema):
-    id: UUID
-    name: str
-    company_id: UUID
-
-
-class CompanyInfo(BaseSchema):
-    id: UUID
-    name: str
-    slug: str
-    currency: str = "UZS"
-
-
-class RefreshRequest(BaseSchema):
-    refresh_token: str = Field(..., min_length=1)
+    employee_id: UUID
+    pin: str = Field(..., min_length=4, max_length=8)
 
 
 class LogoutRequest(BaseSchema):
-    """BE-06: закрытие одной сессии — отзываем именно её refresh-токен."""
     refresh_token: str = Field(..., min_length=1)
 
     @field_validator("refresh_token")
@@ -171,30 +91,45 @@ class TokenResponse(BaseSchema):
     token_type: str = "bearer"
 
 
-class BranchLoginResponse(TokenResponse):
-    """Токен терминала филиала + сведения о филиале и организации, чтобы
-    десктоп сохранил всё за один шаг (без BranchSelector)."""
-    branch: BranchInfo
-    company: CompanyInfo
-
-
 class UserResponse(BaseResponseSchema):
-    email: str
+    # CASHIER-EMAIL-OPTIONAL-01: staff accounts may carry email None.
+    email: str | None
     name: str | None = None
     phone: str | None = None
     is_active: bool
     is_superadmin: bool
-    # Scope ТЕКУЩЕЙ сессии (BE-01): "app" | "hq_admin". Проставляется транзиентно
-    # в get_current_user; веб-фронт (owner-gating в isOwnerWebUser) требует это
-    # поле в теле /auth/me — без него вход в веб молча редиректит на /login.
-    auth_scope: str = "app"
     company_id: UUID | None
-    branch_id: UUID | None = None
-    printer_ip: str | None = None
-    nfc_id: str | None = None
-    permissions: dict | None = None
     role_slugs: list[str] = Field(default_factory=list)
     avatar_url: str | None = None
+    auth_scope: str = "app"  # "app" | "hq_admin" — BE-01, set per-session, not persisted
+
+
+class CompanyUserUpdate(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
+    name: str | None = None
+    email: EmailStr | None = None
+    phone: str | None = None
+    password: str | None = None
+    role_slug: str | None = None
+    # Legacy Web field name for the employee display name. It never names or
+    # mutates the Role definition.
+    role_name: str | None = None
+    # BE-07: was missing entirely — a deactivated employee (DELETE
+    # /auth/users/{id} soft-deactivates, doesn't hard-delete) had no way to
+    # be reactivated through the API.
+    is_active: bool | None = None
+    # Опциональный легаси-слой гранулярных прав (см. User.permissions).
+    # Владелец выставляет пер-юзерные тумблеры; по умолчанию None → колонка
+    # не трогается. Хранится как есть, в UserResponse не отдаётся.
+    permissions: dict | None = None
+
+    @field_validator("password")
+    @classmethod
+    def check_password(cls, v: str | None) -> str | None:
+        if v is not None:
+            return _validate_password(v)
+        return v
 
 
 class CompanyUserResponse(UserResponse):

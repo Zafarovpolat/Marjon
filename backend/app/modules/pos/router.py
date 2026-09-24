@@ -1,9 +1,6 @@
-# ВАЖНО: здесь НЕТ 'from __future__ import annotations'.
-# На эндпоинтах этого модуля висит @limiter.limit (slowapi). Обёртка slowapi
-# подменяет __globals__ функции, поэтому FastAPI не может разрезолвить
-# строковые аннотации: body-параметры вырождались в query (HTTP 422 на
-# /auth/login, /auth/refresh, POST /pos/orders), а Depends() по аннотации
-# падал на старте. С реальными аннотациями резолв не нужен.
+# SlowAPI registers a wrapper whose global namespace is ``slowapi.extension``.
+# Keep endpoint annotations runtime-evaluated in this module so FastAPI sees
+# the concrete OrderCreate body after ``@limiter.limit`` wraps the function.
 from datetime import date
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request, status
@@ -59,7 +56,7 @@ async def update_order(order_id: UUID, data: OrderUpdate, user: User = Depends(r
 
 @router.patch("/orders/{order_id}/status", response_model=OrderResponse)
 async def update_order_status(order_id: UUID, data: OrderStatusUpdate, user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db)):
-    return await OrderService(db).update_status(user.company_id, order_id, data)
+    return await OrderService(db).update_status(user.company_id, order_id, data, actor_id=user.id)
 
 
 @router.delete("/orders/{order_id}", response_model=OrderResponse)

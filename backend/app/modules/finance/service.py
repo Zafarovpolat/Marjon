@@ -156,7 +156,6 @@ class TransactionService(CRUDService[FinTransaction]):
             category_id=data.category_id,
             counterparty_id=data.counterparty_id,
             finance_template_id=data.finance_template_id,
-            direction=data.direction,
         )
         operation = None
         if idempotency_key is not None:
@@ -231,7 +230,6 @@ class TransactionService(CRUDService[FinTransaction]):
             category_id=normalized["category_id"],
             counterparty_id=normalized["counterparty_id"],
             finance_template_id=normalized["finance_template_id"],
-            direction=normalized["direction"],
         )
         operation = None
         if idempotency_key is not None:
@@ -336,7 +334,6 @@ class TransactionService(CRUDService[FinTransaction]):
             finance_template_id=payload.get(
                 "finance_template_id", tx.finance_template_id
             ),
-            direction=tx.direction,
         )
 
         if "amount" in payload and Decimal(payload["amount"]) != Decimal(tx.amount):
@@ -427,7 +424,6 @@ class TransactionService(CRUDService[FinTransaction]):
                 category_id=item.category_id,
                 counterparty_id=item.counterparty_id,
                 finance_template_id=item.finance_template_id,
-                direction=canonical_data.direction,
             )
         operation = None
         if idempotency_key is not None:
