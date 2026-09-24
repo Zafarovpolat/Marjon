@@ -23,7 +23,13 @@ vi.mock("../components/ReportDateRangePicker", () => ({
   ),
 }));
 
-vi.mock("../utils/excel", () => ({ exportToExcel: vi.fn() }));
+// Stub only the download side-effect; keep the real typed-cell helpers
+// (excelLocalDateTime/excelAmountNumber) so the export assertions exercise the
+// genuine shared coercion (real Date instances, real numbers, null blanks).
+vi.mock("../utils/excel", async (importActual) => ({
+  ...(await importActual()),
+  exportToExcel: vi.fn(),
+}));
 
 function todayApiValue() {
   const now = new Date();
@@ -48,6 +54,7 @@ function cancelledRow(overrides = {}) {
     order_number: "ORD-42",
     name: "Плов",
     table_number: "5",
+    unit: "шт",
     quantity: 2,
     waiter_name: "Официант Али",
     order_type: "dine_in",
@@ -260,38 +267,49 @@ describe("CancelledDishesReportPage Phase 1B", () => {
     expect(screen.getByRole("table")).toBeInTheDocument();
   });
 
-  it("exports visible columns with full multi-filter metadata and no totals", async () => {
+  it("exports the finalized 9-column contract with typed cells, Итого, and no Период", async () => {
     reportsService.listCancelledDishes.mockResolvedValue({ data: [cancelledRow()] });
     render(<CancelledDishesReportPage />);
-    await screen.findByText("Плов");
-    await awaitFilterDirectory();
-    fireEvent.click(headerFilterToggle());
-    const authorBox = openCancelledFilter("Автор");
-    fireEvent.click(within(authorBox).getByText("Официант Али"));
-    fireEvent.click(within(authorBox).getByText("Кассир Вали"));
-    const dishBox = openCancelledFilter("Блюда");
-    fireEvent.click(within(dishBox).getByText("Плов"));
-    fireEvent.click(within(dishBox).getByText("Лагман"));
-    fireEvent.change(screen.getByLabelText("Номер заказа"), { target: { value: "ORD-42" } });
-    fireEvent.click(panelApplyButton());
-    await waitFor(() => expect(lastReportFilters().dishName).toEqual(["Плов", "Лагман"]));
+    await screen.findAllByText("Плов");
     fireEvent.click(screen.getByRole("button", { name: "Скачать Excel" }));
     expect(exportToExcel).toHaveBeenCalledTimes(1);
     const [lines, columns, filename, options] = exportToExcel.mock.calls[0];
     expect(filename).toBe("cancelled-dishes-report");
+    // Exact 9 headers, exact order — the user-approved contract.
     expect(columns.map((col) => col.label)).toEqual([
-      "Номер заказа", "Дата", "Название", "Номер стола", "Кол-во",
-      "Официант", "Тип", "Сумма", "Автор",
+      "Дата", "Номер заказа", "Номер стола", "Название",
+      "Ед. изм", "Кол-во", "Цена", "Сумма", "Автор",
     ]);
+    // Removed columns must never appear.
+    for (const gone of ["Официант", "Повар", "Тип", "Действие", "Причина", "Комментарий"]) {
+      expect(columns.map((col) => col.label)).not.toContain(gone);
+    }
+    // Typed cells: real date + numeric money/quantity.
+    expect(columns.find((c) => c.key === "date")).toMatchObject({ type: "date", format: "dd.mm.yyyy hh:mm" });
+    expect(columns.find((c) => c.key === "quantity")).toMatchObject({ type: "number", format: "#,##0.###" });
+    expect(columns.find((c) => c.key === "price")).toMatchObject({ type: "number", format: "#,##0" });
+    expect(columns.find((c) => c.key === "amount")).toMatchObject({ type: "number", format: "#,##0" });
+    // Values: real date instance + truthful numbers/text.
     expect(lines).toHaveLength(1);
-    const metadata = Object.fromEntries(options.metadata.map((item) => [item.label, item.value]));
-    expect(metadata["Номер заказа"]).toBe("ORD-42");
-    expect(metadata["Автор"]).toBe("Официант Али, Кассир Вали");
-    expect(metadata["Блюда"]).toBe("Плов, Лагман");
-    expect(JSON.stringify(options)).not.toContain("Итого");
+    expect(lines[0].date).toBeInstanceOf(Date);
+    expect(lines[0].orderNumber).toBe("ORD-42");
+    expect(lines[0].tableNumber).toBe("5");
+    expect(lines[0].unit).toBe("шт");
+    expect(lines[0].quantity).toBe(2);
+    expect(lines[0].price).toBe(300);
+    expect(lines[0].amount).toBe(600);
+    expect(lines[0].authorName).toBe("Кассир Вали");
+    // No «Период»/metadata block; Итого via the shared totals option.
+    expect(options.metadata).toBeUndefined();
+    expect(options.sheetName).toBe("Отчёт по отменённым блюдам");
+    expect(options.totals.label).toBe("Итого");
+    expect(options.totals.values.quantity).toBe(2);
+    expect(options.totals.values.amount).toBe(600);
+    // Цена is never totalled.
+    expect(options.totals.values.price).toBeUndefined();
   });
 
-  it("exports headers plus metadata only when the result is empty", async () => {
+  it("exports the 9 headers with blank totals and no metadata when empty", async () => {
     reportsService.listCancelledDishes.mockResolvedValue({ data: [] });
     render(<CancelledDishesReportPage />);
     await screen.findByText("Отменённых блюд нет");
@@ -299,8 +317,138 @@ describe("CancelledDishesReportPage Phase 1B", () => {
     const [lines, columns, , options] = exportToExcel.mock.calls[0];
     expect(lines).toEqual([]);
     expect(columns).toHaveLength(9);
-    expect(options.metadata.length).toBeGreaterThan(0);
-    expect(JSON.stringify(options)).not.toContain("Итого");
+    expect(options.metadata).toBeUndefined();
+    // Empty dataset → blank totals (no fabricated numbers).
+    expect(options.totals.values.quantity).toBeNull();
+    expect(options.totals.values.amount).toBeNull();
+  });
+
+  it("exports one workbook row per cancelled item, N rows for a whole-order cancel", async () => {
+    // Whole-order cancellation fans out to one row per constituent item; the
+    // same order number / table / dish may repeat. No grouping/aggregation.
+    reportsService.listCancelledDishes.mockResolvedValue({
+      data: [
+        cancelledRow({ order_item_id: "i1", name: "Плов", cancellation_scope: "order" }),
+        cancelledRow({ order_item_id: "i2", name: "Плов", cancellation_scope: "order" }),
+        cancelledRow({ order_item_id: "i3", name: "Лагман", cancellation_scope: "order" }),
+      ],
+    });
+    render(<CancelledDishesReportPage />);
+    await screen.findByText("Лагман");
+    fireEvent.click(screen.getByRole("button", { name: "Скачать Excel" }));
+    const [lines] = exportToExcel.mock.calls[0];
+    expect(lines).toHaveLength(3);
+    expect(lines.filter((l) => l.orderNumber === "ORD-42")).toHaveLength(3);
+    expect(lines.filter((l) => l.name === "Плов")).toHaveLength(2);
+  });
+
+  it("dates the export from report_event_at, not the legacy date/time fields", async () => {
+    reportsService.listCancelledDishes.mockResolvedValue({
+      data: [cancelledRow({
+        report_event_at: "2026-08-12T09:30:00",
+        date: "01.01.2000", time: "00:00",
+        order_created_at: "2000-01-01T00:00:00",
+      })],
+    });
+    render(<CancelledDishesReportPage />);
+    await screen.findAllByText("Плов");
+    fireEvent.click(screen.getByRole("button", { name: "Скачать Excel" }));
+    const [lines] = exportToExcel.mock.calls[0];
+    expect(lines[0].date).toBeInstanceOf(Date);
+    // Built from report_event_at's wall-clock (2026-08-12 09:30), never 2000.
+    expect(lines[0].date.getFullYear()).toBe(2026);
+    expect(lines[0].date.getMonth()).toBe(7);
+    expect(lines[0].date.getDate()).toBe(12);
+    expect(lines[0].date.getHours()).toBe(9);
+    expect(lines[0].date.getMinutes()).toBe(30);
+  });
+
+  it("exports quantity as a real number preserving decimals and zero", async () => {
+    reportsService.listCancelledDishes.mockResolvedValue({
+      data: [
+        cancelledRow({ order_item_id: "a", quantity: 1 }),
+        cancelledRow({ order_item_id: "b", quantity: 0 }),
+        cancelledRow({ order_item_id: "c", quantity: 1.5 }),
+      ],
+    });
+    render(<CancelledDishesReportPage />);
+    await screen.findAllByText("Плов");
+    fireEvent.click(screen.getByRole("button", { name: "Скачать Excel" }));
+    const [lines] = exportToExcel.mock.calls[0];
+    expect(lines.map((l) => l.quantity)).toEqual([1, 0, 1.5]);
+  });
+
+  it("keeps price and amount numeric, blank when missing, zero when real", async () => {
+    reportsService.listCancelledDishes.mockResolvedValue({
+      data: [
+        cancelledRow({ order_item_id: "a", price: 0, amount: 0 }),
+        cancelledRow({ order_item_id: "b", price: null, amount: null }),
+      ],
+    });
+    render(<CancelledDishesReportPage />);
+    await screen.findAllByText("Плов");
+    fireEvent.click(screen.getByRole("button", { name: "Скачать Excel" }));
+    const [lines] = exportToExcel.mock.calls[0];
+    // Real zero stays numeric 0; missing stays blank (null), never 0 or "—".
+    expect(lines[0].price).toBe(0);
+    expect(lines[0].amount).toBe(0);
+    expect(lines[1].price).toBeNull();
+    expect(lines[1].amount).toBeNull();
+  });
+
+  it("takes amount straight from the backend, never recomputing price×quantity", async () => {
+    // amount deliberately != price*quantity to prove no frontend derivation
+    // and that OrderItem.total is never used.
+    reportsService.listCancelledDishes.mockResolvedValue({
+      data: [cancelledRow({ price: 300, quantity: 2, amount: 555 })],
+    });
+    render(<CancelledDishesReportPage />);
+    await screen.findAllByText("Плов");
+    fireEvent.click(screen.getByRole("button", { name: "Скачать Excel" }));
+    const [lines] = exportToExcel.mock.calls[0];
+    expect(lines[0].amount).toBe(555);
+  });
+
+  it("forwards the backend unit verbatim without hardcoding шт", async () => {
+    reportsService.listCancelledDishes.mockResolvedValue({
+      data: [cancelledRow({ unit: "кг" })],
+    });
+    render(<CancelledDishesReportPage />);
+    await screen.findAllByText("Плов");
+    fireEvent.click(screen.getByRole("button", { name: "Скачать Excel" }));
+    const [lines] = exportToExcel.mock.calls[0];
+    expect(lines[0].unit).toBe("кг");
+  });
+
+  it("exports the cancellation author, blank for system, never leaking the waiter", async () => {
+    reportsService.listCancelledDishes.mockResolvedValue({
+      data: [cancelledRow({ waiter_name: "Официант Али", cancelled_by_name: null })],
+    });
+    render(<CancelledDishesReportPage />);
+    await screen.findAllByText("Плов");
+    fireEvent.click(screen.getByRole("button", { name: "Скачать Excel" }));
+    const [lines, columns] = exportToExcel.mock.calls[0];
+    expect(lines[0].authorName).toBe("");
+    expect(lines[0].authorName).not.toBe("Официант Али");
+    // Waiter has no column at all, so it cannot leak anywhere.
+    expect(columns.some((c) => c.key === "waiterName")).toBe(false);
+    expect(JSON.stringify(lines)).not.toContain("waiterName");
+  });
+
+  it("blanks a total when any row's value is unknown (completeness rule)", async () => {
+    reportsService.listCancelledDishes.mockResolvedValue({
+      data: [
+        cancelledRow({ order_item_id: "a", quantity: 2, amount: 600 }),
+        cancelledRow({ order_item_id: "b", quantity: 3, amount: null }),
+      ],
+    });
+    render(<CancelledDishesReportPage />);
+    await screen.findAllByText("Плов");
+    fireEvent.click(screen.getByRole("button", { name: "Скачать Excel" }));
+    const [, , , options] = exportToExcel.mock.calls[0];
+    // Quantity fully known → numeric sum; amount has an unknown → blank total.
+    expect(options.totals.values.quantity).toBe(5);
+    expect(options.totals.values.amount).toBeNull();
   });
 
   it("keeps stale rows during refresh and lets the latest request win", async () => {

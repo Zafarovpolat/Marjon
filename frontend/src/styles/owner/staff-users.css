@@ -1212,3 +1212,18 @@ body.dashboard-body:has(.staff-modal--cashier-full) .staff-modal.staff-modal--ca
 .staff-card--cashier .staff-table--no-access td:nth-child(7) .staff-actions {
     justify-content: center;
 }
+
+/* LOGIN-HISTORY-VISUAL + ATTENDANCE-01: the Staff journals adopt the
+   subcategory product shell, but keep the approved data-row height (legacy
+   15px/16px cell padding, not the 12px/14px role-table density) and center
+   every header/body value (user-approved journal alignment). Scoped to the
+   two journal tables only; empty cell keeps its zero padding; role tables
+   untouched. Unlayered so it wins over layered product rules without
+   !important. text-align/padding never change row height by themselves. */
+.staff-card--cashier .staff-table--login-history th,
+.staff-card--cashier .staff-table--login-history td:not(.staff-empty-cell),
+.staff-card--cashier .staff-table--attendance th,
+.staff-card--cashier .staff-table--attendance td:not(.staff-empty-cell) {
+    padding: 15px 16px;
+    text-align: center;
+}
