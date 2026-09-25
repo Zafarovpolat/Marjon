@@ -34,27 +34,16 @@ function sortCategories(a, b) {
 }
 
 export default function CategoriesPage({ type = "dishes" }) {
-  if (type === "raw" || type === "semi") {
-    const config = TYPE_CONFIG[type];
-    return (
-      <section className="nomenclature-page menu-categories-page">
-        <div className="menu-categories-card">
-          <div className="menu-categories-header">
-            <div className="menu-categories-title">
-              <span className="menu-categories-accent" />
-              <div><h1>{config.title}</h1><p>Функция пока недоступна: отдельный backend-контракт категорий сырья не зафиксирован.</p></div>
-            </div>
-          </div>
-          <div className="menu-category-empty" role="status"><Icon name="bi-inbox" /><span>ProductCategory не используется как категория сырья или полуфабриката.</span></div>
-        </div>
-      </section>
-    );
-  }
   return <ProductCategoriesPage type={type} />;
 }
 
 function ProductCategoriesPage({ type }) {
   const config = TYPE_CONFIG[type] || TYPE_CONFIG.dishes;
+  // Категории сырья и полуфабрикатов живут в общей таблице categories, но
+  // отделяются slug-префиксом (raw*/semi*). При namespaced-типе список
+  // фильтруется по префиксу, а новые категории его получают принудительно —
+  // так SemiProductsPage находит их тем же приёмом (slug.startsWith("semi")).
+  const namespaced = type === "raw" || type === "semi";
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -114,9 +103,12 @@ function ProductCategoriesPage({ type }) {
     }
 
     const slug = form.slug.trim() || makeSlug(form.name, config.slug_prefix);
+    const namespacedSlug = namespaced && !slug.startsWith(config.slug_prefix)
+      ? `${config.slug_prefix}-${slug}`
+      : slug;
     const categoryPayload = {
       name: form.name.trim(),
-      slug,
+      slug: namespacedSlug,
       sort_order: sortOrder,
     };
 
@@ -144,7 +136,12 @@ function ProductCategoriesPage({ type }) {
     setError(`Удаление категории «${row.name}» пока не подключено к backend.`);
   }
 
-  const visible = useMemo(() => [...rows].sort(sortCategories), [rows]);
+  const visible = useMemo(() => {
+    const list = namespaced
+      ? rows.filter((row) => String(row.slug || "").startsWith(config.slug_prefix))
+      : [...rows];
+    return list.sort(sortCategories);
+  }, [rows, namespaced, config.slug_prefix]);
 
   return (
     <section className="nomenclature-page menu-categories-page">

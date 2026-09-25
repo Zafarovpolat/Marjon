@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Marjon · Login — Вариант B «Brand Rail»</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&family=Golos+Text:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --teal-500:#1db5b5; --teal-400:#22d3ee; --teal-600:#0fa3a3; --teal-800:#0d6262;
+    --navy-950:#071428; --navy-900:#0b1f3f; --navy-800:#162840; --muted:#7a94b4;
+    --bg:#f4f7fc; --card:#fff; --ink:#0b1f3f; --ink-soft:#4a5b73; --line:#e3e9f2;
+    --font-display:"Manrope",sans-serif; --font-body:"Golos Text","Manrope",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:var(--font-body);min-height:100dvh;display:grid;grid-template-columns:38% 62%;background:var(--bg);color:var(--ink)}
+
+  /* ── Левый брендовый рельс (тёмный navy, диагональный teal-акцент) ── */
+  .rail{position:relative;overflow:hidden;padding:48px 44px;color:#fff;
+    background:linear-gradient(160deg,var(--navy-900),var(--navy-950));
+    display:flex;flex-direction:column;justify-content:space-between}
+  .rail::after{content:"";position:absolute;width:420px;height:420px;right:-160px;top:-120px;border-radius:50%;
+    background:radial-gradient(circle,rgba(29,181,181,.22),transparent 70%);filter:blur(40px);pointer-events:none}
+  .rail__brand{display:flex;align-items:center;gap:12px;position:relative;z-index:1}
+  .rail__brand .mark{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;
+    background:linear-gradient(140deg,var(--teal-400),var(--teal-600));color:var(--navy-950);font:700 24px var(--font-display)}
+  .rail__brand span{font:700 20px var(--font-display)}
+  .rail__mid{position:relative;z-index:1}
+  .rail__mid h2{margin:0 0 16px;font:700 32px var(--font-display);line-height:1.15;letter-spacing:-.02em}
+  .rail__mid h2 em{font-style:normal;color:var(--teal-400)}
+  .rail__mid ul{list-style:none;margin:24px 0 0;padding:0;display:grid;gap:16px}
+  .rail__mid li{display:flex;align-items:center;gap:12px;font:400 16px var(--font-body);color:#c7d3e4}
+  .rail__mid li svg{width:20px;height:20px;color:var(--teal-400);flex:none}
+  .rail__foot{position:relative;z-index:1;font:400 12px var(--font-body);color:var(--muted)}
+
+  /* ── Правая светлая форма (лево-выровненная, много воздуха) ── */
+  .pane{display:flex;flex-direction:column;padding:40px 56px;position:relative}
+  .pane__top{display:flex;justify-content:flex-end}
+  .lang{display:flex;gap:6px}
+  .lang button{display:flex;align-items:center;gap:6px;height:34px;padding:0 10px;border:1px solid var(--line);
+    background:var(--card);color:var(--ink-soft);border-radius:9px;font:500 12px var(--font-body);cursor:pointer;transition:.2s}
+  .lang button img{width:20px;height:13px;border-radius:3px;object-fit:cover}
+  .lang button.is-active,.lang button:hover{color:var(--navy-900);border-color:var(--teal-500);background:rgba(29,181,181,.08)}
+
+  .form{margin:auto 0;width:100%;max-width:400px}
+  .form h1{margin:0 0 8px;font:700 28px var(--font-display);letter-spacing:-.02em;color:var(--navy-900)}
+  .form .sub{margin:0 0 32px;font:400 16px var(--font-body);color:var(--ink-soft)}
+  form{display:grid;gap:20px}
+  label{display:grid;gap:8px}
+  label > .cap{font:500 12px var(--font-body);color:var(--ink-soft)}
+  .wrap{display:flex;align-items:center;gap:10px;height:52px;padding:0 14px;border-radius:12px;
+    background:var(--card);border:1px solid var(--line);transition:.2s}
+  .wrap:focus-within{border-color:var(--teal-500);box-shadow:0 0 0 3px rgba(29,181,181,.14)}
+  .wrap svg{width:18px;height:18px;color:var(--muted);flex:none}
+  .wrap .pfx{font:500 15px var(--font-body);color:var(--navy-900)}
+  .wrap input{flex:1;min-width:0;border:0;background:none;outline:none;color:var(--navy-900);font:400 16px var(--font-body)}
+  .wrap input::placeholder{color:#9db0c8}
+  .eye{border:0;background:none;color:var(--muted);cursor:pointer;display:grid;place-items:center;padding:4px}
+  .eye:hover{color:var(--teal-600)}
+  .row{display:flex;align-items:center;justify-content:space-between;font:400 12px var(--font-body)}
+  .chk{display:flex;align-items:center;gap:8px;color:var(--ink-soft);cursor:pointer}
+  .chk input{width:16px;height:16px;accent-color:var(--teal-500)}
+  .forgot{color:var(--teal-600);text-decoration:none;font-weight:500}
+  .forgot:hover{text-decoration:underline}
+  .submit{height:54px;border:0;border-radius:13px;cursor:pointer;color:#fff;font:700 16px var(--font-display);
+    background:linear-gradient(135deg,var(--teal-500),var(--teal-800));transition:transform .1s,filter .2s}
+  .submit:hover{filter:brightness(1.06)}
+  .submit:active{transform:translateY(1px) scale(.99)}
+
+  /* Мобильный: рельс сворачивается в компактную шапку, одна колонка */
+  @media (max-width:860px){
+    body{grid-template-columns:1fr}
+    .rail{flex-direction:row;align-items:center;justify-content:space-between;padding:20px 20px}
+    .rail__mid,.rail__foot{display:none}
+    .pane{padding:32px 20px}
+    .form{margin:24px 0}
+  }
+</style>
+</head>
+<body>
+  <aside class="rail">
+    <div class="rail__brand"><div class="mark">M</div><span translate="no">Marjon</span></div>
+    <div class="rail__mid">
+      <h2>Ресторан под<br /><em>полным контролем</em></h2>
+      <ul>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 12 2 2 4-4"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>Заказы и залы в реальном времени</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/></svg>Склад и себестоимость</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Отчёты и выручка по филиалам</li>
+      </ul>
+    </div>
+    <div class="rail__foot">© 2026 Marjon — автоматизация ресторанов</div>
+  </aside>
+
+  <section class="pane">
+    <div class="pane__top">
+      <nav class="lang">
+        <button><img src="https://flagcdn.com/w40/uz.png" alt="" />UZ</button>
+        <button class="is-active"><img src="https://flagcdn.com/w40/ru.png" alt="" />RU</button>
+        <button><img src="https://flagcdn.com/w40/gb.png" alt="" />EN</button>
+      </nav>
+    </div>
+
+    <div class="form">
+      <h1>Вход в систему</h1>
+      <p class="sub">Введите телефон и пароль владельца</p>
+      <form onsubmit="return false">
+        <label>
+          <span class="cap">Номер телефона</span>
+          <div class="wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6.6 10.8a13 13 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.24 11 11 0 0 0 3.5.56 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11 11 0 0 0 .56 3.5 1 1 0 0 1-.24 1z"/></svg>
+            <strong class="pfx">+998</strong>
+            <input type="tel" inputmode="numeric" placeholder="90 123-45-67" />
+          </div>
+        </label>
+        <label>
+          <span class="cap">Пароль</span>
+          <div class="wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <input type="password" placeholder="Введите пароль" />
+            <button type="button" class="eye" aria-label="Показать пароль"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+        </label>
+        <div class="row">
+          <label class="chk"><input type="checkbox" checked /> Запомнить меня</label>
+          <a class="forgot" href="#">Забыли пароль?</a>
+        </div>
+        <button class="submit" type="submit">Войти</button>
+      </form>
+    </div>
+  </section>
+</body>
+</html>
+

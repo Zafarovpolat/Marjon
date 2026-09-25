@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { warehouseService } from "../api/warehouse";
 import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 import Icon from "../components/Icon";
+import PurchaseDrawer from "./warehouse/PurchaseDrawer";
 
 const ACTIVE = "active";
 const ARCHIVE = "archive";
@@ -155,7 +156,6 @@ const warehouseConfigs = {
 
 const sectionUnavailableMessages = {
   outgoing: "Расход товаров недоступен: подтверждённый backend contract не соответствует семантике этого экрана.",
-  stock: "Товарные остатки недоступны до завершения Inventory Core.",
   "incoming-journal": "Журнал приходов недоступен: подтверждённый backend contract не предоставляет строки товаров.",
   inventory: "Инвентаризация недоступна до завершения Inventory Core.",
   "write-off": "Документы списания недоступны: подтверждённый backend contract не соответствует семантике этого экрана.",
@@ -173,15 +173,56 @@ function formatAmount(value) {
   return `${new Intl.NumberFormat("ru-RU").format(Number(value) || 0)} UZS`;
 }
 
+function formatQty(value) {
+  return new Intl.NumberFormat("ru-RU").format(Number(value) || 0);
+}
+
+// Экран остатков собирается на клиенте: /inventory/stock даёт числа по паре
+// (ingredient_id, warehouse_id), но без названий — имя товара/ед.изм берём из
+// /inventory/ingredients, имя склада из /warehouse/list. Статус выводим из
+// количества и мин. остатка (так же, как трактует «низкий остаток» сводка).
+function buildStockRows(stock, ingredients, warehouses) {
+  const ingredientById = new Map((ingredients || []).map((ing) => [ing.id, ing]));
+  const warehouseById = new Map((warehouses || []).map((wh) => [wh.id, wh]));
+  return (Array.isArray(stock) ? stock : []).map((item, idx) => {
+    const ing = ingredientById.get(item.ingredient_id);
+    const wh = warehouseById.get(item.warehouse_id);
+    const quantity = Number(item.quantity) || 0;
+    const minQuantity = Number(item.min_quantity) || 0;
+    const price = Number(item.cost_price) || 0;
+    let status = "Норма";
+    if (quantity <= 0) status = "Нет в наличии";
+    else if (minQuantity > 0 && quantity <= minQuantity) status = "Низкий остаток";
+    return {
+      id: `${item.warehouse_id || "wh"}-${item.ingredient_id || idx}`,
+      product: ing?.name || "—",
+      category: ing?.category || "—",
+      warehouse: wh?.name || "—",
+      stock: formatQty(quantity),
+      minStock: minQuantity ? formatQty(minQuantity) : "—",
+      unit: item.unit || ing?.unit || "—",
+      price: formatAmount(price),
+      total: formatAmount(quantity * price),
+      status,
+      archiveState: ACTIVE,
+    };
+  });
+}
+
 function mapWarehouseReadRow(section, item) {
   if (section === "incoming") {
+    // Бэкенд отдаёт status "draft"/"accepted"; проведённый документ также имеет
+    // accepted_at. Приводим к русской метке для бейджа и держим булев флаг
+    // accepted — по нему прячем кнопку «Провести» и красим статус в green.
+    const accepted = item.status === "accepted" || Boolean(item.accepted_at);
     return {
       id: item.id,
       document: item.number == null ? "—" : String(item.number),
       supplier: item.supplier || "—",
       warehouse: item.warehouse_name || "—",
       total: item.total_amount == null ? "—" : formatAmount(item.total_amount),
-      status: item.status || "",
+      status: accepted ? "Принято" : "Черновик",
+      accepted,
       date: item.date || "",
       positions: String(item.items_count ?? "—"),
       registeredAt: item.registered_at || "",
@@ -213,7 +254,7 @@ function rowSearchText(row) {
 }
 
 function statusTone(status) {
-  if (["Проведено", "Завершено", "Активно", "Норма"].includes(status)) return "green";
+  if (["Проведено", "Принято", "Завершено", "Активно", "Норма"].includes(status)) return "green";
   if (["Черновик", "В ожидании", "Низкий остаток"].includes(status)) return "orange";
   if (["Отменено", "Нет в наличии"].includes(status)) return "red";
   return "gray";
@@ -229,6 +270,16 @@ function WarehousePage({ initialSection = "incoming" }) {
   const [activeTab, setActiveTab] = useState(ACTIVE);
   const [draftFilters, setDraftFilters] = useState({ search: "", date: "01.06.2026 - 23.06.2026", warehouse: "", supplier: "", status: "", receiver: "", category: "", author: "", from: "", to: "" });
   const [filters, setFilters] = useState(draftFilters);
+  // reloadKey форсит перезагрузку списка после мутаций (создание/проведение/удаление).
+  const [reloadKey, setReloadKey] = useState(0);
+  // Дравер прихода + его справочники (склады/ингредиенты грузим лениво при открытии).
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [refData, setRefData] = useState({ warehouses: [], ingredients: [] });
+  const [refLoaded, setRefLoaded] = useState(false);
+  // id документа, по которому идёт проведение/удаление — блокирует его кнопки.
+  const [busyId, setBusyId] = useState(null);
   const beginRequest = useLatestRequest();
 
   useEffect(() => {
@@ -241,6 +292,29 @@ function WarehousePage({ initialSection = "incoming" }) {
     }
     setLoading(true);
     setError("");
+    const onError = (err) => {
+      if (!request.isCurrent() || isAbortError(err)) return;
+      setRows([]);
+      setError(err.response?.data?.detail || "Не удалось загрузить складские данные.");
+      setLoading(false);
+    };
+
+    if (section === "stock") {
+      // Остатки — это джойн трёх источников (см. buildStockRows), а не один list().
+      Promise.all([
+        warehouseService.listStock({ signal: request.signal }),
+        warehouseService.listIngredients({ signal: request.signal }),
+        warehouseService.listWarehouses({ signal: request.signal }),
+      ])
+        .then(([stockRes, ingRes, whRes]) => {
+          if (!request.isCurrent()) return;
+          setRows(buildStockRows(stockRes.data, ingRes.data, whRes.data));
+          setLoading(false);
+        })
+        .catch(onError);
+      return;
+    }
+
     Promise.resolve().then(() => warehouseService.list(section, { signal: request.signal }))
       .then(({ data }) => {
         if (!request.isCurrent()) return;
@@ -248,13 +322,73 @@ function WarehousePage({ initialSection = "incoming" }) {
         setRows(items.map((item) => mapWarehouseReadRow(section, item)));
         setLoading(false);
       })
-      .catch((err) => {
-        if (!request.isCurrent() || isAbortError(err)) return;
-        setRows([]);
-        setError(err.response?.data?.detail || "Не удалось загрузить складские данные.");
-        setLoading(false);
-      });
-  }, [beginRequest, section, unavailableMessage]);
+      .catch(onError);
+  }, [beginRequest, section, unavailableMessage, reloadKey]);
+
+  // Лениво тянем справочники для дравера прихода — только при первом открытии.
+  const openPurchaseDrawer = async () => {
+    setSaveError("");
+    setDrawerOpen(true);
+    if (refLoaded) return;
+    try {
+      const [whRes, ingRes] = await Promise.all([
+        warehouseService.listWarehouses(),
+        warehouseService.listIngredients(),
+      ]);
+      setRefData({ warehouses: whRes.data || [], ingredients: ingRes.data || [] });
+      setRefLoaded(true);
+    } catch {
+      // Справочники не загрузились — селекты в дравере будут пустыми,
+      // пользователь увидит это сам; форму не блокируем жёстко.
+    }
+  };
+
+  const handleCreatePurchase = async (payload) => {
+    setSaving(true);
+    setSaveError("");
+    try {
+      await warehouseService.createPurchase(payload);
+      setDrawerOpen(false);
+      setReloadKey((key) => key + 1);
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      setSaveError(typeof detail === "string" ? detail : "Не удалось сохранить приход.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAcceptPurchase = async (id) => {
+    if (!id || busyId) return;
+    if (!window.confirm("Провести приход? Остатки увеличатся.")) return;
+    setBusyId(id);
+    setError("");
+    try {
+      await warehouseService.acceptPurchase(id);
+      setReloadKey((key) => key + 1);
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      setError(typeof detail === "string" ? detail : "Не удалось провести приход.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleDeletePurchase = async (id) => {
+    if (!id || busyId) return;
+    if (!window.confirm("Удалить приход? Действие необратимо.")) return;
+    setBusyId(id);
+    setError("");
+    try {
+      await warehouseService.deletePurchase(id);
+      setReloadKey((key) => key + 1);
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      setError(typeof detail === "string" ? detail : "Не удалось удалить приход.");
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const computedSummary = useMemo(() => {
     if (!config.summary || loading || error) return null;
@@ -341,7 +475,11 @@ function WarehousePage({ initialSection = "incoming" }) {
           </div>
           <div className="warehouse-actions">
             {config.importExcel ? <button type="button" onClick={() => window.alert("Импорт Excel будет доступен в следующей версии")}><Icon name="bi-file-earmark-spreadsheet" size={17} />Импорт Excel</button> : null}
-            {config.primaryAction ? <button type="button" className="warehouse-primary-action" disabled title={WAREHOUSE_WRITE_UNAVAILABLE}>{config.primaryAction}</button> : null}
+            {config.primaryAction ? (
+              section === "incoming"
+                ? <button type="button" className="warehouse-primary-action" onClick={openPurchaseDrawer}>{config.primaryAction}</button>
+                : <button type="button" className="warehouse-primary-action" disabled title={WAREHOUSE_WRITE_UNAVAILABLE}>{config.primaryAction}</button>
+            ) : null}
           </div>
         </header>
 
@@ -395,7 +533,7 @@ function WarehousePage({ initialSection = "incoming" }) {
             <tbody>
               {visibleRows.map((row, index) => (
                 <tr key={`${row.id || row.document || row.product || row.name}-${index}`}>
-                  {renderWarehouseCells(section, row, index, config.editable)}
+                  {renderWarehouseCells(section, row, index, config.editable, { busyId, onAccept: handleAcceptPurchase, onDelete: handleDeletePurchase })}
                 </tr>
               ))}
               {!loading && !error && !visibleRows.length ? <tr><td className="warehouse-empty-cell" colSpan={config.columns.length}>Нет данных</td></tr> : null}
@@ -412,11 +550,21 @@ function WarehousePage({ initialSection = "incoming" }) {
         </footer>
       </section>
 
+      {drawerOpen ? (
+        <PurchaseDrawer
+          warehouses={refData.warehouses}
+          ingredients={refData.ingredients}
+          saving={saving}
+          error={saveError}
+          onClose={() => { if (!saving) setDrawerOpen(false); }}
+          onSubmit={handleCreatePurchase}
+        />
+      ) : null}
     </div>
   );
 }
 
-function renderWarehouseCells(section, row, index, editable) {
+function renderWarehouseCells(section, row, index, editable, ctx = {}) {
   const actions = editable ? (
     <td>
       <div className="warehouse-row-actions">
@@ -431,6 +579,22 @@ function renderWarehouseCells(section, row, index, editable) {
   const status = row.status ? <span className={`warehouse-status-badge warehouse-status-badge--${statusTone(row.status)}`}>{row.status}</span> : null;
 
   if (section === "stock") return <><td>{row.product}</td><td>{row.category}</td><td>{row.warehouse}</td><td>{row.stock}</td><td>{row.minStock}</td><td>{row.unit}</td><td>{row.price}</td><td>{row.total}</td><td>{status}</td></>;
+  if (section === "incoming") {
+    // Живые действия по документу: «Провести» (только для черновика) и «Удалить».
+    // Кнопки блокируются, пока идёт мутация именно по этой строке (busyId).
+    const busy = ctx.busyId === row.id;
+    const incomingActions = (
+      <td>
+        <div className="warehouse-row-actions">
+          {!row.accepted ? (
+            <button type="button" className="is-restore" disabled={busy} onClick={() => ctx.onAccept?.(row.id)} aria-label="Провести приход" title="Провести приход"><Icon name="bi-check2-circle" size={15} /></button>
+          ) : null}
+          <button type="button" className="is-danger" disabled={busy} onClick={() => ctx.onDelete?.(row.id)} aria-label="Удалить приход" title="Удалить приход"><Icon name="bi-trash3" size={15} /></button>
+        </div>
+      </td>
+    );
+    return <><td>{index + 1}</td><td>{row.document}</td><td>{row.supplier}</td><td>{row.warehouse}</td><td>{row.total}</td><td>{status}</td><td>{row.date}</td>{incomingActions}</>;
+  }
   if (section === "incoming-journal") return <><td>{row.date}</td><td>{row.document}</td><td>{row.supplier}</td><td>{row.product}</td><td>{row.quantity}</td><td>{row.price}</td><td>{row.total}</td><td>{row.author}</td></>;
   if (section === "transfer") return <><td>{index + 1}</td><td>{row.document}</td><td>{row.from}</td><td>{row.to}</td><td>{row.positions}</td><td>{row.total}</td><td>{status}</td><td>{row.date}</td>{actions}</>;
   if (section === "inventory") return <><td>{index + 1}</td><td>{row.document}</td><td>{row.warehouse}</td><td>{row.expected}</td><td>{row.actual}</td><td>{row.difference}</td><td>{status}</td><td>{row.date}</td>{actions}</>;

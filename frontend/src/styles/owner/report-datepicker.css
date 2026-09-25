@@ -69,7 +69,7 @@
       border-radius: 8px;
       background: #fff;
       box-shadow: none;
-      font-size: 18px;
+      font-size: 16px; /* REPORT-FONT: 18 → 16 (кратно 4) */
       font-weight: 500;
   }
 
@@ -99,7 +99,7 @@
   .report-actions .report-date-calendar-week span {
       padding: 0 0 14px;
       color: #4b5563;
-      font-size: 17px;
+      font-size: 16px; /* REPORT-FONT: 17 → 16 (кратно 4) */
       font-weight: 500;
   }
 
@@ -111,7 +111,7 @@
       border-radius: 8px;
       background: transparent;
       box-shadow: none;
-      font-size: 19px;
+      font-size: 16px; /* REPORT-FONT: 19 → 16 (кратно 4) */
       font-weight: 500;
   }
 
@@ -139,7 +139,7 @@
       min-height: 44px;
       margin-bottom: 18px;
       color: #111827;
-      font-size: 19px;
+      font-size: 16px; /* REPORT-FONT: 19 → 16 (кратно 4) */
       font-weight: 500;
   }
 
@@ -216,7 +216,7 @@
       min-height: 46px;
       border-radius: 8px;
       box-shadow: none;
-      font-size: 18px;
+      font-size: 16px; /* REPORT-FONT: 18 → 16 (кратно 4) */
       font-weight: 500;
   }
 
@@ -319,7 +319,7 @@
       color: #fff;
       background: var(--accent-secondary);
       box-shadow: 0 8px 18px rgba(29, 181, 181, 0.154);
-      font-weight: 800;
+      font-weight: 500; /* REPORT-FONT: 800 → 500 (кнопка/контрол) */
       cursor: pointer;
   }
 
@@ -356,7 +356,7 @@
       font-family: var(--font-display);
       font-size: clamp(22px, 2vw, 30px);
       line-height: 1.08;
-      font-weight: 800;
+      font-weight: 700; /* REPORT-FONT: 800 → 700 (акцент-метрика) */
       letter-spacing: 0;
   }
 
@@ -421,7 +421,7 @@
 
   .tables-report-page .tables-total-cell {
       color: var(--text-primary);
-      font-weight: 800;
+      font-weight: 700; /* REPORT-FONT: 800 → 700 (итоговая ячейка) */
   }
 
   .tables-report-page .report-link-action {
@@ -429,7 +429,7 @@
       background: transparent;
       color: var(--color-interactive);
       font: inherit;
-      font-weight: 800;
+      font-weight: 500; /* REPORT-FONT: 800 → 500 (кнопка-ссылка/контрол) */
       cursor: pointer;
   }
 
@@ -534,7 +534,7 @@
 
   .tables-report-page .report-drawer__orders strong {
       color: var(--text-primary);
-      font-weight: 800;
+      font-weight: 700; /* REPORT-FONT: 800 → 700 (акцент-значение) */
   }
 
   .tables-report-page .report-drawer__orders em {
@@ -673,7 +673,7 @@
       font-family: var(--font-display);
       font-size: clamp(26px, 2.2vw, 36px);
       line-height: 1.08;
-      font-weight: 800;
+      font-weight: 700; /* REPORT-FONT: 800 → 700 (заголовок) */
       letter-spacing: 0;
   }
 
@@ -701,7 +701,7 @@
       justify-content: center;
       gap: 9px;
       border-radius: 14px;
-      font-weight: 800;
+      font-weight: 500; /* REPORT-FONT: 800 → 500 (кнопки-контролы) */
       cursor: pointer;
       transition: .2s ease;
       white-space: nowrap;
@@ -794,7 +794,7 @@
       color: #fff;
       background: var(--accent-secondary);
       box-shadow: 0 8px 18px rgba(29, 181, 181, 0.154);
-      font-weight: 800;
+      font-weight: 500; /* REPORT-FONT: 800 → 500 (кнопка/контрол) */
       cursor: pointer;
   }
 
@@ -865,7 +865,7 @@
 
   .orders-report-page .report-total-price {
       color: var(--text-primary);
-      font-weight: 800;
+      font-weight: 700; /* REPORT-FONT: 800 → 700 (акцент-сумма) */
   }
 
   .orders-report-page .report-empty-row td {
@@ -962,7 +962,7 @@
   :is(.orders-report-page, .tables-report-page, .cancelled-report-page) .order-details-drawer__dishes strong,
   :is(.orders-report-page, .tables-report-page, .cancelled-report-page) .order-details-drawer__totals strong {
       color: var(--text-primary);
-      font-weight: 800;
+      font-weight: 700; /* REPORT-FONT: 800 → 700 (акцент-значение) */
   }
 
   @media (max-width: 1280px) {

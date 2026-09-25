@@ -112,7 +112,15 @@ class AnalyticsService:
         # PostgreSQL expression (same bind identity). Rebuilding it per clause
         # emitted a distinct bind per clause and tripped PostgreSQL's
         # "must appear in the GROUP BY clause" rule (SQLite masks this).
-        day = func.date(func.timezone(bindparam("sales_tz", str(tz)), Order.created_at))
+        if self.db.bind.dialect.name == "sqlite":
+            # Локальный SQLite не имеет функции timezone(): created_at хранится
+            # как наивный UTC. Asia/Tashkent — фиксированный +5 без перехода на
+            # летнее время, поэтому берём смещение зоны в часах и сдвигаем время
+            # модификатором date(). Ветка для dev; в проде остаётся PostgreSQL.
+            offset_hours = int(datetime.now(tz).utcoffset().total_seconds() // 3600)
+            day = func.date(Order.created_at, f"{offset_hours:+d} hours")
+        else:
+            day = func.date(func.timezone(bindparam("sales_tz", str(tz)), Order.created_at))
         result = await self.db.execute(
             select(
                 day.label("day"),

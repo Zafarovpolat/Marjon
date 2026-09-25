@@ -3,14 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { isOwnerWebUser } from "../utils/permissions";
-import logo from "../assets/marjon-logo.svg";
+import logo from "../assets/brand/marjon-logo.svg";
 import Icon from "../components/Icon";
 import { useMutationLocks } from "../hooks/useAsyncSafety";
 
 const LANGUAGES = [
-  { code: "uz", short: "UZ", label: "Uzbek", flagUrl: "https://flagcdn.com/w40/uz.png" },
-  { code: "ru", short: "RU", label: "Russian", flagUrl: "https://flagcdn.com/w40/ru.png" },
-  { code: "en", short: "EN", label: "English", flagUrl: "https://flagcdn.com/w40/gb.png" },
+  // native — самоназвание языка (в меню показываем его, а не код: понятнее и профессиональнее)
+  { code: "uz", short: "UZ", label: "Uzbek", native: "O‘zbekcha", flagUrl: "https://flagcdn.com/w40/uz.png" },
+  { code: "ru", short: "RU", label: "Russian", native: "Русский", flagUrl: "https://flagcdn.com/w40/ru.png" },
+  { code: "en", short: "EN", label: "English", native: "English", flagUrl: "https://flagcdn.com/w40/gb.png" },
 ];
 
 export function getLocalPhoneDigits(raw) {
@@ -153,10 +154,17 @@ export default function LoginPage() {
     <main className="login-pro-shell">
       <div className="login-pro-frame">
         <header className="login-pro-topbar">
-          <a href="#" aria-label="Marjon" className="login-pro-topbrand">
-            <img src={logo} alt="" decoding="async" />
-            <span>Marjon</span>
-          </a>
+          {/* Логотип и пилюля-дескриптор в одной строке (пилюля раньше была
+              absolute и «прыгала» по экрану из-за vw-transform). */}
+          <div className="login-pro-brandgroup">
+            <a href="#" aria-label="Marjon" className="login-pro-topbrand">
+              <img src={logo} alt="" width={44} height={44} decoding="async" />
+              <span className="login-pro-topbrand__text">
+                <span className="login-pro-topbrand__name" translate="no">Marjon</span>
+                <span className="login-pro-topbrand__sub">Restaurant OS</span>
+              </span>
+            </a>
+          </div>
           <nav aria-label={t("sidebar.navigation")}>
             <a href="#">{t("auth.home")}</a>
             <a href="#">{t("auth.cafe")}</a>
@@ -180,7 +188,7 @@ export default function LoginPage() {
                 aria-expanded={languageMenuOpen}
                 onClick={() => setLanguageMenuOpen((open) => !open)}
               >
-                <img className="login-pro-lang__flag" src={currentLanguageMeta.flagUrl} alt="" decoding="async" />
+                <img className="login-pro-lang__flag" src={currentLanguageMeta.flagUrl} alt="" width={21} height={14} decoding="async" />
                 <span>{currentLanguageMeta.short}</span>
                 <Icon name="bi-chevron-down" size={14} strokeWidth={2.6} />
               </button>
@@ -190,6 +198,7 @@ export default function LoginPage() {
                     key={language.code}
                     type="button"
                     className={language.code === currentLanguage ? "is-active" : ""}
+                    aria-current={language.code === currentLanguage ? "true" : undefined}
                     onPointerDown={(event) => {
                       event.preventDefault();
                       event.stopPropagation();
@@ -203,20 +212,21 @@ export default function LoginPage() {
                     onClick={(event) => event.preventDefault()}
                     role="menuitem"
                   >
-                    <img className="login-pro-lang__flag" src={language.flagUrl} alt="" decoding="async" />
-                    <span>{language.short}</span>
+                    <img className="login-pro-lang__flag" src={language.flagUrl} alt="" width={21} height={14} decoding="async" />
+                    <span className="login-pro-lang__name">{language.native}</span>
+                    {language.code === currentLanguage ? (
+                      <Icon name="bi-check2" size={16} strokeWidth={2.6} className="login-pro-lang__check" />
+                    ) : null}
                   </button>
                 ))}
               </div>
             </div>
             <a href="#">{t("auth.sign_in")}</a>
-            <a href="#" className="login-pro-register">{t("auth.register")}</a>
           </div>
         </header>
 
         <div className="login-pro-body">
           <section className="login-pro-hero-copy">
-            <span className="login-pro-hero-copy__badge">{t("auth.hero_badge")}</span>
             <h1>
               <span>{t("auth.hero_title_start")}</span>{" "}
               <strong>{t("auth.hero_title_accent")}</strong>
@@ -243,21 +253,12 @@ export default function LoginPage() {
 
           <section className="login-pro-panel">
             <form className="login-pro-card" onSubmit={handleSubmit}>
-              <div className="login-pro-logo-row">
-                <img src={logo} alt="MARJON" decoding="async" />
-                <div>
-                  <strong>MARJON</strong>
-                  <span>KAFE ADMIN</span>
-                </div>
-              </div>
-              <div className="login-pro-divider" />
-
               <div className="login-pro-head">
                 <h2>{t("auth.welcome_title")}</h2>
                 <p>{t("auth.welcome_subtitle")}</p>
               </div>
 
-              {error ? <div className="login-pro-alert">{error}</div> : null}
+              {error ? <div className="login-pro-alert" role="alert">{error}</div> : null}
 
               <label className="login-pro-field">
                 <span>{t("auth.phone_label")}</span>

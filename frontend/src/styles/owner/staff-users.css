@@ -135,6 +135,35 @@
       background: rgba(248, 251, 255, .86);
   }
 
+  /* Вариант с единственным полем поиска (Сырьё, Полуфабрикаты): базовая сетка
+     рассчитана на несколько фильтров сотрудников, поэтому одинокий поиск занимал
+     лишь первую колонку и справа зияла пустота. Схлопываем в одну колонку на всю
+     ширину. Рамку несёт пилюля поиска .staff-filter-control (её базовый border на
+     строке ниже), а у внешней карточки .staff-filters убираем — иначе на всю
+     ширину видно две рамки подряд. У самого <input> внутри border уже 0. Селектор
+     с .staff-page даёт специфичность 0,2,0 — перебивает базовое правило и
+     2-колоночный вариант в @media (max-width:1280px). border-color: transparent
+     (не border: 0) сохраняет те же 1px, чтобы ничего не смещалось. */
+  .staff-page .staff-filters--search {
+      grid-template-columns: minmax(0, 1fr);
+      border-color: transparent;
+  }
+
+  /* Внутри .dashboard-shell действует «домовое» правило для всех input
+     (react-overrides.css: .dashboard-shell input:not([type=…])…, специфичность
+     0,4,1): оно навязывает height:42px, паддинг, рамку и радиус — и давало вторую
+     рамку внутри пилюли поиска. Повторяем ту же цепочку :not(), плюс классы-предки
+     — специфичность 0,6,1 гарантированно перебивает «дом», а не борется порядком
+     подключения файлов. Поле делаем «голым»: рамку/фон/высоту задаёт обёртка
+     .staff-filter-control. */
+  .dashboard-shell .staff-filters--search .staff-filter-control input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+      height: auto;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      border-radius: 0;
+  }
+
   .staff-filters label,
   .staff-form label {
       display: grid;

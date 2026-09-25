@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Marjon · Login — Вариант C «Hero Band»</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&family=Golos+Text:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --teal-500:#1db5b5; --teal-400:#22d3ee; --teal-600:#0fa3a3; --teal-800:#0d6262;
+    --navy-950:#071428; --navy-900:#0b1f3f; --muted:#7a94b4;
+    --bg:#f4f7fc; --card:#fff; --ink:#0b1f3f; --ink-soft:#4a5b73; --line:#e3e9f2;
+    --font-display:"Manrope",sans-serif; --font-body:"Golos Text","Manrope",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:var(--font-body);min-height:100dvh;background:var(--bg);color:var(--ink);
+    display:flex;flex-direction:column}
+
+  /* ── Верхняя фирменная лента (teal → navy), с мягким световым пятном ── */
+  .band{position:relative;overflow:hidden;padding:32px clamp(20px,6vw,72px) 140px;
+    background:linear-gradient(135deg,var(--teal-600) 0%,var(--navy-900) 62%,var(--navy-950) 100%);color:#fff}
+  .band::after{content:"";position:absolute;width:520px;height:520px;right:-120px;top:-200px;border-radius:50%;
+    background:radial-gradient(circle,rgba(34,211,238,.22),transparent 70%);pointer-events:none}
+  .band__nav{display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1}
+  .band__brand{display:flex;align-items:center;gap:12px}
+  .band__brand .mark{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:#fff;color:var(--teal-600);font:700 22px var(--font-display)}
+  .band__brand span{font:700 20px var(--font-display)}
+  .lang{display:flex;gap:6px}
+  .lang button{display:flex;align-items:center;gap:6px;height:34px;padding:0 10px;border:1px solid rgba(255,255,255,.22);
+    background:rgba(255,255,255,.08);color:#dbe6f2;border-radius:9px;font:500 12px var(--font-body);cursor:pointer;transition:.2s}
+  .lang button img{width:20px;height:13px;border-radius:3px;object-fit:cover}
+  .lang button.is-active,.lang button:hover{color:#fff;border-color:#fff;background:rgba(255,255,255,.18)}
+  .band__title{position:relative;z-index:1;max-width:560px;margin:40px auto 0;text-align:center}
+  .band__title h1{margin:0 0 12px;font:700 36px var(--font-display);letter-spacing:-.02em;line-height:1.1}
+  .band__title p{margin:0;font:400 16px var(--font-body);color:#cfe7e6}
+
+  /* ── Белая карточка, наезжающая на нижнюю кромку ленты ── */
+  .card{width:100%;max-width:440px;margin:-100px auto 0;position:relative;z-index:2;
+    background:var(--card);border:1px solid var(--line);border-radius:24px;padding:32px;
+    box-shadow:0 40px 80px -30px rgba(11,31,63,.35)}
+  form{display:grid;gap:20px}
+  label{display:grid;gap:8px}
+  label > .cap{font:500 12px var(--font-body);color:var(--ink-soft)}
+  .wrap{display:flex;align-items:center;gap:10px;height:52px;padding:0 14px;border-radius:12px;
+    background:#fafcff;border:1px solid var(--line);transition:.2s}
+  .wrap:focus-within{border-color:var(--teal-500);box-shadow:0 0 0 3px rgba(29,181,181,.14);background:#fff}
+  .wrap svg{width:18px;height:18px;color:var(--muted);flex:none}
+  .wrap .pfx{font:500 15px var(--font-body);color:var(--navy-900)}
+  .wrap input{flex:1;min-width:0;border:0;background:none;outline:none;color:var(--navy-900);font:400 16px var(--font-body)}
+  .wrap input::placeholder{color:#9db0c8}
+  .eye{border:0;background:none;color:var(--muted);cursor:pointer;display:grid;place-items:center;padding:4px}
+  .eye:hover{color:var(--teal-600)}
+  .row{display:flex;align-items:center;justify-content:space-between;font:400 12px var(--font-body)}
+  .chk{display:flex;align-items:center;gap:8px;color:var(--ink-soft);cursor:pointer}
+  .chk input{width:16px;height:16px;accent-color:var(--teal-500)}
+  .forgot{color:var(--teal-600);text-decoration:none;font-weight:500}
+  .forgot:hover{text-decoration:underline}
+  .submit{height:54px;border:0;border-radius:13px;cursor:pointer;color:#fff;font:700 16px var(--font-display);
+    background:linear-gradient(135deg,var(--teal-500),var(--teal-800));transition:transform .1s,filter .2s}
+  .submit:hover{filter:brightness(1.06)}
+  .submit:active{transform:translateY(1px) scale(.99)}
+  .foot{text-align:center;font:400 12px var(--font-body);color:var(--muted);padding:28px 20px 32px}
+
+  @media (max-width:560px){
+    .band{padding:24px 20px 130px}
+    .band__title h1{font-size:28px}
+    .card{margin:-96px 16px 0;padding:24px}
+  }
+</style>
+</head>
+<body>
+  <header class="band">
+    <div class="band__nav">
+      <div class="band__brand"><div class="mark">M</div><span translate="no">Marjon</span></div>
+      <nav class="lang">
+        <button><img src="https://flagcdn.com/w40/uz.png" alt="" />UZ</button>
+        <button class="is-active"><img src="https://flagcdn.com/w40/ru.png" alt="" />RU</button>
+        <button><img src="https://flagcdn.com/w40/gb.png" alt="" />EN</button>
+      </nav>
+    </div>
+    <div class="band__title">
+      <h1>Добро пожаловать</h1>
+      <p>Войдите в панель управления рестораном</p>
+    </div>
+  </header>
+
+  <main class="card">
+    <form onsubmit="return false">
+      <label>
+        <span class="cap">Номер телефона</span>
+        <div class="wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6.6 10.8a13 13 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.24 11 11 0 0 0 3.5.56 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11 11 0 0 0 .56 3.5 1 1 0 0 1-.24 1z"/></svg>
+          <strong class="pfx">+998</strong>
+          <input type="tel" inputmode="numeric" placeholder="90 123-45-67" />
+        </div>
+      </label>
+      <label>
+        <span class="cap">Пароль</span>
+        <div class="wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          <input type="password" placeholder="Введите пароль" />
+          <button type="button" class="eye" aria-label="Показать пароль"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+      </label>
+      <div class="row">
+        <label class="chk"><input type="checkbox" checked /> Запомнить меня</label>
+        <a class="forgot" href="#">Забыли пароль?</a>
+      </div>
+      <button class="submit" type="submit">Войти</button>
+    </form>
+  </main>
+
+  <footer class="foot">© 2026 Marjon — автоматизация ресторанов Узбекистана</footer>
+</body>
+</html>
+

@@ -164,12 +164,38 @@ describe("truthful production data states", () => {
     expect(screen.queryByText(/UZS/)).not.toBeInTheDocument();
   });
 
-  it("does not treat the warehouse directory endpoint as authoritative product stock", async () => {
+  it("joins stock balances with ingredient and warehouse directories", async () => {
+    api.get.mockImplementation((url) => {
+      if (url === "/inventory/stock") return Promise.resolve({ data: [{
+        warehouse_id: "wh-1", ingredient_id: "ing-1",
+        quantity: 12, min_quantity: 5, unit: "кг", cost_price: 10000,
+      }] });
+      if (url === "/inventory/ingredients") return Promise.resolve({ data: [{
+        id: "ing-1", name: "Мука", unit: "кг", category: "Бакалея",
+      }] });
+      if (url === "/warehouse/list") return Promise.resolve({ data: [{
+        id: "wh-1", name: "Главный склад",
+      }] });
+      return Promise.resolve({ data: [] });
+    });
+
     render(<WarehousePage initialSection="stock" />);
 
-    expect(await screen.findByRole("status")).toHaveTextContent("Товарные остатки недоступны до завершения Inventory Core.");
-    expect(api.get).not.toHaveBeenCalled();
+    expect(await screen.findByText("Мука")).toBeInTheDocument();
+    expect(screen.getByText("Бакалея")).toBeInTheDocument();
+    expect(screen.getByText("Главный склад")).toBeInTheDocument();
+    expect(screen.getByText("Норма")).toBeInTheDocument();
+    expect(screen.getAllByText(/120[\s ]?000 UZS/).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText("Нет данных")).not.toBeInTheDocument();
+  });
+
+  it("shows a truthful error when the stock join request fails", async () => {
+    api.get.mockRejectedValue(new Error("offline"));
+
+    render(<WarehousePage initialSection="stock" />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Не удалось загрузить складские данные.");
     expect(screen.queryByText(/0 UZS/)).not.toBeInTheDocument();
   });
 
@@ -188,7 +214,7 @@ describe("truthful production data states", () => {
     expect(api.delete).not.toHaveBeenCalled();
   });
 
-  it("maps confirmed purchase response fields exactly and keeps UUID mutations disabled", async () => {
+  it("maps confirmed purchase response fields exactly and exposes live accept/delete actions", async () => {
     api.get.mockResolvedValue({
       data: [{
         id: "9c6082b6-3ab1-4d36-9a4c-87cd8bb4e7d5",
@@ -208,8 +234,8 @@ describe("truthful production data states", () => {
     expect(screen.getByText("Backend Supplier")).toBeInTheDocument();
     expect(screen.getByText("Backend Warehouse")).toBeInTheDocument();
     expect(screen.getAllByText(/125[\s\u00a0]?000 UZS/).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Редактирование недоступно" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Архивирование недоступно" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Провести приход" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Удалить приход" })).toBeEnabled();
     expect(api.get).toHaveBeenCalledWith("/warehouse/purchases", expect.objectContaining({ signal: expect.any(AbortSignal) }));
     expect(api.post).not.toHaveBeenCalled();
     expect(api.patch).not.toHaveBeenCalled();

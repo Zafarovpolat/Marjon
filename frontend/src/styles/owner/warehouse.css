@@ -233,6 +233,39 @@
       resize: vertical;
   }
 
+  /* Селекты формы прихода: не наследуют стиль input автоматически — задаём
+     тот же контур/фон через токены (без новых raw-hex). */
+  .warehouse-filters select,
+  .warehouse-form select {
+      width: 100%;
+      min-height: 44px;
+      padding: 0 13px;
+      border: 1px solid var(--blue-100);
+      border-radius: 12px;
+      background: var(--neutral-0);
+      color: var(--neutral-950);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      outline: none;
+      cursor: pointer;
+  }
+
+  .warehouse-product-row select {
+      width: 100%;
+      min-height: 36px;
+      padding: 0 10px;
+      border: 1px solid var(--blue-100);
+      border-radius: 10px;
+      background: var(--neutral-0);
+      color: var(--neutral-950);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      outline: none;
+      cursor: pointer;
+  }
+
   .warehouse-filter-actions {
       display: flex;
       gap: 10px;

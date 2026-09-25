@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Marjon · Login — 3 варианта</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&family=Golos+Text:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{--teal-500:#1db5b5;--teal-600:#0fa3a3;--navy-900:#0b1f3f;--navy-950:#071428;--bg:#f4f7fc;--muted:#7a94b4;--line:#e3e9f2}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;font-family:"Golos Text","Manrope",sans-serif;background:var(--bg);color:var(--navy-900);
+    display:grid;place-items:center;padding:40px 20px}
+  .wrap{width:100%;max-width:920px}
+  h1{margin:0 0 4px;font:700 28px "Manrope",sans-serif;letter-spacing:-.02em}
+  .lead{margin:0 0 32px;font:400 16px inherit;color:#4a5b73}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  @media(max-width:720px){.grid{grid-template-columns:1fr}}
+  a.card{display:block;text-decoration:none;color:inherit;background:#fff;border:1px solid var(--line);border-radius:18px;
+    overflow:hidden;transition:transform .15s,box-shadow .2s}
+  a.card:hover{transform:translateY(-3px);box-shadow:0 24px 48px -24px rgba(11,31,63,.35)}
+  .thumb{height:120px;display:grid;place-items:center;font:700 20px "Manrope",sans-serif;color:#fff}
+  .t-a{background:radial-gradient(circle at 70% 20%,rgba(29,181,181,.5),transparent 60%),var(--navy-950)}
+  .t-b{background:linear-gradient(90deg,var(--navy-900) 40%,#fff 40%);color:var(--navy-900)}
+  .t-c{background:linear-gradient(135deg,var(--teal-600),var(--navy-900))}
+  .meta{padding:18px 18px 20px}
+  .meta h3{margin:0 0 6px;font:700 16px "Manrope",sans-serif}
+  .meta p{margin:0;font:400 12px inherit;color:var(--muted);line-height:1.5}
+  .tag{display:inline-block;margin-top:12px;font:500 12px inherit;color:var(--teal-600)}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Login — 3 варианта структуры</h1>
+    <p class="lead">Палитра Marjon (teal + navy). Открой каждый и выбери структуру — потом перенесу выбранный в React.</p>
+    <div class="grid">
+      <a class="card" href="./variant-a.html">
+        <div class="thumb t-a">A</div>
+        <div class="meta"><h3>A · Aurora Focus</h3>
+          <p>Тёмный экран с teal-авророй, одна центральная колонка, стеклянная форма. Минимализм, фокус.</p>
+          <span class="tag">Открыть вариант A →</span></div>
+      </a>
+      <a class="card" href="./variant-b.html">
+        <div class="thumb t-b">B</div>
+        <div class="meta"><h3>B · Brand Rail</h3>
+          <p>Асимметрия: тёмный брендовый рельс слева (лого + фичи), светлая лево-выровненная форма справа.</p>
+          <span class="tag">Открыть вариант B →</span></div>
+      </a>
+      <a class="card" href="./variant-c.html">
+        <div class="thumb t-c">C</div>
+        <div class="meta"><h3>C · Hero Band</h3>
+          <p>Верхняя фирменная лента teal→navy с заголовком, белая карточка формы наезжает на кромку.</p>
+          <span class="tag">Открыть вариант C →</span></div>
+      </a>
+    </div>
+  </div>
+</body>
+</html>

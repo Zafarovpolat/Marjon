@@ -2,8 +2,9 @@
 // Точка входа: маршрутизация по типу (dishes/raw/semi) и сборка каталога блюд
 // из выделенных секций nomenclature/*. Кросс-секционное состояние живёт в
 // useDishesCatalog, презентационные части — в отдельных компонентах.
-// Raw/Semi и Inventory Core остаются отложенными; ProductCategory не
-// переинтерпретируется как категория сырья.
+// Raw → RawMaterialsPage (сырьё/ингредиенты), Semi → SemiProductsPage
+// (полуфабрикаты с составом и производством) — работают против существующих
+// эндпоинтов /inventory/*, без Inventory Core.
 import Icon from "../components/Icon";
 import { nomenclatureConfigs } from "./nomenclature/nomenclatureConfig";
 import { useDishesCatalog } from "./nomenclature/useDishesCatalog";
@@ -11,12 +12,16 @@ import DishesStatGrid from "./nomenclature/DishesStatGrid";
 import DishesToolbar from "./nomenclature/DishesToolbar";
 import DishesTable from "./nomenclature/DishesTable";
 import DishesDialogs from "./nomenclature/DishesDialogs";
+import RawMaterialsPage from "./nomenclature/RawMaterialsPage";
+import SemiProductsPage from "./nomenclature/SemiProductsPage";
 
 // Ре-экспорт чистых контрактных функций для совместимости с тестами и импортами.
 export { buildNomenclatureProductPayload, mapNomenclatureProduct } from "./nomenclature/nomenclatureData";
 
 function NomenclaturePage({ type = "dishes" }) {
   if (type === "dishes") return <DishesCatalogPage />;
+  if (type === "raw") return <RawMaterialsPage />;
+  if (type === "semi") return <SemiProductsPage />;
   const config = nomenclatureConfigs[type] || nomenclatureConfigs.raw;
   return (
     <section className="nomenclature-page">
@@ -24,7 +29,7 @@ function NomenclaturePage({ type = "dishes" }) {
         <div className="nomenclature-header">
           <div className="report-title-group">
             <span className="report-accent-bar" />
-            <div><h1>{config.title}</h1><p>Функция пока недоступна: Raw/Semi и Inventory Core отложены.</p></div>
+            <div><h1>{config.title}</h1><p>Функция пока недоступна: Inventory Core отложен.</p></div>
           </div>
         </div>
         <div className="dashboard-empty" role="status">Backend-контракт для этого раздела не зафиксирован.</div>

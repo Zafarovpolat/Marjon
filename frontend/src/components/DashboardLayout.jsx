@@ -15,6 +15,15 @@ const TABLE_REPORT_PATHS = new Set([
   "/reports/cancelled-dishes",
 ]);
 
+// Страницы «Сырьё» и «Полуфабрикаты» используют шаблон раздела «Сотрудники»
+// (.staff-page/.staff-card), поэтому им нужна та же раскладка контента, что и
+// у /users: без двойного отступа (.staff-page padding:0 + узкий padding у
+// content). Без этого .staff-page сохраняет дефолтные 26px и карточка уезжает.
+const STAFF_LAYOUT_PATHS = new Set([
+  "/nomenclature/raw-materials",
+  "/nomenclature/semi-finished",
+]);
+
 export default function DashboardLayout() {
   const location = useLocation();
   const { user } = useAuth();
@@ -23,6 +32,7 @@ export default function DashboardLayout() {
 
   const [title, subtitle] = useMemo(() => pageMeta[location.pathname] || ["Dashboard", ""], [location.pathname]);
   const isUsersSection = location.pathname.startsWith("/users");
+  const isStaffLayout = isUsersSection || STAFF_LAYOUT_PATHS.has(location.pathname);
   const isTableReport = TABLE_REPORT_PATHS.has(location.pathname);
   const selectedDateContext = useMemo(() => ({
     user,
@@ -51,7 +61,7 @@ export default function DashboardLayout() {
             selectedDate={selectedDate}
             onSelectedDateChange={setSelectedDate}
           />
-          <main className={`dashboard-content${isUsersSection ? " dashboard-content--staff" : ""}${isTableReport ? " dashboard-content--table-report" : ""}`}>
+          <main className={`dashboard-content${isStaffLayout ? " dashboard-content--staff" : ""}${isTableReport ? " dashboard-content--table-report" : ""}`}>
             <Outlet context={selectedDateContext} />
           </main>
           <SupportWidget />

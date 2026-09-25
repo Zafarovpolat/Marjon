@@ -987,7 +987,7 @@
     background: var(--color-danger-bg);
     border: 1px solid var(--color-danger-bg);
     color: var(--color-danger);
-    font-weight: 500;
+    font-weight: 400;
     font-size: 14px;
   }
 
@@ -1062,7 +1062,7 @@
     border: 0;
     background: transparent;
     color: var(--color-brand-dark);
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
   }
 
@@ -1084,7 +1084,7 @@
     gap: 9px;
     color: var(--neutral-600);
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 400;
   }
 
   .login-pro-submit {
@@ -9000,7 +9000,7 @@
 
   .z-waiters-report__percent span {
     color: var(--neutral-600);
-    font-weight: 800;
+    font-weight: 500; /* REPORT-FONT: 800 → 500 (суффикс «%» — контрол) */
   }
 
   .z-waiters-report__select select {
@@ -11865,7 +11865,7 @@
     color: #0f2a43;
     border: 1px solid rgba(194, 212, 234, 0.78);
     background: #ffffff;
-    font-weight: 800;
+    font-weight: 500; /* REPORT-FONT: 800 → 500 (кнопка периода — контрол) */
     font-size: 14px;
   }
 
@@ -11875,7 +11875,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 14px;
-    font-weight: 800;
+    font-weight: 500; /* REPORT-FONT: 800 → 500 (текст кнопки периода) */
   }
 
   .orders-report-page .orders-filter-toggle {
@@ -11885,7 +11885,7 @@
     border-color: rgba(29, 181, 181, 0.48);
     background: #ffffff;
     font-size: 14px;
-    font-weight: 800;
+    font-weight: 500; /* REPORT-FONT: 800 → 500 (кнопка фильтра — контрол) */
   }
 
   .orders-report-page .report-excel-button {
@@ -11895,7 +11895,7 @@
     background: #12b76a;
     box-shadow: 0 10px 22px rgba(18, 183, 106, 0.18);
     font-size: 14px;
-    font-weight: 800;
+    font-weight: 500; /* REPORT-FONT: 800 → 500 (кнопка экспорта — контрол) */
   }
 
   .orders-report-page .report-table-wrapper {
@@ -12613,6 +12613,11 @@
   }
 
   .menu-categories-card {
+    /* Карточка всегда во всю доступную высоту: колонка-флекс, чтобы список
+       (и его пустой плейсхолдер) мог растянуться до низа, а не липнуть к верху.
+       На десктопе высоту задаёт fixed-shell (height:100%), здесь — нижний порог. */
+    display: flex;
+    flex-direction: column;
     min-height: calc(100dvh - 52px);
     padding: 22px;
     border: 1px solid #d7e5f2;
@@ -12991,13 +12996,31 @@
     align-items: center;
     justify-content: center;
     gap: 10px;
-    min-height: 120px;
+    min-height: 200px;
     border: 1px dashed #c9d9e9;
     border-radius: 16px;
     color: #74869a;
     background: #f8fbfe;
     font-size: 14px;
-    font-weight: 800;
+    font-weight: 700;
+  }
+
+  /* Когда в списке только плейсхолдер пустого состояния — список становится
+     колонкой-флексом и растягивает плейсхолдер на всю оставшуюся высоту карточки
+     через flex-grow. Flex-grow заполняет ровно свободное место, поэтому
+     плейсхолдер не вылезает за край карточки (в отличие от height:100%).
+     min-height остаётся нижним порогом на очень низких вьюпортах. Правило
+     действует только когда единственный ребёнок списка — плейсхолдер, поэтому
+     строки категорий и скелетон загрузки не затрагиваются. */
+  .menu-categories-page .menu-category-list:has(> .menu-category-empty) {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .menu-categories-page .menu-category-list:has(> .menu-category-empty) > .menu-category-empty {
+    flex: 1 1 auto;
   }
 
   @media (max-width: 860px) {
@@ -14836,14 +14859,14 @@
   .login-pro-logo-row strong {
     color: rgba(242, 199, 110, 0.9);
     font-size: 14px;
-    font-weight: 900;
+    font-weight: 400;
     letter-spacing: 0.14em;
   }
 
   .login-pro-logo-row span {
     color: rgba(226, 232, 240, 0.72);
     font-size: 11px;
-    font-weight: 800;
+    font-weight: 400;
     letter-spacing: 0.12em;
   }
 
@@ -14853,7 +14876,7 @@
 
   .login-pro-head h2 {
     color: #fff8e6;
-    font-size: 29px;
+    font-size: 32px;
     letter-spacing: 0;
   }
 
@@ -14866,7 +14889,7 @@
   .login-pro-field > span {
     color: rgba(226, 232, 240, 0.74);
     font-size: 11px;
-    font-weight: 800;
+    font-weight: 400;
   }
 
   .login-pro-input-wrap {
@@ -14883,8 +14906,8 @@
 
   .login-pro-input-wrap input {
     color: #fff8e6;
-    font-size: 15px;
-    font-weight: 800;
+    font-size: 16px;
+    font-weight: 400;
   }
 
   .login-pro-input-wrap input::placeholder {
@@ -14908,7 +14931,7 @@
     border-radius: 16px;
     color: #071612;
     font-size: 16px;
-    font-weight: 900;
+    font-weight: 400;
     background: linear-gradient(135deg, #f7c95d 0%, #f4c456 38%, #4fd69c 100%);
     box-shadow: none;
   }
@@ -14978,7 +15001,7 @@
     gap: 10px;
     color: #f8fafc;
     text-decoration: none;
-    font-weight: 900;
+    font-weight: 400;
     letter-spacing: 0.02em;
   }
 
@@ -14999,7 +15022,7 @@
     color: rgba(248, 250, 252, 0.92);
     font: inherit;
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 400;
     text-decoration: none;
   }
 
@@ -15085,7 +15108,7 @@
   }
 
   .login-pro-head h2 {
-    font-size: 30px;
+    font-size: 32px;
     line-height: 1.14;
   }
 
@@ -15095,7 +15118,7 @@
     color: #05b9ba;
     content: "Marjon!";
     font-size: 32px;
-    font-weight: 900;
+    font-weight: 700;
   }
 
   .login-pro-head p {
@@ -15286,12 +15309,12 @@
   }
 
   .login-pro-input-wrap input {
-    font-size: 17px;
+    font-size: 16px;
   }
 
   .login-pro-submit {
     min-height: 58px;
-    font-size: 17px;
+    font-size: 16px;
   }
 
   .login-pro-divider {
@@ -15431,8 +15454,8 @@
     border-radius: 9px;
     background: transparent;
     color: rgba(226, 232, 240, 0.86);
-    font-size: 13px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 400;
     line-height: 1;
     text-align: left;
     cursor: pointer;
@@ -15482,8 +15505,8 @@
 
   .login-pro-phone-prefix {
     color: #fff8e6;
-    font-size: 17px;
-    font-weight: 900;
+    font-size: 16px;
+    font-weight: 400;
     line-height: 1;
     white-space: nowrap;
   }
@@ -15491,6 +15514,7 @@
   .login-pro-input-wrap--phone input {
     min-width: 0;
     padding-left: 0;
+    line-height: 1.1;
   }
 
   .login-pro-input-wrap input:-webkit-autofill,
@@ -15558,17 +15582,17 @@
     display: grid;
   }
 
-  /* Cafe login: compact language dropdown matching the requested hover panel. */
+  /* Языковой дропдаун теперь единственный элемент в правой группе — кнопка
+     регистрации удалена из JSX, поэтому убираем её фантомную колонку 160px. */
   .login-pro-top-actions {
     --login-pro-lang-slot: 76px;
     --login-pro-action-gap: 12px;
-    --login-pro-register-slot: 160px;
     display: grid;
-    grid-template-columns: var(--login-pro-lang-slot) var(--login-pro-register-slot);
+    grid-template-columns: var(--login-pro-lang-slot);
     align-items: center;
     gap: var(--login-pro-action-gap);
-    width: calc(var(--login-pro-lang-slot) + var(--login-pro-action-gap) + var(--login-pro-register-slot));
-    min-width: calc(var(--login-pro-lang-slot) + var(--login-pro-action-gap) + var(--login-pro-register-slot));
+    width: var(--login-pro-lang-slot);
+    min-width: var(--login-pro-lang-slot);
   }
 
   .login-pro-lang {
@@ -15685,7 +15709,7 @@
     border-radius: 999px;
     color: #12d6d4;
     font-size: 14px;
-    font-weight: 900;
+    font-weight: 400;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     background: rgba(0, 31, 36, 0.38);
@@ -15695,7 +15719,7 @@
     margin: 34px 0 22px;
     color: #ffffff;
     font-size: clamp(44px, 5.1vw, 76px);
-    font-weight: 900;
+    font-weight: 700;
     line-height: 1.04;
     letter-spacing: 0;
   }
@@ -15710,7 +15734,7 @@
     margin: 0;
     color: rgba(241, 245, 249, 0.9);
     font-size: clamp(18px, 1.4vw, 24px);
-    font-weight: 700;
+    font-weight: 400;
     line-height: 1.45;
   }
 
@@ -15731,7 +15755,7 @@
     border-bottom: 1px solid rgba(226, 232, 240, 0.18);
     color: rgba(248, 250, 252, 0.92);
     font-size: clamp(16px, 1.2vw, 21px);
-    font-weight: 800;
+    font-weight: 400;
     line-height: 1.3;
   }
 
@@ -15796,7 +15820,9 @@
   /* Cafe login: smaller left copy and language menu above the photo overlay. */
   .login-pro-topbar {
     position: relative;
-    z-index: 120;
+    /* Шапка должна лежать ВЫШЕ тела: у .login-pro-body z-index:160 (см. ниже),
+       и его тёмный ::before-оверлей перекрывал выпадающее меню языков. */
+    z-index: 200;
     overflow: visible;
   }
 
@@ -16234,7 +16260,7 @@
     color: #0f2a43;
     box-shadow: none;
     font-size: 14px;
-    font-weight: 800;
+    font-weight: 500; /* REPORT-FONT: 800 → 500 (кнопка настроек таблицы — контрол) */
     line-height: 1;
     white-space: nowrap;
     cursor: pointer;
@@ -16283,7 +16309,7 @@
     color: #0f2a43;
     box-shadow: none;
     font-size: 14px;
-    font-weight: 800;
+    font-weight: 500; /* REPORT-FONT: 800 → 500 (кнопка настроек таблицы — контрол) */
     line-height: 1;
     white-space: nowrap;
     cursor: pointer;
@@ -29323,7 +29349,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
 
   .z-waiters-report__title strong {
     font-size: 22px;
-    font-weight: 800;
+    font-weight: 700; /* REPORT-FONT: 800 → 700 (заголовок отчёта официантов) */
     line-height: 1;
   }
 
@@ -29463,7 +29489,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
   }
 
   .z-waiters-report__row--total strong {
-    font-weight: 800;
+    font-weight: 700; /* REPORT-FONT: 800 → 700 (итоговая строка — акцент-число) */
   }
 
   .z-waiters-report__row--body {
@@ -30154,7 +30180,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     color: #0e8a8a;
     background: rgba(29, 181, 181, 0.1);
     border-color: rgba(29, 181, 181, 0.28);
-    font-weight: 600;
+    font-weight: 500; /* REPORT-FONT: 600 → 500 (активный пресет — контрол) */
     transform: none;
   }
 
@@ -30186,7 +30212,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     background: #f7f9fd;
     box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500; /* REPORT-FONT: 600 → 500 (инпут даты — контрол) */
     text-align: center;
     letter-spacing: 0.01em;
     outline: none;
@@ -30362,7 +30388,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     color: #ffffff;
     background: var(--teal-500, #1db5b5);
     box-shadow: 0 2px 8px rgba(29, 181, 181, 0.32);
-    font-weight: 600;
+    font-weight: 700; /* REPORT-FONT: 600 → 700 (выбранный день — акцент, как в списке времени) */
   }
 
   /* ---- ПАНЕЛЬ ВРЕМЕНИ ---- */
@@ -30379,8 +30405,8 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     align-items: center;
 
     color: #334155;
-  
-    font-weight: 600;
+
+    font-weight: 700; /* REPORT-FONT: 600 → 700 (заголовок панели времени) */
   }
 
   .report-actions .report-date-time-title svg {
@@ -30462,10 +30488,10 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
 
   .report-actions .report-date-today-button,
   .report-actions .report-date-calendar-ok {
-  
+
     box-shadow: none;
-  
-    font-weight: 600;
+
+    font-weight: 500; /* REPORT-FONT: 600 → 500 (кнопки футера календаря — контролы) */
   }
 
   .report-actions .report-date-today-button {
@@ -31034,7 +31060,7 @@ body.dashboard-body .dashboard-shell.is-sidebar-collapsed,body.dashboard-body .d
     padding: 0 10px;
     border-radius: 10px;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500; /* REPORT-FONT: 600 → 500 (пресет — контрол) */
   }
 
   .report-actions .report-date-range {
@@ -31049,7 +31075,7 @@ body.dashboard-body .dashboard-shell.is-sidebar-collapsed,body.dashboard-body .d
     padding: 0 9px;
     border-radius: 10px;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500; /* REPORT-FONT: 600 → 500 (инпут даты — контрол) */
   }
 
   .report-actions .report-date-ok {
@@ -33387,6 +33413,41 @@ body.dashboard-body .nomenclature-page--raw .nomenclature-table td {
     }
   }
 
+  /* Пустое состояние (десктоп): карточка тянется на всю высоту области, а не
+     следует числу строк (как в заполненном виде выше). Плейсхолдер центрируется
+     внутри карточки через flex-цепочку и не вылезает за её край.
+     Активируется только когда на странице есть .menu-category-empty. */
+  @media (min-width: 1025px) {
+    body.dashboard-body:has(.menu-categories-page) .dashboard-content:has(.menu-category-empty) {
+      height: calc(100dvh - 84px);
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .dashboard-back-slot + .menu-categories-page:has(.menu-category-empty),
+    .menu-categories-page:has(.menu-category-empty) {
+      flex: 1 1 auto;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .menu-categories-page:has(.menu-category-empty) .menu-categories-card {
+      flex: 1 1 auto;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .menu-categories-page:has(.menu-category-empty) .menu-category-list {
+      flex: 1 1 auto;
+      height: auto;
+      min-height: 0;
+      max-height: none;
+      overflow: hidden;
+    }
+  }
+
   /* Cafe login: full-screen photo background without left-side promo cards. */
 
   .login-pro-brand {
@@ -33441,7 +33502,28 @@ body.dashboard-body .nomenclature-page--raw .nomenclature-table td {
   .login-pro-register {
 
     color: #071612;
-  
+
+  }
+
+  /* Логотип + пилюля-дескриптор в одну строку рядом с лого (переехала из hero-copy). */
+  .login-pro-brandgroup {
+    display: inline-flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+  }
+
+  /* В шапке снимаем «прыгающий» vw-transform; вес держим по кэпу размера (12px → 400). */
+  .login-pro-brandgroup .login-pro-hero-copy__badge {
+    transform: none;
+    font-weight: 400;
+  }
+
+  /* На узких экранах пилюля-дескриптор рядом с лого не помещается — прячем её. */
+  @media (max-width: 1100px) {
+    .login-pro-brandgroup .login-pro-hero-copy__badge {
+      display: none;
+    }
   }
 
   /* Cafe login: use the restaurant photo as the whole screen background. */
@@ -33449,8 +33531,8 @@ body.dashboard-body .nomenclature-page--raw .nomenclature-table td {
   /* Cafe login: simplified header and larger right-side form controls. */
 
   .login-pro-topbrand {
-  
-    font-size: 18px;
+
+    font-size: 16px;
   }
 
   .login-pro-head h2::before {
@@ -33472,9 +33554,9 @@ body.dashboard-body .nomenclature-page--raw .nomenclature-table td {
 
     border: 1px solid rgba(226, 232, 240, 0.32);
 
-    font-weight: 800;
+    font-weight: 400;
     line-height: 1;
-  
+
   }
 
   .login-pro-lang:hover .login-pro-lang__button,
@@ -33504,10 +33586,12 @@ body.dashboard-body .nomenclature-page--raw .nomenclature-table td {
 
   /* Cafe login: final field cleanup and selectable hover language menu. */
 
+  /* Видимый фокус на поле ввода (a11y): бирюзовая рамка + мягкое кольцо
+     вместо прежней «прозрачной» рамки без индикатора. */
   .login-pro-card .login-pro-input-wrap:focus-within {
-    border-color: transparent;
+    border-color: rgba(67, 211, 166, 0.85);
     background: rgba(255, 255, 255, 0.1);
-    box-shadow: none;
+    box-shadow: 0 0 0 3px rgba(67, 211, 166, 0.22);
   }
 
   .login-pro-card .login-pro-input-wrap input,
@@ -33540,10 +33624,17 @@ body.dashboard-body .nomenclature-page--raw .nomenclature-table td {
 
   }
 
-  .login-pro-card .login-pro-eye:focus,
-  .login-pro-card .login-pro-eye:focus-visible {
+  /* Кнопка «показать пароль»: без кольца на мышином :focus, но с видимым
+     кольцом для клавиатурного :focus-visible (a11y). */
+  .login-pro-card .login-pro-eye:focus {
     outline: 0;
     box-shadow: none;
+  }
+
+  .login-pro-card .login-pro-eye:focus-visible {
+    outline: 0;
+    box-shadow: 0 0 0 3px rgba(67, 211, 166, 0.4);
+    border-radius: 8px;
   }
 
   .login-pro-lang.is-open .login-pro-lang__button {
@@ -34399,7 +34490,7 @@ body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand__identity
   color: #10233d;
   box-shadow: 0 5px 11px rgba(15, 23, 42, 0.035);
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 500; /* REPORT-FONT: 800 → 500 (кнопка периода/контрол) */
   line-height: 1;
   letter-spacing: 0;
   transform: none;
@@ -34559,7 +34650,7 @@ body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand__identity
   .orders-report-page .orders-table-settings-head strong {
     color: #0f2a43;
     font-size: 14px;
-    font-weight: 800;
+    font-weight: 700; /* REPORT-FONT: 800 → 700 (заголовок поповера настроек) */
   }
 
   .orders-report-page .orders-table-settings-head button {
@@ -34570,7 +34661,7 @@ body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand__identity
     background: #f8fcfd;
     color: #0f2a43;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 500; /* REPORT-FONT: 800 → 500 (кнопка поповера — контрол) */
     cursor: pointer;
   }
 
@@ -34675,7 +34766,7 @@ body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand__identity
   .tables-report-page .tables-table-settings-head strong {
     color: #0f2a43;
     font-size: 14px;
-    font-weight: 800;
+    font-weight: 700; /* REPORT-FONT: 800 → 700 (заголовок поповера настроек) */
   }
 
   .tables-report-page .tables-table-settings-head button {
@@ -34686,7 +34777,7 @@ body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand__identity
     background: #f8fcfd;
     color: #0f2a43;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 500; /* REPORT-FONT: 800 → 500 (кнопка поповера — контрол) */
     cursor: pointer;
   }
 
@@ -34775,3 +34866,201 @@ body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand__identity
    styles/owner/dashboard.css (canonical owner) in the Phase-2 CSS ownership
    stage — verbatim, real-browser verified. Do NOT add new OWNER dashboard
    design here; react-overrides is the legacy layer only. */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CAFE LOGIN — финальные правки (Phase-2): крупнее языковой дропдаун,
+   флаги в меню без рамки, цвета текста строго по палитре marjon-tokens.
+   Блок последний в слое marjon-important → бьёт все предыдущие login-правила
+   (и base, и important) по порядку каскада. Веса не трогаем: размеры ≤16px
+   держат вес 400 по size→weight-капу.
+   ═══════════════════════════════════════════════════════════════════════ */
+@layer marjon-important {
+
+  /* ── Одинаковые боковые отступы шапки и контента ────────────────────────
+     Контент (.login-pro-body) в marjon-base имеет padding: 0 clamp(56px,7vw,124px)
+     и 0 44px на ≤1260px. Шапка (.login-pro-topbar) там же задана шире
+     (66/30/18px) → правый и левый края шапки и контента не совпадали.
+     Равняем шапку по тем же значениям (только по горизонтали, вертикаль 0). */
+  .login-pro-topbar {
+    padding-left: clamp(56px, 7vw, 124px);
+    padding-right: clamp(56px, 7vw, 124px);
+  }
+  @media (max-width: 1260px) {
+    .login-pro-topbar {
+      padding-left: 44px;
+      padding-right: 44px;
+    }
+  }
+
+  /* ── Задача 1: увеличенный языковой дропдаун в шапке ─────────────────── */
+  .login-pro-top-actions {
+    --login-pro-lang-slot: 100px;
+  }
+  .login-pro-top-actions .login-pro-lang__button {
+    width: 100px;
+    min-width: 100px;
+    height: 42px;
+    grid-template-columns: 26px 1fr 14px;
+    gap: 8px;
+    padding: 0 12px;
+    border-radius: 12px;
+    font-size: 14px;
+    color: var(--color-dark-text);
+  }
+  .login-pro-lang__button svg {
+    width: 14px;
+    height: 14px;
+  }
+  .login-pro-top-actions .login-pro-lang__menu {
+    width: 184px;
+    padding: 6px;
+    border-radius: 12px;
+  }
+  .login-pro-top-actions .login-pro-lang__menu button {
+    min-height: 42px;
+    grid-template-columns: 26px 1fr auto; /* флаг | самоназвание | галочка активного */
+    gap: 12px;
+    padding: 0 12px;
+    border-radius: 10px;
+    font-size: 14px;
+    color: var(--color-dark-text);
+  }
+  /* Самоназвание языка (Русский/O‘zbekcha/English) — по левому краю, средний вес */
+  .login-pro-lang__menu .login-pro-lang__name {
+    justify-self: start;
+    font-weight: 500;
+  }
+  /* Галочка у активного языка — бренд-teal, чтобы выбор читался сразу */
+  .login-pro-lang__menu .login-pro-lang__check {
+    color: var(--color-brand-hover);
+  }
+
+  /* ── Задача 3: флаги в выпадающем меню без рамки (в триггере рамку
+     оставляем — «без бордера» касалось именно дропдауна) ──────────────── */
+  .login-pro-lang__menu .login-pro-lang__flag {
+    width: 26px;
+    height: 18px;
+    border: 0;
+    box-shadow: none;
+    border-radius: 4px;
+  }
+
+  /* ── Задача 5: цвета текста по палитре (замена ad-hoc hex/rgba токенами).
+     Тёмная стеклянная карточка → dark-токены; акценты → бренд-teal.
+     Прежний «золотой» вордмарк MARJON вне палитры — переведён в бренд-teal. */
+
+  /* Шапка */
+  .login-pro-topbrand {
+    color: var(--neutral-0);
+    gap: 12px; /* как .sidebar-brand__identity в дашборде */
+  }
+  /* Лого: плитка 44×44 как .brand-mark дашборда, но со скруглением углов
+     (по просьбе) — --radius-sm (10px) из токенов, padding 3px, белый фон. */
+  .login-pro-topbrand img {
+    width: 44px;
+    height: 44px;
+    padding: 3px;
+    border-radius: var(--radius-sm);
+    background: var(--neutral-0);
+  }
+  /* Вордмарк «Marjon» жирнее (по явной просьбе; перекрывает size→weight-кап
+     на 16px — для лого допустимо). */
+  .login-pro-topbrand,
+  .login-pro-topbrand span {
+    font-weight: 700;
+  }
+  /* Дескриптор «Restaurant OS» под вордмарком — как в сайдбаре дашборда:
+     вордмарк и подпись стопкой справа от лого, подпись мельче и приглушённее. */
+  .login-pro-topbrand__text {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    line-height: 1.15;
+  }
+  .login-pro-topbrand .login-pro-topbrand__sub {
+    margin-top: 2px; /* отступ подписи как у .brand-subtitle в сайдбаре — чтобы текст не «прилипал» */
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase; /* в дашборде подпись капсом (RESTAURANT OS) */
+    color: var(--color-dark-muted);
+  }
+  /* Наведение/фокус пункта меню — мягкая бренд-подсветка (tokens: teal + прозрачность) */
+  .login-pro-top-actions .login-pro-lang__menu button:hover,
+  .login-pro-top-actions .login-pro-lang__menu button:focus-visible {
+    background: color-mix(in srgb, var(--color-brand) 20%, transparent);
+    color: var(--neutral-0);
+  }
+  /* Активный язык — заметнее наведения (плюс галочка), чтобы выбор был очевиден */
+  .login-pro-top-actions .login-pro-lang__menu button.is-active {
+    background: color-mix(in srgb, var(--color-brand) 32%, transparent);
+    color: var(--neutral-0);
+  }
+
+  /* Карточка формы */
+  .login-pro-head h2 {
+    color: var(--color-dark-text);
+  }
+  .login-pro-head p {
+    color: var(--color-dark-muted);
+  }
+  .login-pro-field > span {
+    color: var(--color-dark-muted);
+  }
+  .login-pro-input-wrap svg {
+    color: var(--color-dark-muted);
+  }
+  .login-pro-phone-prefix {
+    color: var(--color-dark-text);
+  }
+  .login-pro-input-wrap input {
+    color: var(--color-dark-text);
+  }
+  /* Поле номера телефона — межстрочный 1.2 (по просьбе) */
+  .login-pro-input-wrap--phone input {
+    line-height: 1.2;
+  }
+  .login-pro-input-wrap input::placeholder {
+    color: var(--color-dark-muted);
+  }
+  .login-pro-check {
+    color: var(--color-dark-text);
+  }
+  .login-pro-forgot {
+    color: var(--color-brand-hover);
+  }
+  .login-pro-eye {
+    color: var(--color-dark-muted);
+  }
+  .login-pro-eye:hover {
+    color: var(--color-brand-hover);
+  }
+  /* Кнопка «Войти»: белый жирный текст. Прежний светлый золото-мятный
+     градиент делал белый текст нечитаемым — фон переведён в бренд-teal
+     (тёмный конец даёт нужный контраст с белым, и это по палитре). */
+  .login-pro-submit {
+    color: var(--color-text-inverse);
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--teal-600) 0%, var(--teal-800) 100%);
+  }
+  .login-pro-alert {
+    color: var(--red-100);
+  }
+
+  /* Левая hero-колонка */
+  .login-pro-hero-copy h1 {
+    color: var(--neutral-0);
+  }
+  .login-pro-hero-copy h1 strong {
+    color: var(--color-brand-hover);
+  }
+  .login-pro-hero-copy p {
+    color: var(--color-dark-text);
+  }
+  .login-pro-hero-copy li {
+    color: var(--color-dark-text);
+  }
+  .login-pro-hero-copy li svg {
+    color: var(--color-brand-hover);
+  }
+}

@@ -48,27 +48,50 @@ function mockHandbooks(values = {}) {
 describe("CTR-02 remaining critical truth gaps", () => {
   beforeEach(() => vi.restoreAllMocks());
 
-  it.each([["raw", "Сырьё"], ["semi", "Полуфабрикаты"]])("renders %s safely as deferred without inventory calls", (type, title) => {
-    const get = vi.spyOn(api, "get");
-    render(<NomenclaturePage type={type} />);
-    expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("не зафиксирован");
-    expect(screen.queryByRole("button", { name: /Добавить/i })).not.toBeInTheDocument();
-    expect(get).not.toHaveBeenCalled();
+  it("renders raw materials from a live ingredients read with a create action", async () => {
+    const get = vi.spyOn(api, "get").mockResolvedValue({ data: [] });
+    render(<NomenclaturePage type="raw" />);
+    expect(screen.getByRole("heading", { name: "Сырьё" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Добавить/i })).toBeInTheDocument();
+    await waitFor(() => expect(get).toHaveBeenCalledWith("/inventory/ingredients", expect.objectContaining({ signal: expect.any(AbortSignal) })));
+    expect(await screen.findByText("Сырьё пока не добавлено.")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it.each(["raw", "semi"])("keeps %s categories deferred and never mutates ProductCategory", (type) => {
-    const get = vi.spyOn(api, "get");
-    const post = vi.spyOn(api, "post");
-    const patch = vi.spyOn(api, "patch");
-    const remove = vi.spyOn(api, "delete");
-    render(<CategoriesPage type={type} />);
-    expect(screen.getByRole("status")).toHaveTextContent("ProductCategory не используется");
-    expect(screen.queryByRole("button", { name: /Добавить/i })).not.toBeInTheDocument();
-    expect(get).not.toHaveBeenCalled();
-    expect(post).not.toHaveBeenCalled();
-    expect(patch).not.toHaveBeenCalled();
-    expect(remove).not.toHaveBeenCalled();
+  it("renders semi-products from a live read with a create action", async () => {
+    const get = vi.spyOn(api, "get").mockResolvedValue({ data: [] });
+    render(<NomenclaturePage type="semi" />);
+    expect(screen.getByRole("heading", { name: "Полуфабрикаты" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Добавить/i })).toBeInTheDocument();
+    await waitFor(() => expect(get).toHaveBeenCalledWith("/inventory/semi-products", expect.objectContaining({ signal: expect.any(AbortSignal) })));
+    expect(await screen.findByText("Полуфабрикаты пока не добавлены.")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it.each([["raw", "Категории сырья"], ["semi", "Категории полуфабрикатов"]])(
+    "loads %s categories from the shared table with a create action",
+    async (type, title) => {
+      const get = vi.spyOn(api, "get").mockResolvedValue({ data: [] });
+      render(<CategoriesPage type={type} />);
+      expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Добавить/i })).toBeInTheDocument();
+      await waitFor(() => expect(get).toHaveBeenCalled());
+      expect(await screen.findByText("Категорий пока нет.")).toBeInTheDocument();
+    },
+  );
+
+  it("renders a raw materials load failure as a truthful error, not empty", async () => {
+    vi.spyOn(api, "get").mockRejectedValue(new Error("offline"));
+    render(<NomenclaturePage type="raw" />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Не удалось загрузить сырьё.");
+    expect(screen.queryByText("Сырьё пока не добавлено.")).not.toBeInTheDocument();
+  });
+
+  it("renders a semi-products load failure as a truthful error, not empty", async () => {
+    vi.spyOn(api, "get").mockRejectedValue(new Error("offline"));
+    render(<NomenclaturePage type="semi" />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Не удалось загрузить полуфабрикаты.");
+    expect(screen.queryByText("Полуфабрикаты пока не добавлены.")).not.toBeInTheDocument();
   });
 
   it("requires an eligible selected staff UUID and excludes OWNER/SUPER_ADMIN", async () => {

@@ -1055,7 +1055,7 @@
       font-family: var(--font-display);
       font-size: clamp(24px, 2.1vw, 34px);
       line-height: 1.08;
-      font-weight: 800;
+      font-weight: 700; /* REPORT-FONT: заголовок 800 → 700 (допустимый жирный, роль — заголовок) */
       letter-spacing: 0;
   }
 
@@ -1069,7 +1069,7 @@
       border: 0;
       border-radius: 16px;
       color: #fff;
-      font-weight: 800;
+      font-weight: 500; /* REPORT-FONT: кнопки 800 → 500 (роль — управляющий контрол) */
       cursor: pointer;
       transition: .2s ease;
       white-space: nowrap;
@@ -1174,7 +1174,7 @@
 
   .cancelled-table td {
       color: var(--text-primary);
-      font-weight: 600;
+      font-weight: 500; /* REPORT-FONT: тело таблицы 600 → 500 (обычный текст ячейки) */
   }
 
   .cancelled-table tbody tr {
@@ -1194,7 +1194,7 @@
 
   .cancelled-table td:nth-child(10),
   .cancelled-table td:nth-child(11) {
-      font-weight: 800;
+      font-weight: 700; /* REPORT-FONT: числовые итоговые колонки 800 → 700 (акцент) */
   }
 
   .cancelled-type-pill {
@@ -1248,7 +1248,7 @@
       border-radius: 12px;
       background: transparent;
       color: var(--text-secondary);
-      font-weight: 800;
+      font-weight: 500; /* REPORT-FONT: кнопки пагинации 800 → 500 (управляющий контрол) */
       cursor: pointer;
   }
 
@@ -1348,7 +1348,7 @@
       font-family: var(--font-display);
       font-size: clamp(26px, 2.2vw, 36px);
       line-height: 1.08;
-      font-weight: 800;
+      font-weight: 700; /* REPORT-FONT: заголовок 800 → 700 */
       letter-spacing: 0;
   }
 
@@ -1370,7 +1370,7 @@
       justify-content: center;
       gap: 9px;
       border-radius: 14px;
-      font-weight: 800;
+      font-weight: 500; /* REPORT-FONT: кнопки действий 800 → 500 (управляющие контролы) */
       cursor: pointer;
       transition: .2s ease;
       white-space: nowrap;
@@ -1563,13 +1563,13 @@
 
   .dishes-report-page .report-table td {
       color: var(--text-primary);
-      font-weight: 600;
+      font-weight: 500; /* REPORT-FONT: тело таблицы 600 → 500 (обычный текст ячейки) */
   }
 
   .dishes-report-page .report-total-row td {
       color: var(--text-primary);
       background: rgba(241, 247, 255, .86);
-      font-weight: 800;
+      font-weight: 700; /* REPORT-FONT: строка итогов 800 → 700 (акцент) */
   }
 
   .dishes-report-page .report-dish-name {
@@ -1597,7 +1597,7 @@
 
   .dishes-report-page .report-dish-name a {
       color: var(--color-interactive);
-      font-weight: 800;
+      font-weight: 700; /* REPORT-FONT: название блюда 800 → 700 (акцент-ссылка) */
       text-decoration: none;
   }
 
@@ -1758,7 +1758,7 @@
       font-family: var(--font-display);
       font-size: clamp(26px, 2.2vw, 36px);
       line-height: 1.08;
-      font-weight: 800;
+      font-weight: 700; /* REPORT-FONT: заголовок 800 → 700 */
       letter-spacing: 0;
   }
 
@@ -1779,7 +1779,7 @@
       justify-content: center;
       gap: 9px;
       border-radius: 14px;
-      font-weight: 800;
+      font-weight: 500; /* REPORT-FONT: кнопки действий 800 → 500 (управляющие контролы) */
       cursor: pointer;
       transition: .2s ease;
       white-space: nowrap;
@@ -1828,7 +1828,7 @@
       background: rgba(218, 226, 240, .9);
       color: var(--text-primary);
       font-size: 14px;
-      font-weight: 600;
+      font-weight: 500; /* REPORT-FONT: заголовок-плашка меню дат 600 → 500 (компактный лейбл) */
   }
 
   .tables-report-page .report-date-presets {
@@ -1923,7 +1923,7 @@
   .report-actions .report-period-picker .report-period-button {
       min-width: 0;
       padding: 0 6px;
-      font-weight: 800;
+      font-weight: 500; /* REPORT-FONT: кнопка выбора периода 800 → 500 (управляющий контрол) */
   }
 
   .report-actions .report-period-picker .report-period-button span {
@@ -2016,7 +2016,7 @@
       background: #fff;
       color: var(--text-primary);
       box-shadow: none;
-      font-weight: 600;
+      font-weight: 500; /* REPORT-FONT: поле ввода даты 600 → 500 (управляющий контрол) */
       text-align: left;
       outline: none;
   }

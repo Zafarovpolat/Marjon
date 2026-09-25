@@ -28,7 +28,8 @@
 
 .owner-reports__title {
   margin: 0;
-  font-size: 25px;
+  /* REPORT-FONT: 25px → 24px (кратно 4, house-rule по сетке размеров) */
+  font-size: 24px;
   font-weight: 700;
   line-height: 1.15;
   color: var(--neutral-900, #0b1f3f);
@@ -53,7 +54,8 @@
   color: #ffffff;
   font: inherit;
   font-size: 14px;
-  font-weight: 600;
+  /* REPORT-FONT: 600 → 500 (house-rule: только 400/500/700) */
+  font-weight: 500;
   cursor: pointer;
   transition: background 160ms ease, border-color 160ms ease, opacity 160ms ease;
 }
@@ -109,7 +111,8 @@
   box-shadow: none;
   font: inherit;
   font-size: 14px;
-  font-weight: 600;
+  /* REPORT-FONT: 600 → 500 (house-rule весов) */
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
@@ -170,7 +173,8 @@
   box-shadow: none;
   font: inherit;
   font-size: 12px;
-  font-weight: 600;
+  /* REPORT-FONT: 600 → 500 (house-rule весов) */
+  font-weight: 500;
   white-space: nowrap;
 }
 .owner-reports__period.report-actions .report-date-presets button:hover {
@@ -293,7 +297,8 @@
   margin-top: 8px;
   color: #b42318;
   font-size: 12px;
-  font-weight: 600;
+  /* REPORT-FONT: 600 → 500 (house-rule весов) */
+  font-weight: 500;
 }
 .owner-reports__period.report-actions .report-date-calendar-shell {
   display: grid;
@@ -376,7 +381,8 @@
   background: #ffffff;
   color: var(--neutral-900, #0b1f3f);
   box-shadow: none;
-  font-weight: 650;
+  /* REPORT-FONT: 650 → 500 (house-rule весов; это select-триггер, не заголовок) */
+  font-weight: 500;
 }
 .owner-reports__period.report-actions .report-date-calendar-select__trigger:hover,
 .owner-reports__period.report-actions .report-date-calendar-select.is-open .report-date-calendar-select__trigger,
@@ -422,7 +428,8 @@
   color: var(--neutral-800, #1e293b);
   box-shadow: none;
   font-size: 13px;
-  font-weight: 550;
+  /* REPORT-FONT: 550 → 500 (house-rule весов) */
+  font-weight: 500;
   text-align: left;
 }
 .owner-reports__period.report-actions .report-date-calendar-toolbar .report-date-calendar-select__option:hover,
@@ -450,7 +457,8 @@
   border-radius: 0;
   color: #0b7777;
   background: rgba(31, 201, 201, 0.075);
-  font-weight: 600;
+  /* REPORT-FONT: 600 → 500 (house-rule весов) */
+  font-weight: 500;
 }
 .owner-reports__period.report-actions .report-date-calendar-grid button.is-in-range:nth-child(7n + 1) {
   border-radius: 5px 0 0 5px;
@@ -540,7 +548,7 @@
 
 .owner-reports__note {
   margin: 0;
-  font-size: 13px;
+  font-size: 12px; /* было 13px — приведено к ×4 (мелкий вспомогательный текст) */
   color: var(--neutral-500, #64748b);
 }
 
@@ -587,8 +595,8 @@
 }
 
 .owner-report-row__title {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 500; /* было 15px/600 — размер вне ×4, вес вне house-шкалы (400/500/700) */
   line-height: 1.35;
   color: var(--neutral-900, #0b1f3f);
   min-width: 0;
@@ -738,7 +746,7 @@
   color: #ffffff;
   font: inherit;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500; /* было 600 — вне house-шкалы весов (400/500/700) */
 }
 .owner-report-row__print:hover:not(:disabled),
 .owner-report-row__print:focus-visible:not(:disabled) {
@@ -1060,7 +1068,7 @@
   margin: 0;
   color: var(--neutral-900, #0b1f3f);
   font-size: 24px;
-  font-weight: 750;
+  font-weight: 700; /* было 750 — вне house-шкалы весов (только 400/500/700) */
   line-height: 1.2;
   letter-spacing: -0.02em;
 }
@@ -1096,7 +1104,8 @@
   border-radius: 10px;
   font-family: inherit;
   font-size: 13px;
-  font-weight: 650;
+  /* REPORT-FONT: 650 → 500 (house-rule весов; общий блок кнопок/селектов панели) */
+  font-weight: 500;
 }
 
 .owner-report-view .report-period-picker {
@@ -1286,7 +1295,8 @@
 .owner-report-view .cancelled-filter-panel label > span {
   color: var(--neutral-600, #475569);
   font-size: 12px;
-  font-weight: 650;
+  /* REPORT-FONT: 650 → 500 (house-rule весов; подпись поля фильтра) */
+  font-weight: 500;
 }
 
 .owner-report-view .report-filter-panel :is(input, select),
@@ -1542,7 +1552,8 @@
   color: var(--owner-accent-hover, #1bb1b1);
   font: inherit;
   font-size: 13px;
-  font-weight: 650;
+  /* REPORT-FONT: 650 → 500 (house-rule весов; кнопка-пилюля в таблице) */
+  font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -1570,7 +1581,8 @@
   color: var(--neutral-900, #0b1f3f);
   font: inherit;
   font-size: 14px;
-  font-weight: 750;
+  /* REPORT-FONT: 750 → 700 (house-rule весов; акцент-тоггл блока заказа) */
+  font-weight: 700;
   cursor: pointer;
 }
 .tables-report-page .order-details-drawer__items {
@@ -1757,7 +1769,8 @@
   color: var(--neutral-900, #0b1f3f);
   font: inherit;
   font-size: 13px;
-  font-weight: 550;
+  /* REPORT-FONT: 550 → 500 (house-rule весов; опция кастом-селекта фильтра) */
+  font-weight: 500;
   text-align: left;
   cursor: pointer;
 }
@@ -1964,7 +1977,8 @@
   border-radius: 10px;
   font: inherit;
   font-size: 13px;
-  font-weight: 650;
+  /* REPORT-FONT: 650 → 500 (house-rule весов; кнопки применить/сбросить фильтр) */
+  font-weight: 500;
 }
 
 .owner-report-view .report-filter-apply {
@@ -2099,7 +2113,8 @@
   background: #f3f6fa;
   color: var(--neutral-700, #334155);
   font-size: 11px;
-  font-weight: 750;
+  /* REPORT-FONT: 750 → 700 (house-rule весов; заголовок колонки таблицы) */
+  font-weight: 700;
   line-height: 1.15;
   letter-spacing: 0.025em;
   text-transform: uppercase;
@@ -2122,7 +2137,8 @@
 .owner-report-view .z-waiters-report__row--total td {
   background: #f8fafc;
   color: var(--neutral-900, #0b1f3f);
-  font-weight: 650;
+  /* REPORT-FONT: 650 → 700 (house-rule весов; итоговая строка — акцент) */
+  font-weight: 700;
 }
 
 .owner-report-view :is(.report-empty-row, .cancelled-empty-row) td {
@@ -2169,7 +2185,8 @@
 .owner-report-empty div > span {
   color: var(--neutral-500, #64748b);
   font-size: 12px;
-  font-weight: 450;
+  /* REPORT-FONT: 450 → 500 (house-rule весов; подпись пустого состояния) */
+  font-weight: 500;
 }
 
 /* UNIVERSAL-EMPTY-01: one shared illustrated empty state for the ordinary
@@ -2278,7 +2295,8 @@
   .report-title-group.owner-report-heading h1,
   .z-waiters-report__title.owner-report-heading h1,
   .cancelled-report-title.owner-report-heading h1 {
-    font-size: 21px;
+    /* REPORT-FONT: 21px → 20px (кратно 4, house-rule по сетке размеров; мобильный h1) */
+    font-size: 20px;
   }
 
   .owner-report-heading > span[aria-hidden="true"],
@@ -2575,7 +2593,8 @@
 }
 
 .waiters-report-page .waiters-filter-select__clear > span {
-  font-size: 17px;
+  /* REPORT-FONT: 17px → 16px (кратно 4, house-rule по сетке размеров; глиф ✕) */
+  font-size: 16px;
   line-height: 1;
 }
 
@@ -2630,7 +2649,8 @@
   color: var(--neutral-900, #0b1f3f);
   font: inherit;
   font-size: 13px;
-  font-weight: 550;
+  /* REPORT-FONT: 550 → 500 (house-rule весов; опция кастом-селекта фильтра) */
+  font-weight: 500;
   text-align: left;
   cursor: pointer;
 }
@@ -2665,8 +2685,9 @@
   place-items: center;
   flex: 0 0 16px;
   color: var(--owner-accent-hover, #1bb1b1);
-  font-size: 15px;
-  font-weight: 800;
+  /* REPORT-FONT: 15px → 16px (кратно 4) и 800 → 700 (house-rule весов); глиф-галочка ✓ */
+  font-size: 16px;
+  font-weight: 700;
   line-height: 1;
 }
 
@@ -2919,7 +2940,8 @@
   display: block;
   color: #ffffff;
   font-size: 13px;
-  font-weight: 850;
+  /* REPORT-FONT: 850 → 700 (house-rule весов; глиф-галочка ✓) */
+  font-weight: 700;
   line-height: 1;
   transform: translateY(-0.5px);
 }
@@ -3004,7 +3026,8 @@
 .waiters-report-page .waiter-dishes-drawer__head span {
   color: var(--neutral-500, #64748b);
   font-size: 12px;
-  font-weight: 600;
+  /* REPORT-FONT: 600 → 500 (house-rule весов; кикер-подпись над именем) */
+  font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -3059,7 +3082,8 @@
 .waiters-report-page .waiter-dishes-drawer th {
   background: #f3f6fa;
   font-size: 11px;
-  font-weight: 750;
+  /* REPORT-FONT: 750 → 700 (house-rule весов; заголовок колонки таблицы) */
+  font-weight: 700;
   letter-spacing: 0.025em;
   text-transform: uppercase;
 }
