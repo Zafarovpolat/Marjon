@@ -1,7 +1,7 @@
 from __future__ import annotations
 import re
 from uuid import UUID
-from pydantic import EmailStr, Field, field_validator
+from pydantic import AliasChoices, EmailStr, Field, field_validator
 from app.shared.base_schema import BaseSchema, BaseResponseSchema
 
 
@@ -39,6 +39,10 @@ class CompanyUserCreate(BaseSchema):
     phone: str | None = None
     role_slug: str
     role_name: str | None = None
+    # Сеть → филиал: сотрудник привязывается к филиалу. Владелец с веб-панели
+    # выбирает филиал при создании; None — сотрудник не привязан (виден только
+    # веб-владельцу, но не терминалу конкретного филиала).
+    branch_id: UUID | None = None
 
     @field_validator("password")
     @classmethod
@@ -70,8 +74,38 @@ class PinSetRequest(BaseSchema):
 
 
 class PinLoginRequest(BaseSchema):
-    employee_id: UUID
+    # Десктоп исторически шлёт `user_id`; веб/бэкенд — `employee_id`. Принимаем
+    # оба имени через AliasChoices, чтобы не трогать контракт десктопа.
+    employee_id: UUID = Field(validation_alias=AliasChoices("employee_id", "user_id"))
     pin: str = Field(..., min_length=4, max_length=8)
+
+
+class BranchLoginRequest(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
+    # Логин филиала — произвольная уникальная строка (не телефон): у сети KFC
+    # филиал в месте А и месте Б получают разные логины при одном веб-аккаунте.
+    login: str = Field(..., min_length=1, max_length=150)
+    password: str = Field(..., min_length=1)
+
+
+class BranchInfo(BaseSchema):
+    id: UUID
+    name: str
+    company_id: UUID
+
+
+class CompanyInfo(BaseSchema):
+    id: UUID
+    name: str
+
+
+class BranchLoginResponse(BaseSchema):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    branch: BranchInfo
+    company: CompanyInfo
 
 
 class LogoutRequest(BaseSchema):
@@ -99,6 +133,9 @@ class UserResponse(BaseResponseSchema):
     is_active: bool
     is_superadmin: bool
     company_id: UUID | None
+    # Филиал, к которому привязан сотрудник (сеть → филиал). None у веб-владельца
+    # (видит всю компанию) и у ещё не привязанных аккаунтов.
+    branch_id: UUID | None = None
     role_slugs: list[str] = Field(default_factory=list)
     avatar_url: str | None = None
     auth_scope: str = "app"  # "app" | "hq_admin" — BE-01, set per-session, not persisted
@@ -119,6 +156,9 @@ class CompanyUserUpdate(BaseSchema):
     # /auth/users/{id} soft-deactivates, doesn't hard-delete) had no way to
     # be reactivated through the API.
     is_active: bool | None = None
+    # Переназначение филиала сотрудника (сеть → филиал). None — привязку не
+    # трогаем; конкретный id — сотрудник переезжает в другой филиал сети.
+    branch_id: UUID | None = None
     # Опциональный легаси-слой гранулярных прав (см. User.permissions).
     # Владелец выставляет пер-юзерные тумблеры; по умолчанию None → колонка
     # не трогается. Хранится как есть, в UserResponse не отдаётся.

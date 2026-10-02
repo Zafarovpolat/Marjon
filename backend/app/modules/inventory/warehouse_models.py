@@ -92,3 +92,77 @@ class WriteOffDocument(TimeStampedModel):
     created_by: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_by_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class ExpenseDocument(TimeStampedModel):
+    """Расход товаров — документ выдачи/списания со склада (WH-01).
+
+    Зеркалит PurchaseDocument, но проведение (accepted) не увеличивает, а
+    УМЕНЬШАЕТ остатки (StockMovement type="expense"). «Получатель» (receiver) —
+    аналог «поставщика» в приходе: кому/на что ушёл товар.
+    """
+    __tablename__ = "expense_documents"
+
+    company_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), index=True)
+    number: Mapped[int] = mapped_column(Integer, nullable=False)
+    receiver: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    warehouse_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("warehouses.id"), nullable=True)
+    warehouse_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    date: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    registered_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    accepted_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    items_count: Mapped[int] = mapped_column(Integer, default=0)
+    total_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=Decimal("0"))
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft, accepted
+    created_by: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_by_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    items: Mapped[list[ExpenseDocumentItem]] = relationship(
+        back_populates="document", cascade="all, delete-orphan"
+    )
+
+
+class ExpenseDocumentItem(TimeStampedModel):
+    """Позиция в документе расхода."""
+    __tablename__ = "expense_document_items"
+
+    document_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("expense_documents.id", ondelete="CASCADE"), index=True)
+    ingredient_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("ingredients.id"), nullable=True)
+    name: Mapped[str] = mapped_column(String(500), nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(15, 4), default=Decimal("0"))
+    unit: Mapped[str] = mapped_column(String(20), default="кг")
+    cost_price: Mapped[Decimal] = mapped_column(Numeric(15, 4), default=Decimal("0"))
+    total: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=Decimal("0"))
+
+    document: Mapped[ExpenseDocument] = relationship(back_populates="items")
+
+
+class WasteDocument(TimeStampedModel):
+    """Отход товаров — построчный документ (WH-01).
+
+    В отличие от прихода/расхода отход фиксируется по одной позиции (товар +
+    количество + причина). Проведение (accepted) уменьшает остаток
+    (StockMovement type="waste"). Черновик остаток не двигает.
+    """
+    __tablename__ = "waste_documents"
+
+    company_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), index=True)
+    number: Mapped[int] = mapped_column(Integer, nullable=False)
+    category: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    warehouse_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("warehouses.id"), nullable=True)
+    warehouse_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    ingredient_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("ingredients.id"), nullable=True)
+    name: Mapped[str] = mapped_column(String(500), nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(15, 4), default=Decimal("0"))
+    unit: Mapped[str] = mapped_column(String(20), default="кг")
+    cost_price: Mapped[Decimal] = mapped_column(Numeric(15, 4), default=Decimal("0"))
+    total_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=Decimal("0"))
+    reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    date: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    registered_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    accepted_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft, accepted
+    is_automatic: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_by: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_by_name: Mapped[str | None] = mapped_column(String(255), nullable=True)

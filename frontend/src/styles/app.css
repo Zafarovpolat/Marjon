@@ -723,7 +723,7 @@
       border-radius: 6px;
       background: var(--teal-500, #1db5b5);
       font-size: 11px; /* REPORT-FONT: 10 → 11 (кнопка OK, разрешённый размер) */
-      font-weight: 700;
+      font-weight: 400;
   }
 
   .orders-report-page .report-muted-cell {

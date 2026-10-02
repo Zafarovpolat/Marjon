@@ -129,6 +129,29 @@ async def require_company_admin(
     return current_user
 
 
+async def require_staff_lister(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Гейт для GET /auth/staff-users. Пропускает две идентичности:
+    (1) веб-владельца (как require_web_owner) — видит персонал всей компании;
+    (2) служебный терминал филиала (branch-login с десктопа) — аккаунт без
+    роли, но с company_id+branch_id; видит персонал в пределах своего филиала.
+    Разделение по scope делает сам эндпоинт (по branch_id пользователя)."""
+    from app.modules.auth.security import is_terminal_email
+
+    if getattr(current_user, "auth_scope", "app") != "app":
+        raise ForbiddenError("Company app session required")
+    if current_user.company_id is None or current_user.is_superadmin:
+        raise ForbiddenError("Company app identity required")
+
+    if getattr(current_user, "branch_id", None) and is_terminal_email(current_user.email):
+        return current_user
+
+    # Иначе — только веб-владелец (role check без повторного захода в app-гейт).
+    return await require_web_owner(current_user, db)
+
+
 # --- Гранулярные гейты терминала/десктопа (поверх web-RBAC выше) ------------
 # Дополняют owner-гарды: пропускают владельца/суперадмина, а также сотрудника,
 # которому владелец выдал точечное право. Источник права — RBAC (upstream) или,

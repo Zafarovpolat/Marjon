@@ -12,10 +12,14 @@ from app.modules.auth.dependencies import (
     get_current_user,
     require_company_admin,
     require_company_app_user,
-    require_web_owner,
+    require_staff_lister,
 )
 from app.modules.auth.models import User
 from app.modules.auth.schemas import (
+    BranchInfo,
+    BranchLoginRequest,
+    BranchLoginResponse,
+    CompanyInfo,
     CompanyUserCreate,
     CompanyUserResponse,
     CompanyUserUpdate,
@@ -28,7 +32,8 @@ from app.modules.auth.schemas import (
     TokenResponse,
     UserResponse,
 )
-from app.modules.auth.service import AuthService
+from app.modules.auth.security import is_terminal_email
+from app.modules.auth.service import AuthService, device_label
 from app.modules.rbac.models import Role, UserRole
 from app.modules.rbac.constants import OWNER_ASSIGNABLE_ROLE_SLUGS
 from app.shared.rate_limit import limiter
@@ -58,7 +63,9 @@ async def login(request: Request, data: LoginRequest, db: AsyncSession = Depends
     if not identifier:
         from app.shared.exceptions import UnauthorizedError
         raise UnauthorizedError("phone или email обязателен")
-    _, access_token, refresh_token = await svc.login(identifier, data.password)
+    _, access_token, refresh_token = await svc.login(
+        identifier, data.password, device_id=device_label(request.headers.get("user-agent"))
+    )
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
@@ -77,6 +84,24 @@ async def admin_login(request: Request, data: LoginRequest, db: AsyncSession = D
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
+@router.post("/branch-login", response_model=BranchLoginResponse)
+@limiter.limit("10/minute")
+async def branch_login(request: Request, data: BranchLoginRequest, db: AsyncSession = Depends(get_db)):
+    """Десктоп, шаг 1: вход по филиалу (у каждого филиала сети свой логин+пароль,
+    веб-аккаунт владельца один). Выдаёт токен служебного терминала, привязанного
+    к company_id+branch_id; дальше десктоп идёт в /auth/staff-users и /auth/pin-login."""
+    svc = AuthService(db)
+    _, branch, company, access_token, refresh_token = await svc.login_by_branch(
+        data.login, data.password, device_id=device_label(request.headers.get("user-agent"))
+    )
+    return BranchLoginResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        branch=BranchInfo(id=branch.id, name=branch.name, company_id=branch.company_id),
+        company=CompanyInfo(id=company.id, name=company.name),
+    )
+
+
 @router.post("/users", response_model=CompanyUserResponse, status_code=status.HTTP_201_CREATED)
 async def create_company_user(
     data: CompanyUserCreate,
@@ -90,6 +115,7 @@ async def create_company_user(
         phone=data.phone,
         role_slug=data.role_slug,
         name=data.role_name,
+        branch_id=data.branch_id,
         assignable_role_slugs=OWNER_ASSIGNABLE_ROLE_SLUGS,
     )
     return CompanyUserResponse.model_validate(user).model_copy(update={"role_slug": role.slug})
@@ -185,6 +211,7 @@ async def update_company_user(
         password=data.password,
         role_slug=data.role_slug,
         is_active=data.is_active,
+        branch_id=data.branch_id,
         permissions=data.permissions,
         assignable_role_slugs=OWNER_ASSIGNABLE_ROLE_SLUGS,
         actor_user_id=current_user.id,
@@ -260,12 +287,20 @@ async def pin_login(request: Request, data: PinLoginRequest, db: AsyncSession = 
 
 
 @router.get("/staff-users", response_model=list[CompanyUserResponse])
-async def staff_users(current_user: User = Depends(require_web_owner), db: AsyncSession = Depends(get_db)):
+async def staff_users(current_user: User = Depends(require_staff_lister), db: AsyncSession = Depends(get_db)):
     from app.modules.auth.repository import UserRepository
     users = await UserRepository(db).get_company_users(current_user.company_id)
+    # Терминал филиала видит только персонал своего филиала; веб-владелец
+    # (branch_id = NULL) — всех сотрудников компании.
+    branch_id = getattr(current_user, "branch_id", None)
     result = []
     for user in users:
         if user.is_superadmin:
+            continue
+        # Служебные терминальные аккаунты не показываем в списке персонала.
+        if is_terminal_email(user.email):
+            continue
+        if branch_id is not None and user.branch_id != branch_id:
             continue
         roles_res = await db.execute(
             select(Role.slug).join(UserRole, UserRole.role_id == Role.id).where(UserRole.user_id == user.id)

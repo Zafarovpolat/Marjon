@@ -131,3 +131,100 @@ class WriteOffResponse(BaseResponseSchema):
     status: str
     created_by_name: str | None
     note: str | None
+
+
+# ── Expense Document (Расход) ──────────────────────────────
+class ExpenseItemCreate(BaseSchema):
+    name: str
+    ingredient_id: UUID | None = None
+    quantity: Decimal = Decimal("0")
+    unit: str = "кг"
+    cost_price: Decimal = Decimal("0")
+
+
+class ExpenseDocumentCreate(BaseSchema):
+    receiver: str | None = None
+    warehouse_id: UUID | None = None
+    warehouse_name: str | None = None
+    date: str | None = None
+    note: str | None = None
+    items: list[ExpenseItemCreate] = []
+
+
+class ExpenseDocumentUpdate(BaseSchema):
+    receiver: str | None = None
+    warehouse_id: UUID | None = None
+    warehouse_name: str | None = None
+    date: str | None = None
+    note: str | None = None
+    status: str | None = None
+
+
+class ExpenseItemResponse(BaseResponseSchema):
+    document_id: UUID
+    ingredient_id: UUID | None
+    name: str
+    quantity: Decimal
+    unit: str
+    cost_price: Decimal
+    total: Decimal
+
+
+class ExpenseDocumentResponse(BaseResponseSchema):
+    company_id: UUID
+    number: int
+    receiver: str | None
+    warehouse_id: UUID | None
+    warehouse_name: str | None
+    date: str | None
+    registered_at: str | None
+    accepted_at: str | None
+    items_count: int
+    total_amount: Decimal
+    status: str
+    created_by_name: str | None
+    note: str | None
+
+
+# ── Waste Document (Отход) ─────────────────────────────────
+class WasteDocumentCreate(BaseSchema):
+    category: str | None = None
+    warehouse_id: UUID | None = None
+    warehouse_name: str | None = None
+    ingredient_id: UUID | None = None
+    name: str
+    quantity: Decimal = Decimal("0")
+    unit: str = "кг"
+    cost_price: Decimal = Decimal("0")
+    reason: str | None = None
+    date: str | None = None
+
+
+class WasteDocumentUpdate(BaseSchema):
+    category: str | None = None
+    warehouse_id: UUID | None = None
+    warehouse_name: str | None = None
+    reason: str | None = None
+    date: str | None = None
+    status: str | None = None
+
+
+class WasteDocumentResponse(BaseResponseSchema):
+    company_id: UUID
+    number: int
+    category: str | None
+    warehouse_id: UUID | None
+    warehouse_name: str | None
+    ingredient_id: UUID | None
+    name: str
+    quantity: Decimal
+    unit: str
+    cost_price: Decimal
+    total_amount: Decimal
+    reason: str | None
+    date: str | None
+    registered_at: str | None
+    accepted_at: str | None
+    status: str
+    is_automatic: bool
+    created_by_name: str | None

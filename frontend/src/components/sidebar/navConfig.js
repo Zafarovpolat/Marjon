@@ -117,6 +117,7 @@ export const navItems = [
     to: "/settings",
     children: [
       { key: "clients", label: "Клиенты", to: "/settings/clients", icon: "bi-person-fill" },
+      { key: "branches", label: "Филиалы", to: "/settings/branches", icon: "bi-shop" },
       { key: "places", label: "Место", to: "/settings/places", icon: "bi-geo-alt" },
       { key: "payment-methods", label: "Способ оплаты", to: "/settings/payment-methods", icon: "bi-credit-card" },
       { key: "units", label: "Единица измерения", to: "/settings/units", icon: "bi-rulers" },

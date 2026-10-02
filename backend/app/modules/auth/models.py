@@ -22,6 +22,12 @@ class User(TimeStampedModel):
     company_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("companies.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # Привязка сотрудника к филиалу (сеть = один веб-аккаунт владельца, много
+    # филиалов со своими логинами). У веб-владельца branch_id = NULL (видит все
+    # филиалы); у сотрудника и у служебного терминала филиала — конкретный id.
+    branch_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     # CASHIER-EMAIL-OPTIONAL-01: staff accounts (e.g. cashiers created without
     # an address) may have NULL email. Non-null addresses stay globally unique
     # (PostgreSQL treats NULL as distinct in UNIQUE constraints); Owner/Admin

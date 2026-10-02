@@ -1,7 +1,26 @@
 import { useEffect, useState } from "react";
 import { staffService } from "../api/staff";
 import ReportEmptyState from "../components/ReportEmptyState";
+import staffDefaultAvatar from "../assets/staff/staff-default-avatar.png";
 import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
+
+// Ячейка «Сотрудник» в журналах: аватар + имя в одну строку, слева (как в
+// реестре). Фото — avatar_url с бэкенда; при отсутствии — дефолтная заглушка.
+function JournalNameCell({ name, photo }) {
+  return (
+    <td className="staff-name-cell">
+      <span className="staff-journal-name">
+        <img
+          className="staff-journal-name__avatar"
+          src={photo || staffDefaultAvatar}
+          alt=""
+          onError={(event) => { event.currentTarget.src = staffDefaultAvatar; }}
+        />
+        <span className="staff-journal-name__label">{name}</span>
+      </span>
+    </td>
+  );
+}
 
 // STAFF-JOURNAL-01: login history (6-col contract) and attendance (7-col
 // contract) share the Staff subcategory product shell. Both are read-only
@@ -31,6 +50,7 @@ function StaffActivityPage({ type = "login-history" }) {
               // never fabricated checkout time or recalculated duration.
               date: item.date || "",
               employee: item.employee_name || item.employee || "",
+              photo: item.avatar_url || item.photo || "",
               role: item.role || "",
               start: item.start_time || item.start || "",
               end: item.end_time || item.end || "—",
@@ -47,12 +67,14 @@ function StaffActivityPage({ type = "login-history" }) {
               .join(" ");
             return {
               employee: item.employee || "",
+              photo: item.avatar_url || item.photo || "",
               role: item.role || "",
-              // BACKEND HANDOFF: login-history rows carry no phone/IP.
-              phone: "—",
+              // Телефон, устройство и IP приходят с бэкенда; где бэкенд ещё не
+              // отдаёт поле — честный «—», без выдумывания значений.
+              phone: item.phone || "—",
               datetime: when || "—",
               device: item.device || "—",
-              ip: "—",
+              ip: item.ip || item.ip_address || "—",
             };
           }));
         }
@@ -107,7 +129,7 @@ function StaffActivityPage({ type = "login-history" }) {
               <tbody>
                 {displayAttendanceRows.map((row, index) => (
                   <tr key={`${row.employee}-${row.date}-${row.start}-${index}`}>
-                    <td className="staff-name-cell">{row.employee}</td>
+                    <JournalNameCell name={row.employee} photo={row.photo} />
                     <td>
                       <span className="staff-role-badge">{row.role}</span>
                     </td>
@@ -142,7 +164,7 @@ function StaffActivityPage({ type = "login-history" }) {
               <tbody>
                 {displayLoginRows.map((row, index) => (
                   <tr key={`${row.employee}-${row.datetime}-${index}`}>
-                    <td className="staff-name-cell">{row.employee}</td>
+                    <JournalNameCell name={row.employee} photo={row.photo} />
                     <td>
                       <span className="staff-role-badge">{row.role}</span>
                     </td>

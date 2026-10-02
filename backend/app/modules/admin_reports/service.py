@@ -643,6 +643,7 @@ class AdminReportService:
                 Order.order_number,
                 Order.created_at,
                 Order.total_amount,
+                Order.subtotal,
                 Order.table_id,
                 Order.table_number,
                 Order.order_type,
@@ -663,6 +664,7 @@ class AdminReportService:
                     order_number=o.order_number,
                     created_at=o.created_at,
                     total_amount=Decimal(str(o.total_amount or 0)),
+                    subtotal=Decimal(str(o.subtotal or 0)),
                     order_type=o.order_type,
                     status=o.status,
                     waiter_name=o.waiter_name,
@@ -1478,6 +1480,8 @@ class AdminReportService:
                 RefreshToken.device_id,
                 User.name,
                 User.email,
+                User.phone,
+                User.avatar_url,
             )
             .join(User, User.id == RefreshToken.user_id)
             .where(User.company_id == company_id)
@@ -1492,7 +1496,9 @@ class AdminReportService:
             result.append(LoginHistoryRow(
                 date=login_dt.strftime("%d.%m.%Y") if login_dt else "",
                 employee=r.name or r.email or "—",
+                avatar_url=r.avatar_url or "",
                 role="Сотрудник",
+                phone=r.phone or "—",
                 device=r.device_id or "—",
                 login=login_dt.strftime("%H:%M") if login_dt else "",
                 logout=logout_dt.strftime("%H:%M") if logout_dt else "—",
@@ -1505,6 +1511,7 @@ class AdminReportService:
             select(
                 WorkShift.actual_start, WorkShift.actual_end, WorkShift.status,
                 User.name.label("user_name"),
+                User.avatar_url.label("avatar_url"),
                 Employee.position,
             )
             .join(Employee, Employee.id == WorkShift.employee_id)
@@ -1526,6 +1533,7 @@ class AdminReportService:
             result.append(AttendanceRow(
                 date=start.strftime("%d.%m.%Y") if start else "",
                 employee=r.user_name or "—",
+                avatar_url=r.avatar_url or "",
                 role=r.position or "—",
                 start=start.strftime("%H:%M") if start else "",
                 end=end.strftime("%H:%M") if end else "",

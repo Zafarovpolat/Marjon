@@ -3,6 +3,8 @@ import { warehouseService } from "../api/warehouse";
 import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 import Icon from "../components/Icon";
 import PurchaseDrawer from "./warehouse/PurchaseDrawer";
+import ExpenseDrawer from "./warehouse/ExpenseDrawer";
+import WasteDrawer from "./warehouse/WasteDrawer";
 
 const ACTIVE = "active";
 const ARCHIVE = "archive";
@@ -75,11 +77,20 @@ const warehouseConfigs = {
   },
   "incoming-journal": {
     title: "Журнал приходов",
+    // Документ-уровень: бэкенд отдаёт список приходов без построчных товаров,
+    // поэтому журнал показывает документы (кол-во позиций и сумму), не строки.
+    summary: [
+      { label: "Всего приходов", icon: "bi-box-arrow-in-down", tone: "blue" },
+      { label: "Сумма прихода", icon: "bi-cash-stack", tone: "green" },
+      { label: "Поставщиков", icon: "bi-people", tone: "purple" },
+      { label: "Черновики", icon: "bi-journal-text", tone: "orange" },
+    ],
     filters: [
       ["warehouse", "Склад", "Все"],
       ["supplier", "Поставщик", "Все"],
+      ["status", "Статус", "Все"],
     ],
-    columns: ["Дата", "Документ", "Поставщик", "Товар", "Кол-во", "Цена", "Сумма", "Автор"],
+    columns: ["Дата", "Документ", "Поставщик", "Склад", "Позиций", "Сумма", "Статус", "Автор"],
   },
   transfer: {
     title: "Перемещение",
@@ -96,43 +107,30 @@ const warehouseConfigs = {
   },
   inventory: {
     title: "Инвентаризация",
-    primaryAction: "Новая инвентаризация +",
-    drawerTitle: "Новая инвентаризация",
-    tabs: true,
-    editable: true,
+    // Отчёт только для чтения: бэкенд отдаёт проверки без структурных
+    // план/факт/расхождение (эти данные лежат в тексте комментария).
     filters: [
       ["warehouse", "Склад", "Все"],
       ["status", "Статус", "Все"],
     ],
-    columns: ["№", "Документ", "Склад", "Плановый остаток", "Фактический остаток", "Расхождение", "Статус", "Дата", "Действия"],
+    columns: ["Дата", "Склад", "Тип проверки", "Комментарий", "Статус", "Автор"],
   },
   "write-off": {
     title: "Списание",
-    primaryAction: "Новое списание +",
-    drawerTitle: "Новое списание",
-    tabs: true,
-    editable: true,
-    summary: [
-      { label: "Всего списаний", icon: "bi-trash3", tone: "blue" },
-      { label: "Сумма списаний", icon: "bi-cash-stack", tone: "green" },
-      { label: "Проведено", icon: "bi-check2-circle", tone: "purple" },
-      { label: "В ожидании", icon: "bi-clock-history", tone: "orange" },
-    ],
+    // Отчёт только для чтения: бэкенд отдаёт списания без склада и без
+    // структурной суммы (сумма может быть в тексте примечания).
     filters: [
       ["category", "Категория", "Все"],
-      ["warehouse", "Склад", "Все"],
       ["status", "Статус", "Все"],
     ],
-    columns: ["№", "Документ", "Категория", "Склад", "Сумма", "Статус", "Дата", "Действия"],
+    columns: ["Дата", "Категория", "Позиций", "Статус", "Автор", "Примечание"],
   },
   "write-off-categories": {
     title: "Категории списания",
-    primaryAction: "Добавить категорию +",
-    drawerTitle: "Категория списания",
-    tabs: true,
-    editable: true,
-    filters: [["status", "Статус", "Все"]],
-    columns: ["Название", "Описание", "Кол-во списаний", "Сумма", "Статус", "Действия"],
+    // Клиентская агрегация /warehouse/write-offs по категории (отдельного
+    // эндпоинта нет): сколько документов и позиций в каждой категории.
+    filters: [["category", "Категория", "Все"]],
+    columns: ["Категория", "Документов", "Позиций"],
   },
   waste: {
     title: "Отход товаров",
@@ -154,13 +152,51 @@ const warehouseConfigs = {
   },
 };
 
+// WH-01: остаток (stock), расход (outgoing) и отход (waste) разморожены —
+// грузятся и мутируются как приход. Остальные разделы пока отложены: их backend
+// contract под этот экран не подключён либо не соответствует семантике, поэтому
+// показываем честный статус вместо пустых нулей (см. CLAUDE.md §5.1).
 const sectionUnavailableMessages = {
-  outgoing: "Расход товаров недоступен: подтверждённый backend contract не соответствует семантике этого экрана.",
   "incoming-journal": "Журнал приходов недоступен: подтверждённый backend contract не предоставляет строки товаров.",
   inventory: "Инвентаризация недоступна до завершения Inventory Core.",
   "write-off": "Документы списания недоступны: подтверждённый backend contract не соответствует семантике этого экрана.",
   "write-off-categories": "Категории списания недоступны: подтверждённый backend contract не подключён.",
-  waste: "Отходы товаров недоступны: подтверждённый backend contract не подключён.",
+};
+
+// Диспетчеризация мутаций по секциям: приход/расход/отход делят один UI, но
+// бьют в разные эндпоинты. Проведение везде = PATCH status:"accepted"
+// (приход увеличивает остаток, расход и отход — уменьшают, при нехватке 422).
+const sectionMutations = {
+  incoming: {
+    create: (payload) => warehouseService.createPurchase(payload),
+    accept: (id) => warehouseService.acceptPurchase(id),
+    remove: (id) => warehouseService.deletePurchase(id),
+    createLabel: "приход",
+    acceptConfirm: "Провести приход? Остатки увеличатся.",
+    deleteConfirm: "Удалить приход? Действие необратимо.",
+    acceptTitle: "Провести приход",
+    deleteTitle: "Удалить приход",
+  },
+  outgoing: {
+    create: (payload) => warehouseService.createExpense(payload),
+    accept: (id) => warehouseService.acceptExpense(id),
+    remove: (id) => warehouseService.deleteExpense(id),
+    createLabel: "расход",
+    acceptConfirm: "Провести расход? Остатки уменьшатся.",
+    deleteConfirm: "Удалить расход? Действие необратимо.",
+    acceptTitle: "Провести расход",
+    deleteTitle: "Удалить расход",
+  },
+  waste: {
+    create: (payload) => warehouseService.createWaste(payload),
+    accept: (id) => warehouseService.acceptWaste(id),
+    remove: (id) => warehouseService.deleteWaste(id),
+    createLabel: "отход",
+    acceptConfirm: "Провести отход? Остаток уменьшится.",
+    deleteConfirm: "Удалить отход? Действие необратимо.",
+    acceptTitle: "Провести отход",
+    deleteTitle: "Удалить отход",
+  },
 };
 
 const WAREHOUSE_WRITE_UNAVAILABLE = "Изменения недоступны до подключения подтверждённого Warehouse write contract.";
@@ -209,6 +245,14 @@ function buildStockRows(stock, ingredients, warehouses) {
   });
 }
 
+// Бэкенд отдаёт статусы документов по-английски (draft/accepted/completed…) —
+// приводим к русским меткам, которые понимает бейдж statusTone.
+function translateDocStatus(status) {
+  const map = { draft: "Черновик", accepted: "Принято", completed: "Завершено", cancelled: "Отменено", canceled: "Отменено", pending: "В ожидании" };
+  const key = String(status || "").toLowerCase();
+  return map[key] || (status || "—");
+}
+
 function mapWarehouseReadRow(section, item) {
   if (section === "incoming") {
     // Бэкенд отдаёт status "draft"/"accepted"; проведённый документ также имеет
@@ -240,16 +284,95 @@ function mapWarehouseReadRow(section, item) {
       to: item.to_warehouse_name || "—",
       positions: String(item.items_count ?? "—"),
       total: "—",
-      status: item.status || "",
+      status: translateDocStatus(item.status),
       date: item.date || "",
       archiveState: ACTIVE,
     };
   }
 
-  return { id: item.id, archiveState: ACTIVE };
-}
+  if (section === "incoming-journal") {
+    const accepted = item.status === "accepted" || Boolean(item.accepted_at);
+    return {
+      id: item.id,
+      date: item.date || (item.created_at || "").slice(0, 10) || "—",
+      document: item.number == null ? "—" : String(item.number),
+      supplier: item.supplier || "—",
+      warehouse: item.warehouse_name || "—",
+      positions: String(item.items_count ?? "—"),
+      total: item.total_amount == null ? "—" : formatAmount(item.total_amount),
+      status: accepted ? "Принято" : "Черновик",
+      author: item.created_by_name || "—",
+      archiveState: ACTIVE,
+    };
+  }
 
-function rowSearchText(row) {
+  if (section === "inventory") {
+    return {
+      id: item.id,
+      date: (item.created_at || "").slice(0, 10) || "—",
+      warehouse: item.warehouse_name || "—",
+      checkType: item.check_type || "—",
+      comment: item.comment || "—",
+      status: translateDocStatus(item.status),
+      author: item.created_by_name || "—",
+      archiveState: ACTIVE,
+    };
+  }
+
+  if (section === "write-off") {
+    return {
+      id: item.id,
+      date: (item.created_at || "").slice(0, 10) || "—",
+      category: item.category || "—",
+      positions: String(item.items_count ?? "—"),
+      status: translateDocStatus(item.status),
+      author: item.created_by_name || "—",
+      note: item.note || "—",
+      archiveState: ACTIVE,
+    };
+  }
+
+  if (section === "outgoing") {
+    // Документ расхода зеркалит приход: number/receiver/warehouse/total/status.
+    // accepted прячет кнопку «Провести» и красит статус в green.
+    const accepted = item.status === "accepted" || Boolean(item.accepted_at);
+    return {
+      id: item.id,
+      document: item.number == null ? "—" : String(item.number),
+      receiver: item.receiver || "—",
+      warehouse: item.warehouse_name || "—",
+      total: item.total_amount == null ? "—" : formatAmount(item.total_amount),
+      status: accepted ? "Принято" : "Черновик",
+      accepted,
+      date: item.date || "",
+      positions: String(item.items_count ?? "—"),
+      author: item.created_by_name || "",
+      archiveState: ACTIVE,
+    };
+  }
+
+  if (section === "waste") {
+    // Построчный документ отхода (одна позиция). isAutomatic питает сводки
+    // «Автоотход»/«Ручной отход»; accepted управляет кнопкой «Провести».
+    const accepted = item.status === "accepted" || Boolean(item.accepted_at);
+    return {
+      id: item.id,
+      date: item.date || (item.created_at || "").slice(0, 10) || "—",
+      category: item.category || "—",
+      product: item.name || "—",
+      unit: item.unit || "—",
+      quantity: formatQty(item.quantity),
+      total: item.total_amount == null ? "—" : formatAmount(item.total_amount),
+      author: item.created_by_name || "—",
+      reason: item.reason || "—",
+      status: accepted ? "Принято" : "Черновик",
+      accepted,
+      isAutomatic: item.is_automatic ?? null,
+      archiveState: ACTIVE,
+    };
+  }
+
+  return { id: item.id, archiveState: ACTIVE };
   return Object.values(row).filter((value) => typeof value !== "object").join(" ").toLowerCase();
 }
 
@@ -264,6 +387,7 @@ function WarehousePage({ initialSection = "incoming" }) {
   const section = normalizeSection(initialSection);
   const config = warehouseConfigs[section] || warehouseConfigs.incoming;
   const unavailableMessage = sectionUnavailableMessages[section] || "";
+  const mutation = sectionMutations[section] || null;
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -315,6 +439,35 @@ function WarehousePage({ initialSection = "incoming" }) {
       return;
     }
 
+    if (section === "write-off-categories") {
+      // Категорий как сущности в бэкенде нет — агрегируем документы списания
+      // по полю category на клиенте (сколько документов и позиций в каждой).
+      warehouseService.list("write-off", { signal: request.signal })
+        .then(({ data }) => {
+          if (!request.isCurrent()) return;
+          const items = Array.isArray(data) ? data : data?.items || [];
+          const byCategory = new Map();
+          items.forEach((item) => {
+            const name = item.category || "Без категории";
+            const acc = byCategory.get(name) || { docs: 0, positions: 0 };
+            acc.docs += 1;
+            acc.positions += Number(item.items_count) || 0;
+            byCategory.set(name, acc);
+          });
+          const catRows = Array.from(byCategory.entries()).map(([name, agg], idx) => ({
+            id: `cat-${idx}`,
+            category: name,
+            count: String(agg.docs),
+            positions: String(agg.positions),
+            archiveState: ACTIVE,
+          }));
+          setRows(catRows);
+          setLoading(false);
+        })
+        .catch(onError);
+      return;
+    }
+
     Promise.resolve().then(() => warehouseService.list(section, { signal: request.signal }))
       .then(({ data }) => {
         if (!request.isCurrent()) return;
@@ -325,8 +478,10 @@ function WarehousePage({ initialSection = "incoming" }) {
       .catch(onError);
   }, [beginRequest, section, unavailableMessage, reloadKey]);
 
-  // Лениво тянем справочники для дравера прихода — только при первом открытии.
-  const openPurchaseDrawer = async () => {
+  // Лениво тянем справочники для дравера (приход/расход/отход) — только при
+  // первом открытии. Драйвер выбирается по секции при рендере (см. ниже).
+  const openDrawer = async () => {
+    if (!mutation) return;
     setSaveError("");
     setDrawerOpen(true);
     if (refLoaded) return;
@@ -343,48 +498,49 @@ function WarehousePage({ initialSection = "incoming" }) {
     }
   };
 
-  const handleCreatePurchase = async (payload) => {
+  const handleCreate = async (payload) => {
+    if (!mutation) return;
     setSaving(true);
     setSaveError("");
     try {
-      await warehouseService.createPurchase(payload);
+      await mutation.create(payload);
       setDrawerOpen(false);
       setReloadKey((key) => key + 1);
     } catch (err) {
       const detail = err.response?.data?.detail;
-      setSaveError(typeof detail === "string" ? detail : "Не удалось сохранить приход.");
+      setSaveError(typeof detail === "string" ? detail : `Не удалось сохранить ${mutation.createLabel}.`);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleAcceptPurchase = async (id) => {
-    if (!id || busyId) return;
-    if (!window.confirm("Провести приход? Остатки увеличатся.")) return;
+  const handleAccept = async (id) => {
+    if (!id || busyId || !mutation) return;
+    if (!window.confirm(mutation.acceptConfirm)) return;
     setBusyId(id);
     setError("");
     try {
-      await warehouseService.acceptPurchase(id);
+      await mutation.accept(id);
       setReloadKey((key) => key + 1);
     } catch (err) {
       const detail = err.response?.data?.detail;
-      setError(typeof detail === "string" ? detail : "Не удалось провести приход.");
+      setError(typeof detail === "string" ? detail : "Не удалось провести документ.");
     } finally {
       setBusyId(null);
     }
   };
 
-  const handleDeletePurchase = async (id) => {
-    if (!id || busyId) return;
-    if (!window.confirm("Удалить приход? Действие необратимо.")) return;
+  const handleDelete = async (id) => {
+    if (!id || busyId || !mutation) return;
+    if (!window.confirm(mutation.deleteConfirm)) return;
     setBusyId(id);
     setError("");
     try {
-      await warehouseService.deletePurchase(id);
+      await mutation.remove(id);
       setReloadKey((key) => key + 1);
     } catch (err) {
       const detail = err.response?.data?.detail;
-      setError(typeof detail === "string" ? detail : "Не удалось удалить приход.");
+      setError(typeof detail === "string" ? detail : "Не удалось удалить документ.");
     } finally {
       setBusyId(null);
     }
@@ -476,8 +632,8 @@ function WarehousePage({ initialSection = "incoming" }) {
           <div className="warehouse-actions">
             {config.importExcel ? <button type="button" onClick={() => window.alert("Импорт Excel будет доступен в следующей версии")}><Icon name="bi-file-earmark-spreadsheet" size={17} />Импорт Excel</button> : null}
             {config.primaryAction ? (
-              section === "incoming"
-                ? <button type="button" className="warehouse-primary-action" onClick={openPurchaseDrawer}>{config.primaryAction}</button>
+              mutation
+                ? <button type="button" className="warehouse-primary-action" onClick={openDrawer}>{config.primaryAction}</button>
                 : <button type="button" className="warehouse-primary-action" disabled title={WAREHOUSE_WRITE_UNAVAILABLE}>{config.primaryAction}</button>
             ) : null}
           </div>
@@ -533,7 +689,7 @@ function WarehousePage({ initialSection = "incoming" }) {
             <tbody>
               {visibleRows.map((row, index) => (
                 <tr key={`${row.id || row.document || row.product || row.name}-${index}`}>
-                  {renderWarehouseCells(section, row, index, config.editable, { busyId, onAccept: handleAcceptPurchase, onDelete: handleDeletePurchase })}
+                  {renderWarehouseCells(section, row, index, config.editable, { busyId, onAccept: handleAccept, onDelete: handleDelete })}
                 </tr>
               ))}
               {!loading && !error && !visibleRows.length ? <tr><td className="warehouse-empty-cell" colSpan={config.columns.length}>Нет данных</td></tr> : null}
@@ -551,14 +707,34 @@ function WarehousePage({ initialSection = "incoming" }) {
       </section>
 
       {drawerOpen ? (
-        <PurchaseDrawer
-          warehouses={refData.warehouses}
-          ingredients={refData.ingredients}
-          saving={saving}
-          error={saveError}
-          onClose={() => { if (!saving) setDrawerOpen(false); }}
-          onSubmit={handleCreatePurchase}
-        />
+        section === "outgoing" ? (
+          <ExpenseDrawer
+            warehouses={refData.warehouses}
+            ingredients={refData.ingredients}
+            saving={saving}
+            error={saveError}
+            onClose={() => { if (!saving) setDrawerOpen(false); }}
+            onSubmit={handleCreate}
+          />
+        ) : section === "waste" ? (
+          <WasteDrawer
+            warehouses={refData.warehouses}
+            ingredients={refData.ingredients}
+            saving={saving}
+            error={saveError}
+            onClose={() => { if (!saving) setDrawerOpen(false); }}
+            onSubmit={handleCreate}
+          />
+        ) : (
+          <PurchaseDrawer
+            warehouses={refData.warehouses}
+            ingredients={refData.ingredients}
+            saving={saving}
+            error={saveError}
+            onClose={() => { if (!saving) setDrawerOpen(false); }}
+            onSubmit={handleCreate}
+          />
+        )
       ) : null}
     </div>
   );
@@ -578,29 +754,35 @@ function renderWarehouseCells(section, row, index, editable, ctx = {}) {
 
   const status = row.status ? <span className={`warehouse-status-badge warehouse-status-badge--${statusTone(row.status)}`}>{row.status}</span> : null;
 
-  if (section === "stock") return <><td>{row.product}</td><td>{row.category}</td><td>{row.warehouse}</td><td>{row.stock}</td><td>{row.minStock}</td><td>{row.unit}</td><td>{row.price}</td><td>{row.total}</td><td>{status}</td></>;
-  if (section === "incoming") {
-    // Живые действия по документу: «Провести» (только для черновика) и «Удалить».
-    // Кнопки блокируются, пока идёт мутация именно по этой строке (busyId).
+  // Живые действия по проводимому документу (приход/расход/отход): «Провести»
+  // только для черновика + «Удалить». Кнопки блокируются на время мутации по
+  // этой строке (busyId). Требует ctx.onAccept/onDelete из WarehousePage.
+  const docActions = (acceptTitle, deleteTitle) => {
     const busy = ctx.busyId === row.id;
-    const incomingActions = (
+    return (
       <td>
         <div className="warehouse-row-actions">
           {!row.accepted ? (
-            <button type="button" className="is-restore" disabled={busy} onClick={() => ctx.onAccept?.(row.id)} aria-label="Провести приход" title="Провести приход"><Icon name="bi-check2-circle" size={15} /></button>
+            <button type="button" className="is-restore" disabled={busy} onClick={() => ctx.onAccept?.(row.id)} aria-label={acceptTitle} title={acceptTitle}><Icon name="bi-check2-circle" size={15} /></button>
           ) : null}
-          <button type="button" className="is-danger" disabled={busy} onClick={() => ctx.onDelete?.(row.id)} aria-label="Удалить приход" title="Удалить приход"><Icon name="bi-trash3" size={15} /></button>
+          <button type="button" className="is-danger" disabled={busy} onClick={() => ctx.onDelete?.(row.id)} aria-label={deleteTitle} title={deleteTitle}><Icon name="bi-trash3" size={15} /></button>
         </div>
       </td>
     );
-    return <><td>{index + 1}</td><td>{row.document}</td><td>{row.supplier}</td><td>{row.warehouse}</td><td>{row.total}</td><td>{status}</td><td>{row.date}</td>{incomingActions}</>;
+  };
+
+  if (section === "stock") return <><td>{row.product}</td><td>{row.category}</td><td>{row.warehouse}</td><td>{row.stock}</td><td>{row.minStock}</td><td>{row.unit}</td><td>{row.price}</td><td>{row.total}</td><td>{status}</td></>;
+  if (section === "incoming") {
+    // Живые действия по документу: «Провести» (только для черновика) и «Удалить».
+    return <><td>{index + 1}</td><td>{row.document}</td><td>{row.supplier}</td><td>{row.warehouse}</td><td>{row.total}</td><td>{status}</td><td>{row.date}</td>{docActions("Провести приход", "Удалить приход")}</>;
   }
-  if (section === "incoming-journal") return <><td>{row.date}</td><td>{row.document}</td><td>{row.supplier}</td><td>{row.product}</td><td>{row.quantity}</td><td>{row.price}</td><td>{row.total}</td><td>{row.author}</td></>;
+  if (section === "incoming-journal") return <><td>{row.date}</td><td>{row.document}</td><td>{row.supplier}</td><td>{row.warehouse}</td><td>{row.positions}</td><td>{row.total}</td><td>{status}</td><td>{row.author}</td></>;
   if (section === "transfer") return <><td>{index + 1}</td><td>{row.document}</td><td>{row.from}</td><td>{row.to}</td><td>{row.positions}</td><td>{row.total}</td><td>{status}</td><td>{row.date}</td>{actions}</>;
-  if (section === "inventory") return <><td>{index + 1}</td><td>{row.document}</td><td>{row.warehouse}</td><td>{row.expected}</td><td>{row.actual}</td><td>{row.difference}</td><td>{status}</td><td>{row.date}</td>{actions}</>;
-  if (section === "write-off-categories") return <><td>{row.name}</td><td>{row.description}</td><td>{row.count}</td><td>{row.total}</td><td>{status}</td>{actions}</>;
-  if (section === "waste") return <><td>{row.date}</td><td>{row.category}</td><td>{row.product}</td><td>{row.unit}</td><td>{row.quantity}</td><td>{row.total}</td><td>{row.author}</td><td>{row.reason}</td>{actions}</>;
-  if (section === "outgoing") return <><td>{index + 1}</td><td>{row.document}</td><td>{row.receiver}</td><td>{row.warehouse}</td><td>{row.total}</td><td>{status}</td><td>{row.date}</td>{actions}</>;
+  if (section === "inventory") return <><td>{row.date}</td><td>{row.warehouse}</td><td>{row.checkType}</td><td>{row.comment}</td><td>{status}</td><td>{row.author}</td></>;
+  if (section === "write-off") return <><td>{row.date}</td><td>{row.category}</td><td>{row.positions}</td><td>{status}</td><td>{row.author}</td><td>{row.note}</td></>;
+  if (section === "write-off-categories") return <><td>{row.category}</td><td>{row.count}</td><td>{row.positions}</td></>;
+  if (section === "waste") return <><td>{row.date}</td><td>{row.category}</td><td>{row.product}</td><td>{row.unit}</td><td>{row.quantity}</td><td>{row.total}</td><td>{row.author}</td><td>{row.reason}</td>{docActions("Провести отход", "Удалить отход")}</>;
+  if (section === "outgoing") return <><td>{index + 1}</td><td>{row.document}</td><td>{row.receiver}</td><td>{row.warehouse}</td><td>{row.total}</td><td>{status}</td><td>{row.date}</td>{docActions("Провести расход", "Удалить расход")}</>;
   return <><td>{index + 1}</td><td>{row.document}</td><td>{row.supplier}</td><td>{row.warehouse}</td><td>{row.total}</td><td>{status}</td><td>{row.date}</td>{actions}</>;
 }
 

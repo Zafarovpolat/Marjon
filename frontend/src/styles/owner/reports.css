@@ -111,8 +111,8 @@
   box-shadow: none;
   font: inherit;
   font-size: 14px;
-  /* REPORT-FONT: 600 → 500 (house-rule весов) */
-  font-weight: 500;
+  /* REPORT-FONT: 600 → 400 (шкала: 11–16px только 400) */
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
@@ -173,8 +173,8 @@
   box-shadow: none;
   font: inherit;
   font-size: 12px;
-  /* REPORT-FONT: 600 → 500 (house-rule весов) */
-  font-weight: 500;
+  /* REPORT-FONT: 600 → 400 (шкала: 11–16px только 400) */
+  font-weight: 400;
   white-space: nowrap;
 }
 .owner-reports__period.report-actions .report-date-presets button:hover {
@@ -242,7 +242,7 @@
   text-align: center;
   color: var(--neutral-500, #64748b);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1.2;
 }
 .owner-reports__period.report-actions .report-date-field.is-active > span {
@@ -284,7 +284,7 @@
   box-shadow: none;
   font: inherit;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 400;
 }
 .owner-reports__period.report-actions .report-date-ok:hover,
 .owner-reports__period.report-actions .report-date-ok:focus-visible,
@@ -297,8 +297,8 @@
   margin-top: 8px;
   color: #b42318;
   font-size: 12px;
-  /* REPORT-FONT: 600 → 500 (house-rule весов) */
-  font-weight: 500;
+  /* REPORT-FONT: 600 → 400 (шкала: 11–16px только 400) */
+  font-weight: 400;
 }
 .owner-reports__period.report-actions .report-date-calendar-shell {
   display: grid;
@@ -381,8 +381,8 @@
   background: #ffffff;
   color: var(--neutral-900, #0b1f3f);
   box-shadow: none;
-  /* REPORT-FONT: 650 → 500 (house-rule весов; это select-триггер, не заголовок) */
-  font-weight: 500;
+  /* REPORT-FONT: 650 → 400 (шкала: 11–16px только 400; это select-триггер, не заголовок) */
+  font-weight: 400;
 }
 .owner-reports__period.report-actions .report-date-calendar-select__trigger:hover,
 .owner-reports__period.report-actions .report-date-calendar-select.is-open .report-date-calendar-select__trigger,
@@ -428,8 +428,8 @@
   color: var(--neutral-800, #1e293b);
   box-shadow: none;
   font-size: 13px;
-  /* REPORT-FONT: 550 → 500 (house-rule весов) */
-  font-weight: 500;
+  /* REPORT-FONT: 550 → 400 (шкала: 11–16px только 400) */
+  font-weight: 400;
   text-align: left;
 }
 .owner-reports__period.report-actions .report-date-calendar-toolbar .report-date-calendar-select__option:hover,
@@ -442,7 +442,7 @@
 .owner-reports__period.report-actions .report-date-calendar-toolbar .report-date-calendar-select__option.is-selected {
   background: rgba(31, 201, 201, 0.1);
   color: #0b7777;
-  font-weight: 700;
+  font-weight: 400;
 }
 .owner-reports__period.report-actions .report-date-calendar-week span {
   padding-bottom: 5px;
@@ -457,8 +457,8 @@
   border-radius: 0;
   color: #0b7777;
   background: rgba(31, 201, 201, 0.075);
-  /* REPORT-FONT: 600 → 500 (house-rule весов) */
-  font-weight: 500;
+  /* REPORT-FONT: 600 → 400 (шкала: 11–16px только 400) */
+  font-weight: 400;
 }
 .owner-reports__period.report-actions .report-date-calendar-grid button.is-in-range:nth-child(7n + 1) {
   border-radius: 5px 0 0 5px;
@@ -469,7 +469,7 @@
 .owner-reports__period.report-actions .report-date-calendar-grid button.is-today:not(.is-selected):not(.is-in-range) {
   box-shadow: inset 0 0 0 1px rgba(31, 201, 201, 0.72);
   color: #0b7777;
-  font-weight: 700;
+  font-weight: 400;
 }
 .owner-reports__period.report-actions .report-date-calendar-grid button.is-selected {
   color: #ffffff;
@@ -512,7 +512,7 @@
      (#1FC9C9) on #FFFFFF, not the old pale turquoise tint. */
   color: #ffffff;
   background: var(--owner-accent, #1fc9c9);
-  font-weight: 700;
+  font-weight: 400;
 }
 .owner-reports__period.report-actions .report-date-time-list button:focus-visible {
   outline: 0;
@@ -657,15 +657,17 @@
   white-space: nowrap;
 }
 /* Percent field keeps a numeric value; the "%" is a visual, non-editable suffix
-   positioned right after the digits (~1px gap). The wrapper is a fixed-width
-   bordered field (so the number's LEFT edge never shifts), the input fills it
-   with its NATIVE number stepper at the right edge, and the "%" floats over the
-   input just past the last digit. */
+   positioned right after the digits (~1px gap, placed in JS). The wrapper is a
+   fixed-width bordered field with the same white fill/border as the sibling
+   `.owner-report-row__select`; the digits are CENTERED in it and the "%" hugs
+   their right edge. The native number stepper is hidden (same convention as
+   `.waiters-percent-stepper`) so it reads as a clean input, not a select —
+   value changes by typing or keyboard arrows. Empty by default (no "0"). */
 .owner-report-row__percent-wrap {
   position: relative;
   display: inline-flex;
   align-items: center;
-  width: 84px;
+  width: 76px;
   height: 43px;
   padding: 0 12px;
   border: 1px solid rgba(15, 35, 60, 0.12);
@@ -685,7 +687,24 @@
   background: transparent;
   box-shadow: none;
   font-size: 14px;
-  text-align: left;
+  /* Цифры по центру поля; "%" (JS-позиционируется) прижат к их правому краю.
+     Цвет значения — как у owner-msel__value, но это обычный input, не select. */
+  text-align: center;
+  color: var(--neutral-900, #0b1f3f);
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+/* Пустое поле читается в той же приглушённой системе, что и
+   owner-msel__placeholder (--neutral-500). */
+.owner-report-row__percent-wrap .owner-report-row__percent::placeholder {
+  color: var(--neutral-500, #64748b);
+  opacity: 1;
+}
+.owner-report-row__percent-wrap .owner-report-row__percent::-webkit-inner-spin-button,
+.owner-report-row__percent-wrap .owner-report-row__percent::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
 }
 .owner-report-row__percent-wrap .owner-report-row__percent:focus-visible {
   outline: 0;
@@ -1045,7 +1064,7 @@
   margin: 0;
   color: var(--neutral-500, #64748b);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1.2;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1104,8 +1123,8 @@
   border-radius: 10px;
   font-family: inherit;
   font-size: 13px;
-  /* REPORT-FONT: 650 → 500 (house-rule весов; общий блок кнопок/селектов панели) */
-  font-weight: 500;
+  /* REPORT-FONT: 650 → 400 (шкала: 11–16px только 400; общий блок кнопок/селектов панели) */
+  font-weight: 400;
 }
 
 .owner-report-view .report-period-picker {
@@ -1534,9 +1553,19 @@
 .cancelled-report-page .order-details-drawer__items th {
   color: var(--text-secondary);
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 400;
   letter-spacing: 0.07em;
   text-transform: uppercase;
+}
+
+/* Шкала: название блюда в ячейке (13px, браузерный bold) — только 400. */
+.cancelled-report-page .cancelled-table td strong {
+  font-weight: 400;
+}
+
+/* Шкала: текст ошибки (14px) — только 400. */
+.cancelled-report-page .login-error {
+  font-weight: 400;
 }
 /* In-table "Посмотреть заказы" action: quiet accent-outline button with a
    clearly muted disabled state for rows without identifiable orders. */
@@ -1552,8 +1581,8 @@
   color: var(--owner-accent-hover, #1bb1b1);
   font: inherit;
   font-size: 13px;
-  /* REPORT-FONT: 650 → 500 (house-rule весов; кнопка-пилюля в таблице) */
-  font-weight: 500;
+  /* REPORT-FONT: 650 → 400 (шкала: 11–16px только 400; кнопка-пилюля в таблице) */
+  font-weight: 400;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -1568,22 +1597,41 @@
   color: var(--neutral-500, #64748b);
 }
 /* Tables modal order blocks reuse the OWNER drawer grid language. */
-.tables-report-page .order-details-drawer__order-toggle {
-  width: 100%;
-  display: inline-flex;
+.tables-report-page .order-details-drawer__order-title {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   min-height: 40px;
   padding: 0 4px;
-  border: 0;
-  background: transparent;
   color: var(--neutral-900, #0b1f3f);
-  font: inherit;
   font-size: 14px;
-  /* REPORT-FONT: 750 → 700 (house-rule весов; акцент-тоггл блока заказа) */
-  font-weight: 700;
+  font-weight: 400;
+}
+/* Кнопка «Подробнее» — тихая accent-outline пилюля (язык tables-orders-toggle). */
+.tables-report-page .order-details-drawer__more {
+  width: 100%;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 0 14px;
+  border: 1px solid rgba(31, 201, 201, 0.55);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--owner-accent-hover, #1bb1b1);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
   cursor: pointer;
+}
+.tables-report-page .order-details-drawer__more:hover:not(:disabled),
+.tables-report-page .order-details-drawer__more:focus-visible:not(:disabled) {
+  border-color: var(--owner-accent, #1fc9c9);
+  background: rgba(31, 201, 201, 0.08);
+  outline: 0;
 }
 .tables-report-page .order-details-drawer__items {
   width: 100%;
@@ -1600,14 +1648,14 @@
 .tables-report-page .order-details-drawer__items th {
   color: var(--text-secondary);
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 400;
   letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 .tables-report-page .order-details-drawer__payments > span {
   color: var(--text-secondary);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1769,8 +1817,8 @@
   color: var(--neutral-900, #0b1f3f);
   font: inherit;
   font-size: 13px;
-  /* REPORT-FONT: 550 → 500 (house-rule весов; опция кастом-селекта фильтра) */
-  font-weight: 500;
+  /* REPORT-FONT: 550 → 400 (шкала: 11–16px только 400; опция кастом-селекта фильтра) */
+  font-weight: 400;
   text-align: left;
   cursor: pointer;
 }
@@ -1977,8 +2025,8 @@
   border-radius: 10px;
   font: inherit;
   font-size: 13px;
-  /* REPORT-FONT: 650 → 500 (house-rule весов; кнопки применить/сбросить фильтр) */
-  font-weight: 500;
+  /* REPORT-FONT: 650 → 400 (шкала: 11–16px только 400; кнопки применить/сбросить фильтр) */
+  font-weight: 400;
 }
 
 .owner-report-view .report-filter-apply {
@@ -2113,8 +2161,8 @@
   background: #f3f6fa;
   color: var(--neutral-700, #334155);
   font-size: 11px;
-  /* REPORT-FONT: 750 → 700 (house-rule весов; заголовок колонки таблицы) */
-  font-weight: 700;
+  /* REPORT-FONT: 750 → 500 (шапка таблицы — чуть жирнее базового текста) */
+  font-weight: 500;
   line-height: 1.15;
   letter-spacing: 0.025em;
   text-transform: uppercase;
@@ -2137,8 +2185,8 @@
 .owner-report-view .z-waiters-report__row--total td {
   background: #f8fafc;
   color: var(--neutral-900, #0b1f3f);
-  /* REPORT-FONT: 650 → 700 (house-rule весов; итоговая строка — акцент) */
-  font-weight: 700;
+  /* REPORT-FONT: 650 → 400 (шкала: 11–16px только 400; итоговая строка) */
+  font-weight: 400;
 }
 
 .owner-report-view :is(.report-empty-row, .cancelled-empty-row) td {
@@ -2179,14 +2227,14 @@
 .owner-report-empty strong {
   color: var(--neutral-800, #1e293b);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .owner-report-empty div > span {
   color: var(--neutral-500, #64748b);
   font-size: 12px;
-  /* REPORT-FONT: 450 → 500 (house-rule весов; подпись пустого состояния) */
-  font-weight: 500;
+  /* REPORT-FONT: 450 → 400 (шкала: 11–16px только 400; подпись пустого состояния) */
+  font-weight: 400;
 }
 
 /* UNIVERSAL-EMPTY-01: one shared illustrated empty state for the ordinary
@@ -2229,7 +2277,7 @@
 .owner-report-empty--illustrated .owner-report-empty-title {
   color: var(--neutral-950, #071428);
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1.35;
 }
 
@@ -2297,6 +2345,8 @@
   .cancelled-report-title.owner-report-heading h1 {
     /* REPORT-FONT: 21px → 20px (кратно 4, house-rule по сетке размеров; мобильный h1) */
     font-size: 20px;
+    /* Шкала: 17–24px — максимум 500 */
+    font-weight: 500;
   }
 
   .owner-report-heading > span[aria-hidden="true"],
@@ -2649,8 +2699,8 @@
   color: var(--neutral-900, #0b1f3f);
   font: inherit;
   font-size: 13px;
-  /* REPORT-FONT: 550 → 500 (house-rule весов; опция кастом-селекта фильтра) */
-  font-weight: 500;
+  /* REPORT-FONT: 550 → 400 (шкала: 11–16px только 400; опция кастом-селекта фильтра) */
+  font-weight: 400;
   text-align: left;
   cursor: pointer;
 }
@@ -2671,7 +2721,7 @@
   background: transparent;
   color: var(--neutral-500, #7a94b4);
   cursor: default;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .waiters-report-page .waiters-filter-select__state.is-error {
@@ -2685,9 +2735,9 @@
   place-items: center;
   flex: 0 0 16px;
   color: var(--owner-accent-hover, #1bb1b1);
-  /* REPORT-FONT: 15px → 16px (кратно 4) и 800 → 700 (house-rule весов); глиф-галочка ✓ */
+  /* REPORT-FONT: 15px → 16px (кратно 4) и 800 → 400 (шкала: 11–16px только 400); глиф-галочка ✓ */
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1;
 }
 
@@ -2747,7 +2797,7 @@
   color: var(--neutral-900, #0b1f3f);
   font: inherit;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
   /* MICRO-JITTER-02: Golos Text has no tabular figures, so centered text
      re-centered per digit ("1"=8.83 vs "5"=8.27). Typography stays approved —
@@ -2808,7 +2858,7 @@
   transform: translateY(-50%);
   color: var(--neutral-500, #64748b);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
   line-height: 1;
   pointer-events: none;
@@ -2940,8 +2990,8 @@
   display: block;
   color: #ffffff;
   font-size: 13px;
-  /* REPORT-FONT: 850 → 700 (house-rule весов; глиф-галочка ✓) */
-  font-weight: 700;
+  /* REPORT-FONT: 850 → 400 (шкала: 11–16px только 400; глиф-галочка ✓) */
+  font-weight: 400;
   line-height: 1;
   transform: translateY(-0.5px);
 }
@@ -2963,6 +3013,11 @@
   min-width: 960px;
 }
 
+/* Шкала: текст ошибки (14px, браузерный задел 700) — только 400. */
+.waiters-report-page .login-error {
+  font-weight: 400;
+}
+
 .waiters-report-page .waiters-dishes-button {
   min-height: 32px;
   display: inline-flex;
@@ -2975,7 +3030,7 @@
   color: #148e8e;
   font: inherit;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 400;
   cursor: pointer;
 }
 
@@ -3026,8 +3081,8 @@
 .waiters-report-page .waiter-dishes-drawer__head span {
   color: var(--neutral-500, #64748b);
   font-size: 12px;
-  /* REPORT-FONT: 600 → 500 (house-rule весов; кикер-подпись над именем) */
-  font-weight: 500;
+  /* REPORT-FONT: 600 → 400 (шкала: 11–16px только 400; кикер-подпись над именем) */
+  font-weight: 400;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -3082,8 +3137,8 @@
 .waiters-report-page .waiter-dishes-drawer th {
   background: #f3f6fa;
   font-size: 11px;
-  /* REPORT-FONT: 750 → 700 (house-rule весов; заголовок колонки таблицы) */
-  font-weight: 700;
+  /* REPORT-FONT: 750 → 400 (шкала: 11–16px только 400; заголовок колонки таблицы) */
+  font-weight: 400;
   letter-spacing: 0.025em;
   text-transform: uppercase;
 }

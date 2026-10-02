@@ -145,7 +145,7 @@ async def test_owner_cannot_capture_same_company_superadmin(client, db_engine):
     )).status_code == 401
 
 
-async def test_owner_has_explicit_web_capabilities_without_deferred_inventory(client):
+async def test_owner_has_explicit_web_capabilities_including_warehouse(client):
     headers, _ = await register_company(
         client, slug="bi06-capabilities", email="owner-cap@bi06.example.com"
     )
@@ -161,9 +161,11 @@ async def test_owner_has_explicit_web_capabilities_without_deferred_inventory(cl
         "analytics:dashboard",
         "analytics:reports",
     } <= capabilities
-    assert "inventory:stock:read" not in capabilities
-    assert "inventory:stock:write" not in capabilities
-    assert (await client.post("/warehouse/list", headers=headers, json={"name": "Deferred"})).status_code == 403
+    # WH-01: Inventory/Warehouse Core больше НЕ заморожен для веб-владельца —
+    # owner получает полный склад (остатки / приход / расход / отход).
+    assert "inventory:stock:read" in capabilities
+    assert "inventory:stock:write" in capabilities
+    assert (await client.post("/warehouse/list", headers=headers, json={"name": "Основной"})).status_code == 201
 
 
 async def test_owner_role_and_permission_definition_endpoints_fail_closed(client):
@@ -545,12 +547,14 @@ async def test_owner_permission_ceiling_ignores_stale_legacy_links(client, db_en
             .join(UserRole, UserRole.role_id == Role.id)
             .where(UserRole.user_id == owner_id)
         )).scalar_one()
-        stock_write = (await db.execute(select(Permission).where(
-            Permission.module == "inventory",
-            Permission.action == "stock:write",
+        # WH-01: inventory:stock:write теперь ВНУТРИ owner-потолка, поэтому для
+        # проверки «висячих» линков берём seeded-право ВНЕ owner-набора.
+        legacy_perm = (await db.execute(select(Permission).where(
+            Permission.module == "delivery",
+            Permission.action == "orders:manage",
         ))).scalar_one()
         db.add(RolePermission(
-            role_id=owner_role.id, permission_id=stock_write.id
+            role_id=owner_role.id, permission_id=legacy_perm.id
         ))
         await db.commit()
 
@@ -558,7 +562,4 @@ async def test_owner_permission_ceiling_ignores_stale_legacy_links(client, db_en
         "/rbac/me/permissions", headers=owner_headers
     )
     assert permissions.status_code == 200
-    assert "inventory:stock:write" not in permissions.json()
-    assert (await client.post(
-        "/warehouse/list", headers=owner_headers, json={"name": "Still deferred"}
-    )).status_code == 403
+    assert "delivery:orders:manage" not in permissions.json()

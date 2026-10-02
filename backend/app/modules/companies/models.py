@@ -69,5 +69,10 @@ class Branch(TimeStampedModel):
     address: Mapped[str | None] = mapped_column(Text)
     city: Mapped[str | None] = mapped_column(String(100))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Логин/пароль филиала для входа с десктопа (шаг 1 авторизации кассы).
+    # login глобально уникален (десктоп логинится ТОЛЬКО по логину, без выбора
+    # компании); password_hash — bcrypt (никогда не хранится в открытом виде).
+    login: Mapped[str | None] = mapped_column(String(150), unique=True, index=True, nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     company: Mapped[Company] = relationship(back_populates="branches")

@@ -26,7 +26,7 @@ async def test_owner_gets_frozen_web_permission_set(client):
     assert "finance:manage" in perms
     assert "companies:manage" in perms
     assert "analytics:reports" in perms
-    assert "inventory:stock:write" not in perms
+    assert "inventory:stock:write" in perms  # WH-01: склад разморожен для owner
 
 
 async def test_unknown_role_slug_is_rejected(client):

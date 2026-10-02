@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { api } from "../../api/client";
 import StaffRolePage from "../StaffRolePage";
+import { shortStaffId } from "./staffConstants";
 
 vi.mock("../../api/client", () => ({
   api: {
@@ -126,8 +127,10 @@ describe("cashier page visual contract (/users/cashier)", () => {
     // Delete-dishes access cell — never the generic label.
     expect(within(table).queryByText("Базовый доступ")).toBeNull();
     expect(within(table).getByText("Удаление блюд")).toBeInTheDocument();
-    // ID renders the full canonical value (no truncation, no invented shorts).
-    expect(within(table).getByText("cashier-uuid")).toBeInTheDocument();
+    // ID column shows the stable 5-digit short number derived from the UUID
+    // (display-only), not the raw canonical UUID.
+    expect(within(table).getByText(shortStaffId("cashier-uuid"))).toBeInTheDocument();
+    expect(within(table).queryByText("cashier-uuid")).toBeNull();
   });
 
   it("renders red OFF delete-dishes access without backend truth", async () => {

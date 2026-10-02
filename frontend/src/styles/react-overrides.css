@@ -11865,7 +11865,7 @@
     color: #0f2a43;
     border: 1px solid rgba(194, 212, 234, 0.78);
     background: #ffffff;
-    font-weight: 500; /* REPORT-FONT: 800 → 500 (кнопка периода — контрол) */
+    font-weight: 400; /* REPORT-FONT: 800 → 400 (шкала: 11–16px только 400; кнопка периода — контрол) */
     font-size: 14px;
   }
 
@@ -11875,7 +11875,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 14px;
-    font-weight: 500; /* REPORT-FONT: 800 → 500 (текст кнопки периода) */
+    font-weight: 400; /* REPORT-FONT: 800 → 400 (шкала: 11–16px только 400; текст кнопки периода) */
   }
 
   .orders-report-page .orders-filter-toggle {
@@ -11885,7 +11885,7 @@
     border-color: rgba(29, 181, 181, 0.48);
     background: #ffffff;
     font-size: 14px;
-    font-weight: 500; /* REPORT-FONT: 800 → 500 (кнопка фильтра — контрол) */
+    font-weight: 400; /* REPORT-FONT: 800 → 400 (шкала: 11–16px только 400; кнопка фильтра — контрол) */
   }
 
   .orders-report-page .report-excel-button {
@@ -11895,7 +11895,7 @@
     background: #12b76a;
     box-shadow: 0 10px 22px rgba(18, 183, 106, 0.18);
     font-size: 14px;
-    font-weight: 500; /* REPORT-FONT: 800 → 500 (кнопка экспорта — контрол) */
+    font-weight: 400; /* REPORT-FONT: 800 → 400 (шкала: 11–16px только 400; кнопка экспорта — контрол) */
   }
 
   .orders-report-page .report-table-wrapper {
@@ -30163,7 +30163,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     background: transparent;
     box-shadow: none;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 400;
     transition: background 100ms, border-color 100ms, color 100ms;
   }
 
@@ -30180,7 +30180,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     color: #0e8a8a;
     background: rgba(29, 181, 181, 0.1);
     border-color: rgba(29, 181, 181, 0.28);
-    font-weight: 500; /* REPORT-FONT: 600 → 500 (активный пресет — контрол) */
+    font-weight: 400; /* REPORT-FONT: 600 → 400 (шкала: 11–16px только 400; активный пресет — контрол) */
     transform: none;
   }
 
@@ -30212,7 +30212,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     background: #f7f9fd;
     box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
     font-size: 13px;
-    font-weight: 500; /* REPORT-FONT: 600 → 500 (инпут даты — контрол) */
+    font-weight: 400; /* REPORT-FONT: 600 → 400 (шкала: 11–16px только 400; инпут даты — контрол) */
     text-align: center;
     letter-spacing: 0.01em;
     outline: none;
@@ -30251,7 +30251,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
   
     background: var(--teal-500, #1db5b5);
   
-    font-weight: 700;
+    font-weight: 400;
     letter-spacing: 0.04em;
     transition: background 120ms, box-shadow 120ms, transform 80ms;
   }
@@ -30270,7 +30270,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     background: var(--teal-500, #1db5b5);
     box-shadow: 0 2px 8px rgba(29, 181, 181, 0.28);
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 400;
   }
 
   /* ==============================================================
@@ -30319,7 +30319,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     background: #f7f9fd;
     box-shadow: none;
   
-    font-weight: 500;
+    font-weight: 400;
     transition: background 100ms, border-color 100ms;
   }
 
@@ -30355,7 +30355,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
   .report-actions .report-date-calendar-week span {
     padding: 0 0 10px;
     color: #64748b;
-    font-weight: 700;
+    font-weight: 400;
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
@@ -30369,7 +30369,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     background: transparent;
     box-shadow: none;
   
-    font-weight: 500;
+    font-weight: 400;
     transition: background 90ms, color 90ms;
   }
 
@@ -30388,7 +30388,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     color: #ffffff;
     background: var(--teal-500, #1db5b5);
     box-shadow: 0 2px 8px rgba(29, 181, 181, 0.32);
-    font-weight: 700; /* REPORT-FONT: 600 → 700 (выбранный день — акцент, как в списке времени) */
+    font-weight: 400; /* REPORT-FONT: 600 → 400 (шкала: 11–16px только 400; выбранный день) */
   }
 
   /* ---- ПАНЕЛЬ ВРЕМЕНИ ---- */
@@ -30406,7 +30406,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
 
     color: #334155;
 
-    font-weight: 700; /* REPORT-FONT: 600 → 700 (заголовок панели времени) */
+    font-weight: 400; /* REPORT-FONT: 600 → 400 (шкала: 11–16px только 400; заголовок панели времени) */
   }
 
   .report-actions .report-date-time-title svg {
@@ -30430,7 +30430,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
   .report-actions .report-date-time-column-label {
     display: block;
     color: #64748b;
-    font-weight: 700;
+    font-weight: 400;
     text-align: center;
     text-transform: uppercase;
     letter-spacing: 0.07em;
@@ -30457,7 +30457,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
     background: transparent;
     box-shadow: none;
   
-    font-weight: 500;
+    font-weight: 400;
     transition: background 90ms, color 90ms;
   }
 
@@ -30474,7 +30474,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
   .report-actions .report-date-time-list button.is-selected {
     color: #0e8a8a;
     background: rgba(29, 181, 181, 0.1);
-    font-weight: 700;
+    font-weight: 400;
   }
 
   /* ---- ФУТЕР КАЛЕНДАРЯ ---- */
@@ -30491,7 +30491,7 @@ body.dashboard-body,.dashboard-shell,.app-main,.app-content {
 
     box-shadow: none;
 
-    font-weight: 500; /* REPORT-FONT: 600 → 500 (кнопки футера календаря — контролы) */
+    font-weight: 400; /* REPORT-FONT: 600 → 400 (шкала: 11–16px только 400; кнопки футера календаря — контролы) */
   }
 
   .report-actions .report-date-today-button {
@@ -31060,7 +31060,7 @@ body.dashboard-body .dashboard-shell.is-sidebar-collapsed,body.dashboard-body .d
     padding: 0 10px;
     border-radius: 10px;
     font-size: 13px;
-    font-weight: 500; /* REPORT-FONT: 600 → 500 (пресет — контрол) */
+    font-weight: 400; /* REPORT-FONT: 600 → 400 (шкала: 11–16px только 400; пресет — контрол) */
   }
 
   .report-actions .report-date-range {
@@ -31075,7 +31075,7 @@ body.dashboard-body .dashboard-shell.is-sidebar-collapsed,body.dashboard-body .d
     padding: 0 9px;
     border-radius: 10px;
     font-size: 13px;
-    font-weight: 500; /* REPORT-FONT: 600 → 500 (инпут даты — контрол) */
+    font-weight: 400; /* REPORT-FONT: 600 → 400 (шкала: 11–16px только 400; инпут даты — контрол) */
   }
 
   .report-actions .report-date-ok {
@@ -34490,7 +34490,7 @@ body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand__identity
   color: #10233d;
   box-shadow: 0 5px 11px rgba(15, 23, 42, 0.035);
   font-size: 14px;
-  font-weight: 500; /* REPORT-FONT: 800 → 500 (кнопка периода/контрол) */
+  font-weight: 400; /* REPORT-FONT: 800 → 400 (шкала: 11–16px только 400; кнопка периода/контрол) */
   line-height: 1;
   letter-spacing: 0;
   transform: none;

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { api } from "../../api/client";
 import StaffRolePage from "../StaffRolePage";
-import { staffAccessActions, staffAccessModules } from "./staffConstants";
+import { shortStaffId, staffAccessActions, staffAccessModules } from "./staffConstants";
 
 vi.mock("../../api/client", () => ({
   api: {
@@ -100,7 +100,8 @@ describe("warehouse page visual contract (/users/warehouse) — WAREHOUSE-01", (
     expect(within(table).queryByText("Удаление блюд")).toBeNull();
     expect(within(table).queryByText("Показать кассиров")).toBeNull();
     expect(within(table).getByText("Завсклад")).toBeInTheDocument();
-    expect(within(table).getByText("warehouse-uuid")).toBeInTheDocument();
+    expect(within(table).getByText(shortStaffId("warehouse-uuid"))).toBeInTheDocument();
+    expect(within(table).queryByText("warehouse-uuid")).toBeNull();
     expect(within(table).getByText("Активен")).toBeInTheDocument();
   });
 

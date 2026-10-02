@@ -27,7 +27,8 @@ class Settings(BaseSettings):
     # (принимает запятую, JSON-массив или "*").
     allowed_origins: str = (
         "http://localhost:3000,"
-        "http://localhost:5173"
+        "http://localhost:5173,"
+        "http://localhost:5174"  # dev-рендерер десктопа (electron-vite, strictPort)
     )
 
     # Интеграции главной админки (ТЗ §8); пустые значения = интеграция выключена

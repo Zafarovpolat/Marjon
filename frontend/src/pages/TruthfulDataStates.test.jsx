@@ -203,7 +203,6 @@ describe("truthful production data states", () => {
     ["inventory", "Инвентаризация недоступна до завершения Inventory Core."],
     ["write-off", "Документы списания недоступны"],
     ["write-off-categories", "Категории списания недоступны"],
-    ["waste", "Отходы товаров недоступны"],
   ])("does not call an API for deferred warehouse section %s", async (section, message) => {
     render(<WarehousePage initialSection={section} />);
 

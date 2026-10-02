@@ -104,13 +104,22 @@ function measurePercentDigits(text, fontShorthand) {
   }
 }
 
-// Checkbox multi-select dropdown (cashier/waiter/place). Marjon visual language,
-// not a native multi listbox. Multiple employees can be selected/deselected;
-// picking a second does not replace the first. Empty list → disabled.
-function EmployeeMultiSelect({ label, emptyLabel, options, selected, onToggle }) {
+// Checkbox multi-select dropdown (cashier/waiter/place) + single-select variant
+// (menu). Marjon visual language, not a native multi listbox. Multiple
+// employees can be selected/deselected; picking a second does not replace the
+// first. Empty list → disabled. Single mode keeps the native select contract:
+// the first option reads as chosen without committing page state, picking an
+// option replaces the value and closes the panel.
+function EmployeeMultiSelect({ label, emptyLabel, options, selected, onToggle, single = false }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const disabled = options.length === 0;
+  const selectedList = single
+    ? (() => {
+        const current = selected || (options.length ? optionValue(options[0]) : "");
+        return current ? [current] : [];
+      })()
+    : selected;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -131,13 +140,18 @@ function EmployeeMultiSelect({ label, emptyLabel, options, selected, onToggle })
   let summary;
   let selectedNames = "";
   if (disabled) summary = emptyLabel;
-  else if (selected.length === 0) summary = "Не выбрано";
+  else if (selectedList.length === 0) summary = "Не выбрано";
   else {
-    selectedNames = selected
+    selectedNames = selectedList
       .map((value) => { const one = options.find((item) => optionValue(item) === value); return one ? optionLabel(one) : null; })
       .filter(Boolean)
       .join(", ");
     summary = selectedNames || "Не выбрано";
+  }
+
+  function choose(value) {
+    onToggle(value);
+    if (single) setOpen(false);
   }
 
   return (
@@ -146,20 +160,21 @@ function EmployeeMultiSelect({ label, emptyLabel, options, selected, onToggle })
         type="button"
         className="owner-msel__button owner-report-row__select"
         aria-haspopup="listbox"
+        {...(single ? { role: "combobox" } : {})}
         aria-expanded={open}
         aria-label={selectedNames ? `${label}: ${selectedNames}` : label}
         title={selectedNames || undefined}
         disabled={disabled}
         onClick={() => setOpen((value) => !value)}
       >
-        <span className={`owner-msel__value${selected.length ? "" : " owner-msel__placeholder"}`}>{summary}</span>
+        <span className={`owner-msel__value${selectedList.length ? "" : " owner-msel__placeholder"}`}>{summary}</span>
         {!disabled ? <Icon name="bi-chevron-down" size={14} /> : null}
       </button>
       {open && !disabled ? (
-        <ul className="owner-msel__menu" role="listbox" aria-multiselectable="true">
+        <ul className="owner-msel__menu" role="listbox" aria-multiselectable={single ? undefined : true}>
           {options.map((item) => {
             const value = optionValue(item);
-            const checked = selected.includes(value);
+            const checked = selectedList.includes(value);
             return (
               <li key={value}>
                 <button
@@ -167,7 +182,7 @@ function EmployeeMultiSelect({ label, emptyLabel, options, selected, onToggle })
                   role="option"
                   aria-selected={checked}
                   className={`owner-msel__option${checked ? " is-checked" : ""}`}
-                  onClick={() => onToggle(value)}
+                  onClick={() => choose(value)}
                 >
                   <span className="owner-msel__check" aria-hidden="true">
                     {checked ? (
@@ -215,7 +230,11 @@ export default function ZReportPage() {
     const font = cs.font && cs.font.trim()
       ? cs.font
       : `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-    setPercentSuffixLeft(12 + Math.round(measurePercentDigits(String(selection.waiterPercent || "") || "0", font)) + 1);
+    // Цифры центрированы в поле: "%" ставим у правого края центрированного блока.
+    // Левый край текста = padding-left (12), центр поля = +offsetWidth/2,
+    // правый край цифр = +половина их измеренной ширины (fallback "0" для пустого).
+    const digits = measurePercentDigits(String(selection.waiterPercent || "") || "0", font);
+    setPercentSuffixLeft(Math.round(12 + el.offsetWidth / 2 + digits / 2) + 1);
   }, [selection.waiterPercent]);
 
   function toggleMulti(key, value) {
@@ -330,7 +349,6 @@ export default function ZReportPage() {
         <div className="owner-reports__rows">
         {REPORT_ROWS.map((row) => {
           const options = optionsByKey[row.key] || [];
-          const hasOptions = options.length > 0;
           return (
             <div className="owner-report-row" key={row.key}>
               <div className="owner-report-row__title">{row.title}</div>
@@ -344,21 +362,14 @@ export default function ZReportPage() {
                     onToggle={(value) => toggleMulti(row.key, value)}
                   />
                 ) : (
-                  <select
-                    className="owner-report-row__select"
-                    aria-label={row.title}
-                    value={hasOptions ? (selection[row.key] || optionValue(options[0])) : ""}
-                    disabled={!hasOptions}
-                    onChange={(event) => setSelection((prev) => ({ ...prev, [row.key]: event.target.value }))}
-                  >
-                    {hasOptions ? (
-                      options.map((item) => (
-                        <option key={optionValue(item)} value={optionValue(item)}>{optionLabel(item)}</option>
-                      ))
-                    ) : (
-                      <option value="">{row.empty}</option>
-                    )}
-                  </select>
+                  <EmployeeMultiSelect
+                    single
+                    label={row.title}
+                    emptyLabel={row.empty}
+                    options={options}
+                    selected={selection[row.key]}
+                    onToggle={(value) => setSelection((prev) => ({ ...prev, [row.key]: value }))}
+                  />
                 )}
                 {row.percent ? (
                   <span className="owner-report-row__percent-wrap">
@@ -367,17 +378,18 @@ export default function ZReportPage() {
                       className="owner-report-row__percent"
                       type="number"
                       inputMode="numeric"
-                      min="0"
+                      min="1"
                       max="100"
-                      placeholder="0"
+                      placeholder=""
                       aria-label="Процент официанта"
                       value={selection.waiterPercent}
                       disabled={selection.waiter.length === 0}
                       onChange={(event) => setSelection((prev) => ({ ...prev, waiterPercent: event.target.value }))}
                     />
-                    {/* Presentation-only "%" one pixel past the digits (font-measured):
-                        number LEFT edge fixed, "%" hugs the digits, native stepper at
-                        the right. Value stays numeric. */}
+                    {/* Презентационный "%" на 1px правее цифр (ширина измеряется в JS):
+                        цифры центрированы в поле, "%" прижат к их правому краю. Нативный
+                        степпер скрыт в CSS — значение меняется набором/стрелками. По
+                        умолчанию поле пустое (не 0), допустимый диапазон 1–100. */}
                     <span
                       className="owner-report-row__percent-suffix"
                       aria-hidden="true"

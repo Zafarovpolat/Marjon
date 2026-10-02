@@ -1,11 +1,20 @@
 import { api } from "./client";
 
-// Разделы склада, чьи READ-эндпоинты подтверждены бэкендом. «stock» сюда
-// НЕ входит: остатки собираются из нескольких источников (см. loadStock),
-// поэтому list("stock") намеренно бросает TypeError.
+// Разделы склада, чьи READ-эндпоинты подтверждены бэкендом (owner-readable,
+// require_company_app_user). WH-01: «stock» теперь тоже доступен веб-владельцу
+// (inventory:stock:read разморожен), но остатки грузятся отдельным путём
+// (listStock ниже), поэтому в READ_PATHS его нет. «outgoing» (расход) и
+// «waste» (отход) добавлены под WH-01. «write-off-categories» нет — это
+// клиентская агрегация /warehouse/write-offs по категории.
+// Для неподдерживаемых секций list() намеренно бросает TypeError.
 const READ_PATHS = Object.freeze({
   incoming: "/warehouse/purchases",
+  "incoming-journal": "/warehouse/purchases",
+  outgoing: "/warehouse/expenses",
   transfer: "/warehouse/transfers",
+  inventory: "/warehouse/inventory-checks",
+  "write-off": "/warehouse/write-offs",
+  waste: "/warehouse/wastes",
 });
 
 export const warehouseService = Object.freeze({
@@ -38,6 +47,32 @@ export const warehouseService = Object.freeze({
   },
   deletePurchase(id) {
     return api.delete(`/warehouse/purchases/${id}`);
+  },
+
+  // --- Документы расхода (Расход, WH-01) -------------------------------------
+  // Зеркалит приход, но проведение УМЕНЬШАЕТ остатки (StockMovement "expense").
+  // Проведение при нехватке остатка → 422 (документ остаётся черновиком).
+  createExpense(payload) {
+    return api.post("/warehouse/expenses", payload);
+  },
+  acceptExpense(id) {
+    return api.patch(`/warehouse/expenses/${id}`, { status: "accepted" });
+  },
+  deleteExpense(id) {
+    return api.delete(`/warehouse/expenses/${id}`);
+  },
+
+  // --- Документы отхода (Отход, WH-01) ---------------------------------------
+  // Построчный документ (одна позиция). Проведение уменьшает остаток
+  // (StockMovement "waste"); при нехватке — 422.
+  createWaste(payload) {
+    return api.post("/warehouse/wastes", payload);
+  },
+  acceptWaste(id) {
+    return api.patch(`/warehouse/wastes/${id}`, { status: "accepted" });
+  },
+  deleteWaste(id) {
+    return api.delete(`/warehouse/wastes/${id}`);
   },
 });
 

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { staffService } from "../api/staff";
+import { settingsService } from "../api/settings";
 import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 import {
   emptyForm,
@@ -36,6 +37,9 @@ function StaffRolePage({ role = "all" }) {
   const [staff, setStaff] = useState([]);
   const [staffLoading, setStaffLoading] = useState(true);
   const [staffError, setStaffError] = useState("");
+  // Сеть → филиал: список филиалов для селектора привязки моноблока. Грузим
+  // только в моноблок-разделе (другим ролям привязка к филиалу не нужна).
+  const [branches, setBranches] = useState([]);
   const [saving, setSaving] = useState(false);
   const [pendingActionId, setPendingActionId] = useState("");
   const beginRequest = useLatestRequest();
@@ -58,6 +62,25 @@ function StaffRolePage({ role = "all" }) {
       })
       .finally(() => { if (request.isCurrent()) setStaffLoading(false); });
   }, [beginRequest]);
+
+  // Моноблок привязывается к филиалу — тянем список филиалов для селектора.
+  // Только в этом разделе: остальным ролям привязка к филиалу не показывается.
+  useEffect(() => {
+    if (!isMonoblockView) return undefined;
+    const request = beginRequest();
+    settingsService.listBranches({ signal: request.signal })
+      .then(({ data }) => {
+        if (!request.isCurrent()) return;
+        const items = Array.isArray(data) ? data : data?.items || data?.results || [];
+        setBranches(items);
+      })
+      .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
+        console.warn("Не удалось загрузить филиалы:", err.message);
+        setBranches([]);
+      });
+    return undefined;
+  }, [beginRequest, isMonoblockView]);
 
   const defaultFilters = useMemo(() => ({
     query: "",
@@ -307,6 +330,14 @@ function StaffRolePage({ role = "all" }) {
         mutationLocks.release("staff-save");
         return;
       }
+      // Моноблок входит на десктопе по PIN. PIN необязателен при создании
+      // (владелец может задать позже), но если введён — строго 4 цифры.
+      if (isMonoblockView && form.pin && !/^\d{4}$/.test(form.pin)) {
+        setSaveErrorField("");
+        setSaveError("PIN должен содержать 4 цифры.");
+        mutationLocks.release("staff-save");
+        return;
+      }
       setSaveError("");
       setSaveErrorField("");
       setSaving(true);
@@ -318,12 +349,16 @@ function StaffRolePage({ role = "all" }) {
         // extra=forbid and would 422 unknown fields.
         let confirmedUser;
         if (!editingId) {
-          const { data: createdUser } = await staffService.createCompanyUser({
+          // Моноблок привязывается к филиалу (сеть → филиал); branch_id шлём
+          // только когда филиал выбран. Остальные роли branch_id не передают.
+          const createPayload = {
             password: form.password,
             phone: phone || null,
             role_slug: productRoleSlug,
             role_name: productName,
-          });
+          };
+          if (isMonoblockView && form.branchId) createPayload.branch_id = form.branchId;
+          const { data: createdUser } = await staffService.createCompanyUser(createPayload);
           confirmedUser = createdUser;
           if (form.status === "archived") {
             const { data } = await staffService.updateCompanyUser(createdUser.id, {
@@ -331,15 +366,26 @@ function StaffRolePage({ role = "all" }) {
             });
             confirmedUser = data;
           }
+          // Десктоп, шаг 3: PIN моноблока задаётся отдельным эндпоинтом.
+          if (isMonoblockView && form.pin) {
+            await staffService.updateUserPin(createdUser.id, form.pin);
+          }
         } else {
-          const { data: updatedUser } = await staffService.updateCompanyUser(editingId, {
+          const updatePayload = {
             name: productName,
             password: form.password || undefined,
             phone: phone || null,
             role_slug: productRoleSlug,
             is_active: form.status !== "archived",
-          });
+          };
+          // Переназначение филиала моноблока (сеть → филиал).
+          if (isMonoblockView && form.branchId) updatePayload.branch_id = form.branchId;
+          const { data: updatedUser } = await staffService.updateCompanyUser(editingId, updatePayload);
           confirmedUser = updatedUser;
+          // Пустой PIN на редактировании = «не менять».
+          if (isMonoblockView && form.pin) {
+            await staffService.updateUserPin(editingId, form.pin);
+          }
         }
         setStaff((current) => {
           const mapped = mapStaffUser(confirmedUser);
@@ -534,6 +580,7 @@ function StaffRolePage({ role = "all" }) {
           isCashier={isCashierView}
           isWaiter={isWaiterView}
           isMonoblock={isMonoblockView}
+          branches={branches}
           isManager={isManagerView}
           isWarehouse={isWarehouseView}
           closing={modalClosing}

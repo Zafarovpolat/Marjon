@@ -342,8 +342,9 @@ describe("ZReportPage detail UX", () => {
     expect(screen.getByRole("button", { name: "Отчёт по официантам" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Отчёт по местам" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Отчёт по меню" })).toBeInTheDocument();
-    // three employee/place multi-selects (cashier, waiter, place) — cook removed
-    expect(document.querySelectorAll(".owner-msel")).toHaveLength(3);
+    // three employee/place multi-selects (cashier, waiter, place) — cook removed;
+    // the menu row uses the same custom dropdown in single-select mode
+    expect(document.querySelectorAll(".owner-msel")).toHaveLength(4);
   });
 
   it("dropdown closes on Escape and outside click", async () => {

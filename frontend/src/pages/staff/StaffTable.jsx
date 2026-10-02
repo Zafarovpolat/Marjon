@@ -1,7 +1,7 @@
 import Icon from "../../components/Icon";
 import ReportEmptyState from "../../components/ReportEmptyState";
 import staffDefaultAvatar from "../../assets/staff/staff-default-avatar.png";
-import { getPermissionSummary, roleMap } from "./staffConstants";
+import { getPermissionSummary, roleMap, shortStaffId } from "./staffConstants";
 import { formatPhone, inferPhoneCountry } from "./staffPhone";
 
 // Индикаторы загрузки/ошибки и таблица сотрудников OWNER.
@@ -32,7 +32,6 @@ export default function StaffTable({
   const showAccess = !(isManager || isWarehouse);
   return (
     <>
-      {staffLoading ? <div className="staff-empty-cell" role="status">Загрузка сотрудников...</div> : null}
       {staffError ? <div className="login-error" role="alert">{staffError}</div> : null}
       <div className="staff-table-wrapper">
         <table className={`staff-table${showAccess ? "" : " staff-table--no-access"}`}>
@@ -51,7 +50,7 @@ export default function StaffTable({
           <tbody>
             {visibleStaff.map((employee) => (
               <tr key={employee.id}>
-                <td>{employee.id}</td>
+                <td>{shortStaffId(employee.id)}</td>
                 <td>
                   <div className="staff-avatar">
                     {employee.photo ? (
@@ -189,6 +188,10 @@ export default function StaffTable({
           </tbody>
         </table>
       </div>
+      {/* Индикатор загрузки — ПОД таблицей (а не над ней), как и статусы/пустое
+          состояние, чтобы шапка таблицы была видна сразу, а «Загрузка…» не
+          выталкивала её вниз. */}
+      {staffLoading ? <div className="staff-empty-cell" role="status">Загрузка сотрудников...</div> : null}
     </>
   );
 }

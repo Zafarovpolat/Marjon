@@ -181,6 +181,8 @@ export default function DishesReportPage() {
   // during exit cancels the handoff so no invisible overlay can stick around.
   const [panelState, setPanelState] = useState({ active: "", closing: "", pending: "" });
   const [rows, setRows] = useState([]);
+  // Раскрытая строка блюда (детали: категория, себестоимость, прибыль).
+  const [expandedDish, setExpandedDish] = useState(null);
   // Canonical totals are backend-authoritative. The legacy bare-array branch
   // below uses a transitional local sum ONLY for rollout compatibility.
   const [totals, setTotals] = useState({ quantity: 0, amount: 0 });
@@ -495,20 +497,37 @@ export default function DishesReportPage() {
                   <td>{totalRow.amount}</td>
                 </tr>
               ) : null}
-              {filteredRows.map((row) => (
+              {filteredRows.map((row) => {
+                const expanded = expandedDish === row.id;
+                const detailId = `dish-detail-${row.id}`;
+                return (
                 <tr key={row.id}>
                   <td>
                     <div className="report-dish-name">
-                      <span className="report-dish-name__spacer" />
-                      <a href="#dish" onClick={(event) => event.preventDefault()}>{row.name}</a>
+                      <button
+                        type="button"
+                        className="report-dish-name__toggle"
+                        aria-expanded={expanded}
+                        aria-controls={detailId}
+                        aria-label={`Детали блюда ${row.name}`}
+                        onClick={() => setExpandedDish((current) => (current === row.id ? null : row.id))}
+                      >{row.name}</button>
                     </div>
+                    {expanded ? (
+                      <div className="report-dish-detail" id={detailId}>
+                        <div><span>Категория</span><strong>{row.categoryName ?? "Без категории"}</strong></div>
+                        <div><span>Себестоимость</span><strong>{row.costNum != null ? formatReportMoney(row.costNum) : "—"}</strong></div>
+                        <div><span>Прибыль</span><strong>{row.profitNum != null ? formatReportMoney(row.profitNum) : "—"}</strong></div>
+                      </div>
+                    ) : null}
                   </td>
                   <td>{row.unit}</td>
                   <td>{row.quantity}</td>
                   <td>{row.price}</td>
                   <td>{row.amount}</td>
                 </tr>
-              ))}
+                );
+              })}
               {!filteredRows.length ? (
                 <tr className="report-empty-row" aria-hidden={loading || undefined}>
                   <td colSpan="5"><ReportEmptyState title="Блюд не найдено" hidden={loading} /></td>

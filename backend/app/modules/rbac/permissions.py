@@ -79,14 +79,19 @@ DEFAULT_PERMISSIONS: list[tuple[str, str, str]] = [
 # BI-06. Owner-driven role-definition/permission mutation is fail-closed; a
 # future operational RBAC wave may establish a supported customization API.
 DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
-    # BI-06: Web OWNER is an explicit company capability set.  Inventory
-    # stock/write permissions are intentionally absent because Inventory Core
-    # and Warehouse Core authorization are deferred.  OWNER business authority
-    # is additionally enforced by require_company_admin/require_web_owner on
-    # Web-critical routes; these rows remain the extensible capability model.
+    # BI-06 → WH-01: Web OWNER is an explicit company capability set. The
+    # Inventory/Warehouse Core (inventory:stock:read/write) was deferred under
+    # BI-06; WH-01 unfreezes it so the owner web panel gets full warehouse CRUD
+    # (остатки / приход / расход / отход). These two rows flow automatically
+    # through the frozen-owner ceiling (rbac/service.py derives it from this
+    # set) and reconcile_frozen_owner_permissions, so no other RBAC change is
+    # needed. OWNER business authority is additionally enforced by
+    # require_company_admin/require_web_owner on Web-critical routes; these rows
+    # remain the extensible capability model.
     "owner": [
         "inventory:products:create", "inventory:products:read", "inventory:products:update",
         "inventory:categories:create", "inventory:categories:read",
+        "inventory:stock:read", "inventory:stock:write",
         "hr:employees:read", "hr:employees:write",
         "analytics:dashboard", "analytics:reports",
         "audit:read",

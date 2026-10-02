@@ -105,6 +105,10 @@ class BranchCreate(BaseSchema):
     name: str
     address: str | None = None
     city: str | None = None
+    # Логин/пароль филиала для входа с десктопа (шаг 1). Оба опциональны:
+    # филиал можно завести и без кред (тогда касса под ним не залогинится).
+    login: str | None = Field(None, min_length=1, max_length=150)
+    password: str | None = Field(None, min_length=1)
 
 
 class BranchUpdate(BaseSchema):
@@ -112,6 +116,8 @@ class BranchUpdate(BaseSchema):
     address: str | None = None
     city: str | None = None
     is_active: bool | None = None
+    login: str | None = Field(None, min_length=1, max_length=150)
+    password: str | None = Field(None, min_length=1)
 
 
 class BranchResponse(BaseResponseSchema):
@@ -120,3 +126,5 @@ class BranchResponse(BaseResponseSchema):
     address: str | None
     city: str | None
     is_active: bool
+    # Логин отдаём (владельцу удобно видеть/копировать), пароль/хеш — никогда.
+    login: str | None = None

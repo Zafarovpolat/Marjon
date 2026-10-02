@@ -10,6 +10,20 @@ from jose import JWTError, jwt
 from app.config import settings
 
 
+# Служебный терминальный пользователь филиала: под ним десктоп-касса делает
+# staff-users и pin-login после входа по логину/паролю филиала. E-mail —
+# синтетический, по маске ниже такие аккаунты скрыты из списков персонала.
+TERMINAL_EMAIL_LIKE = "terminal+%@marjon.local"
+
+
+def terminal_email(branch_id) -> str:
+    return f"terminal+{branch_id}@marjon.local"
+
+
+def is_terminal_email(email: str | None) -> bool:
+    return bool(email) and email.startswith("terminal+") and email.endswith("@marjon.local")
+
+
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 

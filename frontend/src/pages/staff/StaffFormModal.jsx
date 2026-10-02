@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Icon from "../../components/Icon";
 import { createPortal } from "react-dom";
 import staffDefaultAvatar from "../../assets/staff/staff-default-avatar.png";
@@ -18,6 +18,77 @@ import {
   phoneCountries,
   phoneCountryMap,
 } from "./staffPhone";
+
+// Кастомный дропдаун выбора филиала для моноблок-drawer. Заменяет нативный
+// <select>, повторяя визуал полей формы и паттерн меню телефонного кода
+// (клик-вне и Escape закрывают). Филиалы приходят с бэкенда пропсом `branches`
+// ({ id, name }); пустое значение "" = «Не привязан».
+function BranchSelect({ value, branches, onChange }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+  const selected = branches.find((branch) => String(branch.id) === String(value));
+  const label = selected ? selected.name : "Не привязан";
+  // «Не привязан» — полноценный первый пункт списка, а не плейсхолдер.
+  const options = [{ id: "", name: "Не привязан" }, ...branches];
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (event) => {
+      if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false);
+    };
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const choose = (nextId) => {
+    onChange(nextId);
+    setOpen(false);
+  };
+
+  return (
+    <div className={`staff-select${open ? " is-open" : ""}`} ref={rootRef}>
+      <button
+        type="button"
+        className="staff-select__button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        <span className={`staff-select__value${selected ? "" : " is-placeholder"}`}>
+          {label}
+        </span>
+        <Icon name="bi-chevron-down" size={14} className="staff-select__caret" />
+      </button>
+      {open ? (
+        <ul className="staff-select__menu" role="listbox">
+          {options.map((option) => {
+            const active = String(option.id) === String(value);
+            return (
+              <li key={option.id || "__none"}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  className={`staff-select__option${active ? " is-active" : ""}`}
+                  onClick={() => choose(option.id)}
+                >
+                  {option.name}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
 
 // Модальное окно создания/редактирования сотрудника OWNER.
 // Вынесено из StaffRolePage.jsx (FE-07B). Разметка, классы, текст и мёртвый
@@ -44,6 +115,9 @@ export default function StaffFormModal({
   isWaiter = false,
   // MONOBLOCK-01: monoblock reuses the same product drawer shell.
   isMonoblock = false,
+  // Сеть → филиал: список филиалов для селектора привязки моноблока. Пусто у
+  // остальных ролей (селектор рендерится только в моноблок-drawer).
+  branches = [],
   // MANAGER-STOREKEEPER-01: manager/warehouse reuse the product drawer shell
   // (7-col roles, exact Cashier matrix per CASHIER-PARITY-01, no HR, no printer IP).
   isManager = false,
@@ -279,6 +353,37 @@ export default function StaffFormModal({
                 <small className="muted">Оставьте пустым, чтобы не менять пароль.</small>
               ) : null}
             </label>
+            {isMonoblockView ? (
+              <>
+                <label>
+                  {/* Десктоп, шаг 3: моноблок входит по PIN после выбора в списке
+                      персонала филиала. На редактировании пустой PIN = «не менять». */}
+                  <span>{editingId ? "Новый PIN (4 цифры)" : "PIN-код (4 цифры)"}</span>
+                  <input
+                    autoComplete="off"
+                    value={form.pin}
+                    maxLength={4}
+                    inputMode="numeric"
+                    pattern="[0-9]{4}"
+                    onChange={(event) => updateForm("pin", event.target.value.replace(/\D/g, ""))}
+                    placeholder="0000"
+                  />
+                  {editingId ? (
+                    <small className="muted">Оставьте пустым, чтобы не менять PIN.</small>
+                  ) : null}
+                </label>
+                <label>
+                  {/* Сеть → филиал: моноблок закрепляется за филиалом, чтобы его
+                      десктоп-терминал показывал только персонал этого филиала. */}
+                  <span>Филиал</span>
+                  <BranchSelect
+                    value={form.branchId || ""}
+                    branches={branches}
+                    onChange={(branchId) => updateForm("branchId", branchId)}
+                  />
+                </label>
+              </>
+            ) : null}
             {isCuratedView ? null : (
             <label>
               <span>IP адрес принтера</span>

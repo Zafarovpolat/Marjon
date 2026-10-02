@@ -195,7 +195,8 @@ describe("TablesReportPage Phase 1 exact table", () => {
     expect(ordersService.get).not.toHaveBeenCalled();
 
     // Expanding one order lazy-loads full contents exactly once.
-    fireEvent.click(screen.getByRole("button", { name: "Заказ №101" }));
+    // The Подробнее button is one-way: it disappears once the detail is open.
+    fireEvent.click(screen.getAllByRole("button", { name: "Подробнее" })[0]);
     await waitFor(() => expect(ordersService.get).toHaveBeenCalledTimes(1));
     expect(ordersService.get).toHaveBeenCalledWith("order-1", expect.anything());
     expect(paymentsService.listByOrder).toHaveBeenCalledWith("order-1", expect.anything());
@@ -205,9 +206,8 @@ describe("TablesReportPage Phase 1 exact table", () => {
     // Both real payments render — never collapsed into one fake transaction.
     expect(screen.getByText("cash")).toBeInTheDocument();
     expect(screen.getByText("card")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Заказ №101" }));
-    fireEvent.click(screen.getByRole("button", { name: "Заказ №101" }));
-    await waitFor(() => expect(ordersService.get).toHaveBeenCalledTimes(1));
+    // The expanded order's own button is gone; the other order still has one.
+    expect(screen.getAllByRole("button", { name: "Подробнее" })).toHaveLength(1);
 
     // Escape closes the modal.
     fireEvent.keyDown(window.document.body, { key: "Escape" });

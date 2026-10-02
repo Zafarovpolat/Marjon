@@ -51,6 +51,10 @@ class TableOrderSummary(BaseModel):
     order_number: str
     created_at: datetime
     total_amount: Decimal
+    # Подытог заказа (Order.subtotal) — стоимость позиций ДО скидки/НДС/обслуги.
+    # Числовой passthrough из БД, не пересчитывается. Нужен для строки «Подытог»
+    # в свёрнутой карточке заказа модалки «Посмотреть заказы».
+    subtotal: Decimal
     order_type: str
     status: str
     waiter_name: str | None = None
@@ -235,7 +239,9 @@ class CancelledFiltersResponse(BaseModel):
 class LoginHistoryRow(BaseModel):
     date: str
     employee: str
+    avatar_url: str = ""
     role: str
+    phone: str = "—"
     device: str
     login: str
     logout: str
@@ -245,6 +251,7 @@ class LoginHistoryRow(BaseModel):
 class AttendanceRow(BaseModel):
     date: str
     employee: str
+    avatar_url: str = ""
     role: str
     start: str
     end: str

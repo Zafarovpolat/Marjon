@@ -24,6 +24,9 @@ export const emptyForm = {
   phoneCountry: "UZ",
   roleKey: "",
   pin: "",
+  // Сеть → филиал: моноблок привязывается к филиалу (свой десктоп-терминал).
+  // "" — филиал не выбран; отправляем branch_id только когда выбран.
+  branchId: "",
   password: "",
   // CASHIER-FE-01: visual-only field, never sent to backend (printer_ip handoff).
   printerIp: "",
@@ -151,6 +154,23 @@ export const staffOrderTypeActions = [
   { key: "new", label: "Новый" },
 ];
 
+// Короткий отображаемый номер сотрудника. Канонический id в бэкенде — UUID
+// (длинный, не для глаз), отдельного числового бизнес-id у User нет. Выводим
+// стабильный 5-значный номер, детерминированно производный от UUID: один и тот
+// же сотрудник всегда получает один и тот же номер. Это ТОЛЬКО для отображения
+// в колонке «ID» — ключи списка, действия и запросы по-прежнему идут по
+// настоящему user.id. Диапазон 10000–99999 → всегда ровно 5 цифр.
+export function shortStaffId(id) {
+  const raw = String(id ?? "");
+  if (!raw) return "—";
+  let hash = 0;
+  for (let i = 0; i < raw.length; i += 1) {
+    // FNV-подобное смешивание в беззнаковом 32-битном диапазоне.
+    hash = (hash * 31 + raw.charCodeAt(i)) >>> 0;
+  }
+  return String(10000 + (hash % 90000));
+}
+
 export function mapStaffUser(user) {
   const roleKey = user.role_slug || user.role_slugs?.[0] || "cashier";
   return {
@@ -167,6 +187,9 @@ export function mapStaffUser(user) {
     canSeeCashiers: user.can_see_cashiers === true,
     printerIp: typeof user.printer_ip === "string" && user.printer_ip ? user.printer_ip : "",
     pin: "",
+    // Привязка сотрудника к филиалу (сеть → филиал). "" у веб-владельца и у
+    // непривязанных аккаунтов; конкретный id — сотрудник закреплён за филиалом.
+    branchId: user.branch_id || "",
     password: "",
     photo: user.avatar_url || "",
   };

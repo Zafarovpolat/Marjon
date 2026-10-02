@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { reportsService } from "../api/reports";
 import { ordersService } from "../api/orders";
 import { paymentsService } from "../api/payments";
@@ -462,7 +463,12 @@ export default function TablesReportPage() {
         </div>
       </article>
 
-      {selectedTable ? (
+      {selectedTable ? createPortal((
+        /* Портал в document.body: вырывает дровер из stacking-контекста .dashboard-content
+           (z-index 1) / .dashboard-main (z-index 4), иначе панель остаётся под шапкой
+           (топбар z-index 15), а фон не перекрывает сайдбар. Класс .tables-report-page на
+           обёртке сохраняет scoped-стили дровера. */
+        <div className="tables-report-page">
         <div className="order-details-drawer" role="dialog" aria-label={`Заказы стола ${tableDisplayLabel(selectedTable)}`}>
           <div className="order-details-drawer__backdrop" onClick={closeTableOrders} />
           <aside className="order-details-drawer__panel">
@@ -479,15 +485,9 @@ export default function TablesReportPage() {
               const detail = selectedDetails[order.id];
               return (
                 <div key={order.id} className="order-details-drawer__dishes">
-                  <button
-                    type="button"
-                    className="order-details-drawer__order-toggle"
-                    aria-expanded={expanded}
-                    onClick={() => toggleOrderDetail(selectedTable, order.id)}
-                  >
+                  <div className="order-details-drawer__order-title">
                     <span>Заказ №{order.number}</span>
-                    <Icon name={expanded ? "bi-dash" : "bi-plus"} size={15} />
-                  </button>
+                  </div>
                   <div className="order-details-drawer__grid">
                     <div><span>Дата</span><strong>{formatTableDateTime(order.date)}</strong></div>
                     <div><span>Официант</span><strong>{order.waiter || "—"}</strong></div>
@@ -495,6 +495,21 @@ export default function TablesReportPage() {
                     <div><span>Статус</span><strong>{ORDER_STATUS_LABELS[order.status] || order.status || "—"}</strong></div>
                     <div><span>Сумма</span><strong>{formatMoney(order.amount)}</strong></div>
                   </div>
+                  {expanded ? null : (
+                    <>
+                      {/* Подытог виден в свёрнутой карточке — до кнопки «Подробнее» */}
+                      <div className="order-details-drawer__totals">
+                        <div><span>Подытог</span><strong>{formatMoney(order.subtotal)}</strong></div>
+                      </div>
+                      <button
+                        type="button"
+                        className="order-details-drawer__more"
+                        onClick={() => toggleOrderDetail(selectedTable, order.id)}
+                      >
+                        Подробнее
+                      </button>
+                    </>
+                  )}
                   {expanded ? (
                     <div className="order-details-drawer__detail">
                       {!detail ? (
@@ -518,8 +533,11 @@ export default function TablesReportPage() {
                           </table>
                           <div className="order-details-drawer__totals">
                             <div><span>Подытог</span><strong>{formatMoney(detail.data.order.subtotal)}</strong></div>
-                            <div><span>Скидка</span><strong>{formatMoney(detail.data.order.discount_amount)}</strong></div>
-                            <div><span>Налог</span><strong>{formatMoney(detail.data.order.tax_amount)}</strong></div>
+                            {/* Скидку показываем только когда она есть (не 0) */}
+                            {Number(detail.data.order.discount_amount) > 0 ? (
+                              <div><span>Скидка</span><strong>{formatMoney(detail.data.order.discount_amount)}</strong></div>
+                            ) : null}
+                            {/* Налог скрыт полностью по требованию */}
                             <div><span>Обслуживание</span><strong>{formatMoney(detail.data.order.service_fee)}</strong></div>
                             <div><span>Итого</span><strong>{formatMoney(detail.data.order.total_amount)}</strong></div>
                           </div>
@@ -542,7 +560,8 @@ export default function TablesReportPage() {
             })}
           </aside>
         </div>
-      ) : null}
+        </div>
+      ), document.body) : null}
     </section>
   );
 }

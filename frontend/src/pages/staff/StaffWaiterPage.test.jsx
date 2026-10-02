@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api/client";
 import StaffRolePage from "../StaffRolePage";
+import { shortStaffId } from "./staffConstants";
 
 vi.mock("../../api/client", () => ({
   api: {
@@ -92,7 +93,8 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     expect(within(table).getByText("Официант")).toBeInTheDocument();
     expect(within(table).queryByText("Кассир")).toBeNull();
     expect(within(table).queryByText("Waiter")).toBeNull();
-    expect(within(table).getByText("waiter-uuid")).toBeInTheDocument();
+    expect(within(table).getByText(shortStaffId("waiter-uuid"))).toBeInTheDocument();
+    expect(within(table).queryByText("waiter-uuid")).toBeNull();
     // Access column shows ONLY delete-dishes truth, never generic text.
     expect(within(table).queryByText("Базовый доступ")).toBeNull();
     expect(within(table).getByText("Удаление блюд")).toBeInTheDocument();

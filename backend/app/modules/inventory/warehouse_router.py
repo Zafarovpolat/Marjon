@@ -18,6 +18,7 @@ from app.modules.inventory.models import Ingredient, StockItem, StockMovement, W
 from app.modules.inventory.warehouse_models import (
     PurchaseDocument, PurchaseDocumentItem,
     TransferDocument, InventoryCheck, WriteOffDocument,
+    ExpenseDocument, ExpenseDocumentItem, WasteDocument,
 )
 from app.modules.inventory.warehouse_schemas import (
     WarehouseCreate, WarehouseResponse,
@@ -25,8 +26,10 @@ from app.modules.inventory.warehouse_schemas import (
     TransferCreate, TransferResponse,
     InventoryCheckCreate, InventoryCheckResponse,
     WriteOffCreate, WriteOffResponse,
+    ExpenseDocumentCreate, ExpenseDocumentUpdate, ExpenseDocumentResponse,
+    WasteDocumentCreate, WasteDocumentUpdate, WasteDocumentResponse,
 )
-from app.shared.exceptions import NotFoundError
+from app.shared.exceptions import NotFoundError, ValidationError
 from app.shared.tenant_scope import require_company_resource, require_company_resource_ids
 
 router = APIRouter(prefix="/warehouse", tags=["warehouse"])
@@ -504,5 +507,338 @@ async def delete_write_off(
     doc = result.scalar_one_or_none()
     if not doc:
         raise NotFoundError("Write-off document not found")
+    await db.delete(doc)
+    await db.commit()
+
+
+# ── Expense Documents (Расход) ───────────────────────────────
+# Зеркалит приход, но проведение УМЕНЬШАЕТ остатки. Перед списанием
+# проверяем достаточность остатка по каждой позиции (ValidationError 422),
+# иначе ушли бы в минус. Идемпотентно через accepted_at.
+async def _assert_sufficient_stock(db, company_id, warehouse_id, ingredient_id, name, needed):
+    stock_result = await db.execute(
+        select(StockItem).where(
+            StockItem.company_id == company_id,
+            StockItem.warehouse_id == warehouse_id,
+            StockItem.ingredient_id == ingredient_id,
+        )
+    )
+    stock = stock_result.scalar_one_or_none()
+    available = stock.quantity if stock else 0
+    if available < needed:
+        raise ValidationError(
+            f"Недостаточно остатка «{name}»: есть {available}, требуется {needed}."
+        )
+    return stock
+
+
+@router.get("/expenses", response_model=list[ExpenseDocumentResponse])
+async def list_expenses(
+    search: str = Query("", alias="q"),
+    user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    query = (
+        select(ExpenseDocument)
+        .where(ExpenseDocument.company_id == user.company_id)
+        .order_by(desc(ExpenseDocument.created_at))
+    )
+    if search:
+        like = f"%{search}%"
+        query = query.where(
+            ExpenseDocument.receiver.ilike(like)
+            | ExpenseDocument.warehouse_name.ilike(like)
+            | ExpenseDocument.created_by_name.ilike(like)
+        )
+    result = await db.execute(query)
+    return list(result.scalars().all())
+
+
+@router.get("/expenses/{doc_id}", response_model=ExpenseDocumentResponse)
+async def get_expense(
+    doc_id: UUID,
+    user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ExpenseDocument).where(
+            ExpenseDocument.id == doc_id,
+            ExpenseDocument.company_id == user.company_id,
+        )
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise NotFoundError("Expense document not found")
+    return doc
+
+
+@router.post("/expenses", response_model=ExpenseDocumentResponse, status_code=status.HTTP_201_CREATED)
+async def create_expense(
+    data: ExpenseDocumentCreate,
+    user: User = Depends(require_permission("inventory:stock:write")),
+    db: AsyncSession = Depends(get_db),
+):
+    await require_company_resource(
+        db, Warehouse, data.warehouse_id, user.company_id, detail="Warehouse not found"
+    )
+    await require_company_resource_ids(
+        db,
+        Ingredient,
+        (item.ingredient_id for item in data.items),
+        user.company_id,
+        detail="Ingredient not found",
+    )
+    number = await _next_doc_number(db, user.company_id, ExpenseDocument)
+    now = _now()
+    total = sum(item.quantity * item.cost_price for item in data.items)
+
+    doc = ExpenseDocument(
+        company_id=user.company_id,
+        number=number,
+        receiver=data.receiver,
+        warehouse_id=data.warehouse_id,
+        warehouse_name=data.warehouse_name,
+        date=data.date,
+        registered_at=now,
+        items_count=len(data.items),
+        total_amount=total,
+        status="draft",
+        created_by=user.id,
+        created_by_name=_user_display(user),
+        note=data.note,
+    )
+    for item_data in data.items:
+        doc.items.append(ExpenseDocumentItem(
+            name=item_data.name,
+            ingredient_id=item_data.ingredient_id,
+            quantity=item_data.quantity,
+            unit=item_data.unit,
+            cost_price=item_data.cost_price,
+            total=item_data.quantity * item_data.cost_price,
+        ))
+    db.add(doc)
+    await db.commit()
+    await db.refresh(doc)
+    return doc
+
+
+@router.patch("/expenses/{doc_id}", response_model=ExpenseDocumentResponse)
+async def update_expense(
+    doc_id: UUID,
+    data: ExpenseDocumentUpdate,
+    user: User = Depends(require_permission("inventory:stock:write")),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ExpenseDocument)
+        .options(selectinload(ExpenseDocument.items))
+        .where(
+            ExpenseDocument.id == doc_id,
+            ExpenseDocument.company_id == user.company_id,
+        )
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise NotFoundError("Expense document not found")
+
+    for field, value in data.model_dump(exclude_none=True).items():
+        setattr(doc, field, value)
+
+    if data.status == "accepted" and not doc.accepted_at:
+        await require_company_resource(
+            db, Warehouse, doc.warehouse_id, user.company_id, detail="Warehouse not found"
+        )
+        await require_company_resource_ids(
+            db,
+            Ingredient,
+            (item.ingredient_id for item in doc.items),
+            user.company_id,
+            detail="Ingredient not found",
+        )
+        if doc.warehouse_id:
+            # Сначала проверяем ВСЕ позиции — либо проводим целиком, либо никак.
+            stocks = {}
+            for item in doc.items:
+                if not item.ingredient_id or item.quantity <= 0:
+                    continue
+                stocks[item.ingredient_id] = await _assert_sufficient_stock(
+                    db, user.company_id, doc.warehouse_id,
+                    item.ingredient_id, item.name, item.quantity,
+                )
+            for item in doc.items:
+                if not item.ingredient_id or item.quantity <= 0:
+                    continue
+                stocks[item.ingredient_id].quantity -= item.quantity
+                db.add(StockMovement(
+                    company_id=user.company_id, warehouse_id=doc.warehouse_id,
+                    ingredient_id=item.ingredient_id, movement_type="expense",
+                    quantity=item.quantity, unit=item.unit, cost_price=item.cost_price,
+                    total_cost=item.total, ref_id=doc.id, created_by=user.id,
+                    note=f"Расход №{doc.number}" + (f" → {doc.receiver}" if doc.receiver else ""),
+                ))
+        doc.accepted_at = _now()
+
+    await db.commit()
+    await db.refresh(doc)
+    return doc
+
+
+@router.delete("/expenses/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_expense(
+    doc_id: UUID,
+    user: User = Depends(require_permission("inventory:stock:write")),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ExpenseDocument).where(
+            ExpenseDocument.id == doc_id,
+            ExpenseDocument.company_id == user.company_id,
+        )
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise NotFoundError("Expense document not found")
+    await db.delete(doc)
+    await db.commit()
+
+
+# ── Waste Documents (Отход) ──────────────────────────────────
+# Построчный документ (одна позиция). Проведение уменьшает остаток
+# (StockMovement type="waste") с проверкой достаточности. Идемпотентно.
+@router.get("/wastes", response_model=list[WasteDocumentResponse])
+async def list_wastes(
+    search: str = Query("", alias="q"),
+    user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    query = (
+        select(WasteDocument)
+        .where(WasteDocument.company_id == user.company_id)
+        .order_by(desc(WasteDocument.created_at))
+    )
+    if search:
+        like = f"%{search}%"
+        query = query.where(
+            WasteDocument.name.ilike(like)
+            | WasteDocument.category.ilike(like)
+            | WasteDocument.created_by_name.ilike(like)
+        )
+    result = await db.execute(query)
+    return list(result.scalars().all())
+
+
+@router.get("/wastes/{doc_id}", response_model=WasteDocumentResponse)
+async def get_waste(
+    doc_id: UUID,
+    user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(WasteDocument).where(
+            WasteDocument.id == doc_id,
+            WasteDocument.company_id == user.company_id,
+        )
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise NotFoundError("Waste document not found")
+    return doc
+
+
+@router.post("/wastes", response_model=WasteDocumentResponse, status_code=status.HTTP_201_CREATED)
+async def create_waste(
+    data: WasteDocumentCreate,
+    user: User = Depends(require_permission("inventory:stock:write")),
+    db: AsyncSession = Depends(get_db),
+):
+    await require_company_resource(
+        db, Warehouse, data.warehouse_id, user.company_id, detail="Warehouse not found"
+    )
+    if data.ingredient_id:
+        await require_company_resource(
+            db, Ingredient, data.ingredient_id, user.company_id, detail="Ingredient not found"
+        )
+    number = await _next_doc_number(db, user.company_id, WasteDocument)
+    doc = WasteDocument(
+        company_id=user.company_id,
+        number=number,
+        category=data.category,
+        warehouse_id=data.warehouse_id,
+        warehouse_name=data.warehouse_name,
+        ingredient_id=data.ingredient_id,
+        name=data.name,
+        quantity=data.quantity,
+        unit=data.unit,
+        cost_price=data.cost_price,
+        total_amount=data.quantity * data.cost_price,
+        reason=data.reason,
+        date=data.date,
+        registered_at=_now(),
+        status="draft",
+        created_by=user.id,
+        created_by_name=_user_display(user),
+    )
+    db.add(doc)
+    await db.commit()
+    await db.refresh(doc)
+    return doc
+
+
+@router.patch("/wastes/{doc_id}", response_model=WasteDocumentResponse)
+async def update_waste(
+    doc_id: UUID,
+    data: WasteDocumentUpdate,
+    user: User = Depends(require_permission("inventory:stock:write")),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(WasteDocument).where(
+            WasteDocument.id == doc_id,
+            WasteDocument.company_id == user.company_id,
+        )
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise NotFoundError("Waste document not found")
+
+    for field, value in data.model_dump(exclude_none=True).items():
+        setattr(doc, field, value)
+
+    if data.status == "accepted" and not doc.accepted_at:
+        if doc.warehouse_id and doc.ingredient_id and doc.quantity > 0:
+            stock = await _assert_sufficient_stock(
+                db, user.company_id, doc.warehouse_id,
+                doc.ingredient_id, doc.name, doc.quantity,
+            )
+            stock.quantity -= doc.quantity
+            db.add(StockMovement(
+                company_id=user.company_id, warehouse_id=doc.warehouse_id,
+                ingredient_id=doc.ingredient_id, movement_type="waste",
+                quantity=doc.quantity, unit=doc.unit, cost_price=doc.cost_price,
+                total_cost=doc.total_amount, ref_id=doc.id, created_by=user.id,
+                note=f"Отход №{doc.number}" + (f": {doc.reason}" if doc.reason else ""),
+            ))
+        doc.accepted_at = _now()
+
+    await db.commit()
+    await db.refresh(doc)
+    return doc
+
+
+@router.delete("/wastes/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_waste(
+    doc_id: UUID,
+    user: User = Depends(require_permission("inventory:stock:write")),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(WasteDocument).where(
+            WasteDocument.id == doc_id,
+            WasteDocument.company_id == user.company_id,
+        )
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise NotFoundError("Waste document not found")
     await db.delete(doc)
     await db.commit()

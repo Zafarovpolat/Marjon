@@ -70,7 +70,7 @@
       background: #fff;
       box-shadow: none;
       font-size: 16px; /* REPORT-FONT: 18 → 16 (кратно 4) */
-      font-weight: 500;
+      font-weight: 400;
   }
 
   .report-actions .report-date-calendar-toolbar button {
@@ -100,7 +100,7 @@
       padding: 0 0 14px;
       color: #4b5563;
       font-size: 16px; /* REPORT-FONT: 17 → 16 (кратно 4) */
-      font-weight: 500;
+      font-weight: 400;
   }
 
   .report-actions .report-date-calendar-grid button {
@@ -112,7 +112,7 @@
       background: transparent;
       box-shadow: none;
       font-size: 16px; /* REPORT-FONT: 19 → 16 (кратно 4) */
-      font-weight: 500;
+      font-weight: 400;
   }
 
   .report-actions .report-date-calendar-grid button.is-muted {
@@ -140,7 +140,7 @@
       margin-bottom: 18px;
       color: #111827;
       font-size: 16px; /* REPORT-FONT: 19 → 16 (кратно 4) */
-      font-weight: 500;
+      font-weight: 400;
   }
 
   .report-actions .report-date-time-title svg {
@@ -166,7 +166,7 @@
       margin-bottom: 7px;
       color: #64748b;
       font-size: 11px;
-      font-weight: 700;
+      font-weight: 400;
       text-align: center;
   }
 
@@ -193,7 +193,7 @@
       background: #fff;
       box-shadow: none;
       font-size: 16px;
-      font-weight: 500;
+      font-weight: 400;
   }
 
   .report-actions .report-date-time-list button:hover,
@@ -217,7 +217,7 @@
       border-radius: 8px;
       box-shadow: none;
       font-size: 16px; /* REPORT-FONT: 18 → 16 (кратно 4) */
-      font-weight: 500;
+      font-weight: 400;
   }
 
   .report-actions .report-date-today-button {
@@ -281,7 +281,7 @@
   .tables-report-page .report-filter-panel span {
       color: var(--text-secondary);
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: .07em;
       text-transform: uppercase;
   }
@@ -297,7 +297,7 @@
       background: rgba(255, 255, 255, .96);
       color: var(--text-primary);
       font: inherit;
-      font-weight: 700;
+      font-weight: 400;
   }
 
   .tables-report-page .report-filter-panel input:focus,
@@ -319,7 +319,7 @@
       color: #fff;
       background: var(--accent-secondary);
       box-shadow: 0 8px 18px rgba(29, 181, 181, 0.154);
-      font-weight: 500; /* REPORT-FONT: 800 → 500 (кнопка/контрол) */
+      font-weight: 400; /* REPORT-FONT: 800 → 400 (шкала: 11–16px только 400; кнопка/контрол) */
       cursor: pointer;
   }
 
@@ -410,9 +410,18 @@
       color: var(--text-secondary);
       background: rgba(233, 240, 250, .96);
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: .08em;
       text-transform: uppercase;
+  }
+
+  /* Шкала: номер стола в ячейке (13px, браузерный bold) и текст ошибки (14px) — только 400. */
+  .tables-report-page .report-table td strong {
+      font-weight: 400;
+  }
+
+  .tables-report-page .login-error {
+      font-weight: 400;
   }
 
   .tables-report-page .report-table tbody tr:hover td {
@@ -662,7 +671,7 @@
       margin-bottom: 7px;
       color: var(--accent-secondary);
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: .12em;
       text-transform: uppercase;
   }
@@ -701,7 +710,7 @@
       justify-content: center;
       gap: 9px;
       border-radius: 14px;
-      font-weight: 500; /* REPORT-FONT: 800 → 500 (кнопки-контролы) */
+      font-weight: 400; /* REPORT-FONT: 800 → 400 (шкала: 11–16px только 400; кнопки-контролы) */
       cursor: pointer;
       transition: .2s ease;
       white-space: nowrap;
@@ -756,7 +765,7 @@
   .orders-report-page .report-filter-panel span {
       color: var(--text-secondary);
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: .07em;
       text-transform: uppercase;
   }
@@ -772,7 +781,7 @@
       background: rgba(255, 255, 255, .96);
       color: var(--text-primary);
       font: inherit;
-      font-weight: 700;
+      font-weight: 400;
   }
 
   .orders-report-page .report-filter-panel input:focus,
@@ -794,7 +803,7 @@
       color: #fff;
       background: var(--accent-secondary);
       box-shadow: 0 8px 18px rgba(29, 181, 181, 0.154);
-      font-weight: 500; /* REPORT-FONT: 800 → 500 (кнопка/контрол) */
+      font-weight: 400; /* REPORT-FONT: 800 → 400 (шкала: 11–16px только 400; кнопка/контрол) */
       cursor: pointer;
   }
 
@@ -827,7 +836,7 @@
       color: var(--text-secondary);
       background: rgba(233, 240, 250, .96);
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: .08em;
       text-transform: uppercase;
   }
@@ -850,7 +859,7 @@
       color: var(--accent-secondary);
       background: rgba(29, 181, 181, .10);
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 400;
   }
 
   .orders-report-page td.report-muted-cell {
@@ -865,7 +874,16 @@
 
   .orders-report-page .report-total-price {
       color: var(--text-primary);
-      font-weight: 700; /* REPORT-FONT: 800 → 700 (акцент-сумма) */
+      font-weight: 400; /* REPORT-FONT: 800 → 400 (шкала: 11–16px только 400; акцент-сумма) */
+  }
+
+  /* Шкала: номер заказа в ячейке (13px, браузерный bold) и текст ошибки (14px) — только 400. */
+  .orders-report-page .report-table td strong {
+      font-weight: 400;
+  }
+
+  .orders-report-page .login-error {
+      font-weight: 400;
   }
 
   .orders-report-page .report-empty-row td {
@@ -877,19 +895,26 @@
   :is(.orders-report-page, .tables-report-page, .cancelled-report-page) .order-details-drawer {
       position: fixed;
       inset: 0;
-      z-index: 1000;
+      /* Дровер рендерится порталом в document.body (см. TablesReportPage), поэтому корень
+         живёт в корневом stacking-контексте страницы, а не внутри .dashboard-content (z-index 1)
+         под шапкой. z-index выше хрома (топбар 15, сайдбар 3/40), но ниже модалок (10000+). */
+      z-index: 9000;
       pointer-events: none;
   }
 
   :is(.orders-report-page, .tables-report-page, .cancelled-report-page) .order-details-drawer__backdrop {
       position: absolute;
       inset: 0;
+      /* Внутри корня дровера: фон ниже панели. */
+      z-index: 14000;
       background: rgba(15, 23, 42, .28);
       pointer-events: auto;
   }
 
   :is(.orders-report-page, .tables-report-page, .cancelled-report-page) .order-details-drawer__panel {
       position: absolute;
+      /* Внутри корня дровера: панель поверх фона. */
+      z-index: 15000;
       top: 0;
       right: 0;
       width: min(460px, 100vw);
@@ -897,6 +922,8 @@
       padding: 24px;
       overflow-y: auto;
       border-left: 1px solid rgba(226, 232, 240, .9);
+      border-top-left-radius: 18px;
+      border-bottom-left-radius: 18px;
       background: #fff;
       box-shadow: -14px 0 42px rgba(13, 39, 72, 0.126);
       pointer-events: auto;
@@ -916,7 +943,7 @@
   :is(.orders-report-page, .tables-report-page, .cancelled-report-page) .order-details-drawer__totals span {
       color: var(--text-secondary);
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: .08em;
       text-transform: uppercase;
   }
@@ -962,7 +989,7 @@
   :is(.orders-report-page, .tables-report-page, .cancelled-report-page) .order-details-drawer__dishes strong,
   :is(.orders-report-page, .tables-report-page, .cancelled-report-page) .order-details-drawer__totals strong {
       color: var(--text-primary);
-      font-weight: 700; /* REPORT-FONT: 800 → 700 (акцент-значение) */
+      font-weight: 400; /* REPORT-FONT: 800 → 400 (шкала: 11–16px только 400; акцент-значение) */
   }
 
   @media (max-width: 1280px) {

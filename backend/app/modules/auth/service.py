@@ -1,8 +1,9 @@
 from __future__ import annotations
+import secrets
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -14,6 +15,7 @@ from app.modules.auth.security import (
     get_refresh_token_auth_scope,
     hash_password,
     hash_refresh_token,
+    terminal_email,
     verify_password,
 )
 from app.modules.audit.service import AuditService
@@ -30,6 +32,34 @@ from app.shared.exceptions import ConflictError, ForbiddenError, NotFoundError, 
 # to stay under the per-IP rate limit.
 PIN_MAX_ATTEMPTS = 5
 PIN_LOCKOUT_MINUTES = 15
+
+
+def device_label(user_agent: str | None) -> str | None:
+    """Короткая человекочитаемая метка устройства из User-Agent для журнала
+    входов (напр. «Chrome · Windows»). Без парсера-библиотеки: простое
+    сопоставление по подстрокам; при неизвестном UA — обрезка до 255 символов.
+    Хранится в refresh_tokens.device_id."""
+    if not user_agent:
+        return None
+    ua = user_agent
+    # Chrome раньше Safari: UA Chrome содержит "Safari"; Edge — "Edg".
+    browser = next((b for b in ("Edg", "Chrome", "Firefox", "Safari") if b in ua), None)
+    browser = {"Edg": "Edge"}.get(browser, browser)
+    if "Windows" in ua:
+        os_name = "Windows"
+    elif "Android" in ua:
+        os_name = "Android"
+    elif "iPhone" in ua or "iPad" in ua or "iOS" in ua:
+        os_name = "iOS"
+    elif "Mac OS" in ua or "Macintosh" in ua:
+        os_name = "macOS"
+    elif "Linux" in ua:
+        os_name = "Linux"
+    else:
+        os_name = None
+    parts = [p for p in (browser, os_name) if p]
+    label = " · ".join(parts) if parts else ua
+    return label[:255]
 
 
 class AuthService:
@@ -113,7 +143,7 @@ class AuthService:
             return stripped
         return identifier  # email or username — return as-is
 
-    async def login(self, email: str, password: str) -> tuple[User, str, str]:
+    async def login(self, email: str, password: str, *, device_id: str | None = None) -> tuple[User, str, str]:
         import logging
         log = logging.getLogger(__name__)
 
@@ -131,7 +161,7 @@ class AuthService:
 
         access_token = create_access_token(user.id, user.company_id)
         refresh_token = create_refresh_token()
-        await self._save_refresh_token(user.id, refresh_token)
+        await self._save_refresh_token(user.id, refresh_token, device_id=device_id)
 
         return user, access_token, refresh_token
 
@@ -160,6 +190,63 @@ class AuthService:
 
         return user, access_token, refresh_token
 
+    async def login_by_branch(
+        self, login: str, password: str, *, device_id: str | None = None
+    ) -> tuple[User, "Branch", "Company", str, str]:
+        """Десктоп, шаг 1: вход по филиалу. У каждого филиала сети свой
+        логин+пароль (один веб-аккаунт владельца на всю сеть). Возвращает
+        синтетического терминального пользователя, привязанного к
+        company_id+branch_id, — под его токеном десктоп затем тянет staff-users
+        и делает pin-login. Логин — произвольная уникальная строка (не телефон),
+        сравнение регистронезависимое."""
+        norm = login.strip().lower()
+        branch = (await self.db.execute(
+            select(Branch).where(func.lower(Branch.login) == norm)
+        )).scalar_one_or_none()
+        if (
+            not branch
+            or not branch.password_hash
+            or not verify_password(password, branch.password_hash)
+        ):
+            raise UnauthorizedError("Неверный логин или пароль филиала")
+        if not branch.is_active:
+            raise UnauthorizedError("Филиал неактивен")
+
+        company = await self.db.get(Company, branch.company_id)
+        terminal = await self._get_or_create_terminal_user(branch)
+
+        access_token = create_access_token(terminal.id, terminal.company_id)
+        refresh_token = create_refresh_token()
+        await self._save_refresh_token(terminal.id, refresh_token, device_id=device_id)
+
+        return terminal, branch, company, access_token, refresh_token
+
+    async def _get_or_create_terminal_user(self, branch: "Branch") -> User:
+        """Служебный пользователь-терминал филиала (идемпотентно). Пароля для
+        входа у него нет (случайный хеш), pin_hash пуст — он не логинится сам,
+        только несёт company_id+branch_id для токена десктопа."""
+        email = terminal_email(branch.id)
+        terminal = await self.user_repo.get_by_email(email)
+        if terminal is None:
+            terminal = User(
+                company_id=branch.company_id,
+                branch_id=branch.id,
+                email=email,
+                name=f"Терминал · {branch.name}",
+                password_hash=hash_password(secrets.token_urlsafe(32)),
+                is_active=True,
+            )
+            self.db.add(terminal)
+            await self.db.commit()
+            await self.db.refresh(terminal)
+        elif terminal.branch_id != branch.id or terminal.company_id != branch.company_id:
+            # Филиал переехал/пересоздан под тем же id — держим привязку в актуальном виде.
+            terminal.branch_id = branch.id
+            terminal.company_id = branch.company_id
+            await self.db.commit()
+            await self.db.refresh(terminal)
+        return terminal
+
     async def create_company_user(
         self,
         company_id: UUID | None,
@@ -168,6 +255,7 @@ class AuthService:
         email: str | None = None,
         name: str | None = None,
         phone: str | None = None,
+        branch_id: UUID | None = None,
         assignable_role_slugs: frozenset[str] | None = None,
     ) -> tuple[User, Role]:
         if not company_id:
@@ -189,6 +277,12 @@ class AuthService:
         if assignable_role_slugs is not None and role_slug not in assignable_role_slugs:
             raise ForbiddenError("Role is outside the actor's privilege ceiling")
 
+        # Привязка к филиалу: филиал должен принадлежать той же компании.
+        if branch_id is not None:
+            branch = await self.db.get(Branch, branch_id)
+            if not branch or branch.company_id != company_id:
+                raise ValidationError("Филиал не найден в этой компании")
+
         # BE-05: role_slug is validated against the canonical allowlist here
         # (raises ValidationError otherwise) and the role's default
         # permission set is attached the first time it's created for this
@@ -199,6 +293,7 @@ class AuthService:
 
         user = User(
             company_id=company_id,
+            branch_id=branch_id,
             email=email,
             phone=phone,
             name=name,
@@ -225,6 +320,7 @@ class AuthService:
         password: str | None = None,
         role_slug: str | None = None,
         is_active: bool | None = None,
+        branch_id: UUID | None = None,
         permissions: dict | None = None,
         assignable_role_slugs: frozenset[str] | None = None,
         actor_user_id: UUID | None = None,
@@ -274,6 +370,13 @@ class AuthService:
             user.password_hash = hash_password(password)
         if is_active is not None:
             user.is_active = is_active
+        # Переназначение филиала: филиал должен принадлежать той же компании.
+        # None → привязку не меняем (как и прочие опциональные поля).
+        if branch_id is not None:
+            branch = await self.db.get(Branch, branch_id)
+            if not branch or branch.company_id != company_id:
+                raise ValidationError("Филиал не найден в этой компании")
+            user.branch_id = branch_id
         # Легаси-слой гранулярных прав (опциональный, opt-in): пишем только
         # когда владелец явно прислал набор тумблеров. RBAC-путь не затрагивается.
         if permissions is not None:
@@ -442,12 +545,15 @@ class AuthService:
 
         return user, access_token, refresh_token
 
-    async def _save_refresh_token(self, user_id: UUID, token: str) -> None:
+    async def _save_refresh_token(
+        self, user_id: UUID, token: str, *, device_id: str | None = None
+    ) -> None:
         expires_at = datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
         rt = RefreshToken(
             user_id=user_id,
             token_hash=hash_refresh_token(token),
             expires_at=expires_at,
+            device_id=device_id,
         )
         self.db.add(rt)
         await self.db.commit()

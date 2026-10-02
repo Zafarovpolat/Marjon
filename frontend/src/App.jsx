@@ -26,6 +26,7 @@ import DebtorsCreditorsReportPage from "./pages/DebtorsCreditorsReportPage";
 import ZReportPage from "./pages/ZReportPage";
 import WarehousePage from "./pages/WarehousePage";
 import SettingsClientsPage from "./pages/settings/SettingsClientsPage";
+import SettingsBranchesPage from "./pages/settings/SettingsBranchesPage";
 import SettingsPlacesPage from "./pages/settings/SettingsPlacesPage";
 import SettingsPaymentMethodsPage from "./pages/settings/SettingsPaymentMethodsPage";
 import SettingsUnitsPage from "./pages/settings/SettingsUnitsPage";
@@ -118,6 +119,7 @@ export function createAppRouter() {
       { path: "users/attendance", element: <StaffActivityPage type="attendance" /> },
       { path: "settings", element: <Navigate to="/settings/clients" replace /> },
       { path: "settings/clients", element: <SettingsClientsPage /> },
+      { path: "settings/branches", element: <SettingsBranchesPage /> },
       { path: "settings/places", element: <SettingsPlacesPage /> },
       { path: "settings/place", element: <SettingsPlacesPage /> },
       { path: "settings/payment-methods", element: <SettingsPaymentMethodsPage /> },

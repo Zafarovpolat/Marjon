@@ -36,6 +36,15 @@ export const settingsService = Object.freeze({
   listBranches(config) {
     return config ? api.get("/companies/me/branches", config) : api.get("/companies/me/branches");
   },
+  // Сеть → филиалы. У каждого филиала свой логин+пароль для входа с десктопа
+  // (один веб-аккаунт владельца на всю сеть). Пароль отправляем только когда он
+  // задан (на редактировании пустой пароль = «не менять»).
+  createBranch(payload) {
+    return api.post("/companies/me/branches", payload);
+  },
+  updateBranch(id, payload) {
+    return api.patch(`/companies/me/branches/${id}`, payload);
+  },
   // Canonical Место (Hall) + Столы (Table) management. Halls are returned with
   // their active nested tables, so the Places page needs one authoritative list
   // request (no per-hall N+1). Deactivate maps to the backend soft-delete.
