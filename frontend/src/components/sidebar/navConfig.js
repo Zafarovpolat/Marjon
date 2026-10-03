@@ -120,7 +120,6 @@ export const navItems = [
       { key: "places", label: "Место", to: "/settings/places", icon: "bi-geo-alt" },
       { key: "payment-methods", label: "Способ оплаты", to: "/settings/payment-methods", icon: "bi-credit-card" },
       { key: "units", label: "Единица измерения", to: "/settings/units", icon: "bi-rulers" },
-      { key: "profile", label: "Настройка профиля", to: "/settings/profile", icon: "bi-person-gear" },
       { key: "printers", label: "Настройка принтеров", to: "/settings/printers", icon: "bi-printer" },
       { key: "receipt", label: "Настройка чека", to: "/settings/receipt", icon: "bi-receipt" },
       { key: "kitchen-receipt", label: "Настройка чека повара", to: "/settings/kitchen-receipt", icon: "bi-cup-hot" },

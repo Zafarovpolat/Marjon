@@ -146,10 +146,62 @@ describe("OWNER Sidebar", () => {
     renderSidebar(users.owner);
     await openAccountMenu();
 
+    // Popup: profile + support + store (real pages) + logout.
+    // Reviews shortcut stays removed; routes themselves are alive.
     expect(getLinkByHref("/settings/profile")).toBeInTheDocument();
     expect(getLinkByHref("/settings/support")).toBeInTheDocument();
     expect(getLinkByHref("/store")).toBeInTheDocument();
-    expect(getLinkByHref("/reviews")).toBeInTheDocument();
+    expect(getLinkByHref("/reviews")).not.toBeInTheDocument();
+    const menuLabels = [...document.querySelectorAll(".sidebar-account__menu .sidebar-account__item span")]
+      .map((el) => el.textContent);
+    expect(menuLabels).toEqual(["Настройка профиля", "Тех. поддержка", "Магазин", "Выйти"]);
+  });
+
+  it("renders the popup header with the lower-card avatar primitive and no arrow", async () => {
+    renderSidebar({ ...users.owner, name: "Анвар" });
+    await openAccountMenu();
+
+    const head = document.querySelector(".sidebar-account__head");
+    expect(head.querySelector(".sidebar-account__head-arrow")).not.toBeInTheDocument();
+    expect(head.querySelector("svg")).not.toBeInTheDocument();
+    const avatar = head.querySelector(".sidebar-user__avatar");
+    expect(avatar).toBeInTheDocument();
+    expect(avatar.querySelector("img.sidebar-user-logo")).toBeInTheDocument();
+    expect(head.querySelector(".sidebar-account__head-meta strong")).toHaveTextContent("Анвар");
+  });
+
+  it("keeps Настройка профиля out of Settings submenu but in user account menu", async () => {
+    renderSidebar(users.owner, "/settings/profile");
+    await openAccountMenu();
+
+    // Settings submenu / collapsed popover must not link to profile.
+    expect(document.querySelector('.sidebar-submenu a[href="/settings/profile"]')).not.toBeInTheDocument();
+    expect(document.querySelector('.sidebar-collapsed-popover a[href="/settings/profile"]')).not.toBeInTheDocument();
+
+    // User account popup must still link to the preserved route.
+    const accountProfileLink = document.querySelector('.sidebar-account__menu a[href="/settings/profile"]');
+    expect(accountProfileLink).toBeInTheDocument();
+    expect(accountProfileLink).toHaveTextContent("Настройка профиля");
+  });
+
+  it("shows the profile name first in the account head without a role-company subtitle", async () => {
+    renderSidebar({ ...users.owner, name: "Анвар" });
+    await openAccountMenu();
+
+    const head = document.querySelector(".sidebar-account__head-meta");
+    expect(head.querySelector("strong")).toHaveTextContent("Анвар");
+    expect(head.querySelector("span")).not.toBeInTheDocument();
+    expect(head.textContent).not.toContain("MARJON");
+    expect(head.textContent).not.toMatch(/owner\s*·/);
+  });
+
+  it("falls back to email in the account head when no profile name exists", async () => {
+    renderSidebar(users.owner);
+    await openAccountMenu();
+
+    const head = document.querySelector(".sidebar-account__head-meta");
+    expect(head.querySelector("strong")).toHaveTextContent("owner@marjon.test");
+    expect(head.querySelector("span")).not.toBeInTheDocument();
   });
 
   it("keeps profile and language panels mounted until their exit animations finish", async () => {

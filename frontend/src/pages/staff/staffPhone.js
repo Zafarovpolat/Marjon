@@ -22,6 +22,19 @@ export const phoneCountryMap = phoneCountries.reduce((acc, country) => {
 export const getPhoneFlag = (countryKey) =>
   `https://purecatamphetamine.github.io/country-flag-icons/3x2/${countryKey}.svg`;
 
+// Preload + decode every country flag ONCE at module load (same accepted
+// pattern as ReportEmptyState's PNG preload): the country menu renders 8
+// remote flag <img>s on first open, which otherwise fires a network burst
+// and paints rows progressively (visible jerk). Warm cache, zero behavior
+// change, Staff and Clients share the win (read-only import everywhere).
+if (typeof window !== "undefined" && typeof Image !== "undefined") {
+  for (const country of phoneCountries) {
+    const preload = new Image();
+    preload.src = getPhoneFlag(country.key);
+    if (typeof preload.decode === "function") preload.decode().catch(() => {});
+  }
+}
+
 export const inferPhoneCountry = (value = "") => {
   const digits = onlyDigits(value);
 

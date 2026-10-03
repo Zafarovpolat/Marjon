@@ -8,9 +8,7 @@ import OrdersPage from "./pages/OrdersPage";
 import MenuPage from "./pages/MenuPage";
 import StaffPage from "./pages/StaffPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
-import FinanceTransactionsPage from "./pages/FinanceTransactionsPage";
-import FinanceIncomeCategoriesPage from "./pages/FinanceIncomeCategoriesPage";
-import FinanceExpenseCategoriesPage from "./pages/FinanceExpenseCategoriesPage";
+import SettingsPlaceholderPage from "./pages/settings/SettingsPlaceholderPage";
 import OrdersReportPage from "./pages/OrdersReportPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import SectionPage from "./pages/SectionPage";
@@ -129,11 +127,11 @@ export function createAppRouter() {
       { path: "settings/chef-receipt", element: <SettingsKitchenReceiptPage /> },
       { path: "settings/support", element: <SectionPage eyebrow="Настройки" title="Тех. поддержка" description="Обращения, диагностика и связь с поддержкой Marjon." items={[{ title: "Заявка", text: "Создайте обращение по проблеме или вопросу.", icon: "bi-life-preserver" }, { title: "Диагностика", text: "Проверка соединения, устройств и синхронизации.", icon: "bi-activity" }, { title: "Контакты", text: "Каналы связи и история обращений.", icon: "bi-chat-dots" }]} /> },
       { path: "finance", element: <Navigate to="/finance/transactions" replace /> },
-      { path: "finance/transactions", element: <FinanceTransactionsPage /> },
-      { path: "finance/operations", element: <FinanceTransactionsPage /> },
-      { path: "finance/income-categories", element: <FinanceIncomeCategoriesPage /> },
-      { path: "finance/expense-categories", element: <FinanceExpenseCategoriesPage /> },
-      { path: "finance/debtors-creditors", element: <DebtorsCreditorsReportPage /> },
+      { path: "finance/transactions", element: <SettingsPlaceholderPage title="Денежные операции" description="Приходы, расходы и движения" icon="bi-cash-stack" /> },
+      { path: "finance/operations", element: <SettingsPlaceholderPage title="Денежные операции" description="Приходы, расходы и движения" icon="bi-cash-stack" /> },
+      { path: "finance/income-categories", element: <SettingsPlaceholderPage title="Категория приходов" description="Справочник входящих средств" icon="bi-arrow-down-left-circle" /> },
+      { path: "finance/expense-categories", element: <SettingsPlaceholderPage title="Категория расходов" description="Справочник затрат" icon="bi-arrow-up-right-circle" /> },
+      { path: "finance/debtors-creditors", element: <SettingsPlaceholderPage title="Дебиторы и кредиторы" description="Задолженности и платежи" icon="bi-wallet2" /> },
       { path: "nomenclature", element: <Navigate to="/nomenclature/dishes" replace /> },
       { path: "nomenclature/dishes", element: <NomenclaturePage type="dishes" /> },
       { path: "nomenclature/menu", element: <MenuPage /> },

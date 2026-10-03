@@ -1,13 +1,42 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { exchangeRatesService } from "../../api/exchangeRates";
+import kgFlag from "../../assets/flags/kg.svg";
+import kzFlag from "../../assets/flags/kz.svg";
+import ruFlag from "../../assets/flags/ru.svg";
+import usFlag from "../../assets/flags/us.svg";
+import uzFlag from "../../assets/flags/uz.svg";
 import Icon from "../Icon";
 import { formatMoneyInput, parseMoneyInput } from "./currencyFormat";
+
+const RATE_POPOVER_EXIT_MS = 180;
+const SWAP_VALUE_ANIMATION_MS = 180;
+const SWAP_VALUE_HALF_MS = SWAP_VALUE_ANIMATION_MS / 2;
+const CURRENCY_FLAG_BY_CODE = {
+  USD: usFlag,
+  RUB: ruFlag,
+  KZT: kzFlag,
+  KGS: kgFlag,
+  UZS: uzFlag,
+};
+const CURRENCY_COUNTRY_BY_CODE = {
+  USD: "US",
+  RUB: "RU",
+  KZT: "KZ",
+  KGS: "KG",
+  UZS: "UZ",
+};
 
 // Виджет курсов валют ЦБ Узбекистана + конвертер (Topbar OWNER).
 // Вынесено из Topbar.jsx (FE-07B): владеет собственным состоянием и загрузкой
 // курсов через exchangeRatesService (FE-05). AbortController сохранён (FE-06).
 export default function TopbarRateWidget() {
   const rateWidgetRef = useRef(null);
+  const rateTriggerRef = useRef(null);
+  const closeTimerRef = useRef(null);
+  const restoreFocusRef = useRef(false);
+  const swapTimerRef = useRef(null);
+  const swapEndTimerRef = useRef(null);
+  const swapAnimatingRef = useRef(false);
   const [usdRate, setUsdRate] = useState(null);
   const [rubRate, setRubRate] = useState(null);
   const [kztRate, setKztRate] = useState(null);
@@ -18,8 +47,10 @@ export default function TopbarRateWidget() {
     : activeCurrency === "KZT" ? kztRate
     : kgsRate;
   const [rateOpen, setRateOpen] = useState(false);
+  const [rateClosing, setRateClosing] = useState(false);
   const [usdAmount, setUsdAmount] = useState("1");
   const [converterDirection, setConverterDirection] = useState("usd-to-uzs");
+  const [swapPhase, setSwapPhase] = useState("idle");
   const [widgetError, setWidgetError] = useState(false);
 
   const convertedAmount = useMemo(() => {
@@ -40,9 +71,66 @@ export default function TopbarRateWidget() {
     ? `${activeCurrency} → UZS` : `UZS → ${activeCurrency}`;
 
   function toggleConverterDirection() {
-    setUsdAmount(convertedAmount || "1");
-    setConverterDirection((current) => (current === "usd-to-uzs" ? "uzs-to-usd" : "usd-to-uzs"));
+    if (swapAnimatingRef.current) return;
+
+    const nextAmount = convertedAmount || "1";
+    const applySwap = () => {
+      setUsdAmount(nextAmount);
+      setConverterDirection((current) => (current === "usd-to-uzs" ? "uzs-to-usd" : "usd-to-uzs"));
+    };
+
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      applySwap();
+      return;
+    }
+
+    swapAnimatingRef.current = true;
+    setSwapPhase("out");
+    swapTimerRef.current = window.setTimeout(() => {
+      applySwap();
+      setSwapPhase("in");
+      swapTimerRef.current = null;
+      swapEndTimerRef.current = window.setTimeout(() => {
+        setSwapPhase("idle");
+        swapAnimatingRef.current = false;
+        swapEndTimerRef.current = null;
+      }, SWAP_VALUE_HALF_MS);
+    }, SWAP_VALUE_HALF_MS);
   }
+
+  const finishRateClose = useCallback(() => {
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setRateOpen(false);
+    setRateClosing(false);
+    if (restoreFocusRef.current) {
+      restoreFocusRef.current = false;
+      rateTriggerRef.current?.focus();
+    }
+  }, []);
+
+  const openRate = useCallback(() => {
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    restoreFocusRef.current = false;
+    setRateClosing(false);
+    setRateOpen(true);
+  }, []);
+
+  const closeRate = useCallback((restoreFocus = false) => {
+    if (!rateOpen || rateClosing) return;
+    restoreFocusRef.current = restoreFocus;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      finishRateClose();
+      return;
+    }
+    setRateClosing(true);
+    closeTimerRef.current = window.setTimeout(finishRateClose, RATE_POPOVER_EXIT_MS + 40);
+  }, [finishRateClose, rateClosing, rateOpen]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -73,19 +161,44 @@ export default function TopbarRateWidget() {
   }, []);
 
   useEffect(() => {
+    if (!rateOpen || rateClosing) return undefined;
+
     function handleClickOutside(event) {
       if (!rateWidgetRef.current?.contains(event.target)) {
-        setRateOpen(false);
+        closeRate(false);
       }
     }
 
+    function handleKeyDown(event) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      closeRate(true);
+    }
+
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [closeRate, rateClosing, rateOpen]);
+
+  useEffect(() => () => {
+    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    if (swapTimerRef.current) window.clearTimeout(swapTimerRef.current);
+    if (swapEndTimerRef.current) window.clearTimeout(swapEndTimerRef.current);
   }, []);
 
   return (
     <div className="topbar-info-widgets" aria-label="Информационные виджеты" ref={rateWidgetRef}>
-      <button className={`topbar-info-widget topbar-info-widget--rate ${rateOpen ? "is-open" : ""}`} type="button" onClick={() => setRateOpen((value) => !value)} aria-expanded={rateOpen} aria-haspopup="dialog">
+      <button
+        ref={rateTriggerRef}
+        className={`topbar-info-widget topbar-info-widget--rate ${rateOpen && !rateClosing ? "is-open" : ""}`}
+        type="button"
+        onClick={() => (rateOpen ? closeRate(true) : openRate())}
+        aria-expanded={rateOpen && !rateClosing}
+        aria-haspopup="dialog"
+      >
         <span className="topbar-info-widget__icon">
           <Icon name="bi-currency-exchange" size={17} />
         </span>
@@ -99,23 +212,31 @@ export default function TopbarRateWidget() {
           : null}
       </button>
       {rateOpen ? (
-        <div className="usd-rate-popover" role="dialog" aria-label="Курсы валют">
+        <div
+          className={`usd-rate-popover ${rateClosing ? "is-closing" : "is-opening"}`}
+          role="dialog"
+          aria-label="Курсы валют"
+          aria-hidden={rateClosing || undefined}
+          onAnimationEnd={(event) => {
+            if (rateClosing && event.target === event.currentTarget) finishRateClose();
+          }}
+        >
           <div className="usd-rate-popover__head">
             <div>
               <span>Официальный курс ЦБ Узбекистана</span>
               <strong>Курсы валют</strong>
             </div>
-            <button type="button" aria-label="Закрыть" onClick={() => setRateOpen(false)}>
+            <button type="button" aria-label="Закрыть" onClick={() => closeRate(true)}>
               <Icon name="bi-x-lg" size={18} />
             </button>
           </div>
 
           <div className="currency-rate-cards">
             {[
-              { code: "USD", flag: "🇺🇸", label: "Доллар США",         rate: usdRate, decimals: 0 },
-              { code: "RUB", flag: "🇷🇺", label: "Российский рубль",    rate: rubRate, decimals: 1 },
-              { code: "KZT", flag: "🇰🇿", label: "Казахстанский тенге", rate: kztRate, decimals: 1 },
-              { code: "KGS", flag: "🇰🇬", label: "Киргизский сом",      rate: kgsRate, decimals: 0 },
+              { code: "USD", flag: CURRENCY_FLAG_BY_CODE.USD, label: "Доллар США",         rate: usdRate, decimals: 0 },
+              { code: "RUB", flag: CURRENCY_FLAG_BY_CODE.RUB, label: "Российский рубль",    rate: rubRate, decimals: 1 },
+              { code: "KZT", flag: CURRENCY_FLAG_BY_CODE.KZT, label: "Казахстанский тенге", rate: kztRate, decimals: 1 },
+              { code: "KGS", flag: CURRENCY_FLAG_BY_CODE.KGS, label: "Киргизский сом",      rate: kgsRate, decimals: 0 },
             ].map(({ code, flag, label, rate, decimals }) => (
               <button
                 key={code}
@@ -123,7 +244,16 @@ export default function TopbarRateWidget() {
                 className={`currency-rate-card ${activeCurrency === code ? "is-active" : ""}`}
                 onClick={() => { setActiveCurrency(code); setUsdAmount("1"); setConverterDirection("usd-to-uzs"); }}
               >
-                <span className="currency-rate-card__code">{code}</span>
+                <span className="currency-rate-card__code">
+                  <img
+                    className="currency-rate-card__flag"
+                    src={flag}
+                    alt=""
+                    aria-hidden="true"
+                    data-country={CURRENCY_COUNTRY_BY_CODE[code]}
+                  />
+                  {code}
+                </span>
                 <strong className="currency-rate-card__rate">
                   {rate
                     ? rate.toLocaleString("ru-RU", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
@@ -135,7 +265,13 @@ export default function TopbarRateWidget() {
           </div>
 
           <div className="usd-rate-popover__meta">
-            <button className="usd-rate-direction-toggle" type="button" onClick={toggleConverterDirection} aria-label="Поменять направление">
+            <button
+              className="usd-rate-direction-toggle"
+              type="button"
+              onClick={toggleConverterDirection}
+              aria-label="Поменять направление"
+              aria-disabled={swapPhase !== "idle"}
+            >
               <span>{converterDirectionLabel}</span>
               <Icon name="bi-arrow-left-right" size={16} />
             </button>
@@ -144,23 +280,47 @@ export default function TopbarRateWidget() {
           <div className="usd-converter">
             <label>
               <input
+                className={`usd-converter__value usd-converter__value--source ${swapPhase === "idle" ? "" : `is-swapping-${swapPhase}`}`}
                 value={usdAmount}
                 inputMode={converterSource.inputMode}
                 onChange={(event) => setUsdAmount(formatMoneyInput(event.target.value, converterDirection === "usd-to-uzs"))}
               />
-              <span>{converterSource.label}</span>
+              <span className="usd-converter__currency">
+                {converterSource.label}
+                <img
+                  className="usd-converter__flag"
+                  src={CURRENCY_FLAG_BY_CODE[converterSource.label]}
+                  alt=""
+                  aria-hidden="true"
+                  data-country={CURRENCY_COUNTRY_BY_CODE[converterSource.label]}
+                />
+              </span>
             </label>
             <label>
-              <input value={convertedAmount} inputMode={converterTarget.inputMode} onChange={(event) => {
-                const value = parseMoneyInput(event.target.value);
-                if (!activeRate) { setUsdAmount("0"); return; }
-                if (converterDirection === "uzs-to-usd") {
-                  setUsdAmount(formatMoneyInput(String(Math.round(value * activeRate))));
-                  return;
-                }
-                setUsdAmount(formatMoneyInput(String((value / activeRate).toFixed(2)).replace(".", ","), true));
-              }} />
-              <span>{converterTarget.label}</span>
+              <input
+                className={`usd-converter__value usd-converter__value--target ${swapPhase === "idle" ? "" : `is-swapping-${swapPhase}`}`}
+                value={convertedAmount}
+                inputMode={converterTarget.inputMode}
+                onChange={(event) => {
+                  const value = parseMoneyInput(event.target.value);
+                  if (!activeRate) { setUsdAmount("0"); return; }
+                  if (converterDirection === "uzs-to-usd") {
+                    setUsdAmount(formatMoneyInput(String(Math.round(value * activeRate))));
+                    return;
+                  }
+                  setUsdAmount(formatMoneyInput(String((value / activeRate).toFixed(2)).replace(".", ","), true));
+                }}
+              />
+              <span className="usd-converter__currency">
+                {converterTarget.label}
+                <img
+                  className="usd-converter__flag"
+                  src={CURRENCY_FLAG_BY_CODE[converterTarget.label]}
+                  alt=""
+                  aria-hidden="true"
+                  data-country={CURRENCY_COUNTRY_BY_CODE[converterTarget.label]}
+                />
+              </span>
             </label>
           </div>
         </div>

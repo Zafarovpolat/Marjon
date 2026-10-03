@@ -1,4 +1,6 @@
-import SettingsResourcePage, { STATUS_ACTIVE, STATUS_PENDING } from "./SettingsResourcePage";
+import SettingsResourcePage from "./SettingsResourcePage";
+import { CounterpartyStatementView } from "./clients/CounterpartyHistory";
+import { formatPhoneDisplay, formatTablePhone, normalizePhoneForPayload, parsePhoneInput } from "./clients/phone";
 
 const tabs = [
   { key: "clients", label: "Клиенты" },
@@ -7,62 +9,86 @@ const tabs = [
   { key: "other", label: "Другие" },
 ];
 
-const rows = [
-  ["clients", "abduraxim", "998949849846", STATUS_PENDING],
-  ["clients", "Sardorga", "000158893965", STATUS_PENDING],
-  ["clients", "XIYNOVI", "998999977845", STATUS_PENDING],
-  ["clients", "Xowim", "998776565465", STATUS_PENDING],
-  ["clients", "Zafar", "998999898526", STATUS_PENDING],
-  ["suppliers", "Bozor", "998901112233", STATUS_ACTIVE],
-  ["suppliers", "Fresh Meat", "998902223344", STATUS_ACTIVE],
-  ["suppliers", "Green Market", "998903334455", STATUS_ACTIVE],
-  ["staff", "SARDORKASSA", "998770702103", STATUS_ACTIVE],
-  ["staff", "САБИНА", "998770712101", STATUS_ACTIVE],
-  ["other", "Контрагент 1", "998909999999", STATUS_ACTIVE],
-].map(([type, name, phone, status], index) => ({ id: index + 1, type, name, phone, status, comment: "" }));
-
 export const apiMapRow = (item) => ({
   id: item.id,
   type: ({ client: "clients", supplier: "suppliers", employee: "staff" })[item.type] || item.type || "other",
   name: item.name || item.full_name || "",
   phone: item.phone || "",
+  balance: item.balance ?? null,
+  // STATUS INTEGRATION POINT: the backend sends no status today, so the
+  // table stays truthfully neutral. When a canonical status field exists,
+  // map it here (and only from real response data — never from form state).
   status: "—",
 });
 
 export const apiMapFormToPayload = (form) => {
-  const fullName = form.name.trim();
+  const fullName = String(form.name || "").trim();
   if (!fullName) return null;
+  // STATUS INTEGRATION POINT: form.status is local-only display state while
+  // STATUS_BACKEND_SUPPORTED = NO. It is deliberately EXCLUDED from this
+  // allowlist — add it here only when the backend accepts a canonical field.
   return {
     full_name: fullName,
-    phone: form.phone.trim() || null,
+    phone: normalizePhoneForPayload(form.phone),
     type: ({ clients: "client", suppliers: "supplier", staff: "employee" })[form.type] || form.type,
   };
+};
+
+const TYPE_NOUNS = {
+  clients: "клиента",
+  suppliers: "поставщика",
+  staff: "сотрудника",
+  other: "контрагента",
+};
+
+const titleFor = (form) => {
+  const noun = TYPE_NOUNS[form?.type] || "контрагента";
+  return noun;
 };
 
 function SettingsClientsPage() {
   return (
     <SettingsResourcePage
       title="Клиенты"
+      eyebrow="Настройки"
+      addTitle={(form) => `Добавить ${titleFor(form)}`}
+      editTitle={(form) => `Редактировать ${titleFor(form)}`}
       tabs={tabs}
-      initialRows={rows}
       resourceKey="clients"
+      staffVariant
       apiMapRow={apiMapRow}
       apiMapFormToPayload={apiMapFormToPayload}
       transactionHistory
       statementHistory
-      compactHeader
+      usePortal
+      centeredModal
+      hideTypeField
+      renderStatementView={(row, onBack) => <CounterpartyStatementView row={row} onBack={onBack} />}
+      requireDeleteConfirm
+      deleteConfirmText="Удалить контрагента?"
+      searchPlaceholder="Поиск"
+      emptyText="Список пуст"
+      formatPhoneDisplay={formatPhoneDisplay}
+      parsePhoneInput={parsePhoneInput}
       pageClassName="clients-directory-page"
-      actionsLabel=""
+      actionsLabel="Действия"
       columns={[
         { key: "name", label: "ФИО" },
-        { key: "phone", label: "Номер телефона" },
+        // Display-only UZ mask (+998 (XX) XXX-XX-XX); raw canonical value
+        // stays untouched for search, edit, and payloads.
+        { key: "phone", label: "Номер телефона", format: (value) => formatTablePhone(value) },
         { key: "status", label: "Статус" },
         { key: "history", label: "История транзакций" },
       ]}
       formFields={[
         { key: "type", label: "Тип контрагента", type: "select", options: tabs.map((tab) => ({ value: tab.key, label: tab.label })) },
         { key: "name", label: "ФИО / название" },
-        { key: "phone", label: "Номер телефона" },
+        { key: "phone", label: "Номер телефона", type: "phone" },
+        // Local-only visual parity (backend has no status field): order in
+        // the modal is name → phone → status → footer. The `status` key is
+        // the future canonical name; the mapper deliberately excludes it
+        // until the backend supports it. Never persisted.
+        { key: "status", label: "Статус", type: "status", defaultValue: "active" },
       ]}
     />
   );

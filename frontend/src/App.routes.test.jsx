@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
@@ -30,10 +30,14 @@ vi.mock("./api/client", () => ({
   formatNumber: (value) => String(Number(value || 0)),
 }));
 
-vi.mock("./api/receipt", () => ({
-  printKitchenReceipt: vi.fn(),
-  printOrderReceipt: vi.fn(),
-}));
+vi.mock("./api/receipt", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    printKitchenReceipt: vi.fn(),
+    printOrderReceipt: vi.fn(),
+  };
+});
 
 const appUser = (role, id = role) => ({
   id,
@@ -105,6 +109,24 @@ describe("Web Launch V1 route surfaces", () => {
 
     await waitForPath("/settings/support");
     await waitFor(() => expect(document.querySelector(".dashboard-shell")).toBeInTheDocument());
+  });
+
+  it("renders finance subcategories as placeholders without finance tables", async () => {
+    mockAuthenticatedUser(users.owner);
+    for (const [path, title] of [
+      ["/finance/transactions", "Денежные операции"],
+      ["/finance/income-categories", "Категория приходов"],
+      ["/finance/expense-categories", "Категория расходов"],
+      ["/finance/debtors-creditors", "Дебиторы и кредиторы"],
+    ]) {
+      renderAt(path);
+      await waitForPath(path);
+      await screen.findByText("Скоро, эта категория дорабатывается");
+      expect(document.querySelector(".settings-page .settings-card")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
+      cleanup();
+    }
+    expect(document.querySelector(".settings-table")).not.toBeInTheDocument();
   });
 
   it.each([

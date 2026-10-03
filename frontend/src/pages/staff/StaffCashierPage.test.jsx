@@ -768,14 +768,16 @@ describe("cashier drawer ux: footer, animation, phone, permissions", () => {
       `${process.cwd()}/src/styles/owner/staff-users.css`,
       "utf8",
     );
+    // CLIENTS-V11: the Staff split-phone rules also scope the Clients modal
+    // (grouped selector, same declarations) — the oracle tolerates the group.
     const box = css.match(
-      /\.staff-form--cashier \.staff-phone-field--split \{[^}]*\}/,
+      /\.staff-form--cashier \.staff-phone-field--split[,\s][^}]*\}/,
     );
     expect(box).not.toBeNull();
     expect(box[0]).toContain("display: flex");
     expect(box[0]).toContain("border: 1px solid var(--blue-100)");
     const input = css.match(
-      /\.staff-form--cashier \.staff-phone-field--split input \{[^}]*\}/,
+      /\.staff-form--cashier \.staff-phone-field--split input[,\s][^}]*\}/,
     );
     expect(input).not.toBeNull();
     expect(input[0]).toContain("border: 0");
@@ -787,7 +789,7 @@ describe("cashier drawer ux: footer, animation, phone, permissions", () => {
       "utf8",
     );
     const pill = css.match(
-      /\.staff-form--cashier \.staff-phone-country--pill \{[^}]*\}/,
+      /\.staff-form--cashier \.staff-phone-country--pill[,\s][^}]*\}/,
     );
     expect(pill).not.toBeNull();
     expect(pill[0]).toContain("position: static");

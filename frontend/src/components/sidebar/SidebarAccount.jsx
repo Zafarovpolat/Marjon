@@ -21,7 +21,6 @@ export default function SidebarAccount({
   canOpenProfile,
   canOpenSupport,
   canOpenStore,
-  canOpenReviews,
   lang,
   langPanelOpen,
   setLangPanelOpen,
@@ -77,14 +76,12 @@ export default function SidebarAccount({
           onMouseLeave={closeCollapsedAccount}
         >
           <div className="sidebar-account__head">
-            <div className="sidebar-account__head-avatar">
-              <img src={profilePhoto} alt={displayName} decoding="async" />
+            <div className={`sidebar-user__avatar ${storedProfile.photo ? "sidebar-user__avatar--photo" : ""}`}>
+              <img src={profilePhoto} alt={displayName} className="sidebar-user-logo" decoding="async" />
             </div>
             <div className="sidebar-account__head-meta">
               <strong>{displayName}</strong>
-              <span>{role} · {user?.company_name || "MARJON"}</span>
             </div>
-            <Icon name="bi-chevron-up" size={16} className="sidebar-account__head-arrow" />
           </div>
           {canOpenProfile ? (
             <Link className="sidebar-account__item" to="/settings/profile" role="menuitem" onClick={() => closeAccountAndSelectMenu("settings")}>
@@ -150,12 +147,6 @@ export default function SidebarAccount({
             <Link className="sidebar-account__item" to="/store" role="menuitem" onClick={() => closeAccountAndSelectMenu("")}>
               <Icon name="bi-shop" size={16} />
               <span>Магазин</span>
-            </Link>
-          ) : null}
-          {canOpenReviews ? (
-            <Link className="sidebar-account__item" to="/reviews" role="menuitem" onClick={() => closeAccountAndSelectMenu("")}>
-              <Icon name="bi-chat-left" size={16} />
-              <span>Отзывы</span>
             </Link>
           ) : null}
 

@@ -1,0 +1,38 @@
+/* Временная заглушка подкатегорий настроек (финансы и аналогичные).
+   Shell повторяет settings-owner-view («Способ оплаты»); ниже — только
+   локальная центровка иконки и текста. Фиксированный размер иконки =
+   никакого сдвига layout при показе. */
+
+.settings-placeholder-body {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 18px;
+  min-height: clamp(320px, 52vh, 520px);
+  padding: 48px 20px 56px;
+  text-align: center;
+}
+
+.settings-placeholder-icon {
+  display: grid;
+  place-items: center;
+  width: 104px;
+  height: 104px;
+  border-radius: 28px;
+  color: #1db5b5;
+  background: rgba(29, 181, 181, 0.1);
+}
+
+.settings-placeholder-title {
+  margin: 0;
+  color: var(--neutral-900, #0b1f3f);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .settings-placeholder-body {
+    min-height: 300px;
+    padding: 36px 16px 44px;
+  }
+}

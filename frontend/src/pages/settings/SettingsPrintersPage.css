@@ -1,0 +1,103 @@
+/* Settings → Настройка принтеров — scoped presentation only.
+   Mirrors the accepted Payment Methods template (same OWNER accent, compact
+   empty panel, natural table grid, dot+text status, centered modal shell).
+   Simplified V2: 5-column table, 3-field modal. Self-contained (imported by
+   SettingsPrintersPage.jsx); edits no shared settings.css / reports.css,
+   so Clients/Payment Methods/Places/Units are unaffected. */
+
+/* ── Primary accent: exact OWNER #1FC9C9 (same family as the Payment
+    Methods Add/Save pin). The shared foundation paints CTAs with
+    --color-brand (=#1db5b5); both the header Add button and the modal Save
+    are pinned to the accent. */
+.printers-page.settings-owner-view .settings-actions button,
+.printers-modal-layer.settings-owner-view .settings-form__footer button[type="submit"] {
+  border: 1px solid #1fc9c9;
+  background: #1fc9c9;
+  color: #fff;
+  box-shadow: none;
+}
+.printers-page.settings-owner-view .settings-actions button:hover,
+.printers-page.settings-owner-view .settings-actions button:focus-visible,
+.printers-modal-layer.settings-owner-view .settings-form__footer button[type="submit"]:hover,
+.printers-modal-layer.settings-owner-view .settings-form__footer button[type="submit"]:focus-visible {
+  border-color: #17b1b1;
+  background: #17b1b1;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(31, 201, 201, 0.18);
+}
+
+/* ── Compact empty state (PNG + title only), keeping the Reports illustration
+   size but a tidy, not-too-tall white panel. Scoped so Reports/Staff/Places
+   are untouched. */
+.printers-page .settings-card {
+  min-height: 0;
+}
+.printers-page .owner-report-empty--illustrated {
+  min-height: 0;
+  padding: 18px 20px 22px;
+  transform: none;
+}
+
+/* ── Table grid: natural auto layout like the Staff template, so columns
+   size to their content instead of a rigid fixed grid. Simplified V2 keeps
+   exactly № / Название / IP адрес / Статус / Действия. */
+.printers-page .settings-table {
+  min-width: 640px;
+}
+/* Status column is centered (header + body values); Действия pins content
+   to the right edge. Scoped to this page only. */
+.printers-page .settings-table th:nth-child(4),
+.printers-page .settings-table td:nth-child(4) {
+  text-align: center;
+}
+.printers-page .settings-table th:nth-child(5),
+.printers-page .settings-table td:nth-child(5) {
+  text-align: right;
+}
+.printers-page .settings-table td:nth-child(5) .settings-row-actions {
+  justify-content: flex-end;
+}
+.printers-page .settings-table th,
+.printers-page .settings-table td {
+  padding-left: 16px;
+  padding-right: 16px;
+  vertical-align: middle;
+}
+
+/* ── Status = coloured dot + text (Payment Methods reference), not a pill.
+   Scoped under .settings-table to win over the base pill badge without
+   !important. Labels are the backend truth: Активен / Не активен. */
+.printers-page .settings-table .settings-status-badge {
+  gap: 7px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-weight: 500;
+}
+.printers-page .settings-table .settings-status-badge.is-active { color: #00dc3b; }
+.printers-page .settings-table .settings-status-badge.is-inactive { color: #ef4444; }
+
+/* ── Create/edit modal sizing (portaled under .printers-modal-layer):
+   Payment Methods geometry, content-driven height from the shared shell.
+   The 3-field form stacks full-width rows; no grid needed. */
+.printers-modal-layer.settings-owner-view .settings-modal {
+  width: min(520px, 100%);
+}
+
+/* -- Staff-family empty table: the header stays visible and the empty body
+    keeps the PNG/title inside the table shell (no blank-card state). Scoped
+    to this page; populated hover untouched. */
+.printers-page tbody tr.pp-empty-row:hover {
+  background: #fff;
+}
+.printers-page td.pp-empty-cell {
+  padding: 28px 16px;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .printers-page .settings-actions button {
+    width: 100%;
+  }
+}

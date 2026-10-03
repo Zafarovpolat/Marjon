@@ -53,4 +53,26 @@ describe("OWNER sidebar navigation order", () => {
       "/users/attendance",
     ]);
   });
+
+  it("keeps Настройка профиля out of the Settings submenu (available from user menu only)", () => {
+    expect(childLabels("settings")).toEqual([
+      "Клиенты",
+      "Место",
+      "Способ оплаты",
+      "Единица измерения",
+      "Настройка принтеров",
+      "Настройка чека",
+      "Настройка чека повара",
+    ]);
+    expect(childPaths("settings")).toEqual([
+      "/settings/clients",
+      "/settings/places",
+      "/settings/payment-methods",
+      "/settings/units",
+      "/settings/printers",
+      "/settings/receipt",
+      "/settings/kitchen-receipt",
+    ]);
+    expect(childPaths("settings")).not.toContain("/settings/profile");
+  });
 });

@@ -652,6 +652,23 @@
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
 
+.currency-rate-card__code {
+  position: relative;
+  padding-left: 22px;
+}
+
+.currency-rate-card__flag {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 18px;
+  height: 12px;
+  margin: 0;
+  border-radius: 2px;
+  object-fit: cover;
+  transform: translateY(-50%);
+}
+
 .currency-rate-card:not(.is-active):hover {
   border-color: rgba(29, 181, 181, 0.34);
   background: rgba(29, 181, 181, 0.045);
@@ -686,5 +703,114 @@
 }
 
 .usd-converter label {
-  grid-template-columns: minmax(0, 1fr) 60px;
+  grid-template-columns: minmax(0, 1fr) 78px;
+}
+
+.usd-converter__currency {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.usd-converter__flag {
+  display: block;
+  width: 16px;
+  height: 11px;
+  flex: 0 0 auto;
+  border-radius: 2px;
+  object-fit: cover;
+}
+
+.usd-converter__value--source.is-swapping-out {
+  animation: owner-currency-value-source-out 90ms ease-in both;
+}
+
+.usd-converter__value--target.is-swapping-out {
+  animation: owner-currency-value-target-out 90ms ease-in both;
+}
+
+.usd-converter__value--source.is-swapping-in {
+  animation: owner-currency-value-source-in 90ms ease-out both;
+}
+
+.usd-converter__value--target.is-swapping-in {
+  animation: owner-currency-value-target-in 90ms ease-out both;
+}
+
+@keyframes owner-currency-value-source-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(4px); }
+}
+
+@keyframes owner-currency-value-target-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-4px); }
+}
+
+@keyframes owner-currency-value-source-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes owner-currency-value-target-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Currency popup motion only. Static dimensions, placement and appearance stay
+   owned by the existing baseline rules. */
+.dashboard-topbar .usd-rate-popover.is-opening {
+  transform-origin: top center;
+  animation: owner-currency-popover-enter 180ms cubic-bezier(0.22, 0.72, 0.24, 1) both;
+}
+
+.dashboard-topbar .usd-rate-popover.is-closing {
+  pointer-events: none;
+  transform-origin: top center;
+  animation: owner-currency-popover-exit 180ms cubic-bezier(0.4, 0, 0.6, 1) both;
+}
+
+@keyframes owner-currency-popover-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-5px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+@keyframes owner-currency-popover-exit {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-5px) scale(0.985);
+  }
+}
+
+@keyframes owner-currency-popover-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .usd-converter__value.is-swapping-out,
+  .usd-converter__value.is-swapping-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .dashboard-topbar .usd-rate-popover.is-opening {
+    animation: owner-currency-popover-fade-in 1ms linear both;
+  }
+
+  .dashboard-topbar .usd-rate-popover.is-closing {
+    animation: none;
+  }
 }
