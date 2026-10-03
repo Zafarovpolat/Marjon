@@ -277,7 +277,9 @@ export default function ReportDateRangePicker({
   const effectiveShowTime = canonical || showTime;
   const effectiveShowDropdownIcon = canonical ? false : showDropdownIcon;
   const effectivePresets = canonical ? canonicalDatePresets : presets;
-  const effectiveFormatButtonLabel = canonical ? formatCanonicalReportPeriodLabel : formatButtonLabel;
+  const effectiveFormatButtonLabel = canonical
+    ? (formatButtonLabel || formatCanonicalReportPeriodLabel)
+    : formatButtonLabel;
   const effectiveBlockPageScrollOnWheel = canonical || blockPageScrollOnWheel;
   const effectiveTrailingIconName = canonical ? "bi-calendar3" : trailingIconName;
   const effectiveTrailingIconSize = canonical ? 16 : trailingIconSize;
@@ -676,7 +678,7 @@ export default function ReportDateRangePicker({
   );
 
   const picker = (
-    <div className="report-period-picker" ref={rootRef}>
+    <div className={`report-period-picker${animateExit ? " report-period-picker--animated" : ""}`} ref={rootRef}>
       <button
         ref={buttonRef}
         className={buttonClasses}

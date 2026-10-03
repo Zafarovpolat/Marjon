@@ -1,5 +1,3 @@
-import { useState } from "react";
-import { clampToToday, todayInputValue } from "../utils/date";
 import BackButton from "./BackButton";
 import DatePicker from "./DatePicker";
 import TopbarRateWidget from "./topbar/TopbarRateWidget";
@@ -13,9 +11,7 @@ import { useTopbarBalance } from "./topbar/useTopbarBalance";
 // данных идёт через сервисный слой (FE-05), безопасность запросов сохранена (FE-06).
 export default function Topbar({
   selectedDate,
-  onSelectedDateChange,
 }) {
-  const [today] = useState(() => todayInputValue());
   const balance = useTopbarBalance();
 
   return (
@@ -28,8 +24,7 @@ export default function Topbar({
           <span className="topbar-date-slot">
             <DatePicker
               value={selectedDate}
-              max={today}
-              onChange={(value) => onSelectedDateChange(clampToToday(value))}
+              readOnly
             />
           </span>
         </div>
@@ -46,22 +41,32 @@ export default function Topbar({
       </header>
       <TopbarPaymentModal
         paymentOpen={balance.paymentOpen}
-        setPaymentOpen={balance.setPaymentOpen}
+        returnFocusRef={balance.paymentTriggerRef}
         paymentStep={balance.paymentStep}
         paymentMethod={balance.paymentMethod}
         setPaymentMethod={balance.setPaymentMethod}
+        openPaymentWindow={balance.openPaymentWindow}
+        openConfirmation={balance.openConfirmation}
+        backToPaymentMethods={balance.backToPaymentMethods}
+        backToCardDetails={balance.backToCardDetails}
         closePayment={balance.closePayment}
         cardAmount={balance.cardAmount}
         setCardAmount={balance.setCardAmount}
-        formatAmountInput={balance.formatAmountInput}
+        sanitizeAmountInput={balance.sanitizeAmountInput}
+        formatAmountDisplay={balance.formatAmountDisplay}
         cardNumber={balance.cardNumber}
         setCardNumber={balance.setCardNumber}
-        maskCardNumber={balance.maskCardNumber}
+        sanitizeCardNumberInput={balance.sanitizeCardNumberInput}
+        formatCardNumberDisplay={balance.formatCardNumberDisplay}
         cardExpiry={balance.cardExpiry}
         setCardExpiry={balance.setCardExpiry}
-        maskExpiry={balance.maskExpiry}
+        sanitizeExpiryInput={balance.sanitizeExpiryInput}
+        formatExpiryDisplay={balance.formatExpiryDisplay}
         offerAccepted={balance.offerAccepted}
         setOfferAccepted={balance.setOfferAccepted}
+        amountLeadingZero={balance.amountLeadingZero}
+        cardNumberValid={balance.cardNumberValid}
+        expiryInvalid={balance.expiryInvalid}
         cardValid={balance.cardValid}
       />
     </>

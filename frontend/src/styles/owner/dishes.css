@@ -170,43 +170,24 @@
       color: var(--neutral-600);
   }
 
+  /* Shell таблицы — примитив settings-table из foundation (вид, отступы,
+     типографика, hover). Ниже остаются только dish-структура и виджеты ячеек. */
   .dish-grid-wrap {
       overflow-x: auto;
-      border: 1px solid var(--blue-100);
-      border-radius: 18px;
+      border: 1px solid rgba(218, 228, 239, 0.95);
+      border-radius: 20px;
       background: #fff;
   }
 
   .dish-grid-table {
       width: max-content;
       min-width: 1540px;
-      border-collapse: separate;
-      border-spacing: 0;
-      color: var(--neutral-700);
-      font-size: 13px;
-  }
-
-  .dish-grid-table th,
-  .dish-grid-table td {
-      padding: 10px 12px;
-      border-right: 1px solid var(--neutral-100);
-      border-bottom: 1px solid var(--neutral-100);
-      vertical-align: middle;
   }
 
   .dish-grid-table th {
       position: sticky;
       top: 0;
       z-index: 1;
-      background: var(--blue-50);
-      color: var(--neutral-600);
-      font-size: 12px;
-      font-weight: 500;
-      text-align: left;
-  }
-
-  .dish-grid-table tbody tr:hover {
-      background: var(--neutral-50);
   }
 
   .dish-row-actions {
@@ -381,10 +362,6 @@
       width: 42px;
       color: #94a3b8;
       font-weight: 800;
-  }
-
-  .dish-drawer .nomenclature-drawer-card {
-      max-width: 500px;
   }
 
   .dish-photo-modal {
@@ -2234,4 +2211,916 @@
       background: #2f7df6;
   }
 
+}
+
+/* ============================================================
+   OWNER Menu → Dishes redesign.
+   This unlayered page section intentionally follows the accepted Orders report
+   shell/filter/table primitives while the legacy catalog rules above remain
+   available for dialogs and row controls.
+   ============================================================ */
+
+.dish-catalog-page.owner-report-view {
+  min-width: 0;
+}
+
+/* V13 — карточка буквально как settings-card эталона (block; визуал
+   padding/border/radius/shadow продублирован теми же значениями только чтобы
+   бить legacy dish-правила из react-overrides; shared владеет эталоном).
+   Структурно: никакого flex-роста, контент-driven. */
+.dish-catalog-page.owner-report-view .dish-catalog-card {
+  display: block;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+  padding: 22px;
+  border: 1px solid rgba(15, 35, 60, 0.09);
+  border-radius: 18px;
+  box-shadow: 0 3px 12px rgba(15, 35, 60, 0.055);
+}
+
+/* Корень гигантской белой панели: react-overrides тянет секцию
+   (min-height 100dvh) и карточку/таблицу (flex:1). Сбрасываем рост —
+   карточка обнимает контент, ниже виден синий фон, как у Settings.
+   padding:0 — ровно как у .settings-owner-view (Способ оплаты): внешний
+   отступ даёт только оболочка дашборда, поэтому поля по краям 1-в-1 с
+   остальными OWNER-страницами (глушим legacy `0 8px 20px` из react-overrides). */
+.dish-catalog-page.owner-report-view {
+  display: block;
+  min-height: 0;
+  height: auto;
+  padding: 0;
+}
+
+/* V13 — буквальный клон шапки эталона: та же DOM-структура
+   (header.settings-header > .settings-title-group + .settings-actions) и тот же
+   режим display:grid с геометрией варианта .settings-owner-view .settings-header
+   (1fr auto, center, mb 18). Page-контекст НЕ вешаем (shell-семантика), поэтому
+   значения зеркалированы dish-скоупом поверх legacy flex-композиции. */
+.dish-catalog-page .dish-catalog-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+/* V11 — внутренняя геометрия заголовка 1-в-1 с живым эталоном «Способ
+   оплаты» (leaf-пины значений template-варианта, без page-контекста):
+   accent 44px (как .settings-owner-view .settings-accent-bar), H1 в цвете
+   --neutral-950 с естественным line-height (гасит legacy #10233d/1.05),
+   подпись с line-height эталона (гасит legacy 1.35). */
+.dish-catalog-page .dish-catalog-header .settings-accent-bar {
+  height: 44px;
+}
+
+.dish-catalog-page .dish-catalog-header .settings-title-group h1 {
+  color: var(--neutral-950);
+  font-size: clamp(24px, 2.4vw, 34px);
+  font-weight: 800;
+  /* inherit — тот же путь, что у эталона (там line-height не задан вовсе
+     и приходит наследованием 1.5 → 51px); нормаль давал 40px из-за разного
+     глиф-состава заголовков, а legacy 1.05/1.12 гасится этим правилом. */
+  line-height: inherit;
+}
+
+.dish-catalog-page .dish-catalog-header .settings-title-group p {
+  margin: 0 0 4px;
+  color: #0f99b8;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  line-height: 18px;
+  text-transform: uppercase;
+}
+
+/* V15 — сетка Add/Edit: Название | Сорт в первом ряду (поле названия больше НЕ
+   на всю ширину; dish-form__wide из разметки удалён). 2-колоночная
+   staff-сетка даёт ряды [Название|Сорт] [Себестоимость|Цена] …, на ≤768px shared
+   схлопывает в 1 колонку. */
+/* (dish-form__wide удалён из разметки; правило-пережиток убрано.) */
+
+/* V16 — настоящий футер Add/Edit: шапка / скроллящееся тело / прижатый низ.
+   Дженерик legacy из react-overrides ставит .staff-form__footer margin:0,
+   поэтому Staff-примитив margin-top:auto здесь НЕ чиним отрицательными
+   полями (запрещены), а используем явную архитектуру: тело flex:1+scroll,
+   футер flex-shrink:0. Кнопки/визуал не трогаем (cashier-примитив).
+   Без absolute/fixed/transform/negative-margin хаков. */
+.dish-drawer .dish-drawer__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.dish-drawer .staff-form__footer {
+  flex-shrink: 0;
+  margin: 0;
+}
+
+/* V16 — первый ряд после фото: [Сорт | Название], сорт компактный (~30%),
+   название забирает остаток (~70%). Остальные ряды — обычная 2-колоночная
+   staff-сетка 50/50. На ≤768px shared схлопывает сетку, ряд стекается. */
+.dish-drawer .dish-first-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 22fr) minmax(0, 78fr);
+  gap: 14px;
+}
+
+@media (max-width: 768px) {
+  .dish-drawer .dish-first-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dish-catalog-page.owner-report-view .dish-header-actions {
+  flex-wrap: nowrap;
+}
+
+.dish-catalog-page.owner-report-view .dishes-filter-toggle,
+.dish-catalog-page.owner-report-view .dish-add-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 43px;
+  min-height: 43px;
+  padding: 0 16px;
+  border: 1px solid var(--owner-accent, #1fc9c9);
+  border-radius: 22px;
+  background: var(--owner-accent, #1fc9c9);
+  color: #ffffff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 170ms ease, background-color 170ms ease, box-shadow 170ms ease, color 170ms ease;
+}
+
+.dish-catalog-page.owner-report-view .dish-add-button {
+  min-width: 118px;
+}
+
+.dish-catalog-page.owner-report-view .dishes-filter-toggle:hover,
+.dish-catalog-page.owner-report-view .dishes-filter-toggle:focus-visible,
+.dish-catalog-page.owner-report-view .dishes-filter-toggle[aria-expanded="true"],
+.dish-catalog-page.owner-report-view .dish-add-button:hover,
+.dish-catalog-page.owner-report-view .dish-add-button:focus-visible {
+  border-color: var(--owner-accent-hover, #1bb1b1);
+  background: var(--owner-accent-hover, #1bb1b1);
+  color: #ffffff;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(31, 201, 201, 0.13);
+}
+
+.dish-catalog-page.owner-report-view .dish-filter-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  flex: 0 0 auto;
+  margin: 0;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: grid-template-rows 200ms ease, opacity 200ms ease, transform 200ms ease;
+}
+
+.dish-catalog-page.owner-report-view .dish-filter-collapse.is-open {
+  grid-template-rows: 1fr;
+  margin: 0 0 16px;
+  opacity: 1;
+  transform: none;
+}
+
+.dish-catalog-page.owner-report-view .dish-filter-collapse .orders-filter-collapse__inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dish-catalog-page.owner-report-view .dish-filter-collapse.is-open .orders-filter-collapse__inner {
+  overflow: visible;
+  transition: overflow 0s 200ms;
+}
+
+.dish-catalog-page.owner-report-view .dish-filter-panel {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.4fr) minmax(220px, 0.8fr) auto;
+  align-items: stretch;
+  gap: 12px;
+  min-height: 0;
+  margin: 0;
+  padding: 12px;
+}
+
+.dish-catalog-page.owner-report-view .dish-filter-actions {
+  grid-column: 3;
+}
+
+.dish-catalog-page.owner-report-view .dish-filter-actions > button {
+  border-radius: 22px;
+}
+
+/* V19 — кастомный dropdown семьи orders-filter-select (тот же reports-паттерн):
+   скоуп — каталог блюд И портированный дровер (:is), т.к. дровер портирован
+   в body и вне .dish-catalog-page (иначе селекты голые: нативный вид/буллеты).
+   reports.css не полнится dish-селекторами, react-overrides не тронут. */
+:is(.dish-catalog-page, .dish-drawer) .orders-filter-select {
+  position: relative;
+  display: block;
+}
+:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__trigger {
+  width: 100%;
+  min-height: 43px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid rgba(15, 35, 60, 0.14);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--neutral-950, #071428);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__trigger.is-placeholder {
+  color: var(--neutral-400, #7a94b4);
+}
+:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__trigger:hover:not(:disabled) {
+  border-color: rgba(31, 201, 201, 0.55);
+}
+:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__trigger:focus-visible,
+:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__trigger[aria-expanded="true"] {
+  border-color: var(--owner-accent, #1fc9c9);
+  box-shadow: 0 0 0 3px rgba(31, 201, 201, 0.18);
+  outline: none;
+}
+:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__trigger:disabled {
+  cursor: not-allowed;
+  border-color: rgba(15, 35, 60, 0.11);
+  background: var(--owner-control-disabled, #eff2f9);
+  color: var(--neutral-500, #64748b);
+}
+:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__chevron {
+  display: inline-grid;
+  place-items: center;
+  color: var(--neutral-500, #94a3b8);
+  flex: 0 0 auto;
+  transition: transform 170ms cubic-bezier(0.22, 1, 0.36, 1), color 140ms ease;
+}
+:is(.dish-catalog-page, .dish-drawer) .orders-filter-select.is-open .orders-filter-select__chevron {
+  transform: rotate(180deg);
+  color: var(--owner-accent, #1fc9c9);
+}
+:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__panel {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-card, #fff);
+  border: 1px solid rgba(15, 35, 60, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(15, 35, 60, 0.14);
+  transform-origin: top center;
+  animation: owner-report-panel-in 170ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__panel.is-closing {
+  pointer-events: none;
+  animation: owner-report-panel-out 170ms cubic-bezier(0.64, 0, 0.78, 0) both;
+}
+:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__panel .orders-filter-select__menu {
+  position: static;
+  z-index: auto;
+  max-height: 232px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  animation: none;
+}
+:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__option {
+  width: 100%;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--neutral-900, #0b1f3f);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+}
+:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__option:hover,
+:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__option.is-active {
+  background: rgba(31, 201, 201, 0.1);
+}
+:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__option.is-selected {
+  color: var(--owner-accent-hover, #1bb1b1);
+}
+:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__option:focus-visible {
+  outline: 2px solid rgba(31, 201, 201, 0.5);
+  outline-offset: -2px;
+}
+:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__option-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.dish-catalog-page, .dish-drawer) .orders-filter-select__panel {
+    animation-duration: 0.01ms;
+  }
+}
+
+/* V7-архитектура пустого состояния: внешняя обёртка — ВИДИМЫЙ бокс (не
+   скроллится), внутри отдельный скролл-контейнер с широкой таблицей, а
+   пустое состояние вынесено оверлеем-сиблингом. Так PNG/текст центрируются
+   относительно видимой области и НЕ зависят ни от min-width таблицы, ни от
+   scrollLeft. Горизонтальный скролл и колонки сохраняются. */
+.dish-catalog-page.owner-report-view .dish-grid-wrap {
+  position: relative;
+  flex: none;
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+  max-height: none;
+  padding: 0;
+  overflow: hidden; /* клипует скругления; гасит legacy overflow:scroll+gutter на обёртке */
+  /* overflow:hidden всё равно делает бокс скролл-контейнером, поэтому legacy
+     scrollbar-gutter: stable both-edges из react-overrides резервировал по ~11px
+     с каждой стороны (видно вживую: clientWidth 1060 вместо 1080) — это и был
+     «странный паддинг внутри» и лишний отступ по краям против других страниц.
+     Возвращаем auto: таблица прилегает заподлицо, как у отчётов/настроек. */
+  scrollbar-gutter: auto;
+  border: 1px solid rgba(218, 228, 239, 0.95);
+  border-radius: 20px;
+  background: #fff;
+}
+
+/* Внутренний скролл-контейнер: единственный носитель горизонтальной прокрутки
+   (поведение .settings-table-wrapper + тонкий OWNER-скроллбар). */
+.dish-catalog-page.owner-report-view .dish-grid-scroll {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-gutter: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(31, 201, 201, 0.55) rgba(226, 232, 240, 0.8);
+}
+
+/* V12 — компактное пустое состояние как у Settings-шаблона (360px пол
+   удалён: он давал огромный белый холст и растянутую карточку). Пол —
+   страховочные 240px, реальную высоту даёт контент: шапка 48 + PNG 120 +
+   подпись + компактные отступы ≈ 270px. Для заполненной таблицы min-height
+   нет вообще (контент-driven). Без vh/dvh/100%/flex:1. */
+.dish-catalog-page.owner-report-view .dish-grid-wrap.is-empty .dish-grid-scroll {
+  min-height: 240px;
+}
+
+/* Оверлей пустого состояния: центрируется в ВИДИМОЙ обёртке, не трогает
+   ширину/скролл таблицы, не перехватывает события (скроллбар доступен). */
+.dish-catalog-page.owner-report-view .dish-empty-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px 24px;
+  pointer-events: none;
+}
+
+/* V12 — display-размер PNG пустого состояния (тот же ассет/текст, только
+   компактная подача под уменьшенное тело таблицы). */
+.dish-catalog-page.owner-report-view .dish-empty-overlay .owner-report-empty-image {
+  height: 120px;
+  width: auto;
+}
+.dish-catalog-page.owner-report-view .dish-empty-overlay .owner-report-empty--illustrated {
+  min-height: 0;
+  padding: 18px 20px 22px;
+  transform: none;
+}
+
+.dish-catalog-page.owner-report-view .dish-grid-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+.dish-catalog-page.owner-report-view .dish-grid-scroll::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(226, 232, 240, 0.8);
+}
+.dish-catalog-page.owner-report-view .dish-grid-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(226, 232, 240, 0.8);
+  border-radius: 999px;
+  background: rgba(31, 201, 201, 0.55);
+}
+.dish-catalog-page.owner-report-view .dish-grid-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(31, 201, 201, 0.78);
+}
+
+.dish-catalog-page.owner-report-view .dish-grid-table {
+  width: 100%;
+  min-width: var(--dish-grid-min-width, 1660px);
+  table-layout: fixed;
+}
+
+/* Липкая шапка для длинных списков (структура; визуал — из foundation). */
+.dish-catalog-page.owner-report-view .dish-grid-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* V8 — TH/TD визуалом владеет общий примитив (.settings-table + выигрышный
+   generic `table thead th` из marjon-important: фон --neutral-50 #f4f7fc,
+   текст --neutral-500 #536d8e, 12/500 uppercase, паддинги 15px 16px,
+   скругления 20px, разделитель border-top). Dishes здесь НЕ дублирует
+   фон/цвет/типографику/радиусы/границы — только структура: sticky,
+   широкий min-width и nowrap колонок. Legacy dish-правила TH/TD/радиусов
+   удалены из react-overrides хирургически (см. отчёт), поэтому shared
+   выигрывает для обеих страниц 1-в-1. */
+
+/* V7: строка каталога блюд НЕ меняет фон при наведении (решение продукта).
+   Гасим и базовый .settings-table tbody tr:hover (neutral-50), и legacy
+   --dish-row-hover из react-overrides — фон строки/ячейки на hover равен
+   обычному состоянию. Скоуп только Dishes; Settings/Reports не трогаем.
+   Интерактивные контролы внутри строки сохраняют свои собственные hover. */
+.dish-catalog-page.owner-report-view .dish-grid-table tbody tr:hover {
+  background: transparent;
+}
+.dish-catalog-page.owner-report-view .dish-grid-table tbody tr:hover td {
+  background: var(--dish-cell-bg, #ffffff);
+}
+
+/* V9 — нормальная OWNER-оболочка прежде всего. Page-контекст
+   `.settings-owner-view` НЕ вешаем на раздел Меню: это контекст страницы
+   Настроек (shell-семантика), а не безвредный визуальный токен. Карточка
+   берёт ширину из безопасного dish-скоупа: только padding-inline 16px
+   (как компактный inset остальных OWNER-страниц); верх/низ/overflow
+   принадлежат нормальной оболочке. Top 28px базы vs 14px у Settings —
+   корректное различие оболочек, ширина карточки при этом 1-в-1.
+   Legacy `body:has(.dish-catalog-page) .dashboard-content`
+   (padding-bottom 8px / overflow hidden) удалён из react-overrides. */
+.dashboard-content:has(.dish-catalog-page) {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+/* V14 — только верхний отступ десктопа 1-в-1 с шаблоном (14px вместо базовых
+   28px), чтобы карточка начиналась на той же Y. Скоуп: только эта страница,
+   только padding-top, только шире канонического mobile-брейкпоинта (≤1024 —
+   каноническое поведение оболочки). Лево/право/низ/ширина не трогаем. */
+@media (min-width: 1025px) {
+  .dashboard-content:has(.dish-catalog-page) {
+    padding-top: 14px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .dish-catalog-page.owner-report-view .dish-filter-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dish-catalog-page.owner-report-view .dish-filter-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 600px) {
+  .dish-catalog-page.owner-report-view .dish-catalog-card {
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  .dish-catalog-page.owner-report-view .dish-header-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .dish-catalog-page.owner-report-view .dishes-filter-toggle,
+  .dish-catalog-page.owner-report-view .dish-add-button {
+    width: 100%;
+  }
+
+  .dish-catalog-page.owner-report-view .dish-filter-panel {
+    grid-template-columns: 1fr;
+    padding: 10px;
+  }
+
+  .dish-catalog-page.owner-report-view .dish-filter-actions {
+    grid-column: auto;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .dish-catalog-page.owner-report-view .dish-filter-actions > button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dish-catalog-page.owner-report-view .dish-filter-collapse,
+  .dish-catalog-page.owner-report-view .dish-filter-collapse.is-open .orders-filter-collapse__inner {
+    transition: none;
+  }
+}
+
+/* V20 — Добавки (модификаторы) в MARJON-семье дровера. Контракт валиден
+   (GET/POST/PATCH/DELETE modifier-groups 1-в-1 с backend), поэтому вместо
+   голых нативных контролов — scoped-примитивы в тон drawer submit/cancel:
+   teal #1FC9C9 + red-outline. Только .dish-drawer, без глобальных правил. */
+.dish-drawer .dish-mods {
+  display: grid;
+  gap: 12px;
+}
+
+.dish-drawer .dish-mods__head h3 {
+  margin: 0 0 4px;
+  color: var(--neutral-950, #071428);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.dish-drawer .dish-mods__hint {
+  margin: 0;
+  color: var(--neutral-500, #64748b);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.dish-drawer .dish-mods__group {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(15, 35, 60, 0.1);
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.dish-drawer .dish-mods__group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dish-drawer .dish-mods__group-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid rgba(15, 35, 60, 0.14);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--neutral-950, #071428);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+}
+
+.dish-drawer .dish-mods__group-name:focus {
+  border-color: rgba(29, 181, 181, 0.55);
+  box-shadow: 0 0 0 3px rgba(31, 201, 201, 0.13);
+}
+
+.dish-drawer .dish-mods__icon-btn {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #fecaca;
+  border-radius: 9px;
+  background: #fff;
+  color: #dc2626;
+  cursor: pointer;
+}
+
+.dish-drawer .dish-mods__group-opts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 10px;
+}
+
+.dish-drawer .dish-mods__inline {
+  display: grid;
+  gap: 4px;
+  color: var(--neutral-500, #64748b);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dish-drawer .dish-mods__inline input[type="number"] {
+  min-height: 38px;
+  width: 100%;
+  padding: 0 10px;
+  border: 1px solid rgba(15, 35, 60, 0.14);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--neutral-950, #071428);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+}
+
+.dish-drawer .dish-mods__inline--check {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.dish-drawer .dish-mods__inline--check input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #1fc9c9;
+  cursor: pointer;
+}
+
+.dish-drawer .dish-mods__opts {
+  display: grid;
+  gap: 8px;
+}
+
+.dish-drawer .dish-mods__opt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px auto auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.dish-drawer .dish-mods__opt-name,
+.dish-drawer .dish-mods__opt-price {
+  min-height: 38px;
+  width: 100%;
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px solid rgba(15, 35, 60, 0.14);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--neutral-950, #071428);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+}
+
+.dish-drawer .dish-mods__opt-name:focus,
+.dish-drawer .dish-mods__opt-price:focus,
+.dish-drawer .dish-mods__inline input[type="number"]:focus {
+  border-color: rgba(29, 181, 181, 0.55);
+  box-shadow: 0 0 0 3px rgba(31, 201, 201, 0.13);
+}
+
+.dish-drawer .dish-mods__opt-cur {
+  color: var(--neutral-500, #64748b);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dish-drawer .dish-mods__add-opt {
+  justify-self: start;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 14px;
+  border: 1px solid rgba(31, 201, 201, 0.5);
+  border-radius: 12px;
+  background: rgba(31, 201, 201, 0.07);
+  color: #0f8f8f;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dish-drawer .dish-mods__add-opt:hover {
+  background: rgba(31, 201, 201, 0.13);
+}
+
+.dish-drawer .dish-mods__group-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.dish-drawer .dish-mods__group-footer .btn-primary {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 12px;
+  background: #1fc9c9;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dish-drawer .dish-mods__group-footer .btn-primary:hover:not(:disabled) {
+  background: #1ab5b5;
+}
+
+.dish-drawer .dish-mods__group-footer .btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.dish-drawer .dish-mods__add-group {
+  justify-self: start;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  border: 1px dashed rgba(31, 201, 201, 0.55);
+  border-radius: 12px;
+  background: rgba(31, 201, 201, 0.05);
+  color: #0f8f8f;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dish-drawer .dish-mods__add-group:hover {
+  background: rgba(31, 201, 201, 0.12);
+}
+
+/* V21 — заголовок «Блюда» в ритме Clients (визуальный референс :5290):
+   eyebrow/p уже совпадают с эталоном; H1 приводим к clients-геометрии
+   clamp(24px, 2.4vw, 28px)/600 вместо 34px/800. Шапка компактнее
+   (margin-bottom 18→12), карточка отдаёт 6px сверху — таблица поднимается
+   за счёт корректных отступов, без negative-margin и без absolute.
+   Кнопки Фильтровать/Добавить и их функции не тронуты. */
+.dish-catalog-page .dish-catalog-header .settings-title-group h1 {
+  font-size: clamp(24px, 2.4vw, 28px);
+  font-weight: 600;
+}
+
+.dish-catalog-page .dish-catalog-header {
+  margin-bottom: 12px;
+}
+
+.dish-catalog-page.owner-report-view .dish-catalog-card {
+  padding-top: 16px;
+}
+
+/* V22 — полировка таблицы под мокап: 40×40 миниатюры, спокойные деньги,
+   доминантное название, компактные бейджи остатка, ряды 56px.
+   Только dishes-скоуп, без priority-хаков (селекторы бьют legacy по
+   специфичности, порядок тот же файл — блок в конце). */
+.dish-catalog-page .dish-grid-table .dish-photo-button,
+.dish-catalog-page .dish-grid-table .dish-photo,
+.dish-catalog-page .dish-grid-table .dish-photo-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+}
+
+.dish-catalog-page .dish-grid-table .dish-photo {
+  object-fit: cover;
+  display: block;
+  box-shadow: none;
+}
+
+.dish-catalog-page .dish-grid-table .dish-photo-placeholder {
+  display: grid;
+  place-items: center;
+  border: 1px solid #d4eef3;
+  color: #1495a8;
+  background: #edfafa;
+}
+
+.dish-catalog-page .dish-grid-table tbody td {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  vertical-align: middle;
+}
+
+.dish-catalog-page .dish-grid-table .dish-name-text {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--neutral-900);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dish-catalog-page .dish-grid-table .dish-money-cell {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dish-catalog-page .dish-grid-table .dish-price-text {
+  color: var(--neutral-900);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dish-catalog-page .dish-grid-table .dish-stock-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  min-height: 28px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dish-catalog-page .dish-grid-table .dish-stock-badge.is-positive {
+  background: rgba(29, 181, 181, 0.12);
+  color: #0f8f8f;
+}
+
+.dish-catalog-page .dish-grid-table .dish-stock-badge.is-zero {
+  background: rgba(228, 72, 77, 0.10);
+  color: #e5484d;
+}
+
+.dish-catalog-page .dish-grid-table .dish-stock-badge.is-empty {
+  background: transparent;
+  color: #94a3b8;
+}
+
+/* V23 — полноширинная таблица как у остальных OWNER-таблиц. Корень проблемы:
+   shrink-wrap правило таблицы перебивало width:100% (выше специфичность),
+   таблица жалась к intrinsic ширине и не доходила до правого края карточки.
+   Теперь: wrap/scroll/table = 100%, safe min-width держит узкие экраны
+   с внутренним скроллом. Колонки: фиксированный fixed-расклад V22,
+   Название — единственная auto-колонка и забирает всю гибкую ширину, Принтер
+   получает комфортную долю, утилиты компактны, Действия фиксированы у правого
+   края. Селекторы (0,5,0)+body бьют stale 15-колоночные ширины без правок
+   react-overrides. thead/tbody — одна таблица, дрейфа нет. */
+body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-photo {
+  width: 72px;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-name {
+  width: auto;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-unit {
+  width: 94px;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-cost {
+  width: 136px;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-price {
+  width: 136px;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-printer {
+  width: 154px;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-stock {
+  width: 88px;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-auto,
+body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-set {
+  width: 72px;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-sort {
+  width: 72px;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-actions {
+  width: 90px;
 }

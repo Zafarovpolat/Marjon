@@ -36,6 +36,73 @@ export function reportRangeEndingAt(days, endValue) {
   };
 }
 
+export function todayReportRange() {
+  return {
+    ...reportRangeEndingAt(1, todayInputValue()),
+    preset: "Сегодня",
+  };
+}
+
+function isValidIsoDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year
+    && date.getUTCMonth() === month - 1
+    && date.getUTCDate() === day;
+}
+
+function shiftInputDate(value, days) {
+  const date = new Date(`${value}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return toDateInputValue(date);
+}
+
+function presetRangeForDate(label, todayValue = todayInputValue()) {
+  const today = new Date(`${todayValue}T00:00:00`);
+  const end = todayValue;
+  if (label === "Сегодня") return reportRangeEndingAt(1, end);
+  if (label === "Вчера") return reportRangeEndingAt(1, shiftInputDate(end, -1));
+  if (label === "Эта неделя") {
+    const mondayOffset = (today.getDay() + 6) % 7;
+    const start = shiftInputDate(end, -mondayOffset);
+    return { ...reportRangeEndingAt(1, end), start: inputDateToReportDate(start), preset: label };
+  }
+  if (label === "Этот месяц") {
+    const start = `${todayValue.slice(0, 8)}01`;
+    return { ...reportRangeEndingAt(1, end), start: inputDateToReportDate(start), preset: label };
+  }
+  if (label === "Этот год") {
+    const start = `${todayValue.slice(0, 4)}-01-01`;
+    return { ...reportRangeEndingAt(1, end), start: inputDateToReportDate(start), preset: label };
+  }
+  return null;
+}
+
+function inferReportPreset(range) {
+  const normalized = normalizeReportRange(range);
+  return ["Сегодня", "Вчера", "Эта неделя", "Этот месяц", "Этот год"].find((label) => {
+    const candidate = presetRangeForDate(label);
+    return candidate?.start === normalized.start && candidate?.end === normalized.end;
+  }) || "";
+}
+
+export function dashboardPeriodFromSearch(search = "") {
+  const params = new URLSearchParams(search);
+  const dateFrom = params.get("date_from");
+  const dateTo = params.get("date_to");
+  if (!dateFrom && !dateTo) return null;
+  if (!isValidIsoDate(dateFrom) || !isValidIsoDate(dateTo) || dateFrom > dateTo) return null;
+
+  const range = normalizeReportRange({
+    start: inputDateToReportDate(dateFrom),
+    end: inputDateToReportDate(dateTo),
+    startTime: "00:00",
+    endTime: "00:00",
+  });
+  return { ...range, preset: inferReportPreset(range) };
+}
+
 export function normalizeReportRange(range = {}) {
   const startInput = reportDateToInputDate(range.start);
   const endInput = reportDateToInputDate(range.end);
@@ -45,8 +112,9 @@ export function normalizeReportRange(range = {}) {
     preset: range.preset || "",
     start: inputDateToReportDate(dateFrom),
     end: inputDateToReportDate(dateTo),
-    startTime: "00:00",
-    endTime: "00:00",
+    startTime: range.startTime || "00:00",
+    endTime: range.endTime || "00:00",
+    timeTouched: Boolean(range.timeTouched),
   };
 }
 

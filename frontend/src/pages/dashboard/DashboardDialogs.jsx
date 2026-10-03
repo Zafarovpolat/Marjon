@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { formatMoney, formatNumber } from "../../api/client";
 import { formatDateLabel } from "../../utils/date";
 import Icon from "../../components/Icon";
+import { useAnchoredDialogMotion } from "../../hooks/useAnchoredDialogMotion";
 
 // Модальные окна OWNER-дашборда: детализация KPI (с таблицей оплат/мест) и
 // складской отчёт. Вынесено из OwnerDashboard.jsx (FE-07B) без изменений разметки.
@@ -65,7 +66,7 @@ function KpiPaymentTable({
   );
 }
 
-export function KpiInfoDialog({ kpi, onClose }) {
+export function KpiInfoDialog({ kpi, onClose, sourceRect, returnFocusRef }) {
   const hasCustomTable = kpi?.table && Array.isArray(kpi.table.rows);
   const hasPlaceTable = !hasCustomTable && Array.isArray(kpi?.placeRows);
   const tableRows = hasPlaceTable ? kpi.placeRows : !hasCustomTable && Array.isArray(kpi?.paymentRows) ? kpi.paymentRows : null;
@@ -82,14 +83,19 @@ export function KpiInfoDialog({ kpi, onClose }) {
     };
   const hasTable = hasCustomTable || Array.isArray(tableRows);
 
-  useEffect(() => {
-    if (!kpi) return undefined;
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [kpi, onClose]);
+  const {
+    dialogRef,
+    motionClassName,
+    motionStyle,
+    requestClose,
+    handleAnimationEnd,
+  } = useAnchoredDialogMotion({
+    isOpen: Boolean(kpi),
+    onClose,
+    motionMode: "anchored",
+    sourceRect,
+    returnFocusRef,
+  });
 
   if (!kpi) return null;
 
@@ -99,8 +105,15 @@ export function KpiInfoDialog({ kpi, onClose }) {
   const container = document.body;
 
   return createPortal(
-    <div className="kpi-info-backdrop" role="presentation" onMouseDown={onClose}>
+    <div
+      className={`kpi-info-backdrop owner-modal-backdrop ${motionClassName}`}
+      style={motionStyle}
+      role="presentation"
+      onMouseDown={requestClose}
+      onAnimationEnd={handleAnimationEnd}
+    >
       <section
+        ref={dialogRef}
         className={`kpi-info-window ${kpi.className} ${hasTable ? "kpi-info-window--payment-table" : ""}`}
         role="dialog"
         aria-modal="true"
@@ -113,7 +126,7 @@ export function KpiInfoDialog({ kpi, onClose }) {
             <span>{kpi.badge}</span>
             <h2 id="kpi-info-title">{kpi.label}</h2>
           </div>
-          <button type="button" className="kpi-info-window__close" aria-label="Закрыть" onClick={onClose}>
+          <button type="button" className="kpi-info-window__close" aria-label="Закрыть" onClick={requestClose}>
             <Icon name="bi-x-lg" size={20} />
           </button>
         </div>

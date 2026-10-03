@@ -13,6 +13,13 @@ export const catalogService = Object.freeze({
   deleteProduct(id) {
     return api.delete(`/inventory/products/${id}`);
   },
+  // Фото блюда: multipart FormData {file}; jpg/png/webp (backend truth).
+  // Возвращает полный ProductResponse с сохранённым image_url.
+  uploadProductPhoto(id, file) {
+    const body = new FormData();
+    body.append("file", file);
+    return api.post(`/inventory/products/${id}/photo`, body);
+  },
   listCategories(config) {
     return config ? api.get("/inventory/categories", config) : api.get("/inventory/categories");
   },

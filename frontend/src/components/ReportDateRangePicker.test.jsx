@@ -4,6 +4,25 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import ReportDateRangePicker from "./ReportDateRangePicker";
 
 describe("ReportDateRangePicker canonical Reports variant", () => {
+  it("keeps canonical trigger text numeric while preset words remain inside the picker", () => {
+    render(
+      <ReportDateRangePicker
+        variant="canonical"
+        value={{ preset: "Сегодня", start: "02.10.2026", end: "02.10.2026" }}
+        onChange={vi.fn()}
+        buttonAriaLabel="Период Dashboard"
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: "Период Dashboard" });
+    expect(trigger).toHaveTextContent("02.10.2026");
+    expect(trigger).not.toHaveTextContent("Сегодня");
+    fireEvent.click(trigger);
+    ["Сегодня", "Вчера", "Эта неделя", "Этот месяц", "Этот год"].forEach((preset) => {
+      expect(screen.getByRole("button", { name: preset })).toBeInTheDocument();
+    });
+  });
+
   it("reuses the approved Z-report interaction and commits only through OK", () => {
     const onChange = vi.fn();
     const initialRange = {

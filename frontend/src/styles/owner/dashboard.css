@@ -6419,18 +6419,13 @@ body.dashboard-body .dashboard-shell .premium-chart:focus-within {
 
 /* KPI detail modal — single full-viewport backdrop over the whole shell
    (dialog is portalled to document.body); the redundant ::before is switched
-   off so the two dim layers can't stack. Same rgba(2,8,23,.54)+blur(5px). */
+   off so the two dim layers can't stack. Shared backdrop visuals are defined
+   with the Balance dialog below. */
 body.dashboard-body .kpi-info-backdrop:not(.warehouse-report-backdrop) {
   left: 0;
   right: 0;
   width: auto;
-  background: rgba(2, 8, 23, 0.54);
-  backdrop-filter: blur(5px);
 }
-body.dashboard-body .kpi-info-backdrop:not(.warehouse-report-backdrop)::before {
-  display: none;
-}
-
 /* KPI detail modal title — centre the title+date group over the full modal
    width; a 40px left spacer mirrors the 40px close column, X stays right. */
 body.dashboard-body .kpi-info-window--payment-table .kpi-info-window__head--payment-table {
@@ -6527,12 +6522,30 @@ body.dashboard-body .dashboard-shell .sidebar-submenu__icon svg * {
   stroke: rgba(11, 31, 63, 0.6);
 }
 /* ---- Collapsed flyout popover ---- */
-body.dashboard-body .sidebar-collapsed-popover {
+body.dashboard-body .dashboard-sidebar.is-collapsed .sidebar-collapsed-popover {
   background: #ffffff;
   color: var(--neutral-900, #0b1f3f);
   border: 1px solid rgba(15, 35, 60, 0.10);
   box-shadow: 0 18px 30px -16px rgba(15, 35, 60, 0.24),
     0 8px 18px -14px rgba(15, 35, 60, 0.14);
+  transform: none;
+  transition: none;
+}
+body.dashboard-body .dashboard-sidebar.is-collapsed .sidebar-nav-item.has-popover .sidebar-collapsed-popover {
+  transform: none;
+  transform-origin: left center;
+  transition: none;
+  animation: owner-collapsed-popover-in 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes owner-collapsed-popover-in {
+  from {
+    opacity: 0;
+    transform: scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 body.dashboard-body .sidebar-collapsed-popover .sidebar-collapsed-popover__link {
   color: rgba(11, 31, 63, 0.82);
@@ -6684,6 +6697,23 @@ body.dashboard-body .dashboard-shell .mj-datepicker__time,
 body.dashboard-body .dashboard-shell .topbar-info-widget__num,
 body.dashboard-body .dashboard-shell .topbar-info-widget__body {
   color: var(--neutral-900, #0b1f3f);
+}
+
+body.dashboard-body .dashboard-shell .mj-datepicker.is-readonly .mj-datepicker__trigger {
+  cursor: default;
+}
+
+body.dashboard-body .dashboard-shell .premium-chart .owner-revenue-switcher {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+body.dashboard-body .dashboard-shell .premium-chart .owner-revenue-switcher
+  .owner-dashboard-period__trigger {
+  border-radius: 25px;
+  font-size: 14px;
+  font-weight: 500;
 }
 body.dashboard-body .dashboard-shell .topbar-notification.is-open,
 body.dashboard-body .dashboard-shell .topbar-notification:hover {
@@ -7021,6 +7051,8 @@ body.dashboard-body .dashboard-shell .premium-kpi--expense .premium-kpi__icon sv
    state-invariance rule below owns one normal non-inset box-shadow for every
    parent/child state, so depth stays outside the surface and cannot repaint. */
 body.dashboard-body .dashboard-shell .sidebar-submenu {
+  --owner-submenu-motion-ms: 320ms;
+  --owner-submenu-motion-easing: cubic-bezier(0.4, 0, 0.2, 1);
   box-sizing: border-box;
   display: grid;
   position: relative;
@@ -7029,6 +7061,7 @@ body.dashboard-body .dashboard-shell .sidebar-submenu {
   max-width: var(--owner-sidebar-content-w, 268px);
   height: 0;
   max-height: none;
+  margin-top: 0;
   margin-left: 0;
   margin-right: 0;
   padding: 0 4px;
@@ -7041,8 +7074,11 @@ body.dashboard-body .dashboard-shell .sidebar-submenu {
   pointer-events: none;
   transform: none;
   interpolate-size: allow-keywords;
-  transition: height 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 220ms cubic-bezier(0.22, 1, 0.36, 1), padding 180ms ease, border-width 180ms ease,
+  transition: height var(--owner-submenu-motion-ms) var(--owner-submenu-motion-easing),
+    opacity var(--owner-submenu-motion-ms) var(--owner-submenu-motion-easing),
+    margin-top var(--owner-submenu-motion-ms) var(--owner-submenu-motion-easing),
+    padding var(--owner-submenu-motion-ms) var(--owner-submenu-motion-easing),
+    border-width var(--owner-submenu-motion-ms) var(--owner-submenu-motion-easing),
     width 180ms cubic-bezier(0.22, 1, 0.36, 1),
     min-width 180ms cubic-bezier(0.22, 1, 0.36, 1),
     max-width 180ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -7110,7 +7146,10 @@ body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu.is-open > .si
    max-height:none -> 0 and translate combination could not interpolate and left
    residual padding/borders behind, which made the panel and active parent jerk. */
 body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu.is-open .sidebar-submenu {
+  --owner-submenu-motion-ms: 220ms;
+  --owner-submenu-motion-easing: cubic-bezier(0.22, 1, 0.36, 1);
   height: auto;
+  margin-top: 0;
   padding: 4px;
   border-width: 1px;
   opacity: 1;
@@ -7120,7 +7159,7 @@ body.dashboard-body .dashboard-shell .sidebar-nav-item.has-submenu.is-open .side
    layout. Its fixed expanded width would otherwise push the 56px icon button
    outside the rail; the dedicated collapsed popover remains the submenu UI.
    Height is NOT pinned here: while an open category retracts, the item height is
-   driven by the panel closing on the same 220ms rhythm, so the rail collapses in
+   driven by the panel closing on the same 320ms rhythm, so the rail collapses in
    ONE motion instead of the panel snapping away. react-overrides pins
    height/max-height 56px + row direction on this node, so both are released
    explicitly (higher specificity) and the axis is forced back to column — the
@@ -7304,6 +7343,7 @@ body.dashboard-body .dashboard-shell .sidebar-submenu__link:not(.is-active):focu
   body.dashboard-body .sidebar-collapsed-popover .sidebar-collapsed-popover__link,
   body.dashboard-body .sidebar-collapsed-popover .sidebar-collapsed-popover__icon {
     transition-duration: 0.01ms;
+    animation-duration: 0.01ms;
   }
 }
 
@@ -7331,8 +7371,15 @@ body.dashboard-body .balance-payment-modal {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(15, 35, 60, 0.34);
-  backdrop-filter: blur(5px);
+}
+/* One visual contract for KPI and Balance overlays. */
+body.dashboard-body .owner-modal-backdrop {
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(3px);
+}
+/* The legacy desktop ::before would otherwise darken Balance a second time. */
+body.dashboard-body .owner-modal-backdrop::before {
+  display: none;
 }
 /* Card: compact the header — trim the empty top zone ~40% (padding + gaps). */
 body.dashboard-body .balance-payment-dialog__head {
@@ -7344,6 +7391,700 @@ body.dashboard-body .balance-payment-dialog__head span {
 body.dashboard-body .balance-payment-dialog__head h2 {
   font-size: 21px;
   line-height: 1.15;
+}
+
+/* Shared motion family: KPI dialogs use source-anchored geometry, while the
+   Balance dialog uses centered scale with only an 8px vertical offset. */
+@keyframes owner-modal-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes owner-modal-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes owner-modal-surface-in {
+  from {
+    opacity: 0;
+    transform: translate(var(--owner-modal-shift-x, 0), var(--owner-modal-shift-y, 0)) scale(var(--owner-modal-source-scale, 0.6));
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+@keyframes owner-modal-surface-out {
+  from {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(var(--owner-modal-shift-x, 0), var(--owner-modal-shift-y, 0)) scale(var(--owner-modal-close-scale, 0.9));
+  }
+}
+@keyframes owner-modal-surface-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes owner-modal-surface-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+body.dashboard-body .owner-modal-motion.is-motion-ready {
+  animation: owner-modal-backdrop-in 220ms ease-out both;
+}
+body.dashboard-body .owner-modal-motion.is-motion-ready.is-motion-closing {
+  animation: owner-modal-backdrop-out 220ms ease-in both;
+  pointer-events: none;
+}
+body.dashboard-body .kpi-info-backdrop.owner-modal-motion .kpi-info-window,
+body.dashboard-body .balance-payment-modal.owner-modal-motion .balance-payment-dialog {
+  transform-origin: var(--owner-modal-origin-x, 50%) var(--owner-modal-origin-y, 50%);
+}
+body.dashboard-body .kpi-info-backdrop.owner-modal-motion.is-motion-ready:not(.is-motion-closing) .kpi-info-window,
+body.dashboard-body .balance-payment-modal.owner-modal-motion.is-motion-ready:not(.is-motion-closing) .balance-payment-dialog {
+  animation: owner-modal-surface-in 220ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+body.dashboard-body .kpi-info-backdrop.owner-modal-motion.is-motion-closing .kpi-info-window,
+body.dashboard-body .balance-payment-modal.owner-modal-motion.is-motion-closing .balance-payment-dialog {
+  animation: owner-modal-surface-out 220ms ease-in both;
+}
+@media (prefers-reduced-motion: reduce) {
+  body.dashboard-body .owner-modal-motion.is-motion-ready {
+    animation-name: owner-modal-backdrop-in;
+    animation-duration: 80ms;
+  }
+  body.dashboard-body .owner-modal-motion.is-motion-ready.is-motion-closing {
+    animation-name: owner-modal-backdrop-out;
+    animation-duration: 80ms;
+  }
+  body.dashboard-body .kpi-info-backdrop.owner-modal-motion.is-motion-ready:not(.is-motion-closing) .kpi-info-window,
+  body.dashboard-body .balance-payment-modal.owner-modal-motion.is-motion-ready:not(.is-motion-closing) .balance-payment-dialog {
+    animation-name: owner-modal-surface-fade-in;
+    animation-duration: 80ms;
+  }
+  body.dashboard-body .kpi-info-backdrop.owner-modal-motion.is-motion-closing .kpi-info-window,
+  body.dashboard-body .balance-payment-modal.owner-modal-motion.is-motion-closing .balance-payment-dialog {
+    animation-name: owner-modal-surface-fade-out;
+    animation-duration: 80ms;
+  }
+}
+
+/* Keep the existing Balance payment step inside the compact modal on phones.
+   The legacy desktop grid is loaded later, so this OWNER-scoped selector uses
+   the shell context to preserve the single-column mobile layout. */
+@media (max-width: 480px) {
+  body.dashboard-body .balance-payment-dialog--card {
+    overflow-x: hidden;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-card-step {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-card-step__side,
+  body.dashboard-body .balance-payment-dialog--card .balance-card-step__form {
+    min-width: 0;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Balance Step 2 brand panel. The supplied MARJON SVG remains the single
+   source for the mark; text stays live for crisp responsive typography. */
+body.dashboard-body .balance-payment-dialog--card .balance-card-step__brand-panel {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 420px;
+  padding: 36px 34px;
+  overflow: hidden;
+  color: var(--neutral-950, #0b1f3f);
+  background:
+    radial-gradient(circle at 0 0, rgba(29, 181, 181, 0.20) 0 68px, rgba(29, 181, 181, 0.09) 69px 112px, transparent 113px),
+    radial-gradient(circle at 100% 100%, rgba(29, 181, 181, 0.96) 0 74px, rgba(29, 181, 181, 0.10) 75px 132px, transparent 133px),
+    linear-gradient(145deg, #f9fdfd 8%, #f3fbfb 56%, #eafafa 100%);
+  border: 1px solid rgba(29, 181, 181, 0.08);
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-card-step__brand-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: min(100%, 360px);
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-card-step__brand-mark {
+  display: block;
+  width: 118px;
+  height: 80px;
+  object-fit: contain;
+  margin: 0 0 4px;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-card-step__brand-name {
+  color: #0b1f3f;
+  font-size: 35px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.075em;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-card-step__brand-caption {
+  margin-top: 8px;
+  color: #31435f;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.34em;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-card-step__brand-divider {
+  display: block;
+  width: 38px;
+  height: 3px;
+  margin: 28px 0 22px;
+  border-radius: 999px;
+  background: var(--color-brand, #1db5b5);
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-card-step__brand-panel h2 {
+  max-width: 330px;
+  margin: 0 0 10px;
+  color: #0b1f3f;
+  -webkit-text-fill-color: #0b1f3f;
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-card-step__brand-panel p {
+  max-width: 330px;
+  margin: 0;
+  color: var(--neutral-600, #475569);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-card-step__selected-method {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Balance step content uses a two-phase 200ms cross-slide. The dialog shell
+   itself never scales; only the active content moves by 12px. */
+.balance-step-motion {
+  will-change: opacity, transform;
+}
+
+.balance-step-motion--exit-forward {
+  animation: balance-step-exit-forward 100ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.balance-step-motion--enter-forward {
+  animation: balance-step-enter-forward 100ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.balance-step-motion--exit-backward {
+  animation: balance-step-exit-backward 100ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.balance-step-motion--enter-backward {
+  animation: balance-step-enter-backward 100ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes balance-step-exit-forward {
+  to { opacity: 0; transform: translateX(-12px); }
+}
+
+@keyframes balance-step-enter-forward {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes balance-step-exit-backward {
+  to { opacity: 0; transform: translateX(12px); }
+}
+
+@keyframes balance-step-enter-backward {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-card-step__form {
+  display: flex;
+  flex-direction: column;
+  min-height: 480px;
+}
+
+body.dashboard-body .balance-payment-dialog--card {
+  overflow-anchor: none;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-dialog__head--embedded {
+  padding: 0 0 14px;
+  border-bottom: 0;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-shell__progress-row {
+  flex: 0 0 auto;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-shell__dynamic-frame {
+  flex: 0 0 auto;
+  min-height: 270px;
+  margin-bottom: 38px;
+  overflow: hidden;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-dynamic {
+  min-height: 270px;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-dynamic .balance-payment-dialog__field,
+body.dashboard-body .balance-payment-dialog--card .balance-payment-dynamic .balance-payment-methods {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-shell__cta {
+  width: 100%;
+  margin: auto 0 0;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-shell__cta span {
+  transition: opacity 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Keep the accepted shell geometry while placing every step's CTA in the same
+   lower action zone; this reserved footer contains no visible content. */
+body.dashboard-body .balance-payment-dialog--card .balance-payment-shell__footer-space {
+  flex: 0 0 0;
+  min-height: 0;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-card-quick {
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.balance-payment-dialog__stepper {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 50px;
+  margin: 0 0 18px;
+  padding: 10px 16px;
+  border: 1px solid var(--neutral-100, #f1f5f9);
+  border-radius: 14px;
+  background: var(--neutral-50, #f8fafc);
+}
+
+.balance-payment-dialog__stepper .balance-card-step__progress {
+  display: grid;
+  grid-template-columns: auto minmax(18px, 1fr) auto minmax(18px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-card-step__progress-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-card-step__progress-item strong {
+  font-size: 12px;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-card-step__number {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 28px;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  color: var(--neutral-500, #64748b);
+  background: var(--neutral-200, #e2e8f0);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-card-step__number.is-current {
+  color: #ffffff;
+  background: var(--color-brand, #1db5b5);
+  box-shadow: 0 0 0 4px rgba(29, 181, 181, 0.10);
+}
+
+body.dashboard-body .balance-payment-dialog--card button.balance-card-step__number.is-complete {
+  color: #ffffff;
+  background: #55c9c5;
+  box-shadow: 0 1px 3px rgba(15, 143, 143, 0.18);
+  cursor: pointer;
+}
+
+body.dashboard-body .balance-payment-dialog--card button.balance-card-step__number.is-complete:hover {
+  background: #3bbfbb;
+}
+
+body.dashboard-body .balance-payment-dialog--card button.balance-card-step__number.is-complete:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 4px rgba(29, 181, 181, 0.20);
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-card-step__progress i {
+  width: 100%;
+  min-width: 18px;
+}
+
+.balance-card-step__progress .balance-card-step__number,
+.balance-card-step__progress i,
+.balance-card-step__progress strong {
+  transition: color 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    background-color 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.balance-card-step__progress i.is-filled {
+  background: var(--color-brand, #1db5b5);
+}
+
+.balance-card-step__progress strong.is-active {
+  color: var(--color-brand-dark, #0f8f8f);
+}
+
+.balance-card-step__progress strong.is-complete {
+  color: #4aa9a6;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-confirmation {
+  display: flex;
+  align-items: center;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-confirmation__card {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--neutral-100, #f1f5f9);
+  border-radius: 16px;
+  background: var(--neutral-50, #f8fafc);
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-confirmation__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 52px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--neutral-100, #f1f5f9);
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-confirmation__row:last-child {
+  border-bottom: 0;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-confirmation__row > span {
+  color: var(--neutral-500, #64748b);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-confirmation__row > strong {
+  color: var(--neutral-900, #0f172a);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: right;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-confirmation__method {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-confirmation__method img {
+  width: 46px;
+  height: 24px;
+  object-fit: contain;
+}
+
+/* Provider-ready visual only: production state does not enter this branch
+   until a real payment provider supplies a successful transaction status. */
+body.dashboard-body .balance-payment-dialog--card .balance-payment-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 20px;
+  text-align: center;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-success__icon {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 18px;
+  border-radius: 50%;
+  color: #ffffff;
+  background: var(--color-brand, #1db5b5);
+  box-shadow: 0 10px 22px rgba(29, 181, 181, 0.20);
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-success h3 {
+  margin: 0;
+  color: var(--neutral-900, #0f172a);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-success p {
+  margin: 9px 0 0;
+  color: var(--neutral-500, #64748b);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-card-field input:not(:disabled):hover {
+  border-color: rgba(29, 181, 181, 0.34);
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-card-field input.is-filled {
+  border-color: rgba(29, 181, 181, 0.24);
+  background: #ffffff;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-card-field input.is-invalid,
+body.dashboard-body .balance-payment-dialog--card .balance-card-field input.is-invalid:focus {
+  border-color: var(--color-danger, #dc3545);
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.12);
+}
+
+.balance-payment-submit.is-disabled,
+.balance-payment-submit.is-disabled:hover,
+.balance-payment-submit.is-disabled:focus-visible {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Compact custom control: the balance form keeps the label, while the
+   check itself is crisp and deterministic across Windows browsers. */
+body.dashboard-body .balance-payment-dialog--card .balance-offer--check {
+  align-items: center;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-offer--check input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: 0 0 19px;
+  width: 19px;
+  min-width: 19px;
+  max-width: 19px;
+  height: 19px;
+  margin: 0;
+  border: 1px solid #c7d2df;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  cursor: pointer;
+  transform: scale(0.94);
+  transition: transform 150ms ease-out,
+    border-color 150ms ease-out,
+    background-color 150ms ease-out,
+    box-shadow 150ms ease-out;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-offer--check input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  width: 6px;
+  height: 10px;
+  border: 2px solid #ffffff;
+  border-top: 0;
+  border-left: 0;
+  opacity: 0;
+  transform: rotate(45deg) scale(0.88);
+  transform-origin: center;
+  transition: opacity 150ms ease-out, transform 150ms ease-out;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-offer--check input[type="checkbox"]:hover {
+  border-color: var(--color-brand, #1db5b5);
+  background: rgba(29, 181, 181, 0.04);
+  box-shadow: 0 0 0 2px rgba(29, 181, 181, 0.10);
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-offer--check input[type="checkbox"]:focus-visible {
+  outline: 0;
+  border-color: var(--color-brand, #1db5b5);
+  box-shadow: 0 0 0 3px rgba(29, 181, 181, 0.16);
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-offer--check input[type="checkbox"]:checked {
+  border-color: var(--color-brand, #1db5b5);
+  background: linear-gradient(135deg, #25c8c4 0%, #16aaa9 100%);
+  box-shadow: 0 2px 5px rgba(29, 181, 181, 0.14);
+  transform: scale(1);
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-offer--check input[type="checkbox"]:checked::after {
+  border-color: #ffffff;
+  opacity: 1;
+  transform: rotate(45deg) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .balance-step-motion--exit-forward,
+  .balance-step-motion--enter-forward,
+  .balance-step-motion--exit-backward,
+  .balance-step-motion--enter-backward {
+    animation-duration: 0.01ms;
+  }
+
+  .balance-card-step__progress .balance-card-step__number,
+  .balance-card-step__progress i,
+  .balance-card-step__progress strong {
+    transition-duration: 0.01ms;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-offer--check input[type="checkbox"],
+  body.dashboard-body .balance-payment-dialog--card .balance-offer--check input[type="checkbox"]::after,
+  body.dashboard-body .balance-payment-dialog--card .balance-payment-shell__cta span {
+    transition-duration: 0.01ms;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-offer--check input[type="checkbox"] {
+    transform: none;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-offer--check input[type="checkbox"]::after,
+  body.dashboard-body .balance-payment-dialog--card .balance-offer--check input[type="checkbox"]:checked::after {
+    transform: rotate(45deg);
+  }
+}
+
+@media (max-width: 480px) {
+  .balance-payment-dialog__stepper {
+    margin-inline: 0;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-card-step__progress {
+    grid-template-columns: 28px minmax(24px, 1fr) 28px minmax(24px, 1fr) 28px;
+    gap: 7px;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-card-step__progress i {
+    min-width: 24px;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-card-step__progress-item strong {
+    display: none;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-payment-shell__dynamic-frame,
+  body.dashboard-body .balance-payment-dialog--card .balance-payment-dynamic {
+    min-height: 376px;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-payment-confirmation__row {
+    align-items: flex-start;
+    gap: 10px;
+    padding-inline: 12px;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-payment-confirmation__row > strong {
+    max-width: 62%;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-payment-confirmation__method {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 1024px) {
+  body.dashboard-body .balance-payment-dialog--card .balance-card-step__brand-panel {
+    min-height: 250px;
+    padding: 26px;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-card-step__brand-mark {
+    width: 92px;
+    height: 62px;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-card-step__brand-name {
+    font-size: 29px;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-card-step__brand-divider {
+    margin: 18px 0 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  body.dashboard-body .balance-payment-dialog--card .balance-card-step__brand-panel {
+    min-height: 220px;
+    padding: 22px 18px;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-card-step__brand-mark {
+    width: 78px;
+    height: 52px;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-card-step__brand-name {
+    font-size: 25px;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-card-step__brand-caption {
+    margin-top: 6px;
+    font-size: 10px;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-card-step__brand-divider {
+    margin: 14px 0 12px;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-card-step__brand-panel h2 {
+    font-size: 17px;
+  }
+
+  body.dashboard-body .balance-payment-dialog--card .balance-card-step__brand-panel p {
+    font-size: 13px;
+    line-height: 1.45;
+  }
 }
 
 /* ============================================================
@@ -7917,6 +8658,15 @@ body.dashboard-body .dashboard-shell .warehouse-summary-item:focus-visible {
     align-items: flex-start;
   }
 
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-nav-item.has-submenu {
+    display: flex;
+    flex-direction: column;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-nav-item.has-submenu > .sidebar-link--button {
+    margin-block: 0;
+  }
+
   body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-nav-item,
   body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-link,
   body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-link--button {
@@ -8210,6 +8960,15 @@ body.dashboard-body .dashboard-shell .warehouse-summary-item:focus-visible {
     max-height: 46px;
   }
 
+  /* A submenu parent owns its natural height while the panel retracts. This
+     lets every category below it follow the same 320ms geometry instead of
+     snapping back on the generic 180ms row-height rule. */
+  body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .sidebar-nav-item.has-submenu {
+    height: auto;
+    min-height: 46px;
+    max-height: none;
+  }
+
   body.dashboard-body .dashboard-shell .dashboard-sidebar:not(.is-collapsed) .sidebar-link.is-active {
     border-radius: 24px;
   }
@@ -8253,6 +9012,39 @@ body.dashboard-body .dashboard-shell .warehouse-summary-item:focus-visible {
     height: 56px;
     min-height: 56px;
     max-height: 56px;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-nav-item.has-submenu {
+    height: auto;
+    min-height: 56px;
+    max-height: none;
+  }
+
+  /* The visible tile remains 56×56 and never moves. Its hover target expands
+     to the full 88px rail and halfway through the 12px vertical gaps: exactly
+     one non-overlapping horizontal band per icon. */
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-nav-item::before {
+    content: "";
+    position: absolute;
+    inset: -6px -16px;
+    z-index: 0;
+    pointer-events: auto;
+    background: transparent;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-nav-item > .sidebar-link,
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-nav-item > .sidebar-link--button {
+    position: relative;
+    z-index: 1;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-nav-item.has-popover > .sidebar-link--button:not(.is-active) {
+    background: rgba(29, 181, 181, 0.07);
+    box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.07);
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-collapsed-popover {
+    z-index: 2;
   }
 
   body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-link > span:not(.sidebar-icon),
@@ -8357,3 +9149,287 @@ body.dashboard-body .dashboard-shell .warehouse-summary-item:focus-visible {
     transition-delay: 0ms;
   }
 }
+
+  /* ============================================================
+     DASHBOARD VISUAL FINALIZATION V2 — decorative PNG art only.
+     Geometry frozen: no grid/width/height/gap/padding changes to cards,
+     chart, columns or page. White-dominant card + stronger pastel wash +
+     bloom from the artwork side + absolute PNG below text (text z-index 1,
+     art z-index 0, pointer-events none). Right-side PNGs carry top-edge
+     sheet fragments, so art renders inside a clipped viewport that hides
+     the top strip; source PNGs untouched. Scoped classes only.
+     ============================================================ */
+  body.dashboard-body .dashboard-shell .dashboard-kpi-card--visual {
+    overflow: hidden;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-kpi-card--visual .premium-kpi__top,
+  body.dashboard-body .dashboard-shell .dashboard-kpi-card--visual .kpi-label,
+  body.dashboard-body .dashboard-shell .dashboard-kpi-card--visual .kpi-value,
+  body.dashboard-body .dashboard-shell .dashboard-kpi-card--visual .premium-kpi__progress {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* V3.1: note text removed from cards; value slightly smaller + lowered,
+     long sums degrade gracefully instead of crossing the artwork. */
+  body.dashboard-body .dashboard-shell .dashboard-kpi-card--visual .kpi-value {
+    margin-top: 22px;
+    max-width: 100%;
+  }
+
+  /* V3.2: beat the (0,7,1) band rule from the later stylesheet by specificity
+     alone: value ~13% smaller than live, no desktop truncation. */
+  body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band .dashboard-kpi-card--visual.premium-kpi .kpi-value {
+    margin-top: 16px;
+    font-size: clamp(19px, 1.6vw, 25px);
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-kpi-card__art {
+    position: absolute;
+    right: 8px;
+    bottom: 4px;
+    width: 82px;
+    max-width: 40%;
+    max-height: 88px;
+    height: auto;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+    z-index: 0;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-kpi-card--revenue {
+    background-image:
+      radial-gradient(120px 120px at 90% 95%, rgba(45, 212, 170, 0.30) 0%, rgba(255, 255, 255, 0) 70%),
+      linear-gradient(115deg, rgba(255, 255, 255, 0) 45%, rgba(45, 212, 170, 0.20) 100%);
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-kpi-card--orders {
+    background-image:
+      radial-gradient(120px 120px at 90% 95%, rgba(59, 130, 246, 0.28) 0%, rgba(255, 255, 255, 0) 70%),
+      linear-gradient(115deg, rgba(255, 255, 255, 0) 45%, rgba(59, 130, 246, 0.18) 100%);
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-kpi-card--average {
+    background-image:
+      radial-gradient(120px 120px at 90% 95%, rgba(139, 92, 246, 0.28) 0%, rgba(255, 255, 255, 0) 70%),
+      linear-gradient(115deg, rgba(255, 255, 255, 0) 45%, rgba(139, 92, 246, 0.18) 100%);
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-kpi-card--income {
+    background-image:
+      radial-gradient(120px 120px at 90% 95%, rgba(245, 158, 11, 0.30) 0%, rgba(255, 255, 255, 0) 70%),
+      linear-gradient(115deg, rgba(255, 255, 255, 0) 45%, rgba(245, 158, 11, 0.20) 100%);
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-kpi-card--expense {
+    background-image:
+      radial-gradient(120px 120px at 90% 95%, rgba(244, 63, 94, 0.26) 0%, rgba(255, 255, 255, 0) 70%),
+      linear-gradient(115deg, rgba(255, 255, 255, 0) 45%, rgba(244, 63, 94, 0.17) 100%);
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-kpi-card--revenue .dashboard-kpi-card__art {
+    width: 92px;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-kpi-card--orders .dashboard-kpi-card__art {
+    width: 76px;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-kpi-card--average .dashboard-kpi-card__art {
+    width: 82px;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-kpi-card--income .dashboard-kpi-card__art {
+    width: 88px;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-kpi-card--expense .dashboard-kpi-card__art {
+    width: 78px;
+  }
+
+  /* ---- Right-side 6 compact metrics: text left, full art right ----
+     V3.1: whole PNG visible (object-fit contain, no cropping). */
+  body.dashboard-body .dashboard-shell .dashboard-side-metric--visual {
+    overflow: hidden;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-side-metric--visual .warehouse-summary-item__icon,
+  body.dashboard-body .dashboard-shell .dashboard-side-metric--visual .warehouse-summary-item__text {
+    position: relative;
+    z-index: 1;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-side-metric--visual .warehouse-summary-item__text {
+    min-width: 0;
+    flex: 1 1 auto;
+    padding-right: 140px;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-side-metric__art {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 120px;
+    max-width: 36%;
+    max-height: 92%;
+    height: auto;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+    z-index: 0;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-side-metric--incoming {
+    background-image:
+      radial-gradient(120px 110px at 94% 50%, rgba(45, 212, 191, 0.30) 0%, rgba(255, 255, 255, 0) 70%),
+      linear-gradient(100deg, rgba(255, 255, 255, 0) 50%, rgba(45, 212, 191, 0.20) 100%);
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-side-metric--outgoing {
+    background-image:
+      radial-gradient(120px 110px at 94% 50%, rgba(255, 127, 110, 0.30) 0%, rgba(255, 255, 255, 0) 70%),
+      linear-gradient(100deg, rgba(255, 255, 255, 0) 50%, rgba(255, 127, 110, 0.20) 100%);
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-side-metric--stock {
+    background-image:
+      radial-gradient(120px 110px at 94% 50%, rgba(34, 199, 216, 0.30) 0%, rgba(255, 255, 255, 0) 70%),
+      linear-gradient(100deg, rgba(255, 255, 255, 0) 50%, rgba(34, 199, 216, 0.20) 100%);
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-side-metric--costs {
+    background-image:
+      radial-gradient(120px 110px at 94% 50%, rgba(99, 102, 241, 0.28) 0%, rgba(255, 255, 255, 0) 70%),
+      linear-gradient(100deg, rgba(255, 255, 255, 0) 50%, rgba(99, 102, 241, 0.18) 100%);
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-side-metric--payable {
+    background-image:
+      radial-gradient(120px 110px at 94% 50%, rgba(244, 114, 100, 0.30) 0%, rgba(255, 255, 255, 0) 70%),
+      linear-gradient(100deg, rgba(255, 255, 255, 0) 50%, rgba(244, 114, 100, 0.20) 100%);
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-side-metric--receivable {
+    background-image:
+      radial-gradient(120px 110px at 94% 50%, rgba(34, 211, 238, 0.30) 0%, rgba(255, 255, 255, 0) 70%),
+      linear-gradient(100deg, rgba(255, 255, 255, 0) 50%, rgba(34, 211, 238, 0.20) 100%);
+  }
+
+  @media (max-width: 1280px) {
+    body.dashboard-body .dashboard-shell .dashboard-kpi-card__art {
+      width: 68px;
+      max-height: 76px;
+      right: 8px;
+      bottom: 6px;
+      opacity: 0.96;
+    }
+
+    body.dashboard-body .dashboard-shell .dashboard-side-metric__art {
+      width: 104px;
+      right: 10px;
+    }
+
+    body.dashboard-body .dashboard-shell .dashboard-side-metric--visual .warehouse-summary-item__text {
+      padding-right: 120px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    body.dashboard-body .dashboard-shell .dashboard-kpi-card__art {
+      width: 52px;
+      max-height: 60px;
+      opacity: 0.92;
+    }
+
+    body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band .dashboard-kpi-card--visual.premium-kpi .kpi-value {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    body.dashboard-body .dashboard-shell .dashboard-side-metric__art {
+      width: 88px;
+      right: 10px;
+      opacity: 0.94;
+    }
+
+    body.dashboard-body .dashboard-shell .dashboard-side-metric--visual .warehouse-summary-item__text {
+      padding-right: 104px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    body.dashboard-body .dashboard-shell .dashboard-kpi-card__art {
+      width: 44px;
+      max-height: 52px;
+      opacity: 0.85;
+    }
+
+    body.dashboard-body .dashboard-shell .dashboard-side-metric__art {
+      width: 72px;
+      opacity: 0.9;
+    }
+
+    body.dashboard-body .dashboard-shell .dashboard-side-metric--visual .warehouse-summary-item__text {
+      padding-right: 88px;
+    }
+  }
+
+  /* ============================================================
+     DASHBOARD VISUAL REFINEMENT V3.1 — Revenue Analytics layout lift.
+     V3.2 — plot stretches downward with net-zero content height:
+     chrome gives back exactly what the taller plot takes, so the outer
+     card geometry stays unchanged. Line design untouched.
+     ============================================================ */
+  body.dashboard-body .dashboard-shell .premium-chart .section-header--stack {
+    margin-bottom: 4px;
+  }
+
+  body.dashboard-body .dashboard-shell .premium-chart .section-header--stack .eyebrow {
+    margin-bottom: 2px;
+  }
+
+  body.dashboard-body .dashboard-shell .premium-chart .revenue-stat-grid {
+    margin-top: 6px;
+    margin-bottom: 2px;
+  }
+
+  /* Desktop only: the 292px live height lives in a ≥1281px rule; other
+     breakpoints keep their canonical chart heights. */
+  @media (min-width: 1281px) {
+    body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content .owner-main-grid .premium-chart .chart-wrap {
+      height: 316px;
+      margin-top: 16px;
+    }
+  }
+
+  /* ============================================================
+     DASHBOARD RIGHT ENDPOINT LOCK V3.5 — right-anchored chart stage.
+     Wrap clips horizontally; the stage is pinned right:0 with an explicit
+     pixel width, so it grows/shrinks toward the LEFT and the rightmost
+     point never moves during sidebar motion. Canvas fills the stage.
+     V3.6.1: the inner chart field itself is square (radius 0) so rounded
+     clipping can no longer mask the 30M tick or the last date label;
+     the outer Revenue card keeps its own rounding.
+     ============================================================ */
+  body.dashboard-body .dashboard-shell .premium-chart .chart-wrap {
+    position: relative;
+    overflow: hidden;
+    border-radius: 0;
+  }
+
+  body.dashboard-body .dashboard-shell .premium-chart .revenue-chart-stage {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    overflow: visible;
+  }
+
+  body.dashboard-body .dashboard-shell .premium-chart .revenue-chart-stage canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }

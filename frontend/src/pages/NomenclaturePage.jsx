@@ -5,10 +5,10 @@
 // Raw → RawMaterialsPage (сырьё/ингредиенты), Semi → SemiProductsPage
 // (полуфабрикаты с составом и производством) — работают против существующих
 // эндпоинтов /inventory/*, без Inventory Core.
+import { useState } from "react";
 import Icon from "../components/Icon";
 import { nomenclatureConfigs } from "./nomenclature/nomenclatureConfig";
 import { useDishesCatalog } from "./nomenclature/useDishesCatalog";
-import DishesStatGrid from "./nomenclature/DishesStatGrid";
 import DishesToolbar from "./nomenclature/DishesToolbar";
 import DishesTable from "./nomenclature/DishesTable";
 import DishesDialogs from "./nomenclature/DishesDialogs";
@@ -40,78 +40,85 @@ function NomenclaturePage({ type = "dishes" }) {
 
 function DishesCatalogPage() {
   const catalog = useDishesCatalog();
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   if (catalog.apiError && !catalog.apiLoading) {
     return <section className="nomenclature-page dish-catalog-page"><div className="login-error" role="alert">{catalog.apiError}</div></section>;
   }
 
   return (
-    <section className="nomenclature-page dish-catalog-page">
-      <div className="dish-catalog-card">
-        <div className="dish-catalog-header">
-          <div className="report-title-group">
-            <span className="report-accent-bar" />
+    <section className="nomenclature-page dish-catalog-page owner-report-view">
+      <section className="dish-catalog-card owner-report-surface settings-card">
+        <header className="settings-header dish-catalog-header">
+          <div className="settings-title-group">
+            <span className="settings-accent-bar" aria-hidden="true" />
             <div>
+              <p>Меню</p>
               <h1>Блюда</h1>
-              <p>Каталог блюд и товаров с быстрым редактированием цен, сортировки и настроек.</p>
             </div>
           </div>
-          <div className="dish-header-actions">
-            <button type="button" className="btn-soft">
-              <Icon name="bi-box-arrow-in-down" /> Импорт Excel
+          <div className="settings-actions dish-header-actions">
+            <button
+              type="button"
+              className="dishes-filter-toggle"
+              aria-expanded={filtersOpen}
+              aria-controls="dishes-catalog-filters"
+              onClick={() => setFiltersOpen((open) => !open)}
+            >
+              <Icon name="bi-sliders" size={17} /> Фильтровать
             </button>
-            <button type="button" className="btn-primary" onClick={() => catalog.openDrawer()}>
-              <Icon name="bi-plus" /> Добавить
+            <button type="button" className="dish-add-button" onClick={() => catalog.openDrawer()}>
+              <Icon name="bi-plus" size={18} /> Добавить
             </button>
           </div>
-        </div>
+        </header>
 
         {catalog.actionError ? <div className="login-error" role="alert">{catalog.actionError}</div> : null}
-
-        <DishesStatGrid
-          computedStats={catalog.computedStats}
-          statFilter={catalog.statFilter}
-          setStatFilter={catalog.setStatFilter}
-        />
 
         <DishesToolbar
           draftFilters={catalog.draftFilters}
           setDraftFilters={catalog.setDraftFilters}
           setFilters={catalog.setFilters}
-          settingsOpen={catalog.settingsOpen}
-          setSettingsOpen={catalog.setSettingsOpen}
-          isColumnVisible={catalog.isColumnVisible}
-          visibleColumnCount={catalog.visibleColumnCount}
-          toggleColumn={catalog.toggleColumn}
-          setVisibleColumns={catalog.setVisibleColumns}
+          filtersOpen={filtersOpen}
+          closeFilters={() => setFiltersOpen(false)}
+          categoryOptions={catalog.filterCategories}
+          categoriesUnavailable={catalog.filterCategoriesError}
         />
 
         <DishesTable
           filteredRows={catalog.filteredRows}
           isColumnVisible={catalog.isColumnVisible}
           tableMinWidth={catalog.tableMinWidth}
+          visibleColumnCount={catalog.visibleColumnCount}
           updateRow={catalog.updateRow}
           openDrawer={catalog.openDrawer}
           archiveDish={catalog.archiveDish}
-          openPhotoPicker={catalog.openPhotoPicker}
+          uploadDishPhoto={catalog.uploadDishPhoto}
+          photoUploadingId={catalog.photoUploadingId}
           saving={catalog.saving}
           pendingDeleteId={catalog.pendingDeleteId}
         />
-      </div>
+      </section>
 
       <DishesDialogs
         drawerOpen={catalog.drawerOpen}
+        drawerClosing={catalog.drawerClosing}
+        requestCloseDrawer={catalog.requestCloseDrawer}
+        finishCloseDrawer={catalog.finishCloseDrawer}
         editing={catalog.editing}
         saving={catalog.saving}
         setDrawerOpen={catalog.setDrawerOpen}
         form={catalog.form}
         setForm={catalog.setForm}
         saveDish={catalog.saveDish}
-        photoPicker={catalog.photoPicker}
-        setPhotoPicker={catalog.setPhotoPicker}
-        photoSearch={catalog.photoSearch}
-        setPhotoSearch={catalog.setPhotoSearch}
-        selectPhoto={catalog.selectPhoto}
+        categoryOptions={catalog.filterCategories}
+        categoriesLoading={catalog.filterCategoriesLoading}
+        categoriesUnavailable={catalog.filterCategoriesError}
+        printerOptions={catalog.printerOptions}
+        printersLoading={catalog.printerOptionsLoading}
+        printersUnavailable={catalog.printerOptionsError}
+        photoPreview={catalog.photoPreview}
+        handlePhotoChange={catalog.handlePhotoChange}
         modGroups={catalog.modGroups}
         setModGroups={catalog.setModGroups}
         modLoading={catalog.modLoading}

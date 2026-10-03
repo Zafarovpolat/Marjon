@@ -10015,11 +10015,6 @@
     table-layout: auto;
   }
 
-  .dish-catalog-page .dish-grid-table th,
-  .dish-catalog-page .dish-grid-table td {
-    padding: 15px 10px;
-  }
-
   .dish-catalog-page .dish-toolbar {
     padding: 15px 14px;
     gap: 10px;
@@ -12249,10 +12244,6 @@
 
   .dish-catalog-page .dish-grid-table th,
   .dish-catalog-page .dish-grid-table td {
-    height: 46px;
-    padding: 0 12px;
-
-    background: var(--dish-cell-bg);
     vertical-align: middle;
   }
 
@@ -12442,14 +12433,6 @@
     white-space: nowrap;
   }
 
-  .dish-catalog-page .dish-grid-table th:first-child {
-    border-top-left-radius: 16px;
-  }
-
-  .dish-catalog-page .dish-grid-table th:last-child {
-    border-top-right-radius: 16px;
-  }
-
   /* Dish catalog edge alignment: expand toward the marked top and side arrows. */
   @media (min-width: 1025px) {
     .dashboard-back-slot + .dish-catalog-page,
@@ -12470,11 +12453,6 @@
 
   .dish-catalog-page .dish-grid-wrap {
     overflow: auto;
-  }
-
-  .dish-catalog-page .dish-grid-table {
-    border-radius: 18px;
-    overflow: hidden;
   }
 
   /* Preserve rounded corners on active stat subcategory rows such as "Блюда". */
@@ -12512,7 +12490,6 @@
       max-height: none;
       overflow: auto;
       overscroll-behavior: contain;
-      scrollbar-gutter: stable both-edges;
     }
 
     .dish-catalog-page .dish-grid-table {
@@ -13141,7 +13118,6 @@
       margin-bottom: 0;
       overflow-x: scroll;
       overflow-y: auto;
-      scrollbar-gutter: stable both-edges;
     }
   }
 
@@ -31756,21 +31732,7 @@ body.dashboard-body .dashboard-shell.is-sidebar-collapsed,body.dashboard-body .d
   .dish-catalog-page .dish-grid-table td {
 
     border-right: 0;
-    border-bottom: 1px solid var(--dish-border-soft);
 
-  }
-
-  .dish-catalog-page .dish-grid-table th {
-    height: 44px;
-    background: var(--dish-header-bg);
-    color: #58708d;
-  
-    font-weight: 800;
-
-  }
-
-  .dish-catalog-page .dish-grid-table tbody tr:hover td {
-    background: var(--dish-row-hover);
   }
 
   
@@ -31946,14 +31908,6 @@ body.dashboard-body .dashboard-shell.is-sidebar-collapsed,body.dashboard-body .d
     border-radius: 18px;
   }
 
-  .dish-catalog-page .dish-grid-table th:first-child {
-    border-top-left-radius: 18px;
-  }
-
-  .dish-catalog-page .dish-grid-table th:last-child {
-    border-top-right-radius: 18px;
-  }
-
   /* Preserve rounded corners on active stat subcategory rows such as "Блюда". */
 
   .dish-catalog-page .dish-stat-lines button,
@@ -32056,7 +32010,6 @@ body.dashboard-body:has(.dish-catalog-page) .dashboard-shell,body.dashboard-body
       flex: 0 0 auto;
     }
 
-    body.dashboard-body:has(.dish-catalog-page) .dashboard-content,
     body.dashboard-body:has(.menu-categories-page) .dashboard-content {
       flex: 1 1 0;
 
@@ -32064,11 +32017,6 @@ body.dashboard-body:has(.dish-catalog-page) .dashboard-shell,body.dashboard-body
       padding-bottom: 8px;
       
     }
-body.dashboard-body:has(.dish-catalog-page) .dashboard-content {
-  height: auto;
-  min-height: 0;
-  overflow: hidden;
-}
 
     .dashboard-back-slot + .dish-catalog-page,
     .dish-catalog-page,

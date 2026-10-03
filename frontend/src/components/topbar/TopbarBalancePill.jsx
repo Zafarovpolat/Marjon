@@ -6,7 +6,12 @@ export default function TopbarBalancePill({ balance, balanceLoading, balanceErro
   return (
     <div className="topbar-balance-pill" aria-label={balanceError ? `Баланс недоступен: ${balanceError}` : `Баланс ${Number(balance || 0).toLocaleString("ru-RU")} UZS`}>
       <span className="topbar-balance-amount">{balanceLoading ? "..." : balanceError ? "Недоступно" : `${Number(balance).toLocaleString("ru-RU")} UZS`}</span>
-      <button className="topbar-pay-button" type="button" onClick={onOpenPayment}>
+      <button
+        className="topbar-pay-button"
+        type="button"
+        aria-label="Баланс"
+        onClick={(event) => onOpenPayment(event.currentTarget)}
+      >
         <Icon name="bi-wallet2" size={18} />
         <span>Баланс</span>
       </button>

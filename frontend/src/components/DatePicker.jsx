@@ -37,7 +37,7 @@ function buildGrid(viewYear, viewMonth) {
   });
 }
 
-export default function DatePicker({ value, max, onChange, onClear }) {
+export default function DatePicker({ value, max, onChange, onClear, readOnly = false }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState(() => parseValue(value));
   const [showMonthList, setShowMonthList] = useState(false);
@@ -131,25 +131,36 @@ export default function DatePicker({ value, max, onChange, onClear }) {
 
   const label = `${String(selected.getDate()).padStart(2, "0")}.${String(selected.getMonth() + 1).padStart(2, "0")}.${selected.getFullYear()}`;
   const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const triggerContent = (
+    <>
+      <span className="mj-datepicker__date">
+        <span className="mj-datepicker__icon"><Icon name="bi-calendar3" size={18} /></span>
+        <span className="mj-datepicker__value">{label}</span>
+      </span>
+      <span className="mj-datepicker__divider" aria-hidden="true" />
+      <span className="mj-datepicker__time"><Icon name="bi-clock" size={16} />{time}</span>
+    </>
+  );
 
   return (
-    <div className={`mj-datepicker ${open ? "is-open" : ""}`} ref={wrapRef}>
-      <button
-        type="button"
-        className="mj-datepicker__trigger"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-      >
-        <span className="mj-datepicker__date">
-          <span className="mj-datepicker__icon"><Icon name="bi-calendar3" size={18} /></span>
-          <span className="mj-datepicker__value">{label}</span>
-        </span>
-        <span className="mj-datepicker__divider" aria-hidden="true" />
-        <span className="mj-datepicker__time"><Icon name="bi-clock" size={16} />{time}</span>
-      </button>
+    <div className={`mj-datepicker${open ? " is-open" : ""}${readOnly ? " is-readonly" : ""}`} ref={wrapRef}>
+      {readOnly ? (
+        <div className="mj-datepicker__trigger" aria-label={`${label} ${time}`}>
+          {triggerContent}
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="mj-datepicker__trigger"
+          onClick={() => setOpen((o) => !o)}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+        >
+          {triggerContent}
+        </button>
+      )}
 
-      {open ? (
+      {open && !readOnly ? (
         <>
           <div className="mj-calendar-overlay" onClick={() => setOpen(false)} />
           <div

@@ -481,22 +481,21 @@ describe("Web domain service contracts", () => {
   describe("dashboard orchestration", () => {
     it("requests the accepted OWNER overview sources with exact filters", async () => {
       await dashboardService.loadOwnerOverview({
-        selectedDate: "2026-08-13",
         dateFrom: "2026-08-01",
         dateTo: "2026-08-13",
       });
       expect(api.get).toHaveBeenCalledWith("/analytics/dashboard", { params: { date: "2026-08-13" } });
       expect(api.get).toHaveBeenCalledWith("/analytics/sales", { params: { date_from: "2026-08-01", date_to: "2026-08-13" } });
-      expect(api.get).toHaveBeenCalledWith("/analytics/products/top", { params: { date_from: "2026-08-13", date_to: "2026-08-13", limit: 5 } });
+      expect(api.get).toHaveBeenCalledWith("/analytics/products/top", { params: { date_from: "2026-08-01", date_to: "2026-08-13", limit: 5 } });
+      expect(api.get).toHaveBeenCalledWith("/pos/orders", { params: { date: "2026-08-13" } });
       expect(api.get).toHaveBeenCalledWith("/settings/places");
-      expect(api.get).toHaveBeenCalledWith("/finance/transactions", { params: { date_from: "2026-08-13", date_to: "2026-08-13" } });
+      expect(api.get).toHaveBeenCalledWith("/finance/transactions", { params: { date_from: "2026-08-01", date_to: "2026-08-13" } });
     });
 
     it("rejects when an authoritative dashboard source fails", async () => {
       const error = new Error("dashboard unavailable");
       api.get.mockRejectedValueOnce(error);
       await expect(dashboardService.loadOwnerOverview({
-        selectedDate: "2026-08-13",
         dateFrom: "2026-08-01",
         dateTo: "2026-08-13",
       })).rejects.toBe(error);
