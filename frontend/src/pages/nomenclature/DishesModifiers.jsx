@@ -18,12 +18,10 @@ const emptyGroup = () => ({
 export default function DishesModifiers({ editing, modGroups, setModGroups, modLoading, modError, saveModGroup, removeModGroup }) {
   const [dirty, setDirty] = useState({});   // groupKey → true, если есть несохранённые правки
 
+  // Добавки доступны только у сохранённого блюда: в режиме создания секция
+  // не рендерится вообще (без helper-текста) — footer остаётся чистым.
   if (!editing?.id) {
-    return (
-      <div className="dish-mods">
-        <p className="dish-mods__hint">Сохраните блюдо, чтобы добавить к нему добавки.</p>
-      </div>
-    );
+    return null;
   }
 
   const groupKey = (group, index) => group.id || `new-${index}`;

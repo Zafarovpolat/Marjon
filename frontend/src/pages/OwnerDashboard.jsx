@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useOutletContext } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { formatMoney } from "../api/client";
 import { dashboardService } from "../api/dashboard";
-import { todayInputValue, toDateInputValue } from "../utils/date";
+import { toDateInputValue } from "../utils/date";
 import Icon from "../components/Icon";
 import { PageLoader } from "../components/Loader";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 import {
-  reportRangeEndingAt,
+  todayReportRange,
+  dashboardPeriodFromSearch,
   normalizeReportRange,
   reportRangeToApiParams,
   reportRangeDays,
@@ -21,8 +22,9 @@ import {
   apiList,
   toFiniteNumber,
   buildRealKpis,
-  buildUnavailableWarehouseSummary,
   buildRevenueChartSales,
+  buildUnavailableWarehouseSummary,
+  buildZeroRevenueBuckets,
 } from "./dashboard/analyticsData";
 import {
   buildSimulatedDashboard,
@@ -34,7 +36,38 @@ import {
 } from "./dashboard/simulation";
 import RevenueChart from "./dashboard/RevenueChart";
 import { KpiInfoDialog, WarehouseReportDialog } from "./dashboard/DashboardDialogs";
-import { EmptyState, TopSalesCard, RecentOrdersCard, SectionEmpty } from "./dashboard/DashboardCards";
+import { EmptyState, TopSalesCard, RecentOrdersCard } from "./dashboard/DashboardCards";
+import { prepareKpiDialogTrigger } from "./dashboard/kpiFocusOrigin";
+import revenueArt from "../assets/dashboard-card-art/revenue.png";
+import ordersArt from "../assets/dashboard-card-art/orders.png";
+import averageCheckArt from "../assets/dashboard-card-art/average_check.png";
+import incomeArt from "../assets/dashboard-card-art/income.png";
+import expenseArt from "../assets/dashboard-card-art/expense.png";
+import incomingGoodsArt from "../assets/dashboard-card-art/incoming_goods_clean.png";
+import outgoingGoodsArt from "../assets/dashboard-card-art/outgoing_goods_clean.png";
+import warehouseStockArt from "../assets/dashboard-card-art/warehouse_stock_clean.png";
+import totalCostsArt from "../assets/dashboard-card-art/total_costs_clean.png";
+import accountsPayableArt from "../assets/dashboard-card-art/accounts_payable_clean.png";
+import accountsReceivableArt from "../assets/dashboard-card-art/accounts_receivable_clean.png";
+
+// DASHBOARD MAXIMAL KPI CARDS V1 — decorative-only PNG mapping. Real KPI values
+// stay as DOM text; PNGs are presentational (alt="" aria-hidden, no pointers).
+const KPI_VISUALS = {
+  "premium-kpi--revenue": { src: revenueArt, variant: "revenue" },
+  "premium-kpi--orders": { src: ordersArt, variant: "orders" },
+  "premium-kpi--avg": { src: averageCheckArt, variant: "average" },
+  "premium-kpi--tables": { src: incomeArt, variant: "income" },
+  "premium-kpi--expense": { src: expenseArt, variant: "expense" },
+};
+
+const WAREHOUSE_VISUALS = {
+  income: { src: incomingGoodsArt, variant: "incoming" },
+  expense: { src: outgoingGoodsArt, variant: "outgoing" },
+  stock: { src: warehouseStockArt, variant: "stock" },
+  costs: { src: totalCostsArt, variant: "costs" },
+  creditor: { src: accountsPayableArt, variant: "payable" },
+  debtor: { src: accountsReceivableArt, variant: "receivable" },
+};
 
 // Оркестратор OWNER-дашборда (FE-07B). Владеет верхнеуровневым состоянием
 // (период выручки, выбранные KPI/склад-отчёт, данные запроса) и раздаёт его
@@ -107,12 +140,15 @@ function buildSimulatedRevenueSales(range) {
 }
 
 export default function OwnerDashboard() {
-  const { selectedDate = todayInputValue() } = useOutletContext();
   const navigate = useNavigate();
-  const [revenueRange, setRevenueRange] = useState(() => reportRangeEndingAt(7, selectedDate));
+  const [dashboardPeriod, setDashboardPeriod] = useState(() => (
+    dashboardPeriodFromSearch(window.location.search) || todayReportRange()
+  ));
+  const [periodPanelState, setPeriodPanelState] = useState({ active: "", closing: "", pending: "" });
   const [selectedKpi, setSelectedKpi] = useState(null);
+  const [selectedKpiSource, setSelectedKpiSource] = useState(null);
+  const selectedKpiTriggerRef = useRef(null);
   const [selectedWarehouseReport, setSelectedWarehouseReport] = useState(null);
-  const lastSelectedDateRef = useRef(selectedDate);
   const [dashboard, setDashboard] = useState(null);
   const [sales, setSales] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
@@ -123,33 +159,43 @@ export default function OwnerDashboard() {
   const [financeTransactions, setFinanceTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const hasLoadedDashboardRef = useRef(false);
   const beginRequest = useLatestRequest();
-  const normalizedRevenueRange = useMemo(() => normalizeReportRange(revenueRange), [revenueRange]);
-  const revenueParams = useMemo(() => reportRangeToApiParams(normalizedRevenueRange), [normalizedRevenueRange]);
-  const revenuePeriod = useMemo(() => reportRangeDays(normalizedRevenueRange), [normalizedRevenueRange]);
-  const revenuePeriodLabel = reportRangeLabel(normalizedRevenueRange);
-  const revenuePresetOptions = useMemo(() => ([
-    { label: "7 дней", getRange: () => ({ ...reportRangeEndingAt(7, selectedDate), preset: "7 дней" }) },
-    { label: "30 дней", getRange: () => ({ ...reportRangeEndingAt(30, selectedDate), preset: "30 дней" }) },
-  ]), [selectedDate]);
+  const normalizedDashboardPeriod = useMemo(() => normalizeReportRange(dashboardPeriod), [dashboardPeriod]);
+  const dashboardPeriodParams = useMemo(() => reportRangeToApiParams(normalizedDashboardPeriod), [normalizedDashboardPeriod]);
+  const dashboardPeriodDays = useMemo(() => reportRangeDays(normalizedDashboardPeriod), [normalizedDashboardPeriod]);
+  const dashboardPeriodLabel = reportRangeLabel(normalizedDashboardPeriod);
+  const dashboardReferenceDate = dashboardPeriodParams.date_to;
 
-  useEffect(() => {
-    if (lastSelectedDateRef.current === selectedDate) {
-      return;
-    }
+  function requestPeriodPanel(panelId) {
+    setPeriodPanelState((current) => {
+      if (current.closing) {
+        const nextPending = current.pending === panelId ? "" : panelId;
+        return { ...current, pending: nextPending };
+      }
+      if (!current.active) return panelId ? { active: panelId, closing: "", pending: "" } : current;
+      return {
+        active: "",
+        closing: current.active,
+        pending: current.active === panelId ? "" : panelId,
+      };
+    });
+  }
 
-    lastSelectedDateRef.current = selectedDate;
-    setRevenueRange((current) => reportRangeEndingAt(reportRangeDays(current), selectedDate));
-  }, [selectedDate]);
+  function completePeriodPanelExit(panelId) {
+    setPeriodPanelState((current) => {
+      if (current.closing !== panelId) return current;
+      return { active: current.pending, closing: "", pending: "" };
+    });
+  }
 
   useEffect(() => {
     const request = beginRequest();
-    setLoading(true);
+    if (!hasLoadedDashboardRef.current) setLoading(true);
     setError("");
     dashboardService.loadOwnerOverview({
-      selectedDate,
-      dateFrom: revenueParams.date_from,
-      dateTo: revenueParams.date_to,
+      dateFrom: dashboardPeriodParams.date_from,
+      dateTo: dashboardPeriodParams.date_to,
       signal: request.signal,
     }).then(([
       dashboardRes,
@@ -176,21 +222,45 @@ export default function OwnerDashboard() {
     }).catch((err) => {
       if (request.isCurrent() && !isAbortError(err)) setError(err.response?.data?.detail || "Не удалось загрузить dashboard данные.");
     }).finally(() => {
-      if (request.isCurrent()) setLoading(false);
+      if (request.isCurrent()) {
+        hasLoadedDashboardRef.current = true;
+        setLoading(false);
+      }
     });
-  }, [beginRequest, revenueParams, selectedDate]);
+  }, [beginRequest, dashboardPeriodParams]);
+
+  function applyDashboardPeriod(nextRange) {
+    const normalized = normalizeReportRange(nextRange);
+    const apiRange = reportRangeToApiParams(normalized);
+    const params = new URLSearchParams(window.location.search);
+    params.set("date_from", apiRange.date_from);
+    params.set("date_to", apiRange.date_to);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}?${params.toString()}${window.location.hash}`,
+    );
+    setDashboardPeriod(normalized);
+  }
 
   const displaySales = useMemo(() => sales, [sales]);
   const revenueChartSales = useMemo(
     () => buildRevenueChartSales(displaySales),
     [displaySales]
   );
+  // No-data state: same real chart shell with a flat display-only zero series
+  // derived from the selected period (never stored/sent, values exactly 0).
+  const revenueChartZeroBuckets = useMemo(
+    () => buildZeroRevenueBuckets(dashboardPeriodParams.date_from, dashboardPeriodParams.date_to),
+    [dashboardPeriodParams]
+  );
+  const revenueChartDisplaySales = revenueChartSales.length ? revenueChartSales : revenueChartZeroBuckets;
   const displayPlaceSettings = useMemo(() => placeSettings, [placeSettings]);
   const displayFinanceTransactions = useMemo(() => financeTransactions, [financeTransactions]);
   const displayDashboard = useMemo(() => dashboard || EMPTY_DASHBOARD, [dashboard]);
   const kpis = useMemo(() => {
-    return buildRealKpis(displayDashboard, revenueChartSales, selectedDate, displayPlaceSettings, displayFinanceTransactions);
-  }, [displayDashboard, revenueChartSales, selectedDate, displayPlaceSettings, displayFinanceTransactions]);
+    return buildRealKpis(displayDashboard, revenueChartSales, dashboardReferenceDate, displayPlaceSettings, displayFinanceTransactions);
+  }, [dashboardReferenceDate, displayDashboard, revenueChartSales, displayPlaceSettings, displayFinanceTransactions]);
   const displayTopProducts = useMemo(() => topProducts, [topProducts]);
   const displayTopDishes = useMemo(() => {
   if (displayTopProducts.length > 0) {
@@ -254,12 +324,17 @@ export default function OwnerDashboard() {
     <>
       <div className="owner-kpi-band">
         <section className="kpi-grid kpi-grid--premium">
-          {kpis.map((kpi) => (
+          {kpis.map((kpi) => {
+            const visual = KPI_VISUALS[kpi.className];
+            return (
             <button
-              className={`kpi-card premium-kpi ${kpi.className}`}
+              className={`kpi-card premium-kpi ${kpi.className}${visual ? ` dashboard-kpi-card--visual dashboard-kpi-card--${visual.variant}` : ""}`}
               key={kpi.label}
               type="button"
-              onClick={() => setSelectedKpi(kpi)}
+              onClick={(event) => {
+                setSelectedKpiSource(prepareKpiDialogTrigger(event, selectedKpiTriggerRef));
+                setSelectedKpi(kpi);
+              }}
               aria-haspopup="dialog"
             >
               <div className="premium-kpi__top">
@@ -268,33 +343,46 @@ export default function OwnerDashboard() {
               </div>
               <div className="kpi-label">{kpi.label}</div>
               <div className="kpi-value">{kpi.value} {kpi.suffix ? <small>{kpi.suffix}</small> : null}</div>
-              <div className={`kpi-note ${kpi.noteClass}`}>{kpi.note}</div>
               <div className="premium-kpi__progress"><i style={{ width: `${kpi.progress}%` }} /></div>
+              {visual ? (
+                <img
+                  className="dashboard-kpi-card__art"
+                  src={visual.src}
+                  alt=""
+                  aria-hidden="true"
+                  draggable={false}
+                />
+              ) : null}
             </button>
-          ))}
+            );
+          })}
         </section>
         <div className="owner-kpi-band__side" aria-hidden="true" />
       </div>
-      <KpiInfoDialog kpi={selectedKpi} onClose={() => setSelectedKpi(null)} />
-      <WarehouseReportDialog report={selectedWarehouseReport} selectedDate={selectedDate} onClose={() => setSelectedWarehouseReport(null)} />
+      <KpiInfoDialog
+        kpi={selectedKpi}
+        sourceRect={selectedKpiSource}
+        returnFocusRef={selectedKpiTriggerRef}
+        onClose={() => setSelectedKpi(null)}
+      />
+      <WarehouseReportDialog report={selectedWarehouseReport} selectedDate={dashboardReferenceDate} onClose={() => setSelectedWarehouseReport(null)} />
 
       <section className="owner-main-grid">
         <div className="card card-pad chart-card premium-chart">
           <div className="section-header section-header--stack">
-            <div><span className="eyebrow">Revenue analytics</span><h2>Выручка за {formatDaysLabel(revenuePeriod)}</h2><p>{revenuePeriodLabel}</p></div>
-            <div className="period-switcher owner-revenue-switcher" aria-label="Период выручки">
-              <div className="owner-revenue-range report-actions">
-                <ReportDateRangePicker
-                  value={normalizedRevenueRange}
-                  onChange={(nextRange) => setRevenueRange(normalizeReportRange(nextRange))}
-                  buttonClassName="period-dropdown__button owner-revenue-range__button"
-                  presets={revenuePresetOptions}
-                  formatButtonLabel={(range) => formatDaysLabel(reportRangeDays(range))}
-                  showDropdownIcon
-                  showTime={false}
-                />
-              </div>
-              <Link className="period-switcher__details" to="/analytics">Подробнее</Link>
+            <div><span className="eyebrow">Revenue analytics</span><h2>Выручка за {formatDaysLabel(dashboardPeriodDays)}</h2></div>
+            <div className="owner-revenue-switcher" aria-label="Период выручки">
+              <ReportDateRangePicker
+                variant="canonical"
+                animateExit
+                value={normalizedDashboardPeriod}
+                onChange={applyDashboardPeriod}
+                open={periodPanelState.active === "period"}
+                onOpenChange={(nextOpen) => requestPeriodPanel(nextOpen ? "period" : "")}
+                onExitComplete={() => completePeriodPanelExit("period")}
+                buttonAriaLabel="Период выручки"
+                buttonClassName="owner-dashboard-period__trigger"
+              />
             </div>
           </div>
           <div className="revenue-stat-grid">
@@ -303,36 +391,39 @@ export default function OwnerDashboard() {
             <div><span>Среднее</span><strong>{formatMoney(revenueStats.avg)}</strong></div>
           </div>
           <div className="chart-wrap">
-            {revenueChartSales.length ? (
-              <RevenueChart sales={revenueChartSales} />
-            ) : (
-              <SectionEmpty
-                className="owner-empty--chart"
-                icon="bi-graph-up"
-                title="Продаж пока нет"
-                text="После первых закрытых заказов здесь появится динамика выручки за выбранный период."
-              />
-            )}
+            <RevenueChart sales={revenueChartDisplaySales} />
           </div>
         </div>
 
         <aside className="warehouse-summary-card">
           <div className="warehouse-summary-list">
-            {warehouseSummary.map((item) => (
+            {warehouseSummary.map((item) => {
+              const visual = WAREHOUSE_VISUALS[item.tone];
+              return (
               <button
-                className={`warehouse-summary-item warehouse-summary-item--${item.tone}`}
+                className={`warehouse-summary-item warehouse-summary-item--${item.tone}${visual ? ` dashboard-side-metric--visual dashboard-side-metric--${visual.variant}` : ""}`}
                 key={item.label}
                 type="button"
                 onClick={() => handleWarehouseSummaryClick(item)}
                 aria-haspopup={item.to ? undefined : "dialog"}
               >
                 <span className="warehouse-summary-item__icon"><Icon name={item.icon} size={18} /></span>
-                <div>
+                <div className="warehouse-summary-item__text">
                   <strong>{item.label}</strong>
-                  <span>{item.unavailable ? "Скоро" : formatMoney(item.value)}</span>
+                  <span>{item.unavailable && (item.tone === "creditor" || item.tone === "debtor") ? "Скоро" : formatMoney(item.unavailable ? 0 : item.value)}</span>
                 </div>
+                {visual ? (
+                  <img
+                    className="dashboard-side-metric__art"
+                    src={visual.src}
+                    alt=""
+                    aria-hidden="true"
+                    draggable={false}
+                  />
+                ) : null}
               </button>
-            ))}
+              );
+            })}
           </div>
         </aside>
 

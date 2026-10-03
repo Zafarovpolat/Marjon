@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Chart, Filler, LineController, LineElement, LinearScale, PointElement, CategoryScale, Tooltip } from "chart.js";
-import { formatMoney, formatNumber } from "../../api/client";
+import { formatNumber } from "../../api/client";
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler);
 
@@ -14,14 +14,37 @@ function formatAxisValue(value) {
   return normalized.toLocaleString("ru-RU", { maximumFractionDigits: 1 });
 }
 
-function formatRevenueAxisTick(value, hasRevenue) {
+// Display labels for the left Y-axis neutral range (V3.1 contract).
+export const REVENUE_AXIS_MILLION_LABELS = {
+  200: "1M",
+  400: "5M",
+  600: "10M",
+  800: "20M",
+  1000: "30M",
+};
+
+export function formatRevenueAxisTick(value, hasRevenue) {
   const amount = Number(value);
-  if (!Number.isFinite(amount) || amount <= 0) return "0";
-  if (!hasRevenue) return "";
+  if (!Number.isFinite(amount)) return "0";
+  if (amount in REVENUE_AXIS_MILLION_LABELS) return REVENUE_AXIS_MILLION_LABELS[amount];
+  if (amount <= 0) return "0";
+  if (!hasRevenue) return formatAxisValue(amount);
   if (amount >= 1_000_000_000) return `${formatAxisValue(amount / 1_000_000_000)}B`;
   if (amount >= 1_000_000) return `${formatAxisValue(amount / 1_000_000)}M`;
   if (amount >= 1_000) return `${formatAxisValue(amount / 1_000)}K`;
   return formatNumber(amount);
+}
+
+// Tooltip always shows the full sum ("3 000 000 UZS"), never a shortened tick.
+export function formatChartTooltipValue(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "0 UZS";
+  return `${number.toLocaleString("ru-RU", { maximumFractionDigits: 0 })} UZS`;
+}
+
+function formatSalesLabel(item) {
+  if (item && typeof item.chartLabel === "string" && item.chartLabel) return item.chartLabel;
+  return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit" }).format(new Date(item.date));
 }
 
 export default function RevenueChart({ sales }) {
@@ -63,7 +86,7 @@ export default function RevenueChart({ sales }) {
     const chart = new Chart(canvasRef.current, {
       type: "line",
       data: {
-        labels: sales.map((item) => new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit" }).format(new Date(item.date))),
+        labels: sales.map((item) => formatSalesLabel(item)),
         datasets: [{
           data: revenueValues,
           borderColor: "#1db5b5",
@@ -79,7 +102,9 @@ export default function RevenueChart({ sales }) {
         }],
       },
       options: {
-        responsive: true,
+        // Single controlled resize owner (V3.4): native responsive is OFF,
+        // one ResizeObserver on .chart-wrap + one RAF drive chart.resize().
+        responsive: false,
         maintainAspectRatio: false,
         interaction: { intersect: false, mode: "index" },
         animation: false,
@@ -112,20 +137,20 @@ export default function RevenueChart({ sales }) {
               tooltipEl.style.top = `${chart.canvas.offsetTop + y}px`;
               tooltipEl.classList.add("is-visible");
             },
-            callbacks: { label: (context) => formatMoney(context.parsed.y) },
+            callbacks: { label: (context) => formatChartTooltipValue(context.parsed.y) },
           },
         },
         // REVENUE_CHART_SCALES
         scales: {
-          x: { grid: { display: false }, ticks: { color: "#667085", font: { size: 12, weight: "600", family: "'Golos Text', Manrope, sans-serif" } }, border: { display: false } },
+          x: { grid: { display: false }, ticks: { color: "#667085", font: { size: 13, weight: "600", family: "'Golos Text', Manrope, sans-serif" } }, border: { display: false } },
           y: {
             beginAtZero: true,
-            suggestedMax: hasRevenue ? undefined : 1,
+            suggestedMax: hasRevenue ? undefined : 1000,
             grid: { color: "rgba(16, 24, 40, 0.08)", drawTicks: false },
             ticks: {
               color: "#667085",
-              font: { size: 12, weight: "600", family: "'Golos Text', Manrope, sans-serif" },
-              maxTicksLimit: hasRevenue ? 6 : 2,
+              font: { size: 13, weight: "600", family: "'Golos Text', Manrope, sans-serif" },
+              maxTicksLimit: 6,
               precision: 0,
               callback: (value) => formatRevenueAxisTick(value, hasRevenue),
             },
@@ -147,20 +172,65 @@ export default function RevenueChart({ sales }) {
     };
     revealFrame = window.requestAnimationFrame(runReveal);
 
+    // Right-endpoint lock (V3.6.1): the stage is right-anchored, so every
+    // stage resize moves its LEFT edge only — rightmost point, last tick and
+    // right boundary stay fixed. The observer stores the latest integer size
+    // and at most one RAF applies it immediately (old natural left-side
+    // motion). No timers, no snap, no data touch, no remount.
+    const wrapBox = canvasRef.current.closest(".chart-wrap") || canvasRef.current.parentElement;
+    const stageBox = canvasRef.current.parentElement;
+    const appliedSize = { width: 0, height: 0 };
+    const applyStageSize = (size) => {
+      if (size.width <= 0 || size.height <= 0) return;
+      if (size.width === appliedSize.width && size.height === appliedSize.height) return;
+      appliedSize.width = size.width;
+      appliedSize.height = size.height;
+      stageBox.style.width = `${size.width}px`;
+      canvasRef.current.style.width = `${size.width}px`;
+      canvasRef.current.style.height = `${size.height}px`;
+      chart.resize(size.width, size.height);
+    };
+    const wrapRect = wrapBox.getBoundingClientRect();
+    applyStageSize({ width: Math.round(wrapRect.width), height: Math.round(wrapRect.height) });
+
+    let motionRaf = 0;
+    let latestSize = null;
+    let sizeObserver = null;
+    if (typeof window.ResizeObserver !== "undefined") {
+      sizeObserver = new window.ResizeObserver((entries) => {
+        const last = entries[entries.length - 1];
+        latestSize = {
+          width: Math.round(last.contentRect.width),
+          height: Math.round(last.contentRect.height),
+        };
+        if (motionRaf) return;
+        motionRaf = window.requestAnimationFrame(() => {
+          motionRaf = 0;
+          const size = latestSize;
+          latestSize = null;
+          if (!size) return;
+          applyStageSize(size);
+        });
+      });
+      sizeObserver.observe(wrapBox);
+    }
+
     return () => {
       window.cancelAnimationFrame(revealFrame);
+      if (motionRaf) window.cancelAnimationFrame(motionRaf);
+      if (sizeObserver) sizeObserver.disconnect();
       chart.destroy();
     };
 
   }, [sales]);
 
   return (
-    <>
+    <div className="revenue-chart-stage">
       <canvas ref={canvasRef} id="ownerRevenueChart" />
       <div className="owner-revenue-tooltip" ref={tooltipRef} aria-hidden="true">
         <strong />
         <span />
       </div>
-    </>
+    </div>
   );
 }

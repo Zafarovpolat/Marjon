@@ -6,13 +6,8 @@ import { formatMoney } from "../../api/client";
 import { todayInputValue } from "../../utils/date";
 import { isAbortError, useLatestRequest } from "../../hooks/useAsyncSafety";
 
-// OWNER notification center. Truthful, empty-first:
-//  • CANCELLED ORDERS — real, derived from GET /reports/orders (status
-//    "cancelled") for today. Only backend-supplied fields (№, стол, время,
-//    сумма) are shown. Empty company → no rows (healthy empty).
-//  • LOW STOCK — backend contract (ingredient min-stock threshold) does NOT
-//    exist yet (Inventory Core deferred), so it is shown as a small CALM
-//    deferred note, NOT a red error and NOT fake data.
+// OWNER notification center. Cancelled orders come from today's
+// GET /reports/orders response; no unread state or low-stock data is inferred.
 function apiList(data) {
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.items)) return data.items;
@@ -25,6 +20,15 @@ function formatTime(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatEventCount(count) {
+  const lastTwo = count % 100;
+  const lastDigit = count % 10;
+  if (lastTwo >= 11 && lastTwo <= 14) return `${count} событий`;
+  if (lastDigit === 1) return `${count} событие`;
+  if (lastDigit >= 2 && lastDigit <= 4) return `${count} события`;
+  return `${count} событий`;
 }
 
 export default function TopbarNotifications() {
@@ -113,50 +117,55 @@ export default function TopbarNotifications() {
           </span>
         ) : null}
       </button>
-      {open ? (
-        <div className="stock-alert-popover owner-notif" role="dialog" aria-label="Уведомления">
-          <div className="stock-alert-popover__head">
-            <div>
-              <span>Уведомления</span>
-              <strong>{count ? `${count} ${count === 1 ? "новое" : "новых"}` : "Новых уведомлений нет"}</strong>
-            </div>
-            <button className={loading ? "is-loading" : ""} type="button" onClick={load} disabled={loading} aria-label="Обновить">
-              <Icon name="bi-arrow-clockwise" size={16} />
-            </button>
+      <div
+        className={`stock-alert-popover owner-notif ${open ? "is-open" : ""}`}
+        role="dialog"
+        aria-label="Уведомления"
+        aria-hidden={!open}
+        inert={!open}
+      >
+        <div className="stock-alert-popover__head">
+          <div>
+            <span>Уведомления</span>
+            <strong>{count ? formatEventCount(count) : "Событий пока нет"}</strong>
           </div>
-          <div className="stock-alert-popover__body">
-            {loading ? <div className="stock-alert-popover__empty"><InlineLoader text="Загрузка..." /></div> : null}
-            {!loading && error ? (
-              <div className="owner-notif__error" role="alert">
-                <span>{error}</span>
-                <button type="button" onClick={load}>Повторить</button>
-              </div>
-            ) : null}
-            {!loading && !error ? cancelled.map((item) => (
-              <div className="stock-alert-item owner-notif__item owner-notif__item--cancel" key={item.id}>
-                <div className="stock-alert-item__icon owner-notif__icon--cancel"><Icon name="bi-x-circle" size={16} /></div>
-                <div>
-                  <strong>Заказ №{item.number} отменён</strong>
-                  <span>
-                    {[item.table ? `Стол ${item.table}` : null, item.time || null]
-                      .filter(Boolean).join(" · ")}
-                    {item.amount != null ? ` · ${formatMoney(item.amount)}` : ""}
-                  </span>
-                </div>
-              </div>
-            )) : null}
-            {!loading && !error && !count ? (
-              <div className="owner-notif__empty">
-                <p className="owner-notif__empty-title">Новых уведомлений нет</p>
-                <p className="owner-notif__empty-text">Здесь появятся важные события по складу и заказам.</p>
-              </div>
-            ) : null}
-            {!loading && !error ? (
-              <p className="owner-notif__deferred">Низкие остатки появятся после подключения склада.</p>
-            ) : null}
-          </div>
+          <button className={loading ? "is-loading" : ""} type="button" onClick={load} disabled={loading} aria-label="Обновить">
+            <Icon name="bi-arrow-clockwise" size={16} />
+          </button>
         </div>
-      ) : null}
+        <div className="stock-alert-popover__body">
+          {loading ? <div className="stock-alert-popover__empty"><InlineLoader text="Загрузка..." /></div> : null}
+          {!loading && error ? (
+            <div className="owner-notif__error" role="alert">
+              <span>{error}</span>
+              <button type="button" onClick={load}>Повторить</button>
+            </div>
+          ) : null}
+          {!loading && !error ? cancelled.map((item) => (
+            <div className="stock-alert-item owner-notif__item owner-notif__item--cancel" key={item.id}>
+              <div className="stock-alert-item__icon owner-notif__icon--cancel" aria-hidden="true">
+                <Icon name="bi-x-octagon" size={18} />
+              </div>
+              <div>
+                <strong>Заказ №{item.number} отменён</strong>
+                <span>
+                  {[item.table ? `Стол ${item.table}` : null, item.time || null]
+                    .filter(Boolean).join(" · ")}
+                  {item.amount != null ? ` · ${formatMoney(item.amount)}` : ""}
+                </span>
+              </div>
+            </div>
+          )) : null}
+          {!loading && !error && !count ? (
+            <div className="owner-notif__empty">
+              <span className="owner-notif__empty-icon" aria-hidden="true">
+                <Icon name="bi-bell" size={19} />
+              </span>
+              <p className="owner-notif__empty-text">Здесь появятся важные события по заказам.</p>
+            </div>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

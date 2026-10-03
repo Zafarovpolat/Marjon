@@ -2,18 +2,26 @@
 // настройки колонок и мутации. Вынесено из NomenclaturePage.jsx (FE-07B)
 // без ослабления FE-06 safety (AbortController/useLatestRequest, замки мутаций,
 // stale-response ownership, unmount safety, числовой парсинг сохранены 1:1).
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { catalogService } from "../../api/catalog";
+import { getCategories } from "../../api/categories";
+import { settingsService } from "../../api/settings";
 import { isAbortError, useLatestRequest, useMutationLocks } from "../../hooks/useAsyncSafety";
 import { defaultDishColumnVisibility, dishColumnOptions, emptyDishForm } from "./nomenclatureConfig";
 import {
   buildNomenclatureProductPayload,
   mapNomenclatureProduct,
-  matchesDishStatFilter,
   parseNomenclatureMoney,
   parseNomenclatureSort,
 } from "./nomenclatureData";
 
+// JPEG/PNG/WebP — как принимает POST /inventory/products/{id}/photo.
+export const SUPPORTED_DISH_PHOTO_TYPES = Object.freeze(["image/jpeg", "image/png", "image/webp"]);
+// Опции фильтра «Категория»: ТОЛЬКО живой GET /inventory/categories
+// (тот же источник, что у «Категория блюд»). Никаких демо/хардкод-фолбэков:
+// пусто/ошибка → truthful disabled-состояние, без catch-all опции ([] = без
+// ограничения). value = category.id, label = category.name; сопоставление со
+// строками — по имени, т.к. продукты несут только category_name.
 export function useDishesCatalog() {
   const [rows, setRows] = useState([]);
   const [apiLoading, setApiLoading] = useState(true);
@@ -21,12 +29,47 @@ export function useDishesCatalog() {
   const [actionError, setActionError] = useState("");
   const [saving, setSaving] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
-  const [draftFilters, setDraftFilters] = useState({ search: "", chef: "", category: "" });
+  // V17 — категория: массив canonical IDs (мультиселект как в Reports).
+  // [] = без ограничения (заменяет удалённую опцию «Все категории»).
+  const [draftFilters, setDraftFilters] = useState({ search: "", category: [] });
   const [filters, setFilters] = useState(draftFilters);
-  const [statFilter, setStatFilter] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [photoPicker, setPhotoPicker] = useState(null);
-  const [photoSearch, setPhotoSearch] = useState("");
+  const [drawerClosing, setDrawerClosing] = useState(false);
+  const closeTimer = useRef(null);
+  // Прямая загрузка фото из строки таблицы: один файл → один запрос.
+  const [photoUploadingId, setPhotoUploadingId] = useState(null);
+  // Фото для drawer: выбранный файл + временный ObjectURL-превью.
+  // Превью — только UI, персистентность — только через uploadProductPhoto.
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState("");
+  const previewUrlRef = useRef("");
+
+  const revokePhotoPreview = () => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = "";
+    }
+  };
+
+  useEffect(() => () => {
+    revokePhotoPreview();
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+  }, []);
+
+  const handlePhotoChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!SUPPORTED_DISH_PHOTO_TYPES.includes(file.type)) {
+      setActionError("Поддерживаются только JPG, PNG и WebP.");
+      return;
+    }
+    revokePhotoPreview();
+    const url = URL.createObjectURL(file);
+    previewUrlRef.current = url;
+    setPhotoFile(file);
+    setPhotoPreview(url);
+    setActionError("");
+  };
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ ...emptyDishForm });
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -35,7 +78,21 @@ export function useDishesCatalog() {
   const [modGroups, setModGroups] = useState([]);
   const [modLoading, setModLoading] = useState(false);
   const [modError, setModError] = useState("");
+  // Опции фильтра «Категория»: живые данные GET /inventory/categories
+  // (тот же источник, что у «Категория блюд» — готово к будущему merge).
+  // Пусто/ошибка → опций нет (только «Все категории»), никакой выдумки имён.
+  const [filterCategories, setFilterCategories] = useState([]);
+  const [filterCategoriesError, setFilterCategoriesError] = useState(false);
+  const [filterCategoriesLoading, setFilterCategoriesLoading] = useState(true);
+  // V18 — справочник принтеров из Настройки → Принтеры (тот же settingsService,
+  // что у SettingsPrintersPage: GET /printers). Один запрос при монтировании,
+  // не при каждом открытии дровера. Без фейков: ошибка → пусто + флаг.
+  const [printerOptions, setPrinterOptions] = useState([]);
+  const [printerOptionsLoading, setPrinterOptionsLoading] = useState(true);
+  const [printerOptionsError, setPrinterOptionsError] = useState(false);
   const beginRequest = useLatestRequest();
+  const beginFilterRequest = useLatestRequest();
+  const beginPrinterRequest = useLatestRequest();
   const { acquire, release } = useMutationLocks();
 
   const visibleColumnKeys = useMemo(
@@ -79,31 +136,83 @@ export function useDishesCatalog() {
       });
   }, [beginRequest]);
 
-  const computedStats = useMemo(() => {
-    const total = rows.length;
-    const dishes = rows.filter((r) => r.type === "Блюда").length;
-    const realization = total - dishes;
-    const withRecipe = rows.filter((r) => r.recipe && !r.recipe.includes("(0")).length;
-    const withCost = rows.filter((r) => r.cost && r.cost !== "0 UZS" && r.cost !== "—").length;
-    const withPrinter = rows.filter((r) => r.printer).length;
-    return [
-      { label: "Кол-во товаров", value: String(total), rows: [["Реализация", String(realization)], ["Блюда", String(dishes)]], icon: "bi-basket", tone: "blue" },
-      { label: "Рецепт", value: String(total), rows: [["С рецептом", String(withRecipe)], ["Без рецепта", String(total - withRecipe)]], icon: "bi-journal-bookmark", tone: "green" },
-      { label: "ИКПУ", value: "—", rows: [["Статус", "Данные недоступны"]], icon: "bi-card-heading", tone: "cyan" },
-      { label: "Себестоимость", value: String(total), rows: [["Заполнен", String(withCost)], ["Не заполнен", String(total - withCost)]], icon: "bi-cash-coin", tone: "orange" },
-      { label: "Принтер", value: String(total), rows: [["Подключен", String(withPrinter)], ["Не подключен", String(total - withPrinter)]], icon: "bi-printer", tone: "violet" },
-    ];
-  }, [rows]);
+  useEffect(() => {
+    const request = beginFilterRequest();
+    setFilterCategoriesError(false);
+    setFilterCategoriesLoading(true);
+    getCategories({ signal: request.signal })
+      .then(({ data }) => {
+        if (!request.isCurrent()) return;
+        const items = Array.isArray(data) ? data : data?.items || [];
+        const live = items
+          .filter((item) => item && item.is_active !== false && String(item.name || "").trim())
+          .sort((a, b) => (
+            Number(a.sort_order || 0) - Number(b.sort_order || 0)
+            || String(a.name).localeCompare(String(b.name), "ru")
+          ))
+          .map((item) => ({ id: String(item.id), name: String(item.name) }));
+        setFilterCategories(live);
+      })
+      .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
+        setFilterCategories([]);
+        setFilterCategoriesError(true);
+      })
+      .finally(() => {
+        if (request.isCurrent()) setFilterCategoriesLoading(false);
+      });
+  }, [beginFilterRequest]);
+
+  useEffect(() => {
+    const request = beginPrinterRequest();
+    setPrinterOptionsError(false);
+    setPrinterOptionsLoading(true);
+    settingsService.listResource("printers", { signal: request.signal })
+      .then(({ data }) => {
+        if (!request.isCurrent()) return;
+        const items = Array.isArray(data) ? data : data?.items || [];
+        const live = items
+          .filter((item) => item && String(item.name || "").trim())
+          .sort((a, b) => (
+            Number(a.sort_order || 0) - Number(b.sort_order || 0)
+            || String(a.name).localeCompare(String(b.name), "ru")
+          ))
+          .map((item) => ({
+            id: String(item.id),
+            name: String(item.name),
+            active: item.is_active !== false,
+          }));
+        setPrinterOptions(live);
+      })
+      .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
+        setPrinterOptions([]);
+        setPrinterOptionsError(true);
+      })
+      .finally(() => {
+        if (request.isCurrent()) setPrinterOptionsLoading(false);
+      });
+  }, [beginPrinterRequest]);
 
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
       const searchMatch = !filters.search || row.name.toLowerCase().includes(filters.search.toLowerCase());
-      const chefMatch = !filters.chef || row.chef === filters.chef;
-      const categoryMatch = !filters.category || row.category === filters.category;
-      const statMatch = !statFilter || matchesDishStatFilter(row, statFilter);
-      return searchMatch && chefMatch && categoryMatch && statMatch;
+      // V17 — фильтр хранит массив category.id (OR-семантика); строки несут
+      // только category_name — маппим через загруженный справочник. Пустой
+      // массив = без ограничения. id без имени в справочнике игнорируем;
+      // если не резолвится ни один — показываем всё (как раньше с протухшим
+      // одиночным значением: пустой каталог хуже честного показа всех строк).
+      const selectedIds = Array.isArray(filters.category) ? filters.category : [];
+      const selectedNames = new Set(
+        selectedIds
+          .map((id) => filterCategories.find((item) => item.id === id)?.name)
+          .filter(Boolean),
+      );
+      const categoryMatch = selectedIds.length === 0 || selectedNames.size === 0
+        || selectedNames.has(row.category);
+      return searchMatch && categoryMatch;
     });
-  }, [rows, filters, statFilter]);
+  }, [rows, filters, filterCategories]);
 
   const updateRow = (id, key, value) => {
     void id;
@@ -114,14 +223,34 @@ export function useDishesCatalog() {
 
   const openDrawer = (row = null) => {
     if (saving) return;
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    setDrawerClosing(false);
     setEditing(row);
     setForm(row || { ...emptyDishForm });
+    revokePhotoPreview();
+    setPhotoFile(null);
+    setPhotoPreview("");
     setDrawerOpen(true);
     // Добавки существуют только у сохранённого блюда — подтягиваем их группы
     // при открытии редактирования; для нового блюда список пуст.
     setModGroups([]);
     setModError("");
     if (row?.id) loadModGroups(row.id);
+  };
+
+  // Закрытие через exit-анимацию staff-примитива (is-closing → unmount),
+  // тот же presence-паттерн, что у кассира/аккаунт-меню.
+  const requestCloseDrawer = () => {
+    if (saving || !drawerOpen || drawerClosing) return;
+    setDrawerClosing(true);
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(finishCloseDrawer, 240);
+  };
+
+  const finishCloseDrawer = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    setDrawerOpen(false);
+    setDrawerClosing(false);
   };
 
   const saveDish = async () => {
@@ -151,6 +280,31 @@ export function useDishesCatalog() {
           ? current.map((row) => (row.id === editing.id ? serverRow : row))
           : [serverRow, ...current]
       ));
+      // V20: созданный продукт сразу становится editing — повторное сохранение
+      // (например ретрай фото после частичного успеха) идёт PATCH тем же ID,
+      // дубль блюда не создаётся.
+      if (!isUpdate) setEditing({ id: data.id });
+      // Фото: продукт уже существует (свой id) — грузим через канонический
+      // POST /inventory/products/{id}/photo. Превью до этого момента —
+      // только временный ObjectURL, персистентностью не является.
+      // V20: при ошибке загрузки файл НЕ сбрасываем — повторное сохранение
+      // идёт тем же product ID через PATCH (без дубля), фото догружается.
+      if (photoFile) {
+        try {
+          const { data: photoData } = await catalogService.uploadProductPhoto(data.id, photoFile);
+          if (!photoData?.id) throw new Error("Backend не вернул продукт с фото.");
+          const photoRow = mapNomenclatureProduct(photoData);
+          setRows((current) => current.map((row) => (row.id === data.id ? photoRow : row)));
+          revokePhotoPreview();
+          setPhotoFile(null);
+          setPhotoPreview("");
+        } catch (photoErr) {
+          const message = `Блюдо сохранено, но фото не загружено: ${photoErr.response?.data?.detail || photoErr.message || "ошибка загрузки"}`;
+          setActionError(message);
+          window.alert(message);
+          return;
+        }
+      }
     } catch (err) {
       const message = err.response?.data?.detail || err.message || "Ошибка сохранения";
       setActionError(message);
@@ -261,16 +415,30 @@ export function useDishesCatalog() {
     }
   }
 
-  const openPhotoPicker = (row) => {
-    setPhotoPicker(row);
-    setPhotoSearch(row.name);
-  };
-
-  const selectPhoto = (photo) => {
-    if (!photoPicker) return;
-    updateRow(photoPicker.id, "photo", photo);
-    setPhotoPicker(null);
-    setPhotoSearch("");
+  // Прямая загрузка фото существующего блюда из строки таблицы:
+  // файл → POST /inventory/products/{id}/photo → строка обновляется ответом
+  // backend. Без оптимистичных URL и без смены id. Ошибка — честное сообщение,
+  // превью в таблице нет (превью живёт только в дровере до upload).
+  const uploadDishPhoto = async (id, file) => {
+    if (!file || photoUploadingId) return;
+    if (!SUPPORTED_DISH_PHOTO_TYPES.includes(file.type)) {
+      setActionError("Поддерживаются только JPG, PNG и WebP.");
+      return;
+    }
+    setPhotoUploadingId(id);
+    setActionError("");
+    try {
+      const { data } = await catalogService.uploadProductPhoto(id, file);
+      if (!data?.id) throw new Error("Backend не вернул продукт с фото.");
+      const photoRow = mapNomenclatureProduct(data);
+      setRows((current) => current.map((row) => (row.id === id ? photoRow : row)));
+    } catch (err) {
+      const message = `Фото не загружено: ${err.response?.data?.detail || err.message || "ошибка загрузки"}`;
+      setActionError(message);
+      window.alert(message);
+    } finally {
+      setPhotoUploadingId(null);
+    }
   };
 
   return {
@@ -282,17 +450,25 @@ export function useDishesCatalog() {
     draftFilters,
     setDraftFilters,
     setFilters,
-    statFilter,
-    setStatFilter,
+    filterCategories,
+    filterCategoriesError,
+    filterCategoriesLoading,
+    printerOptions,
+    printerOptionsLoading,
+    printerOptionsError,
     drawerOpen,
     setDrawerOpen,
-    photoPicker,
-    setPhotoPicker,
-    photoSearch,
-    setPhotoSearch,
+    drawerClosing,
+    requestCloseDrawer,
+    finishCloseDrawer,
+    photoUploadingId,
+    uploadDishPhoto,
     editing,
     form,
     setForm,
+    photoFile,
+    photoPreview,
+    handlePhotoChange,
     settingsOpen,
     setSettingsOpen,
     setVisibleColumns,
@@ -300,14 +476,11 @@ export function useDishesCatalog() {
     visibleColumnCount,
     isColumnVisible,
     toggleColumn,
-    computedStats,
     filteredRows,
     updateRow,
     openDrawer,
     saveDish,
     archiveDish,
-    openPhotoPicker,
-    selectPhoto,
     // Добавки (модификаторы)
     modGroups,
     setModGroups,

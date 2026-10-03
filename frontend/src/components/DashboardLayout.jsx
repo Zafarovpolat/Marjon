@@ -49,7 +49,6 @@ export default function DashboardLayout() {
             title={title}
             subtitle={subtitle}
             selectedDate={selectedDate}
-            onSelectedDateChange={setSelectedDate}
           />
           <main className={`dashboard-content${isUsersSection ? " dashboard-content--staff" : ""}${isTableReport ? " dashboard-content--table-report" : ""}`}>
             <Outlet context={selectedDateContext} />

@@ -1,5 +1,5 @@
 import { formatMoney, formatNumber } from "../../api/client";
-import { formatDateLabel } from "../../utils/date";
+import { formatDateLabel, todayInputValue, toDateInputValue } from "../../utils/date";
 
 // Реальные аналитические преобразования OWNER-дашборда: нормализация строк
 // оплат/заказов/среднего чека, сборка KPI и складской сводки.
@@ -292,6 +292,44 @@ export function signed(n) {
 
 export function buildRevenueChartSales(rows) {
   return Array.isArray(rows) ? rows : [];
+}
+
+// Display-only zero buckets for the Revenue Analytics no-data state.
+// NOT business data: every value is exactly 0 ("no sales occurred in these
+// buckets"). Derived in render from the selected period, never stored/sent.
+const ZERO_DAY_HOURS = ["00:00", "03:00", "06:00", "09:00", "12:00", "15:00", "18:00", "21:00"];
+
+function isIsoDate(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value || "");
+}
+
+export function buildZeroRevenueBuckets(dateFrom, dateTo) {
+  const from = isIsoDate(dateFrom) ? dateFrom : todayInputValue();
+  const to = isIsoDate(dateTo) && dateTo >= from ? dateTo : from;
+
+  if (from === to) {
+    return ZERO_DAY_HOURS.map((time) => ({
+      date: `${from}T${time}:00`,
+      chartLabel: time,
+      revenue: 0,
+      orders_count: 0,
+      avg_check: 0,
+      isDisplayOnly: true,
+    }));
+  }
+
+  const days = Math.round((new Date(`${to}T00:00:00`) - new Date(`${from}T00:00:00`)) / 86400000) + 1;
+  return Array.from({ length: days }, (_, index) => {
+    const date = new Date(`${from}T00:00:00`);
+    date.setDate(date.getDate() + index);
+    return {
+      date: toDateInputValue(date),
+      revenue: 0,
+      orders_count: 0,
+      avg_check: 0,
+      isDisplayOnly: true,
+    };
+  });
 }
 
 export function buildRealKpis(dash, sales, selectedDate, placeSettings = [], financeRows = []) {

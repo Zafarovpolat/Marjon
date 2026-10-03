@@ -127,3 +127,30 @@ describe("owner sidebar collapse motion", () => {
     expect(hoverRule).not.toContain("color:");
   });
 });
+
+describe("balance payment visual flow", () => {
+  const readDashboardCss = () => readFileSync(resolve("src/styles/owner/dashboard.css"), "utf8").replaceAll("\r\n", "\n");
+
+  it("keeps one lower CTA action zone without changing the shell's combined vertical reserve", () => {
+    const css = readDashboardCss();
+
+    expect(css).toMatch(/\.balance-payment-shell__dynamic-frame\s*\{[^}]*min-height:\s*270px;[^}]*margin-bottom:\s*38px;/s);
+    expect(css).toMatch(/\.balance-payment-shell__cta\s*\{[^}]*width:\s*100%;[^}]*margin:\s*auto 0 0;/s);
+    expect(css).toMatch(/\.balance-payment-shell__footer-space\s*\{[^}]*flex:\s*0 0 0;[^}]*min-height:\s*0;/s);
+  });
+
+  it("adds the requested card-row breathing room and preserves clean quick-chip wrapping", () => {
+    const css = readDashboardCss();
+
+    expect(css).toMatch(/\.balance-card-quick\s*\{[^}]*margin-bottom:\s*20px;[^}]*flex-wrap:\s*wrap;/s);
+  });
+
+  it("keeps the lightweight checkbox transition and removes scale motion for reduced motion", () => {
+    const css = readDashboardCss();
+
+    expect(css).toMatch(/\.balance-offer--check input\[type="checkbox"\]\s*\{[^}]*border-radius:\s*6px;[^}]*transform:\s*scale\(0\.94\);[^}]*transition:\s*transform 150ms ease-out,/s);
+    expect(css).toMatch(/\.balance-offer--check input\[type="checkbox"\]:checked\s*\{[^}]*transform:\s*scale\(1\);/s);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.balance-offer--check input\[type="checkbox"\]\s*\{\s*transform:\s*none;/s);
+    expect(css).toMatch(/\.balance-offer--check input\[type="checkbox"\]:checked::after\s*\{\s*transform:\s*rotate\(45deg\);/s);
+  });
+});

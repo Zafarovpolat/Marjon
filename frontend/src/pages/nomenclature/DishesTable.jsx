@@ -1,8 +1,13 @@
 // Таблица каталога блюд OWNER с учётом видимых колонок.
-// Разметка перенесена из NomenclaturePage.jsx (FE-07B) без изменений.
-// Быстрые правки строк по-прежнему заблокированы (backend mutation contract
-// не подключён) — updateRow только показывает предупреждение.
+// V21: колонки Тип/Меню/Подкатегория/Рецепты убраны из презентации (backend
+// поля и API-ответ не тронуты); фото открывается нативным OS-пикером и грузится
+// напрямую POST /inventory/products/{id}/photo. Быстрые правки строк
+// по-прежнему заблокированы (backend mutation contract не подключён) —
+// updateRow только показывает предупреждение.
+import { useRef } from "react";
 import Icon from "../../components/Icon";
+import ReportEmptyState from "../../components/ReportEmptyState";
+import { SUPPORTED_DISH_PHOTO_TYPES } from "./useDishesCatalog";
 
 function renderToggle(value, onClick) {
   if (value === null) return <span className="dish-toggle-empty">-</span>;
@@ -13,6 +18,53 @@ function renderToggle(value, onClick) {
   );
 }
 
+// V22 — Остаток: честный компактный бейдж реального backend-значения
+// (stock: число = mint, "0" = red/neutral, "-" = пусто). Кнопки нет:
+// быстрого изменения остатка backend не поддерживает (не fake affordance).
+function StockBadge({ value }) {
+  if (value === "-") return <span className="dish-stock-badge is-empty">-</span>;
+  const amount = Number(String(value).replace(/\s/g, ""));
+  return (
+    <span className={`dish-stock-badge ${amount > 0 ? "is-positive" : "is-zero"}`}>{value}</span>
+  );
+}
+
+// V21 — нативный OS-пикер фото прямо из строки: клик → скрытый input[type=file]
+// → выбранный файл уходит в uploadDishPhoto (тот же id, без дубля блюда).
+function DishPhotoCell({ row, uploading, onPick }) {
+  const inputRef = useRef(null);
+  return (
+    <td className="dish-col-photo">
+      <button
+        type="button"
+        className="dish-photo-button"
+        disabled={uploading}
+        aria-busy={uploading || undefined}
+        onClick={() => inputRef.current?.click()}
+        aria-label={`Выбрать фото для ${row.name}`}
+      >
+        {row.photo ? (
+          <img className="dish-photo" src={row.photo} alt={row.name} />
+        ) : (
+          <span className="dish-photo-placeholder"><Icon name="bi-image" /></span>
+        )}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={SUPPORTED_DISH_PHOTO_TYPES.join(",")}
+        hidden
+        aria-hidden="true"
+        tabIndex={-1}
+        onChange={(event) => {
+          onPick(row.id, event.target.files?.[0]);
+          event.target.value = "";
+        }}
+      />
+    </td>
+  );
+}
+
 export default function DishesTable({
   filteredRows,
   isColumnVisible,
@@ -20,25 +72,24 @@ export default function DishesTable({
   updateRow,
   openDrawer,
   archiveDish,
-  openPhotoPicker,
+  uploadDishPhoto,
+  photoUploadingId,
   saving,
   pendingDeleteId,
 }) {
+  const isEmpty = !filteredRows.length;
   return (
-    <div className="dish-grid-wrap">
-      <table className="dish-grid-table" style={{ "--dish-grid-min-width": `${tableMinWidth}px` }}>
+    <div className={`settings-table-wrapper dish-grid-wrap${isEmpty ? " is-empty" : ""}`}>
+      <div className="dish-grid-scroll">
+        <table className="settings-table dish-grid-table" aria-label="Блюда" style={{ "--dish-grid-min-width": `${tableMinWidth}px` }}>
         <thead>
           <tr>
             {isColumnVisible("photo") ? <th className="dish-col-photo">Фото</th> : null}
             {isColumnVisible("name") ? <th className="dish-col-name">Название</th> : null}
-            {isColumnVisible("type") ? <th className="dish-col-type">Тип</th> : null}
             {isColumnVisible("unit") ? <th className="dish-col-unit">Ед. изм</th> : null}
             {isColumnVisible("cost") ? <th className="dish-col-cost">Себестоимость</th> : null}
             {isColumnVisible("price") ? <th className="dish-col-price">Цена</th> : null}
-            {isColumnVisible("menu") ? <th className="dish-col-menu">Меню</th> : null}
-            {isColumnVisible("subcategory") ? <th className="dish-col-subcategory">Подкатегория</th> : null}
             {isColumnVisible("printer") ? <th className="dish-col-printer">Принтер</th> : null}
-            {isColumnVisible("recipe") ? <th className="dish-col-recipe">Рецепты</th> : null}
             {isColumnVisible("stock") ? <th className="dish-col-stock">Остаток</th> : null}
             {isColumnVisible("auto") ? <th className="dish-col-auto">Авто</th> : null}
             {isColumnVisible("set") ? <th className="dish-col-set">Сет</th> : null}
@@ -50,35 +101,16 @@ export default function DishesTable({
           {filteredRows.map((row) => (
             <tr key={row.id}>
               {isColumnVisible("photo") ? (
-              <td className="dish-col-photo">
-                <button type="button" className="dish-photo-button" onClick={() => openPhotoPicker(row)} aria-label={`Выбрать фото для ${row.name}`}>
-                  {row.photo ? (
-                    <img className="dish-photo" src={row.photo} alt={row.name} />
-                  ) : (
-                    <span className="dish-photo-placeholder"><Icon name="bi-image" /></span>
-                  )}
-                </button>
-              </td>
+                <DishPhotoCell row={row} uploading={photoUploadingId === row.id} onPick={uploadDishPhoto} />
               ) : null}
-              {isColumnVisible("name") ? <td className="dish-col-name"><button type="button" className="dish-name-link">{row.name}</button></td> : null}
-              {isColumnVisible("type") ? <td className="dish-col-type"><span className={`dish-type-pill ${row.type === "Реализация" ? "realization" : ""}`}>{row.type}</span></td> : null}
+              {isColumnVisible("name") ? <td className="dish-col-name"><span className="dish-name-text" title={row.name}>{row.name}</span></td> : null}
               {isColumnVisible("unit") ? <td className="dish-col-unit">{row.unit}</td> : null}
-              {isColumnVisible("cost") ? <td className="dish-col-cost">{row.cost}</td> : null}
-              {isColumnVisible("price") ? (
-              <td className="dish-col-price">
-                <input className="dish-price-input" value={row.price} onChange={(event) => updateRow(row.id, "price", event.target.value)} />
-              </td>
-              ) : null}
-              {isColumnVisible("menu") ? <td className="dish-col-menu"><span className="dish-menu-pill">{row.menu}</span></td> : null}
-              {isColumnVisible("subcategory") ? <td className="dish-col-subcategory"><span className="dish-menu-pill">{row.subcategory || "-"}</span></td> : null}
+              {isColumnVisible("cost") ? <td className="dish-col-cost dish-money-cell">{row.cost}</td> : null}
+              {isColumnVisible("price") ? <td className="dish-col-price dish-money-cell"><span className="dish-price-text">{row.price}</span></td> : null}
               {isColumnVisible("printer") ? <td className="dish-col-printer dish-printer-cell">{row.printer || "-"}</td> : null}
-              {isColumnVisible("recipe") ? <td className="dish-col-recipe"><button type="button" className="dish-recipe-link">{row.recipe}</button></td> : null}
               {isColumnVisible("stock") ? (
               <td className="dish-col-stock">
-                <button type="button" className="dish-stock-box">
-                  {row.stock}
-                  {row.stock !== "-" && <Icon name="bi-arrow-repeat" size={13} />}
-                </button>
+                <StockBadge value={row.stock} />
               </td>
               ) : null}
               {isColumnVisible("auto") ? <td className="dish-col-auto">{renderToggle(row.auto, () => updateRow(row.id, "auto", !row.auto))}</td> : null}
@@ -99,7 +131,13 @@ export default function DishesTable({
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+      </div>
+      {isEmpty ? (
+        <div className="dish-empty-overlay">
+          <ReportEmptyState title="Блюда не найдены" />
+        </div>
+      ) : null}
     </div>
   );
 }

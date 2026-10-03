@@ -1,7 +1,8 @@
 // Чистые преобразования и справочные функции раздела «Блюда» OWNER.
 // Вынесено из NomenclaturePage.jsx (FE-07B) без изменения логики: маппинг
-// backend-ответа, парсинг чисел, сборка payload и подбор фото сохранены 1:1.
-import { photoLibrary } from "./nomenclatureConfig";
+// backend-ответа, парсинг чисел и сборка payload сохранены 1:1.
+// V21: подбор фото из демо-библиотеки удалён (кастомное фото-окно убрано;
+// фото грузится только нативным пикером через uploadProductPhoto).
 
 export function matchesDishStatFilter(row, filterKey) {
   switch (filterKey) {
@@ -37,8 +38,8 @@ export function mapNomenclatureProduct(item) {
     sort: item.sort_order != null ? String(item.sort_order) : "—",
     type: item.product_type === "sale" ? "Реализация" : "Блюда",
     unit: item.unit || "—",
-    cost: item.cost_price != null ? `${Number(item.cost_price).toLocaleString("ru-RU")} UZS` : "—",
-    price: item.price != null ? String(item.price) : "—",
+    cost: item.cost_price != null ? formatNomenclatureMoneyDisplay(item.cost_price) : "—",
+    price: item.price != null ? formatNomenclatureMoneyDisplay(item.price) : "—",
     menu: item.category_name || "",
     subcategory: item.subcategory_name || "",
     printer: item.printer_name || "",
@@ -47,6 +48,10 @@ export function mapNomenclatureProduct(item) {
     auto: null,
     set: null,
     category: item.category_name || "",
+    // V19 — канонические IDs из ответа (для preselect дровера: id → id,
+    // а не имя → id). Null, когда backend не вернул.
+    categoryId: item.category_id ? String(item.category_id) : null,
+    printerId: item.printer_id ? String(item.printer_id) : null,
     chef: "",
     photo: item.image_url || "",
   };
@@ -65,6 +70,18 @@ export function parseNomenclatureSort(value) {
   return /^[1-9]\d*$/.test(input) ? Number(input) : Number.NaN;
 }
 
+// V22 — единый показ денег в таблице: целые группируются ("40 000 UZS"),
+// дробные сохраняются в ru-RU виде ("40 000,50 UZS"). Только display:
+// backend-значения не мутируют, сырьё для формы парсится отдельно.
+export function formatNomenclatureMoneyDisplay(value) {
+  const number = Number(String(value ?? "").replace(/\s/g, "").replace(",", "."));
+  if (!Number.isFinite(number)) return "—";
+  const text = Number.isInteger(number)
+    ? number.toLocaleString("ru-RU", { maximumFractionDigits: 0 })
+    : number.toLocaleString("ru-RU", { maximumFractionDigits: 2 });
+  return `${text} UZS`;
+}
+
 export function buildNomenclatureProductPayload(form, { isUpdate = false } = {}) {
   const payload = {
     name: String(form.name || "").trim(),
@@ -75,17 +92,12 @@ export function buildNomenclatureProductPayload(form, { isUpdate = false } = {})
   const costPrice = parseNomenclatureMoney(form.cost);
   if (costPrice !== null) payload.cost_price = costPrice;
   if (!isUpdate) payload.unit = form.unit || "шт";
+  // V18 — канонические связи (все nullable в ProductCreate/ProductUpdate):
+  // шлём ТОЛЬКО выбранные id; пусто = omit (backend оставляет как есть/null).
+  // subcategory_id не шлём никогда (поле удалено из дровера).
+  if (form.categoryId) payload.category_id = form.categoryId;
+  if (form.printerId) payload.printer_id = form.printerId;
   return payload;
-}
-
-export function getPhotoOptions(row, query = "") {
-  const normalized = `${query} ${row.name}`.toLowerCase();
-  if (normalized.includes("cola") || normalized.includes("кока") || normalized.includes("oc")) return photoLibrary.cola;
-  if (normalized.includes("плов") || normalized.includes("osh") || normalized.includes("ош")) return photoLibrary.plov;
-  if (normalized.includes("мастава") || normalized.includes("mastava")) return photoLibrary.mastava;
-  if (normalized.includes("лагман") || normalized.includes("lagman")) return photoLibrary.lagman;
-  if (row.category === "Напитки" || normalized.includes("suv") || normalized.includes("moxito") || normalized.includes("cocktail") || normalized.includes("сок")) return photoLibrary.drinks;
-  return photoLibrary.dishes;
 }
 
 // Демо-строки блюд (использовались для превью каталога до backend-контракта).

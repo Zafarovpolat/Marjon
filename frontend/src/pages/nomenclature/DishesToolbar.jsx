@@ -1,91 +1,111 @@
-// Панель инструментов каталога блюд OWNER: поиск, фильтры и настройка колонок.
-// Разметка перенесена из NomenclaturePage.jsx (FE-07B) без изменений.
+// OWNER-панель фильтрации каталога блюд. Disclosure/filter pattern
+// страницы «Отчёт по заказам»; категория — shared Reports-примитив
+// ReportMultiSelect (checkbox-ряды, панель не закрывается при тоггле,
+// сводка formatSelectedLabels, состояние — массив canonical IDs).
+import { useState } from "react";
 import Icon from "../../components/Icon";
-import { defaultDishColumnVisibility, dishColumnOptions } from "./nomenclatureConfig";
+import ReportMultiSelect, { formatSelectedLabels } from "../../components/ReportMultiSelect";
+
+const EMPTY_FILTERS = { search: "", category: [] };
+
+export function dishCategorySummary(selected, options) {
+  return formatSelectedLabels(selected, options);
+}
 
 export default function DishesToolbar({
   draftFilters,
   setDraftFilters,
   setFilters,
-  settingsOpen,
-  setSettingsOpen,
-  isColumnVisible,
-  visibleColumnCount,
-  toggleColumn,
-  setVisibleColumns,
+  filtersOpen,
+  closeFilters,
+  categoryOptions = [],
+  categoriesUnavailable = false,
 }) {
+  // Single-open оркестрация дропдауна категории (как dishFilterPanelProps
+  // в Reports): toggle не закрывает панель, закрытие — outside/Escape/toggle.
+  const [panelState, setPanelState] = useState({ active: "", closing: "", pending: "" });
+  function requestPanel(panelId) {
+    setPanelState((current) => {
+      if (current.closing) {
+        const nextPending = current.pending === panelId ? "" : panelId;
+        return { ...current, pending: nextPending };
+      }
+      if (!current.active) return panelId ? { active: panelId, closing: "", pending: "" } : current;
+      return {
+        active: "",
+        closing: current.active,
+        pending: current.active === panelId ? "" : panelId,
+      };
+    });
+  }
+  function completePanelExit(panelId) {
+    setPanelState((current) => {
+      if (current.closing !== panelId) return current;
+      return { active: current.pending, closing: "", pending: "" };
+    });
+  }
+  function closeCategoryPanel() {
+    requestPanel("");
+  }
+  const toggleCategory = (value) => {
+    setDraftFilters((prev) => {
+      const list = Array.isArray(prev.category) ? prev.category : [];
+      const next = list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+      return { ...prev, category: next };
+    });
+  };
+
+  const applyFilters = () => {
+    setFilters({ ...draftFilters });
+    closeFilters();
+  };
+
+  const clearFilters = () => {
+    setDraftFilters(EMPTY_FILTERS);
+    setFilters(EMPTY_FILTERS);
+    closeFilters();
+  };
+  const draftCategory = Array.isArray(draftFilters.category) ? draftFilters.category : [];
+  const categorySelectOptions = categoryOptions.map((item) => (
+    typeof item === "string" ? { value: item, label: item } : { value: item.id, label: item.name }
+  ));
+
   return (
-    <div className="dish-toolbar">
-      <label className="dish-search">
-        <Icon name="bi-search" />
-        <input
-          value={draftFilters.search}
-          onChange={(event) => setDraftFilters((prev) => ({ ...prev, search: event.target.value }))}
-          placeholder="Поиск"
-        />
-      </label>
-      <select value={draftFilters.chef} onChange={(event) => setDraftFilters((prev) => ({ ...prev, chef: event.target.value }))}>
-        <option value="">Выберите повара</option>
-        <option value="Повар 1">Повар 1</option>
-        <option value="Повар 2">Повар 2</option>
-        <option value="Бар">Бар</option>
-      </select>
-      <select value={draftFilters.category} onChange={(event) => setDraftFilters((prev) => ({ ...prev, category: event.target.value }))}>
-        <option value="">Категория</option>
-        <option value="Горячие блюда">Горячие блюда</option>
-        <option value="Напитки">Напитки</option>
-        <option value="Салаты">Салаты</option>
-        <option value="Игры">Игры</option>
-      </select>
-      <button type="button" className="btn-outline-primary" onClick={() => setFilters(draftFilters)}>
-        <Icon name="bi-funnel" /> Фильтровать
-      </button>
-      <div className="dish-table-settings">
-        <button
-          type="button"
-          className="dish-table-settings-btn"
-          onClick={() => setSettingsOpen((open) => !open)}
-          aria-expanded={settingsOpen}
-        >
-          <Icon name="bi-sliders" /> Настроить таблицу
-        </button>
-        {settingsOpen ? (
-          <div className="dish-table-settings-popover">
-            <div className="dish-table-settings-head">
-              <strong>Столбцы</strong>
-              <button type="button" onClick={() => setSettingsOpen(false)} aria-label="Закрыть">
-                <Icon name="bi-x-lg" size={14} />
-              </button>
-            </div>
-            <div className="dish-column-toggle-list">
-              {dishColumnOptions.map((column) => {
-                const checked = isColumnVisible(column.key);
-                const disabled = checked && visibleColumnCount <= 1;
-                return (
-                  <label className="dish-column-toggle" key={column.key}>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={disabled}
-                      onChange={() => toggleColumn(column.key)}
-                    />
-                    <span className="dish-column-toggle-box">
-                      {checked ? <Icon name="bi-check2" size={13} /> : null}
-                    </span>
-                    <span>{column.label}</span>
-                  </label>
-                );
-              })}
-            </div>
-            <button
-              type="button"
-              className="dish-column-reset"
-              onClick={() => setVisibleColumns(defaultDishColumnVisibility)}
-            >
-              Показать все
+    <div className={`orders-filter-collapse dish-filter-collapse${filtersOpen ? " is-open" : ""}`}>
+      <div className="orders-filter-collapse__inner" inert={!filtersOpen ? true : undefined}>
+        <div className="report-filters-grid dish-filter-panel" id="dishes-catalog-filters" aria-label="Фильтры каталога блюд">
+          <label className="report-filter-input">
+            <Icon name="bi-search" size={17} />
+            <input
+              aria-label="Поиск блюд"
+              value={draftFilters.search}
+              onChange={(event) => setDraftFilters((prev) => ({ ...prev, search: event.target.value }))}
+              placeholder="Поиск"
+            />
+          </label>
+          <ReportMultiSelect
+            filterKey="dish-category"
+            label="Категория"
+            placeholder={categoriesUnavailable ? "Категории недоступны" : "Категория"}
+            options={categorySelectOptions}
+            selected={draftCategory}
+            onToggle={toggleCategory}
+            disabled={categoriesUnavailable || categorySelectOptions.length === 0}
+            open={panelState.active === "category"}
+            closing={panelState.closing === "category"}
+            onOpen={() => requestPanel("category")}
+            onClose={closeCategoryPanel}
+            onExitComplete={() => completePanelExit("category")}
+          />
+          <div className="report-filter-buttons dish-filter-actions">
+            <button type="button" className="report-filter-apply" onClick={applyFilters}>
+              <Icon name="bi-sliders" size={17} /> Фильтровать
+            </button>
+            <button type="button" className="report-filter-clear" onClick={clearFilters}>
+              <Icon name="bi-x-circle" size={17} /> Очистить
             </button>
           </div>
-        ) : null}
+        </div>
       </div>
     </div>
   );
