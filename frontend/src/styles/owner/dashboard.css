@@ -8088,27 +8088,27 @@ body.dashboard-body .balance-payment-dialog--card .balance-offer--check input[ty
 }
 
 /* ============================================================
-   OWNER account/profile dropdown — light, tidy entrance in the same motion
-   family as the submenus (opacity + small y-offset). The base centres the menu
-   with transform: translateX(-50%); the keyframe keeps that translateX so the
-   panel never shifts. Trigger chevron rotates on open. Single soft shadow
-   (set by the white-shell rule) — no double shadow. Non-collapsed only.
+   OWNER account/profile dropdown — entrance keyframes live in the
+   "OWNER account area refinement" block below (opacity-only reveal,
+   sidebar-category pattern). Trigger chevron rotates on open.
+   Single soft shadow (set by the white-shell rule) — no double
+   shadow. Non-collapsed only.
    ============================================================ */
 @keyframes owner-account-menu-in {
-  from { opacity: 0; transform: translate(-50%, 6px); }
-  to   { opacity: 1; transform: translate(-50%, 0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 @keyframes owner-account-menu-out {
-  from { opacity: 1; transform: translate(-50%, 0); }
-  to   { opacity: 0; transform: translate(-50%, 6px); }
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 @keyframes owner-account-flyout-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 @keyframes owner-account-flyout-out {
-  from { opacity: 1; transform: translateY(0); }
-  to   { opacity: 0; transform: translateY(6px); }
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 body.dashboard-body .dashboard-sidebar:not(.is-collapsed) .sidebar-account__menu {
   animation: owner-account-menu-in 180ms ease both;
@@ -8201,6 +8201,97 @@ body.dashboard-body .sidebar-account__menu .sidebar-account__item--danger svg {
 }
 body.dashboard-body .sidebar-account__menu .sidebar-account__item--danger:hover {
   background: rgba(229, 72, 77, 0.10);
+}
+
+/* ============================================================
+   OWNER account area refinement — bottom profile card + popup.
+   The popup reveals like a sidebar category/submenu: opacity-only
+   fade on a fixed geometry (the canonical sidebar pattern uses
+   opacity/background/expansion transitions, never scale or shifts).
+   Geometry, anchoring and size are untouched. Keyframe names are
+   preserved so the presence model (animationend → unmount) keeps
+   working. Unlayered OWNER; react-overrides untouched.
+   ============================================================ */
+@keyframes owner-account-menu-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes owner-account-menu-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes owner-account-flyout-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes owner-account-flyout-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+body.dashboard-body .dashboard-sidebar:not(.is-collapsed) .sidebar-account__menu {
+  /* Original placement: left:50% (react-overrides) + static centering
+     translate — the reveal animates opacity only and never moves it. */
+  transform: translateX(-50%);
+  animation: owner-account-menu-in 200ms var(--mj-ease, ease) both;
+}
+body.dashboard-body .dashboard-sidebar:not(.is-collapsed) .sidebar-account__menu.is-closing {
+  animation: owner-account-menu-out 180ms var(--mj-ease, ease) both;
+}
+body.dashboard-body .dashboard-sidebar.is-collapsed .sidebar-account__menu {
+  animation: owner-account-flyout-in 200ms var(--mj-ease, ease) both;
+}
+body.dashboard-body .dashboard-sidebar.is-collapsed .sidebar-account__menu.is-closing {
+  animation: owner-account-flyout-out 180ms var(--mj-ease, ease) both;
+}
+/* Popup header stays simple: no panel, no arrow gap. The avatar reuses the
+   lower-card primitive (sidebar-user__avatar); the name takes the width
+   freed by the removed arrow. */
+body.dashboard-body .sidebar-account__menu .sidebar-account__head {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+body.dashboard-body .sidebar-account__menu .sidebar-account__head-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+}
+body.dashboard-body .sidebar-account__menu .sidebar-account__head-meta strong {
+  width: 100%;
+  max-width: none;
+}
+/* Bottom profile card: soft #f4f7fc in every state. */
+body.dashboard-body .dashboard-shell .sidebar-user--button {
+  background: #f4f7fc;
+  border: 1px solid rgba(15, 35, 60, 0.08);
+}
+body.dashboard-body .dashboard-shell .sidebar-user--button:hover {
+  background: rgba(29, 181, 181, 0.08);
+}
+body.dashboard-body .dashboard-shell .sidebar-account.is-open .sidebar-user--button {
+  background: #f4f7fc;
+  border-color: rgba(29, 181, 181, 0.4);
+}
+/* Brand mark: identical tile in expanded, collapsed and mid-transition —
+   stable 52px, no border, no padding — so collapse never jerks or flashes.
+   Only the MARJON text collapses (existing motion contract). */
+body.dashboard-body .dashboard-shell .dashboard-sidebar .brand-mark,
+body.dashboard-body .dashboard-shell .dashboard-sidebar .brand-mark--button {
+  width: 52px;
+  min-width: 52px;
+  max-width: 52px;
+  height: 52px;
+  min-height: 52px;
+  max-height: 52px;
+  padding: 0;
+  border: 0;
+}
+body.dashboard-body .dashboard-shell .dashboard-sidebar .brand-mark .marjon-logo,
+body.dashboard-body .dashboard-shell .dashboard-sidebar .brand-mark--button .marjon-logo {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+body.dashboard-body .dashboard-shell .brand-title {
+  font-weight: 800;
 }
 
 /* ---- Language control: white-shell, integrated with the profile menu ---- */

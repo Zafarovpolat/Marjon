@@ -154,3 +154,41 @@ describe("balance payment visual flow", () => {
     expect(css).toMatch(/\.balance-offer--check input\[type="checkbox"\]:checked::after\s*\{\s*transform:\s*rotate\(45deg\);/s);
   });
 });
+
+describe("owner account area refinement", () => {
+  it("reveals the popup like a sidebar category: opacity-only, fixed geometry", () => {
+    const css = readFileSync(resolve("src/styles/owner/dashboard.css"), "utf8").replaceAll("\r\n", "\n");
+    const block = css.slice(css.indexOf("OWNER account area refinement"));
+
+    // Keyframe names preserved for the presence model (animationend → unmount).
+    // No scale, no translate: geometry stays fixed, like submenu reveals.
+    const keyframesIn = block.slice(
+      block.indexOf("@keyframes owner-account-menu-in"),
+      block.indexOf("@keyframes owner-account-menu-out"),
+    );
+    expect(keyframesIn).toMatch(/to \{\s*opacity:\s*1;\s*\}/s);
+    expect(keyframesIn).not.toContain("scale(");
+    expect(keyframesIn).not.toContain("translate");
+    const keyframesOut = block.slice(
+      block.indexOf("@keyframes owner-account-menu-out"),
+      block.indexOf("@keyframes owner-account-flyout-in"),
+    );
+    expect(keyframesOut).toMatch(/to \{\s*opacity:\s*0;\s*\}/s);
+    expect(keyframesOut).not.toContain("scale(");
+    expect(keyframesOut).not.toContain("translate");
+    expect(block).toContain("owner-account-menu-in 200ms var(--mj-ease, ease) both");
+    // Original centered placement preserved by a static (non-animated) offset.
+    expect(block).toMatch(/\.dashboard-sidebar:not\(\.is-collapsed\) \.sidebar-account__menu \{[^}]*transform:\s*translateX\(-50%\);[^}]*animation:\s*owner-account-menu-in 200ms/s);
+    // Header reuses the lower-card avatar primitive; no separate tile design.
+    expect(block).not.toContain("sidebar-account__head-avatar");
+    expect(block).toMatch(/\.sidebar-account__head-meta \{[^}]*flex:\s*1 1 auto;/s);
+    // Name width: no arrow track reserved — two-column grid, full-width text.
+    expect(block).toMatch(/\.sidebar-account__head \{[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\);/s);
+    expect(block).toMatch(/\.sidebar-account__head-meta strong \{[^}]*width:\s*100%;[^}]*max-width:\s*none;/s);
+    // Bottom card soft in every state; brand mark identical in all states.
+    expect(block).toMatch(/\.sidebar-user--button \{[^}]*background:\s*#f4f7fc;/s);
+    expect(block).toMatch(/\.sidebar-account\.is-open \.sidebar-user--button \{[^}]*background:\s*#f4f7fc;/s);
+    expect(block).toMatch(/\.dashboard-sidebar \.brand-mark,[\s\S]*?\.dashboard-sidebar \.brand-mark--button \{[^}]*width:\s*52px;[^}]*border:\s*0;/s);
+    expect(block).toMatch(/\.brand-title \{[^}]*font-weight:\s*800;/s);
+  });
+});

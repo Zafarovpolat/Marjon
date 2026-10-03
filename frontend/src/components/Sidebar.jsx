@@ -38,7 +38,6 @@ export default function Sidebar({ user, collapsed, onToggle }) {
   const canOpenProfile = canAccessPath(user, "/settings/profile");
   const canOpenSupport = canAccessPath(user, "/settings/support");
   const canOpenStore = canAccessPath(user, "/store");
-  const canOpenReviews = canAccessPath(user, "/reviews");
   const exactChildParentKey = useMemo(() => (
     visibleNavItems.find((item) => item.children?.some((child) => location.pathname === child.to))?.key || ""
   ), [location.pathname, visibleNavItems]);
@@ -196,7 +195,6 @@ export default function Sidebar({ user, collapsed, onToggle }) {
         canOpenProfile={canOpenProfile}
         canOpenSupport={canOpenSupport}
         canOpenStore={canOpenStore}
-        canOpenReviews={canOpenReviews}
         lang={lang}
         langPanelOpen={langPanelOpen}
         setLangPanelOpen={setLangPanelOpen}

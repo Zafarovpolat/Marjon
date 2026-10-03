@@ -1022,7 +1022,8 @@
       border-radius: 12px;
       box-shadow: 0 12px 32px rgba(15, 35, 60, .14);
   }
-  .settings-owner-view .settings-form .settings-select__option {
+  .settings-owner-view .settings-form .settings-select__option,
+  .settings-owner-view .settings-select__portal .settings-select__option {
       width: 100%;
       min-height: 38px;
       display: flex;
@@ -1043,13 +1044,17 @@
   /* Hover and keyboard focus share one highlight, so pointer and keyboard
      users see the same active row. Turquoise wash, never native blue. */
   .settings-owner-view .settings-form .settings-select__option:hover,
-  .settings-owner-view .settings-form .settings-select__option.is-active {
+  .settings-owner-view .settings-form .settings-select__option.is-active,
+  .settings-owner-view .settings-select__portal .settings-select__option:hover,
+  .settings-owner-view .settings-select__portal .settings-select__option.is-active {
       background: rgba(29, 181, 181, .1);
   }
-  .settings-owner-view .settings-form .settings-select__option.is-selected {
+  .settings-owner-view .settings-form .settings-select__option.is-selected,
+  .settings-owner-view .settings-select__portal .settings-select__option.is-selected {
       color: var(--color-brand-dark, #0fa3a3);
   }
-  .settings-owner-view .settings-form .settings-select__option:focus-visible {
+  .settings-owner-view .settings-form .settings-select__option:focus-visible,
+  .settings-owner-view .settings-select__portal .settings-select__option:focus-visible {
       outline: 2px solid rgba(29, 181, 181, .5);
       outline-offset: -2px;
   }
@@ -1327,4 +1332,300 @@
 }
 .settings-places-page .settings-places-empty .owner-report-empty {
   min-height: 0;
+}
+
+/* Clients directory (counterparties V1): statement + history controls.
+   New selectors only — no existing rule touched. */
+.client-statement-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.client-statement-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.client-statement-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid rgba(15, 35, 60, 0.14);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--neutral-800, #1e293b);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.client-statement-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.client-statement-right .staff-tabs {
+  margin-bottom: 0;
+}
+.client-statement-heading > span.client-statement-eyebrow {
+  display: block;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  margin-bottom: 4px;
+  color: #0f99b8;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+}
+.client-statement-phone,
+.client-statement-balance {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--neutral-600, #475569);
+}
+/* History identity: name + phone share one baseline row (wraps only when
+   the name is too long), toolbar untouched. Scoped to History only. */
+.client-statement-page .client-statement-identity {
+  display: flex;
+  align-items: baseline;
+  gap: 4px 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.client-statement-page .client-statement-identity h1 {
+  margin: 0;
+  min-width: 0;
+}
+.client-statement-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--neutral-800, #1e293b);
+}
+.settings-delete-confirm {
+  font-size: 12px;
+  font-weight: 600;
+  color: #b42318;
+  white-space: nowrap;
+}
+.settings-row-actions .settings-action-cancel {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(15, 35, 60, 0.16);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.settings-row-actions .settings-action-delete.is-confirm {
+  background: #b42318;
+  border-color: #b42318;
+  color: #fff;
+}
+.settings-history-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(15, 35, 60, 0.14);
+  border-radius: 8px;
+  background: #fff;
+  color: #0f99b8;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Clients directory visual system (OWNER staff-table parity).
+   The page reuses real Staff primitives via the engine staffVariant
+   (staff-card/header/tabs/table/actions); only genuinely clients-specific
+   pieces live here. Scoped to .clients-directory-page ONLY. */
+.clients-directory-page .staff-header__actions .sidebar-search__field {
+  width: 216px;
+  flex: none;
+}
+/* Clients table: actions cell pinned right; header follows. */
+.clients-directory-page .staff-table .staff-actions {
+  justify-content: flex-end;
+}
+.clients-directory-page .staff-table th:last-child {
+  text-align: right;
+}
+.clients-directory-page .staff-header__actions .staff-tabs,
+.clients-directory-page .staff-header__actions .staff-add-button {
+  flex: 0 0 auto;
+}
+.clients-directory-page .settings-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.clients-directory-page .settings-row-actions button {
+  min-height: 36px;
+  min-width: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.clients-directory-page .settings-action-edit {
+  border: 1px solid rgba(14, 116, 144, 0.35);
+  background: #fff;
+  color: #0e7490;
+}
+.clients-directory-page .settings-history-button {
+  min-height: 36px;
+  border-color: rgba(14, 116, 144, 0.35);
+  border-radius: 12px;
+  color: #0e7490;
+  font-size: 12px;
+}
+.clients-directory-page .settings-action-delete {
+  border: 1px solid rgba(239, 68, 68, 0.34);
+  background: #fff;
+  color: #dc2626;
+}
+.clients-directory-page .settings-empty-state {
+  padding: 36px 16px;
+  text-align: center;
+  color: var(--neutral-500, #64748b);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+/* V18 title persist (DevTools-accepted): Clients H1 ONLY. Scoped override,
+   no global title rule touched, no !important.
+   V18 horizontal fix: only top/bottom keep the accepted -14px pull; left is
+   0 so "Клиенты" starts on the same X as "НАСТРОЙКИ" (measured delta was
+   exactly the -14px left margin). */
+.clients-directory-page .settings-title-group h1 {
+  margin-top: -14px;
+  margin-right: 0;
+  margin-bottom: -14px;
+  margin-left: 0;
+  font-size: clamp(24px, 2.4vw, 28px);
+  font-weight: 600;
+}
+@media (max-width: 768px) {
+  .clients-directory-page .staff-header__actions {
+    width: 100%;
+  }
+  .clients-directory-page .staff-header__actions .sidebar-search__field,
+  .clients-directory-page .staff-header__actions .staff-add-button {
+    width: 100%;
+  }
+  .clients-directory-page .staff-header__actions .staff-tabs {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}
+
+/* CLIENTS V10 — centered Add/Edit modal + history toolbar.
+   New selectors only — no existing rule touched above.
+   The modal shell reuses the accepted Payment Methods primitives
+   (.settings-drawer.settings-modal-overlay / .settings-drawer__backdrop /
+   .settings-form.settings-modal + settings-owner-view modal geometry);
+   only the content width is tuned into the 480–560px target band. */
+.clients-modal-layer.settings-owner-view .settings-modal.clients-modal {
+  width: min(520px, 100%);
+}
+/* Clients modal content stacks full-width rows (name, then phone), per the
+   accepted compact structure. The phone row itself reuses the exact Staff
+   split-phone classes (.staff-phone-field--split + .staff-phone-country--pill
+   + .staff-phone-country-menu); their geometry comes from the Staff
+   stylesheet (extended selectors there), never from a clients lookalike. */
+.clients-modal-layer .clients-modal .settings-form__grid {
+  grid-template-columns: 1fr;
+}
+/* Clients status select: the shared MarjonSelect primitive (same classes as
+   Payment Methods). Chevron rotation + menu entrance reuse the PM motion
+   (`pm-select-in` is defined once in SettingsPaymentMethodsPage.css and
+   ships in the same bundle). The floating menu itself is fixed-positioned
+   inline by the component, so it never reflows or clips the modal. */
+.clients-modal-layer .settings-select__chevron {
+  transition: transform 180ms ease;
+}
+.clients-modal-layer .settings-select.is-open .settings-select__chevron {
+  transform: translateY(-50%) rotate(180deg);
+}
+.clients-modal-layer .settings-select__menu {
+  transform-origin: top center;
+  animation: pm-select-in 150ms ease-out both;
+}
+/* History header: same settings-header rhythm as the directory; the right
+   toolbar shares one baseline and the Clients segmented-control family. */
+.client-statement-page .client-statement-header {
+  align-items: center;
+}
+/* V12 accent-line parity: the turquoise bar must render at the IDENTICAL
+   visual position on the directory and on History. Both title groups start
+   at the same card offset, but their content heights differ (History carries
+   name + phone under the eyebrow), so vertical centering puts the fixed 44px
+   bar at different Y. Top alignment is content-independent: same geometry
+   (8x44, 999px, #16c6c8 from the shared rule) lands at the same card offset
+   on both screens. Scoped to Clients surfaces only. */
+.clients-directory-page .settings-title-group,
+.client-statement-page .settings-title-group {
+  align-items: flex-start;
+}
+/* V17: STATUS column true center on the directory — header and every cell
+   share one center X through real column alignment. Base cells carry
+   symmetric 16px horizontal padding, so text-align:center is exact with no
+   margin/translate/padding hacks. History tables are excluded (column 3
+   there means Приход, a different value family). */
+.clients-directory-page:not(.client-statement-page) .staff-table th:nth-child(3),
+.clients-directory-page:not(.client-statement-page) .staff-table td:nth-child(3) {
+  text-align: center;
+}
+.client-statement-page .client-statement-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+/* Period button belongs to the same toolbar: Clients 22px pill radius.
+   Specificity (0,5,0) wins over the Reports canonical 10px (0,3,0) without
+   touching Reports; calendar icon + range text untouched. */
+.client-statement-page .client-statement-right .owner-reports__period.report-actions .owner-reports__period-button {
+  border-radius: 22px;
+}
+/* Truthful empty state lives inside the table region as a balanced block. */
+.client-statement-page .client-statement-table-region .client-statement-empty {
+  padding: 12px 12px 16px;
+}
+.client-statement-page .client-statement-table-region .client-statement-empty .owner-report-empty--illustrated {
+  min-height: 0;
+  padding: 20px 16px 24px;
+}
+@media (max-width: 768px) {
+  .client-statement-page .client-statement-right {
+    width: 100%;
+    margin-left: 0;
+  }
 }

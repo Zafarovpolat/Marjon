@@ -2,14 +2,19 @@ import { useEffect, useMemo, useState } from "react";
 import ReceiptPreview from "../../components/receipt/ReceiptPreview";
 import ReceiptSectionEditor from "../../components/receipt/ReceiptSectionEditor";
 import {
+  CHEF_ALIGN_OPTIONS,
+  CHEF_STYLE_CONTROLS,
+  CHEF_WEIGHT_OPTIONS,
   KITCHEN_BLOCK_LABELS,
+  KITCHEN_BLOCKS,
   buildKitchenTemplate,
   getKitchenTemplate,
+  migrateKitchenTemplate,
   saveKitchenTemplate,
   testPrintKitchen,
 } from "../../api/receipt";
 import { isAbortError } from "../../hooks/useAsyncSafety";
-import { moveBlock } from "./receiptBlockOrder";
+import "./receiptSettings.css";
 
 export default function ChefReceiptSettingsPage() {
   const defaults = useMemo(() => buildKitchenTemplate(), []);
@@ -19,6 +24,7 @@ export default function ChefReceiptSettingsPage() {
   const [printing, setPrinting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [conflict, setConflict] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -27,8 +33,7 @@ export default function ChefReceiptSettingsPage() {
     getKitchenTemplate({ signal: controller.signal })
       .then(({ template: loaded }) => {
         if (!active) return;
-        setTemplate({ ...defaults, ...loaded, enabled: { ...defaults.enabled, ...loaded.enabled } });
-        setMessage("");
+        setTemplate(migrateKitchenTemplate(loaded, defaults));
       })
       .catch((requestError) => {
         if (active && !isAbortError(requestError)) setError("Не удалось загрузить серверный шаблон кухни. Показан локальный черновик по умолчанию.");
@@ -37,10 +42,7 @@ export default function ChefReceiptSettingsPage() {
     return () => { active = false; controller.abort(); };
   }, [defaults]);
 
-  function patchTemplate(patch) {
-    setTemplate((current) => ({ ...current, ...patch }));
-  }
-
+  // PLACEHOLDER_BODY
   function toggleBlock(block) {
     setTemplate((current) => ({
       ...current,
@@ -48,19 +50,32 @@ export default function ChefReceiptSettingsPage() {
     }));
   }
 
-  function move(block, direction) {
-    setTemplate((current) => ({ ...current, blocks: moveBlock(current.blocks, block, direction) }));
+  function changeBlockStyle(block, patch) {
+    setTemplate((current) => ({
+      ...current,
+      blockStyles: {
+        ...(current.blockStyles || {}),
+        [block]: { ...(current.blockStyles?.[block] || {}), ...patch },
+      },
+    }));
   }
 
   async function handleSave() {
     setSaving(true);
     setError("");
+    setConflict(false);
     setMessage("");
     try {
-      await saveKitchenTemplate(template);
+      const { template: saved } = await saveKitchenTemplate(template);
+      setTemplate((current) => ({ ...current, ...saved }));
       setMessage("Шаблон кухонного чека сохранён на сервере.");
     } catch (err) {
-      setError(err.response?.data?.detail || "Не удалось сохранить шаблон кухни на сервере. Изменения остались только в текущем черновике.");
+      if (err.response?.status === 409) {
+        setConflict(true);
+        setError("Шаблон был изменён в другом месте. Обновите страницу, чтобы получить актуальную версию, затем повторите.");
+      } else {
+        setError(err.response?.data?.detail || "Не удалось сохранить шаблон кухни на сервере. Изменения остались только в текущем черновике.");
+      }
     } finally {
       setSaving(false);
     }
@@ -68,68 +83,63 @@ export default function ChefReceiptSettingsPage() {
 
   async function handleTestPrint() {
     setPrinting(true);
-    setError("");
-    setMessage("");
     const result = await testPrintKitchen(template);
     setPrinting(false);
-    if (result.ok) {
-      setMessage("Тестовая печать кухни отправлена.");
-    } else {
-      setError(result.detail);
-    }
+    if (result.ok) setMessage("Открыто окно печати предпросмотра.");
   }
 
   return (
-    <section className="receipt-page">
-
-      {error ? <div className="message message-error">{error}</div> : null}
-
-      <div className="receipt-layout">
-        <div className="receipt-settings card card-pad">
-          <div className="receipt-panel-title">
-            <h3>Параметры кухни</h3>
-            {loading ? <span>Загрузка...</span> : null}
+    <div className="settings-page settings-owner-view receipt-settings-page">
+      <section className="settings-card">
+        <header className="settings-header receipt-header">
+          <div className="receipt-header-left">
+            <div className="settings-title-group">
+              <span className="settings-accent-bar" />
+              <div>
+                <p>Настройки</p>
+                <h1>Настройка чека повара</h1>
+              </div>
+            </div>
+            <div className="receipt-editor-actions receipt-editor-actions--end">
+              <button type="button" className="receipt-btn-secondary" disabled={printing} onClick={handleTestPrint}>Печать предпросмотра</button>
+            </div>
           </div>
-          <div className="receipt-control-grid">
-            <label className="receipt-field">
-              <span>Размер бумаги</span>
-              <select value={template.paperSize} onChange={(event) => patchTemplate({ paperSize: event.target.value })}>
-                <option value="58mm">58mm</option>
-                <option value="80mm">80mm</option>
-              </select>
-            </label>
-            <label className="receipt-switch">
-              <input
-                type="checkbox"
-                checked={Boolean(template.autoPrint)}
-                onChange={(event) => patchTemplate({ autoPrint: event.target.checked })}
+          <div className="receipt-header-spacer" aria-hidden="true" />
+        </header>
+
+        {error ? <div className="receipt-banner receipt-banner--error" role="alert">{error}</div> : null}
+        {!error && message ? <div className="receipt-banner receipt-banner--ok" role="status">{message}</div> : null}
+
+        <div className="receipt-grid">
+          <div className="receipt-editor-col">
+            <div className="receipt-editor">
+              <ReceiptSectionEditor
+                blocks={template.blocks}
+                enabled={template.enabled}
+                labels={KITCHEN_BLOCK_LABELS}
+                blockStyles={template.blockStyles}
+                styleBlocks={KITCHEN_BLOCKS}
+                onToggle={toggleBlock}
+                onStyleChange={changeBlockStyle}
+                styleRowClassName="receipt-section-row__style--chef"
+                sizeOptionsForBlock={(block) => CHEF_STYLE_CONTROLS[block]?.sizes || []}
+                alignOptionsForBlock={(block) => (CHEF_STYLE_CONTROLS[block]?.align ? CHEF_ALIGN_OPTIONS : [])}
+                weightOptionsForBlock={(block) => (CHEF_STYLE_CONTROLS[block]?.weight ? CHEF_WEIGHT_OPTIONS : [])}
               />
-              <span>Автопечать нового заказа</span>
-            </label>
+
+              <div className="receipt-editor-save">
+                <button type="button" className="receipt-btn-primary receipt-save" disabled={saving || loading} onClick={handleSave}>
+                  {saving ? "Сохранение..." : "Сохранить"}
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div className="receipt-kitchen-hint">
-            <strong>Кухонный чек</strong>
-            <p>Номер заказа выводится крупно, позиции печатаются без цен, с модификаторами и комментариями.</p>
-          </div>
-
-          <div className="receipt-panel-title">
-            <h3>Блоки чека</h3>
-            <span>Порядок и видимость</span>
-          </div>
-          <ReceiptSectionEditor
-            blocks={template.blocks}
-            enabled={template.enabled}
-            labels={KITCHEN_BLOCK_LABELS}
-            onToggle={toggleBlock}
-            onMove={move}
-          />
+          <aside className="receipt-preview-col">
+            <ReceiptPreview type="kitchen" template={template} fitPane />
+          </aside>
         </div>
-
-        <aside className="receipt-preview-sticky">
-          <ReceiptPreview type="kitchen" template={template} />
-        </aside>
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }

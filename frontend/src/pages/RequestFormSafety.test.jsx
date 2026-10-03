@@ -263,6 +263,7 @@ describe("FE-06 request and form safety", () => {
       type: "suppliers",
       name: "Server",
       phone: "",
+      balance: null,
       status: "—",
     });
     // Place payload safety (invalid percent rejected, canonical fields only,
@@ -270,22 +271,27 @@ describe("FE-06 request and form safety", () => {
     // SettingsPlacesPage.test.jsx — see TEST-SAFETY-01.
     expect(mapPaymentPayload({ name: "Cash", sort: "x", type: "cash", active: true })).toBeNull();
     expect(mapPaymentPayload({ name: "Cash", sort: "10abc", type: "cash", active: true })).toBeNull();
-    expect(mapPrinterPayload({ name: "Kitchen", printerType: "kitchen", connectionType: "network", ip: "10.0.0.2", port: "70000", zone: "Kitchen", status: "Активно" }, { editing: false })).toBeNull();
-    expect(mapPrinterPayload({ name: "Kitchen", printerType: "kitchen", connectionType: "network", ip: "10.0.0.2", port: "9100abc", zone: "Kitchen", status: "Активно" }, { editing: false })).toBeNull();
-    expect(mapPrinterPayload({ name: "Kitchen", printerType: "kitchen", connectionType: "network", ip: "10.0.0.2", port: "9100", zone: "Kitchen", status: "Активно" }, { editing: true })).toEqual({
+    // Printers V2 simplified contract: the form collects exactly
+    // { name, ip, active }; technical fields fall back to canonical backend
+    // defaults and is_active travels on EDIT only (Create has no such field).
+    expect(mapPrinterPayload({ name: "   ", ip: "10.0.0.2" }, { editing: false })).toBeNull();
+    expect(mapPrinterPayload({ name: "Kitchen", ip: "   " }, { editing: false })).toBeNull();
+    expect(mapPrinterPayload({ name: "Kitchen", ip: "10.0.0.2" }, { editing: false })).toEqual({
       name: "Kitchen",
-      printer_type: "kitchen",
+      printer_type: "receipt",
       connection_type: "network",
       ip_address: "10.0.0.2",
       port: 9100,
-      zone: "Kitchen",
-      is_active: true,
     });
-    expect(mapPrinterRow({ id: "p", name: "Printer", printer_type: null, connection_type: null, ip_address: "10.0.0.2", port: null })).toMatchObject({
-      printerType: "",
-      connectionType: "",
-      port: "",
-      endpoint: "",
+    expect(mapPrinterPayload({ name: "Kitchen", ip: "10.0.0.2", active: false }, { editing: true })).toEqual({
+      name: "Kitchen",
+      ip_address: "10.0.0.2",
+      is_active: false,
+    });
+    expect(mapPrinterRow({ id: "p", name: "Printer", ip_address: "10.0.0.2", is_active: false })).toMatchObject({
+      name: "Printer",
+      ip: "10.0.0.2",
+      active: false,
     });
   });
 });

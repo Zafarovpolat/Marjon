@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { settingsService } from "../../api/settings";
 import Icon from "../../components/Icon";
 import ReportEmptyState from "../../components/ReportEmptyState";
 import { isAbortError, useLatestRequest, useMutationLocks } from "../../hooks/useAsyncSafety";
+import MarjonSelect from "./MarjonSelect";
 import "./SettingsPaymentMethodsPage.css";
 
 const RESOURCE = "paymentMethods";
@@ -82,98 +83,6 @@ export function resetPaymentMethodsCacheForTest() {
 function extractItems(data) {
   if (Array.isArray(data)) return data;
   return data?.items || data?.results || [];
-}
-
-// Compact OWNER custom select (chevron + rotate-on-open + animated menu),
-// reusing the accepted `settings-select` design-system classes. Kept local to
-// this page so no Places file is imported. Keyboard + outside-click aware.
-function MarjonSelect({ id, value, options, placeholder, label, onChange }) {
-  const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(-1);
-  const rootRef = useRef(null);
-  const triggerRef = useRef(null);
-  const selectedIndex = options.findIndex((o) => o.value === value);
-  const selected = selectedIndex >= 0 ? options[selectedIndex] : null;
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const onDown = (event) => { if (!rootRef.current?.contains(event.target)) setOpen(false); };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [open]);
-
-  const openMenu = (index = selectedIndex >= 0 ? selectedIndex : 0) => { setActiveIndex(index); setOpen(true); };
-  const commit = (index) => {
-    const option = options[index];
-    if (option) onChange(option.value);
-    setOpen(false);
-    triggerRef.current?.focus();
-  };
-  const onKeyDown = (event) => {
-    if (event.key === "Escape") { if (open) { event.preventDefault(); event.stopPropagation(); setOpen(false); } return; }
-    if (event.key === "Tab") { setOpen(false); return; }
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      if (!open) { openMenu(); return; }
-      const step = event.key === "ArrowDown" ? 1 : -1;
-      setActiveIndex((i) => {
-        const next = i + step;
-        if (next < 0) return options.length - 1;
-        if (next >= options.length) return 0;
-        return next;
-      });
-      return;
-    }
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      if (!open) { openMenu(); return; }
-      commit(activeIndex);
-    }
-  };
-
-  const listId = `${id}-listbox`;
-  return (
-    <div className={`settings-select${open ? " is-open" : ""}`} ref={rootRef} onKeyDown={onKeyDown}>
-      <button
-        type="button"
-        id={id}
-        ref={triggerRef}
-        className={`settings-select__trigger${selected ? "" : " is-placeholder"}`}
-        role="combobox"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={listId}
-        aria-label={label}
-        onClick={() => (open ? setOpen(false) : openMenu())}
-      >
-        <span className="settings-select__value">{selected ? selected.label : placeholder}</span>
-      </button>
-      <span className="settings-select__chevron" aria-hidden="true"><Icon name="bi-chevron-down" size={15} /></span>
-      {open ? (
-        <ul className="settings-select__menu" id={listId} role="listbox" aria-label={label}>
-          {options.map((option, index) => {
-            const isSelected = option.value === value;
-            return (
-              <li key={option.value}>
-                <button
-                  type="button"
-                  id={`${id}-opt-${index}`}
-                  role="option"
-                  aria-selected={isSelected}
-                  className={`settings-select__option${isSelected ? " is-selected" : ""}${index === activeIndex ? " is-active" : ""}`}
-                  onMouseEnter={() => setActiveIndex(index)}
-                  onClick={() => commit(index)}
-                >
-                  <span>{option.label}</span>
-                  {isSelected ? <Icon name="bi-check2" size={14} /> : null}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
-    </div>
-  );
 }
 
 function SettingsPaymentMethodsPage() {

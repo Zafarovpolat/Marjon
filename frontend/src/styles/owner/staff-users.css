@@ -1012,8 +1012,12 @@ body.dashboard-body:has(.staff-modal--cashier-full) .staff-modal.staff-modal--ca
 
 /* Split phone: the country trigger is a compact static pill (flag + code +
    chevron); digits flow in a borderless input. The base absolute-position
-   trigger variant would float out of this flex row, so it is reset here. */
-.staff-form--cashier .staff-phone-country--pill {
+   trigger variant would float out of this flex row, so it is reset here.
+   CLIENTS-V11: the second selector reuses this exact primitive inside the
+   centered Clients modal (same classes, same declarations) — the Staff
+   rendering above is untouched. */
+.staff-form--cashier .staff-phone-country--pill,
+.clients-modal-layer .clients-modal .staff-phone-country--pill {
     position: static;
     transform: none;
     width: auto;
@@ -1029,21 +1033,25 @@ body.dashboard-body:has(.staff-modal--cashier-full) .staff-modal.staff-modal--ca
     flex: 0 0 auto;
 }
 
-.staff-form--cashier .staff-phone-country--pill img {
+.staff-form--cashier .staff-phone-country--pill img,
+.clients-modal-layer .clients-modal .staff-phone-country--pill img {
     width: 22px;
     height: 15px;
     border-radius: 3px;
 }
 
-.staff-form--cashier .staff-phone-country--pill svg {
+.staff-form--cashier .staff-phone-country--pill svg,
+.clients-modal-layer .clients-modal .staff-phone-country--pill svg {
     width: 11px;
     height: 11px;
 }
 
 /* One bordered control: country button + prefix + digits share a single
    46px box that matches sibling fields (the base input border/padding for
-   the absolute-flag variant would otherwise break the row apart). */
-.staff-form--cashier .staff-phone-field--split {
+   the absolute-flag variant would otherwise break the row apart).
+   CLIENTS-V11: grouped Clients-modal scope, same declarations. */
+.staff-form--cashier .staff-phone-field--split,
+.clients-modal-layer .clients-modal .staff-phone-field--split {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1054,7 +1062,8 @@ body.dashboard-body:has(.staff-modal--cashier-full) .staff-modal.staff-modal--ca
     background: #fff;
 }
 
-.staff-form--cashier .staff-phone-field--split input {
+.staff-form--cashier .staff-phone-field--split input,
+.clients-modal-layer .clients-modal .staff-phone-field--split input {
     flex: 1 1 auto;
     min-width: 0;
     min-height: 44px;
@@ -1065,12 +1074,14 @@ body.dashboard-body:has(.staff-modal--cashier-full) .staff-modal.staff-modal--ca
     box-shadow: none;
 }
 
-.staff-form--cashier .staff-phone-field--split input:focus {
+.staff-form--cashier .staff-phone-field--split input:focus,
+.clients-modal-layer .clients-modal .staff-phone-field--split input:focus {
     outline: none;
     box-shadow: none;
 }
 
-.staff-form--cashier .staff-phone-field--split:focus-within {
+.staff-form--cashier .staff-phone-field--split:focus-within,
+.clients-modal-layer .clients-modal .staff-phone-field--split:focus-within {
     border-color: rgba(29, 181, 181, 0.62);
     box-shadow: 0 0 0 3px rgba(29, 181, 181, 0.12);
 }
@@ -1386,4 +1397,16 @@ body.dashboard-body:has(.staff-modal--cashier-full) .staff-modal.staff-modal--ca
 .staff-card--cashier .staff-table--attendance th:first-child,
 .staff-card--cashier .staff-table--attendance td.staff-name-cell {
     width: 220px;
+}
+
+/* TITLE-UNIFICATION-01: Staff titles adopt the accepted Clients rhythm
+   (600 + clamp(24px, 2.4vw, 28px)). Covers the legacy header AND the
+   cashier product variant (all five role pages plus the staff journals
+   share StaffToolbar / the same staff-header pattern intentionally — no
+   Admin/HQ consumer exists). Unlayered so it wins without !important.
+   Eyebrow/accent/controls/tables untouched; alignment was already exact. */
+.staff-header h1,
+.staff-card--cashier .staff-header h1 {
+    font-weight: 600;
+    font-size: clamp(24px, 2.4vw, 28px);
 }

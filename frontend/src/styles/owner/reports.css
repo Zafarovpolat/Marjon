@@ -1858,6 +1858,7 @@
 .dishes-report-page .report-actions .report-date-menu,
 .tables-report-page .report-actions .report-date-menu,
 .cancelled-report-page .report-actions .report-date-menu,
+.client-statement-page .report-actions .report-date-menu,
 .owner-reports-page--generator .owner-reports__head-actions .report-date-menu {
   transform-origin: top center;
   animation: owner-report-panel-in 170ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -1867,6 +1868,7 @@
 .dishes-report-page .report-actions .report-date-menu.is-closing,
 .tables-report-page .report-actions .report-date-menu.is-closing,
 .cancelled-report-page .report-actions .report-date-menu.is-closing,
+.client-statement-page .report-actions .report-date-menu.is-closing,
 .owner-reports-page--generator .owner-reports__head-actions .report-date-menu.is-closing {
   pointer-events: none;
   animation: owner-report-panel-out 170ms cubic-bezier(0.64, 0, 0.78, 0) both;
@@ -1878,7 +1880,8 @@
 .orders-report-page .owner-reports__period.report-actions,
 .dishes-report-page .owner-reports__period.report-actions,
 .tables-report-page .owner-reports__period.report-actions,
-.cancelled-report-page .owner-reports__period.report-actions {
+.cancelled-report-page .owner-reports__period.report-actions,
+.client-statement-page .owner-reports__period.report-actions {
   position: relative;
   z-index: 200;
 }
@@ -1938,6 +1941,8 @@
   .orders-report-page .report-actions .report-date-menu.is-closing,
   .cancelled-report-page .report-actions .report-date-menu,
   .cancelled-report-page .report-actions .report-date-menu.is-closing,
+  .client-statement-page .report-actions .report-date-menu,
+  .client-statement-page .report-actions .report-date-menu.is-closing,
   .owner-reports-page--generator .owner-reports__head-actions .report-date-menu,
   .owner-reports-page--generator .owner-reports__head-actions .report-date-menu.is-closing,
   :is(.orders-report-page, .dishes-report-page, .tables-report-page, .cancelled-report-page) .orders-filter-select__panel {
@@ -3224,5 +3229,23 @@
   .waiters-report-page .waiters-percent-stepper,
   .waiters-report-page .waiters-percent-stepper__controls {
     transition: none;
+  }
+}
+
+/* TITLE-UNIFICATION-01: ordinary reports adopt the accepted Clients title
+   rhythm (600 + clamp(24px, 2.4vw, 28px)). Page-scoped to the five ordinary
+   report shells only — the shared `.owner-report-heading h1` rule (and the
+   Z-report generator, which uses a genuinely separate header structure)
+   stay untouched. Wrapped in min-width so the accepted 21px mobile title
+   (max-width: 768px block above) keeps working. Eyebrow/accent/controls
+   untouched; alignment was already exact (0 margins both sides). */
+@media (min-width: 769px) {
+  .orders-report-page .owner-report-heading h1,
+  .dishes-report-page .owner-report-heading h1,
+  .tables-report-page .owner-report-heading h1,
+  .waiters-report-page .owner-report-heading h1,
+  .cancelled-report-page .owner-report-heading h1 {
+    font-weight: 600;
+    font-size: clamp(24px, 2.4vw, 28px);
   }
 }
