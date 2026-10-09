@@ -26,6 +26,9 @@ function StaffRolePage({ role = "all" }) {
   // MONOBLOCK-01: monoblock reuses the exact cashier/waiter product drawer
   // shell (1:1 MARJON oracle, 5 primary switches, detailed matrix below).
   const isMonoblockView = routeRole === "monoblock";
+  // Моноблок — логин десктопа (телефон+пароль), ПИНа у него нет.
+  // ПИН обязателен для остальных ролей: кассир/официант/курьер/повар/менеджер/завсклад/all.
+  const pinRequired = !isMonoblockView;
   // MANAGER-STOREKEEPER-01: manager + warehouse join the same product Staff
   // family (7 columns, no access column, Cashier-parity drawer matrix, no HR).
   const isManagerView = routeRole === "manager";
@@ -43,10 +46,12 @@ function StaffRolePage({ role = "all" }) {
   const [saving, setSaving] = useState(false);
   const [pendingActionId, setPendingActionId] = useState("");
   const beginRequest = useLatestRequest();
+  const beginBranchesRequest = useLatestRequest();
   const mutationLocks = useMutationLocks();
 
   useEffect(() => {
     const request = beginRequest();
+    setStaffLoading(true);
     setStaffError("");
     staffService.listStaffUsers({ signal: request.signal })
       .then(({ data }) => {
@@ -60,14 +65,14 @@ function StaffRolePage({ role = "all" }) {
         setStaff([]);
         setStaffError("Не удалось загрузить сотрудников.");
       })
-      .finally(() => { if (request.isCurrent()) setStaffLoading(false); });
+      .finally(() => { setStaffLoading(false); });
   }, [beginRequest]);
 
-  // Моноблок привязывается к филиалу — тянем список филиалов для селектора.
-  // Только в этом разделе: остальным ролям привязка к филиалу не показывается.
+  // Филиалы больше не нужны (моноблок отвязан от филиала), но запрос
+  // оставлен отдельным хуком, чтобы не отменять загрузку сотрудников.
   useEffect(() => {
     if (!isMonoblockView) return undefined;
-    const request = beginRequest();
+    const request = beginBranchesRequest();
     settingsService.listBranches({ signal: request.signal })
       .then(({ data }) => {
         if (!request.isCurrent()) return;
@@ -80,7 +85,7 @@ function StaffRolePage({ role = "all" }) {
         setBranches([]);
       });
     return undefined;
-  }, [beginRequest, isMonoblockView]);
+  }, [beginBranchesRequest, isMonoblockView]);
 
   const defaultFilters = useMemo(() => ({
     query: "",
@@ -330,9 +335,10 @@ function StaffRolePage({ role = "all" }) {
         mutationLocks.release("staff-save");
         return;
       }
-      // Моноблок входит на десктопе по PIN. PIN необязателен при создании
-      // (владелец может задать позже), но если введён — строго 4 цифры.
-      if (isMonoblockView && form.pin && !/^\d{4}$/.test(form.pin)) {
+      // PIN: только НЕ-моноблок. Моноблок — первый экран логина десктопа
+      // (телефон+пароль), ПИНа у него нет. Остальным обязателен при создании
+      // (4 цифры), на редактировании пустой = «не менять».
+      if (!isMonoblockView && ((!editingId && !/^\d{4}$/.test(form.pin || "")) || (form.pin && !/^\d{4}$/.test(form.pin)))) {
         setSaveErrorField("");
         setSaveError("PIN должен содержать 4 цифры.");
         mutationLocks.release("staff-save");
@@ -349,15 +355,14 @@ function StaffRolePage({ role = "all" }) {
         // extra=forbid and would 422 unknown fields.
         let confirmedUser;
         if (!editingId) {
-          // Моноблок привязывается к филиалу (сеть → филиал); branch_id шлём
-          // только когда филиал выбран. Остальные роли branch_id не передают.
+          // Моноблок привязан к аккаунту владельца (company), branch_id не шлём.
+          // Остальные роли branch_id не передают.
           const createPayload = {
             password: form.password,
             phone: phone || null,
             role_slug: productRoleSlug,
             role_name: productName,
           };
-          if (isMonoblockView && form.branchId) createPayload.branch_id = form.branchId;
           const { data: createdUser } = await staffService.createCompanyUser(createPayload);
           confirmedUser = createdUser;
           if (form.status === "archived") {
@@ -366,8 +371,8 @@ function StaffRolePage({ role = "all" }) {
             });
             confirmedUser = data;
           }
-          // Десктоп, шаг 3: PIN моноблока задаётся отдельным эндпоинтом.
-          if (isMonoblockView && form.pin) {
+          // Десктоп, шаг 3: PIN задаётся отдельным эндпоинтом — только НЕ-моноблок.
+          if (!isMonoblockView && form.pin) {
             await staffService.updateUserPin(createdUser.id, form.pin);
           }
         } else {
@@ -378,12 +383,11 @@ function StaffRolePage({ role = "all" }) {
             role_slug: productRoleSlug,
             is_active: form.status !== "archived",
           };
-          // Переназначение филиала моноблока (сеть → филиал).
-          if (isMonoblockView && form.branchId) updatePayload.branch_id = form.branchId;
+          // Моноблок привязан к аккаунту владельца — филиал не трогаем.
           const { data: updatedUser } = await staffService.updateCompanyUser(editingId, updatePayload);
           confirmedUser = updatedUser;
-          // Пустой PIN на редактировании = «не менять».
-          if (isMonoblockView && form.pin) {
+          // Пустой PIN на редактировании = «не менять». Моноблоку PIN не задаём.
+          if (!isMonoblockView && form.pin) {
             await staffService.updateUserPin(editingId, form.pin);
           }
         }
@@ -425,8 +429,10 @@ function StaffRolePage({ role = "all" }) {
       mutationLocks.release("staff-save");
       return;
     }
-    if (form.pin && !/^\d{4,8}$/.test(form.pin)) {
-      window.alert("PIN должен содержать от 4 до 8 цифр.");
+    // PIN обязателен при создании (десктоп входит только по 4 цифрам);
+    // на редактировании пустой PIN = «не менять».
+    if ((!editingId && !/^\d{4}$/.test(form.pin || "")) || (form.pin && !/^\d{4}$/.test(form.pin))) {
+      window.alert("PIN должен содержать 4 цифры.");
       mutationLocks.release("staff-save");
       return;
     }

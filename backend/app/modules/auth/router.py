@@ -17,14 +17,14 @@ from app.modules.auth.dependencies import (
 from app.modules.auth.models import User
 from app.modules.auth.schemas import (
     BranchInfo,
-    BranchLoginRequest,
-    BranchLoginResponse,
     CompanyInfo,
     CompanyUserCreate,
     CompanyUserResponse,
     CompanyUserUpdate,
     LoginRequest,
     LogoutRequest,
+    MonoblockLoginRequest,
+    MonoblockLoginResponse,
     PinLoginRequest,
     PinSetRequest,
     RefreshRequest,
@@ -84,20 +84,20 @@ async def admin_login(request: Request, data: LoginRequest, db: AsyncSession = D
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
-@router.post("/branch-login", response_model=BranchLoginResponse)
+@router.post("/monoblock-login", response_model=MonoblockLoginResponse)
 @limiter.limit("10/minute")
-async def branch_login(request: Request, data: BranchLoginRequest, db: AsyncSession = Depends(get_db)):
-    """Десктоп, шаг 1: вход по филиалу (у каждого филиала сети свой логин+пароль,
-    веб-аккаунт владельца один). Выдаёт токен служебного терминала, привязанного
-    к company_id+branch_id; дальше десктоп идёт в /auth/staff-users и /auth/pin-login."""
+async def monoblock_login(request: Request, data: MonoblockLoginRequest, db: AsyncSession = Depends(get_db)):
+    """Десктоп, шаг 1: вход по телефону+паролю аккаунта моноблока
+    (карточка users/monoblock в вебе; у моноблока нет PIN). Контракт ответа
+    повторяет старый branch-login (токен + branch/company)."""
     svc = AuthService(db)
-    _, branch, company, access_token, refresh_token = await svc.login_by_branch(
-        data.login, data.password, device_id=device_label(request.headers.get("user-agent"))
+    _, branch, company, access_token, refresh_token = await svc.login_by_monoblock(
+        data.phone, data.password, device_id=device_label(request.headers.get("user-agent"))
     )
-    return BranchLoginResponse(
+    return MonoblockLoginResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        branch=BranchInfo(id=branch.id, name=branch.name, company_id=branch.company_id),
+        branch=BranchInfo(id=branch.id, name=branch.name, company_id=branch.company_id) if branch else None,
         company=CompanyInfo(id=company.id, name=company.name),
     )
 

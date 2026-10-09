@@ -4,7 +4,7 @@ import {
   Search, Plus, Minus, Trash2, Utensils,
   LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock, Wallet, History, BarChart3, Ban, ShoppingBag, Bike, Boxes, Printer,
 } from 'lucide-react'
-import { orders, menu, halls as hallsApi, printers as printersApi, customers as customersApi, auth as authApi, finance as financeApi } from '../../shared/api'
+import { orders, menu, halls as hallsApi, printers as printersApi, customers as customersApi, auth as authApi, finance as financeApi, companies as companiesApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
 import DishModal from '../../components/DishModal'
 import FinancePanel from '../../components/FinancePanel'
@@ -74,6 +74,19 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
   const [staff, setStaff] = useState([])                 // сотрудники (для смены официанта)
   const [printerMap, setPrinterMap] = useState({})
   const [addToOrderId, setAddToOrderId] = useState(null) // id заказа, в который ДОБАВЛЯЕМ блюда (иначе создаём новый)
+  // Типы заказа из профиля компании («Другие настройки» веба). null = ещё не
+  // загружено или ошибка — считаем всё включённым (как раньше).
+  const [orderTypes, setOrderTypes] = useState(null)
+  const typeOn = (key) => !orderTypes || orderTypes[key] !== false
+  // Если текущий тип/доска выключили — откатываемся на первый включённый.
+  useEffect(() => {
+    if (!orderTypes) return
+    const first = ['dine_in', 'takeaway', 'delivery'].find((k) => orderTypes[k] !== false)
+    if (!first) return
+    if (orderType !== first && !typeOn(orderType)) setOrderType(first)
+    if ((activeZone === 'takeaway' || activeZone === 'delivery') && !typeOn(activeZone)) setActiveZone('all')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderTypes])
 
   // Слот шапки (TopBar в App.jsx): меню разделов рендерим порталом, чтобы кнопка
   // жила в шапке, а состояние осталось здесь. DOM шапки готов к моменту первого
@@ -106,6 +119,7 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
         setProducts(prods.items ?? prods ?? [])
         const map = {}; (pl.items ?? pl ?? []).forEach((p) => { map[p.id] = p }); setPrinterMap(map)
       })
+    companiesApi.profile().then((p) => setOrderTypes(p?.order_types || null)).catch(() => {})
     // Сотрудники для смены официанта. Тот же фильтр, что в экране выбора сотрудника
     // (EmployeeSelector) и панели посещаемости: владелец/менеджер/кладовщик столы на
     // кассе не обслуживают — прячем их, чтобы оба селекта в модалке оплаты (официант
@@ -113,7 +127,8 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     // а не «кашу» из всех ролей. Иначе список тут расходится с экраном входа.
     authApi.staffUsers(user.branch_id)
       .then((d) => {
-        const HIDDEN_ROLES = ['owner', 'manager', 'warehouse']
+        // Моноблок — первый экран логина, не сотрудник для PIN-входа.
+        const HIDDEN_ROLES = ['owner', 'manager', 'warehouse', 'monoblock']
         const empRole = (u) => String(u.role_slug || u.role_slugs?.[0] || '').toLowerCase()
         const list = (Array.isArray(d) ? d : d?.items || [])
           .filter((u) => u.is_active !== false && !HIDDEN_ROLES.includes(empRole(u)))
@@ -419,8 +434,8 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
             <div className="board__head-right">
               {orderBoard && !courier && <button className="btn btn--outline btn--sm" onClick={() => setActiveZone('all')}><ArrowLeft size={18} /> {t('to_tables')}</button>}
               {orderBoard && <button className="btn btn--primary btn--sm" onClick={() => openOrder(activeZone, null)}><Plus size={18} /> {t('new_order')}</button>}
-              {!courier && can(user, 'can_change_order_type') && <button className="btn btn--outline btn--sm" onClick={() => setActiveZone('takeaway')}><ShoppingBag size={18} /> {t('takeaway')}</button>}
-              {!courier && can(user, 'can_change_order_type') && <button className="btn btn--outline btn--sm" onClick={() => setActiveZone('delivery')}><Bike size={18} /> {t('delivery')}</button>}
+              {!courier && can(user, 'can_change_order_type') && typeOn('takeaway') && <button className="btn btn--outline btn--sm" onClick={() => setActiveZone('takeaway')}><ShoppingBag size={18} /> {t('takeaway')}</button>}
+              {!courier && can(user, 'can_change_order_type') && typeOn('delivery') && <button className="btn btn--outline btn--sm" onClick={() => setActiveZone('delivery')}><Bike size={18} /> {t('delivery')}</button>}
             </div>
           </div>
           <div className="board__scroll">

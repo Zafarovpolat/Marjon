@@ -27,7 +27,7 @@ api.interceptors.response.use(
     // выбора сотрудника 401 сбрасывал бы экран (баг «окно закрывается»).
     const skipReload =
       url.includes('/auth/login') ||
-      url.includes('/auth/branch-login') ||
+      url.includes('/auth/monoblock-login') ||
       url.includes('/auth/pin-login') ||
       url.includes('/auth/staff-users')
     const hasStaffSession = !!localStorage.getItem('marjon_token')
@@ -160,16 +160,18 @@ export const auth = {
       : { email: id, password }
     return api.post('/auth/login', body).then((r) => r.data)
   },
-  // 6.2 — вход на кассе одним шагом по логину/паролю филиала (без выбора филиала
-  // и без личного логина владельца). Логин филиала глобально уникален и определяет
-  // и организацию, и филиал. Ответ несёт токен терминала + сведения о branch/company.
-  loginByBranch: (login, password) =>
-    api.post('/auth/branch-login', { login, password }).then((r) => r.data),
-  // Список сотрудников филиала (для выбора перед PIN-входом) — под org-токеном с авто-refresh.
+  // Вход на кассе одним шагом по телефону+паролю аккаунта моноблока
+  // (карточка users/monoblock в вебе; у моноблока нет PIN). Ответ несёт
+  // токен + сведения о branch/company — привязка сохраняется атомарно.
+  loginByMonoblock: (phone, password) =>
+    api.post('/auth/monoblock-login', { phone, password }).then((r) => r.data),
+  // Список сотрудников (для выбора перед PIN-входом) — под org-токеном с авто-refresh.
+  // Моноблок отвязан от филиала: десктоп шлёт branch_id если филиал уже выбран,
+  // бэкенд отдаёт персонал компании (фильтр по филиалу — на клиенте при необходимости).
   staffUsers: (branchId) =>
     withOrgRefresh((tok) =>
       api.get('/auth/staff-users', {
-        params: { branch_id: branchId },
+        params: branchId ? { branch_id: branchId } : {},
         headers: tok ? { Authorization: `Bearer ${tok}` } : {},
       }).then((r) => r.data)
     ),
@@ -212,6 +214,8 @@ export const auth = {
   users: () => api.get('/auth/users').then((r) => r.data),
   createUser: (payload) => api.post('/auth/users', payload).then((r) => r.data),
   updateUser: (id, payload) => api.patch(`/auth/users/${id}`, payload).then((r) => r.data),
+  // PIN отдельным эндпоинтом PATCH /users/{id}/pin (в POST/PATCH /users его нет — extra=forbid → 422).
+  setPin: (id, pin) => api.patch(`/auth/users/${id}/pin`, { pin }).then((r) => r.data),
 }
 
 export const companies = {
@@ -222,6 +226,8 @@ export const companies = {
         headers: tok ? { Authorization: `Bearer ${tok}` } : {},
       }).then((r) => r.data)
     ),
+  // Профиль компании (типы заказа и др.) — под токеном сотрудника.
+  profile: () => api.get('/companies/me').then((r) => r.data),
 }
 
 // Брендинг организации: кастомный фон десктопа (задаётся в веб-админке)

@@ -1032,7 +1032,7 @@
       font-family: var(--font-display);
       font-size: clamp(24px, 2.1vw, 34px);
       line-height: 1.08;
-      font-weight: 700; /* REPORT-FONT: заголовок 800 → 700 (допустимый жирный, роль — заголовок) */
+      font-weight: 500; /* Шкала: минимум 24px — максимум 500 */
       letter-spacing: 0;
   }
 
@@ -1390,6 +1390,17 @@
       border-radius: 24px;
       background: rgba(255, 255, 255, .94);
       box-shadow: 0 8px 20px rgba(13, 39, 72, 0.046);
+  }
+
+  /* Живой фильтр без кнопки «Фильтровать»: селект категории занимает
+     освободившееся место (2 колонки сетки). */
+  .dishes-report-page .dishes-filter-wide {
+      grid-column: span 2;
+      min-width: 0;
+  }
+  .dishes-report-page .dishes-filter-wide > .orders-filter-select,
+  .dishes-report-page .dishes-filter-wide .orders-filter-select__trigger {
+      width: 100%;
   }
 
   .dishes-report-page .report-filter-input,

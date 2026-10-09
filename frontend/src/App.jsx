@@ -16,6 +16,7 @@ import StaffRolePage from "./pages/StaffRolePage";
 import StaffActivityPage from "./pages/StaffActivityPage";
 import NomenclaturePage from "./pages/NomenclaturePage";
 import CategoriesPage from "./pages/CategoriesPage";
+import StopListPage from "./pages/StopListPage";
 import WaitersReportPage from "./pages/WaitersReportPage";
 import TablesReportPage from "./pages/TablesReportPage";
 import DishesReportPage from "./pages/DishesReportPage";
@@ -137,7 +138,7 @@ export function createAppRouter() {
       { path: "nomenclature", element: <Navigate to="/nomenclature/dishes" replace /> },
       { path: "nomenclature/dishes", element: <NomenclaturePage type="dishes" /> },
       { path: "nomenclature/menu", element: <MenuPage /> },
-      { path: "nomenclature/stop-list", element: <PlaceholderPage eyebrow="Меню" title="Стоп-лист" text="Здесь будут отображаться блюда, временно недоступные для продажи." /> },
+      { path: "nomenclature/stop-list", element: <StopListPage /> },
       { path: "nomenclature/raw-materials", element: <NomenclaturePage type="raw" /> },
       { path: "nomenclature/semi-finished", element: <NomenclaturePage type="semi" /> },
       { path: "nomenclature/dish-categories", element: <CategoriesPage type="dishes" /> },

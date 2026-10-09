@@ -80,34 +80,6 @@ class PinLoginRequest(BaseSchema):
     pin: str = Field(..., min_length=4, max_length=8)
 
 
-class BranchLoginRequest(BaseSchema):
-    model_config = {"from_attributes": True, "extra": "forbid"}
-
-    # Логин филиала — произвольная уникальная строка (не телефон): у сети KFC
-    # филиал в месте А и месте Б получают разные логины при одном веб-аккаунте.
-    login: str = Field(..., min_length=1, max_length=150)
-    password: str = Field(..., min_length=1)
-
-
-class BranchInfo(BaseSchema):
-    id: UUID
-    name: str
-    company_id: UUID
-
-
-class CompanyInfo(BaseSchema):
-    id: UUID
-    name: str
-
-
-class BranchLoginResponse(BaseSchema):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-    branch: BranchInfo
-    company: CompanyInfo
-
-
 class LogoutRequest(BaseSchema):
     refresh_token: str = Field(..., min_length=1)
 
@@ -123,6 +95,35 @@ class TokenResponse(BaseSchema):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
+
+class MonoblockLoginRequest(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
+    # Телефон аккаунта моноблока (из карточки users/monoblock).
+    phone: str = Field(..., min_length=1, max_length=30)
+    password: str = Field(..., min_length=1)
+
+
+class BranchInfo(BaseSchema):
+    id: UUID
+    name: str
+    company_id: UUID
+
+
+class CompanyInfo(BaseSchema):
+    id: UUID
+    name: str
+
+
+class MonoblockLoginResponse(BaseSchema):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    # Моноблок привязан к company, branch опционален (легаси-привязка).
+    # Десктоп при branch=None показывает BranchSelector.
+    branch: BranchInfo | None = None
+    company: CompanyInfo
 
 
 class UserResponse(BaseResponseSchema):

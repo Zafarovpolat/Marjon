@@ -83,7 +83,14 @@ function ProductCategoriesPage({ type }) {
   }
 
   function openEdit(row) {
-    setError(`Редактирование категории «${row.name}» пока не подключено к backend.`);
+    setEditingId(row.id);
+    setForm({
+      name: row.name || "",
+      slug: row.slug || "",
+      sort_order: Number(row.sort_order || 0),
+    });
+    setError("");
+    setShowForm(true);
   }
 
   function closeForm() {
@@ -122,6 +129,13 @@ function ProductCategoriesPage({ type }) {
         } else {
           await load();
         }
+      } else {
+        const { data } = await catalogService.updateCategory(editingId, categoryPayload);
+        if (data?.id) {
+          setRows((current) => current.map((row) => (row.id === editingId ? data : row)));
+        } else {
+          await load();
+        }
       }
       closeForm();
     } catch (err) {
@@ -132,8 +146,18 @@ function ProductCategoriesPage({ type }) {
     }
   }
 
-  function handleDelete(row) {
-    setError(`Удаление категории «${row.name}» пока не подключено к backend.`);
+  async function handleDelete(row) {
+    if (!window.confirm(`Удалить категорию «${row.name}»?`)) return;
+    if (!acquire(`category-delete-${row.id}`)) return;
+    setError("");
+    try {
+      await catalogService.deleteCategory(row.id);
+      setRows((current) => current.filter((item) => item.id !== row.id));
+    } catch (err) {
+      setError(err.response?.data?.detail || "Не удалось удалить категорию.");
+    } finally {
+      release(`category-delete-${row.id}`);
+    }
   }
 
   const visible = useMemo(() => {

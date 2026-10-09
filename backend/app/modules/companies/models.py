@@ -49,6 +49,9 @@ class Company(TimeStampedModel):
     # means an unknown field is just dropped, not rejected).
     vat_rate: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
     service_fee: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    # Типы заказа (На стол / На вынос / Доставка) — управляются тремя
+    # чекерами «Другие настройки». NULL = все включены (как раньше).
+    order_types: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
 
     @property
     def logo(self) -> str | None:

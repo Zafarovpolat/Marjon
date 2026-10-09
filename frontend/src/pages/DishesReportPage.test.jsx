@@ -71,11 +71,9 @@ function lastListDishesFilters() {
 }
 
 function headerFilterToggle() {
-  // The header toggle and the panel Apply share the accessible name; the
-  // collapse keeps both mounted, so select by the toggle's own class.
-  return screen.getAllByRole("button", { name: "Фильтровать" }).find((button) => (
-    button.classList.contains("dishes-filter-toggle")
-  ));
+  // The header toggle is now the only button named so (the panel Apply
+  // is gone — filtering is live).
+  return screen.getByRole("button", { name: "Фильтровать" });
 }
 
 function finishDropdownExit() {
@@ -202,10 +200,9 @@ describe("DishesReportPage Phase 1 truthful core", () => {
       .mockReturnValueOnce(new Promise((resolve) => { resolveNew = resolve; }));
     const search = screen.getByLabelText("Поиск по названию блюда");
     fireEvent.change(search, { target: { value: "п" } });
-    document.querySelector(".report-filter-apply").click();
+    await waitFor(() => expect(reportsService.listDishes.mock.calls.length).toBe(2), { timeout: 3000 });
     fireEvent.change(search, { target: { value: "пл" } });
-    document.querySelector(".report-filter-apply").click();
-    await waitFor(() => expect(reportsService.listDishes.mock.calls.length).toBe(3));
+    await waitFor(() => expect(reportsService.listDishes.mock.calls.length).toBe(3), { timeout: 3000 });
     // Stale truthful rows stay mounted while both requests pend.
     expect(screen.getByText("1. Плов")).toBeInTheDocument();
     expect(document.querySelector(".dishes-report-page .dashboard-empty")).toBeNull();
@@ -242,7 +239,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
     fireEvent.click(screen.getByRole("option", { name: "Официант 1" }));
     openDishFilter("Статус заказа");
     fireEvent.click(screen.getByRole("option", { name: "Завершенный" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "Фильтровать" })[1]);
+    // Живой фильтр: запрос уходит сразу, без кнопки «Фильтровать» (поиск с дебаунсом).
     await waitFor(() => expect(lastListDishesFilters()).toMatchObject({
       query: "Плов", authorId: ["author-1"], orderStatus: ["completed"],
     }));
@@ -269,7 +266,6 @@ describe("DishesReportPage Phase 1 truthful core", () => {
     const author = screen.getByRole("combobox", { name: "Автор" });
     expect(author).toHaveTextContent("Официант 1, Кассир 1");
     expect(author).not.toHaveClass("is-placeholder");
-    fireEvent.click(screen.getAllByRole("button", { name: "Фильтровать" })[1]);
     await waitFor(() => expect(lastListDishesFilters()).toMatchObject({
       authorId: ["author-1", "cashier-1"],
     }));
@@ -306,7 +302,6 @@ describe("DishesReportPage Phase 1 truthful core", () => {
     expect(screen.getByRole("combobox", { name: "Тип заказа" })).toHaveTextContent("На стол, Доставка");
     expect(screen.getByRole("combobox", { name: "Продукт" })).toHaveTextContent("Плов, Лагман");
     expect(screen.getByRole("combobox", { name: "Статус заказа" })).toHaveTextContent("Новый, Завершенный");
-    fireEvent.click(screen.getAllByRole("button", { name: "Фильтровать" })[1]);
     await waitFor(() => expect(lastListDishesFilters()).toMatchObject({
       orderType: ["dine_in", "delivery"],
       orderStatus: ["new", "completed"],
@@ -337,7 +332,6 @@ describe("DishesReportPage Phase 1 truthful core", () => {
     openDishFilter("Автор");
     fireEvent.click(screen.getByRole("option", { name: "Официант 1" }));
     fireEvent.click(screen.getByRole("option", { name: "Кассир 1" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "Фильтровать" })[1]);
     await screen.findByText("Автор: Официант 1, Кассир 1");
     document.querySelector(".report-excel-button").click();
     expect(exportToExcel).toHaveBeenCalledTimes(1);
@@ -370,7 +364,6 @@ describe("DishesReportPage Phase 1 truthful core", () => {
     fireEvent.click(headerFilterToggle());
     openDishFilter("Автор");
     fireEvent.click(screen.getByRole("option", { name: "Официант 1" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "Фильтровать" })[1]);
     await screen.findByText("Автор: Официант 1");
     fireEvent.click(screen.getByRole("button", { name: "Очистить" }));
     expect(screen.getByRole("combobox", { name: "Автор" })).toHaveTextContent("Выберите автора");
@@ -436,7 +429,6 @@ describe("DishesReportPage Phase 1 truthful core", () => {
     openDishFilter("Автор");
     fireEvent.click(screen.getByRole("option", { name: "Кассир 1" }));
     expect(screen.getByRole("combobox", { name: "Автор" })).toHaveTextContent("Кассир 1");
-    fireEvent.click(screen.getAllByRole("button", { name: "Фильтровать" })[1]);
     await waitFor(() => expect(lastListDishesFilters()).toMatchObject({ authorId: ["cashier-1"] }));
     expect(Array.isArray(lastListDishesFilters().authorId)).toBe(true);
   });
@@ -469,7 +461,6 @@ describe("DishesReportPage Phase 1 truthful core", () => {
     const toggle = headerFilterToggle();
     fireEvent.click(toggle);
     fireEvent.change(screen.getByLabelText("Поиск по названию блюда"), { target: { value: "Плов" } });
-    fireEvent.click(screen.getAllByRole("button", { name: "Фильтровать" })[1]);
     await screen.findByText("Поиск: Плов");
 
     document.querySelector(".report-excel-button").click();
@@ -545,6 +536,32 @@ describe("DishesReportPage Phase 1 truthful core", () => {
     expect(collapse).not.toHaveClass("is-open");
     fireEvent.click(toggle);
     expect(search).toHaveValue("Плов");
+  });
+
+  it("live mode: no panel Apply button, category select spans two columns", async () => {
+    render(<DishesReportPage />);
+    await screen.findByText("1. Плов");
+    fireEvent.click(headerFilterToggle());
+    // Единственная кнопка «Фильтровать» — тоггл в шапке; в панели её нет.
+    expect(screen.getAllByRole("button", { name: "Фильтровать" })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Очистить" })).toBeInTheDocument();
+    const wide = document.querySelector(".dishes-report-page .dishes-filter-wide");
+    expect(wide).not.toBeNull();
+    expect(wide.querySelector('[role="combobox"]')).toHaveAttribute("aria-label", "Категория");
+  });
+
+  it("live mode: toggling an option fires the request without Apply", async () => {
+    render(<DishesReportPage />);
+    await screen.findByText("1. Плов");
+    const callsBefore = reportsService.listDishes.mock.calls.length;
+    fireEvent.click(headerFilterToggle());
+    openDishFilter("Категория");
+    fireEvent.click(screen.getByRole("option", { name: "Горячие блюда" }));
+    await waitFor(() => expect(lastListDishesFilters()).toMatchObject({
+      categoryId: ["category-1"],
+    }));
+    expect(reportsService.listDishes.mock.calls.length).toBeGreaterThan(callsBefore);
+    await screen.findByText("Категория: Горячие блюда");
   });
 });
 
@@ -724,8 +741,7 @@ describe("DishesReportPage zero-downtime bridge", () => {
       new Promise((resolve) => { resolveNext = resolve; })
     );
     fireEvent.change(screen.getByLabelText("Поиск по названию блюда"), { target: { value: "Плов" } });
-    document.querySelector(".report-filter-apply").click();
-    await waitFor(() => expect(reportsService.listDishes.mock.calls.length).toBe(2));
+    await waitFor(() => expect(reportsService.listDishes.mock.calls.length).toBe(2), { timeout: 3000 });
     expect(screen.getByText("1. Плов")).toBeInTheDocument();
     expect(screen.getByText("2. Лагман")).toBeInTheDocument();
     resolveNext(canonicalPayload());
@@ -743,10 +759,9 @@ describe("DishesReportPage zero-downtime bridge", () => {
       .mockReturnValueOnce(new Promise((resolve) => { resolveNew = resolve; }));
     const search = screen.getByLabelText("Поиск по названию блюда");
     fireEvent.change(search, { target: { value: "п" } });
-    document.querySelector(".report-filter-apply").click();
+    await waitFor(() => expect(reportsService.listDishes.mock.calls.length).toBe(2), { timeout: 3000 });
     fireEvent.change(search, { target: { value: "пл" } });
-    document.querySelector(".report-filter-apply").click();
-    await waitFor(() => expect(reportsService.listDishes.mock.calls.length).toBe(3));
+    await waitFor(() => expect(reportsService.listDishes.mock.calls.length).toBe(3), { timeout: 3000 });
     resolveNew({
       data: {
         rows: [{ product_id: "dish-new", name: "Новое", unit: "порц", quantity: 1, price: 1000, amount: 1000 }],

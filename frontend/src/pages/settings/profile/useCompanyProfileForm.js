@@ -11,7 +11,7 @@ import { emptyForm } from "./profileSections";
 // отправляются и никогда не показывают ложный успех — см. флаги ниже.
 export const PROFILE_PASSWORD_BACKEND_SUPPORTED = false;
 export const CLEAR_REPORTS_BACKEND_SUPPORTED = false;
-export const ORDER_TYPES_BACKEND_SUPPORTED = false;
+export const ORDER_TYPES_BACKEND_SUPPORTED = true;
 // Имя профиля: GET /auth/me отдаёт `name`, но редактируемого
 // self-эндпоинта нет — PATCH /auth/users/{id} запрещает правки
 // собственной записи (403 "Protected company identity cannot be
@@ -91,8 +91,11 @@ export function useCompanyProfileForm(user) {
   const [orderRestorePassword, setOrderRestorePassword] = useState("");
   const [deliveryPrice, setDeliveryPrice] = useState("");
 
-  // «Другие настройки»: тип заказа — локально, backend-поля нет.
+  // «Другие настройки»: тип заказа — с backend (Company.order_types).
+  // NULL/отсутствие = все включены (как раньше).
   const [orderTypes, setOrderTypes] = useState({ ...EMPTY_ORDER_TYPES });
+  const [savedOrderTypes, setSavedOrderTypes] = useState({ ...EMPTY_ORDER_TYPES });
+  const [orderTypesSaving, setOrderTypesSaving] = useState(false);
 
   // «Настройка профиля»: смена пароля — локально, эндпоинта нет.
   const [newPassword, setNewPassword] = useState("");
@@ -133,6 +136,13 @@ export function useCompanyProfileForm(user) {
         setDayStartHour(nextMain.dayStartHour);
         setVatRate(nextMain.vatRate);
         setSavedMain(nextMain);
+        const nextOrderTypes = {
+          dineIn: data?.order_types?.dine_in ?? true,
+          takeaway: data?.order_types?.takeaway ?? true,
+          delivery: data?.order_types?.delivery ?? true,
+        };
+        setOrderTypes(nextOrderTypes);
+        setSavedOrderTypes(nextOrderTypes);
       })
       .catch((err) => {
         if (request.isCurrent() && !isAbortError(err)) setError(err.response?.data?.detail || "Не удалось загрузить профиль.");
@@ -300,9 +310,42 @@ export function useCompanyProfileForm(user) {
   }
 
   function resetOrderTypes() {
-    setOrderTypes({ ...EMPTY_ORDER_TYPES });
+    setOrderTypes({ ...savedOrderTypes });
     setError("");
     clearSuccess();
+  }
+
+  // «Другие настройки»: отправка типов заказа (dineIn→dine_in).
+  async function saveOrderTypes(event) {
+    event?.preventDefault?.();
+    if (!acquire("company-order-types-save")) return;
+    setOrderTypesSaving(true);
+    setError("");
+    clearSuccess();
+    try {
+      const payload = {
+        order_types: {
+          dine_in: Boolean(orderTypes.dineIn),
+          takeaway: Boolean(orderTypes.takeaway),
+          delivery: Boolean(orderTypes.delivery),
+        },
+      };
+      const { data } = await settingsService.updateCompanyProfile(payload);
+      if (!data || typeof data !== "object") throw new Error("Backend не вернул сохранённые настройки.");
+      const next = {
+        dineIn: data?.order_types?.dine_in ?? orderTypes.dineIn,
+        takeaway: data?.order_types?.takeaway ?? orderTypes.takeaway,
+        delivery: data?.order_types?.delivery ?? orderTypes.delivery,
+      };
+      setOrderTypes(next);
+      setSavedOrderTypes(next);
+      flashSuccess("Типы заказа сохранены.");
+    } catch (err) {
+      setError(err.response?.data?.detail || err.message || "Не удалось сохранить типы заказа.");
+    } finally {
+      setOrderTypesSaving(false);
+      release("company-order-types-save");
+    }
   }
 
   // «Настройка профиля»: смена пароля.
@@ -385,6 +428,8 @@ export function useCompanyProfileForm(user) {
     orderTypes,
     toggleOrderType,
     resetOrderTypes,
+    orderTypesSaving,
+    saveOrderTypes,
     newPassword,
     setNewPassword,
     confirmPassword,

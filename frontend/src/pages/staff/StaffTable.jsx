@@ -30,9 +30,10 @@ export default function StaffTable({
 }) {
   const isProduct = isCashier || isWaiter || isMonoblock || isManager || isWarehouse;
   const showAccess = !(isManager || isWarehouse);
+  const showTable = !staffLoading && !staffError;
   return (
     <>
-      {staffError ? <div className="login-error" role="alert">{staffError}</div> : null}
+      {showTable ? (
       <div className="staff-table-wrapper">
         <table className={`staff-table${showAccess ? "" : " staff-table--no-access"}`}>
           <thead>

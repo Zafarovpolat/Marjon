@@ -14,7 +14,7 @@ from app.modules.inventory.repository import (
     StockItemRepository, StockMovementRepository, WarehouseRepository,
 )
 from app.modules.inventory.schemas import (
-    CategoryCreate, IngredientCreate, IngredientUpdate, ProductCreate,
+    CategoryCreate, CategoryUpdate, IngredientCreate, IngredientUpdate, ProductCreate,
     ProductIngredientIn, ProductUpdate, StockMovementCreate,
 )
 from app.modules.printers.models import Printer
@@ -45,6 +45,25 @@ class CategoryService:
         if not cat:
             raise NotFoundError("Category not found")
         return cat
+
+    async def update(self, company_id: UUID, category_id: UUID, data: CategoryUpdate) -> Category:
+        cat = await self.get(company_id, category_id)
+        if data.parent_id is not None:
+            await require_company_resource(
+                self.repo.db, Category, data.parent_id, company_id, detail="Parent category not found"
+            )
+        for field, value in data.model_dump(exclude_unset=True).items():
+            setattr(cat, field, value)
+        return await self.repo.save(cat)
+
+    async def delete(self, company_id: UUID, category_id: UUID) -> None:
+        """Мягкое удаление (архивация): is_active=False. Жёсткий DELETE небезопасен —
+        на categories ссылаются products.category_id (FK без ondelete), архив
+        убирает категорию из списков (list() отдаёт только активные), но не рвёт
+        привязку уже заведённых блюд."""
+        cat = await self.get(company_id, category_id)
+        cat.is_active = False
+        await self.repo.save(cat)
 
 
 class ProductService:

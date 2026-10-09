@@ -43,6 +43,15 @@ class _NewOrderPageState extends State<NewOrderPage> {
   List<dynamic> _tables    = [];
   bool _loadingTables      = true;
   Map<String, List<Map<String, dynamic>>> _tableOrders = {};
+  // Типы заказа из профиля компании («Другие настройки» веба).
+  // null = ещё не загружено/ошибка — считаем всё включённым.
+  Map<String, dynamic>? _orderTypes;
+
+  bool _typeOn(String key) {
+    final ot = _orderTypes;
+    if (ot == null) return true;
+    return ot[key] != false;
+  }
 
   List<dynamic> _products  = [];
   List<dynamic> _categories = [];
@@ -56,6 +65,11 @@ class _NewOrderPageState extends State<NewOrderPage> {
   void initState() {
     super.initState();
     _loadTables();
+    Api().companyProfile().then((p) {
+      if (!mounted) return;
+      final ot = p['order_types'];
+      setState(() => _orderTypes = ot is Map ? Map<String, dynamic>.from(ot) : null);
+    }).catchError((_) {});
   }
 
   Future<void> _loadTables() async {
@@ -102,6 +116,11 @@ class _NewOrderPageState extends State<NewOrderPage> {
   }
 
   void _selectTable(String? tableNum) {
+    final type = tableNum != null ? 'dine_in' : 'takeaway';
+    if (!_typeOn(type)) {
+      showSnack(context, 'Тип заказа отключён в настройках', error: true);
+      return;
+    }
     setState(() {
       _selectedTable  = tableNum;
       _step           = _Step.menu;
@@ -379,11 +398,11 @@ class _NewOrderPageState extends State<NewOrderPage> {
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: SizedBox(width: double.infinity, child: OutlinedButton.icon(
+          child: _typeOn('takeaway') ? SizedBox(width: double.infinity, child: OutlinedButton.icon(
             icon: const Icon(Icons.takeout_dining, size: 18),
             label: const Text('Без стола (на вынос)'),
             onPressed: () => _selectTable(null),
-          )),
+          )) : const SizedBox.shrink(),
         ),
       ),
     ]);

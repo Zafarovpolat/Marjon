@@ -105,10 +105,27 @@ class OrderService:
         self.db = db
         self.repo = OrderRepository(db)
 
+    async def _advisory_xact_lock(self, lock_key: int) -> None:
+        """Сериализация генерации номеров. pg_advisory_xact_lock существует
+        только в PostgreSQL — на dev-SQLite это no-op (однопоточная запись,
+        а гонки страхуют UNIQUE-ограничения счётчиков и заказов)."""
+        bind = self.db.bind
+        dialect = getattr(getattr(bind, "dialect", None), "name", "")
+        if dialect != "postgresql":
+            return
+        await self.db.execute(text("SELECT pg_advisory_xact_lock(:k)").bindparams(k=lock_key))
+
     # ── Create ────────────────────────────────────────────────────────────────
 
     async def create(self, company_id: UUID, waiter_id: UUID, data: OrderCreate) -> Order:
         await self._get_branch(company_id, data.branch_id)
+        # Гейт типов заказа: явно выключенный в «Другие настройки» тип
+        # отклоняется (422). NULL/отсутствие ключа = включён (как раньше).
+        company_order_types = (
+            await self.db.execute(select(Company.order_types).where(Company.id == company_id))
+        ).scalar_one_or_none()
+        if isinstance(company_order_types, dict) and company_order_types.get(data.order_type) is False:
+            raise ValidationError(f"Тип заказа «{data.order_type}» отключён в настройках компании")
         await require_company_resource(
             self.db, PosTerminal, data.terminal_id, company_id, detail="POS terminal not found"
         )
@@ -242,6 +259,12 @@ class OrderService:
         order = await self.repo.get_by_id(order_id, company_id)
         if not order:
             raise NotFoundError("Order not found")
+        # Мутации в той же сессии (add/remove item) оставляют в identity-map
+        # stale-коллекцию items — ответ собираем всегда из свежих позиций,
+        # иначе клиент видит пустой/прошлый состав (десктоп вынужден рефетчить).
+        # refresh (async) — единственный greenlet-безопасный способ; sync
+        # expire() здесь роняет MissingGreenlet в _attach_waiter_names.
+        await self.db.refresh(order, attribute_names=["items"])
         await self._attach_waiter_names([order])
         return order
 
@@ -739,7 +762,7 @@ class OrderService:
             hashlib.sha256(f"{company_id}:{branch_id}:{today_local}".encode()).digest()[:8],
             "big", signed=True,
         )
-        await self.db.execute(text("SELECT pg_advisory_xact_lock(:k)").bindparams(k=lock_key))
+        await self._advisory_xact_lock(lock_key)
 
         counter = (
             await self.db.execute(
@@ -779,7 +802,7 @@ class OrderService:
             hashlib.sha256(f"public_id:{company_id}".encode()).digest()[:8],
             "big", signed=True,
         )
-        await self.db.execute(text("SELECT pg_advisory_xact_lock(:k)").bindparams(k=lock_key))
+        await self._advisory_xact_lock(lock_key)
 
         counter = (
             await self.db.execute(

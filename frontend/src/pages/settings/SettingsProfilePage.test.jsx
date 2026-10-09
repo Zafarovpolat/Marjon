@@ -364,14 +364,35 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
     expect(within(content).queryByText(/ID карт/)).not.toBeInTheDocument();
   });
 
-  it("Другие настройки: сохранение отключено и мутаций нет", async () => {
+  it("Другие настройки: тогл сохраняется через PATCH order_types", async () => {
     await renderPage();
     await goTo("Другие настройки");
     const header = document.querySelector(".company-profile-header");
-    expect(within(header).getByRole("button", { name: "Сохранить" })).toBeDisabled();
+    const save = within(header).getByRole("button", { name: "Сохранить" });
+    expect(save).not.toBeDisabled();
     const toggle = screen.getByRole("checkbox", { name: "Доставка" });
+    expect(toggle).toBeChecked();
     fireEvent.click(toggle);
     expect(toggle).not.toBeChecked();
+    fireEvent.click(save);
+    await waitFor(() => expect(settingsService.updateCompanyProfile).toHaveBeenCalled());
+    expect(settingsService.updateCompanyProfile).toHaveBeenCalledWith({
+      order_types: { dine_in: true, takeaway: true, delivery: false },
+    });
+    expect(await screen.findByText("Типы заказа сохранены.")).toBeInTheDocument();
+  });
+
+  it("Другие настройки: серверные значения грузятся, Отменить откатывает к ним", async () => {
+    settingsService.getCompanyProfile.mockResolvedValue({
+      data: { ...COMPANY, order_types: { dine_in: false, takeaway: true, delivery: true } },
+    });
+    await renderPage();
+    await goTo("Другие настройки");
+    expect(screen.getByRole("checkbox", { name: "На стол" })).not.toBeChecked();
+    fireEvent.click(screen.getByRole("checkbox", { name: "На стол" }));
+    expect(screen.getByRole("checkbox", { name: "На стол" })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Отменить" }));
+    expect(screen.getByRole("checkbox", { name: "На стол" })).not.toBeChecked();
     expect(settingsService.updateCompanyProfile).not.toHaveBeenCalled();
   });
 

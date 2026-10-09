@@ -2539,7 +2539,7 @@
   .eyebrow {
     color: var(--color-brand);
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 400;
     letter-spacing: 0.02em;
   }
 
@@ -12596,7 +12596,7 @@
     display: flex;
     flex-direction: column;
     min-height: calc(100dvh - 52px);
-    padding: 22px;
+    padding: 28px;
     border: 1px solid #d7e5f2;
     border-radius: 20px;
     background: #ffffff;
@@ -12608,20 +12608,20 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    margin-bottom: 18px;
+    margin-bottom: 24px;
   }
 
   .menu-categories-title {
     display: flex;
     align-items: center;
-    gap: 13px;
+    gap: 16px;
     min-width: 0;
   }
 
   .menu-categories-accent {
     flex: 0 0 5px;
     width: 5px;
-    height: 34px;
+    height: 40px;
     border-radius: 999px;
     background: linear-gradient(180deg, #2e92ff 0%, #18b6ad 100%);
   }
@@ -12629,17 +12629,17 @@
   .menu-categories-title h1 {
     margin: 0;
     color: #1f2f46;
-    font-size: 24px;
-    font-weight: 900;
+    font-size: 28px;
+    font-weight: 500;
     line-height: 1.15;
     letter-spacing: 0;
   }
 
   .menu-categories-title p {
-    margin: 4px 0 0;
+    margin: 6px 0 0;
     color: #6c7d90;
-    font-size: 13px;
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 400;
     letter-spacing: 0;
   }
 
@@ -12648,16 +12648,16 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 7px;
-    min-height: 40px;
-    padding: 0 17px;
+    gap: 8px;
+    min-height: 48px;
+    padding: 0 22px;
     border: 0;
-    border-radius: 12px;
+    border-radius: 14px;
     color: #ffffff;
     background: #18b6ad;
     box-shadow: 0 12px 24px rgba(24, 182, 173, 0.2);
-    font-size: 14px;
-    font-weight: 900;
+    font-size: 15px;
+    font-weight: 400;
     white-space: nowrap;
     cursor: pointer;
   }
@@ -12677,8 +12677,8 @@
   }
 
   .menu-category-form {
-    margin-bottom: 16px;
-    padding: 16px;
+    margin-bottom: 20px;
+    padding: 20px;
     border: 1px solid #d9e7f4;
     border-radius: 16px;
     background: #f7fbfd;
@@ -12689,21 +12689,21 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
   }
 
   .menu-category-form-title strong {
     color: #253a52;
-    font-size: 15px;
-    font-weight: 900;
+    font-size: 17px;
+    font-weight: 400;
   }
 
   .menu-category-form-title button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
+    width: 38px;
+    height: 38px;
     border: 1px solid #cbdbea;
     border-radius: 10px;
     color: #607386;
@@ -12727,20 +12727,20 @@
 
   .menu-category-form-grid span {
     color: #687a8e;
-    font-size: 12px;
-    font-weight: 800;
+    font-size: 13px;
+    font-weight: 400;
   }
 
   .menu-category-form-grid input,
   .menu-category-toolbar input {
     width: 100%;
-    min-height: 38px;
+    min-height: 44px;
     border: 1px solid #cfdeeb;
     border-radius: 12px;
     color: #23364d;
     background: #ffffff;
-    font-size: 14px;
-    font-weight: 700;
+    font-size: 15px;
+    font-weight: 400;
     outline: 0;
   }
 
@@ -12766,15 +12766,15 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 7px;
-    min-height: 38px;
-    padding: 0 14px;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 18px;
     border: 1px solid #cbdbea;
     border-radius: 12px;
     color: #31465d;
     background: #ffffff;
-    font-size: 13px;
-    font-weight: 900;
+    font-size: 14px;
+    font-weight: 400;
     cursor: pointer;
     white-space: nowrap;
   }
@@ -12818,18 +12818,18 @@
 
   .menu-category-list {
     display: grid;
-    gap: 10px;
+    gap: 18px;
   }
 
   .menu-category-row {
     display: grid;
-    grid-template-columns: minmax(220px, 1fr) 48px auto auto 42px 42px;
+    grid-template-columns: minmax(240px, 1fr) 60px auto auto 48px 48px;
     align-items: center;
-    gap: 10px;
-    min-height: 68px;
-    padding: 10px 12px 10px 18px;
+    gap: 18px;
+    min-height: 96px;
+    padding: 16px 20px 16px 26px;
     border: 1px solid #e0eaf5;
-    border-radius: 15px;
+    border-radius: 20px;
     background: #f3f7fb;
     transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
   }
@@ -12841,7 +12841,7 @@
   }
 
   .menu-category-row.is-loading {
-    min-height: 68px;
+    min-height: 96px;
     border-color: #e0eaf5;
     background: linear-gradient(90deg, #eef4f9 0%, #f9fbfd 48%, #eef4f9 100%);
     background-size: 220% 100%;
@@ -12866,9 +12866,9 @@
     display: block;
     overflow: hidden;
     color: #20334b;
-    font-size: 15px;
-    font-weight: 900;
-    line-height: 1.2;
+    font-size: 19px;
+    font-weight: 400;
+    line-height: 1.25;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -12876,11 +12876,11 @@
   .menu-category-name span {
     display: block;
     overflow: hidden;
-    margin-top: 4px;
+    margin-top: 6px;
     color: #7f91a3;
-    font-size: 12px;
-    font-weight: 800;
-    line-height: 1.2;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.3;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -12895,8 +12895,8 @@
   }
 
   .menu-category-image {
-    width: 46px;
-    height: 46px;
+    width: 60px;
+    height: 60px;
     border: 4px solid #d7e3f1;
     color: #8aa0b7;
     background: #ffffff;
@@ -12906,14 +12906,14 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 38px;
-    padding: 0 14px;
+    min-height: 48px;
+    padding: 0 20px;
     border: 1px solid #44b36d;
     border-radius: 12px;
     color: #218347;
     background: #ffffff;
-    font-size: 13px;
-    font-weight: 900;
+    font-size: 15px;
+    font-weight: 400;
     cursor: pointer;
     white-space: nowrap;
   }
@@ -12926,14 +12926,14 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 32px;
-    padding: 0 12px;
+    min-height: 40px;
+    padding: 0 18px;
     border: 1px solid #bfe9cc;
     border-radius: 999px;
     color: #17813e;
     background: #eaf8ef;
-    font-size: 12px;
-    font-weight: 900;
+    font-size: 14px;
+    font-weight: 400;
     white-space: nowrap;
   }
 
@@ -12944,8 +12944,8 @@
   }
 
   .menu-category-icon {
-    width: 40px;
-    height: 40px;
+    width: 48px;
+    height: 48px;
     border: 1px solid transparent;
     background: #ffffff;
   }
@@ -12972,14 +12972,19 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    min-height: 200px;
+    gap: 12px;
+    min-height: 240px;
     border: 1px dashed #c9d9e9;
     border-radius: 16px;
     color: #74869a;
     background: #f8fbfe;
-    font-size: 14px;
-    font-weight: 700;
+    font-size: 15px;
+    font-weight: 400;
+  }
+
+  /* Шкала: текст ошибки (14px) — только 400. */
+  .menu-categories-page .login-error {
+    font-weight: 400;
   }
 
   /* Когда в списке только плейсхолдер пустого состояния — список становится
@@ -13002,7 +13007,7 @@
 
   @media (max-width: 860px) {
     .menu-categories-card {
-      padding: 16px;
+      padding: 20px;
     }
 
     .menu-categories-header,
@@ -13021,20 +13026,46 @@
     }
 
     .menu-category-row {
-      grid-template-columns: minmax(0, 1fr) 46px 40px 40px;
-      padding: 12px;
+      grid-template-columns: 64px 1fr 1fr;
+      gap: 10px 12px;
+      height: auto;
+      min-height: 0;
+      padding: 16px;
     }
 
     .menu-category-name {
       grid-column: 1 / -1;
     }
 
+    .menu-category-image {
+      grid-column: 1;
+      grid-row: 2 / span 2;
+      width: 64px;
+      height: 64px;
+      align-self: start;
+    }
+
     .menu-category-service {
-      grid-column: 1 / 3;
+      grid-column: 2 / -1;
     }
 
     .menu-category-status {
-      grid-column: 3 / -1;
+      grid-column: 2 / -1;
+      justify-self: start;
+    }
+
+    .menu-category-icon.edit {
+      grid-column: 2;
+    }
+
+    .menu-category-icon.delete {
+      grid-column: 3;
+    }
+
+    .menu-category-icon.edit,
+    .menu-category-icon.delete {
+      width: 100%;
+      min-height: 44px;
     }
   }
 
@@ -33500,7 +33531,9 @@ body.dashboard-body .nomenclature-page--raw .nomenclature-table td {
     }
   }
 
-  /* Menu categories: remove search icon offset and fit more rows in the visible area. */
+  /* Menu categories: крупная подача списка — высокие строки, читаемые шрифты.
+     Только десктоп: ниже 861px работает мобильная раскладка из @media 860. */
+  @media (min-width: 861px) {
   .menu-categories-page .menu-category-toolbar input {
     padding: 0 12px;
   }
@@ -33518,57 +33551,46 @@ body.dashboard-body .nomenclature-page--raw .nomenclature-table td {
 
   .menu-categories-page .menu-category-list {
     align-content: start;
-    gap: 8px;
+    gap: 18px;
   
-  }
-
-  .menu-categories-page .menu-category-row,
-  .menu-categories-page .menu-category-row.is-loading {
-  
-    grid-template-columns: minmax(220px, 1fr) 40px auto auto 36px 36px;
-    gap: 8px;
-    height: 54px;
-    min-height: 54px;
-    max-height: 54px;
-    padding: 7px 10px 7px 16px;
-    border-radius: 12px;
   }
 
   .menu-categories-page .menu-category-name strong {
-    font-size: 14px;
-    line-height: 1.15;
+    font-size: 19px;
+    line-height: 1.25;
   }
 
   .menu-categories-page .menu-category-name span {
-    margin-top: 2px;
-    font-size: 11px;
-    line-height: 1.15;
+    margin-top: 6px;
+    font-size: 14px;
+    line-height: 1.3;
   }
 
   .menu-categories-page .menu-category-image {
-    width: 36px;
-    height: 36px;
-    border-width: 3px;
-    border-radius: 10px;
+    width: 60px;
+    height: 60px;
+    border-width: 4px;
+    border-radius: 12px;
   }
 
   .menu-categories-page .menu-category-service {
-    min-height: 32px;
-    padding: 0 12px;
-    border-radius: 10px;
-    font-size: 12px;
+    min-height: 48px;
+    padding: 0 20px;
+    border-radius: 12px;
+    font-size: 15px;
   }
 
   .menu-categories-page .menu-category-status {
-    min-height: 28px;
-    padding: 0 10px;
-    font-size: 11px;
+    min-height: 40px;
+    padding: 0 18px;
+    font-size: 14px;
   }
 
   .menu-categories-page .menu-category-icon {
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+  }
   }
 
   /* Menu categories: let the background card follow the actual row count. */

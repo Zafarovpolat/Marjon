@@ -172,7 +172,9 @@ export default function DishesReportPage() {
     return { preset: "Сегодня", start: today, end: today };
   });
   const [filters, setFilters] = useState(initialFilters);
-  const [appliedFilters, setAppliedFilters] = useState(initialFilters);
+  // Живой фильтр: черновика больше нет — запрос уходит сразу от `filters`.
+  // Поиск по названию дебаунсится, чтобы не слать запрос на каждую букву.
+  const [debouncedQuery, setDebouncedQuery] = useState(initialFilters.query);
   const [filterOptions, setFilterOptions] = useState(emptyFilterOptions);
   const [filterOptionsLoading, setFilterOptionsLoading] = useState(true);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -226,6 +228,11 @@ export default function DishesReportPage() {
   }, [beginOptionsRequest]);
 
   useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(filters.query), 400);
+    return () => clearTimeout(id);
+  }, [filters.query]);
+
+  useEffect(() => {
     const request = beginRequest();
     const dateFrom = toApiDate(dateRange.start);
     const dateTo = toApiDate(dateRange.end);
@@ -236,7 +243,8 @@ export default function DishesReportPage() {
       setLoading(false);
       return;
     }
-    const cacheKey = reportCacheKey("dishes", { dateFrom, dateTo, filters: appliedFilters });
+    const liveFilters = { ...filters, query: debouncedQuery };
+    const cacheKey = reportCacheKey("dishes", { dateFrom, dateTo, filters: liveFilters });
     const cached = readReportCache(cacheKey);
     if (cached) {
       setRows(cached.rows);
@@ -245,7 +253,7 @@ export default function DishesReportPage() {
     } else {
       setLoading(true);
     }
-    reportsService.listDishes(dateFrom, dateTo, { filters: appliedFilters, signal: request.signal })
+    reportsService.listDishes(dateFrom, dateTo, { filters: liveFilters, signal: request.signal })
       .then(({ data }) => {
         if (!request.isCurrent()) return;
         // Phase 1 truth: cost/profit/status intentionally absent.
@@ -266,13 +274,13 @@ export default function DishesReportPage() {
     beginRequest,
     dateRange.start,
     dateRange.end,
-    appliedFilters.query,
-    appliedFilters.authorId,
-    appliedFilters.productId,
-    appliedFilters.orderType,
-    appliedFilters.orderStatus,
-    appliedFilters.categoryId,
-    appliedFilters.paymentMethod,
+    debouncedQuery,
+    filters.authorId,
+    filters.productId,
+    filters.orderType,
+    filters.orderStatus,
+    filters.paymentMethod,
+    filters.categoryId,
   ]);
 
   const filteredRows = rows;
@@ -285,14 +293,14 @@ export default function DishesReportPage() {
     price: "",
     amount: formatReportMoney(totals.amount),
   }), [totals]);
-  const activeFilterEntries = Object.entries(appliedFilters).filter(([, value]) => isFilterActive(value));
+  const activeFilterEntries = Object.entries({ ...filters, query: debouncedQuery }).filter(([, value]) => isFilterActive(value));
 
   function updateFilter(key, value) {
     setFilters((current) => ({ ...current, [key]: value }));
   }
 
-  // Multi-select toggle: checking adds, unchecking removes; the panel stays
-  // open and the draft commits only through page-level «Фильтровать».
+  // Multi-select toggle: checking adds, unchecking removes; the trigger
+  // re-renders at once and the live request fires immediately.
   function toggleFilterValue(key, value) {
     setFilters((current) => {
       const list = Array.isArray(current[key]) ? current[key] : [];
@@ -337,14 +345,9 @@ export default function DishesReportPage() {
     };
   }
 
-  function applyFilters() {
-    setAppliedFilters(filters);
-    requestPanel("");
-  }
-
   function clearFilters() {
     setFilters(initialFilters);
-    setAppliedFilters(initialFilters);
+    setDebouncedQuery(initialFilters.query);
     requestPanel("");
   }
 
@@ -454,16 +457,14 @@ export default function DishesReportPage() {
             <input aria-label="Поиск по названию блюда" value={filters.query} onChange={(event) => updateFilter("query", event.target.value)} placeholder="Поиск" />
           </label>
           <ReportMultiSelect filterKey="authorId" label="Автор" placeholder="Выберите автора" options={filterOptions.authors} selected={filters.authorId} onToggle={(value) => toggleFilterValue("authorId", value)} disabled={filterOptionsLoading || !filterOptions.authors.length} {...dishFilterPanelProps("authorId")} />
+          <div className="dishes-filter-wide">
           <ReportMultiSelect filterKey="categoryId" label="Категория" placeholder="Выберите категорию" options={filterOptions.categories} selected={filters.categoryId} onToggle={(value) => toggleFilterValue("categoryId", value)} disabled={filterOptionsLoading || !filterOptions.categories.length} {...dishFilterPanelProps("categoryId")} />
+          </div>
           <ReportMultiSelect filterKey="productId" label="Продукт" placeholder="Выберите продукт" options={filterOptions.products} selected={filters.productId} onToggle={(value) => toggleFilterValue("productId", value)} disabled={filterOptionsLoading || !filterOptions.products.length} {...dishFilterPanelProps("productId")} />
           <ReportMultiSelect filterKey="orderType" label="Тип заказа" placeholder="Выберите тип заказа" options={filterOptions.order_types} selected={filters.orderType} onToggle={(value) => toggleFilterValue("orderType", value)} disabled={filterOptionsLoading || !filterOptions.order_types.length} {...dishFilterPanelProps("orderType")} />
           <ReportMultiSelect filterKey="orderStatus" label="Статус заказа" placeholder="Выберите статус заказа" options={filterOptions.order_statuses} selected={filters.orderStatus} onToggle={(value) => toggleFilterValue("orderStatus", value)} disabled={filterOptionsLoading || !filterOptions.order_statuses.length} {...dishFilterPanelProps("orderStatus")} />
           <ReportMultiSelect filterKey="paymentMethod" label="Тип оплаты" placeholder="Выберите тип оплаты" options={filterOptions.payment_methods} selected={filters.paymentMethod} onToggle={(value) => toggleFilterValue("paymentMethod", value)} disabled={filterOptionsLoading || !filterOptions.payment_methods.length} {...dishFilterPanelProps("paymentMethod")} />
           <div className="report-filter-buttons">
-            <button type="button" className="report-filter-apply" onClick={applyFilters}>
-              <Icon name="bi-sliders" size={17} />
-              Фильтровать
-            </button>
             <button type="button" className="report-filter-clear" onClick={clearFilters}>
               <Icon name="bi-x-circle" size={17} />
               Очистить

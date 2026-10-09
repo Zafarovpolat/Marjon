@@ -41,7 +41,7 @@ export async function loginByPin(employee_id, pin) {
 }
 
 export async function fetchStaffUsers() {
-  const { data } = await api.get("/auth/staff-users");
+  const { data } = await api.get("/auth/users");
   return data;
 }
 

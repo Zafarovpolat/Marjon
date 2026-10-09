@@ -497,7 +497,7 @@
     margin: 0;
     font-family: var(--mj-font-display);
     font-size: 17px;
-    font-weight: 700;
+    font-weight: 500;
   }
 
   .muted {
@@ -566,6 +566,7 @@
   .empty-state h3 {
     margin: 0 0 8px;
     font-family: var(--mj-font-display);
+    font-weight: 400;
   }
 
   .empty-state p {
@@ -612,7 +613,7 @@
     margin-bottom: 8px;
     color: var(--accent-2);
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 400;
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }

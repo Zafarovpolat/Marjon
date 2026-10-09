@@ -26,6 +26,20 @@ export const catalogService = Object.freeze({
   createCategory(payload) {
     return api.post("/inventory/categories", payload);
   },
+  updateCategory(id, payload) {
+    return api.patch(`/inventory/categories/${id}`, payload);
+  },
+  deleteCategory(id) {
+    return api.delete(`/inventory/categories/${id}`);
+  },
+  // Стоп-лист: узкие эндпоинты (кассир/повар/владелец) — правят только
+  // доступность и дневной лимит порций, не трогая цену/название блюда.
+  setProductAvailability(id, isAvailable) {
+    return api.patch(`/inventory/products/${id}/availability`, { is_available: isAvailable });
+  },
+  setProductDailyLimit(id, dailyLimit) {
+    return api.patch(`/inventory/products/${id}/limit`, { daily_limit: dailyLimit });
+  },
   // Добавки (модификаторы) блюда: группа принадлежит блюду, внутри — опции с наценкой.
   listModifierGroups(productId, config) {
     const url = `/inventory/products/${productId}/modifier-groups`;

@@ -7,7 +7,9 @@ const ACTIVITY_PATHS = Object.freeze({
 
 export const staffService = Object.freeze({
   listStaffUsers(config) {
-    return config ? api.get("/auth/staff-users", config) : api.get("/auth/staff-users");
+    // GATED-01: /auth/users пускает только company-admin (владелец).
+    // Сотрудники грузятся через него с client-side фильтрацией по роли.
+    return config ? api.get("/auth/users", config) : api.get("/auth/users");
   },
   listCompanyUsers(config) {
     return config ? api.get("/auth/users", config) : api.get("/auth/users");

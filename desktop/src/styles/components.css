@@ -1992,6 +1992,37 @@ body.vkb-open .login-card {
   font-weight: 700;
   color: var(--color-warning);
 }
+/* Принтеры филиала: тихий блок рядом со статусом связи (чуть прозрачнее),
+   имя + IP в подсказке, точка — результат последнего пинга. */
+.bottombar__printers {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  min-width: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  opacity: 0.55;
+  user-select: none;
+}
+.bottombar__printer {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 150px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.bottombar__printer .status-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  box-shadow: none;
+}
+.status-dot--unknown {
+  background: var(--color-text-muted);
+}
 
 /* ── Вариантные со-классы (наследуют базовый, задают акценты) ── */
 .app-shell--kitchen { background: var(--color-bg); }
@@ -3812,11 +3843,40 @@ body.vkb-lift .cashier-cart__items { min-height: 140px; }
 .stop-detail__hint { margin: 0; font-size: var(--text-sm); color: var(--color-text-muted); line-height: 1.45; }
 .stop-detail__toggle { width: 100%; justify-content: center; }
 .stop-detail__limit-row { display: flex; align-items: stretch; gap: var(--spacing-md); }
-.stop-detail__limit-input { flex: 1; min-width: 0; min-height: 56px; padding: var(--spacing-sm) var(--spacing-lg); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-card); color: var(--color-text-primary); font-size: var(--text-xl); font-weight: 600; text-align: center; }
+.stop-detail__limit-input { flex: 1; min-width: 0; min-height: 56px; padding: var(--spacing-sm) var(--spacing-lg); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-card); color: var(--color-text-primary); font-size: var(--text-md); font-weight: 600; text-align: center; }
 .stop-detail__limit-input:focus { outline: none; border-color: var(--color-border-focus); }
 .stop-detail__limit-row .btn { flex-shrink: 0; }
 .stop-detail__sold { margin: 0; font-size: var(--text-md); color: var(--color-text-muted); }
 .stop-detail__sold strong { color: var(--color-text-primary); }
+/* Пара «доступность + лимит» в ряд на правой половине экрана */
+.stop-detail__pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-lg); align-items: stretch; }
+/* История на всю ширину под парой */
+.stop-detail__history { grid-column: 1 / -1; }
+.stop-detail__pair .stop-detail__section { height: 100%; }
+.stop-detail__pair .stop-detail__section-title { text-wrap: balance; }
+.stop-detail__pair .stop-detail__toggle { width: 100%; justify-content: center; transition-property: transform, background-color, box-shadow; transition-duration: 150ms; transition-timing-function: ease-out; }
+.stop-detail__pair .stop-detail__toggle:active:not(:disabled) { transform: scale(0.98); }
+.stop-detail__pair .stop-detail__toggle:focus-visible,
+.stop-detail__pair .stop-detail__limit-row .btn:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
+.stop-detail__pair .stop-detail__sold { display: flex; justify-content: space-between; align-items: baseline; gap: var(--spacing-sm); }
+.stop-detail__pair .stop-detail__sold strong { font-size: var(--text-xl); font-variant-numeric: tabular-nums; }
+/* История блюда по датам: под парой, в той же правой колонке */
+.stop-history__nav { display: flex; align-items: center; gap: var(--spacing-sm); flex-wrap: wrap; }
+.stop-history__nav .btn--sm { min-height: 40px; padding: 0 12px; }
+.stop-history__date { min-width: 110px; text-align: center; font-size: var(--text-md); font-weight: 600; color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
+.stop-history__rows { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing-md); }
+.stop-history__rows > div { display: flex; flex-direction: column; gap: 4px; padding: var(--spacing-md); border: 1px solid var(--color-border-light); border-radius: var(--radius-sm); background: var(--color-subtle); }
+.stop-history__rows span { font-size: var(--text-xs); color: var(--color-text-muted); }
+.stop-history__rows strong { font-size: var(--text-lg); color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
+/* Обновление цифр без мерцания: контент остаётся, лишь слегка гаснет. */
+.stop-detail__history .stop-history__rows,
+.stop-detail__history .stop-detail__sold { transition: opacity 150ms ease; }
+.stop-detail__history.is-refreshing .stop-history__rows,
+.stop-detail__history.is-refreshing .stop-detail__sold { opacity: 0.55; }
+@media (max-width: 860px) {
+  .stop-detail__pair { grid-template-columns: 1fr; }
+  .stop-history__rows { grid-template-columns: 1fr; }
+}
 @media (max-width: 860px) {
   .stop-detail { grid-template-columns: 1fr; gap: var(--spacing-lg); max-width: 560px; margin-inline: auto; }
   .stop-detail__thumb { max-width: 320px; margin-inline: auto; }
