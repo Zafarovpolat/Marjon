@@ -1102,10 +1102,46 @@
     border-top: 1px dashed #777;
   }
 
+  /* Кухонная таблица: пунктир первой строки гасится — под шапкой остаётся
+     одна сплошная линия; дальше одиночные пунктиры между строками. */
+  .receipt-preview__items--kitchen .receipt-preview__item-row--first {
+    border-top: 0;
+  }
+
+  /* Кухонная таблица: колонка Кол-во всегда строго по центру своей
+     шапки (а не по правому краю, как денежные колонки). */
+  .receipt-preview__items--kitchen .receipt-preview__items-head span:nth-child(2),
+  .receipt-preview__items--kitchen .receipt-preview__item-row span:nth-child(2) {
+    text-align: center;
+  }
+
+  /* Без сумм колонка Кол-во живёт в правом краю (последний трек при
+     любом их числе: голый -1 создал бы лишний неявный трек). */
+  .receipt-preview__items--no-sum .receipt-preview__items-head span:last-child,
+  .receipt-preview__items--no-sum .receipt-preview__item-row span:last-child {
+    grid-column: -2 / -1;
+  }
+
+  /* Над итогом "Сумма блюд" — одиночный пунктир. */
+  .receipt-preview__items--kitchen .receipt-preview__summary-row {
+    padding-top: 5px;
+    border-top: 1px dashed #777;
+  }
+
   .receipt-preview__item-name {
     min-width: 0;
     overflow-wrap: anywhere;
     word-break: break-word;
+  }
+
+  /* Примечания позиции — как было: отдельные строки на всю ширину
+     под строкой блюда, без своих разделителей (лишних линий нет). */
+  .receipt-preview__item-note-row {
+    padding: 2px 0;
+  }
+
+  .receipt-preview__item-note-row span {
+    overflow-wrap: anywhere;
   }
 
   .receipt-preview__summary,

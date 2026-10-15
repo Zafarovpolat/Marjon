@@ -1,26 +1,69 @@
 // Таблица каталога блюд OWNER с учётом видимых колонок.
-// V21: колонки Тип/Меню/Подкатегория/Рецепты убраны из презентации (backend
-// поля и API-ответ не тронуты); фото открывается нативным OS-пикером и грузится
-// напрямую POST /inventory/products/{id}/photo. Быстрые правки строк
-// по-прежнему заблокированы (backend mutation contract не подключён) —
-// updateRow только показывает предупреждение.
-import { useRef } from "react";
+// V24: точный порядок СОРТ→ФОТО→НАЗВАНИЕ→ЕД.ИЗМ→СЕБЕСТ→ЦЕНА→ПРИНТЕР→
+// ОСТАТОК→АВТО→СЕТ→ДЕЙСТВИЯ. Принтер — две строки (имя + IP из
+// GET /printers по printerId, без UUID и без однострочного склеивания).
+// АВТО/СЕТ — реальные backend-тумблеры (PATCH is_auto/is_set), не "-".
+// V25: ОСТАТОК заменён на РЕЦЕПТЫ (реальный ingredients_count backend);
+// тумблеры — фирменный OWNER-акцент.
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Icon from "../../components/Icon";
 import ReportEmptyState from "../../components/ReportEmptyState";
+import recipeBookPng from "../../assets/recipes-cook-book.png";
+import setComboPng from "../../assets/set-combo.png";
 import { SUPPORTED_DISH_PHOTO_TYPES } from "./useDishesCatalog";
 
-function renderToggle(value, onClick) {
-  if (value === null) return <span className="dish-toggle-empty">-</span>;
+function displayDishMoney(value) {
+  return String(value ?? "").replace(/\s*UZS$/i, " сум");
+}
+
+function renderToggle(value, onClick, disabled, label) {
+  const isOn = value === true;
   return (
-    <button type="button" className={`dish-toggle ${value ? "is-on" : ""}`} onClick={onClick} aria-pressed={value}>
+    <button
+      type="button"
+      className={`dish-toggle ${isOn ? "is-on" : ""}`}
+      onClick={(event) => {
+        // V26 — лёгкий ripple без JS-таймеров: класс снимается по animationend.
+        // Дубли PATCH по-прежнему блокируются mutation-замком + disabled.
+        const el = event.currentTarget;
+        el.classList.remove("is-rippling");
+        void el.offsetWidth;
+        el.classList.add("is-rippling");
+        onClick(event);
+      }}
+      onAnimationEnd={(event) => {
+        if (event.animationName === "dish-toggle-ripple") event.currentTarget.classList.remove("is-rippling");
+      }}
+      aria-pressed={isOn}
+      aria-label={label}
+      disabled={disabled || undefined}
+    >
       <span />
     </button>
   );
 }
 
+// V24 — ячейка принтера: первая строка имя, вторая IP (muted).
+// Источник: row.printer (printer_name) + row.printerIp, fallback —
+// справочник printers по printerId. Пусто → "-". UUID не показываем.
+function PrinterCell({ row, printers = [] }) {
+  const lookup = row.printerId ? printers.find((p) => String(p.id) === String(row.printerId)) : null;
+  const name = String(row.printer || lookup?.name || "").trim();
+  const ip = String(row.printerIp || lookup?.ip || "").trim();
+  if (!name && !ip) return <span className="dish-printer-empty">-</span>;
+  return (
+    <span className="dish-printer-lines">
+      <span className="dish-printer-name">{name || "-"}</span>
+      {ip ? <span className="dish-printer-ip">{ip}</span> : null}
+    </span>
+  );
+}
+
 // V22 — Остаток: честный компактный бейдж реального backend-значения
-// (stock: число = mint, "0" = red/neutral, "-" = пусто). Кнопки нет:
-// быстрого изменения остатка backend не поддерживает (не fake affordance).
+// (stock: число = mint, "0" = red/neutral, "-" = пусто). V25: колонка
+// Остаток убрана из таблицы (бейдж оставлен для совместимости тестов
+// и возможных будущих мест, в таблице не рендерится).
 function StockBadge({ value }) {
   if (value === "-") return <span className="dish-stock-badge is-empty">-</span>;
   const amount = Number(String(value).replace(/\s/g, ""));
@@ -29,10 +72,58 @@ function StockBadge({ value }) {
   );
 }
 
+// Exact user-provided PNG alpha mask; the badge supplies its state color.
+function RecipePngIcon() {
+  return (
+    <span
+      className="dish-recipe-icon"
+      aria-hidden="true"
+      style={{ maskImage: `url(${recipeBookPng})`, WebkitMaskImage: `url(${recipeBookPng})` }}
+    />
+  );
+}
+
+// Пользовательская иконка комбо (D:\Marjon elements\Сет.png → set-combo.png):
+// та же mask-техника — цвет даёт бейдж. Крупнее книжки рецептов.
+function SetPngIcon() {
+  return (
+    <span
+      className="dish-recipe-icon dish-set-icon"
+      aria-hidden="true"
+      style={{ maskImage: `url(${setComboPng})`, WebkitMaskImage: `url(${setComboPng})` }}
+    />
+  );
+}
+
+// V25 — Рецепты: честный компактный бейдж реального backend-счётчика
+// ingredients_count (product_ingredients через ProductService).
+// V26: визуал по референсу — icon + text-ссылка, не бейдж и не "-".
+// Есть состав → синий "Рецепты (N шт)"; нет → нейтрально-чёрный "Рецепты".
+// Кликабельного редактора состава для блюд в MARJON нет (см. аудит ниже),
+// поэтому это span без fake-навигации, курсор обычный.
+function RecipeBadge({ count, onClick }) {
+  const amount = Number(count) || 0;
+  if (amount > 0) {
+    return (
+      <button type="button" className="dish-recipe-link is-filled" onClick={onClick} aria-haspopup="dialog">
+        <RecipePngIcon />Рецепты ({amount} шт)
+      </button>
+    );
+  }
+  return (
+    <button type="button" className="dish-recipe-link is-empty" onClick={onClick} aria-haspopup="dialog">
+      <RecipePngIcon />Рецепты
+    </button>
+  );
+}
+
 // V21 — нативный OS-пикер фото прямо из строки: клик → скрытый input[type=file]
 // → выбранный файл уходит в uploadDishPhoto (тот же id, без дубля блюда).
-function DishPhotoCell({ row, uploading, onPick }) {
+// Есть фото — клик открывает увеличенный просмотр по центру (п.11);
+// пикер остаётся только для пустых ячеек.
+function DishPhotoCell({ row, uploading, onPick, onPreview }) {
   const inputRef = useRef(null);
+  const hasPhoto = Boolean(row.photo);
   return (
     <td className="dish-col-photo">
       <button
@@ -40,8 +131,12 @@ function DishPhotoCell({ row, uploading, onPick }) {
         className="dish-photo-button"
         disabled={uploading}
         aria-busy={uploading || undefined}
-        onClick={() => inputRef.current?.click()}
-        aria-label={`Выбрать фото для ${row.name}`}
+        onClick={() => {
+          if (hasPhoto) onPreview?.(row);
+          else inputRef.current?.click();
+        }}
+        aria-label={hasPhoto ? `Открыть фото ${row.name}` : `Выбрать фото для ${row.name}`}
+        {...(hasPhoto ? { "aria-haspopup": "dialog" } : null)}
       >
         {row.photo ? (
           <img className="dish-photo" src={row.photo} alt={row.name} />
@@ -70,61 +165,170 @@ export default function DishesTable({
   isColumnVisible,
   tableMinWidth,
   updateRow,
+  togglingId = null,
+  printerOptions = [],
   openDrawer,
+  openRecipes,
   archiveDish,
+  onArchiveRequest,
+  restoreDish,
+  onRestoreRequest,
+  restoringId = null,
+  showArchived = false,
   uploadDishPhoto,
   photoUploadingId,
   saving,
   pendingDeleteId,
+  // Переиспользование для «Товаров»: свои подписи при том же скелете.
+  tableAriaLabel = "Блюда",
+  scrollAriaLabel = "Таблица блюд с прокруткой",
+  emptyTitle = "Блюда не найдены",
+  // Открытие состава сета (кнопка Сет); без хендлера — статичный текст.
+  onOpenSet,
 }) {
   const isEmpty = !filteredRows.length;
+  // Увеличенный просмотр фото по центру (только строки с фото).
+  // Уход — той же анимацией, что приход (is-closing 160ms, как zoom
+  // в диалогах рецептов/сета); размонтирование только после неё.
+  const [preview, setPreview] = useState(null);
+  const [previewClosing, setPreviewClosing] = useState(false);
+  const previewTimer = useRef(null);
+
+  useEffect(() => () => {
+    if (previewTimer.current) clearTimeout(previewTimer.current);
+  }, []);
+
+  function closePreview() {
+    if (previewClosing) return;
+    setPreviewClosing(true);
+    previewTimer.current = window.setTimeout(() => {
+      setPreview(null);
+      setPreviewClosing(false);
+    }, 160);
+  }
+
+  function openPreview(dish) {
+    if (previewTimer.current) {
+      clearTimeout(previewTimer.current);
+      previewTimer.current = null;
+    }
+    setPreviewClosing(false);
+    setPreview({ src: dish.photo, name: dish.name });
+  }
+
+  useEffect(() => {
+    if (!preview) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function onKey(event) {
+      if (event.key === "Escape") closePreview();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [preview]);
+
   return (
     <div className={`settings-table-wrapper dish-grid-wrap${isEmpty ? " is-empty" : ""}`}>
-      <div className="dish-grid-scroll">
-        <table className="settings-table dish-grid-table" aria-label="Блюда" style={{ "--dish-grid-min-width": `${tableMinWidth}px` }}>
+      <div className="dish-grid-scroll" role="region" aria-label={scrollAriaLabel} tabIndex={0}>
+        <table className="settings-table dish-grid-table" aria-label={tableAriaLabel} style={{ "--dish-grid-min-width": `${tableMinWidth}px` }}>
         <thead>
           <tr>
+            {isColumnVisible("sort") ? <th className="dish-col-sort">Сорт</th> : null}
             {isColumnVisible("photo") ? <th className="dish-col-photo">Фото</th> : null}
             {isColumnVisible("name") ? <th className="dish-col-name">Название</th> : null}
             {isColumnVisible("unit") ? <th className="dish-col-unit">Ед. изм</th> : null}
             {isColumnVisible("cost") ? <th className="dish-col-cost">Себестоимость</th> : null}
             {isColumnVisible("price") ? <th className="dish-col-price">Цена</th> : null}
             {isColumnVisible("printer") ? <th className="dish-col-printer">Принтер</th> : null}
-            {isColumnVisible("stock") ? <th className="dish-col-stock">Остаток</th> : null}
+            {isColumnVisible("recipe") ? <th className="dish-col-recipe">Рецепты</th> : null}
             {isColumnVisible("auto") ? <th className="dish-col-auto">Авто</th> : null}
             {isColumnVisible("set") ? <th className="dish-col-set">Сет</th> : null}
-            {isColumnVisible("sort") ? <th className="dish-col-sort">Сорт</th> : null}
             {isColumnVisible("actions") ? <th className="dish-col-actions">Действия</th> : null}
           </tr>
         </thead>
         <tbody>
           {filteredRows.map((row) => (
             <tr key={row.id}>
+              {isColumnVisible("sort") ? <td className="dish-col-sort dish-sort-cell">{row.sort}</td> : null}
               {isColumnVisible("photo") ? (
-                <DishPhotoCell row={row} uploading={photoUploadingId === row.id} onPick={uploadDishPhoto} />
+                <DishPhotoCell
+                  row={row}
+                  uploading={photoUploadingId === row.id}
+                  onPick={uploadDishPhoto}
+                  onPreview={openPreview}
+                />
               ) : null}
               {isColumnVisible("name") ? <td className="dish-col-name"><span className="dish-name-text" title={row.name}>{row.name}</span></td> : null}
               {isColumnVisible("unit") ? <td className="dish-col-unit">{row.unit}</td> : null}
-              {isColumnVisible("cost") ? <td className="dish-col-cost dish-money-cell">{row.cost}</td> : null}
-              {isColumnVisible("price") ? <td className="dish-col-price dish-money-cell"><span className="dish-price-text">{row.price}</span></td> : null}
-              {isColumnVisible("printer") ? <td className="dish-col-printer dish-printer-cell">{row.printer || "-"}</td> : null}
-              {isColumnVisible("stock") ? (
-              <td className="dish-col-stock">
-                <StockBadge value={row.stock} />
+              {isColumnVisible("cost") ? <td className="dish-col-cost dish-money-cell">{displayDishMoney(row.cost)}</td> : null}
+              {isColumnVisible("price") ? <td className="dish-col-price dish-money-cell"><span className="dish-price-text">{displayDishMoney(row.price)}</span></td> : null}
+              {isColumnVisible("printer") ? <td className="dish-col-printer dish-printer-cell"><PrinterCell row={row} printers={printerOptions} /></td> : null}
+              {isColumnVisible("recipe") ? (
+              <td className="dish-col-recipe">
+                {row.set === true ? (
+                  onOpenSet ? (
+                    <button
+                      type="button"
+                      className={`dish-recipe-link ${Number(row.setItemsCount) > 0 ? "is-filled" : "is-empty"}`}
+                      onClick={(event) => onOpenSet(row, event.currentTarget)}
+                      aria-haspopup="dialog"
+                      aria-label={`Открыть сет ${row.name}`}
+                    >
+                      <SetPngIcon />{Number(row.setItemsCount) > 0 ? `Сет (${row.setItemsCount} шт)` : "Сет"}
+                    </button>
+                  ) : (
+                    <span className="dish-set-text"><SetPngIcon />Сет</span>
+                  )
+                ) : (
+                  <RecipeBadge count={row.ingredientsCount} onClick={(event) => openRecipes?.(row, event.currentTarget)} />
+                )}
               </td>
               ) : null}
-              {isColumnVisible("auto") ? <td className="dish-col-auto">{renderToggle(row.auto, () => updateRow(row.id, "auto", !row.auto))}</td> : null}
-              {isColumnVisible("set") ? <td className="dish-col-set">{renderToggle(row.set, () => updateRow(row.id, "set", !row.set))}</td> : null}
-              {isColumnVisible("sort") ? <td className="dish-col-sort dish-sort-cell">{row.sort}</td> : null}
+              {isColumnVisible("auto") ? (
+                <td className="dish-col-auto">
+                  {renderToggle(
+                    row.auto,
+                    () => updateRow(row.id, "auto", !(row.auto === true)),
+                    togglingId === `${row.id}:auto`,
+                    `Авто для ${row.name}`,
+                  )}
+                </td>
+              ) : null}
+              {isColumnVisible("set") ? (
+                <td className="dish-col-set">
+                  {renderToggle(
+                    row.allowInSets,
+                    () => updateRow(row.id, "inset", !(row.allowInSets === true)),
+                    togglingId === `${row.id}:inset`,
+                    `В сеты для ${row.name}`,
+                  )}
+                </td>
+              ) : null}
               {isColumnVisible("actions") ? (
               <td className="dish-col-actions">
                 <div className="dish-row-actions">
                   <button type="button" disabled={saving || pendingDeleteId === row.id} onClick={() => openDrawer(row)} aria-label="Редактировать">
                     <Icon name="bi-pencil" size={15} />
                   </button>
-                  <button type="button" className="danger" disabled={pendingDeleteId === row.id} onClick={() => archiveDish(row.id)} aria-label="Удалить">
-                    <Icon name="bi-trash3" size={15} />
-                  </button>
+                  {showArchived ? (
+                    <button
+                      type="button"
+                      className="dish-restore-action"
+                      disabled={restoringId === row.id}
+                      onClick={() => (onRestoreRequest ? onRestoreRequest(row) : restoreDish?.(row.id))}
+                      aria-label="Восстановить"
+                      title="Восстановить"
+                    >
+                      <Icon name="bi-arrow-counterclockwise" size={15} />
+                    </button>
+                  ) : (
+                    <button type="button" className="danger" disabled={pendingDeleteId === row.id} onClick={() => (onArchiveRequest ? onArchiveRequest(row) : archiveDish(row.id))} aria-label="Удалить">
+                      <Icon name="bi-trash3" size={15} />
+                    </button>
+                  )}
                 </div>
               </td>
               ) : null}
@@ -135,8 +339,34 @@ export default function DishesTable({
       </div>
       {isEmpty ? (
         <div className="dish-empty-overlay">
-          <ReportEmptyState title="Блюда не найдены" />
+          <ReportEmptyState title={emptyTitle} />
         </div>
+      ) : null}
+      {preview ? createPortal(
+        <div className={`dish-photo-viewer-layer${previewClosing ? " is-closing" : ""}`}>
+          <div
+            className="dish-photo-viewer-overlay"
+            role="presentation"
+            onClick={closePreview}
+          />
+          <div
+            className="dish-photo-viewer"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Фото блюда ${preview.name}`}
+          >
+            <button
+              type="button"
+              className="dish-photo-viewer__close"
+              onClick={closePreview}
+              aria-label="Закрыть фото"
+            >
+              <Icon name="bi-x-lg" size={18} />
+            </button>
+            <img src={preview.src} alt={`Фото блюда «${preview.name}»`} />
+          </div>
+        </div>,
+        document.body,
       ) : null}
     </div>
   );

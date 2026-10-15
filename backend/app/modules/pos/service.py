@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from sqlalchemy import func, select, text
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -176,7 +176,12 @@ class OrderService:
         # Обслуга берётся только с позиций «в зале» (не takeaway) — копим отдельно.
         service_base = Decimal("0")
         for item_data in data.items:
-            product = await self._get_product(company_id, item_data.product_id)
+            product = await self._get_product(company_id, item_data.product_id, for_update=True)
+            # STOP-LIST V1: каноническая backend-проверка ДО вставки позиции.
+            # Отказ — честный 422, а не disabled-кнопка фронта. Строка продукта
+            # заблокирована SELECT FOR UPDATE до commit (см. _get_product),
+            # поэтому два одновременных POS-клиента сериализуются на этой строке.
+            self._ensure_sale_allowed(product, item_data.quantity)
             # Добавки (модификаторы) поднимают цену порции: их наценки (price_delta
             # из снапшота) прибавляем к цене блюда и умножаем на количество.
             modifiers_delta = _modifiers_delta(item_data.modifiers)
@@ -376,6 +381,63 @@ class OrderService:
             pass
         return saved
 
+    async def purge_company_orders(self, company_id: UUID) -> dict:
+        """Полное удаление всех заказов компании (Настройки → «Очистить все отчеты»).
+
+        Отчёты категории «Отчёты» считаются из заказов/платежей/чеков, поэтому
+        чистим всё связанное одной транзакцией: чеки → платежи → доставки →
+        заказы (позиции — CASCADE через Order.items). Бонусные транзакции
+        отвязываем (order_id=NULL), баллы и историю не трогаем. Остатки склада
+        не меняются (автосписания при продаже нет). Отменённые заказы тоже
+        удаляются полностью и ни в какие отчёты не попадают.
+        Возвращает счётчики удалённого.
+        """
+        from app.modules.delivery.models import DeliveryOrder
+        from app.modules.fiscal.models import FiscalReceipt
+        from app.modules.loyalty.models import LoyaltyTransaction
+        from app.modules.payments.models import Payment
+
+        receipts = (await self.db.execute(
+            delete(FiscalReceipt).where(FiscalReceipt.company_id == company_id)
+        )).rowcount or 0
+        payments = (await self.db.execute(
+            delete(Payment).where(Payment.company_id == company_id)
+        )).rowcount or 0
+        deliveries = (await self.db.execute(
+            delete(DeliveryOrder).where(DeliveryOrder.company_id == company_id)
+        )).rowcount or 0
+        loyalty = (await self.db.execute(
+            update(LoyaltyTransaction)
+            .where(
+                LoyaltyTransaction.company_id == company_id,
+                LoyaltyTransaction.order_id.is_not(None),
+            )
+            .values(order_id=None)
+        )).rowcount or 0
+        # Позиции — явным DELETE: bulk-delete(Order) не запускает ORM-каскад
+        # relationship (он срабатывает только через session.delete с
+        # подгруженными детьми), а полагаться на DB-уровень ON DELETE
+        # CASCADE нельзя — SQLite без FK-прагмы его не выполняет.
+        items = (await self.db.execute(
+            delete(OrderItem).where(
+                OrderItem.order_id.in_(
+                    select(Order.id).where(Order.company_id == company_id)
+                )
+            )
+        )).rowcount or 0
+        orders = (await self.db.execute(
+            delete(Order).where(Order.company_id == company_id)
+        )).rowcount or 0
+        await self.db.commit()
+        return {
+            "orders": orders,
+            "items": items,
+            "payments": payments,
+            "fiscal_receipts": receipts,
+            "delivery_orders": deliveries,
+            "loyalty_detached": loyalty,
+        }
+
     # ── Add item to existing order ────────────────────────────────────────────
 
     async def add_item(
@@ -386,7 +448,9 @@ class OrderService:
         if order.status in ("completed", "cancelled"):
             raise ValidationError("Нельзя добавить позицию к завершённому или отменённому заказу")
 
-        product = await self._get_product(company_id, item_data.product_id)
+        product = await self._get_product(company_id, item_data.product_id, for_update=True)
+        # STOP-LIST V1: та же каноническая проверка, что в create().
+        self._ensure_sale_allowed(product, item_data.quantity)
         # Добавки поднимают цену порции — см. комментарий в create().
         modifiers_delta = _modifiers_delta(item_data.modifiers)
         item_total = _quantize((product.price + modifiers_delta) * item_data.quantity)
@@ -866,18 +930,66 @@ class OrderService:
             raise NotFoundError("Table not found")
         return table
 
-    async def _get_product(self, company_id: UUID, product_id: UUID) -> Product:
-        result = await self.db.execute(
-            select(Product).where(
-                Product.id == product_id,
-                Product.company_id == company_id,
-                Product.is_active == True,
-            )
+    async def _get_product(
+        self, company_id: UUID, product_id: UUID, *, for_update: bool = False
+    ) -> Product:
+        stmt = select(Product).where(
+            Product.id == product_id,
+            Product.company_id == company_id,
+            Product.is_active == True,
         )
+        if for_update:
+            # Сериализация одновременных продаж одного блюда: вторая транзакция
+            # ждёт коммита первой и видит уже увеличенный sold_count.
+            # На SQLite (тесты) FOR UPDATE игнорируется диалектом — остаётся
+            # логическая проверка в _ensure_sale_allowed.
+            stmt = stmt.with_for_update()
+        result = await self.db.execute(stmt)
         product = result.scalar_one_or_none()
         if not product:
             raise NotFoundError("Product not found or inactive")
         return product
+
+    @staticmethod
+    def _as_decimal(value: Decimal | int | str | None) -> Decimal:
+        """Точное Decimal без float/int-усечений для лимитной арифметики."""
+        if value is None:
+            return Decimal("0")
+        if isinstance(value, Decimal):
+            return value
+        return Decimal(str(value))
+
+    @staticmethod
+    def _fmt_decimal(value: Decimal) -> str:
+        """Компактный текст количества для 422-сообщений (1.500 → 1.5)."""
+        return format(OrderService._as_decimal(value).normalize(), "f")
+
+    def _ensure_sale_allowed(self, product: Product, quantity: Decimal) -> None:
+        """STOP-LIST V2.1: точный Decimal-гейт продажи (без округлений).
+
+        Под локом строки продукта (SELECT FOR UPDATE до commit):
+        requested = точный Decimal OrderItem.quantity,
+        sold = точный Decimal Product.sold_count,
+        limit = точный Decimal Product.daily_limit,
+        remaining = limit - sold.
+        requested > remaining → отказ 422; иначе продажа впечатывает
+        sold_count = sold + requested. 0.5 + 0.5 = 1.0, а не 2.
+        is_available=False → отказ всегда. Конверсий единиц нет.
+        """
+        if not getattr(product, "is_available", True):
+            raise ValidationError("Блюдо в стоп-листе и недоступно для продажи")
+        limit = getattr(product, "daily_limit", None)
+        if limit is None:
+            return
+        requested = self._as_decimal(quantity)
+        sold = self._as_decimal(getattr(product, "sold_count", 0))
+        remaining = self._as_decimal(limit) - sold
+        if requested > remaining:
+            raise ValidationError(
+                "Превышен лимит продаж: доступно "
+                f"{self._fmt_decimal(max(remaining, Decimal('0')))}, "
+                f"запрошено {self._fmt_decimal(requested)}"
+            )
 
     async def _get_order_item(self, order: Order, item_id: UUID) -> OrderItem:
         for item in order.items:
@@ -999,30 +1111,39 @@ class OrderService:
         return Decimal(str(res.scalar_one() or 0))
 
     def _apply_sale_to_limit(self, product: Product, quantity: Decimal) -> None:
-        """Списать порции из дневного лимита блюда; при исчерпании — авто-стоп.
+        """Списать ТОЧНОЕ количество из дневного лимита; при исчерпании — авто-стоп.
 
         Лимит на всю компанию (product.daily_limit). NULL = без ограничения.
-        Количество может быть дробным (весовые позиции) — берём целые порции.
-        Вызывать под try: сбой учёта не должен ронять оформление заказа.
+        V2.1: sold_count = sold + requested в точном Decimal (0.5 + 0.5 = 1.0).
+        Никаких int()/ceil/floor/ROUND_*. Вызывать под try: сбой учёта не
+        должен ронять оформление заказа.
         """
         if getattr(product, "daily_limit", None) is None:
             return
-        product.sold_count = (product.sold_count or 0) + int(quantity)
-        if product.sold_count >= product.daily_limit:
+        product.sold_count = self._as_decimal(getattr(product, "sold_count", 0)) + self._as_decimal(quantity)
+        if product.sold_count >= self._as_decimal(product.daily_limit):
             product.is_available = False  # авто-стоп: «само ставится в стоп»
+            # V3.2: фиксируем системную причину — только топ-ап её снимет,
+            # ручная блокировка имеет отдельный (пустой) флаг и переживёт топ-ап.
+            product.limit_auto_stopped = True
 
     async def _restore_to_limit(self, company_id: UUID, product_id: UUID, quantity: Decimal) -> None:
-        """Вернуть порции в дневной лимит при отмене заказа/удалении позиции.
+        """Вернуть ТОЧНОЕ количество в дневной лимит при отмене/удалении позиции.
 
-        Счётчик не опускаем ниже нуля. Стоп НЕ снимаем автоматически — возврат
-        блюда в продажу ручной. Ищем товар без фильтра is_active (мог быть в стопе).
+        Вычитаем ровно то, что списали (симметрия с _apply_sale_to_limit):
+        1.75 − 0.50 = 1.25. Счётчик не опускаем ниже нуля (сохраняем прежнюю
+        семантику clamp). Стоп НЕ снимаем автоматически — возврат блюда в
+        продажу ручной. Ищем товар без фильтра is_active (мог быть в стопе).
         """
         product = (await self.db.execute(
             select(Product).where(Product.id == product_id, Product.company_id == company_id)
         )).scalar_one_or_none()
         if product is None or getattr(product, "daily_limit", None) is None:
             return
-        product.sold_count = max(0, (product.sold_count or 0) - int(quantity))
+        product.sold_count = max(
+            Decimal("0"),
+            self._as_decimal(getattr(product, "sold_count", 0)) - self._as_decimal(quantity),
+        )
 
 
 class TerminalService:

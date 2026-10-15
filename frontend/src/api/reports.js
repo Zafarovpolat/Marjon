@@ -118,6 +118,9 @@ export const reportsService = {
   getCancelledFilters(config = {}) {
     return api.get("/reports/cancelled/filters", config);
   },
+  getCancelledSummary(dateFrom, dateTo, config = {}) {
+    return api.get("/reports/cancelled/summary", { params: rangeParams(dateFrom, dateTo), ...config });
+  },
   listDebtCredit(dateFrom, dateTo, counterpartyId, config = {}) {
     return api.get("/reports/debt-credit", {
       params: rangeParams(dateFrom, dateTo, counterpartyId ? { counterparty_id: counterpartyId } : {}),

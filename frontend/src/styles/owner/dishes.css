@@ -193,6 +193,7 @@
   .dish-row-actions {
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 7px;
   }
 
@@ -331,13 +332,15 @@
   }
 
   .dish-toggle {
+      position: relative;
       width: 42px;
       height: 24px;
       padding: 2px;
       border: 0;
       border-radius: 999px;
       background: var(--neutral-200);
-      transition: background 0.18s ease;
+      cursor: pointer;
+      transition: background-color 0.2s ease, box-shadow 0.22s ease;
   }
 
   .dish-toggle span {
@@ -351,11 +354,62 @@
   }
 
   .dish-toggle.is-on {
-      background: var(--color-brand, #1db5b5);
+      /* V25 — фирменный OWNER-акцент (#1FC9C9 через канонический токен).
+         OFF оставлен нейтральным var(--neutral-200) выше. */
+      background: var(--owner-accent, #1fc9c9);
   }
 
   .dish-toggle.is-on span {
       transform: translateX(9px);
+  }
+
+  /* Press-scale убран: тоггл не меняет размер при клике. */
+
+  /* V26 — water-drop ripple: ::after-кольцо из точки свитча, 260ms.
+     Класс is-rippling ставит клик-хендлер и снимает animationend —
+     без JS-таймеров, без накопления классов, без DOM-утечек. */
+  .dish-toggle::after {
+      content: "";
+      position: absolute;
+      inset: -4px;
+      border-radius: 999px;
+      opacity: 0;
+      pointer-events: none;
+  }
+
+  .dish-toggle.is-rippling::after {
+      animation: dish-toggle-ripple 260ms ease-out;
+  }
+
+  /* ON: мягкая тень фирменного акцента; OFF: нейтральная тень. */
+  .dish-toggle.is-on.is-rippling::after {
+      animation-name: dish-toggle-ripple-accent;
+  }
+
+  @keyframes dish-toggle-ripple {
+      from {
+          opacity: 0.35;
+          transform: scale(0.7);
+          box-shadow: 0 0 0 0 rgba(100, 116, 139, 0.35);
+      }
+      to {
+          opacity: 0;
+          transform: scale(1.25);
+          box-shadow: 0 0 0 10px rgba(100, 116, 139, 0);
+      }
+  }
+
+  @keyframes dish-toggle-ripple-accent {
+      from {
+          opacity: 0.4;
+          transform: scale(0.7);
+          box-shadow: 0 0 0 0 rgba(31, 201, 201, 0.4);
+      }
+      to {
+          opacity: 0;
+          transform: scale(1.25);
+          box-shadow: 0 0 0 10px rgba(31, 201, 201, 0);
+      }
   }
 
   .dish-toggle-empty {
@@ -2235,13 +2289,13 @@
   min-width: 0;
 }
 
-/* V13 — карточка буквально как settings-card эталона (block; визуал
-   padding/border/radius/shadow продублирован теми же значениями только чтобы
-   бить legacy dish-правила из react-overrides; shared владеет эталоном).
-   Структурно: никакого flex-роста, контент-driven. */
+/* Content-sized card; only overflowing lists shrink to the bounded shell. */
 .dish-catalog-page.owner-report-view .dish-catalog-card {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
   height: auto;
+  max-height: 100%;
   min-width: 0;
   min-height: 0;
   overflow: visible;
@@ -2251,17 +2305,26 @@
   box-shadow: 0 3px 12px rgba(15, 35, 60, 0.055);
 }
 
-/* Корень гигантской белой панели: react-overrides тянет секцию
-   (min-height 100dvh) и карточку/таблицу (flex:1). Сбрасываем рост —
-   карточка обнимает контент, ниже виден синий фон, как у Settings.
-   padding:0 — ровно как у .settings-owner-view (Способ оплаты): внешний
-   отступ даёт только оболочка дашборда, поэтому поля по краям 1-в-1 с
-   остальными OWNER-страницами (глушим legacy `0 8px 20px` из react-overrides). */
+/* Small shell-only breathing below the independently clipped table.
+   No table padding, reserve row or forced fill; few rows still shrink-wrap. */
+.dish-catalog-page.owner-report-view .dish-catalog-card {
+  padding-bottom: 12px;
+}
+
+/* The shell already owns viewport height and mobile navigation insets.
+   Use its available content box, not a guessed viewport/header subtraction. */
 .dish-catalog-page.owner-report-view {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
   min-height: 0;
-  height: auto;
+  height: 100%;
   padding: 0;
+  border-radius: 18px;
+}
+
+.dish-catalog-page.owner-report-view .dish-catalog-card > :not(.dish-grid-wrap) {
+  flex-shrink: 0;
 }
 
 /* V13 — буквальный клон шапки эталона: та же DOM-структура
@@ -2321,14 +2384,171 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  /* Слайд translateX не должен рождать горизонтальный скролл снизу. */
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 18px;
 }
 
+.dish-drawer .cashier-photo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0 22px;
+  padding: 14px 16px;
+  border: 1px solid var(--neutral-200, #e2e8f0);
+  border-radius: 16px;
+  background: #f8fbfd;
+}
+
+.dish-drawer .cashier-photo .staff-avatar--large {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 72px;
+  border: 1px solid #dcecf0;
+  border-radius: 14px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.dish-drawer .cashier-photo .staff-avatar--large img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dish-drawer .dish-money-input::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+}
+
+.dish-drawer .staff-form__grid .dish-money-field {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.dish-drawer .staff-form__grid .dish-money-field .dish-money-input {
+  width: 100%;
+  padding-right: 48px;
+}
+
+.dish-drawer .staff-form__grid .dish-money-field .dish-money-suffix {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.dish-drawer .staff-form__grid .dish-money-field .dish-money-measure-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.dish-drawer .staff-form__grid .dish-money-field .dish-money-measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  white-space: pre;
+  width: max-content;
+  pointer-events: none;
+}
+
 .dish-drawer .staff-form__footer {
   flex-shrink: 0;
   margin: 0;
+}
+
+.dish-drawer .dish-form-switches {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 22px;
+  border-top: 1px solid var(--neutral-200, #e2e8f0);
+}
+
+.dish-drawer .dish-form-switch-row,
+.dish-drawer .dish-form-switch-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dish-drawer .dish-form-switch-label {
+  width: 76px;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--neutral-700, #334155);
+}
+
+.dish-drawer .dish-form-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex: 0 0 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #c9d5e5;
+  cursor: pointer;
+  transition: background-color 180ms ease;
+}
+
+.dish-drawer .dish-form-switch > span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 180ms ease;
+}
+
+.dish-drawer .dish-form-switch.is-on {
+  background: #2ed06a;
+}
+
+.dish-drawer .dish-form-switch.is-on > span {
+  transform: translateX(18px);
+}
+
+.dish-drawer .dish-form-switch:focus-visible {
+  outline: 2px solid #008b91;
+  outline-offset: 3px;
+}
+
+.dish-drawer .dish-form-switch:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.dish-drawer .dish-form-status {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ef4444;
+}
+
+.dish-drawer .dish-form-status.is-active {
+  color: #2ed06a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dish-drawer .dish-form-switch,
+  .dish-drawer .dish-form-switch > span {
+    transition: none;
+  }
 }
 
 /* V16 — первый ряд после фото: [Сорт | Название], сорт компактный (~30%),
@@ -2337,7 +2557,7 @@
 .dish-drawer .dish-first-row {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: minmax(0, 22fr) minmax(0, 78fr);
+  grid-template-columns: minmax(0, 11fr) minmax(0, 89fr);
   gap: 14px;
 }
 
@@ -2374,6 +2594,250 @@
 
 .dish-catalog-page.owner-report-view .dish-add-button {
   min-width: 118px;
+}
+
+/* Статус-пилюля Активные/Архивированные (язык Staff-tabs, dishes-скоп):
+   контейнер #EFF6FF, активный сегмент белый, неактивный приглушён.
+   V2 — та же скользящая анимация, что у Сотрудников: измеренный индикатор
+   едет под активный сегмент (transform + width, 250ms MARJON ease). */
+.dish-catalog-page.owner-report-view .dish-status-tabs {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid rgba(208, 217, 232, .9);
+  border-radius: 999px;
+  background: #EFF6FF;
+}
+
+.dish-catalog-page.owner-report-view .dish-status-tabs__indicator {
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 0;
+  border: 1px solid rgba(14, 165, 233, .20);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 6px 13px rgba(15, 23, 42, 0.056);
+  transition: transform 250ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 250ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.dish-catalog-page.owner-report-view .dish-status-tabs button {
+  position: relative;
+  z-index: 1;
+  min-height: 33px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #64748b;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.dish-catalog-page.owner-report-view .dish-status-tabs button.is-active {
+  border-color: transparent;
+  background: transparent;
+  color: #0e7490;
+  box-shadow: none;
+}
+
+/* Сегмент Блюдо|Сет в шапке drawer (та же семья таблов, автономно:
+   drawer портирован в body, вне .dish-catalog-page). Пилюля скользящая,
+   кнопки равной ширины — размер не прыгает при переключении. */
+.dish-drawer .staff-form__header {
+  position: relative;
+}
+/* Абсолютный центр шапки: ширина заголовка (блюдо|сет) свитч не двигает. */
+.dish-drawer .dish-kind-switch {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+}
+@media (max-width: 560px) {
+  .dish-drawer .staff-form__header {
+    flex-wrap: wrap;
+  }
+  .dish-drawer .dish-kind-switch {
+    position: static;
+    transform: none;
+    margin: 0 auto;
+  }
+}
+.dish-kind-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid rgba(208, 217, 232, .9);
+  border-radius: 999px;
+  background: #EFF6FF;
+}
+.dish-kind-switch__indicator {
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 0;
+  border: 1px solid rgba(14, 165, 233, .20);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 6px 13px rgba(15, 23, 42, 0.056);
+  transition: transform 250ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 250ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+  opacity: 0;
+}
+.dish-kind-switch.is-settled .dish-kind-switch__indicator {
+  opacity: 1;
+}
+.dish-kind-switch button {
+  position: relative;
+  z-index: 1;
+  min-height: 33px;
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 100px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #64748b;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.dish-kind-switch button.is-active {
+  border-color: transparent;
+  background: transparent;
+  color: #0e7490;
+  box-shadow: none;
+}
+.dish-kind-switch button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Слайд всего окна (фото + поля + свитчи одним целым): в сет — вход
+   справа, обратно — слева. Чуть медленнее для читаемости. */
+.dish-drawer .dish-drawer__animated {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+}
+.dish-drawer .dish-drawer__animated[data-slide="right"] {
+  animation: dish-form-in-right 450ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.dish-drawer .dish-drawer__animated[data-slide="left"] {
+  animation: dish-form-in-left 450ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes dish-form-in-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes dish-form-in-left {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dish-kind-switch__indicator {
+    transition-duration: 0.01ms;
+  }
+  .dish-drawer .dish-drawer__animated[data-slide="right"],
+  .dish-drawer .dish-drawer__animated[data-slide="left"] {
+    animation: none;
+  }
+}
+/* Подписи Категория/Ед.изм/Принтер — как Цена/Сорт/Название (12px gray).
+   Усиленный селектор — страховка от generic-правил на span. */
+.dish-drawer .dish-form-field__label {
+  display: block;
+  margin-bottom: 7px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
+}
+/* Бордеры всех полей drawer чуть темнее (фокус-teal не тронут). */
+.dish-drawer .staff-form__grid input,
+.dish-drawer .staff-form__grid select,
+.dish-drawer .staff-form__grid .orders-filter-select__trigger,
+.dish-drawer .cashier-photo {
+  border-color: rgba(15, 35, 60, 0.24);
+}
+
+/* Restore в архивном режиме: OWNER-бирюза, не красный. Геометрия — как у
+   соседних экшен-кнопок строки, таблицу не раздвигает. */
+.dish-catalog-page.owner-report-view .dish-row-actions .dish-restore-action {
+  border-color: rgba(31, 201, 201, .45);
+  color: #0f9f98;
+}
+
+.dish-catalog-page.owner-report-view .dish-row-actions .dish-restore-action:hover:not(:disabled) {
+  background: rgba(31, 201, 201, .08);
+  border-color: rgba(31, 201, 201, .65);
+  color: #0c7f79;
+}
+
+/* Dish archive confirm polish (dishes scope only — categories modal
+   untouched, it has no .dish-confirm-layer): compact header block closer to
+   the accent, slightly larger header texts, outlined destructive action
+   with a soft hover. No glow/halo/movement. */
+.dish-confirm-layer .settings-form__header {
+  gap: 7px;
+}
+
+/* V2.3 — текстовый блок прижат к акценту: space-between растаскивал среднюю
+   колонку от линии; flex:1 заставляет текст начинаться сразу за gap, а X
+   остаётся прибит вправо. */
+.dish-confirm-layer .settings-form__header > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dish-confirm-layer .settings-form__header p {
+  font-size: 13px;
+}
+
+.dish-confirm-layer .settings-form__header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.dish-confirm-layer .settings-form__footer button {
+  border-radius: 22px;
+  min-height: 43px;
+}
+
+.dish-confirm-layer .settings-form__footer button.dishcat-confirm__delete[type="submit"] {
+  background: #FFFFFF;
+  border-color: #EF4444;
+  color: #EF4444;
+  box-shadow: none;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.dish-confirm-layer .settings-form__footer button.dishcat-confirm__delete[type="submit"]:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: #EF4444;
+  color: #EF4444;
+  box-shadow: none;
+  transform: none;
 }
 
 .dish-catalog-page.owner-report-view .dishes-filter-toggle:hover,
@@ -2433,15 +2897,25 @@
   border-radius: 22px;
 }
 
+/* Фильтры моментальные: осталась одна кнопка Очистить — на всю ширину. */
+.dish-catalog-page.owner-report-view .dish-filter-actions > button:only-child {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
 /* V19 — кастомный dropdown семьи orders-filter-select (тот же reports-паттерн):
-   скоуп — каталог блюд И портированный дровер (:is), т.к. дровер портирован
-   в body и вне .dish-catalog-page (иначе селекты голые: нативный вид/буллеты).
+   скоуп — каталог блюд И портированный дровер И диалог рецептов (:is), т.к.
+   дровер и диалоги портированы в body и вне .dish-catalog-page (иначе селекты
+   голые: нативный вид/буллеты).
+   FIX: панель/опции/close-анимация тоже покрывают .dish-recipes-dialog —
+   иначе список в диалоге голый и НЕ закрывается (нет panel-out анимации,
+   onAnimationEnd не стреляет, панель висит в is-closing).
    reports.css не полнится dish-селекторами, react-overrides не тронут. */
-:is(.dish-catalog-page, .dish-drawer) .orders-filter-select {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select {
   position: relative;
   display: block;
 }
-:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__trigger {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__trigger {
   width: 100%;
   min-height: 43px;
   display: inline-flex;
@@ -2462,43 +2936,43 @@
   cursor: pointer;
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
-:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__trigger.is-placeholder {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__trigger.is-placeholder {
   color: var(--neutral-400, #7a94b4);
 }
-:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__trigger:hover:not(:disabled) {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__trigger:hover:not(:disabled) {
   border-color: rgba(31, 201, 201, 0.55);
 }
-:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__trigger:focus-visible,
-:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__trigger[aria-expanded="true"] {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__trigger:focus-visible,
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__trigger[aria-expanded="true"] {
   border-color: var(--owner-accent, #1fc9c9);
   box-shadow: 0 0 0 3px rgba(31, 201, 201, 0.18);
   outline: none;
 }
-:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__trigger:disabled {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__trigger:disabled {
   cursor: not-allowed;
   border-color: rgba(15, 35, 60, 0.11);
   background: var(--owner-control-disabled, #eff2f9);
   color: var(--neutral-500, #64748b);
 }
-:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__value {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__value {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__chevron {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__chevron {
   display: inline-grid;
   place-items: center;
   color: var(--neutral-500, #94a3b8);
   flex: 0 0 auto;
   transition: transform 170ms cubic-bezier(0.22, 1, 0.36, 1), color 140ms ease;
 }
-:is(.dish-catalog-page, .dish-drawer) .orders-filter-select.is-open .orders-filter-select__chevron {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select.is-open .orders-filter-select__chevron {
   transform: rotate(180deg);
   color: var(--owner-accent, #1fc9c9);
 }
-:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__panel {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__panel {
   position: absolute;
   z-index: 60;
   top: calc(100% + 6px);
@@ -2513,11 +2987,11 @@
   transform-origin: top center;
   animation: owner-report-panel-in 170ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__panel.is-closing {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__panel.is-closing {
   pointer-events: none;
   animation: owner-report-panel-out 170ms cubic-bezier(0.64, 0, 0.78, 0) both;
 }
-:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__panel .orders-filter-select__menu {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__panel .orders-filter-select__menu {
   position: static;
   z-index: auto;
   max-height: 232px;
@@ -2531,7 +3005,7 @@
   box-shadow: none;
   animation: none;
 }
-:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__option {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__option {
   width: 100%;
   min-height: 38px;
   display: flex;
@@ -2549,26 +3023,40 @@
   text-align: left;
   cursor: pointer;
 }
-:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__option:hover,
-:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__option.is-active {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__option:hover,
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__option.is-active {
   background: rgba(31, 201, 201, 0.1);
 }
-:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__option.is-selected {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__option.is-selected {
   color: var(--owner-accent-hover, #1bb1b1);
 }
-:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__option:focus-visible {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__option:focus-visible {
   outline: 2px solid rgba(31, 201, 201, 0.5);
   outline-offset: -2px;
 }
-:is(.dish-catalog-page, .dish-drawer) .orders-filter-select__option-label {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__option-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 @media (prefers-reduced-motion: reduce) {
-  :is(.dish-catalog-page, .dish-drawer) .orders-filter-select__panel {
+  :is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__panel {
     animation-duration: 0.01ms;
   }
+}
+
+/* Откреплённая панель DishSingleSelect — только внутри .dish-recipes-dialog:
+   окно диалога несёт вечный motion-transform + overflow, inline-панель режется.
+   Панель остаётся в DOM (scoped-стили действуют), но уходит из потока формы:
+   fixed от окна диалога (containing block), top/left/width — inline. */
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__panel.is-detached {
+  position: fixed;
+  right: auto;
+  z-index: 60;
+}
+/* Откреплённое меню: видны ~9 позиций (9×38+12), дальше — скролл. */
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__panel.is-detached .orders-filter-select__menu {
+  max-height: min(354px, calc(100dvh - 48px));
 }
 
 /* V7-архитектура пустого состояния: внешняя обёртка — ВИДИМЫЙ бокс (не
@@ -2578,8 +3066,11 @@
    scrollLeft. Горизонтальный скролл и колонки сохраняются. */
 .dish-catalog-page.owner-report-view .dish-grid-wrap {
   position: relative;
-  flex: none;
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
   min-width: 0;
+  min-height: 0;
   max-width: 100%;
   height: auto;
   max-height: none;
@@ -2591,31 +3082,52 @@
      «странный паддинг внутри» и лишний отступ по краям против других страниц.
      Возвращаем auto: таблица прилегает заподлицо, как у отчётов/настроек. */
   scrollbar-gutter: auto;
-  border: 1px solid rgba(218, 228, 239, 0.95);
+  border: 1px solid var(--neutral-200, #e2e8f0);
   border-radius: 20px;
   background: #fff;
 }
 
-/* Внутренний скролл-контейнер: единственный носитель горизонтальной прокрутки
-   (поведение .settings-table-wrapper + тонкий OWNER-скроллбар). */
+/* Both axes scroll here, inside the stationary rounded border. Hide only
+   scrollbar paint, not native wheel/touch/keyboard scrolling. */
 .dish-catalog-page.owner-report-view .dish-grid-scroll {
+  flex: 0 1 auto;
   width: 100%;
   min-width: 0;
+  min-height: 0;
   max-width: 100%;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-gutter: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(31, 201, 201, 0.55) rgba(226, 232, 240, 0.8);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-/* V12 — компактное пустое состояние как у Settings-шаблона (360px пол
-   удалён: он давал огромный белый холст и растянутую карточку). Пол —
-   страховочные 240px, реальную высоту даёт контент: шапка 48 + PNG 120 +
-   подпись + компактные отступы ≈ 270px. Для заполненной таблицы min-height
-   нет вообще (контент-driven). Без vh/dvh/100%/flex:1. */
+.dish-catalog-page.owner-report-view .dish-grid-scroll:focus-visible {
+  outline: none;
+}
+
+/* The rounded outer wrapper owns the keyboard ring as well as clipping. */
+.dish-catalog-page.owner-report-view .dish-grid-wrap:has(> .dish-grid-scroll:focus-visible) {
+  outline: 2px solid var(--owner-accent, #1fc9c9);
+  outline-offset: -2px;
+}
+
+/* Scroll alignment only: no extra painted row after the last real record. */
+.dish-catalog-page.owner-report-view .dish-grid-wrap:not(.is-empty) .dish-grid-scroll {
+  padding-bottom: 0;
+  scroll-padding-bottom: 8px;
+}
+
+/* Zero records keep the deliberate compact overlay, not a viewport filler. */
+.dish-catalog-page.owner-report-view .dish-grid-wrap.is-empty {
+  flex-basis: 270px;
+  height: 270px;
+}
+
 .dish-catalog-page.owner-report-view .dish-grid-wrap.is-empty .dish-grid-scroll {
-  min-height: 240px;
+  flex: 1 1 0%;
+  min-height: 0;
 }
 
 /* Оверлей пустого состояния: центрируется в ВИДИМОЙ обёртке, не трогает
@@ -2642,53 +3154,35 @@
 }
 
 .dish-catalog-page.owner-report-view .dish-grid-scroll::-webkit-scrollbar {
-  height: 10px;
-}
-.dish-catalog-page.owner-report-view .dish-grid-scroll::-webkit-scrollbar-track {
-  border-radius: 999px;
-  background: rgba(226, 232, 240, 0.8);
-}
-.dish-catalog-page.owner-report-view .dish-grid-scroll::-webkit-scrollbar-thumb {
-  border: 2px solid rgba(226, 232, 240, 0.8);
-  border-radius: 999px;
-  background: rgba(31, 201, 201, 0.55);
-}
-.dish-catalog-page.owner-report-view .dish-grid-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(31, 201, 201, 0.78);
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .dish-catalog-page.owner-report-view .dish-grid-table {
   width: 100%;
+  height: auto;
+  min-height: 0;
   min-width: var(--dish-grid-min-width, 1660px);
   table-layout: fixed;
 }
 
-/* Липкая шапка для длинных списков (структура; визуал — из foundation). */
+/* V30: Recipes header skin; keep the existing sticky header geometry. */
 .dish-catalog-page.owner-report-view .dish-grid-table thead th {
   position: sticky;
   top: 0;
   z-index: 1;
+  background: var(--blue-50, #eff6ff);
 }
 
-/* V8 — TH/TD визуалом владеет общий примитив (.settings-table + выигрышный
-   generic `table thead th` из marjon-important: фон --neutral-50 #f4f7fc,
-   текст --neutral-500 #536d8e, 12/500 uppercase, паддинги 15px 16px,
-   скругления 20px, разделитель border-top). Dishes здесь НЕ дублирует
-   фон/цвет/типографику/радиусы/границы — только структура: sticky,
-   широкий min-width и nowrap колонок. Legacy dish-правила TH/TD/радиусов
-   удалены из react-overrides хирургически (см. отчёт), поэтому shared
-   выигрывает для обеих страниц 1-в-1. */
-
-/* V7: строка каталога блюд НЕ меняет фон при наведении (решение продукта).
-   Гасим и базовый .settings-table tbody tr:hover (neutral-50), и legacy
-   --dish-row-hover из react-overrides — фон строки/ячейки на hover равен
-   обычному состоянию. Скоуп только Dishes; Settings/Reports не трогаем.
-   Интерактивные контролы внутри строки сохраняют свои собственные hover. */
+/* V30: use the live Recipes row hover (neutral-50, no transition).
+   Transparent cells expose the row tint; controls keep their own states.
+   Typography, padding and column geometry still use the existing foundation. */
 .dish-catalog-page.owner-report-view .dish-grid-table tbody tr:hover {
-  background: transparent;
+  background: var(--neutral-50, #f4f7fc);
 }
 .dish-catalog-page.owner-report-view .dish-grid-table tbody tr:hover td {
-  background: var(--dish-cell-bg, #ffffff);
+  background: transparent;
 }
 
 /* V9 — нормальная OWNER-оболочка прежде всего. Page-контекст
@@ -2713,6 +3207,23 @@
   .dashboard-content:has(.dish-catalog-page) {
     padding-top: 14px;
   }
+  /* V2: reduce the desktop footer inset; keep mobile navigation reserves. */
+  .dashboard-content:has(.dish-catalog-page.owner-report-view) {
+    padding-bottom: 12px;
+  }
+  /* Dock below the last row's controls, away from the Actions column. */
+  body.dashboard-body:has(.dish-catalog-page.owner-report-view) .support-widget {
+    right: 24px;
+    bottom: 24px;
+  }
+}
+
+@media (max-width: 1024px) {
+  /* Existing 54px bottom navigation stays reserved by the app shell. */
+  body.dashboard-body:has(.dish-catalog-page.owner-report-view) .support-widget {
+    right: 24px;
+    bottom: 70px;
+  }
 }
 
 @media (max-width: 1024px) {
@@ -2728,7 +3239,7 @@
 
 @media (max-width: 600px) {
   .dish-catalog-page.owner-report-view .dish-catalog-card {
-    padding: 16px;
+    padding: 16px 16px 12px;
     border-radius: 14px;
   }
 
@@ -2763,6 +3274,17 @@
   .dish-catalog-page.owner-report-view .dish-filter-collapse,
   .dish-catalog-page.owner-report-view .dish-filter-collapse.is-open .orders-filter-collapse__inner {
     transition: none;
+  }
+  /* V26 — тумблеры: без ripple и press, функциональность та же. */
+  .dish-catalog-page .dish-grid-table .dish-toggle,
+  .dish-catalog-page .dish-grid-table .dish-toggle span {
+    transition: none;
+  }
+  .dish-catalog-page .dish-grid-table .dish-toggle:active {
+    transform: none;
+  }
+  .dish-catalog-page .dish-grid-table .dish-toggle.is-rippling::after {
+    animation: none;
   }
 }
 
@@ -2995,6 +3517,11 @@
   font-weight: 600;
 }
 
+.dish-catalog-page .dish-catalog-header .settings-title-group p {
+  position: relative;
+  top: 8px;
+}
+
 .dish-catalog-page .dish-catalog-header {
   margin-bottom: 12px;
 }
@@ -3033,17 +3560,18 @@
   padding-top: 8px;
   padding-bottom: 8px;
   vertical-align: middle;
+  border-top-color: var(--neutral-200, #e2e8f0);
 }
 
 .dish-catalog-page .dish-grid-table .dish-name-text {
   display: block;
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
   color: var(--neutral-900);
   font-size: 14px;
   font-weight: 600;
+  text-align: center;
+  overflow-wrap: break-word;
 }
 
 .dish-catalog-page .dish-grid-table .dish-money-cell {
@@ -3086,52 +3614,850 @@
   color: #94a3b8;
 }
 
-/* V23 — полноширинная таблица как у остальных OWNER-таблиц. Корень проблемы:
-   shrink-wrap правило таблицы перебивало width:100% (выше специфичность),
-   таблица жалась к intrinsic ширине и не доходила до правого края карточки.
-   Теперь: wrap/scroll/table = 100%, safe min-width держит узкие экраны
-   с внутренним скроллом. Колонки: фиксированный fixed-расклад V22,
-   Название — единственная auto-колонка и забирает всю гибкую ширину, Принтер
-   получает комфортную долю, утилиты компактны, Действия фиксированы у правого
-   края. Селекторы (0,5,0)+body бьют stale 15-колоночные ширины без правок
-   react-overrides. thead/tbody — одна таблица, дрейфа нет. */
+/* V25 — бейдж Рецептов: тот же компактный язык, что у остатка.
+   V26: заменён на icon+text ссылку (.dish-recipe-link ниже); старое
+   бейдж-правило удалено, чтобы не плодить дубли визуала. */
+.dish-catalog-page .dish-grid-table .dish-recipe-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  cursor: pointer;
+}
+
+.dish-catalog-page .dish-grid-table .dish-recipe-link:focus {
+  outline: none;
+}
+
+/* Возврат фокуса на кнопку после закрытия диалога — без рамки и без линии. */
+.dish-catalog-page .dish-grid-table .dish-recipe-link:focus-visible {
+  outline: none;
+  text-decoration: none;
+}
+
+/* Есть состав: фирменный интерактивный синий MARJON. */
+.dish-catalog-page .dish-grid-table .dish-recipe-icon {
+  width: 23px;
+  height: 23px;
+  flex: 0 0 23px;
+  background-color: currentColor;
+  mask-mode: alpha;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-position: center;
+  mask-size: contain;
+  -webkit-mask-size: contain;
+}
+
+.dish-catalog-page .dish-grid-table .dish-recipe-link.is-filled {
+  color: var(--color-interactive, #2563eb);
+}
+
+/* Нет рецепта: обычный нейтрально-чёрный текст, без "-" и без фейка. */
+.dish-catalog-page .dish-grid-table .dish-recipe-link.is-empty {
+  color: var(--neutral-900, #0f172a);
+}
+
+/* Иконка сета крупнее книжки рецептов. */
+.dish-catalog-page .dish-grid-table .dish-set-icon {
+  width: 28px;
+  height: 28px;
+  flex-basis: 28px;
+}
+
+/* Сет вместо рецепта: та же типографика, иконка слева как у Рецептов,
+   не кликабельно (состава у сета нет). */
+.dish-catalog-page .dish-grid-table .dish-set-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--neutral-900, #0f172a);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* V24 — точный порядок СОРТ→ФОТО→НАЗВАНИЕ→ЕД.ИЗМ→СЕБЕСТ→ЦЕНА→ПРИНТЕР→
+   ОСТАТОК→АВТО→СЕТ→ДЕЙСТВИЯ. Корень мёртвой зоны V22/V23: Название была
+   единственной auto-колонкой и забирала всю гибкую ширину
+   fixed-расклада — отсюда гигантский разрыв до Ед.изм. Теперь Название
+   фиксировано 220 (flexible, но не oversized): внутренняя пустота убрана,
+   header/body — одна fixed-геометрия, thead/tbody дрейфа нет. Принтер 170 —
+   medium под 2 строки. Селекторы (0,5,0)+body бьют stale ширины без правок
+   react-overrides и без priority-хаков.
+   V25: ОСТАТОК→РЕЦЕПТЫ (120, под "Рецепт (12 шт)"), Название 230.
+   Сумма 1204 — та же fixed-геометрия, table width 100% тянется ровно,
+   без "съезжания влево" и межколоночных пустот.
+   V26: средние ЕД.ИЗМ/СЕБЕСТ/ЦЕНА/ПРИНТЕР — width:auto: остаток ширины
+   делится между ними, центр растягивается, бока фиксированы.
+   V27: ФОТО 72, НАЗВАНИЕ 190; ВЕСЬ контент ячеек строго по центру
+   заголовков; троеточия удалены везде в таблице (перенос вместо
+   обрезки); сумма минимумов 1172. */
+/* V27 — все 11 заголовков строго по центру (бьёт legacy th:left из
+   react-overrides за счёт специфичности, без правок чужих файлов). */
+body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table th {
+  text-align: center;
+}
+
+/* V27-fix — точки после тумблеров: контент-бокс td (64px минус паддинги)
+   уже 36px-кнопки, и legacy td-правило overflow:hidden + text-overflow
+   рисовало "..." даже без текста. Переполнение в этой таблице
+   обрабатывается построчно (перенос вместо обрезки), поэтому ящик td
+   открыт, а точки запрещены. Побеждает специфичностью, хаков нет. */
+body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table td {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-sort {
+  width: 56px;
+  text-align: center;
+}
+
 body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-photo {
   width: 72px;
+  text-align: center;
 }
 
+/* Compact name column moves its shared header/content center left.
+   Long names still wrap without ellipsis. */
 body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-name {
-  width: auto;
+  width: 110px;
+  text-align: center;
 }
 
+/* Центральные 5 колонок, включая Рецепты, — гибкие (width:auto): в fixed-раскладе
+   table width:100% остаток ширины делится поровну между auto-колонками,
+   поэтому ЕД.ИЗМ/СЕБЕСТ/ЦЕНА/ПРИНТЕР растягиваются по средней зоне вместо
+   кластера с пустотами. Боковые колонки остаются фиксированными.
+   th/td — одна таблица и одна геометрия, хаков отступов нет. */
 body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-unit {
-  width: 94px;
+  width: auto;
+  text-align: center;
 }
 
-body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-cost {
-  width: 136px;
-}
-
+/* V27 — деньги тоже строго по центру под заголовком (было right).
+   tabular-nums сохраняют ровные цифры. */
+body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-cost,
 body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-price {
-  width: 136px;
+  width: auto;
+  text-align: center;
 }
 
+/* V27 — принтер центрирован целым двухстрочным блоком (inline-grid выше),
+   имя и IP делят один центр X. */
 body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-printer {
-  width: 154px;
+  width: auto;
+  text-align: center;
 }
 
-body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-stock {
-  width: 88px;
+body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-recipe {
+  width: auto;
+  text-align: center;
 }
 
 body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-auto,
 body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-set {
-  width: 72px;
-}
-
-body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-sort {
-  width: 72px;
+  width: 64px;
+  text-align: center;
 }
 
 body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-actions {
-  width: 90px;
+  width: 96px;
+  text-align: center;
+}
+
+/* V24 — принтер двумя строками: имя + IP. Без склеивания в одну строку,
+   без UUID, без объект-сериализации. Пусто → muted "-". */
+.dish-catalog-page .dish-grid-table .dish-printer-lines {
+  display: inline-grid;
+  justify-items: center;
+  gap: 1px;
+  min-width: 0;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.dish-catalog-page .dish-grid-table .dish-printer-name {
+  overflow: visible;
+  color: var(--neutral-800);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  overflow-wrap: break-word;
+}
+
+.dish-catalog-page .dish-grid-table .dish-printer-ip {
+  max-width: 100%;
+  overflow: visible;
+  color: var(--neutral-500, #64748b);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.dish-catalog-page .dish-grid-table .dish-printer-empty {
+  color: #94a3b8;
+  font-weight: 800;
+}
+
+/* V24 — тумблер в ожидании PATCH: честный disabled без fake-состояния.
+   V26: курсор ожидания убран (пользователь видел "думающий" курсор) —
+   pending показывает только лёгкое приглушение, курсор обычный.
+   Защита от дублей — mutation-замком и disabled, курсор тут ни при чём. */
+.dish-catalog-page .dish-grid-table .dish-toggle:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+/* Recipes V1: existing OWNER dialog/motion, controls and table foundation.
+   All recipe business actions are intentionally disabled. */
+body.dashboard-body .dish-recipes-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(1120px, 100%);
+  max-height: calc(100dvh - 48px);
+  min-width: 0;
+  padding: 0;
+  /* Visible осознанно: откреплённая панель дропдауна (fixed от окна) должна
+     выходить за пределы диалога, а не резаться его краем. Углы держит белая
+     карточка .kpi-info-window + собственный overflow table-wrap; высокий
+     контент скроллится телом .dish-recipes-body. */
+   overflow: visible;
+}
+/* Сет: 8 полей формы (Тип/Категория/Товар/Кол-во/Цена/Сумма/кнопки) —
+   панели шире, чтобы всё помещалось без тесноты. */
+body.dashboard-body .dish-set-dialog {
+  width: min(1360px, 100%);
+}
+/* Сет: в шапке три метрики — Цена продажи левее, Себестоимость вместо неё.
+   Метрики жмутся влево к заголовку (1fr-распорка справа), значения не
+   переносятся и держат ширину — шапка не прыгает при подгрузке сумм. */
+/* body-префикс: равная специфичность с базовым правилом, побеждаем порядком+весом. */
+body.dashboard-body .dish-set-dialog .dish-recipes-head { grid-template-columns: 38px auto repeat(3, minmax(120px, 170px)) 1fr 38px; }
+.dish-set-dialog .dish-recipes-head > div { grid-column: 1 / 3; }
+body.dashboard-body .dish-set-dialog .dish-set-metric--sale { grid-column: 3; }
+body.dashboard-body .dish-set-dialog .dish-set-metric--cost { grid-column: 4; }
+body.dashboard-body .dish-set-dialog .dish-set-metric--total { grid-column: 5; }
+body.dashboard-body .dish-set-dialog .dish-recipes-head > .kpi-info-window__close { grid-column: 7; }
+.dish-set-dialog .dish-recipes-metric dd { white-space: nowrap; min-width: 11ch; }
+/* Рецепты: метрики левее к заголовку, фото между ценой и крестиком. */
+body.dashboard-body .dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-head {
+  grid-template-columns: 38px auto repeat(2, minmax(120px, 170px)) auto 1fr 38px;
+}
+body.dashboard-body .dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-head > div { grid-column: 1 / 3; }
+body.dashboard-body .dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-head > .kpi-info-window__close { grid-column: 7; }
+
+.dish-recipes-dialog .dish-recipes-head {
+  /* Matching 38px end tracks keep cost at the true header centre;
+     the title spans the left end track without an extra visible block. */
+  grid-template-columns: 38px repeat(3, minmax(0, 1fr)) 38px;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--neutral-200, #e2e8f0);
+}
+
+.dish-recipes-head > div { grid-column: 1 / 3; }
+.dish-recipes-dialog .dish-recipes-head > .dish-recipes-metric--cost { grid-column: 3; }
+.dish-recipes-dialog .dish-recipes-head > .dish-recipes-metric--price { grid-column: 4; }
+.dish-recipes-head > .kpi-info-window__close { grid-column: 5; }
+
+.dish-recipes-head h2 { margin: 0; }
+.dish-recipes-head p {
+  margin: 6px 0 0;
+  color: var(--neutral-500, #64748b);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.dish-recipes-body {
+  min-height: 0;
+  padding: 16px 24px 20px;
+  overflow: auto;
+}
+.dish-recipes-body:focus-visible {
+  outline: 2px solid var(--owner-accent, #1fc9c9);
+  outline-offset: -2px;
+}
+
+.dish-recipes-metric {
+  min-width: 0;
+  margin: 0;
+  text-align: center;
+}
+
+.dish-recipes-metric dt,
+.dish-recipes-field-label {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--neutral-600, #475569);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dish-recipes-metric dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.dish-recipes-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr) 90px auto;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+/* Сет: 8 полей (тип/категория/товар/кол-во/цена/сумма/добавить/очистить). */
+.dish-recipes-add-row.dish-set-add-row {
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 0.9fr) minmax(0, 1.3fr) minmax(0, 0.6fr) minmax(0, 0.8fr) minmax(0, 0.9fr) auto auto;
+}
+.dish-set-sum {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 43px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid rgba(15, 35, 60, 0.11);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--neutral-900, #0b1f3f);
+  font-size: 13px;
+  font-weight: 600;
+}
+/* Сет: поля чуть темнее рамкой (только активные; disabled — как у всех). */
+.dish-set-dialog .dish-recipes-field input:not(:disabled),
+.dish-set-dialog .orders-filter-select__trigger:not(:disabled),
+.dish-set-dialog input.dish-set-sum:not(:disabled) {
+  border-color: rgba(15, 35, 60, 0.28);
+}
+.dish-set-dialog input.dish-set-sum:disabled {
+  background: var(--owner-control-disabled, #eff2f9);
+  color: var(--neutral-500, #64748b);
+}
+.dish-recipes-dialog .dish-recipes-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 43px;
+  padding: 0 20px;
+  border: 1px solid rgba(239, 68, 68, .35);
+  border-radius: 22px;
+  background: #fff;
+  color: #dc2626;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.dish-recipes-dialog .dish-recipes-clear:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dish-recipes-field { min-width: 0; }
+.dish-recipes-field input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 43px;
+  padding: 0 12px;
+  border: 1px solid rgba(15, 35, 60, 0.14);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--neutral-950, #071428);
+  font: inherit;
+  font-size: 13px;
+  cursor: text;
+}
+.dish-recipes-field input::placeholder {
+  color: var(--neutral-400, #7a94b4);
+}
+.dish-recipes-field input:disabled {
+  border-color: rgba(15, 35, 60, 0.11);
+  background: var(--owner-control-disabled, #eff2f9);
+  color: var(--neutral-500, #64748b);
+  cursor: not-allowed;
+}
+/* Фокус — как у триггеров селектов (teal вместо чёрного outline). */
+.dish-recipes-field input:focus,
+.dish-recipes-field input:focus-visible {
+  border-color: var(--owner-accent, #1fc9c9);
+  box-shadow: 0 0 0 3px rgba(31, 201, 201, 0.18);
+  outline: none;
+}
+/* Суффикс ед.изм в конце поля Кол-во (показатель справа внутри инпута). */
+.dish-recipes-qty-wrap {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+.dish-recipes-qty-wrap input {
+  padding-right: 52px;
+}
+.dish-recipes-qty-unit {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--neutral-500, #64748b);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.dish-recipes-dialog .dish-add-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 43px;
+  padding: 0 20px;
+  border: 1px solid var(--owner-accent, #1fc9c9);
+  border-radius: 22px;
+  background: var(--owner-accent, #1fc9c9);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background-color 170ms ease, box-shadow 170ms ease;
+}
+
+.dish-recipes-dialog .dish-add-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.dish-recipes-dialog .dish-add-button:hover:not(:disabled),
+.dish-recipes-dialog .dish-add-button:focus-visible {
+  background: var(--owner-accent-hover, #1bb1b1);
+  box-shadow: 0 0 0 3px rgba(31, 201, 201, 0.13);
+}
+
+.dish-recipes-dialog .dish-recipes-table-wrap {
+  margin: 0;
+  padding: 0;
+  container-type: inline-size;
+  border: 1px solid var(--neutral-200, #e2e8f0);
+  border-radius: 20px;
+  overflow: hidden;
+}
+.dish-recipes-table-scroll { overflow-x: auto; }
+/* Сет: таблица жмётся к строкам; много строк — внутренний скролл с липкой
+   шапкой вместо роста диалога; пустая/короткая — без крутилки. */
+.dish-set-dialog .dish-recipes-table-scroll {
+  max-height: min(42dvh, 380px);
+  overflow-y: auto;
+}
+.dish-set-dialog .dish-recipes-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+/* Фото блюда в шапке диалога (Сет — в пустой зоне справа от суммы). */
+.dish-set-dialog .dish-head-photo { grid-column: 6; justify-self: start; align-self: center; }
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-head-photo {
+  grid-column: 5; justify-self: start; align-self: center;
+}
+.dish-head-photo {
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: 1px solid rgba(15, 35, 60, 0.14);
+  border-radius: 14px;
+  background: #f4f7fc;
+  color: #94a3b8;
+  overflow: hidden;
+  cursor: zoom-in;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.dish-head-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Центр-панель правки строки (карандаш таблицы): сет — кол-во + сумма,
+   рецепты — только кол-во. */
+.dish-edit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(11, 31, 63, 0.45);
+}
+/* В диалогах тени живут строго в границах окна (не шире панели). */
+.dish-recipes-dialog { position: relative; }
+.dish-photo-viewer-layer--boxed,
+.dish-edit-overlay--boxed {
+  position: absolute;
+  border-radius: 26px;
+  overflow: hidden;
+}
+.dish-edit-card {
+  width: min(420px, 100%);
+  background: #fff;
+  border-radius: 20px;
+  padding: 20px 20px 16px;
+  box-shadow: 0 36px 100px rgba(2, 8, 23, 0.35);
+}
+.dish-edit-card h3 { margin: 0 0 4px; font-size: 16px; }
+.dish-edit-card p { margin: 0 0 12px; color: var(--neutral-500, #64748b); font-size: 13px; }
+.dish-edit-card .dish-recipes-field { margin-bottom: 10px; }
+.dish-edit-actions { display: flex; gap: 10px; margin-top: 14px; }
+.dish-edit-actions .dish-add-button { flex: 1; }
+.dish-edit-actions .dish-recipes-clear { flex: 1; }
+/* Панель правки: появление/уход с анимацией, как у просмотра фото. */
+.dish-edit-overlay { animation: dish-edit-layer-in 180ms ease-out; }
+.dish-edit-overlay.is-closing { animation: dish-edit-layer-out 160ms ease-in both; }
+.dish-edit-overlay .dish-edit-card { animation: dish-edit-card-in 200ms cubic-bezier(0.2, 0.7, 0.2, 1); }
+.dish-edit-overlay.is-closing .dish-edit-card { animation: dish-edit-card-out 160ms ease-in both; }
+/* Вложенная панель в диалогах: задняя панель лишь чуть темнеет
+   (лёгкая дымка), у карточки — усиленная собственная тень. */
+.dish-edit-overlay--boxed {
+  background: rgba(11, 31, 63, 0.18);
+}
+@keyframes dish-edit-layer-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes dish-edit-layer-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes dish-edit-card-in {
+  from { opacity: 0; transform: scale(0.92) translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes dish-edit-card-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: scale(0.94); }
+}
+.dish-recipes-dialog .dish-recipes-table {
+  width: 100%;
+  min-width: 760px;
+  margin: 0;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.dish-recipes-dialog .dish-recipes-table th {
+  padding: 15px 16px;
+  border: 0;
+  background: var(--blue-50, #f4f7fc);
+  color: var(--neutral-500, #64748b);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  text-align: center;
+}
+.dish-recipes-dialog .dish-recipes-table td {
+  padding: 15px 16px;
+  border-top: 1px solid var(--neutral-200, #e2e8f0);
+  color: var(--neutral-900, #0f172a);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.dish-recipes-dialog .dish-recipes-table .dish-recipes-empty-cell { padding: 24px; }
+/* Сет: заголовки столбцов чёрные; пустая таблица ниже по высоте. */
+.dish-set-dialog .dish-recipes-table th {
+  color: var(--neutral-900, #0f172a);
+}
+.dish-set-dialog .dish-recipes-table .dish-recipes-empty-cell { padding: 12px 16px; }
+/* Сет: скелетон строк в точной геометрии данных (padding 15px 16px, как td
+   состава, полоса высотой с текстовую строку) — подмена скелетона строками
+   не меняет высоту таблицы и не дёргает диалог в enter-анимации. */
+.dish-set-dialog .dish-recipes-table td.dish-set-skeleton-cell {
+  padding: 15px 16px;
+}
+.dish-set-skeleton-bar {
+  display: block;
+  height: 20px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--neutral-100, #f1f5f9) 25%, var(--neutral-200, #e2e8f0) 50%, var(--neutral-100, #f1f5f9) 75%);
+  background-size: 200% 100%;
+  animation: dish-set-skeleton-shimmer 1200ms ease-in-out infinite;
+}
+/* Призрак пустого состояния: та же рамка (12px + 16px/20px), что у компактной
+   иллюстрации, картинка 120×100 и полоса заголовка — суммарно ~178px, как ряд
+   с «Состав сета пока пуст». */
+.dish-set-dialog .dish-recipes-table td.dish-set-skeleton-cell--empty {
+  padding: 12px 16px;
+}
+.dish-set-skeleton-empty {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 2px;
+  padding: 16px 20px;
+}
+.dish-set-skeleton-empty__image {
+  width: 120px;
+  height: 100px;
+  border-radius: 24px;
+  background: linear-gradient(90deg, var(--neutral-100, #f1f5f9) 25%, var(--neutral-200, #e2e8f0) 50%, var(--neutral-100, #f1f5f9) 75%);
+  background-size: 200% 100%;
+  animation: dish-set-skeleton-shimmer 1200ms ease-in-out infinite;
+}
+.dish-set-skeleton-bar--title {
+  width: 200px;
+}
+@keyframes dish-set-skeleton-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dish-set-skeleton-bar { animation: none; }
+  .dish-set-skeleton-empty__image { animation: none; }
+}
+/* Сет: пустое состояние компактное (иначе 270px-иллюстрация даёт крутилку). */
+.dish-set-dialog .dish-recipes-table .owner-report-empty--illustrated {
+  min-height: 0;
+  padding: 16px 20px;
+  transform: none;
+}
+.dish-set-dialog .dish-recipes-table .owner-report-empty--illustrated .owner-report-empty-image {
+  width: 120px;
+  margin-bottom: -20px;
+}
+.dish-recipes-dialog .dish-recipes-empty-cell .owner-report-empty {
+  position: sticky;
+  left: 24px;
+  max-width: calc(100cqw - 48px);
+}
+.dish-recipes-dialog .dish-row-actions { justify-content: center; }
+.dish-recipes-dialog .dish-row-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+@media (max-width: 900px) {
+  .dish-recipes-add-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dish-recipes-field--product { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) {
+  body.dashboard-body .dish-recipes-backdrop { padding: 12px; }
+  body.dashboard-body .dish-recipes-dialog { max-height: calc(100dvh - 24px); }
+  .dish-recipes-dialog .dish-recipes-head,
+  .dish-recipes-body { padding: 16px; }
+  .dish-recipes-dialog .dish-recipes-head { grid-template-columns: repeat(2, minmax(0, 1fr)) 38px; gap: 12px; }
+  .dish-recipes-head > div { grid-column: 1 / 3; grid-row: 1; }
+  .dish-recipes-head > .kpi-info-window__close { grid-column: 3; grid-row: 1; }
+  .dish-recipes-dialog .dish-recipes-head > .dish-recipes-metric--cost { grid-column: 1; grid-row: 2; }
+  .dish-recipes-dialog .dish-recipes-head > .dish-recipes-metric--price { grid-column: 2; grid-row: 2; }
+  .dish-set-dialog .dish-recipes-head { grid-template-columns: repeat(2, minmax(0, 1fr)) 38px; }
+  .dish-set-dialog .dish-set-metric--sale { grid-column: 1; grid-row: 2; }
+  .dish-set-dialog .dish-set-metric--cost { grid-column: 2; grid-row: 2; }
+  .dish-set-dialog .dish-set-metric--total { grid-column: 1 / 3; grid-row: 3; }
+  .dish-set-dialog .dish-head-photo { grid-column: 1 / 3; grid-row: 4; justify-self: center; }
+  .dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-head { grid-template-columns: repeat(2, minmax(0, 1fr)) 38px; }
+  .dish-recipes-dialog:not(.dish-set-dialog) .dish-head-photo { grid-column: 1 / 3; grid-row: 3; justify-self: center; }
+  .dish-recipes-add-row { grid-template-columns: minmax(0, 1fr); }
+  .dish-recipes-field--product { grid-column: auto; }
+}
+
+/* Удаление фото в drawer блюда: корзина видна при ховере по фото. */
+.dish-drawer .staff-avatar--large {
+  position: relative;
+}
+.dish-drawer-photo-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  border-radius: 10px;
+  background: #fff;
+  color: #dc2626;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(15, 35, 60, 0.18);
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+.dish-drawer .staff-avatar--large:hover .dish-drawer-photo-delete,
+.dish-drawer .staff-avatar--large:focus-within .dish-drawer-photo-delete,
+.dish-drawer-photo-delete:focus-visible {
+  opacity: 1;
+}
+.dish-photo-confirm {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 16px;
+  background: #fff5f5;
+}
+.dish-photo-confirm strong {
+  color: var(--neutral-950, #071428);
+  font-size: 14px;
+}
+.dish-photo-confirm > span {
+  color: var(--neutral-500, #64748b);
+  font-size: 13px;
+}
+.dish-photo-confirm__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.dish-photo-confirm__actions button {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid rgba(15, 35, 60, 0.14);
+  border-radius: 12px;
+  background: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+.dish-photo-confirm__actions button.danger {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: #dc2626;
+  color: #fff;
+}
+
+/* Увеличенный просмотр фото блюда по центру (клик по фото в таблице). */
+.dish-photo-viewer-layer {
+  position: fixed;
+  inset: 0;
+  /* Выше любого бэкдропа диалогов (kpi-info-backdrop доходит до 99999):
+     фото всегда спереди, панель позади. */
+  z-index: 100000;
+  display: grid;
+  place-items: start center;
+  padding: 3dvh 24px 24px;
+}
+/* В диалогах просмотр выше всех слоёв. */
+.dish-photo-viewer-layer--boxed { z-index: 120; }
+/* Зум внутри диалогов (nested shade): размеры капаем от слоя через cqh/cqw —
+   вьюпортные единицы тут врут из-за вечного motion-трансформа окна, и высокое
+   фото обрезалось низом слоя. Карточка остаётся вверху слоя. Без cqh
+   поддержки — откат к базовым вьюпортным капам (декларации ниже дропаются).
+   Сейчас зум диалогов убран в полноэкранный портал (как таблица) — правила
+   ниже оставлены фолбэком. */
+.dish-photo-viewer-layer--boxed {
+  container-type: size;
+}
+.dish-photo-viewer-layer--boxed .dish-photo-viewer {
+  max-width: 100%;
+}
+.dish-photo-viewer-layer--boxed .dish-photo-viewer img {
+  width: min(720px, calc(100cqw - 72px));
+  max-width: 100%;
+  max-height: calc(100cqh - 88px);
+}
+.dish-edit-overlay--boxed { z-index: 90; }
+.dish-photo-viewer-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(3px);
+}
+.dish-photo-viewer {
+  position: relative;
+  max-width: min(640px, calc(100vw - 48px));
+  max-height: calc(100dvh - 48px);
+  padding: 16px;
+  border: 1px solid rgba(15, 35, 60, 0.10);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 32px 80px rgba(15, 35, 60, 0.38);
+}
+.dish-photo-viewer img {
+  display: block;
+  width: min(608px, calc(100vw - 80px));
+  max-height: calc(100dvh - 140px);
+  object-fit: contain;
+  border-radius: 12px;
+  background: var(--neutral-50, #f8fafc);
+}
+.dish-photo-viewer__close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--neutral-200, #e2e8f0);
+  border-radius: 999px;
+  background: #fff;
+  color: #98a2b3;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(15, 35, 60, 0.18);
+}
+.dish-photo-viewer__close:hover {
+  color: var(--owner-accent, #1fc9c9);
+  border-color: var(--owner-accent, #1fc9c9);
+}
+/* Полноэкранный просмотр из таблицы (портал в body): строго по центру
+   вьюпорта с запасом под выносную кнопку закрытия. Базовое
+   place-items/top-паддинг не трогаем: boxed-варианты внутри диалогов
+   остаются прижаты к верху. */
+.dish-photo-viewer-layer:not(.dish-photo-viewer-layer--boxed) {
+  place-items: center;
+  padding: 24px;
+}
+/* Кнопки открытия фото не держат тёмный фокус-квадрат после закрытия по Esc
+   (фокус остаётся на миниатюре): давим и дефолтный outline, и hover-тень. */
+.dish-photo-button:focus,
+.dish-photo-button:focus-visible,
+.dish-head-photo:focus,
+.dish-head-photo:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+/* Появление/уход просмотра фото: слой — fade, карточка — scale из центра. */
+.dish-photo-viewer-layer {
+  animation: dish-photo-layer-in 180ms ease-out;
+}
+.dish-photo-viewer-layer.is-closing {
+  animation: dish-photo-layer-out 160ms ease-in both;
+}
+.dish-photo-viewer-layer .dish-photo-viewer {
+  animation: dish-photo-card-in 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.dish-photo-viewer-layer.is-closing .dish-photo-viewer {
+  animation: dish-photo-card-out 160ms ease-in both;
+}
+@keyframes dish-photo-layer-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes dish-photo-layer-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes dish-photo-card-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes dish-photo-card-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.94); }
+}
+
+/* STOP-LIST V2: нумерация Сорт в том же визуальном виде, что № в Стоп-листе
+   (.stoplist-index-cell в stop-list.css). Только skin/typography/alignment —
+   бизнес-логика sort_order и semantics не меняются. Append-only блок. */
+body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-sort.dish-sort-cell {
+  color: var(--neutral-800);
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  vertical-align: middle;
 }

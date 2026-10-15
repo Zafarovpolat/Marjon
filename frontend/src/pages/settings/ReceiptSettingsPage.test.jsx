@@ -65,7 +65,10 @@ describe("ReceiptSettingsPage (customer)", () => {
     // No visible paper-size control: paperSize lives in the template blob only.
     expect(document.querySelector(".receipt-editor-actions .receipt-paper-select")).toBeNull();
     expect(screen.queryByLabelText("Размер бумаги")).toBeNull();
-    expect(screen.getByRole("button", { name: "Печать предпросмотра" })).toBeInTheDocument();
+    // Header carries Save (no print button anywhere); no bottom save block.
+    expect(screen.queryByRole("button", { name: "Печать предпросмотра" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Сохранить" })).toBeInTheDocument();
+    expect(document.querySelector(".receipt-editor .receipt-editor-save")).toBeNull();
   });
 
   it("keeps exactly one restaurant-name input, inside its block row", async () => {
@@ -221,24 +224,23 @@ describe("ReceiptSettingsPage (customer)", () => {
     expect(screen.getByRole("checkbox", { name: "Логотип" })).toBeInTheDocument();
   });
 
-  it("right-aligns secondary actions and keeps Save at the end of the scrollable editor (never pinned)", async () => {
+  it("keeps Save in the header and nowhere else (no print, no bottom save)", async () => {
     const { container } = render(<ReceiptSettingsPage />);
     await screen.findByRole("heading", { name: "Настройка чека" });
     const actions = container.querySelector(".receipt-editor-actions.receipt-editor-actions--end");
     expect(actions).not.toBeNull();
-    expect(actions.querySelector(".receipt-btn-secondary")).not.toBeNull();
-    // Save lives INSIDE the scrolling editor as its last block — no pinned footer.
-    const inContentSave = container.querySelector(".receipt-editor .receipt-editor-save .receipt-save");
-    expect(inContentSave).not.toBeNull();
-    expect(inContentSave).toHaveTextContent("Сохранить");
+    const headerSave = actions.querySelector(".receipt-btn-primary.receipt-save");
+    expect(headerSave).not.toBeNull();
+    expect(headerSave).toHaveTextContent("Сохранить");
+    expect(container.querySelector(".receipt-editor .receipt-editor-save")).toBeNull();
     expect(container.querySelector(".receipt-editor-footer")).toBeNull();
-    // Header row carries one secondary action (Print), never Save, and no
+    // Header row carries Save (primary), never Print, and no
     // visible paper-size control.
     const header = container.querySelector(".settings-header.receipt-header");
     expect(header).not.toBeNull();
-    expect(header.querySelectorAll(".receipt-btn-secondary")).toHaveLength(1);
+    expect(header.querySelector(".receipt-btn-secondary")).toBeNull();
+    expect(header.querySelector(".receipt-btn-primary")).not.toBeNull();
     expect(header.querySelector(".receipt-paper-select")).toBeNull();
-    expect(header.querySelector(".receipt-btn-primary")).toBeNull();
     // No preview size label anywhere.
     expect(container.querySelector(".receipt-preview-shell__label")).toBeNull();
   });

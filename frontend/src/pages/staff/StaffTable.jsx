@@ -34,7 +34,7 @@ export default function StaffTable({
     <>
       {staffError ? <div className="login-error" role="alert">{staffError}</div> : null}
       <div className="staff-table-wrapper staff-table-wrapper--roles">
-        <div className="staff-role-table-scroll">
+        <div className="staff-role-table-scroll" role="region" aria-label="Таблица сотрудников с прокруткой" tabIndex={0}>
         <table className={`staff-table${showAccess ? "" : " staff-table--no-access"}`}>
           <thead>
             <tr>

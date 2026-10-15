@@ -8,11 +8,9 @@ import "./SettingsUnitsPage.css";
 
 const RESOURCE = "units";
 
-// Backend truth (nomenclature Unit): global picklist, no company scope.
-// Reads are open to any authenticated staff; writes are HQ-admin-only, so an
-// OWNER currently receives 403 on every mutation. The UI below exposes the
-// full interaction surface but NEVER fakes persistence: failed mutations keep
-// canonical server state and surface a truthful error.
+// Backend truth (nomenclature Unit): global system rows plus company-owned
+// rows. OWNER mutations are available only for own company rows; global rows
+// stay visible and read-only.
 export function mapRow(item) {
   return {
     id: item.id,
@@ -20,10 +18,13 @@ export function mapRow(item) {
     name: item.name || "",
     shortName: item.short_name ?? "",
     active: (item.status ?? item.is_active) !== false,
+    companyId: item.company_id ?? null,
+    isGlobal: item.is_global ?? item.company_id == null,
   };
 }
 
-// Modal payload (Сорт lives only in the inline table editor, never here).
+// Modal payload (Сорт is preserved by the backend and displayed read-only in
+// the table, matching Settings → Payment Methods).
 // Returns null when the form is invalid so the caller can surface a
 // validation message WITHOUT hitting the backend. `status` is always sent:
 // the old mapper dropped it, silently discarding status edits.
@@ -51,10 +52,11 @@ export function resetUnitsCacheForTest() {
   cachedUnits = null;
 }
 
-// OWNER truthful-mutation notice (backend currently answers 403 for owner
-// writes on the global units picklist). Shown instead of a fake success.
-const OWNER_MUTATION_BLOCKED_MESSAGE = "Изменение единиц измерения пока недоступно для владельца.";
 const DELETE_CONFLICT_MESSAGE = "Единица измерения используется и не может быть удалена.";
+
+function mutationError(err, fallback) {
+  return err.response?.data?.detail || fallback;
+}
 
 function extractItems(data) {
   if (Array.isArray(data)) return data;
@@ -73,10 +75,6 @@ function SettingsUnitsPage() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  // Per-row inline Sort drafts (never written to rows until the backend
-  // confirms). Clearing a draft restores the canonical server value.
-  const [sortDrafts, setSortDrafts] = useState({});
-
   const beginRequest = useLatestRequest();
   const mutationLocks = useMutationLocks();
 
@@ -171,51 +169,19 @@ function SettingsUnitsPage() {
         : await settingsService.createResource(RESOURCE, payload);
       if (!data?.id) throw new Error("Backend не вернул сохранённую запись.");
       const mapped = mapRow(data);
-      setRows((current) =>
-        editingId ? current.map((r) => (r.id === editingId ? mapped : r)) : [mapped, ...current],
-      );
+      setRows((current) => {
+        const next = editingId
+          ? current.map((r) => (r.id === editingId ? mapped : r))
+          : [mapped, ...current];
+        cachedUnits = next;
+        return next;
+      });
       setDrawerMode(null);
     } catch (err) {
-      if (err.response?.status === 403) {
-        setError(OWNER_MUTATION_BLOCKED_MESSAGE);
-      } else {
-        setError(err.response?.data?.detail || "Не удалось сохранить. Попробуйте позже.");
-      }
+      setError(mutationError(err, "Не удалось сохранить. Попробуйте позже."));
     } finally {
       setSaving(false);
       mutationLocks.release("save");
-    }
-  };
-
-  const commitSort = async (row, rawValue) => {
-    const key = String(row.id);
-    setSortDrafts((current) => {
-      const next = { ...current };
-      delete next[key];
-      return next;
-    });
-    const text = String(rawValue ?? "").trim();
-    if (text === String(row.sort ?? "")) return;
-    if (!/^\d+$/.test(text)) {
-      setError("Сорт должен быть целым числом. Значение не сохранено.");
-      return;
-    }
-    if (!mutationLocks.acquire(`sort:${row.id}`)) return;
-    setError("");
-    try {
-      const { data } = await settingsService.updateResource(RESOURCE, row.id, { sort: Number(text) });
-      const mapped = mapRow(data?.id
-        ? data
-        : { ...row, sort: Number(text), short_name: row.shortName, status: row.active });
-      setRows((current) => current.map((r) => (r.id === row.id ? mapped : r)));
-    } catch (err) {
-      if (err.response?.status === 403) {
-        setError(OWNER_MUTATION_BLOCKED_MESSAGE);
-      } else {
-        setError(err.response?.data?.detail || "Не удалось сохранить сортировку.");
-      }
-    } finally {
-      mutationLocks.release(`sort:${row.id}`);
     }
   };
 
@@ -227,16 +193,18 @@ function SettingsUnitsPage() {
       await settingsService.deleteResource(RESOURCE, target.id);
       // Only drop the row after the backend confirms the delete — never
       // optimistically, so a rejected delete leaves the list truthful.
-      setRows((current) => current.filter((r) => r.id !== target.id));
+      setRows((current) => {
+        const next = current.filter((r) => r.id !== target.id);
+        cachedUnits = next;
+        return next;
+      });
       setDeleteTarget(null);
     } catch (err) {
       if (err.response?.status === 409) {
         setDeleteTarget(null);
         setError(err.response?.data?.detail || DELETE_CONFLICT_MESSAGE);
-      } else if (err.response?.status === 403) {
-        setError(OWNER_MUTATION_BLOCKED_MESSAGE);
       } else {
-        setError(err.response?.data?.detail || "Не удалось удалить. Попробуйте позже.");
+        setError(mutationError(err, "Не удалось удалить. Попробуйте позже."));
       }
     } finally {
       setDeleting(false);
@@ -274,6 +242,13 @@ function SettingsUnitsPage() {
             ) : null}
             <div className="settings-table-wrapper">
               <table className="settings-table">
+                <colgroup>
+                  <col className="units-col-sort" />
+                  <col className="units-col-name" />
+                  <col className="units-col-short" />
+                  <col className="units-col-status" />
+                  <col className="units-col-actions" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Сорт</th>
@@ -300,6 +275,13 @@ function SettingsUnitsPage() {
             ) : null}
             <div className="settings-table-wrapper">
               <table className="settings-table">
+                <colgroup>
+                  <col className="units-col-sort" />
+                  <col className="units-col-name" />
+                  <col className="units-col-short" />
+                  <col className="units-col-status" />
+                  <col className="units-col-actions" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Сорт</th>
@@ -312,23 +294,13 @@ function SettingsUnitsPage() {
                 <tbody>
                   {rows.map((row) => (
                     <tr key={row.id}>
+                      <td>{row.sort === 0 || row.sort ? String(row.sort) : "—"}</td>
                       <td>
-                        <input
-                          className="settings-inline-input"
-                          inputMode="numeric"
-                          aria-label={`Сорт: ${row.name}`}
-                          value={sortDrafts[String(row.id)] ?? String(row.sort ?? "")}
-                          onChange={(event) => setSortDrafts((current) => ({
-                            ...current,
-                            [String(row.id)]: event.target.value.replace(/[^0-9]/g, ""),
-                          }))}
-                          onBlur={(event) => commitSort(row, event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") event.target.blur();
-                          }}
-                        />
+                        <span className="units-name-cell">
+                          <span>{row.name || "—"}</span>
+                          {row.isGlobal ? <span className="units-system-badge">Системная</span> : null}
+                        </span>
                       </td>
-                      <td>{row.name || "—"}</td>
                       <td>{row.shortName || "—"}</td>
                       <td>
                         <span className={`settings-status-badge ${row.active ? "is-active" : "is-inactive"}`}>
@@ -338,10 +310,10 @@ function SettingsUnitsPage() {
                       </td>
                       <td>
                         <div className="settings-row-actions">
-                          <button type="button" className="settings-action-edit" aria-label={`Редактировать «${row.name}»`} onClick={() => openEdit(row)}>
+                          <button type="button" className="settings-action-edit" aria-label={`Редактировать «${row.name}»`} disabled={row.isGlobal} title={row.isGlobal ? "Системная единица" : undefined} onClick={() => openEdit(row)}>
                             <Icon name="bi-pencil" size={15} />
                           </button>
-                          <button type="button" className="settings-action-delete" aria-label={`Удалить «${row.name}»`} disabled={deleting} onClick={() => setDeleteTarget(row)}>
+                          <button type="button" className="settings-action-delete" aria-label={`Удалить «${row.name}»`} disabled={deleting || row.isGlobal} title={row.isGlobal ? "Системная единица" : undefined} onClick={() => setDeleteTarget(row)}>
                             <Icon name="bi-trash3" size={15} />
                           </button>
                         </div>

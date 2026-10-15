@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   KITCHEN_BLOCKS,
@@ -52,6 +52,34 @@ describe("ChefReceiptSettingsPage (kitchen)", () => {
     for (const label of EIGHT_LABELS) {
       expect(screen.getByRole("checkbox", { name: label })).toBeInTheDocument();
     }
+  });
+
+  it("groups rows exactly like the customer editor (order/sums/comment)", async () => {
+    const { container } = render(<ChefReceiptSettingsPage />);
+    await screen.findByRole("heading", { name: "Настройка чека повара" });
+    // Заголовки групп (класс заголовка — текст "Комментарий" есть и у строки).
+    const titles = [...container.querySelectorAll(".receipt-section-group__title")].map((el) => el.textContent);
+    expect(titles).toEqual(["Информация о заказе", "Суммы", "Комментарий"]);
+    const inGroup = (key) => container.querySelector(`[data-block-group="${key}"]`);
+    const rowsIn = (key) => [...inGroup(key).querySelectorAll("[data-block-row]")].map((r) => r.dataset.blockRow);
+    expect(rowsIn("order")).toEqual(["orderNumber", "cancelOrderNumber", "orderType", "table", "waiter", "date"]);
+    expect(rowsIn("sums")).toEqual(["showOrderSum"]);
+    expect(rowsIn("notes")).toEqual(["comment"]);
+  });
+
+  it("keeps Save in the header and nowhere else (no print, no bottom save)", async () => {
+    const { container } = render(<ChefReceiptSettingsPage />);
+    await screen.findByRole("heading", { name: "Настройка чека повара" });
+    expect(screen.queryByRole("button", { name: "Печать предпросмотра" })).toBeNull();
+    const actions = container.querySelector(".receipt-editor-actions.receipt-editor-actions--end");
+    expect(actions).not.toBeNull();
+    const headerSave = actions.querySelector(".receipt-btn-primary.receipt-save");
+    expect(headerSave).not.toBeNull();
+    expect(headerSave).toHaveTextContent("Сохранить");
+    expect(container.querySelector(".receipt-editor .receipt-editor-save")).toBeNull();
+    const header = container.querySelector(".settings-header.receipt-header");
+    expect(header.querySelector(".receipt-btn-secondary")).toBeNull();
+    expect(header.querySelector(".receipt-btn-primary")).not.toBeNull();
   });
 
   it("does not expose removed chef settings", async () => {
@@ -184,13 +212,13 @@ describe("ChefReceiptSettingsPage (kitchen)", () => {
 });
 
 describe("migrateKitchenTemplate", () => {
-  it("builds the 8-row model with showOrderSum OFF by default", () => {
+  it("builds the 8-row model with showOrderSum ON by default", () => {
     const tpl = migrateKitchenTemplate({}, buildKitchenTemplate());
     expect(tpl.blocks).toEqual([
       "orderNumber", "cancelOrderNumber", "orderType", "table",
       "waiter", "date", "showOrderSum", "comment",
     ]);
-    expect(tpl.enabled.showOrderSum).toBe(false);
+    expect(tpl.enabled.showOrderSum).toBe(true);
     expect(tpl.enabled.orderNumber).toBe(true);
   });
 

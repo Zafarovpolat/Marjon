@@ -349,6 +349,8 @@ class PrinterService:
             {
                 "name": item.name,
                 "qty": str(item.quantity),
+                "price": str(item.price),
+                "total": str(item.total),
                 "note": item.note,
                 "modifiers": [m.get("name", "") for m in (item.modifiers or [])],
                 "course": item.course,
@@ -363,4 +365,5 @@ class PrinterService:
             waiter_name=None,
             items=items,
             note=order.note,
+            subtotal=sum((item.total for item in order.items if item.status not in ("cancelled", "served")), Decimal("0")),
         )

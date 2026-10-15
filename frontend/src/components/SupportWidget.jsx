@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { settingsService } from "../api/settings";
 import Icon from "./Icon";
 import { useMutationLocks } from "../hooks/useAsyncSafety";
 
 const text = {
   title: "Связь с поддержкой",
-  subtitle: "Ответим по кассе, складу и доступам",
   close: "Закрыть",
   open: "Открыть поддержку",
   phone: "Телефон",
@@ -52,6 +51,14 @@ function flagUrl(code) {
 
 export default function SupportWidget() {
   const [open, setOpen] = useState(false);
+  // Видимость кнопки — canonical company-поле show_support_button
+  // Wait for backend to avoid flashing the button when persisted OFF.
+  const [visible, setVisible] = useState(false);
+  const visibleRef = useRef(false);
+  const [entering, setEntering] = useState(false);
+  const [hiding, setHiding] = useState(false);
+  const hideTimer = useRef(null);
+  const enterFrame = useRef(null);
   const [country, setCountry] = useState(COUNTRIES[0]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [localPhone, setLocalPhone] = useState("");
@@ -74,6 +81,66 @@ export default function SupportWidget() {
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [menuOpen]);
+
+  // Canonical visibility: show_support_button из GET /companies/me.
+  // При выключении панель сначала закрывается, затем кнопка мягко уходит
+  // (is-hiding → unmount); при включении — появляется. Только backend.
+  const applyVisibility = useCallback((show) => {
+    clearTimeout(hideTimer.current);
+    cancelAnimationFrame(enterFrame.current);
+    if (show) {
+      setHiding(false);
+      if (!visibleRef.current) {
+        visibleRef.current = true;
+        setVisible(true);
+        setEntering(true);
+        // Two frames let the mounted entering style paint before transitioning.
+        enterFrame.current = requestAnimationFrame(() => {
+          enterFrame.current = requestAnimationFrame(() => setEntering(false));
+        });
+      } else {
+        setEntering(false);
+      }
+      return;
+    }
+    setEntering(false);
+    setOpen(false);
+    setMenuOpen(false);
+    setSent(false);
+    setSendError("");
+    if (!visibleRef.current) return;
+    setHiding(true);
+    hideTimer.current = setTimeout(() => {
+      visibleRef.current = false;
+      setVisible(false);
+      setHiding(false);
+    }, 200);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let receivedUpdate = false;
+    settingsService.getCompanyProfile()
+      .then(({ data }) => {
+        if (!cancelled && !receivedUpdate) applyVisibility(data?.show_support_button !== false);
+      })
+      .catch(() => {
+        if (!cancelled && !receivedUpdate) applyVisibility(true);
+      });
+    function onProfileUpdated(event) {
+      const value = event?.detail?.show_support_button;
+      if (typeof value !== "boolean") return;
+      receivedUpdate = true;
+      applyVisibility(value);
+    }
+    window.addEventListener("marjon:company-profile-updated", onProfileUpdated);
+    return () => {
+      cancelled = true;
+      clearTimeout(hideTimer.current);
+      cancelAnimationFrame(enterFrame.current);
+      window.removeEventListener("marjon:company-profile-updated", onProfileUpdated);
+    };
+  }, [applyVisibility]);
 
   function openMenu() {
     const rect = btnRef.current?.getBoundingClientRect();
@@ -117,8 +184,10 @@ export default function SupportWidget() {
 
   const phonePlaceholder = country.max === 10 ? "XXX XXX-XX-XX" : "XX XXX-XX-XX";
 
+  if (!visible) return null;
+
   return (
-    <div className={`support-widget ${open ? "is-open" : ""}`}>
+    <div className={`support-widget${open ? " is-open" : ""}${hiding ? " is-hiding" : ""}${entering ? " is-entering" : ""}`} aria-hidden={hiding || entering || undefined}>
       {open ? (
         <section className="support-widget__panel" aria-label={text.title}>
           <header className="support-widget__header">
@@ -127,7 +196,6 @@ export default function SupportWidget() {
             </span>
             <div>
               <strong>{text.title}</strong>
-              <small>{text.subtitle}</small>
             </div>
             <button className="support-widget__close" type="button" aria-label={text.close} onClick={closeWidget} disabled={sending}>
               <Icon name="bi-x-lg" size={18} />
@@ -226,7 +294,7 @@ export default function SupportWidget() {
         aria-label={open ? text.close : text.open}
         aria-expanded={open}
         onClick={() => { if (!sending) setOpen((v) => !v); }}
-        disabled={open && sending}
+        disabled={(open && sending) || hiding || entering}
       >
         <Icon name={open ? "bi-x-lg" : "bi-headset"} size={20} />
       </button>

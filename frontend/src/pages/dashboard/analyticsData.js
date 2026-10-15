@@ -297,7 +297,8 @@ export function buildRevenueChartSales(rows) {
 // Display-only zero buckets for the Revenue Analytics no-data state.
 // NOT business data: every value is exactly 0 ("no sales occurred in these
 // buckets"). Derived in render from the selected period, never stored/sent.
-const ZERO_DAY_HOURS = ["00:00", "03:00", "06:00", "09:00", "12:00", "15:00", "18:00", "21:00"];
+// Ось одного дня идёт до конца суток: последний бакет 23:59, а не 21:00.
+const ZERO_DAY_HOURS = ["00:00", "03:00", "06:00", "09:00", "12:00", "15:00", "18:00", "21:00", "23:59"];
 
 function isIsoDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value || "");

@@ -52,6 +52,9 @@ class Company(TimeStampedModel):
     # Типы заказа (На стол / На вынос / Доставка) — управляются тремя
     # чекерами «Другие настройки». NULL = все включены (как раньше).
     order_types: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
+    # Показывать ли глобальную плавающую кнопку поддержки. default TRUE —
+    # сохраняем текущее поведение для существующих компаний.
+    show_support_button: Mapped[bool] = mapped_column(Boolean, default=True)
 
     @property
     def logo(self) -> str | None:

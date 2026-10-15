@@ -139,3 +139,36 @@ async def test_category_delete_referenced_returns_conflict(client):
 
     listed = await client.get("/inventory/categories", headers=headers)
     assert created["id"] in [c["id"] for c in listed.json()]
+
+
+async def test_category_image_url_round_trips_through_crud(client):
+    headers, _ = await register_company(client, slug="catimg-a", email="owner@catimg-a.example.com")
+    created = await _create_category(client, headers)
+    assert created["image_url"] is None
+
+    url = "http://localhost:9000/marjon-media/categories/img-a.png"
+    resp = await client.post(
+        "/inventory/categories",
+        headers=headers,
+        json={"name": "С фото", "slug": "s-foto", "image_url": url},
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["image_url"] == url
+
+    cid = resp.json()["id"]
+    resp = await client.patch(
+        f"/inventory/categories/{cid}", headers=headers, json={"image_url": url + "?v=2"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["image_url"] == url + "?v=2"
+
+    listed = await client.get("/inventory/categories", headers=headers)
+    row = next(c for c in listed.json() if c["id"] == cid)
+    assert row["image_url"] == url + "?v=2"
+
+    # Cross-tenant image write stays blocked.
+    headers_b, _ = await register_company(client, slug="catimg-b", email="owner@catimg-b.example.com")
+    resp = await client.patch(
+        f"/inventory/categories/{cid}", headers=headers_b, json={"image_url": url}
+    )
+    assert resp.status_code == 404, resp.text

@@ -16,6 +16,7 @@ export default function DishesToolbar({
   draftFilters,
   setDraftFilters,
   setFilters,
+  filters = { search: "", category: [] },
   filtersOpen,
   closeFilters,
   categoryOptions = [],
@@ -47,17 +48,13 @@ export default function DishesToolbar({
   function closeCategoryPanel() {
     requestPanel("");
   }
+  // Категория применяется моментально (без кнопки Фильтровать):
+  // черновик и активный фильтр синхронны, введённый поиск не трогаем.
   const toggleCategory = (value) => {
-    setDraftFilters((prev) => {
-      const list = Array.isArray(prev.category) ? prev.category : [];
-      const next = list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
-      return { ...prev, category: next };
-    });
-  };
-
-  const applyFilters = () => {
-    setFilters({ ...draftFilters });
-    closeFilters();
+    const list = Array.isArray(draftFilters.category) ? draftFilters.category : [];
+    const next = list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+    setDraftFilters((prev) => ({ ...prev, category: next }));
+    setFilters({ search: filters?.search || "", category: next });
   };
 
   const clearFilters = () => {
@@ -79,7 +76,14 @@ export default function DishesToolbar({
             <input
               aria-label="Поиск блюд"
               value={draftFilters.search}
-              onChange={(event) => setDraftFilters((prev) => ({ ...prev, search: event.target.value }))}
+              onChange={(event) => {
+                const next = event.target.value;
+                setDraftFilters((prev) => ({ ...prev, search: next }));
+                setFilters({
+                  search: next,
+                  category: Array.isArray(filters?.category) ? filters.category : [],
+                });
+              }}
               placeholder="Поиск"
             />
           </label>
@@ -98,9 +102,6 @@ export default function DishesToolbar({
             onExitComplete={() => completePanelExit("category")}
           />
           <div className="report-filter-buttons dish-filter-actions">
-            <button type="button" className="report-filter-apply" onClick={applyFilters}>
-              <Icon name="bi-sliders" size={17} /> Фильтровать
-            </button>
             <button type="button" className="report-filter-clear" onClick={clearFilters}>
               <Icon name="bi-x-circle" size={17} /> Очистить
             </button>

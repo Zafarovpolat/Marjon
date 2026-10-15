@@ -92,37 +92,37 @@ describe("truthful production data states", () => {
 
   it("builds menu sales only from actual backend responses", async () => {
     api.get.mockImplementation((path) => {
-      if (path === "/pos/orders") {
-        return Promise.resolve({ data: [{ id: "order-1", status: "completed", items: [{ product_id: "product-1", name: "Backend dish", quantity: 2, total: 180000 }] }] });
+      if (path === "/reports/dishes") {
+        return Promise.resolve({ data: { rows: [{ product_id: "product-1", name: "Backend dish", category_id: "category-1", category_name: "Backend menu", quantity: 2, price: 90000, amount: 180000 }], totals: { quantity: 2, amount: 180000, orders_count: 1 } } });
       }
-      if (path === "/inventory/products") {
-        return Promise.resolve({ data: [{ id: "product-1", name: "Backend dish", category_id: "category-1" }] });
-      }
-      return Promise.resolve({ data: [{ id: "category-1", name: "Backend menu" }] });
+      if (path === "/finance/transactions/summary") return Promise.resolve({ data: { income_amount: 250000 } });
+      if (path === "/reports/cancelled/summary") return Promise.resolve({ data: { quantity: 3 } });
+      return Promise.resolve({ data: { categories: [{ value: "category-1", label: "Backend menu" }] } });
     });
 
     render(<MenuPage />);
 
     expect(await screen.findByText("Backend dish")).toBeInTheDocument();
-    expect(screen.getAllByText("Backend menu")).toHaveLength(2);
+    expect(screen.getByText("Backend menu")).toBeInTheDocument();
+    expect(api.get).not.toHaveBeenCalledWith("/pos/orders", expect.anything());
   });
 
   it("keeps menu success-empty distinct from failure", async () => {
-    api.get.mockResolvedValue({ data: [] });
+    api.get.mockImplementation((path) => Promise.resolve({ data: path === "/reports/dishes" ? { rows: [], totals: { quantity: 0, amount: 0, orders_count: 0 } } : path === "/finance/transactions/summary" ? { income_amount: 0 } : path === "/reports/cancelled/summary" ? { quantity: 0 } : { categories: [] } }));
 
     render(<MenuPage />);
 
-    expect(await screen.findByText("Продажи не найдены.")).toBeInTheDocument();
+    expect(await screen.findByText("Продаж за выбранный период нет.")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("does not generate menu products or fake zero KPIs after an API failure", async () => {
-    api.get.mockRejectedValue(new Error("offline"));
+    api.get.mockImplementation((path) => path === "/reports/dishes" ? Promise.reject(new Error("offline")) : Promise.resolve({ data: { categories: [] } }));
 
     render(<MenuPage />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Не удалось загрузить продажи.");
-    expect(screen.queryByText("Продажи не найдены.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Продаж за выбранный период нет.")).not.toBeInTheDocument();
     expect(screen.queryByText(/UZS/)).not.toBeInTheDocument();
   });
 
@@ -214,6 +214,12 @@ describe("truthful production data states", () => {
   });
 
   it("maps confirmed purchase response fields exactly and exposes live accept/delete actions", async () => {
+    // Журнал прихода фильтруется периодом (по умолчанию Сегодня) —
+    // дата документа = сегодня, иначе строка скрыта фильтром.
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const todayApi = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const todayReg = `${pad(now.getDate())}.${pad(now.getMonth() + 1)}.${now.getFullYear()} / 12:00`;
     api.get.mockResolvedValue({
       data: [{
         id: "9c6082b6-3ab1-4d36-9a4c-87cd8bb4e7d5",
@@ -222,7 +228,8 @@ describe("truthful production data states", () => {
         warehouse_name: "Backend Warehouse",
         total_amount: 125000,
         status: "draft",
-        date: "2026-08-12",
+        date: todayApi,
+        registered_at: todayReg,
         items_count: 3,
       }],
     });

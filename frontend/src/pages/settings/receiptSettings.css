@@ -33,6 +33,15 @@
 .receipt-settings-page .receipt-header-left .settings-title-group {
   flex: none;
 }
+/* Заголовок страниц чеков — чуть компактнее базового: подпись слегка
+   опущена, h1 меньше и легче и подтянут вверх (зазор между ними уже). */
+.receipt-settings-page .settings-title-group p {
+  margin: 2px 0 2px;
+}
+.receipt-settings-page .settings-title-group h1 {
+  font-size: clamp(22px, 2.2vw, 30px);
+  font-weight: 700;
+}
 .receipt-settings-page .receipt-header-left .receipt-editor-actions {
   flex: 1 1 auto;
   min-width: 0;

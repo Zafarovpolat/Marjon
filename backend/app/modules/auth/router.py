@@ -246,6 +246,7 @@ async def upload_avatar(
         raise HTTPException(status_code=400, detail="Поддерживаются только jpg, png, webp")
     ext = _IMG_EXT_MAP[file.content_type]
     key = f"avatars/{current_user.id}.{ext}"
+    # V6.5: user media stays private (no public ACL, no public prefix policy).
     avatar_url = await storage.upload(await file.read(), key, file.content_type)
     current_user.avatar_url = avatar_url
     db.add(current_user)

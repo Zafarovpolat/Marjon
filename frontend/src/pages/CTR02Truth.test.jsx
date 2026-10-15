@@ -51,10 +51,10 @@ describe("CTR-02 remaining critical truth gaps", () => {
   it("renders raw materials from a live ingredients read with a create action", async () => {
     const get = vi.spyOn(api, "get").mockResolvedValue({ data: [] });
     render(<NomenclaturePage type="raw" />);
-    expect(screen.getByRole("heading", { name: "Сырьё" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Продукты" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Добавить/i })).toBeInTheDocument();
     await waitFor(() => expect(get).toHaveBeenCalledWith("/inventory/ingredients", expect.objectContaining({ signal: expect.any(AbortSignal) })));
-    expect(await screen.findByText("Сырьё пока не добавлено.")).toBeInTheDocument();
+    expect(await screen.findByText("Продукты пока не добавлены.")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -68,23 +68,25 @@ describe("CTR-02 remaining critical truth gaps", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it.each([["raw", "Категории сырья"], ["semi", "Категории полуфабрикатов"]])(
+  // RAW CATEGORY V1: raw header is singular "Категория продуктов" with its own
+  // compact empty text; semi keeps the legacy shared copy.
+  it.each([["raw", "Категория продуктов", "Категории продуктов пока не добавлены."], ["semi", "Категории полуфабрикатов", "Категорий пока нет."]])(
     "loads %s categories from the shared table with a create action",
-    async (type, title) => {
+    async (type, title, emptyText) => {
       const get = vi.spyOn(api, "get").mockResolvedValue({ data: [] });
       render(<CategoriesPage type={type} />);
       expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Добавить/i })).toBeInTheDocument();
       await waitFor(() => expect(get).toHaveBeenCalled());
-      expect(await screen.findByText("Категорий пока нет.")).toBeInTheDocument();
+      expect(await screen.findByText(emptyText)).toBeInTheDocument();
     },
   );
 
   it("renders a raw materials load failure as a truthful error, not empty", async () => {
     vi.spyOn(api, "get").mockRejectedValue(new Error("offline"));
     render(<NomenclaturePage type="raw" />);
-    expect(await screen.findByRole("alert")).toHaveTextContent("Не удалось загрузить сырьё.");
-    expect(screen.queryByText("Сырьё пока не добавлено.")).not.toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Не удалось загрузить продукты.");
+    expect(screen.queryByText("Продукты пока не добавлены.")).not.toBeInTheDocument();
   });
 
   it("renders a semi-products load failure as a truthful error, not empty", async () => {

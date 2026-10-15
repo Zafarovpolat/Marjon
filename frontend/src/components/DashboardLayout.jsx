@@ -47,7 +47,11 @@ export default function DashboardLayout() {
   // (useEffect would run after first paint => one dark flash frame.)
   useLayoutEffect(() => {
     document.body.classList.add("dashboard-body");
-    return () => document.body.classList.remove("dashboard-body");
+    document.body.classList.add("marjon-dark-shell");
+    return () => {
+      document.body.classList.remove("dashboard-body");
+      document.body.classList.remove("marjon-dark-shell");
+    };
   }, []);
 
   return (

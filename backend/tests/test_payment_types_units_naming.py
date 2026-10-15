@@ -62,21 +62,18 @@ async def test_payment_type_canonical_names_still_work(client):
 
 
 async def test_units_readable_by_regular_owner(client):
-    """Unit has no company_id (a genuinely global picklist), but
-    SettingsUnitsPage.jsx is an owner-app screen — it could never even
-    list units before (require_hq_admin on every crud_router endpoint
-    including GET), so it always silently showed hardcoded demo rows."""
+    """Owners retain read access to the global + own units view."""
     headers, _ = await register_company(client, slug="acme", email="owner@acme.example.com")
     resp = await client.get("/units", headers=headers)
     assert resp.status_code == 200
 
 
-async def test_units_write_still_requires_hq_admin(client):
-    """Writes stay HQ-only — it's a shared, cross-tenant resource; a
-    careless edit from one company would affect every company."""
+async def test_owner_creates_company_scoped_unit(client):
     headers, _ = await register_company(client, slug="acme", email="owner@acme.example.com")
     resp = await client.post("/units", headers=headers, json={"name": "Kilogram"})
-    assert resp.status_code == 403
+    assert resp.status_code == 201
+    assert resp.json()["company_id"] is not None
+    assert resp.json()["is_global"] is False
 
 
 async def test_unit_accepts_owner_app_field_names_and_is_visible_to_owners(client, db_engine):

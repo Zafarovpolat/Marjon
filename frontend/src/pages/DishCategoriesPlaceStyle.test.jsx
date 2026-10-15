@@ -9,7 +9,12 @@ vi.mock("../api/categories", () => ({
   getCategories: vi.fn(),
 }));
 vi.mock("../api/catalog", () => ({
-  catalogService: { createCategory: vi.fn(), updateCategory: vi.fn(), deleteCategory: vi.fn() },
+  catalogService: {
+    createCategory: vi.fn(),
+    updateCategory: vi.fn(),
+    deleteCategory: vi.fn(),
+    uploadCategoryImage: vi.fn(),
+  },
 }));
 
 // V2 — Dish Categories follow-up: Dishes-like panel, turquoise add button,
@@ -28,47 +33,52 @@ describe("Dish Categories V2 follow-up", () => {
 
     expect(screen.getByRole("heading", { name: "Категория блюд" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Добавить категорию" })).toBeInTheDocument();
-
+    // ARCHIVE V1: Active tab shows only active rows; archived live in their tab.
+    expect(screen.getByRole("tab", { name: "Активные" })).toHaveClass("is-active");
     expect(await screen.findByText("Супы")).toBeInTheDocument();
-    expect(screen.getByText("Архивная")).toBeInTheDocument();
+    expect(screen.queryByText("Архивная")).toBeNull();
     // V2: hash secondary text removed — no slug line in dish rows.
     expect(screen.queryByText("#supy")).toBeNull();
     expect(screen.queryByText("#arh")).toBeNull();
     expect(screen.queryByText(/#\S/)).toBeNull();
-    // V3: both rows share the identical structure/layout (same classes).
+    // V3: active rows share the identical structure/layout (same classes).
     const rows = document.querySelectorAll(".dishcat-row");
-    expect(rows).toHaveLength(2);
-    expect(rows[0].className).toBe(rows[1].className);
-    expect(rows[0].tagName).toBe(rows[1].tagName);
-    // V5: photo block lives on the RIGHT, immediately before service
-    // (NAME < PHOTO < SERVICE < ACTIVE < EDIT < DELETE), never by the name.
-    const photos = document.querySelectorAll(".dishcat-photo-sm");
-    expect(photos).toHaveLength(2);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].tagName).toBe("ARTICLE");
+    // V5: фото у категорий блюд убрано — порядок
+    // (NAME < SERVICE < ACTIVE < EDIT < DELETE), фото-блоков нет вообще.
+    expect(document.querySelectorAll(".dishcat-photo-sm")).toHaveLength(0);
     rows.forEach((row) => {
       const html = row.innerHTML;
       const infoPos = html.indexOf("dishcat-info");
-      const photoPos = html.indexOf("dishcat-photo-sm");
       const svcPos = html.indexOf("dishcat-service-badge");
       const statusPos = html.indexOf("settings-status-badge");
       expect(infoPos).toBeGreaterThan(-1);
-      expect(photoPos).toBeGreaterThan(infoPos);
-      expect(svcPos).toBeGreaterThan(photoPos);
+      expect(svcPos).toBeGreaterThan(infoPos);
       expect(statusPos).toBeGreaterThan(svcPos);
     });
-    // V6: service badge renders real backend state (is-on green / is-off red).
+    // V6: service badge renders real backend state (Супы calculate_service=true → is-on).
     const badges = document.querySelectorAll(".dishcat-service-badge");
-    expect(badges).toHaveLength(2);
-    expect(badges[0].classList.contains("is-off")).toBe(true);
-    expect(badges[1].classList.contains("is-on")).toBe(true);
+    expect(badges).toHaveLength(1);
+    expect(badges[0].classList.contains("is-on")).toBe(true);
     // V2: service is a status-like pill, not an action button.
-    expect(screen.getAllByText("Рассчитать обслугу")).toHaveLength(2);
+    expect(screen.getAllByText("Рассчитать обслугу")).toHaveLength(1);
     expect(screen.queryByRole("button", { name: "Рассчитать обслугу" })).toBeNull();
-    // Place-family status language preserved.
+    // Place-family status language preserved (active row only in this tab).
     expect(screen.getByText("Активен")).toBeInTheDocument();
+    expect(screen.queryByText("Неактивен")).toBeNull();
+    // Place-family actions (ARCHIVE V1: active trash archives).
+    expect(screen.getAllByRole("button", { name: "Редактировать" })).toHaveLength(1);
+    expect(screen.getAllByLabelText("Архивировать категорию")).toHaveLength(1);
+    // Archived tab holds the inactive row with Restore + permanent Delete.
+    fireEvent.click(screen.getByRole("tab", { name: "Архивированные" }));
+    expect(await screen.findByText("Архивная")).toBeInTheDocument();
     expect(screen.getByText("Неактивен")).toBeInTheDocument();
-    // Place-family actions.
-    expect(screen.getAllByRole("button", { name: "Редактировать" })).toHaveLength(2);
-    expect(screen.getAllByLabelText("Удалить")).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Редактировать" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Восстановить категорию" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Удалить окончательно" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Активные" }));
+    expect(await screen.findByText("Супы")).toBeInTheDocument();
 
     // No fake Place business data.
     expect(screen.queryByText(/стол/)).toBeNull();
@@ -77,18 +87,18 @@ describe("Dish Categories V2 follow-up", () => {
     expect(screen.queryByLabelText("Изображение категории")).toBeNull();
 
     // V4: Edit opens its own centered modal, prefilled with the clicked
-    // category's real values. Rows sort by name, so the first row is the
-    // inactive "Архивная" — prefill must reflect THAT row (name + Неактивен).
-    fireEvent.click(screen.getAllByRole("button", { name: "Редактировать" })[0]);
+    // category's real values. ARCHIVE V1: Active tab lists Супы, so the
+    // prefill must reflect THAT row (name + Активен).
+    fireEvent.click(screen.getByRole("button", { name: "Редактировать" }));
     const editDialog = await screen.findByRole("dialog", { name: "Редактировать категорию" });
     expect(editDialog).toBeInTheDocument();
-    expect(editDialog.querySelector('input[placeholder="Название категории"]').value).toBe("Архивная");
+    expect(editDialog.querySelector('input[placeholder="Название категории"]').value).toBe("Супы");
     expect(editDialog).toHaveTextContent("Статус");
     expect(editDialog).toHaveTextContent("Рассчитать обслугу");
     expect(editDialog).toHaveTextContent("Показать в меню");
     expect(editDialog.querySelector('button[type="submit"]').textContent).toBe("Сохранить");
-    // Prefilled status reflects the clicked row (Архивная is inactive).
-    expect(editDialog).toHaveTextContent("Неактивен");
+    // Prefilled status reflects the clicked row (Супы is active).
+    expect(editDialog).toHaveTextContent("Активен");
     fireEvent.click(editDialog.querySelector(".settings-form__footer button[type='button']"));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Редактировать категорию" })).toBeNull());
 
@@ -98,12 +108,12 @@ describe("Dish Categories V2 follow-up", () => {
     expect(dialog).toBeInTheDocument();
     // Add modal is blank (not leaking the edit prefill).
     expect(dialog.querySelector('input[placeholder="Название категории"]').value).toBe("");
-    expect(dialog).toHaveTextContent("Фото");
+    expect(dialog).not.toHaveTextContent("Фото");
+    expect(dialog.querySelector('input[type="file"]')).toBeNull();
     expect(dialog).toHaveTextContent("Название");
     expect(dialog).toHaveTextContent("Статус");
     expect(dialog).toHaveTextContent("Рассчитать обслугу");
     expect(dialog).toHaveTextContent("Показать в меню");
-    expect(dialog.querySelector('input[aria-label="Загрузить фото категории"]')).not.toBeNull();
     expect(dialog.querySelector('input[placeholder="Название категории"]')).not.toBeNull();
     const addButton = dialog.querySelector('button[type="submit"]');
     expect(addButton?.textContent).toBe("Добавить");
@@ -128,7 +138,8 @@ describe("Dish Categories V2 follow-up", () => {
     await screen.findByText("Супы");
 
     // V6: flag switches are real and enabled in Edit, prefilled from backend.
-    fireEvent.click(screen.getAllByRole("button", { name: "Редактировать" })[1]);
+    // ARCHIVE V1: Active tab lists Супы — editing targets the active row.
+    fireEvent.click(screen.getByRole("button", { name: "Редактировать" }));
     const dialog = await screen.findByRole("dialog", { name: "Редактировать категорию" });
     const serviceToggle = within(dialog).getByText("Рассчитать обслугу").closest("div").querySelector("input");
     const showToggle = within(dialog).getByText("Показать в меню").closest("div").querySelector("input");
@@ -157,14 +168,15 @@ describe("Dish Categories V2 follow-up", () => {
         show_in_menu: true,
       }),
     );
-    // Photo (no backend contract) never enters the payload.
+    // Photo (no new file chosen) never enters the payload.
     const sent = vi.mocked(catalogService.updateCategory).mock.calls[0][1];
     expect(sent).not.toHaveProperty("photo");
+    expect(sent).not.toHaveProperty("image_url");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(await screen.findByText("Супы новые")).toBeInTheDocument();
-    // Row reflects the persisted OFF state (red family class).
+    // Row reflects the persisted OFF state (red family class, Active tab).
     const updated = document.querySelectorAll(".dishcat-service-badge");
-    expect(updated[1].classList.contains("is-off")).toBe(true);
+    expect(updated[0].classList.contains("is-off")).toBe(true);
   });
 
   it("keeps the edit modal open with the real backend error on save failure", async () => {
@@ -193,37 +205,60 @@ describe("Dish Categories V2 follow-up", () => {
     expect(screen.queryByText("Дубликат")).toBeNull();
   });
 
-  it("deletes through the real backend confirm flow and refetches", async () => {
+  it("archives through the real backend confirm flow and refetches", async () => {
     vi.mocked(getCategories).mockResolvedValue({
       data: [{ id: "c1", name: "Супы", slug: "supy", is_active: true, calculate_service: true, show_in_menu: true }],
     });
-    vi.mocked(catalogService.deleteCategory).mockResolvedValue({});
+    vi.mocked(catalogService.updateCategory).mockResolvedValue({ data: { id: "c1", is_active: false } });
     render(<CategoriesPage type="dishes" />);
     await screen.findByText("Супы");
 
-    fireEvent.click(screen.getByRole("button", { name: "Удалить" }));
-    const confirm = await screen.findByRole("dialog", { name: "Удалить категорию" });
-    expect(confirm).toHaveTextContent("Супы");
+    // ARCHIVE V1: active trash archives (PATCH), never physical DELETE.
+    fireEvent.click(screen.getByRole("button", { name: "Архивировать категорию" }));
+    const confirm = await screen.findByRole("dialog", { name: "Архивировать категорию?" });
+    expect(confirm).toHaveTextContent("будет перемещена в архив");
+    vi.mocked(getCategories).mockResolvedValue({ data: [] });
+    fireEvent.click(within(confirm).getByRole("button", { name: "Архивировать" }));
+
+    await waitFor(() => expect(catalogService.updateCategory).toHaveBeenCalledWith("c1", { is_active: false }));
+    expect(catalogService.deleteCategory).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.queryByText("Супы")).toBeNull();
+  });
+
+  it("permanently deletes unreferenced archived categories and refetches", async () => {
+    vi.mocked(getCategories).mockResolvedValue({
+      data: [{ id: "c1", name: "Старая", slug: "staraya", is_active: false, calculate_service: false, show_in_menu: false }],
+    });
+    vi.mocked(catalogService.deleteCategory).mockResolvedValue({});
+    render(<CategoriesPage type="dishes" />);
+    fireEvent.click(screen.getByRole("tab", { name: "Архивированные" }));
+    await screen.findByText("Старая");
+
+    fireEvent.click(screen.getByRole("button", { name: "Удалить окончательно" }));
+    const confirm = await screen.findByRole("dialog", { name: "Удалить категорию навсегда?" });
+    expect(confirm).toHaveTextContent("без возможности восстановления");
     vi.mocked(getCategories).mockResolvedValue({ data: [] });
     fireEvent.click(within(confirm).getByRole("button", { name: "Удалить" }));
 
     await waitFor(() => expect(catalogService.deleteCategory).toHaveBeenCalledWith("c1"));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(screen.queryByText("Супы")).toBeNull();
+    expect(screen.queryByText("Старая")).toBeNull();
   });
 
   it("keeps the row and shows the backend error when delete is refused", async () => {
     vi.mocked(getCategories).mockResolvedValue({
-      data: [{ id: "c1", name: "Супы", slug: "supy", is_active: true, calculate_service: true, show_in_menu: true }],
+      data: [{ id: "c1", name: "Супы", slug: "supy", is_active: false, calculate_service: true, show_in_menu: true }],
     });
     vi.mocked(catalogService.deleteCategory).mockRejectedValue({
       response: { data: { detail: "Category is in use by dishes and cannot be deleted" } },
     });
     render(<CategoriesPage type="dishes" />);
+    fireEvent.click(screen.getByRole("tab", { name: "Архивированные" }));
     await screen.findByText("Супы");
 
-    fireEvent.click(screen.getByRole("button", { name: "Удалить" }));
-    const confirm = await screen.findByRole("dialog", { name: "Удалить категорию" });
+    fireEvent.click(screen.getByRole("button", { name: "Удалить окончательно" }));
+    const confirm = await screen.findByRole("dialog", { name: "Удалить категорию навсегда?" });
     fireEvent.click(within(confirm).getByRole("button", { name: "Удалить" }));
 
     await waitFor(() =>
@@ -232,7 +267,7 @@ describe("Dish Categories V2 follow-up", () => {
       ).toBeInTheDocument(),
     );
     // No fake removal: confirm stays open, row stays.
-    expect(screen.getByRole("dialog", { name: "Удалить категорию" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Удалить категорию навсегда?" })).toBeInTheDocument();
     expect(screen.getByText("Супы")).toBeInTheDocument();
   });
 
@@ -248,6 +283,172 @@ describe("Dish Categories V2 follow-up", () => {
     const src = readFileSync(`${process.cwd()}/src/pages/CategoriesPage.jsx`, "utf8");
     expect(src).not.toMatch(/function handleDelete/);
     expect(src).toMatch(/onClick=\{\(\) => openDeleteConfirm\(row\)\}/);
+  });
+
+  it("dish categories carry no photo UI and never send image_url", async () => {
+    vi.mocked(getCategories).mockResolvedValue({
+      data: [{ id: "c1", name: "Супы", slug: "supy", is_active: true, calculate_service: true, show_in_menu: true, image_url: "http://localhost:9000/marjon-media/categories/a.png" }],
+    });
+    vi.mocked(catalogService.updateCategory).mockResolvedValue({ data: { id: "c1" } });
+    render(<CategoriesPage type="dishes" />);
+    await screen.findByText("Супы");
+    // Ряды без миниатюр и вьюера даже при image_url в ответе.
+    expect(document.querySelectorAll(".dishcat-photo-sm")).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: /фото категории/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Редактировать" }));
+    const dialog = await screen.findByRole("dialog", { name: "Редактировать категорию" });
+    // Модалка без фото-блока и загрузки.
+    expect(dialog.querySelector(".dishcat-photo")).toBeNull();
+    expect(dialog.querySelector('input[type="file"]')).toBeNull();
+    expect(catalogService.uploadCategoryImage).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Сохранить" }));
+    await waitFor(() => expect(catalogService.updateCategory).toHaveBeenCalled());
+    const sent = vi.mocked(catalogService.updateCategory).mock.calls[0][1];
+    expect(sent).not.toHaveProperty("image_url");
+    expect(sent).not.toHaveProperty("photo");
+  });
+
+  it("closes dish form through exit animation, not instantly", async () => {
+    vi.mocked(getCategories).mockResolvedValue({
+      data: [{ id: "c1", name: "Супы", slug: "supy", is_active: true, calculate_service: true, show_in_menu: true }],
+    });
+    render(<CategoriesPage type="dishes" />);
+    await screen.findByText("Супы");
+    fireEvent.click(screen.getByRole("button", { name: "Добавить категорию" }));
+    await screen.findByRole("dialog", { name: "Добавить категорию" });
+    const overlay = document.querySelector(".dishcat-modal-layer .settings-modal-overlay");
+    expect(overlay).not.toBeNull();
+    expect(overlay).not.toHaveClass("is-closing");
+    fireEvent.click(screen.getByRole("button", { name: "Отмена" }));
+    expect(overlay).toHaveClass("is-closing");
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Добавить категорию" })).toBeNull());
+  });
+
+  it("shows cached rows instantly on remount without skeleton flash", async () => {
+    const row = { id: "c1", name: "Супы", slug: "supy", is_active: true, calculate_service: true, show_in_menu: true };
+    vi.mocked(getCategories).mockResolvedValue({ data: [row] });
+    const first = render(<CategoriesPage type="dishes" />);
+    await screen.findByText("Супы");
+    first.unmount();
+    // Повторный заход: fetch висит, но кэш показывает ряды сразу.
+    let resolveFetch;
+    vi.mocked(getCategories).mockReturnValue(new Promise((res) => { resolveFetch = res; }));
+    render(<CategoriesPage type="dishes" />);
+    expect(screen.getByText("Супы")).toBeInTheDocument();
+    expect(document.querySelector(".menu-category-row.is-loading")).toBeNull();
+    resolveFetch({ data: [row] });
+    await screen.findByText("Супы");
+  });
+
+  it("settles tabs pill without slide on first paint", async () => {
+    vi.mocked(getCategories).mockResolvedValue({ data: [] });
+    render(<CategoriesPage type="dishes" />);
+    await waitFor(() => expect(
+      document.querySelector(".dish-status-tabs.is-settled"),
+    ).not.toBeNull());
+  });
+
+  it("keeps modal X button proportional (38px circle like dialogs)", () => {
+    const css = readFileSync(`${process.cwd()}/src/styles/owner/raw-categories.css`, "utf8");
+    const x = css.match(
+      /\.dishcat-modal-layer \.settings-form__header button\[aria-label="Закрыть"\]\s*\{[^}]*\}/,
+    )?.[0] || "";
+    expect(x).toMatch(/width:\s*38px/);
+    expect(x).toMatch(/height:\s*38px/);
+    expect(x).toMatch(/border-radius:\s*999px/);
+  });
+
+  it("gives service badge a free track (no 40px photo column)", () => {
+    const css = readFileSync(`${process.cwd()}/src/styles/owner/nomenclature.css`, "utf8");
+    const meta = css.match(
+      /\.menu-categories-page\.is-dish-categories \.dishcat-meta\s*\{[^}]*\}/,
+    )?.[0] || "";
+    expect(meta).toMatch(/grid-template-columns:\s*auto auto auto 34px/);
+    expect(meta).not.toMatch(/40px/);
+  });
+
+  it("shifts service + status left of row actions", () => {
+    const css = readFileSync(`${process.cwd()}/src/styles/owner/nomenclature.css`, "utf8");
+    const status = css.match(
+      /\.menu-categories-page\.is-dish-categories \.dishcat-meta \.settings-status-badge\s*\{[^}]*\}/,
+    )?.[0] || "";
+    expect(status).toMatch(/margin-right:\s*24px/);
+  });
+
+  it("keeps dish rows photo-free with service pill first in meta", async () => {
+    vi.mocked(getCategories).mockResolvedValue({
+      data: [{ id: "c1", name: "Супы", slug: "supy", is_active: true, calculate_service: true, show_in_menu: true }],
+    });
+    render(<CategoriesPage type="dishes" />);
+    await screen.findByText("Супы");
+    const row = document.querySelector(".dishcat-row");
+    const html = row.innerHTML;
+    expect(html).not.toContain("dishcat-photo");
+    expect(html.indexOf("dishcat-service-badge")).toBeGreaterThan(html.indexOf("dishcat-info"));
+  });
+
+  it("uses a smaller scoped title only in the Edit modal", () => {
+    const css = readFileSync(`${process.cwd()}/src/styles/owner/nomenclature.css`, "utf8");
+    const title = css.match(
+      /\.dishcat-modal-layer \.dishcat-modal--edit \.settings-form__header h2\s*\{[^}]*\}/,
+    )?.[0] || "";
+    expect(title).toMatch(/font-size:\s*24px/);
+    expect(title).toMatch(/font-weight:\s*700/);
+    expect(title).toMatch(/line-height:\s*1\.15/);
+  });
+
+  it("keeps destructive rest state flat white with no inherited glow", () => {
+    const css = readFileSync(`${process.cwd()}/src/styles/owner/nomenclature.css`, "utf8");
+    // Неон тянулся из базового turquoise-submit (box-shadow) — гасим явно.
+    const rest = css.match(
+      /\.dishcat-modal-layer \.settings-form__footer button\.dishcat-confirm__delete\[type="submit"\]\s*\{[^}]*\}/,
+    )?.[0] || "";
+    expect(rest).toMatch(/background:\s*#(?:fff|FFFFFF)/i);
+    expect(rest).toMatch(/box-shadow:\s*none/);
+  });
+
+  it("keeps destructive hover soft red with a full-strength selector, no turquoise", () => {
+    const css = readFileSync(`${process.cwd()}/src/styles/owner/nomenclature.css`, "utf8");
+    // V6.8: the short (0,4,0) hover lost to the turquoise submit hover
+    // (0,5,1); the winning rule must carry button+class+attr+pseudo.
+    const hover = css.match(
+      /\.dishcat-modal-layer \.settings-form__footer button\.dishcat-confirm__delete\[type="submit"\]:hover[^{]*\{[^}]*\}/,
+    )?.[0] || "";
+    expect(hover).toMatch(/background:\s*rgba\(239,\s*68,\s*68,\s*0\.08\)/);
+    expect(hover).toMatch(/border-color:\s*#EF4444/i);
+    expect(hover).toMatch(/color:\s*#EF4444/i);
+    expect(hover).toMatch(/box-shadow:\s*none/);
+    expect(hover).toMatch(/transform:\s*none/);
+    expect(hover).not.toMatch(/1FC9C9|1AB5B5|0ea5e9/i);
+  });
+
+  it("has no photo viewer or photo confirm dialogs anymore", async () => {
+    vi.mocked(getCategories).mockResolvedValue({
+      data: [{ id: "c1", name: "Супы", slug: "supy", is_active: true, calculate_service: true, show_in_menu: true, image_url: "http://localhost:9000/marjon-media/categories/a.png" }],
+    });
+    render(<CategoriesPage type="dishes" />);
+    await screen.findByText("Супы");
+    expect(document.querySelector(".dishcat-viewer-layer")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Удалить фото?" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Редактировать" }));
+    await screen.findByRole("dialog", { name: "Редактировать категорию" });
+    expect(screen.queryByRole("dialog", { name: "Удалить фото?" })).toBeNull();
+  });
+
+  it("closes raw form through exit animation too", async () => {
+    vi.mocked(getCategories).mockResolvedValue({
+      data: [{ id: "c1", name: "Овощи", slug: "raw-ovoshi", is_active: true }],
+    });
+    const { unmount } = render(<CategoriesPage type="raw" />);
+    await screen.findByText("Овощи");
+    fireEvent.click(screen.getByRole("button", { name: "Добавить" }));
+    await screen.findByRole("dialog", { name: "Добавить категорию сырья" });
+    const overlay = document.querySelector(".rawcat-modal-layer .settings-modal-overlay");
+    expect(overlay).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Отменить" }));
+    expect(overlay).toHaveClass("is-closing");
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Добавить категорию сырья" })).toBeNull());
+    unmount();
   });
 
   it("offsets only the МЕНЮ eyebrow by 8px via a category-scoped rule", () => {

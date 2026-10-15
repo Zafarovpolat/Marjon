@@ -11,13 +11,86 @@
 // V21: кастомное окно «База фото» удалено — фото выбирается нативным
 // OS-пикером (input[type=file] в строке таблицы и в дровере) и грузится
 // только через POST /inventory/products/{id}/photo.
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Icon from "../../components/Icon";
+import { catalogService } from "../../api/catalog";
 import { fieldLabels } from "./nomenclatureConfig";
 import DishSingleSelect from "./DishSingleSelect";
-import DishesModifiers from "./DishesModifiers";
 
-const READ_ONLY_DISH_FIELDS = ["menu"];
+function groupMoneyInput(value) {
+  const raw = String(value ?? "").replace(/[ \u00a0\u202f]/g, "");
+  const match = raw.match(/^(\d+)([.,]\d*)?$/);
+  if (!match) return raw;
+  return match[1].replace(/\B(?=(\d{3})+(?!\d))/g, " ") + (match[2] || "");
+}
+
+function DishMoneyInput({ value, onChange }) {
+  const inputRef = useRef(null);
+  const measureRef = useRef(null);
+  const suffixRef = useRef(null);
+  const caretRef = useRef(null);
+  const positionSuffix = () => {
+    const input = inputRef.current;
+    const measure = measureRef.current;
+    const suffix = suffixRef.current;
+    if (!input || !measure || !suffix) return;
+    const styles = getComputedStyle(input);
+    measure.style.font = styles.font;
+    measure.style.letterSpacing = styles.letterSpacing;
+    // Match the input's line box so currency and digits share a baseline.
+    suffix.style.fontFamily = styles.fontFamily;
+    suffix.style.fontSize = styles.fontSize;
+    suffix.style.lineHeight = styles.lineHeight;
+    suffix.style.letterSpacing = styles.letterSpacing;
+    const start = parseFloat(styles.paddingLeft) + parseFloat(styles.borderLeftWidth);
+    const end = start + measure.getBoundingClientRect().width - input.scrollLeft;
+    suffix.style.left = `${Math.max(start, Math.min(end + 4, input.clientWidth - suffix.offsetWidth - 14))}px`;
+  };
+  useLayoutEffect(() => {
+    if (caretRef.current !== null && inputRef.current === document.activeElement) {
+      inputRef.current.setSelectionRange(caretRef.current, caretRef.current);
+    }
+    caretRef.current = null;
+    positionSuffix();
+  });
+  useLayoutEffect(() => {
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(positionSuffix);
+    observer.observe(inputRef.current);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <span className="dish-money-field">
+    <input
+      ref={inputRef}
+      className="dish-money-input"
+      inputMode="decimal"
+      placeholder="0 сум"
+      value={groupMoneyInput(value)}
+      onScroll={positionSuffix}
+      onChange={(event) => {
+        const raw = event.target.value;
+        const meaningfulBeforeCaret = raw.slice(0, event.target.selectionStart ?? raw.length)
+          .replace(/[ \u00a0\u202f]/g, "").length;
+        const formatted = groupMoneyInput(raw);
+        let position = 0;
+        let seen = 0;
+        while (position < formatted.length && seen < meaningfulBeforeCaret) {
+          if (formatted[position] !== " ") seen++;
+          position++;
+        }
+        caretRef.current = position;
+        onChange(formatted);
+      }}
+    />
+    <span className="dish-money-measure-clip" aria-hidden="true">
+      <span ref={measureRef} className="dish-money-measure">{groupMoneyInput(value)}</span>
+    </span>
+    {String(value ?? "").trim() && <span ref={suffixRef} className="dish-money-suffix" aria-hidden="true">сум</span>}
+    </span>
+  );
+}
 
 export default function DishesDialogs({
   drawerOpen,
@@ -36,20 +109,47 @@ export default function DishesDialogs({
   printerOptions = [],
   printersLoading = false,
   printersUnavailable = false,
+  unitOptions = [],
+  unitsLoading = false,
+  unitsUnavailable = false,
   photoFile,
   photoPreview,
   handlePhotoChange,
-  modGroups,
-  setModGroups,
-  modLoading,
-  modError,
-  saveModGroup,
-  removeModGroup,
+  // Товары: сет создать нельзя — верхний сегмент Блюдо|Сет и нижний
+  // тумблер СЕТ скрыты (форма всегда обычная позиция).
+  hideKindSwitch = false,
 }) {
   const closeDrawer = () => {
     if (requestCloseDrawer) requestCloseDrawer();
     else setDrawerOpen(false);
   };
+  // Удаление фото (п.12): ховер по фото показывает иконку-корзину,
+  // иконка открывает подтверждающую панель, confirm — PATCH image_url:null.
+  // Только сохранённое фото (form.photo без несохранённого превью);
+  // таблица обновится при следующей загрузке каталога.
+  const [photoConfirm, setPhotoConfirm] = useState(false);
+  const [photoRemoving, setPhotoRemoving] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  const canDeletePhoto = Boolean(editing?.id) && Boolean(form.photo) && !photoPreview;
+  useEffect(() => {
+    setPhotoConfirm(false);
+    setPhotoError("");
+  }, [form.photo]);
+
+  async function confirmPhotoRemove() {
+    if (!editing?.id || photoRemoving) return;
+    setPhotoRemoving(true);
+    setPhotoError("");
+    try {
+      await catalogService.updateProduct(editing.id, { image_url: null });
+      setForm((prev) => ({ ...prev, photo: "" }));
+      setPhotoConfirm(false);
+    } catch (err) {
+      setPhotoError(err.response?.data?.detail || err.message || "Не удалось удалить фото.");
+    } finally {
+      setPhotoRemoving(false);
+    }
+  }
   // V19 — preselect по каноническим IDs: явный выбор формы → id строки
   // (categoryId/printerId из ответа backend) → резолв сохранённого имени
   // через живые справочники. Несовпадение (удалённая запись) = пусто = omit
@@ -62,14 +162,133 @@ export default function DishesDialogs({
     ?? (form.printer_id ? String(form.printer_id) : null)
     ?? printerOptions.find((item) => item.name === form.printer)?.id
     ?? "";
+  const selectedUnitId = form.unitId
+    ?? (form.unit_id ? String(form.unit_id) : null)
+    ?? "";
+  const selectableUnits = unitOptions.filter((item) => item.active || item.id === selectedUnitId);
+  if (selectedUnitId && !selectableUnits.some((item) => item.id === selectedUnitId)) {
+    selectableUnits.push({
+      id: selectedUnitId,
+      label: form.unit || "Недоступная единица",
+      active: false,
+    });
+  }
+  // ARCHIVE V1 — editing a dish whose category was archived must not
+  // silently erase its saved category: keep the current value selectable
+  // (same pattern as units above). New assignments still offer actives only.
+  const selectableCategories = categoryOptions.filter((item) => item && item.id);
+  if (selectedCategoryId && !selectableCategories.some((item) => String(item.id) === String(selectedCategoryId))) {
+    selectableCategories.push({
+      id: selectedCategoryId,
+      name: form.category || "Архивная категория",
+    });
+  }
   const pickCategory = (id) => {
-    const found = categoryOptions.find((item) => item.id === id);
+    const found = selectableCategories.find((item) => String(item.id) === String(id));
     setForm((prev) => ({ ...prev, categoryId: id, category: found ? found.name : "" }));
   };
   const pickPrinter = (id) => {
     const found = printerOptions.find((item) => item.id === id);
     setForm((prev) => ({ ...prev, printerId: id, printer: found ? found.name : "" }));
   };
+  const pickUnit = (id) => {
+    const found = unitOptions.find((item) => item.id === id);
+    setForm((prev) => ({ ...prev, unitId: id, unit: found?.label || prev.unit || "" }));
+  };
+  // Режим Сет — тот же form.set, что тумблер СЕТ внизу (двусторонняя связь):
+  // сверху сегмент Блюдо|Сет, форма перестраивается под сет.
+  const isSetMode = form.set === true;
+  const pickKind = (isSet) => {
+    if (saving) return;
+    setForm((prev) => ({ ...prev, set: isSet }));
+  };
+  // Скользящая пилюля сегмента (как Активные|Архивированные): замер
+  // активной кнопки, transition едет сам. Кнопки равной ширины (flex),
+  // размер не прыгает при переключении. Первый замер — без слайда.
+  // Свитч абсолютно отцентрован в шапке: ширина заголовка не двигает его.
+  const kindTabsRef = useRef(null);
+  const [kindPill, setKindPill] = useState({ left: 0, width: 0 });
+  const [kindSettled, setKindSettled] = useState(false);
+  useLayoutEffect(() => {
+    const update = () => {
+      const active = kindTabsRef.current?.querySelector("[data-kind].is-active");
+      if (!active) return;
+      setKindPill((current) => {
+        const next = { left: active.offsetLeft, width: active.offsetWidth };
+        return current.left === next.left && current.width === next.width ? current : next;
+      });
+      setKindSettled(true);
+    };
+    update();
+    window.addEventListener("resize", update);
+    const fonts = typeof document !== "undefined" ? document.fonts : null;
+    fonts?.ready.then(update).catch(() => {});
+    return () => window.removeEventListener("resize", update);
+  }, [isSetMode, drawerOpen]);
+  // Направление слайда окна: в сет — вход справа, обратно — слева.
+  // При открытии слайда нет (атрибут сброшен — окно стоит спокойно).
+  const prevSetRef = useRef(isSetMode);
+  const [slideDir, setSlideDir] = useState(null);
+  useEffect(() => {
+    if (prevSetRef.current === isSetMode) return;
+    prevSetRef.current = isSetMode;
+    setSlideDir(isSetMode ? "right" : "left");
+  }, [isSetMode]);
+  useEffect(() => {
+    if (drawerOpen) setSlideDir(null);
+  }, [drawerOpen]);
+  // Общие поля обеих раскладок (один источник — без дублей в ветках).
+  const unitField = (
+    <div className="dish-form-field">
+      <span className="dish-form-field__label" aria-hidden="true">Ед. изм</span>
+      <DishSingleSelect
+        label="Ед. изм"
+        placeholder="Ед. изм"
+        options={selectableUnits.map((item) => ({
+          value: item.id,
+          label: item.active ? item.label : `${item.label} (не активна)`,
+        }))}
+        value={selectedUnitId}
+        onChange={pickUnit}
+        disabled={unitsUnavailable || saving}
+        loading={unitsLoading}
+        disabledLabel="Единицы измерения недоступны"
+      />
+    </div>
+  );
+  const categoryField = (
+    <div className="dish-form-field">
+      <span className="dish-form-field__label" aria-hidden="true">Категория</span>
+      <DishSingleSelect
+        label="Категория"
+        placeholder="Категория"
+        options={selectableCategories.map((item) => ({ value: item.id, label: item.name }))}
+        value={selectedCategoryId}
+        onChange={pickCategory}
+        disabled={categoriesUnavailable}
+        loading={categoriesLoading}
+        disabledLabel="Категории недоступны"
+      />
+    </div>
+  );
+  const printerField = (wide) => (
+    <div className={`dish-form-field${wide ? " dish-form__wide" : ""}`}>
+      <span className="dish-form-field__label" aria-hidden="true">Принтер</span>
+      <DishSingleSelect
+        label="Принтер"
+        placeholder="Принтер"
+        options={printerOptions.map((item) => ({
+          value: item.id,
+          label: item.active ? item.name : `${item.name} (не активен)`,
+        }))}
+        value={selectedPrinterId}
+        onChange={pickPrinter}
+        disabled={printersUnavailable}
+        loading={printersLoading}
+        disabledLabel="Принтеры недоступны"
+      />
+    </div>
+  );
   return (
     <>
       {drawerOpen && createPortal(
@@ -77,7 +296,9 @@ export default function DishesDialogs({
           className={`staff-modal staff-modal--cashier-full dish-drawer${drawerClosing ? " is-closing" : ""}`}
           role="dialog"
           aria-modal="true"
-          aria-label={editing ? "Редактировать блюдо" : "Добавить блюдо"}
+          aria-label={editing
+            ? (isSetMode ? "Редактировать сет" : "Редактировать блюдо")
+            : (isSetMode ? "Добавить сет" : "Добавить блюдо")}
           onAnimationEnd={drawerClosing && finishCloseDrawer ? () => finishCloseDrawer() : undefined}
         >
           <div className="staff-modal__backdrop" onClick={saving ? undefined : closeDrawer} />
@@ -87,18 +308,77 @@ export default function DishesDialogs({
           >
             <div className="staff-form__header">
               <div>
-                <p>{editing ? "Редактирование" : "Новое блюдо"}</p>
-                <h2>{editing ? "Редактировать блюдо" : "Добавить блюдо"}</h2>
+                <p>{editing ? "Редактирование" : isSetMode ? "Новый сет" : "Новое блюдо"}</p>
+                <h2>
+                  {editing
+                    ? (isSetMode ? "Редактировать сет" : "Редактировать блюдо")
+                    : (isSetMode ? "Добавить сет" : "Добавить блюдо")}
+                </h2>
               </div>
+              {!editing && !hideKindSwitch ? (
+              <div className={`dish-kind-switch${kindSettled ? " is-settled" : ""}`} role="tablist" aria-label="Тип позиции" ref={kindTabsRef}>
+                <span
+                  className="dish-kind-switch__indicator"
+                  aria-hidden="true"
+                  style={{ transform: `translateX(${kindPill.left}px)`, width: kindPill.width }}
+                />
+                <button
+                  type="button"
+                  role="tab"
+                  data-kind="dish"
+                  aria-selected={!isSetMode}
+                  className={!isSetMode ? "is-active" : ""}
+                  disabled={saving}
+                  onClick={() => pickKind(false)}
+                >
+                  Блюдо
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  data-kind="set"
+                  aria-selected={isSetMode}
+                  className={isSetMode ? "is-active" : ""}
+                  disabled={saving}
+                  onClick={() => pickKind(true)}
+                >
+                  Сет
+                </button>
+              </div>
+              ) : null}
               <button type="button" disabled={saving} onClick={closeDrawer} aria-label="Закрыть">
                 <Icon name="bi-x-lg" size={20} />
               </button>
             </div>
             <div className="dish-drawer__body">
+              <div
+                {...(slideDir ? { "data-slide": slideDir } : null)}
+                className="dish-drawer__animated"
+                onAnimationEnd={(event) => {
+                  // Слайд отыграл — снимаем атрибут, чтобы следующий
+                  // переключатель запускал анимацию заново (без remount:
+                  // фокус и ноды формы сохраняются).
+                  if (event.target === event.currentTarget) setSlideDir(null);
+                }}
+              >
               <div className="cashier-photo">
                 <div className="staff-avatar staff-avatar--large">
                   {photoPreview || form.photo ? (
-                    <img src={photoPreview || form.photo} alt={editing ? "Фото блюда" : "Новое фото блюда"} />
+                    <>
+                      <img src={photoPreview || form.photo} alt={editing ? "Фото блюда" : "Новое фото блюда"} />
+                      {canDeletePhoto ? (
+                        <button
+                          type="button"
+                          className="dish-drawer-photo-delete"
+                          onClick={() => setPhotoConfirm(true)}
+                          disabled={saving}
+                          aria-label="Удалить фото блюда"
+                          title="Удалить фото"
+                        >
+                          <Icon name="bi-trash3" size={17} />
+                        </button>
+                      ) : null}
+                    </>
                   ) : (
                     <Icon name="bi-image" size={26} />
                   )}
@@ -118,6 +398,21 @@ export default function DishesDialogs({
                   </label>
                 </div>
               </div>
+              {photoConfirm ? (
+                <div className="dish-photo-confirm" role="dialog" aria-label="Удалить фото блюда">
+                  <strong>Удалить фото?</strong>
+                  <span>Фото блюда будет удалено без возможности восстановления.</span>
+                  {photoError ? <span className="login-error" role="alert">{photoError}</span> : null}
+                  <div className="dish-photo-confirm__actions">
+                    <button type="button" disabled={photoRemoving} onClick={() => setPhotoConfirm(false)}>
+                      Отмена
+                    </button>
+                    <button type="button" className="danger" disabled={photoRemoving} onClick={confirmPhotoRemove}>
+                      {photoRemoving ? "Удаление…" : "Удалить"}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               <div className="staff-form__grid">
                 <div className="dish-first-row">
                   <label className="dish-sort-field">
@@ -135,87 +430,68 @@ export default function DishesDialogs({
                     />
                   </label>
                 </div>
-                {["cost", "price"].map((field) => (
-                  <label key={field}>
-                    <span>{fieldLabels[field]}</span>
-                    <input
-                      value={form[field] || ""}
-                      onChange={(event) => setForm((prev) => ({ ...prev, [field]: event.target.value }))}
-                    />
-                  </label>
-                ))}
-                <label>
-                  <span>Тип</span>
-                  <select value={form.type} onChange={(event) => setForm((prev) => ({ ...prev, type: event.target.value }))}>
-                    <option>Блюда</option>
-                    <option>Реализация</option>
-                  </select>
-                </label>
-                <label>
-                  <span>Ед. изм</span>
-                  <select
-                    value={form.unit}
-                    disabled={Boolean(editing)}
-                    title={editing ? "Изменение единицы измерения не поддерживается backend update contract." : undefined}
-                    onChange={(event) => setForm((prev) => ({ ...prev, unit: event.target.value }))}
-                  >
-                    <option>шт</option>
-                    <option>порция</option>
-                    <option>кг</option>
-                    <option>л</option>
-                  </select>
-                </label>
-                {READ_ONLY_DISH_FIELDS.map((field) => (
-                  <label key={field}>
-                    <span>{fieldLabels[field]}</span>
-                    <input
-                      value={form[field] || ""}
-                      disabled
-                      title="Поле доступно только для чтения: write contract не подключён."
-                      onChange={(event) => setForm((prev) => ({ ...prev, [field]: event.target.value }))}
-                    />
-                  </label>
-                ))}
-                <div className="dish-form-field">
-                  <span className="dish-form-field__label" aria-hidden="true">Категория</span>
-                  <DishSingleSelect
-                    label="Категория"
-                    placeholder="Категория"
-                    options={categoryOptions.map((item) => ({ value: item.id, label: item.name }))}
-                    value={selectedCategoryId}
-                    onChange={pickCategory}
-                    disabled={categoriesUnavailable}
-                    loading={categoriesLoading}
-                    disabledLabel="Категории недоступны"
-                  />
-                </div>
-                <div className="dish-form-field dish-form__wide">
-                  <span className="dish-form-field__label" aria-hidden="true">Принтер</span>
-                  <DishSingleSelect
-                    label="Принтер"
-                    placeholder="Принтер"
-                    options={printerOptions.map((item) => ({
-                      value: item.id,
-                      label: item.active ? item.name : `${item.name} (не активен)`,
-                    }))}
-                    value={selectedPrinterId}
-                    onChange={pickPrinter}
-                    disabled={printersUnavailable}
-                    loading={printersLoading}
-                    disabledLabel="Принтеры недоступны"
-                  />
-                </div>
+                {isSetMode ? (
+                  <>
+                    <label>
+                      <span>{fieldLabels.price}</span>
+                      <DishMoneyInput
+                        value={form.price || ""}
+                        onChange={(value) => setForm((prev) => ({ ...prev, price: value }))}
+                      />
+                    </label>
+                    {categoryField}
+                    {unitField}
+                    {printerField(false)}
+                  </>
+                ) : (
+                  <>
+                    {["cost", "price"].map((field) => (
+                      <label key={field}>
+                        <span>{fieldLabels[field]}</span>
+                        <DishMoneyInput
+                          value={form[field] || ""}
+                          onChange={(value) => setForm((prev) => ({ ...prev, [field]: value }))}
+                        />
+                      </label>
+                    ))}
+                    {categoryField}
+                    {unitField}
+                    {printerField(false)}
+                    {printerField(false)}
+                  </>
+                )}
               </div>
 
-              <DishesModifiers
-                editing={editing}
-                modGroups={modGroups}
-                setModGroups={setModGroups}
-                modLoading={modLoading}
-                modError={modError}
-                saveModGroup={saveModGroup}
-                removeModGroup={removeModGroup}
-              />
+              <div className="dish-form-switches">
+                {[
+                  { field: "active", label: "Статус", value: form.active !== false },
+                  { field: "auto", label: "АВТО", value: form.auto === true },
+                  { field: "set", label: "СЕТ", value: form.set === true },
+                ].filter(({ field }) => !(hideKindSwitch && field === "set")).map(({ field, label, value }) => (
+                  <div className="dish-form-switch-row" key={field}>
+                    <span className="dish-form-switch-label">{label}</span>
+                    <div className="dish-form-switch-control">
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-label={label}
+                        aria-checked={value}
+                        className={`dish-form-switch${value ? " is-on" : ""}`}
+                        disabled={saving}
+                        onClick={() => setForm((prev) => ({ ...prev, [field]: !value }))}
+                      >
+                        <span aria-hidden="true" />
+                      </button>
+                      {field === "active" && (
+                        <span className={`dish-form-status${value ? " is-active" : ""}`}>
+                          {value ? "Активен" : "Неактивен"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              </div>
             </div>
 
             <div className="staff-form__footer">

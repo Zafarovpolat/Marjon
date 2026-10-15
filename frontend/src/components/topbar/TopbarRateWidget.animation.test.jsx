@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { exchangeRatesService } from "../../api/exchangeRates";
@@ -173,5 +174,25 @@ describe("TopbarRateWidget popup motion", () => {
     fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
 
     expect(container.querySelector(".usd-rate-popover")).not.toBeInTheDocument();
+  });
+
+  it("places the popup higher-left on desktop with a deep shadow", () => {
+    const css = readFileSync(`${process.cwd()}/src/styles/react-overrides.css`, "utf8");
+    expect(css).toMatch(/\.dashboard-topbar \.usd-rate-popover\s*\{[^}]*top:\s*62px/);
+    expect(css).toMatch(/\.dashboard-topbar \.usd-rate-popover\s*\{[^}]*- 120px/);
+    expect(css).toMatch(/\.usd-rate-popover\s*\{[^}]*0 32px 90px/);
+  });
+
+  it("keeps the hover shadow on rate cards even without hover", () => {
+    const css = readFileSync(`${process.cwd()}/src/styles/shared/topbar-widgets.css`, "utf8");
+    expect(css).toMatch(/\.currency-rate-card\s*\{[^}]*box-shadow:\s*0 4px 10px rgba\(15, 35, 60, 0\.065\)/);
+  });
+
+  it("keeps popup and card shadows under the dashboard flat-surfaces reset", () => {
+    const css = readFileSync(`${process.cwd()}/src/styles/shared/topbar-widgets.css`, "utf8");
+    // dashboard.css гасит тени покоя под KPI-band — исключение выше (0,8,1).
+    expect(css).toMatch(/\.topbar-info-widgets \.usd-rate-popover\s*\{[^}]*0 32px 90px/);
+    expect(css).toMatch(/\.topbar-info-widgets \.currency-rate-card:not\(\.is-active\)\s*\{[^}]*0 4px 10px/);
+    expect(css).toMatch(/\.topbar-info-widgets \.currency-rate-card\.is-active\s*\{[^}]*0 3px 9px/);
   });
 });

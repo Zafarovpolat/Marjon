@@ -219,7 +219,6 @@ export function buildCustomerTemplate(org = {}) {
 
 export function buildKitchenTemplate() {
   const enabled = KITCHEN_BLOCKS.reduce((acc, key) => ({ ...acc, [key]: true }), {});
-  enabled.showOrderSum = false;
   return {
     paperSize: "80mm",
     autoPrint: false,
@@ -245,8 +244,7 @@ export function migrateKitchenTemplate(stored, defaults) {
   const hasNewKey = Array.isArray(s.blocks) && s.blocks.some((b) => KITCHEN_BLOCKS.includes(b));
   const enabled = { ...base.enabled, ...leg };
   for (const key of KITCHEN_BLOCKS) {
-    if (key === "showOrderSum") enabled[key] = leg[key] ?? false;
-    else if (key === "date") enabled[key] = leg[key] ?? leg.createdAt ?? true;
+    if (key === "date") enabled[key] = leg[key] ?? leg.createdAt ?? true;
     else if (key === "comment") {
       enabled[key] = leg[key] ?? ((leg.itemComments ?? true) || (leg.orderNote ?? true));
     } else enabled[key] = leg[key] ?? true;

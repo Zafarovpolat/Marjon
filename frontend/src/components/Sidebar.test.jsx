@@ -126,6 +126,25 @@ describe("OWNER Sidebar", () => {
     expect(reportsButton).toHaveAttribute("aria-expanded", "false");
   });
 
+  it("renders collapsed popover subcategory icons 1:1 with the open submenu", () => {
+    const { unmount } = renderSidebar(users.owner, "/users/cashier");
+    const open = {};
+    document.querySelectorAll(".sidebar-submenu__link").forEach((a) => {
+      open[a.getAttribute("href")] = a.querySelector(".sidebar-submenu__icon")?.innerHTML;
+    });
+    unmount();
+
+    renderSidebar(users.owner, "/users/cashier", true);
+    fireEvent.mouseEnter(screen.getByRole("button", { name: "Сотрудники" }).closest(".sidebar-nav-item"));
+    const closed = {};
+    document.querySelectorAll(".sidebar-collapsed-popover__link").forEach((a) => {
+      closed[a.getAttribute("href")] = a.querySelector(".sidebar-submenu__icon")?.innerHTML;
+    });
+    const hrefs = Object.keys(open).filter((h) => h in closed);
+    expect(hrefs.length).toBeGreaterThan(0);
+    hrefs.forEach((h) => expect(closed[h]).toBe(open[h]));
+  });
+
   it("keeps operational role links under OWNER staff management", () => {
     renderSidebar(users.owner);
 

@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/marjon-logo.svg";
-import brandLogo from "../assets/brand/marjon-logo.svg";
+import brandLogo from "../assets/brand/marjon-neon-logo-v110.png";
 import { logout } from "../api/client";
 import { canAccessPath, filterNavItems, getRole } from "../utils/permissions";
 import { readStoredProfile } from "../utils/profileCache";
-import { navItems } from "./sidebar/navConfig";
+import { isNavPathActive, navItems } from "./sidebar/navConfig";
 import SidebarSearch from "./sidebar/SidebarSearch";
 import SidebarNav from "./sidebar/SidebarNav";
 import SidebarAccount from "./sidebar/SidebarAccount";
 import SidebarMobileNav from "./sidebar/SidebarMobileNav";
+import DarkShellWaves from "./preview/DarkShellWaves";
 
 // Оркестратор сайдбара OWNER. Владеет состоянием и обработчиками навигации,
 // аккаунт-меню и мобильной панели; рендер разнесён по презентационным
@@ -17,6 +18,9 @@ import SidebarMobileNav from "./sidebar/SidebarMobileNav";
 export default function Sidebar({ user, collapsed, onToggle }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const dashboardTo = import.meta.env.DEV && new URLSearchParams(location.search).get("previewData") === "1"
+    ? "/?previewData=1"
+    : "/";
   const closeAccountTimer = useRef(null);
   const [openMenu, setOpenMenu] = useState("");
   const [pinnedMenu, setPinnedMenu] = useState("");
@@ -39,11 +43,11 @@ export default function Sidebar({ user, collapsed, onToggle }) {
   const canOpenSupport = canAccessPath(user, "/settings/support");
   const canOpenStore = canAccessPath(user, "/store");
   const exactChildParentKey = useMemo(() => (
-    visibleNavItems.find((item) => item.children?.some((child) => location.pathname === child.to))?.key || ""
+    visibleNavItems.find((item) => item.children?.some((child) => isNavPathActive(location.pathname, child.to)))?.key || ""
   ), [location.pathname, visibleNavItems]);
 
   useEffect(() => {
-    const activeParent = navItems.find((item) => item.children?.some((child) => location.pathname === child.to));
+    const activeParent = navItems.find((item) => item.children?.some((child) => isNavPathActive(location.pathname, child.to)));
     if (activeParent) {
       setPinnedMenu(activeParent.key);
       setOpenMenu(activeParent.key);
@@ -140,6 +144,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
   return (
     <>
     <aside className={`dashboard-sidebar ${collapsed ? "is-collapsed" : ""}`} id="dashboardSidebar">
+      <DarkShellWaves variant="sidebar" />
       <div className="sidebar-brand">
         <div className="sidebar-brand__identity">
           <button
@@ -159,6 +164,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
       </div>
 
       <SidebarSearch
+        collapsed={collapsed}
         navItems={visibleNavItems}
         navigate={navigate}
         setPinnedMenu={setPinnedMenu}
@@ -168,6 +174,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
       <SidebarNav
         visibleNavItems={visibleNavItems}
         location={location}
+        dashboardTo={dashboardTo}
         collapsed={collapsed}
         openMenu={openMenu}
         pinnedMenu={pinnedMenu}
@@ -209,6 +216,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
     <SidebarMobileNav
       visibleNavItems={visibleNavItems}
       location={location}
+      dashboardTo={dashboardTo}
       moreOpen={moreOpen}
       setMoreOpen={setMoreOpen}
       canOpenProfile={canOpenProfile}

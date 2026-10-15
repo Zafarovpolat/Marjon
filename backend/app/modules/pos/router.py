@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import require_company_app_user
+from app.modules.auth.dependencies import require_company_app_user, require_web_owner
 from app.modules.auth.models import User
 from app.modules.pos.schemas import (
     OrderCreate, OrderItemCreate, OrderItemWaiterUpdate, OrderResponse,
@@ -42,6 +42,20 @@ async def list_orders(
     return await OrderService(db).list(
         user.company_id, branch_id, status, date, active_only, table_number, limit, offset
     )
+
+
+@router.delete("/orders/purge", response_model=dict)
+async def purge_orders(
+    user: User = Depends(require_web_owner),
+    db: AsyncSession = Depends(get_db),
+):
+    """Массовая очистка отчётов (Настройки → «Очистить все отчеты»).
+
+    Полностью удаляет ВСЕ заказы компании вместе с позициями, платежами,
+    чеками и доставками — все отчёты категории «Отчёты» становятся пустыми,
+    включая отчёт по отменам. Только владелец. Действие необратимо.
+    """
+    return await OrderService(db).purge_company_orders(user.company_id)
 
 
 @router.get("/orders/{order_id}", response_model=OrderResponse)

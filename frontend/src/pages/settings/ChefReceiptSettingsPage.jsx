@@ -12,17 +12,23 @@ import {
   getKitchenTemplate,
   migrateKitchenTemplate,
   saveKitchenTemplate,
-  testPrintKitchen,
 } from "../../api/receipt";
 import { isAbortError } from "../../hooks/useAsyncSafety";
 import "./receiptSettings.css";
+
+// Единый с чеком клиента вид левой колонки: те же сворачиваемые группы.
+// Порядок внутри групп — как в template.blocks; свернутость UI-only.
+export const CHEF_RECEIPT_GROUPS = [
+  { key: "order", title: "Информация о заказе", blocks: ["orderNumber", "cancelOrderNumber", "orderType", "table", "waiter", "date"] },
+  { key: "sums", title: "Суммы", blocks: ["showOrderSum"] },
+  { key: "notes", title: "Комментарий", blocks: ["comment"] },
+];
 
 export default function ChefReceiptSettingsPage() {
   const defaults = useMemo(() => buildKitchenTemplate(), []);
   const [template, setTemplate] = useState(defaults);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [printing, setPrinting] = useState(false);
   const [message, setMessage] = useState("");
   const [toastClosing, setToastClosing] = useState(false);
   const [error, setError] = useState("");
@@ -73,8 +79,7 @@ export default function ChefReceiptSettingsPage() {
     }));
   }
 
-  function changeBlockStyle(block, patch) {
-    setTemplate((current) => ({
+  function changeBlockStyle(block, patch) {    setTemplate((current) => ({
       ...current,
       blockStyles: {
         ...(current.blockStyles || {}),
@@ -104,13 +109,6 @@ export default function ChefReceiptSettingsPage() {
     }
   }
 
-  async function handleTestPrint() {
-    setPrinting(true);
-    const result = await testPrintKitchen(template);
-    setPrinting(false);
-    if (result.ok) flashMessage("Открыто окно печати предпросмотра.");
-  }
-
   return (
     <div className="settings-page settings-owner-view receipt-settings-page">
       <section className="settings-card">
@@ -124,7 +122,9 @@ export default function ChefReceiptSettingsPage() {
               </div>
             </div>
             <div className="receipt-editor-actions receipt-editor-actions--end">
-              <button type="button" className="receipt-btn-secondary" disabled={printing} onClick={handleTestPrint}>Печать предпросмотра</button>
+              <button type="button" className="receipt-btn-primary receipt-save" disabled={saving || loading} onClick={handleSave}>
+                {saving ? "Сохранение..." : "Сохранить"}
+              </button>
             </div>
           </div>
           <div className="receipt-header-spacer" aria-hidden="true" />
@@ -148,13 +148,8 @@ export default function ChefReceiptSettingsPage() {
                 sizeOptionsForBlock={(block) => CHEF_STYLE_CONTROLS[block]?.sizes || []}
                 alignOptionsForBlock={(block) => (CHEF_STYLE_CONTROLS[block]?.align ? CHEF_ALIGN_OPTIONS : [])}
                 weightOptionsForBlock={(block) => (CHEF_STYLE_CONTROLS[block]?.weight ? CHEF_WEIGHT_OPTIONS : [])}
+                groups={CHEF_RECEIPT_GROUPS}
               />
-
-              <div className="receipt-editor-save">
-                <button type="button" className="receipt-btn-primary receipt-save" disabled={saving || loading} onClick={handleSave}>
-                  {saving ? "Сохранение..." : "Сохранить"}
-                </button>
-              </div>
             </div>
           </div>
 

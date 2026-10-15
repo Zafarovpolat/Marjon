@@ -7,6 +7,7 @@ import Icon from "../Icon";
 export default function SidebarMobileNav({
   visibleNavItems,
   location,
+  dashboardTo = "/",
   moreOpen,
   setMoreOpen,
   canOpenProfile,
@@ -84,7 +85,7 @@ export default function SidebarMobileNav({
           return (
             <Link
               key={item.key}
-              to={item.to}
+              to={item.key === "dashboard" ? dashboardTo : item.to}
               className={`mobile-nav-item${active ? " is-active" : ""}`}
               onClick={() => setMoreOpen(false)}
             >

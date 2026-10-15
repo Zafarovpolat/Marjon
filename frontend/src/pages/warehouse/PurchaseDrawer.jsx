@@ -19,8 +19,8 @@ function lineTotal(row) {
  * Дравер создания прихода. Собирает документ (поставщик, склад, дата, строки)
  * и отдаёт наверх через onSubmit — сам API не дёргает (правило: в WarehousePage
  * и его компонентах нет прямых api.post/patch/delete; всё через warehouseService).
- * Позиция обязана ссылаться на ингредиент (ingredient_id) — иначе при проведении
- * остаток по ней не сдвинется (бэкенд молча пропускает строки без ингредиента).
+ * Позиция — это шаблон из «Продуктов»: обязаны ingredient_id, количество и цена
+ * (бэкенд такие документы отклоняет 422, проведение считает остатки из движений).
  */
 function PurchaseDrawer({ warehouses, ingredients, saving, error, onClose, onSubmit }) {
   const [supplier, setSupplier] = useState("");
@@ -46,7 +46,11 @@ function PurchaseDrawer({ warehouses, ingredients, saving, error, onClose, onSub
     updateRow(key, { ingredientId, unit: ing?.unit || "" });
   };
 
-  const validItems = items.filter((row) => row.ingredientId && Number(row.quantity) > 0);
+  // Шаблон нельзя оприходовать без количества и цены — такие строки
+  // в документ не попадают (backend дополнительно отклоняет их 422).
+  const validItems = items.filter(
+    (row) => row.ingredientId && Number(row.quantity) > 0 && Number(row.costPrice) > 0,
+  );
   const canSubmit = Boolean(warehouseId) && validItems.length > 0 && !saving;
 
   const submit = () => {

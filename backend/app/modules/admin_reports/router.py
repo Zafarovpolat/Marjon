@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.session import get_db
 from app.modules.admin_reports import schemas
 from app.modules.admin_reports.schemas import (
-    AttendanceRow, CancelledFiltersResponse, CancelledItemRow,
+    AttendanceRow, CancelledFiltersResponse, CancelledItemRow, CancelledReportTotals,
     DishReportFiltersResponse, DishReportResponse,
     DebtCreditRow, LoginHistoryRow, OrderReportFiltersResponse, OrderReportRow, ProductCountRow,
     ProductReportRow, TableReportFiltersResponse, TableReportRow,
@@ -314,6 +314,21 @@ async def cancelled_report_filters(
 ):
     assert user.company_id is not None
     return await AdminReportService(db).cancelled_filters(user.company_id)
+
+
+@router.get("/cancelled/summary", response_model=CancelledReportTotals)
+async def cancelled_report_summary(
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    user: User = Depends(require_reports_access),
+    db: AsyncSession = Depends(get_db),
+):
+    assert user.company_id is not None
+    date_from, date_to = await _clamp_period(user, db, date_from, date_to)
+    quantity = await AdminReportService(db).cancelled_items(
+        user.company_id, date_from, date_to, summary_only=True,
+    )
+    return CancelledReportTotals(quantity=quantity)
 
 
 @admin_reports_router.get("/dashboard-kpis")

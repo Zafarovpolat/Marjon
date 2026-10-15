@@ -57,7 +57,7 @@ async def upload_company_logo(
         raise HTTPException(status_code=400, detail="Поддерживаются только jpg, png, webp")
     ext = _LOGO_EXT_MAP[file.content_type]
     key = f"logos/{current_user.company_id}.{ext}"
-    logo_url = await storage.upload(await file.read(), key, file.content_type)
+    logo_url = await storage.upload(await file.read(), key, file.content_type, public=True)
 
     company = await CompanyService(db).get(current_user.company_id)
     company.logo_url = logo_url

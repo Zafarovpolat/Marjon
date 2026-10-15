@@ -180,6 +180,13 @@ async def click_webhook(
         order.status = "completed"
         db.add(order)
 
+        try:
+            from app.modules.inventory.service import StockService
+
+            await StockService(db).deduct_for_order(payment.company_id, order.id)
+        except Exception:
+            pass
+
         if fiscal_plan is not None:
             await fiscal.schedule_payment(
                 company_id=payment.company_id,
@@ -349,6 +356,13 @@ async def payme_webhook(
         order.status = "completed"
         db.add(order)
 
+        try:
+            from app.modules.inventory.service import StockService
+
+            await StockService(db).deduct_for_order(payment.company_id, order.id)
+        except Exception:
+            pass
+
         if fiscal_plan is not None:
             await fiscal.schedule_payment(
                 company_id=payment.company_id,
@@ -493,6 +507,13 @@ async def uzum_webhook(
 
         order.status = "completed"
         db.add(order)
+
+        try:
+            from app.modules.inventory.service import StockService
+
+            await StockService(db).deduct_for_order(payment.company_id, order.id)
+        except Exception:
+            pass
 
         if fiscal_plan is not None:
             await fiscal.schedule_payment(

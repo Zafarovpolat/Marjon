@@ -1,15 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { getCategories } from "../api/categories";
 import { catalogService } from "../api/catalog";
 import Icon from "../components/Icon";
+import { useCategoryListHeight } from "./categoryListHeight";
 import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
+import "../styles/owner/raw-categories.css";
 
 const TYPE_CONFIG = {
   dishes: { label: "Категории блюд", title: "Меню", slug_prefix: "dish" },
-  raw: { label: "Категории сырья", title: "Категории сырья", slug_prefix: "raw" },
+  raw: { label: "Категория продуктов", title: "Категория продуктов", slug_prefix: "raw" },
   semi: { label: "Категории полуфабрикатов", title: "Категории полуфабрикатов", slug_prefix: "semi" },
-  sales: { label: "Категории реализации", title: "Категории реализации", slug_prefix: "sales" },
+  sales: { label: "Категория товаров", title: "Категория товаров", slug_prefix: "sales" },
 };
 
 const DEFAULT_FORM = { name: "", slug: "", sort_order: 0 };
@@ -51,40 +53,65 @@ export default function CategoriesPage({ type = "dishes" }) {
   return <ProductCategoriesPage type={type} />;
 }
 
+// SWR-кэш рядов по type: повторный заход (блюда ↔ товары) показывает
+// прошлые ряды мгновенно, свежие подтягиваются фоном — нет вспышки
+// скелетон → данные при каждом переходе. Мутации идут через load(),
+// кэш обновляется там же; create-append зеркалит в кэш вручную.
+const rowsByTypeCache = new Map();
+
 function ProductCategoriesPage({ type }) {
   const config = TYPE_CONFIG[type] || TYPE_CONFIG.dishes;
   // Категории сырья и полуфабрикатов живут в общей таблице categories, но
   // отделяются slug-префиксом (raw*/semi*). При namespaced-типе список
   // фильтруется по префиксу, а новые категории его получают принудительно —
   // так SemiProductsPage находит их тем же приёмом (slug.startsWith("semi")).
-  const namespaced = type === "raw" || type === "semi";
+  const namespaced = type === "raw" || type === "semi" || type === "sales";
   // V1 — Place-family rework applies ONLY to dish categories (Menu →
-  // Категория блюд). Raw/semi/sales keep their exact current markup so their
-  // contract tests and visuals are untouched.
+  // Категория блюд). Raw/semi keep their exact current markup so their
+  // contract tests and visuals are untouched. Sales (Категория товаров)
+  // разделяет dish-ветку 1:1 (row-cards, архив, модалка без фото).
   const isDishCategories = type === "dishes";
-  const [rows, setRows] = useState([]);
+  const isSalesCategories = type === "sales";
+  const isMenuCategories = isDishCategories || isSalesCategories;
+  // RAW CATEGORY V1 — выделенная ветка только для Склад → Категория сырья.
+  // Блюда и semi не затрагиваются: их разметка,
+  // модалки и стабы остаются 1:1. Raw получает table из 3 колонок
+  // (Название/Статус/Действия) в визуальной семье dish-категорий.
+  const isRawCategories = type === "raw";
+  const [rows, setRows] = useState(() => rowsByTypeCache.get(type) || []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
+  // Exit-анимация формы (is-closing → unmount, 160мс settings-modal-out).
+  const [formClosing, setFormClosing] = useState(false);
+  const formCloseTimer = useRef(null);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(DEFAULT_FORM);
   const [saving, setSaving] = useState(false);
   // V2 — Add Category modal local UI state. Backend NomCategoryCreate accepts
-  // only {name, sort, status}, so photo / service / show-in-menu are
-  // presentational until the contract grows; create still sends the existing
-  // payload below and never claims to persist them.
-  const [photoPreview, setPhotoPreview] = useState(null);
+  // only {name, sort, status}, so service / show-in-menu are presentational
+  // until the contract grows; create still sends the existing payload below
+  // and never claims to persist them. Фото у категорий блюд убрано (п.13).
   const [statusOn, setStatusOn] = useState(true);
   const [serviceOn, setServiceOn] = useState(true);
   const [showInMenu, setShowInMenu] = useState(true);
   // V4 — row being edited (null = create). Holds the clicked category so the
   // edit modal prefills its real values; no fake backend update is performed.
-  const [editingRow, setEditingRow] = useState(null);
   // V6 — real delete confirmation (null = closed). Mirrors the OWNER
   // settings-modal confirm pattern; no fake "not connected" banner.
+  // ARCHIVE V1 — permanent delete lives ONLY in the Archived tab; the
+  // Active-tab trash archives instead (see archiveTarget below).
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  // ARCHIVE V1 — Active-tab archive flow: trash means "move to archive"
+  // (PATCH is_active:false), never physical DELETE. Archived rows expose
+  // Restore (PATCH is_active:true) + permanent Delete instead of Edit.
+  const [showArchived, setShowArchived] = useState(false);
+  const [archiveTarget, setArchiveTarget] = useState(null);
+  const [archiving, setArchiving] = useState(false);
+  const [archiveError, setArchiveError] = useState("");
+  const [restoringId, setRestoringId] = useState(null);
   const beginRequest = useLatestRequest();
   const { acquire, release } = useMutationLocks();
 
@@ -93,9 +120,13 @@ function ProductCategoriesPage({ type }) {
     setLoading(true);
     setError("");
     try {
-      const { data } = await getCategories();
+      // ARCHIVE V1: one canonical read with archived rows included; the
+      // Active/Archived tabs split client-side by real is_active. Default
+      // backend behavior (active-only) is untouched for other consumers.
+      const { data } = await getCategories({ params: { include_inactive: true } });
       if (!request.isCurrent()) return;
       const loadedCategories = Array.isArray(data) ? data : [];
+      rowsByTypeCache.set(type, loadedCategories);
       setRows(loadedCategories);
     } catch (err) {
       if (!request.isCurrent() || isAbortError(err)) return;
@@ -111,13 +142,10 @@ function ProductCategoriesPage({ type }) {
   }, [type]);
 
   function openCreate() {
+    clearTimeout(formCloseTimer.current);
+    setFormClosing(false);
     setEditingId(null);
-    setEditingRow(null);
     setForm(DEFAULT_FORM);
-    setPhotoPreview((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
-    });
     setStatusOn(true);
     setServiceOn(true);
     setShowInMenu(true);
@@ -125,23 +153,35 @@ function ProductCategoriesPage({ type }) {
   }
 
   function openEdit(row) {
-    if (!isDishCategories) {
+    clearTimeout(formCloseTimer.current);
+    setFormClosing(false);
+    if (isRawCategories) {
+      // RAW V1 — настоящее редактирование через canonical PATCH:
+      // только имя + статус (slug на update backend не принимает).
+      setEditingId(row.id);
+      setForm({
+        name: row.name || "",
+        slug: row.slug || "",
+        sort_order: row.sort_order ?? row.sort ?? 0,
+      });
+      setStatusOn(row.is_active !== false);
+      setServiceOn(row.calculate_service === true);
+      setShowInMenu(row.show_in_menu === true);
+      setShowForm(true);
+      return;
+    }
+    if (!isMenuCategories) {
       setError(`Редактирование категории «${row.name}» пока не подключено к backend.`);
       return;
     }
     // V4 — centered edit modal in the Add-modal family, prefilled with the
-    // clicked category's real values (name + is_active; photo only if the
-    // row actually carries one). V6 — flags are canonical: real prefill.
+    // clicked category's real values (name + is_active).
+    // V6 — flags are canonical: real prefill.
     setEditingId(row.id);
-    setEditingRow(row);
     setForm({
       name: row.name || "",
       slug: row.slug || "",
       sort_order: row.sort_order ?? row.sort ?? 0,
-    });
-    setPhotoPreview((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
     });
     setStatusOn(row.is_active !== false);
     // V6 — canonical flags: prefill real backend values (absent = false,
@@ -152,47 +192,59 @@ function ProductCategoriesPage({ type }) {
   }
 
   function closeForm() {
+    clearTimeout(formCloseTimer.current);
+    setFormClosing(false);
     setShowForm(false);
     setEditingId(null);
-    setEditingRow(null);
     setForm(DEFAULT_FORM);
-    setPhotoPreview((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
-    });
   }
 
-  function handlePhotoChange(event) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    setPhotoPreview((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return URL.createObjectURL(file);
-    });
+  // Пользовательское закрытие — через exit-анимацию; сброс/анмаунт в closeForm.
+  function requestCloseForm() {
+    if (saving || formClosing) return;
+    const reduced = typeof window !== "undefined"
+      && typeof window.matchMedia === "function"
+      && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) {
+      closeForm();
+      return;
+    }
+    setFormClosing(true);
+    clearTimeout(formCloseTimer.current);
+    formCloseTimer.current = setTimeout(closeForm, 160);
   }
 
   // V2 — centered modal Escape close (same contract as SettingsPlacesPage:
   // no close while saving). V6 — also covers the delete confirm.
+  // ARCHIVE V1 — raw modals and the archive confirm close on Escape as well.
   useEffect(() => {
-    if (type !== "dishes") return undefined;
-    if (!showForm && !deleteTarget) return undefined;
+    if (!isMenuCategories && type !== "raw") return undefined;
+    if (!showForm && !deleteTarget && !archiveTarget) return undefined;
     function onKey(event) {
       if (event.key !== "Escape") return;
-      if (showForm && !saving) closeForm();
+      if (archiveTarget && !archiving) {
+        setArchiveTarget(null);
+        return;
+      }
+      if (showForm && !saving) requestCloseForm();
       else if (deleteTarget && !deleting) setDeleteTarget(null);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [showForm, deleteTarget, type, saving, deleting]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [showForm, deleteTarget, archiveTarget, type, saving, deleting, archiving]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => () => {
+    clearTimeout(formCloseTimer.current);
+  }, []);
 
   async function handleSave(event) {
     event.preventDefault();
     if (!acquire("category-save")) return;
     if (editingId) {
       // V6 — real canonical persistence: PATCH /inventory/categories/{id}
-      // with supported fields (name + the three booleans). Photo has no
-      // backend contract and is never sent.
+      // with supported fields (name + the three booleans).
+      // RAW V1 — только имя + статус: slug на update backend не принимает,
+      // флаги блюд к сырью не относятся. Фото у категорий блюд убрано.
       const name = form.name.trim();
       if (!name) {
         setError("Укажите название категории.");
@@ -202,6 +254,22 @@ function ProductCategoriesPage({ type }) {
       setSaving(true);
       setError("");
       try {
+        if (isRawCategories) {
+          try {
+            await catalogService.updateCategory(editingId, {
+              name,
+              is_active: statusOn,
+            });
+            await load();
+            requestCloseForm();
+          } catch (err) {
+            setError(err.response?.data?.detail || err.message || "Не удалось сохранить категорию.");
+          } finally {
+            setSaving(false);
+            release("category-save");
+          }
+          return;
+        }
         await catalogService.updateCategory(editingId, {
           name,
           is_active: statusOn,
@@ -209,9 +277,9 @@ function ProductCategoriesPage({ type }) {
           show_in_menu: showInMenu,
         });
         await load();
-        closeForm();
+        requestCloseForm();
       } catch (err) {
-        setError(err.response?.data?.detail || "Не удалось сохранить категорию.");
+        setError(err.response?.data?.detail || err.message || "Не удалось сохранить категорию.");
       } finally {
         setSaving(false);
         release("category-save");
@@ -229,30 +297,62 @@ function ProductCategoriesPage({ type }) {
     const namespacedSlug = namespaced && !slug.startsWith(config.slug_prefix)
       ? `${config.slug_prefix}-${slug}`
       : slug;
-    const categoryPayload = {
-      name: form.name.trim(),
-      slug: namespacedSlug,
-      sort_order: sortOrder,
-      // V6 — real booleans: modal states persist through canonical create.
-      is_active: statusOn,
-      calculate_service: serviceOn,
-      show_in_menu: showInMenu,
-    };
 
     setSaving(true);
     setError("");
     try {
+      // RAW V1 — минимально необходимый контракт: имя + slug + порядок +
+      // статус. Флаги блюд к сырью не относятся и не отправляются.
+      if (isRawCategories) {
+        try {
+          const rawPayload = {
+            name: form.name.trim(),
+            slug: namespacedSlug,
+            sort_order: sortOrder,
+            is_active: statusOn,
+          };
+          const { data } = await catalogService.createCategory(rawPayload);
+          if (data?.id) {
+            setRows((current) => {
+              const next = [...current, data];
+              rowsByTypeCache.set(type, next);
+              return next;
+            });
+          } else {
+            await load();
+          }
+          requestCloseForm();
+        } catch (err) {
+          setError(err.response?.data?.detail || err.message || "Не удалось сохранить категорию.");
+        } finally {
+          setSaving(false);
+          release("category-save");
+        }
+        return;
+      }
+      const categoryPayload = {
+        name: form.name.trim(),
+        slug: namespacedSlug,
+        sort_order: sortOrder,
+        is_active: statusOn,
+        calculate_service: serviceOn,
+        show_in_menu: showInMenu,
+      };
       if (!editingId) {
         const { data } = await catalogService.createCategory(categoryPayload);
         if (data?.id) {
-          setRows((current) => [...current, data]);
+          setRows((current) => {
+            const next = [...current, data];
+            rowsByTypeCache.set(type, next);
+            return next;
+          });
         } else {
           await load();
         }
       }
-      closeForm();
+      requestCloseForm();
     } catch (err) {
-      setError(err.response?.data?.detail || "Не удалось сохранить категорию.");
+      setError(err.response?.data?.detail || err.message || "Не удалось сохранить категорию.");
     } finally {
       setSaving(false);
       release("category-save");
@@ -260,7 +360,14 @@ function ProductCategoriesPage({ type }) {
   }
 
   function openDeleteConfirm(row) {
-    if (!isDishCategories) {
+    if (isRawCategories) {
+      // RAW V1 — реальное подтверждение удаления (hard delete backend,
+      // 409 при связанных блюдах/дочерних категориях).
+      setDeleteError("");
+      setDeleteTarget(row);
+      return;
+    }
+    if (!isMenuCategories) {
       setError(`Удаление категории «${row.name}» пока не подключено к backend.`);
       return;
     }
@@ -286,6 +393,48 @@ function ProductCategoriesPage({ type }) {
     }
   }
 
+  function openArchiveConfirm(row) {
+    setArchiveError("");
+    setArchiveTarget(row);
+  }
+
+  async function confirmArchive() {
+    if (!archiveTarget || !acquire(`category-archive:${archiveTarget.id}`)) return;
+    setArchiving(true);
+    setArchiveError("");
+    try {
+      // Canonical archive: soft state flip only. Dishes, raw materials,
+      // prices, recipes and relations are untouched (no cascade); the row
+      // keeps its ID and simply moves to the Archived tab.
+      await catalogService.updateCategory(archiveTarget.id, { is_active: false });
+      setArchiveTarget(null);
+      await load();
+    } catch (err) {
+      setArchiveError(err.response?.data?.detail || err.message || "Не удалось архивировать категорию.");
+    } finally {
+      setArchiving(false);
+      release(`category-archive:${archiveTarget?.id}`);
+    }
+  }
+
+  async function restoreCategory(row) {
+    if (!acquire(`category-restore:${row.id}`)) return;
+    setRestoringId(row.id);
+    setError("");
+    try {
+      // Canonical restore: flip the persisted flag back. Name, photo,
+      // flags and product/raw relations are preserved by the partial PATCH;
+      // independent status is not invented (is_active IS the archive state).
+      await catalogService.updateCategory(row.id, { is_active: true });
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.detail || err.message || "Не удалось восстановить категорию.");
+    } finally {
+      setRestoringId(null);
+      release(`category-restore:${row.id}`);
+    }
+  }
+
   const visible = useMemo(() => {
     const list = namespaced
       ? rows.filter((row) => String(row.slug || "").startsWith(config.slug_prefix))
@@ -293,21 +442,151 @@ function ProductCategoriesPage({ type }) {
     return list.sort(sortCategories);
   }, [rows, namespaced, config.slug_prefix]);
 
+  // ARCHIVE V1 — segmented Active/Archived control (same MARJON family as
+  // Dishes/Raw: soft blue container, white sliding indicator, 250ms ease).
+  // Only one header (dish or raw) is mounted at a time, so one pill fits both.
+  const tabsRef = useRef(null);
+  const [pill, setPill] = useState({ left: 0, width: 0 });
+  // Первый замер — без слайда (is-settled гасит transition до него).
+  const [pillSettled, setPillSettled] = useState(false);
+  useLayoutEffect(() => {
+    const container = tabsRef.current;
+    if (!container) return undefined;
+    const update = () => {
+      const active = container.querySelector("[data-tab].is-active");
+      if (!active) return;
+      setPill((current) => {
+        const next = { left: active.offsetLeft, width: active.offsetWidth };
+        return current.left === next.left && current.width === next.width
+          ? current
+          : next;
+      });
+      setPillSettled(true);
+    };
+    update();
+    let ro = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(update);
+      ro.observe(container);
+      container.querySelectorAll("[data-tab]").forEach((segment) => ro.observe(segment));
+    } else {
+      window.addEventListener("resize", update);
+    }
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, [showArchived, type]);
+
+  const visibleActive = useMemo(
+    () => visible.filter((row) => row.is_active !== false),
+    [visible],
+  );
+  const visibleArchived = useMemo(
+    () => visible.filter((row) => row.is_active === false),
+    [visible],
+  );
+  // Tabs exist only on dish/raw pages; semi/sales keep the legacy unfiltered
+  // list exactly (no archive UI there, no behavior change).
+  const hasArchiveTabs = isMenuCategories || isRawCategories;
+  const displayed = !hasArchiveTabs
+    ? visible
+    : showArchived ? visibleArchived : visibleActive;
+
+  const categoryListRef = useRef(null);
+  useCategoryListHeight(categoryListRef, hasArchiveTabs,
+    `${type}:${showArchived}:${loading}:${error}:${displayed.length}`);
+
   return (
-    <section className={`nomenclature-page menu-categories-page${isDishCategories ? " is-dish-categories" : ""}`}>
+    <section className={`nomenclature-page menu-categories-page${isMenuCategories ? " is-dish-categories" : ""}${isRawCategories ? " is-raw-categories" : ""}`}>
       <div className="menu-categories-card">
-        {isDishCategories ? (
+        {isMenuCategories ? (
           <header className="settings-header dishcat-header">
             <div className="settings-title-group">
               <span className="settings-accent-bar" />
               <div>
                 <p>Меню</p>
-                <h1>Категория блюд</h1>
+                <h1>{isSalesCategories ? "Категория товаров" : "Категория блюд"}</h1>
               </div>
             </div>
             <div className="settings-actions">
+              <div className={`dish-status-tabs${pillSettled ? " is-settled" : ""}`} role="tablist" aria-label="Статус категорий" ref={tabsRef}>
+                <span
+                  className="dish-status-tabs__indicator"
+                  aria-hidden="true"
+                  style={{
+                    transform: `translateX(${pill.left}px)`,
+                    width: pill.width,
+                  }}
+                />
+                <button
+                  type="button"
+                  role="tab"
+                  data-tab="active"
+                  aria-selected={!showArchived}
+                  className={showArchived ? "" : "is-active"}
+                  onClick={() => setShowArchived(false)}
+                >
+                  Активные
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  data-tab="archived"
+                  aria-selected={showArchived}
+                  className={showArchived ? "is-active" : ""}
+                  onClick={() => setShowArchived(true)}
+                >
+                  Архивированные
+                </button>
+              </div>
               <button type="button" disabled={saving} onClick={openCreate}>
                 Добавить категорию
+              </button>
+            </div>
+          </header>
+        ) : isRawCategories ? (
+          <header className="settings-header dishcat-header rawcat-header">
+            <div className="settings-title-group">
+              <span className="settings-accent-bar" aria-hidden="true" />
+              <div>
+                <p>Склад</p>
+                <h1>Категория продуктов</h1>
+              </div>
+            </div>
+            <div className="settings-actions">
+              <div className={`dish-status-tabs${pillSettled ? " is-settled" : ""}`} role="tablist" aria-label="Статус категорий" ref={tabsRef}>
+                <span
+                  className="dish-status-tabs__indicator"
+                  aria-hidden="true"
+                  style={{
+                    transform: `translateX(${pill.left}px)`,
+                    width: pill.width,
+                  }}
+                />
+                <button
+                  type="button"
+                  role="tab"
+                  data-tab="active"
+                  aria-selected={!showArchived}
+                  className={showArchived ? "" : "is-active"}
+                  onClick={() => setShowArchived(false)}
+                >
+                  Активные
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  data-tab="archived"
+                  aria-selected={showArchived}
+                  className={showArchived ? "is-active" : ""}
+                  onClick={() => setShowArchived(true)}
+                >
+                  Архивированные
+                </button>
+              </div>
+              <button type="button" className="rawcat-add-button" disabled={saving} onClick={openCreate}>
+                <Icon name="bi-plus" size={18} /> Добавить
               </button>
             </div>
           </header>
@@ -329,13 +608,13 @@ function ProductCategoriesPage({ type }) {
 
         {error ? <div className="login-error menu-category-error">{error}</div> : null}
 
-        {showForm && isDishCategories
+        {showForm && isMenuCategories
           ? createPortal(
               <div className="settings-owner-view dishcat-modal-layer">
-                <div className="settings-drawer settings-modal-overlay" role="presentation">
-                  <div className="settings-drawer__backdrop" onClick={saving ? undefined : closeForm} />
+                <div className={`settings-drawer settings-modal-overlay${formClosing ? " is-closing" : ""}`} role="presentation">
+                  <div className="settings-drawer__backdrop" onClick={saving ? undefined : requestCloseForm} />
                   <form
-                    className="settings-form settings-modal"
+                    className={`settings-form settings-modal${editingId ? " dishcat-modal--edit" : ""}`}
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="dishcat-modal-title"
@@ -349,47 +628,11 @@ function ProductCategoriesPage({ type }) {
                           {editingId ? "Редактировать категорию" : "Добавить категорию"}
                         </h2>
                       </div>
-                      <button type="button" disabled={saving} onClick={closeForm} aria-label="Закрыть">
+                      <button type="button" disabled={saving} onClick={requestCloseForm} aria-label="Закрыть">
                         <Icon name="bi-x-lg" size={20} />
                       </button>
                     </header>
                     <div className="settings-form__body">
-                      <div className="dishcat-photo">
-                        <div
-                          className="dishcat-photo__preview"
-                          aria-hidden={!(photoPreview || editingRow?.photo)}
-                        >
-                          {photoPreview || editingRow?.photo ? (
-                            <img
-                              src={photoPreview || editingRow.photo}
-                              alt={
-                                editingId
-                                  ? `Фото категории ${editingRow?.name || ""}`
-                                  : "Фото новой категории"
-                              }
-                            />
-                          ) : (
-                            <Icon name="bi-image" size={26} />
-                          )}
-                        </div>
-                        <div className="dishcat-photo__body">
-                          <span>Фото</span>
-                          <label
-                            className="dishcat-photo__upload"
-                            title={editingId ? "Фото пока не сохраняется на сервере" : undefined}
-                          >
-                            <Icon name="bi-camera" size={16} />
-                            {photoPreview ? "Заменить фото" : "Загрузить фото"}
-                            <input
-                              type="file"
-                              accept="image/jpeg,image/png,image/webp"
-                              disabled={saving || Boolean(editingId)}
-                              onChange={handlePhotoChange}
-                              aria-label="Загрузить фото категории"
-                            />
-                          </label>
-                        </div>
-                      </div>
                       <label className="settings-form__wide">
                         <span>Название</span>
                         <input
@@ -454,7 +697,7 @@ function ProductCategoriesPage({ type }) {
                       </p>
                     ) : null}
                     <footer className="settings-form__footer">
-                      <button type="button" disabled={saving} onClick={closeForm}>
+                      <button type="button" disabled={saving} onClick={requestCloseForm}>
                         Отмена
                       </button>
                       <button type="submit" disabled={saving || !form.name.trim()}>
@@ -468,7 +711,78 @@ function ProductCategoriesPage({ type }) {
             )
           : null}
 
-        {showForm && !isDishCategories ? (
+        {showForm && isRawCategories
+          ? createPortal(
+              <div className="settings-owner-view dishcat-modal-layer rawcat-modal-layer">
+                <div className={`settings-drawer settings-modal-overlay${formClosing ? " is-closing" : ""}`} role="presentation">
+                  <div className="settings-drawer__backdrop" onClick={saving ? undefined : requestCloseForm} />
+                  <form
+                    className="settings-form settings-modal"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="rawcat-modal-title"
+                    onSubmit={handleSave}
+                  >
+                    <header className="settings-form__header">
+                      <span className="settings-accent-bar" />
+                      <div>
+                        <p>{editingId ? "Редактирование" : "Новая"}</p>
+                        <h2 id="rawcat-modal-title">
+                          {editingId ? "Редактировать категорию продуктов" : "Добавить категорию продуктов"}
+                        </h2>
+                      </div>
+                      <button type="button" disabled={saving} onClick={requestCloseForm} aria-label="Закрыть">
+                        <Icon name="bi-x-lg" size={20} />
+                      </button>
+                    </header>
+                    <div className="settings-form__body">
+                      <label className="settings-form__wide">
+                        <span>Название категории</span>
+                        <input
+                          autoFocus
+                          value={form.name}
+                          onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                          placeholder="Название категории"
+                        />
+                      </label>
+                      <div className="settings-toggle-field settings-form__wide">
+                        <span>Статус</span>
+                        <label className="settings-switch">
+                          <input
+                            type="checkbox"
+                            checked={statusOn}
+                            onChange={(event) => setStatusOn(event.target.checked)}
+                          />
+                          <span className="settings-switch__track" aria-hidden="true">
+                            <span className="settings-switch__thumb" />
+                          </span>
+                          <span className={`settings-switch__label ${statusOn ? "is-active" : "is-inactive"}`}>
+                            {statusOn ? "Активно" : "Неактивно"}
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                    {error ? (
+                      <p className="settings-form__error" role="alert">
+                        {error}
+                      </p>
+                    ) : null}
+                    <footer className="settings-form__footer">
+                      <button type="button" disabled={saving} onClick={requestCloseForm}>
+                        Отменить
+                      </button>
+                      <button type="submit" disabled={saving || !form.name.trim()}>
+                        {saving ? "Сохранение..." : "Сохранить"}
+                      </button>
+                    </footer>
+                  </form>
+                </div>
+              </div>,
+              document.body,
+            )
+          : null}
+
+        {showForm && !isMenuCategories && !isRawCategories ? (
           <form className="menu-category-form" onSubmit={handleSave}>
             <div className="menu-category-form-title">
               <strong>{editingId ? "Изменить категорию" : "Новая категория"}</strong>
@@ -513,11 +827,76 @@ function ProductCategoriesPage({ type }) {
           </form>
         ) : null}
 
-        <div className={`menu-category-list${isDishCategories ? " dishcat-list" : ""}`} aria-busy={loading}>
-          {loading
+        {isRawCategories ? (
+          <div className={`rawcat-list-wrap${!loading && !error && !displayed.length ? " is-empty" : ""}`}>
+            <div className="rawcat-list" ref={categoryListRef} tabIndex={0} aria-label="Категории продуктов" aria-busy={loading}>
+              {loading && rows.length === 0 ? (
+                <div className="rawcat-row is-loading" role="status" aria-busy="true">Загрузка…</div>
+              ) : (
+                displayed.map((row) => (
+                  <article className="rawcat-row" key={row.id}>
+                    <div className="rawcat-name">
+                      <span className="rawcat-name-text" title={row.name}>{row.name}</span>
+                    </div>
+                    <div className="rawcat-status">
+                      <DishCategoryStatusBadge active={row.is_active !== false} />
+                    </div>
+                    {showArchived ? (
+                    <div className="rawcat-actions">
+                      <button
+                        type="button"
+                        className="settings-action-restore"
+                        onClick={() => restoreCategory(row)}
+                        disabled={restoringId === row.id}
+                        aria-label="Восстановить категорию"
+                        title="Восстановить категорию"
+                      >
+                        <Icon name="bi-arrow-counterclockwise" size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        className="settings-action-delete"
+                        onClick={() => openDeleteConfirm(row)}
+                        aria-label="Удалить окончательно"
+                        title="Удалить окончательно"
+                      >
+                        <Icon name="bi-trash3" size={15} />
+                      </button>
+                    </div>
+                    ) : (
+                    <div className="rawcat-actions">
+                      <button type="button" className="settings-place__edit" onClick={() => openEdit(row)} disabled={saving}>
+                        Редактировать
+                      </button>
+                      <button
+                        type="button"
+                        className="settings-action-delete"
+                        onClick={() => openArchiveConfirm(row)}
+                        aria-label="Архивировать категорию"
+                        title="Архивировать категорию"
+                      >
+                        <Icon name="bi-trash3" size={15} />
+                      </button>
+                    </div>
+                    )}
+                  </article>
+                ))
+              )}
+            </div>
+            {!loading && !error && !displayed.length ? (
+              <div className="menu-category-empty rawcat-empty" role="status">
+                <Icon name="bi-inbox" />
+                <span>{showArchived ? "Архив категорий продуктов пуст." : "Категории продуктов пока не добавлены."}</span>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+        <div className={`menu-category-list${isMenuCategories ? " dishcat-list" : ""}`} ref={categoryListRef} tabIndex={isMenuCategories ? 0 : undefined} aria-busy={loading}>
+          {loading && rows.length === 0
             ? Array.from({ length: 6 }, (_, index) => <div className="menu-category-row is-loading" key={index} />)
-            : visible.map((row) =>
-                isDishCategories ? (
+            : displayed.map((row) =>
+                isMenuCategories ? (
+                  showArchived ? (
                   <article className="menu-category-row dishcat-row" key={row.id}>
                     <div className="dishcat-main">
                       <div className="dishcat-info">
@@ -525,13 +904,42 @@ function ProductCategoriesPage({ type }) {
                       </div>
                     </div>
                     <div className="dishcat-meta">
-                      <div className="dishcat-photo-sm" aria-hidden="true">
-                        {row.photo || row.image_url ? (
-                          <img src={row.photo || row.image_url} alt="" />
-                        ) : (
-                          <Icon name="bi-image" size={20} />
-                        )}
+                      <span
+                        className={`dishcat-service-badge ${row.calculate_service === true ? "is-on" : "is-off"}`}
+                      >
+                        <span className="dishcat-service-badge__dot" aria-hidden="true" />
+                        Рассчитать обслугу
+                      </span>
+                      <DishCategoryStatusBadge active={row.is_active !== false} />
+                      <button
+                        type="button"
+                        className="settings-action-restore"
+                        onClick={() => restoreCategory(row)}
+                        disabled={restoringId === row.id}
+                        aria-label="Восстановить категорию"
+                        title="Восстановить категорию"
+                      >
+                        <Icon name="bi-arrow-counterclockwise" size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        className="settings-action-delete"
+                        onClick={() => openDeleteConfirm(row)}
+                        aria-label="Удалить окончательно"
+                        title="Удалить окончательно"
+                      >
+                        <Icon name="bi-trash3" size={15} />
+                      </button>
+                    </div>
+                  </article>
+                  ) : (
+                  <article className="menu-category-row dishcat-row" key={row.id}>
+                    <div className="dishcat-main">
+                      <div className="dishcat-info">
+                        <strong>{row.name}</strong>
                       </div>
+                    </div>
+                    <div className="dishcat-meta">
                       <span
                         className={`dishcat-service-badge ${row.calculate_service === true ? "is-on" : "is-off"}`}
                       >
@@ -545,13 +953,15 @@ function ProductCategoriesPage({ type }) {
                       <button
                         type="button"
                         className="settings-action-delete"
-                        onClick={() => openDeleteConfirm(row)}
-                        aria-label="Удалить"
+                        onClick={() => openArchiveConfirm(row)}
+                        aria-label="Архивировать категорию"
+                        title="Архивировать категорию"
                       >
                         <Icon name="bi-trash3" size={15} />
                       </button>
                     </div>
                   </article>
+                  )
                 ) : (
                   <article className="menu-category-row" key={row.id}>
                     <div className="menu-category-name">
@@ -577,16 +987,17 @@ function ProductCategoriesPage({ type }) {
                 ),
               )}
 
-          {!loading && !error && !visible.length ? (
+          {!loading && !error && !displayed.length ? (
             <div className="menu-category-empty">
               <Icon name="bi-inbox" />
-              <span>Категорий пока нет.</span>
+              <span>{showArchived && isMenuCategories ? "Архив категорий пуст." : "Категорий пока нет."}</span>
             </div>
           ) : null}
         </div>
+        )}
       </div>
 
-      {deleteTarget && isDishCategories
+      {deleteTarget && (isMenuCategories || isRawCategories)
         ? createPortal(
             <div className="settings-owner-view dishcat-modal-layer">
               <div className="settings-drawer settings-modal-overlay" role="presentation">
@@ -608,7 +1019,7 @@ function ProductCategoriesPage({ type }) {
                     <span className="settings-accent-bar" />
                     <div>
                       <p>Удаление</p>
-                      <h2 id="dishcat-delete-title">Удалить категорию</h2>
+                      <h2 id="dishcat-delete-title">Удалить категорию навсегда?</h2>
                     </div>
                     <button
                       type="button"
@@ -620,7 +1031,8 @@ function ProductCategoriesPage({ type }) {
                     </button>
                   </header>
                   <p className="settings-form__context">
-                    Удалить категорию <strong>«{deleteTarget.name}»</strong>? Это действие нельзя отменить.
+                    Категория <strong>«{deleteTarget.name}»</strong> будет удалена
+                    без возможности восстановления.
                   </p>
                   {deleteError ? (
                     <p className="settings-form__error" role="alert">
@@ -645,6 +1057,68 @@ function ProductCategoriesPage({ type }) {
             document.body,
           )
         : null}
+
+      {archiveTarget && (isMenuCategories || isRawCategories)
+        ? createPortal(
+            <div className="settings-owner-view dishcat-modal-layer">
+              <div className="settings-drawer settings-modal-overlay" role="presentation">
+                <div
+                  className="settings-drawer__backdrop"
+                  onClick={archiving ? undefined : () => setArchiveTarget(null)}
+                />
+                <form
+                  className="settings-form settings-modal dishcat-confirm"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="dishcat-archive-title"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    confirmArchive();
+                  }}
+                >
+                  <header className="settings-form__header">
+                    <span className="settings-accent-bar" />
+                    <div>
+                      <p>Архивация</p>
+                      <h2 id="dishcat-archive-title">Архивировать категорию?</h2>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={archiving}
+                      onClick={() => setArchiveTarget(null)}
+                      aria-label="Закрыть"
+                    >
+                      <Icon name="bi-x-lg" size={20} />
+                    </button>
+                  </header>
+                  <p className="settings-form__context">
+                    Категория <strong>«{archiveTarget.name}»</strong> будет
+                    перемещена в архив.
+                  </p>
+                  {archiveError ? (
+                    <p className="settings-form__error" role="alert">
+                      {archiveError}
+                    </p>
+                  ) : null}
+                  <footer className="settings-form__footer">
+                    <button type="button" disabled={archiving} onClick={() => setArchiveTarget(null)}>
+                      Отмена
+                    </button>
+                    <button
+                      type="submit"
+                      className="dishcat-confirm__archive"
+                      disabled={archiving}
+                    >
+                      {archiving ? "Архивация..." : "Архивировать"}
+                    </button>
+                  </footer>
+                </form>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+
     </section>
   );
 }

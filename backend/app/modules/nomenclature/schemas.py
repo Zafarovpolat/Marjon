@@ -1,7 +1,7 @@
 from __future__ import annotations
 from decimal import Decimal
 from uuid import UUID
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.shared.base_schema import BaseResponseSchema
 
 
@@ -39,6 +39,8 @@ class NomCategoryResponse(BaseResponseSchema):
 
 
 class UnitCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     short_name: str | None = None
     sort: int = 0
@@ -51,6 +53,8 @@ class UnitCreate(BaseModel):
 
 
 class UnitUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str | None = None
     short_name: str | None = None
     sort: int | None = None
@@ -67,6 +71,8 @@ class UnitResponse(BaseResponseSchema):
     short_name: str | None
     sort: int
     status: bool
+    company_id: UUID | None = None
+    is_global: bool
     sort_order: int = 0
     is_active: bool = True
 

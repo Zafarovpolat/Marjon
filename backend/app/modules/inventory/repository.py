@@ -23,11 +23,17 @@ class ProductRepository(TenantRepository[Product]):
     def __init__(self, db: AsyncSession):
         super().__init__(Product, db)
 
+    def _base_query(self, company_id: UUID):
+        # V40: последовательности разделены по product_type — смешанные списки
+        # группируем сначала по типу, затем по позиции (детерминированно).
+        return super()._base_query(company_id).order_by(
+            Product.product_type, Product.sort_order, Product.created_at, Product.id,
+        )
+
     async def get_available(self, company_id: UUID) -> list[Product]:
         result = await self.db.execute(
             self._base_query(company_id)
             .where(Product.is_active == True, Product.is_available == True)
-            .order_by(Product.sort_order)
         )
         return list(result.scalars().all())
 

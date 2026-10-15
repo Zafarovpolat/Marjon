@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { navItems } from "./navConfig";
+import { isNavPathActive, navItems } from "./navConfig";
 
 const childPaths = (key) => navItems.find((item) => item.key === key)?.children.map((child) => child.to);
 const childLabels = (key) => navItems.find((item) => item.key === key)?.children.map((child) => child.label);
@@ -15,8 +15,10 @@ describe("OWNER sidebar navigation order", () => {
       "/reports/cancelled-dishes",
     ]);
     expect(childPaths("nomenclature")).toEqual([
-      "/nomenclature/dishes",
       "/nomenclature/dish-categories",
+      "/nomenclature/dishes",
+      "/nomenclature/sales-categories",
+      "/nomenclature/sales",
       "/nomenclature/menu",
       "/nomenclature/stop-list",
     ]);
@@ -25,10 +27,7 @@ describe("OWNER sidebar navigation order", () => {
       "/stock-report/incoming",
       "/stock-report/outgoing",
       "/stock-report/stock",
-      "/stock-report/transfer",
       "/stock-report/inventory",
-      "/stock-report/write-off",
-      "/stock-report/write-off-categories",
       "/stock-report/waste",
     ]);
   });
@@ -74,5 +73,61 @@ describe("OWNER sidebar navigation order", () => {
       "/settings/kitchen-receipt",
     ]);
     expect(childPaths("settings")).not.toContain("/settings/profile");
+  });
+
+  it("WAREHOUSE V1: shows only Категория продуктов first and Продукты second", () => {
+    const warehouse = navItems.find((item) => item.key === "warehouse");
+    expect(warehouse).toBeDefined();
+    expect(warehouse.children).toHaveLength(2);
+    expect(childLabels("warehouse")).toEqual(["Категория продуктов", "Продукты"]);
+    expect(childPaths("warehouse")).toEqual([
+      "/nomenclature/raw-categories",
+      "/nomenclature/raw-materials",
+    ]);
+    // Preserved routes + icons
+    expect(warehouse.children[0]).toMatchObject({
+      key: "raw-categories",
+      to: "/nomenclature/raw-categories",
+      icon: "bi-boxes",
+    });
+    expect(warehouse.children[1]).toMatchObject({
+      key: "raw-materials",
+      to: "/nomenclature/raw-materials",
+      icon: "bi-basket",
+    });
+  });
+
+  it("WAREHOUSE V1: removes semi-finished subcategories from navigation only", () => {
+    expect(childLabels("warehouse")).not.toContain("Полуфабрикаты");
+    expect(childLabels("warehouse")).not.toContain("Категория полуфабрикатов");
+    expect(childPaths("warehouse")).not.toContain("/nomenclature/semi-finished");
+    expect(childPaths("warehouse")).not.toContain("/nomenclature/semi-finished-categories");
+  });
+
+  it("WAREHOUSE V1: preserves other top-level sidebar sections", () => {
+    const topKeys = navItems.map((item) => item.key);
+    expect(topKeys).toEqual([
+      "dashboard",
+      "reports",
+      "users",
+      "nomenclature",
+      "warehouse",
+      "warehouse-report",
+      "finance",
+      "settings",
+    ]);
+  });
+
+  it("keeps detail routes inside the parent subcategory (stock/journal)", () => {
+    // Детализация остатка не выходит из подкатегории Остаток.
+    expect(isNavPathActive("/stock-report/stock", "/stock-report/stock")).toBe(true);
+    expect(isNavPathActive("/stock-report/stock/wh-1", "/stock-report/stock")).toBe(true);
+    // Журнал: создание и карточка документа остаются в Добавить продуктов.
+    expect(isNavPathActive("/stock-report/incoming-journal/create", "/stock-report/incoming-journal")).toBe(true);
+    expect(isNavPathActive("/stock-report/incoming-journal/d1", "/stock-report/incoming-journal")).toBe(true);
+    // Чужие ветки не подсвечиваются, граница — по сегменту.
+    expect(isNavPathActive("/stock-report/stock", "/stock-report/incoming")).toBe(false);
+    expect(isNavPathActive("/reports/orders-history", "/reports/orders")).toBe(false);
+    expect(isNavPathActive("/", "/")).toBe(true);
   });
 });

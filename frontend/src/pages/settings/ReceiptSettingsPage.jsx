@@ -15,7 +15,6 @@ import {
   normalizeLineSpacing,
   normalizePrinterConnection,
   saveCustomerTemplate,
-  testPrintReceipt,
 } from "../../api/receipt";
 import { isAbortError } from "../../hooks/useAsyncSafety";
 import "./receiptSettings.css";
@@ -39,7 +38,6 @@ export default function ReceiptSettingsPage() {
   const [template, setTemplate] = useState(defaults);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [printing, setPrinting] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const logoInputRef = useRef(null);
   const [message, setMessage] = useState("");
@@ -137,13 +135,6 @@ export default function ReceiptSettingsPage() {
     } finally {
       setSaving(false);
     }
-  }
-
-  async function handleTestPrint() {
-    setPrinting(true);
-    const result = await testPrintReceipt(template);
-    setPrinting(false);
-    if (result.ok) flashMessage("Открыто окно печати предпросмотра.");
   }
 
   // Company logo for the logo block: real upload through the canonical
@@ -286,7 +277,9 @@ export default function ReceiptSettingsPage() {
               </div>
             </div>
             <div className="receipt-editor-actions receipt-editor-actions--end">
-              <button type="button" className="receipt-btn-secondary" disabled={printing} onClick={handleTestPrint}>Печать предпросмотра</button>
+              <button type="button" className="receipt-btn-primary receipt-save" disabled={saving || loading} onClick={handleSave}>
+                {saving ? "Сохранение..." : "Сохранить"}
+              </button>
             </div>
           </div>
           <div className="receipt-header-spacer" aria-hidden="true" />
@@ -363,12 +356,6 @@ export default function ReceiptSettingsPage() {
                   </div>
                 </div>
               </section>
-
-              <div className="receipt-editor-save">
-                <button type="button" className="receipt-btn-primary receipt-save" disabled={saving || loading} onClick={handleSave}>
-                  {saving ? "Сохранение..." : "Сохранить"}
-                </button>
-              </div>
             </div>
           </div>
 

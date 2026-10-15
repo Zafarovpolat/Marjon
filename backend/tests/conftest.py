@@ -57,6 +57,7 @@ async def db_engine():
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
         connect_args={"check_same_thread": False},
+        echo=True,  # TEMP-DBG: trace position writes, revert after
     )
 
     # pos/service.py uses SELECT pg_advisory_xact_lock(:k) to serialize

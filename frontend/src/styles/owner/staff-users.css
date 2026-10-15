@@ -1454,3 +1454,95 @@ body.dashboard-body:has(.staff-modal--cashier-full) .staff-modal.staff-modal--ca
 .staff-table-wrapper--roles .staff-table tbody tr:not(.staff-empty-row):hover td {
     background: transparent;
 }
+
+/* STAFF-TABLE-VIEWPORT-V2: shared role tables only, not Staff journals.
+   The app owns viewport height and navigation insets. Bound only the shell;
+   intrinsic table/row geometry and all data/loading logic stay unchanged. */
+.dashboard-content--staff:has(.staff-table-wrapper--roles) .staff-page {
+    flex-direction: column;
+    flex: 1 1 0%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+}
+
+.dashboard-content--staff .staff-card:has(.staff-table-wrapper--roles) {
+    display: flex;
+    flex-direction: column;
+    flex: 0 1 auto;
+    height: auto;
+    align-self: stretch;
+    min-width: 0;
+    min-height: 0;
+    max-height: 100%;
+}
+
+.staff-card:has(.staff-table-wrapper--roles) > :not(.staff-table-wrapper--roles) {
+    flex-shrink: 0;
+}
+
+.staff-table-wrapper.staff-table-wrapper--roles {
+    display: flex;
+    flex-direction: column;
+    flex: 0 1 auto;
+    min-width: 0;
+    min-height: 0;
+}
+
+.staff-table-wrapper--roles .staff-role-table-scroll {
+    flex: 0 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.staff-table-wrapper--roles .staff-role-table-scroll::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+.staff-table-wrapper--roles .staff-role-table-scroll:focus-visible {
+    outline: none;
+}
+
+/* Round the accessible ring at its canonical border owner, not the scroller. */
+.staff-table-wrapper--roles:has(> .staff-role-table-scroll:focus-visible) {
+    outline: 2px solid var(--owner-accent, #1fc9c9);
+    outline-offset: -2px;
+}
+
+.staff-table-wrapper--roles .staff-role-table-scroll:not(:has(.staff-empty-row)) {
+    padding-bottom: 0;
+    scroll-padding-bottom: 8px;
+}
+
+.staff-table-wrapper--roles .staff-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+@media (min-width: 1025px) {
+    .dashboard-content--staff:has(.staff-table-wrapper--roles) {
+        padding-bottom: 12px;
+    }
+    body.dashboard-body:has(.staff-table-wrapper--roles) .support-widget {
+        right: 24px;
+        bottom: 24px;
+    }
+}
+
+@media (max-width: 1024px) {
+    /* Staff's shell does not otherwise reserve the fixed 54px bottom nav. */
+    .dashboard-content--staff:has(.staff-table-wrapper--roles) {
+        padding-bottom: calc(54px + 12px);
+    }
+    body.dashboard-body:has(.staff-table-wrapper--roles) .support-widget {
+        right: 24px;
+        bottom: 70px;
+    }
+}

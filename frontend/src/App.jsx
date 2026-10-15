@@ -15,6 +15,7 @@ import SectionPage from "./pages/SectionPage";
 import StaffRolePage from "./pages/StaffRolePage";
 import StaffActivityPage from "./pages/StaffActivityPage";
 import NomenclaturePage from "./pages/NomenclaturePage";
+import SalesCatalogPage from "./pages/nomenclature/SalesCatalogPage";
 import CategoriesPage from "./pages/CategoriesPage";
 import StopListPage from "./pages/StopListPage";
 import WaitersReportPage from "./pages/WaitersReportPage";
@@ -22,8 +23,11 @@ import TablesReportPage from "./pages/TablesReportPage";
 import DishesReportPage from "./pages/DishesReportPage";
 import CancelledDishesReportPage from "./pages/CancelledDishesReportPage";
 import DebtorsCreditorsReportPage from "./pages/DebtorsCreditorsReportPage";
+import FinanceTransactionsPage from "./pages/FinanceTransactionsPage";
+import FinanceIncomeCategoriesPage from "./pages/FinanceIncomeCategoriesPage";
+import FinanceExpenseCategoriesPage from "./pages/FinanceExpenseCategoriesPage";
 import ZReportPage from "./pages/ZReportPage";
-import WarehousePage from "./pages/WarehousePage";
+import WarehousePage, { WarehouseJournalCreateRoute, WarehouseJournalDetailRoute, WarehouseJournalListRoute, WarehouseStockDetailRoute, WarehouseStockListRoute } from "./pages/WarehousePage";
 import SettingsClientsPage from "./pages/settings/SettingsClientsPage";
 import SettingsBranchesPage from "./pages/settings/SettingsBranchesPage";
 import SettingsPlacesPage from "./pages/settings/SettingsPlacesPage";
@@ -74,12 +78,16 @@ export function createAppRouter() {
       { path: "warehouse", element: <Navigate to="/warehouse/incoming" replace /> },
       { path: "warehouse/incoming", element: <WarehousePage initialSection="incoming" /> },
       { path: "warehouse/outgoing", element: <WarehousePage initialSection="outgoing" /> },
-      { path: "warehouse/stock", element: <WarehousePage initialSection="stock" /> },
-      { path: "warehouse/incoming-journal", element: <WarehousePage initialSection="incoming-journal" /> },
+      { path: "warehouse/stock", element: <WarehouseStockListRoute /> },
+      { path: "warehouse/stock/:warehouseId", element: <WarehouseStockDetailRoute /> },
+      { path: "warehouse/incoming-journal", element: <WarehouseJournalListRoute /> },
+      { path: "warehouse/incoming-journal/create", element: <WarehouseJournalCreateRoute /> },
+      { path: "warehouse/incoming-journal/:docId", element: <WarehouseJournalDetailRoute /> },
       { path: "warehouse/stock-in", element: <WarehousePage initialSection="incoming" /> },
       { path: "warehouse/stock-out", element: <WarehousePage initialSection="outgoing" /> },
-      { path: "warehouse/balance", element: <WarehousePage initialSection="stock" /> },
-      { path: "warehouse/income-log", element: <WarehousePage initialSection="incoming-journal" /> },
+      { path: "warehouse/balance", element: <WarehouseStockListRoute /> },
+      { path: "warehouse/balance/:warehouseId", element: <WarehouseStockDetailRoute /> },
+      { path: "warehouse/income-log", element: <WarehouseJournalListRoute /> },
       { path: "warehouse/transfer", element: <WarehousePage initialSection="transfer" /> },
       { path: "warehouse/inventory", element: <WarehousePage initialSection="inventory" /> },
       { path: "warehouse/write-off", element: <WarehousePage initialSection="write-off" /> },
@@ -88,8 +96,11 @@ export function createAppRouter() {
       { path: "stock-report", element: <Navigate to="/stock-report/incoming" replace /> },
       { path: "stock-report/incoming", element: <WarehousePage initialSection="incoming" /> },
       { path: "stock-report/outgoing", element: <WarehousePage initialSection="outgoing" /> },
-      { path: "stock-report/stock", element: <WarehousePage initialSection="stock" /> },
-      { path: "stock-report/incoming-journal", element: <WarehousePage initialSection="incoming-journal" /> },
+      { path: "stock-report/stock", element: <WarehouseStockListRoute /> },
+      { path: "stock-report/stock/:warehouseId", element: <WarehouseStockDetailRoute /> },
+      { path: "stock-report/incoming-journal", element: <WarehouseJournalListRoute /> },
+      { path: "stock-report/incoming-journal/create", element: <WarehouseJournalCreateRoute /> },
+      { path: "stock-report/incoming-journal/:docId", element: <WarehouseJournalDetailRoute /> },
       { path: "stock-report/transfer", element: <WarehousePage initialSection="transfer" /> },
       { path: "stock-report/inventory", element: <WarehousePage initialSection="inventory" /> },
       { path: "stock-report/write-off", element: <WarehousePage initialSection="write-off" /> },
@@ -130,21 +141,22 @@ export function createAppRouter() {
       { path: "settings/chef-receipt", element: <SettingsKitchenReceiptPage /> },
       { path: "settings/support", element: <SectionPage eyebrow="Настройки" title="Тех. поддержка" description="Обращения, диагностика и связь с поддержкой Marjon." items={[{ title: "Заявка", text: "Создайте обращение по проблеме или вопросу.", icon: "bi-life-preserver" }, { title: "Диагностика", text: "Проверка соединения, устройств и синхронизации.", icon: "bi-activity" }, { title: "Контакты", text: "Каналы связи и история обращений.", icon: "bi-chat-dots" }]} /> },
       { path: "finance", element: <Navigate to="/finance/transactions" replace /> },
-      { path: "finance/transactions", element: <SettingsPlaceholderPage title="Денежные операции" description="Приходы, расходы и движения" icon="bi-cash-stack" /> },
-      { path: "finance/operations", element: <SettingsPlaceholderPage title="Денежные операции" description="Приходы, расходы и движения" icon="bi-cash-stack" /> },
-      { path: "finance/income-categories", element: <SettingsPlaceholderPage title="Категория приходов" description="Справочник входящих средств" icon="bi-arrow-down-left-circle" /> },
-      { path: "finance/expense-categories", element: <SettingsPlaceholderPage title="Категория расходов" description="Справочник затрат" icon="bi-arrow-up-right-circle" /> },
-      { path: "finance/debtors-creditors", element: <SettingsPlaceholderPage title="Дебиторы и кредиторы" description="Задолженности и платежи" icon="bi-wallet2" /> },
+      { path: "finance/transactions", element: <FinanceTransactionsPage /> },
+      { path: "finance/operations", element: <FinanceTransactionsPage /> },
+      { path: "finance/income-categories", element: <FinanceIncomeCategoriesPage /> },
+      { path: "finance/expense-categories", element: <FinanceExpenseCategoriesPage /> },
+      { path: "finance/debtors-creditors", element: <DebtorsCreditorsReportPage /> },
       { path: "nomenclature", element: <Navigate to="/nomenclature/dishes" replace /> },
       { path: "nomenclature/dishes", element: <NomenclaturePage type="dishes" /> },
+      { path: "nomenclature/sales", element: <SalesCatalogPage /> },
       { path: "nomenclature/menu", element: <MenuPage /> },
       { path: "nomenclature/stop-list", element: <StopListPage /> },
       { path: "nomenclature/raw-materials", element: <NomenclaturePage type="raw" /> },
       { path: "nomenclature/semi-finished", element: <NomenclaturePage type="semi" /> },
-      { path: "nomenclature/dish-categories", element: <CategoriesPage type="dishes" /> },
-      { path: "nomenclature/raw-categories", element: <CategoriesPage type="raw" /> },
-      { path: "nomenclature/semi-finished-categories", element: <CategoriesPage type="semi" /> },
-      { path: "nomenclature/sales-categories", element: <CategoriesPage type="sales" /> },
+      { path: "nomenclature/dish-categories", element: <CategoriesPage key="dishes" type="dishes" /> },
+      { path: "nomenclature/raw-categories", element: <CategoriesPage key="raw" type="raw" /> },
+      { path: "nomenclature/semi-finished-categories", element: <CategoriesPage key="semi" type="semi" /> },
+      { path: "nomenclature/sales-categories", element: <CategoriesPage key="sales" type="sales" /> },
       { path: "store", element: <OrdersPage /> },
       { path: "reviews", element: <PlaceholderPage eyebrow="Reviews" title="Отзывы" text="Раздел отзывов будет показывать обратную связь клиентов." /> },
       { path: "orders", element: <OrdersPage /> },

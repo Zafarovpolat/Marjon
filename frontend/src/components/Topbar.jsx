@@ -5,6 +5,7 @@ import TopbarNotifications from "./topbar/TopbarNotifications";
 import TopbarBalancePill from "./topbar/TopbarBalancePill";
 import TopbarPaymentModal from "./topbar/TopbarPaymentModal";
 import { useTopbarBalance } from "./topbar/useTopbarBalance";
+import DarkShellWaves from "./preview/DarkShellWaves";
 
 // Оркестратор верхней панели OWNER (FE-07B). Слева — навигация назад и выбор
 // даты; справа — независимые виджеты (курсы, уведомления, баланс). Загрузка
@@ -17,6 +18,7 @@ export default function Topbar({
   return (
     <>
       <header className="dashboard-topbar">
+        <DarkShellWaves variant="topbar" />
         <div className="topbar-left">
           <span className="topbar-back-slot">
             <BackButton className="dashboard-back-button--topbar-3d" iconName="bi-chevron-left" />

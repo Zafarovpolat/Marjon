@@ -50,9 +50,13 @@ class KitchenTicketData:
     order_type: str
     table_number: str | None
     waiter_name: str | None
-    items: list[dict]  # [{name, qty, note, modifiers, course}]
+    # [{name, qty, note, modifiers, course, price, total}] — price/total
+    # нужны табличному режиму сумм (showOrderSum), в строках xN не используются.
+    items: list[dict]
     note: str | None = None
     printed_at: datetime = field(default_factory=datetime.now)
+    # Сумма позиций тикета (для строки "Сумма блюд" в режиме showOrderSum).
+    subtotal: Decimal = Decimal("0")
 
 
 class EscPosFormatter:
@@ -177,6 +181,14 @@ class EscPosFormatter:
             height & 0xFF, (height >> 8) & 0xFF,
         ])
         return header + bytes(data)
+
+    @staticmethod
+    def _dec(value) -> Decimal:
+        """Деньги из свободных dict кухонного тикета (Decimal/str/int/None)."""
+        try:
+            return Decimal(str(value))
+        except Exception:
+            return Decimal("0")
 
     @staticmethod
     def _enabled(template: dict | None, key: str, default: bool = True) -> bool:
@@ -363,8 +375,10 @@ class EscPosFormatter:
 
     def format_kitchen_ticket(self, data: KitchenTicketData, template: dict | None = None) -> bytes:
         """template — см. frontend/src/api/receipt.js buildKitchenTemplate():
-        {enabled: {orderNumber, table, waiter, createdAt, items, modifiers,
-        itemComments, orderNote, priority, ...}}. Без шаблона — печатаем всё."""
+        {enabled: {orderNumber, cancelOrderNumber, orderType, table, waiter,
+        date, showOrderSum, comment}}. Без шаблона — печатаем всё.
+        Суммы (showOrderSum) по умолчанию ВЫКЛЮЧЕНЫ: старые шаблоны без
+        этого ключа должны печататься как раньше (только xN, без денег)."""
         template = template or {}
         en = lambda key, default=True: self._enabled(template, key, default)  # noqa: E731
 
@@ -390,6 +404,23 @@ class EscPosFormatter:
         out += self._divider("=")
 
         if en("items"):
+            # Позиции — всегда таблицей (Блюдо/Кол-во [+ Сумма]): суммы
+            # и итог "Сумма блюд" только при "Заказы (показать сумму)".
+            # Кол-во всегда строго по центру своей шапки: то же поле
+            # ширины QTY_W для заголовка и цифр (а не правый край).
+            # Без сумм колонка Кол-во — в правом краю. Под шапкой — одна
+            # сплошная линия, дальше одиночные пунктиры между строками,
+            # над итогом — одиночный пунктир.
+            show_sums = en("showOrderSum", False)
+            qty_w = 6 if show_sums else 8
+            total_w = 10
+            name_w = self.cols - qty_w - (total_w if show_sums else 0)
+            if show_sums:
+                out += self._line(
+                    "Блюдо".ljust(name_w) + "Кол-во".center(qty_w) + "Сумма".rjust(total_w)
+                )
+            else:
+                out += self._line("Блюдо".ljust(self.cols - qty_w) + "Кол-во".center(qty_w))
             # Group items by course
             courses: dict[int, list[dict]] = {}
             for item in data.items:
@@ -402,16 +433,24 @@ class EscPosFormatter:
                     out += self._line(f"--- Подача {course_num} ---")
                     out += self.BOLD_OFF
                 for item in courses[course_num]:
-                    qty = item.get("qty", 1)
+                    qty = str(item.get("qty", 1))
                     name = item.get("name", "")
-                    out += self.BOLD_ON
-                    out += self._line(f"  x{qty}  {name}")
-                    out += self.BOLD_OFF
+                    if show_sums:
+                        out += self._line(
+                            name[:name_w].ljust(name_w)
+                            + qty.center(qty_w)
+                            + f"{self._dec(item.get('total')):,.0f}".rjust(total_w)
+                        )
+                    else:
+                        out += self._line(name[:name_w].ljust(name_w) + qty.center(qty_w))
                     if en("modifiers"):
                         for mod in item.get("modifiers", []):
                             out += self._line(f"       + {mod}")
                     if en("itemComments") and item.get("note"):
                         out += self._line(f"       ! {item['note']}")
+            if show_sums:
+                out += self._divider()
+                out += self._two_col("Сумма блюд:", f"{self._dec(data.subtotal):,.0f}")
 
         if en("orderNote") and data.note:
             out += self._divider()

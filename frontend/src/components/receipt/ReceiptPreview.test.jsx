@@ -203,10 +203,10 @@ describe("ReceiptPreview print layout", () => {
     expect(container.querySelector(".receipt-preview__priority")).toBeNull();
   });
 
-  it("renders modifiers as plain text instead of gray note cards", () => {
+  it("renders modifiers with a ! mark instead of a dash", () => {
     const { container } = renderKitchen();
 
-    expect(screen.getByText("- Без казы, Острый соус отдельно")).toBeInTheDocument();
+    expect(screen.getByText("! Без казы, Острый соус отдельно")).toBeInTheDocument();
     expect(container.querySelector(".receipt-preview__notes")).toBeNull();
   });
 
@@ -254,17 +254,30 @@ describe("ReceiptPreview print layout", () => {
     expect(screen.getAllByText("#A-1042")).toHaveLength(1);
   });
 
-  it("keeps dishes visible with no money when showOrderSum is OFF", () => {
-    const { container } = renderKitchen();
+  it("keeps a sums-free dish/qty table when showOrderSum is OFF", () => {
+    const template = {
+      ...buildKitchenTemplate(),
+      enabled: { ...buildKitchenTemplate().enabled, showOrderSum: false },
+    };
+    const { container } = renderKitchen({ template });
 
+    const table = container.querySelector("[data-receipt-items]");
+    expect(table).not.toBeNull();
+    expect(table.classList.contains("receipt-preview__items--no-sum")).toBe(true);
+    expect(within(table).getByText("Блюдо")).toBeInTheDocument();
+    expect(within(table).getByText("Кол-во")).toBeInTheDocument();
+    expect(within(table).queryByText("Сумма")).toBeNull();
+    expect(within(table).queryByText("Сумма блюд")).toBeNull();
     expect(screen.getByText("Плов чайханский", { exact: false })).toBeInTheDocument();
-    expect(container.querySelector(".receipt-preview__kitchen-amount")).toBeNull();
   });
 
-  it("shows real amounts only when showOrderSum is ON and data provides them", () => {
+  it("shows a real dish/qty/sum table with a dishes total when showOrderSum is ON", () => {
     const order = {
       ...kitchenOrder,
-      items: [{ id: 1, name: "Плов чайханский", quantity: 2, total: 16000 }],
+      items: [
+        { id: 1, name: "Плов чайханский", quantity: 2, total: 16000 },
+        { id: 2, name: "Салат Ачичук", quantity: 1, total: 9000 },
+      ],
     };
     const template = {
       ...buildKitchenTemplate(),
@@ -272,10 +285,21 @@ describe("ReceiptPreview print layout", () => {
     };
     const { container } = renderKitchen({ template, order });
 
-    expect(container.querySelector(".receipt-preview__kitchen-amount")).not.toBeNull();
+    const table = container.querySelector("[data-receipt-items]");
+    expect(table).not.toBeNull();
+    expect(within(table).getByText("Блюдо")).toBeInTheDocument();
+    expect(within(table).getByText("Кол-во")).toBeInTheDocument();
+    expect(within(table).getByText("Сумма")).toBeInTheDocument();
+    expect(within(table).getByText("Сумма блюд")).toBeInTheDocument();
+    expect(table.textContent).toContain("25 000");
+    expect(container.querySelector(".receipt-preview__kitchen-item")).toBeNull();
+    // Одна линия под шапкой: её даёт border шапки, сплошного правила
+    // внутри таблицы нет, пунктир первой строки погашен классом --first.
+    expect(table.querySelector(".receipt-preview__rule")).toBeNull();
+    expect(table.querySelector(".receipt-preview__item-row--first")).not.toBeNull();
   });
 
-  it("shows no amounts when showOrderSum is ON but the order has no money", () => {
+  it("shows a sums-free table when showOrderSum is ON but the order has no money", () => {
     const template = {
       ...buildKitchenTemplate(),
       enabled: { ...buildKitchenTemplate().enabled, showOrderSum: true },
@@ -283,7 +307,10 @@ describe("ReceiptPreview print layout", () => {
     const { container } = renderKitchen({ template });
 
     expect(screen.getByText("Плов чайханский", { exact: false })).toBeInTheDocument();
-    expect(container.querySelector(".receipt-preview__kitchen-amount")).toBeNull();
+    const table = container.querySelector("[data-receipt-items]");
+    expect(table).not.toBeNull();
+    expect(within(table).queryByText("Сумма")).toBeNull();
+    expect(within(table).queryByText("Сумма блюд")).toBeNull();
   });
 
   it("hides item notes and the order note when comment is OFF but keeps modifiers", () => {
@@ -293,7 +320,7 @@ describe("ReceiptPreview print layout", () => {
     };
     renderKitchen({ template });
 
-    expect(screen.getByText("- Без казы, Острый соус отдельно")).toBeInTheDocument();
+    expect(screen.getByText("! Без казы, Острый соус отдельно")).toBeInTheDocument();
     expect(screen.queryByText("Без лука в салате")).not.toBeInTheDocument();
     expect(screen.queryByText("Комментарий:")).not.toBeInTheDocument();
   });
@@ -463,7 +490,8 @@ describe("ReceiptPreview block-order parity", () => {
     const legacy = { ...base, blocks: ["orderNumber", "items", "modifiers"], enabled: { ...base.enabled, showOrderSum: false } };
     const { container } = renderKitchen({ template: legacy });
     expect(receiptRoot(container).textContent).toContain("Плов чайханский");
-    expect(container.querySelector(".receipt-preview__kitchen-amount")).toBeNull();
+    expect(container.querySelector("[data-receipt-items]")).not.toBeNull();
+    expect(container.querySelector("[data-receipt-items]").textContent).not.toContain("Сумма блюд");
   });
 });
 

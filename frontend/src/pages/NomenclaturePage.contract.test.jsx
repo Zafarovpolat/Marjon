@@ -79,6 +79,7 @@ describe("APP nomenclature product contract", () => {
       name: "Local draft",
       sort: "4",
       type: "Реализация",
+      unitId: "unit-portion",
       unit: "порция",
       cost: "12 500 UZS",
       price: "25000",
@@ -93,7 +94,7 @@ describe("APP nomenclature product contract", () => {
       name: "Local draft",
       sort_order: 4,
       product_type: "sale",
-      unit: "порция",
+      unit_id: "unit-portion",
       cost_price: 12500,
       price: 25000,
     });
@@ -101,6 +102,7 @@ describe("APP nomenclature product contract", () => {
       name: "Local draft",
       sort_order: 4,
       product_type: "sale",
+      unit_id: "unit-portion",
       cost_price: 12500,
       price: 25000,
     });
@@ -133,8 +135,11 @@ describe("APP nomenclature product contract", () => {
       menu: "",
       subcategory: "",
       chef: "",
-      auto: null,
-      set: null,
+      // V24: is_auto/is_set — реальные backend-флаги (NOT NULL default false).
+      // Отсутствие поля = false (миграция backfill'ит существующие в false),
+      // legacy null-плацехолдеры "-" убраны.
+      auto: false,
+      set: false,
       stock: "-",
     });
     // V22: unified money display (NBSP-tolerant), backend values untouched.
@@ -200,6 +205,85 @@ describe("APP nomenclature product contract", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("save failed");
     expect(screen.getByText("Backend dish")).toBeInTheDocument();
     expect(screen.queryByText("Unsaved local name")).not.toBeInTheDocument();
+  });
+});
+
+describe("APP dishes — canonical Units V2 integration", () => {
+  const units = [
+    { id: "unit-global", name: "Штука", short_name: "шт", sort: 1, status: true, company_id: null, is_global: true },
+    { id: "unit-company", name: "Упаковка", short_name: "уп", sort: 2, status: true, company_id: "company-uuid", is_global: false },
+    { id: "unit-inactive", name: "Старая порция", short_name: "стар", sort: 3, status: false, company_id: "company-uuid", is_global: false },
+  ];
+
+  function mockDirectories(products = []) {
+    api.get.mockImplementation((url) => {
+      if (url === "/inventory/products") return Promise.resolve({ data: products });
+      if (url === "/units") return Promise.resolve({ data: { items: units } });
+      return Promise.resolve({ data: [] });
+    });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  it("loads GET /units and offers only active global/company IDs with no hardcoded options", async () => {
+    mockDirectories();
+    render(<NomenclaturePage />);
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/units", expect.objectContaining({ signal: expect.any(AbortSignal) })));
+    fireEvent.click(screen.getByRole("button", { name: "Добавить" }));
+    const dialog = document.querySelector(".staff-modal--cashier-full");
+    const select = within(dialog).getByLabelText("Ед. изм");
+    await waitFor(() => expect(within(select).getByRole("option", { name: "уп" })).toHaveValue("unit-company"));
+    expect(within(select).getByRole("option", { name: "шт" })).toHaveValue("unit-global");
+    expect(within(select).queryByRole("option", { name: /стар/ })).toBeNull();
+    expect(within(select).queryByRole("option", { name: "порция" })).toBeNull();
+    expect(within(select).queryByRole("option", { name: "кг" })).toBeNull();
+    expect(within(select).queryByRole("option", { name: "л" })).toBeNull();
+  });
+
+  it("creates with the selected unit UUID and renders its canonical short name", async () => {
+    mockDirectories();
+    api.post.mockResolvedValue({ data: {
+      ...backendProduct,
+      id: "product-with-company-unit",
+      name: "Блюдо в упаковке",
+      unit_id: "unit-company",
+      unit: "legacy-value",
+    } });
+    render(<NomenclaturePage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Добавить" }));
+    const dialog = document.querySelector(".staff-modal--cashier-full");
+    await waitFor(() => expect(within(dialog).getByRole("option", { name: "уп" })).toBeInTheDocument());
+    fireEvent.change(within(dialog).getByLabelText("Ед. изм"), { target: { value: "unit-company" } });
+    fireEvent.change(within(dialog).getByLabelText("Название"), { target: { value: "Блюдо в упаковке" } });
+    fireEvent.change(within(dialog).getByLabelText("Цена"), { target: { value: "1000" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith("/inventory/products", expect.objectContaining({
+      unit_id: "unit-company",
+    })));
+    expect(api.post.mock.calls[0][1]).not.toHaveProperty("unit");
+    expect(await screen.findByText("уп")).toBeInTheDocument();
+  });
+
+  it("keeps an inactive assigned unit readable in Edit and remaps table truth after reload", async () => {
+    mockDirectories([{ ...backendProduct, unit_id: "unit-inactive", unit: "legacy-value" }]);
+    const first = render(<NomenclaturePage />);
+    expect(await screen.findByText("стар")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Редактировать" }));
+    const dialog = document.querySelector(".staff-modal--cashier-full");
+    const select = within(dialog).getByLabelText("Ед. изм");
+    await waitFor(() => expect(select).toHaveValue("unit-inactive"));
+    expect(within(select).getByRole("option", { name: "стар (не активна)" })).toBeInTheDocument();
+    first.unmount();
+    render(<NomenclaturePage />);
+    expect(await screen.findByText("стар")).toBeInTheDocument();
+    expect(api.get.mock.calls.filter(([url]) => url === "/units").length).toBeGreaterThanOrEqual(2);
+    expect(localStorage.length).toBe(0);
+    expect(sessionStorage.length).toBe(0);
   });
 });
 
@@ -332,19 +416,19 @@ describe("APP dishes drawer data selects — compact sort, no subcategory, real 
   });
 
   it("builds payload with canonical IDs only when selected, never subcategory", () => {
-    const base = { name: "Плов", sort: "3", type: "Блюда", unit: "порция", cost: "", price: "25000" };
+    const base = { name: "Плов", sort: "3", type: "Блюда", unitId: "unit-portion", unit: "порция", cost: "", price: "25000" };
     expect(buildNomenclatureProductPayload(base)).toEqual({
       name: "Плов",
       sort_order: 3,
       product_type: "dish",
-      unit: "порция",
+      unit_id: "unit-portion",
       price: 25000,
     });
     expect(buildNomenclatureProductPayload({ ...base, categoryId: "c1", printerId: "pr1" })).toEqual({
       name: "Плов",
       sort_order: 3,
       product_type: "dish",
-      unit: "порция",
+      unit_id: "unit-portion",
       price: 25000,
       category_id: "c1",
       printer_id: "pr1",
@@ -653,6 +737,8 @@ describe("APP dish photo (V4)", () => {
         expect(payload instanceof FormData).toBe(true);
         return Promise.resolve({ data: { ...backendProduct, id: "created-uuid", name: "С фото", image_url: "https://cdn.test/p.jpg" } });
       }
+      api.get.mockImplementation((url) => Promise.resolve({ data: url === "/inventory/products"
+        ? [{ ...backendProduct, id: "created-uuid", name: "С фото" }] : [] }));
       return Promise.resolve({ data: { ...backendProduct, id: "created-uuid", name: "С фото" } });
     });
     const dialog = await openAddDrawer();
@@ -677,6 +763,8 @@ describe("APP dish photo (V4)", () => {
       if (String(path).endsWith("/photo")) {
         return Promise.reject({ response: { data: { detail: "Хранилище недоступно" } } });
       }
+      api.get.mockImplementation((url) => Promise.resolve({ data: url === "/inventory/products"
+        ? [{ ...backendProduct, id: "created-uuid", name: "Без фото" }] : [] }));
       return Promise.resolve({ data: { ...backendProduct, id: "created-uuid", name: "Без фото" } });
     });
     const dialog = await openAddDrawer();
@@ -799,12 +887,16 @@ describe("APP dishes panel + table exact Settings template (V9)", () => {
     expect(overridesCss).not.toMatch(/\.dish-catalog-page \.dish-grid-table tbody tr:hover td/);
   });
 
-  it("keeps the horizontal scroll internal, thin and OWNER-teal (no page overflow)", () => {
+  it("keeps both scroll axes internal with cross-browser hidden scrollbar paint", () => {
     const scrollRule = dishesCss.match(/\.owner-report-view \.dish-grid-scroll\s*\{([^}]*)\}/)?.[1] || "";
     expect(scrollRule).toMatch(/overflow-x:\s*auto/);
-    expect(scrollRule).toMatch(/scrollbar-width:\s*thin/);
-    expect(dishesCss).toMatch(/\.dish-grid-scroll::-webkit-scrollbar\s*\{[^}]*height:\s*10px/);
-    expect(dishesCss).toMatch(/\.dish-grid-scroll::-webkit-scrollbar-thumb\s*\{[^}]*background:\s*rgba\(31, 201, 201/);
+    expect(scrollRule).toMatch(/overflow-y:\s*auto/);
+    expect(scrollRule).toMatch(/min-height:\s*0/);
+    expect(scrollRule).toMatch(/overscroll-behavior:\s*contain/);
+    expect(scrollRule).toMatch(/scrollbar-width:\s*none/);
+    expect(scrollRule).toMatch(/-ms-overflow-style:\s*none/);
+    expect(dishesCss).toMatch(/\.dish-grid-scroll::-webkit-scrollbar\s*\{[^}]*display:\s*none/);
+    expect(dishesCss).toMatch(/\.dish-grid-scroll::-webkit-scrollbar\s*\{[^}]*height:\s*0/);
     // Внешняя обёртка остаётся в пределах видимой ширины (нет оверфлоу страницы).
     const wrapRule = dishesCss.match(/\.owner-report-view \.dish-grid-wrap\s*\{([^}]*)\}/)?.[1] || "";
     expect(wrapRule).toMatch(/max-width:\s*100%/);
@@ -822,12 +914,41 @@ describe("APP dishes panel + table exact Settings template (V9)", () => {
     expect(scrollRule).not.toMatch(/stable both-edges/);
   });
 
-  it("keeps the card content-driven and never introduces priority overrides", () => {
-    // Карточка не растягивается на весь экран (как и settings-card у Settings).
+  it("uses the available viewport without giant fixed heights or priority overrides", () => {
     expect(dishesCss).not.toMatch(/\.dish-catalog-card[^{]*\{[^}]*min-height:\s*(100vh|100dvh|calc\(100)/);
-    expect(dishesCss).not.toMatch(/\.dish-catalog-card[^{]*\{[^}]*height:\s*100%/);
+    expect(dishesCss).not.toMatch(/\.dish-catalog-card[^{]*\{[^}]*[;\s]height:\s*100%/);
     // Приоритетные декларации запрещены дизайн-системой (слои @layer).
     expect(dishesCss).not.toMatch(/!\s*important/i);
+  });
+
+  it("bounds long lists to the available shell height and keeps the bottom border stationary", () => {
+    const pageRules = [...dishesCss.matchAll(/\.dish-catalog-page\.owner-report-view\s*\{([^}]*)\}/g)].map((m) => m[1]);
+    expect(pageRules.some((rule) => /height:\s*100%/.test(rule) && /flex-direction:\s*column/.test(rule))).toBe(true);
+    const card = dishesCss.match(/\.dish-catalog-page\.owner-report-view \.dish-catalog-card\s*\{([^}]*)\}/)?.[1] || "";
+    expect(card).toMatch(/max-height:\s*100%/);
+    expect(card).toMatch(/min-height:\s*0/);
+    expect(card).toMatch(/border:\s*1px solid/);
+    const wrap = dishesCss.match(/\.owner-report-view \.dish-grid-wrap\s*\{([^}]*)\}/)?.[1] || "";
+    expect(wrap).toMatch(/flex:\s*0 1 auto/);
+    expect(wrap).toMatch(/min-height:\s*0/);
+    expect(wrap).toMatch(/border:\s*1px solid/);
+    expect(dishesCss).toMatch(/\.dish-catalog-card > :not\(\.dish-grid-wrap\)\s*\{[^}]*flex-shrink:\s*0/);
+    expect(dishesCss).toMatch(/\.dish-grid-table thead th\s*\{[^}]*position:\s*sticky/);
+    expect(card).toMatch(/flex:\s*0 1 auto/);
+    const table = dishesCss.match(/\.owner-report-view \.dish-grid-table\s*\{([^}]*)\}/)?.[1] || "";
+    expect(table).toMatch(/min-height:\s*0/);
+    expect(table).toMatch(/height:\s*auto/);
+    expect(dishesCss).toMatch(/@media\s*\(min-width:\s*1025px\)[\s\S]*?\.dashboard-content:has\(\.dish-catalog-page\.owner-report-view\)\s*\{[^}]*padding-bottom:\s*12px/);
+  });
+
+  it("shrink-wraps real rows, removes fake end padding and rounds the wrapper focus ring", () => {
+    const scroll = dishesCss.match(/\.owner-report-view \.dish-grid-scroll\s*\{([^}]*)\}/)?.[1] || "";
+    expect(scroll).toMatch(/flex:\s*0 1 auto/);
+    const end = dishesCss.match(/\.dish-grid-wrap:not\(\.is-empty\) \.dish-grid-scroll\s*\{([^}]*)\}/)?.[1] || "";
+    expect(end).toMatch(/padding-bottom:\s*0/);
+    expect(end).not.toMatch(/48px/);
+    expect(dishesCss).toMatch(/\.dish-grid-wrap:has\(> \.dish-grid-scroll:focus-visible\)\s*\{[^}]*outline:\s*2px solid/);
+    expect(dishesCss).toMatch(/\.dish-grid-wrap\.is-empty\s*\{[^}]*height:\s*270px/);
   });
 
   it("resets page padding to 0 so edge gutters are 1:1 with other OWNER pages", () => {
@@ -889,10 +1010,12 @@ describe("APP dishes panel + table exact Settings template (V9)", () => {
     // H1 идёт тем же наследственным путём, что эталон (не normal-пин V11).
     expect(dishesCss).toMatch(/\.dish-catalog-header \.settings-title-group h1\s*\{[^}]*line-height:\s*inherit/);
     expect(dishesCss).not.toMatch(/\.dish-catalog-header \.settings-title-group h1\s*\{[^}]*line-height:\s*normal/);
-    // Карточка — block как settings-card эталона, без flex-роста.
+    // Same header skin; the card may now shrink its table to the shell height.
     const cardRule = dishesCss.match(/\.dish-catalog-page\.owner-report-view \.dish-catalog-card\s*\{([^}]*)\}/)?.[1] || "";
-    expect(cardRule).toMatch(/display:\s*block/);
-    expect(cardRule).not.toMatch(/flex-direction/);
+    expect(cardRule).toMatch(/display:\s*flex/);
+    expect(cardRule).toMatch(/flex-direction:\s*column/);
+    expect(cardRule).toMatch(/flex:\s*0 1 auto/);
+    expect(cardRule).toMatch(/max-height:\s*100%/);
   });
 
   it("aligns inner header geometry with the template (V11 leaf pins)", () => {
@@ -1028,6 +1151,9 @@ describe("APP dishes empty-state overlay architecture (V7)", () => {
     render(<NomenclaturePage />);
     await waitFor(() => expect(api.get).toHaveBeenCalled());
     const scroll = document.querySelector(".dish-grid-wrap.is-empty .dish-grid-scroll");
+    expect(scroll).toHaveAttribute("role", "region");
+    expect(scroll).toHaveAttribute("aria-label", "Таблица блюд с прокруткой");
+    expect(scroll).toHaveAttribute("tabindex", "0");
     const headers = [...scroll.querySelectorAll("thead th")].map((th) => th.textContent);
     expect(headers).toEqual(expect.arrayContaining(["Фото", "Название", "Ед. изм", "Цена"]));
   });

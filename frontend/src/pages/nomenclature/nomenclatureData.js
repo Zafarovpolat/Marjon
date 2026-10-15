@@ -31,22 +31,51 @@ export function matchesDishStatFilter(row, filterKey) {
   }
 }
 
-export function mapNomenclatureProduct(item) {
+export function unitDisplayLabel(unit) {
+  return String(unit?.short_name || unit?.name || "").trim();
+}
+
+export function mapNomenclatureProduct(item, units = []) {
+  const unitId = item.unit_id ? String(item.unit_id) : null;
+  const canonicalUnit = unitId
+    ? units.find((unit) => String(unit.id) === unitId)
+    : null;
   return {
     id: item.id,
     name: item.name || "",
     sort: item.sort_order != null ? String(item.sort_order) : "—",
     type: item.product_type === "sale" ? "Реализация" : "Блюда",
-    unit: item.unit || "—",
+    unitId,
+    unit: unitDisplayLabel(canonicalUnit) || item.unit || "—",
     cost: item.cost_price != null ? formatNomenclatureMoneyDisplay(item.cost_price) : "—",
     price: item.price != null ? formatNomenclatureMoneyDisplay(item.price) : "—",
     menu: item.category_name || "",
     subcategory: item.subcategory_name || "",
     printer: item.printer_name || "",
+    // V24: IP принтера — канонический Printer.ip_address. Backend Product
+    // отдаёт только printer_name; IP резолвится фронтом через справочник
+    // GET /printers по printerId (см. DishesTable). printerIp из ответа
+    // (если появится printer_ip) — приоритетный источник, без дублирования
+    // IP на Product и без хардкода.
+    printerIp: item.printer_ip || item.printerIp || "",
     recipe: `Рецепт (${item.ingredients_count ?? 0} шт)`,
+    // V25: канонический счётчик состава для колонки РЕЦЕПТЫ (тот же
+    // ingredients_count, что даёт ProductService._attach_aggregates из
+    // product_ingredients; 0 = нет рецепта, не фейк). stock-маппинг ниже
+    // сохранён 1:1 (используется contract-тестами и фильтрами).
+    ingredientsCount: Number.isFinite(Number(item.ingredients_count)) ? Number(item.ingredients_count) : 0,
+    // V38: счётчик состава сета (set_items_count backend, 0 = пуст/не сет).
+    setItemsCount: Number.isFinite(Number(item.set_items_count)) ? Number(item.set_items_count) : 0,
+    recipeIngredients: Array.isArray(item.ingredients) ? item.ingredients : null,
     stock: item.stock != null ? String(item.stock) : "-",
-    auto: null,
-    set: null,
+    // V24: реальные backend-флаги is_auto/is_set (NOT NULL default false).
+    // Legacy null-плацехолдеры "-" убраны: отсутствие поля = false
+    // (миграция backfill'ит существующие товары в false).
+    auto: typeof item.is_auto === "boolean" ? item.is_auto : typeof item.auto === "boolean" ? item.auto : false,
+    set: typeof item.is_set === "boolean" ? item.is_set : typeof item.set === "boolean" ? item.set : false,
+    // V39 — доступен для сетов (тумблер колонки СЕТ, фильтр Товара панели).
+    allowInSets: item.allow_in_sets === true,
+    active: item.is_active !== false,
     category: item.category_name || "",
     // V19 — канонические IDs из ответа (для preselect дровера: id → id,
     // а не имя → id). Null, когда backend не вернул.
@@ -89,9 +118,14 @@ export function buildNomenclatureProductPayload(form, { isUpdate = false } = {})
     product_type: form.type === "Реализация" ? "sale" : "dish",
     price: parseNomenclatureMoney(form.price, 0),
   };
-  const costPrice = parseNomenclatureMoney(form.cost);
+  const costPrice = parseNomenclatureMoney(form.cost, 0);
+  if (typeof form.active === "boolean") payload.is_active = form.active;
+  if (typeof form.auto === "boolean") payload.is_auto = form.auto;
+  if (typeof form.set === "boolean") payload.is_set = form.set;
   if (costPrice !== null) payload.cost_price = costPrice;
-  if (!isUpdate) payload.unit = form.unit || "шт";
+  // Unit selection is canonical by UUID in both create and update. The
+  // display label comes from GET /units and is never used to infer an id.
+  if (form.unitId) payload.unit_id = form.unitId;
   // V18 — канонические связи (все nullable в ProductCreate/ProductUpdate):
   // шлём ТОЛЬКО выбранные id; пусто = omit (backend оставляет как есть/null).
   // subcategory_id не шлём никогда (поле удалено из дровера).

@@ -27,7 +27,7 @@ from app.shared.base_model import Base
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 VERSIONS_DIR = BACKEND_ROOT / "migrations" / "versions"
-EXPECTED_HEAD = "c6d7ftrs10"
+EXPECTED_HEAD = "v45mrg01"
 EXPECTED_NULLABLE_COLUMN_COUNT = 262
 EXPECTED_PARITY_OPERATIONS = {"remove_index", "remove_table_comment"}
 FIXTURES_DIR = BACKEND_ROOT / "tests" / "fixtures"
@@ -43,7 +43,7 @@ PROVEN_LEGACY_EVIDENCE_SHA256 = (
 )
 
 
-def _revision_metadata(path: Path) -> tuple[str, str | None]:
+def _revision_metadata(path: Path) -> tuple[str, str | tuple[str, ...] | None]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     values: dict[str, str | None] = {}
     for node in tree.body:
@@ -56,8 +56,6 @@ def _revision_metadata(path: Path) -> tuple[str, str | None]:
         }:
             continue
         value = ast.literal_eval(node.value)
-        if isinstance(value, tuple):
-            raise AssertionError(f"{path.name} unexpectedly branches the graph")
         values[target.id] = value
     return values["revision"], values["down_revision"]
 
@@ -109,37 +107,65 @@ def _proven_legacy_evidence() -> dict:
     return json.loads(raw)
 
 
-def test_revision_graph_is_linear_complete_and_has_one_head() -> None:
-    revisions: dict[str, tuple[str | None, Path]] = {}
+def test_revision_graph_is_complete_and_has_one_head() -> None:
+    revisions: dict[str, tuple[str | tuple[str, ...] | None, Path]] = {}
     for path in sorted(VERSIONS_DIR.glob("*.py")):
         revision, down_revision = _revision_metadata(path)
         assert revision not in revisions, f"duplicate revision id: {revision}"
         revisions[revision] = (down_revision, path)
 
     for revision, (down_revision, path) in revisions.items():
-        assert down_revision is None or down_revision in revisions, (
-            f"{path.name}: missing down_revision {down_revision!r}"
-        )
+        parents = down_revision if isinstance(down_revision, tuple) else (down_revision,)
+        for parent in parents:
+            assert parent is None or parent in revisions, (
+                f"{path.name}: missing down_revision {parent!r}"
+            )
 
-    parents = {
-        down_revision
-        for down_revision, _path in revisions.values()
-        if down_revision is not None
-    }
+    parents = set()
+    for down_revision, _path in revisions.values():
+        if isinstance(down_revision, tuple):
+            parents.update(down_revision)
+        elif down_revision is not None:
+            parents.add(down_revision)
     heads = set(revisions) - parents
     assert heads == {EXPECTED_HEAD}
 
     visited: set[str] = set()
-    cursor: str | None = EXPECTED_HEAD
-    while cursor is not None:
-        assert cursor not in visited, f"cycle at revision {cursor}"
+    pending = [EXPECTED_HEAD]
+    while pending:
+        cursor = pending.pop()
+        if cursor in visited:
+            continue
         visited.add(cursor)
-        cursor = revisions[cursor][0]
+        down_revision = revisions[cursor][0]
+        if isinstance(down_revision, tuple):
+            pending.extend(down_revision)
+        elif down_revision is not None:
+            pending.append(down_revision)
     assert visited == set(revisions)
-    # 53 (upstream head bi08dcs01) + 3 restored on top: a4b5daystart08
-    # (companies.day_start_hour), b5c6modpos09 (modifier_groups.show_in_pos),
-    # c6d7ftrs10 (premerge POS/inventory feature columns) → head c6d7ftrs10.
-    assert len(revisions) == 56
+    # The warehouse-document branch and the restored-feature branch are both
+    # retained; un02cmp01 is the intentional merge revision above them,
+    # v24auto01 adds products.is_auto/is_set on top,
+    # v25cat01 adds categories.calculate_service/show_in_menu on top,
+    # v26sup01 adds companies.show_support_button;
+    # v31sort01 normalizes product positions without changing the schema.
+    # v32dec01 converts products.daily_limit/sold_count Integer → NUMERIC(12,3).
+    # v33top01 adds append-only product_limit_topups (cumulative allowance history).
+    # v34stop01 adds products.limit_auto_stopped (default FALSE, no backfill guessing).
+    # v35hist01 adds products.history_reset_seq (history visibility checkpoint).
+    # v36rec01 adds product_ingredients.warehouse_id (per-line recipe warehouse).
+    # v37wh01 adds warehouses.is_active (soft archive for the stock screen).
+    # v38set01 adds set_items (set composition: dishes inside a dish).
+    # v39avl01 adds products.allow_in_sets (available-for-sets toggle).
+    # v40typ01 splits product positions per product_type (no schema change).
+    # v41pur01 adds purchase_document_items.product_id (Товар line link).
+    # v42inv01 adds inventory_check_items + inventory_checks purchase/expense links.
+    # v43inv02 backfills conducted inventory_checks drafts to accepted (no schema change).
+    # 3231976db538 merges c6d7ftrs10 + wh01exp01 (no schema change).
+    # 0c16e3a26191 adds companies.order_types (per-type availability).
+    # v44los01 adds ingredients.loss_type/loss_value (waste norm, nullable).
+    # v45mrg01 merges v44los01 + 0c16e3a26191 (no schema change).
+    assert len(revisions) == 78
 
     nullable_columns = _bi02_nullable_columns()
     assert len(nullable_columns) == EXPECTED_NULLABLE_COLUMN_COUNT

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useLayoutEffect, useRef, useState } from "react";
 import { CUSTOMER_BLOCKS, KITCHEN_BLOCKS, normalizeLineSpacing } from "../../api/receipt";
 import { orderedBlocks } from "../../pages/settings/receiptBlockOrder";
 
@@ -35,11 +35,13 @@ export const kitchenSampleOrder = {
       id: 1,
       name: "Плов чайханский",
       quantity: 2,
+      price: 25000,
+      total: 50000,
       modifiers: ["Без казы", "Острый соус отдельно"],
       note: "",
     },
-    { id: 2, name: "Салат Ачичук", quantity: 1, modifiers: ["Меньше соли"], note: "" },
-    { id: 3, name: "Плов чайханский", quantity: 1, modifiers: ["Один без моркови"], note: "" },
+    { id: 2, name: "Салат Ачичук", quantity: 1, price: 15000, total: 15000, modifiers: ["Меньше соли"], note: "" },
+    { id: 3, name: "Плов чайханский", quantity: 1, price: 25000, total: 25000, modifiers: ["Один без моркови"], note: "" },
   ],
 };
 
@@ -374,20 +376,38 @@ function kitchenBlockClass(block, styles) {
   return classes.join(" ");
 }
 
-function KitchenItems({ items = [], modifiers = true, comments = true, showMoney = false }) {
+// Табличный режим позиций кухни (всегда как в чеке оплаты):
+// Блюдо/Кол-во [+ Сумма] + итог "Сумма блюд" при живых деньгах.
+// Те же классы таблицы, что у CustomerItems — тот же CSS, без нового.
+// Без сумм колонка Кол-во у правого края, цифры строго по центру шапки;
+// под шапкой одна сплошная линия (пунктир первой строки гасится).
+function KitchenItemsTable({ items = [], comments = true, showSums = false }) {
+  const sum = items.reduce((acc, item) => acc + itemMoneyValue(item), 0);
   return (
-    <div className="receipt-preview__kitchen-items">
+    <div className={`receipt-preview__items receipt-preview__items--kitchen${showSums ? "" : " receipt-preview__items--no-sum"}`} data-receipt-items>
+      <div className="receipt-preview__items-head">
+        <span>Блюдо</span>
+        <span>Кол-во</span>
+        {showSums ? <span>Сумма</span> : null}
+      </div>
       {items.map((item, index) => {
-        const notes = itemNotes(item, { modifiers, comments });
-        const amount = showMoney ? itemMoneyValue(item) : 0;
+        const notes = itemNotes(item, { modifiers: true, comments });
         return (
-          <div className="receipt-preview__kitchen-item" key={item.id || `${itemName(item)}-${index}`}>
-            <strong>{money(itemQuantity(item))} x {itemName(item)}</strong>
-            {amount > 0 ? <span className="receipt-preview__kitchen-amount">{money(amount)}</span> : null}
-            {notes.map((note) => <span key={note}>- {note}</span>)}
-          </div>
+          <Fragment key={item.id || `${itemName(item)}-${index}`}>
+            <div className={`receipt-preview__item-row${index === 0 ? " receipt-preview__item-row--first" : ""}`}>
+              <span className="receipt-preview__item-name">{itemName(item)}</span>
+              <span>{money(itemQuantity(item))}</span>
+              {showSums ? <span>{money(itemMoneyValue(item))}</span> : null}
+            </div>
+            {notes.map((note) => (
+              <div key={note} className="receipt-preview__item-note-row">
+                <span>! {note}</span>
+              </div>
+            ))}
+          </Fragment>
         );
       })}
+      {showSums ? <div className="receipt-preview__summary-row"><span>Сумма блюд</span><b>{money(sum)}</b></div> : null}
     </div>
   );
 }
@@ -398,7 +418,11 @@ function KitchenReceipt({ template = {}, order }) {
   const cancelled = isCancelledOrder(order);
   const showCancel = cancelled && enabled.cancelOrderNumber !== false;
   const commentOn = enabled.comment !== false;
-  const showMoney = enabled.showOrderSum === true;
+  // Позиции — всегда таблицей как в чеке оплаты; колонка сумм и итог
+  // "Сумма блюд" — только при живых деньгах и включённой галочке.
+  const orderItems = Array.isArray(order.items) ? order.items : [];
+  const showSums = enabled.showOrderSum === true
+    && orderItems.some((item) => itemMoneyValue(item) > 0);
   const runs = [];
   const push = (section, node) => {
     const last = runs[runs.length - 1];
@@ -434,9 +458,9 @@ function KitchenReceipt({ template = {}, order }) {
   }
 
   // Dishes are core content: always printed with modifiers; comments follow
-  // the unified "Комментарий" setting; amounts only via "Заказы (показать сумму)".
+  // the unified "Комментарий" setting; sums only with live money.
   push("items", (
-    <KitchenItems key="items" items={order.items || []} modifiers comments={commentOn} showMoney={showMoney} />
+    <KitchenItemsTable key="items" items={orderItems} comments={commentOn} showSums={showSums} />
   ));
   if (commentOn && hasValue(order.note)) push("note", (
     <div className={`receipt-preview__kitchen-comment ${kitchenBlockClass("comment", styles)}`} key="note"><b>Комментарий:</b><span>- {order.note}</span></div>

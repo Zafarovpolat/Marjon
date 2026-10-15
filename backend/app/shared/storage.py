@@ -35,10 +35,21 @@ class StorageService:
             )
         return self._client
 
-    async def upload(self, data: bytes, key: str, content_type: str) -> str:
-        """Upload bytes under *key* and return the public URL."""
+    async def upload(self, data: bytes, key: str, content_type: str, public: bool = False) -> str:
+        """Upload bytes under *key* and return the canonical URL.
+
+        Visibility is explicit per call, never ambient: pass public=True only
+        for menu/catalog-style media (products, categories, company logos)
+        that browsers render without credentials. User/staff media (avatars)
+        stays private (public=False, the default) so future uploads can never
+        leak through a blanket-public bucket. V6.4 added unconditional
+        public-read; V6.5 scopes it after the media visibility audit.
+        """
         client = self._client_instance()
         loop = asyncio.get_event_loop()
+        put_kwargs = {}
+        if public:
+            put_kwargs["ACL"] = "public-read"
         await loop.run_in_executor(
             None,
             partial(
@@ -47,6 +58,7 @@ class StorageService:
                 Key=key,
                 Body=data,
                 ContentType=content_type,
+                **put_kwargs,
             ),
         )
         return f"{settings.minio_public_url}/{settings.minio_bucket}/{key}"

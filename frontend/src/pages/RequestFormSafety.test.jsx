@@ -233,7 +233,8 @@ describe("FE-06 request and form safety", () => {
     const first = deferred();
     api.post.mockReturnValueOnce(first.promise).mockResolvedValueOnce({ data: { id: "ticket-1" } });
     render(<SupportWidget />);
-    fireEvent.click(screen.getByRole("button", { name: "Открыть поддержку" }));
+    // Виджет ждёт GET /companies/me перед показом кнопки.
+    fireEvent.click(await screen.findByRole("button", { name: "Открыть поддержку" }));
     fireEvent.change(screen.getByPlaceholderText("Коротко опишите вопрос..."), { target: { value: "Нужна помощь" } });
     const send = screen.getByRole("button", { name: "Отправить" });
     fireEvent.click(send);
