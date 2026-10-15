@@ -24,9 +24,9 @@ export default function EmployeeSelector({ branch, onSelect, onBack }) {
     setLoading(true); setError(false)
     auth.staffUsers(branch?.id)
       .then((data) => {
-        // Владелец, менеджер и кладовщик не работают на кассе-терминале — прячем из выбора.
-        // Владелец управляет через веб-админку; роль менеджера удалена из системы.
-        const HIDDEN_ROLES = ['owner', 'manager', 'warehouse']
+        // Моноблок — первый экран логина десктопа (телефон+пароль), не сотрудник
+        // для PIN-входа. Владелец/менеджер/кладовщик тоже не работают на кассе.
+        const HIDDEN_ROLES = ['owner', 'manager', 'warehouse', 'monoblock']
         const empRole = (u) => String(u.role_slug || u.role_slugs?.[0] || '').toLowerCase()
         const list = (Array.isArray(data) ? data : data?.items || [])
           .filter((u) => u.is_active !== false && !HIDDEN_ROLES.includes(empRole(u)))

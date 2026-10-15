@@ -353,34 +353,26 @@ export default function StaffFormModal({
                 <small className="muted">Оставьте пустым, чтобы не менять пароль.</small>
               ) : null}
             </label>
-            {isMonoblockView ? (
+            {isProductDrawer && !isMonoblockView ? (
               <>
                 <label>
-                  {/* Десктоп, шаг 3: моноблок входит по PIN после выбора в списке
-                      персонала филиала. На редактировании пустой PIN = «не менять». */}
-                  <span>{editingId ? "Новый PIN (4 цифры)" : "PIN-код (4 цифры)"}</span>
+                  {/* PIN обязателен при создании (вход на десктопе только по
+                      4 цифрам). На редактировании пустой PIN = «не менять».
+                      Моноблоку PIN не показываем — это логин десктопа. */}
+                  <span>{editingId ? "Новый PIN (4 цифры)" : "PIN-код (4 цифры) *"}</span>
                   <input
                     autoComplete="off"
                     value={form.pin}
                     maxLength={4}
                     inputMode="numeric"
                     pattern="[0-9]{4}"
+                    required={!editingId}
                     onChange={(event) => updateForm("pin", event.target.value.replace(/\D/g, ""))}
                     placeholder="0000"
                   />
                   {editingId ? (
                     <small className="muted">Оставьте пустым, чтобы не менять PIN.</small>
                   ) : null}
-                </label>
-                <label>
-                  {/* Сеть → филиал: моноблок закрепляется за филиалом, чтобы его
-                      десктоп-терминал показывал только персонал этого филиала. */}
-                  <span>Филиал</span>
-                  <BranchSelect
-                    value={form.branchId || ""}
-                    branches={branches}
-                    onChange={(branchId) => updateForm("branchId", branchId)}
-                  />
                 </label>
               </>
             ) : null}

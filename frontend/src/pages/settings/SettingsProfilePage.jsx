@@ -2,6 +2,7 @@
 // Каждая секция рендерит собственный контент; общего плейсхолдера нет.
 // Поля без backend-поддержки рисуются, но никогда не отправляются
 // и не показывают ложный успех (см. useCompanyProfileForm).
+// Тип заказа сохраняется через PATCH /companies/me (Company.order_types).
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import logo from "../../assets/marjon-logo.svg";
@@ -62,6 +63,8 @@ export default function SettingsProfilePage() {
     orderTypes,
     toggleOrderType,
     resetOrderTypes,
+    orderTypesSaving,
+    saveOrderTypes,
     newPassword,
     setNewPassword,
     confirmPassword,
@@ -209,10 +212,10 @@ export default function SettingsProfilePage() {
                   <button
                     type="button"
                     className="company-profile-save"
-                    disabled
-                    title="Тип заказа пока не поддерживается backend и не сохраняется"
+                    disabled={orderTypesSaving}
+                    onClick={saveOrderTypes}
                   >
-                    Сохранить
+                    {orderTypesSaving ? "Сохранение..." : "Сохранить"}
                   </button>
                 ) : (
                   <button
@@ -516,7 +519,7 @@ export default function SettingsProfilePage() {
                   </div>
                 ))}
               </div>
-              <p className="company-profile-field-hint">Тип заказа пока хранится только на этом экране: backend-поле отсутствует, сохранение отключено.</p>
+              <p className="company-profile-field-hint">Выключенные типы пропадают из кассы, приложения официанта и курьерской панели.</p>
             </div>
           ) : null}
 

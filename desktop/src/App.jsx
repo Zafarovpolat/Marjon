@@ -112,10 +112,10 @@ export default function App() {
       .catch(() => { /* нет фона — остаётся дефолтный */ })
   }, [orgToken])
 
-  // 1. Вход на кассе по логину/паролю филиала (6.2/6.3) — один шаг.
-  // Ответ /auth/branch-login несёт токен терминала + сведения о branch/company:
-  // сохраняем и организацию, и филиал атомарно, поэтому шаг выбора филиала пропускается.
-  const handleBranchLogin = useCallback((data) => {
+  // 1. Вход на кассе по телефону+паролю моноблока.
+  // Моноблок привязан к company (к филиалу НЕ привязан) — если бэкенд прислал
+  // branch (легаси-привязка), сохраняем; иначе десктоп покажет BranchSelector.
+  const handleMonoblockLogin = useCallback((data) => {
     localStorage.setItem('marjon_org_token', data.access_token)
     if (data.refresh_token) localStorage.setItem('marjon_org_refresh', data.refresh_token)
     // Синтетический org-user из company: сотрудникам не показываем личный логин владельца
@@ -128,15 +128,16 @@ export default function App() {
     localStorage.setItem('marjon_org_user', JSON.stringify(orgU))
     const br = data.branch || null
     if (br) localStorage.setItem('marjon_branch', JSON.stringify(br))
+    else localStorage.removeItem('marjon_branch')
     // Не оставляем терминал как «сотрудника»: вход сотрудника идёт через выбор + PIN
     localStorage.removeItem('marjon_token')
     localStorage.removeItem('marjon_user')
     setOrgToken(data.access_token)
     setOrgUser(orgU)
-    if (br) setBranch(br)
+    setBranch(br)
   }, [])
 
-  // 2. Выбор филиала (legacy-фолбэк: при branch-login филиал уже привязан)
+  // 2. Выбор филиала (legacy-фолбэк: при входе моноблока филиал уже привязан)
   const handleBranchSelect = useCallback((selectedBranch) => {
     localStorage.setItem('marjon_branch', JSON.stringify(selectedBranch))
     setBranch(selectedBranch)
@@ -252,8 +253,8 @@ export default function App() {
   const serverUrl = localStorage.getItem('marjon_server_url')
   if (!serverUrl) return <ServerSetup onComplete={() => window.location.reload()} />
 
-  // Шаг 1: терминал не привязан — вход по логину/паролю филиала (6.2)
-  if (!orgToken || !orgUser) return <LoginPage mode="admin" onLogin={handleBranchLogin} />
+  // Шаг 1: терминал не привязан — вход по телефону+паролю моноблока
+  if (!orgToken || !orgUser) return <LoginPage mode="admin" onLogin={handleMonoblockLogin} />
 
   // Шаг 2: выбор филиала
   if (!branch) {

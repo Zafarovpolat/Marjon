@@ -111,6 +111,9 @@ const DICT = {
     limit_saved: 'Лимит сохранён', limit_cleared: 'Лимит снят', limit_invalid: 'Введите целое число ≥ 1',
     available: 'Доступно', in_stop: 'В стопе', availability: 'Доступность', daily_max: 'Максимум порций в день',
     limit_hint: 'При достижении лимита блюдо автоматически встаёт в стоп. Пусто — без лимита.',
+    // История стоп-листа по датам (экран блюда)
+    history_dates: 'История по датам', yesterday: 'Вчера', sold_day: 'Продано за день',
+    remainder: 'Остаток', total_7days: 'Накоплено за 7 дней', no_sales_day: 'Продаж за этот день нет',
     // 5.5 — подтверждение прихода/ухода повара кассиром
     attendance: 'Приход/уход', att_pending: 'Ожидают подтверждения', att_empty: 'Нет отметок на подтверждение.',
     att_check_in: 'Пришёл', att_check_out: 'Ушёл', att_approve: 'Подтвердить', att_reject: 'Отклонить',
@@ -173,9 +176,9 @@ const DICT = {
     md_back: 'Назад к филиалам', md_title: 'Рабочее место', md_hint: 'Выберите режим работы',
     lp_phone: 'Номер телефона', lp_password: 'Пароль', lp_phone_incomplete: 'Введите номер телефона полностью',
     lp_bad_creds: 'Неверный телефон или пароль', lp_logging_in: 'Вход...', lp_bind: 'Привязать терминал',
-    lp_branch_login: 'Телефон филиала', lp_branch_login_ph: '+998 90 000 00 10',
+    lp_branch_login: 'Телефон моноблока', lp_branch_login_ph: '+998 90 000 00 10',
     lp_branch_subtitle: 'Вход на кассе', lp_branch_enter: 'Войти',
-    lp_branch_bad_creds: 'Неверный логин или пароль филиала',
+    lp_branch_bad_creds: 'Неверный телефон или пароль моноблока',
     lp_bad_pin: 'Неверный PIN-код', lp_enter_pin_hint: 'Введите PIN для входа',
     bs_load_err: 'Не удалось загрузить список филиалов', bs_title: 'Выберите филиал', bs_loading: 'Загрузка филиалов...',
     retry: 'Повторить', bs_empty: 'Нет доступных филиалов',
@@ -290,6 +293,9 @@ const DICT = {
     limit_saved: 'Limit saqlandi', limit_cleared: 'Limit olib tashlandi', limit_invalid: '≥ 1 butun son kiriting',
     available: 'Mavjud', in_stop: 'Stopda', availability: 'Mavjudligi', daily_max: 'Kunlik maksimal porsiya',
     limit_hint: 'Limitga yetganda taom avtomatik stopga tushadi. Bo‘sh — limitsiz.',
+    // Stop tarixi (taom ekrani)
+    history_dates: 'Sana bo‘yicha tarix', yesterday: 'Kecha', sold_day: 'Kunda sotildi',
+    remainder: 'Qoldiq', total_7days: '7 kunda jami', no_sales_day: 'Bu kunda savdo bo‘lmadi',
     // 5.5 — oshpaz keldi/ketdi tasdiqlash (kassir)
     attendance: 'Keldi/ketdi', att_pending: 'Tasdiqlash kutilmoqda', att_empty: 'Tasdiqlash uchun belgilar yo‘q.',
     att_check_in: 'Keldi', att_check_out: 'Ketdi', att_approve: 'Tasdiqlash', att_reject: 'Rad etish',
@@ -352,9 +358,9 @@ const DICT = {
     md_back: 'Filiallarga qaytish', md_title: 'Ish o‘rni', md_hint: 'Ish rejimini tanlang',
     lp_phone: 'Telefon raqami', lp_password: 'Parol', lp_phone_incomplete: 'Telefon raqamini to‘liq kiriting',
     lp_bad_creds: 'Telefon yoki parol noto‘g‘ri', lp_logging_in: 'Kirish...', lp_bind: 'Terminalni bog‘lash',
-    lp_branch_login: 'Filial telefoni', lp_branch_login_ph: '+998 90 000 00 10',
+    lp_branch_login: 'Monoblok telefoni', lp_branch_login_ph: '+998 90 000 00 10',
     lp_branch_subtitle: 'Kassaga kirish', lp_branch_enter: 'Kirish',
-    lp_branch_bad_creds: 'Filial logini yoki paroli noto‘g‘ri',
+    lp_branch_bad_creds: 'Monoblok telefoni yoki paroli noto‘g‘ri',
     lp_bad_pin: 'PIN-kod noto‘g‘ri', lp_enter_pin_hint: 'Kirish uchun PIN kiriting',
     bs_load_err: 'Filiallar ro‘yxatini yuklab bo‘lmadi', bs_title: 'Filialni tanlang', bs_loading: 'Filiallar yuklanmoqda...',
     retry: 'Qayta urinish', bs_empty: 'Mavjud filiallar yo‘q',

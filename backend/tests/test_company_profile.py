@@ -79,3 +79,20 @@ async def test_company_update_requires_company_admin(client):
 
     resp = await client.patch("/companies/me", headers=cashier_headers, json={"name": "Hacked"})
     assert resp.status_code == 403
+
+
+async def test_order_types_roundtrip_and_validation(client):
+    headers, _ = await register_company(client, slug="acme", email="owner@acme.example.com")
+    resp = await client.patch(
+        "/companies/me", headers=headers,
+        json={"order_types": {"dine_in": True, "takeaway": False, "delivery": True}},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["order_types"] == {"dine_in": True, "takeaway": False, "delivery": True}
+    get_resp = await client.get("/companies/me", headers=headers)
+    assert get_resp.json()["order_types"] == {"dine_in": True, "takeaway": False, "delivery": True}
+    bad = await client.patch(
+        "/companies/me", headers=headers,
+        json={"order_types": {"dine_in": True, "qr": True}},
+    )
+assert bad.status_code == 422

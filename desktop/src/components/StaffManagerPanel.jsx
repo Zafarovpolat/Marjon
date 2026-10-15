@@ -7,10 +7,12 @@ import CustomSelect from './CustomSelect'
 
 // Роли, которые кассир-менеджер вправе назначать (owner-assignable на бэкенде).
 // owner/admin сюда НЕ входят — такие карточки редактирует только владелец.
-const ASSIGNABLE_ROLES = ['cashier', 'waiter', 'kitchen', 'monoblock', 'courier', 'warehouse']
+// monoblock сюда НЕ входит — это первый экран логина десктопа (телефон+пароль),
+// ПИНа у него нет, создаётся только владельцем в вебе.
+const ASSIGNABLE_ROLES = ['cashier', 'waiter', 'kitchen', 'courier', 'warehouse']
 
 const asItems = (raw) => (Array.isArray(raw) ? raw : raw?.items || [])
-const onlyDigits = (s) => String(s || '').replace(/\D/g, '').slice(0, 8)
+const onlyDigits = (s) => String(s || '').replace(/\D/g, '').slice(0, 4)
 // Владелец/админ — карточка только для чтения (совпадает с анти-эскалацией бэкенда).
 const isAdminRow = (u) => (u.role_slugs || [u.role_slug]).some((s) => s === 'owner' || s === 'admin')
 
@@ -61,16 +63,24 @@ export default function StaffManagerPanel({ onClose }) {
       role_slug: form.roleSlug,
       is_active: form.isActive,
     }
-    // PIN: при создании — если введён; при правке — только если поле непусто.
-    if (editing === 'new' ? form.pin : form.pin !== '') {
-      const pin = onlyDigits(form.pin)
-      if (pin && !/^\d{2,8}$/.test(pin)) { toast(t('staff_pin_invalid'), 'error'); return }
-      payload.pin_code = pin
-    }
     setSaving(true)
     try {
-      if (editing === 'new') await auth.createUser(payload)
+      let userId = editing === 'new' ? null : editing.id
+      if (editing === 'new') {
+        // POST /auth/users требует password (мин. 8 символов) — генерим временный,
+        // вход у персонала только по PIN, пароль не используется.
+        const tempPassword = `Tmp${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}A1`
+        const created = await auth.createUser({ ...payload, password: tempPassword })
+        userId = created?.id || created?.user?.id
+      }
       else await auth.updateUser(editing.id, payload)
+      // PIN: 4 цифры, отдельным эндпоинтом PATCH /users/{id}/pin.
+      // При создании обязателен, на правке пусто = «не менять».
+      const pin = onlyDigits(form.pin)
+      if (editing === 'new' || pin !== '') {
+        if (!/^\d{4}$/.test(pin)) { toast(t('staff_pin_invalid'), 'error'); setSaving(false); return }
+        await auth.setPin(userId, pin)
+      }
       toast(t('saved'), 'ok')
       setEditing(null)
       load()

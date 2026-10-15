@@ -7,9 +7,10 @@ import { formatPhone, fullPhone, isPhoneComplete, extractPhoneDigits } from '../
 /**
  * LoginPage — двухрежимная страница входа.
  *
- * mode="admin" — первый вход на кассе: 6.2 — логин/пароль ФИЛИАЛА (не владельца).
- *   Логин филиала глобально уникален → определяет и организацию, и филиал за один
- *   шаг (без выбора филиала). Личный логин владельца сотрудникам не показывается.
+ * mode="admin" — первый вход на кассе: телефон+пароль аккаунта МОНOБЛОКА
+ *   (карточка users/monoblock в вебе; у моноблока нет PIN). Моноблок привязан
+ *   к company, филиал выбирается следующим шагом (BranchSelector).
+ *   Личный логин владельца сотрудникам не показывается.
  *
  * mode="pin" — ежедневный вход сотрудников по PIN.
  *   Показывается когда терминал уже привязан к филиалу.
@@ -18,14 +19,14 @@ export default function LoginPage({ mode = 'admin', onLogin, onReset, branchName
   if (mode === 'pin') {
     return <PinLogin onLogin={onLogin} onReset={onReset} branchName={branchName} orgName={orgName} />
   }
-  return <BranchLogin onLogin={onLogin} />
+  return <MonoblockLogin onLogin={onLogin} />
 }
 
 // ═══════════════════════════════════════════════════
-// Вход по телефону/паролю филиала (6.2) — один шаг, без выбора филиала.
-// Логин филиала — номер телефона под маской +998 XX XXX-XX-XX (как в 1.4).
+// Вход по телефону+паролю моноблока — один шаг, без выбора филиала.
+// Телефон моноблока — номер под маской +998 XX XXX-XX-XX (как в 1.4).
 // ═══════════════════════════════════════════════════
-function BranchLogin({ onLogin }) {
+function MonoblockLogin({ onLogin }) {
   const [phone, setPhone] = useState('')          // 9 локальных цифр номера филиала
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -45,10 +46,10 @@ function BranchLogin({ onLogin }) {
     setError('')
     setLoading(true)
     try {
-      // Логин филиала — номер телефона в каноничном виде (+998XXXXXXXXX).
-      // Ответ несёт токен терминала филиала + сведения о branch/company —
+      // Телефон моноблока в каноничном виде (+998XXXXXXXXX).
+      // Ответ несёт токен + сведения о branch/company —
       // App сохранит всё атомарно и сразу перейдёт к PIN-входу сотрудника.
-      const data = await auth.loginByBranch(fullPhone(phone), password)
+      const data = await auth.loginByMonoblock(fullPhone(phone), password)
       onLogin(data)
     } catch (err) {
       setError(err.response?.data?.detail || t('lp_branch_bad_creds'))

@@ -37,6 +37,21 @@ def _validate_currency(v: str) -> str:
     return v
 
 
+# Канонические ключи типов заказа (На стол / На вынос / Доставка).
+ORDER_TYPE_KEYS = ("dine_in", "takeaway", "delivery")
+
+
+def _validate_order_types(v: dict | None) -> dict | None:
+    if v is None:
+        return None
+    if not isinstance(v, dict):
+        raise ValueError("order_types должен быть объектом")
+    unknown = sorted(set(v.keys()) - set(ORDER_TYPE_KEYS))
+    if unknown:
+        raise ValueError(f"Неизвестные типы заказа: {', '.join(unknown)}")
+    return {key: bool(v.get(key, False)) for key in ORDER_TYPE_KEYS}
+
+
 class CompanyCreate(BaseSchema):
     name: str
     slug: str
@@ -67,6 +82,7 @@ class CompanyUpdate(BaseSchema):
     inn: str | None = None
     vat_rate: float | None = Field(None, ge=0, le=100)
     service_fee: float | None = Field(None, ge=0, le=100)
+    order_types: dict | None = None
 
     @field_validator("currency")
     @classmethod
@@ -82,6 +98,11 @@ class CompanyUpdate(BaseSchema):
     @classmethod
     def check_inn(cls, v: str | None) -> str | None:
         return _validate_inn(v) if v is not None else v
+
+    @field_validator("order_types")
+    @classmethod
+    def check_order_types(cls, v: dict | None) -> dict | None:
+        return _validate_order_types(v) if v is not None else v
 
 
 class CompanyResponse(BaseResponseSchema):
@@ -99,6 +120,7 @@ class CompanyResponse(BaseResponseSchema):
     logo: str | None = None
     vat_rate: float | None = None
     service_fee: float | None = None
+    order_types: dict | None = None
 
 
 class BranchCreate(BaseSchema):

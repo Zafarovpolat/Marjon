@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Minus, User } from 'lucide-react'
+import { Minus, Printer, User } from 'lucide-react'
 import { t } from '../shared/i18n'
+import { printers as printersApi } from '../shared/api'
 
 /**
  * BottomBar — нижняя панель с кнопкой сворачивания, краткой информацией
@@ -10,10 +11,39 @@ import { t } from '../shared/i18n'
  */
 export default function BottomBar({ userName, branchName, mode, isOnline = true, queued = 0, onMinimize }) {
   const [time, setTime] = useState(formatTime)
+  // Принтеры филиала: имена + IP + живой статус (тихий индикатор рядом с онлайном).
+  const [printerList, setPrinterList] = useState([])
+  const [printerState, setPrinterState] = useState({})   // { [id]: 'ok' | 'fail' }
 
   useEffect(() => {
     const id = setInterval(() => setTime(formatTime()), 1000)
     return () => clearInterval(id)
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+    async function refreshPrinters() {
+      let list = []
+      try {
+        const data = await printersApi.list()
+        list = Array.isArray(data) ? data : data?.items || []
+      } catch { /* офлайн — прячем блок */ }
+      if (!alive) return
+      setPrinterList(list)
+      // Статус — серверным пингом (сервер печатает первым, его доступность главная).
+      const states = await Promise.all(list.map(async (p) => {
+        try {
+          const r = await printersApi.ping(p.ip_address, p.port ?? 9100)
+          return [p.id, r?.reachable ? 'ok' : 'fail']
+        } catch {
+          return [p.id, 'fail']
+        }
+      }))
+      if (alive) setPrinterState(Object.fromEntries(states))
+    }
+    refreshPrinters()
+    const timer = setInterval(refreshPrinters, 90_000)
+    return () => { alive = false; clearInterval(timer) }
   }, [])
 
   const handleMinimize = () => {
@@ -44,6 +74,27 @@ export default function BottomBar({ userName, branchName, mode, isOnline = true,
       </span>
       {queued > 0 && (
         <span className="bottombar__queue" title={t('queue_hint')}>↻ {queued}</span>
+      )}
+
+      {/* Принтеры: имя + IP в подсказке, точка — живой статус пинга. Блок тихий. */}
+      {printerList.length > 0 && (
+        <span className="bottombar__printers" aria-label={t('printers_diag')}>
+          <Printer size={13} />
+          {printerList.map((p) => {
+            const state = printerState[p.id]
+            const dot = state === 'ok' ? 'status-dot--online' : state === 'fail' ? 'status-dot--offline' : 'status-dot--unknown'
+            return (
+              <span
+                key={p.id}
+                className="bottombar__printer"
+                title={`${p.name} · ${p.ip_address || '—'}:${p.port ?? 9100}`}
+              >
+                <span className={`status-dot ${dot}`} />
+                {p.name}
+              </span>
+            )
+          })}
+        </span>
       )}
 
       <span className="bottombar__clock">{time}</span>

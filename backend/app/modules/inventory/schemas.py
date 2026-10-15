@@ -15,6 +15,16 @@ class CategoryCreate(BaseSchema):
     show_in_menu: bool = False
 
 
+class CategoryUpdate(BaseSchema):
+    # Частичное обновление категории из веб-номенклатуры (название/slug/порядок,
+    # опционально архивация). Все поля необязательны — применяется exclude_unset.
+    name: str | None = None
+    slug: str | None = None
+    parent_id: UUID | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
+
+
 class CategoryResponse(BaseResponseSchema):
     company_id: UUID
     parent_id: UUID | None

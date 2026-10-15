@@ -133,10 +133,12 @@ async def require_staff_lister(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Гейт для GET /auth/staff-users. Пропускает две идентичности:
+    """Гейт для GET /auth/staff-users. Пропускает три идентичности:
     (1) веб-владельца (как require_web_owner) — видит персонал всей компании;
-    (2) служебный терминал филиала (branch-login с десктопа) — аккаунт без
-    роли, но с company_id+branch_id; видит персонал в пределах своего филиала.
+    (2) служебный терминал филиала (legacy branch-login с десктопа) — аккаунт без
+    роли, но с company_id+branch_id; видит персонал в пределах своего филиала;
+    (3) моноблок филиала (вход по телефону+паролю с десктопа) — роль monoblock
+    + branch_id; видит персонал в пределах своего филиала.
     Разделение по scope делает сам эндпоинт (по branch_id пользователя)."""
     from app.modules.auth.security import is_terminal_email
 
@@ -147,6 +149,26 @@ async def require_staff_lister(
 
     if getattr(current_user, "branch_id", None) and is_terminal_email(current_user.email):
         return current_user
+
+    if getattr(current_user, "branch_id", None):
+        role_slugs = list((await db.execute(
+            select(Role.slug)
+            .join(UserRole, UserRole.role_id == Role.id)
+            .where(UserRole.user_id == current_user.id)
+        )).scalars().all())
+        if role_slugs == ["monoblock"]:
+            return current_user
+
+    # (3b) моноблок без филиала — привязан к company (филиал выбирается на
+    # десктопе шагом BranchSelector). Видит персонал всей компании.
+    if not getattr(current_user, "branch_id", None):
+        role_slugs = list((await db.execute(
+            select(Role.slug)
+            .join(UserRole, UserRole.role_id == Role.id)
+            .where(UserRole.user_id == current_user.id)
+        )).scalars().all())
+        if role_slugs == ["monoblock"] and current_user.company_id:
+            return current_user
 
     # Иначе — только веб-владелец (role check без повторного захода в app-гейт).
     return await require_web_owner(current_user, db)

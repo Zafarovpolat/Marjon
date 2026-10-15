@@ -124,6 +124,12 @@ class Api {
     return res.data as List<dynamic>;
   }
 
+  // Профиль компании (типы заказа из «Других настроек» веба).
+  Future<Map<String, dynamic>> companyProfile() async {
+    final res = await dio.get('/companies/me');
+    return res.data as Map<String, dynamic>;
+  }
+
   // ── Inventory ─────────────────────────────────────────────────────────────
 
   Future<List<dynamic>> categories() async {

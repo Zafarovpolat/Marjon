@@ -30,7 +30,7 @@
   margin: 0;
   /* REPORT-FONT: 25px → 24px (кратно 4, house-rule по сетке размеров) */
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 500; /* Шкала: 17–24px — максимум 500 */
   line-height: 1.15;
   color: var(--neutral-900, #0b1f3f);
 }
@@ -1087,7 +1087,7 @@
   margin: 0;
   color: var(--neutral-900, #0b1f3f);
   font-size: 24px;
-  font-weight: 700; /* было 750 — вне house-шкалы весов (только 400/500/700) */
+  font-weight: 500; /* Шкала: 17–24px — максимум 500 */
   line-height: 1.2;
   letter-spacing: -0.02em;
 }
@@ -2170,8 +2170,8 @@
   background: #f3f6fa;
   color: var(--neutral-700, #334155);
   font-size: 11px;
-  /* REPORT-FONT: 750 → 500 (шапка таблицы — чуть жирнее базового текста) */
-  font-weight: 500;
+  /* REPORT-FONT: 750 → 400 (шкала: 11–16px — только 400; заголовок колонки таблицы) */
+  font-weight: 400;
   line-height: 1.15;
   letter-spacing: 0.025em;
   text-transform: uppercase;
