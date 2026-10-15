@@ -31,6 +31,7 @@ export const PROFILE_NAME_BACKEND_SUPPORTED = false;
 export const MAIN_SETTINGS_SUPPORT = Object.freeze({
   dayStartHour: { backendField: "day_start_hour", get: true, patch: true, persisted: true },
   vatRate: { backendField: "vat_rate", get: true, patch: true, persisted: true },
+  showSupportButton: { backendField: "show_support_button", get: true, patch: true, persisted: true },
   dishDeletePassword: { backendField: null, get: false, patch: false, persisted: false },
   dishDeleteAfterPrecheckPassword: { backendField: null, get: false, patch: false, persisted: false },
   waiterChangePassword: { backendField: null, get: false, patch: false, persisted: false },
@@ -77,12 +78,20 @@ export function useCompanyProfileForm(user) {
     setSuccessClosing(false);
     setSuccess("");
   }
+  function clearError() {
+    setError("");
+  }
 
   // «Основные настройки»: поддерживается backend (своя кнопка «Сохранить»).
   const [dayStartHour, setDayStartHour] = useState("0");
   const [vatRate, setVatRate] = useState("");
   const [savedMain, setSavedMain] = useState({ dayStartHour: "0", vatRate: "" });
   const [mainSaving, setMainSaving] = useState(false);
+  // Видимость глобальной кнопки поддержки: canonical company-поле
+  // show_support_button (default TRUE — сохраняет текущее поведение).
+  const [showSupportButton, setShowSupportButton] = useState(true);
+  const [savedShowSupportButton, setSavedShowSupportButton] = useState(true);
+  const [supportSaving, setSupportSaving] = useState(false);
 
   // «Основные настройки»: без backend-поддержки — локально, не отправляется.
   const [dishDeletePassword, setDishDeletePassword] = useState("");
@@ -133,6 +142,10 @@ export function useCompanyProfileForm(user) {
         setDayStartHour(nextMain.dayStartHour);
         setVatRate(nextMain.vatRate);
         setSavedMain(nextMain);
+        // Backend default TRUE: отсутствующее поле = видимая кнопка.
+        const nextShowSupport = data?.show_support_button !== false;
+        setShowSupportButton(nextShowSupport);
+        setSavedShowSupportButton(nextShowSupport);
       })
       .catch((err) => {
         if (request.isCurrent() && !isAbortError(err)) setError(err.response?.data?.detail || "Не удалось загрузить профиль.");
@@ -255,6 +268,36 @@ export function useCompanyProfileForm(user) {
     clearSuccess();
   }
 
+  // This one setting saves independently; pending clicks cannot overlap.
+  async function saveSupportVisibility(nextVisible) {
+    if (!acquire("company-support-visibility-save")) return;
+    const previous = savedShowSupportButton;
+    const notify = (value) => window.dispatchEvent(new CustomEvent("marjon:company-profile-updated", {
+      detail: { show_support_button: value },
+    }));
+    setSupportSaving(true);
+    setError("");
+    clearSuccess();
+    setShowSupportButton(nextVisible);
+    notify(nextVisible);
+    try {
+      const { data } = await settingsService.updateCompanyProfile({ show_support_button: nextVisible });
+      if (typeof data?.show_support_button !== "boolean") {
+        throw new Error("Backend не вернул сохранённую настройку поддержки.");
+      }
+      setShowSupportButton(data.show_support_button);
+      setSavedShowSupportButton(data.show_support_button);
+      if (data.show_support_button !== nextVisible) notify(data.show_support_button);
+    } catch (err) {
+      setShowSupportButton(previous);
+      notify(previous);
+      setError(err.response?.data?.detail || err.message || "Не удалось сохранить настройку поддержки.");
+    } finally {
+      setSupportSaving(false);
+      release("company-support-visibility-save");
+    }
+  }
+
   // «Основные настройки»: отправляются ТОЛЬКО day_start_hour и vat_rate.
   // Пароли/цена доставки не поддерживаются backend и в payload не входят.
   async function saveMain(event) {
@@ -354,6 +397,7 @@ export function useCompanyProfileForm(user) {
     loading,
     saving,
     error,
+    clearError,
     success,
     successClosing,
     setSuccess,
@@ -369,6 +413,9 @@ export function useCompanyProfileForm(user) {
     setDayStartHour,
     vatRate,
     setVatRate,
+    showSupportButton,
+    supportSaving,
+    saveSupportVisibility,
     mainSaving,
     saveMain,
     resetMain,

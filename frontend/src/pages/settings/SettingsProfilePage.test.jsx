@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { settingsService } from "../../api/settings";
+import { warehouseService } from "../../api/warehouse";
+import { ordersService } from "../../api/orders";
 import { useAuth } from "../../context/AuthContext";
 import SettingsProfilePage from "./SettingsProfilePage";
 import { profileSections } from "./profile/profileSections";
@@ -19,6 +21,19 @@ vi.mock("../../api/settings", () => ({
   settingsService: {
     getCompanyProfile: vi.fn(),
     updateCompanyProfile: vi.fn(),
+  },
+}));
+
+vi.mock("../../api/warehouse", () => ({
+  warehouseService: {
+    list: vi.fn(),
+    deletePurchase: vi.fn(),
+  },
+}));
+
+vi.mock("../../api/orders", () => ({
+  ordersService: {
+    purge: vi.fn(),
   },
 }));
 
@@ -84,13 +99,13 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
     fireEvent.change(screen.getByPlaceholderText("Название компании"), { target: { value: "Новое имя" } });
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-    const banner = screen.getByText("Профиль сохранён.");
+    const banner = screen.getByText("Профиль сохранён.").closest(".marjon-toast");
     expect(banner.className).not.toContain("is-leaving");
     await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
     expect(screen.getByText("Профиль сохранён.")).toBeInTheDocument();
-    expect(screen.getByText("Профиль сохранён.").className).not.toContain("is-leaving");
+    expect(screen.getByText("Профиль сохранён.").closest(".marjon-toast").className).not.toContain("is-leaving");
     await act(async () => { await vi.advanceTimersByTimeAsync(500); });
-    expect(screen.getByText("Профиль сохранён.").className).toContain("is-leaving");
+    expect(screen.getByText("Профиль сохранён.").closest(".marjon-toast").className).toContain("is-leaving");
     await act(async () => { await vi.advanceTimersByTimeAsync(500); });
     expect(screen.queryByText("Профиль сохранён.")).not.toBeInTheDocument();
   });
@@ -314,13 +329,63 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
     });
   });
 
-  it("Очистить все отчеты заблокирована и ничего не удаляет", async () => {
+  it("Опасные кнопки: две половины — отчеты слева, история продуктов справа", async () => {
     await renderPage();
-    const clearButton = screen.getByRole("button", { name: /Очистить все отчеты/ });
-    expect(clearButton).toBeDisabled();
-    fireEvent.click(clearButton);
-    expect(settingsService.updateCompanyProfile).not.toHaveBeenCalled();
-    expect(screen.queryByText("Профиль сохранён.")).not.toBeInTheDocument();
+    const row = document.querySelector(".company-profile-danger-row");
+    expect(row).toBeInTheDocument();
+    const buttons = [...row.querySelectorAll("button")];
+    expect(buttons.map((b) => b.textContent)).toEqual([
+      expect.stringContaining("Очистить все отчеты"),
+      expect.stringContaining("Очистить историю продуктов"),
+    ]);
+    buttons.forEach((b) => expect(b).toBeEnabled());
+  });
+
+  it("Уточняющее окно: Отмена ничего не удаляет", async () => {
+    await renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Очистить все отчеты" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveClass("company-clear-confirm");
+    expect(within(dialog).getByText("Очистить все отчеты?")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Отмена" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(ordersService.purge).not.toHaveBeenCalled();
+    expect(warehouseService.list).not.toHaveBeenCalled();
+    expect(warehouseService.deletePurchase).not.toHaveBeenCalled();
+  });
+
+  it("Очистка отчетов: подтверждение в окне удаляет все заказы через purge", async () => {
+    await renderPage();
+    ordersService.purge.mockResolvedValue({
+      data: { orders: 5, items: 9, payments: 3, fiscal_receipts: 1, delivery_orders: 0, loyalty_detached: 0 },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Очистить все отчеты" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Очистить" }));
+    await waitFor(() => expect(ordersService.purge).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(await screen.findByText(/Отчёты очищены: удалено заказов: 5, платежей: 3/)).toBeInTheDocument();
+    expect(warehouseService.deletePurchase).not.toHaveBeenCalled();
+  });
+
+  it("Очистка истории продуктов: окно, удаление приходов и чистка памяти цен", async () => {
+    localStorage.setItem(
+      "marjon:purchase-last-values:v1",
+      JSON.stringify({ "ing-1": { price: "100", qty: "1", total: "" } }),
+    );
+    warehouseService.list.mockResolvedValue({ data: [{ id: "d1" }, { id: "d2" }] });
+    warehouseService.deletePurchase.mockResolvedValue({});
+    await renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Очистить историю продуктов" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Очистить историю продуктов?")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Очистить" }));
+    await waitFor(() => expect(warehouseService.deletePurchase).toHaveBeenCalledTimes(2));
+    expect(warehouseService.deletePurchase).toHaveBeenCalledWith("d1");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(await screen.findByText(/История продуктов очищена: удалено документов: 2/)).toBeInTheDocument();
+    expect(localStorage.getItem("marjon:purchase-last-values:v1")).toBeNull();
+    expect(ordersService.purge).not.toHaveBeenCalled();
   });
 
   it("Основные настройки: точный набор из 7 полей", async () => {

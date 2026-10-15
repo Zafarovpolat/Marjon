@@ -2,9 +2,14 @@
 // Каждая секция рендерит собственный контент; общего плейсхолдера нет.
 // Поля без backend-поддержки рисуются, но никогда не отправляются
 // и не показывают ложный успех (см. useCompanyProfileForm).
+import { useState } from "react";
+import { createPortal } from "react-dom";
 import logo from "../../assets/marjon-logo.svg";
 import Icon from "../../components/Icon";
+import Toast from "../../components/Toast";
 import { useAuth } from "../../context/AuthContext";
+import { ordersService } from "../../api/orders";
+import { warehouseService } from "../../api/warehouse";
 import { profileSections } from "./profile/profileSections";
 import { useCompanyProfileForm } from "./profile/useCompanyProfileForm";
 
@@ -23,8 +28,10 @@ export default function SettingsProfilePage() {
     loading,
     saving,
     error,
+    clearError: clearProfileError,
     success,
     successClosing,
+    clearSuccess,
     set,
     handleImageChange,
     resetForm,
@@ -36,6 +43,9 @@ export default function SettingsProfilePage() {
     setDayStartHour,
     vatRate,
     setVatRate,
+    showSupportButton,
+    supportSaving,
+    saveSupportVisibility,
     mainSaving,
     saveMain,
     resetMain,
@@ -67,6 +77,88 @@ export default function SettingsProfilePage() {
   const activeMeta = profileSections.find((section) => section.key === activeSection) || profileSections[0];
   const profilePreview = form.profileLogo || form.companyLogo || logo;
   const showHeaderActions = activeSection !== "profile";
+  // Массовая очистка данных: confirmTarget — какое уточняющее окно открыто
+  // (null | "reports" | "purchases"), clearing — идёт ли удаление.
+  // Результат показываем честно (без ложного успеха).
+  const [confirmTarget, setConfirmTarget] = useState(null);
+  const [clearing, setClearing] = useState(null);
+  const [clearResult, setClearResult] = useState("");
+  const [clearError, setClearError] = useState("");
+
+  const openClearConfirm = (target) => {
+    if (clearing) return;
+    setClearError("");
+    setConfirmTarget(target);
+  };
+
+  const closeClearConfirm = () => {
+    if (clearing) return;
+    setConfirmTarget(null);
+    setClearError("");
+  };
+
+  const runClearReports = async () => {
+    setClearing("reports");
+    setClearError("");
+    try {
+      const { data } = await ordersService.purge();
+      const orders = Number(data?.orders) || 0;
+      const payments = Number(data?.payments) || 0;
+      setConfirmTarget(null);
+      setClearResult(`Отчёты очищены: удалено заказов: ${orders}, платежей: ${payments}.`);
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      setClearError(typeof detail === "string" ? `Не удалось очистить отчёты: ${detail}` : "Не удалось очистить отчёты.");
+    } finally {
+      setClearing(null);
+    }
+  };
+
+  const runClearPurchases = async () => {
+    setClearing("purchases");
+    setClearError("");
+    try {
+      const { data } = await warehouseService.list("incoming");
+      const docs = Array.isArray(data) ? data : data?.items || [];
+      let removed = 0;
+      let failed = 0;
+      for (const doc of docs) {
+        if (!doc?.id) continue;
+        try {
+          await warehouseService.deletePurchase(doc.id);
+          removed += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+      try {
+        localStorage.removeItem("marjon:purchase-last-values:v1");
+      } catch {
+        // хранилище недоступно — молча, на очистку не влияет
+      }
+      setConfirmTarget(null);
+      setClearResult(failed > 0
+        ? `История продуктов: удалено ${removed} из ${docs.length} (ошибок: ${failed}). Остатки не изменились.`
+        : `История продуктов очищена: удалено документов: ${removed}. Остатки не изменились.`);
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      setClearError(typeof detail === "string" ? `Не удалось очистить историю продуктов: ${detail}` : "Не удалось очистить историю продуктов.");
+    } finally {
+      setClearing(null);
+    }
+  };
+
+  const confirmClearContent = confirmTarget === "purchases"
+    ? {
+        title: "Очистить историю продуктов?",
+        body: "Будет удалена вся история добавления продуктов. Остатки на складах не изменятся. Это действие необратимо.",
+        run: runClearPurchases,
+      }
+    : {
+        title: "Очистить все отчеты?",
+        body: "Будут удалены ВСЕ заказы, платежи, чеки и доставки. Все отчёты в категории «Отчёты» станут пустыми. Это действие необратимо.",
+        run: runClearReports,
+      };
 
   if (loading) {
     return (
@@ -136,8 +228,8 @@ export default function SettingsProfilePage() {
             ) : null}
           </header>
 
-          {error ? <div className="company-profile-alert is-error">{error}</div> : null}
-          {success ? <div className={`company-profile-alert is-success${successClosing ? " is-leaving" : ""}`}>{success}</div> : null}
+          {error ? <Toast kind="error" message={error} onClose={clearProfileError} /> : null}
+          {success ? <Toast kind="success" message={success} leaving={successClosing} onClose={clearSuccess} /> : null}
 
           {activeSection === "basic" ? (
             <div className="company-profile-main">
@@ -211,16 +303,71 @@ export default function SettingsProfilePage() {
                 </label>
               </div>
 
-              <button
-                type="button"
-                className="company-profile-danger"
-                disabled
-                title="Очистка отчетов недоступна: backend-эндпоинт отсутствует"
-              >
-                <Icon name="bi-exclamation-octagon" size={18} />
-                Очистить все отчеты
-              </button>
-              <p className="company-profile-field-hint">Очистка отчетов недоступна: backend-эндпоинт отсутствует. Данные не удаляются.</p>
+              <div className="company-profile-danger-row">
+                <button
+                  type="button"
+                  className="company-profile-danger"
+                  disabled={clearing !== null}
+                  onClick={() => openClearConfirm("reports")}
+                >
+                  <Icon name="bi-exclamation-octagon" size={18} />
+                  {clearing === "reports" ? "Удаление…" : "Очистить все отчеты"}
+                </button>
+                <button
+                  type="button"
+                  className="company-profile-danger"
+                  disabled={clearing !== null}
+                  onClick={() => openClearConfirm("purchases")}
+                >
+                  <Icon name="bi-exclamation-octagon" size={18} />
+                  {clearing === "purchases" ? "Удаление…" : "Очистить историю продуктов"}
+                </button>
+              </div>
+              {confirmTarget ? createPortal((
+                <div className="settings-owner-view company-clear-layer">
+                  <div className="settings-drawer settings-modal-overlay" role="presentation">
+                    <div className="settings-drawer__backdrop" onClick={clearing ? undefined : closeClearConfirm} />
+                    <div
+                      className="settings-form settings-modal settings-confirm company-clear-confirm"
+                      role="dialog"
+                      aria-modal="true"
+                      aria-labelledby="company-clear-title"
+                      aria-describedby="company-clear-body"
+                    >
+                      <header className="settings-form__header">
+                        <span className="settings-accent-bar" />
+                        <div>
+                          <p>Удаление</p>
+                          <h2 id="company-clear-title">{confirmClearContent.title}</h2>
+                        </div>
+                        <button type="button" aria-label="Закрыть" disabled={clearing !== null} onClick={closeClearConfirm}>
+                          <Icon name="bi-x-lg" size={18} />
+                        </button>
+                      </header>
+                      <div className="settings-form__body">
+                        <p id="company-clear-body" className="settings-confirm__text">
+                          {confirmClearContent.body}
+                        </p>
+                        {clearError ? <p className="settings-form__error" role="alert">{clearError}</p> : null}
+                      </div>
+                      <footer className="settings-form__footer">
+                        <button type="button" autoFocus disabled={clearing !== null} onClick={closeClearConfirm}>Отмена</button>
+                        <button
+                          type="button"
+                          className="settings-confirm__delete"
+                          disabled={clearing !== null}
+                          onClick={confirmClearContent.run}
+                        >
+                          {clearing !== null ? "Очистка…" : "Очистить"}
+                        </button>
+                      </footer>
+                    </div>
+                  </div>
+                </div>
+              ), document.body) : null}
+              <p className="company-profile-field-hint" role={clearResult ? "status" : undefined}>
+                {clearResult || "Очистка удаляет данные без возможности восстановления. Остатки на складах не меняются."}
+              </p>
             </div>
           ) : null}
 
@@ -325,6 +472,24 @@ export default function SettingsProfilePage() {
                     placeholder="0"
                   />
                 </label>
+
+                <div className="company-profile-order-row">
+                  <span>
+                    <b>Показывать кнопку поддержки</b>
+                    <em>Показывать кнопку «Связь с поддержкой» в интерфейсе</em>
+                  </span>
+                  <label className="company-profile-toggle company-profile-toggle--support" aria-label="Показывать кнопку поддержки">
+                    <input
+                      type="checkbox"
+                      checked={showSupportButton}
+                      disabled={supportSaving}
+                      onChange={(event) => saveSupportVisibility(event.target.checked)}
+                    />
+                    <span className="company-profile-toggle__track" aria-hidden="true">
+                      <span className="company-profile-toggle__thumb" />
+                    </span>
+                  </label>
+                </div>
               </div>
             </div>
           ) : null}

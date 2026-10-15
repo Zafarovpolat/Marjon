@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ReceiptPreview from "../../components/receipt/ReceiptPreview";
 import ReceiptSectionEditor from "../../components/receipt/ReceiptSectionEditor";
+import Toast from "../../components/Toast";
 import {
   CHEF_ALIGN_OPTIONS,
   CHEF_STYLE_CONTROLS,
@@ -23,8 +24,30 @@ export default function ChefReceiptSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [message, setMessage] = useState("");
+  const [toastClosing, setToastClosing] = useState(false);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
+  const toastTimers = useRef([]);
+  function clearToastTimers() {
+    toastTimers.current.forEach((timer) => clearTimeout(timer));
+    toastTimers.current = [];
+  }
+  useEffect(() => () => clearToastTimers(), []);
+  function flashMessage(text) {
+    clearToastTimers();
+    setToastClosing(false);
+    setMessage(text);
+    toastTimers.current.push(setTimeout(() => setToastClosing(true), 4500));
+    toastTimers.current.push(setTimeout(() => {
+      setMessage("");
+      setToastClosing(false);
+    }, 5000));
+  }
+  function clearToast() {
+    clearToastTimers();
+    setToastClosing(false);
+    setMessage("");
+  }
 
   useEffect(() => {
     let active = true;
@@ -64,11 +87,11 @@ export default function ChefReceiptSettingsPage() {
     setSaving(true);
     setError("");
     setConflict(false);
-    setMessage("");
+    clearToast();
     try {
       const { template: saved } = await saveKitchenTemplate(template);
       setTemplate((current) => ({ ...current, ...saved }));
-      setMessage("Шаблон кухонного чека сохранён на сервере.");
+      flashMessage("Шаблон кухонного чека сохранён на сервере.");
     } catch (err) {
       if (err.response?.status === 409) {
         setConflict(true);
@@ -85,7 +108,7 @@ export default function ChefReceiptSettingsPage() {
     setPrinting(true);
     const result = await testPrintKitchen(template);
     setPrinting(false);
-    if (result.ok) setMessage("Открыто окно печати предпросмотра.");
+    if (result.ok) flashMessage("Открыто окно печати предпросмотра.");
   }
 
   return (
@@ -107,8 +130,8 @@ export default function ChefReceiptSettingsPage() {
           <div className="receipt-header-spacer" aria-hidden="true" />
         </header>
 
-        {error ? <div className="receipt-banner receipt-banner--error" role="alert">{error}</div> : null}
-        {!error && message ? <div className="receipt-banner receipt-banner--ok" role="status">{message}</div> : null}
+        {error ? <Toast kind="error" message={error} onClose={() => setError("")} /> : null}
+        {!error && message ? <Toast kind="success" message={message} leaving={toastClosing} onClose={clearToast} /> : null}
 
         <div className="receipt-grid">
           <div className="receipt-editor-col">
