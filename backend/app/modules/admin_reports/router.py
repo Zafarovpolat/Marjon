@@ -20,6 +20,7 @@ from app.modules.admin_reports.schemas import (
 from app.modules.admin_reports.service import AdminReportService, xlsx_response
 from app.modules.auth.dependencies import (
     require_hq_admin, require_permission_or_admin, user_can_view_past_periods,
+    effective_branch_filter,
 )
 from app.modules.auth.models import User
 
@@ -69,6 +70,7 @@ async def products_report(
     db: AsyncSession = Depends(get_db),
 ):
     assert user.company_id is not None
+    branch_id = effective_branch_filter(user, branch_id)
     date_from, date_to = await _clamp_period(user, db, date_from, date_to)
     rows = await AdminReportService(db).products(
         user.company_id, date_from, date_to, branch_id
@@ -96,6 +98,7 @@ async def products_count_report(
     db: AsyncSession = Depends(get_db),
 ):
     assert user.company_id is not None
+    branch_id = effective_branch_filter(user, branch_id)
     date_from, date_to = await _clamp_period(user, db, date_from, date_to)
     rows = await AdminReportService(db).products_count(
         user.company_id, date_from, date_to, branch_id
@@ -156,6 +159,7 @@ async def orders_report(
         user.company_id,
         date_from,
         date_to,
+        branch_id=effective_branch_filter(user),
         order_number=order_number,
         waiter_id=waiter_id,
         cashier_id=cashier_id,
@@ -193,6 +197,7 @@ async def tables_report(
         user.company_id,
         date_from,
         date_to,
+        branch_id=effective_branch_filter(user),
         table_number=table_number,
         waiter_id=waiter_id,
         payment_method=payment_method,
@@ -228,6 +233,7 @@ async def waiters_report(
         user.company_id,
         date_from,
         date_to,
+        branch_id=effective_branch_filter(user),
         waiter_id=waiter_id,
         service_percent=service_percent,
         include_orders=include_orders,
@@ -264,6 +270,7 @@ async def dishes_report(
         user.company_id,
         date_from,
         date_to,
+        branch_id=effective_branch_filter(user),
         search=query,
         author_id=author_id,
         product_id=product_id,
@@ -301,6 +308,7 @@ async def cancelled_report(
         user.company_id,
         date_from,
         date_to,
+        branch_id=effective_branch_filter(user),
         order_number=order_number,
         author_id=author_id,
         dish_name=dish_name,

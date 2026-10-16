@@ -126,6 +126,29 @@ class MonoblockLoginResponse(BaseSchema):
     company: CompanyInfo
 
 
+class BranchLoginRequest(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
+    # Вход «как филиал» с начального экрана: логин+пароль филиала (а не владельца).
+    login: str = Field(..., min_length=1, max_length=150)
+    password: str = Field(..., min_length=1)
+
+
+class BranchSwitchRequest(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
+    # Переключение владельца, уже залогиненного в сеть, в конкретный филиал.
+    branch_id: UUID
+
+
+class BranchSessionResponse(BaseSchema):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    branch: BranchInfo
+    company: CompanyInfo
+
+
 class UserResponse(BaseResponseSchema):
     # CASHIER-EMAIL-OPTIONAL-01: staff accounts may carry email None.
     email: str | None

@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import require_web_owner
+from app.modules.auth.dependencies import require_web_owner, effective_branch_filter
 from app.modules.auth.models import User
 from uuid import UUID
 from app.modules.hr.schemas import (
@@ -26,7 +26,7 @@ async def create_employee(data: EmployeeCreate, user: User = Depends(require_web
 @router.get("/employees", response_model=list[EmployeeResponse])
 async def list_employees(user: User = Depends(require_web_owner), db: AsyncSession = Depends(get_db)):
     from app.modules.hr.models import Employee as EmpModel
-    employees = await HRService(db).list_employees(user.company_id)
+    employees = await HRService(db).list_employees(user.company_id, effective_branch_filter(user))
     result = []
     for emp in employees:
         user_row = await db.execute(
@@ -49,7 +49,7 @@ async def create_shift(data: ShiftCreate, user: User = Depends(require_web_owner
 
 @router.get("/shifts", response_model=list[ShiftResponse])
 async def list_shifts(user: User = Depends(require_web_owner), db: AsyncSession = Depends(get_db)):
-    return await HRService(db).list_shifts(user.company_id)
+    return await HRService(db).list_shifts(user.company_id, effective_branch_filter(user))
 
 
 @router.post("/attendance", response_model=AttendanceResponse, status_code=status.HTTP_201_CREATED)
@@ -59,7 +59,7 @@ async def log_attendance(data: AttendanceCreate, user: User = Depends(require_we
 
 @router.get("/attendance", response_model=list[AttendanceRow])
 async def list_attendance(user: User = Depends(require_web_owner), db: AsyncSession = Depends(get_db)):
-    return await AdminReportService(db).attendance_history(user.company_id)
+    return await AdminReportService(db).attendance_history(user.company_id, effective_branch_filter(user))
 
 
 @router.patch("/employees/{employee_id}", response_model=EmployeeResponse)
@@ -83,4 +83,4 @@ async def delete_employee(
 
 @router.get("/login-history", response_model=list[LoginHistoryRow])
 async def login_history(user: User = Depends(require_web_owner), db: AsyncSession = Depends(get_db)):
-    return await AdminReportService(db).login_history(user.company_id)
+    return await AdminReportService(db).login_history(user.company_id, effective_branch_filter(user))

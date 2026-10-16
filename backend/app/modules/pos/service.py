@@ -101,9 +101,14 @@ def _safe_verify(secret: str | None, hashed: str | None) -> bool:
 
 
 class OrderService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, *, branch_scope: UUID | None = None):
         self.db = db
         self.repo = OrderRepository(db)
+        # Branch-изоляция: если задан (сессия филиала), любой доступ к заказу по
+        # id проверяется на принадлежность этому филиалу. None (владелец/десктоп
+        # без филиала) — проверки нет. Все write-методы грузят заказ через get(),
+        # поэтому единая проверка в get() покрывает чтение и запись.
+        self.branch_scope = branch_scope
 
     async def _advisory_xact_lock(self, lock_key: int) -> None:
         """Сериализация генерации номеров. pg_advisory_xact_lock существует
@@ -258,6 +263,10 @@ class OrderService:
     async def get(self, company_id: UUID, order_id: UUID) -> Order:
         order = await self.repo.get_by_id(order_id, company_id)
         if not order:
+            raise NotFoundError("Order not found")
+        # Branch-изоляция: филиал не может достать чужой заказ по прямому id
+        # (отдаём 404, а не 403 — не раскрываем существование чужого заказа).
+        if self.branch_scope and order.branch_id != self.branch_scope:
             raise NotFoundError("Order not found")
         # Мутации в той же сессии (add/remove item) оставляют в identity-map
         # stale-коллекцию items — ответ собираем всегда из свежих позиций,

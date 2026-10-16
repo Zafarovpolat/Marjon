@@ -419,6 +419,10 @@ function StaffRolePage({ role = "all" }) {
     }
     const email = form.email.trim();
     const roleKey = form.roleKey || "cashier";
+    // Моноблок PIN не имеет (вход в десктоп по телефону+паролю). В общей форме
+    // его завести нельзя (убран из селекта), но при РЕДАКТИРОВАНИИ существующего
+    // моноблока с вкладки «Все» он проходит здесь — не требуем и не шлём PIN.
+    const genericIsMonoblock = roleKey === "monoblock";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !roleOptions.some((option) => option.key === roleKey)) {
       window.alert("Укажите email и допустимую роль сотрудника.");
       mutationLocks.release("staff-save");
@@ -431,7 +435,7 @@ function StaffRolePage({ role = "all" }) {
     }
     // PIN обязателен при создании (десктоп входит только по 4 цифрам);
     // на редактировании пустой PIN = «не менять».
-    if ((!editingId && !/^\d{4}$/.test(form.pin || "")) || (form.pin && !/^\d{4}$/.test(form.pin))) {
+    if (!genericIsMonoblock && ((!editingId && !/^\d{4}$/.test(form.pin || "")) || (form.pin && !/^\d{4}$/.test(form.pin)))) {
       window.alert("PIN должен содержать 4 цифры.");
       mutationLocks.release("staff-save");
       return;
@@ -456,7 +460,7 @@ function StaffRolePage({ role = "all" }) {
           });
           newUser = data;
         }
-        if (form.pin) {
+        if (!genericIsMonoblock && form.pin) {
           await staffService.updateUserPin(createdUser.id, form.pin);
         }
         setStaff((current) => [mapStaffUser(newUser), ...current.filter((item) => item.id !== newUser.id)]);
@@ -469,7 +473,7 @@ function StaffRolePage({ role = "all" }) {
           role_slug: roleKey,
           is_active: form.status !== "archived",
         });
-        if (form.pin) {
+        if (!genericIsMonoblock && form.pin) {
           await staffService.updateUserPin(editingId, form.pin);
         }
         setStaff((current) => current.map((emp) =>

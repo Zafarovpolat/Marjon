@@ -903,7 +903,11 @@ export default function StaffFormModal({
               value={form.roleKey}
               onChange={(event) => updateForm("roleKey", event.target.value)}
             >
-              {roleOptions.map((item) => (
+              {/* Моноблок исключён: он заводится только на своей странице
+                  (вход в десктоп по телефону+паролю, без PIN). Общая форма
+                  работает по email и обязательному PIN — для моноблока это
+                  неверный контракт. */}
+              {roleOptions.filter((item) => item.key !== "monoblock").map((item) => (
                 <option key={item.key} value={item.key}>
                   {item.label}
                 </option>

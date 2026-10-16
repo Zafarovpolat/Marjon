@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import ServerSetup from './pages/ServerSetup'
 import LoginPage from './pages/LoginPage'
-import BranchSelector from './pages/BranchSelector'
 import OrganizationScreen from './pages/OrganizationScreen'
 import EmployeeSelector from './pages/EmployeeSelector'
 import PinPad from './pages/PinPad'
@@ -113,8 +112,8 @@ export default function App() {
   }, [orgToken])
 
   // 1. Вход на кассе по телефону+паролю моноблока.
-  // Моноблок привязан к company (к филиалу НЕ привязан) — если бэкенд прислал
-  // branch (легаси-привязка), сохраняем; иначе десктоп покажет BranchSelector.
+  // Моноблок привязан к company (к филиалу НЕ привязан). Экран выбора филиала
+  // убран: если бэкенд прислал branch (легаси) — сохраняем, иначе работаем без него.
   const handleMonoblockLogin = useCallback((data) => {
     localStorage.setItem('marjon_org_token', data.access_token)
     if (data.refresh_token) localStorage.setItem('marjon_org_refresh', data.refresh_token)
@@ -137,11 +136,8 @@ export default function App() {
     setBranch(br)
   }, [])
 
-  // 2. Выбор филиала (legacy-фолбэк: при входе моноблока филиал уже привязан)
-  const handleBranchSelect = useCallback((selectedBranch) => {
-    localStorage.setItem('marjon_branch', JSON.stringify(selectedBranch))
-    setBranch(selectedBranch)
-  }, [])
+  // 2. Выбор филиала убран для моноблока (branch опционален, приходит из
+  // данных входа при легаси-привязке). Отдельного экрана выбора больше нет.
 
   // 3. PIN-вход выбранного сотрудника → авто-маршрут по роли
   const handleEmployeePin = useCallback(async (pin) => {
@@ -256,10 +252,8 @@ export default function App() {
   // Шаг 1: терминал не привязан — вход по телефону+паролю моноблока
   if (!orgToken || !orgUser) return <LoginPage mode="admin" onLogin={handleMonoblockLogin} />
 
-  // Шаг 2: выбор филиала
-  if (!branch) {
-    return <BranchSelector user={orgUser} onSelect={handleBranchSelect} onLogout={handleFullReset} />
-  }
+  // Шаг 2 (выбор филиала) убран: моноблок не привязан к филиалу, после входа
+  // сразу идём к выбору сотрудника.
 
   // Шаг 3: вход сотрудника — организация → выбор сотрудника → пин-пад
   if (!isStaffLoggedIn) {
@@ -293,7 +287,7 @@ export default function App() {
   const activeMode = mode && MODES[mode] ? mode : 'cashier'
   const { component: ModeComponent } = MODES[activeMode]
   const modeLabel = t('mode_' + activeMode)
-  const userWithBranch = { ...staffUser, branch_id: branch.id }
+  const userWithBranch = { ...staffUser, branch_id: branch?.id ?? null }
 
   return (
     <div className="app-shell">

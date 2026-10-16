@@ -310,6 +310,7 @@ class AdminReportService:
         date_from: date | None,
         date_to: date | None,
         *,
+        branch_id: UUID | None = None,
         order_number: str | None = None,
         waiter_id: Sequence[UUID] | None = None,
         cashier_id: Sequence[UUID] | None = None,
@@ -340,6 +341,8 @@ class AdminReportService:
             .where(Order.company_id == company_id, Order.status.notin_(["cancelled"]))
             .order_by(Order.created_at.desc())
         )
+        if branch_id is not None:
+            query = query.where(Order.branch_id == branch_id)
         if order_number and (normalized_order_number := order_number.strip()):
             query = query.where(Order.order_number.ilike(f"%{normalized_order_number}%"))
         if waiter_id:
@@ -513,6 +516,7 @@ class AdminReportService:
         date_from: date | None,
         date_to: date | None,
         *,
+        branch_id: UUID | None = None,
         table_number: str | None = None,
         waiter_id: Sequence[UUID] | None = None,
         payment_method: Sequence[str] | None = None,
@@ -533,6 +537,8 @@ class AdminReportService:
             Order.status == "completed",
             Order.table_number.is_not(None),
         ]
+        if branch_id is not None:
+            conditions.append(Order.branch_id == branch_id)
         if hall_id:
             # Tenant-safe: 404 (not a leak) if any hall isn't this company's. Hall has
             # a direct company_id, so the shared resolver applies. Filtering on the
@@ -759,6 +765,7 @@ class AdminReportService:
         date_from: date | None,
         date_to: date | None,
         *,
+        branch_id: UUID | None = None,
         waiter_id: UUID | None = None,
         service_percent: Decimal = Decimal("1"),
         include_orders: bool = True,
@@ -808,6 +815,8 @@ class AdminReportService:
         )
         if waiter_id is not None:
             query = query.where(Order.waiter_id == waiter_id)
+        if branch_id is not None:
+            query = query.where(Order.branch_id == branch_id)
         query = self._order_date_filter(query, date_from, date_to)
         aggregate_rows = (await self.db.execute(query)).all()
 
@@ -838,6 +847,8 @@ class AdminReportService:
             )
             if waiter_id is not None:
                 dish_query = dish_query.where(Order.waiter_id == waiter_id)
+            if branch_id is not None:
+                dish_query = dish_query.where(Order.branch_id == branch_id)
             dish_query = self._order_date_filter(dish_query, date_from, date_to)
             for dish in (await self.db.execute(dish_query)).all():
                 dishes_by_waiter.setdefault(dish.waiter_id, []).append(WaiterDishRow(
@@ -915,6 +926,7 @@ class AdminReportService:
         date_from: date | None,
         date_to: date | None,
         *,
+        branch_id: UUID | None = None,
         search: str | None = None,
         author_id: Sequence[UUID] | None = None,
         product_id: Sequence[UUID] | None = None,
@@ -972,6 +984,8 @@ class AdminReportService:
             report_query = report_query.where(Order.status.in_(list(order_status)))
         else:
             report_query = report_query.where(Order.status.notin_(["cancelled"]))
+        if branch_id is not None:
+            report_query = report_query.where(Order.branch_id == branch_id)
         if search and search.strip():
             report_query = report_query.where(OrderItem.name.ilike(f"%{search.strip()}%"))
         if author_id:
@@ -1235,6 +1249,7 @@ class AdminReportService:
         date_from: date | None,
         date_to: date | None,
         *,
+        branch_id: UUID | None = None,
         order_number: str | None = None,
         author_id: Sequence[UUID] | None = None,
         dish_name: Sequence[str] | None = None,
@@ -1329,6 +1344,8 @@ class AdminReportService:
             query = query.where(
                 Order.order_number.ilike(f"%{normalized_order_number}%")
             )
+        if branch_id is not None:
+            query = query.where(Order.branch_id == branch_id)
         if author_id:
             # OR within Author, targeting the TRUE actor per scope. Item scope
             # wins when both are cancelled, so the order-scope clause requires
@@ -1472,7 +1489,7 @@ class AdminReportService:
         dishes = [r[0] for r in dish_rows if r[0]]
         return CancelledFiltersResponse(authors=authors, dishes=dishes)
 
-    async def login_history(self, company_id: UUID) -> list[LoginHistoryRow]:
+    async def login_history(self, company_id: UUID, branch_id: UUID | None = None) -> list[LoginHistoryRow]:
         query = (
             select(
                 RefreshToken.created_at,
@@ -1488,6 +1505,8 @@ class AdminReportService:
             .order_by(RefreshToken.created_at.desc())
             .limit(200)
         )
+        if branch_id is not None:
+            query = query.where(User.branch_id == branch_id)
         rows = (await self.db.execute(query)).all()
         result = []
         for r in rows:
@@ -1506,7 +1525,7 @@ class AdminReportService:
             ))
         return result
 
-    async def attendance_history(self, company_id: UUID) -> list[AttendanceRow]:
+    async def attendance_history(self, company_id: UUID, branch_id: UUID | None = None) -> list[AttendanceRow]:
         query = (
             select(
                 WorkShift.actual_start, WorkShift.actual_end, WorkShift.status,
@@ -1520,6 +1539,8 @@ class AdminReportService:
             .order_by(WorkShift.actual_start.desc())
             .limit(200)
         )
+        if branch_id is not None:
+            query = query.where(WorkShift.branch_id == branch_id)
         rows = (await self.db.execute(query)).all()
         result = []
         for r in rows:

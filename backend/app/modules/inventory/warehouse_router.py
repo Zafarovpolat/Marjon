@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import require_company_app_user
+from app.modules.auth.dependencies import require_company_app_user, effective_branch_filter
 from app.modules.auth.models import User
 from app.modules.companies.models import Branch
 from app.modules.rbac.dependencies import require_permission
@@ -40,6 +40,26 @@ def _now() -> str:
     return datetime.utcnow().strftime("%d.%m.%Y / %H:%M")
 
 
+async def _allowed_warehouse_ids(db, user):
+    """Набор складов филиала для branch-сессии; None — владелец сети (без скоупа)."""
+    branch_scope = effective_branch_filter(user)
+    if branch_scope is None:
+        return None
+    from sqlalchemy import select as _select
+    result = await db.execute(_select(Warehouse.id).where(Warehouse.company_id == user.company_id, Warehouse.branch_id == branch_scope))
+    return {row[0] for row in result.all()}
+
+
+async def _ensure_branch_warehouse(db, warehouse_id, user) -> None:
+    branch_scope = effective_branch_filter(user)
+    if branch_scope is None or warehouse_id is None:
+        return
+    wh = await db.get(Warehouse, warehouse_id)
+    if not wh or wh.company_id != user.company_id or wh.branch_id != branch_scope:
+        from app.shared.exceptions import NotFoundError as _NF
+        raise _NF("Warehouse not found")
+
+
 def _user_display(user: User) -> str:
     name = getattr(user, "name", None) or ""
     if name:
@@ -66,7 +86,12 @@ async def list_warehouses(
     result = await db.execute(
         select(Warehouse).where(Warehouse.company_id == user.company_id)
     )
-    return list(result.scalars().all())
+    warehouses = list(result.scalars().all())
+    # Branch-изоляция: филиалу — только склады его филиала.
+    branch_scope = effective_branch_filter(user)
+    if branch_scope is not None:
+        warehouses = [w for w in warehouses if w.branch_id == branch_scope]
+    return warehouses
 
 
 @router.post("/list", response_model=WarehouseResponse, status_code=status.HTTP_201_CREATED)
@@ -97,11 +122,15 @@ async def list_purchases(
     user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
+    branch_scope = effective_branch_filter(user)
+    allowed_ids = await _allowed_warehouse_ids(db, user) if branch_scope is not None else None
     query = (
         select(PurchaseDocument)
         .where(PurchaseDocument.company_id == user.company_id)
         .order_by(desc(PurchaseDocument.created_at))
     )
+    if allowed_ids is not None:
+        query = query.where(PurchaseDocument.warehouse_id.in_(allowed_ids))
     if search:
         like = f"%{search}%"
         query = query.where(
@@ -128,6 +157,7 @@ async def get_purchase(
     doc = result.scalar_one_or_none()
     if not doc:
         raise NotFoundError("Purchase document not found")
+    await _ensure_branch_warehouse(db, doc.warehouse_id, user)
     return doc
 
 
@@ -144,6 +174,7 @@ async def create_purchase(
     await require_company_resource(
         db, Warehouse, data.warehouse_id, user.company_id, detail="Warehouse not found"
     )
+    await _ensure_branch_warehouse(db, data.warehouse_id, user)
     await require_company_resource_ids(
         db,
         Ingredient,
@@ -300,11 +331,12 @@ async def list_transfers(
     user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(TransferDocument)
-        .where(TransferDocument.company_id == user.company_id)
-        .order_by(desc(TransferDocument.created_at))
-    )
+    branch_scope = effective_branch_filter(user)
+    allowed_ids = await _allowed_warehouse_ids(db, user) if branch_scope is not None else None
+    query = select(TransferDocument).where(TransferDocument.company_id == user.company_id).order_by(desc(TransferDocument.created_at))
+    if allowed_ids is not None:
+        query = query.where(TransferDocument.from_warehouse_id.in_(allowed_ids) | TransferDocument.to_warehouse_id.in_(allowed_ids))
+    result = await db.execute(query)
     return list(result.scalars().all())
 
 
@@ -325,6 +357,8 @@ async def create_transfer(
         user.company_id,
         detail="Warehouse not found",
     )
+    await _ensure_branch_warehouse(db, data.from_warehouse_id, user)
+    await _ensure_branch_warehouse(db, data.to_warehouse_id, user)
     doc = TransferDocument(
         company_id=user.company_id,
         created_by=user.id,
@@ -366,11 +400,12 @@ async def list_inventory_checks(
     user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(InventoryCheck)
-        .where(InventoryCheck.company_id == user.company_id)
-        .order_by(desc(InventoryCheck.created_at))
-    )
+    branch_scope = effective_branch_filter(user)
+    allowed_ids = await _allowed_warehouse_ids(db, user) if branch_scope is not None else None
+    query = select(InventoryCheck).where(InventoryCheck.company_id == user.company_id).order_by(desc(InventoryCheck.created_at))
+    if allowed_ids is not None:
+        query = query.where(InventoryCheck.warehouse_id.in_(allowed_ids))
+    result = await db.execute(query)
     return list(result.scalars().all())
 
 
@@ -387,6 +422,7 @@ async def create_inventory_check(
     await require_company_resource(
         db, Warehouse, data.warehouse_id, user.company_id, detail="Warehouse not found"
     )
+    await _ensure_branch_warehouse(db, data.warehouse_id, user)
     doc = InventoryCheck(
         company_id=user.company_id,
         created_by=user.id,
@@ -458,6 +494,8 @@ async def list_write_offs(
     user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if effective_branch_filter(user) is not None:
+        return []
     result = await db.execute(
         select(WriteOffDocument)
         .where(WriteOffDocument.company_id == user.company_id)
@@ -538,11 +576,15 @@ async def list_expenses(
     user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
+    branch_scope = effective_branch_filter(user)
+    allowed_ids = await _allowed_warehouse_ids(db, user) if branch_scope is not None else None
     query = (
         select(ExpenseDocument)
         .where(ExpenseDocument.company_id == user.company_id)
         .order_by(desc(ExpenseDocument.created_at))
     )
+    if allowed_ids is not None:
+        query = query.where(ExpenseDocument.warehouse_id.in_(allowed_ids))
     if search:
         like = f"%{search}%"
         query = query.where(
@@ -569,6 +611,7 @@ async def get_expense(
     doc = result.scalar_one_or_none()
     if not doc:
         raise NotFoundError("Expense document not found")
+    await _ensure_branch_warehouse(db, doc.warehouse_id, user)
     return doc
 
 
@@ -581,6 +624,7 @@ async def create_expense(
     await require_company_resource(
         db, Warehouse, data.warehouse_id, user.company_id, detail="Warehouse not found"
     )
+    await _ensure_branch_warehouse(db, data.warehouse_id, user)
     await require_company_resource_ids(
         db,
         Ingredient,
@@ -711,11 +755,15 @@ async def list_wastes(
     user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
+    branch_scope = effective_branch_filter(user)
+    allowed_ids = await _allowed_warehouse_ids(db, user) if branch_scope is not None else None
     query = (
         select(WasteDocument)
         .where(WasteDocument.company_id == user.company_id)
         .order_by(desc(WasteDocument.created_at))
     )
+    if allowed_ids is not None:
+        query = query.where(WasteDocument.warehouse_id.in_(allowed_ids))
     if search:
         like = f"%{search}%"
         query = query.where(
@@ -742,6 +790,7 @@ async def get_waste(
     doc = result.scalar_one_or_none()
     if not doc:
         raise NotFoundError("Waste document not found")
+    await _ensure_branch_warehouse(db, doc.warehouse_id, user)
     return doc
 
 
@@ -754,6 +803,7 @@ async def create_waste(
     await require_company_resource(
         db, Warehouse, data.warehouse_id, user.company_id, detail="Warehouse not found"
     )
+    await _ensure_branch_warehouse(db, data.warehouse_id, user)
     if data.ingredient_id:
         await require_company_resource(
             db, Ingredient, data.ingredient_id, user.company_id, detail="Ingredient not found"

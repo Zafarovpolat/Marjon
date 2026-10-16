@@ -1,4 +1,5 @@
 from __future__ import annotations
+import secrets
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
@@ -229,6 +230,84 @@ class AuthService:
         refresh_token = create_refresh_token()
         await self._save_refresh_token(user.id, refresh_token, device_id=device_id)
 
+        return user, branch, company, access_token, refresh_token
+
+    async def _ensure_branch_principal(self, branch: "Branch") -> User:
+        """Служебный аккаунт-принципал филиала. Токен привязан к user.id, поэтому
+        для входа «как филиал» нужен скрытый пользователь с branch_id этого
+        филиала. Логин/пароль живут на самом филиале (Branch); этот юзер — только
+        носитель сессии и будущего скоупа по branch_id. Роль — owner компании,
+        чтобы веб-гейты (require_web_owner) пустили сессию в админку; ИЗОЛЯЦИЯ
+        данных по филиалу — отдельный шаг (пока сессия филиала видит данные всей
+        компании). Аккаунт скрыт из списков персонала через terminal-email."""
+        from app.modules.auth.security import terminal_email
+        email = terminal_email(branch.id)
+        user = await self.user_repo.get_by_email(email)
+        if user is None:
+            user = User(
+                company_id=branch.company_id,
+                branch_id=branch.id,
+                email=email,
+                name=branch.name,
+                password_hash=branch.password_hash or hash_password(secrets.token_urlsafe(32)),
+                is_active=branch.is_active,
+            )
+            self.db.add(user)
+            await self.db.flush()
+        else:
+            user.company_id = branch.company_id
+            user.branch_id = branch.id
+            user.name = branch.name
+            user.is_active = branch.is_active
+            if branch.password_hash:
+                user.password_hash = branch.password_hash
+        owner_role = (await self.db.execute(
+            select(Role).where(Role.company_id == branch.company_id, Role.slug == "owner")
+        )).scalar_one_or_none()
+        if owner_role is not None:
+            has_role = (await self.db.execute(
+                select(UserRole).where(
+                    UserRole.user_id == user.id, UserRole.role_id == owner_role.id
+                )
+            )).scalar_one_or_none()
+            if has_role is None:
+                self.db.add(UserRole(user_id=user.id, role_id=owner_role.id))
+        return user
+
+    async def login_by_branch(self, login: str, password: str, *, device_id: str | None = None):
+        """Вход «как филиал» с начального экрана: логин+пароль филиала (Branch),
+        не владельца. Выдаёт сессию служебного принципала филиала."""
+        norm = (login or "").strip().lower()
+        if not norm:
+            raise UnauthorizedError("Неверный логин или пароль филиала")
+        branch = (await self.db.execute(
+            select(Branch).where(func.lower(Branch.login) == norm)
+        )).scalar_one_or_none()
+        if branch is None or not branch.password_hash or not verify_password(password, branch.password_hash):
+            raise UnauthorizedError("Неверный логин или пароль филиала")
+        if not branch.is_active:
+            raise UnauthorizedError("Филиал неактивен")
+        user = await self._ensure_branch_principal(branch)
+        company = await self.db.get(Company, branch.company_id)
+        access_token = create_access_token(user.id, user.company_id)
+        refresh_token = create_refresh_token()
+        await self._save_refresh_token(user.id, refresh_token, device_id=device_id)
+        return user, branch, company, access_token, refresh_token
+
+    async def switch_to_branch(self, owner: User, branch_id: UUID, *, device_id: str | None = None):
+        """Переключение владельца (уже залогинен в сеть) в филиал — без пароля,
+        по праву владельца. Выдаёт отдельную сессию филиала; токен владельца
+        клиент хранит сам, чтобы вернуться к сети."""
+        branch = await self.db.get(Branch, branch_id)
+        if branch is None or branch.company_id != owner.company_id:
+            raise NotFoundError("Branch not found")
+        if not branch.is_active:
+            raise UnauthorizedError("Филиал неактивен")
+        user = await self._ensure_branch_principal(branch)
+        company = await self.db.get(Company, branch.company_id)
+        access_token = create_access_token(user.id, user.company_id)
+        refresh_token = create_refresh_token()
+        await self._save_refresh_token(user.id, refresh_token, device_id=device_id)
         return user, branch, company, access_token, refresh_token
 
     async def create_company_user(

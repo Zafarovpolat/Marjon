@@ -16,6 +16,7 @@ export default defineConfig({
       input: {
         kafe: "index.html",
         admin: "admin.html",
+        kitchen: "kitchen.html",
       },
       output: {
         // Split heavy, rarely-changing third-party code into cacheable vendor

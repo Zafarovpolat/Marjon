@@ -13,10 +13,14 @@ from app.modules.auth.dependencies import (
     require_company_admin,
     require_company_app_user,
     require_staff_lister,
+    require_web_owner,
 )
 from app.modules.auth.models import User
 from app.modules.auth.schemas import (
     BranchInfo,
+    BranchLoginRequest,
+    BranchSessionResponse,
+    BranchSwitchRequest,
     CompanyInfo,
     CompanyUserCreate,
     CompanyUserResponse,
@@ -98,6 +102,45 @@ async def monoblock_login(request: Request, data: MonoblockLoginRequest, db: Asy
         access_token=access_token,
         refresh_token=refresh_token,
         branch=BranchInfo(id=branch.id, name=branch.name, company_id=branch.company_id) if branch else None,
+        company=CompanyInfo(id=company.id, name=company.name),
+    )
+
+
+@router.post("/branch-login", response_model=BranchSessionResponse)
+@limiter.limit("10/minute")
+async def branch_login(request: Request, data: BranchLoginRequest, db: AsyncSession = Depends(get_db)):
+    """Вход «как филиал» с начального экрана: логин+пароль филиала (не владельца).
+    Открывает ту же веб-админку под сессией филиала."""
+    svc = AuthService(db)
+    _, branch, company, access_token, refresh_token = await svc.login_by_branch(
+        data.login, data.password, device_id=device_label(request.headers.get("user-agent"))
+    )
+    return BranchSessionResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        branch=BranchInfo(id=branch.id, name=branch.name, company_id=branch.company_id),
+        company=CompanyInfo(id=company.id, name=company.name),
+    )
+
+
+@router.post("/branch-switch", response_model=BranchSessionResponse)
+@limiter.limit("30/minute")
+async def branch_switch(
+    request: Request,
+    data: BranchSwitchRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_web_owner),
+):
+    """Переключение владельца (уже в сети) в филиал — по клику на карточку, без
+    пароля. Клиент сохраняет токен владельца сам, чтобы вернуться к сети."""
+    svc = AuthService(db)
+    _, branch, company, access_token, refresh_token = await svc.switch_to_branch(
+        current_user, data.branch_id, device_id=device_label(request.headers.get("user-agent"))
+    )
+    return BranchSessionResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        branch=BranchInfo(id=branch.id, name=branch.name, company_id=branch.company_id),
         company=CompanyInfo(id=company.id, name=company.name),
     )
 
