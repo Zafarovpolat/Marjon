@@ -223,7 +223,9 @@ class OrderService:
         # Calculate totals (обслуга — только с позиций «в зале»)
         order.subtotal = subtotal
         self._recalculate_totals(
-            order, data.discount_amount, data.service_fee_rate, service_base=service_base
+            order, data.discount_amount,
+            await self._effective_service_rate(company_id, order, data.service_fee_rate),
+            service_base=service_base,
         )
         await self.db.commit()
         try:
@@ -490,7 +492,11 @@ class OrderService:
         order.receipt_printed_at = None
         if order.status in ("ready", "new", "accepted"):
             order.status = "cooking"
-        self._recalculate_totals(order, service_base=await self._service_base_q(order.id))
+        self._recalculate_totals(
+            order, None,
+            await self._effective_service_rate(company_id, order, None),
+            service_base=await self._service_base_q(order.id),
+        )
         await self.db.commit()
         return await self.get(company_id, order_id)
 
@@ -518,7 +524,11 @@ class OrderService:
         # Phase 1A: правдивый штамп «кто/когда отменил позицию».
         _stamp_item_cancellation(item, user.id if user else None)
         item.total = Decimal("0")
-        self._recalculate_totals(order, service_base=await self._service_base_q(order.id))
+        self._recalculate_totals(
+            order, None,
+            await self._effective_service_rate(company_id, order, None),
+            service_base=await self._service_base_q(order.id),
+        )
         await self.db.commit()
         try:
             await AuditService(self.db).log(
@@ -598,7 +608,8 @@ class OrderService:
             order.waiter_id = data.waiter_id
 
         self._recalculate_totals(
-            order, data.discount_amount, data.service_fee_rate,
+            order, data.discount_amount,
+            await self._effective_service_rate(company_id, order, data.service_fee_rate),
             service_base=await self._service_base_q(order.id),
         )
         await self.repo.save(order)
@@ -673,6 +684,10 @@ class OrderService:
             self.db.add(target)
             await self.db.flush()
 
+        # Целевой заказ мог прийти без привязки к столу (только текст номера) —
+        # привязываем для корректной ставки места; иначе останется 0%.
+        await self._bind_table_by_number(company_id, source.branch_id, target, target_table)
+
         # Переносим позицию и помечаем факт перемещения в примечании.
         moved_note = f"перемещено со стола {source.table_number or '—'}"
         item.order_id = target.id
@@ -681,9 +696,17 @@ class OrderService:
 
         # Пересчёт обоих заказов по актуальным позициям.
         source.subtotal = await self._subtotal_q(source.id)
-        self._recalculate_totals(source, service_base=await self._service_base_q(source.id))
+        self._recalculate_totals(
+            source, None,
+            await self._effective_service_rate(company_id, source, None),
+            service_base=await self._service_base_q(source.id),
+        )
         target.subtotal = await self._subtotal_q(target.id)
-        self._recalculate_totals(target, service_base=await self._service_base_q(target.id))
+        self._recalculate_totals(
+            target, None,
+            await self._effective_service_rate(company_id, target, None),
+            service_base=await self._service_base_q(target.id),
+        )
 
         # Исходный заказ без активных позиций → автоматически отменяем.
         res = await self.db.execute(
@@ -785,6 +808,36 @@ class OrderService:
             )
         )
         return Decimal(str(res.scalar_one() or 0))
+
+    async def _resolve_service_rate(self, company_id: UUID, order: Order) -> float | None:
+        """Ставка сервисного сбора: % места стола заказа.
+        Стол есть → Hall.percent (/100); стола нет (доставка/навынос) → 0.
+        None = своего правила нет → глобальный default (как раньше)."""
+        if not order.table_id:
+            return 0.0
+        tres = await self.db.execute(
+            select(Table.hall_id).where(Table.id == order.table_id)
+        )
+        hall_id = tres.scalar_one_or_none()
+        if hall_id is None:
+            return None
+        hres = await self.db.execute(
+            select(Hall.percent).where(
+                Hall.id == hall_id, Hall.company_id == company_id
+            )
+        )
+        percent = hres.scalar_one_or_none()
+        if percent is None:
+            return None
+        return float(percent) / 100
+
+    async def _effective_service_rate(
+        self, company_id: UUID, order: Order, explicit: float | None
+    ) -> float | None:
+        """Явная ставка из запроса побеждает; иначе — % места; иначе — default."""
+        if explicit is not None:
+            return explicit
+        return await self._resolve_service_rate(company_id, order)
 
     async def _company_local_today(self, company_id: UUID) -> date:
         """Локальная «операционная» дата компании прямо сейчас (по умолч. Asia/Tashkent).
@@ -929,6 +982,40 @@ class OrderService:
         if table is None:
             raise NotFoundError("Table not found")
         return table
+
+    async def _bind_table_by_number(
+        self, company_id: UUID, branch_id: UUID, order: Order, table_number: str,
+    ) -> bool:
+        """Привязать заказ к столу по номеру (для split: там только текст номера).
+        Номер ищется среди активных столов залов филиала (те же гарантии, что
+        у _resolve_table). Уже привязанный заказ не трогаем; ноль или несколько
+        кандидатов — не гадаем, оставляем как есть (ставка 0%, как раньше)."""
+        if order.table_id:
+            return True
+        try:
+            number = int(str(table_number).strip())
+        except (TypeError, ValueError):
+            return False
+        result = await self.db.execute(
+            select(Table)
+            .join(Hall, Hall.id == Table.hall_id)
+            .where(
+                Table.number == number,
+                Table.is_active.is_(True),
+                Hall.company_id == company_id,
+                Hall.branch_id == branch_id,
+                Hall.is_active.is_(True),
+                Hall.deleted_at.is_(None),
+            )
+        )
+        tables = result.scalars().all()
+        if len(tables) != 1:
+            return False
+        table = tables[0]
+        order.table_id = table.id
+        order.table_number = str(table.number)
+        order.hall_name_snapshot = await self._resolve_hall_name(table.hall_id)
+        return True
 
     async def _get_product(
         self, company_id: UUID, product_id: UUID, *, for_update: bool = False

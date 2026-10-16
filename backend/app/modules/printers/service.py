@@ -11,6 +11,7 @@ from app.modules.companies.models import Branch, Company
 from app.modules.kafe_compat.models import ReceiptTemplateSettings
 from app.modules.printers.formatter import (
     EscPosFormatter, KitchenTicketData, ReceiptData, ReceiptLine,
+    derive_service_rate_percent,
 )
 from app.modules.printers.models import PrintJob, Printer
 from app.modules.printers.printer_client import PrinterError, print_raw
@@ -325,6 +326,16 @@ class PrinterService:
                 )
             ).scalar_one_or_none()
 
+        # База сбора — та же, что в пересчёте заказа: активные позиции
+        # «в зале» (без отменённых и «с собой»). Ставка выводится из
+        # застывших цифр заказа — перепечатка покажет ставку дня продажи.
+        service_base = sum(
+            (item.total for item in order.items
+             if getattr(item, "status", None) != "cancelled"
+             and not getattr(item, "takeaway", False)),
+            Decimal("0"),
+        )
+
         return ReceiptData(
             company_name=(company.name if company else "—"),
             branch_name=(branch.name if branch else "—"),
@@ -341,6 +352,7 @@ class PrinterService:
             change_given=payment.change_given if payment else None,
             table_number=order.table_number,
             service_fee=order.service_fee,
+            service_fee_rate=derive_service_rate_percent(order.service_fee, service_base),
             waiter_name=(waiter.name if waiter else None),
         )
 

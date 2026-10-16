@@ -6,10 +6,54 @@ from __future__ import annotations
 import io
 import logging
 from dataclasses import dataclass, field
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+
+# Канонические коды типов заказа (pos.order_type) → подпись на чеке:
+# на чеке всегда тот тип, что выбран при заказе. Неизвестные значения
+# печатаются как есть — строка типа не должна пропадать.
+ORDER_TYPE_LABELS = {
+    "dine_in": "На стол",
+    "takeaway": "На вынос",
+    "delivery": "Доставка",
+    "qr": "QR",
+}
+
+
+def format_order_type(value) -> str:
+    text = str(value or "").strip()
+    return ORDER_TYPE_LABELS.get(text, text)
+
+
+def derive_service_rate_percent(fee, base) -> Decimal | None:
+    """Ставка сбора из застывших цифр заказа (сумма сбора ÷ база).
+    База и сумма зафиксированы в день продажи — перепечатка позже покажет
+    ставку дня продажи, а не текущую из настроек. None = скрыть %."""
+    try:
+        fee_d = Decimal(str(fee or 0))
+        base_d = Decimal(str(base or 0))
+    except Exception:
+        return None
+    if fee_d <= 0 or base_d <= 0:
+        return None
+    rate = (fee_d * 100 / base_d).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    if rate <= 0:
+        return None
+    return rate
+
+
+def format_rate_percent(value) -> str:
+    """20 → "20", 10.50 → "10.5" — для подписи «Обслуживание 20%:»."""
+    try:
+        quantized = Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    except Exception:
+        return ""
+    if quantized <= 0:
+        return ""
+    return format(quantized.normalize(), "f")
 
 
 @dataclass
@@ -40,6 +84,10 @@ class ReceiptData:
     customer_name: str | None = None
     fiscal_code: str | None = None
     service_fee: Decimal = Decimal("0")
+    # Ставка сбора в процентах (напр. 20) — для подписи «Обслуживание 20%:».
+    # Вычисляется из застывших цифр заказа (derive_service_rate_percent),
+    # None = показать сумму без % (старые заказы, неизвестная ставка).
+    service_fee_rate: Decimal | None = None
     waiter_name: str | None = None
     printed_at: datetime = field(default_factory=datetime.now)
 
@@ -302,7 +350,7 @@ class EscPosFormatter:
             style = self._block_style(template, "orderNumber")
             prefix, suffix, div = self._style_bytes(style)
             out += prefix
-            out += self._two_col(f"Заказ #{data.order_number}", data.order_type, cols=self.cols // div)
+            out += self._two_col(f"Заказ #{data.order_number}", format_order_type(data.order_type), cols=self.cols // div)
             out += suffix
         if en("table") and data.table_number:
             out += self._line(f"Стол: {data.table_number}")
@@ -335,7 +383,9 @@ class EscPosFormatter:
         if en("discount") and data.discount > 0:
             out += self._two_col("Скидка:", f"-{data.discount:,.0f}")
         if en("serviceFee") and getattr(data, "service_fee", 0) and data.service_fee > 0:
-            out += self._two_col("Обслуживание:", f"{data.service_fee:,.0f}")
+            rate_label = format_rate_percent(data.service_fee_rate) if getattr(data, "service_fee_rate", None) else ""
+            service_label = f"Обслуживание {rate_label}%:" if rate_label else "Обслуживание:"
+            out += self._two_col(service_label, f"{data.service_fee:,.0f}")
         if en("vat") and data.tax > 0:
             vat_rate = template.get("vatRate")
             label = f"НДС ({vat_rate:.0f}%):" if vat_rate else "НДС:"
@@ -391,9 +441,9 @@ class EscPosFormatter:
             out += self._line(f"ЗАКАЗ #{data.order_number}")
         out += self.NORMAL_SIZE + self.BOLD_OFF
         if en("createdAt"):
-            out += self._two_col(data.order_type.upper(), data.printed_at.strftime("%H:%M"))
+            out += self._two_col(format_order_type(data.order_type).upper(), data.printed_at.strftime("%H:%M"))
         else:
-            out += self._line(data.order_type.upper())
+            out += self._line(format_order_type(data.order_type).upper())
         if en("table") and data.table_number:
             out += self.BOLD_ON
             out += self._line(f"СТОЛ: {data.table_number}")

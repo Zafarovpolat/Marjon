@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { describe, expect, it, vi } from "vitest";
 import { api } from "../../api/client";
 import { buildCustomerTemplate, buildKitchenTemplate, testPrintReceipt } from "../../api/receipt";
-import ReceiptPreview, { computeFitScale, FIT_MIN_SCALE, getCustomerReceiptTotals } from "./ReceiptPreview";
+import ReceiptPreview, { computeFitScale, FIT_MIN_SCALE, formatReceiptOrderType, getCustomerReceiptTotals } from "./ReceiptPreview";
 import { LINE_SPACING_LARGE, normalizeLineSpacing } from "../../api/receipt";
 
 const customerOrder = {
@@ -132,6 +132,13 @@ describe("ReceiptPreview print layout", () => {
     renderCustomer({ order: { ...customerOrder, service_fee: 0 } });
 
     expect(screen.queryByText("Обслуживание")).not.toBeInTheDocument();
+    expect(screen.queryByText("Обслуживание %")).not.toBeInTheDocument();
+  });
+
+  it("shows the service row with a % mark after the label", () => {
+    renderCustomer();
+
+    expect(screen.getByText("Обслуживание %")).toBeInTheDocument();
   });
 
   it("hides payment methods with zero amount", () => {
@@ -677,6 +684,38 @@ describe("ReceiptPreview line-spacing density", () => {
       <ReceiptPreview type="customer" template={{ ...buildCustomerTemplate(), lineSpacing: "small" }} order={customerOrder} org={{ name: "MARJON" }} />,
     );
     expect(receiptRoot(small.container)).toHaveAttribute("data-line-spacing", "small");
+  });
+});
+
+describe("ReceiptPreview order type labels", () => {
+  it("maps canonical order codes to the selected type label", () => {
+    expect(formatReceiptOrderType("dine_in")).toBe("На стол");
+    expect(formatReceiptOrderType("takeaway")).toBe("На вынос");
+    expect(formatReceiptOrderType("delivery")).toBe("Доставка");
+    expect(formatReceiptOrderType("qr")).toBe("QR");
+  });
+
+  it("passes already-labeled and unknown values through untouched", () => {
+    expect(formatReceiptOrderType("На стол")).toBe("На стол");
+    expect(formatReceiptOrderType("mystery")).toBe("mystery");
+    expect(formatReceiptOrderType(undefined)).toBe("");
+  });
+
+  it("shows the selected type on the customer receipt, not the raw code", () => {
+    const { unmount } = renderCustomer({ order: { ...customerOrder, order_type: "takeaway" } });
+    const row = [...document.querySelectorAll(".receipt-preview__info-row")]
+      .find((el) => el.textContent.includes("Тип заказа:"));
+    expect(row.textContent).toContain("На вынос");
+    expect(row.textContent).not.toContain("takeaway");
+    unmount();
+  });
+
+  it("shows the selected type on the kitchen ticket, not the raw code", () => {
+    renderKitchen({ order: { ...kitchenOrder, order_type: "delivery" } });
+    const row = [...document.querySelectorAll(".receipt-preview__info-row")]
+      .find((el) => el.textContent.includes("Тип заказа:"));
+    expect(row.textContent).toContain("Доставка");
+    expect(row.textContent).not.toContain("delivery");
   });
 });
 

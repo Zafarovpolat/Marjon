@@ -151,7 +151,6 @@ export default function Sidebar({ user, collapsed, onToggle }) {
             className="brand-mark brand-mark--button"
             type="button"
             onClick={onToggle}
-            title={collapsed ? "Открыть меню" : "Свернуть меню"}
             aria-label={collapsed ? "Открыть меню" : "Свернуть меню"}
           >
             <img src={brandLogo} alt="MARJON" className="marjon-logo" decoding="async" />

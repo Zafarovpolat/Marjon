@@ -16,7 +16,7 @@ export default function BackButton({ className = "", iconName = "bi-arrow-left",
   const buttonClassName = ["dashboard-back-button", className].filter(Boolean).join(" ");
 
   return (
-    <button className={buttonClassName} type="button" onClick={handleBack} aria-label={buttonLabel} title={buttonLabel}>
+    <button className={buttonClassName} type="button" onClick={handleBack} aria-label={buttonLabel}>
       <Icon name={iconName} size={18} />
       {label ? <span>{label}</span> : null}
     </button>

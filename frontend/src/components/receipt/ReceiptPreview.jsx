@@ -142,6 +142,21 @@ function getOrderNumber(order = {}) {
   return hasValue(order.order_number) ? String(order.order_number) : "-";
 }
 
+// Канонические коды типов заказа (pos.order_type) → подпись на чеке:
+// на чеке всегда тот тип, что выбран при заказе. Уже-подписанные
+// значения (образец "На стол") и неизвестные коды проходят как есть.
+const RECEIPT_ORDER_TYPE_LABELS = {
+  dine_in: "На стол",
+  takeaway: "На вынос",
+  delivery: "Доставка",
+  qr: "QR",
+};
+
+export function formatReceiptOrderType(value) {
+  const raw = String(value ?? "");
+  return RECEIPT_ORDER_TYPE_LABELS[raw] || raw;
+}
+
 // Blocks whose per-block style (size/align/weight) is user-configurable — must
 // stay in sync with CUSTOMER_STYLE_BLOCKS in api/receipt.js. A block is visible
 // unless its template.enabled entry is explicitly false (default = shown).
@@ -237,7 +252,7 @@ function CustomerReceipt({ template = {}, org, order }) {
   const renderSummary = () => {
     if (totals.subtotal > 0) summaryRow("Сумма блюд", totals.subtotal);
     if (isOn(enabled, "discount") && totals.discount > 0) summaryRow("Скидка", totals.discount);
-    if (isOn(enabled, "serviceFee") && totals.service > 0) summaryRow("Обслуживание", totals.service);
+    if (isOn(enabled, "serviceFee") && totals.service > 0) summaryRow("Обслуживание %", totals.service);
     if (isOn(enabled, "vat") && totals.tax > 0) summaryRow("Налог", totals.tax);
   };
 
@@ -264,7 +279,7 @@ function CustomerReceipt({ template = {}, org, order }) {
     // nothing when no logo is uploaded, and the preview must agree.
     if (block === "logo") { if (org?.logo) push("header", <img className="receipt-preview__logo" src={org.logo} alt={restaurantName} key="logo" />); }
     else if (block === "restaurantName") push("header", <div className={`receipt-preview__brand ${cls}`} key="rn">{restaurantName}</div>);
-    else if (block === "orderNumber") { infoRow("orderNumber", "Номер заказа:", getOrderNumber(order)); infoRow("orderNumber", "Тип заказа:", order.order_type); }
+    else if (block === "orderNumber") { infoRow("orderNumber", "Номер заказа:", getOrderNumber(order)); infoRow("orderNumber", "Тип заказа:", formatReceiptOrderType(order.order_type)); }
     else if (block === "table") infoRow("table", "Номер стола:", order.table_number);
     else if (block === "waiter") infoRow("waiter", "Официант:", order.waiter);
     else if (block === "dateTime") infoRow("dateTime", "Дата:", formatCustomerDate(order.created_at));
@@ -449,7 +464,7 @@ function KitchenReceipt({ template = {}, order }) {
           <div className="receipt-preview__kitchen-cancel">ОТМЕНА</div>
         </div>
       ));
-    } else if (block === "orderType") infoRow("orderType", "Тип заказа:", order.order_type);
+    } else if (block === "orderType") infoRow("orderType", "Тип заказа:", formatReceiptOrderType(order.order_type));
     else if (block === "table") infoRow("table", "Стол:", order.table_number);
     else if (block === "waiter") infoRow("waiter", "Официант:", order.waiter);
     else if (block === "date") infoRow("date", "Время:", formatKitchenDate(order.created_at));

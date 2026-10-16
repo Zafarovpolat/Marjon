@@ -237,7 +237,6 @@ function Sidebar({ active, onSelect, collapsed, onToggle, user, onProfile }) {
             onClick={onToggle}
             aria-pressed={collapsed}
             aria-label={collapsed ? "Развернуть меню" : "Свернуть меню"}
-            title={collapsed ? "Развернуть меню" : "Свернуть меню"}
           >
             <img src={logo} alt="MARJON" className="marjon-logo" decoding="async" />
           </button>
@@ -395,7 +394,7 @@ function Header({ user, onBack, notifications = [], onNotificationRefresh, onNot
   return (
     <header className="admin-header">
       <div className="admin-header__title">
-        <button className="admin-back-button" type="button" onClick={goBack} aria-label="Назад" title="Назад">
+        <button className="admin-back-button" type="button" onClick={goBack} aria-label="Назад">
           <Icon name="bi-chevron-left" size={24} />
         </button>
       </div>
