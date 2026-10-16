@@ -33,6 +33,16 @@ export function mapDishUnitOption(item) {
 // пусто/ошибка → truthful disabled-состояние, без catch-all опции ([] = без
 // ограничения). value = category.id, label = category.name; сопоставление со
 // строками — по имени, т.к. продукты несут только category_name.
+function makeDishCategorySlug(name) {
+  const clean = String(name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^\p{L}\p{N}-]+/gu, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  return clean ? `dish-${clean}` : `dish-${Date.now()}`;
+}
 export function useDishesCatalog() {
   const [rows, setRows] = useState([]);
   const [apiLoading, setApiLoading] = useState(true);
@@ -353,6 +363,27 @@ export function useDishesCatalog() {
     setDrawerClosing(false);
   };
 
+  // Создание категории прямо из дровера блюда: POST /inventory/categories
+  // (тот же контракт, что у «Категория блюд»), затем — в живой список
+  // фильтра/формы и автовыбор. Без фейков: ошибка пробрасывается наружу.
+  const createDishCategory = useCallback(async (name) => {
+    const trimmed = String(name || "").trim();
+    if (!trimmed) throw new Error("Введите название категории.");
+    const { data } = await catalogService.createCategory({
+      name: trimmed,
+      slug: makeDishCategorySlug(trimmed),
+      sort_order: 0,
+      is_active: true,
+    });
+    if (!data?.id) throw new Error("Backend не вернул созданную категорию.");
+    const item = { id: String(data.id), name: String(data.name || trimmed) };
+    setFilterCategories((current) => {
+      if (current.some((entry) => String(entry.id) === item.id)) return current;
+      return [...current, item].sort((a, b) => String(a.name).localeCompare(String(b.name), "ru"));
+    });
+    return item;
+  }, []);
+
   const saveDish = async () => {
     if (!acquire("product-save")) return;
     const isUpdate = Boolean(editing);
@@ -670,6 +701,7 @@ export function useDishesCatalog() {
     setShowArchived,
     openDrawer,
     saveDish,
+    createDishCategory,
     saveRecipe,
     saveSetItems,
     archiveDish,

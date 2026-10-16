@@ -1,8 +1,8 @@
 // Таблица каталога блюд OWNER с учётом видимых колонок.
 // V24: точный порядок СОРТ→ФОТО→НАЗВАНИЕ→ЕД.ИЗМ→СЕБЕСТ→ЦЕНА→ПРИНТЕР→
-// ОСТАТОК→АВТО→СЕТ→ДЕЙСТВИЯ. Принтер — две строки (имя + IP из
+// ОСТАТОК→АВТО→ДЕЙСТВИЯ. Принтер — две строки (имя + IP из
 // GET /printers по printerId, без UUID и без однострочного склеивания).
-// АВТО/СЕТ — реальные backend-тумблеры (PATCH is_auto/is_set), не "-".
+// АВТО — реальный backend-тумблер (PATCH is_auto), не "-".
 // V25: ОСТАТОК заменён на РЕЦЕПТЫ (реальный ingredients_count backend);
 // тумблеры — фирменный OWNER-акцент.
 import { useEffect, useRef, useState } from "react";
@@ -245,7 +245,6 @@ export default function DishesTable({
             {isColumnVisible("printer") ? <th className="dish-col-printer">Принтер</th> : null}
             {isColumnVisible("recipe") ? <th className="dish-col-recipe">Рецепты</th> : null}
             {isColumnVisible("auto") ? <th className="dish-col-auto">Авто</th> : null}
-            {isColumnVisible("set") ? <th className="dish-col-set">Сет</th> : null}
             {isColumnVisible("actions") ? <th className="dish-col-actions">Действия</th> : null}
           </tr>
         </thead>
@@ -294,16 +293,6 @@ export default function DishesTable({
                     () => updateRow(row.id, "auto", !(row.auto === true)),
                     togglingId === `${row.id}:auto`,
                     `Авто для ${row.name}`,
-                  )}
-                </td>
-              ) : null}
-              {isColumnVisible("set") ? (
-                <td className="dish-col-set">
-                  {renderToggle(
-                    row.allowInSets,
-                    () => updateRow(row.id, "inset", !(row.allowInSets === true)),
-                    togglingId === `${row.id}:inset`,
-                    `В сеты для ${row.name}`,
                   )}
                 </td>
               ) : null}

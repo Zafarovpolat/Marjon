@@ -143,16 +143,21 @@ body.dashboard-body .dish-catalog-page.owner-report-view.raw-materials-page .raw
   cursor: not-allowed;
 }
 
-/* Суффикс единицы внутри поля значения потери: «0.1 Лт». */
-.raw-materials-page .dish-form-field__wrap {
+/* Суффикс единицы внутри поля значения потери: «0.1 Лт», процента: «10%».
+   Дровер рендерится порталом в document.body — вне .raw-materials-page,
+   поэтому скоп продублирован на .dish-drawer (классы поля уникальны сырью). */
+.raw-materials-page .dish-form-field__wrap,
+.dish-drawer .dish-form-field__wrap {
   position: relative;
 }
 
-.raw-materials-page .dish-form-field__wrap .dish-form-field__input {
+.raw-materials-page .dish-form-field__wrap .dish-form-field__input,
+.dish-drawer .dish-form-field__wrap .dish-form-field__input {
   padding-right: 46px;
 }
 
-.raw-materials-page .dish-form-field__suffix {
+.raw-materials-page .dish-form-field__suffix,
+.dish-drawer .dish-form-field__suffix {
   position: absolute;
   right: 12px;
   top: 50%;
@@ -160,6 +165,23 @@ body.dashboard-body .dish-catalog-page.owner-report-view.raw-materials-page .raw
   color: #64748b;
   font-size: 13px;
   font-weight: 600;
+  pointer-events: none;
+}
+
+/* Невидимое зеркало текста поля потери: повторяет метрики инпута
+   (шрифт 13px, отступ слева 1px бордер + 12px паддинг), чтобы замерить
+   ширину значения и поставить суффикс вплотную к нему. Пустое поле —
+   суффикс остаётся у правого края как подсказка. */
+.raw-materials-page .dish-form-field__mirror,
+.dish-drawer .dish-form-field__mirror {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding-left: 13px;
+  font: inherit;
+  font-size: 13px;
+  white-space: pre;
+  visibility: hidden;
   pointer-events: none;
 }
 

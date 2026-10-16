@@ -204,6 +204,26 @@ export function useStopList() {
     }
   }, [applyItems, unitOptions]);
 
+  // Тихий refetch: продажи и правки с других устройств (касса/десктоп,
+  // авто-стоп по квоте) иначе не видны до перезагрузки страницы.
+  // Черновики ввода переживают refetch (applyItems их сохраняет).
+  useEffect(() => {
+    const id = setInterval(() => { void refresh(); }, 30000);
+    const onFocus = () => { void refresh(); };
+    const onVisibility = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        void refresh();
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [refresh]);
+
   // V3: никакой membership — все активные продукты каталога.
   const stopRows = useMemo(
     () => rows.filter((row) => row.active !== false),

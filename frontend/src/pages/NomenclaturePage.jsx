@@ -310,6 +310,7 @@ function DishesCatalogPage() {
         categoryOptions={catalog.filterCategories}
         categoriesLoading={catalog.filterCategoriesLoading}
         categoriesUnavailable={catalog.filterCategoriesError}
+        onCreateCategory={catalog.createDishCategory}
         printerOptions={catalog.printerOptions}
         printersLoading={catalog.printerOptionsLoading}
         printersUnavailable={catalog.printerOptionsError}

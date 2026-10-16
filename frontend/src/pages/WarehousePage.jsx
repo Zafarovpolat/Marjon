@@ -1392,6 +1392,24 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
     suppliers.map((item) => ({ value: item.name, label: item.name }))
   ), [suppliers]);
 
+  // Создание поставщика прямо из селекта: POST /crm/counterparties
+  // {full_name, type:"supplier"}, затем — в живой список и автовыбор.
+  const handleCreateSupplier = async (name) => {
+    const trimmed = String(name || "").trim();
+    if (!trimmed) throw new Error("Введите название.");
+    const { data } = await settingsService.createResource("clients", {
+      full_name: trimmed,
+      type: "supplier",
+    });
+    const itemName = String(data?.full_name || data?.name || trimmed);
+    const item = { id: data?.id, name: itemName, phone: data?.phone || "" };
+    setSuppliers((current) => (
+      current.some((entry) => entry.name === itemName) ? current : [...current, item]
+    ));
+    setCreateSupplier(itemName);
+    return item;
+  };
+
   const createWarehouseOptions = useMemo(() => (
     (Array.isArray(refData.warehouses) ? refData.warehouses : []).map((wh) => ({
       value: String(wh.id),
@@ -3669,9 +3687,11 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
                   options={supplierOpts}
                   value={supplierOpts.some((item) => item.value === createSupplier) ? createSupplier : ""}
                   onChange={readOnly ? () => {} : (next) => setCreateSupplier(next || "")}
-                  disabled={readOnly || (!suppliersLoading && suppliers.length === 0)}
+                  disabled={readOnly}
                   loading={suppliersLoading}
                   disabledLabel="Поставщики недоступны"
+                  onCreateNew={readOnly ? null : handleCreateSupplier}
+                  createLabel="+ Новый поставщик"
                 />
               </div>
               <div className="wh-create-field wh-create-field--warehouse">

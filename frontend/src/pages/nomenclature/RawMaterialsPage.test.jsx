@@ -578,6 +578,36 @@ describe("RAW V2 Dishes visual family", () => {
     expect(suffix.textContent).toBe("Лт");
   });
 
+  it("9k. percent loss shows % suffix", async () => {
+    // Тип «Процент»: в конце значения знак процента («10%»).
+    mockRawApis({ ingredients: [ingredient({
+      id: "a1", name: "Помидор", unit: "Кг", loss_type: "percent", loss_value: 10,
+    })] });
+    const { container } = render(<NomenclaturePage type="raw" />);
+    await screen.findByText("Помидор");
+    fireEvent.click(within(container.querySelector(".raw-grid-table tbody tr")).getByRole("button", { name: "Редактировать" }));
+    expect(await screen.findByText("Редактировать продукты")).toBeInTheDocument();
+    expect(screen.getByLabelText("Процент потери")).toHaveValue("10");
+    const suffix = document.body.querySelector(".dish-form-field__suffix");
+    expect(suffix).not.toBeNull();
+    expect(suffix.textContent).toBe("%");
+  });
+
+  it("9l. amount loss label is Потери with unit suffix", async () => {
+    // Тип «Количество»: подпись «Потери», в конце значения ед. изм («0.1 Лт»).
+    mockRawApis({ ingredients: [ingredient({
+      id: "a1", name: "Огурец", unit: "Лт", loss_type: "amount", loss_value: "0.1000",
+    })] });
+    const { container } = render(<NomenclaturePage type="raw" />);
+    await screen.findByText("Огурец");
+    fireEvent.click(within(container.querySelector(".raw-grid-table tbody tr")).getByRole("button", { name: "Редактировать" }));
+    expect(await screen.findByText("Редактировать продукты")).toBeInTheDocument();
+    expect(screen.getByLabelText("Потери")).toHaveValue("0.1");
+    const suffix = document.body.querySelector(".dish-form-field__suffix");
+    expect(suffix).not.toBeNull();
+    expect(suffix.textContent).toBe("Лт");
+  });
+
   it("9e. drawer closes through exit animation", async () => {
     mockRawApis({ ingredients: [] });
     render(<NomenclaturePage type="raw" />);

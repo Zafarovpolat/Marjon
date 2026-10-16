@@ -106,6 +106,7 @@ export default function DishesDialogs({
   categoryOptions = [],
   categoriesLoading = false,
   categoriesUnavailable = false,
+  onCreateCategory = null,
   printerOptions = [],
   printersLoading = false,
   printersUnavailable = false,
@@ -186,6 +187,15 @@ export default function DishesDialogs({
   const pickCategory = (id) => {
     const found = selectableCategories.find((item) => String(item.id) === String(id));
     setForm((prev) => ({ ...prev, categoryId: id, category: found ? found.name : "" }));
+  };
+  // Создание категории из дровера: POST через каталог, затем автовыбор новой.
+  const handleCreateCategory = async (name) => {
+    if (!onCreateCategory) throw new Error("Создание категорий недоступно.");
+    const created = await onCreateCategory(name);
+    if (created?.id) {
+      setForm((prev) => ({ ...prev, categoryId: String(created.id), category: String(created.name || name) }));
+    }
+    return created;
   };
   const pickPrinter = (id) => {
     const found = printerOptions.find((item) => item.id === id);
@@ -268,6 +278,8 @@ export default function DishesDialogs({
         disabled={categoriesUnavailable}
         loading={categoriesLoading}
         disabledLabel="Категории недоступны"
+        onCreateNew={onCreateCategory ? handleCreateCategory : null}
+        createLabel="+ Новая категория"
       />
     </div>
   );

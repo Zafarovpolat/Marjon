@@ -73,6 +73,10 @@ export default function RawMaterialsPage() {
   const [productsError, setProductsError] = useState("");
   const [usageIngredient, setUsageIngredient] = useState(null);
   const usageTriggerRef = useRef(null);
+  // Зеркало текста поля потери: меряем ширину значения и ставим суффикс
+  // (% / ед. изм) вплотную к нему («0.1 Лт», а не у правого края поля).
+  const lossMirrorRef = useRef(null);
+  const [lossSuffixX, setLossSuffixX] = useState(null);
   const beginRequest = useLatestRequest();
   const beginCategoryRequest = useLatestRequest();
   const beginProductsRequest = useLatestRequest();
@@ -445,6 +449,19 @@ export default function RawMaterialsPage() {
     return list;
   }, [unitOptions, form.unit]);
 
+  // Подпись и суффикс поля потери: «Количество» → «Потери» + ед. изм
+  // («0.1 Лт»), «Процент» → суффикс «%» («10%»).
+  // Без выбранного типа суффикса нет — появляется только после выбора типа.
+  const lossLabel = form.loss_type === "amount" ? "Потери" : form.loss_type === "percent" ? "Процент потери" : "Значение потери";
+  const lossSuffix = form.loss_type === "percent" ? "%" : form.loss_type === "amount" ? form.unit : "";
+  const lossValueText = form.loss_value === null || form.loss_value === undefined ? "" : String(form.loss_value);
+
+  useLayoutEffect(() => {
+    if (!drawerOpen || !lossSuffix) return;
+    const mirror = lossMirrorRef.current;
+    if (mirror) setLossSuffixX(mirror.offsetWidth);
+  }, [drawerOpen, lossSuffix, form.loss_value]);
+
   return (
     <section className="nomenclature-page dish-catalog-page owner-report-view raw-materials-page">
       <section className="dish-catalog-card owner-report-surface settings-card">
@@ -667,18 +684,27 @@ export default function RawMaterialsPage() {
                   />
                 </div>
                 <div className="dish-form-field">
-                  <span className="dish-form-field__label" aria-hidden="true">{form.loss_type === "amount" ? "Потери на 1 ед. изм." : form.loss_type === "percent" ? "Процент потери" : "Значение потери"}</span>
+                  <span className="dish-form-field__label" aria-hidden="true">{lossLabel}</span>
                   <div className="dish-form-field__wrap">
                     <input
                       className="dish-form-field__input"
-                      aria-label={form.loss_type === "amount" ? "Потери на 1 ед. изм." : form.loss_type === "percent" ? "Процент потери" : "Значение потери"}
+                      aria-label={lossLabel}
                       value={form.loss_value}
                       onChange={(e) => setForm((f) => ({ ...f, loss_value: e.target.value }))}
                       placeholder={form.loss_type === "amount" ? "Например: 0.2 (на 1 кг)" : form.loss_type === "percent" ? "Например: 10" : "Значение потери"}
                       disabled={!form.loss_type || saving}
                       inputMode="decimal"
                     />
-                    {form.unit ? <span className="dish-form-field__suffix" aria-hidden="true">{form.unit}</span> : null}
+                    {lossSuffix ? <span ref={lossMirrorRef} className="dish-form-field__mirror" aria-hidden="true">{lossValueText}</span> : null}
+                    {lossSuffix ? (
+                      <span
+                        className="dish-form-field__suffix"
+                        aria-hidden="true"
+                        style={lossValueText !== "" && lossSuffixX ? { left: lossSuffixX + 6, right: "auto" } : undefined}
+                      >
+                        {lossSuffix}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               </div>

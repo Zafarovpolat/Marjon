@@ -194,8 +194,7 @@ describe("Dishes drawer switches", () => {
     expect(within(dishRow).queryByText("Сет")).toBeNull();
   });
 
-  it("sends only allow_in_sets from СЕТ column toggle, never is_set", () => {
-    const updateRow = vi.fn();
+  it("has no СЕТ column toggle in dishes table", () => {
     render(
       <DishesTable
         filteredRows={[
@@ -203,11 +202,11 @@ describe("Dishes drawer switches", () => {
         ]}
         isColumnVisible={() => true}
         tableMinWidth={600}
-        updateRow={updateRow}
+        updateRow={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByRole("button", { name: "В сеты для Лаваш" }));
-    expect(updateRow).toHaveBeenCalledWith("d1", "inset", true);
+    expect(screen.queryByRole("button", { name: "В сеты для Лаваш" })).toBeNull();
+    expect(document.body.querySelector(".dish-col-set")).toBeNull();
   });
 
   it("opens set composition from Сет button with count", () => {

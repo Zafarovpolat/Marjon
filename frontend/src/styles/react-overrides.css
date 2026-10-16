@@ -32823,23 +32823,42 @@ body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-br
   }
 
   .clients-directory-page .settings-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
     min-height: 20px;
-    padding: 0 8px;
-    border-radius: 6px;
-    font-size: 11px;
-    font-weight: 900;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
   }
 
   .clients-directory-page .settings-status-badge.is-pending {
-    border-color: #ffc267;
+    border-color: transparent;
     color: #f08a00;
-    background: #fff4df;
+    background: transparent;
   }
 
   .clients-directory-page .settings-status-badge.is-active {
-    border-color: #9fe5bf;
-    color: #138247;
-    background: #edfff5;
+    border-color: transparent;
+    color: #00a82e;
+    background: transparent;
+  }
+
+  .clients-directory-page .settings-status-badge.is-inactive {
+    border-color: transparent;
+    color: #ef4444;
+    background: transparent;
+  }
+
+  .clients-directory-page .settings-status-badge__dot {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 8px;
+    border-radius: 50%;
+    background: currentColor;
   }
 
   .clients-directory-page .settings-history-button {

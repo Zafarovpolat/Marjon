@@ -17,10 +17,16 @@ export default function DishSingleSelect({
   disabled = false,
   loading = false,
   disabledLabel = "",
+  onCreateNew = null,
+  createLabel = "+ Новая категория",
 }) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [createError, setCreateError] = useState("");
+  const [createSaving, setCreateSaving] = useState(false);
   const rootRef = useRef(null);
   const triggerRef = useRef(null);
   // Откреплённая панель: внутри .dish-recipes-dialog и .wh-inv-modal — их окна
@@ -61,7 +67,12 @@ export default function DishSingleSelect({
   const shownPlaceholder = loading ? "Загрузка…" : (disabled && disabledLabel ? disabledLabel : placeholder);
 
   useEffect(() => {
-    if (open) setActiveIndex(-1);
+    if (open) {
+      setActiveIndex(-1);
+      setIsCreating(false);
+      setNewName("");
+      setCreateError("");
+    }
   }, [open ]);
 
   useEffect(() => {
@@ -92,6 +103,27 @@ export default function DishSingleSelect({
     requestClose();
   }
 
+  async function submitCreate() {
+    const name = String(newName || "").trim();
+    if (!name) {
+      setCreateError("Введите название.");
+      return;
+    }
+    if (createSaving) return;
+    setCreateSaving(true);
+    setCreateError("");
+    try {
+      await onCreateNew(name);
+      setIsCreating(false);
+      setNewName("");
+      requestClose();
+    } catch (err) {
+      setCreateError(err?.response?.data?.detail || err?.message || "Не удалось создать.");
+    } finally {
+      setCreateSaving(false);
+    }
+  }
+
   function onKeyDown(event) {
     if (disabled || loading) return;
     if (event.key === "Escape") {
@@ -102,11 +134,13 @@ export default function DishSingleSelect({
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       if (!open) { setOpen(true); return; }
+      const total = options.length + (onCreateNew && !isCreating ? 1 : 0);
+      if (total === 0) return;
       const step = event.key === "ArrowDown" ? 1 : -1;
       setActiveIndex((i) => {
         const next = i + step;
-        if (next < 0) return options.length - 1;
-        if (next >= options.length) return 0;
+        if (next < 0) return total - 1;
+        if (next >= total) return 0;
         return next;
       });
       return;
@@ -115,6 +149,11 @@ export default function DishSingleSelect({
       event.preventDefault();
       if (!open) { setOpen(true); return; }
       if (activeIndex >= 0 && options[activeIndex]) pick(options[activeIndex].value);
+      else if (onCreateNew && !isCreating && activeIndex === options.length) {
+        setIsCreating(true);
+        setNewName("");
+        setCreateError("");
+      }
     }
   }
 
@@ -172,6 +211,89 @@ export default function DishSingleSelect({
                 </li>
               );
             })}
+            {onCreateNew && !isCreating ? (
+              <li key="__create">
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected="false"
+                  className={`orders-filter-select__option owner-msel__option orders-filter-select__create-row${activeIndex === options.length ? " is-active" : ""}`}
+                  onMouseEnter={() => setActiveIndex(options.length)}
+                  onClick={() => {
+                    setIsCreating(true);
+                    setNewName("");
+                    setCreateError("");
+                  }}
+                >
+                  <span
+                    className="orders-filter-select__create-plus"
+                    aria-hidden="true"
+                    style={{ color: "var(--color-interactive, #2563eb)", fontWeight: 800, fontSize: 16, lineHeight: 1 }}
+                  >
+                    +
+                  </span>
+                  <span
+                    className="orders-filter-select__option-label"
+                    style={{ color: "var(--color-interactive, #2563eb)", fontWeight: 700 }}
+                  >
+                    {String(createLabel || "Новая категория").replace(/^\+\s*/, "")}
+                  </span>
+                </button>
+              </li>
+            ) : null}
+            {onCreateNew && isCreating ? (
+              <li key="__create-form">
+                <div className="orders-filter-select__create-form" onMouseDown={(e) => e.stopPropagation()}>
+                  <input
+                    autoFocus
+                    className="orders-filter-select__create-input"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        submitCreate();
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsCreating(false);
+                        setNewName("");
+                        setCreateError("");
+                      } else {
+                        e.stopPropagation();
+                      }
+                    }}
+                    placeholder="Название категории"
+                    aria-label="Новая категория"
+                    disabled={createSaving}
+                  />
+                  <div className="orders-filter-select__create-actions">
+                    <button
+                      type="button"
+                      className="orders-filter-select__create-cancel"
+                      disabled={createSaving}
+                      onClick={() => {
+                        setIsCreating(false);
+                        setNewName("");
+                        setCreateError("");
+                      }}
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      type="button"
+                      className="orders-filter-select__create-submit"
+                      disabled={createSaving || !String(newName || "").trim()}
+                      onClick={submitCreate}
+                    >
+                      {createSaving ? "Создание…" : "Создать"}
+                    </button>
+                  </div>
+                  {createError ? <span className="login-error" role="alert">{createError}</span> : null}
+                </div>
+              </li>
+            ) : null}
           </ul>
         </div>
       ) : null}

@@ -3039,6 +3039,75 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Inline-создание справочника из селекта (Категория / Поставщик):
+   строка "+ Новая" — обычный ряд списка, форма — инпут + две кнопки
+   в стиле дровера (teal submit / белая отмена), без браузерного gray. */
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-form {
+  display: grid;
+  gap: 8px;
+  padding: 8px 10px;
+}
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-input {
+  min-height: 38px;
+  width: 100%;
+  padding: 0 10px;
+  border: 1px solid rgba(15, 35, 60, 0.14);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--neutral-950, #071428);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-input:focus {
+  border-color: var(--owner-accent, #1fc9c9);
+  box-shadow: 0 0 0 3px rgba(31, 201, 201, 0.18);
+}
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-input:disabled {
+  background: var(--owner-control-disabled, #eff2f9);
+  color: var(--neutral-500, #64748b);
+}
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-submit,
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-cancel {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-submit {
+  border: 0;
+  background: var(--owner-accent, #1fc9c9);
+  color: #fff;
+}
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-submit:hover:not(:disabled) {
+  background: var(--owner-accent-hover, #1bb1b1);
+}
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-cancel {
+  border: 1px solid rgba(15, 35, 60, 0.14);
+  background: #fff;
+  color: var(--neutral-700, #334155);
+}
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-cancel:hover:not(:disabled) {
+  border-color: rgba(31, 201, 201, 0.55);
+  color: var(--owner-accent-hover, #1bb1b1);
+}
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-submit:disabled,
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-cancel:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 @media (prefers-reduced-motion: reduce) {
   :is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__panel {
     animation-duration: 0.01ms;

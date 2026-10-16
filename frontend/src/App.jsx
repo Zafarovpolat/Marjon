@@ -17,7 +17,7 @@ import StaffActivityPage from "./pages/StaffActivityPage";
 import NomenclaturePage from "./pages/NomenclaturePage";
 import SalesCatalogPage from "./pages/nomenclature/SalesCatalogPage";
 import CategoriesPage from "./pages/CategoriesPage";
-import StopListPage from "./pages/StopListPage";
+import StopListPage from "./pages/nomenclature/StopListPage";
 import WaitersReportPage from "./pages/WaitersReportPage";
 import TablesReportPage from "./pages/TablesReportPage";
 import DishesReportPage from "./pages/DishesReportPage";
