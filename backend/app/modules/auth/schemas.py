@@ -43,6 +43,9 @@ class CompanyUserCreate(BaseSchema):
     # выбирает филиал при создании; None — сотрудник не привязан (виден только
     # веб-владельцу, но не терминалу конкретного филиала).
     branch_id: UUID | None = None
+    # Принтер, закреплённый за сотрудником (выбирается из уже добавленных
+    # принтеров компании). None — печать идёт на чековый принтер филиала.
+    printer_id: UUID | None = None
 
     @field_validator("password")
     @classmethod
@@ -167,6 +170,9 @@ class UserResponse(BaseResponseSchema):
     # Филиал, к которому привязан сотрудник (сеть → филиал). None у веб-владельца
     # (видит всю компанию) и у ещё не привязанных аккаунтов.
     branch_id: UUID | None = None
+    # Принтер, закреплённый за сотрудником. Десктоп печатает чек именно на
+    # него, а при None — на чековый принтер филиала (прежнее поведение).
+    printer_id: UUID | None = None
     role_slugs: list[str] = Field(default_factory=list)
     avatar_url: str | None = None
     auth_scope: str = "app"  # "app" | "hq_admin" — BE-01, set per-session, not persisted
@@ -194,6 +200,11 @@ class CompanyUserUpdate(BaseSchema):
     # Владелец выставляет пер-юзерные тумблеры; по умолчанию None → колонка
     # не трогается. Хранится как есть, в UserResponse не отдаётся.
     permissions: dict | None = None
+    # Принтер сотрудника. Здесь None недостаточно, чтобы понять «снять
+    # привязку» или «не трогать», поэтому роутер смотрит на
+    # model_fields_set: ключ есть в теле → пишем значение (null → отвязать),
+    # ключа нет → привязку не меняем.
+    printer_id: UUID | None = None
 
     @field_validator("password")
     @classmethod

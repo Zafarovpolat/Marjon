@@ -143,6 +143,7 @@ async def create_company_user(
         name=data.role_name,
         branch_id=data.branch_id,
         assignable_role_slugs=OWNER_ASSIGNABLE_ROLE_SLUGS,
+        printer_id=data.printer_id,
     )
     return CompanyUserResponse.model_validate(user).model_copy(update={"role_slug": role.slug})
 
@@ -257,6 +258,10 @@ async def update_company_user(
         is_active=data.is_active,
         branch_id=data.branch_id,
         permissions=data.permissions,
+        # model_fields_set различает «не прислали поле» и «прислали null»:
+        # во втором случае сотрудника надо отвязать от принтера.
+        printer_id=data.printer_id,
+        printer_id_provided="printer_id" in data.model_fields_set,
         assignable_role_slugs=OWNER_ASSIGNABLE_ROLE_SLUGS,
         actor_user_id=current_user.id,
     )

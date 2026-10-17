@@ -27,6 +27,9 @@ export default function StaffTable({
   // but drop the access column entirely (7 columns, no invisible placeholder).
   isManager = false,
   isWarehouse = false,
+  // Принтеры компании — чтобы под именем показать закреплённый принтер
+  // (в строке лежит только printer_id).
+  printers = [],
 }) {
   const isProduct = isCashier || isWaiter || isMonoblock || isManager || isWarehouse;
   const showAccess = !(isManager || isWarehouse);
@@ -108,8 +111,10 @@ export default function StaffTable({
                         />
                         Показать кассиров
                       </span>
-                      {employee.printerIp ? (
-                        <small className="staff-permission-sub">{employee.printerIp}</small>
+                      {employee.printerId ? (
+                        <small className="staff-permission-sub">
+                          {(printers.find((printer) => String(printer.id) === String(employee.printerId)) || {}).name || "Принтер"}
+                        </small>
                       ) : null}
                     </span>
                   ) : (

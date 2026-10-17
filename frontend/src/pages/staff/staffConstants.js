@@ -28,8 +28,10 @@ export const emptyForm = {
   // "" — филиал не выбран; отправляем branch_id только когда выбран.
   branchId: "",
   password: "",
-  // CASHIER-FE-01: visual-only field, never sent to backend (printer_ip handoff).
-  printerIp: "",
+  // Принтер, закреплённый за сотрудником. Выбирается из уже добавленных
+  // принтеров (раздел «Настройка принтеров»), поэтому храним id, а не IP:
+  // IP можно поменять в одном месте, привязка останется рабочей.
+  printerId: "",
   status: "active",
   photo: "",
 };
@@ -185,7 +187,7 @@ export function mapStaffUser(user) {
     // present, otherwise resolve to absent/OFF. Never fabricated.
     canDeleteDishes: user.can_delete_dishes === true,
     canSeeCashiers: user.can_see_cashiers === true,
-    printerIp: typeof user.printer_ip === "string" && user.printer_ip ? user.printer_ip : "",
+    printerId: user.printer_id || "",
     pin: "",
     // Привязка сотрудника к филиалу (сеть → филиал). "" у веб-владельца и у
     // непривязанных аккаунтов; конкретный id — сотрудник закреплён за филиалом.

@@ -3,6 +3,7 @@ import Icon from "../../components/Icon";
 import Toast from "../../components/Toast";
 import { createPortal } from "react-dom";
 import staffDefaultAvatar from "../../assets/staff/staff-default-avatar.png";
+import DishSingleSelect from "../nomenclature/DishSingleSelect";
 import {
   roleOptions,
   staffAccessModules,
@@ -24,13 +25,11 @@ import {
 // <select>, повторяя визуал полей формы и паттерн меню телефонного кода
 // (клик-вне и Escape закрывают). Филиалы приходят с бэкенда пропсом `branches`
 // ({ id, name }); пустое значение "" = «Не привязан».
-function BranchSelect({ value, branches, onChange }) {
+function StaffSelect({ value, options = [], onChange, placeholder = "" }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
-  const selected = branches.find((branch) => String(branch.id) === String(value));
-  const label = selected ? selected.name : "Не привязан";
-  // «Не привязан» — полноценный первый пункт списка, а не плейсхолдер.
-  const options = [{ id: "", name: "Не привязан" }, ...branches];
+  const selected = options.find((option) => String(option.id) === String(value));
+  const label = selected ? selected.name : placeholder;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -91,6 +90,19 @@ function BranchSelect({ value, branches, onChange }) {
   );
 }
 
+// Филиал. «Не привязан» — полноценный первый пункт списка, а не
+// плейсхолдер, поэтому он входит в options.
+function BranchSelect({ value, branches, onChange }) {
+  return (
+    <StaffSelect
+      value={value}
+      onChange={onChange}
+      placeholder="Не привязан"
+      options={[{ id: "", name: "Не привязан" }, ...branches]}
+    />
+  );
+}
+
 // Модальное окно создания/редактирования сотрудника OWNER.
 // Вынесено из StaffRolePage.jsx (FE-07B). Разметка, классы, текст и мёртвый
 // блок `{false && ...}` сохранены 1:1; форма и обработчики (включая блокировку
@@ -119,6 +131,9 @@ export default function StaffFormModal({
   // Сеть → филиал: список филиалов для селектора привязки моноблока. Пусто у
   // остальных ролей (селектор рендерится только в моноблок-drawer).
   branches = [],
+  // Принтеры компании (GET /printers) для селектора привязки принтера к
+  // сотруднику. Пустой список — селект покажет только «как у филиала».
+  printers = [],
   // MANAGER-STOREKEEPER-01: manager/warehouse reuse the product drawer shell
   // (7-col roles, exact Cashier matrix per CASHIER-PARITY-01, no HR, no printer IP).
   isManager = false,
@@ -395,13 +410,22 @@ export default function StaffFormModal({
             ) : null}
             {isCuratedView ? null : (
             <label>
-              <span>IP адрес принтера</span>
-              <input
-                autoComplete="off"
-                inputMode="decimal"
-                value={form.printerIp || ""}
-                onChange={(event) => updateForm("printerIp", event.target.value.replace(/[^0-9.]/g, ""))}
-                placeholder="192.168.1.10"
+              <span>Принтер</span>
+              {/* 1:1 с полем «Принтер» в форме блюда (Номенклатура → Блюда):
+                  тот же контрол DishSingleSelect, без пункта «Как у филиала» —
+                  в списке только реально добавленные принтеры. Повторный клик
+                  по выбранному пункту снимает выбор (как в форме блюда). */}
+              <DishSingleSelect
+                label="Принтер"
+                placeholder="Принтер"
+                value={form.printerId || ""}
+                onChange={(next) => updateForm("printerId", next)}
+                options={printers.map((printer) => ({
+                  value: printer.id,
+                  label: printer.is_active === false ? `${printer.name} (не активен)` : printer.name,
+                }))}
+                disabled={!printers.length}
+                disabledLabel="Принтеры недоступны"
               />
             </label>
             )}

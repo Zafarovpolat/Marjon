@@ -56,6 +56,15 @@ class User(TimeStampedModel):
     # его читает auth.dependencies._legacy_permission через getattr, он НЕ
     # отдаётся в UserResponse и по умолчанию NULL — RBAC-путь не меняется.
     permissions: Mapped[dict | None] = mapped_column(_JSON, nullable=True)
+    # Принтер, закреплённый за сотрудником (см. раздел «Настройка принтеров»).
+    # NULL — сотрудник печатает на чековый принтер своего филиала, то есть
+    # поведение по умолчанию не меняется. ON DELETE SET NULL: удаление
+    # принтера не блокируется и не ломает карточку сотрудника — привязка
+    # просто снимается.
+    printer_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("printers.id", ondelete="SET NULL"),
+        nullable=True, index=True,
+    )
 
     company: Mapped[Company | None] = relationship("Company", back_populates="users")
     refresh_tokens: Mapped[list[RefreshToken]] = relationship(back_populates="user", cascade="all, delete-orphan")

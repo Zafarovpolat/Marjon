@@ -304,6 +304,7 @@ class AuthService:
         phone: str | None = None,
         branch_id: UUID | None = None,
         assignable_role_slugs: frozenset[str] | None = None,
+        printer_id: UUID | None = None,
     ) -> tuple[User, Role]:
         if not company_id:
             raise ValidationError("Current user is not assigned to a company")
@@ -339,6 +340,14 @@ class AuthService:
             if not branch or branch.company_id != company_id:
                 raise ValidationError("Филиал не найден в этой компании")
 
+        # Принтер сотрудника: только из принтеров своей компании — иначе
+        # владелец мог бы привязать сотрудника к чужому принтеру по id.
+        if printer_id is not None:
+            from app.modules.printers.models import Printer
+            printer = await self.db.get(Printer, printer_id)
+            if not printer or printer.company_id != company_id:
+                raise ValidationError("Принтер не найден в этой компании")
+
         # BE-05: role_slug is validated against the canonical allowlist here
         # (raises ValidationError otherwise) and the role's default
         # permission set is attached the first time it's created for this
@@ -354,6 +363,8 @@ class AuthService:
             phone=phone,
             name=name,
             password_hash=await hash_password(password),
+            # Закреплённый принтер (None — печать на принтер филиала).
+            printer_id=printer_id,
         )
         self.db.add(user)
         await self.db.flush()
@@ -378,6 +389,8 @@ class AuthService:
         is_active: bool | None = None,
         branch_id: UUID | None = None,
         permissions: dict | None = None,
+        printer_id: UUID | None = None,
+        printer_id_provided: bool = False,
         assignable_role_slugs: frozenset[str] | None = None,
         actor_user_id: UUID | None = None,
     ) -> tuple[User, list[str]]:
@@ -442,6 +455,16 @@ class AuthService:
         # когда владелец явно прислал набор тумблеров. RBAC-путь не затрагивается.
         if permissions is not None:
             user.permissions = permissions
+        # Принтер сотрудника. printer_id_provided отличает «поле не прислали»
+        # (не трогаем) от «прислали null» (снять привязку, печать вернётся на
+        # принтер филиала). Иначе любой PATCH карточки сбрасывал бы привязку.
+        if printer_id_provided:
+            if printer_id is not None:
+                from app.modules.printers.models import Printer
+                printer = await self.db.get(Printer, printer_id)
+                if not printer or printer.company_id != company_id:
+                    raise ValidationError("Принтер не найден в этой компании")
+            user.printer_id = printer_id
 
         if role_slug is not None:
             from sqlalchemy import delete as sql_delete

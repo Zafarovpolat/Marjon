@@ -164,12 +164,15 @@ class PrinterService:
         lines: list[str],
         footer: str | None = None,
         copies: int = 1,
+        local_print: bool = False,
     ) -> PrintJob:
         """Summary receipt (History/Reports): the client builds the lines."""
         printer = await self.get(company_id, printer_id)
         fmt = EscPosFormatter(printer.paper_width, encoding=self._printer_encoding(printer))
         raw = fmt.format_summary(title, lines, footer)
-        return await self._enqueue_and_send(company_id, printer, "summary", None, raw, copies)
+        return await self._enqueue_and_send(
+            company_id, printer, "summary", None, raw, copies, skip_server_print=local_print
+        )
 
     def _render_customer_receipt(
         self, printer: Printer, receipt_data: ReceiptData, customer_tpl: dict, logo_bytes: bytes | None,
@@ -214,7 +217,8 @@ class PrinterService:
             return fmt.format_kitchen_ticket(ticket_data, template=kitchen_tpl)
 
     async def print_receipt(
-        self, company_id: UUID, order_id: UUID, printer_id: UUID, copies: int = 1
+        self, company_id: UUID, order_id: UUID, printer_id: UUID, copies: int = 1,
+        local_print: bool = False,
     ) -> PrintJob:
         printer = await self.get(company_id, printer_id)
         order = await self._get_order(company_id, order_id)
@@ -223,7 +227,9 @@ class PrinterService:
         logo_bytes = await self._get_logo_bytes(company_id)
 
         raw = self._render_customer_receipt(printer, receipt_data, customer_tpl, logo_bytes)
-        job = await self._enqueue_and_send(company_id, printer, "receipt", order_id, raw, copies)
+        job = await self._enqueue_and_send(
+            company_id, printer, "receipt", order_id, raw, copies, skip_server_print=local_print
+        )
         # Отметка «чек напечатан» → стол «ожидает оплату» (сбросится при дозаказе)
         try:
             if order.status not in ("completed", "cancelled"):
@@ -234,7 +240,8 @@ class PrinterService:
         return job
 
     async def print_kitchen_ticket(
-        self, company_id: UUID, order_id: UUID, printer_id: UUID, copies: int = 1
+        self, company_id: UUID, order_id: UUID, printer_id: UUID, copies: int = 1,
+        local_print: bool = False,
     ) -> PrintJob:
         printer = await self.get(company_id, printer_id)
         order = await self._get_order(company_id, order_id)
@@ -242,7 +249,9 @@ class PrinterService:
         _, kitchen_tpl = await self._get_receipt_templates(company_id)
 
         raw = self._render_kitchen_ticket(printer, ticket_data, kitchen_tpl)
-        return await self._enqueue_and_send(company_id, printer, "kitchen", order_id, raw, copies)
+        return await self._enqueue_and_send(
+            company_id, printer, "kitchen", order_id, raw, copies, skip_server_print=local_print
+        )
 
     async def get_order_for_print(self, company_id: UUID, order_id: UUID) -> Order:
         """Public wrapper around _get_order — lets the compat print-by-order
@@ -331,6 +340,7 @@ class PrinterService:
         ref_id: UUID | None,
         raw: bytes,
         copies: int = 1,
+        skip_server_print: bool = False,
     ) -> PrintJob:
         payload = base64.b64encode(raw).decode()
         job = PrintJob(
@@ -349,8 +359,16 @@ class PrinterService:
         # PRINT-LAT-01: раньше здесь всегда был таймаут 5 с на копию. Если бэкенд
         # стоит в облаке, а принтер — в зале, КАЖДАЯ печать ждала 5 секунд,
         # прежде чем уйти на терминал по WS: отсюда «нажимаю печать и жду».
+        #
+        # PRINT-LAT-02: клиент, который печатает сам (десктоп), присылает
+        # local_print=True — тогда попытку с сервера не делаем вообще. Иначе
+        # первый чек после «кулдауна» всё равно ждал SERVER_PRINT_TIMEOUT, а
+        # кулдаун живёт в памяти воркера, и при --workers 3 каждый воркер
+        # прогревался заново (то быстро, то две секунды — «ведёт себя по-разному»).
         printed = False
-        if printer.connection_type == "network" and printer.ip_address:
+        if skip_server_print:
+            job.error = "Печать на терминале клиента"
+        elif printer.connection_type == "network" and printer.ip_address:
             if _is_printer_cooling_down(printer.id):
                 job.error = "Принтер недоступен с сервера — задание отправлено на терминал"
             else:
@@ -367,8 +385,9 @@ class PrinterService:
                     job.status = "pending"
                     job.error = str(e)
                     _start_printer_cooldown(printer.id)
-            # Сохраняем в обеих ветках: без записи в БД объект остаётся с
-            # незагруженным updated_at и сериализация ответа падает с MissingGreenlet.
+        # Сохраняем в обеих ветках: без записи в БД объект остаётся с
+        # незагруженным updated_at и сериализация ответа падает с MissingGreenlet.
+        if not printed:
             job = await self.job_repo.save(job)
 
         # Шаг 2. Не напечатали сами — отдаём задание терминалам филиала по WebSocket.

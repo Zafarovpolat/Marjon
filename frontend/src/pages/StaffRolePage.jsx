@@ -93,6 +93,23 @@ function StaffRolePage({ role = "all" }) {
     return undefined;
   }, [beginBranchesRequest, needsBranch]);
 
+  // Принтеры компании для селектора «Принтер» в карточке сотрудника.
+  // Привязка решает, на какой принтер печатает десктоп, когда за кассой
+  // этот сотрудник; пустое значение = чековый принтер филиала.
+  const [printers, setPrinters] = useState([]);
+  useEffect(() => {
+    if (!needsBranch) return undefined;
+    let alive = true;
+    settingsService.listResource("printers")
+      .then(({ data }) => {
+        if (!alive) return;
+        const items = Array.isArray(data) ? data : data?.items || [];
+        setPrinters(items.filter((printer) => printer.is_active !== false));
+      })
+      .catch(() => { if (alive) setPrinters([]); });
+    return () => { alive = false; };
+  }, [needsBranch]);
+
   const defaultFilters = useMemo(() => ({
     query: "",
     roleKey: routeRole === "all" ? "" : routeRole,
@@ -376,6 +393,8 @@ function StaffRolePage({ role = "all" }) {
             phone: phone || null,
             role_slug: productRoleSlug,
             role_name: productName,
+            // Привязка принтера: null — печать на чековый принтер филиала.
+            printer_id: form.printerId || null,
             ...(needsBranch ? { branch_id: form.branchId || null } : {}),
           };
           const { data: createdUser } = await staffService.createCompanyUser(createPayload);
@@ -397,6 +416,9 @@ function StaffRolePage({ role = "all" }) {
             phone: phone || null,
             role_slug: productRoleSlug,
             is_active: form.status !== "archived",
+            // Явный null — «снять привязку». Бэкенд отличает это от «поле не
+            // прислали» через model_fields_set.
+            printer_id: form.printerId || null,
             // Моноблок привязан к аккаунту владельца — филиал не трогаем.
             ...(needsBranch ? { branch_id: form.branchId || null } : {}),
           };
@@ -580,6 +602,7 @@ function StaffRolePage({ role = "all" }) {
           isMonoblock={isMonoblockView}
           isManager={isManagerView}
           isWarehouse={isWarehouseView}
+          printers={printers}
         />
       </section>
 
@@ -603,6 +626,7 @@ function StaffRolePage({ role = "all" }) {
           isWaiter={isWaiterView}
           isMonoblock={isMonoblockView}
           branches={branches}
+          printers={printers}
           isManager={isManagerView}
           isWarehouse={isWarehouseView}
           closing={modalClosing}
