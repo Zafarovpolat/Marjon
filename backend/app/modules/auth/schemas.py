@@ -46,6 +46,10 @@ class CompanyUserCreate(BaseSchema):
     # Принтер, закреплённый за сотрудником (выбирается из уже добавленных
     # принтеров компании). None — печать идёт на чековый принтер филиала.
     printer_id: UUID | None = None
+    # Гранулярные права сотрудника (тумблеры карточки + матрица доступов).
+    # Хранятся как есть в User.permissions (JSON): бэкенд не навязывает схему,
+    # потому что состав тумблеров задаёт фронтенд (staffConstants.js).
+    permissions: dict | None = None
 
     @field_validator("password")
     @classmethod
@@ -175,6 +179,10 @@ class UserResponse(BaseResponseSchema):
     printer_id: UUID | None = None
     role_slugs: list[str] = Field(default_factory=list)
     avatar_url: str | None = None
+    # Тумблеры/матрица прав из карточки сотрудника. Отдаём обратно, иначе
+    # UI не может показать сохранённое состояние и выглядит как «переключатели
+    # не работают».
+    permissions: dict | None = None
     auth_scope: str = "app"  # "app" | "hq_admin" — BE-01, set per-session, not persisted
 
 

@@ -144,6 +144,7 @@ async def create_company_user(
         branch_id=data.branch_id,
         assignable_role_slugs=OWNER_ASSIGNABLE_ROLE_SLUGS,
         printer_id=data.printer_id,
+        permissions=data.permissions,
     )
     return CompanyUserResponse.model_validate(user).model_copy(update={"role_slug": role.slug})
 
@@ -308,6 +309,45 @@ async def upload_avatar(
     )
     role_slugs = list(result.scalars().all())
     return UserResponse.model_validate(current_user).model_copy(update={"role_slugs": role_slugs})
+
+
+@router.post("/users/{user_id}/photo", response_model=CompanyUserResponse)
+async def upload_staff_photo(
+    user_id: UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_company_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Фото сотрудника, которое загружает владелец из карточки.
+
+    До этого существовал только POST /auth/me/photo (своё фото): у владельца
+    не было никакого способа поставить фото кассиру/официанту, поэтому
+    «Загрузить фото» в карточке ничего не сохраняло. Ключ — по id сотрудника
+    (перезапись того же объекта при повторной загрузке), public=True как у
+    логотипа компании: картинку рисует <img> без токена.
+    """
+    if file.content_type not in _ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Поддерживаются только jpg, png, webp")
+    target = await db.get(User, user_id)
+    if target is None or target.company_id != current_user.company_id or target.is_superadmin:
+        raise HTTPException(status_code=404, detail="User not found")
+    ext = _IMG_EXT_MAP[file.content_type]
+    key = f"avatars/{target.id}.{ext}"
+    target.avatar_url = await storage.upload(
+        await file.read(), key, file.content_type, public=True
+    )
+    db.add(target)
+    await db.commit()
+    await db.refresh(target)
+    roles_res = await db.execute(
+        select(Role.slug)
+        .join(UserRole, UserRole.role_id == Role.id)
+        .where(UserRole.user_id == target.id)
+    )
+    slugs = list(roles_res.scalars().all())
+    return CompanyUserResponse.model_validate(target).model_copy(
+        update={"role_slugs": slugs, "role_slug": slugs[0] if slugs else None}
+    )
 
 
 @router.patch("/users/{user_id}/pin", status_code=status.HTTP_204_NO_CONTENT)

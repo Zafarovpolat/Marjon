@@ -21,88 +21,6 @@ import {
   phoneCountryMap,
 } from "./staffPhone";
 
-// Кастомный дропдаун выбора филиала для моноблок-drawer. Заменяет нативный
-// <select>, повторяя визуал полей формы и паттерн меню телефонного кода
-// (клик-вне и Escape закрывают). Филиалы приходят с бэкенда пропсом `branches`
-// ({ id, name }); пустое значение "" = «Не привязан».
-function StaffSelect({ value, options = [], onChange, placeholder = "" }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef(null);
-  const selected = options.find((option) => String(option.id) === String(value));
-  const label = selected ? selected.name : placeholder;
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const onPointerDown = (event) => {
-      if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false);
-    };
-    const onKeyDown = (event) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
-
-  const choose = (nextId) => {
-    onChange(nextId);
-    setOpen(false);
-  };
-
-  return (
-    <div className={`staff-select${open ? " is-open" : ""}`} ref={rootRef}>
-      <button
-        type="button"
-        className="staff-select__button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((prev) => !prev)}
-      >
-        <span className={`staff-select__value${selected ? "" : " is-placeholder"}`}>
-          {label}
-        </span>
-        <Icon name="bi-chevron-down" size={14} className="staff-select__caret" />
-      </button>
-      {open ? (
-        <ul className="staff-select__menu" role="listbox">
-          {options.map((option) => {
-            const active = String(option.id) === String(value);
-            return (
-              <li key={option.id || "__none"}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={active}
-                  className={`staff-select__option${active ? " is-active" : ""}`}
-                  onClick={() => choose(option.id)}
-                >
-                  {option.name}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
-    </div>
-  );
-}
-
-// Филиал. «Не привязан» — полноценный первый пункт списка, а не
-// плейсхолдер, поэтому он входит в options.
-function BranchSelect({ value, branches, onChange }) {
-  return (
-    <StaffSelect
-      value={value}
-      onChange={onChange}
-      placeholder="Не привязан"
-      options={[{ id: "", name: "Не привязан" }, ...branches]}
-    />
-  );
-}
-
 // Модальное окно создания/редактирования сотрудника OWNER.
 // Вынесено из StaffRolePage.jsx (FE-07B). Разметка, классы, текст и мёртвый
 // блок `{false && ...}` сохранены 1:1; форма и обработчики (включая блокировку
@@ -128,9 +46,6 @@ export default function StaffFormModal({
   isWaiter = false,
   // MONOBLOCK-01: monoblock reuses the same product drawer shell.
   isMonoblock = false,
-  // Сеть → филиал: список филиалов для селектора привязки моноблока. Пусто у
-  // остальных ролей (селектор рендерится только в моноблок-drawer).
-  branches = [],
   // Принтеры компании (GET /printers) для селектора привязки принтера к
   // сотруднику. Пустой список — селект покажет только «как у филиала».
   printers = [],
@@ -250,10 +165,9 @@ export default function StaffFormModal({
               <Icon name="bi-x-lg" size={20} />
             </button>
           </div>
-          {/* MANAGER-STOREKEEPER-01: staff photo upload is backend-unsupported
-              (only self-photo exists). Manager/warehouse drawers show the
-              truthful placeholder/avatar with no upload control, so no fake
-              persistence is implied. Payload never carries photo. */}
+          {/* Фото сотрудника: файл грузится в POST /auth/users/{id}/photo
+              после сохранения карточки, в ответ приходит avatar_url — он же
+              показывается в списке и в карточке (form.photo). */}
           <div className="cashier-photo">
             <div className="staff-avatar staff-avatar--large">
               {form.photo ? (
@@ -264,13 +178,14 @@ export default function StaffFormModal({
             </div>
             <div className="cashier-photo__body">
               <span>Фото</span>
-              {isCuratedView ? null : (
+              {/* Загрузка доступна всем ролям: бэкенд теперь принимает фото
+                  сотрудника (POST /auth/users/{id}/photo), раньше кнопка была
+                  скрыта у менеджера/завсклада как «не поддерживается». */}
               <label className="cashier-photo__upload">
                 <Icon name="bi-camera" size={16} />
                 Загрузить фото
                 <input type="file" accept="image/*" onChange={handlePhotoChange} aria-label="Загрузить фото" />
               </label>
-              )}
             </div>
           </div>
 
@@ -392,20 +307,11 @@ export default function StaffFormModal({
                     <small className="muted">Оставьте пустым, чтобы не менять PIN.</small>
                   ) : null}
                 </label>
-                <label>
-                  {/* Marjon Staff резолвит филиал сотрудника только из
-                      User.branch_id — без выбора здесь вход в приложение
-                      падает с "Ваш аккаунт не привязан к филиалу". */}
-                  <span>Филиал *</span>
-                  <BranchSelect
-                    value={form.branchId}
-                    branches={branches}
-                    onChange={(id) => updateForm("branchId", id)}
-                  />
-                  {saveErrorField === "branch" && saveError ? (
-                    <small className="staff-field-error" role="alert">{saveError}</small>
-                  ) : null}
-                </label>
+                {/* Поле «Филиал» убрано по просьбе владельца: сотрудника
+                    больше не привязывают к филиалу вручную из карточки.
+                    Привязка (User.branch_id) по-прежнему уходит в API —
+                    единственный филиал сети подставляется автоматически,
+                    у существующих сотрудников значение сохраняется. */}
               </>
             ) : null}
             {isCuratedView ? null : (

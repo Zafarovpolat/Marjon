@@ -26,6 +26,16 @@ export const staffService = Object.freeze({
   updateUserPin(id, pin) {
     return api.patch(`/auth/users/${id}/pin`, { pin });
   },
+  // Фото сотрудника из карточки: владелец грузит за сотрудника (раньше
+  // существовал только POST /auth/me/photo — «своё» фото, поэтому кнопка
+  // «Загрузить фото» в карточке ничего не сохраняла).
+  uploadUserPhoto(id, file) {
+    const body = new FormData();
+    body.append("file", file);
+    return api.post(`/auth/users/${id}/photo`, body, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
   listEmployees(config) {
     return config ? api.get("/hr/employees", config) : api.get("/hr/employees");
   },

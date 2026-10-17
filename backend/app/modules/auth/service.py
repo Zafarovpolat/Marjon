@@ -305,6 +305,7 @@ class AuthService:
         branch_id: UUID | None = None,
         assignable_role_slugs: frozenset[str] | None = None,
         printer_id: UUID | None = None,
+        permissions: dict | None = None,
     ) -> tuple[User, Role]:
         if not company_id:
             raise ValidationError("Current user is not assigned to a company")
@@ -365,6 +366,8 @@ class AuthService:
             password_hash=await hash_password(password),
             # Закреплённый принтер (None — печать на принтер филиала).
             printer_id=printer_id,
+            # Тумблеры карточки сотрудника — как есть, схему задаёт фронтенд.
+            permissions=permissions,
         )
         self.db.add(user)
         await self.db.flush()
