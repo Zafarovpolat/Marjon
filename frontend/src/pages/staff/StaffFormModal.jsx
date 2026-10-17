@@ -453,6 +453,18 @@ export default function StaffFormModal({
               <b className="staff-switch" aria-hidden="true" />
             </button>
             )}
+            {isWaiterView ? (
+            <button
+              className={`staff-permission-switch ${form.canManageOrders ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canManageOrders")}
+              aria-pressed={Boolean(form.canManageOrders)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Управление заказами</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            ) : null}
             {isMonoblockView ? (
             <>
             <button

@@ -43,6 +43,10 @@ class CompanyUserCreate(BaseSchema):
     # выбирает филиал при создании; None — сотрудник не привязан (виден только
     # веб-владельцу, но не терминалу конкретного филиала).
     branch_id: UUID | None = None
+    # Гранулярные тумблеры владельца (см. User.permissions). Отдаём тем же
+    # легаси-слоем, что правит PATCH: десктопные гейты can()/must() читают их
+    # из /auth/me, веб-админка — из GET /auth/users для префилла формы.
+    permissions: dict | None = None
 
     @field_validator("password")
     @classmethod
@@ -163,6 +167,10 @@ class UserResponse(BaseResponseSchema):
     role_slugs: list[str] = Field(default_factory=list)
     avatar_url: str | None = None
     auth_scope: str = "app"  # "app" | "hq_admin" — BE-01, set per-session, not persisted
+    # Легаси-JSON гранулярных прав владельца (см. User.permissions). Отдаём как
+    # есть: десктопные гейты can()/must() и PIN-подтверждения читают тумблеры
+    # отсюда; None — тумблеры не выставлялись, поведение гейтов прежнее.
+    permissions: dict | None = None
 
 
 class CompanyUserUpdate(BaseSchema):

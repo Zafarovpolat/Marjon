@@ -398,6 +398,8 @@ describe("cashier page visual contract (/users/cashier)", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Cashier123" },
     });
+    // PIN обязателен при создании (ba0c267): без него POST не уходит.
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
 
@@ -416,6 +418,41 @@ describe("cashier page visual contract (/users/cashier)", () => {
       timeout: 2000,
     });
     expect(localStorage.getItem("marjon_staff")).toBeNull();
+  });
+
+  it("persists toggled cashier switches as permissions dict in create payload", { timeout: 20000 }, async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    api.post.mockResolvedValue({
+      data: {
+        id: "new-cashier-uuid",
+        name: "Cashier Two",
+        email: null,
+        phone: "998901112233",
+        role_slug: "cashier",
+        role_slugs: ["cashier"],
+        is_active: true,
+      },
+    });
+    render(<StaffRolePage role="cashier" />);
+    await screen.findByText("Cashier One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(screen.getByPlaceholderText("Имя кассира"), { target: { value: "Cashier Two" } });
+    fireEvent.change(dialog.querySelector(".staff-phone-field input"), { target: { value: "+998901112233" } });
+    fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Cashier123" } });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Может закрыть счёт" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    await screen.findByText("Cashier Two");
+    // can_close_bill читает десктопный PaymentModal через can(user, ...).
+    expect(api.post).toHaveBeenCalledWith("/auth/users", {
+      password: "Cashier123",
+      phone: "998901112233",
+      role_slug: "cashier",
+      role_name: "Cashier Two",
+      permissions: { can_close_bill: true },
+    });
+    expect(alertSpy).not.toHaveBeenCalled();
   });
 
   it("edit persists truthfully without email, printer ip or photo payload", async () => {
@@ -810,6 +847,7 @@ describe("cashier drawer ux: footer, animation, phone, permissions", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Cashier123" },
     });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
 
     // Empty name binds to the name field (near the fold) + drawer block.
@@ -844,6 +882,7 @@ describe("cashier drawer ux: footer, animation, phone, permissions", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Cashier123" },
     });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
 
     // Shared duplicate-phone UX: Russian text at phone field + drawer block.
@@ -884,6 +923,7 @@ describe("cashier drawer ux: footer, animation, phone, permissions", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Cashier123" },
     });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
 
     const alert = await within(dialog).findByRole("alert");

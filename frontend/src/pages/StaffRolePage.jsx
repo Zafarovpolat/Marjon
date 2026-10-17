@@ -3,10 +3,14 @@ import { staffService } from "../api/staff";
 import { settingsService } from "../api/settings";
 import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 import {
+  buildStaffPermissions,
+  cashierSwitchFields,
   emptyForm,
   mapStaffUser,
+  monoblockSwitchFields,
   roleMap,
   roleOptions,
+  waiterSwitchFields,
 } from "./staff/staffConstants";
 import { getPhoneLocal, inferPhoneCountry, normalizePhone } from "./staff/staffPhone";
 import StaffToolbar from "./staff/StaffToolbar";
@@ -350,9 +354,19 @@ function StaffRolePage({ role = "all" }) {
       try {
         // printerIp and photo are visual-only in this phase: never sent.
         // No email key is sent at all — backend persists email NULL.
-        // All fine-grained switches (incl. delete-dishes) stay form-state
-        // only (BACKEND_HANDOFF_REQUIRED): canonical :8000 has
-        // extra=forbid and would 422 unknown fields.
+        // Тумблеры владельца уходят словарём permissions (legacy-JSON):
+        // десктопные гейты can()/must() читают их из /auth/me.
+        // Курируемые manager/warehouse primary-тумблеров не имеют
+        // (только Статус) — ключ опускаем. Матрица остаётся frontend-only.
+        const rolePermissionFields = isWaiterView
+          ? waiterSwitchFields
+          : isMonoblockView
+            ? monoblockSwitchFields
+            : isManagerView || isWarehouseView
+              ? []
+              : cashierSwitchFields;
+        const staffPermissions = buildStaffPermissions(form, rolePermissionFields);
+        const permissionsPatch = staffPermissions ? { permissions: staffPermissions } : {};
         let confirmedUser;
         if (!editingId) {
           // Моноблок привязан к аккаунту владельца (company), branch_id не шлём.
@@ -362,6 +376,7 @@ function StaffRolePage({ role = "all" }) {
             phone: phone || null,
             role_slug: productRoleSlug,
             role_name: productName,
+            ...permissionsPatch,
           };
           const { data: createdUser } = await staffService.createCompanyUser(createPayload);
           confirmedUser = createdUser;
@@ -382,6 +397,7 @@ function StaffRolePage({ role = "all" }) {
             phone: phone || null,
             role_slug: productRoleSlug,
             is_active: form.status !== "archived",
+            ...permissionsPatch,
           };
           // Моноблок привязан к аккаунту владельца — филиал не трогаем.
           const { data: updatedUser } = await staffService.updateCompanyUser(editingId, updatePayload);

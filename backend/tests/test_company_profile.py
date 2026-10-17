@@ -95,4 +95,4 @@ async def test_order_types_roundtrip_and_validation(client):
         "/companies/me", headers=headers,
         json={"order_types": {"dine_in": True, "qr": True}},
     )
-assert bad.status_code == 422
+    assert bad.status_code == 422

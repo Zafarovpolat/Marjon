@@ -42,6 +42,7 @@ export const getPermissionSummary = (values) => {
     values.canTakeawayAtTable && "Заказ на вынос",
     values.canChangeOrderType && "Изменение типа заказа",
     values.canCloseBill && "Закрытие счета",
+    values.canManageOrders && "Управление заказами",
     values.canOpenCashDrawerAfterPayment && "Открытие денежного ящика",
     values.canViewClosedOrders && "Просмотр закрытых заказов",
   ].filter(Boolean);
@@ -49,10 +50,66 @@ export const getPermissionSummary = (values) => {
   return permissions.join(", ") || values.permission || "Базовый доступ";
 };
 
+// Тумблеры формы → ключи легаси-JSON User.permissions на бэкенде.
+// Те же ключи читают десктопные гейты can()/must() (can_close_bill —
+// закрытие счёта, can_manage_orders — PIN-подтверждение отмены/переноса
+// у официанта) и require_permission_or_admin на API.
+export const staffPermissionKeys = {
+  canDeleteDishes: "can_delete_dishes",
+  canChangeMarkingCode: "can_change_marking_code",
+  canTakeawayAtTable: "can_takeaway_at_table",
+  canChangeOrderType: "can_change_order_type",
+  canCloseBill: "can_close_bill",
+  canOpenCashDrawerAfterPayment: "can_open_cash_drawer_after_payment",
+  canViewClosedOrders: "can_view_closed_orders",
+  canManageOrders: "can_manage_orders",
+  canMainMonoblock: "can_main_monoblock",
+  canSeeCashiers: "can_see_cashiers",
+  canCookPrinter: "can_cook_printer",
+  canPrintCancel: "can_print_cancel",
+};
+
+// Собирает словарь тумблеров для POST/PATCH /auth/users из состояния формы.
+// Стартуем с сырого словаря записи (form.permissions — правда бэкенда,
+// подложенная mapStaffUser), поверх кладём явные boolean полей роли.
+// Нетронутые (undefined) не шлём; если трогать было нечего и базы нет —
+// undefined (ключ опускаем, колонку не трогаем).
+export function buildStaffPermissions(form, fields) {
+  const base =
+    form.permissions && typeof form.permissions === "object" ? { ...form.permissions } : {};
+  let touched = false;
+  for (const field of fields) {
+    const key = staffPermissionKeys[field];
+    if (!key) continue;
+    if (typeof form[field] === "boolean") {
+      base[key] = form[field];
+      touched = true;
+    }
+  }
+  if (!touched && Object.keys(base).length === 0) return undefined;
+  return base;
+}
+
+// Читает тумблер из ответа бэкенда: новый путь — словарь permissions,
+// старый — плоские can_* поля (фолбэк на «правду будущего» из API).
+// Возвращаем true либо undefined (НЕ false): словарь false означает
+// явный запрет, и отдавать его как «не трогали» нельзя, а превращать
+// отсутствие права в false нельзя тем более — при сохранении это
+// записало бы явные false и отозвало бы allow-all режим can() у
+// легаси-сотрудников без словаря прав.
+export function readStaffPermission(user, field) {
+  const key = staffPermissionKeys[field];
+  const dict = user?.permissions;
+  if (dict && typeof dict === "object" && dict[key] === true) return true;
+  if (user?.[key] === true) return true;
+  if (user?.[field] === true) return true;
+  return undefined;
+}
+
 // WAITER-01: product drawer switch contracts. Cashier frozen at 7 total
-// (Статус + 6). Waiter exactly 5 total (Статус + 4, incl. marking code).
-// Fine-grained switches are form-state only (BACKEND_HANDOFF_REQUIRED);
-// only Статус (is_active) persists via backend.
+// (Статус + 6). Waiter exactly 6 total (Статус + 5, incl. marking code and
+// order management). Тумблеры персистятся в User.permissions на бэкенде;
+// только Статус (is_active) шёл раньше — теперь уходит весь словарь.
 export const cashierSwitchFields = [
   "canDeleteDishes",
   "canTakeawayAtTable",
@@ -67,10 +124,11 @@ export const waiterSwitchFields = [
   "canChangeMarkingCode",
   "canTakeawayAtTable",
   "canChangeOrderType",
+  "canManageOrders",
 ];
 
-// MONOBLOCK-01: 5 primary controls (Статус + 4). All except Статус are
-// form-state only (BACKEND_HANDOFF_REQUIRED); only is_active persists.
+// MONOBLOCK-01: 5 primary controls (Статус + 4). Тумблеры персистятся в
+// User.permissions на бэкенде вместе с остальными ролями.
 export const monoblockSwitchFields = [
   "canMainMonoblock",
   "canSeeCashiers",
@@ -86,6 +144,8 @@ export const monoblockSwitchFields = [
 // (BACKEND_HANDOFF_REQUIRED): interactive drawer state, never sent to
 // backend, never stored in localStorage/sessionStorage. HR deliberately
 // excluded (REFERENCE_ELEMENT_REJECTED) — staffAccessModules has no HR key.
+// Primary product-drawer switches (Статус отдельно) персистятся через
+// buildStaffPermissions; матрица — нет.
 
 export const staffAccessModules = [
   { key: "home", label: "Главная" },
@@ -180,11 +240,20 @@ export function mapStaffUser(user) {
     phone: user.phone || "",
     roleKey,
     status: user.is_active !== false ? "active" : "archived",
-    // Access-cell adapter (cashier/waiter delete-dishes, monoblock
-    // cashier-list): truthful future backend fields pass through when
-    // present, otherwise resolve to absent/OFF. Never fabricated.
-    canDeleteDishes: user.can_delete_dishes === true,
-    canSeeCashiers: user.can_see_cashiers === true,
+    // Тумблеры владельца: читаем из словаря permissions ответа бэкенда
+    // (GET /auth/users после проброса). Нет словаря — все OFF, честно.
+    canDeleteDishes: readStaffPermission(user, "canDeleteDishes"),
+    canChangeMarkingCode: readStaffPermission(user, "canChangeMarkingCode"),
+    canTakeawayAtTable: readStaffPermission(user, "canTakeawayAtTable"),
+    canChangeOrderType: readStaffPermission(user, "canChangeOrderType"),
+    canCloseBill: readStaffPermission(user, "canCloseBill"),
+    canOpenCashDrawerAfterPayment: readStaffPermission(user, "canOpenCashDrawerAfterPayment"),
+    canViewClosedOrders: readStaffPermission(user, "canViewClosedOrders"),
+    canManageOrders: readStaffPermission(user, "canManageOrders"),
+    canMainMonoblock: readStaffPermission(user, "canMainMonoblock"),
+    canSeeCashiers: readStaffPermission(user, "canSeeCashiers"),
+    canCookPrinter: readStaffPermission(user, "canCookPrinter"),
+    canPrintCancel: readStaffPermission(user, "canPrintCancel"),
     printerIp: typeof user.printer_ip === "string" && user.printer_ip ? user.printer_ip : "",
     pin: "",
     // Привязка сотрудника к филиалу (сеть → филиал). "" у веб-владельца и у
@@ -192,5 +261,10 @@ export function mapStaffUser(user) {
     branchId: user.branch_id || "",
     password: "",
     photo: user.avatar_url || "",
+    // Сырой словарь прав бэкенда для merge при сохранении: тумблеры формы
+    // кладутся поверх него (см. buildStaffPermissions), чтобы правка имени
+    // не затирала чужие ключи. В UI не рендерится, в прочие payload не идёт.
+    permissions:
+      user.permissions && typeof user.permissions === "object" ? { ...user.permissions } : undefined,
   };
 }

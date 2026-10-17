@@ -173,6 +173,8 @@ describe("warehouse page visual contract (/users/warehouse) — WAREHOUSE-01", (
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Storekeeper1" },
     });
+    // PIN обязателен при создании (ba0c267): required-инпут блокирует submit.
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     let alerts = await within(dialog).findAllByRole("alert");
     expect(alerts).toHaveLength(2);
@@ -221,6 +223,8 @@ describe("warehouse page visual contract (/users/warehouse) — WAREHOUSE-01", (
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Storekeeper1" },
     });
+    // PIN обязателен при создании (ba0c267): без него POST не уходит.
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Склады (Остаток товаров)" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await screen.findByText("Storekeeper Two");
@@ -449,6 +453,7 @@ describe("warehouse secondary action toggles (parity with cashier/waiter matrix)
     fireEvent.change(screen.getByPlaceholderText("Имя завсклада"), { target: { value: "Storekeeper Two" } });
     fireEvent.change(dialog.querySelector(".staff-phone-field input"), { target: { value: "+998901112233" } });
     fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Storekeeper1" } });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     const row = within(dialog).getByRole("button", { name: "Склады (Остаток товаров)" }).closest(".staff-access-row");
     fireEvent.click(within(dialog).getByRole("button", { name: "Склады (Остаток товаров)" }));
     fireEvent.click(within(row).getByRole("button", { name: "Создать" }));

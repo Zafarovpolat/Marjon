@@ -160,6 +160,7 @@ async def create_company_user(
         name=data.role_name,
         branch_id=data.branch_id,
         assignable_role_slugs=OWNER_ASSIGNABLE_ROLE_SLUGS,
+        permissions=data.permissions,
     )
     return CompanyUserResponse.model_validate(user).model_copy(update={"role_slug": role.slug})
 

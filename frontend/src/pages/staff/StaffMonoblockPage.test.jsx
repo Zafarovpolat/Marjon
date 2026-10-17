@@ -180,7 +180,8 @@ describe("monoblock page visual contract (/users/monoblock) — MONOBLOCK-01", (
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Monoblock1" },
     });
-    // Unsupported toggles + printer IP must not reach the backend.
+    // Printer IP must not reach the backend; the toggled permission DOES —
+    // тумблеры теперь персистятся словарём permissions (легаси-JSON User).
     fireEvent.click(within(dialog).getByRole("button", { name: "Главный моноблок" }));
     fireEvent.change(screen.getByPlaceholderText("192.168.1.10"), {
       target: { value: "192.168.1.10" },
@@ -192,6 +193,7 @@ describe("monoblock page visual contract (/users/monoblock) — MONOBLOCK-01", (
       phone: "998901112233",
       role_slug: "monoblock",
       role_name: "Monoblock Two",
+      permissions: { can_main_monoblock: true },
     });
     const sent = api.post.mock.calls[0][1];
     expect(sent).not.toHaveProperty("email");

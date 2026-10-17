@@ -265,6 +265,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Manager123" },
     });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     const alerts = await within(dialog).findAllByRole("alert");
     expect(alerts).toHaveLength(2);
@@ -309,6 +310,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "short1" },
     });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     const alerts = await within(dialog).findAllByRole("alert");
     expect(alerts).toHaveLength(2);
@@ -355,6 +357,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Manager123" },
     });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     const alerts = await within(dialog).findAllByRole("alert");
     expect(alerts).toHaveLength(2);
@@ -398,6 +401,8 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Manager123" },
     });
+    // PIN обязателен при создании (ba0c267): без него POST не уходит.
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     // Interact with the frontend-only matrix: must never reach the backend.
     fireEvent.click(within(dialog).getByRole("button", { name: "Главная" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
@@ -615,6 +620,7 @@ describe("manager secondary action toggles (parity with cashier/waiter matrix) �
     fireEvent.change(screen.getByPlaceholderText("Имя менеджера"), { target: { value: "Manager Two" } });
     fireEvent.change(dialog.querySelector(".staff-phone-field input"), { target: { value: "+998901112233" } });
     fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Manager123" } });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     const row = within(dialog).getByRole("button", { name: "Отчет по заказам" }).closest(".staff-access-row");
     fireEvent.click(within(dialog).getByRole("button", { name: "Отчет по заказам" }));
     fireEvent.click(within(row).getByRole("button", { name: "Создать" }));

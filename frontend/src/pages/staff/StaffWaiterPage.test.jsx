@@ -41,6 +41,9 @@ const EXPECTED_WAITER_SWITCHES = [
   "Изменить код маркировки",
   "Заказ на вынос за столом",
   "Изменить тип заказа",
+  // Новый primary-тумблер: гейт must('can_manage_orders') в десктопе
+  // (отмена/перенос блюда, смена стола) без него всегда блокировался.
+  "Управление заказами",
 ];
 
 const CASHIER_ONLY_SWITCHES = [
@@ -163,7 +166,7 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     expect(dialog.querySelector("select")).toBeNull();
   });
 
-  it("shows exactly the 5 primary waiter switches plus the detailed matrix", { timeout: 20000 }, async () => {
+  it("shows exactly the 6 primary waiter switches plus the detailed matrix", { timeout: 20000 }, async () => {
     render(<StaffRolePage role="waiter" />);
     await screen.findByText("Waiter One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
@@ -171,7 +174,7 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     const primary = dialog.querySelectorAll(
       ".cashier-permission-switches .staff-permission-switch",
     );
-    expect(primary).toHaveLength(5);
+    expect(primary).toHaveLength(6);
     for (const label of EXPECTED_WAITER_SWITCHES) {
       if (label === "Статус") {
         expect(within(dialog).getByText("Статус")).toBeInTheDocument();
@@ -235,6 +238,9 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Waiter123" },
     });
+    // PIN обязателен при создании (ba0c267 «PIN всем»): без него saveStaff
+    // валидирует форму и POST не уходит.
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await screen.findByText("Waiter Two");
     expect(api.post).toHaveBeenCalledWith("/auth/users", {
@@ -249,6 +255,60 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     expect(alertSpy).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: 2000 });
     expect(localStorage.getItem("marjon_staff")).toBeNull();
+  });
+
+  it("persists toggled waiter switches as permissions dict in create payload", { timeout: 20000 }, async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    api.post.mockResolvedValue({
+      data: {
+        id: "new-waiter-uuid",
+        name: "Waiter Two",
+        email: null,
+        phone: "998901112233",
+        role_slug: "waiter",
+        role_slugs: ["waiter"],
+        is_active: true,
+      },
+    });
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(screen.getByPlaceholderText("Имя официанта"), { target: { value: "Waiter Two" } });
+    fireEvent.change(dialog.querySelector(".staff-phone-field input"), { target: { value: "+998901112233" } });
+    fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Waiter123" } });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
+    // Тумблеры владельца обязаны уйти словарём permissions: без них
+    // десктопный must('can_manage_orders') никогда не пропускал отмену.
+    fireEvent.click(within(dialog).getByRole("button", { name: "Удаление блюд" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Управление заказами" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    await screen.findByText("Waiter Two");
+    expect(api.post).toHaveBeenCalledWith("/auth/users", {
+      password: "Waiter123",
+      phone: "998901112233",
+      role_slug: "waiter",
+      role_name: "Waiter Two",
+      permissions: { can_delete_dishes: true, can_manage_orders: true },
+    });
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  it("edit sends permissions dict with toggled state and preserves untouched keys", { timeout: 20000 }, async () => {
+    api.patch.mockResolvedValue({ data: { ...waiterUser, name: "Waiter One" } });
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByTitle("Edit"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Управление заказами" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Сохранить" }));
+    await waitForExpectPatch();
+    const [, payload] = api.patch.mock.calls[0];
+    expect(payload.permissions).toBeTruthy();
+    expect(payload.permissions.can_manage_orders).toBe(true);
+    // Нетронутые тумблеры не высылаются как false: словарь false в
+    // десктопе = явный запрет (can()), а мы ничего не отзывали.
+    expect(payload.permissions).not.toHaveProperty("can_delete_dishes", false);
   });
 
   it("edit persists truthfully without email/printer/photo payload", async () => {
@@ -309,6 +369,7 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Waiter123" } });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     // Empty name binds to the name field (near the fold) + drawer block.
     const alerts = await within(dialog).findAllByRole("alert");
@@ -338,6 +399,7 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
       target: { value: "+998901112233" },
     });
     fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Waiter123" } });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     // FIX-02: duplicate-phone binds to the phone field (near the fold) AND
     // keeps the drawer-level block — both carry the Russian text.
@@ -386,6 +448,7 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
       target: { value: "+998901112233" },
     });
     fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Waiter123" } });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     const alert = await within(dialog).findByRole("alert");
     expect(alert).toHaveTextContent("Field required");
@@ -434,7 +497,7 @@ describe("staff role isolation (cashier vs waiter)", () => {
     expect(screen.queryByText("Cashier One")).not.toBeInTheDocument();
   });
 
-  it("locks primary switch sets: cashier 7, waiter 5 (matrix extra)", async () => {
+  it("locks primary switch sets: cashier 7, waiter 6 (matrix extra)", async () => {
     const { unmount } = render(<StaffRolePage role="cashier" />);
     await screen.findByText("Cashier One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
@@ -450,7 +513,7 @@ describe("staff role isolation (cashier vs waiter)", () => {
     dialog = await screen.findByRole("dialog");
     expect(
       dialog.querySelectorAll(".cashier-permission-switches .staff-permission-switch"),
-    ).toHaveLength(5);
+    ).toHaveLength(6);
   });
 });
 
@@ -481,6 +544,9 @@ describe("waiter field validation matrix (name/phone/password/printer IP)", () =
     if (printerIp !== null) {
       fireEvent.change(screen.getByPlaceholderText("192.168.1.10"), { target: { value: printerIp } });
     }
+    // PIN обязателен при создании (ba0c267): required-инпут блокирует submit
+    // до заполнения 4 цифр.
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     return dialog;
   }
 
@@ -598,6 +664,7 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Waiter123" },
     });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
 
     const alerts = await within(dialog).findAllByRole("alert");
@@ -648,6 +715,7 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Waiter123" },
     });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     // Switch status to archived before submit.
     fireEvent.click(within(dialog).getByText("Статус").closest("button"));
     expect(within(dialog).getByText("Архив")).toBeInTheDocument();
@@ -685,6 +753,7 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Waiter123" },
     });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await screen.findByText("Reload Waiter");
     unmount();
@@ -703,6 +772,7 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(screen.getByPlaceholderText("Имя официанта"), { target: { value: "No Phone" } });
     fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Waiter123" } });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     const alerts = await within(dialog).findAllByRole("alert");
     expect(alerts).toHaveLength(2);

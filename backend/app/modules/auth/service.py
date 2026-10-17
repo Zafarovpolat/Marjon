@@ -320,6 +320,7 @@ class AuthService:
         phone: str | None = None,
         branch_id: UUID | None = None,
         assignable_role_slugs: frozenset[str] | None = None,
+        permissions: dict | None = None,
     ) -> tuple[User, Role]:
         if not company_id:
             raise ValidationError("Current user is not assigned to a company")
@@ -361,6 +362,9 @@ class AuthService:
             phone=phone,
             name=name,
             password_hash=hash_password(password),
+            # Тумблеры владельца тем же легаси-слоем, что правит PATCH:
+            # None — не выставлялись, десктопные гейты ведут себя как раньше.
+            permissions=permissions,
         )
         self.db.add(user)
         await self.db.flush()
