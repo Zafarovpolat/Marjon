@@ -153,6 +153,10 @@ class PrintJobResponse(BaseResponseSchema):
     status: str
     error: str | None
     copies: int
+    # PRINT-LAT-01: тело задания (ESC/POS в base64). Нужно терминалу, который
+    # забирает очередь через GET /printers/{id}/jobs/pending — без него опрос
+    # возвращал метаданные без данных для печати.
+    payload: str | None = None
 
 
 class PrinterTestRequest(BaseSchema):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 import base64
-from datetime import datetime, timezone
+import time
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
 
@@ -22,6 +23,34 @@ from app.modules.pos.models import Order, OrderItem
 from app.modules.payments.models import Payment
 from app.shared.exceptions import NotFoundError
 from app.shared.storage import storage
+
+
+# ── PRINT-LAT-01: попытка прямой печати с сервера ────────────────────────────
+# Запрос печати синхронно ждёт TCP-соединения с принтером. 5 с (старое значение)
+# означали 5-секундное ожидание на каждый чек, если бэкенд не в одной сети с
+# принтером. 2 с достаточно любому живому LAN-принтеру, а недоступный адрес
+# запоминается на минуту, чтобы следующие задания уходили на терминал сразу.
+SERVER_PRINT_TIMEOUT = 2.0
+PRINTER_COOLDOWN_SECONDS = 60.0
+_printer_cooldown: dict[UUID, float] = {}
+
+
+def _start_printer_cooldown(printer_id: UUID) -> None:
+    _printer_cooldown[printer_id] = time.monotonic() + PRINTER_COOLDOWN_SECONDS
+
+
+def _clear_printer_cooldown(printer_id: UUID) -> None:
+    _printer_cooldown.pop(printer_id, None)
+
+
+def _is_printer_cooling_down(printer_id: UUID) -> bool:
+    until = _printer_cooldown.get(printer_id)
+    if until is None:
+        return False
+    if time.monotonic() >= until:
+        _printer_cooldown.pop(printer_id, None)
+        return False
+    return True
 
 
 class PrinterService:
@@ -192,14 +221,46 @@ class PrinterService:
 
     # ── Job queue (for POS terminals that print locally) ─────────────────────
 
-    async def get_pending_jobs(self, company_id: UUID, printer_id: UUID) -> list[PrintJob]:
-        return await self.job_repo.get_pending(company_id, printer_id)
+    async def get_pending_jobs(
+        self, company_id: UUID, printer_id: UUID, max_age_minutes: int = 10
+    ) -> list[PrintJob]:
+        """Задания, которые терминал должен напечатать сам.
+
+        PRINT-LAT-01: отдаём только свежие (по умолчанию 10 минут). Без фильтра
+        терминал при старте смены выплёвывал бы все когда-либо недопечатанные
+        чеки, включая вчерашние.
+        """
+        jobs = await self.job_repo.get_pending(company_id, printer_id)
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=max_age_minutes)
+        fresh: list[PrintJob] = []
+        for job in jobs:
+            created = job.created_at
+            if created is not None and created.tzinfo is None:
+                # SQLite отдаёт naive-время (оно в UTC) — приводим к aware.
+                created = created.replace(tzinfo=timezone.utc)
+            if created is None or created >= cutoff:
+                fresh.append(job)
+        return fresh
 
     async def mark_job_done(self, company_id: UUID, job_id: UUID) -> PrintJob:
         job = await self.job_repo.get_by_id(job_id, company_id)
         if not job:
             raise NotFoundError("Print job not found")
         job.status = "done"
+        job.error = None
+        return await self.job_repo.save(job)
+
+    async def mark_job_failed(self, company_id: UUID, job_id: UUID, error: str | None = None) -> PrintJob:
+        """PRINT-LAT-01: терминал не смог напечатать — закрываем задание.
+
+        Раньше у терминала был только «done»: при ошибке печати задание
+        навсегда оставалось pending и всплывало при каждом опросе очереди.
+        """
+        job = await self.job_repo.get_by_id(job_id, company_id)
+        if not job:
+            raise NotFoundError("Print job not found")
+        job.status = "failed"
+        job.error = (error or "print failed")[:500]
         return await self.job_repo.save(job)
 
     # ── Internal ─────────────────────────────────────────────────────────────
@@ -226,20 +287,31 @@ class PrinterService:
         job = await self.job_repo.save(job)
 
         # Шаг 1. Пробуем напечатать сразу с сервера (принтер в одной сети с бэкендом).
+        #
+        # PRINT-LAT-01: раньше здесь всегда был таймаут 5 с на копию. Если бэкенд
+        # стоит в облаке, а принтер — в зале, КАЖДАЯ печать ждала 5 секунд,
+        # прежде чем уйти на терминал по WS: отсюда «нажимаю печать и жду».
         printed = False
         if printer.connection_type == "network" and printer.ip_address:
-            try:
-                for _ in range(copies):
-                    await print_raw(printer, raw)
-                job.status = "done"
-                printed = True
-            except PrinterError as e:
-                # НЕ помечаем failed: принтер может быть недоступен с сервера
-                # (бэкенд в облаке), но доступен из сети заведения. Оставляем
-                # pending, чтобы задание подхватил терминал (по WS) или print_agent.
-                job.status = "pending"
-                job.error = str(e)
-            await self.job_repo.save(job)
+            if _is_printer_cooling_down(printer.id):
+                job.error = "Принтер недоступен с сервера — задание отправлено на терминал"
+            else:
+                try:
+                    for _ in range(copies):
+                        await print_raw(printer, raw, timeout=SERVER_PRINT_TIMEOUT)
+                    job.status = "done"
+                    printed = True
+                    _clear_printer_cooldown(printer.id)
+                except PrinterError as e:
+                    # НЕ помечаем failed: принтер может быть недоступен с сервера
+                    # (бэкенд в облаке), но доступен из сети заведения. Оставляем
+                    # pending, чтобы задание подхватил терминал (по WS) или print_agent.
+                    job.status = "pending"
+                    job.error = str(e)
+                    _start_printer_cooldown(printer.id)
+            # Сохраняем в обеих ветках: без записи в БД объект остаётся с
+            # незагруженным updated_at и сериализация ответа падает с MissingGreenlet.
+            job = await self.job_repo.save(job)
 
         # Шаг 2. Не напечатали сами — отдаём задание терминалам филиала по WebSocket.
         # Терминал печатает локально и закрывает задание через POST /printers/jobs/{id}/done.
@@ -255,6 +327,12 @@ class PrinterService:
                         "payload": payload,
                         "copies": copies,
                         "job_type": job_type,
+                        # PRINT-LAT-01: ip/port прямо в сообщении — терминал
+                        # печатает, даже если его список принтеров ещё не
+                        # загрузился (раньше обработчик молча выходил по
+                        # `if (!printer) return`, и задание висело pending).
+                        "ip_address": printer.ip_address,
+                        "port": printer.port,
                     },
                 )
             except Exception:  # noqa: BLE001 — доставка по WS не должна ронять оплату/заказ

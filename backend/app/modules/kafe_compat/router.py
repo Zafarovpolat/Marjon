@@ -90,7 +90,11 @@ def _company_transactions_query(company_id, date_from, date_to, direction=None):
 async def kafe_list_transactions(
     date_from: date | None = Query(None), date_to: date | None = Query(None),
     direction: str | None = Query(None),
-    user: User = Depends(require_web_owner),
+    # DESK-FIN-01: панель «Финансы» на десктоп-кассе показывает операции за
+    # смену. С require_web_owner любой кассир/моноблок получал 403, и панель
+    # молча рисовала пустой список. Чтение — company-scope (его держит
+    # get_company_finance_scope), правка/удаление остаются у владельца.
+    user: User = Depends(require_company_app_user),
     scope: FinanceScope = Depends(get_company_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
@@ -102,7 +106,8 @@ async def kafe_list_transactions(
 @router.get("/finance/transactions/summary", response_model=TransactionIncomeSummary, tags=["finance-kafe"])
 async def kafe_transaction_income_summary(
     date_from: date | None = Query(None), date_to: date | None = Query(None),
-    user: User = Depends(require_web_owner),
+    # DESK-FIN-01: сводка прихода нужна той же панели «Финансы» на терминале.
+    user: User = Depends(require_company_app_user),
     scope: FinanceScope = Depends(get_company_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
@@ -117,7 +122,10 @@ async def kafe_transaction_income_summary(
 async def kafe_create_transaction(
     data: dict,
     idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
-    user: User = Depends(require_web_owner),
+    # DESK-FIN-01: приход/расход наличных вносит кассир с терминала (в т.ч. при
+    # закрытии заказа в долг). UI гейтится тумблерами прав, серверная проверка —
+    # company-scope; иначе кнопка есть, а запрос всегда 403.
+    user: User = Depends(require_company_app_user),
     scope: FinanceScope = Depends(get_company_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):

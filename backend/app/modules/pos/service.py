@@ -29,9 +29,14 @@ from app.shared.tenant_scope import require_company_resource
 
 # ── Order status state machine ───────────────────────────────────────────────
 VALID_TRANSITIONS: dict[str, set[str]] = {
-    "new":       {"accepted", "cooking", "cancelled"},
-    "accepted":  {"cooking", "cancelled"},
-    "cooking":   {"ready", "cancelled"},
+    # POS-CLOSE-01: закрытие счёта (`completed`) — это оплата, а не шаг кухни.
+    # Кассир закрывает заказ сразу после оплаты, и заказ при этом может быть ещё
+    # `new`/`accepted`/`cooking` (гость поел и ушёл, кухня не жала «готово»,
+    # навынос оплачен на кассе). Раньше `completed` разрешался только из `ready`,
+    # и десктоп получал 422 — закрытие заказа не работало вообще.
+    "new":       {"accepted", "cooking", "completed", "cancelled"},
+    "accepted":  {"cooking", "completed", "cancelled"},
+    "cooking":   {"ready", "completed", "cancelled"},
     "ready":     {"completed", "cancelled"},
     "completed": set(),           # final state — no transitions
     "cancelled": set(),           # final state — no transitions
@@ -337,6 +342,13 @@ class OrderService:
             for item in order.items:
                 if item.status == "pending":
                     item.status = "cooking"
+        if target == "completed":
+            # POS-CLOSE-01: счёт закрыт → все незавершённые позиции считаются
+            # отданными. Без этого они остаются pending/cooking навсегда и
+            # отчёты по блюдам/отменам показывают «вечно готовится».
+            for item in order.items:
+                if item.status in ("pending", "cooking", "ready"):
+                    item.status = "served"
         await self.repo.save(order)
         updated_order = await self.get(company_id, order_id)
         try:
