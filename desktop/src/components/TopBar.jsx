@@ -21,11 +21,6 @@ export default function TopBar({
   return (
     <header className="topbar">
       <div className="topbar__brand">
-        {onBack && (
-          <button className="icon-btn topbar__back" onClick={onBack} title={t('back')}>
-            <ArrowLeft size={22} />
-          </button>
-        )}
         {/* Знак декоративен: доступное имя даёт текст рядом */}
         <span className="topbar__logo-mark">
           <img className="topbar__logo" src={logoUrl} alt="" aria-hidden="true" />
@@ -34,6 +29,12 @@ export default function TopBar({
           <span className="topbar__brand-name">MARJON</span>
           <span className="topbar__brand-tagline">Restaurant OS</span>
         </span>
+        {/* «Назад» — справа от лого (просьба владельца) */}
+        {onBack && (
+          <button className="icon-btn topbar__back" onClick={onBack} title={t('back')}>
+            <ArrowLeft size={22} />
+          </button>
+        )}
         {subtitle && <span className="topbar__subtitle">{subtitle}</span>}
       </div>
 
