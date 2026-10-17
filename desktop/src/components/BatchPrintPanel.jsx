@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Printer, Users, FileText, Package, ClipboardList } from 'lucide-react'
 import { auth, menu, warehouse, printers as printersApi } from '../shared/api'
+import { pickReceiptPrinter } from '../shared/printers'
 import { t } from '../shared/i18n'
 import { toast } from './Toast'
 
@@ -22,16 +23,16 @@ const fmtMoney = (x) => Number(x || 0).toLocaleString('ru-RU')
  * Переехала из удалённой панели разработчика в меню «…» (доступна всем —
  * как и раньше; защита записей — на бэкенде).
  */
-export default function BatchPrintPanel({ branch, onClose }) {
+export default function BatchPrintPanel({ branch, printerId, onClose }) {
   const [receiptPrinter, setReceiptPrinter] = useState(null)
   const [busy, setBusy] = useState(null)      // ключ печатающейся сейчас категории
 
   // Чековый принтер филиала — тот же путь, что в Истории/Отчётах
   useEffect(() => {
     printersApi.list()
-      .then((list) => setReceiptPrinter((Array.isArray(list) ? list : []).find((p) => p.printer_type === 'receipt' && p.branch_id === branch?.id) || null))
+      .then((list) => setReceiptPrinter(pickReceiptPrinter(list, { printerId, branchId: branch?.id })))
       .catch(() => setReceiptPrinter(null))
-  }, [branch?.id])
+  }, [branch?.id, printerId])
 
   // Категории пакетной печати: каждая сама тянет данные и собирает строки чека.
   const CATS = [

@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { X, History, Printer } from 'lucide-react'
 import { orders, printers as printersApi } from '../shared/api'
+import { pickReceiptPrinter } from '../shared/printers'
 import { t } from '../shared/i18n'
 import { toast } from './Toast'
 
 function fmtDt(iso) { return iso ? new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '' }
 
-export default function HistoryPanel({ branch, onClose }) {
+export default function HistoryPanel({ branch, printerId, onClose }) {
   const TYPES = [
     { id: 'all', label: t('all') },
     { id: 'dine_in', label: t('dine_in') },
@@ -21,9 +22,9 @@ export default function HistoryPanel({ branch, onClose }) {
   const [receiptPrinter, setReceiptPrinter] = useState(null)
   useEffect(() => {
     printersApi.list()
-      .then((list) => setReceiptPrinter((Array.isArray(list) ? list : []).find((p) => p.printer_type === 'receipt' && p.branch_id === branch?.id) || null))
+      .then((list) => setReceiptPrinter(pickReceiptPrinter(list, { printerId, branchId: branch?.id })))
       .catch(() => setReceiptPrinter(null))
-  }, [branch?.id])
+  }, [branch?.id, printerId])
 
   const load = useCallback(() => {
     setLoading(true)

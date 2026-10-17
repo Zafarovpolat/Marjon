@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi, printers as printersApi, auth } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
+import { pickReceiptPrinter } from '../../shared/printers'
 import DishModal from '../../components/DishModal'
 import InputPromptModal from '../../components/InputPromptModal'
 import { toast } from '../../components/Toast'
@@ -97,10 +98,14 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
   useEffect(() => {
     return onPrintJob(async (msg) => {
       if (msg.event !== 'print_job') return
+      // См. CashierMode: ip/port из сообщения — печать не зависит от того,
+      // успел ли загрузиться локальный список принтеров.
       const printer = printerMap[msg.printer_id]
-      if (!printer) return
+      const ip = printer?.ip_address || msg.ip_address
+      const port = printer?.port ?? msg.port ?? 9100
+      if (!ip) { console.error('[print] нет IP принтера для задания', msg); return }
       try {
-        await window.electron?.print({ ip: printer.ip_address, port: printer.port ?? 9100, payloadBase64: msg.payload, copies: msg.copies ?? 1 })
+        await window.electron?.print({ ip, port, payloadBase64: msg.payload, copies: msg.copies ?? 1 })
         await printersApi.jobDone(msg.job_id)
       } catch (err) { console.error('[print]', err); toast(t('print_failed'), 'error') }
     })
@@ -196,7 +201,10 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
   // Печать чека клиента (официант печатает сам)
   async function printReceipt(order) {
     if (!order?.id) return
-    const pr = Object.values(printerMap).find((p) => p.printer_type === 'receipt' && p.branch_id === user.branch_id)
+    const pr = pickReceiptPrinter(Object.values(printerMap), {
+      printerId: user.printer_id,
+      branchId: user.branch_id,
+    })
     if (!pr) { toast(t('no_receipt_printer'), 'error'); return }
     try { await printersApi.printReceipt({ order_id: order.id, printer_id: pr.id, copies: 1 }); toast(t('receipt_sent')) }
     catch (e) { toast(t('print_failed') + (e?.response?.data?.detail ? `: ${e.response.data.detail}` : ''), 'error') }

@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 function baseURL() {
-  return localStorage.getItem('marjon_server_url') || (import.meta.env.VITE_DEFAULT_SERVER_URL || 'http://localhost:8000/api/v1')
+  return localStorage.getItem('marjon_server_url') || 'http://localhost:8000/api/v1'
 }
 
 export const api = axios.create()
@@ -247,10 +247,13 @@ export const printers = {
   ping: (ip, port = 9100) =>
     api.get('/printers/ping', { params: { ip, port } }).then((r) => r.data),
   jobDone: (jobId) => api.post(`/printers/jobs/${jobId}/done`).then((r) => r.data),
-  printReceipt: (data) => api.post('/printers/print/receipt', data).then((r) => r.data),
-  printKitchen: (data) => api.post('/printers/print/kitchen', data).then((r) => r.data),
+  // local_print: десктоп печатает сам (принтер в его сети), поэтому сервер не
+  // должен тратить 2 с на попытку дозвониться до 192.168.x.x — задание сразу
+  // уходит на терминал по WS (PRINT-LAT-02).
+  printReceipt: (data) => api.post('/printers/print/receipt', { local_print: true, ...data }).then((r) => r.data),
+  printKitchen: (data) => api.post('/printers/print/kitchen', { local_print: true, ...data }).then((r) => r.data),
   // Общий чек-сводка (История/Отчёты)
-  printSummary: (data) => api.post('/printers/print/summary', data).then((r) => r.data),
+  printSummary: (data) => api.post('/printers/print/summary', { local_print: true, ...data }).then((r) => r.data),
 }
 
 export const orders = {

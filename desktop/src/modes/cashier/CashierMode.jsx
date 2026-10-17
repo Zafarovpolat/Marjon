@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi, printers as printersApi, customers as customersApi, auth as authApi, finance as financeApi, companies as companiesApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
+import { pickReceiptPrinter } from '../../shared/printers'
 import DishModal from '../../components/DishModal'
 import FinancePanel from '../../components/FinancePanel'
 import HistoryPanel from '../../components/HistoryPanel'
@@ -144,10 +145,15 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
   useEffect(() => {
     return onPrintJob(async (msg) => {
       if (msg.event !== 'print_job') return
+      // ip/port сервер кладёт в само сообщение (PRINT-LAT-01): печатаем, даже
+      // если локальный список принтеров ещё не загрузился. Раньше здесь стоял
+      // `if (!printer) return` — задание молча терялось, и чек не выходил.
       const printer = printerMap[msg.printer_id]
-      if (!printer) return
+      const ip = printer?.ip_address || msg.ip_address
+      const port = printer?.port ?? msg.port ?? 9100
+      if (!ip) { console.error('[print] нет IP принтера для задания', msg); return }
       try {
-        await window.electron?.print({ ip: printer.ip_address, port: printer.port ?? 9100, payloadBase64: msg.payload, copies: msg.copies ?? 1 })
+        await window.electron?.print({ ip, port, payloadBase64: msg.payload, copies: msg.copies ?? 1 })
         await printersApi.jobDone(msg.job_id)
       } catch (err) { console.error('[print]', err); toast(t('print_failed')) }
     })
@@ -219,9 +225,13 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     else openOrder('dine_in', tbl)
   }
 
-  // Чековый принтер филиала (привязка по IP — в админке организации)
+  // Чековый принтер: сначала закреплённый за сотрудником (выбор в веб-админке),
+  // иначе — чековый принтер филиала (привязка по IP — в админке организации)
   function receiptPrinter() {
-    return Object.values(printerMap).find((p) => p.printer_type === 'receipt' && p.branch_id === user.branch_id)
+    return pickReceiptPrinter(Object.values(printerMap), {
+      printerId: user.printer_id,
+      branchId: user.branch_id,
+    })
   }
   async function printOrderReceipt(order) {
     const pr = receiptPrinter()
@@ -507,13 +517,13 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
           hdrActionsSlot,
         )}
         {finOpen && <FinancePanel branch={{ id: user.branch_id }} user={user} onClose={() => setFinOpen(false)} />}
-        {histOpen && <HistoryPanel branch={{ id: user.branch_id }} onClose={() => setHistOpen(false)} />}
+        {histOpen && <HistoryPanel branch={{ id: user.branch_id }} printerId={user.printer_id} onClose={() => setHistOpen(false)} />}
         {repOpen && <ReportsPanel branch={{ id: user.branch_id }} user={user} onClose={() => setRepOpen(false)} />}
         {stopOpen && <StopListPanel user={user} onClose={() => setStopOpen(false)} />}
         {attOpen && <AttendancePanel user={user} onClose={() => setAttOpen(false)} />}
         {staffOpen && <StaffManagerPanel onClose={() => setStaffOpen(false)} />}
         {whOpen && <WarehouseWritePanel onClose={() => setWhOpen(false)} />}
-        {printOpen && <BatchPrintPanel branch={{ id: user.branch_id }} onClose={() => setPrintOpen(false)} />}
+        {printOpen && <BatchPrintPanel branch={{ id: user.branch_id }} printerId={user.printer_id} onClose={() => setPrintOpen(false)} />}
         {payExisting && (
           <PaymentModal
             order={payExisting}
