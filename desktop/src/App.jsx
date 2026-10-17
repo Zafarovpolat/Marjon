@@ -193,6 +193,14 @@ export default function App() {
   }, [])
   // Кнопка аккаунта в шапке — сразу к выбору сотрудника
   const handleAccount = useCallback(() => handleStaffLogout(true), [handleStaffLogout])
+  // «Назад» в TopBar: сначала просим активный режим закрыть верхний слой
+  // (модалка/панель/меню заказа). Если он не взялся — уводим к выбору
+  // сотрудника. Так кнопка не разлогинивает случайно.
+  const handleNavBack = useCallback(() => {
+    const detail = { handled: false }
+    try { window.dispatchEvent(new CustomEvent('marjon:back', { detail })) } catch { /* no window */ }
+    if (!detail.handled) handleAccount()
+  }, [handleAccount])
 
   // Полный сброс терминала (отвязка от организации)
   const handleFullReset = useCallback(() => {
@@ -303,7 +311,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <TopBar
-        onBack={handleAccount}
+        onBack={handleNavBack}
         onRefresh={() => window.location.reload()}
         onLock={handleLock}
         onSettings={() => setShowSettings(true)}
@@ -316,7 +324,7 @@ export default function App() {
           branch={branch}
           courier={activeMode === 'courier'}
           onLogout={handleStaffLogout}
-          onBack={handleAccount}
+          onBack={handleNavBack}
           onSwitchMode={(m) => { if (MODES[m]) { localStorage.setItem('marjon_mode', m); setMode(m) } }}
         />
       </main>

@@ -208,6 +208,30 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     setCart([]); setOrderNote(''); setEditLine(null); setAddToOrderId(null)
     setView('floor')
   }
+  // Кнопка «Назад» в TopBar (App.jsx): сначала закрываем верхний слой
+  // (модалка ввода → блюдо → экран оплаты → панели), затем выходим из меню
+  // к столам. Если закрывать нечего — не помечаем handled, и App уводит
+  // к выбору сотрудника. Так «Назад» никогда не разлогинивает случайно.
+  useEffect(() => {
+    function onNavBack(e) {
+      const mark = () => { e.detail.handled = true }
+      if (promptCfg) { setPromptCfg(null); mark(); return }
+      if (editLine) { setEditLine(null); mark(); return }
+      if (payExisting) { setPayExisting(null); mark(); return }
+      if (finOpen) { setFinOpen(false); mark(); return }
+      if (histOpen) { setHistOpen(false); mark(); return }
+      if (repOpen) { setRepOpen(false); mark(); return }
+      if (stopOpen) { setStopOpen(false); mark(); return }
+      if (attOpen) { setAttOpen(false); mark(); return }
+      if (staffOpen) { setStaffOpen(false); mark(); return }
+      if (whOpen) { setWhOpen(false); mark(); return }
+      if (printOpen) { setPrintOpen(false); mark(); return }
+      if (view === 'order') { backFromOrder(); mark(); return }
+    }
+    window.addEventListener('marjon:back', onNavBack)
+    return () => window.removeEventListener('marjon:back', onNavBack)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promptCfg, editLine, payExisting, finOpen, histOpen, repOpen, stopOpen, attOpen, staffOpen, whOpen, printOpen, view])
   // Автокомплит постоянных клиентов по номеру
   function onDeliveryPhone(raw) {
     const digits = extractPhoneDigits(raw); setDeliveryPhone(digits); setCustId(null)

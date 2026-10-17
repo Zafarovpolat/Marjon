@@ -256,6 +256,20 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     setView('new')
   }
 
+  // Кнопка «Назад» в TopBar (App.jsx): закрываем верхний слой, затем
+  // возвращаемся к столам. Нечего закрывать — App уводит к выбору сотрудника.
+  useEffect(() => {
+    function onNavBack(e) {
+      const mark = () => { e.detail.handled = true }
+      if (promptCfg) { setPromptCfg(null); mark(); return }
+      if (editLine) { setEditLine(null); mark(); return }
+      if (view !== 'floor') { setCart([]); setOrderNote(''); setView('floor'); mark(); return }
+    }
+    window.addEventListener('marjon:back', onNavBack)
+    return () => window.removeEventListener('marjon:back', onNavBack)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promptCfg, editLine, view])
+
   // ── Каталог/корзина ──
   const filteredProducts = products.filter((p) => {
     if (p.is_active === false) return false
