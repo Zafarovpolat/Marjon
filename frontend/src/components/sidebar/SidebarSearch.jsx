@@ -36,11 +36,12 @@ function scoreEntry(entry, q) {
   return score;
 }
 
-export default function SidebarSearch({ navItems, navigate, setPinnedMenu, setOpenMenu }) {
+export default function SidebarSearch({ navItems, navigate, setPinnedMenu, setOpenMenu, collapsed = false }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const rootRef = useRef(null);
+  const resultsRef = useRef(null);
   const inputRef = useRef(null);
 
   const index = useMemo(() => buildIndex(navItems), [navItems]);
@@ -55,13 +56,19 @@ export default function SidebarSearch({ navItems, navigate, setPinnedMenu, setOp
       .map((x) => x.e);
   }, [index, q]);
 
-  const showResults = open && q.length > 0;
+  const showResults = !collapsed && open && q.length > 0;
+  // Keep the last real result content during the closing layout transition.
+  // Filtering and activation still use the current canonical results above.
+  const [displayResults, setDisplayResults] = useState(results);
+  if (showResults && displayResults !== results) setDisplayResults(results);
 
   useEffect(() => { setHighlight(0); }, [q]);
+  useEffect(() => { if (collapsed) setOpen(false); }, [collapsed]);
   useEffect(() => {
     if (!showResults) return undefined;
     function onDocDown(event) {
-      if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false);
+      if (rootRef.current && !rootRef.current.contains(event.target)
+        && !resultsRef.current?.contains(event.target)) setOpen(false);
     }
     document.addEventListener("mousedown", onDocDown);
     return () => document.removeEventListener("mousedown", onDocDown);
@@ -94,7 +101,8 @@ export default function SidebarSearch({ navItems, navigate, setPinnedMenu, setOp
   }
 
   return (
-    <div className="sidebar-search" ref={rootRef}>
+    <>
+    <div className="sidebar-search" ref={rootRef} inert={collapsed} aria-hidden={collapsed || undefined}>
       <div className="sidebar-search__field">
         <Icon name="bi-search" size={16} className="sidebar-search__icon" aria-hidden="true" />
         <input
@@ -124,14 +132,17 @@ export default function SidebarSearch({ navItems, navigate, setPinnedMenu, setOp
           </button>
         ) : null}
       </div>
-      {showResults ? (
+    </div>
+      {/* Separate flow space preserves the input's original collapse sizing. */}
+      <div ref={resultsRef} className={`sidebar-search__results-slot${showResults ? " is-open" : ""}`} inert={!showResults} aria-hidden={!showResults}>
+        <div className="sidebar-search__results-clip">
         <div className="sidebar-search__results" id="sidebar-search-results" role="listbox" aria-label="Результаты поиска">
-          {results.length === 0 ? (
+          {displayResults.length === 0 ? (
             <div className="sidebar-search__empty">
               <div className="sidebar-search__empty-title">Ничего не найдено</div>
               <div className="sidebar-search__empty-sub">Попробуйте другой запрос</div>
             </div>
-          ) : results.map((entry, i) => (
+          ) : displayResults.map((entry, i) => (
             <button
               key={entry.id}
               type="button"
@@ -150,7 +161,8 @@ export default function SidebarSearch({ navItems, navigate, setPinnedMenu, setOp
             </button>
           ))}
         </div>
-      ) : null}
-    </div>
+        </div>
+      </div>
+    </>
   );
 }

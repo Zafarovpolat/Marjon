@@ -25,6 +25,7 @@ from app.modules.auth.schemas import (
     CompanyUserCreate,
     CompanyUserResponse,
     CompanyUserUpdate,
+    ChangePasswordRequest,
     LoginRequest,
     LogoutRequest,
     MonoblockLoginRequest,
@@ -180,6 +181,24 @@ async def refresh(data: RefreshRequest, db: AsyncSession = Depends(get_db)):
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
+@router.post("/change-password", response_model=TokenResponse)
+@limiter.limit("5/minute")
+async def change_password(
+    request: Request,
+    data: ChangePasswordRequest,
+    current_user: User = Depends(require_web_owner),
+    db: AsyncSession = Depends(get_db),
+):
+    access, refresh = await AuthService(db).change_password(
+        current_user.id,
+        data.current_password.get_secret_value(),
+        data.new_password.get_secret_value(),
+        data.confirm_password.get_secret_value(),
+        device_id=device_label(request.headers.get("user-agent")),
+    )
+    return TokenResponse(access_token=access, refresh_token=refresh)
+
+
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
     data: LogoutRequest,
@@ -290,6 +309,7 @@ async def upload_avatar(
         raise HTTPException(status_code=400, detail="Поддерживаются только jpg, png, webp")
     ext = _IMG_EXT_MAP[file.content_type]
     key = f"avatars/{current_user.id}.{ext}"
+    # V6.5: user media stays private (no public ACL, no public prefix policy).
     avatar_url = await storage.upload(await file.read(), key, file.content_type)
     current_user.avatar_url = avatar_url
     db.add(current_user)

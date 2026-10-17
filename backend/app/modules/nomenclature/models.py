@@ -22,8 +22,18 @@ class Unit(TimeStampedModel):
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     short_name: Mapped[str | None] = mapped_column(String(32))
+    company_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     sort: Mapped[int] = mapped_column(default=0)
     status: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    @property
+    def is_global(self) -> bool:
+        return self.company_id is None
 
 
 class NomProduct(TimeStampedModel, SoftDeleteMixin):

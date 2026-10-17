@@ -68,16 +68,18 @@ describe("SettingsClientsPage (counterparties V1)", () => {
     expect(screen.getByText("Real Client")).toBeInTheDocument();
   });
 
-  it("renders columns in order with a truthful neutral status", async () => {
+  it("renders columns in order with an active status badge", async () => {
     const { container } = renderClients();
     await screen.findByText("Real Client");
     const headers = [...container.querySelectorAll("thead th")].map((th) => th.textContent.trim());
     expect(headers).toEqual(["ФИО", "Номер телефона", "Статус", "История транзакций", "Действия"]);
-    // No real status field on the backend: neutral dash, no fabricated badge.
+    // Local display state: default "Активный" badge with a dot.
     const row = screen.getByText("Real Client").closest("tr");
     const cells = [...row.querySelectorAll("td")].map((td) => td.textContent.trim());
-    expect(cells[2]).toBe("—");
-    expect(row.querySelector(".settings-status-badge")).toBeNull();
+    expect(cells[2]).toBe("Активный");
+    const badge = row.querySelector(".settings-status-badge.is-active");
+    expect(badge).not.toBeNull();
+    expect(badge.querySelector(".settings-status-badge__dot")).not.toBeNull();
     // Actions cell pinned right.
     const actionsCell = row.lastChild;
     expect(actionsCell.querySelector(".staff-actions")).not.toBeNull();
@@ -279,7 +281,7 @@ describe("SettingsClientsPage (counterparties V1)", () => {
     expect(settingsService.updateResource).toHaveBeenCalledWith("clients", "o1", expect.objectContaining({ phone: "+14155552671" }));
   });
 
-  it("renders the Marjon custom status select (never native) with 3 exact options", async () => {
+  it("renders the Marjon custom status select (never native) with 2 exact options", async () => {
     renderClients();
     await screen.findByText("Real Client");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
@@ -306,7 +308,7 @@ describe("SettingsClientsPage (counterparties V1)", () => {
     expect(menu.style.position).toBe("fixed");
     expect(Number(menu.style.zIndex)).toBeGreaterThanOrEqual(10001);
     const options = [...menu.querySelectorAll('[role="option"]')];
-    expect(options.map((o) => o.textContent)).toEqual(["Активный", "Не активный", "Не подтвержденный"]);
+    expect(options.map((o) => o.textContent)).toEqual(["Активный", "Не активный"]);
     expect(options.filter((o) => o.getAttribute("aria-selected") === "true").map((o) => o.textContent)).toEqual(["Активный"]);
     // Keyboard: ArrowDown + Enter commits through the primitive.
     fireEvent.keyDown(trigger, { key: "ArrowDown" });
@@ -326,7 +328,7 @@ describe("SettingsClientsPage (counterparties V1)", () => {
     expect(screen.queryByRole("dialog")).not.toBeNull();
   });
 
-  it("keeps the status form-local: never in payload, never in table, reset on reopen", async () => {
+  it("keeps the status form-local: never in payload, shown as badge, reset on reopen", async () => {
     renderClients();
     await screen.findByText("Real Client");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
@@ -334,22 +336,23 @@ describe("SettingsClientsPage (counterparties V1)", () => {
     const trigger = within(dialog).getByRole("combobox", { name: "Статус" });
     fireEvent.click(trigger);
     fireEvent.click(document.querySelector("body .settings-select__menu li:last-child [role='option']"));
-    expect(trigger).toHaveTextContent("Не подтвержденный");
+    expect(trigger).toHaveTextContent("Не активный");
     fireEvent.change(within(dialog).getByLabelText(/ФИО/), { target: { value: "Status Guy" } });
     fireEvent.change(within(dialog).getByLabelText("Номер телефона без кода страны"), { target: { value: "901234567" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Сохранить" }));
     await waitFor(() => expect(settingsService.createResource).toHaveBeenCalledTimes(1));
-    // STATUS_PERSISTED = NO: exact canonical payload, no status key.
+    // STATUS_PERSISTED = NO on backend: exact canonical payload, no status key.
     expect(settingsService.createResource).toHaveBeenCalledWith("clients", {
       full_name: "Status Guy",
       phone: "+998901234567",
       type: "client",
     });
-    // Table does not fabricate the selected status: truthful neutral dash.
+    // Table shows the chosen option as a local badge with a dot.
     const row = await screen.findByText("Status Guy");
     const cells = [...row.closest("tr").querySelectorAll("td")].map((td) => td.textContent.trim());
-    expect(cells[2]).toBe("—");
-    // Reopening resets to the visual default: nothing was stored anywhere.
+    expect(cells[2]).toBe("Не активный");
+    expect(row.closest("tr").querySelector(".settings-status-badge.is-inactive .settings-status-badge__dot")).not.toBeNull();
+    // Reopening resets to the visual default: nothing was stored on the server.
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
     const reopened = await screen.findByRole("dialog");
     expect(within(reopened).getByRole("combobox", { name: "Статус" })).toHaveTextContent("Активный");

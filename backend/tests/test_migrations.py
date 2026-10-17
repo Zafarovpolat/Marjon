@@ -27,7 +27,7 @@ from app.shared.base_model import Base
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 VERSIONS_DIR = BACKEND_ROOT / "migrations" / "versions"
-EXPECTED_HEAD = "att01status"
+EXPECTED_HEAD = "mg01merge"
 # Считается по статическому списку _COLUMNS в файлах миграций *bi02* (см.
 # _bi02_nullable_columns), а не по текущей схеме — новые миграции его не меняют.
 EXPECTED_NULLABLE_COLUMN_COUNT = 262
@@ -45,7 +45,7 @@ PROVEN_LEGACY_EVIDENCE_SHA256 = (
 )
 
 
-def _revision_metadata(path: Path) -> tuple[str, str | None]:
+def _revision_metadata(path: Path) -> tuple[str, str | tuple[str, ...] | None]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     values: dict[str, str | None] = {}
     for node in tree.body:
@@ -58,8 +58,6 @@ def _revision_metadata(path: Path) -> tuple[str, str | None]:
         }:
             continue
         value = ast.literal_eval(node.value)
-        if isinstance(value, tuple):
-            raise AssertionError(f"{path.name} unexpectedly branches the graph")
         values[target.id] = value
     return values["revision"], values["down_revision"]
 
@@ -111,40 +109,66 @@ def _proven_legacy_evidence() -> dict:
     return json.loads(raw)
 
 
-def test_revision_graph_is_linear_complete_and_has_one_head() -> None:
-    revisions: dict[str, tuple[str | None, Path]] = {}
+def test_revision_graph_is_complete_and_has_one_head() -> None:
+    revisions: dict[str, tuple[str | tuple[str, ...] | None, Path]] = {}
     for path in sorted(VERSIONS_DIR.glob("*.py")):
         revision, down_revision = _revision_metadata(path)
         assert revision not in revisions, f"duplicate revision id: {revision}"
         revisions[revision] = (down_revision, path)
 
     for revision, (down_revision, path) in revisions.items():
-        assert down_revision is None or down_revision in revisions, (
-            f"{path.name}: missing down_revision {down_revision!r}"
-        )
+        parents = down_revision if isinstance(down_revision, tuple) else (down_revision,)
+        for parent in parents:
+            assert parent is None or parent in revisions, (
+                f"{path.name}: missing down_revision {parent!r}"
+            )
 
-    parents = {
-        down_revision
-        for down_revision, _path in revisions.values()
-        if down_revision is not None
-    }
+    parents = set()
+    for down_revision, _path in revisions.values():
+        if isinstance(down_revision, tuple):
+            parents.update(down_revision)
+        elif down_revision is not None:
+            parents.add(down_revision)
     heads = set(revisions) - parents
     assert heads == {EXPECTED_HEAD}
 
     visited: set[str] = set()
-    cursor: str | None = EXPECTED_HEAD
-    while cursor is not None:
-        assert cursor not in visited, f"cycle at revision {cursor}"
+    pending = [EXPECTED_HEAD]
+    while pending:
+        cursor = pending.pop()
+        if cursor in visited:
+            continue
         visited.add(cursor)
-        cursor = revisions[cursor][0]
+        down_revision = revisions[cursor][0]
+        if isinstance(down_revision, tuple):
+            pending.extend(down_revision)
+        elif down_revision is not None:
+            pending.append(down_revision)
     assert visited == set(revisions)
-    # 53 (upstream head bi08dcs01) + 3 restored on top: a4b5daystart08
-    # (companies.day_start_hour), b5c6modpos09 (modifier_groups.show_in_pos),
-    # c6d7ftrs10 (premerge POS/inventory feature columns), затем линейно
-    # wh01exp01 (склад: expense/waste), no-op-мерж 3231976db538,
-    # 0c16e3a26191 (companies.order_types), br01login (branches.login/password_hash),
-    # att01status (attendance_logs: status/approved_by/approved_at) → head att01status.
-    assert len(revisions) == 61
+    # Обе линии сохранены целиком и сведены одним no-op-мержем.
+    # Линия склада/витрины (backend): un02cmp01 сводит документы склада и
+    # восстановленные фичевые колонки, дальше v24auto01 (products.is_auto/is_set),
+    # v25cat01 (categories.calculate_service/show_in_menu), v26sup01
+    # (companies.show_support_button), v31sort01 (позиции без изменения схемы),
+    # v32dec01 (products.daily_limit/sold_count → NUMERIC(12,3)), v33top01
+    # (product_limit_topups), v34stop01 (products.limit_auto_stopped),
+    # v35hist01 (products.history_reset_seq), v36rec01
+    # (product_ingredients.warehouse_id), v37wh01 (warehouses.is_active),
+    # v38set01 (set_items), v39avl01 (products.allow_in_sets), v40typ01
+    # (позиции по product_type), v41pur01 (purchase_document_items.product_id),
+    # v42inv01 (inventory_check_items + связи приход/расход), v43inv02 (бэкфилл
+    # проведённых инвентаризаций), 3231976db538 (мерж c6d7ftrs10 + wh01exp01),
+    # 0c16e3a26191 (companies.order_types), v44los01 (ingredients.loss_*),
+    # v45mrg01 (мерж v44los01 + 0c16e3a26191), v46fifo01 (stock_batches + бэкфилл),
+    # v47avg01 (ingredients.avg_quantity/deficit_threshold), v48pwd01
+    # (users.auth_version) → head линии v48pwd01.
+    # Наша линия (desktop/staff): a4b5daystart08 (companies.day_start_hour),
+    # b5c6modpos09 (modifier_groups.show_in_pos), c6d7ftrs10 (фичевые колонки
+    # POS/склада), wh01exp01 (склад: expense/waste), br01login
+    # (branches.login/password_hash), att01status (attendance_logs:
+    # status/approved_by/approved_at) → head линии att01status.
+    # mg01merge сводит обе линии в один head (схему не меняет).
+    assert len(revisions) == 84
 
     nullable_columns = _bi02_nullable_columns()
     assert len(nullable_columns) == EXPECTED_NULLABLE_COLUMN_COUNT

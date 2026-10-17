@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import Icon from "../../components/Icon";
+import Toast from "../../components/Toast";
 
 function today() {
   const now = new Date();
@@ -14,13 +15,12 @@ function today() {
  * Для сдвига остатка при проведении нужны и склад, и ингредиент, и
  * количество > 0; проведение при нехватке остатка вернёт 422.
  */
-function WasteDrawer({ warehouses, ingredients, saving, error, onClose, onSubmit }) {
+function WasteDrawer({ warehouses, ingredients, saving, error, onClose, onSubmit, onClearError = null }) {
   const [category, setCategory] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
   const [ingredientId, setIngredientId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("");
-  const [costPrice, setCostPrice] = useState("");
   const [reason, setReason] = useState("");
   const [date, setDate] = useState(today);
 
@@ -31,7 +31,7 @@ function WasteDrawer({ warehouses, ingredients, saving, error, onClose, onSubmit
   }, [ingredients]);
 
   const formatMoney = (value) => `${new Intl.NumberFormat("ru-RU").format(Number(value) || 0)} UZS`;
-  const total = (Number(quantity) || 0) * (Number(costPrice) || 0);
+  void formatMoney;
 
   const pickIngredient = (id) => {
     setIngredientId(id);
@@ -51,7 +51,7 @@ function WasteDrawer({ warehouses, ingredients, saving, error, onClose, onSubmit
       name: ing?.name || "Позиция",
       quantity: Number(quantity),
       unit: unit || ing?.unit || "кг",
-      cost_price: Number(costPrice) || 0,
+      cost_price: 0,
       reason: reason.trim() || null,
       date: date || null,
     });
@@ -69,7 +69,7 @@ function WasteDrawer({ warehouses, ingredients, saving, error, onClose, onSubmit
           <button type="button" onClick={onClose} aria-label="Закрыть"><Icon name="bi-x-lg" size={18} /></button>
         </div>
 
-        {error ? <div className="login-error" role="alert">{error}</div> : null}
+        {error ? <Toast kind="error" message={error} onClose={onClearError || undefined} /> : null}
 
         <div className="warehouse-form__grid">
           <label>
@@ -102,10 +102,7 @@ function WasteDrawer({ warehouses, ingredients, saving, error, onClose, onSubmit
             <span>Ед. изм</span>
             <input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="кг" />
           </label>
-          <label>
-            <span>Цена</span>
-            <input type="number" min="0" step="any" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} placeholder="0" />
-          </label>
+          <p className="warehouse-form__hint">Цена посчитается автоматически по FIFO.</p>
         </div>
 
         <label className="warehouse-form__comment">
@@ -114,7 +111,7 @@ function WasteDrawer({ warehouses, ingredients, saving, error, onClose, onSubmit
         </label>
 
         <div className="warehouse-form__footer">
-          <strong>Итого: {formatMoney(total)}</strong>
+          <strong>Цена: FIFO авто</strong>
           <div style={{ display: "flex", gap: 10 }}>
             <button type="button" onClick={onClose} disabled={saving}>Отмена</button>
             <button type="button" className="warehouse-commit-action" onClick={submit} disabled={!canSubmit}>

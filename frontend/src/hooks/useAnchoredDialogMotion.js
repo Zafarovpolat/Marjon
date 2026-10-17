@@ -25,6 +25,9 @@ export function useAnchoredDialogMotion({
   motionMode = "anchored",
   sourceRect,
   returnFocusRef,
+  // Вложенные слои (просмотр фото, панель правки) перехватывают Escape сами:
+  // диалог свой обработчик на это время снимает, чтобы не закрыться следом.
+  escapeDisabled = false,
 }) {
   const dialogRef = useRef(null);
   const closeTimerRef = useRef(null);
@@ -91,14 +94,14 @@ export function useAnchoredDialogMotion({
   }, [isOpen, motionMode, sourceRect]);
 
   useEffect(() => {
-    if (!isOpen) return undefined;
+    if (!isOpen || escapeDisabled) return undefined;
 
     const handleKeyDown = (event) => {
       if (event.key === "Escape") requestClose();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, requestClose]);
+  }, [isOpen, requestClose, escapeDisabled]);
 
   useEffect(() => () => {
     if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);

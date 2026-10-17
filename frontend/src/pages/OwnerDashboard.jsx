@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatMoney } from "../api/client";
 import { dashboardService } from "../api/dashboard";
+import { warehouseService } from "../api/warehouse";
+import { docDateToISO, registeredAtToISO } from "./WarehousePage";
 import { toDateInputValue } from "../utils/date";
 import Icon from "../components/Icon";
 import { PageLoader } from "../components/Loader";
@@ -139,8 +141,23 @@ function buildSimulatedRevenueSales(range) {
   });
 }
 
+export function isDashboardPreviewEnabled(search, isDev = import.meta.env.DEV) {
+  return isDev === true && new URLSearchParams(search).get("previewData") === "1";
+}
+
+export function buildDashboardPeriodSearch(apiRange, currentSearch, isDev = import.meta.env.DEV) {
+  const params = new URLSearchParams({
+    date_from: apiRange.date_from,
+    date_to: apiRange.date_to,
+  });
+  if (isDashboardPreviewEnabled(currentSearch, isDev)) params.set("previewData", "1");
+  return params.toString();
+}
+
 export default function OwnerDashboard() {
   const navigate = useNavigate();
+  const previewEnabled = isDashboardPreviewEnabled(window.location.search);
+  const [previewKpis, setPreviewKpis] = useState(null);
   const [dashboardPeriod, setDashboardPeriod] = useState(() => (
     dashboardPeriodFromSearch(window.location.search) || todayReportRange()
   ));
@@ -161,11 +178,25 @@ export default function OwnerDashboard() {
   const [error, setError] = useState("");
   const hasLoadedDashboardRef = useRef(false);
   const beginRequest = useLatestRequest();
+  // Отдельный трекер для складских итогов: общий beginRequest делить нельзя —
+  // два эффекта на одном трекере гасили бы друг друга (isCurrent).
+  const beginWarehouseRequest = useLatestRequest();
+  const [warehouseTotals, setWarehouseTotals] = useState(null);
   const normalizedDashboardPeriod = useMemo(() => normalizeReportRange(dashboardPeriod), [dashboardPeriod]);
   const dashboardPeriodParams = useMemo(() => reportRangeToApiParams(normalizedDashboardPeriod), [normalizedDashboardPeriod]);
   const dashboardPeriodDays = useMemo(() => reportRangeDays(normalizedDashboardPeriod), [normalizedDashboardPeriod]);
   const dashboardPeriodLabel = reportRangeLabel(normalizedDashboardPeriod);
   const dashboardReferenceDate = dashboardPeriodParams.date_to;
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || !previewEnabled) return undefined;
+    let active = true;
+    // DEV-only, URL-only and isolated from API/state used by every other widget.
+    import("./dashboard/dashboardPreviewData").then(({ buildDashboardPreviewKpis }) => {
+      if (active) setPreviewKpis(buildDashboardPreviewKpis());
+    });
+    return () => { active = false; };
+  }, [previewEnabled]);
 
   function requestPeriodPanel(panelId) {
     setPeriodPanelState((current) => {
@@ -229,16 +260,72 @@ export default function OwnerDashboard() {
     });
   }, [beginRequest, dashboardPeriodParams]);
 
+  // Живые итоги складских карточек за период дашборда (приход/расход — сумма
+  // документов по дате регистрации, остаток — текущий срез qty×cost_price).
+  // Любая ошибка API — null, карточки остаются в честном unavailable (0).
+  useEffect(() => {
+    const request = beginWarehouseRequest();
+    const safeList = (fn) => {
+      try {
+        const out = fn();
+        return Promise.resolve(out)
+          .catch(() => ({ data: [], __failed: true }));
+      } catch {
+        return Promise.resolve({ data: [], __failed: true });
+      }
+    };
+    Promise.all([
+      safeList(() => warehouseService.list("incoming", { signal: request.signal })),
+      safeList(() => warehouseService.list("outgoing", { signal: request.signal })),
+      safeList(() => warehouseService.listStock({ signal: request.signal })),
+    ]).then(([incomingRes, outgoingRes, stockRes]) => {
+      if (!request.isCurrent()) return;
+      if (incomingRes.__failed || outgoingRes.__failed || stockRes.__failed) {
+        setWarehouseTotals(null);
+        return;
+      }
+      const asList = (res) => {
+        const data = res?.data;
+        return Array.isArray(data) ? data : data?.items || [];
+      };
+      const { date_from: fromISO, date_to: toISO } = dashboardPeriodParams;
+      const docDay = (doc) => registeredAtToISO(doc.registered_at) || docDateToISO(doc.date);
+      const inPeriod = (doc) => {
+        const iso = docDay(doc);
+        if (!iso) return false;
+        if (fromISO && iso < fromISO) return false;
+        if (toISO && iso > toISO) return false;
+        return true;
+      };
+      const sumDocs = (docs) => docs.filter(inPeriod)
+        .reduce((sum, doc) => sum + (Number(doc.total_amount) || 0), 0);
+      // Расход на дашборде = то же, что таблица «Расход товаров»: только ручные
+      // документы, БЕЗ недостач инвентаризации (receiver «Инвентаризация» живёт
+      // в отдельной карточке и в расход не входит).
+      const sumOutgoingDocs = (docs) => docs
+        .filter((doc) => doc?.receiver !== "Инвентаризация")
+        .filter(inPeriod)
+        .reduce((sum, doc) => sum + (Number(doc.total_amount) || 0), 0);
+      const stockTotal = asList(stockRes)
+        .reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.cost_price) || 0), 0);
+      setWarehouseTotals({
+        incoming: sumDocs(asList(incomingRes)),
+        outgoing: sumOutgoingDocs(asList(outgoingRes)),
+        stock: stockTotal,
+      });
+    }).catch(() => {
+      if (request.isCurrent()) setWarehouseTotals(null);
+    });
+  }, [beginWarehouseRequest, dashboardPeriodParams]);
+
   function applyDashboardPeriod(nextRange) {
     const normalized = normalizeReportRange(nextRange);
     const apiRange = reportRangeToApiParams(normalized);
-    const params = new URLSearchParams(window.location.search);
-    params.set("date_from", apiRange.date_from);
-    params.set("date_to", apiRange.date_to);
+    const search = buildDashboardPeriodSearch(apiRange, window.location.search);
     window.history.replaceState(
       window.history.state,
       "",
-      `${window.location.pathname}?${params.toString()}${window.location.hash}`,
+      `${window.location.pathname}?${search}${window.location.hash}`,
     );
     setDashboardPeriod(normalized);
   }
@@ -259,8 +346,9 @@ export default function OwnerDashboard() {
   const displayFinanceTransactions = useMemo(() => financeTransactions, [financeTransactions]);
   const displayDashboard = useMemo(() => dashboard || EMPTY_DASHBOARD, [dashboard]);
   const kpis = useMemo(() => {
+    if (previewEnabled && previewKpis) return previewKpis;
     return buildRealKpis(displayDashboard, revenueChartSales, dashboardReferenceDate, displayPlaceSettings, displayFinanceTransactions);
-  }, [dashboardReferenceDate, displayDashboard, revenueChartSales, displayPlaceSettings, displayFinanceTransactions]);
+  }, [previewEnabled, previewKpis, dashboardReferenceDate, displayDashboard, revenueChartSales, displayPlaceSettings, displayFinanceTransactions]);
   const displayTopProducts = useMemo(() => topProducts, [topProducts]);
   const displayTopDishes = useMemo(() => {
   if (displayTopProducts.length > 0) {
@@ -277,7 +365,21 @@ export default function OwnerDashboard() {
   }
   return [];
 }, [displayTopProducts]);
-  const warehouseSummary = useMemo(() => buildUnavailableWarehouseSummary(), []);
+  // Складские карточки: при живых итогах — реальные суммы + навигация
+  // в подкатегории; без итогов — честное unavailable (0, без перехода).
+  const warehouseSummary = useMemo(() => {
+    if (!warehouseTotals) return buildUnavailableWarehouseSummary();
+    const live = {
+      "Приход товаров": { value: warehouseTotals.incoming, to: "/stock-report/incoming" },
+      "Расход товаров": { value: warehouseTotals.outgoing, to: "/stock-report/outgoing" },
+      "Остаток склада": { value: warehouseTotals.stock, to: "/stock-report/stock" },
+    };
+    return buildUnavailableWarehouseSummary().map((item) => (
+      live[item.label]
+        ? { ...item, value: live[item.label].value, to: live[item.label].to, unavailable: false, rows: [] }
+        : item
+    ));
+  }, [warehouseTotals]);
   const displayRecentOrders = useMemo(() => recentOrders, [recentOrders]);
   const recentOrdersList = useMemo(() => {
     if (displayRecentOrders.length > 0) {
@@ -317,8 +419,8 @@ export default function OwnerDashboard() {
     setSelectedWarehouseReport(item);
   };
 
-  if (loading) return <PageLoader />;
-  if (error) return <EmptyState title="Dashboard недоступен" text={error} />;
+  if (previewEnabled ? !previewKpis : loading) return <PageLoader />;
+  if (error && !previewEnabled) return <EmptyState title="Dashboard недоступен" text={error} />;
 
   return (
     <>

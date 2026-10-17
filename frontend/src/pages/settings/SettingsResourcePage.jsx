@@ -25,11 +25,10 @@ const STATUS_ARCHIVE = "#архив";
 // Visual-only counterparty status vocabulary for the Add/Edit select.
 // The Counterparty backend has NO canonical status field, so these values
 // are form-local display state only: never mapped to the payload, never
-// persisted, reset on every open. Exact requested labels, in order.
+// persisted on the server. Shown in the table as a local badge.
 export const CLIENT_STATUS_OPTIONS = Object.freeze([
   { value: "active", label: "Активный" },
   { value: "inactive", label: "Не активный" },
-  { value: "pending", label: "Не подтвержденный" },
 ]);
 export const CLIENT_STATUS_DEFAULT = "active";
 
@@ -370,6 +369,12 @@ function SettingsResourcePage({
         : await settingsService.createResource(resourceKey, payload);
       if (!data?.id) throw new Error("Backend не вернул сохранённую запись.");
       const mapped = apiMapRow ? apiMapRow(data) : data;
+      // Local-only status display: the backend has no status field, so the
+      // chosen option is merged into the visible row only (payload untouched).
+      if (mapped && typeof mapped === "object" && form.status) {
+        const found = CLIENT_STATUS_OPTIONS.find((o) => o.value === form.status);
+        if (found) mapped.status = found.label;
+      }
       setRows((current) => editingId
         ? current.map((row) => row.id === editingId ? mapped : row)
         : [mapped, ...current]);
@@ -879,8 +884,17 @@ function renderCell(column, row, setForm) {
 }
 
 function StatusBadge({ status }) {
-  const tone = status === STATUS_ACTIVE || status === "Активно" ? "is-active" : status === STATUS_PENDING ? "is-pending" : "is-inactive";
-  return <span className={`settings-status-badge ${tone}`}>{status}</span>;
+  const label = String(status || "").trim();
+  const tone = label === "Активный" || label === "Активно" || label === "active" || status === STATUS_ACTIVE
+    ? "is-active"
+    : "is-inactive";
+  const text = label === "active" ? "Активный" : label === "inactive" ? "Не активный" : label;
+  return (
+    <span className={`settings-status-badge ${tone}`}>
+      <span className="settings-status-badge__dot" aria-hidden="true" />
+      {text}
+    </span>
+  );
 }
 
 export { STATUS_ACTIVE, STATUS_INACTIVE, STATUS_PENDING };

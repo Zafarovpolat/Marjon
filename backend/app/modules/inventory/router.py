@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
+from datetime import date
 from uuid import UUID, uuid4
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
@@ -15,10 +16,14 @@ from app.modules.inventory.schemas import (
     ModifierGroupCreate, ModifierGroupResponse, ModifierGroupUpdate, ModifierResponse,
     ProductAvailabilityUpdate, ProductCreate, ProductIngredientResponse,
     ProductLimitUpdate, ProductResponse, ProductUpdate,
+    SetItemIn, SetItemResponse,
+    StockBatchResponse,
     StockItemResponse, StockMovementCreate, StockMovementResponse,
+    TopUpCreate, TopUpResponse, TopUpResultResponse,
 )
 from app.modules.inventory.service import (
-    CategoryService, IngredientService, ModifierGroupService, ProductService, StockService
+    CategoryService, IngredientService, ModifierGroupService, ProductService,
+    ProductTopupService, SetItemService, StockService
 )
 from sqlalchemy import select
 from app.modules.inventory.models import Product, Ingredient
@@ -86,16 +91,31 @@ def _product_to_response(p: Product) -> ProductResponse:
     return ProductResponse(
         id=p.id, created_at=p.created_at, updated_at=p.updated_at,
         company_id=p.company_id, category_id=p.category_id, subcategory_id=p.subcategory_id,
+        unit_id=p.unit_id,
         product_type=p.product_type, printer_id=p.printer_id,
         name=p.name, description=p.description, image_url=p.image_url,
         price=p.price, cost_price=p.cost_price, tax_rate=p.tax_rate, unit=p.unit,
         barcode=p.barcode, sku=p.sku, is_active=p.is_active, is_available=p.is_available,
+        is_auto=getattr(p, "is_auto", False) or False,
+        is_set=getattr(p, "is_set", False) or False,
+        allow_in_sets=getattr(p, "allow_in_sets", False) or False,
         daily_limit=p.daily_limit, sold_count=p.sold_count,
         sort_order=p.sort_order,
+        recent_topups=[
+            TopUpResponse(
+                id=t["id"], created_at=t["created_at"], updated_at=t["updated_at"],
+                company_id=t["company_id"], product_id=t["product_id"],
+                amount=t["amount"], seq=t["seq"], created_by=t["created_by"],
+                idempotency_key=t["idempotency_key"],
+            )
+            for t in (getattr(p, "recent_topups", None) or [])
+        ],
+        history_reset_seq=getattr(p, "history_reset_seq", None),
         category_name=getattr(p, "category_name", None),
         subcategory_name=getattr(p, "subcategory_name", None),
         printer_name=getattr(p, "printer_name", None),
         ingredients_count=getattr(p, "ingredients_count", 0),
+        set_items_count=getattr(p, "set_items_count", 0),
         stock=getattr(p, "stock", None),
         ingredients=[
             ProductIngredientResponse(
@@ -103,6 +123,7 @@ def _product_to_response(p: Product) -> ProductResponse:
                 ingredient_name=line.ingredient.name if line.ingredient else "",
                 quantity=line.quantity,
                 unit=line.ingredient.unit if line.ingredient else "",
+                warehouse_id=line.warehouse_id,
             )
             for line in p.ingredients
         ],
@@ -119,8 +140,17 @@ async def create_category(data: CategoryCreate, user: User = Depends(require_com
 
 
 @router.get("/categories", response_model=list[CategoryResponse])
-async def list_categories(user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db)):
-    return await CategoryService(db).list(user.company_id)
+async def list_categories(
+    include_inactive: bool = Query(False),
+    user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    # Archive V1: default (False) keeps the historical active-only contract
+    # for all existing consumers; the category pages pass
+    # include_inactive=true to render both Active and Archived tabs from one
+    # canonical read. Archive = PATCH {is_active:false}, restore = PATCH
+    # {is_active:true}; permanent delete stays a hard DELETE with 409 guards.
+    return await CategoryService(db).list(user.company_id, include_inactive)
 
 
 @router.patch("/categories/{category_id}", response_model=CategoryResponse)
@@ -159,6 +189,30 @@ async def update_product(product_id: UUID, data: ProductUpdate, user: User = Dep
     return _product_to_response(await ProductService(db).update(user.company_id, product_id, data))
 
 
+# ── Set composition (состав сета: блюда внутри блюда) ─────────────────
+# V38: чтение — любому app-пользователю компании; запись — админу
+# (тот же гейт, что у PATCH products). Replace-семантика: [] = очистить.
+@router.get("/products/{product_id}/set-items", response_model=list[SetItemResponse])
+async def list_set_items(
+    product_id: UUID,
+    user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    lines = await SetItemService(db).list(user.company_id, product_id)
+    return [SetItemResponse(**line) for line in lines]
+
+
+@router.put("/products/{product_id}/set-items", response_model=list[SetItemResponse])
+async def replace_set_items(
+    product_id: UUID,
+    data: list[SetItemIn],
+    user: User = Depends(require_company_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    lines = await SetItemService(db).replace(user.company_id, product_id, data or [])
+    return [SetItemResponse(**line) for line in lines]
+
+
 @router.post("/upload-image", response_model=dict)
 async def upload_image(
     file: UploadFile = File(...),
@@ -170,7 +224,7 @@ async def upload_image(
     ext = _EXT_MAP[file.content_type]
     key = f"products/{user.company_id}/{uuid4()}.{ext}"
     try:
-        url = await storage.upload(await file.read(), key, file.content_type)
+        url = await storage.upload(await file.read(), key, file.content_type, public=True)
     except Exception as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, f"Ошибка хранилища: {exc}") from exc
     return {"url": url}
@@ -188,7 +242,7 @@ async def upload_product_photo(
     ext = _EXT_MAP[file.content_type]
     key = f"products/{user.company_id}/{product_id}.{ext}"
     try:
-        image_url = await storage.upload(await file.read(), key, file.content_type)
+        image_url = await storage.upload(await file.read(), key, file.content_type, public=True)
     except Exception as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, f"Ошибка хранилища: {exc}") from exc
     return _product_to_response(await ProductService(db).update_image(user.company_id, product_id, image_url))
@@ -229,6 +283,107 @@ async def set_product_daily_limit(
     return _product_to_response(await ProductService(db).set_daily_limit(
         user.company_id, product_id, data.daily_limit
     ))
+
+
+def _topup_to_response(t) -> TopUpResponse:
+    return TopUpResponse(
+        id=t.id, created_at=t.created_at, updated_at=t.updated_at,
+        company_id=t.company_id, product_id=t.product_id,
+        amount=t.amount, seq=t.seq, created_by=t.created_by,
+        idempotency_key=t.idempotency_key,
+    )
+
+
+@router.post("/products/{product_id}/topups", response_model=TopUpResultResponse)
+async def topup_product_limit(
+    product_id: UUID,
+    data: TopUpCreate,
+    response: Response,
+    user: User = Depends(require_stop_list_editor),
+    db: AsyncSession = Depends(get_db),
+):
+    """V3: накопительное пополнение доступного остатка (ADD, не замена).
+
+    Тот же гейт, что у стоп-листа. Атомарно под блокировкой строки:
+    daily_limit += amount + append-only событие истории. Повтор запроса
+    с тем же idempotency_key возвращает прежнее событие без доначисления
+    (201 — новое, 200 — повтор). Абсолютный PATCH /limit остаётся для
+    совместимости (десктоп), Stop-list UI его больше не использует.
+    """
+    product, topup, duplicate = await ProductTopupService(db).topup(
+        user.company_id, product_id, user.id, data.amount, data.idempotency_key
+    )
+    response.status_code = status.HTTP_200_OK if duplicate else status.HTTP_201_CREATED
+    return TopUpResultResponse(
+        product=_product_to_response(product),
+        topup=_topup_to_response(topup),
+        duplicate=duplicate,
+    )
+
+
+@router.get("/products/{product_id}/topups", response_model=list[TopUpResponse])
+async def list_product_topups(
+    product_id: UUID,
+    user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """V3: полная история пополнений продукта (хронологически)."""
+    return [
+        _topup_to_response(t)
+        for t in await ProductTopupService(db).list_topups(user.company_id, product_id)
+    ]
+
+
+@router.post("/products/{product_id}/allowance-reset", response_model=ProductResponse)
+async def reset_product_allowance(
+    product_id: UUID,
+    user: User = Depends(require_stop_list_editor),
+    db: AsyncSession = Depends(get_db),
+):
+    """V3-сброс доступного количества: limit=None, sold=0.
+
+    Продукт НЕ удаляется, строки истории НЕ стираются, is_available НЕ
+    трогаем (ручной и авто-стоп переживают сброс; возврат в продажу —
+    отдельным действием). Тот же гейт, что у стоп-листа.
+    """
+    return _product_to_response(
+        await ProductTopupService(db).reset_allowance(user.company_id, product_id)
+    )
+
+
+@router.post("/products/{product_id}/allowance-zero", response_model=ProductResponse)
+async def zero_product_allowance(
+    product_id: UUID,
+    user: User = Depends(require_stop_list_editor),
+    db: AsyncSession = Depends(get_db),
+):
+    """V3.5: остаток ровно в 0 (НЕ unlimited-NULL): daily_limit=0, sold=0.
+
+    Существующий POS-гейт при лимите 0 отклоняет любую продажу; склад,
+    история топ-апов и позиции заказов не трогаются. Ручной стоп переживает
+    (доступный товар встаёт в системный стоп с флагом — следующий топ-ап
+    его снимет). Set-семантика: повтор идемпотентен. Тот же гейт.
+    """
+    return _product_to_response(
+        await ProductTopupService(db).zero_allowance(user.company_id, product_id)
+    )
+
+
+@router.post("/products/{product_id}/history-reset", response_model=ProductResponse)
+async def reset_product_history(
+    product_id: UUID,
+    user: User = Depends(require_stop_list_editor),
+    db: AsyncSession = Depends(get_db),
+):
+    """V3.5: сбросить ВИДИМУЮ историю (checkpoint), не трогая остаток.
+
+    Append-only строки НЕ удаляются; allowance/sold/is_available НЕ меняются.
+    Видимое окно пустеет (UI показывает "0") до следующего пополнения.
+    Set-семантика: повтор идемпотентен. Тот же гейт.
+    """
+    return _product_to_response(
+        await ProductTopupService(db).reset_history(user.company_id, product_id)
+    )
 
 
 @router.delete("/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -306,13 +461,46 @@ async def update_ingredient(ingredient_id: UUID, data: IngredientUpdate, user: U
 async def get_stock(
     warehouse_id: UUID | None = Query(None),
     low_stock: bool = Query(False),
+    as_of: date | None = Query(
+        None, description="Остатки на конец календарного дня YYYY-MM-DD (UTC)"
+    ),
     user: User = Depends(require_permission("inventory:stock:read")),
     db: AsyncSession = Depends(get_db),
 ):
     svc = StockService(db)
     if low_stock:
         return await svc.get_low_stock(user.company_id)
+    if as_of is not None:
+        return await svc.get_stock_as_of(user.company_id, as_of, warehouse_id)
     return await svc.get_stock(user.company_id, warehouse_id)
+
+
+@router.get("/stock/batches", response_model=list[StockBatchResponse])
+async def get_stock_batches(
+    warehouse_id: UUID | None = Query(None),
+    ingredient_id: UUID | None = Query(None),
+    user: User = Depends(require_permission("inventory:stock:read")),
+    db: AsyncSession = Depends(get_db),
+):
+    """V46 FIFO: разбивка остатка по партиям (старые первыми)."""
+    from app.modules.inventory.models import StockBatch
+    from app.modules.inventory.warehouse_models import PurchaseDocument
+
+    query = (
+        select(StockBatch)
+        .outerjoin(PurchaseDocument, PurchaseDocument.id == StockBatch.purchase_doc_id)
+        .where(StockBatch.company_id == user.company_id)
+    )
+    if warehouse_id:
+        query = query.where(StockBatch.warehouse_id == warehouse_id)
+    if ingredient_id:
+        query = query.where(StockBatch.ingredient_id == ingredient_id)
+    query = query.order_by(
+        PurchaseDocument.number.asc().nullsfirst(),
+        StockBatch.created_at,
+        StockBatch.id,
+    )
+    return list((await db.execute(query)).scalars().all())
 
 
 @router.post("/stock/movements", response_model=StockMovementResponse, status_code=status.HTTP_201_CREATED)

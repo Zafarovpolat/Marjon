@@ -46,6 +46,7 @@ from app.modules.finance.schemas import (
     PaymentTypeUpdate,
     TransactionCategoryCreate,
     TransactionCategoryUpdate,
+    TransactionIncomeSummary,
 )
 from app.modules.finance.service import TransactionService
 from app.modules.kafe_compat.models import ReceiptTemplateSettings, SupportTicket
@@ -69,6 +70,22 @@ def _tx_dict(t: FinTransaction) -> dict:
     }
 
 
+def _company_transactions_query(company_id, date_from, date_to, direction=None):
+    # BE-04: was unfiltered (despite the module docstring claiming
+    # "company-scoped") — every company saw every other company's transactions.
+    q = select(FinTransaction).where(
+        FinTransaction.deleted_at.is_(None),
+        FinTransaction.company_id == company_id,
+    )
+    if date_from:
+        q = q.where(func.date(FinTransaction.date) >= date_from)
+    if date_to:
+        q = q.where(func.date(FinTransaction.date) <= date_to)
+    if direction:
+        q = q.where(FinTransaction.direction == direction)
+    return q
+
+
 @router.get("/finance/transactions", tags=["finance-kafe"])
 async def kafe_list_transactions(
     date_from: date | None = Query(None), date_to: date | None = Query(None),
@@ -82,20 +99,23 @@ async def kafe_list_transactions(
     scope: FinanceScope = Depends(get_company_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
-    # BE-04: was unfiltered (despite the module docstring claiming
-    # "company-scoped") — every company saw every other company's transactions.
-    q = select(FinTransaction).where(
-        FinTransaction.deleted_at.is_(None),
-        FinTransaction.company_id == scope.tenant_id,
-    )
-    if date_from:
-        q = q.where(func.date(FinTransaction.date) >= date_from)
-    if date_to:
-        q = q.where(func.date(FinTransaction.date) <= date_to)
-    if direction:
-        q = q.where(FinTransaction.direction == direction)
+    q = _company_transactions_query(scope.tenant_id, date_from, date_to, direction)
     rows = (await db.execute(q.order_by(FinTransaction.date.desc()))).scalars().all()
     return {"items": [_tx_dict(t) for t in rows], "count": len(rows)}
+
+
+@router.get("/finance/transactions/summary", response_model=TransactionIncomeSummary, tags=["finance-kafe"])
+async def kafe_transaction_income_summary(
+    date_from: date | None = Query(None), date_to: date | None = Query(None),
+    user: User = Depends(require_web_owner),
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
+):
+    q = _company_transactions_query(scope.tenant_id, date_from, date_to, "income")
+    income = (await db.execute(q.with_only_columns(
+        func.coalesce(func.sum(FinTransaction.amount), 0)
+    ))).scalar_one()
+    return TransactionIncomeSummary(income_amount=income)
 
 
 @router.post("/finance/transactions", status_code=status.HTTP_201_CREATED, tags=["finance-kafe"])

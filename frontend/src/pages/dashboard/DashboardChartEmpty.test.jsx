@@ -66,11 +66,11 @@ describe("OWNER Revenue Analytics no-data zero line", () => {
     render(<OwnerDashboard />);
 
     const probe = await screen.findByTestId("revenue-chart-probe");
-    // Single default day -> 8 intraday buckets, all exactly zero.
-    expect(probe).toHaveAttribute("data-points", "8");
+    // Single default day -> 9 intraday buckets (axis to 23:59), all exactly zero.
+    expect(probe).toHaveAttribute("data-points", "9");
     expect(probe.getAttribute("data-revenues").split(",").every((v) => v === "0")).toBe(true);
     expect(probe.getAttribute("data-labels")).toContain("00:00");
-    expect(probe.getAttribute("data-labels")).toContain("21:00");
+    expect(probe.getAttribute("data-labels")).toContain("23:59");
     // Large replacement overlay is gone from the chart area.
     expect(screen.queryByText("Продаж пока нет")).not.toBeInTheDocument();
     // Summary stays truthful at zero.

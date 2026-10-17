@@ -144,6 +144,8 @@ class DishReportRow(BaseModel):
 class DishReportTotals(BaseModel):
     quantity: Decimal
     amount: Decimal
+    # Distinct orders contributing to these exact filtered report rows.
+    orders_count: int = 0
     # Grand cost/profit only when the ENTIRE selection has full snapshot
     # coverage; otherwise NULL (unknown), never a partial number.
     cost_total: Decimal | None = None
@@ -221,6 +223,11 @@ class CancelledItemRow(BaseModel):
     # cancelled_at is NULL (historical rows, COALESCE fallback to created_at).
     date_source: str | None = None
     report_event_at: datetime | None = None
+
+
+class CancelledReportTotals(BaseModel):
+    # Same quantity metric as the Cancelled Dishes report/Excel total.
+    quantity: Decimal
 
 
 class CancelledAuthorOption(BaseModel):

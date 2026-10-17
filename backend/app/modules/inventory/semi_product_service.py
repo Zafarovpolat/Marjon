@@ -183,11 +183,20 @@ class SemiProductService:
 
         for line, stock in planned:
             required_qty = line.quantity * quantity
-            stock.quantity -= required_qty
+            # V46 FIFO: производство списывает старые партии первыми.
+            from app.modules.inventory.fifo import consume_fifo
+            fifo_unit, fifo_total = await consume_fifo(
+                self.db,
+                company_id=company_id,
+                warehouse_id=warehouse_id,
+                ingredient_id=line.ingredient_id,
+                quantity=required_qty,
+                name=line.ingredient.name if line.ingredient else str(line.ingredient_id),
+            )
             self.db.add(StockMovement(
                 company_id=company_id, warehouse_id=warehouse_id, ingredient_id=line.ingredient_id,
                 movement_type="writeoff", quantity=required_qty, unit=stock.unit,
-                cost_price=stock.cost_price, total_cost=stock.cost_price * required_qty,
+                cost_price=fifo_unit, total_cost=fifo_total,
                 ref_id=sp.id, created_by=user_id,
                 note=f"Производство полуфабриката «{sp.name}» x{quantity}",
             ))

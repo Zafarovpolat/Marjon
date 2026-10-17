@@ -612,6 +612,7 @@ function StaffRolePage({ role = "all" }) {
           closing={modalClosing}
           saveError={saveError}
           saveErrorField={saveErrorField}
+          onClearSaveError={() => { setSaveError(""); setSaveErrorField(""); }}
         />
       )}
     </div>

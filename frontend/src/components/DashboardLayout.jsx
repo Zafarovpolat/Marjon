@@ -1,5 +1,5 @@
 ﻿import { Outlet, useLocation } from "react-router-dom";
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "./Sidebar";
 import SupportWidget from "./SupportWidget";
 import Topbar from "./Topbar";
@@ -7,6 +7,7 @@ import BranchSessionBanner from "./BranchSessionBanner";
 import { pageMeta } from "./pageMeta";
 import { clampToToday, todayInputValue } from "../utils/date";
 import { useAuth } from "../hooks/useAuth";
+import "./dashboardStartup.css";
 
 const TABLE_REPORT_PATHS = new Set([
   "/reports/orders",
@@ -30,6 +31,8 @@ export default function DashboardLayout() {
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState(() => todayInputValue());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [shellReady, setShellReady] = useState(false);
+  const shellRef = useRef(null);
 
   const [title, subtitle] = useMemo(() => pageMeta[location.pathname] || ["Dashboard", ""], [location.pathname]);
   const isUsersSection = location.pathname.startsWith("/users");
@@ -48,13 +51,22 @@ export default function DashboardLayout() {
   // (useEffect would run after first paint => one dark flash frame.)
   useLayoutEffect(() => {
     document.body.classList.add("dashboard-body");
-    return () => document.body.classList.remove("dashboard-body");
+    document.body.classList.add("marjon-dark-shell");
+    // Resolve the scoped shell geometry without treating first mount as a
+    // sidebar toggle. Subsequent user-triggered collapse animations are intact.
+    shellRef.current?.getBoundingClientRect();
+    const frame = requestAnimationFrame(() => setShellReady(true));
+    return () => {
+      cancelAnimationFrame(frame);
+      document.body.classList.remove("dashboard-body");
+      document.body.classList.remove("marjon-dark-shell");
+    };
   }, []);
 
   return (
     <div>
       <BranchSessionBanner />
-      <div className={`dashboard-shell ${sidebarCollapsed ? "is-sidebar-collapsed" : "is-sidebar-expanded"}`}>
+      <div ref={shellRef} data-shell-initializing={shellReady ? undefined : ""} className={`dashboard-shell ${sidebarCollapsed ? "is-sidebar-collapsed" : "is-sidebar-expanded"}`}>
         <Sidebar user={user} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((value) => !value)} />
         <div className={`dashboard-main ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}>
           <Topbar

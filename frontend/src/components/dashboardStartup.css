@@ -1,0 +1,16 @@
+/* First mount is not a sidebar toggle. Apply final geometry before enabling
+   the existing motion rules; never disable later collapse/hover animations. */
+body.dashboard-body .dashboard-shell[data-shell-initializing]::before,
+body.dashboard-body .dashboard-shell[data-shell-initializing] .dashboard-main,
+body.dashboard-body .dashboard-shell[data-shell-initializing] .dashboard-content,
+body.dashboard-body .dashboard-shell[data-shell-initializing] .dashboard-topbar,
+body.dashboard-body .dashboard-shell[data-shell-initializing] .dashboard-topbar .dashboard-back-button--topbar-3d,
+body.dashboard-body .dashboard-shell[data-shell-initializing] .dashboard-topbar .topbar-balance-pill,
+body.dashboard-body .dashboard-shell[data-shell-initializing] .dashboard-topbar .topbar-balance-amount,
+body.dashboard-body .dashboard-shell[data-shell-initializing] .dashboard-topbar .topbar-pay-button,
+body.dashboard-body .dashboard-shell[data-shell-initializing] .dashboard-topbar .topbar-pay-button::before,
+body.dashboard-body .dashboard-shell[data-shell-initializing] .dashboard-topbar .topbar-pay-button::after,
+body.dashboard-body .dashboard-shell[data-shell-initializing] #dashboardSidebar,
+body.dashboard-body .dashboard-shell[data-shell-initializing] #dashboardSidebar * {
+  transition: none;
+}

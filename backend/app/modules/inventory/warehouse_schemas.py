@@ -11,6 +11,7 @@ class WarehouseCreate(BaseSchema):
     name: str
     address: str | None = None
     is_main: bool = False
+    is_active: bool = True
     branch_id: UUID | None = None
 
 
@@ -19,13 +20,30 @@ class WarehouseResponse(BaseResponseSchema):
     name: str
     address: str | None
     is_main: bool
+    is_active: bool = True
     branch_id: UUID | None
+
+
+class WarehouseUpdate(BaseSchema):
+    name: str | None = None
+    address: str | None = None
+    is_main: bool | None = None
+    is_active: bool | None = None
+    branch_id: UUID | None = None
 
 
 # ── Purchase Document (Приход) ─────────────────────────────
 class PurchaseItemCreate(BaseSchema):
+    # Позиция прихода — это РЕАЛЬНЫЙ продукт на склад, всегда привязанный к
+    # шаблону из «Продуктов» (Ingredient): либо напрямую (ingredient_id),
+    # либо через Товар (product_id — backend сам автопривяжет шаблон, см.
+    # create_purchase). name/unit — снапшот на момент создания, канонические
+    # значения берёт backend из шаблона.
+    # quantity > 0 и cost_price > 0 обязательны: без количества/цены
+    # оприходовать нельзя (проверяется в роутере, 422).
     name: str
     ingredient_id: UUID | None = None
+    product_id: UUID | None = None
     quantity: Decimal = Decimal("0")
     unit: str = "кг"
     cost_price: Decimal = Decimal("0")
@@ -52,6 +70,7 @@ class PurchaseDocumentUpdate(BaseSchema):
 class PurchaseItemResponse(BaseResponseSchema):
     document_id: UUID
     ingredient_id: UUID | None
+    product_id: UUID | None = None
     name: str
     quantity: Decimal
     unit: str
@@ -73,6 +92,12 @@ class PurchaseDocumentResponse(BaseResponseSchema):
     status: str
     created_by_name: str | None
     note: str | None
+
+
+class PurchaseDocumentDetailResponse(PurchaseDocumentResponse):
+    """Один приход со строками — для экрана просмотра состава документа."""
+
+    items: list[PurchaseItemResponse] = []
 
 
 # ── Transfer Document ──────────────────────────────────────
@@ -100,11 +125,47 @@ class TransferResponse(BaseResponseSchema):
 
 
 # ── Inventory Check ────────────────────────────────────────
+class InventoryCountIn(BaseSchema):
+    # Посчитанный факт по позиции: ссылка на шаблон (ingredient_id) либо на
+    # Товар (product_id — шаблон backend автопривяжет как в приходе),
+    # actual_qty — сколько реально на складе. Без ссылки и факта (None)
+    # строка отклоняется (422) — корректировку считать не из чего.
+    ingredient_id: UUID | None = None
+    product_id: UUID | None = None
+    name: str = ""
+    actual_qty: Decimal | None = None
+
+
 class InventoryCheckCreate(BaseSchema):
     warehouse_id: UUID | None = None
     warehouse_name: str | None = None
     comment: str | None = None
     check_type: str = "Приход и расход учтены"
+    # V42: посчитанные позиции + флаг проведения. apply_to_stock=True:
+    # излишки (факт > остатка) → документ прихода, недостачи → документ
+    # расхода, остатки двигаются сразу (как «Сохранить» в приходе).
+    # False — только шапка (статус draft), остатки не трогаем.
+    items: list[InventoryCountIn] = []
+    apply_to_stock: bool = True
+
+
+class InventoryCheckUpdate(BaseSchema):
+    warehouse_id: UUID | None = None
+    warehouse_name: str | None = None
+    comment: str | None = None
+    check_type: str | None = None
+
+
+class InventoryCheckLineResponse(BaseResponseSchema):
+    check_id: UUID
+    ingredient_id: UUID | None
+    product_id: UUID | None
+    name: str
+    unit: str
+    stock_qty: Decimal
+    actual_qty: Decimal
+    diff_qty: Decimal
+    cost_price: Decimal
 
 
 class InventoryCheckResponse(BaseResponseSchema):
@@ -115,6 +176,14 @@ class InventoryCheckResponse(BaseResponseSchema):
     check_type: str
     status: str
     created_by_name: str | None
+
+
+class InventoryCheckDetailResponse(InventoryCheckResponse):
+    items: list[InventoryCheckLineResponse] = []
+    purchase_doc_id: UUID | None = None
+    purchase_doc_number: int | None = None
+    expense_doc_id: UUID | None = None
+    expense_doc_number: int | None = None
 
 
 # ── Write-Off ──────────────────────────────────────────────
@@ -184,6 +253,10 @@ class ExpenseDocumentResponse(BaseResponseSchema):
     status: str
     created_by_name: str | None
     note: str | None
+
+
+class ExpenseDocumentDetailResponse(ExpenseDocumentResponse):
+    items: list[ExpenseItemResponse] = []
 
 
 # ── Waste Document (Отход) ─────────────────────────────────

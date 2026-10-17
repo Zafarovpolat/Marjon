@@ -10,7 +10,7 @@ const SOURCE_RECT = {
   height: 120,
 };
 
-function MotionHarness({ onClose, motionMode = "anchored" }) {
+function MotionHarness({ onClose, motionMode = "anchored", escapeDisabled = false }) {
   const triggerRef = useRef(null);
   const {
     dialogRef,
@@ -24,6 +24,7 @@ function MotionHarness({ onClose, motionMode = "anchored" }) {
     motionMode,
     sourceRect: motionMode === "anchored" ? SOURCE_RECT : undefined,
     returnFocusRef: triggerRef,
+    escapeDisabled,
   });
 
   return (
@@ -104,5 +105,18 @@ describe("useAnchoredDialogMotion", () => {
     expect(onClose).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores Escape while a nested layer owns it", () => {
+    vi.useFakeTimers();
+    const onClose = vi.fn();
+    const { rerender } = render(<MotionHarness onClose={onClose} escapeDisabled />);
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByTestId("backdrop")).not.toHaveClass("is-motion-closing");
+    vi.advanceTimersByTime(300);
+    expect(onClose).not.toHaveBeenCalled();
+    rerender(<MotionHarness onClose={onClose} escapeDisabled={false} />);
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByTestId("backdrop")).toHaveClass("is-motion-closing");
   });
 });

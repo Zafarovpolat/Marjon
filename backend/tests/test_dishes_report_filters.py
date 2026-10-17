@@ -282,6 +282,7 @@ async def test_dishes_filters_preserve_tenant_scope_and_payment_aggregation(clie
         # Empty selection → cost/profit unknown (null), coverage False.
         "totals": {
             "quantity": "0", "amount": "0.00",
+            "orders_count": 0,
             "cost_total": None, "profit": None, "cost_coverage_complete": False,
         },
     }
@@ -553,6 +554,7 @@ async def _assert_waiter_metadata_uses_current_company_roles(client, sessions):
         "rows": [],
         "totals": {
             "quantity": "0", "amount": "0.00",
+            "orders_count": 0,
             "cost_total": None, "profit": None, "cost_coverage_complete": False,
         },
     }

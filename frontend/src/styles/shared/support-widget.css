@@ -1,0 +1,72 @@
+/* Global support widget refinements: canonical turquoise toggle, balanced
+   header without subtitle, soft show/hide. Unlayered file imported after
+   react-overrides, so these narrow rules win deterministically without
+   touching the shared overrides file. No geometry changes to page shells. */
+
+.support-widget__toggle {
+  background: #1FC9C9;
+}
+
+.support-widget__toggle:hover:not(:disabled),
+.support-widget__toggle:focus-visible:not(:disabled) {
+  transform: translateY(-2px);
+  background: #1AB5B5;
+  box-shadow: 0 8px 18px rgba(31, 201, 201, 0.28);
+  filter: none;
+}
+
+/* Header rebalanced after subtitle removal: no blank gap. */
+.support-widget__header {
+  min-height: 66px;
+  padding: 16px 20px;
+}
+
+/* Soft hide/show: fades with a few pixels of travel, then unmounts from JS.
+   While hiding the control is inert (disabled + aria-hidden in JSX). */
+.support-widget {
+  transition: opacity 180ms ease;
+}
+
+.support-widget__toggle {
+  transition: opacity 180ms ease, transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.support-widget.is-entering,
+.support-widget.is-hiding,
+.support-widget.is-hiding .support-widget__toggle,
+.support-widget.is-hiding .support-widget__panel {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.support-widget.is-hiding .support-widget__toggle,
+.support-widget.is-entering .support-widget__toggle {
+  transform: translateY(6px) scale(0.96);
+}
+
+/* Only the support setting: replace the un-animatable margin-left:auto.
+   Existing 46x26 track, 3px inset and 20px thumb give 20px travel. */
+.company-profile-toggle--support .company-profile-toggle__track {
+  transition: background-color 180ms ease;
+}
+
+.company-profile-toggle--support .company-profile-toggle__thumb {
+  flex-shrink: 0;
+  margin-left: 0;
+  transform: translateX(0);
+  transition: transform 180ms ease;
+}
+
+.company-profile-toggle--support input:checked + .company-profile-toggle__track .company-profile-toggle__thumb {
+  margin-left: 0;
+  transform: translateX(20px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .support-widget,
+  .support-widget__toggle,
+  .company-profile-toggle--support .company-profile-toggle__track,
+  .company-profile-toggle--support .company-profile-toggle__thumb {
+    transition-duration: 0.01ms;
+  }
+}

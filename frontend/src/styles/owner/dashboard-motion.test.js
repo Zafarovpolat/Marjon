@@ -191,4 +191,11 @@ describe("owner account area refinement", () => {
     expect(block).toMatch(/\.dashboard-sidebar \.brand-mark,[\s\S]*?\.dashboard-sidebar \.brand-mark--button \{[^}]*width:\s*52px;[^}]*border:\s*0;/s);
     expect(block).toMatch(/\.brand-title \{[^}]*font-weight:\s*800;/s);
   });
+
+  it("paints active nav links with the turquoise gradient sheen", () => {
+    const css = readFileSync(resolve("src/styles/owner/dashboard.css"), "utf8").replaceAll("\r\n", "\n");
+    expect(css).toMatch(/\.sidebar-link\.is-active \{[^}]*background:\s*linear-gradient\(135deg, #4ae3e3 0%, var\(--owner-accent, #1fc9c9\) 48%, #0da3a3 100%\);/s);
+    // Тёмная тема гасит фон своим ID-правилом — дубликат бьёт весом (1,6,1).
+    expect(css).toMatch(/nav\.sidebar-nav \.sidebar-link\.is-active \{[^}]*background:\s*linear-gradient\(135deg, #4ae3e3 0%, var\(--owner-accent, #1fc9c9\) 48%, #0da3a3 100%\);/s);
+  });
 });

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.session import get_db
 from app.modules.auth.models import User
 from app.modules.auth.repository import UserRepository
-from app.modules.auth.security import decode_token
+from app.modules.auth.security import decode_token, is_access_token_current
 from app.modules.rbac.models import Role, UserRole
 from app.shared.exceptions import ForbiddenError
 from app.shared.exceptions import UnauthorizedError
@@ -65,6 +65,8 @@ async def get_current_user(
     user = await UserRepository(db).get_by_id(user_id)
     if not user or not user.is_active:
         raise UnauthorizedError("User not found or inactive")
+    if not is_access_token_current(payload, user):
+        raise UnauthorizedError("Session expired; sign in again")
     # Transient, not persisted — records what THIS SESSION's token was scoped
     # to (BE-01), so guards can tell an hq_admin session from a regular one
     # even for the same superadmin user.

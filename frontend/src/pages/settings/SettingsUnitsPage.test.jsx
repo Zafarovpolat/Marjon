@@ -7,15 +7,18 @@ import SettingsUnitsPage, { formToPayload, mapRow, resetUnitsCacheForTest } from
 vi.mock("../../api/settings", () => ({
   settingsService: {
     listResource: vi.fn(),
-    createResource: vi.fn(() => Promise.resolve({ data: { id: "new" } })),
+    createResource: vi.fn(() => Promise.resolve({ data: {
+      id: "new", name: "Метр", short_name: "м", sort: 0, status: true,
+      company_id: "company-a", is_global: false,
+    } })),
     updateResource: vi.fn(() => Promise.resolve({ data: {} })),
     deleteResource: vi.fn(() => Promise.resolve({ data: {} })),
   },
 }));
 
 const UNITS = [
-  { id: "u-g", name: "Граммы", short_name: "г", sort: 1, status: true },
-  { id: "u-kg", name: "Килограммы", short_name: "кг", sort: 2, status: false },
+  { id: "u-g", name: "Граммы", short_name: "г", sort: 1, status: true, company_id: "company-a", is_global: false },
+  { id: "u-kg", name: "Килограммы", short_name: "кг", sort: 2, status: false, company_id: null, is_global: true },
 ];
 
 const EXPECTED_HEADERS = ["Сорт", "Название", "Короткое название", "Статус", "Действия"];
@@ -68,12 +71,25 @@ describe("SettingsUnitsPage — table contract (no mock rows)", () => {
     expect(within(archived).getByText("Неактивен")).toBeInTheDocument();
   });
 
-  it("shows inline sort inputs bound to server values", async () => {
+  it("renders Sort as centered plain text in the shared table geometry", async () => {
     render(<SettingsUnitsPage />);
-    await screen.findByText("Граммы");
-    const inputs = document.querySelectorAll(".settings-inline-input");
-    expect(inputs).toHaveLength(2);
-    expect(inputs[0].value).toBe("1");
+    const companyRow = (await screen.findByText("Граммы")).closest("tr");
+    const globalRow = screen.getByText("Килограммы").closest("tr");
+    expect(within(companyRow).getAllByRole("cell")[0]).toHaveTextContent("1");
+    expect(within(globalRow).getAllByRole("cell")[0]).toHaveTextContent("2");
+    expect(document.querySelector(".settings-inline-input")).toBeNull();
+    expect(document.querySelectorAll("colgroup .units-col-sort")).toHaveLength(1);
+  });
+
+  it("renders global and company units with global row read-only", async () => {
+    render(<SettingsUnitsPage />);
+    const companyRow = (await screen.findByText("Граммы")).closest("tr");
+    const globalRow = screen.getByText("Килограммы").closest("tr");
+    expect(within(companyRow).getByRole("button", { name: /Редактировать/ })).toBeEnabled();
+    expect(within(companyRow).getByRole("button", { name: /Удалить/ })).toBeEnabled();
+    expect(within(globalRow).getByText("Системная")).toBeInTheDocument();
+    expect(within(globalRow).getByRole("button", { name: /Редактировать/ })).toBeDisabled();
+    expect(within(globalRow).getByRole("button", { name: /Удалить/ })).toBeDisabled();
   });
 
   it("shows loading without premature empty, error without fake empty", async () => {
@@ -147,11 +163,13 @@ describe("SettingsUnitsPage — add/edit modal contract", () => {
       name: "Шт",
       shortName: "шт",
       active: false,
+      companyId: null,
+      isGlobal: true,
     });
   });
 });
 
-describe("SettingsUnitsPage — truthful 403/409 behavior (no fake persistence)", () => {
+describe("SettingsUnitsPage — real owner mutations and truthful errors", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
@@ -169,13 +187,43 @@ describe("SettingsUnitsPage — truthful 403/409 behavior (no fake persistence)"
     return dialog;
   }
 
-  it("403 create keeps modal open with owner-limitation error, adds no row", async () => {
+  it("Add submits real POST without company_id and renders the server response", async () => {
+    const dialog = await openAddAndFill();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Сохранить" }));
+    await waitFor(() => expect(settingsService.createResource).toHaveBeenCalledWith("units", {
+      name: "Метр", short_name: "м", status: true,
+    }));
+    expect(await screen.findByText("Метр")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("failed create keeps modal open, uses backend detail and adds no fake row", async () => {
     settingsService.createResource.mockRejectedValueOnce(conflict(403, "Forbidden"));
     const dialog = await openAddAndFill();
     fireEvent.click(within(dialog).getByRole("button", { name: "Сохранить" }));
-    expect(await within(dialog).findByText("Изменение единиц измерения пока недоступно для владельца.")).toBeInTheDocument();
+    expect(await within(dialog).findByText("Forbidden")).toBeInTheDocument();
+    expect(screen.queryByText("Изменение единиц измерения пока недоступно для владельца.")).toBeNull();
     expect(screen.queryByText("Метр")).toBeNull();
     expect(localStorage.length).toBe(0);
+  });
+
+  it("company row edit and status use the real PATCH response", async () => {
+    settingsService.updateResource.mockResolvedValueOnce({ data: {
+      ...UNITS[0], name: "Граммы edited", status: false,
+    } });
+    render(<SettingsUnitsPage />);
+    await screen.findByText("Граммы");
+    fireEvent.click(screen.getAllByRole("button", { name: /Редактировать/ })[0]);
+    const dialog = await screen.findByRole("dialog");
+    const inputs = within(dialog).getAllByRole("textbox");
+    fireEvent.change(inputs[0], { target: { value: "Граммы edited" } });
+    fireEvent.click(dialog.querySelector(".settings-switch input[type=checkbox]"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Сохранить" }));
+    await waitFor(() => expect(settingsService.updateResource).toHaveBeenCalledWith(
+      "units", "u-g", { name: "Граммы edited", short_name: "г", status: false },
+    ));
+    const row = (await screen.findByText("Граммы edited")).closest("tr");
+    expect(within(row).getByText("Неактивен")).toBeInTheDocument();
   });
 
   it("403 edit keeps canonical values, no fake status flip", async () => {
@@ -186,22 +234,17 @@ describe("SettingsUnitsPage — truthful 403/409 behavior (no fake persistence)"
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Сохранить" }));
     await waitFor(() => expect(
-      within(dialog).getByText("Изменение единиц измерения пока недоступно для владельца."),
+      within(dialog).getByText("Forbidden"),
     ).toBeInTheDocument());
     expect(screen.queryByRole("dialog")).not.toBeNull();
   });
 
-  it("403 inline sort reverts to server value with truthful error", async () => {
-    settingsService.updateResource.mockRejectedValueOnce(conflict(403, "Forbidden"));
+  it("does not expose an inline sort mutation while preserving the server value", async () => {
     render(<SettingsUnitsPage />);
-    await screen.findByText("Граммы");
-    const input = document.querySelectorAll(".settings-inline-input")[0];
-    fireEvent.change(input, { target: { value: "9" } });
-    fireEvent.blur(input);
-    await waitFor(() => expect(
-      screen.getAllByText("Изменение единиц измерения пока недоступно для владельца.").length,
-    ).toBeGreaterThan(0));
-    expect(input.value).toBe("1");
+    const row = (await screen.findByText("Граммы")).closest("tr");
+    expect(within(row).getAllByRole("cell")[0]).toHaveTextContent("1");
+    expect(row.querySelector("input")).toBeNull();
+    expect(settingsService.updateResource).not.toHaveBeenCalled();
   });
 
   it("403 delete keeps the row with truthful error", async () => {
@@ -211,7 +254,7 @@ describe("SettingsUnitsPage — truthful 403/409 behavior (no fake persistence)"
     fireEvent.click(screen.getAllByRole("button", { name: /Удалить/ })[0]);
     fireEvent.click(await screen.findByRole("button", { name: "Удалить" }));
     await waitFor(() => expect(
-      screen.getAllByText("Изменение единиц измерения пока недоступно для владельца.").length,
+      screen.getAllByText("Forbidden").length,
     ).toBeGreaterThan(0));
     expect(screen.getAllByText("Граммы").length).toBeGreaterThan(0);
   });
@@ -375,9 +418,23 @@ describe("SettingsUnitsPage — session cache (stale-while-revalidate, memory on
     expect(localStorage.length).toBe(0);
     expect(sessionStorage.length).toBe(0);
   });
+
+  it("fresh mount after cache reset renders only the latest server state", async () => {
+    settingsService.listResource.mockResolvedValueOnce({ data: UNITS });
+    const first = renderPage();
+    expect(await first.findByText("Граммы")).toBeInTheDocument();
+    first.unmount();
+    resetUnitsCacheForTest();
+    settingsService.listResource.mockResolvedValueOnce({ data: [{
+      ...UNITS[0], name: "После F5",
+    }] });
+    renderPage();
+    expect(await screen.findByText("После F5")).toBeInTheDocument();
+    expect(screen.queryByText("Граммы")).toBeNull();
+  });
 });
 
-describe("SettingsUnitsPage — 403 status-toggle truth", () => {
+describe("SettingsUnitsPage — status mutation truth", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
@@ -394,21 +451,24 @@ describe("SettingsUnitsPage — 403 status-toggle truth", () => {
     fireEvent.click(toggle);
     fireEvent.click(within(dialog).getByRole("button", { name: "Сохранить" }));
     await waitFor(() => expect(
-      within(dialog).getByText("Изменение единиц измерения пока недоступно для владельца."),
+      within(dialog).getByText("Forbidden"),
     ).toBeInTheDocument());
     expect(screen.queryByRole("dialog")).not.toBeNull();
   });
 });
 
 describe("SettingsUnitsPage — visual contract locks", () => {
-  it("pins teal accents, journal geometry and column alignment", () => {
+  it("pins teal accents and one centered colgroup geometry", () => {
     const css = readFileSync(`${process.cwd()}/src/pages/settings/SettingsUnitsPage.css`, "utf8");
     expect(css).toContain("background: #1fc9c9");
-    expect(css).toContain("min-width: 640px");
-    expect(css).toContain("td:nth-child(1)");
-    expect(css).toContain("padding-left: 27px");
-    expect(css).toContain("td:nth-child(4)");
-    expect(css).toContain("padding-right: 5px");
-    expect(css).toContain("justify-content: flex-end");
+    expect(css).toContain("table-layout: fixed");
+    expect(css).toContain(".units-col-sort { width: 12%; }");
+    expect(css).toContain(".units-col-name { width: 30%; }");
+    expect(css).toContain(".units-col-short { width: 22%; }");
+    expect(css).toContain(".units-col-status { width: 18%; }");
+    expect(css).toContain(".units-col-actions { width: 18%; }");
+    expect(css).toContain("text-align: center");
+    expect(css).toContain("justify-content: center");
+    expect(css).not.toContain("translateX");
   });
 });

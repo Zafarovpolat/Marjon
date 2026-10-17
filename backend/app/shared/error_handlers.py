@@ -50,12 +50,16 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+        errors = exc.errors()
+        if request.url.path.endswith("/auth/change-password"):
+            # Validation responses must never echo this request's secrets.
+            errors = [{k: v for k, v in err.items() if k not in {"input", "ctx"}} for err in errors]
         field_errors: dict[str, str] = {}
-        for err in exc.errors():
+        for err in errors:
             loc = ".".join(str(p) for p in err.get("loc", ()) if p != "body")
             field_errors[loc or "_"] = err.get("msg", "Invalid value")
         body = _envelope(
-            jsonable_encoder(exc.errors()),
+            jsonable_encoder(errors),
             code="VALIDATION_ERROR", message="Ошибка валидации данных",
             field_errors=field_errors,
         )

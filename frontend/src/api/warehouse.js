@@ -28,11 +28,26 @@ export const warehouseService = Object.freeze({
   listWarehouses(config) {
     return config ? api.get("/warehouse/list", config) : api.get("/warehouse/list");
   },
+  // V36: склады — создание/переименование/удаление (POST/PATCH/DELETE
+  // /warehouse/list). Удаление занятого склада бэк отклоняет 409.
+  createWarehouse(payload) {
+    return api.post("/warehouse/list", payload);
+  },
+  updateWarehouse(id, payload) {
+    return api.patch(`/warehouse/list/${id}`, payload);
+  },
+  deleteWarehouse(id) {
+    return api.delete(`/warehouse/list/${id}`);
+  },
   listIngredients(config) {
     return config ? api.get("/inventory/ingredients", config) : api.get("/inventory/ingredients");
   },
   listStock(config) {
     return config ? api.get("/inventory/stock", config) : api.get("/inventory/stock");
+  },
+  // V46 FIFO: разбивка остатка по партиям (старые первыми).
+  listBatches(params, config) {
+    return api.get("/inventory/stock/batches", { ...(config || {}), params });
   },
 
   // --- Документы прихода: создать → провести → удалить -----------------------
@@ -42,6 +57,9 @@ export const warehouseService = Object.freeze({
   createPurchase(payload) {
     return api.post("/warehouse/purchases", payload);
   },
+  getPurchase(id, config) {
+    return config ? api.get(`/warehouse/purchases/${id}`, config) : api.get(`/warehouse/purchases/${id}`);
+  },
   acceptPurchase(id) {
     return api.patch(`/warehouse/purchases/${id}`, { status: "accepted" });
   },
@@ -49,11 +67,30 @@ export const warehouseService = Object.freeze({
     return api.delete(`/warehouse/purchases/${id}`);
   },
 
+  // --- Инвентаризация (V42): шапка + позиции + автодокументы корректировки --
+  // Излишки (факт > остатка) → документ прихода, недостачи → документ расхода.
+  // apply_to_stock=false — только шапка, остатки не двигаются.
+  createInventory(payload) {
+    return api.post("/warehouse/inventory-checks", payload);
+  },
+  getInventory(id, config) {
+    return config ? api.get(`/warehouse/inventory-checks/${id}`, config) : api.get(`/warehouse/inventory-checks/${id}`);
+  },
+  updateInventory(id, payload) {
+    return api.patch(`/warehouse/inventory-checks/${id}`, payload);
+  },
+  deleteInventory(id) {
+    return api.delete(`/warehouse/inventory-checks/${id}`);
+  },
+
   // --- Документы расхода (Расход, WH-01) -------------------------------------
   // Зеркалит приход, но проведение УМЕНЬШАЕТ остатки (StockMovement "expense").
   // Проведение при нехватке остатка → 422 (документ остаётся черновиком).
   createExpense(payload) {
     return api.post("/warehouse/expenses", payload);
+  },
+  getExpense(id, config) {
+    return config ? api.get(`/warehouse/expenses/${id}`, config) : api.get(`/warehouse/expenses/${id}`);
   },
   acceptExpense(id) {
     return api.patch(`/warehouse/expenses/${id}`, { status: "accepted" });

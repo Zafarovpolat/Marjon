@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Awaitable, Callable
 from uuid import UUID
 
@@ -17,12 +18,15 @@ from app.modules.finance.idempotency import (
 from app.modules.finance.models import FinancialOperation
 from app.modules.fiscal.runtime import FiscalRuntime, get_fiscal_runtime
 from app.modules.fiscal.service import FiscalService
+from app.modules.inventory.service import StockService
 from app.modules.kitchen.websocket import kitchen_manager
 from app.modules.payments.models import Payment
 from app.modules.payments.repository import PaymentRepository
 from app.modules.payments.schemas import PaymentCreate
 from app.modules.pos.models import Order
 from app.shared.exceptions import ConflictError, NotFoundError, ValidationError
+
+logger = logging.getLogger(__name__)
 
 
 FailureInjector = Callable[[str], Awaitable[None]]
@@ -148,6 +152,19 @@ class PaymentService:
             self.db.add(order)
             await self.db.flush()
             await self._checkpoint("after_order")
+
+            # Списание сырья по рецептам блюд завершённого заказа.
+            # Идемпотентно (повторная оплата того же заказа не спишет
+            # дважды); минус разрешён. Ошибка списания не должна ронять
+            # оплату — логируем и продолжаем.
+            try:
+                await StockService(self.db).deduct_for_order(
+                    company_id, order.id, created_by=cashier_id
+                )
+            except Exception:
+                logger.exception(
+                    "recipe stock deduction failed for order %s", order.id
+                )
 
             if fiscal_plan is not None:
                 await fiscal.schedule_payment(

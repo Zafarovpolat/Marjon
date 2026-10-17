@@ -7,12 +7,12 @@ import Icon from "../Icon";
 export default function SidebarMobileNav({
   visibleNavItems,
   location,
+  dashboardTo = "/",
   moreOpen,
   setMoreOpen,
   canOpenProfile,
   profilePhoto,
   displayName,
-  profileCardRole,
   handleLogout,
   navigate,
 }) {
@@ -58,7 +58,6 @@ export default function SidebarMobileNav({
                   </div>
                   <div className="mobile-drawer-item__user-meta">
                     <strong>{displayName}</strong>
-                    <span>{profileCardRole}</span>
                   </div>
                   <Icon name="bi-chevron-right" size={14} className="mobile-drawer-item__chevron" aria-hidden="true" />
                 </button>
@@ -84,7 +83,7 @@ export default function SidebarMobileNav({
           return (
             <Link
               key={item.key}
-              to={item.to}
+              to={item.key === "dashboard" ? dashboardTo : item.to}
               className={`mobile-nav-item${active ? " is-active" : ""}`}
               onClick={() => setMoreOpen(false)}
             >

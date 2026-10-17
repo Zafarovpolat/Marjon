@@ -569,6 +569,18 @@
   color: #e5484d;
   background: rgba(229, 72, 77, 0.10);
 }
+/* Дефицит сырья: та же карточка, но кликабельная (кнопка) + янтарный тон. */
+button.owner-notif__item--low {
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.owner-notif__item--low .owner-notif__icon--low,
+.owner-notif__icon--low {
+  color: #d97706;
+  background: rgba(217, 119, 6, 0.12);
+}
 .owner-notif__empty {
   display: grid;
   justify-items: center;
@@ -648,7 +660,7 @@
   padding: 8px 9px;
   border-color: rgba(15, 35, 60, 0.12);
   background: #ffffff;
-  box-shadow: 0 2px 7px rgba(15, 35, 60, 0.045);
+  box-shadow: 0 4px 10px rgba(15, 35, 60, 0.065);
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
 
@@ -685,6 +697,22 @@
   outline: 0;
   border-color: rgba(29, 181, 181, 0.6);
   box-shadow: 0 0 0 3px rgba(29, 181, 181, 0.12);
+}
+
+/* Исключение из dashboard-flat resting surfaces: dashboard.css сносит тени
+   покоя под KPI-band, возвращая их только на hover/focus. У попапа курсов и
+   его карточек тень постоянная — специфичность выше гасителя (0,8,1 > 0,7,1),
+   файл неслоёный, поэтому бьёт и слой marjon-important. */
+body.dashboard-body:has(.dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band) .dashboard-topbar .topbar-info-widgets .usd-rate-popover {
+  box-shadow: 0 32px 90px rgba(2, 8, 23, 0.35),
+    0 6px 22px rgba(2, 8, 23, 0.14),
+    0 1px 0 rgba(255, 255, 255, 0.63) inset;
+}
+body.dashboard-body:has(.dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band) .dashboard-topbar .topbar-info-widgets .currency-rate-card:not(.is-active) {
+  box-shadow: 0 4px 10px rgba(15, 35, 60, 0.065);
+}
+body.dashboard-body:has(.dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band) .dashboard-topbar .topbar-info-widgets .currency-rate-card.is-active {
+  box-shadow: 0 3px 9px rgba(29, 181, 181, 0.1);
 }
 
 .usd-rate-popover__meta {

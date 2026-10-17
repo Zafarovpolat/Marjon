@@ -1,0 +1,31 @@
+.company-profile-page .company-profile-password-form .company-profile-field-list > label > span > b,
+.company-profile-page .company-profile-main-settings .company-profile-field-list > label > span > b,
+.company-profile-page .company-profile-main-settings .company-profile-order-row > span > b {
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+/* Desktop settings frame stays anchored; only its contents may scroll.
+   Mobile keeps the existing stacked layout and document navigation. */
+@media (min-width: 1025px) {
+  body.dashboard-body .dashboard-shell .dashboard-content:has(> .company-profile-page) {
+    overflow: clip;
+  }
+
+  .company-profile-page > .company-profile-shell {
+    height: calc(100dvh - 110px);
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .company-profile-shell > .company-profile-content,
+  .company-profile-shell > .company-profile-nav {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+
+  .company-profile-shell > .company-profile-content {
+    scrollbar-gutter: stable;
+  }
+}

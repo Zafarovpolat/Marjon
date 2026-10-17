@@ -116,9 +116,9 @@
    */
 
   .sidebar-link.is-active {
-    background: linear-gradient(90deg, var(--color-brand) 0%, var(--color-brand-hover) 100%);
-    border-color: transparent;
-    box-shadow: 0 8px 20px rgba(29, 181, 181, 0.25);
+    background: linear-gradient(90deg, #16616d 0%, #1a9aa1 38%, #1cc2c2 68%, #4fe0db 100%);
+    border-color: rgba(126, 216, 210, 0.65);
+    box-shadow: 0 12px 28px rgba(28, 194, 194, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
   }
 
   .sidebar-link.is-active::before {

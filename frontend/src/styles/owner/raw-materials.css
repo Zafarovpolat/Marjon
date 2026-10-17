@@ -1,0 +1,262 @@
+/* Сырьё — scoped дополнения поверх живой семьи Dishes.
+   Базовая геометрия-палитра-анимация берётся из dishes.css через те же
+   классы dish-catalog, dish-status-tabs, dish-filter, dish-grid.
+   Здесь только raw-специфика: 2-полевый фильтр (поиск + категория),
+   7 колонок (№, Название, Категория, Ед.изм, Блюда, Статус, Действия —
+   без фото), бейджи, responsive. Без правок Dishes. */
+
+.raw-materials-page .raw-filter-panel {
+  grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 0.9fr) auto;
+}
+
+.raw-materials-page .raw-grid-table {
+  width: 100%;
+  min-width: 900px;
+}
+
+/* FIT: 6 колонок должны помещаться без внутреннего скролла на десктопе.
+   Таблица несёт класс dish-grid-table, а dish-правило
+   .dish-catalog-page.owner-report-view .dish-grid-table (0,3,0) тянет
+   min-width 1660px и перебивает правило выше (0,2,0). Поэтому fit даём
+   селектором (0,4,0): свои колонки — width:100% + min-width:0,
+   table-layout:fixed уже пришёл из dish-семьи. Ширины колонок заданы в %
+   (сумма 100%): «Название» 30%, остальные делят ширину, поэтому Категория/
+   Ед.изм/Блюда стоят левее и шире, без большого пустого «Название». */
+.dish-catalog-page.owner-report-view.raw-materials-page .raw-grid-table {
+  width: 100%;
+  min-width: 0;
+}
+
+.raw-materials-page .raw-grid-table thead th {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.raw-materials-page .raw-col-num {
+  width: 5%;
+}
+
+.raw-materials-page .raw-col-name {
+  width: 30%;
+}
+
+.raw-materials-page .raw-col-category {
+  width: 17%;
+}
+
+.raw-materials-page .raw-col-unit {
+  width: 13%;
+}
+
+.raw-materials-page .raw-col-dishes {
+  width: 17%;
+}
+
+/* Все колонки по центру (V27-паритет с блюдами), КРОМЕ «Название». */
+.dish-catalog-page.owner-report-view.raw-materials-page .raw-grid-table th,
+.dish-catalog-page.owner-report-view.raw-materials-page .raw-grid-table td {
+  text-align: center;
+}
+
+/* «Название» — влево, к колонке нумерации (№): текст начинается сразу после
+   номера, а не висит по центру широкой auto-колонки. Специфичность с body +
+   .raw-col-name (th/td = 0,6,2; span = 0,7,1) бьёт и общий center выше, и
+   базовый dish-center (body.dashboard-body … .dish-grid-table th/td = 0,4,2). */
+body.dashboard-body .dish-catalog-page.owner-report-view.raw-materials-page .raw-grid-table th.raw-col-name,
+body.dashboard-body .dish-catalog-page.owner-report-view.raw-materials-page .raw-grid-table td.raw-col-name {
+  text-align: left;
+  text-indent: 18px;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view.raw-materials-page .raw-grid-table .raw-col-name .raw-name-text {
+  text-align: left;
+  text-indent: 18px;
+}
+
+/* Категория / Ед.изм / Блюда — тоже влево (как «Название»): содержимое прижато
+   к левому краю ячейки, а не по центру. Специфичность (0,6,2) бьёт общий center
+   выше и базовый dish-center (0,4,2). Бейдж категории и ссылка «Блюда» —
+   inline-flex, поэтому реагируют на text-align. */
+body.dashboard-body .dish-catalog-page.owner-report-view.raw-materials-page .raw-grid-table th.raw-col-category,
+body.dashboard-body .dish-catalog-page.owner-report-view.raw-materials-page .raw-grid-table td.raw-col-category,
+body.dashboard-body .dish-catalog-page.owner-report-view.raw-materials-page .raw-grid-table th.raw-col-unit,
+body.dashboard-body .dish-catalog-page.owner-report-view.raw-materials-page .raw-grid-table td.raw-col-unit,
+body.dashboard-body .dish-catalog-page.owner-report-view.raw-materials-page .raw-grid-table th.raw-col-dishes,
+body.dashboard-body .dish-catalog-page.owner-report-view.raw-materials-page .raw-grid-table td.raw-col-dishes {
+  text-align: left;
+}
+
+.raw-materials-page .raw-col-status {
+  width: 10%;
+}
+
+.raw-materials-page .raw-col-actions {
+  width: 8%;
+}
+
+.raw-materials-page .raw-name-text {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.raw-materials-page .raw-money-cell {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Поле значения потери — та же геометрия, что триггер DishSingleSelect
+   (min-height 43px, радиус 12px), чтобы пара «Тип/Значение» стояла ровно. */
+.raw-materials-page .dish-form-field__input {
+  width: 100%;
+  min-height: 43px;
+  padding: 0 12px;
+  border: 1px solid rgba(15, 35, 60, 0.24);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--neutral-950, #071428);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.raw-materials-page .dish-form-field__input::placeholder {
+  color: var(--neutral-400, #7a94b4);
+}
+
+.raw-materials-page .dish-form-field__input:hover:not(:disabled) {
+  border-color: rgba(31, 201, 201, 0.55);
+}
+
+.raw-materials-page .dish-form-field__input:focus-visible {
+  border-color: var(--owner-accent, #1fc9c9);
+  box-shadow: 0 0 0 3px rgba(31, 201, 201, 0.18);
+}
+
+.raw-materials-page .dish-form-field__input:disabled {
+  background: #f1f5f9;
+  color: var(--neutral-400, #94a3b8);
+  cursor: not-allowed;
+}
+
+/* Суффикс единицы внутри поля значения потери: «0.1 Лт», процента: «10%».
+   Дровер рендерится порталом в document.body — вне .raw-materials-page,
+   поэтому скоп продублирован на .dish-drawer (классы поля уникальны сырью). */
+.raw-materials-page .dish-form-field__wrap,
+.dish-drawer .dish-form-field__wrap {
+  position: relative;
+}
+
+.raw-materials-page .dish-form-field__wrap .dish-form-field__input,
+.dish-drawer .dish-form-field__wrap .dish-form-field__input {
+  padding-right: 46px;
+}
+
+.raw-materials-page .dish-form-field__suffix,
+.dish-drawer .dish-form-field__suffix {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+/* Невидимое зеркало текста поля потери: повторяет метрики инпута
+   (шрифт 13px, отступ слева 1px бордер + 12px паддинг), чтобы замерить
+   ширину значения и поставить суффикс вплотную к нему. Пустое поле —
+   суффикс остаётся у правого края как подсказка. */
+.raw-materials-page .dish-form-field__mirror,
+.dish-drawer .dish-form-field__mirror {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding-left: 13px;
+  font: inherit;
+  font-size: 13px;
+  white-space: pre;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.raw-materials-page .raw-category-badge {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 3px 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 1px solid rgba(208, 217, 232, 0.9);
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.raw-materials-page .raw-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid rgba(31, 201, 201, 0.35);
+  border-radius: 999px;
+  background: rgba(31, 201, 201, 0.08);
+  color: #0e7490;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.raw-materials-page .raw-status-badge.is-archived {
+  border-color: rgba(100, 116, 139, 0.35);
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.raw-materials-page .raw-empty-cell {
+  padding: 28px 16px;
+  text-align: center;
+  color: #64748b;
+}
+
+/* Планшет: фильтр 2+1, шапка сохраняет линию заголовок/контролы до 1024. */
+@media (max-width: 1100px) {
+  .raw-materials-page .raw-filter-panel {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .raw-materials-page .raw-filter-panel .report-filter-buttons {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
+/* Мобильный: контролы переносятся без перекрытий, страница не скроллится
+   горизонтально — скролл только внутри .dish-grid-scroll. */
+@media (max-width: 768px) {
+  .raw-materials-page .dish-catalog-header {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .raw-materials-page .dish-header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .raw-materials-page .raw-filter-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .raw-materials-page .raw-grid-table {
+    min-width: 0;
+  }
+}

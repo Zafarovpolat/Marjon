@@ -23,11 +23,17 @@ class ProductRepository(TenantRepository[Product]):
     def __init__(self, db: AsyncSession):
         super().__init__(Product, db)
 
+    def _base_query(self, company_id: UUID):
+        # V40: последовательности разделены по product_type — смешанные списки
+        # группируем сначала по типу, затем по позиции (детерминированно).
+        return super()._base_query(company_id).order_by(
+            Product.product_type, Product.sort_order, Product.created_at, Product.id,
+        )
+
     async def get_available(self, company_id: UUID) -> list[Product]:
         result = await self.db.execute(
             self._base_query(company_id)
             .where(Product.is_active == True, Product.is_available == True)
-            .order_by(Product.sort_order)
         )
         return list(result.scalars().all())
 
@@ -53,13 +59,33 @@ class StockItemRepository(TenantRepository[StockItem]):
         super().__init__(StockItem, db)
 
     async def get_low_stock(self, company_id: UUID) -> list[StockItem]:
-        from sqlalchemy import and_
-        result = await self.db.execute(
-            self._base_query(company_id).where(
-                StockItem.quantity <= StockItem.min_quantity
+        from sqlalchemy import and_, or_
+        from app.modules.inventory.models import Ingredient
+        # V47: порог из карточки продукта (deficit_threshold) действует,
+        # когда у складской строки свой порог не задан (min_quantity = 0).
+        # Строковый порог конкретнее — он побеждает при обоих заданных.
+        # Outer join: строки с удалённым шаблоном видны как раньше.
+        return list((await self.db.execute(
+            select(StockItem)
+            .outerjoin(
+                Ingredient,
+                and_(
+                    Ingredient.id == StockItem.ingredient_id,
+                    Ingredient.company_id == company_id,
+                ),
             )
-        )
-        return list(result.scalars().all())
+            .where(
+                StockItem.company_id == company_id,
+                or_(
+                    StockItem.quantity <= StockItem.min_quantity,
+                    and_(
+                        StockItem.min_quantity <= 0,
+                        Ingredient.deficit_threshold.is_not(None),
+                        StockItem.quantity <= Ingredient.deficit_threshold,
+                    ),
+                ),
+            )
+        )).scalars().all())
 
 
 class StockMovementRepository(TenantRepository[StockMovement]):

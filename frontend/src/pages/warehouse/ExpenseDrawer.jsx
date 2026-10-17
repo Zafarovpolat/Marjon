@@ -1,18 +1,15 @@
 import { useMemo, useState } from "react";
 import Icon from "../../components/Icon";
+import Toast from "../../components/Toast";
 
 // Ключ строки — стабильный локальный id (индекс не годится: строки удаляются).
 let rowSeq = 0;
-const newRow = () => ({ key: `exp-${rowSeq++}`, ingredientId: "", quantity: "", unit: "", costPrice: "" });
+const newRow = () => ({ key: `exp-${rowSeq++}`, ingredientId: "", quantity: "", unit: "" });
 
 function today() {
   const now = new Date();
   const pad = (n) => String(n).padStart(2, "0");
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
-
-function lineTotal(row) {
-  return (Number(row.quantity) || 0) * (Number(row.costPrice) || 0);
 }
 
 /**
@@ -23,8 +20,10 @@ function lineTotal(row) {
  * Позиция обязана ссылаться на ингредиент (ingredient_id) — иначе при
  * проведении остаток по ней не сдвинется (бэкенд пропускает строки без
  * ингредиента). Проведение при нехватке остатка вернёт 422.
+ * V46 FIFO: цена считается бэкендом по старым партиям первыми —
+ * поле цены убрано, в payload всегда cost_price: 0.
  */
-function ExpenseDrawer({ warehouses, ingredients, saving, error, onClose, onSubmit }) {
+function ExpenseDrawer({ warehouses, ingredients, saving, error, onClose, onSubmit, onClearError = null }) {
   const [receiver, setReceiver] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
   const [date, setDate] = useState(today);
@@ -36,9 +35,6 @@ function ExpenseDrawer({ warehouses, ingredients, saving, error, onClose, onSubm
     (ingredients || []).forEach((ing) => map.set(ing.id, ing));
     return map;
   }, [ingredients]);
-
-  const total = useMemo(() => items.reduce((sum, row) => sum + lineTotal(row), 0), [items]);
-  const formatMoney = (value) => `${new Intl.NumberFormat("ru-RU").format(Number(value) || 0)} UZS`;
 
   const updateRow = (key, patch) => setItems((current) => current.map((row) => (row.key === key ? { ...row, ...patch } : row)));
   const removeRow = (key) => setItems((current) => (current.length > 1 ? current.filter((row) => row.key !== key) : current));
@@ -63,7 +59,7 @@ function ExpenseDrawer({ warehouses, ingredients, saving, error, onClose, onSubm
         ingredient_id: row.ingredientId,
         quantity: Number(row.quantity),
         unit: row.unit || ingredientById.get(row.ingredientId)?.unit || "кг",
-        cost_price: Number(row.costPrice) || 0,
+        cost_price: 0,
       })),
     });
   };
@@ -80,7 +76,7 @@ function ExpenseDrawer({ warehouses, ingredients, saving, error, onClose, onSubm
           <button type="button" onClick={onClose} aria-label="Закрыть"><Icon name="bi-x-lg" size={18} /></button>
         </div>
 
-        {error ? <div className="login-error" role="alert">{error}</div> : null}
+        {error ? <Toast kind="error" message={error} onClose={onClearError || undefined} /> : null}
 
         <div className="warehouse-form__grid">
           <label>
@@ -103,12 +99,12 @@ function ExpenseDrawer({ warehouses, ingredients, saving, error, onClose, onSubm
         <ExpenseItems
           items={items}
           ingredients={ingredients}
-          formatMoney={formatMoney}
           onPick={pickIngredient}
           onChange={updateRow}
           onRemove={removeRow}
           onAdd={() => setItems((current) => [...current, newRow()])}
         />
+        <p className="warehouse-form__hint">Цена посчитается автоматически по FIFO: старые партии списываются первыми.</p>
 
         <label className="warehouse-form__comment">
           <span>Комментарий</span>
@@ -116,7 +112,7 @@ function ExpenseDrawer({ warehouses, ingredients, saving, error, onClose, onSubm
         </label>
 
         <div className="warehouse-form__footer">
-          <strong>Итого: {formatMoney(total)}</strong>
+          <strong>Позиций: {validItems.length}</strong>
           <div style={{ display: "flex", gap: 10 }}>
             <button type="button" onClick={onClose} disabled={saving}>Отмена</button>
             <button type="button" className="warehouse-commit-action" onClick={submit} disabled={!canSubmit}>
@@ -129,7 +125,7 @@ function ExpenseDrawer({ warehouses, ingredients, saving, error, onClose, onSubm
   );
 }
 
-function ExpenseItems({ items, ingredients, formatMoney, onPick, onChange, onRemove, onAdd }) {
+function ExpenseItems({ items, ingredients, onPick, onChange, onRemove, onAdd }) {
   return (
     <div className="warehouse-products-box">
       <div className="warehouse-products-box__head">
@@ -144,8 +140,7 @@ function ExpenseItems({ items, ingredients, formatMoney, onPick, onChange, onRem
           </select>
           <input type="number" min="0" step="any" value={row.quantity} onChange={(e) => onChange(row.key, { quantity: e.target.value })} placeholder="Кол-во" aria-label="Количество" />
           <strong>{row.unit || "—"}</strong>
-          <input type="number" min="0" step="any" value={row.costPrice} onChange={(e) => onChange(row.key, { costPrice: e.target.value })} placeholder="Цена" aria-label="Цена" />
-          <strong>{formatMoney((Number(row.quantity) || 0) * (Number(row.costPrice) || 0))}</strong>
+          <span className="warehouse-fifo-badge" title="Цена по FIFO при проведении">FIFO</span>
           <button type="button" onClick={() => onRemove(row.key)} aria-label="Удалить позицию"><Icon name="bi-x-lg" size={14} /></button>
         </div>
       ))}

@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { formatMoney } from "../../api/client";
 import { getCategories } from "../../api/categories";
 import { nomenclatureService } from "../../api/nomenclature";
+import { settingsService } from "../../api/settings";
 import Icon from "../../components/Icon";
 import { isAbortError, useLatestRequest, useMutationLocks } from "../../hooks/useAsyncSafety";
+import { unitDisplayLabel, unitOptionLabel } from "./nomenclatureData";
 
-const UNITS = ["кг", "г", "л", "мл", "шт", "порция"];
+const FALLBACK_UNITS = ["кг", "г", "л", "мл", "шт", "порция"];
 const EMPTY_FORM = { name: "", unit: "кг", category_id: "" };
 
 let rowSeq = 0;
@@ -30,6 +32,9 @@ export default function SemiProductsPage() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [items, setItems] = useState([newItem()]);
+  // Ед.изм — живой справочник Настройки → Единицы (value — короткое имя,
+  // подпись — «Килограмм (Кг)»). Ошибка → честный хардкод-фолбэк.
+  const [unitOptions, setUnitOptions] = useState([]);
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState("");
   const [busyId, setBusyId] = useState(null);
@@ -42,17 +47,26 @@ export default function SemiProductsPage() {
     setLoading(true);
     setError("");
     try {
-      const [list, ings, cats, whs] = await Promise.all([
+      const [list, ings, cats, whs, unitsRes] = await Promise.all([
         nomenclatureService.listSemiProducts({ signal: request.signal }),
         nomenclatureService.listIngredients({ signal: request.signal }).catch(() => ({ data: [] })),
         getCategories({ signal: request.signal }).catch(() => ({ data: [] })),
         nomenclatureService.listWarehouses({ signal: request.signal }).catch(() => ({ data: [] })),
+        settingsService.listResource("units", { signal: request.signal }).catch(() => ({ data: [] })),
       ]);
       if (!request.isCurrent()) return;
       setRows(Array.isArray(list.data) ? list.data : []);
       setIngredients(Array.isArray(ings.data) ? ings.data : []);
       setCategories(Array.isArray(cats.data) ? cats.data : []);
       setWarehouses(Array.isArray(whs.data) ? whs.data : []);
+      const rawUnits = unitsRes?.data;
+      const liveUnits = (Array.isArray(rawUnits) ? rawUnits : rawUnits?.items || [])
+        .filter((item) => item?.id && typeof item.status === "boolean" && unitDisplayLabel(item) && item.status !== false)
+        .sort((a, b) => (
+          Number(a.sort ?? a.sort_order ?? 0) - Number(b.sort ?? b.sort_order ?? 0)
+          || unitDisplayLabel(a).localeCompare(unitDisplayLabel(b), "ru")
+        ));
+      setUnitOptions(liveUnits);
     } catch (err) {
       if (!request.isCurrent() || isAbortError(err)) return;
       setRows([]);
@@ -77,6 +91,23 @@ export default function SemiProductsPage() {
     categories.forEach((cat) => map.set(cat.id, cat));
     return map;
   }, [categories]);
+
+  // Опции ед.изм: value — короткое имя (канон хранения),
+  // подпись — «Килограмм (Кг)». Пустой справочник → хардкод-фолбэк.
+  const unitSelectOptions = useMemo(() => {
+    if (!unitOptions.length) {
+      return FALLBACK_UNITS.map((u) => ({ value: u, label: u }));
+    }
+    const seen = new Set();
+    const list = [];
+    unitOptions.forEach((item) => {
+      const value = unitDisplayLabel(item);
+      if (!value || seen.has(value)) return;
+      seen.add(value);
+      list.push({ value, label: unitOptionLabel(item) });
+    });
+    return list.length ? list : FALLBACK_UNITS.map((u) => ({ value: u, label: u }));
+  }, [unitOptions]);
 
   // Категории полуфабрикатов живут в общей таблице categories под slug-префиксом
   // "semi" (тот же приём, что и на странице «Категории полуфабрикатов»).
@@ -292,7 +323,10 @@ export default function SemiProductsPage() {
               <label>
                 <span>Ед. изм</span>
                 <select value={form.unit} onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}>
-                  {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                  {unitSelectOptions.some((o) => o.value === form.unit) ? null : (
+                    <option value={form.unit}>{form.unit}</option>
+                  )}
+                  {unitSelectOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </label>
               <label>

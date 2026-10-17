@@ -1,0 +1,472 @@
+@font-face {
+  font-family: "Marjon Manrope";
+  src: url("../../assets/brand/Manrope-Variable.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: block;
+}
+
+/* Isolated V1.7 shell preview. Imported only by the copied :5293 frontend. */
+body.marjon-dark-shell {
+  --marjon-dark-shell-bg: #08243f;
+  --marjon-dark-shell-radius: 24px;
+  --shell-sidebar-bg: var(--marjon-dark-shell-bg);
+  --dark-shell-surface: #0c2b49;
+  --dark-shell-line: #247ead;
+  --dark-shell-line-opacity: 0.34;
+  --dark-shell-accent: #1fc9c9;
+  --dark-shell-text: #f0f6ff;
+  --dark-shell-muted: #afc4da;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-topbar {
+  color: var(--dark-shell-text);
+  background: var(--marjon-dark-shell-bg);
+}
+
+/* The existing light content paints its own quarter-circle. A single navy
+   backing surface fills the exposed corner, including during sidebar motion. */
+body.marjon-dark-shell.dashboard-body .dashboard-shell,
+body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-main {
+  background: var(--marjon-dark-shell-bg);
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-main {
+  border-radius: 0;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-content {
+  border-top-left-radius: var(--marjon-dark-shell-radius);
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar {
+  color: var(--dark-shell-text);
+  background: var(--marjon-dark-shell-bg);
+  isolation: isolate;
+  border-right: 1px solid transparent;
+  box-shadow: none;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar::before,
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar::after {
+  display: none;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .marjon-shell-wave-layer {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 1;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .marjon-shell-wave {
+  position: absolute;
+  max-width: none;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 1;
+}
+
+/* Keep the canvas independent of rail width. SVG meet preserves the complete
+   viewBox; only the outer sidebar boundary crops decoration in the narrow rail. */
+body.marjon-dark-shell.dashboard-body .dashboard-shell .marjon-shell-wave--sidebar {
+  inset: 0 auto 0 0;
+  width: 300px;
+  height: 100%;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .marjon-shell-wave--sidebar-upper,
+body.marjon-dark-shell.dashboard-body .dashboard-shell .marjon-shell-wave--topbar {
+  left: var(--dark-shell-upper-wave-left);
+  top: 0;
+  width: var(--dark-shell-upper-wave-width);
+  height: 440px;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .marjon-shell-wave__line {
+  fill: none;
+  stroke: var(--dark-shell-line);
+  stroke-width: 0.9;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  stroke-opacity: var(--dark-shell-line-opacity);
+  filter: drop-shadow(0 1px 0.6px rgba(0, 8, 20, 0.7))
+    drop-shadow(0 -0.5px 0.3px rgba(80, 193, 223, 0.2));
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .marjon-shell-wave__line--soft {
+  stroke: #3989b5;
+  stroke-opacity: 0.23;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .marjon-shell-wave__line--accent {
+  stroke: #168cb8;
+  stroke-opacity: 0.42;
+}
+
+/* Quiet only the highlighted upper rail arc; topbar and lower fan keep their
+   accepted paint strength and the same continuous geometry. */
+body.marjon-dark-shell.dashboard-body .dashboard-shell .marjon-shell-wave--sidebar-upper .marjon-shell-wave__line {
+  stroke-opacity: 0.2025;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .marjon-shell-wave--sidebar-upper .marjon-shell-wave__line--soft {
+  stroke-opacity: 0.135;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .marjon-shell-wave--sidebar-upper .marjon-shell-wave__line--accent {
+  stroke-opacity: 0.2475;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-brand {
+  background: transparent;
+  border-color: rgba(157, 194, 226, 0.13);
+}
+
+/* Keep the existing button box and focus outline; remove only its light tile. */
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .brand-mark--button {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .brand-mark--button .marjon-logo {
+  /* Same centred footprint in both rail states; the PNG includes its glow. */
+  width: 52px;
+  height: auto;
+  max-width: none;
+  transform: none;
+  filter: none;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .brand-title,
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-user__meta strong {
+  color: var(--dark-shell-text);
+}
+
+/* Local display face avoids a remote-font swap. Existing rail visibility rules
+   still own collapsing; no header/menu dimensions change. */
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .brand-title {
+  font-family: "Marjon Manrope", sans-serif;
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  color: #f5f8ff;
+  white-space: nowrap;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .brand-subtitle {
+  position: relative;
+  top: 5px;
+  font-family: Arial, "Helvetica Neue", sans-serif;
+  font-size: 7px;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 2px;
+  margin-top: 0;
+  margin-bottom: 4px;
+  color: #afc4dc;
+  white-space: nowrap;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .brand-subtitle::after {
+  content: "";
+  display: inline-block;
+  width: 25px;
+  height: 1px;
+  margin-left: 7px;
+  vertical-align: middle;
+  background: linear-gradient(90deg, #175078, transparent);
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-user__meta span,
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-user__meta em {
+  color: var(--dark-shell-muted);
+}
+
+/* Use the space freed by the role label without resizing the account card. */
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar:not(.is-collapsed) .sidebar-user__name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+  max-height: 2.6em;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-search {
+  position: relative;
+  z-index: 1;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-search__results-slot {
+  display: grid;
+  flex: 0 0 auto;
+  margin-inline: 4px;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 180ms ease, opacity 120ms ease;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-search__results-slot.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-search__results-clip {
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-search__results {
+  position: static;
+  inset: auto;
+  z-index: auto;
+  margin-top: 6px;
+  max-height: min(240px, 30vh);
+  overflow-y: auto;
+  background: #0a2744;
+  border-color: rgba(138, 184, 222, 0.22);
+  box-shadow: none;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-search input,
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-search__input {
+  color: var(--dark-shell-text);
+  background: transparent;
+  border-color: rgba(138, 184, 222, 0.24);
+  box-shadow: none;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-search input::placeholder,
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-search__input::placeholder {
+  color: #afc4da;
+  opacity: 1;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-link {
+  --dark-shell-nav-icon: #c7d8ea;
+  --dark-shell-chevron: #b9cee3;
+  color: #e7f0fa;
+  border-color: transparent;
+  background: transparent;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-link:hover,
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-link:focus-visible {
+  --dark-shell-nav-icon: #fff;
+  --dark-shell-chevron: #fff;
+  color: #fff;
+  background: rgba(157, 194, 226, 0.095);
+  border-color: rgba(157, 194, 226, 0.1);
+  box-shadow: none;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-link.is-active,
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-link--button.is-active,
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-nav-item.has-submenu.is-open > .sidebar-link,
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-nav-item.has-submenu.is-open > .sidebar-link--button {
+  --dark-shell-nav-icon: #fff;
+  --dark-shell-chevron: #fff;
+  color: #fff;
+  background: linear-gradient(90deg, #16616d 0%, #1a9aa1 38%, #1cc2c2 68%, #4fe0db 100%);
+  border-color: rgba(126, 216, 210, 0.65);
+  box-shadow: 0 12px 28px rgba(28, 194, 194, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  text-shadow: 0 1px 8px rgba(0, 30, 35, 0.35);
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-link.is-active::before,
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-link.is-active::after,
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-link--button.is-active::before,
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-link--button.is-active::after {
+  content: none;
+  display: none;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-submenu {
+  background: #08243f;
+  border-color: rgba(68, 197, 219, 0.52);
+  box-shadow: 4px 12px 18px rgba(2, 12, 25, 0.2);
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-submenu__link {
+  color: var(--dark-shell-muted);
+}
+
+/* hover/фокус подкатегории — лёгкая бирюза (feedback при наведении). */
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-submenu__link:hover,
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-submenu__link:focus-visible {
+  --dark-shell-nav-icon: #fff;
+  color: #fff;
+  background: #1fc9c91a;
+}
+
+/* Насыщенная бирюза #1fc9c9de появляется ТОЛЬКО когда реально перешёл в эту
+   подкатегорию (активный маршрут = .is-active) и остаётся. Клик (:active) больше
+   НЕ красит — во время зажатия работает обычный hover. Правило после hover-группы
+   при равной специфичности (1,5,1) → при наведении активная не сбрасывается. */
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-submenu__link.is-active {
+  --dark-shell-nav-icon: #fff;
+  color: #fff;
+  background: #1fc9c9de;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-submenu__link.is-active::before,
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-submenu__link:hover::before {
+  background: var(--dark-shell-accent);
+  box-shadow: 0 0 0 2px rgba(31, 201, 201, 0.12);
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-user {
+  color: var(--dark-shell-text);
+  background: rgba(8, 37, 65, 0.78);
+  border-color: #16f2e566;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-user::after { display: none; }
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-account__menu,
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-collapsed-popover {
+  color: var(--dark-shell-text);
+  background: #0a2744;
+  border-color: rgba(138, 184, 222, 0.22);
+  box-shadow: 0 18px 42px rgba(2, 12, 25, 0.28);
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-topbar {
+  isolation: isolate;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-topbar .dashboard-back-button--topbar-3d,
+body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-topbar .mj-datepicker__trigger,
+body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-topbar .topbar-info-widget,
+body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-topbar .topbar-icon,
+body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-topbar .topbar-balance-pill,
+body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-topbar .topbar-balance-amount {
+  color: var(--dark-shell-text);
+  background: rgba(8, 37, 65, 0.7);
+  border-color: rgba(138, 184, 222, 0.25);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-topbar :is(.dashboard-back-button, .topbar-info-widget, .topbar-icon):hover {
+  border-color: rgba(111, 214, 225, 0.38);
+  background-color: rgba(12, 52, 83, 0.88);
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-topbar .topbar-pay-button {
+  color: #fff;
+  background: linear-gradient(90deg, #1f7f88 0%, #26a6ad 38%, #1cc2c2 68%, #4fe0db 100%);
+  border-color: rgba(126, 216, 210, 0.65);
+  box-shadow: 0 8px 20px rgba(28, 194, 194, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  text-shadow: 0 1px 8px rgba(0, 30, 35, 0.35);
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-topbar svg,
+body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-topbar i {
+  color: currentColor;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .mobile-bottom-nav__bar {
+  background: var(--marjon-dark-shell-bg);
+  border-top-color: rgba(130, 178, 218, 0.2);
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .mobile-nav-item { color: var(--dark-shell-muted); }
+body.marjon-dark-shell.dashboard-body .dashboard-shell .mobile-nav-item.is-active { color: var(--dark-shell-accent); }
+
+@media (max-width: 1024px) {
+  /* No exposed navy corner when the desktop sidebar is off-canvas. */
+  body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-content {
+    border-top-left-radius: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-link,
+  body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-topbar button,
+  body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-search__results-slot { transition: none; }
+}
+
+/* The light shell paints these children explicitly; inherit the preview palette
+   without changing their layout or any content outside the shell controls. */
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-search__field {
+  background: #0b2946;
+  border-color: rgba(170, 202, 231, 0.20);
+  box-shadow: none;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-search__field:focus-within {
+  border-color: var(--dark-shell-accent);
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-search__icon {
+  color: #d3e3f2;
+  stroke: currentColor;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar :is(.sidebar-account__head, .sidebar-account__lang-panel) {
+  background: #0a2744;
+  border-color: rgba(138, 184, 222, 0.22);
+}
+
+/* Light-theme rules set stroke separately from color, including on SVG paths. */
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar :is(.sidebar-icon, .sidebar-icon svg, .sidebar-icon svg *, .sidebar-submenu__icon, .sidebar-submenu__icon svg, .sidebar-submenu__icon svg *, .sidebar-collapsed-popover__icon, .sidebar-collapsed-popover__icon svg, .sidebar-collapsed-popover__icon svg *) {
+  color: var(--dark-shell-nav-icon, #c7d8ea);
+  stroke: currentColor;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-link__chevron {
+  color: var(--dark-shell-chevron, #b9cee3);
+  stroke: currentColor;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar :is(.sidebar-user__arrow, .sidebar-user__arrow svg) {
+  color: #c9deffe3;
+  stroke: #c9deffe3;
+}
+
+/* Стрелка профиля: закрыто → смотрит вправо (0°), открыто → вверх (−90°),
+   плавный поворот при клике. #dashboardSidebar (специфичность с ID) перебивает
+   конфликтующие rotate(90deg)/rotate(-90deg) правила из react-overrides.css. */
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-user__arrow {
+  transform: rotate(0deg);
+  transition: transform 200ms ease;
+}
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-account.is-open .sidebar-user__arrow {
+  transform: rotate(-90deg);
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar :is(.sidebar-search__clear, .sidebar-search__result-icon, .sidebar-search__result-icon svg, .sidebar-search__result-parent, .sidebar-search__empty-sub, .sidebar-account__head-meta span) {
+  color: var(--dark-shell-muted);
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar :is(.sidebar-search__result-label, .sidebar-search__empty-title, .sidebar-account__head-meta strong, .sidebar-account__item:not(.sidebar-account__item--danger), .sidebar-account__item:not(.sidebar-account__item--danger) span, .sidebar-account__item:not(.sidebar-account__item--danger) svg, .sidebar-account__lang-label, .sidebar-account__lang-current, .sidebar-account__lang-chevron, .sidebar-account__lang-code, .sidebar-account__lang-panel button, .sidebar-collapsed-popover__link) {
+  color: var(--dark-shell-text);
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-topbar :is(.mj-datepicker__value, .mj-datepicker__date, .mj-datepicker__time, .mj-datepicker__icon, .mj-datepicker__icon svg, .topbar-info-widget__num, .topbar-info-widget__body, .topbar-info-widget__icon, .topbar-notification svg) {
+  color: var(--dark-shell-text);
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-topbar :is(.mj-datepicker__icon svg, .topbar-notification svg) {
+  stroke: currentColor;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-topbar .dashboard-back-button--topbar-3d svg,
+body.marjon-dark-shell.dashboard-body .dashboard-shell .dashboard-topbar .dashboard-back-button--topbar-3d svg * {
+  color: var(--dark-shell-text);
+  stroke: currentColor;
+}

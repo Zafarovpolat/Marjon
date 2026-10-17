@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Icon from "../Icon";
+import { isNavPathActive } from "./navConfig";
 
 const SUBMENU_RETRACT_MS = 320;
 
@@ -10,6 +11,7 @@ const SUBMENU_RETRACT_MS = 320;
 export default function SidebarNav({
   visibleNavItems,
   location,
+  dashboardTo = "/",
   collapsed,
   openMenu,
   pinnedMenu,
@@ -79,7 +81,7 @@ export default function SidebarNav({
       <nav className="sidebar-nav" aria-label="Навигация">
         {visibleNavItems.map((item) => {
         const hasChildren = Boolean(item.children?.length);
-        const childActive = hasChildren && item.children.some((child) => location.pathname === child.to);
+        const childActive = hasChildren && item.children.some((child) => isNavPathActive(location.pathname, child.to));
         const active = exactChildParentKey
           ? item.key === exactChildParentKey
           : item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to) || childActive;
@@ -135,7 +137,7 @@ export default function SidebarNav({
                   {item.children.map((child) => (
                     <Link
                       key={child.key}
-                      className={`sidebar-submenu__link ${location.pathname === child.to ? "is-active" : ""}`}
+                      className={`sidebar-submenu__link ${isNavPathActive(location.pathname, child.to) ? "is-active" : ""}`}
                       to={child.to}
                       onClick={() => {
                         setPinnedMenu(item.key);
@@ -157,7 +159,7 @@ export default function SidebarNav({
                   {item.children.map((child) => (
                     <Link
                       key={child.key}
-                      className={`sidebar-collapsed-popover__link ${location.pathname === child.to ? "is-active" : ""}`}
+                      className={`sidebar-collapsed-popover__link ${isNavPathActive(location.pathname, child.to) ? "is-active" : ""}`}
                       to={child.to}
                       onClick={() => {
                         setPinnedMenu(item.key);
@@ -165,9 +167,7 @@ export default function SidebarNav({
                         setHoverMenu("");
                       }}
                     >
-                      <span className="sidebar-collapsed-popover__icon">
-                        <Icon name={child.icon || "bi-circle"} size={16} />
-                      </span>
+                      <span className="sidebar-submenu__icon"><Icon name={child.icon || "bi-circle"} size={child.icon ? 16 : 8} /></span>
                       <span>{child.label}</span>
                     </Link>
                   ))}
@@ -187,7 +187,7 @@ export default function SidebarNav({
           >
             <Link
               className={`sidebar-link ${active ? "is-active" : ""}`}
-              to={item.to}
+              to={item.key === "dashboard" ? dashboardTo : item.to}
               onClick={() => {
                 setPinnedMenu("");
                 setOpenMenu("");

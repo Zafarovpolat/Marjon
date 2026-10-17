@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -122,7 +122,7 @@ class AuthService:
         await self.db.commit()
         await self.db.refresh(user)
 
-        access_token = create_access_token(user.id, company.id)
+        access_token = create_access_token(user.id, company.id, auth_version=user.auth_version)
         refresh_token = create_refresh_token()
         await self._save_refresh_token(user.id, refresh_token)
 
@@ -158,7 +158,7 @@ class AuthService:
         if not user.is_active:
             raise UnauthorizedError("Account is inactive")
 
-        access_token = create_access_token(user.id, user.company_id)
+        access_token = create_access_token(user.id, user.company_id, auth_version=user.auth_version)
         refresh_token = create_refresh_token()
         await self._save_refresh_token(user.id, refresh_token, device_id=device_id)
 
@@ -183,7 +183,7 @@ class AuthService:
             log.warning("Admin login denied: not superadmin — user_id=%s", user.id)
             raise ForbiddenError("HQ admin access required")
 
-        access_token = create_access_token(user.id, user.company_id, auth_scope="hq_admin")
+        access_token = create_access_token(user.id, user.company_id, auth_scope="hq_admin", auth_version=user.auth_version)
         refresh_token = create_refresh_token(auth_scope="hq_admin")
         await self._save_refresh_token(user.id, refresh_token)
 
@@ -226,7 +226,7 @@ class AuthService:
             branch = None
         company = await self.db.get(Company, user.company_id)
 
-        access_token = create_access_token(user.id, user.company_id)
+        access_token = create_access_token(user.id, user.company_id, auth_version=user.auth_version)
         refresh_token = create_refresh_token()
         await self._save_refresh_token(user.id, refresh_token, device_id=device_id)
 
@@ -469,6 +469,15 @@ class AuthService:
     async def refresh(self, refresh_token: str) -> tuple[str, str]:
         token_hash = hash_refresh_token(refresh_token)
         async with self.db.begin():
+            # Same lock order as password change: account first, token second.
+            # A refresh must not recreate a session after password revocation.
+            candidate = await self.token_repo.get_by_hash(token_hash)
+            if not candidate:
+                raise UnauthorizedError("Invalid or expired refresh token")
+            user = (await self.db.execute(
+                select(User).where(User.id == candidate.user_id)
+                .with_for_update().execution_options(populate_existing=True)
+            )).scalar_one_or_none()
             # PostgreSQL row locking makes one active token a one-shot
             # credential even when requests arrive at the same instant. The
             # loser waits for this transaction, then observes revoked_at and
@@ -477,7 +486,6 @@ class AuthService:
             if not stored:
                 raise UnauthorizedError("Invalid or expired refresh token")
 
-            user = await self.user_repo.get_by_id(stored.user_id)
             if not user or not user.is_active:
                 raise UnauthorizedError("User not found or inactive")
 
@@ -492,7 +500,7 @@ class AuthService:
                 else "app"
             )
             new_access = create_access_token(
-                user.id, user.company_id, auth_scope=auth_scope
+                user.id, user.company_id, auth_scope=auth_scope, auth_version=user.auth_version
             )
             new_refresh = create_refresh_token(auth_scope=auth_scope)
             now = datetime.now(timezone.utc)
@@ -506,6 +514,60 @@ class AuthService:
             ))
 
         return new_access, new_refresh
+
+    async def change_password(
+        self, user_id: UUID, current_password: str, new_password: str,
+        confirm_password: str, *, device_id: str | None = None,
+    ) -> tuple[str, str]:
+        from app.modules.auth.schemas import _validate_password
+        from app.modules.audit.models import AuditLog
+
+        if not current_password or len(current_password.encode("utf-8")) > 72:
+            raise ValidationError("Укажите текущий пароль длиной не более 72 байт.")
+        if new_password != confirm_password:
+            raise ValidationError("Пароли не совпадают.")
+        try:
+            _validate_password(new_password)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from None
+        if len(new_password.encode("utf-8")) > 72:
+            raise ValidationError("Новый пароль должен быть не более 72 байт.")
+        user = (await self.db.execute(
+            select(User).where(User.id == user_id).with_for_update()
+            .execution_options(populate_existing=True)
+        )).scalar_one_or_none()
+        if not user or not user.is_active:
+            raise UnauthorizedError("User not found or inactive")
+        if not verify_password(current_password, user.password_hash):
+            # Wrong password is not an expired login: do not trigger refresh.
+            raise ForbiddenError("Текущий пароль указан неверно.")
+        if new_password == current_password:
+            raise ValidationError("Новый пароль должен отличаться от текущего.")
+
+        now = datetime.now(timezone.utc)
+        refresh = create_refresh_token()
+        try:
+            user.password_hash = hash_password(new_password)
+            user.auth_version = (user.auth_version or 0) + 1
+            await self.db.execute(
+                update(RefreshToken).where(
+                    RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None),
+                ).values(revoked_at=now)
+            )
+            self.db.add(RefreshToken(
+                user_id=user.id, token_hash=hash_refresh_token(refresh), device_id=device_id,
+                expires_at=now + timedelta(days=settings.refresh_token_expire_days),
+            ))
+            self.db.add(AuditLog(
+                company_id=user.company_id, user_id=user.id,
+                action="user.password_changed", entity_type="user", entity_id=user.id,
+            ))
+            access = create_access_token(user.id, user.company_id, auth_version=user.auth_version)
+            await self.db.commit()
+        except Exception:
+            await self.db.rollback()
+            raise
+        return access, refresh
 
     async def logout(self, user_id: UUID, refresh_token: str) -> None:
         """Revoke exactly one token owned by the authenticated user.
@@ -606,7 +668,7 @@ class AuthService:
         user.pin_locked_until = None
         await self.db.commit()
 
-        access_token = create_access_token(user.id, user.company_id)
+        access_token = create_access_token(user.id, user.company_id, auth_version=user.auth_version)
         refresh_token = create_refresh_token()
         await self._save_refresh_token(user.id, refresh_token)
 

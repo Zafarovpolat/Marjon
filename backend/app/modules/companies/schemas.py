@@ -83,6 +83,7 @@ class CompanyUpdate(BaseSchema):
     vat_rate: float | None = Field(None, ge=0, le=100)
     service_fee: float | None = Field(None, ge=0, le=100)
     order_types: dict | None = None
+    show_support_button: bool | None = None
 
     @field_validator("currency")
     @classmethod
@@ -121,6 +122,7 @@ class CompanyResponse(BaseResponseSchema):
     vat_rate: float | None = None
     service_fee: float | None = None
     order_types: dict | None = None
+    show_support_button: bool = True
 
 
 class BranchCreate(BaseSchema):

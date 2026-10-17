@@ -325,6 +325,24 @@
       background: var(--neutral-50);
   }
 
+  .warehouse-table tfoot .warehouse-total-row td {
+      padding: 15px 16px;
+      border-top: 2px solid rgba(218, 228, 239, .95);
+      background: var(--blue-50);
+      color: var(--neutral-800);
+      font-size: 14px;
+      font-weight: 800;
+      white-space: nowrap;
+  }
+
+  .warehouse-table tfoot .warehouse-total-row td:first-child {
+      border-bottom-left-radius: 20px;
+  }
+
+  .warehouse-table tfoot .warehouse-total-row td:last-child {
+      border-bottom-right-radius: 20px;
+  }
+
   .warehouse-status-badge {
       display: inline-flex;
       align-items: center;
@@ -652,4 +670,1490 @@
       }
   }
 
+}
+
+/* V36-fix — сводка складов и модалка склада. Unlayered осознанно:
+   react-overrides задаёт .dish-catalog-page .dish-grid-table min-width:1360
+   и th:left ВНЕ слоёв — layered-правила их не бьют (отсюда скролл и левые
+   ячейки вживую). Высокая специфичность + body.dashboard-body как у dishes V27. */
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .warehouse-stock-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .warehouse-stock-table th,
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .warehouse-stock-table td {
+  text-align: center;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-stock-col-num {
+  width: 60px;
+}
+
+/* Сбалансированные ширины, чтобы не было пузырей пустоты:
+   фиксированные px для узких колонок + проценты для контентных.
+   №/Статус/Действия — px, Название/Продукты/Товары/Сумма — % ширины. */
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-stock-col-name {
+  width: 28%;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-stock-col-product,
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-stock-col-tovar {
+  width: 15%;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-stock-col-sum {
+  width: 20%;
+}
+
+/* Приход — те же 5 колонок, но №/Название/Продукт/Товар стоят как в Остатке:
+   у Остатка справа ещё Статус 130px + Действия 120px, поэтому Сумма Прихода
+   забирает их место (20% + 250px) — первые 4 колонки едут 1:1. */
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page.warehouse-incoming-page .wh-stock-col-sum {
+  width: calc(20% + 250px);
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-stock-col-status {
+  width: 130px;
+}
+
+/* Название — влево, Продукты и остальные — по центру.
+   NB: селекторы с .warehouse-stock-table th/td — специфичность (0,6,2),
+   иначе базовое правило таблицы (0,5,2) их бьёт. */
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .warehouse-stock-table th.wh-stock-col-name,
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .warehouse-stock-table td.wh-stock-col-name {
+  text-align: left;
+}
+
+/* Название — с отступом слева 94px: текст начинается с одной линии. */
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .warehouse-stock-table th.wh-stock-col-name,
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .warehouse-stock-table td.wh-stock-col-name {
+  padding-left: 94px;
+}
+
+/* Продукты — по центру, как Товары/Сумма (без левого выравнивания). */
+/* Сдвиг Продуктов левее на 35px — трансформом на внутреннем спане, а не на
+   ячейке: фон ячеек остаётся на месте и белых щелей между колонками нет.
+   Шапка/тело/Итого едут вместе (класс один на всех). */
+.warehouse-stock-page .wh-shift-left {
+  display: inline-block;
+  transform: translateX(-35px);
+}
+/* Приход: вторая карточка снизу («Инвентаризация») — отступ от первой. */
+.warehouse-incoming-page .dish-catalog-card + .dish-catalog-card {
+  margin-top: 28px;
+}
+/* Приход: Товар/Сумма правее на 70px (зеркало Продукта) — трансформом
+   на внутреннем спане, шапка/тело/Итого едут вместе. Только сводка Прихода,
+   Остаток не трогаем. */
+.warehouse-incoming-page .wh-shift-right {
+  display: inline-block;
+  transform: translateX(70px);
+}
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-stock-total-row td:first-child {
+  text-align: left;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-stock-col-actions {
+  width: 120px;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-stock-total-row td {
+  border-top: 2px solid #bccde0;
+  background: #f4f7fc;
+  font-weight: 600;
+  /* Высота ровно как у строк тела: кнопки 34px + паддинги 8+8.
+     height у td работает как минимальная высота — строки равны. */
+  height: 34px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  vertical-align: middle;
+}
+
+/* Заголовки таблицы Остатка — чёрные, как в Добавить продуктов. */
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .warehouse-stock-table thead th {
+  color: #0f172a;
+}
+
+/* V37 — статус склада (Активно/Архив) в остатке + тоггл в модалке. */
+/* Ширины заданы выше (сбалансированные); здесь только тоггл. */
+
+.warehouse-stock-page .wh-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid rgba(31, 201, 201, 0.35);
+  border-radius: 999px;
+  background: rgba(31, 201, 201, 0.08);
+  color: #0e7490;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.warehouse-stock-page .wh-status-badge.is-archived {
+  border-color: rgba(100, 116, 139, 0.35);
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+/* Статус-точка как в Официантах/Кассирах: без пилюли — 8px точка
+   currentColor + текст. Активно зелёное, архив серый. */
+.warehouse-stock-page .wh-status-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.warehouse-stock-page .wh-status-dot.is-active {
+  color: #00dc3b;
+}
+
+.warehouse-stock-page .wh-status-dot.is-archived {
+  color: #64748b;
+}
+
+.warehouse-stock-page .wh-status-dot__dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.warehouse-modal__status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.warehouse-modal__status > span {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.wh-status-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.wh-status-toggle__track {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  transition: background 160ms ease;
+}
+
+.wh-status-toggle__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .25);
+  transition: transform 160ms ease;
+}
+
+.wh-status-toggle.is-on .wh-status-toggle__track { background: #1fc9c9; }
+.wh-status-toggle.is-on .wh-status-toggle__thumb { transform: translateX(18px); }
+
+.wh-status-toggle__label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+}
+
+/* Модалка склада: компактнее + кнопка Отмена radius 22px (семья 22px). */
+.settings-owner-view .settings-modal.warehouse-modal {
+  width: min(400px, 100%);
+}
+
+/* Пропорциональный X модалки склада: 38px-круг как у диалогов. */
+.settings-owner-view .settings-modal.warehouse-modal .settings-form__header button[aria-label="Закрыть"] {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+}
+
+.settings-owner-view .settings-modal.warehouse-modal .settings-form__footer button {
+  border-radius: 22px;
+}
+
+/* Плашка исторического среза рядом с пикером периода. */
+.warehouse-stock-page .wh-asof-note {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+/* Остаток: название-ссылка (как ZimZim) + детализация без Excel/поиска. */
+.warehouse-stock-page .wh-stock-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+}
+
+.warehouse-stock-page .wh-stock-link:hover {
+  text-decoration: underline;
+}
+
+.warehouse-stock-page .wh-detail-table th,
+.warehouse-stock-page .wh-detail-table td {
+  text-align: left;
+}
+
+.warehouse-stock-page .wh-detail-table th:nth-child(n+2),
+.warehouse-stock-page .wh-detail-table td:nth-child(n+2) {
+  text-align: right;
+}
+
+/* Детализация прихода: первая колонка (Названия) строго влево — бьёт
+   центрирование заголовков из dishes.css (0,4,2) своей специфичностью.
+   Колонка Приход (3-я, после даты) — строго по центру. Сумму не трогаем. */
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-detail-table th:first-child,
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-detail-table td:first-child {
+  text-align: left;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-detail-table th:nth-child(3),
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-detail-table td:nth-child(3) {
+  text-align: center;
+}
+
+.warehouse-stock-page .wh-detail-total-row td {
+  background: #fff;
+  font-weight: 700;
+}
+
+.warehouse-stock-page .wh-detail-section-row td {
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.warehouse-stock-page .wh-detail-cat-row td {
+  background: #f4f7fc;
+  font-weight: 600;
+}
+
+/* Детализация: при ховере цвет строк не меняется — каждая держит свой фон. */
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-detail-table tbody tr:hover {
+  background: transparent;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-detail-table tbody tr.wh-detail-total-row:hover td,
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-detail-table tbody tr.wh-detail-line-row:hover td {
+  background: #fff;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-detail-table tbody tr.wh-detail-cat-row:hover td {
+  background: #f4f7fc;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-detail-table tbody tr.wh-detail-section-row:hover td {
+  background: #e2e8f0;
+}
+
+/* Стрелка категорий как в сайдбаре: шеврон вправо, в раскрытом — вниз. */
+.warehouse-stock-page .wh-detail-toggle {
+  width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.warehouse-stock-page .wh-detail-toggle:hover {
+  background: #eef4ff;
+  color: #0369a1;
+}
+
+.warehouse-stock-page .wh-detail-toggle__chevron {
+  transition: transform 160ms ease;
+}
+
+.warehouse-stock-page .wh-detail-toggle__chevron.is-open {
+  transform: rotate(90deg);
+}
+
+/* Позиции — с одной линии и заметно правее текста категории. */
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-detail-table tbody tr.wh-detail-line-row td:first-child {
+  padding-left: 96px;
+}
+
+/* Появление позиций при раскрытии: каскад сверху вниз — каждая строка
+   чуть позже предыдущей (задержка инлайном из JSX). Закрытие мгновенное:
+   высоту строк таблицы анимировать нельзя. */
+@keyframes wh-row-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-detail-table tbody tr.wh-detail-line-row td {
+  animation: wh-row-in 220ms ease backwards;
+}
+
+/* Закрытие категории: строки гаснут вверх за 200мс (таймер в JSX
+   размонтирует их после). Задержка сброшена инлайном в 0. */
+@keyframes wh-row-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-8px); }
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-detail-table tbody tr.wh-detail-line-row.is-closing td {
+  animation: wh-row-out 200ms ease forwards;
+  animation-delay: 0ms;
+}
+
+/* Добавить продуктов — семья Блюд + раскрывающаяся таблица продуктов. */
+.warehouse-journal-page .wh-journal-row.is-expanded {
+  background: #f8fafc;
+}
+
+.warehouse-journal-page .wh-journal-products-row > td {
+  padding: 0;
+  background: #f8fafc;
+}
+
+.wh-doc-products-wrap {
+  padding: 12px 16px 16px;
+}
+
+.wh-doc-products-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid #c9d3e3;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  font-size: 13px;
+}
+
+.wh-doc-products-table thead th {
+  background: #d7e0f0;
+  color: #1f2937;
+  font-weight: 700;
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid #c9d3e3;
+  white-space: nowrap;
+}
+
+.wh-doc-products-table tbody td {
+  padding: 6px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.wh-doc-products-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.wh-doc-col-category {
+  max-width: 180px;
+  font-size: 11px;
+  line-height: 1.3;
+  text-transform: uppercase;
+  color: #334155;
+}
+
+.wh-doc-col-name {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.wh-doc-col-type {
+  color: #475569;
+}
+
+.wh-doc-price-field,
+.wh-doc-qty-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.wh-doc-price-field input,
+.wh-doc-qty-field input {
+  width: 90px;
+  padding: 4px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+  text-align: right;
+}
+
+.wh-doc-price-field span,
+.wh-doc-qty-field span {
+  color: #64748b;
+  font-size: 12px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.wh-doc-col-total {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Создание прихода таблицей — поля шапки + таблица в дизайне начальной таблицы */
+.warehouse-create-page .wh-create-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.warehouse-create-page .wh-create-toolbar .wh-create-field {
+  flex: 0 1 230px;
+  min-width: 180px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.warehouse-create-page .wh-create-toolbar .wh-create-field--date {
+  flex: 0 1 160px;
+  min-width: 140px;
+}
+
+.warehouse-create-page .wh-create-toolbar .wh-create-field input {
+  width: 100%;
+  padding: 6px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  font: inherit;
+}
+
+.warehouse-create-page .wh-create-toolbar .wh-create-field .orders-filter-select {
+  width: 100%;
+}
+
+/* Селекты шапки прихода (Поставщик/Склад): белое поле, чёрный текст. */
+.warehouse-create-page .wh-create-field .orders-filter-select__trigger {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 6px 12px;
+}
+.warehouse-create-page .wh-create-field .orders-filter-select__trigger .orders-filter-select__value {
+  color: #0f172a;
+}
+.warehouse-create-page .wh-create-field .orders-filter-select__trigger.is-placeholder .orders-filter-select__value {
+  color: #94a3b8;
+}
+/* Стрелка — только в окне создания (Добавить продуктов): закрыто — вправо,
+   открыто — вниз. В просмотре истории (wh-is-readonly) стрелок нет. */
+.warehouse-create-page .wh-create-field--supplier .orders-filter-select__chevron,
+.warehouse-create-page .wh-create-field--warehouse .orders-filter-select__chevron {
+  display: inline-grid;
+  place-items: center;
+  color: #94a3b8;
+  flex: 0 0 auto;
+  transform: rotate(-90deg);
+  transition: transform 170ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.warehouse-create-page .wh-create-field--supplier .orders-filter-select.is-open .orders-filter-select__chevron,
+.warehouse-create-page .wh-create-field--warehouse .orders-filter-select.is-open .orders-filter-select__chevron {
+  transform: none;
+}
+.warehouse-create-page.wh-is-readonly .wh-create-field--supplier .orders-filter-select__chevron,
+.warehouse-create-page.wh-is-readonly .wh-create-field--warehouse .orders-filter-select__chevron {
+  display: none;
+}
+
+/* Поле даты: нативный индикатор прячем под своей иконкой календаря —
+   клик по иконке открывает тот же календарь. */
+.warehouse-create-page .wh-create-field__label {
+  font-size: 12px;
+  line-height: 1.2;
+  color: #64748b;
+  padding-left: 6px;
+}
+
+/* Правая группа тулбара (Итого/Фильтр/Сохранить): единый блок в один ряд,
+   отступ слева толкает его вправо. Внутри — те же подписи сверху. */
+.warehouse-create-page .wh-create-side-group {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: nowrap;
+  gap: 12px;
+  margin-left: auto;
+}
+.warehouse-create-page .wh-create-toolbar .wh-create-field--side {
+  flex: 0 0 auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.warehouse-create-page .wh-date-wrap {
+  position: relative;
+  display: block;
+}
+.warehouse-create-page .wh-date-wrap input[type="date"] {
+  padding-right: 34px;
+}
+.warehouse-create-page .wh-date-wrap input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 34px;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.warehouse-create-page .wh-date-icon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  color: #0f172a;
+  pointer-events: none;
+}
+
+
+.warehouse-create-page .wh-create-total-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 200px;
+  flex: 0 0 auto;
+  padding: 9px 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  white-space: nowrap;
+}
+
+.warehouse-create-page .wh-create-total-card span {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.warehouse-create-page .wh-create-total-card strong {
+  font-size: 14px;
+  font-weight: 500;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.warehouse-create-page .wh-create-table tfoot td {
+  background: #eef4ff;
+  font-weight: 800;
+}
+
+.warehouse-create-page .wh-create-table .wh-doc-price-field input,
+.warehouse-create-page .wh-create-table .wh-doc-qty-field input,
+.warehouse-journal-page .wh-doc-price-field input,
+.warehouse-journal-page .wh-doc-qty-field input {
+  width: 90px;
+}
+
+/* Фильтр создания прихода: поиск уже, тип компактнее, категория шире — всё в один ряд. */
+.dish-catalog-page.owner-report-view .wh-create-filter-panel {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+}
+
+.warehouse-create-page.warehouse-journal-page .wh-create-filter-panel .dish-filter-actions {
+  grid-column: auto;
+  align-self: center;
+}
+
+.warehouse-create-page.warehouse-journal-page .wh-create-filter-panel .dish-filter-actions > button:only-child {
+  grid-column: auto;
+  width: auto;
+}
+
+/* Таблицы Добавить продуктов: вся таблица видна целиком — сбрасываем
+   базовый min-width 1660px (давал скроллы с пустым местом). Фиксированная
+   раскладка держит колонки от прыжков при вводе сумм. */
+.dish-catalog-page.owner-report-view .wh-create-table,
+.dish-catalog-page.owner-report-view .warehouse-journal-table {
+  min-width: 0;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.dish-catalog-page.owner-report-view .wh-create-table th:nth-child(1),
+.dish-catalog-page.owner-report-view .wh-create-table td:nth-child(1) { width: 18%; }
+.dish-catalog-page.owner-report-view .wh-create-table th:nth-child(2),
+.dish-catalog-page.owner-report-view .wh-create-table td:nth-child(2) { width: 24%; }
+.dish-catalog-page.owner-report-view .wh-create-table th:nth-child(3),
+.dish-catalog-page.owner-report-view .wh-create-table td:nth-child(3) { width: 11%; }
+.dish-catalog-page.owner-report-view .wh-create-table th:nth-child(4),
+.dish-catalog-page.owner-report-view .wh-create-table td:nth-child(4) { width: 17%; }
+.dish-catalog-page.owner-report-view .wh-create-table th:nth-child(5),
+.dish-catalog-page.owner-report-view .wh-create-table td:nth-child(5) { width: 15%; }
+.dish-catalog-page.owner-report-view .wh-create-table th:nth-child(6),
+.dish-catalog-page.owner-report-view .wh-create-table td:nth-child(6) { width: 15%; }
+
+.dish-catalog-page.owner-report-view .warehouse-journal-table th:nth-child(1),
+.dish-catalog-page.owner-report-view .warehouse-journal-table td:nth-child(1) { width: 5%; }
+.dish-catalog-page.owner-report-view .warehouse-journal-table th:nth-child(2),
+.dish-catalog-page.owner-report-view .warehouse-journal-table td:nth-child(2) { width: 19%; }
+.dish-catalog-page.owner-report-view .warehouse-journal-table th:nth-child(3),
+.dish-catalog-page.owner-report-view .warehouse-journal-table td:nth-child(3) { width: 15%; }
+.dish-catalog-page.owner-report-view .warehouse-journal-table th:nth-child(4),
+.dish-catalog-page.owner-report-view .warehouse-journal-table td:nth-child(4) { width: 13%; }
+.dish-catalog-page.owner-report-view .warehouse-journal-table th:nth-child(5),
+.dish-catalog-page.owner-report-view .warehouse-journal-table td:nth-child(5) { width: 14%; }
+.dish-catalog-page.owner-report-view .warehouse-journal-table th:nth-child(6),
+.dish-catalog-page.owner-report-view .warehouse-journal-table td:nth-child(6) { width: 14%; }
+.dish-catalog-page.owner-report-view .warehouse-journal-table th:nth-child(7),
+.dish-catalog-page.owner-report-view .warehouse-journal-table td:nth-child(7) { width: 10%; }
+.dish-catalog-page.owner-report-view .warehouse-journal-table th:nth-child(8),
+.dish-catalog-page.owner-report-view .warehouse-journal-table td:nth-child(8) { width: 10%; }
+
+/* Создание прихода: контент колонок строго по центру заголовков. */
+.dish-catalog-page.owner-report-view .wh-create-table th,
+.dish-catalog-page.owner-report-view .wh-create-table td {
+  text-align: center;
+}
+
+.dish-catalog-page.owner-report-view .wh-create-table .wh-doc-price-field,
+.dish-catalog-page.owner-report-view .wh-create-table .wh-doc-qty-field {
+  justify-content: center;
+}
+
+/* Создание прихода: галочка у Итоговой суммы, автовычисленная цена,
+   компактные строки как в Продуктах. */
+.dish-catalog-page.owner-report-view .wh-create-table th {
+  padding: 14px 8px;
+}
+
+.dish-catalog-page.owner-report-view .wh-create-table td {
+  padding: 6px 10px;
+}
+
+/* Просмотр: инпутов нет, высоту строк держим отступами — как было с боксами. */
+.dish-catalog-page.owner-report-view .wh-create-table.wh-is-readonly td {
+  padding: 12px 10px;
+}
+
+.wh-total-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+body.dashboard-body .wh-total-check input[type=checkbox] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  border: 1.5px solid #b9c6d8;
+  border-radius: 5px;
+  background: #fff;
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+body.dashboard-body .wh-total-check input[type=checkbox]:checked {
+  background: #1fc9c9;
+  border-color: #1fc9c9;
+}
+
+body.dashboard-body .wh-total-check input[type=checkbox]:checked::after {
+  content: "";
+  width: 9px;
+  height: 5px;
+  border: solid #fff;
+  border-width: 0 0 2px 2px;
+  transform: translate(-2px, 2px) rotate(-45deg);
+}
+
+.wh-doc-computed {
+  font-weight: 500;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Просмотр документа: число и суффикс одной строкой — зазора нет,
+   центр точный (как в Итоговой сумме). */
+.warehouse-create-page .wh-create-table .wh-doc-static {
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Создание прихода: разделитель перед строкой Итого — темнее и заметнее. */
+.warehouse-journal-page .wh-create-table tfoot td {
+  border-top: 1px solid #a9bcd2;
+  font-weight: 500;
+  padding: 20px 10px;
+}
+
+/* Создание прихода: серый подсказывающий текст в пустых полях. */
+.warehouse-create-page .wh-create-table input::placeholder {
+  color: #94a3b8;
+}
+
+.warehouse-journal-page .wh-create-table .wh-doc-price-field input,
+.warehouse-journal-page .wh-create-table .wh-doc-qty-field input {
+  font-weight: 500;
+}
+
+/* Создание прихода: поля ввода чуть шире и круглее. */
+.warehouse-create-page .wh-create-table .wh-doc-price-field input,
+.warehouse-create-page .wh-create-table .wh-doc-qty-field input {
+  width: 100px;
+  border-radius: 8px;
+}
+
+/* Цена/Кол-во — как цифры в Итоговой сумме: без боксов, просто число.
+   Фокус подсвечиваем тонкой рамкой; в просмотре выглядят как текст. */
+.warehouse-create-page .wh-create-table .wh-doc-price-field input,
+.warehouse-create-page .wh-create-table .wh-doc-qty-field input {
+  width: 110px;
+  padding: 4px 2px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  font-weight: 600;
+  color: #0f172a;
+  /* Число ровно по центру заголовка: текст по центру ячейки-инпута,
+     группа и так центрирована (justify-content: center выше). */
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.warehouse-create-page .wh-create-table .wh-doc-price-field input:focus-visible,
+.warehouse-create-page .wh-create-table .wh-doc-qty-field input:focus-visible {
+  outline: none;
+  border-color: #cbd5e1;
+  background: #fff;
+}
+.warehouse-create-page .wh-create-table .wh-doc-price-field input:disabled,
+.warehouse-create-page .wh-create-table .wh-doc-qty-field input:disabled {
+  opacity: 1;
+  color: #0f172a;
+  -webkit-text-fill-color: #0f172a;
+}
+.warehouse-create-page .wh-create-table .wh-doc-price-field span,
+.warehouse-create-page .wh-create-table .wh-doc-qty-field span {
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  color: #0f172a;
+}
+
+/* Создание (редактирование): поля ввода точь-в-точь как было изначально —
+   боксы 100px, цифры справа. В просмотре (wh-is-readonly) остаются цифрами. */
+.warehouse-create-page .wh-create-table:not(.wh-is-readonly) .wh-doc-price-field input,
+.warehouse-create-page .wh-create-table:not(.wh-is-readonly) .wh-doc-qty-field input {
+  width: 100px;
+  padding: 4px 8px;
+  border-color: #cbd5e1;
+  background: #fff;
+  border-radius: 8px;
+  font-weight: 500;
+  text-align: right;
+}
+.warehouse-create-page .wh-create-table:not(.wh-is-readonly) .wh-doc-price-field span,
+.warehouse-create-page .wh-create-table:not(.wh-is-readonly) .wh-doc-qty-field span {
+  position: static;
+  transform: none;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 2px 6px;
+  color: #0f172a;
+  font-size: 12px;
+}
+
+/* Главная таблица Добавить продуктов: контент колонок по центру заголовков. */
+.dish-catalog-page.owner-report-view .warehouse-journal-table th,
+.dish-catalog-page.owner-report-view .warehouse-journal-table td {
+  text-align: center;
+}
+
+/* Заголовки таблиц прихода — чёрные (создание/просмотр + главная). */
+.warehouse-journal-page .warehouse-journal-table thead th {
+  color: #0f172a;
+}
+
+/* Число ровно по центру заголовка: суффикс (UZS/ед.изм) висит справа
+   от центра и не сдвигает цифру. Инпут 110px центрирован в ячейке,
+   текст в нём по центру — цифра стоит точно под заголовком. */
+.warehouse-create-page .wh-create-table .wh-doc-price-field,
+.warehouse-create-page .wh-create-table .wh-doc-qty-field {
+  position: relative;
+}
+.warehouse-create-page .wh-create-table .wh-doc-price-field span,
+.warehouse-create-page .wh-create-table .wh-doc-qty-field span {
+  position: absolute;
+  left: calc(50% + 59px);
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+/* Состав прихода в раскрытой строке: контент по центру заголовков. */
+.dish-catalog-page.owner-report-view .wh-doc-products-table th,
+.dish-catalog-page.owner-report-view .wh-doc-products-table td {
+  text-align: center;
+}
+
+/* Остаток: период как в отчётах — тот же canonical-пикер, поэтому тот же
+   stacking-контекст (панель поверх таблицы) и та же нежирная типографика
+   календаря (400, как в Отчётах). Без этого панель могла уйти под таблицу,
+   а цифры календаря наследовали жирный вес от обёрток склада. */
+.warehouse-stock-page .owner-reports__period.report-actions {
+  position: relative;
+  z-index: 200;
+}
+
+.warehouse-stock-page .owner-reports__period.report-actions .report-period-button,
+.warehouse-stock-page .owner-reports__period.report-actions .report-date-presets button,
+.warehouse-stock-page .owner-reports__period.report-actions .report-date-calendar-week span,
+.warehouse-stock-page .owner-reports__period.report-actions .report-date-calendar-grid button,
+.warehouse-stock-page .owner-reports__period.report-actions .report-date-time-list button,
+.warehouse-stock-page .owner-reports__period.report-actions .report-date-today-button,
+.warehouse-stock-page .owner-reports__period.report-actions .report-date-calendar-ok {
+  font-weight: 400;
+}
+
+/* Журнал «Добавить продуктов»: тот же виновник жирности, что выше, —
+   react-overrides `.dish-catalog-page .dish-header-actions button` (800):
+   попап календаря живёт внутри шапки, поэтому без этого перебивания цифры
+   календаря/часы/ОК жирные, а в Отчётах (400) — нет. */
+.warehouse-journal-page .owner-reports__period.report-actions .report-period-button,
+.warehouse-journal-page .owner-reports__period.report-actions .report-date-presets button,
+.warehouse-journal-page .owner-reports__period.report-actions .report-date-calendar-week span,
+.warehouse-journal-page .owner-reports__period.report-actions .report-date-calendar-grid button,
+.warehouse-journal-page .owner-reports__period.report-actions .report-date-time-list button,
+.warehouse-journal-page .owner-reports__period.report-actions .report-date-today-button,
+.warehouse-journal-page .owner-reports__period.report-actions .report-date-calendar-ok {
+  font-weight: 400;
+}
+
+/* Остаток: кнопка периода — та же пилюля 22px, что в Отчётах (Orders/Dishes,
+   reports.css REPORT-02/DISHES-01: радиус поверх общей базы 10px).
+   Специфичность с body как у V36-фикса, чтобы перебить базу. */
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .report-actions .report-period-button {
+  border-radius: 22px;
+}
+
+/* Журналы (Приход/Расход): период из отчётов в полосе фильтров —
+   та же пилюля 22px и та же раскладка подписи, что у соседних полей. */
+.warehouse-page .warehouse-filters .warehouse-period-filter {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.warehouse-page .warehouse-filters .warehouse-period-filter .owner-reports__period.report-actions {
+  min-width: 0;
+}
+
+.warehouse-page .warehouse-filters .report-actions .report-period-button {
+  border-radius: 22px;
+}
+
+/* Журнал «Добавить продуктов»: пикер в шапке — та же пилюля 22px. */
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-journal-page .settings-actions .report-period-button {
+  border-radius: 22px;
+}
+
+/* V42 — таблица инвентаризаций: комментарий по центру заголовка. */
+.dish-catalog-page.owner-report-view .wh-inventory-table td.wh-inventory-col-comment {
+  white-space: normal;
+  text-align: center;
+  min-width: 220px;
+  max-width: 360px;
+}
+
+/* Отход товаров: 8 колонок должны помещаться в один экран — снимаем
+   min-width 1360 из react-overrides и 860 из settings-table, раскладка
+   авто (бьём 0,2,0 своей специфичностью). Скролл-обёртка остаётся
+   страховкой на узких экранах. */
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-journal-page table.wh-waste-table {
+  min-width: 0;
+  width: 100%;
+  table-layout: auto;
+}
+
+/* V42 — модалка «Создать инвентаризацию»: широкая, две панели
+   (остатки+факт | корректировка), кнопка на всю ширину. Таблица остатков —
+   шаблон создания из «Добавить продуктов» (wh-create). */
+.settings-owner-view .settings-modal.wh-inv-modal {
+  width: min(1240px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  /* Скролл — во внутреннем теле, а не в окне: иначе окно режет
+     откреплённые списки (fixed упирается в overflow окна). */
+  overflow: visible;
+}
+/* Внутреннее тело — единственная скролл-зона модалки. */
+.wh-inv-modal .settings-form__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.wh-inv-modal__header {
+  align-items: flex-start;
+}
+
+.wh-inv-modal__header h2 {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* Модалка «Корректировки»: шире базовой (460px резали 3 колонки
+   горизонтальным скроллом), заголовок компактнее. */
+.settings-owner-view .settings-modal.wh-inv-detail-modal {
+  width: min(680px, 100%);
+}
+
+.wh-inv-detail-modal .settings-form__header h2 {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* Таблица модалки «Корректировки» — компактная: во всю ширину панели,
+   без dish-минимума 1540px и settings-минимума 860px. Все колонки строго
+   по центру своих заголовков, дата и сумма не рвутся, скролла нет. */
+.wh-inv-detail-modal .dish-grid-table {
+  width: 100%;
+  min-width: 0;
+}
+
+.wh-inv-detail-modal .settings-table {
+  min-width: 0;
+}
+
+.wh-inv-detail-modal .settings-table th,
+.wh-inv-detail-modal .settings-table td {
+  text-align: center;
+}
+
+.wh-inv-detail-modal .dish-grid-table th:first-child,
+.wh-inv-detail-modal .dish-grid-table td:first-child,
+.wh-inv-detail-modal .dish-grid-table th:last-child,
+.wh-inv-detail-modal .dish-grid-table td:last-child {
+  white-space: nowrap;
+}
+
+/* Шапка модалки «Корректировки» — текст влево, крестик вправо. */
+.wh-inv-detail-modal .settings-form__header > div {
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+/* Строка комментария в модалке «Корректировки»: поле тянется,
+   «Сохранить» — пилюля справа (как «Создать» в шапках). */
+.wh-inv-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wh-inv-detail-actions input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.wh-inv-detail-actions button {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 43px;
+  min-height: 43px;
+  min-width: 118px;
+  padding: 0 16px;
+  border: 1px solid var(--owner-accent, #1fc9c9);
+  border-radius: 22px;
+  background: var(--owner-accent, #1fc9c9);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.wh-inv-detail-actions button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.wh-inv-top {
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) 1fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.wh-inv-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.wh-inv-field input {
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  font: inherit;
+}
+
+.wh-inv-filters {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  margin-bottom: 12px;
+  align-items: end;
+}
+
+/* Поиск — в верхнем ряду (Склад / Тип / Поиск). */
+
+.wh-inv-panels {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr;
+  gap: 14px;
+  align-items: stretch;
+  animation: wh-inv-panels-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.wh-inv-panels.is-closing {
+  animation: wh-inv-panels-out 180ms ease-out both;
+}
+@keyframes wh-inv-panels-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes wh-inv-panels-out {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateY(8px); }
+}
+/* Без склада таблицы скрыты. */
+
+.wh-inv-stock,
+.wh-inv-corr {
+  min-width: 0;
+  max-height: 560px;
+  overflow: hidden;
+  border: 1px solid rgba(218, 228, 239, .95);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.wh-inv-stock table,
+.wh-inv-corr table {
+  min-width: 0;
+  table-layout: fixed;
+  width: 100%;
+}
+
+/* 5 колонок остатков: Категория/Названия/Тип/Остаток/Факт. */
+.wh-inv-modal .wh-inv-table th:nth-child(1),
+.wh-inv-modal .wh-inv-table td:nth-child(1) { width: 20%; }
+.wh-inv-modal .wh-inv-table th:nth-child(2),
+.wh-inv-modal .wh-inv-table td:nth-child(2) { width: 26%; }
+.wh-inv-modal .wh-inv-table th:nth-child(3),
+.wh-inv-modal .wh-inv-table td:nth-child(3) { width: 12%; }
+.wh-inv-modal .wh-inv-table th:nth-child(4),
+.wh-inv-modal .wh-inv-table td:nth-child(4) { width: 17%; }
+.wh-inv-modal .wh-inv-table th:nth-child(5),
+.wh-inv-modal .wh-inv-table td:nth-child(5) { width: 25%; }
+
+/* Выпадашки селектов модалки: портал висит на body, вне dish-контекста —
+   базовые стили триггера/панели/опций туда не дотягиваются, поэтому дублируем
+   их здесь под шаблон создания из «Добавить продуктов» (wh-create):
+   белое поле 44px/radius 10, панель без буллетов, опции 38px. */
+.wh-inv-modal .orders-filter-select {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+/* Открытый селект — поверх липкого футера, иначе список уходит под Сохранить. */
+.wh-inv-modal .orders-filter-select.is-open {
+  z-index: 60;
+}
+.wh-inv-modal .orders-filter-select__trigger {
+  width: 100%;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.wh-inv-modal .orders-filter-select__trigger.is-placeholder .orders-filter-select__value {
+  color: #94a3b8;
+}
+.wh-inv-modal .orders-filter-select__value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wh-inv-modal .orders-filter-select__chevron {
+  display: inline-grid;
+  place-items: center;
+  color: #94a3b8;
+  flex: 0 0 auto;
+  transform: rotate(-90deg);
+  transition: transform 170ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.wh-inv-modal .orders-filter-select.is-open .orders-filter-select__chevron {
+  transform: none;
+}
+.wh-inv-modal .orders-filter-select__panel {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid rgba(15, 35, 60, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(15, 35, 60, 0.14);
+  transform-origin: top center;
+  animation: wh-inv-panel-in 170ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.wh-inv-modal .orders-filter-select__panel.is-closing {
+  pointer-events: none;
+  animation: wh-inv-panel-out 170ms cubic-bezier(0.64, 0, 0.78, 0) both;
+}
+@keyframes wh-inv-panel-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes wh-inv-panel-out {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateY(-6px) scale(0.985); }
+}
+/* Откреплённый список (is-detached ставит DishSingleSelect внутри модалки):
+   окно несёт transform, поэтому fixed позиционируется от окна и список
+   плавает поверх краёв модалки целиком, а не режется скроллом. */
+.wh-inv-modal .orders-filter-select__panel.is-detached {
+  position: fixed;
+  right: auto;
+}
+.wh-inv-modal .orders-filter-select__panel.is-detached .orders-filter-select__menu {
+  max-height: min(354px, calc(100dvh - 48px));
+}
+@media (prefers-reduced-motion: reduce) {
+  .wh-inv-modal .orders-filter-select__panel {
+    animation-duration: 0.01ms;
+  }
+  .wh-inv-modal .wh-inv-panels {
+    animation-duration: 0.01ms;
+  }
+}
+.wh-inv-modal .orders-filter-select__menu {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  max-height: 232px;
+  overflow-y: auto;
+}
+
+.wh-inv-modal .orders-filter-select__menu > li {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.wh-inv-modal .orders-filter-select__option {
+  width: 100%;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #0b1f3f;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+}
+.wh-inv-modal .orders-filter-select__option:hover,
+.wh-inv-modal .orders-filter-select__option.is-active {
+  background: rgba(31, 201, 201, 0.1);
+}
+.wh-inv-modal .orders-filter-select__option.is-selected {
+  color: #1bb1b1;
+}
+.wh-inv-modal .orders-filter-select__option-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wh-inv-modal .owner-msel__check {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #1bb1b1;
+}
+/* Поиск — в верхнем ряду, иконка в строке поля. */
+.wh-inv-modal .wh-inv-top .report-filter-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  color: #94a3b8;
+}
+.wh-inv-modal .wh-inv-top .report-filter-input input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #0f172a;
+  outline: none;
+  box-shadow: none;
+}
+.wh-inv-modal .report-filter-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  color: #64748b;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+/* Крутилка начинается с первой строки: шапка вне скролла (thead
+   отдельной таблицей), скроллится только tbody. Gutter стабилен, поэтому
+   шапка уже тела ровно на ширину крутилки (8px) — колонки 1:1. */
+.wh-inv-modal .wh-inv-stock thead {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+/* Правая таблица почти не скроллится: во всю ширину без вечного зазора. */
+.wh-inv-modal .wh-inv-corr thead {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+.wh-inv-modal .wh-inv-stock thead th,
+.wh-inv-modal .wh-inv-corr thead th {
+  background: #eff6ff;
+}
+.wh-inv-modal .wh-inv-stock tbody {
+  display: block;
+  max-height: 480px;
+  /* Крутилка только по необходимости: без переполнения её нет вообще,
+     шапка всегда во всю ширину. */
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #b9c6d8 transparent;
+}
+.wh-inv-modal .wh-inv-corr tbody {
+  display: block;
+  max-height: 480px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #b9c6d8 transparent;
+}
+.wh-inv-modal .wh-inv-stock tbody tr,
+.wh-inv-modal .wh-inv-corr tbody tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+.wh-inv-modal .wh-inv-stock tbody::-webkit-scrollbar,
+.wh-inv-modal .wh-inv-corr tbody::-webkit-scrollbar {
+  width: 8px;
+}
+.wh-inv-modal .wh-inv-stock tbody::-webkit-scrollbar-thumb,
+.wh-inv-modal .wh-inv-corr tbody::-webkit-scrollbar-thumb {
+  background: #b9c6d8;
+  border-radius: 999px;
+}
+.wh-inv-modal .wh-inv-stock tbody::-webkit-scrollbar-track,
+.wh-inv-modal .wh-inv-corr tbody::-webkit-scrollbar-track {
+  background: transparent;
+}
+/* Таблицы модалки — как референс «Добавить продуктов»: контент строго
+   по центру заголовков, компактные строки, белые строки. */
+.wh-inv-modal .wh-inv-stock,
+.wh-inv-modal .wh-inv-corr {
+  background: #fff;
+}
+.wh-inv-modal .wh-inv-stock table th,
+.wh-inv-modal .wh-inv-stock table td,
+.wh-inv-modal .wh-inv-corr table th,
+.wh-inv-modal .wh-inv-corr table td {
+  text-align: center;
+}
+.wh-inv-modal .wh-inv-stock table th,
+.wh-inv-modal .wh-inv-corr table th {
+  padding: 12px 8px;
+  color: #0f172a;
+  border-bottom: 1px solid #dde6f0;
+}
+.wh-inv-modal .wh-inv-stock table td,
+.wh-inv-modal .wh-inv-corr table td {
+  padding: 4px 8px;
+  height: 30px;
+  vertical-align: middle;
+  border-top: 0;
+  border-bottom: 1px solid #dde6f0;
+}
+/* Пустая корректировка: текст ниже, ближе к центру панели. */
+.wh-inv-modal tr.wh-inv-corr-empty {
+  height: 240px;
+}
+.wh-inv-modal .wh-inv-stock table tbody tr,
+.wh-inv-modal .wh-inv-corr table tbody tr {
+  background: #fff;
+}
+.wh-inv-modal .wh-inv-stock .wh-doc-qty-field {
+  justify-content: center;
+}
+/* Кнопки шапки: Сохранить (заливка) + Выйти (контур) пилюлями. */
+.wh-inv-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+.wh-inv-save-top,
+.wh-inv-exit-top {
+  width: auto;
+  height: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 34px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.wh-inv-save-top {
+  border: 0;
+  background: #1fc9c9;
+  color: #fff;
+}
+.wh-inv-save-top:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.wh-inv-exit-top {
+  border: 1px solid #f3b4b4;
+  background: #fff;
+  color: #ef4444;
+}
+
+.wh-inv-diff.is-plus {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.wh-inv-diff.is-minus {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .wh-inv-top,
+  .wh-inv-filters,
+  .wh-inv-panels {
+    grid-template-columns: 1fr;
+  }
+  .wh-inv-top-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
 }

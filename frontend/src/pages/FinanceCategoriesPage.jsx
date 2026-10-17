@@ -118,17 +118,17 @@ function FinanceCategoriesPage({ title, kind }) {
   };
 
   return (
-    <div className="finance-page">
-      <section className="finance-card">
-        <header className="finance-header">
-          <div className="finance-title-group">
-            <span className="finance-accent-bar" />
+    <section className="nomenclature-page dish-catalog-page owner-report-view finance-page">
+      <section className="dish-catalog-card owner-report-surface settings-card finance-card">
+        <header className="settings-header finance-header">
+          <div className="settings-title-group finance-title-group">
+            <span className="settings-accent-bar finance-accent-bar" aria-hidden="true" />
             <div>
               <p>Финансы</p>
               <h1>{title}</h1>
             </div>
           </div>
-          <div className="finance-actions">
+          <div className="settings-actions finance-actions">
             <button type="button" className="finance-primary-action" onClick={openCreate}>Добавить категорию +</button>
           </div>
         </header>
@@ -206,7 +206,7 @@ function FinanceCategoriesPage({ title, kind }) {
           </form>
         </div>
       ) : null}
-    </div>
+    </section>
   );
 }
 

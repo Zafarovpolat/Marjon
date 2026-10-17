@@ -1,4 +1,4 @@
-import { fireEvent, render, renderHook, screen, waitFor, act } from "@testing-library/react";
+import { fireEvent, render, renderHook, screen, waitFor, act, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api/client";
@@ -124,52 +124,66 @@ describe("DISHES V21 simplified table", () => {
     mockCatalogApis([backendProduct()]);
   });
 
-  it("drops Тип/Меню/Подкатегория/Рецепт columns and keeps the useful ones", async () => {
+  it("drops Тип/Меню/Подкатегория/Остаток columns and keeps the useful ones", async () => {
     const { container } = render(<NomenclaturePage />);
     await screen.findByRole("button", { name: "Выбрать фото для Backend dish" });
     const headers = [...container.querySelectorAll(".dish-grid-table thead th")].map((th) => th.textContent);
-    for (const removed of ["Тип", "Меню", "Подкатегория", "Рецепты"]) {
+    // V25: Остаток заменён на Рецепты (реальный ingredients_count).
+    for (const removed of ["Тип", "Меню", "Подкатегория", "Остаток"]) {
       expect(headers).not.toContain(removed);
     }
-    for (const kept of ["Фото", "Название", "Ед. изм", "Себестоимость", "Цена", "Принтер", "Остаток", "Авто", "Сет", "Сорт", "Действия"]) {
+    for (const kept of ["Фото", "Название", "Ед. изм", "Себестоимость", "Цена", "Принтер", "Рецепты", "Авто", "Сорт", "Действия"]) {
       expect(headers).toContain(kept);
     }
+    expect(headers).not.toContain("Сет");
     expect(container.querySelector(".dish-col-type")).toBeNull();
     expect(container.querySelector(".dish-col-menu")).toBeNull();
     expect(container.querySelector(".dish-col-subcategory")).toBeNull();
-    expect(container.querySelector(".dish-col-recipe")).toBeNull();
+    expect(container.querySelector(".dish-col-stock")).toBeNull();
+    expect(container.querySelector(".dish-col-recipe")).not.toBeNull();
   });
 
   it("recalculates a compact table min-width from the remaining columns", () => {
     const width = dishColumnOptions.reduce((sum, column) => sum + column.width, 0);
+    // V24: точный порядок СОРТ первым, ФОТО вторым, ДЕЙСТВИЯ последними.
+    // V25: ОСТАТОК заменён на РЕЦЕПТЫ.
     expect(dishColumnOptions.map((column) => column.key)).toEqual(
-      ["photo", "name", "unit", "cost", "price", "printer", "stock", "auto", "set", "sort", "actions"],
+      ["sort", "photo", "name", "unit", "cost", "price", "printer", "recipe", "auto", "actions"],
     );
-    expect(width).toBe(1294);
+    expect(width).toBe(1108);
   });
 });
 
 describe("DISHES V21 toggle contract (no fake switches)", () => {
-  it("documents the real backend contract: no writable boolean for Остаток/Авто/Сет/Сорт", () => {
+  it("documents the real backend contract: is_auto/is_set are writable booleans", () => {
     const schemas = readFileSync(`${process.cwd()}/../backend/app/modules/inventory/schemas.py`, "utf8");
     const updateBlock = schemas.match(/class ProductUpdate[\s\S]*?(?=\nclass )/)?.[0] || "";
-    // Writable booleans that exist: only is_active / is_available (no table column).
+    // Writable booleans: is_active / is_available (legacy) + V24 is_auto/is_set.
     expect(updateBlock).toContain("is_active");
     expect(updateBlock).toContain("is_available");
-    // None of the four requested columns has a writable backend field.
-    for (const field of ["auto", "is_set", "set:", "stock"]) {
+    expect(updateBlock).toContain("is_auto");
+    expect(updateBlock).toContain("is_set");
+    // Остаток/Сорт — не boolean-тумблеры таблицы (stock вычисляется,
+    // sort_order — число в payload, не свитч).
+    for (const field of ["stock"]) {
       expect(updateBlock).not.toMatch(new RegExp(`^\\s*${field}\\s*:`, "m"));
     }
     expect(buildNomenclatureProductPayload({ name: "X", sort: "1", price: "100", auto: true, set: true })).not.toHaveProperty("auto");
   });
 
-  it("keeps truthful display: numeric stock, null auto/set, numeric sort", () => {
-    const row = mapNomenclatureProduct(backendProduct({ stock: 42 }));
+  it("keeps truthful display: numeric stock, boolean auto/set, numeric sort", () => {
+    const row = mapNomenclatureProduct(backendProduct({ stock: 42, is_auto: true, is_set: false }));
     expect(row.stock).toBe("42");
-    expect(row.auto).toBeNull();
-    expect(row.set).toBeNull();
+    expect(row.auto).toBe(true);
+    expect(row.set).toBe(false);
     expect(row.sort).toBe("1");
     expect(mapNomenclatureProduct(backendProduct({ stock: null })).stock).toBe("-");
+    // Legacy отсутствие полей = false (миграция backfill).
+    expect(mapNomenclatureProduct(backendProduct()).auto).toBe(false);
+    expect(mapNomenclatureProduct(backendProduct()).set).toBe(false);
+    // V25: ingredients_count маппится для колонки РЕЦЕПТЫ (3 из фикстуры).
+    expect(mapNomenclatureProduct(backendProduct()).ingredientsCount).toBe(3);
+    expect(mapNomenclatureProduct(backendProduct({ ingredients_count: 0 })).ingredientsCount).toBe(0);
   });
 });
 
@@ -210,7 +224,8 @@ describe("DISHES V22 table polish", () => {
     expect(priceText.textContent).toMatch(/40\D000\DUZS/);
   });
 
-  it("renders the name as dominant non-link text with safe ellipsis", async () => {
+  it("renders the name as dominant non-link text without ellipsis", async () => {
+    // V27: троеточия удалены — длинный текст переносится, не обрезается.
     const { container } = render(<NomenclaturePage />);
     await screen.findByRole("button", { name: "Выбрать фото для Backend dish" });
     expect(container.querySelector(".dish-name-link")).toBeNull();
@@ -219,17 +234,28 @@ describe("DISHES V22 table polish", () => {
     expect(name.tagName).toBe("SPAN");
     expect(name).toHaveTextContent("Backend dish");
     expect(name).toHaveAttribute("title", "Backend dish");
+    const css = readFileSync(`${process.cwd()}/src/styles/owner/dishes.css`, "utf8");
+    const nameRule = css.match(/\.dish-grid-table \.dish-name-text\s*\{[^}]*\}/)?.[0] || "";
+    expect(nameRule).not.toMatch(/text-overflow:\s*ellipsis/);
+    expect(nameRule).not.toMatch(/white-space:\s*nowrap/);
   });
 
-  it("shows stock as a truthful badge, not a fake control", async () => {
+  it("keeps the truthful ingredients_count while opening the read-only Recipes dialog", async () => {
+    // V25: Остаток заменён на Рецепты. Фикстура несёт ingredients_count: 3.
+    // V26: визуал — icon+text ссылка (синяя), не бейдж и не "-".
     const { container } = render(<NomenclaturePage />);
     await screen.findByRole("button", { name: "Выбрать фото для Backend dish" });
-    expect(container.querySelector(".dish-stock-box")).toBeNull();
-    const badge = container.querySelector(".dish-col-stock .dish-stock-badge");
-    expect(badge).not.toBeNull();
-    expect(badge.tagName).toBe("SPAN");
-    expect(badge.classList.contains("is-positive")).toBe(true);
-    expect(badge).toHaveTextContent("24");
+    expect(container.querySelector(".dish-col-stock")).toBeNull();
+    const link = container.querySelector(".dish-col-recipe .dish-recipe-link");
+    expect(link).not.toBeNull();
+    expect(link.tagName).toBe("BUTTON");
+    expect(link).toHaveAttribute("aria-haspopup", "dialog");
+    expect(link.classList.contains("is-filled")).toBe(true);
+    expect(link).toHaveTextContent("Рецепты (3 шт)");
+    fireEvent.click(link);
+    const dialog = screen.getByRole("dialog", { name: "Рецепты" });
+    expect(dialog).toHaveTextContent("Backend dish");
+    expect(within(dialog).getByRole("button", { name: "Добавить" })).toBeDisabled();
   });
 
   it("polishes the photo thumbnail to 40x40 cover with neutral placeholder", async () => {
@@ -260,24 +286,38 @@ describe("DISHES V23 full-width table", () => {
     expect(css).not.toContain("!important");
   });
 
-  it("gives the name column the flexible width and keeps utilities compact", () => {
+  it("gives the name column the fixed compact width and keeps utilities compact", () => {
     const css = readFileSync(`${process.cwd()}/src/styles/owner/dishes.css`, "utf8");
     const nameRule = css.match(/\.dish-grid-table \.dish-col-name\s*\{[^}]*\}/g);
     const lastName = nameRule[nameRule.length - 1];
-    expect(lastName).toMatch(/width:\s*auto/);
-    for (const [col, width] of [["photo", 72], ["unit", 94], ["cost", 136], ["price", 136], ["printer", 154], ["stock", 88], ["sort", 72], ["actions", 90]]) {
-      const rules = css.match(new RegExp(`\\.dish-grid-table \\.dish-col-${col}\\s*\\{[^}]*\\}`, "g"));
-      expect(rules && rules[rules.length - 1]).toMatch(new RegExp(`width:\\s*${width}px`));
+    // V27: Название 190 + ФОТО 72 — название уходит вправо от фото,
+    // блок ЕД.ИЗМ/СЕБЕСТ/ЦЕНА едет влево. Не auto.
+    expect(lastName).toMatch(/width:\s*190px/);
+    expect(lastName).not.toMatch(/width:\s*auto/);
+    // V27: боковые колонки фиксированы…
+    for (const [col, width] of [["sort", 56], ["photo", 72], ["recipe", 120], ["actions", 96]]) {
+      expect(css).toMatch(new RegExp(`\\.dish-col-${col}[^}]*width:\\s*${width}px`));
+    }
+    for (const col of ["auto", "set"]) {
+      expect(css).toMatch(new RegExp(`\\.dish-col-${col}[^}]*width:\\s*64px`));
+    }
+    // …а средние 4 (Ед.изм/Себест/Цена/Принтер) — гибкие auto: остаток
+    // ширины делится между ними, центр растягивается. cost/price
+    // сгруппированы в одном правиле — ищем width рядом с классом.
+    for (const col of ["unit", "cost", "price", "printer"]) {
+      expect(css).toMatch(new RegExp(`\\.dish-col-${col}[^}]*width:\\s*auto`));
     }
   });
 
-  it("keeps 11 columns without the removed ones returning", async () => {
+  it("keeps 10 columns without the removed ones returning", async () => {
     const { container } = render(<NomenclaturePage />);
     await screen.findByRole("button", { name: "Выбрать фото для Backend dish" });
     const headers = [...container.querySelectorAll(".dish-grid-table thead th")].map((th) => th.textContent);
-    expect(headers).toHaveLength(11);
-    for (const removed of ["Тип", "Меню", "Подкатегория", "Рецепты"]) {
+    expect(headers).toHaveLength(10);
+    // V25: Остаток тоже удалён (заменён на Рецепты).
+    for (const removed of ["Тип", "Меню", "Подкатегория", "Остаток"]) {
       expect(headers).not.toContain(removed);
     }
+    expect(headers).toContain("Рецепты");
   });
 });

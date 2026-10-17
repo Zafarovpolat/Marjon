@@ -96,3 +96,26 @@ async def test_order_types_roundtrip_and_validation(client):
         json={"order_types": {"dine_in": True, "qr": True}},
     )
     assert bad.status_code == 422
+
+
+async def test_show_support_button_defaults_true_and_persists_both_states(client):
+    headers, _ = await register_company(client, slug="supbtn", email="owner@supbtn.example.com")
+    get_resp = await client.get("/companies/me", headers=headers)
+    assert get_resp.json()["show_support_button"] is True
+
+    resp = await client.patch("/companies/me", headers=headers, json={"show_support_button": False})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["show_support_button"] is False
+    assert (await client.get("/companies/me", headers=headers)).json()["show_support_button"] is False
+
+    resp = await client.patch("/companies/me", headers=headers, json={"show_support_button": True})
+    assert resp.json()["show_support_button"] is True
+    assert (await client.get("/companies/me", headers=headers)).json()["show_support_button"] is True
+
+
+async def test_show_support_button_is_company_isolated(client):
+    headers_a, _ = await register_company(client, slug="supbtn-a", email="owner@supbtn-a.example.com")
+    headers_b, _ = await register_company(client, slug="supbtn-b", email="owner@supbtn-b.example.com")
+    await client.patch("/companies/me", headers=headers_a, json={"show_support_button": False})
+    assert (await client.get("/companies/me", headers=headers_a)).json()["show_support_button"] is False
+    assert (await client.get("/companies/me", headers=headers_b)).json()["show_support_button"] is True

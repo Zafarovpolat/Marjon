@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "../../components/Icon";
+import Toast from "../../components/Toast";
 import { createPortal } from "react-dom";
 import staffDefaultAvatar from "../../assets/staff/staff-default-avatar.png";
 import {
@@ -128,6 +129,8 @@ export default function StaffFormModal({
   // WAITER-01 FIX-02: field key the save error belongs to ("phone" renders
   // the message directly under the phone input, near the fold).
   saveErrorField = "",
+  // Closes the generic (non-field) error toast; field errors stay inline.
+  onClearSaveError = null,
 }) {
   const phoneInputRef = useRef(null);
   // WAITER-01: same drawer shell for cashier + waiter; only role strings + switch list differ.
@@ -642,7 +645,7 @@ export default function StaffFormModal({
           </div>
 
           {saveError ? (
-            <div className="login-error" role="alert">{saveError}</div>
+            <Toast kind="error" message={saveError} onClose={onClearSaveError || undefined} />
           ) : null}
 
           <div className="staff-form__footer">

@@ -9,6 +9,7 @@ from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import get_current_user, require_hq_admin
 from app.modules.auth.models import User
 from app.modules.nomenclature import models, schemas
+from app.modules.nomenclature.unit_service import UnitService
 from app.modules.organizations.dependencies import get_org_scope
 from app.shared.admin_crud import CRUDService, crud_router
 from app.shared.pagination import Page, PageParams
@@ -26,26 +27,76 @@ router.include_router(crud_router(
     default_sort="sort",
 ))
 
-router.include_router(crud_router(
-    prefix="/units", tags=["nomenclature"],
-    model=models.Unit,
-    create_schema=schemas.UnitCreate,
-    update_schema=schemas.UnitUpdate,
-    response_schema=schemas.UnitResponse,
-    search_fields=("name", "short_name"),
-    filter_fields=("status",),
-    default_sort="sort",
-    # BE-19: Unit has no company_id — it's a genuinely global, shared
-    # picklist, so require_hq_admin on writes is correct (a careless edit
-    # would affect every company at once). But that also blocked reads,
-    # and SettingsUnitsPage.jsx is an OWNER-app screen — a regular owner
-    # could never even list units, so that page has always silently shown
-    # its hardcoded demo rows in production, with every edit failing
-    # (caught by its own .catch, never surfaced). Open reads to any
-    # authenticated staff; keep writes HQ-only.
-    user_dep=get_current_user,
-    write_dep=require_hq_admin,
-))
+units = APIRouter(prefix="/units", tags=["nomenclature"])
+
+
+@units.get("", response_model=Page[schemas.UnitResponse])
+async def list_units(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=200),
+    search: str | None = Query(None),
+    sort: str | None = Query(None),
+    status_filter: bool | None = Query(None, alias="status"),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    params = PageParams(page=page, size=size)
+    items, total = await UnitService(db).list(
+        user, params, search=search, sort=sort, status=status_filter
+    )
+    return Page.create(
+        [schemas.UnitResponse.model_validate(item) for item in items], total, params
+    )
+
+
+@units.post("", response_model=schemas.UnitResponse, status_code=status.HTTP_201_CREATED)
+async def create_unit(
+    data: schemas.UnitCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await UnitService(db).create(user, data)
+
+
+@units.get("/{unit_id}", response_model=schemas.UnitResponse)
+async def get_unit(
+    unit_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await UnitService(db).get_visible(user, unit_id)
+
+
+@units.patch("/{unit_id}", response_model=schemas.UnitResponse)
+async def update_unit(
+    unit_id: UUID,
+    data: schemas.UnitUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await UnitService(db).update(user, unit_id, data)
+
+
+@units.put("/{unit_id}", response_model=schemas.UnitResponse, include_in_schema=False)
+async def replace_unit(
+    unit_id: UUID,
+    data: schemas.UnitUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await UnitService(db).update(user, unit_id, data)
+
+
+@units.delete("/{unit_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_unit(
+    unit_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await UnitService(db).delete(user, unit_id)
+
+
+router.include_router(units)
 
 
 products = APIRouter(prefix="/products", tags=["nomenclature"])

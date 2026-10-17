@@ -24,7 +24,6 @@ export const CUSTOMER_BLOCKS = [
 
 export const KITCHEN_BLOCKS = [
   "orderNumber",
-  "cancelOrderNumber",
   "orderType",
   "table",
   "waiter",
@@ -50,10 +49,10 @@ export const KITCHEN_LEGACY_BLOCKS = [
 
 export const CUSTOMER_BLOCK_LABELS = {
   logo: "Логотип",
-  restaurantName: "Название ресторана",
+  restaurantName: "Название заведения",
   address: "Адрес",
   phone: "Телефон",
-  orderNumber: "Номер заказа",
+  orderNumber: "Номер и тип заказа",
   table: "Стол",
   waiter: "Официант",
   dateTime: "Дата и время",
@@ -120,7 +119,6 @@ export function normalizeLineSpacing(value) {
 
 export const KITCHEN_BLOCK_LABELS = {
   orderNumber: "Номер заказа",
-  cancelOrderNumber: "Номер заказа (Отмена)",
   orderType: "Тип заказа",
   table: "Номер стола",
   waiter: "Официант",
@@ -150,26 +148,24 @@ export const CHEF_WEIGHT_OPTIONS = [
   { value: "bold", label: "Жирный" },
 ];
 
-// Per-block constructor contract: which controls each of the 8 chef rows
+// Per-block constructor contract: which controls each of the 7 chef rows
 // exposes. align: false means no alignment control for that row.
 export const CHEF_STYLE_CONTROLS = {
   orderNumber: { sizes: CHEF_SIZE_OPTIONS_3, align: true, weight: true },
-  cancelOrderNumber: { sizes: CHEF_SIZE_OPTIONS_3, align: true, weight: true },
   orderType: { sizes: CHEF_SIZE_OPTIONS_3, align: false, weight: true },
   table: { sizes: CHEF_SIZE_OPTIONS_3, align: false, weight: true },
   waiter: { sizes: CHEF_SIZE_OPTIONS_3, align: false, weight: true },
-  date: { sizes: CHEF_SIZE_OPTIONS_3, align: true, weight: true },
+  date: { sizes: CHEF_SIZE_OPTIONS_3, align: false, weight: true },
   showOrderSum: { sizes: CHEF_SIZE_OPTIONS_3, align: false, weight: true },
   comment: { sizes: CHEF_SIZE_OPTIONS_3, align: false, weight: true },
 };
 
 export const CHEF_DEFAULT_BLOCK_STYLES = {
   orderNumber: { size: "large", align: "center", weight: "bold" },
-  cancelOrderNumber: { size: "large", align: "center", weight: "bold" },
   orderType: { size: "standard", weight: "standard" },
   table: { size: "standard", weight: "standard" },
   waiter: { size: "standard", weight: "standard" },
-  date: { size: "standard", align: "left", weight: "standard" },
+  date: { size: "standard", weight: "standard" },
   showOrderSum: { size: "standard", weight: "standard" },
   comment: { size: "standard", weight: "standard" },
 };
@@ -219,7 +215,6 @@ export function buildCustomerTemplate(org = {}) {
 
 export function buildKitchenTemplate() {
   const enabled = KITCHEN_BLOCKS.reduce((acc, key) => ({ ...acc, [key]: true }), {});
-  enabled.showOrderSum = false;
   return {
     paperSize: "80mm",
     autoPrint: false,
@@ -230,7 +225,7 @@ export function buildKitchenTemplate() {
 }
 
 // Normalize any stored kitchen template (including pre-redesign blobs with
-// legacy keys) into the 8-row constructor model. Legacy keys and hidden
+// legacy keys) into the 7-row constructor model. Legacy keys and hidden
 // values (paperSize/autoPrint/priority/old style entries) are preserved
 // untouched inside the blob — only the visible model is remapped.
 // Retired chef size "medium" normalizes to "large" (nearest emphasized
@@ -245,8 +240,7 @@ export function migrateKitchenTemplate(stored, defaults) {
   const hasNewKey = Array.isArray(s.blocks) && s.blocks.some((b) => KITCHEN_BLOCKS.includes(b));
   const enabled = { ...base.enabled, ...leg };
   for (const key of KITCHEN_BLOCKS) {
-    if (key === "showOrderSum") enabled[key] = leg[key] ?? false;
-    else if (key === "date") enabled[key] = leg[key] ?? leg.createdAt ?? true;
+    if (key === "date") enabled[key] = leg[key] ?? leg.createdAt ?? true;
     else if (key === "comment") {
       enabled[key] = leg[key] ?? ((leg.itemComments ?? true) || (leg.orderNote ?? true));
     } else enabled[key] = leg[key] ?? true;
@@ -272,6 +266,9 @@ export function migrateKitchenTemplate(stored, defaults) {
             ...((s.blockStyles && typeof s.blockStyles === "object" ? s.blockStyles[key] : {}) || {}),
           };
           if (merged.size !== undefined) merged.size = normalizeChefSize(merged.size);
+          // The Дата row lost its alignment control: purge any stored value
+          // so the hidden style can never apply without a way to change it.
+          if (key === "date") delete merged.align;
           return [key, merged];
         }),
       ),

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useLayoutEffect, useRef, useState } from "react";
 import { CUSTOMER_BLOCKS, KITCHEN_BLOCKS, normalizeLineSpacing } from "../../api/receipt";
 import { orderedBlocks } from "../../pages/settings/receiptBlockOrder";
 
@@ -25,6 +25,7 @@ export const customerSampleOrder = {
 
 export const kitchenSampleOrder = {
   order_number: "A-1042",
+  order_type: "dine_in",
   table_number: "12",
   waiter: "Aziz",
   priority: "Срочно",
@@ -35,11 +36,13 @@ export const kitchenSampleOrder = {
       id: 1,
       name: "Плов чайханский",
       quantity: 2,
+      price: 25000,
+      total: 50000,
       modifiers: ["Без казы", "Острый соус отдельно"],
       note: "",
     },
-    { id: 2, name: "Салат Ачичук", quantity: 1, modifiers: ["Меньше соли"], note: "" },
-    { id: 3, name: "Плов чайханский", quantity: 1, modifiers: ["Один без моркови"], note: "" },
+    { id: 2, name: "Салат Ачичук", quantity: 1, price: 15000, total: 15000, modifiers: ["Меньше соли"], note: "" },
+    { id: 3, name: "Плов чайханский", quantity: 1, price: 25000, total: 25000, modifiers: ["Один без моркови"], note: "" },
   ],
 };
 
@@ -140,6 +143,21 @@ function getOrderNumber(order = {}) {
   return hasValue(order.order_number) ? String(order.order_number) : "-";
 }
 
+// Канонические коды типов заказа (pos.order_type) → подпись на чеке:
+// на чеке всегда тот тип, что выбран при заказе. Уже-подписанные
+// значения (образец "На стол") и неизвестные коды проходят как есть.
+const RECEIPT_ORDER_TYPE_LABELS = {
+  dine_in: "На стол",
+  takeaway: "На вынос",
+  delivery: "Доставка",
+  qr: "QR",
+};
+
+export function formatReceiptOrderType(value) {
+  const raw = String(value ?? "");
+  return RECEIPT_ORDER_TYPE_LABELS[raw] || raw;
+}
+
 // Blocks whose per-block style (size/align/weight) is user-configurable — must
 // stay in sync with CUSTOMER_STYLE_BLOCKS in api/receipt.js. A block is visible
 // unless its template.enabled entry is explicitly false (default = shown).
@@ -235,7 +253,7 @@ function CustomerReceipt({ template = {}, org, order }) {
   const renderSummary = () => {
     if (totals.subtotal > 0) summaryRow("Сумма блюд", totals.subtotal);
     if (isOn(enabled, "discount") && totals.discount > 0) summaryRow("Скидка", totals.discount);
-    if (isOn(enabled, "serviceFee") && totals.service > 0) summaryRow("Обслуживание", totals.service);
+    if (isOn(enabled, "serviceFee") && totals.service > 0) summaryRow("Обслуживание %", totals.service);
     if (isOn(enabled, "vat") && totals.tax > 0) summaryRow("Налог", totals.tax);
   };
 
@@ -262,7 +280,7 @@ function CustomerReceipt({ template = {}, org, order }) {
     // nothing when no logo is uploaded, and the preview must agree.
     if (block === "logo") { if (org?.logo) push("header", <img className="receipt-preview__logo" src={org.logo} alt={restaurantName} key="logo" />); }
     else if (block === "restaurantName") push("header", <div className={`receipt-preview__brand ${cls}`} key="rn">{restaurantName}</div>);
-    else if (block === "orderNumber") { infoRow("orderNumber", "Номер заказа:", getOrderNumber(order)); infoRow("orderNumber", "Тип заказа:", order.order_type); }
+    else if (block === "orderNumber") { infoRow("orderNumber", "Номер заказа:", getOrderNumber(order)); infoRow("orderNumber", "Тип заказа:", formatReceiptOrderType(order.order_type)); }
     else if (block === "table") infoRow("table", "Номер стола:", order.table_number);
     else if (block === "waiter") infoRow("waiter", "Официант:", order.waiter);
     else if (block === "dateTime") infoRow("dateTime", "Дата:", formatCustomerDate(order.created_at));
@@ -357,11 +375,6 @@ function itemMoneyValue(item) {
   return computed > 0 ? computed : 0;
 }
 
-function isCancelledOrder(order = {}) {
-  if (order.is_cancelled || order.cancelled_at) return true;
-  return String(order.status || "").toLowerCase() === "cancelled";
-}
-
 // Chef-only style classes (kitchen preview scope). Isolated from the
 // Customer blockClass contract. Retired size "medium" maps to "large" so
 // unmigrated blobs never render a classless size.
@@ -374,20 +387,42 @@ function kitchenBlockClass(block, styles) {
   return classes.join(" ");
 }
 
-function KitchenItems({ items = [], modifiers = true, comments = true, showMoney = false }) {
+// Табличный режим позиций кухни (всегда как в чеке оплаты):
+// Блюдо/Кол-во [+ Сумма] + итог "Сумма блюд" при живых деньгах.
+// Те же классы таблицы, что у CustomerItems — тот же CSS, без нового.
+// Без сумм колонка Кол-во у правого края, цифры строго по центру шапки;
+// под шапкой одна сплошная линия (пунктир первой строки гасится).
+function KitchenItemsTable({ items = [], comments = true, showSums = false, styles = {} }) {
+  const sum = items.reduce((acc, item) => acc + itemMoneyValue(item), 0);
   return (
-    <div className="receipt-preview__kitchen-items">
+    <div className={`receipt-preview__items receipt-preview__items--kitchen${showSums ? "" : " receipt-preview__items--no-sum"}`} data-receipt-items>
+      <div className="receipt-preview__items-head">
+        <span>Блюдо</span>
+        <span>Кол-во</span>
+        {showSums ? <span>Сумма</span> : null}
+      </div>
       {items.map((item, index) => {
-        const notes = itemNotes(item, { modifiers, comments });
-        const amount = showMoney ? itemMoneyValue(item) : 0;
+        const notes = itemNotes(item, { modifiers: true, comments });
         return (
-          <div className="receipt-preview__kitchen-item" key={item.id || `${itemName(item)}-${index}`}>
-            <strong>{money(itemQuantity(item))} x {itemName(item)}</strong>
-            {amount > 0 ? <span className="receipt-preview__kitchen-amount">{money(amount)}</span> : null}
-            {notes.map((note) => <span key={note}>- {note}</span>)}
-          </div>
+          <Fragment key={item.id || `${itemName(item)}-${index}`}>
+            <div className={`receipt-preview__item-row${index === 0 ? " receipt-preview__item-row--first" : ""}`}>
+              <span className="receipt-preview__item-name">{itemName(item)}</span>
+              <span>{money(itemQuantity(item))}</span>
+              {showSums ? <span>{money(itemMoneyValue(item))}</span> : null}
+            </div>
+            {notes.map((note) => (
+              <div key={note} className="receipt-preview__item-note-row">
+                <span>! {note}</span>
+              </div>
+            ))}
+          </Fragment>
         );
       })}
+      {showSums ? (
+        <div className={`receipt-preview__summary-row ${kitchenBlockClass("showOrderSum", styles)}`}>
+          <span>Сумма блюд</span><b>{money(sum)}</b>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -395,10 +430,12 @@ function KitchenItems({ items = [], modifiers = true, comments = true, showMoney
 function KitchenReceipt({ template = {}, order }) {
   const enabled = template.enabled || {};
   const styles = template.blockStyles || {};
-  const cancelled = isCancelledOrder(order);
-  const showCancel = cancelled && enabled.cancelOrderNumber !== false;
   const commentOn = enabled.comment !== false;
-  const showMoney = enabled.showOrderSum === true;
+  // Позиции — всегда таблицей как в чеке оплаты; колонка сумм и итог
+  // "Сумма блюд" — только при живых деньгах и включённой галочке.
+  const orderItems = Array.isArray(order.items) ? order.items : [];
+  const showSums = enabled.showOrderSum === true
+    && orderItems.some((item) => itemMoneyValue(item) > 0);
   const runs = [];
   const push = (section, node) => {
     const last = runs[runs.length - 1];
@@ -415,17 +452,8 @@ function KitchenReceipt({ template = {}, order }) {
   for (const block of orderedBlocks(template.blocks, KITCHEN_BLOCKS)) {
     if (!isOn(enabled, block)) continue;
     if (block === "orderNumber") {
-      if (showCancel) continue; // cancellation ticket shows the cancel block instead
       push("number", <h3 className={`receipt-preview__kitchen-number ${kitchenBlockClass(block, styles)}`} key="num">#{getOrderNumber(order)}</h3>);
-    } else if (block === "cancelOrderNumber") {
-      if (!showCancel) continue; // never duplicate the normal number
-      push("number", (
-        <div key="cancelnum">
-          <h3 className={`receipt-preview__kitchen-number ${kitchenBlockClass(block, styles)}`}>#{getOrderNumber(order)}</h3>
-          <div className="receipt-preview__kitchen-cancel">ОТМЕНА</div>
-        </div>
-      ));
-    } else if (block === "orderType") infoRow("orderType", "Тип заказа:", order.order_type);
+    } else if (block === "orderType") infoRow("orderType", "Тип заказа:", formatReceiptOrderType(order.order_type));
     else if (block === "table") infoRow("table", "Стол:", order.table_number);
     else if (block === "waiter") infoRow("waiter", "Официант:", order.waiter);
     else if (block === "date") infoRow("date", "Время:", formatKitchenDate(order.created_at));
@@ -434,9 +462,9 @@ function KitchenReceipt({ template = {}, order }) {
   }
 
   // Dishes are core content: always printed with modifiers; comments follow
-  // the unified "Комментарий" setting; amounts only via "Заказы (показать сумму)".
+  // the unified "Комментарий" setting; sums only with live money.
   push("items", (
-    <KitchenItems key="items" items={order.items || []} modifiers comments={commentOn} showMoney={showMoney} />
+    <KitchenItemsTable key="items" items={orderItems} comments={commentOn} showSums={showSums} styles={styles} />
   ));
   if (commentOn && hasValue(order.note)) push("note", (
     <div className={`receipt-preview__kitchen-comment ${kitchenBlockClass("comment", styles)}`} key="note"><b>Комментарий:</b><span>- {order.note}</span></div>

@@ -30,11 +30,11 @@ export default function StaffTable({
 }) {
   const isProduct = isCashier || isWaiter || isMonoblock || isManager || isWarehouse;
   const showAccess = !(isManager || isWarehouse);
-  const showTable = !staffLoading && !staffError;
   return (
     <>
-      {showTable ? (
-      <div className="staff-table-wrapper">
+      {staffError ? <div className="login-error" role="alert">{staffError}</div> : null}
+      <div className="staff-table-wrapper staff-table-wrapper--roles">
+        <div className="staff-role-table-scroll" role="region" aria-label="Таблица сотрудников с прокруткой" tabIndex={0}>
         <table className={`staff-table${showAccess ? "" : " staff-table--no-access"}`}>
           <thead>
             <tr>
@@ -188,8 +188,8 @@ export default function StaffTable({
             )}
           </tbody>
         </table>
+        </div>
       </div>
-      ) : null}
       {/* Индикатор загрузки — ПОД таблицей (а не над ней), как и статусы/пустое
           состояние, чтобы шапка таблицы была видна сразу, а «Загрузка…» не
           выталкивала её вниз. */}

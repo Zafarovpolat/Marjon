@@ -17,12 +17,12 @@ vi.mock("../../api/client", () => ({
 // never fabricated revenue.
 
 describe("buildZeroRevenueBuckets", () => {
-  it("builds 8 intraday buckets with time labels for a single day", () => {
+  it("builds 9 intraday buckets with time labels for a single day (axis to 23:59)", () => {
     const buckets = buildZeroRevenueBuckets("2026-10-03", "2026-10-03");
 
-    expect(buckets).toHaveLength(8);
+    expect(buckets).toHaveLength(9);
     expect(buckets.map((b) => b.chartLabel)).toEqual([
-      "00:00", "03:00", "06:00", "09:00", "12:00", "15:00", "18:00", "21:00",
+      "00:00", "03:00", "06:00", "09:00", "12:00", "15:00", "18:00", "21:00", "23:59",
     ]);
     for (const bucket of buckets) {
       expect(bucket.revenue).toBe(0);

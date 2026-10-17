@@ -3,8 +3,10 @@ import ReceiptPreview from "../../components/receipt/ReceiptPreview";
 import ReceiptSectionEditor from "../../components/receipt/ReceiptSectionEditor";
 import { isActiveConstructorBlock } from "../../components/receipt/receiptBlockCapabilities";
 import { useOrg } from "../../context/OrgContext";
+import Toast from "../../components/Toast";
 import { settingsService } from "../../api/settings";
 import {
+  CUSTOMER_BLOCKS,
   CUSTOMER_BLOCK_LABELS,
   CUSTOMER_STYLE_BLOCKS,
   LINE_SPACING_OPTIONS,
@@ -14,15 +16,16 @@ import {
   normalizeLineSpacing,
   normalizePrinterConnection,
   saveCustomerTemplate,
-  testPrintReceipt,
 } from "../../api/receipt";
 import { isAbortError } from "../../hooks/useAsyncSafety";
+import { orderedBlocks } from "./receiptBlockOrder";
 import "./receiptSettings.css";
 
 // Editor-only grouping of the constructor rows. Covers every canonical
 // customer block exactly once; order inside groups follows template.blocks.
-// Notes: "Тип заказа" has no independent block (rendered on the orderNumber
-// row); "Сумма блюд" has no toggle (rendered once, anchored to `total`).
+// Notes: "Тип заказа" has no independent block (it prints on the orderNumber
+// row, which is why the row is labeled "Номер и тип заказа"); "Сумма блюд"
+// has no toggle (rendered once, anchored to `total`).
 // Collapse state lives inside ReceiptSectionEditor (UI-only, never saved).
 export const CUSTOMER_RECEIPT_GROUPS = [
   { key: "header", title: "Шапка", blocks: ["logo", "restaurantName", "address", "phone"] },
@@ -38,12 +41,33 @@ export default function ReceiptSettingsPage() {
   const [template, setTemplate] = useState(defaults);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [printing, setPrinting] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const logoInputRef = useRef(null);
   const [message, setMessage] = useState("");
+  const [toastClosing, setToastClosing] = useState(false);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
+  const toastTimers = useRef([]);
+  function clearToastTimers() {
+    toastTimers.current.forEach((timer) => clearTimeout(timer));
+    toastTimers.current = [];
+  }
+  useEffect(() => () => clearToastTimers(), []);
+  function flashMessage(text) {
+    clearToastTimers();
+    setToastClosing(false);
+    setMessage(text);
+    toastTimers.current.push(setTimeout(() => setToastClosing(true), 4500));
+    toastTimers.current.push(setTimeout(() => {
+      setMessage("");
+      setToastClosing(false);
+    }, 5000));
+  }
+  function clearToast() {
+    clearToastTimers();
+    setToastClosing(false);
+    setMessage("");
+  }
   // Standalone card collapse state is UI-only (never saved, never sent):
   // params + line-spacing panels reuse the group collapse language.
   const [openPanels, setOpenPanels] = useState(() => ({ additional: true }));
@@ -61,6 +85,11 @@ export default function ReceiptSettingsPage() {
         setTemplate({
           ...defaults,
           ...loaded,
+          // Старые серверные шаблоны без нового блока в blocks: строка в
+          // редакторе рисуется из blocks, а превью/бумага достраивают
+          // порядок через orderedBlocks — без этого галочка «Нижний номер
+          // заказа» не появлялась, хотя блок печатался.
+          blocks: orderedBlocks(loaded.blocks, CUSTOMER_BLOCKS),
           enabled: { ...defaults.enabled, ...loaded.enabled },
           blockStyles: { ...defaults.blockStyles, ...loaded.blockStyles },
           positions: { ...defaults.positions, ...loaded.positions },
@@ -99,11 +128,11 @@ export default function ReceiptSettingsPage() {
     setSaving(true);
     setError("");
     setConflict(false);
-    setMessage("");
+    clearToast();
     try {
       const { template: saved } = await saveCustomerTemplate(template);
       setTemplate((current) => ({ ...current, ...saved }));
-      setMessage("Шаблон чека сохранён на сервере.");
+      flashMessage("Шаблон чека сохранён на сервере.");
     } catch (err) {
       if (err.response?.status === 409) {
         setConflict(true);
@@ -114,13 +143,6 @@ export default function ReceiptSettingsPage() {
     } finally {
       setSaving(false);
     }
-  }
-
-  async function handleTestPrint() {
-    setPrinting(true);
-    const result = await testPrintReceipt(template);
-    setPrinting(false);
-    if (result.ok) setMessage("Открыто окно печати предпросмотра.");
   }
 
   // Company logo for the logo block: real upload through the canonical
@@ -138,11 +160,11 @@ export default function ReceiptSettingsPage() {
     if (uploadingLogo) return;
     setUploadingLogo(true);
     setError("");
-    setMessage("");
+    clearToast();
     try {
       await settingsService.uploadCompanyLogo(file);
       await reloadOrg();
-      setMessage("Логотип загружен.");
+      flashMessage("Логотип загружен.");
     } catch (err) {
       setError(err.response?.data?.detail || "Не удалось загрузить логотип.");
     } finally {
@@ -153,11 +175,11 @@ export default function ReceiptSettingsPage() {
   async function handleLogoDelete() {
     setUploadingLogo(true);
     setError("");
-    setMessage("");
+    clearToast();
     try {
       await settingsService.deleteCompanyLogo();
       await reloadOrg();
-      setMessage("Логотип удалён.");
+      flashMessage("Логотип удалён.");
     } catch (err) {
       setError(err.response?.data?.detail || "Не удалось удалить логотип.");
     } finally {
@@ -203,7 +225,8 @@ export default function ReceiptSettingsPage() {
         <div className="receipt-block-extra">
           <label className="receipt-field">
             <span>Комментарий к чеку</span>
-            <input
+            <textarea
+              rows={3}
               value={template.thankYouText || ""}
               onChange={(event) => patchTemplate({ thankYouText: event.target.value })}
             />
@@ -263,15 +286,17 @@ export default function ReceiptSettingsPage() {
               </div>
             </div>
             <div className="receipt-editor-actions receipt-editor-actions--end">
-              <button type="button" className="receipt-btn-secondary" disabled={printing} onClick={handleTestPrint}>Печать предпросмотра</button>
+              <button type="button" className="receipt-btn-primary receipt-save" disabled={saving || loading} onClick={handleSave}>
+                {saving ? "Сохранение..." : "Сохранить"}
+              </button>
             </div>
           </div>
           <div className="receipt-header-spacer" aria-hidden="true" />
         </header>
 
-        {conflict ? <div className="receipt-banner receipt-banner--error" role="alert">{error}</div> : null}
-        {!conflict && error ? <div className="receipt-banner receipt-banner--error" role="alert">{error}</div> : null}
-        {!error && message ? <div className="receipt-banner receipt-banner--ok" role="status">{message}</div> : null}
+        {conflict ? <Toast kind="error" message={error} onClose={() => setError("")} /> : null}
+        {!conflict && error ? <Toast kind="error" message={error} onClose={() => setError("")} /> : null}
+        {!error && message ? <Toast kind="success" message={message} leaving={toastClosing} onClose={clearToast} /> : null}
 
         <div className="receipt-grid">
           <div className="receipt-editor-col">
@@ -340,12 +365,6 @@ export default function ReceiptSettingsPage() {
                   </div>
                 </div>
               </section>
-
-              <div className="receipt-editor-save">
-                <button type="button" className="receipt-btn-primary receipt-save" disabled={saving || loading} onClick={handleSave}>
-                  {saving ? "Сохранение..." : "Сохранить"}
-                </button>
-              </div>
             </div>
           </div>
 

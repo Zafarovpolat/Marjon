@@ -12,11 +12,9 @@ export default function SidebarAccount({
   setAccountOpen,
   collapsed,
   displayName,
-  role,
   user,
   profilePhoto,
   profileCardName,
-  profileCardRole,
   storedProfile,
   canOpenProfile,
   canOpenSupport,
@@ -177,8 +175,7 @@ export default function SidebarAccount({
           <img src={profilePhoto} alt={displayName} className="sidebar-user-logo" decoding="async" />
         </div>
         <div className="sidebar-user__meta">
-          <strong>{profileCardName}</strong>
-          <span>{profileCardRole}</span>
+          <strong className="sidebar-user__name" title={displayName}>{profileCardName}</strong>
           <em>{user?.company_name || "MARJON"}</em>
         </div>
         <Icon name="bi-chevron-right" size={16} className="sidebar-user__arrow" />

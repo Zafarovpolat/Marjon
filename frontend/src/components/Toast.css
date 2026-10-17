@@ -1,0 +1,110 @@
+/* Общий всплывающий тост Marjon: успех / ошибка.
+   Фиксирован справа сверху поверх контента, контент страницы не сдвигает.
+   Цвета — по референсу: яркий зелёный успех, красный ошибка. */
+
+.marjon-toast {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 280px;
+  max-width: min(360px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border-radius: 14px;
+  color: #fff;
+  box-shadow: 0 18px 44px rgba(7, 20, 40, 0.28), 0 4px 12px rgba(7, 20, 40, 0.18);
+  animation: marjon-toast-in 220ms ease both;
+}
+
+.marjon-toast--success {
+  background: #7ac100;
+}
+
+.marjon-toast--error {
+  background: #dc2626;
+}
+
+.marjon-toast.is-leaving {
+  opacity: 0;
+  transform: translateX(12px);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+
+.marjon-toast__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.96);
+  color: #7ac100;
+}
+
+.marjon-toast--error .marjon-toast__icon {
+  color: #dc2626;
+}
+
+.marjon-toast__texts {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.marjon-toast__title {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.marjon-toast__message {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  opacity: 0.96;
+  overflow-wrap: anywhere;
+}
+
+.marjon-toast__close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  opacity: 0.85;
+  cursor: pointer;
+}
+
+.marjon-toast__close:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+@keyframes marjon-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marjon-toast {
+    animation: none;
+  }
+  .marjon-toast.is-leaving {
+    transform: none;
+    transition: opacity 120ms linear;
+  }
+}

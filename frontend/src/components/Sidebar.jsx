@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/marjon-logo.svg";
-import brandLogo from "../assets/brand/marjon-logo.svg";
+import brandLogo from "../assets/brand/marjon-neon-logo-v110.png";
 import { logout } from "../api/client";
-import { canAccessPath, filterNavItems, getRole } from "../utils/permissions";
+import { canAccessPath, filterNavItems } from "../utils/permissions";
 import { readStoredProfile } from "../utils/profileCache";
-import { navItems } from "./sidebar/navConfig";
+import { isNavPathActive, navItems } from "./sidebar/navConfig";
 import SidebarSearch from "./sidebar/SidebarSearch";
 import SidebarNav from "./sidebar/SidebarNav";
 import SidebarAccount from "./sidebar/SidebarAccount";
 import SidebarMobileNav from "./sidebar/SidebarMobileNav";
+import DarkShellWaves from "./preview/DarkShellWaves";
 
 // Оркестратор сайдбара OWNER. Владеет состоянием и обработчиками навигации,
 // аккаунт-меню и мобильной панели; рендер разнесён по презентационным
@@ -17,6 +18,9 @@ import SidebarMobileNav from "./sidebar/SidebarMobileNav";
 export default function Sidebar({ user, collapsed, onToggle }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const dashboardTo = import.meta.env.DEV && new URLSearchParams(location.search).get("previewData") === "1"
+    ? "/?previewData=1"
+    : "/";
   const closeAccountTimer = useRef(null);
   const [openMenu, setOpenMenu] = useState("");
   const [pinnedMenu, setPinnedMenu] = useState("");
@@ -27,10 +31,9 @@ export default function Sidebar({ user, collapsed, onToggle }) {
   const [lang, setLang] = useState(() => localStorage.getItem("marjon_lang") || "ru");
   const [storedProfile, setStoredProfile] = useState(() => readStoredProfile(user?.id));
   const accountRef = useRef(null);
-  const role = getRole(user) || "owner";
-  const displayName = user?.full_name || user?.name || user?.email || "Owner";
-  const profileCardName = user?.full_name || user?.name || (user?.email ? `${user.email.slice(0, 14)}...` : "manager@marjon...");
-  const profileCardRole = role;
+  const savedProfileName = typeof storedProfile.profileName === "string" ? storedProfile.profileName.trim() : "";
+  const displayName = savedProfileName || user?.full_name || user?.name || user?.email || "Owner";
+  const profileCardName = savedProfileName || user?.full_name || user?.name || (user?.email ? `${user.email.slice(0, 14)}...` : "manager@marjon...");
   const profilePhoto = storedProfile.photo || logo;
 
   // Ролевая фильтрация пунктов меню (ТЗ §2.2)
@@ -39,11 +42,11 @@ export default function Sidebar({ user, collapsed, onToggle }) {
   const canOpenSupport = canAccessPath(user, "/settings/support");
   const canOpenStore = canAccessPath(user, "/store");
   const exactChildParentKey = useMemo(() => (
-    visibleNavItems.find((item) => item.children?.some((child) => location.pathname === child.to))?.key || ""
+    visibleNavItems.find((item) => item.children?.some((child) => isNavPathActive(location.pathname, child.to)))?.key || ""
   ), [location.pathname, visibleNavItems]);
 
   useEffect(() => {
-    const activeParent = navItems.find((item) => item.children?.some((child) => location.pathname === child.to));
+    const activeParent = navItems.find((item) => item.children?.some((child) => isNavPathActive(location.pathname, child.to)));
     if (activeParent) {
       setPinnedMenu(activeParent.key);
       setOpenMenu(activeParent.key);
@@ -140,25 +143,26 @@ export default function Sidebar({ user, collapsed, onToggle }) {
   return (
     <>
     <aside className={`dashboard-sidebar ${collapsed ? "is-collapsed" : ""}`} id="dashboardSidebar">
+      <DarkShellWaves variant="sidebar" />
       <div className="sidebar-brand">
         <div className="sidebar-brand__identity">
           <button
             className="brand-mark brand-mark--button"
             type="button"
             onClick={onToggle}
-            title={collapsed ? "Открыть меню" : "Свернуть меню"}
             aria-label={collapsed ? "Открыть меню" : "Свернуть меню"}
           >
             <img src={brandLogo} alt="MARJON" className="marjon-logo" decoding="async" />
           </button>
           <div>
+            <div className="brand-subtitle">ERP SYSTEM</div>
             <div className="brand-title">MARJON</div>
-            <div className="brand-subtitle">Restaurant OS</div>
           </div>
         </div>
       </div>
 
       <SidebarSearch
+        collapsed={collapsed}
         navItems={visibleNavItems}
         navigate={navigate}
         setPinnedMenu={setPinnedMenu}
@@ -168,6 +172,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
       <SidebarNav
         visibleNavItems={visibleNavItems}
         location={location}
+        dashboardTo={dashboardTo}
         collapsed={collapsed}
         openMenu={openMenu}
         pinnedMenu={pinnedMenu}
@@ -186,11 +191,9 @@ export default function Sidebar({ user, collapsed, onToggle }) {
         setAccountOpen={setAccountOpen}
         collapsed={collapsed}
         displayName={displayName}
-        role={role}
         user={user}
         profilePhoto={profilePhoto}
         profileCardName={profileCardName}
-        profileCardRole={profileCardRole}
         storedProfile={storedProfile}
         canOpenProfile={canOpenProfile}
         canOpenSupport={canOpenSupport}
@@ -209,12 +212,12 @@ export default function Sidebar({ user, collapsed, onToggle }) {
     <SidebarMobileNav
       visibleNavItems={visibleNavItems}
       location={location}
+      dashboardTo={dashboardTo}
       moreOpen={moreOpen}
       setMoreOpen={setMoreOpen}
       canOpenProfile={canOpenProfile}
       profilePhoto={profilePhoto}
       displayName={displayName}
-      profileCardRole={profileCardRole}
       handleLogout={handleLogout}
       navigate={navigate}
     />

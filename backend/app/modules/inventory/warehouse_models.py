@@ -36,11 +36,21 @@ class PurchaseDocument(TimeStampedModel):
 
 
 class PurchaseDocumentItem(TimeStampedModel):
-    """Позиция в документе прихода."""
+    """Позиция в документе прихода.
+
+    ingredient_id — обязательная ссылка на шаблон из «Продуктов» (туда же
+    считается остаток/себестоимость). product_id — опциональная ссылка на
+    Товар (реализация, product_type=sale), из которого шаблон был
+    автопривязан при создании документа; по ней UI показывает Тип.
+    """
     __tablename__ = "purchase_document_items"
 
     document_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("purchase_documents.id", ondelete="CASCADE"), index=True)
     ingredient_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("ingredients.id"), nullable=True)
+    product_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("products.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     name: Mapped[str] = mapped_column(String(500), nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(15, 4), default=Decimal("0"))
     unit: Mapped[str] = mapped_column(String(20), default="кг")
@@ -79,6 +89,40 @@ class InventoryCheck(TimeStampedModel):
     status: Mapped[str] = mapped_column(String(20), default="draft")
     created_by: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_by_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Связанные документы корректировки (V42): излишки → приход, недостачи →
+    # расход. NULL — корректировка не создавалась (совпало или выключено).
+    purchase_doc_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    expense_doc_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+
+    items: Mapped[list[InventoryCheckItem]] = relationship(
+        back_populates="check", cascade="all, delete-orphan"
+    )
+
+
+class InventoryCheckItem(TimeStampedModel):
+    """Строка инвентаризации — факт по позиции против учётного остатка.
+
+    stock_qty — остаток на момент проверки (снапшот StockItem),
+    actual_qty — посчитанный факт, diff_qty = actual - stock
+    (> 0 — излишек в приход, < 0 — недостача в расход, 0 — совпало).
+    cost_price — себестоимость из остатка (для сумм корректировки).
+    """
+    __tablename__ = "inventory_check_items"
+
+    check_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("inventory_checks.id", ondelete="CASCADE"), index=True)
+    ingredient_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("ingredients.id"), nullable=True)
+    product_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("products.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    name: Mapped[str] = mapped_column(String(500), nullable=False)
+    unit: Mapped[str] = mapped_column(String(20), default="кг")
+    stock_qty: Mapped[Decimal] = mapped_column(Numeric(15, 4), default=Decimal("0"))
+    actual_qty: Mapped[Decimal] = mapped_column(Numeric(15, 4), default=Decimal("0"))
+    diff_qty: Mapped[Decimal] = mapped_column(Numeric(15, 4), default=Decimal("0"))
+    cost_price: Mapped[Decimal] = mapped_column(Numeric(15, 4), default=Decimal("0"))
+
+    check: Mapped[InventoryCheck] = relationship(back_populates="items")
 
 
 class WriteOffDocument(TimeStampedModel):

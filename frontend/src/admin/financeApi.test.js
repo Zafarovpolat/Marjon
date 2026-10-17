@@ -145,7 +145,9 @@ describe("HQ finance API contract", () => {
     expect(transactions).toContain("financeService.listTransactions");
     expect(transactions).toContain("financeService.createTransaction");
     expect(categories).toContain("financeService.listTransactionCategories");
-    expect(paymentTypes).toContain('resourceKey="paymentMethods"');
+    // Bespoke page (generic resourceKey consumer replaced): same APP service.
+    expect(paymentTypes).toContain('const RESOURCE = "paymentMethods"');
+    expect(paymentTypes).toContain("listResource(RESOURCE");
     expect(financeService).toContain('api.get("/finance/transactions"');
     expect(settingsService).toContain('paymentMethods: "/finance/payment-types"');
     expect([transactions, categories, paymentTypes, financeService, settingsService].join("\n")).not.toContain("/hq/finance/");

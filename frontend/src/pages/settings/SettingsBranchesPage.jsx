@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { settingsService } from "../../api/settings";
 import Icon from "../../components/Icon";
+import Toast from "../../components/Toast";
 import { isAbortError, useLatestRequest, useMutationLocks } from "../../hooks/useAsyncSafety";
 import { extractPhoneDigits, formatPhone, fullPhone, isPhoneComplete } from "../../utils/uzPhone";
 import { enterBranchFromOwner } from "../../auth/branchSession";
@@ -227,7 +228,7 @@ function SettingsBranchesPage() {
                 {editingId ? <small className="muted">Оставьте пустым, чтобы не менять пароль.</small> : null}
               </label>
             </div>
-            {saveError ? <div className="login-error" role="alert">{saveError}</div> : null}
+            {saveError ? <Toast kind="error" message={saveError} onClose={() => setSaveError("")} /> : null}
             <footer className="settings-form__footer">
               <button type="button" disabled={saving} onClick={closeDrawer}>Отмена</button>
               <button type="submit" disabled={saving}>{saving ? "Сохранение..." : "Сохранить"}</button>

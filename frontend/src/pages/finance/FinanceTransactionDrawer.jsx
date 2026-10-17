@@ -1,4 +1,5 @@
 import Icon from "../../components/Icon";
+import Toast from "../../components/Toast";
 
 function FinanceTransactionDrawer({
   form,
@@ -11,6 +12,7 @@ function FinanceTransactionDrawer({
   categories = [],
   saving = false,
   error = "",
+  onClearError = null,
 }) {
   const isExpense = form.type === "expense";
   const update = (field, value) => setForm((current) => ({ ...current, [field]: value }));
@@ -34,7 +36,7 @@ function FinanceTransactionDrawer({
           <label className="finance-form__wide"><span>Комментарий</span><textarea value={form.comment} disabled={saving} onChange={(event) => update("comment", event.target.value)} /></label>
         </div>
 
-        {error ? <div className="login-error" role="alert">{error}</div> : null}
+        {error ? <Toast kind="error" message={error} onClose={onClearError || undefined} /> : null}
         <footer className="finance-form__footer"><button type="button" onClick={onClose} disabled={saving}>Отмена</button><button type="submit" disabled={saving}>{saving ? "Сохранение..." : "Сохранить"}</button></footer>
       </form>
     </div>

@@ -1108,6 +1108,597 @@
       line-height: 1.4;
   }
 
+  /* V1 — Dish Categories live in marjon-important (like the existing
+     .menu-categories-page overrides in react-overrides.css), otherwise the
+     older row geometry wins by layer. Still strictly scoped to
+     .is-dish-categories. */
+}
+
+@layer marjon-important {
+  /* V1 — Dish Categories in the "Место" (SettingsPlacesPage) visual family.
+     Strictly scoped to Menu → Категория блюд (.is-dish-categories), so raw /
+     semi / sales categories and the Places page itself are untouched.
+     Borrows the Place tokens: white 14px-radius card row, 20px title,
+     calm 13px secondary, dot status, text edit + icon delete. */
+  .menu-categories-page.is-dish-categories .menu-categories-card {
+      display: block;
+      padding: 16px 22px 22px;
+      border: 1px solid rgba(15, 35, 60, 0.09);
+      border-radius: 18px;
+      background: #fff;
+      box-shadow: 0 3px 12px rgba(15, 35, 60, 0.055);
+  }
+
+  /* V3 — desktop shell matches Dishes: neutralize the category-only stretch
+     (react-overrides ~32215: width calc + negative margins, menu-categories
+     ONLY) and mirror the Dishes content rhythm (dishes.css V9/V14 pattern:
+     16px sides + 14px top / 42px bottom on desktop). Page-scoped, no shared
+     shell regression. */
+  .dashboard-content:has(.menu-categories-page.is-dish-categories) {
+      padding-left: 16px;
+      padding-right: 16px;
+  }
+
+  @media (min-width: 1025px) {
+      .menu-categories-page.is-dish-categories {
+          width: auto;
+          margin: 0;
+          padding: 0;
+      }
+
+      body.dashboard-body .dashboard-content:has(.menu-categories-page.is-dish-categories) {
+          padding-top: 14px;
+          padding-bottom: 42px;
+      }
+  }
+
+  .menu-categories-page.is-dish-categories .dishcat-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+  }
+
+  /* V4 — header follows the approved "Блюда" template (live values:
+     accent 8x44, title 28px/600); eyebrow already shares the same classes. */
+  .menu-categories-page.is-dish-categories .dishcat-header .settings-accent-bar {
+      height: 44px;
+  }
+
+  .menu-categories-page.is-dish-categories .dishcat-header .settings-title-group h1 {
+      font-size: 28px;
+      font-weight: 600;
+  }
+
+  /* V2 — Add button in the OWNER primary turquoise family (#1FC9C9, 22px). */
+  .menu-categories-page.is-dish-categories .dishcat-header .settings-actions button {
+      min-height: 44px;
+      padding: 0 22px;
+      border: 0;
+      border-radius: 22px;
+      background: #1FC9C9;
+      color: #fff;
+      font-weight: 800;
+      box-shadow: 0 8px 18px rgba(31, 201, 201, 0.28);
+  }
+
+  .menu-categories-page.is-dish-categories .dishcat-header .settings-actions button:hover:not(:disabled) {
+      background: #1AB5B5;
+  }
+
+  .menu-categories-page.is-dish-categories .dishcat-header .settings-actions button:active:not(:disabled) {
+      background: #159898;
+  }
+
+  .menu-categories-page.is-dish-categories .dishcat-header .settings-actions button:disabled {
+      opacity: 0.6;
+      box-shadow: none;
+      cursor: not-allowed;
+  }
+
+  .menu-categories-page.is-dish-categories .dishcat-list {
+      gap: 10px;
+      /* V3 — neutralize react-overrides grid-auto-rows:54px: tracks must size
+         to the 72px rows, otherwise rows overflow tracks and overlap. */
+      grid-auto-rows: auto;
+  }
+
+  .menu-categories-page.is-dish-categories .menu-category-row.dishcat-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 18px;
+      height: auto;
+      max-height: none;
+      /* V6.2 — компактнее: padding 11px при контенте 40px даёт ~64px
+         (40 + 2*11 + 2 border). Фото/шрифты/кнопки не трогаем. */
+      min-height: 0;
+      padding: 11px 16px;
+      border: 1px solid rgba(215, 226, 240, .9);
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: none;
+      transition: border-color 140ms ease, box-shadow 140ms ease;
+  }
+
+  .menu-categories-page.is-dish-categories .menu-category-row.dishcat-row:hover {
+      border-color: rgba(22, 198, 200, .5);
+      background: #fff;
+      box-shadow: 0 6px 16px rgba(20, 44, 72, .06);
+      transform: none;
+  }
+
+  .menu-categories-page.is-dish-categories .dishcat-main {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+  }
+
+  /* V4 — row photo block: compact rounded square left of the name, OWNER
+     neutral placeholder when the row carries no real photo (NomCategory has
+     no photo field, so placeholder is the honest default). */
+  /* V6.3 — photo nudged left for breathing room before service. NOTE: a
+     grid margin here has no visual effect (fixed 40px track absorbs it in
+     Chrome), so a relative -12px shift is used instead: zero layout impact,
+     service/status/actions keep their X, no overlap (18px row gap absorbs
+     the shift, name side is ellipsis-constrained). */
+  .menu-categories-page.is-dish-categories .dishcat-photo-sm {
+      width: 40px;
+      height: 40px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      position: relative;
+      left: -12px;
+      border: 1px solid rgba(215, 226, 240, .9);
+      border-radius: 12px;
+      background: var(--neutral-50, #f4f7fc);
+      color: #8aa0b4;
+  }
+
+  .menu-categories-page.is-dish-categories .dishcat-photo-sm img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+  }
+
+  .menu-categories-page.is-dish-categories .dishcat-info {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+  }
+
+  .menu-categories-page.is-dish-categories .dishcat-info strong {
+      overflow: hidden;
+      color: #0b1f3f;
+      font-size: 20px;
+      font-weight: 600;
+      line-height: 1.3;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+  }
+
+  /* V5 — eyebrow "МЕНЮ" exactly +8px down: relative offset moves only the
+     eyebrow text (layout untouched, accent/title/button stay). */
+  .menu-categories-page.is-dish-categories .dishcat-header .settings-title-group p {
+      position: relative;
+      top: 8px;
+  }
+
+  /* V6 — service state colors: ON = approved active green, OFF = #EF4444
+     (dot inherits via currentColor). Independent from is_active. */
+  .menu-categories-page.is-dish-categories .dishcat-service-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin-right: 28px;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.5;
+      white-space: nowrap;
+  }
+
+  .menu-categories-page.is-dish-categories .dishcat-service-badge.is-on {
+      color: #00dc3b;
+  }
+
+  .menu-categories-page.is-dish-categories .dishcat-service-badge.is-off {
+      color: #EF4444;
+  }
+
+  .menu-categories-page.is-dish-categories .dishcat-service-badge__dot {
+      width: 8px;
+      height: 8px;
+      flex: 0 0 8px;
+      border-radius: 50%;
+      background: currentColor;
+  }
+
+  /* Фото-трек 40px убран вместе с миниатюрами: бейдж обслуги едет влево
+     на свою ширину, без зажатия и налезания на действия. */
+  .menu-categories-page.is-dish-categories .dishcat-meta {
+      display: grid;
+      grid-template-columns: auto auto auto 34px;
+      align-items: center;
+      gap: 10px;
+  }
+
+  /* Обслуга + статус левее кнопок: отбивка группы от действий. */
+  .menu-categories-page.is-dish-categories .dishcat-meta .settings-status-badge {
+      margin-right: 24px;
+  }
+
+  /* Place-family dot status on this page only (transparent, text-first). */
+  .menu-categories-page.is-dish-categories .dishcat-meta .settings-status-badge {
+      gap: 7px;
+      justify-self: start;
+      padding: 0;
+      border: 0;
+      background: transparent;
+  }
+
+  .menu-categories-page.is-dish-categories .dishcat-meta .settings-status-badge.is-active {
+      border: 0;
+      background: transparent;
+      color: #00dc3b;
+  }
+
+  .menu-categories-page.is-dish-categories .dishcat-meta .settings-status-badge.is-inactive {
+      border: 0;
+      background: transparent;
+      color: var(--color-danger, #ef4444);
+  }
+
+  /* V2 — Add Category centered modal: OWNER settings-modal shell is reused
+     untouched; only the primary action joins the turquoise family and the
+     photo block gets its local layout. */
+  .dishcat-modal-layer .settings-form__footer button[type="submit"] {
+      min-height: 43px;
+      border: 0;
+      border-radius: 22px;
+      background: #1FC9C9;
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(31, 201, 201, 0.28);
+  }
+
+  .dishcat-modal-layer .settings-form__footer button[type="submit"]:hover:not(:disabled) {
+      background: #1AB5B5;
+  }
+
+  .dishcat-modal-layer .settings-form__footer button[type="submit"]:active:not(:disabled) {
+      background: #159898;
+  }
+
+  .dishcat-modal-layer .settings-form__footer button[type="submit"]:disabled {
+      opacity: 0.6;
+      box-shadow: none;
+      cursor: not-allowed;
+  }
+
+  /* V6 — delete confirm: destructive action in outlined red (OWNER family:
+     white + red border/text, never filled red). Stronger than the turquoise
+     modal-submit rule in this same layer. */
+  .dishcat-modal-layer .settings-form__footer button.dishcat-confirm__delete[type="submit"] {
+      min-height: 43px;
+      padding: 0 18px;
+      border: 1px solid #EF4444;
+      border-radius: 22px;
+      background: #fff;
+      color: #EF4444;
+      font-weight: 800;
+      box-shadow: none;
+      cursor: pointer;
+  }
+
+  /* V6.8 — full-strength selector (same layer): the turquoise modal-submit
+     :hover/:focus-visible rule (0,5,1) used to win over the short danger
+     hover (0,4,0). Soft red only, never turquoise. */
+  .dishcat-modal-layer .settings-form__footer button.dishcat-confirm__delete[type="submit"]:hover:not(:disabled),
+  .dishcat-modal-layer .settings-form__footer button.dishcat-confirm__delete[type="submit"]:focus-visible {
+      background: rgba(239, 68, 68, 0.08);
+      border-color: #EF4444;
+      color: #EF4444;
+      box-shadow: none;
+      transform: none;
+  }
+
+  .dishcat-modal-layer .dishcat-confirm__delete:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+  }
+
+  /* V6.7 — compact photo-remove confirm: narrower shell, tighter text
+     rhythm. Scoped to .dishcat-confirm--photo only; the delete-category and
+     dishes confirms keep the full settings-modal geometry. */
+  .dishcat-modal-layer .settings-form.settings-modal.dishcat-confirm--photo {
+      width: min(400px, calc(100vw - 48px));
+      padding: 20px;
+      gap: 12px;
+  }
+
+  .dishcat-modal-layer .dishcat-confirm--photo .settings-form__header h2 {
+      font-size: 19px;
+      font-weight: 700;
+      line-height: 1.25;
+  }
+
+  .dishcat-modal-layer .dishcat-confirm--photo .settings-form__context {
+      margin: 0;
+      font-size: 14px;
+  }
+
+  .dishcat-modal-layer .dishcat-confirm--photo .settings-form__footer {
+      gap: 8px;
+  }
+
+  /* V6.8 — photo confirm header anchored left like the archive confirm:
+     space-between spreads the middle column away from the accent; flex:1
+     pins the text block to the 7px gap, X stays right. Scoped to --photo. */
+  .dishcat-modal-layer .dishcat-confirm--photo .settings-form__header {
+      gap: 7px;
+  }
+
+  .dishcat-modal-layer .dishcat-confirm--photo .settings-form__header > div {
+      flex: 1 1 auto;
+      min-width: 0;
+  }
+
+  /* Both confirm footers share the 22px family (photo + delete category). */
+  .dishcat-modal-layer .dishcat-confirm .settings-form__footer button {
+      border-radius: 22px;
+  }
+
+  /* V6.5 — photo viewer/lightbox: same canonical image_url, centered OWNER
+     shell (NOT an edit modal). Backdrop fades, viewer rises+unscales in;
+     close reverses, then unmounts. Reduced-motion disables transforms. */
+  .dishcat-viewer-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 10050;
+  }
+
+  .dishcat-viewer-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(3px);
+      animation: dishcat-viewer-backdrop-in 200ms ease-out both;
+  }
+
+  .dishcat-viewer {
+      position: relative;
+      max-width: min(80vw, 900px);
+      padding: 16px;
+      border: 1px solid rgba(15, 35, 60, 0.10);
+      border-radius: 22px;
+      background: #fff;
+      box-shadow: 0 24px 60px rgba(15, 35, 60, 0.22);
+      animation: dishcat-viewer-in 220ms cubic-bezier(0.22, 1, 0.3, 1) both;
+  }
+
+  .dishcat-viewer img {
+      display: block;
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      max-height: 80vh;
+      border-radius: 14px;
+      object-fit: contain;
+  }
+
+  .dishcat-viewer__close {
+      position: absolute;
+      top: -14px;
+      right: -14px;
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(215, 226, 240, .9);
+      border-radius: 50%;
+      background: #fff;
+      color: #334155;
+      box-shadow: 0 6px 16px rgba(20, 44, 72, .12);
+      cursor: pointer;
+  }
+
+  .dishcat-viewer__fallback {
+      min-width: min(60vw, 320px);
+      padding: 48px 32px;
+      color: #64748b;
+      font-size: 14px;
+      text-align: center;
+  }
+
+  .dishcat-viewer-overlay.is-closing {
+      animation: dishcat-viewer-backdrop-out 180ms ease-in both;
+  }
+
+  .dishcat-viewer-overlay.is-closing .dishcat-viewer {
+      animation: dishcat-viewer-out 180ms ease-in both;
+  }
+
+  @keyframes dishcat-viewer-backdrop-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+  }
+
+  @keyframes dishcat-viewer-in {
+      from { opacity: 0; transform: scale(0.96) translateY(6px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  @keyframes dishcat-viewer-backdrop-out {
+      from { opacity: 1; }
+      to { opacity: 0; }
+  }
+
+  @keyframes dishcat-viewer-out {
+      from { opacity: 1; transform: scale(1) translateY(0); }
+      to { opacity: 0; transform: scale(0.97) translateY(0); }
+  }
+
+  /* Clickable thumbnail keeps the 40px row geometry: button reset only. */
+  .menu-categories-page.is-dish-categories button.dishcat-photo-sm {
+      padding: 0;
+      font: inherit;
+      cursor: pointer;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+      .dishcat-viewer-overlay,
+      .dishcat-viewer,
+      .dishcat-viewer-overlay.is-closing,
+      .dishcat-viewer-overlay.is-closing .dishcat-viewer {
+          animation-duration: 0.01ms;
+      }
+
+      .dishcat-viewer {
+          transform: none;
+      }
+  }
+
+  .dishcat-photo {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+  }
+
+  .dishcat-photo__preview {
+      width: 64px;
+      height: 64px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid rgba(215, 226, 240, .9);
+      border-radius: 18px;
+      background: var(--neutral-50, #f4f7fc);
+      color: #8aa0b4;
+  }
+
+  .dishcat-photo__preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+  }
+
+  .dishcat-photo__body {
+      display: grid;
+      gap: 8px;
+      color: var(--neutral-600, #475569);
+      font-size: 14px;
+  }
+
+  .dishcat-photo__upload {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 36px;
+      padding: 0 14px;
+      border: 1px solid rgba(15, 153, 184, .35);
+      border-radius: 12px;
+      background: #fff;
+      color: #0f99b8;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+  }
+
+  .dishcat-photo__upload:hover {
+      border-color: rgba(22, 198, 200, .6);
+      background: rgba(22, 198, 200, .07);
+  }
+
+  .dishcat-photo__upload input {
+      display: none;
+  }
+
+  /* V6.6 — Edit title: calmer than the 30px modal default, edit-modal only
+     (Add keeps the base size). */
+  .dishcat-modal-layer .dishcat-modal--edit .settings-form__header h2 {
+      font-size: 24px;
+      font-weight: 700;
+      line-height: 1.15;
+  }
+
+  /* V6.6 — photo-remove overlay: icon-only button over the saved thumbnail.
+     Appears on hover/focus with a soft fade+scale; photo stays visible under
+     a subtle dark veil. Touch devices use the focusable button directly. */
+  .dishcat-photo__preview {
+      position: relative;
+  }
+
+  .dishcat-photo__remove {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 0;
+      border-radius: inherit;
+      background: rgba(15, 23, 42, 0);
+      opacity: 0;
+      cursor: pointer;
+      transition: opacity 170ms ease, background-color 170ms ease;
+  }
+
+  /* V6.7 — softer hover: subtle veil keeps the photo readable, red icon on a
+     soft white disc with a small light shadow (was heavy .45 veil + dark
+     disc). Animation/timing unchanged. */
+  .dishcat-photo__remove span {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #fff;
+      color: #EF4444;
+      box-shadow: 0 4px 12px rgba(7, 20, 40, 0.12);
+      opacity: 0;
+      transform: scale(.92);
+      transition: opacity 170ms ease, transform 170ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .dishcat-photo__preview:hover .dishcat-photo__remove,
+  .dishcat-photo__preview:focus-within .dishcat-photo__remove,
+  .dishcat-photo__remove:focus-visible {
+      opacity: 1;
+      background: rgba(7, 20, 40, 0.2);
+  }
+
+  .dishcat-photo__preview:hover .dishcat-photo__remove span,
+  .dishcat-photo__preview:focus-within .dishcat-photo__remove span,
+  .dishcat-photo__remove:focus-visible span {
+      opacity: 1;
+      transform: scale(1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+      .dishcat-photo__remove,
+      .dishcat-photo__remove span {
+          transition-duration: 0.01ms;
+      }
+  }
+
+  @media (max-width: 720px) {
+      .menu-categories-page.is-dish-categories .menu-category-row.dishcat-row {
+          grid-template-columns: minmax(0, 1fr);
+      }
+
+      .menu-categories-page.is-dish-categories .dishcat-meta {
+          justify-content: start;
+          width: 100%;
+      }
+  }
+
 }
 
 /* ── Стоп-лист (/nomenclature/stop-list) ─────────────────────────────────── */

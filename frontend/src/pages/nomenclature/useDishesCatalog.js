@@ -2,7 +2,7 @@
 // настройки колонок и мутации. Вынесено из NomenclaturePage.jsx (FE-07B)
 // без ослабления FE-06 safety (AbortController/useLatestRequest, замки мутаций,
 // stale-response ownership, unmount safety, числовой парсинг сохранены 1:1).
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { catalogService } from "../../api/catalog";
 import { getCategories } from "../../api/categories";
 import { settingsService } from "../../api/settings";
@@ -13,15 +13,38 @@ import {
   mapNomenclatureProduct,
   parseNomenclatureMoney,
   parseNomenclatureSort,
+  unitDisplayLabel,
+  unitOptionLabel,
 } from "./nomenclatureData";
 
 // JPEG/PNG/WebP — как принимает POST /inventory/products/{id}/photo.
 export const SUPPORTED_DISH_PHOTO_TYPES = Object.freeze(["image/jpeg", "image/png", "image/webp"]);
+export function mapDishUnitOption(item) {
+  return {
+    id: String(item.id),
+    name: String(item.name || ""),
+    short_name: String(item.short_name || ""),
+    // Подпись селекта — «Килограмм (Кг)», value остаётся id.
+    label: unitOptionLabel(item),
+    active: item.status !== false,
+    isGlobal: item.is_global ?? item.company_id == null,
+  };
+}
 // Опции фильтра «Категория»: ТОЛЬКО живой GET /inventory/categories
 // (тот же источник, что у «Категория блюд»). Никаких демо/хардкод-фолбэков:
 // пусто/ошибка → truthful disabled-состояние, без catch-all опции ([] = без
 // ограничения). value = category.id, label = category.name; сопоставление со
 // строками — по имени, т.к. продукты несут только category_name.
+function makeDishCategorySlug(name) {
+  const clean = String(name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^\p{L}\p{N}-]+/gu, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  return clean ? `dish-${clean}` : `dish-${Date.now()}`;
+}
 export function useDishesCatalog() {
   const [rows, setRows] = useState([]);
   const [apiLoading, setApiLoading] = useState(true);
@@ -78,6 +101,7 @@ export function useDishesCatalog() {
   const [modGroups, setModGroups] = useState([]);
   const [modLoading, setModLoading] = useState(false);
   const [modError, setModError] = useState("");
+  const clearModError = useCallback(() => setModError(""), []);
   // Опции фильтра «Категория»: живые данные GET /inventory/categories
   // (тот же источник, что у «Категория блюд» — готово к будущему merge).
   // Пусто/ошибка → опций нет (только «Все категории»), никакой выдумки имён.
@@ -87,13 +111,65 @@ export function useDishesCatalog() {
   // V18 — справочник принтеров из Настройки → Принтеры (тот же settingsService,
   // что у SettingsPrintersPage: GET /printers). Один запрос при монтировании,
   // не при каждом открытии дровера. Без фейков: ошибка → пусто + флаг.
+  // V24: тянем и ip_address — таблица резолвит IP по printerId
+  // (product.printer_id → printers lookup → name/IP), без дублирования
+  // IP на Product и без хардкода.
   const [printerOptions, setPrinterOptions] = useState([]);
   const [printerOptionsLoading, setPrinterOptionsLoading] = useState(true);
   const [printerOptionsError, setPrinterOptionsError] = useState(false);
+  // V24: блокировка тумблера на время PATCH (один id за раз).
+  const [togglingId, setTogglingId] = useState(null);
+  // Восстановление из архива: тот же замок-мутация, отдельный флаг.
+  const [restoringId, setRestoringId] = useState(null);
+  // Статус-вкладка Активные/Архивированные (язык StaffTTM): дефолт — активные.
+  // Данные — канонический GET /inventory/products?include_all=true (backend
+  // отдаёт и архив), фильтр — реальное row.active (is_active), без фейков.
+  const [showArchived, setShowArchived] = useState(false);
+  // Canonical Units V2 directory. No cache and no fallback list: reopening a
+  // dish drawer revalidates GET /units so newly-created company units appear.
+  const [unitOptions, setUnitOptions] = useState([]);
+  const [unitOptionsLoading, setUnitOptionsLoading] = useState(true);
+  const [unitOptionsError, setUnitOptionsError] = useState(false);
+  const unitOptionsRef = useRef([]);
   const beginRequest = useLatestRequest();
   const beginFilterRequest = useLatestRequest();
   const beginPrinterRequest = useLatestRequest();
+  const beginUnitRequest = useLatestRequest();
   const { acquire, release } = useMutationLocks();
+
+  const loadUnitOptions = useCallback(() => {
+    const request = beginUnitRequest();
+    setUnitOptionsLoading(true);
+    setUnitOptionsError(false);
+    return settingsService.listResource("units", { signal: request.signal })
+      .then(({ data }) => {
+        if (!request.isCurrent()) return;
+        const items = Array.isArray(data) ? data : data?.items || [];
+        const live = items
+          .filter((item) => item?.id && typeof item.status === "boolean" && unitDisplayLabel(item))
+          .sort((a, b) => (
+            Number(a.sort ?? a.sort_order ?? 0) - Number(b.sort ?? b.sort_order ?? 0)
+            || unitDisplayLabel(a).localeCompare(unitDisplayLabel(b), "ru")
+          ))
+          .map(mapDishUnitOption);
+        unitOptionsRef.current = live;
+        setUnitOptions(live);
+        setRows((current) => current.map((row) => {
+          const unit = row.unitId ? live.find((item) => item.id === row.unitId) : null;
+          // Таблица — короткое имя (канон), полная подпись только в селекте.
+          return unit ? { ...row, unit: unit.short_name || unit.label } : row;
+        }));
+      })
+      .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
+        unitOptionsRef.current = [];
+        setUnitOptions([]);
+        setUnitOptionsError(true);
+      })
+      .finally(() => {
+        if (request.isCurrent()) setUnitOptionsLoading(false);
+      });
+  }, [beginUnitRequest]);
 
   const visibleColumnKeys = useMemo(
     () => dishColumnOptions.filter((column) => visibleColumns[column.key] !== false).map((column) => column.key),
@@ -119,11 +195,11 @@ export function useDishesCatalog() {
     const request = beginRequest();
     setApiLoading(true);
     setApiError("");
-    catalogService.listProducts({ signal: request.signal })
+    catalogService.listProducts({ signal: request.signal, params: { include_all: true } })
       .then(({ data }) => {
         if (!request.isCurrent()) return;
         const items = Array.isArray(data) ? data : data?.items || [];
-        const mapped = items.map(mapNomenclatureProduct);
+        const mapped = items.map((item) => mapNomenclatureProduct(item, unitOptionsRef.current));
         setRows(mapped);
       })
       .catch((err) => {
@@ -135,6 +211,10 @@ export function useDishesCatalog() {
         if (request.isCurrent()) setApiLoading(false);
       });
   }, [beginRequest]);
+
+  useEffect(() => {
+    void loadUnitOptions();
+  }, [loadUnitOptions]);
 
   useEffect(() => {
     const request = beginFilterRequest();
@@ -180,6 +260,7 @@ export function useDishesCatalog() {
           .map((item) => ({
             id: String(item.id),
             name: String(item.name),
+            ip: String(item.ip_address || "").trim(),
             active: item.is_active !== false,
           }));
         setPrinterOptions(live);
@@ -196,6 +277,10 @@ export function useDishesCatalog() {
 
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
+      // Вкладка статуса: Активные — только row.active, Архивированные —
+      // только архив (is_active === false). Реальный фильтр, не фейк.
+      const statusMatch = showArchived ? row.active === false : row.active !== false;
+      if (!statusMatch) return false;
       const searchMatch = !filters.search || row.name.toLowerCase().includes(filters.search.toLowerCase());
       // V17 — фильтр хранит массив category.id (OR-семантика); строки несут
       // только category_name — маппим через загруженный справочник. Пустой
@@ -212,13 +297,42 @@ export function useDishesCatalog() {
         || selectedNames.has(row.category);
       return searchMatch && categoryMatch;
     });
-  }, [rows, filters, filterCategories]);
+  }, [rows, filters, filterCategories, showArchived]);
 
-  const updateRow = (id, key, value) => {
-    void id;
-    void key;
-    void value;
-    setActionError("Быстрое изменение недоступно: backend mutation contract не подключён.");
+  // V24 — реальные тумблеры АВТО/СЕТ: PATCH /inventory/products/{id}
+  // {is_auto} / {is_set}. V39 — тумблер колонки пишет ТОЛЬКО allow_in_sets
+  // (доступность в сетах), is_set не трогает. Независимые поля, без
+  // оптимистичного fake: строку обновляем ТОЛЬКО ответом сервера;
+  // ошибка → actionError, состояние не меняется (revert). F5 держится сервером.
+  const updateRow = async (id, key, value) => {
+    if (key !== "auto" && key !== "set" && key !== "inset") {
+      setActionError("Быстрое изменение недоступно: неизвестное поле.");
+      return;
+    }
+    const lockKey = `product-toggle:${id}:${key}`;
+    if (!acquire(lockKey)) return;
+    const payload = key === "auto"
+      ? { is_auto: Boolean(value) }
+      : key === "inset" ? { allow_in_sets: Boolean(value) } : { is_set: Boolean(value) };
+    setTogglingId(`${id}:${key}`);
+    setActionError("");
+    try {
+      const { data } = await catalogService.updateProduct(id, payload);
+      if (!data?.id) throw new Error("Backend не вернул обновлённый продукт.");
+      const serverRow = mapNomenclatureProduct(data, unitOptionsRef.current);
+      setRows((current) => current.map((row) => (String(row.id) === String(id) ? {
+        ...serverRow,
+        // IP принтера живёт в справочнике GET /printers — переносим
+        // printerIp из прежней строки, если ответ его не несёт.
+        printerIp: serverRow.printerIp || current.find((r) => String(r.id) === String(id))?.printerIp || "",
+      } : row)));
+    } catch (err) {
+      const message = err.response?.data?.detail || err.message || "Не удалось обновить поле.";
+      setActionError(String(message));
+    } finally {
+      setTogglingId(null);
+      release(lockKey);
+    }
   };
 
   const openDrawer = (row = null) => {
@@ -226,16 +340,16 @@ export function useDishesCatalog() {
     if (closeTimer.current) clearTimeout(closeTimer.current);
     setDrawerClosing(false);
     setEditing(row);
-    setForm(row || { ...emptyDishForm });
+    setForm(row ? {
+      ...row,
+      cost: parseNomenclatureMoney(row.cost, 0) === 0 ? "" : String(parseNomenclatureMoney(row.cost)),
+      price: parseNomenclatureMoney(row.price, 0) === 0 ? "" : String(parseNomenclatureMoney(row.price)),
+    } : { ...emptyDishForm });
     revokePhotoPreview();
     setPhotoFile(null);
     setPhotoPreview("");
     setDrawerOpen(true);
-    // Добавки существуют только у сохранённого блюда — подтягиваем их группы
-    // при открытии редактирования; для нового блюда список пуст.
-    setModGroups([]);
-    setModError("");
-    if (row?.id) loadModGroups(row.id);
+    void loadUnitOptions();
   };
 
   // Закрытие через exit-анимацию staff-примитива (is-closing → unmount),
@@ -253,13 +367,34 @@ export function useDishesCatalog() {
     setDrawerClosing(false);
   };
 
+  // Создание категории прямо из дровера блюда: POST /inventory/categories
+  // (тот же контракт, что у «Категория блюд»), затем — в живой список
+  // фильтра/формы и автовыбор. Без фейков: ошибка пробрасывается наружу.
+  const createDishCategory = useCallback(async (name) => {
+    const trimmed = String(name || "").trim();
+    if (!trimmed) throw new Error("Введите название категории.");
+    const { data } = await catalogService.createCategory({
+      name: trimmed,
+      slug: makeDishCategorySlug(trimmed),
+      sort_order: 0,
+      is_active: true,
+    });
+    if (!data?.id) throw new Error("Backend не вернул созданную категорию.");
+    const item = { id: String(data.id), name: String(data.name || trimmed) };
+    setFilterCategories((current) => {
+      if (current.some((entry) => String(entry.id) === item.id)) return current;
+      return [...current, item].sort((a, b) => String(a.name).localeCompare(String(b.name), "ru"));
+    });
+    return item;
+  }, []);
+
   const saveDish = async () => {
     if (!acquire("product-save")) return;
     const isUpdate = Boolean(editing);
     setActionError("");
     const name = String(form.name || "").trim();
     const sortOrder = parseNomenclatureSort(form.sort);
-    const price = parseNomenclatureMoney(form.price);
+    const price = String(form.price ?? "").trim() ? parseNomenclatureMoney(form.price) : 0;
     const costInput = String(form.cost ?? "").trim();
     const costPrice = parseNomenclatureMoney(form.cost);
     if (!name || !Number.isInteger(sortOrder) || sortOrder < 1 || price === null || price < 0 || (costInput && costPrice === null) || (costPrice !== null && costPrice < 0)) {
@@ -274,16 +409,13 @@ export function useDishesCatalog() {
         ? await catalogService.updateProduct(editing.id, payload)
         : await catalogService.createProduct(payload);
       if (!data?.id) throw new Error("Backend не вернул сохранённый продукт.");
-      const serverRow = mapNomenclatureProduct(data);
-      setRows((current) => (
-        isUpdate
-          ? current.map((row) => (row.id === editing.id ? serverRow : row))
-          : [serverRow, ...current]
-      ));
       // V20: созданный продукт сразу становится editing — повторное сохранение
       // (например ретрай фото после частичного успеха) идёт PATCH тем же ID,
       // дубль блюда не создаётся.
       if (!isUpdate) setEditing({ id: data.id });
+      // Position changes shift neighbours on the server. Only the full canonical
+      // GET can update all positions; do not manufacture client-side shifts.
+      if (!await reloadRows()) throw new Error("Блюдо сохранено, но каталог не обновлён. Повторите загрузку.");
       // Фото: продукт уже существует (свой id) — грузим через канонический
       // POST /inventory/products/{id}/photo. Превью до этого момента —
       // только временный ObjectURL, персистентностью не является.
@@ -293,7 +425,7 @@ export function useDishesCatalog() {
         try {
           const { data: photoData } = await catalogService.uploadProductPhoto(data.id, photoFile);
           if (!photoData?.id) throw new Error("Backend не вернул продукт с фото.");
-          const photoRow = mapNomenclatureProduct(photoData);
+          const photoRow = mapNomenclatureProduct(photoData, unitOptionsRef.current);
           setRows((current) => current.map((row) => (row.id === data.id ? photoRow : row)));
           revokePhotoPreview();
           setPhotoFile(null);
@@ -317,20 +449,106 @@ export function useDishesCatalog() {
     setDrawerOpen(false);
   };
 
+  // Канонический реfetch каталога (тот же include_all-источник, что при
+  // монтировании). Без AbortController: вызывается из обработчиков действий,
+  // не из эффектов; ошибка — честное сообщение, данные не трогаем.
+  const reloadRows = async () => {
+    try {
+      const { data } = await catalogService.listProducts({ params: { include_all: true } });
+      const items = Array.isArray(data) ? data : data?.items || [];
+      setRows(items.map((item) => mapNomenclatureProduct(item, unitOptionsRef.current)));
+      return true;
+    } catch (err) {
+      if (!isAbortError(err)) {
+        setActionError(err.response?.data?.detail || "Не удалось обновить каталог.");
+      }
+      return false;
+    }
+  };
+
+  // Состав блюда (рецепт): канонический PATCH ingredients (None=leave,
+  // []=clear, list=replace). Возвращает свежий mapped-ряд и обновляет его
+  // в каталоге; себестоимость/остаток пересчитывает backend.
+  // V36: строка несёт warehouse_id (NULL = главный склад) — списание
+  // StockService.deduct_for_order идёт со склада строки.
+  const saveRecipe = async (dishId, lines) => {
+    const payload = (Array.isArray(lines) ? lines : [])
+      .map((line) => ({
+        ingredient_id: line.ingredient_id,
+        quantity: Number(line.quantity),
+        warehouse_id: line.warehouse_id || null,
+      }))
+      .filter((line) => line.ingredient_id && Number.isFinite(line.quantity) && line.quantity > 0);
+    const { data } = await catalogService.updateProduct(dishId, { ingredients: payload });
+    if (!data?.id) throw new Error("Backend не вернул обновлённый продукт.");
+    const mapped = mapNomenclatureProduct(data, unitOptionsRef.current);
+    setRows((current) => current.map((row) => (
+      String(row.id) === String(dishId) ? { ...row, ...mapped } : row
+    )));
+    return mapped;
+  };
+
+  // Состав сета V38: канонический PUT set-items (replace). Возвращает
+  // свежие строки и обновляет счётчик строки каталога; себестоимость
+  // сета backend не пересчитывает (строки несут свою цену).
+  const saveSetItems = async (dishId, lines) => {
+    const payload = (Array.isArray(lines) ? lines : [])
+      .map((line) => ({
+        product_id: String(line?.product_id || ""),
+        quantity: Number(line?.quantity),
+        price: Number(line?.price ?? 0),
+      }))
+      .filter((line) => line.product_id && Number.isFinite(line.quantity) && line.quantity > 0);
+    const { data } = await catalogService.replaceSetItems(dishId, payload);
+    const list = Array.isArray(data) ? data : [];
+    setRows((current) => current.map((row) => (
+      String(row.id) === String(dishId) ? { ...row, setItemsCount: list.length } : row
+    )));
+    return list;
+  };
+
   const archiveDish = async (id) => {
     const lockKey = `product-delete:${id}`;
-    if (!acquire(lockKey)) return;
+    if (!acquire(lockKey)) return false;
     setPendingDeleteId(id);
     try {
       await catalogService.deleteProduct(id);
     } catch (err) {
       window.alert(err.response?.data?.detail || "Ошибка удаления");
-      return;
+      return false;
     } finally {
       setPendingDeleteId(null);
       release(lockKey);
     }
-    setRows((prev) => prev.filter((row) => row.id !== id));
+    // Перечитываем канонический список (include_all): заархивированная строка
+    // возвращается с is_active=false и переезжает во вкладку Архивированные.
+    // Локальный filter-out здесь был бы фейком перемещения.
+    await reloadRows();
+    return true;
+  };
+
+  // V2 статуса: возврат из архива — канонический PATCH is_active:true.
+  // AUTO/SET не трогаем (независимые флаги). Перечитываем весь каталог:
+  // восстановление также меняет позиции оставшихся архивных строк.
+  const restoreDish = async (id) => {
+    const lockKey = `product-restore:${id}`;
+    if (!acquire(lockKey)) return false;
+    setRestoringId(id);
+    setActionError("");
+    try {
+      const { data } = await catalogService.updateProduct(id, { is_active: true });
+      if (!data?.id) throw new Error("Backend не вернул обновлённый продукт.");
+      if (!await reloadRows()) throw new Error("Блюдо восстановлено, но каталог не обновлён. Повторите загрузку.");
+    } catch (err) {
+      const message = err.response?.data?.detail || err.message || "Не удалось восстановить блюдо.";
+      setActionError(String(message));
+      window.alert(String(message));
+      return false;
+    } finally {
+      setRestoringId(null);
+      release(lockKey);
+    }
+    return true;
   };
 
   // --- Добавки (модификаторы) --------------------------------------------------
@@ -430,7 +648,7 @@ export function useDishesCatalog() {
     try {
       const { data } = await catalogService.uploadProductPhoto(id, file);
       if (!data?.id) throw new Error("Backend не вернул продукт с фото.");
-      const photoRow = mapNomenclatureProduct(data);
+      const photoRow = mapNomenclatureProduct(data, unitOptionsRef.current);
       setRows((current) => current.map((row) => (row.id === id ? photoRow : row)));
     } catch (err) {
       const message = `Фото не загружено: ${err.response?.data?.detail || err.message || "ошибка загрузки"}`;
@@ -450,12 +668,16 @@ export function useDishesCatalog() {
     draftFilters,
     setDraftFilters,
     setFilters,
+    filters,
     filterCategories,
     filterCategoriesError,
     filterCategoriesLoading,
     printerOptions,
     printerOptionsLoading,
     printerOptionsError,
+    unitOptions,
+    unitOptionsLoading,
+    unitOptionsError,
     drawerOpen,
     setDrawerOpen,
     drawerClosing,
@@ -478,14 +700,23 @@ export function useDishesCatalog() {
     toggleColumn,
     filteredRows,
     updateRow,
+    togglingId,
+    showArchived,
+    setShowArchived,
     openDrawer,
     saveDish,
+    createDishCategory,
+    saveRecipe,
+    saveSetItems,
     archiveDish,
+    restoreDish,
+    restoringId,
     // Добавки (модификаторы)
     modGroups,
     setModGroups,
     modLoading,
     modError,
+    clearModError,
     saveModGroup,
     removeModGroup,
   };

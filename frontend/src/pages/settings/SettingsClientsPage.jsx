@@ -15,10 +15,9 @@ export const apiMapRow = (item) => ({
   name: item.name || item.full_name || "",
   phone: item.phone || "",
   balance: item.balance ?? null,
-  // STATUS INTEGRATION POINT: the backend sends no status today, so the
-  // table stays truthfully neutral. When a canonical status field exists,
-  // map it here (and only from real response data — never from form state).
-  status: "—",
+  // The Counterparty backend has no status field: rows default to the local
+  // "Активный" display state, edits merge the chosen option (payload untouched).
+  status: "Активный",
 });
 
 export const apiMapFormToPayload = (form) => {

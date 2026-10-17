@@ -258,7 +258,9 @@ describe("getCategories", () => {
     const consumerSource = readFileSync(resolve(process.cwd(), "src/pages/CategoriesPage.jsx"), "utf8");
 
     expect(consumerSource).toContain('import { getCategories } from "../api/categories";');
-    expect(consumerSource).toMatch(/const\s*{\s*data\s*}\s*=\s*await\s+getCategories\(\)/);
+    // ARCHIVE V1: the page may pass a config (e.g. { params: { include_inactive: true } })
+    // through the service layer; direct api.get stays forbidden.
+    expect(consumerSource).toMatch(/const\s*{\s*data\s*}\s*=\s*await\s+getCategories\(.*\)/);
     expect(consumerSource).not.toMatch(/api\.get\(\s*["']\/inventory\/categories["']/);
   });
 });

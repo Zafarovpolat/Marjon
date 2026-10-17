@@ -158,7 +158,8 @@ async def kitchen_ws_endpoint(
         user = await UserRepository(db).get_by_id(UUID(user_id_str))
     except (ValueError, TypeError):
         user = None
-    if not user or not user.is_active:
+    from app.modules.auth.security import is_access_token_current
+    if not user or not user.is_active or not is_access_token_current(payload, user):
         await ws.close(code=4001, reason="Unauthorized")
         return
     try:

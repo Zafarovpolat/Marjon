@@ -297,7 +297,8 @@ export function buildRevenueChartSales(rows) {
 // Display-only zero buckets for the Revenue Analytics no-data state.
 // NOT business data: every value is exactly 0 ("no sales occurred in these
 // buckets"). Derived in render from the selected period, never stored/sent.
-const ZERO_DAY_HOURS = ["00:00", "03:00", "06:00", "09:00", "12:00", "15:00", "18:00", "21:00"];
+// Ось одного дня идёт до конца суток: последний бакет 23:59, а не 21:00.
+const ZERO_DAY_HOURS = ["00:00", "03:00", "06:00", "09:00", "12:00", "15:00", "18:00", "21:00", "23:59"];
 
 function isIsoDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value || "");
@@ -333,13 +334,19 @@ export function buildZeroRevenueBuckets(dateFrom, dateTo) {
 }
 
 export function buildRealKpis(dash, sales, selectedDate, placeSettings = [], financeRows = []) {
-  const day = sales.at(-1) || { revenue: 0, orders_count: 0, avg_check: 0 };
-  const prev = sales.at(-2) || day;
+  // Почасовые бакеты одного дня (chart_label "HH:00" от /analytics/sales)
+  // для day-over-day сравнения не годятся: «вчера» — это предыдущий
+  // ДНЕВНОЙ бакет, а не соседний час. История — только по дневным.
+  const dailySales = Array.isArray(sales)
+    ? sales.filter((item) => !(item && typeof item.chart_label === "string" && item.chart_label))
+    : [];
+  const day = dailySales.at(-1) || { revenue: 0, orders_count: 0, avg_check: 0 };
+  const prev = dailySales.at(-2) || day;
 
   // A truthful day-over-day comparison needs a real previous datapoint. A new
   // company with no sales history (sales.length < 2) has no "вчера" to compare
   // to, so we must not print a fabricated "±0% к вчерашнему дню".
-  const hasHistory = Array.isArray(sales) && sales.length >= 2;
+  const hasHistory = dailySales.length >= 2;
 
   const revenue = dash.today_revenue ?? day.revenue;
   const orders = dash.today_orders ?? day.orders_count;

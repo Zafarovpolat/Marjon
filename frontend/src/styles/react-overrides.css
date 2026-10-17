@@ -14747,6 +14747,26 @@
     background: #f0443e;
   }
 
+  /* Две опасные кнопки пополам: слева «Очистить все отчеты»,
+     справа «Очистить историю продуктов». */
+  .company-profile-danger-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 22px;
+  }
+
+  .company-profile-danger-row .company-profile-danger {
+    width: 100%;
+    margin-top: 0;
+  }
+
+  @media (max-width: 640px) {
+    .company-profile-danger-row {
+      grid-template-columns: 1fr;
+    }
+  }
+
   .company-profile-field-hint {
     margin: 12px 0 0;
     color: #95a3b5;
@@ -23797,7 +23817,8 @@ body,#root {
 
     border: 1px solid rgba(226, 232, 240, 0.92);
   
-    box-shadow: 0 16px 36px rgba(2, 8, 23, 0.154),
+    box-shadow: 0 32px 90px rgba(2, 8, 23, 0.35),
+      0 6px 22px rgba(2, 8, 23, 0.14),
       0 1px 0 rgba(255, 255, 255, 0.63) inset;
     transform: translateX(-50%);
   }
@@ -25704,19 +25725,20 @@ body,#root {
     }
   }
 
-  /* Center USD converter popover in the visible workspace, adapting to sidebar width. */
+  /* Center USD converter popover in the visible workspace, adapting to sidebar width.
+     Shifted up and left of exact center; narrow screens stay centered. */
 
   .dashboard-topbar .usd-rate-popover {
     position: fixed;
-    top: 68px;
-    left: calc(var(--mj-sidebar-w, 292px) + ((100vw - var(--mj-sidebar-w, 292px)) / 2));
+    top: 62px;
+    left: calc(var(--mj-sidebar-w, 292px) + ((100vw - var(--mj-sidebar-w, 292px)) / 2) - 120px);
     right: auto;
     transform: translateX(-50%);
     z-index: 240;
   }
 
   .dashboard-main.is-sidebar-collapsed .dashboard-topbar .usd-rate-popover {
-    left: calc(72px + ((100vw - 72px) / 2));
+    left: calc(72px + ((100vw - 72px) / 2) - 120px);
   }
 
   @media (max-width: 1024px) {
@@ -32095,23 +32117,27 @@ body.dashboard-body .dashboard-shell.is-sidebar-collapsed,body.dashboard-body .d
   }
 
   .dish-catalog-page .dish-toggle {
+    /* Compact track 36x20, thumb 16x16: centered vertically with 2px
+       gaps; horizontal translation ±8px preserves 2px edge gaps. */
     width: 36px;
-    height: 22px;
+    height: 20px;
     background: #c9d5e5;
   }
 
   .dish-catalog-page .dish-toggle span {
-    width: 18px;
-    height: 18px;
-    transform: translateX(-7px);
+    width: 16px;
+    height: 16px;
+    transform: translateX(-8px);
   }
 
   .dish-catalog-page .dish-toggle.is-on {
-    background: #18b6ad;
+    /* V28b — ON только для Dishes AUTO/SET: #2ED06A.
+       --owner-accent и кассир не тронуты. */
+    background: #2ED06A;
   }
 
   .dish-catalog-page .dish-toggle.is-on span {
-    transform: translateX(7px);
+    transform: translateX(8px);
   }
 
   .dish-catalog-page .dish-toggle-empty {
@@ -32797,23 +32823,42 @@ body.dashboard-body .dashboard-shell .dashboard-sidebar.is-collapsed .sidebar-br
   }
 
   .clients-directory-page .settings-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
     min-height: 20px;
-    padding: 0 8px;
-    border-radius: 6px;
-    font-size: 11px;
-    font-weight: 900;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
   }
 
   .clients-directory-page .settings-status-badge.is-pending {
-    border-color: #ffc267;
+    border-color: transparent;
     color: #f08a00;
-    background: #fff4df;
+    background: transparent;
   }
 
   .clients-directory-page .settings-status-badge.is-active {
-    border-color: #9fe5bf;
-    color: #138247;
-    background: #edfff5;
+    border-color: transparent;
+    color: #00a82e;
+    background: transparent;
+  }
+
+  .clients-directory-page .settings-status-badge.is-inactive {
+    border-color: transparent;
+    color: #ef4444;
+    background: transparent;
+  }
+
+  .clients-directory-page .settings-status-badge__dot {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 8px;
+    border-radius: 50%;
+    background: currentColor;
   }
 
   .clients-directory-page .settings-history-button {

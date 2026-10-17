@@ -2,6 +2,18 @@
 // Вынесено из Sidebar.jsx (FE-07B) как отдельная конфигурация — данные без логики.
 // Порядок, ключи, метки, иконки и маршруты задаются здесь как единый источник.
 
+// Активна ли ссылка меню для текущего пути.
+// Детализации (напр. /stock-report/stock/:warehouseId) не имеют своего
+// пункта меню — они остаются внутри родительской подкатегории
+// (/stock-report/stock). Сравнение строго по границе сегмента, чтобы
+// /reports/orders не подсвечивал /reports/orders-history.
+export function isNavPathActive(pathname, to) {
+  const path = String(pathname || "").split("?")[0].split("#")[0];
+  const target = String(to || "");
+  if (!target || target === "/") return path === "/";
+  return path === target || path.startsWith(`${target}/`);
+}
+
 export const sidebarLanguages = [
   {
     code: "uz",
@@ -63,8 +75,10 @@ export const navItems = [
     icon: "bi-boxes",
     to: "/nomenclature",
     children: [
-      { key: "dishes", label: "Блюда", to: "/nomenclature/dishes", icon: "bi-cup-hot" },
       { key: "dish-categories", label: "Категория блюд", to: "/nomenclature/dish-categories", icon: "bi-grid" },
+      { key: "dishes", label: "Блюда", to: "/nomenclature/dishes", icon: "bi-cup-hot" },
+      { key: "sales-categories", label: "Категория товаров", to: "/nomenclature/sales-categories", icon: "bi-tags" },
+      { key: "sales", label: "Товары", to: "/nomenclature/sales", icon: "bi-basket" },
       { key: "menu", label: "Продажа", to: "/nomenclature/menu", icon: "bi-journal-bookmark" },
       { key: "stop-list", label: "Стоп-лист", to: "/nomenclature/stop-list", icon: "bi-x-octagon" },
     ],
@@ -75,8 +89,11 @@ export const navItems = [
     icon: "bi-box-seam",
     to: "/warehouse",
     children: [
-      { key: "raw-materials", label: "Сырьё", to: "/nomenclature/raw-materials", icon: "bi-basket" },
-      { key: "raw-categories", label: "Категория сырья", to: "/nomenclature/raw-categories", icon: "bi-boxes" },
+      { key: "raw-categories", label: "Категория продуктов", to: "/nomenclature/raw-categories", icon: "bi-boxes" },
+      { key: "raw-materials", label: "Продукты", to: "/nomenclature/raw-materials", icon: "bi-basket" },
+      // MERGE: страницы «Полуфабрикаты» есть в App.jsx и в main-меню, но в
+      // ветке toast-notifications ссылки не было — восстановлено, чтобы
+      // маршруты /nomenclature/semi-finished* не остались без входа в меню.
       { key: "semi-finished", label: "Полуфабрикаты", to: "/nomenclature/semi-finished", icon: "bi-box" },
       { key: "semi-finished-categories", label: "Категория полуфабрикатов", to: "/nomenclature/semi-finished-categories", icon: "bi-diagram-3" },
     ],
@@ -87,10 +104,13 @@ export const navItems = [
     icon: "bi-file-earmark-bar-graph",
     to: "/stock-report",
     children: [
-      { key: "incoming-journal", label: "Журнал приходов", to: "/stock-report/incoming-journal", icon: "bi-clock-history" },
+      { key: "incoming-journal", label: "Добавить продуктов", to: "/stock-report/incoming-journal", icon: "bi-clock-history" },
       { key: "incoming", label: "Приход товаров", to: "/stock-report/incoming", icon: "bi-box-arrow-in-down" },
       { key: "outgoing", label: "Расход товаров", to: "/stock-report/outgoing", icon: "bi-box-arrow-up" },
       { key: "stock", label: "Остаток", to: "/stock-report/stock", icon: "bi-boxes" },
+      // MERGE: «Перемещение», «Списание» и «Категории списания» — рабочие
+      // страницы WarehousePage (маршруты есть в App.jsx). В ветке
+      // toast-notifications они выпали из меню, здесь восстановлены.
       { key: "transfer", label: "Перемещение", to: "/stock-report/transfer", icon: "bi-arrow-left-right" },
       { key: "inventory", label: "Инвентаризация", to: "/stock-report/inventory", icon: "bi-clipboard-check" },
       { key: "write-off", label: "Списание", to: "/stock-report/write-off", icon: "bi-trash3" },

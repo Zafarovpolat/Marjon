@@ -1,327 +1,234 @@
-import { useEffect, useMemo, useState } from "react";
-import { formatMoney } from "../api/client";
-import { catalogService } from "../api/catalog";
-import { ordersService } from "../api/orders";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { reportsService } from "../api/reports";
+import { financeService } from "../api/finance";
 import Icon from "../components/Icon";
-import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
+import Toast from "../components/Toast";
+import ReportDateRangePicker from "../components/ReportDateRangePicker";
+import ReportMultiSelect from "../components/ReportMultiSelect";
+import ReportEmptyState from "../components/ReportEmptyState";
+import { isAbortError, isOrderedDateRange, useLatestRequest } from "../hooks/useAsyncSafety";
+import { formatDateLabel, todayInputValue } from "../utils/date";
+import { toApiDate } from "./reports/reportPeriod";
 
-const salesColumnOptions = [
+const columns = [
   { key: "index", label: "№", width: 56 },
   { key: "dish", label: "Блюдо / товар", width: 230 },
   { key: "category", label: "Категория", width: 178 },
   { key: "sold", label: "Продано", width: 116 },
-  { key: "price", label: "Цена", width: 132 },
+  { key: "price", label: "Средняя цена", width: 160 },
   { key: "revenue", label: "Выручка", width: 150 },
   { key: "share", label: "Доля", width: 158 },
 ];
+const allColumns = Object.fromEntries(columns.map(({ key }) => [key, true]));
+const emptyFilters = { query: "", categoryId: [] };
+const reportNumber = (value) => {
+  if (value == null || (typeof value !== "number" && typeof value !== "string") || String(value).trim() === "" || !Number.isFinite(Number(value))) {
+    throw new Error("Некорректный ответ отчёта о продажах.");
+  }
+  return Number(value);
+};
+const numberLabel = (value) => value.toLocaleString("ru-RU", { maximumFractionDigits: 3 });
+const moneyLabel = (value) => `${value.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} UZS`;
 
-const defaultSalesColumnVisibility = Object.fromEntries(
-  salesColumnOptions.map((column) => [column.key, true]),
-);
-
-function toNumber(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : 0;
-}
-
-function enrichRows(rows) {
-  const totalRevenue = rows.reduce((sum, row) => sum + row.revenue, 0);
-  return rows
-    .map((row) => ({
-      ...row,
-      avgPrice: row.sold ? row.revenue / row.sold : 0,
-      share: totalRevenue ? Math.round((row.revenue / totalRevenue) * 100) : 0,
-    }))
-    .sort((first, second) => second.revenue - first.revenue);
-}
-
-function buildSalesRows(orders, products, categories) {
-  const productMap = new Map((products || []).map((product) => [String(product.id), product]));
-  const categoryMap = new Map((categories || []).map((category) => [String(category.id), category.name]));
-  const completedOrders = (orders || []).filter((order) => order.status === "completed");
-  const sourceOrders = completedOrders.length ? completedOrders : (orders || []).filter((order) => order.status !== "cancelled");
-  const totals = new Map();
-
-  sourceOrders.forEach((order) => {
-    (order.items || []).forEach((item) => {
-      if (item.status === "cancelled") return;
-
-      const product = productMap.get(String(item.product_id)) || {};
-      const key = String(item.product_id || item.name);
-      const quantity = toNumber(item.quantity);
-      const total = toNumber(item.total) || toNumber(item.price) * quantity;
-      const category = categoryMap.get(String(product.category_id)) || product.category_name || product.category?.name || "Без категории";
-      const current = totals.get(key) || {
-        id: key,
-        dish: item.name || product.name || "Позиция",
-        category,
-        sold: 0,
-        revenue: 0,
-        orders: new Set(),
-      };
-
-      current.sold += quantity;
-      current.revenue += total;
-      current.orders.add(order.id);
-      totals.set(key, current);
-    });
+// Strict canonical {rows, totals}: no orders/master-price/legacy-array fallback.
+// Only numbering/formatting and amount/totals.amount share are computed here.
+export function mapSalesReport(data) {
+  if (!data || !Array.isArray(data.rows) || !data.totals) throw new Error("Некорректный ответ отчёта о продажах.");
+  const amount = reportNumber(data.totals.amount);
+  const quantity = reportNumber(data.totals.quantity);
+  const ordersCount = reportNumber(data.totals.orders_count);
+  if (!Number.isInteger(ordersCount) || ordersCount < 0) throw new Error("Некорректный ответ отчёта о продажах.");
+  const rows = data.rows.map((item, index) => {
+    if (!item || !item.product_id || typeof item.name !== "string") throw new Error("Некорректный ответ отчёта о продажах.");
+    const revenue = reportNumber(item.amount);
+    return {
+      key: `${item.product_id}:${item.name}:${index}`,
+      productId: String(item.product_id),
+      dish: item.name,
+      categoryId: item.category_id ?? null,
+      category: item.category_name ?? "Без категории",
+      sold: reportNumber(item.quantity),
+      avgPrice: reportNumber(item.price),
+      revenue,
+      share: amount === 0 ? 0 : Math.round((revenue / amount) * 100),
+    };
   });
-
-  return enrichRows(Array.from(totals.values()).map((row) => ({ ...row, orders: row.orders.size })));
+  return { rows, amount, quantity, ordersCount, positions: new Set(rows.map((row) => row.productId)).size };
 }
 
 export default function MenuPage() {
-  const [rows, setRows] = useState([]);
-  const [ordersCount, setOrdersCount] = useState(null);
+  // Same calendar default/API conversion as Reports → Dishes. Date bounds stay
+  // backend-owned; no company-timezone or clock reinterpretation on this page.
+  const [period, setPeriod] = useState(() => {
+    const today = formatDateLabel(todayInputValue());
+    return { preset: "Сегодня", start: today, end: today };
+  });
+  const [draftFilters, setDraftFilters] = useState(emptyFilters);
+  const [filters, setFilters] = useState(emptyFilters);
+  const [categories, setCategories] = useState([]);
+  const [optionsLoading, setOptionsLoading] = useState(true);
+  const [optionsError, setOptionsError] = useState("");
+  const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [query, setQuery] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [categoryClosing, setCategoryClosing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [visibleColumns, setVisibleColumns] = useState(defaultSalesColumnVisibility);
+  const [visibleColumns, setVisibleColumns] = useState(allColumns);
+  const settingsRef = useRef(null);
+  const settingsTriggerRef = useRef(null);
   const beginRequest = useLatestRequest();
+  const beginOptionsRequest = useLatestRequest();
+
+  function closeCategory() {
+    setCategoryOpen(false);
+    if (categoryOpen) setCategoryClosing(true);
+  }
+
+  // The shared Reports dropdown remains mounted for its exit animation.
+  useEffect(() => {
+    if (!categoryClosing) return undefined;
+    const timeout = window.setTimeout(() => setCategoryClosing(false), 250);
+    return () => window.clearTimeout(timeout);
+  }, [categoryClosing]);
+
+  useEffect(() => {
+    const request = beginOptionsRequest();
+    reportsService.getDishesFilters({ signal: request.signal })
+      .then(({ data }) => {
+        if (!request.isCurrent()) return;
+        if (!Array.isArray(data?.categories)) throw new Error("Некорректный список категорий отчёта.");
+        setCategories(data.categories);
+      })
+      .catch((err) => {
+        if (request.isCurrent() && !isAbortError(err)) setOptionsError("Не удалось загрузить категории отчёта.");
+      })
+      .finally(() => { if (request.isCurrent()) setOptionsLoading(false); });
+  }, [beginOptionsRequest]);
 
   useEffect(() => {
     const request = beginRequest();
-
-    async function loadSales() {
-      setLoading(true);
-      setError("");
-      try {
-        const [ordersRes, productsRes, categoriesRes] = await Promise.all([
-          ordersService.list(undefined, { signal: request.signal }),
-          catalogService.listProducts({ signal: request.signal }),
-          catalogService.listCategories({ signal: request.signal }),
-        ]);
+    const dateFrom = toApiDate(period.start);
+    const dateTo = toApiDate(period.end);
+    setReport(null);
+    setError("");
+    setLoading(true);
+    if (!dateFrom || !dateTo || !isOrderedDateRange(dateFrom, dateTo)) {
+      setError("Дата начала периода не может быть позже даты окончания.");
+      setLoading(false);
+      return;
+    }
+    // Publish one complete period snapshot, never old finance/cancellations
+    // alongside a new table. Finance and cancellation scope is period-only.
+    Promise.all([
+      reportsService.listDishes(dateFrom, dateTo, { filters, signal: request.signal }),
+      financeService.getIncomeSummary({ dateFrom, dateTo, signal: request.signal }),
+      reportsService.getCancelledSummary(dateFrom, dateTo, { signal: request.signal }),
+    ])
+      .then(([sales, income, cancelled]) => {
         if (!request.isCurrent()) return;
-
-        const orders = Array.isArray(ordersRes.data) ? ordersRes.data : [];
-        const products = Array.isArray(productsRes.data) ? productsRes.data : [];
-        const categories = Array.isArray(categoriesRes.data) ? categoriesRes.data : [];
-        const builtRows = buildSalesRows(orders, products, categories);
-
-        setRows(builtRows);
-        setOrdersCount(orders.length);
-      } catch (err) {
+        setReport({ ...mapSalesReport(sales.data), income: reportNumber(income.data?.income_amount), cancelledQuantity: reportNumber(cancelled.data?.quantity) });
+      })
+      .catch((err) => {
         if (!request.isCurrent() || isAbortError(err)) return;
-        setRows([]);
-        setOrdersCount(null);
-        setError(err.response?.data?.detail || "Не удалось загрузить продажи.");
-      } finally {
-        if (request.isCurrent()) setLoading(false);
-      }
+        setError(typeof err.response?.data?.detail === "string" ? err.response.data.detail : err.message === "Некорректный ответ отчёта о продажах." ? err.message : "Не удалось загрузить продажи.");
+      })
+      .finally(() => { if (request.isCurrent()) setLoading(false); });
+  }, [period, filters, beginRequest]);
+
+  useEffect(() => {
+    if (!settingsOpen) return undefined;
+    function outside(event) {
+      if (!settingsRef.current?.contains(event.target)) setSettingsOpen(false);
     }
+    function escape(event) {
+      if (event.key === "Escape") { setSettingsOpen(false); settingsTriggerRef.current?.focus(); }
+    }
+    document.addEventListener("mousedown", outside);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("mousedown", outside); document.removeEventListener("keydown", escape); };
+  }, [settingsOpen]);
 
-    loadSales();
-  }, [beginRequest]);
-
-  const visibleRows = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    if (!normalized) return rows;
-    return rows.filter((row) => `${row.dish} ${row.category}`.toLowerCase().includes(normalized));
-  }, [query, rows]);
-
-  const totals = useMemo(() => {
-    const revenue = visibleRows.reduce((sum, row) => sum + row.revenue, 0);
-    const sold = visibleRows.reduce((sum, row) => sum + row.sold, 0);
-    return {
-      revenue,
-      sold,
-      positions: visibleRows.length,
-      avgPrice: sold ? revenue / sold : 0,
-    };
-  }, [visibleRows]);
-
-  const categoryRows = useMemo(() => {
-    const grouped = new Map();
-    visibleRows.forEach((row) => {
-      const current = grouped.get(row.category) || { category: row.category, sold: 0, revenue: 0 };
-      current.sold += row.sold;
-      current.revenue += row.revenue;
-      grouped.set(row.category, current);
-    });
-    return Array.from(grouped.values()).sort((first, second) => second.revenue - first.revenue).slice(0, 4);
-  }, [visibleRows]);
-
-  const visibleColumnKeys = useMemo(
-    () => salesColumnOptions.filter((column) => visibleColumns[column.key] !== false).map((column) => column.key),
-    [visibleColumns],
-  );
-
-  const visibleColumnCount = visibleColumnKeys.length;
-  const tableMinWidth = useMemo(() => {
-    const width = salesColumnOptions.reduce((sum, column) => (
-      visibleColumns[column.key] !== false ? sum + column.width : sum
-    ), 0);
-    return Math.max(680, width);
-  }, [visibleColumns]);
-
-  const isColumnVisible = (key) => visibleColumns[key] !== false;
-  const toggleColumn = (key) => {
+  const visible = useMemo(() => columns.filter(({ key }) => visibleColumns[key]), [visibleColumns]);
+  const tableMinWidth = Math.max(680, visible.reduce((sum, column) => sum + column.width, 0));
+  function toggleColumn(key) {
     setVisibleColumns((current) => {
-      const checked = current[key] !== false;
-      if (checked && visibleColumnCount <= 1) return current;
-      return { ...current, [key]: !checked };
+      if (current[key] && Object.values(current).filter(Boolean).length === 1) return current;
+      return { ...current, [key]: !current[key] };
     });
-  };
-
-  const renderSalesCell = (row, index, key) => {
-    const className = `sales-col-${key}`;
+  }
+  function cell(row, key, index) {
     switch (key) {
-      case "index":
-        return <td key={key} className={className}>{index + 1}</td>;
-      case "dish":
-        return <td key={key} className={className}><strong>{row.dish}</strong></td>;
-      case "category":
-        return <td key={key} className={className}><span className="sales-category-pill">{row.category}</span></td>;
-      case "sold":
-        return <td key={key} className={className}>{Number(row.sold).toLocaleString("ru-RU")}</td>;
-      case "price":
-        return <td key={key} className={className}>{formatMoney(row.avgPrice)}</td>;
-      case "revenue":
-        return <td key={key} className={className}><strong>{formatMoney(row.revenue)}</strong></td>;
-      case "share":
-        return (
-          <td key={key} className={className}>
-            <div className="sales-share">
-              <span style={{ width: `${Math.min(row.share, 100)}%` }} />
-              <b>{row.share}%</b>
-            </div>
-          </td>
-        );
-      default:
-        return null;
+      case "index": return index + 1;
+      case "dish": return <strong>{row.dish}</strong>;
+      case "category": return <span className="sales-category-pill">{row.category}</span>;
+      case "sold": return numberLabel(row.sold);
+      case "price": return moneyLabel(row.avgPrice);
+      case "revenue": return <strong>{moneyLabel(row.revenue)}</strong>;
+      case "share": return <div className="sales-share"><span style={{ width: `${Math.max(0, Math.min(row.share, 100))}%` }} /><b>{row.share}%</b></div>;
+      default: return null;
     }
-  };
-
-  if (error && !loading) {
-    return (
-      <section className="sales-page">
-        <div className="sales-card">
-          <div className="login-error" role="alert">{error}</div>
-        </div>
-      </section>
-    );
   }
 
   return (
-    <section className="sales-page">
-      <div className="sales-card">
-        <header className="sales-header">
-          <div className="sales-title-group">
-            <span className="sales-accent" />
-            <div>
-              <h1>Продажа</h1>
-              <p>Сколько чего продалось по блюдам и товарам.</p>
-            </div>
+    <section className="sales-page sales-page--v2">
+      <div className="sales-card settings-card">
+        <header className="sales-header settings-header">
+          <div className="settings-title-group">
+            <span className="settings-accent-bar" aria-hidden="true" />
+            <div><p>Меню</p><h1>Продажа</h1></div>
           </div>
-          <div className="sales-actions">
-            <span className="sales-date-chip"><Icon name="bi-calendar3" /> Сегодня</span>
-            <button type="button"><Icon name="bi-download" /> Экспорт</button>
+          <div className="sales-period owner-report-view orders-report-page">
+            <div className="report-actions owner-report-actions">
+              <ReportDateRangePicker variant="canonical" animateExit value={period} onChange={setPeriod} buttonAriaLabel="Период отчёта о продажах" onOpenChange={(open) => { if (open) { closeCategory(); setSettingsOpen(false); } }} />
+              <button className="orders-filter-toggle" type="button" aria-expanded={filtersOpen} aria-controls="sales-filters" onClick={() => { if (filtersOpen) closeCategory(); setFiltersOpen((open) => !open); }}><Icon name="bi-sliders" size={17} /> Фильтровать</button>
+            </div>
           </div>
         </header>
 
-        <div className="sales-summary-grid">
-          <article><span>Выручка</span><strong>{formatMoney(totals.revenue)}</strong></article>
-          <article><span>Продано</span><strong>{Number(totals.sold).toLocaleString("ru-RU")}</strong></article>
-          <article><span>Позиций</span><strong>{totals.positions}</strong></article>
-          <article><span>Заказов</span><strong>{ordersCount}</strong></article>
+        <div className="sales-summary-grid" aria-label="Итоги отчёта" aria-busy={loading}>
+          <article className="sales-kpi sales-kpi--income" aria-label="Денежные приходы"><div className="sales-kpi-heading"><span>Денежные приходы</span></div><strong>{report ? moneyLabel(report.income) : "—"}</strong><small>Все категории · по дате операции</small></article>
+          <article className="sales-kpi sales-kpi--revenue" aria-label="Выручка"><div className="sales-kpi-heading"><span>Выручка</span></div><strong>{report ? moneyLabel(report.amount) : "—"}</strong><small>Фильтры таблицы · по дате заказа</small></article>
+          <article className="sales-kpi sales-kpi--orders" aria-label="Заказы"><div className="sales-kpi-heading"><span>Заказы</span></div><strong>{report ? numberLabel(report.ordersCount) : "—"}</strong><small>Фильтры таблицы · по дате заказа</small></article>
+          <article className="sales-kpi sales-kpi--cancelled" aria-label="Отменённые блюда"><div className="sales-kpi-heading"><span>Отменённые блюда</span></div><strong>{report ? numberLabel(report.cancelledQuantity) : "—"}</strong><small title="Для старых отмен без даты используется дата создания заказа.">Все категории · по дате отмены</small></article>
         </div>
-
-        <div className="sales-toolbar">
-          <label>
-            <Icon name="bi-search" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск блюда или категории" />
-          </label>
-          <div className="sales-toolbar-meta">
-            <span>Цена: <b>{formatMoney(totals.avgPrice)}</b></span>
-            <div className="sales-table-settings">
-              <button
-                type="button"
-                className="sales-table-settings-btn"
-                onClick={() => setSettingsOpen((open) => !open)}
-                aria-expanded={settingsOpen}
-              >
-                <Icon name="bi-sliders" /> Настроить таблицу
-              </button>
-              {settingsOpen ? (
-                <div className="sales-table-settings-popover">
-                  <div className="sales-table-settings-head">
-                    <strong>Столбцы</strong>
-                    <button type="button" onClick={() => setSettingsOpen(false)} aria-label="Закрыть">
-                      <Icon name="bi-x-lg" size={14} />
-                    </button>
-                  </div>
-                  <div className="sales-column-toggle-list">
-                    {salesColumnOptions.map((column) => {
-                      const checked = isColumnVisible(column.key);
-                      const disabled = checked && visibleColumnCount <= 1;
-                      return (
-                        <label className="sales-column-toggle" key={column.key}>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            disabled={disabled}
-                            onChange={() => toggleColumn(column.key)}
-                          />
-                          <span className="sales-column-toggle-box">
-                            {checked ? <Icon name="bi-check" size={13} /> : null}
-                          </span>
-                          <span>{column.label}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                  <button
-                    type="button"
-                    className="sales-column-reset"
-                    onClick={() => setVisibleColumns(defaultSalesColumnVisibility)}
-                  >
-                    Показать все
-                  </button>
+        {/* Orders' actual collapse/field/button classes, scoped to a filter island.
+            Drafts stay mounted when closed; only this form applies them. */}
+        <div className="sales-filter-area owner-report-view orders-report-page">
+          <div className={`orders-filter-collapse${filtersOpen ? " is-open" : ""}`}>
+            <div className="orders-filter-collapse__inner" inert={!filtersOpen ? true : undefined} aria-hidden={!filtersOpen}>
+              <form id="sales-filters" className="report-filters-grid sales-filters-grid" aria-label="Фильтры продаж" onSubmit={(event) => { event.preventDefault(); closeCategory(); setFilters({ query: draftFilters.query.trim(), categoryId: [...draftFilters.categoryId] }); }}>
+                <label className="report-filter-input"><Icon name="bi-search" size={17} /><input aria-label="Поиск блюда" value={draftFilters.query} onChange={(event) => setDraftFilters((current) => ({ ...current, query: event.target.value }))} placeholder="Поиск блюда и товара" /></label>
+                <div className="sales-category-filter">
+                  <ReportMultiSelect filterKey="saleCategoryId" label="Категория продаж" placeholder="Выберите категорию" options={categories} selected={draftFilters.categoryId} disabled={optionsLoading || !categories.length} open={categoryOpen} closing={categoryClosing} onExitComplete={() => setCategoryClosing(false)} onOpen={() => { setSettingsOpen(false); setCategoryClosing(false); setCategoryOpen(true); }} onClose={closeCategory} onToggle={(id) => setDraftFilters((current) => ({ ...current, categoryId: current.categoryId.includes(id) ? current.categoryId.filter((value) => value !== id) : [...current.categoryId, id] }))} />
                 </div>
-              ) : null}
+                <div className="report-filter-buttons"><button className="report-filter-apply" type="submit"><Icon name="bi-sliders" size={17} />Фильтровать</button><button className="report-filter-clear" type="button" onClick={() => { closeCategory(); setDraftFilters(emptyFilters); setFilters({ query: "", categoryId: [] }); }}>Очистить</button></div>
+              </form>
             </div>
           </div>
         </div>
+        {optionsError ? <Toast kind="error" message={optionsError} onClose={() => setOptionsError("")} /> : null}
 
-        <div className="sales-layout">
-          <div className="sales-table-wrap">
-            <table className="sales-table" style={{ "--sales-grid-min-width": `${tableMinWidth}px` }}>
-              <thead>
-                <tr>
-                  {salesColumnOptions
-                    .filter((column) => isColumnVisible(column.key))
-                    .map((column) => (
-                      <th key={column.key} className={`sales-col-${column.key}`}>{column.label}</th>
-                    ))}
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan={visibleColumnCount} className="sales-empty">Загрузка продаж...</td></tr>
-                ) : visibleRows.map((row, index) => (
-                  <tr key={row.id}>{visibleColumnKeys.map((key) => renderSalesCell(row, index, key))}</tr>
-                ))}
-                {!loading && !visibleRows.length ? (
-                  <tr><td colSpan={visibleColumnCount} className="sales-empty">Продажи не найдены.</td></tr>
-                ) : null}
-              </tbody>
-            </table>
+        <div hidden className="sales-toolbar-meta sales-table-controls">
+          <div className="sales-table-settings" ref={settingsRef}>
+            <button type="button" ref={settingsTriggerRef} className="sales-table-settings-btn" aria-expanded={settingsOpen} onClick={() => { setCategoryOpen(false); setSettingsOpen((open) => !open); }}><Icon name="bi-sliders" />Настроить таблицу</button>
+            {settingsOpen ? <div className="sales-table-settings-popover">
+              <div className="sales-table-settings-head"><strong>Столбцы</strong><button type="button" aria-label="Закрыть" onClick={() => setSettingsOpen(false)}><Icon name="bi-x-lg" size={14} /></button></div>
+              <div className="sales-column-toggle-list">{columns.map((column) => <label className="sales-column-toggle" key={column.key}><input type="checkbox" checked={visibleColumns[column.key]} disabled={visibleColumns[column.key] && visible.length === 1} onChange={() => toggleColumn(column.key)} /><span className="sales-column-toggle-box">{visibleColumns[column.key] ? <Icon name="bi-check" size={13} /> : null}</span><span>{column.label}</span></label>)}</div>
+              <button type="button" className="sales-column-reset" onClick={() => setVisibleColumns(allColumns)}>Показать все</button>
+            </div> : null}
           </div>
-
-          <aside className="sales-category-card">
-            <h2>Категории</h2>
-            {categoryRows.map((row) => (
-              <div className="sales-category-row" key={row.category}>
-                <div>
-                  <strong>{row.category}</strong>
-                  <span>{Number(row.sold).toLocaleString("ru-RU")} продано</span>
-                </div>
-                <b>{formatMoney(row.revenue)}</b>
-              </div>
-            ))}
-          </aside>
         </div>
+
+        {error ? <div className="login-error" role="alert">{error}</div> : <div className="sales-layout">
+          <div className="sales-table-wrap"><div className="sales-table-scroll" tabIndex={0} role="region" aria-label="Таблица продаж — прокрутка" aria-busy={loading}>
+            <table className="sales-table" aria-label="Продажи" style={{ "--sales-grid-min-width": `${tableMinWidth}px` }}>
+              <thead><tr>{visible.map((column) => <th key={column.key} className={`sales-col-${column.key}`}>{column.label}</th>)}</tr></thead>
+              <tbody>{loading || !report?.rows.length ? <tr><td colSpan={visible.length} className="sales-empty"><ReportEmptyState loading={loading} title="Продаж за выбранный период нет." /></td></tr> : report.rows.map((row, index) => <tr key={row.key}>{visible.map(({ key }) => <td key={key} className={`sales-col-${key}`}>{cell(row, key, index)}</td>)}</tr>)}</tbody>
+            </table>
+          </div></div>
+        </div>}
       </div>
     </section>
   );

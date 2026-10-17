@@ -6,6 +6,10 @@ from pydantic import BaseModel, Field, model_validator
 from app.shared.base_schema import BaseResponseSchema
 
 
+class TransactionIncomeSummary(BaseModel):
+    income_amount: Decimal
+
+
 def _normalize_sort_status(values: dict) -> dict:
     """BE-19: PaymentType uses the HQ-module naming convention (sort/
     status), but SettingsPaymentMethodsPage.jsx (an OWNER-app screen) was

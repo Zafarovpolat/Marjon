@@ -1,0 +1,428 @@
+/* Категория сырья V1.1 — отдельные строки в семье категории блюд.
+   Повторяет геометрию dish-строк (card 18px, header grid, accent 44px,
+   кнопка 22px, row radius, hover, бейдж-точка, модалки) только под
+   селектором .is-raw-categories. Табличного thead нет.
+   Блюда, semi и общие оболочки не затрагиваются. */
+
+.menu-categories-page.is-raw-categories .menu-categories-card {
+  display: block;
+  padding: 16px 22px 22px;
+  border: 1px solid rgba(15, 35, 60, 0.09);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 3px 12px rgba(15, 35, 60, 0.055);
+}
+
+.dashboard-content:has(.menu-categories-page.is-raw-categories) {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+@media (min-width: 1025px) {
+  .menu-categories-page.is-raw-categories {
+    width: auto;
+    margin: 0;
+    padding: 0;
+  }
+
+  body.dashboard-body .dashboard-content:has(.menu-categories-page.is-raw-categories) {
+    padding-top: 14px;
+    padding-bottom: 42px;
+  }
+}
+
+.menu-categories-page.is-raw-categories .rawcat-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-header .settings-accent-bar {
+  height: 44px;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-header .settings-title-group h1 {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-header .settings-title-group p {
+  position: relative;
+  top: 8px;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-add-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 22px;
+  background: #1FC9C9;
+  color: #fff;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(31, 201, 201, 0.28);
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-add-button:hover:not(:disabled) {
+  background: #1AB5B5;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-add-button:active:not(:disabled) {
+  background: #159898;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-add-button:disabled {
+  opacity: 0.6;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-add-button:focus-visible {
+  outline: 2px solid #1FC9C9;
+  outline-offset: 2px;
+}
+
+/* Список отдельных строк: каждая со своей рамкой и радиусом. */
+.menu-categories-page.is-raw-categories .rawcat-list-wrap {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-list {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  max-height: var(--category-list-available-height, 100dvh);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: 2px;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-list::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-row {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  min-height: 0;
+  padding: 11px 16px;
+  border: 1px solid rgba(215, 226, 240, 0.9);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-row:hover {
+  border-color: rgba(22, 198, 200, 0.5);
+  background: #fff;
+  box-shadow: 0 6px 16px rgba(20, 44, 72, 0.06);
+}
+
+.menu-categories-page.is-raw-categories .rawcat-row.is-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-name {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  justify-self: start;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-name-text {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: #0b1f3f;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  min-width: 0;
+}
+
+/* Точный стиль статуса из категории блюд: точка + текст, без плашки. */
+.menu-categories-page.is-raw-categories .rawcat-status .settings-status-badge {
+  gap: 7px;
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-status .settings-status-badge.is-active {
+  border: 0;
+  background: transparent;
+  color: #00dc3b;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-status .settings-status-badge.is-inactive {
+  border: 0;
+  background: transparent;
+  color: var(--color-danger, #ef4444);
+}
+
+.menu-categories-page.is-raw-categories .rawcat-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+  justify-self: end;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-actions .settings-place__edit:focus-visible,
+.menu-categories-page.is-raw-categories .rawcat-actions .settings-action-delete:focus-visible {
+  outline: 2px solid #1FC9C9;
+  outline-offset: 1px;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-actions .settings-place__edit:disabled,
+.menu-categories-page.is-raw-categories .rawcat-actions .settings-action-delete:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Both empty tabs reuse the existing .menu-category-empty dish template.
+   Keep its inline icon/text, border and height; no report illustration shell. */
+.menu-categories-page.is-raw-categories .rawcat-list-wrap.is-empty {
+  flex-basis: auto;
+}
+
+.menu-categories-page.is-raw-categories .rawcat-list-wrap.is-empty .rawcat-list {
+  padding-bottom: 0;
+}
+
+@media (max-width: 768px) {
+  .menu-categories-page.is-raw-categories .rawcat-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .menu-categories-page.is-raw-categories .rawcat-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "name actions"
+      "status status";
+    row-gap: 8px;
+  }
+
+  .menu-categories-page.is-raw-categories .rawcat-name {
+    grid-area: name;
+  }
+
+  .menu-categories-page.is-raw-categories .rawcat-actions {
+    grid-area: actions;
+  }
+
+  .menu-categories-page.is-raw-categories .rawcat-status {
+    grid-area: status;
+    justify-self: start;
+  }
+}
+
+/* ARCHIVE V1 — segmented Active/Archived control (MARJON family: soft blue
+   container, white sliding indicator, 250ms ease). Scoped to category
+   headers only; dishes page owns its own copy. */
+.menu-categories-page.is-dish-categories .dishcat-header .settings-actions,
+.menu-categories-page.is-raw-categories .rawcat-header .settings-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.menu-categories-page .dish-status-tabs {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid rgba(208, 217, 232, 0.9);
+  border-radius: 999px;
+  background: #EFF6FF;
+}
+
+.menu-categories-page .dish-status-tabs__indicator {
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 0;
+  border: 1px solid rgba(14, 165, 233, 0.2);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 6px 13px rgba(15, 23, 42, 0.056);
+  transition: transform 250ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 250ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.menu-categories-page .dish-status-tabs button {
+  position: relative;
+  z-index: 1;
+  min-height: 33px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #64748b;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.menu-categories-page .dish-status-tabs button.is-active {
+  border-color: transparent;
+  background: transparent;
+  color: #0e7490;
+  box-shadow: none;
+}
+
+@media (max-width: 768px) {
+  .menu-categories-page.is-dish-categories .dishcat-header .settings-actions,
+  .menu-categories-page.is-raw-categories .rawcat-header .settings-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
+
+/* ARCHIVE V1 — calm red outline archive action (white bg, red text). */
+.dishcat-modal-layer .dishcat-confirm__archive[type="submit"] {
+  min-height: 43px;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  border-radius: 22px;
+  background: #fff;
+  color: #dc2626;
+  box-shadow: none;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.dishcat-modal-layer .dishcat-confirm__archive[type="submit"]:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: #ef4444;
+  color: #dc2626;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-categories-page .dish-status-tabs__indicator,
+  .menu-categories-page.is-raw-categories .rawcat-row,
+  .menu-categories-page.is-dish-categories .menu-category-row.dishcat-row {
+    transition: none;
+  }
+}
+
+/* ARCHIVE V1.1 — compact content-sized panel.
+   Root causes (read-only foreign rules, NOT edited here):
+   - react-overrides base `.menu-categories-card { min-height: calc(100dvh - 52px) }`
+   - desktop shell `.menu-categories-card { flex:1 1 auto; height:100% }`
+   - empty-state stretch `.menu-categories-page:has(.menu-category-empty)
+     .menu-categories-card { height:100% }` (0,4,0 — beats plain overrides).
+   These scoped rules (0,3,0 and 0,5,0) shrink-wrap the dish/raw cards in
+   every viewport while the fixed shell keeps its own height. */
+.menu-categories-page.is-dish-categories .menu-categories-card,
+.menu-categories-page.is-raw-categories .menu-categories-card {
+  flex: 0 1 auto;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+.menu-categories-page.is-dish-categories:has(.menu-category-empty) .menu-categories-card,
+.menu-categories-page.is-raw-categories:has(.rawcat-empty) .menu-categories-card {
+  flex: 0 1 auto;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+.menu-categories-page.is-dish-categories:has(.menu-category-empty),
+.menu-categories-page.is-raw-categories:has(.rawcat-empty) {
+  flex: 0 1 auto;
+  height: auto;
+  overflow: visible;
+}
+
+/* CATEGORY HEIGHT V1.3 — measured remaining viewport, content-sized below it.
+   No height animation: resize/loading/tab changes settle before paint. */
+.menu-categories-page.is-dish-categories .menu-category-list.dishcat-list {
+  max-height: var(--category-list-available-height, 100dvh);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* An empty message is not a row viewport; retain its accepted compact size. */
+.menu-categories-page.is-dish-categories .dishcat-list:has(> .menu-category-empty) {
+  max-height: none;
+}
+
+.menu-categories-page.is-dish-categories .menu-category-list.dishcat-list::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Пилюля табов: первый замер без слайда (появляется на месте). */
+.menu-categories-page .dish-status-tabs__indicator {
+  opacity: 0;
+}
+.menu-categories-page .dish-status-tabs.is-settled .dish-status-tabs__indicator {
+  opacity: 1;
+}
+
+/* Скелетон вровень живому ряду (~58px: кнопки 34 + паддинги), чтобы
+   первая загрузка не меняла высоту карточки. */
+.menu-categories-page.is-dish-categories .dishcat-list .menu-category-row.is-loading {
+  min-height: 58px;
+}
+
+/* Пропорциональный X модалок категорий: 38px-круг как у диалогов
+   (вместо 42px-квадрата базового settings-form). */
+.dishcat-modal-layer .settings-form__header button[aria-label="Закрыть"] {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+}

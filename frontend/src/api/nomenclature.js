@@ -46,4 +46,9 @@ export const nomenclatureService = Object.freeze({
   listWarehouses(config) {
     return config ? api.get("/warehouse/list", config) : api.get("/warehouse/list");
   },
+  // Начальный остаток/порог нового сырья: purchase/adjustment-движение.
+  // min_quantity опционален — backend фиксирует порог без миграции.
+  createStockMovement(payload) {
+    return api.post("/inventory/stock/movements", payload);
+  },
 });

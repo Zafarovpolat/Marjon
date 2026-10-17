@@ -182,5 +182,22 @@ async def test_sales_tenant_isolation(sales_api):
         params={"date_from": "2026-08-15", "date_to": "2026-08-15"}, headers=b_headers,
     )
     assert a.status_code == 200 and b.status_code == 200, (a.text, b.text)
-    assert len(a.json()) == 1 and Decimal(a.json()[0]["revenue"]) == Decimal("77000")
-    assert b.json() == []
+    # Один день — 24 почасовых бакета (пустые часы — нули).
+    # Компания по умолчанию в UTC, заказ в 10:00 UTC — бакет "10:00".
+    rows = a.json()
+    assert len(rows) == 24
+    assert [r["chart_label"] for r in rows] == [f"{h:02d}:00" for h in range(24)]
+    by_hour = {r["chart_label"]: r for r in rows}
+    assert Decimal(by_hour["10:00"]["revenue"]) == Decimal("77000")
+    assert by_hour["10:00"]["orders_count"] == 1
+    assert all(
+        Decimal(r["revenue"]) == Decimal("0") and r["orders_count"] == 0
+        for label, r in by_hour.items() if label != "10:00"
+    )
+    # Пустая компания — те же 24 бакета, все нулевые (изоляция по данным).
+    b_rows = b.json()
+    assert len(b_rows) == 24
+    assert all(
+        Decimal(r["revenue"]) == Decimal("0") and r["orders_count"] == 0
+        for r in b_rows
+    )

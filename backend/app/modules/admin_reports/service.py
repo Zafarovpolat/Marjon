@@ -338,11 +338,18 @@ class AdminReportService:
                 User,
                 and_(User.id == Order.waiter_id, User.company_id == company_id),
             )
-            .where(Order.company_id == company_id, Order.status.notin_(["cancelled"]))
+            .where(Order.company_id == company_id)
             .order_by(Order.created_at.desc())
         )
         if branch_id is not None:
             query = query.where(Order.branch_id == branch_id)
+        # Отмены в отчёт по умолчанию НЕ входят (выручка считается по живым).
+        # Явный фильтр order_status (в т.ч. cancelled) их отдаёт — так
+        # колокольчик забирает сегодняшние отмены.
+        if order_status:
+            query = query.where(Order.status.in_(list(order_status)))
+        else:
+            query = query.where(Order.status.notin_(["cancelled"]))
         if order_number and (normalized_order_number := order_number.strip()):
             query = query.where(Order.order_number.ilike(f"%{normalized_order_number}%"))
         if waiter_id:
@@ -410,8 +417,6 @@ class AdminReportService:
             )
         if order_type:
             query = query.where(Order.order_type.in_(list(order_type)))
-        if order_status:
-            query = query.where(Order.status.in_(list(order_status)))
         if payment_method:
             # Aligned with payment_methods row attribution (Variant A): the
             # order must carry a COMPLETED payment with one of the selected
@@ -1016,6 +1021,12 @@ class AdminReportService:
                 )
             ))
         report_query = self._order_date_filter(report_query, date_from, date_to)
+        # Reuse every report predicate/join; an order with multiple matching
+        # items or historical-name groups is counted once, without a row limit.
+        orders_count = (await self.db.execute(
+            report_query.with_only_columns(func.count(func.distinct(Order.id)))
+            .group_by(None).order_by(None)
+        )).scalar_one()
         rows = (await self.db.execute(report_query)).all()
         # Monetary convention matches products(): Decimal arithmetic with
         # ROUND_HALF_UP to 0.01. Weighted price preserves
@@ -1061,6 +1072,7 @@ class AdminReportService:
             totals=DishReportTotals(
                 quantity=total_quantity,
                 amount=total_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+                orders_count=orders_count,
                 # Grand cost/profit only when the WHOLE selection is covered;
                 # otherwise unknown (NULL), never a partial number.
                 cost_total=(
@@ -1253,7 +1265,8 @@ class AdminReportService:
         order_number: str | None = None,
         author_id: Sequence[UUID] | None = None,
         dish_name: Sequence[str] | None = None,
-    ) -> list[CancelledItemRow]:
+        summary_only: bool = False,
+    ) -> list[CancelledItemRow] | Decimal:
         """Cancelled Dishes truth foundation (Phase 1A).
 
         Inclusion: OrderItem.status == 'cancelled' OR Order.status ==
@@ -1378,6 +1391,13 @@ class AdminReportService:
                 report_event
                 <= datetime.combine(date_to, datetime.max.time())
             )
+        if summary_only:
+            # Exact report inclusion/date predicates, but aggregate in SQL:
+            # never download cancelled items merely to total them in a browser.
+            quantity = (await self.db.execute(query.with_only_columns(
+                func.coalesce(func.sum(OrderItem.quantity), 0)
+            ))).scalar_one()
+            return Decimal(str(quantity))
         query = query.order_by(
             report_event.desc(), Order.created_at.desc(), Order.id, OrderItem.id
         )

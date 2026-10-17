@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ReceiptPreview from "../../components/receipt/ReceiptPreview";
 import ReceiptSectionEditor from "../../components/receipt/ReceiptSectionEditor";
+import Toast from "../../components/Toast";
+import { InlineLoader } from "../../components/Loader";
 import {
   CHEF_ALIGN_OPTIONS,
   CHEF_STYLE_CONTROLS,
@@ -11,20 +13,48 @@ import {
   getKitchenTemplate,
   migrateKitchenTemplate,
   saveKitchenTemplate,
-  testPrintKitchen,
 } from "../../api/receipt";
 import { isAbortError } from "../../hooks/useAsyncSafety";
 import "./receiptSettings.css";
+
+// Единый с чеком клиента вид левой колонки: те же сворачиваемые группы.
+// Порядок внутри групп — как в template.blocks; свернутость UI-only.
+export const CHEF_RECEIPT_GROUPS = [
+  { key: "order", title: "Информация о заказе", blocks: ["orderNumber", "orderType", "table", "waiter", "date"] },
+  { key: "sums", title: "Суммы", blocks: ["showOrderSum"] },
+  { key: "notes", title: "Комментарий", blocks: ["comment"] },
+];
 
 export default function ChefReceiptSettingsPage() {
   const defaults = useMemo(() => buildKitchenTemplate(), []);
   const [template, setTemplate] = useState(defaults);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [printing, setPrinting] = useState(false);
   const [message, setMessage] = useState("");
+  const [toastClosing, setToastClosing] = useState(false);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
+  const toastTimers = useRef([]);
+  function clearToastTimers() {
+    toastTimers.current.forEach((timer) => clearTimeout(timer));
+    toastTimers.current = [];
+  }
+  useEffect(() => () => clearToastTimers(), []);
+  function flashMessage(text) {
+    clearToastTimers();
+    setToastClosing(false);
+    setMessage(text);
+    toastTimers.current.push(setTimeout(() => setToastClosing(true), 4500));
+    toastTimers.current.push(setTimeout(() => {
+      setMessage("");
+      setToastClosing(false);
+    }, 5000));
+  }
+  function clearToast() {
+    clearToastTimers();
+    setToastClosing(false);
+    setMessage("");
+  }
 
   useEffect(() => {
     let active = true;
@@ -50,8 +80,7 @@ export default function ChefReceiptSettingsPage() {
     }));
   }
 
-  function changeBlockStyle(block, patch) {
-    setTemplate((current) => ({
+  function changeBlockStyle(block, patch) {    setTemplate((current) => ({
       ...current,
       blockStyles: {
         ...(current.blockStyles || {}),
@@ -64,11 +93,11 @@ export default function ChefReceiptSettingsPage() {
     setSaving(true);
     setError("");
     setConflict(false);
-    setMessage("");
+    clearToast();
     try {
       const { template: saved } = await saveKitchenTemplate(template);
       setTemplate((current) => ({ ...current, ...saved }));
-      setMessage("Шаблон кухонного чека сохранён на сервере.");
+      flashMessage("Шаблон кухонного чека сохранён на сервере.");
     } catch (err) {
       if (err.response?.status === 409) {
         setConflict(true);
@@ -79,13 +108,6 @@ export default function ChefReceiptSettingsPage() {
     } finally {
       setSaving(false);
     }
-  }
-
-  async function handleTestPrint() {
-    setPrinting(true);
-    const result = await testPrintKitchen(template);
-    setPrinting(false);
-    if (result.ok) setMessage("Открыто окно печати предпросмотра.");
   }
 
   return (
@@ -101,16 +123,24 @@ export default function ChefReceiptSettingsPage() {
               </div>
             </div>
             <div className="receipt-editor-actions receipt-editor-actions--end">
-              <button type="button" className="receipt-btn-secondary" disabled={printing} onClick={handleTestPrint}>Печать предпросмотра</button>
+              <button type="button" className="receipt-btn-primary receipt-save" disabled={saving || loading} onClick={handleSave}>
+                {saving ? "Сохранение..." : "Сохранить"}
+              </button>
             </div>
           </div>
           <div className="receipt-header-spacer" aria-hidden="true" />
         </header>
 
-        {error ? <div className="receipt-banner receipt-banner--error" role="alert">{error}</div> : null}
-        {!error && message ? <div className="receipt-banner receipt-banner--ok" role="status">{message}</div> : null}
+        {error ? <Toast kind="error" message={error} onClose={() => setError("")} /> : null}
+        {!error && message ? <Toast kind="success" message={message} leaving={toastClosing} onClose={clearToast} /> : null}
 
-        <div className="receipt-grid">
+        <div className="receipt-grid" aria-busy={loading}>
+          {loading ? (
+            <div className="receipt-template-loading" role="status">
+              <InlineLoader text="Загрузка шаблона чека…" />
+            </div>
+          ) : (
+          <>
           <div className="receipt-editor-col">
             <div className="receipt-editor">
               <ReceiptSectionEditor
@@ -125,19 +155,16 @@ export default function ChefReceiptSettingsPage() {
                 sizeOptionsForBlock={(block) => CHEF_STYLE_CONTROLS[block]?.sizes || []}
                 alignOptionsForBlock={(block) => (CHEF_STYLE_CONTROLS[block]?.align ? CHEF_ALIGN_OPTIONS : [])}
                 weightOptionsForBlock={(block) => (CHEF_STYLE_CONTROLS[block]?.weight ? CHEF_WEIGHT_OPTIONS : [])}
+                groups={CHEF_RECEIPT_GROUPS}
               />
-
-              <div className="receipt-editor-save">
-                <button type="button" className="receipt-btn-primary receipt-save" disabled={saving || loading} onClick={handleSave}>
-                  {saving ? "Сохранение..." : "Сохранить"}
-                </button>
-              </div>
             </div>
           </div>
 
           <aside className="receipt-preview-col">
             <ReceiptPreview type="kitchen" template={template} fitPane />
           </aside>
+          </>
+          )}
         </div>
       </section>
     </div>

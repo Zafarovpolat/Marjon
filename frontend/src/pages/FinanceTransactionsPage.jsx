@@ -148,18 +148,25 @@ export default function FinanceTransactionsPage() {
   };
 
   return (
-    <div className="finance-page">
-      <section className="finance-card">
-        <header className="finance-header finance-header--transactions">
-          <div className="report-actions finance-date-range"><ReportDateRangePicker value={dateRange} onChange={setDateRange} /></div>
-          <div className="finance-summary-row"><article className="finance-summary-pill finance-income-pill"><span>Приход</span><strong>{error ? "Недоступно" : formatMoney(totals.income)}</strong></article><article className="finance-summary-pill finance-expense-pill"><span>Расход</span><strong>{error ? "Недоступно" : formatMoney(totals.expense)}</strong></article></div>
-          <div className="finance-actions">
+    <section className="nomenclature-page dish-catalog-page owner-report-view finance-page">
+      <section className="dish-catalog-card owner-report-surface settings-card finance-card">
+        <header className="settings-header finance-header finance-header--transactions">
+          <div className="settings-title-group">
+            <span className="settings-accent-bar" aria-hidden="true" />
+            <div>
+              <p>Финансы</p>
+              <h1>Денежные операции</h1>
+            </div>
+          </div>
+          <div className="settings-actions finance-actions">
+            <div className="report-actions finance-date-range"><ReportDateRangePicker value={dateRange} onChange={setDateRange} /></div>
             <button type="button" className="finance-income-action" onClick={() => openCreate("income")}><span>+</span> ПРИХОД</button>
             <button type="button" className="finance-expense-action" onClick={() => openCreate("expense")}><span>-</span> РАСХОД</button>
             <button type="button" className="finance-excel-action" onClick={() => exportToExcel(rows, [{ key: "date", label: "Дата" }, { key: "amount", label: "Сумма" }, { key: "type", label: "Направление" }, { key: "paymentType", label: "Тип оплаты" }, { key: "counterparty", label: "Контрагент" }, { key: "category", label: "Категория" }, { key: "comment", label: "Комментарий" }], "finance-transactions")}>Скачать Excel</button>
             <label><span className="visually-hidden">Направление</span><select aria-label="Направление" value={direction} onChange={(event) => setDirection(event.target.value)}><option value="all">Все операции</option><option value="income">Приход</option><option value="expense">Расход</option></select></label>
           </div>
         </header>
+        <div className="finance-summary-row"><article className="finance-summary-pill finance-income-pill"><span>Приход</span><strong>{error ? "Недоступно" : formatMoney(totals.income)}</strong></article><article className="finance-summary-pill finance-expense-pill"><span>Расход</span><strong>{error ? "Недоступно" : formatMoney(totals.expense)}</strong></article></div>
 
         <div className="finance-table-wrapper">
           <table className="finance-table">
@@ -172,7 +179,7 @@ export default function FinanceTransactionsPage() {
         </div>
       </section>
 
-      {drawerOpen ? <FinanceTransactionDrawer form={form} setForm={setForm} onClose={() => { if (!saving) { createSubmissionRef.current = null; setDrawerOpen(false); } }} onSave={save} editing={Boolean(editingId)} paymentTypes={paymentTypes} counterparties={counterparties} categories={categories} saving={saving} error={mutationError} /> : null}
-    </div>
+      {drawerOpen ? <FinanceTransactionDrawer form={form} setForm={setForm} onClose={() => { if (!saving) { createSubmissionRef.current = null; setDrawerOpen(false); } }} onSave={save} editing={Boolean(editingId)} paymentTypes={paymentTypes} counterparties={counterparties} categories={categories} saving={saving} error={mutationError} onClearError={() => setMutationError("")} /> : null}
+    </section>
   );
 }

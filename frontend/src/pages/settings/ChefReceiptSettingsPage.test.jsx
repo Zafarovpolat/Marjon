@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   KITCHEN_BLOCKS,
@@ -28,9 +28,35 @@ beforeEach(() => {
 });
 
 describe("ChefReceiptSettingsPage (kitchen)", () => {
-  const EIGHT_LABELS = [
+  it("does not flash editable defaults or the preview while the server template is pending", async () => {
+    let resolve;
+    getKitchenTemplate.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+    const { container } = render(<ChefReceiptSettingsPage />);
+    expect(screen.getByRole("heading", { name: "Настройка чека повара" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Загрузка шаблона чека…");
+    expect(screen.getByRole("button", { name: "Сохранить" })).toBeDisabled();
+    expect(container.querySelector("[data-receipt-print-root]")).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: "Номер заказа", exact: true })).toBeNull();
+    const saved = buildKitchenTemplate();
+    saved.enabled.orderNumber = false;
+    await act(async () => resolve({ template: saved, source: "api" }));
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByRole("checkbox", { name: "Номер заказа", exact: true })).not.toBeChecked();
+    expect(container.querySelector("[data-receipt-print-root]")).not.toBeNull();
+    expect(saveKitchenTemplate).not.toHaveBeenCalled();
+  });
+
+  it("keeps the existing explicit fallback when template loading fails", async () => {
+    getKitchenTemplate.mockRejectedValueOnce(new Error("offline"));
+    render(<ChefReceiptSettingsPage />);
+    await screen.findByText(/Не удалось загрузить серверный шаблон кухни/);
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByRole("checkbox", { name: "Номер заказа", exact: true })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Сохранить" })).toBeEnabled();
+  });
+
+  const SEVEN_LABELS = [
     "Номер заказа",
-    "Номер заказа (Отмена)",
     "Тип заказа",
     "Номер стола",
     "Официант",
@@ -39,7 +65,7 @@ describe("ChefReceiptSettingsPage (kitchen)", () => {
     "Комментарий",
   ];
 
-  it("renders exactly the 8 chef settings without the kitchen params card", async () => {
+  it("renders exactly the 7 chef settings without the kitchen params card", async () => {
     const { container } = render(<ChefReceiptSettingsPage />);
     expect(await screen.findByRole("heading", { name: "Настройка чека повара" })).toBeInTheDocument();
     await waitFor(() => expect(getKitchenTemplate).toHaveBeenCalled());
@@ -48,10 +74,39 @@ describe("ChefReceiptSettingsPage (kitchen)", () => {
     expect(screen.queryByText(/Автопечать нового заказа/)).toBeNull();
     expect(container.querySelector(".receipt-subcard select")).toBeNull();
     const rows = container.querySelectorAll("[data-block-row]");
-    expect(rows).toHaveLength(8);
-    for (const label of EIGHT_LABELS) {
+    expect(rows).toHaveLength(7);
+    for (const label of SEVEN_LABELS) {
       expect(screen.getByRole("checkbox", { name: label })).toBeInTheDocument();
     }
+    expect(screen.queryByRole("checkbox", { name: "Номер заказа (Отмена)" })).toBeNull();
+  });
+
+  it("groups rows exactly like the customer editor (order/sums/comment)", async () => {
+    const { container } = render(<ChefReceiptSettingsPage />);
+    await screen.findByRole("heading", { name: "Настройка чека повара" });
+    // Заголовки групп (класс заголовка — текст "Комментарий" есть и у строки).
+    const titles = [...container.querySelectorAll(".receipt-section-group__title")].map((el) => el.textContent);
+    expect(titles).toEqual(["Информация о заказе", "Суммы", "Комментарий"]);
+    const inGroup = (key) => container.querySelector(`[data-block-group="${key}"]`);
+    const rowsIn = (key) => [...inGroup(key).querySelectorAll("[data-block-row]")].map((r) => r.dataset.blockRow);
+    expect(rowsIn("order")).toEqual(["orderNumber", "orderType", "table", "waiter", "date"]);
+    expect(rowsIn("sums")).toEqual(["showOrderSum"]);
+    expect(rowsIn("notes")).toEqual(["comment"]);
+  });
+
+  it("keeps Save in the header and nowhere else (no print, no bottom save)", async () => {
+    const { container } = render(<ChefReceiptSettingsPage />);
+    await screen.findByRole("heading", { name: "Настройка чека повара" });
+    expect(screen.queryByRole("button", { name: "Печать предпросмотра" })).toBeNull();
+    const actions = container.querySelector(".receipt-editor-actions.receipt-editor-actions--end");
+    expect(actions).not.toBeNull();
+    const headerSave = actions.querySelector(".receipt-btn-primary.receipt-save");
+    expect(headerSave).not.toBeNull();
+    expect(headerSave).toHaveTextContent("Сохранить");
+    expect(container.querySelector(".receipt-editor .receipt-editor-save")).toBeNull();
+    const header = container.querySelector(".settings-header.receipt-header");
+    expect(header.querySelector(".receipt-btn-secondary")).toBeNull();
+    expect(header.querySelector(".receipt-btn-primary")).not.toBeNull();
   });
 
   it("does not expose removed chef settings", async () => {
@@ -69,16 +124,14 @@ describe("ChefReceiptSettingsPage (kitchen)", () => {
     const row = (block) => container.querySelector(`[data-block-row="${block}"]`);
     const groupLabels = (block) => [...row(block).querySelectorAll(".receipt-segment-group > span")].map((s) => s.textContent);
     expect(groupLabels("orderNumber")).toEqual(["Размер текста", "Выравнивание", "Жирность"]);
-    expect(groupLabels("cancelOrderNumber")).toEqual(["Размер текста", "Выравнивание", "Жирность"]);
     expect(groupLabels("showOrderSum")).toEqual(["Размер текста", "Жирность"]);
     expect(groupLabels("orderType")).toEqual(["Размер текста", "Жирность"]);
     expect(groupLabels("table")).toEqual(["Размер текста", "Жирность"]);
     expect(groupLabels("waiter")).toEqual(["Размер текста", "Жирность"]);
-    expect(groupLabels("date")).toEqual(["Размер текста", "Выравнивание", "Жирность"]);
+    expect(groupLabels("date")).toEqual(["Размер текста", "Жирность"]);
     expect(groupLabels("comment")).toEqual(["Размер текста", "Жирность"]);
     const sizeButtons = (block) => [...row(block).querySelectorAll(".receipt-segment-group")[0].querySelectorAll("button")].map((b) => b.textContent);
     expect(sizeButtons("orderNumber")).toEqual(["Стандартный", "Большой", "Очень большой"]);
-    expect(sizeButtons("cancelOrderNumber")).toEqual(["Стандартный", "Большой", "Очень большой"]);
     expect(sizeButtons("showOrderSum")).toEqual(["Стандартный", "Большой", "Очень большой"]);
     expect(sizeButtons("orderType")).toEqual(["Стандартный", "Большой", "Очень большой"]);
   });
@@ -154,6 +207,10 @@ describe("ChefReceiptSettingsPage (kitchen)", () => {
     expect(container.querySelector("[data-receipt-type='kitchen']")).not.toBeNull();
     // Kitchen omits customer money blocks.
     expect(screen.queryByText("ИТОГО:")).toBeNull();
+    // The sample order carries a type, so the preview shows the same
+    // «Тип заказа» line the physical ticket prints.
+    expect(screen.getByText("Тип заказа:")).toBeInTheDocument();
+    expect(screen.getByText("На стол")).toBeInTheDocument();
   });
 
   it("stages style changes as a local draft (no instant PATCH)", async () => {
@@ -184,13 +241,13 @@ describe("ChefReceiptSettingsPage (kitchen)", () => {
 });
 
 describe("migrateKitchenTemplate", () => {
-  it("builds the 8-row model with showOrderSum OFF by default", () => {
+  it("builds the 7-row model with showOrderSum ON by default", () => {
     const tpl = migrateKitchenTemplate({}, buildKitchenTemplate());
     expect(tpl.blocks).toEqual([
-      "orderNumber", "cancelOrderNumber", "orderType", "table",
+      "orderNumber", "orderType", "table",
       "waiter", "date", "showOrderSum", "comment",
     ]);
-    expect(tpl.enabled.showOrderSum).toBe(false);
+    expect(tpl.enabled.showOrderSum).toBe(true);
     expect(tpl.enabled.orderNumber).toBe(true);
   });
 
@@ -202,6 +259,28 @@ describe("migrateKitchenTemplate", () => {
     expect(tpl.enabled.date).toBe(false);
     expect(tpl.enabled.comment).toBe(true);
     expect(tpl.blocks).toContain("date");
+  });
+
+  it("drops the removed cancelOrderNumber block from a stored template", () => {
+    const tpl = migrateKitchenTemplate(
+      {
+        blocks: ["orderNumber", "cancelOrderNumber", "orderType", "table"],
+        enabled: { cancelOrderNumber: true, orderNumber: true },
+      },
+      buildKitchenTemplate(),
+    );
+    expect(tpl.blocks).not.toContain("cancelOrderNumber");
+    expect(tpl.blocks).toContain("orderNumber");
+    expect(tpl.blocks).toContain("orderType");
+  });
+
+  it("purges the retired date alignment so the hidden style never applies", () => {
+    const tpl = migrateKitchenTemplate(
+      { blockStyles: { date: { size: "large", align: "center", weight: "bold" } } },
+      buildKitchenTemplate(),
+    );
+    expect(tpl.blockStyles.date.align).toBeUndefined();
+    expect(tpl.blockStyles.date).toMatchObject({ size: "large", weight: "bold" });
   });
 
   it("keeps unknown and legacy keys intact", () => {

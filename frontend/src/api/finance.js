@@ -17,6 +17,12 @@ export function resolveTransactionSubmission(previous, payload, keyFactory = cre
 }
 
 export const financeService = {
+  getIncomeSummary({ dateFrom, dateTo, signal } = {}) {
+    return api.get("/finance/transactions/summary", {
+      params: definedParams({ date_from: dateFrom, date_to: dateTo }),
+      ...(signal ? { signal } : {}),
+    });
+  },
   listTransactions({ dateFrom, dateTo, direction, signal } = {}) {
     return api.get("/finance/transactions", {
       params: definedParams({ date_from: dateFrom, date_to: dateTo, direction }),

@@ -1212,6 +1212,10 @@
   .settings-owner-view .settings-confirm .settings-accent-bar {
       height: 34px;
   }
+  /* Очистка из Основных данных: заголовок вровень с текстом — без акцент-бара. */
+  .settings-owner-view .settings-confirm.company-clear-confirm .settings-accent-bar {
+      display: none;
+  }
   .settings-owner-view .settings-confirm .settings-form__header h2 {
       font-size: 22px;
   }

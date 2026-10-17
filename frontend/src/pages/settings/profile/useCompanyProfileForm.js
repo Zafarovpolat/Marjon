@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { settingsService } from "../../../api/settings";
+import { authService } from "../../../api/auth";
 import { readStoredProfile, updateStoredProfile } from "../../../utils/profileCache";
 import { isAbortError, useLatestRequest, useMutationLocks } from "../../../hooks/useAsyncSafety";
 import { emptyForm } from "./profileSections";
@@ -9,14 +10,15 @@ import { emptyForm } from "./profileSections";
 // Поля без backend-поддержки (пароли блюд, цена доставки, тип заказа,
 // смена пароля, очистка отчетов) хранятся только локально, никогда не
 // отправляются и никогда не показывают ложный успех — см. флаги ниже.
-export const PROFILE_PASSWORD_BACKEND_SUPPORTED = false;
+export const PROFILE_PASSWORD_BACKEND_SUPPORTED = true;
 export const CLEAR_REPORTS_BACKEND_SUPPORTED = false;
 export const ORDER_TYPES_BACKEND_SUPPORTED = true;
 // Имя профиля: GET /auth/me отдаёт `name`, но редактируемого
 // self-эндпоинта нет — PATCH /auth/users/{id} запрещает правки
 // собственной записи (403 "Protected company identity cannot be
 // changed"), а authService держит только getCurrentUser.
-// Поле рисуется, но не отправляется и не даёт ложного успеха.
+// Отображаемое имя сохраняется отдельно в локальном профиле пользователя,
+// не меняя серверную идентичность, роль или данные компании.
 export const PROFILE_NAME_BACKEND_SUPPORTED = false;
 
 // Матрица поддержки backend для секции «Основные настройки»:
@@ -31,6 +33,7 @@ export const PROFILE_NAME_BACKEND_SUPPORTED = false;
 export const MAIN_SETTINGS_SUPPORT = Object.freeze({
   dayStartHour: { backendField: "day_start_hour", get: true, patch: true, persisted: true },
   vatRate: { backendField: "vat_rate", get: true, patch: true, persisted: true },
+  showSupportButton: { backendField: "show_support_button", get: true, patch: true, persisted: true },
   dishDeletePassword: { backendField: null, get: false, patch: false, persisted: false },
   dishDeleteAfterPrecheckPassword: { backendField: null, get: false, patch: false, persisted: false },
   waiterChangePassword: { backendField: null, get: false, patch: false, persisted: false },
@@ -77,12 +80,20 @@ export function useCompanyProfileForm(user) {
     setSuccessClosing(false);
     setSuccess("");
   }
+  function clearError() {
+    setError("");
+  }
 
   // «Основные настройки»: поддерживается backend (своя кнопка «Сохранить»).
   const [dayStartHour, setDayStartHour] = useState("0");
   const [vatRate, setVatRate] = useState("");
   const [savedMain, setSavedMain] = useState({ dayStartHour: "0", vatRate: "" });
   const [mainSaving, setMainSaving] = useState(false);
+  // Видимость глобальной кнопки поддержки: canonical company-поле
+  // show_support_button (default TRUE — сохраняет текущее поведение).
+  const [showSupportButton, setShowSupportButton] = useState(true);
+  const [savedShowSupportButton, setSavedShowSupportButton] = useState(true);
+  const [supportSaving, setSupportSaving] = useState(false);
 
   // «Основные настройки»: без backend-поддержки — локально, не отправляется.
   const [dishDeletePassword, setDishDeletePassword] = useState("");
@@ -97,21 +108,24 @@ export function useCompanyProfileForm(user) {
   const [savedOrderTypes, setSavedOrderTypes] = useState({ ...EMPTY_ORDER_TYPES });
   const [orderTypesSaving, setOrderTypesSaving] = useState(false);
 
-  // «Настройка профиля»: смена пароля — локально, эндпоинта нет.
+  // Secrets live only in component memory; never in profile/local storage.
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passSaving, setPassSaving] = useState(false);
 
-  // «Имя профиля»: truthful initial из user (GET /auth/me), backend-правки
-  // нет — значение никогда не отправляется (см. handleSave).
-  const derivedProfileName = user?.name || user?.full_name || "";
+  // Персональная подпись интерфейса: локальный профиль, затем GET /auth/me.
+  const derivedProfileName = typeof storedProfile.profileName === "string"
+    ? storedProfile.profileName
+    : user?.name || user?.full_name || "";
   const [profileName, setProfileNameState] = useState("");
   const [profileNamePristine, setProfileNamePristine] = useState(true);
   useEffect(() => {
-    if (profileNamePristine) setProfileNameState(derivedProfileName);
-  }, [derivedProfileName, profileNamePristine]);
+    if (profileNamePristine) setProfileNameState(readStoredProfile(user?.id).profileName ?? derivedProfileName);
+  }, [derivedProfileName, profileNamePristine, user?.id]);
 
   useEffect(() => {
     const request = beginRequest();
@@ -136,6 +150,10 @@ export function useCompanyProfileForm(user) {
         setDayStartHour(nextMain.dayStartHour);
         setVatRate(nextMain.vatRate);
         setSavedMain(nextMain);
+        // Backend default TRUE: отсутствующее поле = видимая кнопка.
+        const nextShowSupport = data?.show_support_button !== false;
+        setShowSupportButton(nextShowSupport);
+        setSavedShowSupportButton(nextShowSupport);
         const nextOrderTypes = {
           dineIn: data?.order_types?.dine_in ?? true,
           takeaway: data?.order_types?.takeaway ?? true,
@@ -151,6 +169,7 @@ export function useCompanyProfileForm(user) {
   }, [beginRequest, storedProfile.companyLogo, storedProfile.name, storedProfile.photo, user?.id]);
 
   function setActiveSection(key) {
+    if (key !== "profile") resetPassword();
     setActiveSectionState(key);
     setError("");
     clearSuccess();
@@ -184,7 +203,7 @@ export function useCompanyProfileForm(user) {
 
   function resetForm() {
     setForm(savedForm);
-    setProfileNameState(derivedProfileName);
+    setProfileNameState(readStoredProfile(user?.id).profileName ?? derivedProfileName);
     setProfileNamePristine(true);
     setError("");
     clearSuccess();
@@ -234,14 +253,15 @@ export function useCompanyProfileForm(user) {
         name: confirmed.name,
         photo: form.profileLogo,
         companyLogo: form.companyLogo,
+        profileName: profileName.trim(),
       };
-      updateStoredProfile(user?.id, nextStored);
+      if (!updateStoredProfile(user?.id, nextStored)) throw new Error("Не удалось сохранить локальный профиль.");
       setForm(confirmed);
       setSavedForm(confirmed);
-      // Успех — только за сохранённые company-поля. Имя профиля backend
-      // не принимает: если черновик отличается от серверного — говорим прямо.
+      setProfileNameState(nextStored.profileName);
+      // Серверное имя/логин не изменяются; явно сообщаем область сохранения.
       if (profileName.trim() !== derivedProfileName.trim()) {
-        flashSuccess("Профиль сохранён. Имя профиля требует backend и не сохранено.");
+        flashSuccess("Профиль сохранён. Имя профиля сохранено в этом браузере.");
       } else {
         flashSuccess("Профиль сохранён.");
       }
@@ -263,6 +283,36 @@ export function useCompanyProfileForm(user) {
     setDeliveryPrice("");
     setError("");
     clearSuccess();
+  }
+
+  // This one setting saves independently; pending clicks cannot overlap.
+  async function saveSupportVisibility(nextVisible) {
+    if (!acquire("company-support-visibility-save")) return;
+    const previous = savedShowSupportButton;
+    const notify = (value) => window.dispatchEvent(new CustomEvent("marjon:company-profile-updated", {
+      detail: { show_support_button: value },
+    }));
+    setSupportSaving(true);
+    setError("");
+    clearSuccess();
+    setShowSupportButton(nextVisible);
+    notify(nextVisible);
+    try {
+      const { data } = await settingsService.updateCompanyProfile({ show_support_button: nextVisible });
+      if (typeof data?.show_support_button !== "boolean") {
+        throw new Error("Backend не вернул сохранённую настройку поддержки.");
+      }
+      setShowSupportButton(data.show_support_button);
+      setSavedShowSupportButton(data.show_support_button);
+      if (data.show_support_button !== nextVisible) notify(data.show_support_button);
+    } catch (err) {
+      setShowSupportButton(previous);
+      notify(previous);
+      setError(err.response?.data?.detail || err.message || "Не удалось сохранить настройку поддержки.");
+    } finally {
+      setSupportSaving(false);
+      release("company-support-visibility-save");
+    }
   }
 
   // «Основные настройки»: отправляются ТОЛЬКО day_start_hour и vat_rate.
@@ -353,8 +403,8 @@ export function useCompanyProfileForm(user) {
   async function savePassword(event) {
     event?.preventDefault?.();
     if (passSaving) return;
-    if (!newPassword || !confirmPassword) {
-      setError("Заполните оба поля пароля.");
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setError("Заполните все поля пароля.");
       clearSuccess();
       return;
     }
@@ -374,18 +424,44 @@ export function useCompanyProfileForm(user) {
       clearSuccess();
       return;
     }
+    if (new TextEncoder().encode(currentPassword).length > 72 || new TextEncoder().encode(newPassword).length > 72) {
+      setError("Пароль должен быть не более 72 байт.");
+      clearSuccess();
+      return;
+    }
+    if (currentPassword === newPassword) {
+      setError("Новый пароль должен отличаться от текущего.");
+      clearSuccess();
+      return;
+    }
+    if (!acquire("profile-password-save")) return;
     setPassSaving(true);
     try {
       setError("");
-      flashSuccess("Смена пароля недоступна: backend-эндпоинт отсутствует. Пароль не изменён.");
+      clearSuccess();
+      await authService.changePassword({
+        current_password: currentPassword,
+        new_password: newPassword,
+        confirm_password: confirmPassword,
+      });
+      resetPassword();
+      flashSuccess("Пароль изменён. Другие сеансы потребуют повторного входа.");
+    } catch (err) {
+      const data = err.response?.data;
+      setError(typeof data?.detail === "string" ? data.detail : data?.message || "Не удалось изменить пароль. Проверьте соединение и повторите попытку.");
     } finally {
       setPassSaving(false);
+      release("profile-password-save");
     }
   }
 
   function resetPassword() {
+    setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
     setError("");
     clearSuccess();
   }
@@ -397,6 +473,7 @@ export function useCompanyProfileForm(user) {
     loading,
     saving,
     error,
+    clearError,
     success,
     successClosing,
     setSuccess,
@@ -412,6 +489,9 @@ export function useCompanyProfileForm(user) {
     setDayStartHour,
     vatRate,
     setVatRate,
+    showSupportButton,
+    supportSaving,
+    saveSupportVisibility,
     mainSaving,
     saveMain,
     resetMain,
@@ -430,6 +510,10 @@ export function useCompanyProfileForm(user) {
     resetOrderTypes,
     orderTypesSaving,
     saveOrderTypes,
+    currentPassword,
+    setCurrentPassword,
+    showCurrentPassword,
+    setShowCurrentPassword,
     newPassword,
     setNewPassword,
     confirmPassword,

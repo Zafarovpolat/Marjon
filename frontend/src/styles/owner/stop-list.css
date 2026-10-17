@@ -1,0 +1,773 @@
+/* Меню → Стоп-лист V3: визуальная семья Блюд (dishes.css).
+   Только stoplist-скоуп. Глобальные файлы и react-overrides.css не тронуты.
+   V3: накопительные пополнения — история-окно из 2 чисел со slide-анимацией,
+   fly-копии input→ячейки, read-only единица, save/reset без dropdown. */
+
+.stoplist-page.owner-report-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+  border-radius: 18px;
+}
+
+.stoplist-page.owner-report-view .stoplist-card {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  height: auto;
+  max-height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+  padding: 22px;
+  padding-top: 16px;
+  padding-bottom: 12px;
+  border: 1px solid rgba(15, 35, 60, 0.09);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 3px 12px rgba(15, 35, 60, 0.055);
+}
+
+.stoplist-page.owner-report-view .stoplist-card > :not(.stoplist-grid-wrap) {
+  flex-shrink: 0;
+}
+
+.stoplist-page .stoplist-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.stoplist-page .stoplist-header .settings-accent-bar {
+  height: 44px;
+}
+
+.stoplist-page .stoplist-header .settings-title-group h1 {
+  color: var(--neutral-950);
+  font-size: clamp(24px, 2.4vw, 28px);
+  font-weight: 600;
+  line-height: inherit;
+}
+
+.stoplist-page .stoplist-header .settings-title-group p {
+  position: relative;
+  top: 8px;
+  margin: 0 0 4px;
+  color: #0f99b8;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  line-height: 18px;
+  text-transform: uppercase;
+}
+
+/* Таблица: тот же каркас, что dish-grid-wrap/dish-grid-scroll/dish-grid-table. */
+.stoplist-page.owner-report-view .stoplist-grid-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  height: auto;
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  scrollbar-gutter: auto;
+  border: 1px solid var(--neutral-200, #e2e8f0);
+  border-radius: 20px;
+  background: #fff;
+}
+
+.stoplist-page.owner-report-view .stoplist-grid-scroll {
+  flex: 0 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.stoplist-page.owner-report-view .stoplist-grid-scroll:focus-visible {
+  outline: none;
+}
+
+.stoplist-page.owner-report-view .stoplist-grid-wrap:has(> .stoplist-grid-scroll:focus-visible) {
+  outline: 2px solid var(--owner-accent, #1fc9c9);
+  outline-offset: -2px;
+}
+
+.stoplist-page.owner-report-view .stoplist-grid-wrap:not(.is-empty) .stoplist-grid-scroll {
+  padding-bottom: 0;
+  scroll-padding-bottom: 8px;
+}
+
+.stoplist-page.owner-report-view .stoplist-grid-wrap.is-empty {
+  flex-basis: 270px;
+  height: 270px;
+}
+
+.stoplist-page.owner-report-view .stoplist-grid-wrap.is-empty .stoplist-grid-scroll {
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+.stoplist-page.owner-report-view .stoplist-empty-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px 24px;
+  pointer-events: none;
+}
+
+.stoplist-page.owner-report-view .stoplist-empty-overlay .owner-report-empty-image {
+  height: 120px;
+  width: auto;
+}
+
+.stoplist-page.owner-report-view .stoplist-empty-overlay .owner-report-empty--illustrated {
+  min-height: 0;
+  padding: 18px 20px 22px;
+  transform: none;
+}
+
+.stoplist-page.owner-report-view .stoplist-grid-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.stoplist-page.owner-report-view .stoplist-grid-table {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  min-width: var(--stoplist-min-width, 980px);
+  table-layout: fixed;
+}
+
+.stoplist-page.owner-report-view .stoplist-grid-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--blue-50, #eff6ff);
+  color: var(--neutral-950);
+}
+
+.stoplist-page.owner-report-view .stoplist-grid-table tbody tr:hover {
+  background: var(--neutral-50, #f4f7fc);
+}
+
+/* V2: спокойный hover-переход строк (120ms, без дёрганий). */
+.stoplist-page.owner-report-view .stoplist-grid-table tbody tr {
+  transition: background-color 120ms ease;
+}
+
+.stoplist-page.owner-report-view .stoplist-grid-table tbody tr:hover td {
+  background: transparent;
+}
+
+.stoplist-page .stoplist-grid-table tbody td {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  vertical-align: middle;
+  border-top-color: var(--neutral-200, #e2e8f0);
+}
+
+body.dashboard-body .stoplist-page.owner-report-view .stoplist-grid-table th {
+  text-align: center;
+}
+
+body.dashboard-body .stoplist-page.owner-report-view .stoplist-grid-table td {
+  overflow: visible;
+  text-overflow: clip;
+  text-align: center;
+}
+
+body.dashboard-body .stoplist-page.owner-report-view .stoplist-grid-table .stoplist-col-index {
+  width: 56px;
+  text-align: center;
+}
+
+/* V2: зафиксированная типографика нумерации № — тот же визуал переносится
+   и в Блюда (см. dishes.css STOP-LIST V2 блок): только skin, логика та же. */
+.stoplist-page .stoplist-grid-table .stoplist-index-cell {
+  color: var(--neutral-800);
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  vertical-align: middle;
+}
+
+body.dashboard-body .stoplist-page.owner-report-view .stoplist-grid-table .stoplist-col-photo {
+  width: 72px;
+  text-align: center;
+}
+
+body.dashboard-body .stoplist-page.owner-report-view .stoplist-grid-table .stoplist-col-name {
+  width: 190px;
+  text-align: center;
+}
+
+body.dashboard-body .stoplist-page.owner-report-view .stoplist-grid-table .stoplist-col-stock,
+body.dashboard-body .stoplist-page.owner-report-view .stoplist-grid-table .stoplist-col-prev,
+body.dashboard-body .stoplist-page.owner-report-view .stoplist-grid-table .stoplist-col-new {
+  width: auto;
+  text-align: center;
+}
+
+body.dashboard-body .stoplist-page.owner-report-view .stoplist-grid-table .stoplist-col-actions {
+  width: 96px;
+  text-align: center;
+}
+
+.stoplist-page .stoplist-grid-table .stoplist-photo,
+.stoplist-page .stoplist-grid-table .stoplist-photo-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+}
+
+.stoplist-page .stoplist-grid-table .stoplist-photo {
+  object-fit: cover;
+  display: block;
+  margin: 0 auto;
+  box-shadow: none;
+}
+
+.stoplist-page .stoplist-grid-table .stoplist-photo-placeholder {
+  display: grid;
+  place-items: center;
+  margin: 0 auto;
+  border: 1px solid #d4eef3;
+  color: #1495a8;
+  background: #edfafa;
+}
+
+.stoplist-page .stoplist-grid-table .stoplist-name-text {
+  display: block;
+  max-width: 100%;
+  overflow: visible;
+  color: var(--neutral-900);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  overflow-wrap: break-word;
+}
+
+.stoplist-page .stoplist-grid-table .stoplist-stock-text,
+.stoplist-page .stoplist-grid-table .stoplist-prev-text {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.stoplist-page .stoplist-grid-table .stoplist-new-field {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.stoplist-page .stoplist-grid-table .stoplist-limit-input {
+  box-sizing: border-box;
+  width: 110px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid #d0d9e8;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--neutral-900);
+  font: inherit;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stoplist-page .stoplist-grid-table .stoplist-limit-input:focus {
+  outline: 0;
+  border-color: var(--owner-accent, #1fc9c9);
+  box-shadow: 0 0 0 3px rgba(31, 201, 201, 0.13);
+}
+
+.stoplist-page .stoplist-grid-table .stoplist-limit-input:disabled {
+  opacity: 0.55;
+}
+
+/* V3: селектора единицы НЕТ — read-only метка из Product
+   (или серый placeholder, если единица неизвестна). */
+.stoplist-page .stoplist-grid-table .stoplist-unit-placeholder {
+  color: var(--neutral-400, #94a3b8);
+  font-size: 13px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+/* V3: скользящее окно истории — максимум два числа, одна строка,
+   scoped clipping, без сдвига соседних колонок и высоты ряда. */
+.stoplist-page .stoplist-grid-table .stoplist-hist-stage {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.stoplist-page .stoplist-grid-table .stoplist-hist-pair {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+/* Старое из двух видимых: приглушено, в скобках, обычная насыщенность. */
+.stoplist-page .stoplist-grid-table .stoplist-hist-old {
+  color: var(--neutral-500, #64748b);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Последнее пополнение: контрастно, medium/semibold, без подписей. */
+.stoplist-page .stoplist-grid-table .stoplist-hist-new {
+  color: var(--neutral-900);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.stoplist-page .stoplist-grid-table .stoplist-hist-empty {
+  color: var(--neutral-400, #94a3b8);
+}
+
+.stoplist-page .stoplist-grid-table .stoplist-hist-layer {
+  display: inline-flex;
+  white-space: nowrap;
+}
+
+/* Старый слой: уходит влево с fade. Новый: въезжает справа. ~320ms. */
+.stoplist-page .stoplist-grid-table .stoplist-hist-layer.is-exit {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  animation: stoplist-hist-exit 280ms cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards;
+  pointer-events: none;
+}
+
+.stoplist-page .stoplist-grid-table .stoplist-hist-layer.is-enter {
+  animation: stoplist-hist-enter 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes stoplist-hist-exit {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(-18px, 0, 0);
+  }
+}
+
+@keyframes stoplist-hist-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(18px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* V3: летящие копии введённого числа (input → Остаток / история).
+   Только визуальные копии; итоги — из backend response/refetch.
+   transform-only (translate3d, compositor), без top/left/width анимаций. */
+.stoplist-fly-chip {
+  position: fixed;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0 10px;
+  border: 1px solid rgba(31, 201, 201, 0.55);
+  border-radius: 10px;
+  background: rgba(31, 201, 201, 0.12);
+  color: #0c7f79;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: stoplist-fly 300ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes stoplist-fly {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0.85;
+    transform: translate3d(var(--dx, 0px), var(--dy, 0px), 0) scale(0.72);
+  }
+}
+
+.stoplist-page .stoplist-grid-table .stoplist-unit-text {
+  color: var(--neutral-500, #64748b);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.stoplist-page .stoplist-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+}
+
+.stoplist-page .stoplist-row-actions button {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--neutral-200);
+  border-radius: 9px;
+  background: #fff;
+  color: #0f8f8f;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.stoplist-page .stoplist-row-actions button svg {
+  display: block;
+}
+
+.stoplist-page .stoplist-row-actions button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.stoplist-page .stoplist-row-actions button:not(:disabled):hover {
+  background: rgba(31, 201, 201, 0.08);
+  border-color: rgba(31, 201, 201, 0.45);
+}
+
+/* V2.1 save-иерархия: clean — нейтральный muted; ready — залитая бирюза
+   с белой галкой 18px; saving — спиннер в тех же 32px без сдвига layout;
+   reset остаётся вторичным. Размеры компактные, как у action-семьи. */
+.stoplist-page .stoplist-row-actions .stoplist-save-action:not(.is-ready) {
+  color: var(--neutral-400, #94a3b8);
+}
+
+.stoplist-page .stoplist-row-actions .stoplist-save-action.is-ready {
+  border-color: var(--owner-accent, #1fc9c9);
+  background: var(--owner-accent, #1fc9c9);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(31, 201, 201, 0.35);
+}
+
+.stoplist-page .stoplist-row-actions .stoplist-save-action.is-ready:hover:not(:disabled) {
+  border-color: var(--owner-accent-hover, #1bb1b1);
+  background: var(--owner-accent-hover, #1bb1b1);
+}
+
+.stoplist-page .stoplist-row-actions .stoplist-save-action:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(31, 201, 201, 0.25);
+}
+
+.stoplist-page .stoplist-row-actions .stoplist-spinner {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(15, 143, 143, 0.25);
+  border-top-color: #0f8f8f;
+  border-radius: 50%;
+  animation: stoplist-spin 700ms linear infinite;
+}
+
+@keyframes stoplist-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dashboard-content:has(.stoplist-page) {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+@media (min-width: 1025px) {
+  .dashboard-content:has(.stoplist-page) {
+    padding-top: 14px;
+  }
+  .dashboard-content:has(.stoplist-page.owner-report-view) {
+    padding-bottom: 12px;
+  }
+  body.dashboard-body:has(.stoplist-page.owner-report-view) .support-widget {
+    right: 24px;
+    bottom: 24px;
+  }
+}
+
+@media (max-width: 1024px) {
+  body.dashboard-body:has(.stoplist-page.owner-report-view) .support-widget {
+    right: 24px;
+    bottom: 70px;
+  }
+}
+
+@media (max-width: 600px) {
+  .stoplist-page.owner-report-view .stoplist-card {
+    padding: 16px 16px 12px;
+    border-radius: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stoplist-page .stoplist-grid-table .stoplist-limit-input,
+  .stoplist-page.owner-report-view .stoplist-grid-table tbody tr,
+  .stoplist-page .stoplist-row-actions button {
+    transition: none;
+  }
+  .stoplist-page .stoplist-grid-table .stoplist-hist-layer.is-exit,
+  .stoplist-page .stoplist-grid-table .stoplist-hist-layer.is-enter,
+  .stoplist-fly-chip {
+    animation: none;
+  }
+  .stoplist-page .stoplist-row-actions .stoplist-spinner {
+    animation: none;
+    border-top-color: rgba(15, 143, 143, 0.25);
+  }
+}
+
+/* V3.5: centered-модалка «Управление лимитами». Шелл — язык OWNER
+   settings-modal (глобальный); ниже только stoplist-компоновка:
+   белый фон, радиус 20px, бордер #D0D9E8, мягкая тень, компактно. */
+.stoplist-manage-layer .settings-modal-overlay {
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.stoplist-manage-modal {
+  width: min(440px, 100%);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  border: 1px solid #d0d9e8;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(15, 35, 60, 0.18);
+}
+
+/* Compact fixed shell: errors stay inside the corresponding data row.
+   Override the OWNER auto height and 16px flex gap at their source boundary. */
+.stoplist-manage-layer .settings-modal.stoplist-manage-modal {
+  width: 480px;
+  max-width: calc(100vw - 32px);
+  height: 340px;
+  max-height: calc(100dvh - 32px);
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 44px 22px 76px 76px 48px;
+  gap: 8px;
+  padding: 20px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.stoplist-manage-modal .stoplist-manage-row > *,
+.stoplist-manage-modal .stoplist-manage-info {
+  min-width: 0;
+}
+
+.stoplist-manage-modal .stoplist-manage-error,
+.stoplist-manage-modal .stoplist-manage-product {
+  overflow-wrap: break-word;
+}
+
+/* V3.7.3: шапка модалки — единым блоком как в OWNER-категориях.
+   Корень перекоса: глобальный `.settings-form__header` — space-between
+   с тремя детьми (акцент/текст/X), текст уезжал в середину. Здесь текст
+   прижат к акценту (flex:1), крестик — вправо. Без priority-хаков. */
+.stoplist-manage-modal .settings-form__header {
+  justify-content: flex-start;
+  gap: 16px;
+}
+
+.stoplist-manage-modal .settings-form__header > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.stoplist-manage-modal .settings-form__header > button {
+  flex: 0 0 auto;
+}
+
+.stoplist-manage-modal .settings-form__header .settings-accent-bar {
+  flex: 0 0 auto;
+  height: 44px;
+}
+
+/* V3.7: заголовок компактнее глобального modal-h2 (24–34px/800), чтобы
+   "Управление лимитами" помещалось в одну строку: специфичность выше
+   глобальной без приоритетных хаков. Иерархия сохранена (крупнее body). */
+.stoplist-manage-modal .settings-form__header h2 {
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  /* На узких экранах разрешаем перенос вместо клиппинга. */
+  .stoplist-manage-modal .settings-form__header h2 {
+    white-space: normal;
+  }
+}
+
+.stoplist-manage-product {
+  margin: 0;
+  color: var(--neutral-900);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 22px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Локальная ошибка сброса внутри модалки: спокойная, читаемая,
+   без неонового баннера на всю страницу. */
+.stoplist-manage-error {
+  margin: 0;
+  max-height: 32px;
+  overflow-y: auto;
+  color: #b91c1c;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.stoplist-manage-block {
+  padding: 2px 0;
+  border-top: 1px solid var(--neutral-200, #e2e8f0);
+}
+
+.stoplist-manage-block:first-of-type {
+  border-top: 0;
+}
+
+.stoplist-manage-modal .stoplist-hist-pair {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.stoplist-manage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stoplist-manage-info {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.stoplist-manage-label {
+  color: var(--neutral-500, #64748b);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.stoplist-manage-value {
+  color: var(--neutral-900);
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition: background-color 200ms ease;
+}
+
+.stoplist-manage-value.is-fresh {
+  border-radius: 8px;
+  background: rgba(31, 201, 201, 0.12);
+}
+
+/* Вторичная сдержанная кнопка; деструктив — только в подтверждении. */
+.stoplist-manage-reset {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--neutral-200);
+  border-radius: 11px;
+  background: #fff;
+  color: var(--neutral-600, #475569);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.stoplist-manage-reset:hover:not(:disabled) {
+  border-color: rgba(31, 201, 201, 0.55);
+  background: rgba(31, 201, 201, 0.06);
+}
+
+.stoplist-manage-reset:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.stoplist-manage-layer .settings-modal .stoplist-manage-footer {
+  margin: 0;
+  padding: 8px 0 0;
+}
+
+@media (max-width: 600px) {
+  .stoplist-manage-layer .settings-modal.stoplist-manage-modal {
+    height: 346px;
+    padding: 14px;
+    grid-template-rows: 62px 22px 76px 76px 48px;
+  }
+}
+
+@media (max-height: 420px) {
+  .stoplist-manage-layer .settings-modal.stoplist-manage-modal {
+    overflow-y: auto;
+    grid-template-rows: 62px 22px 76px 76px 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stoplist-manage-value {
+    transition: none;
+  }
+}

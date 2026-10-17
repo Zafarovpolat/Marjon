@@ -1,7 +1,7 @@
 from __future__ import annotations
 import re
 from uuid import UUID
-from pydantic import AliasChoices, EmailStr, Field, field_validator
+from pydantic import AliasChoices, EmailStr, Field, SecretStr, field_validator
 from app.shared.base_schema import BaseSchema, BaseResponseSchema
 
 
@@ -64,6 +64,14 @@ class LoginRequest(BaseSchema):
 
 class RefreshRequest(BaseSchema):
     refresh_token: str = Field(..., min_length=1)
+
+
+class ChangePasswordRequest(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
+    current_password: SecretStr
+    new_password: SecretStr
+    confirm_password: SecretStr
 
 
 class PinSetRequest(BaseSchema):
