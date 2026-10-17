@@ -20,6 +20,9 @@ class SalesReport(BaseSchema):
     orders_count: int
     revenue: Decimal
     avg_check: Decimal
+    # Подпись бакета для оси графика. Дневные бакеты — без неё (фронт
+    # форматирует дату сам); почасовые (один день) — "HH:00".
+    chart_label: str | None = None
 
 
 class TopProduct(BaseSchema):

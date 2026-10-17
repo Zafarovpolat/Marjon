@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { nomenclatureService } from "../../api/nomenclature";
 import { catalogService } from "../../api/catalog";
 import { settingsService } from "../../api/settings";
-import { unitDisplayLabel } from "./nomenclatureData";
+import { unitDisplayLabel, unitOptionLabel } from "./nomenclatureData";
 import Icon from "../../components/Icon";
 import ReportEmptyState from "../../components/ReportEmptyState";
 import DishSingleSelect from "./DishSingleSelect";
@@ -15,7 +15,7 @@ import "../../styles/owner/raw-materials.css";
 // тот же источник, что у дровера блюд. Хардкода нет: «упак» и прочий
 // мусор из старого UNITS-списка сюда попасть не может. Ошибка →
 // честный disabled «Единицы измерения недоступны» (паттерн блюд).
-const EMPTY_FORM = { name: "", unit: "", category: "", loss_type: "", loss_value: "" };
+const EMPTY_FORM = { name: "", unit: "", category: "", avg_quantity: "", deficit_threshold: "", loss_type: "", loss_value: "" };
 const LOSS_TYPE_OPTIONS = [
   { value: "percent", label: "Процент" },
   { value: "amount", label: "Количество" },
@@ -253,7 +253,13 @@ export default function RawMaterialsPage() {
             Number(a.sort ?? a.sort_order ?? 0) - Number(b.sort ?? b.sort_order ?? 0)
             || unitDisplayLabel(a).localeCompare(unitDisplayLabel(b), "ru")
           ))
-          .map((item) => ({ id: String(item.id), label: unitDisplayLabel(item), active: item.status !== false }));
+          .map((item) => ({
+            id: String(item.id),
+            // value — короткое имя (канон хранения), label — «Килограмм (Кг)».
+            value: unitDisplayLabel(item),
+            label: unitOptionLabel(item),
+            active: item.status !== false,
+          }));
         setUnitOptions(live);
       })
       .catch(() => {
@@ -271,6 +277,8 @@ export default function RawMaterialsPage() {
       name: row.name || "",
       unit: row.unit || "",
       category: row.category || "",
+      avg_quantity: formatLossValue(row.avg_quantity),
+      deficit_threshold: formatLossValue(row.deficit_threshold),
       loss_type: row.loss_type || "",
       loss_value: formatLossValue(row.loss_value),
     });
@@ -309,6 +317,32 @@ export default function RawMaterialsPage() {
       setActionError("Выберите единицу измерения.");
       return;
     }
+    // V47: нормы остатка — обязательны (обе со звёздочкой в макете).
+    const parseNorm = (raw) => {
+      const text = String(raw ?? "").trim().replace(",", ".");
+      if (text === "") return { empty: true };
+      const parsed = Number(text);
+      if (!Number.isFinite(parsed) || parsed < 0) return { invalid: true };
+      return { value: parsed };
+    };
+    const avgNorm = parseNorm(form.avg_quantity);
+    if (avgNorm.empty) {
+      setActionError("Укажите среднее количество.");
+      return;
+    }
+    if (avgNorm.invalid) {
+      setActionError("Среднее количество — неотрицательное число.");
+      return;
+    }
+    const deficitNorm = parseNorm(form.deficit_threshold);
+    if (deficitNorm.empty) {
+      setActionError("Укажите порог дефицита.");
+      return;
+    }
+    if (deficitNorm.invalid) {
+      setActionError("Порог дефицита — неотрицательное число.");
+      return;
+    }
     if (!acquire("ingredient-save")) return;
     // Норма потерь для отчётного авто-отхода: тип + значение только парой.
     const lossType = form.loss_type || null;
@@ -340,6 +374,8 @@ export default function RawMaterialsPage() {
       name: form.name.trim(),
       unit: form.unit,
       category: form.category.trim() || null,
+      avg_quantity: avgNorm.value,
+      deficit_threshold: deficitNorm.value,
       loss_type: lossType,
       loss_value: lossValue,
     };
@@ -434,17 +470,18 @@ export default function RawMaterialsPage() {
 
   // Живые единицы + неслетаемое текущее значение (legacy free-text из
   // старых строк дописывается как неактивное — паттерн архивных
-  // категорий/единиц у блюд). Дедуп по label: value селекта — label.
+  // категорий/единиц у блюд). Дедуп по value (короткому имени): value
+  // селекта — короткое имя, подпись — «Килограмм (Кг)».
   const selectableUnits = useMemo(() => {
     const seen = new Set();
     const list = [];
     unitOptions.forEach((item) => {
-      if (!item?.label || seen.has(item.label)) return;
-      seen.add(item.label);
-      if (item.active || item.label === form.unit) list.push(item);
+      if (!item?.value || seen.has(item.value)) return;
+      seen.add(item.value);
+      if (item.active || item.value === form.unit) list.push(item);
     });
     if (form.unit && !seen.has(form.unit)) {
-      list.push({ id: "legacy", label: form.unit, active: false });
+      list.push({ id: "legacy", value: form.unit, label: form.unit, active: false });
     }
     return list;
   }, [unitOptions, form.unit]);
@@ -650,10 +687,10 @@ export default function RawMaterialsPage() {
                     label="Ед. изм"
                     placeholder="Выберите ед. изм"
                     options={selectableUnits.map((item) => ({
-                      value: item.label,
+                      value: item.value,
                       label: item.active ? item.label : `${item.label} (не активна)`,
                     }))}
-                    value={selectableUnits.some((item) => item.label === form.unit) ? form.unit : ""}
+                    value={selectableUnits.some((item) => item.value === form.unit) ? form.unit : ""}
                     onChange={(next) => setForm((f) => ({ ...f, unit: next || "" }))}
                     disabled={unitsUnavailable || saving}
                     loading={unitsLoading}
@@ -671,6 +708,34 @@ export default function RawMaterialsPage() {
                     disabled={(visibleCategoryOptions.length === 0 && !form.category) || saving}
                     disabledLabel="Категории недоступны"
                   />
+                </div>
+                <div className="dish-form-field">
+                  <span className="dish-form-field__label" aria-hidden="true">Среднее количество *</span>
+                  <div className="dish-form-field__wrap">
+                    <input
+                      className="dish-form-field__input"
+                      aria-label="Среднее количество"
+                      value={form.avg_quantity}
+                      onChange={(e) => setForm((f) => ({ ...f, avg_quantity: e.target.value }))}
+                      placeholder="Среднее количество"
+                      disabled={saving}
+                      inputMode="decimal"
+                    />
+                  </div>
+                </div>
+                <div className="dish-form-field">
+                  <span className="dish-form-field__label" aria-hidden="true">Порог дефицита *</span>
+                  <div className="dish-form-field__wrap">
+                    <input
+                      className="dish-form-field__input"
+                      aria-label="Порог дефицита"
+                      value={form.deficit_threshold}
+                      onChange={(e) => setForm((f) => ({ ...f, deficit_threshold: e.target.value }))}
+                      placeholder="Порог дефицита"
+                      disabled={saving}
+                      inputMode="decimal"
+                    />
+                  </div>
                 </div>
                 <div className="dish-form-field">
                   <span className="dish-form-field__label" aria-hidden="true">Тип потери</span>
@@ -745,6 +810,7 @@ export default function RawMaterialsPage() {
           ingredient={usageIngredient}
           products={products}
           productsError={productsError}
+          onClearProductsError={() => setProductsError("")}
           onClose={() => setUsageIngredient(null)}
           returnFocusRef={usageTriggerRef}
           onSave={saveDishUsage}

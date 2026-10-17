@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import Icon from "../../components/Icon";
+import Toast from "../../components/Toast";
 import ReportEmptyState from "../../components/ReportEmptyState";
 import { useAnchoredDialogMotion } from "../../hooks/useAnchoredDialogMotion";
 import { nomenclatureService } from "../../api/nomenclature";
@@ -76,7 +77,7 @@ export function IngredientDishesBadge({ count, onClick }) {
 // списание идёт со склада строки). Типа и колонки Сырьё нет —
 // хранятся только Блюдо + Склад + Кол-во. Сохранение — тот же
 // канонический PATCH /inventory/products/{id} {ingredients} через onSave.
-export default function RawIngredientDishesDialog({ ingredient, products, productsError, onClose, returnFocusRef, onSave, onChanged }) {
+export default function RawIngredientDishesDialog({ ingredient, products, productsError, onClearProductsError = null, onClose, returnFocusRef, onSave, onChanged }) {
   const { dialogRef, motionClassName, motionStyle, requestClose, handleAnimationEnd } = useAnchoredDialogMotion({
     isOpen: true, onClose, returnFocusRef, motionMode: "center",
   });
@@ -278,8 +279,8 @@ export default function RawIngredientDishesDialog({ ingredient, products, produc
               {saving ? "Сохранение…" : "Добавить"}
             </button>
           </form>
-          {productsError ? <div className="login-error" role="alert">{productsError}</div> : null}
-          {error ? <div className="login-error" role="alert">{error}</div> : null}
+          {productsError ? <Toast kind="error" message={productsError} onClose={onClearProductsError || undefined} /> : null}
+          {error ? <Toast kind="error" message={error} onClose={() => setError("")} /> : null}
           <div className="settings-table-wrapper dish-recipes-table-wrap">
             <div className="dish-recipes-table-scroll">
               <table className="settings-table dish-recipes-table" aria-label="Блюда из продуктов">

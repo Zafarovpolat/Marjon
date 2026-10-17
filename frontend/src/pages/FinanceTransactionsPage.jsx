@@ -179,7 +179,7 @@ export default function FinanceTransactionsPage() {
         </div>
       </section>
 
-      {drawerOpen ? <FinanceTransactionDrawer form={form} setForm={setForm} onClose={() => { if (!saving) { createSubmissionRef.current = null; setDrawerOpen(false); } }} onSave={save} editing={Boolean(editingId)} paymentTypes={paymentTypes} counterparties={counterparties} categories={categories} saving={saving} error={mutationError} /> : null}
+      {drawerOpen ? <FinanceTransactionDrawer form={form} setForm={setForm} onClose={() => { if (!saving) { createSubmissionRef.current = null; setDrawerOpen(false); } }} onSave={save} editing={Boolean(editingId)} paymentTypes={paymentTypes} counterparties={counterparties} categories={categories} saving={saving} error={mutationError} onClearError={() => setMutationError("")} /> : null}
     </section>
   );
 }

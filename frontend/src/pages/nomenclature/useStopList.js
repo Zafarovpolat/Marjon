@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { catalogService } from "../../api/catalog";
 import { settingsService } from "../../api/settings";
 import { isAbortError, useLatestRequest, useMutationLocks } from "../../hooks/useAsyncSafety";
-import { mapNomenclatureProduct, unitDisplayLabel } from "./nomenclatureData";
+import { mapNomenclatureProduct, unitDisplayLabel, unitOptionLabel } from "./nomenclatureData";
 import { formatQuantity, parseQuantityInput } from "./stopListFormat";
 import { roundScale3, visibleTopups } from "./stopListHistory";
 
@@ -46,7 +46,9 @@ export function mapStopListRow(item, units = []) {
     ? (units || []).find((u) => u && String(u.id) === unitId)
     : null;
   const canonicalLabel = canonical
-    ? String(canonical.label || unitDisplayLabel(canonical) || "").trim()
+    // Строки таблицы — короткое имя (канон); полная подпись
+    // «Штук (Шт)» только для опций селектов.
+    ? String(unitDisplayLabel(canonical) || canonical.label || "").trim()
     : "";
   const legacyLabel = item.unit && item.unit !== "—" ? String(item.unit).trim() : "";
   const unitLabel = unitId ? canonicalLabel : (canonicalLabel || legacyLabel);
@@ -153,7 +155,9 @@ export function useStopList() {
           ))
           .map((item) => ({
             id: String(item.id),
-            label: unitDisplayLabel(item),
+            // Подпись селекта — «Килограмм (Кг)», сырые поля сохраняем
+            // (mapNomenclatureProduct резолвит единицу через short_name||name).
+            label: unitOptionLabel(item),
             // V3.1: mapNomenclatureProduct резолвит единицу через
             // unitDisplayLabel (short_name||name) — сырые поля обязаны
             // сохраняться, иначе всё молча падает на legacy-строку "шт"

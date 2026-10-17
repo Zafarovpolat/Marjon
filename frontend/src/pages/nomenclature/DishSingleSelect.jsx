@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "../../components/Icon";
+import Toast from "../../components/Toast";
 
 // Одиночный dropdown формы блюда (V18): Категория / Принтер.
 // Та же визуальная семья, что фильтр каталога и Reports (триггер
@@ -290,7 +291,7 @@ export default function DishSingleSelect({
                       {createSaving ? "Создание…" : "Создать"}
                     </button>
                   </div>
-                  {createError ? <span className="login-error" role="alert">{createError}</span> : null}
+                  {createError ? <Toast kind="error" message={createError} onClose={() => { setCreateError(""); }} /> : null}
                 </div>
               </li>
             ) : null}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { warehouseService } from "../../api/warehouse";
 import Icon from "../../components/Icon";
+import Toast from "../../components/Toast";
 
 // Инвентаризация — просмотр корректировок проверки (V42): клик по строке
 // таблицы открывает компактную центрированную модалку
@@ -167,7 +168,7 @@ export default function InventoryDetailModal({ check, onClose, onSaved }) {
                 {saving ? "Сохранение…" : "Сохранить"}
               </button>
             </div>
-            {saveError ? <div className="login-error" role="alert">{saveError}</div> : null}
+            {saveError ? <Toast kind="error" message={saveError} onClose={() => setSaveError("")} /> : null}
           </div>
         </div>
       </div>

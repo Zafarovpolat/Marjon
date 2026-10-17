@@ -14,6 +14,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Icon from "../../components/Icon";
+import Toast from "../../components/Toast";
 import { catalogService } from "../../api/catalog";
 import { fieldLabels } from "./nomenclatureConfig";
 import DishSingleSelect from "./DishSingleSelect";
@@ -414,7 +415,7 @@ export default function DishesDialogs({
                 <div className="dish-photo-confirm" role="dialog" aria-label="Удалить фото блюда">
                   <strong>Удалить фото?</strong>
                   <span>Фото блюда будет удалено без возможности восстановления.</span>
-                  {photoError ? <span className="login-error" role="alert">{photoError}</span> : null}
+                  {photoError ? <Toast kind="error" message={photoError} onClose={() => setPhotoError("")} /> : null}
                   <div className="dish-photo-confirm__actions">
                     <button type="button" disabled={photoRemoving} onClick={() => setPhotoConfirm(false)}>
                       Отмена

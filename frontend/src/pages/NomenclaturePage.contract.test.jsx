@@ -237,8 +237,8 @@ describe("APP dishes — canonical Units V2 integration", () => {
     fireEvent.click(screen.getByRole("button", { name: "Добавить" }));
     const dialog = document.querySelector(".staff-modal--cashier-full");
     const select = within(dialog).getByLabelText("Ед. изм");
-    await waitFor(() => expect(within(select).getByRole("option", { name: "уп" })).toHaveValue("unit-company"));
-    expect(within(select).getByRole("option", { name: "шт" })).toHaveValue("unit-global");
+    await waitFor(() => expect(within(select).getByRole("option", { name: "Упаковка (уп)" })).toHaveValue("unit-company"));
+    expect(within(select).getByRole("option", { name: "Штука (шт)" })).toHaveValue("unit-global");
     expect(within(select).queryByRole("option", { name: /стар/ })).toBeNull();
     expect(within(select).queryByRole("option", { name: "порция" })).toBeNull();
     expect(within(select).queryByRole("option", { name: "кг" })).toBeNull();
@@ -257,7 +257,7 @@ describe("APP dishes — canonical Units V2 integration", () => {
     render(<NomenclaturePage />);
     fireEvent.click(await screen.findByRole("button", { name: "Добавить" }));
     const dialog = document.querySelector(".staff-modal--cashier-full");
-    await waitFor(() => expect(within(dialog).getByRole("option", { name: "уп" })).toBeInTheDocument());
+    await waitFor(() => expect(within(dialog).getByRole("option", { name: "Упаковка (уп)" })).toBeInTheDocument());
     fireEvent.change(within(dialog).getByLabelText("Ед. изм"), { target: { value: "unit-company" } });
     fireEvent.change(within(dialog).getByLabelText("Название"), { target: { value: "Блюдо в упаковке" } });
     fireEvent.change(within(dialog).getByLabelText("Цена"), { target: { value: "1000" } });
@@ -277,7 +277,7 @@ describe("APP dishes — canonical Units V2 integration", () => {
     const dialog = document.querySelector(".staff-modal--cashier-full");
     const select = within(dialog).getByLabelText("Ед. изм");
     await waitFor(() => expect(select).toHaveValue("unit-inactive"));
-    expect(within(select).getByRole("option", { name: "стар (не активна)" })).toBeInTheDocument();
+    expect(within(select).getByRole("option", { name: "Старая порция (стар) (не активна)" })).toBeInTheDocument();
     first.unmount();
     render(<NomenclaturePage />);
     expect(await screen.findByText("стар")).toBeInTheDocument();

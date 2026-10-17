@@ -871,6 +871,41 @@ describe("Warehouse incoming-journal (Добавить продуктов)", () 
     expect(onClose).toHaveBeenCalled();
   });
 
+  it("13c. Enter in row inputs saves like the Сохранить button", async () => {
+    nomenclatureService.listIngredients.mockResolvedValue({
+      data: [
+        { id: "ing-1", name: "kartoshka", category: "sabzavotlar", unit: "кг", purchase_price: 5000, is_active: true },
+      ],
+    });
+    catalogService.listProducts.mockResolvedValue({ data: [] });
+    settingsService.listResource.mockResolvedValue({ data: [] });
+    warehouseService.list.mockResolvedValue({ data: [] });
+    warehouseService.listWarehouses.mockResolvedValue({ data: warehouses });
+    warehouseService.createPurchase.mockResolvedValue({ data: { id: "doc-11" } });
+    const onClose = vi.fn();
+    render(<WarehousePage initialSection="incoming-journal" startCreating onCloseCreate={onClose} />);
+    await screen.findByRole("table", { name: "Создать приход" });
+    fireEvent.click(screen.getByRole("combobox", { name: "Выбор склада" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Главный склад" }));
+    fireEvent.change(screen.getByLabelText("Цена kartoshka"), { target: { value: "4000" } });
+    const qty = screen.getByLabelText("Количество kartoshka");
+    fireEvent.change(qty, { target: { value: "5" } });
+    // Не-Enter клавиша не сохраняет.
+    fireEvent.keyDown(qty, { key: "a" });
+    expect(warehouseService.createPurchase).not.toHaveBeenCalled();
+    // Enter — тот же Сохранить, что кнопка.
+    fireEvent.keyDown(qty, { key: "Enter" });
+    await waitFor(() => expect(warehouseService.createPurchase).toHaveBeenCalledWith(
+      expect.objectContaining({
+        warehouse_id: "wh-1",
+        items: [
+          { name: "kartoshka", ingredient_id: "ing-1", quantity: 5, unit: "кг", cost_price: 4000 },
+        ],
+      }),
+    ));
+    expect(onClose).toHaveBeenCalled();
+  });
+
   it("17b. journal create opens inline without leaving the list", async () => {
     warehouseService.list.mockResolvedValue({ data: [] });
     warehouseService.listWarehouses.mockResolvedValue({ data: warehouses });

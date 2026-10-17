@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import Icon from "../../components/Icon";
+import Toast from "../../components/Toast";
 import ReportEmptyState from "../../components/ReportEmptyState";
 import { useAnchoredDialogMotion } from "../../hooks/useAnchoredDialogMotion";
 import { nomenclatureService } from "../../api/nomenclature";
@@ -399,8 +400,8 @@ export default function DishesRecipesDialog({ dish, onClose, returnFocusRef, onS
               {saving ? "Сохранение…" : "Добавить"}
             </button>
           </form>
-          {optionsError ? <div className="login-error" role="alert">{optionsError}</div> : null}
-          {error ? <div className="login-error" role="alert">{error}</div> : null}
+          {optionsError ? <Toast kind="error" message={optionsError} onClose={() => setOptionsError("")} /> : null}
+          {error ? <Toast kind="error" message={error} onClose={() => setError("")} /> : null}
           <div className="settings-table-wrapper dish-recipes-table-wrap">
             <div className="dish-recipes-table-scroll">
               <table className="settings-table dish-recipes-table" aria-label="Состав рецепта">

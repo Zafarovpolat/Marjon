@@ -337,9 +337,16 @@ class AdminReportService:
                 User,
                 and_(User.id == Order.waiter_id, User.company_id == company_id),
             )
-            .where(Order.company_id == company_id, Order.status.notin_(["cancelled"]))
+            .where(Order.company_id == company_id)
             .order_by(Order.created_at.desc())
         )
+        # Отмены в отчёт по умолчанию НЕ входят (выручка считается по живым).
+        # Явный фильтр order_status (в т.ч. cancelled) их отдаёт — так
+        # колокольчик забирает сегодняшние отмены.
+        if order_status:
+            query = query.where(Order.status.in_(list(order_status)))
+        else:
+            query = query.where(Order.status.notin_(["cancelled"]))
         if order_number and (normalized_order_number := order_number.strip()):
             query = query.where(Order.order_number.ilike(f"%{normalized_order_number}%"))
         if waiter_id:
@@ -407,8 +414,6 @@ class AdminReportService:
             )
         if order_type:
             query = query.where(Order.order_type.in_(list(order_type)))
-        if order_status:
-            query = query.where(Order.status.in_(list(order_status)))
         if payment_method:
             # Aligned with payment_methods row attribution (Variant A): the
             # order must carry a COMPLETED payment with one of the selected

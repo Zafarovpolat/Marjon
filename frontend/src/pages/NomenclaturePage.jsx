@@ -323,6 +323,7 @@ function DishesCatalogPage() {
         setModGroups={catalog.setModGroups}
         modLoading={catalog.modLoading}
         modError={catalog.modError}
+        onClearModError={catalog.clearModError}
         saveModGroup={catalog.saveModGroup}
         removeModGroup={catalog.removeModGroup}
       />

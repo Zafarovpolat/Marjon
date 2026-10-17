@@ -5,6 +5,7 @@ import { nomenclatureService } from "../../api/nomenclature";
 import { catalogService } from "../../api/catalog";
 import Icon from "../../components/Icon";
 import DishSingleSelect from "../nomenclature/DishSingleSelect";
+import Toast from "../../components/Toast";
 
 // Инвентаризация — модалка «Создать» (V42): структура как на референсе
 // (склад + комментарий, фильтры тип/категория/поиск, слева таблица,
@@ -28,6 +29,30 @@ function formatNum(value) {
 
 function formatAmount(value) {
   return `${new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(Number(value) || 0)} UZS`;
+}
+
+// Реальная причина ошибки сохранения: строка бэкенда, либо сводка
+// 422-валидации (там detail — список, а не строка), либо код статуса.
+// Общий «Не удалось сохранить» прятал причину, и на сервере её было
+// не видно вообще — поэтому показываем как есть.
+function formatSaveError(err) {
+  const status = err?.response?.status;
+  const detail = err?.response?.data?.detail;
+  if (typeof detail === "string" && detail.trim()) return detail;
+  if (Array.isArray(detail) && detail.length) {
+    const parts = detail.slice(0, 3).map((item) => {
+      if (typeof item === "string") return item;
+      const where = Array.isArray(item?.loc)
+        ? item.loc.filter((part) => part !== "body").join(".")
+        : "";
+      const text = item?.msg || item?.message || JSON.stringify(item);
+      return where ? `${where}: ${text}` : String(text);
+    });
+    return parts.join("; ");
+  }
+  if (err?.request && !err?.response) return "Нет связи с сервером. Проверьте подключение.";
+  if (status) return `Не удалось сохранить инвентаризацию (код ${status}).`;
+  return "Не удалось сохранить инвентаризацию.";
 }
 
 export default function InventoryModal({ onClose, onSaved }) {
@@ -314,8 +339,9 @@ export default function InventoryModal({ onClose, onSaved }) {
       });
       onSaved(data);
     } catch (err) {
-      const detail = err.response?.data?.detail;
-      setSaveError(typeof detail === "string" ? detail : "Не удалось сохранить инвентаризацию.");
+      // eslint-disable-next-line no-console
+      console.error("createInventory failed:", err?.response?.status, err?.response?.data || err?.message);
+      setSaveError(formatSaveError(err));
     } finally {
       setSaving(false);
     }
@@ -493,7 +519,7 @@ export default function InventoryModal({ onClose, onSaved }) {
                 </div>
               </div>
             ) : null}
-            {saveError ? <div className="login-error" role="alert">{saveError}</div> : null}
+            {saveError ? <Toast kind="error" message={saveError} onClose={() => setSaveError("")} /> : null}
           </div>
         </div>
       </div>

@@ -23,9 +23,7 @@ import TablesReportPage from "./pages/TablesReportPage";
 import DishesReportPage from "./pages/DishesReportPage";
 import CancelledDishesReportPage from "./pages/CancelledDishesReportPage";
 import DebtorsCreditorsReportPage from "./pages/DebtorsCreditorsReportPage";
-import FinanceTransactionsPage from "./pages/FinanceTransactionsPage";
-import FinanceIncomeCategoriesPage from "./pages/FinanceIncomeCategoriesPage";
-import FinanceExpenseCategoriesPage from "./pages/FinanceExpenseCategoriesPage";
+import FinanceStubPage from "./pages/finance/FinanceStubPage";
 import ZReportPage from "./pages/ZReportPage";
 import WarehousePage, { WarehouseJournalCreateRoute, WarehouseJournalDetailRoute, WarehouseJournalListRoute, WarehouseStockDetailRoute, WarehouseStockListRoute } from "./pages/WarehousePage";
 import SettingsClientsPage from "./pages/settings/SettingsClientsPage";
@@ -141,11 +139,11 @@ export function createAppRouter() {
       { path: "settings/chef-receipt", element: <SettingsKitchenReceiptPage /> },
       { path: "settings/support", element: <SectionPage eyebrow="Настройки" title="Тех. поддержка" description="Обращения, диагностика и связь с поддержкой Marjon." items={[{ title: "Заявка", text: "Создайте обращение по проблеме или вопросу.", icon: "bi-life-preserver" }, { title: "Диагностика", text: "Проверка соединения, устройств и синхронизации.", icon: "bi-activity" }, { title: "Контакты", text: "Каналы связи и история обращений.", icon: "bi-chat-dots" }]} /> },
       { path: "finance", element: <Navigate to="/finance/transactions" replace /> },
-      { path: "finance/transactions", element: <FinanceTransactionsPage /> },
-      { path: "finance/operations", element: <FinanceTransactionsPage /> },
-      { path: "finance/income-categories", element: <FinanceIncomeCategoriesPage /> },
-      { path: "finance/expense-categories", element: <FinanceExpenseCategoriesPage /> },
-      { path: "finance/debtors-creditors", element: <DebtorsCreditorsReportPage /> },
+      { path: "finance/transactions", element: <FinanceStubPage title="Денежные операции" /> },
+      { path: "finance/operations", element: <FinanceStubPage title="Денежные операции" /> },
+      { path: "finance/income-categories", element: <FinanceStubPage title="Категория приходов" /> },
+      { path: "finance/expense-categories", element: <FinanceStubPage title="Категория расходов" /> },
+      { path: "finance/debtors-creditors", element: <FinanceStubPage title="Дебиторы и кредиторы" /> },
       { path: "nomenclature", element: <Navigate to="/nomenclature/dishes" replace /> },
       { path: "nomenclature/dishes", element: <NomenclaturePage type="dishes" /> },
       { path: "nomenclature/sales", element: <SalesCatalogPage /> },

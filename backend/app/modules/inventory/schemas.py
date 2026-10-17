@@ -332,6 +332,10 @@ class IngredientCreate(BaseSchema):
     supplier_name: str | None = None
     loss_type: Literal["percent", "amount"] | None = None
     loss_value: Decimal | None = None
+    # V47: нормы остатка из карточки «Продукты» (drawer, между
+    # Ед.изм/Категорией и Типом/Значением потери). Неотрицательные.
+    avg_quantity: Decimal | None = None
+    deficit_threshold: Decimal | None = None
 
     @model_validator(mode="after")
     def _check_loss_pair(self):
@@ -342,6 +346,13 @@ class IngredientCreate(BaseSchema):
         _check_loss_value(self.loss_value, self.loss_type)
         return self
 
+    @field_validator("avg_quantity", "deficit_threshold")
+    @classmethod
+    def _check_stock_norms(cls, value: Decimal | None) -> Decimal | None:
+        if value is not None and value < 0:
+            raise ValueError("Количество и порог дефицита — неотрицательные числа")
+        return value
+
 
 class IngredientUpdate(BaseSchema):
     name: str | None = None
@@ -351,6 +362,8 @@ class IngredientUpdate(BaseSchema):
     is_active: bool | None = None
     loss_type: Literal["percent", "amount"] | None = None
     loss_value: Decimal | None = None
+    avg_quantity: Decimal | None = None
+    deficit_threshold: Decimal | None = None
 
     @field_validator("loss_value")
     @classmethod
@@ -359,6 +372,13 @@ class IngredientUpdate(BaseSchema):
         # проверяем только диапазон. Очистка нормы — парой null.
         if value is not None and value < 0:
             raise ValueError("Значение потери не может быть отрицательным")
+        return value
+
+    @field_validator("avg_quantity", "deficit_threshold")
+    @classmethod
+    def _check_stock_norms(cls, value: Decimal | None) -> Decimal | None:
+        if value is not None and value < 0:
+            raise ValueError("Количество и порог дефицита — неотрицательные числа")
         return value
 
     @model_validator(mode="after")
@@ -378,6 +398,9 @@ class IngredientResponse(BaseResponseSchema):
     is_active: bool
     loss_type: str | None = None
     loss_value: Decimal | None = None
+    # V47: нормы остатка из карточки «Продукты».
+    avg_quantity: Decimal | None = None
+    deficit_threshold: Decimal | None = None
     # BE-17 aggregates — summed/averaged across this ingredient's
     # StockItem rows (all warehouses) at read time, never a fabricated
     # placeholder. 0 here is a genuine "no stock recorded yet", not a
@@ -420,3 +443,16 @@ class StockMovementResponse(BaseResponseSchema):
     cost_price: Decimal
     total_cost: Decimal
     note: str | None
+
+
+class StockBatchResponse(BaseResponseSchema):
+    """V46 FIFO: одна партия прихода с несъеденным остатком."""
+
+    company_id: UUID
+    warehouse_id: UUID
+    ingredient_id: UUID
+    purchase_doc_id: UUID | None = None
+    quantity_initial: Decimal
+    quantity_remaining: Decimal
+    cost_price: Decimal
+    unit: str

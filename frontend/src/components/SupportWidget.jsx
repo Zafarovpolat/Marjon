@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { settingsService } from "../api/settings";
 import Icon from "./Icon";
+import Toast from "./Toast";
 import { useMutationLocks } from "../hooks/useAsyncSafety";
 
 const text = {
@@ -277,7 +278,7 @@ export default function SupportWidget() {
                 />
               </label>
 
-              {sendError ? <div className="login-error" role="alert">{sendError}</div> : null}
+              {sendError ? <Toast kind="error" message={sendError} onClose={() => setSendError("")} /> : null}
 
               <button className="support-widget__submit" type="submit" disabled={!message.trim() || sending}>
                 <Icon name={sending ? "bi-arrow-repeat" : "bi-send"} size={16} />

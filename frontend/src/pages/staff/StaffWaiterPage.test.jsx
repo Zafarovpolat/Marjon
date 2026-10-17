@@ -724,12 +724,15 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     fireEvent.click(screen.getByTitle("Edit"));
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Сохранить" }));
+    // Полевая ошибка — инлайн у телефона; общая — красный тост (портал в body).
     const alerts = await within(dialog).findAllByRole("alert");
-    expect(alerts).toHaveLength(2);
-    for (const alert of alerts) {
-      expect(alert).toHaveTextContent("Этот номер уже используется");
-      expect(alert.textContent).not.toContain("[object Object]");
-    }
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent("Этот номер уже используется");
+    expect(alerts[0].textContent).not.toContain("[object Object]");
+    const toast = document.querySelector(".marjon-toast--error");
+    expect(toast).not.toBeNull();
+    expect(toast).toHaveTextContent("Этот номер уже используется");
+    expect(toast.textContent).not.toContain("[object Object]");
     expect(dialog.querySelector(".staff-phone-error")).not.toBeNull();
     expect(alertSpy).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).not.toBeNull();

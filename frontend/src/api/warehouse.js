@@ -45,6 +45,10 @@ export const warehouseService = Object.freeze({
   listStock(config) {
     return config ? api.get("/inventory/stock", config) : api.get("/inventory/stock");
   },
+  // V46 FIFO: разбивка остатка по партиям (старые первыми).
+  listBatches(params, config) {
+    return api.get("/inventory/stock/batches", { ...(config || {}), params });
+  },
 
   // --- Документы прихода: создать → провести → удалить -----------------------
   // Позиции задаются только при создании (бэкенд не отдаёт/не редактирует

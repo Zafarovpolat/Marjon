@@ -962,12 +962,41 @@ class StockService:
                         company_id=company_id,
                         warehouse_id=target.id,
                         ingredient_id=line.ingredient_id,
-                        quantity=-amount,
+                        quantity=Decimal("0"),
                         unit=ingredient.unit or "кг",
+                        cost_price=Decimal("0"),
                     )
                     self.db.add(stock)
+                    await self.db.flush()
+                # V46 FIFO: продажа списывает старые партии первыми.
+                # Минус исторически разрешён: чего не хватило в партиях —
+                # уходит в минус по нулевой цене (как раньше без остатка).
+                from app.modules.inventory.fifo import consume_fifo, get_fifo_batches
+                batches = await get_fifo_batches(
+                    self.db, company_id, target.id, line.ingredient_id,
+                )
+                available = sum(
+                    (Decimal(str(b.quantity_remaining)) for b in batches),
+                    Decimal("0"),
+                )
+                take_fifo = min(available, amount)
+                remainder = amount - take_fifo
+                if take_fifo > 0:
+                    fifo_unit_part, fifo_total_part = await consume_fifo(
+                        self.db,
+                        company_id=company_id,
+                        warehouse_id=target.id,
+                        ingredient_id=line.ingredient_id,
+                        quantity=take_fifo,
+                        name=ingredient.name,
+                    )
                 else:
-                    stock.quantity = Decimal(str(stock.quantity)) - amount
+                    fifo_unit_part, fifo_total_part = Decimal("0"), Decimal("0")
+                if remainder > 0:
+                    # Нет партий на остаток — исторический минус.
+                    stock.quantity = Decimal(str(stock.quantity)) - remainder
+                fifo_total = fifo_total_part
+                fifo_unit = (fifo_total / amount) if amount > 0 else Decimal("0")
                 self.db.add(StockMovement(
                     company_id=company_id,
                     warehouse_id=target.id,
@@ -975,6 +1004,8 @@ class StockService:
                     movement_type="sale",
                     quantity=amount,
                     unit=ingredient.unit or "кг",
+                    cost_price=fifo_unit,
+                    total_cost=fifo_total,
                     ref_id=order_id,
                     created_by=created_by,
                     note="dish sale",
@@ -1039,7 +1070,8 @@ class StockService:
         Перемещения и инвентаризации остатки не двигают (документов без
         движений), поэтому replay purchase/expense/waste/sale/writeoff/
         transfer/adjustment сходится с текущими StockItem. Себестоимость —
-        тем же взвешенным средним, что _apply_purchase_to_stock.
+        V46 FIFO: приход — партия, расход — старые партии первыми
+        (оценка запаса = средняя оставшихся партий).
         Неизвестные типы игнорируем, как create_movement.
         """
         query = (
@@ -1059,21 +1091,43 @@ class StockService:
             key = (m.warehouse_id, m.ingredient_id)
             acc = state.get(key)
             if acc is None:
-                acc = {"qty": Decimal("0"), "cost": Decimal("0"), "unit": m.unit or "кг"}
+                acc = {"qty": Decimal("0"), "cost": Decimal("0"), "unit": m.unit or "кг", "lots": []}
                 state[key] = acc
             if m.unit:
                 acc["unit"] = m.unit
             qty = Decimal(str(m.quantity or 0))
             cost = Decimal(str(m.cost_price or 0))
             if m.movement_type in self._STOCK_PLUS_TYPES:
-                new_qty = acc["qty"] + qty
-                if new_qty > 0 and acc["qty"] > 0:
-                    acc["cost"] = (acc["qty"] * acc["cost"] + qty * cost) / new_qty
-                else:
+                # Исторический минус сначала закрываем новым приходом.
+                if acc["qty"] < 0:
+                    cover = min(-acc["qty"], qty)
+                    qty -= cover
+                    acc["qty"] += cover
+                if qty > 0:
+                    acc["lots"].append([qty, cost])
+                    total_qty = sum((q for q, _ in acc["lots"]), Decimal("0"))
+                    total_val = sum((q * c for q, c in acc["lots"]), Decimal("0"))
+                    acc["qty"] = total_qty + min(acc["qty"], Decimal("0"))
+                    acc["cost"] = (total_val / total_qty) if total_qty > 0 else cost
+                elif not acc["lots"]:
                     acc["cost"] = cost
-                acc["qty"] = new_qty
             elif m.movement_type in self._STOCK_MINUS_TYPES:
-                acc["qty"] = acc["qty"] - qty
+                left = qty
+                for lot in acc["lots"]:
+                    if left <= 0:
+                        break
+                    take = min(lot[0], left)
+                    lot[0] -= take
+                    left -= take
+                acc["lots"] = [[q, c] for q, c in acc["lots"] if q > 0]
+                if acc["lots"]:
+                    total_qty = sum((q for q, _ in acc["lots"]), Decimal("0"))
+                    total_val = sum((q * c for q, c in acc["lots"]), Decimal("0"))
+                    acc["qty"] = total_qty
+                    acc["cost"] = (total_val / total_qty) if total_qty > 0 else Decimal("0")
+                else:
+                    acc["qty"] = acc["qty"] - qty
+                    acc["cost"] = Decimal("0") if acc["qty"] <= 0 else acc["cost"]
 
         # min_quantity и единица — из текущих StockItem (истории у них нет).
         current: dict[tuple[UUID, UUID], StockItem] = {}
@@ -1109,7 +1163,28 @@ class StockService:
         await require_company_resource(
             self.db, Ingredient, data.ingredient_id, company_id, detail="Ingredient not found"
         )
-        total = data.quantity * data.cost_price
+        # V46 FIFO: ручные движения тоже идут через партии.
+        from app.modules.inventory.fifo import add_fifo_batch, consume_fifo
+        fifo_ok = False
+        if data.movement_type in ("purchase", "adjustment"):
+            total = data.quantity * data.cost_price
+        else:
+            total = data.quantity * data.cost_price
+            if data.movement_type in ("sale", "writeoff", "transfer", "expense", "waste"):
+                try:
+                    fifo_unit, fifo_total = await consume_fifo(
+                        self.db,
+                        company_id=company_id,
+                        warehouse_id=data.warehouse_id,
+                        ingredient_id=data.ingredient_id,
+                        quantity=data.quantity,
+                        name=str(data.ingredient_id),
+                    )
+                    total = fifo_total
+                    data = data.model_copy(update={"cost_price": fifo_unit})
+                    fifo_ok = True
+                except Exception:
+                    fifo_ok = False
         payload = data.model_dump(exclude={"min_quantity"})
         movement = StockMovement(
             company_id=company_id,
@@ -1130,9 +1205,13 @@ class StockService:
         stock = result.scalar_one_or_none()
         if stock:
             if data.movement_type in ("purchase", "adjustment"):
-                stock.quantity += data.quantity
+                # Партия уже создана ниже — здесь только min_quantity.
+                pass
             elif data.movement_type in ("sale", "writeoff", "transfer"):
-                stock.quantity -= data.quantity
+                if not fifo_ok:
+                    # Партий не хватило — исторический минус.
+                    stock.quantity -= data.quantity
+                # Иначе consume_fifo уже пересчитал остаток через recalc.
             if data.min_quantity is not None:
                 stock.min_quantity = data.min_quantity
             await self.stock_repo.save(stock)
@@ -1145,11 +1224,32 @@ class StockService:
             # the movement history saying otherwise.
             await self.stock_repo.save(StockItem(
                 company_id=company_id, warehouse_id=data.warehouse_id,
-                ingredient_id=data.ingredient_id, quantity=data.quantity,
-                unit=data.unit, cost_price=data.cost_price,
+                ingredient_id=data.ingredient_id, quantity=Decimal("0"),
+                unit=data.unit, cost_price=Decimal("0"),
                 min_quantity=data.min_quantity
                 if data.min_quantity is not None else Decimal("0"),
             ))
+        if data.movement_type in ("purchase", "adjustment"):
+            stock_check = await self.db.execute(
+                select(StockItem).where(
+                    StockItem.company_id == company_id,
+                    StockItem.warehouse_id == data.warehouse_id,
+                    StockItem.ingredient_id == data.ingredient_id,
+                )
+            )
+            if stock_check.scalar_one_or_none() is not None:
+                await add_fifo_batch(
+                    self.db,
+                    company_id=company_id,
+                    warehouse_id=data.warehouse_id,
+                    ingredient_id=data.ingredient_id,
+                    quantity=data.quantity,
+                    cost_price=data.cost_price,
+                    unit=data.unit,
+                )
+                # save() выше уже закоммитил движение и остаток —
+                # партию и пересчёт коммитим отдельно, иначе потеряются.
+                await self.db.commit()
         # sale/writeoff/transfer against a nonexistent StockItem: left as a
         # no-op, matching the prior behavior for the existing-row case with
         # no clamp — out of scope here to also introduce negative-stock

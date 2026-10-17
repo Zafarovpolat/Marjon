@@ -104,6 +104,8 @@ class AnalyticsService:
         )
 
     async def sales_report(self, company_id: UUID, date_from: date, date_to: date) -> list[SalesReport]:
+        if date_from == date_to:
+            return await self._sales_report_hourly(company_id, date_from)
         tz = await self._company_tz(company_id)
         start, _ = self._date_bounds(date_from, tz)
         _, end    = self._date_bounds(date_to, tz)
@@ -146,6 +148,58 @@ class AnalyticsService:
             )
             for row in rows
         ]
+
+    async def _sales_report_hourly(self, company_id: UUID, day: date) -> list[SalesReport]:
+        """Почасовые бакеты одного дня в местном времени компании.
+
+        Всегда ровно 24 строки (00:00–23:00, пустые часы — нули), чтобы ось
+        графика шла от 00:00 до 23:59. Многодневные диапазоны остаются
+        дневными (см. sales_report).
+        """
+        tz = await self._company_tz(company_id)
+        start, _ = self._date_bounds(day, tz)
+        _, end = self._date_bounds(day, tz)
+        # Тот же приём, что в дневном отчёте: один bind на часовой пояс,
+        # чтобы SELECT / GROUP BY / ORDER BY компилировались в одно
+        # выражение (иначе PostgreSQL отвергает запрос).
+        if self.db.bind.dialect.name == "sqlite":
+            # Локальный SQLite: created_at хранится как наивный UTC,
+            # Asia/Tashkent — фиксированный +5 (см. sales_report).
+            offset_hours = int(datetime.now(tz).utcoffset().total_seconds() // 3600)
+            bucket = func.strftime("%H", Order.created_at, f"{offset_hours:+d} hours")
+        else:
+            bucket = func.date_part(
+                "hour", func.timezone(bindparam("sales_hour_tz", str(tz)), Order.created_at)
+            )
+        result = await self.db.execute(
+            select(
+                bucket.label("hour"),
+                func.count(Order.id).label("cnt"),
+                func.coalesce(func.sum(Order.total_amount), 0).label("rev"),
+            )
+            .where(
+                Order.company_id == company_id,
+                Order.status.notin_(["cancelled"]),
+                Order.created_at >= start,
+                Order.created_at < end,
+            )
+            .group_by(bucket)
+            .order_by(bucket)
+        )
+        by_hour: dict[int, tuple[int, Decimal]] = {}
+        for row in result.all():
+            by_hour[int(row.hour)] = (row.cnt, Decimal(str(row.rev)))
+        out = []
+        for hour in range(24):
+            cnt, rev = by_hour.get(hour, (0, Decimal("0")))
+            out.append(SalesReport(
+                date=day,
+                orders_count=cnt,
+                revenue=rev,
+                avg_check=(rev / cnt) if cnt > 0 else Decimal("0"),
+                chart_label=f"{hour:02d}:00",
+            ))
+        return out
 
     async def top_products(
         self,

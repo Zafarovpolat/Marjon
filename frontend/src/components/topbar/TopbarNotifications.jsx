@@ -8,8 +8,11 @@ import { formatMoney } from "../../api/client";
 import { todayInputValue } from "../../utils/date";
 import { isAbortError, useLatestRequest } from "../../hooks/useAsyncSafety";
 
-// OWNER notification center. Cancelled orders come from today's
-// GET /reports/orders response; low-stock alerts come from live
+// OWNER notification center. Whole-order cancellations come from today's
+// GET /reports/orders with an explicit order_status=cancelled filter (the
+// report excludes cancelled by default); dish-level cancellations come from
+// today's GET /reports/cancelled (item scope only — whole-order items arrive
+// as order cards, no doubles); low-stock alerts come from live
 // GET /inventory/stock?low_stock=true (no unread state is inferred).
 const LOW_STOCK_POLL_MS = 60000;
 function apiList(data) {
@@ -43,6 +46,8 @@ export default function TopbarNotifications() {
   const [error, setError] = useState("");
   const [orders, setOrders] = useState([]);
   const [loaded, setLoaded] = useState(false);
+  // Отмены блюд (item scope): позиции, отменённые в живых заказах.
+  const [cancelledDishes, setCancelledDishes] = useState([]);
   // Дефицит сырья: stock-строки ниже порога + имена из справочника.
   const [lowRows, setLowRows] = useState([]);
   const [lowNames, setLowNames] = useState(new Map());
@@ -50,6 +55,7 @@ export default function TopbarNotifications() {
   const [lowLoading, setLowLoading] = useState(false);
   const beginRequest = useLatestRequest();
   const beginLowRequest = useLatestRequest();
+  const beginDishesRequest = useLatestRequest();
   const [today] = useState(() => todayInputValue());
 
   const cancelled = useMemo(
@@ -64,26 +70,57 @@ export default function TopbarNotifications() {
       })),
     [orders],
   );
+  const itemCancels = useMemo(
+    () => cancelledDishes
+      .filter((row) => String(row?.cancellation_scope || "item").toLowerCase() === "item")
+      .map((row) => ({
+        id: row.order_item_id || `${row.order_id || "order"}:${row.name || "dish"}`,
+        name: row.name || "Блюдо",
+        quantity: Number(row.quantity) || 0,
+        unit: row.unit || "шт",
+        table: row.table_number,
+        time: formatTime(row.report_event_at || row.cancelled_at),
+        author: row.cancelled_by_name,
+      })),
+    [cancelledDishes],
+  );
   const lowStock = useMemo(() => {
     const nameOf = (row) => lowNames.get(String(row?.ingredient_id)) || null;
+    // V47: порог из карточки продукта (deficit_threshold) действует, когда
+    // у складской строки свой порог не задан (min_quantity = 0).
+    const minOf = (row) => {
+      const rowMin = Number(row?.min_quantity) || 0;
+      if (rowMin > 0) return rowMin;
+      const cardThreshold = Number(nameOf(row)?.deficit_threshold);
+      return Number.isFinite(cardThreshold) ? cardThreshold : 0;
+    };
     return lowRows
-      .filter((row) => Number(row?.quantity) < Number(row?.min_quantity))
+      .filter((row) => Number(row?.quantity) < minOf(row))
       .map((row) => ({
         id: `${row?.warehouse_id || "wh"}:${row?.ingredient_id}`,
         ingredientId: row?.ingredient_id,
         name: nameOf(row)?.name || "Сырьё",
         unit: nameOf(row)?.unit || row?.unit || "кг",
         quantity: Number(row?.quantity) || 0,
-        min: Number(row?.min_quantity) || 0,
+        min: minOf(row),
       }));
   }, [lowRows, lowNames]);
-  const count = cancelled.length + lowStock.length;
+  const count = cancelled.length + itemCancels.length + lowStock.length;
 
   function load() {
+    loadOrders();
+    loadCancelledDishes();
+    loadLowStock();
+  }
+
+  // Отмены целых заказов live: явный фильтр (без него отчёт отмены
+  // не отдаёт вовсе). Бейдж обновляется сам, без открытия.
+  function loadOrders() {
     const request = beginRequest();
     setLoading(true);
     setError("");
-    reportsService.listOrders(today, today, { signal: request.signal })
+    // Явный фильтр: без него отчёт отмены не отдаёт вовсе.
+    reportsService.listOrders(today, today, { filters: { orderStatus: ["cancelled"] }, signal: request.signal })
       .then(({ data }) => {
         if (request.isCurrent()) {
           setOrders(apiList(data));
@@ -97,7 +134,21 @@ export default function TopbarNotifications() {
       .finally(() => {
         if (request.isCurrent()) setLoading(false);
       });
-    loadLowStock();
+  }
+
+  // Отмены блюд live: бейдж обновляется сам (mount + минута), без открытия.
+  function loadCancelledDishes() {
+    const request = beginDishesRequest();
+    reportsService.listCancelledDishes(today, today, { signal: request.signal })
+      .then(({ data }) => {
+        if (!request.isCurrent()) return;
+        setCancelledDishes(apiList(data));
+      })
+      .catch((err) => {
+        if (!request.isCurrent() || isAbortError(err)) return;
+        // Честно прячем секцию отмен блюд, заказы и дефицит не трогаем.
+        setCancelledDishes([]);
+      });
   }
 
   // Дефицит live: бейдж обновляется сам (mount + минута), без открытия.
@@ -116,7 +167,11 @@ export default function TopbarNotifications() {
         const list = Array.isArray(ings) ? ings : ings?.items || [];
         const map = new Map();
         list.forEach((item) => {
-          if (item?.id) map.set(String(item.id), { name: item.name, unit: item.unit });
+          if (item?.id) map.set(String(item.id), {
+            name: item.name,
+            unit: item.unit,
+            deficit_threshold: item.deficit_threshold,
+          });
         });
         setLowNames(map);
         setLowLoaded(true);
@@ -133,8 +188,14 @@ export default function TopbarNotifications() {
   }
 
   useEffect(() => {
+    loadOrders();
     loadLowStock();
-    const timer = setInterval(loadLowStock, LOW_STOCK_POLL_MS);
+    loadCancelledDishes();
+    const timer = setInterval(() => {
+      loadOrders();
+      loadLowStock();
+      loadCancelledDishes();
+    }, LOW_STOCK_POLL_MS);
     return () => clearInterval(timer);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -218,6 +279,29 @@ export default function TopbarNotifications() {
                 </span>
               </div>
             </div>
+          )) : null}
+          {!loading && !error ? itemCancels.map((item) => (
+            <button
+              type="button"
+              className="stock-alert-item owner-notif__item owner-notif__item--cancel"
+              key={item.id}
+              onClick={() => {
+                setOpen(false);
+                navigate("/reports/cancelled-dishes");
+              }}
+              aria-label={`${item.name}: отмена блюда`}
+            >
+              <div className="stock-alert-item__icon owner-notif__icon--cancel" aria-hidden="true">
+                <Icon name="bi-x-octagon" size={18} />
+              </div>
+              <div>
+                <strong>{item.name} ×{item.quantity} — отмена</strong>
+                <span>
+                  {[item.table ? `Стол ${item.table}` : null, item.time || null, item.author || null]
+                    .filter(Boolean).join(" · ")}
+                </span>
+              </div>
+            </button>
           )) : null}
           {lowLoaded && !lowLoading && !error ? lowStock.map((item) => (
             <button

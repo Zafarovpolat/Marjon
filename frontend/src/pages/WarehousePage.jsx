@@ -7,6 +7,7 @@ import { settingsService } from "../api/settings";
 import { reportsService } from "../api/reports";
 import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 import Icon from "../components/Icon";
+import Toast from "../components/Toast";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import ReportEmptyState from "../components/ReportEmptyState";
 import DishSingleSelect from "./nomenclature/DishSingleSelect";
@@ -1534,6 +1535,15 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
     }
   };
 
+  // Enter в полях строки (цена/кол-во/сумма) — тот же Сохранить, что кнопка:
+  // оператор вводит количество и фиксирует документ без мыши.
+  // Гарды внутри handleCreateSave (склад, непустые строки, saving) те же.
+  const submitCreateOnEnter = (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    handleCreateSave();
+  };
+
   useEffect(() => {
     const request = beginRequest();
     if (unavailableMessage) {
@@ -3039,6 +3049,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
         ingredients={refData.ingredients}
         saving={saving}
         error={saveError}
+        onClearError={() => setSaveError("")}
         onClose={() => { if (!saving) setDrawerOpen(false); }}
         onSubmit={handleCreate}
       />
@@ -3792,7 +3803,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
                 </div>
               </div>
             </div>
-            {createError ? <div className="login-error" role="alert">{createError}</div> : null}
+            {createError ? <Toast kind="error" message={createError} onClose={() => setCreateError("")} /> : null}
             <div className="settings-table-wrapper dish-grid-wrap">
               <div className="dish-grid-scroll" role="region" aria-label="Таблица создания прихода с прокруткой" tabIndex={0}>
                 <table className={`settings-table dish-grid-table warehouse-journal-table wh-create-table${readOnly ? " wh-is-readonly" : ""}`} aria-label="Создать приход">
@@ -3852,6 +3863,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
                                       ...cur,
                                       [p.key]: e.target.value.replace(/[\s\u00a0\u202f]/g, ""),
                                     }))}
+                                    onKeyDown={submitCreateOnEnter}
                                     aria-label={`Цена ${p.name}`}
                                   />
                                   <span>UZS</span>
@@ -3874,6 +3886,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
                                         ...cur,
                                         [p.key]: e.target.value.replace(/[\s\u00a0\u202f]/g, ""),
                                       }))}
+                                      onKeyDown={submitCreateOnEnter}
                                       aria-label={`Количество ${p.name}`}
                                     />
                                   <span>{p.unit}</span>
@@ -3897,6 +3910,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
                                         ...cur,
                                         [p.key]: e.target.value.replace(/[\s\u00a0\u202f]/g, ""),
                                       }))}
+                                      onKeyDown={submitCreateOnEnter}
                                       aria-label={`Итоговая сумма ${p.name}`}
                                     />
                                     <span>UZS</span>
@@ -4134,6 +4148,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
             ingredients={refData.ingredients}
             saving={saving}
             error={saveError}
+            onClearError={() => setSaveError("")}
             onClose={() => { if (!saving) setDrawerOpen(false); }}
             onSubmit={handleCreate}
           />
@@ -4143,6 +4158,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
             ingredients={refData.ingredients}
             saving={saving}
             error={saveError}
+            onClearError={() => setSaveError("")}
             onClose={() => { if (!saving) setDrawerOpen(false); }}
             onSubmit={handleCreate}
           />
@@ -4152,6 +4168,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
             ingredients={refData.ingredients}
             saving={saving}
             error={saveError}
+            onClearError={() => setSaveError("")}
             onClose={() => { if (!saving) setDrawerOpen(false); }}
             onSubmit={handleCreate}
           />

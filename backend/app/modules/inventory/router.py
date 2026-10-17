@@ -17,6 +17,7 @@ from app.modules.inventory.schemas import (
     ProductAvailabilityUpdate, ProductCreate, ProductIngredientResponse,
     ProductLimitUpdate, ProductResponse, ProductUpdate,
     SetItemIn, SetItemResponse,
+    StockBatchResponse,
     StockItemResponse, StockMovementCreate, StockMovementResponse,
     TopUpCreate, TopUpResponse, TopUpResultResponse,
 )
@@ -472,6 +473,34 @@ async def get_stock(
     if as_of is not None:
         return await svc.get_stock_as_of(user.company_id, as_of, warehouse_id)
     return await svc.get_stock(user.company_id, warehouse_id)
+
+
+@router.get("/stock/batches", response_model=list[StockBatchResponse])
+async def get_stock_batches(
+    warehouse_id: UUID | None = Query(None),
+    ingredient_id: UUID | None = Query(None),
+    user: User = Depends(require_permission("inventory:stock:read")),
+    db: AsyncSession = Depends(get_db),
+):
+    """V46 FIFO: разбивка остатка по партиям (старые первыми)."""
+    from app.modules.inventory.models import StockBatch
+    from app.modules.inventory.warehouse_models import PurchaseDocument
+
+    query = (
+        select(StockBatch)
+        .outerjoin(PurchaseDocument, PurchaseDocument.id == StockBatch.purchase_doc_id)
+        .where(StockBatch.company_id == user.company_id)
+    )
+    if warehouse_id:
+        query = query.where(StockBatch.warehouse_id == warehouse_id)
+    if ingredient_id:
+        query = query.where(StockBatch.ingredient_id == ingredient_id)
+    query = query.order_by(
+        PurchaseDocument.number.asc().nullsfirst(),
+        StockBatch.created_at,
+        StockBatch.id,
+    )
+    return list((await db.execute(query)).scalars().all())
 
 
 @router.post("/stock/movements", response_model=StockMovementResponse, status_code=status.HTTP_201_CREATED)

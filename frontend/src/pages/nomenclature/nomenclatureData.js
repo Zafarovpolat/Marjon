@@ -35,6 +35,19 @@ export function unitDisplayLabel(unit) {
   return String(unit?.short_name || unit?.name || "").trim();
 }
 
+// Подпись опции в селектах выбора ед. изм: «Килограмм (Кг)» — полное имя
+// из Настройки → Единицы + короткое в скобках. ТОЛЬКО подпись: значением
+// опции остаётся короткое имя (канон хранения), unitDisplayLabel выше —
+// канон таблиц/суффиксов. Без полного имени — просто короткое.
+export function unitOptionLabel(unit) {
+  const short = String(unit?.short_name || "").trim();
+  const full = String(unit?.name || "").trim();
+  if (short && full && short.toLowerCase() !== full.toLowerCase()) {
+    return `${full} (${short})`;
+  }
+  return short || full;
+}
+
 export function mapNomenclatureProduct(item, units = []) {
   const unitId = item.unit_id ? String(item.unit_id) : null;
   const canonicalUnit = unitId

@@ -14,6 +14,7 @@ import {
   parseNomenclatureMoney,
   parseNomenclatureSort,
   unitDisplayLabel,
+  unitOptionLabel,
 } from "./nomenclatureData";
 
 // JPEG/PNG/WebP — как принимает POST /inventory/products/{id}/photo.
@@ -23,7 +24,8 @@ export function mapDishUnitOption(item) {
     id: String(item.id),
     name: String(item.name || ""),
     short_name: String(item.short_name || ""),
-    label: unitDisplayLabel(item),
+    // Подпись селекта — «Килограмм (Кг)», value остаётся id.
+    label: unitOptionLabel(item),
     active: item.status !== false,
     isGlobal: item.is_global ?? item.company_id == null,
   };
@@ -99,6 +101,7 @@ export function useDishesCatalog() {
   const [modGroups, setModGroups] = useState([]);
   const [modLoading, setModLoading] = useState(false);
   const [modError, setModError] = useState("");
+  const clearModError = useCallback(() => setModError(""), []);
   // Опции фильтра «Категория»: живые данные GET /inventory/categories
   // (тот же источник, что у «Категория блюд» — готово к будущему merge).
   // Пусто/ошибка → опций нет (только «Все категории»), никакой выдумки имён.
@@ -153,7 +156,8 @@ export function useDishesCatalog() {
         setUnitOptions(live);
         setRows((current) => current.map((row) => {
           const unit = row.unitId ? live.find((item) => item.id === row.unitId) : null;
-          return unit ? { ...row, unit: unit.label } : row;
+          // Таблица — короткое имя (канон), полная подпись только в селекте.
+          return unit ? { ...row, unit: unit.short_name || unit.label } : row;
         }));
       })
       .catch((err) => {
@@ -712,6 +716,7 @@ export function useDishesCatalog() {
     setModGroups,
     modLoading,
     modError,
+    clearModError,
     saveModGroup,
     removeModGroup,
   };

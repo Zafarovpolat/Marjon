@@ -32,8 +32,16 @@ const ingredient = (overrides = {}) => ({
   stock: 10,
   min_stock: 2,
   purchase_price: 15000,
+  avg_quantity: 100,
+  deficit_threshold: 20,
   ...overrides,
 });
+
+// V47: нормы остатка обязательны — заполнение двух полей drawer.
+function fillNorms(avg = "100", deficit = "20") {
+  fireEvent.change(screen.getByPlaceholderText("Среднее количество"), { target: { value: avg } });
+  fireEvent.change(screen.getByPlaceholderText("Порог дефицита"), { target: { value: deficit } });
+}
 
 const rawCategories = [
   { id: "cat-1", name: "Бакалея", slug: "raw-bakaleya" },
@@ -214,9 +222,11 @@ describe("RAW V2 Dishes visual family", () => {
     // dish-form-switches, footer Отменить/Добавить.
     expect(drawer.querySelector(".dish-form-switches")).not.toBeNull();
     expect(drawer.querySelector("select")).toBeNull();
-    // Шаблон — только карточка: никаких остатков/цен в drawer нет.
-    expect(screen.queryByPlaceholderText("Среднее количество")).toBeNull();
-    expect(screen.queryByPlaceholderText("Порог дефицита")).toBeNull();
+    // Шаблон — только карточка: никаких остатков/цен закупки в drawer нет.
+    // Нормы остатка — в карточке: среднее количество + порог дефицита
+    // (между Категорией и Типом потери), оба обязательны.
+    expect(screen.getByPlaceholderText("Среднее количество")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Порог дефицита")).toBeInTheDocument();
     expect(screen.queryByText(/Шаблон продукта/)).toBeNull();
     // Норма потерь: тип + значение (значение disabled, пока тип не выбран).
     expect(screen.getByRole("combobox", { name: "Тип потери" })).toBeInTheDocument();
@@ -226,6 +236,37 @@ describe("RAW V2 Dishes visual family", () => {
     expect(drawer.querySelector('input[type="file"]')).toBeNull();
     const footerButtons = [...drawer.querySelectorAll(".staff-form__footer button")].map((b) => b.textContent);
     expect(footerButtons).toEqual(expect.arrayContaining(["Отменить", "Добавить"]));
+  });
+
+  it("9m. norms are required and sent with the create payload", async () => {
+    mockRawApis({
+      ingredients: [],
+      units: [{ id: "u1", short_name: "кг", status: true }],
+    });
+    render(<NomenclaturePage type="raw" />);
+    await screen.findByText("Продукты пока не добавлены.");
+    fireEvent.click(screen.getByRole("button", { name: "Добавить" }));
+    await screen.findByText("Добавить продукты");
+    const drawer = document.body.querySelector(".staff-modal.dish-drawer");
+    expect(drawer).not.toBeNull();
+    fireEvent.change(screen.getByPlaceholderText("Напр. Помидор"), { target: { value: "Мука" } });
+    fireEvent.click(within(drawer).getByRole("combobox", { name: "Ед. изм" }));
+    fireEvent.click(await screen.findByRole("option", { name: "кг" }));
+    const submit = within(drawer).getByRole("button", { name: "Добавить" });
+    // Обе нормы обязательны: пустые → честная ошибка, без POST.
+    fireEvent.click(submit);
+    expect(await within(drawer).findByText("Укажите среднее количество.")).toBeInTheDocument();
+    expect(api.post).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByPlaceholderText("Среднее количество"), { target: { value: "100" } });
+    fireEvent.click(submit);
+    expect(await within(drawer).findByText("Укажите порог дефицита.")).toBeInTheDocument();
+    expect(api.post).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByPlaceholderText("Порог дефицита"), { target: { value: "20" } });
+    fireEvent.click(submit);
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith(
+      "/inventory/ingredients",
+      expect.objectContaining({ name: "Мука", unit: "кг", avg_quantity: 100, deficit_threshold: 20 }),
+    ));
   });
 
   it("10. raw table follows ZimZim structure without photo", async () => {
@@ -310,8 +351,8 @@ describe("RAW V2 Dishes visual family", () => {
     await screen.findByText("Добавить продукты");
     await waitFor(() => expect(api.get).toHaveBeenCalledWith("/units"));
     fireEvent.click(screen.getByRole("combobox", { name: "Ед. изм" }));
-    expect(await screen.findByRole("option", { name: "Кг" })).toBeInTheDocument();
-    expect(await screen.findByRole("option", { name: "Шт" })).toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: "Килограмм (Кг)" })).toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: "Штука (Шт)" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "упак" })).toBeNull();
     expect(screen.queryByRole("option", { name: "порция" })).toBeNull();
   });
@@ -352,7 +393,8 @@ describe("RAW V2 Dishes visual family", () => {
     expect((await screen.findAllByText("Выберите единицу измерения.")).length).toBeGreaterThan(0);
     expect(api.post).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("combobox", { name: "Ед. изм" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Кг" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Килограмм (Кг)" }));
+    fillNorms();
     fireEvent.click(screen.getAllByRole("button", { name: "Добавить" }).pop());
     await waitFor(() => expect(api.post).toHaveBeenCalledWith(
       "/inventory/ingredients",
@@ -371,15 +413,16 @@ describe("RAW V2 Dishes visual family", () => {
     await screen.findByText("Добавить продукты");
     fireEvent.change(screen.getByPlaceholderText("Напр. Помидор"), { target: { value: "Укроп" } });
     fireEvent.click(screen.getByRole("combobox", { name: "Ед. изм" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Кг" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Килограмм (Кг)" }));
+    fillNorms("100", "20");
     fireEvent.click(screen.getAllByRole("button", { name: "Добавить" }).pop());
-    // Только карточка шаблона: название/ед.изм/категория, без остатков и цен.
+    // Только карточка шаблона: название/ед.изм/категория/нормы, без остатков и цен.
     await waitFor(() => expect(api.post).toHaveBeenCalledWith(
       "/inventory/ingredients",
       expect.objectContaining({ name: "Укроп", unit: "Кг" }),
     ));
     const sent = api.post.mock.calls.find(([url]) => String(url).includes("/inventory/ingredients"))[1];
-    expect(Object.keys(sent).sort()).toEqual(["category", "loss_type", "loss_value", "name", "unit"]);
+    expect(Object.keys(sent).sort()).toEqual(["avg_quantity", "category", "deficit_threshold", "loss_type", "loss_value", "name", "unit"]);
     expect(api.post.mock.calls.some(([url]) => String(url).includes("/inventory/stock/movements"))).toBe(false);
   });
 
@@ -440,7 +483,8 @@ describe("RAW V2 Dishes visual family", () => {
     await screen.findByText("Добавить продукты");
     fireEvent.change(screen.getByPlaceholderText("Напр. Помидор"), { target: { value: "Помидор" } });
     fireEvent.click(screen.getByRole("combobox", { name: "Ед. изм" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Кг" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Килограмм (Кг)" }));
+    fillNorms("100", "20");
     fireEvent.click(screen.getAllByRole("button", { name: "Добавить" }).pop());
     // Шаблон создаётся одним POST; движений из карточки нет — остаток
     // появится только после прихода («Добавить продуктов»).
@@ -462,8 +506,9 @@ describe("RAW V2 Dishes visual family", () => {
     await screen.findByText("Добавить продукты");
     fireEvent.change(screen.getByPlaceholderText("Напр. Помидор"), { target: { value: "Укроп" } });
     fireEvent.click(screen.getByRole("combobox", { name: "Ед. изм" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Кг" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Килограмм (Кг)" }));
     fireEvent.click(screen.getByRole("switch", { name: "Статус" }));
+    fillNorms();
     fireEvent.click(screen.getAllByRole("button", { name: "Добавить" }).pop());
     await waitFor(() => expect(api.patch).toHaveBeenCalledWith(
       "/inventory/ingredients/new-id",
@@ -498,10 +543,11 @@ describe("RAW V2 Dishes visual family", () => {
     await screen.findByText("Добавить продукты");
     fireEvent.change(screen.getByPlaceholderText("Напр. Помидор"), { target: { value: "Помидор" } });
     fireEvent.click(screen.getByRole("combobox", { name: "Ед. изм" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Кг" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Килограмм (Кг)" }));
     fireEvent.click(screen.getByRole("combobox", { name: "Тип потери" }));
     fireEvent.click(await screen.findByRole("option", { name: "Количество" }));
     fireEvent.change(screen.getByPlaceholderText("Например: 0.2 (на 1 кг)"), { target: { value: "0,3" } });
+    fillNorms();
     fireEvent.click(screen.getAllByRole("button", { name: "Добавить" }).pop());
     await waitFor(() => expect(api.post).toHaveBeenCalledWith(
       "/inventory/ingredients",
@@ -520,10 +566,11 @@ describe("RAW V2 Dishes visual family", () => {
     await screen.findByText("Добавить продукты");
     fireEvent.change(screen.getByPlaceholderText("Напр. Помидор"), { target: { value: "Помидор" } });
     fireEvent.click(screen.getByRole("combobox", { name: "Ед. изм" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Кг" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Килограмм (Кг)" }));
     // Поле заблокировано без типа (проверено в тесте 9); fireEvent обходит
     // disabled — так проверяем именно валидацию save: значение без типа.
     fireEvent.change(screen.getByPlaceholderText("Значение потери"), { target: { value: "0.3" } });
+    fillNorms();
     fireEvent.click(screen.getAllByRole("button", { name: "Добавить" }).pop());
     // Ошибка видна и на странице, и в drawer (оба рендерят actionError).
     expect(await screen.findAllByText("Выберите тип потери.")).toHaveLength(2);
@@ -541,10 +588,11 @@ describe("RAW V2 Dishes visual family", () => {
     await screen.findByText("Добавить продукты");
     fireEvent.change(screen.getByPlaceholderText("Напр. Помидор"), { target: { value: "Помидор" } });
     fireEvent.click(screen.getByRole("combobox", { name: "Ед. изм" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Кг" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Килограмм (Кг)" }));
     fireEvent.click(screen.getByRole("combobox", { name: "Тип потери" }));
     fireEvent.click(await screen.findByRole("option", { name: "Процент" }));
     fireEvent.change(screen.getByPlaceholderText("Например: 10"), { target: { value: "150" } });
+    fillNorms();
     fireEvent.click(screen.getAllByRole("button", { name: "Добавить" }).pop());
     expect(await screen.findAllByText("Процент потери — от 0 до 100.")).toHaveLength(2);
     expect(api.post).not.toHaveBeenCalled();

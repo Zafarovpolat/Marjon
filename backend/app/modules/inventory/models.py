@@ -189,6 +189,12 @@ class Ingredient(TimeStampedModel):
     # задана, авто-отход не считается. Остаток не двигает — только отчёт.
     loss_type: Mapped[str | None] = mapped_column(String(16))
     loss_value: Mapped[Decimal | None] = mapped_column(Numeric(15, 4))
+    # V47: нормы остатка из карточки «Продукты» — показываются в drawer
+    # между Ед.изм/Категорией и Типом/Значением потери. avg_quantity —
+    # справочное среднее количество; deficit_threshold — порог дефицита:
+    # остаток ниже порога попадает в колокольчик уведомлений.
+    avg_quantity: Mapped[Decimal | None] = mapped_column(Numeric(15, 4))
+    deficit_threshold: Mapped[Decimal | None] = mapped_column(Numeric(15, 4))
 
 
 class ProductIngredient(TimeStampedModel):
@@ -276,3 +282,24 @@ class StockMovement(TimeStampedModel):
     ref_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     created_by: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True)
     note: Mapped[str | None] = mapped_column(Text)
+
+
+class StockBatch(TimeStampedModel):
+    """FIFO-партия остатка: один приход = одна партия.
+
+    V46: расход (expense/waste/sale/writeoff/производство) списывает старые
+    партии первыми — пока первая партия не кончится, цена расхода = её цене.
+    StockItem.quantity = SUM(remaining), StockItem.cost_price = total/quantity
+    (средняя оставшихся — для оценки запаса; расход считается по партиям).
+    """
+
+    __tablename__ = "stock_batches"
+
+    company_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), index=True)
+    warehouse_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("warehouses.id", ondelete="CASCADE"), index=True)
+    ingredient_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("ingredients.id", ondelete="CASCADE"), index=True)
+    purchase_doc_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    quantity_initial: Mapped[Decimal] = mapped_column(Numeric(15, 4), default=Decimal("0"))
+    quantity_remaining: Mapped[Decimal] = mapped_column(Numeric(15, 4), default=Decimal("0"))
+    cost_price: Mapped[Decimal] = mapped_column(Numeric(15, 4), default=Decimal("0"))
+    unit: Mapped[str] = mapped_column(String(20), default="кг")

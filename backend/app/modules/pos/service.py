@@ -172,6 +172,14 @@ class OrderService:
         self.db.add(order)
         await self.db.flush()
 
+        # Клиенты desktop POS шлют только table_number (legacy-текст) без
+        # table_id — привязываем канонический стол здесь, иначе ставка обслуги
+        # резолвится в явный 0% (_resolve_service_rate) и на чеке не печатается
+        # «Обслуживание». Тот же хелпер, что у split; неоднозначный/чужой
+        # номер остаётся без привязки — деньги не угадываем.
+        if order.table_id is None and table_number:
+            await self._bind_table_by_number(company_id, data.branch_id, order, table_number)
+
         subtotal = Decimal("0")
         # Обслуга берётся только с позиций «в зале» (не takeaway) — копим отдельно.
         service_base = Decimal("0")

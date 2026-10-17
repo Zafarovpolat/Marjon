@@ -23,6 +23,7 @@ from app.modules.inventory.warehouse_models import (
     ExpenseDocument, ExpenseDocumentItem, WasteDocument,
 )
 from app.modules.inventory.loss import calc_waste_quantity, loss_label
+from app.modules.inventory.fifo import consume_fifo
 from app.modules.inventory.warehouse_schemas import (
     WarehouseCreate, WarehouseResponse, WarehouseUpdate,
     PurchaseDocumentCreate, PurchaseDocumentUpdate, PurchaseDocumentResponse,
@@ -127,10 +128,12 @@ async def _apply_purchase_to_stock(
     user_id: UUID | None,
     doc: PurchaseDocument,
 ) -> None:
-    """Оприходовать строки документа: StockItem += qty (wavg-себестоимость)
+    """Оприходовать строки документа: FIFO-партия + StockItem пересчёт
     + StockMovement purchase на каждую строку. Вызывается из создания
     (документ сразу проведён) и из legacy-PATCH accept (идемпотентно через
     accepted_at у вызывателя)."""
+    from app.modules.inventory.fifo import add_fifo_batch
+
     for item in doc.items:
         stock_result = await db.execute(
             select(StockItem).where(
@@ -140,26 +143,25 @@ async def _apply_purchase_to_stock(
             )
         )
         stock = stock_result.scalar_one_or_none()
-        if stock:
-            # Себестоимость — из движений: взвешенное среднее старого
-            # остатка и новой поставки, а не перезапись и не хранение
-            # в шаблоне. Отрицательный остаток (продажи в минус) возможен —
-            # guard от деления на ноль/отрицательную базу.
-            new_quantity = stock.quantity + item.quantity
-            if new_quantity > 0 and stock.quantity > 0:
-                stock.cost_price = (
-                    stock.quantity * stock.cost_price
-                    + item.quantity * item.cost_price
-                ) / new_quantity
-            else:
-                stock.cost_price = item.cost_price
-            stock.quantity = new_quantity
-        else:
+        if stock is None:
+            # Отрицательный остаток (продажи в минус) возможен — партия
+            # покрывает его первой: recalc ниже сведёт qty/цену корректно.
             db.add(StockItem(
                 company_id=company_id, warehouse_id=doc.warehouse_id,
-                ingredient_id=item.ingredient_id, quantity=item.quantity,
-                unit=item.unit, cost_price=item.cost_price,
+                ingredient_id=item.ingredient_id, quantity=Decimal("0"),
+                unit=item.unit, cost_price=Decimal("0"),
             ))
+            await db.flush()
+        await add_fifo_batch(
+            db,
+            company_id=company_id,
+            warehouse_id=doc.warehouse_id,
+            ingredient_id=item.ingredient_id,
+            quantity=item.quantity,
+            cost_price=item.cost_price,
+            unit=item.unit,
+            purchase_doc_id=doc.id,
+        )
         db.add(StockMovement(
             company_id=company_id, warehouse_id=doc.warehouse_id,
             ingredient_id=item.ingredient_id, movement_type="purchase",
@@ -875,19 +877,32 @@ async def create_inventory_check(
             await db.flush()
             # Недостача по построению ≤ остатка (actual ≥ 0), но на случай
             # гонки с продажами — строгая проверка как в обычном расходе.
+            # V46 FIFO: недостача списывает старые партии первыми.
             for item in expense.items:
-                stock = await _assert_sufficient_stock(
+                await _assert_sufficient_stock(
                     db, user.company_id, data.warehouse_id,
                     item.ingredient_id, item.name, item.quantity,
                 )
-                stock.quantity -= item.quantity
+                fifo_unit, fifo_total = await consume_fifo(
+                    db,
+                    company_id=user.company_id,
+                    warehouse_id=data.warehouse_id,
+                    ingredient_id=item.ingredient_id,
+                    quantity=item.quantity,
+                    name=item.name,
+                )
+                item.cost_price = fifo_unit
+                item.total = fifo_total
                 db.add(StockMovement(
                     company_id=user.company_id, warehouse_id=data.warehouse_id,
                     ingredient_id=item.ingredient_id, movement_type="expense",
-                    quantity=item.quantity, unit=item.unit, cost_price=item.cost_price,
-                    total_cost=item.total, ref_id=expense.id, created_by=user.id,
+                    quantity=item.quantity, unit=item.unit, cost_price=fifo_unit,
+                    total_cost=fifo_total, ref_id=expense.id, created_by=user.id,
                     note=f"Инвентаризация {doc.id}",
                 ))
+            expense.total_amount = sum(
+                (i.total for i in expense.items), Decimal("0")
+            )
             doc.expense_doc_id = expense.id
     await db.commit()
     # Позиции перечитываем с selectinload: ленивый доступ к doc.items после
@@ -1239,12 +1254,23 @@ async def update_expense(
             for item in doc.items:
                 if not item.ingredient_id or item.quantity <= 0:
                     continue
-                stocks[item.ingredient_id].quantity -= item.quantity
+                # V46 FIFO: цена расхода — по старым партиям первыми.
+                # Ручную cost_price из черновика игнорируем и перезаписываем.
+                fifo_unit, fifo_total = await consume_fifo(
+                    db,
+                    company_id=user.company_id,
+                    warehouse_id=doc.warehouse_id,
+                    ingredient_id=item.ingredient_id,
+                    quantity=item.quantity,
+                    name=item.name,
+                )
+                item.cost_price = fifo_unit
+                item.total = fifo_total
                 db.add(StockMovement(
                     company_id=user.company_id, warehouse_id=doc.warehouse_id,
                     ingredient_id=item.ingredient_id, movement_type="expense",
-                    quantity=item.quantity, unit=item.unit, cost_price=item.cost_price,
-                    total_cost=item.total, ref_id=doc.id, created_by=user.id,
+                    quantity=item.quantity, unit=item.unit, cost_price=fifo_unit,
+                    total_cost=fifo_total, ref_id=doc.id, created_by=user.id,
                     note=f"Расход №{doc.number}" + (f" → {doc.receiver}" if doc.receiver else ""),
                 ))
                 norm = norms.get(item.ingredient_id)
@@ -1264,8 +1290,8 @@ async def update_expense(
                         name=item.name,
                         quantity=waste_qty,
                         unit=item.unit,
-                        cost_price=item.cost_price,
-                        total_amount=waste_qty * item.cost_price,
+                        cost_price=fifo_unit,
+                        total_amount=waste_qty * fifo_unit,
                         reason=(
                             f"Авто: норма потерь "
                             f"{loss_label(getattr(norm, 'loss_type', None), getattr(norm, 'loss_value', None), item.unit)}"
@@ -1278,6 +1304,12 @@ async def update_expense(
                         created_by=user.id,
                         created_by_name=_user_display(user),
                     ))
+        # V46 FIFO: итог документа — сумма фактических цен партий.
+        if doc.warehouse_id:
+            doc.total_amount = sum(
+                (i.total for i in doc.items if i.quantity and i.quantity > 0),
+                Decimal("0"),
+            )
         doc.accepted_at = _now()
 
     await db.commit()
@@ -1413,16 +1445,26 @@ async def update_waste(
 
     if data.status == "accepted" and not doc.accepted_at:
         if doc.warehouse_id and doc.ingredient_id and doc.quantity > 0:
-            stock = await _assert_sufficient_stock(
+            await _assert_sufficient_stock(
                 db, user.company_id, doc.warehouse_id,
                 doc.ingredient_id, doc.name, doc.quantity,
             )
-            stock.quantity -= doc.quantity
+            # V46 FIFO: отход списывает старые партии первыми, цену пересчитываем.
+            fifo_unit, fifo_total = await consume_fifo(
+                db,
+                company_id=user.company_id,
+                warehouse_id=doc.warehouse_id,
+                ingredient_id=doc.ingredient_id,
+                quantity=doc.quantity,
+                name=doc.name,
+            )
+            doc.cost_price = fifo_unit
+            doc.total_amount = fifo_total
             db.add(StockMovement(
                 company_id=user.company_id, warehouse_id=doc.warehouse_id,
                 ingredient_id=doc.ingredient_id, movement_type="waste",
-                quantity=doc.quantity, unit=doc.unit, cost_price=doc.cost_price,
-                total_cost=doc.total_amount, ref_id=doc.id, created_by=user.id,
+                quantity=doc.quantity, unit=doc.unit, cost_price=fifo_unit,
+                total_cost=fifo_total, ref_id=doc.id, created_by=user.id,
                 note=f"Отход №{doc.number}" + (f": {doc.reason}" if doc.reason else ""),
             ))
         doc.accepted_at = _now()

@@ -5,7 +5,7 @@ import { warehouseService } from "../../api/warehouse";
 import TopbarNotifications from "./TopbarNotifications";
 
 vi.mock("../../api/reports", () => ({
-  reportsService: { listOrders: vi.fn() },
+  reportsService: { listOrders: vi.fn(), listCancelledDishes: vi.fn() },
 }));
 vi.mock("../../api/warehouse", () => ({
   warehouseService: {
@@ -27,6 +27,7 @@ describe("Topbar low-stock alerts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     reportsService.listOrders.mockResolvedValue({ data: [] });
+    reportsService.listCancelledDishes.mockResolvedValue({ data: [] });
     warehouseService.listStock.mockResolvedValue({
       data: [
         { warehouse_id: "wh-1", ingredient_id: "ing-1", quantity: 2, min_quantity: 10, unit: "кг" },
@@ -67,5 +68,72 @@ describe("Topbar low-stock alerts", () => {
     render(<TopbarNotifications />);
     await waitFor(() => expect(warehouseService.listStock).toHaveBeenCalled());
     expect(screen.getByRole("button", { name: "Уведомлений нет" })).toBeInTheDocument();
+  });
+
+  it("requests whole-order cancellations with an explicit status filter", async () => {
+    render(<TopbarNotifications />);
+    await waitFor(() => expect(reportsService.listOrders).toHaveBeenCalledWith(
+      expect.any(String), expect.any(String),
+      expect.objectContaining({ filters: { orderStatus: ["cancelled"] } }),
+    ));
+  });
+
+  it("lists whole-order cancellations from the filtered report", async () => {
+    warehouseService.listStock.mockResolvedValue({ data: [] });
+    reportsService.listOrders.mockResolvedValue({
+      data: [{ order_id: "o-1", order_number: "42", status: "cancelled", table_number: "5", total_amount: 100000 }],
+    });
+    render(<TopbarNotifications />);
+    const bell = await screen.findByRole("button", { name: "Уведомления: 1" });
+    fireEvent.click(bell);
+    expect(await screen.findByText("Заказ №42 отменён")).toBeInTheDocument();
+  });
+
+  it("lists item-scope dish cancellations and hides order-scope doubles", async () => {
+    // Дефицит глушим, чтобы бейдж считал только отмену блюда.
+    warehouseService.listStock.mockResolvedValue({ data: [] });
+    reportsService.listCancelledDishes.mockResolvedValue({
+      data: [
+        {
+          order_item_id: "li-1", order_id: "o-9", name: "Салат", quantity: 2, unit: "порц",
+          table_number: "5", cancelled_by_name: "Анна", cancellation_scope: "item",
+        },
+        {
+          order_item_id: "li-2", order_id: "o-9", name: "Салат", quantity: 2, unit: "порц",
+          table_number: "5", cancelled_by_name: "Анна", cancellation_scope: "order",
+        },
+      ],
+    });
+    render(<TopbarNotifications />);
+    const bell = await screen.findByRole("button", { name: "Уведомления: 1" });
+    expect(bell).toBeInTheDocument();
+    fireEvent.click(bell);
+    expect(await screen.findByText("Салат ×2 — отмена")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Салат: отмена блюда" }));
+    expect(navigate).toHaveBeenCalledWith("/reports/cancelled-dishes");
+  });
+
+  it("uses card deficit threshold when row has no own threshold", async () => {
+    warehouseService.listStock.mockResolvedValue({
+      data: [
+        // Своя min_quantity = 0 → действует порог из карточки (20): 8 < 20.
+        { warehouse_id: "wh-1", ingredient_id: "ing-1", quantity: 8, min_quantity: 0, unit: "кг" },
+        // Своя min_quantity = 5 конкретнее карточки (20): 8 > 5 → норма.
+        { warehouse_id: "wh-1", ingredient_id: "ing-2", quantity: 8, min_quantity: 5, unit: "кг" },
+      ],
+    });
+    warehouseService.listIngredients.mockResolvedValue({
+      data: [
+        { id: "ing-1", name: "Мука", unit: "кг", deficit_threshold: 20 },
+        { id: "ing-2", name: "Сахар", unit: "кг", deficit_threshold: 20 },
+      ],
+    });
+    render(<TopbarNotifications />);
+    const bell = await screen.findByRole("button", { name: "Уведомления: 1" });
+    expect(bell).toBeInTheDocument();
+    fireEvent.click(bell);
+    expect(await screen.findByText("Мука: дефицит")).toBeInTheDocument();
+    expect(screen.getByText(/Остаток 8 кг из мин. 20/)).toBeInTheDocument();
+    expect(screen.queryByText(/Сахар/)).toBeNull();
   });
 });

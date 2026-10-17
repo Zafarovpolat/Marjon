@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { reportsService } from "../api/reports";
 import { financeService } from "../api/finance";
 import Icon from "../components/Icon";
+import Toast from "../components/Toast";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import ReportMultiSelect from "../components/ReportMultiSelect";
 import ReportEmptyState from "../components/ReportEmptyState";
@@ -207,7 +208,7 @@ export default function MenuPage() {
             </div>
           </div>
         </div>
-        {optionsError ? <div role="alert" className="login-error">{optionsError}</div> : null}
+        {optionsError ? <Toast kind="error" message={optionsError} onClose={() => setOptionsError("")} /> : null}
 
         <div hidden className="sales-toolbar-meta sales-table-controls">
           <div className="sales-table-settings" ref={settingsRef}>

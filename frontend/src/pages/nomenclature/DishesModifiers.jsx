@@ -4,6 +4,7 @@
 // Каждая группа сохраняется отдельной кнопкой — свой POST/PATCH, как у долей/паролей.
 import { useState } from "react";
 import Icon from "../../components/Icon";
+import Toast from "../../components/Toast";
 
 // Пустая новая группа с одной пустой опцией.
 const emptyGroup = () => ({
@@ -15,7 +16,7 @@ const emptyGroup = () => ({
   modifiers: [{ name: "", price_delta: "0", is_default: false, sort_order: 0 }],
 });
 
-export default function DishesModifiers({ editing, modGroups, setModGroups, modLoading, modError, saveModGroup, removeModGroup }) {
+export default function DishesModifiers({ editing, modGroups, setModGroups, modLoading, modError, onClearModError = null, saveModGroup, removeModGroup }) {
   const [dirty, setDirty] = useState({});   // groupKey → true, если есть несохранённые правки
 
   // Добавки доступны только у сохранённого блюда: в режиме создания секция
@@ -74,7 +75,7 @@ export default function DishesModifiers({ editing, modGroups, setModGroups, modL
         <p className="dish-mods__hint">Например «Яйцо», «Сыр» с наценкой. Переключатель «На кассе» решает, видит ли кассир группу в десктопе.</p>
       </div>
 
-      {modError ? <div className="login-error" role="alert">{modError}</div> : null}
+      {modError ? <Toast kind="error" message={modError} onClose={onClearModError || undefined} /> : null}
       {modLoading ? <p className="dish-mods__hint">Загрузка добавок…</p> : null}
 
       {modGroups.map((group, gi) => {

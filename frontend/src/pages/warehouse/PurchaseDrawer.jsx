@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import Icon from "../../components/Icon";
+import Toast from "../../components/Toast";
 
 // Ключ строки — стабильный локальный id (индекс не годится: строки удаляются).
 let rowSeq = 0;
@@ -22,7 +23,7 @@ function lineTotal(row) {
  * Позиция — это шаблон из «Продуктов»: обязаны ingredient_id, количество и цена
  * (бэкенд такие документы отклоняет 422, проведение считает остатки из движений).
  */
-function PurchaseDrawer({ warehouses, ingredients, saving, error, onClose, onSubmit }) {
+function PurchaseDrawer({ warehouses, ingredients, saving, error, onClose, onSubmit, onClearError = null }) {
   const [supplier, setSupplier] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
   const [date, setDate] = useState(today);
@@ -82,7 +83,7 @@ function PurchaseDrawer({ warehouses, ingredients, saving, error, onClose, onSub
           <button type="button" onClick={onClose} aria-label="Закрыть"><Icon name="bi-x-lg" size={18} /></button>
         </div>
 
-        {error ? <div className="login-error" role="alert">{error}</div> : null}
+        {error ? <Toast kind="error" message={error} onClose={onClearError || undefined} /> : null}
 
         <div className="warehouse-form__grid">
           <label>

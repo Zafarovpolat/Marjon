@@ -76,4 +76,19 @@ describe("OWNER dashboard empty content", () => {
 
     expect(revenueNote).toMatch(/к вчерашнему дню/);
   });
+
+  it("never compares neighbouring hours as «вчера» on a single-day hourly chart", () => {
+    const hourly = Array.from({ length: 24 }, (_, hour) => ({
+      date: "2026-10-16",
+      chart_label: `${String(hour).padStart(2, "0")}:00`,
+      revenue: hour === 10 ? 67200 : 0,
+      orders_count: hour === 10 ? 2 : 0,
+      avg_check: hour === 10 ? 33600 : 0,
+    }));
+    const kpis = buildRealKpis({ today_revenue: 67200, today_orders: 2, avg_check: 33600 }, hourly, "2026-10-16");
+    const notes = Object.fromEntries(kpis.map((kpi) => [kpi.label, kpi.note]));
+
+    expect(notes["Выручка за день"]).toBe("Нет данных для сравнения");
+    expect(notes["Выручка за день"]).not.toMatch(/к вчерашнему дню/);
+  });
 });
