@@ -507,6 +507,30 @@ export default function StaffFormModal({
               <span>Печать отмены заказа</span>
               <b className="staff-switch" aria-hidden="true" />
             </button>
+            {/* DESK-PERM-01: без этих двух тумблеров панели «Финансы» и
+                «Посещаемость» на десктопе было невозможно включить — их гейты
+                must(user, 'can_view_finance' / 'can_approve_attendance') не
+                находились ни в одном списке прав, и кнопки не показывались. */}
+            <button
+              className={`staff-permission-switch ${form.canViewFinance ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canViewFinance")}
+              aria-pressed={Boolean(form.canViewFinance)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Просмотр финансов</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            <button
+              className={`staff-permission-switch ${form.canApproveAttendance ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canApproveAttendance")}
+              aria-pressed={Boolean(form.canApproveAttendance)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Посещаемость (приход/уход)</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
             </>
             ) : null}
             {isWaiterView || isMonoblockView || isCuratedView ? null : (
@@ -539,6 +563,27 @@ export default function StaffFormModal({
             >
               <span className="staff-permission-state-dot" aria-hidden="true" />
               <span>Просмотр закрытых заказов</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            {/* DESK-PERM-01: панели десктопа «Финансы» и «Посещаемость». */}
+            <button
+              className={`staff-permission-switch ${form.canViewFinance ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canViewFinance")}
+              aria-pressed={Boolean(form.canViewFinance)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Просмотр финансов</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            <button
+              className={`staff-permission-switch ${form.canApproveAttendance ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canApproveAttendance")}
+              aria-pressed={Boolean(form.canApproveAttendance)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Посещаемость (приход/уход)</span>
               <b className="staff-switch" aria-hidden="true" />
             </button>
             </>

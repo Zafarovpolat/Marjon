@@ -1,19 +1,28 @@
 ﻿from __future__ import annotations
-from fastapi import APIRouter, Depends, status
+from datetime import date, datetime, timedelta, timezone
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import require_web_owner, effective_branch_filter
+from app.modules.auth.dependencies import (
+    effective_branch_filter,
+    require_company_app_user,
+    require_permission_or_admin,
+    require_web_owner,
+)
 from app.modules.auth.models import User
 from uuid import UUID
 from app.modules.hr.schemas import (
-    AttendanceCreate, AttendanceResponse,
+    AttendanceCreate, AttendanceDecision, AttendanceLogRow, AttendanceMarkRequest,
+    AttendanceResponse,
     EmployeeCreate, EmployeeUpdate, EmployeeResponse,
     ShiftCreate, ShiftResponse,
 )
-from sqlalchemy import select
+from app.modules.hr.models import AttendanceLog
+from sqlalchemy import func, select
 from app.modules.hr.service import HRService
 from app.modules.admin_reports.schemas import AttendanceRow, LoginHistoryRow
 from app.modules.admin_reports.service import AdminReportService
+from app.shared.exceptions import NotFoundError
 
 router = APIRouter(prefix="/hr", tags=["hr"])
 
@@ -84,3 +93,215 @@ async def delete_employee(
 @router.get("/login-history", response_model=list[LoginHistoryRow])
 async def login_history(user: User = Depends(require_web_owner), db: AsyncSession = Depends(get_db)):
     return await AdminReportService(db).login_history(user.company_id, effective_branch_filter(user))
+
+
+# ── DESK-ATT-01: посещаемость с десктоп-кассы ────────────────────────────────
+# AttendancePanel.jsx (режим кассира) зовёт /hr/attendance/log, /mark и
+# /pending. Ни одного из этих путей на бэкенде не было: журнал всегда был
+# пуст (404 глотался через .catch), а кнопки «Пришёл/Ушёл» показывали тост
+# «Ошибка». Веб-страница посещаемости работает через /hr/attendance (итоги
+# смен) и её не трогаем — десктопу нужны именно отдельные отметки.
+
+
+@router.get("/attendance/log", response_model=list[AttendanceLogRow])
+async def attendance_log(
+    day: date | None = Query(None, alias="date"),
+    user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Отметки прихода/ухода за день (по умолчанию — за сегодня).
+
+    Отклонённые (status='rejected') в журнал не попадают: кассир их уже
+    отклонил, и в истории смены они только путают. Прошлые дни отдаём лишь
+    при праве can_view_past_periods — как в отчётах, чтобы тумблер владельца
+    работал одинаково везде.
+    """
+    from app.modules.auth.dependencies import user_can_view_past_periods
+
+    today = datetime.now(timezone.utc).date()
+    target = day or today
+    if target != today and not await user_can_view_past_periods(user, db):
+        target = today
+
+    return await _attendance_rows(
+        db,
+        company_id=user.company_id,
+        branch_id=effective_branch_filter(user),
+        extra=(func.date(AttendanceLog.timestamp) == target, AttendanceLog.status != "rejected"),
+    )
+
+
+@router.get("/attendance/pending", response_model=list[AttendanceLogRow])
+async def attendance_pending(
+    user: User = Depends(require_permission_or_admin("can_approve_attendance")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Самостоятельные отметки, ждущие подтверждения кассира.
+
+    Отметка кассира создаётся сразу approved (кассир и есть разрешение войти),
+    а отметка сотрудника по PIN попадает сюда как pending — до подтверждения
+    она не считается в журнале смены.
+    """
+    return await _attendance_rows(
+        db,
+        company_id=user.company_id,
+        branch_id=effective_branch_filter(user),
+        extra=(AttendanceLog.status == "pending",),
+        limit=100,
+    )
+
+
+@router.post("/attendance/{log_id}/approve", response_model=AttendanceLogRow)
+async def approve_attendance(
+    log_id: UUID,
+    data: AttendanceDecision,
+    user: User = Depends(require_permission_or_admin("can_approve_attendance")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Подтвердить или отклонить отметку из очереди."""
+    stmt = select(AttendanceLog).where(
+        AttendanceLog.id == log_id, AttendanceLog.company_id == user.company_id
+    )
+    log = (await db.execute(stmt)).scalars().first()
+    if log is None:
+        raise NotFoundError("Отметка не найдена")
+
+    log.status = "approved" if data.approve else "rejected"
+    log.approved_by = user.id
+    log.approved_at = datetime.now(timezone.utc)
+    if data.note:
+        log.note = data.note
+    await db.commit()
+    await db.refresh(log)
+
+    rows = await _attendance_rows(
+        db,
+        company_id=user.company_id,
+        branch_id=None,
+        extra=(AttendanceLog.id == log.id,),
+        limit=1,
+    )
+    if not rows:
+        raise NotFoundError("Отметка не найдена")
+    return rows[0]
+
+
+@router.post("/attendance/mark", response_model=AttendanceLogRow, status_code=status.HTTP_201_CREATED)
+async def mark_attendance(
+    data: AttendanceMarkRequest,
+    user: User = Depends(require_permission_or_admin("can_approve_attendance")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Кассир отмечает приход/уход сотрудника.
+
+    Смена подбирается по сотруднику (открытая = active без actual_end), а если
+    её нет — создаётся на 12 часов вперёд: отдельного планировщика смен в
+    десктопе нет, а без shift_id отметку записать некуда (NOT NULL).
+    """
+    from app.modules.hr.models import Employee, WorkShift
+
+    branch_id = effective_branch_filter(user)
+    emp_stmt = select(Employee).where(
+        Employee.company_id == user.company_id,
+        Employee.user_id == data.user_id,
+    )
+    if branch_id is not None:
+        emp_stmt = emp_stmt.where(Employee.branch_id == branch_id)
+    employee = (await db.execute(emp_stmt)).scalars().first()
+    if employee is None:
+        raise NotFoundError("Сотрудник не найден в вашем филиале")
+
+    now = datetime.now(timezone.utc)
+    shift = (
+        await db.execute(
+            select(WorkShift)
+            .where(
+                WorkShift.company_id == user.company_id,
+                WorkShift.employee_id == employee.id,
+                WorkShift.status == "active",
+                WorkShift.actual_end.is_(None),
+            )
+            .order_by(WorkShift.scheduled_start.desc())
+        )
+    ).scalars().first()
+
+    if shift is None:
+        shift = WorkShift(
+            company_id=user.company_id,
+            branch_id=employee.branch_id,
+            employee_id=employee.id,
+            scheduled_start=now,
+            scheduled_end=now + timedelta(hours=12),
+            status="active",
+        )
+        db.add(shift)
+        await db.flush()
+
+    if data.action == "check_in":
+        shift.actual_start = shift.actual_start or now
+        shift.status = "active"
+    else:
+        shift.actual_end = now
+        shift.status = "completed"
+
+    log = AttendanceLog(
+        company_id=user.company_id,
+        employee_id=employee.id,
+        shift_id=shift.id,
+        action=data.action,
+        timestamp=now,
+        method="manual",
+        note=data.note,
+        # Отметка кассира авторитетна — подтверждать её некому.
+        status="approved",
+        approved_by=user.id,
+        approved_at=now,
+    )
+    db.add(log)
+    await db.commit()
+    await db.refresh(log)
+
+    rows = await _attendance_rows(
+        db, company_id=user.company_id, branch_id=None, extra=(AttendanceLog.id == log.id,), limit=1
+    )
+    if not rows:
+        raise NotFoundError("Отметка не найдена")
+    return rows[0]
+
+
+async def _attendance_rows(
+    db: AsyncSession,
+    *,
+    company_id: UUID,
+    branch_id: UUID | None,
+    extra: tuple = (),
+    limit: int = 300,
+) -> list[AttendanceLogRow]:
+    """Отметки посещаемости с именем сотрудника — общий запрос для log/pending/approve."""
+    from app.modules.hr.models import AttendanceLog, Employee
+
+    stmt = (
+        select(AttendanceLog, User.id, User.name)
+        .join(Employee, Employee.id == AttendanceLog.employee_id)
+        .join(User, User.id == Employee.user_id)
+        .where(AttendanceLog.company_id == company_id, *extra)
+        .order_by(AttendanceLog.timestamp.desc())
+        .limit(limit)
+    )
+    if branch_id is not None:
+        stmt = stmt.where(Employee.branch_id == branch_id)
+
+    return [
+        AttendanceLogRow(
+            id=log.id,
+            created_at=log.created_at,
+            updated_at=log.updated_at,
+            user_id=uid,
+            employee_name=name or "—",
+            action=log.action,
+            timestamp=log.timestamp,
+            method=log.method,
+            note=log.note,
+        )
+        for log, uid, name in (await db.execute(stmt)).all()
+    ]

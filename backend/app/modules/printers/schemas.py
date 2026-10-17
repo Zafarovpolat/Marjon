@@ -145,6 +145,24 @@ class PrintKitchenRequest(BaseSchema):
     copies: int = 1
 
 
+class PrintSummaryRequest(BaseSchema):
+    """DESK-PRINT-01: свободная текстовая сводка на чековый принтер.
+
+    Десктоп (HistoryPanel, ReportsPanel, BatchPrintPanel) шлёт готовые строки
+    отчёта — серверу не нужно знать, что именно за отчёт, он только верстает
+    их в ESC/POS. Так одна кнопка «Печать сводки» обслуживает историю заказов,
+    любой табличный отчёт и Z-отчёт.
+    """
+
+    printer_id: UUID
+    title: str = Field(min_length=1, max_length=200)
+    # 200 строк по ~48 символов — это уже несколько метров бумаги; больше
+    # почти наверняка ошибка вызывающего кода, а не реальный отчёт.
+    lines: list[str] = Field(default_factory=list, max_length=200)
+    footer: str | None = Field(default=None, max_length=200)
+    copies: int = Field(default=1, ge=1, le=5)
+
+
 class PrintJobResponse(BaseResponseSchema):
     company_id: UUID
     printer_id: UUID

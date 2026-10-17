@@ -53,5 +53,14 @@ class AttendanceLog(TimeStampedModel):
     # pin | qr | manual
     method: Mapped[str] = mapped_column(String(20), default="manual")
     note: Mapped[str | None] = mapped_column(Text)
+    # DESK-ATT-01: approved | rejected | pending.
+    # Отметку ставит кассир с терминала — она сразу approved (кассир и есть
+    # разрешение войти). pending остаётся для самостоятельных отметок, которые
+    # ждут подтверждения в очереди AttendancePanel (approve/reject).
+    # Колонка была в исходной схеме и потерялась при консолидации моделей —
+    # без неё INSERT падал с NOT NULL constraint failed.
+    status: Mapped[str] = mapped_column(String(20), default="approved", server_default="approved")
+    approved_by: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     shift: Mapped[WorkShift] = relationship(back_populates="attendance_logs")

@@ -121,6 +121,70 @@ class PrinterService:
         )
         return await self._enqueue_and_send(company_id, printer, "test", None, data)
 
+    async def print_summary(
+        self,
+        company_id: UUID,
+        printer_id: UUID,
+        title: str,
+        lines: list[str],
+        footer: str | None = None,
+        copies: int = 1,
+    ) -> PrintJob:
+        """DESK-PRINT-01: печать текстовой сводки (история заказов, отчёт, Z-отчёт).
+
+        Раньше десктоп звал POST /printers/print/summary, которого не было —
+        кнопка «Печать сводки» в HistoryPanel/ReportsPanel/BatchPrintPanel
+        всегда падала с 404 и показывала тост «Ошибка печати». Печатаем тем же
+        путём, что и чеки: enqueue + попытка отправить на сетевой принтер,
+        иначе задание уходит терминалу филиала по WS.
+        """
+        printer = await self.get(company_id, printer_id)
+        fmt = EscPosFormatter(printer.paper_width, encoding=self._printer_encoding(printer))
+
+        def wrap(text: str) -> list[str]:
+            """Перенос по словам в ширину бумаги: ESC/POS сам режет по символу
+            и рвёт слова посередине, из-за чего отчёт читается плохо."""
+            text = str(text or "")
+            if len(text) <= fmt.cols:
+                return [text]
+            out: list[str] = []
+            cur = ""
+            for word in text.split():
+                if not cur:
+                    cur = word[: fmt.cols]
+                elif len(cur) + 1 + len(word) <= fmt.cols:
+                    cur = f"{cur} {word}"
+                else:
+                    out.append(cur)
+                    cur = word
+            if cur:
+                out.append(cur)
+            return out or [""]
+
+        data = (
+            fmt.INIT
+            + fmt.codepage_cmd
+            + fmt.ALIGN_CENTER
+            + fmt.BOLD_ON
+            + fmt.DOUBLE_HEIGHT
+            + fmt._line(title[: fmt.cols])
+            + fmt.NORMAL_SIZE
+            + fmt.BOLD_OFF
+            + fmt._line("-" * fmt.cols)
+            + fmt.ALIGN_LEFT
+        )
+        for line in lines:
+            for chunk in wrap(line):
+                data += fmt._line(chunk)
+        if footer:
+            data += fmt._line("-" * fmt.cols) + fmt.BOLD_ON
+            for chunk in wrap(footer):
+                data += fmt._line(chunk)
+            data += fmt.BOLD_OFF
+        data += fmt.LF * 3 + fmt.CUT
+
+        return await self._enqueue_and_send(company_id, printer, "summary", None, data, copies)
+
     async def print_receipt(
         self, company_id: UUID, order_id: UUID, printer_id: UUID, copies: int = 1
     ) -> PrintJob:

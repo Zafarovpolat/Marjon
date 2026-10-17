@@ -45,6 +45,8 @@ export const getPermissionSummary = (values) => {
     values.canManageOrders && "Управление заказами",
     values.canOpenCashDrawerAfterPayment && "Открытие денежного ящика",
     values.canViewClosedOrders && "Просмотр закрытых заказов",
+    values.canViewFinance && "Просмотр финансов",
+    values.canApproveAttendance && "Посещаемость (приход/уход)",
   ].filter(Boolean);
 
   return permissions.join(", ") || values.permission || "Базовый доступ";
@@ -67,6 +69,11 @@ export const staffPermissionKeys = {
   canSeeCashiers: "can_see_cashiers",
   canCookPrinter: "can_cook_printer",
   canPrintCancel: "can_print_cancel",
+  // DESK-PERM-01: панели десктопа «Финансы» и «Посещаемость». Флаги читает
+  // desktop/src/shared/permissions.js (must(...)), поэтому без них кнопки на
+  // терминале не появлялись ни у одной роли — включить их было негде.
+  canViewFinance: "can_view_finance",
+  canApproveAttendance: "can_approve_attendance",
 };
 
 // Собирает словарь тумблеров для POST/PATCH /auth/users из состояния формы.
@@ -117,6 +124,9 @@ export const cashierSwitchFields = [
   "canCloseBill",
   "canOpenCashDrawerAfterPayment",
   "canViewClosedOrders",
+  // DESK-PERM-01: панели десктопа, доступные кассиру на терминале.
+  "canViewFinance",
+  "canApproveAttendance",
 ];
 
 export const waiterSwitchFields = [
@@ -134,6 +144,9 @@ export const monoblockSwitchFields = [
   "canSeeCashiers",
   "canCookPrinter",
   "canPrintCancel",
+  // DESK-PERM-01: моноблок — основной терминал заведения, ему нужны обе панели.
+  "canViewFinance",
+  "canApproveAttendance",
 ];
 
 // CASHIER-PARITY-01 (Phase 1): manager + warehouse reuse the exact Cashier
@@ -254,6 +267,8 @@ export function mapStaffUser(user) {
     canSeeCashiers: readStaffPermission(user, "canSeeCashiers"),
     canCookPrinter: readStaffPermission(user, "canCookPrinter"),
     canPrintCancel: readStaffPermission(user, "canPrintCancel"),
+    canViewFinance: readStaffPermission(user, "canViewFinance"),
+    canApproveAttendance: readStaffPermission(user, "canApproveAttendance"),
     printerIp: typeof user.printer_ip === "string" && user.printer_ip ? user.printer_ip : "",
     pin: "",
     // Привязка сотрудника к филиалу (сеть → филиал). "" у веб-владельца и у

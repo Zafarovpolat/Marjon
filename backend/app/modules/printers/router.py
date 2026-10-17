@@ -16,7 +16,7 @@ from app.modules.auth.repository import UserRepository
 from app.modules.auth.security import decode_token
 from app.modules.printers.schemas import (
     PrinterCreate, PrinterResponse, PrinterTestRequest, PrinterUpdate,
-    PrintJobResponse, PrintKitchenRequest, PrintReceiptRequest,
+    PrintJobResponse, PrintKitchenRequest, PrintReceiptRequest, PrintSummaryRequest,
 )
 from app.modules.printers.service import PrinterService
 from app.modules.printers.printer_client import send_to_network_printer, PrinterError
@@ -124,6 +124,23 @@ async def print_receipt(
     """Print customer receipt for an order."""
     return await PrinterService(db).print_receipt(
         user.company_id, data.order_id, data.printer_id, data.copies
+    )
+
+
+@router.post("/print/summary", response_model=PrintJobResponse)
+async def print_summary(
+    data: PrintSummaryRequest,
+    user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """DESK-PRINT-01: сводка/отчёт/Z-отчёт на чековый принтер.
+
+    Десктоп-касса печатает этим путём историю заказов, таблицу отчёта и
+    Z-отчёт. Эндпоинта не существовало (404) — три кнопки «Печать сводки»
+    не работали никогда.
+    """
+    return await PrinterService(db).print_summary(
+        user.company_id, data.printer_id, data.title, data.lines, data.footer, data.copies
     )
 
 
