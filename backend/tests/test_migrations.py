@@ -28,7 +28,9 @@ from app.shared.base_model import Base
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 VERSIONS_DIR = BACKEND_ROOT / "migrations" / "versions"
 EXPECTED_HEAD = "att01status"
-EXPECTED_NULLABLE_COLUMN_COUNT = 264
+# Считается по статическому списку _COLUMNS в файлах миграций *bi02* (см.
+# _bi02_nullable_columns), а не по текущей схеме — новые миграции его не меняют.
+EXPECTED_NULLABLE_COLUMN_COUNT = 262
 EXPECTED_PARITY_OPERATIONS = {"remove_index", "remove_table_comment"}
 FIXTURES_DIR = BACKEND_ROOT / "tests" / "fixtures"
 PROVEN_LEGACY_SOURCE_COMMIT = (
