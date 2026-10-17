@@ -377,6 +377,20 @@ export default function StaffFormModal({
                     <small className="muted">Оставьте пустым, чтобы не менять PIN.</small>
                   ) : null}
                 </label>
+                <label>
+                  {/* Marjon Staff резолвит филиал сотрудника только из
+                      User.branch_id — без выбора здесь вход в приложение
+                      падает с "Ваш аккаунт не привязан к филиалу". */}
+                  <span>Филиал *</span>
+                  <BranchSelect
+                    value={form.branchId}
+                    branches={branches}
+                    onChange={(id) => updateForm("branchId", id)}
+                  />
+                  {saveErrorField === "branch" && saveError ? (
+                    <small className="staff-field-error" role="alert">{saveError}</small>
+                  ) : null}
+                </label>
               </>
             ) : null}
             {isCuratedView ? null : (

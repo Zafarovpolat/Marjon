@@ -51,7 +51,7 @@ from app.modules.finance.schemas import (
 from app.modules.finance.service import TransactionService
 from app.modules.kafe_compat.models import ReceiptTemplateSettings, SupportTicket
 from app.modules.kafe_compat.schemas import ReceiptTemplateUpdate
-from app.shared.exceptions import ConflictError
+from app.shared.exceptions import ConflictError, ForbiddenError, ValidationError
 from app.modules.subscriptions.models import Invoice, Plan, Subscription
 from app.shared.exceptions import NotFoundError
 from app.shared.pagination import PageParams
@@ -134,6 +134,60 @@ async def kafe_create_transaction(
         user.id,
         scope.tenant_id,
         idempotency_key,
+    )
+    return _tx_dict(transaction)
+
+
+# ── Cashier income / expense (POS desktop/mobile shortcut) ────────────────────
+# Thin company-scoped aliases over the finance transactions: a cashier or
+# manager records a cash income/expense without web-owner rights.
+async def _require_cashier_or_manager(
+    user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    from app.modules.rbac.models import Role, UserRole
+    slugs = (await db.execute(
+        select(Role.slug).join(UserRole, UserRole.role_id == Role.id).where(UserRole.user_id == user.id)
+    )).scalars().all()
+    if not set(slugs) & {"cashier", "manager"}:
+        raise ForbiddenError("Cashier or manager role required")
+    return user
+
+
+@router.get("/finance/income-expense", tags=["finance-kafe"])
+async def kafe_list_income_expense(
+    date_from: date | None = Query(None), date_to: date | None = Query(None),
+    direction: str | None = Query(None, pattern="^(income|expense)$"),
+    user: User = Depends(_require_cashier_or_manager),
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
+):
+    q = select(FinTransaction).where(
+        FinTransaction.deleted_at.is_(None),
+        FinTransaction.company_id == scope.tenant_id,
+    )
+    if date_from:
+        q = q.where(func.date(FinTransaction.date) >= date_from)
+    if date_to:
+        q = q.where(func.date(FinTransaction.date) <= date_to)
+    if direction:
+        q = q.where(FinTransaction.direction == direction)
+    rows = (await db.execute(q.order_by(FinTransaction.date.desc()))).scalars().all()
+    return {"items": [_tx_dict(t) for t in rows], "count": len(rows)}
+
+
+@router.post("/finance/income-expense", status_code=status.HTTP_201_CREATED, tags=["finance-kafe"])
+async def kafe_create_income_expense(
+    data: dict,
+    idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+    user: User = Depends(_require_cashier_or_manager),
+    scope: FinanceScope = Depends(get_company_finance_scope),
+    db: AsyncSession = Depends(get_db),
+):
+    if data.get("direction") not in ("income", "expense"):
+        raise ValidationError("direction must be income or expense")
+    transaction = await TransactionService(db).create_company_transaction(
+        data, user.id, scope.tenant_id, idempotency_key,
     )
     return _tx_dict(transaction)
 

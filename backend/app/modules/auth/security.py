@@ -1,4 +1,5 @@
-﻿from __future__ import annotations
+from __future__ import annotations
+import asyncio
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -10,9 +11,8 @@ from jose import JWTError, jwt
 from app.config import settings
 
 
-# Служебный терминальный пользователь филиала: под ним десктоп-касса делает
-# staff-users и pin-login после входа по логину/паролю филиала. E-mail —
-# синтетический, по маске ниже такие аккаунты скрыты из списков персонала.
+# Service ("terminal") users: one per branch, created on branch-login. They
+# are hidden from staff lists by this e-mail mask.
 TERMINAL_EMAIL_LIKE = "terminal+%@marjon.local"
 
 
@@ -24,12 +24,26 @@ def is_terminal_email(email: str | None) -> bool:
     return bool(email) and email.startswith("terminal+") and email.endswith("@marjon.local")
 
 
-def hash_password(password: str) -> str:
+def _hash_password_sync(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
-def verify_password(plain: str, hashed: str) -> bool:
+def _verify_password_sync(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(), hashed.encode())
+
+
+async def hash_password(password: str) -> str:
+    """Off the event loop: bcrypt is deliberately slow (~200-300ms per call),
+    and with uvicorn's single-worker default that would otherwise stall every
+    other in-flight request — on every endpoint, for every client — for the
+    duration of one password hash."""
+    return await asyncio.to_thread(_hash_password_sync, password)
+
+
+async def verify_password(plain: str, hashed: str) -> bool:
+    """See hash_password — same event-loop-blocking concern, hit far more
+    often (every login and PIN check)."""
+    return await asyncio.to_thread(_verify_password_sync, plain, hashed)
 
 
 def create_access_token(

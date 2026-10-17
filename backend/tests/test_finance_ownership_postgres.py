@@ -405,7 +405,7 @@ async def test_c_e_f_hq_organization_dictionary_reference_and_history_scope(fina
             global_transaction,
             User(
                 email=email,
-                password_hash=hash_password(password),
+                password_hash=await hash_password(password),
                 is_superadmin=True,
                 is_active=True,
             ),

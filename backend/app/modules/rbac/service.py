@@ -9,7 +9,7 @@ from app.modules.rbac.constants import (
     COMPANY_ROLE_SLUGS,
     OWNER_ASSIGNABLE_ROLE_SLUGS,
 )
-from app.modules.rbac.models import Role, Permission, UserRole
+from app.modules.rbac.models import Role, Permission, RolePermission, UserRole
 from app.modules.rbac.permissions import DEFAULT_ROLE_PERMISSIONS, sync_role_permissions
 from app.modules.rbac.repository import RoleRepository, PermissionRepository, UserRoleRepository
 from app.modules.rbac.schemas import RoleCreate, UserRoleAssign
@@ -56,6 +56,13 @@ class RBACService:
         return role
 
     async def list_roles(self, company_id: UUID) -> list[Role]:
+        # Lazily create any of the owner-assignable roles this company has
+        # never had a staff member on yet (get_or_create_company_role is a
+        # no-op for ones that already exist) — otherwise a company with, say,
+        # no courier yet would show a permissions screen missing the
+        # "courier" row entirely.
+        for slug in OWNER_ASSIGNABLE_ROLE_SLUGS:
+            await self.get_or_create_company_role(company_id, slug)
         return list((await self.db.execute(
             select(Role).where(
                 Role.company_id == company_id,
@@ -94,9 +101,15 @@ class RBACService:
         )
 
     async def list_permissions(self) -> list[Permission]:
-        raise ForbiddenError(
-            "Permission catalog management is deferred until the operational RBAC wave"
-        )
+        """Full seeded permission catalog — building block for the owner's
+        per-role permission editor. Read-only, no company scoping needed:
+        the catalog itself is global, only which permissions a given
+        company's role HAS is tenant-scoped (see get_role_permissions)."""
+        return await self.perm_repo.get_all()
+
+    async def get_role_permissions(self, role_id: UUID, company_id: UUID | None) -> list[Permission]:
+        role = await self._get_scoped_role(role_id, company_id)
+        return await self.user_role_repo.get_role_permissions(role.id)
 
     async def _get_scoped_role(self, role_id: UUID, company_id: UUID | None) -> Role:
         role = (
@@ -114,15 +127,61 @@ class RBACService:
             raise NotFoundError("Role not found")
         return role
 
+    def _assert_customizable_role(self, role: Role) -> None:
+        """Only the 7 operational company roles can have their permission
+        set edited by the owner. "owner" stays frozen (reconciled back to
+        its exact DEFAULT_ROLE_PERMISSIONS set on every boot — see
+        reconcile_frozen_owner_permissions — so letting it be edited here
+        would silently undo itself); "admin" is a legacy ambiguous slug
+        that's deliberately kept at zero permissions; system roles (platform
+        superadmin/hq_admin) aren't a company's to touch at all."""
+        if role.is_system or role.company_id is None:
+            raise ForbiddenError("System roles cannot be customized")
+        if role.slug not in OWNER_ASSIGNABLE_ROLE_SLUGS:
+            raise ForbiddenError(f"The '{role.slug}' role's permissions cannot be customized")
+
+    async def _assert_within_owner_ceiling(self, permission: Permission) -> None:
+        """An owner can delegate only what they themselves have — never grant
+        a staff role a capability the owner's own frozen permission set
+        doesn't include (mirrors the existing OWNER_ASSIGNABLE_ROLE_SLUGS
+        delegation-ceiling principle, applied to individual permissions)."""
+        value = f"{permission.module}:{permission.action}"
+        if value not in DEFAULT_ROLE_PERMISSIONS["owner"]:
+            raise ForbiddenError(
+                f"'{value}' exceeds the owner's own permission ceiling and cannot be delegated"
+            )
+
     async def assign_permission(self, role_id: UUID, permission_id: UUID, company_id: UUID | None) -> None:
-        raise ForbiddenError(
-            "Permission assignment is deferred until the operational RBAC wave"
-        )
+        role = await self._get_scoped_role(role_id, company_id)
+        self._assert_customizable_role(role)
+        permission = await self.db.get(Permission, permission_id)
+        if permission is None:
+            raise NotFoundError("Permission not found")
+        await self._assert_within_owner_ceiling(permission)
+        existing = (await self.db.execute(
+            select(RolePermission).where(
+                RolePermission.role_id == role.id,
+                RolePermission.permission_id == permission.id,
+            )
+        )).scalar_one_or_none()
+        if existing is not None:
+            return  # idempotent — already granted
+        self.db.add(RolePermission(role_id=role.id, permission_id=permission.id))
+        await self.db.commit()
 
     async def revoke_permission(self, role_id: UUID, permission_id: UUID, company_id: UUID | None) -> None:
-        raise ForbiddenError(
-            "Permission assignment is deferred until the operational RBAC wave"
-        )
+        role = await self._get_scoped_role(role_id, company_id)
+        self._assert_customizable_role(role)
+        link = (await self.db.execute(
+            select(RolePermission).where(
+                RolePermission.role_id == role.id,
+                RolePermission.permission_id == permission_id,
+            )
+        )).scalar_one_or_none()
+        if link is None:
+            return  # idempotent — already not granted
+        await self.db.delete(link)
+        await self.db.commit()
 
     async def check_permission(
         self, user_id: UUID, permission: str, company_id: UUID

@@ -3916,6 +3916,9 @@ body.vkb-lift .cashier-cart__items { min-height: 140px; }
 .attn-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.7fr 1fr; gap: var(--spacing-lg); padding: var(--spacing-lg) var(--spacing-2xl) var(--spacing-2xl); overflow: hidden; }
 .attn-col { display: flex; flex-direction: column; min-height: 0; }
 .attn-col--side { gap: var(--spacing-lg); overflow-y: auto; }
+.attn-col--roster { min-width: 0; }
+.hist-body,
+.rep-body { min-height: 0; }
 .attn-col__head { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-md); margin-bottom: var(--spacing-md); flex-shrink: 0; }
 .attn-col__head h2, .attn-block h2 { display: flex; align-items: center; gap: 8px; font-size: var(--text-lg); font-weight: 700; color: var(--color-text-primary); }
 .attn-col__head h2 svg, .attn-block h2 svg { color: var(--color-brand); }

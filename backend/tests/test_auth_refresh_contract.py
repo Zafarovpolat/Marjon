@@ -27,7 +27,7 @@ async def _create_superadmin(
     async with session_factory() as session:
         user = User(
             email=email,
-            password_hash=hash_password(password),
+            password_hash=await hash_password(password),
             is_superadmin=True,
             is_active=True,
         )

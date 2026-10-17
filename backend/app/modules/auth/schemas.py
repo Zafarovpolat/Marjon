@@ -1,7 +1,7 @@
 from __future__ import annotations
 import re
 from uuid import UUID
-from pydantic import AliasChoices, EmailStr, Field, SecretStr, field_validator
+from pydantic import EmailStr, Field, SecretStr, field_validator
 from app.shared.base_schema import BaseSchema, BaseResponseSchema
 
 
@@ -82,10 +82,39 @@ class PinSetRequest(BaseSchema):
 
 
 class PinLoginRequest(BaseSchema):
-    # Десктоп исторически шлёт `user_id`; веб/бэкенд — `employee_id`. Принимаем
-    # оба имени через AliasChoices, чтобы не трогать контракт десктопа.
-    employee_id: UUID = Field(validation_alias=AliasChoices("employee_id", "user_id"))
+    """Two callers, one endpoint (POST /auth/pin-login):
+    - anonymous client: employee_id (identifies the account and its company) + pin;
+    - branch terminal (desktop/mobile terminal): its own org token in Authorization
+      + pin and an optional user_id narrowing the check to the employee picked on
+      screen (this is the key desktop/src/shared/api.js and mobile's Api.pinLogin
+      actually send under a terminal session)."""
+    employee_id: UUID | None = None
+    user_id: UUID | None = None
     pin: str = Field(..., min_length=4, max_length=8)
+
+
+class BranchLoginRequest(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
+    # Логин филиала — произвольная уникальная строка (не телефон): у сети KFC
+    # филиал в месте А и месте Б получают разные логины при одном веб-аккаунте.
+    # 100 символов — предел колонки branches.login (миграция 20260925_d7e8brnlog11).
+    login: str = Field(..., min_length=1, max_length=100)
+    password: str = Field(..., min_length=1)
+
+
+class MonoblockLoginRequest(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
+    # Телефон аккаунта моноблока (из карточки users/monoblock).
+    phone: str = Field(..., min_length=1, max_length=30)
+    password: str = Field(..., min_length=1)
+
+
+class BranchInfo(BaseSchema):
+    id: UUID
+    name: str
+    company_id: UUID
 
 
 class LogoutRequest(BaseSchema):
@@ -105,23 +134,16 @@ class TokenResponse(BaseSchema):
     token_type: str = "bearer"
 
 
-class MonoblockLoginRequest(BaseSchema):
-    model_config = {"from_attributes": True, "extra": "forbid"}
-
-    # Телефон аккаунта моноблока (из карточки users/monoblock).
-    phone: str = Field(..., min_length=1, max_length=30)
-    password: str = Field(..., min_length=1)
-
-
-class BranchInfo(BaseSchema):
-    id: UUID
-    name: str
-    company_id: UUID
-
-
 class CompanyInfo(BaseSchema):
     id: UUID
     name: str
+    slug: str
+    currency: str = "UZS"
+
+
+class BranchLoginResponse(TokenResponse):
+    branch: BranchInfo
+    company: CompanyInfo
 
 
 class MonoblockLoginResponse(BaseSchema):

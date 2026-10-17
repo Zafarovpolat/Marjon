@@ -1,23 +1,28 @@
 # SlowAPI registers a wrapper whose global namespace is ``slowapi.extension``.
 # Keep endpoint annotations runtime-evaluated in this module so FastAPI sees
 # concrete request models after ``@limiter.limit`` wraps the function.
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, Request, status, UploadFile
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import (
     get_current_user,
+    get_current_user_optional,
     require_company_admin,
     require_company_app_user,
     require_staff_lister,
+    require_terminal_or_web_owner,
     require_web_owner,
 )
-from app.modules.auth.models import User
+from app.modules.auth.models import RefreshToken, User
 from app.modules.auth.schemas import (
     BranchInfo,
+    BranchLoginRequest,
+    BranchLoginResponse,
     CompanyInfo,
     CompanyUserCreate,
     CompanyUserResponse,
@@ -34,7 +39,7 @@ from app.modules.auth.schemas import (
     TokenResponse,
     UserResponse,
 )
-from app.modules.auth.security import is_terminal_email
+from app.modules.auth.security import TERMINAL_EMAIL_LIKE, is_terminal_email
 from app.modules.auth.service import AuthService, device_label
 from app.modules.rbac.models import Role, UserRole
 from app.modules.rbac.constants import OWNER_ASSIGNABLE_ROLE_SLUGS
@@ -86,6 +91,25 @@ async def admin_login(request: Request, data: LoginRequest, db: AsyncSession = D
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
+@router.post("/branch-login", response_model=BranchLoginResponse)
+@limiter.limit("10/minute")
+async def branch_login(request: Request, data: BranchLoginRequest, db: AsyncSession = Depends(get_db)):
+    """Десктоп, шаг 1: вход по логину+паролю филиала (общий терминал кассы/
+    официанта/кухни на весь филиал — не моноблок-аккаунт). Под токеном
+    синтетического терминал-пользователя десктоп затем тянет staff-users
+    и делает pin-login."""
+    svc = AuthService(db)
+    _, branch, company, access_token, refresh_token = await svc.login_by_branch(
+        data.login, data.password, device_id=device_label(request.headers.get("user-agent"))
+    )
+    return BranchLoginResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        branch=BranchInfo(id=branch.id, name=branch.name, company_id=branch.company_id),
+        company=CompanyInfo(id=company.id, name=company.name, slug=company.slug, currency=company.currency),
+    )
+
+
 @router.post("/monoblock-login", response_model=MonoblockLoginResponse)
 @limiter.limit("10/minute")
 async def monoblock_login(request: Request, data: MonoblockLoginRequest, db: AsyncSession = Depends(get_db)):
@@ -100,7 +124,7 @@ async def monoblock_login(request: Request, data: MonoblockLoginRequest, db: Asy
         access_token=access_token,
         refresh_token=refresh_token,
         branch=BranchInfo(id=branch.id, name=branch.name, company_id=branch.company_id) if branch else None,
-        company=CompanyInfo(id=company.id, name=company.name),
+        company=CompanyInfo(id=company.id, name=company.name, slug=company.slug, currency=company.currency),
     )
 
 
@@ -296,32 +320,51 @@ async def set_user_pin(
 
 @router.post("/pin-login", response_model=TokenResponse)
 @limiter.limit("10/minute")
-async def pin_login(request: Request, data: PinLoginRequest, db: AsyncSession = Depends(get_db)):
-    """BE-08: kiosk/shared-device quick login. employee_id identifies WHO
-    (and therefore which company), the PIN just proves it — see
-    AuthService.pin_login for why this makes cross-company PIN lookup
-    impossible by construction, plus per-account lockout on repeated
-    failures."""
+async def pin_login(
+    request: Request,
+    data: PinLoginRequest,
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """BE-08: quick PIN sign-in.
+    - employee_id: the employee identifies the account (and its company by
+      construction); the PIN only proves it. Per-account lockout applies.
+    - Branch terminal (desktop): the terminal's own token identifies the company;
+      user_id optionally narrows the check to the employee picked on screen."""
     svc = AuthService(db)
-    _, access_token, refresh_token = await svc.pin_login(data.employee_id, data.pin)
+    if data.employee_id is not None:
+        _, access_token, refresh_token = await svc.pin_login(data.employee_id, data.pin)
+    elif current_user is not None and current_user.company_id is not None:
+        _, access_token, refresh_token = await svc.login_by_pin(
+            current_user.company_id, data.pin, data.user_id
+        )
+    else:
+        raise HTTPException(status_code=422, detail="employee_id or a terminal session is required")
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
 @router.get("/staff-users", response_model=list[CompanyUserResponse])
-async def staff_users(current_user: User = Depends(require_staff_lister), db: AsyncSession = Depends(get_db)):
+async def staff_users(
+    branch_id: UUID | None = None,
+    # require_staff_lister (not require_terminal_or_web_owner): also accepts
+    # a monoblock identity, which the latter has no case for at all — without
+    # this, a monoblock terminal gets 403 on its own employee picker.
+    current_user: User = Depends(require_staff_lister),
+    db: AsyncSession = Depends(get_db),
+):
+    """Company staff for the terminal's employee picker. With branch_id
+    (explicit query param, or implicitly the calling terminal's own branch):
+    staff of that branch plus staff not assigned to any branch. Service
+    (terminal) users and superadmins are never listed."""
     from app.modules.auth.repository import UserRepository
     users = await UserRepository(db).get_company_users(current_user.company_id)
-    # Терминал филиала видит только персонал своего филиала; веб-владелец
-    # (branch_id = NULL) — всех сотрудников компании.
-    branch_id = getattr(current_user, "branch_id", None)
+
+    effective_branch_id = branch_id if branch_id is not None else getattr(current_user, "branch_id", None)
     result = []
     for user in users:
-        if user.is_superadmin:
+        if user.is_superadmin or is_terminal_email(user.email):
             continue
-        # Служебные терминальные аккаунты не показываем в списке персонала.
-        if is_terminal_email(user.email):
-            continue
-        if branch_id is not None and user.branch_id != branch_id:
+        if effective_branch_id is not None and user.branch_id not in (None, effective_branch_id):
             continue
         roles_res = await db.execute(
             select(Role.slug).join(UserRole, UserRole.role_id == Role.id).where(UserRole.user_id == user.id)
@@ -333,3 +376,74 @@ async def staff_users(current_user: User = Depends(require_staff_lister), db: As
             )
         )
     return result
+
+
+@router.get("/branch-colleagues", response_model=list[CompanyUserResponse])
+async def branch_colleagues(
+    current_user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Colleagues of the signed-in employee's own branch — for order/item
+    hand-offs (e.g. "move to waiter X") on a personal-device sign-in (mobile
+    Staff app, /auth/login), which has no shared terminal and so cannot use
+    the owner/terminal-gated /auth/staff-users. Always scoped to the caller's
+    own branch — unlike /auth/staff-users there is no branch_id override,
+    since a regular employee must not be able to browse other branches'
+    rosters. Service (terminal) users and superadmins are never listed.
+
+    A user's branch is User.branch_id when set — that column is monoblock-only
+    (StaffRolePage only sends it for that role) — otherwise the branch_id on
+    their HR Employee record, which is how cashier/waiter/kitchen/courier
+    accounts are actually assigned a branch in the owner's staff editor."""
+    from app.modules.auth.repository import UserRepository
+    from app.modules.hr.models import Employee as EmpModel
+    users = await UserRepository(db).get_company_users(current_user.company_id)
+    emp_branches = dict((await db.execute(
+        select(EmpModel.user_id, EmpModel.branch_id).where(EmpModel.company_id == current_user.company_id)
+    )).all())
+
+    branch_id = getattr(current_user, "branch_id", None) or emp_branches.get(current_user.id)
+    result = []
+    for user in users:
+        if user.is_superadmin or is_terminal_email(user.email):
+            continue
+        effective_branch = user.branch_id or emp_branches.get(user.id)
+        if branch_id is not None and effective_branch not in (None, branch_id):
+            continue
+        roles_res = await db.execute(
+            select(Role.slug).join(UserRole, UserRole.role_id == Role.id).where(UserRole.user_id == user.id)
+        )
+        slugs = list(roles_res.scalars().all())
+        result.append(
+            CompanyUserResponse.model_validate(user).model_copy(
+                update={"role_slugs": slugs, "role_slug": slugs[0] if slugs else None}
+            )
+        )
+    return result
+
+
+# A session counts as "active" for one shift
+_SESSION_WINDOW = timedelta(hours=16)
+
+
+@router.get("/active-staff", response_model=list[str])
+async def active_staff(
+    current_user: User = Depends(require_terminal_or_web_owner),
+    db: AsyncSession = Depends(get_db),
+):
+    """IDs of staff with a live session: an unrevoked, unexpired refresh token
+    issued within the current shift window."""
+    now = datetime.now(timezone.utc)
+    rows = await db.execute(
+        select(RefreshToken.user_id)
+        .join(User, User.id == RefreshToken.user_id)
+        .where(
+            User.company_id == current_user.company_id,
+            or_(User.email.is_(None), ~User.email.like(TERMINAL_EMAIL_LIKE)),
+            RefreshToken.revoked_at.is_(None),
+            RefreshToken.expires_at > now,
+            RefreshToken.created_at > now - _SESSION_WINDOW,
+        )
+        .distinct()
+    )
+    return [str(uid) for uid in rows.scalars().all()]

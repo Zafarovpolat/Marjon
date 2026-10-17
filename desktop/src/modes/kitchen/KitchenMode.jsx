@@ -66,7 +66,7 @@ export default function KitchenMode({ user = {}, onBack }) {
 
   useEffect(() => {
     loadOrders()
-    const serverUrl = localStorage.getItem('marjon_server_url') || 'http://localhost:8000/api/v1'
+    const serverUrl = localStorage.getItem('marjon_server_url') || (import.meta.env.VITE_DEFAULT_SERVER_URL || 'http://localhost:8000/api/v1')
     const token = localStorage.getItem('marjon_token')
     kitchenWS.connect(serverUrl, token, user.branch_id)
     const unsubs = [

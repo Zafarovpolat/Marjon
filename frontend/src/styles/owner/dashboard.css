@@ -2750,7 +2750,7 @@
     text-align: center;
   }
 
-  /* Shell seam вЂ” see dashboard-curve.css (no overlap on sidebar) */
+  /* Shell seam — see dashboard-curve.css (no overlap on sidebar) */
   .dashboard-shell {
     background: var(--neutral-950);
   }
@@ -5281,7 +5281,7 @@
 
   /* Standalone MARJON Owner Dashboard (/dashboard/) */
 
-  /* Shell seam вЂ” see dashboard-curve.css (no overlap on sidebar) */
+  /* Shell seam — see dashboard-curve.css (no overlap on sidebar) */
 
   /* Unified square role layout */
 

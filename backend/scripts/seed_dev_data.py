@@ -83,7 +83,7 @@ async def _get_or_create_user(db, *, email, name, password, company_id=None, is_
         return user, False
     user = User(
         email=email, name=name, company_id=company_id,
-        password_hash=hash_password(password), is_active=True, is_superadmin=is_superadmin,
+        password_hash=await hash_password(password), is_active=True, is_superadmin=is_superadmin,
     )
     db.add(user)
     await db.flush()

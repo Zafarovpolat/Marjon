@@ -133,6 +133,15 @@ class PrintJobRequest(BaseSchema):
     copies: int = 1
 
 
+class PrintSummaryRequest(BaseSchema):
+    """Summary receipt from History/Reports: free-form lines."""
+    printer_id: UUID
+    title: str
+    lines: list[str] = Field(default_factory=list)
+    footer: str | None = None
+    copies: int = 1
+
+
 class PrintReceiptRequest(BaseSchema):
     order_id: UUID
     printer_id: UUID

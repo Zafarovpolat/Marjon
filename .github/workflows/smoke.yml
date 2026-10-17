@@ -94,7 +94,7 @@ jobs:
         working-directory: backend
         env:
           DATABASE_URL: "sqlite+aiosqlite:///:memory:"   # изолируем от засиженной ci.db
-        run: pip install pytest pytest-asyncio asgi-lifespan && pytest
+        run: pip install pytest pytest-asyncio pytest-xdist asgi-lifespan && pytest -n auto
 
   frontend:
     name: Frontend (тесты и сборка)

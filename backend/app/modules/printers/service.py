@@ -1,9 +1,11 @@
 from __future__ import annotations
 import base64
+import logging
 import time
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,11 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.companies.models import Branch, Company
 from app.modules.kafe_compat.models import ReceiptTemplateSettings
 from app.modules.printers.formatter import (
-    EscPosFormatter, KitchenTicketData, ReceiptData, ReceiptLine,
-    derive_service_rate_percent,
+    EscPosFormatter, KitchenItem, KitchenTicketData, ReceiptData, ReceiptLine,
+    derive_service_rate_percent, format_quantity,
 )
 from app.modules.printers.models import PrintJob, Printer
 from app.modules.printers.printer_client import PrinterError, print_raw
+from app.modules.printers.receipt_raster import RasterRenderError, render_customer_receipt_raster, render_kitchen_ticket_raster
 from app.modules.printers.repository import PrintJobRepository, PrinterRepository
 from app.modules.printers.ws_manager import printer_ws_manager
 from app.modules.printers.schemas import PrinterCreate, PrinterUpdate
@@ -23,6 +26,8 @@ from app.modules.pos.models import Order, OrderItem
 from app.modules.payments.models import Payment
 from app.shared.exceptions import NotFoundError
 from app.shared.storage import storage
+
+logger = logging.getLogger(__name__)
 
 
 # ── PRINT-LAT-01: попытка прямой печати с сервера ────────────────────────────
@@ -151,6 +156,63 @@ class PrinterService:
         )
         return await self._enqueue_and_send(company_id, printer, "test", None, data)
 
+    async def print_summary(
+        self,
+        company_id: UUID,
+        printer_id: UUID,
+        title: str,
+        lines: list[str],
+        footer: str | None = None,
+        copies: int = 1,
+    ) -> PrintJob:
+        """Summary receipt (History/Reports): the client builds the lines."""
+        printer = await self.get(company_id, printer_id)
+        fmt = EscPosFormatter(printer.paper_width, encoding=self._printer_encoding(printer))
+        raw = fmt.format_summary(title, lines, footer)
+        return await self._enqueue_and_send(company_id, printer, "summary", None, raw, copies)
+
+    def _render_customer_receipt(
+        self, printer: Printer, receipt_data: ReceiptData, customer_tpl: dict, logo_bytes: bytes | None,
+    ) -> bytes:
+        """Raster is the normal customer-receipt renderer (physically
+        approved — see docs/physical_receipt_parity_v1_report.md); text-mode
+        is a safety fallback only. The two call sites that print a customer
+        receipt (print_receipt, auto_print_receipt) both route through this
+        so neither can silently drift to a different renderer than the
+        other. RasterRenderError is the ONLY exception this is allowed to
+        catch — it is raised solely for failures before any bytes exist, so
+        falling back here can never produce a duplicate physical receipt."""
+        try:
+            raw = render_customer_receipt_raster(receipt_data, customer_tpl, printer.paper_width, logo_bytes)
+            logger.info(
+                "CUSTOMER_RECEIPT_RENDERER=raster paper_width=%s raster_width=%s payload_bytes=%s",
+                printer.paper_width, 576 if printer.paper_width >= 80 else 384, len(raw),
+            )
+            return raw
+        except RasterRenderError as exc:
+            logger.warning("CUSTOMER_RECEIPT_RASTER_FAILED fallback=text error=%s", exc)
+            fmt = EscPosFormatter(printer.paper_width, encoding=self._printer_encoding(printer))
+            return fmt.format_receipt(receipt_data, template=customer_tpl, logo_bytes=logo_bytes)
+
+    def _render_kitchen_ticket(
+        self, printer: Printer, ticket_data: KitchenTicketData, kitchen_tpl: dict,
+    ) -> bytes:
+        """Kitchen-ticket counterpart to _render_customer_receipt: raster is
+        the normal renderer (same typography pipeline/fonts as the customer
+        receipt — see receipt_raster.render_kitchen_ticket_raster), text-mode
+        is the safety fallback. Same RasterRenderError-only catch contract."""
+        try:
+            raw = render_kitchen_ticket_raster(ticket_data, kitchen_tpl, printer.paper_width)
+            logger.info(
+                "KITCHEN_TICKET_RENDERER=raster paper_width=%s payload_bytes=%s",
+                printer.paper_width, len(raw),
+            )
+            return raw
+        except RasterRenderError as exc:
+            logger.warning("KITCHEN_TICKET_RASTER_FAILED fallback=text error=%s", exc)
+            fmt = EscPosFormatter(printer.paper_width, encoding=self._printer_encoding(printer))
+            return fmt.format_kitchen_ticket(ticket_data, template=kitchen_tpl)
+
     async def print_receipt(
         self, company_id: UUID, order_id: UUID, printer_id: UUID, copies: int = 1
     ) -> PrintJob:
@@ -160,8 +222,7 @@ class PrinterService:
         customer_tpl, _ = await self._get_receipt_templates(company_id)
         logo_bytes = await self._get_logo_bytes(company_id)
 
-        fmt = EscPosFormatter(printer.paper_width, encoding=self._printer_encoding(printer))
-        raw = fmt.format_receipt(receipt_data, template=customer_tpl, logo_bytes=logo_bytes)
+        raw = self._render_customer_receipt(printer, receipt_data, customer_tpl, logo_bytes)
         job = await self._enqueue_and_send(company_id, printer, "receipt", order_id, raw, copies)
         # Отметка «чек напечатан» → стол «ожидает оплату» (сбросится при дозаказе)
         try:
@@ -177,11 +238,10 @@ class PrinterService:
     ) -> PrintJob:
         printer = await self.get(company_id, printer_id)
         order = await self._get_order(company_id, order_id)
-        ticket_data = await self._build_kitchen_data(order)
+        ticket_data = await self._build_kitchen_data(company_id, order)
         _, kitchen_tpl = await self._get_receipt_templates(company_id)
 
-        fmt = EscPosFormatter(printer.paper_width, encoding=self._printer_encoding(printer))
-        raw = fmt.format_kitchen_ticket(ticket_data, template=kitchen_tpl)
+        raw = self._render_kitchen_ticket(printer, ticket_data, kitchen_tpl)
         return await self._enqueue_and_send(company_id, printer, "kitchen", order_id, raw, copies)
 
     async def get_order_for_print(self, company_id: UUID, order_id: UUID) -> Order:
@@ -200,8 +260,7 @@ class PrinterService:
         for printer in printers:
             order = await self._get_order(company_id, order_id)
             receipt_data = await self._build_receipt_data(company_id, order)
-            fmt = EscPosFormatter(printer.paper_width, encoding=self._printer_encoding(printer))
-            raw = fmt.format_receipt(receipt_data, template=customer_tpl, logo_bytes=logo_bytes)
+            raw = self._render_customer_receipt(printer, receipt_data, customer_tpl, logo_bytes)
             job = await self._enqueue_and_send(company_id, printer, "receipt", order_id, raw)
             jobs.append(job)
         return jobs
@@ -212,9 +271,8 @@ class PrinterService:
         _, kitchen_tpl = await self._get_receipt_templates(company_id)
         for printer in printers:
             order = await self._get_order(company_id, order_id)
-            ticket_data = await self._build_kitchen_data(order)
-            fmt = EscPosFormatter(printer.paper_width, encoding=self._printer_encoding(printer))
-            raw = fmt.format_kitchen_ticket(ticket_data, template=kitchen_tpl)
+            ticket_data = await self._build_kitchen_data(company_id, order)
+            raw = self._render_kitchen_ticket(printer, ticket_data, kitchen_tpl)
             job = await self._enqueue_and_send(company_id, printer, "kitchen", order_id, raw)
             jobs.append(job)
         return jobs
@@ -361,14 +419,32 @@ class PrinterService:
             raise NotFoundError("Order not found")
         return order
 
+    async def _resolve_waiter_name(self, company_id: UUID, order: Order) -> str | None:
+        if not order.waiter_id:
+            return None
+        from app.modules.auth.models import User as _User
+        waiter = (
+            await self.db.execute(
+                select(_User).where(_User.id == order.waiter_id, _User.company_id == company_id)
+            )
+        ).scalar_one_or_none()
+        return waiter.name if waiter else None
+
     async def _build_receipt_data(self, company_id: UUID, order: Order) -> ReceiptData:
-        # Get last payment
+        # The product contract is one-payment-only (PaymentService.process
+        # rejects a second completed payment and requires amount == order
+        # total — see payments/service.py), so at most one row can ever
+        # match here. The explicit order_by is defensive determinism, not a
+        # multi-payment selection: an unordered `.first()` is non-deterministic
+        # SQL even when only one row is expected to exist.
         pay_result = await self.db.execute(
-            select(Payment).where(
+            select(Payment)
+            .where(
                 Payment.company_id == company_id,
                 Payment.order_id == order.id,
                 Payment.status == "completed",
             )
+            .order_by(Payment.created_at.desc())
         )
         payment = pay_result.scalars().first()
 
@@ -385,7 +461,6 @@ class PrinterService:
 
         # Названия компании/филиала/официанта для «подробного» чека
         from app.modules.companies.models import Company, Branch
-        from app.modules.auth.models import User as _User
         company = (await self.db.execute(select(Company).where(Company.id == company_id))).scalar_one_or_none()
         branch = (
             await self.db.execute(
@@ -394,15 +469,23 @@ class PrinterService:
                 )
             )
         ).scalar_one_or_none()
-        waiter = None
-        if order.waiter_id:
-            waiter = (
-                await self.db.execute(
-                    select(_User).where(
-                        _User.id == order.waiter_id, _User.company_id == company_id
-                    )
-                )
-            ).scalar_one_or_none()
+        waiter_name = await self._resolve_waiter_name(company_id, order)
+
+        # Customer receipt date/time is the order's own creation moment, not
+        # print time (ReceiptPreview.jsx: infoRow("dateTime", "Дата:",
+        # formatCustomerDate(order.created_at)) — a reprint must show the same
+        # timestamp every time). Converted from UTC to the company's own
+        # timezone, the same convention pos/service.py uses for its own
+        # "operating day" calculations.
+        tz_name = (company.timezone if company and company.timezone else None) or "Asia/Tashkent"
+        try:
+            tz = ZoneInfo(tz_name)
+        except (ZoneInfoNotFoundError, KeyError):
+            tz = ZoneInfo("Asia/Tashkent")
+        created_at = order.created_at
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        order_local_time = created_at.astimezone(tz)
 
         # База сбора — та же, что в пересчёте заказа: активные позиции
         # «в зале» (без отменённых и «с собой»). Ставка выводится из
@@ -419,41 +502,42 @@ class PrinterService:
             branch_name=(branch.name if branch else "—"),
             order_number=order.order_number,
             order_type=order.order_type,
-            cashier_name=(waiter.name if waiter and waiter.name else "Кассир"),
+            cashier_name=(waiter_name or "Кассир"),
             items=lines,
             subtotal=order.subtotal,
             discount=order.discount_amount,
             tax=order.tax_amount,
             total=order.total_amount,
-            payment_method=payment.method if payment else "—",
+            payment_method=(payment.method if payment else None),
             cash_received=payment.cash_received if payment else None,
             change_given=payment.change_given if payment else None,
             table_number=order.table_number,
             service_fee=order.service_fee,
             service_fee_rate=derive_service_rate_percent(order.service_fee, service_base),
-            waiter_name=(waiter.name if waiter else None),
+            waiter_name=waiter_name,
+            printed_at=order_local_time,
         )
 
-    async def _build_kitchen_data(self, order: Order) -> KitchenTicketData:
+    async def _build_kitchen_data(self, company_id: UUID, order: Order) -> KitchenTicketData:
         items = [
-            {
-                "name": item.name,
-                "qty": str(item.quantity),
-                "price": str(item.price),
-                "total": str(item.total),
-                "note": item.note,
-                "modifiers": [m.get("name", "") for m in (item.modifiers or [])],
-                "course": item.course,
-            }
+            KitchenItem(
+                name=item.name,
+                qty=format_quantity(item.quantity),
+                note=item.note,
+                modifiers=[m.get("name", "") for m in (item.modifiers or [])],
+                course=item.course,
+                total=item.total,
+            )
             for item in order.items
             if item.status not in ("cancelled", "served")
         ]
+        waiter_name = await self._resolve_waiter_name(company_id, order)
         return KitchenTicketData(
             order_number=order.order_number,
             order_type=order.order_type,
             table_number=order.table_number,
-            waiter_name=None,
+            waiter_name=waiter_name,
             items=items,
             note=order.note,
-            subtotal=sum((item.total for item in order.items if item.status not in ("cancelled", "served")), Decimal("0")),
+            status=order.status,
         )

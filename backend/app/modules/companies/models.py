@@ -21,19 +21,6 @@ class Company(TimeStampedModel):
     timezone: Mapped[str] = mapped_column(String(50), default="UTC")
     currency: Mapped[str] = mapped_column(String(3), default="UZS")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    # Спец-пароль для отмены заказа (задаётся в веб-админке)
-    cancel_password: Mapped[str | None] = mapped_column(String(64))
-    # Доля обслуги, начисляемая официанту, % (для отчёта по официантам)
-    waiter_service_percent: Mapped[int] = mapped_column(Integer, default=0)
-    # Час старта «операционного дня» (0–23) для сброса нумерации заказов.
-    # 0 = сброс в полночь (как раньше); 5 = день идёт с 05:00, заказы до 05:00
-    # относятся к прошлому дню. Локальное время — по timezone компании.
-    day_start_hour: Mapped[int] = mapped_column(Integer, default=0)
-    # 2.5 — конфиг конструктора чека из веб-админки (какие блоки печатать,
-    # тексты «спасибо»/подвала и т.п.). Читается форматтером ESC/POS при печати.
-    # Форма см. frontend/src/api/receipt.js (buildCustomerTemplate/buildKitchenTemplate).
-    receipt_template: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
-    kitchen_receipt_template: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
     # Реквизиты для профиля/чека (SettingsProfilePage, ReceiptSettingsPage)
     address: Mapped[str | None] = mapped_column(Text)
     phone: Mapped[str | None] = mapped_column(String(32))
@@ -49,6 +36,19 @@ class Company(TimeStampedModel):
     # means an unknown field is just dropped, not rejected).
     vat_rate: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
     service_fee: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    # Спец-пароль для отмены заказа (задаётся в веб-админке)
+    cancel_password: Mapped[str | None] = mapped_column(String(64))
+    # Доля обслуги, начисляемая официанту, % (для отчёта по официантам)
+    waiter_service_percent: Mapped[int] = mapped_column(Integer, default=0)
+    # Час старта «операционного дня» (0–23) для сброса нумерации заказов.
+    # 0 = сброс в полночь (как раньше); 5 = день идёт с 05:00, заказы до 05:00
+    # относятся к прошлому дню. Локальное время — по timezone компании.
+    day_start_hour: Mapped[int] = mapped_column(Integer, default=0)
+    # 2.5 — конфиг конструктора чека из веб-админки (какие блоки печатать,
+    # тексты «спасибо»/подвала и т.п.). Читается форматтером ESC/POS при печати.
+    # Форма см. frontend/src/api/receipt.js (buildCustomerTemplate/buildKitchenTemplate).
+    receipt_template: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
+    kitchen_receipt_template: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
     # Типы заказа (На стол / На вынос / Доставка) — управляются тремя
     # чекерами «Другие настройки». NULL = все включены (как раньше).
     order_types: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
@@ -78,7 +78,9 @@ class Branch(TimeStampedModel):
     # Логин/пароль филиала для входа с десктопа (шаг 1 авторизации кассы).
     # login глобально уникален (десктоп логинится ТОЛЬКО по логину, без выбора
     # компании); password_hash — bcrypt (никогда не хранится в открытом виде).
-    login: Mapped[str | None] = mapped_column(String(150), unique=True, index=True, nullable=True)
+    # Длина 100 — как в применённой миграции 20260925_d7e8brnlog11 (см. ниже
+    # BranchLoginRequest.login/BranchCreate.login — приведены к тому же лимиту).
+    login: Mapped[str | None] = mapped_column(String(100), unique=True, index=True, nullable=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     company: Mapped[Company] = relationship(back_populates="branches")

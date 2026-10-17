@@ -96,7 +96,7 @@ class AccountService:
             username=data.username,
             name=data.name,
             email=email,
-            password_hash=hash_password(data.password),
+            password_hash=await hash_password(data.password),
             is_active=data.is_active,
         )
         self.db.add(user)
@@ -112,7 +112,7 @@ class AccountService:
     async def update(self, account_id: UUID, data: AccountUpdate) -> AccountResponse:
         user = await self.get(account_id)
         if data.password:
-            user.password_hash = hash_password(data.password)
+            user.password_hash = await hash_password(data.password)
         if data.name is not None:
             user.name = data.name
         if data.is_active is not None:

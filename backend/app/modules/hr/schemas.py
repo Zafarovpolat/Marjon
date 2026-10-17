@@ -60,10 +60,27 @@ class AttendanceCreate(BaseSchema):
     note: str | None = None
 
 
+class AttendanceMark(BaseSchema):
+    """Cashier marks a staff member in/out; approved immediately."""
+    user_id: UUID
+    action: str  # check_in | check_out
+    note: str | None = None
+
+
+class AttendanceApprove(BaseSchema):
+    approve: bool = True
+    note: str | None = None
+
+
 class AttendanceResponse(BaseResponseSchema):
-    employee_id: UUID
-    shift_id: UUID
+    user_id: UUID | None = None
+    employee_id: UUID | None = None
+    shift_id: UUID | None = None
     action: str
     timestamp: datetime
     method: str
     note: str | None
+    status: str = "pending"
+    approved_by: UUID | None = None
+    approved_at: datetime | None = None
+    employee_name: str | None = None

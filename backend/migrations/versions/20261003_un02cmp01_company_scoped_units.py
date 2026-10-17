@@ -1,11 +1,16 @@
 """Add company-owned units and tenant-safe product unit references.
 
 Revision ID: un02cmp01
-Revises: wh01exp01, c6d7ftrs10
+Revises: wh02mrg01
 Create Date: 2026-10-03
 
 Existing nm_units rows remain untouched and therefore become global system
 units (company_id IS NULL). Existing products remain untouched (unit_id NULL).
+
+Originally chained onto a tuple (wh01exp01, c6d7ftrs10) — redundant, since
+c6d7ftrs10 is already an ancestor of wh01exp01 on this line. Re-pointed onto
+wh02mrg01 (wh01exp01's actual single child here) when merging
+feature/toast-notifications a second time, to keep the single-head chain.
 """
 from typing import Sequence, Union
 
@@ -14,7 +19,7 @@ from alembic import op
 
 
 revision: str = "un02cmp01"
-down_revision: Union[str, tuple[str, str]] = ("wh01exp01", "c6d7ftrs10")
+down_revision: Union[str, None] = "wh02mrg01"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

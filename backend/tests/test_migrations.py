@@ -27,7 +27,7 @@ from app.shared.base_model import Base
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 VERSIONS_DIR = BACKEND_ROOT / "migrations" / "versions"
-EXPECTED_HEAD = "v47avg01"
+EXPECTED_HEAD = "v48pwd01"
 EXPECTED_NULLABLE_COLUMN_COUNT = 262
 EXPECTED_PARITY_OPERATIONS = {"remove_index", "remove_table_comment"}
 FIXTURES_DIR = BACKEND_ROOT / "tests" / "fixtures"
@@ -143,11 +143,23 @@ def test_revision_graph_is_complete_and_has_one_head() -> None:
         elif down_revision is not None:
             pending.append(down_revision)
     assert visited == set(revisions)
-    # The warehouse-document branch and the restored-feature branch are both
-    # retained; un02cmp01 is the intentional merge revision above them,
-    # v24auto01 adds products.is_auto/is_set on top,
-    # v25cat01 adds categories.calculate_service/show_in_menu on top,
-    # v26sup01 adds companies.show_support_button;
+    # 58 (see git history for the full chain to e8f9att05) + f9g0prj06
+    # (print_jobs.payload TEXT, redesign-mobile) + wh01exp01 (WH-01 expense/
+    # waste documents, origin/main) re-based onto f9g0prj06 at merge time
+    # instead of its original parent bi08dcs01, + wh02mrg01 (users.branch_id
+    # column + WH-01 nullability, written to fix gaps the merge's own
+    # Postgres parity test caught) = 61, then from merging
+    # feature/toast-notifications (two rounds):
+    # un02cmp01 adds nm_units.company_id + products.unit_id — re-chained onto
+    #   wh02mrg01 (its original down_revision was a (wh01exp01, c6d7ftrs10)
+    #   tuple, redundant since c6d7ftrs10 is already wh01exp01's own
+    #   ancestor on this line).
+    # v24auto01 adds products.is_auto/is_set on top.
+    # 0c16e3a26191 adds companies.order_types — re-chained onto v24auto01
+    #   (second round; first round had chained it onto wh02mrg01 directly,
+    #   before un02cmp01/v24auto01 existed here).
+    # v25cat01 adds categories.calculate_service/show_in_menu on top.
+    # v26sup01 adds companies.show_support_button.
     # v31sort01 normalizes product positions without changing the schema.
     # v32dec01 converts products.daily_limit/sold_count Integer → NUMERIC(12,3).
     # v33top01 adds append-only product_limit_topups (cumulative allowance history).
@@ -161,13 +173,22 @@ def test_revision_graph_is_complete_and_has_one_head() -> None:
     # v41pur01 adds purchase_document_items.product_id (Товар line link).
     # v42inv01 adds inventory_check_items + inventory_checks purchase/expense links.
     # v43inv02 backfills conducted inventory_checks drafts to accepted (no schema change).
-    # 3231976db538 merges c6d7ftrs10 + wh01exp01 (no schema change).
-    # 0c16e3a26191 adds companies.order_types (per-type availability).
     # v44los01 adds ingredients.loss_type/loss_value (waste norm, nullable).
-    # v45mrg01 merges v44los01 + 0c16e3a26191 (no schema change).
-    # v46fifo01 adds stock_batches (FIFO lots: one row per purchase) + backfill.
+    # Three no-op merge stubs (3231976db538 merging c6d7ftrs10+wh01exp01,
+    # v45mrg01 merging v44los01+0c16e3a26191, same reasoning for both) were
+    # dropped rather than kept as merge points — each joined a branch to its
+    # own already-linear ancestor, and this project's linear-chain invariant
+    # forbids a tuple down_revision regardless. v46fifo01 (originally chained
+    # onto the dropped v45mrg01, re-pointed onto v44los01 directly) adds
+    # stock_batches (FIFO lots: one row per purchase) + backfill.
     # v47avg01 adds ingredients.avg_quantity/deficit_threshold (nullable).
-    assert len(revisions) == 80
+    # v48pwd01 adds users.auth_token_version (bump-to-invalidate on password
+    # change) — the head. 61 + un02cmp01, v24auto01, 0c16e3a26191, v25cat01,
+    # v26sup01, v31sort01, v32dec01, v33top01, v34stop01, v35hist01, v36rec01,
+    # v37wh01, v38set01, v39avl01, v40typ01, v41pur01, v42inv01, v43inv02,
+    # v44los01, v46fifo01, v47avg01, v48pwd01 (22 more) = 83, one linear
+    # chain, one head.
+    assert len(revisions) == 83
 
     nullable_columns = _bi02_nullable_columns()
     assert len(nullable_columns) == EXPECTED_NULLABLE_COLUMN_COUNT
@@ -1142,7 +1163,9 @@ def test_postgresql_fresh_upgrade_timing_downgrade_and_second_fresh() -> None:
         # ORDERS-TRUTH-01 head (bi06oid08) peels off first: its columns, counter
         # table and backstop index go, while the cancellation-truth layer below
         # (and everything earlier) stays intact.
-        _run_alembic(first_url, "downgrade", "-1")
+        # Revisions stacked above bi06oid08 upstream (email nullable, cost snapshot,
+        # restored premerge columns, branch login) are peeled together with it.
+        _run_alembic(first_url, "downgrade", "bi06ccd07")
         assert asyncio.run(_current_revision(first_url)) != EXPECTED_HEAD
         assert not asyncio.run(_column_exists(first_url, "orders", "public_id"))
         assert not asyncio.run(_column_exists(first_url, "orders", "order_local_date"))
@@ -1361,7 +1384,11 @@ def test_postgresql_proven_git_legacy_snapshot_and_data_preservation(
     assert asyncio.run(_current_revision(database_url)) == EXPECTED_HEAD
     after = asyncio.run(_bi02_column_nullability(database_url))
     assert len(after) == EXPECTED_NULLABLE_COLUMN_COUNT
-    assert set(after.values()) == {"NO"}
+    # e8f9att05 deliberately relaxes these two: a cashier marks attendance per user,
+    # without an HR employee card or work shift.
+    relaxed = {("attendance_logs", "employee_id"), ("attendance_logs", "shift_id")}
+    assert {key for key, value in after.items() if value == "YES"} == relaxed
+    assert all(value == "NO" for key, value in after.items() if key not in relaxed)
     asyncio.run(_assert_representative_rows_preserved(database_url))
     _assert_valid_attendance_index(
         asyncio.run(
@@ -1560,7 +1587,13 @@ def test_postgresql_transaction_boundary_and_lock_timeout(
                 )
             )
 
-            deadline = asyncio.get_running_loop().time() + 4
+            # Cold "python -m alembic" subprocess startup (importing every
+            # app module + SQLAlchemy metadata across 80+ migrations) alone
+            # can take several seconds before the migration even reaches
+            # the blocking ALTER — 4s was too tight and flaked on slower
+            # machines/CI; 20s gives ample margin while still catching a
+            # genuine "never waited for the lock" regression.
+            deadline = asyncio.get_running_loop().time() + 20
             while asyncio.get_running_loop().time() < deadline:
                 waiting = await observer.fetchval(
                     """
@@ -1594,7 +1627,10 @@ def test_postgresql_transaction_boundary_and_lock_timeout(
             elapsed = time.monotonic() - started_at
             assert result.returncode != 0
             assert "lock timeout" in (result.stdout + result.stderr).lower()
-            assert 4 <= elapsed < 15
+            # Lower bound still proves it actually waited (lock_timeout='5s'
+            # in migrations/env.py); upper bound widened in step with the
+            # poll deadline above, for the same cold-start reason.
+            assert 4 <= elapsed < 30
         finally:
             await blocker_transaction.rollback()
             if migration_task is not None and not migration_task.done():

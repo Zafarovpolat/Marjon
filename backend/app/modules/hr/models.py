@@ -45,13 +45,20 @@ class AttendanceLog(TimeStampedModel):
     __tablename__ = "attendance_logs"
 
     company_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("companies.id"), index=True)
-    employee_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("employees.id"), index=True)
-    shift_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("work_shifts.id"), index=True)
+    # A cashier marks attendance per user (no HR employee card / shift needed), so
+    # employee_id/shift_id are optional and user_id is the direct reference.
+    user_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), index=True)
+    employee_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("employees.id"), index=True)
+    shift_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("work_shifts.id"), index=True)
     # check_in | check_out
     action: Mapped[str] = mapped_column(String(20), nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     # pin | qr | manual
     method: Mapped[str] = mapped_column(String(20), default="manual")
     note: Mapped[str | None] = mapped_column(Text)
+    # A cook's check-in/out is confirmed by the cashier: pending -> approved | rejected.
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    approved_by: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    shift: Mapped[WorkShift] = relationship(back_populates="attendance_logs")
+    shift: Mapped[WorkShift | None] = relationship(back_populates="attendance_logs")

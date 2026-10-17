@@ -63,6 +63,18 @@ async def list_permissions(
     return await RBACService(db).list_permissions()
 
 
+@router.get("/roles/{role_id}/permissions", response_model=list[PermissionResponse])
+async def get_role_permissions(
+    role_id: UUID,
+    current_user: User = Depends(require_company_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Current permission set for one role — the checkbox state source for
+    the owner's per-role permission editor (paired with GET /rbac/permissions
+    for the full catalog)."""
+    return await RBACService(db).get_role_permissions(role_id, current_user.company_id)
+
+
 @router.post("/roles/{role_id}/permissions", status_code=status.HTTP_204_NO_CONTENT)
 async def assign_role_permission(
     role_id: UUID,

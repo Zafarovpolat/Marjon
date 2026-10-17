@@ -90,7 +90,7 @@ def _stamp_item_cancellation(item: OrderItem, actor_id: UUID | None) -> None:
         item.cancelled_by_id = actor_id
 
 
-def _safe_verify(secret: str | None, hashed: str | None) -> bool:
+async def _safe_verify(secret: str | None, hashed: str | None) -> bool:
     """Безопасная проверка секрета против bcrypt-хэша.
 
     Оборачивает verify_password в try/except и гардит None: пустой секрет или
@@ -100,7 +100,7 @@ def _safe_verify(secret: str | None, hashed: str | None) -> bool:
     if not secret or not hashed:
         return False
     try:
-        return verify_password(secret, hashed)
+        return await verify_password(secret, hashed)
     except Exception:
         return False
 
@@ -239,6 +239,7 @@ class OrderService:
             order, data.discount_amount,
             await self._effective_service_rate(company_id, order, data.service_fee_rate),
             service_base=service_base,
+            tax_rate=await self._vat_rate(order),
         )
         await self.db.commit()
         try:
@@ -516,6 +517,7 @@ class OrderService:
             order, None,
             await self._effective_service_rate(company_id, order, None),
             service_base=await self._service_base_q(order.id),
+            tax_rate=await self._vat_rate(order),
         )
         await self.db.commit()
         return await self.get(company_id, order_id)
@@ -548,6 +550,7 @@ class OrderService:
             order, None,
             await self._effective_service_rate(company_id, order, None),
             service_base=await self._service_base_q(order.id),
+            tax_rate=await self._vat_rate(order),
         )
         await self.db.commit()
         try:
@@ -631,6 +634,7 @@ class OrderService:
             order, data.discount_amount,
             await self._effective_service_rate(company_id, order, data.service_fee_rate),
             service_base=await self._service_base_q(order.id),
+            tax_rate=await self._vat_rate(order),
         )
         await self.repo.save(order)
         # 3.3 — логируем смену стола/официанта с причиной (для аудита).
@@ -720,12 +724,14 @@ class OrderService:
             source, None,
             await self._effective_service_rate(company_id, source, None),
             service_base=await self._service_base_q(source.id),
+            tax_rate=await self._vat_rate(source),
         )
         target.subtotal = await self._subtotal_q(target.id)
         self._recalculate_totals(
             target, None,
             await self._effective_service_rate(company_id, target, None),
             service_base=await self._service_base_q(target.id),
+            tax_rate=await self._vat_rate(target),
         )
 
         # Исходный заказ без активных позиций → автоматически отменяем.
@@ -784,12 +790,20 @@ class OrderService:
 
     # ── Internals ─────────────────────────────────────────────────────────────
 
+    async def _vat_rate(self, order: Order) -> Decimal:
+        """НДС компании из админки (Company.vat_rate, в процентах); config — запасной."""
+        company = await self.db.get(Company, order.company_id)
+        if company is not None and company.vat_rate is not None:
+            return Decimal(str(company.vat_rate)) / Decimal(100)
+        return Decimal(str(settings.default_tax_rate))
+
     def _recalculate_totals(
         self,
         order: Order,
         discount_override: Decimal | None = None,
         service_fee_rate_override: float | None = None,
         service_base: Decimal | None = None,
+        tax_rate: Decimal | None = None,
     ) -> None:
         """Recalculate tax, discount, service_fee, total_amount from subtotal.
 
@@ -804,8 +818,7 @@ class OrderService:
         after_discount = max(subtotal - order.discount_amount, Decimal("0"))
 
         # Tax (НДС 12% — from settings, applied after discount)
-        tax_rate = Decimal(str(settings.default_tax_rate))
-        order.tax_amount = _quantize(after_discount * tax_rate)
+        order.tax_amount = _quantize(after_discount * (tax_rate if tax_rate is not None else Decimal(str(settings.default_tax_rate))))
 
         # Service fee (rate-based). База — только позиции «в зале» (без takeaway),
         # если она передана; иначе — вся сумма после скидки.
@@ -1127,8 +1140,8 @@ class OrderService:
         if candidate and candidate == cancel_password:
             return
         if user is not None and (
-            _safe_verify(candidate, getattr(user, "password_hash", None))
-            or _safe_verify(candidate, getattr(user, "pin_hash", None))
+            await _safe_verify(candidate, getattr(user, "password_hash", None))
+            or await _safe_verify(candidate, getattr(user, "pin_hash", None))
         ):
             return
         raise ValidationError("Неверный пароль подтверждения операции")

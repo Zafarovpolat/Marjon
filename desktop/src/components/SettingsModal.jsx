@@ -37,7 +37,7 @@ function Stepper({ value, onChange, min = 1, max = 99, step = 1, unit }) {
 export default function SettingsModal({ open, onClose }) {
   const [soundEnabled, setSoundEnabled] = useState(soundService.enabled)
   const [volume, setVolume] = useState(soundService.volume)
-  const [serverUrl, setServerUrl] = useState(() => localStorage.getItem('marjon_server_url') || 'http://localhost:8000/api/v1')
+  const [serverUrl, setServerUrl] = useState(() => localStorage.getItem('marjon_server_url') || (import.meta.env.VITE_DEFAULT_SERVER_URL || 'http://localhost:8000/api/v1'))
   const [serverSaved, setServerSaved] = useState(false)
   const [timersSaved, setTimersSaved] = useState(false)
 

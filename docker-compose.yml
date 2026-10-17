@@ -1,145 +1,113 @@
-# Marjon — локальный запуск в Docker.
-#
-#   docker compose up -d --build     # БД + бэкенд + веб (всё, что нужно для теста)
-#   docker compose logs -f backend   # логи
-#   docker compose down              # остановить (данные БД сохраняются)
-#   docker compose down -v           # остановить и удалить данные
-#
-# Опциональные части (по профилям):
-#   docker compose --profile storage  up -d   # + MinIO (загрузка аватаров/файлов)
-#   docker compose --profile gateways up -d   # + платёжные шлюзы Payme/Click/Uzum
-#   docker compose --profile ngrok    up -d   # + публичный туннель к MinIO
-#
-# Ничего настраивать вручную не нужно: пароли БД, миграции и демо-данные
-# готовятся автоматически внутри контейнеров.
-
 services:
   db:
     image: postgres:16-alpine
-    container_name: marjon-db
     restart: unless-stopped
     environment:
       POSTGRES_DB: marjon
       POSTGRES_USER: marjon
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-marjon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-marjon_secret}
     ports:
-      # Наружу отдаём 55432, чтобы не конфликтовать с локально установленным
-      # Postgres на 5432. Внутри сети контейнеров адрес остаётся db:5432.
-      - "55432:5432"
+      # Только с самого сервера (SSH-туннель при нужде) — снаружи ходит
+      # только nginx (80/443). До этой правки было 0.0.0.0:5432, то есть
+      # голая Postgres с дефолтным паролем смотрела прямо в интернет.
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U marjon -d marjon"]
+      test: ["CMD-SHELL", "pg_isready -U marjon"]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 5
 
-  backend:
-    build: ./backend
-    container_name: marjon-backend
+  redis:
+    image: redis:7-alpine
     restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
+    # Pub/sub only (kitchen WS fan-out across backend --workers, see
+    # app/modules/kitchen/websocket.py) — nothing here needs to survive a
+    # restart, so persistence is off rather than writing RDB snapshots of
+    # transient channel traffic.
+    command: redis-server --save "" --appendonly no
     ports:
-      - "8000:8000"
-    environment:
-      # Внутри сети контейнеров БД доступна по имени сервиса
-      DATABASE_URL: postgresql+asyncpg://marjon:${POSTGRES_PASSWORD:-marjon}@db:5432/marjon
-      SECRET_KEY: local-dev-secret-key-change-in-prod
-      DEBUG: "true"
-      PORT: "8000"
-      # Веб ходит через nginx на том же origin, а десктоп/мобилка — напрямую с
-      # произвольного адреса. Для локального теста разрешаем любой origin
-      # (токены передаются заголовком Authorization, cookie не используются).
-      ALLOWED_ORIGINS: "*"
-      # Наполнить демо-данными при первом запуске (0 — не наполнять)
-      SEED_ON_START: "1"
-      # MinIO — только для загрузки аватаров; работает при профиле storage
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
-      MINIO_ACCESS_KEY: marjon
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-marjon}
-      MINIO_BUCKET: marjon-media
+      # Same pattern as db/minio above: only reachable from the server
+      # itself, never exposed to the internet.
+      - "127.0.0.1:6379:6379"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/docs', timeout=3).status==200 else 1)\""]
-      interval: 10s
-      timeout: 5s
-      start_period: 90s
-      retries: 10
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
-  frontend:
-    build: ./frontend
-    container_name: marjon-frontend
-    restart: unless-stopped
-    depends_on:
-      backend:
-        condition: service_healthy
-    ports:
-      - "5173:80"
-    # nginx внутри контейнера проксирует /api и /ws на backend:8000,
-    # поэтому веб работает с любого устройства без правки адресов и без CORS.
-
-  # ── Опционально: хранилище файлов (профиль storage) ────────────────────────
   minio:
-    # Тег зафиксирован: `latest` у MinIO меняется ежедневно и ломал запуск.
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
-    container_name: marjon-minio
-    profiles: ["storage", "ngrok"]
+    # minio/minio и minio/mc сняты с Docker Hub, quay.io/minio/minio отдаёт
+    # 401 на все теги, прямой бинарник с dl.min.io тоже 410 — сам MinIO Inc.
+    # закрыл бесплатную раздачу сервера везде. pgsty/silo — community-форк,
+    # публикуется с датированными тегами, работает от root (как и было),
+    # принимает те же MINIO_ROOT_USER/PASSWORD без изменений.
+    image: docker.io/pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: marjon
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-marjon}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-marjon_secret}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      # Публично файлы отдаются через backend/nginx, не напрямую из MinIO —
+      # эти порты только для локальной консоли/отладки с самого сервера.
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     volumes:
       - minio_data:/data
     healthcheck:
-      # `mc` в образе minio/minio нет — проверяем HTTP-эндпоинт готовности.
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 5s
       timeout: 3s
       retries: 10
 
-  minio-init:
-    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
-    container_name: marjon-minio-init
-    profiles: ["storage", "ngrok"]
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-        mc alias set local http://minio:9000 marjon ${POSTGRES_PASSWORD:-marjon} &&
-        mc mb --ignore-existing local/marjon-media &&
-        mc anonymous set public local/marjon-media &&
-        echo 'MinIO bucket ready'
-      "
-    restart: "no"
+  # Бакет создаётся не отдельным сервисом (minio/mc снят с Docker Hub,
+  # альтернатив без доп. плясок с правами не нашлось), а одной командой
+  # через уже поднятый backend — у него есть boto3 и все нужные креды,
+  # см. "docker compose exec backend python3 -c ..." в nginx/README.md /
+  # DEPLOY.md.
 
-  # ── Опционально: публичный туннель к MinIO (профиль ngrok) ────────────────
-  # Требует NGROK_AUTHTOKEN, поэтому по умолчанию не запускается.
-  ngrok-minio:
-    image: ngrok/ngrok:latest
-    container_name: marjon-ngrok
-    profiles: ["ngrok"]
+  backend:
+    build: ./backend
     restart: unless-stopped
     depends_on:
+      db:
+        condition: service_healthy
       minio:
         condition: service_healthy
-    environment:
-      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
-    command: http minio:9000 --domain=flounder-precious-vervet.ngrok-free.app --log stdout
+      redis:
+        condition: service_healthy
     ports:
-      - "4040:4040"
+      # Наружу отдаёт только nginx (см. ниже) — прямой доступ к :8000
+      # с сервера остаётся (для curl localhost:8000/docs при отладке).
+      - "127.0.0.1:8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://marjon:${POSTGRES_PASSWORD:-marjon_secret}@db:5432/marjon
+      # Kitchen WS fan-out across --workers below (без Redis каждый воркер
+      # видит только свои собственные WS-подключения — см.
+      # app/modules/kitchen/websocket.py).
+      REDIS_URL: redis://redis:6379/0
+      # Локально пусто — config.py сам подставит insecure dev-ключ, пока
+      # DEBUG=true. На сервере ОБЯЗАТЕЛЬНО задать в .env (см. .env.example):
+      # без SECRET_KEY при DEBUG=false бэкенд откажется стартовать.
+      SECRET_KEY: ${SECRET_KEY:-}
+      DEBUG: ${DEBUG:-true}
+      PORT: "8000"
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-["http://localhost:3000","http://localhost:5173"]}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-https://s3.marjon.tech}
+      MINIO_ACCESS_KEY: marjon
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-marjon_secret}
+      MINIO_BUCKET: marjon-media
+    command: >
+      sh -c "
+        alembic upgrade head &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${BACKEND_WORKERS:-3}
+      "
 
-  # ── Опционально: платёжные шлюзы (профиль gateways) ───────────────────────
   payme-gateway:
     build: ./services/payme-gateway
-    container_name: marjon-payme
-    profiles: ["gateways"]
     restart: unless-stopped
     depends_on:
       db:
@@ -150,14 +118,12 @@ services:
       - "8001:8001"
     environment:
       PORT: "8001"
-      DATABASE_URL: postgres://marjon:${POSTGRES_PASSWORD:-marjon}@db:5432/marjon?sslmode=disable
-      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-local-dev-webhook-secret}
+      DATABASE_URL: postgres://marjon:${POSTGRES_PASSWORD:-marjon_secret}@db:5432/marjon?sslmode=disable
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
       BACKEND_URL: http://backend:8000/api/v1
 
   click-gateway:
     build: ./services/click-gateway
-    container_name: marjon-click
-    profiles: ["gateways"]
     restart: unless-stopped
     depends_on:
       db:
@@ -168,14 +134,12 @@ services:
       - "8002:8002"
     environment:
       PORT: "8002"
-      DATABASE_URL: postgres://marjon:${POSTGRES_PASSWORD:-marjon}@db:5432/marjon?sslmode=disable
-      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-local-dev-webhook-secret}
+      DATABASE_URL: postgres://marjon:${POSTGRES_PASSWORD:-marjon_secret}@db:5432/marjon?sslmode=disable
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
       BACKEND_URL: http://backend:8000/api/v1
 
   uzum-gateway:
     build: ./services/uzum-gateway
-    container_name: marjon-uzum
-    profiles: ["gateways"]
     restart: unless-stopped
     depends_on:
       db:
@@ -186,10 +150,51 @@ services:
       - "8003:8003"
     environment:
       PORT: "8003"
-      DATABASE_URL: postgres://marjon:${POSTGRES_PASSWORD:-marjon}@db:5432/marjon?sslmode=disable
-      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-local-dev-webhook-secret}
+      DATABASE_URL: postgres://marjon:${POSTGRES_PASSWORD:-marjon_secret}@db:5432/marjon?sslmode=disable
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
       BACKEND_URL: http://backend:8000/api/v1
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    # Намеренно без depends_on backend: реверс-прокси не должен падать
+    # или отказываться стартовать из-за того, что backend ещё не поднялся
+    # или временно упал — nginx просто отдаст 502 на api.marjon.tech,
+    # пока backend не станет доступен, лендинг на marjon.tech при этом
+    # работает независимо.
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/snippets:/etc/nginx/snippets:ro
+      - ./landing:/usr/share/nginx/html:ro
+      # Собранный React-фронт (adminka.marjon.tech) — билд руками (см.
+      # frontend/README-deploy.md), volume только раздаёт готовые файлы,
+      # nginx их не пересобирает.
+      - ./frontend/dist:/usr/share/nginx/html-admin:ro
+      - certbot_www:/var/www/certbot
+      - certbot_certs:/etc/letsencrypt
+
+  # Продлевает сертификат каждые 12ч (no-op, пока сертификата ещё нет —
+  # первую выдачу запускаете вручную, см. nginx/README.md).
+  certbot:
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_certs:/etc/letsencrypt
+    entrypoint: >
+      /bin/sh -c "
+        trap exit TERM;
+        while :; do
+          certbot renew --webroot -w /var/www/certbot --quiet;
+          sleep 12h & wait $${!};
+        done
+      "
 
 volumes:
   pgdata:
   minio_data:
+  certbot_www:
+  certbot_certs:

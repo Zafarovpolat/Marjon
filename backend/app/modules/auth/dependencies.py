@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from uuid import UUID
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
@@ -9,12 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.session import get_db
 from app.modules.auth.models import User
 from app.modules.auth.repository import UserRepository
-from app.modules.auth.security import decode_token, is_access_token_current
+from app.modules.auth.security import decode_token, is_access_token_current, is_terminal_email
 from app.modules.rbac.models import Role, UserRole
 from app.shared.exceptions import ForbiddenError
 from app.shared.exceptions import UnauthorizedError
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login/form")
+_optional_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login/form", auto_error=False)
 
 
 async def ensure_company_app_identity(
@@ -74,6 +75,16 @@ async def get_current_user(
     return user
 
 
+async def get_current_user_optional(
+    token: str | None = Depends(_optional_oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    """Like get_current_user, but anonymous callers get None instead of a 401."""
+    if not token:
+        return None
+    return await get_current_user(token=token, db=db)
+
+
 async def get_current_active_user(
     current_user: User = Depends(get_current_user),
 ) -> User:
@@ -117,6 +128,21 @@ async def require_web_owner(
     ):
         raise ForbiddenError("Company owner role required")
     return current_user
+
+
+async def require_terminal_or_web_owner(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Branch terminal (service user issued by /auth/branch-login) or the web owner."""
+    if (
+        getattr(current_user, "auth_scope", "app") == "app"
+        and current_user.company_id is not None
+        and not current_user.is_superadmin
+        and is_terminal_email(current_user.email)
+    ):
+        return current_user
+    return await require_web_owner(current_user, db)
 
 
 async def require_company_admin(
@@ -229,6 +255,10 @@ def require_permission_or_admin(flag: str, rbac_permission: str | None = None):
         current_user: User = Depends(get_current_user),
         db: AsyncSession = Depends(get_db),
     ) -> User:
+        # An HQ-admin session must never inherit restaurant-app authority just
+        # because the user is a superadmin (same rule as ensure_company_app_identity).
+        if getattr(current_user, "auth_scope", "app") != "app":
+            raise ForbiddenError("Company app session required")
         if await user_is_company_admin(current_user, db):
             return current_user
         if current_user.company_id and _legacy_permission(current_user, flag):

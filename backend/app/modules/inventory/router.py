@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from datetime import date
 from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
@@ -26,10 +26,10 @@ from app.modules.inventory.service import (
     ProductTopupService, SetItemService, StockService
 )
 from sqlalchemy import select
-from app.modules.inventory.models import Product, Ingredient
+from app.modules.inventory.models import Product, Ingredient, ProductIngredient
 from app.modules.rbac.dependencies import require_permission
 from app.modules.rbac.models import Role, UserRole
-from app.shared.exceptions import ForbiddenError
+from app.shared.exceptions import ForbiddenError, NotFoundError
 from app.shared.storage import storage
 
 _ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
@@ -80,6 +80,35 @@ def _group_to_response(g) -> ModifierGroupResponse:
             for m in sorted(g.modifiers, key=lambda m: (m.sort_order, m.created_at))
         ],
     )
+
+
+@router.get("/products/{product_id}/recipe")
+async def product_recipe(
+    product_id: UUID,
+    user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Recipe card of a dish: its ingredients with quantities (kitchen recipe popup)."""
+    prod = (await db.execute(
+        select(Product).where(Product.id == product_id, Product.company_id == user.company_id)
+    )).scalar_one_or_none()
+    if not prod:
+        raise NotFoundError("Product not found")
+    rows = (await db.execute(
+        select(ProductIngredient, Ingredient)
+        .join(Ingredient, Ingredient.id == ProductIngredient.ingredient_id)
+        .where(ProductIngredient.product_id == product_id)
+    )).all()
+    return {
+        "product_id": str(product_id),
+        "product_name": prod.name,
+        "unit": prod.unit,
+        "description": prod.description,
+        "items": [
+            {"ingredient_name": ing.name, "quantity": float(link.quantity or 0), "unit": ing.unit}
+            for link, ing in rows
+        ],
+    }
 
 
 def _product_to_response(p: Product) -> ProductResponse:
@@ -139,6 +168,21 @@ async def create_category(data: CategoryCreate, user: User = Depends(require_com
     return await CategoryService(db).create(user.company_id, data)
 
 
+@router.patch("/categories/{category_id}", response_model=CategoryResponse)
+async def update_category(
+    category_id: UUID, data: CategoryUpdate,
+    user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db),
+):
+    return await CategoryService(db).update(user.company_id, category_id, data)
+
+
+@router.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_category(
+    category_id: UUID, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db),
+):
+    await CategoryService(db).delete(user.company_id, category_id)
+
+
 @router.get("/categories", response_model=list[CategoryResponse])
 async def list_categories(
     include_inactive: bool = Query(False),
@@ -151,16 +195,6 @@ async def list_categories(
     # canonical read. Archive = PATCH {is_active:false}, restore = PATCH
     # {is_active:true}; permanent delete stays a hard DELETE with 409 guards.
     return await CategoryService(db).list(user.company_id, include_inactive)
-
-
-@router.patch("/categories/{category_id}", response_model=CategoryResponse)
-async def update_category(category_id: UUID, data: CategoryUpdate, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)):
-    return await CategoryService(db).update(user.company_id, category_id, data)
-
-
-@router.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_category(category_id: UUID, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)):
-    await CategoryService(db).delete(user.company_id, category_id)
 
 
 @router.post("/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)

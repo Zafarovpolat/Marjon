@@ -1,6 +1,6 @@
 from __future__ import annotations
 from uuid import UUID
-from sqlalchemy import Boolean, ForeignKey, Integer, JSON, String
+from sqlalchemy import Boolean, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import Uuid
 from app.shared.base_model import TimeStampedModel
@@ -53,7 +53,13 @@ class PrintJob(TimeStampedModel):
     ref_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     # pending | printing | done | failed
     status: Mapped[str] = mapped_column(String(20), default="pending")
-    # Raw ESC/POS payload stored as base64 OR plain text
-    payload: Mapped[str] = mapped_column(String(65535), nullable=False)
+    # Raw ESC/POS payload stored as base64 OR plain text. TEXT (no fixed
+    # length) rather than VARCHAR(65535): a raster customer receipt's base64
+    # payload (tens of KB — see receipt_raster.py) is routinely larger than a
+    # text-mode one and can exceed 65535 chars on an ordinary multi-item
+    # order, which previously hard-failed the whole print request with
+    # asyncpg.StringDataRightTruncationError before any bytes reached the
+    # printer.
+    payload: Mapped[str] = mapped_column(Text, nullable=False)
     error: Mapped[str | None] = mapped_column(String(500))
     copies: Mapped[int] = mapped_column(Integer, default=1)

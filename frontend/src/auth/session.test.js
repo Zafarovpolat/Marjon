@@ -2,17 +2,11 @@ import { waitFor } from "@testing-library/react";
 import axios from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-<<<<<<< Updated upstream
   ADMIN_API_BASE_URL,
   adminApi,
   adminLogin,
   adminLogout,
   getValidatedAdminProfile,
-=======
-  adminApi,
-  adminLogin,
-  adminLogout,
->>>>>>> Stashed changes
   isAdminAuthenticated,
 } from "../admin/api";
 import { api, API_BASE_URL, logout } from "../api/client";
@@ -184,7 +178,6 @@ describe("auth session and axios clients", () => {
     expect(getHeader(adapter.mock.calls[0][0].headers, "Authorization")).toBe("Bearer admin-access-a");
   });
 
-<<<<<<< Updated upstream
   it("preserves an explicit snapshot bearer instead of overwriting it from storage", async () => {
     setAdminTokens("newer-admin-access", "newer-admin-refresh");
     const adapter = vi.fn((config) => resolveResponse(config));
@@ -197,8 +190,6 @@ describe("auth session and axios clients", () => {
     expect(getHeader(adapter.mock.calls[0][0].headers, "Authorization")).toBe("Bearer snapshot-access");
   });
 
-=======
->>>>>>> Stashed changes
   it("adminApi without admin tokens never attaches default tokens", async () => {
     setDefaultTokens("default-access-a", "default-refresh-a");
     const adapter = vi.fn((config) => resolveResponse(config));
@@ -209,41 +200,6 @@ describe("auth session and axios clients", () => {
     expect(resolveAdminAuthSession().scope).toBe(AUTH_SCOPES.ADMIN);
     expect(adapter.mock.calls[0][0]._authScope).toBe(AUTH_SCOPES.ADMIN);
     expect(getHeader(adapter.mock.calls[0][0].headers, "Authorization")).toBeUndefined();
-<<<<<<< Updated upstream
-=======
-  });
-
-  it("failed admin login does not create an admin or local session", async () => {
-    const login = vi.spyOn(adminApi, "post").mockRejectedValue({ response: { status: 401 } });
-
-    await expect(adminLogin("900000000", "invalid-password")).rejects.toMatchObject({
-      response: { status: 401 },
-    });
-
-    expect(login).toHaveBeenCalledTimes(1);
-    expect(isAdminAuthenticated()).toBe(false);
-    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBeNull();
-    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBeNull();
-    expect(localStorage.getItem("admin_local_login")).toBeNull();
-  });
-
-  it("legacy local admin flag does not authenticate the admin application", () => {
-    localStorage.setItem("admin_local_login", "true");
-
-    expect(isAdminAuthenticated()).toBe(false);
-  });
-
-  it("admin logout clears only the administrative session", () => {
-    setDefaultTokens("default-access-a", "default-refresh-a");
-    setAdminTokens("admin-access-a", "admin-refresh-a");
-
-    adminLogout();
-
-    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminAccessToken)).toBeNull();
-    expect(localStorage.getItem(AUTH_STORAGE_KEYS.adminRefreshToken)).toBeNull();
-    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBe("default-access-a");
-    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe("default-refresh-a");
->>>>>>> Stashed changes
   });
 
   it("failed admin login does not create an admin or local session", async () => {

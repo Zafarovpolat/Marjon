@@ -15,7 +15,7 @@ from app.modules.auth.repository import UserRepository
 from app.modules.auth.security import decode_token
 from app.modules.printers.schemas import (
     PrinterCreate, PrinterResponse, PrinterTestRequest, PrinterUpdate,
-    PrintJobResponse, PrintKitchenRequest, PrintReceiptRequest,
+    PrintJobResponse, PrintKitchenRequest, PrintReceiptRequest, PrintSummaryRequest,
 )
 from app.modules.printers.service import PrinterService
 from app.modules.printers.printer_client import send_to_network_printer, PrinterError
@@ -108,6 +108,18 @@ async def test_print(
 ):
     """Send a test page to the printer."""
     return await PrinterService(db).test_print(user.company_id, data.printer_id)
+
+
+@router.post("/print/summary", response_model=PrintJobResponse)
+async def print_summary(
+    data: PrintSummaryRequest,
+    user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Print a summary receipt (History/Reports) from raw lines."""
+    return await PrinterService(db).print_summary(
+        user.company_id, data.printer_id, data.title, data.lines, data.footer, data.copies
+    )
 
 
 @router.post("/print/receipt", response_model=PrintJobResponse)

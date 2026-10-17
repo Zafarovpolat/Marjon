@@ -8,7 +8,7 @@ import { t } from '../shared/i18n'
  * IT-специалист вводит адрес сервера при установке терминала.
  */
 export default function ServerSetup({ onComplete }) {
-  const [url, setUrl] = useState('http://localhost:8000/api/v1')
+  const [url, setUrl] = useState((import.meta.env.VITE_DEFAULT_SERVER_URL || 'http://localhost:8000/api/v1'))
   const [testing, setTesting] = useState(false)
   const [status, setStatus] = useState(null) // 'ok' | 'error'
   const [error, setError] = useState('')

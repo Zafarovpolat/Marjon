@@ -20,7 +20,7 @@ async def _hq_headers(client, db_engine):
     async with sessions() as db:
         db.add(User(
             email=email,
-            password_hash=hash_password(password),
+            password_hash=await hash_password(password),
             is_superadmin=True,
             is_active=True,
         ))

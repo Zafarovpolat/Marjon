@@ -139,11 +139,16 @@ def test_k_n_route_table_has_one_canonical_contract_per_method_path() -> None:
             rows.append((method, route.path_format, route))
 
     counts = Counter((method, path) for method, path, _ in rows)
-    # 458 (upstream) + 8 восстановленных premerge-эндпоинтов (decision A):
-    # inventory modifier-groups CRUD (POST/PATCH/DELETE) + product modifier-groups
-    # list + product availability/limit тумблеры + POS item move/waiter. Дубликатов
-    # (method,path) по-прежнему нет — проверяется строкой ниже.
-    assert len(rows) == len(counts) == 466
+    # 478 (see git history for the chain up to decision A's 458+8) + 11 added by
+    # the origin/main <-> redesign-mobile merge (RBAC per-role permission
+    # customization + WH-01 expense/waste warehouse-document CRUD, among
+    # others) + 1 for GET /auth/branch-colleagues (personal-device staff
+    # sign-in's branch-scoped roster, narrower than the owner/terminal-only
+    # /auth/staff-users) + 1 for GET /hr/employees/me (self-service HR record
+    # lookup — most staff roles don't set User.branch_id, only their Employee
+    # row does, and GET /hr/employees itself stays owner-only). No duplicate
+    # (method,path) pairs — checked below.
+    assert len(rows) == len(counts) == 491
     assert not [key for key, count in counts.items() if count > 1]
 
     expected = {
@@ -172,7 +177,7 @@ def test_k_n_route_table_has_one_canonical_contract_per_method_path() -> None:
         assert by_path[path] == [handler]
 
     schema = app.openapi()
-    assert len(schema["paths"]) == 259
+    assert len(schema["paths"]) == 275
     for path, handler in expected.items():
         route = next(
             route
@@ -420,7 +425,7 @@ async def test_g_j_hq_org_scope_and_bidirectional_auth_scope_denial(
     async with sessions() as db:
         restricted_hq = User(
             email=f"restricted-{uuid4().hex[:8]}@example.com",
-            password_hash=hash_password("Restricted1!"),
+            password_hash=await hash_password("Restricted1!"),
             is_superadmin=False,
             is_active=True,
         )
@@ -432,7 +437,7 @@ async def test_g_j_hq_org_scope_and_bidirectional_auth_scope_denial(
                 User(
                     company_id=company_a,
                     email=admin_email,
-                    password_hash=hash_password(admin_password),
+                    password_hash=await hash_password(admin_password),
                     is_superadmin=True,
                     is_active=True,
                 ),
@@ -529,7 +534,7 @@ async def test_bi05e1_company_payment_fiscal_subscription_routes_require_app_sco
             User(
                 company_id=company_a,
                 email=admin_email,
-                password_hash=hash_password(admin_password),
+                password_hash=await hash_password(admin_password),
                 is_superadmin=True,
                 is_active=True,
             )

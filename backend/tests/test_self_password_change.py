@@ -51,7 +51,7 @@ async def test_change_password_rotates_sessions_and_preserves_identity(client, d
     async with sessions() as db:
         user = await db.get(User, UUID(before["id"]))
         assert user.password_hash not in (OLD, NEW)
-        assert verify_password(NEW, user.password_hash)
+        assert await verify_password(NEW, user.password_hash)
         logs = (await db.execute(select(AuditLog).where(AuditLog.user_id == user.id))).scalars().all()
         changed = [entry for entry in logs if entry.action == "user.password_changed"]
         assert len(changed) == 1
@@ -122,5 +122,5 @@ async def test_commit_failure_rolls_back_password_and_version(client, db_engine,
     async with sessions() as db:
         user = await db.get(User, user_id)
         assert user.auth_version == 0
-        assert verify_password(OLD, user.password_hash)
+        assert await verify_password(OLD, user.password_hash)
     assert (await client.get("/auth/me", headers=headers)).status_code == 200

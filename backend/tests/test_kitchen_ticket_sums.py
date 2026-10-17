@@ -2,23 +2,23 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from app.modules.printers.formatter import EscPosFormatter, KitchenTicketData
+from app.modules.printers.formatter import EscPosFormatter, KitchenItem, KitchenTicketData
 
 
 def _ticket(**overrides):
+    items = overrides.pop("items", None) or [
+        KitchenItem(name="Плов чайханский", qty="2", total=Decimal("50000"),
+                    modifiers=["Без казы"], course=1),
+        KitchenItem(name="Салат Ачичук", qty="1", total=Decimal("15000"),
+                    modifiers=[], course=1),
+    ]
     base = {
         "order_number": "A-1042",
         "order_type": "dine_in",
         "table_number": "12",
         "waiter_name": "Aziz",
-        "items": [
-            {"name": "Плов чайханский", "qty": "2", "price": "25000", "total": "50000",
-             "note": "", "modifiers": ["Без казы"], "course": 1},
-            {"name": "Салат Ачичук", "qty": "1", "price": "15000", "total": "15000",
-             "note": "", "modifiers": [], "course": 1},
-        ],
+        "items": items,
         "note": None,
-        "subtotal": Decimal("65000"),
     }
     base.update(overrides)
     return KitchenTicketData(**base)
