@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const adminSourceByFile = Object.fromEntries([
@@ -75,7 +75,7 @@ assert.match(css, /\.admin-header\s*{[\s\S]*?background:\s*var\(--admin-shell-ba
 assert.match(app, /const datePresets = useMemo/, "Admin date picker must define quick date presets.");
 assert.match(app, /Сегодня[\s\S]*Вчера[\s\S]*Этот месяц[\s\S]*Этот год/, "Admin date picker must include the expected quick presets.");
 assert.match(app, /<ReportDateRangePicker[\s\S]*?buttonClassName="admin-finance-date-button"/, "Admin finance header must render the shared report date picker.");
-assert.match(reportDateRangePicker, /className="report-period-picker"/, "Shared admin date picker must render the date picker wrapper.");
+assert.match(reportDateRangePicker, /className=(?:"report-period-picker"|\{`report-period-picker\$\{)/, "Shared admin date picker must render the date picker wrapper.");
 assert.match(reportDateRangePicker, /className=(?:"report-date-menu"|\{`report-date-menu(?:\$\{|\s|`))/, "Shared admin date picker must render a dropdown menu.");
 assert.match(reportDateRangePicker, /aria-label="Предыдущий месяц"/, "Shared admin date picker must support previous-month navigation.");
 assert.match(reportDateRangePicker, /aria-label="Следующий месяц"/, "Shared admin date picker must support next-month navigation.");
@@ -99,7 +99,7 @@ assert.match(ruLocale, /"welcome_subtitle":\s*"Войдите в рабочее 
 assert.match(ruLocale, /"remember_me":\s*"Запомнить меня"/, "Russian locale must provide a readable remember label.");
 assert.match(ruLocale, /"forgot_password":\s*"Забыли пароль\?"/, "Russian locale must provide a readable forgot-password label.");
 assert.doesNotMatch(restaurantLogin, /Р[ќџћ”’•—]/, "Restaurant login must not contain mojibake Russian text.");
-assert.match(reportDateRangePicker, /className="report-period-picker"/, "Shared report period button must open a date picker wrapper.");
+assert.match(reportDateRangePicker, /className=(?:"report-period-picker"|\{`report-period-picker\$\{)/, "Shared report period button must open a date picker wrapper.");
 assert.match(reportDateRangePicker, /className=(?:"report-date-menu"|\{`report-date-menu(?:\$\{|\s|`))/, "Shared report date picker must render a dropdown menu.");
 assert.doesNotMatch(reportDateRangePicker, /report-period-nav/, "Shared report period button must not show side arrows.");
 assert.match(reportDateRangePicker, /Сегодня[\s\S]*Вчера[\s\S]*Этот месяц[\s\S]*Прошлый квартал[\s\S]*Этот год/, "Shared report date picker must include the requested quick presets.");

@@ -139,11 +139,11 @@ def test_k_n_route_table_has_one_canonical_contract_per_method_path() -> None:
             rows.append((method, route.path_format, route))
 
     counts = Counter((method, path) for method, path, _ in rows)
-    # 458 (upstream) + 8 восстановленных premerge-эндпоинтов (decision A):
-    # inventory modifier-groups CRUD (POST/PATCH/DELETE) + product modifier-groups
-    # list + product availability/limit тумблеры + POS item move/waiter. Дубликатов
-    # (method,path) по-прежнему нет — проверяется строкой ниже.
-    assert len(rows) == len(counts) == 466
+    # 458 (upstream) + 8 восстановленных premerge-эндпоинтов (decision A) = 466,
+    # затем +15: 3 входа десктопа (monoblock-login/branch-login/branch-switch),
+    # categories PATCH/DELETE, складские CRUD расходов и отходов (WH-01, 10 шт.).
+    # Дубликатов (method,path) по-прежнему нет — проверяется строкой ниже.
+    assert len(rows) == len(counts) == 481
     assert not [key for key, count in counts.items() if count > 1]
 
     expected = {
@@ -172,7 +172,7 @@ def test_k_n_route_table_has_one_canonical_contract_per_method_path() -> None:
         assert by_path[path] == [handler]
 
     schema = app.openapi()
-    assert len(schema["paths"]) == 259
+    assert len(schema["paths"]) == 267
     for path, handler in expected.items():
         route = next(
             route

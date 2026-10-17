@@ -11,7 +11,7 @@ StockMovement (type="expense" / "waste"); сами движения пишутс
 трогает. Идемпотентна: создаёт таблицу только если её ещё нет.
 
 Revision ID: wh01exp01
-Revises: bi08dcs01
+Revises: c6d7ftrs10
 Create Date: 2026-09-29
 """
 from typing import Sequence, Union
@@ -21,7 +21,7 @@ from alembic import op
 
 
 revision: str = "wh01exp01"
-down_revision: Union[str, None] = "bi08dcs01"
+down_revision: Union[str, None] = "c6d7ftrs10"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

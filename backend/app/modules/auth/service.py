@@ -26,7 +26,7 @@ from app.modules.rbac.service import RBACService
 from app.shared.exceptions import ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError
 
 # BE-08: PIN brute-force throttling, independent of the global rate limiter
-# on POST /auth/pin-login вЂ” this locks the SPECIFIC account after repeated
+# on POST /auth/pin-login — this locks the SPECIFIC account after repeated
 # wrong PINs, so an attacker can't just spread guesses across many accounts
 # to stay under the per-IP rate limit.
 PIN_MAX_ATTEMPTS = 5
@@ -34,14 +34,14 @@ PIN_LOCKOUT_MINUTES = 15
 
 
 def device_label(user_agent: str | None) -> str | None:
-    """РљРѕСЂРѕС‚РєР°СЏ С‡РµР»РѕРІРµРєРѕС‡РёС‚Р°РµРјР°СЏ РјРµС‚РєР° СѓСЃС‚СЂРѕР№СЃС‚РІР° РёР· User-Agent РґР»СЏ Р¶СѓСЂРЅР°Р»Р°
-    РІС…РѕРґРѕРІ (РЅР°РїСЂ. В«Chrome В· WindowsВ»). Р‘РµР· РїР°СЂСЃРµСЂР°-Р±РёР±Р»РёРѕС‚РµРєРё: РїСЂРѕСЃС‚РѕРµ
-    СЃРѕРїРѕСЃС‚Р°РІР»РµРЅРёРµ РїРѕ РїРѕРґСЃС‚СЂРѕРєР°Рј; РїСЂРё РЅРµРёР·РІРµСЃС‚РЅРѕРј UA вЂ” РѕР±СЂРµР·РєР° РґРѕ 255 СЃРёРјРІРѕР»РѕРІ.
-    РҐСЂР°РЅРёС‚СЃСЏ РІ refresh_tokens.device_id."""
+    """Короткая человекочитаемая метка устройства из User-Agent для журнала
+    входов (напр. «Chrome · Windows»). Без парсера-библиотеки: простое
+    сопоставление по подстрокам; при неизвестном UA — обрезка до 255 символов.
+    Хранится в refresh_tokens.device_id."""
     if not user_agent:
         return None
     ua = user_agent
-    # Chrome СЂР°РЅСЊС€Рµ Safari: UA Chrome СЃРѕРґРµСЂР¶РёС‚ "Safari"; Edge вЂ” "Edg".
+    # Chrome раньше Safari: UA Chrome содержит "Safari"; Edge — "Edg".
     browser = next((b for b in ("Edg", "Chrome", "Firefox", "Safari") if b in ua), None)
     browser = {"Edg": "Edge"}.get(browser, browser)
     if "Windows" in ua:
@@ -57,7 +57,7 @@ def device_label(user_agent: str | None) -> str | None:
     else:
         os_name = None
     parts = [p for p in (browser, os_name) if p]
-    label = " В· ".join(parts) if parts else ua
+    label = " · ".join(parts) if parts else ua
     return label[:255]
 
 
@@ -95,9 +95,9 @@ class AuthService:
         await self.db.flush()
 
         # Onboarding: every company starts with one default branch so places,
-        # printers, etc. have a tenant to attach to (Settings в†’ РњРµСЃС‚Рѕ resolves
+        # printers, etc. have a tenant to attach to (Settings → Место resolves
         # the sole branch automatically). Multi-branch companies stay valid.
-        self.db.add(Branch(company_id=company.id, name="РћСЃРЅРѕРІРЅРѕР№ С„РёР»РёР°Р»"))
+        self.db.add(Branch(company_id=company.id, name="Основной филиал"))
         await self.db.flush()
 
         user = User(
@@ -135,12 +135,12 @@ class AuthService:
         if stripped.startswith("+"):
             return stripped
         if re.match(r"^\d+$", stripped):
-            if len(stripped) == 9:          # local UZ: 901234567 в†’ +998901234567
+            if len(stripped) == 9:          # local UZ: 901234567 → +998901234567
                 return "+998" + stripped
             if len(stripped) == 12 and stripped.startswith("998"):  # 998901234567
                 return "+" + stripped
             return stripped
-        return identifier  # email or username вЂ” return as-is
+        return identifier  # email or username — return as-is
 
     async def login(self, email: str, password: str, *, device_id: str | None = None) -> tuple[User, str, str]:
         import logging
@@ -148,11 +148,11 @@ class AuthService:
 
         user = await self.user_repo.get_by_login(self._normalize_identifier(email))
         if not user:
-            log.warning("Login failed: user not found вЂ” login=%s", email)
+            log.warning("Login failed: user not found — login=%s", email)
             raise UnauthorizedError("Invalid credentials")
 
         if not verify_password(password, user.password_hash):
-            log.warning("Login failed: wrong password вЂ” email=%s", email)
+            log.warning("Login failed: wrong password — email=%s", email)
             raise UnauthorizedError("Invalid credentials")
 
         if not user.is_active:
@@ -166,21 +166,21 @@ class AuthService:
 
     async def login_admin(self, email: str, password: str) -> tuple[User, str, str]:
         """BE-01: HQ admin panel login. Same credential check as login(), plus
-        an explicit is_superadmin gate вЂ” correct credentials without HQ access
+        an explicit is_superadmin gate — correct credentials without HQ access
         must fail with 403, not silently issue a normal-scoped session."""
         import logging
         log = logging.getLogger(__name__)
 
         user = await self.user_repo.get_by_login(self._normalize_identifier(email))
         if not user or not verify_password(password, user.password_hash):
-            log.warning("Admin login failed: bad credentials вЂ” login=%s", email)
+            log.warning("Admin login failed: bad credentials — login=%s", email)
             raise UnauthorizedError("Invalid credentials")
 
         if not user.is_active:
             raise UnauthorizedError("Account is inactive")
 
         if not user.is_superadmin:
-            log.warning("Admin login denied: not superadmin вЂ” user_id=%s", user.id)
+            log.warning("Admin login denied: not superadmin — user_id=%s", user.id)
             raise ForbiddenError("HQ admin access required")
 
         access_token = create_access_token(user.id, user.company_id, auth_scope="hq_admin")
@@ -192,11 +192,11 @@ class AuthService:
     async def login_by_monoblock(
         self, phone: str, password: str, *, device_id: str | None = None
     ) -> tuple[User, "Branch | None", "Company", str, str]:
-        """Р”РµСЃРєС‚РѕРї, С€Р°Рі 1: РІС…РѕРґ РїРѕ С‚РµР»РµС„РѕРЅСѓ+РїР°СЂРѕР»СЋ Р°РєРєР°СѓРЅС‚Р° РјРѕРЅРѕР±Р»РѕРєР°
-        (РєР°СЂС‚РѕС‡РєР° users/monoblock РІ РІРµР±Рµ). РЈ РјРѕРЅРѕР±Р»РѕРєР° РЅРµС‚ PIN вЂ” РґР°Р»СЊС€Рµ РґРµСЃРєС‚РѕРї
-        РёРґС‘С‚ РІ /auth/staff-users Рё /auth/pin-login РєР°Рє СЂР°РЅСЊС€Рµ. РљРѕРЅС‚СЂР°РєС‚ РѕС‚РІРµС‚Р°
-        РїРѕРІС‚РѕСЂСЏРµС‚ СЃС‚Р°СЂС‹Р№ branch-login (С‚РѕРєРµРЅ + branch/company), С‡С‚РѕР±С‹ РґРµСЃРєС‚РѕРї
-        СЃРѕС…СЂР°РЅСЏР» РїСЂРёРІСЏР·РєСѓ Р°С‚РѕРјР°СЂРЅРѕ."""
+        """Десктоп, шаг 1: вход по телефону+паролю аккаунта моноблока
+        (карточка users/monoblock в вебе). У моноблока нет PIN — дальше десктоп
+        идёт в /auth/staff-users и /auth/pin-login как раньше. Контракт ответа
+        повторяет старый branch-login (токен + branch/company), чтобы десктоп
+        сохранял привязку атомарно."""
         raw = phone.strip()
         # Телефоны в базе лежат вперемешку с "+" и без — ищем оба варианта.
         candidates = [raw]
@@ -211,7 +211,7 @@ class AuthService:
             if user:
                 break
         if not user or not user.password_hash or not verify_password(password, user.password_hash):
-            raise UnauthorizedError("РќРµРІРµСЂРЅС‹Р№ С‚РµР»РµС„РѕРЅ РёР»Рё РїР°СЂРѕР»СЊ")
+            raise UnauthorizedError("Неверный телефон или пароль")
         if not user.is_active:
             raise UnauthorizedError("Account is inactive")
         role_slugs = list((await self.db.execute(
@@ -220,7 +220,7 @@ class AuthService:
             .where(UserRole.user_id == user.id)
         )).scalars().all())
         if "monoblock" not in role_slugs:
-            raise ForbiddenError("Р’С…РѕРґ СЃ РґРµСЃРєС‚РѕРїР° вЂ” С‚РѕР»СЊРєРѕ РґР»СЏ Р°РєРєР°СѓРЅС‚Р° РјРѕРЅРѕР±Р»РѕРєР°")
+            raise ForbiddenError("Вход с десктопа — только для аккаунта моноблока")
         branch = await self.db.get(Branch, user.branch_id) if user.branch_id else None
         if branch is not None and (not branch.is_active or branch.company_id != user.company_id):
             branch = None
@@ -330,7 +330,7 @@ class AuthService:
         if email is not None and await self.user_repo.get_by_email(email):
             raise ConflictError("Email already registered")
         if phone and await self.user_repo.get_by_phone(phone):
-            # get_by_login() resolves email/username/phone with .limit(1) вЂ”
+            # get_by_login() resolves email/username/phone with .limit(1) —
             # a duplicate phone would make login resolution ambiguous.
             raise ConflictError("Phone already registered")
 
@@ -341,16 +341,16 @@ class AuthService:
         if assignable_role_slugs is not None and role_slug not in assignable_role_slugs:
             raise ForbiddenError("Role is outside the actor's privilege ceiling")
 
-        # РџСЂРёРІСЏР·РєР° Рє С„РёР»РёР°Р»Сѓ: С„РёР»РёР°Р» РґРѕР»Р¶РµРЅ РїСЂРёРЅР°РґР»РµР¶Р°С‚СЊ С‚РѕР№ Р¶Рµ РєРѕРјРїР°РЅРёРё.
+        # Привязка к филиалу: филиал должен принадлежать той же компании.
         if branch_id is not None:
             branch = await self.db.get(Branch, branch_id)
             if not branch or branch.company_id != company_id:
-                raise ValidationError("Р¤РёР»РёР°Р» РЅРµ РЅР°Р№РґРµРЅ РІ СЌС‚РѕР№ РєРѕРјРїР°РЅРёРё")
+                raise ValidationError("Филиал не найден в этой компании")
 
         # BE-05: role_slug is validated against the canonical allowlist here
         # (raises ValidationError otherwise) and the role's default
         # permission set is attached the first time it's created for this
-        # company вЂ” see RBACService.get_or_create_company_role.
+        # company — see RBACService.get_or_create_company_role.
         role = await RBACService(self.db).get_or_create_company_role(
             company_id, role_slug
         )
@@ -437,15 +437,15 @@ class AuthService:
             user.password_hash = hash_password(password)
         if is_active is not None:
             user.is_active = is_active
-        # РџРµСЂРµРЅР°Р·РЅР°С‡РµРЅРёРµ С„РёР»РёР°Р»Р°: С„РёР»РёР°Р» РґРѕР»Р¶РµРЅ РїСЂРёРЅР°РґР»РµР¶Р°С‚СЊ С‚РѕР№ Р¶Рµ РєРѕРјРїР°РЅРёРё.
-        # None в†’ РїСЂРёРІСЏР·РєСѓ РЅРµ РјРµРЅСЏРµРј (РєР°Рє Рё РїСЂРѕС‡РёРµ РѕРїС†РёРѕРЅР°Р»СЊРЅС‹Рµ РїРѕР»СЏ).
+        # Переназначение филиала: филиал должен принадлежать той же компании.
+        # None → привязку не меняем (как и прочие опциональные поля).
         if branch_id is not None:
             branch = await self.db.get(Branch, branch_id)
             if not branch or branch.company_id != company_id:
-                raise ValidationError("Р¤РёР»РёР°Р» РЅРµ РЅР°Р№РґРµРЅ РІ СЌС‚РѕР№ РєРѕРјРїР°РЅРёРё")
+                raise ValidationError("Филиал не найден в этой компании")
             user.branch_id = branch_id
-        # Р›РµРіР°СЃРё-СЃР»РѕР№ РіСЂР°РЅСѓР»СЏСЂРЅС‹С… РїСЂР°РІ (РѕРїС†РёРѕРЅР°Р»СЊРЅС‹Р№, opt-in): РїРёС€РµРј С‚РѕР»СЊРєРѕ
-        # РєРѕРіРґР° РІР»Р°РґРµР»РµС† СЏРІРЅРѕ РїСЂРёСЃР»Р°Р» РЅР°Р±РѕСЂ С‚СѓРјР±Р»РµСЂРѕРІ. RBAC-РїСѓС‚СЊ РЅРµ Р·Р°С‚СЂР°РіРёРІР°РµС‚СЃСЏ.
+        # Легаси-слой гранулярных прав (опциональный, opt-in): пишем только
+        # когда владелец явно прислал набор тумблеров. RBAC-путь не затрагивается.
         if permissions is not None:
             user.permissions = permissions
 
@@ -525,7 +525,7 @@ class AuthService:
         """BE-08: (re)set a staff member's PIN. company_id-scoped (can only
         touch a staff member in the caller's own company), enforces PIN
         uniqueness within that company, hashes before storing, clears any
-        lockout, and writes an audit entry вЂ” never the PIN value itself."""
+        lockout, and writes an audit entry — never the PIN value itself."""
         if not company_id:
             raise ValidationError("Current user is not assigned to a company")
 
@@ -536,13 +536,13 @@ class AuthService:
             raise ForbiddenError("Protected company identity cannot be changed")
 
         # PIN uniqueness within the company. Pins are hashed (salted), so
-        # this can't be a plain equality lookup вЂ” verify against every
+        # this can't be a plain equality lookup — verify against every
         # peer's hash instead. Fine at restaurant-staff scale; this is not
         # meant to scale to thousands of accounts per company.
         peers = await self.user_repo.get_company_users(company_id)
         for peer in peers:
             if peer.id != target.id and peer.pin_hash and verify_password(pin, peer.pin_hash):
-                raise ConflictError("PIN СѓР¶Рµ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РґСЂСѓРіРёРј СЃРѕС‚СЂСѓРґРЅРёРєРѕРј")
+                raise ConflictError("PIN уже используется другим сотрудником")
 
         target.pin_hash = hash_password(pin)
         target.pin_failed_attempts = 0
@@ -572,8 +572,8 @@ class AuthService:
 
     async def pin_login(self, employee_id: UUID, pin: str) -> tuple[User, str, str]:
         """BE-08: PIN identifies the SESSION (via employee_id), the PIN
-        value only proves it вЂ” this is what makes "РЅРµР»СЊР·СЏ РЅР°Р№С‚Рё СЃРѕС‚СЂСѓРґРЅРёРєР°
-        РґСЂСѓРіРѕР№ РѕСЂРіР°РЅРёР·Р°С†РёРё РїРѕ PIN" true by construction: there is no
+        value only proves it — this is what makes "нельзя найти сотрудника
+        другой организации по PIN" true by construction: there is no
         cross-company PIN lookup, employee_id already pins down the
         company. Failed attempts count toward a per-account lockout,
         independent of the endpoint's own rate limit."""
@@ -586,13 +586,13 @@ class AuthService:
         locked_until = user.pin_locked_until
         if locked_until is not None:
             # SQLite (used in tests) hands back a naive datetime even for a
-            # DateTime(timezone=True) column, unlike Postgres/asyncpg вЂ”
+            # DateTime(timezone=True) column, unlike Postgres/asyncpg —
             # normalize before comparing so this doesn't blow up in one
             # backend and not the other.
             if locked_until.tzinfo is None:
                 locked_until = locked_until.replace(tzinfo=timezone.utc)
             if locked_until > datetime.now(timezone.utc):
-                raise UnauthorizedError("PIN temporarily locked вЂ” too many failed attempts")
+                raise UnauthorizedError("PIN temporarily locked — too many failed attempts")
 
         if not verify_password(pin, user.pin_hash):
             user.pin_failed_attempts += 1
