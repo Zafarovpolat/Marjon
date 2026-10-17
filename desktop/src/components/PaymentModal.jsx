@@ -250,6 +250,13 @@ export default function PaymentModal({ order, onPrint, onComplete, onCancel, onR
                       )}
                     </span>
                     <span className="pay-order__sum">{fmt(it.total ?? (Number(it.price) * Number(it.quantity)))} {t('currency')}</span>
+                    {/* Отмена ОДНОГО блюда — сразу, без мультивыбора. Держим на первой
+                        строке у правого края (до блока официанта, который тянется на всю ширину). */}
+                    {onRemoveItems && !selectingItems && (
+                      <button type="button" className="btn btn--outline btn--sm pay-order__cancel-one" onClick={() => cancelOneItem(it)} title={t('cancel_selected_dishes')}>
+                        <Ban size={16} />
+                      </button>
+                    )}
                     {/* Кассир правит ответственного официанта у конкретного блюда (доля обслуги идёт по нему).
                         Своей строкой на всю ширину — внутри .pay-order__name список обрезался бы overflow. */}
                     {onSetItemWaiter && staff.length > 0 && !selectingItems && (
@@ -258,11 +265,6 @@ export default function PaymentModal({ order, onPrint, onComplete, onCancel, onR
                           disabled={act === `item-waiter-${it.id}`}
                           onChange={(waiterId) => run(`item-waiter-${it.id}`, () => onSetItemWaiter(order, it, waiterId))} />
                       </div>
-                    )}
-                    {onRemoveItems && !selectingItems && (
-                      <button type="button" className="btn btn--outline btn--sm pay-order__cancel-one" onClick={() => cancelOneItem(it)} title={t('cancel_selected_dishes')}>
-                        <Ban size={16} />
-                      </button>
                     )}
                   </div>
                   )

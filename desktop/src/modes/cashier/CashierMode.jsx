@@ -548,6 +548,10 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
         {staffOpen && <StaffManagerPanel onClose={() => setStaffOpen(false)} />}
         {whOpen && <WarehouseWritePanel onClose={() => setWhOpen(false)} />}
         {printOpen && <BatchPrintPanel branch={{ id: user.branch_id }} printerId={user.printer_id} onClose={() => setPrintOpen(false)} />}
+        {/* Отмена позиции = удаление блюда из заказа. Право берём из тумблера
+            «Удаление блюд» (canDeleteDishes) — он есть в карточке сотрудника.
+            must('can_manage_orders') не подходил: такого тумблера в админке нет,
+            поэтому кнопка не показывалась никому. */}
         {payExisting && (
           <PaymentModal
             order={payExisting}
@@ -560,7 +564,7 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
             staff={staff}
             onSetWaiter={setOrderWaiter}
             onSetItemWaiter={setItemWaiter}
-            onRemoveItems={must(user, 'can_manage_orders') ? removeSelectedItems : undefined}
+            onRemoveItems={can(user, 'can_delete_dishes') ? removeSelectedItems : undefined}
             onApplyDiscount={applyOrderDiscount}
             onRefreshOrder={refreshPayOrder}
             canClose={can(user, 'can_close_bill')}
