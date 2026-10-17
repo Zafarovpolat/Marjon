@@ -1,9 +1,12 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { updateStoredProfile } from "../utils/profileCache";
 import Sidebar from "./Sidebar";
+import { readFileSync } from "node:fs";
+
+const darkShellCss = readFileSync(`${process.cwd()}/src/styles/preview/dark-shell.css`, "utf8");
 
 const appUser = (role, id = role) => ({
   id,
@@ -49,6 +52,22 @@ async function openAccountMenu() {
 }
 
 describe("OWNER Sidebar", () => {
+  it("places ERP SYSTEM above the MARJON wordmark", () => {
+    const { container } = renderSidebar(users.owner);
+    expect(container.querySelector(".brand-title")).toHaveTextContent(/^MARJON$/);
+    expect(container.querySelector(".brand-subtitle")).toHaveTextContent(/^ERP SYSTEM$/);
+    expect(container.querySelector(".brand-subtitle").nextElementSibling).toBe(container.querySelector(".brand-title"));
+    expect(screen.queryByText("Restaurant OS")).toBeNull();
+    expect(container.querySelector(".sidebar-brand__backdrop")).toBeNull();
+    expect(screen.getByAltText("MARJON")).toHaveAttribute("src", expect.stringContaining("marjon-neon-logo-v110.png"));
+    expect(screen.getByRole("button", { name: "Свернуть меню" })).toBeEnabled();
+  });
+  it.each([false, true])("preserves the logo toggle with collapsed=%s", (collapsed) => {
+    const onToggle = vi.fn();
+    render(<MemoryRouter><Sidebar user={users.owner} collapsed={collapsed} onToggle={onToggle} /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: collapsed ? "Открыть меню" : "Свернуть меню" }));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
   it("does not crash when user data is missing and exposes no protected navigation", () => {
     renderSidebar(null);
 
@@ -64,11 +83,33 @@ describe("OWNER Sidebar", () => {
     expect(screen.queryByText("Stale cached name")).not.toBeInTheDocument();
   });
 
-  it("preserves the server OWNER role", () => {
+  it("hides the role label without changing OWNER navigation permissions", () => {
     renderSidebar(users.owner);
 
-    expect(screen.getAllByText("owner").length).toBeGreaterThan(0);
+    expect(document.querySelector(".sidebar-user__meta span")).toBeNull();
     expect(getLinkByHref("/finance/transactions")).toBeInTheDocument();
+  });
+
+  it("shows and live-updates the saved profile name only for the current user", () => {
+    updateStoredProfile("owner", { profileName: "ДУКШОП" });
+    renderSidebar(users.owner);
+    expect(document.querySelector(".sidebar-user__meta strong")).toHaveTextContent("ДУКШОП");
+    act(() => { updateStoredProfile("other-user", { profileName: "Другой пользователь" }); });
+    expect(document.querySelector(".sidebar-user__meta strong")).toHaveTextContent("ДУКШОП");
+    act(() => { updateStoredProfile("owner", { profileName: "Новое имя" }); });
+    expect(document.querySelector(".sidebar-user__meta strong")).toHaveTextContent("Новое имя");
+  });
+
+  it("keeps a long profile name intact for the two-line account label", () => {
+    const name = "Саидалиев Мухаммадюсуф";
+    updateStoredProfile("owner", { profileName: name });
+    renderSidebar(users.owner);
+    const label = document.querySelector(".sidebar-user__name");
+    expect(label).toHaveTextContent(name);
+    expect(label).toHaveAttribute("title", name);
+    expect(darkShellCss).toContain("-webkit-line-clamp: 2");
+    expect(darkShellCss).toContain("white-space: normal");
+    expect(darkShellCss).toContain("overflow-wrap: anywhere");
   });
 
   it("keeps every visible top-level navigation icon in the collapsed rail", () => {

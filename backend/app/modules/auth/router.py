@@ -13,6 +13,7 @@ from app.modules.auth.dependencies import (
     require_company_admin,
     require_company_app_user,
     require_staff_lister,
+    require_web_owner,
 )
 from app.modules.auth.models import User
 from app.modules.auth.schemas import (
@@ -21,6 +22,7 @@ from app.modules.auth.schemas import (
     CompanyUserCreate,
     CompanyUserResponse,
     CompanyUserUpdate,
+    ChangePasswordRequest,
     LoginRequest,
     LogoutRequest,
     MonoblockLoginRequest,
@@ -134,6 +136,24 @@ async def refresh(data: RefreshRequest, db: AsyncSession = Depends(get_db)):
     svc = AuthService(db)
     access_token, refresh_token = await svc.refresh(data.refresh_token)
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+
+
+@router.post("/change-password", response_model=TokenResponse)
+@limiter.limit("5/minute")
+async def change_password(
+    request: Request,
+    data: ChangePasswordRequest,
+    current_user: User = Depends(require_web_owner),
+    db: AsyncSession = Depends(get_db),
+):
+    access, refresh = await AuthService(db).change_password(
+        current_user.id,
+        data.current_password.get_secret_value(),
+        data.new_password.get_secret_value(),
+        data.confirm_password.get_secret_value(),
+        device_id=device_label(request.headers.get("user-agent")),
+    )
+    return TokenResponse(access_token=access, refresh_token=refresh)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

@@ -6,6 +6,7 @@ import { useOrg } from "../../context/OrgContext";
 import Toast from "../../components/Toast";
 import { settingsService } from "../../api/settings";
 import {
+  CUSTOMER_BLOCKS,
   CUSTOMER_BLOCK_LABELS,
   CUSTOMER_STYLE_BLOCKS,
   LINE_SPACING_OPTIONS,
@@ -17,12 +18,14 @@ import {
   saveCustomerTemplate,
 } from "../../api/receipt";
 import { isAbortError } from "../../hooks/useAsyncSafety";
+import { orderedBlocks } from "./receiptBlockOrder";
 import "./receiptSettings.css";
 
 // Editor-only grouping of the constructor rows. Covers every canonical
 // customer block exactly once; order inside groups follows template.blocks.
-// Notes: "Тип заказа" has no independent block (rendered on the orderNumber
-// row); "Сумма блюд" has no toggle (rendered once, anchored to `total`).
+// Notes: "Тип заказа" has no independent block (it prints on the orderNumber
+// row, which is why the row is labeled "Номер и тип заказа"); "Сумма блюд"
+// has no toggle (rendered once, anchored to `total`).
 // Collapse state lives inside ReceiptSectionEditor (UI-only, never saved).
 export const CUSTOMER_RECEIPT_GROUPS = [
   { key: "header", title: "Шапка", blocks: ["logo", "restaurantName", "address", "phone"] },
@@ -82,6 +85,11 @@ export default function ReceiptSettingsPage() {
         setTemplate({
           ...defaults,
           ...loaded,
+          // Старые серверные шаблоны без нового блока в blocks: строка в
+          // редакторе рисуется из blocks, а превью/бумага достраивают
+          // порядок через orderedBlocks — без этого галочка «Нижний номер
+          // заказа» не появлялась, хотя блок печатался.
+          blocks: orderedBlocks(loaded.blocks, CUSTOMER_BLOCKS),
           enabled: { ...defaults.enabled, ...loaded.enabled },
           blockStyles: { ...defaults.blockStyles, ...loaded.blockStyles },
           positions: { ...defaults.positions, ...loaded.positions },
@@ -217,7 +225,8 @@ export default function ReceiptSettingsPage() {
         <div className="receipt-block-extra">
           <label className="receipt-field">
             <span>Комментарий к чеку</span>
-            <input
+            <textarea
+              rows={3}
               value={template.thankYouText || ""}
               onChange={(event) => patchTemplate({ thankYouText: event.target.value })}
             />

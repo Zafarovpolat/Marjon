@@ -5,6 +5,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { settingsService } from "../../api/settings";
 import { warehouseService } from "../../api/warehouse";
 import { ordersService } from "../../api/orders";
+import { authService } from "../../api/auth";
 import { useAuth } from "../../context/AuthContext";
 import SettingsProfilePage from "./SettingsProfilePage";
 import { profileSections } from "./profile/profileSections";
@@ -13,6 +14,7 @@ const profileCss = readFileSync(
   join(process.cwd(), "src", "styles", "react-overrides.css"),
   "utf8",
 );
+const viewportCss = readFileSync(join(process.cwd(), "src", "pages", "settings", "settingsProfileViewport.css"), "utf8");
 
 // V1: ровно 4 внутренние секции, у каждой свой контент.
 // Поля без backend-поддержки рисуются, но не отправляются и не дают
@@ -36,6 +38,7 @@ vi.mock("../../api/orders", () => ({
     purge: vi.fn(),
   },
 }));
+vi.mock("../../api/auth", () => ({ authService: { changePassword: vi.fn() } }));
 
 vi.mock("../../context/AuthContext", () => ({
   useAuth: vi.fn(),
@@ -61,8 +64,9 @@ function sectionLabels() {
 }
 
 async function renderPage() {
-  render(<SettingsProfilePage />);
+  const view = render(<SettingsProfilePage />);
   await screen.findByText("Основные данные", { selector: ".company-profile-nav button span" });
+  return view;
 }
 
 async function goTo(label) {
@@ -75,12 +79,23 @@ async function goTo(label) {
 }
 
 describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
+  it("anchors only the desktop profile frame and confines scrolling inside it", () => {
+    expect(viewportCss).toContain("@media (min-width: 1025px)");
+    expect(viewportCss).toContain(".dashboard-content:has(> .company-profile-page)");
+    expect(viewportCss).toContain("overflow: clip");
+    expect(viewportCss).toContain("height: calc(100dvh - 110px)");
+    expect(viewportCss).toContain("grid-template-rows: minmax(0, 1fr)");
+    expect(viewportCss).toContain("overflow-y: auto");
+    expect(viewportCss).toContain("scrollbar-gutter: stable");
+    expect(viewportCss).not.toContain("!important");
+  });
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
     useAuth.mockReturnValue({ user: { id: "owner-1", full_name: "Владелец" } });
     settingsService.getCompanyProfile.mockResolvedValue({ data: { ...COMPANY } });
     settingsService.updateCompanyProfile.mockResolvedValue({ data: { ...COMPANY } });
+    authService.changePassword.mockResolvedValue({});
   });
 
   afterEach(() => {
@@ -88,7 +103,6 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
   });
 
   async function saveBasic() {
-    fireEvent.change(screen.getByPlaceholderText("Название компании"), { target: { value: "Новое имя" } });
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
     await screen.findByText("Профиль сохранён.");
   }
@@ -96,7 +110,6 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
   it("success виден 4с, уходит к 5с и размонтируется", async () => {
     await renderPage();
     vi.useFakeTimers();
-    fireEvent.change(screen.getByPlaceholderText("Название компании"), { target: { value: "Новое имя" } });
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     const banner = screen.getByText("Профиль сохранён.").closest(".marjon-toast");
@@ -113,12 +126,10 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
   it("повторный Save перезапускает 5-секундный таймер", async () => {
     await renderPage();
     vi.useFakeTimers();
-    fireEvent.change(screen.getByPlaceholderText("Название компании"), { target: { value: "Имя 1" } });
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     screen.getByText("Профиль сохранён.");
     await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
-    fireEvent.change(screen.getByPlaceholderText("Название компании"), { target: { value: "Имя 2" } });
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
@@ -130,7 +141,6 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
   it("failed Save не показывает success", async () => {
     await renderPage();
     settingsService.updateCompanyProfile.mockRejectedValueOnce({ response: { data: { detail: "Ошибка сервера" } } });
-    fireEvent.change(screen.getByPlaceholderText("Название компании"), { target: { value: "Новое имя" } });
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
     await screen.findByText("Ошибка сервера");
     expect(screen.queryByText("Профиль сохранён.")).not.toBeInTheDocument();
@@ -146,18 +156,29 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
     expect(screen.queryByText("Профиль сохранён.")).not.toBeInTheDocument();
   });
 
-  it("грязное имя профиля честно помечается в success и никуда не сохраняется", async () => {
+  it("имя профиля сохраняется локально, без изменения серверной идентичности", async () => {
     useAuth.mockReturnValue({ user: { id: "owner-1", name: "Анвар" } });
     await renderPage();
     fireEvent.change(screen.getByPlaceholderText("Введите имя профиля"), { target: { value: "Жахонгир Бахтиёров" } });
-    fireEvent.change(screen.getByPlaceholderText("Название компании"), { target: { value: "Мой ресторан" } });
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
-    await screen.findByText(/Имя профиля требует backend и не сохранено/);
+    await screen.findByText(/Имя профиля сохранено в этом браузере/);
     const payload = settingsService.updateCompanyProfile.mock.calls[0][0];
     expect(JSON.stringify(payload)).not.toContain("Жахонгир");
     const stored = JSON.parse(localStorage.getItem("marjon_profile_settings:owner-1") || "{}");
-    expect(stored.profileName).toBeUndefined();
-    expect("profileName" in stored).toBe(false);
+    expect(stored.profileName).toBe("Жахонгир Бахтиёров");
+  });
+
+  it("имя профиля сохраняется после повторного открытия, отмена возвращает сохранённое", async () => {
+    const view = await renderPage();
+    fireEvent.change(screen.getByPlaceholderText("Введите имя профиля"), { target: { value: "  ДУКШОП  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+    await screen.findByText(/Имя профиля сохранено в этом браузере/);
+    fireEvent.change(screen.getByPlaceholderText("Введите имя профиля"), { target: { value: "Не сохранять" } });
+    fireEvent.click(screen.getByRole("button", { name: "Отменить" }));
+    expect(screen.getByPlaceholderText("Введите имя профиля")).toHaveValue("ДУКШОП");
+    view.unmount();
+    await renderPage();
+    expect(screen.getByPlaceholderText("Введите имя профиля")).toHaveValue("ДУКШОП");
   });
 
   it("фото: preview из кэша, замена работает, имя фото не трогает", async () => {
@@ -204,13 +225,14 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
   it("Основные данные: точный набор полей без лишнего", async () => {
     await renderPage();
     const content = document.querySelector(".company-profile-content");
-    expect(within(content).getByText("Лого компании")).toBeInTheDocument();
+    expect(within(content).queryByText("Лого компании")).not.toBeInTheDocument();
     expect(within(content).getByText("Лого профиля")).toBeInTheDocument();
     expect(within(content).getByText("Имя профиля")).toBeInTheDocument();
     expect(within(content).getByPlaceholderText("Введите имя профиля")).toBeInTheDocument();
-    expect(within(content).getByPlaceholderText("Название компании")).toBeInTheDocument();
-    expect(within(content).getByPlaceholderText("Введите адрес")).toBeInTheDocument();
-    expect(within(content).getByPlaceholderText("123456789")).toBeInTheDocument();
+    expect(within(content).queryByPlaceholderText("Название компании")).not.toBeInTheDocument();
+    expect(within(content).queryByPlaceholderText("Введите адрес")).not.toBeInTheDocument();
+    expect(within(content).queryByPlaceholderText("123456789")).not.toBeInTheDocument();
+    expect(within(content).queryByText(/Очистка удаляет данные без возможности восстановления/)).not.toBeInTheDocument();
     expect(within(content).getByRole("button", { name: /Очистить все отчеты/ })).toBeInTheDocument();
     // В V1 здесь нет телефона/валюты/обслуги/начала дня.
     expect(within(content).queryByText("Телефон")).not.toBeInTheDocument();
@@ -223,7 +245,7 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
     await renderPage();
     const main = document.querySelector(".company-profile-main");
     const html = main.innerHTML;
-    expect(html.indexOf("Лого профиля")).toBeLessThan(html.indexOf("Лого компании"));
+    expect(html).not.toContain("Лого компании");
     const identity = document.querySelector(".company-profile-identity");
     expect(identity).toBeInTheDocument();
     const title = identity.querySelector(".company-profile-identity-title");
@@ -268,7 +290,6 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
     await renderPage();
     expect(screen.getByPlaceholderText("Введите имя профиля")).toHaveValue("Анвар");
     fireEvent.change(screen.getByPlaceholderText("Введите имя профиля"), { target: { value: "Новое имя" } });
-    fireEvent.change(screen.getByPlaceholderText("Название компании"), { target: { value: "Мой ресторан" } });
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
     await waitFor(() => expect(settingsService.updateCompanyProfile).toHaveBeenCalled());
     const payload = settingsService.updateCompanyProfile.mock.calls[0][0];
@@ -317,11 +338,10 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
 
   it("Основные данные: сохранение шлёт канонические поля и бережёт телефон/валюту", async () => {
     await renderPage();
-    fireEvent.change(screen.getByPlaceholderText("Название компании"), { target: { value: "Новое имя" } });
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
     await waitFor(() => expect(settingsService.updateCompanyProfile).toHaveBeenCalled());
     expect(settingsService.updateCompanyProfile).toHaveBeenCalledWith({
-      name: "Новое имя",
+      name: COMPANY.name,
       phone: COMPANY.phone,
       address: COMPANY.address,
       inn: COMPANY.inn,
@@ -388,17 +408,38 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
     expect(ordersService.purge).not.toHaveBeenCalled();
   });
 
-  it("Основные настройки: точный набор из 7 полей", async () => {
+  it("очистка отчётов: ошибка API не выдаётся за успех", async () => {
+    ordersService.purge.mockRejectedValueOnce({ response: { data: { detail: "Forbidden" } } });
+    await renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Очистить все отчеты" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Очистить" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Не удалось очистить отчёты: Forbidden");
+    expect(screen.queryByText(/Отчёты очищены:/)).toBeNull();
+  });
+
+  it("история продуктов: показывает частичное удаление при отказе одного запроса", async () => {
+    warehouseService.list.mockResolvedValueOnce({ data: [{ id: "ok" }, { id: "denied" }] });
+    warehouseService.deletePurchase.mockResolvedValueOnce({}).mockRejectedValueOnce({ response: { status: 403 } });
+    await renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Очистить историю продуктов" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(warehouseService.deletePurchase).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Очистить" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("удалено 1 из 2 (ошибок: 1)");
+  });
+
+  it("Основные настройки: только три оставшихся поля без серых подписей", async () => {
     await renderPage();
     await goTo("Основные настройки");
     const content = document.querySelector(".company-profile-content");
     expect(within(content).getByText("Начало дня")).toBeInTheDocument();
     expect(within(content).getByText("Пароль для удаления блюд")).toBeInTheDocument();
-    expect(within(content).getByText("Пароль для удаления блюд после пречека")).toBeInTheDocument();
-    expect(within(content).getByText("Пароль при смене официанта")).toBeInTheDocument();
-    expect(within(content).getByText("Пароль для восстановления заказа")).toBeInTheDocument();
-    expect(within(content).getByText("Цена доставки")).toBeInTheDocument();
-    expect(within(content).getByText("НДС с сервису (%)")).toBeInTheDocument();
+    expect(within(content).getByText("Показывать кнопку поддержки")).toBeInTheDocument();
+    for (const label of ["Пароль для удаления блюд после пречека", "Пароль при смене официанта", "Пароль для восстановления заказа", "Цена доставки", "НДС с сервису (%)"]) {
+      expect(within(content).queryByText(label)).not.toBeInTheDocument();
+    }
+    expect(content.querySelectorAll(".company-profile-main-settings em")).toHaveLength(0);
   });
 
   it("Основные настройки: отправляются только day_start_hour и vat_rate", async () => {
@@ -406,7 +447,7 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
     await goTo("Основные настройки");
     const content = document.querySelector(".company-profile-content");
     const passwordInputs = within(content).getAllByPlaceholderText("Введите пароль");
-    expect(passwordInputs).toHaveLength(4);
+    expect(passwordInputs).toHaveLength(1);
     fireEvent.change(passwordInputs[0], { target: { value: "secret123" } });
     fireEvent.click(within(document.querySelector(".company-profile-header")).getByRole("button", { name: "Сохранить" }));
     await waitFor(() => expect(settingsService.updateCompanyProfile).toHaveBeenCalled());
@@ -461,10 +502,13 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
     expect(settingsService.updateCompanyProfile).not.toHaveBeenCalled();
   });
 
-  it("Настройка профиля: только два поля пароля и Сохранить", async () => {
+  it("Настройка профиля: текущий пароль, новый пароль и подтверждение", async () => {
     await renderPage();
     await goTo("Настройка профиля");
     const content = document.querySelector(".company-profile-content");
+    expect(within(content).getByPlaceholderText("Введите текущий пароль")).toHaveAttribute("autocomplete", "current-password");
+    expect(content.querySelectorAll(".company-profile-password-form em")).toHaveLength(0);
+    expect(viewportCss).toContain("font-size: 15px");
     expect(within(content).getByPlaceholderText("Введите новый пароль")).toBeInTheDocument();
     expect(within(content).getByPlaceholderText("Повторите новый пароль")).toBeInTheDocument();
     expect(within(content).getByRole("button", { name: "Сохранить" })).toBeInTheDocument();
@@ -475,6 +519,7 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
   it("Настройка профиля: несовпадение блокируется без мутаций", async () => {
     await renderPage();
     await goTo("Настройка профиля");
+    fireEvent.change(screen.getByPlaceholderText("Введите текущий пароль"), { target: { value: "OldPassword1" } });
     fireEvent.change(screen.getByPlaceholderText("Введите новый пароль"), { target: { value: "Password1" } });
     fireEvent.change(screen.getByPlaceholderText("Повторите новый пароль"), { target: { value: "Password2" } });
     fireEvent.click(document.querySelector(".company-profile-password-actions .company-profile-save"));
@@ -482,14 +527,42 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
     expect(settingsService.updateCompanyProfile).not.toHaveBeenCalled();
   });
 
-  it("Настройка профиля: валидный пароль честно сообщает об отсутствии backend", async () => {
+  it("смена пароля: реальный API, очистка полей, без сохранения секретов в браузере", async () => {
     await renderPage();
     await goTo("Настройка профиля");
+    fireEvent.change(screen.getByPlaceholderText("Введите текущий пароль"), { target: { value: "OldPassword1" } });
     fireEvent.change(screen.getByPlaceholderText("Введите новый пароль"), { target: { value: "Password1" } });
     fireEvent.change(screen.getByPlaceholderText("Повторите новый пароль"), { target: { value: "Password1" } });
     fireEvent.click(document.querySelector(".company-profile-password-actions .company-profile-save"));
-    expect(await screen.findByText(/backend-эндпоинт отсутствует/)).toBeInTheDocument();
+    expect(await screen.findByText(/Пароль изменён/)).toBeInTheDocument();
+    expect(authService.changePassword).toHaveBeenCalledWith({ current_password: "OldPassword1", new_password: "Password1", confirm_password: "Password1" });
+    expect(screen.getByPlaceholderText("Введите текущий пароль")).toHaveValue("");
+    expect(screen.getByPlaceholderText("Введите новый пароль")).toHaveValue("");
+    expect(screen.getByPlaceholderText("Повторите новый пароль")).toHaveValue("");
+    expect(JSON.stringify(localStorage)).not.toContain("Password1");
     expect(settingsService.updateCompanyProfile).not.toHaveBeenCalled();
+  });
+
+  it("смена пароля: двойное нажатие, ошибка сервера и отсутствие ложного успеха", async () => {
+    let reject;
+    authService.changePassword.mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }));
+    await renderPage();
+    await goTo("Настройка профиля");
+    for (const [placeholder, value] of [["Введите текущий пароль", "WrongOld1"], ["Введите новый пароль", "Password1"], ["Повторите новый пароль", "Password1"]]) {
+      fireEvent.change(screen.getByPlaceholderText(placeholder), { target: { value } });
+    }
+    const save = screen.getByRole("button", { name: "Сохранить" });
+    fireEvent.click(save);
+    fireEvent.click(save);
+    expect(authService.changePassword).toHaveBeenCalledTimes(1);
+    expect(save).toBeDisabled();
+    await act(async () => reject({ response: { data: { detail: "Текущий пароль указан неверно." } } }));
+    expect(await screen.findByText("Текущий пароль указан неверно.")).toBeInTheDocument();
+    expect(screen.queryByText(/Пароль изменён/)).toBeNull();
+    expect(save).toBeEnabled();
+    await goTo("Основные данные");
+    await goTo("Настройка профиля");
+    expect(screen.getByPlaceholderText("Введите текущий пароль")).toHaveValue("");
   });
 
   it("каждая секция рендерит только свой контент", async () => {

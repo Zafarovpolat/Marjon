@@ -252,12 +252,13 @@ describe("ReceiptPreview print layout", () => {
     expect(screen.getAllByText("#A-1042")).toHaveLength(1);
   });
 
-  it("renders the cancellation block instead of the normal number when cancelled", () => {
+  it("prints the normal number for a cancelled order (no ОТМЕНА block)", () => {
     const { container } = renderKitchen({
       order: { ...kitchenOrder, status: "cancelled" },
     });
 
-    expect(screen.getByText("ОТМЕНА")).toBeInTheDocument();
+    expect(container.querySelector(".receipt-preview__kitchen-cancel")).toBeNull();
+    expect(screen.queryByText("ОТМЕНА")).not.toBeInTheDocument();
     expect(screen.getAllByText("#A-1042")).toHaveLength(1);
   });
 
@@ -339,6 +340,32 @@ describe("ReceiptPreview print layout", () => {
     expect(number).toHaveClass("receipt-preview__block--size-large");
     expect(number).toHaveClass("receipt-preview__block--align-center");
     expect(number).toHaveClass("receipt-preview__block--weight-bold");
+  });
+
+  it("maps chef weight onto info and summary rows so the Bold control has a target", () => {
+    const base = buildKitchenTemplate();
+    const template = {
+      ...base,
+      enabled: { ...base.enabled, showOrderSum: true },
+      blockStyles: {
+        ...base.blockStyles,
+        table: { size: "standard", weight: "bold" },
+        showOrderSum: { size: "standard", weight: "bold" },
+      },
+    };
+    const { container } = renderKitchen({
+      template,
+      order: { ...kitchenOrder, items: [{ id: 1, name: "Плов чайханский", quantity: 2, total: 50000 }] },
+    });
+
+    const tableRow = [...container.querySelectorAll(".receipt-preview__info-row")]
+      .find((el) => el.textContent.includes("Стол:"));
+    expect(tableRow).toHaveClass("receipt-preview__block--weight-bold");
+    const waiterRow = [...container.querySelectorAll(".receipt-preview__info-row")]
+      .find((el) => el.textContent.includes("Официант:"));
+    expect(waiterRow).not.toHaveClass("receipt-preview__block--weight-bold");
+    const sumRow = container.querySelector(".receipt-preview__summary-row");
+    expect(sumRow).toHaveClass("receipt-preview__block--weight-bold");
   });
 
   it("maps a legacy medium chef size to large in the preview", () => {

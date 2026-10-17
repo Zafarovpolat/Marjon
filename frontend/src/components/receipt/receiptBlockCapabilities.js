@@ -10,14 +10,15 @@
 // backend/app/modules/printers/formatter.py::format_receipt:
 // - toggle: formatter honors enabled[key] for every canonical block.
 // - styles "full": size+align+weight honored (restaurantName, orderNumber,
-//   dateTime, total, thankYouText, footerText, table, waiter).
+//   dateTime, total, thankYouText, footerText, table, waiter,
+//   bottomOrderNumber).
 // - styles "full-tabular" (items, paymentMethod) — per-dimension truth:
 //   preview YES for all three axes; save/reload YES (canonical blockStyles);
-//   physical size YES; physical weight YES; physical alignment: codes flow
+//   physical size YES (xlarge halves the usable columns; narrow-paper xlarge
+//   items switch to a wrapped-name + qty/amount layout — never a zero-width
+//   dish field); physical weight YES; physical alignment: codes flow
 //   through the canonical contract but stay visually inert on full-width
-//   tabular lines (standard ESC/POS physics, NOT a product gap). Narrow-paper
-//   xlarge items additionally switch to a wrapped-name + qty/amount layout
-//   (never a zero-width dish field) — structured-layout adaptation, same axes.
+//   tabular lines (standard ESC/POS physics, NOT a product gap).
 // - styles "none": no style UI and no formatter styles (logo, address,
 //   phone, discount, serviceFee, vat) — full agreement by construction.
 import { CUSTOMER_BLOCKS, CUSTOMER_STYLE_BLOCKS } from "../../api/receipt";
@@ -27,10 +28,6 @@ const STYLE_TABULAR = new Set(["items", "paymentMethod"]);
 function physicalStyles(key) {
   if (!CUSTOMER_STYLE_BLOCKS.includes(key)) return "none";
   if (STYLE_TABULAR.has(key)) return "full-tabular";
-  // bottomOrderNumber is frontend + persistence complete (canonical template
-  // blob), but the physical ESC/POS formatter has no bottom-number block yet:
-  // preview-only until the backend workstream implements it.
-  if (key === "bottomOrderNumber") return "preview-only";
   return "full";
 }
 

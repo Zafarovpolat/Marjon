@@ -147,14 +147,14 @@ describe("Support visibility setting", () => {
     settingsService.updateCompanyProfile.mockImplementationOnce(() => new Promise((resolve) => { resolveMain = resolve; }));
     await goToMain();
     const toggle = screen.getByRole("checkbox", { name: "Показывать кнопку поддержки" });
-    fireEvent.change(screen.getByRole("spinbutton", { name: /НДС с сервису/ }), { target: { value: "15" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Начало дня" }), { target: { value: "7" } });
     expect(settingsService.updateCompanyProfile).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
     settingsService.updateCompanyProfile.mockResolvedValueOnce({ data: { ...COMPANY, show_support_button: false } });
     fireEvent.click(toggle);
     await waitFor(() => expect(toggle).not.toBeDisabled());
     expect(settingsService.updateCompanyProfile.mock.calls[1][0]).toEqual({ show_support_button: false });
-    await act(async () => resolveMain({ data: { ...COMPANY, vat_rate: 15 } }));
+    await act(async () => resolveMain({ data: { ...COMPANY, day_start_hour: 7 } }));
     expect(toggle).not.toBeChecked();
   });
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ReceiptPreview from "../../components/receipt/ReceiptPreview";
 import ReceiptSectionEditor from "../../components/receipt/ReceiptSectionEditor";
 import Toast from "../../components/Toast";
+import { InlineLoader } from "../../components/Loader";
 import {
   CHEF_ALIGN_OPTIONS,
   CHEF_STYLE_CONTROLS,
@@ -19,7 +20,7 @@ import "./receiptSettings.css";
 // Единый с чеком клиента вид левой колонки: те же сворачиваемые группы.
 // Порядок внутри групп — как в template.blocks; свернутость UI-only.
 export const CHEF_RECEIPT_GROUPS = [
-  { key: "order", title: "Информация о заказе", blocks: ["orderNumber", "cancelOrderNumber", "orderType", "table", "waiter", "date"] },
+  { key: "order", title: "Информация о заказе", blocks: ["orderNumber", "orderType", "table", "waiter", "date"] },
   { key: "sums", title: "Суммы", blocks: ["showOrderSum"] },
   { key: "notes", title: "Комментарий", blocks: ["comment"] },
 ];
@@ -133,7 +134,13 @@ export default function ChefReceiptSettingsPage() {
         {error ? <Toast kind="error" message={error} onClose={() => setError("")} /> : null}
         {!error && message ? <Toast kind="success" message={message} leaving={toastClosing} onClose={clearToast} /> : null}
 
-        <div className="receipt-grid">
+        <div className="receipt-grid" aria-busy={loading}>
+          {loading ? (
+            <div className="receipt-template-loading" role="status">
+              <InlineLoader text="Загрузка шаблона чека…" />
+            </div>
+          ) : (
+          <>
           <div className="receipt-editor-col">
             <div className="receipt-editor">
               <ReceiptSectionEditor
@@ -156,6 +163,8 @@ export default function ChefReceiptSettingsPage() {
           <aside className="receipt-preview-col">
             <ReceiptPreview type="kitchen" template={template} fitPane />
           </aside>
+          </>
+          )}
         </div>
       </section>
     </div>

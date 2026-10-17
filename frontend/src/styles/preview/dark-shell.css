@@ -1,3 +1,11 @@
+@font-face {
+  font-family: "Marjon Manrope";
+  src: url("../../assets/brand/Manrope-Variable.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: block;
+}
+
 /* Isolated V1.7 shell preview. Imported only by the copied :5293 frontend. */
 body.marjon-dark-shell {
   --marjon-dark-shell-bg: #08243f;
@@ -138,10 +146,59 @@ body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sideba
   color: var(--dark-shell-text);
 }
 
-body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .brand-subtitle,
+/* Local display face avoids a remote-font swap. Existing rail visibility rules
+   still own collapsing; no header/menu dimensions change. */
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .brand-title {
+  font-family: "Marjon Manrope", sans-serif;
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  color: #f5f8ff;
+  white-space: nowrap;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .brand-subtitle {
+  position: relative;
+  top: 5px;
+  font-family: Arial, "Helvetica Neue", sans-serif;
+  font-size: 7px;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 2px;
+  margin-top: 0;
+  margin-bottom: 4px;
+  color: #afc4dc;
+  white-space: nowrap;
+}
+
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .brand-subtitle::after {
+  content: "";
+  display: inline-block;
+  width: 25px;
+  height: 1px;
+  margin-left: 7px;
+  vertical-align: middle;
+  background: linear-gradient(90deg, #175078, transparent);
+}
+
 body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-user__meta span,
 body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-user__meta em {
   color: var(--dark-shell-muted);
+}
+
+/* Use the space freed by the role label without resizing the account card. */
+body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar:not(.is-collapsed) .sidebar-user__name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+  max-height: 2.6em;
 }
 
 body.marjon-dark-shell.dashboard-body .dashboard-shell #dashboardSidebar .sidebar-search {

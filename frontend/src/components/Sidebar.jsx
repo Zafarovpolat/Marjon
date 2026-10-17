@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/marjon-logo.svg";
 import brandLogo from "../assets/brand/marjon-neon-logo-v110.png";
 import { logout } from "../api/client";
-import { canAccessPath, filterNavItems, getRole } from "../utils/permissions";
+import { canAccessPath, filterNavItems } from "../utils/permissions";
 import { readStoredProfile } from "../utils/profileCache";
 import { isNavPathActive, navItems } from "./sidebar/navConfig";
 import SidebarSearch from "./sidebar/SidebarSearch";
@@ -31,10 +31,9 @@ export default function Sidebar({ user, collapsed, onToggle }) {
   const [lang, setLang] = useState(() => localStorage.getItem("marjon_lang") || "ru");
   const [storedProfile, setStoredProfile] = useState(() => readStoredProfile(user?.id));
   const accountRef = useRef(null);
-  const role = getRole(user) || "owner";
-  const displayName = user?.full_name || user?.name || user?.email || "Owner";
-  const profileCardName = user?.full_name || user?.name || (user?.email ? `${user.email.slice(0, 14)}...` : "manager@marjon...");
-  const profileCardRole = role;
+  const savedProfileName = typeof storedProfile.profileName === "string" ? storedProfile.profileName.trim() : "";
+  const displayName = savedProfileName || user?.full_name || user?.name || user?.email || "Owner";
+  const profileCardName = savedProfileName || user?.full_name || user?.name || (user?.email ? `${user.email.slice(0, 14)}...` : "manager@marjon...");
   const profilePhoto = storedProfile.photo || logo;
 
   // Ролевая фильтрация пунктов меню (ТЗ §2.2)
@@ -156,8 +155,8 @@ export default function Sidebar({ user, collapsed, onToggle }) {
             <img src={brandLogo} alt="MARJON" className="marjon-logo" decoding="async" />
           </button>
           <div>
+            <div className="brand-subtitle">ERP SYSTEM</div>
             <div className="brand-title">MARJON</div>
-            <div className="brand-subtitle">Restaurant OS</div>
           </div>
         </div>
       </div>
@@ -192,11 +191,9 @@ export default function Sidebar({ user, collapsed, onToggle }) {
         setAccountOpen={setAccountOpen}
         collapsed={collapsed}
         displayName={displayName}
-        role={role}
         user={user}
         profilePhoto={profilePhoto}
         profileCardName={profileCardName}
-        profileCardRole={profileCardRole}
         storedProfile={storedProfile}
         canOpenProfile={canOpenProfile}
         canOpenSupport={canOpenSupport}
@@ -221,7 +218,6 @@ export default function Sidebar({ user, collapsed, onToggle }) {
       canOpenProfile={canOpenProfile}
       profilePhoto={profilePhoto}
       displayName={displayName}
-      profileCardRole={profileCardRole}
       handleLogout={handleLogout}
       navigate={navigate}
     />

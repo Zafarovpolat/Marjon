@@ -13,6 +13,7 @@ import { ordersService } from "../../api/orders";
 import { warehouseService } from "../../api/warehouse";
 import { profileSections } from "./profile/profileSections";
 import { useCompanyProfileForm } from "./profile/useCompanyProfileForm";
+import "./settingsProfileViewport.css";
 
 const ORDER_TYPE_ROWS = [
   { key: "dineIn", label: "На стол" },
@@ -33,17 +34,13 @@ export default function SettingsProfilePage() {
     success,
     successClosing,
     clearSuccess,
-    set,
     handleImageChange,
     resetForm,
-    clearLogo,
     handleSave,
     profileName,
     setProfileName,
     dayStartHour,
     setDayStartHour,
-    vatRate,
-    setVatRate,
     showSupportButton,
     supportSaving,
     saveSupportVisibility,
@@ -52,19 +49,15 @@ export default function SettingsProfilePage() {
     resetMain,
     dishDeletePassword,
     setDishDeletePassword,
-    dishDeleteAfterPrecheckPassword,
-    setDishDeleteAfterPrecheckPassword,
-    waiterChangePassword,
-    setWaiterChangePassword,
-    orderRestorePassword,
-    setOrderRestorePassword,
-    deliveryPrice,
-    setDeliveryPrice,
     orderTypes,
     toggleOrderType,
     resetOrderTypes,
     orderTypesSaving,
     saveOrderTypes,
+    currentPassword,
+    setCurrentPassword,
+    showCurrentPassword,
+    setShowCurrentPassword,
     newPassword,
     setNewPassword,
     confirmPassword,
@@ -261,51 +254,6 @@ export default function SettingsProfilePage() {
                 </div>
               </section>
 
-              <section className="company-profile-logo-panel">
-                <div className="company-profile-logo-copy">
-                  <strong>Лого компании</strong>
-                  <span>Используется как фирменный логотип компании в чеках, ссылках и брендовых элементах.</span>
-                </div>
-                <div className="company-profile-logo-actions">
-                  <label className="company-profile-upload">
-                    <input type="file" accept="image/*" onChange={(event) => handleImageChange("companyLogo", event)} />
-                    <span>
-                      {form.companyLogo ? <img src={form.companyLogo} alt="Лого компании" /> : <Icon name="bi-image" size={22} />}
-                    </span>
-                    <b>Загрузить</b>
-                  </label>
-                  {form.companyLogo ? (
-                    <button type="button" onClick={() => clearLogo("companyLogo")}>Очистить</button>
-                  ) : null}
-                </div>
-              </section>
-
-              <div className="company-profile-field-list">
-                <label>
-                  <span>
-                    <b>Название компании</b>
-                    <em>Введите полное название компании</em>
-                  </span>
-                  <input value={form.name} onChange={(event) => set("name", event.target.value)} placeholder="Название компании" />
-                </label>
-
-                <label>
-                  <span>
-                    <b>Адрес компании</b>
-                    <em>Введите текущий юридический адрес</em>
-                  </span>
-                  <input value={form.address} onChange={(event) => set("address", event.target.value)} placeholder="Введите адрес" />
-                </label>
-
-                <label>
-                  <span>
-                    <b>ИНН</b>
-                    <em>Введите ИНН</em>
-                  </span>
-                  <input value={form.inn} onChange={(event) => set("inn", event.target.value)} placeholder="123456789" />
-                </label>
-              </div>
-
               <div className="company-profile-danger-row">
                 <button
                   type="button"
@@ -368,19 +316,16 @@ export default function SettingsProfilePage() {
                   </div>
                 </div>
               ), document.body) : null}
-              <p className="company-profile-field-hint" role={clearResult ? "status" : undefined}>
-                {clearResult || "Очистка удаляет данные без возможности восстановления. Остатки на складах не меняются."}
-              </p>
+              {clearResult ? <p className="company-profile-field-hint" role="status">{clearResult}</p> : null}
             </div>
           ) : null}
 
           {activeSection === "main" ? (
-            <div className="company-profile-main">
+            <div className="company-profile-main company-profile-main-settings">
               <div className="company-profile-field-list">
                 <label>
                   <span>
                     <b>Начало дня</b>
-                    <em>Укажите время или пароль для открытия рабочего дня</em>
                   </span>
                   <select value={dayStartHour} onChange={(event) => setDayStartHour(event.target.value)}>
                     {Array.from({ length: 24 }, (_, hour) => (
@@ -394,7 +339,6 @@ export default function SettingsProfilePage() {
                 <label>
                   <span>
                     <b>Пароль для удаления блюд</b>
-                    <em>Требуется backend — пока не сохраняется</em>
                   </span>
                   <input
                     type="password"
@@ -405,81 +349,9 @@ export default function SettingsProfilePage() {
                   />
                 </label>
 
-                <label>
-                  <span>
-                    <b>Пароль для удаления блюд после пречека</b>
-                    <em>Требуется backend — пока не сохраняется</em>
-                  </span>
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    value={dishDeleteAfterPrecheckPassword}
-                    onChange={(event) => setDishDeleteAfterPrecheckPassword(event.target.value)}
-                    placeholder="Введите пароль"
-                  />
-                </label>
-
-                <label>
-                  <span>
-                    <b>Пароль при смене официанта</b>
-                    <em>Требуется backend — пока не сохраняется</em>
-                  </span>
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    value={waiterChangePassword}
-                    onChange={(event) => setWaiterChangePassword(event.target.value)}
-                    placeholder="Введите пароль"
-                  />
-                </label>
-
-                <label>
-                  <span>
-                    <b>Пароль для восстановления заказа</b>
-                    <em>Требуется backend — пока не сохраняется</em>
-                  </span>
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    value={orderRestorePassword}
-                    onChange={(event) => setOrderRestorePassword(event.target.value)}
-                    placeholder="Введите пароль"
-                  />
-                </label>
-
-                <label>
-                  <span>
-                    <b>Цена доставки</b>
-                    <em>Требуется backend — пока не сохраняется</em>
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={deliveryPrice}
-                    onChange={(event) => setDeliveryPrice(event.target.value)}
-                    placeholder="0"
-                  />
-                </label>
-
-                <label>
-                  <span>
-                    <b>НДС с сервису (%)</b>
-                    <em>Процент НДС с сервисного сбора</em>
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={vatRate}
-                    onChange={(event) => setVatRate(event.target.value)}
-                    placeholder="0"
-                  />
-                </label>
-
                 <div className="company-profile-order-row">
                   <span>
                     <b>Показывать кнопку поддержки</b>
-                    <em>Показывать кнопку «Связь с поддержкой» в интерфейсе</em>
                   </span>
                   <label className="company-profile-toggle company-profile-toggle--support" aria-label="Показывать кнопку поддержки">
                     <input
@@ -524,18 +396,34 @@ export default function SettingsProfilePage() {
           ) : null}
 
           {activeSection === "profile" ? (
-            <div className="company-profile-main">
+            <form className="company-profile-main company-profile-password-form" onSubmit={savePassword}>
+              <input type="text" name="username" autoComplete="username" hidden readOnly
+                value={user?.email || user?.phone || ""} />
               <div className="company-profile-field-list">
+                <label>
+                  <span><b>Текущий пароль</b></span>
+                  <span className="company-profile-password-wrap">
+                    <input name="current_password" type={showCurrentPassword ? "text" : "password"} autoComplete="current-password"
+                      value={currentPassword} disabled={passSaving}
+                      onChange={(event) => setCurrentPassword(event.target.value)} placeholder="Введите текущий пароль" />
+                    <button type="button" disabled={passSaving} className="company-profile-eye"
+                      onClick={() => setShowCurrentPassword((value) => !value)}
+                      aria-label={showCurrentPassword ? "Скрыть текущий пароль" : "Показать текущий пароль"} aria-pressed={showCurrentPassword}>
+                      <Icon name={showCurrentPassword ? "bi-eye-slash" : "bi-eye"} size={18} />
+                    </button>
+                  </span>
+                </label>
                 <label>
                   <span>
                     <b>Новый пароль</b>
-                    <em>Минимум 8 символов: буква и цифра</em>
                   </span>
                   <span className="company-profile-password-wrap">
                     <input
                       type={showNewPassword ? "text" : "password"}
                       autoComplete="new-password"
                       value={newPassword}
+                      name="new_password"
+                      disabled={passSaving}
                       onChange={(event) => setNewPassword(event.target.value)}
                       placeholder="Введите новый пароль"
                     />
@@ -554,13 +442,14 @@ export default function SettingsProfilePage() {
                 <label>
                   <span>
                     <b>Повторите новый пароль</b>
-                    <em>Должен совпадать с новым паролем</em>
                   </span>
                   <span className="company-profile-password-wrap">
                     <input
                       type={showConfirmPassword ? "text" : "password"}
                       autoComplete="new-password"
                       value={confirmPassword}
+                      name="confirm_password"
+                      disabled={passSaving}
                       onChange={(event) => setConfirmPassword(event.target.value)}
                       placeholder="Повторите новый пароль"
                     />
@@ -578,11 +467,11 @@ export default function SettingsProfilePage() {
               </div>
 
               <div className="company-profile-password-actions">
-                <button type="button" className="company-profile-save" disabled={passSaving} onClick={savePassword}>
+                <button type="submit" className="company-profile-save" disabled={passSaving}>
                   {passSaving ? "Сохранение..." : "Сохранить"}
                 </button>
               </div>
-            </div>
+            </form>
           ) : null}
         </div>
       </div>

@@ -33,7 +33,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def create_access_token(
-    user_id: UUID, company_id: UUID | None = None, auth_scope: str = "app"
+    user_id: UUID, company_id: UUID | None = None, auth_scope: str = "app", *, auth_version: int = 0
 ) -> str:
     """auth_scope marks what this SESSION is authorized for, independent of the
     user's static is_superadmin flag — a superadmin who logs in through the
@@ -45,6 +45,7 @@ def create_access_token(
         "jti": str(uuid4()),
         "type": "access",
         "auth_scope": auth_scope,
+        "auth_version": auth_version,
         "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes),
     }
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
@@ -61,6 +62,11 @@ def create_refresh_token(auth_scope: str = "app") -> str:
     if auth_scope not in {"app", "hq_admin"}:
         raise ValueError("Unsupported auth scope")
     return f"v1.{auth_scope}.{secrets.token_urlsafe(64)}"
+
+
+def is_access_token_current(payload: dict, user) -> bool:
+    version = payload.get("auth_version", 0)
+    return payload.get("type") == "access" and type(version) is int and version == (user.auth_version or 0)
 
 
 def get_refresh_token_auth_scope(token: str) -> str:

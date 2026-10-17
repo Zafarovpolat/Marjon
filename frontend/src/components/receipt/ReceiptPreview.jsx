@@ -25,6 +25,7 @@ export const customerSampleOrder = {
 
 export const kitchenSampleOrder = {
   order_number: "A-1042",
+  order_type: "dine_in",
   table_number: "12",
   waiter: "Aziz",
   priority: "Срочно",
@@ -374,11 +375,6 @@ function itemMoneyValue(item) {
   return computed > 0 ? computed : 0;
 }
 
-function isCancelledOrder(order = {}) {
-  if (order.is_cancelled || order.cancelled_at) return true;
-  return String(order.status || "").toLowerCase() === "cancelled";
-}
-
 // Chef-only style classes (kitchen preview scope). Isolated from the
 // Customer blockClass contract. Retired size "medium" maps to "large" so
 // unmigrated blobs never render a classless size.
@@ -396,7 +392,7 @@ function kitchenBlockClass(block, styles) {
 // Те же классы таблицы, что у CustomerItems — тот же CSS, без нового.
 // Без сумм колонка Кол-во у правого края, цифры строго по центру шапки;
 // под шапкой одна сплошная линия (пунктир первой строки гасится).
-function KitchenItemsTable({ items = [], comments = true, showSums = false }) {
+function KitchenItemsTable({ items = [], comments = true, showSums = false, styles = {} }) {
   const sum = items.reduce((acc, item) => acc + itemMoneyValue(item), 0);
   return (
     <div className={`receipt-preview__items receipt-preview__items--kitchen${showSums ? "" : " receipt-preview__items--no-sum"}`} data-receipt-items>
@@ -422,7 +418,11 @@ function KitchenItemsTable({ items = [], comments = true, showSums = false }) {
           </Fragment>
         );
       })}
-      {showSums ? <div className="receipt-preview__summary-row"><span>Сумма блюд</span><b>{money(sum)}</b></div> : null}
+      {showSums ? (
+        <div className={`receipt-preview__summary-row ${kitchenBlockClass("showOrderSum", styles)}`}>
+          <span>Сумма блюд</span><b>{money(sum)}</b>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -430,8 +430,6 @@ function KitchenItemsTable({ items = [], comments = true, showSums = false }) {
 function KitchenReceipt({ template = {}, order }) {
   const enabled = template.enabled || {};
   const styles = template.blockStyles || {};
-  const cancelled = isCancelledOrder(order);
-  const showCancel = cancelled && enabled.cancelOrderNumber !== false;
   const commentOn = enabled.comment !== false;
   // Позиции — всегда таблицей как в чеке оплаты; колонка сумм и итог
   // "Сумма блюд" — только при живых деньгах и включённой галочке.
@@ -454,16 +452,7 @@ function KitchenReceipt({ template = {}, order }) {
   for (const block of orderedBlocks(template.blocks, KITCHEN_BLOCKS)) {
     if (!isOn(enabled, block)) continue;
     if (block === "orderNumber") {
-      if (showCancel) continue; // cancellation ticket shows the cancel block instead
       push("number", <h3 className={`receipt-preview__kitchen-number ${kitchenBlockClass(block, styles)}`} key="num">#{getOrderNumber(order)}</h3>);
-    } else if (block === "cancelOrderNumber") {
-      if (!showCancel) continue; // never duplicate the normal number
-      push("number", (
-        <div key="cancelnum">
-          <h3 className={`receipt-preview__kitchen-number ${kitchenBlockClass(block, styles)}`}>#{getOrderNumber(order)}</h3>
-          <div className="receipt-preview__kitchen-cancel">ОТМЕНА</div>
-        </div>
-      ));
     } else if (block === "orderType") infoRow("orderType", "Тип заказа:", formatReceiptOrderType(order.order_type));
     else if (block === "table") infoRow("table", "Стол:", order.table_number);
     else if (block === "waiter") infoRow("waiter", "Официант:", order.waiter);
@@ -475,7 +464,7 @@ function KitchenReceipt({ template = {}, order }) {
   // Dishes are core content: always printed with modifiers; comments follow
   // the unified "Комментарий" setting; sums only with live money.
   push("items", (
-    <KitchenItemsTable key="items" items={orderItems} comments={commentOn} showSums={showSums} />
+    <KitchenItemsTable key="items" items={orderItems} comments={commentOn} showSums={showSums} styles={styles} />
   ));
   if (commentOn && hasValue(order.note)) push("note", (
     <div className={`receipt-preview__kitchen-comment ${kitchenBlockClass("comment", styles)}`} key="note"><b>Комментарий:</b><span>- {order.note}</span></div>

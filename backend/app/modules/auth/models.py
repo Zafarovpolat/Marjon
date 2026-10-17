@@ -45,6 +45,8 @@ class User(TimeStampedModel):
     pin_failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
     pin_locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Incremented only by self-service password change; legacy tokens use 0.
+    auth_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_superadmin: Mapped[bool] = mapped_column(Boolean, default=False)
     avatar_url: Mapped[str | None] = mapped_column(String(500))

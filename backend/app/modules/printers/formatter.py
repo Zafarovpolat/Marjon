@@ -144,6 +144,21 @@ class EscPosFormatter:
         "total": {"size": "xlarge", "align": "left", "weight": "standard"},
         "thankYouText": {"size": "large", "align": "center", "weight": "bold"},
         "footerText": {"size": "large", "align": "center", "weight": "bold"},
+        "bottomOrderNumber": {"size": "large", "align": "center", "weight": "bold"},
+    }
+
+    # Кухонный шеф: те же умолчания, что frontend/src/api/receipt.js
+    # CHEF_DEFAULT_BLOCK_STYLES (нельзя слить в _DEFAULT_BLOCK_STYLES —
+    # orderNumber у шефа large, у клиента standard). Без явно сохранённых
+    # стилей кухонный тикет печатается ровно как превью ChefReceiptSettingsPage.
+    _DEFAULT_CHEF_BLOCK_STYLES: dict[str, dict] = {
+        "orderNumber": {"size": "large", "align": "center", "weight": "bold"},
+        "orderType": {"size": "standard", "weight": "standard"},
+        "table": {"size": "standard", "weight": "standard"},
+        "waiter": {"size": "standard", "weight": "standard"},
+        "date": {"size": "standard", "weight": "standard"},
+        "showOrderSum": {"size": "standard", "weight": "standard"},
+        "comment": {"size": "standard", "weight": "standard"},
     }
 
     # ESC/POS "select character code table" (ESC t n) — почти все ESC/POS
@@ -249,13 +264,17 @@ class EscPosFormatter:
             return default
         return bool(enabled[key])
 
-    def _block_style(self, template: dict, key: str) -> dict:
+    def _block_style(self, template: dict, key: str, defaults: dict | None = None) -> dict:
         """template['blockStyles'][key] (size/align/weight), см. ReceiptSectionEditor.
-        Отсутствующие поля берутся из _DEFAULT_BLOCK_STYLES (те же дефолты, что
-        показывает превью на фронте), а не просто 'standard' — иначе чек без
-        явно сохранённых стилей выглядел бы монотонным, не как в превью."""
+        Отсутствующие поля берутся из defaults (по умолчанию
+        _DEFAULT_BLOCK_STYLES — те же дефолты, что показывает превью на фронте),
+        а не просто 'standard' — иначе чек без явно сохранённых стилей
+        выглядел бы монотонным, не как в превью. Шеф передаёт
+        _DEFAULT_CHEF_BLOCK_STYLES (конфликтующие дефолты orderNumber)."""
+        if defaults is None:
+            defaults = self._DEFAULT_BLOCK_STYLES
         styles = template.get("blockStyles") or {}
-        return {**self._DEFAULT_BLOCK_STYLES.get(key, {}), **(styles.get(key) or {})}
+        return {**defaults.get(key, {}), **(styles.get(key) or {})}
 
     def _style_bytes(self, style: dict) -> tuple[bytes, bytes, int]:
         """(prefix, suffix, width_divisor) для набора style — GS!/ESC E/ESC a.
@@ -290,18 +309,30 @@ class EscPosFormatter:
         prefix, suffix, _ = self._style_bytes(self._block_style(template, key))
         return prefix + self._multiline(text) + suffix
 
-    def _divider(self, char: str = "-") -> bytes:
-        return self._line(char * self.cols)
+    def _styled_row(self, template: dict, key: str, text: str, defaults: dict | None = None) -> bytes:
+        """Одна строка с учётом стиля блока key. Текст обрезается под
+        доступную ширину с учётом размера (xlarge съедает половину колонок)."""
+        prefix, suffix, div = self._style_bytes(self._block_style(template, key, defaults))
+        return prefix + self._line(str(text)[: self.cols // div]) + suffix
+
+    def _divider(self, char: str = "-", cols: int | None = None) -> bytes:
+        cols = self.cols if cols is None else cols
+        return self._line(char * cols)
 
     def _two_col(self, left: str, right: str, cols: int | None = None) -> bytes:
         cols = self.cols if cols is None else cols
         pad = cols - len(left) - len(right)
         return self._line(left + " " * max(pad, 1) + right)
 
-    def _three_col(self, name: str, qty: str, total: str) -> bytes:
+    def _three_col(self, name: str, qty: str, total: str, cols: int | None = None) -> bytes:
+        cols = self.cols if cols is None else cols
         qty_w = 6
         total_w = 10
-        name_w = self.cols - qty_w - total_w
+        name_w = cols - qty_w - total_w
+        if name_w <= 0:
+            # Нет места под имя (xlarge на узкой бумаге): кол-во/сумма сами
+            # по себе — имя вызывающий код печатает отдельной строкой.
+            return self._line(qty.rjust(qty_w) + total.rjust(total_w))
         name_trunc = name[:name_w].ljust(name_w)
         return self._line(name_trunc + qty.rjust(qty_w) + total.rjust(total_w))
 
@@ -353,30 +384,52 @@ class EscPosFormatter:
             out += self._two_col(f"Заказ #{data.order_number}", format_order_type(data.order_type), cols=self.cols // div)
             out += suffix
         if en("table") and data.table_number:
-            out += self._line(f"Стол: {data.table_number}")
+            out += self._styled_row(template, "table", f"Стол: {data.table_number}")
         if data.customer_name:
             out += self._line(f"Клиент: {data.customer_name}")
         if en("waiter") and (data.waiter_name or data.cashier_name):
-            out += self._line(f"Официант: {data.waiter_name or data.cashier_name}")
+            out += self._styled_row(template, "waiter", f"Официант: {data.waiter_name or data.cashier_name}")
         if en("dateTime"):
             out += self._styled_line(template, "dateTime", data.printed_at.strftime("%d.%m.%Y %H:%M:%S"))
         out += self._divider()
 
         # Items
         if en("items"):
+            style = self._block_style(template, "items")
+            prefix, suffix, div = self._style_bytes(style)
+            cols = self.cols // div
+            bold = style.get("weight") == "bold"
+            # Шапка таблицы жирная всегда (и в превью, и на бумаге); при
+            # жирном стиле блока жирность не гасится после шапки
+            # (BOLD_ON при weight=bold уже приходит в prefix).
+            out += prefix
             out += self.BOLD_ON
-            out += self._three_col("Наименование", "Кол.", "Сумма")
-            out += self.BOLD_OFF
-            out += self._divider()
+            out += self._three_col("Наименование", "Кол.", "Сумма", cols=cols)
+            if not bold:
+                out += self.BOLD_OFF
+            out += self._divider(cols=cols)
+            # xlarge на узкой бумаге: колонка имени становится нулевой —
+            # имя печатается отдельной строкой, под ней кол-во/сумма.
+            wrapped = (cols - 16) < 10
             for item in data.items:
-                out += self._three_col(
-                    item.name,
-                    str(item.qty),
-                    f"{item.total:,.0f}",
-                )
+                if wrapped:
+                    out += self._line(item.name[:cols])
+                    out += self._line(
+                        str(item.qty).rjust(6) + f"{item.total:,.0f}".rjust(cols - 6)
+                    )
+                else:
+                    out += self._three_col(
+                        item.name,
+                        str(item.qty),
+                        f"{item.total:,.0f}",
+                        cols=cols,
+                    )
                 for mod in item.modifiers:
-                    out += self._line(f"  + {mod}")
-            out += self._divider()
+                    out += self._line(f"  + {mod}"[:cols])
+            if bold:
+                out += self.BOLD_OFF
+            out += self._divider(cols=cols)
+            out += suffix
 
         # Totals
         out += self._two_col("Итого:", f"{data.subtotal:,.0f}")
@@ -390,19 +443,29 @@ class EscPosFormatter:
             vat_rate = template.get("vatRate")
             label = f"НДС ({vat_rate:.0f}%):" if vat_rate else "НДС:"
             out += self._two_col(label, f"{data.tax:,.0f}")
-        total_style = self._block_style(template, "total")
-        total_prefix, total_suffix, total_div = self._style_bytes(total_style)
-        out += total_prefix
-        out += self._two_col("К ОПЛАТЕ:", f"{data.total:,.0f}", cols=self.cols // total_div)
-        out += total_suffix
+        # «К ОПЛАТЕ» — блок total: галочка «Итого» в конструкторе клиента
+        # гейтит именно эту строку (в превью — «Итого к оплате»), сумма
+        # блюд печатается всегда, как и в превью.
+        if en("total"):
+            total_style = self._block_style(template, "total")
+            total_prefix, total_suffix, total_div = self._style_bytes(total_style)
+            out += total_prefix
+            out += self._two_col("К ОПЛАТЕ:", f"{data.total:,.0f}", cols=self.cols // total_div)
+            out += total_suffix
         out += self._divider()
 
         # Payment
         if en("paymentMethod"):
-            out += self._two_col("Оплата:", data.payment_method)
+            pay_prefix, pay_suffix, pay_div = self._style_bytes(
+                self._block_style(template, "paymentMethod")
+            )
+            pay_cols = self.cols // pay_div
+            out += pay_prefix
+            out += self._two_col("Оплата:", data.payment_method, cols=pay_cols)
             if data.cash_received is not None:
-                out += self._two_col("Получено:", f"{data.cash_received:,.0f}")
-                out += self._two_col("Сдача:", f"{data.change_given or 0:,.0f}")
+                out += self._two_col("Получено:", f"{data.cash_received:,.0f}", cols=pay_cols)
+                out += self._two_col("Сдача:", f"{data.change_given or 0:,.0f}", cols=pay_cols)
+            out += pay_suffix
 
         # Fiscal code
         if data.fiscal_code:
@@ -417,6 +480,18 @@ class EscPosFormatter:
             out += self._styled_line(template, "thankYouText", template.get("thankYouText") or "Спасибо за покупку!")
         if en("footerText") and template.get("footerText"):
             out += self._styled_line(template, "footerText", template["footerText"])
+        # Крупный «НОМЕР ЗАКАЗА» в самом низу чека — как блок
+        # receipt-preview__bottomnum в превью: подпись + крупный номер.
+        if en("bottomOrderNumber"):
+            bot_prefix, bot_suffix, bot_div = self._style_bytes(
+                self._block_style(template, "bottomOrderNumber")
+            )
+            bot_cols = self.cols // bot_div
+            out += self.LF
+            out += bot_prefix
+            out += self._line("НОМЕР ЗАКАЗА"[:bot_cols])
+            out += self._line(str(data.order_number)[:bot_cols])
+            out += bot_suffix
 
         out += self.LF * 3
         out += self.CUT
@@ -425,32 +500,38 @@ class EscPosFormatter:
 
     def format_kitchen_ticket(self, data: KitchenTicketData, template: dict | None = None) -> bytes:
         """template — см. frontend/src/api/receipt.js buildKitchenTemplate():
-        {enabled: {orderNumber, cancelOrderNumber, orderType, table, waiter,
-        date, showOrderSum, comment}}. Без шаблона — печатаем всё.
+        {enabled: {orderNumber, orderType, table, waiter,
+        date, showOrderSum, comment},
+         blockStyles: CHEF_DEFAULT_BLOCK_STYLES (размер/выравнивание/жирность
+         каждой строки — те же дефолты, что в превью шефа)}.
+        Без шаблона — печатаем всё.
         Суммы (showOrderSum) по умолчанию ВЫКЛЮЧЕНЫ: старые шаблоны без
-        этого ключа должны печататься как раньше (только xN, без денег)."""
+        этого ключа должны печататься как раньше (только xN, без денег).
+        Legacy-ключи (createdAt/itemComments/orderNote) — фолбэк только когда
+        нового ключа нет в enabled: сохранённые старыми версиями шаблоны
+        печатаются как раньше."""
         template = template or {}
         en = lambda key, default=True: self._enabled(template, key, default)  # noqa: E731
+
+        def chef_row(key: str, text: str) -> bytes:
+            return self._styled_row(template, key, text, self._DEFAULT_CHEF_BLOCK_STYLES)
 
         out = bytearray()
         out += self.INIT
         out += self.codepage_cmd
-        out += self.ALIGN_CENTER
-        out += self.BOLD_ON + self.DOUBLE_HEIGHT
         if en("orderNumber"):
-            out += self._line(f"ЗАКАЗ #{data.order_number}")
-        out += self.NORMAL_SIZE + self.BOLD_OFF
-        if en("createdAt"):
-            out += self._two_col(format_order_type(data.order_type).upper(), data.printed_at.strftime("%H:%M"))
-        else:
-            out += self._line(format_order_type(data.order_type).upper())
+            out += chef_row("orderNumber", f"ЗАКАЗ #{data.order_number}")
+        # Тип заказа и время — две отдельные строки со своими стилями (в
+        # превью это две info-строки). Дата: новый ключ date, для
+        # legacy-шаблонов без него — старый ключ createdAt.
+        if en("orderType"):
+            out += chef_row("orderType", format_order_type(data.order_type).upper())
+        if en("date", en("createdAt", True)):
+            out += chef_row("date", data.printed_at.strftime("%H:%M"))
         if en("table") and data.table_number:
-            out += self.BOLD_ON
-            out += self._line(f"СТОЛ: {data.table_number}")
-            out += self.BOLD_OFF
+            out += chef_row("table", f"СТОЛ: {data.table_number}")
         if en("waiter") and data.waiter_name:
-            out += self._line(f"Официант: {data.waiter_name}")
-        out += self.ALIGN_LEFT
+            out += chef_row("waiter", f"Официант: {data.waiter_name}")
         out += self._divider("=")
 
         if en("items"):
@@ -462,6 +543,7 @@ class EscPosFormatter:
             # сплошная линия, дальше одиночные пунктиры между строками,
             # над итогом — одиночный пунктир.
             show_sums = en("showOrderSum", False)
+            item_comments_on = en("comment", en("itemComments", True))
             qty_w = 6 if show_sums else 8
             total_w = 10
             name_w = self.cols - qty_w - (total_w if show_sums else 0)
@@ -496,15 +578,24 @@ class EscPosFormatter:
                     if en("modifiers"):
                         for mod in item.get("modifiers", []):
                             out += self._line(f"       + {mod}")
-                    if en("itemComments") and item.get("note"):
+                    if item_comments_on and item.get("note"):
                         out += self._line(f"       ! {item['note']}")
             if show_sums:
                 out += self._divider()
-                out += self._two_col("Сумма блюд:", f"{self._dec(data.subtotal):,.0f}")
+                sum_prefix, sum_suffix, sum_div = self._style_bytes(
+                    self._block_style(template, "showOrderSum", self._DEFAULT_CHEF_BLOCK_STYLES)
+                )
+                out += sum_prefix
+                out += self._two_col(
+                    "Сумма блюд:",
+                    f"{self._dec(data.subtotal):,.0f}",
+                    cols=self.cols // sum_div,
+                )
+                out += sum_suffix
 
-        if en("orderNote") and data.note:
+        if en("comment", en("orderNote", True)) and data.note:
             out += self._divider()
-            out += self._line(f"КОММЕНТАРИЙ: {data.note}")
+            out += chef_row("comment", f"КОММЕНТАРИЙ: {data.note}")
 
         out += self._divider("=")
         out += self.LF * 3

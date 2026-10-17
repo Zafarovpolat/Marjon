@@ -13,7 +13,6 @@ export default function SidebarMobileNav({
   canOpenProfile,
   profilePhoto,
   displayName,
-  profileCardRole,
   handleLogout,
   navigate,
 }) {
@@ -59,7 +58,6 @@ export default function SidebarMobileNav({
                   </div>
                   <div className="mobile-drawer-item__user-meta">
                     <strong>{displayName}</strong>
-                    <span>{profileCardRole}</span>
                   </div>
                   <Icon name="bi-chevron-right" size={14} className="mobile-drawer-item__chevron" aria-hidden="true" />
                 </button>

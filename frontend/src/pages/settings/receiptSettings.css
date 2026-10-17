@@ -122,6 +122,15 @@
   gap: 14px;
   align-items: start;
 }
+/* Kitchen editor mounts only after its server template settles. Keep the
+   existing workspace/header while avoiding a flash of editable defaults. */
+.receipt-settings-page .receipt-template-loading {
+  grid-column: 1 / -1;
+  display: grid;
+  place-items: center;
+  min-height: 200px;
+  height: 100%;
+}
 .receipt-settings-page .receipt-editor {
   display: flex;
   flex-direction: column;
@@ -654,7 +663,7 @@
    Chef rows use the same compact 3-zone tracks as Customer (all chef
    controls are 3- or 2-option now). 2-zone rows (SIZE + WEIGHT) pin
    WEIGHT to the right track so it never clusters in the middle. */
-.receipt-settings-page .receipt-section-editor .receipt-section-row__style--chef:has(> :nth-child(2):last-child) > :nth-child(2) {
+.receipt-settings-page .receipt-section-editor .receipt-section-row__style:has(> :nth-child(2):last-child) > :nth-child(2) {
   grid-column: 3;
   justify-self: end;
 }
@@ -666,10 +675,6 @@
 }
 .receipt-settings-page .receipt-section-editor .receipt-section-row__style--chef .receipt-segment-group .receipt-segments--n4 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-.receipt-settings-page .receipt-section-editor .receipt-section-row__style--chef:has(> :nth-child(2):last-child) > :nth-child(2) {
-  grid-column: 3;
-  justify-self: end;
 }
 
 /* -- Chef ticket style controls (kitchen preview only) ---------------
@@ -684,15 +689,13 @@
 .receipt-settings-page .receipt-preview--kitchen .receipt-preview__block--align-center { text-align: center; }
 .receipt-settings-page .receipt-preview--kitchen .receipt-preview__block--align-right { text-align: right; }
 .receipt-settings-page .receipt-preview--kitchen .receipt-preview__block--weight-bold { font-weight: 700; }
+/* Info/summary rows pin child weights (label regular, value bold), so the
+   container rule alone is dead — an explicit winning rule makes the Bold
+   control visible, same as the customer info-row weight rule below. */
+.receipt-settings-page .receipt-preview--kitchen .receipt-preview__info-row.receipt-preview__block--weight-bold b { font-weight: 700; }
+.receipt-settings-page .receipt-preview--kitchen .receipt-preview__summary-row.receipt-preview__block--weight-bold span { font-weight: 700; }
 .receipt-settings-page .receipt-preview--kitchen .receipt-preview__kitchen-number:not(.receipt-preview__block--weight-bold) {
   font-weight: 400;
-}
-.receipt-settings-page .receipt-preview--kitchen .receipt-preview__kitchen-cancel {
-  margin-top: 4px;
-  text-align: center;
-  font-size: 18px;
-  font-weight: 900;
-  letter-spacing: 0.12em;
 }
 .receipt-settings-page .receipt-preview--kitchen .receipt-preview__kitchen-amount {
   font-weight: 700;
@@ -740,18 +743,19 @@
   box-shadow: 0 0 0 3px rgba(31, 201, 201, 0.18);
 }
 .receipt-settings-page .receipt-section-group__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Chevron: pure CSS, rotates subtly on expand. No assets, no motion excess. */
+/* Chevron: pure CSS, rotates on state — closed points RIGHT, open points
+   DOWN (per the approved constructor reference). No assets, no excess motion. */
 .receipt-settings-page .receipt-section-group__chevron {
   flex: none;
   width: 9px;
   height: 9px;
   border-right: 2px solid #0f99b8;
   border-bottom: 2px solid #0f99b8;
-  transform: rotate(45deg) translate(-1px, -1px);
+  transform: rotate(-45deg) translate(-1px, -1px);
   transition: transform 150ms ease;
 }
 .receipt-settings-page .receipt-section-group__header[aria-expanded="true"] .receipt-section-group__chevron {
-  transform: rotate(225deg) translate(-1px, -1px);
+  transform: rotate(45deg) translate(-1px, -1px);
 }
 /* Subtle open/close: grid-rows animation keeps cards mounted (values and
    focus survive collapse), clips without layout jumps. */

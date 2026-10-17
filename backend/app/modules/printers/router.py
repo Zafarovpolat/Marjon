@@ -212,7 +212,8 @@ async def printer_ws_endpoint(
         payload = decode_token(token)
         user_id = UUID(payload["sub"])
         user = await UserRepository(db).get_by_id(user_id)
-        if not user or not user.is_active:
+        from app.modules.auth.security import is_access_token_current
+        if not user or not user.is_active or not is_access_token_current(payload, user):
             await ws.close(code=4001, reason="Unauthorized")
             return
         await ensure_company_app_identity(

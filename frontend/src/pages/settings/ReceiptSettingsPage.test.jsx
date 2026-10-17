@@ -75,14 +75,14 @@ describe("ReceiptSettingsPage (customer)", () => {
     render(<ReceiptSettingsPage />);
     await screen.findByRole("heading", { name: "Настройка чека" });
     expect(screen.queryAllByRole("textbox", { name: "Название" })).toHaveLength(1);
-    const row = screen.getByRole("checkbox", { name: "Название ресторана" }).closest(".receipt-section-row");
+    const row = screen.getByRole("checkbox", { name: "Название заведения" }).closest(".receipt-section-row");
     expect(within(row).getByRole("textbox", { name: "Название" })).toBeInTheDocument();
   });
 
   it("hides the restaurant-name input on OFF and restores its value on ON", async () => {
     render(<ReceiptSettingsPage />);
     await screen.findByRole("heading", { name: "Настройка чека" });
-    const box = screen.getByRole("checkbox", { name: "Название ресторана" });
+    const box = screen.getByRole("checkbox", { name: "Название заведения" });
     const row = () => box.closest(".receipt-section-row");
     const details = () => row().querySelector(".receipt-section-row__details");
     fireEvent.change(within(row()).getByRole("textbox", { name: "Название" }), { target: { value: "AuditName" } });
@@ -183,7 +183,7 @@ describe("ReceiptSettingsPage (customer)", () => {
     await screen.findByRole("heading", { name: "Настройка чека" });
     resolveLoad({ template: buildCustomerTemplate({ name: "MARJON", phone: "+998770702101" }), source: "api" });
     expect(await screen.findByText("Итого к оплате:")).toBeInTheDocument();
-    const box = () => screen.getByRole("checkbox", { name: "Название ресторана" });
+    const box = () => screen.getByRole("checkbox", { name: "Название заведения" });
     const nameRow = () => box().closest(".receipt-section-row");
     expect(within(nameRow()).getByRole("button", { name: "Очень большой" })).toBeInTheDocument();
     fireEvent.click(box());
@@ -550,6 +550,27 @@ describe("ReceiptSettingsPage — comment / bottom number / printer connection",
     expect(screen.queryByRole("checkbox", { name: "Текст благодарности" })).toBeNull();
   });
 
+  it("labels the order block Номер и тип заказа (the row prints both)", async () => {
+    render(<ReceiptSettingsPage />);
+    await screen.findByRole("heading", { name: "Настройка чека" });
+    expect(screen.getByRole("checkbox", { name: "Номер и тип заказа" })).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Номер заказа" })).toBeNull();
+  });
+
+  it("keeps line breaks typed into the comment textarea through preview and Save", async () => {
+    render(<ReceiptSettingsPage />);
+    await screen.findByRole("heading", { name: "Настройка чека" });
+    const box = screen.getByRole("checkbox", { name: "Комментарий к чеку" });
+    const field = within(box.closest(".receipt-section-row"))
+      .getByRole("textbox", { name: "Комментарий к чеку" });
+    fireEvent.change(field, { target: { value: "Rahmat!\nEson boldi" } });
+    expect(document.querySelector(".receipt-preview__customer-footer strong").textContent)
+      .toBe("Rahmat!\nEson boldi");
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+    await waitFor(() => expect(saveCustomerTemplate).toHaveBeenCalledTimes(1));
+    expect(saveCustomerTemplate.mock.calls[0][0].thankYouText).toBe("Rahmat!\nEson boldi");
+  });
+
   it("renders the bottom order number block with size/weight controls", async () => {
     const { container } = render(<ReceiptSettingsPage />);
     await screen.findByRole("heading", { name: "Настройка чека" });
@@ -565,6 +586,24 @@ describe("ReceiptSettingsPage — comment / bottom number / printer connection",
     expect(container.querySelector(".receipt-preview__bottomnum")).toBeNull();
     expect(screen.getByText("Номер заказа:")).toBeInTheDocument();
     expect(saveCustomerTemplate).not.toHaveBeenCalled();
+  });
+
+  it("shows the bottom number row for a legacy server template missing it in blocks", async () => {
+    const base = buildCustomerTemplate({ name: "MARJON", phone: "+998770702101" });
+    getCustomerTemplate.mockImplementationOnce(() => Promise.resolve({
+      template: { ...base, blocks: base.blocks.filter((b) => b !== "bottomOrderNumber") },
+      source: "api",
+    }));
+    const { container } = render(<ReceiptSettingsPage />);
+    await screen.findByRole("heading", { name: "Настройка чека" });
+    const box = screen.getByRole("checkbox", { name: "Нижний номер заказа" });
+    expect(box).toBeChecked();
+    expect(container.querySelector(".receipt-preview__bottomnum-value")).toHaveTextContent("3");
+    fireEvent.click(box);
+    expect(container.querySelector(".receipt-preview__bottomnum")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+    await waitFor(() => expect(saveCustomerTemplate).toHaveBeenCalledTimes(1));
+    expect(saveCustomerTemplate.mock.calls[0][0].blocks).toContain("bottomOrderNumber");
   });
 
   it("offers LAN/USB single-choice printer connection, default LAN", async () => {
