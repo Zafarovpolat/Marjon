@@ -356,3 +356,43 @@ async def staff_users(current_user: User = Depends(require_staff_lister), db: As
             )
         )
     return result
+
+
+@router.get("/active-staff", response_model=list[UUID])
+async def active_staff(
+    current_user: User = Depends(require_staff_lister),
+    db: AsyncSession = Depends(get_db),
+):
+    """DESK-STAFF-01: кто сейчас «в смене» — id сотрудников с живой сессией.
+
+    Десктоп (`desktop/src/pages/EmployeeSelector.jsx`) опрашивает этот путь
+    каждые 30 секунд, чтобы подсветить сотрудников с активной сессией. Раньше
+    эндпоинта не существовало (404), ошибка глоталась через `.catch(() => {})`,
+    и индикатор не работал никогда.
+
+    «В смене» = есть неотозванный refresh-токен с неистёкшим сроком. Скоуп тот
+    же, что у /staff-users: владелец — вся компания, терминал/моноблок — только
+    свой филиал. Сравнение времени делаем на стороне БД (`func.now()`), иначе
+    SQLite (naive) и Postgres (timestamptz) расходятся в интерпретации.
+    """
+    from sqlalchemy import func
+
+    from app.modules.auth.models import RefreshToken
+
+    # Тот же скоуп, что у /staff-users: у веб-владельца branch_id = NULL,
+    # у терминала/моноблока — свой филиал.
+    branch_id = getattr(current_user, "branch_id", None)
+
+    stmt = (
+        select(RefreshToken.user_id)
+        .join(User, User.id == RefreshToken.user_id)
+        .where(
+            User.company_id == current_user.company_id,
+            RefreshToken.revoked_at.is_(None),
+            RefreshToken.expires_at > func.now(),
+        )
+        .distinct()
+    )
+    if branch_id is not None:
+        stmt = stmt.where(User.branch_id == branch_id)
+    return list((await db.execute(stmt)).scalars().all())

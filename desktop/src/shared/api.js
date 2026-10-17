@@ -337,11 +337,15 @@ export const shifts = {
   close: (closing_cash = 0) => api.post('/pos/shifts/close', { closing_cash }).then((r) => r.data),
 }
 
-// Финансы: приход/расход (бэкенд: /finance/income-expense)
+// Финансы: приход/расход (бэкенд: /finance/transactions).
+// DESK-FIN-01: раньше здесь был /finance/income-expense — такого пути на бэкенде
+// нет (404), поэтому панель «Финансы» не могла ни показать операции, ни добавить
+// приход/расход. Канонический путь — /finance/transactions (kafe_compat),
+// приход/расход различаются полем direction.
 export const finance = {
-  incomeExpense: (params) => api.get('/finance/income-expense', { params }).then((r) => r.data),
-  addIncome: (data) => api.post('/finance/income-expense', { ...data, direction: 'income' }).then((r) => r.data),
-  addExpense: (data) => api.post('/finance/income-expense', { ...data, direction: 'expense' }).then((r) => r.data),
+  incomeExpense: (params) => api.get('/finance/transactions', { params }).then((r) => r.data),
+  addIncome: (data) => api.post('/finance/transactions', { ...data, direction: 'income' }).then((r) => r.data),
+  addExpense: (data) => api.post('/finance/transactions', { ...data, direction: 'expense' }).then((r) => r.data),
 }
 
 // Клиенты (автокомплит по номеру в доставке)

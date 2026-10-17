@@ -73,7 +73,12 @@ def _tx_dict(t: FinTransaction) -> dict:
 async def kafe_list_transactions(
     date_from: date | None = Query(None), date_to: date | None = Query(None),
     direction: str | None = Query(None),
-    user: User = Depends(require_web_owner),
+    # DESK-FIN-01: десктоп-касса (моноблок/кассир) показывает панель финансов
+    # и список операций за смену. Раньше здесь стоял require_web_owner, поэтому
+    # любой сотрудник получал 403, а панель молча рисовала пустой список.
+    # Чтение — любому сотруднику компании (company-scope ниже это гарантирует),
+    # запись/правка/удаление остаются у владельца.
+    user: User = Depends(require_company_app_user),
     scope: FinanceScope = Depends(get_company_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
@@ -97,7 +102,11 @@ async def kafe_list_transactions(
 async def kafe_create_transaction(
     data: dict,
     idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
-    user: User = Depends(require_web_owner),
+    # DESK-FIN-01: приход/расход наличных вносит кассир с терминала (панель
+    # «Финансы», в т.ч. при закрытии заказа в долг). UI уже гейтится тумблерами
+    # can_view_finance/can_cash_ops, поэтому серверная проверка — company-scope,
+    # а не «только владелец»: иначе кнопка есть, а запрос всегда 403.
+    user: User = Depends(require_company_app_user),
     scope: FinanceScope = Depends(get_company_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):

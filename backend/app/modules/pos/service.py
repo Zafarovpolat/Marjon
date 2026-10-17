@@ -28,10 +28,17 @@ from app.shared.exceptions import ConflictError, NotFoundError, ValidationError
 from app.shared.tenant_scope import require_company_resource
 
 # ── Order status state machine ───────────────────────────────────────────────
+# POS-CLOSE-01: закрытие счёта (`completed`) — это оплата, а не шаг кухни.
+# Кассир закрывает заказ сразу после оплаты, и заказ при этом может быть ещё
+# `new`/`accepted`/`cooking` (гость поел и ушёл, кухня не жала «готово»,
+# навынос оплачен на кассе). Раньше `completed` разрешался только из `ready`,
+# и десктоп получал 422 «Невозможно перевести заказ из 'accepted' в
+# 'completed'» — закрытие заказа не работало вообще. Оставляем запрет только
+# на переходы ИЗ финальных статусов (completed/cancelled) — они неизменяемы.
 VALID_TRANSITIONS: dict[str, set[str]] = {
-    "new":       {"accepted", "cooking", "cancelled"},
-    "accepted":  {"cooking", "cancelled"},
-    "cooking":   {"ready", "cancelled"},
+    "new":       {"accepted", "cooking", "completed", "cancelled"},
+    "accepted":  {"cooking", "completed", "cancelled"},
+    "cooking":   {"ready", "completed", "cancelled"},
     "ready":     {"completed", "cancelled"},
     "completed": set(),           # final state — no transitions
     "cancelled": set(),           # final state — no transitions
@@ -331,6 +338,14 @@ class OrderService:
             for item in order.items:
                 if item.status == "pending":
                     item.status = "cooking"
+        if target == "completed":
+            # POS-CLOSE-01: счёт закрыт → все незавершённые позиции считаются
+            # отданными. Без этого позиции остаются pending/cooking навсегда и
+            # отчёты (по блюдам, по отменам) показывают «вечно готовится».
+            # Валидные статусы позиции: pending | cooking | ready | served | cancelled.
+            for item in order.items:
+                if item.status in ("pending", "cooking", "ready"):
+                    item.status = "served"
         await self.repo.save(order)
         updated_order = await self.get(company_id, order_id)
         try:
