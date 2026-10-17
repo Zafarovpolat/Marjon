@@ -32,9 +32,14 @@ for p in sorted(glob.glob(os.path.join(ROOT, "src/**/*.css"), recursive=True)):
             if d.important:
                 found.append((os.path.relpath(p, ROOT), d.line, f"{d.prop}: {d.value}"))
 
-# --- JSX/JS: вне комментариев ---
+# --- JSX/JS: вне комментариев, тесты пропускаем ---
 for pat in ("src/**/*.jsx", "src/**/*.js"):
     for p in sorted(glob.glob(os.path.join(ROOT, pat), recursive=True)):
+        # Тесты упоминают "!important" в строках самих проверок
+        # (expect(...).not.toContain("!important")) — это и есть гард, а не декларация.
+        name = os.path.basename(p)
+        if ".test." in name or ".spec." in name:
+            continue
         text = open(p, encoding="utf-8").read()
         # вырезать комментарии, чтобы не ловить пояснения
         clean = re.sub(r"/\*.*?\*/", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S)
