@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi, printers as printersApi, auth } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
+import { printJob, startPrintPoller } from '../../shared/printJobs'
 import DishModal from '../../components/DishModal'
 import InputPromptModal from '../../components/InputPromptModal'
 import { toast } from '../../components/Toast'
@@ -97,14 +98,14 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
   useEffect(() => {
     return onPrintJob(async (msg) => {
       if (msg.event !== 'print_job') return
-      const printer = printerMap[msg.printer_id]
-      if (!printer) return
       try {
-        await window.electron?.print({ ip: printer.ip_address, port: printer.port ?? 9100, payloadBase64: msg.payload, copies: msg.copies ?? 1 })
-        await printersApi.jobDone(msg.job_id)
+        await printJob(msg, printerMap[msg.printer_id])
       } catch (err) { console.error('[print]', err); toast(t('print_failed'), 'error') }
     })
   }, [printerMap])
+
+  // PRINT-LAT-01: страховка, если WebSocket в переподключении.
+  useEffect(() => startPrintPoller(() => printerMap), [printerMap])
 
   // Опасные действия официанта (перенос/удаление блюда, смена стола, отмена
   // заказа) разрешены ТОЛЬКО при праве can_manage_orders из админки И

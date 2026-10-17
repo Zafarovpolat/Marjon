@@ -216,6 +216,22 @@ async def mark_done(
     return await PrinterService(db).mark_job_done(user.company_id, job_id)
 
 
+@router.post("/jobs/{job_id}/fail", response_model=PrintJobResponse)
+async def mark_failed(
+    job_id: UUID,
+    data: dict | None = None,
+    user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """PRINT-LAT-01: терминал не смог напечатать — снимаем задание с очереди.
+
+    Без этого пути ошибка печати на терминале оставляла задание в pending
+    навсегда: оно приходило снова и снова при каждом опросе очереди.
+    """
+    error = (data or {}).get("error")
+    return await PrinterService(db).mark_job_failed(user.company_id, job_id, error)
+
+
 # ── WebSocket (desktop terminal push) ─────────────────────────────────────────
 
 @router.websocket("/ws/{branch_id}")

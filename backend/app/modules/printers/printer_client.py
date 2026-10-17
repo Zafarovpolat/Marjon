@@ -41,12 +41,16 @@ def send_to_usb_printer(device_path: str, data: bytes) -> None:
         raise PrinterError(f"Cannot write to {device_path} — {e}")
 
 
-async def print_raw(printer, data: bytes) -> None:
-    """Dispatch to correct transport based on printer config."""
+async def print_raw(printer, data: bytes, timeout: float = 5) -> None:
+    """Dispatch to correct transport based on printer config.
+
+    timeout — сколько ждать установки TCP-соединения. Запрос печати ждёт его
+    синхронно, поэтому значение влияет на отзывчивость кнопки «Печать».
+    """
     if printer.connection_type == "network":
         if not printer.ip_address:
             raise PrinterError("Network printer missing ip_address")
-        await send_to_network_printer(printer.ip_address, printer.port, data)
+        await send_to_network_printer(printer.ip_address, printer.port, data, timeout=timeout)
     elif printer.connection_type in ("usb", "serial"):
         if not printer.device_path:
             raise PrinterError("USB/Serial printer missing device_path")

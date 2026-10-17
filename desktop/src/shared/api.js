@@ -247,6 +247,14 @@ export const printers = {
   ping: (ip, port = 9100) =>
     api.get('/printers/ping', { params: { ip, port } }).then((r) => r.data),
   jobDone: (jobId) => api.post(`/printers/jobs/${jobId}/done`).then((r) => r.data),
+  // PRINT-LAT-01: терминал снимает задание с очереди, если печать не удалась
+  // (принтер выключен, нет ip). Без этого задание висело pending навсегда.
+  jobFail: (jobId, error) =>
+    api.post(`/printers/jobs/${jobId}/fail`, { error }).then((r) => r.data),
+  // PRINT-LAT-01: страховка на случай, если WebSocket отвалился — терминал сам
+  // опрашивает очередь и печатает то, что сервер не смог отправить напрямую.
+  pendingJobs: (printerId) =>
+    api.get(`/printers/${printerId}/jobs/pending`).then((r) => r.data),
   printReceipt: (data) => api.post('/printers/print/receipt', data).then((r) => r.data),
   printKitchen: (data) => api.post('/printers/print/kitchen', data).then((r) => r.data),
   // Общий чек-сводка (История/Отчёты)

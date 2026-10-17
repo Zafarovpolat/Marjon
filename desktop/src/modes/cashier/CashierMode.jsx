@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi, printers as printersApi, customers as customersApi, auth as authApi, finance as financeApi, companies as companiesApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
+import { printJob, startPrintPoller } from '../../shared/printJobs'
 import DishModal from '../../components/DishModal'
 import FinancePanel from '../../components/FinancePanel'
 import HistoryPanel from '../../components/HistoryPanel'
@@ -144,14 +145,15 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
   useEffect(() => {
     return onPrintJob(async (msg) => {
       if (msg.event !== 'print_job') return
-      const printer = printerMap[msg.printer_id]
-      if (!printer) return
       try {
-        await window.electron?.print({ ip: printer.ip_address, port: printer.port ?? 9100, payloadBase64: msg.payload, copies: msg.copies ?? 1 })
-        await printersApi.jobDone(msg.job_id)
+        await printJob(msg, printerMap[msg.printer_id])
       } catch (err) { console.error('[print]', err); toast(t('print_failed')) }
     })
   }, [printerMap])
+
+  // PRINT-LAT-01: страховка, если WebSocket в переподключении — терминал сам
+  // забирает очередь печати (раньше без WS чек не выходил вообще).
+  useEffect(() => startPrintPoller(() => printerMap), [printerMap])
 
   // ── Столы ──
   const allTables = zones.flatMap((z) => (z.tables || []).map((t) => ({ ...t, zoneId: z.id, zoneName: z.name })))
