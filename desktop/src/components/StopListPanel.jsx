@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { X, Ban, Search, Check, Utensils, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { X, Ban, Search, Check, Utensils, ArrowLeft } from 'lucide-react'
 import { menu, orders } from '../shared/api'
 import { can } from '../shared/permissions'
 import { t } from '../shared/i18n'
@@ -7,7 +7,7 @@ import { toast } from './Toast'
 
 function isStopped(p) { return p.is_available === false || p.in_stop_list === true }
 
-// Локальные помощники дат (YYYY-MM-DD): пикер истории по датам.
+// Локальные помощники дат (YYYY-MM-DD): только для вчерашнего дня.
 function toISODate(date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -19,10 +19,6 @@ function shiftISO(value, days) {
   const date = new Date(`${value}T00:00:00`)
   date.setDate(date.getDate() + days)
   return toISODate(date)
-}
-function formatDayLabel(value) {
-  const [year, month, day] = String(value || '').split('-')
-  return day && month && year ? `${day}.${month}.${year}` : ''
 }
 
 /**
@@ -48,47 +44,32 @@ export default function StopListPanel({ user, onClose }) {
   const [limitDraft, setLimitDraft] = useState({})
   const [limitBusyId, setLimitBusyId] = useState(null)
 
-  // История блюда по датам: продано за день из отчёта (реальные данные),
-  // остаток = лимит − продано, накопление за 7 дней. По умолчанию — вчера.
-  const [historyDay, setHistoryDay] = useState(() => shiftISO(todayISO(), -1))
+  // История блюда: продано за прошлый день из отчёта (упрощённо).
   const [dayQty, setDayQty] = useState(0)
-  const [weekQty, setWeekQty] = useState(0)
   const [historyLoading, setHistoryLoading] = useState(false)
-  // Первая загрузка — плейсхолдер; дальше старые цифры висят до прихода
-  // новых (stale-while-revalidate), чтобы смена даты не мерцала.
-  const [historyLoaded, setHistoryLoaded] = useState(false)
-  const historyDishRef = useRef(null)
 
   useEffect(() => {
     if (selectedId == null) return
-    // Другое блюдо — чужые цифры не показываем, снова плейсхолдер.
-    const dishChanged = historyDishRef.current !== selectedId
-    historyDishRef.current = selectedId
-    if (dishChanged) setHistoryLoaded(false)
     let alive = true
     setHistoryLoading(true)
-    // Продажи считаем из заказов (доступно любой роли кассы), а не из
-    // /reports/* — те требуют право финансов и кассиру отдают 403.
-    // Окно: выбранный день + 6 дней назад (= накопление за 7 дней).
-    const days = Array.from({ length: 7 }, (_, i) => shiftISO(historyDay, -i))
+    // Только вчерашний день — без 7 дней по 1000 заказов.
+    // Владелец: «показывать просто в последний раз историю, прошлый день, не надо слишком подробно».
+    const yesterday = shiftISO(todayISO(), -1)
     const branchId = user?.branch_id || undefined
-    Promise.allSettled(days.map((day) =>
-      orders.list({ date: day, branch_id: branchId, limit: 1000 }).catch(() => []),
-    )).then((results) => {
+    orders.list({ date: yesterday, branch_id: branchId, limit: 1000 }).catch(() => []).then((result) => {
       if (!alive) return
-      const sumDay = (list) => (Array.isArray(list) ? list : list?.items || [])
+      const list = Array.isArray(result) ? result : result?.items || []
+      const sold = list
         .filter((o) => o?.status !== 'cancelled')
         .flatMap((o) => o?.items || [])
         .filter((it) => String(it?.product_id) === String(selectedId) && it?.status !== 'cancelled')
         .reduce((sum, it) => sum + Number(it?.quantity || 0), 0)
-      const qtys = results.map((res) => (res.status === 'fulfilled' ? sumDay(res.value) : 0))
-      setDayQty(qtys[0] || 0)
-      setWeekQty(qtys.reduce((sum, qty) => sum + qty, 0))
+      setDayQty(sold)
       setHistoryLoading(false)
       setHistoryLoaded(true)
     })
     return () => { alive = false }
-  }, [selectedId, historyDay])
+  }, [selectedId])
 
   const load = useCallback(() => {
     setLoading(true)
@@ -228,34 +209,17 @@ export default function StopListPanel({ user, onClose }) {
                 </div>
               )}
 
-              {/* История блюда по датам: вчерашний список, остаток, накопление */}
-              <section className={`stop-detail__section stop-detail__history${historyLoading && historyLoaded ? " is-refreshing" : ""}`} aria-busy={historyLoading}>
-                <span className="stop-detail__section-title">{t('history_dates')}</span>
-                <div className="stop-history__nav">
-                  <button type="button" className="btn btn--sm" aria-label="‹"
-                    onClick={() => setHistoryDay((day) => shiftISO(day, -1))}>
-                    <ChevronLeft size={18} />
-                  </button>
-                  <span className="stop-history__date">{formatDayLabel(historyDay)}</span>
-                  <button type="button" className="btn btn--sm" aria-label="›"
-                    disabled={historyDay >= todayISO()}
-                    onClick={() => setHistoryDay((day) => shiftISO(day, 1))}>
-                    <ChevronRight size={18} />
-                  </button>
-                  <button type="button" className="btn btn--sm" onClick={() => setHistoryDay(todayISO())}>{t('today')}</button>
-                  <button type="button" className="btn btn--sm" onClick={() => setHistoryDay(shiftISO(todayISO(), -1))}>{t('yesterday')}</button>
-                </div>
-                {historyLoading && !historyLoaded ? (
+              {/* История блюда: только вчерашний день, без подробного разбора */}
+              <section className={`stop-detail__section stop-detail__history${historyLoading ? " is-refreshing" : ""}`} aria-busy={historyLoading}>
+                <span className="stop-detail__section-title">{t('yesterday')}</span>
+                {historyLoading ? (
                   <p className="stop-detail__hint">{t('loading')}</p>
                 ) : (
-                  <>
-                    <div className="stop-history__rows">
-                      <div><span>{t('sold_day')}</span><strong>{dayQty}</strong></div>
-                      <div><span>{t('daily_max')}</span><strong>{selected.daily_limit ?? t('no_limit')}</strong></div>
-                      <div><span>{t('remainder')}</span><strong>{selected.daily_limit == null ? '—' : selected.daily_limit - dayQty}</strong></div>
-                    </div>
-                    <p className="stop-detail__sold">{t('total_7days')}: <strong>{weekQty}</strong></p>
-                  </>
+                  <div className="stop-history__rows">
+                    <div><span>{t('sold_day')}</span><strong>{dayQty}</strong></div>
+                    <div><span>{t('daily_max')}</span><strong>{selected.daily_limit ?? t('no_limit')}</strong></div>
+                    <div><span>{t('remainder')}</span><strong>{selected.daily_limit == null ? '—' : selected.daily_limit - dayQty}</strong></div>
+                  </div>
                 )}
               </section>
               </div>

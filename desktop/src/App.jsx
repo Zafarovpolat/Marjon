@@ -303,6 +303,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <TopBar
+        onBack={handleAccount}
         onRefresh={() => window.location.reload()}
         onLock={handleLock}
         onSettings={() => setShowSettings(true)}

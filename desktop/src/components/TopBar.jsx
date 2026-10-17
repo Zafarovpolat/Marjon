@@ -1,4 +1,4 @@
-import { RefreshCw, Lock, User, Settings } from 'lucide-react'
+import { RefreshCw, Lock, User, Settings, ArrowLeft } from 'lucide-react'
 import { t } from '../shared/i18n'
 import logoUrl from '../assets/logo.svg'
 
@@ -11,6 +11,7 @@ import logoUrl from '../assets/logo.svg'
  */
 export default function TopBar({
   subtitle,
+  onBack,
   onRefresh,
   onLock,
   onSettings,
@@ -20,6 +21,11 @@ export default function TopBar({
   return (
     <header className="topbar">
       <div className="topbar__brand">
+        {onBack && (
+          <button className="icon-btn topbar__back" onClick={onBack} title={t('back')}>
+            <ArrowLeft size={22} />
+          </button>
+        )}
         {/* Знак декоративен: доступное имя даёт текст рядом */}
         <span className="topbar__logo-mark">
           <img className="topbar__logo" src={logoUrl} alt="" aria-hidden="true" />
