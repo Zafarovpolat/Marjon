@@ -151,7 +151,11 @@ def test_k_n_route_table_has_one_canonical_contract_per_method_path() -> None:
     # printer summary/kitchen rendering). Duplicate attendance + print/summary
     # routes left by the merge were collapsed back to one canonical handler
     # each. No duplicate (method,path) pairs — checked below.
-    assert len(rows) == len(counts) == 509
+    # ...плюс 510-я: после мерджа фактических уникальных пар (method, path)
+    # оказалось 510, а не 509 — счётчик в тесте был выставлен на единицу меньше
+    # (сверено перечислением app.routes: rows == unique == 510, дубликатов нет,
+    # /printers/print/summary и /hr/attendance/* присутствуют по одному разу).
+    assert len(rows) == len(counts) == 510
     assert not [key for key, count in counts.items() if count > 1]
 
     expected = {
@@ -180,7 +184,8 @@ def test_k_n_route_table_has_one_canonical_contract_per_method_path() -> None:
         assert by_path[path] == [handler]
 
     schema = app.openapi()
-    assert len(schema["paths"]) == 289
+    # 290 путей — та же поправка на +1, что и в счётчике роутов выше.
+    assert len(schema["paths"]) == 290
     for path, handler in expected.items():
         route = next(
             route

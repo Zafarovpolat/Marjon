@@ -260,7 +260,11 @@ describe("truthful production data states", () => {
     expect(await screen.findByText("Backend Supplier")).toBeInTheDocument();
     expect(screen.getByText("Backend Warehouse")).toBeInTheDocument();
     expect(screen.getAllByText(/125[\s\u00a0]?000 UZS/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/19-10-2026|19\.10\.2026/).length).toBeGreaterThan(0);
+    // Колонки «Дата поступления» (DD-MM-YYYY) и «Дата регистрации» (DD.MM.YYYY / HH:MM).
+    // Дату берём из тех же today-переменных, что и фикстуру: в CI (UTC) «сегодня»
+    // может отличаться от локального дня, хардкод даты тут недопустим.
+    expect(screen.getByText(`${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`)).toBeInTheDocument();
+    expect(screen.getAllByText(new RegExp(`${pad(now.getDate())}\\.${pad(now.getMonth() + 1)}\\.${now.getFullYear()}`)).length).toBeGreaterThan(0);
     expect(api.get).toHaveBeenCalledWith("/warehouse/purchases", expect.objectContaining({ signal: expect.any(AbortSignal) }));
     // Журнал только читает: ни одна мутация не должна уйти сама по себе.
     expect(api.post).not.toHaveBeenCalled();

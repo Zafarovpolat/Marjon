@@ -192,10 +192,24 @@ describe("owner account area refinement", () => {
     expect(block).toMatch(/\.brand-title \{[^}]*font-weight:\s*800;/s);
   });
 
-  it("paints active nav links with the turquoise gradient sheen", () => {
+  // Активный пункт меню — «глянцевая пилюля» в брендовом тиле. Раньше здесь
+  // проверялся градиент 135deg #4ae3e3→#0da3a3; он ушёл вместе с рестайлом
+  // сайдбара, причём и в main, и в prod-линии (в обеих ветках 4ae3e3 нет),
+  // то есть это не потеря мерджа, а устаревшее ожидание.
+  it("paints active nav links with the brand-teal glossy pill", () => {
     const css = readFileSync(resolve("src/styles/owner/dashboard.css"), "utf8").replaceAll("\r\n", "\n");
-    expect(css).toMatch(/\.sidebar-link\.is-active \{[^}]*background:\s*linear-gradient\(135deg, #4ae3e3 0%, var\(--owner-accent, #1fc9c9\) 48%, #0da3a3 100%\);/s);
-    // Тёмная тема гасит фон своим ID-правилом — дубликат бьёт весом (1,6,1).
-    expect(css).toMatch(/nav\.sidebar-nav \.sidebar-link\.is-active \{[^}]*background:\s*linear-gradient\(135deg, #4ae3e3 0%, var\(--owner-accent, #1fc9c9\) 48%, #0da3a3 100%\);/s);
+    expect(css).toMatch(
+      /body\.dashboard-body \.dashboard-shell \.sidebar-link\.is-active \{[^}]*background:\s*linear-gradient\(90deg, #16616d 0%, #1a9aa1 38%, #1cc2c2 68%, #4fe0db 100%\);[^}]*box-shadow:[^}]*inset 0 1px 0/s,
+    );
+    // Тёмная тема гасит фон своим правилом — дубликат бьёт весом через
+    // #dashboardSidebar + nav.sidebar-nav (вес 1,6,1).
+    expect(css).toMatch(
+      /body\.marjon-dark-shell\.dashboard-body \.dashboard-shell #dashboardSidebar nav\.sidebar-nav \.sidebar-link\.is-active,[\s\S]*?background:\s*linear-gradient\(90deg, #16616d 0%, #1a9aa1 38%, #1cc2c2 68%, #4fe0db 100%\);/s,
+    );
+    // Глянец только фонами и inset-тенями: псевдо-слои на активном пункте
+    // запрещены (давали шов по радиусу и «зачёркивание» текста).
+    expect(css).toMatch(
+      /nav\.sidebar-nav \.sidebar-link\.is-active::before,[\s\S]*?nav\.sidebar-nav \.sidebar-link\.is-active::after \{[^}]*content:\s*none;[^}]*display:\s*none;/s,
+    );
   });
 });
