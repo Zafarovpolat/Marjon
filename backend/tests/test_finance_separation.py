@@ -11,7 +11,7 @@ async def _create_superadmin(db_engine, email="root@marjon.local", password="Roo
     session_factory = async_sessionmaker(db_engine, expire_on_commit=False)
     async with session_factory() as session:
         session.add(User(
-            email=email, password_hash=hash_password(password),
+            email=email, password_hash=await hash_password(password),
             is_superadmin=True, is_active=True,
         ))
         await session.commit()

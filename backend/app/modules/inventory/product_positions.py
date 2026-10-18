@@ -56,8 +56,7 @@ class ProductPositions:
 
     async def leave(self, product: Product) -> None:
         """Compact the product's own scope without changing its state."""
-        print(f"LEAVE-DBG id={product.id} active={product.is_active} type={product.product_type} sort={product.sort_order}")
-        result = await self.db.execute(
+        await self.db.execute(
             update(Product).where(
                 Product.company_id == self.company_id,
                 Product.is_active == product.is_active,
@@ -66,7 +65,6 @@ class ProductPositions:
             ).values(sort_order=Product.sort_order - 1, updated_at=Product.updated_at)
             .execution_options(synchronize_session=False)
         )
-        print(f"LEAVE-DBG matched={result.rowcount}")
 
     async def move(self, product: Product, requested: int) -> None:
         scope_type = product.product_type or "dish"

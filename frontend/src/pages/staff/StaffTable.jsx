@@ -27,12 +27,18 @@ export default function StaffTable({
   // but drop the access column entirely (7 columns, no invisible placeholder).
   isManager = false,
   isWarehouse = false,
+  // Принтеры компании — чтобы под именем показать закреплённый принтер
+  // (в строке лежит только printer_id).
+  printers = [],
 }) {
   const isProduct = isCashier || isWaiter || isMonoblock || isManager || isWarehouse;
   const showAccess = !(isManager || isWarehouse);
   return (
     <>
-      {staffError ? <div className="login-error" role="alert">{staffError}</div> : null}
+      {/* Ошибка загрузки рендерится ровно один раз — под таблицей (см. ниже).
+          Раньше тот же текст дублировался ещё и над таблицей (.login-error),
+          из-за чего role="alert" срабатывал дважды и скринридер читал
+          сообщение повторно. */}
       <div className="staff-table-wrapper staff-table-wrapper--roles">
         <div className="staff-role-table-scroll" role="region" aria-label="Таблица сотрудников с прокруткой" tabIndex={0}>
         <table className={`staff-table${showAccess ? "" : " staff-table--no-access"}`}>
@@ -108,8 +114,10 @@ export default function StaffTable({
                         />
                         Показать кассиров
                       </span>
-                      {employee.printerIp ? (
-                        <small className="staff-permission-sub">{employee.printerIp}</small>
+                      {employee.printerId ? (
+                        <small className="staff-permission-sub">
+                          {(printers.find((printer) => String(printer.id) === String(employee.printerId)) || {}).name || "Принтер"}
+                        </small>
                       ) : null}
                     </span>
                   ) : (

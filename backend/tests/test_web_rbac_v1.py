@@ -18,7 +18,7 @@ async def _superadmin(db_engine, *, email="root@bi06.example.com", company_id=No
         user = User(
             company_id=company_id,
             email=email,
-            password_hash=hash_password("RootPass1!"),
+            password_hash=await hash_password("RootPass1!"),
             is_active=True,
             is_superadmin=True,
         )
@@ -168,7 +168,12 @@ async def test_owner_has_explicit_web_capabilities_including_warehouse(client):
     assert (await client.post("/warehouse/list", headers=headers, json={"name": "Основной"})).status_code == 201
 
 
-async def test_owner_role_and_permission_definition_endpoints_fail_closed(client):
+async def test_owner_role_creation_and_owner_role_mutation_stay_fail_closed(client):
+    """Custom role creation and editing the frozen "owner" role's own
+    permission set remain deferred/blocked — only an operational role's
+    (manager/cashier/...) permission set is editable; see
+    test_rbac.py::test_owner_can_customize_operational_role_permissions for
+    the now-real, un-deferred path."""
     headers, _ = await register_company(
         client, slug="bi06-role-def", email="owner-role@bi06.example.com"
     )
@@ -178,7 +183,10 @@ async def test_owner_role_and_permission_definition_endpoints_fail_closed(client
     assert (await client.post(
         "/rbac/roles", headers=headers, json={"name": "My Admin", "slug": "manager"}
     )).status_code == 403
-    assert (await client.get("/rbac/permissions", headers=headers)).status_code == 403
+    # Custom role *creation* is still deferred — only the 7 operational
+    # roles' existing permission sets are editable (see rbac/service.py's
+    # _assert_customizable_role). The permission catalog itself is real now.
+    assert (await client.get("/rbac/permissions", headers=headers)).status_code == 200
     assert (await client.post(
         f"/rbac/roles/{owner_role['id']}/permissions",
         headers=headers,
@@ -454,8 +462,11 @@ async def test_operational_roles_cannot_call_frozen_owner_web_routes(client):
     cashier_headers = await _login(client, "cashier-routes@bi06.example.com")
 
     denied_calls = (
-        ("get", "/finance/transactions", None),
-        ("post", "/finance/transactions", {"amount": 100, "direction": "income"}),
+        # DESK-FIN-01: GET/POST /finance/transactions намеренно открыты любому
+        # сотруднику компании (company-scope) — десктоп-касса показывает панель
+        # «Финансы» и вносит приход/расход при закрытии заказа в долг. Раньше
+        # здесь стоял require_web_owner, и панель у кассира всегда была пустой
+        # (403). Остальные finance-маршруты (история) остаются у владельца.
         ("get", "/analytics/dashboard", None),
         ("get", "/audit", None),
         ("get", "/hr/employees", None),
@@ -472,6 +483,12 @@ async def test_operational_roles_cannot_call_frozen_owner_web_routes(client):
             kwargs["json"] = payload
         response = await getattr(client, method)(path, **kwargs)
         assert response.status_code == 403, (method, path, response.text)
+
+    # DESK-FIN-01: кассир видит операции компании (иначе панель «Финансы» на
+    # терминале пустая) — доступ держится company-scope, а не ролью владельца.
+    assert (await client.get(
+        "/finance/transactions", headers=cashier_headers
+    )).status_code == 200
 
     # The same owner routes stay usable for the frozen Web identity.
     assert (await client.get(
@@ -494,7 +511,7 @@ async def test_legacy_admin_is_preserved_but_fails_closed(client, db_engine):
         legacy_user = User(
             company_id=company_id,
             email="legacy-admin@bi06.example.com",
-            password_hash=hash_password("LegacyPass1!"),
+            password_hash=await hash_password("LegacyPass1!"),
             is_active=True,
         )
         legacy_role = Role(

@@ -35,8 +35,8 @@ def upgrade() -> None:
         op.create_table(
             "inventory_check_items",
             sa.Column("id", sa.Uuid(), primary_key=True, default=uuid4),
-            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
             sa.Column("check_id", sa.Uuid(), sa.ForeignKey("inventory_checks.id", ondelete="CASCADE"), nullable=False, index=True),
             sa.Column("ingredient_id", sa.Uuid(), sa.ForeignKey("ingredients.id"), nullable=True),
             sa.Column("product_id", sa.Uuid(), sa.ForeignKey("products.id", ondelete="SET NULL"), nullable=True),

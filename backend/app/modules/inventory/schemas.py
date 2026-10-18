@@ -42,6 +42,13 @@ class CategoryUpdate(BaseSchema):
     is_active: bool | None = None
 
 
+class CategoryUpdate(BaseSchema):
+    name: str | None = None
+    slug: str | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
+
+
 class CategoryResponse(BaseResponseSchema):
     company_id: UUID
     parent_id: UUID | None

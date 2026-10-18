@@ -1,7 +1,7 @@
 from __future__ import annotations
 import re
 from uuid import UUID
-from pydantic import AliasChoices, EmailStr, Field, SecretStr, field_validator
+from pydantic import EmailStr, Field, SecretStr, field_validator
 from app.shared.base_schema import BaseSchema, BaseResponseSchema
 
 
@@ -47,6 +47,9 @@ class CompanyUserCreate(BaseSchema):
     # легаси-слоем, что правит PATCH: десктопные гейты can()/must() читают их
     # из /auth/me, веб-админка — из GET /auth/users для префилла формы.
     permissions: dict | None = None
+    # Принтер, закреплённый за сотрудником (выбирается из уже добавленных
+    # принтеров компании). None — печать идёт на чековый принтер филиала.
+    printer_id: UUID | None = None
 
     @field_validator("password")
     @classmethod
@@ -86,10 +89,39 @@ class PinSetRequest(BaseSchema):
 
 
 class PinLoginRequest(BaseSchema):
-    # Десктоп исторически шлёт `user_id`; веб/бэкенд — `employee_id`. Принимаем
-    # оба имени через AliasChoices, чтобы не трогать контракт десктопа.
-    employee_id: UUID = Field(validation_alias=AliasChoices("employee_id", "user_id"))
+    """Two callers, one endpoint (POST /auth/pin-login):
+    - anonymous client: employee_id (identifies the account and its company) + pin;
+    - branch terminal (desktop/mobile terminal): its own org token in Authorization
+      + pin and an optional user_id narrowing the check to the employee picked on
+      screen (this is the key desktop/src/shared/api.js and mobile's Api.pinLogin
+      actually send under a terminal session)."""
+    employee_id: UUID | None = None
+    user_id: UUID | None = None
     pin: str = Field(..., min_length=4, max_length=8)
+
+
+class BranchLoginRequest(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
+    # Логин филиала — произвольная уникальная строка (не телефон): у сети KFC
+    # филиал в месте А и месте Б получают разные логины при одном веб-аккаунте.
+    # 100 символов — предел колонки branches.login (миграция 20260925_d7e8brnlog11).
+    login: str = Field(..., min_length=1, max_length=100)
+    password: str = Field(..., min_length=1)
+
+
+class MonoblockLoginRequest(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
+    # Телефон аккаунта моноблока (из карточки users/monoblock).
+    phone: str = Field(..., min_length=1, max_length=30)
+    password: str = Field(..., min_length=1)
+
+
+class BranchInfo(BaseSchema):
+    id: UUID
+    name: str
+    company_id: UUID
 
 
 class LogoutRequest(BaseSchema):
@@ -109,23 +141,16 @@ class TokenResponse(BaseSchema):
     token_type: str = "bearer"
 
 
-class MonoblockLoginRequest(BaseSchema):
-    model_config = {"from_attributes": True, "extra": "forbid"}
-
-    # Телефон аккаунта моноблока (из карточки users/monoblock).
-    phone: str = Field(..., min_length=1, max_length=30)
-    password: str = Field(..., min_length=1)
-
-
-class BranchInfo(BaseSchema):
-    id: UUID
-    name: str
-    company_id: UUID
-
-
 class CompanyInfo(BaseSchema):
     id: UUID
     name: str
+    slug: str
+    currency: str = "UZS"
+
+
+class BranchLoginResponse(TokenResponse):
+    branch: BranchInfo
+    company: CompanyInfo
 
 
 class MonoblockLoginResponse(BaseSchema):
@@ -172,6 +197,9 @@ class UserResponse(BaseResponseSchema):
     # Филиал, к которому привязан сотрудник (сеть → филиал). None у веб-владельца
     # (видит всю компанию) и у ещё не привязанных аккаунтов.
     branch_id: UUID | None = None
+    # Принтер, закреплённый за сотрудником. Десктоп печатает чек именно на
+    # него, а при None — на чековый принтер филиала (прежнее поведение).
+    printer_id: UUID | None = None
     role_slugs: list[str] = Field(default_factory=list)
     avatar_url: str | None = None
     auth_scope: str = "app"  # "app" | "hq_admin" — BE-01, set per-session, not persisted
@@ -203,6 +231,11 @@ class CompanyUserUpdate(BaseSchema):
     # Владелец выставляет пер-юзерные тумблеры; по умолчанию None → колонка
     # не трогается. Хранится как есть, в UserResponse не отдаётся.
     permissions: dict | None = None
+    # Принтер сотрудника. Здесь None недостаточно, чтобы понять «снять
+    # привязку» или «не трогать», поэтому роутер смотрит на
+    # model_fields_set: ключ есть в теле → пишем значение (null → отвязать),
+    # ключа нет → привязку не меняем.
+    printer_id: UUID | None = None
 
     @field_validator("password")
     @classmethod

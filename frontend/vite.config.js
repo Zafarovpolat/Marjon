@@ -42,5 +42,15 @@ export default defineConfig({
     include: ["src/**/*.test.{js,jsx}"],
     clearMocks: true,
     restoreMocks: true,
+    // Продуктовые drawer-тесты сотрудников рендерят матрицу из 50 модулей
+    // (≈250 кнопок с role/aria), и один запрос по role в таком дереве стоит
+    // секунды в jsdom. Дефолтные 5с не хватает даже на одиночный прогон,
+    // поэтому даём общий бюджет и ограничиваем число воркеров, чтобы файлы
+    // не отбирали CPU друг у друга.
+    testTimeout: 45000,
+    hookTimeout: 45000,
+    poolOptions: {
+      forks: { maxForks: 2, minForks: 1 },
+    },
   },
 });

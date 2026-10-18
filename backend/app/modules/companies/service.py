@@ -7,6 +7,7 @@ from app.modules.companies.models import Company, Branch
 from app.modules.companies.repository import CompanyRepository, BranchRepository
 from app.modules.companies.schemas import CompanyCreate, CompanyUpdate, BranchCreate, BranchUpdate
 from app.shared.exceptions import NotFoundError, ConflictError, ValidationError
+from app.shared.phone import normalize_branch_login
 
 
 class CompanyService:
@@ -37,13 +38,15 @@ class BranchService:
         self.repo = BranchRepository(db)
 
     async def _normalize_unique_login(self, login: str, *, exclude_id: UUID | None = None) -> str:
-        """Логин филиала — произвольная строка, глобально уникальная (десктоп
-        логинится ТОЛЬКО по логину, без выбора компании). Приводим к нижнему
-        регистру и проверяем уникальность по всей таблице."""
-        norm = login.strip().lower()
+        """Логин филиала нормализуется тем же `normalize_branch_login`, что и на
+        чтении (AuthService.login_by_branch) — для 9-значного узбекского номера
+        это канонический `+998XXXXXXXXX`, иначе строка без крайних пробелов.
+        Уникальность проверяется по всей таблице (десктоп логинится ТОЛЬКО по
+        логину, без выбора компании)."""
+        norm = normalize_branch_login(login)
         if not norm:
             raise ValidationError("Логин филиала не может быть пустым")
-        q = select(Branch.id).where(func.lower(Branch.login) == norm)
+        q = select(Branch.id).where(func.lower(Branch.login) == norm.lower())
         if exclude_id is not None:
             q = q.where(Branch.id != exclude_id)
         if (await self.db.execute(q)).first():
@@ -58,7 +61,7 @@ class BranchService:
         if login is not None:
             branch.login = await self._normalize_unique_login(login)
         if password is not None:
-            branch.password_hash = hash_password(password)
+            branch.password_hash = await hash_password(password)
         return await self.repo.save(branch)
 
     async def list(self, company_id: UUID) -> list[Branch]:
@@ -80,5 +83,5 @@ class BranchService:
         if login is not None:
             branch.login = await self._normalize_unique_login(login, exclude_id=branch_id)
         if password is not None:
-            branch.password_hash = hash_password(password)
+            branch.password_hash = await hash_password(password)
         return await self.repo.save(branch)

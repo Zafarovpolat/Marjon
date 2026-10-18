@@ -34,16 +34,23 @@ vi.mock("../../src/api/client", () => ({
   formatNumber: (v) => String(Number(v || 0)),
 }));
 
-vi.mock("../../src/api/receipt", () => ({
-  printKitchenReceipt: vi.fn(() => Promise.resolve()),
-  printOrderReceipt: vi.fn(() => Promise.resolve()),
-  fetchReceiptTemplate: vi.fn(() => Promise.resolve(null)),
-  saveReceiptTemplate: vi.fn(() => Promise.resolve()),
-  fetchKitchenReceiptTemplate: vi.fn(() => Promise.resolve(null)),
-  saveKitchenReceiptTemplate: vi.fn(() => Promise.resolve()),
-  printTestReceipt: vi.fn(() => Promise.resolve()),
-  printTestKitchenReceipt: vi.fn(() => Promise.resolve()),
-}));
+// Частичный мок: реальные константы (CUSTOMER_BLOCKS и т.п.) нужны
+// receiptBlockCapabilities, поэтому берём actual и подменяем только сетевые
+// вызовы. Полный мок ломал рендер страниц при появлении новых экспортов.
+vi.mock("../../src/api/receipt", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    printKitchenReceipt: vi.fn(() => Promise.resolve()),
+    printOrderReceipt: vi.fn(() => Promise.resolve()),
+    fetchReceiptTemplate: vi.fn(() => Promise.resolve(null)),
+    saveReceiptTemplate: vi.fn(() => Promise.resolve()),
+    fetchKitchenReceiptTemplate: vi.fn(() => Promise.resolve(null)),
+    saveKitchenReceiptTemplate: vi.fn(() => Promise.resolve()),
+    printTestReceipt: vi.fn(() => Promise.resolve()),
+    printTestKitchenReceipt: vi.fn(() => Promise.resolve()),
+  };
+});
 
 // FE-08D-ORACLE-RATES: deterministic exchange-rate fixture for the OWNER visual
 // audit (same audit fixture as harvest-dom.jsx). Prevents the Topbar rate

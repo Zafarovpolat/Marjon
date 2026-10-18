@@ -5,8 +5,14 @@
 на каждый StockItem с qty > 0 (текущая себестоимость).
 
 Revision ID: v46fifo01
-Revises: v45mrg01
+Revises: v44los01
 Create Date: 2026-10-16
+
+Originally chained onto v45mrg01 — a no-op merge stub (v44los01 + the
+old company-order-types line) dropped when merging feature/toast-
+notifications the third time, for the same reason as the stubs before
+it: both parents were already on one line by then, so the merge point
+added nothing. Re-pointed directly onto v44los01.
 """
 from typing import Sequence, Union
 from uuid import uuid4
@@ -15,7 +21,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "v46fifo01"
-down_revision: Union[str, None] = "v45mrg01"
+down_revision: Union[str, None] = "v44los01"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -33,8 +39,8 @@ def upgrade() -> None:
         op.create_table(
             "stock_batches",
             sa.Column("id", sa.Uuid(), primary_key=True, default=uuid4),
-            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
             sa.Column("company_id", sa.Uuid(), sa.ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True),
             sa.Column("warehouse_id", sa.Uuid(), sa.ForeignKey("warehouses.id", ondelete="CASCADE"), nullable=False, index=True),
             sa.Column("ingredient_id", sa.Uuid(), sa.ForeignKey("ingredients.id", ondelete="CASCADE"), nullable=False, index=True),

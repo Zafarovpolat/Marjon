@@ -1,7 +1,6 @@
 ﻿import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-<<<<<<< Updated upstream
 const adminSourceByFile = Object.fromEntries([
   "AdminApp.jsx",
   "AdminLayout.jsx",
@@ -24,10 +23,6 @@ const dashboardSource = ["AdminDashboardTransactions.jsx", "AdminDashboardOvervi
   .map((file) => adminSourceByFile[file]).join("\n");
 const adminApiSource = readFileSync(new URL("../src/admin/api.js", import.meta.url), "utf8");
 const adminFinanceApiSource = readFileSync(new URL("../src/admin/financeApi.js", import.meta.url), "utf8");
-=======
-const app = readFileSync(new URL("../src/admin/AdminApp.jsx", import.meta.url), "utf8");
-const adminApiSource = readFileSync(new URL("../src/admin/api.js", import.meta.url), "utf8");
->>>>>>> Stashed changes
 const authSessionSource = readFileSync(new URL("../src/auth/session.js", import.meta.url), "utf8");
 const restaurantLogin = readFileSync(new URL("../src/pages/LoginPage.jsx", import.meta.url), "utf8");
 const tablesReport = readFileSync(new URL("../src/pages/TablesReportPage.jsx", import.meta.url), "utf8");
@@ -37,15 +32,11 @@ const reportDateRangePicker = readFileSync(new URL("../src/components/ReportDate
 const css = readFileSync(new URL("../src/admin/styles.css", import.meta.url), "utf8");
 const ruLocale = readFileSync(new URL("../src/i18n/ru.json", import.meta.url), "utf8");
 
-<<<<<<< Updated upstream
 const loginSection = layoutSource.slice(layoutSource.indexOf("function LoginView"), layoutSource.indexOf("function Sidebar"));
 const adminLoginContract = adminApiSource.slice(
   adminApiSource.indexOf("export async function adminLogin"),
   adminApiSource.indexOf("export async function getValidatedAdminProfile"),
 );
-=======
-const loginSection = app.slice(app.indexOf("function LoginView"), app.indexOf("function Sidebar"));
->>>>>>> Stashed changes
 const adminSessionResolver = authSessionSource.slice(
   authSessionSource.indexOf("export function resolveAdminAuthSession"),
   authSessionSource.indexOf("export function prepareAuthRequest"),
@@ -97,7 +88,7 @@ const restaurantPasswordInput = restaurantLogin.slice(
 );
 
 assert.match(restaurantPasswordInput, /placeholder={t\("auth\.password_placeholder"\)}/, "Restaurant login password must use the localized password placeholder.");
-assert.doesNotMatch(restaurantPasswordInput, /[•вЂў]{3,}/, "Restaurant login password must not show background dot text.");
+assert.doesNotMatch(restaurantPasswordInput, /[••]{3,}/, "Restaurant login password must not show background dot text.");
 assert.match(restaurantLogin, /t\("auth\.welcome_title"\)/, "Restaurant login title must use the localized title key.");
 assert.match(restaurantLogin, /t\("auth\.welcome_subtitle"\)/, "Restaurant login subtitle must use the localized subtitle key.");
 assert.match(restaurantLogin, /t\("auth\.remember_me"\)/, "Restaurant login remember label must use the localized remember key.");

@@ -6,7 +6,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from app.modules.printers.formatter import EscPosFormatter, KitchenTicketData, ReceiptData
+from app.modules.printers.formatter import EscPosFormatter, KitchenItem, KitchenTicketData, ReceiptData
 
 # GS ! 0x01 — double height (size "large"); ESC E 01 — bold.
 DOUBLE_HEIGHT = b"\x1d\x21\x01"
@@ -32,17 +32,17 @@ def _receipt(**overrides):
 
 
 def _ticket(**overrides):
+    items = overrides.pop("items", None) or [
+        KitchenItem(name="Плов", qty="2", total=Decimal("50000"),
+                    note="Без острого", modifiers=["Без казы"], course=1),
+    ]
     base = {
         "order_number": "A-1042",
         "order_type": "dine_in",
         "table_number": "12",
         "waiter_name": "Aziz",
-        "items": [
-            {"name": "Плов", "qty": "2", "price": "25000", "total": "50000",
-             "note": "Без острого", "modifiers": ["Без казы"], "course": 1},
-        ],
+        "items": items,
         "note": "Поспешить",
-        "subtotal": Decimal("50000"),
         "printed_at": datetime(2026, 10, 17, 14, 33),
     }
     base.update(overrides)
@@ -102,15 +102,23 @@ def test_bottom_order_number_standard_style_has_no_size_code():
 # --- Чек клиента: total ------------------------------------------------------
 
 def test_total_toggle_gates_payment_line_but_not_subtotal():
+    # render_summary() gates "Сумма блюд" on data.subtotal > 0 — same as
+    # ReceiptPreview.jsx's renderSummary() (totals.subtotal > 0) — so the
+    # fixture needs a non-zero subtotal to actually exercise that line.
     off = _text(EscPosFormatter().format_receipt(
-        _receipt(), template={"enabled": {"total": False}},
+        _receipt(subtotal=Decimal("50000")), template={"enabled": {"total": False}},
     ))
-    assert "К ОПЛАТЕ" not in off
-    assert "Итого:" in off  # сумма блюд печатается всегда (как в превью)
+    # Real label is "Итого к оплате:" (ReceiptPreview.jsx line 270) — not the
+    # all-caps "К ОПЛАТЕ" this test originally checked for, which never
+    # appears anywhere in the formatter's output.
+    assert "Итого к оплате" not in off
+    # Сумма блюд печатается всегда (как в превью) — ReceiptPreview.jsx's
+    # own summaryRow("Сумма блюд", …), not "Итого:".
+    assert "Сумма блюд" in off
     on = _text(EscPosFormatter().format_receipt(
-        _receipt(), template={"enabled": {"total": True}},
+        _receipt(subtotal=Decimal("50000")), template={"enabled": {"total": True}},
     ))
-    assert "К ОПЛАТЕ" in on
+    assert "Итого к оплате" in on
 
 
 # --- Чек клиента: стили table/waiter ----------------------------------------
@@ -126,9 +134,15 @@ def test_table_and_waiter_styles_apply_on_paper():
             },
         },
     )
-    assert DOUBLE_HEIGHT in _window(raw, "Стол: 7", 12)
-    assert BOLD_ON in _window(raw, "Стол: 7", 12)
-    assert DOUBLE_HEIGHT in _window(raw, "Официант: Aziz", 12)
+    # Чек клиента печатает "Номер стола:" (ReceiptPreview.jsx's customer-block
+    # infoRow label at line 284) — "Стол:" belongs to the separate kitchen-
+    # ticket preview (line 457) and isn't what format_receipt renders. _two_col
+    # right-pads the value to the full column width, so "Номер стола: 7" never
+    # appears as a literal substring — only the label does, right after the
+    # style prefix bytes _window captures.
+    assert DOUBLE_HEIGHT in _window(raw, "Номер стола:", 12)
+    assert BOLD_ON in _window(raw, "Номер стола:", 12)
+    assert DOUBLE_HEIGHT in _window(raw, "Официант:", 12)
 
 
 # --- Кухонный тикет: тогглы date/orderType -----------------------------------
@@ -207,7 +221,9 @@ def test_chef_order_number_default_style_is_large_bold():
     raw = EscPosFormatter().format_kitchen_ticket(
         _ticket(), template={"enabled": {}},
     )
-    win = _window(raw, "ЗАКАЗ #A-1042", 12)
+    # render_number_block() prints a bare "#{order_number}" (ReceiptPreview.jsx
+    # line 455: #{getOrderNumber(order)}), no "ЗАКАЗ" word.
+    win = _window(raw, "#A-1042", 12)
     assert DOUBLE_HEIGHT in win
     assert BOLD_ON in win
 
@@ -220,7 +236,7 @@ def test_chef_order_number_standard_style_overrides_default():
             "blockStyles": {"orderNumber": {"size": "standard", "weight": "standard"}},
         },
     )
-    win = _window(raw, "ЗАКАЗ #A-1042", 12)
+    win = _window(raw, "#A-1042", 12)
     assert DOUBLE_HEIGHT not in win
     assert BOLD_ON not in win
 

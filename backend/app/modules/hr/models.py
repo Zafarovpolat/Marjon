@@ -45,8 +45,11 @@ class AttendanceLog(TimeStampedModel):
     __tablename__ = "attendance_logs"
 
     company_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("companies.id"), index=True)
-    employee_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("employees.id"), index=True)
-    shift_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("work_shifts.id"), index=True)
+    # A cashier marks attendance per user (no HR employee card / shift needed), so
+    # employee_id/shift_id are optional and user_id is the direct reference.
+    user_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), index=True)
+    employee_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("employees.id"), index=True)
+    shift_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("work_shifts.id"), index=True)
     # check_in | check_out
     action: Mapped[str] = mapped_column(String(20), nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -54,13 +57,17 @@ class AttendanceLog(TimeStampedModel):
     method: Mapped[str] = mapped_column(String(20), default="manual")
     note: Mapped[str | None] = mapped_column(Text)
     # DESK-ATT-01: approved | rejected | pending.
-    # Отметку ставит кассир с терминала — она сразу approved (кассир и есть
-    # разрешение войти). pending остаётся для самостоятельных отметок, которые
-    # ждут подтверждения в очереди AttendancePanel (approve/reject).
-    # Колонка была в исходной схеме и потерялась при консолидации моделей —
-    # без неё INSERT падал с NOT NULL constraint failed.
-    status: Mapped[str] = mapped_column(String(20), default="approved", server_default="approved")
+    # Кассир с терминала ставит отметку сразу approved (см. mark_attendance —
+    # статус выставляется явно), а самостоятельная отметка по PIN создаётся
+    # pending и ждёт подтверждения в очереди AttendancePanel (approve/reject).
+    # Python-default = pending, поэтому любой новый AttendanceLog без явного
+    # статуса попадает в очередь, а не считается подтверждённым.
+    # server_default=approved — только для бэкфилла баз, где колонка уже была
+    # (исторические отметки не должны разом упасть в очередь подтверждения).
+    status: Mapped[str] = mapped_column(
+        String(20), default="pending", server_default="approved", nullable=False
+    )
     approved_by: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    shift: Mapped[WorkShift] = relationship(back_populates="attendance_logs")
+    shift: Mapped[WorkShift | None] = relationship(back_populates="attendance_logs")

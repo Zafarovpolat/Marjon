@@ -11,8 +11,15 @@ StockMovement (type="expense" / "waste"); сами движения пишутс
 трогает. Идемпотентна: создаёт таблицу только если её ещё нет.
 
 Revision ID: wh01exp01
-Revises: c6d7ftrs10
+Revises: f9g0prj06
 Create Date: 2026-09-29
+
+Re-based onto f9g0prj06 when merging origin/main into redesign-mobile: this
+migration was originally written against bi08dcs01, but redesign-mobile had
+already moved 5 migrations past that point (…→e8f9att05→f9g0prj06) by the
+time the branches diverged. Re-pointing here keeps a single linear head
+instead of two; the migration itself only creates tables if absent, so this
+re-link changes no behavior.
 """
 from typing import Sequence, Union
 
@@ -21,7 +28,7 @@ from alembic import op
 
 
 revision: str = "wh01exp01"
-down_revision: Union[str, None] = "c6d7ftrs10"
+down_revision: Union[str, None] = "f9g0prj06"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

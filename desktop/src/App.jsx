@@ -68,7 +68,7 @@ export default function App() {
   // WebSocket при полном входе
   useEffect(() => {
     if (!staffToken || !branch?.id || !mode) return
-    const serverUrl = localStorage.getItem('marjon_server_url') || 'http://localhost:8000/api/v1'
+    const serverUrl = localStorage.getItem('marjon_server_url') || (import.meta.env.VITE_DEFAULT_SERVER_URL || 'http://localhost:8000/api/v1')
     kitchenWS.connect(serverUrl, staffToken, branch.id)
     // Принтерный WS: терминал получает задания печати (чек/кухня) и печатает через Electron
     connectPrinterWS(serverUrl, staffToken, branch.id)

@@ -2,12 +2,16 @@
 
 Adds categories.calculate_service / categories.show_in_menu (NOT NULL boolean,
 default false). Existing categories backfill to false via server_default "0"
-(conservative: no fake ON state), same convention as v24auto01 product flags.
-Idempotent like sibling migrations: a DB bootstrapped by create_tables.py
-already has the columns.
+(conservative: no fake ON state). Idempotent like sibling migrations: a DB
+bootstrapped by create_tables.py already has the columns.
+
+Originally chained onto "v24auto01", which referenced a product-flags
+migration that was never actually committed anywhere in this repo's history —
+re-pointed onto 0c16e3a26191 (the nearest real ancestor) when merging
+feature/toast-notifications, so the graph stays single-headed.
 
 Revision ID: v25cat01
-Revises: v24auto01
+Revises: 0c16e3a26191
 Create Date: 2026-10-05
 """
 from typing import Sequence, Union
@@ -17,7 +21,7 @@ from alembic import op
 
 
 revision: str = "v25cat01"
-down_revision: Union[str, None] = "v24auto01"
+down_revision: Union[str, None] = "0c16e3a26191"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

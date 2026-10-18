@@ -75,13 +75,13 @@ class CompanyUpdate(BaseSchema):
     country_code: str | None = None
     timezone: str | None = None
     currency: str | None = None
-    waiter_service_percent: int | None = None
-    day_start_hour: int | None = Field(None, ge=0, le=23)
     address: str | None = None
     phone: str | None = None
     inn: str | None = None
     vat_rate: float | None = Field(None, ge=0, le=100)
     service_fee: float | None = Field(None, ge=0, le=100)
+    waiter_service_percent: int | None = None
+    day_start_hour: int | None = Field(None, ge=0, le=23)
     order_types: dict | None = None
     show_support_button: bool | None = None
 
@@ -113,14 +113,14 @@ class CompanyResponse(BaseResponseSchema):
     timezone: str
     currency: str
     is_active: bool
-    waiter_service_percent: int = 0
-    day_start_hour: int = 0
     address: str | None = None
     phone: str | None = None
     inn: str | None = None
     logo: str | None = None
     vat_rate: float | None = None
     service_fee: float | None = None
+    waiter_service_percent: int = 0
+    day_start_hour: int = 0
     order_types: dict | None = None
     show_support_button: bool = True
 
@@ -131,7 +131,8 @@ class BranchCreate(BaseSchema):
     city: str | None = None
     # Логин/пароль филиала для входа с десктопа (шаг 1). Оба опциональны:
     # филиал можно завести и без кред (тогда касса под ним не залогинится).
-    login: str | None = Field(None, min_length=1, max_length=150)
+    # 100 символов — предел колонки branches.login (миграция 20260925_d7e8brnlog11).
+    login: str | None = Field(None, min_length=1, max_length=100)
     password: str | None = Field(None, min_length=1)
 
 
@@ -140,7 +141,7 @@ class BranchUpdate(BaseSchema):
     address: str | None = None
     city: str | None = None
     is_active: bool | None = None
-    login: str | None = Field(None, min_length=1, max_length=150)
+    login: str | None = Field(None, min_length=1, max_length=100)
     password: str | None = Field(None, min_length=1)
 
 

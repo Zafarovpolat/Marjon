@@ -1,6 +1,12 @@
 """
 ESC/POS receipt and kitchen ticket formatters.
 Returns bytes that can be sent directly to the printer.
+
+Customer receipt content/behavior is the physical-print half of the frozen
+contract in frontend/src/api/receipt.js, frontend/src/components/receipt/
+ReceiptPreview.jsx and receiptBlockCapabilities.js (branch
+receipt-density-tune-v1, commit 615dce6). Kitchen ticket mirrors the same
+files' KITCHEN_BLOCKS (8-row constructor) and buildKitchenTemplate().
 """
 from __future__ import annotations
 import io
@@ -11,10 +17,11 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-
-# Канонические коды типов заказа (pos.order_type) → подпись на чеке:
+# Канонические коды типов заказа (pos.order_type) → подпись на чеке/тикете:
 # на чеке всегда тот тип, что выбран при заказе. Неизвестные значения
-# печатаются как есть — строка типа не должна пропадать.
+# печатаются как есть — строка типа не должна пропадать. Независимый от
+# app/modules/admin_reports/service.py::ORDER_TYPE_LABELS (там "На месте"
+# для dine_in) — разная аудитория, разная формулировка допускается.
 ORDER_TYPE_LABELS = {
     "dine_in": "На стол",
     "takeaway": "На вынос",
@@ -22,8 +29,34 @@ ORDER_TYPE_LABELS = {
     "qr": "QR",
 }
 
+PAYMENT_METHOD_LABELS = {
+    "cash": "Наличные",
+    "card": "Карта",
+    "click": "Click",
+    "payme": "Payme",
+    "uzum": "Uzum",
+    "loyalty": "Бонусы",
+    "mixed": "Смешанная оплата",
+}
+
+
+def format_quantity(qty) -> str:
+    """Canonical receipt quantity display — the single shared rule for both
+    the text-mode formatter and the raster renderer (receipt_raster.py).
+    Order.quantity is stored as Numeric(x,3) ("1.000"), which must never
+    print as "1.000" for a whole count, but a genuine fraction must never be
+    rounded away: 1 -> "1", 1.500 -> "1.5", 1.250 -> "1.25". Strips only
+    trailing zeroes (and a bare trailing '.'), never casts to int."""
+    d = qty if isinstance(qty, Decimal) else Decimal(str(qty))
+    s = format(d, "f")  # fixed-point, never scientific notation
+    if "." in s:
+        s = s.rstrip("0").rstrip(".")
+    return s or "0"
+
 
 def format_order_type(value) -> str:
+    """На чеке всегда тот тип, что выбран при заказе — неизвестные значения
+    печатаются как есть, строка типа не должна пропадать."""
     text = str(value or "").strip()
     return ORDER_TYPE_LABELS.get(text, text)
 
@@ -77,7 +110,7 @@ class ReceiptData:
     discount: Decimal
     tax: Decimal
     total: Decimal
-    payment_method: str
+    payment_method: str | None
     cash_received: Decimal | None = None
     change_given: Decimal | None = None
     table_number: str | None = None
@@ -93,18 +126,30 @@ class ReceiptData:
 
 
 @dataclass
+class KitchenItem:
+    name: str
+    qty: str
+    modifiers: list[str] = field(default_factory=list)
+    note: str | None = None
+    course: int = 1
+    # Real per-item amount (OrderItem.total). None when unknown — showOrderSum
+    # must never fabricate a price, so a missing total simply prints nothing.
+    total: Decimal | None = None
+
+
+@dataclass
 class KitchenTicketData:
     order_number: str
     order_type: str
     table_number: str | None
     waiter_name: str | None
-    # [{name, qty, note, modifiers, course, price, total}] — price/total
-    # нужны табличному режиму сумм (showOrderSum), в строках xN не используются.
-    items: list[dict]
+    items: list[KitchenItem]
     note: str | None = None
+    # new | accepted | cooking | ready | completed | cancelled (Order.status,
+    # the canonical signal — see IS_CANCELLED_ORDER in the module docstring
+    # above format_kitchen_ticket).
+    status: str = "new"
     printed_at: datetime = field(default_factory=datetime.now)
-    # Сумма позиций тикета (для строки "Сумма блюд" в режиме showOrderSum).
-    subtotal: Decimal = Decimal("0")
 
 
 class EscPosFormatter:
@@ -126,40 +171,78 @@ class EscPosFormatter:
     DOUBLE_HEIGHT = GS + b"\x21\x01"
     NORMAL_SIZE   = GS + b"\x21\x00"
     INIT          = ESC + b"\x40"
+    # ESC M n — select character font (n=0 Font A, n=1 Font B). GS!n (size)
+    # only multiplies whatever font is CURRENTLY selected — it has no font-A/
+    # B bit of its own. This formatter never issued ESC M at all, so "normal"
+    # text silently inherited whatever font the printer's own state (NV
+    # settings, or whatever the last job left behind — ESC @ does not
+    # guarantee resetting it on every clone) happened to be in. On a printer
+    # that defaults/drifts to the narrower, taller Font B, every "normal"
+    # block reads as vertically stretched even though no size bits are set.
+    # Forcing Font A explicitly — once at INIT and again after every styled
+    # block — removes that dependency on inherited/ambient printer state.
+    FONT_A        = ESC + b"\x4d\x00"
+
+    # ESC 2 — restore the printer's own default line spacing (~30/180",
+    # ≈4.2mm on a 180dpi thermal head). ESC 3 n — set spacing to n/180".
+    # These are the calibrated ESC/POS density controls (near-universal on
+    # ESC/POS clones), not ad-hoc extra feeds: small tightens, large opens
+    # up, medium is simply "leave the printer's own default alone".
+    LINE_SPACING_DEFAULT = ESC + b"\x32"
+    _LINE_SPACING_CODES = {
+        "small": ESC + b"\x33" + bytes([20]),
+        "medium": LINE_SPACING_DEFAULT,
+        "large": ESC + b"\x33" + bytes([40]),
+    }
 
     # GS ! n — character size (bits 0-2: height x1-x8, bits 4-6: width x1-x8).
-    # "large" doubles height only (fits the same column count); "xlarge" doubles
-    # both (halves the usable column count — callers must pass cols//2 to
-    # _two_col/_line width-aware helpers for that block).
-    _SIZE_CODES = {"standard": 0x00, "large": 0x01, "xlarge": 0x11}
+    # Width is never doubled here — see _style_bytes for why "xlarge" maps to
+    # double-height + bold rather than literal double-width+double-height.
     _ALIGN_CODES = {"left": ALIGN_LEFT, "center": ALIGN_CENTER, "right": ALIGN_RIGHT}
 
     # Соответствует умолчаниям frontend/src/api/receipt.js buildCustomerTemplate()
     # blockStyles — чтобы чек выглядел как превью в ReceiptSettingsPage даже до
     # того, как пользователь явно сохранит свои собственные стили блоков.
+    # footerText больше не рендерится (см. format_receipt) — записи для него
+    # тут нет; bottomOrderNumber — новый блок, дефолт зеркалит фронтенд.
     _DEFAULT_BLOCK_STYLES: dict[str, dict] = {
         "restaurantName": {"size": "large", "align": "center", "weight": "bold"},
         "orderNumber": {"size": "standard", "align": "center", "weight": "bold"},
         "dateTime": {"size": "standard", "align": "center", "weight": "bold"},
         "total": {"size": "xlarge", "align": "left", "weight": "standard"},
         "thankYouText": {"size": "large", "align": "center", "weight": "bold"},
-        "footerText": {"size": "large", "align": "center", "weight": "bold"},
         "bottomOrderNumber": {"size": "large", "align": "center", "weight": "bold"},
     }
 
-    # Кухонный шеф: те же умолчания, что frontend/src/api/receipt.js
-    # CHEF_DEFAULT_BLOCK_STYLES (нельзя слить в _DEFAULT_BLOCK_STYLES —
-    # orderNumber у шефа large, у клиента standard). Без явно сохранённых
-    # стилей кухонный тикет печатается ровно как превью ChefReceiptSettingsPage.
-    _DEFAULT_CHEF_BLOCK_STYLES: dict[str, dict] = {
+    # Chef defaults — mirrors CHEF_DEFAULT_BLOCK_STYLES in frontend/src/api/receipt.js.
+    # Keys with no "align" entry are exactly the rows CHEF_STYLE_CONTROLS marks
+    # align:false for — _kitchen_style() below forces those to "left" even if a
+    # stray value is stored, matching "the frontend never exposed this control".
+    _CHEF_DEFAULT_STYLES: dict[str, dict] = {
         "orderNumber": {"size": "large", "align": "center", "weight": "bold"},
+        "cancelOrderNumber": {"size": "large", "align": "center", "weight": "bold"},
         "orderType": {"size": "standard", "weight": "standard"},
         "table": {"size": "standard", "weight": "standard"},
         "waiter": {"size": "standard", "weight": "standard"},
-        "date": {"size": "standard", "weight": "standard"},
+        "date": {"size": "standard", "align": "left", "weight": "standard"},
         "showOrderSum": {"size": "standard", "weight": "standard"},
         "comment": {"size": "standard", "weight": "standard"},
     }
+    # Rows the Chef constructor never gave an alignment control (CHEF_STYLE_CONTROLS
+    # align:false) — orderNumber/cancelOrderNumber/date are the only ones with align:true.
+    _CHEF_NO_ALIGN = {"orderType", "table", "waiter", "showOrderSum", "comment"}
+
+    # Canonical block order + the two independent contracts (Customer / Chef).
+    # Mirrors CUSTOMER_BLOCKS / KITCHEN_BLOCKS in frontend/src/api/receipt.js.
+    CUSTOMER_BLOCKS = [
+        "logo", "restaurantName", "address", "phone", "orderNumber", "table",
+        "waiter", "dateTime", "items", "discount", "serviceFee", "vat", "total",
+        "paymentMethod", "thankYouText", "bottomOrderNumber",
+    ]
+    KITCHEN_BLOCKS = [
+        "orderNumber", "cancelOrderNumber", "orderType", "table", "waiter",
+        "date", "showOrderSum", "comment",
+    ]
 
     # ESC/POS "select character code table" (ESC t n) — почти все ESC/POS
     # термопринтеры (даже дешёвые китайские клоны) печатают текст в 1-байтной
@@ -178,7 +261,11 @@ class EscPosFormatter:
     }
 
     def __init__(self, paper_width: int = 80, encoding: str = "cp866"):
-        # 80mm ≈ 48 chars; 58mm ≈ 32 chars
+        # 80mm ≈ 48 chars; 58mm ≈ 32 chars. This (Printer.paper_width, the
+        # per-printer row) is the ONLY physical paper-width source — a
+        # template's stored paperSize is a settings-preview convenience and
+        # is never read here (see the module docstring / PHYSICAL_PAPER_WIDTH_SOURCE
+        # in the handoff report).
         self.cols = 48 if paper_width >= 80 else 32
 
         page_n, codec = self._CODEPAGES.get((encoding or "").strip().lower(), self._CODEPAGES["cp866"])
@@ -199,17 +286,75 @@ class EscPosFormatter:
         text = text.translate(self._CHAR_FALLBACKS)
         return text.encode(self._codec, errors="replace") + self.LF
 
+    def _bold_line(self, text: str = "") -> bytes:
+        """Like _line, but BOLD_ON/OFF wrap the text itself, before the LF —
+        unlike a bare out.extend(self.BOLD_OFF) after a _line() call, this
+        never leaves bold-off's control bytes dangling at the very start of
+        whatever's printed next (the next _line()-built row, a _divider(),
+        …), glued onto that line's content with no LF between them."""
+        text = text.translate(self._CHAR_FALLBACKS)
+        return self.BOLD_ON + text.encode(self._codec, errors="replace") + self.BOLD_OFF + self.LF
+
     def _multiline(self, text: str) -> bytes:
         out = bytearray()
         for line in str(text).split("\n"):
             out += self._line(line)
         return bytes(out)
 
+    @staticmethod
+    def _wrap(text: str | None, width: int) -> list[str]:
+        """Word-wrap `text` to `width` characters — never truncates content.
+        Splits on whitespace; a single word longer than `width` is hard-broken
+        (rare: a URL/number with no spaces) so the loop always terminates.
+        Operates on `str` (code points), so Cyrillic/Latin text is never cut
+        mid-character even though the printer encoding is single-byte."""
+        text = str(text or "").strip()
+        if not text:
+            return []
+        if width <= 0:
+            return [text]
+        words = text.split()
+        lines: list[str] = []
+        cur = ""
+        for word in words:
+            while len(word) > width:
+                if cur:
+                    lines.append(cur)
+                    cur = ""
+                lines.append(word[:width])
+                word = word[width:]
+            candidate = f"{cur} {word}".strip()
+            if len(candidate) <= width:
+                cur = candidate
+            else:
+                if cur:
+                    lines.append(cur)
+                cur = word
+        if cur:
+            lines.append(cur)
+        return lines
+
+    def _wrapped_line(self, text: str, width: int) -> bytes:
+        out = bytearray()
+        for line in self._wrap(text, width) or [""]:
+            out += self._line(line)
+        return bytes(out)
+
+    def _wrapped_centered(self, text: str, width: int | None = None) -> bytes:
+        width = self.cols if width is None else width
+        out = bytearray()
+        out += self.ALIGN_CENTER
+        out += self._wrapped_line(text, width)
+        out += self.ALIGN_LEFT
+        return bytes(out)
+
     def _logo_raster(self, logo_bytes: bytes) -> bytes | None:
         """Конвертирует произвольное растровое изображение (jpg/png/webp) в
         ESC/POS raster bit-image (GS v 0) — 1-бит монохром с дизерингом,
-        вписанный по ширине бумаги. Возвращает None, если Pillow не установлен
-        или файл повреждён — печать чека не должна падать из-за картинки."""
+        вписанный по ширине бумаги (аспект сохраняется — resize по одной
+        стороне, без обрезки и растяжения). Возвращает None, если Pillow не
+        установлен или файл повреждён — печать чека не должна падать из-за
+        картинки."""
         try:
             from PIL import Image
         except ImportError:
@@ -246,14 +391,6 @@ class EscPosFormatter:
         return header + bytes(data)
 
     @staticmethod
-    def _dec(value) -> Decimal:
-        """Деньги из свободных dict кухонного тикета (Decimal/str/int/None)."""
-        try:
-            return Decimal(str(value))
-        except Exception:
-            return Decimal("0")
-
-    @staticmethod
     def _enabled(template: dict | None, key: str, default: bool = True) -> bool:
         """Читает template['enabled'][key] (формат frontend/src/api/receipt.js).
         Без шаблона (ещё не сохранён с фронта) — печатаем всё, как раньше."""
@@ -269,45 +406,113 @@ class EscPosFormatter:
         Отсутствующие поля берутся из defaults (по умолчанию
         _DEFAULT_BLOCK_STYLES — те же дефолты, что показывает превью на фронте),
         а не просто 'standard' — иначе чек без явно сохранённых стилей
-        выглядел бы монотонным, не как в превью. Шеф передаёт
-        _DEFAULT_CHEF_BLOCK_STYLES (конфликтующие дефолты orderNumber)."""
+        выглядел бы монотонным, не как в превью. Кухонный тикет использует
+        отдельный метод _kitchen_style() (ниже) со своими дефолтами
+        (_CHEF_DEFAULT_STYLES), а не этот метод — у шефа и клиента разные
+        дефолтные стили для orderNumber."""
         if defaults is None:
             defaults = self._DEFAULT_BLOCK_STYLES
         styles = template.get("blockStyles") or {}
         return {**defaults.get(key, {}), **(styles.get(key) or {})}
 
+    def _kitchen_style(self, template: dict, key: str) -> dict:
+        """Аналог _block_style для чек-повара: свои дефолты (CHEF_DEFAULT_BLOCK_STYLES)
+        + нормализация устаревшего размера 'medium' → 'large' (Chef-редактор
+        больше не предлагает 'medium', но старые сохранённые шаблоны могут его
+        содержать — normalizeChefSize на фронте) + принудительный align='left'
+        для строк, где конструктор никогда не показывал контрол выравнивания
+        (CHEF_STYLE_CONTROLS align:false) — даже если в блобе завалялось чужое
+        значение, оно не должно всплыть в физической печати."""
+        styles = template.get("blockStyles") or {}
+        merged = {**self._CHEF_DEFAULT_STYLES.get(key, {}), **(styles.get(key) or {})}
+        if merged.get("size") == "medium":
+            merged["size"] = "large"
+        if key in self._CHEF_NO_ALIGN:
+            merged["align"] = "left"
+        return merged
+
     def _style_bytes(self, style: dict) -> tuple[bytes, bytes, int]:
         """(prefix, suffix, width_divisor) для набора style — GS!/ESC E/ESC a.
         width_divisor=2 для 'xlarge' (двойная ширина съедает половину колонок
         на строке — вызывающий код должен передать cols // width_divisor в
-        _two_col/_three_col для этой строки, чтобы не переполнить бумагу)."""
+        _two_col/_three_col для этой строки, чтобы не переполнить бумагу).
+        suffix ВСЕГДА возвращает align/bold/size к дефолту (ESC/POS не имеет
+        стека состояний — если не сбросить явно, следующий ничем не
+        стилизованный блок унаследует это форматирование)."""
         align = style.get("align", "left")
         weight = style.get("weight", "standard")
         size = style.get("size", "standard")
 
+        # Physical "xlarge" is deliberately NOT ESC/POS double-width+double-height
+        # (GS!0x11). The frontend's "xlarge" is a ~1.47x visual scale on a
+        # proportional screen font; printing it as literal 2x2 on a monospace
+        # thermal head makes a grand total disproportionately huge relative to
+        # everything else on the receipt, and halving the usable column count
+        # (cols//2) risks squeezing a long total/currency string. The nearest
+        # professional physical treatment: xlarge = double-HEIGHT only (same
+        # bits as "large") plus forced bold, so it still reads as the most
+        # dominant element without overwhelming the receipt or eating columns.
+        # Width is therefore never halved for any size tier.
+        bold = weight == "bold" or size == "xlarge"
+        size_code = {"standard": 0x00, "large": 0x01, "xlarge": 0x01}.get(size, 0x00)
+
+        # Font A is asserted explicitly on every block (not only when a size
+        # is set) — GS!n only multiplies whatever font is currently active,
+        # it has no font-A/B bit of its own, so a block must never depend on
+        # a previous block (or the printer's own ambient/NV state) having
+        # left Font A selected.
         prefix = bytearray()
+        prefix += self.FONT_A
         prefix += self._ALIGN_CODES.get(align, self.ALIGN_LEFT)
-        size_code = self._SIZE_CODES.get(size, 0x00)
         if size_code:
             prefix += self.GS + b"\x21" + bytes([size_code])
-        if weight == "bold":
+        if bold:
             prefix += self.BOLD_ON
 
         suffix = bytearray()
-        if weight == "bold":
+        if bold:
             suffix += self.BOLD_OFF
         if size_code:
             suffix += self.NORMAL_SIZE
+        suffix += self.FONT_A
         suffix += self.ALIGN_LEFT
 
-        width_divisor = 2 if size == "xlarge" else 1
-        return bytes(prefix), bytes(suffix), width_divisor
+        return bytes(prefix), bytes(suffix), 1
 
     def _styled_line(self, template: dict, key: str, text: str) -> bytes:
-        """Многострочный текст (thankYouText/footerText/название заведения) с
-        учётом стиля блока key."""
-        prefix, suffix, _ = self._style_bytes(self._block_style(template, key))
-        return prefix + self._multiline(text) + suffix
+        """Многострочный (возможно, длинный — переносится по словам) текст
+        (thankYouText/название заведения/...) с учётом стиля блока key."""
+        style = self._block_style(template, key)
+        prefix, suffix, div = self._style_bytes(style)
+        width = self.cols // div
+        wrapped = "\n".join(
+            line for para in str(text).split("\n") for line in (self._wrap(para, width) or [""])
+        )
+        return prefix + self._multiline(wrapped) + suffix
+
+    def _info_row(self, template: dict, key: str, label: str, value: str) -> bytes:
+        """label-left / value-right-aligned info row, styled per
+        blockStyles[key] (size/align/weight) — the physical counterpart of
+        ReceiptPreview.jsx's infoRow() (CSS: label bold, value
+        `text-align:right`, laid out as two columns — see
+        .receipt-preview__info-row b / span in receiptSettings.css). Several
+        customer-receipt rows (both "Номер заказа:" and "Тип заказа:" for the
+        orderNumber block) can share one style key. A value too long to share
+        the row wraps onto its own right-aligned continuation line(s) rather
+        than overflowing the row width."""
+        style = self._block_style(template, key)
+        prefix, suffix, div = self._style_bytes(style)
+        width = self.cols // div
+        value = str(value)
+        if len(label) + 1 + len(value) <= width:
+            body = self._two_col(label, value, cols=width)
+        else:
+            body = bytearray()
+            body.extend(self._line(label))
+            for line in self._wrap(value, width) or [""]:
+                body.extend(self._two_col("", line, cols=width))
+            body = bytes(body)
+        return prefix + body + suffix
 
     def _styled_row(self, template: dict, key: str, text: str, defaults: dict | None = None) -> bytes:
         """Одна строка с учётом стиля блока key. Текст обрезается под
@@ -324,280 +529,484 @@ class EscPosFormatter:
         pad = cols - len(left) - len(right)
         return self._line(left + " " * max(pad, 1) + right)
 
+    # Fixed column budget for the qty/amount pair on an item row — the name
+    # column takes whatever is left. See _item_row for the narrow-paper switch.
+    _ITEM_QTY_W = 6
+    _ITEM_TOTAL_W = 10
+    # Kitchen-ticket-only: wider Кол-во field when there's no Сумма column
+    # to share the row with (see format_kitchen_ticket).
+    _KITCHEN_QTY_W_PLAIN = 8
+
     def _three_col(self, name: str, qty: str, total: str, cols: int | None = None) -> bytes:
+        """Header/labels row (short fixed strings) — no wrapping needed."""
         cols = self.cols if cols is None else cols
-        qty_w = 6
-        total_w = 10
-        name_w = cols - qty_w - total_w
-        if name_w <= 0:
-            # Нет места под имя (xlarge на узкой бумаге): кол-во/сумма сами
-            # по себе — имя вызывающий код печатает отдельной строкой.
-            return self._line(qty.rjust(qty_w) + total.rjust(total_w))
+        name_w = max(cols - self._ITEM_QTY_W - self._ITEM_TOTAL_W, 1)
         name_trunc = name[:name_w].ljust(name_w)
-        return self._line(name_trunc + qty.rjust(qty_w) + total.rjust(total_w))
+        return self._line(name_trunc + qty.rjust(self._ITEM_QTY_W) + total.rjust(self._ITEM_TOTAL_W))
+
+    def _item_row(self, name: str, qty: str, total: str, cols: int | None = None) -> bytes:
+        """One dish row. Never truncates the name — either wraps it in the
+        qty/total row's own column budget, or (when that budget is too narrow
+        to hold BOTH the name and the numbers — narrow paper + 'xlarge' style)
+        switches to the name-alone-then-'x{qty} … {total}' two-line layout, so
+        the dish name column is never squeezed to zero width."""
+        cols = self.cols if cols is None else cols
+        qty_w, total_w = self._ITEM_QTY_W, self._ITEM_TOTAL_W
+        if cols < qty_w + total_w + 4:
+            out = bytearray()
+            out += self._wrapped_line(name, cols)
+            out += self._two_col(f"x{qty}", total, cols=cols)
+            return bytes(out)
+        name_w = cols - qty_w - total_w
+        lines = self._wrap(name, name_w) or [""]
+        out = bytearray()
+        out += self._line(lines[0].ljust(name_w) + qty.rjust(qty_w) + total.rjust(total_w))
+        for cont in lines[1:]:
+            out += self._line(cont.ljust(name_w) + " " * (qty_w + total_w))
+        return bytes(out)
+
+    def _kitchen_item_row(
+        self, name: str, qty: str, total: str | None, qty_w: int, total_w: int, cols: int | None = None
+    ) -> bytes:
+        """One kitchen-ticket dish row (bold, per format_kitchen_ticket's
+        'always a table' layout): Кол-во centered — unlike _item_row's
+        right-aligned receipt column — and Сумма only present when `total`
+        is given (showOrderSum). Like _item_row, never truncates the name:
+        wraps it across continuation lines, or (narrow paper) falls back to
+        name-alone-then-numbers, so long dish/modifier text is never lost."""
+        cols = self.cols if cols is None else cols
+        used = qty_w + (total_w if total is not None else 0)
+        tail = qty.center(qty_w) + (total.rjust(total_w) if total is not None else "")
+        if cols < used + 4:
+            out = bytearray()
+            out += self._wrapped_line(name, cols)
+            out += self._bold_line(tail)
+            return bytes(out)
+        name_w = cols - used
+        lines = self._wrap(name, name_w) or [""]
+        out = bytearray()
+        out += self._bold_line(lines[0].ljust(name_w) + tail)
+        for cont in lines[1:]:
+            out += self._bold_line(cont.ljust(name_w) + " " * used)
+        return bytes(out)
 
     def format_receipt(self, data: ReceiptData, template: dict | None = None, logo_bytes: bytes | None = None) -> bytes:
         """template — сохранённый с фронта шаблон (см. frontend/src/api/receipt.js,
-        buildCustomerTemplate()): какие блоки включены (template['enabled']),
-        подписи (thankYouText/footerText/restaurantName/address/phone). Без
-        шаблона (ещё не настроен) печатаем все блоки — прежнее поведение.
+        buildCustomerTemplate()): порядок блоков (template['blocks']), какие
+        блоки включены (template['enabled']), подписи (thankYouText/
+        restaurantName/address/phone), стили (blockStyles), плотность строк
+        (lineSpacing). Без шаблона (ещё не настроен) печатаем все блоки в
+        каноническом порядке — прежнее поведение.
+
         logo_bytes — сырые байты загруженного лого компании (jpg/png/webp),
-        печатается растром (GS v 0), если блок 'logo' включён и лого загружено.
-        QR намеренно не печатается с этого принтера — печатается отдельным
-        QR-принтером вне этого проекта, поэтому блок 'qr' здесь не реализован."""
+        печатается растром (GS v 0), если блок 'logo' включён и лого
+        загружено. QR намеренно не печатается с этого принтера — печатается
+        отдельным QR-принтером вне этого проекта (см. PENDING_BLOCKS.qr во
+        frontend/src/components/receipt/receiptBlockCapabilities.js), блок
+        'qr' здесь не реализован и не входит в CUSTOMER_BLOCKS.
+
+        footerText — устаревшее поле (до redesign'а receipt-density-tune-v1).
+        Сохранённое значение НЕ трогаем (PATCH-схема — свободный blob), но
+        больше не печатаем: заменено на bottomOrderNumber + thankYouText
+        (переименован в UI в «Комментарий к чеку», ключ в блобе тот же)."""
         template = template or {}
         en = lambda key, default=True: self._enabled(template, key, default)  # noqa: E731
 
         out = bytearray()
         out += self.INIT
+        out += self.FONT_A
         out += self.codepage_cmd
+        out += self._LINE_SPACING_CODES.get(str(template.get("lineSpacing") or "large").lower(), self._LINE_SPACING_CODES["large"])
 
-        # Header
-        if en("logo") and logo_bytes:
-            raster = self._logo_raster(logo_bytes)
-            if raster:
-                out += self.ALIGN_CENTER
-                out += raster
-                out += self.LF
-                out += self.ALIGN_LEFT
-        if en("restaurantName"):
-            name = str(template.get("restaurantName") or data.company_name)
-            out += self._styled_line(template, "restaurantName", name[:self.cols])
-            out += self.ALIGN_CENTER
-            out += self._line(data.branch_name[:self.cols])
-            out += self.ALIGN_LEFT
-        if en("address") and template.get("address"):
-            out += self.ALIGN_CENTER
-            out += self._line(str(template["address"])[:self.cols])
-            out += self.ALIGN_LEFT
-        if en("phone") and template.get("phone"):
-            out += self.ALIGN_CENTER
-            out += self._line(str(template["phone"])[:self.cols])
-            out += self.ALIGN_LEFT
-        out += self._divider()
+        order_type_label = format_order_type(data.order_type)
+        payment_label = PAYMENT_METHOD_LABELS.get(data.payment_method, data.payment_method)
 
-        # Order info
-        if en("orderNumber"):
-            style = self._block_style(template, "orderNumber")
-            prefix, suffix, div = self._style_bytes(style)
-            out += prefix
-            out += self._two_col(f"Заказ #{data.order_number}", format_order_type(data.order_type), cols=self.cols // div)
-            out += suffix
-        if en("table") and data.table_number:
-            out += self._styled_row(template, "table", f"Стол: {data.table_number}")
-        if data.customer_name:
-            out += self._line(f"Клиент: {data.customer_name}")
-        if en("waiter") and (data.waiter_name or data.cashier_name):
-            out += self._styled_row(template, "waiter", f"Официант: {data.waiter_name or data.cashier_name}")
-        if en("dateTime"):
-            out += self._styled_line(template, "dateTime", data.printed_at.strftime("%d.%m.%Y %H:%M:%S"))
-        out += self._divider()
+        # Exact port of ReceiptPreview.jsx's run-building algorithm: walk
+        # template.blocks in order, and for each block that actually renders
+        # something, push its bytes into "runs" — a contiguous same-section
+        # block extends the current run, a different section starts a new
+        # one. This (not a fixed 5-group scheme) is what the frontend does,
+        # and it matters here: in the CANONICAL default order, "address"/
+        # "phone" sit right after "restaurantName" but belong to the FOOTER
+        # section (see CUSTOMER_BLOCKS in frontend/src/api/receipt.js vs.
+        # their push("footer", …) calls in ReceiptPreview.jsx) — so a default,
+        # unmodified template legitimately produces TWO separate footer runs
+        # (address/phone right under the header, then thankYouText/
+        # bottomOrderNumber at the very end), not one merged block. A fixed
+        # "5 groups, each rendered once" scheme (the previous approach here)
+        # cannot represent that and silently duplicated footer content.
+        ordered_blocks = self._ordered(template.get("blocks"), self.CUSTOMER_BLOCKS)
+        runs: list[list[bytes | bytearray]] = []  # each entry: [section, *chunks]
 
-        # Items
-        if en("items"):
-            style = self._block_style(template, "items")
-            prefix, suffix, div = self._style_bytes(style)
-            cols = self.cols // div
-            bold = style.get("weight") == "bold"
-            # Шапка таблицы жирная всегда (и в превью, и на бумаге); при
-            # жирном стиле блока жирность не гасится после шапки
-            # (BOLD_ON при weight=bold уже приходит в prefix).
-            out += prefix
-            out += self.BOLD_ON
-            out += self._three_col("Наименование", "Кол.", "Сумма", cols=cols)
-            if not bold:
-                out += self.BOLD_OFF
-            out += self._divider(cols=cols)
-            # xlarge на узкой бумаге: колонка имени становится нулевой —
-            # имя печатается отдельной строкой, под ней кол-во/сумма.
-            wrapped = (cols - 16) < 10
-            for item in data.items:
-                if wrapped:
-                    out += self._line(item.name[:cols])
-                    out += self._line(
-                        str(item.qty).rjust(6) + f"{item.total:,.0f}".rjust(cols - 6)
-                    )
-                else:
-                    out += self._three_col(
-                        item.name,
-                        str(item.qty),
-                        f"{item.total:,.0f}",
-                        cols=cols,
-                    )
-                for mod in item.modifiers:
-                    out += self._line(f"  + {mod}"[:cols])
-            if bold:
-                out += self.BOLD_OFF
-            out += self._divider(cols=cols)
-            out += suffix
+        def push(section: str, chunk: bytes | bytearray) -> None:
+            if not chunk:
+                return
+            if runs and runs[-1][0] == section:
+                runs[-1].append(chunk)
+            else:
+                runs.append([section, chunk])
 
-        # Totals
-        out += self._two_col("Итого:", f"{data.subtotal:,.0f}")
-        if en("discount") and data.discount > 0:
-            out += self._two_col("Скидка:", f"-{data.discount:,.0f}")
-        if en("serviceFee") and getattr(data, "service_fee", 0) and data.service_fee > 0:
-            rate_label = format_rate_percent(data.service_fee_rate) if getattr(data, "service_fee_rate", None) else ""
-            service_label = f"Обслуживание {rate_label}%:" if rate_label else "Обслуживание:"
-            out += self._two_col(service_label, f"{data.service_fee:,.0f}")
-        if en("vat") and data.tax > 0:
-            vat_rate = template.get("vatRate")
-            label = f"НДС ({vat_rate:.0f}%):" if vat_rate else "НДС:"
-            out += self._two_col(label, f"{data.tax:,.0f}")
-        # «К ОПЛАТЕ» — блок total: галочка «Итого» в конструкторе клиента
-        # гейтит именно эту строку (в превью — «Итого к оплате»), сумма
-        # блюд печатается всегда, как и в превью.
-        if en("total"):
-            total_style = self._block_style(template, "total")
-            total_prefix, total_suffix, total_div = self._style_bytes(total_style)
-            out += total_prefix
-            out += self._two_col("К ОПЛАТЕ:", f"{data.total:,.0f}", cols=self.cols // total_div)
-            out += total_suffix
-        out += self._divider()
+        def render_summary() -> bytes:
+            # Labels (mostly) match ReceiptPreview.jsx's summaryRow() calls —
+            # "Сумма блюд"/"Скидка"/"Налог" carry no colon there, and "Налог"
+            # never shows a percentage (that was this formatter's own
+            # invention, not part of the accepted contract). "Обслуживание"
+            # is the one deliberate exception on the PHYSICAL print only: the
+            # frontend preview shows a generic "Обслуживание %" (no real
+            # number — it has no real order to compute one from), but here
+            # we have the actual rate (service_fee_rate — the % of the
+            # place/hall this order's service fee was computed from, see
+            # pos/service.py::_effective_service_rate) and print it exactly,
+            # with the trailing colon the preview's generic label doesn't need.
+            buf = bytearray()
+            if data.subtotal > 0:
+                buf.extend(self._two_col("Сумма блюд", f"{data.subtotal:,.0f}"))
+            if en("discount") and data.discount > 0:
+                buf.extend(self._two_col("Скидка", f"-{data.discount:,.0f}"))
+            if en("serviceFee") and getattr(data, "service_fee", 0) and data.service_fee > 0:
+                rate_label = format_rate_percent(data.service_fee_rate) if getattr(data, "service_fee_rate", None) else ""
+                service_label = f"Обслуживание {rate_label}%:" if rate_label else "Обслуживание:"
+                buf.extend(self._two_col(service_label, f"{data.service_fee:,.0f}"))
+            if en("vat") and data.tax > 0:
+                buf.extend(self._two_col("Налог", f"{data.tax:,.0f}"))
+            return bytes(buf)
 
-        # Payment
-        if en("paymentMethod"):
-            pay_prefix, pay_suffix, pay_div = self._style_bytes(
-                self._block_style(template, "paymentMethod")
-            )
-            pay_cols = self.cols // pay_div
-            out += pay_prefix
-            out += self._two_col("Оплата:", data.payment_method, cols=pay_cols)
-            if data.cash_received is not None:
-                out += self._two_col("Получено:", f"{data.cash_received:,.0f}", cols=pay_cols)
-                out += self._two_col("Сдача:", f"{data.change_given or 0:,.0f}", cols=pay_cols)
-            out += pay_suffix
-
-        # Fiscal code
+        summary_done = False
+        for block in ordered_blocks:
+            # The subtotal/discount/service/vat unit renders once, anchored
+            # to "total" — matches ReceiptPreview.jsx exactly (it `continue`s
+            # on these three regardless of blocks[] order or enabled state).
+            if block in ("discount", "serviceFee", "vat"):
+                continue
+            if block == "total":
+                push("financial", render_summary())
+                summary_done = True
+                # enabled.total must be truthful: the frontend can disable
+                # just the grand-total line while keeping the summary above
+                # it (isOn(enabled, "total")) — the physical print must honor
+                # that, not print "Итого к оплате:" unconditionally.
+                if en("total"):
+                    total_style = self._block_style(template, "total")
+                    total_prefix, total_suffix, total_div = self._style_bytes(total_style)
+                    line = total_prefix + self._two_col("Итого к оплате:", f"{data.total:,.0f}", cols=self.cols // total_div) + total_suffix
+                    push("financial", line)
+                continue
+            if not en(block):
+                continue
+            if block == "logo":
+                if logo_bytes:
+                    raster = self._logo_raster(logo_bytes)
+                    if raster:
+                        chunk = bytearray()
+                        chunk.extend(self.ALIGN_CENTER)
+                        chunk.extend(raster)
+                        chunk.extend(self.LF)
+                        chunk.extend(self.ALIGN_LEFT)
+                        push("header", chunk)
+            elif block == "restaurantName":
+                # Branch name is NOT part of the accepted contract —
+                # ReceiptPreview.jsx's "restaurantName" block renders only
+                # {restaurantName}, nothing else; there is no separate
+                # branch-name element anywhere in CustomerReceipt.
+                name = str(template.get("restaurantName") or data.company_name)
+                push("header", self._styled_line(template, "restaurantName", name))
+            elif block == "orderNumber":
+                # Two separate rows (same style), matching ReceiptPreview.jsx:
+                # infoRow("orderNumber", "Номер заказа:", …) and
+                # infoRow("orderNumber", "Тип заказа:", …) — not one combined
+                # "Заказ #N  <type>" row.
+                push("info", self._info_row(template, "orderNumber", "Номер заказа:", str(data.order_number)))
+                push("info", self._info_row(template, "orderNumber", "Тип заказа:", order_type_label))
+            elif block == "table" and data.table_number:
+                push("info", self._info_row(template, "table", "Номер стола:", str(data.table_number)))
+            elif block == "waiter" and (data.waiter_name or data.cashier_name):
+                push("info", self._info_row(template, "waiter", "Официант:", data.waiter_name or data.cashier_name))
+            elif block == "dateTime":
+                # Order creation time (data.printed_at is set to it by
+                # PrinterService), no seconds — matches formatCustomerDate().
+                push("info", self._info_row(template, "dateTime", "Дата:", data.printed_at.strftime("%d.%m.%Y %H:%M")))
+                # data.customer_name (delivery name) has no CUSTOMER_BLOCKS key
+                # yet — kept unconditional, directly after order info, pending
+                # a template key (PENDING_BLOCKS.deliveryAddress/Phone upstream).
+                if data.customer_name:
+                    push("info", self._line(f"Клиент: {data.customer_name}"))
+            elif block == "items":
+                style = self._block_style(template, "items")
+                prefix, suffix, div = self._style_bytes(style)
+                cols = self.cols // div
+                # Header is always bold; a style-level bold (prefix already
+                # sent BOLD_ON) must stay on through the item rows below it —
+                # an unconditional BOLD_OFF here would cancel that outer
+                # state (ESC/POS bold is a toggle, not scoped to this call).
+                block_bold = style.get("weight") == "bold"
+                chunk = bytearray()
+                chunk.extend(prefix)
+                chunk.extend(self.BOLD_ON)
+                chunk.extend(self._three_col("Блюдо", "Кол-во", "Сумма", cols=cols))
+                if not block_bold:
+                    chunk.extend(self.BOLD_OFF)
+                chunk.extend(self._divider(cols=cols))
+                for item in data.items:
+                    chunk.extend(self._item_row(item.name, format_quantity(item.qty), f"{item.total:,.0f}", cols=cols))
+                    for mod in item.modifiers:
+                        chunk.extend(self._wrapped_line(f"  + {mod}", cols))
+                if block_bold:
+                    chunk.extend(self.BOLD_OFF)
+                chunk.extend(suffix)
+                push("items", chunk)
+            elif block == "paymentMethod" and data.payment_method:
+                # Matches ReceiptPreview.jsx's getPaymentRows(): an order with
+                # no payment yet (data.payment_method is None) renders no row
+                # at all, never a placeholder dash — a pre-bill for an unpaid
+                # order must not fabricate a payment line. The row shows the
+                # method AND the amount ("{label}: {amount}"), mirroring
+                # PaymentRows' single fallback row (label=payment method,
+                # amount=order total) rather than a bare method name.
+                pay_style = self._block_style(template, "paymentMethod")
+                pay_prefix, pay_suffix, pay_div = self._style_bytes(pay_style)
+                pay_cols = self.cols // pay_div
+                chunk = bytearray()
+                chunk.extend(pay_prefix)
+                chunk.extend(self._two_col(f"{payment_label}:", f"{data.total:,.0f}", cols=pay_cols))
+                if data.cash_received is not None:
+                    chunk.extend(self._two_col("Получено:", f"{data.cash_received:,.0f}", cols=pay_cols))
+                    chunk.extend(self._two_col("Сдача:", f"{data.change_given or 0:,.0f}", cols=pay_cols))
+                chunk.extend(pay_suffix)
+                push("financial", chunk)
+            elif block == "thankYouText":
+                # Default text matches ReceiptPreview.jsx's own fallback
+                # exactly ("XARIDINGIZ\nUCHUN RAXMAT!", two lines, not a
+                # Russian default) — an unsaved template renders this literal
+                # fallback in both places.
+                push("footer", self._styled_line(template, "thankYouText", template.get("thankYouText") or "XARIDINGIZ\nUCHUN RAXMAT!"))
+            elif block == "bottomOrderNumber":
+                style = self._block_style(template, "bottomOrderNumber")
+                prefix, suffix, div = self._style_bytes(style)
+                width = self.cols // div
+                chunk = bytearray()
+                chunk.extend(prefix)
+                chunk.extend(self._wrapped_line("НОМЕР ЗАКАЗА", width))
+                # Bare number, no "#" — matches ReceiptPreview.jsx's
+                # getOrderNumber() (String(order.order_number), not "#N").
+                chunk.extend(self._wrapped_line(str(data.order_number), width))
+                chunk.extend(suffix)
+                push("footer", chunk)
+            elif block == "address":
+                address = template.get("address")
+                if address:
+                    push("footer", self._wrapped_centered(str(address)))
+            elif block == "phone":
+                phone = template.get("phone")
+                if phone:
+                    push("footer", self._wrapped_centered(str(phone)))
+        if not summary_done:
+            push("financial", render_summary())  # total block missing from a legacy template
         if data.fiscal_code:
-            out += self._divider()
-            out += self.ALIGN_CENTER
-            out += self._line(f"ФН: {data.fiscal_code}")
-            out += self.ALIGN_LEFT
+            fiscal_chunk = self._divider() + self._wrapped_centered(f"ФН: {data.fiscal_code}")
+            push("financial", fiscal_chunk)
 
-        # Footer
-        if en("thankYouText"):
-            out += self._divider()
-            out += self._styled_line(template, "thankYouText", template.get("thankYouText") or "Спасибо за покупку!")
-        if en("footerText") and template.get("footerText"):
-            out += self._styled_line(template, "footerText", template["footerText"])
-        # Крупный «НОМЕР ЗАКАЗА» в самом низу чека — как блок
-        # receipt-preview__bottomnum в превью: подпись + крупный номер.
-        if en("bottomOrderNumber"):
-            bot_prefix, bot_suffix, bot_div = self._style_bytes(
-                self._block_style(template, "bottomOrderNumber")
-            )
-            bot_cols = self.cols // bot_div
-            out += self.LF
-            out += bot_prefix
-            out += self._line("НОМЕР ЗАКАЗА"[:bot_cols])
-            out += self._line(str(data.order_number)[:bot_cols])
-            out += bot_suffix
+        # No rule directly under the brand header (frozen preview:
+        # boundaryRule returns null when the previous run was "header").
+        last_section: str | None = None
+        for run in runs:
+            section = run[0]
+            if last_section is not None and last_section != "header":
+                out.extend(self._divider())
+            for chunk in run[1:]:
+                out.extend(chunk)
+            last_section = section
 
-        out += self.LF * 3
-        out += self.CUT
+        out.extend(self.LF * 3)
+        out.extend(self.CUT)
 
         return bytes(out)
 
+    @staticmethod
+    def _ordered(blocks: object, canonical: list[str]) -> list[str]:
+        """Port of frontend/src/pages/settings/receiptBlockOrder.js::orderedBlocks —
+        the single source of block order shared by the editor, the live preview
+        and (here) the physical formatter. Keeps only known keys from the saved
+        order, in that order, then appends any canonical block missing from it
+        (a partial/legacy template never loses a known block); unknown keys from
+        a future frontend version are silently ignored."""
+        known = set(canonical)
+        seen: set[str] = set()
+        result: list[str] = []
+        if isinstance(blocks, list):
+            for block in blocks:
+                if block in known and block not in seen:
+                    result.append(block)
+                    seen.add(block)
+        for block in canonical:
+            if block not in seen:
+                result.append(block)
+        return result
+
     def format_kitchen_ticket(self, data: KitchenTicketData, template: dict | None = None) -> bytes:
-        """template — см. frontend/src/api/receipt.js buildKitchenTemplate():
-        {enabled: {orderNumber, orderType, table, waiter,
-        date, showOrderSum, comment},
-         blockStyles: CHEF_DEFAULT_BLOCK_STYLES (размер/выравнивание/жирность
-         каждой строки — те же дефолты, что в превью шефа)}.
-        Без шаблона — печатаем всё.
-        Суммы (showOrderSum) по умолчанию ВЫКЛЮЧЕНЫ: старые шаблоны без
-        этого ключа должны печататься как раньше (только xN, без денег).
-        Legacy-ключи (createdAt/itemComments/orderNote) — фолбэк только когда
-        нового ключа нет в enabled: сохранённые старыми версиями шаблоны
-        печатаются как раньше."""
+        """template — см. frontend/src/api/receipt.js buildKitchenTemplate() /
+        KITCHEN_BLOCKS (8-строчный конструктор): {blocks, enabled: {orderNumber,
+        cancelOrderNumber, orderType, table, waiter, date, showOrderSum,
+        comment}, blockStyles}. Без шаблона — печатаем все 8 блоков в
+        каноническом порядке.
+
+        IS_CANCELLED_ORDER — единственный канонический сигнал отмены:
+        data.status == "cancelled" (Order.status; та же state machine, что
+        app/modules/pos/service.py::VALID_TRANSITIONS использует как
+        терминальное состояние). Не по образцу строк с фронта.
+
+        Блюда/модификаторы — основное содержимое кухонного тикета: печатаются ВСЕГДА,
+        вне зависимости от видимых тумблеров (их в KITCHEN_BLOCKS больше нет —
+        legacy-ключи 'items'/'modifiers' сохраняются в блобе нетронутыми, но
+        физическую печать больше не определяют). 'comment' — единый тумблер
+        для комментариев к позиции (бывший itemComments) И комментария к
+        заказу (бывший orderNote). 'showOrderSum' — только реальная сумма
+        позиции (OrderItem.total), никогда не выдуманная. 'priority' (баннер
+        "! СРОЧНО !") — удалён из физической печати; устаревшее значение в
+        блобе сохраняется, но игнорируется.
+
+        Legacy-ключи: шаблон, сохранённый до появления 'comment', может нести
+        только 'itemComments'/'orderNote' (см. выше) — учитываются, если
+        'comment' в enabled отсутствует. Аналогично 'date' отсутствующий в
+        enabled падает на устаревший 'createdAt' (en("date", en("createdAt",
+        True))) — оба пути покрыты test_receipt_block_styles.py."""
         template = template or {}
         en = lambda key, default=True: self._enabled(template, key, default)  # noqa: E731
 
-        def chef_row(key: str, text: str) -> bytes:
-            return self._styled_row(template, key, text, self._DEFAULT_CHEF_BLOCK_STYLES)
-
         out = bytearray()
         out += self.INIT
+        out += self.FONT_A
         out += self.codepage_cmd
-        if en("orderNumber"):
-            out += chef_row("orderNumber", f"ЗАКАЗ #{data.order_number}")
-        # Тип заказа и время — две отдельные строки со своими стилями (в
-        # превью это две info-строки). Дата: новый ключ date, для
-        # legacy-шаблонов без него — старый ключ createdAt.
-        if en("orderType"):
-            out += chef_row("orderType", format_order_type(data.order_type).upper())
-        if en("date", en("createdAt", True)):
-            out += chef_row("date", data.printed_at.strftime("%H:%M"))
-        if en("table") and data.table_number:
-            out += chef_row("table", f"СТОЛ: {data.table_number}")
-        if en("waiter") and data.waiter_name:
-            out += chef_row("waiter", f"Официант: {data.waiter_name}")
-        out += self._divider("=")
+        out += self._LINE_SPACING_CODES.get(str(template.get("lineSpacing") or "medium").lower(), self.LINE_SPACING_DEFAULT)
 
-        if en("items"):
-            # Позиции — всегда таблицей (Блюдо/Кол-во [+ Сумма]): суммы
-            # и итог "Сумма блюд" только при "Заказы (показать сумму)".
-            # Кол-во всегда строго по центру своей шапки: то же поле
-            # ширины QTY_W для заголовка и цифр (а не правый край).
-            # Без сумм колонка Кол-во — в правом краю. Под шапкой — одна
-            # сплошная линия, дальше одиночные пунктиры между строками,
-            # над итогом — одиночный пунктир.
-            show_sums = en("showOrderSum", False)
-            item_comments_on = en("comment", en("itemComments", True))
-            qty_w = 6 if show_sums else 8
-            total_w = 10
-            name_w = self.cols - qty_w - (total_w if show_sums else 0)
-            if show_sums:
-                out += self._line(
-                    "Блюдо".ljust(name_w) + "Кол-во".center(qty_w) + "Сумма".rjust(total_w)
-                )
-            else:
-                out += self._line("Блюдо".ljust(self.cols - qty_w) + "Кол-во".center(qty_w))
-            # Group items by course
-            courses: dict[int, list[dict]] = {}
-            for item in data.items:
-                c = item.get("course", 1)
-                courses.setdefault(c, []).append(item)
+        cancelled = data.status == "cancelled"
+        show_cancel = cancelled and en("cancelOrderNumber", True)
+        show_normal_number = (not show_cancel) and en("orderNumber", True)
+        # 'comment' is the unified modern key for both item-level notes and
+        # the order-level note; if a saved template predates it, each falls
+        # back to its own legacy key (itemComments / orderNote respectively)
+        # — 'comment', when present, always wins over either.
+        item_comment_on = en("comment", en("itemComments", True))
+        order_comment_on = en("comment", en("orderNote", True))
+        show_money = en("showOrderSum", False)
+        order_type_label = format_order_type(data.order_type).upper()
 
-            for course_num in sorted(courses):
-                if len(courses) > 1:
-                    out += self.BOLD_ON
-                    out += self._line(f"--- Подача {course_num} ---")
-                    out += self.BOLD_OFF
-                for item in courses[course_num]:
-                    qty = str(item.get("qty", 1))
-                    name = item.get("name", "")
-                    if show_sums:
-                        out += self._line(
-                            name[:name_w].ljust(name_w)
-                            + qty.center(qty_w)
-                            + f"{self._dec(item.get('total')):,.0f}".rjust(total_w)
-                        )
-                    else:
-                        out += self._line(name[:name_w].ljust(name_w) + qty.center(qty_w))
-                    if en("modifiers"):
-                        for mod in item.get("modifiers", []):
-                            out += self._line(f"       + {mod}")
-                    if item_comments_on and item.get("note"):
-                        out += self._line(f"       ! {item['note']}")
-            if show_sums:
-                out += self._divider()
-                sum_prefix, sum_suffix, sum_div = self._style_bytes(
-                    self._block_style(template, "showOrderSum", self._DEFAULT_CHEF_BLOCK_STYLES)
-                )
-                out += sum_prefix
-                out += self._two_col(
-                    "Сумма блюд:",
-                    f"{self._dec(data.subtotal):,.0f}",
-                    cols=self.cols // sum_div,
-                )
-                out += sum_suffix
+        def render_number_block() -> None:
+            style = self._kitchen_style(template, "cancelOrderNumber" if show_cancel else "orderNumber")
+            prefix, suffix, div = self._style_bytes(style)
+            width = self.cols // div
+            out.extend(prefix)
+            out.extend(self._wrapped_line(f"#{data.order_number}", width))
+            out.extend(suffix)
+            if show_cancel:
+                out.extend(self.ALIGN_CENTER + self.BOLD_ON)
+                out.extend(self._line("ОТМЕНА"))
+                out.extend(self.BOLD_OFF + self.ALIGN_LEFT)
 
-        if en("comment", en("orderNote", True)) and data.note:
+        def render_row(block: str, label: str, value: str | None) -> bool:
+            if not value:
+                return False
+            style = self._kitchen_style(template, block)
+            prefix, suffix, div = self._style_bytes(style)
+            out.extend(prefix)
+            out.extend(self._wrapped_line(f"{label} {value}", self.cols // div))
+            out.extend(suffix)
+            return True
+
+        any_info = False
+        for block in self._ordered(template.get("blocks"), self.KITCHEN_BLOCKS):
+            if block in ("orderNumber", "cancelOrderNumber"):
+                if block == "cancelOrderNumber" and show_cancel:
+                    render_number_block()
+                    any_info = True
+                elif block == "orderNumber" and show_normal_number:
+                    render_number_block()
+                    any_info = True
+            elif block == "orderType" and en("orderType", True):
+                any_info = render_row("orderType", "Тип заказа:", order_type_label) or any_info
+            elif block == "table" and en("table", True):
+                any_info = render_row("table", "Стол:", data.table_number) or any_info
+            elif block == "waiter" and en("waiter", True):
+                any_info = render_row("waiter", "Официант:", data.waiter_name) or any_info
+            elif block == "date" and en("date", en("createdAt", True)):
+                any_info = render_row("date", "Время:", data.printed_at.strftime("%d.%m.%Y %H:%M")) or any_info
+            # showOrderSum / comment are gates with no own printed position.
+
+        if any_info:
+            out.extend(self._divider("="))
+
+        # Dishes: core content, always printed as a table (Блюдо/Кол-во
+        # [+Сумма]) — Кол-во always dead-center in its own header-width field
+        # (narrower, 6-wide, when showOrderSum adds the Сумма column; 8-wide
+        # otherwise), never the receipt's right-edge _item_row alignment.
+        # Modifiers follow regardless of sums; comments follow the unified
+        # 'comment' toggle; amounts only via 'showOrderSum', and only when a
+        # real total is known (never fabricated).
+        qty_w = self._ITEM_QTY_W if show_money else self._KITCHEN_QTY_W_PLAIN
+        total_w = self._ITEM_TOTAL_W
+        name_w = self.cols - qty_w - (total_w if show_money else 0)
+        if show_money:
+            out.extend(self._line("Блюдо".ljust(name_w) + "Кол-во".center(qty_w) + "Сумма".rjust(total_w)))
+        else:
+            out.extend(self._line("Блюдо".ljust(name_w) + "Кол-во".center(qty_w)))
+
+        courses: dict[int, list[KitchenItem]] = {}
+        for item in data.items:
+            courses.setdefault(item.course or 1, []).append(item)
+        subtotal = Decimal("0")
+        for course_num in sorted(courses):
+            if len(courses) > 1:
+                out.extend(self._bold_line(f"--- Подача {course_num} ---"))
+            for item in courses[course_num]:
+                total_str = None
+                if show_money and item.total is not None:
+                    subtotal += item.total
+                    total_str = f"{item.total:,.0f}"
+                out.extend(self._kitchen_item_row(item.name, str(item.qty), total_str, qty_w, total_w))
+                for mod in item.modifiers:
+                    out.extend(self._wrapped_line(f"  + {mod}", self.cols))
+                if item_comment_on and item.note:
+                    out.extend(self._wrapped_line(f"  ! {item.note}", self.cols))
+
+        if show_money:
+            out.extend(self._divider())
+            sum_prefix, sum_suffix, sum_div = self._style_bytes(self._kitchen_style(template, "showOrderSum"))
+            out.extend(sum_prefix)
+            out.extend(self._two_col("Сумма блюд:", f"{subtotal:,.0f}", cols=self.cols // sum_div))
+            out.extend(sum_suffix)
+
+        if order_comment_on and data.note:
+            out.extend(self._divider())
+            comment_prefix, comment_suffix, comment_div = self._style_bytes(self._kitchen_style(template, "comment"))
+            out.extend(comment_prefix)
+            out.extend(self._wrapped_line(f"КОММЕНТАРИЙ: {data.note}", self.cols // comment_div))
+            out.extend(comment_suffix)
+
+        out.extend(self._divider("="))
+        out.extend(self.LF * 3)
+        out.extend(self.CUT)
+        return bytes(out)
+
+
+    def format_summary(self, title: str, lines: list[str], footer: str | None = None) -> bytes:
+        """Summary receipt (History/Reports): centered title, free-form lines, optional footer."""
+        out = bytearray()
+        out += self.INIT
+        out += self.FONT_A
+        out += self.codepage_cmd
+        out += self.ALIGN_CENTER
+        out += self.BOLD_ON + self.DOUBLE_HEIGHT
+        out += self._line(title[: self.cols])
+        out += self.NORMAL_SIZE + self.BOLD_OFF
+        out += self._line(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+        out += self._divider()
+        out += self.ALIGN_LEFT
+        for ln in lines:
+            out += self._line(ln[: self.cols])
+        if footer:
             out += self._divider()
-            out += chef_row("comment", f"КОММЕНТАРИЙ: {data.note}")
-
-        out += self._divider("=")
+            out += self.BOLD_ON
+            out += self._line(footer[: self.cols])
+            out += self.BOLD_OFF
         out += self.LF * 3
         out += self.CUT
         return bytes(out)

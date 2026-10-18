@@ -15,6 +15,7 @@ from app.modules.auth.security import (
     get_refresh_token_auth_scope,
     hash_password,
     hash_refresh_token,
+    terminal_email,
     verify_password,
 )
 from app.modules.audit.service import AuditService
@@ -23,6 +24,7 @@ from app.modules.rbac.models import Role, UserRole
 from app.modules.rbac.constants import COMPANY_ROLE_SLUGS
 from app.modules.rbac.permissions import reconcile_frozen_owner_permissions, sync_role_permissions
 from app.modules.rbac.service import RBACService
+from app.shared.phone import normalize_branch_login
 from app.shared.exceptions import ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError
 
 # BE-08: PIN brute-force throttling, independent of the global rate limiter
@@ -103,7 +105,7 @@ class AuthService:
         user = User(
             company_id=company.id,
             email=email,
-            password_hash=hash_password(password),
+            password_hash=await hash_password(password),
         )
         self.db.add(user)
         await self.db.flush()
@@ -151,7 +153,7 @@ class AuthService:
             log.warning("Login failed: user not found — login=%s", email)
             raise UnauthorizedError("Invalid credentials")
 
-        if not verify_password(password, user.password_hash):
+        if not await verify_password(password, user.password_hash):
             log.warning("Login failed: wrong password — email=%s", email)
             raise UnauthorizedError("Invalid credentials")
 
@@ -172,7 +174,7 @@ class AuthService:
         log = logging.getLogger(__name__)
 
         user = await self.user_repo.get_by_login(self._normalize_identifier(email))
-        if not user or not verify_password(password, user.password_hash):
+        if not user or not await verify_password(password, user.password_hash):
             log.warning("Admin login failed: bad credentials — login=%s", email)
             raise UnauthorizedError("Invalid credentials")
 
@@ -188,6 +190,66 @@ class AuthService:
         await self._save_refresh_token(user.id, refresh_token)
 
         return user, access_token, refresh_token
+
+    async def login_by_branch(
+        self, login: str, password: str, *, device_id: str | None = None
+    ) -> tuple[User, "Branch", "Company", str, str]:
+        """Десктоп, шаг 1: вход по филиалу. У каждого филиала сети свой
+        логин+пароль (один веб-аккаунт владельца на всю сеть). Возвращает
+        синтетического терминального пользователя, привязанного к
+        company_id+branch_id, — под его токеном десктоп затем тянет staff-users
+        и делает pin-login. Логин нормализуется тем же `normalize_branch_login`,
+        что и при создании/обновлении филиала (BranchService) — иначе сравнение
+        по `ix_branches_login` для телефонных логинов было бы рассинхронизировано."""
+        norm = normalize_branch_login(login)
+        if not norm:
+            raise UnauthorizedError("Неверный логин или пароль филиала")
+        branch = (await self.db.execute(
+            select(Branch).where(func.lower(Branch.login) == norm.lower())
+        )).scalar_one_or_none()
+        if (
+            not branch
+            or not branch.password_hash
+            or not await verify_password(password, branch.password_hash)
+        ):
+            raise UnauthorizedError("Неверный логин или пароль филиала")
+        if not branch.is_active:
+            raise UnauthorizedError("Филиал неактивен")
+
+        company = await self.db.get(Company, branch.company_id)
+        terminal = await self._get_or_create_terminal_user(branch)
+
+        access_token = create_access_token(terminal.id, terminal.company_id)
+        refresh_token = create_refresh_token()
+        await self._save_refresh_token(terminal.id, refresh_token, device_id=device_id)
+
+        return terminal, branch, company, access_token, refresh_token
+
+    async def _get_or_create_terminal_user(self, branch: "Branch") -> User:
+        """Служебный пользователь-терминал филиала (идемпотентно). Пароля для
+        входа у него нет (случайный хеш), pin_hash пуст — он не логинится сам,
+        только несёт company_id+branch_id для токена десктопа."""
+        email = terminal_email(branch.id)
+        terminal = await self.user_repo.get_by_email(email)
+        if terminal is None:
+            terminal = User(
+                company_id=branch.company_id,
+                branch_id=branch.id,
+                email=email,
+                name=f"Терминал · {branch.name}",
+                password_hash=await hash_password(secrets.token_urlsafe(32)),
+                is_active=True,
+            )
+            self.db.add(terminal)
+            await self.db.commit()
+            await self.db.refresh(terminal)
+        elif terminal.branch_id != branch.id or terminal.company_id != branch.company_id:
+            # Филиал переехал/пересоздан под тем же id — держим привязку в актуальном виде.
+            terminal.branch_id = branch.id
+            terminal.company_id = branch.company_id
+            await self.db.commit()
+            await self.db.refresh(terminal)
+        return terminal
 
     async def login_by_monoblock(
         self, phone: str, password: str, *, device_id: str | None = None
@@ -210,7 +272,7 @@ class AuthService:
             user = await self.user_repo.get_by_phone(candidate)
             if user:
                 break
-        if not user or not user.password_hash or not verify_password(password, user.password_hash):
+        if not user or not user.password_hash or not await verify_password(password, user.password_hash):
             raise UnauthorizedError("Неверный телефон или пароль")
         if not user.is_active:
             raise UnauthorizedError("Account is inactive")
@@ -249,7 +311,7 @@ class AuthService:
                 branch_id=branch.id,
                 email=email,
                 name=branch.name,
-                password_hash=branch.password_hash or hash_password(secrets.token_urlsafe(32)),
+                password_hash=branch.password_hash or await hash_password(secrets.token_urlsafe(32)),
                 is_active=branch.is_active,
             )
             self.db.add(user)
@@ -277,13 +339,19 @@ class AuthService:
     async def login_by_branch(self, login: str, password: str, *, device_id: str | None = None):
         """Вход «как филиал» с начального экрана: логин+пароль филиала (Branch),
         не владельца. Выдаёт сессию служебного принципала филиала."""
-        norm = (login or "").strip().lower()
+        from app.shared.phone import normalize_branch_login
+
+        # Логин филиала хранится канонично (+998XXXXXXXXX), а терминал присылает
+        # его маской («+998 90 111-22-33»). Приводим к тому же виду, иначе
+        # валидный пароль получает 401 из-за формата номера.
+        raw = (login or "").strip()
+        norm = normalize_branch_login(raw).lower()
         if not norm:
             raise UnauthorizedError("Неверный логин или пароль филиала")
         branch = (await self.db.execute(
             select(Branch).where(func.lower(Branch.login) == norm)
         )).scalar_one_or_none()
-        if branch is None or not branch.password_hash or not verify_password(password, branch.password_hash):
+        if branch is None or not branch.password_hash or not await verify_password(password, branch.password_hash):
             raise UnauthorizedError("Неверный логин или пароль филиала")
         if not branch.is_active:
             raise UnauthorizedError("Филиал неактивен")
@@ -321,9 +389,19 @@ class AuthService:
         branch_id: UUID | None = None,
         assignable_role_slugs: frozenset[str] | None = None,
         permissions: dict | None = None,
+        printer_id: UUID | None = None,
     ) -> tuple[User, Role]:
         if not company_id:
             raise ValidationError("Current user is not assigned to a company")
+
+        # Store the same canonical "+998…" form _normalize_identifier()
+        # matches logins against — the web staff form sends bare digits with
+        # no "+" (StaffRolePage.jsx's normalizePhone), and an unnormalized
+        # phone in the column means the employee can never log in: login()
+        # normalizes whatever they type before the equality lookup, so a
+        # stored "998901112233" never matches a typed "+998901112233".
+        if phone:
+            phone = self._normalize_identifier(phone)
 
         # CASHIER-EMAIL-OPTIONAL-01: uniqueness is enforced only for a
         # provided address; any number of emailless staff accounts may exist.
@@ -347,6 +425,14 @@ class AuthService:
             if not branch or branch.company_id != company_id:
                 raise ValidationError("Филиал не найден в этой компании")
 
+        # Принтер сотрудника: только из принтеров своей компании — иначе
+        # владелец мог бы привязать сотрудника к чужому принтеру по id.
+        if printer_id is not None:
+            from app.modules.printers.models import Printer
+            printer = await self.db.get(Printer, printer_id)
+            if not printer or printer.company_id != company_id:
+                raise ValidationError("Принтер не найден в этой компании")
+
         # BE-05: role_slug is validated against the canonical allowlist here
         # (raises ValidationError otherwise) and the role's default
         # permission set is attached the first time it's created for this
@@ -361,10 +447,12 @@ class AuthService:
             email=email,
             phone=phone,
             name=name,
-            password_hash=hash_password(password),
+            password_hash=await hash_password(password),
             # Тумблеры владельца тем же легаси-слоем, что правит PATCH:
             # None — не выставлялись, десктопные гейты ведут себя как раньше.
             permissions=permissions,
+            # Закреплённый принтер (None — печать на принтер филиала).
+            printer_id=printer_id,
         )
         self.db.add(user)
         await self.db.flush()
@@ -389,6 +477,8 @@ class AuthService:
         is_active: bool | None = None,
         branch_id: UUID | None = None,
         permissions: dict | None = None,
+        printer_id: UUID | None = None,
+        printer_id_provided: bool = False,
         assignable_role_slugs: frozenset[str] | None = None,
         actor_user_id: UUID | None = None,
     ) -> tuple[User, list[str]]:
@@ -428,13 +518,18 @@ class AuthService:
                 raise ConflictError("Email already in use")
             user.email = email
         if phone is not None:
+            # Same canonical "+998…" form as create_company_user — see its
+            # comment for why an unnormalized phone breaks login entirely.
+            # "" (explicit clear) stays empty, never normalized into junk.
+            if phone:
+                phone = self._normalize_identifier(phone)
             # BE-07: spec requires 409 on duplicate phone too, not just email.
             existing_phone = await self.user_repo.get_by_phone(phone)
             if existing_phone and existing_phone.id != user_id:
                 raise ConflictError("Phone already in use")
             user.phone = phone
         if password is not None:
-            user.password_hash = hash_password(password)
+            user.password_hash = await hash_password(password)
         if is_active is not None:
             user.is_active = is_active
         # Переназначение филиала: филиал должен принадлежать той же компании.
@@ -448,6 +543,16 @@ class AuthService:
         # когда владелец явно прислал набор тумблеров. RBAC-путь не затрагивается.
         if permissions is not None:
             user.permissions = permissions
+        # Принтер сотрудника. printer_id_provided отличает «поле не прислали»
+        # (не трогаем) от «прислали null» (снять привязку, печать вернётся на
+        # принтер филиала). Иначе любой PATCH карточки сбрасывал бы привязку.
+        if printer_id_provided:
+            if printer_id is not None:
+                from app.modules.printers.models import Printer
+                printer = await self.db.get(Printer, printer_id)
+                if not printer or printer.company_id != company_id:
+                    raise ValidationError("Принтер не найден в этой компании")
+            user.printer_id = printer_id
 
         if role_slug is not None:
             from sqlalchemy import delete as sql_delete
@@ -538,7 +643,7 @@ class AuthService:
         )).scalar_one_or_none()
         if not user or not user.is_active:
             raise UnauthorizedError("User not found or inactive")
-        if not verify_password(current_password, user.password_hash):
+        if not await verify_password(current_password, user.password_hash):
             # Wrong password is not an expired login: do not trigger refresh.
             raise ForbiddenError("Текущий пароль указан неверно.")
         if new_password == current_password:
@@ -547,7 +652,7 @@ class AuthService:
         now = datetime.now(timezone.utc)
         refresh = create_refresh_token()
         try:
-            user.password_hash = hash_password(new_password)
+            user.password_hash = await hash_password(new_password)
             user.auth_version = (user.auth_version or 0) + 1
             await self.db.execute(
                 update(RefreshToken).where(
@@ -603,10 +708,10 @@ class AuthService:
         # meant to scale to thousands of accounts per company.
         peers = await self.user_repo.get_company_users(company_id)
         for peer in peers:
-            if peer.id != target.id and peer.pin_hash and verify_password(pin, peer.pin_hash):
+            if peer.id != target.id and peer.pin_hash and await verify_password(pin, peer.pin_hash):
                 raise ConflictError("PIN уже используется другим сотрудником")
 
-        target.pin_hash = hash_password(pin)
+        target.pin_hash = await hash_password(pin)
         target.pin_failed_attempts = 0
         target.pin_locked_until = None
         await self.db.commit()
@@ -656,7 +761,7 @@ class AuthService:
             if locked_until > datetime.now(timezone.utc):
                 raise UnauthorizedError("PIN temporarily locked — too many failed attempts")
 
-        if not verify_password(pin, user.pin_hash):
+        if not await verify_password(pin, user.pin_hash):
             user.pin_failed_attempts += 1
             if user.pin_failed_attempts >= PIN_MAX_ATTEMPTS:
                 user.pin_locked_until = datetime.now(timezone.utc) + timedelta(minutes=PIN_LOCKOUT_MINUTES)
@@ -673,6 +778,31 @@ class AuthService:
         await self._save_refresh_token(user.id, refresh_token)
 
         return user, access_token, refresh_token
+
+    async def login_by_pin(
+        self, company_id: UUID, pin: str, user_id: UUID | None = None
+    ) -> tuple[User, str, str]:
+        """Branch-terminal PIN sign-in, scoped to the terminal's company.
+        With user_id (employee picked on screen) the PIN is checked only against
+        that account and goes through the normal per-account lockout; without it
+        the company's active staff are scanned for a matching PIN."""
+        if user_id is not None:
+            target = await self.user_repo.get_by_id(user_id)
+            if not target or target.company_id != company_id:
+                raise UnauthorizedError("Invalid PIN")
+            return await self.pin_login(user_id, pin)
+
+        result = await self.db.execute(
+            select(User).where(
+                User.company_id == company_id,
+                User.is_active.is_(True),
+                User.pin_hash.is_not(None),
+            )
+        )
+        for candidate in result.scalars().all():
+            if await verify_password(pin, candidate.pin_hash):
+                return await self.pin_login(candidate.id, pin)
+        raise UnauthorizedError("Invalid PIN")
 
     async def _save_refresh_token(
         self, user_id: UUID, token: str, *, device_id: str | None = None

@@ -59,7 +59,7 @@ async def main() -> None:
                 username="owner",
                 name="Owner",
                 phone=PHONE,
-                password_hash=hash_password(PASSWORD),
+                password_hash=await hash_password(PASSWORD),
                 is_active=True,
             )
             db.add(user)
@@ -67,7 +67,7 @@ async def main() -> None:
         else:
             user.company_id = company.id
             user.phone = PHONE
-            user.password_hash = hash_password(PASSWORD)
+            user.password_hash = await hash_password(PASSWORD)
             user.is_active = True
             await db.flush()
 

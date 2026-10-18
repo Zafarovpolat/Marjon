@@ -51,6 +51,20 @@ async def list_employees(user: User = Depends(require_web_owner), db: AsyncSessi
     return result
 
 
+@router.get("/employees/me", response_model=EmployeeResponse)
+async def my_employee(user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db)):
+    """The signed-in user's own HR employee record — branch, position, hire
+    date. Self-service lookup for a personal-device sign-in (mobile Staff
+    app, /auth/login): there is no shared terminal to carry owner-level
+    access to GET /hr/employees, and most staff roles don't set User.branch_id
+    (that column is monoblock-only — a human employee's branch lives on their
+    Employee record instead)."""
+    emp = await HRService(db).get_employee_by_user(user.company_id, user.id)
+    if emp is None:
+        raise NotFoundError("Employee record not found")
+    return EmployeeResponse.model_validate(emp).model_copy(update={"name": user.name, "phone": user.phone, "email": user.email})
+
+
 @router.post("/shifts", response_model=ShiftResponse, status_code=status.HTTP_201_CREATED)
 async def create_shift(data: ShiftCreate, user: User = Depends(require_web_owner), db: AsyncSession = Depends(get_db)):
     return await HRService(db).create_shift(user.company_id, data)
@@ -201,6 +215,13 @@ async def mark_attendance(
     from app.modules.hr.models import Employee, WorkShift
 
     branch_id = effective_branch_filter(user)
+    target = await db.get(User, data.user_id)
+    if target is None or target.company_id != user.company_id:
+        raise NotFoundError("Сотрудник не найден в вашей компании")
+
+    # HR-карточка опциональна: сотрудник, заведённый только через /auth/users
+    # (кассир/повар/официант), не имеет Employee-записи. Отметка всё равно
+    # должна проходить — она ссылается на user_id напрямую (см. AttendanceLog).
     emp_stmt = select(Employee).where(
         Employee.company_id == user.company_id,
         Employee.user_id == data.user_id,
@@ -208,46 +229,47 @@ async def mark_attendance(
     if branch_id is not None:
         emp_stmt = emp_stmt.where(Employee.branch_id == branch_id)
     employee = (await db.execute(emp_stmt)).scalars().first()
-    if employee is None:
-        raise NotFoundError("Сотрудник не найден в вашем филиале")
 
     now = datetime.now(timezone.utc)
-    shift = (
-        await db.execute(
-            select(WorkShift)
-            .where(
-                WorkShift.company_id == user.company_id,
-                WorkShift.employee_id == employee.id,
-                WorkShift.status == "active",
-                WorkShift.actual_end.is_(None),
+    shift = None
+    if employee is not None:
+        shift = (
+            await db.execute(
+                select(WorkShift)
+                .where(
+                    WorkShift.company_id == user.company_id,
+                    WorkShift.employee_id == employee.id,
+                    WorkShift.status == "active",
+                    WorkShift.actual_end.is_(None),
+                )
+                .order_by(WorkShift.scheduled_start.desc())
             )
-            .order_by(WorkShift.scheduled_start.desc())
-        )
-    ).scalars().first()
+        ).scalars().first()
 
-    if shift is None:
-        shift = WorkShift(
-            company_id=user.company_id,
-            branch_id=employee.branch_id,
-            employee_id=employee.id,
-            scheduled_start=now,
-            scheduled_end=now + timedelta(hours=12),
-            status="active",
-        )
-        db.add(shift)
-        await db.flush()
+        if shift is None:
+            shift = WorkShift(
+                company_id=user.company_id,
+                branch_id=employee.branch_id,
+                employee_id=employee.id,
+                scheduled_start=now,
+                scheduled_end=now + timedelta(hours=12),
+                status="active",
+            )
+            db.add(shift)
+            await db.flush()
 
-    if data.action == "check_in":
-        shift.actual_start = shift.actual_start or now
-        shift.status = "active"
-    else:
-        shift.actual_end = now
-        shift.status = "completed"
+        if data.action == "check_in":
+            shift.actual_start = shift.actual_start or now
+            shift.status = "active"
+        else:
+            shift.actual_end = now
+            shift.status = "completed"
 
     log = AttendanceLog(
         company_id=user.company_id,
-        employee_id=employee.id,
-        shift_id=shift.id,
+        user_id=data.user_id,
+        employee_id=employee.id if employee is not None else None,
+        shift_id=shift.id if shift is not None else None,
         action=data.action,
         timestamp=now,
         method="manual",
@@ -280,16 +302,19 @@ async def _attendance_rows(
     """Отметки посещаемости с именем сотрудника — общий запрос для log/pending/approve."""
     from app.modules.hr.models import AttendanceLog, Employee
 
+    # employee_id опционален (отметка может ссылаться только на user_id),
+    # поэтому LEFT JOIN + coalesce: имя и филиал берём из HR-карточки, а если
+    # её нет — из самого пользователя.
     stmt = (
         select(AttendanceLog, User.id, User.name)
-        .join(Employee, Employee.id == AttendanceLog.employee_id)
-        .join(User, User.id == Employee.user_id)
+        .outerjoin(Employee, Employee.id == AttendanceLog.employee_id)
+        .join(User, User.id == func.coalesce(Employee.user_id, AttendanceLog.user_id))
         .where(AttendanceLog.company_id == company_id, *extra)
         .order_by(AttendanceLog.timestamp.desc())
         .limit(limit)
     )
     if branch_id is not None:
-        stmt = stmt.where(Employee.branch_id == branch_id)
+        stmt = stmt.where(func.coalesce(Employee.branch_id, User.branch_id) == branch_id)
 
     return [
         AttendanceLogRow(
@@ -302,6 +327,7 @@ async def _attendance_rows(
             timestamp=log.timestamp,
             method=log.method,
             note=log.note,
+            status=log.status,
         )
         for log, uid, name in (await db.execute(stmt)).all()
     ]

@@ -16,6 +16,11 @@ vi.mock("../../api/client", () => ({
   formatNumber: (value) => `${value}`,
 }));
 
+const branchFixtures = [
+  { id: "branch-1", name: "Филиал №1" },
+  { id: "branch-2", name: "Филиал №2" },
+];
+
 const managerUser = {
   id: "manager-uuid",
   name: "Manager One",
@@ -24,6 +29,7 @@ const managerUser = {
   role_slug: "manager",
   role_slugs: ["manager"],
   is_active: true,
+  branch_id: "branch-1",
 };
 
 const cashierUser = {
@@ -34,7 +40,36 @@ const cashierUser = {
   role_slug: "cashier",
   role_slugs: ["cashier"],
   is_active: true,
+  branch_id: "branch-1",
 };
+
+// Сеть → филиал: менеджер без User.branch_id не войдёт в Marjon Staff,
+// поэтому форма требует филиал. api.get разводим по URL: /companies/me/branches
+// отдаёт справочник филиалов, /printers — принтеры, остальное — сотрудников.
+function mockGet(staff = [managerUser, cashierUser], printers = []) {
+  api.get.mockImplementation((url) => {
+    if (url === "/companies/me/branches") return Promise.resolve({ data: branchFixtures });
+    if (url === "/printers") return Promise.resolve({ data: printers });
+    return Promise.resolve({ data: staff });
+  });
+}
+
+// Кнопка-селект лежит внутри <label>, поэтому её доступное имя — текст поля
+// («Филиал *»); пункт списка — кнопка с role="option".
+function pickBranch(dialog, name = "Филиал №1") {
+  const field = [...dialog.querySelectorAll("label")].find((label) =>
+    label.textContent.trim().startsWith("Филиал"),
+  );
+  fireEvent.click(field.querySelector(".staff-select__button"));
+  fireEvent.click(within(field).getByRole("option", { name }));
+}
+
+// Строка матрицы прав по названию модуля (быстрее role-запроса по drawer’у).
+function accessRow(dialog, label) {
+  return [...dialog.querySelectorAll(".staff-access-row")].find((row) =>
+    row.querySelector(".staff-access-toggle span")?.textContent === label,
+  );
+}
 
 // CASHIER-PARITY-01 (Phase 1) — Cashier matrix contract, extracted from
 // current staffAccessModules source truth (count/text/order). Manager and
@@ -112,7 +147,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     localStorage.clear();
     sessionStorage.clear();
     vi.clearAllMocks();
-    api.get.mockResolvedValue({ data: [managerUser, cashierUser] });
+    mockGet();
     api.post.mockResolvedValue({ data: managerUser });
     api.patch.mockResolvedValue({ data: managerUser });
     api.delete.mockResolvedValue({ data: {} });
@@ -170,7 +205,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     }
   });
 
-  it("CASHIER-CONTRACT. cashier drawer locks the exact 50-module source of truth", { timeout: 20000 }, async () => {
+  it("CASHIER-CONTRACT. cashier drawer locks the exact 50-module source of truth", async () => {
     render(<StaffRolePage role="cashier" />);
     await screen.findByText("Cashier One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
@@ -180,7 +215,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     expect(staffAccessModules.map((m) => m.label)).toEqual(CASHIER_MATRIX_CONTRACT);
   });
 
-  it("PARITY. manager matrix equals Cashier count/text/order, no extras, HR absent", { timeout: 20000 }, async () => {
+  it("PARITY. manager matrix equals Cashier count/text/order, no extras, HR absent", async () => {
     render(<StaffRolePage role="manager" />);
     await screen.findByText("Manager One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
@@ -199,7 +234,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     expect(dialog.textContent).not.toMatch(/HR/);
   });
 
-  it("E. add/edit use the product drawer shell", { timeout: 20000 }, async () => {
+  it("E. add/edit use the product drawer shell", async () => {
     render(<StaffRolePage role="manager" />);
     await screen.findByText("Manager One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
@@ -215,7 +250,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     expect(within(dialog).getByText("Пароль")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Имя менеджера")).toBeInTheDocument();
     expect(within(dialog).queryByText("Email")).toBeNull();
-    expect(within(dialog).queryByText("IP адрес принтера")).toBeNull();
+    expect(within(dialog).queryByText("Принтер")).toBeNull();
     expect(dialog.querySelector("select")).toBeNull();
   });
 
@@ -229,7 +264,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     expect(within(dialog).queryByText("Email")).toBeNull();
   });
 
-  it("E3. primary switches collapse to Статус only", { timeout: 20000 }, async () => {
+  it("E3. primary switches collapse to Статус only", async () => {
     render(<StaffRolePage role="manager" />);
     await screen.findByText("Manager One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
@@ -239,6 +274,10 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     );
     expect(primary).toHaveLength(1);
     expect(within(dialog).getByText("Статус")).toBeInTheDocument();
+    // Проверяем блок основных тумблеров: одноимённые пункты матрицы (50
+    // модулей) к контракту «только Статус» не относятся, а role-запрос по
+    // всему drawer’у в jsdom считается секундами.
+    const primaryBlock = dialog.querySelector(".cashier-permission-switches");
     for (const label of [
       "Удаление блюд",
       "Изменить код маркировки",
@@ -252,7 +291,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
       "Принтер повара",
       "Печать отмены заказа",
     ]) {
-      expect(within(dialog).queryByRole("button", { name: label })).toBeNull();
+      expect(within(primaryBlock).queryByRole("button", { name: label })).toBeNull();
     }
   });
 
@@ -268,10 +307,11 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     const alerts = await within(dialog).findAllByRole("alert");
-    expect(alerts).toHaveLength(2);
-    for (const alert of alerts) {
-      expect(alert).toHaveTextContent("Укажите имя и номер телефона менеджера.");
-    }
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent("Укажите имя и номер телефона менеджера.");
+    expect(document.querySelector(".marjon-toast--error")).toHaveTextContent(
+      "Укажите имя и номер телефона менеджера.",
+    );
     expect(dialog.querySelector(".staff-field-error")).not.toBeNull();
     expect(alertSpy).not.toHaveBeenCalled();
     expect(api.post).not.toHaveBeenCalled();
@@ -311,12 +351,14 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
       target: { value: "short1" },
     });
     fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
+    pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     const alerts = await within(dialog).findAllByRole("alert");
-    expect(alerts).toHaveLength(2);
-    for (const alert of alerts) {
-      expect(alert).toHaveTextContent("Пароль должен содержать минимум 8 символов, букву и цифру.");
-    }
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent("Пароль должен содержать минимум 8 символов, букву и цифру.");
+    expect(document.querySelector(".marjon-toast--error")).toHaveTextContent(
+      "Пароль должен содержать минимум 8 символов, букву и цифру.",
+    );
     expect(alertSpy).not.toHaveBeenCalled();
     expect(api.post).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).not.toBeNull();
@@ -339,7 +381,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     expect(payload.name).toBe("Manager Two");
   });
 
-  it("J. 409 duplicate phone stays inline under phone field, retry works", { timeout: 20000 }, async () => {
+  it("J. 409 duplicate phone stays inline under phone field, retry works", async () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     api.post.mockRejectedValueOnce({
       response: { data: { detail: "Phone already registered" } },
@@ -358,13 +400,14 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
       target: { value: "Manager123" },
     });
     fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
+    pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     const alerts = await within(dialog).findAllByRole("alert");
-    expect(alerts).toHaveLength(2);
-    for (const alert of alerts) {
-      expect(alert).toHaveTextContent("Этот номер уже зарегистрирован");
-      expect(alert).toHaveTextContent("Phone already registered");
-    }
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent("Этот номер уже зарегистрирован");
+    expect(alerts[0]).toHaveTextContent("Phone already registered");
+    const toast = document.querySelector(".marjon-toast--error");
+    expect(toast).toHaveTextContent("Этот номер уже зарегистрирован");
     expect(dialog.querySelector(".staff-phone-error")).not.toBeNull();
     expect(alertSpy).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).not.toBeNull();
@@ -376,7 +419,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     expect(api.post).toHaveBeenCalledTimes(2);
   });
 
-  it("K+L+M. create sends canonical manager payload only", { timeout: 20000 }, async () => {
+  it("K+L+M. create sends canonical manager payload only", async () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     const created = {
       id: "new-manager-uuid",
@@ -405,6 +448,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     // Interact with the frontend-only matrix: must never reach the backend.
     fireEvent.click(within(dialog).getByRole("button", { name: "Главная" }));
+    pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await screen.findByText("Manager Two");
     expect(api.post).toHaveBeenCalledWith("/auth/users", {
@@ -412,6 +456,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
       phone: "998901112233",
       role_slug: "manager",
       role_name: "Manager Two",
+      branch_id: "branch-1",
     });
     const sent = api.post.mock.calls[0][1];
     for (const key of [
@@ -421,6 +466,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
       "avatar_url",
       "printerIp",
       "printer_ip",
+      "printer_id",
       "permissions",
       "permission_ids",
       "staffAccess",
@@ -465,7 +511,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     expect(table.classList.contains("staff-table--no-access")).toBe(true);
   });
 
-  it("Q. matrix shows the full Cashier module list (curated subsets removed)", { timeout: 20000 }, async () => {
+  it("Q. matrix shows the full Cashier module list (curated subsets removed)", async () => {
     render(<StaffRolePage role="manager" />);
     await screen.findByText("Manager One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
@@ -474,7 +520,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     expect(matrixLabelsInDialog(dialog)).toEqual(CASHIER_MATRIX_CONTRACT);
   });
 
-  it("Q2. matrix toggles are frontend-only: no storage, no payload, honest default after refetch", { timeout: 20000 }, async () => {
+  it("Q2. matrix toggles are frontend-only: no storage, no payload, honest default after refetch", async () => {
     const { unmount } = render(<StaffRolePage role="manager" />);
     await screen.findByText("Manager One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
@@ -518,7 +564,7 @@ describe("manager secondary action toggles (parity with cashier/waiter matrix) �
     localStorage.clear();
     sessionStorage.clear();
     vi.clearAllMocks();
-    api.get.mockResolvedValue({ data: [managerUser, cashierUser] });
+    mockGet();
     api.post.mockResolvedValue({ data: managerUser });
     api.patch.mockResolvedValue({ data: managerUser });
     api.delete.mockResolvedValue({ data: {} });
@@ -531,7 +577,7 @@ describe("manager secondary action toggles (parity with cashier/waiter matrix) �
     return screen.findByRole("dialog");
   }
 
-  it("E. OFF modules render collapsed: no secondary switches visible", { timeout: 20000 }, async () => {
+  it("E. OFF modules render collapsed: no secondary switches visible", async () => {
     const dialog = await openAddDialog();
     const matrix = dialog.querySelector(".staff-permission-matrix");
     expect(matrix).not.toBeNull();
@@ -546,7 +592,7 @@ describe("manager secondary action toggles (parity with cashier/waiter matrix) �
     // Only one module expands at a time below; the rest stay collapsed here.
   });
 
-  it("F. representative module hides/shows secondary actions on OFF/ON", { timeout: 20000 }, async () => {
+  it("F. representative module hides/shows secondary actions on OFF/ON", async () => {
     const dialog = await openAddDialog();
     const primary = within(dialog).getByRole("button", { name: "Отчет по заказам" });
     const row = primary.closest(".staff-access-row");
@@ -567,7 +613,7 @@ describe("manager secondary action toggles (parity with cashier/waiter matrix) �
     expect(within(row).queryByRole("button", { name: "Создать" })).toBeNull();
   });
 
-  it("F2. only enabled modules expand; other OFF rows stay collapsed", { timeout: 20000 }, async () => {
+  it("F2. only enabled modules expand; other OFF rows stay collapsed", async () => {
     const dialog = await openAddDialog();
     const first = within(dialog).getByRole("button", { name: "Главная" });
     const second = within(dialog).getByRole("button", { name: "Отчет по заказам" });
@@ -586,7 +632,7 @@ describe("manager secondary action toggles (parity with cashier/waiter matrix) �
     expect(dialog.querySelectorAll(".staff-access-row.is-open")).toHaveLength(0);
   });
 
-  it("G. OFF-hidden / ON-visible+available semantics, child state kept in-memory", { timeout: 20000 }, async () => {
+  it("G. OFF-hidden / ON-visible+available semantics, child state kept in-memory", async () => {
     const dialog = await openAddDialog();
     const primary = within(dialog).getByRole("button", { name: "Отчет по заказам" });
     const row = primary.closest(".staff-access-row");
@@ -605,7 +651,7 @@ describe("manager secondary action toggles (parity with cashier/waiter matrix) �
     expect(within(row).getByRole("button", { name: "Создать" }).classList.contains("is-on")).toBe(true);
   });
 
-  it("H+I. enabled module + secondary action never reach create/edit payloads", { timeout: 20000 }, async () => {
+  it("H+I. enabled module + secondary action never reach create/edit payloads", async () => {
     const created = {
       id: "new-manager-uuid",
       name: "Manager Two",
@@ -621,10 +667,13 @@ describe("manager secondary action toggles (parity with cashier/waiter matrix) �
     fireEvent.change(dialog.querySelector(".staff-phone-field input"), { target: { value: "+998901112233" } });
     fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Manager123" } });
     fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
-    const row = within(dialog).getByRole("button", { name: "Отчет по заказам" }).closest(".staff-access-row");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Отчет по заказам" }));
+    // Строку матрицы ищем по тексту: role-запрос по всему drawer’у с 50
+    // модулями в jsdom считается секундами, а внутри строки — миллисекунды.
+    const row = accessRow(dialog, "Отчет по заказам");
+    fireEvent.click(within(row).getByRole("button", { name: "Отчет по заказам" }));
     fireEvent.click(within(row).getByRole("button", { name: "Создать" }));
     fireEvent.click(within(row).getByRole("button", { name: "Удалить" }));
+    pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await screen.findByText("Manager Two");
     expect(api.post).toHaveBeenCalledWith("/auth/users", {
@@ -632,6 +681,7 @@ describe("manager secondary action toggles (parity with cashier/waiter matrix) �
       phone: "998901112233",
       role_slug: "manager",
       role_name: "Manager Two",
+      branch_id: "branch-1",
     });
     const sent = api.post.mock.calls[0][1];
     for (const key of ["access", "permissions", "permission_ids", "staffAccess", "create", "read", "update", "delete"]) {
@@ -639,13 +689,13 @@ describe("manager secondary action toggles (parity with cashier/waiter matrix) �
     }
   });
 
-  it("K2. secondary state returns to honest default after refetch", { timeout: 20000 }, async () => {
+  it("K2. secondary state returns to honest default after refetch", async () => {
     const { unmount } = render(<StaffRolePage role="manager" />);
     await screen.findByText("Manager One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
     const dialog = await screen.findByRole("dialog");
-    const row = within(dialog).getByRole("button", { name: "Отчет по заказам" }).closest(".staff-access-row");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Отчет по заказам" }));
+    const row = accessRow(dialog, "Отчет по заказам");
+    fireEvent.click(within(row).getByRole("button", { name: "Отчет по заказам" }));
     fireEvent.click(within(row).getByRole("button", { name: "Читать" }));
     expect(within(row).getByRole("button", { name: "Читать" }).classList.contains("is-on")).toBe(true);
     expect(localStorage.length).toBe(0);
@@ -655,8 +705,8 @@ describe("manager secondary action toggles (parity with cashier/waiter matrix) �
     await screen.findByText("Manager One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
     const fresh = await screen.findByRole("dialog");
-    const freshRow = within(fresh).getByRole("button", { name: "Отчет по заказам" }).closest(".staff-access-row");
-    expect(within(fresh).getByRole("button", { name: "Отчет по заказам" }).classList.contains("is-on")).toBe(false);
+    const freshRow = accessRow(fresh, "Отчет по заказам");
+    expect(within(freshRow).getByRole("button", { name: "Отчет по заказам" }).classList.contains("is-on")).toBe(false);
     // Fresh drawer: secondary hidden again (honest default, nothing persisted).
     expect(within(freshRow).queryByRole("button", { name: "Читать" })).toBeNull();
   });

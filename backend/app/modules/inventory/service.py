@@ -307,15 +307,20 @@ class ProductService:
         old_type = p.product_type or "dish"
         if new_type != old_type:
             # Смена типа = выход из старой последовательности + вход в новую.
+            # Позиция в новой области считается ДО того, как p.product_type
+            # меняется: insert()/append() делают свой select() внутри, который
+            # autoflush-ит любые уже выставленные атрибуты p — посчитав p уже
+            # сменившим тип, _count() задвоил бы его в целевой области.
             await positions.leave(p)
-            p.product_type = new_type
             if active != p.is_active:
-                p.is_active = active
-                p.sort_order = await positions.append(active, new_type)
+                new_sort = await positions.append(active, new_type)
             elif requested is not None:
-                p.sort_order = await positions.insert(active, new_type, requested)
+                new_sort = await positions.insert(active, new_type, requested)
             else:
-                p.sort_order = await positions.append(active, new_type)
+                new_sort = await positions.append(active, new_type)
+            p.product_type = new_type
+            p.is_active = active
+            p.sort_order = new_sort
         elif active != p.is_active:
             await positions.transfer(p, active)
         elif requested is not None:
@@ -325,11 +330,6 @@ class ProductService:
         if data.ingredients is not None:
             await self._replace_ingredients(company_id, p.id, data.ingredients)
         await self.db.commit()
-        dbg_rows = (await self.db.execute(
-            select(Product.id, Product.name, Product.product_type, Product.sort_order)
-            .where(Product.company_id == company_id).order_by(Product.sort_order)
-        )).all()
-        print("UPDATE-DBG final:", [(str(r[0])[:4], r[1], r[2], r[3]) for r in dbg_rows], "p=", str(p.id)[:4], p.product_type, p.sort_order)
         return await self.get(company_id, product_id)
 
     async def _validate_relations(

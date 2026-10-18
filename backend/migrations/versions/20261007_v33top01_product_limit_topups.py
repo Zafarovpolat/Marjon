@@ -57,9 +57,11 @@ def upgrade() -> None:
             name="uq_topup_product_seq",
         ),
     )
-    op.create_index("ix_topup_company_product", "product_limit_topups", ["company_id", "product_id"])
+    op.create_index("ix_product_limit_topups_company_id", "product_limit_topups", ["company_id"])
+    op.create_index("ix_product_limit_topups_product_id", "product_limit_topups", ["product_id"])
 
 
 def downgrade() -> None:
-    op.drop_index("ix_topup_company_product", table_name="product_limit_topups")
+    op.drop_index("ix_product_limit_topups_product_id", table_name="product_limit_topups")
+    op.drop_index("ix_product_limit_topups_company_id", table_name="product_limit_topups")
     op.drop_table("product_limit_topups")

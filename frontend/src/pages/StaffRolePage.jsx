@@ -38,6 +38,12 @@ function StaffRolePage({ role = "all" }) {
   const isManagerView = routeRole === "manager";
   const isWarehouseView = routeRole === "warehouse";
   const isProductView = isCashierView || isWaiterView || isMonoblockView || isManagerView || isWarehouseView;
+  // Сеть → филиал: обычный сотрудник (не моноблок) входит в Marjon Staff по
+  // своей учётке, а не через филиал-терминал десктопа — приложение резолвит
+  // его филиал из User.branch_id (mobile/lib/src/session/session.dart), так
+  // что без выбора здесь сотрудник не сможет войти вообще. Моноблок с
+  // branch_id не работает (привязан к company целиком), поэтому не входит сюда.
+  const needsBranch = isCashierView || isWaiterView || isManagerView || isWarehouseView;
   const pageTitle =
     routeRole === "all" ? "Список сотрудников" : `Список сотрудников: ${roleMap[routeRole].title}`;
 
@@ -72,10 +78,10 @@ function StaffRolePage({ role = "all" }) {
       .finally(() => { setStaffLoading(false); });
   }, [beginRequest]);
 
-  // Филиалы больше не нужны (моноблок отвязан от филиала), но запрос
-  // оставлен отдельным хуком, чтобы не отменять загрузку сотрудников.
+  // Нужны для селектора привязки к филиалу — отдельный хук, чтобы не
+  // отменять загрузку сотрудников.
   useEffect(() => {
-    if (!isMonoblockView) return undefined;
+    if (!needsBranch) return undefined;
     const request = beginBranchesRequest();
     settingsService.listBranches({ signal: request.signal })
       .then(({ data }) => {
@@ -89,7 +95,25 @@ function StaffRolePage({ role = "all" }) {
         setBranches([]);
       });
     return undefined;
-  }, [beginBranchesRequest, isMonoblockView]);
+  }, [beginBranchesRequest, needsBranch]);
+
+  // Принтеры компании для селектора «Принтер» в карточке сотрудника.
+  // Привязка решает, на какой принтер печатает десктоп, когда за кассой
+  // этот сотрудник; пустое значение = чековый принтер филиала.
+  // Грузим всегда (не только для ролей с филиалом): таблица показывает
+  // привязанный принтер у любой роли, включая моноблок.
+  const [printers, setPrinters] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    settingsService.listResource("printers")
+      .then(({ data }) => {
+        if (!alive) return;
+        const items = Array.isArray(data) ? data : data?.items || [];
+        setPrinters(items.filter((printer) => printer.is_active !== false));
+      })
+      .catch(() => { if (alive) setPrinters([]); });
+    return () => { alive = false; };
+  }, []);
 
   const defaultFilters = useMemo(() => ({
     query: "",
@@ -333,6 +357,12 @@ function StaffRolePage({ role = "all" }) {
         mutationLocks.release("staff-save");
         return;
       }
+      if (needsBranch && !form.branchId) {
+        setSaveErrorField("branch");
+        setSaveError(`Выберите филиал для ${productGenitive} — без него вход в Marjon Staff не сработает.`);
+        mutationLocks.release("staff-save");
+        return;
+      }
       if ((!editingId || form.password) && (form.password.length < 8 || !/[A-Za-z]/.test(form.password) || !/\d/.test(form.password))) {
         setSaveErrorField("password");
         setSaveError("Пароль должен содержать минимум 8 символов, букву и цифру.");
@@ -369,14 +399,21 @@ function StaffRolePage({ role = "all" }) {
         const permissionsPatch = staffPermissions ? { permissions: staffPermissions } : {};
         let confirmedUser;
         if (!editingId) {
-          // Моноблок привязан к аккаунту владельца (company), branch_id не шлём.
-          // Остальные роли branch_id не передают.
+          // Моноблок привязан к аккаунту владельца (company), branch_id не
+          // шлём. Остальные роли ОБЯЗАНЫ его получить — Marjon Staff резолвит
+          // филиал сотрудника только из User.branch_id (без него вход в
+          // приложение падает с "Ваш аккаунт не привязан к филиалу").
           const createPayload = {
             password: form.password,
             phone: phone || null,
             role_slug: productRoleSlug,
             role_name: productName,
             ...permissionsPatch,
+            // Привязка принтера: null — печать на чековый принтер филиала.
+            // manager/warehouse не имеют селектора принтера — ключ не шлём,
+            // чтобы не сбросить чужую привязку пустым значением.
+            ...(isManagerView || isWarehouseView ? {} : { printer_id: form.printerId || null }),
+            ...(needsBranch ? { branch_id: form.branchId || null } : {}),
           };
           const { data: createdUser } = await staffService.createCompanyUser(createPayload);
           confirmedUser = createdUser;
@@ -398,8 +435,14 @@ function StaffRolePage({ role = "all" }) {
             role_slug: productRoleSlug,
             is_active: form.status !== "archived",
             ...permissionsPatch,
+            // Явный null — «снять привязку». Бэкенд отличает это от «поле не
+            // прислали» через model_fields_set.
+            // manager/warehouse не имеют селектора принтера — ключ не шлём,
+            // чтобы не сбросить чужую привязку пустым значением.
+            ...(isManagerView || isWarehouseView ? {} : { printer_id: form.printerId || null }),
+            // Моноблок привязан к аккаунту владельца — филиал не трогаем.
+            ...(needsBranch ? { branch_id: form.branchId || null } : {}),
           };
-          // Моноблок привязан к аккаунту владельца — филиал не трогаем.
           const { data: updatedUser } = await staffService.updateCompanyUser(editingId, updatePayload);
           confirmedUser = updatedUser;
           // Пустой PIN на редактировании = «не менять». Моноблоку PIN не задаём.
@@ -584,6 +627,7 @@ function StaffRolePage({ role = "all" }) {
           isMonoblock={isMonoblockView}
           isManager={isManagerView}
           isWarehouse={isWarehouseView}
+          printers={printers}
         />
       </section>
 
@@ -607,6 +651,7 @@ function StaffRolePage({ role = "all" }) {
           isWaiter={isWaiterView}
           isMonoblock={isMonoblockView}
           branches={branches}
+          printers={printers}
           isManager={isManagerView}
           isWarehouse={isWarehouseView}
           closing={modalClosing}

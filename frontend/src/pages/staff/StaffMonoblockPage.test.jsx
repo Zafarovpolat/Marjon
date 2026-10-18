@@ -40,6 +40,9 @@ const MONOBLOCK_PRIMARY = [
   "Список кассиров",
   "Принтер повара",
   "Печать отмены заказа",
+  // DESK-PERM-01: панели десктопа «Финансы» и «Посещаемость».
+  "Просмотр финансов",
+  "Посещаемость (приход/уход)",
 ];
 
 describe("monoblock page visual contract (/users/monoblock) — MONOBLOCK-01", () => {
@@ -83,7 +86,7 @@ describe("monoblock page visual contract (/users/monoblock) — MONOBLOCK-01", (
     expect(within(table).getByText("Активен")).toBeInTheDocument();
   });
 
-  it("add drawer shows MARJON product form without Email or role selector", { timeout: 20000 }, async () => {
+  it("add drawer shows MARJON product form without Email or role selector", async () => {
     render(<StaffRolePage role="monoblock" />);
     await screen.findByText("Monoblock One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
@@ -95,13 +98,13 @@ describe("monoblock page visual contract (/users/monoblock) — MONOBLOCK-01", (
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
     expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
     expect(within(dialog).getByText("Пароль")).toBeInTheDocument();
-    expect(within(dialog).getByText("IP адрес принтера")).toBeInTheDocument();
+    expect(within(dialog).getByText("Принтер")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Имя моноблока")).toBeInTheDocument();
     expect(within(dialog).queryByText("Email")).toBeNull();
     expect(dialog.querySelector("select")).toBeNull();
   });
 
-  it("shows exactly the 5 primary monoblock switches plus the detailed matrix", { timeout: 20000 }, async () => {
+  it("shows exactly the 7 primary monoblock switches plus the detailed matrix", async () => {
     render(<StaffRolePage role="monoblock" />);
     await screen.findByText("Monoblock One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
@@ -109,7 +112,8 @@ describe("monoblock page visual contract (/users/monoblock) — MONOBLOCK-01", (
     const primary = dialog.querySelectorAll(
       ".cashier-permission-switches .staff-permission-switch",
     );
-    expect(primary).toHaveLength(5);
+    // Статус + 6 прав: DESK-PERM-01 добавил «Просмотр финансов» и «Посещаемость».
+    expect(primary).toHaveLength(7);
     for (const label of MONOBLOCK_PRIMARY) {
       if (label === "Статус") {
         expect(within(dialog).getByText("Статус")).toBeInTheDocument();
@@ -122,11 +126,14 @@ describe("monoblock page visual contract (/users/monoblock) — MONOBLOCK-01", (
     expect(dialog.querySelector(".staff-permission-matrix")).not.toBeNull();
   });
 
-  it("has no waiter/cashier primary switches", { timeout: 20000 }, async () => {
+  it("has no waiter/cashier primary switches", async () => {
     render(<StaffRolePage role="monoblock" />);
     await screen.findByText("Monoblock One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
     const dialog = await screen.findByRole("dialog");
+    // Проверяем именно блок основных тумблеров: матрица ниже содержит
+    // одноимённые пункты и к ним претензий нет.
+    const primary = dialog.querySelector(".cashier-permission-switches");
     for (const label of [
       "Удаление блюд",
       "Изменить код маркировки",
@@ -136,17 +143,18 @@ describe("monoblock page visual contract (/users/monoblock) — MONOBLOCK-01", (
       "Открыть денежный ящик после оплаты",
       "Просмотр закрытых заказов",
     ]) {
-      expect(within(dialog).queryByRole("button", { name: label })).toBeNull();
+      expect(within(primary).queryByRole("button", { name: label })).toBeNull();
     }
   });
 
-  it("toggles monoblock switches as visual-only form state", { timeout: 20000 }, async () => {
+  it("toggles monoblock switches as visual-only form state", async () => {
     render(<StaffRolePage role="monoblock" />);
     await screen.findByText("Monoblock One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
     const dialog = await screen.findByRole("dialog");
+    const primary = dialog.querySelector(".cashier-permission-switches");
     for (const label of ["Главный моноблок", "Список кассиров", "Принтер повара", "Печать отмены заказа"]) {
-      const button = within(dialog).getByRole("button", { name: label });
+      const button = within(primary).getByRole("button", { name: label });
       expect(button.classList.contains("is-on")).toBe(false);
       fireEvent.click(button);
       expect(button.classList.contains("is-on")).toBe(true);
@@ -155,7 +163,7 @@ describe("monoblock page visual contract (/users/monoblock) — MONOBLOCK-01", (
     }
   });
 
-  it("creates a monoblock with canonical payload only (no unsupported fields)", { timeout: 20000 }, async () => {
+  it("creates a monoblock with canonical payload only (no unsupported fields)", async () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     const created = {
       id: "new-monoblock-uuid",
@@ -183,9 +191,6 @@ describe("monoblock page visual contract (/users/monoblock) — MONOBLOCK-01", (
     // Printer IP must not reach the backend; the toggled permission DOES —
     // тумблеры теперь персистятся словарём permissions (легаси-JSON User).
     fireEvent.click(within(dialog).getByRole("button", { name: "Главный моноблок" }));
-    fireEvent.change(screen.getByPlaceholderText("192.168.1.10"), {
-      target: { value: "192.168.1.10" },
-    });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await screen.findByText("Monoblock Two");
     expect(api.post).toHaveBeenCalledWith("/auth/users", {
@@ -194,10 +199,13 @@ describe("monoblock page visual contract (/users/monoblock) — MONOBLOCK-01", (
       role_slug: "monoblock",
       role_name: "Monoblock Two",
       permissions: { can_main_monoblock: true },
+      printer_id: null,
     });
     const sent = api.post.mock.calls[0][1];
     expect(sent).not.toHaveProperty("email");
     expect(sent).not.toHaveProperty("printerIp");
+    // Моноблоку принтер не назначаем — ключ уходит null (наследует филиал).
+    expect(sent).toHaveProperty("printer_id", null);
     expect(sent).not.toHaveProperty("printer_ip");
     expect(alertSpy).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: 2000 });
@@ -220,7 +228,7 @@ describe("monoblock page visual contract (/users/monoblock) — MONOBLOCK-01", (
     expect(screen.queryByRole("dialog")).not.toBeNull();
   });
 
-  it("shows inline 409 duplicate phone under the phone field", { timeout: 20000 }, async () => {
+  it("shows inline 409 duplicate phone under the phone field", async () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     api.post.mockRejectedValueOnce({
       response: { data: { detail: "Phone already registered", code: "CONFLICT" } },
@@ -297,18 +305,28 @@ describe("monoblock access cell (cashier-list concept)", () => {
     expect(access.querySelector(".staff-permission-dot").classList.contains("is-off")).toBe(false);
   });
 
-  it("shows printer IP second line only when truthfully present", async () => {
-    api.get.mockResolvedValue({
-      data: [{ ...monoblockUser, can_see_cashiers: true, printer_ip: "192.168.1.20" }],
-    });
+  it("shows the bound printer name only when printer_id is set", async () => {
+    api.get.mockImplementation((url) =>
+      String(url).includes("/printers")
+        ? Promise.resolve({
+            data: [{ id: "printer-1", name: "Kitchen Printer", ip_address: "192.168.1.20" }],
+          })
+        : Promise.resolve({
+            data: [{ ...monoblockUser, can_see_cashiers: true, printer_id: "printer-1" }],
+          })
+    );
     const { unmount } = render(<StaffRolePage role="monoblock" />);
     await screen.findByText("Monoblock One");
     let table = document.querySelector(".staff-table");
     let sub = table.querySelector(".staff-permission-sub");
     expect(sub).not.toBeNull();
-    expect(sub).toHaveTextContent("192.168.1.20");
+    expect(sub).toHaveTextContent("Kitchen Printer");
     unmount();
-    api.get.mockResolvedValue({ data: [monoblockUser] });
+    api.get.mockImplementation((url) =>
+      String(url).includes("/printers")
+        ? Promise.resolve({ data: [{ id: "printer-1", name: "Kitchen Printer", ip_address: "192.168.1.20" }] })
+        : Promise.resolve({ data: [monoblockUser] })
+    );
     render(<StaffRolePage role="monoblock" />);
     await screen.findByText("Monoblock One");
     table = document.querySelector(".staff-table");

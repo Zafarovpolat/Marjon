@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 function baseURL() {
-  return localStorage.getItem('marjon_server_url') || 'http://localhost:8000/api/v1'
+  return localStorage.getItem('marjon_server_url') || (import.meta.env.VITE_DEFAULT_SERVER_URL || 'http://localhost:8000/api/v1')
 }
 
 export const api = axios.create()

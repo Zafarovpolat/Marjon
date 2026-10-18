@@ -210,7 +210,7 @@ async def test_pg_migration_v31_to_head_preserves_integers(pg_factory):
     conn = await _connect(url)
     try:
         version = await conn.fetchval("SELECT version_num FROM alembic_version")
-        assert version == "v35hist01", version
+        assert version == "v44los01", version
         dtype = await conn.fetchrow(
             "SELECT data_type, numeric_precision, numeric_scale "
             "FROM information_schema.columns "
@@ -257,7 +257,9 @@ async def test_pg_migration_v31_to_head_preserves_integers(pg_factory):
         indexes = await conn.fetch(
             "SELECT indexname FROM pg_indexes WHERE tablename = 'product_limit_topups'"
         )
-        assert "ix_topup_company_product" in {r["indexname"] for r in indexes}
+        index_names = {r["indexname"] for r in indexes}
+        assert "ix_product_limit_topups_company_id" in index_names
+        assert "ix_product_limit_topups_product_id" in index_names
     finally:
         await conn.close()
 

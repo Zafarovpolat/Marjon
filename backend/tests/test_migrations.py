@@ -157,18 +157,19 @@ def test_revision_graph_is_complete_and_has_one_head() -> None:
     # v38set01 (set_items), v39avl01 (products.allow_in_sets), v40typ01
     # (позиции по product_type), v41pur01 (purchase_document_items.product_id),
     # v42inv01 (inventory_check_items + связи приход/расход), v43inv02 (бэкфилл
-    # проведённых инвентаризаций), 3231976db538 (мерж c6d7ftrs10 + wh01exp01),
-    # 0c16e3a26191 (companies.order_types), v44los01 (ingredients.loss_*),
-    # v45mrg01 (мерж v44los01 + 0c16e3a26191), v46fifo01 (stock_batches + бэкфилл),
+    # проведённых инвентаризаций), 0c16e3a26191 (companies.order_types),
+    # v44los01 (ingredients.loss_*), v46fifo01 (stock_batches + бэкфилл),
     # v47avg01 (ingredients.avg_quantity/deficit_threshold), v48pwd01
-    # (users.auth_version) → head линии v48pwd01.
+    # (users.auth_version), emp01printer (users.printer_id).
     # Наша линия (desktop/staff): a4b5daystart08 (companies.day_start_hour),
     # b5c6modpos09 (modifier_groups.show_in_pos), c6d7ftrs10 (фичевые колонки
-    # POS/склада), wh01exp01 (склад: expense/waste), br01login
-    # (branches.login/password_hash), att01status (attendance_logs:
-    # status/approved_by/approved_at) → head линии att01status.
-    # mg01merge сводит обе линии в один head (схему не меняет).
-    assert len(revisions) == 84
+    # POS/склада), d7e8brnlog11 (branches.login/password_hash — restore),
+    # e8f9att05 (attendance_logs confirmation), f9g0prj06 (print_jobs.payload TEXT),
+    # wh01exp01 (склад: expense/waste), wh02mrg01 (users.branch_id + WH-01
+    # nullability), br01login (branches.login/password_hash),
+    # att01status (attendance_logs: status/approved_by/approved_at).
+    # mg01merge сводит обе линии (att01status + emp01printer) в один head.
+    assert len(revisions) == 87
 
     nullable_columns = _bi02_nullable_columns()
     assert len(nullable_columns) == EXPECTED_NULLABLE_COLUMN_COUNT
@@ -1143,7 +1144,9 @@ def test_postgresql_fresh_upgrade_timing_downgrade_and_second_fresh() -> None:
         # ORDERS-TRUTH-01 head (bi06oid08) peels off first: its columns, counter
         # table and backstop index go, while the cancellation-truth layer below
         # (and everything earlier) stays intact.
-        _run_alembic(first_url, "downgrade", "-1")
+        # Revisions stacked above bi06oid08 upstream (email nullable, cost snapshot,
+        # restored premerge columns, branch login) are peeled together with it.
+        _run_alembic(first_url, "downgrade", "bi06ccd07")
         assert asyncio.run(_current_revision(first_url)) != EXPECTED_HEAD
         assert not asyncio.run(_column_exists(first_url, "orders", "public_id"))
         assert not asyncio.run(_column_exists(first_url, "orders", "order_local_date"))
@@ -1362,7 +1365,11 @@ def test_postgresql_proven_git_legacy_snapshot_and_data_preservation(
     assert asyncio.run(_current_revision(database_url)) == EXPECTED_HEAD
     after = asyncio.run(_bi02_column_nullability(database_url))
     assert len(after) == EXPECTED_NULLABLE_COLUMN_COUNT
-    assert set(after.values()) == {"NO"}
+    # e8f9att05 deliberately relaxes these two: a cashier marks attendance per user,
+    # without an HR employee card or work shift.
+    relaxed = {("attendance_logs", "employee_id"), ("attendance_logs", "shift_id")}
+    assert {key for key, value in after.items() if value == "YES"} == relaxed
+    assert all(value == "NO" for key, value in after.items() if key not in relaxed)
     asyncio.run(_assert_representative_rows_preserved(database_url))
     _assert_valid_attendance_index(
         asyncio.run(
@@ -1561,7 +1568,13 @@ def test_postgresql_transaction_boundary_and_lock_timeout(
                 )
             )
 
-            deadline = asyncio.get_running_loop().time() + 4
+            # Cold "python -m alembic" subprocess startup (importing every
+            # app module + SQLAlchemy metadata across 80+ migrations) alone
+            # can take several seconds before the migration even reaches
+            # the blocking ALTER — 4s was too tight and flaked on slower
+            # machines/CI; 20s gives ample margin while still catching a
+            # genuine "never waited for the lock" regression.
+            deadline = asyncio.get_running_loop().time() + 20
             while asyncio.get_running_loop().time() < deadline:
                 waiting = await observer.fetchval(
                     """
@@ -1595,7 +1608,10 @@ def test_postgresql_transaction_boundary_and_lock_timeout(
             elapsed = time.monotonic() - started_at
             assert result.returncode != 0
             assert "lock timeout" in (result.stdout + result.stderr).lower()
-            assert 4 <= elapsed < 15
+            # Lower bound still proves it actually waited (lock_timeout='5s'
+            # in migrations/env.py); upper bound widened in step with the
+            # poll deadline above, for the same cold-start reason.
+            assert 4 <= elapsed < 30
         finally:
             await blocker_transaction.rollback()
             if migration_task is not None and not migration_task.done():

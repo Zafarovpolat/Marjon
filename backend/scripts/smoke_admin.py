@@ -36,7 +36,7 @@ async def main() -> None:
     async with AsyncSessionLocal() as db:
         db.add(User(
             email=SMOKE_ROOT_EMAIL, username="root", name="Root",
-            password_hash=hash_password(SMOKE_ROOT_PASSWORD), is_superadmin=True,
+            password_hash=await hash_password(SMOKE_ROOT_PASSWORD), is_superadmin=True,
         ))
         await db.commit()
 

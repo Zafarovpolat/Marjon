@@ -49,9 +49,13 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["product_id"], ["products.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_set_items_company_set", "set_items", ["company_id", "set_product_id"])
+    op.create_index("ix_set_items_company_id", "set_items", ["company_id"])
+    op.create_index("ix_set_items_set_product_id", "set_items", ["set_product_id"])
+    op.create_index("ix_set_items_product_id", "set_items", ["product_id"])
 
 
 def downgrade() -> None:
-    op.drop_index("ix_set_items_company_set", table_name="set_items")
+    op.drop_index("ix_set_items_product_id", table_name="set_items")
+    op.drop_index("ix_set_items_set_product_id", table_name="set_items")
+    op.drop_index("ix_set_items_company_id", table_name="set_items")
     op.drop_table("set_items")

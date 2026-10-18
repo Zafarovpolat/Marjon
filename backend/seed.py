@@ -151,7 +151,7 @@ async def seed():
                 email=email,
                 name=name,
                 phone=phone,
-                password_hash=hash_password(password),
+                password_hash=await hash_password(password),
                 is_active=True,
             )
             db.add(user)
