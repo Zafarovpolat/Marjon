@@ -201,8 +201,12 @@ describe("TablesReportPage Phase 1 exact table", () => {
     expect(ordersService.get).toHaveBeenCalledWith("order-1", expect.anything());
     expect(paymentsService.listByOrder).toHaveBeenCalledWith("order-1", expect.anything());
     expect(await screen.findByText("Плов")).toBeInTheDocument();
-    expect(screen.getByText("Подытог")).toBeInTheDocument();
-    expect(screen.getByText("Обслуживание")).toBeInTheDocument();
+    // «Подытог» есть и в свёрнутой карточке (до «Подробнее»), и в раскрытой
+    // детализации — поэтому проверяем итоги именно в блоке детализации.
+    const detailBox = document.querySelector(".order-details-drawer__detail");
+    expect(detailBox).not.toBeNull();
+    expect(within(detailBox).getByText("Подытог")).toBeInTheDocument();
+    expect(within(detailBox).getByText("Обслуживание")).toBeInTheDocument();
     // Both real payments render — never collapsed into one fake transaction.
     expect(screen.getByText("cash")).toBeInTheDocument();
     expect(screen.getByText("card")).toBeInTheDocument();

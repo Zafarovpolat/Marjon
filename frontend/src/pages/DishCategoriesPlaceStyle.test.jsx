@@ -442,12 +442,12 @@ describe("Dish Categories V2 follow-up", () => {
     const { unmount } = render(<CategoriesPage type="raw" />);
     await screen.findByText("Овощи");
     fireEvent.click(screen.getByRole("button", { name: "Добавить" }));
-    await screen.findByRole("dialog", { name: "Добавить категорию сырья" });
+    await screen.findByRole("dialog", { name: "Добавить категорию продуктов" });
     const overlay = document.querySelector(".rawcat-modal-layer .settings-modal-overlay");
     expect(overlay).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Отменить" }));
     expect(overlay).toHaveClass("is-closing");
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Добавить категорию сырья" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Добавить категорию продуктов" })).toBeNull());
     unmount();
   });
 

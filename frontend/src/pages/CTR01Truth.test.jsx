@@ -97,7 +97,8 @@ describe("CTR-01 critical financial truth", () => {
     expect(screen.queryByRole("button", { name: /Печать общего Z-отчёта/ })).toBeNull();
     fireEvent.change(screen.getByLabelText("Начало периода"), { target: { value: "01.08.2026" } });
     fireEvent.change(screen.getByLabelText("Конец периода"), { target: { value: "31.08.2026" } });
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/auth/staff-users", expect.anything()));
+    // GATED-01: сотрудники грузятся через /auth/users (см. staffService.listStaffUsers).
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/auth/users", expect.anything()));
     expect(api.get.mock.calls.some((call) => call[0] === "/analytics/z-report")).toBe(false);
     expect(screen.queryByText(/Смена закрыта/)).not.toBeInTheDocument();
   });
@@ -112,7 +113,7 @@ describe("CTR-01 critical financial truth", () => {
   it("enables the waiter percentage only while a waiter is selected", async () => {
     api.get.mockImplementation((path) => {
       if (path === "/analytics/z-report") return Promise.resolve({ data: zReport });
-      if (path === "/auth/staff-users") return Promise.resolve({ data: [{ id: "waiter-1", name: "Backend Waiter", role_slugs: ["waiter"] }] });
+      if (path === "/auth/users") return Promise.resolve({ data: [{ id: "waiter-1", name: "Backend Waiter", role_slugs: ["waiter"] }] });
       return Promise.resolve({ data: [] });
     });
     render(<ZReportPage />);

@@ -78,7 +78,9 @@ function mockAuthenticatedUser(user, staffUsers = []) {
   authClient.isAuthenticated.mockReturnValue(true);
   authClient.get.mockImplementation((url) => {
     if (url === "/auth/me") return Promise.resolve({ data: user });
-    if (url === "/auth/staff-users") return Promise.resolve({ data: staffUsers });
+    // GATED-01: список сотрудников грузится через /auth/users (владельцу
+    // разрешён), /auth/staff-users остался только в десктопе.
+    if (url === "/auth/users") return Promise.resolve({ data: staffUsers });
     return Promise.resolve({ data: emptyApiResponse(url) });
   });
 }
