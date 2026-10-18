@@ -449,6 +449,10 @@ function StaffRolePage({ role = "all" }) {
             ...(isManagerView || isWarehouseView ? {} : { printer_id: form.printerId || null }),
             // Тумблеры карточки + матрица доступов (User.permissions).
             permissions: staffPermissionsPayload(form),
+            // PIN ставится тем же POST: бэкенд проверяет его уникальность ДО
+            // вставки. Отдельный PATCH после создания оставлял сотрудника
+            // созданным без PIN, если PIN уже занят (409 на втором шаге).
+            ...(form.pin && !isMonoblockView ? { pin: form.pin } : {}),
             ...(needsBranch ? { branch_id: resolvedBranchId } : {}),
           };
           const { data: createdUser } = await staffService.createCompanyUser(createPayload);
@@ -459,10 +463,8 @@ function StaffRolePage({ role = "all" }) {
             });
             confirmedUser = data;
           }
-          // Десктоп, шаг 3: PIN задаётся отдельным эндпоинтом — только НЕ-моноблок.
-          if (!isMonoblockView && form.pin) {
-            await staffService.updateUserPin(createdUser.id, form.pin);
-          }
+          // PIN уже уехал в create (см. createPayload выше) — отдельный
+          // PATCH здесь больше не нужен и только плодил бы второй 409.
           // Фото грузим от confirmedUser (после возможного deactivate), иначе
           // результат PATCH is_active:false затирался ответом POST (is_active
           // true) и только что созданный архивный сотрудник показывался

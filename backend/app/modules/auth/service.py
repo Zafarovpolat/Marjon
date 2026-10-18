@@ -390,6 +390,7 @@ class AuthService:
         assignable_role_slugs: frozenset[str] | None = None,
         printer_id: UUID | None = None,
         permissions: dict | None = None,
+        pin: str | None = None,
     ) -> tuple[User, Role]:
         if not company_id:
             raise ValidationError("Current user is not assigned to a company")
@@ -433,6 +434,12 @@ class AuthService:
             if not printer or printer.company_id != company_id:
                 raise ValidationError("Принтер не найден в этой компании")
 
+        # PIN проверяем ДО вставки: иначе занятый PIN отдавал бы 409 уже после
+        # создания пользователя, и он оставался бы без PIN (незавершаемая
+        # карточка, а ретрай упирается в «телефон занят»).
+        if pin is not None:
+            await self._assert_pin_available(company_id, pin)
+
         # BE-05: role_slug is validated against the canonical allowlist here
         # (raises ValidationError otherwise) and the role's default
         # permission set is attached the first time it's created for this
@@ -452,6 +459,8 @@ class AuthService:
             printer_id=printer_id,
             # Тумблеры карточки сотрудника — как есть, схему задаёт фронтенд.
             permissions=permissions,
+            # PIN входа на терминале: ставим тем же INSERT, что и сотрудника.
+            pin_hash=await hash_password(pin) if pin is not None else None,
         )
         self.db.add(user)
         await self.db.flush()
@@ -685,6 +694,26 @@ class AuthService:
     async def logout_all(self, user_id: UUID) -> None:
         await self.token_repo.revoke_all_for_user(user_id)
 
+    async def _assert_pin_available(
+        self, company_id: UUID, pin: str, exclude_user_id: UUID | None = None
+    ) -> None:
+        """PIN уникален внутри компании.
+
+        PIN хранятся солёным хешем, поэтому равенством по колонке это не
+        проверить — сверяем со хешем каждого коллеги. При масштабе штата
+        ресторана это нормально; на тысячи аккаунтов на компанию не рассчитано.
+
+        Общий хелпер для set_pin() и create_company_user(): создание обязано
+        проверять PIN ДО вставки, иначе занятый PIN оставлял бы уже созданного
+        сотрудника без PIN (P0 2.2 в MARJON_PLAN).
+        """
+        peers = await self.user_repo.get_company_users(company_id)
+        for peer in peers:
+            if peer.id == exclude_user_id or not peer.pin_hash:
+                continue
+            if await verify_password(pin, peer.pin_hash):
+                raise ConflictError("PIN уже используется другим сотрудником")
+
     async def set_pin(
         self, actor_user_id: UUID, target_user_id: UUID, company_id: UUID | None, pin: str
     ) -> None:
@@ -705,10 +734,7 @@ class AuthService:
         # this can't be a plain equality lookup — verify against every
         # peer's hash instead. Fine at restaurant-staff scale; this is not
         # meant to scale to thousands of accounts per company.
-        peers = await self.user_repo.get_company_users(company_id)
-        for peer in peers:
-            if peer.id != target.id and peer.pin_hash and await verify_password(pin, peer.pin_hash):
-                raise ConflictError("PIN уже используется другим сотрудником")
+        await self._assert_pin_available(company_id, pin, exclude_user_id=target.id)
 
         target.pin_hash = await hash_password(pin)
         target.pin_failed_attempts = 0

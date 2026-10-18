@@ -52,11 +52,26 @@ class CompanyUserCreate(BaseSchema):
     # Принтер, закреплённый за сотрудником (выбирается из уже добавленных
     # принтеров компании). None — печать идёт на чековый принтер филиала.
     printer_id: UUID | None = None
+    # PIN сотрудника (вход на терминале). Раньше он ставился ОТДЕЛЬНЫМ
+    # PATCH /auth/users/{id}/pin уже после создания: при занятом PIN сотрудник
+    # оставался созданным без PIN, а повторная попытка упиралась в «телефон
+    # занят» — владелец не мог ни завершить, ни отменить. Теперь PIN едет в
+    # самом create и проверяется ДО вставки, поэтому создание атомарно.
+    pin: str | None = Field(default=None, min_length=4, max_length=8)
 
     @field_validator("password")
     @classmethod
     def check_password(cls, v: str) -> str:
         return _validate_password(v)
+
+    @field_validator("pin")
+    @classmethod
+    def check_pin(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not re.fullmatch(r"\d{4,8}", v):
+            raise ValueError("PIN должен состоять из 4-8 цифр")
+        return v
 
 
 class LoginRequest(BaseSchema):

@@ -166,6 +166,7 @@ async def create_company_user(
         assignable_role_slugs=OWNER_ASSIGNABLE_ROLE_SLUGS,
         printer_id=data.printer_id,
         permissions=data.permissions,
+        pin=data.pin,
     )
     return CompanyUserResponse.model_validate(user).model_copy(update={"role_slug": role.slug})
 

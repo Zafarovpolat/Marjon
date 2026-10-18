@@ -440,6 +440,8 @@ describe("cashier page visual contract (/users/cashier)", () => {
       phone: "998901112233",
       role_slug: "cashier",
       role_name: "Cashier Two",
+      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
+      pin: "1234",
       printer_id: null,
       // Пустой словарь прав отправляется всегда: схема payload едина.
       permissions: {},
@@ -487,6 +489,8 @@ describe("cashier page visual contract (/users/cashier)", () => {
       phone: "998901112233",
       role_slug: "cashier",
       role_name: "Cashier Two",
+      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
+      pin: "1234",
       permissions: { canCloseBill: true },
       printer_id: null,
       branch_id: null,

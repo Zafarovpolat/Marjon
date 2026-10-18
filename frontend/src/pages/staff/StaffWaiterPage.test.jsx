@@ -284,6 +284,8 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
       phone: "998901112233",
       role_slug: "waiter",
       role_name: "Waiter Two",
+      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
+      pin: "1234",
       // create всегда шлёт permissions (тумблеры + матрица); пустой — {}
       permissions: {},
       printer_id: null,
@@ -331,6 +333,8 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
       phone: "998901112233",
       role_slug: "waiter",
       role_name: "Waiter Two",
+      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
+      pin: "1234",
       // Ключи camelCase: create собирает staffPermissionsPayload (тумблеры
       // формы как есть), десктоп нормализует их через toSnake.
       permissions: { canDeleteDishes: true, canManageOrders: true },

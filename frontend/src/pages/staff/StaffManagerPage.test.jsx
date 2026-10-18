@@ -458,6 +458,8 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
       phone: "998901112233",
       role_slug: "manager",
       role_name: "Manager Two",
+      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
+      pin: "1234",
       branch_id: null,
       permissions: { modules: { home: { enabled: true } } },
     });
@@ -475,10 +477,12 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
       "access",
       "username",
       "login",
-      "pin",
     ]) {
       expect(sent).not.toHaveProperty(key);
     }
+    // PIN теперь едет в create (атомарная проверка уникальности), но только
+    // под своим именем — никаких pin_hash/employee_id в payload.
+    expect(sent).not.toHaveProperty("pin_hash");
     expect(alertSpy).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: 2000 });
     expect(localStorage.getItem("marjon_staff")).toBeNull();
@@ -686,6 +690,8 @@ describe("manager secondary action toggles (parity with cashier/waiter matrix) �
       phone: "998901112233",
       role_slug: "manager",
       role_name: "Manager Two",
+      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
+      pin: "1234",
       branch_id: null,
       permissions: {
         modules: { orders_report: { enabled: true, create: true, delete: true } },

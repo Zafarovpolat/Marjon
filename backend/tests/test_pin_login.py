@@ -131,3 +131,79 @@ async def test_pin_set_scoped_to_own_company(client):
         f"/auth/users/{b_staff['id']}/pin", headers=a_headers, json={"pin": "1234"}
     )
     assert resp.status_code == 404
+
+
+async def test_pin_can_be_set_in_create(client):
+    """PIN едет в самом POST /auth/users — отдельный PATCH не нужен."""
+    owner_headers, _ = await register_company(client, slug="acme", email="owner@acme.example.com")
+
+    resp = await client.post(
+        "/auth/users", headers=owner_headers,
+        json={
+            "password": "Passw0rd!",
+            "phone": "998901112233",
+            "role_slug": "cashier",
+            "pin": "4321",
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    staff_id = resp.json()["id"]
+
+    # PIN реально сохранён хешем и пускает на терминал.
+    login = await client.post("/auth/pin-login", json={"employee_id": staff_id, "pin": "4321"})
+    assert login.status_code == 200, login.text
+    assert login.json()["access_token"]
+
+
+async def test_duplicate_pin_in_create_does_not_create_user(client):
+    """P0 2.2: занятый PIN не должен оставлять «полусозданного» сотрудника.
+
+    Раньше PIN ставился отдельным PATCH уже ПОСЛЕ создания: при занятом PIN
+    возвращался 409, но пользователь оставался в базе без PIN, а ретрай
+    упирался в «телефон занят». Теперь уникальность проверяется до вставки.
+    """
+    owner_headers, _ = await register_company(client, slug="acme", email="owner@acme.example.com")
+
+    first = await client.post(
+        "/auth/users", headers=owner_headers,
+        json={
+            "password": "Passw0rd!",
+            "phone": "998901110001",
+            "role_slug": "cashier",
+            "pin": "1234",
+        },
+    )
+    assert first.status_code == 201, first.text
+
+    before = await client.get("/auth/users", headers=owner_headers)
+    assert before.status_code == 200, before.text
+    count_before = len(before.json())
+
+    dup = await client.post(
+        "/auth/users", headers=owner_headers,
+        json={
+            "password": "Passw0rd!",
+            "phone": "998901110002",
+            "role_slug": "cashier",
+            "pin": "1234",
+        },
+    )
+    assert dup.status_code == 409, dup.text
+
+    # Главное: неудачное создание не оставило мусора в базе.
+    after = await client.get("/auth/users", headers=owner_headers)
+    assert after.status_code == 200, after.text
+    assert len(after.json()) == count_before, "занятый PIN не должен создавать пользователя"
+    phones = {u.get("phone") for u in after.json()}
+    assert "998901110002" not in phones
+
+
+async def test_create_without_pin_still_allowed(client):
+    """PIN необязателен: сотрудника можно создать и выдать PIN позже."""
+    owner_headers, _ = await register_company(client, slug="acme", email="owner@acme.example.com")
+    resp = await client.post(
+        "/auth/users", headers=owner_headers,
+        json={"password": "Passw0rd!", "phone": "998901110003", "role_slug": "cashier"},
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["id"]

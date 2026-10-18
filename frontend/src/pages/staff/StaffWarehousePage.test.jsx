@@ -277,6 +277,8 @@ describe("warehouse page visual contract (/users/warehouse) — WAREHOUSE-01", (
       phone: "998901112233",
       role_slug: "warehouse",
       role_name: "Storekeeper Two",
+      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
+      pin: "1234",
       branch_id: null,
       permissions: {
         modules: { warehouse_stock: { enabled: true } },
@@ -296,10 +298,12 @@ describe("warehouse page visual contract (/users/warehouse) — WAREHOUSE-01", (
       "access",
       "username",
       "login",
-      "pin",
     ]) {
       expect(sent).not.toHaveProperty(key);
     }
+    // PIN теперь едет в create (атомарная проверка уникальности), но только
+    // под своим именем — никаких pin_hash/employee_id в payload.
+    expect(sent).not.toHaveProperty("pin_hash");
     expect(localStorage.getItem("marjon_staff")).toBeNull();
     expect(sessionStorage.getItem("marjon_staff")).toBeNull();
   });
@@ -519,6 +523,8 @@ describe("warehouse secondary action toggles (parity with cashier/waiter matrix)
       phone: "998901112233",
       role_slug: "warehouse",
       role_name: "Storekeeper Two",
+      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
+      pin: "1234",
       branch_id: null,
       permissions: {
         modules: { warehouse_stock: { enabled: true, create: true } },
