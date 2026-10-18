@@ -6,7 +6,10 @@ import {
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi, printers as printersApi, auth } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
+// PRINT-LAT-01: печать + дедупликация + опрос очереди (наш путь доставки).
+// printers.js — выбор принтера (сотрудник → филиал) из прод-линии.
 import { printJob, startPrintPoller } from '../../shared/printJobs'
+import { pickReceiptPrinter } from '../../shared/printers'
 import DishModal from '../../components/DishModal'
 import InputPromptModal from '../../components/InputPromptModal'
 import { toast } from '../../components/Toast'
@@ -99,6 +102,8 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     return onPrintJob(async (msg) => {
       if (msg.event !== 'print_job') return
       try {
+        // См. CashierMode: printJob берёт ip/port из принтера либо из самого
+        // задания, поэтому печать не зависит от загрузки списка принтеров.
         await printJob(msg, printerMap[msg.printer_id])
       } catch (err) { console.error('[print]', err); toast(t('print_failed'), 'error') }
     })
@@ -197,7 +202,10 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
   // Печать чека клиента (официант печатает сам)
   async function printReceipt(order) {
     if (!order?.id) return
-    const pr = Object.values(printerMap).find((p) => p.printer_type === 'receipt' && p.branch_id === user.branch_id)
+    const pr = pickReceiptPrinter(Object.values(printerMap), {
+      printerId: user.printer_id,
+      branchId: user.branch_id,
+    })
     if (!pr) { toast(t('no_receipt_printer'), 'error'); return }
     try { await printersApi.printReceipt({ order_id: order.id, printer_id: pr.id, copies: 1 }); toast(t('receipt_sent')) }
     catch (e) { toast(t('print_failed') + (e?.response?.data?.detail ? `: ${e.response.data.detail}` : ''), 'error') }
@@ -248,6 +256,20 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     setCart([]); setOrderNote(''); setGuests(1); setSearch(''); setActiveCat(null)
     setView('new')
   }
+
+  // Кнопка «Назад» в TopBar (App.jsx): закрываем верхний слой, затем
+  // возвращаемся к столам. Нечего закрывать — App уводит к выбору сотрудника.
+  useEffect(() => {
+    function onNavBack(e) {
+      const mark = () => { e.detail.handled = true }
+      if (promptCfg) { setPromptCfg(null); mark(); return }
+      if (editLine) { setEditLine(null); mark(); return }
+      if (view !== 'floor') { setCart([]); setOrderNote(''); setView('floor'); mark(); return }
+    }
+    window.addEventListener('marjon:back', onNavBack)
+    return () => window.removeEventListener('marjon:back', onNavBack)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promptCfg, editLine, view])
 
   // ── Каталог/корзина ──
   const filteredProducts = products.filter((p) => {

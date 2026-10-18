@@ -123,7 +123,8 @@ async def print_receipt(
 ):
     """Print customer receipt for an order."""
     return await PrinterService(db).print_receipt(
-        user.company_id, data.order_id, data.printer_id, data.copies
+        user.company_id, data.order_id, data.printer_id, data.copies,
+        local_print=data.local_print,
     )
 
 
@@ -152,7 +153,8 @@ async def print_kitchen(
 ):
     """Print kitchen ticket for an order."""
     return await PrinterService(db).print_kitchen_ticket(
-        user.company_id, data.order_id, data.printer_id, data.copies
+        user.company_id, data.order_id, data.printer_id, data.copies,
+        local_print=data.local_print,
     )
 
 

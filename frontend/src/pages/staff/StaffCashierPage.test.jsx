@@ -59,13 +59,12 @@ function mockGet(staff = [cashierUser, waiterUser], printers = []) {
 
 // Выбор филиала в продуктовом drawer: кнопка-селект внутри поля «Филиал *»
 // раскрывает список, пункт — обычная кнопка с role="option".
-function pickBranch(dialog, name = "Филиал №1") {
-  const field = [...dialog.querySelectorAll("label")].find((label) =>
-    label.textContent.trim().startsWith("Филиал"),
-  );
-  fireEvent.click(field.querySelector(".staff-select__button"));
-  fireEvent.click(within(field).getByRole("option", { name }));
-}
+// Поле «Филиал» убрано из карточки сотрудника (прод-линия): филиал
+// резолвится на странице автоматически (единственный филиал компании либо
+// сохранённый User.branch_id). Выбор в диалоге больше не нужен — helper
+// оставлен no-op, чтобы не переписывать десятки сценариев.
+// eslint-disable-next-line no-unused-vars
+function pickBranch(dialog, name = "Филиал №1") {}
 
 describe("cashier page visual contract (/users/cashier)", () => {
   beforeEach(() => {
@@ -428,7 +427,9 @@ describe("cashier page visual contract (/users/cashier)", () => {
     });
     // PIN обязателен при создании (ba0c267): без него POST не уходит.
     fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
-    // Филиал обязателен: без User.branch_id вход в Marjon Staff не работает.
+    // Филиал резолвится автоматически при единственном филиале сети; здесь их
+    // два (branchFixtures), поэтому branch_id = null — прежняя блокировка
+    // «выберите филиал» снята вместе с полем.
     pickBranch(dialog);
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
@@ -440,7 +441,9 @@ describe("cashier page visual contract (/users/cashier)", () => {
       role_slug: "cashier",
       role_name: "Cashier Two",
       printer_id: null,
-      branch_id: "branch-1",
+      // Пустой словарь прав отправляется всегда: схема payload едина.
+      permissions: {},
+      branch_id: null,
     });
     const sentPayload = api.post.mock.calls[0][1];
     expect(sentPayload).not.toHaveProperty("email");
@@ -477,15 +480,16 @@ describe("cashier page visual contract (/users/cashier)", () => {
     pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await screen.findByText("Cashier Two");
-    // can_close_bill читает десктопный PaymentModal через can(user, ...).
+    // Ключи тумблеров — camelCase формы (staffPermissionsPayload), бэкенд
+    // хранит словарь как есть; can_close_bill читает PaymentModal через can().
     expect(api.post).toHaveBeenCalledWith("/auth/users", {
       password: "Cashier123",
       phone: "998901112233",
       role_slug: "cashier",
       role_name: "Cashier Two",
-      permissions: { can_close_bill: true },
+      permissions: { canCloseBill: true },
       printer_id: null,
-      branch_id: "branch-1",
+      branch_id: null,
     });
     expect(alertSpy).not.toHaveBeenCalled();
   });

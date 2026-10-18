@@ -56,13 +56,12 @@ function mockGet(staff = [warehouseUser, cashierUser], printers = []) {
 
 // Кнопка-селект лежит внутри <label>, поэтому её доступное имя — текст поля
 // («Филиал *»); пункт списка — кнопка с role="option".
-function pickBranch(dialog, name = "Филиал №1") {
-  const field = [...dialog.querySelectorAll("label")].find((label) =>
-    label.textContent.trim().startsWith("Филиал"),
-  );
-  fireEvent.click(field.querySelector(".staff-select__button"));
-  fireEvent.click(within(field).getByRole("option", { name }));
-}
+// Поле «Филиал» убрано из карточки сотрудника (прод-линия): филиал
+// резолвится на странице автоматически (единственный филиал компании либо
+// сохранённый User.branch_id). Выбор в диалоге больше не нужен — helper
+// оставлен no-op, чтобы не переписывать десятки сценариев.
+// eslint-disable-next-line no-unused-vars
+function pickBranch(dialog, name = "Филиал №1") {}
 
 // Строка матрицы прав по названию модуля (быстрее role-запроса по drawer’у).
 function accessRow(dialog, label) {
@@ -183,8 +182,10 @@ describe("warehouse page visual contract (/users/warehouse) — WAREHOUSE-01", (
     expect(dialog.classList.contains("staff-modal--cashier-full")).toBe(true);
     expect(dialog.parentElement).toBe(document.body);
     expect(within(dialog).getByText("Добавить завсклада")).toBeInTheDocument();
-    expect(within(dialog).queryByText("Загрузить фото")).toBeNull();
-    expect(dialog.querySelector('input[type="file"]')).toBeNull();
+    // Фото доступно всем ролям с 21-го мерджа: бэкенд принимает
+    // POST /auth/users/{id}/photo и для менеджера/завсклада.
+    expect(within(dialog).getByText("Загрузить фото")).toBeInTheDocument();
+    expect(dialog.querySelector('input[type="file"]')).not.toBeNull();
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
     expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
     expect(within(dialog).getByText("Пароль")).toBeInTheDocument();
@@ -270,12 +271,16 @@ describe("warehouse page visual contract (/users/warehouse) — WAREHOUSE-01", (
     pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await screen.findByText("Storekeeper Two");
+    // Матрица сохраняется в permissions.modules (см. staffPermissionsPayload).
     expect(api.post).toHaveBeenCalledWith("/auth/users", {
       password: "Storekeeper1",
       phone: "998901112233",
       role_slug: "warehouse",
       role_name: "Storekeeper Two",
-      branch_id: "branch-1",
+      branch_id: null,
+      permissions: {
+        modules: { warehouse_stock: { enabled: true } },
+      },
     });
     const sent = api.post.mock.calls[0][1];
     for (const key of [
@@ -286,7 +291,6 @@ describe("warehouse page visual contract (/users/warehouse) — WAREHOUSE-01", (
       "printerIp",
       "printer_ip",
       "printer_id",
-      "permissions",
       "permission_ids",
       "staffAccess",
       "access",
@@ -508,15 +512,20 @@ describe("warehouse secondary action toggles (parity with cashier/waiter matrix)
     pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await screen.findByText("Storekeeper Two");
+    // Включённый модуль + вторичное действие едут в permissions.modules
+    // (раньше матрица была frontend-only, см. дифф 21-го мерджа).
     expect(api.post).toHaveBeenCalledWith("/auth/users", {
       password: "Storekeeper1",
       phone: "998901112233",
       role_slug: "warehouse",
       role_name: "Storekeeper Two",
-      branch_id: "branch-1",
+      branch_id: null,
+      permissions: {
+        modules: { warehouse_stock: { enabled: true, create: true } },
+      },
     });
     const sent = api.post.mock.calls[0][1];
-    for (const key of ["access", "permissions", "permission_ids", "staffAccess", "create", "read", "update", "delete"]) {
+    for (const key of ["access", "permission_ids", "staffAccess", "create", "read", "update", "delete"]) {
       expect(sent).not.toHaveProperty(key);
     }
   });

@@ -34,6 +34,65 @@ export const emptyForm = {
   printerId: "",
   status: "active",
   photo: "",
+  // Выбранный файл фото (загружается после сохранения, когда известен id).
+  photoFile: null,
+  // Тумблеры прав. Все стартуют выключенными и теперь реально сохраняются
+  // (User.permissions) — раньше жили только в состоянии формы и терялись
+  // при закрытии карточки, из-за чего выглядели «неработающими».
+  canDeleteDishes: false,
+  canChangeMarkingCode: false,
+  canTakeawayAtTable: false,
+  canChangeOrderType: false,
+  canCloseBill: false,
+  canOpenCashDrawerAfterPayment: false,
+  canViewClosedOrders: false,
+  canMainMonoblock: false,
+  canSeeCashiers: false,
+  canCookPrinter: false,
+  canPrintCancel: false,
+  // Матрица доступов: { [moduleKey]: { enabled, create, read, update, delete } }.
+  access: {},
+};
+
+// Все ключи тумблеров одним списком — чтобы и гидратация из бэкенда, и
+// сборка payload шли по одному источнику.
+// ВАЖНО (дифф 21-го мерджа): список обязан покрывать cashierSwitchFields,
+// waiterSwitchFields и monoblockSwitchFields. Пропущенный здесь флаг молча
+// выпадает из POST /auth/users — ровно так терялись canManageOrders у
+// официанта и canViewFinance/canApproveAttendance у кассира и моноблока.
+export const staffPermissionFlags = [
+  "canDeleteDishes",
+  "canChangeMarkingCode",
+  "canTakeawayAtTable",
+  "canChangeOrderType",
+  "canCloseBill",
+  "canOpenCashDrawerAfterPayment",
+  "canViewClosedOrders",
+  "canManageOrders",
+  "canMainMonoblock",
+  "canSeeCashiers",
+  "canCookPrinter",
+  "canPrintCancel",
+  "canViewFinance",
+  "canApproveAttendance",
+];
+
+// payload для POST/PATCH /auth/users: тумблеры + матрица в одном JSON.
+// Пустые значения не отправляем, чтобы не раздувать строку.
+export const staffPermissionsPayload = (form) => {
+  const out = {};
+  staffPermissionFlags.forEach((key) => {
+    if (form?.[key] === true) out[key] = true;
+  });
+  const modules = form?.access && typeof form.access === "object" ? form.access : {};
+  const enabledModules = {};
+  Object.entries(modules).forEach(([moduleKey, value]) => {
+    if (!value || typeof value !== "object") return;
+    if (!value.enabled) return;
+    enabledModules[moduleKey] = { ...value };
+  });
+  if (Object.keys(enabledModules).length) out.modules = enabledModules;
+  return out;
 };
 
 export const getPermissionSummary = (values) => {
@@ -248,6 +307,14 @@ export function shortStaffId(id) {
 
 export function mapStaffUser(user) {
   const roleKey = user.role_slug || user.role_slugs?.[0] || "cashier";
+  const perms = user.permissions && typeof user.permissions === "object" ? user.permissions : {};
+  const modules = perms.modules && typeof perms.modules === "object" ? perms.modules : {};
+  // Тумблеры и матрица приходят из User.permissions тем же ключом, каким
+  // живут в форме, поэтому карточка открывается в сохранённом состоянии.
+  const flags = {};
+  staffPermissionFlags.forEach((key) => {
+    flags[key] = perms[key] === true;
+  });
   return {
     id: user.id,
     fullName: user.name || user.email?.split("@")[0] || "—",
@@ -257,6 +324,9 @@ export function mapStaffUser(user) {
     status: user.is_active !== false ? "active" : "archived",
     // Тумблеры владельца: читаем из словаря permissions ответа бэкенда
     // (GET /auth/users после проброса). Нет словаря — все OFF, честно.
+    // ...flags — тот же словарь через staffPermissionFlags (общий список),
+    // readStaffPermission добавляет фолбэк на плоские can_* поля API.
+    ...flags,
     canDeleteDishes: readStaffPermission(user, "canDeleteDishes"),
     canChangeMarkingCode: readStaffPermission(user, "canChangeMarkingCode"),
     canTakeawayAtTable: readStaffPermission(user, "canTakeawayAtTable"),
@@ -271,6 +341,9 @@ export function mapStaffUser(user) {
     canPrintCancel: readStaffPermission(user, "canPrintCancel"),
     canViewFinance: readStaffPermission(user, "canViewFinance"),
     canApproveAttendance: readStaffPermission(user, "canApproveAttendance"),
+    // Сохранённая матрица доступов (perms.modules) — карточка открывается
+    // в том состоянии, в котором владелец её оставил.
+    access: modules,
     printerId: user.printer_id || "",
     pin: "",
     // Привязка сотрудника к филиалу (сеть → филиал). "" у веб-владельца и у

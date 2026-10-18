@@ -134,6 +134,15 @@
   align-items: center;
   gap: var(--spacing-sm);
 }
+/* Кнопка «Назад» справа от лого — владелец просил вернуть её на всех экранах.
+   Держим в бренд-блоке: не конкурирует с действиями справа (замок/настройки). */
+.topbar__back {
+  flex-shrink: 0;
+  color: var(--chrome-text);
+}
+.topbar__back:hover {
+  color: var(--color-brand);
+}
 /* Карточка знака с лёгкой обводкой — повторяет .brand-mark веб-админки.
    В светлой теме фон совпадает с хромом, так что читается только обводка.
    Обводку берём светлым токеном: он уже задан под оба хрома. */
@@ -4106,6 +4115,24 @@ body.vkb-lift .cashier-cart__items { min-height: 140px; }
 /* Выбор ответственного официанта у ОДНОЙ позиции (кассир исправляет путаницу).
    Своя строка на всю ширину под блюдом — .pay-order__row переносит её вниз. */
 .pay-order__waiter { flex: 1 0 100%; }
+/* Отмена ОДНОГО блюда прямо в строке (кассир, без мультивыбора):
+   компактная иконка-кнопка у правого края строки, краснеет при наведении. */
+.pay-order__cancel-one {
+  flex: 0 0 auto;
+  min-height: 36px;
+  width: 40px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-danger);
+  border-color: var(--color-border-strong);
+}
+.pay-order__cancel-one:hover {
+  color: var(--color-card);
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+}
 /* Смена официанта всего заказа — в колонке оплаты, отдельной строкой с отступом
    (в отличие от .pay-order__waiter у позиции, который тянется на всю ширину строки). */
 .pay-order__waiter--order { flex: initial; display: flex; align-items: center; gap: 10px; margin: var(--spacing-md) 0; }

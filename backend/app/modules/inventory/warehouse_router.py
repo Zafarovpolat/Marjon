@@ -733,8 +733,8 @@ async def create_inventory_check(
     for item in data.items:
         if item.ingredient_id is None and item.product_id is None:
             raise ValidationError("Каждая позиция должна ссылаться на шаблон из «Продуктов» или на Товар.")
-        if item.actual_qty is None or item.actual_qty < 0:
-            raise ValidationError("Укажите фактическое количество для каждой позиции (0 или больше).")
+        if item.actual_qty is None:
+            raise ValidationError("Укажите фактическое количество для каждой позиции.")
     await require_company_resource_ids(
         db, Ingredient,
         (item.ingredient_id for item in data.items),
@@ -911,22 +911,53 @@ async def create_inventory_check(
                 ))
             db.add(expense)
             await db.flush()
-            # Недостача по построению ≤ остатка (actual ≥ 0), но на случай
-            # гонки с продажами — строгая проверка как в обычном расходе.
-            # V46 FIFO: недостача списывает старые партии первыми.
+            # Недостача по инвентаризации может превышать остаток: это
+            # пересчёт факта, а не расход «со склада». Раньше здесь стояла
+            # жёсткая проверка _assert_sufficient_stock — из-за неё посчитать
+            # минус было нельзя в принципе (владелец вводил отрицательный
+            # факт и получал отказ). Теперь списываем ровно столько, сколько
+            # реально лежит партиями (FIFO), а хвост недостачи уводит
+            # StockItem.quantity в минус — то же состояние, что и
+            # «исторический минус» от продаж без остатка (add_fifo_batch
+            # закрывает его первым же приходом).
             for item in expense.items:
-                await _assert_sufficient_stock(
-                    db, user.company_id, data.warehouse_id,
-                    item.ingredient_id, item.name, item.quantity,
-                )
-                fifo_unit, fifo_total = await consume_fifo(
-                    db,
-                    company_id=user.company_id,
-                    warehouse_id=data.warehouse_id,
-                    ingredient_id=item.ingredient_id,
-                    quantity=item.quantity,
-                    name=item.name,
-                )
+                stock_row = (
+                    await db.execute(
+                        select(StockItem).where(
+                            StockItem.company_id == user.company_id,
+                            StockItem.warehouse_id == data.warehouse_id,
+                            StockItem.ingredient_id == item.ingredient_id,
+                        )
+                    )
+                ).scalar_one_or_none()
+                available = Decimal(str(stock_row.quantity)) if stock_row else Decimal("0")
+                covered = min(item.quantity, available) if available > 0 else Decimal("0")
+                fifo_unit = Decimal("0")
+                fifo_total = Decimal("0")
+                if covered > 0:
+                    # V46 FIFO: недостача списывает старые партии первыми.
+                    fifo_unit, fifo_total = await consume_fifo(
+                        db,
+                        company_id=user.company_id,
+                        warehouse_id=data.warehouse_id,
+                        ingredient_id=item.ingredient_id,
+                        quantity=covered,
+                        name=item.name,
+                    )
+                excess = item.quantity - covered
+                if excess > 0:
+                    # Под этот хвост партий нет — минус живёт в остатке.
+                    if stock_row is None:
+                        stock_row = StockItem(
+                            company_id=user.company_id,
+                            warehouse_id=data.warehouse_id,
+                            ingredient_id=item.ingredient_id,
+                            quantity=Decimal("0"),
+                            unit=item.unit or "кг",
+                        )
+                        db.add(stock_row)
+                        await db.flush()
+                    stock_row.quantity = Decimal(str(stock_row.quantity or 0)) - excess
                 item.cost_price = fifo_unit
                 item.total = fifo_total
                 db.add(StockMovement(

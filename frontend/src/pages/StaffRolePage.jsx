@@ -11,6 +11,7 @@ import {
   roleMap,
   roleOptions,
   waiterSwitchFields,
+  staffPermissionsPayload,
 } from "./staff/staffConstants";
 import { getPhoneLocal, inferPhoneCountry, normalizePhone } from "./staff/staffPhone";
 import StaffToolbar from "./staff/StaffToolbar";
@@ -270,7 +271,18 @@ function StaffRolePage({ role = "all" }) {
   const handlePhotoChange = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+      setSaveError("Фото: поддерживаются только jpg, png, webp.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setSaveError("Фото больше 5 МБ — выберите файл меньше.");
+      return;
+    }
+    setSaveError("");
+    // Сам файл держим в форме и загружаем при сохранении (нужен id
+    // сотрудника), а в form.photo кладём data-URL для мгновенного превью.
+    setForm((current) => ({ ...current, photoFile: file }));
     const reader = new FileReader();
     reader.onload = () => updateForm("photo", reader.result);
     reader.readAsDataURL(file);
@@ -357,12 +369,14 @@ function StaffRolePage({ role = "all" }) {
         mutationLocks.release("staff-save");
         return;
       }
-      if (needsBranch && !form.branchId) {
-        setSaveErrorField("branch");
-        setSaveError(`Выберите филиал для ${productGenitive} — без него вход в Marjon Staff не сработает.`);
-        mutationLocks.release("staff-save");
-        return;
-      }
+      // Поле «Филиал» из карточки убрано (по просьбе владельца). При этом
+      // Marjon Staff резолвит филиал сотрудника только из User.branch_id,
+      // поэтому: один филиал в сети — подставляем его сами; несколько —
+      // не блокируем сохранение (прежняя ошибка «выберите филиал» указывала
+      // на поле, которого больше нет). Привязку в мульти-сети решит
+      // отдельный сценарий «филиал как аккаунт».
+      const soleBranchId = branches.length === 1 ? String(branches[0].id) : "";
+      const resolvedBranchId = form.branchId || soleBranchId || null;
       if ((!editingId || form.password) && (form.password.length < 8 || !/[A-Za-z]/.test(form.password) || !/\d/.test(form.password))) {
         setSaveErrorField("password");
         setSaveError("Пароль должен содержать минимум 8 символов, букву и цифру.");
@@ -382,12 +396,16 @@ function StaffRolePage({ role = "all" }) {
       setSaveErrorField("");
       setSaving(true);
       try {
-        // printerIp and photo are visual-only in this phase: never sent.
-        // No email key is sent at all — backend persists email NULL.
         // Тумблеры владельца уходят словарём permissions (legacy-JSON):
         // десктопные гейты can()/must() читают их из /auth/me.
         // Курируемые manager/warehouse primary-тумблеров не имеют
-        // (только Статус) — ключ опускаем. Матрица остаётся frontend-only.
+        // (только Статус) — ключ опускаем.
+        //
+        // Тумблеры прав уходят в permissions и сохраняются в User.permissions
+        // (staffPermissionsPayload — тумблеры + матрица). Для PATCH берём вариант
+        // с наложением на уже прочитанные permissions: buildStaffPermissions
+        // сохраняет ключи, которых нет в форме, а payload собирает только
+        // включённое — иначе PATCH затирал бы чужие ключи.
         const rolePermissionFields = isWaiterView
           ? waiterSwitchFields
           : isMonoblockView
@@ -397,7 +415,24 @@ function StaffRolePage({ role = "all" }) {
               : cashierSwitchFields;
         const staffPermissions = buildStaffPermissions(form, rolePermissionFields);
         const permissionsPatch = staffPermissions ? { permissions: staffPermissions } : {};
+        // Фото больше не «только визуальное»: файл грузится отдельным
+        // эндпоинтом после сохранения (нужен id). Email по-прежнему
+        // не отправляем — бэкенд хранит NULL (контракт продукта).
         let confirmedUser;
+        // Фото грузим ПОСЛЕ сохранения: нужен id сотрудника. Ошибку загрузки
+        // не роняем в общий catch — карточка уже сохранена, поэтому пишем
+        // сообщение и оставляем прежний аватар.
+        const uploadPendingPhoto = async (user) => {
+          if (!form.photoFile) return user;
+          try {
+            const { data } = await staffService.uploadUserPhoto(user.id, form.photoFile);
+            return data;
+          } catch (err) {
+            console.error("Не удалось загрузить фото:", err?.response?.data?.detail || err?.message);
+            setSaveError("Сотрудник сохранён, но фото загрузить не удалось. Попробуйте ещё раз.");
+            return user;
+          }
+        };
         if (!editingId) {
           // Моноблок привязан к аккаунту владельца (company), branch_id не
           // шлём. Остальные роли ОБЯЗАНЫ его получить — Marjon Staff резолвит
@@ -408,12 +443,13 @@ function StaffRolePage({ role = "all" }) {
             phone: phone || null,
             role_slug: productRoleSlug,
             role_name: productName,
-            ...permissionsPatch,
             // Привязка принтера: null — печать на чековый принтер филиала.
             // manager/warehouse не имеют селектора принтера — ключ не шлём,
             // чтобы не сбросить чужую привязку пустым значением.
             ...(isManagerView || isWarehouseView ? {} : { printer_id: form.printerId || null }),
-            ...(needsBranch ? { branch_id: form.branchId || null } : {}),
+            // Тумблеры карточки + матрица доступов (User.permissions).
+            permissions: staffPermissionsPayload(form),
+            ...(needsBranch ? { branch_id: resolvedBranchId } : {}),
           };
           const { data: createdUser } = await staffService.createCompanyUser(createPayload);
           confirmedUser = createdUser;
@@ -427,6 +463,11 @@ function StaffRolePage({ role = "all" }) {
           if (!isMonoblockView && form.pin) {
             await staffService.updateUserPin(createdUser.id, form.pin);
           }
+          // Фото грузим от confirmedUser (после возможного deactivate), иначе
+          // результат PATCH is_active:false затирался ответом POST (is_active
+          // true) и только что созданный архивный сотрудник показывался
+          // активным в списке.
+          confirmedUser = await uploadPendingPhoto(confirmedUser);
         } else {
           const updatePayload = {
             name: productName,
@@ -434,14 +475,19 @@ function StaffRolePage({ role = "all" }) {
             phone: phone || null,
             role_slug: productRoleSlug,
             is_active: form.status !== "archived",
-            ...permissionsPatch,
             // Явный null — «снять привязку». Бэкенд отличает это от «поле не
             // прислали» через model_fields_set.
             // manager/warehouse не имеют селектора принтера — ключ не шлём,
             // чтобы не сбросить чужую привязку пустым значением.
             ...(isManagerView || isWarehouseView ? {} : { printer_id: form.printerId || null }),
+            // На PATCH — с наложением на уже прочитанные permissions
+            // (permissionsPatch), иначе сборка «только включённого» затрёт
+            // ключи, которых нет в текущей форме.
+            ...(permissionsPatch.permissions
+              ? permissionsPatch
+              : { permissions: staffPermissionsPayload(form) }),
             // Моноблок привязан к аккаунту владельца — филиал не трогаем.
-            ...(needsBranch ? { branch_id: form.branchId || null } : {}),
+            ...(needsBranch ? { branch_id: resolvedBranchId } : {}),
           };
           const { data: updatedUser } = await staffService.updateCompanyUser(editingId, updatePayload);
           confirmedUser = updatedUser;
@@ -449,6 +495,7 @@ function StaffRolePage({ role = "all" }) {
           if (!isMonoblockView && form.pin) {
             await staffService.updateUserPin(editingId, form.pin);
           }
+          confirmedUser = await uploadPendingPhoto(updatedUser);
         }
         setStaff((current) => {
           const mapped = mapStaffUser(confirmedUser);

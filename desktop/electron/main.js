@@ -1,13 +1,31 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, shell, session } = require('electron')
 const { join } = require('path')
 const net = require('net')
 const os = require('os')
 const http = require('http')
 const https = require('https')
-const crypto = require('crypto')
 const { WebSocketServer } = require('ws')
 
 const isDev = process.env.NODE_ENV === 'development' || !!process.env['ELECTRON_RENDERER_URL']
+
+// ── GPU в основном процессе (для VM / окружений без рабочего GPU) ────────────
+// В виртуализованных средах дочерний GPU-процесс падает с access violation
+// (0xC0000005) и Electron завершается с "GPU process isn't usable. Goodbye."
+// Флаг переносит GPU в основной процесс. Включается только по явной просьбе,
+// по умолчанию поведение не меняется.
+if (process.env.MARJON_IN_PROCESS_GPU === '1') {
+  app.commandLine.appendSwitch('in-process-gpu')
+  app.commandLine.appendSwitch('disable-gpu-compositing')
+}
+
+// ── Allow external CDP clients ────────────────────────────────────────────────
+// Newer Electron rejects WebSocket CDP connections whose Origin header is not
+// allowed. When MARJON_DEV_CDP_ALLOW=1, permit any origin so the local cdp-*
+// helper scripts can drive the renderer for diagnostics (screenshots, localStorage,
+// fetch). No effect on production builds.
+if (process.env.MARJON_DEV_CDP_ALLOW === '1') {
+  app.commandLine.appendSwitch('remote-allow-origins', '*')
+}
 
 // ── Single-instance lock ──────────────────────────────────────────────────────
 // В dev не завершаем процесс при отсутствии лока (electron-vite может перезапускать),
@@ -37,17 +55,12 @@ let allowCloseOnce = false
 //   - relays cloud kitchen events to connected mobile clients over WS
 //   - transparently proxies REST requests to the cloud API, so mobile devices
 //     on the LAN don't need direct internet access / cloud URL configuration
-//
-// Anyone on the LAN can otherwise reach this port, so every request/connection
-// must present the pairing token shown in the desktop UI (LocalWsBadge) — the
-// restaurant owner types it into the mobile app's "local desktop" settings once.
 
 const LOCAL_WS_PORT = 8765
 let localHttpServer = null
 let localWsServer = null
 const localClients = new Set()
 let cloudServerUrl = null // e.g. "http://api.marjon.uz/api/v1", set via IPC from renderer
-const pairingToken = crypto.randomBytes(16).toString('hex')
 
 function getLocalIp() {
   for (const iface of Object.values(os.networkInterfaces())) {
@@ -58,18 +71,7 @@ function getLocalIp() {
   return '127.0.0.1'
 }
 
-function tokenFromRequest(req, requestUrl) {
-  return req.headers['x-local-token'] || requestUrl.searchParams.get('token')
-}
-
 function proxyToCloud(req, res) {
-  const requestUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
-  if (tokenFromRequest(req, requestUrl) !== pairingToken) {
-    res.writeHead(401, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ detail: 'Desktop proxy: invalid pairing token' }));
-    return;
-  }
-
   if (!cloudServerUrl) {
     res.writeHead(503, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ detail: 'Desktop proxy: cloud server not configured' }));
@@ -77,7 +79,7 @@ function proxyToCloud(req, res) {
   }
 
   const origin = cloudServerUrl.replace(/\/api\/v1\/?$/, '');
-  const target = new URL(origin + requestUrl.pathname + requestUrl.search.replace(/[?&]token=[^&]*/, ''));
+  const target = new URL(origin + req.url);
   const client = target.protocol === 'https:' ? https : http;
 
   const upstream = client.request(target, {
@@ -97,16 +99,10 @@ function proxyToCloud(req, res) {
 }
 
 function startLocalWsServer() {
-  if (localHttpServer) return { ip: getLocalIp(), port: LOCAL_WS_PORT, token: pairingToken }
+  if (localHttpServer) return { ip: getLocalIp(), port: LOCAL_WS_PORT }
 
   localHttpServer = http.createServer(proxyToCloud)
-  localWsServer = new WebSocketServer({
-    server: localHttpServer,
-    verifyClient: ({ req }) => {
-      const requestUrl = new URL(req.url, 'http://localhost')
-      return requestUrl.searchParams.get('token') === pairingToken
-    },
-  })
+  localWsServer = new WebSocketServer({ server: localHttpServer })
 
   localWsServer.on('connection', (ws) => {
     localClients.add(ws)
@@ -119,8 +115,8 @@ function startLocalWsServer() {
   })
 
   localHttpServer.listen(LOCAL_WS_PORT)
-  console.log(`[LocalWS] Listening on ws://${getLocalIp()}:${LOCAL_WS_PORT} (+ REST proxy), pairing token required`)
-  return { ip: getLocalIp(), port: LOCAL_WS_PORT, token: pairingToken }
+  console.log(`[LocalWS] Listening on ws://${getLocalIp()}:${LOCAL_WS_PORT} (+ REST proxy)`)
+  return { ip: getLocalIp(), port: LOCAL_WS_PORT }
 }
 
 function stopLocalWsServer() {
@@ -140,18 +136,41 @@ function broadcastLocal(event, data) {
 
 // ── Printer TCP helpers ───────────────────────────────────────────────────────
 
+// PRINT-QUEUE-01: дешёвые ESC/POS-принтеры не держат несколько параллельных
+// соединений — при быстрых кликах «Печать чека» открывалось несколько сокетов
+// сразу, часть из них принтер молча проглатывал. Все задания идут строго
+// по одному: следующее стартует после закрытия предыдущего.
+let printChain = Promise.resolve()
+function enqueuePrint(task) {
+  const run = printChain.then(task, task)
+  printChain = run.then(() => undefined, () => undefined)
+  return run
+}
+
 function printRaw(ip, port, data, timeout = 5000) {
   return new Promise((resolve, reject) => {
+    let settled = false
+    const finish = (err) => {
+      if (settled) return
+      settled = true
+      try { socket.setTimeout(0) } catch (_) {}
+      try { socket.destroy() } catch (_) {}
+      if (err) reject(err)
+      else resolve()
+    }
     const socket = net.createConnection(port, ip, () => {
       socket.write(data, (err) => {
+        if (err) return finish(new Error(`Write error: ${err.message}`))
+        // end() + 'finish' = байты реально отданы в ОС. Раньше сокет рвался
+        // прямо в колбэке write(), и на медленном принтере чек обрезался.
         socket.end()
-        if (err) reject(new Error(`Write error: ${err.message}`))
-        else resolve()
       })
     })
     socket.setTimeout(timeout)
-    socket.on('timeout', () => { socket.destroy(); reject(new Error(`Timeout ${ip}:${port}`)) })
-    socket.on('error', (err) => reject(new Error(`${ip}:${port} — ${err.message}`)))
+    socket.on('finish', () => finish())
+    socket.on('close', () => finish())
+    socket.on('timeout', () => finish(new Error(`Timeout ${ip}:${port}`)))
+    socket.on('error', (err) => finish(new Error(`${ip}:${port} — ${err.message}`)))
   })
 }
 
@@ -213,9 +232,62 @@ function createWindow() {
   }
 }
 
+// ── Dev CORS rewrite ─────────────────────────────────────────────────────────
+// Бэкенд api.marjon.tech держит в CORS-whitelist единственный origin
+// https://marjon.tech. Рендерер в dev-режиме живёт на http://localhost:5174,
+// поэтому браузер отбрасывает ответы ("Disallowed CORS origin"), и подключиться
+// к бэкенду по прямому адресу невозможно — даже если адрес введён верно.
+//
+// Здесь на уровне сессии исходящий Origin подменяется на разрешённый, а в ответ
+// возвращается настоящий origin рендерера. Включается только переменной
+// окружения MARJON_DEV_CORS_REWRITE=1 и только для dev. В проде не применяется.
+function installDevCorsRewrite() {
+  const TARGET = 'api.marjon.tech'
+  const ALLOWED_ORIGIN = 'https://marjon.tech'
+  const rendererOrigin = (() => {
+    try {
+      return new URL(process.env['ELECTRON_RENDERER_URL'] || 'http://localhost:5174').origin
+    } catch {
+      return 'http://localhost:5174'
+    }
+  })()
+
+  const ses = session.defaultSession
+
+  ses.webRequest.onBeforeSendHeaders((details, callback) => {
+    const headers = { ...details.requestHeaders }
+    if (details.url.includes(TARGET)) {
+      // Убираем все варианты написания, чтобы не получить дубль заголовка
+      for (const key of Object.keys(headers)) {
+        if (key.toLowerCase() === 'origin') delete headers[key]
+      }
+      headers['Origin'] = ALLOWED_ORIGIN
+    }
+    callback({ requestHeaders: headers })
+  })
+
+  ses.webRequest.onHeadersReceived((details, callback) => {
+    const headers = { ...details.responseHeaders }
+    if (!details.url.includes(TARGET)) return callback({ responseHeaders: headers })
+    for (const key of Object.keys(headers)) {
+      const k = key.toLowerCase()
+      if (k === 'access-control-allow-origin' || k === 'access-control-allow-credentials') {
+        delete headers[key]
+      }
+    }
+    headers['Access-Control-Allow-Origin'] = [rendererOrigin]
+    headers['Access-Control-Allow-Credentials'] = ['true']
+    callback({ responseHeaders: headers })
+  })
+}
+
 app.whenReady().then(() => {
   // Start local WS server immediately so mobile devices can connect
   startLocalWsServer()
+
+  // Dev-only: разрешить рендереру ходить в бэкенд, которого нет в его CORS-whitelist
+  if (process.env.MARJON_DEV_CORS_REWRITE === '1') installDevCorsRewrite()
+
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -331,9 +403,13 @@ ipcMain.handle('app:setAutoLaunch', (_event, enabled) => {
 
 ipcMain.handle('printer:print', async (_event, { ip, port, payloadBase64, copies = 1 }) => {
   const raw = Buffer.from(payloadBase64, 'base64')
-  for (let i = 0; i < copies; i++) {
-    await printRaw(ip, port ?? 9100, raw)
-  }
+  // Очередь: параллельные вызовы (быстрые клики, WS-задание + ручная печать)
+  // не должны открывать несколько сокетов к одному принтеру одновременно.
+  return enqueuePrint(async () => {
+    for (let i = 0; i < copies; i++) {
+      await printRaw(ip, port ?? 9100, raw)
+    }
+  })
 })
 
 ipcMain.handle('printer:ping', async (_event, { ip, port }) => {
@@ -345,7 +421,6 @@ ipcMain.handle('printer:ping', async (_event, { ip, port }) => {
 ipcMain.handle('localws:info', () => ({
   ip: getLocalIp(),
   port: LOCAL_WS_PORT,
-  token: pairingToken,
   clients: localClients.size,
   running: localWsServer !== null,
 }))

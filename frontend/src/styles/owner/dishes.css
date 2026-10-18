@@ -2911,11 +2911,11 @@
    иначе список в диалоге голый и НЕ закрывается (нет panel-out анимации,
    onAnimationEnd не стреляет, панель висит в is-closing).
    reports.css не полнится dish-селекторами, react-overrides не тронут. */
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select {
   position: relative;
   display: block;
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__trigger {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__trigger {
   width: 100%;
   min-height: 43px;
   display: inline-flex;
@@ -2936,43 +2936,43 @@
   cursor: pointer;
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__trigger.is-placeholder {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__trigger.is-placeholder {
   color: var(--neutral-400, #7a94b4);
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__trigger:hover:not(:disabled) {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__trigger:hover:not(:disabled) {
   border-color: rgba(31, 201, 201, 0.55);
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__trigger:focus-visible,
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__trigger[aria-expanded="true"] {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__trigger:focus-visible,
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__trigger[aria-expanded="true"] {
   border-color: var(--owner-accent, #1fc9c9);
   box-shadow: 0 0 0 3px rgba(31, 201, 201, 0.18);
   outline: none;
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__trigger:disabled {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__trigger:disabled {
   cursor: not-allowed;
   border-color: rgba(15, 35, 60, 0.11);
   background: var(--owner-control-disabled, #eff2f9);
   color: var(--neutral-500, #64748b);
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__value {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__value {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__chevron {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__chevron {
   display: inline-grid;
   place-items: center;
   color: var(--neutral-500, #94a3b8);
   flex: 0 0 auto;
   transition: transform 170ms cubic-bezier(0.22, 1, 0.36, 1), color 140ms ease;
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select.is-open .orders-filter-select__chevron {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select.is-open .orders-filter-select__chevron {
   transform: rotate(180deg);
   color: var(--owner-accent, #1fc9c9);
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__panel {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__panel {
   position: absolute;
   z-index: 60;
   top: calc(100% + 6px);
@@ -2987,11 +2987,11 @@
   transform-origin: top center;
   animation: owner-report-panel-in 170ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__panel.is-closing {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__panel.is-closing {
   pointer-events: none;
   animation: owner-report-panel-out 170ms cubic-bezier(0.64, 0, 0.78, 0) both;
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__panel .orders-filter-select__menu {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__panel .orders-filter-select__menu {
   position: static;
   z-index: auto;
   max-height: 232px;
@@ -3005,7 +3005,7 @@
   box-shadow: none;
   animation: none;
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__option {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__option {
   width: 100%;
   min-height: 38px;
   display: flex;
@@ -3023,18 +3023,18 @@
   text-align: left;
   cursor: pointer;
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__option:hover,
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__option.is-active {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__option:hover,
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__option.is-active {
   background: rgba(31, 201, 201, 0.1);
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__option.is-selected {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__option.is-selected {
   color: var(--owner-accent-hover, #1bb1b1);
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__option:focus-visible {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__option:focus-visible {
   outline: 2px solid rgba(31, 201, 201, 0.5);
   outline-offset: -2px;
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__option-label {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__option-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3042,12 +3042,12 @@
 /* Inline-создание справочника из селекта (Категория / Поставщик):
    строка "+ Новая" — обычный ряд списка, форма — инпут + две кнопки
    в стиле дровера (teal submit / белая отмена), без браузерного gray. */
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-form {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__create-form {
   display: grid;
   gap: 8px;
   padding: 8px 10px;
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-input {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__create-input {
   min-height: 38px;
   width: 100%;
   padding: 0 10px;
@@ -3059,21 +3059,21 @@
   font-size: 13px;
   outline: none;
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-input:focus {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__create-input:focus {
   border-color: var(--owner-accent, #1fc9c9);
   box-shadow: 0 0 0 3px rgba(31, 201, 201, 0.18);
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-input:disabled {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__create-input:disabled {
   background: var(--owner-control-disabled, #eff2f9);
   color: var(--neutral-500, #64748b);
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-actions {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__create-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-submit,
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-cancel {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__create-submit,
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__create-cancel {
   min-height: 36px;
   display: inline-flex;
   align-items: center;
@@ -3086,30 +3086,30 @@
   cursor: pointer;
   transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-submit {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__create-submit {
   border: 0;
   background: var(--owner-accent, #1fc9c9);
   color: #fff;
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-submit:hover:not(:disabled) {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__create-submit:hover:not(:disabled) {
   background: var(--owner-accent-hover, #1bb1b1);
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-cancel {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__create-cancel {
   border: 1px solid rgba(15, 35, 60, 0.14);
   background: #fff;
   color: var(--neutral-700, #334155);
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-cancel:hover:not(:disabled) {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__create-cancel:hover:not(:disabled) {
   border-color: rgba(31, 201, 201, 0.55);
   color: var(--owner-accent-hover, #1bb1b1);
 }
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-submit:disabled,
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__create-cancel:disabled {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__create-submit:disabled,
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__create-cancel:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 @media (prefers-reduced-motion: reduce) {
-  :is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__panel {
+  :is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__panel {
     animation-duration: 0.01ms;
   }
 }
@@ -3118,13 +3118,13 @@
    окно диалога несёт вечный motion-transform + overflow, inline-панель режется.
    Панель остаётся в DOM (scoped-стили действуют), но уходит из потока формы:
    fixed от окна диалога (containing block), top/left/width — inline. */
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__panel.is-detached {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__panel.is-detached {
   position: fixed;
   right: auto;
   z-index: 60;
 }
 /* Откреплённое меню: видны ~9 позиций (9×38+12), дальше — скролл. */
-:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog) .orders-filter-select__panel.is-detached .orders-filter-select__menu {
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__panel.is-detached .orders-filter-select__menu {
   max-height: min(354px, calc(100dvh - 48px));
 }
 

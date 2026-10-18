@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, ArrowLeft, Printer, Banknote, CreditCard, CheckCircle, Percent, User, Clock, Plus, Phone, MapPin } from 'lucide-react'
+import { X, ArrowLeft, Printer, Banknote, CreditCard, CheckCircle, Percent, User, Clock, Plus, Phone, MapPin, Ban } from 'lucide-react'
 import { t } from '../shared/i18n'
 import { formatPhone, extractPhoneDigits, fullPhone } from '../shared/phone'
 import { formatQty } from '../shared/qty'
@@ -149,6 +149,11 @@ export default function PaymentModal({ order, onPrint, onComplete, onCancel, onR
     if (!onRemoveItems || selectedItemIds.size === 0) return
     onRemoveItems(order, [...selectedItemIds], stopSelecting)
   }
+  // Отмена одного блюда сразу — без мультивыбора, с причиной
+  function cancelOneItem(it) {
+    if (!onRemoveItems) return
+    onRemoveItems(order, [it.id], () => {})
+  }
   const spin = <span className="btn-spinner" aria-hidden="true" />
 
   // fullscreen — заход в стол на кассе открывает ЭКРАН, а не модалку поверх пола.
@@ -245,6 +250,13 @@ export default function PaymentModal({ order, onPrint, onComplete, onCancel, onR
                       )}
                     </span>
                     <span className="pay-order__sum">{fmt(it.total ?? (Number(it.price) * Number(it.quantity)))} {t('currency')}</span>
+                    {/* Отмена ОДНОГО блюда — сразу, без мультивыбора. Держим на первой
+                        строке у правого края (до блока официанта, который тянется на всю ширину). */}
+                    {onRemoveItems && !selectingItems && (
+                      <button type="button" className="btn btn--outline btn--sm pay-order__cancel-one" onClick={() => cancelOneItem(it)} title={t('cancel_selected_dishes')}>
+                        <Ban size={16} />
+                      </button>
+                    )}
                     {/* Кассир правит ответственного официанта у конкретного блюда (доля обслуги идёт по нему).
                         Своей строкой на всю ширину — внутри .pay-order__name список обрезался бы overflow. */}
                     {onSetItemWaiter && staff.length > 0 && !selectingItems && (

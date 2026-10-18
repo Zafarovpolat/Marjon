@@ -133,25 +133,20 @@ class PrintJobRequest(BaseSchema):
     copies: int = 1
 
 
-class PrintSummaryRequest(BaseSchema):
-    """Summary receipt from History/Reports: free-form lines."""
-    printer_id: UUID
-    title: str
-    lines: list[str] = Field(default_factory=list)
-    footer: str | None = None
-    copies: int = 1
-
-
 class PrintReceiptRequest(BaseSchema):
     order_id: UUID
     printer_id: UUID
     copies: int = 1
+    # PRINT-LAT-02: True → сразу в очередь терминала по WS, без попытки печати
+    # с сервера (иначе каждый чек ждёт SERVER_PRINT_TIMEOUT секунд).
+    local_print: bool = False
 
 
 class PrintKitchenRequest(BaseSchema):
     order_id: UUID
     printer_id: UUID
     copies: int = 1
+    local_print: bool = False
 
 
 class PrintSummaryRequest(BaseSchema):
@@ -170,6 +165,9 @@ class PrintSummaryRequest(BaseSchema):
     lines: list[str] = Field(default_factory=list, max_length=200)
     footer: str | None = Field(default=None, max_length=200)
     copies: int = Field(default=1, ge=1, le=5)
+    # PRINT-LAT-02: терминал (десктоп) печатает сам, поэтому сервер не должен
+    # тратить время на попытку дозвониться до принтера в чужой сети.
+    local_print: bool = False
 
 
 class PrintJobResponse(BaseResponseSchema):

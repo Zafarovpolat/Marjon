@@ -27,7 +27,7 @@ from app.shared.base_model import Base
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 VERSIONS_DIR = BACKEND_ROOT / "migrations" / "versions"
-EXPECTED_HEAD = "mg01merge"
+EXPECTED_HEAD = "mg02merge"
 # Считается по статическому списку _COLUMNS в файлах миграций *bi02* (см.
 # _bi02_nullable_columns), а не по текущей схеме — новые миграции его не меняют.
 EXPECTED_NULLABLE_COLUMN_COUNT = 262
@@ -169,7 +169,7 @@ def test_revision_graph_is_complete_and_has_one_head() -> None:
     # nullability), br01login (branches.login/password_hash),
     # att01status (attendance_logs: status/approved_by/approved_at).
     # mg01merge сводит обе линии (att01status + emp01printer) в один head.
-    assert len(revisions) == 87
+    assert len(revisions) == 89
 
     nullable_columns = _bi02_nullable_columns()
     assert len(nullable_columns) == EXPECTED_NULLABLE_COLUMN_COUNT

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { X, BarChart3, Printer } from 'lucide-react'
 import { reports, printers as printersApi } from '../shared/api'
+import { pickReceiptPrinter } from '../shared/printers'
 import { t } from '../shared/i18n'
 import CalendarField from './CalendarField'
 import CustomSelect from './CustomSelect'
@@ -73,9 +74,9 @@ export default function ReportsPanel({ branch, user, onClose }) {
   const [receiptPrinter, setReceiptPrinter] = useState(null)
   useEffect(() => {
     printersApi.list()
-      .then((list) => setReceiptPrinter((Array.isArray(list) ? list : []).find((p) => p.printer_type === 'receipt' && p.branch_id === branch?.id) || null))
+      .then((list) => setReceiptPrinter(pickReceiptPrinter(list, { printerId: user?.printer_id, branchId: branch?.id })))
       .catch(() => setReceiptPrinter(null))
-  }, [branch?.id])
+  }, [branch?.id, user?.printer_id])
 
   const run = useCallback((which) => {
     const active = which || tab

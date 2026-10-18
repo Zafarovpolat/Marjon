@@ -3,6 +3,7 @@ import Icon from "../../components/Icon";
 import Toast from "../../components/Toast";
 import { createPortal } from "react-dom";
 import staffDefaultAvatar from "../../assets/staff/staff-default-avatar.png";
+import DishSingleSelect from "../nomenclature/DishSingleSelect";
 import {
   roleOptions,
   staffAccessModules,
@@ -20,10 +21,9 @@ import {
   phoneCountryMap,
 } from "./staffPhone";
 
-// Кастомный дропдаун выбора филиала для моноблок-drawer. Заменяет нативный
-// <select>, повторяя визуал полей формы и паттерн меню телефонного кода
-// (клик-вне и Escape закрывают). Филиалы приходят с бэкенда пропсом `branches`
-// ({ id, name }); пустое значение "" = «Не привязан».
+// Кастомный дропдаун (принтер/филиал). Заменяет нативный <select>, повторяя
+// визуал полей формы и паттерн меню телефонного кода (клик-вне и Escape
+// закрывают). options — [{ id, name }]; пустое значение "" = «по умолчанию».
 function StaffSelect({ value, options = [], onChange, placeholder = "" }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
@@ -89,19 +89,9 @@ function StaffSelect({ value, options = [], onChange, placeholder = "" }) {
   );
 }
 
-// Филиал. «Не привязан» — полноценный первый пункт списка, а не
-// плейсхолдер, поэтому он входит в options.
-function BranchSelect({ value, branches, onChange }) {
-  return (
-    <StaffSelect
-      value={value}
-      onChange={onChange}
-      placeholder="Не привязан"
-      options={[{ id: "", name: "Не привязан" }, ...branches]}
-    />
-  );
-}
-
+// BranchSelect удалён в прод-линии: селектор филиала больше не рендерится
+// в модалке (филиал резолвится на странице). StaffSelect остаётся — на нём
+// построен селектор принтера в карточке сотрудника.
 // Модальное окно создания/редактирования сотрудника OWNER.
 // Вынесено из StaffRolePage.jsx (FE-07B). Разметка, классы, текст и мёртвый
 // блок `{false && ...}` сохранены 1:1; форма и обработчики (включая блокировку
@@ -127,9 +117,8 @@ export default function StaffFormModal({
   isWaiter = false,
   // MONOBLOCK-01: monoblock reuses the same product drawer shell.
   isMonoblock = false,
-  // Сеть → филиал: список филиалов для селектора привязки моноблока. Пусто у
-  // остальных ролей (селектор рендерится только в моноблок-drawer).
-  branches = [],
+  // Сеть → филиал: селектор филиала убран из модалки (прод-линия) — филиал
+  // резолвится на странице (form.branchId || единственный филиал компании).
   // Принтеры компании (GET /printers) для селектора привязки принтера к
   // сотруднику. Пустой список — селект покажет только «как у филиала».
   printers = [],
@@ -249,10 +238,9 @@ export default function StaffFormModal({
               <Icon name="bi-x-lg" size={20} />
             </button>
           </div>
-          {/* MANAGER-STOREKEEPER-01: staff photo upload is backend-unsupported
-              (only self-photo exists). Manager/warehouse drawers show the
-              truthful placeholder/avatar with no upload control, so no fake
-              persistence is implied. Payload never carries photo. */}
+          {/* Фото сотрудника: файл грузится в POST /auth/users/{id}/photo
+              после сохранения карточки, в ответ приходит avatar_url — он же
+              показывается в списке и в карточке (form.photo). */}
           <div className="cashier-photo">
             <div className="staff-avatar staff-avatar--large">
               {form.photo ? (
@@ -263,13 +251,14 @@ export default function StaffFormModal({
             </div>
             <div className="cashier-photo__body">
               <span>Фото</span>
-              {isCuratedView ? null : (
+              {/* Загрузка доступна всем ролям: бэкенд теперь принимает фото
+                  сотрудника (POST /auth/users/{id}/photo), раньше кнопка была
+                  скрыта у менеджера/завсклада как «не поддерживается». */}
               <label className="cashier-photo__upload">
                 <Icon name="bi-camera" size={16} />
                 Загрузить фото
                 <input type="file" accept="image/*" onChange={handlePhotoChange} aria-label="Загрузить фото" />
               </label>
-              )}
             </div>
           </div>
 
@@ -391,38 +380,31 @@ export default function StaffFormModal({
                     <small className="muted">Оставьте пустым, чтобы не менять PIN.</small>
                   ) : null}
                 </label>
-                <label>
-                  {/* Marjon Staff резолвит филиал сотрудника только из
-                      User.branch_id — без выбора здесь вход в приложение
-                      падает с "Ваш аккаунт не привязан к филиалу". */}
-                  <span>Филиал *</span>
-                  <BranchSelect
-                    value={form.branchId}
-                    branches={branches}
-                    onChange={(id) => updateForm("branchId", id)}
-                  />
-                  {saveErrorField === "branch" && saveError ? (
-                    <small className="staff-field-error" role="alert">{saveError}</small>
-                  ) : null}
-                </label>
+                {/* Поле «Филиал» убрано по просьбе владельца: сотрудника
+                    больше не привязывают к филиалу вручную из карточки.
+                    Привязка (User.branch_id) по-прежнему уходит в API —
+                    единственный филиал сети подставляется автоматически,
+                    у существующих сотрудников значение сохраняется. */}
               </>
             ) : null}
             {isCuratedView ? null : (
             <label>
               <span>Принтер</span>
-              <StaffSelect
+              {/* 1:1 с полем «Принтер» в форме блюда (Номенклатура → Блюда):
+                  тот же контрол DishSingleSelect, без пункта «Как у филиала» —
+                  в списке только реально добавленные принтеры. Повторный клик
+                  по выбранному пункту снимает выбор (как в форме блюда). */}
+              <DishSingleSelect
+                label="Принтер"
+                placeholder="Принтер"
                 value={form.printerId || ""}
                 onChange={(next) => updateForm("printerId", next)}
-                placeholder="Как у филиала"
-                options={[
-                  { id: "", name: "Как у филиала (по умолчанию)" },
-                  ...printers.map((printer) => ({
-                    id: printer.id,
-                    name: printer.ip_address
-                      ? `${printer.name} — ${printer.ip_address}`
-                      : printer.name,
-                  })),
-                ]}
+                options={printers.map((printer) => ({
+                  value: printer.id,
+                  label: printer.is_active === false ? `${printer.name} (не активен)` : printer.name,
+                }))}
+                disabled={!printers.length}
+                disabledLabel="Принтеры недоступны"
               />
             </label>
             )}

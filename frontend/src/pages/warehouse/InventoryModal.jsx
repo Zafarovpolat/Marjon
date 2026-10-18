@@ -16,11 +16,21 @@ import Toast from "../../components/Toast";
 // всегда включён — переключателя нет).
 const INV_MODAL_EXIT_MS = 160;
 
+// Факт может быть отрицательным: минус на складе — легальное состояние
+// (продали/списали больше, чем числилось, долг поставщику). Раньше здесь
+// стояло `value >= 0`, поэтому введённое «-3» молча превращалось в null,
+// позиция выпадала из отправки, и сохранение падало с «Введите фактическое
+// количество хотя бы для одной позиции» — хотя число было введено.
+// Юникодные минусы (−, –, —) с клавиатур iOS/macOS и копипаста тоже
+// приводим к ASCII, иначе Number() даёт NaN.
 function parseQty(raw) {
-  const text = String(raw ?? "").replace(/[\s\u00a0\u202f]/g, "").replace(",", ".");
-  if (text === "") return null;
+  const text = String(raw ?? "")
+    .replace(/[\s\u00a0\u202f]/g, "")
+    .replace(/[\u2212\u2013\u2014]/g, "-")
+    .replace(",", ".");
+  if (text === "" || text === "-" || text === "." || text === "-.") return null;
   const value = Number(text);
-  return Number.isFinite(value) && value >= 0 ? value : null;
+  return Number.isFinite(value) ? value : null;
 }
 
 function formatNum(value) {

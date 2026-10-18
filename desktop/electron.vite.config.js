@@ -24,7 +24,38 @@ export default defineConfig({
     // рендерер тоже на 5173, и в режиме «фронт + десктоп» два Vite-сервера
     // дрались за порт (второй молча уезжал на 5174 — недетерминированно).
     // strictPort фиксирует 5174 и падает явно при реальном конфликте.
-    server: { port: 5174, strictPort: true },
+    server: {
+      port: 5174,
+      strictPort: true,
+      // ── Dev-прокси на удалённый бэкенд ──────────────────────────────────────
+      // api.marjon.tech в CORS-whitelist держит только https://marjon.tech,
+      // поэтому прямые запросы из рендерера (origin http://localhost:5174)
+      // получают "Disallowed CORS origin". Прокси переносит запрос на сервер
+      // same-origin, и браузерный CORS в этом сценарии не участвует.
+      // Только для `npm run dev` — на production-сборку не влияет.
+      // Адрес сервера в приложении: http://localhost:5174/api/v1
+      proxy: {
+        '/api': {
+          target: 'https://api.marjon.tech',
+          changeOrigin: true,
+          secure: true,
+          headers: { Origin: 'https://marjon.tech' },
+        },
+        '/ws': {
+          target: 'wss://api.marjon.tech',
+          changeOrigin: true,
+          secure: true,
+          ws: true,
+          headers: { Origin: 'https://marjon.tech' },
+        },
+        '/health': {
+          target: 'https://api.marjon.tech',
+          changeOrigin: true,
+          secure: true,
+          headers: { Origin: 'https://marjon.tech' },
+        },
+      },
+    },
     plugins: [react()],
     build: {
       rollupOptions: {

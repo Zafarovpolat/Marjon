@@ -58,13 +58,12 @@ function mockGet(staff = [waiterUser, cashierUser], printers = []) {
 
 // Выбор филиала в продуктовом drawer: кнопка-селект внутри поля «Филиал *»
 // раскрывает список, пункт — обычная кнопка с role="option".
-function pickBranch(dialog, name = "Филиал №1") {
-  const field = [...dialog.querySelectorAll("label")].find((label) =>
-    label.textContent.trim().startsWith("Филиал"),
-  );
-  fireEvent.click(field.querySelector(".staff-select__button"));
-  fireEvent.click(within(field).getByRole("option", { name }));
-}
+// Поле «Филиал» убрано из карточки сотрудника (прод-линия): филиал
+// резолвится на странице автоматически (единственный филиал компании либо
+// сохранённый User.branch_id). Выбор в диалоге больше не нужен — helper
+// оставлен no-op, чтобы не переписывать десятки сценариев.
+// eslint-disable-next-line no-unused-vars
+function pickBranch(dialog, name = "Филиал №1") {}
 
 const EXPECTED_WAITER_SWITCHES = [
   "Статус",
@@ -285,8 +284,10 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
       phone: "998901112233",
       role_slug: "waiter",
       role_name: "Waiter Two",
+      // create всегда шлёт permissions (тумблеры + матрица); пустой — {}
+      permissions: {},
       printer_id: null,
-      branch_id: "branch-1",
+      branch_id: null,
     });
     const sent = api.post.mock.calls[0][1];
     expect(sent).not.toHaveProperty("email");
@@ -330,9 +331,11 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
       phone: "998901112233",
       role_slug: "waiter",
       role_name: "Waiter Two",
-      permissions: { can_delete_dishes: true, can_manage_orders: true },
+      // Ключи camelCase: create собирает staffPermissionsPayload (тумблеры
+      // формы как есть), десктоп нормализует их через toSnake.
+      permissions: { canDeleteDishes: true, canManageOrders: true },
       printer_id: null,
-      branch_id: "branch-1",
+      branch_id: null,
     });
     expect(alertSpy).not.toHaveBeenCalled();
   });
@@ -693,8 +696,9 @@ describe("waiter field validation matrix (name/phone/password/printer IP)", () =
   it("chosen printer is sent as printer_id", async () => {
     mockPrinters();
     const dialog = await openAddAndFill({});
-    // Кнопка-селект лежит внутри <label>, поэтому её доступное имя — «Принтер».
-    fireEvent.click(within(dialog).getByRole("button", { name: "Принтер" }));
+    // Поле принтера переиспользует DishSingleSelect (как в форме блюда):
+    // триггер — combobox с aria-label, а не кнопка внутри <label>.
+    fireEvent.click(within(dialog).getByRole("combobox", { name: "Принтер" }));
     fireEvent.click(within(dialog).getByRole("option", { name: /Kitchen/ }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await waitFor(() => expect(api.post).toHaveBeenCalled());

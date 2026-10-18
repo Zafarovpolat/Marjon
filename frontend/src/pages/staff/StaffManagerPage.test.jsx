@@ -56,13 +56,12 @@ function mockGet(staff = [managerUser, cashierUser], printers = []) {
 
 // Кнопка-селект лежит внутри <label>, поэтому её доступное имя — текст поля
 // («Филиал *»); пункт списка — кнопка с role="option".
-function pickBranch(dialog, name = "Филиал №1") {
-  const field = [...dialog.querySelectorAll("label")].find((label) =>
-    label.textContent.trim().startsWith("Филиал"),
-  );
-  fireEvent.click(field.querySelector(".staff-select__button"));
-  fireEvent.click(within(field).getByRole("option", { name }));
-}
+// Поле «Филиал» убрано из карточки сотрудника (прод-линия): филиал
+// резолвится на странице автоматически (единственный филиал компании либо
+// сохранённый User.branch_id). Выбор в диалоге больше не нужен — helper
+// оставлен no-op, чтобы не переписывать десятки сценариев.
+// eslint-disable-next-line no-unused-vars
+function pickBranch(dialog, name = "Филиал №1") {}
 
 // Строка матрицы прав по названию модуля (быстрее role-запроса по drawer’у).
 function accessRow(dialog, label) {
@@ -243,8 +242,10 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     expect(dialog.classList.contains("staff-modal--cashier-full")).toBe(true);
     expect(dialog.parentElement).toBe(document.body);
     expect(within(dialog).getByText("Добавить менеджера")).toBeInTheDocument();
-    expect(within(dialog).queryByText("Загрузить фото")).toBeNull();
-    expect(dialog.querySelector('input[type="file"]')).toBeNull();
+    // Фото доступно всем ролям с 21-го мерджа: бэкенд принимает
+    // POST /auth/users/{id}/photo и для менеджера/завсклада.
+    expect(within(dialog).getByText("Загрузить фото")).toBeInTheDocument();
+    expect(dialog.querySelector('input[type="file"]')).not.toBeNull();
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
     expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
     expect(within(dialog).getByText("Пароль")).toBeInTheDocument();
@@ -446,7 +447,8 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     });
     // PIN обязателен при создании (ba0c267): без него POST не уходит.
     fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
-    // Interact with the frontend-only matrix: must never reach the backend.
+    // Interact with the matrix: включённый модуль едет в permissions.modules,
+    // но НЕ протекает на верхний уровень payload (дифф 21-го мерджа).
     fireEvent.click(within(dialog).getByRole("button", { name: "Главная" }));
     pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
@@ -456,7 +458,8 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
       phone: "998901112233",
       role_slug: "manager",
       role_name: "Manager Two",
-      branch_id: "branch-1",
+      branch_id: null,
+      permissions: { modules: { home: { enabled: true } } },
     });
     const sent = api.post.mock.calls[0][1];
     for (const key of [
@@ -467,7 +470,6 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
       "printerIp",
       "printer_ip",
       "printer_id",
-      "permissions",
       "permission_ids",
       "staffAccess",
       "access",
@@ -676,15 +678,23 @@ describe("manager secondary action toggles (parity with cashier/waiter matrix) �
     pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await screen.findByText("Manager Two");
+    // Матрица теперь сохраняется (perms.modules, см. staffPermissionsPayload):
+    // карточка открывается в том состоянии, в котором её оставил владелец,
+    // поэтому включённый модуль и его вторичные действия едут в payload.
     expect(api.post).toHaveBeenCalledWith("/auth/users", {
       password: "Manager123",
       phone: "998901112233",
       role_slug: "manager",
       role_name: "Manager Two",
-      branch_id: "branch-1",
+      branch_id: null,
+      permissions: {
+        modules: { orders_report: { enabled: true, create: true, delete: true } },
+      },
     });
     const sent = api.post.mock.calls[0][1];
-    for (const key of ["access", "permissions", "permission_ids", "staffAccess", "create", "read", "update", "delete"]) {
+    // Никаких плоских ключей матрицы на верхнем уровне payload: единственный
+    // носитель — permissions.modules.
+    for (const key of ["access", "permission_ids", "staffAccess", "create", "read", "update", "delete"]) {
       expect(sent).not.toHaveProperty(key);
     }
   });

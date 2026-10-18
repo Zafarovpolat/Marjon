@@ -6,7 +6,10 @@ import {
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi, printers as printersApi, customers as customersApi, auth as authApi, finance as financeApi, companies as companiesApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
+// PRINT-LAT-01: печать + дедупликация + опрос очереди (наш путь доставки).
+// printers.js — выбор принтера (сотрудник → филиал) из прод-линии.
 import { printJob, startPrintPoller } from '../../shared/printJobs'
+import { pickReceiptPrinter } from '../../shared/printers'
 import DishModal from '../../components/DishModal'
 import FinancePanel from '../../components/FinancePanel'
 import HistoryPanel from '../../components/HistoryPanel'
@@ -146,6 +149,9 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     return onPrintJob(async (msg) => {
       if (msg.event !== 'print_job') return
       try {
+        // printJob берёт ip/port из принтера, а если его нет в карте — из самого
+        // задания (msg.ip_address): задание не теряется, даже когда список
+        // принтеров ещё не загрузился. Плюс дедупликация и close на сервере.
         await printJob(msg, printerMap[msg.printer_id])
       } catch (err) { console.error('[print]', err); toast(t('print_failed')) }
     })
@@ -204,6 +210,30 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     setCart([]); setOrderNote(''); setEditLine(null); setAddToOrderId(null)
     setView('floor')
   }
+  // Кнопка «Назад» в TopBar (App.jsx): сначала закрываем верхний слой
+  // (модалка ввода → блюдо → экран оплаты → панели), затем выходим из меню
+  // к столам. Если закрывать нечего — не помечаем handled, и App уводит
+  // к выбору сотрудника. Так «Назад» никогда не разлогинивает случайно.
+  useEffect(() => {
+    function onNavBack(e) {
+      const mark = () => { e.detail.handled = true }
+      if (promptCfg) { setPromptCfg(null); mark(); return }
+      if (editLine) { setEditLine(null); mark(); return }
+      if (payExisting) { setPayExisting(null); mark(); return }
+      if (finOpen) { setFinOpen(false); mark(); return }
+      if (histOpen) { setHistOpen(false); mark(); return }
+      if (repOpen) { setRepOpen(false); mark(); return }
+      if (stopOpen) { setStopOpen(false); mark(); return }
+      if (attOpen) { setAttOpen(false); mark(); return }
+      if (staffOpen) { setStaffOpen(false); mark(); return }
+      if (whOpen) { setWhOpen(false); mark(); return }
+      if (printOpen) { setPrintOpen(false); mark(); return }
+      if (view === 'order') { backFromOrder(); mark(); return }
+    }
+    window.addEventListener('marjon:back', onNavBack)
+    return () => window.removeEventListener('marjon:back', onNavBack)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promptCfg, editLine, payExisting, finOpen, histOpen, repOpen, stopOpen, attOpen, staffOpen, whOpen, printOpen, view])
   // Автокомплит постоянных клиентов по номеру
   function onDeliveryPhone(raw) {
     const digits = extractPhoneDigits(raw); setDeliveryPhone(digits); setCustId(null)
@@ -221,9 +251,13 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     else openOrder('dine_in', tbl)
   }
 
-  // Чековый принтер филиала (привязка по IP — в админке организации)
+  // Чековый принтер: сначала закреплённый за сотрудником (выбор в веб-админке),
+  // иначе — чековый принтер филиала (привязка по IP — в админке организации)
   function receiptPrinter() {
-    return Object.values(printerMap).find((p) => p.printer_type === 'receipt' && p.branch_id === user.branch_id)
+    return pickReceiptPrinter(Object.values(printerMap), {
+      printerId: user.printer_id,
+      branchId: user.branch_id,
+    })
   }
   async function printOrderReceipt(order) {
     const pr = receiptPrinter()
@@ -509,13 +543,17 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
           hdrActionsSlot,
         )}
         {finOpen && <FinancePanel branch={{ id: user.branch_id }} user={user} onClose={() => setFinOpen(false)} />}
-        {histOpen && <HistoryPanel branch={{ id: user.branch_id }} onClose={() => setHistOpen(false)} />}
+        {histOpen && <HistoryPanel branch={{ id: user.branch_id }} printerId={user.printer_id} onClose={() => setHistOpen(false)} />}
         {repOpen && <ReportsPanel branch={{ id: user.branch_id }} user={user} onClose={() => setRepOpen(false)} />}
         {stopOpen && <StopListPanel user={user} onClose={() => setStopOpen(false)} />}
         {attOpen && <AttendancePanel user={user} onClose={() => setAttOpen(false)} />}
         {staffOpen && <StaffManagerPanel onClose={() => setStaffOpen(false)} />}
         {whOpen && <WarehouseWritePanel onClose={() => setWhOpen(false)} />}
-        {printOpen && <BatchPrintPanel branch={{ id: user.branch_id }} onClose={() => setPrintOpen(false)} />}
+        {printOpen && <BatchPrintPanel branch={{ id: user.branch_id }} printerId={user.printer_id} onClose={() => setPrintOpen(false)} />}
+        {/* Отмена позиции = удаление блюда из заказа. Право берём из тумблера
+            «Удаление блюд» (canDeleteDishes) — он есть в карточке сотрудника.
+            must('can_manage_orders') не подходил: такого тумблера в админке нет,
+            поэтому кнопка не показывалась никому. */}
         {payExisting && (
           <PaymentModal
             order={payExisting}
@@ -528,7 +566,7 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
             staff={staff}
             onSetWaiter={setOrderWaiter}
             onSetItemWaiter={setItemWaiter}
-            onRemoveItems={must(user, 'can_manage_orders') ? removeSelectedItems : undefined}
+            onRemoveItems={can(user, 'can_delete_dishes') ? removeSelectedItems : undefined}
             onApplyDiscount={applyOrderDiscount}
             onRefreshOrder={refreshPayOrder}
             canClose={can(user, 'can_close_bill')}

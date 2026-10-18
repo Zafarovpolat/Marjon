@@ -65,20 +65,31 @@ export default function App() {
 
   const isStaffLoggedIn = !!(staffToken && staffUser)
 
+  // Единый филиал сессии. При входе моноблока бэкенд присылает branch только в
+  // легаси-режиме, поэтому marjon_branch часто пуст — раньше из-за этого
+  // branch_id уходил null, и ломалось всё, что от него зависит:
+  //   • принтерный/кухонный WebSocket вообще не подключался (задания печати
+  //     не доходили до терминала);
+  //   • поиск чекового принтера по филиалу не находил его («Чековый принтер
+  //     не настроен»);
+  //   • залы и заказы грузились без фильтра по филиалу.
+  // Сотрудник всегда привязан к филиалу, поэтому берём его branch_id как опору.
+  const effectiveBranchId = branch?.id ?? staffUser?.branch_id ?? null
+
   // WebSocket при полном входе
   useEffect(() => {
-    if (!staffToken || !branch?.id || !mode) return
-    const serverUrl = localStorage.getItem('marjon_server_url') || (import.meta.env.VITE_DEFAULT_SERVER_URL || 'http://localhost:8000/api/v1')
-    kitchenWS.connect(serverUrl, staffToken, branch.id)
+    if (!staffToken || !effectiveBranchId || !mode) return
+    const serverUrl = localStorage.getItem('marjon_server_url') || 'http://localhost:8000/api/v1'
+    kitchenWS.connect(serverUrl, staffToken, effectiveBranchId)
     // Принтерный WS: терминал получает задания печати (чек/кухня) и печатает через Electron
-    connectPrinterWS(serverUrl, staffToken, branch.id)
+    connectPrinterWS(serverUrl, staffToken, effectiveBranchId)
     const unsubscribe = kitchenWS.on('connection', ({ status }) => {
       const online = status === 'online'
       setIsOnline(online)
       if (online) flushQueue()   // связь вернулась — досылаем накопленные записи
     })
     return () => { unsubscribe(); kitchenWS.disconnect(); disconnectPrinterWS() }
-  }, [staffToken, branch?.id, mode])
+  }, [staffToken, effectiveBranchId, mode])
 
   // Счётчик несинхронизированных записей (офлайн-очередь)
   useEffect(() => {
@@ -182,6 +193,14 @@ export default function App() {
   }, [])
   // Кнопка аккаунта в шапке — сразу к выбору сотрудника
   const handleAccount = useCallback(() => handleStaffLogout(true), [handleStaffLogout])
+  // «Назад» в TopBar: сначала просим активный режим закрыть верхний слой
+  // (модалка/панель/меню заказа). Если он не взялся — уводим к выбору
+  // сотрудника. Так кнопка не разлогинивает случайно.
+  const handleNavBack = useCallback(() => {
+    const detail = { handled: false }
+    try { window.dispatchEvent(new CustomEvent('marjon:back', { detail })) } catch { /* no window */ }
+    if (!detail.handled) handleAccount()
+  }, [handleAccount])
 
   // Полный сброс терминала (отвязка от организации)
   const handleFullReset = useCallback(() => {
@@ -287,11 +306,12 @@ export default function App() {
   const activeMode = mode && MODES[mode] ? mode : 'cashier'
   const { component: ModeComponent } = MODES[activeMode]
   const modeLabel = t('mode_' + activeMode)
-  const userWithBranch = { ...staffUser, branch_id: branch?.id ?? null }
+  const userWithBranch = { ...staffUser, branch_id: effectiveBranchId }
 
   return (
     <div className="app-shell">
       <TopBar
+        onBack={handleNavBack}
         onRefresh={() => window.location.reload()}
         onLock={handleLock}
         onSettings={() => setShowSettings(true)}
@@ -304,7 +324,7 @@ export default function App() {
           branch={branch}
           courier={activeMode === 'courier'}
           onLogout={handleStaffLogout}
-          onBack={handleAccount}
+          onBack={handleNavBack}
           onSwitchMode={(m) => { if (MODES[m]) { localStorage.setItem('marjon_mode', m); setMode(m) } }}
         />
       </main>
