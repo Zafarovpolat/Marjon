@@ -290,21 +290,21 @@ describe("DISHES V23 full-width table", () => {
     const css = readFileSync(`${process.cwd()}/src/styles/owner/dishes.css`, "utf8");
     const nameRule = css.match(/\.dish-grid-table \.dish-col-name\s*\{[^}]*\}/g);
     const lastName = nameRule[nameRule.length - 1];
-    // V27: Название 190 + ФОТО 72 — название уходит вправо от фото,
-    // блок ЕД.ИЗМ/СЕБЕСТ/ЦЕНА едет влево. Не auto.
-    expect(lastName).toMatch(/width:\s*190px/);
+    // V27: Название фиксировано (110px) + ФОТО 72 — название уходит вправо
+    // от фото, блок ЕД.ИЗМ/СЕБЕСТ/ЦЕНА едет влево. Не auto.
+    expect(lastName).toMatch(/width:\s*110px/);
     expect(lastName).not.toMatch(/width:\s*auto/);
-    // V27: боковые колонки фиксированы…
-    for (const [col, width] of [["sort", 56], ["photo", 72], ["recipe", 120], ["actions", 96]]) {
+    // V27: боковые колонки фиксированы (Рецепты ушли в гибкую середину)…
+    for (const [col, width] of [["sort", 56], ["photo", 72], ["actions", 96]]) {
       expect(css).toMatch(new RegExp(`\\.dish-col-${col}[^}]*width:\\s*${width}px`));
     }
     for (const col of ["auto", "set"]) {
       expect(css).toMatch(new RegExp(`\\.dish-col-${col}[^}]*width:\\s*64px`));
     }
-    // …а средние 4 (Ед.изм/Себест/Цена/Принтер) — гибкие auto: остаток
+    // …а средние 5 (Ед.изм/Себест/Цена/Принтер/Рецепты) — гибкие auto: остаток
     // ширины делится между ними, центр растягивается. cost/price
     // сгруппированы в одном правиле — ищем width рядом с классом.
-    for (const col of ["unit", "cost", "price", "printer"]) {
+    for (const col of ["unit", "cost", "price", "printer", "recipe"]) {
       expect(css).toMatch(new RegExp(`\\.dish-col-${col}[^}]*width:\\s*auto`));
     }
   });

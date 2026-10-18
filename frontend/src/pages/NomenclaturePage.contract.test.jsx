@@ -69,7 +69,10 @@ describe("APP nomenclature product contract", () => {
     expect(filterToggle).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("textbox", { name: "Поиск блюд" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Категория" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Фильтровать" })).toHaveLength(2);
+    // Категория/поиск применяются моментально — в панели кнопки нет,
+    // остаётся только header-тумблер раскрытия.
+    expect(screen.getAllByRole("button", { name: "Фильтровать" })).toHaveLength(1);
+    expect(container.querySelector(".dish-filter-actions .report-filter-apply")).toBeNull();
     expect(container.querySelector(".dish-filter-panel .report-filter-clear")).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Блюда" })).toBeInTheDocument();
   });
@@ -90,6 +93,9 @@ describe("APP nomenclature product contract", () => {
       set: true,
     };
 
+    // V24: is_auto/is_set — реальные поля ProductCreate/ProductUpdate,
+    // поэтому форма с auto/set их отправляет. menu/subcategory/chef
+    // по-прежнему не уходят (их нет в схеме).
     expect(buildNomenclatureProductPayload(form)).toEqual({
       name: "Local draft",
       sort_order: 4,
@@ -97,6 +103,8 @@ describe("APP nomenclature product contract", () => {
       unit_id: "unit-portion",
       cost_price: 12500,
       price: 25000,
+      is_auto: true,
+      is_set: true,
     });
     expect(buildNomenclatureProductPayload(form, { isUpdate: true })).toEqual({
       name: "Local draft",
@@ -105,6 +113,8 @@ describe("APP nomenclature product contract", () => {
       unit_id: "unit-portion",
       cost_price: 12500,
       price: 25000,
+      is_auto: true,
+      is_set: true,
     });
   });
 
@@ -147,8 +157,19 @@ describe("APP nomenclature product contract", () => {
     expect(mapped.cost.replace(/\s/g, " ")).toBe("18 000 UZS");
   });
 
-  it("uses the create response as the post-save source of truth", async () => {
-    api.post.mockResolvedValue({ data: { ...backendProduct, id: "created-uuid", name: "Server-created name", price: 777 } });
+  it("uses the canonical reload as the post-save source of truth", async () => {
+    const created = { ...backendProduct, id: "created-uuid", name: "Server-created name", price: 777 };
+    api.post.mockResolvedValue({ data: created });
+    // После сохранения каталог перечитывается (позиции сдвигает сервер),
+    // поэтому источник истины — ответ GET, а не локальный черновик.
+    let productCalls = 0;
+    api.get.mockImplementation((url) => {
+      if (url === "/inventory/products") {
+        productCalls += 1;
+        return Promise.resolve({ data: productCalls === 1 ? [] : [created] });
+      }
+      return Promise.resolve({ data: [] });
+    });
     render(<NomenclaturePage />);
 
     await waitFor(() => expect(api.get).toHaveBeenCalledWith("/inventory/products", expect.objectContaining({ signal: expect.any(AbortSignal) })));
@@ -166,14 +187,23 @@ describe("APP nomenclature product contract", () => {
     expect(api.post.mock.calls[0][1]).not.toHaveProperty("subcategory_name");
     expect(api.post.mock.calls[0][1]).not.toHaveProperty("station");
     expect(api.post.mock.calls[0][1]).not.toHaveProperty("auto_write_off");
-    expect(api.post.mock.calls[0][1]).not.toHaveProperty("is_set");
+    // is_set теперь каноническое поле схемы: форма по умолчанию шлёт false.
+    expect(api.post.mock.calls[0][1]).toHaveProperty("is_set", false);
     expect(await screen.findByText("Server-created name")).toBeInTheDocument();
     expect(screen.queryByText("Local-only name")).not.toBeInTheDocument();
   });
 
-  it("uses the update response without merging unsupported local values", async () => {
-    api.get.mockResolvedValue({ data: [backendProduct] });
-    api.patch.mockResolvedValue({ data: { ...backendProduct, name: "Server-updated name", price: 88000 } });
+  it("uses the reloaded catalog without merging unsupported local values", async () => {
+    const updated = { ...backendProduct, name: "Server-updated name", price: 88000 };
+    let productCalls = 0;
+    api.get.mockImplementation((url) => {
+      if (url === "/inventory/products") {
+        productCalls += 1;
+        return Promise.resolve({ data: productCalls === 1 ? [backendProduct] : [updated] });
+      }
+      return Promise.resolve({ data: [] });
+    });
+    api.patch.mockResolvedValue({ data: updated });
     render(<NomenclaturePage />);
 
     expect(await screen.findByText("Backend dish")).toBeInTheDocument();
@@ -236,29 +266,48 @@ describe("APP dishes — canonical Units V2 integration", () => {
     await waitFor(() => expect(api.get).toHaveBeenCalledWith("/units", expect.objectContaining({ signal: expect.any(AbortSignal) })));
     fireEvent.click(screen.getByRole("button", { name: "Добавить" }));
     const dialog = document.querySelector(".staff-modal--cashier-full");
-    const select = within(dialog).getByLabelText("Ед. изм");
-    await waitFor(() => expect(within(select).getByRole("option", { name: "Упаковка (уп)" })).toHaveValue("unit-company"));
-    expect(within(select).getByRole("option", { name: "Штука (шт)" })).toHaveValue("unit-global");
-    expect(within(select).queryByRole("option", { name: /стар/ })).toBeNull();
-    expect(within(select).queryByRole("option", { name: "порция" })).toBeNull();
-    expect(within(select).queryByRole("option", { name: "кг" })).toBeNull();
-    expect(within(select).queryByRole("option", { name: "л" })).toBeNull();
+    // V19: «Ед. изм» — кастомный одиночный селект (combobox + список
+    // role=option), а не нативный <select>: опции живут только в открытой панели.
+    const select = within(dialog).getByRole("combobox", { name: "Ед. изм" });
+    await waitFor(() => expect(select).not.toBeDisabled());
+    fireEvent.click(select);
+    expect(within(dialog).getByRole("option", { name: "Упаковка (уп)" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("option", { name: "Штука (шт)" })).toBeInTheDocument();
+    // Неактивная единица не предлагается к выбору.
+    expect(within(dialog).queryByRole("option", { name: /стар/ })).toBeNull();
+    // Хардкод-списка нет: только то, что вернул GET /units.
+    expect(within(dialog).queryByRole("option", { name: "порция" })).toBeNull();
+    expect(within(dialog).queryByRole("option", { name: "кг" })).toBeNull();
+    expect(within(dialog).queryByRole("option", { name: "л" })).toBeNull();
   });
 
   it("creates with the selected unit UUID and renders its canonical short name", async () => {
-    mockDirectories();
-    api.post.mockResolvedValue({ data: {
+    const created = {
       ...backendProduct,
       id: "product-with-company-unit",
       name: "Блюдо в упаковке",
       unit_id: "unit-company",
       unit: "legacy-value",
-    } });
+    };
+    // Каталог после сохранения перечитывается — источник истины это GET.
+    let productCalls = 0;
+    api.get.mockImplementation((url) => {
+      if (url === "/inventory/products") {
+        productCalls += 1;
+        return Promise.resolve({ data: productCalls === 1 ? [] : [created] });
+      }
+      if (url === "/units") return Promise.resolve({ data: { items: units } });
+      return Promise.resolve({ data: [] });
+    });
+    api.post.mockResolvedValue({ data: created });
     render(<NomenclaturePage />);
     fireEvent.click(await screen.findByRole("button", { name: "Добавить" }));
     const dialog = document.querySelector(".staff-modal--cashier-full");
-    await waitFor(() => expect(within(dialog).getByRole("option", { name: "Упаковка (уп)" })).toBeInTheDocument());
-    fireEvent.change(within(dialog).getByLabelText("Ед. изм"), { target: { value: "unit-company" } });
+    const unitSelect = within(dialog).getByRole("combobox", { name: "Ед. изм" });
+    await waitFor(() => expect(unitSelect).not.toBeDisabled());
+    fireEvent.click(unitSelect);
+    fireEvent.click(await within(dialog).findByRole("option", { name: "Упаковка (уп)" }));
+    expect(unitSelect).toHaveTextContent("Упаковка (уп)");
     fireEvent.change(within(dialog).getByLabelText("Название"), { target: { value: "Блюдо в упаковке" } });
     fireEvent.change(within(dialog).getByLabelText("Цена"), { target: { value: "1000" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
@@ -275,9 +324,11 @@ describe("APP dishes — canonical Units V2 integration", () => {
     expect(await screen.findByText("стар")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Редактировать" }));
     const dialog = document.querySelector(".staff-modal--cashier-full");
-    const select = within(dialog).getByLabelText("Ед. изм");
-    await waitFor(() => expect(select).toHaveValue("unit-inactive"));
-    expect(within(select).getByRole("option", { name: "Старая порция (стар) (не активна)" })).toBeInTheDocument();
+    const select = within(dialog).getByRole("combobox", { name: "Ед. изм" });
+    // Назначенная неактивная единица остаётся читаемой в Edit.
+    await waitFor(() => expect(select).toHaveTextContent("Старая порция (стар) (не активна)"));
+    fireEvent.click(select);
+    expect(within(dialog).getByRole("option", { name: "Старая порция (стар) (не активна)" })).toBeInTheDocument();
     first.unmount();
     render(<NomenclaturePage />);
     expect(await screen.findByText("стар")).toBeInTheDocument();
@@ -338,12 +389,14 @@ describe("APP dishes drawer — staff shell (V2)", () => {
     expect(buttons).toEqual(["Отменить", "Сохранить"]);
   });
 
-  it("drops the always-empty chef field but keeps truthful read-only fields", async () => {    const dialog = await openAddDrawer();
+  it("drops the always-empty chef field but keeps truthful read-only fields", async () => {
+    const dialog = await openAddDrawer();
     const scope = within(dialog);
     expect(scope.queryByLabelText("Повар")).not.toBeInTheDocument();
-    // V18: Подкатегория удалена; Меню — единственный read-only input.
+    // V18: Подкатегория удалена вместе с пустым read-only «Меню»
+    // (категория теперь настоящий селект и отдаёт то же значение).
     expect(scope.queryByLabelText("Подкатегория")).not.toBeInTheDocument();
-    expect(scope.getByLabelText("Меню")).toBeDisabled();
+    expect(scope.queryByLabelText("Меню")).not.toBeInTheDocument();
     for (const label of ["Название", "Сорт", "Цена", "Себестоимость"]) {
       expect(scope.getByLabelText(label)).toBeEnabled();
     }
@@ -385,9 +438,9 @@ describe("APP dishes drawer data selects — compact sort, no subcategory, real 
     expect(firstRow).toBeInTheDocument();
     const cells = [...firstRow.querySelectorAll(":scope > label")].map((l) => l.querySelector("span")?.textContent);
     expect(cells).toEqual(["Сорт", "Название"]);
-    // Асимметрия 22/78 задана CSS, не инлайном.
+    // Асимметрия 11/89 задана CSS, не инлайном (сорт — узкий слот).
     const rowRule = dishesCss.match(/\.dish-drawer \.dish-first-row\s*\{([^}]*)\}/)?.[1] || "";
-    expect(rowRule).toMatch(/grid-template-columns:\s*minmax\(0,\s*22fr\)\s*minmax\(0,\s*78fr\)/);
+    expect(rowRule).toMatch(/grid-template-columns:\s*minmax\(0,\s*11fr\)\s*minmax\(0,\s*89fr\)/);
     expect(gridLabels(dialog)[0]).toBe("Сорт");
     expect(gridLabels(dialog)[1]).toBe("Название");
   });
@@ -410,19 +463,24 @@ describe("APP dishes drawer data selects — compact sort, no subcategory, real 
   it("keeps remaining fields with unchanged bindings (no Подкатегория)", async () => {
     const dialog = await openAddDrawer();
     const labels = gridLabels(dialog);
-    expect(labels.slice(2)).toEqual(["Себестоимость", "Цена", "Тип", "Ед. изм", "Меню", "Категория", "Принтер"]);
+    // V18/V19: «Тип» и read-only «Меню» убраны, остальные поля на месте
+    // (порядок DOM: cost → price → категория → ед. изм → принтер).
+    expect(labels.slice(2)).toEqual(["Себестоимость", "Цена", "Категория", "Ед. изм", "Принтер"]);
     expect(labels).not.toContain("Подкатегория");
     expect(dialog.querySelector(".dish-drawer__body")).not.toBeNull();
   });
 
   it("builds payload with canonical IDs only when selected, never subcategory", () => {
     const base = { name: "Плов", sort: "3", type: "Блюда", unitId: "unit-portion", unit: "порция", cost: "", price: "25000" };
+    // Пустая себестоимость = 0 (не «поле не задано»): backend-схема
+    // принимает cost_price как Decimal | None, и 0 — честное значение.
     expect(buildNomenclatureProductPayload(base)).toEqual({
       name: "Плов",
       sort_order: 3,
       product_type: "dish",
       unit_id: "unit-portion",
       price: 25000,
+      cost_price: 0,
     });
     expect(buildNomenclatureProductPayload({ ...base, categoryId: "c1", printerId: "pr1" })).toEqual({
       name: "Плов",
@@ -430,6 +488,7 @@ describe("APP dishes drawer data selects — compact sort, no subcategory, real 
       product_type: "dish",
       unit_id: "unit-portion",
       price: 25000,
+      cost_price: 0,
       category_id: "c1",
       printer_id: "pr1",
     });
@@ -591,12 +650,9 @@ describe("APP dishes catalog template (V3)", () => {
     fireEvent.click(await screen.findByRole("option", { name: "Супы" }));
     // Мультиселект: панель осталась открытой, строка checked.
     expect(document.querySelector(".orders-filter-select__panel:not(.is-closing)")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Супы" })).toHaveAttribute("aria-selected", "true");
+    // Категория применяется моментально — кнопки «Фильтровать» в панели нет.
     expect(screen.getByRole("combobox", { name: "Категория" })).toHaveTextContent("Супы");
-    fireEvent.click(screen.getByRole("combobox", { name: "Категория" }));
-    finishDropdownExit();
-    fireEvent.click(screen.getAllByRole("button", { name: "Фильтровать" }).find((b) => b.classList.contains("report-filter-apply")));
-    fireEvent.click(document.querySelector(".dishes-filter-toggle"));
-    fireEvent.click(screen.getByRole("combobox", { name: "Категория" }));
     // Сброс — повторным кликом (uncheck), без catch-all опции.
     fireEvent.click(screen.getByRole("option", { name: "Супы" }));
     expect(screen.getByRole("combobox", { name: "Категория" })).toHaveTextContent("Категория");
@@ -657,7 +713,7 @@ describe("APP dishes catalog template (V3)", () => {
     fireEvent.click(screen.getByRole("combobox", { name: "Категория" }));
     fireEvent.click(await screen.findByRole("option", { name: "Десерты" }));
     finishDropdownExit();
-    fireEvent.click(screen.getAllByRole("button", { name: "Фильтровать" }).find((b) => b.classList.contains("report-filter-apply")));
+    // Фильтр по canonical id применяется сразу при выборе категории.
     expect(screen.getByText("Торт один")).toBeInTheDocument();
     expect(screen.queryByText("Суп один")).not.toBeInTheDocument();
   });
@@ -846,8 +902,14 @@ describe("APP dishes panel + table exact Settings template (V9)", () => {
 
   it("does NOT attach the shell-breaking Settings page context", () => {
     // settings-owner-view — контекст страницы Настроек (shell-семантика);
-    // его нельзя вешать на раздел Меню ради визуальных токенов.
-    expect(pageSrc).not.toMatch(/settings-owner-view/);
+    // на корне раздела Меню его быть не должно. Единственное допустимое
+    // место — портал модалки подтверждения: он живёт вне shell, а стили
+    // settings-modal/settings-drawer объявлены под этим контекстом.
+    const pageRoot = pageSrc.match(/<section className="nomenclature-page[^"]*"/)?.[0] || "";
+    expect(pageRoot).not.toMatch(/settings-owner-view/);
+    const occurrences = [...pageSrc.matchAll(/settings-owner-view/g)];
+    expect(occurrences).toHaveLength(1);
+    expect(pageSrc).toMatch(/settings-owner-view dishcat-modal-layer dish-confirm-layer/);
   });
 
   it("reuses only safe leaf primitives (settings-card/table)", () => {
@@ -1036,30 +1098,36 @@ describe("APP dishes panel + table exact Settings template (V9)", () => {
     expect(dishesCss).not.toMatch(/\.dashboard-topbar/);
     expect(dishesCss).not.toMatch(/\.dashboard-sidebar/);
     expect(dishesCss).not.toMatch(/mobile-bottom-nav/);
-    expect(dishesCss).not.toMatch(/body\.dashboard-body:has/);
+    // :has допустим только для позиционирования плавающего виджета поддержки —
+    // оболочкой (shell/main/topbar/sidebar/content) страница не владеет.
+    const hasRules = [...dishesCss.matchAll(/body\.dashboard-body:has\([^{]*\{[^}]*\}/g)].map((m) => m[0]);
+    for (const rule of hasRules) {
+      expect(rule).toMatch(/\.support-widget/);
+    }
     expect(pageSrc).not.toMatch(/mobile-bottom-nav/);
     expect(pageSrc).not.toMatch(/dashboard-shell/);
   });
 
-  it("disables Dishes row hover color without touching other tables", () => {
+  it("keeps the V30 row hover tint scoped to the dishes table only", () => {
     const hoverRow = dishesCss.match(/\.owner-report-view \.dish-grid-table tbody tr:hover\s*\{([^}]*)\}/)?.[1] || "";
     const hoverCell = dishesCss.match(/\.owner-report-view \.dish-grid-table tbody tr:hover td\s*\{([^}]*)\}/)?.[1] || "";
-    expect(hoverRow).toMatch(/background:\s*transparent/);
-    expect(hoverCell).toMatch(/background:\s*var\(--dish-cell-bg/);
-    // Больше НЕ подсвечиваем строку neutral-50 на hover.
-    expect(hoverCell).not.toMatch(/var\(--neutral-50/);
+    // V30: строка подсвечивается neutral-50, ячейки прозрачны (тинт строки
+    // виден), контролы сохраняют свои состояния.
+    expect(hoverRow).toMatch(/background:\s*var\(--neutral-50/);
+    expect(hoverCell).toMatch(/background:\s*transparent/);
     // Правило строго скоупнуто под каталог блюд.
-    expect(dishesCss).not.toMatch(/\.settings-table tbody tr:hover\s*\{[^}]*transparent/);
+    expect(dishesCss).not.toMatch(/\.settings-table tbody tr:hover\s*\{[^}]*neutral-50/);
   });
 
   it("gives the empty table a compact template height only when empty (V12, no 360 floor)", () => {
-    // 360px пол удалён — пустое тело компактное (страховочный минимум ≤260px,
-    // реальную высоту даёт контент ≈ 270px), без vh/dvh/100%/flex:1.
+    // 360px пол удалён — пустая обёртка компактная (270px), без vh/dvh.
     expect(dishesCss).not.toMatch(/min-height:\s*360px/);
+    const wrapRule = dishesCss.match(/\.dish-grid-wrap\.is-empty\s*\{([^}]*)\}/)?.[1] || "";
+    expect(wrapRule).toMatch(/height:\s*270px/);
+    expect(wrapRule).toMatch(/flex-basis:\s*270px/);
     const minRule = dishesCss.match(/\.dish-grid-wrap\.is-empty \.dish-grid-scroll\s*\{([^}]*)\}/)?.[1] || "";
-    const min = Number((minRule.match(/min-height:\s*(\d+)px/) || [])[1] || 0);
-    expect(min).toBeGreaterThan(0);
-    expect(min).toBeLessThanOrEqual(260);
+    // Скролл-слой не задаёт собственный пол — высоту даёт обёртка.
+    expect(minRule).toMatch(/min-height:\s*0/);
     expect(dishesCss).not.toMatch(/\.dish-grid-wrap\.is-empty[^}]*100dvh/);
     expect(dishesCss).not.toMatch(/\.dish-grid-wrap\.is-empty[^}]*100vh/);
     // PNG пустого состояния — компактный display-размер того же ассета.
@@ -1204,7 +1272,9 @@ describe("APP dishes drawer custom selects (V19)", () => {
   it("renders no native selects and keeps panels closed by default", async () => {
     const dialog = await openAddDrawer();
     const body = dialog.querySelector(".dish-drawer__body");
-    expect(body.querySelectorAll("select").length).toBe(2); // только Тип/Ед.изм (вне скоупа)
+    // V18/V19: нативных <select> в дровере не осталось — все поля
+    // на кастомных селектах (Категория/Ед. изм/Принтер).
+    expect(body.querySelectorAll("select").length).toBe(0);
     expect(body.querySelector(".dish-form-field select")).toBeNull();
     expect(body.querySelector(".dish-form-field .orders-filter-select__trigger")).toBeInTheDocument();
     expect(body.querySelector(".orders-filter-select__panel")).toBeNull();
@@ -1255,8 +1325,9 @@ describe("APP dishes drawer custom selects (V19)", () => {
       categoryId: "c1",
       printerId: "pr9",
     });
-    // Скоуп селектов покрывает и дровер (портал вне страницы).
-    expect(dishesCss).toMatch(/:is\(\.dish-catalog-page,\s*\.dish-drawer\) \.orders-filter-select/);
+    // Скоуп селектов покрывает и дровер (портал вне страницы), и общий
+    // staff-drawer (там тот же контрол — поле «Принтер» у сотрудника).
+    expect(dishesCss).toMatch(/:is\(\.dish-catalog-page,\s*\.dish-drawer,\s*\.dish-recipes-dialog[^)]*\) \.orders-filter-select/);
     expect(dishesCss).not.toMatch(/\.dashboard-shell[^{]*orders-filter-select/);
   });
 });
@@ -1370,9 +1441,9 @@ describe("APP dishes category multi-select (V17)", () => {
   });
 
   function applyPanelFilters() {
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "Фильтровать" }).find((b) => b.classList.contains("report-filter-apply")),
-    );
+    // Кнопки «Фильтровать» в панели больше нет: категория применяется
+    // моментально при клике по опции. Хелпер оставлен точкой расширения,
+    // чтобы тесты читались как раньше.
   }
 
   async function openCategory() {

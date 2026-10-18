@@ -397,7 +397,10 @@ describe("DISHES V26 switch cursor + micro-animation", () => {
     expect(css).toMatch(/@keyframes dish-toggle-ripple-accent/);
     expect(css).toMatch(/rgba\(31,\s*201,\s*201/);
     expect(css).toMatch(/dish-toggle-ripple 260ms/);
-    expect(css).toMatch(/\.dish-toggle:active\s*\{[^}]*scale\(0\.9[678]\)/);
+    // Пульс задаётся самим keyframes (scale 0.7 → 1.25), а не :active-сжатием:
+    // :active не должен ломать transform тумблера.
+    expect(css).toMatch(/@keyframes dish-toggle-ripple\s*\{[\s\S]*?scale\(0\.7\)[\s\S]*?scale\(1\.25\)/);
+    expect(css).not.toMatch(/\.dish-toggle:active\s*\{[^}]*scale\(/);
     expect(css).not.toContain("!important");
   });
 
@@ -431,24 +434,24 @@ describe("DISHES V26 switch cursor + micro-animation", () => {
 describe("DISHES V28 switch outer geometry 40x22", () => {
   const overridesCss = () => readFileSync(`${process.cwd()}/src/styles/react-overrides.css`, "utf8");
 
-  it("sizes the winning toggle rule 40x22 with 18.5px thumb", () => {
+  it("sizes the winning toggle rule 36x20 with 16px thumb", () => {
     const css = overridesCss();
     const base = css.match(/\.dish-catalog-page \.dish-toggle\s*\{[^}]*\}/)?.[0] || "";
-    expect(base).toMatch(/width:\s*40px/);
-    expect(base).toMatch(/height:\s*22px/);
+    expect(base).toMatch(/width:\s*36px/);
+    expect(base).toMatch(/height:\s*20px/);
     const knob = css.match(/\.dish-catalog-page \.dish-toggle span\s*\{[^}]*\}/)?.[0] || "";
-    expect(knob).toMatch(/width:\s*18.5px/);
-    expect(knob).toMatch(/height:\s*18.5px/);
+    expect(knob).toMatch(/width:\s*16px/);
+    expect(knob).toMatch(/height:\s*16px/);
     expect(css).not.toContain("!important");
   });
 
-  it("centers the thumb symmetrically in OFF and ON (±8.75px in 40px track)", () => {
-    // Трек 43, паддинг 2x2 (border-box) → ход 36-18.5=17.5, симметрия ±8.5.
+  it("centers the thumb symmetrically in OFF and ON (±8px in 36px track)", () => {
+    // Трек 36, паддинг 2x2 (border-box) → ход 32-16=16, симметрия ±8.
     const css = overridesCss();
     const off = css.match(/\.dish-catalog-page \.dish-toggle span\s*\{[^}]*\}/)?.[0] || "";
-    expect(off).toMatch(/translateX\(-8\.75px\)/);
+    expect(off).toMatch(/translateX\(-8px\)/);
     const on = css.match(/\.dish-catalog-page \.dish-toggle\.is-on span\s*\{[^}]*\}/)?.[0] || "";
-    expect(on).toMatch(/translateX\(8\.75px\)/);
+    expect(on).toMatch(/translateX\(8px\)/);
   });
 
   it("paints dishes ON #2ED06A and keeps cursor/ripple contract", () => {
