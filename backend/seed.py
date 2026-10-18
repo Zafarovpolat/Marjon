@@ -23,6 +23,10 @@ from app.modules.auth.models import User
 from app.modules.auth.security import hash_password
 from app.modules.companies.models import Branch, Company
 from app.modules.inventory.models import Category, Product
+# Product.unit_id ссылается на nm_units, User.printer_id — на printers, и т.д.
+# Единый реестр гарантирует, что все таблицы-FK-цели зарегистрированы, иначе
+# SQLAlchemy падает с NoReferencedTableError на первом же запросе.
+import app.infrastructure.database.models_registry  # noqa: F401
 from app.modules.printers.models import Printer
 from app.modules.rbac.models import Role, UserRole
 
