@@ -35,8 +35,11 @@ class ProductPositions:
         )
 
     async def _count(self, active: bool, product_type: str) -> int:
+        # autoflush disabled: pending product_type changes on the moved item
+        # must not be flushed before the scope count is read.
         return (await self.db.execute(
             select(func.count()).select_from(Product).where(*self._scope(active, product_type))
+            .execution_options(autoflush=False)
         )).scalar_one()
 
     async def _shift(self, active: bool, product_type: str, delta: int, *bounds) -> None:
