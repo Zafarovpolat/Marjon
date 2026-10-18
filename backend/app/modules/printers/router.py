@@ -141,7 +141,10 @@ async def print_summary(
     не работали никогда.
     """
     return await PrinterService(db).print_summary(
-        user.company_id, data.printer_id, data.title, data.lines, data.footer, data.copies
+        user.company_id, data.printer_id, data.title, data.lines, data.footer, data.copies,
+        # PRINT-LAT-02: терминал печатает сам — сервер не должен ждать
+        # недоступный принтер в чужой сети (иначе 2 с таймаута на каждую сводку).
+        local_print=data.local_print,
     )
 
 

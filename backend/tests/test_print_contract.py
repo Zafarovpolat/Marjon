@@ -111,3 +111,42 @@ async def test_canonical_contract_rejects_cross_company_order(client):
 async def test_print_requires_auth(client):
     resp = await client.post("/printers/print/orders/00000000-0000-0000-0000-000000000000/receipt")
     assert resp.status_code == 401
+
+
+async def test_local_print_reaches_all_canonical_endpoints(client):
+    """PRINT-LAT-02: десктоп печатает сам и присылает local_print=true.
+
+    Сервер обязан не тратить время на попытку дозвониться до принтера в
+    чужой сети (иначе 2 с таймаута на каждую печать). Значение принимает
+    PrinterService у receipt/summary/kitchen, но роутер /print/summary его
+    не пробрасывал — флаг молча терялся, и сводка ждала TCP-таймаут.
+
+    Наблюдаемый признак: при skip_server_print сервер не пытается печатать
+    сам и помечает задание понятной причиной, а статус остаётся pending —
+    терминал заберёт его через GET /printers/{id}/jobs/pending.
+    """
+    headers, _ = await register_company(client, slug="acme", email="owner@acme.example.com")
+    order_id, _, receipt_printer, _ = await _setup_order_and_printers(client, headers)
+
+    # 192.0.2.x — TEST-NET-1, заведомо недостижим: без local_print сервер
+    # упрётся в SERVER_PRINT_TIMEOUT, поэтому флаг обязан сработать.
+    endpoint_cases = [
+        ("receipt", "/printers/print/receipt",
+         {"order_id": order_id, "printer_id": receipt_printer["id"], "copies": 1}),
+        ("summary", "/printers/print/summary",
+         {"printer_id": receipt_printer["id"], "title": "Z-отчет",
+          "lines": ["Смена: 1", "Итого: 100 000"]}),
+        ("kitchen", "/printers/print/kitchen",
+         {"order_id": order_id, "printer_id": receipt_printer["id"]}),
+    ]
+
+    for job_type, path, body in endpoint_cases:
+        resp = await client.post(path, headers=headers, json={**body, "local_print": True})
+        assert resp.status_code == 200, (job_type, resp.text)
+        job = resp.json()
+        assert job["job_type"] == job_type
+        # Флаг дошёл до сервиса: попытки печати с сервера не было.
+        assert job["error"] == "Печать на терминале клиента", (job_type, job)
+        assert job["status"] == "pending", (job_type, job)
+        # Тело задания сохранено — терминалу есть что печатать.
+        assert job["payload"], job_type
