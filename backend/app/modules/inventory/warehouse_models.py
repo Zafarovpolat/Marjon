@@ -1,10 +1,11 @@
 """Warehouse document models — purchase receipts, transfers, inventory checks, write-offs."""
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import Boolean, ForeignKey, Integer, Numeric, String, Text, DateTime
+from sqlalchemy import Boolean, ForeignKey, Integer, Numeric, String, Text, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Uuid
 
@@ -190,6 +191,16 @@ class WasteDocument(TimeStampedModel):
     (StockMovement type="waste"). Черновик остаток не двигает.
     """
     __tablename__ = "waste_documents"
+
+    # Some deployed schemas have NOT NULL timestamps without database defaults.
+    # Include timestamps in INSERT for every creation path (manual, sale, expense)
+    # instead of relying solely on inherited server_default. No schema change.
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=func.now(), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=func.now(), server_default=func.now(), onupdate=func.now()
+    )
 
     company_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), index=True)
     number: Mapped[int] = mapped_column(Integer, nullable=False)

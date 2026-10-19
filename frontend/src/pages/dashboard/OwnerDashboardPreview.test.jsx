@@ -35,6 +35,37 @@ const specifications = [
 ];
 
 describe("Dashboard DEV URL-only KPI preview", () => {
+  it("renders the agreed financial calculation and matching chart series", async () => {
+    window.history.replaceState({}, "", "/?date_from=2026-10-12&date_to=2026-10-17");
+    const data = overview();
+    data[0] = { data: { metric_basis: "completed_income_minus_snapshot_cogs", date_from: "2026-10-12", date_to: "2026-10-17", income_total: "220", cogs_total: "40", today_revenue: "180", today_orders: 1, avg_check: 220 } };
+    data[1] = { data: [{ date: "2026-10-17", revenue: "180", orders_count: 1 }] };
+    data[7] = { data: [{ direction: "income", amount: 999999 }] };
+    dashboardService.loadOwnerOverview.mockResolvedValue(data);
+    render(<OwnerDashboard />);
+    expect((await screen.findByRole("button", { name: /Выручка за период/ })).querySelector(".kpi-value")).toHaveTextContent("180");
+    expect(screen.getByRole("button", { name: /Денежный приход/ }).querySelector(".kpi-value")).toHaveTextContent("220");
+    expect(screen.getByTestId("normal-chart")).toHaveTextContent('"revenue":"180"');
+  });
+
+  it("does not draw a fake zero graph when the historical cost is unknown", async () => {
+    window.history.replaceState({}, "", "/");
+    const data = overview();
+    data[0] = { data: { metric_basis: "completed_income_minus_snapshot_cogs", income_total: "220", today_revenue: null, cogs_total: null, today_orders: 1, avg_check: 220, profit_unavailable_reason: "Историческая себестоимость неизвестна" } };
+    dashboardService.loadOwnerOverview.mockResolvedValue(data);
+    render(<OwnerDashboard />);
+    expect(await screen.findByText("Историческая себестоимость неизвестна")).toBeInTheDocument();
+    expect(screen.queryByTestId("normal-chart")).toBeNull();
+    expect(screen.getByRole("button", { name: /Денежный приход/ }).querySelector(".kpi-value")).toHaveTextContent("220");
+  });
+  it("maps real product photos by product ID, not rank or translated name", async () => {
+    const data = overview();
+    data[3] = { data: [{ id: "different", image_url: "/wrong.webp" }, { id: "real", image_url: "/real-photo.webp" }] };
+    dashboardService.loadOwnerOverview.mockResolvedValue(data);
+    render(<OwnerDashboard />);
+    await waitFor(() => expect(screen.getByTestId("normal-top")).toHaveTextContent("/real-photo.webp"));
+    expect(screen.getByTestId("normal-top")).not.toHaveTextContent("/wrong.webp");
+  });
   beforeEach(() => {
     vi.unstubAllEnvs();
     vi.stubEnv("DEV", true);

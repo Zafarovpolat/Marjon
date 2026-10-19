@@ -84,11 +84,11 @@ describe("DASHBOARD MAXIMAL KPI CARDS V1 art mapping", () => {
     expect(css).toMatch(/dashboard-kpi-card__art\s*\{[^}]*z-index:\s*0/s);
   });
 
-  it("keeps KPI business content intact (labels, values, badges, period untouched)", () => {
+  it("keeps KPI labels, values and period intact without the removed card badges", () => {
     const source = readFileSync(`${process.cwd()}/src/pages/OwnerDashboard.jsx`, "utf8");
     expect(source).toContain("{kpi.label}");
     expect(source).toContain("{kpi.value}");
-    expect(source).toContain("{kpi.badge}");
+    expect(source).not.toContain("{kpi.badge}");
     expect(source).toContain("applyDashboardPeriod");
     expect(source).toContain('variant="canonical"');
   });

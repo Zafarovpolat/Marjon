@@ -349,6 +349,79 @@ async def list_purchases(
     return docs
 
 
+# Пакетная выдача состава документов. Экраны склада просят детали сразу для
+# всего списка (деление Продукт/Товар, суммы по категориям), и поштучные
+# GET /purchases/{id} давали до 60 параллельных запросов на каждое открытие
+# раздела — всплеск в очередь backend/БД. Один запрос вместо N.
+# Объявлен ДО /purchases/{doc_id}: иначе «details» попал бы в doc_id.
+_PURCHASE_DETAILS_MAX = 200
+
+
+def _parse_doc_ids(ids: str) -> list[UUID]:
+    """Список id из query-строки через запятую: без дублей, с проверкой формы."""
+    doc_ids: list[UUID] = []
+    seen: set[UUID] = set()
+    for raw in ids.split(","):
+        chunk = raw.strip()
+        if not chunk:
+            continue
+        try:
+            parsed = UUID(chunk)
+        except ValueError:
+            raise ValidationError("Некорректный идентификатор документа")
+        if parsed not in seen:
+            seen.add(parsed)
+            doc_ids.append(parsed)
+    if len(doc_ids) > _PURCHASE_DETAILS_MAX:
+        raise ValidationError(
+            f"За один запрос можно получить не более {_PURCHASE_DETAILS_MAX} документов"
+        )
+    return doc_ids
+
+
+@router.get("/purchases/details", response_model=list[PurchaseDocumentDetailResponse])
+async def list_purchase_details(
+    ids: str = Query("", description="Идентификаторы документов через запятую"),
+    user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    doc_ids = _parse_doc_ids(ids)
+    if not doc_ids:
+        return []
+
+    query = (
+        select(PurchaseDocument)
+        .options(selectinload(PurchaseDocument.items))
+        .where(
+            PurchaseDocument.company_id == user.company_id,
+            PurchaseDocument.id.in_(doc_ids),
+        )
+    )
+    # Branch-изоляция та же, что у списка: чужой филиал не видит документ
+    # даже по прямому id (он просто не попадёт в ответ).
+    if effective_branch_filter(user) is not None:
+        query = query.where(PurchaseDocument.warehouse_id.in_(await _allowed_warehouse_ids(db, user)))
+    docs = list((await db.execute(query)).scalars().all())
+
+    # Старые документы создавались без warehouse_name — подставляем каноническое
+    # имя одним запросом, как в списке.
+    missing_ids = {d.warehouse_id for d in docs if not d.warehouse_name and d.warehouse_id}
+    if missing_ids:
+        wh_rows = (
+            await db.execute(
+                select(Warehouse).where(
+                    Warehouse.id.in_(missing_ids),
+                    Warehouse.company_id == user.company_id,
+                )
+            )
+        ).scalars().all()
+        names = {w.id: w.name for w in wh_rows}
+        for d in docs:
+            if not d.warehouse_name and d.warehouse_id in names:
+                d.warehouse_name = names[d.warehouse_id]
+    return docs
+
+
 @router.get("/purchases/{doc_id}", response_model=PurchaseDocumentDetailResponse)
 async def get_purchase(
     doc_id: UUID,
@@ -1165,6 +1238,30 @@ async def list_expenses(
         )
     result = await db.execute(query)
     return list(result.scalars().all())
+
+
+@router.get("/expenses/details", response_model=list[ExpenseDocumentDetailResponse])
+async def list_expense_details(
+    ids: str = Query("", description="Идентификаторы документов через запятую"),
+    user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Пакетный состав расходов — тот же приём, что у приходов: экран Расхода
+    строил сводку по категориям через поштучные GET /expenses/{id}."""
+    doc_ids = _parse_doc_ids(ids)
+    if not doc_ids:
+        return []
+    query = (
+        select(ExpenseDocument)
+        .options(selectinload(ExpenseDocument.items))
+        .where(
+            ExpenseDocument.company_id == user.company_id,
+            ExpenseDocument.id.in_(doc_ids),
+        )
+    )
+    if effective_branch_filter(user) is not None:
+        query = query.where(ExpenseDocument.warehouse_id.in_(await _allowed_warehouse_ids(db, user)))
+    return list((await db.execute(query)).scalars().all())
 
 
 @router.get("/expenses/{doc_id}", response_model=ExpenseDocumentDetailResponse)

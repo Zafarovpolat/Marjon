@@ -9,11 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.modules.auth.models import User
-from app.modules.auth.security import verify_password
+from app.modules.auth.security import verify_password_async
 from app.modules.companies.models import Branch, Company
 from app.modules.crm.models import Customer
 from app.modules.halls.models import Hall, Table
 from app.modules.inventory.models import Product
+from app.modules.inventory.service import product_cost_total
 from app.modules.kitchen.websocket import kitchen_manager
 from app.modules.audit.service import AuditService
 from app.modules.pos.models import (
@@ -92,17 +93,21 @@ def _stamp_item_cancellation(item: OrderItem, actor_id: UUID | None) -> None:
         item.cancelled_by_id = actor_id
 
 
-def _safe_verify(secret: str | None, hashed: str | None) -> bool:
+async def _safe_verify(secret: str | None, hashed: str | None) -> bool:
     """Безопасная проверка секрета против bcrypt-хэша.
 
-    Оборачивает verify_password в try/except и гардит None: пустой секрет или
-    отсутствующий хэш → False, любой сбой bcrypt (битый хэш) → False, никогда
+    Оборачивает verify_password_async в try/except и гардит None: пустой секрет
+    или отсутствующий хэш → False, любой сбой bcrypt (битый хэш) → False, никогда
     не бросает. Используется опциональным гардом подтверждения операций.
+
+    Только async: bcrypt — это до двух проверок (password_hash + pin_hash), то
+    есть ~550 мс заблокированного event loop на каждую отмену с подтверждением.
+    Синхронной версии намеренно нет, чтобы её не позвали из async-кода.
     """
     if not secret or not hashed:
         return False
     try:
-        return verify_password(secret, hashed)
+        return await verify_password_async(secret, hashed)
     except Exception:
         return False
 
@@ -222,9 +227,10 @@ class OrderService:
                 quantity=item_data.quantity,
                 discount=item_discount,
                 total=item_total_after_discount,
-                # Freeze the sale-time per-unit cost (NULL when the product has
-                # no cost_price — unknown stays unknown, never coerced to 0).
-                cost_price_snapshot=product.cost_price,
+                # Freeze the sale-time per-unit cost: ручная база + состав на
+                # момент продажи. NULL остаётся NULL, когда у блюда нет ни
+                # себестоимости, ни рецепта — неизвестное не становится нулём.
+                cost_price_snapshot=await product_cost_total(self.db, company_id, product),
                 note=item_data.note,
                 modifiers=item_data.modifiers,
                 course=item_data.course,
@@ -499,9 +505,10 @@ class OrderService:
             quantity=item_data.quantity,
             discount=item_discount,
             total=item_total_after_discount,
-            # Freeze the sale-time per-unit cost (NULL when the product has no
-            # cost_price — unknown stays unknown, never coerced to 0).
-            cost_price_snapshot=product.cost_price,
+            # Freeze the sale-time per-unit cost: ручная база + состав на
+            # момент продажи. NULL остаётся NULL, когда у блюда нет ни
+            # себестоимости, ни рецепта — неизвестное не становится нулём.
+            cost_price_snapshot=await product_cost_total(self.db, company_id, product),
             note=item_data.note,
             modifiers=item_data.modifiers,
             course=item_data.course,
@@ -1139,8 +1146,8 @@ class OrderService:
         if candidate and candidate == cancel_password:
             return
         if user is not None and (
-            _safe_verify(candidate, getattr(user, "password_hash", None))
-            or _safe_verify(candidate, getattr(user, "pin_hash", None))
+            await _safe_verify(candidate, getattr(user, "password_hash", None))
+            or await _safe_verify(candidate, getattr(user, "pin_hash", None))
         ):
             return
         raise ValidationError("Неверный пароль подтверждения операции")

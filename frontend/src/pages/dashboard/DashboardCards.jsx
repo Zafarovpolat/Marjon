@@ -1,4 +1,7 @@
 import { Link } from "react-router-dom";
+import { useCallback, useState } from "react";
+import DishPhotoViewer from "../../components/DishPhotoViewer";
+import "./topSalesPhotos.css";
 import { formatMoney, formatNumber } from "../../api/client";
 import Icon from "../../components/Icon";
 
@@ -198,8 +201,10 @@ export function RecentOrdersCard({ orders }) {
   );
 }
 
-export function TopSalesCard({ dishes }) {
+export function TopSalesCard({ dishes, error = "" }) {
   const hasDishes = dishes.length > 0;
+  const [preview, setPreview] = useState(null);
+  const closePreview = useCallback(() => setPreview(null), []);
 
   return (
     <section className="card card-pad top-dishes-card owner-top-sales-card">
@@ -211,10 +216,14 @@ export function TopSalesCard({ dishes }) {
         <Link className="btn btn-ghost" to="/menu">Все блюда</Link>
       </div>
       <div className="top-dishes-list">
-        {hasDishes ? dishes.map((item, index) => (
+        {error ? <div role="status"><SectionEmpty icon="bi-exclamation-circle" title="Топ-5 временно недоступен" text={error} /></div> : hasDishes ? dishes.map((item, index) => (
           <div className="top-dish top-dish--compact" key={item.product_id || item.name}>
             <div className="top-dish__rank">{index + 1}</div>
-            <div className={`top-dish__photo ${dishPhotoClass(item.name, index)}`} aria-hidden="true" />
+            {item.photo ? (
+              <button type="button" className="dashboard-top-sales__photo" aria-label={`Открыть фото ${item.name}`} aria-haspopup="dialog" onClick={() => setPreview(item)}>
+                <img src={item.photo} alt={item.name} />
+              </button>
+            ) : <span className="dashboard-top-sales__photo" aria-label="Нет фото"><Icon name="bi-image" /></span>}
             <div className="top-dish__body">
               <div className="top-dish__line">
                 <strong>{dishDisplayName(item.name)}</strong>
@@ -231,6 +240,7 @@ export function TopSalesCard({ dishes }) {
           />
         )}
       </div>
+      {preview ? <DishPhotoViewer photo={preview.photo} name={preview.name} onClose={closePreview} /> : null}
     </section>
   );
 }

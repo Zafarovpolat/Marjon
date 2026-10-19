@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 from datetime import date
+from decimal import Decimal
 from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -95,6 +96,10 @@ def _product_to_response(p: Product) -> ProductResponse:
         product_type=p.product_type, printer_id=p.printer_id,
         name=p.name, description=p.description, image_url=p.image_url,
         price=p.price, cost_price=p.cost_price, tax_rate=p.tax_rate, unit=p.unit,
+        # Себестоимость = ручная база (cost_price) + состав (recipe_cost).
+        # Считает ProductService._attach_aggregates; здесь только перенос.
+        recipe_cost=getattr(p, "recipe_cost", Decimal("0")),
+        cost_total=getattr(p, "cost_total", None),
         barcode=p.barcode, sku=p.sku, is_active=p.is_active, is_available=p.is_available,
         is_auto=getattr(p, "is_auto", False) or False,
         is_set=getattr(p, "is_set", False) or False,
@@ -461,6 +466,7 @@ async def update_ingredient(ingredient_id: UUID, data: IngredientUpdate, user: U
 async def get_stock(
     warehouse_id: UUID | None = Query(None),
     low_stock: bool = Query(False),
+    web_timezone: str | None = Query(None, pattern="^Asia/Tashkent$"),
     as_of: date | None = Query(
         None, description="Остатки на конец календарного дня YYYY-MM-DD (UTC)"
     ),
@@ -471,6 +477,8 @@ async def get_stock(
     if low_stock:
         return await svc.get_low_stock(user.company_id)
     if as_of is not None:
+        if web_timezone:
+            return await svc.get_stock_as_of(user.company_id, as_of, warehouse_id, web_timezone=web_timezone)
         return await svc.get_stock_as_of(user.company_id, as_of, warehouse_id)
     return await svc.get_stock(user.company_id, warehouse_id)
 
@@ -501,6 +509,17 @@ async def get_stock_batches(
         StockBatch.id,
     )
     return list((await db.execute(query)).scalars().all())
+
+
+@router.get("/stock/outgoing-report")
+async def get_outgoing_report(
+    date_from: date = Query(...),
+    date_to: date = Query(...),
+    user: User = Depends(require_permission("inventory:stock:read")),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.modules.inventory.outgoing_report import outgoing_report
+    return await outgoing_report(db, user.company_id, date_from, date_to)
 
 
 @router.post("/stock/movements", response_model=StockMovementResponse, status_code=status.HTTP_201_CREATED)

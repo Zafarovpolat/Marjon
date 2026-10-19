@@ -308,6 +308,15 @@ export default function DishesRecipesDialog({ dish, onClose, returnFocusRef, onS
 
   const editLine = editingIndex !== null ? lines[editingIndex] : null;
 
+  // Себестоимость в шапке — итог (ручная база + состав), как в таблице.
+  // Разбивка уходит в title: подпись метрики остаётся прежней, но видно,
+  // из чего сложилось число.
+  const recipeCostSum = Number(dish.recipeCost) || 0;
+  const costTotal = dish.costTotal ?? dish.cost;
+  const costBreakdown = recipeCostSum > 0
+    ? `Карточка ${money(dish.cost)} + состав ${recipeCostSum.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} сум`
+    : undefined;
+
   const nameOf = (ingredientId) => optionById.get(String(ingredientId))?.name || "—";
   const unitOf = (ingredientId) => optionById.get(String(ingredientId))?.unit || "";
   // NULL-склад = списание с главного (та же логика, что у deduct_for_order).
@@ -326,7 +335,7 @@ export default function DishesRecipesDialog({ dish, onClose, returnFocusRef, onS
         <header className="kpi-info-window__head dish-recipes-head">
           <div><h2 id="dish-recipes-title">Рецепты</h2><p id="dish-recipes-dish">{dish.name || "—"}</p></div>
           <dl className="dish-recipes-metric dish-recipes-metric--cost">
-            <dt>Себестоимость</dt><dd>{money(dish.cost)}</dd>
+            <dt>Себестоимость</dt><dd title={costBreakdown}>{money(costTotal)}</dd>
           </dl>
           <dl className="dish-recipes-metric dish-recipes-metric--price">
             <dt>Цена продажи</dt><dd>{money(dish.price)}</dd>

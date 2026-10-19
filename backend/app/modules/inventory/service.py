@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio
 from collections import defaultdict
 from datetime import date, datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID, uuid4
 from sqlalchemy import delete as sql_delete, func, select
 from sqlalchemy.exc import IntegrityError
@@ -32,6 +32,68 @@ _PRODUCT_LOAD = (
     selectinload(Product.ingredients).selectinload(ProductIngredient.ingredient),
     selectinload(Product.modifier_groups).selectinload(ModifierGroup.modifiers),
 )
+
+
+async def ingredient_unit_costs(
+    db: AsyncSession, company_id: UUID, ingredient_ids: set[UUID]
+) -> dict[UUID, Decimal]:
+    """Средняя закупочная цена ингредиента по всем складам.
+
+    Та же метрика, что у полуфабрикатов (SemiProductService._avg_ingredient_cost):
+    одно и то же сырьё может лежать на разных складах по разной цене, «одной»
+    цены без выбора склада не существует — средняя и есть разумный дефолт для
+    калькуляции рецепта. Сырьё без закупок в словарь не попадает: его вклад
+    считается нулевым, а не выдуманным.
+    """
+    if not ingredient_ids:
+        return {}
+    rows = (await db.execute(
+        select(StockItem.ingredient_id, func.avg(StockItem.cost_price))
+        .where(StockItem.company_id == company_id, StockItem.ingredient_id.in_(ingredient_ids))
+        .group_by(StockItem.ingredient_id)
+    )).all()
+    return {row[0]: Decimal(str(row[1])) for row in rows if row[1] is not None}
+
+
+def _recipe_cost(
+    lines: list[tuple[UUID, Decimal]], ingredient_costs: dict[UUID, Decimal]
+) -> Decimal:
+    """Σ(норма строки рецепта × средняя закупка ингредиента).
+
+    Округляется до копеек сразу: products.cost_price и cost_price_snapshot —
+    NUMERIC(15,2), и без явного округления в API уезжали бы 20 знаков после
+    запятой от средних закупочных цен.
+    """
+    total = sum(
+        (Decimal(str(qty)) * ingredient_costs.get(ing_id, Decimal("0")) for ing_id, qty in lines),
+        Decimal("0"),
+    )
+    return total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+async def product_cost_total(
+    db: AsyncSession, company_id: UUID, product: Product
+) -> Decimal | None:
+    """Себестоимость блюда = ручная база (products.cost_price) + состав.
+
+    Вариант A: ручное число из карточки НЕ затирается и остаётся в
+    products.cost_price как есть, состав прибавляется только здесь. Так
+    «прочие расходы, которых нет в рецепте» (масло, специи, упаковка) и
+    норма сырья складываются, а не подменяют друг друга.
+
+    Блюдо без рецепта возвращает ровно свою базу (None, если база не задана) —
+    неизвестное остаётся неизвестным и не превращается в ноль.
+    """
+    lines = (await db.execute(
+        select(ProductIngredient.ingredient_id, ProductIngredient.quantity)
+        .where(ProductIngredient.product_id == product.id)
+    )).all()
+    if not lines:
+        return product.cost_price
+    costs = await ingredient_unit_costs(db, company_id, {row[0] for row in lines})
+    recipe_cost = _recipe_cost([(row[0], row[1]) for row in lines], costs)
+    base = Decimal(str(product.cost_price)) if product.cost_price is not None else Decimal("0")
+    return base + recipe_cost
 
 
 class CategoryService:
@@ -182,6 +244,12 @@ class ProductService:
             )).all()
             stock_by_ingredient = dict(rows)
 
+        # Себестоимость состава: средняя закупка по каждому ингредиенту списка.
+        # Один запрос на весь список (как остальные агрегаты), не на строку.
+        ingredient_costs: dict[UUID, Decimal] = {}
+        if ingredient_ids:
+            ingredient_costs = await ingredient_unit_costs(self.db, company_id, ingredient_ids)
+
         # V3: последние пополнения (хронологически, max 2 на продукт) —
         # один запрос на весь список, как остальные агрегаты выше.
         # V3.5: видимы только события с seq строго больше checkpoint
@@ -233,6 +301,16 @@ class ProductService:
             lines = comp_by_product.get(p.id, [])
             p.ingredients_count = len(lines)
             p.set_items_count = set_count_by_product.get(p.id, 0)
+            # Вариант A: итог = ручная база + состав. База остаётся в
+            # cost_price (её правит дровер), cost_total — только для показа
+            # и для снимка при продаже.
+            recipe_cost = _recipe_cost(lines, ingredient_costs)
+            p.recipe_cost = recipe_cost
+            base_cost = Decimal(str(p.cost_price)) if p.cost_price is not None else None
+            p.cost_total = (
+                (base_cost or Decimal("0")) + recipe_cost
+                if (base_cost is not None or lines) else None
+            )
             if lines:
                 servable = [
                     stock_by_ingredient.get(ing_id, Decimal("0")) / qty
@@ -1063,7 +1141,7 @@ class StockService:
     _STOCK_MINUS_TYPES = frozenset({"sale", "writeoff", "transfer", "expense", "waste"})
 
     async def get_stock_as_of(
-        self, company_id: UUID, day: date, warehouse_id: UUID | None = None
+        self, company_id: UUID, day: date, warehouse_id: UUID | None = None, *, web_timezone: str | None = None
     ) -> list[dict]:
         """Остатки на конец календарного дня day (UTC): replay движений.
 
@@ -1074,11 +1152,16 @@ class StockService:
         (оценка запаса = средняя оставшихся партий).
         Неизвестные типы игнорируем, как create_movement.
         """
+        if web_timezone:
+            from app.shared.web_time import web_date_conditions
+            day_conditions = web_date_conditions(StockMovement.created_at, date_to=day)
+        else:
+            day_conditions = [func.date(StockMovement.created_at) <= day]
         query = (
             select(StockMovement)
             .where(
                 StockMovement.company_id == company_id,
-                func.date(StockMovement.created_at) <= day,
+                *day_conditions,
             )
             .order_by(StockMovement.created_at, StockMovement.id)
         )

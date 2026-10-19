@@ -132,9 +132,10 @@ describe("OWNER Revenue Analytics no-data zero line", () => {
     expect(screen.queryByText("Появится после первых заказов")).not.toBeInTheDocument();
 
     // Honest UI-state zeros for goods/costs cards; creditor/debtor untouched.
-    for (const label of ["Приход товаров", "Расход товаров", "Остаток склада", "Общие затраты"]) {
+    for (const label of ["Приход товаров", "Остаток склада", "Общие затраты"]) {
       expect(screen.getByText(label).closest("button")).toHaveTextContent("0 UZS");
     }
+    expect(screen.getByText("Расход товаров").closest("button")).toHaveTextContent("Недоступно");
     for (const label of ["Кредиторка", "Дебиторка"]) {
       expect(screen.getByText(label).closest("button")).toHaveTextContent("Скоро");
     }

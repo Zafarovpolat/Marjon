@@ -122,7 +122,7 @@ export default function InventoryModal({ onClose, onSaved }) {
 
   // Справочники + остатки: шаблоны (Продукт) + Товары-реализация (Товар),
   // остаток строки — из /inventory/stock (по складу выбирается ниже).
-  // История приходов (шапки + строки getPurchase, лимит 60 как в сводках):
+  // История приходов (шапки + строки одним батчем listPurchaseDetails):
   // в таблице показываем только позиции выбранного склада, по которым уже
   // был приход, плюс позиции с ненулевым остатком. Никогда не приходившее
   // с нулевым остатком скрываем, чтобы не шуметь.
@@ -209,13 +209,20 @@ export default function InventoryModal({ onClose, onSaved }) {
       const purchData = purchRes?.data;
       if (purchData) {
         const headers = Array.isArray(purchData) ? purchData : purchData?.items || [];
-        const ids = headers.map((h) => h?.id).filter(Boolean).slice(0, 60);
-        const details = await Promise.all(
-          ids.map((id) => warehouseService.getPurchase(id).catch(() => ({ data: { items: [] } }))),
-        );
+        const ids = headers.map((h) => h?.id).filter(Boolean);
+        // Пакетный состав: один запрос вместо N поштучных. Ключ — id документа,
+        // а не позиция в массиве: раньше детали сопоставлялись по индексу, и при
+        // документе без id вся история склада съезжала на соседний документ.
+        const detailsRes = await warehouseService
+          .listPurchaseDetails(ids)
+          .catch(() => ({ data: [] }));
         if (cancelled) return;
+        const itemsByDoc = new Map();
+        (Array.isArray(detailsRes?.data) ? detailsRes.data : []).forEach((doc) => {
+          if (doc?.id) itemsByDoc.set(String(doc.id), Array.isArray(doc.items) ? doc.items : []);
+        });
         hist = new Map();
-        headers.forEach((h, idx) => {
+        headers.forEach((h) => {
           const whId = h?.warehouse_id ? String(h.warehouse_id) : "";
           if (!whId) return;
           let acc = hist.get(whId);
@@ -223,7 +230,7 @@ export default function InventoryModal({ onClose, onSaved }) {
             acc = { ings: new Set(), prods: new Set() };
             hist.set(whId, acc);
           }
-          const items = Array.isArray(details[idx]?.data?.items) ? details[idx].data.items : [];
+          const items = itemsByDoc.get(String(h?.id)) || [];
           items.forEach((it) => {
             if (it?.ingredient_id) acc.ings.add(String(it.ingredient_id));
             if (it?.product_id) acc.prods.add(String(it.product_id));

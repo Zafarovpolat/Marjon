@@ -1,21 +1,37 @@
 import { readFileSync } from "node:fs";
 import { useState } from "react";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { warehouseService } from "../api/warehouse";
 import { nomenclatureService } from "../api/nomenclature";
 import { catalogService } from "../api/catalog";
 import { settingsService } from "../api/settings";
-import WarehousePage, { __resetDocRangeCache } from "./WarehousePage";
+import WarehousePage, { __resetDocRangeCache, WarehouseStockDetailRoute } from "./WarehousePage";
 
 // Период кэшируется по секции между маунтами — тесты изолируем сбросом.
 beforeEach(() => {
   __resetDocRangeCache();
+  window.history.replaceState({}, "", "/");
+  // Батч-эндпоинт деталей (один запрос на список документов). Тесты задают
+  // поведение по одному id через getPurchase/getExpense — мост сохраняет их
+  // смысл, а факт «один запрос вместо N» проверяется отдельным тестом.
+  const bridge = (single) => async (ids) => ({
+    data: await Promise.all(
+      (Array.isArray(ids) ? ids : []).map(async (id) => ({
+        ...((await single(id))?.data || {}),
+        id,
+      })),
+    ),
+  });
+  warehouseService.listPurchaseDetails.mockImplementation(bridge(warehouseService.getPurchase));
+  warehouseService.listExpenseDetails.mockImplementation(bridge(warehouseService.getExpense));
 });
 
 vi.mock("../api/warehouse", () => ({
   warehouseService: {
     list: vi.fn(),
+    listOutgoingReport: vi.fn(),
     listStock: vi.fn(),
     listIngredients: vi.fn(),
     listWarehouses: vi.fn(),
@@ -23,8 +39,10 @@ vi.mock("../api/warehouse", () => ({
     updateWarehouse: vi.fn(),
     deleteWarehouse: vi.fn(),
     getPurchase: vi.fn(),
+    listPurchaseDetails: vi.fn(),
     createPurchase: vi.fn(),
     getExpense: vi.fn(),
+    listExpenseDetails: vi.fn(),
     createInventory: vi.fn(),
     getInventory: vi.fn(),
     updateInventory: vi.fn(),
@@ -71,6 +89,22 @@ const ingredients = [
   { id: "ing-2", name: "POMIDOR", category: "sabzavotlar", unit: "кг" },
 ];
 
+function mockOutgoingReport(product, tovar = 0, qty = 1, bar = 0) {
+  const response = { data: {
+    rows: [
+      { key: "wh-1", id: "wh-1", name: "Главный склад", product, tovar, raw: product + tovar },
+      { key: "wh-2", id: "wh-2", name: "BAR", product: bar, tovar: 0, raw: bar },
+    ], total: product + tovar + bar,
+    lines: [
+      { key: "movement-1", warehouseKey: "wh-1", ingredientId: "ing-1", name: "kartoshka", category: "sabzavotlar", qty, unit: "кг", sum: product, isTovar: false },
+      ...(tovar ? [{ key: "movement-2", warehouseKey: "wh-1", ingredientId: "ing-2", name: "COCA COLA", category: "напитки", qty: 3, unit: "шт", sum: tovar, isTovar: true }] : []),
+      ...(bar ? [{ key: "movement-3", warehouseKey: "wh-2", ingredientId: "ing-1", name: "kartoshka", category: "sabzavotlar", qty: 1, unit: "кг", sum: bar, isTovar: false }] : []),
+    ],
+  } };
+  warehouseService.listOutgoingReport.mockResolvedValue(response);
+  return response;
+}
+
 function mockStock({ warehouses: wh = warehouses, stock: items = stock, ingredients: ings = ingredients } = {}) {
   warehouseService.listStock.mockResolvedValue({ data: items });
   warehouseService.listWarehouses.mockResolvedValue({ data: wh });
@@ -79,6 +113,16 @@ function mockStock({ warehouses: wh = warehouses, stock: items = stock, ingredie
 }
 
 describe("Warehouse stock summary (V36 dishes family)", () => {
+  it("uses the dashboard URL period and preserves it after a remount", async () => {
+    window.history.replaceState({}, "", "/stock-report/outgoing?date_from=2026-10-12&date_to=2026-10-17");
+    mockStock(); mockOutgoingReport(21000);
+    const view = render(<WarehousePage initialSection="outgoing" />);
+    await waitFor(() => expect(warehouseService.listOutgoingReport).toHaveBeenCalledWith("2026-10-12", "2026-10-17"));
+    expect((await screen.findByRole("table", { name: "Расход по складам" })).textContent).toMatch(/21[\s\u00a0\u202f]*000 UZS/);
+    view.unmount(); __resetDocRangeCache();
+    render(<WarehousePage initialSection="outgoing" />);
+    await waitFor(() => expect(warehouseService.listOutgoingReport).toHaveBeenLastCalledWith("2026-10-12", "2026-10-17"));
+  });
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -216,6 +260,62 @@ describe("Warehouse stock summary (V36 dishes family)", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Открыть остатки склада BAR" }));
     await waitFor(() => expect(onOpen).toHaveBeenCalledTimes(1));
     expect(onOpen.mock.calls[0][0]).toMatchObject({ id: "wh-2", name: "BAR" });
+  });
+
+  it("7c. focusIngredientId opens only the category of that ingredient", async () => {
+    // Две разные категории: заход из колокольчика дефицита должен раскрыть
+    // ровно одну — ту, где лежит дефицитное сырьё.
+    mockStock({
+      stock: [
+        { warehouse_id: "wh-1", ingredient_id: "ing-1", quantity: 50, cost_price: 1000, unit: "кг" },
+        { warehouse_id: "wh-1", ingredient_id: "ing-3", quantity: 7, cost_price: 200, unit: "кг" },
+      ],
+      ingredients: [
+        { id: "ing-1", name: "kartoshka", category: "sabzavotlar", unit: "кг" },
+        { id: "ing-3", name: "guruch", category: "krupy", unit: "кг" },
+      ],
+    });
+    render(<WarehousePage initialSection="stock" warehouseId="wh-1" focusIngredientId="ing-3" />);
+    const detail = await screen.findByRole("table", { name: "Остаток склада Главный склад" });
+    // Категория дефицита раскрыта — строка видна без кликов.
+    expect(await within(detail).findByText("guruch")).toBeInTheDocument();
+    expect(within(detail).getByRole("button", { name: "Свернуть категорию продуктов krupy" })).toBeInTheDocument();
+    // Чужая категория осталась закрытой.
+    expect(within(detail).queryByText("kartoshka")).toBeNull();
+    expect(within(detail).getByRole("button", { name: "Развернуть категорию продуктов sabzavotlar" })).toBeInTheDocument();
+  });
+
+  it("7d. unknown focusIngredientId leaves every category closed", async () => {
+    mockStock();
+    render(<WarehousePage initialSection="stock" warehouseId="wh-1" focusIngredientId="ing-gone" />);
+    const detail = await screen.findByRole("table", { name: "Остаток склада Главный склад" });
+    expect(within(detail).queryByText("kartoshka")).toBeNull();
+    expect(within(detail).getByRole("button", { name: "Развернуть категорию продуктов sabzavotlar" })).toBeInTheDocument();
+  });
+
+  it("7e. stock detail route passes ?ingredient= through to the page", async () => {
+    // Сквозная проверка ссылки из колокольчика дефицита: URL со складом и
+    // сырьём должен открыть остатки этого склада с раскрытой категорией.
+    mockStock({
+      stock: [
+        { warehouse_id: "wh-1", ingredient_id: "ing-1", quantity: 50, cost_price: 1000, unit: "кг" },
+        { warehouse_id: "wh-1", ingredient_id: "ing-3", quantity: 7, cost_price: 200, unit: "кг" },
+      ],
+      ingredients: [
+        { id: "ing-1", name: "kartoshka", category: "sabzavotlar", unit: "кг" },
+        { id: "ing-3", name: "guruch", category: "krupy", unit: "кг" },
+      ],
+    });
+    render(
+      <MemoryRouter initialEntries={["/stock-report/stock/wh-1?ingredient=ing-3"]}>
+        <Routes>
+          <Route path="/stock-report/stock/:warehouseId" element={<WarehouseStockDetailRoute />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const detail = await screen.findByRole("table", { name: "Остаток склада Главный склад" });
+    expect(await within(detail).findByText("guruch")).toBeInTheDocument();
+    expect(within(detail).queryByText("kartoshka")).toBeNull();
   });
 
   it("8. category toggle expands and collapses ingredient lines", async () => {
@@ -456,6 +556,7 @@ describe("Warehouse stock summary (V36 dishes family)", () => {
   });
 
   it("8j. outgoing summary groups by warehouse with sale-match tovar split", async () => {
+    mockOutgoingReport(2000, 1500, 2, 1000);
     const pad = (value) => String(value).padStart(2, "0");
     const today = new Date();
     const isoToday = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
@@ -506,6 +607,8 @@ describe("Warehouse stock summary (V36 dishes family)", () => {
   });
 
   it("8k. outgoing summary period filters like reports", async () => {
+    const todayReport = mockOutgoingReport(1000);
+    const yesterdayReport = mockOutgoingReport(0, 0, 0, 2000);
     const pad = (value) => String(value).padStart(2, "0");
     const isoDay = (offset) => {
       const dt = new Date();
@@ -517,6 +620,7 @@ describe("Warehouse stock summary (V36 dishes family)", () => {
       dt.setDate(dt.getDate() - offset);
       return `${pad(dt.getDate())}.${pad(dt.getMonth() + 1)}.${dt.getFullYear()} / 12:00`;
     };
+    warehouseService.listOutgoingReport.mockImplementation(async (from) => from === isoDay(0) ? todayReport : yesterdayReport);
     const doc = (id, number, whId, whName, date, registeredAt, total) => ({
       id, number, receiver: `Получатель-${number}`, warehouse_id: whId, warehouse_name: whName,
       date, registered_at: registeredAt,
@@ -538,10 +642,12 @@ describe("Warehouse stock summary (V36 dishes family)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Период документов" }));
     fireEvent.click(await screen.findByRole("button", { name: "Вчера" }));
     fireEvent.click(screen.getByRole("button", { name: "ОК" }));
-    expect(rowFor("BAR").textContent).toMatch(/2[\s\u00a0\u202f]*000 UZS/);
+    await waitFor(() => expect(rowFor("BAR").textContent).toMatch(/2[\s\u00a0\u202f]*000 UZS/));
+    expect(warehouseService.listOutgoingReport).toHaveBeenLastCalledWith(isoDay(1), isoDay(1));
   });
 
   it("8l. outgoing warehouse click opens stock-like breakdown of expense only", async () => {
+    mockOutgoingReport(100000, 0, 20);
     const pad = (value) => String(value).padStart(2, "0");
     const today = new Date();
     const isoToday = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
@@ -1193,6 +1299,7 @@ describe("Warehouse inventory (Инвентаризация, V42)", () => {
   });
 
   it("17. expense inventory card shows shortage documents with warehouse detail", async () => {
+    mockOutgoingReport(20000, 0, 10);
     const pad = (value) => String(value).padStart(2, "0");
     const today = new Date();
     const isoToday = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
@@ -1269,5 +1376,118 @@ describe("Warehouse inventory (Инвентаризация, V42)", () => {
     fireEvent.click(await screen.findByRole("option", { name: "Главный склад" }));
     // Один учёт — одна строка (Товар с привязкой), дубль-Продукт скрыт.
     expect(await screen.findAllByLabelText("Факт fanta")).toHaveLength(1);
+  });
+});
+
+describe("Warehouse document details are batched (perf: 1 request instead of N)", () => {
+  const pad = (value) => String(value).padStart(2, "0");
+  const today = new Date();
+  const isoToday = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  const regToday = `${pad(today.getDate())}.${pad(today.getMonth() + 1)}.${today.getFullYear()} / 12:00`;
+
+  const purchaseDoc = (id, number, total) => ({
+    id, number, supplier: `Поставщик ${number}`, warehouse_id: "wh-1", warehouse_name: "Главный склад",
+    date: isoToday, registered_at: regToday,
+    items_count: 1, total_amount: total, status: "accepted", created_by_name: "",
+  });
+
+  it("20. incoming summary calls listPurchaseDetails once and never per-document", async () => {
+    warehouseService.list.mockResolvedValue({
+      data: [purchaseDoc("d1", 1, 1000), purchaseDoc("d2", 2, 2000), purchaseDoc("d3", 3, 3000)],
+    });
+    warehouseService.listWarehouses.mockResolvedValue({ data: warehouses });
+    warehouseService.listPurchaseDetails.mockResolvedValue({ data: [] });
+    render(<WarehousePage initialSection="incoming" />);
+    await screen.findByRole("table", { name: "Приход по складам" });
+    await waitFor(() => expect(warehouseService.listPurchaseDetails).toHaveBeenCalled());
+    // Ровно один запрос деталей на весь список — и ни одного поштучного.
+    expect(warehouseService.listPurchaseDetails).toHaveBeenCalledTimes(1);
+    expect(warehouseService.listPurchaseDetails).toHaveBeenCalledWith(["d1", "d2", "d3"]);
+    expect(warehouseService.getPurchase).not.toHaveBeenCalled();
+  });
+
+  it("21. outgoing summary calls listExpenseDetails once and never per-document", async () => {
+    mockOutgoingReport(0, 0, 0);
+    warehouseService.list.mockResolvedValue({
+      data: [1, 2, 3].map((n) => ({
+        id: `e${n}`, number: n, receiver: `Получатель ${n}`,
+        warehouse_id: "wh-1", warehouse_name: "Главный склад",
+        date: isoToday, registered_at: regToday,
+        items_count: 1, total_amount: n * 1000, status: "accepted", created_by_name: "",
+      })),
+    });
+    warehouseService.listWarehouses.mockResolvedValue({ data: warehouses });
+    warehouseService.listExpenseDetails.mockResolvedValue({ data: [] });
+    render(<WarehousePage initialSection="outgoing" />);
+    await screen.findByRole("table", { name: "Расход по складам" });
+    await waitFor(() => expect(warehouseService.listExpenseDetails).toHaveBeenCalled());
+    expect(warehouseService.listExpenseDetails).toHaveBeenCalledTimes(1);
+    expect(warehouseService.listExpenseDetails).toHaveBeenCalledWith(["e1", "e2", "e3"]);
+    expect(warehouseService.getExpense).not.toHaveBeenCalled();
+  });
+
+  it("22. classification is not truncated: документ №80 за прежним лимитом 60 всё ещё Товар", async () => {
+    // Раньше брали slice(0, 60) — приход с product_id на 80-м месте молча
+    // считался Продуктом. Батч отдаёт все документы, поэтому признак верный.
+    const docs = Array.from({ length: 80 }, (_, i) => purchaseDoc(`d${i + 1}`, i + 1, 1000));
+    warehouseService.list.mockResolvedValue({ data: docs });
+    warehouseService.listWarehouses.mockResolvedValue({ data: warehouses });
+    warehouseService.listPurchaseDetails.mockResolvedValue({
+      data: docs.map((doc) => ({
+        ...doc,
+        items: doc.id === "d80"
+          ? [{ id: "li-80", ingredient_id: "ing-1", product_id: "prod-1", name: "fanta", quantity: 1, unit: "шт", cost_price: 1000 }]
+          : [],
+      })),
+    });
+    warehouseService.listIngredients.mockResolvedValue({
+      data: [{ id: "ing-1", name: "fanta", category: "napitki", unit: "шт" }],
+    });
+    catalogService.listProducts.mockResolvedValue({ data: [] });
+    render(<WarehousePage initialSection="incoming" />);
+    const table = await screen.findByRole("table", { name: "Приход по складам" });
+    // Все 80 документов ушли одним запросом.
+    await waitFor(() => expect(warehouseService.listPurchaseDetails).toHaveBeenCalledTimes(1));
+    expect(warehouseService.listPurchaseDetails.mock.calls[0][0]).toHaveLength(80);
+    // ing-1 распознан как Товар → сумма документа №80 попала в колонку
+    // «Товар» (индекс 3), а не растворилась в «Продукте».
+    await waitFor(() => {
+      const row = within(table).getByText("Главный склад").closest("tr");
+      const cells = [...row.querySelectorAll("td")].map((td) => td.textContent.trim());
+      expect(cells[3]).toMatch(/1[\s\u00a0\u202f]*000 UZS/);
+      expect(cells[2]).toMatch(/79[\s\u00a0\u202f]*000 UZS/);
+    });
+  });
+
+  it("23. inventory modal loads purchase history with one batch request", async () => {
+    warehouseService.list.mockResolvedValue({
+      data: [purchaseDoc("d1", 1, 1000), purchaseDoc("d2", 2, 2000)],
+    });
+    warehouseService.listWarehouses.mockResolvedValue({ data: warehouses });
+    warehouseService.listStock.mockResolvedValue({
+      data: [{ warehouse_id: "wh-1", ingredient_id: "ing-1", quantity: 100, cost_price: 1000, unit: "шт" }],
+    });
+    nomenclatureService.listIngredients.mockResolvedValue({
+      data: [{ id: "ing-1", name: "fanta", category: "napitki", unit: "шт" }],
+    });
+    catalogService.listProducts.mockResolvedValue({ data: [] });
+    warehouseService.listPurchaseDetails.mockResolvedValue({
+      data: [
+        { id: "d1", items: [{ id: "li-1", ingredient_id: "ing-1", quantity: 5, unit: "шт", cost_price: 1000 }] },
+        { id: "d2", items: [{ id: "li-2", ingredient_id: "ing-1", quantity: 7, unit: "шт", cost_price: 1000 }] },
+      ],
+    });
+    render(<WarehousePage initialSection="inventory" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Создать" }));
+    expect(await screen.findByRole("heading", { name: "Создать инвентаризацию" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("combobox", { name: "Склад инвентаризации" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Главный склад" }));
+    // История приходов — один запрос на все документы, ни одного поштучного.
+    await waitFor(() => expect(warehouseService.listPurchaseDetails).toHaveBeenCalled());
+    expect(warehouseService.listPurchaseDetails).toHaveBeenCalledTimes(1);
+    expect(warehouseService.listPurchaseDetails.mock.calls[0][0].sort()).toEqual(["d1", "d2"]);
+    expect(warehouseService.getPurchase).not.toHaveBeenCalled();
+    // Позиция из истории приходов доступна для пересчёта.
+    expect(await screen.findByLabelText("Факт fanta")).toBeInTheDocument();
   });
 });

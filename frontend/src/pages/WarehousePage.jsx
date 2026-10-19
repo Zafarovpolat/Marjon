@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { warehouseService } from "../api/warehouse";
 import { nomenclatureService } from "../api/nomenclature";
 import { catalogService } from "../api/catalog";
 import { settingsService } from "../api/settings";
-import { reportsService } from "../api/reports";
 import { isAbortError, useLatestRequest } from "../hooks/useAsyncSafety";
 import Icon from "../components/Icon";
 import Toast from "../components/Toast";
@@ -17,6 +16,9 @@ import WasteDrawer from "./warehouse/WasteDrawer";
 import InventoryModal from "./warehouse/InventoryModal";
 import InventoryDetailModal from "./warehouse/InventoryDetailModal";
 import WarehouseModal from "./warehouse/WarehouseModal";
+import { readOutgoingReport } from "./warehouse/outgoingReport";
+import { dashboardPeriodFromSearch } from "./dashboard/reportRange";
+import { webDayKey, webDateTime, webFormat } from "../utils/webTime";
 
 const ACTIVE = "active";
 const ARCHIVE = "archive";
@@ -235,16 +237,12 @@ function normalizeSection(section) {
 
 // Сегодня строкой YYYY-MM-DD (верхняя граница поля периода).
 function todayStr() {
-  const now = new Date();
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  return webDayKey();
 }
 
 // Сегодня строкой DD.MM.YYYY (формат пикера периода из отчётов).
 function todayDDMM() {
-  const now = new Date();
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${pad(now.getDate())}.${pad(now.getMonth() + 1)}.${now.getFullYear()}`;
+  return webFormat(new Date(), { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 // as_of (YYYY-MM-DD) → DD.MM.YYYY для значения пикера.
@@ -273,10 +271,10 @@ export function docDateToISO(raw) {
   return "";
 }
 
-// Дата регистрации → локальный YYYY-MM-DD для фильтра периода.
+// Дата регистрации → YYYY-MM-DD в Asia/Tashkent для фильтра периода.
 // Бэкенд хранит registered_at строкой UTC без зоны ("13.10.2026 / 07:18",
 // _now() в warehouse_router.py) — как и в показе (formatDocDateTime),
-// переводим в локальный день браузера и только потом сравниваем.
+// переводим в день web (UTC+5), независимо от часового пояса браузера.
 export function registeredAtToISO(raw) {
   const text = String(raw || "").trim();
   if (!text) return "";
@@ -291,8 +289,7 @@ export function registeredAtToISO(raw) {
     if (!Number.isNaN(parsed.getTime())) date = parsed;
   }
   if (!date || Number.isNaN(date.getTime())) return "";
-  const pad = (value) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  return webDayKey(date);
 }
 
 // Секции-журналы, где период из отчётов реально фильтрует документы.
@@ -310,6 +307,12 @@ function defaultDocRange() {
 let cachedDocRangeSection = "";
 let cachedDocRangeValue = null;
 function initialDocRange(section) {
+  const requested = section === "outgoing" ? dashboardPeriodFromSearch(window.location.search) : null;
+  if (requested) {
+    cachedDocRangeSection = section;
+    cachedDocRangeValue = requested;
+    return requested;
+  }
   if (cachedDocRangeSection === section && cachedDocRangeValue) return cachedDocRangeValue;
   cachedDocRangeSection = section;
   cachedDocRangeValue = defaultDocRange();
@@ -371,8 +374,8 @@ function writePurchaseLastValues(patch) {
 // Дата документа — строкой YYYY-MM-DD (поле date инпута). В списке показываем
 // как DD-MM-YYYY (08-10-2026), в тон колонке регистрации.
 // registered_at backend отдаёт строкой UTC без зоны ("13.10.2026 / 07:18",
-// см. _now() в warehouse_router.py). Показываем в локальном времени браузера
-// (для Ташкента это +5 часов). ISO с зоной тоже понимаем.
+// см. _now() в warehouse_router.py). Показываем в Asia/Tashkent (+5).
+// ISO с зоной тоже понимаем; повторно пять часов не прибавляем.
 function formatDocDate(raw) {
   const text = String(raw || "").trim();
   const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -392,8 +395,7 @@ function formatDocDateTime(raw) {
     if (!Number.isNaN(parsed.getTime())) date = parsed;
   }
   if (!date || Number.isNaN(date.getTime())) return text;
-  const pad = (value) => String(value).padStart(2, "0");
-  return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()} / ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return webDateTime(date);
 }
 
 // V36: сводка остатков по складам (warehouseSummary ниже) считается из тех
@@ -589,7 +591,7 @@ function filterDocsByPeriod(docs, fromISO, toISO) {
 
 // Сводка приходных документов по складам как Остаток: склады из справочника
 // (с нулями), затем склады только из документов. Продукт/Товар — по строкам
-// getPurchase (есть product_id → Товар), сумма = qty×cost_price; без деталей
+// listPurchaseDetails (есть product_id → Товар), сумма = qty×cost_price; без деталей
 // total документа падает в Продукт, чтобы сумма не терялась.
 function aggregatePurchaseSummary(docs, details, warehouses) {
   const accById = new Map();
@@ -782,7 +784,7 @@ function buildExpenseDetail(docs, selectedKey, fromISO, toISO, details, ingById,
 // продуктов (ingredients: ingredient_id/quantity/warehouse_id) + справочник
 // ингредиентов (имя/категория/ед.изм/себестоимость). Возвращает линии в том же
 // формате, что buildExpenseDetail (isTovar=false — это сырьё/Продукт).
-function buildSaleExpenseLines(dishItems, products, ingById, mainWarehouseId, periodLabel) {
+export function buildSaleExpenseLines(dishItems, products, ingById, mainWarehouseId, periodLabel) {
   const ingMap = ingById instanceof Map ? ingById : new Map();
   const byProductId = new Map();
   (Array.isArray(products) ? products : []).forEach((p) => {
@@ -830,7 +832,7 @@ function buildSaleExpenseLines(dishItems, products, ingById, mainWarehouseId, pe
   return Array.from(acc.values()).sort((a, b) => String(a.name).localeCompare(String(b.name), "ru"));
 }
 
-function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehouse, startCreating = false, onOpenCreate, onCloseCreate, detailDocId = "", onOpenDocDetail }) {
+function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehouse, startCreating = false, onOpenCreate, onCloseCreate, detailDocId = "", onOpenDocDetail, focusIngredientId = "" }) {
   const section = normalizeSection(initialSection);
   const config = warehouseConfigs[section] || warehouseConfigs.incoming;
   const unavailableMessage = sectionUnavailableMessages[section] || "";
@@ -849,6 +851,12 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
     const value = typeof next === "function" ? next(docRange) : next;
     cachedDocRangeSection = section;
     cachedDocRangeValue = value;
+    if (section === "outgoing") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("date_from", docDateToISO(value.start));
+      params.set("date_to", docDateToISO(value.end));
+      window.history.replaceState(window.history.state, "", `${window.location.pathname}?${params}${window.location.hash}`);
+    }
     setDocRangeState(value);
   };
   const handleDocRange = (range) => {
@@ -909,7 +917,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
   // подгружаем лениво — для имён/категорий строк (stock даёт только id).
   const [selectedWhId, setSelectedWhId] = useState(null);
   // Приход — сводка по складам как Остаток: склады + строки документов
-  // (docId → items из getPurchase, лимит 60 как в stock). Продукт/Товар делим
+  // (docId → items из listPurchaseDetails). Продукт/Товар делим
   // по строкам: есть product_id → Товар, иначе Продукт; сумма = qty×cost_price.
   const [incomingWarehouses, setIncomingWarehouses] = useState([]);
   const [incomingDetails, setIncomingDetails] = useState({});
@@ -918,7 +926,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
   // как у stock (там возврат через роут).
   const [selectedIncomingWhId, setSelectedIncomingWhId] = useState(null);
   // Расход — сводка по складам как Приход: склады + строки документов
-  // (docId → items из getExpense, лимит 60). У строк расхода нет product_id,
+  // (docId → items из listExpenseDetails). У строк расхода нет product_id,
   // Товар отделяем совпадением шаблона по имени/ед.изм с карточками sale.
   const [outgoingWarehouses, setOutgoingWarehouses] = useState([]);
   const [outgoingDetails, setOutgoingDetails] = useState({});
@@ -927,9 +935,8 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
   const [selectedOutgoingWhId, setSelectedOutgoingWhId] = useState(null);
   // Авто-расход от продаж по техкартам (проданные порции × норма):
   // строки отчёта по блюдам + рецепты продуктов за тот же период.
-  const [saleDishItems, setSaleDishItems] = useState([]);
-  const [saleProducts, setSaleProducts] = useState([]);
   const [saleError, setSaleError] = useState("");
+  const [persistedOutgoing, setPersistedOutgoing] = useState(null);
   // V42: инвентаризация — свой список (шапки проверок) для секции
   // inventory и встроенной таблицы в Приходе. Модалка Создать — ниже.
   const [invRows, setInvRows] = useState([]);
@@ -949,6 +956,11 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
   // Категории в фазе закрытия (строки ещё видны 200мс с анимацией).
   const [closingCats, setClosingCats] = useState({});
   const closeTimers = useRef({});
+  // Переход из колокольчика дефицита: ?ingredient=<id> раскрывает ровно ту
+  // категорию, где лежит это сырьё. Применяем один раз на id — иначе ручное
+  // сворачивание пользователем тут же отменялось бы повторным раскрытием.
+  const focusAppliedRef = useRef("");
+  const [focusScrollId, setFocusScrollId] = useState("");
   // Добавить продуктов: раскрытая строка прихода + таблица продуктов
   // (Продукты из /inventory/ingredients + Товары-реализация из /inventory/products).
   // Просмотр состава прихода: отдельный экран (.../incoming-journal/:docId),
@@ -984,11 +996,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
   const [creating, setCreating] = useState(!!startCreating);
   const [createSupplier, setCreateSupplier] = useState("");
   const [createWarehouseId, setCreateWarehouseId] = useState("");
-  const [createDate, setCreateDate] = useState(() => {
-    const now = new Date();
-    const pad = (n) => String(n).padStart(2, "0");
-    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-  });
+  const [createDate, setCreateDate] = useState(() => webDayKey());
   const [createSaving, setCreateSaving] = useState(false);
   const [createError, setCreateError] = useState("");
   // Поставщики из Настройки → Клиенты → Поставщики (GET /crm/counterparties,
@@ -1219,11 +1227,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
     setDocItemsUnavailable(false);
     setCreateSupplier("");
     setCreateWarehouseId("");
-    setCreateDate(() => {
-      const now = new Date();
-      const pad = (n) => String(n).padStart(2, "0");
-      return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-    });
+    setCreateDate(() => webDayKey());
     setCreateTotalMode(false);
     setCreateSearch("");
     setCreateType("");
@@ -1611,12 +1615,14 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
             });
             const purchData = purchRes?.data;
             const headers = Array.isArray(purchData) ? purchData : purchData?.items || [];
-            const ids = headers.map((h) => h?.id).filter(Boolean).slice(0, 60);
-            const details = await Promise.all(
-              ids.map((id) => safeList(() => warehouseService.getPurchase(id))),
-            );
-            details.forEach((d) => {
-              const items = Array.isArray(d?.data?.items) ? d.data.items : [];
+            const ids = headers.map((h) => h?.id).filter(Boolean);
+            // Один пакетный запрос на весь список вместо 60 параллельных
+            // getPurchase: признак «Товар» нужен по всем документам, а не по
+            // первым 60, иначе классификация молча врёт на длинной истории.
+            const detailsRes = await safeList(() => warehouseService.listPurchaseDetails(ids));
+            const detailDocs = Array.isArray(detailsRes?.data) ? detailsRes.data : [];
+            detailDocs.forEach((doc) => {
+              const items = Array.isArray(doc?.items) ? doc.items : [];
               items.forEach((it) => {
                 if (it?.product_id && it?.ingredient_id) tovar.add(String(it.ingredient_id));
               });
@@ -1636,7 +1642,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
     if (section === "incoming") {
       // Сводка Прихода по складам: те же GET /warehouse/purchases (бэк дату
       // не фильтрует — режем на клиенте по registered_at как сейчас), склады
-      // из /warehouse/list, детали строк из getPurchase (лимит 60 как в stock
+      // из /warehouse/list, детали строк одним батчем listPurchaseDetails
       // для деления Продукт/Товар). Период применяется клиентом в мемоизации
       // ниже (incomingSummary), поэтому перезагрузка по смене периода не нужна.
       const safeList = (fn) => {
@@ -1661,17 +1667,14 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
           if (!request.isCurrent()) return;
           setIncomingWarehouses(whList);
           setLoading(false);
-          // Детали строк для Продукт/Товар (есть product_id → Товар).
-          const ids = items.map((h) => h?.id).filter(Boolean).slice(0, 60);
-          const details = await Promise.all(
-            ids.map((id) => safeList(() => warehouseService.getPurchase(id))),
-          );
+          // Детали строк для Продукт/Товар (есть product_id → Товар) — одним
+          // пакетным запросом на весь список, а не по запросу на документ.
+          const ids = items.map((h) => h?.id).filter(Boolean);
+          const detailsRes = await safeList(() => warehouseService.listPurchaseDetails(ids));
           if (!request.isCurrent()) return;
           const map = {};
-          details.forEach((d, idx) => {
-            const docId = ids[idx];
-            const arr = Array.isArray(d?.data?.items) ? d.data.items : [];
-            map[docId] = arr;
+          (Array.isArray(detailsRes?.data) ? detailsRes.data : []).forEach((doc) => {
+            if (doc?.id) map[doc.id] = Array.isArray(doc.items) ? doc.items : [];
           });
           setIncomingDetails(map);
         })
@@ -1682,7 +1685,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
     if (section === "outgoing") {
       // Сводка Расхода по складам как Приход: те же GET /warehouse/expenses
       // (бэк дату не фильтрует — режем на клиенте по registered_at), склады
-      // из /warehouse/list, детали строк из getExpense (лимит 60).
+      // из /warehouse/list, детали строк одним батчем listExpenseDetails.
       // Товар/Продукт — совпадением шаблона с карточками sale (у расхода нет
       // product_id), справочники тянем здесь же. Период применяется клиентом
       // в мемоизации ниже (outgoingSummary).
@@ -1724,18 +1727,14 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
               .map((p) => `${String(p?.name || "").trim().toLowerCase()}||${String(p?.unit || "").trim().toLowerCase()}`),
           ));
           // Рецепты для авто-расхода от продаж (техкарты: норма на порцию).
-          setSaleProducts(prods);
           setLoading(false);
-          const ids = items.map((h) => h?.id).filter(Boolean).slice(0, 60);
-          const details = await Promise.all(
-            ids.map((id) => safeList(() => warehouseService.getExpense(id))),
-          );
+          const ids = items.map((h) => h?.id).filter(Boolean);
+          // Пакетный состав расходов: один запрос вместо N поштучных.
+          const detailsRes = await safeList(() => warehouseService.listExpenseDetails(ids));
           if (!request.isCurrent()) return;
           const map = {};
-          details.forEach((d, idx) => {
-            const docId = ids[idx];
-            const arr = Array.isArray(d?.data?.items) ? d.data.items : [];
-            map[docId] = arr;
+          (Array.isArray(detailsRes?.data) ? detailsRes.data : []).forEach((doc) => {
+            if (doc?.id) map[doc.id] = Array.isArray(doc.items) ? doc.items : [];
           });
           setOutgoingDetails(map);
         })
@@ -1825,27 +1824,25 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
     return () => { cancelled = true; };
   }, [section, reloadKey]);
 
-  // Авто-расход от продаж: проданные блюда за период (отчёт по блюдам) за тот
-  // же docRange, что и ручной расход. Рецепты уже лежат в saleProducts
-  // (каталог из основной загрузки outgoing). Ошибка продаж не роняет расход —
-  // показываем только ручные документы.
+  // The same persisted-movement report feeds the dashboard and this table.
+  // Never reconstruct historical costs from today's recipes/prices on failure.
   useEffect(() => {
     if (section !== "outgoing") return;
     let cancelled = false;
     const fromISO = docDateToISO(docRange.start);
     const toISO = docDateToISO(docRange.end);
     setSaleError("");
-    reportsService.listDishes(fromISO, toISO)
+    setPersistedOutgoing(null);
+    warehouseService.listOutgoingReport(fromISO, toISO)
       .then(({ data }) => {
         if (cancelled) return;
-        const items = Array.isArray(data) ? data : (Array.isArray(data?.rows) ? data.rows : data?.items || []);
-        setSaleDishItems(items);
+        setPersistedOutgoing(readOutgoingReport(data));
       })
       .catch((err) => {
         if (cancelled || isAbortError(err)) return;
-        setSaleDishItems([]);
+        setPersistedOutgoing(null);
         const detail = err?.response?.data?.detail;
-        setSaleError(typeof detail === "string" ? detail : "");
+        setSaleError(typeof detail === "string" ? detail : "Не удалось загрузить фактический расход. Требуется обновлённый backend.");
       });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2065,8 +2062,8 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
 
   // Приход — сводка по складам как Остаток: суммируем ВСЕ приходные документы
   // за выбранный период (общий docRange, фильтр по regDate как в visibleRows).
-  // Продукт/Товар — по строкам getPurchase: есть product_id → Товар, иначе
-  // Продукт; сумма = qty×cost_price. Без деталей (лимит 60/ошибка) — total
+  // Продукт/Товар — по строкам listPurchaseDetails: есть product_id → Товар,
+  // иначе Продукт; сумма = qty×cost_price. Без деталей (ошибка) — total
   // документа падает в Продукт, чтобы сумма не терялась.
   const incomingSummary = useMemo(() => {
     if (section !== "incoming") return [];
@@ -2134,7 +2131,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
 
   // Детализация Прихода как в Остатке, но ТОЛЬКО первичный приход (без
   // расхода): строки документов склада за период из incomingDetails
-  // (getPurchase). Категории — из справочника ингредиентов, как в stock.
+  // (listPurchaseDetails). Категории — из справочника ингредиентов, как в stock.
   const incomingWhDetail = useMemo(() => {
     if (section !== "incoming" || !selectedIncomingWhId) return null;
     const summaryRow = incomingSummary.find((w) => String(w.key) === String(selectedIncomingWhId));
@@ -2227,67 +2224,13 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
     setSelectedInventoryWhId(key);
   };
 
-  // Расход — сводка по складам как Приход: РУЧНЫЕ документы за период
-  // (docRange по regDate), БЕЗ инвентаризации — недостачи с получателем
-  // «Инвентаризация» живут только в нижней карточке и в расход не входят.
-  // Продукт/Товар — по строкам getExpense: совпадение шаблона (имя/ед.изм)
-  // с карточками sale → Товар, иначе Продукт. Без деталей — total падает в Продукт.
-  // Плюс авто-расход от продаж: проданные порции × норма техкарты
-  // (мясо 100 кг, плов 0.2 кг, продано 20 → 4 кг в расходе, остаток 96).
-  const outgoingManualSummary = useMemo(() => {
-    if (section !== "outgoing") return [];
-    const fromISO = docDateToISO(docRange.start);
-    const toISO = docDateToISO(docRange.end);
-    const manualRows = filterDocsByPeriod(rows, fromISO, toISO).filter((r) => r.receiver !== "Инвентаризация");
-    return aggregateExpenseSummary(manualRows, outgoingDetails, outgoingWarehouses, outgoingIngById, outgoingSaleKeys);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [section, rows, outgoingDetails, outgoingWarehouses, outgoingIngById, outgoingSaleKeys, docRange]);
-
-  const saleMainWarehouseId = useMemo(() => {
-    const list = Array.isArray(outgoingWarehouses) ? outgoingWarehouses : [];
-    const main = list.find((w) => w?.is_main);
-    return main?.id ? String(main.id) : (list[0]?.id ? String(list[0].id) : "");
-  }, [outgoingWarehouses]);
-
-  const saleExpenseLines = useMemo(() => {
-    if (section !== "outgoing") return [];
-    const label = docRange.start && docRange.end && docRange.start !== docRange.end
-      ? `Продажа ${docRange.start}–${docRange.end}`
-      : `Продажа ${docRange.start || docRange.end || ""}`;
-    return buildSaleExpenseLines(saleDishItems, saleProducts, outgoingIngById, saleMainWarehouseId, label);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [section, saleDishItems, saleProducts, outgoingIngById, saleMainWarehouseId, docRange.start, docRange.end]);
-
-  // Сводка авто-расхода по складам (всё — Продукт, Товар=0) + мерж с ручной.
+  // Actual sale/expense movements at their frozen cost and posting date.
+  // Inventory shortages remain isolated in the separate card below.
   const outgoingSummary = useMemo(() => {
     if (section !== "outgoing") return [];
-    const byKey = new Map();
-    outgoingManualSummary.forEach((r) => {
-      byKey.set(String(r.key), { ...r });
-    });
-    const ensure = (key, name) => {
-      const k = String(key);
-      if (!byKey.has(k)) {
-        byKey.set(k, { id: k.startsWith("name:") ? k.slice(5) : k, key: k, name: name || "—", product: 0, tovar: 0 });
-      }
-      return byKey.get(k);
-    };
-    // Склады из справочника с нулями уже есть в manual; добиваем те, куда
-    // легли продажи без ручных документов.
-    const whById = new Map();
-    (Array.isArray(outgoingWarehouses) ? outgoingWarehouses : []).forEach((wh) => {
-      if (wh?.id) whById.set(String(wh.id), wh.name || "—");
-    });
-    saleExpenseLines.forEach((line) => {
-      const rawKey = String(line.warehouseKey || saleMainWarehouseId || "");
-      const key = rawKey || `name:${line.warehouseKey || "—"}`;
-      const acc = ensure(key, whById.get(rawKey) || line.warehouseKey || "—");
-      if ((!acc.name || acc.name === "—") && whById.get(rawKey)) acc.name = whById.get(rawKey);
-      acc.product += Number(line.sum) || 0;
-    });
-    return Array.from(byKey.values()).map((r) => ({ ...r, raw: (Number(r.product) || 0) + (Number(r.tovar) || 0) }));
+    return persistedOutgoing?.rows || [];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [section, outgoingManualSummary, saleExpenseLines, outgoingWarehouses, saleMainWarehouseId]);
+  }, [section, persistedOutgoing]);
 
   const outgoingGrandProduct = useMemo(
     () => outgoingSummary.reduce((acc, row) => acc + row.product, 0),
@@ -2303,21 +2246,12 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
   );
 
   // Детализация Расхода как в Остатке, но ТОЛЬКО расход за период:
-  // ручные документы (без «Инвентаризация») + авто-списания от продаж
-  // (техкарты) этого склада.
+  // Uses the exact same lines as the report's warehouse totals.
   const outgoingWhDetail = useMemo(() => {
     if (section !== "outgoing" || !selectedOutgoingWhId) return null;
     const summaryRow = outgoingSummary.find((w) => String(w.key) === String(selectedOutgoingWhId));
-    const fromISO = docDateToISO(docRange.start);
-    const toISO = docDateToISO(docRange.end);
-    const manualRows = (Array.isArray(rows) ? rows : []).filter((r) => r.receiver !== "Инвентаризация");
-    const manual = buildExpenseDetail(manualRows, selectedOutgoingWhId, fromISO, toISO, outgoingDetails, outgoingIngById, outgoingSaleKeys, groupLines);
-    const autoLines = saleExpenseLines.filter((l) => {
-      const k = String(l.warehouseKey || saleMainWarehouseId || "");
-      const sel = String(selectedOutgoingWhId || "");
-      return k && sel ? k === sel : String(l.warehouseKey || "") === sel;
-    });
-    const lines = [...(manual.lines || []), ...autoLines].sort((a, b) => String(a.name).localeCompare(String(b.name), "ru"));
+    const lines = (persistedOutgoing?.lines || []).filter((line) => String(line.warehouseKey) === String(selectedOutgoingWhId))
+      .sort((a, b) => String(a.name).localeCompare(String(b.name), "ru"));
     const productLines = lines.filter((l) => !l.isTovar);
     const tovarLines = lines.filter((l) => l.isTovar);
     const sumQty = (arr) => arr.reduce((acc, line) => acc + (Number(line.qty) || 0), 0);
@@ -2335,7 +2269,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
       tovarSum: sumSum(tovarLines),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [section, selectedOutgoingWhId, outgoingSummary, rows, outgoingDetails, outgoingIngById, outgoingSaleKeys, saleExpenseLines, saleMainWarehouseId, docRange]);
+  }, [section, selectedOutgoingWhId, outgoingSummary, persistedOutgoing]);
 
   const openOutgoingDetail = (key) => {
     setExpandedCats({});
@@ -2446,6 +2380,38 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
       tovarSum: tovarLines.reduce((acc, line) => acc + line.sum, 0),
     };
   }, [section, activeWhId, stockRaw, warehouseSummary, ingredientById, tovarIngredientIds]);
+
+  // Клик по дефициту в колокольчике: раскрываем ОДНУ категорию — ту, в
+  // которой лежит это сырьё на этом складе, остальные остаются закрытыми.
+  // Категорию и вид (Продукты/Товары) берём из самой строки остатка: в
+  // уведомлении их нет, а угадывание по имени дало бы неверный ключ дерева.
+  useEffect(() => {
+    if (section !== "stock" || !focusIngredientId || !whDetail) return;
+    const target = String(focusIngredientId);
+    if (focusAppliedRef.current === target) return;
+    const line = whDetail.lines.find((item) => item.ingredientId === target);
+    // Строки нет — сырьё уже списано/перемещено: склад открыт как есть,
+    // без выдуманной категории.
+    if (!line) return;
+    focusAppliedRef.current = target;
+    Object.values(closeTimers.current).forEach((timer) => clearTimeout(timer));
+    closeTimers.current = {};
+    setClosingCats({});
+    setExpandedCats({ [`${line.isTovar ? "tovar" : "product"}:${line.category}`]: true });
+    setFocusScrollId(target);
+  }, [section, focusIngredientId, whDetail]);
+
+  // Подводим раскрытую строку к экрану: категорий на складе может быть
+  // много, и нужная иначе остаётся ниже среза. Ждём коммита раскрытия.
+  useEffect(() => {
+    if (!focusScrollId) return;
+    const row = document.querySelector(`[data-ingredient-id="${focusScrollId}"]`);
+    if (!row) return;
+    if (typeof row.scrollIntoView === "function") {
+      row.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+    setFocusScrollId("");
+  }, [focusScrollId, expandedCats]);
 
   const openWhDetail = (row) => {
     setExpandedCats({});
@@ -2712,7 +2678,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
           <td>{formatAmount(group.sum)}</td>
         </tr>,
         ...(visible ? group.lines.map((line, idx) => (
-          <tr key={line.key} className={`wh-detail-line-row${closing ? " is-closing" : ""}`}>
+          <tr key={line.key} className={`wh-detail-line-row${closing ? " is-closing" : ""}`} data-ingredient-id={line.ingredientId || undefined}>
             <td style={{ animationDelay: closing ? "0ms" : `${idx * 45}ms` }}>{line.name}</td>
             <td style={{ animationDelay: closing ? "0ms" : `${idx * 45}ms` }}>{`${formatQty(line.qty)} ${line.unit}`}</td>
             <td style={{ animationDelay: closing ? "0ms" : `${idx * 45}ms` }}>{formatAmount(line.sum)}</td>
@@ -3037,7 +3003,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
   // (общий docRange, фильтр по registered_at). Склады — из /warehouse/list,
   // те же что в Остатке. Кнопки «Новый приход +» нет. Клик по названию —
   // внутренний экран как в Остатке (Всего/Продукты/Товары + дерево категорий),
-  // но ТОЛЬКО первичный приход (строки getPurchase за период, расхода нет).
+  // но ТОЛЬКО первичный приход (строки listPurchaseDetails за период, расхода нет).
   // Кнопки «← Назад» в шапке нет — назад возвращает стрелка топбара.
   if (section === "incoming") {
     const selectedIncoming = selectedIncomingWhId
@@ -3508,7 +3474,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
         tableLabel: detail ? `Инвентаризация склада ${detail.warehouse.name}` : undefined,
       });
     }
-    const outgoingEmpty = !loading && !error && outgoingSummary.length === 0;
+    const outgoingEmpty = !loading && !error && !saleError && persistedOutgoing && outgoingSummary.length === 0;
     // Вторая карточка снизу — недостачи инвентаризаций как таблица Расхода:
     // №/Название/Продукт/Товар/Сумма + Итого (только проведённые автодокументы
     // с получателем «Инвентаризация» за тот же период). Клик по складу —
@@ -3601,6 +3567,8 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
           {error ? <div className="login-error" role="alert">{error}</div> : null}
           {!loading && !error ? (
             <div className={`settings-table-wrapper dish-grid-wrap${outgoingEmpty ? " is-empty" : ""}`}>
+              {saleError ? <div className="login-error" role="alert">{saleError}</div> : null}
+              {!persistedOutgoing && !saleError ? <div role="status">Загрузка фактического расхода...</div> : null}
               <div className="dish-grid-scroll" role="region" aria-label="Расходы по складам с прокруткой" tabIndex={0}>
                 <table className="settings-table dish-grid-table warehouse-stock-table" aria-label="Расход по складам">
                   <thead>
@@ -4243,7 +4211,16 @@ export function WarehouseStockListRoute() {
 
 export function WarehouseStockDetailRoute() {
   const { warehouseId } = useParams();
-  return <WarehousePage initialSection="stock" warehouseId={warehouseId || ""} />;
+  // ?ingredient=<id> — заход из колокольчика дефицита: раскрыть только
+  // категорию этого сырья (остальные остаются закрытыми).
+  const [searchParams] = useSearchParams();
+  return (
+    <WarehousePage
+      initialSection="stock"
+      warehouseId={warehouseId || ""}
+      focusIngredientId={searchParams.get("ingredient") || ""}
+    />
+  );
 }
 
 // Добавить продуктов: список пушит .../create — стрелка топбара

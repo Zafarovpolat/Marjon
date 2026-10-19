@@ -5,6 +5,7 @@ import ReportDateRangePicker from "../../../components/ReportDateRangePicker";
 import ReportEmptyState from "../../../components/ReportEmptyState";
 import { formatTablePhone } from "./phone";
 import { toApiDate } from "../../reports/reportPeriod";
+import { webDayKey, webFormat } from "../../../utils/webTime";
 
 export const DIRECTION_INCOME = "income";
 export const DIRECTION_EXPENSE = "expense";
@@ -17,23 +18,20 @@ export function formatTxDate(value) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
-  return new Intl.DateTimeFormat("ru-RU", {
+  return webFormat(value, {
     day: "2-digit", month: "2-digit", year: "numeric",
-  }).format(date);
+  });
 }
 
 export function txDay(value) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${d}.${m}.${y}`;
+  return webFormat(value, { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 function txDayKey(value) {
-  return String(value || "").slice(0, 10);
+  return webDayKey(value || "") || String(value || "").slice(0, 10);
 }
 
 export function toTxNumber(value) {

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { todayInputValue } from "../utils/date";
+import { webCalendarToday, webTime } from "../utils/webTime";
 import Icon from './Icon';
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -9,7 +10,7 @@ const MONTHS = [
 ];
 
 function parseValue(value) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return new Date();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return webCalendarToday();
   const [y, m, d] = value.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
@@ -130,7 +131,7 @@ export default function DatePicker({ value, max, onChange, onClear, readOnly = f
   }
 
   const label = `${String(selected.getDate()).padStart(2, "0")}.${String(selected.getMonth() + 1).padStart(2, "0")}.${selected.getFullYear()}`;
-  const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const time = webTime(now);
   const triggerContent = (
     <>
       <span className="mj-datepicker__date">

@@ -193,6 +193,13 @@ class ProductResponse(BaseResponseSchema):
     image_url: str | None = None
     price: Decimal
     cost_price: Decimal | None
+    # Себестоимость = ручная база (cost_price) + состав (recipe_cost).
+    # cost_price остаётся ровно тем числом, что ввёл человек, — дровер
+    # редактирует именно его. cost_total — только чтение: показ в таблице
+    # «Блюда» и снимок при продаже. NULL, когда нет ни базы, ни рецепта
+    # (неизвестное не превращается в ноль).
+    recipe_cost: Decimal = Decimal("0")
+    cost_total: Decimal | None = None
     tax_rate: Decimal
     unit: str
     barcode: str | None

@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 
 import bcrypt
 from jose import JWTError, jwt
+from starlette.concurrency import run_in_threadpool
 
 from app.config import settings
 
@@ -30,6 +31,18 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(), hashed.encode())
+
+
+# bcrypt — CPU-bound: ~275 мс на rounds=12 (замер на этом образе). Вызванный
+# прямо в async-обработчике, он блокирует event loop, и на это время встают
+# ВСЕ остальные запросы процесса (вход, PIN, любой отчёт). Поэтому в async-коде
+# используем эти обёртки: работа уходит в threadpool, корутина отпускает loop.
+async def hash_password_async(password: str) -> str:
+    return await run_in_threadpool(hash_password, password)
+
+
+async def verify_password_async(plain: str, hashed: str) -> bool:
+    return await run_in_threadpool(verify_password, plain, hashed)
 
 
 def create_access_token(

@@ -97,6 +97,20 @@ describe("OrdersReportPage filters", () => {
 
   // PLACEHOLDER_TESTS
 
+  it.each(["2026-10-17T12:18:02Z", "2026-10-17T12:18:02", "2026-10-17T17:18:02+05:00"])(
+    "displays the screenshot order at 17:18 Tashkent without double shifting (%s)", async (created_at) => {
+      reportsService.listOrders.mockResolvedValueOnce({ data: [{
+        order_id: "timezone-order", order_number: "TZ17", created_at,
+        status: "completed", total_amount: 69440, order_type: "dine_in",
+      }] });
+      render(<OrdersReportPage />);
+      await screen.findByText("TZ17");
+      expect(screen.getByText("17.10.2026, 17:18:02")).toBeInTheDocument();
+      expect(screen.queryByText("17.10.2026, 12:18:02")).toBeNull();
+      expect(screen.queryByText("17.10.2026, 22:18:02")).toBeNull();
+    },
+  );
+
   it("builds the initial Orders period from the local calendar day", () => {
     vi.useFakeTimers();
     try {

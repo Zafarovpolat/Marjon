@@ -364,7 +364,7 @@ export function buildRealKpis(dash, sales, selectedDate, placeSettings = [], fin
   const income = dash.income_total ?? financeIncomeTotal;
   const expense = dash.expense_total ?? financeExpenseTotal;
 
-  return [
+  const kpis = [
     {
       className: "premium-kpi--revenue",
       icon: "bi-wallet2",
@@ -394,6 +394,7 @@ export function buildRealKpis(dash, sales, selectedDate, placeSettings = [], fin
       badge: "Live",
       label: "Заказов",
       value: formatNumber(orders),
+      dialogSuffix: "шт",
       note: hasHistory ? `${signed(ordChange)} к вчерашнему дню` : "Заказов пока нет",
       noteClass: hasHistory ? noteClassFor(ordChange) : "kpi-note--neutral",
       progress: Math.max(8, Math.min(100, Math.round((orders / Math.max(orders + 28, 1)) * 100))),
@@ -457,24 +458,64 @@ export function buildRealKpis(dash, sales, selectedDate, placeSettings = [], fin
       icon: "bi-arrow-up-right-circle",
       badge: "Расход",
       label: "Денежные расходы",
-      value: formatNumber(expense),
-      suffix: "UZS",
+      value: "Скоро",
+      suffix: "",
+      comingSoon: true,
+      hideDescription: true,
       note: "",
       noteClass: "kpi-note--neutral",
       progress: Math.max(8, Math.min(100, Math.round((expense / Math.max(revenue, 1)) * 100))),
-      description: "Фактические расходы за выбранную дату.",
+      description: "",
       details: [],
-      table: {
-        rows: realExpenseRows(dash, expense, financeRows),
-        labelColumn: "Статья расходов",
-        valueColumn: "Сумма",
-        shareColumn: "Доля",
-        formatValue: formatMoney,
-        emptyText: "Нет расходов за выбранный день",
-      },
-      insight: "Денежные расходы за выбранную дату.",
+      insight: "",
     },
   ];
+  if (dash.metric_basis === "completed_income_minus_snapshot_cogs") {
+    const unavailable = Boolean(dash.financial_unavailable);
+    const unknownCost = dash.today_revenue == null;
+    const moneyOrUnknown = (amount) => amount == null ? "Неизвестно" : formatMoney(amount);
+    const reason = dash.profit_unavailable_reason || "Денежный приход минус историческая себестоимость оплаченных позиций.";
+    Object.assign(kpis[0], {
+      label: dash.date_from && dash.date_from !== dash.date_to ? "Выручка за период" : "Выручка за день",
+      badge: dash.date_from && dash.date_to && dash.date_from !== dash.date_to
+        ? `${formatDateLabel(dash.date_from)} – ${formatDateLabel(dash.date_to)}`
+        : formatDateLabel(dash.date_to || selectedDate),
+      value: unknownCost ? "Недоступно" : formatNumber(dash.today_revenue), suffix: unknownCost ? "" : "UZS",
+      description: reason, note: "", insight: reason,
+      productReport: Array.isArray(dash.product_rows) || unavailable ? {
+        rows: dash.product_rows || [], income: dash.income_total, cogs: dash.cogs_total,
+        revenue: dash.today_revenue, unavailable,
+      } : null,
+      table: { rows: [
+        { name: "Денежный приход", amount: dash.income_total },
+        { name: "Себестоимость оплаченных позиций (вычитается)", amount: dash.cogs_total },
+        { name: "Выручка = приход − себестоимость", amount: dash.today_revenue },
+      ], labelColumn: "Расчёт", valueColumn: "Сумма", showShare: false, formatValue: moneyOrUnknown },
+    });
+    Object.assign(kpis[1], { value: unavailable ? "Недоступно" : formatNumber(dash.today_orders),
+      dialogSuffix: unavailable ? "" : "шт",
+      orderReport: {
+        rows: dash.order_rows || [], total: dash.orders_total ?? (Number(dash.today_orders) === 0 ? "0" : null),
+        unavailable: unavailable || (!Array.isArray(dash.order_rows) && Number(dash.today_orders) > 0),
+      },
+      hideDescription: true,
+      description: "Полностью оплаченные завершённые заказы за выбранный период.",
+      details: [["Завершённых и оплаченных", unavailable ? "Недоступно" : String(dash.today_orders)]], note: "" });
+    Object.assign(kpis[2], { value: unavailable ? "Недоступно" : new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(Number(dash.avg_check)),
+      averageReport: {
+        rows: dash.average_check_rows || [], count: dash.today_orders, income: dash.income_total, average: dash.avg_check,
+        unavailable: unavailable || (!Array.isArray(dash.average_check_rows) && Number(dash.today_orders) > 0),
+      },
+      hideDescription: true,
+      suffix: unavailable ? "" : "UZS", note: "", description: "Денежный приход / количество оплаченных завершённых заказов за период." });
+    Object.assign(kpis[3], { value: unavailable ? "Недоступно" : formatNumber(dash.income_total),
+      productReport: kpis[0].productReport ? { ...kpis[0].productReport, incomeLast: true } : null,
+      suffix: unavailable ? "" : "UZS", description: "Подтверждённые оплаты полностью завершённых заказов за выбранный период. Финансовые операции повторно не прибавляются.",
+      table: { ...kpis[3].table, rows: unavailable ? [] : realPaymentRows(dash, dash.income_total),
+        emptyText: unavailable ? "Не удалось загрузить подтверждённые оплаты" : "Нет оплат завершённых заказов за выбранный период" },
+    });
+  }
+  return kpis;
 }
 
 export function buildWarehouseSummary(reports = EMPTY_WAREHOUSE_REPORTS, financeRows = [], selectedDate) {

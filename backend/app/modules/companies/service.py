@@ -2,7 +2,7 @@ from __future__ import annotations
 from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.modules.auth.security import hash_password
+from app.modules.auth.security import hash_password_async
 from app.modules.companies.models import Company, Branch
 from app.modules.companies.repository import CompanyRepository, BranchRepository
 from app.modules.companies.schemas import CompanyCreate, CompanyUpdate, BranchCreate, BranchUpdate
@@ -58,7 +58,7 @@ class BranchService:
         if login is not None:
             branch.login = await self._normalize_unique_login(login)
         if password is not None:
-            branch.password_hash = hash_password(password)
+            branch.password_hash = await hash_password_async(password)
         return await self.repo.save(branch)
 
     async def list(self, company_id: UUID) -> list[Branch]:
@@ -80,5 +80,5 @@ class BranchService:
         if login is not None:
             branch.login = await self._normalize_unique_login(login, exclude_id=branch_id)
         if password is not None:
-            branch.password_hash = hash_password(password)
+            branch.password_hash = await hash_password_async(password)
         return await self.repo.save(branch)

@@ -14,8 +14,10 @@ from app.modules.auth.security import (
     create_refresh_token,
     get_refresh_token_auth_scope,
     hash_password,
+    hash_password_async,
     hash_refresh_token,
     verify_password,
+    verify_password_async,
 )
 from app.modules.audit.service import AuditService
 from app.modules.companies.models import Branch, Company
@@ -103,7 +105,7 @@ class AuthService:
         user = User(
             company_id=company.id,
             email=email,
-            password_hash=hash_password(password),
+            password_hash=await hash_password_async(password),
         )
         self.db.add(user)
         await self.db.flush()
@@ -151,7 +153,7 @@ class AuthService:
             log.warning("Login failed: user not found — login=%s", email)
             raise UnauthorizedError("Invalid credentials")
 
-        if not verify_password(password, user.password_hash):
+        if not await verify_password_async(password, user.password_hash):
             log.warning("Login failed: wrong password — email=%s", email)
             raise UnauthorizedError("Invalid credentials")
 
@@ -172,7 +174,7 @@ class AuthService:
         log = logging.getLogger(__name__)
 
         user = await self.user_repo.get_by_login(self._normalize_identifier(email))
-        if not user or not verify_password(password, user.password_hash):
+        if not user or not await verify_password_async(password, user.password_hash):
             log.warning("Admin login failed: bad credentials — login=%s", email)
             raise UnauthorizedError("Invalid credentials")
 
@@ -210,7 +212,7 @@ class AuthService:
             user = await self.user_repo.get_by_phone(candidate)
             if user:
                 break
-        if not user or not user.password_hash or not verify_password(password, user.password_hash):
+        if not user or not user.password_hash or not await verify_password_async(password, user.password_hash):
             raise UnauthorizedError("Неверный телефон или пароль")
         if not user.is_active:
             raise UnauthorizedError("Account is inactive")
@@ -249,7 +251,7 @@ class AuthService:
                 branch_id=branch.id,
                 email=email,
                 name=branch.name,
-                password_hash=branch.password_hash or hash_password(secrets.token_urlsafe(32)),
+                password_hash=branch.password_hash or await hash_password_async(secrets.token_urlsafe(32)),
                 is_active=branch.is_active,
             )
             self.db.add(user)
@@ -283,7 +285,7 @@ class AuthService:
         branch = (await self.db.execute(
             select(Branch).where(func.lower(Branch.login) == norm)
         )).scalar_one_or_none()
-        if branch is None or not branch.password_hash or not verify_password(password, branch.password_hash):
+        if branch is None or not branch.password_hash or not await verify_password_async(password, branch.password_hash):
             raise UnauthorizedError("Неверный логин или пароль филиала")
         if not branch.is_active:
             raise UnauthorizedError("Филиал неактивен")
@@ -361,7 +363,7 @@ class AuthService:
             email=email,
             phone=phone,
             name=name,
-            password_hash=hash_password(password),
+            password_hash=await hash_password_async(password),
             # Тумблеры владельца тем же легаси-слоем, что правит PATCH:
             # None — не выставлялись, десктопные гейты ведут себя как раньше.
             permissions=permissions,
@@ -434,7 +436,7 @@ class AuthService:
                 raise ConflictError("Phone already in use")
             user.phone = phone
         if password is not None:
-            user.password_hash = hash_password(password)
+            user.password_hash = await hash_password_async(password)
         if is_active is not None:
             user.is_active = is_active
         # Переназначение филиала: филиал должен принадлежать той же компании.
@@ -538,7 +540,7 @@ class AuthService:
         )).scalar_one_or_none()
         if not user or not user.is_active:
             raise UnauthorizedError("User not found or inactive")
-        if not verify_password(current_password, user.password_hash):
+        if not await verify_password_async(current_password, user.password_hash):
             # Wrong password is not an expired login: do not trigger refresh.
             raise ForbiddenError("Текущий пароль указан неверно.")
         if new_password == current_password:
@@ -547,7 +549,7 @@ class AuthService:
         now = datetime.now(timezone.utc)
         refresh = create_refresh_token()
         try:
-            user.password_hash = hash_password(new_password)
+            user.password_hash = await hash_password_async(new_password)
             user.auth_version = (user.auth_version or 0) + 1
             await self.db.execute(
                 update(RefreshToken).where(
@@ -603,10 +605,10 @@ class AuthService:
         # meant to scale to thousands of accounts per company.
         peers = await self.user_repo.get_company_users(company_id)
         for peer in peers:
-            if peer.id != target.id and peer.pin_hash and verify_password(pin, peer.pin_hash):
+            if peer.id != target.id and peer.pin_hash and await verify_password_async(pin, peer.pin_hash):
                 raise ConflictError("PIN уже используется другим сотрудником")
 
-        target.pin_hash = hash_password(pin)
+        target.pin_hash = await hash_password_async(pin)
         target.pin_failed_attempts = 0
         target.pin_locked_until = None
         await self.db.commit()
@@ -656,7 +658,7 @@ class AuthService:
             if locked_until > datetime.now(timezone.utc):
                 raise UnauthorizedError("PIN temporarily locked — too many failed attempts")
 
-        if not verify_password(pin, user.pin_hash):
+        if not await verify_password_async(pin, user.pin_hash):
             user.pin_failed_attempts += 1
             if user.pin_failed_attempts >= PIN_MAX_ATTEMPTS:
                 user.pin_locked_until = datetime.now(timezone.utc) + timedelta(minutes=PIN_LOCKOUT_MINUTES)

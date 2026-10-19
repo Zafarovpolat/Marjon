@@ -79,8 +79,9 @@ def xlsx_response(filename: str, headers: Sequence[str], rows: Iterable[Sequence
 
 
 class AdminReportService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, *, web_timezone: str | None = None):
         self.db = db
+        self.web_timezone = web_timezone
 
     async def _validate_branch(
         self, company_id: UUID, branch_id: UUID | None
@@ -298,6 +299,9 @@ class AdminReportService:
         ]
 
     def _order_date_filter(self, query, date_from: date | None, date_to: date | None):
+        if self.web_timezone:
+            from app.shared.web_time import web_date_conditions
+            return query.where(*web_date_conditions(Order.created_at, date_from, date_to))
         if date_from:
             query = query.where(Order.created_at >= datetime.combine(date_from, datetime.min.time()))
         if date_to:
@@ -1381,16 +1385,20 @@ class AdminReportService:
             # Exact snapshot match on OrderItem.name (historical truth —
             # survives Product renames/deletes). OR within the dimension.
             query = query.where(OrderItem.name.in_(list(dish_name)))
-        if date_from:
-            query = query.where(
-                report_event
-                >= datetime.combine(date_from, datetime.min.time())
-            )
-        if date_to:
-            query = query.where(
-                report_event
-                <= datetime.combine(date_to, datetime.max.time())
-            )
+        if self.web_timezone:
+            from app.shared.web_time import web_date_conditions
+            query = query.where(*web_date_conditions(report_event, date_from, date_to))
+        else:
+            if date_from:
+                query = query.where(
+                    report_event
+                    >= datetime.combine(date_from, datetime.min.time())
+                )
+            if date_to:
+                query = query.where(
+                    report_event
+                    <= datetime.combine(date_to, datetime.max.time())
+                )
         if summary_only:
             # Exact report inclusion/date predicates, but aggregate in SQL:
             # never download cancelled items merely to total them in a browser.

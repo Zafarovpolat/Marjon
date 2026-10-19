@@ -1,3 +1,5 @@
+import { webDayKey } from "./webTime";
+
 export function toDateInputValue(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -6,7 +8,7 @@ export function toDateInputValue(date) {
 }
 
 export function todayInputValue() {
-  return toDateInputValue(new Date());
+  return webDayKey();
 }
 
 export function clampToToday(value) {

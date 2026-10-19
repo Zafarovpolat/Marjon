@@ -262,7 +262,7 @@ export default function DishesTable({
               ) : null}
               {isColumnVisible("name") ? <td className="dish-col-name"><span className="dish-name-text" title={row.name}>{row.name}</span></td> : null}
               {isColumnVisible("unit") ? <td className="dish-col-unit">{row.unit}</td> : null}
-              {isColumnVisible("cost") ? <td className="dish-col-cost dish-money-cell">{displayDishMoney(row.cost)}</td> : null}
+              {isColumnVisible("cost") ? <td className="dish-col-cost dish-money-cell">{displayDishMoney(row.costTotal ?? row.cost)}</td> : null}
               {isColumnVisible("price") ? <td className="dish-col-price dish-money-cell"><span className="dish-price-text">{displayDishMoney(row.price)}</span></td> : null}
               {isColumnVisible("printer") ? <td className="dish-col-printer dish-printer-cell"><PrinterCell row={row} printers={printerOptions} /></td> : null}
               {isColumnVisible("recipe") ? (
