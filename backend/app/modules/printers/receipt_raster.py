@@ -31,6 +31,7 @@ from app.modules.printers.formatter import (
     PAYMENT_METHOD_LABELS,
     ReceiptData,
     format_quantity,
+    format_rate_percent,
 )
 
 logger = logging.getLogger(__name__)
@@ -348,7 +349,12 @@ def render_customer_receipt_raster(data: ReceiptData, template: dict | None, pap
                 canvas.text_row("Скидка", f"-{data.discount:,.0f}", font, "left", gap(8))
             if en("serviceFee") and getattr(data, "service_fee", 0) and data.service_fee > 0:
                 boundary("financial")
-                canvas.text_row("Обслуживание", f"{data.service_fee:,.0f}", font, "left", gap(8))
+                # Ставка — из застывших цифр заказа (как в текстовом
+                # форматтере): 0% обслуживания не печатается вообще, а при
+                # ненулевой сумме гость видит и процент, и сумму.
+                rate_label = format_rate_percent(data.service_fee_rate) if getattr(data, "service_fee_rate", None) else ""
+                service_label = f"Обслуживание {rate_label}%:" if rate_label else "Обслуживание:"
+                canvas.text_row(service_label, f"{data.service_fee:,.0f}", font, "left", gap(8))
             if en("vat") and data.tax > 0:
                 boundary("financial")
                 canvas.text_row("Налог", f"{data.tax:,.0f}", font, "left", gap(8))

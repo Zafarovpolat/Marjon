@@ -791,7 +791,9 @@ class OrderService:
     # ── Internals ─────────────────────────────────────────────────────────────
 
     async def _vat_rate(self, order: Order) -> Decimal:
-        """НДС компании из админки (Company.vat_rate, в процентах); config — запасной."""
+        """НДС компании (Company.vat_rate, в процентах); config — запасной.
+        Пока фискальной интеграции нет, default_tax_rate = 0, поэтому
+        незаданный vat_rate означает «налога нет», а не «12% по умолчанию»."""
         company = await self.db.get(Company, order.company_id)
         if company is not None and company.vat_rate is not None:
             return Decimal(str(company.vat_rate)) / Decimal(100)
@@ -817,7 +819,8 @@ class OrderService:
             order.discount_amount = _quantize(discount_override)
         after_discount = max(subtotal - order.discount_amount, Decimal("0"))
 
-        # Tax (НДС 12% — from settings, applied after discount)
+        # Tax (НДС). По умолчанию ставка 0 — см. config.default_tax_rate:
+        # налог включается только явно заданным companies.vat_rate.
         order.tax_amount = _quantize(after_discount * (tax_rate if tax_rate is not None else Decimal(str(settings.default_tax_rate))))
 
         # Service fee (rate-based). База — только позиции «в зале» (без takeaway),
