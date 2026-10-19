@@ -19,9 +19,12 @@ export function matchesDishStatFilter(row, filterKey) {
     case "cyan:1":
       return true;
     case "orange:0":
-      return row.cost !== "0 UZS";
+      // «Себестоимость указана» — по итогу (база + состав), а не по одной
+      // ручной базе: блюдо с пустой базой и заполненным рецептом свою
+      // себестоимость имеет.
+      return Number(row.costTotalValue) > 0;
     case "orange:1":
-      return row.cost === "0 UZS";
+      return !(Number(row.costTotalValue) > 0);
     case "violet:0":
       return Boolean(row.printer);
     case "violet:1":
@@ -61,6 +64,15 @@ export function mapNomenclatureProduct(item, units = []) {
     unitId,
     unit: unitDisplayLabel(canonicalUnit) || item.unit || "—",
     cost: item.cost_price != null ? formatNomenclatureMoneyDisplay(item.cost_price) : "—",
+    // Себестоимость = ручная база (cost) + состав. База остаётся в cost —
+    // её правит дровер; costTotal только показывается в таблице. Если бы
+    // дровер читал итог, сохранение записывало бы его обратно в базу и
+    // сумма росла бы с каждым открытием карточки.
+    costTotal: item.cost_total != null ? formatNomenclatureMoneyDisplay(item.cost_total) : null,
+    // Числом — для фильтров статистики: сравнение с готовой строкой
+    // («0 UZS») ломалось бы при любой смене формата денег на экране.
+    costTotalValue: item.cost_total != null ? Number(item.cost_total) : null,
+    recipeCost: item.recipe_cost != null ? Number(item.recipe_cost) : 0,
     price: item.price != null ? formatNomenclatureMoneyDisplay(item.price) : "—",
     menu: item.category_name || "",
     subcategory: item.subcategory_name || "",

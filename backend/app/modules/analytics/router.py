@@ -61,7 +61,33 @@ async def top_products(
     user: User = Depends(require_web_owner),
     db: AsyncSession = Depends(get_db),
 ):
+    if date_from and date_to and date_from > date_to:
+        raise ValidationError("date_from must not be after date_to")
     return await AnalyticsService(db).top_products(user.company_id, limit, date_from, date_to)
+
+
+@router.get("/products/paid-top", response_model=list[TopProduct])
+async def paid_top_products(
+    limit: int = Query(5, ge=1, le=100),
+    date_from: date = Query(...),
+    date_to: date = Query(...),
+    web_timezone: str | None = Query(None, pattern="^Asia/Tashkent$"),
+    user: User = Depends(require_web_owner),
+    db: AsyncSession = Depends(get_db),
+):
+    if date_from > date_to:
+        raise ValidationError("date_from must not be after date_to")
+    return await AnalyticsService(db).top_products(user.company_id, limit, date_from, date_to, confirmed_only=True, web_timezone=web_timezone)
+
+
+@router.get("/owner-financials")
+async def get_owner_financials(
+    date_from: date = Query(...), date_to: date = Query(...),
+    web_timezone: str | None = Query(None, pattern="^Asia/Tashkent$"),
+    user: User = Depends(require_web_owner), db: AsyncSession = Depends(get_db),
+):
+    from app.modules.analytics.owner_financials import owner_financials
+    return await owner_financials(db, user.company_id, date_from, date_to, web_timezone=web_timezone)
 
 
 def _validate_zreport_period(

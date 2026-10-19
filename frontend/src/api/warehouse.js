@@ -17,6 +17,21 @@ const READ_PATHS = Object.freeze({
   waste: "/warehouse/wastes",
 });
 
+// Пакетный состав документов: один запрос вместо N поштучных (экраны склада
+// просили детали для каждого документа — до 60 параллельно). URL не резиновый,
+// поэтому режем на пачки по 100 id и склеиваем ответы в один список.
+function fetchDocumentDetails(path, ids, config) {
+  const list = (Array.isArray(ids) ? ids : []).filter(Boolean);
+  if (!list.length) return Promise.resolve({ data: [] });
+  const chunks = [];
+  for (let i = 0; i < list.length; i += 100) chunks.push(list.slice(i, i + 100));
+  return Promise.all(
+    chunks.map((chunk) => api.get(path, { ...(config || {}), params: { ids: chunk.join(",") } })),
+  ).then((responses) => ({
+    data: responses.flatMap((res) => (Array.isArray(res?.data) ? res.data : res?.data?.items || [])),
+  }));
+}
+
 export const warehouseService = Object.freeze({
   list(section, config) {
     const path = READ_PATHS[section];
@@ -43,7 +58,13 @@ export const warehouseService = Object.freeze({
     return config ? api.get("/inventory/ingredients", config) : api.get("/inventory/ingredients");
   },
   listStock(config) {
+    if (config?.params?.as_of) return api.get("/inventory/stock", {
+      ...config, params: { ...config.params, web_timezone: "Asia/Tashkent" },
+    });
     return config ? api.get("/inventory/stock", config) : api.get("/inventory/stock");
+  },
+  listOutgoingReport(dateFrom, dateTo, config = {}) {
+    return api.get("/inventory/stock/outgoing-report", { ...config, params: { date_from: dateFrom, date_to: dateTo } });
   },
   // V46 FIFO: разбивка остатка по партиям (старые первыми).
   listBatches(params, config) {
@@ -59,6 +80,10 @@ export const warehouseService = Object.freeze({
   },
   getPurchase(id, config) {
     return config ? api.get(`/warehouse/purchases/${id}`, config) : api.get(`/warehouse/purchases/${id}`);
+  },
+  // Состав сразу для всего списка документов — см. fetchDocumentDetails.
+  listPurchaseDetails(ids, config) {
+    return fetchDocumentDetails("/warehouse/purchases/details", ids, config);
   },
   acceptPurchase(id) {
     return api.patch(`/warehouse/purchases/${id}`, { status: "accepted" });
@@ -91,6 +116,10 @@ export const warehouseService = Object.freeze({
   },
   getExpense(id, config) {
     return config ? api.get(`/warehouse/expenses/${id}`, config) : api.get(`/warehouse/expenses/${id}`);
+  },
+  // Состав сразу для всего списка расходов — см. fetchDocumentDetails.
+  listExpenseDetails(ids, config) {
+    return fetchDocumentDetails("/warehouse/expenses/details", ids, config);
   },
   acceptExpense(id) {
     return api.patch(`/warehouse/expenses/${id}`, { status: "accepted" });

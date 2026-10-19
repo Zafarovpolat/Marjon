@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { buildRealKpis } from "./analyticsData";
 import { TopSalesCard, RecentOrdersCard } from "./DashboardCards";
@@ -17,6 +17,38 @@ vi.mock("react-router-dom", () => ({
 }));
 
 describe("OWNER dashboard empty content", () => {
+  it("distinguishes unavailable paid sales from a successful empty period", () => {
+    render(<TopSalesCard dishes={[]} error="Требуется обновление backend." />);
+    expect(screen.getByText("Топ-5 временно недоступен")).toBeInTheDocument();
+    expect(screen.getByText("Требуется обновление backend.")).toBeInTheDocument();
+    expect(screen.queryByText("Продаж пока нет")).toBeNull();
+  });
+  it("opens the real dish photo in the catalogue viewer and closes with Escape", () => {
+    render(<TopSalesCard dishes={[{ product_id: "p1", name: "Плов", quantity: 3, revenue: 180000, photo: "/media/plov.webp" }]} />);
+    const button = screen.getByRole("button", { name: "Открыть фото Плов" });
+    expect(within(button).getByRole("img")).toHaveAttribute("src", "/media/plov.webp");
+    button.focus(); fireEvent.click(button);
+    const dialog = screen.getByRole("dialog", { name: "Фото блюда Плов" });
+    expect(within(dialog).getByRole("img")).toHaveAttribute("src", "/media/plov.webp");
+    expect(document.body.style.overflow).toBe("hidden");
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(button).toHaveFocus();
+  });
+
+  it("closes the photo viewer using its close button", () => {
+    render(<TopSalesCard dishes={[{ product_id: "p1", name: "Плов", quantity: 1, revenue: 100, photo: "/media/plov.webp" }]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Открыть фото Плов" }));
+    fireEvent.click(screen.getByRole("button", { name: "Закрыть фото" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("uses a neutral placeholder rather than a fabricated dish photo when missing", () => {
+    render(<TopSalesCard dishes={[{ product_id: "p1", name: "Без фото", quantity: 1, revenue: 100 }]} />);
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Открыть фото/ })).toBeNull();
+    expect(screen.getByLabelText("Нет фото")).toBeInTheDocument();
+  });
   it("renders Top-5 sales empty state without a fake product row", () => {
     render(<TopSalesCard dishes={[]} />);
 

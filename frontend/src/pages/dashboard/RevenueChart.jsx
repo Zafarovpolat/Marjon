@@ -26,7 +26,8 @@ export const REVENUE_AXIS_MILLION_LABELS = {
 export function formatRevenueAxisTick(value, hasRevenue) {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return "0";
-  if (amount in REVENUE_AXIS_MILLION_LABELS) return REVENUE_AXIS_MILLION_LABELS[amount];
+  if (amount < 0) return `−${formatRevenueAxisTick(-amount, hasRevenue)}`;
+  if (!hasRevenue && amount in REVENUE_AXIS_MILLION_LABELS) return REVENUE_AXIS_MILLION_LABELS[amount];
   if (amount <= 0) return "0";
   if (!hasRevenue) return formatAxisValue(amount);
   if (amount >= 1_000_000_000) return `${formatAxisValue(amount / 1_000_000_000)}B`;
@@ -47,6 +48,19 @@ export function formatSalesLabel(item) {
   // API отдаёт snake_case: почасовые бакеты несут chart_label ("HH:00").
   if (item && typeof item.chart_label === "string" && item.chart_label) return item.chart_label;
   return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit" }).format(new Date(item.date));
+}
+
+// Keep the complete HTML tooltip inside the clipped chart field. At a high
+// peak there is no room above the point, so place it below instead.
+export function revenueTooltipPosition({ width, height, tooltipWidth, tooltipHeight, caretX, caretY }) {
+  const inset = 8;
+  const gap = 10;
+  const halfWidth = tooltipWidth / 2;
+  const x = Math.max(halfWidth + inset, Math.min(caretX, width - halfWidth - inset));
+  const above = caretY - gap - tooltipHeight;
+  const preferredTop = above >= inset ? above : caretY + gap;
+  const y = Math.max(inset, Math.min(preferredTop, height - tooltipHeight - inset));
+  return { x, y };
 }
 
 export default function RevenueChart({ sales }) {
@@ -82,8 +96,7 @@ export default function RevenueChart({ sales }) {
     gradient.addColorStop(0.55, "rgba(31, 202, 194, 0.10)");
     gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
     const revenueValues = sales.map((item) => Number(item.revenue || 0));
-    const maxRevenue = Math.max(0, ...revenueValues);
-    const hasRevenue = maxRevenue > 0;
+    const hasRevenue = revenueValues.some((amount) => amount !== 0);
 
     const chart = new Chart(canvasRef.current, {
       type: "line",
@@ -129,11 +142,14 @@ export default function RevenueChart({ sales }) {
               if (titleEl) titleEl.textContent = tooltip.title?.[0] || "";
               if (valueEl) valueEl.textContent = tooltip.body?.[0]?.lines?.[0] || "";
 
-              const tooltipHalfWidth = tooltipEl.offsetWidth / 2 || 72;
-              const minX = tooltipHalfWidth + 8;
-              const maxX = chart.width - tooltipHalfWidth - 8;
-              const x = Math.min(Math.max(tooltip.caretX, minX), maxX);
-              const y = Math.max(tooltip.caretY - 10, 16);
+              const { x, y } = revenueTooltipPosition({
+                width: chart.width,
+                height: chart.height,
+                tooltipWidth: tooltipEl.offsetWidth || 144,
+                tooltipHeight: tooltipEl.offsetHeight || 80,
+                caretX: tooltip.caretX,
+                caretY: tooltip.caretY,
+              });
 
               tooltipEl.style.left = `${chart.canvas.offsetLeft + x}px`;
               tooltipEl.style.top = `${chart.canvas.offsetTop + y}px`;

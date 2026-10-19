@@ -52,7 +52,7 @@ describe("Topbar low-stock alerts", () => {
     expect(bell).toBeInTheDocument();
   });
 
-  it("lists deficit rows and navigates to raw materials on click", async () => {
+  it("navigates to the stock of the warehouse where the deficit sits", async () => {
     render(<TopbarNotifications />);
     await screen.findByRole("button", { name: "Уведомления: 1" });
     fireEvent.click(screen.getByRole("button", { name: "Уведомления: 1" }));
@@ -60,6 +60,19 @@ describe("Topbar low-stock alerts", () => {
     expect(screen.getByText(/Остаток 2 кг из мин. 10/)).toBeInTheDocument();
     expect(screen.queryByText(/Сахар/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Мука: остаток ниже порога" }));
+    // Склад берётся из самой строки остатка, сырьё — параметром, чтобы
+    // на складе раскрылась только его категория.
+    expect(navigate).toHaveBeenCalledWith("/stock-report/stock/wh-1?ingredient=ing-1");
+  });
+
+  it("falls back to raw materials when the deficit row has no warehouse", async () => {
+    warehouseService.listStock.mockResolvedValue({
+      data: [{ ingredient_id: "ing-1", quantity: 2, min_quantity: 10, unit: "кг" }],
+    });
+    render(<TopbarNotifications />);
+    await screen.findByRole("button", { name: "Уведомления: 1" });
+    fireEvent.click(screen.getByRole("button", { name: "Уведомления: 1" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Мука: остаток ниже порога" }));
     expect(navigate).toHaveBeenCalledWith("/nomenclature/raw-materials");
   });
 

@@ -19,13 +19,13 @@ export function resolveTransactionSubmission(previous, payload, keyFactory = cre
 export const financeService = {
   getIncomeSummary({ dateFrom, dateTo, signal } = {}) {
     return api.get("/finance/transactions/summary", {
-      params: definedParams({ date_from: dateFrom, date_to: dateTo }),
+      params: definedParams({ date_from: dateFrom, date_to: dateTo, web_timezone: dateFrom || dateTo ? "Asia/Tashkent" : undefined }),
       ...(signal ? { signal } : {}),
     });
   },
   listTransactions({ dateFrom, dateTo, direction, signal } = {}) {
     return api.get("/finance/transactions", {
-      params: definedParams({ date_from: dateFrom, date_to: dateTo, direction }),
+      params: definedParams({ date_from: dateFrom, date_to: dateTo, direction, web_timezone: dateFrom || dateTo ? "Asia/Tashkent" : undefined }),
       ...(signal ? { signal } : {}),
     });
   },
@@ -75,7 +75,7 @@ export const financeService = {
 
   listCounterpartyTransactions(counterpartyId, { page = 1, size = 20, ...params } = {}) {
     return api.get(`/finance/counterparties/${counterpartyId}/transactions`, {
-      params: { page, size, ...params },
+      params: { page, size, ...params, ...(params.date_from || params.date_to ? { web_timezone: "Asia/Tashkent" } : {}) },
     });
   },
 };

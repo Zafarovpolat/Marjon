@@ -161,9 +161,10 @@ describe("TablesReportPage Phase 1 exact table", () => {
     await screen.findByText("3 — Зал");
     // Legacy bucket renders without hall context.
     expect(screen.getByText("9")).toBeInTheDocument();
-    const dates = screen.getAllByText("10.09.2026 / 10:35");
+    // Legacy ISO without offset is UTC; OWNER web always displays UTC+5.
+    const dates = screen.getAllByText("10.09.2026 / 15:35");
     expect(dates.length).toBeGreaterThan(0);
-    expect(screen.getByText("10.09.2026 / 14:20")).toBeInTheDocument();
+    expect(screen.getByText("10.09.2026 / 19:20")).toBeInTheDocument();
     // Sums use the approved money formatter, aligned with their date lines.
     expect(screen.getByText("120 UZS")).toBeInTheDocument();
     expect(screen.getByText("85 UZS")).toBeInTheDocument();

@@ -34,6 +34,16 @@ describe("Web domain service contracts", () => {
   });
 
   describe("finance", () => {
+    it("opts web dated reads into Tashkent without changing write payloads", async () => {
+      await financeService.getIncomeSummary({ dateFrom: "2026-10-18", dateTo: "2026-10-18" });
+      expect(api.get).toHaveBeenCalledWith("/finance/transactions/summary", {
+        params: { date_from: "2026-10-18", date_to: "2026-10-18", web_timezone: "Asia/Tashkent" },
+      });
+      await warehouseService.listStock({ params: { as_of: "2026-10-18", warehouse_id: "w1" } });
+      expect(api.get).toHaveBeenCalledWith("/inventory/stock", {
+        params: { as_of: "2026-10-18", warehouse_id: "w1", web_timezone: "Asia/Tashkent" },
+      });
+    });
     it("preserves transaction filters and the Axios response", async () => {
       const expected = await api.get();
       api.get.mockClear();
@@ -43,7 +53,7 @@ describe("Web domain service contracts", () => {
         direction: "expense",
       });
       expect(api.get).toHaveBeenCalledWith("/finance/transactions", {
-        params: { date_from: "2026-08-01", date_to: "2026-08-13", direction: "expense" },
+        params: { date_from: "2026-08-01", date_to: "2026-08-13", direction: "expense", web_timezone: "Asia/Tashkent" },
       });
       expect(response).toBe(expected);
     });
@@ -126,7 +136,7 @@ describe("Web domain service contracts", () => {
     ])("maps %s range parameters", async (_, request, endpoint, withRepeatedSerializer) => {
       await request("2026-08-01", "2026-08-13");
       expect(api.get).toHaveBeenLastCalledWith(endpoint, {
-        params: { date_from: "2026-08-01", date_to: "2026-08-13" },
+        params: { date_from: "2026-08-01", date_to: "2026-08-13", ...(withRepeatedSerializer ? { web_timezone: "Asia/Tashkent" } : {}) },
         ...(withRepeatedSerializer ? { paramsSerializer: { indexes: null } } : {}),
       });
     });
@@ -143,6 +153,7 @@ describe("Web domain service contracts", () => {
       });
       expect(api.get).toHaveBeenLastCalledWith("/reports/waiters", {
         params: {
+          web_timezone: "Asia/Tashkent",
           date_from: "2026-08-01",
           date_to: "2026-08-13",
           waiter_id: "waiter-1",
@@ -161,7 +172,7 @@ describe("Web domain service contracts", () => {
     it("maps orders range parameters", async () => {
       await reportsService.listOrders("2026-08-01", "2026-08-13");
       expect(api.get).toHaveBeenLastCalledWith("/reports/orders", {
-        params: { date_from: "2026-08-01", date_to: "2026-08-13" },
+        params: { date_from: "2026-08-01", date_to: "2026-08-13", web_timezone: "Asia/Tashkent" },
         paramsSerializer: { indexes: null },
       });
     });
@@ -189,6 +200,7 @@ describe("Web domain service contracts", () => {
       });
       expect(api.get).toHaveBeenLastCalledWith("/reports/orders", {
         params: {
+          web_timezone: "Asia/Tashkent",
           date_from: "2026-08-01", date_to: "2026-08-13", order_number: "A-42",
           waiter_id: ["waiter-1"], cashier_id: ["cashier-1"], product_id: ["product-1"],
           order_type: ["dine_in"], order_status: ["completed"], payment_method: ["cash"],
@@ -214,6 +226,7 @@ describe("Web domain service contracts", () => {
       });
       expect(api.get).toHaveBeenLastCalledWith("/reports/orders", {
         params: {
+          web_timezone: "Asia/Tashkent",
           date_from: "2026-08-01", date_to: "2026-08-13",
           waiter_id: ["waiter-1", "waiter-2"],
           order_type: ["dine_in", "delivery"],
@@ -235,6 +248,7 @@ describe("Web domain service contracts", () => {
       });
       expect(api.get).toHaveBeenLastCalledWith("/reports/tables", {
         params: {
+          web_timezone: "Asia/Tashkent",
           date_from: "2026-08-01", date_to: "2026-08-13", table_number: "12A",
           waiter_id: "waiter-1", payment_method: "cash", cashier_id: "cashier-1",
         },
@@ -249,6 +263,7 @@ describe("Web domain service contracts", () => {
       });
       expect(api.get).toHaveBeenLastCalledWith("/reports/tables", {
         params: {
+          web_timezone: "Asia/Tashkent",
           date_from: "2026-08-01", date_to: "2026-08-13",
           waiter_id: ["waiter-1", "waiter-2"],
           cashier_id: ["cashier-1"],
@@ -271,6 +286,7 @@ describe("Web domain service contracts", () => {
       });
       expect(api.get).toHaveBeenLastCalledWith("/reports/dishes", {
         params: {
+          web_timezone: "Asia/Tashkent",
           date_from: "2026-08-01", date_to: "2026-08-13", query: "Плов",
           author_id: "author-1", product_id: "product-1", order_type: "dine_in",
           order_status: "completed", category_id: "category-1", payment_method: "cash",
@@ -287,6 +303,7 @@ describe("Web domain service contracts", () => {
       });
       expect(api.get).toHaveBeenLastCalledWith("/reports/dishes", {
         params: {
+          web_timezone: "Asia/Tashkent",
           date_from: "2026-08-01", date_to: "2026-08-13",
           author_id: ["author-1", "author-2"],
           order_type: ["dine_in", "delivery"],
@@ -311,6 +328,7 @@ describe("Web domain service contracts", () => {
       });
       expect(api.get).toHaveBeenLastCalledWith("/reports/cancelled", {
         params: {
+          web_timezone: "Asia/Tashkent",
           date_from: "2026-09-01", date_to: "2026-09-30", order_number: "A-42",
           author_id: ["author-1", "author-2"], dish_name: ["Плов", "Лагман"],
         },
@@ -321,7 +339,7 @@ describe("Web domain service contracts", () => {
         filters: { orderNumber: "", authorId: [], dishName: [] },
       });
       expect(api.get).toHaveBeenLastCalledWith("/reports/cancelled", {
-        params: { date_from: "2026-09-01", date_to: "2026-09-30" },
+        params: { date_from: "2026-09-01", date_to: "2026-09-30", web_timezone: "Asia/Tashkent" },
         paramsSerializer: { indexes: null },
       });
 
@@ -479,22 +497,40 @@ describe("Web domain service contracts", () => {
   });
 
   describe("dashboard orchestration", () => {
+    it.each([404, 500, 403])("isolates paid ranking failure %s without calling the unpaid ranking", async (status) => {
+      api.get.mockImplementation((path) => path === "/analytics/products/paid-top"
+        ? Promise.reject(Object.assign(new Error("report unavailable"), { response: { status } }))
+        : Promise.resolve({ data: [] }));
+      const result = await dashboardService.loadOwnerOverview({ dateFrom: "2026-10-12", dateTo: "2026-10-17" });
+      expect(result).toHaveLength(8);
+      expect(result[2]).toMatchObject({ data: [], unavailable: true });
+      expect(api.get.mock.calls.some(([path]) => path === "/analytics/products/top")).toBe(false);
+    });
+
+    it("does not turn an aborted ranking request into a healthy empty report", async () => {
+      const controller = new AbortController();
+      const aborted = Object.assign(new Error("cancelled"), { code: "ERR_CANCELED" });
+      api.get.mockImplementation((path) => path === "/analytics/products/paid-top"
+        ? Promise.reject(aborted) : Promise.resolve({ data: [] }));
+      await expect(dashboardService.loadOwnerOverview({ dateFrom: "2026-10-12", dateTo: "2026-10-17", signal: controller.signal })).rejects.toBe(aborted);
+    });
     it("requests the accepted OWNER overview sources with exact filters", async () => {
       await dashboardService.loadOwnerOverview({
         dateFrom: "2026-08-01",
         dateTo: "2026-08-13",
       });
-      expect(api.get).toHaveBeenCalledWith("/analytics/dashboard", { params: { date: "2026-08-13" } });
-      expect(api.get).toHaveBeenCalledWith("/analytics/sales", { params: { date_from: "2026-08-01", date_to: "2026-08-13" } });
-      expect(api.get).toHaveBeenCalledWith("/analytics/products/top", { params: { date_from: "2026-08-01", date_to: "2026-08-13", limit: 5 } });
+      expect(api.get).toHaveBeenCalledWith("/analytics/owner-financials", { params: { date_from: "2026-08-01", date_to: "2026-08-13", web_timezone: "Asia/Tashkent" } });
+      expect(api.get.mock.calls.filter(([path]) => path === "/analytics/owner-financials")).toHaveLength(1);
+      expect(api.get.mock.calls.some(([path]) => path === "/analytics/sales" || path === "/analytics/dashboard")).toBe(false);
+      expect(api.get).toHaveBeenCalledWith("/analytics/products/paid-top", { params: { date_from: "2026-08-01", date_to: "2026-08-13", limit: 5, web_timezone: "Asia/Tashkent" } });
       expect(api.get).toHaveBeenCalledWith("/pos/orders", { params: { date: "2026-08-13" } });
       expect(api.get).toHaveBeenCalledWith("/settings/places");
-      expect(api.get).toHaveBeenCalledWith("/finance/transactions", { params: { date_from: "2026-08-01", date_to: "2026-08-13" } });
+      expect(api.get).toHaveBeenCalledWith("/finance/transactions", { params: { date_from: "2026-08-01", date_to: "2026-08-13", web_timezone: "Asia/Tashkent" } });
     });
 
     it("rejects when an authoritative dashboard source fails", async () => {
       const error = new Error("dashboard unavailable");
-      api.get.mockRejectedValueOnce(error);
+      api.get.mockImplementation((path) => path === "/finance/transactions" ? Promise.reject(error) : Promise.resolve({ data: [] }));
       await expect(dashboardService.loadOwnerOverview({
         dateFrom: "2026-08-01",
         dateTo: "2026-08-13",

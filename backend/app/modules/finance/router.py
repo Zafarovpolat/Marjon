@@ -112,6 +112,7 @@ async def counterparty_transactions(
     size: int = Query(20, ge=1, le=200),
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    web_timezone: str | None = Query(None, pattern="^Asia/Tashkent$"),
     scope: FinanceScope = Depends(get_owner_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
@@ -119,6 +120,10 @@ async def counterparty_transactions(
         models.Counterparty, db, system_enabled=False
     ).get(counterparty_id, scope)
     params = PageParams(page=page, size=size)
+    if web_timezone:
+        from app.shared.web_time import web_counterparty_transactions
+        items, total = await web_counterparty_transactions(db, scope.tenant_id, counterparty_id, params, date_from, date_to)
+        return Page.create([schemas.TransactionResponse.model_validate(i) for i in items], total, params)
     items, total = await TransactionService(db).list(
         params,
         raw_filters={

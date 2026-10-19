@@ -1,4 +1,5 @@
 from __future__ import annotations
+import math
 import secrets
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
@@ -14,9 +15,11 @@ from app.modules.auth.security import (
     create_refresh_token,
     get_refresh_token_auth_scope,
     hash_password,
+    hash_password_async,
     hash_refresh_token,
     terminal_email,
     verify_password,
+    verify_password_async,
 )
 from app.modules.audit.service import AuditService
 from app.modules.companies.models import Branch, Company
@@ -33,6 +36,13 @@ from app.shared.exceptions import ConflictError, ForbiddenError, NotFoundError, 
 # to stay under the per-IP rate limit.
 PIN_MAX_ATTEMPTS = 5
 PIN_LOCKOUT_MINUTES = 15
+
+# PWD-LOCK-01: то же самое для ПАРОЛЬНОГО входа. Пароль теперь может быть из
+# 4 символов (PWD-POLICY-01), то есть 10 000 вариантов у чисто цифрового —
+# без блокировки по аккаунту перебор ограничен только 10 попытками в минуту
+# С ОДНОГО IP, а адресов у атакующего может быть много. 10 неудач → 15 минут.
+PASSWORD_MAX_ATTEMPTS = 10
+PASSWORD_LOCKOUT_MINUTES = 15
 
 
 def device_label(user_agent: str | None) -> str | None:
@@ -144,6 +154,47 @@ class AuthService:
             return stripped
         return identifier  # email or username — return as-is
 
+    # --- PWD-LOCK-01: блокировка парольного входа по аккаунту -----------
+    # Хелперы принимают и User, и Branch: у обоих одинаковые колонки, поэтому
+    # обходимся duck typing без общего базового класса.
+    @staticmethod
+    def _password_locked_until(principal) -> datetime | None:
+        locked_until = principal.password_locked_until
+        if locked_until is not None and locked_until.tzinfo is None:
+            # SQLite (тесты) отдаёт naive datetime даже для timezone=True —
+            # нормализуем, иначе сравнение падает только на одном бэкенде.
+            locked_until = locked_until.replace(tzinfo=timezone.utc)
+        return locked_until
+
+    def _assert_password_not_locked(self, principal) -> None:
+        locked_until = self._password_locked_until(principal)
+        if locked_until is None:
+            return
+        remaining = locked_until - datetime.now(timezone.utc)
+        if remaining.total_seconds() > 0:
+            minutes = max(1, math.ceil(remaining.total_seconds() / 60))
+            raise UnauthorizedError(
+                f"Слишком много неверных попыток входа. Повторите через {minutes} мин."
+            )
+
+    async def _register_password_failure(self, principal) -> None:
+        principal.password_failed_attempts = (principal.password_failed_attempts or 0) + 1
+        if principal.password_failed_attempts >= PASSWORD_MAX_ATTEMPTS:
+            principal.password_locked_until = (
+                datetime.now(timezone.utc) + timedelta(minutes=PASSWORD_LOCKOUT_MINUTES)
+            )
+            principal.password_failed_attempts = 0
+        # Коммитим сразу: исключение ниже откатило бы счётчик, и аккаунт
+        # никогда бы не заблокировался.
+        await self.db.commit()
+
+    async def _reset_password_failures(self, principal) -> None:
+        if not principal.password_failed_attempts and principal.password_locked_until is None:
+            return
+        principal.password_failed_attempts = 0
+        principal.password_locked_until = None
+        await self.db.commit()
+
     async def login(self, email: str, password: str, *, device_id: str | None = None) -> tuple[User, str, str]:
         import logging
         log = logging.getLogger(__name__)
@@ -153,9 +204,12 @@ class AuthService:
             log.warning("Login failed: user not found — login=%s", email)
             raise UnauthorizedError("Invalid credentials")
 
+        self._assert_password_not_locked(user)
         if not await verify_password(password, user.password_hash):
+            await self._register_password_failure(user)
             log.warning("Login failed: wrong password — email=%s", email)
             raise UnauthorizedError("Invalid credentials")
+        await self._reset_password_failures(user)
 
         if not user.is_active:
             raise UnauthorizedError("Account is inactive")
@@ -174,9 +228,16 @@ class AuthService:
         log = logging.getLogger(__name__)
 
         user = await self.user_repo.get_by_login(self._normalize_identifier(email))
-        if not user or not await verify_password(password, user.password_hash):
+        if not user:
             log.warning("Admin login failed: bad credentials — login=%s", email)
             raise UnauthorizedError("Invalid credentials")
+
+        self._assert_password_not_locked(user)
+        if not await verify_password_async(password, user.password_hash):
+            await self._register_password_failure(user)
+            log.warning("Admin login failed: bad credentials — login=%s", email)
+            raise UnauthorizedError("Invalid credentials")
+        await self._reset_password_failures(user)
 
         if not user.is_active:
             raise UnauthorizedError("Account is inactive")
@@ -272,8 +333,13 @@ class AuthService:
             user = await self.user_repo.get_by_phone(candidate)
             if user:
                 break
-        if not user or not user.password_hash or not await verify_password(password, user.password_hash):
+        if not user or not user.password_hash:
             raise UnauthorizedError("Неверный телефон или пароль")
+        self._assert_password_not_locked(user)
+        if not await verify_password_async(password, user.password_hash):
+            await self._register_password_failure(user)
+            raise UnauthorizedError("Неверный телефон или пароль")
+        await self._reset_password_failures(user)
         if not user.is_active:
             raise UnauthorizedError("Account is inactive")
         role_slugs = list((await self.db.execute(
@@ -351,8 +417,13 @@ class AuthService:
         branch = (await self.db.execute(
             select(Branch).where(func.lower(Branch.login) == norm)
         )).scalar_one_or_none()
-        if branch is None or not branch.password_hash or not await verify_password(password, branch.password_hash):
+        if branch is None or not branch.password_hash:
             raise UnauthorizedError("Неверный логин или пароль филиала")
+        self._assert_password_not_locked(branch)
+        if not await verify_password_async(password, branch.password_hash):
+            await self._register_password_failure(branch)
+            raise UnauthorizedError("Неверный логин или пароль филиала")
+        await self._reset_password_failures(branch)
         if not branch.is_active:
             raise UnauthorizedError("Филиал неактивен")
         user = await self._ensure_branch_principal(branch)
@@ -465,7 +536,8 @@ class AuthService:
             password_hash=await hash_password(password),
             # Закреплённый принтер (None — печать на принтер филиала).
             printer_id=printer_id,
-            # Тумблеры карточки сотрудника — как есть, схему задаёт фронтенд.
+            # Тумблеры владельца тем же легаси-слоем, что правит PATCH:
+            # None — не выставлялись, десктопные гейты ведут себя как раньше.
             permissions=permissions,
             # PIN входа на терминале: ставим тем же INSERT, что и сотрудника.
             pin_hash=await hash_password(pin) if pin is not None else None,

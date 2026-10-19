@@ -229,13 +229,13 @@ describe("warehouse page visual contract (/users/warehouse) — WAREHOUSE-01", (
       target: { value: "Storekeeper Two" },
     });
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
-      target: { value: "weak" },
+      target: { value: "abc" },
     });
     // Филиал выбран, чтобы проверка дошла до пароля (иначе сработает её гейт).
     pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     alerts = await within(dialog).findAllByRole("alert");
-    expect(alerts[0]).toHaveTextContent("Пароль должен содержать минимум 8 символов, букву и цифру.");
+    expect(alerts[0]).toHaveTextContent("Пароль должен содержать минимум 4 символа.");
     expect(api.post).not.toHaveBeenCalled();
     expect(alertSpy).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).not.toBeNull();

@@ -6,7 +6,7 @@ from sqlalchemy import delete, func, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.models import User
-from app.modules.auth.security import hash_password
+from app.modules.auth.security import hash_password_async
 from app.modules.organizations.models import Organization, OfflineJob, user_organizations
 from app.modules.organizations.schemas import AccountCreate, AccountResponse, AccountUpdate
 from app.modules.rbac.models import Role, UserRole

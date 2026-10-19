@@ -349,17 +349,16 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
       target: { value: "+998901112233" },
     });
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
-      target: { value: "short1" },
+      target: { value: "abc" },
     });
     fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     const alerts = await within(dialog).findAllByRole("alert");
-    expect(alerts).toHaveLength(1);
-    expect(alerts[0]).toHaveTextContent("Пароль должен содержать минимум 8 символов, букву и цифру.");
-    expect(document.querySelector(".marjon-toast--error")).toHaveTextContent(
-      "Пароль должен содержать минимум 8 символов, букву и цифру.",
-    );
+    expect(alerts).toHaveLength(2);
+    for (const alert of alerts) {
+      expect(alert).toHaveTextContent("Пароль должен содержать минимум 4 символа.");
+    }
     expect(alertSpy).not.toHaveBeenCalled();
     expect(api.post).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).not.toBeNull();

@@ -377,9 +377,9 @@ function StaffRolePage({ role = "all" }) {
       // отдельный сценарий «филиал как аккаунт».
       const soleBranchId = branches.length === 1 ? String(branches[0].id) : "";
       const resolvedBranchId = form.branchId || soleBranchId || null;
-      if ((!editingId || form.password) && (form.password.length < 8 || !/[A-Za-z]/.test(form.password) || !/\d/.test(form.password))) {
+      if ((!editingId || form.password) && form.password.length < 4) {
         setSaveErrorField("password");
-        setSaveError("Пароль должен содержать минимум 8 символов, букву и цифру.");
+        setSaveError("Пароль должен содержать минимум 4 символа.");
         mutationLocks.release("staff-save");
         return;
       }
@@ -536,8 +536,8 @@ function StaffRolePage({ role = "all" }) {
       mutationLocks.release("staff-save");
       return;
     }
-    if ((!editingId || form.password) && (form.password.length < 8 || !/[A-Za-z]/.test(form.password) || !/\d/.test(form.password))) {
-      window.alert("Пароль должен содержать минимум 8 символов, букву и цифру.");
+    if ((!editingId || form.password) && form.password.length < 4) {
+      window.alert("Пароль должен содержать минимум 4 символа.");
       mutationLocks.release("staff-save");
       return;
     }

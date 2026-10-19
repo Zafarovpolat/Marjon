@@ -1,6 +1,8 @@
 // Чистые помощники данных для страницы финансовых транзакций:
 // разбор/форматирование сумм и дат + отображение ответа API в модель строки.
 
+import { webCalendarToday, webDateTime } from "../../utils/webTime";
+
 export const emptyForm = {
   type: "income",
   amount: "",
@@ -12,7 +14,7 @@ export const emptyForm = {
 };
 
 export function currentMonthRange() {
-  const now = new Date();
+  const now = webCalendarToday();
   return {
     preset: "Этот месяц",
     start: `01.${String(now.getMonth() + 1).padStart(2, "0")}.${now.getFullYear()}`,
@@ -41,8 +43,7 @@ export function formatMoney(value) {
 
 export function formatDate(value) {
   if (!value) return "—";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? String(value) : `${date.toLocaleDateString("ru-RU")} / ${date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}`;
+  return webDateTime(value) || String(value);
 }
 
 export function itemsOf(response) {

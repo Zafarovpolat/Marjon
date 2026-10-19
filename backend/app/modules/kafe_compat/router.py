@@ -70,16 +70,19 @@ def _tx_dict(t: FinTransaction) -> dict:
     }
 
 
-def _company_transactions_query(company_id, date_from, date_to, direction=None):
+def _company_transactions_query(company_id, date_from, date_to, direction=None, web_timezone=None):
     # BE-04: was unfiltered (despite the module docstring claiming
     # "company-scoped") — every company saw every other company's transactions.
     q = select(FinTransaction).where(
         FinTransaction.deleted_at.is_(None),
         FinTransaction.company_id == company_id,
     )
-    if date_from:
+    if web_timezone:
+        from app.shared.web_time import web_date_conditions
+        q = q.where(*web_date_conditions(FinTransaction.date, date_from, date_to))
+    elif date_from:
         q = q.where(func.date(FinTransaction.date) >= date_from)
-    if date_to:
+    if date_to and not web_timezone:
         q = q.where(func.date(FinTransaction.date) <= date_to)
     if direction:
         q = q.where(FinTransaction.direction == direction)
@@ -90,6 +93,7 @@ def _company_transactions_query(company_id, date_from, date_to, direction=None):
 async def kafe_list_transactions(
     date_from: date | None = Query(None), date_to: date | None = Query(None),
     direction: str | None = Query(None),
+    web_timezone: str | None = Query(None, pattern="^Asia/Tashkent$"),
     # DESK-FIN-01: десктоп-касса (моноблок/кассир) показывает панель финансов
     # и список операций за смену. Раньше здесь стоял require_web_owner, поэтому
     # любой сотрудник получал 403, а панель молча рисовала пустой список.
@@ -99,7 +103,7 @@ async def kafe_list_transactions(
     scope: FinanceScope = Depends(get_company_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
-    q = _company_transactions_query(scope.tenant_id, date_from, date_to, direction)
+    q = _company_transactions_query(scope.tenant_id, date_from, date_to, direction, web_timezone)
     rows = (await db.execute(q.order_by(FinTransaction.date.desc()))).scalars().all()
     return {"items": [_tx_dict(t) for t in rows], "count": len(rows)}
 
@@ -107,12 +111,13 @@ async def kafe_list_transactions(
 @router.get("/finance/transactions/summary", response_model=TransactionIncomeSummary, tags=["finance-kafe"])
 async def kafe_transaction_income_summary(
     date_from: date | None = Query(None), date_to: date | None = Query(None),
+    web_timezone: str | None = Query(None, pattern="^Asia/Tashkent$"),
     # DESK-FIN-01: сводка прихода нужна той же панели «Финансы» на терминале.
     user: User = Depends(require_company_app_user),
     scope: FinanceScope = Depends(get_company_finance_scope),
     db: AsyncSession = Depends(get_db),
 ):
-    q = _company_transactions_query(scope.tenant_id, date_from, date_to, "income")
+    q = _company_transactions_query(scope.tenant_id, date_from, date_to, "income", web_timezone)
     income = (await db.execute(q.with_only_columns(
         func.coalesce(func.sum(FinTransaction.amount), 0)
     ))).scalar_one()

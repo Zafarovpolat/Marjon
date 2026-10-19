@@ -113,19 +113,26 @@ describe("Web Launch V1 route surfaces", () => {
     await waitFor(() => expect(document.querySelector(".dashboard-shell")).toBeInTheDocument());
   });
 
-  it("renders finance subcategories as placeholders without finance tables", async () => {
+  it("renders finance and support with the same coming-soon placeholder", async () => {
     mockAuthenticatedUser(users.owner);
     for (const [path, title] of [
       ["/finance/transactions", "Денежные операции"],
       ["/finance/income-categories", "Категория приходов"],
       ["/finance/expense-categories", "Категория расходов"],
       ["/finance/debtors-creditors", "Дебиторы и кредиторы"],
+      ["/settings/support", "Тех. поддержка"],
     ]) {
       renderAt(path);
       await waitForPath(path);
       await screen.findByText("Скоро, эта категория дорабатывается");
       expect(document.querySelector(".settings-page .settings-card")).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
+      if (path === "/settings/support") {
+        for (const label of ["Заявка", "Диагностика", "Контакты"]) {
+          expect(screen.queryByRole("heading", { name: label })).not.toBeInTheDocument();
+        }
+        expect(screen.queryByText("Обращения, диагностика и связь с поддержкой Marjon.")).not.toBeInTheDocument();
+      }
       cleanup();
     }
     expect(document.querySelector(".settings-table")).not.toBeInTheDocument();

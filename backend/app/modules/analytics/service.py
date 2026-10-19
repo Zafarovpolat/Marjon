@@ -30,6 +30,7 @@ from app.modules.fiscal.models import FiscalReceipt
 from app.modules.halls.models import Hall, Table
 from app.modules.payments.models import Payment
 from app.modules.pos.models import Order, OrderItem
+from app.modules.inventory.models import Product
 from app.modules.rbac.models import Role, UserRole
 from app.shared.tenant_scope import require_company_resource_ids
 
@@ -207,26 +208,52 @@ class AnalyticsService:
         limit: int = 20,
         date_from: date | None = None,
         date_to: date | None = None,
+        confirmed_only: bool = False,
+        web_timezone: str | None = None,
     ) -> list[TopProduct]:
+        # Aggregate payments BEFORE joining items: mixed/duplicate payment rows
+        # must never multiply quantities. Only fully settled, completed orders.
+        paid = (
+            select(Payment.order_id, func.sum(Payment.amount).label("amount"),
+                   func.max(Payment.updated_at).label("confirmed_at"))
+            .where(Payment.company_id == company_id, Payment.status == "completed")
+            .group_by(Payment.order_id).subquery()
+        ) if confirmed_only else None
+        line_revenue = OrderItem.total
+        if confirmed_only:
+            # Order-level discount is allocated proportionally; service/tax are
+            # not product revenue. Position-level discounts are already in total.
+            line_revenue = OrderItem.total * (
+                (Order.subtotal - Order.discount_amount) / func.nullif(Order.subtotal, 0)
+            )
         query = (
             select(
                 OrderItem.product_id,
-                OrderItem.name,
+                func.max(OrderItem.name).label("name") if confirmed_only else OrderItem.name,
                 func.sum(OrderItem.quantity).label("qty"),
-                func.sum(OrderItem.total).label("rev"),
+                func.sum(line_revenue).label("rev"),
+                func.max(Product.image_url).label("image_url"),
             )
             .join(Order, Order.id == OrderItem.order_id)
+            .outerjoin(Product, and_(Product.id == OrderItem.product_id, Product.company_id == company_id))
             .where(Order.company_id == company_id, Order.status.notin_(["cancelled"]))
-            .group_by(OrderItem.product_id, OrderItem.name)
-            .order_by(func.sum(OrderItem.total).desc())
+            .group_by(OrderItem.product_id, *([] if confirmed_only else [OrderItem.name]))
+            .order_by(func.sum(line_revenue).desc(), OrderItem.product_id)
             .limit(limit)
         )
+        if confirmed_only:
+            query = query.join(paid, paid.c.order_id == Order.id).where(
+                Order.status == "completed", OrderItem.status != "cancelled",
+                OrderItem.quantity > 0, Order.total_amount > 0, Order.subtotal > 0,
+                paid.c.amount >= Order.total_amount,
+            )
+        period_column = paid.c.confirmed_at if confirmed_only else Order.created_at
         if date_from or date_to:
-            tz = await self._company_tz(company_id)
+            tz = ZoneInfo(web_timezone) if web_timezone else await self._company_tz(company_id)
         if date_from:
-            query = query.where(Order.created_at >= self._date_bounds(date_from, tz)[0])
+            query = query.where(period_column >= self._date_bounds(date_from, tz)[0])
         if date_to:
-            query = query.where(Order.created_at < self._date_bounds(date_to, tz)[1])
+            query = query.where(period_column < self._date_bounds(date_to, tz)[1])
 
         result = await self.db.execute(
             query
@@ -236,7 +263,8 @@ class AnalyticsService:
                 product_id=row.product_id,
                 name=row.name,
                 quantity_sold=Decimal(str(row.qty)),
-                revenue=Decimal(str(row.rev)),
+                revenue=Decimal(str(row.rev)).quantize(Decimal("0.01")),
+                image_url=row.image_url,
             )
             for row in result.all()
         ]

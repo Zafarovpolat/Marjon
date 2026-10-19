@@ -5,13 +5,24 @@ from pydantic import EmailStr, Field, SecretStr, field_validator
 from app.shared.base_schema import BaseSchema, BaseResponseSchema
 
 
+# PWD-POLICY-01: минимум 4 символа. Кассир и официант вводят пароль на кассе
+# с десктопа, где длинные пароли не приживаются — «6611» и «QW12» должны
+# работать. Состав больше не ограничиваем (раньше требовались латинская буква
+# и цифра, из-за чего кириллический «Пароль123» отклонялся как «без буквы»).
+#
+# Верхняя граница — 72 БАЙТА, а не символа: bcrypt 5.x бросает ValueError на
+# более длинном входе, и без этой проверки создание сотрудника падало 500
+# вместо 422. Кириллица в UTF-8 занимает 2 байта, поэтому 36 символов — уже
+# предел.
+PASSWORD_MIN_LENGTH = 4
+PASSWORD_MAX_BYTES = 72
+
+
 def _validate_password(v: str) -> str:
-    if len(v) < 8:
-        raise ValueError("Пароль должен быть не менее 8 символов")
-    if not re.search(r"[A-Za-z]", v):
-        raise ValueError("Пароль должен содержать хотя бы одну букву")
-    if not re.search(r"\d", v):
-        raise ValueError("Пароль должен содержать хотя бы одну цифру")
+    if len(v) < PASSWORD_MIN_LENGTH:
+        raise ValueError(f"Пароль должен быть не менее {PASSWORD_MIN_LENGTH} символов")
+    if len(v.encode("utf-8")) > PASSWORD_MAX_BYTES:
+        raise ValueError(f"Пароль должен быть не более {PASSWORD_MAX_BYTES} байт")
     return v
 
 

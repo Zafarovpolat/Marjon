@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { reportsService } from "../api/reports";
+import { webDateTime } from "../utils/webTime";
 import { ordersService } from "../api/orders";
 import { paymentsService } from "../api/payments";
 import Icon from "../components/Icon";
@@ -78,9 +79,7 @@ const ORDER_STATUS_LABELS = {
 function formatTableDateTime(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value ?? "");
-  const day = date.toLocaleDateString("ru-RU");
-  const time = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-  return `${day} / ${time}`;
+  return webDateTime(value);
 }
 
 function tableDisplayLabel(row) {
