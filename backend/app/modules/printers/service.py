@@ -36,6 +36,12 @@ logger = logging.getLogger(__name__)
 # принтером. 2 с достаточно любому живому LAN-принтеру, а недоступный адрес
 # запоминается на минуту, чтобы следующие задания уходили на терминал сразу.
 SERVER_PRINT_TIMEOUT = 2.0
+# PRINT-LAT-03: авто-печать (кухонный чек при создании заказа, чек при оплате)
+# идёт прямо в пути запроса кассира, поэтому ждать принтер 2 с там нельзя:
+# заказ уже создан, а терминал всё равно напечатает сам, если сервер не успел.
+# 0.4 с — с запасом для живого LAN-принтера (отвечает за единицы миллисекунд);
+# не успели — задание остаётся pending и уходит на терминал.
+AUTO_PRINT_TIMEOUT = 0.4
 PRINTER_COOLDOWN_SECONDS = 60.0
 _printer_cooldown: dict[UUID, float] = {}
 
@@ -263,6 +269,16 @@ class PrinterService:
     # Auto-print: find printers by type and print
     async def auto_print_receipt(self, company_id: UUID, branch_id: UUID, order_id: UUID) -> list[PrintJob]:
         printers = await self.repo.get_by_type(company_id, branch_id, "receipt")
+        if not printers:
+            # PRINT-DIAG-02: нет активного принтера нужного типа в филиале —
+            # раньше это был тихий no-op, и «чек не печатается» не оставлял
+            # в логах ни строчки. Частая причина: принтер выключен (is_active=0)
+            # или привязан к другому филиалу.
+            logger.warning(
+                "auto_print_receipt: no active receipt printer for branch=%s (order=%s) — skipped",
+                branch_id, order_id,
+            )
+            return []
         jobs = []
         customer_tpl, _ = await self._get_receipt_templates(company_id)
         logo_bytes = await self._get_logo_bytes(company_id)
@@ -270,19 +286,32 @@ class PrinterService:
             order = await self._get_order(company_id, order_id)
             receipt_data = await self._build_receipt_data(company_id, order)
             raw = self._render_customer_receipt(printer, receipt_data, customer_tpl, logo_bytes)
-            job = await self._enqueue_and_send(company_id, printer, "receipt", order_id, raw)
+            job = await self._enqueue_and_send(
+                company_id, printer, "receipt", order_id, raw, server_timeout=AUTO_PRINT_TIMEOUT
+            )
             jobs.append(job)
         return jobs
 
     async def auto_print_kitchen(self, company_id: UUID, branch_id: UUID, order_id: UUID) -> list[PrintJob]:
         printers = await self.repo.get_by_type(company_id, branch_id, "kitchen")
+        if not printers:
+            # PRINT-DIAG-02: см. auto_print_receipt — тихий пропуск заменён
+            # предупреждением, иначе «чек повара не выходит» невозможно
+            # диагностировать по логам.
+            logger.warning(
+                "auto_print_kitchen: no active kitchen printer for branch=%s (order=%s) — skipped",
+                branch_id, order_id,
+            )
+            return []
         jobs = []
         _, kitchen_tpl = await self._get_receipt_templates(company_id)
         for printer in printers:
             order = await self._get_order(company_id, order_id)
             ticket_data = await self._build_kitchen_data(company_id, order)
             raw = self._render_kitchen_ticket(printer, ticket_data, kitchen_tpl)
-            job = await self._enqueue_and_send(company_id, printer, "kitchen", order_id, raw)
+            job = await self._enqueue_and_send(
+                company_id, printer, "kitchen", order_id, raw, server_timeout=AUTO_PRINT_TIMEOUT
+            )
             jobs.append(job)
         return jobs
 
@@ -341,6 +370,7 @@ class PrinterService:
         raw: bytes,
         copies: int = 1,
         skip_server_print: bool = False,
+        server_timeout: float = SERVER_PRINT_TIMEOUT,
     ) -> PrintJob:
         payload = base64.b64encode(raw).decode()
         job = PrintJob(
@@ -374,7 +404,7 @@ class PrinterService:
             else:
                 try:
                     for _ in range(copies):
-                        await print_raw(printer, raw, timeout=SERVER_PRINT_TIMEOUT)
+                        await print_raw(printer, raw, timeout=server_timeout)
                     job.status = "done"
                     printed = True
                     _clear_printer_cooldown(printer.id)
