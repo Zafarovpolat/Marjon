@@ -367,6 +367,15 @@
   transition: transform 0.28s ease-out;
 }
 
+/* Шестерёнка на экране входа: даёт попасть в «Адрес сервера», даже если
+   сохранённый адрес неверен и вход не проходит. */
+.login-card__settings {
+  position: absolute;
+  top: var(--spacing-sm);
+  right: var(--spacing-sm);
+  color: var(--color-text-tertiary);
+}
+
 /* Когда открыта экранная клавиатура — сдвигаем карточку вверх,
    чтобы активное поле не перекрывалось */
 .login-card--kb-open,

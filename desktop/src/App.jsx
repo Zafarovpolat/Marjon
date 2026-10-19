@@ -10,6 +10,7 @@ import SettingsModal from './components/SettingsModal'
 import CashierMode from './modes/cashier/CashierMode'
 import WaiterMode from './modes/waiter/WaiterMode'
 import { auth, branding, flushQueue, queueSize } from './shared/api'
+import { DEFAULT_SERVER_URL } from './shared/config'
 import { t } from './shared/i18n'
 import { kitchenWS } from './services/kitchenWS'
 import { connectPrinterWS, disconnectPrinterWS } from './shared/ws'
@@ -79,7 +80,7 @@ export default function App() {
   // WebSocket при полном входе
   useEffect(() => {
     if (!staffToken || !effectiveBranchId || !mode) return
-    const serverUrl = localStorage.getItem('marjon_server_url') || 'http://localhost:8000/api/v1'
+    const serverUrl = localStorage.getItem('marjon_server_url') || DEFAULT_SERVER_URL
     kitchenWS.connect(serverUrl, staffToken, effectiveBranchId)
     // Принтерный WS: терминал получает задания печати (чек/кухня) и печатает через Electron
     connectPrinterWS(serverUrl, staffToken, effectiveBranchId)
@@ -269,7 +270,20 @@ export default function App() {
   if (!serverUrl) return <ServerSetup onComplete={() => window.location.reload()} />
 
   // Шаг 1: терминал не привязан — вход по телефону+паролю моноблока
-  if (!orgToken || !orgUser) return <LoginPage mode="admin" onLogin={handleMonoblockLogin} />
+  // onSettings здесь обязателен: без него при неверном адресе сервера
+  // терминал запирался на экране входа без доступа к настройкам.
+  if (!orgToken || !orgUser) {
+    return (
+      <>
+        <LoginPage
+          mode="admin"
+          onLogin={handleMonoblockLogin}
+          onSettings={() => setShowSettings(true)}
+        />
+        {settingsOverlay}
+      </>
+    )
+  }
 
   // Шаг 2 (выбор филиала) убран: моноблок не привязан к филиалу, после входа
   // сразу идём к выбору сотрудника.
