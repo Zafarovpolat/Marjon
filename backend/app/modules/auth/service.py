@@ -428,11 +428,19 @@ class AuthService:
 
         # Принтер сотрудника: только из принтеров своей компании — иначе
         # владелец мог бы привязать сотрудника к чужому принтеру по id.
+        # STAFF-PRINTER-SCOPE-01: и только из СВОЕГО филиала — иначе сотрудник
+        # филиала A печатает чеки на принтере филиала B (чужой адрес/касса).
+        # Проверяем только когда филиал известен: у владельца/админа без
+        # филиала привязка к принтеру любого филиала компании легитимна.
         if printer_id is not None:
             from app.modules.printers.models import Printer
             printer = await self.db.get(Printer, printer_id)
             if not printer or printer.company_id != company_id:
                 raise ValidationError("Принтер не найден в этой компании")
+            if branch_id is not None and printer.branch_id != branch_id:
+                raise ValidationError(
+                    "Принтер принадлежит другому филиалу — выберите принтер филиала сотрудника"
+                )
 
         # PIN проверяем ДО вставки: иначе занятый PIN отдавал бы 409 уже после
         # создания пользователя, и он оставался бы без PIN (незавершаемая
@@ -560,6 +568,14 @@ class AuthService:
                 printer = await self.db.get(Printer, printer_id)
                 if not printer or printer.company_id != company_id:
                     raise ValidationError("Принтер не найден в этой компании")
+                # STAFF-PRINTER-SCOPE-01: принтер — из филиала сотрудника
+                # (см. create_company_user). user.branch_id здесь уже обновлён,
+                # если в этом же PATCH пришёл новый филиал.
+                if user.branch_id is not None and printer.branch_id != user.branch_id:
+                    raise ValidationError(
+                        "Принтер принадлежит другому филиалу — выберите принтер "
+                        "филиала сотрудника"
+                    )
             user.printer_id = printer_id
 
         if role_slug is not None:

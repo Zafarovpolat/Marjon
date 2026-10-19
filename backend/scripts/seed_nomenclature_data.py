@@ -39,37 +39,10 @@ from app.infrastructure.database.session import AsyncSessionLocal
 
 # Полностью населяем реестр моделей SQLAlchemy до конфигурации мапперов —
 # иначе строковые relationship (напр. Company → "User") не резолвятся.
-# Список зеркалит migrations/env.py.
-import app.modules.companies.models  # noqa: F401
-import app.modules.auth.models  # noqa: F401
-import app.modules.rbac.models  # noqa: F401
-import app.modules.inventory.models  # noqa: F401
-import app.modules.crm.models  # noqa: F401
-import app.modules.pos.models  # noqa: F401
-import app.modules.payments.models  # noqa: F401
-import app.modules.kitchen.models  # noqa: F401
-import app.modules.loyalty.models  # noqa: F401
-import app.modules.delivery.models  # noqa: F401
-import app.modules.hr.models  # noqa: F401
-import app.modules.notifications.models  # noqa: F401
-import app.modules.audit.models  # noqa: F401
-import app.modules.fiscal.models  # noqa: F401
-import app.modules.subscriptions.models  # noqa: F401
-import app.modules.printers.models  # noqa: F401
-import app.modules.halls.models  # noqa: F401
-import app.modules.kafe_compat.models  # noqa: F401
-import app.modules.handbook.models  # noqa: F401
-import app.modules.organizations.models  # noqa: F401
-import app.modules.departments.models  # noqa: F401
-import app.modules.marketing.models  # noqa: F401
-import app.modules.nomenclature.models  # noqa: F401
-import app.modules.storage.models  # noqa: F401
-import app.modules.finance.models  # noqa: F401
-import app.modules.field_service.models  # noqa: F401
-import app.modules.tasks.models  # noqa: F401
-import app.modules.admin_settings.models  # noqa: F401
-import app.modules.inventory.warehouse_models  # noqa: F401
-import app.modules.inventory.semi_product_models  # noqa: F401
+# Раньше здесь лежала копия списка из migrations/env.py, и она разъезжалась с
+# моделями: новая FK в чужом модуле роняла скрипт с NoReferencedTableError.
+# Единый реестр снимает этот класс поломок (см. models_registry.py).
+import app.infrastructure.database.models_registry  # noqa: F401
 
 from app.modules.companies.models import Company
 from app.modules.inventory.models import Category, Ingredient
