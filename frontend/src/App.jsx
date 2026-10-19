@@ -5,6 +5,7 @@ import DashboardLayout from "./components/DashboardLayout";
 import LoginPage from "./pages/LoginPage";
 import OwnerDashboard from "./pages/OwnerDashboard";
 import OrdersPage from "./pages/OrdersPage";
+import StorePage from "./pages/StorePage";
 import MenuPage from "./pages/MenuPage";
 import StaffPage from "./pages/StaffPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
@@ -155,7 +156,7 @@ export function createAppRouter() {
       { path: "nomenclature/raw-categories", element: <CategoriesPage key="raw" type="raw" /> },
       { path: "nomenclature/semi-finished-categories", element: <CategoriesPage key="semi" type="semi" /> },
       { path: "nomenclature/sales-categories", element: <CategoriesPage key="sales" type="sales" /> },
-      { path: "store", element: <OrdersPage /> },
+      { path: "store", element: <StorePage /> },
       { path: "reviews", element: <PlaceholderPage eyebrow="Reviews" title="Отзывы" text="Раздел отзывов будет показывать обратную связь клиентов." /> },
       { path: "orders", element: <OrdersPage /> },
       { path: "menu", element: <MenuPage /> },

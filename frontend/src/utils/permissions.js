@@ -50,7 +50,8 @@ const ROUTE_SECTION_RULES = [
     sectionKey: "warehouse",
   },
   { prefixes: ["/nomenclature", "/menu"], sectionKey: "nomenclature" },
-  { prefixes: ["/orders", "/store"], sectionKey: "orders" },
+  { prefixes: ["/store"], sectionKey: "store" },
+  { prefixes: ["/orders"], sectionKey: "orders" },
   { prefixes: ["/reviews"], sectionKey: "reviews" },
 ];
 

@@ -9615,3 +9615,43 @@ body.dashboard-body:has(.dashboard-shell .dashboard-main .dashboard-content > .o
   box-shadow: none;
   text-shadow: none;
 }
+
+
+/* ── Marjon store (/store) ────────────────────────────────────────────────
+   Таблица файлов десктопа: хеш моноширинным, кнопка скачивания компактная.
+   Стили самодостаточные — не зависят от того, где объявлен .btn. */
+.store-hash {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--text-muted, #7a869a);
+  white-space: nowrap;
+  cursor: help;
+}
+
+.store-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: var(--accent, #1db5b5);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: filter 0.18s ease, transform 0.18s ease;
+}
+
+.store-download:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  color: #fff;
+}
+
+.store-download:focus-visible {
+  outline: 2px solid var(--accent, #1db5b5);
+  outline-offset: 2px;
+}

@@ -1,0 +1,29 @@
+{
+  "app": "Marjon Desktop",
+  "updated": "2026-10-19",
+  "releases": [
+    {
+      "version": "1.0.0",
+      "platform": "windows",
+      "channel": "stable",
+      "date": "2026-10-19",
+      "notes": "Первый публичный релиз. Касса, моноблок, кухня и склад. Печать чеков на сетевые принтеры, сервисный сбор в чеке, вход по PIN и по паролю моноблока.",
+      "files": [
+        {
+          "kind": "installer",
+          "label": "Установщик",
+          "file": "Marjon-Setup-1.0.0.exe",
+          "size": 71073342,
+          "sha256": "08003592bd22114aaf7a90a8d21579f4ad7572fc9b3d69f3711ad8c3c02071d1"
+        },
+        {
+          "kind": "portable",
+          "label": "Portable",
+          "file": "Marjon-Portable-1.0.0.exe",
+          "size": 70857456,
+          "sha256": "55ef46d0b56fb5fb2cf293e28247a3d4d1a775f4ce144bf20e4ef67b6d0d85e8"
+        }
+      ]
+    }
+  ]
+}
