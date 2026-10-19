@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import require_company_app_user
+from app.modules.auth.dependencies import require_company_app_user, effective_branch_filter
 from app.modules.auth.models import User
 from app.modules.kitchen.schemas import KitchenItemStatusUpdate, StationCreate, StationResponse
 from app.modules.kitchen.service import KitchenService
@@ -24,6 +24,8 @@ async def list_stations(user: User = Depends(require_company_app_user), db: Asyn
 
 @router.get("/orders", response_model=list[OrderResponse])
 async def active_orders(branch_id: UUID = Query(...), user: User = Depends(require_company_app_user), db: AsyncSession = Depends(get_db)):
+    # Branch-изоляция: сессия филиала видит кухонные заказы только своего филиала.
+    branch_id = effective_branch_filter(user, branch_id)
     return await KitchenService(db).get_active_orders(user.company_id, branch_id)
 
 

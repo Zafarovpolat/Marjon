@@ -56,8 +56,17 @@ class AttendanceLog(TimeStampedModel):
     # pin | qr | manual
     method: Mapped[str] = mapped_column(String(20), default="manual")
     note: Mapped[str | None] = mapped_column(Text)
-    # A cook's check-in/out is confirmed by the cashier: pending -> approved | rejected.
-    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    # DESK-ATT-01: approved | rejected | pending.
+    # Кассир с терминала ставит отметку сразу approved (см. mark_attendance —
+    # статус выставляется явно), а самостоятельная отметка по PIN создаётся
+    # pending и ждёт подтверждения в очереди AttendancePanel (approve/reject).
+    # Python-default = pending, поэтому любой новый AttendanceLog без явного
+    # статуса попадает в очередь, а не считается подтверждённым.
+    # server_default=approved — только для бэкфилла баз, где колонка уже была
+    # (исторические отметки не должны разом упасть в очередь подтверждения).
+    status: Mapped[str] = mapped_column(
+        String(20), default="pending", server_default="approved", nullable=False
+    )
     approved_by: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

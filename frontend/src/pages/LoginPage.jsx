@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { isOwnerWebUser } from "../utils/permissions";
+import { loginAsBranch, clearBranchSession } from "../auth/branchSession";
 import logo from "../assets/brand/marjon-logo.svg";
 import Icon from "../components/Icon";
 import { useMutationLocks } from "../hooks/useAsyncSafety";
@@ -55,6 +56,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState(() => getLanguageCode(i18n));
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+  // Вход «как филиал»: отдельная форма логин+пароль филиала (не владельца).
+  const [branchMode, setBranchMode] = useState(false);
+  const [branchLoginVal, setBranchLoginVal] = useState("");
+  const [branchPass, setBranchPass] = useState("");
+  const [branchError, setBranchError] = useState("");
+  const [branchLoading, setBranchLoading] = useState(false);
   const languageCloseTimerRef = useRef(null);
   const languageMenuRef = useRef(null);
   const { acquire, release } = useMutationLocks();
@@ -144,6 +151,31 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
       release("owner-login");
+    }
+  }
+
+  // На экране логина мы вне любой сессии — чистим возможные остатки маркеров
+  // филиала, чтобы после выхода/протухания не висела чужая плашка.
+  useEffect(() => {
+    clearBranchSession();
+  }, []);
+
+  async function handleBranchSubmit(event) {
+    event.preventDefault();
+    if (!acquire("branch-login")) return;
+    if (!branchLoginVal.trim() || !branchPass) {
+      setBranchError("Укажите логин и пароль филиала.");
+      release("branch-login");
+      return;
+    }
+    setBranchError("");
+    setBranchLoading(true);
+    try {
+      await loginAsBranch(branchLoginVal.trim(), branchPass); // при успехе — перезагрузка
+    } catch (err) {
+      setBranchError(err.response?.data?.detail || "Неверный логин или пароль филиала.");
+      setBranchLoading(false);
+      release("branch-login");
     }
   }
 
@@ -309,6 +341,43 @@ export default function LoginPage() {
                 {loading ? t("auth.loading") : t("auth.sign_in")}
               </button>
             </form>
+
+            <div style={{ marginTop: 14, textAlign: "center" }}>
+              <button
+                type="button"
+                onClick={() => { setBranchMode((v) => !v); setBranchError(""); }}
+                style={{ background: "none", border: "none", color: "var(--color-interactive)", cursor: "pointer", fontWeight: 600, fontSize: 14 }}
+              >
+                {branchMode ? "← Войти как владелец сети" : "Войти как филиал"}
+              </button>
+            </div>
+
+            {branchMode ? (
+              <form className="login-pro-card" onSubmit={handleBranchSubmit} style={{ marginTop: 12 }}>
+                <div className="login-pro-head">
+                  <h2>Вход филиала</h2>
+                  <p>Логин и пароль филиала задаёт владелец на странице «Филиалы».</p>
+                </div>
+                {branchError ? <div className="login-pro-alert" role="alert">{branchError}</div> : null}
+                <label className="login-pro-field">
+                  <span>Логин филиала</span>
+                  <div className="login-pro-input-wrap">
+                    <Icon name="bi-person-badge" size={18} strokeWidth={2.5} />
+                    <input type="text" value={branchLoginVal} onChange={(e) => setBranchLoginVal(e.target.value)} required placeholder="+998 90 123-45-67" spellCheck="false" autoComplete="username" />
+                  </div>
+                </label>
+                <label className="login-pro-field">
+                  <span>Пароль филиала</span>
+                  <div className="login-pro-input-wrap">
+                    <Icon name="bi-lock" size={18} strokeWidth={2.5} />
+                    <input type="password" value={branchPass} onChange={(e) => setBranchPass(e.target.value)} required placeholder="Пароль" spellCheck="false" autoComplete="current-password" />
+                  </div>
+                </label>
+                <button className="login-pro-submit" type="submit" disabled={branchLoading}>
+                  {branchLoading ? t("auth.loading") : "Войти в филиал"}
+                </button>
+              </form>
+            ) : null}
           </section>
         </div>
       </div>

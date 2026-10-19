@@ -21,6 +21,77 @@ import {
   phoneCountryMap,
 } from "./staffPhone";
 
+// Кастомный дропдаун (принтер/филиал). Заменяет нативный <select>, повторяя
+// визуал полей формы и паттерн меню телефонного кода (клик-вне и Escape
+// закрывают). options — [{ id, name }]; пустое значение "" = «по умолчанию».
+function StaffSelect({ value, options = [], onChange, placeholder = "" }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+  const selected = options.find((option) => String(option.id) === String(value));
+  const label = selected ? selected.name : placeholder;
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (event) => {
+      if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false);
+    };
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const choose = (nextId) => {
+    onChange(nextId);
+    setOpen(false);
+  };
+
+  return (
+    <div className={`staff-select${open ? " is-open" : ""}`} ref={rootRef}>
+      <button
+        type="button"
+        className="staff-select__button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        <span className={`staff-select__value${selected ? "" : " is-placeholder"}`}>
+          {label}
+        </span>
+        <Icon name="bi-chevron-down" size={14} className="staff-select__caret" />
+      </button>
+      {open ? (
+        <ul className="staff-select__menu" role="listbox">
+          {options.map((option) => {
+            const active = String(option.id) === String(value);
+            return (
+              <li key={option.id || "__none"}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  className={`staff-select__option${active ? " is-active" : ""}`}
+                  onClick={() => choose(option.id)}
+                >
+                  {option.name}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+// BranchSelect удалён в прод-линии: селектор филиала больше не рендерится
+// в модалке (филиал резолвится на странице). StaffSelect остаётся — на нём
+// построен селектор принтера в карточке сотрудника.
 // Модальное окно создания/редактирования сотрудника OWNER.
 // Вынесено из StaffRolePage.jsx (FE-07B). Разметка, классы, текст и мёртвый
 // блок `{false && ...}` сохранены 1:1; форма и обработчики (включая блокировку
@@ -46,11 +117,13 @@ export default function StaffFormModal({
   isWaiter = false,
   // MONOBLOCK-01: monoblock reuses the same product drawer shell.
   isMonoblock = false,
+  // Сеть → филиал: селектор филиала убран из модалки (прод-линия) — филиал
+  // резолвится на странице (form.branchId || единственный филиал компании).
   // Принтеры компании (GET /printers) для селектора привязки принтера к
   // сотруднику. Пустой список — селект покажет только «как у филиала».
   printers = [],
   // MANAGER-STOREKEEPER-01: manager/warehouse reuse the product drawer shell
-  // (7-col roles, exact Cashier matrix per CASHIER-PARITY-01, no HR, no printer IP).
+  // (7-col roles, exact Cashier matrix per CASHIER-PARITY-01, no HR, no printer binding).
   isManager = false,
   isWarehouse = false,
   closing = false,
@@ -400,6 +473,18 @@ export default function StaffFormModal({
               <b className="staff-switch" aria-hidden="true" />
             </button>
             )}
+            {isWaiterView ? (
+            <button
+              className={`staff-permission-switch ${form.canManageOrders ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canManageOrders")}
+              aria-pressed={Boolean(form.canManageOrders)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Управление заказами</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            ) : null}
             {isMonoblockView ? (
             <>
             <button
@@ -442,6 +527,30 @@ export default function StaffFormModal({
               <span>Печать отмены заказа</span>
               <b className="staff-switch" aria-hidden="true" />
             </button>
+            {/* DESK-PERM-01: без этих двух тумблеров панели «Финансы» и
+                «Посещаемость» на десктопе было невозможно включить — их гейты
+                must(user, 'can_view_finance' / 'can_approve_attendance') не
+                находились ни в одном списке прав, и кнопки не показывались. */}
+            <button
+              className={`staff-permission-switch ${form.canViewFinance ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canViewFinance")}
+              aria-pressed={Boolean(form.canViewFinance)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Просмотр финансов</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            <button
+              className={`staff-permission-switch ${form.canApproveAttendance ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canApproveAttendance")}
+              aria-pressed={Boolean(form.canApproveAttendance)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Посещаемость (приход/уход)</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
             </>
             ) : null}
             {isWaiterView || isMonoblockView || isCuratedView ? null : (
@@ -474,6 +583,27 @@ export default function StaffFormModal({
             >
               <span className="staff-permission-state-dot" aria-hidden="true" />
               <span>Просмотр закрытых заказов</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            {/* DESK-PERM-01: панели десктопа «Финансы» и «Посещаемость». */}
+            <button
+              className={`staff-permission-switch ${form.canViewFinance ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canViewFinance")}
+              aria-pressed={Boolean(form.canViewFinance)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Просмотр финансов</span>
+              <b className="staff-switch" aria-hidden="true" />
+            </button>
+            <button
+              className={`staff-permission-switch ${form.canApproveAttendance ? "is-on" : ""}`}
+              type="button"
+              onClick={() => toggleForm("canApproveAttendance")}
+              aria-pressed={Boolean(form.canApproveAttendance)}
+            >
+              <span className="staff-permission-state-dot" aria-hidden="true" />
+              <span>Посещаемость (приход/уход)</span>
               <b className="staff-switch" aria-hidden="true" />
             </button>
             </>
@@ -850,7 +980,11 @@ export default function StaffFormModal({
               value={form.roleKey}
               onChange={(event) => updateForm("roleKey", event.target.value)}
             >
-              {roleOptions.map((item) => (
+              {/* Моноблок исключён: он заводится только на своей странице
+                  (вход в десктоп по телефону+паролю, без PIN). Общая форма
+                  работает по email и обязательному PIN — для моноблока это
+                  неверный контракт. */}
+              {roleOptions.filter((item) => item.key !== "monoblock").map((item) => (
                 <option key={item.key} value={item.key}>
                   {item.label}
                 </option>

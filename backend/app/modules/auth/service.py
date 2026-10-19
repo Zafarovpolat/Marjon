@@ -1,4 +1,5 @@
 from __future__ import annotations
+import math
 import secrets
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
@@ -14,9 +15,11 @@ from app.modules.auth.security import (
     create_refresh_token,
     get_refresh_token_auth_scope,
     hash_password,
+    hash_password_async,
     hash_refresh_token,
     terminal_email,
     verify_password,
+    verify_password_async,
 )
 from app.modules.audit.service import AuditService
 from app.modules.companies.models import Branch, Company
@@ -33,6 +36,13 @@ from app.shared.exceptions import ConflictError, ForbiddenError, NotFoundError, 
 # to stay under the per-IP rate limit.
 PIN_MAX_ATTEMPTS = 5
 PIN_LOCKOUT_MINUTES = 15
+
+# PWD-LOCK-01: то же самое для ПАРОЛЬНОГО входа. Пароль теперь может быть из
+# 4 символов (PWD-POLICY-01), то есть 10 000 вариантов у чисто цифрового —
+# без блокировки по аккаунту перебор ограничен только 10 попытками в минуту
+# С ОДНОГО IP, а адресов у атакующего может быть много. 10 неудач → 15 минут.
+PASSWORD_MAX_ATTEMPTS = 10
+PASSWORD_LOCKOUT_MINUTES = 15
 
 
 def device_label(user_agent: str | None) -> str | None:
@@ -144,6 +154,47 @@ class AuthService:
             return stripped
         return identifier  # email or username — return as-is
 
+    # --- PWD-LOCK-01: блокировка парольного входа по аккаунту -----------
+    # Хелперы принимают и User, и Branch: у обоих одинаковые колонки, поэтому
+    # обходимся duck typing без общего базового класса.
+    @staticmethod
+    def _password_locked_until(principal) -> datetime | None:
+        locked_until = principal.password_locked_until
+        if locked_until is not None and locked_until.tzinfo is None:
+            # SQLite (тесты) отдаёт naive datetime даже для timezone=True —
+            # нормализуем, иначе сравнение падает только на одном бэкенде.
+            locked_until = locked_until.replace(tzinfo=timezone.utc)
+        return locked_until
+
+    def _assert_password_not_locked(self, principal) -> None:
+        locked_until = self._password_locked_until(principal)
+        if locked_until is None:
+            return
+        remaining = locked_until - datetime.now(timezone.utc)
+        if remaining.total_seconds() > 0:
+            minutes = max(1, math.ceil(remaining.total_seconds() / 60))
+            raise UnauthorizedError(
+                f"Слишком много неверных попыток входа. Повторите через {minutes} мин."
+            )
+
+    async def _register_password_failure(self, principal) -> None:
+        principal.password_failed_attempts = (principal.password_failed_attempts or 0) + 1
+        if principal.password_failed_attempts >= PASSWORD_MAX_ATTEMPTS:
+            principal.password_locked_until = (
+                datetime.now(timezone.utc) + timedelta(minutes=PASSWORD_LOCKOUT_MINUTES)
+            )
+            principal.password_failed_attempts = 0
+        # Коммитим сразу: исключение ниже откатило бы счётчик, и аккаунт
+        # никогда бы не заблокировался.
+        await self.db.commit()
+
+    async def _reset_password_failures(self, principal) -> None:
+        if not principal.password_failed_attempts and principal.password_locked_until is None:
+            return
+        principal.password_failed_attempts = 0
+        principal.password_locked_until = None
+        await self.db.commit()
+
     async def login(self, email: str, password: str, *, device_id: str | None = None) -> tuple[User, str, str]:
         import logging
         log = logging.getLogger(__name__)
@@ -153,9 +204,12 @@ class AuthService:
             log.warning("Login failed: user not found — login=%s", email)
             raise UnauthorizedError("Invalid credentials")
 
+        self._assert_password_not_locked(user)
         if not await verify_password(password, user.password_hash):
+            await self._register_password_failure(user)
             log.warning("Login failed: wrong password — email=%s", email)
             raise UnauthorizedError("Invalid credentials")
+        await self._reset_password_failures(user)
 
         if not user.is_active:
             raise UnauthorizedError("Account is inactive")
@@ -174,9 +228,16 @@ class AuthService:
         log = logging.getLogger(__name__)
 
         user = await self.user_repo.get_by_login(self._normalize_identifier(email))
-        if not user or not await verify_password(password, user.password_hash):
+        if not user:
             log.warning("Admin login failed: bad credentials — login=%s", email)
             raise UnauthorizedError("Invalid credentials")
+
+        self._assert_password_not_locked(user)
+        if not await verify_password_async(password, user.password_hash):
+            await self._register_password_failure(user)
+            log.warning("Admin login failed: bad credentials — login=%s", email)
+            raise UnauthorizedError("Invalid credentials")
+        await self._reset_password_failures(user)
 
         if not user.is_active:
             raise UnauthorizedError("Account is inactive")
@@ -272,8 +333,13 @@ class AuthService:
             user = await self.user_repo.get_by_phone(candidate)
             if user:
                 break
-        if not user or not user.password_hash or not await verify_password(password, user.password_hash):
+        if not user or not user.password_hash:
             raise UnauthorizedError("Неверный телефон или пароль")
+        self._assert_password_not_locked(user)
+        if not await verify_password_async(password, user.password_hash):
+            await self._register_password_failure(user)
+            raise UnauthorizedError("Неверный телефон или пароль")
+        await self._reset_password_failures(user)
         if not user.is_active:
             raise UnauthorizedError("Account is inactive")
         role_slugs = list((await self.db.execute(
@@ -294,6 +360,95 @@ class AuthService:
 
         return user, branch, company, access_token, refresh_token
 
+    async def _ensure_branch_principal(self, branch: "Branch") -> User:
+        """Служебный аккаунт-принципал филиала. Токен привязан к user.id, поэтому
+        для входа «как филиал» нужен скрытый пользователь с branch_id этого
+        филиала. Логин/пароль живут на самом филиале (Branch); этот юзер — только
+        носитель сессии и будущего скоупа по branch_id. Роль — owner компании,
+        чтобы веб-гейты (require_web_owner) пустили сессию в админку; ИЗОЛЯЦИЯ
+        данных по филиалу — отдельный шаг (пока сессия филиала видит данные всей
+        компании). Аккаунт скрыт из списков персонала через terminal-email."""
+        from app.modules.auth.security import terminal_email
+        email = terminal_email(branch.id)
+        user = await self.user_repo.get_by_email(email)
+        if user is None:
+            user = User(
+                company_id=branch.company_id,
+                branch_id=branch.id,
+                email=email,
+                name=branch.name,
+                password_hash=branch.password_hash or await hash_password(secrets.token_urlsafe(32)),
+                is_active=branch.is_active,
+            )
+            self.db.add(user)
+            await self.db.flush()
+        else:
+            user.company_id = branch.company_id
+            user.branch_id = branch.id
+            user.name = branch.name
+            user.is_active = branch.is_active
+            if branch.password_hash:
+                user.password_hash = branch.password_hash
+        owner_role = (await self.db.execute(
+            select(Role).where(Role.company_id == branch.company_id, Role.slug == "owner")
+        )).scalar_one_or_none()
+        if owner_role is not None:
+            has_role = (await self.db.execute(
+                select(UserRole).where(
+                    UserRole.user_id == user.id, UserRole.role_id == owner_role.id
+                )
+            )).scalar_one_or_none()
+            if has_role is None:
+                self.db.add(UserRole(user_id=user.id, role_id=owner_role.id))
+        return user
+
+    async def login_by_branch(self, login: str, password: str, *, device_id: str | None = None):
+        """Вход «как филиал» с начального экрана: логин+пароль филиала (Branch),
+        не владельца. Выдаёт сессию служебного принципала филиала."""
+        from app.shared.phone import normalize_branch_login
+
+        # Логин филиала хранится канонично (+998XXXXXXXXX), а терминал присылает
+        # его маской («+998 90 111-22-33»). Приводим к тому же виду, иначе
+        # валидный пароль получает 401 из-за формата номера.
+        raw = (login or "").strip()
+        norm = normalize_branch_login(raw).lower()
+        if not norm:
+            raise UnauthorizedError("Неверный логин или пароль филиала")
+        branch = (await self.db.execute(
+            select(Branch).where(func.lower(Branch.login) == norm)
+        )).scalar_one_or_none()
+        if branch is None or not branch.password_hash:
+            raise UnauthorizedError("Неверный логин или пароль филиала")
+        self._assert_password_not_locked(branch)
+        if not await verify_password_async(password, branch.password_hash):
+            await self._register_password_failure(branch)
+            raise UnauthorizedError("Неверный логин или пароль филиала")
+        await self._reset_password_failures(branch)
+        if not branch.is_active:
+            raise UnauthorizedError("Филиал неактивен")
+        user = await self._ensure_branch_principal(branch)
+        company = await self.db.get(Company, branch.company_id)
+        access_token = create_access_token(user.id, user.company_id)
+        refresh_token = create_refresh_token()
+        await self._save_refresh_token(user.id, refresh_token, device_id=device_id)
+        return user, branch, company, access_token, refresh_token
+
+    async def switch_to_branch(self, owner: User, branch_id: UUID, *, device_id: str | None = None):
+        """Переключение владельца (уже залогинен в сеть) в филиал — без пароля,
+        по праву владельца. Выдаёт отдельную сессию филиала; токен владельца
+        клиент хранит сам, чтобы вернуться к сети."""
+        branch = await self.db.get(Branch, branch_id)
+        if branch is None or branch.company_id != owner.company_id:
+            raise NotFoundError("Branch not found")
+        if not branch.is_active:
+            raise UnauthorizedError("Филиал неактивен")
+        user = await self._ensure_branch_principal(branch)
+        company = await self.db.get(Company, branch.company_id)
+        access_token = create_access_token(user.id, user.company_id)
+        refresh_token = create_refresh_token()
+        await self._save_refresh_token(user.id, refresh_token, device_id=device_id)
+        return user, branch, company, access_token, refresh_token
+
     async def create_company_user(
         self,
         company_id: UUID | None,
@@ -306,6 +461,7 @@ class AuthService:
         assignable_role_slugs: frozenset[str] | None = None,
         printer_id: UUID | None = None,
         permissions: dict | None = None,
+        pin: str | None = None,
     ) -> tuple[User, Role]:
         if not company_id:
             raise ValidationError("Current user is not assigned to a company")
@@ -343,11 +499,25 @@ class AuthService:
 
         # Принтер сотрудника: только из принтеров своей компании — иначе
         # владелец мог бы привязать сотрудника к чужому принтеру по id.
+        # STAFF-PRINTER-SCOPE-01: и только из СВОЕГО филиала — иначе сотрудник
+        # филиала A печатает чеки на принтере филиала B (чужой адрес/касса).
+        # Проверяем только когда филиал известен: у владельца/админа без
+        # филиала привязка к принтеру любого филиала компании легитимна.
         if printer_id is not None:
             from app.modules.printers.models import Printer
             printer = await self.db.get(Printer, printer_id)
             if not printer or printer.company_id != company_id:
                 raise ValidationError("Принтер не найден в этой компании")
+            if branch_id is not None and printer.branch_id != branch_id:
+                raise ValidationError(
+                    "Принтер принадлежит другому филиалу — выберите принтер филиала сотрудника"
+                )
+
+        # PIN проверяем ДО вставки: иначе занятый PIN отдавал бы 409 уже после
+        # создания пользователя, и он оставался бы без PIN (незавершаемая
+        # карточка, а ретрай упирается в «телефон занят»).
+        if pin is not None:
+            await self._assert_pin_available(company_id, pin)
 
         # BE-05: role_slug is validated against the canonical allowlist here
         # (raises ValidationError otherwise) and the role's default
@@ -366,8 +536,11 @@ class AuthService:
             password_hash=await hash_password(password),
             # Закреплённый принтер (None — печать на принтер филиала).
             printer_id=printer_id,
-            # Тумблеры карточки сотрудника — как есть, схему задаёт фронтенд.
+            # Тумблеры владельца тем же легаси-слоем, что правит PATCH:
+            # None — не выставлялись, десктопные гейты ведут себя как раньше.
             permissions=permissions,
+            # PIN входа на терминале: ставим тем же INSERT, что и сотрудника.
+            pin_hash=await hash_password(pin) if pin is not None else None,
         )
         self.db.add(user)
         await self.db.flush()
@@ -467,6 +640,14 @@ class AuthService:
                 printer = await self.db.get(Printer, printer_id)
                 if not printer or printer.company_id != company_id:
                     raise ValidationError("Принтер не найден в этой компании")
+                # STAFF-PRINTER-SCOPE-01: принтер — из филиала сотрудника
+                # (см. create_company_user). user.branch_id здесь уже обновлён,
+                # если в этом же PATCH пришёл новый филиал.
+                if user.branch_id is not None and printer.branch_id != user.branch_id:
+                    raise ValidationError(
+                        "Принтер принадлежит другому филиалу — выберите принтер "
+                        "филиала сотрудника"
+                    )
             user.printer_id = printer_id
 
         if role_slug is not None:
@@ -601,6 +782,26 @@ class AuthService:
     async def logout_all(self, user_id: UUID) -> None:
         await self.token_repo.revoke_all_for_user(user_id)
 
+    async def _assert_pin_available(
+        self, company_id: UUID, pin: str, exclude_user_id: UUID | None = None
+    ) -> None:
+        """PIN уникален внутри компании.
+
+        PIN хранятся солёным хешем, поэтому равенством по колонке это не
+        проверить — сверяем со хешем каждого коллеги. При масштабе штата
+        ресторана это нормально; на тысячи аккаунтов на компанию не рассчитано.
+
+        Общий хелпер для set_pin() и create_company_user(): создание обязано
+        проверять PIN ДО вставки, иначе занятый PIN оставлял бы уже созданного
+        сотрудника без PIN (P0 2.2 в MARJON_PLAN).
+        """
+        peers = await self.user_repo.get_company_users(company_id)
+        for peer in peers:
+            if peer.id == exclude_user_id or not peer.pin_hash:
+                continue
+            if await verify_password(pin, peer.pin_hash):
+                raise ConflictError("PIN уже используется другим сотрудником")
+
     async def set_pin(
         self, actor_user_id: UUID, target_user_id: UUID, company_id: UUID | None, pin: str
     ) -> None:
@@ -621,10 +822,7 @@ class AuthService:
         # this can't be a plain equality lookup — verify against every
         # peer's hash instead. Fine at restaurant-staff scale; this is not
         # meant to scale to thousands of accounts per company.
-        peers = await self.user_repo.get_company_users(company_id)
-        for peer in peers:
-            if peer.id != target.id and peer.pin_hash and await verify_password(pin, peer.pin_hash):
-                raise ConflictError("PIN уже используется другим сотрудником")
+        await self._assert_pin_available(company_id, pin, exclude_user_id=target.id)
 
         target.pin_hash = await hash_password(pin)
         target.pin_failed_attempts = 0

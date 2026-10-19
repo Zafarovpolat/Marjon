@@ -107,11 +107,6 @@ function StaffActivityPage({ type = "login-history" }) {
         </header>
 
         {error ? <div className="login-error" role="alert">{error}</div> : null}
-        {loading && !error ? (
-          <div className="staff-empty-cell" role="status">
-            {isAttendance ? "Загрузка посещаемости..." : "Загрузка истории входов..."}
-          </div>
-        ) : null}
         <div className="staff-table-wrapper">
           {isAttendance ? (
             <table className="staff-table staff-table--attendance">
@@ -185,6 +180,13 @@ function StaffActivityPage({ type = "login-history" }) {
             </table>
           )}
         </div>
+        {/* Индикатор загрузки — ПОД таблицей (а не над ней), чтобы шапка
+            таблицы была видна сразу, а «Загрузка…» не выталкивала её вниз. */}
+        {loading && !error ? (
+          <div className="staff-empty-cell" role="status">
+            {isAttendance ? "Загрузка посещаемости..." : "Загрузка истории входов..."}
+          </div>
+        ) : null}
       </section>
     </div>
   );

@@ -3,10 +3,14 @@ import { staffService } from "../api/staff";
 import { settingsService } from "../api/settings";
 import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 import {
+  buildStaffPermissions,
+  cashierSwitchFields,
   emptyForm,
   mapStaffUser,
+  monoblockSwitchFields,
   roleMap,
   roleOptions,
+  waiterSwitchFields,
   staffPermissionsPayload,
 } from "./staff/staffConstants";
 import { getPhoneLocal, inferPhoneCountry, normalizePhone } from "./staff/staffPhone";
@@ -97,9 +101,10 @@ function StaffRolePage({ role = "all" }) {
   // Принтеры компании для селектора «Принтер» в карточке сотрудника.
   // Привязка решает, на какой принтер печатает десктоп, когда за кассой
   // этот сотрудник; пустое значение = чековый принтер филиала.
+  // Грузим всегда (не только для ролей с филиалом): таблица показывает
+  // привязанный принтер у любой роли, включая моноблок.
   const [printers, setPrinters] = useState([]);
   useEffect(() => {
-    if (!needsBranch) return undefined;
     let alive = true;
     settingsService.listResource("printers")
       .then(({ data }) => {
@@ -109,7 +114,7 @@ function StaffRolePage({ role = "all" }) {
       })
       .catch(() => { if (alive) setPrinters([]); });
     return () => { alive = false; };
-  }, [needsBranch]);
+  }, []);
 
   const defaultFilters = useMemo(() => ({
     query: "",
@@ -372,9 +377,9 @@ function StaffRolePage({ role = "all" }) {
       // отдельный сценарий «филиал как аккаунт».
       const soleBranchId = branches.length === 1 ? String(branches[0].id) : "";
       const resolvedBranchId = form.branchId || soleBranchId || null;
-      if ((!editingId || form.password) && (form.password.length < 8 || !/[A-Za-z]/.test(form.password) || !/\d/.test(form.password))) {
+      if ((!editingId || form.password) && form.password.length < 4) {
         setSaveErrorField("password");
-        setSaveError("Пароль должен содержать минимум 8 символов, букву и цифру.");
+        setSaveError("Пароль должен содержать минимум 4 символа.");
         mutationLocks.release("staff-save");
         return;
       }
@@ -391,9 +396,27 @@ function StaffRolePage({ role = "all" }) {
       setSaveErrorField("");
       setSaving(true);
       try {
+        // Тумблеры владельца уходят словарём permissions (legacy-JSON):
+        // десктопные гейты can()/must() читают их из /auth/me.
+        // Курируемые manager/warehouse primary-тумблеров не имеют
+        // (только Статус) — ключ опускаем.
+        //
+        // Тумблеры прав уходят в permissions и сохраняются в User.permissions
+        // (staffPermissionsPayload — тумблеры + матрица). Для PATCH берём вариант
+        // с наложением на уже прочитанные permissions: buildStaffPermissions
+        // сохраняет ключи, которых нет в форме, а payload собирает только
+        // включённое — иначе PATCH затирал бы чужие ключи.
+        const rolePermissionFields = isWaiterView
+          ? waiterSwitchFields
+          : isMonoblockView
+            ? monoblockSwitchFields
+            : isManagerView || isWarehouseView
+              ? []
+              : cashierSwitchFields;
+        const staffPermissions = buildStaffPermissions(form, rolePermissionFields);
+        const permissionsPatch = staffPermissions ? { permissions: staffPermissions } : {};
         // Фото больше не «только визуальное»: файл грузится отдельным
-        // эндпоинтом после сохранения (нужен id). Тумблеры прав уходят
-        // в permissions и сохраняются в User.permissions. Email по-прежнему
+        // эндпоинтом после сохранения (нужен id). Email по-прежнему
         // не отправляем — бэкенд хранит NULL (контракт продукта).
         let confirmedUser;
         // Фото грузим ПОСЛЕ сохранения: нужен id сотрудника. Ошибку загрузки
@@ -421,9 +444,15 @@ function StaffRolePage({ role = "all" }) {
             role_slug: productRoleSlug,
             role_name: productName,
             // Привязка принтера: null — печать на чековый принтер филиала.
-            printer_id: form.printerId || null,
-            // Тумблеры карточки (User.permissions) — реально сохраняются.
+            // manager/warehouse не имеют селектора принтера — ключ не шлём,
+            // чтобы не сбросить чужую привязку пустым значением.
+            ...(isManagerView || isWarehouseView ? {} : { printer_id: form.printerId || null }),
+            // Тумблеры карточки + матрица доступов (User.permissions).
             permissions: staffPermissionsPayload(form),
+            // PIN ставится тем же POST: бэкенд проверяет его уникальность ДО
+            // вставки. Отдельный PATCH после создания оставлял сотрудника
+            // созданным без PIN, если PIN уже занят (409 на втором шаге).
+            ...(form.pin && !isMonoblockView ? { pin: form.pin } : {}),
             ...(needsBranch ? { branch_id: resolvedBranchId } : {}),
           };
           const { data: createdUser } = await staffService.createCompanyUser(createPayload);
@@ -434,11 +463,13 @@ function StaffRolePage({ role = "all" }) {
             });
             confirmedUser = data;
           }
-          // Десктоп, шаг 3: PIN задаётся отдельным эндпоинтом — только НЕ-моноблок.
-          if (!isMonoblockView && form.pin) {
-            await staffService.updateUserPin(createdUser.id, form.pin);
-          }
-          confirmedUser = await uploadPendingPhoto(createdUser);
+          // PIN уже уехал в create (см. createPayload выше) — отдельный
+          // PATCH здесь больше не нужен и только плодил бы второй 409.
+          // Фото грузим от confirmedUser (после возможного deactivate), иначе
+          // результат PATCH is_active:false затирался ответом POST (is_active
+          // true) и только что созданный архивный сотрудник показывался
+          // активным в списке.
+          confirmedUser = await uploadPendingPhoto(confirmedUser);
         } else {
           const updatePayload = {
             name: productName,
@@ -448,8 +479,15 @@ function StaffRolePage({ role = "all" }) {
             is_active: form.status !== "archived",
             // Явный null — «снять привязку». Бэкенд отличает это от «поле не
             // прислали» через model_fields_set.
-            printer_id: form.printerId || null,
-            permissions: staffPermissionsPayload(form),
+            // manager/warehouse не имеют селектора принтера — ключ не шлём,
+            // чтобы не сбросить чужую привязку пустым значением.
+            ...(isManagerView || isWarehouseView ? {} : { printer_id: form.printerId || null }),
+            // На PATCH — с наложением на уже прочитанные permissions
+            // (permissionsPatch), иначе сборка «только включённого» затрёт
+            // ключи, которых нет в текущей форме.
+            ...(permissionsPatch.permissions
+              ? permissionsPatch
+              : { permissions: staffPermissionsPayload(form) }),
             // Моноблок привязан к аккаунту владельца — филиал не трогаем.
             ...(needsBranch ? { branch_id: resolvedBranchId } : {}),
           };
@@ -489,19 +527,23 @@ function StaffRolePage({ role = "all" }) {
     }
     const email = form.email.trim();
     const roleKey = form.roleKey || "cashier";
+    // Моноблок PIN не имеет (вход в десктоп по телефону+паролю). В общей форме
+    // его завести нельзя (убран из селекта), но при РЕДАКТИРОВАНИИ существующего
+    // моноблока с вкладки «Все» он проходит здесь — не требуем и не шлём PIN.
+    const genericIsMonoblock = roleKey === "monoblock";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !roleOptions.some((option) => option.key === roleKey)) {
       window.alert("Укажите email и допустимую роль сотрудника.");
       mutationLocks.release("staff-save");
       return;
     }
-    if ((!editingId || form.password) && (form.password.length < 8 || !/[A-Za-z]/.test(form.password) || !/\d/.test(form.password))) {
-      window.alert("Пароль должен содержать минимум 8 символов, букву и цифру.");
+    if ((!editingId || form.password) && form.password.length < 4) {
+      window.alert("Пароль должен содержать минимум 4 символа.");
       mutationLocks.release("staff-save");
       return;
     }
     // PIN обязателен при создании (десктоп входит только по 4 цифрам);
     // на редактировании пустой PIN = «не менять».
-    if ((!editingId && !/^\d{4}$/.test(form.pin || "")) || (form.pin && !/^\d{4}$/.test(form.pin))) {
+    if (!genericIsMonoblock && ((!editingId && !/^\d{4}$/.test(form.pin || "")) || (form.pin && !/^\d{4}$/.test(form.pin)))) {
       window.alert("PIN должен содержать 4 цифры.");
       mutationLocks.release("staff-save");
       return;
@@ -526,7 +568,7 @@ function StaffRolePage({ role = "all" }) {
           });
           newUser = data;
         }
-        if (form.pin) {
+        if (!genericIsMonoblock && form.pin) {
           await staffService.updateUserPin(createdUser.id, form.pin);
         }
         setStaff((current) => [mapStaffUser(newUser), ...current.filter((item) => item.id !== newUser.id)]);
@@ -539,7 +581,7 @@ function StaffRolePage({ role = "all" }) {
           role_slug: roleKey,
           is_active: form.status !== "archived",
         });
-        if (form.pin) {
+        if (!genericIsMonoblock && form.pin) {
           await staffService.updateUserPin(editingId, form.pin);
         }
         setStaff((current) => current.map((emp) =>

@@ -93,6 +93,17 @@ async def get_current_active_user(
     return current_user
 
 
+def effective_branch_filter(user: User, requested_branch_id: UUID | None = None) -> UUID | None:
+    """Branch-изоляция данных для сессии филиала.
+
+    Если принципал — филиал (у пользователя задан ``branch_id``), выдача жёстко
+    скоупится на его филиал, а запрошенный ``branch_id`` игнорируется (филиал не
+    может смотреть чужой филиал). Для владельца сети (``branch_id = NULL``)
+    поведение прежнее: что запросил, то и фильтруем (``None`` = вся сеть)."""
+    user_branch = getattr(user, "branch_id", None)
+    return user_branch if user_branch else requested_branch_id
+
+
 async def require_company_app_user(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

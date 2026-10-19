@@ -20,13 +20,18 @@ function Drawer({ editing, saving = false, saveDish = vi.fn(), unitOptions = [],
   return <DishesDialogs drawerOpen editing={editing} saving={saving}
     form={form} setForm={setForm} saveDish={saveDish}
     setDrawerOpen={vi.fn()} handlePhotoChange={vi.fn()} unitOptions={unitOptions}
-    printerOptions={printerOptions} />;
+    printerOptions={printerOptions}
+    modGroups={[]} setModGroups={vi.fn()} saveModGroup={vi.fn()} removeModGroup={vi.fn()} />;
 }
 
 describe("Dishes drawer switches", () => {
-  it("shows сум in table money columns without mutating the row", () => {
+  it("renders the canonical money string without mutating the row", () => {
     const row = { id: "dish-1", cost: "12 000 UZS", price: "40 000 UZS" };
     render(<DishesTable filteredRows={[row]} isColumnVisible={(key) => ["cost", "price"].includes(key)} tableMinWidth={600} />);
+    // V22: единый показ денег — строка уже отформатирована
+    // mapNomenclatureProduct/formatNomenclatureMoneyDisplay, таблица её не
+    // переписывает (иначе parseNomenclatureMoney не сможет прочитать значение
+    // при открытии карточки на редактирование).
     expect(screen.getByText("12 000 сум")).toBeInTheDocument();
     expect(screen.getByText("40 000 сум")).toBeInTheDocument();
     expect(row).toEqual({ id: "dish-1", cost: "12 000 UZS", price: "40 000 UZS" });
@@ -48,11 +53,17 @@ describe("Dishes drawer switches", () => {
     expect(onChange).toHaveBeenCalledWith("b");
   });
   it.each([undefined, { ...emptyDishForm, id: "dish-1", active: false, auto: true }])(
-    "replaces Menu/modifiers with three independent switches in create/edit", (editing) => {
+    "replaces Menu with three independent switches in create/edit", (editing) => {
       render(<Drawer editing={editing} />);
       expect(screen.queryByText("Меню")).not.toBeInTheDocument();
-      expect(screen.queryByText("Добавки")).not.toBeInTheDocument();
-      expect(screen.queryByText("Добавить группу")).not.toBeInTheDocument();
+      // Добавки принадлежат сохранённому блюду: в режиме создания секции нет
+      // (DishesModifiers сам возвращает null), в Edit — есть.
+      if (editing) {
+        expect(screen.getByText("Добавки")).toBeInTheDocument();
+      } else {
+        expect(screen.queryByText("Добавки")).not.toBeInTheDocument();
+        expect(screen.queryByText("Добавить группу")).not.toBeInTheDocument();
+      }
       expect(screen.getAllByRole("switch")).toHaveLength(3);
       const status = screen.getByRole("switch", { name: "Статус" });
       const auto = screen.getByRole("switch", { name: "АВТО" });
@@ -135,8 +146,10 @@ describe("Dishes drawer switches", () => {
   it.each([false, true])("preserves all three flags in create/update payloads (%s)", (isUpdate) => {
     const row = mapNomenclatureProduct({ id: "dish-1", is_active: false, is_auto: true, is_set: false });
     expect(row).toMatchObject({ active: false, auto: true, set: false });
+    // Канонические имена backend-флагов — is_active/is_auto/is_set
+    // (ProductCreate/ProductUpdate); `set` — только внутреннее поле формы.
     expect(buildNomenclatureProductPayload({ ...emptyDishForm, ...row }, { isUpdate }))
-      .toMatchObject({ is_active: false, is_auto: true, set: false });
+      .toMatchObject({ is_active: false, is_auto: true, is_set: false });
   });
 
   it("unchecks selected option on repeat click (toggle off)", () => {
@@ -306,20 +319,20 @@ describe("Dishes drawer switches", () => {
     expect(screen.queryByRole("switch", { name: "СЕТ" })).toBeNull();
   });
 
-  it("dish layout has no Тип, category in its place and two printers", () => {
+  it("dish layout has no Тип, category in its place and exactly one printer", () => {
     render(<Drawer />);
     expect(screen.queryByText("Тип")).toBeNull();
     expect(screen.getByText("Себестоимость")).toBeInTheDocument();
-    expect(screen.getAllByRole("combobox", { name: "Принтер" })).toHaveLength(2);
+    // Принтер один: второй селект был copy-paste и дублировал то же поле.
+    expect(screen.getAllByRole("combobox", { name: "Принтер" })).toHaveLength(1);
   });
 
-  it("both printer selects edit the same printer", () => {
+  it("printer select edits the dish printer", () => {
     render(<Drawer printerOptions={[{ id: "p1", name: "Первый", active: true }]} />);
-    const [first, second] = screen.getAllByRole("combobox", { name: "Принтер" });
-    fireEvent.click(first);
+    const printer = screen.getByRole("combobox", { name: "Принтер" });
+    fireEvent.click(printer);
     fireEvent.click(screen.getByRole("option", { name: "Первый" }));
-    expect(first).toHaveTextContent("Первый");
-    expect(second).toHaveTextContent("Первый");
+    expect(printer).toHaveTextContent("Первый");
   });
 
   it("keeps switch in header row and flips title to Добавить сет", () => {

@@ -669,9 +669,17 @@ describe("RAW V2 Dishes visual family", () => {
     expect(drawer).toHaveClass("is-closing");
   });
 
-  it("18. no foreign WIP regression in sidebar", () => {    const warehouse = navItems.find((item) => item.key === "warehouse");
+  it("18. no foreign WIP regression in sidebar", () => {
+    const warehouse = navItems.find((item) => item.key === "warehouse");
+    // WAREHOUSE V1 (ветка toast): «Полуфабрикаты» и «Категория
+    // полуфабрикатов» убраны из меню — раздел склада, а не номенклатуры.
+    // Маршруты /nomenclature/semi-finished* при этом остаются в App.jsx:
+    // прямые ссылки и закладки работают, их проверяет navConfig.test.js.
     expect(warehouse.children).toHaveLength(2);
-    expect(warehouse.children.map((child) => child.label)).toEqual(["Категория продуктов", "Продукты"]);
+    expect(warehouse.children.map((child) => child.label)).toEqual([
+      "Категория продуктов",
+      "Продукты",
+    ]);
     expect(navItems.map((item) => item.key)).toEqual([
       "dashboard",
       "reports",
@@ -711,9 +719,9 @@ describe("RAW V2 CSS family (read-only reference, scoped file)", () => {
 
   it("15c. recipes-dialog dropdowns get panel styling and close animation", () => {
     const css = readFileSync(`${process.cwd()}/src/styles/owner/dishes.css`, "utf8");
-    expect(css).toMatch(/:is\(\.dish-catalog-page, \.dish-drawer, \.dish-recipes-dialog\) \.orders-filter-select__panel\.is-closing/);
-    expect(css).toMatch(/:is\(\.dish-catalog-page, \.dish-drawer, \.dish-recipes-dialog\) \.orders-filter-select__panel \.orders-filter-select__menu/);
-    expect(css).toMatch(/:is\(\.dish-catalog-page, \.dish-drawer, \.dish-recipes-dialog\) \.orders-filter-select__option \{/);
+    expect(css).toMatch(/:is\(\.dish-catalog-page, \.dish-drawer, \.dish-recipes-dialog[^)]*\) \.orders-filter-select__panel\.is-closing/);
+    expect(css).toMatch(/:is\(\.dish-catalog-page, \.dish-drawer, \.dish-recipes-dialog[^)]*\) \.orders-filter-select__panel \.orders-filter-select__menu/);
+    expect(css).toMatch(/:is\(\.dish-catalog-page, \.dish-drawer, \.dish-recipes-dialog[^)]*\) \.orders-filter-select__option \{/);
   });
 
   it("outer white panel + table tokens match Dishes", () => {

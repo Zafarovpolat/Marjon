@@ -20,6 +20,7 @@ from app.modules.admin_reports.schemas import (
 from app.modules.admin_reports.service import AdminReportService, xlsx_response
 from app.modules.auth.dependencies import (
     require_hq_admin, require_permission_or_admin, user_can_view_past_periods,
+    effective_branch_filter,
 )
 from app.modules.auth.models import User
 
@@ -36,10 +37,15 @@ require_reports_access = require_permission_or_admin("can_view_finance")
 async def _clamp_period(
     user: User, db: AsyncSession,
     date_from: date | None, date_to: date | None,
+    *, web_timezone: str | None = None,
 ) -> tuple[date | None, date | None]:
     if await user_can_view_past_periods(user, db):
         return date_from, date_to
-    today = datetime.now(timezone.utc).date()
+    if web_timezone:
+        from zoneinfo import ZoneInfo
+        today = datetime.now(ZoneInfo(web_timezone)).date()
+    else:
+        today = datetime.now(timezone.utc).date()
     return today, today
 
 
@@ -69,6 +75,7 @@ async def products_report(
     db: AsyncSession = Depends(get_db),
 ):
     assert user.company_id is not None
+    branch_id = effective_branch_filter(user, branch_id)
     date_from, date_to = await _clamp_period(user, db, date_from, date_to)
     rows = await AdminReportService(db).products(
         user.company_id, date_from, date_to, branch_id
@@ -96,6 +103,7 @@ async def products_count_report(
     db: AsyncSession = Depends(get_db),
 ):
     assert user.company_id is not None
+    branch_id = effective_branch_filter(user, branch_id)
     date_from, date_to = await _clamp_period(user, db, date_from, date_to)
     rows = await AdminReportService(db).products_count(
         user.company_id, date_from, date_to, branch_id
@@ -140,6 +148,7 @@ async def debt_credit_report(
 async def orders_report(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    web_timezone: str | None = Query(None, pattern="^Asia/Tashkent$"),
     order_number: str | None = Query(None, max_length=100),
     waiter_id: list[UUID] | None = Query(None),
     cashier_id: list[UUID] | None = Query(None),
@@ -151,11 +160,12 @@ async def orders_report(
     db: AsyncSession = Depends(get_db),
 ):
     assert user.company_id is not None
-    date_from, date_to = await _clamp_period(user, db, date_from, date_to)
-    return await AdminReportService(db).orders_report(
+    date_from, date_to = await _clamp_period(user, db, date_from, date_to, web_timezone=web_timezone)
+    return await AdminReportService(db, web_timezone=web_timezone).orders_report(
         user.company_id,
         date_from,
         date_to,
+        branch_id=effective_branch_filter(user),
         order_number=order_number,
         waiter_id=waiter_id,
         cashier_id=cashier_id,
@@ -179,6 +189,7 @@ async def orders_report_filters(
 async def tables_report(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    web_timezone: str | None = Query(None, pattern="^Asia/Tashkent$"),
     table_number: str | None = Query(None, max_length=100),
     waiter_id: list[UUID] | None = Query(None),
     payment_method: list[OrderFilterValue] | None = Query(None),
@@ -188,11 +199,12 @@ async def tables_report(
     db: AsyncSession = Depends(get_db),
 ):
     assert user.company_id is not None
-    date_from, date_to = await _clamp_period(user, db, date_from, date_to)
-    return await AdminReportService(db).tables_report(
+    date_from, date_to = await _clamp_period(user, db, date_from, date_to, web_timezone=web_timezone)
+    return await AdminReportService(db, web_timezone=web_timezone).tables_report(
         user.company_id,
         date_from,
         date_to,
+        branch_id=effective_branch_filter(user),
         table_number=table_number,
         waiter_id=waiter_id,
         payment_method=payment_method,
@@ -214,6 +226,7 @@ async def tables_report_filters(
 async def waiters_report(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    web_timezone: str | None = Query(None, pattern="^Asia/Tashkent$"),
     waiter_id: UUID | None = Query(None),
     service_percent: Decimal = Query(Decimal("1"), ge=0, le=100),
     include_orders: bool = Query(True),
@@ -223,11 +236,12 @@ async def waiters_report(
     db: AsyncSession = Depends(get_db),
 ):
     assert user.company_id is not None
-    date_from, date_to = await _clamp_period(user, db, date_from, date_to)
-    return await AdminReportService(db).waiters_report(
+    date_from, date_to = await _clamp_period(user, db, date_from, date_to, web_timezone=web_timezone)
+    return await AdminReportService(db, web_timezone=web_timezone).waiters_report(
         user.company_id,
         date_from,
         date_to,
+        branch_id=effective_branch_filter(user),
         waiter_id=waiter_id,
         service_percent=service_percent,
         include_orders=include_orders,
@@ -249,6 +263,7 @@ async def waiters_report_filters(
 async def dishes_report(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    web_timezone: str | None = Query(None, pattern="^Asia/Tashkent$"),
     query: str | None = Query(None, max_length=200),
     author_id: list[UUID] | None = Query(None),
     product_id: list[UUID] | None = Query(None),
@@ -259,11 +274,12 @@ async def dishes_report(
     user: User = Depends(require_reports_access),
     db: AsyncSession = Depends(get_db),
 ):
-    date_from, date_to = await _clamp_period(user, db, date_from, date_to)
-    return await AdminReportService(db).dishes_report(
+    date_from, date_to = await _clamp_period(user, db, date_from, date_to, web_timezone=web_timezone)
+    return await AdminReportService(db, web_timezone=web_timezone).dishes_report(
         user.company_id,
         date_from,
         date_to,
+        branch_id=effective_branch_filter(user),
         search=query,
         author_id=author_id,
         product_id=product_id,
@@ -286,6 +302,7 @@ async def dishes_report_filters(
 async def cancelled_report(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    web_timezone: str | None = Query(None, pattern="^Asia/Tashkent$"),
     order_number: str | None = Query(None, max_length=100),
     author_id: list[UUID] | None = Query(None),
     dish_name: list[str] | None = Query(None, max_length=500),
@@ -296,11 +313,12 @@ async def cancelled_report(
     # dimension (author_id=A&author_id=B, dish_name=A&dish_name=B), AND
     # across dimensions. Scalar requests stay valid as one-item lists.
     assert user.company_id is not None
-    date_from, date_to = await _clamp_period(user, db, date_from, date_to)
-    return await AdminReportService(db).cancelled_items(
+    date_from, date_to = await _clamp_period(user, db, date_from, date_to, web_timezone=web_timezone)
+    return await AdminReportService(db, web_timezone=web_timezone).cancelled_items(
         user.company_id,
         date_from,
         date_to,
+        branch_id=effective_branch_filter(user),
         order_number=order_number,
         author_id=author_id,
         dish_name=dish_name,
@@ -320,12 +338,13 @@ async def cancelled_report_filters(
 async def cancelled_report_summary(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    web_timezone: str | None = Query(None, pattern="^Asia/Tashkent$"),
     user: User = Depends(require_reports_access),
     db: AsyncSession = Depends(get_db),
 ):
     assert user.company_id is not None
-    date_from, date_to = await _clamp_period(user, db, date_from, date_to)
-    quantity = await AdminReportService(db).cancelled_items(
+    date_from, date_to = await _clamp_period(user, db, date_from, date_to, web_timezone=web_timezone)
+    quantity = await AdminReportService(db, web_timezone=web_timezone).cancelled_items(
         user.company_id, date_from, date_to, summary_only=True,
     )
     return CancelledReportTotals(quantity=quantity)

@@ -16,6 +16,14 @@ vi.mock("../../api/client", () => ({
   formatNumber: (value) => `${value}`,
 }));
 
+// Сеть → филиал: сотрудник без User.branch_id не может войти в Marjon Staff
+// (приложение резолвит филиал только из этой колонки), поэтому форма требует
+// филиал. Справочник филиалов приходит с /companies/me/branches.
+const branchFixtures = [
+  { id: "branch-1", name: "Филиал №1" },
+  { id: "branch-2", name: "Филиал №2" },
+];
+
 const cashierUser = {
   id: "cashier-uuid",
   name: "Cashier One",
@@ -24,6 +32,7 @@ const cashierUser = {
   role_slug: "cashier",
   role_slugs: ["cashier"],
   is_active: true,
+  branch_id: "branch-1",
 };
 
 const waiterUser = {
@@ -34,13 +43,34 @@ const waiterUser = {
   role_slug: "waiter",
   role_slugs: ["waiter"],
   is_active: true,
+  branch_id: "branch-1",
 };
+
+// api.get обслуживает три разных запроса страницы: список сотрудников,
+// справочник филиалов и список принтеров. Разводим их по URL, иначе
+// селекторы получают в качестве справочника список сотрудников.
+function mockGet(staff = [cashierUser, waiterUser], printers = []) {
+  api.get.mockImplementation((url) => {
+    if (url === "/companies/me/branches") return Promise.resolve({ data: branchFixtures });
+    if (url === "/printers") return Promise.resolve({ data: printers });
+    return Promise.resolve({ data: staff });
+  });
+}
+
+// Выбор филиала в продуктовом drawer: кнопка-селект внутри поля «Филиал *»
+// раскрывает список, пункт — обычная кнопка с role="option".
+// Поле «Филиал» убрано из карточки сотрудника (прод-линия): филиал
+// резолвится на странице автоматически (единственный филиал компании либо
+// сохранённый User.branch_id). Выбор в диалоге больше не нужен — helper
+// оставлен no-op, чтобы не переписывать десятки сценариев.
+// eslint-disable-next-line no-unused-vars
+function pickBranch(dialog, name = "Филиал №1") {}
 
 describe("cashier page visual contract (/users/cashier)", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
-    api.get.mockResolvedValue({ data: [cashierUser, waiterUser] });
+    mockGet();
     api.post.mockResolvedValue({ data: cashierUser });
     api.patch.mockResolvedValue({ data: cashierUser });
     api.delete.mockResolvedValue({ data: {} });
@@ -146,9 +176,7 @@ describe("cashier page visual contract (/users/cashier)", () => {
     const { unmount } = render(<StaffRolePage role="cashier" />);
     await screen.findByText("Cashier One");
     unmount();
-    api.get.mockResolvedValue({
-      data: [{ ...cashierUser, can_delete_dishes: true }],
-    });
+    mockGet([{ ...cashierUser, can_delete_dishes: true }]);
     render(<StaffRolePage role="cashier" />);
     await screen.findByText("Cashier One");
     const table = document.querySelector(".staff-table");
@@ -188,9 +216,7 @@ describe("cashier page visual contract (/users/cashier)", () => {
   });
 
   it("renders archived cashiers as canonical Неактивен", async () => {
-    api.get.mockResolvedValue({
-      data: [{ ...cashierUser, id: "archived-uuid", name: "Old Cashier", is_active: false }],
-    });
+    mockGet([{ ...cashierUser, id: "archived-uuid", name: "Old Cashier", is_active: false }]);
     render(<StaffRolePage role="cashier" />);
     fireEvent.click(screen.getByRole("button", { name: "Архивированные" }));
     await screen.findByText("Old Cashier");
@@ -297,7 +323,7 @@ describe("cashier page visual contract (/users/cashier)", () => {
     );
   });
 
-  it("add form shows photo plus four fields, without Email or role selector", { timeout: 20000 }, async () => {
+  it("add form shows photo plus four fields, without Email or role selector", async () => {
     render(<StaffRolePage role="cashier" />);
     await screen.findByText("Cashier One");
 
@@ -318,16 +344,17 @@ describe("cashier page visual contract (/users/cashier)", () => {
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
     expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
     expect(within(dialog).getByText("Пароль")).toBeInTheDocument();
-    expect(within(dialog).getByText("IP адрес принтера")).toBeInTheDocument();
+    expect(within(dialog).getByText("Принтер")).toBeInTheDocument();
 
     expect(within(dialog).queryByText("Email")).toBeNull();
     expect(dialog.querySelector("select")).toBeNull();
 
-    // Permission switches: 1 functional status + 6 interactive permissions.
+    // Permission switches: 1 functional status + 8 interactive permissions
+    // (DESK-PERM-01 добавил «Просмотр финансов» и «Посещаемость»).
     const switches = dialog.querySelectorAll(
       ".cashier-permission-switches .staff-permission-switch",
     );
-    expect(switches).toHaveLength(7);
+    expect(switches).toHaveLength(9);
     expect(
       [...switches].filter((button) => button.disabled),
     ).toHaveLength(0);
@@ -366,12 +393,12 @@ describe("cashier page visual contract (/users/cashier)", () => {
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
     expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
     expect(within(dialog).getByText("Новый пароль")).toBeInTheDocument();
-    expect(within(dialog).getByText("IP адрес принтера")).toBeInTheDocument();
+    expect(within(dialog).getByText("Принтер")).toBeInTheDocument();
     expect(within(dialog).queryByText("Email")).toBeNull();
     expect(dialog.querySelector("select")).toBeNull();
   });
 
-  it("creates a cashier without Email through the real endpoint", { timeout: 20000 }, async () => {
+  it("creates a cashier without Email through the real endpoint", async () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     const created = {
       id: "new-cashier-uuid",
@@ -398,6 +425,12 @@ describe("cashier page visual contract (/users/cashier)", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Cashier123" },
     });
+    // PIN обязателен при создании (ba0c267): без него POST не уходит.
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
+    // Филиал резолвится автоматически при единственном филиале сети; здесь их
+    // два (branchFixtures), поэтому branch_id = null — прежняя блокировка
+    // «выберите филиал» снята вместе с полем.
+    pickBranch(dialog);
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
 
@@ -407,6 +440,12 @@ describe("cashier page visual contract (/users/cashier)", () => {
       phone: "998901112233",
       role_slug: "cashier",
       role_name: "Cashier Two",
+      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
+      pin: "1234",
+      printer_id: null,
+      // Пустой словарь прав отправляется всегда: схема payload едина.
+      permissions: {},
+      branch_id: null,
     });
     const sentPayload = api.post.mock.calls[0][1];
     expect(sentPayload).not.toHaveProperty("email");
@@ -416,6 +455,47 @@ describe("cashier page visual contract (/users/cashier)", () => {
       timeout: 2000,
     });
     expect(localStorage.getItem("marjon_staff")).toBeNull();
+  });
+
+  it("persists toggled cashier switches as permissions dict in create payload", async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    api.post.mockResolvedValue({
+      data: {
+        id: "new-cashier-uuid",
+        name: "Cashier Two",
+        email: null,
+        phone: "998901112233",
+        role_slug: "cashier",
+        role_slugs: ["cashier"],
+        is_active: true,
+      },
+    });
+    render(<StaffRolePage role="cashier" />);
+    await screen.findByText("Cashier One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(screen.getByPlaceholderText("Имя кассира"), { target: { value: "Cashier Two" } });
+    fireEvent.change(dialog.querySelector(".staff-phone-field input"), { target: { value: "+998901112233" } });
+    fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Cashier123" } });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Может закрыть счёт" }));
+    pickBranch(dialog);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    await screen.findByText("Cashier Two");
+    // Ключи тумблеров — camelCase формы (staffPermissionsPayload), бэкенд
+    // хранит словарь как есть; can_close_bill читает PaymentModal через can().
+    expect(api.post).toHaveBeenCalledWith("/auth/users", {
+      password: "Cashier123",
+      phone: "998901112233",
+      role_slug: "cashier",
+      role_name: "Cashier Two",
+      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
+      pin: "1234",
+      permissions: { canCloseBill: true },
+      printer_id: null,
+      branch_id: null,
+    });
+    expect(alertSpy).not.toHaveBeenCalled();
   });
 
   it("edit persists truthfully without email, printer ip or photo payload", async () => {
@@ -431,9 +511,6 @@ describe("cashier page visual contract (/users/cashier)", () => {
     fireEvent.change(screen.getByPlaceholderText("Имя кассира"), {
       target: { value: "Cashier Two" },
     });
-    fireEvent.change(screen.getByPlaceholderText("192.168.1.10"), {
-      target: { value: "192.168.1.10" },
-    });
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Сохранить" }));
 
@@ -441,6 +518,8 @@ describe("cashier page visual contract (/users/cashier)", () => {
     const [, payload] = api.patch.mock.calls[0];
     expect(payload).not.toHaveProperty("email");
     expect(payload).not.toHaveProperty("printerIp");
+    // Привязка принтера — реальный FK (null = «как у филиала»).
+    expect(payload).toHaveProperty("printer_id", null);
     expect(payload).not.toHaveProperty("photo");
     // Route context still defines the truthful role internally.
     expect(payload).toHaveProperty("role_slug", "cashier");
@@ -464,16 +543,14 @@ describe("cashier page visual contract (/users/cashier)", () => {
   });
 
   it("renders a real avatar_url with priority over the default asset", async () => {
-    api.get.mockResolvedValue({
-      data: [
-        {
-          ...cashierUser,
-          id: "real-photo-uuid",
-          name: "Photo Cashier",
-          avatar_url: "https://cdn.example.com/photos/cashier.jpg",
-        },
-      ],
-    });
+    mockGet([
+      {
+        ...cashierUser,
+        id: "real-photo-uuid",
+        name: "Photo Cashier",
+        avatar_url: "https://cdn.example.com/photos/cashier.jpg",
+      },
+    ]);
     render(<StaffRolePage role="cashier" />);
     await screen.findByText("Photo Cashier");
 
@@ -484,12 +561,10 @@ describe("cashier page visual contract (/users/cashier)", () => {
   });
 
   it("renders the approved default avatar when avatar_url is null or empty", async () => {
-    api.get.mockResolvedValue({
-      data: [
-        { ...cashierUser, id: "null-uuid", name: "Null Cashier", avatar_url: null },
-        { ...cashierUser, id: "empty-uuid", name: "Empty Cashier", avatar_url: "" },
-      ],
-    });
+    mockGet([
+      { ...cashierUser, id: "null-uuid", name: "Null Cashier", avatar_url: null },
+      { ...cashierUser, id: "empty-uuid", name: "Empty Cashier", avatar_url: "" },
+    ]);
     render(<StaffRolePage role="cashier" />);
     await screen.findByText("Null Cashier");
 
@@ -508,7 +583,7 @@ describe("cashier drawer ux: footer, animation, phone, permissions", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
-    api.get.mockResolvedValue({ data: [cashierUser, waiterUser] });
+    mockGet();
     api.post.mockResolvedValue({ data: cashierUser });
     api.patch.mockResolvedValue({ data: cashierUser });
     api.delete.mockResolvedValue({ data: {} });
@@ -649,11 +724,14 @@ describe("cashier drawer ux: footer, animation, phone, permissions", () => {
     expect(input.value).toBe("(21) 231-23");
   });
 
-  it("toggles every permission switch and keeps state in form", { timeout: 20000 }, async () => {
+  it("toggles every permission switch and keeps state in form", async () => {
     render(<StaffRolePage role="cashier" />);
     await screen.findByText("Cashier One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
     const dialog = await screen.findByRole("dialog");
+    // Ищем в блоке основных тумблеров: в матрице ниже 50 модулей, и запрос
+    // по role с именем по всему drawer’у считается секундами в jsdom.
+    const primary = dialog.querySelector(".cashier-permission-switches");
 
     for (const label of [
       "Удаление блюд",
@@ -663,7 +741,7 @@ describe("cashier drawer ux: footer, animation, phone, permissions", () => {
       "Открыть денежный ящик после оплаты",
       "Просмотр закрытых заказов",
     ]) {
-      const button = within(dialog).getByRole("button", { name: label });
+      const button = within(primary).getByRole("button", { name: label });
       expect(button.classList.contains("is-on")).toBe(false);
       fireEvent.click(button);
       expect(button.classList.contains("is-on")).toBe(true);
@@ -730,7 +808,8 @@ describe("cashier drawer ux: footer, animation, phone, permissions", () => {
     const dialog = await screen.findByRole("dialog");
 
     const dots = dialog.querySelectorAll(".staff-permission-state-dot");
-    expect(dots).toHaveLength(7);
+    // По точке на каждый основной тумблер: Статус + 8 прав (DESK-PERM-01).
+    expect(dots).toHaveLength(9);
     dots.forEach((dot) => {
       const button = dot.closest(".staff-permission-switch");
       expect(button).not.toBeNull();
@@ -810,14 +889,17 @@ describe("cashier drawer ux: footer, animation, phone, permissions", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Cashier123" },
     });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
 
-    // Empty name binds to the name field (near the fold) + drawer block.
+    // Empty name binds to the name field (near the fold) + error toast
+    // (портал в body, поэтому внутри dialog остаётся только полевая ошибка).
     const alerts = await within(dialog).findAllByRole("alert");
-    expect(alerts).toHaveLength(2);
-    for (const alert of alerts) {
-      expect(alert).toHaveTextContent("Укажите имя и номер телефона кассира.");
-    }
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent("Укажите имя и номер телефона кассира.");
+    expect(document.querySelector(".marjon-toast--error")).toHaveTextContent(
+      "Укажите имя и номер телефона кассира.",
+    );
     expect(dialog.querySelector(".staff-field-error")).not.toBeNull();
     expect(alertSpy).not.toHaveBeenCalled();
     expect(api.post).not.toHaveBeenCalled();
@@ -844,15 +926,18 @@ describe("cashier drawer ux: footer, animation, phone, permissions", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Cashier123" },
     });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
+    pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
 
-    // Shared duplicate-phone UX: Russian text at phone field + drawer block.
+    // Shared duplicate-phone UX: Russian text at phone field + error toast.
     const alerts = await within(dialog).findAllByRole("alert");
-    expect(alerts).toHaveLength(2);
-    for (const alert of alerts) {
-      expect(alert).toHaveTextContent("Этот номер уже зарегистрирован");
-      expect(alert).toHaveTextContent("Phone already registered");
-    }
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent("Этот номер уже зарегистрирован");
+    expect(alerts[0]).toHaveTextContent("Phone already registered");
+    const toast = document.querySelector(".marjon-toast--error");
+    expect(toast).toHaveTextContent("Этот номер уже зарегистрирован");
+    expect(toast).toHaveTextContent("Phone already registered");
     expect(dialog.querySelector(".staff-phone-error")).not.toBeNull();
     expect(alertSpy).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).not.toBeNull();
@@ -884,11 +969,19 @@ describe("cashier drawer ux: footer, animation, phone, permissions", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Cashier123" },
     });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
+    pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
 
-    const alert = await within(dialog).findByRole("alert");
-    expect(alert).toHaveTextContent("Field required");
-    expect(alert.textContent).not.toContain("[object Object]");
+    // Списочный detail FastAPI не привязан к полю — показываем его тостом
+    // (портал в body) и обязательно текстом, а не [object Object].
+    const toast = await waitFor(() => {
+      const node = document.querySelector(".marjon-toast--error");
+      expect(node).not.toBeNull();
+      return node;
+    });
+    expect(toast).toHaveTextContent("Field required");
+    expect(toast.textContent).not.toContain("[object Object]");
     expect(alertSpy).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).not.toBeNull();
   });
@@ -904,7 +997,7 @@ describe("waiter route smoke (cashier oracle reuse, role isolation)", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
-    api.get.mockResolvedValue({ data: [cashierUser, waiterUser] });
+    mockGet();
   });
 
   it("renders waiter rows with product header and without legacy filters", async () => {

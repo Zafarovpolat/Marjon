@@ -7,7 +7,16 @@ from tests.conftest import create_staff_headers, register_company
 
 async def _company(client, slug="acme"):
     owner, _ = await register_company(client, slug=slug, email=f"owner@{slug}.example.com")
-    cashier = await create_staff_headers(client, owner, email=f"cashier@{slug}.example.com", role_slug="cashier")
+    # DESK-ATT-01: очередь подтверждения и отметка прихода/ухода гейтятся
+    # тумблером владельца can_approve_attendance (тот же, что показывает
+    # страницу «Посещаемость» на десктопе). Выдаём его кассиру явно.
+    cashier = await create_staff_headers(
+        client,
+        owner,
+        email=f"cashier@{slug}.example.com",
+        role_slug="cashier",
+        permissions={"can_approve_attendance": True},
+    )
     cook = await create_staff_headers(client, owner, email=f"kitchen@{slug}.example.com", role_slug="kitchen")
     return owner, cashier, cook
 

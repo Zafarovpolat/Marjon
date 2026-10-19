@@ -488,7 +488,11 @@ describe("RAW CATEGORIES V1.1 row design", () => {
     expect(labels[5]).toBe("Стоп-лист");
   });
 
-  it("warehouse Category first, Raw second", () => {
+  // WAREHOUSE V1 (semi-finished): раздел «Склад» = Категория продуктов →
+  // Продукты → Полуфабрикаты → Категория полуфабрикатов. Порядок зафиксирован
+  // и в navConfig.test.js — здесь проверяем, что страница категорий видит тот же
+  // navItems, а не собственную копию.
+  it("warehouse: Category first, then Raw (WAREHOUSE V1: no semi-finished)", () => {
     expect(warehouseLabels()).toEqual(["Категория продуктов", "Продукты"]);
   });
 

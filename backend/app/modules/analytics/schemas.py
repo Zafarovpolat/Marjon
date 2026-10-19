@@ -30,6 +30,7 @@ class TopProduct(BaseSchema):
     name: str
     quantity_sold: Decimal
     revenue: Decimal
+    image_url: str | None = None
 
 
 class DashboardResponse(BaseSchema):

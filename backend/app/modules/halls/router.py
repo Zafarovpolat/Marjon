@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.session import get_db
-from app.modules.auth.dependencies import require_company_admin, require_company_app_user
+from app.modules.auth.dependencies import require_company_admin, require_company_app_user, effective_branch_filter
 from app.modules.auth.models import User
 from app.modules.halls.schemas import (
     HallCreate, HallReorderRequest, HallResponse, HallUpdate,
@@ -38,6 +38,7 @@ async def list_halls(
 ):
     """Places directory. Default: active halls with active tables only.
     `include_inactive=true`: archived halls AND archived nested tables."""
+    branch_id = effective_branch_filter(user, branch_id)
     return await HallService(db).list(
         user.company_id, branch_id, include_inactive=include_inactive
     )
@@ -154,4 +155,5 @@ async def branch_tables(
     db: AsyncSession = Depends(get_db),
 ):
     """All active tables in a branch (for waiter table picker)."""
+    branch_id = effective_branch_filter(user, branch_id)
     return await HallService(db).branch_tables(user.company_id, branch_id)

@@ -413,14 +413,10 @@ export function useCompanyProfileForm(user) {
       clearSuccess();
       return;
     }
-    // Канонические правила пароля backend (auth/schemas: мин. 8, буква+цифра).
-    if (newPassword.length < 8) {
-      setError("Пароль должен быть не менее 8 символов.");
-      clearSuccess();
-      return;
-    }
-    if (!/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
-      setError("Пароль должен содержать хотя бы одну букву и одну цифру.");
+    // Канонические правила пароля backend (auth/schemas: мин. 4 символа,
+    // состав не ограничен — «6611» и «QW12» валидны).
+    if (newPassword.length < 4) {
+      setError("Пароль должен быть не менее 4 символов.");
       clearSuccess();
       return;
     }

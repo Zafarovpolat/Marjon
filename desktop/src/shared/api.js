@@ -248,6 +248,14 @@ export const printers = {
   ping: (ip, port = 9100) =>
     api.get('/printers/ping', { params: { ip, port } }).then((r) => r.data),
   jobDone: (jobId) => api.post(`/printers/jobs/${jobId}/done`).then((r) => r.data),
+  // PRINT-LAT-01: терминал снимает задание с очереди, если печать не удалась
+  // (принтер выключен, нет ip). Без этого задание висело pending навсегда.
+  jobFail: (jobId, error) =>
+    api.post(`/printers/jobs/${jobId}/fail`, { error }).then((r) => r.data),
+  // PRINT-LAT-01: страховка на случай, если WebSocket отвалился — терминал сам
+  // опрашивает очередь и печатает то, что сервер не смог отправить напрямую.
+  pendingJobs: (printerId) =>
+    api.get(`/printers/${printerId}/jobs/pending`).then((r) => r.data),
   // local_print: десктоп печатает сам (принтер в его сети), поэтому сервер не
   // должен тратить 2 с на попытку дозвониться до 192.168.x.x — задание сразу
   // уходит на терминал по WS (PRINT-LAT-02).
@@ -341,11 +349,15 @@ export const shifts = {
   close: (closing_cash = 0) => api.post('/pos/shifts/close', { closing_cash }).then((r) => r.data),
 }
 
-// Финансы: приход/расход (бэкенд: /finance/income-expense)
+// Финансы: приход/расход (бэкенд: /finance/transactions).
+// DESK-FIN-01: раньше здесь был /finance/income-expense — такого пути на бэкенде
+// нет (404), поэтому панель «Финансы» не могла ни показать операции, ни добавить
+// приход/расход. Канонический путь — /finance/transactions (kafe_compat),
+// приход/расход различаются полем direction.
 export const finance = {
-  incomeExpense: (params) => api.get('/finance/income-expense', { params }).then((r) => r.data),
-  addIncome: (data) => api.post('/finance/income-expense', { ...data, direction: 'income' }).then((r) => r.data),
-  addExpense: (data) => api.post('/finance/income-expense', { ...data, direction: 'expense' }).then((r) => r.data),
+  incomeExpense: (params) => api.get('/finance/transactions', { params }).then((r) => r.data),
+  addIncome: (data) => api.post('/finance/transactions', { ...data, direction: 'income' }).then((r) => r.data),
+  addExpense: (data) => api.post('/finance/transactions', { ...data, direction: 'expense' }).then((r) => r.data),
 }
 
 // Клиенты (автокомплит по номеру в доставке)

@@ -4,6 +4,7 @@ import Icon from "../../components/Icon";
 import Toast from "../../components/Toast";
 import { isAbortError, useLatestRequest, useMutationLocks } from "../../hooks/useAsyncSafety";
 import { extractPhoneDigits, formatPhone, fullPhone, isPhoneComplete } from "../../utils/uzPhone";
+import { enterBranchFromOwner } from "../../auth/branchSession";
 
 // Страница «Филиалы» OWNER (сеть → филиалы). Один веб-аккаунт владельца на всю
 // сеть; у каждого филиала — свой ЛОГИН-НОМЕР + пароль для входа с десктопа (шаг 1).
@@ -112,6 +113,18 @@ function SettingsBranchesPage() {
     }
   };
 
+  // Войти в филиал (переключиться из сети владельца в его админку).
+  const enterBranch = async (branchId) => {
+    if (!mutationLocks.acquire("branch-enter")) return;
+    setError("");
+    try {
+      await enterBranchFromOwner(branchId); // при успехе страница перезагрузится
+    } catch (err) {
+      setError(err.response?.data?.detail || "Не удалось войти в филиал.");
+      mutationLocks.release("branch-enter");
+    }
+  };
+
   // PLACEHOLDER_RENDER
   return (
     <div className="settings-page">
@@ -147,6 +160,9 @@ function SettingsBranchesPage() {
                   <td>{row.login ? formatPhone(extractPhoneDigits(row.login)) : "—"}</td>
                   <td>
                     <div className="settings-row-actions">
+                      <button type="button" className="settings-action-enter" onClick={() => enterBranch(row.id)}>
+                        Войти
+                      </button>
                       <button type="button" className="settings-action-edit" onClick={() => openEdit(row)} aria-label="Изменить">
                         <Icon name="bi-pencil" size={15} />
                       </button>

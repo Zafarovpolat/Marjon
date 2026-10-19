@@ -22,7 +22,8 @@ from app.modules.auth.models import RefreshToken, User
 from app.modules.auth.schemas import (
     BranchInfo,
     BranchLoginRequest,
-    BranchLoginResponse,
+    BranchSessionResponse,
+    BranchSwitchRequest,
     CompanyInfo,
     CompanyUserCreate,
     CompanyUserResponse,
@@ -91,25 +92,6 @@ async def admin_login(request: Request, data: LoginRequest, db: AsyncSession = D
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
-@router.post("/branch-login", response_model=BranchLoginResponse)
-@limiter.limit("10/minute")
-async def branch_login(request: Request, data: BranchLoginRequest, db: AsyncSession = Depends(get_db)):
-    """Десктоп, шаг 1: вход по логину+паролю филиала (общий терминал кассы/
-    официанта/кухни на весь филиал — не моноблок-аккаунт). Под токеном
-    синтетического терминал-пользователя десктоп затем тянет staff-users
-    и делает pin-login."""
-    svc = AuthService(db)
-    _, branch, company, access_token, refresh_token = await svc.login_by_branch(
-        data.login, data.password, device_id=device_label(request.headers.get("user-agent"))
-    )
-    return BranchLoginResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        branch=BranchInfo(id=branch.id, name=branch.name, company_id=branch.company_id),
-        company=CompanyInfo(id=company.id, name=company.name, slug=company.slug, currency=company.currency),
-    )
-
-
 @router.post("/monoblock-login", response_model=MonoblockLoginResponse)
 @limiter.limit("10/minute")
 async def monoblock_login(request: Request, data: MonoblockLoginRequest, db: AsyncSession = Depends(get_db)):
@@ -124,6 +106,45 @@ async def monoblock_login(request: Request, data: MonoblockLoginRequest, db: Asy
         access_token=access_token,
         refresh_token=refresh_token,
         branch=BranchInfo(id=branch.id, name=branch.name, company_id=branch.company_id) if branch else None,
+        company=CompanyInfo(id=company.id, name=company.name, slug=company.slug, currency=company.currency),
+    )
+
+
+@router.post("/branch-login", response_model=BranchSessionResponse)
+@limiter.limit("10/minute")
+async def branch_login(request: Request, data: BranchLoginRequest, db: AsyncSession = Depends(get_db)):
+    """Вход «как филиал» с начального экрана: логин+пароль филиала (не владельца).
+    Открывает ту же веб-админку под сессией филиала."""
+    svc = AuthService(db)
+    _, branch, company, access_token, refresh_token = await svc.login_by_branch(
+        data.login, data.password, device_id=device_label(request.headers.get("user-agent"))
+    )
+    return BranchSessionResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        branch=BranchInfo(id=branch.id, name=branch.name, company_id=branch.company_id),
+        company=CompanyInfo(id=company.id, name=company.name, slug=company.slug, currency=company.currency),
+    )
+
+
+@router.post("/branch-switch", response_model=BranchSessionResponse)
+@limiter.limit("30/minute")
+async def branch_switch(
+    request: Request,
+    data: BranchSwitchRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_web_owner),
+):
+    """Переключение владельца (уже в сети) в филиал — по клику на карточку, без
+    пароля. Клиент сохраняет токен владельца сам, чтобы вернуться к сети."""
+    svc = AuthService(db)
+    _, branch, company, access_token, refresh_token = await svc.switch_to_branch(
+        current_user, data.branch_id, device_id=device_label(request.headers.get("user-agent"))
+    )
+    return BranchSessionResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        branch=BranchInfo(id=branch.id, name=branch.name, company_id=branch.company_id),
         company=CompanyInfo(id=company.id, name=company.name, slug=company.slug, currency=company.currency),
     )
 
@@ -145,6 +166,7 @@ async def create_company_user(
         assignable_role_slugs=OWNER_ASSIGNABLE_ROLE_SLUGS,
         printer_id=data.printer_id,
         permissions=data.permissions,
+        pin=data.pin,
     )
     return CompanyUserResponse.model_validate(user).model_copy(update={"role_slug": role.slug})
 

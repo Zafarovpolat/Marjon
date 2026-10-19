@@ -6,6 +6,9 @@ import {
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi, printers as printersApi, customers as customersApi, auth as authApi, finance as financeApi, companies as companiesApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
+// PRINT-LAT-01: печать + дедупликация + опрос очереди (наш путь доставки).
+// printers.js — выбор принтера (сотрудник → филиал) из прод-линии.
+import { printJob, startPrintPoller } from '../../shared/printJobs'
 import { pickReceiptPrinter } from '../../shared/printers'
 import DishModal from '../../components/DishModal'
 import FinancePanel from '../../components/FinancePanel'
@@ -145,19 +148,18 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
   useEffect(() => {
     return onPrintJob(async (msg) => {
       if (msg.event !== 'print_job') return
-      // ip/port сервер кладёт в само сообщение (PRINT-LAT-01): печатаем, даже
-      // если локальный список принтеров ещё не загрузился. Раньше здесь стоял
-      // `if (!printer) return` — задание молча терялось, и чек не выходил.
-      const printer = printerMap[msg.printer_id]
-      const ip = printer?.ip_address || msg.ip_address
-      const port = printer?.port ?? msg.port ?? 9100
-      if (!ip) { console.error('[print] нет IP принтера для задания', msg); return }
       try {
-        await window.electron?.print({ ip, port, payloadBase64: msg.payload, copies: msg.copies ?? 1 })
-        await printersApi.jobDone(msg.job_id)
+        // printJob берёт ip/port из принтера, а если его нет в карте — из самого
+        // задания (msg.ip_address): задание не теряется, даже когда список
+        // принтеров ещё не загрузился. Плюс дедупликация и close на сервере.
+        await printJob(msg, printerMap[msg.printer_id])
       } catch (err) { console.error('[print]', err); toast(t('print_failed')) }
     })
   }, [printerMap])
+
+  // PRINT-LAT-01: страховка, если WebSocket в переподключении — терминал сам
+  // забирает очередь печати (раньше без WS чек не выходил вообще).
+  useEffect(() => startPrintPoller(() => printerMap), [printerMap])
 
   // ── Столы ──
   const allTables = zones.flatMap((z) => (z.tables || []).map((t) => ({ ...t, zoneId: z.id, zoneName: z.name })))

@@ -265,7 +265,10 @@ describe("FE-06 request and form safety", () => {
       name: "Server",
       phone: "",
       balance: null,
-      status: "—",
+      // У Counterparty нет поля status: строка показывается как «Активный»
+      // (локальное состояние отображения), в payload статус не уходит —
+      // см. комментарий в SettingsClientsPage.apiMapRow.
+      status: "Активный",
     });
     // Place payload safety (invalid percent rejected, canonical fields only,
     // condition never sent) is asserted at its real boundary in

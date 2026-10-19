@@ -125,13 +125,18 @@ async def create_staff_headers(
     email: str,
     role_slug: str,
     password: str = "Passw0rd!",
+    permissions: dict | None = None,
 ):
-    """Create an existing operational-role account and return its app session."""
-    created = await client.post(
-        "/auth/users",
-        headers=owner_headers,
-        json={"email": email, "password": password, "role_slug": role_slug},
-    )
+    """Create an existing operational-role account and return its app session.
+
+    `permissions` — legacy-тумблеры владельца (User.permissions). Нужны тестам,
+    которые ходят в гейты вида require_permission_or_admin("can_approve_attendance"):
+    такой гейт пускает только owner/admin либо сотрудника с явным тумблером.
+    """
+    payload = {"email": email, "password": password, "role_slug": role_slug}
+    if permissions is not None:
+        payload["permissions"] = permissions
+    created = await client.post("/auth/users", headers=owner_headers, json=payload)
     assert created.status_code == 201, created.text
     login = await client.post(
         "/auth/login", json={"email": email, "password": password}

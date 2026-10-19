@@ -80,6 +80,7 @@ async def test_waiters_route_maps_filters_defaults_and_validates_percent(client,
         "include_orders": False,
         "include_takeaway_delivery": True,
         "include_service": True,
+        "branch_id": None,
     }
 
     default_response = await client.get("/reports/waiters", headers=headers)
@@ -90,6 +91,7 @@ async def test_waiters_route_maps_filters_defaults_and_validates_percent(client,
         "include_orders": True,
         "include_takeaway_delivery": False,
         "include_service": False,
+        "branch_id": None,
     }
 
     for invalid in ("-0.1", "100.1", "nan", "bad"):

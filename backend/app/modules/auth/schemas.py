@@ -5,13 +5,24 @@ from pydantic import EmailStr, Field, SecretStr, field_validator
 from app.shared.base_schema import BaseSchema, BaseResponseSchema
 
 
+# PWD-POLICY-01: минимум 4 символа. Кассир и официант вводят пароль на кассе
+# с десктопа, где длинные пароли не приживаются — «6611» и «QW12» должны
+# работать. Состав больше не ограничиваем (раньше требовались латинская буква
+# и цифра, из-за чего кириллический «Пароль123» отклонялся как «без буквы»).
+#
+# Верхняя граница — 72 БАЙТА, а не символа: bcrypt 5.x бросает ValueError на
+# более длинном входе, и без этой проверки создание сотрудника падало 500
+# вместо 422. Кириллица в UTF-8 занимает 2 байта, поэтому 36 символов — уже
+# предел.
+PASSWORD_MIN_LENGTH = 4
+PASSWORD_MAX_BYTES = 72
+
+
 def _validate_password(v: str) -> str:
-    if len(v) < 8:
-        raise ValueError("Пароль должен быть не менее 8 символов")
-    if not re.search(r"[A-Za-z]", v):
-        raise ValueError("Пароль должен содержать хотя бы одну букву")
-    if not re.search(r"\d", v):
-        raise ValueError("Пароль должен содержать хотя бы одну цифру")
+    if len(v) < PASSWORD_MIN_LENGTH:
+        raise ValueError(f"Пароль должен быть не менее {PASSWORD_MIN_LENGTH} символов")
+    if len(v.encode("utf-8")) > PASSWORD_MAX_BYTES:
+        raise ValueError(f"Пароль должен быть не более {PASSWORD_MAX_BYTES} байт")
     return v
 
 
@@ -43,18 +54,35 @@ class CompanyUserCreate(BaseSchema):
     # выбирает филиал при создании; None — сотрудник не привязан (виден только
     # веб-владельцу, но не терминалу конкретного филиала).
     branch_id: UUID | None = None
-    # Принтер, закреплённый за сотрудником (выбирается из уже добавленных
-    # принтеров компании). None — печать идёт на чековый принтер филиала.
-    printer_id: UUID | None = None
-    # Гранулярные права сотрудника (тумблеры карточки + матрица доступов).
+    # Гранулярные тумблеры владельца (см. User.permissions). Отдаём тем же
+    # легаси-слоем, что правит PATCH: десктопные гейты can()/must() читают их
+    # из /auth/me, веб-админка — из GET /auth/users для префилла формы.
     # Хранятся как есть в User.permissions (JSON): бэкенд не навязывает схему,
     # потому что состав тумблеров задаёт фронтенд (staffConstants.js).
     permissions: dict | None = None
+    # Принтер, закреплённый за сотрудником (выбирается из уже добавленных
+    # принтеров компании). None — печать идёт на чековый принтер филиала.
+    printer_id: UUID | None = None
+    # PIN сотрудника (вход на терминале). Раньше он ставился ОТДЕЛЬНЫМ
+    # PATCH /auth/users/{id}/pin уже после создания: при занятом PIN сотрудник
+    # оставался созданным без PIN, а повторная попытка упиралась в «телефон
+    # занят» — владелец не мог ни завершить, ни отменить. Теперь PIN едет в
+    # самом create и проверяется ДО вставки, поэтому создание атомарно.
+    pin: str | None = Field(default=None, min_length=4, max_length=8)
 
     @field_validator("password")
     @classmethod
     def check_password(cls, v: str) -> str:
         return _validate_password(v)
+
+    @field_validator("pin")
+    @classmethod
+    def check_pin(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not re.fullmatch(r"\d{4,8}", v):
+            raise ValueError("PIN должен состоять из 4-8 цифр")
+        return v
 
 
 class LoginRequest(BaseSchema):
@@ -75,6 +103,15 @@ class ChangePasswordRequest(BaseSchema):
     current_password: SecretStr
     new_password: SecretStr
     confirm_password: SecretStr
+
+    @field_validator("new_password")
+    @classmethod
+    def check_new_password(cls, v: SecretStr) -> SecretStr:
+        # PWD-POLICY-01 действует и на смене собственного пароля: иначе это
+        # лазейка в обход политики (плюс bcrypt бросает ValueError на входе
+        # длиннее 72 байт — без проверки был бы 500 вместо 422).
+        _validate_password(v.get_secret_value())
+        return v
 
 
 class PinSetRequest(BaseSchema):
@@ -163,6 +200,29 @@ class MonoblockLoginResponse(BaseSchema):
     company: CompanyInfo
 
 
+class BranchLoginRequest(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
+    # Вход «как филиал» с начального экрана: логин+пароль филиала (а не владельца).
+    login: str = Field(..., min_length=1, max_length=150)
+    password: str = Field(..., min_length=1)
+
+
+class BranchSwitchRequest(BaseSchema):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
+    # Переключение владельца, уже залогиненного в сеть, в конкретный филиал.
+    branch_id: UUID
+
+
+class BranchSessionResponse(BaseSchema):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    branch: BranchInfo
+    company: CompanyInfo
+
+
 class UserResponse(BaseResponseSchema):
     # CASHIER-EMAIL-OPTIONAL-01: staff accounts may carry email None.
     email: str | None
@@ -184,6 +244,10 @@ class UserResponse(BaseResponseSchema):
     # не работают».
     permissions: dict | None = None
     auth_scope: str = "app"  # "app" | "hq_admin" — BE-01, set per-session, not persisted
+    # Легаси-JSON гранулярных прав владельца (см. User.permissions). Отдаём как
+    # есть: десктопные гейты can()/must() и PIN-подтверждения читают тумблеры
+    # отсюда; None — тумблеры не выставлялись, поведение гейтов прежнее.
+    permissions: dict | None = None
 
 
 class CompanyUserUpdate(BaseSchema):

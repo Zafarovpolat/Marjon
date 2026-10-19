@@ -27,7 +27,9 @@ from app.shared.base_model import Base
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 VERSIONS_DIR = BACKEND_ROOT / "migrations" / "versions"
-EXPECTED_HEAD = "v48pwd01"
+EXPECTED_HEAD = "mg02merge"
+# Считается по статическому списку _COLUMNS в файлах миграций *bi02* (см.
+# _bi02_nullable_columns), а не по текущей схеме — новые миграции его не меняют.
 EXPECTED_NULLABLE_COLUMN_COUNT = 262
 EXPECTED_PARITY_OPERATIONS = {"remove_index", "remove_table_comment"}
 FIXTURES_DIR = BACKEND_ROOT / "tests" / "fixtures"
@@ -143,52 +145,31 @@ def test_revision_graph_is_complete_and_has_one_head() -> None:
         elif down_revision is not None:
             pending.append(down_revision)
     assert visited == set(revisions)
-    # 58 (see git history for the full chain to e8f9att05) + f9g0prj06
-    # (print_jobs.payload TEXT, redesign-mobile) + wh01exp01 (WH-01 expense/
-    # waste documents, origin/main) re-based onto f9g0prj06 at merge time
-    # instead of its original parent bi08dcs01, + wh02mrg01 (users.branch_id
-    # column + WH-01 nullability, written to fix gaps the merge's own
-    # Postgres parity test caught) = 61, then from merging
-    # feature/toast-notifications (two rounds):
-    # un02cmp01 adds nm_units.company_id + products.unit_id — re-chained onto
-    #   wh02mrg01 (its original down_revision was a (wh01exp01, c6d7ftrs10)
-    #   tuple, redundant since c6d7ftrs10 is already wh01exp01's own
-    #   ancestor on this line).
-    # v24auto01 adds products.is_auto/is_set on top.
-    # 0c16e3a26191 adds companies.order_types — re-chained onto v24auto01
-    #   (second round; first round had chained it onto wh02mrg01 directly,
-    #   before un02cmp01/v24auto01 existed here).
-    # v25cat01 adds categories.calculate_service/show_in_menu on top.
-    # v26sup01 adds companies.show_support_button.
-    # v31sort01 normalizes product positions without changing the schema.
-    # v32dec01 converts products.daily_limit/sold_count Integer → NUMERIC(12,3).
-    # v33top01 adds append-only product_limit_topups (cumulative allowance history).
-    # v34stop01 adds products.limit_auto_stopped (default FALSE, no backfill guessing).
-    # v35hist01 adds products.history_reset_seq (history visibility checkpoint).
-    # v36rec01 adds product_ingredients.warehouse_id (per-line recipe warehouse).
-    # v37wh01 adds warehouses.is_active (soft archive for the stock screen).
-    # v38set01 adds set_items (set composition: dishes inside a dish).
-    # v39avl01 adds products.allow_in_sets (available-for-sets toggle).
-    # v40typ01 splits product positions per product_type (no schema change).
-    # v41pur01 adds purchase_document_items.product_id (Товар line link).
-    # v42inv01 adds inventory_check_items + inventory_checks purchase/expense links.
-    # v43inv02 backfills conducted inventory_checks drafts to accepted (no schema change).
-    # v44los01 adds ingredients.loss_type/loss_value (waste norm, nullable).
-    # Three no-op merge stubs (3231976db538 merging c6d7ftrs10+wh01exp01,
-    # v45mrg01 merging v44los01+0c16e3a26191, same reasoning for both) were
-    # dropped rather than kept as merge points — each joined a branch to its
-    # own already-linear ancestor, and this project's linear-chain invariant
-    # forbids a tuple down_revision regardless. v46fifo01 (originally chained
-    # onto the dropped v45mrg01, re-pointed onto v44los01 directly) adds
-    # stock_batches (FIFO lots: one row per purchase) + backfill.
-    # v47avg01 adds ingredients.avg_quantity/deficit_threshold (nullable).
-    # v48pwd01 adds users.auth_token_version (bump-to-invalidate on password
-    # change) — the head. 61 + un02cmp01, v24auto01, 0c16e3a26191, v25cat01,
-    # v26sup01, v31sort01, v32dec01, v33top01, v34stop01, v35hist01, v36rec01,
-    # v37wh01, v38set01, v39avl01, v40typ01, v41pur01, v42inv01, v43inv02,
-    # v44los01, v46fifo01, v47avg01, v48pwd01 (22 more) = 83, one linear
-    # chain, one head.
-    assert len(revisions) == 83
+    # Обе линии сохранены целиком и сведены одним no-op-мержем.
+    # Линия склада/витрины (backend): un02cmp01 сводит документы склада и
+    # восстановленные фичевые колонки, дальше v24auto01 (products.is_auto/is_set),
+    # v25cat01 (categories.calculate_service/show_in_menu), v26sup01
+    # (companies.show_support_button), v31sort01 (позиции без изменения схемы),
+    # v32dec01 (products.daily_limit/sold_count → NUMERIC(12,3)), v33top01
+    # (product_limit_topups), v34stop01 (products.limit_auto_stopped),
+    # v35hist01 (products.history_reset_seq), v36rec01
+    # (product_ingredients.warehouse_id), v37wh01 (warehouses.is_active),
+    # v38set01 (set_items), v39avl01 (products.allow_in_sets), v40typ01
+    # (позиции по product_type), v41pur01 (purchase_document_items.product_id),
+    # v42inv01 (inventory_check_items + связи приход/расход), v43inv02 (бэкфилл
+    # проведённых инвентаризаций), 0c16e3a26191 (companies.order_types),
+    # v44los01 (ingredients.loss_*), v46fifo01 (stock_batches + бэкфилл),
+    # v47avg01 (ingredients.avg_quantity/deficit_threshold), v48pwd01
+    # (users.auth_version), emp01printer (users.printer_id).
+    # Наша линия (desktop/staff): a4b5daystart08 (companies.day_start_hour),
+    # b5c6modpos09 (modifier_groups.show_in_pos), c6d7ftrs10 (фичевые колонки
+    # POS/склада), d7e8brnlog11 (branches.login/password_hash — restore),
+    # e8f9att05 (attendance_logs confirmation), f9g0prj06 (print_jobs.payload TEXT),
+    # wh01exp01 (склад: expense/waste), wh02mrg01 (users.branch_id + WH-01
+    # nullability), br01login (branches.login/password_hash),
+    # att01status (attendance_logs: status/approved_by/approved_at).
+    # mg01merge сводит обе линии (att01status + emp01printer) в один head.
+    assert len(revisions) == 89
 
     nullable_columns = _bi02_nullable_columns()
     assert len(nullable_columns) == EXPECTED_NULLABLE_COLUMN_COUNT

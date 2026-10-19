@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 from app.shared.base_schema import BaseSchema, BaseResponseSchema
 
@@ -80,7 +81,40 @@ class AttendanceResponse(BaseResponseSchema):
     timestamp: datetime
     method: str
     note: str | None
-    status: str = "pending"
+    status: str = "approved"
     approved_by: UUID | None = None
     approved_at: datetime | None = None
     employee_name: str | None = None
+
+
+# ── DESK-ATT-01: контракт посещаемости для десктоп-кассы ─────────────────────
+# Десктоп (AttendancePanel.jsx) работает не с итогами смен, а с отдельными
+# отметками «пришёл/ушёл»: ему нужны user_id (чтобы сопоставить со списком
+# сотрудников) и employee_name (чтобы подписать строку журнала).
+
+
+class AttendanceLogRow(BaseResponseSchema):
+    user_id: UUID
+    employee_name: str
+    action: str
+    timestamp: datetime
+    method: str
+    note: str | None = None
+    # approved | pending | rejected — клиент рисует бейдж статуса и решает,
+    # показывать ли кнопки подтверждения (очередь AttendancePanel).
+    status: str = "approved"
+
+
+class AttendanceMarkRequest(BaseSchema):
+    """Отметка прихода/ухода, сделанная кассиром с терминала."""
+
+    user_id: UUID
+    action: Literal["check_in", "check_out"]
+    note: str | None = None
+
+
+class AttendanceDecision(BaseSchema):
+    """Решение по отметке из очереди подтверждения (десктоп)."""
+
+    approve: bool
+    note: str | None = None

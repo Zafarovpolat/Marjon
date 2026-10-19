@@ -12,7 +12,6 @@ import AnalyticsPage from "./pages/AnalyticsPage";
 import SettingsPlaceholderPage from "./pages/settings/SettingsPlaceholderPage";
 import OrdersReportPage from "./pages/OrdersReportPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
-import SectionPage from "./pages/SectionPage";
 import StaffRolePage from "./pages/StaffRolePage";
 import StaffActivityPage from "./pages/StaffActivityPage";
 import NomenclaturePage from "./pages/NomenclaturePage";
@@ -138,7 +137,7 @@ export function createAppRouter() {
       { path: "settings/receipt", element: <SettingsReceiptPage /> },
       { path: "settings/kitchen-receipt", element: <SettingsKitchenReceiptPage /> },
       { path: "settings/chef-receipt", element: <SettingsKitchenReceiptPage /> },
-      { path: "settings/support", element: <SectionPage eyebrow="Настройки" title="Тех. поддержка" description="Обращения, диагностика и связь с поддержкой Marjon." items={[{ title: "Заявка", text: "Создайте обращение по проблеме или вопросу.", icon: "bi-life-preserver" }, { title: "Диагностика", text: "Проверка соединения, устройств и синхронизации.", icon: "bi-activity" }, { title: "Контакты", text: "Каналы связи и история обращений.", icon: "bi-chat-dots" }]} /> },
+      { path: "settings/support", element: <FinanceStubPage title="Тех. поддержка" /> },
       { path: "finance", element: <Navigate to="/finance/transactions" replace /> },
       { path: "finance/transactions", element: <FinanceStubPage title="Денежные операции" /> },
       { path: "finance/operations", element: <FinanceStubPage title="Денежные операции" /> },

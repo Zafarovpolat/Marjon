@@ -61,9 +61,10 @@ async def test_change_password_rotates_sessions_and_preserves_identity(client, d
 @pytest.mark.parametrize("overrides,status", [
     ({"current_password": "Wrong123"}, 403),
     ({"confirm_password": "Different123"}, 422),
-    ({"new_password": "short1", "confirm_password": "short1"}, 422),
-    ({"new_password": "abcdefgh", "confirm_password": "abcdefgh"}, 422),
-    ({"new_password": "12345678", "confirm_password": "12345678"}, 422),
+    # PWD-POLICY-01: минимум 4 символа и потолок 72 БАЙТА (bcrypt 5.x падает
+    # на более длинном входе). Состав больше не ограничен — «abcdefgh» и
+    # «12345678» теперь валидные пароли, их проверяет тест ниже.
+    ({"new_password": "abc", "confirm_password": "abc"}, 422),
     ({"new_password": "A1" + "я" * 36, "confirm_password": "A1" + "я" * 36}, 422),
     ({"new_password": OLD, "confirm_password": OLD}, 422),
     ({"user_id": str(uuid4())}, 422),
@@ -75,6 +76,24 @@ async def test_rejected_change_preserves_password_and_session(client, overrides,
     assert OLD not in response.text and NEW not in response.text
     assert (await client.get("/auth/me", headers=headers)).status_code == 200
     assert (await client.post("/auth/login", json={"email": email, "password": OLD})).status_code == 200
+
+
+@pytest.mark.parametrize("new_password", ["Ab12", "6611", "abcdefgh", "12345678", "Пароль12"])
+async def test_policy_allows_short_and_composition_free_passwords(client, new_password):
+    """PWD-POLICY-01: минимум 4 символа, состав не ограничен.
+
+    Кассир вводит пароль на кассе десктопа — «6611» и «QW12» должны работать.
+    Раньше требовались 8 символов, латинская буква и цифра.
+    """
+    headers, _, email = await account(client)
+    response = await client.post(
+        "/auth/change-password",
+        headers=headers,
+        json=payload(new_password=new_password, confirm_password=new_password),
+    )
+    assert response.status_code == 200, response.text
+    login = await client.post("/auth/login", json={"email": email, "password": new_password})
+    assert login.status_code == 200, login.text
 
 
 async def test_missing_confirmation_does_not_echo_passwords(client):

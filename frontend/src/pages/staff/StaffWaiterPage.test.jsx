@@ -15,6 +15,14 @@ vi.mock("../../api/client", () => ({
   formatNumber: (value) => `${value}`,
 }));
 
+// Сеть → филиал: сотрудник без User.branch_id не может войти в Marjon Staff
+// (приложение резолвит филиал только из этой колонки), поэтому форма требует
+// филиал. Справочник филиалов приходит с /companies/me/branches.
+const branchFixtures = [
+  { id: "branch-1", name: "Филиал №1" },
+  { id: "branch-2", name: "Филиал №2" },
+];
+
 const waiterUser = {
   id: "waiter-uuid",
   name: "Waiter One",
@@ -23,6 +31,7 @@ const waiterUser = {
   role_slug: "waiter",
   role_slugs: ["waiter"],
   is_active: true,
+  branch_id: "branch-1",
 };
 
 const cashierUser = {
@@ -33,7 +42,28 @@ const cashierUser = {
   role_slug: "cashier",
   role_slugs: ["cashier"],
   is_active: true,
+  branch_id: "branch-1",
 };
+
+// api.get обслуживает три разных запроса страницы: список сотрудников,
+// справочник филиалов и список принтеров. Разводим их по URL, иначе
+// селекторы получают в качестве справочника список сотрудников.
+function mockGet(staff = [waiterUser, cashierUser], printers = []) {
+  api.get.mockImplementation((url) => {
+    if (url === "/companies/me/branches") return Promise.resolve({ data: branchFixtures });
+    if (url === "/printers") return Promise.resolve({ data: printers });
+    return Promise.resolve({ data: staff });
+  });
+}
+
+// Выбор филиала в продуктовом drawer: кнопка-селект внутри поля «Филиал *»
+// раскрывает список, пункт — обычная кнопка с role="option".
+// Поле «Филиал» убрано из карточки сотрудника (прод-линия): филиал
+// резолвится на странице автоматически (единственный филиал компании либо
+// сохранённый User.branch_id). Выбор в диалоге больше не нужен — helper
+// оставлен no-op, чтобы не переписывать десятки сценариев.
+// eslint-disable-next-line no-unused-vars
+function pickBranch(dialog, name = "Филиал №1") {}
 
 const EXPECTED_WAITER_SWITCHES = [
   "Статус",
@@ -41,6 +71,9 @@ const EXPECTED_WAITER_SWITCHES = [
   "Изменить код маркировки",
   "Заказ на вынос за столом",
   "Изменить тип заказа",
+  // Новый primary-тумблер: гейт must('can_manage_orders') в десктопе
+  // (отмена/перенос блюда, смена стола) без него всегда блокировался.
+  "Управление заказами",
 ];
 
 const CASHIER_ONLY_SWITCHES = [
@@ -61,7 +94,7 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
-    api.get.mockResolvedValue({ data: [waiterUser, cashierUser] });
+    mockGet();
     api.post.mockResolvedValue({ data: waiterUser });
     api.patch.mockResolvedValue({ data: waiterUser });
     api.delete.mockResolvedValue({ data: {} });
@@ -133,7 +166,7 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     expect(within(table).queryByText("#активно")).toBeNull();
   });
 
-  it("add drawer shows photo + 4 fields, no Email or role selector", { timeout: 20000 }, async () => {
+  it("add drawer shows photo + 4 fields, no Email or role selector", async () => {
     render(<StaffRolePage role="waiter" />);
     await screen.findByText("Waiter One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
@@ -145,7 +178,7 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
     expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
     expect(within(dialog).getByText("Пароль")).toBeInTheDocument();
-    expect(within(dialog).getByText("IP адрес принтера")).toBeInTheDocument();
+    expect(within(dialog).getByText("Принтер")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Имя официанта")).toBeInTheDocument();
     expect(within(dialog).queryByText("Email")).toBeNull();
     expect(dialog.querySelector("select")).toBeNull();
@@ -163,7 +196,7 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     expect(dialog.querySelector("select")).toBeNull();
   });
 
-  it("shows exactly the 5 primary waiter switches plus the detailed matrix", { timeout: 20000 }, async () => {
+  it("shows exactly the 6 primary waiter switches plus the detailed matrix", async () => {
     render(<StaffRolePage role="waiter" />);
     await screen.findByText("Waiter One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
@@ -171,12 +204,15 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     const primary = dialog.querySelectorAll(
       ".cashier-permission-switches .staff-permission-switch",
     );
-    expect(primary).toHaveLength(5);
+    expect(primary).toHaveLength(6);
+    // Основные тумблеры ищем в их блоке: матрица ниже — 50 модулей, и
+    // role-запрос по всему drawer’у в jsdom считается секундами.
+    const primaryBlock = dialog.querySelector(".cashier-permission-switches");
     for (const label of EXPECTED_WAITER_SWITCHES) {
       if (label === "Статус") {
-        expect(within(dialog).getByText("Статус")).toBeInTheDocument();
+        expect(within(primaryBlock).getByText("Статус")).toBeInTheDocument();
       } else {
-        expect(within(dialog).getByRole("button", { name: label })).toBeInTheDocument();
+        expect(within(primaryBlock).getByRole("button", { name: label })).toBeInTheDocument();
       }
     }
     expect([...primary].filter((b) => b.disabled)).toHaveLength(0);
@@ -185,23 +221,25 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     expect(dialog.querySelector(".staff-permission-matrix")).not.toBeNull();
   });
 
-  it("has no cashier-only extra switches", { timeout: 20000 }, async () => {
+  it("has no cashier-only extra switches", async () => {
     render(<StaffRolePage role="waiter" />);
     await screen.findByText("Waiter One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
     const dialog = await screen.findByRole("dialog");
+    const primaryBlock = dialog.querySelector(".cashier-permission-switches");
     for (const label of CASHIER_ONLY_SWITCHES) {
-      expect(within(dialog).queryByRole("button", { name: label })).toBeNull();
+      expect(within(primaryBlock).queryByRole("button", { name: label })).toBeNull();
     }
   });
 
-  it("toggles waiter switches incl. marking code and keeps form state", { timeout: 20000 }, async () => {
+  it("toggles waiter switches incl. marking code and keeps form state", async () => {
     render(<StaffRolePage role="waiter" />);
     await screen.findByText("Waiter One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
     const dialog = await screen.findByRole("dialog");
+    const primaryBlock = dialog.querySelector(".cashier-permission-switches");
     for (const label of ["Удаление блюд", "Изменить код маркировки", "Заказ на вынос за столом", "Изменить тип заказа"]) {
-      const button = within(dialog).getByRole("button", { name: label });
+      const button = within(primaryBlock).getByRole("button", { name: label });
       expect(button.classList.contains("is-on")).toBe(false);
       fireEvent.click(button);
       expect(button.classList.contains("is-on")).toBe(true);
@@ -210,7 +248,7 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     }
   });
 
-  it("creates a waiter without Email through the real endpoint", { timeout: 20000 }, async () => {
+  it("creates a waiter without Email through the real endpoint", async () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     const created = {
       id: "new-waiter-uuid",
@@ -235,6 +273,10 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Waiter123" },
     });
+    // PIN обязателен при создании (ba0c267 «PIN всем»): без него saveStaff
+    // валидирует форму и POST не уходит.
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
+    pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await screen.findByText("Waiter Two");
     expect(api.post).toHaveBeenCalledWith("/auth/users", {
@@ -242,6 +284,12 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
       phone: "998901112233",
       role_slug: "waiter",
       role_name: "Waiter Two",
+      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
+      pin: "1234",
+      // create всегда шлёт permissions (тумблеры + матрица); пустой — {}
+      permissions: {},
+      printer_id: null,
+      branch_id: null,
     });
     const sent = api.post.mock.calls[0][1];
     expect(sent).not.toHaveProperty("email");
@@ -249,6 +297,68 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     expect(alertSpy).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: 2000 });
     expect(localStorage.getItem("marjon_staff")).toBeNull();
+  });
+
+  it("persists toggled waiter switches as permissions dict in create payload", async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    api.post.mockResolvedValue({
+      data: {
+        id: "new-waiter-uuid",
+        name: "Waiter Two",
+        email: null,
+        phone: "998901112233",
+        role_slug: "waiter",
+        role_slugs: ["waiter"],
+        is_active: true,
+      },
+    });
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(screen.getByPlaceholderText("Имя официанта"), { target: { value: "Waiter Two" } });
+    fireEvent.change(dialog.querySelector(".staff-phone-field input"), { target: { value: "+998901112233" } });
+    fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Waiter123" } });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
+    // Тумблеры владельца обязаны уйти словарём permissions: без них
+    // десктопный must('can_manage_orders') никогда не пропускал отмену.
+    const primaryBlock = dialog.querySelector(".cashier-permission-switches");
+    fireEvent.click(within(primaryBlock).getByRole("button", { name: "Удаление блюд" }));
+    fireEvent.click(within(primaryBlock).getByRole("button", { name: "Управление заказами" }));
+    pickBranch(dialog);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    await screen.findByText("Waiter Two");
+    expect(api.post).toHaveBeenCalledWith("/auth/users", {
+      password: "Waiter123",
+      phone: "998901112233",
+      role_slug: "waiter",
+      role_name: "Waiter Two",
+      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
+      pin: "1234",
+      // Ключи camelCase: create собирает staffPermissionsPayload (тумблеры
+      // формы как есть), десктоп нормализует их через toSnake.
+      permissions: { canDeleteDishes: true, canManageOrders: true },
+      printer_id: null,
+      branch_id: null,
+    });
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  it("edit sends permissions dict with toggled state and preserves untouched keys", async () => {
+    api.patch.mockResolvedValue({ data: { ...waiterUser, name: "Waiter One" } });
+    render(<StaffRolePage role="waiter" />);
+    await screen.findByText("Waiter One");
+    fireEvent.click(screen.getByTitle("Edit"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Управление заказами" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Сохранить" }));
+    await waitForExpectPatch();
+    const [, payload] = api.patch.mock.calls[0];
+    expect(payload.permissions).toBeTruthy();
+    expect(payload.permissions.can_manage_orders).toBe(true);
+    // Нетронутые тумблеры не высылаются как false: словарь false в
+    // десктопе = явный запрет (can()), а мы ничего не отзывали.
+    expect(payload.permissions).not.toHaveProperty("can_delete_dishes", false);
   });
 
   it("edit persists truthfully without email/printer/photo payload", async () => {
@@ -260,14 +370,12 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     fireEvent.change(screen.getByPlaceholderText("Имя официанта"), {
       target: { value: "Waiter Two" },
     });
-    fireEvent.change(screen.getByPlaceholderText("192.168.1.10"), {
-      target: { value: "192.168.1.10" },
-    });
     fireEvent.click(within(dialog).getByRole("button", { name: "Сохранить" }));
     await waitForExpectPatch();
     const [, payload] = api.patch.mock.calls[0];
     expect(payload).not.toHaveProperty("email");
     expect(payload).not.toHaveProperty("printerIp");
+    expect(payload).toHaveProperty("printer_id", null);
     expect(payload).not.toHaveProperty("photo");
     expect(payload).toHaveProperty("role_slug", "waiter");
     expect(payload.name).toBe("Waiter Two");
@@ -309,13 +417,15 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Waiter123" } });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
-    // Empty name binds to the name field (near the fold) + drawer block.
+    // Empty name binds to the name field (near the fold) + error toast.
     const alerts = await within(dialog).findAllByRole("alert");
-    expect(alerts).toHaveLength(2);
-    for (const alert of alerts) {
-      expect(alert).toHaveTextContent("Укажите имя и номер телефона официанта.");
-    }
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent("Укажите имя и номер телефона официанта.");
+    expect(document.querySelector(".marjon-toast--error")).toHaveTextContent(
+      "Укажите имя и номер телефона официанта.",
+    );
     const fieldError = dialog.querySelector(".staff-field-error");
     expect(fieldError).not.toBeNull();
     expect(fieldError.closest("label").textContent).toContain("Имя");
@@ -338,15 +448,18 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
       target: { value: "+998901112233" },
     });
     fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Waiter123" } });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
+    pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     // FIX-02: duplicate-phone binds to the phone field (near the fold) AND
-    // keeps the drawer-level block — both carry the Russian text.
+    // surfaces as the shared error toast — both carry the Russian text.
     const alerts = await within(dialog).findAllByRole("alert");
-    expect(alerts).toHaveLength(2);
-    for (const alert of alerts) {
-      expect(alert).toHaveTextContent("Этот номер уже зарегистрирован");
-      expect(alert).toHaveTextContent("Phone already registered");
-    }
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent("Этот номер уже зарегистрирован");
+    expect(alerts[0]).toHaveTextContent("Phone already registered");
+    const toast = document.querySelector(".marjon-toast--error");
+    expect(toast).toHaveTextContent("Этот номер уже зарегистрирован");
+    expect(toast).toHaveTextContent("Phone already registered");
     const fieldError = dialog.querySelector(".staff-phone-error");
     expect(fieldError).not.toBeNull();
     expect(fieldError.textContent).toContain("Этот номер уже зарегистрирован");
@@ -386,10 +499,17 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
       target: { value: "+998901112233" },
     });
     fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Waiter123" } });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
+    pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
-    const alert = await within(dialog).findByRole("alert");
-    expect(alert).toHaveTextContent("Field required");
-    expect(alert.textContent).not.toContain("[object Object]");
+    // Списочный detail FastAPI не привязан к полю — показываем тостом.
+    const toast = await waitFor(() => {
+      const node = document.querySelector(".marjon-toast--error");
+      expect(node).not.toBeNull();
+      return node;
+    });
+    expect(toast).toHaveTextContent("Field required");
+    expect(toast.textContent).not.toContain("[object Object]");
     expect(alertSpy).not.toHaveBeenCalled();
   });
 
@@ -416,7 +536,7 @@ describe("staff role isolation (cashier vs waiter)", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
-    api.get.mockResolvedValue({ data: [cashierUser, waiterUser] });
+    mockGet([cashierUser, waiterUser]);
     api.post.mockResolvedValue({ data: waiterUser });
     api.patch.mockResolvedValue({ data: waiterUser });
     api.delete.mockResolvedValue({ data: {} });
@@ -434,14 +554,15 @@ describe("staff role isolation (cashier vs waiter)", () => {
     expect(screen.queryByText("Cashier One")).not.toBeInTheDocument();
   });
 
-  it("locks primary switch sets: cashier 7, waiter 5 (matrix extra)", async () => {
+  it("locks primary switch sets: cashier 9, waiter 6 (matrix extra)", async () => {
     const { unmount } = render(<StaffRolePage role="cashier" />);
     await screen.findByText("Cashier One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
     let dialog = await screen.findByRole("dialog");
+    // Статус + 8 прав: DESK-PERM-01 добавил «Просмотр финансов» и «Посещаемость».
     expect(
       dialog.querySelectorAll(".cashier-permission-switches .staff-permission-switch"),
-    ).toHaveLength(7);
+    ).toHaveLength(9);
     unmount();
 
     render(<StaffRolePage role="waiter" />);
@@ -450,7 +571,7 @@ describe("staff role isolation (cashier vs waiter)", () => {
     dialog = await screen.findByRole("dialog");
     expect(
       dialog.querySelectorAll(".cashier-permission-switches .staff-permission-switch"),
-    ).toHaveLength(5);
+    ).toHaveLength(6);
   });
 });
 
@@ -458,13 +579,13 @@ describe("waiter field validation matrix (name/phone/password/printer IP)", () =
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
-    api.get.mockResolvedValue({ data: [waiterUser, cashierUser] });
+    mockGet();
     api.post.mockResolvedValue({ data: waiterUser });
     api.patch.mockResolvedValue({ data: waiterUser });
     api.delete.mockResolvedValue({ data: {} });
   });
 
-  async function openAddAndFill({ name = "Field Test", phone = "+998901112233", password = "Waiter123", printerIp = "" }) {
+  async function openAddAndFill({ name = "Field Test", phone = "+998901112233", password = "Waiter123" }) {
     render(<StaffRolePage role="waiter" />);
     await screen.findByText("Waiter One");
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
@@ -478,9 +599,11 @@ describe("waiter field validation matrix (name/phone/password/printer IP)", () =
     if (password !== null) {
       fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: password } });
     }
-    if (printerIp !== null) {
-      fireEvent.change(screen.getByPlaceholderText("192.168.1.10"), { target: { value: printerIp } });
-    }
+    // PIN обязателен при создании (ba0c267): required-инпут блокирует submit
+    // до заполнения 4 цифр.
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
+    // Филиал обязателен: без User.branch_id вход в Marjon Staff не работает.
+    pickBranch(dialog);
     return dialog;
   }
 
@@ -488,32 +611,35 @@ describe("waiter field validation matrix (name/phone/password/printer IP)", () =
     ["single Cyrillic char", "А"],
     ["digits-only name", "12345"],
     ["latin name with space", "John Doe"],
-  ])("name accepted: %s → POST sent", { timeout: 20000 }, async (_label, name) => {
+  ])("name accepted: %s → POST sent", async (_label, name) => {
     const dialog = await openAddAndFill({ name });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await waitFor(() => expect(api.post).toHaveBeenCalled());
     expect(api.post.mock.calls[0][1].role_name).toBe(name);
   });
 
-  it("name is trimmed: surrounding spaces stripped in payload", { timeout: 20000 }, async () => {
+  it("name is trimmed: surrounding spaces stripped in payload", async () => {
     const dialog = await openAddAndFill({ name: "  Алишер  " });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await waitFor(() => expect(api.post).toHaveBeenCalled());
     expect(api.post.mock.calls[0][1].role_name).toBe("Алишер");
   });
 
-  it("spaces-only name blocked with name field error, no POST", { timeout: 20000 }, async () => {
+  it("spaces-only name blocked with name field error, no POST", async () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     const dialog = await openAddAndFill({ name: "   " });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     const alerts = await within(dialog).findAllByRole("alert");
-    expect(alerts).toHaveLength(2);
+    expect(alerts).toHaveLength(1);
+    expect(document.querySelector(".marjon-toast--error")).toHaveTextContent(
+      "Укажите имя и номер телефона официанта.",
+    );
     expect(dialog.querySelector(".staff-field-error")).not.toBeNull();
     expect(alertSpy).not.toHaveBeenCalled();
     expect(api.post).not.toHaveBeenCalled();
   });
 
-  it("short phone passes frontend gate (no length floor); canonical digits sent", { timeout: 20000 }, async () => {
+  it("short phone passes frontend gate (no length floor); canonical digits sent", async () => {
     const dialog = await openAddAndFill({ phone: "123" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await waitFor(() => expect(api.post).toHaveBeenCalled());
@@ -524,18 +650,16 @@ describe("waiter field validation matrix (name/phone/password/printer IP)", () =
   it.each([
     ["empty", ""],
     ["too short", "Ab1"],
-    ["letters only", "Password"],
-    ["digits only", "12345678"],
-    ["cyrillic letters + digit", "Пароль12"],
+    ["too short digits", "123"],
   ])("password rejected: %s → blocked before POST with password field error", { timeout: 20000 }, async (_label, password) => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     const dialog = await openAddAndFill({ password });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     const alerts = await within(dialog).findAllByRole("alert");
-    expect(alerts).toHaveLength(2);
-    for (const alert of alerts) {
-      expect(alert).toHaveTextContent("Пароль должен содержать минимум 8 символов, букву и цифру.");
-    }
+    // Ошибка валидации рисуется ровно один раз — инлайном под полем пароля.
+    // Второго «алерта» (тоста) нет: до POST дело не доходит.
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent("Пароль должен содержать минимум 4 символа.");
     const fieldError = dialog.querySelector(".staff-field-error");
     expect(fieldError).not.toBeNull();
     expect(fieldError.closest("label").textContent).toContain("Пароль");
@@ -545,28 +669,47 @@ describe("waiter field validation matrix (name/phone/password/printer IP)", () =
   });
 
   it.each([
+    ["four digits", "6611"],
+    ["four alphanumerics", "QW12"],
+    ["four letters", "abcd"],
+    ["letters only", "Password"],
+    ["digits only", "12345678"],
+    ["cyrillic letters + digit", "Пароль12"],
     ["exactly 8 letters+digits", "a1b2c3d4"],
     ["specials and spaces", "P@ss w0rd"],
-  ])("password accepted: %s → POST sent", { timeout: 20000 }, async (_label, password) => {
+  ])("password accepted: %s → POST sent", async (_label, password) => {
     const dialog = await openAddAndFill({ password });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await waitFor(() => expect(api.post).toHaveBeenCalled());
   });
 
-  it.each([
-    ["empty IP", ""],
-    ["valid IPv4", "192.168.1.10"],
-    ["other valid IPv4", "10.0.0.5"],
-    ["invalid octets", "999.999.999.999"],
-    ["plain text filtered out", "abc"],
-    ["partial", "192.168.1"],
-  ])("printer IP never blocks and never sent: %s → POST sent without printer key", { timeout: 20000 }, async (_label, printerIp) => {
-    const dialog = await openAddAndFill({ printerIp });
+  function mockPrinters() {
+    mockGet([waiterUser, cashierUser], [
+      { id: "printer-1", name: "Kitchen", ip_address: "192.168.1.10" },
+    ]);
+  }
+
+  it("default printer binding inherits the branch (printer_id null)", async () => {
+    mockPrinters();
+    const dialog = await openAddAndFill({});
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await waitFor(() => expect(api.post).toHaveBeenCalled());
     const payload = api.post.mock.calls[0][1];
     expect(payload).not.toHaveProperty("printerIp");
     expect(payload).not.toHaveProperty("printer_ip");
+    expect(payload).toHaveProperty("printer_id", null);
+  });
+
+  it("chosen printer is sent as printer_id", async () => {
+    mockPrinters();
+    const dialog = await openAddAndFill({});
+    // Поле принтера переиспользует DishSingleSelect (как в форме блюда):
+    // триггер — combobox с aria-label, а не кнопка внутри <label>.
+    fireEvent.click(within(dialog).getByRole("combobox", { name: "Принтер" }));
+    fireEvent.click(within(dialog).getByRole("option", { name: /Kitchen/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(api.post.mock.calls[0][1]).toHaveProperty("printer_id", "printer-1");
   });
 });
 
@@ -574,13 +717,13 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
-    api.get.mockResolvedValue({ data: [waiterUser, cashierUser] });
+    mockGet();
     api.post.mockResolvedValue({ data: waiterUser });
     api.patch.mockResolvedValue({ data: waiterUser });
     api.delete.mockResolvedValue({ data: {} });
   });
 
-  it("shows a clear Russian message on 409 duplicate phone, keeps drawer open for retry", { timeout: 20000 }, async () => {
+  it("shows a clear Russian message on 409 duplicate phone, keeps drawer open for retry", async () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     api.post.mockRejectedValueOnce({
       response: { data: { detail: "Phone already registered", code: "CONFLICT" } },
@@ -598,14 +741,16 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Waiter123" },
     });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
+    pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
 
     const alerts = await within(dialog).findAllByRole("alert");
-    expect(alerts).toHaveLength(2);
-    for (const alert of alerts) {
-      expect(alert).toHaveTextContent("Этот номер уже зарегистрирован");
-      expect(alert).toHaveTextContent("Phone already registered");
-    }
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent("Этот номер уже зарегистрирован");
+    expect(alerts[0]).toHaveTextContent("Phone already registered");
+    const toast = document.querySelector(".marjon-toast--error");
+    expect(toast).toHaveTextContent("Этот номер уже зарегистрирован");
     // Field-level error is bound to the phone label, right under the input.
     const fieldError = dialog.querySelector(".staff-phone-error");
     expect(fieldError).not.toBeNull();
@@ -622,7 +767,7 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     expect(api.post).toHaveBeenCalledTimes(2);
   });
 
-  it("creates an archived waiter via POST then deactivate, visible under Archived", { timeout: 20000 }, async () => {
+  it("creates an archived waiter via POST then deactivate, visible under Archived", async () => {
     const created = {
       id: "archived-waiter-uuid",
       name: "Archived Waiter",
@@ -648,9 +793,11 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Waiter123" },
     });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     // Switch status to archived before submit.
     fireEvent.click(within(dialog).getByText("Статус").closest("button"));
     expect(within(dialog).getByText("Архив")).toBeInTheDocument();
+    pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await waitFor(() => expect(api.patch).toHaveBeenCalledWith("/auth/users/archived-waiter-uuid", { is_active: false }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: 2000 });
@@ -661,7 +808,7 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     expect(screen.getByText("Неактивен")).toBeInTheDocument();
   });
 
-  it("waiter survives reload: remount refetches canonical list via GET", { timeout: 20000 }, async () => {
+  it("waiter survives reload: remount refetches canonical list via GET", async () => {
     const created = {
       id: "reload-waiter-uuid",
       name: "Reload Waiter",
@@ -685,17 +832,19 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Waiter123" },
     });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
+    pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await screen.findByText("Reload Waiter");
     unmount();
     // Reload: fresh mount fetches canonical GET including the new waiter.
-    api.get.mockResolvedValue({ data: [waiterUser, created] });
+    mockGet([waiterUser, created]);
     render(<StaffRolePage role="waiter" />);
     expect(await screen.findByText("Reload Waiter")).toBeInTheDocument();
     expect(screen.getByText("Waiter One")).toBeInTheDocument();
   });
 
-  it("empty phone blocks before POST with phone field error", { timeout: 20000 }, async () => {
+  it("empty phone blocks before POST with phone field error", async () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     render(<StaffRolePage role="waiter" />);
     await screen.findByText("Waiter One");
@@ -703,9 +852,13 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(screen.getByPlaceholderText("Имя официанта"), { target: { value: "No Phone" } });
     fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Waiter123" } });
+    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     const alerts = await within(dialog).findAllByRole("alert");
-    expect(alerts).toHaveLength(2);
+    expect(alerts).toHaveLength(1);
+    expect(document.querySelector(".marjon-toast--error")).toHaveTextContent(
+      "Укажите имя и номер телефона официанта.",
+    );
     const fieldError = dialog.querySelector(".staff-phone-error");
     expect(fieldError).not.toBeNull();
     expect(fieldError.closest("label").textContent).toContain("Номер телефона");
@@ -714,7 +867,7 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     expect(screen.queryByRole("dialog")).not.toBeNull();
   });
 
-  it("maps edit-time duplicate phone to Russian without [object Object]", { timeout: 20000 }, async () => {
+  it("maps edit-time duplicate phone to Russian without [object Object]", async () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     api.patch.mockRejectedValueOnce({
       response: { data: { detail: "Phone already in use", code: "CONFLICT" } },

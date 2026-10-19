@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { webTime } from "../../utils/webTime";
 import Icon from "../Icon";
 import { InlineLoader } from "../Loader";
 import { reportsService } from "../../api/reports";
@@ -26,7 +27,7 @@ function formatTime(value) {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  return webTime(value);
 }
 
 function formatEventCount(count) {
@@ -99,6 +100,10 @@ export default function TopbarNotifications() {
       .map((row) => ({
         id: `${row?.warehouse_id || "wh"}:${row?.ingredient_id}`,
         ingredientId: row?.ingredient_id,
+        // Склад строки остатка: дефицит всегда привязан к конкретному
+        // складу (строка = пара склад+сырьё), поэтому клик ведёт именно
+        // в остатки этого склада, а не в общий справочник сырья.
+        warehouseId: row?.warehouse_id || "",
         name: nameOf(row)?.name || "Сырьё",
         unit: nameOf(row)?.unit || row?.unit || "кг",
         quantity: Number(row?.quantity) || 0,
@@ -310,6 +315,17 @@ export default function TopbarNotifications() {
               key={item.id}
               onClick={() => {
                 setOpen(false);
+                // Ведём в Остатки того склада, где лежит дефицитная строка,
+                // и просим раскрыть только категорию этого сырья
+                // (?ingredient=<id>). Без склада в строке — честный откат
+                // в справочник сырья, а не битая ссылка.
+                if (item.warehouseId) {
+                  const query = item.ingredientId
+                    ? `?ingredient=${encodeURIComponent(String(item.ingredientId))}`
+                    : "";
+                  navigate(`/stock-report/stock/${encodeURIComponent(String(item.warehouseId))}${query}`);
+                  return;
+                }
                 navigate("/nomenclature/raw-materials");
               }}
               aria-label={`${item.name}: остаток ниже порога`}

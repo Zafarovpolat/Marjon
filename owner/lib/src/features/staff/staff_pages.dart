@@ -130,8 +130,8 @@ class _StaffFormState extends State<StaffForm> {
   Future<void> _save() async {
     if (busy) return;
     final p = pin.text.replaceAll(RegExp(r'\D'), '');
-    if (isNew && password.text.length < 8) {
-      toast(context, 'Пароль — минимум 8 символов', error: true);
+    if (isNew && password.text.length < 4) {
+      toast(context, 'Пароль — минимум 4 символа', error: true);
       return;
     }
     if (p.isNotEmpty && (p.length < 4 || p.length > 8)) {
@@ -188,7 +188,7 @@ class _StaffFormState extends State<StaffForm> {
           const SizedBox(height: 14),
           Labeled('Роль', DropdownButtonFormField<String>(initialValue: role, items: [for (final e in staffRoles.entries) DropdownMenuItem(value: e.key, child: Text(e.value))], onChanged: (v) => setState(() => role = v ?? role))),
           const SizedBox(height: 14),
-          Labeled(isNew ? 'Пароль' : 'Новый пароль', TextField(controller: password, obscureText: true, decoration: InputDecoration(hintText: isNew ? 'Минимум 8 символов' : 'Оставьте пустым, чтобы не менять'))),
+          Labeled(isNew ? 'Пароль' : 'Новый пароль', TextField(controller: password, obscureText: true, decoration: InputDecoration(hintText: isNew ? 'Минимум 4 символа' : 'Оставьте пустым, чтобы не менять'))),
           const SizedBox(height: 14),
           Labeled('PIN-код (для входа на кассе)', TextField(controller: pin, keyboardType: TextInputType.number, maxLength: 8, obscureText: true, decoration: InputDecoration(hintText: isNew ? '4–8 цифр' : 'Оставьте пустым, чтобы не менять'))),
           SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Активен'), value: active, onChanged: (v) => setState(() => active = v)),

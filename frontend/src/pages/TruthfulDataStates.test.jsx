@@ -164,7 +164,7 @@ describe("truthful production data states", () => {
     expect(screen.queryByText(/UZS/)).not.toBeInTheDocument();
   });
 
-  it("joins stock balances with ingredient and warehouse directories", async () => {
+  it("joins stock balances with warehouse directory into a per-warehouse summary", async () => {
     api.get.mockImplementation((url) => {
       if (url === "/inventory/stock") return Promise.resolve({ data: [{
         warehouse_id: "wh-1", ingredient_id: "ing-1",
@@ -181,10 +181,11 @@ describe("truthful production data states", () => {
 
     render(<WarehousePage initialSection="stock" />);
 
-    expect(await screen.findByText("Мука")).toBeInTheDocument();
-    expect(screen.getByText("Бакалея")).toBeInTheDocument();
-    expect(screen.getByText("Главный склад")).toBeInTheDocument();
-    expect(screen.getByText("Норма")).toBeInTheDocument();
+    // V36: остатки — сводка по складам (Продукт/Товар/Сумма), потоварных строк
+    // в таблице больше нет; склад из справочника склеен со строкой остатка:
+    // 12 кг × 10 000 = 120 000. Детализация по позициям — кликом по складу.
+    expect(await screen.findByText("Главный склад")).toBeInTheDocument();
+    expect(screen.queryByText("Мука")).not.toBeInTheDocument();
     expect(screen.getAllByText(/120[\s ]?000 UZS/).length).toBeGreaterThan(0);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText("Нет данных")).not.toBeInTheDocument();
@@ -200,7 +201,6 @@ describe("truthful production data states", () => {
   });
 
   it.each([
-    ["inventory", "Инвентаризация недоступна до завершения Inventory Core."],
     ["write-off", "Документы списания недоступны"],
     ["write-off-categories", "Категории списания недоступны"],
   ])("does not call an API for deferred warehouse section %s", async (section, message) => {
@@ -213,8 +213,29 @@ describe("truthful production data states", () => {
     expect(api.delete).not.toHaveBeenCalled();
   });
 
-  it("maps confirmed purchase response fields exactly and exposes live accept/delete actions", async () => {
-    // Журнал прихода фильтруется периодом (по умолчанию Сегодня) —
+  // V42: инвентаризация больше не «отложенная» секция — у неё есть свой
+  // эндпоинт /warehouse/inventory-checks (шапка + позиции + автодокументы
+  // корректировки). Проверяем, что она реально грузит данные, а не рисует
+  // заглушку «недоступно».
+  it("loads the live inventory section instead of a deferred placeholder", async () => {
+    api.get.mockResolvedValue({ data: [] });
+
+    render(<WarehousePage initialSection="inventory" />);
+
+    expect(await screen.findByRole("heading", { name: "Инвентаризация" })).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith("/warehouse/inventory-checks", expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    expect(screen.queryByText(/недоступна до завершения Inventory Core/)).not.toBeInTheDocument();
+    expect(api.post).not.toHaveBeenCalled();
+    expect(api.patch).not.toHaveBeenCalled();
+    expect(api.delete).not.toHaveBeenCalled();
+  });
+
+  // «Приход» в текущем UX — сводка по складам (Продукт/Товар/Сумма), а список
+  // документов живёт в подкатегории «Добавить продуктов» (incoming-journal).
+  // Здесь проверяем именно журнал: строки приходят из GET /warehouse/purchases
+  // и показываются без выдуманных значений.
+  it("maps confirmed purchase response fields exactly in the incoming journal", async () => {
+    // Журнал фильтруется периодом (по умолчанию Сегодня) —
     // дата документа = сегодня, иначе строка скрыта фильтром.
     const now = new Date();
     const pad = (n) => String(n).padStart(2, "0");
@@ -227,22 +248,25 @@ describe("truthful production data states", () => {
         supplier: "Backend Supplier",
         warehouse_name: "Backend Warehouse",
         total_amount: 125000,
-        status: "draft",
+        status: "accepted",
         date: todayApi,
         registered_at: todayReg,
         items_count: 3,
       }],
     });
 
-    render(<WarehousePage initialSection="incoming" />);
+    render(<WarehousePage initialSection="incoming-journal" />);
 
-    expect(await screen.findByText("PUR-42")).toBeInTheDocument();
-    expect(screen.getByText("Backend Supplier")).toBeInTheDocument();
+    expect(await screen.findByText("Backend Supplier")).toBeInTheDocument();
     expect(screen.getByText("Backend Warehouse")).toBeInTheDocument();
     expect(screen.getAllByText(/125[\s\u00a0]?000 UZS/).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Провести приход" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Удалить приход" })).toBeEnabled();
+    // Колонки «Дата поступления» (DD-MM-YYYY) и «Дата регистрации» (DD.MM.YYYY / HH:MM).
+    // Дату берём из тех же today-переменных, что и фикстуру: в CI (UTC) «сегодня»
+    // может отличаться от локального дня, хардкод даты тут недопустим.
+    expect(screen.getByText(`${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`)).toBeInTheDocument();
+    expect(screen.getAllByText(new RegExp(`${pad(now.getDate())}\\.${pad(now.getMonth() + 1)}\\.${now.getFullYear()}`)).length).toBeGreaterThan(0);
     expect(api.get).toHaveBeenCalledWith("/warehouse/purchases", expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    // Журнал только читает: ни одна мутация не должна уйти сама по себе.
     expect(api.post).not.toHaveBeenCalled();
     expect(api.patch).not.toHaveBeenCalled();
     expect(api.delete).not.toHaveBeenCalled();

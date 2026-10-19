@@ -1,7 +1,13 @@
 import { api } from "./client";
+import { WEB_TIMEZONE } from "../utils/webTime";
 
 function rangeParams(dateFrom, dateTo, extra = {}) {
   return { date_from: dateFrom, date_to: dateTo, ...extra };
+}
+
+// Explicit opt-in: desktop/legacy calls without this parameter keep their contract.
+function webReportRangeParams(dateFrom, dateTo, extra = {}) {
+  return rangeParams(dateFrom, dateTo, { ...extra, web_timezone: WEB_TIMEZONE });
 }
 
 function compactParams(params) {
@@ -46,7 +52,7 @@ export const reportsService = {
       payment_method: filters.paymentMethod,
     });
     return api.get("/reports/orders", {
-      params: rangeParams(dateFrom, dateTo, filterParams),
+      params: webReportRangeParams(dateFrom, dateTo, filterParams),
       ...config,
       paramsSerializer: REPEATED_IDS_SERIALIZER,
     });
@@ -62,7 +68,7 @@ export const reportsService = {
       cashier_id: filters.cashierId,
       hall_id: filters.hallId,
     });
-    return api.get("/reports/tables", { params: rangeParams(dateFrom, dateTo, filterParams), ...config, paramsSerializer: REPEATED_IDS_SERIALIZER });
+    return api.get("/reports/tables", { params: webReportRangeParams(dateFrom, dateTo, filterParams), ...config, paramsSerializer: REPEATED_IDS_SERIALIZER });
   },
   getTablesFilters(config = {}) {
     return api.get("/reports/tables/filters", config);
@@ -76,7 +82,7 @@ export const reportsService = {
       include_service: filters.includeService,
     });
     return api.get("/reports/waiters", {
-      params: rangeParams(dateFrom, dateTo, filterParams),
+      params: webReportRangeParams(dateFrom, dateTo, filterParams),
       ...config,
     });
   },
@@ -93,7 +99,7 @@ export const reportsService = {
       category_id: filters.categoryId,
       payment_method: filters.paymentMethod,
     });
-    return api.get("/reports/dishes", { params: rangeParams(dateFrom, dateTo, filterParams), ...config, paramsSerializer: REPEATED_IDS_SERIALIZER });
+    return api.get("/reports/dishes", { params: webReportRangeParams(dateFrom, dateTo, filterParams), ...config, paramsSerializer: REPEATED_IDS_SERIALIZER });
   },
   getDishesFilters(config = {}) {
     return api.get("/reports/dishes/filters", config);
@@ -110,7 +116,7 @@ export const reportsService = {
       dish_name: filters.dishName,
     });
     return api.get("/reports/cancelled", {
-      params: rangeParams(dateFrom, dateTo, filterParams),
+      params: webReportRangeParams(dateFrom, dateTo, filterParams),
       ...config,
       paramsSerializer: REPEATED_IDS_SERIALIZER,
     });
@@ -119,7 +125,7 @@ export const reportsService = {
     return api.get("/reports/cancelled/filters", config);
   },
   getCancelledSummary(dateFrom, dateTo, config = {}) {
-    return api.get("/reports/cancelled/summary", { params: rangeParams(dateFrom, dateTo), ...config });
+    return api.get("/reports/cancelled/summary", { params: webReportRangeParams(dateFrom, dateTo), ...config });
   },
   listDebtCredit(dateFrom, dateTo, counterpartyId, config = {}) {
     return api.get("/reports/debt-credit", {
@@ -130,15 +136,18 @@ export const reportsService = {
 };
 
 export const analyticsService = {
+  getOwnerFinancials(dateFrom, dateTo, config = {}) {
+    return api.get("/analytics/owner-financials", { params: webReportRangeParams(dateFrom, dateTo), ...config });
+  },
   getDashboard(date, config = {}) {
     return api.get("/analytics/dashboard", { params: { date }, ...config });
   },
   listSales(dateFrom, dateTo, config = {}) {
     return api.get("/analytics/sales", { params: rangeParams(dateFrom, dateTo), ...config });
   },
-  listTopProducts({ limit = 20, dateFrom, dateTo, signal } = {}) {
-    return api.get("/analytics/products/top", {
-      params: rangeParams(dateFrom, dateTo, { limit }),
+  listTopProducts({ limit = 20, dateFrom, dateTo, signal, confirmedOnly = false } = {}) {
+    return api.get(confirmedOnly ? "/analytics/products/paid-top" : "/analytics/products/top", {
+      params: confirmedOnly ? webReportRangeParams(dateFrom, dateTo, { limit }) : rangeParams(dateFrom, dateTo, { limit }),
       ...(signal ? { signal } : {}),
     });
   },

@@ -58,6 +58,34 @@ def _is_printer_cooling_down(printer_id: UUID) -> bool:
     return True
 
 
+# ── PRINT-LAT-01: попытка прямой печати с сервера ────────────────────────────
+# Запрос печати синхронно ждёт TCP-соединения с принтером. 5 с (старое значение)
+# означали 5-секундное ожидание на каждый чек, если бэкенд не в одной сети с
+# принтером. 2 с достаточно любому живому LAN-принтеру, а недоступный адрес
+# запоминается на минуту, чтобы следующие задания уходили на терминал сразу.
+SERVER_PRINT_TIMEOUT = 2.0
+PRINTER_COOLDOWN_SECONDS = 60.0
+_printer_cooldown: dict[UUID, float] = {}
+
+
+def _start_printer_cooldown(printer_id: UUID) -> None:
+    _printer_cooldown[printer_id] = time.monotonic() + PRINTER_COOLDOWN_SECONDS
+
+
+def _clear_printer_cooldown(printer_id: UUID) -> None:
+    _printer_cooldown.pop(printer_id, None)
+
+
+def _is_printer_cooling_down(printer_id: UUID) -> bool:
+    until = _printer_cooldown.get(printer_id)
+    if until is None:
+        return False
+    if time.monotonic() >= until:
+        _printer_cooldown.pop(printer_id, None)
+        return False
+    return True
+
+
 class PrinterService:
     def __init__(self, db: AsyncSession):
         self.db = db

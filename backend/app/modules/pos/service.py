@@ -14,6 +14,7 @@ from app.modules.companies.models import Branch, Company
 from app.modules.crm.models import Customer
 from app.modules.halls.models import Hall, Table
 from app.modules.inventory.models import Product
+from app.modules.inventory.service import product_cost_total
 from app.modules.kitchen.websocket import kitchen_manager
 from app.modules.audit.service import AuditService
 from app.modules.pos.models import (
@@ -28,6 +29,13 @@ from app.shared.exceptions import ConflictError, NotFoundError, ValidationError
 from app.shared.tenant_scope import require_company_resource
 
 # ── Order status state machine ───────────────────────────────────────────────
+# POS-CLOSE-01: закрытие счёта (`completed`) — это оплата, а не шаг кухни.
+# Кассир закрывает заказ сразу после оплаты, и заказ при этом может быть ещё
+# `new`/`accepted`/`cooking` (гость поел и ушёл, кухня не жала «готово»,
+# навынос оплачен на кассе). Раньше `completed` разрешался только из `ready`,
+# и десктоп получал 422 «Невозможно перевести заказ из 'accepted' в
+# 'completed'» — закрытие заказа не работало вообще. Оставляем запрет только
+# на переходы ИЗ финальных статусов (completed/cancelled) — они неизменяемы.
 VALID_TRANSITIONS: dict[str, set[str]] = {
     # POS-CLOSE-01: закрытие счёта (`completed`) — это оплата, а не шаг кухни.
     # Кассир закрывает заказ сразу после оплаты, и заказ при этом может быть ещё
@@ -93,9 +101,13 @@ def _stamp_item_cancellation(item: OrderItem, actor_id: UUID | None) -> None:
 async def _safe_verify(secret: str | None, hashed: str | None) -> bool:
     """Безопасная проверка секрета против bcrypt-хэша.
 
-    Оборачивает verify_password в try/except и гардит None: пустой секрет или
-    отсутствующий хэш → False, любой сбой bcrypt (битый хэш) → False, никогда
+    Оборачивает verify_password в try/except и гардит None: пустой секрет
+    или отсутствующий хэш → False, любой сбой bcrypt (битый хэш) → False, никогда
     не бросает. Используется опциональным гардом подтверждения операций.
+
+    Только async: bcrypt — это до двух проверок (password_hash + pin_hash), то
+    есть ~550 мс заблокированного event loop на каждую отмену с подтверждением.
+    Синхронной версии намеренно нет, чтобы её не позвали из async-кода.
     """
     if not secret or not hashed:
         return False
@@ -106,9 +118,14 @@ async def _safe_verify(secret: str | None, hashed: str | None) -> bool:
 
 
 class OrderService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, *, branch_scope: UUID | None = None):
         self.db = db
         self.repo = OrderRepository(db)
+        # Branch-изоляция: если задан (сессия филиала), любой доступ к заказу по
+        # id проверяется на принадлежность этому филиалу. None (владелец/десктоп
+        # без филиала) — проверки нет. Все write-методы грузят заказ через get(),
+        # поэтому единая проверка в get() покрывает чтение и запись.
+        self.branch_scope = branch_scope
 
     async def _advisory_xact_lock(self, lock_key: int) -> None:
         """Сериализация генерации номеров. pg_advisory_xact_lock существует
@@ -215,9 +232,10 @@ class OrderService:
                 quantity=item_data.quantity,
                 discount=item_discount,
                 total=item_total_after_discount,
-                # Freeze the sale-time per-unit cost (NULL when the product has
-                # no cost_price — unknown stays unknown, never coerced to 0).
-                cost_price_snapshot=product.cost_price,
+                # Freeze the sale-time per-unit cost: ручная база + состав на
+                # момент продажи. NULL остаётся NULL, когда у блюда нет ни
+                # себестоимости, ни рецепта — неизвестное не становится нулём.
+                cost_price_snapshot=await product_cost_total(self.db, company_id, product),
                 note=item_data.note,
                 modifiers=item_data.modifiers,
                 course=item_data.course,
@@ -279,6 +297,10 @@ class OrderService:
     async def get(self, company_id: UUID, order_id: UUID) -> Order:
         order = await self.repo.get_by_id(order_id, company_id)
         if not order:
+            raise NotFoundError("Order not found")
+        # Branch-изоляция: филиал не может достать чужой заказ по прямому id
+        # (отдаём 404, а не 403 — не раскрываем существование чужого заказа).
+        if self.branch_scope and order.branch_id != self.branch_scope:
             raise NotFoundError("Order not found")
         # Мутации в той же сессии (add/remove item) оставляют в identity-map
         # stale-коллекцию items — ответ собираем всегда из свежих позиций,
@@ -345,8 +367,9 @@ class OrderService:
                     item.status = "cooking"
         if target == "completed":
             # POS-CLOSE-01: счёт закрыт → все незавершённые позиции считаются
-            # отданными. Без этого они остаются pending/cooking навсегда и
-            # отчёты по блюдам/отменам показывают «вечно готовится».
+            # отданными. Без этого позиции остаются pending/cooking навсегда и
+            # отчёты (по блюдам, по отменам) показывают «вечно готовится».
+            # Валидные статусы позиции: pending | cooking | ready | served | cancelled.
             for item in order.items:
                 if item.status in ("pending", "cooking", "ready"):
                     item.status = "served"
@@ -488,9 +511,10 @@ class OrderService:
             quantity=item_data.quantity,
             discount=item_discount,
             total=item_total_after_discount,
-            # Freeze the sale-time per-unit cost (NULL when the product has no
-            # cost_price — unknown stays unknown, never coerced to 0).
-            cost_price_snapshot=product.cost_price,
+            # Freeze the sale-time per-unit cost: ручная база + состав на
+            # момент продажи. NULL остаётся NULL, когда у блюда нет ни
+            # себестоимости, ни рецепта — неизвестное не становится нулём.
+            cost_price_snapshot=await product_cost_total(self.db, company_id, product),
             note=item_data.note,
             modifiers=item_data.modifiers,
             course=item_data.course,

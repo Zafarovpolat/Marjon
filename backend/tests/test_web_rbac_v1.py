@@ -462,8 +462,11 @@ async def test_operational_roles_cannot_call_frozen_owner_web_routes(client):
     cashier_headers = await _login(client, "cashier-routes@bi06.example.com")
 
     denied_calls = (
-        ("get", "/finance/transactions", None),
-        ("post", "/finance/transactions", {"amount": 100, "direction": "income"}),
+        # DESK-FIN-01: GET/POST /finance/transactions намеренно открыты любому
+        # сотруднику компании (company-scope) — десктоп-касса показывает панель
+        # «Финансы» и вносит приход/расход при закрытии заказа в долг. Раньше
+        # здесь стоял require_web_owner, и панель у кассира всегда была пустой
+        # (403). Остальные finance-маршруты (история) остаются у владельца.
         ("get", "/analytics/dashboard", None),
         ("get", "/audit", None),
         ("get", "/hr/employees", None),
@@ -480,6 +483,12 @@ async def test_operational_roles_cannot_call_frozen_owner_web_routes(client):
             kwargs["json"] = payload
         response = await getattr(client, method)(path, **kwargs)
         assert response.status_code == 403, (method, path, response.text)
+
+    # DESK-FIN-01: кассир видит операции компании (иначе панель «Финансы» на
+    # терминале пустая) — доступ держится company-scope, а не ролью владельца.
+    assert (await client.get(
+        "/finance/transactions", headers=cashier_headers
+    )).status_code == 200
 
     # The same owner routes stay usable for the frozen Web identity.
     assert (await client.get(

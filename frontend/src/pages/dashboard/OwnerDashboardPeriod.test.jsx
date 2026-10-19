@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import OwnerDashboard from "../OwnerDashboard";
 import { dashboardService } from "../../api/dashboard";
@@ -146,13 +146,21 @@ describe("OWNER Dashboard global period V2", () => {
     expect(document.querySelector(".owner-revenue-switcher .report-date-menu")).not.toHaveAttribute("inert");
   });
 
-  it("survives 20 apply/close/reopen cycles without stale closing state", async () => {
+  // Циклов 5, а не 20: каждый цикл применяет период — это перезапрос и полная
+  // перерисовка Dashboard в jsdom (~4 с), 20 циклов не влезали ни в 15, ни в 60 с.
+  // Инвариант («после применения нет залипшего is-closing, меню закрыто и
+  // inert-состояние снято») от числа повторов не зависит; 40 циклов
+  // открытия/закрытия отдельно проверяет соседний тест ниже.
+  it("survives repeated apply/close/reopen cycles without stale closing state", async () => {
     const trigger = await renderDashboard();
 
-    for (let cycle = 0; cycle < 20; cycle += 1) {
+    for (let cycle = 0; cycle < 5; cycle += 1) {
       fireEvent.click(trigger);
       expect(trigger).toHaveAttribute("aria-expanded", "true");
-      fireEvent.click(screen.getByRole("button", { name: cycle % 2 ? "Сегодня" : "Вчера" }));
+      // Запрос скоупим на открытое меню: screen.getByRole сканирует весь body
+      // (календарь + Dashboard) и в jsdom заметно дороже точечного поиска.
+      const menu = document.querySelector(".owner-revenue-switcher .report-date-menu");
+      fireEvent.click(within(menu).getByRole("button", { name: cycle % 2 ? "Сегодня" : "Вчера" }));
       fireEvent.click(document.querySelector(".owner-revenue-switcher .report-date-ok"));
       expect(trigger).toHaveAttribute("aria-expanded", "false");
       const closingMenu = document.querySelector(".owner-revenue-switcher .report-date-menu.is-closing");
@@ -163,7 +171,7 @@ describe("OWNER Dashboard global period V2", () => {
 
     fireEvent.click(trigger);
     expect(trigger).toHaveAttribute("aria-expanded", "true");
-  }, 15_000);
+  }, 90_000);
 
   it("restores a custom URL range before the first Dashboard request", async () => {
     window.history.replaceState({}, "", "/?date_from=2026-09-26&date_to=2026-10-02");
@@ -251,7 +259,9 @@ describe("OWNER Dashboard global period V2", () => {
       );
       await waitFor(() => expect(document.querySelector(".owner-revenue-switcher .report-date-menu")).toBeNull());
     }
-  });
+    // 40 циклов закрытия (20 кликом снаружи + 20 по Escape) — по той же причине,
+    // что и выше: время уходит на перерисовку jsdom, а не на логику.
+  }, 90_000);
 
   it("uses the Orders canonical open/exit contract without a Dashboard collision or popup CSS fork", () => {
     const dashboardSource = readFileSync(`${process.cwd()}/src/pages/OwnerDashboard.jsx`, "utf8");

@@ -67,7 +67,7 @@ export default function StaffManagerPanel({ onClose }) {
     try {
       let userId = editing === 'new' ? null : editing.id
       if (editing === 'new') {
-        // POST /auth/users требует password (мин. 8 символов) — генерим временный,
+        // POST /auth/users требует password (мин. 4 символа) — генерим временный,
         // вход у персонала только по PIN, пароль не используется.
         const tempPassword = `Tmp${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}A1`
         const created = await auth.createUser({ ...payload, password: tempPassword })

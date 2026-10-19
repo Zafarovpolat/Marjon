@@ -11,6 +11,10 @@ if str(ROOT) not in sys.path:
 from sqlalchemy import delete, select
 
 from app.infrastructure.database.session import AsyncSessionLocal
+# User ссылается по FK на printers (printer_id) и branches (branch_id).
+# Без регистрации всех моделей маппер User не конфигурируется:
+#   NoReferencedTableError: ... could not find table 'printers'
+import app.infrastructure.database.models_registry  # noqa: F401
 from app.modules.auth.models import User
 from app.modules.auth.security import hash_password
 from app.modules.companies.models import Company

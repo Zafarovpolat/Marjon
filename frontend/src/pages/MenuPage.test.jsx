@@ -79,7 +79,7 @@ describe("Sale canonical data foundation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Период отчёта о продажах" }));
     await waitFor(() => expect(calls().at(-1)[1].params.date_from).toBe("2026-09-01"));
     for (const path of ["/finance/transactions/summary", "/reports/cancelled/summary"]) {
-      expect(api.get.mock.calls.filter(([url]) => url === path).at(-1)[1].params).toEqual({ date_from: "2026-09-01", date_to: "2026-09-02" });
+      expect(api.get.mock.calls.filter(([url]) => url === path).at(-1)[1].params).toEqual({ date_from: "2026-09-01", date_to: "2026-09-02", web_timezone: "Asia/Tashkent" });
     }
     expect(calls().at(-1)[1].params).toMatchObject({ query: "Лаваш", category_id: ["c1"] });
   });
@@ -122,7 +122,7 @@ describe("Sale canonical data foundation", () => {
     render(<MenuPage />);
     await loaded();
     const today = todayInputValue();
-    expect(calls()[0][1].params).toEqual({ date_from: today, date_to: today });
+    expect(calls()[0][1].params).toEqual({ date_from: today, date_to: today, web_timezone: "Asia/Tashkent" });
     expect(api.get.mock.calls.map(([path]) => path)).toEqual(["/reports/dishes/filters", "/reports/dishes", "/finance/transactions/summary", "/reports/cancelled/summary"]);
     expect(screen.getByRole("button", { name: "Период отчёта о продажах" })).toHaveAttribute("data-variant", "canonical");
     expect(screen.getByText(formatDateLabel(today))).toBeInTheDocument();
@@ -352,7 +352,7 @@ describe("Sale V4 Reports filters and adaptive table", () => {
     applyFilters();
     await waitFor(() => expect(calls().at(-1)[1].params.category_id).toEqual(["c1"]));
     fireEvent.click(screen.getByRole("button", { name: "Очистить" }));
-    await waitFor(() => expect(calls().at(-1)[1].params).toEqual({ date_from: "2026-09-01", date_to: "2026-09-02" }));
+    await waitFor(() => expect(calls().at(-1)[1].params).toEqual({ date_from: "2026-09-01", date_to: "2026-09-02", web_timezone: "Asia/Tashkent" }));
     expect(screen.getByLabelText("Поиск блюда")).toHaveValue("");
     expect(screen.getByRole("combobox", { name: "Категория продаж" })).toHaveTextContent("Выберите категорию");
     const count = calls().length;

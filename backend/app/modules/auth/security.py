@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 import bcrypt
 from jose import JWTError, jwt
+from starlette.concurrency import run_in_threadpool
 
 from app.config import settings
 
@@ -44,6 +45,12 @@ async def verify_password(plain: str, hashed: str) -> bool:
     """See hash_password — same event-loop-blocking concern, hit far more
     often (every login and PIN check)."""
     return await asyncio.to_thread(_verify_password_sync, plain, hashed)
+
+
+# Псевдонимы: код, пришедший из ветки toast, зовёт те же обёртки под
+# именами *_async. Реализация одна — обе уводят bcrypt в threadpool.
+hash_password_async = hash_password
+verify_password_async = verify_password
 
 
 def create_access_token(

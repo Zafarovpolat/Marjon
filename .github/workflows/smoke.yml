@@ -6,7 +6,7 @@ name: smoke
 
 on:
   push:
-    branches: [front, main]
+    branches: [front, main, "integration/**"]
   pull_request:
   workflow_dispatch:
 
@@ -104,7 +104,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22.22.2"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -113,9 +113,8 @@ jobs:
         run: npm install --no-audit --no-fund
 
       # test:admin — структурные проверки на чистом Node (надёжно в CI).
-      # Полный vitest (test:unit) в CI не гоняем: его jsdom/undici несовместим с
-      # Node в раннере (webidl.markAsUncloneable) — это среда, а не тесты. vitest
-      # запускается локально; здесь ловим регрессии структуры и сборкой.
+      # Полный vitest (2137 тестов) гоняет отдельный job frontend-unit ниже,
+      # по шардам. Здесь остаются дешёвые проверки структуры и сборки.
       - name: Тесты (admin-структурные проверки)
         working-directory: frontend
         run: npm run test:admin
@@ -132,6 +131,41 @@ jobs:
       - name: Production-сборка
         working-directory: frontend
         run: npm run build
+
+  # ── Полный юнит-набор фронтенда (vitest) ──────────────────────────────────
+  #
+  # Раньше здесь стоял комментарий «jsdom/undici несовместим с Node в раннере,
+  # это среда, а не тесты». На самом деле это была ВЕРСИЯ Node: jsdom@30
+  # требует ^22.22.2 || ^24.15.0 || >=26, а в job'ах стоял Node 20 — отсюда
+  # `util.markAsUncloneable is not a function`. Подняли Node, и набор поехал.
+  #
+  # Шардим на 4 части: полный прогон — 2137 тестов, локально на 4 ядрах он идёт
+  # 20+ минут и часть staff-тестов падает по таймауту jsdom (не по смыслу:
+  # изолированно staff даёт 185/185). В CI шарды идут параллельно и без гонки
+  # за CPU. fail-fast выключен, чтобы видеть ВСЕ упавшие шарды за один прогон.
+  frontend-unit:
+    name: Frontend unit (vitest ${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.2"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Установить зависимости
+        working-directory: frontend
+        run: npm install --no-audit --no-fund
+
+      - name: Vitest, шард ${{ matrix.shard }}/4
+        working-directory: frontend
+        run: npx vitest run --shard=${{ matrix.shard }}/4
 
   desktop:
     name: Desktop (сборка Electron)

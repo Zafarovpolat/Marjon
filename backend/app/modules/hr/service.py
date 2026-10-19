@@ -32,8 +32,11 @@ class HRService:
         )
         return await self.emp_repo.save(Employee(company_id=company_id, **data.model_dump()))
 
-    async def list_employees(self, company_id: UUID) -> list[Employee]:
-        return await self.emp_repo.get_all(company_id)
+    async def list_employees(self, company_id: UUID, branch_id: UUID | None = None) -> list[Employee]:
+        employees = await self.emp_repo.get_all(company_id)
+        if branch_id is not None:
+            employees = [e for e in employees if e.branch_id == branch_id]
+        return employees
 
     async def get_employee_by_user(self, company_id: UUID, user_id: UUID) -> Employee | None:
         """The HR record of a given user — self-service lookup (mobile Staff's
@@ -70,8 +73,11 @@ class HRService:
         )
         return await self.shift_repo.save(WorkShift(company_id=company_id, **data.model_dump()))
 
-    async def list_shifts(self, company_id: UUID) -> list[WorkShift]:
-        return await self.shift_repo.get_all(company_id)
+    async def list_shifts(self, company_id: UUID, branch_id: UUID | None = None) -> list[WorkShift]:
+        shifts = await self.shift_repo.get_all(company_id)
+        if branch_id is not None:
+            shifts = [s for s in shifts if s.branch_id == branch_id]
+        return shifts
 
     async def log_attendance(self, company_id: UUID, data: AttendanceCreate) -> AttendanceLog:
         employee = await require_company_resource(

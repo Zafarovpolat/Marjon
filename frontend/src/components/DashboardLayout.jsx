@@ -3,6 +3,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "./Sidebar";
 import SupportWidget from "./SupportWidget";
 import Topbar from "./Topbar";
+import BranchSessionBanner from "./BranchSessionBanner";
 import { pageMeta } from "./pageMeta";
 import { clampToToday, todayInputValue } from "../utils/date";
 import { useAuth } from "../hooks/useAuth";
@@ -64,6 +65,7 @@ export default function DashboardLayout() {
 
   return (
     <div>
+      <BranchSessionBanner />
       <div ref={shellRef} data-shell-initializing={shellReady ? undefined : ""} className={`dashboard-shell ${sidebarCollapsed ? "is-sidebar-collapsed" : "is-sidebar-expanded"}`}>
         <Sidebar user={user} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((value) => !value)} />
         <div className={`dashboard-main ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}>

@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import Icon from "./Icon";
+import { webCalendarToday } from "../utils/webTime";
 
 const datePresets = [
   "Сегодня",
@@ -51,8 +52,8 @@ function formatPeriodLabel(range = {}) {
 function withDefaultTimes(range = {}) {
   return {
     preset: range.preset || "",
-    start: range.start || formatDate(new Date()),
-    end: range.end || formatDate(new Date()),
+    start: range.start || formatDate(webCalendarToday()),
+    end: range.end || formatDate(webCalendarToday()),
     startTime: range.startTime || "00:00",
     endTime: range.endTime || "00:00",
     // ZR-TIME-01: the 00:00 defaults above are a DISPLAY state, not a chosen
@@ -86,7 +87,7 @@ function calendarDays(viewDate) {
 }
 
 function presetRange(label) {
-  const now = new Date();
+  const now = webCalendarToday();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const start = new Date(today);
   const end = new Date(today);
@@ -617,7 +618,7 @@ export default function ReportDateRangePicker({
       return;
     }
 
-    const today = new Date();
+    const today = webCalendarToday();
     setCalendarView(new Date(today.getFullYear(), today.getMonth(), 1));
     setDraft((current) => ({
       ...withDefaultTimes(current),
@@ -627,7 +628,7 @@ export default function ReportDateRangePicker({
   }
 
   const selectedCalendarDate = activePicker ? formatDate(parseDate(draft[activePicker])) : "";
-  const todayCalendarDate = formatDate(new Date());
+  const todayCalendarDate = formatDate(webCalendarToday());
   const draftStartDate = fromDateInputText(draft.start)?.date;
   const draftEndDate = fromDateInputText(draft.end)?.date;
   const draftStartTime = draftStartDate ? parseDate(draftStartDate).getTime() : Number.NaN;

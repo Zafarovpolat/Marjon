@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
 from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import (
+    effective_branch_filter,
     ensure_company_app_identity,
     require_company_admin,
     require_company_app_user,
@@ -67,7 +68,11 @@ async def list_printers(
     user: User = Depends(require_company_app_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await PrinterService(db).list(user.company_id)
+    printers = await PrinterService(db).list(user.company_id)
+    branch_scope = effective_branch_filter(user)
+    if branch_scope is not None:
+        printers = [pr for pr in printers if getattr(pr, "branch_id", None) == branch_scope]
+    return printers
 
 
 @router.get("/{printer_id}", response_model=PrinterResponse)
@@ -110,19 +115,6 @@ async def test_print(
     return await PrinterService(db).test_print(user.company_id, data.printer_id)
 
 
-@router.post("/print/summary", response_model=PrintJobResponse)
-async def print_summary(
-    data: PrintSummaryRequest,
-    user: User = Depends(require_company_app_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Print a summary receipt (History/Reports) from raw lines."""
-    return await PrinterService(db).print_summary(
-        user.company_id, data.printer_id, data.title, data.lines, data.footer, data.copies,
-        local_print=data.local_print,
-    )
-
-
 @router.post("/print/receipt", response_model=PrintJobResponse)
 async def print_receipt(
     data: PrintReceiptRequest,
@@ -132,6 +124,26 @@ async def print_receipt(
     """Print customer receipt for an order."""
     return await PrinterService(db).print_receipt(
         user.company_id, data.order_id, data.printer_id, data.copies,
+        local_print=data.local_print,
+    )
+
+
+@router.post("/print/summary", response_model=PrintJobResponse)
+async def print_summary(
+    data: PrintSummaryRequest,
+    user: User = Depends(require_company_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """DESK-PRINT-01: сводка/отчёт/Z-отчёт на чековый принтер.
+
+    Десктоп-касса печатает этим путём историю заказов, таблицу отчёта и
+    Z-отчёт. Эндпоинта не существовало (404) — три кнопки «Печать сводки»
+    не работали никогда.
+    """
+    return await PrinterService(db).print_summary(
+        user.company_id, data.printer_id, data.title, data.lines, data.footer, data.copies,
+        # PRINT-LAT-02: терминал печатает сам — сервер не должен ждать
+        # недоступный принтер в чужой сети (иначе 2 с таймаута на каждую сводку).
         local_print=data.local_print,
     )
 

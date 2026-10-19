@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatMoney } from "../api/client";
+import { webFormat, webTime } from "../utils/webTime";
 import { dashboardService } from "../api/dashboard";
 import { warehouseService } from "../api/warehouse";
 import { docDateToISO, registeredAtToISO } from "./WarehousePage";
+import { readOutgoingReport } from "./warehouse/outgoingReport";
 import { toDateInputValue } from "../utils/date";
 import Icon from "../components/Icon";
 import { PageLoader } from "../components/Loader";
@@ -169,6 +171,7 @@ export default function OwnerDashboard() {
   const [dashboard, setDashboard] = useState(null);
   const [sales, setSales] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
+  const [topProductsError, setTopProductsError] = useState("");
   const [products, setProducts] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
@@ -242,6 +245,7 @@ export default function OwnerDashboard() {
       setDashboard(dashboardRes.data);
       setSales(apiList(salesRes.data));
       setTopProducts(apiList(topRes.data));
+      setTopProductsError(topRes.unavailable ? topRes.unavailableReason || "Не удалось загрузить подтверждённые продажи." : "");
       setProducts(apiList(productsRes.data));
       setEmployees(apiList(employeesRes.data));
       const orderList = apiList(ordersRes.data);
@@ -261,10 +265,12 @@ export default function OwnerDashboard() {
   }, [beginRequest, dashboardPeriodParams]);
 
   // Живые итоги складских карточек за период дашборда (приход/расход — сумма
-  // документов по дате регистрации, остаток — текущий срез qty×cost_price).
+  // документов по дате регистрации; расход — исторический складской отчёт,
+  // остаток — текущий срез qty×cost_price).
   // Любая ошибка API — null, карточки остаются в честном unavailable (0).
   useEffect(() => {
     const request = beginWarehouseRequest();
+    const { date_from: fromISO, date_to: toISO } = dashboardPeriodParams;
     const safeList = (fn) => {
       try {
         const out = fn();
@@ -276,11 +282,12 @@ export default function OwnerDashboard() {
     };
     Promise.all([
       safeList(() => warehouseService.list("incoming", { signal: request.signal })),
-      safeList(() => warehouseService.list("outgoing", { signal: request.signal })),
+      safeList(() => warehouseService.listOutgoingReport(fromISO, toISO, { signal: request.signal })
+        .then((res) => ({ data: readOutgoingReport(res.data) }))),
       safeList(() => warehouseService.listStock({ signal: request.signal })),
     ]).then(([incomingRes, outgoingRes, stockRes]) => {
       if (!request.isCurrent()) return;
-      if (incomingRes.__failed || outgoingRes.__failed || stockRes.__failed) {
+      if (incomingRes.__failed || stockRes.__failed) {
         setWarehouseTotals(null);
         return;
       }
@@ -288,7 +295,6 @@ export default function OwnerDashboard() {
         const data = res?.data;
         return Array.isArray(data) ? data : data?.items || [];
       };
-      const { date_from: fromISO, date_to: toISO } = dashboardPeriodParams;
       const docDay = (doc) => registeredAtToISO(doc.registered_at) || docDateToISO(doc.date);
       const inPeriod = (doc) => {
         const iso = docDay(doc);
@@ -299,18 +305,11 @@ export default function OwnerDashboard() {
       };
       const sumDocs = (docs) => docs.filter(inPeriod)
         .reduce((sum, doc) => sum + (Number(doc.total_amount) || 0), 0);
-      // Расход на дашборде = то же, что таблица «Расход товаров»: только ручные
-      // документы, БЕЗ недостач инвентаризации (receiver «Инвентаризация» живёт
-      // в отдельной карточке и в расход не входит).
-      const sumOutgoingDocs = (docs) => docs
-        .filter((doc) => doc?.receiver !== "Инвентаризация")
-        .filter(inPeriod)
-        .reduce((sum, doc) => sum + (Number(doc.total_amount) || 0), 0);
       const stockTotal = asList(stockRes)
         .reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.cost_price) || 0), 0);
       setWarehouseTotals({
         incoming: sumDocs(asList(incomingRes)),
-        outgoing: sumOutgoingDocs(asList(outgoingRes)),
+        outgoing: outgoingRes.__failed ? null : outgoingRes.data.total,
         stock: stockTotal,
       });
     }).catch(() => {
@@ -345,6 +344,8 @@ export default function OwnerDashboard() {
   const displayPlaceSettings = useMemo(() => placeSettings, [placeSettings]);
   const displayFinanceTransactions = useMemo(() => financeTransactions, [financeTransactions]);
   const displayDashboard = useMemo(() => dashboard || EMPTY_DASHBOARD, [dashboard]);
+  const revenueUnavailable = !previewEnabled && dashboard?.metric_basis === "completed_income_minus_snapshot_cogs"
+    && (dashboard.financial_unavailable || dashboard.today_revenue == null);
   const kpis = useMemo(() => {
     if (previewEnabled && previewKpis) return previewKpis;
     return buildRealKpis(displayDashboard, revenueChartSales, dashboardReferenceDate, displayPlaceSettings, displayFinanceTransactions);
@@ -356,6 +357,7 @@ export default function OwnerDashboard() {
     return displayTopProducts.map((item, index) => ({
       product_id: item.product_id || `p-${index}`,
       name: item.name,
+      photo: item.image_url || products.find((product) => String(product.id) === String(item.product_id))?.image_url || "",
       quantity: Number(item.quantity_sold ?? item.quantity ?? item.count ?? 0),
       revenue: Number(item.revenue || 0),
       change: "",
@@ -364,7 +366,7 @@ export default function OwnerDashboard() {
     }));
   }
   return [];
-}, [displayTopProducts]);
+}, [displayTopProducts, products]);
   // Складские карточки: при живых итогах — реальные суммы + навигация
   // в подкатегории; без итогов — честное unavailable (0, без перехода).
   const warehouseSummary = useMemo(() => {
@@ -375,7 +377,7 @@ export default function OwnerDashboard() {
       "Остаток склада": { value: warehouseTotals.stock, to: "/stock-report/stock" },
     };
     return buildUnavailableWarehouseSummary().map((item) => (
-      live[item.label]
+      live[item.label] && live[item.label].value !== null
         ? { ...item, value: live[item.label].value, to: live[item.label].to, unavailable: false, rows: [] }
         : item
     ));
@@ -385,8 +387,8 @@ export default function OwnerDashboard() {
     if (displayRecentOrders.length > 0) {
       return displayRecentOrders.map((order) => {
         const created = order.created_at ? new Date(order.created_at) : new Date();
-        const time = created.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-        const dateLabel = created.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
+        const time = webTime(order.created_at || created);
+        const dateLabel = webFormat(order.created_at || created, { day: "2-digit", month: "2-digit" });
         const ready = order.status === "completed" || order.status === "ready";
         return {
           id: `#${order.order_number || order.id?.slice(0, 6)}`,
@@ -412,7 +414,9 @@ export default function OwnerDashboard() {
   const handleWarehouseSummaryClick = (item) => {
     if (item.unavailable) return;
     if (item.to) {
-      navigate(item.to);
+      navigate(item.label === "Расход товаров"
+        ? `${item.to}?${new URLSearchParams(dashboardPeriodParams).toString()}`
+        : item.to);
       return;
     }
 
@@ -441,7 +445,6 @@ export default function OwnerDashboard() {
             >
               <div className="premium-kpi__top">
                 <div className="premium-kpi__icon"><Icon name={kpi.icon} size={20} /></div>
-                <span className="trend">{kpi.badge}</span>
               </div>
               <div className="kpi-label">{kpi.label}</div>
               <div className="kpi-value">{kpi.value} {kpi.suffix ? <small>{kpi.suffix}</small> : null}</div>
@@ -488,12 +491,12 @@ export default function OwnerDashboard() {
             </div>
           </div>
           <div className="revenue-stat-grid">
-            <div><span>Максимум</span><strong>{formatMoney(revenueStats.max)}</strong></div>
-            <div><span>Минимум</span><strong>{formatMoney(revenueStats.min)}</strong></div>
-            <div><span>Среднее</span><strong>{formatMoney(revenueStats.avg)}</strong></div>
+            <div><span>Максимум</span><strong>{revenueUnavailable ? "Недоступно" : formatMoney(revenueStats.max)}</strong></div>
+            <div><span>Минимум</span><strong>{revenueUnavailable ? "Недоступно" : formatMoney(revenueStats.min)}</strong></div>
+            <div><span>Среднее</span><strong>{revenueUnavailable ? "Недоступно" : formatMoney(revenueStats.avg)}</strong></div>
           </div>
           <div className="chart-wrap">
-            <RevenueChart sales={revenueChartDisplaySales} />
+            {revenueUnavailable ? <div role="status">{dashboard.profit_unavailable_reason || "Недостаточно данных для расчёта выручки."}</div> : <RevenueChart sales={revenueChartDisplaySales} />}
           </div>
         </div>
 
@@ -512,7 +515,7 @@ export default function OwnerDashboard() {
                 <span className="warehouse-summary-item__icon"><Icon name={item.icon} size={18} /></span>
                 <div className="warehouse-summary-item__text">
                   <strong>{item.label}</strong>
-                  <span>{item.unavailable && (item.tone === "creditor" || item.tone === "debtor") ? "Скоро" : formatMoney(item.unavailable ? 0 : item.value)}</span>
+                  <span>{item.unavailable && item.tone === "expense" ? "Недоступно" : item.unavailable && (item.tone === "creditor" || item.tone === "debtor") ? "Скоро" : formatMoney(item.unavailable ? 0 : item.value)}</span>
                 </div>
                 {visual ? (
                   <img
@@ -532,7 +535,7 @@ export default function OwnerDashboard() {
       </section>
 
       <section className="owner-widgets">
-        <TopSalesCard dishes={displayTopDishes} />
+        <TopSalesCard dishes={displayTopDishes} error={topProductsError} />
         <RecentOrdersCard orders={recentOrdersList} />
       </section>
     </>

@@ -30,6 +30,17 @@ describe("Dashboard KPI dialog tables share the Recipes skin", () => {
     dashboardService.loadOwnerOverview.mockResolvedValue(Array.from({ length: 8 }, () => ({ data: [] })));
   });
 
+  it("removes badges only from the five upper cards, preserving dialog badges", async () => {
+    const { container } = render(<OwnerDashboard />);
+    const button = await screen.findByRole("button", { name: /Выручка за день/ });
+    expect(container.querySelectorAll(".premium-kpi")).toHaveLength(5);
+    expect(container.querySelectorAll(".premium-kpi .trend")).toHaveLength(0);
+    expect(container.querySelectorAll(".premium-kpi__icon")).toHaveLength(5);
+    fireEvent.click(button);
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.querySelector(".kpi-info-window__head span").textContent).not.toBe("");
+  });
+
   it.each(buildDashboardPreviewKpis().map((kpi) => [kpi.label]))(
     "renders %s table inside the shared skin with intact data",
     async (label) => {

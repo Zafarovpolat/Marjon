@@ -6,6 +6,9 @@ import {
 } from 'lucide-react'
 import { orders, menu, halls as hallsApi, printers as printersApi, auth } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
+// PRINT-LAT-01: печать + дедупликация + опрос очереди (наш путь доставки).
+// printers.js — выбор принтера (сотрудник → филиал) из прод-линии.
+import { printJob, startPrintPoller } from '../../shared/printJobs'
 import { pickReceiptPrinter } from '../../shared/printers'
 import DishModal from '../../components/DishModal'
 import InputPromptModal from '../../components/InputPromptModal'
@@ -98,18 +101,16 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
   useEffect(() => {
     return onPrintJob(async (msg) => {
       if (msg.event !== 'print_job') return
-      // См. CashierMode: ip/port из сообщения — печать не зависит от того,
-      // успел ли загрузиться локальный список принтеров.
-      const printer = printerMap[msg.printer_id]
-      const ip = printer?.ip_address || msg.ip_address
-      const port = printer?.port ?? msg.port ?? 9100
-      if (!ip) { console.error('[print] нет IP принтера для задания', msg); return }
       try {
-        await window.electron?.print({ ip, port, payloadBase64: msg.payload, copies: msg.copies ?? 1 })
-        await printersApi.jobDone(msg.job_id)
+        // См. CashierMode: printJob берёт ip/port из принтера либо из самого
+        // задания, поэтому печать не зависит от загрузки списка принтеров.
+        await printJob(msg, printerMap[msg.printer_id])
       } catch (err) { console.error('[print]', err); toast(t('print_failed'), 'error') }
     })
   }, [printerMap])
+
+  // PRINT-LAT-01: страховка, если WebSocket в переподключении.
+  useEffect(() => startPrintPoller(() => printerMap), [printerMap])
 
   // Опасные действия официанта (перенос/удаление блюда, смена стола, отмена
   // заказа) разрешены ТОЛЬКО при праве can_manage_orders из админки И

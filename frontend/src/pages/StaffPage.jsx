@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatMoney } from "../api/client";
+import { todayInputValue } from "../utils/date";
 import { settingsService } from "../api/settings";
 import { staffService } from "../api/staff";
 import Icon from "../components/Icon";
@@ -126,7 +127,7 @@ export default function StaffPage() {
         const { data } = await staffService.createEmployee({
           user_id: form.user_id,
           ...commonPayload,
-          hire_date: new Date().toISOString().slice(0, 10),
+          hire_date: todayInputValue(),
         });
         confirmedEmployee = data;
       }

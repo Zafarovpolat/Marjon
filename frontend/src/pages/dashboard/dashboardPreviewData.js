@@ -90,6 +90,10 @@ export function buildDashboardPreviewKpis() {
 
   return kpis.map((kpi, index) => ({
     ...kpi,
+    // DEV-only fixture keeps its populated design examples, not live Finance state.
+    comingSoon: false,
+    hideDescription: false,
+    suffix: index === 1 ? "" : "UZS",
     value: formatNumber(values[index]),
     description: descriptions[index],
     table: { formatValue: formatMoney, shareColumn: "Доля", ...tables[index] },

@@ -15,8 +15,13 @@ REQUIRED_BODY_ROUTES = {
     "/api/v1/auth/login": "LoginRequest",
     "/api/v1/auth/admin/login": "LoginRequest",
     "/api/v1/auth/pin-login": "PinLoginRequest",
-    "/api/v1/auth/branch-login": "BranchLoginRequest",
+    # ba0c267: моноблок/филиаловые входы десктопа — тоже rate-limited POST'ы
+    # с конкретной pydantic-моделью тела.
     "/api/v1/auth/monoblock-login": "MonoblockLoginRequest",
+    "/api/v1/auth/branch-login": "BranchLoginRequest",
+    "/api/v1/auth/branch-switch": "BranchSwitchRequest",
+    # toast-notifications: смена пароля с инвалидацией выданных токенов
+    # (users.auth_version) — тоже rate-limited POST с моделью тела.
     "/api/v1/auth/change-password": "ChangePasswordRequest",
     "/api/v1/pos/orders": "OrderCreate",
 }

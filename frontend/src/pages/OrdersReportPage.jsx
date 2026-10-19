@@ -11,11 +11,12 @@ import { isAbortError, isOrderedDateRange, useLatestRequest } from "../hooks/use
 import { toApiDate } from "./reports/reportPeriod";
 import { formatMoney } from "./reports/reportMoney";
 import { paymentMethodLabel } from "./dashboard/analyticsData";
+import { webFormat } from "../utils/webTime";
 
 function formatDate(value) {
   if (!value) return "—";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString("ru-RU");
+  return Number.isNaN(date.getTime()) ? String(value) : webFormat(value, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
 }
 
 const initialFilters = {

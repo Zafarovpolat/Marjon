@@ -10,6 +10,9 @@ if str(ROOT) not in sys.path:
 
 from sqlalchemy import select
 
+# Регистрирует ВСЕ модели в Base.metadata: User/Company имеют FK в чужие
+# модули (printers, branches), и без полного реестра маппер не сконфигурируется.
+import app.infrastructure.database.models_registry  # noqa: F401
 from app.infrastructure.database.session import AsyncSessionLocal
 from app.modules.auth.models import User
 from app.modules.auth.security import hash_password

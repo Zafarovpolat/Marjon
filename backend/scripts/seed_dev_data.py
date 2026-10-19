@@ -40,6 +40,10 @@ if str(ROOT) not in sys.path:
 
 from sqlalchemy import select
 
+# Регистрирует ВСЕ модели в Base.metadata (см. models_registry.py). Сид создаёт
+# компании/филиалы/принтеров/сотрудников и ходит по их FK — без полного реестра
+# конфигурация мапперов падает с NoReferencedTableError.
+import app.infrastructure.database.models_registry  # noqa: F401
 from app.config import settings
 from app.infrastructure.database.session import AsyncSessionLocal
 from app.modules.auth.models import User

@@ -18,6 +18,7 @@ import Toast from "../../components/Toast";
 import { catalogService } from "../../api/catalog";
 import { fieldLabels } from "./nomenclatureConfig";
 import DishSingleSelect from "./DishSingleSelect";
+import DishesModifiers from "./DishesModifiers";
 
 function groupMoneyInput(value) {
   const raw = String(value ?? "").replace(/[ \u00a0\u202f]/g, "");
@@ -26,7 +27,10 @@ function groupMoneyInput(value) {
   return match[1].replace(/\B(?=(\d{3})+(?!\d))/g, " ") + (match[2] || "");
 }
 
-function DishMoneyInput({ value, onChange }) {
+// label нужен как aria-label: декоративные «сум»/measure-спаны лежат внутри
+// <label>, и без явного имени доступное имя поля становится
+// «Цена12abc34сум» (значение вклеивается в подпись).
+function DishMoneyInput({ value, onChange, label }) {
   const inputRef = useRef(null);
   const measureRef = useRef(null);
   const suffixRef = useRef(null);
@@ -67,6 +71,7 @@ function DishMoneyInput({ value, onChange }) {
       ref={inputRef}
       className="dish-money-input"
       inputMode="decimal"
+      aria-label={label}
       placeholder="0 сум"
       value={groupMoneyInput(value)}
       onScroll={positionSuffix}
@@ -117,6 +122,15 @@ export default function DishesDialogs({
   photoFile,
   photoPreview,
   handlePhotoChange,
+  // Группы добавок (модификаторы): рендерит DishesModifiers, который сам
+  // скрывается в режиме создания — footer остаётся чистым.
+  modGroups = [],
+  setModGroups,
+  modLoading = false,
+  modError = "",
+  onClearModError = null,
+  saveModGroup,
+  removeModGroup,
   // Товары: сет создать нельзя — верхний сегмент Блюдо|Сет и нижний
   // тумблер СЕТ скрыты (форма всегда обычная позиция).
   hideKindSwitch = false,
@@ -448,6 +462,7 @@ export default function DishesDialogs({
                     <label>
                       <span>{fieldLabels.price}</span>
                       <DishMoneyInput
+                        label={fieldLabels.price}
                         value={form.price || ""}
                         onChange={(value) => setForm((prev) => ({ ...prev, price: value }))}
                       />
@@ -462,6 +477,7 @@ export default function DishesDialogs({
                       <label key={field}>
                         <span>{fieldLabels[field]}</span>
                         <DishMoneyInput
+                          label={fieldLabels[field]}
                           value={form[field] || ""}
                           onChange={(value) => setForm((prev) => ({ ...prev, [field]: value }))}
                         />
@@ -469,7 +485,6 @@ export default function DishesDialogs({
                     ))}
                     {categoryField}
                     {unitField}
-                    {printerField(false)}
                     {printerField(false)}
                   </>
                 )}
@@ -505,6 +520,17 @@ export default function DishesDialogs({
                 ))}
               </div>
               </div>
+
+              <DishesModifiers
+                editing={editing}
+                modGroups={modGroups}
+                setModGroups={setModGroups}
+                modLoading={modLoading}
+                modError={modError}
+                onClearModError={onClearModError}
+                saveModGroup={saveModGroup}
+                removeModGroup={removeModGroup}
+              />
             </div>
 
             <div className="staff-form__footer">
