@@ -3,6 +3,7 @@ import { X, Volume2, Server, Monitor, Timer, Globe, Maximize, ZoomIn, ZoomOut, C
 import { soundService } from '../services/sound'
 import { printers as printersApi, queueSize } from '../shared/api'
 import { t } from '../shared/i18n'
+import { DEFAULT_SERVER_URL } from '../shared/config'
 
 const el = () => (typeof window !== 'undefined' ? window.electron : null)
 
@@ -37,7 +38,7 @@ function Stepper({ value, onChange, min = 1, max = 99, step = 1, unit }) {
 export default function SettingsModal({ open, onClose }) {
   const [soundEnabled, setSoundEnabled] = useState(soundService.enabled)
   const [volume, setVolume] = useState(soundService.volume)
-  const [serverUrl, setServerUrl] = useState(() => localStorage.getItem('marjon_server_url') || (import.meta.env.VITE_DEFAULT_SERVER_URL || 'http://localhost:8000/api/v1'))
+  const [serverUrl, setServerUrl] = useState(() => localStorage.getItem('marjon_server_url') || DEFAULT_SERVER_URL)
   const [serverSaved, setServerSaved] = useState(false)
   const [timersSaved, setTimersSaved] = useState(false)
 

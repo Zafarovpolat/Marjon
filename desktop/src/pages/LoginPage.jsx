@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { auth } from '../shared/api'
-import { Eye, EyeOff, Delete, LogOut } from 'lucide-react'
+import { Eye, EyeOff, Delete, LogOut, Settings } from 'lucide-react'
 import { t } from '../shared/i18n'
 import { formatPhone, fullPhone, isPhoneComplete, extractPhoneDigits } from '../shared/phone'
 
@@ -15,18 +15,18 @@ import { formatPhone, fullPhone, isPhoneComplete, extractPhoneDigits } from '../
  * mode="pin" — ежедневный вход сотрудников по PIN.
  *   Показывается когда терминал уже привязан к филиалу.
  */
-export default function LoginPage({ mode = 'admin', onLogin, onReset, branchName, orgName }) {
+export default function LoginPage({ mode = 'admin', onLogin, onReset, branchName, orgName, onSettings }) {
   if (mode === 'pin') {
     return <PinLogin onLogin={onLogin} onReset={onReset} branchName={branchName} orgName={orgName} />
   }
-  return <MonoblockLogin onLogin={onLogin} />
+  return <MonoblockLogin onLogin={onLogin} onSettings={onSettings} />
 }
 
 // ═══════════════════════════════════════════════════
 // Вход по телефону+паролю моноблока — один шаг, без выбора филиала.
 // Телефон моноблока — номер под маской +998 XX XXX-XX-XX (как в 1.4).
 // ═══════════════════════════════════════════════════
-function MonoblockLogin({ onLogin }) {
+function MonoblockLogin({ onLogin, onSettings }) {
   const [phone, setPhone] = useState('')          // 9 локальных цифр номера филиала
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -61,6 +61,19 @@ function MonoblockLogin({ onLogin }) {
   return (
     <div className="login-page">
       <div className="login-card">
+        {/* Шестерёнка доступна ДО входа: если в приложении сохранён неверный
+            адрес сервера, вход всегда падает, а экран организации (где раньше
+            была единственная кнопка настроек) недостижим — терминал запирался. */}
+        {onSettings && (
+          <button
+            type="button"
+            className="icon-btn login-card__settings"
+            onClick={onSettings}
+            title={t('s_server_addr')}
+          >
+            <Settings size={20} />
+          </button>
+        )}
         <div className="login-card__header">
           <div className="login-card__logo">MARJON</div>
           <p className="login-card__subtitle">{t('lp_branch_subtitle')}</p>

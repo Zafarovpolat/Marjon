@@ -9,6 +9,7 @@ import RecipeModal from '../../components/RecipeModal'
 import { kitchenWS } from '../../services/kitchenWS'
 import { soundService } from '../../services/sound'
 import { t } from '../../shared/i18n'
+import { DEFAULT_SERVER_URL } from '../../shared/config'
 import { formatQty } from '../../shared/qty'
 
 // Бэкенд может отдавать наивный UTC (без таймзоны) — считаем его UTC, иначе таймеры врут
@@ -66,7 +67,7 @@ export default function KitchenMode({ user = {}, onBack }) {
 
   useEffect(() => {
     loadOrders()
-    const serverUrl = localStorage.getItem('marjon_server_url') || (import.meta.env.VITE_DEFAULT_SERVER_URL || 'http://localhost:8000/api/v1')
+    const serverUrl = localStorage.getItem('marjon_server_url') || DEFAULT_SERVER_URL
     const token = localStorage.getItem('marjon_token')
     kitchenWS.connect(serverUrl, token, user.branch_id)
     const unsubs = [

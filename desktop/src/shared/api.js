@@ -1,7 +1,8 @@
 import axios from 'axios'
+import { DEFAULT_SERVER_URL } from './config'
 
 function baseURL() {
-  return localStorage.getItem('marjon_server_url') || 'http://localhost:8000/api/v1'
+  return localStorage.getItem('marjon_server_url') || DEFAULT_SERVER_URL
 }
 
 export const api = axios.create()

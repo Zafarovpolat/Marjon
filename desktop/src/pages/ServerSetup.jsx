@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Server, Check, Wifi, WifiOff } from 'lucide-react'
 import { t } from '../shared/i18n'
+import { DEFAULT_SERVER_URL } from '../shared/config'
 
 /**
  * ServerSetup — экран первого запуска.
@@ -8,7 +9,7 @@ import { t } from '../shared/i18n'
  * IT-специалист вводит адрес сервера при установке терминала.
  */
 export default function ServerSetup({ onComplete }) {
-  const [url, setUrl] = useState((import.meta.env.VITE_DEFAULT_SERVER_URL || 'http://localhost:8000/api/v1'))
+  const [url, setUrl] = useState(DEFAULT_SERVER_URL)
   const [testing, setTesting] = useState(false)
   const [status, setStatus] = useState(null) // 'ok' | 'error'
   const [error, setError] = useState('')
