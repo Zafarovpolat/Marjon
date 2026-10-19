@@ -60,8 +60,8 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _save() async {
     final newPass = _newPass.text;
     if (newPass.isNotEmpty) {
-      if (newPass.length < 8) {
-        showSnack(context, 'Пароль — минимум 8 символов', error: true);
+      if (newPass.length < 4) {
+        showSnack(context, 'Пароль — минимум 4 символа', error: true);
         return;
       }
       if (newPass != _confPass.text) {
@@ -152,7 +152,7 @@ class _ProfilePageState extends State<ProfilePage> {
           _passField('Текущий пароль', _oldPass, _showOld,
             () => setState(() => _showOld = !_showOld)),
           const SizedBox(height: 12),
-          _passField('Новый пароль (мин. 8 символов)', _newPass, _showNew,
+          _passField('Новый пароль (мин. 4 символа)', _newPass, _showNew,
             () => setState(() => _showNew = !_showNew)),
           const SizedBox(height: 12),
           _passField('Повторите новый пароль', _confPass, _showConf,

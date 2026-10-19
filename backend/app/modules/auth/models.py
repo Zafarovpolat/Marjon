@@ -44,6 +44,14 @@ class User(TimeStampedModel):
     pin_hash: Mapped[str | None] = mapped_column(String(255))
     pin_failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
     pin_locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # PWD-LOCK-01: отдельный счётчик для ПАРОЛЬНОГО входа (PIN-лок-аут выше
+    # относится только к /auth/pin-login и сбрасывается иначе). Нужен потому,
+    # что пароль теперь может быть из 4 символов — 10 000 комбинаций, и без
+    # блокировки по аккаунту перебор упирается только в лимит по IP.
+    password_failed_attempts: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    password_locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     # Incremented only by self-service password change; legacy tokens use 0.
     auth_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)

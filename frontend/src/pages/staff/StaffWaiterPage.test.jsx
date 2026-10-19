@@ -590,9 +590,7 @@ describe("waiter field validation matrix (name/phone/password/printer IP)", () =
   it.each([
     ["empty", ""],
     ["too short", "Ab1"],
-    ["letters only", "Password"],
-    ["digits only", "12345678"],
-    ["cyrillic letters + digit", "Пароль12"],
+    ["too short digits", "123"],
   ])("password rejected: %s → blocked before POST with password field error", { timeout: 20000 }, async (_label, password) => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     const dialog = await openAddAndFill({ password });
@@ -600,7 +598,7 @@ describe("waiter field validation matrix (name/phone/password/printer IP)", () =
     const alerts = await within(dialog).findAllByRole("alert");
     expect(alerts).toHaveLength(2);
     for (const alert of alerts) {
-      expect(alert).toHaveTextContent("Пароль должен содержать минимум 8 символов, букву и цифру.");
+      expect(alert).toHaveTextContent("Пароль должен содержать минимум 4 символа.");
     }
     const fieldError = dialog.querySelector(".staff-field-error");
     expect(fieldError).not.toBeNull();
@@ -611,6 +609,12 @@ describe("waiter field validation matrix (name/phone/password/printer IP)", () =
   });
 
   it.each([
+    ["four digits", "6611"],
+    ["four alphanumerics", "QW12"],
+    ["four letters", "abcd"],
+    ["letters only", "Password"],
+    ["digits only", "12345678"],
+    ["cyrillic letters + digit", "Пароль12"],
     ["exactly 8 letters+digits", "a1b2c3d4"],
     ["specials and spaces", "P@ss w0rd"],
   ])("password accepted: %s → POST sent", { timeout: 20000 }, async (_label, password) => {

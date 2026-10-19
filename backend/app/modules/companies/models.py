@@ -1,8 +1,9 @@
 from __future__ import annotations
+from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 from typing import TYPE_CHECKING
-from sqlalchemy import String, Boolean, Integer, Numeric, Text, ForeignKey
+from sqlalchemy import String, Boolean, DateTime, Integer, Numeric, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Uuid
 from app.shared.base_model import TimeStampedModel
@@ -80,5 +81,11 @@ class Branch(TimeStampedModel):
     # компании); password_hash — bcrypt (никогда не хранится в открытом виде).
     login: Mapped[str | None] = mapped_column(String(150), unique=True, index=True, nullable=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # PWD-LOCK-01: свой счётчик неудач для входа «как филиал» — пароль филиала
+    # живёт на Branch, а не на users, поэтому лок-аут нужен и здесь.
+    password_failed_attempts: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    password_locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     company: Mapped[Company] = relationship(back_populates="branches")
