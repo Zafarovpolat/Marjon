@@ -1,8 +1,11 @@
 import axios from 'axios'
-import { DEFAULT_SERVER_URL } from './config'
+import { DEFAULT_SERVER_URL, normalizeServerUrl } from './config'
 
+// Нормализуем на чтении: в localStorage у уже установленных терминалов может
+// лежать адрес без /api/v1 (введён вручную до появления нормализации) — без
+// этого вход отдавал бы 404 Not Found.
 function baseURL() {
-  return localStorage.getItem('marjon_server_url') || DEFAULT_SERVER_URL
+  return normalizeServerUrl(localStorage.getItem('marjon_server_url') || DEFAULT_SERVER_URL)
 }
 
 export const api = axios.create()

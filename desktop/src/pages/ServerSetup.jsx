@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Server, Check, Wifi, WifiOff } from 'lucide-react'
 import { t } from '../shared/i18n'
-import { DEFAULT_SERVER_URL } from '../shared/config'
+import { DEFAULT_SERVER_URL, normalizeServerUrl } from '../shared/config'
 
 /**
  * ServerSetup — экран первого запуска.
@@ -38,7 +38,9 @@ export default function ServerSetup({ onComplete }) {
   }
 
   function handleSave() {
-    const trimmed = url.trim().replace(/\/+$/, '')
+    // Сохраняем канонический адрес: без /api/v1 вход отдавал 404 Not Found.
+    const trimmed = normalizeServerUrl(url)
+    if (!trimmed) return
     localStorage.setItem('marjon_server_url', trimmed)
     onComplete()
   }
@@ -64,6 +66,9 @@ export default function ServerSetup({ onComplete }) {
               className="login-field__input"
               value={url}
               onChange={(e) => { setUrl(e.target.value); setStatus(null) }}
+              // Показываем канонический вид сразу: человек видит, что
+              // сохранится именно …/api/v1, и не ловит 404 на входе.
+              onBlur={() => { const next = normalizeServerUrl(url); if (next) setUrl(next) }}
               placeholder="http://192.168.1.100:8000/api/v1"
               data-keyboard="url"
             />

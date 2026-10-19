@@ -3,7 +3,7 @@ import { X, Volume2, Server, Monitor, Timer, Globe, Maximize, ZoomIn, ZoomOut, C
 import { soundService } from '../services/sound'
 import { printers as printersApi, queueSize } from '../shared/api'
 import { t } from '../shared/i18n'
-import { DEFAULT_SERVER_URL } from '../shared/config'
+import { DEFAULT_SERVER_URL, normalizeServerUrl } from '../shared/config'
 
 const el = () => (typeof window !== 'undefined' ? window.electron : null)
 
@@ -98,7 +98,12 @@ export default function SettingsModal({ open, onClose }) {
     setTimersSaved(true); setTimeout(() => setTimersSaved(false), 1600)
   }
   function saveServer() {
-    persist('marjon_server_url', serverUrl.trim())
+    // Канонический вид: адрес без /api/v1 ломал вход (404 Not Found),
+    // потому что клиент дописывает пути сам.
+    const next = normalizeServerUrl(serverUrl)
+    if (!next) return
+    setServerUrl(next)
+    persist('marjon_server_url', next)
     setServerSaved(true); setTimeout(() => setServerSaved(false), 1600)
   }
 
@@ -204,7 +209,7 @@ export default function SettingsModal({ open, onClose }) {
             <div className="settings-row settings-row--col">
               <label>{t('s_server_addr')}</label>
               <div className="settings-input-group">
-                <input type="text" value={serverUrl} onChange={(e) => setServerUrl(e.target.value)} className="input" placeholder="http://192.168.1.x:8000/api/v1" />
+                <input type="text" value={serverUrl} onChange={(e) => setServerUrl(e.target.value)} onBlur={() => { const next = normalizeServerUrl(serverUrl); if (next) setServerUrl(next) }} className="input" placeholder="http://192.168.1.x:8000/api/v1" />
                 <button className="btn btn--primary settings-save" onClick={saveServer}>
                   {serverSaved ? <Check size={20} /> : t('save')}
                 </button>
