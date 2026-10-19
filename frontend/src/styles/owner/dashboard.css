@@ -9606,20 +9606,11 @@ body.dashboard-body .dashboard-shell .warehouse-summary-item:focus-visible {
   background: #F4F7FC;
 }
 
-/* Dashboard-only flat resting surfaces. Route-local DOM scope also covers
-   its shell controls and portal dialogs, but never other OWNER pages.
-   Hover and keyboard focus retain their existing state styles. */
-body.dashboard-body:has(.dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band) :not(:hover):not(:focus-visible),
-body.dashboard-body:has(.dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band) :not(:hover):not(:focus-visible)::before,
-body.dashboard-body:has(.dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band) :not(:hover):not(:focus-visible)::after {
-  box-shadow: none;
-  text-shadow: none;
-}
-
-
 /* ── Marjon store (/store) ────────────────────────────────────────────────
    Таблица файлов десктопа: хеш моноширинным, кнопка скачивания компактная.
-   Стили самодостаточные — не зависят от того, где объявлен .btn. */
+   Стили самодостаточные — не зависят от того, где объявлен .btn.
+   Блок стоит ДО финального «flat resting surfaces»: тот срез файла тест
+   проверяет на отсутствие background, а кнопке фон нужен. */
 .store-hash {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
@@ -9654,4 +9645,14 @@ body.dashboard-body:has(.dashboard-shell .dashboard-main .dashboard-content > .o
 .store-download:focus-visible {
   outline: 2px solid var(--accent, #1db5b5);
   outline-offset: 2px;
+}
+
+/* Dashboard-only flat resting surfaces. Route-local DOM scope also covers
+   its shell controls and portal dialogs, but never other OWNER pages.
+   Hover and keyboard focus retain their existing state styles. */
+body.dashboard-body:has(.dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band) :not(:hover):not(:focus-visible),
+body.dashboard-body:has(.dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band) :not(:hover):not(:focus-visible)::before,
+body.dashboard-body:has(.dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band) :not(:hover):not(:focus-visible)::after {
+  box-shadow: none;
+  text-shadow: none;
 }
