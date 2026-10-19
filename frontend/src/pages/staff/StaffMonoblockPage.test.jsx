@@ -308,7 +308,10 @@ describe("monoblock access cell (cashier-list concept)", () => {
     expect(access.querySelector(".staff-permission-dot").classList.contains("is-off")).toBe(false);
   });
 
-  it("shows the bound printer name only when printer_id is set", async () => {
+  // STAFF-PRINTER-SCOPE-02: привязанный принтер — свойство записи, а не грант
+  // «Показать кассиров». Имя живёт в ячейке роли и рисуется у любой роли;
+  // в колонке прав (`.staff-permission-sub`) его больше нет.
+  it("shows the bound printer name in the role cell, not under the access toggle", async () => {
     api.get.mockImplementation((url) =>
       String(url).includes("/printers")
         ? Promise.resolve({
@@ -321,9 +324,11 @@ describe("monoblock access cell (cashier-list concept)", () => {
     const { unmount } = render(<StaffRolePage role="monoblock" />);
     await screen.findByText("Monoblock One");
     let table = document.querySelector(".staff-table");
-    let sub = table.querySelector(".staff-permission-sub");
-    expect(sub).not.toBeNull();
-    expect(sub).toHaveTextContent("Kitchen Printer");
+    const name = table.querySelector(".staff-printer-name");
+    expect(name).not.toBeNull();
+    expect(name).toHaveTextContent("Kitchen Printer");
+    const access = within(table).getByText("Показать кассиров").closest(".staff-permission");
+    expect(access.querySelector(".staff-permission-sub")).toBeNull();
     unmount();
     api.get.mockImplementation((url) =>
       String(url).includes("/printers")
@@ -333,7 +338,7 @@ describe("monoblock access cell (cashier-list concept)", () => {
     render(<StaffRolePage role="monoblock" />);
     await screen.findByText("Monoblock One");
     table = document.querySelector(".staff-table");
-    expect(table.querySelector(".staff-permission-sub")).toBeNull();
+    expect(table.querySelector(".staff-printer-name")).toBeNull();
     expect(table.querySelector("*")).not.toBeNull();
   });
 
