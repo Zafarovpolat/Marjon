@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('electron', {
   // ── Printing ────────────────────────────────────────────────────────────────
   print: (args) => ipcRenderer.invoke('printer:print', args),
   pingPrinter: (args) => ipcRenderer.invoke('printer:ping', args),
+  openDrawer: (args) => ipcRenderer.invoke('printer:openDrawer', args),
 
   // ── Window controls (existing) ───────────────────────────────────────────────
   minimize: () => ipcRenderer.invoke('window:minimize'),

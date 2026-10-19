@@ -416,6 +416,19 @@ ipcMain.handle('printer:ping', async (_event, { ip, port }) => {
   return await pingPrinter(ip, port ?? 9100)
 })
 
+// ── IPC: Cash drawer ──────────────────────────────────────────────────────────
+// ESC/POS команда открытия денежного ящика (Drawer Kick).
+// Пин 2 (0x00), импульс 50 мс (0x19 × 2 мс), пауза 500 мс (0xFA × 2 мс).
+// Работает на 99% ESC/POS-принтеров (XPrinter, Epson, Gainscha и т.д.).
+const DRAWER_KICK = Buffer.from([0x1B, 0x70, 0x00, 0x19, 0xFA])
+
+ipcMain.handle('printer:openDrawer', async (_event, { ip, port }) => {
+  if (!ip) throw new Error('No printer IP')
+  return enqueuePrint(async () => {
+    await printRaw(ip, port ?? 9100, DRAWER_KICK)
+  })
+})
+
 // ── IPC: Local WebSocket server ───────────────────────────────────────────────
 
 ipcMain.handle('localws:info', () => ({

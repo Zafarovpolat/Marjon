@@ -278,6 +278,13 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
         const comment = `Долг: заказ #${order.order_number ?? ''}, получено ${fmtSum(detail.cash)}, остаток ${fmtSum(detail.debt)}${detail.client_name ? `, клиент: ${detail.client_name}` : ''}${detail.client_phone ? `, тел: ${detail.client_phone}` : ''}`
         try { await financeApi.addIncome({ amount: Number(detail.cash), comment }) } catch { /* тихо: нет прав или офлайн */ }
       }
+      // Открываем денежный ящик (best-effort: ошибка не мешает закрытию заказа)
+      try {
+        const pr = receiptPrinter()
+        if (pr?.ip_address) {
+          await window.electron.openDrawer({ ip: pr.ip_address, port: pr.port })
+        }
+      } catch { /* тихо: ящик может быть не подключён */ }
       toast(t('order_closed'))
     } catch (e) { toast(t('close_order_error') + (e?.response?.data?.detail ? ': ' + e.response.data.detail : ''), 'error') }
     setPayExisting(null)
