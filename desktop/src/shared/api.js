@@ -290,6 +290,23 @@ export const orders = {
   }).then((r) => r.data),
 }
 
+// ── Оплаты ──────────────────────────────────────────────────────────────────
+// PAY-REG-01: закрытие счёта на кассе обязано создавать Payment. Раньше касса
+// переводила заказ в `completed` одним PATCH статуса — заказ закрывался, но
+// строки оплаты не появлялось, а все денежные отчёты веба (owner-financials,
+// Z-отчёт, способы оплаты) строятся INNER JOIN по completed-Payment. Итог:
+// «закрыл заказ, а в вебе суммы нет». Плюс не списывался склад и не шла
+// фискализация — это всё делает PaymentService на бэкенде.
+// amount обязан совпасть с order.total_amount (проверка на сервере).
+// Idempotency-Key защищает от двойной оплаты при повторе/ретрае.
+export const payments = {
+  process: (data, idempotencyKey) =>
+    api.post('/payments', data, {
+      headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {},
+    }).then((r) => r.data),
+  forOrder: (orderId) => api.get(`/payments/order/${orderId}`).then((r) => r.data),
+}
+
 export const kitchen = {
   orders: (branchId) =>
     cached('kitchen_orders_' + branchId, api.get('/kitchen/orders', { params: { branch_id: branchId } }).then((r) => r.data)),
