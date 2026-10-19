@@ -355,10 +355,10 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     const alerts = await within(dialog).findAllByRole("alert");
-    expect(alerts).toHaveLength(2);
-    for (const alert of alerts) {
-      expect(alert).toHaveTextContent("Пароль должен содержать минимум 4 символа.");
-    }
+    // Ошибка валидации рисуется ровно один раз — инлайном под полем пароля.
+    // Второго «алерта» (тоста) нет: до POST дело не доходит.
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent("Пароль должен содержать минимум 4 символа.");
     expect(alertSpy).not.toHaveBeenCalled();
     expect(api.post).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).not.toBeNull();

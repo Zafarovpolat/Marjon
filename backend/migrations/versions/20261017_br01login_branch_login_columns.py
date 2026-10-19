@@ -45,7 +45,6 @@ def _existing_indexes() -> set[str]:
 
 
 def upgrade() -> None:
-def upgrade() -> None:
     # Идемпотентно, как att01status: на базах, собранных через
     # metadata.create_all, колонки и индекс уже есть, а ревизия не отмечена —
     # без проверки upgrade падал бы на DuplicateColumn. На чистом Postgres

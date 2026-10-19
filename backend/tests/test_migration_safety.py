@@ -45,9 +45,12 @@ import pytest
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 VERSIONS_DIR = BACKEND_ROOT / "migrations" / "versions"
 
-# Единственный head. Дублируется здесь намеренно: если head сместится, тест
-# должен упасть с внятным сообщением, а не «где-то в другом файле».
-EXPECTED_HEAD = "mg02merge"
+# Опорная точка цепочки: ревизия, на которой граф был признан линейным
+# (мердж main ← prod-current). Новые миграции наращивают head — это норма,
+# поэтому сам head не захардкожен. А вот опорная ревизия обязана оставаться
+# предком головы: если она «отвалилась», цепочку переписали и базы, стоящие
+# на ней, до head уже не доедут.
+ANCHOR_REVISION = "mg02merge"
 
 # alembic_version.version_num — VARCHAR(32) в дефолтном шаблоне alembic.
 MAX_REVISION_ID_LENGTH = 32
@@ -353,16 +356,24 @@ def test_chain_has_single_expected_head_and_every_revision_is_reachable(
 ) -> None:
     referenced = {parent for migration in chain.values() for parent in migration.parents}
     heads = set(chain) - referenced
-    assert heads == {EXPECTED_HEAD}, (
-        f"ожидался единственный head {EXPECTED_HEAD!r}, получено {sorted(heads)}. "
+    assert len(heads) == 1, (
+        f"ожидался ровно один head, получено {sorted(heads)}. "
         "Незамёрдженная ветка = `alembic upgrade head` упадёт с "
         "«Multiple head revisions are present»."
     )
-    reachable = _ancestors(chain, EXPECTED_HEAD) | {EXPECTED_HEAD}
+    head = heads.pop()
+    reachable = _ancestors(chain, head) | {head}
     orphans = set(chain) - reachable
     assert not orphans, (
-        f"ревизии недостижимы из head {EXPECTED_HEAD!r}: {sorted(orphans)} — "
+        f"ревизии недостижимы из head {head!r}: {sorted(orphans)} — "
         "их DDL никогда не применится ни на одной базе"
+    )
+    # Новые миграции наращивают head — это нормально. Ненормально, если из
+    # новой головы перестала достигаться опорная точка: значит граф переписали
+    # и базы, стоящие на ней, до head не доедут.
+    assert ANCHOR_REVISION in reachable, (
+        f"опорная ревизия {ANCHOR_REVISION!r} больше не предок head {head!r} — "
+        "цепочку переписали, старые базы не смогут обновиться"
     )
 
 

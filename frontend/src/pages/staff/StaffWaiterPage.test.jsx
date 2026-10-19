@@ -656,10 +656,10 @@ describe("waiter field validation matrix (name/phone/password/printer IP)", () =
     const dialog = await openAddAndFill({ password });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     const alerts = await within(dialog).findAllByRole("alert");
-    expect(alerts).toHaveLength(2);
-    for (const alert of alerts) {
-      expect(alert).toHaveTextContent("Пароль должен содержать минимум 4 символа.");
-    }
+    // Ошибка валидации рисуется ровно один раз — инлайном под полем пароля.
+    // Второго «алерта» (тоста) нет: до POST дело не доходит.
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent("Пароль должен содержать минимум 4 символа.");
     const fieldError = dialog.querySelector(".staff-field-error");
     expect(fieldError).not.toBeNull();
     expect(fieldError.closest("label").textContent).toContain("Пароль");

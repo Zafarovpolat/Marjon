@@ -671,15 +671,14 @@ describe("RAW V2 Dishes visual family", () => {
 
   it("18. no foreign WIP regression in sidebar", () => {
     const warehouse = navItems.find((item) => item.key === "warehouse");
-    // 5cbdb93 восстановил входы «Полуфабрикаты»/«Категория полуфабрикатов»:
-    // маршруты /nomenclature/semi-finished* есть в App.jsx, без пунктов меню
-    // они оставались недостижимыми.
-    expect(warehouse.children).toHaveLength(4);
+    // WAREHOUSE V1 (ветка toast): «Полуфабрикаты» и «Категория
+    // полуфабрикатов» убраны из меню — раздел склада, а не номенклатуры.
+    // Маршруты /nomenclature/semi-finished* при этом остаются в App.jsx:
+    // прямые ссылки и закладки работают, их проверяет navConfig.test.js.
+    expect(warehouse.children).toHaveLength(2);
     expect(warehouse.children.map((child) => child.label)).toEqual([
       "Категория продуктов",
       "Продукты",
-      "Полуфабрикаты",
-      "Категория полуфабрикатов",
     ]);
     expect(navItems.map((item) => item.key)).toEqual([
       "dashboard",

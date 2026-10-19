@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.modules.auth.models import User
-from app.modules.auth.security import verify_password_async
+from app.modules.auth.security import verify_password
 from app.modules.companies.models import Branch, Company
 from app.modules.crm.models import Customer
 from app.modules.halls.models import Hall, Table
@@ -101,7 +101,7 @@ def _stamp_item_cancellation(item: OrderItem, actor_id: UUID | None) -> None:
 async def _safe_verify(secret: str | None, hashed: str | None) -> bool:
     """Безопасная проверка секрета против bcrypt-хэша.
 
-    Оборачивает verify_password_async в try/except и гардит None: пустой секрет
+    Оборачивает verify_password в try/except и гардит None: пустой секрет
     или отсутствующий хэш → False, любой сбой bcrypt (битый хэш) → False, никогда
     не бросает. Используется опциональным гардом подтверждения операций.
 

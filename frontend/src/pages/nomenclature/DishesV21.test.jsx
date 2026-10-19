@@ -221,7 +221,7 @@ describe("DISHES V22 table polish", () => {
     expect(container.querySelector(".dish-price-input")).toBeNull();
     const priceText = container.querySelector(".dish-col-price .dish-price-text");
     expect(priceText).not.toBeNull();
-    expect(priceText.textContent).toMatch(/40\D000\DUZS/);
+    expect(priceText.textContent).toMatch(/40\D000\Dсум/);
   });
 
   it("renders the name as dominant non-link text without ellipsis", async () => {

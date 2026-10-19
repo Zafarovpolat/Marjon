@@ -139,23 +139,12 @@ def test_k_n_route_table_has_one_canonical_contract_per_method_path() -> None:
             rows.append((method, route.path_format, route))
 
     counts = Counter((method, path) for method, path, _ in rows)
-    # 478 (see git history for the chain up to decision A's 458+8) + 11 added by
-    # the origin/main <-> redesign-mobile merge (RBAC per-role permission
-    # customization + WH-01 expense/waste warehouse-document CRUD, among
-    # others) + 1 for GET /auth/branch-colleagues (personal-device staff
-    # sign-in's branch-scoped roster, narrower than the owner/terminal-only
-    # /auth/staff-users) + 1 for GET /hr/employees/me (self-service HR record
-    # lookup — most staff roles don't set User.branch_id, only their Employee
-    # row does, and GET /hr/employees itself stays owner-only) + the
-    # prod/main integration batch (desktop attendance DESK-ATT-01, KDS split,
-    # printer summary/kitchen rendering). Duplicate attendance + print/summary
-    # routes left by the merge were collapsed back to one canonical handler
-    # each. No duplicate (method,path) pairs — checked below.
-    # ...плюс 510-я: после мерджа фактических уникальных пар (method, path)
-    # оказалось 510, а не 509 — счётчик в тесте был выставлен на единицу меньше
-    # (сверено перечислением app.routes: rows == unique == 510, дубликатов нет,
-    # /printers/print/summary и /hr/attendance/* присутствуют по одному разу).
-    assert len(rows) == len(counts) == 510
+    # Число роутов здесь намеренно НЕ захардкожено. Раньше стояли магические
+    # 510/290, и каждая новая фича требовала «поправить константу» — а это
+    # единственное, что такая проверка и проверяла. Значимый инвариант один:
+    # ни одна пара (method, path) не зарегистрирована дважды (мердж уже
+    # приносил дубли attendance/print). Он и проверяется — плюс отдельный
+    # контракт в tests/test_openapi_route_contract.py.
     assert not [key for key, count in counts.items() if count > 1]
 
     expected = {
@@ -184,8 +173,15 @@ def test_k_n_route_table_has_one_canonical_contract_per_method_path() -> None:
         assert by_path[path] == [handler]
 
     schema = app.openapi()
-    # 290 путей — та же поправка на +1, что и в счётчике роутов выше.
-    assert len(schema["paths"]) == 290
+    # Каждый зарегистрированный путь обязан быть в схеме (и наоборот) —
+    # без магического числа путей, которое ломается на каждой новой фиче.
+    # Берём route.path (с префиксом /api/v1), а не path_format роутера.
+    registered_paths = {
+        route.path
+        for route in app.routes
+        if isinstance(route, APIRoute) and route.include_in_schema
+    }
+    assert set(schema["paths"]) == registered_paths
     for path, handler in expected.items():
         route = next(
             route

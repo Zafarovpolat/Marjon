@@ -144,7 +144,10 @@ describe("CTR-01 critical financial truth", () => {
     const incomeCard = (await screen.findByText("Денежный приход")).closest("button");
     const expenseCard = screen.getByText("Денежные расходы").closest("button");
     expect(incomeCard).toHaveTextContent("700");
-    expect(expenseCard).toHaveTextContent("200");
+    // Расходы на дашборде пока не считаются: карточка честно показывает
+    // «Скоро» вместо суммы, собранной из чужих транзакций (ExpensesComingSoon).
+    expect(expenseCard).toHaveTextContent("Скоро");
+    expect(expenseCard).not.toHaveTextContent("200");
     expect(within(incomeCard).queryByText(/к вчерашнему дню/)).not.toBeInTheDocument();
     expect(within(expenseCard).queryByText(/к вчерашнему дню/)).not.toBeInTheDocument();
   });
@@ -266,7 +269,7 @@ describe("CTR-01 critical financial truth", () => {
     const reportCalls = api.get.mock.calls.filter(([path]) => path === "/reports/cancelled");
     expect(reportCalls).toHaveLength(2);
     expect(reportCalls[1][1]).toEqual(expect.objectContaining({
-      params: { date_from: "2026-08-02", date_to: "2026-08-12" },
+      params: { date_from: "2026-08-02", date_to: "2026-08-12", web_timezone: "Asia/Tashkent" },
       signal: expect.any(AbortSignal),
     }));
   });
@@ -297,7 +300,7 @@ describe("CTR-01 critical financial truth", () => {
     fireEvent.change(screen.getByLabelText("Начало периода"), { target: { value: "02.08.2026" } });
     fireEvent.change(screen.getByLabelText("Конец периода"), { target: { value: "12.08.2026" } });
     fireEvent.change(screen.getByLabelText("Направление"), { target: { value: "income" } });
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/finance/transactions", expect.objectContaining({ params: { date_from: "2026-08-02", date_to: "2026-08-12", direction: "income" }, signal: expect.any(AbortSignal) })));
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/finance/transactions", expect.objectContaining({ params: { date_from: "2026-08-02", date_to: "2026-08-12", direction: "income", web_timezone: "Asia/Tashkent" }, signal: expect.any(AbortSignal) })));
 
     fireEvent.click(screen.getByRole("button", { name: "Редактировать транзакцию tx-1" }));
     expect(screen.queryByLabelText("Дата")).not.toBeInTheDocument();

@@ -13,6 +13,11 @@ import recipeBookPng from "../../assets/recipes-cook-book.png";
 import setComboPng from "../../assets/set-combo.png";
 import { SUPPORTED_DISH_PHOTO_TYPES } from "./useDishesCatalog";
 
+// Себестоимость/цена приходят с суффиксом «UZS»; в таблице показываем «сум».
+function displayDishMoney(value) {
+  return String(value ?? "").replace(/\s*UZS$/i, " сум");
+}
+
 function renderToggle(value, onClick, disabled, label) {
   const isOn = value === true;
   return (

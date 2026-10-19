@@ -104,6 +104,15 @@ class ChangePasswordRequest(BaseSchema):
     new_password: SecretStr
     confirm_password: SecretStr
 
+    @field_validator("new_password")
+    @classmethod
+    def check_new_password(cls, v: SecretStr) -> SecretStr:
+        # PWD-POLICY-01 действует и на смене собственного пароля: иначе это
+        # лазейка в обход политики (плюс bcrypt бросает ValueError на входе
+        # длиннее 72 байт — без проверки был бы 500 вместо 422).
+        _validate_password(v.get_secret_value())
+        return v
+
 
 class PinSetRequest(BaseSchema):
     pin: str = Field(..., min_length=4, max_length=8)

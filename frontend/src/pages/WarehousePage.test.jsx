@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { warehouseService } from "../api/warehouse";
+import { webDateTime } from "../utils/webTime";
 import { nomenclatureService } from "../api/nomenclature";
 import { catalogService } from "../api/catalog";
 import { settingsService } from "../api/settings";
@@ -788,10 +789,10 @@ describe("Warehouse incoming-journal (Добавить продуктов)", () 
     expect(await screen.findByText("Главный склад")).toBeInTheDocument();
     // Дата поступления — в формате DD-MM-YYYY.
     expect(await screen.findByText(todayDMY0)).toBeInTheDocument();
-    // UTC-строка backend показывается в локальном времени браузера.
-    const local = new Date(Date.UTC(now0.getFullYear(), now0.getMonth(), now0.getDate(), 12, 0));
-    const pad = (value) => String(value).padStart(2, "0");
-    const expected = `${pad(local.getDate())}.${pad(local.getMonth() + 1)}.${local.getFullYear()} / ${pad(local.getHours())}:${pad(local.getMinutes())}`;
+    // UTC-строка backend показывается в часовом поясе веб-кабинета
+    // (Asia/Tashkent, utils/webTime), а не в локальном поясе браузера:
+    // у владельца и у сервера отчётов должен быть один день.
+    const expected = webDateTime(new Date(Date.UTC(now0.getFullYear(), now0.getMonth(), now0.getDate(), 12, 0)));
     expect(await screen.findByText(expected)).toBeInTheDocument();
   });
 

@@ -32,8 +32,8 @@ describe("Dishes drawer switches", () => {
     // mapNomenclatureProduct/formatNomenclatureMoneyDisplay, таблица её не
     // переписывает (иначе parseNomenclatureMoney не сможет прочитать значение
     // при открытии карточки на редактирование).
-    expect(screen.getByText("12 000 UZS")).toBeInTheDocument();
-    expect(screen.getByText("40 000 UZS")).toBeInTheDocument();
+    expect(screen.getByText("12 000 сум")).toBeInTheDocument();
+    expect(screen.getByText("40 000 сум")).toBeInTheDocument();
     expect(row).toEqual({ id: "dish-1", cost: "12 000 UZS", price: "40 000 UZS" });
   });
   it.each(["Ед. изм", "Категория", "Принтер"])("reuses the Reports leading selection square for %s", (label) => {
