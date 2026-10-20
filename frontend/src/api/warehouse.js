@@ -64,7 +64,7 @@ export const warehouseService = Object.freeze({
     return config ? api.get("/inventory/stock", config) : api.get("/inventory/stock");
   },
   listOutgoingReport(dateFrom, dateTo, config = {}) {
-    return api.get("/inventory/stock/outgoing-report", { ...config, params: { date_from: dateFrom, date_to: dateTo } });
+    return api.get("/inventory/stock/outgoing-report", { ...config, params: { ...config.params, date_from: dateFrom, date_to: dateTo, web_timezone: "Asia/Tashkent" } });
   },
   // V46 FIFO: разбивка остатка по партиям (старые первыми).
   listBatches(params, config) {

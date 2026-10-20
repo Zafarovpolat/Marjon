@@ -1,10 +1,8 @@
 // Таблица каталога блюд OWNER с учётом видимых колонок.
-// V24: точный порядок СОРТ→ФОТО→НАЗВАНИЕ→ЕД.ИЗМ→СЕБЕСТ→ЦЕНА→ПРИНТЕР→
-// ОСТАТОК→АВТО→ДЕЙСТВИЯ. Принтер — две строки (имя + IP из
+// Порядок: СОРТ→ФОТО→НАЗВАНИЕ→ЕД.ИЗМ→СЕБЕСТ→ЦЕНА→ПРИНТЕР→
+// РЕЦЕПТЫ→ДЕЙСТВИЯ. Принтер — две строки (имя + IP из
 // GET /printers по printerId, без UUID и без однострочного склеивания).
-// АВТО — реальный backend-тумблер (PATCH is_auto), не "-".
-// V25: ОСТАТОК заменён на РЕЦЕПТЫ (реальный ingredients_count backend);
-// тумблеры — фирменный OWNER-акцент.
+// Флаг is_auto остаётся в данных, но не отображается в таблице.
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Icon from "../../components/Icon";
@@ -18,32 +16,6 @@ function displayDishMoney(value) {
   return String(value ?? "").replace(/\s*UZS$/i, " сум");
 }
 
-function renderToggle(value, onClick, disabled, label) {
-  const isOn = value === true;
-  return (
-    <button
-      type="button"
-      className={`dish-toggle ${isOn ? "is-on" : ""}`}
-      onClick={(event) => {
-        // V26 — лёгкий ripple без JS-таймеров: класс снимается по animationend.
-        // Дубли PATCH по-прежнему блокируются mutation-замком + disabled.
-        const el = event.currentTarget;
-        el.classList.remove("is-rippling");
-        void el.offsetWidth;
-        el.classList.add("is-rippling");
-        onClick(event);
-      }}
-      onAnimationEnd={(event) => {
-        if (event.animationName === "dish-toggle-ripple") event.currentTarget.classList.remove("is-rippling");
-      }}
-      aria-pressed={isOn}
-      aria-label={label}
-      disabled={disabled || undefined}
-    >
-      <span />
-    </button>
-  );
-}
 
 // V24 — ячейка принтера: первая строка имя, вторая IP (muted).
 // Источник: row.printer (printer_name) + row.printerIp, fallback —
@@ -165,8 +137,6 @@ export default function DishesTable({
   filteredRows,
   isColumnVisible,
   tableMinWidth,
-  updateRow,
-  togglingId = null,
   printerOptions = [],
   openDrawer,
   openRecipes,
@@ -245,7 +215,6 @@ export default function DishesTable({
             {isColumnVisible("price") ? <th className="dish-col-price">Цена</th> : null}
             {isColumnVisible("printer") ? <th className="dish-col-printer">Принтер</th> : null}
             {isColumnVisible("recipe") ? <th className="dish-col-recipe">Рецепты</th> : null}
-            {isColumnVisible("auto") ? <th className="dish-col-auto">Авто</th> : null}
             {isColumnVisible("actions") ? <th className="dish-col-actions">Действия</th> : null}
           </tr>
         </thead>
@@ -286,16 +255,6 @@ export default function DishesTable({
                   <RecipeBadge count={row.ingredientsCount} onClick={(event) => openRecipes?.(row, event.currentTarget)} />
                 )}
               </td>
-              ) : null}
-              {isColumnVisible("auto") ? (
-                <td className="dish-col-auto">
-                  {renderToggle(
-                    row.auto,
-                    () => updateRow(row.id, "auto", !(row.auto === true)),
-                    togglingId === `${row.id}:auto`,
-                    `Авто для ${row.name}`,
-                  )}
-                </td>
               ) : null}
               {isColumnVisible("actions") ? (
               <td className="dish-col-actions">

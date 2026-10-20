@@ -5,6 +5,7 @@ import Icon from "../../../components/Icon";
 import { AdminPageSizeDropdown, getPageList, keepWheelInsideScroller } from "../../AdminShared";
 import { organizationErrorMessage } from "./organizationErrors";
 import { organizationsApi } from "./organizationsApi";
+import { webFormat } from "../../../utils/webTime";
 
 export const organizationRows = [];
 
@@ -72,7 +73,7 @@ function formatNumber(value) {
 function formatDate(value) {
   if (!value) return "—";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString("ru-RU");
+  return Number.isNaN(date.getTime()) ? String(value) : webFormat(value, { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 function lifecycleLabel(status) {

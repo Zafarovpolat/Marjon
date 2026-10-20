@@ -8,6 +8,7 @@ import { warehouseService } from "../../api/warehouse";
 import { formatMoney } from "../../api/client";
 import { todayInputValue } from "../../utils/date";
 import { isAbortError, useLatestRequest } from "../../hooks/useAsyncSafety";
+import { isCancellationAcknowledged, useCancellationAcknowledgements } from "../../hooks/useCancellationAcknowledgements";
 
 // OWNER notification center. Whole-order cancellations come from today's
 // GET /reports/orders with an explicit order_status=cancelled filter (the
@@ -42,6 +43,7 @@ function formatEventCount(count) {
 export default function TopbarNotifications() {
   const ref = useRef(null);
   const navigate = useNavigate();
+  const { receipts } = useCancellationAcknowledgements();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -62,18 +64,27 @@ export default function TopbarNotifications() {
   const cancelled = useMemo(
     () => orders
       .filter((order) => String(order.status || "").toLowerCase() === "cancelled")
+      .filter((order) => {
+        const id = order.order_id || order.id;
+        const stamps = cancelledDishes.filter(row => String(row.order_id) === String(id))
+          .map(row => row.report_event_at || row.cancelled_at).filter(Boolean);
+        const latest = stamps.sort((a, b) => new Date(b) - new Date(a))[0] || order.created_at;
+        return !isCancellationAcknowledged(receipts, id, latest);
+      })
       .map((order) => ({
         id: order.order_id || order.id || order.order_number,
+        orderId: order.order_id || order.id || null,
         number: order.order_number ?? order.order_id ?? "",
         table: order.table_number,
         time: formatTime(order.created_at),
         amount: order.total_amount,
       })),
-    [orders],
+    [orders, receipts, cancelledDishes],
   );
   const itemCancels = useMemo(
     () => cancelledDishes
       .filter((row) => String(row?.cancellation_scope || "item").toLowerCase() === "item")
+      .filter(row => !isCancellationAcknowledged(receipts, row.order_id, row.report_event_at || row.cancelled_at))
       .map((row) => ({
         id: row.order_item_id || `${row.order_id || "order"}:${row.name || "dish"}`,
         name: row.name || "Блюдо",
@@ -83,7 +94,7 @@ export default function TopbarNotifications() {
         time: formatTime(row.report_event_at || row.cancelled_at),
         author: row.cancelled_by_name,
       })),
-    [cancelledDishes],
+    [cancelledDishes, receipts],
   );
   const lowStock = useMemo(() => {
     const nameOf = (row) => lowNames.get(String(row?.ingredient_id)) || null;
@@ -271,7 +282,14 @@ export default function TopbarNotifications() {
             </div>
           ) : null}
           {!loading && !error ? cancelled.map((item) => (
-            <div className="stock-alert-item owner-notif__item owner-notif__item--cancel" key={item.id}>
+            <button type="button" className="stock-alert-item owner-notif__item owner-notif__item--cancel" key={item.id}
+              onClick={() => {
+                setOpen(false);
+                const query = new URLSearchParams({ eventDate: today });
+                if (item.orderId) query.set("cancelledOrder", `order:${item.orderId}`);
+                navigate(`/reports/cancelled-dishes?${query}`);
+              }}
+              aria-label={`Заказ №${item.number} отменён`}>
               <div className="stock-alert-item__icon owner-notif__icon--cancel" aria-hidden="true">
                 <Icon name="bi-x-octagon" size={18} />
               </div>
@@ -283,7 +301,7 @@ export default function TopbarNotifications() {
                   {item.amount != null ? ` · ${formatMoney(item.amount)}` : ""}
                 </span>
               </div>
-            </div>
+            </button>
           )) : null}
           {!loading && !error ? itemCancels.map((item) => (
             <button

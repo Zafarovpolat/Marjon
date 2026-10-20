@@ -40,6 +40,11 @@ class OrderReportRow(BaseModel):
     # COMPLETED payments only (raw values, never labels) — [] when none.
     service_fee: Decimal
     payment_methods: list[str] = []
+    # Populated only with a product filter: distinct stored per-unit prices of
+    # matching order items. Never the current Product.price or an average.
+    position_prices: list[Decimal] | None = None
+    position_quantity: Decimal | None = None
+    position_amount: Decimal | None = None
 
 
 class TableOrderSummary(BaseModel):
@@ -113,6 +118,7 @@ class WaiterReportResponse(BaseModel):
 class DishReportRow(BaseModel):
     product_id: UUID
     name: str
+    image_url: str | None = None  # Current catalogue photo, same source as paid top sales.
     # Real master unit (Product.unit); null when the master has none —
     # never a hardcoded fallback. Cost/profit are intentionally absent in
     # Phase 1: no truthful historical cost exists (no sale-time snapshot).
@@ -228,6 +234,7 @@ class CancelledItemRow(BaseModel):
 class CancelledReportTotals(BaseModel):
     # Same quantity metric as the Cancelled Dishes report/Excel total.
     quantity: Decimal
+    orders_count: int = 0
 
 
 class CancelledAuthorOption(BaseModel):

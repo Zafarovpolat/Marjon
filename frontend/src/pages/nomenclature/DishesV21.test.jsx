@@ -132,7 +132,7 @@ describe("DISHES V21 simplified table", () => {
     for (const removed of ["Тип", "Меню", "Подкатегория", "Остаток"]) {
       expect(headers).not.toContain(removed);
     }
-    for (const kept of ["Фото", "Название", "Ед. изм", "Себестоимость", "Цена", "Принтер", "Рецепты", "Авто", "Сорт", "Действия"]) {
+    for (const kept of ["Фото", "Название", "Ед. изм", "Себестоимость", "Цена", "Принтер", "Рецепты", "Сорт", "Действия"]) {
       expect(headers).toContain(kept);
     }
     expect(headers).not.toContain("Сет");
@@ -148,9 +148,9 @@ describe("DISHES V21 simplified table", () => {
     // V24: точный порядок СОРТ первым, ФОТО вторым, ДЕЙСТВИЯ последними.
     // V25: ОСТАТОК заменён на РЕЦЕПТЫ.
     expect(dishColumnOptions.map((column) => column.key)).toEqual(
-      ["sort", "photo", "name", "unit", "cost", "price", "printer", "recipe", "auto", "actions"],
+      ["sort", "photo", "name", "unit", "cost", "price", "printer", "recipe", "actions"],
     );
-    expect(width).toBe(1108);
+    expect(width).toBe(1044);
   });
 });
 
@@ -309,11 +309,11 @@ describe("DISHES V23 full-width table", () => {
     }
   });
 
-  it("keeps 10 columns without the removed ones returning", async () => {
+  it("keeps 9 columns without the removed ones returning", async () => {
     const { container } = render(<NomenclaturePage />);
     await screen.findByRole("button", { name: "Выбрать фото для Backend dish" });
     const headers = [...container.querySelectorAll(".dish-grid-table thead th")].map((th) => th.textContent);
-    expect(headers).toHaveLength(10);
+    expect(headers).toHaveLength(9);
     // V25: Остаток тоже удалён (заменён на Рецепты).
     for (const removed of ["Тип", "Меню", "Подкатегория", "Остаток"]) {
       expect(headers).not.toContain(removed);

@@ -2,8 +2,9 @@
 # Keep endpoint annotations runtime-evaluated in this module so FastAPI sees
 # concrete request models after ``@limiter.limit`` wraps the function.
 from datetime import datetime, timedelta, timezone
-from uuid import UUID
-from fastapi import APIRouter, Depends, File, HTTPException, Request, status, UploadFile
+from uuid import UUID, uuid4
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, status, UploadFile
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -236,6 +237,87 @@ async def me(current_user: User = Depends(get_current_user), db: AsyncSession = 
         "role_slugs": role_slugs,
         "auth_scope": getattr(current_user, "auth_scope", "app"),
     })
+
+
+@router.patch("/me/profile", response_model=UserResponse)
+async def update_own_profile(
+    request: Request,
+    name: str = Form(..., min_length=1, max_length=255),
+    file: UploadFile | None = File(None),
+    remove_photo: bool = Form(False),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Only the authenticated user's display name and private avatar; never RBAC/login fields."""
+    if set((await request.form()).keys()) - {"name", "file", "remove_photo"}:
+        raise HTTPException(422, "Разрешены только имя и фото профиля.")
+    name = name.strip()
+    if not name or any(ord(char) < 32 for char in name):
+        raise HTTPException(422, "Укажите корректное имя профиля (1–255 символов).")
+    if file is not None and remove_photo:
+        raise HTTPException(422, "Нельзя одновременно заменить и удалить фото.")
+    avatar_url = current_user.avatar_url
+    uploaded_key = None
+    if file is not None:
+        import io
+        from PIL import Image, ImageOps, UnidentifiedImageError
+        if file.content_type not in {"image/jpeg", "image/png", "image/webp"}:
+            raise HTTPException(422, "Поддерживаются только JPG, PNG и WebP.")
+        raw = await file.read(5 * 1024 * 1024 + 1)
+        if len(raw) > 5 * 1024 * 1024:
+            raise HTTPException(413, "Фото должно быть не больше 5 МБ.")
+        try:
+            with Image.open(io.BytesIO(raw)) as image:
+                if image.format not in {"JPEG", "PNG", "WEBP"} or image.width * image.height > 16_000_000:
+                    raise ValueError("Invalid image")
+                image = ImageOps.exif_transpose(image)
+                image.thumbnail((1024, 1024))
+                output = io.BytesIO()
+                image.convert("RGBA" if image.mode in ("RGBA", "LA", "P") else "RGB").save(output, "WEBP", quality=85)
+        except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
+            raise HTTPException(422, "Не удалось прочитать фото. Выберите JPG, PNG или WebP.")
+        uploaded_key = f"avatars/{current_user.id}/{uuid4().hex}.webp"
+        try:
+            avatar_url = await storage.upload(output.getvalue(), uploaded_key, "image/webp")
+        except Exception:
+            raise HTTPException(503, "Хранилище фото недоступно. Профиль не изменён.")
+    elif remove_photo:
+        avatar_url = None
+    try:
+        current_user.name = name
+        current_user.avatar_url = avatar_url
+        db.add(current_user)
+        await db.commit()
+        await db.refresh(current_user)
+    except Exception:
+        await db.rollback()
+        # A lost commit acknowledgement is ambiguous: never remove a file that
+        # may already be referenced by a committed profile. Old images remain private.
+        raise
+    return await me(current_user, db)
+
+
+@router.get("/me/photo")
+async def read_own_avatar(current_user: User = Depends(get_current_user)):
+    """Serve private media through authentication; never grant a public avatar ACL."""
+    import base64
+    url = current_user.avatar_url or ""
+    prefix = storage.public_url("")
+    if not url.startswith(prefix):
+        raise HTTPException(404, "Фото профиля не задано.")
+    key = url[len(prefix):]
+    own_prefix = f"avatars/{current_user.id}"
+    if not (key.startswith(own_prefix + "/") or key in {own_prefix + ext for ext in (".jpg", ".png", ".webp")}):
+        raise HTTPException(404, "Фото профиля не найдено.")
+    try:
+        raw = await storage.download(key)
+    except Exception:
+        raise HTTPException(503, "Хранилище фото недоступно.")
+    if not raw:
+        raise HTTPException(404, "Фото профиля не найдено.")
+    mime = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}.get(key.rsplit(".", 1)[-1], "image/webp")
+    return JSONResponse({"image": f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"},
+                        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
 
 
 @router.get("/users", response_model=list[CompanyUserResponse])

@@ -68,15 +68,15 @@ describe("DISHES V24 exact column order", () => {
     mockApis([backendProduct()]);
   });
 
-  it("orders SORT first, PHOTO second, ACTIONS last (10 columns)", async () => {
+  it("orders SORT first, PHOTO second, ACTIONS last without AUTO (9 columns)", async () => {
     expect(dishColumnOptions.map((c) => c.key)).toEqual(
-      ["sort", "photo", "name", "unit", "cost", "price", "printer", "recipe", "auto", "actions"],
+      ["sort", "photo", "name", "unit", "cost", "price", "printer", "recipe", "actions"],
     );
     const { container } = render(<NomenclaturePage />);
     await screen.findByRole("table", { name: "Блюда" });
     const headers = [...container.querySelectorAll(".dish-grid-table thead th")].map((th) => th.textContent);
     expect(headers).toEqual(
-      ["Сорт", "Фото", "Название", "Ед. изм", "Себестоимость", "Цена", "Принтер", "Рецепты", "Авто", "Действия"],
+      ["Сорт", "Фото", "Название", "Ед. изм", "Себестоимость", "Цена", "Принтер", "Рецепты", "Действия"],
     );
   });
 
@@ -131,61 +131,43 @@ describe("DISHES V24 auto/set real backend switches", () => {
     vi.spyOn(window, "alert").mockImplementation(() => {});
   });
 
-  it("renders OFF for false and ON for true", async () => {
+  it("hides AUTO regardless of saved value without changing it", async () => {
     mockApis([backendProduct({ id: "p-off", is_auto: false, is_set: false }), backendProduct({ id: "p-on", name: "Сет", is_auto: true, is_set: true })]);
     const { container } = render(<NomenclaturePage />);
     await screen.findByRole("table", { name: "Блюда" });
-    await waitFor(() => expect(container.querySelectorAll(".dish-toggle")).toHaveLength(2));
-    const toggles = [...container.querySelectorAll(".dish-toggle")];
-    // Порядок строк: p-off (auto OFF), p-on (auto ON). Колонка СЕТ убрана.
-    expect(toggles[0].classList.contains("is-on")).toBe(false);
-    expect(toggles[1].classList.contains("is-on")).toBe(true);
-    // Нет "-" плейсхолдеров в авто.
-    expect(container.querySelector(".dish-col-auto .dish-toggle-empty")).toBeNull();
+    expect(container.querySelector(".dish-col-auto")).toBeNull();
+    expect(container.querySelector(".dish-toggle")).toBeNull();
+    expect(api.patch).not.toHaveBeenCalled();
     expect(container.querySelector(".dish-col-set")).toBeNull();
   });
 
-  it("click sends backend PATCH with canonical field", async () => {
+  it("does not expose an AUTO mutation in the table", async () => {
     mockApis([backendProduct({ is_auto: false })]);
     api.patch.mockResolvedValue({ data: backendProduct({ is_auto: true }) });
     const { container } = render(<NomenclaturePage />);
     await screen.findByRole("table", { name: "Блюда" });
-    await waitFor(() => expect(container.querySelector(".dish-toggle")).toBeInTheDocument());
-    fireEvent.click(container.querySelector(".dish-col-auto .dish-toggle"));
-    await waitFor(() => expect(api.patch).toHaveBeenCalledWith(
-      "/inventory/products/product-uuid",
-      { is_auto: true },
-    ));
-    await waitFor(() => expect(container.querySelector(".dish-toggle.is-on")).toBeInTheDocument());
+    expect(container.querySelector(".dish-col-auto")).toBeNull();
+    expect(api.patch).not.toHaveBeenCalled();
   });
 
-  it("failed mutation does not fake-persist", async () => {
+  it("does not attempt hidden AUTO mutations even if endpoint would reject", async () => {
     mockApis([backendProduct({ is_auto: false })]);
     api.patch.mockRejectedValue({ response: { data: { detail: "denied" } } });
     const { container } = render(<NomenclaturePage />);
     await screen.findByRole("table", { name: "Блюда" });
-    await waitFor(() => expect(container.querySelector(".dish-col-auto .dish-toggle")).toBeInTheDocument());
-    fireEvent.click(container.querySelector(".dish-col-auto .dish-toggle"));
-    await waitFor(() => expect(api.patch).toHaveBeenCalled());
-    // Тумблер остался OFF, показана честная ошибка.
-    expect(container.querySelector(".dish-col-auto .dish-toggle.is-on")).toBeNull();
-    expect(await screen.findByRole("alert")).toHaveTextContent("denied");
+    expect(container.querySelector(".dish-col-auto")).toBeNull();
+    expect(api.patch).not.toHaveBeenCalled();
   });
 
-  it("AUTO sends only is_auto", async () => {
+  it("leaves hidden AUTO and SET flags untouched on table load", async () => {
     mockApis([backendProduct({ is_auto: false, is_set: false })]);
     api.patch.mockImplementation((url, payload) => {
       return Promise.resolve({ data: backendProduct(payload) });
     });
     const { container } = render(<NomenclaturePage />);
     await screen.findByRole("table", { name: "Блюда" });
-    await waitFor(() => expect(container.querySelector(".dish-col-auto .dish-toggle")).toBeInTheDocument());
-    fireEvent.click(container.querySelector(".dish-col-auto .dish-toggle"));
-    await waitFor(() => expect(api.patch).toHaveBeenCalledWith(
-      "/inventory/products/product-uuid",
-      { is_auto: true },
-    ));
-    expect(api.patch.mock.calls[0][1]).not.toHaveProperty("is_set");
+    expect(container.querySelector(".dish-col-auto")).toBeNull();
+    expect(api.patch).not.toHaveBeenCalled();
   });
 
   it("server state persists (update response becomes row truth)", async () => {
@@ -292,9 +274,9 @@ describe("DISHES V27 exact center alignment, no ellipsis", () => {
     readFileSync(`${process.cwd()}/src/styles/owner/dishes.css`, "utf8"),
   );
 
-  it("keeps the exact 10-column order", () => {
+  it("keeps the exact 9-column order", () => {
     expect(dishColumnOptions.map((c) => c.key)).toEqual(
-      ["sort", "photo", "name", "unit", "cost", "price", "printer", "recipe", "auto", "actions"],
+      ["sort", "photo", "name", "unit", "cost", "price", "printer", "recipe", "actions"],
     );
   });
 
@@ -368,7 +350,7 @@ describe("DISHES V27 exact center alignment, no ellipsis", () => {
     expect(tableSrc).toMatch(/dish-printer-name/);
     expect(tableSrc).toMatch(/dish-printer-ip/);
     expect(tableSrc).toMatch(/dish-recipe-link/);
-    expect(tableSrc).toMatch(/dish-toggle/);
+    expect(tableSrc).not.toMatch(/dish-toggle/);
     const css = readFileSync(`${process.cwd()}/src/styles/owner/dishes.css`, "utf8");
     expect(css).toMatch(/@keyframes dish-toggle-ripple-accent/);
     expect(css).not.toContain("!important");
@@ -410,7 +392,7 @@ describe("DISHES V26 switch cursor + micro-animation", () => {
     expect(css).toMatch(/\.dish-toggle\.is-rippling::after\s*\{[^}]*animation:\s*none/);
   });
 
-  it("fires real PATCH on toggle click without fake persistence (contract intact)", async () => {
+  it("no longer renders the table toggle or sends its PATCH", async () => {
     vi.clearAllMocks();
     vi.spyOn(window, "alert").mockImplementation(() => {});
     api.get.mockImplementation((url) => {
@@ -422,12 +404,8 @@ describe("DISHES V26 switch cursor + micro-animation", () => {
     api.patch.mockResolvedValue({ data: backendProduct({ is_auto: true }) });
     const { container } = render(<NomenclaturePage />);
     await screen.findByRole("table", { name: "Блюда" });
-    await waitFor(() => expect(container.querySelector(".dish-toggle")).toBeInTheDocument());
-    fireEvent.click(container.querySelector(".dish-col-auto .dish-toggle"));
-    await waitFor(() => expect(api.patch).toHaveBeenCalledWith(
-      "/inventory/products/product-uuid",
-      { is_auto: true },
-    ));
+    expect(container.querySelector(".dish-toggle")).toBeNull();
+    expect(api.patch).not.toHaveBeenCalled();
   });
 });
 

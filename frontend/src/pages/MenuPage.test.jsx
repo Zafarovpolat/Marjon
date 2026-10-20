@@ -1,5 +1,6 @@
+import { MemoryRouter } from "react-router-dom";
 import { readFileSync } from "node:fs";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render as testingRender, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import { formatDateLabel, todayInputValue } from "../utils/date";
@@ -10,11 +11,14 @@ vi.mock("../components/ReportDateRangePicker", () => ({
   default: ({ value, onChange, variant, buttonAriaLabel }) => <button type="button" aria-label={buttonAriaLabel} data-variant={variant} onClick={() => onChange({ preset: "", start: "01.09.2026", end: "02.09.2026" })}>{value.start}</button>,
 }));
 
+function render(ui) { return testingRender(<MemoryRouter>{ui}</MemoryRouter>); }
+
+const financials = { metric_basis: "completed_income_minus_snapshot_cogs", income_total: "345.67", today_revenue: "245.67", today_orders: 2 };
 const empty = { rows: [], totals: { quantity: "0", amount: "0.00", orders_count: 0 } };
 const options = { categories: [{ value: "c1", label: "Кухня" }, { value: "c2", label: "Кухня" }] };
 const row = { product_id: "p1", name: "Историческое блюдо", category_id: "c1", category_name: "Кухня", quantity: "2", price: "25.25", amount: "50.50" };
 const populated = { rows: [row], totals: { quantity: "2", amount: "50.50", orders_count: 246 } };
-const response = (path, sales = empty) => ({ data: path === "/reports/dishes/filters" ? options : path === "/finance/transactions/summary" ? { income_amount: "345.67" } : path === "/reports/cancelled/summary" ? { quantity: "3.125" } : sales });
+const response = (path, sales = empty) => ({ data: path === "/reports/dishes/filters" ? options : path === "/analytics/owner-financials" ? financials : path === "/reports/cancelled/summary" ? { quantity: "3.125", orders_count: 3 } : sales });
 const calls = () => api.get.mock.calls.filter(([path]) => path === "/reports/dishes");
 // Column settings remain hidden; the V4 filters use the Reports inline panel.
 const categoryChoices = () => [...document.querySelectorAll('.sales-category-filter [role="option"]')];
@@ -34,10 +38,54 @@ describe("Sale canonical data foundation", () => {
     render(<MenuPage />);
     await screen.findByText(row.name);
     const cards = document.querySelectorAll(".sales-summary-grid article");
-    expect([...cards].map((card) => card.getAttribute("aria-label"))).toEqual(["Денежные приходы", "Выручка", "Заказы", "Отменённые блюда"]);
-    expect([...cards].map((card) => card.querySelector("strong").textContent)).toEqual(["345,67 UZS", "50,5 UZS", "246", "3,125"]);
+    expect([...cards].map((card) => card.getAttribute("aria-label"))).toEqual(["Денежный приход", "Выручка", "Заказы", "Отменённые заказы"]);
+    expect([...cards].map((card) => card.querySelector("strong").textContent)).toEqual(["345,67 UZS", "245,67 UZS", "2", "3"]);
     cards.forEach((card) => expect(card.querySelector("svg")).toBeNull());
     expect(document.querySelector(".sales-summary-grid").textContent).not.toMatch(/предыдущему|\+0%|Продано|Позиций/);
+  });
+
+  it("does not query Finance and does not replace dashboard cards with filtered table totals", async () => {
+    api.get.mockImplementation((path) => Promise.resolve(response(path, populated)));
+    render(<MenuPage />);
+    await screen.findByText(row.name);
+    openFilters();
+    fireEvent.change(screen.getByLabelText("Поиск блюда"), { target: { value: "Нет такого блюда" } });
+    api.get.mockImplementation((path) => Promise.resolve(response(path, empty)));
+    applyFilters();
+    await loaded();
+    expect([...document.querySelectorAll(".sales-summary-grid strong")].map((el) => el.textContent))
+      .toEqual(["345,67 UZS", "245,67 UZS", "2", "3"]);
+    expect(api.get.mock.calls.some(([path]) => path.startsWith("/finance/"))).toBe(false);
+  });
+
+  it("links cancelled orders to the report with the same selected period", async () => {
+    api.get.mockImplementation((path) => Promise.resolve(response(path, populated)));
+    render(<MenuPage />);
+    await screen.findByText(row.name);
+    const periodButton = document.querySelector(".sales-period button");
+    fireEvent.click(periodButton);
+    const link = screen.getByRole("link", { name: /Отменённые заказы/ });
+    const url = new URL(link.href);
+    expect(url.pathname).toBe("/reports/cancelled-dishes");
+    expect(url.searchParams.get("dateFrom")).toBe("2026-09-01");
+    expect(url.searchParams.get("dateTo")).toBe("2026-09-02");
+  });
+
+  it("keeps negative profit and does not turn missing historical cost into zero", async () => {
+    api.get.mockImplementation((path) => Promise.resolve(path === "/analytics/owner-financials"
+      ? { data: { ...financials, today_revenue: "-120.50" } } : response(path)));
+    const view = render(<MenuPage />);
+    await loaded();
+    expect(within(screen.getByRole("article", { name: "Выручка" })).getByText("-120,5 UZS")).toBeInTheDocument();
+    view.unmount();
+    api.get.mockImplementation((path) => Promise.resolve(path === "/analytics/owner-financials"
+      ? { data: { ...financials, today_revenue: null, profit_unavailable_reason: "Не сохранена себестоимость" } } : response(path)));
+    render(<MenuPage />);
+    await loaded();
+    expect(screen.getByRole("article", { name: "Выручка" })).toHaveAttribute("title", "Не сохранена себестоимость");
+    expect(within(screen.getByRole("article", { name: "Выручка" })).getByText("Недоступно")).toBeInTheDocument();
+    expect(within(screen.getByRole("article", { name: "Денежный приход" })).getByText("345,67 UZS")).toBeInTheDocument();
+    expect(within(screen.getByRole("article", { name: "Заказы" })).getByText("2")).toBeInTheDocument();
   });
 
   it("uses the Dishes header structure and Orders action template, removing the visible middle strip", async () => {
@@ -78,23 +126,23 @@ describe("Sale canonical data foundation", () => {
     applyFilters();
     fireEvent.click(screen.getByRole("button", { name: "Период отчёта о продажах" }));
     await waitFor(() => expect(calls().at(-1)[1].params.date_from).toBe("2026-09-01"));
-    for (const path of ["/finance/transactions/summary", "/reports/cancelled/summary"]) {
+    for (const path of ["/analytics/owner-financials", "/reports/cancelled/summary"]) {
       expect(api.get.mock.calls.filter(([url]) => url === path).at(-1)[1].params).toEqual({ date_from: "2026-09-01", date_to: "2026-09-02", web_timezone: "Asia/Tashkent" });
     }
     expect(calls().at(-1)[1].params).toMatchObject({ query: "Лаваш", category_id: ["c1"] });
   });
 
   it("replaces all four KPI values after a period change", async () => {
-    api.get.mockImplementation((path, config) => Promise.resolve(config?.params?.date_from === "2026-09-01" ? response(path, populated) : { ...response(path), data: path === "/finance/transactions/summary" ? { income_amount: 0 } : path === "/reports/cancelled/summary" ? { quantity: 0 } : response(path).data }));
+    api.get.mockImplementation((path, config) => Promise.resolve(config?.params?.date_from === "2026-09-01" ? response(path, populated) : { ...response(path), data: path === "/analytics/owner-financials" ? { ...financials, income_total: 0, today_revenue: 0, today_orders: 0 } : path === "/reports/cancelled/summary" ? { quantity: 0, orders_count: 0 } : response(path).data }));
     render(<MenuPage />);
     await loaded();
     expect([...document.querySelectorAll(".sales-summary-grid strong")].map((e) => e.textContent)).toEqual(["0 UZS", "0 UZS", "0", "0"]);
     fireEvent.click(screen.getByRole("button", { name: "Период отчёта о продажах" }));
     await screen.findByText(row.name);
-    expect([...document.querySelectorAll(".sales-summary-grid strong")].map((e) => e.textContent)).toEqual(["345,67 UZS", "50,5 UZS", "246", "3,125"]);
+    expect([...document.querySelectorAll(".sales-summary-grid strong")].map((e) => e.textContent)).toEqual(["345,67 UZS", "245,67 UZS", "2", "3"]);
   });
 
-  it.each(["/finance/transactions/summary", "/reports/cancelled/summary"])("does not fake a complete successful snapshot when %s fails", async (failedPath) => {
+  it.each(["/analytics/owner-financials", "/reports/cancelled/summary"])("does not fake a complete successful snapshot when %s fails", async (failedPath) => {
     api.get.mockImplementation((path) => path === failedPath ? Promise.reject(new Error("offline")) : Promise.resolve(response(path, populated)));
     render(<MenuPage />);
     await screen.findByRole("alert");
@@ -113,7 +161,7 @@ describe("Sale canonical data foundation", () => {
     expect([...document.querySelectorAll(".sales-summary-grid strong")].map((e) => e.textContent)).toEqual(["—", "—", "—", "—"]);
     next[2].resolve(response(next[2].path, populated));
     await screen.findByText(row.name);
-    pending.filter(({ config }) => config.params.date_from !== "2026-09-01").forEach(({ path, resolve }) => resolve({ ...response(path), data: path === "/finance/transactions/summary" ? { income_amount: 999 } : path === "/reports/cancelled/summary" ? { quantity: 999 } : empty }));
+    pending.filter(({ config }) => config.params.date_from !== "2026-09-01").forEach(({ path, resolve }) => resolve({ ...response(path), data: path === "/analytics/owner-financials" ? { ...financials, income_total: 999, today_revenue: 999, today_orders: 999 } : path === "/reports/cancelled/summary" ? { quantity: 999, orders_count: 999 } : empty }));
     await waitFor(() => expect(screen.getByText("345,67 UZS")).toBeInTheDocument());
     expect(screen.queryByText("999 UZS")).not.toBeInTheDocument();
   });
@@ -123,7 +171,7 @@ describe("Sale canonical data foundation", () => {
     await loaded();
     const today = todayInputValue();
     expect(calls()[0][1].params).toEqual({ date_from: today, date_to: today, web_timezone: "Asia/Tashkent" });
-    expect(api.get.mock.calls.map(([path]) => path)).toEqual(["/reports/dishes/filters", "/reports/dishes", "/finance/transactions/summary", "/reports/cancelled/summary"]);
+    expect(api.get.mock.calls.map(([path]) => path)).toEqual(["/reports/dishes/filters", "/reports/dishes", "/analytics/owner-financials", "/reports/cancelled/summary"]);
     expect(screen.getByRole("button", { name: "Период отчёта о продажах" })).toHaveAttribute("data-variant", "canonical");
     expect(screen.getByText(formatDateLabel(today))).toBeInTheDocument();
   });
@@ -191,16 +239,49 @@ describe("Sale canonical data foundation", () => {
     expect(api.get.mock.calls.some(([path]) => path.startsWith("/inventory") || path.startsWith("/pos"))).toBe(false);
   });
 
+  it("places the actual product photo between number and dish and opens the shared viewer", async () => {
+    const withPhoto = { ...populated, rows: [{ ...row, image_url: "/media/catalog-photo.webp" }] };
+    api.get.mockImplementation((path) => Promise.resolve(response(path, withPhoto)));
+    render(<MenuPage />);
+    await screen.findByText(row.name);
+    const table = screen.getByRole("table", { name: "Продажи" });
+    expect([...table.querySelectorAll("thead th")].slice(0, 3).map((cell) => cell.textContent)).toEqual(["№", "Фото", "Блюдо / товар"]);
+    const photo = within(table).getByRole("button", { name: `Открыть фото ${row.name}` });
+    expect(within(photo).getByRole("img")).toHaveAttribute("src", "/media/catalog-photo.webp");
+    photo.focus();
+    fireEvent.click(photo);
+    const viewer = screen.getByRole("dialog", { name: `Фото блюда ${row.name}` });
+    expect(within(viewer).getByRole("img")).toHaveAttribute("src", "/media/catalog-photo.webp");
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(photo).toHaveFocus();
+    expect(api.get.mock.calls.some(([path]) => path.startsWith("/inventory/"))).toBe(false);
+  });
+
+  it("uses an honest placeholder for missing or failed images without enabling a viewer", async () => {
+    api.get.mockImplementation((path) => Promise.resolve(response(path, { ...populated, rows: [
+      { ...row, image_url: null }, { ...row, product_id: "p2", name: "Broken photo", image_url: "/missing.webp" },
+    ] })));
+    render(<MenuPage />);
+    await screen.findByText(row.name);
+    expect(screen.getAllByLabelText("Нет фото")).toHaveLength(1);
+    fireEvent.error(screen.getByAltText("Broken photo"));
+    expect(screen.getAllByLabelText("Нет фото")).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: /Открыть фото/ })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("uses authoritative totals and counts unique product IDs in the complete returned rows", async () => {
     const data = { rows: [row, { ...row, name: "Старое название" }], totals: { quantity: "8", amount: "101", orders_count: 246 } };
     api.get.mockImplementation((path) => Promise.resolve(response(path, data)));
     render(<MenuPage />);
     await screen.findByText(row.name);
     const summary = document.querySelector(".sales-summary-grid");
-    expect(within(summary).getByText("101 UZS")).toBeInTheDocument();
-    expect(within(summary).getByText("246")).toBeInTheDocument();
+    expect(within(summary).getByText("245,67 UZS")).toBeInTheDocument();
+    expect(within(summary).queryByText("101 UZS")).not.toBeInTheDocument();
+    expect(within(summary).getByText("2")).toBeInTheDocument();
     expect(within(summary).getByText("345,67 UZS")).toBeInTheDocument();
-    expect(within(summary).getByText("3,125")).toBeInTheDocument();
+    expect(within(summary).getByText("3")).toBeInTheDocument();
     expect(within(summary).queryByText("Продано")).not.toBeInTheDocument();
     expect(within(summary).queryByText("Позиций")).not.toBeInTheDocument();
   });
@@ -218,7 +299,7 @@ describe("Sale canonical data foundation", () => {
     expect(report.positions).toBe(1);
   });
 
-  it.each([[], {}, { rows: [], totals: { quantity: 0 } }, { rows: [], totals: { quantity: "NaN", amount: 0 } }, { rows: [{ ...row, price: null }], totals: populated.totals }])("rejects invalid/legacy contract instead of inventing zero KPIs: %j", (data) => {
+  it.each([[], {}, { rows: [], totals: { quantity: 0, orders_count: 0 } }, { rows: [], totals: { quantity: "NaN", amount: 0 } }, { rows: [{ ...row, price: null }], totals: populated.totals }])("rejects invalid/legacy contract instead of inventing zero KPIs: %j", (data) => {
     expect(() => mapSalesReport(data)).toThrow("Некорректный ответ");
   });
 
@@ -388,7 +469,7 @@ describe("Sale V4 Reports filters and adaptive table", () => {
     expect(document.querySelector(".sales-category-card")).toBeNull();
     expect(document.querySelector(".sales-layout").children).toHaveLength(1);
     expect(screen.getByRole("region", { name: "Таблица продаж — прокрутка" })).toHaveAttribute("tabindex", "0");
-    expect(table.querySelectorAll("th")).toHaveLength(7);
+    expect(table.querySelectorAll("th")).toHaveLength(8);
   });
 
   it("reuses the Reports collapse markup and a bounded, shrink-wrapping Dishes-like scroll chain", () => {

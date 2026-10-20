@@ -111,6 +111,7 @@ export function AuthProvider({ children }) {
     loginPin,
     logout,
     reload: loadProfile,
+    applyProfile: (profile) => setUser((current) => current?.id === profile?.id ? { ...current, ...profile } : current),
     homeFor: (u) => getRoleHomePath(u || user),
   }), [user, loading, sessionExpired, error, loginEmail, loginPhone, loginPin, logout, loadProfile]);
 

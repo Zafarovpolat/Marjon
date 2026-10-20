@@ -2,6 +2,7 @@
 from decimal import Decimal
 from uuid import UUID
 from app.shared.base_schema import BaseSchema, BaseResponseSchema
+from pydantic import Field, model_serializer, model_validator
 
 
 class PaymentCreate(BaseSchema):
@@ -9,6 +10,35 @@ class PaymentCreate(BaseSchema):
     amount: Decimal
     method: str
     cash_received: Decimal | None = None
+    cash_amount: Decimal | None = Field(None, ge=0)
+    card_amount: Decimal | None = Field(None, ge=0)
+
+    @model_validator(mode="after")
+    def validate_manual_breakdown(self):
+        if self.cash_amount is None and self.card_amount is None:
+            return self  # Preserve the existing payment API contract.
+        if self.cash_amount is None or self.card_amount is None:
+            raise ValueError("Both cash_amount and card_amount are required")
+        if self.amount <= 0 or self.cash_amount + self.card_amount != self.amount:
+            raise ValueError("Cash and card amounts must equal the positive order total")
+        expected = "mixed" if self.cash_amount > 0 and self.card_amount > 0 else "cash" if self.cash_amount > 0 else "card"
+        if self.method != expected:
+            raise ValueError("Payment method does not match cash/card amounts")
+        if self.cash_received is not None and (self.cash_amount <= 0 or self.cash_received < self.cash_amount):
+            raise ValueError("Cash received must cover the cash part")
+        for value in (self.cash_amount, self.card_amount, self.amount, self.cash_received):
+            if value is not None and value != value.quantize(Decimal("0.01")):
+                raise ValueError("Payment amounts support at most two decimal places")
+        return self
+
+    @model_serializer(mode="wrap")
+    def serialize_without_absent_breakdown(self, handler):
+        # Old durable V1/V2 idempotency fingerprints must stay replayable.
+        payload = handler(self)
+        for key in ("cash_amount", "card_amount"):
+            if payload.get(key) is None:
+                payload.pop(key, None)
+        return payload
 
 
 class PaymentResponse(BaseResponseSchema):

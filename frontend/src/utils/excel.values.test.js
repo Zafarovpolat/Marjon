@@ -37,7 +37,7 @@ describe("excel typed values (REPORTS-EXCEL-02 truth preserved under ExcelJS)", 
     expect(total.value).toBe(33000);
     const when = ws.getCell(2, 3);
     expect(when.value).toBeInstanceOf(Date);
-    const expected = new Date(2026, 8, 18, 14, 5, 0).getTime();
+    const expected = Date.UTC(2026, 8, 18, 19, 5, 0);
     expect(Math.abs(when.value.getTime() - expected)).toBeLessThan(5000);
   });
 
@@ -75,16 +75,11 @@ describe("excel typed values (REPORTS-EXCEL-02 truth preserved under ExcelJS)", 
     expect(excelAmountNumber("nan")).toBeNull();
   });
 
-  it("excelLocalDateTime keeps browser-local wall clock without UTC shift", () => {
+  it("excelLocalDateTime encodes UTC+5 wall clock independently of the browser", () => {
     const out = excelLocalDateTime("2026-09-18T14:05:07Z");
     expect(out).toBeInstanceOf(Date);
-    const ref = new Date("2026-09-18T14:05:07Z");
-    expect(out.getFullYear()).toBe(ref.getFullYear());
-    expect(out.getMonth()).toBe(ref.getMonth());
-    expect(out.getDate()).toBe(ref.getDate());
-    expect(out.getHours()).toBe(ref.getHours());
-    expect(out.getMinutes()).toBe(ref.getMinutes());
-    expect(out.getSeconds()).toBe(ref.getSeconds());
+    expect(out.toISOString()).toBe("2026-09-18T19:05:07.000Z");
+    expect(excelLocalDateTime(out)).toBe(out);
     expect(excelLocalDateTime(null)).toBeNull();
     expect(excelLocalDateTime("")).toBeNull();
     expect(excelLocalDateTime("not-a-date")).toBeNull();
@@ -166,7 +161,7 @@ describe("REPORTS-EXCEL-04 Orders: contract + styled presentation", () => {
     expect(ws.getCell(2, 5).value).toBe("Основной зал, стол 5");
     const date = ws.getCell(2, 3);
     expect(date.value).toBeInstanceOf(Date);
-    expect(Math.abs(date.value.getTime() - new Date(2026, 8, 18, 14, 5, 0).getTime())).toBeLessThan(5000);
+    expect(Math.abs(date.value.getTime() - Date.UTC(2026, 8, 18, 19, 5, 0))).toBeLessThan(5000);
     expect(typeof ws.getCell(2, 8).value).toBe("number"); // serviceFee 9300
     expect(ws.getCell(2, 8).value).toBe(9300);
     expect(typeof ws.getCell(2, 9).value).toBe("number"); // totalAmount 33000

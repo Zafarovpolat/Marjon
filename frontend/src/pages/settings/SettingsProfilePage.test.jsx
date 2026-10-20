@@ -38,7 +38,7 @@ vi.mock("../../api/orders", () => ({
     purge: vi.fn(),
   },
 }));
-vi.mock("../../api/auth", () => ({ authService: { changePassword: vi.fn() } }));
+vi.mock("../../api/auth", () => ({ authService: { changePassword: vi.fn(), updateProfile: vi.fn(), getProfilePhoto: vi.fn() } }));
 
 vi.mock("../../context/AuthContext", () => ({
   useAuth: vi.fn(),
@@ -96,6 +96,12 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
     settingsService.getCompanyProfile.mockResolvedValue({ data: { ...COMPANY } });
     settingsService.updateCompanyProfile.mockResolvedValue({ data: { ...COMPANY } });
     authService.changePassword.mockResolvedValue({});
+    authService.getProfilePhoto.mockResolvedValue({ data: { image: "data:image/webp;base64,AAA" } });
+    authService.updateProfile.mockImplementation(async ({ name, file }) => {
+      const profile = { ...useAuth().user, name, ...(file ? { avatar_url: "/media/confirmed.webp" } : {}) };
+      useAuth.mockReturnValue({ user: profile });
+      return { data: profile };
+    });
   });
 
   afterEach(() => {
@@ -140,7 +146,7 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
 
   it("failed Save не показывает success", async () => {
     await renderPage();
-    settingsService.updateCompanyProfile.mockRejectedValueOnce({ response: { data: { detail: "Ошибка сервера" } } });
+    authService.updateProfile.mockRejectedValueOnce({ response: { data: { detail: "Ошибка сервера" } } });
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
     await screen.findByText("Ошибка сервера");
     expect(screen.queryByText("Профиль сохранён.")).not.toBeInTheDocument();
@@ -156,23 +162,23 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
     expect(screen.queryByText("Профиль сохранён.")).not.toBeInTheDocument();
   });
 
-  it("имя профиля сохраняется локально, без изменения серверной идентичности", async () => {
+  it("saves the profile name to the self-profile backend, not the company", async () => {
     useAuth.mockReturnValue({ user: { id: "owner-1", name: "Анвар" } });
     await renderPage();
     fireEvent.change(screen.getByPlaceholderText("Введите имя профиля"), { target: { value: "Жахонгир Бахтиёров" } });
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
-    await screen.findByText(/Имя профиля сохранено в этом браузере/);
-    const payload = settingsService.updateCompanyProfile.mock.calls[0][0];
-    expect(JSON.stringify(payload)).not.toContain("Жахонгир");
+    await screen.findByText("Профиль сохранён.");
+    expect(authService.updateProfile).toHaveBeenCalledWith({ name: "Жахонгир Бахтиёров", file: null });
+    expect(settingsService.updateCompanyProfile).not.toHaveBeenCalled();
     const stored = JSON.parse(localStorage.getItem("marjon_profile_settings:owner-1") || "{}");
-    expect(stored.profileName).toBe("Жахонгир Бахтиёров");
+    expect(stored.profileName).toBeUndefined();
   });
 
   it("имя профиля сохраняется после повторного открытия, отмена возвращает сохранённое", async () => {
     const view = await renderPage();
     fireEvent.change(screen.getByPlaceholderText("Введите имя профиля"), { target: { value: "  ДУКШОП  " } });
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
-    await screen.findByText(/Имя профиля сохранено в этом браузере/);
+    await screen.findByText("Профиль сохранён.");
     fireEvent.change(screen.getByPlaceholderText("Введите имя профиля"), { target: { value: "Не сохранять" } });
     fireEvent.click(screen.getByRole("button", { name: "Отменить" }));
     expect(screen.getByPlaceholderText("Введите имя профиля")).toHaveValue("ДУКШОП");
@@ -181,11 +187,12 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
     expect(screen.getByPlaceholderText("Введите имя профиля")).toHaveValue("ДУКШОП");
   });
 
-  it("фото: preview из кэша, замена работает, имя фото не трогает", async () => {
+  it("loads the server photo instead of local cache and previews a replacement", async () => {
     const photo = "data:image/png;base64,AAA";
     localStorage.setItem("marjon_profile_settings:owner-1", JSON.stringify({ photo }));
+    useAuth.mockReturnValue({ user: { id: "owner-1", name: "Владелец", avatar_url: "/media/avatar.webp" } });
     await renderPage();
-    expect(screen.getByAltText("Лого профиля")).toHaveAttribute("src", photo);
+    await waitFor(() => expect(screen.getByAltText("Лого профиля")).toHaveAttribute("src", "data:image/webp;base64,AAA"));
     const file = new File(["pixels"], "avatar.png", { type: "image/png" });
     const input = document.querySelector('.company-profile-identity input[type="file"]');
     fireEvent.change(input, { target: { files: [file] } });
@@ -205,6 +212,27 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
       "Другие настройки",
       "Настройка профиля",
     ]);
+  });
+
+  it("sends the selected photo file with the name and accepts only server-confirmed success", async () => {
+    await renderPage();
+    const file = new File(["fixture"], "avatar.png", { type: "image/png" });
+    fireEvent.change(document.querySelector('.company-profile-identity input[type="file"]'), { target: { files: [file] } });
+    await waitFor(() => expect(screen.getByAltText("Лого профиля").getAttribute("src")).toMatch(/^data:image\/png/));
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+    await screen.findByText("Профиль сохранён.");
+    expect(authService.updateProfile).toHaveBeenCalledWith({ name: "Владелец", file });
+    await waitFor(() => expect(authService.getProfilePhoto).toHaveBeenCalled());
+  });
+
+  it("does not show success or cache a name when backend validation fails", async () => {
+    authService.updateProfile.mockRejectedValueOnce({ response: { status: 422, data: { detail: [{ msg: "Invalid name" }] } } });
+    await renderPage();
+    fireEvent.change(screen.getByPlaceholderText("Введите имя профиля"), { target: { value: "Не сохранять" } });
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+    await screen.findByText(/Не удалось сохранить профиль/);
+    expect(screen.queryByText("Профиль сохранён.")).toBeNull();
+    expect(localStorage.getItem("marjon_profile_settings:owner-1")).toBeNull();
   });
 
   it("удалённые секции отсутствуют", async () => {
@@ -285,22 +313,14 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
     expect(navRule).toContain("background: #f4f7fc");
   });
 
-  it("Имя профиля: truthful initial из user, в save не отправляется", async () => {
+  it("sends a changed personal name only to the self-profile API", async () => {
     useAuth.mockReturnValue({ user: { id: "owner-1", name: "Анвар" } });
     await renderPage();
     expect(screen.getByPlaceholderText("Введите имя профиля")).toHaveValue("Анвар");
     fireEvent.change(screen.getByPlaceholderText("Введите имя профиля"), { target: { value: "Новое имя" } });
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
-    await waitFor(() => expect(settingsService.updateCompanyProfile).toHaveBeenCalled());
-    const payload = settingsService.updateCompanyProfile.mock.calls[0][0];
-    expect(payload).toEqual({
-      name: "Мой ресторан",
-      phone: COMPANY.phone,
-      address: COMPANY.address,
-      inn: COMPANY.inn,
-      currency: COMPANY.currency,
-    });
-    expect(JSON.stringify(payload)).not.toContain("Новое имя");
+    await waitFor(() => expect(authService.updateProfile).toHaveBeenCalledWith({ name: "Новое имя", file: null }));
+    expect(settingsService.updateCompanyProfile).not.toHaveBeenCalled();
   });
 
   it("шапка использует accepted Settings primitive", async () => {
@@ -336,17 +356,11 @@ describe("SettingsProfilePage V3 — success toast и truthful имя", () => {
     expect(navRule).not.toContain("transform");
   });
 
-  it("Основные данные: сохранение шлёт канонические поля и бережёт телефон/валюту", async () => {
+  it("personal save does not rewrite unchanged company metadata", async () => {
     await renderPage();
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
-    await waitFor(() => expect(settingsService.updateCompanyProfile).toHaveBeenCalled());
-    expect(settingsService.updateCompanyProfile).toHaveBeenCalledWith({
-      name: COMPANY.name,
-      phone: COMPANY.phone,
-      address: COMPANY.address,
-      inn: COMPANY.inn,
-      currency: COMPANY.currency,
-    });
+    await screen.findByText("Профиль сохранён.");
+    expect(settingsService.updateCompanyProfile).not.toHaveBeenCalled();
   });
 
   it("Опасные кнопки: две половины — отчеты слева, история продуктов справа", async () => {

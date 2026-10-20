@@ -1,4 +1,6 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import BackButton from "../components/BackButton";
+import { fireEvent, render as testingRender, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { reportsService } from "../api/reports";
@@ -6,7 +8,7 @@ import { exportToExcel } from "../utils/excel";
 import DishesReportPage from "./DishesReportPage";
 
 vi.mock("../api/reports", () => ({
-  reportsService: { listDishes: vi.fn(), getDishesFilters: vi.fn() },
+  reportsService: { listDishes: vi.fn(), getDishesFilters: vi.fn(), listOrders: vi.fn() },
 }));
 
 vi.mock("../components/ReportDateRangePicker", () => ({
@@ -14,6 +16,8 @@ vi.mock("../components/ReportDateRangePicker", () => ({
 }));
 
 vi.mock("../utils/excel", () => ({ exportToExcel: vi.fn() }));
+
+function render(ui) { return testingRender(<MemoryRouter initialEntries={["/reports/dishes"]}><BackButton />{ui}</MemoryRouter>); }
 
 const FILTERS = {
   data: {
@@ -92,6 +96,8 @@ function openDishFilter(label) {
 describe("DishesReportPage Phase 1 truthful core", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(window.history, "length", "get").mockReturnValue(2);
+    reportsService.listOrders.mockResolvedValue({ data: [] });
     reportsService.listDishes.mockResolvedValue(rowsPayload());
     reportsService.getDishesFilters.mockResolvedValue(FILTERS);
   });
@@ -108,15 +114,15 @@ describe("DishesReportPage Phase 1 truthful core", () => {
     expect(screen.queryByText("Загрузка отчёта...")).toBeNull();
     expect(document.querySelector(".dashboard-empty")).toBeNull();
     expect(document.querySelector(".report-loading-row")).toBeNull();
-    expect(screen.queryByText("1. Плов")).toBeNull();
+    expect(screen.queryByText("Плов")).toBeNull();
     resolveFirst(rowsPayload());
-    expect(await screen.findByText("1. Плов")).toBeInTheDocument();
+    expect(await screen.findByText("Плов")).toBeInTheDocument();
   });
 
   it("renders backend rows, unit and weighted price unchanged", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
-    const section = screen.getByText("1. Плов").closest("section");
+    await screen.findByText("Плов");
+    const section = screen.getByText("Плов").closest("section");
     expect(within(section).getByText("порц")).toBeInTheDocument();
     expect(within(section).getByText(/17\s*500 UZS/)).toBeInTheDocument();
     expect(within(section).getByText(/70\s*000 UZS/)).toBeInTheDocument();
@@ -124,7 +130,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 
   it("renders backend-authoritative totals instead of local sums", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     // Backend totals (999 / 888888) deliberately differ from the row sums
     // (3 / 70000): the Итого row must show the backend values.
     const totalRow = document.querySelector(".dishes-report-page .report-total-row");
@@ -135,9 +141,9 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 
   it("shows no cost, profit or status columns", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     const headers = screen.getAllByRole("columnheader").map((th) => th.textContent);
-    expect(headers).toEqual(["Название", "Ед изм", "Кол-во", "Цена", "Сумма"]);
+    expect(headers).toEqual(["№", "Фото", "Блюдо / товар", "Ед. изм.", "Кол-во", "Цена позиции", "Сумма продаж"]);
     expect(screen.queryByText("Себестоимость")).toBeNull();
     expect(screen.queryByText("Прибыль")).toBeNull();
     expect(document.querySelector(".report-status-badge")).toBeNull();
@@ -155,7 +161,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
       },
     });
     render(<DishesReportPage />);
-    await screen.findByText("1. Суп");
+    await screen.findByText("Суп");
     expect(screen.queryByText("Порция")).toBeNull();
     expect(screen.queryByText("Порция (пр)")).toBeNull();
   });
@@ -186,13 +192,13 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 
   it("keeps the totals row when rows exist", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     expect(document.querySelector(".dishes-report-page .report-total-row")).not.toBeNull();
   });
 
   it("keeps stale rows while a refetch pends and lets the latest win", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
 
     let resolveOld, resolveNew;
     reportsService.listDishes
@@ -204,7 +210,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
     fireEvent.change(search, { target: { value: "пл" } });
     await waitFor(() => expect(reportsService.listDishes.mock.calls.length).toBe(3), { timeout: 3000 });
     // Stale truthful rows stay mounted while both requests pend.
-    expect(screen.getByText("1. Плов")).toBeInTheDocument();
+    expect(screen.getByText("Плов")).toBeInTheDocument();
     expect(document.querySelector(".dishes-report-page .dashboard-empty")).toBeNull();
     resolveNew({ data: { rows: [], totals: { quantity: "0", amount: "0" } } });
     expect(await screen.findByText("Блюд не найдено")).toBeInTheDocument();
@@ -225,7 +231,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
   it("sends truthful filter params without any cook dimension", async () => {
     const user = userEvent.setup();
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
 
     expect(screen.queryByLabelText("Повар")).toBeNull();
     expect(document.querySelector(".dishes-report-page select")).toBeNull();
@@ -253,7 +259,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 
   it("multi-selects authors with OR semantics and a compact trigger", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     fireEvent.click(headerFilterToggle());
     openDishFilter("Автор");
     fireEvent.click(screen.getByRole("option", { name: "Официант 1" }));
@@ -282,7 +288,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 
   it("multi-selects type, status, payment, category and product dimensions", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     fireEvent.click(headerFilterToggle());
     openDishFilter("Тип заказа");
     fireEvent.click(screen.getByRole("option", { name: "На стол" }));
@@ -313,7 +319,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 
   it("shows all three labels for a fully selected type filter", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     fireEvent.click(headerFilterToggle());
     openDishFilter("Тип заказа");
     fireEvent.click(screen.getByRole("option", { name: "На стол" }));
@@ -327,7 +333,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 
   it("DISHES-EXCEL: exports 7 grouped columns, no metadata, no Статус, category grouping + grand total", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     fireEvent.click(headerFilterToggle());
     openDishFilter("Автор");
     fireEvent.click(screen.getByRole("option", { name: "Официант 1" }));
@@ -360,7 +366,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 
   it("Очистить resets every multi-select to placeholders with no params sent", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     fireEvent.click(headerFilterToggle());
     openDishFilter("Автор");
     fireEvent.click(screen.getByRole("option", { name: "Официант 1" }));
@@ -376,7 +382,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 
   it("opens on today and sends today/today in the initial request", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     expect(reportsService.listDishes).toHaveBeenNthCalledWith(
@@ -386,7 +392,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 
   it("shows the author placeholder in muted Orders style until selected", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     fireEvent.click(headerFilterToggle());
     const author = screen.getByRole("combobox", { name: "Автор" });
     expect(author).toHaveTextContent("Выберите автора");
@@ -399,7 +405,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 
   it("offers exactly the requested order type subset without qr", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     fireEvent.click(headerFilterToggle());
     openDishFilter("Тип заказа");
     expect(screen.getByRole("option", { name: "На стол" })).toBeInTheDocument();
@@ -412,7 +418,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 
   it("offers exactly the requested order status subset", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     fireEvent.click(headerFilterToggle());
     openDishFilter("Статус заказа");
     expect(screen.getByRole("option", { name: "Новый" })).toBeInTheDocument();
@@ -424,7 +430,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 
   it("offers backend cashier authors without local injection and sends list params", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     fireEvent.click(headerFilterToggle());
     openDishFilter("Автор");
     fireEvent.click(screen.getByRole("option", { name: "Кассир 1" }));
@@ -435,7 +441,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 
   it("keeps the dropdown exit animation mounted instead of vanishing instantly", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     fireEvent.click(headerFilterToggle());
     openDishFilter("Автор");
     expect(document.querySelector(".orders-filter-select__panel:not(.is-closing)")).not.toBeNull();
@@ -446,7 +452,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 
   it("keeps at most one dropdown panel open at a time", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     fireEvent.click(headerFilterToggle());
     openDishFilter("Автор");
     openDishFilter("Тип заказа");
@@ -456,7 +462,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 
   it("exports the current filtered dish rows grouped, with canonical grand total", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
 
     const toggle = headerFilterToggle();
     fireEvent.click(toggle);
@@ -485,7 +491,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
   it("keeps the real filters in an accessible toggle panel without resetting draft values", async () => {
     const user = userEvent.setup();
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
 
     const toggle = headerFilterToggle();
     const panel = document.getElementById("dishes-report-filters");
@@ -540,7 +546,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 
   it("live mode: no panel Apply button, category select spans two columns", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     fireEvent.click(headerFilterToggle());
     // Единственная кнопка «Фильтровать» — тоггл в шапке; в панели её нет.
     expect(screen.getAllByRole("button", { name: "Фильтровать" })).toHaveLength(1);
@@ -552,7 +558,7 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 
   it("live mode: toggling an option fires the request without Apply", async () => {
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     const callsBefore = reportsService.listDishes.mock.calls.length;
     fireEvent.click(headerFilterToggle());
     openDishFilter("Категория");
@@ -568,6 +574,8 @@ describe("DishesReportPage Phase 1 truthful core", () => {
 describe("DishesReportPage zero-downtime bridge", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(window.history, "length", "get").mockReturnValue(2);
+    reportsService.listOrders.mockResolvedValue({ data: [] });
     reportsService.getDishesFilters.mockResolvedValue(FILTERS);
   });
 
@@ -603,25 +611,25 @@ describe("DishesReportPage zero-downtime bridge", () => {
   it("CASE B: canonical object keeps backend totals authoritative (not recomputed)", async () => {
     reportsService.listDishes.mockResolvedValue(canonicalPayload());
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     const totalRow = document.querySelector(".dishes-report-page .report-total-row");
     const cells = totalRow.querySelectorAll("td");
-    expect(cells[2].textContent).toBe("99");
-    expect(/999\s*999 UZS/.test(cells[4].textContent)).toBe(true);
+    expect(cells[1].textContent).toBe("99 порц");
+    expect(/999\s*999 UZS/.test(cells[3].textContent)).toBe(true);
     // Rows sum would be 2 / 90000 — backend values must win.
-    expect(totalRow.textContent).not.toContain("1. Плов");
+    expect(totalRow.textContent).not.toContain("Плов");
   });
 
   it("CASE A: legacy array renders rows with transitional totals 5 / 204000", async () => {
     reportsService.listDishes.mockResolvedValue(legacyPayload());
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
-    expect(screen.getByText("2. Лагман")).toBeInTheDocument();
+    await screen.findByText("Плов");
+    expect(screen.getByText("Лагман")).toBeInTheDocument();
     const totalRow = document.querySelector(".dishes-report-page .report-total-row");
     expect(totalRow.textContent).toContain("Итого");
     const cells = totalRow.querySelectorAll("td");
-    expect(cells[2].textContent).toBe("5");
-    expect(/204\s*000 UZS/.test(cells[4].textContent)).toBe(true);
+    expect(cells[1].textContent).toBe("5 порц");
+    expect(/204\s*000 UZS/.test(cells[3].textContent)).toBe(true);
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
@@ -635,9 +643,9 @@ describe("DishesReportPage zero-downtime bridge", () => {
       }],
     });
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     const headers = screen.getAllByRole("columnheader").map((th) => th.textContent);
-    expect(headers).toEqual(["Название", "Ед изм", "Кол-во", "Цена", "Сумма"]);
+    expect(headers).toEqual(["№", "Фото", "Блюдо / товар", "Ед. изм.", "Кол-во", "Цена позиции", "Сумма продаж"]);
     expect(screen.queryByText("Себестоимость")).toBeNull();
     expect(screen.queryByText("Прибыль")).toBeNull();
     expect(screen.queryByText("Завершено")).toBeNull();
@@ -685,7 +693,7 @@ describe("DishesReportPage zero-downtime bridge", () => {
       data: [{ product_id: "dish-1", name: "Плов", unit: "порц", quantity: 2, price: 45000, amount: 90000 }],
     });
     const first = render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     expect(screen.getByText("порц")).toBeInTheDocument();
     first.unmount();
 
@@ -693,7 +701,7 @@ describe("DishesReportPage zero-downtime bridge", () => {
       data: [{ product_id: "dish-9", name: "Суп", unit: null, quantity: 1, price: 5000, amount: 5000 }],
     });
     render(<DishesReportPage />);
-    await screen.findByText("1. Суп");
+    await screen.findByText("Суп");
     expect(screen.queryByText("Порция")).toBeNull();
     expect(screen.queryByText("Порция (пр)")).toBeNull();
     expect(screen.queryByText("шт.")).toBeNull();
@@ -702,7 +710,7 @@ describe("DishesReportPage zero-downtime bridge", () => {
   it("exports legacy transitional totals grouped, cost/profit blank (no snapshot)", async () => {
     reportsService.listDishes.mockResolvedValue(legacyPayload());
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     document.querySelector(".report-excel-button").click();
     expect(exportToExcel).toHaveBeenCalledTimes(1);
     const [, cols, , options] = exportToExcel.mock.calls[0];
@@ -720,7 +728,7 @@ describe("DishesReportPage zero-downtime bridge", () => {
   it("exports canonical backend totals grouped with grand total", async () => {
     reportsService.listDishes.mockResolvedValue(canonicalPayload());
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
     document.querySelector(".report-excel-button").click();
     expect(exportToExcel).toHaveBeenCalledTimes(1);
     const [, cols, , options] = exportToExcel.mock.calls[0];
@@ -734,7 +742,7 @@ describe("DishesReportPage zero-downtime bridge", () => {
   it("keeps stale legacy rows while a refetch pends", async () => {
     reportsService.listDishes.mockResolvedValue(legacyPayload());
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
 
     let resolveNext;
     reportsService.listDishes.mockReturnValueOnce(
@@ -742,16 +750,16 @@ describe("DishesReportPage zero-downtime bridge", () => {
     );
     fireEvent.change(screen.getByLabelText("Поиск по названию блюда"), { target: { value: "Плов" } });
     await waitFor(() => expect(reportsService.listDishes.mock.calls.length).toBe(2), { timeout: 3000 });
-    expect(screen.getByText("1. Плов")).toBeInTheDocument();
-    expect(screen.getByText("2. Лагман")).toBeInTheDocument();
+    expect(screen.getByText("Плов")).toBeInTheDocument();
+    expect(screen.getByText("Лагман")).toBeInTheDocument();
     resolveNext(canonicalPayload());
-    expect(await screen.findByText("1. Плов")).toBeInTheDocument();
+    expect(await screen.findByText("Плов")).toBeInTheDocument();
   });
 
   it("latest request wins across mixed shapes (stale array cannot overwrite newer object)", async () => {
     reportsService.listDishes.mockResolvedValue(canonicalPayload());
     render(<DishesReportPage />);
-    await screen.findByText("1. Плов");
+    await screen.findByText("Плов");
 
     let resolveOld, resolveNew;
     reportsService.listDishes
@@ -768,12 +776,12 @@ describe("DishesReportPage zero-downtime bridge", () => {
         totals: { quantity: 1, amount: 1000 },
       },
     });
-    expect(await screen.findByText("1. Новое")).toBeInTheDocument();
+    expect(await screen.findByText("Новое")).toBeInTheDocument();
     resolveOld({
       data: [{ product_id: "dish-old", name: "Старое", unit: "порц", quantity: 9, price: 1, amount: 9 }],
     });
     await new Promise((resolve) => { setTimeout(resolve, 50); });
     expect(screen.queryByText("Старое")).toBeNull();
-    expect(screen.getByText("1. Новое")).toBeInTheDocument();
+    expect(screen.getByText("Новое")).toBeInTheDocument();
   });
 });

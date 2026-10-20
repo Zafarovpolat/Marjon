@@ -53,26 +53,16 @@ describe("Dishes drawer switches", () => {
     expect(onChange).toHaveBeenCalledWith("b");
   });
   it.each([undefined, { ...emptyDishForm, id: "dish-1", active: false, auto: true }])(
-    "replaces Menu with three independent switches in create/edit", (editing) => {
+    "shows only status and hides add-ons/auto/set controls in create/edit", (editing) => {
       render(<Drawer editing={editing} />);
       expect(screen.queryByText("Меню")).not.toBeInTheDocument();
-      // Добавки принадлежат сохранённому блюду: в режиме создания секции нет
-      // (DishesModifiers сам возвращает null), в Edit — есть.
-      if (editing) {
-        expect(screen.getByText("Добавки")).toBeInTheDocument();
-      } else {
-        expect(screen.queryByText("Добавки")).not.toBeInTheDocument();
-        expect(screen.queryByText("Добавить группу")).not.toBeInTheDocument();
-      }
-      expect(screen.getAllByRole("switch")).toHaveLength(3);
+      expect(screen.queryByText("Добавки")).not.toBeInTheDocument();
+      expect(screen.queryByText("Добавить группу")).not.toBeInTheDocument();
+      expect(screen.getAllByRole("switch")).toHaveLength(1);
       const status = screen.getByRole("switch", { name: "Статус" });
-      const auto = screen.getByRole("switch", { name: "АВТО" });
-      const set = screen.getByRole("switch", { name: "СЕТ" });
+      expect(screen.queryByRole("switch", { name: "АВТО" })).toBeNull();
+      expect(screen.queryByRole("switch", { name: "СЕТ" })).toBeNull();
       expect(status).toHaveAttribute("aria-checked", String(editing?.active !== false));
-      expect(auto).toHaveAttribute("aria-checked", String(editing?.auto === true));
-      fireEvent.click(set);
-      expect(set).toHaveAttribute("aria-checked", "true");
-      expect(auto).toHaveAttribute("aria-checked", String(editing?.auto === true));
       fireEvent.click(status);
       expect(screen.getByText(editing ? "Активен" : "Неактивен")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: editing ? "Сохранить" : "Добавить", exact: true })).toBeInTheDocument();
@@ -82,6 +72,20 @@ describe("Dishes drawer switches", () => {
   it("disables switches during save", () => {
     render(<Drawer saving />);
     for (const control of screen.getAllByRole("switch")) expect(control).toBeDisabled();
+  });
+
+  it("preserves saved hidden AUTO/SET flags when editing and saving", () => {
+    const saved = vi.fn();
+    function PreservedDrawer() {
+      const [form, setForm] = useState({ ...emptyDishForm, id: "existing-set", name: "Комбо", auto: true, set: true });
+      return <DishesDialogs drawerOpen editing={{ id: "existing-set" }} form={form} setForm={setForm}
+        saveDish={() => saved(buildNomenclatureProductPayload(form))}
+        setDrawerOpen={vi.fn()} handlePhotoChange={vi.fn()} />;
+    }
+    render(<PreservedDrawer />);
+    fireEvent.click(screen.getByRole("switch", { name: "Статус" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить", exact: true }));
+    expect(saved).toHaveBeenCalledWith(expect.objectContaining({ is_auto: true, is_set: true, is_active: false }));
   });
 
   it("uses the printer dropdown pattern for real unit labels without a choose-unit option", () => {
@@ -183,7 +187,7 @@ describe("Dishes drawer switches", () => {
     expect(screen.queryByRole("tablist", { name: "Тип позиции" })).toBeNull();
     // Раскладка правки — обычное блюдо, тумблеры на месте.
     expect(screen.getByText("Себестоимость")).toBeInTheDocument();
-    expect(screen.getAllByRole("switch")).toHaveLength(3);
+    expect(screen.getAllByRole("switch")).toHaveLength(1);
   });
 
   it("shows Сет instead of Рецепты badge for set rows", () => {
@@ -290,10 +294,9 @@ describe("Dishes drawer switches", () => {
     for (const name of ["Категория", "Ед. изм", "Принтер"]) {
       expect(screen.getByRole("combobox", { name })).toBeInTheDocument();
     }
-    // Те же 3 переключателя, СЕТ включён и синхронен с сегментом.
-    expect(screen.getAllByRole("switch")).toHaveLength(3);
-    expect(screen.getByRole("switch", { name: "СЕТ" })).toHaveAttribute("aria-checked", "true");
-    fireEvent.click(screen.getByRole("switch", { name: "СЕТ" }));
+    expect(screen.getAllByRole("switch")).toHaveLength(1);
+    expect(screen.queryByRole("switch", { name: "СЕТ" })).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "Блюдо" }));
     expect(screen.getByRole("tab", { name: "Блюдо" })).toHaveClass("is-active");
     expect(screen.getByText("Себестоимость")).toBeInTheDocument();
   });
@@ -315,7 +318,7 @@ describe("Dishes drawer switches", () => {
     expect(screen.getByRole("heading", { name: "Добавить блюдо" })).toBeInTheDocument();
     expect(screen.queryByRole("tablist", { name: "Тип позиции" })).toBeNull();
     expect(screen.queryByRole("tab", { name: "Сет" })).toBeNull();
-    expect(screen.getAllByRole("switch")).toHaveLength(2);
+    expect(screen.getAllByRole("switch")).toHaveLength(1);
     expect(screen.queryByRole("switch", { name: "СЕТ" })).toBeNull();
   });
 

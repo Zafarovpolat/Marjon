@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import logo from "../assets/marjon-logo.svg";
 import { api, formatMoney, logout } from "../api/client";
 import { settingsService } from "../api/settings";
+import { webFormat } from "../utils/webTime";
 import { printKitchenReceipt, printOrderReceipt } from "../api/receipt";
 import Icon from '../components/Icon';
 
@@ -74,13 +75,13 @@ function computeOccupancy(tables, orders) {
 
 function formatOrderTime(value) {
   if (!value) return "-";
-  return new Intl.DateTimeFormat("ru-RU", {
+  return webFormat(value, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+  });
 }
 
 async function ensureBranch() {

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import OrderReportDetails from "./reports/OrderReportDetails";
 import { reportsService } from "../api/reports";
 import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
@@ -12,6 +14,7 @@ import { toApiDate } from "./reports/reportPeriod";
 import { formatMoney } from "./reports/reportMoney";
 import { paymentMethodLabel } from "./dashboard/analyticsData";
 import { webFormat } from "../utils/webTime";
+import OrderStatus from "./reports/OrderStatus";
 
 function formatDate(value) {
   if (!value) return "—";
@@ -295,24 +298,16 @@ export default function OrdersReportPage() {
   const [filterOptions, setFilterOptions] = useState(emptyFilterOptions);
   const [filterOptionsLoading, setFilterOptionsLoading] = useState(true);
   const [rows, setRows] = useState([]);
-  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedOrder = rows.find(row => row.id === searchParams.get("order"));
+  function openOrder(row) {
+    setSearchParams(current => { const next = new URLSearchParams(current); next.set("order", row.id); return next; });
+  }
   const [loading, setLoading] = useState(true);
   const [requestVersion, setRequestVersion] = useState(0);
   const [error, setError] = useState("");
   const beginRequest = useLatestRequest();
   const beginOptionsRequest = useLatestRequest();
-  const drawerCloseRef = useRef(null);
-
-  // Details drawer keyboard contract (matches the app's established modal
-  // convention): Escape closes it, and focus moves to the close control on open
-  // so keyboard users are not stranded. Backdrop click still closes for mouse.
-  useEffect(() => {
-    if (!selectedOrder) return undefined;
-    function onKey(event) { if (event.key === "Escape") setSelectedOrder(null); }
-    window.addEventListener("keydown", onKey);
-    drawerCloseRef.current?.focus();
-    return () => window.removeEventListener("keydown", onKey);
-  }, [selectedOrder]);
 
   useEffect(() => {
     if (!panelState.closing) return undefined;
@@ -554,6 +549,8 @@ export default function OrdersReportPage() {
   // immediately, even while the first request pends (see the tbody branch).
   if (error) return <section className="orders-report-page"><div className="login-error" role="alert">{error}</div></section>;
 
+  if (selectedOrder) return <OrderReportDetails key={selectedOrder.id} row={selectedOrder} />;
+
   return (
     <section className="orders-report-page owner-report-view">
       <article className="report-page-card owner-report-surface">
@@ -622,15 +619,15 @@ export default function OrdersReportPage() {
                   role="button"
                   tabIndex={0}
                   aria-label={`Детали заказа ${row.orderNumber}`}
-                  onClick={() => setSelectedOrder(row)}
+                  onClick={() => openOrder(row)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      setSelectedOrder(row);
+                      openOrder(row);
                     }
                   }}
                 >
-                  <td><strong>{row.orderNumber}</strong></td><td>{orderTypeLabel(row.orderType)}</td><td>{formatDate(row.createdAt)}</td><td>{formatPlace(row.hallName, row.tableNumber) || "—"}</td><td className="report-total-price">{formatMoney(row.totalAmount)}</td><td>{row.waiterName ?? "—"}</td><td>{formatCashierNames(row.cashierNames)}</td><td>{row.status}</td>
+                  <td><strong>{row.orderNumber}</strong></td><td>{orderTypeLabel(row.orderType)}</td><td>{formatDate(row.createdAt)}</td><td>{formatPlace(row.hallName, row.tableNumber) || "—"}</td><td className="report-total-price">{formatMoney(row.totalAmount)}</td><td>{row.waiterName ?? "—"}</td><td>{formatCashierNames(row.cashierNames)}</td><td><OrderStatus value={row.status} /></td>
                 </tr>
               ))}
               {!visibleRows.length ? <tr className="report-empty-row"><td colSpan={8}><ReportEmptyState title="Заказов не найдено" loading={loading} /></td></tr> : null}
@@ -639,17 +636,6 @@ export default function OrdersReportPage() {
         </div>
       </article>
 
-      {selectedOrder ? (
-        <div className="order-details-drawer" role="dialog" aria-label="Детали заказа">
-          <div className="order-details-drawer__backdrop" onClick={() => setSelectedOrder(null)} />
-          <aside className="order-details-drawer__panel">
-            <div className="order-details-drawer__head"><div><span>Заказ</span><h3>{selectedOrder.orderNumber}</h3></div><button type="button" ref={drawerCloseRef} onClick={() => setSelectedOrder(null)} aria-label="Закрыть"><Icon name="bi-x-lg" size={18} /></button></div>
-            <div className="order-details-drawer__grid">
-              <div><span>ID</span><strong>{selectedOrder.publicId}</strong></div><div><span>Дата</span><strong>{formatDate(selectedOrder.createdAt)}</strong></div><div><span>Тип</span><strong>{orderTypeLabel(selectedOrder.orderType)}</strong></div><div><span>Статус</span><strong>{selectedOrder.status}</strong></div><div><span>Стол</span><strong>{selectedOrder.tableNumber ?? "—"}</strong></div><div><span>Официант</span><strong>{selectedOrder.waiterName ?? "—"}</strong></div><div><span>Кассир</span><strong>{formatCashierNames(selectedOrder.cashierNames)}</strong></div><div><span>Позиций</span><strong>{selectedOrder.itemsCount}</strong></div><div><span>Итоговая сумма</span><strong>{formatMoney(selectedOrder.totalAmount)}</strong></div>
-            </div>
-          </aside>
-        </div>
-      ) : null}
     </section>
   );
 }

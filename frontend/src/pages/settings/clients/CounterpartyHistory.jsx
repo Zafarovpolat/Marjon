@@ -5,7 +5,7 @@ import ReportDateRangePicker from "../../../components/ReportDateRangePicker";
 import ReportEmptyState from "../../../components/ReportEmptyState";
 import { formatTablePhone } from "./phone";
 import { toApiDate } from "../../reports/reportPeriod";
-import { webDayKey, webFormat } from "../../../utils/webTime";
+import { webDayKey, webFormat, webCalendarToday } from "../../../utils/webTime";
 
 export const DIRECTION_INCOME = "income";
 export const DIRECTION_EXPENSE = "expense";
@@ -73,7 +73,7 @@ export function turnover(items) {
 }
 
 function defaultPeriod() {
-  const now = new Date();
+  const now = webCalendarToday();
   const pad = (value) => String(value).padStart(2, "0");
   const fmt = (date) => `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()}`;
   const ago = new Date(now);

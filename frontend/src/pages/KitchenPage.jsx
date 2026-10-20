@@ -4,6 +4,7 @@ import logo from "../assets/marjon-logo.svg";
 import { api, logout } from "../api/client";
 import { getKitchenTemplate, printKitchenReceipt } from "../api/receipt";
 import { getWsConnection } from "../api/ws";
+import { webTime } from "../utils/webTime";
 
 async function ensureBranch() {
   const { data } = await api.get("/companies/me/branches");
@@ -31,10 +32,7 @@ function formatElapsed(dateValue, now) {
 }
 
 function formatOrderTime(dateValue) {
-  return parseBackendDate(dateValue).toLocaleTimeString("ru-RU", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return webTime(dateValue) || "—";
 }
 
 function KitchenOrderCard({ order, onRefresh, now, onPrint }) {

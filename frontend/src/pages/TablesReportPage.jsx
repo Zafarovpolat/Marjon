@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { reportsService } from "../api/reports";
-import { webDateTime } from "../utils/webTime";
+import { webDateTime, parseWebInstant } from "../utils/webTime";
 import { ordersService } from "../api/orders";
 import { paymentsService } from "../api/payments";
 import Icon from "../components/Icon";
@@ -101,9 +101,7 @@ function toNullableNumber(value) {
 // numFmt renders it dd.mm.yyyy hh:mm. Null/invalid → null (blank cell).
 function excelDateOrNull(value) {
   if (value === null || value === undefined || value === "") return null;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds());
+  return parseWebInstant(value);
 }
 
 export default function TablesReportPage() {

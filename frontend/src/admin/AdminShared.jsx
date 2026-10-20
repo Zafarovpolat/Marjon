@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { webCalendarToday, webDayKey } from "../utils/webTime";
 
 import Icon from '../components/Icon';
 
@@ -36,7 +37,7 @@ export function formatSignedFinanceAmount(value) {
 }
 
 export function presetRange(label) {
-  const today = new Date(2026, 5, 11);
+  const today = webCalendarToday();
   const start = new Date(today);
   const end = new Date(today);
 
@@ -73,7 +74,7 @@ export function adminDateToInputValue(date) {
 }
 
 export function adminTodayInputValue() {
-  return adminDateToInputValue(new Date());
+  return webDayKey();
 }
 
 export function adminReportDateToInputDate(value) {
@@ -85,7 +86,7 @@ export function adminReportDateToInputDate(value) {
 
 export function adminInputDateToReportDate(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) {
-    return formatDate(new Date());
+    return formatDate(webCalendarToday());
   }
   const [year, month, day] = value.split("-");
   return `${day}.${month}.${year}`;

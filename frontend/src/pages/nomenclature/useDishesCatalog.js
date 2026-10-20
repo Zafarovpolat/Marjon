@@ -350,9 +350,7 @@ export function useDishesCatalog() {
     setPhotoPreview("");
     setDrawerOpen(true);
     void loadUnitOptions();
-    // Добавки принадлежат сохранённому блюду: подтягиваем их при открытии
-    // карточки на редактирование (в режиме создания группы недоступны).
-    if (row?.id) void loadModGroups(row.id);
+    // Add-ons are hidden in the web drawer; do not fetch or mutate saved groups.
   };
 
   // Закрытие через exit-анимацию staff-примитива (is-closing → unmount),

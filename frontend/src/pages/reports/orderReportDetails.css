@@ -1,0 +1,32 @@
+.order-report-detail { padding: 0; color: #101b32; font-size: 13px; }
+.order-report-detail__card { background: #fff; border: 1px solid #dceaf5; border-radius: 18px; padding: 24px; }
+.order-report-detail h1 { margin: 0; font-size: 23px; line-height: 1.25; font-weight: 800; }
+.order-report-detail h1:focus { outline: none; }
+.order-report-detail h2 { margin: 0 0 16px; font-size: 19px; line-height: 1.3; font-weight: 750; }
+.order-report-detail__metadata { display: grid; grid-template-columns: auto repeat(5, minmax(0, 1fr)) auto; align-items: center; border: 1px solid #d9eaf5; border-radius: 9px; padding: 20px 10px; margin-bottom: 18px; }
+.order-report-detail__metadata > div { display: flex; flex-direction: column; text-align: center; gap: 8px; padding: 0 12px; border-right: 1px solid #dbe7f2; }
+.order-report-detail__metadata > div:last-child { border: 0; }
+.order-report-detail__metadata > div > span:not(.report-order-status) { color: #7a89a3; font-size: 14px; }
+.order-report-detail__metadata strong { font-weight: 650; font-size: 16px; line-height: 1.4; }
+.order-report-detail__columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.order-report-detail__items { border: 1px solid #d9eaf5; border-radius: 9px; padding: 16px; min-width: 0; }
+.order-report-detail__scroll { overflow-x: auto; border: 1px solid #d5e8f5; border-radius: 8px; }
+.order-report-detail table { width: 100%; min-width: 520px; border-collapse: collapse; }
+.order-report-detail th, .order-report-detail td { padding: 13px 14px; border-right: 1px solid #deedf5; border-bottom: 1px solid #deedf5; font-weight: 400; text-align: right; }
+.order-report-detail th:first-child, .order-report-detail td:first-child { width: 42px; text-align: center; }
+.order-report-detail th:nth-child(2), .order-report-detail td:nth-child(2) { text-align: left; }
+.order-report-detail th:nth-child(3), .order-report-detail td:nth-child(3) { text-align: center; }
+.order-report-detail th:last-child, .order-report-detail td:last-child { border-right: 0; }
+.order-report-detail thead, .order-report-detail tfoot { background: #e4f5fd; }
+.order-report-detail th { font-size: 15px; font-weight: 600; white-space: nowrap; }
+.order-report-detail tbody td { font-size: 14px; font-weight: 600; }
+.order-report-detail tfoot td { font-size: 18px; line-height: 1.4; font-weight: 650; border-bottom: 0; border-top: 1px solid #cddfeb; }
+.order-report-detail tfoot td:first-child { text-align: left; }
+.order-report-detail tfoot td:last-child { text-align: right; }
+.order-report-detail__error { border: 1px solid #f0b5b5; border-radius: 8px; padding: 12px; margin-bottom: 16px; color: #b02a2a; }
+@media (max-width: 1150px) { .order-report-detail__metadata { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 18px 0; } .order-report-detail__metadata .order-report-detail__identity { grid-column: 1 / 4; } .order-report-detail__metadata .order-report-detail__status { grid-column: 4 / 6; grid-row: 1; } }
+@media (max-width: 600px) { .order-report-detail__card { padding: 14px; } .order-report-detail__metadata { grid-template-columns: repeat(2, 1fr); } .order-report-detail h1 { font-size: 24px; } }
+.order-report-detail__metadata .order-report-detail__identity { text-align: left; border: 0; }
+.order-report-detail__metadata .order-report-detail__status { align-items: flex-end; border: 0; }
+@media (max-width: 600px) { .order-report-detail__metadata .order-report-detail__identity { grid-column: 1; } .order-report-detail__metadata .order-report-detail__status { grid-column: 2; } }
+

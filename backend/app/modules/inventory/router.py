@@ -549,11 +549,12 @@ async def get_stock_batches(
 async def get_outgoing_report(
     date_from: date = Query(...),
     date_to: date = Query(...),
+    web_timezone: str | None = Query(None, pattern="^Asia/Tashkent$"),
     user: User = Depends(require_permission("inventory:stock:read")),
     db: AsyncSession = Depends(get_db),
 ):
     from app.modules.inventory.outgoing_report import outgoing_report
-    return await outgoing_report(db, user.company_id, date_from, date_to)
+    return await outgoing_report(db, user.company_id, date_from, date_to, web_timezone=web_timezone)
 
 
 @router.post("/stock/movements", response_model=StockMovementResponse, status_code=status.HTTP_201_CREATED)

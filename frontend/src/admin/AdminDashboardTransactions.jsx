@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { webDateTime, webDateTimeInput, parseWebDateTimeInput } from "../utils/webTime";
 
 import { adminFinanceApi } from "./financeApi";
 
@@ -101,10 +102,7 @@ function formatTransactionAmountParts(value) {
 }
 
 function transactionDateToInputValue(value) {
-  const date = new Date(value || "");
-  if (Number.isNaN(date.getTime())) return "";
-  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return localDate.toISOString().slice(0, 16);
+  return webDateTimeInput(value);
 }
 
 function transactionAmountToInputValue(value) {
@@ -127,7 +125,7 @@ export function normalizeHqDashboardTransaction(row, index = 0) {
   return {
     id: row.id_num ?? index + 1,
     uuid: row.id || "",
-    date: row.date || row.created_at || "",
+    date: webDateTime(row.date || row.created_at) || "—",
     orgId: row.organization_id || "",
     organization: row.organization_name || "",
     counterparty: row.counterparty_name || "",
@@ -306,8 +304,8 @@ export function TransactionsTable({ onNotify }) {
       setTransactionError("Сумма должна быть больше нуля.");
       return;
     }
-    const date = new Date(transactionEditor.date || "");
-    if (Number.isNaN(date.getTime())) {
+    const date = parseWebDateTimeInput(transactionEditor.date);
+    if (!date) {
       setTransactionError("Укажите корректные дату и время.");
       return;
     }

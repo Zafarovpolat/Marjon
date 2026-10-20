@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { reportsService } from "../api/reports";
 import { webDateTime } from "../utils/webTime";
-import { ordersService } from "../api/orders";
 import Icon from "../components/Icon";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import ReportEmptyState from "../components/ReportEmptyState";
@@ -12,6 +12,9 @@ import { isAbortError, isOrderedDateRange, useLatestRequest } from "../hooks/use
 import { formatDateLabel, todayInputValue } from "../utils/date";
 import { toApiDate } from "./reports/reportPeriod";
 import { formatMoney } from "./reports/reportMoney";
+import { groupCancelledOrders } from "./reports/cancelledOrderGroups";
+import CancelledOrderDetails from "./reports/CancelledOrderDetails";
+import { isCancellationAcknowledged, useCancellationAcknowledgements } from "../hooks/useCancellationAcknowledgements";
 
 // Cancelled Dishes Phase 1B: OWNER truthful report on the Phase 1A backend
 // contract. Waiter (Order.waiter_id) and Author (scope-aware cancelled_by)
@@ -59,11 +62,6 @@ const ORDER_TYPE_LABELS = {
   takeaway: "На вынос",
   delivery: "Доставка",
   qr: "QR",
-};
-
-const SCOPE_LABELS = {
-  item: "Отмена позиции",
-  order: "Отмена заказа",
 };
 
 function normalizeAuthorOptions(authors) {
@@ -145,7 +143,7 @@ function normalizeCancelledReportResponse(data) {
 // TABLES-family finalized contract: the user-approved 9-column workbook, one
 // row per cancelled OrderItem. Money/quantity are numeric-typed cells, Дата is
 // a real Excel datetime; missing values stay BLANK (never "—"), real 0 stays 0.
-// Официант / Тип / Действие are deliberately screen-only and never exported.
+// Тип is screen-only and is not exported.
 export function cancelledExcelColumns() {
   return [
     { key: "date", label: "Дата", type: "date", format: "dd.mm.yyyy hh:mm", width: 18 },
@@ -183,9 +181,19 @@ export function toCancelledExcelRow(row) {
 }
 
 export default function CancelledDishesReportPage() {
+  const { receipts, loaded: acknowledgementsLoaded } = useCancellationAcknowledgements();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedOrderId = searchParams.get("cancelledOrder");
+  const eventDate = searchParams.get("eventDate") || searchParams.get("dateFrom");
+  const eventEnd = searchParams.get("eventDate") || searchParams.get("dateTo");
+  const validDay = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value || "") && !Number.isNaN(Date.parse(value));
+  const notificationDate = validDay(eventDate) && validDay(eventEnd) && eventDate <= eventEnd ? eventDate : null;
+  const linkedEnd = notificationDate ? eventEnd : null;
   // Cancelled opens on today only (local calendar day, preset "Сегодня").
   // Period stays a draft until «Фильтровать», same as the frozen page rule.
-  const [filters, setFilters] = useState(todayFilters);
+  const [filters, setFilters] = useState(() => notificationDate
+    ? { ...initialFilters, from: notificationDate, to: linkedEnd }
+    : todayFilters());
   const [appliedFilters, setAppliedFilters] = useState(filters);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterOptions, setFilterOptions] = useState(emptyFilterOptions);
@@ -196,14 +204,25 @@ export default function CancelledDishesReportPage() {
   // Shared open-panel orchestration (Orders/Dishes/Tables parity): at most
   // one floating panel (period popover or filter dropdown) at a time.
   const [panelState, setPanelState] = useState({ active: "", closing: "", pending: "" });
-  // Details: the selected row; canonical order contents lazy-load on open.
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [orderDetails, setOrderDetails] = useState({});
+  useEffect(() => {
+    if (!notificationDate) return;
+    // Notifications may open while this report already shows another period
+    // or actor filter. Request the event day without hiding its order.
+    const next = { ...initialFilters, from: notificationDate, to: linkedEnd };
+    setFilters(next);
+    setAppliedFilters(next);
+  }, [notificationDate, linkedEnd, selectedOrderId]);
+  function openOrder(order) {
+    // Push a real history entry: the existing topbar/browser Back returns to
+    // the list without unmounting this page or resetting its report filters.
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("cancelledOrder", order.id);
+      return next;
+    });
+  }
   const beginRequest = useLatestRequest();
   const beginOptionsRequest = useLatestRequest();
-  const detailRequest = useLatestRequest();
-  const selectedRowRef = useRef(null);
-  const drawerCloseRef = useRef(null);
 
   useEffect(() => {
     if (!panelState.closing) return undefined;
@@ -215,16 +234,6 @@ export default function CancelledDishesReportPage() {
     document.addEventListener("mousedown", cancelPendingOnOutsideClick);
     return () => document.removeEventListener("mousedown", cancelPendingOnOutsideClick);
   }, [panelState.closing]);
-
-  // Modal keyboard contract (Tables parity): Escape closes, focus moves to
-  // the close control on open so keyboard users are not stranded.
-  useEffect(() => {
-    if (!selectedRow) return undefined;
-    function onKey(event) { if (event.key === "Escape") closeDetails(); }
-    window.addEventListener("keydown", onKey);
-    drawerCloseRef.current?.focus();
-    return () => window.removeEventListener("keydown", onKey);
-  }, [selectedRow]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Author/dish directories load independently from report rows so the
   // pickers stay useful even when the current result is empty.
@@ -303,6 +312,8 @@ export default function CancelledDishesReportPage() {
   ]);
 
   const filteredRows = rows;
+  const orderGroups = useMemo(() => groupCancelledOrders(filteredRows), [filteredRows]);
+  const selectedOrder = orderGroups.find((order) => order.id === selectedOrderId);
   const activeFilterEntries = Object.entries({
     orderNumber: appliedFilters.orderNumber,
     authorId: appliedFilters.authorId,
@@ -391,33 +402,6 @@ export default function CancelledDishesReportPage() {
     requestPanel("");
   }
 
-  function openDetails(row) {
-    selectedRowRef.current = row;
-    setSelectedRow(row);
-    if (!row.orderId || orderDetails[row.orderId]) return;
-    // Lazy canonical order contents only for the opened row; cached after.
-    // No eager per-row requests.
-    const request = detailRequest();
-    const rowId = row.id;
-    ordersService.get(row.orderId, { signal: request.signal })
-      .then(({ data }) => {
-        if (!request.isCurrent()) return;
-        if (selectedRowRef.current?.id !== rowId) return;
-        setOrderDetails((current) => ({ ...current, [row.orderId]: { data } }));
-      })
-      .catch((err) => {
-        if (!request.isCurrent() || isAbortError(err)) return;
-        if (selectedRowRef.current?.id !== rowId) return;
-        setOrderDetails((current) => ({ ...current, [row.orderId]: { error: true } }));
-      });
-  }
-
-  function closeDetails() {
-    selectedRowRef.current = null;
-    detailRequest();
-    setSelectedRow(null);
-  }
-
   function downloadExcel() {
     // Finalized family workbook: no «Период» metadata block (the sheet starts
     // at the business header), a real Итого row via the shared totals option.
@@ -447,7 +431,9 @@ export default function CancelledDishesReportPage() {
     });
   }
 
-  const selectedDetail = selectedRow && selectedRow.orderId ? orderDetails[selectedRow.orderId] : null;
+  if (selectedOrder) {
+    return <CancelledOrderDetails key={selectedOrder.id} order={selectedOrder} />;
+  }
 
   // Shell-first: title/controls/table header render immediately, even while
   // the first request pends or when loading fails (inline error, no
@@ -531,43 +517,30 @@ export default function CancelledDishesReportPage() {
               <tr>
                 <th>Номер заказа</th>
                 <th>Дата</th>
-                <th>Название</th>
                 <th>Номер стола</th>
                 <th>Кол-во</th>
-                <th>Официант</th>
+                <th>Автор</th>
                 <th>Тип</th>
                 <th>Сумма</th>
-                <th>Автор</th>
-                <th>Действие</th>
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.orderNumber}</td>
+              {orderGroups.map((row) => (
+                <tr key={row.id} className="cancelled-order-row" tabIndex={0} aria-label={`Заказ №${row.orderNumber}`} onClick={() => openOrder(row)} onKeyDown={(event) => {
+                  if (event.target === event.currentTarget && ["Enter", " "].includes(event.key)) { event.preventDefault(); openOrder(row); }
+                }}>
+                  <td><span className="cancelled-order-number">{row.orderNumber}{acknowledgementsLoaded && row.orderId && row.items.some(item => !isCancellationAcknowledged(receipts, row.orderId, item.reportEventAt)) ? <span className="cancelled-order-unread" role="img" aria-label="Не ознакомлен" title="Вы ещё не нажали «Ознакомлен»" /> : null}</span></td>
                   <td>{row.date}</td>
-                  <td><strong>{row.name}</strong></td>
                   <td>{row.tableNumber ?? "—"}</td>
-                  <td>{row.quantity}</td>
-                  <td>{row.waiterName ?? "—"}</td>
+                  <td>{row.quantity ?? "—"}</td>
+                  <td>{row.authorName ?? "—"}</td>
                   <td>{row.orderType ? (ORDER_TYPE_LABELS[row.orderType] || row.orderType) : "—"}</td>
                   <td>{row.amount == null ? "—" : formatMoney(row.amount)}</td>
-                  <td>{row.authorName ?? "—"}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="cancelled-details-action"
-                      onClick={() => openDetails(row)}
-                      aria-label={`Детали отмены ${row.orderNumber} — ${row.name}`}
-                    >
-                      <Icon name="bi-eye" size={17} />
-                    </button>
-                  </td>
                 </tr>
               ))}
               {!filteredRows.length ? (
                 <tr className="cancelled-empty-row">
-                  <td colSpan={10}>
+                  <td colSpan={7}>
                     <ReportEmptyState title="Отменённых блюд нет" loading={loading} />
                   </td>
                 </tr>
@@ -577,68 +550,6 @@ export default function CancelledDishesReportPage() {
         </div>
       </article>
 
-      {selectedRow ? (
-        <div className="order-details-drawer" role="dialog" aria-label={`Детали отмены ${selectedRow.orderNumber}`}>
-          <div className="order-details-drawer__backdrop" onClick={closeDetails} />
-          <aside className="order-details-drawer__panel">
-            <div className="order-details-drawer__head">
-              <div>
-                <span>Отменённые блюда</span>
-                <h3>Заказ №{selectedRow.orderNumber}</h3>
-                <span>{selectedRow.name}</span>
-              </div>
-              <button type="button" ref={drawerCloseRef} onClick={closeDetails} aria-label="Закрыть"><Icon name="bi-x-lg" size={18} /></button>
-            </div>
-            <div className="order-details-drawer__grid">
-              <div><span>Дата</span><strong>{selectedRow.date || "—"}</strong></div>
-              <div><span>Блюдо</span><strong>{selectedRow.name || "—"}</strong></div>
-              <div><span>Кол-во</span><strong>{selectedRow.quantity}</strong></div>
-              <div><span>Цена</span><strong>{selectedRow.price == null ? "—" : formatMoney(selectedRow.price)}</strong></div>
-              <div><span>Сумма</span><strong>{selectedRow.amount == null ? "—" : formatMoney(selectedRow.amount)}</strong></div>
-              <div><span>Официант</span><strong>{selectedRow.waiterName ?? "—"}</strong></div>
-              <div><span>Автор</span><strong>{selectedRow.authorName ?? "—"}</strong></div>
-              <div><span>Тип заказа</span><strong>{selectedRow.orderType ? (ORDER_TYPE_LABELS[selectedRow.orderType] || selectedRow.orderType) : "—"}</strong></div>
-              <div><span>Номер стола</span><strong>{selectedRow.tableNumber ?? "—"}</strong></div>
-              <div><span>Отмена</span><strong>{selectedRow.scope ? (SCOPE_LABELS[selectedRow.scope] || selectedRow.scope) : "—"}</strong></div>
-            </div>
-            <div className="order-details-drawer__detail">
-              {!selectedRow.orderId ? (
-                <div role="status">Детали заказа недоступны для этой строки.</div>
-              ) : !selectedDetail ? (
-                <div role="status">Загрузка деталей заказа…</div>
-              ) : selectedDetail.error ? (
-                <div role="alert">Не удалось загрузить детали заказа.</div>
-              ) : (
-                <>
-                  <table className="order-details-drawer__items" aria-label={`Позиции заказа №${selectedRow.orderNumber}`}>
-                    <thead><tr><th>Название</th><th>Кол-во</th><th>Цена</th><th>Сумма</th></tr></thead>
-                    <tbody>
-                      {/* Canonical order contents (GET /pos/orders/{id}); the
-                          cancelled-line amount above always stays the backend
-                          `amount` snapshot, never a value derived here. */}
-                      {(selectedDetail.data.items || []).map((position, index) => (
-                        <tr key={String(position.product_id || position.id || index)}>
-                          <td>{position.name}</td>
-                          <td>{String(Number(position.quantity ?? 0))}</td>
-                          <td>{formatMoney(position.price)}</td>
-                          <td>{formatMoney(position.total)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <div className="order-details-drawer__totals">
-                    <div><span>Подытог</span><strong>{formatMoney(selectedDetail.data.subtotal)}</strong></div>
-                    <div><span>Скидка</span><strong>{formatMoney(selectedDetail.data.discount_amount)}</strong></div>
-                    <div><span>Налог</span><strong>{formatMoney(selectedDetail.data.tax_amount)}</strong></div>
-                    <div><span>Обслуживание</span><strong>{formatMoney(selectedDetail.data.service_fee)}</strong></div>
-                    <div><span>Итого</span><strong>{formatMoney(selectedDetail.data.total_amount)}</strong></div>
-                  </div>
-                </>
-              )}
-            </div>
-          </aside>
-        </div>
-      ) : null}
     </section>
   );
 }

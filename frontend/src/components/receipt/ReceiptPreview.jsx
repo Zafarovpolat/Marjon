@@ -1,4 +1,5 @@
 import { Fragment, useLayoutEffect, useRef, useState } from "react";
+import { webFormat } from "../../utils/webTime";
 import { CUSTOMER_BLOCKS, KITCHEN_BLOCKS, normalizeLineSpacing } from "../../api/receipt";
 import { orderedBlocks } from "../../pages/settings/receiptBlockOrder";
 
@@ -76,25 +77,23 @@ function itemQuantity(item) {
 }
 
 function formatCustomerDate(value) {
-  const date = new Date(value || Date.now());
-  return new Intl.DateTimeFormat("ru-RU", {
+  return webFormat(value || new Date(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(date).replace(",", "");
+  }).replace(",", "");
 }
 
 function formatKitchenDate(value) {
-  const date = new Date(value || Date.now());
-  return new Intl.DateTimeFormat("ru-RU", {
+  return webFormat(value || new Date(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(date);
+  });
 }
 
 export function getCustomerReceiptTotals(order = {}) {

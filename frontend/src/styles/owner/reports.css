@@ -3232,6 +3232,13 @@
   }
 }
 
+.cancelled-report-page .cancelled-table thead th { font-size: 14px; text-align: center; }
+.cancelled-report-page .cancelled-table tbody td { font-size: 15px; text-align: center; }
+.cancelled-report-page .cancelled-table tfoot td { font-size: 16px; font-weight: 750; }
+.orders-report-page .owner-report-table thead th { font-size: 14px; }
+.orders-report-page .owner-report-table tbody td,
+.orders-report-page .owner-report-table tbody td .report-order-status { font-size: 14px; }
+
 /* TITLE-UNIFICATION-01: ordinary reports adopt the accepted Clients title
    rhythm (600 + clamp(24px, 2.4vw, 28px)). Page-scoped to the five ordinary
    report shells only — the shared `.owner-report-heading h1` rule (and the

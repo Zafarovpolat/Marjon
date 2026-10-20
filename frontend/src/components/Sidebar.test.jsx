@@ -90,20 +90,20 @@ describe("OWNER Sidebar", () => {
     expect(getLinkByHref("/finance/transactions")).toBeInTheDocument();
   });
 
-  it("shows and live-updates the saved profile name only for the current user", () => {
+  it("ignores stale local profile names in favor of the authenticated server user", () => {
     updateStoredProfile("owner", { profileName: "ДУКШОП" });
-    renderSidebar(users.owner);
-    expect(document.querySelector(".sidebar-user__meta strong")).toHaveTextContent("ДУКШОП");
+    renderSidebar({ ...users.owner, name: "Имя с сервера" });
+    expect(document.querySelector(".sidebar-user__meta strong")).toHaveTextContent("Имя с сервера");
     act(() => { updateStoredProfile("other-user", { profileName: "Другой пользователь" }); });
-    expect(document.querySelector(".sidebar-user__meta strong")).toHaveTextContent("ДУКШОП");
+    expect(document.querySelector(".sidebar-user__meta strong")).toHaveTextContent("Имя с сервера");
     act(() => { updateStoredProfile("owner", { profileName: "Новое имя" }); });
-    expect(document.querySelector(".sidebar-user__meta strong")).toHaveTextContent("Новое имя");
+    expect(document.querySelector(".sidebar-user__meta strong")).toHaveTextContent("Имя с сервера");
   });
 
   it("keeps a long profile name intact for the two-line account label", () => {
     const name = "Саидалиев Мухаммадюсуф";
     updateStoredProfile("owner", { profileName: name });
-    renderSidebar(users.owner);
+    renderSidebar({ ...users.owner, name });
     const label = document.querySelector(".sidebar-user__name");
     expect(label).toHaveTextContent(name);
     expect(label).toHaveAttribute("title", name);

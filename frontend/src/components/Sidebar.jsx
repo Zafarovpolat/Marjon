@@ -5,6 +5,7 @@ import brandLogo from "../assets/brand/marjon-neon-logo-v110.png";
 import { logout } from "../api/client";
 import { canAccessPath, filterNavItems } from "../utils/permissions";
 import { readStoredProfile } from "../utils/profileCache";
+import { useProfilePhoto } from "../hooks/useProfilePhoto";
 import { isNavPathActive, navItems } from "./sidebar/navConfig";
 import SidebarSearch from "./sidebar/SidebarSearch";
 import SidebarNav from "./sidebar/SidebarNav";
@@ -31,10 +32,11 @@ export default function Sidebar({ user, collapsed, onToggle }) {
   const [lang, setLang] = useState(() => localStorage.getItem("marjon_lang") || "ru");
   const [storedProfile, setStoredProfile] = useState(() => readStoredProfile(user?.id));
   const accountRef = useRef(null);
-  const savedProfileName = typeof storedProfile.profileName === "string" ? storedProfile.profileName.trim() : "";
-  const displayName = savedProfileName || user?.full_name || user?.name || user?.email || "Owner";
-  const profileCardName = savedProfileName || user?.full_name || user?.name || (user?.email ? `${user.email.slice(0, 14)}...` : "manager@marjon...");
-  const profilePhoto = storedProfile.photo || logo;
+  // Server identity wins over obsolete browser-only profile overrides.
+  const displayName = user?.name || user?.full_name || user?.email || "Owner";
+  const profileCardName = user?.name || user?.full_name || (user?.email ? `${user.email.slice(0, 14)}...` : "manager@marjon...");
+  const serverPhoto = useProfilePhoto(user);
+  const profilePhoto = serverPhoto || logo;
 
   // Ролевая фильтрация пунктов меню (ТЗ §2.2)
   const visibleNavItems = useMemo(() => filterNavItems(navItems, user), [user]);
@@ -194,7 +196,7 @@ export default function Sidebar({ user, collapsed, onToggle }) {
         user={user}
         profilePhoto={profilePhoto}
         profileCardName={profileCardName}
-        storedProfile={storedProfile}
+        storedProfile={{ ...storedProfile, photo: serverPhoto }}
         canOpenProfile={canOpenProfile}
         canOpenSupport={canOpenSupport}
         canOpenStore={canOpenStore}

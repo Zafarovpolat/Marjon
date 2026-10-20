@@ -11,12 +11,12 @@ from app.modules.inventory.warehouse_models import ExpenseDocument
 from app.shared.exceptions import ValidationError
 
 
-async def outgoing_report(db, company_id, date_from: date, date_to: date):
+async def outgoing_report(db, company_id, date_from: date, date_to: date, *, web_timezone: str | None = None):
     if date_from > date_to:
         raise ValidationError("date_from must not be after date_to")
     tz_name = await db.scalar(select(Company.timezone).where(Company.id == company_id))
     try:
-        tz = ZoneInfo(tz_name or "Asia/Tashkent")
+        tz = ZoneInfo(web_timezone or tz_name or "Asia/Tashkent")
     except (ZoneInfoNotFoundError, KeyError):
         tz = ZoneInfo("Asia/Tashkent")
     start = datetime.combine(date_from, time.min, tzinfo=tz).astimezone(timezone.utc)

@@ -1,10 +1,26 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render as testingRender, screen, waitFor, within } from "@testing-library/react";
+import { MemoryRouter, useNavigate } from "react-router-dom";
+import BackButton from "../components/BackButton";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { reportsService } from "../api/reports";
 import { ordersService } from "../api/orders";
 import { exportToExcel } from "../utils/excel";
 import { formatMoney } from "./reports/reportMoney";
 import CancelledDishesReportPage from "./CancelledDishesReportPage";
+import { __resetReportCache } from "./reports/reportResultCache";
+import { cancellationAcknowledgements } from "../api/cancellationAcknowledgements";
+vi.mock("../api/cancellationAcknowledgements", () => ({
+  cancellationAcknowledgements: { list: vi.fn(async () => ({ data: [] })), acknowledge: vi.fn() },
+}));
+
+function render(ui, entry = "/reports/cancelled-dishes") {
+  return testingRender(<MemoryRouter initialEntries={[entry]}><BackButton />{ui}</MemoryRouter>);
+}
+
+function NotificationLink() {
+  const navigate = useNavigate();
+  return <button onClick={() => navigate("/reports/cancelled-dishes?eventDate=2026-08-12&cancelledOrder=order%3Aorder-1")}>Отменённый заказ из уведомления</button>;
+}
 
 vi.mock("../api/reports", () => ({
   reportsService: { listCancelledDishes: vi.fn(), getCancelledFilters: vi.fn() },
@@ -117,18 +133,58 @@ async function awaitFilterDirectory() {
 describe("CancelledDishesReportPage Phase 1B", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    cancellationAcknowledgements.list.mockResolvedValue({ data: [] });
+    cancellationAcknowledgements.acknowledge.mockResolvedValue({ data: { order_id: "order-1", acknowledged_at: "2026-10-20T06:00:00Z" } });
+    vi.spyOn(window.history, "length", "get").mockReturnValue(2);
+    __resetReportCache();
     reportsService.listCancelledDishes.mockResolvedValue({ data: [] });
     reportsService.getCancelledFilters.mockResolvedValue(FILTERS);
     ordersService.get.mockResolvedValue({ data: { items: [], subtotal: 0 } });
   });
 
-  it("renders the exact 10 visible columns with no totals row", async () => {
+  it("renders the exact 7 visible columns without dish names or totals row", async () => {
     render(<CancelledDishesReportPage />);
-    for (const label of ["Номер заказа", "Дата", "Название", "Номер стола", "Кол-во", "Официант", "Тип", "Сумма", "Автор", "Действие"]) {
+    for (const label of ["Номер заказа", "Дата", "Номер стола", "Кол-во", "Автор", "Тип", "Сумма"]) {
       expect(await screen.findByRole("columnheader", { name: label })).toBeInTheDocument();
     }
     expect(screen.queryByText("Итого")).toBeNull();
+    expect(screen.queryByRole("columnheader", { name: "Название" })).toBeNull();
     expect(screen.queryByRole("columnheader", { name: "Ед. изм." })).toBeNull();
+  });
+
+  it("shows one row per order and opens only that order's cancelled positions", async () => {
+    reportsService.listCancelledDishes.mockResolvedValue({ data: [
+      cancelledRow({ order_id: "o20", order_number: "20", order_item_id: "i1", name: "Суп", quantity: 1, amount: 32000 }),
+      cancelledRow({ order_id: "o20", order_number: "20", order_item_id: "i2", name: "Борщ", quantity: 1, amount: 31000 }),
+      cancelledRow({ order_id: "o17", order_number: "17", order_item_id: "i3", name: "Хот док", quantity: 1, amount: 25000 }),
+    ] });
+    render(<CancelledDishesReportPage />);
+    await waitFor(() => expect(document.querySelector(".cancelled-table-wrap")).toHaveAttribute("aria-busy", "false"));
+    const order = await screen.findByRole("row", { name: "Заказ №20" });
+    const table = screen.getByRole("table", { name: "Отчёт по отменённым блюдам" });
+    expect(table.querySelectorAll("tbody tr")).toHaveLength(2);
+    expect(within(order).getByText("63 000 UZS")).toBeInTheDocument();
+    order.focus();
+    fireEvent.keyDown(order, { key: "Enter" });
+    expect(screen.getByRole("heading", { name: "Заказ №20" })).toHaveFocus();
+    expect(screen.getAllByRole("button", { name: "Назад" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Ознакомлен" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("table", { name: "Отчёт по отменённым блюдам" })).toBeNull();
+    const details = screen.getByRole("table", { name: "Отменённые позиции заказа 20" });
+    expect(details.querySelectorAll("tbody tr")).toHaveLength(2);
+    expect(within(details).getByText("Суп")).toBeInTheDocument();
+    expect(within(details).getByText("Борщ")).toBeInTheDocument();
+    expect(within(details).queryByText("Хот док")).toBeNull();
+    expect(ordersService.get).not.toHaveBeenCalled();
+    expect(document.body.style.overflow).not.toBe("hidden");
+    fireEvent.click(screen.getByRole("button", { name: "Назад" }));
+    expect(await screen.findByRole("row", { name: "Заказ №20" })).toBeInTheDocument();
+    expect(reportsService.listCancelledDishes).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("row", { name: "Заказ №17" }));
+    const otherDetails = screen.getByRole("table", { name: "Отменённые позиции заказа 17" });
+    expect(within(otherDetails).getByText("Хот док")).toBeInTheDocument();
+    expect(within(otherDetails).queryByText("Суп")).toBeNull();
   });
 
   it("opens on today and loads the filters directory independently", async () => {
@@ -140,19 +196,104 @@ describe("CancelledDishesReportPage Phase 1B", () => {
     expect(reportsService.getCancelledFilters).toHaveBeenCalledTimes(1);
   });
 
+  it("marks only unreviewed orders, including a newer cancellation after acknowledgement", async () => {
+    reportsService.listCancelledDishes.mockResolvedValue({ data: [
+      cancelledRow({ order_id: "reviewed", order_number: "20" }),
+      cancelledRow({ order_id: "unread", order_number: "22", order_item_id: "i2" }),
+      cancelledRow({ order_id: "new-event", order_number: "17", order_item_id: "i3", report_event_at: "2026-10-20T07:00:00Z" }),
+    ] });
+    cancellationAcknowledgements.list.mockResolvedValue({ data: [
+      { order_id: "reviewed", acknowledged_at: "2026-10-20T06:00:00Z" },
+      { order_id: "new-event", acknowledged_at: "2026-10-20T06:00:00Z" },
+    ] });
+    render(<CancelledDishesReportPage />);
+    const reviewed = await screen.findByRole("row", { name: "Заказ №20" });
+    expect(within(reviewed).queryByRole("img", { name: "Не ознакомлен" })).toBeNull();
+    expect(await within(screen.getByRole("row", { name: "Заказ №22" })).findByRole("img", { name: "Не ознакомлен" })).toBeInTheDocument();
+    expect(within(screen.getByRole("row", { name: "Заказ №17" })).getByRole("img", { name: "Не ознакомлен" })).toBeInTheDocument();
+  });
+
+  it("removes the indicator after acknowledgement and topbar Back without changing report rows", async () => {
+    reportsService.listCancelledDishes.mockResolvedValue({ data: [cancelledRow()] });
+    render(<CancelledDishesReportPage />);
+    const row = await screen.findByRole("row", { name: "Заказ №ORD-42" });
+    await within(row).findByRole("img", { name: "Не ознакомлен" });
+    fireEvent.click(row);
+    fireEvent.click(screen.getByRole("button", { name: "Ознакомлен" }));
+    await screen.findByRole("button", { name: "Ознакомлен ✓" });
+    fireEvent.click(screen.getByRole("button", { name: "Назад" }));
+    const restored = await screen.findByRole("row", { name: "Заказ №ORD-42" });
+    expect(within(restored).queryByRole("img", { name: "Не ознакомлен" })).toBeNull();
+    expect(within(restored).getByText("600 UZS")).toBeInTheDocument();
+  });
+
+  it("opens the cancellation list for the period linked from Sales", async () => {
+    render(<CancelledDishesReportPage />, "/reports/cancelled-dishes?dateFrom=2026-08-01&dateTo=2026-08-12");
+    await waitFor(() => expect(reportsService.listCancelledDishes).toHaveBeenCalledWith(
+      "2026-08-01", "2026-08-12", expect.anything(),
+    ));
+    expect(screen.getByRole("heading", { name: "Отчёт по отменённым блюдам" })).toBeInTheDocument();
+  });
+
+  it("opens the exact notification order on its event day, not today's day or public number", async () => {
+    reportsService.listCancelledDishes.mockResolvedValue({ data: [
+      cancelledRow(),
+      cancelledRow({ order_id: "other-id", order_item_id: "other-item", name: "Другой заказ" }),
+    ] });
+    render(<CancelledDishesReportPage />, "/reports/cancelled-dishes?eventDate=2026-08-12&cancelledOrder=order%3Aorder-1");
+    expect(await screen.findByRole("heading", { name: "Заказ №ORD-42" })).toBeInTheDocument();
+    const table = screen.getByRole("table", { name: "Отменённые позиции заказа ORD-42" });
+    expect(within(table).getByText("Плов")).toBeInTheDocument();
+    expect(within(table).queryByText("Другой заказ")).toBeNull();
+    expect(reportsService.listCancelledDishes).toHaveBeenCalledWith("2026-08-12", "2026-08-12", expect.anything());
+  });
+
+  it("switches from an already-open filtered report to the notification order", async () => {
+    reportsService.listCancelledDishes.mockResolvedValue({ data: [cancelledRow()] });
+    render(<><NotificationLink /><CancelledDishesReportPage /></>);
+    await awaitFilterDirectory();
+    fireEvent.click(headerFilterToggle());
+    fireEvent.change(screen.getByLabelText("Номер заказа"), { target: { value: "OTHER" } });
+    fireEvent.click(panelApplyButton());
+    await waitFor(() => expect(lastReportFilters().orderNumber).toBe("OTHER"));
+    fireEvent.click(screen.getByRole("button", { name: "Отменённый заказ из уведомления" }));
+    await waitFor(() => expect(reportsService.listCancelledDishes).toHaveBeenLastCalledWith(
+      "2026-08-12", "2026-08-12", expect.objectContaining({ filters: { orderNumber: "", authorId: [], dishName: [] } }),
+    ));
+    expect(await screen.findByRole("heading", { name: "Заказ №ORD-42" })).toBeInTheDocument();
+  });
+
+  it("keeps applied and draft filters when returning from order details", async () => {
+    reportsService.listCancelledDishes.mockResolvedValue({ data: [cancelledRow()] });
+    render(<CancelledDishesReportPage />);
+    await awaitFilterDirectory();
+    fireEvent.click(headerFilterToggle());
+    fireEvent.change(screen.getByLabelText("Номер заказа"), { target: { value: "ORD-42" } });
+    fireEvent.click(panelApplyButton());
+    await waitFor(() => expect(lastReportFilters().orderNumber).toBe("ORD-42"));
+    await waitFor(() => expect(document.querySelector(".cancelled-table-wrap")).toHaveAttribute("aria-busy", "false"));
+    const requests = reportsService.listCancelledDishes.mock.calls.length;
+    fireEvent.click(screen.getByRole("row", { name: "Заказ №ORD-42" }));
+    expect(screen.getByRole("heading", { name: "Заказ №ORD-42" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Назад" }));
+    expect(await screen.findByLabelText("Номер заказа")).toHaveValue("ORD-42");
+    expect(screen.getByLabelText("Активные фильтры")).toHaveTextContent("Номер заказа: ORD-42");
+    expect(reportsService.listCancelledDishes).toHaveBeenCalledTimes(requests);
+  });
+
   it("maps rows from truthful backend fields, keeping waiter and author separate", async () => {
     reportsService.listCancelledDishes.mockResolvedValue({ data: [cancelledRow()] });
     render(<CancelledDishesReportPage />);
-    const row = await screen.findByText("Плов").then((node) => node.closest("tr"));
+    const row = await screen.findByRole("row", { name: "Заказ №ORD-42" });
     const cells = within(row).getAllByRole("cell");
     expect(cells[0]).toHaveTextContent("ORD-42");
     expect(cells[1]).toHaveTextContent(/12\.08\.2026/);
-    expect(cells[3]).toHaveTextContent("5");
-    expect(cells[4]).toHaveTextContent("2");
-    expect(cells[5]).toHaveTextContent("Официант Али");
-    expect(cells[6]).toHaveTextContent("На месте");
-    expect(cells[7]).toHaveTextContent(formatMoney(600));
-    expect(cells[8]).toHaveTextContent("Кассир Вали");
+    expect(cells[2]).toHaveTextContent("5");
+    expect(cells[3]).toHaveTextContent("2");
+    expect(cells[4]).toHaveTextContent("Кассир Вали");
+    expect(within(row).queryByText("Официант Али")).toBeNull();
+    expect(cells[5]).toHaveTextContent("На месте");
+    expect(cells[6]).toHaveTextContent(formatMoney(600));
   });
 
   it("renders — for missing author, waiter, and table without substitution", async () => {
@@ -160,19 +301,18 @@ describe("CancelledDishesReportPage Phase 1B", () => {
       data: [cancelledRow({ waiter_name: null, cancelled_by_name: null, table_number: null, amount: null })],
     });
     render(<CancelledDishesReportPage />);
-    const row = await screen.findByText("Плов").then((node) => node.closest("tr"));
+    const row = await screen.findByRole("row", { name: "Заказ №ORD-42" });
     const cells = within(row).getAllByRole("cell");
-    expect(cells[3]).toHaveTextContent("—");
-    expect(cells[5]).toHaveTextContent("—");
-    expect(cells[7]).toHaveTextContent("—");
-    expect(cells[8]).toHaveTextContent("—");
+    expect(cells[2]).toHaveTextContent("—");
+    expect(cells[4]).toHaveTextContent("—");
+    expect(cells[6]).toHaveTextContent("—");
   });
 
   it("falls back to unknown type labels truthfully and maps known types", async () => {
     reportsService.listCancelledDishes.mockResolvedValue({
       data: [
         cancelledRow({ order_item_id: "a", order_type: "qr" }),
-        cancelledRow({ order_item_id: "b", order_type: "mystery_type" }),
+        cancelledRow({ order_item_id: "b", order_id: "other-order", order_type: "mystery_type" }),
       ],
     });
     render(<CancelledDishesReportPage />);
@@ -270,7 +410,7 @@ describe("CancelledDishesReportPage Phase 1B", () => {
   it("exports the finalized 9-column contract with typed cells, Итого, and no Период", async () => {
     reportsService.listCancelledDishes.mockResolvedValue({ data: [cancelledRow()] });
     render(<CancelledDishesReportPage />);
-    await screen.findAllByText("Плов");
+    await screen.findByRole("row", { name: "Заказ №ORD-42" });
     fireEvent.click(screen.getByRole("button", { name: "Скачать Excel" }));
     expect(exportToExcel).toHaveBeenCalledTimes(1);
     const [lines, columns, filename, options] = exportToExcel.mock.calls[0];
@@ -334,7 +474,7 @@ describe("CancelledDishesReportPage Phase 1B", () => {
       ],
     });
     render(<CancelledDishesReportPage />);
-    await screen.findByText("Лагман");
+    await screen.findByRole("row", { name: "Заказ №ORD-42" });
     fireEvent.click(screen.getByRole("button", { name: "Скачать Excel" }));
     const [lines] = exportToExcel.mock.calls[0];
     expect(lines).toHaveLength(3);
@@ -351,16 +491,12 @@ describe("CancelledDishesReportPage Phase 1B", () => {
       })],
     });
     render(<CancelledDishesReportPage />);
-    await screen.findAllByText("Плов");
+    await screen.findByRole("row", { name: "Заказ №ORD-42" });
     fireEvent.click(screen.getByRole("button", { name: "Скачать Excel" }));
     const [lines] = exportToExcel.mock.calls[0];
     expect(lines[0].date).toBeInstanceOf(Date);
-    // Built from report_event_at's wall-clock (2026-08-12 09:30), never 2000.
-    expect(lines[0].date.getFullYear()).toBe(2026);
-    expect(lines[0].date.getMonth()).toBe(7);
-    expect(lines[0].date.getDate()).toBe(12);
-    expect(lines[0].date.getHours()).toBe(9);
-    expect(lines[0].date.getMinutes()).toBe(30);
+    // Naive backend UTC 09:30 is 14:30 Tashkent, encoded as floating Excel time.
+    expect(lines[0].date.toISOString()).toBe("2026-08-12T14:30:00.000Z");
   });
 
   it("exports quantity as a real number preserving decimals and zero", async () => {
@@ -372,7 +508,7 @@ describe("CancelledDishesReportPage Phase 1B", () => {
       ],
     });
     render(<CancelledDishesReportPage />);
-    await screen.findAllByText("Плов");
+    await screen.findByRole("row", { name: "Заказ №ORD-42" });
     fireEvent.click(screen.getByRole("button", { name: "Скачать Excel" }));
     const [lines] = exportToExcel.mock.calls[0];
     expect(lines.map((l) => l.quantity)).toEqual([1, 0, 1.5]);
@@ -386,7 +522,7 @@ describe("CancelledDishesReportPage Phase 1B", () => {
       ],
     });
     render(<CancelledDishesReportPage />);
-    await screen.findAllByText("Плов");
+    await screen.findByRole("row", { name: "Заказ №ORD-42" });
     fireEvent.click(screen.getByRole("button", { name: "Скачать Excel" }));
     const [lines] = exportToExcel.mock.calls[0];
     // Real zero stays numeric 0; missing stays blank (null), never 0 or "—".
@@ -403,7 +539,7 @@ describe("CancelledDishesReportPage Phase 1B", () => {
       data: [cancelledRow({ price: 300, quantity: 2, amount: 555 })],
     });
     render(<CancelledDishesReportPage />);
-    await screen.findAllByText("Плов");
+    await screen.findByRole("row", { name: "Заказ №ORD-42" });
     fireEvent.click(screen.getByRole("button", { name: "Скачать Excel" }));
     const [lines] = exportToExcel.mock.calls[0];
     expect(lines[0].amount).toBe(555);
@@ -414,7 +550,7 @@ describe("CancelledDishesReportPage Phase 1B", () => {
       data: [cancelledRow({ unit: "кг" })],
     });
     render(<CancelledDishesReportPage />);
-    await screen.findAllByText("Плов");
+    await screen.findByRole("row", { name: "Заказ №ORD-42" });
     fireEvent.click(screen.getByRole("button", { name: "Скачать Excel" }));
     const [lines] = exportToExcel.mock.calls[0];
     expect(lines[0].unit).toBe("кг");
@@ -425,7 +561,7 @@ describe("CancelledDishesReportPage Phase 1B", () => {
       data: [cancelledRow({ waiter_name: "Официант Али", cancelled_by_name: null })],
     });
     render(<CancelledDishesReportPage />);
-    await screen.findAllByText("Плов");
+    await screen.findByRole("row", { name: "Заказ №ORD-42" });
     fireEvent.click(screen.getByRole("button", { name: "Скачать Excel" }));
     const [lines, columns] = exportToExcel.mock.calls[0];
     expect(lines[0].authorName).toBe("");
@@ -443,7 +579,7 @@ describe("CancelledDishesReportPage Phase 1B", () => {
       ],
     });
     render(<CancelledDishesReportPage />);
-    await screen.findAllByText("Плов");
+    await screen.findByRole("row", { name: "Заказ №ORD-42" });
     fireEvent.click(screen.getByRole("button", { name: "Скачать Excel" }));
     const [, , , options] = exportToExcel.mock.calls[0];
     // Quantity fully known → numeric sum; amount has an unknown → blank total.
@@ -463,6 +599,7 @@ describe("CancelledDishesReportPage Phase 1B", () => {
     fireEvent.click(panelApplyButton());
     first.resolve({ data: [cancelledRow({ order_item_id: "stale", name: "Stale Plov" })] });
     second.resolve({ data: [cancelledRow({ order_item_id: "fresh", name: "Fresh Lagman" })] });
+    fireEvent.click(await screen.findByRole("row", { name: "Заказ №ORD-42" }));
     expect(await screen.findByText("Fresh Lagman")).toBeInTheDocument();
     expect(screen.queryByText("Stale Plov")).toBeNull();
   });
@@ -476,35 +613,27 @@ describe("CancelledDishesReportPage Phase 1B", () => {
     await Promise.resolve();
   });
 
-  it("lazy-loads canonical order details only when the action opens", async () => {
-    ordersService.get.mockResolvedValue({
-      data: {
-        items: [{ product_id: "p-1", name: "Плов", quantity: 2, price: 300, total: 600 }],
-        subtotal: 600, discount_amount: 0, tax_amount: 72, service_fee: 0, total_amount: 672,
-      },
-    });
-    reportsService.listCancelledDishes.mockResolvedValue({ data: [cancelledRow()] });
+  it.each(["Официант Али", "Кассир Вали", null])("shows the cancellation actor %s in both tables without actions or waiter fallback", async (author) => {
+    reportsService.listCancelledDishes.mockResolvedValue({ data: [cancelledRow({ cancelled_by_name: author })] });
     render(<CancelledDishesReportPage />);
-    const row = await screen.findByText("Плов").then((node) => node.closest("tr"));
+    const row = await screen.findByRole("row", { name: "Заказ №ORD-42" });
+    expect(within(row).getAllByRole("cell")[4]).toHaveTextContent(author ?? "—");
+    expect(within(row).queryByRole("button")).toBeNull();
+    fireEvent.click(row);
+    const table = screen.getByRole("table", { name: "Отменённые позиции заказа ORD-42" });
+    expect(within(table).getAllByRole("columnheader").map(cell => cell.textContent)).toEqual([
+      "Номер заказа", "Дата", "Название", "Номер стола", "Кол-во", "Автор", "Тип", "Сумма",
+    ]);
+    const item = table.querySelector("tbody tr");
+    expect(within(item).getAllByRole("cell")).toHaveLength(8);
+    expect(within(item).getAllByRole("cell")[5]).toHaveTextContent(author ?? "—");
+    expect(within(table).queryByRole("button")).toBeNull();
+    expect(table.querySelector("tfoot tr").textContent).toContain("600 UZS");
     expect(ordersService.get).not.toHaveBeenCalled();
-    fireEvent.click(within(row).getByRole("button", { name: /Детали отмены/ }));
-    await waitFor(() => expect(ordersService.get).toHaveBeenCalledWith("order-1", expect.anything()));
-    expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByText("Отмена позиции")).toBeInTheDocument();
-    expect(screen.getByText("672 UZS")).toBeInTheDocument();
-    // Cached: reopening the same row issues no second request.
-    fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
-    fireEvent.click(within(row).getByRole("button", { name: /Детали отмены/ }));
-    await screen.findByRole("dialog");
-    expect(ordersService.get).toHaveBeenCalledTimes(1);
+    if (author !== "Официант Али") {
+      expect(within(row).queryByText("Официант Али")).toBeNull();
+      expect(within(item).queryByText("Официант Али")).toBeNull();
+    }
   });
 
-  it("shows an inline detail error without fake data", async () => {
-    ordersService.get.mockRejectedValue(new Error("order unavailable"));
-    reportsService.listCancelledDishes.mockResolvedValue({ data: [cancelledRow()] });
-    render(<CancelledDishesReportPage />);
-    const row = await screen.findByText("Плов").then((node) => node.closest("tr"));
-    fireEvent.click(within(row).getByRole("button", { name: /Детали отмены/ }));
-    expect(await screen.findByText("Не удалось загрузить детали заказа.")).toBeInTheDocument();
-  });
 });

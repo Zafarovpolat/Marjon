@@ -47,7 +47,8 @@ export function formatSalesLabel(item) {
   if (item && typeof item.chartLabel === "string" && item.chartLabel) return item.chartLabel;
   // API отдаёт snake_case: почасовые бакеты несут chart_label ("HH:00").
   if (item && typeof item.chart_label === "string" && item.chart_label) return item.chart_label;
-  return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit" }).format(new Date(item.date));
+  const match = String(item?.date || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[3]}.${match[2]}` : "";
 }
 
 // Keep the complete HTML tooltip inside the clipped chart field. At a high

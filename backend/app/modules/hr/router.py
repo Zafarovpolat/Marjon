@@ -82,7 +82,7 @@ async def log_attendance(data: AttendanceCreate, user: User = Depends(require_we
 
 @router.get("/attendance", response_model=list[AttendanceRow])
 async def list_attendance(user: User = Depends(require_web_owner), db: AsyncSession = Depends(get_db)):
-    return await AdminReportService(db).attendance_history(user.company_id, effective_branch_filter(user))
+    return await AdminReportService(db, web_timezone="Asia/Tashkent").attendance_history(user.company_id, effective_branch_filter(user))
 
 
 @router.patch("/employees/{employee_id}", response_model=EmployeeResponse)
@@ -106,7 +106,7 @@ async def delete_employee(
 
 @router.get("/login-history", response_model=list[LoginHistoryRow])
 async def login_history(user: User = Depends(require_web_owner), db: AsyncSession = Depends(get_db)):
-    return await AdminReportService(db).login_history(user.company_id, effective_branch_filter(user))
+    return await AdminReportService(db, web_timezone="Asia/Tashkent").login_history(user.company_id, effective_branch_filter(user))
 
 
 # ── DESK-ATT-01: посещаемость с десктоп-кассы ────────────────────────────────

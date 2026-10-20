@@ -9,13 +9,13 @@ import WaiterPicker from './WaiterPicker'
 /**
  * PaymentModal — оплата и закрытие СУЩЕСТВУЮЩЕГО заказа (переданного официантом).
  * Кассир: печатает чек → при необходимости даёт скидку → выбирает способ оплаты → закрывает заказ.
- * Оплату (платёжку) интегрируем позже — сейчас способ фиксируется вручную.
+ * Кассир вручную подтверждает получение денег; /payments сохраняет оплату и закрывает заказ.
  *
  * props:
  *   order — заказ ({ order_number, table_number, items[], total_amount, waiter_id, created_at })
  *   staff — сотрудники (для «кто добавил» и смены официанта)
  *   onPrint(order) — печать чека (через сетевой принтер)
- *   onComplete(order, method) — закрыть заказ (status → completed)
+ *   onComplete(order, method, detail) — подтвердить оплату и закрыть заказ
  *   onApplyDiscount(order, amount) — применить скидку к заказу (PATCH /orders)
  *   onSetWaiter(order, waiterId) — сменить ответственного официанта всего заказа (стола)
  *   onSetItemWaiter(order, item, waiterId) — сменить ответственного официанта у ОДНОЙ позиции

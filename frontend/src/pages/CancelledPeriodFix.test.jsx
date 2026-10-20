@@ -1,7 +1,12 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render as testingRender, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { reportsService } from "../api/reports";
 import CancelledDishesReportPage from "./CancelledDishesReportPage";
+
+function render(ui) {
+  return testingRender(<MemoryRouter>{ui}</MemoryRouter>);
+}
 
 // VISUAL FIX 01 regression net: the real shared ReportDateRangePicker
 // (NOT mocked here) must behave on Cancelled exactly like the oracle pages.

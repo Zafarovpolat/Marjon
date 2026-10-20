@@ -4,6 +4,7 @@ import { authService } from "../../../api/auth";
 import { readStoredProfile, updateStoredProfile } from "../../../utils/profileCache";
 import { isAbortError, useLatestRequest, useMutationLocks } from "../../../hooks/useAsyncSafety";
 import { emptyForm } from "./profileSections";
+import { useProfilePhoto } from "../../../hooks/useProfilePhoto";
 
 // Контроллер страницы «Настройка профиля» (V1: 4 секции).
 // Канонические поля компании грузятся/сохраняются через PATCH /companies/me.
@@ -13,13 +14,8 @@ import { emptyForm } from "./profileSections";
 export const PROFILE_PASSWORD_BACKEND_SUPPORTED = true;
 export const CLEAR_REPORTS_BACKEND_SUPPORTED = false;
 export const ORDER_TYPES_BACKEND_SUPPORTED = true;
-// Имя профиля: GET /auth/me отдаёт `name`, но редактируемого
-// self-эндпоинта нет — PATCH /auth/users/{id} запрещает правки
-// собственной записи (403 "Protected company identity cannot be
-// changed"), а authService держит только getCurrentUser.
-// Отображаемое имя сохраняется отдельно в локальном профиле пользователя,
-// не меняя серверную идентичность, роль или данные компании.
-export const PROFILE_NAME_BACKEND_SUPPORTED = false;
+// Display identity is persisted through the narrow authenticated self-profile API.
+export const PROFILE_NAME_BACKEND_SUPPORTED = true;
 
 // Матрица поддержки backend для секции «Основные настройки»:
 // FIELD | BACKEND FIELD | GET | PATCH | PERSISTED
@@ -43,10 +39,14 @@ export const MAIN_SETTINGS_SUPPORT = Object.freeze({
 
 const EMPTY_ORDER_TYPES = Object.freeze({ dineIn: true, takeaway: true, delivery: true });
 
-export function useCompanyProfileForm(user) {
+export function useCompanyProfileForm(user, onProfileSaved) {
+  const serverPhoto = useProfilePhoto(user);
+  const [profileFile, setProfileFile] = useState(null);
+  const savedProfileName = useRef(user?.name || user?.full_name || "");
+  const photoReadVersion = useRef(0);
   const storedProfile = useMemo(() => readStoredProfile(user?.id), [user?.id]);
-  const [form, setForm] = useState({ ...emptyForm, profileLogo: storedProfile.photo || "" });
-  const [savedForm, setSavedForm] = useState({ ...emptyForm, profileLogo: storedProfile.photo || "" });
+  const [form, setForm] = useState({ ...emptyForm, profileLogo: "" });
+  const [savedForm, setSavedForm] = useState({ ...emptyForm, profileLogo: "" });
   const [activeSection, setActiveSectionState] = useState("basic");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -118,14 +118,20 @@ export function useCompanyProfileForm(user) {
   const [passSaving, setPassSaving] = useState(false);
 
   // Персональная подпись интерфейса: локальный профиль, затем GET /auth/me.
-  const derivedProfileName = typeof storedProfile.profileName === "string"
-    ? storedProfile.profileName
-    : user?.name || user?.full_name || "";
+  const derivedProfileName = user?.name || user?.full_name || "";
   const [profileName, setProfileNameState] = useState("");
   const [profileNamePristine, setProfileNamePristine] = useState(true);
   useEffect(() => {
-    if (profileNamePristine) setProfileNameState(readStoredProfile(user?.id).profileName ?? derivedProfileName);
+    savedProfileName.current = derivedProfileName;
+    if (profileNamePristine) setProfileNameState(derivedProfileName);
   }, [derivedProfileName, profileNamePristine, user?.id]);
+
+  useEffect(() => {
+    if (!profileFile) {
+      setForm((current) => ({ ...current, profileLogo: serverPhoto }));
+      setSavedForm((current) => ({ ...current, profileLogo: serverPhoto }));
+    }
+  }, [serverPhoto, profileFile]);
 
   useEffect(() => {
     const request = beginRequest();
@@ -139,10 +145,10 @@ export function useCompanyProfileForm(user) {
           inn: data.inn || "",
           currency: data.currency || "UZS",
           companyLogo: storedProfile.companyLogo || "",
-          profileLogo: storedProfile.photo || "",
+          profileLogo: serverPhoto,
         };
-        setForm(next);
-        setSavedForm(next);
+        setForm((current) => ({ ...next, profileLogo: current.profileLogo }));
+        setSavedForm((current) => ({ ...next, profileLogo: current.profileLogo }));
         const nextMain = {
           dayStartHour: data?.day_start_hour != null ? String(data.day_start_hour) : "0",
           vatRate: data?.vat_rate != null ? String(data.vat_rate) : "",
@@ -166,7 +172,7 @@ export function useCompanyProfileForm(user) {
         if (request.isCurrent() && !isAbortError(err)) setError(err.response?.data?.detail || "Не удалось загрузить профиль.");
       })
       .finally(() => { if (request.isCurrent()) setLoading(false); });
-  }, [beginRequest, storedProfile.companyLogo, storedProfile.name, storedProfile.photo, user?.id]);
+  }, [beginRequest, storedProfile.companyLogo, user?.id]);
 
   function setActiveSection(key) {
     if (key !== "profile") resetPassword();
@@ -191,20 +197,22 @@ export function useCompanyProfileForm(user) {
   function handleImageChange(key, event) {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setError("Выберите файл изображения.");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      setError("Выберите JPG, PNG или WebP размером до 5 МБ.");
       return;
     }
-
+    if (key === "profileLogo") setProfileFile(file);
+    const version = ++photoReadVersion.current;
     const reader = new FileReader();
-    reader.onload = () => set(key, String(reader.result || ""));
+    reader.onload = () => { if (version === photoReadVersion.current) set(key, String(reader.result || "")); };
     reader.readAsDataURL(file);
   }
 
   function resetForm() {
+    photoReadVersion.current++;
+    setProfileFile(null);
     setForm(savedForm);
-    setProfileNameState(readStoredProfile(user?.id).profileName ?? derivedProfileName);
-    setProfileNamePristine(true);
+    setProfileNameState(savedProfileName.current);
     setError("");
     clearSuccess();
   }
@@ -219,8 +227,8 @@ export function useCompanyProfileForm(user) {
   async function handleSave(event) {
     event.preventDefault();
     if (!acquire("company-profile-save")) return;
-    if (!form.name.trim()) {
-      setError("Укажите название компании.");
+    if (!profileName.trim() || profileName.trim().length > 255) {
+      setError("Укажите имя профиля от 1 до 255 символов.");
       clearSuccess();
       release("company-profile-save");
       return;
@@ -230,7 +238,7 @@ export function useCompanyProfileForm(user) {
     clearSuccess();
 
     try {
-      // Имя профиля умышленно вне payload: backend-правки нет.
+      // Company metadata and personal identity use separate scoped endpoints.
       const payload = {
         name: form.name,
         phone: savedForm.phone,
@@ -238,7 +246,8 @@ export function useCompanyProfileForm(user) {
         inn: form.inn,
         currency: savedForm.currency,
       };
-      const { data } = await settingsService.updateCompanyProfile(payload);
+      const companyChanged = ["name", "address", "inn"].some((key) => form[key] !== savedForm[key]);
+      const { data } = companyChanged ? await settingsService.updateCompanyProfile(payload) : { data: savedForm };
       if (!data || typeof data !== "object") throw new Error("Backend не вернул сохранённый профиль.");
       const confirmed = {
         ...form,
@@ -248,25 +257,27 @@ export function useCompanyProfileForm(user) {
         inn: data.inn || "",
         currency: data.currency || "UZS",
       };
+      const { data: profile } = await authService.updateProfile({ name: profileName.trim(), file: profileFile });
+      if (profile?.id !== user?.id || typeof profile?.name !== "string") throw new Error("Backend не подтвердил сохранение профиля.");
       const nextStored = {
         ...readStoredProfile(user?.id),
         name: confirmed.name,
-        photo: form.profileLogo,
         companyLogo: form.companyLogo,
-        profileName: profileName.trim(),
       };
-      if (!updateStoredProfile(user?.id, nextStored)) throw new Error("Не удалось сохранить локальный профиль.");
+      delete nextStored.photo;
+      delete nextStored.profileName;
+      try { updateStoredProfile(user?.id, nextStored); } catch { /* Server is authoritative even when browser storage is unavailable. */ }
       setForm(confirmed);
       setSavedForm(confirmed);
-      setProfileNameState(nextStored.profileName);
-      // Серверное имя/логин не изменяются; явно сообщаем область сохранения.
-      if (profileName.trim() !== derivedProfileName.trim()) {
-        flashSuccess("Профиль сохранён. Имя профиля сохранено в этом браузере.");
-      } else {
-        flashSuccess("Профиль сохранён.");
-      }
+      savedProfileName.current = profile.name;
+      setProfileNameState(profile.name);
+      setProfileFile(null);
+      onProfileSaved?.(profile);
+      // Success only follows the server-confirmed personal profile response.
+      flashSuccess("Профиль сохранён.");
     } catch (err) {
-      setError(err.response?.data?.detail || "Не удалось сохранить профиль.");
+      const detail = err.response?.data?.detail;
+      setError(typeof detail === "string" ? detail : "Не удалось сохранить профиль. Проверьте имя и фото и повторите попытку.");
     } finally {
       setSaving(false);
       release("company-profile-save");

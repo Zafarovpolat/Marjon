@@ -1,17 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { reportsService } from "../api/reports";
-import { financeService } from "../api/finance";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { reportsService, analyticsService } from "../api/reports";
 import Icon from "../components/Icon";
 import Toast from "../components/Toast";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import ReportMultiSelect from "../components/ReportMultiSelect";
 import ReportEmptyState from "../components/ReportEmptyState";
+import DishPhotoViewer from "../components/DishPhotoViewer";
 import { isAbortError, isOrderedDateRange, useLatestRequest } from "../hooks/useAsyncSafety";
 import { formatDateLabel, todayInputValue } from "../utils/date";
 import { toApiDate } from "./reports/reportPeriod";
 
 const columns = [
   { key: "index", label: "№", width: 56 },
+  { key: "photo", label: "Фото", width: 72 },
   { key: "dish", label: "Блюдо / товар", width: 230 },
   { key: "category", label: "Категория", width: 178 },
   { key: "sold", label: "Продано", width: 116 },
@@ -30,6 +32,24 @@ const reportNumber = (value) => {
 const numberLabel = (value) => value.toLocaleString("ru-RU", { maximumFractionDigits: 3 });
 const moneyLabel = (value) => `${value.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} UZS`;
 
+function SalePhoto({ photo, name, onOpen }) {
+  const [failed, setFailed] = useState(false);
+  if (!photo || failed) return <span className="sales-photo" aria-label="Нет фото"><Icon name="bi-image" /></span>;
+  return <button type="button" className="sales-photo" aria-label={`Открыть фото ${name}`} aria-haspopup="dialog" onClick={onOpen}>
+    <img src={photo} alt={name} loading="lazy" decoding="async" onError={() => setFailed(true)} />
+  </button>;
+}
+
+// Same authoritative paid-order snapshot as OwnerDashboard, never table totals
+// or Finance operations. Missing historical costs remain unavailable, not zero.
+export function mapDashboardSalesKpis(data) {
+  if (data?.metric_basis !== "completed_income_minus_snapshot_cogs") throw new Error("Некорректный ответ отчёта о продажах.");
+  const orders = reportNumber(data.today_orders);
+  if (!Number.isInteger(orders) || orders < 0) throw new Error("Некорректный ответ отчёта о продажах.");
+  return { income: reportNumber(data.income_total), paidRevenue: data.today_revenue == null ? null : reportNumber(data.today_revenue),
+    paidOrders: orders, profitUnavailableReason: data.profit_unavailable_reason || "Не сохранена историческая себестоимость блюд." };
+}
+
 // Strict canonical {rows, totals}: no orders/master-price/legacy-array fallback.
 // Only numbering/formatting and amount/totals.amount share are computed here.
 export function mapSalesReport(data) {
@@ -45,6 +65,7 @@ export function mapSalesReport(data) {
       key: `${item.product_id}:${item.name}:${index}`,
       productId: String(item.product_id),
       dish: item.name,
+      photo: typeof item.image_url === "string" ? item.image_url : "",
       categoryId: item.category_id ?? null,
       category: item.category_name ?? "Без категории",
       sold: reportNumber(item.quantity),
@@ -75,6 +96,8 @@ export default function MenuPage() {
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [categoryClosing, setCategoryClosing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const closePhotoPreview = useCallback(() => setPhotoPreview(null), []);
   const [visibleColumns, setVisibleColumns] = useState(allColumns);
   const settingsRef = useRef(null);
   const settingsTriggerRef = useRef(null);
@@ -119,16 +142,16 @@ export default function MenuPage() {
       setLoading(false);
       return;
     }
-    // Publish one complete period snapshot, never old finance/cancellations
-    // alongside a new table. Finance and cancellation scope is period-only.
+    // Publish one complete period snapshot. Table filters do not alter the
+    // dashboard-equivalent cards; their scope is the whole selected period.
     Promise.all([
       reportsService.listDishes(dateFrom, dateTo, { filters, signal: request.signal }),
-      financeService.getIncomeSummary({ dateFrom, dateTo, signal: request.signal }),
+      analyticsService.getOwnerFinancials(dateFrom, dateTo, { signal: request.signal }),
       reportsService.getCancelledSummary(dateFrom, dateTo, { signal: request.signal }),
     ])
-      .then(([sales, income, cancelled]) => {
+      .then(([sales, financials, cancelled]) => {
         if (!request.isCurrent()) return;
-        setReport({ ...mapSalesReport(sales.data), income: reportNumber(income.data?.income_amount), cancelledQuantity: reportNumber(cancelled.data?.quantity) });
+        setReport({ ...mapSalesReport(sales.data), ...mapDashboardSalesKpis(financials.data), cancelledOrders: reportNumber(cancelled.data?.orders_count) });
       })
       .catch((err) => {
         if (!request.isCurrent() || isAbortError(err)) return;
@@ -161,6 +184,7 @@ export default function MenuPage() {
   function cell(row, key, index) {
     switch (key) {
       case "index": return index + 1;
+      case "photo": return <SalePhoto key={row.photo} photo={row.photo} name={row.dish} onOpen={() => setPhotoPreview(row)} />;
       case "dish": return <strong>{row.dish}</strong>;
       case "category": return <span className="sales-category-pill">{row.category}</span>;
       case "sold": return numberLabel(row.sold);
@@ -188,10 +212,10 @@ export default function MenuPage() {
         </header>
 
         <div className="sales-summary-grid" aria-label="Итоги отчёта" aria-busy={loading}>
-          <article className="sales-kpi sales-kpi--income" aria-label="Денежные приходы"><div className="sales-kpi-heading"><span>Денежные приходы</span></div><strong>{report ? moneyLabel(report.income) : "—"}</strong><small>Все категории · по дате операции</small></article>
-          <article className="sales-kpi sales-kpi--revenue" aria-label="Выручка"><div className="sales-kpi-heading"><span>Выручка</span></div><strong>{report ? moneyLabel(report.amount) : "—"}</strong><small>Фильтры таблицы · по дате заказа</small></article>
-          <article className="sales-kpi sales-kpi--orders" aria-label="Заказы"><div className="sales-kpi-heading"><span>Заказы</span></div><strong>{report ? numberLabel(report.ordersCount) : "—"}</strong><small>Фильтры таблицы · по дате заказа</small></article>
-          <article className="sales-kpi sales-kpi--cancelled" aria-label="Отменённые блюда"><div className="sales-kpi-heading"><span>Отменённые блюда</span></div><strong>{report ? numberLabel(report.cancelledQuantity) : "—"}</strong><small title="Для старых отмен без даты используется дата создания заказа.">Все категории · по дате отмены</small></article>
+          <article className="sales-kpi sales-kpi--income" aria-label="Денежный приход"><div className="sales-kpi-heading"><span>Денежный приход</span></div><strong>{report ? moneyLabel(report.income) : "—"}</strong><small>Все категории · по дате оплаты</small></article>
+          <article className="sales-kpi sales-kpi--revenue" aria-label="Выручка" title={report?.paidRevenue == null ? report?.profitUnavailableReason : undefined}><div className="sales-kpi-heading"><span>Выручка</span></div><strong>{report ? report.paidRevenue == null ? "Недоступно" : moneyLabel(report.paidRevenue) : "—"}</strong><small>Денежный приход − себестоимость блюд</small></article>
+          <article className="sales-kpi sales-kpi--orders" aria-label="Заказы"><div className="sales-kpi-heading"><span>Заказы</span></div><strong>{report ? numberLabel(report.paidOrders) : "—"}</strong><small>Оплаченные завершённые · по дате оплаты</small></article>
+          <article className="sales-kpi sales-kpi--cancelled" aria-label="Отменённые заказы"><Link className="sales-kpi-cancelled-link" to={`/reports/cancelled-dishes?${new URLSearchParams({ dateFrom: toApiDate(period.start) || "", dateTo: toApiDate(period.end) || "" })}`}><div className="sales-kpi-heading"><span>Отменённые заказы</span></div><strong>{report ? numberLabel(report.cancelledOrders) : "—"}</strong><small title="Заказы с отменами, включая отдельные позиции. Для старых отмен без даты используется дата создания заказа.">Все категории · по дате отмены</small></Link></article>
         </div>
         {/* Orders' actual collapse/field/button classes, scoped to a filter island.
             Drafts stay mounted when closed; only this form applies them. */}
@@ -230,6 +254,7 @@ export default function MenuPage() {
           </div></div>
         </div>}
       </div>
+      {photoPreview ? <DishPhotoViewer photo={photoPreview.photo} name={photoPreview.dish} onClose={closePhotoPreview} /> : null}
     </section>
   );
 }

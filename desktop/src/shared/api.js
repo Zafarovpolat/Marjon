@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { DEFAULT_SERVER_URL } from './config'
+import { submitOrderPayment } from './orderPayments.mjs'
 
 function baseURL() {
   return localStorage.getItem('marjon_server_url') || DEFAULT_SERVER_URL
@@ -285,6 +286,12 @@ export const orders = {
   cancel: (id, password, comment) => api.delete(`/pos/orders/${id}`, {
     params: { ...(password ? { password } : {}), ...(comment ? { comment } : {}) },
   }).then((r) => r.data),
+}
+
+export const payments = {
+  confirmOrder: (order, method, detail) => submitOrderPayment({
+    api, storage: localStorage, server: baseURL(), order, method, detail,
+  }),
 }
 
 export const kitchen = {

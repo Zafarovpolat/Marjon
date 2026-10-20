@@ -1,10 +1,10 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Search, Plus, Minus, Trash2, Utensils,
   LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock, Wallet, History, BarChart3, Ban, ShoppingBag, Bike, Boxes, Printer,
 } from 'lucide-react'
-import { orders, menu, halls as hallsApi, printers as printersApi, customers as customersApi, auth as authApi, finance as financeApi, companies as companiesApi } from '../../shared/api'
+import { orders, payments, menu, halls as hallsApi, printers as printersApi, customers as customersApi, auth as authApi, finance as financeApi, companies as companiesApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
 // PRINT-LAT-01: печать + дедупликация + опрос очереди (наш путь доставки).
 // printers.js — выбор принтера (сотрудник → филиал) из прод-линии.
@@ -265,14 +265,21 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     try { await printersApi.printReceipt({ order_id: order.id, printer_id: pr.id, copies: 1 }) }
     catch (e) { toast(t('print_failed') + (e?.response?.data?.detail ? `: ${e.response.data.detail}` : '')) }
   }
-  // Закрыть заказ (оплата подтверждена кассиром). Способ оплаты фиксируется вручную —
-  // платёжку интегрируем позже; сейчас просто переводим заказ в completed.
+  const closingOrders = useRef(new Set())
+  // Full payment is recorded atomically by /payments (including stock deduction).
   // Долг (method === 'debt'): фактически полученные наличные пишем приходом в финансы
   // best-effort — без права на финансы или офлайн запись тихо пропускается,
   // заказ при этом всё равно закрывается.
   async function completeExistingOrder(order, method, detail) {
+    if (closingOrders.current.has(order.id)) return
+    closingOrders.current.add(order.id)
     try {
-      await orders.updateStatus(order.id, 'completed')
+      if (method === 'debt') {
+        // Existing debt flow is NOT a fully paid receipt and stays out of paid analytics.
+        await orders.updateStatus(order.id, 'completed')
+      } else {
+        await payments.confirmOrder(order, method, detail)
+      }
       if (method === 'debt' && detail && Number(detail.cash) > 0) {
         const fmtSum = (n) => Number(n || 0).toLocaleString('ru-RU')
         const comment = `Долг: заказ #${order.order_number ?? ''}, получено ${fmtSum(detail.cash)}, остаток ${fmtSum(detail.debt)}${detail.client_name ? `, клиент: ${detail.client_name}` : ''}${detail.client_phone ? `, тел: ${detail.client_phone}` : ''}`
@@ -286,9 +293,13 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
         }
       } catch { /* тихо: ящик может быть не подключён */ }
       toast(t('order_closed'))
-    } catch (e) { toast(t('close_order_error') + (e?.response?.data?.detail ? ': ' + e.response.data.detail : ''), 'error') }
-    setPayExisting(null)
-    loadFloor()
+      setPayExisting(null)
+      loadFloor()
+    } catch (e) {
+      const reason = e?.paymentErrorKey ? t(e.paymentErrorKey) : e?.response?.data?.detail
+      toast(t('close_order_error') + (reason ? ': ' + (typeof reason === 'string' ? reason : t('payment_invalid_amount')) : ''), 'error')
+      if ([400, 422].includes(e?.response?.status)) await refreshPayOrder(order)
+    } finally { closingOrders.current.delete(order.id) }
   }
   // Живой пересчёт итога: пока кассир вводит наличные в модалке оплаты — подтягиваем
   // заказ с сервера (скидки, дозаказы). Ошибка тихая: остаёмся на локальных данных.

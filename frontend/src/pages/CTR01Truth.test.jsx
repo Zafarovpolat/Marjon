@@ -35,6 +35,7 @@ vi.mock("../components/ReportDateRangePicker", async (importOriginal) => {
 vi.mock("react-router-dom", () => ({
   Link: ({ children, to, ...props }) => <a href={to} {...props}>{children}</a>,
   useNavigate: () => vi.fn(),
+  useSearchParams: () => [new URLSearchParams(), vi.fn()],
   useOutletContext: () => ({ selectedDate: "2026-08-12" }),
 }));
 
@@ -215,12 +216,12 @@ describe("CTR-01 critical financial truth", () => {
     render(<CancelledDishesReportPage />);
     expect(await screen.findByText("Backend Dish")).toBeInTheDocument();
     // Truthful columns exist; author shows the cancellation actor, not the waiter.
-    ["Номер заказа", "Дата", "Название", "Номер стола", "Кол-во", "Официант", "Тип", "Сумма", "Автор", "Действие"].forEach((label) => {
+    ["Номер заказа", "Дата", "Название", "Номер стола", "Кол-во", "Автор", "Тип", "Сумма"].forEach((label) => {
       expect(screen.getByRole("columnheader", { name: label })).toBeInTheDocument();
     });
     const row = screen.getByText("Backend Dish").closest("tr");
     expect(within(row).getByText("Автор")).toBeInTheDocument();
-    expect(within(row).getByText("Официант")).toBeInTheDocument();
+    expect(within(row).queryByText("Официант")).not.toBeInTheDocument();
     expect(within(row).getByText("600 UZS")).toBeInTheDocument();
     expect(screen.queryByText("Комментарий")).not.toBeInTheDocument();
     expect(screen.queryByText("Повар")).not.toBeInTheDocument();
@@ -241,9 +242,9 @@ describe("CTR-01 critical financial truth", () => {
     render(<CancelledDishesReportPage />);
     const row = await screen.findByText("System Dish").then((node) => node.closest("tr"));
     const cells = within(row).getAllByRole("cell");
-    // Author cell (9th) is —, waiter cell (6th) keeps the waiter.
-    expect(cells[8]).toHaveTextContent("—");
-    expect(cells[5]).toHaveTextContent("Официант");
+    // Author replaces waiter; an unknown actor must not inherit the waiter.
+    expect(cells[5]).toHaveTextContent("—");
+    expect(within(row).queryByText("Официант")).toBeNull();
   });
 
   it("keeps the Cancelled Dishes period as draft until the existing Filter action", async () => {
@@ -256,16 +257,16 @@ describe("CTR-01 critical financial truth", () => {
     const filterButton = await screen.findAllByRole("button", { name: "Фильтровать" }).then((buttons) => (
       buttons.find((button) => button.classList.contains("report-filter-apply"))
     ));
-    // Mount fires the report request plus the independent filters-directory
-    // request; period edits stay draft until «Фильтровать».
-    expect(api.get).toHaveBeenCalledTimes(2);
+    // Report, filter directory and per-user acknowledgement state load once;
+    // period edits stay draft until «Фильтровать».
+    expect(api.get).toHaveBeenCalledTimes(3);
 
     fireEvent.change(screen.getByLabelText("Начало периода"), { target: { value: "02.08.2026" } });
     fireEvent.change(screen.getByLabelText("Конец периода"), { target: { value: "12.08.2026" } });
-    expect(api.get).toHaveBeenCalledTimes(2);
+    expect(api.get).toHaveBeenCalledTimes(3);
 
     fireEvent.click(filterButton);
-    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(4));
     const reportCalls = api.get.mock.calls.filter(([path]) => path === "/reports/cancelled");
     expect(reportCalls).toHaveLength(2);
     expect(reportCalls[1][1]).toEqual(expect.objectContaining({

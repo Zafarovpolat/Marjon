@@ -11,6 +11,7 @@ import Icon from '../components/Icon';
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 
 import { createPortal } from "react-dom";
+import { parseWebInstant, webFormat, webTime, webCalendarToday } from "../utils/webTime";
 
 import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 
@@ -54,12 +55,12 @@ function normalizeAdminFinanceTransaction(row, index = 0) {
   const operationType = row.direction || row.operation_type || (Number(row.amount || 0) < 0 ? "expense" : "income");
   const amount = Math.abs(Number(row.amount || 0));
   const dateValue = row.date || row.created_at || "";
-  const parsedDate = dateValue ? new Date(dateValue) : null;
+  const parsedDate = parseWebInstant(dateValue);
   const hasValidDate = parsedDate && !Number.isNaN(parsedDate.getTime());
   return {
     id: row.id || row.uuid || row.document_number || `finance-operation-${index}`,
-    date: hasValidDate ? parsedDate.toLocaleDateString("ru-RU") : (row.date || "—"),
-    time: hasValidDate ? parsedDate.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) : (row.time || ""),
+    date: hasValidDate ? webFormat(parsedDate, { day: "2-digit", month: "2-digit", year: "numeric" }) : (row.date || "—"),
+    time: hasValidDate ? webTime(parsedDate) : (row.time || ""),
     number: row.document_number || row.id || "",
     organization: row.organization_name || row.organization || "—",
     type: operationType === "expense" ? "Расход" : "Приход",
@@ -104,7 +105,7 @@ function adminFinanceDateForApi(value) {
 
 function adminFinanceInputToDate(value) {
   const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return new Date();
+  if (!match) return webCalendarToday();
   const [, year, month, day] = match;
   return new Date(Number(year), Number(month) - 1, Number(day));
 }
@@ -375,7 +376,7 @@ function AdminFinanceDateInput({ value, onChange, error, controlRef, disabled })
   }
 
   function selectToday() {
-    const today = new Date();
+    const today = webCalendarToday();
     setDraftDate(todayValue);
     setViewDate(new Date(today.getFullYear(), today.getMonth(), 1));
   }

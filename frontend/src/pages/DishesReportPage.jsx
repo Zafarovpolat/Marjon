@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { reportsService } from "../api/reports";
 import Icon from "../components/Icon";
+import { useSearchParams } from "react-router-dom";
+import DishPhotoViewer from "../components/DishPhotoViewer";
+import DishReportDetails from "./reports/DishReportDetails";
+import "./reports/dishesReportTable.css";
 import ReportDateRangePicker from "../components/ReportDateRangePicker";
 import ReportEmptyState from "../components/ReportEmptyState";
 import { reportCacheKey, readReportCache, writeReportCache } from "./reports/reportResultCache";
@@ -101,8 +105,10 @@ function toDishesDisplayRow(item, index) {
   return {
     // product_id is canonical; item.id covers the pre-Phase-1 frontend
     // fallback (old backend always sent product_id).
-    id: String(item.product_id || item.id || item.name || index),
-    name: `${index + 1}. ${item.name || ""}`,
+    id: JSON.stringify([item.product_id || item.id || "", item.name || "", item.unit || ""]),
+    productId: item.product_id || item.id || null,
+    photo: item.image_url || "",
+    name: item.name || "",
     // Real master unit only — never a hardcoded fallback.
     unit: item.unit || "",
     quantity: String(quantityValue),
@@ -164,6 +170,12 @@ function normalizeDishesReportResponse(data) {
   throw new Error("Invalid dishes report response");
 }
 
+function ReportDishPhoto({ row, onOpen }) {
+  const [failed, setFailed] = useState(false);
+  if (!row.photo || failed) return <span className="dish-report-photo" aria-label="Нет фото"><Icon name="bi-image" size={16} /></span>;
+  return <button type="button" className="dish-report-photo" aria-label={`Открыть фото ${row.name}`} onClick={event => { event.stopPropagation(); onOpen(); }}><img src={row.photo} alt="" loading="lazy" onError={() => setFailed(true)} /></button>;
+}
+
 export default function DishesReportPage() {
   // DISHES-01: Dishes opens on today only, same semantics as Orders
   // (local calendar day, single-date label, preset "Сегодня").
@@ -184,8 +196,9 @@ export default function DishesReportPage() {
   // during exit cancels the handoff so no invisible overlay can stick around.
   const [panelState, setPanelState] = useState({ active: "", closing: "", pending: "" });
   const [rows, setRows] = useState([]);
-  // Раскрытая строка блюда (детали: категория, себестоимость, прибыль).
-  const [expandedDish, setExpandedDish] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [photo, setPhoto] = useState(null);
+  const [quantitySort, setQuantitySort] = useState("");
   // Canonical totals are backend-authoritative. The legacy bare-array branch
   // below uses a transitional local sum ONLY for rollout compatibility.
   const [totals, setTotals] = useState({ quantity: 0, amount: 0 });
@@ -284,15 +297,27 @@ export default function DishesReportPage() {
   ]);
 
   const filteredRows = rows;
+  const selectedDish = rows.find(row => row.id === searchParams.get("dish"));
+  const displayRows = useMemo(() => quantitySort ? [...rows].sort((a, b) => (quantitySort === "asc" ? 1 : -1) * (a.quantityNum - b.quantityNum)) : rows, [rows, quantitySort]);
+  function openDish(row) {
+    setSearchParams(current => { const next = new URLSearchParams(current); next.set("dish", row.id); return next; });
+  }
   // The "Итого" row renders totals verbatim from normalization:
   // backend-authoritative for canonical, transitional client sum for legacy.
   const totalRow = useMemo(() => ({
     name: "Итого",
     unit: "",
-    quantity: String(Number(totals.quantity || 0).toLocaleString("ru-RU")),
+    quantity: (() => {
+      const units = [...new Set(rows.map(row => row.unit))];
+      if (units.length <= 1) return String(Number(totals.quantity || 0).toLocaleString("ru-RU")) + (units[0] ? ` ${units[0]}` : "");
+      return units.map(unit => {
+        const sum = rows.filter(row => row.unit === unit).reduce((value, row) => value + Math.round(row.quantityNum * 1000), 0) / 1000;
+        return `${sum.toLocaleString("ru-RU")} ${unit || "без ед. изм."}`;
+      }).join(" · ");
+    })(),
     price: "",
     amount: formatReportMoney(totals.amount),
-  }), [totals]);
+  }), [totals, rows]);
   const activeFilterEntries = Object.entries({ ...filters, query: debouncedQuery }).filter(([, value]) => isFilterActive(value));
 
   function updateFilter(key, value) {
@@ -408,6 +433,8 @@ export default function DishesReportPage() {
     });
   }
 
+  if (selectedDish) return <DishReportDetails key={selectedDish.id} dish={selectedDish} dateFrom={toApiDate(dateRange.start)} dateTo={toApiDate(dateRange.end)} filters={filters} />;
+
   // No full-page loader: the shell (title/controls/table header)
   // renders immediately, even while the first request pends (see tbody).
   if (error) return <section className="dishes-report-page"><div className="login-error" role="alert">{error}</div></section>;
@@ -483,71 +510,23 @@ export default function DishesReportPage() {
         ) : null}
 
         <div className="report-table-wrapper owner-report-table-scroll" aria-busy={loading ? "true" : "false"}>
-          <table className="report-table owner-report-table" aria-label="Отчёт по блюдам">
-            <thead>
-              <tr>
-                <th>Название</th>
-                <th>Ед изм</th>
-                <th>Кол-во</th>
-                <th>Цена</th>
-                <th>Сумма</th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* DISHES-01: the visible totals row exists only when the report
-                  has rows. Successful zero-data shows the truthful empty state
-                  without a totals row; rows state persists during refetch so
-                  stale-while-refresh never flashes. Backend-authoritative
-                  totals are preserved whenever rows exist. */}
-              {filteredRows.length ? (
-                <tr className="report-total-row">
-                  <td>{totalRow.name}</td>
-                  <td>{totalRow.unit}</td>
-                  <td>{totalRow.quantity}</td>
-                  <td>{totalRow.price}</td>
-                  <td>{totalRow.amount}</td>
-                </tr>
-              ) : null}
-              {filteredRows.map((row) => {
-                const expanded = expandedDish === row.id;
-                const detailId = `dish-detail-${row.id}`;
-                return (
-                <tr key={row.id}>
-                  <td>
-                    <div className="report-dish-name">
-                      <button
-                        type="button"
-                        className="report-dish-name__toggle"
-                        aria-expanded={expanded}
-                        aria-controls={detailId}
-                        aria-label={`Детали блюда ${row.name}`}
-                        onClick={() => setExpandedDish((current) => (current === row.id ? null : row.id))}
-                      >{row.name}</button>
-                    </div>
-                    {expanded ? (
-                      <div className="report-dish-detail" id={detailId}>
-                        <div><span>Категория</span><strong>{row.categoryName ?? "Без категории"}</strong></div>
-                        <div><span>Себестоимость</span><strong>{row.costNum != null ? formatReportMoney(row.costNum) : "—"}</strong></div>
-                        <div><span>Прибыль</span><strong>{row.profitNum != null ? formatReportMoney(row.profitNum) : "—"}</strong></div>
-                      </div>
-                    ) : null}
-                  </td>
-                  <td>{row.unit}</td>
-                  <td>{row.quantity}</td>
-                  <td>{row.price}</td>
-                  <td>{row.amount}</td>
-                </tr>
-                );
-              })}
-              {!filteredRows.length ? (
-                <tr className="report-empty-row">
-                  <td colSpan="5"><ReportEmptyState title="Блюд не найдено" loading={loading} /></td>
-                </tr>
-              ) : null}
-            </tbody>
+          <table className="report-table owner-report-table dishes-sales-table" aria-label="Отчёт по блюдам">
+            <thead><tr><th>№</th><th>Фото</th><th>Блюдо / товар</th><th>Ед. изм.</th>
+              <th aria-sort={quantitySort === "asc" ? "ascending" : quantitySort === "desc" ? "descending" : "none"}><button type="button" className="dish-report-quantity-sort" aria-label="Сортировать по количеству" onClick={() => setQuantitySort(current => current === "desc" ? "asc" : "desc")}>Кол-во<Icon name="bi-chevron-expand" size={12} /></button></th>
+              <th title="Сумма продаж, делённая на количество в выбранном периоде.">Цена позиции</th><th>Сумма продаж</th></tr></thead>
+            <tbody>{displayRows.map((row, index) => <tr key={row.id} tabIndex={0} aria-label={`Детали блюда ${row.name}`} onClick={() => openDish(row)} onKeyDown={event => {
+              if (event.target === event.currentTarget && ["Enter", " "].includes(event.key)) { event.preventDefault(); openDish(row); }
+            }}>
+              <td>{index + 1}</td>
+              <td><ReportDishPhoto row={row} onOpen={() => setPhoto(row)} /></td>
+              <td className="dish-report-name">{row.name}</td><td>{row.unit}</td><td>{row.quantity}</td><td>{row.price}</td><td>{row.amount}</td>
+            </tr>)}
+            {!filteredRows.length ? <tr className="report-empty-row"><td colSpan={7}><ReportEmptyState title="Блюд не найдено" loading={loading} /></td></tr> : null}</tbody>
+            {filteredRows.length ? <tfoot><tr className="report-total-row"><td colSpan={4}>Итого</td><td>{totalRow.quantity}</td><td>—</td><td>{totalRow.amount}</td></tr></tfoot> : null}
           </table>
         </div>
       </article>
+      {photo ? <DishPhotoViewer photo={photo.photo} name={photo.name} onClose={() => setPhoto(null)} /> : null}
     </section>
   );
 }

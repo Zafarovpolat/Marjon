@@ -1,15 +1,14 @@
 import { useMemo, useState } from "react";
 import Icon from "../../components/Icon";
 import Toast from "../../components/Toast";
+import { webDayKey } from "../../utils/webTime";
 
 // Ключ строки — стабильный локальный id (индекс не годится: строки удаляются).
 let rowSeq = 0;
 const newRow = () => ({ key: `exp-${rowSeq++}`, ingredientId: "", quantity: "", unit: "" });
 
 function today() {
-  const now = new Date();
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  return webDayKey();
 }
 
 /**

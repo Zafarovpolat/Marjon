@@ -14,7 +14,6 @@ export const dishColumnOptions = [
   { key: "price", label: "Цена", width: 130 },
   { key: "printer", label: "Принтер", width: 170 },
   { key: "recipe", label: "Рецепты", width: 120 },
-  { key: "auto", label: "Авто", width: 64 },
   { key: "actions", label: "Действия", width: 96 },
 ];
 

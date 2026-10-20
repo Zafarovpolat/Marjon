@@ -1,9 +1,17 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render as testingRender, screen, waitFor, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import BackButton from "../components/BackButton";
+import { loadOrder, loadOrderPayments } from "./reports/orderDetailData";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { reportsService } from "../api/reports";
 import { exportToExcel } from "../utils/excel";
 import { formatDateLabel, shiftDate, todayInputValue } from "../utils/date";
 import OrdersReportPage, { currentOrdersDateRange, formatPlace } from "./OrdersReportPage";
+
+function render(ui) { return testingRender(<MemoryRouter initialEntries={["/reports/orders"]}><BackButton />{ui}</MemoryRouter>); }
+vi.mock("./reports/orderDetailData", async (original) => ({
+  ...await original(), loadOrder: vi.fn(), loadOrderPayments: vi.fn(),
+}));
 
 vi.mock("../api/reports", () => ({
   reportsService: { listOrders: vi.fn(), getOrdersFilters: vi.fn() },
@@ -82,6 +90,9 @@ function check(label, optionName) {
 describe("OrdersReportPage filters", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(window.history, "length", "get").mockReturnValue(2);
+    loadOrder.mockResolvedValue({ data: { items: [], total_amount: 100000, service_fee: 0, status: "completed" } });
+    loadOrderPayments.mockResolvedValue({ data: [] });
     reportsService.listOrders.mockResolvedValue({
       data: [{
         order_id: "11111111-1111-4111-8111-111111111111", public_id: 10000000,
@@ -568,7 +579,8 @@ describe("OrdersReportPage filters", () => {
     await screen.findByText("42");
     expect(reportsService.listOrders).toHaveBeenCalledTimes(1);
     const row = screen.getByText("42").closest("tr");
-    expect(row).toHaveTextContent("completed");
+    expect(row).toHaveTextContent("Завершён");
+    expect(row.querySelector(".report-order-status--completed .report-order-status__dot")).toBeInTheDocument();
     const total = row.querySelector(".report-total-price");
     expect(total).toHaveTextContent("UZS");
     expect(total).not.toHaveTextContent("NaN");
@@ -592,16 +604,16 @@ describe("OrdersReportPage filters", () => {
     expect(cells[6]).toHaveTextContent("—");
   });
 
-  it("details drawer opens by keyboard (Enter) and closes on Escape", async () => {
+  it("opens the internal detail page by keyboard and returns using topbar Back", async () => {
     render(<OrdersReportPage />);
     await screen.findByText("42");
     const row = screen.getByRole("button", { name: "Детали заказа 42" });
     expect(row).toHaveAttribute("tabindex", "0");
     fireEvent.keyDown(row, { key: "Enter" });
-    const drawer = await screen.findByRole("dialog", { name: "Детали заказа" });
-    expect(drawer).toBeInTheDocument();
-    fireEvent.keyDown(window, { key: "Escape" });
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Детали заказа" })).toBeNull());
+    expect(await screen.findByRole("heading", { name: "Заказ №42" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Назад" }));
+    expect(await screen.findByRole("table", { name: "Отчёт по заказам" })).toBeInTheDocument();
   });
 
   it("shows a truthful error alert (not empty) when the backend fails", async () => {
@@ -652,7 +664,7 @@ describe("OrdersReportPage filters", () => {
     expect(cells[4]).toHaveTextContent("UZS");
     expect(cells[5]).toHaveTextContent("Официант 1");
     expect(cells[6]).toHaveTextContent("Кассир 1");
-    expect(cells[7]).toHaveTextContent("completed");
+    expect(cells[7]).toHaveTextContent("Завершён");
   });
 
   it("labels order_type via the existing map and falls back to raw values", async () => {
@@ -697,8 +709,8 @@ describe("OrdersReportPage filters", () => {
     render(<OrdersReportPage />);
     await screen.findByText("42");
     fireEvent.click(screen.getByRole("button", { name: "Детали заказа 42" }));
-    const drawer = await screen.findByRole("dialog", { name: "Детали заказа" });
-    expect(drawer).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Заказ №42" })).toBeInTheDocument();
+    expect(loadOrder).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111", expect.any(AbortSignal));
   });
 
   it("exports the final eleven Excel columns with typed money/date cells", async () => {

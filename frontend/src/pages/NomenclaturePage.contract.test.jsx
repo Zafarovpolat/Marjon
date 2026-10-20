@@ -1342,23 +1342,7 @@ describe("APP dishes functional gaps (V20)", () => {
     api.get.mockResolvedValue({ data: [] });
   });
 
-  it("uses the existing modifier-group endpoints with canonical payloads", async () => {
-    const group = { id: "g1", name: "Добавки", min_select: 0, max_select: 2, is_required: false, show_in_pos: true, modifiers: [] };
-    api.get.mockImplementation((path) => {
-      if (String(path).includes("/modifier-groups")) return Promise.resolve({ data: [group] });
-      if (String(path).includes("/inventory/products")) return Promise.resolve({ data: [{ ...backendProduct, id: "d9" }] });
-      return Promise.resolve({ data: [] });
-    });
-    render(<NomenclaturePage />);
-    expect(await screen.findByText("Backend dish")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Редактировать" }));
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith(
-      "/inventory/products/d9/modifier-groups",
-    ));
-    expect(await screen.findByDisplayValue("Добавки")).toBeInTheDocument();
-  });
-
-  it("creates/updates/removes modifier groups through the canonical contract", async () => {
+  it("hides add-ons and does not fetch or mutate saved modifier groups", async () => {
     api.get.mockImplementation((path) => {
       if (String(path).includes("/inventory/products")) return Promise.resolve({ data: [{ ...backendProduct, id: "d9" }] });
       return Promise.resolve({ data: [] });
@@ -1366,39 +1350,11 @@ describe("APP dishes functional gaps (V20)", () => {
     render(<NomenclaturePage />);
     expect(await screen.findByText("Backend dish")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Редактировать" }));
-    // Новая группа → POST с product_id.
-    fireEvent.click(screen.getByRole("button", { name: "Добавить группу" }));
-    const nameInput = screen.getByPlaceholderText("Название группы (напр. Добавки)");
-    fireEvent.change(nameInput, { target: { value: "Соусы" } });
-    fireEvent.change(screen.getByPlaceholderText("Название (напр. Яйцо)"), { target: { value: "Чили" } });
-    api.post.mockResolvedValue({ data: { id: "g2", name: "Соусы", modifiers: [] } });
-    api.get.mockImplementation((path) => {
-      if (String(path).includes("/modifier-groups")) {
-        return Promise.resolve({ data: [{ id: "g2", name: "Соусы", min_select: 0, max_select: 1, is_required: false, show_in_pos: true, modifiers: [] }] });
-      }
-      if (String(path).includes("/inventory/products")) return Promise.resolve({ data: [{ ...backendProduct, id: "d9" }] });
-      return Promise.resolve({ data: [] });
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Сохранить группу" }));
-    await waitFor(() => expect(api.post).toHaveBeenCalledWith("/inventory/modifier-groups", expect.objectContaining({
-      product_id: "d9",
-      name: "Соусы",
-    })));
-  });
-
-  it("shows backend Not Found truthfully without fake addon rows", async () => {
-    api.get.mockImplementation((path) => {
-      if (String(path).includes("/modifier-groups")) {
-        return Promise.reject({ response: { status: 404, data: { detail: "Not Found" } } });
-      }
-      if (String(path).includes("/inventory/products")) return Promise.resolve({ data: [{ ...backendProduct, id: "d9" }] });
-      return Promise.resolve({ data: [] });
-    });
-    render(<NomenclaturePage />);
-    expect(await screen.findByText("Backend dish")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Редактировать" }));
-    expect(await screen.findByText("Not Found")).toBeInTheDocument();
-    expect(document.querySelector(".dish-mods__group")).toBeNull();
+    expect(screen.queryByText("Добавки")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Добавить группу" })).not.toBeInTheDocument();
+    expect(api.get.mock.calls.some(([path]) => String(path).includes("modifier-groups"))).toBe(false);
+    expect(api.post).not.toHaveBeenCalled();
+    expect(api.delete).not.toHaveBeenCalled();
   });
 
   it("maps every table column from its own backend aggregate (documented)", () => {

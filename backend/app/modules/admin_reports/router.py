@@ -34,6 +34,25 @@ admin_reports_router = APIRouter(prefix="/admin-reports", tags=["admin-reports"]
 require_reports_access = require_permission_or_admin("can_view_finance")
 
 
+@router.get("/cancelled/acknowledgements")
+async def cancellation_acknowledgements(
+    user: User = Depends(require_reports_access),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.modules.admin_reports.cancellation_acknowledgements import list_receipts
+    return await list_receipts(db, user)
+
+
+@router.post("/cancelled/{order_id}/acknowledge")
+async def acknowledge_cancellation(
+    order_id: UUID,
+    user: User = Depends(require_reports_access),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.modules.admin_reports.cancellation_acknowledgements import acknowledge
+    return await acknowledge(db, user, order_id)
+
+
 async def _clamp_period(
     user: User, db: AsyncSession,
     date_from: date | None, date_to: date | None,
@@ -344,10 +363,9 @@ async def cancelled_report_summary(
 ):
     assert user.company_id is not None
     date_from, date_to = await _clamp_period(user, db, date_from, date_to, web_timezone=web_timezone)
-    quantity = await AdminReportService(db, web_timezone=web_timezone).cancelled_items(
-        user.company_id, date_from, date_to, summary_only=True,
+    return await AdminReportService(db, web_timezone=web_timezone).cancelled_items(
+        user.company_id, date_from, date_to, summary_only=True, include_order_count=True,
     )
-    return CancelledReportTotals(quantity=quantity)
 
 
 @admin_reports_router.get("/dashboard-kpis")

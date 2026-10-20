@@ -3,6 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { reportsService } from "../../api/reports";
 import { warehouseService } from "../../api/warehouse";
 import TopbarNotifications from "./TopbarNotifications";
+import { cancellationAcknowledgements } from "../../api/cancellationAcknowledgements";
+vi.mock("../../api/cancellationAcknowledgements", () => ({
+  cancellationAcknowledgements: { list: vi.fn(), acknowledge: vi.fn() },
+}));
 
 vi.mock("../../api/reports", () => ({
   reportsService: { listOrders: vi.fn(), listCancelledDishes: vi.fn() },
@@ -26,6 +30,7 @@ vi.mock("react-router-dom", () => ({
 describe("Topbar low-stock alerts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    cancellationAcknowledgements.list.mockResolvedValue({ data: [] });
     reportsService.listOrders.mockResolvedValue({ data: [] });
     reportsService.listCancelledDishes.mockResolvedValue({ data: [] });
     warehouseService.listStock.mockResolvedValue({
@@ -100,6 +105,29 @@ describe("Topbar low-stock alerts", () => {
     const bell = await screen.findByRole("button", { name: "Уведомления: 1" });
     fireEvent.click(bell);
     expect(await screen.findByText("Заказ №42 отменён")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Заказ №42 отменён" }));
+    const target = new URL(navigate.mock.calls.at(-1)[0], "http://localhost");
+    expect(target.pathname).toBe("/reports/cancelled-dishes");
+    expect(target.searchParams.get("cancelledOrder")).toBe("order:o-1");
+    expect(target.searchParams.get("eventDate")).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(bell).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("hides persisted acknowledged orders and immediately handles a new acknowledgement", async () => {
+    warehouseService.listStock.mockResolvedValue({ data: [] });
+    reportsService.listOrders.mockResolvedValue({ data: [
+      { order_id: "old", order_number: "1", status: "cancelled", created_at: "2026-10-20T05:00:00Z" },
+      { order_id: "new", order_number: "2", status: "cancelled", created_at: "2026-10-20T05:00:00Z" },
+    ] });
+    cancellationAcknowledgements.list.mockResolvedValue({ data: [{ order_id: "old", acknowledged_at: "2026-10-20T06:00:00Z" }] });
+    render(<TopbarNotifications />);
+    const bell = await screen.findByRole("button", { name: "Уведомления: 1" });
+    fireEvent.click(bell);
+    expect(screen.queryByText("Заказ №1 отменён")).toBeNull();
+    expect(screen.getByText("Заказ №2 отменён")).toBeInTheDocument();
+    fireEvent(window, new CustomEvent("marjon:cancellation-acknowledged", { detail: { order_id: "new", acknowledged_at: "2026-10-20T06:00:00Z" } }));
+    expect(await screen.findByRole("button", { name: "Уведомлений нет" })).toBeInTheDocument();
+    expect(screen.queryByText("Заказ №2 отменён")).toBeNull();
   });
 
   it("lists item-scope dish cancellations and hides order-scope doubles", async () => {

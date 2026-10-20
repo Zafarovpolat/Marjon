@@ -465,9 +465,9 @@ function mapWarehouseReadRow(section, item) {
       date: formatDocDate(item.date || (item.created_at || "").slice(0, 10)),
       registeredAt: item.registered_at
         ? formatDocDateTime(item.registered_at)
-        : (item.created_at || "").slice(0, 10) || "—",
+        : formatDocDateTime(item.created_at),
       // Период считается по дате регистрации (сырой registered_at, не показ).
-      regDate: registeredAtToISO(item.registered_at) || docDateToISO(item.date),
+      regDate: registeredAtToISO(item.registered_at) || registeredAtToISO(item.created_at) || docDateToISO(item.date),
       positions: String(item.items_count ?? "—"),
       total: item.total_amount == null ? "—" : formatAmount(item.total_amount),
       author: item.created_by_name || "—",
@@ -495,7 +495,7 @@ function mapWarehouseReadRow(section, item) {
   if (section === "write-off") {
     return {
       id: item.id,
-      date: (item.created_at || "").slice(0, 10) || "—",
+      date: item.created_at ? webFormat(item.created_at, { day: "2-digit", month: "2-digit", year: "numeric" }) : "—",
       category: item.category || "—",
       positions: String(item.items_count ?? "—"),
       status: translateDocStatus(item.status),
@@ -542,7 +542,7 @@ function mapWarehouseReadRow(section, item) {
       date: formatDocDate(item.date || (item.created_at || "").slice(0, 10)),
       registeredAt: item.registered_at
         ? formatDocDateTime(item.registered_at)
-        : formatDocDate(item.date || (item.created_at || "").slice(0, 10)),
+        : item.created_at ? formatDocDateTime(item.created_at) : formatDocDate(item.date),
       regDate: registeredAtToISO(item.registered_at) || docDateToISO(item.date),
       category: item.category || "—",
       product: item.name || "—",

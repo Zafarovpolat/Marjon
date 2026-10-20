@@ -1,10 +1,15 @@
-import { render, screen, within } from "@testing-library/react";
+import { render as testingRender, screen, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import OrdersReportPage from "./OrdersReportPage";
 import WaitersReportPage from "./WaitersReportPage";
 import DishesReportPage from "./DishesReportPage";
 import TablesReportPage from "./TablesReportPage";
 import CancelledDishesReportPage from "./CancelledDishesReportPage";
+
+function render(ui) {
+  return testingRender(<MemoryRouter>{ui}</MemoryRouter>);
+}
 
 vi.mock("../api/reports", () => ({
   reportsService: {
@@ -107,7 +112,7 @@ describe("report initial shell without full-page loader", () => {
         totals: { quantity: "2", amount: "100000" },
       },
     });
-    const section = await screen.findByText("1. Плов");
+    const section = await screen.findByText("Плов");
     expect(within(section.closest("section")).getByRole("heading", { name: "Отчёт по блюдам" })).toBeInTheDocument();
     unmount();
 

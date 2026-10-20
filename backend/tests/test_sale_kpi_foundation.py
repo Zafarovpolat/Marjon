@@ -107,9 +107,13 @@ async def test_cancelled_quantity_gt200_scope_event_date_and_legacy_fallback(cli
         summary = await service.cancelled_items(ctx["company_id"], DAY, DAY, summary_only=True)
         assert summary == sum(row.quantity for row in detail) == Decimal("466.250")
         assert len(detail) == 412  # quantity is NOT the number of item rows/orders
+        totals = await service.cancelled_items(ctx["company_id"], DAY, DAY, summary_only=True, include_order_count=True)
+        assert totals.orders_count == len({row.order_id for row in detail}) == 207
+        assert totals.quantity == summary
     result = await client.get("/reports/cancelled/summary", headers=ctx["headers"], params={"date_from": str(DAY), "date_to": str(DAY)})
     assert result.status_code == 200, result.text
     assert Decimal(result.json()["quantity"]) == Decimal("466.250")
+    assert result.json()["orders_count"] == 207
 
 
 @pytest.mark.asyncio

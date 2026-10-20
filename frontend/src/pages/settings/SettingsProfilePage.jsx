@@ -22,7 +22,7 @@ const ORDER_TYPE_ROWS = [
 ];
 
 export default function SettingsProfilePage() {
-  const { user } = useAuth();
+  const { user, applyProfile } = useAuth();
   const {
     form,
     activeSection,
@@ -68,7 +68,7 @@ export default function SettingsProfilePage() {
     setShowConfirmPassword,
     passSaving,
     savePassword,
-  } = useCompanyProfileForm(user);
+  } = useCompanyProfileForm(user, applyProfile);
 
   const activeMeta = profileSections.find((section) => section.key === activeSection) || profileSections[0];
   const profilePreview = form.profileLogo || form.companyLogo || logo;
@@ -235,7 +235,7 @@ export default function SettingsProfilePage() {
                   <div className="company-profile-identity-row">
                     <div className="company-profile-logo-actions">
                       <label className="company-profile-upload">
-                        <input type="file" accept="image/*" onChange={(event) => handleImageChange("profileLogo", event)} />
+                        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleImageChange("profileLogo", event)} />
                         <span>
                           <img src={profilePreview} alt="Лого профиля" />
                         </span>

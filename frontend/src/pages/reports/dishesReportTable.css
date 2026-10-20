@@ -1,0 +1,52 @@
+.dishes-report-page .dishes-sales-table th { background: #eef6ff; font-size: 15px; }
+.dishes-report-page .dishes-sales-table tbody td { font-size: 15px; }
+.dishes-report-page .dishes-sales-table tfoot td { font-size: 16px; }
+.dishes-report-page .dishes-sales-table th:nth-child(1), .dishes-report-page .dishes-sales-table td:nth-child(1) { width: 48px; text-align: center; }
+.dishes-report-page .dishes-sales-table th:nth-child(2), .dishes-report-page .dishes-sales-table td:nth-child(2) { width: 68px; text-align: center; }
+.dishes-report-page .dishes-sales-table th:nth-child(3), .dishes-report-page .dishes-sales-table tbody td:nth-child(3) { text-align: left; padding-left: 66px; }
+.dishes-report-page .dishes-sales-table th:nth-child(4), .dishes-report-page .dishes-sales-table td:nth-child(4),
+.dishes-report-page .dishes-sales-table th:nth-child(5), .dishes-report-page .dishes-sales-table td:nth-child(5) { text-align: center; }
+.dishes-report-page .dishes-sales-table th:nth-child(6), .dishes-report-page .dishes-sales-table td:nth-child(6),
+.dishes-report-page .dishes-sales-table th:nth-child(7), .dishes-report-page .dishes-sales-table td:nth-child(7) { text-align: right; white-space: nowrap; }
+.dishes-report-page .dishes-sales-table tbody tr { cursor: pointer; }
+.dishes-report-page .dishes-sales-table tbody tr:hover td { background: #f4fbfc; }
+.dishes-report-page .dishes-sales-table tbody tr:focus-visible { outline: 2px solid #18c4c9; outline-offset: -2px; }
+.dishes-report-page .dishes-sales-table tbody td { height: 56px; }
+.dishes-report-page .dishes-sales-table .dish-report-name { font-weight: 650; color: #122d4e; }
+.dishes-report-page .dishes-sales-table tfoot td { background: #eaf4fd; border-top: 1px solid #d9e5f0; font-weight: 650; }
+.dishes-report-page .dishes-sales-table tfoot td:first-child { text-align: left; }
+.dishes-report-page .dishes-sales-table tfoot td:nth-child(2) { width: auto; text-align: center; }
+.dishes-report-page .dishes-sales-table tfoot td:nth-child(3), .dishes-report-page .dishes-sales-table tfoot td:last-child { text-align: right; }
+.dish-report-photo { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #e2eaf3; border-radius: 8px; background: #f5f8fc; color: #8ba4be; padding: 0; overflow: hidden; vertical-align: middle; }
+button.dish-report-photo { cursor: zoom-in; }
+.dish-report-photo img { width: 100%; height: 100%; object-fit: cover; }
+.dish-report-detail-page .dish-order-table { table-layout: fixed; width: 100%; min-width: 940px; }
+.dish-report-detail-page .dish-order-table th { font-size: 15px; }
+.dish-report-detail-page .dish-order-table tbody td,
+.dish-report-detail-page .dish-order-table .report-order-status { font-size: 14px; }
+.dish-report-detail-page .dish-order-table th, .dish-report-detail-page .dish-order-table td { padding-left: 12px; padding-right: 12px; }
+.dish-report-detail-page .dish-order-table th:nth-child(2), .dish-report-detail-page .dish-order-table td:nth-child(2) { text-align: left; }
+.dish-report-detail-page .dish-order-table th:nth-last-child(-n+2), .dish-report-detail-page .dish-order-table td:nth-last-child(-n+2) { text-align: right; }
+.dish-report-detail-page .dish-order-table td:nth-child(5) { white-space: nowrap; }
+.dish-report-quantity-sort { background: none; border: 0; color: inherit; font: inherit; padding: 0; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.dish-report-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 14px 0 16px; }
+.dish-report-metrics > div { min-width: 0; border: 1px solid #e1eaf4; border-radius: 9px; padding: 11px 13px; display: flex; flex-direction: column; gap: 5px; }
+.dish-report-metrics span { color: #7890ac; font-size: 11px; }
+.dish-report-metrics strong { font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
+@media (max-width: 850px) { .dish-report-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 650px) { .dish-report-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.dish-report-detail-page .dish-report-header { display: grid; grid-template-columns: minmax(110px, 240px) minmax(0, 1fr) auto; align-items: center; gap: 14px; margin-bottom: 14px; }
+.dish-report-header > .owner-report-heading { min-width: 0; }
+.dish-report-header h1 { overflow-wrap: anywhere; }
+.dish-report-header .dish-report-metrics { grid-template-columns: minmax(0, 1fr) minmax(0, 0.5fr) repeat(3, minmax(0, 1fr)); margin: 0; gap: 8px; min-width: 0; }
+.dish-report-header .dish-report-metrics > div { padding: 8px 9px; gap: 4px; }
+.dish-report-header .dish-report-metrics span { font-size: 10px; line-height: 1.25; }
+.dish-report-header .dish-report-metrics strong { font-size: 18px; font-weight: 650; }
+@media (min-width: 1001px) {
+  .dish-report-header .dish-report-metrics { width: calc(100% - 56px); justify-self: end; grid-template-columns: minmax(0, 1fr) minmax(0, 0.55fr) repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 1000px) {
+  .dish-report-detail-page .dish-report-header { grid-template-columns: minmax(0, 1fr) auto; }
+  .dish-report-header .dish-report-metrics { grid-column: 1 / -1; grid-row: 2; }
+}
+@media (max-width: 600px) { .dish-report-header .dish-report-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

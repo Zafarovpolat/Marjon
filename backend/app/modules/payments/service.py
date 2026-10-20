@@ -126,7 +126,9 @@ class PaymentService:
                 )
 
             change_given = None
-            if data.method == "cash" and data.cash_received is not None:
+            if data.cash_amount is not None and data.cash_amount > 0:
+                change_given = (data.cash_received if data.cash_received is not None else data.cash_amount) - data.cash_amount
+            elif data.method == "cash" and data.cash_received is not None:
                 if data.cash_received < data.amount:
                     raise ValidationError("Cash received is less than payment amount")
                 change_given = data.cash_received - data.amount
@@ -143,6 +145,9 @@ class PaymentService:
                 cashier_id=cashier_id,
                 cash_received=data.cash_received,
                 change_given=change_given,
+                provider_data={"manual_breakdown": {
+                    "cash": str(data.cash_amount), "card": str(data.card_amount),
+                }} if data.cash_amount is not None else {},
             )
             self.db.add(payment)
             await self.db.flush()
@@ -151,6 +156,13 @@ class PaymentService:
             order.status = "completed"
             self.db.add(order)
             await self.db.flush()
+            # Same item completion semantics as POS status close, in this payment transaction.
+            from sqlalchemy import update
+            from app.modules.pos.models import OrderItem
+            await self.db.execute(update(OrderItem).where(
+                OrderItem.order_id == order.id,
+                OrderItem.status.in_(["pending", "cooking", "ready"]),
+            ).values(status="served"))
             await self._checkpoint("after_order")
 
             # Списание сырья по рецептам блюд завершённого заказа.

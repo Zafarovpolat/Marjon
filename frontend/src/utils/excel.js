@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { parseWebInstant, WEB_TIMEZONE } from "./webTime";
 
 // REPORTS-EXCEL-04: the production workbook WRITER is ExcelJS 4.4.0 (SheetJS CE
 // 0.18.5 could not serialize fonts/fills/borders/alignment/freeze — the plain
@@ -17,19 +18,22 @@ export function excelAmountNumber(value) {
   return Number.isFinite(num) ? num : null;
 }
 
-// Build a floating local datetime from the SAME wall-clock components the
-// OWNER UI formatter renders in this browser (same instant, same timezone),
-// instead of converting to UTC. The Excel cell therefore shows exactly the
-// business-local time the user saw, stays sortable, and never drifts with
-// the viewer's timezone. Seconds are kept, sub-second dust is dropped.
+// Encode Tashkent wall-clock fields in a timezone-free Excel serial, independent
+// of device timezone. Already prepared Date objects are not shifted twice.
+const floatingWebDates = new WeakSet();
 export function excelLocalDateTime(value) {
   if (value === null || value === undefined || value === "") return null;
-  const instant = value instanceof Date ? new Date(value.getTime()) : new Date(value);
-  if (Number.isNaN(instant.getTime())) return null;
-  return new Date(
-    instant.getFullYear(), instant.getMonth(), instant.getDate(),
-    instant.getHours(), instant.getMinutes(), instant.getSeconds(),
-  );
+  if (value instanceof Date && floatingWebDates.has(value)) return value;
+  const instant = parseWebInstant(value);
+  if (!instant) return null;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
+    timeZone: WEB_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(instant).map(part => [part.type, part.value]));
+  // Excel serials have no timezone: encode Tashkent's wall clock as UTC fields.
+  const floating = new Date(Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second));
+  floatingWebDates.add(floating);
+  return floating;
 }
 
 // Resolve a column's typed value: a real Date for date columns, a real Number

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.modules.admin_reports.schemas import (
-    AttendanceRow, CancelledAuthorOption, CancelledFiltersResponse, CancelledItemRow,
+    AttendanceRow, CancelledAuthorOption, CancelledFiltersResponse, CancelledItemRow, CancelledReportTotals,
     DebtCreditRow,
     DishReportFiltersResponse, DishReportResponse, DishReportRow,
     DishReportTotals, LoginHistoryRow, OrderReportRow,
@@ -82,6 +82,13 @@ class AdminReportService:
     def __init__(self, db: AsyncSession, *, web_timezone: str | None = None):
         self.db = db
         self.web_timezone = web_timezone
+
+    def _web_local_stamp(self, value):
+        if value is None or not self.web_timezone:
+            return value
+        from zoneinfo import ZoneInfo
+        instant = value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+        return instant.astimezone(ZoneInfo(self.web_timezone))
 
     async def _validate_branch(
         self, company_id: UUID, branch_id: UUID | None
@@ -442,6 +449,31 @@ class AdminReportService:
         cashier_names, payment_methods = await self._order_payment_attribution(
             company_id, [r.id for r in rows]
         )
+        position_prices: dict[UUID, list[Decimal]] = {}
+        position_totals: dict[UUID, tuple[Decimal, Decimal]] = {}
+        if product_id and rows:
+            # One batch query for the whole report, not one request per order.
+            price_rows = (await self.db.execute(
+                select(OrderItem.order_id, OrderItem.price,
+                       func.sum(OrderItem.quantity), func.sum(OrderItem.total))
+                .join(Order, Order.id == OrderItem.order_id)
+                .join(Product, Product.id == OrderItem.product_id)
+                .where(
+                    Order.company_id == company_id, Product.company_id == company_id,
+                    OrderItem.order_id.in_([row.id for row in rows]),
+                    OrderItem.product_id.in_(list(product_id)),
+                )
+                .group_by(OrderItem.order_id, OrderItem.price)
+                .order_by(OrderItem.order_id, OrderItem.price)
+            )).all()
+            for order_id_value, saved_price, saved_quantity, saved_amount in price_rows:
+                if saved_price is not None:
+                    position_prices.setdefault(order_id_value, []).append(Decimal(str(saved_price)))
+                quantity, amount = position_totals.get(order_id_value, (Decimal("0"), Decimal("0")))
+                position_totals[order_id_value] = (
+                    quantity + Decimal(str(saved_quantity or 0)),
+                    amount + Decimal(str(saved_amount or 0)),
+                )
         return [
             OrderReportRow(
                 order_id=r.id, public_id=r.public_id, order_number=r.order_number,
@@ -453,6 +485,9 @@ class AdminReportService:
                 cashier_names=cashier_names.get(r.id, []),
                 service_fee=Decimal(str(r.service_fee if r.service_fee is not None else 0)),
                 payment_methods=payment_methods.get(r.id, []),
+                position_prices=position_prices.get(r.id, []) if product_id else None,
+                position_quantity=position_totals[r.id][0] if r.id in position_totals else None,
+                position_amount=position_totals[r.id][1] if r.id in position_totals else None,
             )
             for r in rows
         ]
@@ -960,6 +995,7 @@ class AdminReportService:
                 Product.category_id,
                 Category.name.label("category_name"),
                 Category.sort_order.label("category_sort"),
+                Product.image_url,
                 func.sum(OrderItem.quantity).label("qty"),
                 func.sum(OrderItem.total).label("total"),
                 # DISHES-EXCEL cost truth. cost_sum = Σ(qty × sale-time cost
@@ -982,6 +1018,7 @@ class AdminReportService:
             .group_by(
                 OrderItem.product_id, OrderItem.name, Product.unit,
                 Product.category_id, Category.name, Category.sort_order,
+                Product.image_url,
             )
             .order_by(
                 Category.sort_order.asc().nulls_last(),
@@ -1066,7 +1103,7 @@ class AdminReportService:
                 grand_coverage_complete = False
             report_rows.append(DishReportRow(
                 product_id=r.product_id, name=r.name, unit=r.unit,
-                category_id=r.category_id, category_name=r.category_name,
+                category_id=r.category_id, category_name=r.category_name, image_url=r.image_url,
                 quantity=qty, price=price, amount=amount,
                 cost_total=cost_total, profit=profit,
                 cost_coverage_complete=row_complete,
@@ -1270,7 +1307,8 @@ class AdminReportService:
         author_id: Sequence[UUID] | None = None,
         dish_name: Sequence[str] | None = None,
         summary_only: bool = False,
-    ) -> list[CancelledItemRow] | Decimal:
+        include_order_count: bool = False,
+    ) -> list[CancelledItemRow] | Decimal | CancelledReportTotals:
         """Cancelled Dishes truth foundation (Phase 1A).
 
         Inclusion: OrderItem.status == 'cancelled' OR Order.status ==
@@ -1402,10 +1440,14 @@ class AdminReportService:
         if summary_only:
             # Exact report inclusion/date predicates, but aggregate in SQL:
             # never download cancelled items merely to total them in a browser.
-            quantity = (await self.db.execute(query.with_only_columns(
-                func.coalesce(func.sum(OrderItem.quantity), 0)
-            ))).scalar_one()
-            return Decimal(str(quantity))
+            totals = (await self.db.execute(query.with_only_columns(
+                func.coalesce(func.sum(OrderItem.quantity), 0),
+                func.count(Order.id.distinct()),
+            ))).one()
+            quantity = Decimal(str(totals[0]))
+            if include_order_count:
+                return CancelledReportTotals(quantity=quantity, orders_count=totals[1])
+            return quantity
         query = query.order_by(
             report_event.desc(), Order.created_at.desc(), Order.id, OrderItem.id
         )
@@ -1538,8 +1580,8 @@ class AdminReportService:
         rows = (await self.db.execute(query)).all()
         result = []
         for r in rows:
-            login_dt = r.created_at
-            logout_dt = r.revoked_at
+            login_dt = self._web_local_stamp(r.created_at)
+            logout_dt = self._web_local_stamp(r.revoked_at)
             result.append(LoginHistoryRow(
                 date=login_dt.strftime("%d.%m.%Y") if login_dt else "",
                 employee=r.name or r.email or "—",
@@ -1572,8 +1614,8 @@ class AdminReportService:
         rows = (await self.db.execute(query)).all()
         result = []
         for r in rows:
-            start = r.actual_start
-            end = r.actual_end
+            start = self._web_local_stamp(r.actual_start)
+            end = self._web_local_stamp(r.actual_end)
             hours = ""
             if start and end:
                 diff = int((end - start).total_seconds())

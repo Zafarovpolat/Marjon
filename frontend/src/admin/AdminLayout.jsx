@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { webFormat, webTime } from "../utils/webTime";
 
 import logo from "../assets/marjon-logo.svg";
 
@@ -333,11 +334,11 @@ function Sidebar({ active, onSelect, collapsed, onToggle, user, onProfile }) {
 }
 
 function formatAdminHeaderDate(value) {
-  return `${String(value.getDate()).padStart(2, "0")}.${String(value.getMonth() + 1).padStart(2, "0")}.${value.getFullYear()}`;
+  return webFormat(value, { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 function formatAdminHeaderTime(value) {
-  return `${String(value.getHours()).padStart(2, "0")}:${String(value.getMinutes()).padStart(2, "0")}`;
+  return webTime(value);
 }
 
 function Header({ user, onBack, notifications = [], onNotificationRefresh, onNotificationSelect, onProfile }) {

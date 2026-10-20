@@ -30,6 +30,16 @@ export function webTime(value = new Date()) {
   return webFormat(value, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 }
 
+// datetime-local contains a wall clock, NOT a device-local instant.
+export function webDateTimeInput(value) {
+  return parseWebInstant(value) ? `${webDayKey(value)}T${webTime(value)}` : "";
+}
+
+export function parseWebDateTimeInput(value) {
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(String(value || ""))
+    ? parseWebInstant(`${value}:00+05:00`) : null;
+}
+
 export function webDateTime(value) {
   const day = webFormat(value, { day: "2-digit", month: "2-digit", year: "numeric" });
   return day ? `${day} / ${webTime(value)}` : "";

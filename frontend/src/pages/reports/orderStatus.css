@@ -1,0 +1,8 @@
+.report-order-status { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; font-weight: 600; background: none; padding: 0; }
+.report-order-status__dot { display: inline-block; flex: 0 0 7px; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.report-order-status--completed { color: #0acb43; }
+.report-order-status--new { color: #3185dd; }
+.report-order-status--working { color: #d3830b; }
+.report-order-status--ready { color: #13a7b2; }
+.report-order-status--cancelled { color: #ef4444; }
+.report-order-status--unknown { color: #718096; }

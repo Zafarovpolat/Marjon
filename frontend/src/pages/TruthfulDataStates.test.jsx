@@ -51,6 +51,7 @@ vi.mock("chart.js", () => {
 vi.mock("react-router-dom", () => ({
   Link: ({ children, to, ...props }) => <a href={to} {...props}>{children}</a>,
   useNavigate: () => vi.fn(),
+  useSearchParams: () => [new URLSearchParams(), vi.fn()],
   useOutletContext: () => ({ selectedDate: "2026-08-12" }),
 }));
 
@@ -95,8 +96,8 @@ describe("truthful production data states", () => {
       if (path === "/reports/dishes") {
         return Promise.resolve({ data: { rows: [{ product_id: "product-1", name: "Backend dish", category_id: "category-1", category_name: "Backend menu", quantity: 2, price: 90000, amount: 180000 }], totals: { quantity: 2, amount: 180000, orders_count: 1 } } });
       }
-      if (path === "/finance/transactions/summary") return Promise.resolve({ data: { income_amount: 250000 } });
-      if (path === "/reports/cancelled/summary") return Promise.resolve({ data: { quantity: 3 } });
+      if (path === "/analytics/owner-financials") return Promise.resolve({ data: { metric_basis: "completed_income_minus_snapshot_cogs", income_total: 250000, today_revenue: 150000, today_orders: 1 } });
+      if (path === "/reports/cancelled/summary") return Promise.resolve({ data: { quantity: 3, orders_count: 1 } });
       return Promise.resolve({ data: { categories: [{ value: "category-1", label: "Backend menu" }] } });
     });
 
@@ -108,7 +109,7 @@ describe("truthful production data states", () => {
   });
 
   it("keeps menu success-empty distinct from failure", async () => {
-    api.get.mockImplementation((path) => Promise.resolve({ data: path === "/reports/dishes" ? { rows: [], totals: { quantity: 0, amount: 0, orders_count: 0 } } : path === "/finance/transactions/summary" ? { income_amount: 0 } : path === "/reports/cancelled/summary" ? { quantity: 0 } : { categories: [] } }));
+    api.get.mockImplementation((path) => Promise.resolve({ data: path === "/reports/dishes" ? { rows: [], totals: { quantity: 0, amount: 0, orders_count: 0 } } : path === "/analytics/owner-financials" ? { metric_basis: "completed_income_minus_snapshot_cogs", income_total: 0, today_revenue: 0, today_orders: 0 } : path === "/reports/cancelled/summary" ? { quantity: 0, orders_count: 0 } : { categories: [] } }));
 
     render(<MenuPage />);
 
