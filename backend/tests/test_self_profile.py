@@ -77,7 +77,15 @@ async def test_invalid_names_do_not_change_profile(client, name):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("raw,mime,expected", [(b"<svg/>", "image/svg+xml", 422), (b"fake", "image/png", 422), (b"x" * (5*1024*1024+1), "image/png", 413)])
+# TEST-ID-01: без явных ids pytest строит id из repr параметра, а третий кейс —
+# это 5 МБ байтов. Итоговый node id уезжает в переменную окружения
+# PYTEST_CURRENT_TEST, и на Windows (лимит 32767 символов) тест падает в setup
+# с «environment variable is longer than 32767 characters», не доходя до кода.
+@pytest.mark.parametrize(
+    "raw,mime,expected",
+    [(b"<svg/>", "image/svg+xml", 422), (b"fake", "image/png", 422), (b"x" * (5*1024*1024+1), "image/png", 413)],
+    ids=["svg-not-allowed", "not-an-image", "over-5mb"],
+)
 async def test_invalid_photos_do_not_commit_name(client, raw, mime, expected):
     headers = await account(client)
     before = (await client.get("/auth/me", headers=headers)).json()
