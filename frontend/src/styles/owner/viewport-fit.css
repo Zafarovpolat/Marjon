@@ -1,0 +1,104 @@
+/* ============================================================
+   VIEWPORT-FIT-01 — «всё по высоте экрана»
+
+   Задача: на любой высоте окна страница не оставляет пустых полос
+   и не выталкивает блоки за край. Раньше секции дашборда и плитки
+   оплаты имели фиксированные min-height (480 / 510 / 128 px), поэтому
+   на высоком экране внизу оставалась пустота, а на низком контент
+   уезжал под скролл.
+
+   Здесь высота не задаётся числом: контент кабинета — flex-колонка,
+   секции делят свободное место пропорционально, а внутренние списки
+   скроллятся сами. Правила лежат отдельным слоем (импортируется
+   последним в main.jsx), чтобы не переписывать 9 600 строк
+   dashboard.css и 35 000 react-overrides.css.
+   ============================================================ */
+
+/* ── 1. Дашборд владельца: три полосы делят высоту ─────────────────────────
+   kpi-полоса фиксирована по контенту, график и нижние карточки тянутся. */
+@media (min-width: 1281px) {
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) > .owner-kpi-band {
+    flex: 0 0 auto;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) > .owner-main-grid {
+    flex: 1.15 1 0;
+    min-height: 180px;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) > .owner-widgets {
+    flex: 1 1 0;
+    min-height: 150px;
+  }
+
+  /* Карточка графика заполняет свою ячейку, полотно графика — остаток карточки.
+     У .chart-wrap стоит ResizeObserver (RevenueChart.jsx), поэтому canvas
+     пересчитывается сам, без фиксированных 350px. */
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) .premium-chart {
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) .premium-chart .chart-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) .warehouse-summary-card {
+    min-height: 0;
+    height: 100%;
+    overflow-y: auto;
+  }
+
+  /* Нижний ряд: карточки на всю высоту полосы, списки скроллятся внутри. */
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) > .owner-widgets > * {
+    min-height: 0;
+    height: 100%;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) .top-dishes-card {
+    min-height: 0;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) .top-dishes-list,
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) .recent-orders-list {
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+/* ── 2. Модалка оплаты: плитки UzCard / Visa растягиваются на всю полосу ───
+   Было: .balance-payment-shell__dynamic-frame { flex: 0 0 auto; min-height: 270px },
+   плитка 128px — под ней оставалась пустая полоса до кнопки «Оплатить».
+   Теперь полоса шага занимает свободное место, плитки тянутся по её высоте.
+   Ограничено шагом method: у шага с полями карты своя логика. */
+body.dashboard-body .balance-payment-dialog--card .balance-payment-shell__dynamic-frame:has([data-payment-step="method"]) {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-dynamic[data-payment-step="method"] {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 270px;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-dynamic[data-payment-step="method"] .balance-payment-methods {
+  flex: 1 1 auto;
+  align-items: stretch;
+}
+
+body.dashboard-body .balance-payment-dialog--card .balance-payment-methods .balance-payment-method {
+  height: 100%;
+  min-height: 128px;
+}

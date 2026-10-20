@@ -29,6 +29,9 @@ import "./styles/shared/auth.css";
 import "./styles/shared/login-extras.css";
 import "./styles/shared/support-widget.css";
 import "./styles/preview/dark-shell.css";
+// VIEWPORT-FIT-01: последний слой — подчиняет высоту секций высоте окна.
+// Импортируется последним осознанно: перекрывает фиксированные min-height.
+import "./styles/owner/viewport-fit.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
