@@ -1,7 +1,30 @@
 {
   "app": "Marjon Desktop",
-  "updated": "2026-10-19",
+  "updated": "2026-10-20",
   "releases": [
+    {
+      "version": "1.0.1",
+      "platform": "windows",
+      "channel": "stable",
+      "date": "2026-10-20",
+      "notes": "Оплата на кассе подтверждается сервером: закрытие счёта идёт через /payments с защитой от повторной оплаты и понятными текстами ошибок (RU/UZ). Отчёты владельца: карточка отменённого заказа с отметкой «Ознакомлен», фото блюд в отчёте, статусы заказов. Дашборд подстраивается под высоту экрана.",
+      "files": [
+        {
+          "kind": "installer",
+          "label": "Установщик",
+          "file": "Marjon-Setup-1.0.1.exe",
+          "size": 71073657,
+          "sha256": "69436738b2a0329903fff493218feaadf92258b90f617ad55c9af40066ffccc1"
+        },
+        {
+          "kind": "portable",
+          "label": "Portable",
+          "file": "Marjon-Portable-1.0.1.exe",
+          "size": 70857771,
+          "sha256": "650f743a85d2ce56143a970d64652b9fdded8b5124536a06f3e7392dc732d8fd"
+        }
+      ]
+    },
     {
       "version": "1.0.0",
       "platform": "windows",
