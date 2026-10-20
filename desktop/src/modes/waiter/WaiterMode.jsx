@@ -182,19 +182,27 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     })
   }
   // Передать ВЕСЬ заказ на другой стол (не отдельное блюдо) — 3.1: смена стола заказа.
+  // TABLE-MATCH-01: цель выбирается по id стола и подписывается залом — иначе
+  // «стол 1» из трёх залов давал три одинаковых пункта, и заказ уезжал не туда.
+  // Для заказов с table_id бэкенд принимает только table_id (номер — снимок).
   function reassignTable(order) {
+    const isUuid = (v) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-/i.test(String(v || ''))
     setPromptCfg({
       title: t('move_table'),
       hint: t('move_to_table'),
       options: allTables.map((table) => ({
-        value: String(table.number),
-        label: `${t('table')} ${table.number}`,
+        value: isUuid(table.id) ? String(table.id) : String(table.number),
+        label: `${table.zoneName ? table.zoneName + ' · ' : ''}${t('table')} ${table.number}`,
       })),
-      initial: order.table_number || '',
+      initial: order.table_id ? String(order.table_id) : (order.table_number || ''),
       extra: { label: t('move_reason'), placeholder: t('move_reason_ph') },
       submitLabel: t('save'),
-      onSubmit: async (num, reason) => {
-        await orders.update(order.id, { table_number: String(num).trim(), reason: reason || undefined })
+      onSubmit: async (value, reason) => {
+        const target = allTables.find((t) => String(t.id) === String(value) || String(t.number) === String(value))
+        const payload = isUuid(target?.id)
+          ? { table_id: target.id, reason: reason || undefined }
+          : { table_number: String(target?.number ?? value).trim(), reason: reason || undefined }
+        await orders.update(order.id, payload)
         setPromptCfg(null); setView('floor'); loadData()
       },
     })
@@ -215,17 +223,28 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
   const allTables = zones.flatMap((z) =>
     (z.tables || []).map((t) => ({ ...t, zoneId: z.id, zoneName: z.name }))
   )
-  function orderFor(number) {
-    return orderList.find((o) => String(o.table_number) === String(number))
+  // TABLE-MATCH-01: номер стола уникален только внутри зала — ищем по table_id,
+  // по номеру сопоставляем лишь старые заказы и только если номер в филиале один.
+  function orderFor(tbl) {
+    if (tbl == null) return undefined
+    const id = typeof tbl === 'object' ? tbl.id : null
+    const num = typeof tbl === 'object' ? tbl.number : tbl
+    if (id) {
+      const byId = orderList.find((o) => o.table_id && String(o.table_id) === String(id))
+      if (byId) return byId
+    }
+    const sameNumber = allTables.filter((t) => String(t.number) === String(num))
+    if (sameNumber.length > 1) return undefined
+    return orderList.find((o) => !o.table_id && String(o.table_number) === String(num))
   }
-  function tableStatus(number) {
-    const o = orderFor(number)
+  function tableStatus(tbl) {
+    const o = orderFor(tbl)
     if (!o) return 'free'
     if (o.receipt_printed_at) return 'await'
     return o.status === 'ready' ? 'ready' : 'busy'
   }
 
-  const freeCount = (list) => list.filter((t) => tableStatus(t.number) === 'free').length
+  const freeCount = (list) => list.filter((t) => tableStatus(t) === 'free').length
   const zoneNav = [
     { id: 'all', name: t('all'), count: freeCount(allTables), Icon: LayoutGrid },
     ...zones.map((z) => ({ id: z.id, name: z.name, count: freeCount(z.tables || []), Icon: zoneIcon(z.name) })),
@@ -234,14 +253,14 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
   // Считаем ТОЛЬКО по видимой вкладке (иначе «Кабина» показывала занятость всех зон).
   const shownTables = activeZone === 'all' ? allTables : allTables.filter((tb) => tb.zoneId === activeZone)
   const shownCount = shownTables.length
-  const busyCount = shownTables.filter((tb) => tableStatus(tb.number) !== 'free').length
+  const busyCount = shownTables.filter((tb) => tableStatus(tb) !== 'free').length
   // Разбивка для легенды (сумма = shownCount): свободно / занято / готово.
-  const cFree = shownTables.filter((tb) => tableStatus(tb.number) === 'free').length
-  const cReady = shownTables.filter((tb) => tableStatus(tb.number) === 'ready').length
+  const cFree = shownTables.filter((tb) => tableStatus(tb) === 'free').length
+  const cReady = shownTables.filter((tb) => tableStatus(tb) === 'ready').length
   const cBusy = shownCount - cFree - cReady
 
   function handleTableTap(table) {
-    const o = orderFor(table.number)
+    const o = orderFor(table)
     if (o) {
       setSelectedTable({ ...table, order: o })
       setView('detail')
@@ -312,6 +331,9 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
         await orders.create({
           branch_id: user.branch_id,
           order_type: 'dine_in',
+          // TABLE-MATCH-01: id стола — канонический ключ (номер уникален только
+          // внутри зала, по нему бэкенд не может выбрать зал).
+          table_id: selectedTable?.id || undefined,
           table_number: selectedTable?.number != null ? String(selectedTable.number) : null,
           persons_count: guests,
           note: orderNote || null,
@@ -499,8 +521,8 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
                   <div className="tgroup__title">{z.name} <span>{(z.tables || []).length} {t('tables_low')}</span></div>
                   <div className="tgrid">
                     {(z.tables || []).map((tb) => {
-                      const o = orderFor(tb.number)
-                      const st = tableStatus(tb.number)
+                      const o = orderFor(tb)
+                      const st = tableStatus(tb)
                       const variant = st === 'free' ? 'free' : st === 'ready' ? 'check' : st === 'await' ? 'pay' : 'busy'
                       return (
                         <button key={tb.id ?? tb.number} className={`tcard tcard--${variant}`} onClick={() => handleTableTap(tb)}>

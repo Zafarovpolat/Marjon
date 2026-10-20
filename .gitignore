@@ -51,8 +51,14 @@ frontend/dist/
 print_agent/agent_config.json
 
 # Large build artifacts
+# Установщики десктопа для страницы /store — 68 МБ бинарники, в git нельзя.
+store-files/*.exe
+
 desktop.zip
 desktop/build/
 mobile/build/
 owner/build/
 owner.zip
+
+# WorkBuddy AI — локальная память проекта
+.workbuddy-ai/

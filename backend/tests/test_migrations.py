@@ -27,7 +27,11 @@ from app.shared.base_model import Base
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 VERSIONS_DIR = BACKEND_ROOT / "migrations" / "versions"
-EXPECTED_HEAD = "mg02merge"
+# MERGE-HEAD-01: голова графа миграций. `pwlock01` (блокировка входа после
+# 10 неудач, коммит f16e13d) приехал мерджем и стал новой головой, но константа
+# осталась на `mg02merge` — полный прогон тестов был красным на одном этом
+# ассерте. Граф линейный: pwlock01 → mg02merge → (mg01merge, tsdef01).
+EXPECTED_HEAD = "pwlock01"
 # Считается по статическому списку _COLUMNS в файлах миграций *bi02* (см.
 # _bi02_nullable_columns), а не по текущей схеме — новые миграции его не меняют.
 EXPECTED_NULLABLE_COLUMN_COUNT = 262
@@ -169,7 +173,9 @@ def test_revision_graph_is_complete_and_has_one_head() -> None:
     # nullability), br01login (branches.login/password_hash),
     # att01status (attendance_logs: status/approved_by/approved_at).
     # mg01merge сводит обе линии (att01status + emp01printer) в один head.
-    assert len(revisions) == 89
+    # MERGE-HEAD-01: mg02merge сводит (mg01merge, tsdef01), после него идёт
+    # pwlock01 (блокировка входа после 10 неудач) — итого 90 ревизий.
+    assert len(revisions) == 90
 
     nullable_columns = _bi02_nullable_columns()
     assert len(nullable_columns) == EXPECTED_NULLABLE_COLUMN_COUNT

@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from uuid import UUID
 
 from fastapi import Depends, Query, WebSocket, WebSocketDisconnect
@@ -17,6 +18,41 @@ from app.modules.companies.models import Branch
 from app.shared.tenant_scope import require_company_resource
 
 logger = logging.getLogger(__name__)
+
+# ── Redis publish: короткий таймаут + предохранитель ─────────────────────────
+# POS-REALTIME-LAT-01. `broadcast()` вызывается прямо в пути запроса (создание
+# заказа, смена статуса, оплата). Раньше на каждый вызов создавался новый клиент
+# redis-py с дефолтной политикой ретраев: если Redis недоступен, publish
+# повторялся с backoff и держал HTTP-запрос ~4 секунды. Локально (без Redis)
+# «Создать заказ» отвечал 4.1 с вместо ~10 мс.
+#
+# Теперь: один переиспользуемый клиент, таймаут соединения 0.25 с и НОЛЬ
+# ретраев. Неудачная попытка взводит предохранитель на 30 с — в течение этого
+# окна события доставляются только локальным подключениям, без обращения к
+# Redis. Реальная доставка между воркерами не страдает: как только Redis
+# оживает, следующая попытка после окна снова идёт в pub/sub.
+_REDIS_DOWN_SECONDS = 30.0
+_redis_down_until: float = 0.0
+_redis_publish_client = None
+
+
+def _publish_client():
+    """Один клиент на процесс: соединение переиспользуется между событиями."""
+    global _redis_publish_client
+    if _redis_publish_client is None:
+        import redis.asyncio as aioredis
+        from redis.asyncio.retry import Retry
+        from redis.backoff import NoBackoff
+
+        _redis_publish_client = aioredis.from_url(
+            settings.redis_url,
+            decode_responses=True,
+            socket_connect_timeout=0.25,
+            socket_timeout=0.25,
+            retry=Retry(NoBackoff(), 0),
+            retry_on_timeout=False,
+        )
+    return _redis_publish_client
 
 
 class KitchenConnectionManager:
@@ -78,18 +114,24 @@ class KitchenConnectionManager:
         event_type: str,
         data: dict | None = None,
     ) -> None:
+        global _redis_down_until
+
         key = self._key(company_id, branch_id)
         message = json.dumps({"type": event_type, "data": data or {}})
 
-        if settings.redis_url:
+        # POS-REALTIME-LAT-01: путь запроса не должен ждать Redis. См. блок
+        # _REDIS_DOWN_SECONDS выше — при недоступном Redis здесь максимум 0.25 с
+        # на первую попытку и 0 с на все последующие в течение окна.
+        if settings.redis_url and time.monotonic() >= _redis_down_until:
             try:
-                import redis.asyncio as aioredis
-                client = aioredis.from_url(settings.redis_url, decode_responses=True)
-                await client.publish(self._channel(key), message)
-                await client.aclose()
+                await _publish_client().publish(self._channel(key), message)
                 return  # _redis_forward tasks handle local delivery
             except Exception as exc:
-                logger.warning("Redis publish failed (%s) — falling back to local", exc)
+                _redis_down_until = time.monotonic() + _REDIS_DOWN_SECONDS
+                logger.warning(
+                    "Redis publish failed (%s) — in-process delivery for %.0fs",
+                    exc, _REDIS_DOWN_SECONDS,
+                )
 
         # Fallback: deliver directly to in-process connections only
         await self._send_local(key, message)
@@ -114,7 +156,13 @@ class KitchenConnectionManager:
 
         try:
             import redis.asyncio as aioredis
-            client = aioredis.from_url(settings.redis_url, decode_responses=True)
+            # Короткий connect-таймаут: без Redis этот слушатель иначе держал бы
+            # открытие WebSocket-подключения на дефолтном TCP-таймауте.
+            client = aioredis.from_url(
+                settings.redis_url,
+                decode_responses=True,
+                socket_connect_timeout=2,
+            )
             pubsub = client.pubsub()
             await pubsub.subscribe(channel)
             async for msg in pubsub.listen():

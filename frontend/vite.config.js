@@ -9,6 +9,13 @@ export default defineConfig({
         target: "http://localhost:8000",
         changeOrigin: true,
       },
+      // Marjon store (/store): установщики десктопа живут только на сервере
+      // (nginx отдаёт их из /usr/share/nginx/store). В dev проксируем туда,
+      // иначе таблица и кнопки «Скачать» локально отдают 404.
+      "/store/files": {
+        target: "https://adminka.marjon.tech",
+        changeOrigin: true,
+      },
     },
   },
   build: {

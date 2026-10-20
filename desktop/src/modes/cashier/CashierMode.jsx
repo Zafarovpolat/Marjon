@@ -163,14 +163,32 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
 
   // ── Столы ──
   const allTables = zones.flatMap((z) => (z.tables || []).map((t) => ({ ...t, zoneId: z.id, zoneName: z.name })))
-  const orderFor = (num) => orderList.find((o) => String(o.table_number) === String(num))
-  const tableStatus = (num) => {
-    const o = orderFor(num)
+  // TABLE-MATCH-01: номер стола уникален ТОЛЬКО внутри зала (tables.number с
+  // уникальностью (hall_id, number)) — «стол 1» есть и в «Зале», и в «Балконе»,
+  // и на «Первом этаже». Раньше заказ искался по номеру среди всех заказов
+  // филиала, поэтому заказ на стол 1 подсвечивал стол 1 во ВСЕХ залах сразу.
+  // Теперь сначала совпадение по table_id, и только для старых заказов без
+  // table_id — по номеру, и лишь если такой номер в филиале один (иначе не
+  // гадаем: бэкенд в такой ситуации тоже отказывается привязывать стол).
+  const orderFor = (tbl) => {
+    if (tbl == null) return undefined
+    const id = typeof tbl === 'object' ? tbl.id : null
+    const num = typeof tbl === 'object' ? tbl.number : tbl
+    if (id) {
+      const byId = orderList.find((o) => o.table_id && String(o.table_id) === String(id))
+      if (byId) return byId
+    }
+    const sameNumber = allTables.filter((t) => String(t.number) === String(num))
+    if (sameNumber.length > 1) return undefined
+    return orderList.find((o) => !o.table_id && String(o.table_number) === String(num))
+  }
+  const tableStatus = (tbl) => {
+    const o = orderFor(tbl)
     if (!o) return 'free'
     if (o.receipt_printed_at) return 'await'   // чек напечатан → ожидает оплату
     return o.status === 'ready' ? 'ready' : 'busy'
   }
-  const freeCount = (list) => list.filter((t) => tableStatus(t.number) === 'free').length
+  const freeCount = (list) => list.filter((t) => tableStatus(t) === 'free').length
   // Заказы доставки и «с собой» — свои доски (карточки заказов, а не столов)
   const deliveryOrders = orderList.filter((o) => o.order_type === 'delivery')
   const takeawayOrders = orderList.filter((o) => o.order_type === 'takeaway')
@@ -184,7 +202,7 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
   const shownZones = activeZone === 'all' ? zones : zones.filter((z) => z.id === activeZone)
   // Счётчики в шапке — по ПОКАЗАННОЙ зоне (а не по всем столам): иначе «занято N» не совпадало с видимым
   const shownTables = activeZone === 'all' ? allTables : allTables.filter((tb) => tb.zoneId === activeZone)
-  const busyCount = shownTables.filter((tb) => tableStatus(tb.number) !== 'free').length
+  const busyCount = shownTables.filter((tb) => tableStatus(tb) !== 'free').length
 
   function openOrder(type, table) {
     setOrderType(type); setSelectedTable(table || null)
@@ -246,7 +264,7 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
   }
   // Клик по столу: есть заказ (передан официантом) → оплата/закрытие; пусто → новый заказ
   function tapTable(tbl) {
-    const o = orderFor(tbl.number)
+    const o = orderFor(tbl)
     if (o) setPayExisting(o)
     else openOrder('dine_in', tbl)
   }
@@ -359,20 +377,27 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     const upd = await orders.update(order.id, { discount_amount: amount })
     setPayExisting(upd); loadFloor()
   }
-  // Перенос заказа на другой стол — номер спрашиваем в своей модалке
+  // Перенос заказа на другой стол — цель выбирается по id стола и подписывается
+  // залом: номер уникален только внутри зала, иначе в списке три «Стол 1».
+  // Для заказов с table_id бэкенд принимает только table_id (номер — снимок).
   function reassignTable(order) {
+    const isUuid = (v) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-/i.test(String(v || ''))
     setPromptCfg({
       title: t('move_table'),
       hint: t('move_to_table'),
       options: allTables.map((table) => ({
-        value: String(table.number),
-        label: `${t('table')} ${table.number}`,
+        value: isUuid(table.id) ? String(table.id) : String(table.number),
+        label: `${table.zoneName ? table.zoneName + ' · ' : ''}${t('table')} ${table.number}`,
       })),
-      initial: order.table_number || '',
+      initial: order.table_id ? String(order.table_id) : (order.table_number || ''),
       extra: { label: t('move_reason'), placeholder: t('move_reason_ph') },
       submitLabel: t('save'),
-      onSubmit: async (num, reason) => {
-        await orders.update(order.id, { table_number: num, reason: reason || undefined })
+      onSubmit: async (value, reason) => {
+        const target = allTables.find((t) => String(t.id) === String(value) || String(t.number) === String(value))
+        const payload = isUuid(target?.id)
+          ? { table_id: target.id, reason: reason || undefined }
+          : { table_number: String(target?.number ?? value), reason: reason || undefined }
+        await orders.update(order.id, payload)
         setPromptCfg(null); setPayExisting(null); loadFloor()
       },
     })
@@ -424,6 +449,11 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
         await orders.create({
           branch_id: user.branch_id,
           order_type: orderType,
+          // TABLE-MATCH-01: id стола — канонический ключ. По одному номеру
+          // бэкенд не может выбрать зал (номер уникален лишь внутри зала) и
+          // оставляет заказ без стола, из-за чего стол подсвечивался во всех
+          // залах. Номер остаётся снимком для истории/чеков.
+          table_id: orderType === 'dine_in' ? (selectedTable?.id || undefined) : undefined,
           table_number: orderType === 'dine_in' && selectedTable?.number != null ? String(selectedTable.number) : undefined,
           note: orderNote || undefined,
           customer_id: custId || undefined,
@@ -520,7 +550,7 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
                 <div className="tgroup__title">{z.name} <span>{(z.tables || []).length} {t('tables_low')}</span></div>
                 <div className="tgrid">
                   {(z.tables || []).map((tb) => {
-                    const o = orderFor(tb.number); const st = tableStatus(tb.number)
+                    const o = orderFor(tb); const st = tableStatus(tb)
                     const variant = st === 'free' ? 'free' : st === 'ready' ? 'check' : st === 'await' ? 'pay' : 'busy'
                     return (
                       <button key={tb.id ?? tb.number} className={`tcard tcard--${variant}`} onClick={() => tapTable(tb)}>

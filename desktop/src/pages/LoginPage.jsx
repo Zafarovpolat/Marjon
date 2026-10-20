@@ -22,6 +22,19 @@ export default function LoginPage({ mode = 'admin', onLogin, onReset, branchName
   return <MonoblockLogin onLogin={onLogin} onSettings={onSettings} />
 }
 
+/**
+ * Человеческий текст ошибки входа.
+ *
+ * Раньше здесь стоял `err.response?.data?.detail || t('lp_branch_bad_creds')`,
+ * и на 404 от сервера (адрес без /api/v1) в красной плашке показывалось сырое
+ * «Not Found» — выглядело как поломка приложения, а не как неверный адрес.
+ */
+function loginErrorMessage(err) {
+  if (!err?.response) return t('lp_no_connection')
+  if (err.response.status === 404) return t('lp_server_not_found')
+  return err.response.data?.detail || t('lp_branch_bad_creds')
+}
+
 // ═══════════════════════════════════════════════════
 // Вход по телефону+паролю моноблока — один шаг, без выбора филиала.
 // Телефон моноблока — номер под маской +998 XX XXX-XX-XX (как в 1.4).
@@ -52,7 +65,7 @@ function MonoblockLogin({ onLogin, onSettings }) {
       const data = await auth.loginByMonoblock(fullPhone(phone), password)
       onLogin(data)
     } catch (err) {
-      setError(err.response?.data?.detail || t('lp_branch_bad_creds'))
+      setError(loginErrorMessage(err))
     } finally {
       setLoading(false)
     }

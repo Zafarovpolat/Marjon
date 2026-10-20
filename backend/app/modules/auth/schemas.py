@@ -200,14 +200,6 @@ class MonoblockLoginResponse(BaseSchema):
     company: CompanyInfo
 
 
-class BranchLoginRequest(BaseSchema):
-    model_config = {"from_attributes": True, "extra": "forbid"}
-
-    # Вход «как филиал» с начального экрана: логин+пароль филиала (а не владельца).
-    login: str = Field(..., min_length=1, max_length=150)
-    password: str = Field(..., min_length=1)
-
-
 class BranchSwitchRequest(BaseSchema):
     model_config = {"from_attributes": True, "extra": "forbid"}
 

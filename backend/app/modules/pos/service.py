@@ -1,5 +1,6 @@
 from __future__ import annotations
 import hashlib
+import logging
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
@@ -27,6 +28,8 @@ from app.modules.pos.schemas import (
 )
 from app.shared.exceptions import ConflictError, NotFoundError, ValidationError
 from app.shared.tenant_scope import require_company_resource
+
+logger = logging.getLogger(__name__)
 
 # ── Order status state machine ───────────────────────────────────────────────
 # POS-CLOSE-01: закрытие счёта (`completed`) — это оплата, а не шаг кухни.
@@ -273,7 +276,13 @@ class OrderService:
                 company_id, order.branch_id, order.id
             )
         except Exception:
-            pass
+            # PRINT-DIAG-01: раньше здесь стоял молчаливый `pass` — кухонный чек
+            # не выходил, и ни в логах, ни в ответе не было ни следа причины
+            # (ошибка рендера растра, битый шаблон, недоступная БД).
+            logger.warning(
+                "auto_print_kitchen failed for order %s (branch=%s)",
+                order.id, order.branch_id, exc_info=True,
+            )
         try:
             await AuditService(self.db).log(
                 company_id, waiter_id, "order.create", "order",

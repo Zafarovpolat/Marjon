@@ -300,12 +300,14 @@ export function useDishesCatalog() {
   }, [rows, filters, filterCategories, showArchived]);
 
   // V24 — реальные тумблеры АВТО/СЕТ: PATCH /inventory/products/{id}
-  // {is_auto} / {is_set}. V39 — тумблер колонки пишет ТОЛЬКО allow_in_sets
-  // (доступность в сетах), is_set не трогает. Независимые поля, без
-  // оптимистичного fake: строку обновляем ТОЛЬКО ответом сервера;
-  // ошибка → actionError, состояние не меняется (revert). F5 держится сервером.
+  // {is_auto} / {is_set}. Независимые поля, без оптимистичного fake: строку
+  // обновляем ТОЛЬКО ответом сервера; ошибка → actionError, состояние не
+  // меняется (revert). F5 держится сервером.
+  // Ветка allow_in_sets ("inset") удалена вместе с колонкой СЕТ (ea3a4ce):
+  // вызывать её было некому, а список компонентов сета на неё опирался —
+  // из-за этого он был пуст всегда.
   const updateRow = async (id, key, value) => {
-    if (key !== "auto" && key !== "set" && key !== "inset") {
+    if (key !== "auto" && key !== "set") {
       setActionError("Быстрое изменение недоступно: неизвестное поле.");
       return;
     }
@@ -313,7 +315,7 @@ export function useDishesCatalog() {
     if (!acquire(lockKey)) return;
     const payload = key === "auto"
       ? { is_auto: Boolean(value) }
-      : key === "inset" ? { allow_in_sets: Boolean(value) } : { is_set: Boolean(value) };
+      : { is_set: Boolean(value) };
     setTogglingId(`${id}:${key}`);
     setActionError("");
     try {
