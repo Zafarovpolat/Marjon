@@ -4,7 +4,7 @@ import {
   Search, Plus, Minus, Trash2, Utensils,
   LayoutGrid, Armchair, DoorClosed, Sun, Wine, CalendarClock, ArrowLeft, Users, Clock, Wallet, History, BarChart3, Ban, ShoppingBag, Bike, Boxes, Printer,
 } from 'lucide-react'
-import { orders, menu, halls as hallsApi, printers as printersApi, customers as customersApi, auth as authApi, finance as financeApi, companies as companiesApi } from '../../shared/api'
+import { orders, menu, halls as hallsApi, printers as printersApi, customers as customersApi, auth as authApi, finance as financeApi, companies as companiesApi, payments as paymentsApi } from '../../shared/api'
 import { onPrintJob } from '../../shared/ws'
 // PRINT-LAT-01: печать + дедупликация + опрос очереди (наш путь доставки).
 // printers.js — выбор принтера (сотрудник → филиал) из прод-линии.
@@ -163,14 +163,32 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
 
   // ── Столы ──
   const allTables = zones.flatMap((z) => (z.tables || []).map((t) => ({ ...t, zoneId: z.id, zoneName: z.name })))
-  const orderFor = (num) => orderList.find((o) => String(o.table_number) === String(num))
-  const tableStatus = (num) => {
-    const o = orderFor(num)
+  // TABLE-MATCH-01: номер стола уникален ТОЛЬКО внутри зала (tables.number с
+  // уникальностью (hall_id, number)) — «стол 1» есть и в «Зале», и в «Балконе»,
+  // и на «Первом этаже». Раньше заказ искался по номеру среди всех заказов
+  // филиала, поэтому заказ на стол 1 подсвечивал стол 1 во ВСЕХ залах сразу.
+  // Теперь сначала совпадение по table_id, и только для старых заказов без
+  // table_id — по номеру, и лишь если такой номер в филиале один (иначе не
+  // гадаем: бэкенд в такой ситуации тоже отказывается привязывать стол).
+  const orderFor = (tbl) => {
+    if (tbl == null) return undefined
+    const id = typeof tbl === 'object' ? tbl.id : null
+    const num = typeof tbl === 'object' ? tbl.number : tbl
+    if (id) {
+      const byId = orderList.find((o) => o.table_id && String(o.table_id) === String(id))
+      if (byId) return byId
+    }
+    const sameNumber = allTables.filter((t) => String(t.number) === String(num))
+    if (sameNumber.length > 1) return undefined
+    return orderList.find((o) => !o.table_id && String(o.table_number) === String(num))
+  }
+  const tableStatus = (tbl) => {
+    const o = orderFor(tbl)
     if (!o) return 'free'
     if (o.receipt_printed_at) return 'await'   // чек напечатан → ожидает оплату
     return o.status === 'ready' ? 'ready' : 'busy'
   }
-  const freeCount = (list) => list.filter((t) => tableStatus(t.number) === 'free').length
+  const freeCount = (list) => list.filter((t) => tableStatus(t) === 'free').length
   // Заказы доставки и «с собой» — свои доски (карточки заказов, а не столов)
   const deliveryOrders = orderList.filter((o) => o.order_type === 'delivery')
   const takeawayOrders = orderList.filter((o) => o.order_type === 'takeaway')
@@ -184,7 +202,7 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
   const shownZones = activeZone === 'all' ? zones : zones.filter((z) => z.id === activeZone)
   // Счётчики в шапке — по ПОКАЗАННОЙ зоне (а не по всем столам): иначе «занято N» не совпадало с видимым
   const shownTables = activeZone === 'all' ? allTables : allTables.filter((tb) => tb.zoneId === activeZone)
-  const busyCount = shownTables.filter((tb) => tableStatus(tb.number) !== 'free').length
+  const busyCount = shownTables.filter((tb) => tableStatus(tb) !== 'free').length
 
   function openOrder(type, table) {
     setOrderType(type); setSelectedTable(table || null)
@@ -246,7 +264,7 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
   }
   // Клик по столу: есть заказ (передан официантом) → оплата/закрытие; пусто → новый заказ
   function tapTable(tbl) {
-    const o = orderFor(tbl.number)
+    const o = orderFor(tbl)
     if (o) setPayExisting(o)
     else openOrder('dine_in', tbl)
   }
@@ -265,18 +283,26 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     try { await printersApi.printReceipt({ order_id: order.id, printer_id: pr.id, copies: 1 }) }
     catch (e) { toast(t('print_failed') + (e?.response?.data?.detail ? `: ${e.response.data.detail}` : '')) }
   }
-  // Закрыть заказ (оплата подтверждена кассиром). Способ оплаты фиксируется вручную —
-  // платёжку интегрируем позже; сейчас просто переводим заказ в completed.
-  // Долг (method === 'debt'): фактически полученные наличные пишем приходом в финансы
-  // best-effort — без права на финансы или офлайн запись тихо пропускается,
-  // заказ при этом всё равно закрывается.
+  // Закрыть заказ (оплата подтверждена кассиром).
+  // PAY-REG-01: закрытие счёта = создание Payment на бэкенде. Один PATCH
+  // статуса закрывал заказ, но не оставлял строки оплаты — а денежные отчёты
+  // веба (owner-financials, Z-отчёт, разбивка по способам оплаты) строятся по
+  // completed-Payment. Отсюда «закрыл заказ, а в вебе суммы нет». Заодно
+  // PaymentService списывает склад и ставит фискализацию в очередь.
+  // Долг (method === 'debt'): модель оплат не поддерживает частичную оплату,
+  // поэтому заказ закрывается статусом, а фактически полученные наличные
+  // пишем приходом в финансы (как и раньше).
   async function completeExistingOrder(order, method, detail) {
     try {
-      await orders.updateStatus(order.id, 'completed')
-      if (method === 'debt' && detail && Number(detail.cash) > 0) {
-        const fmtSum = (n) => Number(n || 0).toLocaleString('ru-RU')
-        const comment = `Долг: заказ #${order.order_number ?? ''}, получено ${fmtSum(detail.cash)}, остаток ${fmtSum(detail.debt)}${detail.client_name ? `, клиент: ${detail.client_name}` : ''}${detail.client_phone ? `, тел: ${detail.client_phone}` : ''}`
-        try { await financeApi.addIncome({ amount: Number(detail.cash), comment }) } catch { /* тихо: нет прав или офлайн */ }
+      if (method === 'debt') {
+        await orders.updateStatus(order.id, 'completed')
+        if (detail && Number(detail.cash) > 0) {
+          const fmtSum = (n) => Number(n || 0).toLocaleString('ru-RU')
+          const comment = `Долг: заказ #${order.order_number ?? ''}, получено ${fmtSum(detail.cash)}, остаток ${fmtSum(detail.debt)}${detail.client_name ? `, клиент: ${detail.client_name}` : ''}${detail.client_phone ? `, тел: ${detail.client_phone}` : ''}`
+          try { await financeApi.addIncome({ amount: Number(detail.cash), comment }) } catch { /* тихо: нет прав или офлайн */ }
+        }
+      } else {
+        await payOrder(order, method, detail)
       }
       // Открываем денежный ящик (best-effort: ошибка не мешает закрытию заказа)
       try {
@@ -286,9 +312,45 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
         }
       } catch { /* тихо: ящик может быть не подключён */ }
       toast(t('order_closed'))
-    } catch (e) { toast(t('close_order_error') + (e?.response?.data?.detail ? ': ' + e.response.data.detail : ''), 'error') }
+    } catch (e) {
+      toast(t('close_order_error') + (e?.response?.data?.detail ? ': ' + e.response.data.detail : ''), 'error')
+    }
     setPayExisting(null)
     loadFloor()
+  }
+  // Создание оплаты. amount должен совпасть с order.total_amount (проверка на
+  // сервере) — если снимок заказа устарел (скидка/дозаказ), перечитываем заказ
+  // и повторяем один раз. «Order is already paid» и 409 по Idempotency-Key
+  // считаем успехом: заказ уже закрыт (двойной клик, оплата из веба, вебхук).
+  async function payOrder(order, method, detail) {
+    const buildBody = (total) => {
+      const body = { order_id: order.id, amount: total, method }
+      // cash_received — только фактические наличные: сервер считает по ним
+      // сдачу (для card/mixed это поле не участвует в расчёте сдачи).
+      if (method === 'cash') body.cash_received = Number(detail?.cash) > 0 ? Number(detail.cash) : total
+      else if (method === 'mixed' && Number(detail?.cash) > 0) body.cash_received = Number(detail.cash)
+      return body
+    }
+    const send = (body) => paymentsApi.process(body, `close:${order.id}:${body.amount}`)
+    try {
+      await send(buildBody(Number(order.total_amount)))
+    } catch (e) {
+      if (isAlreadyPaid(e)) return
+      // Тот же ключ идемпотентности, но другое тело (например, добавили
+      // cash_received) → бэкенд отвечает 409. Проверяем, не закрыт ли заказ.
+      if (e?.response?.status === 409) {
+        const list = await paymentsApi.forOrder(order.id).catch(() => [])
+        if ((list || []).some((p) => p.status === 'completed')) return
+      }
+      const mismatch = e?.response?.status === 422 && /does not match order total/i.test(String(e?.response?.data?.detail || ''))
+      if (!mismatch) throw e
+      const fresh = await orders.get(order.id)
+      await send(buildBody(Number(fresh.total_amount)))
+    }
+  }
+  function isAlreadyPaid(e) {
+    const d = String(e?.response?.data?.detail || '')
+    return e?.response?.status === 422 && /already paid/i.test(d)
   }
   // Живой пересчёт итога: пока кассир вводит наличные в модалке оплаты — подтягиваем
   // заказ с сервера (скидки, дозаказы). Ошибка тихая: остаёмся на локальных данных.
@@ -348,20 +410,27 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     const upd = await orders.update(order.id, { discount_amount: amount })
     setPayExisting(upd); loadFloor()
   }
-  // Перенос заказа на другой стол — номер спрашиваем в своей модалке
+  // Перенос заказа на другой стол — цель выбирается по id стола и подписывается
+  // залом: номер уникален только внутри зала, иначе в списке три «Стол 1».
+  // Для заказов с table_id бэкенд принимает только table_id (номер — снимок).
   function reassignTable(order) {
+    const isUuid = (v) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-/i.test(String(v || ''))
     setPromptCfg({
       title: t('move_table'),
       hint: t('move_to_table'),
       options: allTables.map((table) => ({
-        value: String(table.number),
-        label: `${t('table')} ${table.number}`,
+        value: isUuid(table.id) ? String(table.id) : String(table.number),
+        label: `${table.zoneName ? table.zoneName + ' · ' : ''}${t('table')} ${table.number}`,
       })),
-      initial: order.table_number || '',
+      initial: order.table_id ? String(order.table_id) : (order.table_number || ''),
       extra: { label: t('move_reason'), placeholder: t('move_reason_ph') },
       submitLabel: t('save'),
-      onSubmit: async (num, reason) => {
-        await orders.update(order.id, { table_number: num, reason: reason || undefined })
+      onSubmit: async (value, reason) => {
+        const target = allTables.find((t) => String(t.id) === String(value) || String(t.number) === String(value))
+        const payload = isUuid(target?.id)
+          ? { table_id: target.id, reason: reason || undefined }
+          : { table_number: String(target?.number ?? value), reason: reason || undefined }
+        await orders.update(order.id, payload)
         setPromptCfg(null); setPayExisting(null); loadFloor()
       },
     })
@@ -413,6 +482,11 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
         await orders.create({
           branch_id: user.branch_id,
           order_type: orderType,
+          // TABLE-MATCH-01: id стола — канонический ключ. По одному номеру
+          // бэкенд не может выбрать зал (номер уникален лишь внутри зала) и
+          // оставляет заказ без стола, из-за чего стол подсвечивался во всех
+          // залах. Номер остаётся снимком для истории/чеков.
+          table_id: orderType === 'dine_in' ? (selectedTable?.id || undefined) : undefined,
           table_number: orderType === 'dine_in' && selectedTable?.number != null ? String(selectedTable.number) : undefined,
           note: orderNote || undefined,
           customer_id: custId || undefined,
@@ -509,7 +583,7 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
                 <div className="tgroup__title">{z.name} <span>{(z.tables || []).length} {t('tables_low')}</span></div>
                 <div className="tgrid">
                   {(z.tables || []).map((tb) => {
-                    const o = orderFor(tb.number); const st = tableStatus(tb.number)
+                    const o = orderFor(tb); const st = tableStatus(tb)
                     const variant = st === 'free' ? 'free' : st === 'ready' ? 'check' : st === 'await' ? 'pay' : 'busy'
                     return (
                       <button key={tb.id ?? tb.number} className={`tcard tcard--${variant}`} onClick={() => tapTable(tb)}>

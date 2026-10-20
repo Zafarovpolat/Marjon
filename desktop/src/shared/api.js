@@ -1,8 +1,11 @@
 import axios from 'axios'
-import { DEFAULT_SERVER_URL } from './config'
+import { DEFAULT_SERVER_URL, normalizeServerUrl } from './config'
 
+// Нормализуем на чтении: в localStorage у уже установленных терминалов может
+// лежать адрес без /api/v1 (введён вручную до появления нормализации) — без
+// этого вход отдавал бы 404 Not Found.
 function baseURL() {
-  return localStorage.getItem('marjon_server_url') || DEFAULT_SERVER_URL
+  return normalizeServerUrl(localStorage.getItem('marjon_server_url') || DEFAULT_SERVER_URL)
 }
 
 export const api = axios.create()
@@ -285,6 +288,23 @@ export const orders = {
   cancel: (id, password, comment) => api.delete(`/pos/orders/${id}`, {
     params: { ...(password ? { password } : {}), ...(comment ? { comment } : {}) },
   }).then((r) => r.data),
+}
+
+// ── Оплаты ──────────────────────────────────────────────────────────────────
+// PAY-REG-01: закрытие счёта на кассе обязано создавать Payment. Раньше касса
+// переводила заказ в `completed` одним PATCH статуса — заказ закрывался, но
+// строки оплаты не появлялось, а все денежные отчёты веба (owner-financials,
+// Z-отчёт, способы оплаты) строятся INNER JOIN по completed-Payment. Итог:
+// «закрыл заказ, а в вебе суммы нет». Плюс не списывался склад и не шла
+// фискализация — это всё делает PaymentService на бэкенде.
+// amount обязан совпасть с order.total_amount (проверка на сервере).
+// Idempotency-Key защищает от двойной оплаты при повторе/ретрае.
+export const payments = {
+  process: (data, idempotencyKey) =>
+    api.post('/payments', data, {
+      headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {},
+    }).then((r) => r.data),
+  forOrder: (orderId) => api.get(`/payments/order/${orderId}`).then((r) => r.data),
 }
 
 export const kitchen = {

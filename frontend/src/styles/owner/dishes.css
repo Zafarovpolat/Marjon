@@ -3039,6 +3039,16 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Пустой список селекта: тихая подпись вместо пустой панели — поле не
+   должно выглядеть сломанным (баг «в сете не видно блюд»). */
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__empty {
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--color-text-muted, #8a94a6);
+  cursor: default;
+  user-select: none;
+}
 /* Inline-создание справочника из селекта (Категория / Поставщик):
    строка "+ Новая" — обычный ряд списка, форма — инпут + две кнопки
    в стиле дровера (teal submit / белая отмена), без браузерного gray. */

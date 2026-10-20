@@ -18,6 +18,9 @@ export default function DishSingleSelect({
   disabled = false,
   loading = false,
   disabledLabel = "",
+  // Пустой список — не молчаливая пустая панель, а честная подпись:
+  // иначе поле выглядит сломанным (баг «в сете не видно блюд»).
+  emptyLabel = "",
   onCreateNew = null,
   createLabel = "+ Новая категория",
 }) {
@@ -212,6 +215,11 @@ export default function DishSingleSelect({
                 </li>
               );
             })}
+            {options.length === 0 && !onCreateNew ? (
+              <li key="__empty" className="orders-filter-select__empty" role="presentation">
+                {emptyLabel || "Нет данных"}
+              </li>
+            ) : null}
             {onCreateNew && !isCreating ? (
               <li key="__create">
                 <button

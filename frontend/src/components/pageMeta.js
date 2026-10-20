@@ -56,6 +56,6 @@ export const pageMeta = {
   "/nomenclature/raw-categories": ["Категория продуктов", "Группы складских продуктов"],
   "/nomenclature/semi-finished-categories": ["Категория полуфабрикатов", "Группы заготовок"],
   "/nomenclature/sales-categories": ["Категория товаров", "Группы товаров"],
-  "/store": ["Магазин", "Заказы и продажи"],
+  "/store": ["Marjon store", "Приложение для кассы и моноблока"],
   "/reviews": ["Отзывы", "Отзывы клиентов"],
 };

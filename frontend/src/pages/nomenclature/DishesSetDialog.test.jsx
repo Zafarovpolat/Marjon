@@ -45,10 +45,10 @@ const dishCats = [
   { id: "c2", name: "Напитки", slug: "sales-drinks", is_active: true },
 ];
 
-function mockSetApis({ lines = [] } = {}) {
+function mockSetApis({ lines = [], products = dishes } = {}) {
   api.get.mockImplementation((url) => {
     if (String(url).includes("/set-items")) return Promise.resolve({ data: lines });
-    if (String(url).includes("/inventory/products")) return Promise.resolve({ data: dishes });
+    if (String(url).includes("/inventory/products")) return Promise.resolve({ data: products });
     if (String(url).includes("/inventory/categories")) return Promise.resolve({ data: dishCats });
     return Promise.resolve({ data: [] });
   });
@@ -116,13 +116,43 @@ describe("Dishes set composition", () => {
     expect(screen.queryByRole("option", { name: /Комбо/ })).toBeNull();
   });
 
-  it("shows only dishes with enabled СЕТ toggle, hides toggled-off ones", async () => {
+  it("shows every active dish of the type, regardless of the retired СЕТ flag", async () => {
     renderDialog();
     await screen.findByText("Состав сета пока пуст");
     fireEvent.click(screen.getByRole("combobox", { name: "Блюдо" }));
     expect(await screen.findByRole("option", { name: "Лаваш" })).toBeInTheDocument();
-    // Суп активен, но тумблер колонки выключен — в Товаре его нет.
-    expect(screen.queryByRole("option", { name: /Суп/ })).toBeNull();
+    // allow_in_sets=false больше не прячет блюдо: колонку-тумблер «СЕТ»
+    // убрали из таблицы (ea3a4ce), флаг включать нечем — фильтр по нему
+    // оставлял список компонентов пустым всегда.
+    expect(screen.getByRole("option", { name: "Суп" })).toBeInTheDocument();
+  });
+
+  it("never offers another set as a component", async () => {
+    mockSetApis({
+      lines: [],
+      products: [
+        ...dishes,
+        { id: "set-2", name: "SOLO KOMBO", unit: "шт", price: "50000", category_name: "Выпечка", is_active: true, product_type: "dish", is_set: true },
+      ],
+    });
+    renderDialog();
+    await screen.findByText("Состав сета пока пуст");
+    fireEvent.click(screen.getByRole("combobox", { name: "Блюдо" }));
+    expect(await screen.findByRole("option", { name: "Лаваш" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /SOLO KOMBO/ })).toBeNull();
+  });
+
+  it("says there are no dishes instead of an empty panel", async () => {
+    mockSetApis({
+      lines: [],
+      products: [
+        { id: "dish-off", name: "Архивное", unit: "шт", price: "1000", category_name: "Выпечка", is_active: false, product_type: "dish" },
+      ],
+    });
+    renderDialog();
+    await screen.findByText("Состав сета пока пуст");
+    fireEvent.click(screen.getByRole("combobox", { name: "Блюдо" }));
+    expect(await screen.findByText("Нет доступных блюд")).toBeInTheDocument();
   });
 
   it("switches component list by Тип: Товар shows sale goods, hides dishes", async () => {

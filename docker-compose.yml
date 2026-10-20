@@ -173,6 +173,9 @@ services:
       # frontend/README-deploy.md), volume только раздаёт готовые файлы,
       # nginx их не пересобирает.
       - ./frontend/dist:/usr/share/nginx/html-admin:ro
+      # Установщики десктопа для страницы /store (adminka.marjon.tech/store).
+      # Отдельный том, а не frontend/dist: пересборка фронта стирает dist целиком.
+      - ./store-files:/usr/share/nginx/store:ro
       - certbot_www:/var/www/certbot
       - certbot_certs:/etc/letsencrypt
 

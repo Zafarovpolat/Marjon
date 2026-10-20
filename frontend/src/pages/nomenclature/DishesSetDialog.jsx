@@ -258,14 +258,18 @@ export default function DishesSetDialog({ dish, rows = [], onClose, returnFocusR
   })), [productCategoryNames, allChildParent]);
   const childParent = allChildParent;
 
-  // Компоненты — только активные позиции выбранного Типа с включённым
-  // тумблером колонки (allow_in_sets), без самого сета, архива и чужих категорий.
+  // Компоненты — только активные позиции выбранного Типа, без самого сета,
+  // других сетов, архива и чужих категорий.
+  // Флаг allow_in_sets список НЕ фильтрует: колонку-тумблер «СЕТ», которая
+  // единственная его включала, убрали из таблицы блюд (ea3a4ce), поэтому флаг
+  // у всех остался false и список компонентов был пуст всегда (баг «в сете не
+  // видно блюд»). Вложенные сеты запрещены — рекурсия в составе не поддержана.
   const activeOptions = useMemo(
     () => options.filter((item) => {
       if (!item || !item.id || item.is_active === false) return false;
       if (String(item.id) === setId) return false;
+      if (item.is_set === true) return false;
       if (String(item.product_type || "dish") !== selectedKind) return false;
-      if (item.allow_in_sets !== true) return false;
       const cat = String(item.category_name || "").trim();
       if (cat && !isCategoryAllowed(selectedKind, cat)) return false;
       if (selectedCategory) {
@@ -500,6 +504,7 @@ export default function DishesSetDialog({ dish, rows = [], onClose, returnFocusR
               <DishSingleSelect
                 label="Категория"
                 placeholder="Выберите категорию"
+                emptyLabel="Нет категорий"
                 options={categoryOptions}
                 value={selectedCategory}
                 onChange={(next) => { setSelectedCategory(next || ""); setSelectedId(""); }}
@@ -511,6 +516,7 @@ export default function DishesSetDialog({ dish, rows = [], onClose, returnFocusR
               <DishSingleSelect
                 label={kindWord}
                 placeholder={kindPlaceholder}
+                emptyLabel={selectedKind === "sale" ? "Нет доступных товаров" : "Нет доступных блюд"}
                 options={activeOptions.map((item) => ({
                   value: String(item.id),
                   label: item.name,

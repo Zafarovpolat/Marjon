@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from uuid import UUID
 
 from fastapi import WebSocket
@@ -9,6 +10,35 @@ from fastapi import WebSocket
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+# ── PRINT-REALTIME-LAT-01: публикация задания не должна ждать Redis ──────────
+# broadcast() вызывается внутри создания заказа (auto_print_kitchen) и внутри
+# печати чека. Раньше на каждый вызов создавался новый клиент redis-py с
+# дефолтной политикой ретраев: если Redis настроен, но лежит, publish висел
+# ~4 секунды и задерживал HTTP-запрос кассира. Теперь один клиент на процесс,
+# короткие таймауты, ноль ретраев и предохранитель на 30 с.
+_PRINT_REDIS_DOWN_SECONDS = 30.0
+_redis_down_until: float = 0.0
+_publish_client = None
+
+
+def _publish_client():
+    """Один клиент на процесс: соединение переиспользуется между заданиями."""
+    global _publish_client
+    if _publish_client is None:
+        import redis.asyncio as aioredis
+        from redis.asyncio.retry import Retry
+        from redis.backoff import NoBackoff
+
+        _publish_client = aioredis.from_url(
+            settings.redis_url,
+            decode_responses=True,
+            socket_connect_timeout=0.25,
+            socket_timeout=0.25,
+            retry=Retry(NoBackoff(), 0),
+            retry_on_timeout=False,
+        )
+    return _publish_client
 
 
 class PrinterWSManager:
@@ -78,15 +108,14 @@ class PrinterWSManager:
     async def broadcast(self, company_id: UUID, branch_id: UUID, message: dict) -> None:
         """Send a print job notification to every terminal of this branch,
         no matter which worker holds its WebSocket."""
+        global _redis_down_until
+
         key = self._key(company_id, branch_id)
         payload = json.dumps(message, ensure_ascii=False)
 
-        if settings.redis_url:
-            client = None
+        if settings.redis_url and time.monotonic() >= _redis_down_until:
             try:
-                import redis.asyncio as aioredis
-                client = aioredis.from_url(settings.redis_url, decode_responses=True)
-                receivers = await client.publish(self._channel(key), payload)
+                receivers = await _publish_client().publish(self._channel(key), payload)
                 # receivers == 0 → ни один воркер не подписан (терминал офлайн):
                 # задание останется pending и его подберёт /jobs/pending.
                 logger.info(
@@ -95,13 +124,11 @@ class PrinterWSManager:
                 )
                 return
             except Exception as exc:  # noqa: BLE001 — доставка не должна ронять печать
-                logger.warning("Printer WS Redis publish failed (%s) — local fallback", exc)
-            finally:
-                if client is not None:
-                    try:
-                        await client.aclose()
-                    except Exception:
-                        pass
+                _redis_down_until = time.monotonic() + _PRINT_REDIS_DOWN_SECONDS
+                logger.warning(
+                    "Printer WS Redis publish failed (%s) — local delivery for %.0fs",
+                    exc, _PRINT_REDIS_DOWN_SECONDS,
+                )
 
         await self._send_local(key, payload)
 
@@ -127,7 +154,14 @@ class PrinterWSManager:
         pubsub = None
         try:
             import redis.asyncio as aioredis
-            client = aioredis.from_url(settings.redis_url, decode_responses=True)
+            # PRINT-REALTIME-LAT-01: короткий connect-таймаут — иначе открытие
+            # WS-соединения терминала висело на дефолтном TCP-таймауте при
+            # недоступном Redis.
+            client = aioredis.from_url(
+                settings.redis_url,
+                decode_responses=True,
+                socket_connect_timeout=2,
+            )
             pubsub = client.pubsub()
             await pubsub.subscribe(channel)
             async for msg in pubsub.listen():

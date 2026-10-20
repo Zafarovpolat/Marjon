@@ -30,8 +30,13 @@ export async function printJob(job, printer) {
   const jobId = job?.job_id || job?.id
   if (!jobId || handled.has(jobId)) return false
 
-  const ip = printer?.ip_address || job?.ip_address
-  const port = printer?.port ?? job?.port ?? 9100
+  // PRINT-ADDR-01: адрес берём из САМОГО задания, а не из карты принтеров.
+  // Карта грузится один раз при входе в режим: если владелец поменял IP принтера
+  // в вебе, терминал продолжал печатать на старый адрес до перезапуска, а в
+  // задании сервер уже прислал актуальный ip/port (он рендерил чек для него).
+  // Карта остаётся запасным источником — на случай старых заданий без адреса.
+  const ip = job?.ip_address || printer?.ip_address
+  const port = job?.port ?? printer?.port ?? 9100
 
   // Печатать нечем — снимаем задание с очереди, иначе оно будет приходить
   // при каждом опросе и создавать видимость «печатает через раз».
