@@ -1,4 +1,4 @@
-import { render as testingRender, screen, within } from "@testing-library/react";
+import { fireEvent, render as testingRender, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import OrdersReportPage from "./OrdersReportPage";
@@ -154,6 +154,9 @@ describe("report initial shell without full-page loader", () => {
         name: "Backend Dish", quantity: 1, price: 300, waiter_name: "Жасур", unit: "шт",
       }],
     });
+    expect(await screen.findByRole("row", { name: "Заказ №42" })).toBeInTheDocument();
+    // Позиции блюд живут в карточке заказа — открываем её кликом по строке.
+    fireEvent.click(screen.getByRole("row", { name: "Заказ №42" }));
     expect(await screen.findByText("Backend Dish")).toBeInTheDocument();
     unmount();
 

@@ -32,12 +32,25 @@ vi.mock("../components/ReportDateRangePicker", async (importOriginal) => {
   };
 });
 
-vi.mock("react-router-dom", () => ({
-  Link: ({ children, to, ...props }) => <a href={to} {...props}>{children}</a>,
-  useNavigate: () => vi.fn(),
-  useSearchParams: () => [new URLSearchParams(), vi.fn()],
-  useOutletContext: () => ({ selectedDate: "2026-08-12" }),
-}));
+// useSearchParams держит состояние, а не отдаёт пустые параметры: отчёт по
+// отменённым блюдам открывает карточку заказа через `?cancelledOrder=…`, и со
+// статичной заглушкой клик по строке ничего не менял — карточка с позициями
+// блюд не могла отрендериться ни в одном тесте.
+vi.mock("react-router-dom", async () => {
+  const React = await import("react");
+  return {
+    Link: ({ children, to, ...props }) => <a href={to} {...props}>{children}</a>,
+    useNavigate: () => vi.fn(),
+    useSearchParams: () => {
+      const [params, setParams] = React.useState(() => new URLSearchParams());
+      const update = React.useCallback((next) => {
+        setParams((current) => (typeof next === "function" ? next(current) : new URLSearchParams(next)));
+      }, []);
+      return [params, update];
+    },
+    useOutletContext: () => ({ selectedDate: "2026-08-12" }),
+  };
+});
 
 vi.mock("chart.js", () => {
   class ChartMock {
@@ -214,6 +227,9 @@ describe("CTR-01 critical financial truth", () => {
       }] });
     });
     render(<CancelledDishesReportPage />);
+    // Отчёт сгруппирован по заказам: список показывает шапку заказа, а позиции
+    // блюд — в карточке, которая открывается кликом по строке.
+    fireEvent.click(await screen.findByRole("row", { name: "Заказ №42" }));
     expect(await screen.findByText("Backend Dish")).toBeInTheDocument();
     // Truthful columns exist; author shows the cancellation actor, not the waiter.
     ["Номер заказа", "Дата", "Название", "Номер стола", "Кол-во", "Автор", "Тип", "Сумма"].forEach((label) => {
@@ -240,6 +256,7 @@ describe("CTR-01 critical financial truth", () => {
       }] });
     });
     render(<CancelledDishesReportPage />);
+    fireEvent.click(await screen.findByRole("row", { name: "Заказ №43" }));
     const row = await screen.findByText("System Dish").then((node) => node.closest("tr"));
     const cells = within(row).getAllByRole("cell");
     // Author replaces waiter; an unknown actor must not inherit the waiter.
