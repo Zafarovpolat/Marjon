@@ -73,7 +73,7 @@ describe("monoblock page visual contract (/users/monoblock) — MONOBLOCK-01", (
       "ID",
       "Фото",
       "ФИО",
-      "Номер телефона",
+      "Логин",
       "Роль",
       "Права доступа",
       "Статус",
@@ -96,7 +96,7 @@ describe("monoblock page visual contract (/users/monoblock) — MONOBLOCK-01", (
     expect(within(dialog).getByText("Добавить моноблок")).toBeInTheDocument();
     expect(within(dialog).getByText("Загрузить фото")).toBeInTheDocument();
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
-    expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
+    expect(within(dialog).getByText("Логин")).toBeInTheDocument();
     expect(within(dialog).getByText("Пароль")).toBeInTheDocument();
     // «Принтер» теперь встречается дважды: <span>-подпись поля и значение
     // внутри самого DishSingleSelect (тот же селект, что в форме блюда).

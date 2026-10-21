@@ -59,7 +59,7 @@ export default function StaffTable({
               <th>ID</th>
               <th>Фото</th>
               <th>ФИО</th>
-              <th>Номер телефона</th>
+              <th>Логин</th>
               <th>Роль</th>
               {showAccess ? <th>Права доступа</th> : null}
               <th>Статус</th>

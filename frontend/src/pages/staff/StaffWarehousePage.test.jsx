@@ -123,7 +123,7 @@ describe("warehouse page visual contract (/users/warehouse) — WAREHOUSE-01", (
       "ID",
       "Фото",
       "ФИО",
-      "Номер телефона",
+      "Логин",
       "Роль",
       "Статус",
       "Действия",
@@ -187,7 +187,7 @@ describe("warehouse page visual contract (/users/warehouse) — WAREHOUSE-01", (
     expect(within(dialog).getByText("Загрузить фото")).toBeInTheDocument();
     expect(dialog.querySelector('input[type="file"]')).not.toBeNull();
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
-    expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
+    expect(within(dialog).getByText("Логин")).toBeInTheDocument();
     expect(within(dialog).getByText("Пароль")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Имя завсклада")).toBeInTheDocument();
     expect(within(dialog).queryByText("Email")).toBeNull();

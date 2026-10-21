@@ -306,12 +306,6 @@ function StaffRolePage({ role = "all" }) {
     if (detail === "Phone already in use") {
       return "Этот номер уже используется другим сотрудником (Phone already in use).";
     }
-    // PIN = пароль сотрудника (см. backend create/update). Коллизия PIN
-    // выглядит для владельца как «пароль не подошёл», поэтому объясняем
-    // причину прямо: такой пароль уже занят как PIN коллеги.
-    if (typeof detail === "string" && detail.startsWith("PIN уже используется")) {
-      return "Этот пароль уже занят как PIN другого сотрудника. Задайте другой пароль из 4 цифр.";
-    }
     return null;
   };
   const toCashierSaveError = (err) => {
@@ -513,14 +507,10 @@ function StaffRolePage({ role = "all" }) {
         // Nothing here clears the error afterwards (finally only resets
         // loading) — it stays until retry, close, or a new validation event.
         const detail = err.response?.data?.detail;
-        const isPinConflict =
-          typeof detail === "string" && detail.startsWith("PIN уже используется");
         setSaveErrorField(
           detail === "Phone already registered" || detail === "Phone already in use"
             ? "phone"
-            : isPinConflict
-              ? "password"
-              : "",
+            : "",
         );
         setSaveError(toCashierSaveError(err));
       } finally {

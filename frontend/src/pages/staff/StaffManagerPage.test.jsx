@@ -170,7 +170,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
       "ID",
       "Фото",
       "ФИО",
-      "Номер телефона",
+      "Логин",
       "Роль",
       "Статус",
       "Действия",
@@ -247,7 +247,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     expect(within(dialog).getByText("Загрузить фото")).toBeInTheDocument();
     expect(dialog.querySelector('input[type="file"]')).not.toBeNull();
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
-    expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
+    expect(within(dialog).getByText("Логин")).toBeInTheDocument();
     expect(within(dialog).getByText("Пароль")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Имя менеджера")).toBeInTheDocument();
     expect(within(dialog).queryByText("Email")).toBeNull();

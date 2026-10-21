@@ -144,7 +144,7 @@ describe("cashier page visual contract (/users/cashier)", () => {
       "ID",
       "Фото",
       "ФИО",
-      "Номер телефона",
+      "Логин",
       "Роль",
       "Права доступа",
       "Статус",
@@ -342,7 +342,7 @@ describe("cashier page visual contract (/users/cashier)", () => {
     expect(within(dialog).getByText("Загрузить фото")).toBeInTheDocument();
     expect(dialog.querySelector('input[type="file"]')).not.toBeNull();
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
-    expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
+    expect(within(dialog).getByText("Логин")).toBeInTheDocument();
     expect(within(dialog).getByText("Пароль")).toBeInTheDocument();
     expect(within(dialog).getByText("Принтер")).toBeInTheDocument();
 
@@ -391,7 +391,7 @@ describe("cashier page visual contract (/users/cashier)", () => {
 
     expect(within(dialog).getByText("Загрузить фото")).toBeInTheDocument();
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
-    expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
+    expect(within(dialog).getByText("Логин")).toBeInTheDocument();
     expect(within(dialog).getByText("Новый пароль")).toBeInTheDocument();
     expect(within(dialog).getByText("Принтер")).toBeInTheDocument();
     expect(within(dialog).queryByText("Email")).toBeNull();
@@ -834,7 +834,7 @@ describe("cashier drawer ux: footer, animation, phone, permissions", () => {
     expect(within(dialog).queryByText("Номер телефона *")).toBeNull();
     expect(within(dialog).queryByText("Пароль *")).toBeNull();
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
-    expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
+    expect(within(dialog).getByText("Логин")).toBeInTheDocument();
     expect(within(dialog).getByText("Пароль")).toBeInTheDocument();
   });
 

@@ -280,7 +280,7 @@ export default function StaffFormModal({
               ) : null}
             </label>
             <label>
-              <span>Номер телефона</span>
+              <span>Логин</span>
               {/* Split prefix: the country code renders as a stable visual
                   prefix, the input holds subscriber digits only, so Backspace
                   never destroys/recreates the prefix and caret stays put. */}
@@ -357,11 +357,6 @@ export default function StaffFormModal({
               ) : null}
               {editingId ? (
                 <small className="muted">Оставьте пустым, чтобы не менять пароль.</small>
-              ) : null}
-              {!isMonoblockView ? (
-                <small className="muted">
-                  Этот же пароль станет PIN-кодом для входа на терминале — задайте 4 цифры.
-                </small>
               ) : null}
             </label>
             {/* PIN-поле убрано по просьбе владельца: у сотрудника один
@@ -705,7 +700,7 @@ export default function StaffFormModal({
             />
           </label>
           <label>
-            <span>Номер телефона</span>
+            <span>Логин</span>
             <div className="staff-phone-field">
               <button
                 className="staff-phone-country"
@@ -938,7 +933,7 @@ export default function StaffFormModal({
             />
           </label>
           <label>
-            <span>Номер телефона</span>
+            <span>Логин</span>
             <input
               required
               value={form.phone}
@@ -981,11 +976,6 @@ export default function StaffFormModal({
                 <Icon name={showPassword ? "bi-eye-slash" : "bi-eye"} size={18} />
               </button>
             </div>
-            {form.roleKey !== "monoblock" ? (
-              <small className="muted">
-                Этот же пароль станет PIN-кодом для входа на терминале — задайте 4 цифры.
-              </small>
-            ) : null}
           </label>
           <label>
             <span>Доступы / permissions</span>

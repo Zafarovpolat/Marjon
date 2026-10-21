@@ -68,20 +68,27 @@ async def test_monoblock_gets_no_pin_from_its_password(client):
     assert login.status_code == 401, login.text
 
 
-async def test_duplicate_pin_is_reported_as_conflict(client):
-    """Двое сотрудников не могут получить одинаковый код: вход на терминале
-    выбирает сотрудника по PIN внутри компании, и коллизия сделала бы его
-    неоднозначным. Ошибка приходит до вставки — сотрудник не остаётся созданным
-    без PIN (это и был незавершаемый ретрай)."""
-    owner_headers, _ = await register_company(
-        client, slug="pindup", email="owner@pindup.example.com"
-    )
-    first = await _create_staff(client, owner_headers, password="2101")
-    assert first.status_code == 201, first.text
+async def test_same_pin_is_allowed_for_different_employees(client):
+    """PIN-SHARED-01: одинаковый PIN у разных сотрудников разрешён.
 
-    second = await _create_staff(client, owner_headers, password="2101")
-    assert second.status_code == 409, second.text
-    assert "PIN уже используется" in second.text
+    На кассе сотрудника выбирают на экране, PIN только подтверждает выбор
+    (login_by_pin с user_id), поэтому 4 одинаковых цифры — не конфликт.
+    Раньше второй такой сотрудник получал 409 и не создавался вовсе.
+    """
+    owner_headers, _ = await register_company(
+        client, slug="pinshare", email="owner@pinshare.example.com"
+    )
+    first = await _create_staff(client, owner_headers, password="2101", phone="998901110001")
+    assert first.status_code == 201, first.text
+    second = await _create_staff(client, owner_headers, password="2101", phone="998901110002")
+    assert second.status_code == 201, second.text
+
+    # Оба входят своим PIN — каждый со своей карточкой на экране.
+    for staff in (first.json(), second.json()):
+        login = await client.post(
+            "/auth/pin-login", json={"employee_id": staff["id"], "pin": "2101"}
+        )
+        assert login.status_code == 200, login.text
 
 
 async def test_changing_password_moves_the_pin_with_it(client):

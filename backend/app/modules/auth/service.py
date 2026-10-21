@@ -539,11 +539,11 @@ class AuthService:
         if pin is None and role_slug != "monoblock":
             pin = _pin_from_password(password)
 
-        # PIN проверяем ДО вставки: иначе занятый PIN отдавал бы 409 уже после
-        # создания пользователя, и он оставался бы без PIN (незавершаемая
-        # карточка, а ретрай упирается в «телефон занят»).
-        if pin is not None:
-            await self._assert_pin_available(company_id, pin)
+        # PIN-SHARED-01: одинаковый PIN у разных сотрудников разрешён по
+        # требованию владельца (на кассе сотрудника выбирают на экране, PIN лишь
+        # подтверждает выбор — см. login_by_pin с user_id). Поэтому уникальность
+        # внутри компании больше не проверяется: 4 цифры — слишком мало, чтобы
+        # запрещать совпадения, и запрет блокировал создание сотрудника.
 
         # BE-05: role_slug is validated against the canonical allowlist here
         # (raises ValidationError otherwise) and the role's default
@@ -845,9 +845,8 @@ class AuthService:
         if effective_role == "monoblock":
             return
 
-        # Занятый коллеге PIN отдаём 409 до записи: иначе два сотрудника молча
-        # получили бы одинаковый код, и вход на терминале стал бы неоднозначным.
-        await self._assert_pin_available(company_id, derived, exclude_user_id=user.id)
+        # PIN-SHARED-01: совпадение PIN с коллегой больше не ошибка — владелец
+        # разрешил одинаковые коды (сотрудника на кассе выбирают на экране).
         user.pin_hash = await hash_password(derived)
         user.pin_failed_attempts = 0
         user.pin_locked_until = None
@@ -855,15 +854,11 @@ class AuthService:
     async def _assert_pin_available(
         self, company_id: UUID, pin: str, exclude_user_id: UUID | None = None
     ) -> None:
-        """PIN уникален внутри компании.
+        """Оставлено для совместимости: с PIN-SHARED-01 проверка не вызывается.
 
-        PIN хранятся солёным хешем, поэтому равенством по колонке это не
-        проверить — сверяем со хешем каждого коллеги. При масштабе штата
-        ресторана это нормально; на тысячи аккаунтов на компанию не рассчитано.
-
-        Общий хелпер для set_pin() и create_company_user(): создание обязано
-        проверять PIN ДО вставки, иначе занятый PIN оставлял бы уже созданного
-        сотрудника без PIN (P0 2.2 в MARJON_PLAN).
+        PIN уникальным внутри компании больше не считается, поэтому ни create,
+        ни update, ни set_pin эту функцию не зовут. Оставлена, чтобы внешние
+        вызовы/тесты не падали на отсутствующем атрибуте.
         """
         peers = await self.user_repo.get_company_users(company_id)
         for peer in peers:
@@ -888,11 +883,7 @@ class AuthService:
         if await self._manageable_company_role_slug(target_user_id, company_id) == "owner":
             raise ForbiddenError("Protected company identity cannot be changed")
 
-        # PIN uniqueness within the company. Pins are hashed (salted), so
-        # this can't be a plain equality lookup — verify against every
-        # peer's hash instead. Fine at restaurant-staff scale; this is not
-        # meant to scale to thousands of accounts per company.
-        await self._assert_pin_available(company_id, pin, exclude_user_id=target.id)
+        # PIN-SHARED-01: совпадение с коллегой допустимо (см. create_company_user).
 
         target.pin_hash = await hash_password(pin)
         target.pin_failed_attempts = 0
@@ -981,6 +972,10 @@ class AuthService:
                 User.is_active.is_(True),
                 User.pin_hash.is_not(None),
             )
+            # PIN-SHARED-01: одинаковые PIN разрешены, поэтому без user_id
+            # результат должен быть хотя бы детерминированным — иначе один и
+            # тот же код входил бы то одним, то другим сотрудником.
+            .order_by(User.created_at, User.id)
         )
         for candidate in result.scalars().all():
             if await verify_password(pin, candidate.pin_hash):

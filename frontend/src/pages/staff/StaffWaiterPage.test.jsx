@@ -115,7 +115,7 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
       "ID",
       "Фото",
       "ФИО",
-      "Номер телефона",
+      "Логин",
       "Роль",
       "Права доступа",
       "Статус",
@@ -176,7 +176,7 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     expect(within(dialog).getByText("Добавить официанта")).toBeInTheDocument();
     expect(within(dialog).getByText("Загрузить фото")).toBeInTheDocument();
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
-    expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
+    expect(within(dialog).getByText("Логин")).toBeInTheDocument();
     expect(within(dialog).getByText("Пароль")).toBeInTheDocument();
     expect(within(dialog).getByText("Принтер")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Имя официанта")).toBeInTheDocument();
@@ -743,7 +743,7 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     // Field-level error is bound to the phone label, right under the input.
     const fieldError = dialog.querySelector(".staff-phone-error");
     expect(fieldError).not.toBeNull();
-    expect(fieldError.closest("label").textContent).toContain("Номер телефона");
+    expect(fieldError.closest("label").textContent).toContain("Логин");
     expect(alertSpy).not.toHaveBeenCalled();
     // Drawer stays open with values preserved; retry with a free number works.
     expect(screen.queryByRole("dialog")).not.toBeNull();
@@ -847,7 +847,7 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     );
     const fieldError = dialog.querySelector(".staff-phone-error");
     expect(fieldError).not.toBeNull();
-    expect(fieldError.closest("label").textContent).toContain("Номер телефона");
+    expect(fieldError.closest("label").textContent).toContain("Логин");
     expect(alertSpy).not.toHaveBeenCalled();
     expect(api.post).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).not.toBeNull();
