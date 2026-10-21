@@ -147,11 +147,9 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
 
   useEffect(() => {
     return onPrintJob(async (msg) => {
+      console.log('[cashier-ws] print_job', msg.job_id, msg.job_type)
       if (msg.event !== 'print_job') return
       try {
-        // printJob берёт ip/port из принтера, а если его нет в карте — из самого
-        // задания (msg.ip_address): задание не теряется, даже когда список
-        // принтеров ещё не загрузился. Плюс дедупликация и close на сервере.
         await printJob(msg, printerMap[msg.printer_id])
       } catch (err) { console.error('[print]', err); toast(t('print_failed')) }
     })

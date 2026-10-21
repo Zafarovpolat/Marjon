@@ -30,16 +30,10 @@ export async function printJob(job, printer) {
   const jobId = job?.job_id || job?.id
   if (!jobId || handled.has(jobId)) return false
 
-  // PRINT-ADDR-01: адрес берём из САМОГО задания, а не из карты принтеров.
-  // Карта грузится один раз при входе в режим: если владелец поменял IP принтера
-  // в вебе, терминал продолжал печатать на старый адрес до перезапуска, а в
-  // задании сервер уже прислал актуальный ip/port (он рендерил чек для него).
-  // Карта остаётся запасным источником — на случай старых заданий без адреса.
   const ip = job?.ip_address || printer?.ip_address
   const port = job?.port ?? printer?.port ?? 9100
+  console.log('[printJob]', jobId, 'ip=', ip, 'port=', port)
 
-  // Печатать нечем — снимаем задание с очереди, иначе оно будет приходить
-  // при каждом опросе и создавать видимость «печатает через раз».
   if (!ip || !window.electron?.print) {
     remember(jobId)
     try {
@@ -51,17 +45,20 @@ export async function printJob(job, printer) {
   }
 
   try {
+    const t0 = performance.now()
     await window.electron.print({
       ip,
       port,
       payloadBase64: job.payload,
       copies: job.copies ?? 1,
     })
+    console.log('[printJob]', jobId, 'printed in', Math.round(performance.now() - t0), 'ms')
     remember(jobId)
     await printersApi.jobDone(jobId)
     return true
   } catch (err) {
     remember(jobId)
+    console.error('[printJob]', jobId, 'failed:', err)
     try {
       await printersApi.jobFail(jobId, String(err?.message || err))
     } catch {
@@ -75,7 +72,7 @@ export async function printJob(job, printer) {
  * Опрос очереди печати. getPrinterMap() должен возвращать { [id]: printer }.
  * Возвращает функцию остановки.
  */
-export function startPrintPoller(getPrinterMap, { intervalMs = 5000, onError } = {}) {
+export function startPrintPoller(getPrinterMap, { intervalMs = 2000, onError } = {}) {
   let stopped = false
 
   async function tick() {
@@ -88,6 +85,7 @@ export function startPrintPoller(getPrinterMap, { intervalMs = 5000, onError } =
       } catch {
         continue // сервер недоступен — попробуем на следующем тике
       }
+      if (jobs.length) console.log('[poller] pending jobs for', printer.name || printer.id, ':', jobs.length)
       for (const job of Array.isArray(jobs) ? jobs : []) {
         try {
           await printJob({ ...job, printer_id: printer.id }, printer)

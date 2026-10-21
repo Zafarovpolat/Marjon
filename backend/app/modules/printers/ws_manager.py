@@ -19,18 +19,18 @@ logger = logging.getLogger(__name__)
 # короткие таймауты, ноль ретраев и предохранитель на 30 с.
 _PRINT_REDIS_DOWN_SECONDS = 30.0
 _redis_down_until: float = 0.0
-_publish_client = None
+_publish_client_instance = None
 
 
-def _publish_client():
+def _get_publish_client():
     """Один клиент на процесс: соединение переиспользуется между заданиями."""
-    global _publish_client
-    if _publish_client is None:
+    global _publish_client_instance
+    if _publish_client_instance is None:
         import redis.asyncio as aioredis
         from redis.asyncio.retry import Retry
         from redis.backoff import NoBackoff
 
-        _publish_client = aioredis.from_url(
+        _publish_client_instance = aioredis.from_url(
             settings.redis_url,
             decode_responses=True,
             socket_connect_timeout=0.25,
@@ -38,7 +38,7 @@ def _publish_client():
             retry=Retry(NoBackoff(), 0),
             retry_on_timeout=False,
         )
-    return _publish_client
+    return _publish_client_instance
 
 
 class PrinterWSManager:
@@ -115,7 +115,7 @@ class PrinterWSManager:
 
         if settings.redis_url and time.monotonic() >= _redis_down_until:
             try:
-                receivers = await _publish_client().publish(self._channel(key), payload)
+                receivers = await _get_publish_client().publish(self._channel(key), payload)
                 logger.info(
                     "Printer WS publish: company=%s receivers=%s job=%s",
                     company_id, receivers, message.get("job_id"),
