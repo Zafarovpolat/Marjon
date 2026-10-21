@@ -273,7 +273,7 @@ class OrderService:
         try:
             from app.modules.printers.service import PrinterService
             await PrinterService(self.db).auto_print_kitchen(
-                company_id, order.branch_id, order.id
+                company_id, order.id
             )
         except Exception:
             # PRINT-DIAG-01: раньше здесь стоял молчаливый `pass` — кухонный чек
