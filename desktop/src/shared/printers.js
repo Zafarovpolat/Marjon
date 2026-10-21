@@ -3,12 +3,12 @@
 // Приоритет:
 //   1) принтер, закреплённый за сотрудником в веб-админке (карточка сотрудника,
 //      поле «Принтер») — приходит как user.printer_id;
-//   2) иначе — чековый принтер филиала, как было раньше.
+//   2) иначе — любой активный чековый принтер компании.
 //
 // Отдельная функция, потому что этот выбор нужен в пяти местах (касса,
 // официант, история, отчёты, пакетная печать) и везде должен совпадать:
 // расхождение здесь означает «чек ушёл не на тот принтер».
-export function pickReceiptPrinter(list, { printerId, branchId } = {}) {
+export function pickReceiptPrinter(list, { printerId } = {}) {
   const all = Array.isArray(list) ? list : []
   // Привязка сотрудника главнее типа: если владелец явно выбрал принтер,
   // печатаем на него, даже если он помечен как кухонный.
@@ -16,9 +16,5 @@ export function pickReceiptPrinter(list, { printerId, branchId } = {}) {
     const bound = all.find((printer) => printer.id === printerId)
     if (bound) return bound
   }
-  // Сначала ищем принтер, привязанный к филиалу сотрудника.
-  const byBranch = all.find((printer) => printer.printer_type === 'receipt' && printer.branch_id === branchId)
-  if (byBranch) return byBranch
-  // Fallback: у owner/admin может не быть branch_id — берём любой receipt компании.
   return all.find((printer) => printer.printer_type === 'receipt') || null
 }

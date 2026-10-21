@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
 from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import (
-    effective_branch_filter,
     ensure_company_app_identity,
     require_company_admin,
     require_company_app_user,
@@ -69,9 +68,6 @@ async def list_printers(
     db: AsyncSession = Depends(get_db),
 ):
     printers = await PrinterService(db).list(user.company_id)
-    branch_scope = effective_branch_filter(user)
-    if branch_scope is not None:
-        printers = [pr for pr in printers if getattr(pr, "branch_id", None) == branch_scope]
     return printers
 
 
@@ -179,9 +175,9 @@ async def print_order_receipt_compat(
 ):
     svc = PrinterService(db)
     order = await svc.get_order_for_print(user.company_id, order_id)
-    jobs = await svc.auto_print_receipt(user.company_id, order.branch_id, order_id)
+    jobs = await svc.auto_print_receipt(user.company_id, order_id)
     if not jobs:
-        raise NotFoundError("Для этого филиала не настроен принтер чеков")
+        raise NotFoundError("Для этой компании не настроен принтер чеков")
     return jobs
 
 
@@ -193,9 +189,9 @@ async def print_order_kitchen_compat(
 ):
     svc = PrinterService(db)
     order = await svc.get_order_for_print(user.company_id, order_id)
-    jobs = await svc.auto_print_kitchen(user.company_id, order.branch_id, order_id)
+    jobs = await svc.auto_print_kitchen(user.company_id, order_id)
     if not jobs:
-        raise NotFoundError("Для этого филиала не настроен кухонный принтер")
+        raise NotFoundError("Для этой компании не настроен кухонный принтер")
     return jobs
 
 

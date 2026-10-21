@@ -22,9 +22,9 @@ export default function HistoryPanel({ branch, printerId, onClose }) {
   const [receiptPrinter, setReceiptPrinter] = useState(null)
   useEffect(() => {
     printersApi.list()
-      .then((list) => setReceiptPrinter(pickReceiptPrinter(list, { printerId, branchId: branch?.id })))
+      .then((list) => setReceiptPrinter(pickReceiptPrinter(list, { printerId })))
       .catch(() => setReceiptPrinter(null))
-  }, [branch?.id, printerId])
+  }, [printerId])
 
   const load = useCallback(() => {
     setLoading(true)

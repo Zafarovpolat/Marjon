@@ -30,9 +30,9 @@ export default function BatchPrintPanel({ branch, printerId, onClose }) {
   // Чековый принтер филиала — тот же путь, что в Истории/Отчётах
   useEffect(() => {
     printersApi.list()
-      .then((list) => setReceiptPrinter(pickReceiptPrinter(list, { printerId, branchId: branch?.id })))
+      .then((list) => setReceiptPrinter(pickReceiptPrinter(list, { printerId })))
       .catch(() => setReceiptPrinter(null))
-  }, [branch?.id, printerId])
+  }, [printerId])
 
   // Категории пакетной печати: каждая сама тянет данные и собирает строки чека.
   const CATS = [

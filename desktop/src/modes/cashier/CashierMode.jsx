@@ -274,7 +274,6 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
   function receiptPrinter() {
     return pickReceiptPrinter(Object.values(printerMap), {
       printerId: user.printer_id,
-      branchId: user.branch_id,
     })
   }
   async function printOrderReceipt(order) {

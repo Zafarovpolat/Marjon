@@ -267,19 +267,12 @@ class PrinterService:
         return await self._get_order(company_id, order_id)
 
     # Auto-print: find printers by type and print
-    async def auto_print_receipt(self, company_id: UUID, branch_id: UUID, order_id: UUID) -> list[PrintJob]:
-        printers = await self.repo.get_by_type(company_id, branch_id, "receipt")
+    async def auto_print_receipt(self, company_id: UUID, order_id: UUID) -> list[PrintJob]:
+        printers = await self.repo.get_by_type(company_id, "receipt")
         if not printers:
-            # Fallback: у owner/admin может не быть branch_id — берём любой receipt компании.
-            printers = await self.repo.get_any_by_type(company_id, "receipt")
-        if not printers:
-            # PRINT-DIAG-02: нет активного принтера нужного типа в филиале —
-            # раньше это был тихий no-op, и «чек не печатается» не оставлял
-            # в логах ни строчки. Частая причина: принтер выключен (is_active=0)
-            # или привязан к другому филиалу.
             logger.warning(
-                "auto_print_receipt: no active receipt printer for branch=%s (order=%s) — skipped",
-                branch_id, order_id,
+                "auto_print_receipt: no active receipt printer for company=%s (order=%s) — skipped",
+                company_id, order_id,
             )
             return []
         jobs = []
@@ -295,18 +288,12 @@ class PrinterService:
             jobs.append(job)
         return jobs
 
-    async def auto_print_kitchen(self, company_id: UUID, branch_id: UUID, order_id: UUID) -> list[PrintJob]:
-        printers = await self.repo.get_by_type(company_id, branch_id, "kitchen")
+    async def auto_print_kitchen(self, company_id: UUID, order_id: UUID) -> list[PrintJob]:
+        printers = await self.repo.get_by_type(company_id, "kitchen")
         if not printers:
-            # Fallback: у owner/admin может не быть branch_id — берём любой kitchen компании.
-            printers = await self.repo.get_any_by_type(company_id, "kitchen")
-        if not printers:
-            # PRINT-DIAG-02: см. auto_print_receipt — тихий пропуск заменён
-            # предупреждением, иначе «чек повара не выходит» невозможно
-            # диагностировать по логам.
             logger.warning(
-                "auto_print_kitchen: no active kitchen printer for branch=%s (order=%s) — skipped",
-                branch_id, order_id,
+                "auto_print_kitchen: no active kitchen printer for company=%s (order=%s) — skipped",
+                company_id, order_id,
             )
             return []
         jobs = []
