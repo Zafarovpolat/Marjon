@@ -64,6 +64,26 @@ def _is_printer_cooling_down(printer_id: UUID) -> bool:
     return True
 
 
+def _is_private_ip(ip: str | None) -> bool:
+    """RFC 1918: принтер в локальной сети — сервер в облаке не достучится."""
+    if not ip:
+        return False
+    try:
+        parts = ip.split(".")
+        if len(parts) != 4:
+            return False
+        a, b, c, d = (int(p) for p in parts)
+        if a == 10:
+            return True
+        if a == 172 and 16 <= b <= 31:
+            return True
+        if a == 192 and b == 168:
+            return True
+        return False
+    except Exception:
+        return False
+
+
 class PrinterService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -389,7 +409,7 @@ class PrinterService:
         # кулдаун живёт в памяти воркера, и при --workers 3 каждый воркер
         # прогревался заново (то быстро, то две секунды — «ведёт себя по-разному»).
         printed = False
-        if skip_server_print:
+        if skip_server_print or _is_private_ip(printer.ip_address):
             job.error = "Печать на терминале клиента"
         elif printer.connection_type == "network" and printer.ip_address:
             if _is_printer_cooling_down(printer.id):
