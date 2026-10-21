@@ -3,7 +3,6 @@ import { staffService } from "../api/staff";
 import { settingsService } from "../api/settings";
 import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 import {
-  buildStaffPermissions,
   cashierSwitchFields,
   emptyForm,
   mapStaffUser,
@@ -17,6 +16,7 @@ import { getPhoneLocal, inferPhoneCountry, normalizePhone } from "./staff/staffP
 import StaffToolbar from "./staff/StaffToolbar";
 import StaffTable from "./staff/StaffTable";
 import StaffFormModal from "./staff/StaffFormModal";
+import Toast from "../components/Toast";
 
 // Оркестратор раздела «Сотрудники» OWNER (FE-07B). Владеет сквозным состоянием
 // (список, фильтры, форма создания/редактирования) и обработчиками; рендер
@@ -31,9 +31,8 @@ function StaffRolePage({ role = "all" }) {
   // MONOBLOCK-01: monoblock reuses the exact cashier/waiter product drawer
   // shell (1:1 MARJON oracle, 5 primary switches, detailed matrix below).
   const isMonoblockView = routeRole === "monoblock";
-  // Моноблок — логин десктопа (телефон+пароль), ПИНа у него нет.
-  // ПИН обязателен для остальных ролей: кассир/официант/курьер/повар/менеджер/завсклад/all.
-  const pinRequired = !isMonoblockView;
+  // PIN отдельным полем больше не вводится: у сотрудника PIN = пароль, а у
+  // моноблока терминального PIN нет вовсе (вход по телефону и паролю).
   // MANAGER-STOREKEEPER-01: manager + warehouse join the same product Staff
   // family (7 columns, no access column, Cashier-parity drawer matrix, no HR).
   const isManagerView = routeRole === "manager";
@@ -134,6 +133,10 @@ function StaffRolePage({ role = "all" }) {
   // directly under the phone input (always near the fold), not only after
   // the long access matrix where users never see it.
   const [saveErrorField, setSaveErrorField] = useState("");
+  // ALERT-UNIFY-01: ошибки действий вне модалки (архив/восстановление) тоже
+  // показываем тостом — window.alert браузер глушит, и причина остаётся
+  // только в консоли.
+  const [pageError, setPageError] = useState("");
   const closeTimer = useRef(null);
   const [editingId, setEditingId] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -303,6 +306,12 @@ function StaffRolePage({ role = "all" }) {
     if (detail === "Phone already in use") {
       return "Этот номер уже используется другим сотрудником (Phone already in use).";
     }
+    // PIN = пароль сотрудника (см. backend create/update). Коллизия PIN
+    // выглядит для владельца как «пароль не подошёл», поэтому объясняем
+    // причину прямо: такой пароль уже занят как PIN коллеги.
+    if (typeof detail === "string" && detail.startsWith("PIN уже используется")) {
+      return "Этот пароль уже занят как PIN другого сотрудника. Задайте другой пароль из 4 цифр.";
+    }
     return null;
   };
   const toCashierSaveError = (err) => {
@@ -383,15 +392,10 @@ function StaffRolePage({ role = "all" }) {
         mutationLocks.release("staff-save");
         return;
       }
-      // PIN: только НЕ-моноблок. Моноблок — первый экран логина десктопа
-      // (телефон+пароль), ПИНа у него нет. Остальным обязателен при создании
-      // (4 цифры), на редактировании пустой = «не менять».
-      if (!isMonoblockView && ((!editingId && !/^\d{4}$/.test(form.pin || "")) || (form.pin && !/^\d{4}$/.test(form.pin)))) {
-        setSaveErrorField("");
-        setSaveError("PIN должен содержать 4 цифры.");
-        mutationLocks.release("staff-save");
-        return;
-      }
+      // PIN отдельным полем больше не вводится: у сотрудника один секрет —
+      // пароль. Бэкенд сам ставит pin = пароль, если тот из 4–8 цифр
+      // (create_company_user / update_company_user). Моноблоку PIN не нужен:
+      // он входит в десктоп по телефону и паролю.
       setSaveError("");
       setSaveErrorField("");
       setSaving(true);
@@ -413,8 +417,12 @@ function StaffRolePage({ role = "all" }) {
             : isManagerView || isWarehouseView
               ? []
               : cashierSwitchFields;
-        const staffPermissions = buildStaffPermissions(form, rolePermissionFields);
-        const permissionsPatch = staffPermissions ? { permissions: staffPermissions } : {};
+        // PERMS-ONE-SOURCE-01: один сборщик на POST и PATCH. Ключи —
+        // snake_case (staffPermissionKeys) + матрица modules; именно этот
+        // формат читают гейты десктопа и API. Раньше create отправлял
+        // camelCase, а PATCH — snake_case, поэтому включённые при создании
+        // тумблеры выглядели «несохранёнными».
+        const permissionsPayload = staffPermissionsPayload(form, rolePermissionFields);
         // Фото больше не «только визуальное»: файл грузится отдельным
         // эндпоинтом после сохранения (нужен id). Email по-прежнему
         // не отправляем — бэкенд хранит NULL (контракт продукта).
@@ -448,11 +456,7 @@ function StaffRolePage({ role = "all" }) {
             // чтобы не сбросить чужую привязку пустым значением.
             ...(isManagerView || isWarehouseView ? {} : { printer_id: form.printerId || null }),
             // Тумблеры карточки + матрица доступов (User.permissions).
-            permissions: staffPermissionsPayload(form),
-            // PIN ставится тем же POST: бэкенд проверяет его уникальность ДО
-            // вставки. Отдельный PATCH после создания оставлял сотрудника
-            // созданным без PIN, если PIN уже занят (409 на втором шаге).
-            ...(form.pin && !isMonoblockView ? { pin: form.pin } : {}),
+            permissions: permissionsPayload,
             ...(needsBranch ? { branch_id: resolvedBranchId } : {}),
           };
           const { data: createdUser } = await staffService.createCompanyUser(createPayload);
@@ -482,21 +486,17 @@ function StaffRolePage({ role = "all" }) {
             // manager/warehouse не имеют селектора принтера — ключ не шлём,
             // чтобы не сбросить чужую привязку пустым значением.
             ...(isManagerView || isWarehouseView ? {} : { printer_id: form.printerId || null }),
-            // На PATCH — с наложением на уже прочитанные permissions
-            // (permissionsPatch), иначе сборка «только включённого» затрёт
-            // ключи, которых нет в текущей форме.
-            ...(permissionsPatch.permissions
-              ? permissionsPatch
-              : { permissions: staffPermissionsPayload(form) }),
+            // На PATCH — тот же словарь, что и на POST: сборщик начинает с
+            // уже сохранённых прав (form.permissions) и накладывает тумблеры,
+            // поэтому правка имени не затирает чужие ключи.
+            permissions: permissionsPayload,
             // Моноблок привязан к аккаунту владельца — филиал не трогаем.
             ...(needsBranch ? { branch_id: resolvedBranchId } : {}),
           };
           const { data: updatedUser } = await staffService.updateCompanyUser(editingId, updatePayload);
           confirmedUser = updatedUser;
-          // Пустой PIN на редактировании = «не менять». Моноблоку PIN не задаём.
-          if (!isMonoblockView && form.pin) {
-            await staffService.updateUserPin(editingId, form.pin);
-          }
+          // PIN больше не передаём: при смене пароля бэкенд синхронизирует
+          // PIN = пароль (если пароль из 4–8 цифр) в том же PATCH.
           confirmedUser = await uploadPendingPhoto(updatedUser);
         }
         setStaff((current) => {
@@ -513,10 +513,14 @@ function StaffRolePage({ role = "all" }) {
         // Nothing here clears the error afterwards (finally only resets
         // loading) — it stays until retry, close, or a new validation event.
         const detail = err.response?.data?.detail;
+        const isPinConflict =
+          typeof detail === "string" && detail.startsWith("PIN уже используется");
         setSaveErrorField(
           detail === "Phone already registered" || detail === "Phone already in use"
             ? "phone"
-            : "",
+            : isPinConflict
+              ? "password"
+              : "",
         );
         setSaveError(toCashierSaveError(err));
       } finally {
@@ -527,27 +531,24 @@ function StaffRolePage({ role = "all" }) {
     }
     const email = form.email.trim();
     const roleKey = form.roleKey || "cashier";
-    // Моноблок PIN не имеет (вход в десктоп по телефону+паролю). В общей форме
-    // его завести нельзя (убран из селекта), но при РЕДАКТИРОВАНИИ существующего
-    // моноблока с вкладки «Все» он проходит здесь — не требуем и не шлём PIN.
-    const genericIsMonoblock = roleKey === "monoblock";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !roleOptions.some((option) => option.key === roleKey)) {
-      window.alert("Укажите email и допустимую роль сотрудника.");
+      // ALERT-UNIFY-01: никаких window.alert — браузер глушит повторные
+      // диалоги («предотвратить дополнительные…»), и ошибка остаётся только
+      // в консоли. Везде показываем тот же Toast, что и в карточке роли.
+      setSaveErrorField("email");
+      setSaveError("Укажите email и допустимую роль сотрудника.");
       mutationLocks.release("staff-save");
       return;
     }
     if ((!editingId || form.password) && form.password.length < 4) {
-      window.alert("Пароль должен содержать минимум 4 символа.");
+      setSaveErrorField("password");
+      setSaveError("Пароль должен содержать минимум 4 символа.");
       mutationLocks.release("staff-save");
       return;
     }
-    // PIN обязателен при создании (десктоп входит только по 4 цифрам);
-    // на редактировании пустой PIN = «не менять».
-    if (!genericIsMonoblock && ((!editingId && !/^\d{4}$/.test(form.pin || "")) || (form.pin && !/^\d{4}$/.test(form.pin)))) {
-      window.alert("PIN должен содержать 4 цифры.");
-      mutationLocks.release("staff-save");
-      return;
-    }
+    // PIN отдельным полем не вводится — бэкенд ставит pin = пароль.
+    setSaveError("");
+    setSaveErrorField("");
     setSaving(true);
 
     try {
@@ -568,9 +569,6 @@ function StaffRolePage({ role = "all" }) {
           });
           newUser = data;
         }
-        if (!genericIsMonoblock && form.pin) {
-          await staffService.updateUserPin(createdUser.id, form.pin);
-        }
         setStaff((current) => [mapStaffUser(newUser), ...current.filter((item) => item.id !== newUser.id)]);
       } else {
         const { data: updatedUser } = await staffService.updateCompanyUser(editingId, {
@@ -581,9 +579,6 @@ function StaffRolePage({ role = "all" }) {
           role_slug: roleKey,
           is_active: form.status !== "archived",
         });
-        if (!genericIsMonoblock && form.pin) {
-          await staffService.updateUserPin(editingId, form.pin);
-        }
         setStaff((current) => current.map((emp) =>
           emp.id === editingId ? mapStaffUser(updatedUser) : emp
         ));
@@ -591,7 +586,10 @@ function StaffRolePage({ role = "all" }) {
       closeModal();
     } catch (err) {
       console.error("Ошибка сохранения:", err.response?.data?.detail || err.message);
-      window.alert(err.response?.data?.detail || "Ошибка сохранения");
+      setSaveErrorField(
+        err.response?.data?.detail === "Phone already registered" ? "phone" : "password",
+      );
+      setSaveError(toCashierSaveError(err));
     } finally {
       setSaving(false);
       mutationLocks.release("staff-save");
@@ -608,7 +606,13 @@ function StaffRolePage({ role = "all" }) {
         employee.id === id ? { ...employee, status: "archived" } : employee
       )));
     } catch (err) {
-      window.alert(err.response?.data?.detail || "Не удалось архивировать сотрудника.");
+      console.error("Ошибка архивирования:", err.response?.data?.detail || err.message);
+      const detail = err.response?.data?.detail;
+      setPageError(
+        typeof detail === "string" && detail
+          ? toDuplicatePhoneError(detail) || detail
+          : "Не удалось архивировать сотрудника.",
+      );
     } finally {
       setPendingActionId("");
       mutationLocks.release(key);
@@ -625,7 +629,13 @@ function StaffRolePage({ role = "all" }) {
         employee.id === id ? { ...employee, status: "active" } : employee
       )));
     } catch (err) {
-      window.alert(err.response?.data?.detail || "Не удалось восстановить сотрудника.");
+      console.error("Ошибка восстановления:", err.response?.data?.detail || err.message);
+      const detail = err.response?.data?.detail;
+      setPageError(
+        typeof detail === "string" && detail
+          ? toDuplicatePhoneError(detail) || detail
+          : "Не удалось восстановить сотрудника.",
+      );
     } finally {
       setPendingActionId("");
       mutationLocks.release(key);
@@ -709,6 +719,15 @@ function StaffRolePage({ role = "all" }) {
           onClearSaveError={() => { setSaveError(""); setSaveErrorField(""); }}
         />
       )}
+
+      {pageError ? (
+        <Toast
+          kind="error"
+          title="Не удалось выполнить действие"
+          message={pageError}
+          onClose={() => setPageError("")}
+        />
+      ) : null}
     </div>
   );
 }

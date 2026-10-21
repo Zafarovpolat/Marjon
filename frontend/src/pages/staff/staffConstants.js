@@ -78,12 +78,35 @@ export const staffPermissionFlags = [
 ];
 
 // payload для POST/PATCH /auth/users: тумблеры + матрица в одном JSON.
-// Пустые значения не отправляем, чтобы не раздувать строку.
-export const staffPermissionsPayload = (form) => {
-  const out = {};
-  staffPermissionFlags.forEach((key) => {
-    if (form?.[key] === true) out[key] = true;
-  });
+// PERMS-ONE-SOURCE-01: ключи тумблеров — snake_case (staffPermissionKeys),
+// а не camelCase полей формы. Раньше create писал camelCase, а PATCH —
+// snake_case, поэтому один и тот же включённый тумблер «не сохранялся» при
+// создании и начинал работать только после повторного открытия карточки;
+// матрица доступов при PATCH терялась вовсе. Теперь обе операции собирают
+// словарь одной функцией.
+export const staffPermissionsPayload = (form, fields = staffPermissionFlags) =>
+  buildStaffPermissionsForSave(form, fields);
+
+export function buildStaffPermissionsForSave(form, fields = []) {
+  const base =
+    form?.permissions && typeof form.permissions === "object" ? { ...form.permissions } : {};
+  for (const field of fields) {
+    const key = staffPermissionKeys[field];
+    if (!key) continue;
+    const value = form?.[field];
+    if (typeof value !== "boolean") continue;
+    // false пишем только когда право раньше было выдано: у легаси-сотрудника
+    // отсутствие ключа означает allow-all (can() в десктопе), и явный false
+    // молча отозвал бы права, которых владелец не снимал. Снятый тумблер при
+    // этом обязан сохраниться — иначе «выключил, а оно снова включено».
+    const wasGranted = base[key] === true || base[field] === true;
+    if (value === true || wasGranted) base[key] = value;
+    // Легаси-ключ в camelCase удаляем: он читается как «выдано» и перебил бы
+    // только что снятый тумблер.
+    if (field in base) delete base[field];
+  }
+  // Матрица — полная правда формы: заменяем целиком, иначе снятые галочки
+  // оставались бы в старом словаре и «возвращались» после перезагрузки.
   const modules = form?.access && typeof form.access === "object" ? form.access : {};
   const enabledModules = {};
   Object.entries(modules).forEach(([moduleKey, value]) => {
@@ -91,9 +114,10 @@ export const staffPermissionsPayload = (form) => {
     if (!value.enabled) return;
     enabledModules[moduleKey] = { ...value };
   });
-  if (Object.keys(enabledModules).length) out.modules = enabledModules;
-  return out;
-};
+  if (Object.keys(enabledModules).length) base.modules = enabledModules;
+  else delete base.modules;
+  return base;
+}
 
 export const getPermissionSummary = (values) => {
   const permissions = [
@@ -143,19 +167,8 @@ export const staffPermissionKeys = {
 // Нетронутые (undefined) не шлём; если трогать было нечего и базы нет —
 // undefined (ключ опускаем, колонку не трогаем).
 export function buildStaffPermissions(form, fields) {
-  const base =
-    form.permissions && typeof form.permissions === "object" ? { ...form.permissions } : {};
-  let touched = false;
-  for (const field of fields) {
-    const key = staffPermissionKeys[field];
-    if (!key) continue;
-    if (typeof form[field] === "boolean") {
-      base[key] = form[field];
-      touched = true;
-    }
-  }
-  if (!touched && Object.keys(base).length === 0) return undefined;
-  return base;
+  const built = buildStaffPermissionsForSave(form, fields);
+  return Object.keys(built).length ? built : undefined;
 }
 
 // Читает тумблер из ответа бэкенда: новый путь — словарь permissions,
@@ -168,7 +181,13 @@ export function buildStaffPermissions(form, fields) {
 export function readStaffPermission(user, field) {
   const key = staffPermissionKeys[field];
   const dict = user?.permissions;
-  if (dict && typeof dict === "object" && dict[key] === true) return true;
+  if (dict && typeof dict === "object") {
+    if (dict[key] === true) return true;
+    // Легаси-словари, записанные старым create (camelCase): сотрудники,
+    // созданные до PERMS-ONE-SOURCE-01, хранят ключи полей формы. Без этой
+    // ветки их тумблеры «гасли» бы после первого же открытия карточки.
+    if (dict[field] === true) return true;
+  }
   if (user?.[key] === true) return true;
   if (user?.[field] === true) return true;
   return undefined;
@@ -313,7 +332,9 @@ export function mapStaffUser(user) {
   // живут в форме, поэтому карточка открывается в сохранённом состоянии.
   const flags = {};
   staffPermissionFlags.forEach((key) => {
-    flags[key] = perms[key] === true;
+    // Читаем оба формата ключей: новые записи — snake_case, старые —
+    // camelCase (до PERMS-ONE-SOURCE-01 create писал camelCase).
+    flags[key] = readStaffPermission(user, key) === true;
   });
   return {
     id: user.id,

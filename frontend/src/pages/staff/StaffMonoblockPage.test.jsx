@@ -200,8 +200,9 @@ describe("monoblock page visual contract (/users/monoblock) — MONOBLOCK-01", (
       phone: "998901112233",
       role_slug: "monoblock",
       role_name: "Monoblock Two",
-      // Ключ camelCase: create собирает staffPermissionsPayload.
-      permissions: { canMainMonoblock: true },
+      // Ключ snake_case: create и PATCH собирает один сборщик
+      // (staffPermissionsPayload → buildStaffPermissionsForSave).
+      permissions: { can_main_monoblock: true },
       printer_id: null,
     });
     const sent = api.post.mock.calls[0][1];

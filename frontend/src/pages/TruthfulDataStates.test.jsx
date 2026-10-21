@@ -349,7 +349,11 @@ describe("truthful production data states", () => {
     render(<StaffRolePage />);
     expect(await screen.findByText("Still Active")).toBeInTheDocument();
     fireEvent.click(screen.getByTitle("Archive"));
-    await waitFor(() => expect(window.alert).toHaveBeenCalled());
+    // ALERT-UNIFY-01: ошибка показывается тостом, а не window.alert —
+    // браузер глушит повторные диалоги, и причина оставалась только в консоли.
+    expect(await screen.findByText("Не удалось архивировать сотрудника.")).toBeInTheDocument();
+    expect(document.querySelector(".marjon-toast--error")).not.toBeNull();
+    expect(window.alert).not.toHaveBeenCalled();
     expect(screen.getByText("Still Active")).toBeInTheDocument();
   });
 

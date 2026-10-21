@@ -358,35 +358,18 @@ export default function StaffFormModal({
               {editingId ? (
                 <small className="muted">Оставьте пустым, чтобы не менять пароль.</small>
               ) : null}
+              {!isMonoblockView ? (
+                <small className="muted">
+                  Этот же пароль станет PIN-кодом для входа на терминале — задайте 4 цифры.
+                </small>
+              ) : null}
             </label>
-            {isProductDrawer && !isMonoblockView ? (
-              <>
-                <label>
-                  {/* PIN обязателен при создании (вход на десктопе только по
-                      4 цифрам). На редактировании пустой PIN = «не менять».
-                      Моноблоку PIN не показываем — это логин десктопа. */}
-                  <span>{editingId ? "Новый PIN (4 цифры)" : "PIN-код (4 цифры) *"}</span>
-                  <input
-                    autoComplete="off"
-                    value={form.pin}
-                    maxLength={4}
-                    inputMode="numeric"
-                    pattern="[0-9]{4}"
-                    required={!editingId}
-                    onChange={(event) => updateForm("pin", event.target.value.replace(/\D/g, ""))}
-                    placeholder="0000"
-                  />
-                  {editingId ? (
-                    <small className="muted">Оставьте пустым, чтобы не менять PIN.</small>
-                  ) : null}
-                </label>
-                {/* Поле «Филиал» убрано по просьбе владельца: сотрудника
-                    больше не привязывают к филиалу вручную из карточки.
-                    Привязка (User.branch_id) по-прежнему уходит в API —
-                    единственный филиал сети подставляется автоматически,
-                    у существующих сотрудников значение сохраняется. */}
-              </>
-            ) : null}
+            {/* PIN-поле убрано по просьбе владельца: у сотрудника один
+                секрет — пароль. Бэкенд сам ставит PIN = пароль (если пароль
+                из 4–8 цифр), поэтому вводить его дважды больше не нужно.
+                Поле «Филиал» тоже убрано: единственный филиал сети
+                подставляется автоматически, у существующих сотрудников
+                значение сохраняется. */}
             {isCuratedView ? null : (
             <label>
               <span>Принтер</span>
@@ -790,17 +773,6 @@ export default function StaffFormModal({
               </button>
             </div>
           </label>
-          <label>
-            <span>PIN-код 4 цифры</span>
-            <input
-              value={form.pin}
-              maxLength={4}
-              inputMode="numeric"
-              pattern="[0-9]{4}"
-              onChange={(event) => updateForm("pin", event.target.value.replace(/\D/g, ""))}
-              placeholder="0000"
-            />
-          </label>
           <div className="staff-permission-switches">
             <button
               className={`staff-permission-switch ${form.status === "active" ? "is-on" : ""}`}
@@ -992,17 +964,6 @@ export default function StaffFormModal({
             </select>
           </label>
           <label>
-            <span>PIN-код 4 цифры</span>
-            <input
-              value={form.pin}
-              maxLength={4}
-              inputMode="numeric"
-              pattern="[0-9]{4}"
-              onChange={(event) => updateForm("pin", event.target.value.replace(/\D/g, ""))}
-              placeholder="0000"
-            />
-          </label>
-          <label>
             <span>Пароль</span>
             <div className="staff-password-field">
               <input
@@ -1020,6 +981,11 @@ export default function StaffFormModal({
                 <Icon name={showPassword ? "bi-eye-slash" : "bi-eye"} size={18} />
               </button>
             </div>
+            {form.roleKey !== "monoblock" ? (
+              <small className="muted">
+                Этот же пароль станет PIN-кодом для входа на терминале — задайте 4 цифры.
+              </small>
+            ) : null}
           </label>
           <label>
             <span>Доступы / permissions</span>
