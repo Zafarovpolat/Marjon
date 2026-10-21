@@ -793,10 +793,11 @@ class EscPosFormatter:
                 prefix, suffix, div = self._style_bytes(style)
                 width = self.cols // div
                 chunk = bytearray()
-                # Визуальное выделение: пустая строка с двойным межстрочным
+                # Визуальное выделение: пустые строки до и после
                 chunk.extend(self._line(""))
                 chunk.extend(prefix)
-                chunk.extend(self._wrapped_line("НОМЕР ЗАКАЗА", width))
+                # Только номер, без подписи "НОМЕР ЗАКАЗА" — иначе подпись
+                # мелкая и отвлекает от самого номера.
                 chunk.extend(self._wrapped_line(str(data.order_number), width))
                 chunk.extend(suffix)
                 chunk.extend(self._line(""))

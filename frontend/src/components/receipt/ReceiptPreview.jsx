@@ -291,7 +291,7 @@ function CustomerReceipt({ template = {}, org, order }) {
     else if (block === "bottomOrderNumber") push(numberAtTop ? "header" : "footer", (
       <div className={`receipt-preview__bottomnum ${cls}`} key="bon">
         <span className="receipt-preview__bottomnum-caption">НОМЕР ЗАКАЗА</span>
-        <b className="receipt-preview__bottomnum-value" style={{ fontSize: { standard: 26, large: 36, xlarge: 48 }[styles.bottomOrderNumber?.size || "large"], fontWeight: styles.bottomOrderNumber?.weight === "bold" ? 700 : 400 }}>{getOrderNumber(order)}</b>
+        <b className="receipt-preview__bottomnum-value" style={{ fontSize: { standard: 26, large: 36, xlarge: 48, xxlarge: 78 }[styles.bottomOrderNumber?.size || "large"], fontWeight: styles.bottomOrderNumber?.weight === "bold" ? 700 : 400 }}>{getOrderNumber(order)}</b>
       </div>
     ));
     else if (block === "address") { const v = template.address || org?.address; if (hasValue(v)) push("footer", <b key="addr">{v}</b>); }
