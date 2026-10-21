@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatSalesLabel, revenueTooltipPosition } from "./RevenueChart";
+import { formatSalesLabel, formatSalesTooltipLabel, revenueTooltipPosition } from "./RevenueChart";
 
 // Метки оси графика выручки: приоритет camelCase (нулевые часовые бакеты),
 // затем snake_case API (почасовые бакеты /analytics/sales), затем дата.
@@ -24,8 +24,8 @@ describe("formatSalesLabel", () => {
 describe("revenue tooltip bounds", () => {
   const dimensions = { width: 800, height: 316, tooltipWidth: 160, tooltipHeight: 80 };
 
-  it("places the whole tooltip below a high peak instead of clipping its title", () => {
-    expect(revenueTooltipPosition({ ...dimensions, caretX: 400, caretY: 20 })).toEqual({ x: 400, y: 30 });
+  it("keeps high-peak tooltips above instead of switching below", () => {
+    expect(revenueTooltipPosition({ ...dimensions, caretX: 400, caretY: 20 })).toEqual({ x: 400, y: 8 });
   });
 
   it("keeps the tooltip above ordinary points", () => {
@@ -38,7 +38,14 @@ describe("revenue tooltip bounds", () => {
 
   it("contains a large tooltip even when there is insufficient room on either side vertically", () => {
     const result = revenueTooltipPosition({ ...dimensions, height: 160, tooltipHeight: 120, caretX: 400, caretY: 70 });
-    expect(result.y).toBe(32);
+    expect(result.y).toBe(8);
     expect(result.y + 120).toBeLessThanOrEqual(152);
   });
+});
+
+it("shows the actual hourly interval without shifting sales into the previous hour", () => {
+  expect(formatSalesTooltipLabel({ chart_label: "08:00" })).toBe("08:00 – 09:00");
+  expect(formatSalesTooltipLabel({ chart_label: "09:00" })).toBe("09:00 – 10:00");
+  expect(formatSalesTooltipLabel({ chart_label: "23:00" })).toBe("23:00 – 24:00");
+  expect(formatSalesTooltipLabel({ date: "2026-10-21" })).toBe("21.10");
 });

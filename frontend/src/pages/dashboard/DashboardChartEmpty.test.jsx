@@ -103,7 +103,7 @@ describe("OWNER Revenue Analytics no-data zero line", () => {
     expect(screen.getByText("Максимум").parentElement).toHaveTextContent("8000 UZS");
   });
 
-  it("renders all 11 decorative card artworks as aria-hidden", async () => {
+  it("renders 10 decorative card artworks without total costs", async () => {
     dashboardService.loadOwnerOverview.mockResolvedValue(overviewWith([]));
     render(<OwnerDashboard />);
     await screen.findByTestId("revenue-chart-probe");
@@ -111,7 +111,7 @@ describe("OWNER Revenue Analytics no-data zero line", () => {
     const kpiArt = document.querySelectorAll(".dashboard-kpi-card__art");
     expect(kpiArt).toHaveLength(5);
     const sideArt = document.querySelectorAll(".dashboard-side-metric__art");
-    expect(sideArt).toHaveLength(6);
+    expect(sideArt).toHaveLength(5);
     for (const img of [...kpiArt, ...sideArt]) {
       expect(img.getAttribute("alt")).toBe("");
       expect(img.getAttribute("aria-hidden")).toBe("true");
@@ -132,7 +132,8 @@ describe("OWNER Revenue Analytics no-data zero line", () => {
     expect(screen.queryByText("Появится после первых заказов")).not.toBeInTheDocument();
 
     // Honest UI-state zeros for goods/costs cards; creditor/debtor untouched.
-    for (const label of ["Приход товаров", "Остаток склада", "Общие затраты"]) {
+    expect(screen.queryByText("Общие затраты")).toBeNull();
+    for (const label of ["Приход товаров", "Остаток склада"]) {
       expect(screen.getByText(label).closest("button")).toHaveTextContent("0 UZS");
     }
     expect(screen.getByText("Расход товаров").closest("button")).toHaveTextContent("Недоступно");

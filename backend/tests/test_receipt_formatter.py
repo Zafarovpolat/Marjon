@@ -168,16 +168,17 @@ class TestCustomerBlocksAndStyles:
         raw = _fmt(80).format_receipt(_order(), template={"blockStyles": {"orderNumber": {"size": "large", "align": "left", "weight": "standard"}}})
         assert EscPosFormatter.GS + b"\x21" + bytes([0x01]) in raw
 
-    def test_10_style_xlarge_emits_double_height_only_bold_no_width_halving(self):
+    def test_10_style_xlarge_emits_double_height_without_forced_bold(self):
         """xlarge is deliberately NOT literal ESC/POS 2x2 (see _style_bytes):
         a frontend "xlarge" (~1.47x) printed as raw double-width+double-height
         makes the grand total disproportionately huge and halves the usable
-        column budget. The physical treatment is double-height + forced bold,
+        column budget. The physical treatment is double-height with independent weight,
         at full column width."""
         raw = _fmt(80).format_receipt(_order(total=Decimal(94080)), template={"blockStyles": {"total": {"size": "xlarge", "align": "left", "weight": "standard"}}})
         assert EscPosFormatter.GS + b"\x21" + bytes([0x11]) not in raw  # never literal 2x2
         assert EscPosFormatter.GS + b"\x21" + bytes([0x01]) in raw  # double-height only
-        assert EscPosFormatter.BOLD_ON in raw  # xlarge forces bold even though weight="standard"
+        prefix, _, _ = _fmt(80)._style_bytes({"size": "xlarge", "weight": "standard"})
+        assert EscPosFormatter.BOLD_ON not in prefix
         t = dec(raw)
         assert "Итого к оплате:" in t and "94,080" in t  # full-width line, nothing truncated
 

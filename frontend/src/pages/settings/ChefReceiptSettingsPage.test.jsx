@@ -28,6 +28,19 @@ beforeEach(() => {
 });
 
 describe("ChefReceiptSettingsPage (kitchen)", () => {
+  it("configures and saves dish text size and weight without hiding kitchen items", async () => {
+    const { container } = render(<ChefReceiptSettingsPage />);
+    await screen.findByText("Текст позиций");
+    const row = container.querySelector('[data-block-row="dishItems"]');
+    expect(within(row).queryByRole("checkbox")).toBeNull();
+    fireEvent.click(within(row).getByRole("button", { name: "Очень большой" }));
+    const weightGroup = within(row).getByText("Жирность").parentElement;
+    fireEvent.click(within(weightGroup).getByRole("button", { name: "Стандартный" }));
+    expect(container.querySelector('.receipt-preview__items--kitchen .receipt-preview__item-row')).toHaveStyle({ fontSize: '22px', fontWeight: '400' });
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+    await waitFor(() => expect(saveKitchenTemplate).toHaveBeenCalled());
+    expect(saveKitchenTemplate.mock.calls.at(-1)[0].blockStyles.dishItems).toEqual({ size: 'xlarge', weight: 'standard' });
+  });
   it("does not flash editable defaults or the preview while the server template is pending", async () => {
     let resolve;
     getKitchenTemplate.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
@@ -74,7 +87,7 @@ describe("ChefReceiptSettingsPage (kitchen)", () => {
     expect(screen.queryByText(/Автопечать нового заказа/)).toBeNull();
     expect(container.querySelector(".receipt-subcard select")).toBeNull();
     const rows = container.querySelectorAll("[data-block-row]");
-    expect(rows).toHaveLength(7);
+    expect(rows).toHaveLength(8);
     for (const label of SEVEN_LABELS) {
       expect(screen.getByRole("checkbox", { name: label })).toBeInTheDocument();
     }
@@ -86,7 +99,7 @@ describe("ChefReceiptSettingsPage (kitchen)", () => {
     await screen.findByRole("heading", { name: "Настройка чека повара" });
     // Заголовки групп (класс заголовка — текст "Комментарий" есть и у строки).
     const titles = [...container.querySelectorAll(".receipt-section-group__title")].map((el) => el.textContent);
-    expect(titles).toEqual(["Информация о заказе", "Суммы", "Комментарий"]);
+    expect(titles).toEqual(["Информация о заказе", "Позиции блюд", "Суммы", "Комментарий"]);
     const inGroup = (key) => container.querySelector(`[data-block-group="${key}"]`);
     const rowsIn = (key) => [...inGroup(key).querySelectorAll("[data-block-row]")].map((r) => r.dataset.blockRow);
     expect(rowsIn("order")).toEqual(["orderNumber", "orderType", "table", "waiter", "date"]);

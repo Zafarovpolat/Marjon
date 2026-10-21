@@ -502,7 +502,7 @@ export default function OwnerDashboard() {
 
         <aside className="warehouse-summary-card">
           <div className="warehouse-summary-list">
-            {warehouseSummary.map((item) => {
+            {warehouseSummary.filter(item => item.tone !== "costs").map((item) => {
               const visual = WAREHOUSE_VISUALS[item.tone];
               return (
               <button

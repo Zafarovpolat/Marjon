@@ -7,16 +7,16 @@
    на высоком экране внизу оставалась пустота, а на низком контент
    уезжал под скролл.
 
-   Здесь высота не задаётся числом: контент кабинета — flex-колонка,
-   секции делят свободное место пропорционально, а внутренние списки
-   скроллятся сами. Правила лежат отдельным слоем (импортируется
+   Только на высоком экране секции делят свободное место пропорционально.
+   На невысоком экране сохраняем читаемый график и общую прокрутку.
+   Правила лежат отдельным слоем (импортируется
    последним в main.jsx), чтобы не переписывать 9 600 строк
    dashboard.css и 35 000 react-overrides.css.
    ============================================================ */
 
 /* ── 1. Дашборд владельца: три полосы делят высоту ─────────────────────────
    kpi-полоса фиксирована по контенту, график и нижние карточки тянутся. */
-@media (min-width: 1281px) {
+@media (min-width: 1281px) and (min-height: 1100px) {
   body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) {
     display: flex;
     flex-direction: column;
@@ -72,6 +72,110 @@
   body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) .recent-orders-list {
     min-height: 0;
     overflow-y: auto;
+  }
+}
+
+/* A laptop-sized viewport must not squeeze the chart to fit three bands.
+   Keep one workspace scrollbar instead of clipping independent card lists. */
+@media (min-width: 1281px) and (max-height: 1099px) {
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) {
+    display: block;
+    overflow-y: auto;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) > .owner-main-grid,
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) > .owner-widgets {
+    flex: none;
+    height: auto;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) .premium-chart {
+    height: auto;
+    min-height: 440px;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 20px;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content:has(.owner-widgets) .owner-main-grid .premium-chart .chart-wrap {
+    height: auto;
+    min-height: 276px;
+    flex: 1 1 auto;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) .warehouse-summary-card,
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) .top-dishes-list,
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) .recent-orders-list {
+    height: auto;
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) > .owner-widgets > * {
+    height: auto;
+    max-height: none;
+  }
+}
+
+/* Side metrics reserve a real column for the art instead of subtracting
+   140px from the text column; long stock amounts stay readable in one row. */
+body.dashboard-body .dashboard-shell .dashboard-side-metric--visual {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 64px;
+  gap: 8px;
+  padding: 8px 12px;
+}
+body.dashboard-body .dashboard-shell .dashboard-side-metric--visual .warehouse-summary-item__icon {
+  width: 36px;
+  height: 36px;
+  min-width: 0;
+}
+body.dashboard-body .dashboard-shell .dashboard-side-metric--visual .warehouse-summary-item__text {
+  padding-right: 0;
+  min-width: 0;
+  transform: none;
+}
+body.dashboard-body .dashboard-shell .dashboard-side-metric--visual .warehouse-summary-item__text > span {
+  font-size: 16px;
+  white-space: nowrap;
+}
+body.dashboard-body .dashboard-shell .dashboard-side-metric--visual .dashboard-side-metric__art {
+  position: static;
+  transform: none;
+  width: 64px;
+  max-width: 100%;
+  height: 52px;
+  max-height: 52px;
+  justify-self: end;
+}
+
+@media (min-width: 1281px) {
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) > .owner-main-grid {
+    align-items: stretch;
+  }
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) .warehouse-summary-card {
+    display: flex;
+    align-items: stretch;
+    align-self: stretch;
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    overflow: visible;
+  }
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) .warehouse-summary-list {
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+    min-height: 0;
+  }
+  body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) .warehouse-summary-item {
+    height: auto;
+    min-height: 0;
+    margin: 0;
   }
 }
 

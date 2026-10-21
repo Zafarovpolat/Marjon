@@ -315,6 +315,15 @@ export default function ReceiptSettingsPage() {
               onToggle={toggleBlock}
               onStyleChange={changeBlockStyle}
               renderBlockExtra={renderBlockExtra}
+              renderBlockHeader={(block) => block === "bottomOrderNumber" ? (
+                <div className="receipt-segments receipt-number-placement" role="group" aria-label="Расположение номера заказа">
+                  {[{ value: "top", label: "Вверху" }, { value: "bottom", label: "Внизу" }].map(option => (
+                    <button type="button" key={option.value} aria-pressed={(template.blockStyles?.bottomOrderNumber?.placement || "bottom") === option.value}
+                      className={(template.blockStyles?.bottomOrderNumber?.placement || "bottom") === option.value ? "is-active" : ""}
+                      onClick={() => changeBlockStyle(block, { placement: option.value })}>{option.label}</button>
+                  ))}
+                </div>
+              ) : null}
               groups={CUSTOMER_RECEIPT_GROUPS}
             />
 

@@ -48,6 +48,22 @@ function renderKitchen({ template = buildKitchenTemplate(), order = kitchenOrder
   return render(<ReceiptPreview type="kitchen" template={template} order={order} />);
 }
 
+it("moves the separate order number below the brand without duplicating the info row", () => {
+  const template = buildCustomerTemplate();
+  template.blockStyles.bottomOrderNumber = { size: "xlarge", weight: "standard", align: "center", placement: "top" };
+  const view = renderCustomer({ template });
+  const number = view.container.querySelector(".receipt-preview__bottomnum-value");
+  expect(number).toHaveStyle({ fontSize: "48px", fontWeight: "400" });
+  expect(number.closest("[data-receipt-section]")).toHaveAttribute("data-receipt-section", "header");
+  expect(screen.queryByText("Номер заказа:")).toBeNull();
+  expect(screen.getByText("Тип заказа:")).toBeInTheDocument();
+  expect(screen.getByText("НОМЕР ЗАКАЗА")).toBeInTheDocument();
+  template.blockStyles.bottomOrderNumber.placement = "bottom";
+  view.rerender(<ReceiptPreview type="customer" template={template} order={customerOrder} />);
+  expect(screen.getByText("Номер заказа:")).toBeInTheDocument();
+  expect(screen.getByText("НОМЕР ЗАКАЗА")).toBeInTheDocument();
+});
+
 function receiptRoot(container) {
   return container.querySelector("[data-receipt-print-root]");
 }

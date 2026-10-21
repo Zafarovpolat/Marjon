@@ -996,6 +996,8 @@
   font-size: 17px;
   line-height: 1.35;
 }
+.receipt-section-row__top .receipt-number-placement { margin-left: auto; width: 210px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
 /* Grand total: the single financial accent — bold, clearly larger than
    subtotal/service, label left / value right, air around it (top breathing
    room slightly larger than the bottom one). */

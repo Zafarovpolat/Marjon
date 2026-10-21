@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Chart, Filler, LineController, LineElement, LinearScale, PointElement, CategoryScale, Tooltip } from "chart.js";
 import { formatNumber } from "../../api/client";
 
@@ -51,16 +52,23 @@ export function formatSalesLabel(item) {
   return match ? `${match[3]}.${match[2]}` : "";
 }
 
-// Keep the complete HTML tooltip inside the clipped chart field. At a high
-// peak there is no room above the point, so place it below instead.
+export function formatSalesTooltipLabel(item) {
+  const label = formatSalesLabel(item);
+  const match = label.match(/^(\d{2}):00$/);
+  if (!match) return label;
+  const hour = Number(match[1]);
+  return `${label} – ${String(hour + 1).padStart(2, "0")}:00`;
+}
+
+// The tooltip lives in a body portal: chart clipping cannot force a peak's
+// tooltip below the point. Coordinates and bounds are viewport-relative.
 export function revenueTooltipPosition({ width, height, tooltipWidth, tooltipHeight, caretX, caretY }) {
   const inset = 8;
   const gap = 10;
   const halfWidth = tooltipWidth / 2;
   const x = Math.max(halfWidth + inset, Math.min(caretX, width - halfWidth - inset));
   const above = caretY - gap - tooltipHeight;
-  const preferredTop = above >= inset ? above : caretY + gap;
-  const y = Math.max(inset, Math.min(preferredTop, height - tooltipHeight - inset));
+  const y = Math.max(inset, Math.min(above, height - tooltipHeight - inset));
   return { x, y };
 }
 
@@ -140,20 +148,22 @@ export default function RevenueChart({ sales }) {
 
               const titleEl = tooltipEl.querySelector("strong");
               const valueEl = tooltipEl.querySelector("span");
-              if (titleEl) titleEl.textContent = tooltip.title?.[0] || "";
+              const item = sales[tooltip.dataPoints?.[0]?.dataIndex];
+              if (titleEl) titleEl.textContent = item ? formatSalesTooltipLabel(item) : tooltip.title?.[0] || "";
               if (valueEl) valueEl.textContent = tooltip.body?.[0]?.lines?.[0] || "";
 
+              const bounds = chart.canvas.getBoundingClientRect();
               const { x, y } = revenueTooltipPosition({
-                width: chart.width,
-                height: chart.height,
+                width: window.innerWidth,
+                height: window.innerHeight,
                 tooltipWidth: tooltipEl.offsetWidth || 144,
                 tooltipHeight: tooltipEl.offsetHeight || 80,
-                caretX: tooltip.caretX,
-                caretY: tooltip.caretY,
+                caretX: bounds.left + tooltip.caretX,
+                caretY: bounds.top + tooltip.caretY,
               });
 
-              tooltipEl.style.left = `${chart.canvas.offsetLeft + x}px`;
-              tooltipEl.style.top = `${chart.canvas.offsetTop + y}px`;
+              tooltipEl.style.left = `${x}px`;
+              tooltipEl.style.top = `${y}px`;
               tooltipEl.classList.add("is-visible");
             },
             callbacks: { label: (context) => formatChartTooltipValue(context.parsed.y) },
@@ -197,6 +207,9 @@ export default function RevenueChart({ sales }) {
     // and at most one RAF applies it immediately (old natural left-side
     // motion). No timers, no snap, no data touch, no remount.
     const wrapBox = canvasRef.current.closest(".chart-wrap") || canvasRef.current.parentElement;
+    const hideTooltip = () => tooltipRef.current?.classList.remove("is-visible");
+    window.addEventListener("scroll", hideTooltip, true);
+    window.addEventListener("resize", hideTooltip);
     const stageBox = canvasRef.current.parentElement;
     const appliedSize = { width: 0, height: 0 };
     const applyStageSize = (size) => {
@@ -238,6 +251,8 @@ export default function RevenueChart({ sales }) {
       window.cancelAnimationFrame(revealFrame);
       if (motionRaf) window.cancelAnimationFrame(motionRaf);
       if (sizeObserver) sizeObserver.disconnect();
+      window.removeEventListener("scroll", hideTooltip, true);
+      window.removeEventListener("resize", hideTooltip);
       chart.destroy();
     };
 
@@ -246,10 +261,10 @@ export default function RevenueChart({ sales }) {
   return (
     <div className="revenue-chart-stage">
       <canvas ref={canvasRef} id="ownerRevenueChart" />
-      <div className="owner-revenue-tooltip" ref={tooltipRef} aria-hidden="true">
+      {createPortal(<div className="owner-revenue-tooltip" style={{ position: "fixed", zIndex: 1100, transition: "opacity 0.16s ease" }} ref={tooltipRef} aria-hidden="true">
         <strong />
         <span />
-      </div>
+      </div>, document.body)}
     </div>
   );
 }

@@ -197,7 +197,7 @@ class EscPosFormatter:
 
     # GS ! n — character size (bits 0-2: height x1-x8, bits 4-6: width x1-x8).
     # Width is never doubled here — see _style_bytes for why "xlarge" maps to
-    # double-height + bold rather than literal double-width+double-height.
+    # double-height rather than literal double-width+double-height.
     _ALIGN_CODES = {"left": ALIGN_LEFT, "center": ALIGN_CENTER, "right": ALIGN_RIGHT}
 
     # Соответствует умолчаниям frontend/src/api/receipt.js buildCustomerTemplate()
@@ -219,6 +219,7 @@ class EscPosFormatter:
     # align:false for — _kitchen_style() below forces those to "left" even if a
     # stray value is stored, matching "the frontend never exposed this control".
     _CHEF_DEFAULT_STYLES: dict[str, dict] = {
+        "dishItems": {"size": "standard", "weight": "bold"},
         "orderNumber": {"size": "large", "align": "center", "weight": "bold"},
         "cancelOrderNumber": {"size": "large", "align": "center", "weight": "bold"},
         "orderType": {"size": "standard", "weight": "standard"},
@@ -433,9 +434,7 @@ class EscPosFormatter:
 
     def _style_bytes(self, style: dict) -> tuple[bytes, bytes, int]:
         """(prefix, suffix, width_divisor) для набора style — GS!/ESC E/ESC a.
-        width_divisor=2 для 'xlarge' (двойная ширина съедает половину колонок
-        на строке — вызывающий код должен передать cols // width_divisor в
-        _two_col/_three_col для этой строки, чтобы не переполнить бумагу).
+        width_divisor=1: размер меняет высоту, но не ширину символов.
         suffix ВСЕГДА возвращает align/bold/size к дефолту (ESC/POS не имеет
         стека состояний — если не сбросить явно, следующий ничем не
         стилизованный блок унаследует это форматирование)."""
@@ -449,11 +448,10 @@ class EscPosFormatter:
         # thermal head makes a grand total disproportionately huge relative to
         # everything else on the receipt, and halving the usable column count
         # (cols//2) risks squeezing a long total/currency string. The nearest
-        # professional physical treatment: xlarge = double-HEIGHT only (same
-        # bits as "large") plus forced bold, so it still reads as the most
-        # dominant element without overwhelming the receipt or eating columns.
-        # Width is therefore never halved for any size tier.
-        bold = weight == "bold" or size == "xlarge"
+        # fallback treatment: xlarge = double-HEIGHT only (same bits as
+        # "large"). Weight is independent of size and follows the template.
+        # Width is never halved for any size tier.
+        bold = weight == "bold"
         size_code = {"standard": 0x00, "large": 0x01, "xlarge": 0x01}.get(size, 0x00)
 
         # Font A is asserted explicitly on every block (not only when a size
@@ -566,7 +564,7 @@ class EscPosFormatter:
         return bytes(out)
 
     def _kitchen_item_row(
-        self, name: str, qty: str, total: str | None, qty_w: int, total_w: int, cols: int | None = None
+        self, name: str, qty: str, total: str | None, qty_w: int, total_w: int, cols: int | None = None, bold: bool = True
     ) -> bytes:
         """One kitchen-ticket dish row (bold, per format_kitchen_ticket's
         'always a table' layout): Кол-во centered — unlike _item_row's
@@ -575,19 +573,20 @@ class EscPosFormatter:
         wraps it across continuation lines, or (narrow paper) falls back to
         name-alone-then-numbers, so long dish/modifier text is never lost."""
         cols = self.cols if cols is None else cols
+        line = self._bold_line if bold else self._line
         used = qty_w + (total_w if total is not None else 0)
         tail = qty.center(qty_w) + (total.rjust(total_w) if total is not None else "")
         if cols < used + 4:
             out = bytearray()
             out += self._wrapped_line(name, cols)
-            out += self._bold_line(tail)
+            out += line(tail)
             return bytes(out)
         name_w = cols - used
         lines = self._wrap(name, name_w) or [""]
         out = bytearray()
-        out += self._bold_line(lines[0].ljust(name_w) + tail)
+        out += line(lines[0].ljust(name_w) + tail)
         for cont in lines[1:]:
-            out += self._bold_line(cont.ljust(name_w) + " " * used)
+            out += line(cont.ljust(name_w) + " " * used)
         return bytes(out)
 
     def format_receipt(self, data: ReceiptData, template: dict | None = None, logo_bytes: bytes | None = None) -> bytes:
@@ -635,7 +634,8 @@ class EscPosFormatter:
         # bottomOrderNumber at the very end), not one merged block. A fixed
         # "5 groups, each rendered once" scheme (the previous approach here)
         # cannot represent that and silently duplicated footer content.
-        ordered_blocks = self._ordered(template.get("blocks"), self.CUSTOMER_BLOCKS)
+        ordered_blocks = self._customer_blocks(template)
+        number_at_top = self._number_at_top(template)
         runs: list[list[bytes | bytearray]] = []  # each entry: [section, *chunks]
 
         def push(section: str, chunk: bytes | bytearray) -> None:
@@ -715,7 +715,8 @@ class EscPosFormatter:
                 # infoRow("orderNumber", "Номер заказа:", …) and
                 # infoRow("orderNumber", "Тип заказа:", …) — not one combined
                 # "Заказ #N  <type>" row.
-                push("info", self._info_row(template, "orderNumber", "Номер заказа:", str(data.order_number)))
+                if not number_at_top:
+                    push("info", self._info_row(template, "orderNumber", "Номер заказа:", str(data.order_number)))
                 push("info", self._info_row(template, "orderNumber", "Тип заказа:", order_type_label))
             elif block == "table" and data.table_number:
                 push("info", self._info_row(template, "table", "Номер стола:", str(data.table_number)))
@@ -790,7 +791,7 @@ class EscPosFormatter:
                 # getOrderNumber() (String(order.order_number), not "#N").
                 chunk.extend(self._wrapped_line(str(data.order_number), width))
                 chunk.extend(suffix)
-                push("footer", chunk)
+                push("header" if number_at_top else "footer", chunk)
             elif block == "address":
                 address = template.get("address")
                 if address:
@@ -820,6 +821,18 @@ class EscPosFormatter:
         out.extend(self.CUT)
 
         return bytes(out)
+
+    @staticmethod
+    def _number_at_top(template: dict) -> bool:
+        return (EscPosFormatter._enabled(template, "bottomOrderNumber")
+                and (template.get("blockStyles") or {}).get("bottomOrderNumber", {}).get("placement") == "top")
+
+    def _customer_blocks(self, template: dict) -> list[str]:
+        blocks = self._ordered(template.get("blocks"), self.CUSTOMER_BLOCKS)
+        if self._number_at_top(template):
+            blocks.remove("bottomOrderNumber")
+            blocks.insert(blocks.index("restaurantName") + 1, "bottomOrderNumber")
+        return blocks
 
     @staticmethod
     def _ordered(blocks: object, canonical: list[str]) -> list[str]:
@@ -961,7 +974,11 @@ class EscPosFormatter:
                 if show_money and item.total is not None:
                     subtotal += item.total
                     total_str = f"{item.total:,.0f}"
-                out.extend(self._kitchen_item_row(item.name, str(item.qty), total_str, qty_w, total_w))
+                item_prefix, item_suffix, _ = self._style_bytes(self._kitchen_style(template, "dishItems"))
+                out.extend(item_prefix)
+                item_row = self._kitchen_item_row(item.name, str(item.qty), total_str, qty_w, total_w, bold=False)
+                # Reset before the row's final newline, never on the next divider.
+                out.extend(item_row[:-1] + item_suffix + self.LF if item_row.endswith(self.LF) else item_row + item_suffix)
                 for mod in item.modifiers:
                     out.extend(self._wrapped_line(f"  + {mod}", self.cols))
                 if item_comment_on and item.note:

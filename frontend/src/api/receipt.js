@@ -151,6 +151,7 @@ export const CHEF_WEIGHT_OPTIONS = [
 // Per-block constructor contract: which controls each of the 7 chef rows
 // exposes. align: false means no alignment control for that row.
 export const CHEF_STYLE_CONTROLS = {
+  dishItems: { sizes: CHEF_SIZE_OPTIONS_3, align: false, weight: true },
   orderNumber: { sizes: CHEF_SIZE_OPTIONS_3, align: true, weight: true },
   orderType: { sizes: CHEF_SIZE_OPTIONS_3, align: false, weight: true },
   table: { sizes: CHEF_SIZE_OPTIONS_3, align: false, weight: true },
@@ -161,6 +162,7 @@ export const CHEF_STYLE_CONTROLS = {
 };
 
 export const CHEF_DEFAULT_BLOCK_STYLES = {
+  dishItems: { size: "standard", weight: "bold" },
   orderNumber: { size: "large", align: "center", weight: "bold" },
   orderType: { size: "standard", weight: "standard" },
   table: { size: "standard", weight: "standard" },

@@ -33,3 +33,11 @@ export function orderedBlocks(blocks, canonical) {
   }
   return result;
 }
+
+export function customerReceiptBlocks(template, canonical) {
+  const blocks = orderedBlocks(template.blocks, canonical);
+  if (template.blockStyles?.bottomOrderNumber?.placement !== "top") return blocks;
+  const result = blocks.filter(block => block !== "bottomOrderNumber");
+  result.splice(result.indexOf("restaurantName") + 1, 0, "bottomOrderNumber");
+  return result;
+}

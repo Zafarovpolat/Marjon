@@ -267,8 +267,9 @@ def _style(template: dict, helper: EscPosFormatter, key: str) -> dict:
 
 def _font_for(template: dict, helper: EscPosFormatter, key: str) -> tuple[ImageFont.FreeTypeFont, str]:
     style = _style(template, helper, key)
-    size = _SIZE_PT.get(style.get("size", "standard"), _SIZE_PT["standard"])
-    weight = "bold" if style.get("weight") == "bold" or style.get("size") == "xlarge" else "regular"
+    sizes = {"standard": 26, "large": 36, "xlarge": 48} if key == "bottomOrderNumber" else _SIZE_PT
+    size = sizes.get(style.get("size", "standard"), sizes["standard"])
+    weight = "bold" if style.get("weight") == "bold" else "regular"
     return _load_font(weight, size), style.get("align", "left")
 
 
@@ -278,7 +279,7 @@ def _kitchen_font_for(template: dict, helper: EscPosFormatter, key: str) -> tupl
     Chef constructor's own defaults/contract, not the customer one's."""
     style = helper._kitchen_style(template, key)
     size = _SIZE_PT.get(style.get("size", "standard"), _SIZE_PT["standard"])
-    weight = "bold" if style.get("weight") == "bold" or style.get("size") == "xlarge" else "regular"
+    weight = "bold" if style.get("weight") == "bold" else "regular"
     return _load_font(weight, size), style.get("align", "left")
 
 
@@ -324,7 +325,8 @@ def render_customer_receipt_raster(data: ReceiptData, template: dict | None, pap
         payment_label = PAYMENT_METHOD_LABELS.get(data.payment_method, data.payment_method)
 
         canvas = _RasterCanvas(width_px)
-        ordered_blocks = EscPosFormatter._ordered(template.get("blocks"), EscPosFormatter.CUSTOMER_BLOCKS)
+        ordered_blocks = helper._customer_blocks(template)
+        number_at_top = helper._number_at_top(template)
 
         last_section: str | None = None
 
@@ -385,7 +387,8 @@ def render_customer_receipt_raster(data: ReceiptData, template: dict | None, pap
             elif block == "orderNumber":
                 boundary("info")
                 font, align = _font_for(template, helper, "orderNumber")
-                canvas.text_row("Номер заказа:", str(data.order_number), font, align, gap(8))
+                if not number_at_top:
+                    canvas.text_row("Номер заказа:", str(data.order_number), font, align, gap(8))
                 canvas.text_row("Тип заказа:", order_type_label, font, align, gap(8))
             elif block == "table" and data.table_number:
                 boundary("info")
@@ -436,10 +439,10 @@ def render_customer_receipt_raster(data: ReceiptData, template: dict | None, pap
                 for para in str(text).split("\n"):
                     canvas.line_of_text(para, font, align, gap(4))
             elif block == "bottomOrderNumber":
-                boundary("footer")
+                boundary("header" if number_at_top else "footer")
                 font, align = _font_for(template, helper, "bottomOrderNumber")
                 canvas.line_of_text("НОМЕР ЗАКАЗА", _load_font("regular", 22), align, gap(4))
-                canvas.line_of_text(f"#{data.order_number}", font, align, gap(10))
+                canvas.line_of_text(str(data.order_number), font, align, gap(10))
             elif block == "address":
                 address = template.get("address")
                 if address:
@@ -541,10 +544,8 @@ def render_kitchen_ticket_raster(data: KitchenTicketData, template: dict | None,
         if any_info:
             canvas.divider(gap_before=0, gap_after=gap(10))
 
-        # Dishes: core content, always printed (BOLD, matching text-mode's
-        # always-bold item rows — the one weight tier available makes dish
-        # names outrank metadata, per the kitchen typography hierarchy).
-        item_font = _load_font("bold", _SIZE_PT["standard"])
+        # Dish content always prints; its size and weight are configurable.
+        item_font, _ = _kitchen_font_for(template, helper, "dishItems")
         note_font = _load_font("regular", _SIZE_PT["standard"])
         courses: dict[int, list] = {}
         for item in data.items:

@@ -55,6 +55,21 @@ beforeEach(() => {
 
 // PLACEHOLDER_TESTS
 describe("ReceiptSettingsPage (customer)", () => {
+  it("saves the selected order-number placement and restores the bottom layout", async () => {
+    render(<ReceiptSettingsPage />);
+    const control = await screen.findByRole("group", { name: "Расположение номера заказа" });
+    const top = within(control).getByRole("button", { name: "Вверху" });
+    const bottom = within(control).getByRole("button", { name: "Внизу" });
+    expect(bottom).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(top);
+    expect(top).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByText("Номер заказа:")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+    await waitFor(() => expect(saveCustomerTemplate).toHaveBeenCalled());
+    expect(saveCustomerTemplate.mock.calls.at(-1)[0].blockStyles.bottomOrderNumber.placement).toBe("top");
+    fireEvent.click(bottom);
+    expect(screen.getByText("Номер заказа:")).toBeInTheDocument();
+  });
   it("loads the real template and renders the OWNER header without a Parameters card", async () => {
     render(<ReceiptSettingsPage />);
     expect(await screen.findByRole("heading", { name: "Настройка чека" })).toBeInTheDocument();

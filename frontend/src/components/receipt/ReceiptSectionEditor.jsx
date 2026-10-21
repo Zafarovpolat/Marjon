@@ -50,9 +50,11 @@ export default function ReceiptSectionEditor({
   labels,
   blockStyles,
   styleBlocks = [],
+  fixedBlocks = [],
   onToggle,
   onStyleChange,
   renderBlockExtra,
+  renderBlockHeader,
   groups,
   styleRowClassName = "",
   sizeOptionsForBlock = defaultSizeOptions,
@@ -75,7 +77,8 @@ export default function ReceiptSectionEditor({
   };
 
   const renderRow = (block) => {
-    const detailsOpen = Boolean(enabled?.[block]);
+    const fixed = fixedBlocks.includes(block);
+    const detailsOpen = fixed || Boolean(enabled?.[block]);
     const extra = renderBlockExtra ? renderBlockExtra(block) : null;
     const hasStyle = styleBlockSet.has(block);
     const sizeOpts = sizeOptionsForBlock(block) || [];
@@ -86,13 +89,14 @@ export default function ReceiptSectionEditor({
       <div className={`receipt-section-row ${detailsOpen ? "is-enabled" : ""}`} key={block} data-block-row={block}>
         <div className="receipt-section-row__top">
           <label className="receipt-toggle">
-            <input
+            {!fixed ? <input
               type="checkbox"
               checked={detailsOpen}
               onChange={() => onToggle(block)}
-            />
+            /> : null}
             <span>{labels[block] || block}</span>
           </label>
+          {renderBlockHeader?.(block)}
         </div>
         {hasStyle || extra ? (
           <div className={`receipt-section-row__details${detailsOpen ? " is-open" : ""}`}>

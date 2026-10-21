@@ -21,6 +21,7 @@ import "./receiptSettings.css";
 // Порядок внутри групп — как в template.blocks; свернутость UI-only.
 export const CHEF_RECEIPT_GROUPS = [
   { key: "order", title: "Информация о заказе", blocks: ["orderNumber", "orderType", "table", "waiter", "date"] },
+  { key: "dishItems", title: "Позиции блюд", blocks: ["dishItems"] },
   { key: "sums", title: "Суммы", blocks: ["showOrderSum"] },
   { key: "notes", title: "Комментарий", blocks: ["comment"] },
 ];
@@ -144,11 +145,12 @@ export default function ChefReceiptSettingsPage() {
           <div className="receipt-editor-col">
             <div className="receipt-editor">
               <ReceiptSectionEditor
-                blocks={template.blocks}
+                blocks={[...template.blocks.filter(block => block !== "dishItems"), "dishItems"]}
                 enabled={template.enabled}
-                labels={KITCHEN_BLOCK_LABELS}
+                labels={{ ...KITCHEN_BLOCK_LABELS, dishItems: "Текст позиций" }}
                 blockStyles={template.blockStyles}
-                styleBlocks={KITCHEN_BLOCKS}
+                styleBlocks={[...KITCHEN_BLOCKS, "dishItems"]}
+                fixedBlocks={["dishItems"]}
                 onToggle={toggleBlock}
                 onStyleChange={changeBlockStyle}
                 styleRowClassName="receipt-section-row__style--chef"
