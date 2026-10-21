@@ -267,7 +267,7 @@ def _style(template: dict, helper: EscPosFormatter, key: str) -> dict:
 
 def _font_for(template: dict, helper: EscPosFormatter, key: str) -> tuple[ImageFont.FreeTypeFont, str]:
     style = _style(template, helper, key)
-    sizes = {"standard": 26, "large": 36, "xlarge": 48, "xxlarge": 72} if key == "bottomOrderNumber" else _SIZE_PT
+    sizes = {"standard": 48, "large": 72, "xlarge": 96, "xxlarge": 120} if key == "bottomOrderNumber" else _SIZE_PT
     size = sizes.get(style.get("size", "standard"), sizes["standard"])
     weight = "bold" if style.get("weight") == "bold" else "regular"
     return _load_font(weight, size), style.get("align", "left")

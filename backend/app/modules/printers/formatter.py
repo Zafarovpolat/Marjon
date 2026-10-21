@@ -786,15 +786,20 @@ class EscPosFormatter:
                 push("footer", self._styled_line(template, "thankYouText", template.get("thankYouText") or "XARIDINGIZ\nUCHUN RAXMAT!"))
             elif block == "bottomOrderNumber":
                 style = self._block_style(template, "bottomOrderNumber")
+                # FORCE-XXLARGE-01: нижний номер заказа — максимальный размер
+                # независимо от сохранённого шаблона (пользователь просил
+                # «максимально увеличить»).
+                style["size"] = "xxlarge"
                 prefix, suffix, div = self._style_bytes(style)
                 width = self.cols // div
                 chunk = bytearray()
+                # Визуальное выделение: пустая строка с двойным межстрочным
+                chunk.extend(self._line(""))
                 chunk.extend(prefix)
                 chunk.extend(self._wrapped_line("НОМЕР ЗАКАЗА", width))
-                # Bare number, no "#" — matches ReceiptPreview.jsx's
-                # getOrderNumber() (String(order.order_number), not "#N").
                 chunk.extend(self._wrapped_line(str(data.order_number), width))
                 chunk.extend(suffix)
+                chunk.extend(self._line(""))
                 push("header" if number_at_top else "footer", chunk)
             elif block == "address":
                 address = template.get("address")
