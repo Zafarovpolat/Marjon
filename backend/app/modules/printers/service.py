@@ -433,13 +433,12 @@ class PrinterService:
         if not printed:
             job = await self.job_repo.save(job)
 
-        # Шаг 2. Не напечатали сами — отдаём задание терминалам филиала по WebSocket.
+        # Шаг 2. Не напечатали сами — отдаём задание терминалам по WebSocket.
         # Терминал печатает локально и закрывает задание через POST /printers/jobs/{id}/done.
         if not printed:
             try:
                 await printer_ws_manager.broadcast(
                     company_id,
-                    printer.branch_id,
                     {
                         "event": "print_job",
                         "job_id": str(job.id),
