@@ -270,6 +270,9 @@ class PrinterService:
     async def auto_print_receipt(self, company_id: UUID, branch_id: UUID, order_id: UUID) -> list[PrintJob]:
         printers = await self.repo.get_by_type(company_id, branch_id, "receipt")
         if not printers:
+            # Fallback: у owner/admin может не быть branch_id — берём любой receipt компании.
+            printers = await self.repo.get_any_by_type(company_id, "receipt")
+        if not printers:
             # PRINT-DIAG-02: нет активного принтера нужного типа в филиале —
             # раньше это был тихий no-op, и «чек не печатается» не оставлял
             # в логах ни строчки. Частая причина: принтер выключен (is_active=0)
@@ -294,6 +297,9 @@ class PrinterService:
 
     async def auto_print_kitchen(self, company_id: UUID, branch_id: UUID, order_id: UUID) -> list[PrintJob]:
         printers = await self.repo.get_by_type(company_id, branch_id, "kitchen")
+        if not printers:
+            # Fallback: у owner/admin может не быть branch_id — берём любой kitchen компании.
+            printers = await self.repo.get_any_by_type(company_id, "kitchen")
         if not printers:
             # PRINT-DIAG-02: см. auto_print_receipt — тихий пропуск заменён
             # предупреждением, иначе «чек повара не выходит» невозможно

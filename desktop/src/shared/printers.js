@@ -16,5 +16,9 @@ export function pickReceiptPrinter(list, { printerId, branchId } = {}) {
     const bound = all.find((printer) => printer.id === printerId)
     if (bound) return bound
   }
-  return all.find((printer) => printer.printer_type === 'receipt' && printer.branch_id === branchId) || null
+  // Сначала ищем принтер, привязанный к филиалу сотрудника.
+  const byBranch = all.find((printer) => printer.printer_type === 'receipt' && printer.branch_id === branchId)
+  if (byBranch) return byBranch
+  // Fallback: у owner/admin может не быть branch_id — берём любой receipt компании.
+  return all.find((printer) => printer.printer_type === 'receipt') || null
 }

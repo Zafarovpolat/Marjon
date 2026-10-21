@@ -20,6 +20,16 @@ class PrinterRepository(TenantRepository[Printer]):
         )
         return list(result.scalars().all())
 
+    async def get_any_by_type(self, company_id: UUID, printer_type: str) -> list[Printer]:
+        """Любой активный принтер данного типа в компании (без привязки к филиалу)."""
+        result = await self.db.execute(
+            self._base_query(company_id).where(
+                Printer.printer_type == printer_type,
+                Printer.is_active == True,
+            )
+        )
+        return list(result.scalars().all())
+
 
 class PrintJobRepository(TenantRepository[PrintJob]):
     def __init__(self, db: AsyncSession):
