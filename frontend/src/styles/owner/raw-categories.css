@@ -385,13 +385,61 @@
 
 /* CATEGORY HEIGHT V1.3 — measured remaining viewport, content-sized below it.
    No height animation: resize/loading/tab changes settle before paint. */
+.menu-categories-page.is-dish-categories:not(.dishcat-drag-overlay) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  height: 100%;
+  min-height: 0;
+}
+
+.menu-categories-page.is-dish-categories .menu-categories-card {
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+  min-width: 0;
+  padding: 16px 22px 12px;
+}
+
+.menu-categories-page.is-dish-categories .dishcat-header {
+  flex-shrink: 0;
+  margin-bottom: 18px;
+}
+
+@media (min-width: 1025px) {
+  body.dashboard-body .dashboard-content:has(.menu-categories-page.is-dish-categories) {
+    flex: 1 1 auto;
+    max-height: calc(100vh - 72px);
+    padding-top: 14px;
+    padding-bottom: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .menu-categories-page.is-dish-categories .menu-categories-card {
+    padding: 16px 16px 12px;
+    border-radius: 14px;
+  }
+}
+
 .menu-categories-page.is-dish-categories .menu-category-list.dishcat-list {
+  flex: 0 1 auto;
+  min-height: 0;
+  grid-auto-rows: max-content;
+  align-content: start;
   max-height: var(--category-list-available-height, 100dvh);
+  /* Put the 6px scrollbar in the card's existing right-hand padding.
+     Reserve its gutter so row widths and the outer panel never jump. */
+  box-sizing: border-box;
+  width: calc(100% + 16px);
+  margin-right: -16px;
+  padding-right: 10px;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  scrollbar-width: auto;
+  scrollbar-gutter: stable;
+  -ms-overflow-style: auto;
 }
 
 /* An empty message is not a row viewport; retain its accepted compact size. */
@@ -400,9 +448,22 @@
 }
 
 .menu-categories-page.is-dish-categories .menu-category-list.dishcat-list::-webkit-scrollbar {
-  display: none;
-  width: 0;
+  display: block;
+  width: 6px;
   height: 0;
+}
+
+.menu-categories-page.is-dish-categories .dishcat-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.menu-categories-page.is-dish-categories .dishcat-list::-webkit-scrollbar-thumb {
+  background: rgba(16, 166, 176, 0.55);
+  border-radius: 999px;
+}
+
+.menu-categories-page.is-dish-categories .dishcat-list::-webkit-scrollbar-thumb:hover {
+  background: #079ba5;
 }
 
 /* Пилюля табов: первый замер без слайда (появляется на месте). */
@@ -425,4 +486,80 @@
   width: 38px;
   height: 38px;
   border-radius: 999px;
+}
+
+/* REORDER V1 (семейство «Места») — drag-and-drop порядок категорий блюд/товаров.
+   База grip (.settings-place__grip) живёт глобально в settings.css; здесь
+   только dish-скоуп: колонка под grip (только у sortable-строк — у архивного
+   таба grip нет, 4-колоночная сетка прежняя), hover-аффорданс, lift-состояние
+   и подавление выделения текста на время перетаскивания. */
+.menu-categories-page.is-dish-categories .dishcat-meta:has(.settings-place__grip) {
+  grid-template-columns: auto auto auto auto 34px;
+}
+
+.menu-categories-page.is-dish-categories .menu-category-row.dishcat-row:hover .settings-place__grip {
+  opacity: .8;
+}
+
+/* Lifted drag state: subtle elevation, stays white, keeps width, raised above
+   siblings. The micro-scale is composed into dnd-kit's inline transform in
+   JS (and skipped under reduced motion), so it is not set here. */
+.menu-categories-page.is-dish-categories .menu-category-row.dishcat-row.is-dragging {
+  z-index: 2;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(15, 35, 60, 0.16);
+  border-color: rgba(22, 198, 200, 0.55);
+  cursor: grabbing;
+}
+
+.menu-categories-page.is-dish-categories .menu-category-row.dishcat-row.is-dragging .settings-place__grip {
+  cursor: grabbing;
+  opacity: 1;
+  color: #0f99b8;
+}
+
+/* The lifted card lives in a body portal, outside every overflow/transform
+   boundary of the list and page panels. Its source still reserves its slot. */
+.menu-categories-page.is-dish-categories.dishcat-drag-overlay {
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.menu-categories-page.is-dish-categories .menu-category-row.dishcat-row.is-drag-placeholder {
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: none;
+  border-style: dashed;
+}
+
+.menu-categories-page.is-dish-categories .menu-category-row.dishcat-row.is-drag-overlay {
+  margin: 0;
+  background: #fff;
+  border-color: rgba(22, 198, 200, 0.7);
+  box-shadow: 0 14px 34px rgba(15, 35, 60, 0.22);
+  cursor: grabbing;
+  transform: scale(1.012);
+}
+
+.menu-categories-page.is-dish-categories .dishcat-row.is-drag-overlay .settings-place__grip {
+  opacity: 1;
+  color: #0f99b8;
+}
+
+.menu-categories-page.is-dish-categories .dishcat-row.is-drag-overlay.is-reduced-motion {
+  transform: none;
+}
+
+/* Suppress the blue text-selection that a pointer drag would otherwise paint
+   across the rows. Scoped to an active drag only, so normal reading and
+   selection are unaffected. */
+.menu-categories-page.is-dish-categories .menu-category-row.dishcat-row.is-dragging,
+.menu-categories-page.is-dish-categories .dishcat-list:has(.dishcat-row.is-dragging) {
+  user-select: none;
+  -webkit-user-select: none;
 }

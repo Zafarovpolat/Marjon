@@ -71,6 +71,13 @@ export const catalogService = Object.freeze({
   updateCategory(id, payload) {
     return api.patch(`/inventory/categories/${id}`, payload);
   },
+  // REORDER V1: drag-and-drop порядок видимого списка категорий (семейство
+  // «Места»). PARTIAL-контракт: category_ids — id видимых строк в новом
+  // порядке; категории вне списка свой sort_order сохраняют. Дубликаты и
+  // чужие id → 409 (backend отклоняет список целиком).
+  reorderCategories(categoryIds) {
+    return api.patch("/inventory/categories/reorder", { category_ids: categoryIds });
+  },
   deleteCategory(id) {
     return api.delete(`/inventory/categories/${id}`);
   },

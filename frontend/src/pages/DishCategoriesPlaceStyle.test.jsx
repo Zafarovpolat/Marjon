@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import CategoriesPage from "./CategoriesPage";
+import CategoriesPage, { applyCategoryOrder } from "./CategoriesPage";
 import { getCategories } from "../api/categories";
 import { catalogService } from "../api/catalog";
 
@@ -13,6 +13,7 @@ vi.mock("../api/catalog", () => ({
     createCategory: vi.fn(),
     updateCategory: vi.fn(),
     deleteCategory: vi.fn(),
+    reorderCategories: vi.fn(),
     uploadCategoryImage: vi.fn(),
   },
 }));
@@ -459,5 +460,90 @@ describe("Dish Categories V2 follow-up", () => {
     expect(eyebrow).toMatch(/top:\s*8px/);
     // No whole-header shift: header keeps its grid/margin template.
     expect(css).not.toMatch(/\.dishcat-header\s*\{[^}]*margin-bottom:\s*20px/);
+  });
+});
+
+// ── REORDER V1: drag-and-drop порядок (семейство «Места») ───────────────────
+// jsdom не умеет настоящий pixel-drag (dnd-kit нужны layout rects, их даёт
+// только браузер), поэтому здесь — структура, хелпер optimistic-merge и то,
+// что недrag-взаимодействия never трогают reorder endpoint. Реальный
+// drag→payload→optimistic→rollback живёт в ручном сценарии браузера.
+
+describe("applyCategoryOrder (optimistic reorder merge)", () => {
+  const A = { id: "A", sort_order: 0 };
+  const B = { id: "B", sort_order: 1 };
+  const C = { id: "C", sort_order: 2 };
+  const ARCHIVED = { id: "X", sort_order: 5, is_active: false };
+
+  it("renumbers only the sent ids 0..n-1 in the requested order", () => {
+    // Хелпер меняет ТОЛЬКО sort_order (порядок массива не двигается — финальный
+    // порядок даёт пересорт visible по sort_order, как и на странице).
+    const out = applyCategoryOrder([A, B, C], ["C", "A", "B"]);
+    const byId = Object.fromEntries(out.map((r) => [r.id, r.sort_order]));
+    expect(byId).toEqual({ A: 1, B: 2, C: 0 });
+  });
+
+  it("never touches rows outside the sent (visible) list", () => {
+    const out = applyCategoryOrder([A, B, ARCHIVED], ["B", "A"]);
+    const byId = Object.fromEntries(out.map((r) => [r.id, r.sort_order]));
+    expect(byId).toEqual({ A: 1, B: 0, X: 5 });
+    expect(out.map((r) => r.id)).toEqual(["A", "B", "X"]);
+  });
+
+  it("returns a new array and never mutates the input (rollback safety)", () => {
+    const input = [A, B];
+    const out = applyCategoryOrder(input, ["B", "A"]);
+    expect(out).not.toBe(input);
+    expect(input.map((r) => r.sort_order)).toEqual([0, 1]);
+  });
+});
+
+describe("Dish Categories — REORDER V1 structure & isolation", () => {
+  it("matches the Dishes full shell without compressing category rows", () => {
+    const css = readFileSync(`${process.cwd()}/src/styles/owner/raw-categories.css`, "utf8");
+    expect(css).toMatch(/\.menu-categories-page\.is-dish-categories:not\(\.dishcat-drag-overlay\)\s*\{[^}]*flex:\s*1 1 0%/);
+    expect(css).toMatch(/body\.dashboard-body \.dashboard-content:has\(\.menu-categories-page\.is-dish-categories\)\s*\{[^}]*max-height:\s*calc\(100vh - 72px\)[^}]*padding-top:\s*14px[^}]*padding-bottom:\s*12px/);
+    expect(css).toMatch(/\.menu-category-list\.dishcat-list\s*\{[^}]*grid-auto-rows:\s*max-content/);
+  });
+  it("renders a reorder grip per active row and none in the archived tab", async () => {
+    vi.mocked(getCategories).mockResolvedValue({
+      data: [
+        { id: "c1", name: "Супы", slug: "supy", is_active: true, calculate_service: true, show_in_menu: true },
+        { id: "c2", name: "Архивная", slug: "arh", is_active: false, calculate_service: false, show_in_menu: false },
+      ],
+    });
+    render(<CategoriesPage type="dishes" />);
+    await screen.findByText("Супы");
+    // Active row: accessible, keyboard-focusable grip handle (Места-семейство).
+    expect(screen.getByRole("button", { name: "Переместить категорию: Супы" })).toBeInTheDocument();
+    // Archived tab: порядок не редактируется — grip отсутствует.
+    fireEvent.click(screen.getByRole("tab", { name: "Архивированные" }));
+    await screen.findByText("Архивная");
+    expect(screen.queryByRole("button", { name: /Переместить категорию/ })).toBeNull();
+  });
+
+  it("edit, archive-trash and modal interactions never call reorderCategories", async () => {
+    vi.mocked(getCategories).mockResolvedValue({
+      data: [{ id: "c1", name: "Супы", slug: "supy", is_active: true, calculate_service: true, show_in_menu: true }],
+    });
+    render(<CategoriesPage type="dishes" />);
+    await screen.findByText("Супы");
+    fireEvent.click(screen.getByRole("button", { name: "Редактировать" }));
+    await screen.findByRole("dialog", { name: "Редактировать категорию" });
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Отмена" }));
+    fireEvent.click(screen.getByRole("button", { name: "Архивировать категорию" }));
+    await screen.findByRole("dialog", { name: "Архивировать категорию?" });
+    expect(catalogService.reorderCategories).not.toHaveBeenCalled();
+  });
+
+  it("adds the grip column only to sortable rows (archived meta keeps 4 columns)", () => {
+    const css = readFileSync(`${process.cwd()}/src/styles/owner/raw-categories.css`, "utf8");
+    const gripColumn = css.match(
+      /\.menu-categories-page\.is-dish-categories \.dishcat-meta:has\(\.settings-place__grip\)\s*\{[^}]*\}/,
+    )?.[0] || "";
+    expect(gripColumn).toMatch(/grid-template-columns:\s*auto auto auto auto 34px/);
+    // Lift-состояние и подавление выделения на время drag (семейство Места).
+    expect(css).toMatch(/\.dishcat-row\.is-dragging\s*\{/);
+    expect(css).toMatch(/dishcat-list:has\(\.dishcat-row\.is-dragging\)/);
   });
 });

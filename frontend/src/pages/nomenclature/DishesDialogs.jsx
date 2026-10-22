@@ -11,13 +11,36 @@
 // V21: кастомное окно «База фото» удалено — фото выбирается нативным
 // OS-пикером (input[type=file] в строке таблицы и в дровере) и грузится
 // только через POST /inventory/products/{id}/photo.
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Icon from "../../components/Icon";
 import Toast from "../../components/Toast";
 import { catalogService } from "../../api/catalog";
 import { fieldLabels } from "./nomenclatureConfig";
 import DishSingleSelect from "./DishSingleSelect";
+import DishPhotoViewer from "../../components/DishPhotoViewer";
+
+// Browser “Copy image” supplies a file, often alongside HTML/text. Never use
+// those strings as URLs: the normal photo pipeline only accepts image files.
+function transferredPhoto(data) {
+  const file = Array.from(data?.files || []).find((item) => item.type.startsWith("image/"));
+  if (file) return file;
+  for (const item of Array.from(data?.items || [])) {
+    if (item.kind !== "file" || !item.type.startsWith("image/")) continue;
+    const image = item.getAsFile();
+    if (image) return image;
+  }
+  return null;
+}
+
+function hasPhotoTransfer(data) {
+  // Files cannot always be read until drop (the browser's protected mode).
+  const files = Array.from(data?.files || []);
+  const items = Array.from(data?.items || []);
+  if (files.length) return files.some((file) => file.type.startsWith("image/"));
+  if (items.length) return items.some((item) => item.kind === "file" && (!item.type || item.type.startsWith("image/")));
+  return Array.from(data?.types || []).includes("Files");
+}
 
 function groupMoneyInput(value) {
   const raw = String(value ?? "").replace(/[ \u00a0\u202f]/g, "");
@@ -128,14 +151,59 @@ export default function DishesDialogs({
     if (requestCloseDrawer) requestCloseDrawer();
     else setDrawerOpen(false);
   };
-  // Удаление фото (п.12): ховер по фото показывает иконку-корзину,
-  // иконка открывает подтверждающую панель, confirm — PATCH image_url:null.
+  // Отдельная кнопка удаления доступна и мышкой, и на сенсорном экране.
+  // Она открывает подтверждение, confirm — PATCH image_url:null.
   // Только сохранённое фото (form.photo без несохранённого превью);
   // таблица обновится при следующей загрузке каталога.
   const [photoConfirm, setPhotoConfirm] = useState(false);
   const [photoRemoving, setPhotoRemoving] = useState(false);
   const [photoError, setPhotoError] = useState("");
+  const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
+  const closePhotoViewer = useCallback(() => setPhotoViewerOpen(false), []);
+  const displayedPhoto = photoPreview || form.photo;
+  useEffect(() => {
+    setPhotoViewerOpen(false);
+  }, [drawerOpen, displayedPhoto]);
+  const [photoDragActive, setPhotoDragActive] = useState(false);
+  const photoDragDepth = useRef(0);
+  const photoDropEnabled = drawerOpen && !drawerClosing && !saving && !photoConfirm && !photoViewerOpen;
+  const clearPhotoDrag = () => {
+    photoDragDepth.current = 0;
+    setPhotoDragActive(false);
+  };
+  useEffect(() => {
+    clearPhotoDrag();
+    if (!photoDropEnabled) return;
+    // Clear even if the drag is cancelled or dropped elsewhere on the page.
+    document.addEventListener("dragend", clearPhotoDrag);
+    document.addEventListener("drop", clearPhotoDrag);
+    return () => {
+      document.removeEventListener("dragend", clearPhotoDrag);
+      document.removeEventListener("drop", clearPhotoDrag);
+    };
+  }, [photoDropEnabled]);
   const canDeletePhoto = Boolean(editing?.id) && Boolean(form.photo) && !photoPreview;
+  useEffect(() => {
+    if (!drawerOpen || drawerClosing || saving || photoConfirm || photoViewerOpen) return;
+    const pastePhoto = (event) => {
+      if (event.defaultPrevented) return;
+      const file = transferredPhoto(event.clipboardData);
+      if (!file) return; // Ordinary text paste must keep its native behaviour.
+      event.preventDefault();
+      handlePhotoChange({ target: { files: [file] } });
+    };
+    // The drawer may have no focused input immediately after opening.
+    document.addEventListener("paste", pastePhoto);
+    return () => document.removeEventListener("paste", pastePhoto);
+  }, [drawerOpen, drawerClosing, saving, photoConfirm, photoViewerOpen, handlePhotoChange]);
+
+  const dropPhoto = (event) => {
+    event.preventDefault(); // Do not let the browser navigate to a dropped file.
+    clearPhotoDrag();
+    if (!photoDropEnabled) return;
+    const file = transferredPhoto(event.dataTransfer);
+    if (file) handlePhotoChange({ target: { files: [file] } });
+  };
   useEffect(() => {
     setPhotoConfirm(false);
     setPhotoError("");
@@ -376,30 +444,44 @@ export default function DishesDialogs({
                   if (event.target === event.currentTarget) setSlideDir(null);
                 }}
               >
-              <div className="cashier-photo">
-                <div className="staff-avatar staff-avatar--large">
-                  {photoPreview || form.photo ? (
-                    <>
-                      <img src={photoPreview || form.photo} alt={editing ? "Фото блюда" : "Новое фото блюда"} />
-                      {canDeletePhoto ? (
-                        <button
-                          type="button"
-                          className="dish-drawer-photo-delete"
-                          onClick={() => setPhotoConfirm(true)}
-                          disabled={saving}
-                          aria-label="Удалить фото блюда"
-                          title="Удалить фото"
-                        >
-                          <Icon name="bi-trash3" size={17} />
-                        </button>
-                      ) : null}
-                    </>
-                  ) : (
+              <div
+                className={`cashier-photo${photoDropEnabled && photoDragActive ? " is-drag-over" : ""}`}
+                onDragEnter={(event) => {
+                  if (!photoDropEnabled || !hasPhotoTransfer(event.dataTransfer)) return;
+                  event.preventDefault();
+                  photoDragDepth.current += 1;
+                  setPhotoDragActive(true);
+                }}
+                onDragLeave={() => {
+                  photoDragDepth.current = Math.max(0, photoDragDepth.current - 1);
+                  if (!photoDragDepth.current) setPhotoDragActive(false);
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  const acceptsPhoto = photoDropEnabled && hasPhotoTransfer(event.dataTransfer);
+                  event.dataTransfer.dropEffect = acceptsPhoto ? "copy" : "none";
+                  setPhotoDragActive(acceptsPhoto);
+                }}
+                onDrop={dropPhoto}
+              >
+                {displayedPhoto ? (
+                  <button
+                    type="button"
+                    className="staff-avatar staff-avatar--large dish-drawer-photo-preview"
+                    onClick={() => setPhotoViewerOpen(true)}
+                    aria-label={`Открыть фото ${form.name || "блюда"}`}
+                    aria-haspopup="dialog"
+                  >
+                    <img src={displayedPhoto} alt={editing ? "Фото блюда" : "Новое фото блюда"} />
+                  </button>
+                ) : (
+                  <div className="staff-avatar staff-avatar--large">
                     <Icon name="bi-image" size={26} />
-                  )}
-                </div>
+                  </div>
+                )}
                 <div className="cashier-photo__body">
                   <span>Фото</span>
+                  <div className="dish-photo-actions">
                   <label className="cashier-photo__upload">
                     <Icon name="bi-camera" size={16} />
                     {photoPreview || form.photo ? "Заменить фото" : "Загрузить фото"}
@@ -411,6 +493,19 @@ export default function DishesDialogs({
                       aria-label="Загрузить фото блюда"
                     />
                   </label>
+                  {canDeletePhoto ? (
+                    <button
+                      type="button"
+                      className="cashier-photo__upload dish-photo-delete-action"
+                      onClick={() => setPhotoConfirm(true)}
+                      disabled={saving || photoRemoving}
+                      aria-label="Удалить фото блюда"
+                    >
+                      <Icon name="bi-trash3" size={16} />
+                      Удалить фото
+                    </button>
+                  ) : null}
+                  </div>
                 </div>
               </div>
               {photoConfirm ? (
@@ -516,6 +611,9 @@ export default function DishesDialogs({
           </form>
         </div>,
         document.body,
+      )}
+      {drawerOpen && photoViewerOpen && displayedPhoto && (
+        <DishPhotoViewer photo={displayedPhoto} name={form.name || "блюда"} onClose={closePhotoViewer} />
       )}
     </>
   );

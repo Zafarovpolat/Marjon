@@ -129,6 +129,51 @@ class CategoryService:
         await self.repo.db.commit()
         return await self.get(company_id, category_id)
 
+    # REORDER V1 (drag-and-drop порядок категорий). PARTIAL-контракт (в отличие
+    # от полной перестановки залов, HallService.reorder): страница категорий
+    # показывает отфильтрованный список (slug-префикс + таб Active/Archived),
+    # клиент шлёт только видимые id в новом порядке. Дубликаты и чужие/
+    # неизвестные id → 409, список отклоняется целиком (никаких частичных
+    # применений). Перенумерация 0..n-1 затрагивает только указанные категории;
+    # категории вне списка свой sort_order сохраняют. Меняется ТОЛЬКО sort_order
+    # (name/slug/is_active/флаги/фото не читаются для записи).
+    _REORDER_DUPLICATE_DETAIL = "Обнаружены повторяющиеся категории в порядке."
+    _REORDER_MISMATCH_DETAIL = (
+        "Список категорий должен содержать только категории этой компании."
+    )
+
+    async def reorder(
+        self, company_id: UUID, category_ids: list[UUID]
+    ) -> list[Category]:
+        if len(category_ids) != len(set(category_ids)):
+            raise ConflictError(self._REORDER_DUPLICATE_DETAIL)
+        # Скоуп по компании: чужой/неизвестный id просто не найден в выборке,
+        # и одно сравнение множеств отклоняет и лишний id, и id другого тенанта.
+        result = await self.repo.db.execute(
+            select(Category).where(
+                Category.company_id == company_id,
+                Category.id.in_(category_ids),
+            )
+        )
+        by_id = {cat.id: cat for cat in result.scalars().all()}
+        if set(category_ids) != set(by_id):
+            raise ConflictError(self._REORDER_MISMATCH_DETAIL)
+        for position, category_id in enumerate(category_ids):
+            by_id[category_id].sort_order = position
+        await self.repo.db.commit()
+        # Канонический ответ — повторное чтение из БД (как в update()): свежий
+        # updated_at сервера доступен только в новой выборке, мутрованные
+        # ORM-объекты после commit отдают истёкший атрибут → MissingGreenlet.
+        result = await self.repo.db.execute(
+            select(Category).where(
+                Category.company_id == company_id,
+                Category.id.in_(category_ids),
+            )
+        )
+        refreshed = {cat.id: cat for cat in result.scalars().all()}
+        # Переставленный subset в новом порядке, не эхо запроса.
+        return [refreshed[category_id] for category_id in category_ids]
+
     async def delete(self, company_id: UUID, category_id: UUID) -> None:
         # Hard delete only when nothing references the category; otherwise a
         # canonical 409 (FKs are NO ACTION, so the DB would reject it anyway —

@@ -22,9 +22,19 @@ describe("Dishes bottom shell spacing", () => {
     expect(scroll).toMatch(/overflow-y:\s*auto/);
     expect(scroll).toMatch(/padding-bottom:\s*0/);
     expect(scroll).toMatch(/scrollbar-width:\s*none/);
+    expect(scroll).toMatch(/scrollbar-color:\s*auto/);
     const wrap = rules(".dish-catalog-page.owner-report-view .dish-grid-wrap").join("\n");
     expect(wrap).toMatch(/overflow:\s*hidden/);
     expect(wrap).toMatch(/flex:\s*0 1 auto/);
     expect(css).not.toMatch(/padding-bottom:\s*48px/);
+  });
+  it("shares turquoise top/bottom scrollbar arrow buttons with dish categories", () => {
+    const arrows = readFileSync(`${process.cwd()}/src/styles/shared/catalog-scrollbar-arrows.css`, "utf8");
+    expect(arrows).toContain(".menu-categories-page.is-dish-categories .menu-category-list.dishcat-list");
+    expect(arrows).toContain(".dish-catalog-page.owner-report-view .catalog-external-scrollbar");
+    expect(arrows).toContain(":vertical:decrement");
+    expect(arrows).toContain(":vertical:increment");
+    expect(arrows).toContain("%23079ba5");
+    expect(arrows).toMatch(/height:\s*14px/);
   });
 });

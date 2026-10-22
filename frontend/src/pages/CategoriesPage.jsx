@@ -1,11 +1,30 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { getCategories } from "../api/categories";
 import { catalogService } from "../api/catalog";
+import { categoryBelongsToKind } from "../utils/catalogCategories";
 import Icon from "../components/Icon";
 import { useCategoryListHeight } from "./categoryListHeight";
 import { isAbortError, useLatestRequest, useMutationLocks } from "../hooks/useAsyncSafety";
 import "../styles/owner/raw-categories.css";
+import "../styles/shared/catalog-scrollbar-arrows.css";
 
 const TYPE_CONFIG = {
   dishes: { label: "Категории блюд", title: "Меню", slug_prefix: "dish" },
@@ -59,13 +78,114 @@ export default function CategoriesPage({ type = "dishes" }) {
 // кэш обновляется там же; create-append зеркалит в кэш вручную.
 const rowsByTypeCache = new Map();
 
+// REORDER V1 — optimistic merge для видимого списка категорий: только отправленные
+// id (строки текущего таба) перенумеровываются 0..n-1; все остальные ряды
+// (например, архивные) хранят свой sort_order. Возвращает НОВЫЙ массив,
+// вход не мутирует (rollback держит прежний массив).
+export function applyCategoryOrder(rows, orderedIds) {
+  const orderIndex = new Map(orderedIds.map((id, index) => [String(id), index]));
+  return rows.map((row) => {
+    const index = orderIndex.get(String(row.id));
+    return index === undefined ? row : { ...row, sort_order: index };
+  });
+}
+
+// Live-подписка prefers-reduced-motion для сортируемого списка (приватный
+// хук SettingsPlacesPage, скопированный — он не экспортируется): drag должен
+// реагировать на смену настройки ОС mid-session, без перезагрузки.
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(() => typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onChange = () => setReduced(mq.matches);
+    onChange();
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, []);
+  return reduced;
+}
+
+// REORDER V1 — sortable-строка категории блюд/товаров (1:1 approved dishcat-row
+// разметка + grip). Pointer-drag — по телу строки (.dishcat-main, порог 6px,
+// клик по строке ничего не делает, т.к. строка не навигационная). Клавиатурный
+// reorder — на grip (Enter/Space взять, стрелки двигать), как у Мест; grip
+// несёт {...attributes} {...listeners}. Meta гасит pointerdown, чтобы кнопки
+// Редактировать/Архивировать/удалить не стартовали drag. Меняется только порядок.
+function DishCategoryRow({ row, reducedMotion, disabled, onEdit, onArchive, sortable = {}, overlay = false }) {
+  const {
+    attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging,
+  } = sortable;
+  // The actual moving card is portalled out of the scrolling panel. Keep a
+  // placeholder here so list geometry and the neighbouring row motion stay intact.
+  const translate = CSS.Translate.toString(transform);
+  const style = {
+    transform: isDragging ? undefined : translate || undefined,
+    transition: reducedMotion ? undefined : transition,
+  };
+  const className = "menu-category-row dishcat-row"
+    + (isDragging ? " is-dragging is-drag-placeholder" : "")
+    + (overlay ? " is-drag-overlay" : "")
+    + (reducedMotion ? " is-reduced-motion" : "");
+  return (
+    <article ref={setNodeRef} style={style} className={className} aria-hidden={overlay || undefined}>
+      <div
+        className="dishcat-main"
+        onPointerDown={disabled ? undefined : listeners?.onPointerDown}
+      >
+        <div className="dishcat-info">
+          <strong>{row.name}</strong>
+        </div>
+      </div>
+      <div className="dishcat-meta" onPointerDown={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          className="settings-place__grip"
+          ref={setActivatorNodeRef}
+          aria-label={`Переместить категорию: ${row.name}`}
+          title="Перетащите, чтобы изменить порядок"
+          tabIndex={overlay ? -1 : undefined}
+          {...attributes}
+          {...listeners}
+        >
+          <Icon name="bi-grip-vertical" size={16} />
+        </button>
+        <span
+          className={`dishcat-service-badge ${row.calculate_service === true ? "is-on" : "is-off"}`}
+        >
+          <span className="dishcat-service-badge__dot" aria-hidden="true" />
+          Рассчитать обслугу
+        </span>
+        <DishCategoryStatusBadge active={row.is_active !== false} />
+        <button type="button" className="settings-place__edit" tabIndex={overlay ? -1 : undefined} onClick={overlay ? undefined : () => onEdit(row)}>
+          Редактировать
+        </button>
+        <button
+          type="button"
+          className="settings-action-delete"
+          onClick={overlay ? undefined : () => onArchive(row)}
+          tabIndex={overlay ? -1 : undefined}
+          aria-label="Архивировать категорию"
+          title="Архивировать категорию"
+        >
+          <Icon name="bi-trash3" size={15} />
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function SortableDishCategoryRow(props) {
+  const sortable = useSortable({ id: String(props.row.id), disabled: props.disabled });
+  return <DishCategoryRow {...props} sortable={sortable} />;
+}
+
 function ProductCategoriesPage({ type }) {
   const config = TYPE_CONFIG[type] || TYPE_CONFIG.dishes;
-  // Категории сырья и полуфабрикатов живут в общей таблице categories, но
-  // отделяются slug-префиксом (raw*/semi*). При namespaced-типе список
-  // фильтруется по префиксу, а новые категории его получают принудительно —
-  // так SemiProductsPage находит их тем же приёмом (slug.startsWith("semi")).
-  const namespaced = type === "raw" || type === "semi" || type === "sales";
+  // All newly created categories keep the originating section's slug prefix.
+  // Legacy unprefixed categories remain in dishes (see catalogCategories).
   // V1 — Place-family rework applies ONLY to dish categories (Menu →
   // Категория блюд). Raw/semi keep their exact current markup so their
   // contract tests and visuals are untouched. Sales (Категория товаров)
@@ -114,6 +234,19 @@ function ProductCategoriesPage({ type }) {
   const [restoringId, setRestoringId] = useState(null);
   const beginRequest = useLatestRequest();
   const { acquire, release } = useMutationLocks();
+  // REORDER V1 — состояние drag-and-drop: savingOrder блокирует второй drop
+  // (optimistic-порядок ещё не подтверждён backend), orderError — rollback-баннер.
+  const [savingOrder, setSavingOrder] = useState(false);
+  const [draggedCategory, setDraggedCategory] = useState(null);
+  useEffect(() => setDraggedCategory(null), [type, showArchived]);
+  const [orderError, setOrderError] = useState("");
+  const reducedMotion = useReducedMotion();
+  const sensors = useSensors(
+    // 6px порог: обычный клик по строке ничего не делает, тянет только
+    // реальное движение (та же настройка, что у SettingsPlacesPage).
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   async function load() {
     const request = beginRequest();
@@ -294,7 +427,7 @@ function ProductCategoriesPage({ type }) {
     }
 
     const slug = form.slug.trim() || makeSlug(form.name, config.slug_prefix);
-    const namespacedSlug = namespaced && !slug.startsWith(config.slug_prefix)
+    const namespacedSlug = !slug.startsWith(config.slug_prefix)
       ? `${config.slug_prefix}-${slug}`
       : slug;
 
@@ -435,12 +568,50 @@ function ProductCategoriesPage({ type }) {
     }
   }
 
+  // REORDER V1 — persist завершённого drag видимого списка (таб Активные).
+  // Optimistic: отправленные id перенумеровываются 0..n-1 в локальных rows и
+  // SWR-кэше, затем ОДИН PATCH /inventory/categories/reorder. При успехе
+  // порядок уже каноничен (backend применил ровно этот subset); при ошибке —
+  // откат к pre-drag rows + баннер. Контракт partial: категории вне списка
+  // свой sort_order хранят.
+  async function reorderVisible(orderedIds) {
+    if (!acquire("category-reorder")) return;
+    const previous = rows;
+    setOrderError("");
+    setSavingOrder(true);
+    setRows((current) => {
+      const next = applyCategoryOrder(current, orderedIds);
+      rowsByTypeCache.set(type, next);
+      return next;
+    });
+    try {
+      await catalogService.reorderCategories(orderedIds);
+    } catch (err) {
+      // Rollback — никогда не оставляем отклонённый порядок на экране.
+      setRows(previous);
+      rowsByTypeCache.set(type, previous);
+      setOrderError(err.response?.data?.detail || err.message || "Не удалось сохранить порядок категорий.");
+    } finally {
+      setSavingOrder(false);
+      release("category-reorder");
+    }
+  }
+
+  function onDragEnd(event) {
+    setDraggedCategory(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = displayed.map((row) => String(row.id));
+    const from = ids.indexOf(String(active.id));
+    const to = ids.indexOf(String(over.id));
+    if (from < 0 || to < 0) return;
+    reorderVisible(arrayMove(ids, from, to));
+  }
+
   const visible = useMemo(() => {
-    const list = namespaced
-      ? rows.filter((row) => String(row.slug || "").startsWith(config.slug_prefix))
-      : [...rows];
+    const list = rows.filter((row) => categoryBelongsToKind(row, config.slug_prefix));
     return list.sort(sortCategories);
-  }, [rows, namespaced, config.slug_prefix]);
+  }, [rows, config.slug_prefix]);
 
   // ARCHIVE V1 — segmented Active/Archived control (same MARJON family as
   // Dishes/Raw: soft blue container, white sliding indicator, 250ms ease).
@@ -540,7 +711,7 @@ function ProductCategoriesPage({ type }) {
                   Архивированные
                 </button>
               </div>
-              <button type="button" disabled={saving} onClick={openCreate}>
+              <button type="button" disabled={saving || savingOrder} onClick={openCreate}>
                 Добавить категорию
               </button>
             </div>
@@ -607,6 +778,11 @@ function ProductCategoriesPage({ type }) {
         )}
 
         {error ? <div className="login-error menu-category-error">{error}</div> : null}
+        {/* REORDER V1: rollback-баннер отклонённого порядка (та же семья, что
+            основная ошибка страницы; role=alert — как у баннеров Мест). */}
+        {orderError ? (
+          <div className="login-error menu-category-error" role="alert">{orderError}</div>
+        ) : null}
 
         {showForm && isMenuCategories
           ? createPortal(
@@ -894,9 +1070,49 @@ function ProductCategoriesPage({ type }) {
         <div className={`menu-category-list${isMenuCategories ? " dishcat-list" : ""}`} ref={categoryListRef} tabIndex={isMenuCategories ? 0 : undefined} aria-busy={loading}>
           {loading && rows.length === 0
             ? Array.from({ length: 6 }, (_, index) => <div className="menu-category-row is-loading" key={index} />)
-            : displayed.map((row) =>
+            : isMenuCategories && !showArchived ? (
+              // REORDER V1: sortable только таб Активные (dish+sales ветка 1:1).
+              // DndContext/SortableContext не добавляют DOM-обёрток — строки
+              // остаются прямыми детьми grid-контейнера .dishcat-list; их
+              // a11y-live-region визуально скрыта (display:none/fixed) и
+              // грид-треков не создаёт.
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={({ active }) => setDraggedCategory(displayed.find((row) => String(row.id) === String(active.id)) || null)}
+                onDragCancel={() => setDraggedCategory(null)}
+                onDragEnd={onDragEnd}
+              >
+                <SortableContext
+                  items={displayed.map((row) => String(row.id))}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {displayed.map((row) => (
+                    <SortableDishCategoryRow
+                      key={row.id}
+                      row={row}
+                      reducedMotion={reducedMotion}
+                      disabled={savingOrder}
+                      onEdit={openEdit}
+                      onArchive={openArchiveConfirm}
+                    />
+                  ))}
+                </SortableContext>
+                {createPortal(
+                  <DragOverlay zIndex={100010} dropAnimation={reducedMotion ? null : undefined}>
+                    {draggedCategory ? (
+                      <div className="menu-categories-page is-dish-categories dishcat-drag-overlay">
+                        <DishCategoryRow row={draggedCategory} reducedMotion={reducedMotion} overlay />
+                      </div>
+                    ) : null}
+                  </DragOverlay>,
+                  document.body,
+                )}
+              </DndContext>
+            ) : displayed.map((row) =>
                 isMenuCategories ? (
-                  showArchived ? (
+                  // Архивный таб меню-категорий: прежняя разметка 1:1, без grip —
+                  // архивный порядок не редактируется drag-and-drop.
                   <article className="menu-category-row dishcat-row" key={row.id}>
                     <div className="dishcat-main">
                       <div className="dishcat-info">
@@ -932,36 +1148,6 @@ function ProductCategoriesPage({ type }) {
                       </button>
                     </div>
                   </article>
-                  ) : (
-                  <article className="menu-category-row dishcat-row" key={row.id}>
-                    <div className="dishcat-main">
-                      <div className="dishcat-info">
-                        <strong>{row.name}</strong>
-                      </div>
-                    </div>
-                    <div className="dishcat-meta">
-                      <span
-                        className={`dishcat-service-badge ${row.calculate_service === true ? "is-on" : "is-off"}`}
-                      >
-                        <span className="dishcat-service-badge__dot" aria-hidden="true" />
-                        Рассчитать обслугу
-                      </span>
-                      <DishCategoryStatusBadge active={row.is_active !== false} />
-                      <button type="button" className="settings-place__edit" onClick={() => openEdit(row)}>
-                        Редактировать
-                      </button>
-                      <button
-                        type="button"
-                        className="settings-action-delete"
-                        onClick={() => openArchiveConfirm(row)}
-                        aria-label="Архивировать категорию"
-                        title="Архивировать категорию"
-                      >
-                        <Icon name="bi-trash3" size={15} />
-                      </button>
-                    </div>
-                  </article>
-                  )
                 ) : (
                   <article className="menu-category-row" key={row.id}>
                     <div className="menu-category-name">

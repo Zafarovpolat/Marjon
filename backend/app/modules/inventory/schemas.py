@@ -56,6 +56,17 @@ class CategoryUpdate(BaseSchema):
     image_url: str | None = None
 
 
+class CategoryReorderRequest(BaseSchema):
+    # REORDER V1: PARTIAL-порядок (в отличие от полной перестановки залов,
+    # HallReorderRequest). Страница категорий фильтрует список (slug-префикс
+    # raw*/semi*/sales* + таб Active/Archived), поэтому клиент отправляет только
+    # видимые id в новом порядке. Контракт: нет дубликатов; каждый id
+    # принадлежит компании (иначе 409 — чужие/неизвестные id отклоняются целиком);
+    # перенумерация 0..n-1 затрагивает только указанные категории, остальные
+    # хранят свой sort_order. Меняется исключительно sort_order.
+    category_ids: list[UUID] = Field(..., min_length=1)
+
+
 class ProductIngredientIn(BaseSchema):
     ingredient_id: UUID
     quantity: Decimal = Field(..., gt=0)

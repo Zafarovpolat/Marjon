@@ -22,6 +22,7 @@ vi.mock("../api/catalog", () => ({
     createCategory: mockCreateCategory,
     updateCategory: mockUpdateCategory,
     deleteCategory: mockDeleteCategory,
+    reorderCategories: vi.fn(),
     uploadCategoryImage: vi.fn(),
   },
 }));

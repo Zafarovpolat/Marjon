@@ -214,7 +214,7 @@ export function KpiInfoDialog({ kpi, onClose, sourceRect, returnFocusRef }) {
         {!isComingSoon && ((!hasProductTable && !kpi.hideDescription) || (hasProductTable && (kpi.productReport.unavailable || kpi.productReport.revenue == null)))
           ? <p>{kpi.description}</p> : null}
 
-        {isComingSoon ? <div className="kpi-coming-soon" role="status">Скоро</div> : hasAverageTable ? <AverageCheckTable report={kpi.averageReport} /> : hasOrdersTable ? <OrdersTable report={kpi.orderReport} /> : hasProductTable ? <RevenueProductsTable report={kpi.productReport} /> : hasTable ? (
+        {isComingSoon ? <div className="kpi-coming-soon" role="status">Скоро, эта категория в разработке</div> : hasAverageTable ? <AverageCheckTable report={kpi.averageReport} /> : hasOrdersTable ? <OrdersTable report={kpi.orderReport} /> : hasProductTable ? <RevenueProductsTable report={kpi.productReport} /> : hasTable ? (
           <KpiPaymentTable {...tableProps} />
         ) : (
           <div className="kpi-info-window__details">

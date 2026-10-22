@@ -7,9 +7,11 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Icon from "../../components/Icon";
 import ReportEmptyState from "../../components/ReportEmptyState";
+import ExternalTableScrollbar from "../../components/ExternalTableScrollbar";
 import recipeBookPng from "../../assets/recipes-cook-book.png";
 import setComboPng from "../../assets/set-combo.png";
 import { SUPPORTED_DISH_PHOTO_TYPES } from "./useDishesCatalog";
+import "../../styles/shared/catalog-scrollbar-arrows.css";
 
 // Себестоимость/цена приходят с суффиксом «UZS»; в таблице показываем «сум».
 function displayDishMoney(value) {
@@ -158,6 +160,7 @@ export default function DishesTable({
   onOpenSet,
 }) {
   const isEmpty = !filteredRows.length;
+  const scrollRef = useRef(null);
   // Увеличенный просмотр фото по центру (только строки с фото).
   // Уход — той же анимацией, что приход (is-closing 160ms, как zoom
   // в диалогах рецептов/сета); размонтирование только после неё.
@@ -203,7 +206,7 @@ export default function DishesTable({
 
   return (
     <div className={`settings-table-wrapper dish-grid-wrap${isEmpty ? " is-empty" : ""}`}>
-      <div className="dish-grid-scroll" role="region" aria-label={scrollAriaLabel} tabIndex={0}>
+      <div ref={scrollRef} className="dish-grid-scroll" role="region" aria-label={scrollAriaLabel} tabIndex={0}>
         <table className="settings-table dish-grid-table" aria-label={tableAriaLabel} style={{ "--dish-grid-min-width": `${tableMinWidth}px` }}>
         <thead>
           <tr>
@@ -286,6 +289,7 @@ export default function DishesTable({
         </tbody>
         </table>
       </div>
+      <ExternalTableScrollbar targetRef={scrollRef} label={`Прокрутка: ${scrollAriaLabel}`} />
       {isEmpty ? (
         <div className="dish-empty-overlay">
           <ReportEmptyState title={emptyTitle} />

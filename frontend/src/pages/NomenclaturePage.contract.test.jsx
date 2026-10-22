@@ -949,7 +949,7 @@ describe("APP dishes panel + table exact Settings template (V9)", () => {
     expect(overridesCss).not.toMatch(/\.dish-catalog-page \.dish-grid-table tbody tr:hover td/);
   });
 
-  it("keeps both scroll axes internal with cross-browser hidden scrollbar paint", () => {
+  it("keeps scrolling internal while its vertical control lives outside the table", () => {
     const scrollRule = dishesCss.match(/\.owner-report-view \.dish-grid-scroll\s*\{([^}]*)\}/)?.[1] || "";
     expect(scrollRule).toMatch(/overflow-x:\s*auto/);
     expect(scrollRule).toMatch(/overflow-y:\s*auto/);
@@ -958,6 +958,7 @@ describe("APP dishes panel + table exact Settings template (V9)", () => {
     expect(scrollRule).toMatch(/scrollbar-width:\s*none/);
     expect(scrollRule).toMatch(/-ms-overflow-style:\s*none/);
     expect(dishesCss).toMatch(/\.dish-grid-scroll::-webkit-scrollbar\s*\{[^}]*display:\s*none/);
+    expect(dishesCss).toMatch(/\.catalog-external-scrollbar::-webkit-scrollbar\s*\{[^}]*width:\s*6px/);
     expect(dishesCss).toMatch(/\.dish-grid-scroll::-webkit-scrollbar\s*\{[^}]*height:\s*0/);
     // Внешняя обёртка остаётся в пределах видимой ширины (нет оверфлоу страницы).
     const wrapRule = dishesCss.match(/\.owner-report-view \.dish-grid-wrap\s*\{([^}]*)\}/)?.[1] || "";

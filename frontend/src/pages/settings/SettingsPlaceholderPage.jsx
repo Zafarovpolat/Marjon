@@ -21,7 +21,7 @@ export default function SettingsPlaceholderPage({ title, description, icon = "bi
           <span className="settings-placeholder-icon" aria-hidden="true">
             <Icon name={icon} size={44} />
           </span>
-          <strong className="settings-placeholder-title">Скоро, эта категория дорабатывается</strong>
+          <strong className="settings-placeholder-title">Скоро, эта категория в разработке</strong>
         </div>
       </section>
     </div>

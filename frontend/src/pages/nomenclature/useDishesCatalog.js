@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { catalogService } from "../../api/catalog";
 import { getCategories } from "../../api/categories";
 import { settingsService } from "../../api/settings";
+import { categoryBelongsToKind } from "../../utils/catalogCategories";
 import { isAbortError, useLatestRequest, useMutationLocks } from "../../hooks/useAsyncSafety";
 import { defaultDishColumnVisibility, dishColumnOptions, emptyDishForm } from "./nomenclatureConfig";
 import {
@@ -225,7 +226,7 @@ export function useDishesCatalog() {
         if (!request.isCurrent()) return;
         const items = Array.isArray(data) ? data : data?.items || [];
         const live = items
-          .filter((item) => item && item.is_active !== false && String(item.name || "").trim())
+          .filter((item) => categoryBelongsToKind(item, "dish") && item.is_active !== false && String(item.name || "").trim())
           .sort((a, b) => (
             Number(a.sort_order || 0) - Number(b.sort_order || 0)
             || String(a.name).localeCompare(String(b.name), "ru")

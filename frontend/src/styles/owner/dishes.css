@@ -2291,6 +2291,7 @@
 
 /* Content-sized card; only overflowing lists shrink to the bounded shell. */
 .dish-catalog-page.owner-report-view .dish-catalog-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 0 1 auto;
@@ -2400,22 +2401,72 @@
   border: 1px solid var(--neutral-200, #e2e8f0);
   border-radius: 16px;
   background: #f8fbfd;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.dish-drawer .cashier-photo.is-drag-over {
+  background: #c9f4f1;
+  border-color: #079ba5;
+  border-style: dashed;
+  box-shadow: inset 0 0 0 1px #079ba5, 0 0 0 5px rgba(24, 183, 191, 0.24);
 }
 
 .dish-drawer .cashier-photo .staff-avatar--large {
+  box-sizing: border-box;
   width: 72px;
   height: 72px;
   flex: 0 0 72px;
-  border: 1px solid #dcecf0;
+  border: 2px solid #80b5c5;
   border-radius: 14px;
   background: #fff;
   overflow: hidden;
+}
+
+.dish-drawer .cashier-photo .dish-drawer-photo-preview {
+  padding: 0;
+  cursor: zoom-in;
+}
+
+.dish-drawer .cashier-photo .dish-drawer-photo-preview:hover,
+.dish-drawer .cashier-photo .dish-drawer-photo-preview:focus-visible {
+  border-color: #079ba5;
+  box-shadow: 0 0 0 3px rgba(24, 183, 191, 0.16);
 }
 
 .dish-drawer .cashier-photo .staff-avatar--large img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.dish-drawer .cashier-photo__body {
+  transform: translateY(-7px);
+}
+
+.dish-drawer .dish-photo-actions {
+  display: grid;
+  gap: 6px;
+  width: max-content;
+}
+
+.dish-drawer .dish-photo-actions .cashier-photo__upload {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 30px;
+  justify-content: center;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.dish-drawer .dish-photo-actions .dish-photo-delete-action {
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #dc2626;
+}
+
+.dish-drawer .dish-photo-delete-action:hover:not(:disabled) {
+  background: #fff5f5;
 }
 
 .dish-drawer .dish-money-input::placeholder {
@@ -3166,8 +3217,8 @@
   background: #fff;
 }
 
-/* Both axes scroll here, inside the stationary rounded border. Hide only
-   scrollbar paint, not native wheel/touch/keyboard scrolling. */
+/* Both axes stay inside the rounded frame. The visible vertical control is
+   portalled into the card padding, outside this independently clipped table. */
 .dish-catalog-page.owner-report-view .dish-grid-scroll {
   flex: 0 1 auto;
   width: 100%;
@@ -3179,6 +3230,8 @@
   overscroll-behavior: contain;
   scrollbar-gutter: auto;
   scrollbar-width: none;
+  scroll-behavior: auto;
+  scrollbar-color: auto;
   -ms-overflow-style: none;
 }
 
@@ -3236,6 +3289,57 @@
   display: none;
   width: 0;
   height: 0;
+}
+
+.dish-catalog-page.owner-report-view .catalog-external-scrollbar {
+  position: absolute;
+  right: auto;
+  width: 6px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  overscroll-behavior: contain;
+  scrollbar-width: auto;
+  scrollbar-color: auto;
+  scroll-behavior: auto;
+}
+
+.dish-catalog-page.owner-report-view .catalog-external-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 0;
+}
+
+.dish-catalog-page.owner-report-view .catalog-external-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dish-catalog-page.owner-report-view .catalog-external-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(16, 166, 176, 0.55);
+  border-radius: 999px;
+}
+
+.dish-catalog-page.owner-report-view .catalog-external-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #079ba5;
+}
+
+.dish-catalog-page.owner-report-view .catalog-external-scrollbar:focus-visible {
+  outline: 1px solid #079ba5;
+  outline-offset: 2px;
+}
+
+.dish-catalog-page.owner-report-view .dish-grid-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dish-catalog-page.owner-report-view .dish-grid-scroll::-webkit-scrollbar-thumb {
+  background: rgba(16, 166, 176, 0.55);
+  border-radius: 999px;
+}
+
+.dish-catalog-page.owner-report-view .dish-grid-scroll::-webkit-scrollbar-thumb:hover {
+  background: #079ba5;
 }
 
 .dish-catalog-page.owner-report-view .dish-grid-table {
@@ -4346,32 +4450,6 @@ body.dashboard-body .dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-hea
   .dish-recipes-field--product { grid-column: auto; }
 }
 
-/* Удаление фото в drawer блюда: корзина видна при ховере по фото. */
-.dish-drawer .staff-avatar--large {
-  position: relative;
-}
-.dish-drawer-photo-delete {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border: 1px solid rgba(239, 68, 68, 0.45);
-  border-radius: 10px;
-  background: #fff;
-  color: #dc2626;
-  cursor: pointer;
-  box-shadow: 0 6px 16px rgba(15, 35, 60, 0.18);
-  opacity: 0;
-  transition: opacity 140ms ease;
-}
-.dish-drawer .staff-avatar--large:hover .dish-drawer-photo-delete,
-.dish-drawer .staff-avatar--large:focus-within .dish-drawer-photo-delete,
-.dish-drawer-photo-delete:focus-visible {
-  opacity: 1;
-}
 .dish-photo-confirm {
   display: grid;
   gap: 8px;

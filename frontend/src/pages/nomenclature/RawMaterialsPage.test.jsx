@@ -702,9 +702,9 @@ describe("RAW V2 CSS family (read-only reference, scoped file)", () => {
     expect(thead).toMatch(/background:\s*var\(--blue-50/);
   });
 
-  it("15. hidden scrollbar from Dishes reference + no !important in raw CSS", () => {
+  it("15. hidden inner scrollbar from Dishes reference + no !important in raw CSS", () => {
     const dishes = readFileSync(`${process.cwd()}/src/styles/owner/dishes.css`, "utf8");
-    expect(dishes).toMatch(/scrollbar-width:\s*none/);
+    expect(dishes).toMatch(/\.dish-grid-scroll\s*\{[^}]*scrollbar-width:\s*none/);
     expect(dishes).toMatch(/\.dish-grid-scroll::-webkit-scrollbar/);
     const raw = readFileSync(`${process.cwd()}/src/styles/owner/raw-materials.css`, "utf8");
     expect(raw).not.toContain("!important");

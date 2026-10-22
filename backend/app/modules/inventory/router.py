@@ -12,7 +12,7 @@ from app.modules.auth.dependencies import (
 from app.modules.auth.models import User
 from app.modules.inventory.models import Product
 from app.modules.inventory.schemas import (
-    CategoryCreate, CategoryResponse, CategoryUpdate,
+    CategoryCreate, CategoryReorderRequest, CategoryResponse, CategoryUpdate,
     IngredientCreate, IngredientResponse, IngredientUpdate,
     ModifierGroupCreate, ModifierGroupResponse, ModifierGroupUpdate, ModifierResponse,
     ProductAvailabilityUpdate, ProductCreate, ProductIngredientResponse,
@@ -171,6 +171,22 @@ def _product_to_response(p: Product) -> ProductResponse:
 @router.post("/categories", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
 async def create_category(data: CategoryCreate, user: User = Depends(require_company_admin), db: AsyncSession = Depends(get_db)):
     return await CategoryService(db).create(user.company_id, data)
+
+
+# REORDER V1: bulk drag-and-drop порядок категорий. Объявлен ДО
+# "/categories/{category_id}", чтобы литеральный путь матчился первым и
+# "reorder" никогда не парсился как UUID категории (та же дисциплина, что у
+# PATCH /halls/reorder). Гейт как у прочих write-эндпоинтов категорий.
+@router.patch("/categories/reorder", response_model=list[CategoryResponse])
+async def reorder_categories(
+    data: CategoryReorderRequest,
+    user: User = Depends(require_company_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """PARTIAL-перестановка видимого списка категорий: `category_ids` — id в
+    новом порядке; категории вне списка свой sort_order сохраняют. Меняется
+    только sort_order; дубликаты/чужие id → 409."""
+    return await CategoryService(db).reorder(user.company_id, data.category_ids)
 
 
 @router.patch("/categories/{category_id}", response_model=CategoryResponse)

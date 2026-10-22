@@ -124,7 +124,7 @@ describe("Web Launch V1 route surfaces", () => {
     ]) {
       renderAt(path);
       await waitForPath(path);
-      await screen.findByText("Скоро, эта категория дорабатывается");
+      await screen.findByText("Скоро, эта категория в разработке");
       expect(document.querySelector(".settings-page .settings-card")).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
       if (path === "/settings/support") {
