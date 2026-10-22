@@ -36,6 +36,12 @@ class WorkShift(TimeStampedModel):
     actual_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # scheduled | active | completed | absent
     status: Mapped[str] = mapped_column(String(20), default="scheduled")
+    # ATT-IP-01: IP устройства, с которого отметили приход/уход. Веб-страница
+    # «Посещаемость» показывает именно эти значения — отдельного IP у смены
+    # раньше не было, а брать его из request.client.host нельзя (за nginx это
+    # адрес контейнера). Пусто у исторических смен — UI показывает «—».
+    check_in_ip: Mapped[str | None] = mapped_column(String(64))
+    check_out_ip: Mapped[str | None] = mapped_column(String(64))
 
     employee: Mapped[Employee] = relationship(back_populates="shifts")
     attendance_logs: Mapped[list[AttendanceLog]] = relationship(back_populates="shift", cascade="all, delete-orphan")

@@ -212,7 +212,7 @@ describe("attendance route regression (shared component, journal contract)", () 
     api.get.mockResolvedValue({ data: [] });
   });
 
-  it("uses the Staff product shell with the 7-column attendance contract, no Excel", async () => {
+  it("uses the Staff product shell with the 8-column attendance contract, no Excel", async () => {
     render(<StaffActivityPage type="attendance" />);
     await screen.findByText("Посещаемость");
     expect(document.querySelector(".staff-page.staff-page--cashier")).not.toBeNull();
@@ -227,6 +227,7 @@ describe("attendance route regression (shared component, journal contract)", () 
       "Время ухода",
       "Отработано",
       "Статус",
+      "IP",
     ]);
     expect(screen.queryByText("Скачать Excel")).toBeNull();
     expect(document.querySelector(".staff-page").querySelector('input[type="file"]')).toBeNull();

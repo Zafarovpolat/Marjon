@@ -23,6 +23,7 @@ const backendRow = {
   end: "18:00",
   hours: "9 ч 0 мин",
   status: "Закрыта",
+  ip: "192.168.0.243",
 };
 
 const EXPECTED_HEADERS = [
@@ -33,6 +34,7 @@ const EXPECTED_HEADERS = [
   "Время ухода",
   "Отработано",
   "Статус",
+  "IP",
 ];
 
 describe("attendance page contract (/users/attendance) — ATTENDANCE-01", () => {
@@ -42,7 +44,7 @@ describe("attendance page contract (/users/attendance) — ATTENDANCE-01", () =>
     api.get.mockResolvedValue({ data: [backendRow] });
   });
 
-  it("renders exactly the 7 approved headers in order, no extras", async () => {
+  it("renders exactly the 8 approved headers in order, no extras", async () => {
     render(<StaffActivityPage type="attendance" />);
     await screen.findByText("Алишер Каримов");
 
@@ -61,7 +63,26 @@ describe("attendance page contract (/users/attendance) — ATTENDANCE-01", () =>
     render(<StaffActivityPage type="attendance" />);
     const row = (await screen.findByText("Алишер Каримов")).closest("tr");
     const cells = within(row).getAllByRole("cell").map((c) => c.textContent);
-    expect(cells).toEqual(["Алишер Каримов", "Официант", "23.09.2026", "09:00", "18:00", "9 ч 0 мин", "Закрыта"]);
+    expect(cells).toEqual([
+      "Алишер Каримов", "Официант", "23.09.2026", "09:00", "18:00", "9 ч 0 мин", "Закрыта", "192.168.0.243",
+    ]);
+  });
+
+  // ATT-IP-01: смена без сохранённого IP (исторические данные) — честный «—»,
+  // адрес не подставляется и не угадывается.
+  it("shows a dash for shifts without a stored IP", async () => {
+    api.get.mockResolvedValue({
+      data: [{ ...backendRow, ip: "" }, { ...backendRow, employee: "Без IP", ip: undefined }],
+    });
+    render(<StaffActivityPage type="attendance" />);
+
+    const withoutIp = (await screen.findByText("Без IP")).closest("tr");
+    const cells = within(withoutIp).getAllByRole("cell").map((c) => c.textContent);
+    expect(cells[cells.length - 1]).toBe("—");
+
+    const first = screen.getByText("Алишер Каримов").closest("tr");
+    const firstCells = within(first).getAllByRole("cell").map((c) => c.textContent);
+    expect(firstCells[firstCells.length - 1]).toBe("—");
   });
 
   it("keeps open shifts honest (no fake checkout or duration)", async () => {
@@ -98,16 +119,16 @@ describe("attendance page contract (/users/attendance) — ATTENDANCE-01", () =>
     expect(await screen.findByText("Данных о посещаемости пока нет.")).toBeInTheDocument();
   });
 
-  it("renders the shared Reports empty state with colSpan 7", async () => {
+  it("renders the shared Reports empty state with colSpan 8", async () => {
     api.get.mockResolvedValue({ data: [] });
     render(<StaffActivityPage type="attendance" />);
     const title = await screen.findByText("Данных о посещаемости пока нет.");
     const emptyCell = title.closest("td");
-    expect(emptyCell.getAttribute("colSpan")).toBe("7");
+    expect(emptyCell.getAttribute("colSpan")).toBe("8");
     expect(emptyCell.classList.contains("staff-empty-cell")).toBe(true);
     expect(emptyCell.closest("tr").classList.contains("staff-empty-row")).toBe(true);
     expect(document.querySelector(".staff-table").querySelector(".owner-report-empty-image")).not.toBeNull();
-    expect(screen.getAllByRole("columnheader")).toHaveLength(7);
+    expect(screen.getAllByRole("columnheader")).toHaveLength(8);
   });
 
   it("renders backend failure as error, never as empty", async () => {

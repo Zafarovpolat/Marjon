@@ -1,6 +1,6 @@
 ﻿from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import (
@@ -23,6 +23,7 @@ from app.modules.hr.service import HRService
 from app.modules.admin_reports.schemas import AttendanceRow, LoginHistoryRow
 from app.modules.admin_reports.service import AdminReportService
 from app.shared.exceptions import NotFoundError
+from app.shared.request_ip import client_ip
 
 router = APIRouter(prefix="/hr", tags=["hr"])
 
@@ -203,6 +204,7 @@ async def approve_attendance(
 @router.post("/attendance/mark", response_model=AttendanceLogRow, status_code=status.HTTP_201_CREATED)
 async def mark_attendance(
     data: AttendanceMarkRequest,
+    request: Request,
     user: User = Depends(require_permission_or_admin("can_approve_attendance")),
     db: AsyncSession = Depends(get_db),
 ):
@@ -211,6 +213,9 @@ async def mark_attendance(
     Смена подбирается по сотруднику (открытая = active без actual_end), а если
     её нет — создаётся на 12 часов вперёд: отдельного планировщика смен в
     десктопе нет, а без shift_id отметку записать некуда (NOT NULL).
+
+    ATT-IP-01: IP устройства (терминал/браузер, с которого отметили) пишем на
+    смену — веб-страница «Посещаемость» показывает именно смены.
     """
     from app.modules.hr.models import Employee, WorkShift
 
@@ -260,9 +265,11 @@ async def mark_attendance(
 
         if data.action == "check_in":
             shift.actual_start = shift.actual_start or now
+            shift.check_in_ip = client_ip(request) or shift.check_in_ip
             shift.status = "active"
         else:
             shift.actual_end = now
+            shift.check_out_ip = client_ip(request) or shift.check_out_ip
             shift.status = "completed"
 
     log = AttendanceLog(
