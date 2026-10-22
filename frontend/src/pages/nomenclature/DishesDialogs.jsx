@@ -42,11 +42,25 @@ function hasPhotoTransfer(data) {
   return Array.from(data?.types || []).includes("Files");
 }
 
+// MONEY-DIGITS-01: в поле суммы можно ввести только цифры и один десятичный
+// разделитель. Буквы, минус, «сум», лишние разделители отбрасываются ещё до
+// форматирования, поэтому «EFOIEWHFiWEJ» в поле физически не попадает.
+// Дробная часть ограничена двумя знаками (как в parseNomenclatureMoney).
+function sanitizeMoneyInput(value) {
+  const text = String(value ?? "").replace(/[^\d.,]/g, "");
+  if (!/\d/.test(text)) return "";
+  const [head, ...rest] = text.split(/[.,]/);
+  const integer = head.replace(/^0+(?=\d)/, "");
+  if (!rest.length) return integer;
+  return `${integer},${rest.join("").slice(0, 2)}`;
+}
+
 function groupMoneyInput(value) {
-  const raw = String(value ?? "").replace(/[ \u00a0\u202f]/g, "");
-  const match = raw.match(/^(\d+)([.,]\d*)?$/);
-  if (!match) return raw;
-  return match[1].replace(/\B(?=(\d{3})+(?!\d))/g, " ") + (match[2] || "");
+  const clean = sanitizeMoneyInput(value);
+  if (!clean) return "";
+  const [integer, fraction] = clean.split(",");
+  const grouped = (integer || "0").replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  return fraction === undefined ? grouped : `${grouped},${fraction}`;
 }
 
 // label нужен как aria-label: декоративные «сум»/measure-спаны лежат внутри
@@ -93,22 +107,42 @@ function DishMoneyInput({ value, onChange, label }) {
       ref={inputRef}
       className="dish-money-input"
       inputMode="decimal"
+      pattern="[0-9 ]*[.,]?[0-9]*"
+      autoComplete="off"
+      spellCheck={false}
       aria-label={label}
       placeholder="0 сум"
       value={groupMoneyInput(value)}
       onScroll={positionSuffix}
+      // Живая валидация до вставки: одиночный недопустимый символ (набор с
+      // клавиатуры) не попадает в поле вовсе. Вставка из буфера проходит —
+      // её чистит onChange, поэтому «12 000 сум» превращается в «12 000».
+      onBeforeInput={(event) => {
+        const data = event.nativeEvent?.data;
+        if (data && data.length === 1 && /[^\d.,]/.test(data)) event.preventDefault();
+      }}
       onChange={(event) => {
-        const raw = event.target.value;
-        const meaningfulBeforeCaret = raw.slice(0, event.target.selectionStart ?? raw.length)
-          .replace(/[ \u00a0\u202f]/g, "").length;
+        const input = event.target;
+        const raw = input.value;
+        const caret = input.selectionStart ?? raw.length;
+        // Значимые символы (цифры и запятая) слева от курсора — по ним
+        // восстанавливаем позицию после перегруппировки разрядов.
+        const meaningfulBeforeCaret = raw.slice(0, caret).replace(/[^\d,]/g, "").length;
         const formatted = groupMoneyInput(raw);
         let position = 0;
         let seen = 0;
         while (position < formatted.length && seen < meaningfulBeforeCaret) {
-          if (formatted[position] !== " ") seen++;
+          if (/[\d,]/.test(formatted[position])) seen++;
           position++;
         }
         caretRef.current = position;
+        if (formatted === groupMoneyInput(value)) {
+          // Значение не изменилось (буква/лишний разделитель отброшены):
+          // React не перерисует input, поэтому чистим DOM вручную.
+          input.value = formatted;
+          input.setSelectionRange(position, position);
+          caretRef.current = null;
+        }
         onChange(formatted);
       }}
     />

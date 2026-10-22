@@ -170,7 +170,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
       "ID",
       "Фото",
       "ФИО",
-      "Номер телефона",
+      "Логин",
       "Роль",
       "Статус",
       "Действия",
@@ -247,7 +247,7 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     expect(within(dialog).getByText("Загрузить фото")).toBeInTheDocument();
     expect(dialog.querySelector('input[type="file"]')).not.toBeNull();
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
-    expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
+    expect(within(dialog).getByText("Логин")).toBeInTheDocument();
     expect(within(dialog).getByText("Пароль")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Имя менеджера")).toBeInTheDocument();
     expect(within(dialog).queryByText("Email")).toBeNull();
@@ -305,7 +305,6 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Manager123" },
     });
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     const alerts = await within(dialog).findAllByRole("alert");
     expect(alerts).toHaveLength(1);
@@ -351,7 +350,6 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "abc" },
     });
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     const alerts = await within(dialog).findAllByRole("alert");
@@ -399,7 +397,6 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Manager123" },
     });
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     const alerts = await within(dialog).findAllByRole("alert");
@@ -444,8 +441,6 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Manager123" },
     });
-    // PIN обязателен при создании (ba0c267): без него POST не уходит.
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     // Interact with the matrix: включённый модуль едет в permissions.modules,
     // но НЕ протекает на верхний уровень payload (дифф 21-го мерджа).
     fireEvent.click(within(dialog).getByRole("button", { name: "Главная" }));
@@ -457,8 +452,6 @@ describe("manager page visual contract (/users/manager) — MANAGER-STOREKEEPER-
       phone: "998901112233",
       role_slug: "manager",
       role_name: "Manager Two",
-      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
-      pin: "1234",
       branch_id: null,
       permissions: { modules: { home: { enabled: true } } },
     });
@@ -671,7 +664,6 @@ describe("manager secondary action toggles (parity with cashier/waiter matrix) �
     fireEvent.change(screen.getByPlaceholderText("Имя менеджера"), { target: { value: "Manager Two" } });
     fireEvent.change(dialog.querySelector(".staff-phone-field input"), { target: { value: "+998901112233" } });
     fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Manager123" } });
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     // Строку матрицы ищем по тексту: role-запрос по всему drawer’у с 50
     // модулями в jsdom считается секундами, а внутри строки — миллисекунды.
     const row = accessRow(dialog, "Отчет по заказам");
@@ -689,8 +681,6 @@ describe("manager secondary action toggles (parity with cashier/waiter matrix) �
       phone: "998901112233",
       role_slug: "manager",
       role_name: "Manager Two",
-      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
-      pin: "1234",
       branch_id: null,
       permissions: {
         modules: { orders_report: { enabled: true, create: true, delete: true } },

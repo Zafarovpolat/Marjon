@@ -79,11 +79,13 @@ export default function App() {
 
   // WebSocket при полном входе
   useEffect(() => {
-    if (!staffToken || !effectiveBranchId || !mode) return
+    if (!staffToken || !mode) return
     const serverUrl = localStorage.getItem('marjon_server_url') || DEFAULT_SERVER_URL
-    kitchenWS.connect(serverUrl, staffToken, effectiveBranchId)
-    // Принтерный WS: терминал получает задания печати (чек/кухня) и печатает через Electron
-    connectPrinterWS(serverUrl, staffToken, effectiveBranchId)
+    // Принтерный WS: scoped по company, не по филиалу (сотрудник может не иметь branch_id)
+    connectPrinterWS(serverUrl, staffToken)
+    if (effectiveBranchId) {
+      kitchenWS.connect(serverUrl, staffToken, effectiveBranchId)
+    }
     const unsubscribe = kitchenWS.on('connection', ({ status }) => {
       const online = status === 'online'
       setIsOnline(online)

@@ -5,16 +5,18 @@ let printerSocket = null
 let printerHandle = null
 const printerListeners = new Set()
 
-export function connectPrinterWS(serverUrl, token, branchId) {
+export function connectPrinterWS(serverUrl, token) {
   if (printerSocket) { printerSocket.close(); printerSocket = null }
 
   const wsBase = serverUrl.replace(/^http/, 'ws').replace(/\/api\/v1\/?$/, '')
-  const url = `${wsBase}/api/v1/printers/ws/${branchId}?token=${token}`
+  const url = `${wsBase}/api/v1/printers/ws?token=${token}`
+  console.log('[printer-ws] connecting to', url)
 
   function open() {
     printerSocket = new WebSocket(url)
 
     printerSocket.onopen = () => {
+      console.log('[printer-ws] connected')
       clearTimeout(printerHandle)
       printerHandle = setInterval(() => {
         if (printerSocket?.readyState === WebSocket.OPEN) printerSocket.send('ping')
@@ -23,12 +25,18 @@ export function connectPrinterWS(serverUrl, token, branchId) {
 
     printerSocket.onmessage = (e) => {
       if (e.data === 'pong') return
+      console.log('[printer-ws] message', e.data?.slice(0, 120))
       try { printerListeners.forEach((fn) => fn(JSON.parse(e.data))) } catch {}
     }
 
-    printerSocket.onclose = () => {
+    printerSocket.onclose = (e) => {
+      console.log('[printer-ws] closed', e.code, e.reason)
       clearInterval(printerHandle)
       printerHandle = setTimeout(open, 5_000)
+    }
+
+    printerSocket.onerror = (e) => {
+      console.error('[printer-ws] error', e)
     }
   }
 

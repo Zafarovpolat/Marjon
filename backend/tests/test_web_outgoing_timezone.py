@@ -18,7 +18,9 @@ async def test_staff_journal_dates_roll_over_once_without_changing_duration():
     stamp = datetime(2026, 10, 19, 19, 30, tzinfo=timezone.utc)
     end = datetime(2026, 10, 19, 20, 30, tzinfo=timezone.utc)
     row = SimpleNamespace(created_at=stamp, revoked_at=end, device_id="test", name="User", email="test@example.com",
-        phone="", avatar_url="", actual_start=stamp, actual_end=end, status="completed", user_name="User", position="Cashier")
+        phone="", avatar_url="", actual_start=stamp, actual_end=end, status="completed", user_name="User", position="Cashier",
+        # ATT-IP-01: строка смены теперь несёт IP устройства (пустой у старых смен).
+        check_in_ip=None, check_out_ip=None)
     db = SimpleNamespace(execute=AsyncMock(return_value=SimpleNamespace(all=lambda: [row])))
     web = AdminReportService(db, web_timezone="Asia/Tashkent")
     login = (await web.login_history(uuid4()))[0]

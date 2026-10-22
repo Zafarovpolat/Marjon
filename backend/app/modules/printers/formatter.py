@@ -211,7 +211,7 @@ class EscPosFormatter:
         "dateTime": {"size": "standard", "align": "center", "weight": "bold"},
         "total": {"size": "xlarge", "align": "left", "weight": "standard"},
         "thankYouText": {"size": "large", "align": "center", "weight": "bold"},
-        "bottomOrderNumber": {"size": "large", "align": "center", "weight": "bold"},
+        "bottomOrderNumber": {"size": "xxlarge", "align": "center", "weight": "bold"},
     }
 
     # Chef defaults — mirrors CHEF_DEFAULT_BLOCK_STYLES in frontend/src/api/receipt.js.
@@ -451,8 +451,12 @@ class EscPosFormatter:
         # fallback treatment: xlarge = double-HEIGHT only (same bits as
         # "large"). Weight is independent of size and follows the template.
         # Width is never halved for any size tier.
+        #
+        # "xxlarge" (только для bottomOrderNumber и коротких строк) — реальный
+        # 2x2: double-width + double-height. cols делится на 2.
         bold = weight == "bold"
-        size_code = {"standard": 0x00, "large": 0x01, "xlarge": 0x01}.get(size, 0x00)
+        size_code = {"standard": 0x00, "large": 0x01, "xlarge": 0x01, "xxlarge": 0x11}.get(size, 0x00)
+        width_divisor = 2 if size == "xxlarge" else 1
 
         # Font A is asserted explicitly on every block (not only when a size
         # is set) — GS!n only multiplies whatever font is currently active,
@@ -475,7 +479,7 @@ class EscPosFormatter:
         suffix += self.FONT_A
         suffix += self.ALIGN_LEFT
 
-        return bytes(prefix), bytes(suffix), 1
+        return bytes(prefix), bytes(suffix), width_divisor
 
     def _styled_line(self, template: dict, key: str, text: str) -> bytes:
         """Многострочный (возможно, длинный — переносится по словам) текст
@@ -782,15 +786,21 @@ class EscPosFormatter:
                 push("footer", self._styled_line(template, "thankYouText", template.get("thankYouText") or "XARIDINGIZ\nUCHUN RAXMAT!"))
             elif block == "bottomOrderNumber":
                 style = self._block_style(template, "bottomOrderNumber")
+                # FORCE-XXLARGE-01: нижний номер заказа — максимальный размер
+                # независимо от сохранённого шаблона (пользователь просил
+                # «максимально увеличить»).
+                style["size"] = "xxlarge"
                 prefix, suffix, div = self._style_bytes(style)
                 width = self.cols // div
                 chunk = bytearray()
+                # Визуальное выделение: пустые строки до и после
+                chunk.extend(self._line(""))
                 chunk.extend(prefix)
-                chunk.extend(self._wrapped_line("НОМЕР ЗАКАЗА", width))
-                # Bare number, no "#" — matches ReceiptPreview.jsx's
-                # getOrderNumber() (String(order.order_number), not "#N").
+                # Только номер, без подписи "НОМЕР ЗАКАЗА" — иначе подпись
+                # мелкая и отвлекает от самого номера.
                 chunk.extend(self._wrapped_line(str(data.order_number), width))
                 chunk.extend(suffix)
+                chunk.extend(self._line(""))
                 push("header" if number_at_top else "footer", chunk)
             elif block == "address":
                 address = template.get("address")

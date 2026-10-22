@@ -22,7 +22,7 @@ function JournalNameCell({ name, photo }) {
   );
 }
 
-// STAFF-JOURNAL-01: login history (6-col contract) and attendance (7-col
+// STAFF-JOURNAL-01: login history (6-col contract) and attendance (8-col
 // contract) share the Staff subcategory product shell. Both are read-only
 // journals: backend truth only, honest "—" placeholders (BACKEND HANDOFF),
 // no fake enrichment, no drawers, no action buttons.
@@ -56,6 +56,10 @@ function StaffActivityPage({ type = "login-history" }) {
               end: item.end_time || item.end || "—",
               hours: item.hours || "—",
               status: item.status || "—",
+              // ATT-IP-01: IP устройства, с которого отметили приход/уход.
+              // Смены, отмеченные до появления колонки, приходят пустыми —
+              // честный «—», адрес не додумываем.
+              ip: item.ip || item.ip_address || "—",
             })));
         } else {
           setLoginRows(items.map((item) => {
@@ -119,6 +123,7 @@ function StaffActivityPage({ type = "login-history" }) {
                   <th>Время ухода</th>
                   <th>Отработано</th>
                   <th>Статус</th>
+                  <th>IP</th>
                 </tr>
               </thead>
               <tbody>
@@ -133,11 +138,12 @@ function StaffActivityPage({ type = "login-history" }) {
                     <td>{row.end}</td>
                     <td>{row.hours}</td>
                     <td>{row.status}</td>
+                    <td className="staff-ip-cell">{row.ip}</td>
                   </tr>
                 ))}
                 {!loading && !error && !displayAttendanceRows.length ? (
                   <tr className="staff-empty-row">
-                    <td colSpan={7} className="staff-empty-cell">
+                    <td colSpan={8} className="staff-empty-cell">
                       <ReportEmptyState title="Данных о посещаемости пока нет." />
                     </td>
                   </tr>

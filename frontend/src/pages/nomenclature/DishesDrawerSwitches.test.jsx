@@ -36,6 +36,17 @@ describe("Dishes drawer switches", () => {
     expect(screen.getByText("40 000 сум")).toBeInTheDocument();
     expect(row).toEqual({ id: "dish-1", cost: "12 000 UZS", price: "40 000 UZS" });
   });
+  // V28: категория блюда — отдельная колонка, значение из category_name.
+  it("shows the dish category in its own column with a dash when empty", () => {
+    const rows = [
+      mapNomenclatureProduct({ id: "d1", name: "Плов", category_name: "Горячие блюда" }),
+      mapNomenclatureProduct({ id: "d2", name: "Чай" }),
+    ];
+    render(<DishesTable filteredRows={rows} isColumnVisible={() => true} tableMinWidth={900} />);
+    expect(screen.getByRole("columnheader", { name: "Категория" })).toBeInTheDocument();
+    expect(screen.getByText("Горячие блюда")).toBeInTheDocument();
+    expect(screen.getByText("Чай").closest("tr").querySelector(".dish-category-empty")).not.toBeNull();
+  });
   it.each(["Ед. изм", "Категория", "Принтер"])("reuses the Reports leading selection square for %s", (label) => {
     const onChange = vi.fn();
     render(<DishSingleSelect label={label} value="a" onChange={onChange}
@@ -122,6 +133,33 @@ describe("Dishes drawer switches", () => {
       .toMatchObject({ cost_price: 12345.5, price: 345990 });
     fireEvent.change(price, { target: { value: "" } });
     expect(price).toHaveValue("");
+  });
+
+  // MONEY-DIGITS-01: в поле суммы нельзя ввести буквы — значение фильтруется
+  // и перегруппируется, а не уходит в payload как есть.
+  it("accepts digits only and strips letters from money inputs", () => {
+    render(<Drawer />);
+    const [cost, price] = screen.getAllByPlaceholderText("0 сум");
+
+    fireEvent.change(price, { target: { value: "EFOIEWHFiWEJ" } });
+    expect(price).toHaveValue("");
+    expect(buildNomenclatureProductPayload({ ...emptyDishForm, price: price.value }).price).toBe(0);
+
+    fireEvent.change(cost, { target: { value: "GYFTUFYUGUI; сум" } });
+    expect(cost).toHaveValue("");
+    expect(buildNomenclatureProductPayload({ ...emptyDishForm, cost: cost.value }).cost_price).toBe(0);
+
+    // Смешанный ввод и вставка: остаются только цифры, разряды группируются.
+    fireEvent.change(price, { target: { value: "12abc34" } });
+    expect(price).toHaveValue("1 234");
+    fireEvent.change(price, { target: { value: "12 000 сум" } });
+    expect(price).toHaveValue("12 000");
+    expect(buildNomenclatureProductPayload({ ...emptyDishForm, price: price.value }).price).toBe(12000);
+
+    // Минус и прочие знаки отбрасываются, а не превращают поле в мусор.
+    fireEvent.change(cost, { target: { value: "-5000" } });
+    expect(cost).toHaveValue("5 000");
+    expect(buildNomenclatureProductPayload({ ...emptyDishForm, cost: cost.value }).cost_price).toBe(5000);
   });
 
   it("keeps the caret next to the edited digit when inserting in the middle", () => {

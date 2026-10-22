@@ -132,7 +132,7 @@ describe("DISHES V21 simplified table", () => {
     for (const removed of ["Тип", "Меню", "Подкатегория", "Остаток"]) {
       expect(headers).not.toContain(removed);
     }
-    for (const kept of ["Фото", "Название", "Ед. изм", "Себестоимость", "Цена", "Принтер", "Рецепты", "Сорт", "Действия"]) {
+    for (const kept of ["Фото", "Название", "Ед. изм", "Категория", "Себестоимость", "Цена", "Принтер", "Рецепты", "Сорт", "Действия"]) {
       expect(headers).toContain(kept);
     }
     expect(headers).not.toContain("Сет");
@@ -147,10 +147,11 @@ describe("DISHES V21 simplified table", () => {
     const width = dishColumnOptions.reduce((sum, column) => sum + column.width, 0);
     // V24: точный порядок СОРТ первым, ФОТО вторым, ДЕЙСТВИЯ последними.
     // V25: ОСТАТОК заменён на РЕЦЕПТЫ.
+    // V28: КАТЕГОРИЯ добавлена после ЕД.ИЗМ.
     expect(dishColumnOptions.map((column) => column.key)).toEqual(
-      ["sort", "photo", "name", "unit", "cost", "price", "printer", "recipe", "actions"],
+      ["sort", "photo", "name", "unit", "category", "cost", "price", "printer", "recipe", "actions"],
     );
-    expect(width).toBe(1044);
+    expect(width).toBe(1184);
   });
 });
 
@@ -304,20 +305,22 @@ describe("DISHES V23 full-width table", () => {
     // …а средние 5 (Ед.изм/Себест/Цена/Принтер/Рецепты) — гибкие auto: остаток
     // ширины делится между ними, центр растягивается. cost/price
     // сгруппированы в одном правиле — ищем width рядом с классом.
-    for (const col of ["unit", "cost", "price", "printer", "recipe"]) {
+    for (const col of ["unit", "category", "cost", "price", "printer", "recipe"]) {
       expect(css).toMatch(new RegExp(`\\.dish-col-${col}[^}]*width:\\s*auto`));
     }
   });
 
-  it("keeps 9 columns without the removed ones returning", async () => {
+  it("keeps the 10 columns without the removed ones returning", async () => {
     const { container } = render(<NomenclaturePage />);
     await screen.findByRole("button", { name: "Выбрать фото для Backend dish" });
     const headers = [...container.querySelectorAll(".dish-grid-table thead th")].map((th) => th.textContent);
-    expect(headers).toHaveLength(9);
+    expect(headers).toHaveLength(10);
     // V25: Остаток тоже удалён (заменён на Рецепты).
     for (const removed of ["Тип", "Меню", "Подкатегория", "Остаток"]) {
       expect(headers).not.toContain(removed);
     }
     expect(headers).toContain("Рецепты");
+    // V28: категория — реальная колонка таблицы.
+    expect(headers).toContain("Категория");
   });
 });

@@ -280,7 +280,7 @@ export default function StaffFormModal({
               ) : null}
             </label>
             <label>
-              <span>Номер телефона</span>
+              <span>Логин</span>
               {/* Split prefix: the country code renders as a stable visual
                   prefix, the input holds subscriber digits only, so Backspace
                   never destroys/recreates the prefix and caret stays put. */}
@@ -359,34 +359,12 @@ export default function StaffFormModal({
                 <small className="muted">Оставьте пустым, чтобы не менять пароль.</small>
               ) : null}
             </label>
-            {isProductDrawer && !isMonoblockView ? (
-              <>
-                <label>
-                  {/* PIN обязателен при создании (вход на десктопе только по
-                      4 цифрам). На редактировании пустой PIN = «не менять».
-                      Моноблоку PIN не показываем — это логин десктопа. */}
-                  <span>{editingId ? "Новый PIN (4 цифры)" : "PIN-код (4 цифры) *"}</span>
-                  <input
-                    autoComplete="off"
-                    value={form.pin}
-                    maxLength={4}
-                    inputMode="numeric"
-                    pattern="[0-9]{4}"
-                    required={!editingId}
-                    onChange={(event) => updateForm("pin", event.target.value.replace(/\D/g, ""))}
-                    placeholder="0000"
-                  />
-                  {editingId ? (
-                    <small className="muted">Оставьте пустым, чтобы не менять PIN.</small>
-                  ) : null}
-                </label>
-                {/* Поле «Филиал» убрано по просьбе владельца: сотрудника
-                    больше не привязывают к филиалу вручную из карточки.
-                    Привязка (User.branch_id) по-прежнему уходит в API —
-                    единственный филиал сети подставляется автоматически,
-                    у существующих сотрудников значение сохраняется. */}
-              </>
-            ) : null}
+            {/* PIN-поле убрано по просьбе владельца: у сотрудника один
+                секрет — пароль. Бэкенд сам ставит PIN = пароль (если пароль
+                из 4–8 цифр), поэтому вводить его дважды больше не нужно.
+                Поле «Филиал» тоже убрано: единственный филиал сети
+                подставляется автоматически, у существующих сотрудников
+                значение сохраняется. */}
             {isCuratedView ? null : (
             <label>
               <span>Принтер</span>
@@ -722,7 +700,7 @@ export default function StaffFormModal({
             />
           </label>
           <label>
-            <span>Номер телефона</span>
+            <span>Логин</span>
             <div className="staff-phone-field">
               <button
                 className="staff-phone-country"
@@ -789,17 +767,6 @@ export default function StaffFormModal({
                 <Icon name={showPassword ? "bi-eye-slash" : "bi-eye"} size={18} />
               </button>
             </div>
-          </label>
-          <label>
-            <span>PIN-код 4 цифры</span>
-            <input
-              value={form.pin}
-              maxLength={4}
-              inputMode="numeric"
-              pattern="[0-9]{4}"
-              onChange={(event) => updateForm("pin", event.target.value.replace(/\D/g, ""))}
-              placeholder="0000"
-            />
           </label>
           <div className="staff-permission-switches">
             <button
@@ -966,7 +933,7 @@ export default function StaffFormModal({
             />
           </label>
           <label>
-            <span>Номер телефона</span>
+            <span>Логин</span>
             <input
               required
               value={form.phone}
@@ -990,17 +957,6 @@ export default function StaffFormModal({
                 </option>
               ))}
             </select>
-          </label>
-          <label>
-            <span>PIN-код 4 цифры</span>
-            <input
-              value={form.pin}
-              maxLength={4}
-              inputMode="numeric"
-              pattern="[0-9]{4}"
-              onChange={(event) => updateForm("pin", event.target.value.replace(/\D/g, ""))}
-              placeholder="0000"
-            />
           </label>
           <label>
             <span>Пароль</span>

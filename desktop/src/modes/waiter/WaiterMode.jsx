@@ -212,7 +212,6 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     if (!order?.id) return
     const pr = pickReceiptPrinter(Object.values(printerMap), {
       printerId: user.printer_id,
-      branchId: user.branch_id,
     })
     if (!pr) { toast(t('no_receipt_printer'), 'error'); return }
     try { await printersApi.printReceipt({ order_id: order.id, printer_id: pr.id, copies: 1 }); toast(t('receipt_sent')) }

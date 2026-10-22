@@ -55,14 +55,26 @@ async def test_pin_login_unknown_employee_returns_401_not_404(client):
     assert resp.status_code == 401
 
 
-async def test_pin_unique_within_company(client):
+async def test_pin_can_be_shared_by_two_employees(client):
+    """PIN-SHARED-01: одинаковый PIN у коллег разрешён по требованию владельца.
+
+    На кассе сотрудника выбирают на экране, PIN лишь подтверждает выбор
+    (login_by_pin с user_id), поэтому совпадение кодов не делает вход
+    неоднозначным. Раньше второй PATCH отвечал 409.
+    """
     owner_headers, _ = await register_company(client, slug="acme", email="owner@acme.example.com")
     a = await _create_staff(client, owner_headers, email="a@acme.example.com")
     b = await _create_staff(client, owner_headers, email="b@acme.example.com")
 
-    await client.patch(f"/auth/users/{a['id']}/pin", headers=owner_headers, json={"pin": "1111"})
+    first = await client.patch(f"/auth/users/{a['id']}/pin", headers=owner_headers, json={"pin": "1111"})
+    assert first.status_code == 204
     resp = await client.patch(f"/auth/users/{b['id']}/pin", headers=owner_headers, json={"pin": "1111"})
-    assert resp.status_code == 409
+    assert resp.status_code == 204
+
+    # Каждый сотрудник входит своим PIN со своей карточки.
+    for staff in (a, b):
+        login = await client.post("/auth/pin-login", json={"employee_id": staff["id"], "pin": "1111"})
+        assert login.status_code == 200, login.text
 
 
 async def test_pin_can_be_reused_across_different_companies(client):
@@ -155,12 +167,11 @@ async def test_pin_can_be_set_in_create(client):
     assert login.json()["access_token"]
 
 
-async def test_duplicate_pin_in_create_does_not_create_user(client):
-    """P0 2.2: занятый PIN не должен оставлять «полусозданного» сотрудника.
+async def test_duplicate_pin_in_create_creates_second_employee(client):
+    """PIN-SHARED-01: совпадение PIN при создании больше не блокирует карточку.
 
-    Раньше PIN ставился отдельным PATCH уже ПОСЛЕ создания: при занятом PIN
-    возвращался 409, но пользователь оставался в базе без PIN, а ретрай
-    упирался в «телефон занят». Теперь уникальность проверяется до вставки.
+    Раньше занятый PIN отдавал 409, и владелец не мог завести сотрудника с
+    «популярными» 4 цифрами. Теперь второй сотрудник создаётся нормально.
     """
     owner_headers, _ = await register_company(client, slug="acme", email="owner@acme.example.com")
 
@@ -175,10 +186,6 @@ async def test_duplicate_pin_in_create_does_not_create_user(client):
     )
     assert first.status_code == 201, first.text
 
-    before = await client.get("/auth/users", headers=owner_headers)
-    assert before.status_code == 200, before.text
-    count_before = len(before.json())
-
     dup = await client.post(
         "/auth/users", headers=owner_headers,
         json={
@@ -188,14 +195,12 @@ async def test_duplicate_pin_in_create_does_not_create_user(client):
             "pin": "1234",
         },
     )
-    assert dup.status_code == 409, dup.text
+    assert dup.status_code == 201, dup.text
 
-    # Главное: неудачное создание не оставило мусора в базе.
     after = await client.get("/auth/users", headers=owner_headers)
     assert after.status_code == 200, after.text
-    assert len(after.json()) == count_before, "занятый PIN не должен создавать пользователя"
     phones = {u.get("phone") for u in after.json()}
-    assert "998901110002" not in phones
+    assert "+998901110002" in phones
 
 
 async def test_create_without_pin_still_allowed(client):

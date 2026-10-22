@@ -73,7 +73,7 @@ describe("monoblock page visual contract (/users/monoblock) — MONOBLOCK-01", (
       "ID",
       "Фото",
       "ФИО",
-      "Номер телефона",
+      "Логин",
       "Роль",
       "Права доступа",
       "Статус",
@@ -96,7 +96,7 @@ describe("monoblock page visual contract (/users/monoblock) — MONOBLOCK-01", (
     expect(within(dialog).getByText("Добавить моноблок")).toBeInTheDocument();
     expect(within(dialog).getByText("Загрузить фото")).toBeInTheDocument();
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
-    expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
+    expect(within(dialog).getByText("Логин")).toBeInTheDocument();
     expect(within(dialog).getByText("Пароль")).toBeInTheDocument();
     // «Принтер» теперь встречается дважды: <span>-подпись поля и значение
     // внутри самого DishSingleSelect (тот же селект, что в форме блюда).
@@ -200,8 +200,9 @@ describe("monoblock page visual contract (/users/monoblock) — MONOBLOCK-01", (
       phone: "998901112233",
       role_slug: "monoblock",
       role_name: "Monoblock Two",
-      // Ключ camelCase: create собирает staffPermissionsPayload.
-      permissions: { canMainMonoblock: true },
+      // Ключ snake_case: create и PATCH собирает один сборщик
+      // (staffPermissionsPayload → buildStaffPermissionsForSave).
+      permissions: { can_main_monoblock: true },
       printer_id: null,
     });
     const sent = api.post.mock.calls[0][1];

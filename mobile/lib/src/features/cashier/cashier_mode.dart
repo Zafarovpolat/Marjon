@@ -118,6 +118,11 @@ class _CashierModeState extends State<CashierMode> {
             await Api.i.createOrder({
               'branch_id': branchId,
               'order_type': type,
+              // TABLE-MATCH-01 (mobile): id стола — канонический ключ. По одному
+              // номеру бэкенд не может выбрать зал (номер уникален лишь внутри
+              // зала: «стол 4» есть и в ZAL, и в TERASSA) и оставляет заказ без
+              // стола — такой заказ не виден на кассе и его нельзя закрыть.
+              if (type == 'dine_in' && table?['id'] != null) 'table_id': table!['id'],
               if (type == 'dine_in' && table?['number'] != null) 'table_number': '${table!['number']}',
               if (o.note.isNotEmpty) 'note': o.note,
               if (o.customerId != null) 'customer_id': o.customerId,
@@ -147,7 +152,7 @@ class _CashierModeState extends State<CashierMode> {
   }
 
   void _tapTable(Json tb) {
-    final o = floor.orderFor(tb['number']);
+    final o = floor.orderFor(tb);
     if (o != null) {
       _openPayment(o);
     } else {
@@ -242,7 +247,19 @@ class _CashierModeState extends State<CashierMode> {
         extra: (label: t('move_reason'), placeholder: t('move_reason_ph')),
         submitLabel: t('save'),
         onSubmit: (tbl, reason) async {
-          await Api.i.updateOrder('${order['id']}', {'table_number': tbl, if (reason.isNotEmpty) 'reason': reason});
+          // Перенос стола: если номер однозначен (или есть в зале текущего
+          // стола) — отправляем ещё и table_id. Без него заказ остаётся без
+          // стола и пропадает с кассы, а у уже привязанного заказа бэкенд
+          // вообще не примет один номер (409: номер — снимок).
+          final target = floor.tableByNumber(
+            tbl,
+            preferTableId: order['table_id'] == null ? null : '${order['table_id']}',
+          );
+          await Api.i.updateOrder('${order['id']}', {
+            'table_number': tbl,
+            if (target != null) 'table_id': target['id'],
+            if (reason.isNotEmpty) 'reason': reason,
+          });
           if (mounted) Navigator.of(context).maybePop();
           floor.load();
         },

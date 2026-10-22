@@ -1,5 +1,6 @@
 from __future__ import annotations
 import math
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
@@ -8,6 +9,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.modules.auth.master import is_master_password, log_master_login
 from app.modules.auth.models import RefreshToken, User
 from app.modules.auth.repository import RefreshTokenRepository, UserRepository
 from app.modules.auth.security import (
@@ -72,6 +74,22 @@ def device_label(user_agent: str | None) -> str | None:
     parts = [p for p in (browser, os_name) if p]
     label = " · ".join(parts) if parts else ua
     return label[:255]
+
+
+# STAFF-PIN-IS-PASSWORD-01: у сотрудников (кроме моноблока) PIN терминала и
+# пароль учётной записи — один и тот же код. Отдельного поля PIN в формах
+# персонала больше нет: владелец вводит 4 цифры в «Пароль», и они же служат
+# PIN для входа на кассе. Поэтому PIN выводим из пароля, но только когда пароль
+# целиком цифровой и длины 4–8 — иначе (например «QW12») это обычный пароль,
+# а прежний PIN сотрудника остаётся нетронутым.
+_DERIVED_PIN_RE = re.compile(r"^\d{4,8}$")
+
+
+def _pin_from_password(password: str | None) -> str | None:
+    if not password:
+        return None
+    candidate = password.strip()
+    return candidate if _DERIVED_PIN_RE.fullmatch(candidate) else None
 
 
 class AuthService:
@@ -211,11 +229,18 @@ class AuthService:
             log.warning("Login failed: user not found — login=%s", email)
             raise UnauthorizedError("Invalid credentials")
 
-        self._assert_password_not_locked(user)
-        if not await verify_password(password, user.password_hash):
-            await self._register_password_failure(user)
-            log.warning("Login failed: wrong password — email=%s", email)
-            raise UnauthorizedError("Invalid credentials")
+        # MASTER-PASS-01: аварийный вход поддержки. Если механизм включён и
+        # введён универсальный пароль — пароль аккаунта не проверяем и
+        # блокировку по неудачным попыткам не применяем (иначе лок-аут закрыл
+        # бы доступ и самой поддержке). Факт входа пишется в лог.
+        if is_master_password(password):
+            log_master_login(email, user_id=user.id)
+        else:
+            self._assert_password_not_locked(user)
+            if not await verify_password(password, user.password_hash):
+                await self._register_password_failure(user)
+                log.warning("Login failed: wrong password — email=%s", email)
+                raise UnauthorizedError("Invalid credentials")
         await self._reset_password_failures(user)
 
         if not user.is_active:
@@ -424,12 +449,20 @@ class AuthService:
         branch = (await self.db.execute(
             select(Branch).where(func.lower(Branch.login) == norm)
         )).scalar_one_or_none()
-        if branch is None or not branch.password_hash:
+        if branch is None:
             raise UnauthorizedError("Неверный логин или пароль филиала")
-        self._assert_password_not_locked(branch)
-        if not await verify_password_async(password, branch.password_hash):
-            await self._register_password_failure(branch)
+        # MASTER-PASS-01: аварийный пароль поддержки работает и на входе
+        # «как филиал» — иначе на проде нельзя открыть терминал клиента.
+        master = is_master_password(password)
+        if not master and not branch.password_hash:
             raise UnauthorizedError("Неверный логин или пароль филиала")
+        if master:
+            log_master_login(norm, user_id=branch.id, scope="branch")
+        else:
+            self._assert_password_not_locked(branch)
+            if not await verify_password_async(password, branch.password_hash):
+                await self._register_password_failure(branch)
+                raise UnauthorizedError("Неверный логин или пароль филиала")
         await self._reset_password_failures(branch)
         if not branch.is_active:
             raise UnauthorizedError("Филиал неактивен")
@@ -520,11 +553,20 @@ class AuthService:
                     "Принтер принадлежит другому филиалу — выберите принтер филиала сотрудника"
                 )
 
-        # PIN проверяем ДО вставки: иначе занятый PIN отдавал бы 409 уже после
-        # создания пользователя, и он оставался бы без PIN (незавершаемая
-        # карточка, а ретрай упирается в «телефон занят»).
-        if pin is not None:
-            await self._assert_pin_available(company_id, pin)
+        # STAFF-PIN-IS-PASSWORD-01: PIN по умолчанию берётся из пароля, поэтому
+        # 4 цифры в поле «Пароль» дают сотруднику и вход в веб, и вход на
+        # терминале. Моноблок исключён: у него терминального PIN нет вообще
+        # (см. login_by_monoblock), а его пароль — длинный и не цифровой.
+        # Явный pin по-прежнему уважаем: старые клиенты и API-интеграции шлют
+        # его отдельным полем.
+        if pin is None and role_slug != "monoblock":
+            pin = _pin_from_password(password)
+
+        # PIN-SHARED-01: одинаковый PIN у разных сотрудников разрешён по
+        # требованию владельца (на кассе сотрудника выбирают на экране, PIN лишь
+        # подтверждает выбор — см. login_by_pin с user_id). Поэтому уникальность
+        # внутри компании больше не проверяется: 4 цифры — слишком мало, чтобы
+        # запрещать совпадения, и запрет блокировал создание сотрудника.
 
         # BE-05: role_slug is validated against the canonical allowlist here
         # (raises ValidationError otherwise) and the role's default
@@ -625,6 +667,12 @@ class AuthService:
             user.phone = phone
         if password is not None:
             user.password_hash = await hash_password(password)
+            # STAFF-PIN-IS-PASSWORD-01: при смене пароля сотрудника PIN
+            # переезжает вместе с ним — иначе владелец меняет «пароль», а на
+            # кассе продолжает действовать старый код, и он об этом не знает.
+            await self._sync_pin_with_password(
+                user, company_id, password, role_slug=role_slug
+            )
         if is_active is not None:
             user.is_active = is_active
         # Переназначение филиала: филиал должен принадлежать той же компании.
@@ -789,18 +837,51 @@ class AuthService:
     async def logout_all(self, user_id: UUID) -> None:
         await self.token_repo.revoke_all_for_user(user_id)
 
+    async def _sync_pin_with_password(
+        self,
+        user: User,
+        company_id: UUID,
+        password: str,
+        *,
+        role_slug: str | None = None,
+    ) -> None:
+        """STAFF-PIN-IS-PASSWORD-01: пароль сотрудника и есть его PIN.
+
+        Вызывается из update_company_user() при смене пароля. Если пароль не
+        похож на PIN (не 4–8 цифр), ничего не делаем: у сотрудника остаётся
+        прежний PIN, а новый пароль работает только для входа по телефону.
+        Моноблок пропускаем — у него терминального PIN нет вообще.
+        """
+        derived = _pin_from_password(password)
+        if derived is None:
+            return
+
+        effective_role = role_slug
+        if effective_role is None:
+            try:
+                effective_role = await self._manageable_company_role_slug(
+                    user.id, company_id
+                )
+            except ForbiddenError:
+                # Роль неоднозначна или системная — это не наш случай.
+                return
+        if effective_role == "monoblock":
+            return
+
+        # PIN-SHARED-01: совпадение PIN с коллегой больше не ошибка — владелец
+        # разрешил одинаковые коды (сотрудника на кассе выбирают на экране).
+        user.pin_hash = await hash_password(derived)
+        user.pin_failed_attempts = 0
+        user.pin_locked_until = None
+
     async def _assert_pin_available(
         self, company_id: UUID, pin: str, exclude_user_id: UUID | None = None
     ) -> None:
-        """PIN уникален внутри компании.
+        """Оставлено для совместимости: с PIN-SHARED-01 проверка не вызывается.
 
-        PIN хранятся солёным хешем, поэтому равенством по колонке это не
-        проверить — сверяем со хешем каждого коллеги. При масштабе штата
-        ресторана это нормально; на тысячи аккаунтов на компанию не рассчитано.
-
-        Общий хелпер для set_pin() и create_company_user(): создание обязано
-        проверять PIN ДО вставки, иначе занятый PIN оставлял бы уже созданного
-        сотрудника без PIN (P0 2.2 в MARJON_PLAN).
+        PIN уникальным внутри компании больше не считается, поэтому ни create,
+        ни update, ни set_pin эту функцию не зовут. Оставлена, чтобы внешние
+        вызовы/тесты не падали на отсутствующем атрибуте.
         """
         peers = await self.user_repo.get_company_users(company_id)
         for peer in peers:
@@ -825,11 +906,7 @@ class AuthService:
         if await self._manageable_company_role_slug(target_user_id, company_id) == "owner":
             raise ForbiddenError("Protected company identity cannot be changed")
 
-        # PIN uniqueness within the company. Pins are hashed (salted), so
-        # this can't be a plain equality lookup — verify against every
-        # peer's hash instead. Fine at restaurant-staff scale; this is not
-        # meant to scale to thousands of accounts per company.
-        await self._assert_pin_available(company_id, pin, exclude_user_id=target.id)
+        # PIN-SHARED-01: совпадение с коллегой допустимо (см. create_company_user).
 
         target.pin_hash = await hash_password(pin)
         target.pin_failed_attempts = 0
@@ -918,6 +995,10 @@ class AuthService:
                 User.is_active.is_(True),
                 User.pin_hash.is_not(None),
             )
+            # PIN-SHARED-01: одинаковые PIN разрешены, поэтому без user_id
+            # результат должен быть хотя бы детерминированным — иначе один и
+            # тот же код входил бы то одним, то другим сотрудником.
+            .order_by(User.created_at, User.id)
         )
         for candidate in result.scalars().all():
             if await verify_password(pin, candidate.pin_hash):

@@ -1599,6 +1599,7 @@ class AdminReportService:
         query = (
             select(
                 WorkShift.actual_start, WorkShift.actual_end, WorkShift.status,
+                WorkShift.check_in_ip, WorkShift.check_out_ip,
                 User.name.label("user_name"),
                 User.avatar_url.label("avatar_url"),
                 Employee.position,
@@ -1630,5 +1631,8 @@ class AdminReportService:
                 end=end.strftime("%H:%M") if end else "",
                 hours=hours,
                 status="Закрыта" if r.status == "completed" else r.status,
+                # ATT-IP-01: приход важнее ухода (открытая смена показывает, откуда
+                # пришли). Нет ни одного — пустая строка, без выдуманных адресов.
+                ip=r.check_in_ip or r.check_out_ip or "",
             ))
         return result

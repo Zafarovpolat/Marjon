@@ -1414,6 +1414,15 @@ body.dashboard-body:has(.staff-modal--cashier-full) .staff-modal.staff-modal--ca
     width: 220px;
 }
 
+/* ATT-IP-01: колонка «IP» — адрес не должен рваться по точкам при сжатии
+   таблицы (узкий экран/планшет). tabular-nums выравнивает цифры по разрядам,
+   чтобы адреса читались столбиком. */
+.staff-card--cashier .staff-table--attendance td.staff-ip-cell,
+.staff-card--cashier .staff-table--attendance th:last-child {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
 /* TITLE-UNIFICATION-01: Staff titles adopt the accepted Clients rhythm
    (600 + clamp(24px, 2.4vw, 28px)). Covers the legacy header AND the
    cashier product variant (all five role pages plus the staff journals

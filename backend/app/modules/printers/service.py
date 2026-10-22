@@ -64,6 +64,26 @@ def _is_printer_cooling_down(printer_id: UUID) -> bool:
     return True
 
 
+def _is_private_ip(ip: str | None) -> bool:
+    """RFC 1918: принтер в локальной сети — сервер в облаке не достучится."""
+    if not ip:
+        return False
+    try:
+        parts = ip.split(".")
+        if len(parts) != 4:
+            return False
+        a, b, c, d = (int(p) for p in parts)
+        if a == 10:
+            return True
+        if a == 172 and 16 <= b <= 31:
+            return True
+        if a == 192 and b == 168:
+            return True
+        return False
+    except Exception:
+        return False
+
+
 class PrinterService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -267,16 +287,12 @@ class PrinterService:
         return await self._get_order(company_id, order_id)
 
     # Auto-print: find printers by type and print
-    async def auto_print_receipt(self, company_id: UUID, branch_id: UUID, order_id: UUID) -> list[PrintJob]:
-        printers = await self.repo.get_by_type(company_id, branch_id, "receipt")
+    async def auto_print_receipt(self, company_id: UUID, order_id: UUID) -> list[PrintJob]:
+        printers = await self.repo.get_by_type(company_id, "receipt")
         if not printers:
-            # PRINT-DIAG-02: нет активного принтера нужного типа в филиале —
-            # раньше это был тихий no-op, и «чек не печатается» не оставлял
-            # в логах ни строчки. Частая причина: принтер выключен (is_active=0)
-            # или привязан к другому филиалу.
             logger.warning(
-                "auto_print_receipt: no active receipt printer for branch=%s (order=%s) — skipped",
-                branch_id, order_id,
+                "auto_print_receipt: no active receipt printer for company=%s (order=%s) — skipped",
+                company_id, order_id,
             )
             return []
         jobs = []
@@ -292,15 +308,12 @@ class PrinterService:
             jobs.append(job)
         return jobs
 
-    async def auto_print_kitchen(self, company_id: UUID, branch_id: UUID, order_id: UUID) -> list[PrintJob]:
-        printers = await self.repo.get_by_type(company_id, branch_id, "kitchen")
+    async def auto_print_kitchen(self, company_id: UUID, order_id: UUID) -> list[PrintJob]:
+        printers = await self.repo.get_by_type(company_id, "kitchen")
         if not printers:
-            # PRINT-DIAG-02: см. auto_print_receipt — тихий пропуск заменён
-            # предупреждением, иначе «чек повара не выходит» невозможно
-            # диагностировать по логам.
             logger.warning(
-                "auto_print_kitchen: no active kitchen printer for branch=%s (order=%s) — skipped",
-                branch_id, order_id,
+                "auto_print_kitchen: no active kitchen printer for company=%s (order=%s) — skipped",
+                company_id, order_id,
             )
             return []
         jobs = []
@@ -396,7 +409,7 @@ class PrinterService:
         # кулдаун живёт в памяти воркера, и при --workers 3 каждый воркер
         # прогревался заново (то быстро, то две секунды — «ведёт себя по-разному»).
         printed = False
-        if skip_server_print:
+        if skip_server_print or _is_private_ip(printer.ip_address):
             job.error = "Печать на терминале клиента"
         elif printer.connection_type == "network" and printer.ip_address:
             if _is_printer_cooling_down(printer.id):
@@ -420,13 +433,12 @@ class PrinterService:
         if not printed:
             job = await self.job_repo.save(job)
 
-        # Шаг 2. Не напечатали сами — отдаём задание терминалам филиала по WebSocket.
+        # Шаг 2. Не напечатали сами — отдаём задание терминалам по WebSocket.
         # Терминал печатает локально и закрывает задание через POST /printers/jobs/{id}/done.
         if not printed:
             try:
                 await printer_ws_manager.broadcast(
                     company_id,
-                    printer.branch_id,
                     {
                         "event": "print_job",
                         "job_id": str(job.id),

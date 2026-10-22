@@ -115,7 +115,7 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
       "ID",
       "Фото",
       "ФИО",
-      "Номер телефона",
+      "Логин",
       "Роль",
       "Права доступа",
       "Статус",
@@ -176,7 +176,7 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     expect(within(dialog).getByText("Добавить официанта")).toBeInTheDocument();
     expect(within(dialog).getByText("Загрузить фото")).toBeInTheDocument();
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
-    expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
+    expect(within(dialog).getByText("Логин")).toBeInTheDocument();
     expect(within(dialog).getByText("Пароль")).toBeInTheDocument();
     expect(within(dialog).getByText("Принтер")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Имя официанта")).toBeInTheDocument();
@@ -275,7 +275,6 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     });
     // PIN обязателен при создании (ba0c267 «PIN всем»): без него saveStaff
     // валидирует форму и POST не уходит.
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await screen.findByText("Waiter Two");
@@ -284,8 +283,6 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
       phone: "998901112233",
       role_slug: "waiter",
       role_name: "Waiter Two",
-      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
-      pin: "1234",
       // create всегда шлёт permissions (тумблеры + матрица); пустой — {}
       permissions: {},
       printer_id: null,
@@ -319,7 +316,6 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     fireEvent.change(screen.getByPlaceholderText("Имя официанта"), { target: { value: "Waiter Two" } });
     fireEvent.change(dialog.querySelector(".staff-phone-field input"), { target: { value: "+998901112233" } });
     fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Waiter123" } });
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     // Тумблеры владельца обязаны уйти словарём permissions: без них
     // десктопный must('can_manage_orders') никогда не пропускал отмену.
     const primaryBlock = dialog.querySelector(".cashier-permission-switches");
@@ -333,11 +329,9 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
       phone: "998901112233",
       role_slug: "waiter",
       role_name: "Waiter Two",
-      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
-      pin: "1234",
-      // Ключи camelCase: create собирает staffPermissionsPayload (тумблеры
-      // формы как есть), десктоп нормализует их через toSnake.
-      permissions: { canDeleteDishes: true, canManageOrders: true },
+      // Ключи snake_case: create и PATCH собирает один сборщик
+      // (staffPermissionsPayload), и именно их читают гейты десктопа.
+      permissions: { can_delete_dishes: true, can_manage_orders: true },
       printer_id: null,
       branch_id: null,
     });
@@ -417,7 +411,6 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Waiter123" } });
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     // Empty name binds to the name field (near the fold) + error toast.
     const alerts = await within(dialog).findAllByRole("alert");
@@ -448,7 +441,6 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
       target: { value: "+998901112233" },
     });
     fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Waiter123" } });
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     // FIX-02: duplicate-phone binds to the phone field (near the fold) AND
@@ -499,7 +491,6 @@ describe("waiter page visual contract (/users/waiter) — WAITER-01", () => {
       target: { value: "+998901112233" },
     });
     fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Waiter123" } });
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     // Списочный detail FastAPI не привязан к полю — показываем тостом.
@@ -601,7 +592,6 @@ describe("waiter field validation matrix (name/phone/password/printer IP)", () =
     }
     // PIN обязателен при создании (ba0c267): required-инпут блокирует submit
     // до заполнения 4 цифр.
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     // Филиал обязателен: без User.branch_id вход в Marjon Staff не работает.
     pickBranch(dialog);
     return dialog;
@@ -741,7 +731,6 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Waiter123" },
     });
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
 
@@ -754,7 +743,7 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     // Field-level error is bound to the phone label, right under the input.
     const fieldError = dialog.querySelector(".staff-phone-error");
     expect(fieldError).not.toBeNull();
-    expect(fieldError.closest("label").textContent).toContain("Номер телефона");
+    expect(fieldError.closest("label").textContent).toContain("Логин");
     expect(alertSpy).not.toHaveBeenCalled();
     // Drawer stays open with values preserved; retry with a free number works.
     expect(screen.queryByRole("dialog")).not.toBeNull();
@@ -793,7 +782,6 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Waiter123" },
     });
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     // Switch status to archived before submit.
     fireEvent.click(within(dialog).getByText("Статус").closest("button"));
     expect(within(dialog).getByText("Архив")).toBeInTheDocument();
@@ -832,7 +820,6 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Waiter123" },
     });
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await screen.findByText("Reload Waiter");
@@ -852,7 +839,6 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(screen.getByPlaceholderText("Имя официанта"), { target: { value: "No Phone" } });
     fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Waiter123" } });
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     const alerts = await within(dialog).findAllByRole("alert");
     expect(alerts).toHaveLength(1);
@@ -861,7 +847,7 @@ describe("waiter live-create fix (duplicate phone 409)", () => {
     );
     const fieldError = dialog.querySelector(".staff-phone-error");
     expect(fieldError).not.toBeNull();
-    expect(fieldError.closest("label").textContent).toContain("Номер телефона");
+    expect(fieldError.closest("label").textContent).toContain("Логин");
     expect(alertSpy).not.toHaveBeenCalled();
     expect(api.post).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).not.toBeNull();

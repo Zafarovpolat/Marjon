@@ -271,6 +271,9 @@ class AttendanceRow(BaseModel):
     end: str
     hours: str
     status: str
+    # ATT-IP-01: IP устройства, с которого отметили приход/уход. Пустая строка
+    # у исторических смен (до появления колонки) — фронтенд показывает «—».
+    ip: str = ""
 
 
 class ProductReportRow(BaseModel):

@@ -144,7 +144,7 @@ describe("cashier page visual contract (/users/cashier)", () => {
       "ID",
       "Фото",
       "ФИО",
-      "Номер телефона",
+      "Логин",
       "Роль",
       "Права доступа",
       "Статус",
@@ -342,7 +342,7 @@ describe("cashier page visual contract (/users/cashier)", () => {
     expect(within(dialog).getByText("Загрузить фото")).toBeInTheDocument();
     expect(dialog.querySelector('input[type="file"]')).not.toBeNull();
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
-    expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
+    expect(within(dialog).getByText("Логин")).toBeInTheDocument();
     expect(within(dialog).getByText("Пароль")).toBeInTheDocument();
     expect(within(dialog).getByText("Принтер")).toBeInTheDocument();
 
@@ -391,7 +391,7 @@ describe("cashier page visual contract (/users/cashier)", () => {
 
     expect(within(dialog).getByText("Загрузить фото")).toBeInTheDocument();
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
-    expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
+    expect(within(dialog).getByText("Логин")).toBeInTheDocument();
     expect(within(dialog).getByText("Новый пароль")).toBeInTheDocument();
     expect(within(dialog).getByText("Принтер")).toBeInTheDocument();
     expect(within(dialog).queryByText("Email")).toBeNull();
@@ -425,8 +425,6 @@ describe("cashier page visual contract (/users/cashier)", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Cashier123" },
     });
-    // PIN обязателен при создании (ba0c267): без него POST не уходит.
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     // Филиал резолвится автоматически при единственном филиале сети; здесь их
     // два (branchFixtures), поэтому branch_id = null — прежняя блокировка
     // «выберите филиал» снята вместе с полем.
@@ -440,8 +438,6 @@ describe("cashier page visual contract (/users/cashier)", () => {
       phone: "998901112233",
       role_slug: "cashier",
       role_name: "Cashier Two",
-      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
-      pin: "1234",
       printer_id: null,
       // Пустой словарь прав отправляется всегда: схема payload едина.
       permissions: {},
@@ -477,21 +473,18 @@ describe("cashier page visual contract (/users/cashier)", () => {
     fireEvent.change(screen.getByPlaceholderText("Имя кассира"), { target: { value: "Cashier Two" } });
     fireEvent.change(dialog.querySelector(".staff-phone-field input"), { target: { value: "+998901112233" } });
     fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Cashier123" } });
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Может закрыть счёт" }));
     pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     await screen.findByText("Cashier Two");
-    // Ключи тумблеров — camelCase формы (staffPermissionsPayload), бэкенд
-    // хранит словарь как есть; can_close_bill читает PaymentModal через can().
+    // Ключи тумблеров — snake_case (staffPermissionsPayload), бэкенд хранит
+    // словарь как есть; can_close_bill читает PaymentModal через can().
     expect(api.post).toHaveBeenCalledWith("/auth/users", {
       password: "Cashier123",
       phone: "998901112233",
       role_slug: "cashier",
       role_name: "Cashier Two",
-      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
-      pin: "1234",
-      permissions: { canCloseBill: true },
+      permissions: { can_close_bill: true },
       printer_id: null,
       branch_id: null,
     });
@@ -841,7 +834,7 @@ describe("cashier drawer ux: footer, animation, phone, permissions", () => {
     expect(within(dialog).queryByText("Номер телефона *")).toBeNull();
     expect(within(dialog).queryByText("Пароль *")).toBeNull();
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
-    expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
+    expect(within(dialog).getByText("Логин")).toBeInTheDocument();
     expect(within(dialog).getByText("Пароль")).toBeInTheDocument();
   });
 
@@ -889,7 +882,6 @@ describe("cashier drawer ux: footer, animation, phone, permissions", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Cashier123" },
     });
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
 
     // Empty name binds to the name field (near the fold) + error toast
@@ -926,7 +918,6 @@ describe("cashier drawer ux: footer, animation, phone, permissions", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Cashier123" },
     });
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
 
@@ -969,7 +960,6 @@ describe("cashier drawer ux: footer, animation, phone, permissions", () => {
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Cashier123" },
     });
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
 

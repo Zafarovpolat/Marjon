@@ -39,6 +39,7 @@ export default defineConfig({
           target: 'https://api.marjon.tech',
           changeOrigin: true,
           secure: true,
+          ws: true,
           headers: { Origin: 'https://marjon.tech' },
         },
         '/ws': {

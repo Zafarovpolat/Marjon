@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
 from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import (
-    effective_branch_filter,
     ensure_company_app_identity,
     require_company_admin,
     require_company_app_user,
@@ -69,9 +68,6 @@ async def list_printers(
     db: AsyncSession = Depends(get_db),
 ):
     printers = await PrinterService(db).list(user.company_id)
-    branch_scope = effective_branch_filter(user)
-    if branch_scope is not None:
-        printers = [pr for pr in printers if getattr(pr, "branch_id", None) == branch_scope]
     return printers
 
 
@@ -179,9 +175,9 @@ async def print_order_receipt_compat(
 ):
     svc = PrinterService(db)
     order = await svc.get_order_for_print(user.company_id, order_id)
-    jobs = await svc.auto_print_receipt(user.company_id, order.branch_id, order_id)
+    jobs = await svc.auto_print_receipt(user.company_id, order_id)
     if not jobs:
-        raise NotFoundError("Для этого филиала не настроен принтер чеков")
+        raise NotFoundError("Для этой компании не настроен принтер чеков")
     return jobs
 
 
@@ -193,9 +189,9 @@ async def print_order_kitchen_compat(
 ):
     svc = PrinterService(db)
     order = await svc.get_order_for_print(user.company_id, order_id)
-    jobs = await svc.auto_print_kitchen(user.company_id, order.branch_id, order_id)
+    jobs = await svc.auto_print_kitchen(user.company_id, order_id)
     if not jobs:
-        raise NotFoundError("Для этого филиала не настроен кухонный принтер")
+        raise NotFoundError("Для этой компании не настроен кухонный принтер")
     return jobs
 
 
@@ -239,16 +235,15 @@ async def mark_failed(
 
 # ── WebSocket (desktop terminal push) ─────────────────────────────────────────
 
-@router.websocket("/ws/{branch_id}")
+@router.websocket("/ws")
 async def printer_ws_endpoint(
     ws: WebSocket,
-    branch_id: UUID,
     token: str = Query(..., description="JWT access token"),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Desktop terminal connects here to receive print jobs in real time.
-    URL: ws://host/api/v1/printers/ws/{branch_id}?token=<jwt>
+    URL: ws://host/api/v1/printers/ws?token=<jwt>
     """
     try:
         from jose import JWTError
@@ -262,18 +257,15 @@ async def printer_ws_endpoint(
         await ensure_company_app_identity(
             user, db, auth_scope=payload.get("auth_scope", "app")
         )
-        await require_company_resource(
-            db, Branch, branch_id, user.company_id, detail="Branch not found"
-        )
     except Exception:
         await ws.close(code=4001, reason="Unauthorized")
         return
 
-    await printer_ws_manager.connect(ws, user.company_id, branch_id)
+    await printer_ws_manager.connect(ws, user.company_id)
     try:
         while True:
             msg = await ws.receive_text()
             if msg == "ping":
                 await ws.send_text("pong")
     except WebSocketDisconnect:
-        printer_ws_manager.disconnect(ws, user.company_id, branch_id)
+        printer_ws_manager.disconnect(ws, user.company_id)

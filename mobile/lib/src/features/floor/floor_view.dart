@@ -44,7 +44,7 @@ class FloorView extends StatelessWidget {
     final f = floor;
     final all = f.allTables;
     final shown = activeZone == 'all' ? all : all.where((t) => t['zoneId'] == activeZone).toList();
-    final busy = shown.where((t) => f.stateOf(t['number']) != TableState.free).length;
+    final busy = shown.where((t) => f.stateOf(t) != TableState.free).length;
     final zones = activeZone == 'all' ? f.halls : f.halls.where((z) => z['id'] == activeZone).toList();
     final boardOrders = board == null ? const <Json>[] : (board == 'no_table' ? f.noTableOrders : f.ordersOfType(board!));
 
@@ -180,8 +180,8 @@ class _TableCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final st = floor.stateOf(table['number']);
-    final o = floor.orderFor(table['number']);
+    final st = floor.stateOf(table);
+    final o = floor.orderFor(table);
     final (bg, border, pill) = switch (st) {
       TableState.free => (MC.card, MC.n300, Pill.free()),
       TableState.busy => (MC.card, MC.amber500.withValues(alpha: 0.55), Pill.busy()),

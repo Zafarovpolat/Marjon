@@ -19,18 +19,18 @@ logger = logging.getLogger(__name__)
 # короткие таймауты, ноль ретраев и предохранитель на 30 с.
 _PRINT_REDIS_DOWN_SECONDS = 30.0
 _redis_down_until: float = 0.0
-_publish_client = None
+_publish_client_instance = None
 
 
-def _publish_client():
+def _get_publish_client():
     """Один клиент на процесс: соединение переиспользуется между заданиями."""
-    global _publish_client
-    if _publish_client is None:
+    global _publish_client_instance
+    if _publish_client_instance is None:
         import redis.asyncio as aioredis
         from redis.asyncio.retry import Retry
         from redis.backoff import NoBackoff
 
-        _publish_client = aioredis.from_url(
+        _publish_client_instance = aioredis.from_url(
             settings.redis_url,
             decode_responses=True,
             socket_connect_timeout=0.25,
@@ -38,7 +38,7 @@ def _publish_client():
             retry=Retry(NoBackoff(), 0),
             retry_on_timeout=False,
         )
-    return _publish_client
+    return _publish_client_instance
 
 
 class PrinterWSManager:
@@ -68,8 +68,8 @@ class PrinterWSManager:
     # ── helpers ───────────────────────────────────────────────────────────────
 
     @staticmethod
-    def _key(company_id: UUID, branch_id: UUID) -> str:
-        return f"{company_id}:{branch_id}"
+    def _key(company_id: UUID) -> str:
+        return str(company_id)
 
     @staticmethod
     def _channel(key: str) -> str:
@@ -77,9 +77,9 @@ class PrinterWSManager:
 
     # ── connection lifecycle ──────────────────────────────────────────────────
 
-    async def connect(self, ws: WebSocket, company_id: UUID, branch_id: UUID) -> None:
+    async def connect(self, ws: WebSocket, company_id: UUID) -> None:
         await ws.accept()
-        key = self._key(company_id, branch_id)
+        key = self._key(company_id)
         self._connections.setdefault(key, set()).add(ws)
         task = asyncio.create_task(
             self._redis_forward(ws, self._channel(key)),
@@ -87,12 +87,12 @@ class PrinterWSManager:
         )
         self._listeners[ws] = task
         logger.info(
-            "Printer WS connected: company=%s branch=%s local_conns=%d",
-            company_id, branch_id, len(self._connections[key]),
+            "Printer WS connected: company=%s local_conns=%d",
+            company_id, len(self._connections[key]),
         )
 
-    def disconnect(self, ws: WebSocket, company_id: UUID, branch_id: UUID) -> None:
-        key = self._key(company_id, branch_id)
+    def disconnect(self, ws: WebSocket, company_id: UUID) -> None:
+        key = self._key(company_id)
         conns = self._connections.get(key)
         if conns:
             conns.discard(ws)
@@ -101,26 +101,24 @@ class PrinterWSManager:
         task = self._listeners.pop(ws, None)
         if task:
             task.cancel()
-        logger.info("Printer WS disconnected: company=%s branch=%s", company_id, branch_id)
+        logger.info("Printer WS disconnected: company=%s", company_id)
 
     # ── broadcast ─────────────────────────────────────────────────────────────
 
-    async def broadcast(self, company_id: UUID, branch_id: UUID, message: dict) -> None:
-        """Send a print job notification to every terminal of this branch,
+    async def broadcast(self, company_id: UUID, message: dict) -> None:
+        """Send a print job notification to every terminal of this company,
         no matter which worker holds its WebSocket."""
         global _redis_down_until
 
-        key = self._key(company_id, branch_id)
+        key = self._key(company_id)
         payload = json.dumps(message, ensure_ascii=False)
 
         if settings.redis_url and time.monotonic() >= _redis_down_until:
             try:
-                receivers = await _publish_client().publish(self._channel(key), payload)
-                # receivers == 0 → ни один воркер не подписан (терминал офлайн):
-                # задание останется pending и его подберёт /jobs/pending.
+                receivers = await _get_publish_client().publish(self._channel(key), payload)
                 logger.info(
-                    "Printer WS publish: branch=%s receivers=%s job=%s",
-                    branch_id, receivers, message.get("job_id"),
+                    "Printer WS publish: company=%s receivers=%s job=%s",
+                    company_id, receivers, message.get("job_id"),
                 )
                 return
             except Exception as exc:  # noqa: BLE001 — доставка не должна ронять печать

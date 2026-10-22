@@ -74,9 +74,9 @@ export default function ReportsPanel({ branch, user, onClose }) {
   const [receiptPrinter, setReceiptPrinter] = useState(null)
   useEffect(() => {
     printersApi.list()
-      .then((list) => setReceiptPrinter(pickReceiptPrinter(list, { printerId: user?.printer_id, branchId: branch?.id })))
+      .then((list) => setReceiptPrinter(pickReceiptPrinter(list, { printerId: user?.printer_id })))
       .catch(() => setReceiptPrinter(null))
-  }, [branch?.id, user?.printer_id])
+  }, [user?.printer_id])
 
   const run = useCallback((which) => {
     const active = which || tab

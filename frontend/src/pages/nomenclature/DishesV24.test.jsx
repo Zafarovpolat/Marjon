@@ -68,15 +68,15 @@ describe("DISHES V24 exact column order", () => {
     mockApis([backendProduct()]);
   });
 
-  it("orders SORT first, PHOTO second, ACTIONS last without AUTO (9 columns)", async () => {
+  it("orders SORT first, PHOTO second, ACTIONS last without AUTO (10 columns)", async () => {
     expect(dishColumnOptions.map((c) => c.key)).toEqual(
-      ["sort", "photo", "name", "unit", "cost", "price", "printer", "recipe", "actions"],
+      ["sort", "photo", "name", "unit", "category", "cost", "price", "printer", "recipe", "actions"],
     );
     const { container } = render(<NomenclaturePage />);
     await screen.findByRole("table", { name: "Блюда" });
     const headers = [...container.querySelectorAll(".dish-grid-table thead th")].map((th) => th.textContent);
     expect(headers).toEqual(
-      ["Сорт", "Фото", "Название", "Ед. изм", "Себестоимость", "Цена", "Принтер", "Рецепты", "Действия"],
+      ["Сорт", "Фото", "Название", "Ед. изм", "Категория", "Себестоимость", "Цена", "Принтер", "Рецепты", "Действия"],
     );
   });
 
@@ -88,7 +88,7 @@ describe("DISHES V24 exact column order", () => {
     expect(css).toMatch(/table-layout:\s*fixed/);
     expect(css).not.toContain("!important");
     // Одна fixed-геометрия: th/td используют те же dish-col-* ширины.
-    for (const col of ["sort", "photo", "name", "unit", "cost", "price", "printer", "recipe", "auto", "actions"]) {
+    for (const col of ["sort", "photo", "name", "unit", "category", "cost", "price", "printer", "recipe", "auto", "actions"]) {
       expect(css).toContain(`.dish-col-${col}`);
     }
   });
@@ -274,9 +274,9 @@ describe("DISHES V27 exact center alignment, no ellipsis", () => {
     readFileSync(`${process.cwd()}/src/styles/owner/dishes.css`, "utf8"),
   );
 
-  it("keeps the exact 9-column order", () => {
+  it("keeps the exact 10-column order", () => {
     expect(dishColumnOptions.map((c) => c.key)).toEqual(
-      ["sort", "photo", "name", "unit", "cost", "price", "printer", "recipe", "actions"],
+      ["sort", "photo", "name", "unit", "category", "cost", "price", "printer", "recipe", "actions"],
     );
   });
 

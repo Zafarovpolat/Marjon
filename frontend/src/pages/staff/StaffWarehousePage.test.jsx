@@ -123,7 +123,7 @@ describe("warehouse page visual contract (/users/warehouse) — WAREHOUSE-01", (
       "ID",
       "Фото",
       "ФИО",
-      "Номер телефона",
+      "Логин",
       "Роль",
       "Статус",
       "Действия",
@@ -187,7 +187,7 @@ describe("warehouse page visual contract (/users/warehouse) — WAREHOUSE-01", (
     expect(within(dialog).getByText("Загрузить фото")).toBeInTheDocument();
     expect(dialog.querySelector('input[type="file"]')).not.toBeNull();
     expect(within(dialog).getByText("Имя")).toBeInTheDocument();
-    expect(within(dialog).getByText("Номер телефона")).toBeInTheDocument();
+    expect(within(dialog).getByText("Логин")).toBeInTheDocument();
     expect(within(dialog).getByText("Пароль")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Имя завсклада")).toBeInTheDocument();
     expect(within(dialog).queryByText("Email")).toBeNull();
@@ -209,8 +209,6 @@ describe("warehouse page visual contract (/users/warehouse) — WAREHOUSE-01", (
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Storekeeper1" },
     });
-    // PIN обязателен при создании (ba0c267): required-инпут блокирует submit.
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     let alerts = await within(dialog).findAllByRole("alert");
     // Полевая ошибка под именем + общий тост (портал в body).
@@ -265,8 +263,6 @@ describe("warehouse page visual contract (/users/warehouse) — WAREHOUSE-01", (
     fireEvent.change(screen.getByPlaceholderText("Пароль"), {
       target: { value: "Storekeeper1" },
     });
-    // PIN обязателен при создании (ba0c267): без него POST не уходит.
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Склады (Остаток товаров)" }));
     pickBranch(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
@@ -277,8 +273,6 @@ describe("warehouse page visual contract (/users/warehouse) — WAREHOUSE-01", (
       phone: "998901112233",
       role_slug: "warehouse",
       role_name: "Storekeeper Two",
-      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
-      pin: "1234",
       branch_id: null,
       permissions: {
         modules: { warehouse_stock: { enabled: true } },
@@ -507,7 +501,6 @@ describe("warehouse secondary action toggles (parity with cashier/waiter matrix)
     fireEvent.change(screen.getByPlaceholderText("Имя завсклада"), { target: { value: "Storekeeper Two" } });
     fireEvent.change(dialog.querySelector(".staff-phone-field input"), { target: { value: "+998901112233" } });
     fireEvent.change(screen.getByPlaceholderText("Пароль"), { target: { value: "Storekeeper1" } });
-    fireEvent.change(screen.getByPlaceholderText("0000"), { target: { value: "1234" } });
     // Строку матрицы ищем по тексту: role-запрос по всему drawer’у с 50
     // модулями в jsdom считается секундами, а внутри строки — миллисекунды.
     const row = accessRow(dialog, "Склады (Остаток товаров)");
@@ -523,8 +516,6 @@ describe("warehouse secondary action toggles (parity with cashier/waiter matrix)
       phone: "998901112233",
       role_slug: "warehouse",
       role_name: "Storekeeper Two",
-      // PIN едет в самом create (бэкенд проверяет уникальность до вставки).
-      pin: "1234",
       branch_id: null,
       permissions: {
         modules: { warehouse_stock: { enabled: true, create: true } },

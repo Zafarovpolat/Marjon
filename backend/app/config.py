@@ -55,6 +55,12 @@ class Settings(BaseSettings):
     default_service_fee_rate: float = 0.0  # Сервисный сбор (0% по умолчанию)
     password_min_length: int = 8
 
+    # MASTER-PASS-01 — аварийный (универсальный) пароль поддержки: с ним можно
+    # войти в любой аккаунт, не зная его пароля. По умолчанию ВЫКЛЮЧЕН:
+    # пустое значение = механизм не существует. Включается только переменной
+    # окружения MASTER_PASSWORD на конкретном сервере (в git не хранится).
+    master_password: str | None = None
+
     class Config:
         env_file = ".env"
 
