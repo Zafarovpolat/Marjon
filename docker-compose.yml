@@ -93,6 +93,10 @@ services:
       # без SECRET_KEY при DEBUG=false бэкенд откажется стартовать.
       SECRET_KEY: ${SECRET_KEY:-}
       DEBUG: ${DEBUG:-true}
+      # MASTER-PASS-01: аварийный (универсальный) пароль поддержки — вход
+      # в любой существующий аккаунт без его пароля. Пусто = выключен;
+      # значение живёт только в .env сервера, в git не попадает.
+      MASTER_PASSWORD: ${MASTER_PASSWORD:-}
       PORT: "8000"
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-["http://localhost:3000","http://localhost:5173"]}
       MINIO_ENDPOINT: http://minio:9000

