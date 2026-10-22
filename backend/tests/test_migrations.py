@@ -31,7 +31,7 @@ VERSIONS_DIR = BACKEND_ROOT / "migrations" / "versions"
 # 10 неудач, коммит f16e13d) приехал мерджем и стал новой головой, но константа
 # осталась на `mg02merge` — полный прогон тестов был красным на одном этом
 # ассерте. Граф линейный: pwlock01 → mg02merge → (mg01merge, tsdef01).
-EXPECTED_HEAD = "pwlock01"
+EXPECTED_HEAD = "un03sort01"
 # Считается по статическому списку _COLUMNS в файлах миграций *bi02* (см.
 # _bi02_nullable_columns), а не по текущей схеме — новые миграции его не меняют.
 EXPECTED_NULLABLE_COLUMN_COUNT = 262
@@ -174,8 +174,9 @@ def test_revision_graph_is_complete_and_has_one_head() -> None:
     # att01status (attendance_logs: status/approved_by/approved_at).
     # mg01merge сводит обе линии (att01status + emp01printer) в один head.
     # MERGE-HEAD-01: mg02merge сводит (mg01merge, tsdef01), после него идёт
-    # pwlock01 (блокировка входа после 10 неудач) — итого 90 ревизий.
-    assert len(revisions) == 90
+    # pwlock01 (блокировка входа после 10 неудач), затем un03sort01 (порядок
+    # единиц измерения по умолчанию: sort 1..5 вместо нулей) — итого 91 ревизия.
+    assert len(revisions) == 91
 
     nullable_columns = _bi02_nullable_columns()
     assert len(nullable_columns) == EXPECTED_NULLABLE_COLUMN_COUNT

@@ -6,18 +6,26 @@ from app.modules.auth.security import hash_password
 from app.modules.companies.models import Company, Branch
 from app.modules.companies.repository import CompanyRepository, BranchRepository
 from app.modules.companies.schemas import CompanyCreate, CompanyUpdate, BranchCreate, BranchUpdate
+from app.modules.nomenclature.default_units import seed_default_units
 from app.shared.exceptions import NotFoundError, ConflictError, ValidationError
 from app.shared.phone import normalize_branch_login
 
 
 class CompanyService:
     def __init__(self, db: AsyncSession):
+        self.db = db
         self.repo = CompanyRepository(db)
 
     async def create(self, data: CompanyCreate) -> Company:
         if await self.repo.get_by_slug(data.slug):
             raise ConflictError(f"Slug '{data.slug}' is already taken")
-        return await self.repo.save(Company(**data.model_dump()))
+        company = await self.repo.save(Company(**data.model_dump()))
+        # Та же стартовая пятёрка единиц, что и при самостоятельной
+        # регистрации: компания, созданная из HQ-админки, не должна
+        # оставаться с пустым справочником единиц.
+        await seed_default_units(self.db, company.id)
+        await self.db.commit()
+        return company
 
     async def get(self, company_id: UUID) -> Company:
         company = await self.repo.get_by_id(company_id)

@@ -23,6 +23,7 @@ from app.modules.auth.security import (
 )
 from app.modules.audit.service import AuditService
 from app.modules.companies.models import Branch, Company
+from app.modules.nomenclature.default_units import seed_default_units
 from app.modules.rbac.models import Role, UserRole
 from app.modules.rbac.constants import COMPANY_ROLE_SLUGS
 from app.modules.rbac.permissions import reconcile_frozen_owner_permissions, sync_role_permissions
@@ -111,6 +112,12 @@ class AuthService:
         # the sole branch automatically). Multi-branch companies stay valid.
         self.db.add(Branch(company_id=company.id, name="Основной филиал"))
         await self.db.flush()
+
+        # Справочник единиц измерения тоже стартует непустым: Кг/Пр/Шт/Гр/Лт
+        # с порядком 1..5 (см. nomenclature/default_units.py). Иначе владелец
+        # видел пустой список и заводил единицы руками, а у всех строк был
+        # sort=0 — колонка «Порядок» в настройках показывала нули.
+        await seed_default_units(self.db, company.id)
 
         user = User(
             company_id=company.id,
