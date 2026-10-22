@@ -118,7 +118,10 @@ describe("APP nomenclature product contract", () => {
     });
   });
 
-  it("rejects malformed money and sort text instead of partially coercing it", async () => {
+  // MONEY-DIGITS-01: буквы в сумму больше не попадают — поле фильтрует ввод
+  // до цифр, поэтому «12abc34» физически становится «1 234». Мусорный «Сорт»
+  // по-прежнему блокирует сохранение: валидация формы не ослаблена.
+  it("keeps letters out of money fields while sort text still blocks submit", async () => {
     render(<NomenclaturePage />);
     await waitFor(() => expect(api.get).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: /Добавить/ }));
@@ -126,15 +129,20 @@ describe("APP nomenclature product contract", () => {
     fireEvent.change(within(dialog).getByLabelText("Название"), { target: { value: "Invalid draft" } });
     fireEvent.change(within(dialog).getByLabelText("Сорт"), { target: { value: "1e2" } });
     fireEvent.change(within(dialog).getByLabelText("Цена"), { target: { value: "12abc34" } });
+    expect(within(dialog).getByLabelText("Цена")).toHaveValue("1 234");
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
     expect(api.post).not.toHaveBeenCalled();
     expect(await screen.findByRole("alert")).toBeInTheDocument();
 
+    api.post.mockResolvedValue({ data: { id: "created-1", name: "Invalid draft" } });
     fireEvent.change(within(dialog).getByLabelText("Сорт"), { target: { value: "2" } });
     fireEvent.change(within(dialog).getByLabelText("Цена"), { target: { value: "100" } });
     fireEvent.change(within(dialog).getByLabelText("Себестоимость"), { target: { value: "12abc34" } });
+    expect(within(dialog).getByLabelText("Себестоимость")).toHaveValue("1 234");
     fireEvent.click(within(dialog).getByRole("button", { name: "Добавить" }));
-    expect(api.post).not.toHaveBeenCalled();
+    // Уходит ровно то, что видно в поле: 100 и 1 234, без «частичного» текста.
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    expect(api.post.mock.calls[0][1]).toMatchObject({ price: 100, cost_price: 1234 });
   });
 
   it("maps only backend-confirmed response values", () => {

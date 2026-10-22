@@ -3824,6 +3824,26 @@ body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-
   text-align: center;
 }
 
+/* V28 — категория блюда: гибкая колонка, контент по центру заголовка,
+   длинные названия переносятся (как и Название), без троеточий. */
+body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-category {
+  width: auto;
+  text-align: center;
+}
+
+.dish-catalog-page .dish-grid-table .dish-category-text {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+  color: var(--neutral-900);
+}
+
+.dish-catalog-page .dish-grid-table .dish-category-empty {
+  color: #94a3b8;
+  font-weight: 800;
+}
+
 /* V27 — деньги тоже строго по центру под заголовком (было right).
    tabular-nums сохраняют ровные цифры. */
 body.dashboard-body .dish-catalog-page.owner-report-view .dish-grid-table .dish-col-cost,

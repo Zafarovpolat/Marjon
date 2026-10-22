@@ -10,6 +10,8 @@ export const dishColumnOptions = [
   { key: "photo", label: "Фото", width: 72 },
   { key: "name", label: "Название", width: 190 },
   { key: "unit", label: "Ед. изм", width: 80 },
+  // V28 — категория блюда в таблице (реальный category_name из API).
+  { key: "category", label: "Категория", width: 140 },
   { key: "cost", label: "Себестоимость", width: 130 },
   { key: "price", label: "Цена", width: 130 },
   { key: "printer", label: "Принтер", width: 170 },

@@ -1,5 +1,5 @@
 // Таблица каталога блюд OWNER с учётом видимых колонок.
-// Порядок: СОРТ→ФОТО→НАЗВАНИЕ→ЕД.ИЗМ→СЕБЕСТ→ЦЕНА→ПРИНТЕР→
+// Порядок: СОРТ→ФОТО→НАЗВАНИЕ→ЕД.ИЗМ→КАТЕГОРИЯ→СЕБЕСТ→ЦЕНА→ПРИНТЕР→
 // РЕЦЕПТЫ→ДЕЙСТВИЯ. Принтер — две строки (имя + IP из
 // GET /printers по printerId, без UUID и без однострочного склеивания).
 // Флаг is_auto остаётся в данных, но не отображается в таблице.
@@ -211,6 +211,7 @@ export default function DishesTable({
             {isColumnVisible("photo") ? <th className="dish-col-photo">Фото</th> : null}
             {isColumnVisible("name") ? <th className="dish-col-name">Название</th> : null}
             {isColumnVisible("unit") ? <th className="dish-col-unit">Ед. изм</th> : null}
+            {isColumnVisible("category") ? <th className="dish-col-category">Категория</th> : null}
             {isColumnVisible("cost") ? <th className="dish-col-cost">Себестоимость</th> : null}
             {isColumnVisible("price") ? <th className="dish-col-price">Цена</th> : null}
             {isColumnVisible("printer") ? <th className="dish-col-printer">Принтер</th> : null}
@@ -232,6 +233,13 @@ export default function DishesTable({
               ) : null}
               {isColumnVisible("name") ? <td className="dish-col-name"><span className="dish-name-text" title={row.name}>{row.name}</span></td> : null}
               {isColumnVisible("unit") ? <td className="dish-col-unit">{row.unit}</td> : null}
+              {isColumnVisible("category") ? (
+                <td className="dish-col-category">
+                  {String(row.category || "").trim()
+                    ? <span className="dish-category-text" title={row.category}>{row.category}</span>
+                    : <span className="dish-category-empty">-</span>}
+                </td>
+              ) : null}
               {isColumnVisible("cost") ? <td className="dish-col-cost dish-money-cell">{displayDishMoney(row.costTotal ?? row.cost)}</td> : null}
               {isColumnVisible("price") ? <td className="dish-col-price dish-money-cell"><span className="dish-price-text">{displayDishMoney(row.price)}</span></td> : null}
               {isColumnVisible("printer") ? <td className="dish-col-printer dish-printer-cell"><PrinterCell row={row} printers={printerOptions} /></td> : null}
