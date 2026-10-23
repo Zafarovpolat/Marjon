@@ -502,19 +502,15 @@ class PrinterService:
 
     @staticmethod
     def _zone(tz_name: str | None) -> ZoneInfo:
-        """Timezone for printed timestamps.
+        """Company timezone for printed timestamps.
 
-        ``Company.timezone`` defaults to "UTC" in the model, so a tenant that
-        never opened the setting stores "UTC" — and every receipt printed UTC,
-        five hours behind the till. "UTC" is therefore read as "not
-        configured" and falls back to the project default (Asia/Tashkent), the
-        same zone the web client hardcodes for report ranges.
+        TZ-01 (migration tz01 + the model default) backfills every company
+        still on the old "UTC" default to Asia/Tashkent, so a stored "UTC"
+        now means the company really is on UTC and must not be overridden.
+        The fallback here only covers a missing or unknown zone name.
         """
-        name = (tz_name or "").strip()
-        if not name or name.upper() in {"UTC", "ETC/UTC", "GMT"}:
-            name = DEFAULT_COMPANY_TZ
         try:
-            return ZoneInfo(name)
+            return ZoneInfo((tz_name or "").strip() or DEFAULT_COMPANY_TZ)
         except (ZoneInfoNotFoundError, KeyError, ValueError):
             return ZoneInfo(DEFAULT_COMPANY_TZ)
 
