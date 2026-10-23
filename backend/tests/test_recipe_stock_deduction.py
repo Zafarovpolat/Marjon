@@ -12,7 +12,9 @@ from uuid import UUID, uuid4
 import pytest
 from sqlalchemy import select
 
-from app.modules.inventory.models import Ingredient, StockItem, StockMovement, Warehouse
+from app.modules.inventory.models import (
+    Ingredient, Product, SetItem, StockItem, StockMovement, Warehouse,
+)
 from app.modules.inventory.service import StockService
 from app.modules.pos.models import Order, OrderItem
 from app.shared.exceptions import NotFoundError
@@ -47,7 +49,7 @@ async def _attach_recipe(client, headers, product_id, ingredient_id, quantity):
 
 
 async def _order_with_items(db_sessions, *, company_id, branch_id, waiter_id,
-                            product_id, portions, status="completed"):
+                            product_id, portions, status="completed", name="Лаваш"):
     oid = uuid4()
     async with db_sessions() as db:
         db.add(Order(
@@ -57,7 +59,7 @@ async def _order_with_items(db_sessions, *, company_id, branch_id, waiter_id,
             subtotal=Decimal("0"), total_amount=Decimal("0"),
         ))
         db.add(OrderItem(
-            order_id=oid, product_id=product_id, name="Лаваш",
+            order_id=oid, product_id=product_id, name=name,
             price=Decimal("40000"), quantity=Decimal(str(portions)),
             total=Decimal("0"), status="pending",
         ))
@@ -222,3 +224,84 @@ async def test_movement_sets_deficit_threshold_without_migration(client, db_engi
             )
         ).scalar_one()
         assert row.min_quantity == Decimal("2")
+
+
+async def _set_product(db_sessions, *, company_id, category_id, name="Комбо", components):
+    """Сет (is_set) и его состав: components = [(product_id, порций), ...]."""
+    set_id = uuid4()
+    async with db_sessions() as db:
+        db.add(Product(
+            id=set_id, company_id=company_id, category_id=category_id,
+            name=name, price=Decimal("100"), cost_price=Decimal("40"), is_set=True,
+        ))
+        await db.flush()
+        for component_id, qty in components:
+            db.add(SetItem(
+                company_id=company_id, set_product_id=set_id,
+                product_id=component_id, quantity=Decimal(str(qty)), price=Decimal("0"),
+            ))
+        await db.commit()
+    return set_id
+
+
+@pytest.mark.asyncio
+async def test_set_sale_deducts_component_ingredients(client, db_engine):
+    """Сет не имеет своей техкарты: продажа комбо списывает сырьё компонентов."""
+    ctx = await _setup_company(client, db_engine, slug="deduct-set", email="deduct-set@example.com")
+    ing = await _ingredient(client, ctx["headers"])
+    await _warehouse(ctx["sessions"], ctx["company_id"])
+    # Лаваш: 0.2 кг помидора за порцию.
+    await _attach_recipe(client, ctx["headers"], str(ctx["product_id"]), ing["id"], 0.2)
+    # Комбо = 2 лаваша → 0.4 кг за один проданный сет.
+    set_id = await _set_product(
+        ctx["sessions"], company_id=ctx["company_id"],
+        category_id=ctx["category_id"], components=[(ctx["product_id"], 2)],
+    )
+    oid = await _order_with_items(
+        ctx["sessions"], company_id=ctx["company_id"], branch_id=ctx["branch_id"],
+        waiter_id=ctx["owner_id"], product_id=set_id, portions=1, name="Комбо",
+    )
+
+    async with ctx["sessions"]() as db:
+        moved = await StockService(db).deduct_for_order(ctx["company_id"], oid)
+        await db.commit()
+    assert moved == 1
+    rows = await _movements(ctx["sessions"], ctx["company_id"], oid)
+    assert [row.quantity for row in rows] == [Decimal("0.4")]
+    # В примечании — проданное блюдо, по нему отчёт расхода узнаёт сет.
+    assert rows[0].note == "dish sale: Комбо"
+
+
+@pytest.mark.asyncio
+async def test_item_added_after_payment_is_deducted(client, db_engine):
+    """Дозаказ: дописывается только разница, повтор — no-op."""
+    ctx = await _setup_company(client, db_engine, slug="deduct-add", email="deduct-add@example.com")
+    ing = await _ingredient(client, ctx["headers"])
+    await _warehouse(ctx["sessions"], ctx["company_id"])
+    await _attach_recipe(client, ctx["headers"], str(ctx["product_id"]), ing["id"], 0.2)
+    oid = await _order_with_items(
+        ctx["sessions"], company_id=ctx["company_id"], branch_id=ctx["branch_id"],
+        waiter_id=ctx["owner_id"], product_id=ctx["product_id"], portions=1,
+    )
+    async with ctx["sessions"]() as db:
+        assert await StockService(db).deduct_for_order(ctx["company_id"], oid) == 1
+        await db.commit()
+
+    # После оплаты гость дозаказал ещё порцию.
+    async with ctx["sessions"]() as db:
+        db.add(OrderItem(
+            order_id=oid, product_id=ctx["product_id"], name="Лаваш",
+            price=Decimal("40000"), quantity=Decimal("1"),
+            total=Decimal("0"), status="pending",
+        ))
+        await db.commit()
+    async with ctx["sessions"]() as db:
+        assert await StockService(db).deduct_for_order(ctx["company_id"], oid) == 1
+        await db.commit()
+
+    rows = await _movements(ctx["sessions"], ctx["company_id"], oid)
+    assert sorted(row.quantity for row in rows) == [Decimal("0.2"), Decimal("0.2")]
+    # Третий вызов ничего не добавляет.
+    async with ctx["sessions"]() as db:
+        assert await StockService(db).deduct_for_order(ctx["company_id"], oid) == 0
+        await db.commit()

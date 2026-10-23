@@ -1095,13 +1095,17 @@ class StockService:
 
         order = (
             await self.db.execute(
-                select(Order)
-                .options(selectinload(Order.items))
-                .where(Order.id == order_id, Order.company_id == company_id)
+                select(Order).where(Order.id == order_id, Order.company_id == company_id)
             )
         ).scalar_one_or_none()
         if order is None:
             raise NotFoundError("Order not found")
+
+        # Позиции читаем отдельным запросом, а не через order.items: ленивая
+        # коллекция могла быть загружена до дозаказа и вернула бы старый состав.
+        order_items = (await self.db.execute(
+            select(OrderItem).where(OrderItem.order_id == order_id)
+        )).scalars().all()
 
         warehouses = await self.warehouse_repo.get_all(company_id)
         if not warehouses:
@@ -1116,7 +1120,7 @@ class StockService:
         # Состав заказа по строкам техкарт. Сет раскрывается в компоненты
         # (set_items), поэтому комбо списывает сырьё своих блюд, а не ничего.
         required: dict[tuple, list] = {}
-        for item in order.items or []:
+        for item in order_items:
             if getattr(item, "status", None) == "cancelled":
                 continue
             if not item.product_id or not item.quantity:
