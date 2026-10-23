@@ -29,6 +29,10 @@ from app.shared.storage import storage
 
 logger = logging.getLogger(__name__)
 
+# Компания без явно заданного пояса печатает по Ташкенту — тот же дефолт, что
+# в pos/service.py для «операционного дня».
+DEFAULT_COMPANY_TZ = "Asia/Tashkent"
+
 
 # ── PRINT-LAT-01: попытка прямой печати с сервера ────────────────────────────
 # Запрос печати синхронно ждёт TCP-соединения с принтером. 5 с (старое значение)
@@ -195,7 +199,12 @@ class PrinterService:
         """Summary receipt (History/Reports): the client builds the lines."""
         printer = await self.get(company_id, printer_id)
         fmt = EscPosFormatter(printer.paper_width, encoding=self._printer_encoding(printer))
-        raw = fmt.format_summary(title, lines, footer)
+        tz_name = (
+            await self.db.execute(select(Company.timezone).where(Company.id == company_id))
+        ).scalar_one_or_none()
+        raw = fmt.format_summary(
+            title, lines, footer, printed_at=self._local_time(datetime.now(timezone.utc), self._zone(tz_name))
+        )
         return await self._enqueue_and_send(
             company_id, printer, "summary", None, raw, copies, skip_server_print=local_print
         )
@@ -491,6 +500,36 @@ class PrinterService:
         ).scalar_one_or_none()
         return waiter.name if waiter else None
 
+    @staticmethod
+    def _zone(tz_name: str | None) -> ZoneInfo:
+        """Timezone for printed timestamps.
+
+        ``Company.timezone`` defaults to "UTC" in the model, so a tenant that
+        never opened the setting stores "UTC" — and every receipt printed UTC,
+        five hours behind the till. "UTC" is therefore read as "not
+        configured" and falls back to the project default (Asia/Tashkent), the
+        same zone the web client hardcodes for report ranges.
+        """
+        name = (tz_name or "").strip()
+        if not name or name.upper() in {"UTC", "ETC/UTC", "GMT"}:
+            name = DEFAULT_COMPANY_TZ
+        try:
+            return ZoneInfo(name)
+        except (ZoneInfoNotFoundError, KeyError, ValueError):
+            return ZoneInfo(DEFAULT_COMPANY_TZ)
+
+    @staticmethod
+    def _local_time(value: datetime, tz: ZoneInfo) -> datetime:
+        """UTC (or naive-as-UTC) timestamp → company-local wall clock.
+
+        Naive values come back naive from Postgres when the column has no
+        timezone; they are stored as UTC, so tagging them as UTC before the
+        conversion is the correct reading, not a guess.
+        """
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(tz)
+
     async def _build_receipt_data(self, company_id: UUID, order: Order) -> ReceiptData:
         # The product contract is one-payment-only (PaymentService.process
         # rejects a second completed payment and requires amount == order
@@ -538,15 +577,9 @@ class PrinterService:
         # timestamp every time). Converted from UTC to the company's own
         # timezone, the same convention pos/service.py uses for its own
         # "operating day" calculations.
-        tz_name = (company.timezone if company and company.timezone else None) or "Asia/Tashkent"
-        try:
-            tz = ZoneInfo(tz_name)
-        except (ZoneInfoNotFoundError, KeyError):
-            tz = ZoneInfo("Asia/Tashkent")
-        created_at = order.created_at
-        if created_at.tzinfo is None:
-            created_at = created_at.replace(tzinfo=timezone.utc)
-        order_local_time = created_at.astimezone(tz)
+        order_local_time = self._local_time(
+            order.created_at, self._zone(company.timezone if company else None)
+        )
 
         # База сбора — та же, что в пересчёте заказа: активные позиции
         # «в зале» (без отменённых и «с собой»). Ставка выводится из
@@ -593,6 +626,15 @@ class PrinterService:
             if item.status not in ("cancelled", "served")
         ]
         waiter_name = await self._resolve_waiter_name(company_id, order)
+        # Kitchen ticket date/time: the order's creation moment in the
+        # company's timezone — the same value the preview shows
+        # (ReceiptPreview.jsx: infoRow("date", "Время:",
+        # formatKitchenDate(order.created_at))). Leaving the field at its
+        # datetime.now() default printed the container clock, i.e. UTC in
+        # Docker, so the ticket was five hours behind the preview.
+        company_tz_name = (
+            await self.db.execute(select(Company.timezone).where(Company.id == company_id))
+        ).scalar_one_or_none()
         return KitchenTicketData(
             order_number=order.order_number,
             order_type=order.order_type,
@@ -601,4 +643,5 @@ class PrinterService:
             items=items,
             note=order.note,
             status=order.status,
+            printed_at=self._local_time(order.created_at, self._zone(company_tz_name)),
         )

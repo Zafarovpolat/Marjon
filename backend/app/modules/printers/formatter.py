@@ -1016,8 +1016,16 @@ class EscPosFormatter:
         return bytes(out)
 
 
-    def format_summary(self, title: str, lines: list[str], footer: str | None = None) -> bytes:
-        """Summary receipt (History/Reports): centered title, free-form lines, optional footer."""
+    def format_summary(
+        self, title: str, lines: list[str], footer: str | None = None,
+        printed_at: datetime | None = None,
+    ) -> bytes:
+        """Summary receipt (History/Reports): centered title, free-form lines, optional footer.
+
+        ``printed_at`` is the company-local print moment; without it the
+        server clock is used, which is UTC inside Docker and would put a
+        report receipt five hours behind the terminal.
+        """
         out = bytearray()
         out += self.INIT
         out += self.FONT_A
@@ -1026,7 +1034,7 @@ class EscPosFormatter:
         out += self.BOLD_ON + self.DOUBLE_HEIGHT
         out += self._line(title[: self.cols])
         out += self.NORMAL_SIZE + self.BOLD_OFF
-        out += self._line(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+        out += self._line((printed_at or datetime.now()).strftime("%d.%m.%Y %H:%M:%S"))
         out += self._divider()
         out += self.ALIGN_LEFT
         for ln in lines:

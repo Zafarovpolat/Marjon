@@ -11,6 +11,7 @@ the same test database to inspect the formatted bytes.
 from __future__ import annotations
 
 import base64
+from datetime import datetime, timedelta
 from uuid import UUID
 
 import pytest_asyncio
@@ -227,12 +228,34 @@ async def test_receipt_date_time_uses_order_creation_not_print_time(client, sess
     not whatever moment the print button happened to be pressed."""
     ctx = await _setup(client)
     order = (await client.get(f"/pos/orders/{ctx['order_id']}", headers=ctx["owner_headers"])).json()
-    created_at = order["created_at"]  # ISO, e.g. "2026-09-29T15:44:47.18..."
-    day_month_year = created_at[8:10] + "." + created_at[5:7] + "." + created_at[0:4]
+    created = datetime.fromisoformat(order["created_at"].replace("Z", "+00:00"))
+    # Printed in the company zone (Tashkent, +05:00), so the calendar date is
+    # the local one — comparing against the raw UTC date would break for an
+    # order created between 19:00 and 24:00 UTC.
+    expected_date = (created + timedelta(hours=5)).strftime("%d.%m.%Y")
 
     text = await _receipt_payload_text(session_factory, ctx["company_id"], ctx["order_id"], ctx["receipt_printer_id"])
     assert "Дата: " in text
-    assert day_month_year in text
+    assert expected_date in text
+
+
+async def test_kitchen_ticket_time_is_order_creation_in_company_timezone(client, session_factory):
+    """ReceiptPreview.jsx: infoRow("date", "Время:", formatKitchenDate(
+    order.created_at)). KitchenTicketData.printed_at used to fall back to its
+    datetime.now() default — the server clock, i.e. UTC inside Docker — so a
+    physical kitchen ticket read five hours behind the preview."""
+    ctx = await _setup(client)
+    order = (await client.get(f"/pos/orders/{ctx['order_id']}", headers=ctx["owner_headers"])).json()
+    created = datetime.fromisoformat(order["created_at"].replace("Z", "+00:00"))
+    # Asia/Tashkent is a fixed +05:00 with no DST — the default company zone.
+    expected = (created + timedelta(hours=5)).strftime("%d.%m.%Y %H:%M")
+
+    async with session_factory() as session:
+        svc = PrinterService(session)
+        ticket = await svc._build_kitchen_data(ctx["company_id"], await svc._get_order(ctx["company_id"], ctx["order_id"]))
+
+    assert ticket.printed_at.utcoffset() == timedelta(hours=5)
+    assert ticket.printed_at.strftime("%d.%m.%Y %H:%M") == expected
 
 
 async def test_real_print_receipt_path_uses_raster_by_default(client, session_factory):
