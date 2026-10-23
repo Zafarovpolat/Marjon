@@ -108,17 +108,17 @@ def test_total_toggle_gates_payment_line_but_not_subtotal():
     off = _text(EscPosFormatter().format_receipt(
         _receipt(subtotal=Decimal("50000")), template={"enabled": {"total": False}},
     ))
-    # Real label is "Итого к оплате:" (ReceiptPreview.jsx line 270) — not the
-    # all-caps "К ОПЛАТЕ" this test originally checked for, which never
-    # appears anywhere in the formatter's output.
-    assert "Итого к оплате" not in off
+    # Реальная подпись — «Итого:» (formatter.py и receipt_raster.py печатают
+    # её одинаково; ReceiptPreview.jsx показывает то же самое). Прежняя
+    # «Итого к оплате:» не влезала в 58 мм при align="left".
+    assert "Итого:" not in off
     # Сумма блюд печатается всегда (как в превью) — ReceiptPreview.jsx's
     # own summaryRow("Сумма блюд", …), not "Итого:".
     assert "Сумма блюд" in off
     on = _text(EscPosFormatter().format_receipt(
         _receipt(subtotal=Decimal("50000")), template={"enabled": {"total": True}},
     ))
-    assert "Итого к оплате" in on
+    assert "Итого:" in on
 
 
 # --- Чек клиента: стили table/waiter ----------------------------------------

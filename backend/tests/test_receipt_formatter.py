@@ -621,9 +621,12 @@ class TestChefBasic:
 
     def test_26_order_type_enabled(self):
         raw = _fmt(80).format_kitchen_ticket(_kitchen(order_type="delivery"), template={})
-        # Кухонный тикет печатает тип заказа ЗАГЛАВНЫМИ (видно с одного
-        # взгляда на кухне) — в отличие от обычного чека, где регистр обычный.
-        assert "Тип заказа: ДОСТАВКА" in dec(raw)
+        # Кухонный тикет печатает тип заказа отдельной строкой-заголовком
+        # (KITCHEN_BLOCKS: orderType идёт первым, стиль — как у orderNumber),
+        # без префикса «Тип заказа:» — он занимал ширину, не добавляя смысла.
+        text = dec(raw)
+        assert "Доставка" in text
+        assert "Тип заказа" not in text
 
     def test_26_order_type_disabled(self):
         raw = _fmt(80).format_kitchen_ticket(_kitchen(order_type="delivery"), template={"enabled": {"orderType": False}})
@@ -693,13 +696,15 @@ class TestChefBasic:
         f = _fmt(58)
         raw = f.format_kitchen_ticket(_kitchen(), template={})
         assert f.cols == 32
-        assert raw.endswith(EscPosFormatter.CUT)
+        # KITCHEN_CUT = ESC/POS «cut + extra feed» (n=0x49): кухонный талон
+        # отрезается выше, чтобы длинные комментарии не оставались в валике.
+        assert raw.endswith(EscPosFormatter.KITCHEN_CUT)
 
     def test_39_80mm(self):
         f = _fmt(80)
         raw = f.format_kitchen_ticket(_kitchen(), template={})
         assert f.cols == 48
-        assert raw.endswith(EscPosFormatter.CUT)
+        assert raw.endswith(EscPosFormatter.KITCHEN_CUT)
 
     def test_40_long_dish_modifier_comment_never_lost(self):
         name = "Плов Ташкентский с бараниной большая праздничная порция"
@@ -728,7 +733,9 @@ class TestChefBasic:
             _kitchen(table_number=None, waiter_name=None),
             template={"enabled": {"orderNumber": False, "orderType": False, "date": False}},
         ))
-        assert raw.count("=" * 48) == 1  # only the trailing divider, none before items
+        # Разделитель кухонного талона — дефолтный пунктир («-» × cols),
+        # а не «=»: стиль линии задаётся шаблоном (separator.pattern).
+        assert raw.count("-" * 48) == 1  # only the trailing divider, none before items
 
     def test_waiter_name_none_line_simply_omitted(self):
         raw = dec(_fmt(80).format_kitchen_ticket(_kitchen(waiter_name=None), template={}))
