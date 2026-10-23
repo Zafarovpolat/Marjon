@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Icon from "../../components/Icon";
 import Toast from "../../components/Toast";
@@ -6,7 +6,6 @@ import ReportEmptyState from "../../components/ReportEmptyState";
 import { useAnchoredDialogMotion } from "../../hooks/useAnchoredDialogMotion";
 import { nomenclatureService } from "../../api/nomenclature";
 import { catalogService } from "../../api/catalog";
-import { warehouseService } from "../../api/warehouse";
 import DishSingleSelect from "./DishSingleSelect";
 
 const money = (value) => value ? String(value).replace(/\s*UZS$/i, " сум") : "—";
@@ -27,7 +26,8 @@ function formatQuantity(value) {
 // доступный остаток пересчитывает backend.
 // V36: Склад строки — сохраняемое поле (не фильтр): выбранный склад пишется
 // в line.warehouse_id, списание идёт с него; пусто = главный склад.
-// Тот же селект по-прежнему фильтрует Товар по реальному наличию.
+// Склад задаёт место будущего списания, но не ограничивает справочник сырья:
+// рецепт можно настроить до первого прихода и при нулевом остатке.
 export default function DishesRecipesDialog({ dish, onClose, returnFocusRef, onSave, onChanged }) {
   const [editingIndex, setEditingIndex] = useState(null);
   const [zoomPhoto, setZoomPhoto] = useState(false);
@@ -50,7 +50,6 @@ export default function DishesRecipesDialog({ dish, onClose, returnFocusRef, onS
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [optionsError, setOptionsError] = useState("");
   const [warehouses, setWarehouses] = useState([]);
-  const [stockIds, setStockIds] = useState(null);
   // Категории сырья деревом: родители + подкатегории (parent_id).
   // Опция подкатегории подписана «Дитя (Родитель)», value — имя для
   // точного матчинга item.category; выбор родителя включает и его детей.
@@ -60,6 +59,9 @@ export default function DishesRecipesDialog({ dish, onClose, returnFocusRef, onS
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [qty, setQty] = useState("");
+  // Выбрали продукт — курсор сразу в «Кол-во»: это неизбежный следующий шаг,
+  // и лишний клик по полю больше не нужен (и мышью, и клавиатурой).
+  const qtyRef = useRef(null);
   const [saving, setSaving] = useState(false);
   const [removingIndex, setRemovingIndex] = useState(null);
   const [error, setError] = useState("");
@@ -69,10 +71,19 @@ export default function DishesRecipesDialog({ dish, onClose, returnFocusRef, onS
   const [zoomClosing, setZoomClosing] = useState(false);
   const [editClosing, setEditClosing] = useState(false);
 
+  // Фокус в диалог забираем ровно один раз — на первом рендере. Раньше эффект
+  // перезапускался на каждом обновлении состояния и перекидывал фокус на
+  // первую кнопку (фото) — из-за этого выбор продукта тут же терял фокус,
+  // который мы переводим в «Кол-во», а body.style.overflow дёргался на каждом
+  // ререндере.
+  const focusGrabbed = useRef(false);
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    dialogRef.current?.querySelector("button:not(:disabled)")?.focus({ preventScroll: true });
+    if (!focusGrabbed.current) {
+      focusGrabbed.current = true;
+      dialogRef.current?.querySelector("button:not(:disabled)")?.focus({ preventScroll: true });
+    }
     return () => { document.body.style.overflow = previousOverflow; };
   }, [dialogRef]);
 
@@ -160,32 +171,13 @@ export default function DishesRecipesDialog({ dish, onClose, returnFocusRef, onS
       .catch(() => {
         if (!alive) return;
         setOptions([]);
-        setOptionsError("Не удалось загрузить сырьё.");
+        setOptionsError("Не удалось загрузить продукты.");
       })
       .finally(() => {
         if (alive) setOptionsLoading(false);
       });
     return () => { alive = false; };
   }, []);
-
-  // Остатки выбранного склада — Товар фильтруется реальным наличием.
-  useEffect(() => {
-    if (!selectedWarehouse) {
-      setStockIds(null);
-      return;
-    }
-    let alive = true;
-    warehouseService.listStock({ params: { warehouse_id: selectedWarehouse } })
-      .then(({ data }) => {
-        if (!alive) return;
-        const list = Array.isArray(data) ? data : data?.items || [];
-        setStockIds(new Set(list.map((row) => String(row.ingredient_id || row.ingredientId || ""))));
-      })
-      .catch(() => {
-        if (alive) setStockIds(new Set());
-      });
-    return () => { alive = false; };
-  }, [selectedWarehouse]);
 
   const trapFocus = (event) => {
     if (event.key !== "Tab") return;
@@ -207,14 +199,13 @@ export default function DishesRecipesDialog({ dish, onClose, returnFocusRef, onS
   const activeOptions = useMemo(
     () => options.filter((item) => {
       if (!item || !item.id || item.is_active === false) return false;
-      if (stockIds && !stockIds.has(String(item.id))) return false;
       if (selectedCategory) {
         const cat = String(item.category || "").trim();
         if (cat !== selectedCategory && childParent[cat] !== selectedCategory) return false;
       }
       return true;
     }),
-    [options, stockIds, selectedCategory, childParent],
+    [options, selectedCategory, childParent],
   );
 
   const parsedQty = parseQuantity(qty);
@@ -353,7 +344,7 @@ export default function DishesRecipesDialog({ dish, onClose, returnFocusRef, onS
           </button>
         </header>
         <div className="dish-recipes-body" tabIndex={0} role="region" aria-label="Данные рецепта">
-          <form className="dish-recipes-add-row" onSubmit={handleAdd}>
+          <form className="dish-recipes-add-row dish-recipes-add-row--composition" onSubmit={handleAdd}>
             <div className="dish-recipes-field">
               <span className="dish-recipes-field-label">Склад</span>
               <DishSingleSelect
@@ -377,24 +368,30 @@ export default function DishesRecipesDialog({ dish, onClose, returnFocusRef, onS
               />
             </div>
             <div className="dish-recipes-field dish-recipes-field--product">
-              <span className="dish-recipes-field-label">Сырьё</span>
+              <span className="dish-recipes-field-label">Продукт</span>
               <DishSingleSelect
-                label="Сырьё"
-                placeholder="Выберите сырьё"
+                label="Продукт"
+                placeholder="Выберите продукт"
                 options={activeOptions.map((item) => ({
                   value: String(item.id),
                   label: item.name,
                 }))}
                 value={selectedId}
-                onChange={setSelectedId}
+                onChange={(next) => {
+                  setSelectedId(next);
+                  // Снятие выбора (повторный клик по галочке) не должно уводить
+                  // курсор из поля — прыгаем в количество только за продуктом.
+                  if (next) qtyRef.current?.focus();
+                }}
                 disabled={saving}
-                disabledLabel={optionsError || "Сырьё недоступно"}
+                disabledLabel={optionsError || "Продукт недоступен"}
               />
             </div>
             <label className="dish-recipes-field">
               <span className="dish-recipes-field-label">Кол-во</span>
               <span className="dish-recipes-qty-wrap">
                 <input
+                  ref={qtyRef}
                   inputMode="decimal"
                   placeholder="0"
                   aria-label="Количество"
@@ -415,7 +412,7 @@ export default function DishesRecipesDialog({ dish, onClose, returnFocusRef, onS
             <div className="dish-recipes-table-scroll">
               <table className="settings-table dish-recipes-table" aria-label="Состав рецепта">
                 <colgroup>{[8, 20, 36, 16, 20].map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}</colgroup>
-                <thead><tr>{["№", "Склад", "Сырьё", "Кол-во", "Действия"].map((title) => <th key={title}>{title}</th>)}</tr></thead>
+                <thead><tr>{["№", "Склад", "Продукт", "Кол-во", "Действия"].map((title) => <th key={title}>{title}</th>)}</tr></thead>
                 <tbody>
                   {lines.length > 0 ? lines.map((line, index) => (
                     <tr key={`${line.ingredient_id}-${index}`}>
@@ -444,6 +441,14 @@ export default function DishesRecipesDialog({ dish, onClose, returnFocusRef, onS
                 aria-modal="true"
                 aria-label="Изменить ингредиент"
                 onMouseDown={(event) => event.stopPropagation()}
+                // Enter в поле количества = «Сохранить»: панель не форма,
+                // поэтому без этого клавиша не делала ничего. Кнопки Enter
+                // обрабатывают сами — перехватываем только ввод в input.
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" || event.target.tagName !== "INPUT") return;
+                  event.preventDefault();
+                  saveEdit();
+                }}
               >
                 <h3>Изменить ингредиент</h3>
                 <p>{nameOf(editLine.ingredient_id)}</p>

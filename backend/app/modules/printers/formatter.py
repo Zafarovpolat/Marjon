@@ -910,7 +910,9 @@ class EscPosFormatter:
         # — 'comment', when present, always wins over either.
         item_comment_on = en("comment", en("itemComments", True))
         order_comment_on = en("comment", en("orderNote", True))
-        show_money = en("showOrderSum", False)
+        show_money = en("showOrderSum", False) and any(
+            item.total is not None and item.total > 0 for item in data.items
+        )
         order_type_label = format_order_type(data.order_type).upper()
 
         def render_number_block() -> None:

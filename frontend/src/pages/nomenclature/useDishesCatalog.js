@@ -380,14 +380,15 @@ export function useDishesCatalog() {
     const { data } = await catalogService.createCategory({
       name: trimmed,
       slug: makeDishCategorySlug(trimmed),
-      sort_order: 0,
       is_active: true,
     });
     if (!data?.id) throw new Error("Backend не вернул созданную категорию.");
     const item = { id: String(data.id), name: String(data.name || trimmed) };
     setFilterCategories((current) => {
       if (current.some((entry) => String(entry.id) === item.id)) return current;
-      return [...current, item].sort((a, b) => String(a.name).localeCompare(String(b.name), "ru"));
+      // The server assigns the canonical tail position. Do not alphabetically
+      // move the new category (or existing manually ordered choices).
+      return [...current, item];
     });
     return item;
   }, []);

@@ -3047,6 +3047,7 @@
   z-index: auto;
   max-height: 232px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   margin: 0;
   padding: 6px;
   list-style: none;
@@ -4116,12 +4117,45 @@ body.dashboard-body .dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-hea
   overflow-wrap: anywhere;
 }
 
+/* Рецепты: суммы в шапке — значения метрик, поэтому крупнее подписей и с
+   табличными цифрами, чтобы при пересчёте «1 122 283,49» не дёргало соседнюю
+   метрику. 16px/500 по просьбе владельца (было 14px/600, затем 17px/700). */
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-metric dd {
+  font-size: 16px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Рецепты: шапка читается как «подпись → значение», а не «заголовок → подпись».
+   «Рецепты» становится такой же подписью, как «Себестоимость» (12px/600,
+   нейтральный цвет), а имя блюда — значением крупнее сумм (18px/500).
+   Только этот диалог: у «Сета» шапка со своими метриками. */
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-head h2 {
+  color: var(--neutral-600, #475569);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-head p {
+  margin-top: 4px;
+  color: var(--neutral-900, #0f172a);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
 .dish-recipes-add-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr) 90px auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr) var(--dish-recipes-quantity-width, 90px) auto;
   align-items: end;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+/* Recipe quantity: 90px + 40%. Other dialogs and mobile grids stay unchanged. */
+.dish-recipes-add-row--composition {
+  --dish-recipes-quantity-width: 126px;
 }
 
 /* Сет: 8 полей (тип/категория/товар/кол-во/цена/сумма/добавить/очистить). */
@@ -4259,6 +4293,42 @@ body.dashboard-body .dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-hea
   overflow: hidden;
 }
 .dish-recipes-table-scroll { overflow-x: auto; }
+/* Рецепты: прокручивается ТОЛЬКО таблица состава. Раньше overflow:auto стоял
+   на .dish-recipes-body, поэтому вместе со строками уезжала вся карточка —
+   шапка с себестоимостью и форма «Склад/Категория/Сырьё/Кол-во/Добавить».
+   Теперь тело — жёсткий flex-столбец: форма и тосты не сжимаются, обёртка
+   таблицы забирает остаток высоты, скролл живёт в .dish-recipes-table-scroll
+   с липкой шапкой. На телефоне (≤560px) форма встаёт в одну колонку и выше
+   экрана — там оставляем прежнее поведение (скроллится всё тело). */
+@media (min-width: 561px) {
+  .dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-body > :not(.dish-recipes-table-wrap) {
+    flex: 0 0 auto;
+  }
+  .dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-table-wrap {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-table-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+}
 /* Сет: таблица жмётся к строкам; много строк — внутренний скролл с липкой
    шапкой вместо роста диалога; пустая/короткая — без крутилки. */
 .dish-set-dialog .dish-recipes-table-scroll {
@@ -4377,6 +4447,41 @@ body.dashboard-body .dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-hea
   overflow-wrap: anywhere;
 }
 .dish-recipes-dialog .dish-recipes-table .dish-recipes-empty-cell { padding: 24px; }
+/* Плотная шапка и компактные строки «Рецептов» (просьба владельца: поднять
+   таблицу и укоротить строки примерно на четверть). Замеры до правки:
+   шапка 85px (фото 52 + отступы 16/16), строка 64.7px — её высоту задавали
+   не текст (21px), а кнопки действий 32px + padding 15/15. После: шапка 65px,
+   строка 49px, шапка столбцов 35px вместо 48px.
+   Только «Рецепты»: у «Сета» своя геометрия и свой тест на max-height. */
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-head {
+  padding: 10px 24px;
+}
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-head p {
+  margin-top: 3px;
+}
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-head-photo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+}
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-metric dt {
+  margin-bottom: 4px;
+}
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-body {
+  padding: 12px 24px 16px;
+}
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-add-row {
+  margin-bottom: 12px;
+}
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-table th {
+  padding: 10px 16px;
+}
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-table td {
+  padding: 7px 16px;
+}
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-table .dish-recipes-empty-cell {
+  padding: 16px;
+}
 /* Сет: заголовки столбцов чёрные; пустая таблица ниже по высоте. */
 .dish-set-dialog .dish-recipes-table th {
   color: var(--neutral-900, #0f172a);

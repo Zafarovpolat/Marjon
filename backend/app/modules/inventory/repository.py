@@ -12,6 +12,11 @@ class CategoryRepository(TenantRepository[Category]):
     def __init__(self, db: AsyncSession):
         super().__init__(Category, db)
 
+    def _base_query(self, company_id: UUID):
+        return super()._base_query(company_id).order_by(
+            Category.sort_order, Category.created_at, Category.id,
+        )
+
     async def get_active(self, company_id: UUID) -> list[Category]:
         result = await self.db.execute(
             self._base_query(company_id).where(Category.is_active == True)

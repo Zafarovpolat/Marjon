@@ -36,7 +36,7 @@ describe("ChefReceiptSettingsPage (kitchen)", () => {
     fireEvent.click(within(row).getByRole("button", { name: "Очень большой" }));
     const weightGroup = within(row).getByText("Жирность").parentElement;
     fireEvent.click(within(weightGroup).getByRole("button", { name: "Стандартный" }));
-    expect(container.querySelector('.receipt-preview__items--kitchen .receipt-preview__item-row')).toHaveStyle({ fontSize: '22px', fontWeight: '400' });
+    expect(container.querySelector('.receipt-preview__items--kitchen .receipt-preview__item-row')).toHaveStyle({ fontSize: '23.75px', fontWeight: '400' });
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
     await waitFor(() => expect(saveKitchenTemplate).toHaveBeenCalled());
     expect(saveKitchenTemplate.mock.calls.at(-1)[0].blockStyles.dishItems).toEqual({ size: 'xlarge', weight: 'standard' });

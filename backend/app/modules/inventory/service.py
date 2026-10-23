@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from app.modules.inventory.product_positions import ProductPositions
+from app.modules.companies.models import Company
 from app.modules.inventory.models import (
     Category, Ingredient, Modifier, ModifierGroup, Product, ProductIngredient,
     ProductLimitTopup, SetItem, StockItem, StockMovement, Warehouse
@@ -100,11 +101,31 @@ class CategoryService:
     def __init__(self, db: AsyncSession):
         self.repo = CategoryRepository(db)
 
+    async def _lock_order(self, company_id: UUID) -> None:
+        # Lock the parent even when the catalog is empty. Create, reorder and
+        # explicit position edits share this lock, so concurrent terminals cannot
+        # choose the same tail or race a drag-and-drop reorder (PostgreSQL).
+        company = (await self.repo.db.execute(
+            select(Company.id).where(Company.id == company_id).with_for_update()
+        )).scalar_one_or_none()
+        if company is None:
+            raise NotFoundError("Company not found")
+
     async def create(self, company_id: UUID, data: CategoryCreate) -> Category:
         await require_company_resource(
             self.repo.db, Category, data.parent_id, company_id, detail="Parent category not found"
         )
-        return await self.repo.save(Category(company_id=company_id, **data.model_dump()))
+        await self._lock_order(company_id)
+        last = (await self.repo.db.execute(
+            select(func.max(Category.sort_order)).where(Category.company_id == company_id)
+        )).scalar_one()
+        payload = data.model_dump()
+        # Includes legacy/unprefixed and archived rows: no existing sequence is
+        # renumbered and the new row is strictly after every row of its company.
+        # Older clients sending 0 cannot accidentally insert at the top. A higher
+        # explicit position is harmless and stays compatible with API clients.
+        payload["sort_order"] = max(payload["sort_order"], (last if last is not None else -1) + 1)
+        return await self.repo.save(Category(company_id=company_id, **payload))
 
     async def list(self, company_id: UUID, include_inactive: bool = False) -> list[Category]:
         # Archive V1: is_active is the canonical archive flag (False hides
@@ -122,6 +143,8 @@ class CategoryService:
         return cat
 
     async def update(self, company_id: UUID, category_id: UUID, data: CategoryUpdate) -> Category:
+        if "sort_order" in data.model_fields_set:
+            await self._lock_order(company_id)
         # Company-scoped: get() hides foreign-company ids as 404, same as read.
         cat = await self.get(company_id, category_id)
         for field, value in data.model_dump(exclude_unset=True).items():
@@ -147,6 +170,7 @@ class CategoryService:
     ) -> list[Category]:
         if len(category_ids) != len(set(category_ids)):
             raise ConflictError(self._REORDER_DUPLICATE_DETAIL)
+        await self._lock_order(company_id)
         # Скоуп по компании: чужой/неизвестный id просто не найден в выборке,
         # и одно сравнение множеств отклоняет и лишний id, и id другого тенанта.
         result = await self.repo.db.execute(
@@ -986,6 +1010,44 @@ class IngredientService:
         return ing
 
 
+async def _resolve_recipe_lines(db, company_id: UUID, product_id: UUID, depth: int = 0):
+    """Техкарта продукта: [(ingredient_id, норма на 1 порцию, warehouse_id)].
+
+    У сета (is_set) своей техкарты нет — состав лежит в set_items («блюдо
+    внутри блюда»), поэтому норма сета раскрывается в нормы компонентов:
+    порций компонента в сете × норма компонента. Вложенность ограничена
+    глубиной 3, чтобы битый состав не зациклил рекурсию.
+    """
+    product = await db.get(Product, product_id)
+    if product is None or product.company_id != company_id or depth > 3:
+        return []
+    if getattr(product, "is_set", False):
+        components = (await db.execute(
+            select(SetItem.product_id, SetItem.quantity).where(
+                SetItem.company_id == company_id,
+                SetItem.set_product_id == product_id,
+            )
+        )).all()
+        resolved = []
+        for component_id, component_qty in components:
+            factor = Decimal(str(component_qty or 0))
+            if factor <= 0:
+                continue
+            for ingredient_id, norm, warehouse_id in await _resolve_recipe_lines(
+                db, company_id, component_id, depth + 1
+            ):
+                resolved.append((ingredient_id, norm * factor, warehouse_id))
+        return resolved
+    rows = (await db.execute(
+        select(ProductIngredient.ingredient_id, ProductIngredient.quantity,
+               ProductIngredient.warehouse_id)
+        .join(Product, Product.id == ProductIngredient.product_id)
+        .where(ProductIngredient.product_id == product_id, Product.company_id == company_id)
+    )).all()
+    return [(ingredient_id, Decimal(str(quantity or 0)), warehouse_id)
+            for ingredient_id, quantity, warehouse_id in rows]
+
+
 class StockService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -999,30 +1061,37 @@ class StockService:
         """Списать сырьё по рецептам блюд завершённого заказа.
 
         Для каждой не отменённой позиции: recipe lines продукта × количество
-        порций вычитаются из остатка ингредиента. Склад списания берётся из
-        строки рецепта (V36); NULL или чужой/удалённый склад → главный склад
-        компании (is_main, иначе первый) — историческое поведение сохранено.
+        порций вычитаются из остатка ингредиента. Сет раскрывается в состав
+        (set_items → компоненты → их техкарты), поэтому продажа комбо списывает
+        сырьё своих блюд. Склад списания берётся из строки рецепта (V36);
+        NULL или чужой/удалённый склад → главный склад компании (is_main, иначе
+        первый) — историческое поведение сохранено.
         Минус разрешён: отсутствующий StockItem создаётся с отрицательным
         остатком. Каждая строка пишется как StockMovement type="sale" с
-        ref_id=order_id.
+        ref_id=order_id и note="dish sale: <блюдо>" — по этому примечанию отчёт
+        расхода узнаёт блюдо, даже если заказ потом удалят или техкарту изменят.
 
-        Идемпотентность: повторный вызов для того же заказа — no-op
-        (проверка существующих sale-движений с этим ref_id). Отменённые
-        заказы завершить нельзя (pos.cancel отклоняет completed), поэтому
-        обратного начисления здесь нет — списание финально.
+        Идемпотентность: списание считается по разнице «требуется − уже
+        списано» в разрезе (ингредиент, склад), поэтому повторный вызов — no-op,
+        а позиции, добавленные в заказ ПОСЛЕ оплаты (дозаказ), дописываются.
+        Отменённые заказы завершить нельзя (pos.cancel отклоняет completed),
+        поэтому обратного начисления здесь нет — списание финально.
         Возвращает число созданных движений.
         """
         from app.modules.pos.models import Order, OrderItem
 
-        existing = await self.db.execute(
-            select(StockMovement.id).where(
+        existing_rows = (await self.db.execute(
+            select(StockMovement.ingredient_id, StockMovement.warehouse_id,
+                   func.sum(StockMovement.quantity))
+            .where(
                 StockMovement.company_id == company_id,
                 StockMovement.ref_id == order_id,
                 StockMovement.movement_type == "sale",
-            ).limit(1)
-        )
-        if existing.scalar_one_or_none() is not None:
-            return 0
+            )
+            .group_by(StockMovement.ingredient_id, StockMovement.warehouse_id)
+        )).all()
+        already = {(ingredient_id, warehouse_id): Decimal(str(quantity or 0))
+                   for ingredient_id, warehouse_id, quantity in existing_rows}
 
         order = (
             await self.db.execute(
@@ -1044,39 +1113,51 @@ class StockService:
             select(func.max(WasteDocument.number)).where(WasteDocument.company_id == company_id)
         )).scalar() or 0
 
-        movements = 0
-        auto_wastes = 0
+        # Состав заказа по строкам техкарт. Сет раскрывается в компоненты
+        # (set_items), поэтому комбо списывает сырьё своих блюд, а не ничего.
+        required: dict[tuple, list] = {}
         for item in order.items or []:
             if getattr(item, "status", None) == "cancelled":
                 continue
             if not item.product_id or not item.quantity:
                 continue
-            lines = (
-                await self.db.execute(
-                    select(ProductIngredient)
-                    .join(Product, Product.id == ProductIngredient.product_id)
-                    .where(
-                        ProductIngredient.product_id == item.product_id,
-                        Product.company_id == company_id,
-                    )
-                )
-            ).scalars().all()
-            for line in lines:
-                amount = Decimal(str(line.quantity)) * Decimal(str(item.quantity))
+            sold = Decimal(str(item.quantity))
+            for ingredient_id, norm, warehouse_id in await _resolve_recipe_lines(
+                self.db, company_id, item.product_id
+            ):
+                amount = norm * sold
                 if amount <= 0:
                     continue
-                ingredient = await self.db.get(Ingredient, line.ingredient_id)
-                if ingredient is None or ingredient.company_id != company_id:
-                    continue
-                target = by_id.get(line.warehouse_id) if line.warehouse_id else None
-                if target is None:
-                    target = main
+                target = by_id.get(warehouse_id) if warehouse_id else None
+                warehouse_key = target.id if target is not None else main.id
+                required.setdefault((ingredient_id, warehouse_key), []).append(
+                    (str(item.name or ""), amount)
+                )
+
+        movements = 0
+        auto_wastes = 0
+        for (ingredient_id, warehouse_key), parts in required.items():
+            ingredient = await self.db.get(Ingredient, ingredient_id)
+            if ingredient is None or ingredient.company_id != company_id:
+                continue
+            target = by_id.get(warehouse_key) or main
+            # Дозаказ: пишем только то, чего ещё нет в движениях этого заказа.
+            remaining = sum((amount for _name, amount in parts), Decimal("0")) - already.get(
+                (ingredient_id, warehouse_key), Decimal("0")
+            )
+            if remaining <= 0:
+                continue
+            for dish_name, amount in parts:
+                if remaining <= 0:
+                    break
+                take = amount if amount <= remaining else remaining
+                remaining -= take
                 stock = (
                     await self.db.execute(
                         select(StockItem).where(
                             StockItem.company_id == company_id,
                             StockItem.warehouse_id == target.id,
-                            StockItem.ingredient_id == line.ingredient_id,
+                            StockItem.ingredient_id == ingredient_id,
                         )
                     )
                 ).scalar_one_or_none()
@@ -1084,7 +1165,7 @@ class StockService:
                     stock = StockItem(
                         company_id=company_id,
                         warehouse_id=target.id,
-                        ingredient_id=line.ingredient_id,
+                        ingredient_id=ingredient_id,
                         quantity=Decimal("0"),
                         unit=ingredient.unit or "кг",
                         cost_price=Decimal("0"),
@@ -1096,20 +1177,20 @@ class StockService:
                 # уходит в минус по нулевой цене (как раньше без остатка).
                 from app.modules.inventory.fifo import consume_fifo, get_fifo_batches
                 batches = await get_fifo_batches(
-                    self.db, company_id, target.id, line.ingredient_id,
+                    self.db, company_id, target.id, ingredient_id,
                 )
                 available = sum(
                     (Decimal(str(b.quantity_remaining)) for b in batches),
                     Decimal("0"),
                 )
-                take_fifo = min(available, amount)
-                remainder = amount - take_fifo
+                take_fifo = min(available, take)
+                remainder = take - take_fifo
                 if take_fifo > 0:
                     fifo_unit_part, fifo_total_part = await consume_fifo(
                         self.db,
                         company_id=company_id,
                         warehouse_id=target.id,
-                        ingredient_id=line.ingredient_id,
+                        ingredient_id=ingredient_id,
                         quantity=take_fifo,
                         name=ingredient.name,
                     )
@@ -1119,26 +1200,28 @@ class StockService:
                     # Нет партий на остаток — исторический минус.
                     stock.quantity = Decimal(str(stock.quantity)) - remainder
                 fifo_total = fifo_total_part
-                fifo_unit = (fifo_total / amount) if amount > 0 else Decimal("0")
+                fifo_unit = (fifo_total / take) if take > 0 else Decimal("0")
                 self.db.add(StockMovement(
                     company_id=company_id,
                     warehouse_id=target.id,
-                    ingredient_id=line.ingredient_id,
+                    ingredient_id=ingredient_id,
                     movement_type="sale",
-                    quantity=amount,
+                    quantity=take,
                     unit=ingredient.unit or "кг",
                     cost_price=fifo_unit,
                     total_cost=fifo_total,
                     ref_id=order_id,
                     created_by=created_by,
-                    note="dish sale",
+                    # Блюдо прямо в примечании: отчёт расхода восстановит его,
+                    # даже если заказ удалят или техкарту перепишут.
+                    note=f"dish sale: {dish_name}" if dish_name else "dish sale",
                 ))
                 movements += 1
                 # Отчётный авто-отход по норме потерь ингредиента: в отчёте
                 # «Отход товаров» появится запись (is_automatic, черновик),
-                # остаток и деньги не трогает. Идемпотентность — от общей
-                # проверки sale-движений выше: повторный вызов сюда не дойдёт.
-                waste_qty = calc_waste_quantity(amount, ingredient.loss_type, ingredient.loss_value)
+                # остаток и деньги не трогает. Идемпотентность — от расчёта
+                # «требуется − уже списано» выше: повторный вызов сюда не дойдёт.
+                waste_qty = calc_waste_quantity(take, ingredient.loss_type, ingredient.loss_value)
                 if waste_qty > 0:
                     auto_wastes += 1
                     cost = Decimal(str(getattr(stock, "cost_price", 0) or 0))
@@ -1148,7 +1231,7 @@ class StockService:
                         category=ingredient.category,
                         warehouse_id=target.id,
                         warehouse_name=target.name,
-                        ingredient_id=line.ingredient_id,
+                        ingredient_id=ingredient_id,
                         name=ingredient.name,
                         quantity=waste_qty,
                         unit=ingredient.unit or "кг",

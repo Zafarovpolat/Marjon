@@ -502,8 +502,11 @@ def render_kitchen_ticket_raster(data: KitchenTicketData, template: dict | None,
         cancelled = data.status == "cancelled"
         show_cancel = cancelled and en("cancelOrderNumber", True)
         show_normal_number = (not show_cancel) and en("orderNumber", True)
-        comment_on = en("comment", True)
-        show_money = en("showOrderSum", False)
+        item_comment_on = en("comment", en("itemComments", True))
+        order_comment_on = en("comment", en("orderNote", True))
+        show_money = en("showOrderSum", False) and any(
+            item.total is not None and item.total > 0 for item in data.items
+        )
         order_type_label = ORDER_TYPE_LABELS.get(data.order_type, str(data.order_type).upper())
 
         canvas = _RasterCanvas(width_px)
@@ -537,7 +540,7 @@ def render_kitchen_ticket_raster(data: KitchenTicketData, template: dict | None,
                 render_row("table", "Стол:", data.table_number)
             elif block == "waiter" and en("waiter", True):
                 render_row("waiter", "Официант:", data.waiter_name)
-            elif block == "date" and en("date", True):
+            elif block == "date" and en("date", en("createdAt", True)):
                 render_row("date", "Время:", data.printed_at.strftime("%d.%m.%Y %H:%M"))
             # showOrderSum / comment are gates with no own printed position.
 
@@ -551,31 +554,54 @@ def render_kitchen_ticket_raster(data: KitchenTicketData, template: dict | None,
         for item in data.items:
             courses.setdefault(item.course or 1, []).append(item)
 
+        # Header and values share column widths even without the money column.
+        # The header stays at the normal body size, as in the preview.
+        header_font = _load_font("bold", _SIZE_PT["standard"])
+        qty_w = max(
+            _measure(header_font, "Кол-во"),
+            max((_measure(item_font, str(item.qty)) for item in data.items), default=0),
+        ) + 14
+        total_w = 0
         if show_money:
-            header_font = _load_font("bold", item_font.size)
-            qty_w = _measure(header_font, "Кол-во") + 14
             total_w = max(
                 (_measure(item_font, f"{item.total:,.0f}") for item in data.items if item.total is not None),
                 default=0,
             )
             total_w = max(total_w, _measure(header_font, "Сумма")) + 14
+        # Large text + amounts on 58mm must not squeeze a dish name into
+        # a two-letter-wide strip. Keep its full width and put the numeric
+        # cells on the next line; never shrink the user's selected font.
+        name_w = width_px - 2 * _MARGIN - qty_w - total_w - 16
+        stacked_names = name_w < max(_measure(header_font, "Блюдо"), item_font.size * 4)
+        if stacked_names:
+            canvas.line_of_text("Блюдо", header_font, "left", gap(2))
+        canvas.item_row("" if stacked_names else "Блюдо", "Кол-во", "Сумма" if show_money else "", header_font, qty_w, total_w, gap(6))
+        canvas.divider(gap_before=0, gap_after=gap(8))
 
+        subtotal = sum((item.total for item in data.items if item.total is not None), 0)
         for course_num in sorted(courses):
             if len(courses) > 1:
                 canvas.line_of_text(f"--- Подача {course_num} ---", _load_font("bold", item_font.size), "left", gap(6))
             for item in courses[course_num]:
-                if show_money and item.total is not None:
-                    canvas.item_row(item.name, str(item.qty), f"{item.total:,.0f}", item_font, qty_w, total_w, gap(4))
-                else:
-                    canvas.line_of_text(f"x{item.qty}  {item.name}", item_font, "left", gap(4))
+                total = f"{item.total:,.0f}" if show_money and item.total is not None else ""
+                if stacked_names:
+                    canvas.line_of_text(item.name, item_font, "left", gap(2))
+                canvas.item_row("" if stacked_names else item.name, str(item.qty), total, item_font, qty_w, total_w, gap(4))
                 for mod in item.modifiers:
                     canvas.line_of_text(f"  + {mod}", note_font, "left", gap(2))
-                if comment_on and item.note:
+                if item_comment_on and item.note:
                     canvas.line_of_text(f"  ! {item.note}", note_font, "left", gap(2))
 
-        if comment_on and data.note:
+        if show_money:
             canvas.divider(gap_before=0, gap_after=gap(8))
-            canvas.line_of_text(f"КОММЕНТАРИЙ: {data.note}", note_font, "left", gap(4))
+            sum_font, align = _kitchen_font_for(template, helper, "showOrderSum")
+            canvas.text_row("Сумма блюд", f"{subtotal:,.0f}", sum_font, align, gap(4))
+
+        if order_comment_on and data.note:
+            canvas.divider(gap_before=0, gap_after=gap(8))
+            comment_font, align = _kitchen_font_for(template, helper, "comment")
+            canvas.line_of_text("Комментарий:", comment_font, align, gap(4))
+            canvas.line_of_text(f"- {data.note}", comment_font, align, gap(4))
 
         canvas.divider(gap_before=0, gap_after=0)
 

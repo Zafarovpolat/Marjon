@@ -419,9 +419,8 @@ function ProductCategoriesPage({ type }) {
       }
       return;
     }
-    const sortOrder = Number(form.sort_order);
-    if (!form.name.trim() || !Number.isInteger(sortOrder) || sortOrder < 0) {
-      setError("Укажите название и корректный неотрицательный порядок сортировки.");
+    if (!form.name.trim()) {
+      setError("Укажите название категории.");
       release("category-save");
       return;
     }
@@ -441,7 +440,6 @@ function ProductCategoriesPage({ type }) {
           const rawPayload = {
             name: form.name.trim(),
             slug: namespacedSlug,
-            sort_order: sortOrder,
             is_active: statusOn,
           };
           const { data } = await catalogService.createCategory(rawPayload);
@@ -466,7 +464,6 @@ function ProductCategoriesPage({ type }) {
       const categoryPayload = {
         name: form.name.trim(),
         slug: namespacedSlug,
-        sort_order: sortOrder,
         is_active: statusOn,
         calculate_service: serviceOn,
         show_in_menu: showInMenu,
@@ -981,14 +978,6 @@ function ProductCategoriesPage({ type }) {
                   value={form.slug}
                   onChange={(event) => setForm((current) => ({ ...current, slug: event.target.value }))}
                   placeholder="Автоматически"
-                />
-              </label>
-              <label>
-                <span>Сортировка</span>
-                <input
-                  type="number"
-                  value={form.sort_order}
-                  onChange={(event) => setForm((current) => ({ ...current, sort_order: event.target.value }))}
                 />
               </label>
             </div>

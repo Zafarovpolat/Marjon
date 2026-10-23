@@ -1,6 +1,6 @@
 import { Fragment, useLayoutEffect, useRef, useState } from "react";
 import { webFormat } from "../../utils/webTime";
-import { CUSTOMER_BLOCKS, KITCHEN_BLOCKS, normalizeLineSpacing } from "../../api/receipt";
+import { CHEF_DEFAULT_BLOCK_STYLES, CUSTOMER_BLOCKS, KITCHEN_BLOCKS, normalizeLineSpacing } from "../../api/receipt";
 import { orderedBlocks, customerReceiptBlocks } from "../../pages/settings/receiptBlockOrder";
 
 export const customerSampleOrder = {
@@ -291,7 +291,9 @@ function CustomerReceipt({ template = {}, org, order }) {
     else if (block === "bottomOrderNumber") push(numberAtTop ? "header" : "footer", (
       <div className={`receipt-preview__bottomnum ${cls}`} key="bon">
         <span className="receipt-preview__bottomnum-caption">НОМЕР ЗАКАЗА</span>
-        <b className="receipt-preview__bottomnum-value" style={{ fontSize: { standard: 26, large: 36, xlarge: 48, xxlarge: 78 }[styles.bottomOrderNumber?.size || "large"], fontWeight: styles.bottomOrderNumber?.weight === "bold" ? 700 : 400 }}>{getOrderNumber(order)}</b>
+        {/* Same proportions as the raster fonts (48/72/96/180 dots), at the
+            preview's 17.5px body / printer's 24-dot body reference scale. */}
+        <b className="receipt-preview__bottomnum-value" style={{ fontSize: { standard: 35, large: 52.5, xlarge: 70, xxlarge: 131.25 }[styles.bottomOrderNumber?.size || "large"], fontWeight: styles.bottomOrderNumber?.weight === "bold" ? 700 : 400 }}>{getOrderNumber(order)}</b>
       </div>
     ));
     else if (block === "address") { const v = template.address || org?.address; if (hasValue(v)) push("footer", <b key="addr">{v}</b>); }
@@ -370,10 +372,9 @@ export function computeFitScale(natW, availW) {
 }
 
 function itemMoneyValue(item) {
-  const direct = toNumber(item.total ?? item.amount);
-  if (direct > 0) return direct;
+  if (hasValue(item.total ?? item.amount)) return toNumber(item.total ?? item.amount);
   const computed = toNumber(item.price) * toNumber(item.quantity ?? item.qty ?? 1);
-  return computed > 0 ? computed : 0;
+  return computed;
 }
 
 // Chef-only style classes (kitchen preview scope). Isolated from the
@@ -381,11 +382,23 @@ function itemMoneyValue(item) {
 // unmigrated blobs never render a classless size.
 function kitchenBlockClass(block, styles) {
   const classes = ["receipt-preview__block"];
-  const style = styles?.[block] || {};
-  if (style.align) classes.push(`receipt-preview__block--align-${style.align}`);
+  const style = { ...CHEF_DEFAULT_BLOCK_STYLES[block], ...styles?.[block] };
+  if (block === "orderNumber" && style.align) classes.push(`receipt-preview__block--align-${style.align}`);
   if (style.size) classes.push(`receipt-preview__block--size-${style.size === "medium" ? "large" : style.size}`);
   if (style.weight === "bold") classes.push("receipt-preview__block--weight-bold");
   return classes.join(" ");
+}
+
+// Keep the same relative font steps as the kitchen raster: 24 / 32 / 38.
+// Inline styles also prevent generic summary/heading CSS from overriding
+// the constructor's size and weight controls.
+function kitchenBlockStyle(block, styles) {
+  const style = { ...CHEF_DEFAULT_BLOCK_STYLES[block], ...styles?.[block] };
+  const size = style.size === "medium" ? "large" : style.size;
+  return {
+    fontSize: { standard: 15, large: 20, xlarge: 23.75 }[size] || 15,
+    fontWeight: style.weight === "bold" ? 700 : 400,
+  };
 }
 
 // Табличный режим позиций кухни (всегда как в чеке оплаты):
@@ -395,8 +408,7 @@ function kitchenBlockClass(block, styles) {
 // под шапкой одна сплошная линия (пунктир первой строки гасится).
 function KitchenItemsTable({ items = [], comments = true, showSums = false, styles = {} }) {
   const sum = items.reduce((acc, item) => acc + itemMoneyValue(item), 0);
-  const itemStyle = styles.dishItems || {};
-  const rowStyle = { fontSize: { standard: 14, large: 18, xlarge: 22 }[itemStyle.size || "standard"], fontWeight: (itemStyle.weight || "bold") === "bold" ? 700 : 400 };
+  const rowStyle = kitchenBlockStyle("dishItems", styles);
   return (
     <div className={`receipt-preview__items receipt-preview__items--kitchen${showSums ? "" : " receipt-preview__items--no-sum"}`} data-receipt-items>
       <div className="receipt-preview__items-head">
@@ -411,7 +423,7 @@ function KitchenItemsTable({ items = [], comments = true, showSums = false, styl
             <div className={`receipt-preview__item-row${index === 0 ? " receipt-preview__item-row--first" : ""}`} style={rowStyle}>
               <span className="receipt-preview__item-name" style={{ fontSize: "inherit", fontWeight: "inherit" }}>{itemName(item)}</span>
               <span style={{ fontSize: "inherit", fontWeight: "inherit" }}>{money(itemQuantity(item))}</span>
-              {showSums ? <span style={{ fontSize: "inherit", fontWeight: "inherit" }}>{money(itemMoneyValue(item))}</span> : null}
+              {showSums ? <span style={{ fontSize: "inherit", fontWeight: "inherit" }}>{hasValue(item.total ?? item.amount ?? item.price) ? money(itemMoneyValue(item)) : ""}</span> : null}
             </div>
             {notes.map((note) => (
               <div key={note} className="receipt-preview__item-note-row">
@@ -422,7 +434,7 @@ function KitchenItemsTable({ items = [], comments = true, showSums = false, styl
         );
       })}
       {showSums ? (
-        <div className={`receipt-preview__summary-row ${kitchenBlockClass("showOrderSum", styles)}`}>
+        <div className={`receipt-preview__summary-row ${kitchenBlockClass("showOrderSum", styles)}`} style={kitchenBlockStyle("showOrderSum", styles)}>
           <span>Сумма блюд</span><b>{money(sum)}</b>
         </div>
       ) : null}
@@ -448,14 +460,14 @@ function KitchenReceipt({ template = {}, order }) {
   const infoRow = (block, label, value) => {
     if (!hasValue(value)) return;
     push("info", (
-      <div className={`receipt-preview__info-row ${kitchenBlockClass(block, styles)}`} key={`${block}-${label}`}><b>{label}</b><span>{value}</span></div>
+      <div className={`receipt-preview__info-row ${kitchenBlockClass(block, styles)}`} style={kitchenBlockStyle(block, styles)} key={`${block}-${label}`}><b>{label}</b><span>{value}</span></div>
     ));
   };
 
   for (const block of orderedBlocks(template.blocks, KITCHEN_BLOCKS)) {
     if (!isOn(enabled, block)) continue;
     if (block === "orderNumber") {
-      push("number", <h3 className={`receipt-preview__kitchen-number ${kitchenBlockClass(block, styles)}`} key="num">#{getOrderNumber(order)}</h3>);
+      push("number", <h3 className={`receipt-preview__kitchen-number ${kitchenBlockClass(block, styles)}`} style={kitchenBlockStyle(block, styles)} key="num">#{getOrderNumber(order)}</h3>);
     } else if (block === "orderType") infoRow("orderType", "Тип заказа:", formatReceiptOrderType(order.order_type));
     else if (block === "table") infoRow("table", "Стол:", order.table_number);
     else if (block === "waiter") infoRow("waiter", "Официант:", order.waiter);
@@ -470,7 +482,7 @@ function KitchenReceipt({ template = {}, order }) {
     <KitchenItemsTable key="items" items={orderItems} comments={commentOn} showSums={showSums} styles={styles} />
   ));
   if (commentOn && hasValue(order.note)) push("note", (
-    <div className={`receipt-preview__kitchen-comment ${kitchenBlockClass("comment", styles)}`} key="note"><b>Комментарий:</b><span>- {order.note}</span></div>
+    <div className={`receipt-preview__kitchen-comment ${kitchenBlockClass("comment", styles)}`} style={kitchenBlockStyle("comment", styles)} key="note"><b>Комментарий:</b><span>- {order.note}</span></div>
   ));
 
   const wrapRun = (run) => {

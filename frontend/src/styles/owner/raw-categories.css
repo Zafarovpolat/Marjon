@@ -477,7 +477,7 @@
 /* Скелетон вровень живому ряду (~58px: кнопки 34 + паддинги), чтобы
    первая загрузка не меняла высоту карточки. */
 .menu-categories-page.is-dish-categories .dishcat-list .menu-category-row.is-loading {
-  min-height: 58px;
+  min-height: 50px;
 }
 
 /* Пропорциональный X модалок категорий: 38px-круг как у диалогов
@@ -563,3 +563,17 @@
   user-select: none;
   -webkit-user-select: none;
 }
+
+@media (min-width: 1025px) {
+  .menu-categories-page.is-dish-categories .dishcat-meta .settings-place__edit {
+    min-height: 32px;
+    padding: 5px 12px;
+  }
+
+  .menu-categories-page.is-dish-categories .dishcat-meta .settings-action-delete {
+    width: 32px;
+    height: 32px;
+    min-height: 32px;
+  }
+}
+

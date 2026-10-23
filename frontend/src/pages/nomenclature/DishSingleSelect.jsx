@@ -33,6 +33,8 @@ export default function DishSingleSelect({
   const [createSaving, setCreateSaving] = useState(false);
   const rootRef = useRef(null);
   const triggerRef = useRef(null);
+  const panelRef = useRef(null);
+  const menuRef = useRef(null);
   // Откреплённая панель: внутри .dish-recipes-dialog и .wh-inv-modal — их окна
   // несут transform (motion / settings-modal-in), а тело overflow:auto:
   // inline-панель там режется краями окна. Панель остаётся в DOM
@@ -52,19 +54,49 @@ export default function DishSingleSelect({
       }
       const rect = trigger.getBoundingClientRect();
       const hostRect = host.getBoundingClientRect();
-      setPanelFixed({
+      const next = {
         top: rect.bottom - hostRect.top + 6,
         left: rect.left - hostRect.left,
         width: rect.width,
-      });
+      };
+      setPanelFixed((previous) => previous && previous.top === next.top && previous.left === next.left && previous.width === next.width ? previous : next);
+    }
+    function onScroll(event) {
+      // Scrolling the menu does not move its trigger. Avoid layout reads and
+      // React state updates for every tick inside this dropdown.
+      if (panelRef.current?.contains(event.target)) return;
+      update();
     }
     update();
     window.addEventListener("resize", update);
-    window.addEventListener("scroll", update, true);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       window.removeEventListener("resize", update);
-      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("scroll", onScroll, true);
     };
+  }, [open, closing]);
+
+  useEffect(() => {
+    const panel = panelRef.current;
+    const menu = menuRef.current;
+    if ((!open && !closing) || !panel || !menu) return undefined;
+    const onWheel = (event) => {
+      if (event.ctrlKey) return; // Preserve native browser zoom.
+      event.stopPropagation();
+      const horizontal = event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY);
+      const delta = horizontal ? (event.deltaX || event.deltaY) : event.deltaY;
+      if (!delta) return;
+      const offset = horizontal ? menu.scrollLeft : menu.scrollTop;
+      const maximum = horizontal ? menu.scrollWidth - menu.clientWidth : menu.scrollHeight - menu.clientHeight;
+      // Native scrolling remains smooth inside the list. At either boundary
+      // (including a short/empty list), consume the wheel rather than letting
+      // Chrome scroll the recipe body or catalog underneath the dropdown.
+      if (maximum <= 0 || (delta < 0 && offset <= 0) || (delta > 0 && offset >= maximum - 1)) {
+        event.preventDefault();
+      }
+    };
+    panel.addEventListener("wheel", onWheel, { passive: false });
+    return () => panel.removeEventListener("wheel", onWheel);
   }, [open, closing]);
   const listId = `dish-form-${String(label).toLowerCase().replace(/[^a-zа-яё0-9]+/gi, "-")}-menu`;
   const selected = (options || []).find((item) => item.value === value) || null;
@@ -181,6 +213,7 @@ export default function DishSingleSelect({
       </button>
       {open || closing ? (
         <div
+          ref={panelRef}
           className={`orders-filter-select__panel${panelFixed ? " is-detached" : ""}${closing ? " is-closing" : ""}`}
           style={panelFixed
             ? { top: panelFixed.top, left: panelFixed.left, width: panelFixed.width }
@@ -189,7 +222,7 @@ export default function DishSingleSelect({
           {...(closing ? { inert: true } : {})}
           onAnimationEnd={handlePanelAnimationEnd}
         >
-          <ul className="orders-filter-select__menu" id={listId} role="listbox" aria-label={label}>
+          <ul ref={menuRef} className="orders-filter-select__menu" id={listId} role="listbox" aria-label={label}>
             {options.map((option, index) => {
               const isSelected = option.value === value;
               return (

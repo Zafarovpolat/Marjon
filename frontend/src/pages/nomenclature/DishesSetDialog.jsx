@@ -635,6 +635,12 @@ export default function DishesSetDialog({ dish, rows = [], onClose, returnFocusR
                 aria-modal="true"
                 aria-label="Изменить позицию"
                 onMouseDown={(event) => event.stopPropagation()}
+                // Enter в полях количества/суммы = «Сохранить» (панель не форма).
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" || event.target.tagName !== "INPUT") return;
+                  event.preventDefault();
+                  saveEdit();
+                }}
               >
                 <h3>Изменить позицию</h3>
                 <p>{nameOf(editLine.product_id)}</p>

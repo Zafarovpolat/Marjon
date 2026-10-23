@@ -5,6 +5,10 @@ import ExternalTableScrollbar from "./ExternalTableScrollbar";
 
 afterEach(cleanup);
 
+// PERF-01: синхронизация сторон выполняется один раз за кадр (rAF), поэтому
+// после события scroll нужно дать кадру пройти.
+const flushFrame = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 32)); });
+
 function Harness({ height = 100, contentHeight = 500 }) {
   const ref = useRef(null);
   return <div className="dish-catalog-card" ref={(node) => {
@@ -37,7 +41,7 @@ describe("External table scrollbar", () => {
     expect(rail.firstElementChild).toHaveStyle({ height: "500px" });
   });
 
-  it("synchronizes table wheel/keyboard scrolling and external thumb/arrow scrolling", () => {
+  it("synchronizes table wheel/keyboard scrolling and external thumb/arrow scrolling", async () => {
     render(<Harness />);
     const rail = screen.getByRole("region", { name: "Прокрутка блюд" });
     const table = screen.getByTestId("table-scroll");
@@ -45,9 +49,11 @@ describe("External table scrollbar", () => {
     const parentReads = rail.parentElement.getBoundingClientRect.mock.calls.length;
     rail.scrollTop = 120;
     fireEvent.scroll(rail);
+    await flushFrame();
     expect(table.scrollTop).toBe(120);
     table.scrollTop = 210;
     fireEvent.scroll(table);
+    await flushFrame();
     expect(rail.scrollTop).toBe(210);
     expect(table.getBoundingClientRect).toHaveBeenCalledTimes(geometryReads);
     expect(rail.parentElement.getBoundingClientRect).toHaveBeenCalledTimes(parentReads);

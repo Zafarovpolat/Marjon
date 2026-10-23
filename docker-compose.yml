@@ -57,7 +57,9 @@ services:
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      # A live process can still reject every upload (SlowDownWrite). Require
+      # write quorum so backend startup does not accept a broken object store.
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/cluster"]
       interval: 5s
       timeout: 3s
       retries: 10

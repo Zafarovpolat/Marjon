@@ -8,6 +8,7 @@ import { createPortal } from "react-dom";
 import Icon from "../../components/Icon";
 import ReportEmptyState from "../../components/ReportEmptyState";
 import ExternalTableScrollbar from "../../components/ExternalTableScrollbar";
+import useInstantWheel, { isInstantWheelRequested } from "../../hooks/useInstantWheel";
 import recipeBookPng from "../../assets/recipes-cook-book.png";
 import setComboPng from "../../assets/set-combo.png";
 import { SUPPORTED_DISH_PHOTO_TYPES } from "./useDishesCatalog";
@@ -114,7 +115,7 @@ function DishPhotoCell({ row, uploading, onPick, onPreview }) {
         {...(hasPhoto ? { "aria-haspopup": "dialog" } : null)}
       >
         {row.photo ? (
-          <img className="dish-photo" src={row.photo} alt={row.name} />
+          <img className="dish-photo" src={row.photo} alt={row.name} decoding="async" />
         ) : (
           <span className="dish-photo-placeholder"><Icon name="bi-image" /></span>
         )}
@@ -161,6 +162,8 @@ export default function DishesTable({
 }) {
   const isEmpty = !filteredRows.length;
   const scrollRef = useRef(null);
+  // ?wheel=instant — сравнение «физика Chrome» против точного колеса 1:1.
+  useInstantWheel(scrollRef, isInstantWheelRequested());
   // Увеличенный просмотр фото по центру (только строки с фото).
   // Уход — той же анимацией, что приход (is-closing 160ms, как zoom
   // в диалогах рецептов/сета); размонтирование только после неё.

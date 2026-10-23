@@ -142,7 +142,8 @@ if settings.minio_bucket not in existing:
     client.create_bucket(Bucket=settings.minio_bucket)
 policy = {'Version': '2012-10-17', 'Statement': [{
     'Effect': 'Allow', 'Principal': '*', 'Action': ['s3:GetObject'],
-    'Resource': [f'arn:aws:s3:::{settings.minio_bucket}/*'],
+    'Resource': [f'arn:aws:s3:::{settings.minio_bucket}/{prefix}/*'
+                 for prefix in ('products', 'categories', 'logos')],
 }]}
 client.put_bucket_policy(Bucket=settings.minio_bucket, Policy=json.dumps(policy))
 print('MinIO bucket ready:', settings.minio_bucket)
@@ -150,6 +151,18 @@ print('MinIO bucket ready:', settings.minio_bucket)
 ```
 
 Должно вывести `MinIO bucket ready: marjon-media`.
+
+Публично доступны только медиа каталога и логотипы. Не открывайте весь bucket:
+`avatars/` содержит приватные фотографии сотрудников.
+
+Хранилище должно проходить `/minio/health/cluster` (готовность к записи), а не
+только `/minio/health/live`. Том `minio_data:/data` нельзя размещать во временной
+папке или удалять при обновлении. `docker compose down -v` удаляет тома с данными:
+для обычного обновления эту команду не использовать. Постоянный том не заменяет
+отдельную резервную копию фото и базы данных с проверкой восстановления.
+
+Локальный Windows-запуск и восстановление после сбоя описаны в
+[docs/local-object-storage.md](docs/local-object-storage.md).
 
 ## 8. Выпустить настоящий сертификат
 

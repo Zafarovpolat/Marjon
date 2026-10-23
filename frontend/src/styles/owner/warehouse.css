@@ -1011,6 +1011,37 @@ body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .w
   padding-left: 96px;
 }
 
+/* Второй уровень дерева Расхода: продукт → блюда. Стрелка меньше
+   категорийной, чтобы не спорить с текстом строки. */
+.warehouse-stock-page .wh-detail-toggle--inline {
+  width: 18px;
+  height: 18px;
+  margin-right: 2px;
+  vertical-align: -3px;
+}
+
+/* Блюда под продуктом: глубже и тише строки продукта. 142px = 126 (было) + 16,
+   чтобы текст блюда стоял заметно правее имени продукта, а не вровень с ним
+   (стрелка продукта сама сдвигает его имя на ~24px). */
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-detail-table tbody tr.wh-detail-dish-row td:first-child {
+  padding-left: 142px;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-detail-table tbody tr.wh-detail-dish-row td {
+  color: var(--neutral-600, #475569);
+  font-weight: 500;
+}
+
+.warehouse-stock-page .wh-detail-dish-row--manual td:first-child {
+  font-style: italic;
+}
+
+/* Списание продажи, у которого не восстановить блюдо (удалён заказ или нет
+   техкарты) — тише, но не курсивом: это не ручной документ. */
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-detail-table tbody tr.wh-detail-dish-row--muted td:first-child {
+  color: var(--neutral-500, #64748b);
+}
+
 /* Появление позиций при раскрытии: каскад сверху вниз — каждая строка
    чуть позже предыдущей (задержка инлайном из JSX). Закрытие мгновенное:
    высоту строк таблицы анимировать нельзя. */

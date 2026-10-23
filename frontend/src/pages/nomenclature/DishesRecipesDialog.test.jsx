@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api/client";
 import DishesRecipesDialog from "./DishesRecipesDialog";
@@ -99,6 +100,16 @@ describe("Dishes recipes composition", () => {
     mockApis();
   });
 
+  it("widens only the recipe add-row quantity by 40% without changing input height", async () => {
+    renderDialog();
+    await screen.findByText("Состав рецепта пока пуст");
+    expect(screen.getByLabelText("Количество").closest("form")).toHaveClass("dish-recipes-add-row--composition");
+    const css = readFileSync(`${process.cwd()}/src/styles/owner/dishes.css`, "utf8");
+    expect(css).toMatch(/grid-template-columns:[^;]*var\(--dish-recipes-quantity-width, 90px\) auto;/);
+    expect(css).toMatch(/\.dish-recipes-add-row--composition\s*\{\s*--dish-recipes-quantity-width:\s*126px;/);
+    expect(css).toMatch(/\.dish-recipes-field input\s*\{[^}]*height:\s*43px;/);
+  });
+
   it("loads raw products and shows empty composition", async () => {
     renderDialog();
     await waitFor(() => expect(api.get).toHaveBeenCalledWith("/inventory/ingredients"));
@@ -108,7 +119,7 @@ describe("Dishes recipes composition", () => {
   it("adds meat 200g to lavash recipe through canonical PATCH", async () => {
     const { onSave, onChanged } = renderDialog();
     await screen.findByText("Состав рецепта пока пуст");
-    fireEvent.click(screen.getByRole("combobox", { name: "Сырьё" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Продукт" }));
     fireEvent.click(await screen.findByRole("option", { name: "Мясо" }));
     fireEvent.change(screen.getByLabelText("Количество"), { target: { value: "0,2" } });
     fireEvent.click(screen.getByRole("button", { name: "Добавить" }));
@@ -124,19 +135,53 @@ describe("Dishes recipes composition", () => {
   it("lists only active raw products", async () => {
     renderDialog();
     await screen.findByText("Состав рецепта пока пуст");
-    fireEvent.click(screen.getByRole("combobox", { name: "Сырьё" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Продукт" }));
     expect(await screen.findByRole("option", { name: "Лук" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: /Старое/ })).toBeNull();
   });
 
-  it("warehouse filter limits products to stocked ones", async () => {
+  // Продукт выбрали → курсор сам в «Кол-во»: это следующий обязательный шаг,
+  // и лишний клик по полю больше не нужен.
+  it("moves focus to the quantity field as soon as a product is picked", async () => {
+    renderDialog();
+    await screen.findByText("Состав рецепта пока пуст");
+    fireEvent.click(screen.getByRole("combobox", { name: "Продукт" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Мясо" }));
+    expect(document.activeElement).toBe(screen.getByLabelText("Количество"));
+  });
+
+  it("warehouse selection does not hide active ingredients without stock", async () => {
     renderDialog();
     await screen.findByText("Состав рецепта пока пуст");
     fireEvent.click(screen.getByRole("combobox", { name: "Склад" }));
     fireEvent.click(await screen.findByRole("option", { name: "Бар" }));
-    fireEvent.click(screen.getByRole("combobox", { name: "Сырьё" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Продукт" }));
     expect(await screen.findByRole("option", { name: "Лук" })).toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: /Мясо/ })).toBeNull();
+    expect(screen.getByRole("option", { name: "Мясо" })).toBeInTheDocument();
+    expect(api.get.mock.calls.some(([url]) => String(url).includes("/inventory/stock"))).toBe(false);
+  });
+
+  it("shows newly created numeric-named products without stock and saves the selected warehouse", async () => {
+    const allIngredients = [...ingredients,
+      { id: "ing-2234234", name: "2234234", unit: "кг", category: "Другое", is_active: true },
+      { id: "ing-768678", name: "768678", unit: "шт", category: "Мясо", is_active: true },
+    ];
+    api.get.mockImplementation(async (url) => ({ data: String(url).includes("/inventory/ingredients") ? allIngredients
+      : String(url).includes("/warehouse/list") ? warehouses
+      : String(url).includes("/inventory/categories") ? rawCats : [] }));
+    renderDialog();
+    await screen.findByText("Состав рецепта пока пуст");
+    fireEvent.click(screen.getByRole("combobox", { name: "Склад" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Главный" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Продукт" }));
+    expect(await screen.findByRole("option", { name: "768678" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("option", { name: "2234234" }));
+    fireEvent.change(screen.getByLabelText("Количество"), { target: { value: "0,25" } });
+    fireEvent.click(screen.getByRole("button", { name: "Добавить" }));
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith("/inventory/products/dish-1", {
+      ingredients: [{ ingredient_id: "ing-2234234", quantity: 0.25, warehouse_id: "wh-1" }],
+    }));
+    expect(api.get.mock.calls.some(([url]) => String(url).includes("/inventory/stock"))).toBe(false);
   });
 
   it("category filter limits products to the category", async () => {
@@ -145,7 +190,7 @@ describe("Dishes recipes composition", () => {
     expect(screen.queryByRole("combobox", { name: "Тип" })).toBeNull();
     fireEvent.click(screen.getByRole("combobox", { name: "Категория" }));
     fireEvent.click(await screen.findByRole("option", { name: "Овощи" }));
-    fireEvent.click(screen.getByRole("combobox", { name: "Сырьё" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Продукт" }));
     expect(await screen.findByRole("option", { name: "Лук" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: /Мясо/ })).toBeNull();
   });
@@ -173,7 +218,7 @@ describe("Dishes recipes composition", () => {
     fireEvent.click(screen.getByRole("combobox", { name: "Категория" }));
     expect(await screen.findByRole("option", { name: "Зелень (Овощи)" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("option", { name: "Овощи" }));
-    fireEvent.click(screen.getByRole("combobox", { name: "Сырьё" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Продукт" }));
     expect(await screen.findByRole("option", { name: "Лук" })).toBeInTheDocument();
     expect(await screen.findByRole("option", { name: "Укроп" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: /Мясо/ })).toBeNull();
@@ -189,14 +234,14 @@ describe("Dishes recipes composition", () => {
     });
     const table = await screen.findByRole("table", { name: "Состав рецепта" });
     const headers = within(table).getAllByRole("columnheader").map((th) => th.textContent);
-    expect(headers).toEqual(["№", "Склад", "Сырьё", "Кол-во", "Действия"]);
+    expect(headers).toEqual(["№", "Склад", "Продукт", "Кол-во", "Действия"]);
     expect(within(table).getByRole("button", { name: "Удалить ингредиент" })).toBeInTheDocument();
   });
 
   it("rejects zero quantity without API call", async () => {
     renderDialog();
     await screen.findByText("Состав рецепта пока пуст");
-    fireEvent.click(screen.getByRole("combobox", { name: "Сырьё" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Продукт" }));
     fireEvent.click(await screen.findByRole("option", { name: "Лук" }));
     fireEvent.change(screen.getByLabelText("Количество"), { target: { value: "0" } });
     expect(screen.getByRole("button", { name: "Добавить" })).toBeDisabled();
@@ -233,7 +278,7 @@ describe("Dishes recipes composition", () => {
     const table = await screen.findByRole("table", { name: "Состав рецепта" });
     expect(await within(table).findByText("Бар")).toBeInTheDocument();
     expect(await within(table).findByText("Мясо")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("combobox", { name: "Сырьё" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Продукт" }));
     fireEvent.click(await screen.findByRole("option", { name: "Лук" }));
     fireEvent.change(screen.getByLabelText("Количество"), { target: { value: "0,1" } });
     fireEvent.click(screen.getByRole("button", { name: "Добавить" }));
@@ -284,13 +329,35 @@ describe("Dishes recipes composition", () => {
     ));
   });
 
+  // Enter в поле количества = «Сохранить»: панель правки не форма, поэтому
+  // раньше клавиша не делала ничего.
+  it("saves the edited quantity on Enter inside the center panel", async () => {
+    renderDialog({
+      dish: dish({
+        recipeIngredients: [
+          { ingredient_id: "ing-meat", ingredient_name: "Мясо", quantity: 0.2, unit: "кг" },
+        ],
+      }),
+    });
+    await within(screen.getByRole("table", { name: "Состав рецепта" })).findByText("Мясо");
+    const row = within(screen.getByRole("table", { name: "Состав рецепта" })).getByText("Мясо").closest("tr");
+    fireEvent.click(within(row).getByRole("button", { name: "Изменить ингредиент" }));
+    const input = screen.getByLabelText("Количество ингредиента");
+    fireEvent.change(input, { target: { value: "0,7" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith(
+      "/inventory/products/dish-1",
+      { ingredients: [{ ingredient_id: "ing-meat", quantity: 0.7, warehouse_id: null }] },
+    ));
+  });
+
   it("shows selected raw unit at the end of quantity field", async () => {
     renderDialog();
     await screen.findByText("Состав рецепта пока пуст");
     const qtyUnit = () => screen.getByLabelText("Количество")
       .closest("label").querySelector(".dish-recipes-qty-unit");
     expect(qtyUnit()).toBeNull();
-    fireEvent.click(screen.getByRole("combobox", { name: "Сырьё" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Продукт" }));
     fireEvent.click(await screen.findByRole("option", { name: "Мясо" }));
     expect(qtyUnit()).toHaveTextContent("кг");
   });

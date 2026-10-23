@@ -51,9 +51,7 @@ async def test_reorder_persists_and_returns_canonical_order(client):
     # Response is canonical DB state in the new order — not the raw request echo.
     assert [r["name"] for r in body] == ["Салаты", "Супы", "Горячее"]
     assert [r["sort_order"] for r in body] == [0, 1, 2]
-    # Persisted: a fresh read reflects the new positions (GET /categories has no
-    # server-side order_by — the frontend sorts by sort_order — so compare
-    # positions, not the array order).
+    # A fresh read uses the persisted canonical positions.
     rows = {r["name"]: r for r in await _list(client, headers)}
     assert rows["Салаты"]["sort_order"] == 0
     assert rows["Супы"]["sort_order"] == 1
@@ -70,7 +68,7 @@ async def test_reorder_duplicate_id_rejected(client):
     assert resp.status_code == 409, resp.text
     # Nothing changed.
     rows = await _list(client, headers)
-    assert [r["sort_order"] for r in rows] == [0, 0]
+    assert [r["sort_order"] for r in rows] == [0, 1]
 
 
 async def test_reorder_unknown_id_rejected(client):
@@ -160,4 +158,50 @@ async def test_reorder_keeps_archived_flag_and_tab_split(client):
     assert rows["Старое"]["sort_order"] == 0
     assert rows["Супы"]["sort_order"] == 1
     assert rows["Горячее"]["is_active"] is False
-    assert rows["Горячее"]["sort_order"] == 0  # its original create-time value
+    assert rows["Горячее"]["sort_order"] == b["sort_order"]
+
+
+async def test_new_category_is_always_at_bottom_even_with_zero_from_old_client(client):
+    headers, _ = await register_company(client, slug="append", email="o@append.example.com")
+    first = await _create_category(client, headers, "Ягоды", "dish-berries", sort_order=0)
+    second = await _create_category(client, headers, "Супы", "dish-soups", sort_order=0)
+    new = await _create_category(client, headers, "Абрикос", "dish-apricot", sort_order=0)
+    assert [first["sort_order"], second["sort_order"], new["sort_order"]] == [0, 1, 2]
+    assert [row["id"] for row in await _list(client, headers)] == [first["id"], second["id"], new["id"]]
+
+
+async def test_append_after_reorder_keeps_existing_order(client):
+    headers, _ = await register_company(client, slug="append-drag", email="o@append-drag.example.com")
+    first = await _create_category(client, headers, "Ягоды", "dish-berries")
+    second = await _create_category(client, headers, "Супы", "dish-soups")
+    assert (await _reorder(client, headers, [second["id"], first["id"]])).status_code == 200
+    new = await _create_category(client, headers, "Абрикос", "dish-apricot")
+    assert [row["id"] for row in await _list(client, headers)] == [second["id"], first["id"], new["id"]]
+    assert new["sort_order"] == 2
+
+
+async def test_append_after_legacy_zero_positions_does_not_renumber_existing(client):
+    headers, _ = await register_company(client, slug="append-legacy", email="o@append-legacy.example.com")
+    first = await _create_category(client, headers, "Ягоды", "legacy-berries")
+    second = await _create_category(client, headers, "Супы", "dish-soups")
+    assert (await client.patch(f"/inventory/categories/{second['id']}", headers=headers, json={"sort_order": 0})).status_code == 200
+    new = await _create_category(client, headers, "Абрикос", "dish-apricot")
+    rows = await _list(client, headers)
+    assert rows[-1]["id"] == new["id"]
+    assert new["sort_order"] == 1
+    assert {row["id"]: row["sort_order"] for row in rows if row["id"] != new["id"]} == {first["id"]: 0, second["id"]: 0}
+
+
+async def test_append_handles_gaps_archives_other_sections_and_company_scope(client):
+    headers, _ = await register_company(client, slug="append-scope", email="o@append-scope.example.com")
+    foreign_headers, _ = await register_company(client, slug="append-other", email="o@append-other.example.com")
+    await _create_category(client, foreign_headers, "Чужая", "dish-other", sort_order=999)
+    legacy = await _create_category(client, headers, "Старая", "legacy-food", sort_order=20)
+    archived = await _create_category(client, headers, "Архив", "sales-old", sort_order=50, is_active=False)
+    for prefix in ("dish", "sales", "raw", "semi"):
+        new = await _create_category(client, headers, "Новая " + prefix, prefix + "-new", sort_order=0)
+        assert new["sort_order"] == 51 + ("dish", "sales", "raw", "semi").index(prefix)
+    rows = {row["id"]: row for row in await _list(client, headers, include_inactive=True)}
+    assert rows[legacy["id"]]["sort_order"] == 20
+    assert rows[archived["id"]]["sort_order"] == 50
+    assert rows[archived["id"]]["is_active"] is False

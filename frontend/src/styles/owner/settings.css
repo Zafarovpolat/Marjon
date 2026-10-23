@@ -825,9 +825,9 @@
       align-items: center;
       gap: 18px;
       padding: 12px 14px;
-      border: 1px solid rgba(215, 226, 240, .9);
+      border: 1px solid rgba(153, 176, 206, .9);
       border-radius: 14px;
-      background: #fff;
+      background: #f4f7fc;
       transition: border-color 140ms ease, box-shadow 140ms ease;
       /* Phase 5C-6D: row presentation text (name/count/pricing/percent/status)
          is never selectable — a click or drag on a place must not paint a blue

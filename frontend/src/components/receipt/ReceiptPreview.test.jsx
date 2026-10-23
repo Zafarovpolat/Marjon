@@ -53,7 +53,7 @@ it("moves the separate order number below the brand without duplicating the info
   template.blockStyles.bottomOrderNumber = { size: "xlarge", weight: "standard", align: "center", placement: "top" };
   const view = renderCustomer({ template });
   const number = view.container.querySelector(".receipt-preview__bottomnum-value");
-  expect(number).toHaveStyle({ fontSize: "48px", fontWeight: "400" });
+  expect(number).toHaveStyle({ fontSize: "70px", fontWeight: "400" });
   expect(number.closest("[data-receipt-section]")).toHaveAttribute("data-receipt-section", "header");
   expect(screen.queryByText("Номер заказа:")).toBeNull();
   expect(screen.getByText("Тип заказа:")).toBeInTheDocument();
@@ -67,6 +67,31 @@ it("moves the separate order number below the brand without duplicating the info
 function receiptRoot(container) {
   return container.querySelector("[data-receipt-print-root]");
 }
+
+it.each([["standard", 35], ["large", 52.5], ["xlarge", 70], ["xxlarge", 131.25]])(
+  "enlarges the %s separate number in printer-relative proportions",
+  (size, fontSize) => {
+    const template = buildCustomerTemplate();
+    template.blockStyles.bottomOrderNumber.size = size;
+    const { container } = renderCustomer({ template });
+    expect(container.querySelector(".receipt-preview__bottomnum-value")).toHaveStyle({ fontSize: `${fontSize}px` });
+  },
+);
+
+it.each([["standard", 15], ["large", 20], ["xlarge", 23.75], ["medium", 20]])(
+  "uses matching %s size steps for all chef style controls",
+  (size, fontSize) => {
+    const template = buildKitchenTemplate();
+    for (const key of Object.keys(template.blockStyles)) template.blockStyles[key] = { size, weight: "standard" };
+    const { container, rerender } = renderKitchen({ template, order: { ...kitchenOrder, items: [{ name: "Плов", quantity: 2, total: 50000 }] } });
+    const selector = ".receipt-preview__kitchen-number, .receipt-preview__info-row, .receipt-preview__item-row, .receipt-preview__summary-row, .receipt-preview__kitchen-comment";
+    expect(container.querySelectorAll(selector).length).toBeGreaterThan(5);
+    for (const row of container.querySelectorAll(selector)) expect(row).toHaveStyle({ fontSize: `${fontSize}px`, fontWeight: "400" });
+    for (const style of Object.values(template.blockStyles)) style.weight = "bold";
+    rerender(<ReceiptPreview type="kitchen" template={template} order={{ ...kitchenOrder, items: [{ name: "Плов", quantity: 2, total: 50000 }] }} />);
+    for (const row of container.querySelectorAll(selector)) expect(row).toHaveStyle({ fontSize: `${fontSize}px`, fontWeight: "700" });
+  },
+);
 
 describe("ReceiptPreview print layout", () => {
   it("renders a real uploaded company logo, never a fabricated one", () => {
@@ -335,6 +360,21 @@ describe("ReceiptPreview print layout", () => {
     expect(table).not.toBeNull();
     expect(within(table).queryByText("Сумма")).toBeNull();
     expect(within(table).queryByText("Сумма блюд")).toBeNull();
+  });
+
+  it("does not invent a zero price for an item with an unknown total or overwrite a real zero", () => {
+    const { container } = renderKitchen({ order: {
+      ...kitchenOrder,
+      items: [
+        { name: "Unknown", quantity: 1 },
+        { name: "Free", quantity: 1, total: 0, price: 9000 },
+        { name: "Paid", quantity: 1, total: 5000 },
+      ],
+    } });
+    const rows = container.querySelectorAll(".receipt-preview__item-row");
+    expect(rows[0].lastElementChild.textContent).toBe("");
+    expect(rows[1].lastElementChild.textContent).toBe("0");
+    expect(container.querySelector(".receipt-preview__summary-row").textContent).toBe("Сумма блюд5 000");
   });
 
   it("hides item notes and the order note when comment is OFF but keeps modifiers", () => {

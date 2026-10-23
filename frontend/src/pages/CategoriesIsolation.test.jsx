@@ -77,4 +77,46 @@ describe("Dish and goods categories stay in their originating section", () => {
     expect(catalogService.createCategory).toHaveBeenCalledWith(expect.objectContaining({ slug: "dish-новая-категория" }));
     expect(result.current.filterCategories.map((row) => row.id).sort()).toEqual(["created", "dish", "legacy"]);
   });
+
+  it.each([["dishes", "dish"], ["sales", "sales"], ["raw", "raw"]])("appends new %s categories below existing rows and keeps that order after reload", async (type, prefix) => {
+    let stored = [
+      { id: "tail-first", name: "Ягоды до добавления", slug: `${prefix}-berries`, sort_order: 0, is_active: true },
+      { id: "tail-second", name: "Бульоны до добавления", slug: `${prefix}-soups`, sort_order: 8, is_active: true },
+    ];
+    getCategories.mockImplementation(async () => ({ data: [...stored] }));
+    catalogService.createCategory.mockImplementation(async (payload) => {
+      const data = { ...payload, id: `tail-${stored.length}`, sort_order: Math.max(...stored.map((row) => row.sort_order)) + 1 };
+      stored = [...stored, data];
+      return { data };
+    });
+    const view = render(<CategoriesPage type={type} />);
+    await screen.findByText("Ягоды до добавления");
+    const visibleNames = () => [...document.querySelectorAll(".dishcat-info strong, .rawcat-name")].map((el) => el.textContent);
+    const expected = ["Ягоды до добавления", "Бульоны до добавления"];
+    expect(visibleNames()).toEqual(expected);
+    for (const name of ["Абрикос новый", "Ананас новый"]) {
+      fireEvent.click(screen.getByRole("button", { name: /^Добавить( категорию)?$/ }));
+      fireEvent.change(screen.getByPlaceholderText("Название категории"), { target: { value: name } });
+      fireEvent.click(document.querySelector('form button[type="submit"]'));
+      expected.push(name);
+      await waitFor(() => expect(visibleNames()).toEqual(expected));
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    }
+    for (const [payload] of catalogService.createCategory.mock.calls) expect(payload).not.toHaveProperty("sort_order");
+    view.unmount();
+    render(<CategoriesPage type={type} />);
+    await waitFor(() => expect(visibleNames()).toEqual(expected));
+  });
+
+  it("appends a category created in the dish drawer without alphabetically moving existing choices", async () => {
+    getCategories.mockResolvedValue({ data: [
+      { id: "first", name: "Ягоды", slug: "dish-berries", sort_order: 0, is_active: true },
+      { id: "second", name: "Бульоны", slug: "dish-soups", sort_order: 1, is_active: true },
+    ] });
+    const { result } = renderHook(() => useDishesCatalog());
+    await waitFor(() => expect(result.current.filterCategoriesLoading).toBe(false));
+    await act(async () => { await result.current.createDishCategory("Абрикос"); });
+    expect(catalogService.createCategory.mock.calls[0][0]).not.toHaveProperty("sort_order");
+    expect(result.current.filterCategories.map((row) => row.name)).toEqual(["Ягоды", "Бульоны", "Абрикос"]);
+  });
 });

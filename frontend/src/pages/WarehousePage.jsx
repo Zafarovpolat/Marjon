@@ -832,6 +832,74 @@ export function buildSaleExpenseLines(dishItems, products, ingById, mainWarehous
   return Array.from(acc.values()).sort((a, b) => String(a.name).localeCompare(String(b.name), "ru"));
 }
 
+// Расход по складу: один продукт — одна строка. Раньше каждый расходный
+// документ/продажа рисовали свою строку, и «Мясо» повторялось столько раз,
+// сколько было списаний. Здесь строки складываются в продукт, а блюда из
+// авто-расхода по техкартам (поле dishes из /stock/outgoing-report) — в
+// разбивку под стрелкой.
+//
+// Списание продажи без блюд — это не ручной документ: заказ мог быть удалён
+// или у блюда нет техкарты, поэтому такие строки идут отдельно
+// («Без разбивки»), а ручной расходный документ — своим «Ручным расходом».
+export function aggregateExpenseProducts(lines) {
+  const map = new Map();
+  (Array.isArray(lines) ? lines : []).forEach((line) => {
+    const name = String(line?.name || "—");
+    const unit = String(line?.unit || "").trim();
+    const key = `${name.toLowerCase()}||${unit.toLowerCase()}`;
+    const acc = map.get(key) || {
+      key,
+      name,
+      unit,
+      category: String(line?.category || "").trim() || "Без категории",
+      qty: 0,
+      sum: 0,
+      dishes: [],
+      manual: [],
+      manualQty: 0,
+      manualSum: 0,
+      unlinked: [],
+      unlinkedQty: 0,
+      unlinkedSum: 0,
+    };
+    const qty = Number(line?.qty) || 0;
+    const sum = Number(line?.sum) || 0;
+    acc.qty += qty;
+    acc.sum += sum;
+    const dishes = Array.isArray(line?.dishes) ? line.dishes : [];
+    if (dishes.length > 0) {
+      dishes.forEach((dish) => {
+        const dishName = String(dish?.name || "—");
+        const dishQty = Number(dish?.qty) || 0;
+        const found = acc.dishes.find((item) => item.name === dishName);
+        if (found) found.qty += dishQty;
+        else acc.dishes.push({ name: dishName, qty: dishQty });
+      });
+    } else if (String(line?.source || "") === "sale") {
+      acc.unlinked.push({ ...line, qty, sum });
+      acc.unlinkedQty += qty;
+      acc.unlinkedSum += sum;
+    } else {
+      acc.manual.push({ ...line, qty, sum });
+      acc.manualQty += qty;
+      acc.manualSum += sum;
+    }
+    map.set(key, acc);
+  });
+  return Array.from(map.values())
+    .map((item) => ({ ...item, isProduct: true, dishes: item.dishes.sort((a, b) => b.qty - a.qty) }))
+    .sort((a, b) => a.name.localeCompare(b.name, "ru"));
+}
+
+// «1 блюдо / 2 блюда / 5 блюд» — подпись в служебной колонке строки продукта.
+function dishCountLabel(count) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${count} блюдо`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} блюда`;
+  return `${count} блюд`;
+}
+
 function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehouse, startCreating = false, onOpenCreate, onCloseCreate, detailDocId = "", onOpenDocDetail, focusIngredientId = "" }) {
   const section = normalizeSection(initialSection);
   const config = warehouseConfigs[section] || warehouseConfigs.incoming;
@@ -955,6 +1023,10 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
   const [expandedCats, setExpandedCats] = useState({});
   // Категории в фазе закрытия (строки ещё видны 200мс с анимацией).
   const [closingCats, setClosingCats] = useState({});
+  // Второй уровень дерева Расхода: раскрытые продукты (одна строка на продукт,
+  // под стрелкой — какие блюда его израсходовали). Ключ включает категорию,
+  // чтобы одинаковые имена в разных категориях не раскрывались вместе.
+  const [expandedProducts, setExpandedProducts] = useState({});
   const closeTimers = useRef({});
   // Переход из колокольчика дефицита: ?ingredient=<id> раскрывает ровно ту
   // категорию, где лежит это сырьё. Применяем один раз на id — иначе ручное
@@ -2259,8 +2331,10 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
     return {
       warehouse: summaryRow || { id: selectedOutgoingWhId, name: "Склад" },
       lines,
-      productGroups: groupLines(productLines),
-      tovarGroups: groupLines(tovarLines),
+      // Группируем по категориям уже СВЁРНУТЫЕ продукты: одна строка на продукт,
+      // внутри — разбивка по блюдам для стрелки.
+      productGroups: groupLines(aggregateExpenseProducts(productLines)),
+      tovarGroups: groupLines(aggregateExpenseProducts(tovarLines)),
       totalQty: sumQty(lines),
       totalSum: sumSum(lines),
       productQty: sumQty(productLines),
@@ -2274,6 +2348,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
   const openOutgoingDetail = (key) => {
     setExpandedCats({});
     setClosingCats({});
+    setExpandedProducts({});
     Object.values(closeTimers.current).forEach((timer) => clearTimeout(timer));
     closeTimers.current = {};
     // Как в Приходе: пушим запись истории, чтобы стрелка топбара
@@ -3328,6 +3403,91 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
     const closing = closingCats[key] === true;
     const visible = expanded || closing;
     const label = kind === "tovar" ? `товаров ${group.name}` : `продуктов ${group.name}`;
+    const delay = (idx) => ({ animationDelay: closing ? "0ms" : `${idx * 45}ms` });
+    const metaStyle = (idx) => ({
+      ...delay(idx),
+      textAlign: "center",
+      fontSize: "13px",
+      fontWeight: 400,
+      color: "var(--neutral-800)",
+    });
+
+    // Продукт (после aggregateExpenseProducts): одна строка на продукт,
+    // стрелка раскрывает блюда и «Ручной расход». Строка без dishes/manual —
+    // прежняя документная строка (детализация недостач инвентаризации).
+    const renderProductRow = (item, idx) => {
+      const itemKey = `${key}:${item.key}`;
+      const open = expandedProducts[itemKey] === true;
+      const dishes = Array.isArray(item.dishes) ? item.dishes : [];
+      const manualCount = item.manual?.length || 0;
+      const unlinkedCount = item.unlinked?.length || 0;
+      const docCount = manualCount + unlinkedCount;
+      const hasBreakdown = dishes.length > 0 || docCount > 0;
+      const rows = [
+        <tr key={itemKey} className={`wh-detail-line-row${closing ? " is-closing" : ""}`}>
+          <td style={delay(idx)}>
+            {hasBreakdown ? (
+              <button
+                type="button"
+                className="wh-detail-toggle wh-detail-toggle--inline"
+                onClick={() => setExpandedProducts((prev) => ({ ...prev, [itemKey]: prev[itemKey] !== true }))}
+                aria-expanded={open}
+                aria-label={`${open ? "Свернуть" : "Развернуть"} расход продукта ${item.name}`}
+              >
+                <Icon name="bi-chevron-right" size={13} className={`wh-detail-toggle__chevron${open ? " is-open" : ""}`} aria-hidden="true" />
+              </button>
+            ) : null}
+            {" "}{item.name}
+          </td>
+          <td style={metaStyle(idx)}>
+            {dishes.length > 0 ? dishCountLabel(dishes.length) : docCount > 0 ? `${docCount} док.` : "—"}
+          </td>
+          <td style={delay(idx)}>{`${formatQty(item.qty)} ${item.unit}`}</td>
+          <td style={delay(idx)}>{formatAmount(item.sum)}</td>
+        </tr>,
+      ];
+      if (open) {
+        dishes.forEach((dish, dishIdx) => rows.push(
+          <tr key={`${itemKey}:dish:${dishIdx}`} className="wh-detail-line-row wh-detail-dish-row">
+            <td>{dish.name}</td>
+            <td />
+            <td>{`${formatQty(dish.qty)} ${item.unit}`}</td>
+            <td />
+          </tr>,
+        ));
+        if (unlinkedCount > 0) {
+          rows.push(
+            <tr key={`${itemKey}:unlinked`} className="wh-detail-line-row wh-detail-dish-row wh-detail-dish-row--muted">
+              <td>Без разбивки</td>
+              <td style={metaStyle(0)}>{unlinkedCount > 1 ? `${unlinkedCount} док.` : (item.unlinked[0]?.registeredAt || "продажа")}</td>
+              <td>{`${formatQty(item.unlinkedQty)} ${item.unit}`}</td>
+              <td>{formatAmount(item.unlinkedSum)}</td>
+            </tr>,
+          );
+        }
+        if (manualCount > 0) {
+          rows.push(
+            <tr key={`${itemKey}:manual`} className="wh-detail-line-row wh-detail-dish-row wh-detail-dish-row--manual">
+              <td>Ручной расход</td>
+              <td style={metaStyle(0)}>{manualCount > 1 ? `${manualCount} док.` : (item.manual[0]?.registeredAt || "документ")}</td>
+              <td>{`${formatQty(item.manualQty)} ${item.unit}`}</td>
+              <td>{formatAmount(item.manualSum)}</td>
+            </tr>,
+          );
+        }
+      }
+      return rows;
+    };
+
+    const renderDocRow = (line, idx) => (
+      <tr key={line.key} className={`wh-detail-line-row${closing ? " is-closing" : ""}`}>
+        <td style={delay(idx)}>{line.name}</td>
+        <td style={metaStyle(idx)}>{line.registeredAt || "—"}</td>
+        <td style={delay(idx)}>{`${formatQty(line.qty)} ${line.unit}`}</td>
+        <td style={delay(idx)}>{formatAmount(line.sum)}</td>
+      </tr>
+    );
+
     return [
       <tr key={`cat-${key}`} className="wh-detail-cat-row">
         <td>
@@ -3346,14 +3506,9 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
         <td>{formatQty(group.qty)}</td>
         <td>{formatAmount(group.sum)}</td>
       </tr>,
-      ...(visible ? group.lines.map((line, idx) => (
-        <tr key={line.key} className={`wh-detail-line-row${closing ? " is-closing" : ""}`}>
-          <td style={{ animationDelay: closing ? "0ms" : `${idx * 45}ms` }}>{line.name}</td>
-          <td style={{ animationDelay: closing ? "0ms" : `${idx * 45}ms`, textAlign: "center", fontSize: "13px", fontWeight: 400, color: "var(--neutral-800)" }}>{line.registeredAt || "—"}</td>
-          <td style={{ animationDelay: closing ? "0ms" : `${idx * 45}ms` }}>{`${formatQty(line.qty)} ${line.unit}`}</td>
-          <td style={{ animationDelay: closing ? "0ms" : `${idx * 45}ms` }}>{formatAmount(line.sum)}</td>
-        </tr>
-      )) : []),
+      ...(visible
+        ? group.lines.flatMap((line, idx) => (line.isProduct ? renderProductRow(line, idx) : renderDocRow(line, idx)))
+        : []),
     ];
   };
 

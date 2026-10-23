@@ -682,18 +682,24 @@
    never match. Sizes are chef-only steps; alignment/weight mirror the
    editor controls. */
 .receipt-settings-page .receipt-preview--kitchen .receipt-preview__block--size-standard { font-size: 15px; }
-.receipt-settings-page .receipt-preview--kitchen .receipt-preview__block--size-medium { font-size: 17px; }
-.receipt-settings-page .receipt-preview--kitchen .receipt-preview__block--size-large { font-size: 19px; }
-.receipt-settings-page .receipt-preview--kitchen .receipt-preview__block--size-xlarge { font-size: 22px; }
+.receipt-settings-page .receipt-preview--kitchen .receipt-preview__block--size-medium { font-size: 20px; }
+.receipt-settings-page .receipt-preview--kitchen .receipt-preview__block--size-large { font-size: 20px; }
+.receipt-settings-page .receipt-preview--kitchen .receipt-preview__block--size-xlarge { font-size: 23.75px; }
 .receipt-settings-page .receipt-preview--kitchen .receipt-preview__block--align-left { text-align: left; }
 .receipt-settings-page .receipt-preview--kitchen .receipt-preview__block--align-center { text-align: center; }
 .receipt-settings-page .receipt-preview--kitchen .receipt-preview__block--align-right { text-align: right; }
 .receipt-settings-page .receipt-preview--kitchen .receipt-preview__block--weight-bold { font-weight: 700; }
-/* Info/summary rows pin child weights (label regular, value bold), so the
-   container rule alone is dead — an explicit winning rule makes the Bold
-   control visible, same as the customer info-row weight rule below. */
-.receipt-settings-page .receipt-preview--kitchen .receipt-preview__info-row.receipt-preview__block--weight-bold b { font-weight: 700; }
-.receipt-settings-page .receipt-preview--kitchen .receipt-preview__summary-row.receipt-preview__block--weight-bold span { font-weight: 700; }
+/* Both label and value use the selected weight, just like the bitmap.
+   In particular Standard must reset the generic bold values/headings. */
+.receipt-settings-page .receipt-preview--kitchen .receipt-preview__info-row > b,
+.receipt-settings-page .receipt-preview--kitchen .receipt-preview__info-row > span,
+.receipt-settings-page .receipt-preview--kitchen .receipt-preview__summary-row > b,
+.receipt-settings-page .receipt-preview--kitchen .receipt-preview__summary-row > span,
+.receipt-settings-page .receipt-preview--kitchen .receipt-preview__kitchen-comment > b,
+.receipt-settings-page .receipt-preview--kitchen .receipt-preview__kitchen-comment > span {
+  font-size: inherit;
+  font-weight: inherit;
+}
 .receipt-settings-page .receipt-preview--kitchen .receipt-preview__kitchen-number:not(.receipt-preview__block--weight-bold) {
   font-weight: 400;
 }

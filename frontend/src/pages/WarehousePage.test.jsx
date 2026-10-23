@@ -8,7 +8,7 @@ import { webDateTime } from "../utils/webTime";
 import { nomenclatureService } from "../api/nomenclature";
 import { catalogService } from "../api/catalog";
 import { settingsService } from "../api/settings";
-import WarehousePage, { __resetDocRangeCache, WarehouseStockDetailRoute } from "./WarehousePage";
+import WarehousePage, { __resetDocRangeCache, aggregateExpenseProducts, WarehouseStockDetailRoute } from "./WarehousePage";
 
 // Период кэшируется по секции между маунтами — тесты изолируем сбросом.
 beforeEach(() => {
@@ -685,6 +685,76 @@ describe("Warehouse stock summary (V36 dishes family)", () => {
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
     expect(await screen.findByRole("table", { name: "Расход по складам" })).toBeInTheDocument();
+  });
+
+  // Расход: один продукт — одна строка. Раньше «Мясо» повторялось столько раз,
+  // сколько было списаний (документ/продажа на каждую строку).
+  it("8m. aggregateExpenseProducts folds movements of one product into a single row", () => {
+    const merged = aggregateExpenseProducts([
+      { key: "m1", name: "Мясо", unit: "кг", category: "Мясо и птица", qty: "0.5", sum: "20000",
+        dishes: [{ name: "Плов", qty: "0.3" }, { name: "Шашлык", qty: "0.2" }] },
+      { key: "m2", name: "Мясо", unit: "кг", category: "Мясо и птица", qty: "0.1", sum: "4000",
+        dishes: [], registeredAt: "23.10.2026 / 15:50" },
+      { key: "m3", name: "Мясо", unit: "кг", category: "Мясо и птица", qty: "0.4", sum: "16000",
+        dishes: [{ name: "Плов", qty: "0.4" }] },
+      { key: "m4", name: "Соль", unit: "кг", category: "Специи", qty: "0.04", sum: "320", dishes: [] },
+      // продажа, у которой блюдо не восстановить (заказ удалён) — не ручной расход
+      { key: "m5", name: "Соль", unit: "кг", category: "Специи", qty: "0.06", sum: "480",
+        dishes: [], source: "sale", registeredAt: "22.10.2026 / 10:00" },
+    ]);
+    expect(merged).toHaveLength(2);
+    const meat = merged.find((item) => item.name === "Мясо");
+    expect(meat.qty).toBeCloseTo(1, 6);
+    expect(meat.sum).toBeCloseTo(40000, 6);
+    // Блюда складываются по имени и сортируются по расходу (Плов 0.3 + 0.4).
+    expect(meat.dishes).toEqual([{ name: "Плов", qty: 0.7 }, { name: "Шашлык", qty: 0.2 }]);
+    // Документ без блюд уходит в «Ручной расход», а не в разбивку.
+    expect(meat.manual).toHaveLength(1);
+    expect(meat.manualQty).toBeCloseTo(0.1, 6);
+    expect(meat.manualSum).toBeCloseTo(4000, 6);
+    const salt = merged.find((item) => item.name === "Соль");
+    expect(salt.dishes).toEqual([]);
+    expect(salt.manual).toHaveLength(1);
+    // Продажа без блюд отделена от ручного документа.
+    expect(salt.unlinked).toHaveLength(1);
+    expect(salt.unlinkedQty).toBeCloseTo(0.06, 6);
+  });
+
+  it("8n. outgoing detail renders one row per product and reveals its dishes", async () => {
+    warehouseService.listOutgoingReport.mockResolvedValue({ data: {
+      rows: [{ key: "wh-1", id: "wh-1", name: "Главный склад", product: 30000, tovar: 0, raw: 30000 }],
+      total: 30000,
+      lines: [
+        { key: "m1", warehouseKey: "wh-1", ingredientId: "ing-1", name: "kartoshka", category: "sabzavotlar",
+          qty: "0.5", unit: "кг", sum: "20000", isTovar: false, source: "sale",
+          dishes: [{ name: "Плов", qty: "0.3" }, { name: "Шашлык", qty: "0.2" }] },
+        { key: "m2", warehouseKey: "wh-1", ingredientId: "ing-1", name: "kartoshka", category: "sabzavotlar",
+          qty: "0.1", unit: "кг", sum: "10000", isTovar: false, source: "expense", dishes: [] },
+      ],
+    } });
+    warehouseService.listWarehouses.mockResolvedValue({ data: warehouses });
+    warehouseService.listIngredients.mockResolvedValue({
+      data: [{ id: "ing-1", name: "kartoshka", category: "sabzavotlar", unit: "кг" }],
+    });
+    catalogService.listProducts.mockResolvedValue({ data: [] });
+    warehouseService.list.mockResolvedValue({ data: [] });
+    render(<WarehousePage initialSection="outgoing" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Открыть расходы склада Главный склад" }));
+    const detail = await screen.findByRole("table", { name: "Расход склада Главный склад" });
+    fireEvent.click(within(detail).getByRole("button", { name: "Развернуть категорию продуктов sabzavotlar" }));
+    // Два движения — одна строка продукта со суммарными кол-вом и суммой.
+    const rows = await within(detail).findAllByText("kartoshka");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].closest("tr").textContent).toMatch(/0,6/);
+    expect(rows[0].closest("tr").textContent).toMatch(/30[\s\u00a0\u202f]*000 UZS/);
+    expect(within(detail).queryByText("Плов")).toBeNull();
+    fireEvent.click(within(detail).getByRole("button", { name: "Развернуть расход продукта kartoshka" }));
+    expect(await within(detail).findByText("Плов")).toBeInTheDocument();
+    expect(within(detail).getByText("Шашлык")).toBeInTheDocument();
+    expect(within(detail).getByText("Ручной расход")).toBeInTheDocument();
+    // Стрелка сворачивает разбивку обратно.
+    fireEvent.click(within(detail).getByRole("button", { name: "Свернуть расход продукта kartoshka" }));
+    await waitFor(() => expect(within(detail).queryByText("Плов")).toBeNull());
   });
 
   it("8e2. docDateToISO normalizes doc dates for range compare", async () => {
