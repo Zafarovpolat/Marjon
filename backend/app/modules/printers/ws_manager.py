@@ -68,8 +68,8 @@ class PrinterWSManager:
     # ── helpers ───────────────────────────────────────────────────────────────
 
     @staticmethod
-    def _key(company_id: UUID) -> str:
-        return str(company_id)
+    def _key(company_id: UUID, branch_id: UUID) -> str:
+        return f"{company_id}:{branch_id}"
 
     @staticmethod
     def _channel(key: str) -> str:
@@ -77,9 +77,9 @@ class PrinterWSManager:
 
     # ── connection lifecycle ──────────────────────────────────────────────────
 
-    async def connect(self, ws: WebSocket, company_id: UUID) -> None:
+    async def connect(self, ws: WebSocket, company_id: UUID, branch_id: UUID) -> None:
         await ws.accept()
-        key = self._key(company_id)
+        key = self._key(company_id, branch_id)
         self._connections.setdefault(key, set()).add(ws)
         task = asyncio.create_task(
             self._redis_forward(ws, self._channel(key)),
@@ -91,8 +91,8 @@ class PrinterWSManager:
             company_id, len(self._connections[key]),
         )
 
-    def disconnect(self, ws: WebSocket, company_id: UUID) -> None:
-        key = self._key(company_id)
+    def disconnect(self, ws: WebSocket, company_id: UUID, branch_id: UUID) -> None:
+        key = self._key(company_id, branch_id)
         conns = self._connections.get(key)
         if conns:
             conns.discard(ws)
@@ -105,12 +105,12 @@ class PrinterWSManager:
 
     # ── broadcast ─────────────────────────────────────────────────────────────
 
-    async def broadcast(self, company_id: UUID, message: dict) -> None:
-        """Send a print job notification to every terminal of this company,
+    async def broadcast(self, company_id: UUID, branch_id: UUID, message: dict) -> None:
+        """Send a print job notification to every terminal of this branch,
         no matter which worker holds its WebSocket."""
         global _redis_down_until
 
-        key = self._key(company_id)
+        key = self._key(company_id, branch_id)
         payload = json.dumps(message, ensure_ascii=False)
 
         if settings.redis_url and time.monotonic() >= _redis_down_until:

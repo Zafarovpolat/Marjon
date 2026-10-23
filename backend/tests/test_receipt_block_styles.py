@@ -152,14 +152,14 @@ def test_kitchen_date_off_hides_time_only():
         _ticket(), template={"enabled": {"date": False}},
     ))
     assert "14:33" not in raw
-    assert "НА СТОЛ" in raw
+    assert "На стол" in raw
 
 
 def test_kitchen_order_type_off_hides_type_only():
     raw = _text(EscPosFormatter().format_kitchen_ticket(
         _ticket(), template={"enabled": {"orderType": False}},
     ))
-    assert "НА СТОЛ" not in raw
+    assert "На стол" not in raw
     assert "14:33" in raw
 
 
@@ -168,9 +168,9 @@ def test_kitchen_type_and_time_print_on_separate_lines():
         _ticket(), template={"enabled": {"date": True, "orderType": True}},
     ))
     lines = raw.splitlines()
-    assert any("НА СТОЛ" in ln for ln in lines)
+    assert any("На стол" in ln for ln in lines)
     assert any("14:33" in ln for ln in lines)
-    assert not any("НА СТОЛ" in ln and "14:33" in ln for ln in lines)
+    assert not any("На стол" in ln and "14:33" in ln for ln in lines)
 
 
 def test_kitchen_legacy_created_at_fallback():
@@ -180,7 +180,7 @@ def test_kitchen_legacy_created_at_fallback():
         _ticket(), template={"enabled": {"createdAt": False}},
     ))
     assert "14:33" not in raw
-    assert "НА СТОЛ" in raw
+    assert "На стол" in raw
 
 
 # --- Кухонный тикет: comment против legacy-ключей ----------------------------
@@ -241,7 +241,7 @@ def test_chef_order_number_standard_style_overrides_default():
     assert BOLD_ON not in win
 
 
-def test_chef_show_order_sum_total_line_uses_style():
+def test_chef_show_order_sum_does_not_restore_retired_total_line():
     raw = EscPosFormatter().format_kitchen_ticket(
         _ticket(),
         template={
@@ -249,4 +249,5 @@ def test_chef_show_order_sum_total_line_uses_style():
             "blockStyles": {"showOrderSum": {"size": "large"}},
         },
     )
-    assert DOUBLE_HEIGHT in _window(raw, "Сумма блюд", 12)
+    assert "Сумма" in _text(raw)
+    assert "Сумма блюд" not in _text(raw)

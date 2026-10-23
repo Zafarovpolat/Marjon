@@ -59,12 +59,8 @@ def test_kitchen_ticket_sums_table_when_enabled():
     assert "15,000" in raw
     # Цифры строго по центру шапки: то же 6-знаковое поле, что у "Кол-во".
     assert "  2   " in raw
-    assert "Сумма блюд" in raw
-    assert "65,000" in raw
-    # Над итогом — одиночный пунктир во всю ширину.
-    lines = [ln for ln in raw.splitlines() if ln.strip()]
-    idx = next(i for i, ln in enumerate(lines) if "Сумма блюд" in ln)
-    assert set(lines[idx - 1].strip()) == {"-"}
+    assert "Сумма блюд" not in raw
+    assert "65,000" not in raw
     # Табличный режим заменяет строки xN, модификаторы остаются.
     assert "x2  " not in raw
     assert "Без казы" in raw

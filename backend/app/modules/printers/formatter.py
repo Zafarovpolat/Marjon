@@ -11,9 +11,10 @@ files' KITCHEN_BLOCKS (8-row constructor) and buildKitchenTemplate().
 from __future__ import annotations
 import io
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime
+from app.modules.printers.receipt_layout import grouped_items, separator_style
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,11 @@ ORDER_TYPE_LABELS = {
     "delivery": "Доставка",
     "qr": "QR",
 }
+
+
+def format_kitchen_order_type(value) -> str:
+    """Kitchen uses the same takeaway label as the POS button."""
+    return "С собой" if value in ("takeaway", "На вынос", "НА ВЫНОС") else format_order_type(value)
 
 PAYMENT_METHOD_LABELS = {
     "cash": "Наличные",
@@ -96,6 +102,10 @@ class ReceiptLine:
     price: Decimal
     total: Decimal
     modifiers: list[str] = field(default_factory=list)
+    product_id: str | None = None
+    note: str | None = None
+    course: int = 1
+    takeaway: bool = False
 
 
 @dataclass
@@ -123,6 +133,7 @@ class ReceiptData:
     service_fee_rate: Decimal | None = None
     waiter_name: str | None = None
     printed_at: datetime = field(default_factory=datetime.now)
+    staff_label: str = "Официант"
 
 
 @dataclass
@@ -135,6 +146,8 @@ class KitchenItem:
     # Real per-item amount (OrderItem.total). None when unknown — showOrderSum
     # must never fabricate a price, so a missing total simply prints nothing.
     total: Decimal | None = None
+    product_id: str | None = None
+    takeaway: bool = False
 
 
 @dataclass
@@ -150,6 +163,7 @@ class KitchenTicketData:
     # above format_kitchen_ticket).
     status: str = "new"
     printed_at: datetime = field(default_factory=datetime.now)
+    staff_label: str = "Официант"
 
 
 class EscPosFormatter:
@@ -162,6 +176,10 @@ class EscPosFormatter:
     GS  = b"\x1d"
     LF  = b"\x0a"
     CUT = b"\x1d\x56\x41\x03"   # partial cut
+    # Request the extra footer in the feed-and-cut command itself. A separate
+    # ESC J feed did not visibly change the cut position on the deployed printer.
+    # Keep ~70% of the removed footer: 70 extra vertical motion units.
+    KITCHEN_CUT = b"\x1d\x56\x41\x49"  # original n=3 + extra 70
 
     BOLD_ON     = ESC + b"\x45\x01"
     BOLD_OFF    = ESC + b"\x45\x00"
@@ -211,7 +229,7 @@ class EscPosFormatter:
         "dateTime": {"size": "standard", "align": "center", "weight": "bold"},
         "total": {"size": "xlarge", "align": "left", "weight": "standard"},
         "thankYouText": {"size": "large", "align": "center", "weight": "bold"},
-        "bottomOrderNumber": {"size": "xxlarge", "align": "center", "weight": "bold"},
+        "bottomOrderNumber": {"size": "large", "align": "center", "weight": "bold"},
     }
 
     # Chef defaults — mirrors CHEF_DEFAULT_BLOCK_STYLES in frontend/src/api/receipt.js.
@@ -241,7 +259,7 @@ class EscPosFormatter:
         "paymentMethod", "thankYouText", "bottomOrderNumber",
     ]
     KITCHEN_BLOCKS = [
-        "orderNumber", "cancelOrderNumber", "orderType", "table", "waiter",
+        "orderType", "orderNumber", "cancelOrderNumber", "table", "waiter",
         "date", "showOrderSum", "comment",
     ]
 
@@ -432,7 +450,7 @@ class EscPosFormatter:
             merged["align"] = "left"
         return merged
 
-    def _style_bytes(self, style: dict) -> tuple[bytes, bytes, int]:
+    def _style_bytes(self, style: dict, *, size_code: int | None = None) -> tuple[bytes, bytes, int]:
         """(prefix, suffix, width_divisor) для набора style — GS!/ESC E/ESC a.
         width_divisor=1: размер меняет высоту, но не ширину символов.
         suffix ВСЕГДА возвращает align/bold/size к дефолту (ESC/POS не имеет
@@ -455,8 +473,9 @@ class EscPosFormatter:
         # "xxlarge" (только для bottomOrderNumber и коротких строк) — реальный
         # 2x2: double-width + double-height. cols делится на 2.
         bold = weight == "bold"
-        size_code = {"standard": 0x00, "large": 0x01, "xlarge": 0x01, "xxlarge": 0x11}.get(size, 0x00)
-        width_divisor = 2 if size == "xxlarge" else 1
+        if size_code is None:
+            size_code = {"standard": 0x00, "large": 0x01, "xlarge": 0x01, "xxlarge": 0x11}.get(size, 0x00)
+        width_divisor = (size_code >> 4) + 1
 
         # Font A is asserted explicitly on every block (not only when a size
         # is set) — GS!n only multiplies whatever font is currently active,
@@ -485,7 +504,8 @@ class EscPosFormatter:
         """Многострочный (возможно, длинный — переносится по словам) текст
         (thankYouText/название заведения/...) с учётом стиля блока key."""
         style = self._block_style(template, key)
-        prefix, suffix, div = self._style_bytes(style)
+        size_code = {"standard": 0x00, "large": 0x11, "xlarge": 0x22}.get(style.get("size", "large")) if key == "restaurantName" else None
+        prefix, suffix, div = self._style_bytes(style, size_code=size_code)
         width = self.cols // div
         wrapped = "\n".join(
             line for para in str(text).split("\n") for line in (self._wrap(para, width) or [""])
@@ -524,6 +544,12 @@ class EscPosFormatter:
 
     def _divider(self, char: str = "-", cols: int | None = None) -> bytes:
         cols = self.cols if cols is None else cols
+        separator = getattr(self, "_receipt_separator", None)
+        if separator is not None:
+            pattern, weight = separator
+            char = {"dashed": "-", "solid": "_", "stars": "*"}[pattern]
+            # Text-only fallback: repeated rules represent the three ink levels.
+            return self._line(char * cols) * {"thin": 1, "medium": 2, "bold": 3}[weight]
         return self._line(char * cols)
 
     def _two_col(self, left: str, right: str, cols: int | None = None) -> bytes:
@@ -613,6 +639,8 @@ class EscPosFormatter:
         больше не печатаем: заменено на bottomOrderNumber + thankYouText
         (переименован в UI в «Комментарий к чеку», ключ в блобе тот же)."""
         template = template or {}
+        data = replace(data, items=grouped_items(data.items))
+        self._receipt_separator = separator_style(template)
         en = lambda key, default=True: self._enabled(template, key, default)  # noqa: E731
 
         out = bytearray()
@@ -669,7 +697,7 @@ class EscPosFormatter:
                 buf.extend(self._two_col("Скидка", f"-{data.discount:,.0f}"))
             if en("serviceFee") and getattr(data, "service_fee", 0) and data.service_fee > 0:
                 rate_label = format_rate_percent(data.service_fee_rate) if getattr(data, "service_fee_rate", None) else ""
-                service_label = f"Обслуживание {rate_label}%:" if rate_label else "Обслуживание:"
+                service_label = f"Обслуга {rate_label}%" if rate_label else "Обслуга"
                 buf.extend(self._two_col(service_label, f"{data.service_fee:,.0f}"))
             if en("vat") and data.tax > 0:
                 buf.extend(self._two_col("Налог", f"{data.tax:,.0f}"))
@@ -692,7 +720,7 @@ class EscPosFormatter:
                 if en("total"):
                     total_style = self._block_style(template, "total")
                     total_prefix, total_suffix, total_div = self._style_bytes(total_style)
-                    line = total_prefix + self._two_col("Итого к оплате:", f"{data.total:,.0f}", cols=self.cols // total_div) + total_suffix
+                    line = total_prefix + self._two_col("Итого:", f"{data.total:,.0f}", cols=self.cols // total_div) + total_suffix
                     push("financial", line)
                 continue
             if not en(block):
@@ -725,11 +753,11 @@ class EscPosFormatter:
             elif block == "table" and data.table_number:
                 push("info", self._info_row(template, "table", "Номер стола:", str(data.table_number)))
             elif block == "waiter" and (data.waiter_name or data.cashier_name):
-                push("info", self._info_row(template, "waiter", "Официант:", data.waiter_name or data.cashier_name))
+                push("info", self._info_row(template, "waiter", f"{data.staff_label}:", data.waiter_name or data.cashier_name))
             elif block == "dateTime":
                 # Order creation time (data.printed_at is set to it by
                 # PrinterService), no seconds — matches formatCustomerDate().
-                push("info", self._info_row(template, "dateTime", "Дата:", data.printed_at.strftime("%d.%m.%Y %H:%M")))
+                push("info", self._info_row(template, "dateTime", "Дата:", data.printed_at.strftime("%d.%m.%y %H:%M")))
                 # data.customer_name (delivery name) has no CUSTOMER_BLOCKS key
                 # yet — kept unconditional, directly after order info, pending
                 # a template key (PENDING_BLOCKS.deliveryAddress/Phone upstream).
@@ -786,11 +814,8 @@ class EscPosFormatter:
                 push("footer", self._styled_line(template, "thankYouText", template.get("thankYouText") or "XARIDINGIZ\nUCHUN RAXMAT!"))
             elif block == "bottomOrderNumber":
                 style = self._block_style(template, "bottomOrderNumber")
-                # FORCE-XXLARGE-01: нижний номер заказа — максимальный размер
-                # независимо от сохранённого шаблона (пользователь просил
-                # «максимально увеличить»).
-                style["size"] = "xxlarge"
-                prefix, suffix, div = self._style_bytes(style)
+                size_code = {"standard": 0x11, "large": 0x22, "xlarge": 0x55, "xxlarge": 0x66}.get(style.get("size", "large"), 0x22)
+                prefix, suffix, div = self._style_bytes(style, size_code=size_code)
                 width = self.cols // div
                 chunk = bytearray()
                 # Визуальное выделение: пустые строки до и после
@@ -865,6 +890,11 @@ class EscPosFormatter:
                 result.append(block)
         return result
 
+    @classmethod
+    def _ordered_kitchen(cls, stored) -> list[str]:
+        # Type is a standalone heading above the number, including old templates.
+        return ["orderType", *[b for b in cls._ordered(stored, cls.KITCHEN_BLOCKS) if b != "orderType"]]
+
     def format_kitchen_ticket(self, data: KitchenTicketData, template: dict | None = None) -> bytes:
         """template — см. frontend/src/api/receipt.js buildKitchenTemplate() /
         KITCHEN_BLOCKS (8-строчный конструктор): {blocks, enabled: {orderNumber,
@@ -893,6 +923,8 @@ class EscPosFormatter:
         enabled падает на устаревший 'createdAt' (en("date", en("createdAt",
         True))) — оба пути покрыты test_receipt_block_styles.py."""
         template = template or {}
+        data = replace(data, items=grouped_items(data.items))
+        self._receipt_separator = separator_style(template)
         en = lambda key, default=True: self._enabled(template, key, default)  # noqa: E731
 
         out = bytearray()
@@ -910,10 +942,8 @@ class EscPosFormatter:
         # — 'comment', when present, always wins over either.
         item_comment_on = en("comment", en("itemComments", True))
         order_comment_on = en("comment", en("orderNote", True))
-        show_money = en("showOrderSum", False) and any(
-            item.total is not None and item.total > 0 for item in data.items
-        )
-        order_type_label = format_order_type(data.order_type).upper()
+        show_money = en("showOrderSum", False)
+        order_type_label = format_kitchen_order_type(data.order_type)
 
         def render_number_block() -> None:
             style = self._kitchen_style(template, "cancelOrderNumber" if show_cancel else "orderNumber")
@@ -938,7 +968,7 @@ class EscPosFormatter:
             return True
 
         any_info = False
-        for block in self._ordered(template.get("blocks"), self.KITCHEN_BLOCKS):
+        for block in self._ordered_kitchen(template.get("blocks")):
             if block in ("orderNumber", "cancelOrderNumber"):
                 if block == "cancelOrderNumber" and show_cancel:
                     render_number_block()
@@ -947,13 +977,18 @@ class EscPosFormatter:
                     render_number_block()
                     any_info = True
             elif block == "orderType" and en("orderType", True):
-                any_info = render_row("orderType", "Тип заказа:", order_type_label) or any_info
+                if order_type_label:
+                    style = {**self._kitchen_style(template, "orderType"),
+                             "align": self._kitchen_style(template, "orderNumber")["align"]}
+                    prefix, suffix, div = self._style_bytes(style)
+                    out.extend(prefix + self._wrapped_line(order_type_label, self.cols // div) + suffix)
+                    any_info = True
             elif block == "table" and en("table", True):
                 any_info = render_row("table", "Стол:", data.table_number) or any_info
             elif block == "waiter" and en("waiter", True):
-                any_info = render_row("waiter", "Официант:", data.waiter_name) or any_info
+                any_info = render_row("waiter", f"{data.staff_label}:", data.waiter_name) or any_info
             elif block == "date" and en("date", en("createdAt", True)):
-                any_info = render_row("date", "Время:", data.printed_at.strftime("%d.%m.%Y %H:%M")) or any_info
+                any_info = render_row("date", "Время:", data.printed_at.strftime("%d.%m.%y %H:%M")) or any_info
             # showOrderSum / comment are gates with no own printed position.
 
         if any_info:
@@ -969,22 +1004,23 @@ class EscPosFormatter:
         qty_w = self._ITEM_QTY_W if show_money else self._KITCHEN_QTY_W_PLAIN
         total_w = self._ITEM_TOTAL_W
         name_w = self.cols - qty_w - (total_w if show_money else 0)
+        head_prefix, head_suffix, _ = self._style_bytes({"size": "standard", "weight": "bold", "align": "left"})
+        out.extend(head_prefix)
         if show_money:
             out.extend(self._line("Блюдо".ljust(name_w) + "Кол-во".center(qty_w) + "Сумма".rjust(total_w)))
         else:
             out.extend(self._line("Блюдо".ljust(name_w) + "Кол-во".center(qty_w)))
+        out.extend(head_suffix)
 
         courses: dict[int, list[KitchenItem]] = {}
         for item in data.items:
             courses.setdefault(item.course or 1, []).append(item)
-        subtotal = Decimal("0")
         for course_num in sorted(courses):
             if len(courses) > 1:
                 out.extend(self._bold_line(f"--- Подача {course_num} ---"))
             for item in courses[course_num]:
                 total_str = None
                 if show_money and item.total is not None:
-                    subtotal += item.total
                     total_str = f"{item.total:,.0f}"
                 item_prefix, item_suffix, _ = self._style_bytes(self._kitchen_style(template, "dishItems"))
                 out.extend(item_prefix)
@@ -996,13 +1032,6 @@ class EscPosFormatter:
                 if item_comment_on and item.note:
                     out.extend(self._wrapped_line(f"  ! {item.note}", self.cols))
 
-        if show_money:
-            out.extend(self._divider())
-            sum_prefix, sum_suffix, sum_div = self._style_bytes(self._kitchen_style(template, "showOrderSum"))
-            out.extend(sum_prefix)
-            out.extend(self._two_col("Сумма блюд:", f"{subtotal:,.0f}", cols=self.cols // sum_div))
-            out.extend(sum_suffix)
-
         if order_comment_on and data.note:
             out.extend(self._divider())
             comment_prefix, comment_suffix, comment_div = self._style_bytes(self._kitchen_style(template, "comment"))
@@ -1011,13 +1040,14 @@ class EscPosFormatter:
             out.extend(comment_suffix)
 
         out.extend(self._divider("="))
-        out.extend(self.LF * 3)
-        out.extend(self.CUT)
+        # The divider ends its line; CUT advances to the knife itself.
+        out.extend(self.KITCHEN_CUT)
         return bytes(out)
 
 
     def format_summary(self, title: str, lines: list[str], footer: str | None = None) -> bytes:
         """Summary receipt (History/Reports): centered title, free-form lines, optional footer."""
+        self._receipt_separator = None
         out = bytearray()
         out += self.INIT
         out += self.FONT_A

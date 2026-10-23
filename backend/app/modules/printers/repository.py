@@ -10,9 +10,10 @@ class PrinterRepository(TenantRepository[Printer]):
     def __init__(self, db: AsyncSession):
         super().__init__(Printer, db)
 
-    async def get_by_type(self, company_id: UUID, printer_type: str) -> list[Printer]:
+    async def get_by_type(self, company_id: UUID, branch_id: UUID, printer_type: str) -> list[Printer]:
         result = await self.db.execute(
             self._base_query(company_id).where(
+                Printer.branch_id == branch_id,
                 Printer.printer_type == printer_type,
                 Printer.is_active == True,
             )

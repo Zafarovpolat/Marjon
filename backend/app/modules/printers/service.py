@@ -5,7 +5,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -288,7 +288,8 @@ class PrinterService:
 
     # Auto-print: find printers by type and print
     async def auto_print_receipt(self, company_id: UUID, order_id: UUID) -> list[PrintJob]:
-        printers = await self.repo.get_by_type(company_id, "receipt")
+        order = await self._get_order(company_id, order_id)
+        printers = await self.repo.get_by_type(company_id, order.branch_id, "receipt")
         if not printers:
             logger.warning(
                 "auto_print_receipt: no active receipt printer for company=%s (order=%s) — skipped",
@@ -299,7 +300,6 @@ class PrinterService:
         customer_tpl, _ = await self._get_receipt_templates(company_id)
         logo_bytes = await self._get_logo_bytes(company_id)
         for printer in printers:
-            order = await self._get_order(company_id, order_id)
             receipt_data = await self._build_receipt_data(company_id, order)
             raw = self._render_customer_receipt(printer, receipt_data, customer_tpl, logo_bytes)
             job = await self._enqueue_and_send(
@@ -309,7 +309,8 @@ class PrinterService:
         return jobs
 
     async def auto_print_kitchen(self, company_id: UUID, order_id: UUID) -> list[PrintJob]:
-        printers = await self.repo.get_by_type(company_id, "kitchen")
+        order = await self._get_order(company_id, order_id)
+        printers = await self.repo.get_by_type(company_id, order.branch_id, "kitchen")
         if not printers:
             logger.warning(
                 "auto_print_kitchen: no active kitchen printer for company=%s (order=%s) — skipped",
@@ -319,7 +320,6 @@ class PrinterService:
         jobs = []
         _, kitchen_tpl = await self._get_receipt_templates(company_id)
         for printer in printers:
-            order = await self._get_order(company_id, order_id)
             ticket_data = await self._build_kitchen_data(company_id, order)
             raw = self._render_kitchen_ticket(printer, ticket_data, kitchen_tpl)
             job = await self._enqueue_and_send(
@@ -439,6 +439,7 @@ class PrinterService:
             try:
                 await printer_ws_manager.broadcast(
                     company_id,
+                    printer.branch_id,
                     {
                         "event": "print_job",
                         "job_id": str(job.id),
@@ -491,6 +492,20 @@ class PrinterService:
         ).scalar_one_or_none()
         return waiter.name if waiter else None
 
+    async def _resolve_staff_label(self, company_id: UUID, order: Order) -> str:
+        from app.modules.auth.models import User
+        from app.modules.rbac.models import Role, UserRole
+        if not order.waiter_id:
+            return "Кассир"
+        roles = (await self.db.execute(
+            select(Role.slug).join(UserRole, UserRole.role_id == Role.id)
+            .join(User, User.id == UserRole.user_id)
+            .where(User.id == order.waiter_id, User.company_id == company_id,
+                   (Role.company_id == company_id) | Role.company_id.is_(None),
+                   (UserRole.branch_id == order.branch_id) | UserRole.branch_id.is_(None))
+        )).scalars().all()
+        return "Кассир" if "cashier" in roles else "Официант"
+
     async def _build_receipt_data(self, company_id: UUID, order: Order) -> ReceiptData:
         # The product contract is one-payment-only (PaymentService.process
         # rejects a second completed payment and requires amount == order
@@ -516,6 +531,10 @@ class PrinterService:
                 price=item.price,
                 total=item.total,
                 modifiers=[m.get("name", "") for m in (item.modifiers or [])],
+                product_id=str(item.product_id),
+                note=item.note,
+                course=item.course,
+                takeaway=item.takeaway,
             )
             for item in order.items
         ]
@@ -532,21 +551,9 @@ class PrinterService:
         ).scalar_one_or_none()
         waiter_name = await self._resolve_waiter_name(company_id, order)
 
-        # Customer receipt date/time is the order's own creation moment, not
-        # print time (ReceiptPreview.jsx: infoRow("dateTime", "Дата:",
-        # formatCustomerDate(order.created_at)) — a reprint must show the same
-        # timestamp every time). Converted from UTC to the company's own
-        # timezone, the same convention pos/service.py uses for its own
-        # "operating day" calculations.
-        tz_name = (company.timezone if company and company.timezone else None) or "Asia/Tashkent"
-        try:
-            tz = ZoneInfo(tz_name)
-        except (ZoneInfoNotFoundError, KeyError):
-            tz = ZoneInfo("Asia/Tashkent")
-        created_at = order.created_at
-        if created_at.tzinfo is None:
-            created_at = created_at.replace(tzinfo=timezone.utc)
-        order_local_time = created_at.astimezone(tz)
+        # A customer receipt shows when this print request is prepared, not
+        # when the order was created. Every new reprint gets its own timestamp.
+        print_local_time = datetime.now(ZoneInfo("Asia/Tashkent"))
 
         # База сбора — та же, что в пересчёте заказа: активные позиции
         # «в зале» (без отменённых и «с собой»). Ставка выводится из
@@ -576,7 +583,8 @@ class PrinterService:
             service_fee=order.service_fee,
             service_fee_rate=derive_service_rate_percent(order.service_fee, service_base),
             waiter_name=waiter_name,
-            printed_at=order_local_time,
+            printed_at=print_local_time,
+            staff_label=await self._resolve_staff_label(company_id, order),
         )
 
     async def _build_kitchen_data(self, company_id: UUID, order: Order) -> KitchenTicketData:
@@ -588,11 +596,19 @@ class PrinterService:
                 modifiers=[m.get("name", "") for m in (item.modifiers or [])],
                 course=item.course,
                 total=item.total,
+                product_id=str(item.product_id),
+                takeaway=item.takeaway,
             )
             for item in order.items
             if item.status not in ("cancelled", "served")
         ]
         waiter_name = await self._resolve_waiter_name(company_id, order)
+        # Match the order timestamp in the preview, including stable reprints.
+        # DB timestamps are UTC; SQLite/legacy naive values also represent UTC.
+        created_at = order.created_at
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        order_local_time = created_at.astimezone(ZoneInfo("Asia/Tashkent"))
         return KitchenTicketData(
             order_number=order.order_number,
             order_type=order.order_type,
@@ -601,4 +617,6 @@ class PrinterService:
             items=items,
             note=order.note,
             status=order.status,
+            printed_at=order_local_time,
+            staff_label=await self._resolve_staff_label(company_id, order),
         )

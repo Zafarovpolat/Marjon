@@ -28,6 +28,31 @@ beforeEach(() => {
 });
 
 describe("ChefReceiptSettingsPage (kitchen)", () => {
+  it("changes kitchen spacing in preview and saves it only on Save", async () => {
+    const { container } = render(<ChefReceiptSettingsPage />);
+    const group = await screen.findByRole("group", { name: "Место между строками чека повара" });
+    expect(within(group).getByRole("button", { name: "Среднее" })).toHaveAttribute("aria-pressed", "true");
+    for (const [label, value] of [["Малое", "small"], ["Большое", "large"], ["Среднее", "medium"]]) {
+      fireEvent.click(within(group).getByRole("button", { name: label }));
+      expect(container.querySelector("[data-receipt-print-root]")).toHaveAttribute("data-line-spacing", value);
+      expect(saveKitchenTemplate).not.toHaveBeenCalled();
+    }
+    fireEvent.click(within(group).getByRole("button", { name: "Малое" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+    await waitFor(() => expect(saveKitchenTemplate).toHaveBeenCalledTimes(1));
+    expect(saveKitchenTemplate.mock.calls[0][0].lineSpacing).toBe("small");
+  });
+  it("saves the kitchen separator preset independently of the customer receipt", async () => {
+    render(<ChefReceiptSettingsPage />);
+    await screen.findByText("Текст позиций");
+    // Разделители — собственный listbox: открываем триггер и жмём вариант.
+    fireEvent.click(screen.getByRole("combobox", { name: "Стиль разделителей" }));
+    fireEvent.click(screen.getAllByRole("option")[4]);
+    expect(document.querySelector("[data-receipt-print-root]")).toHaveAttribute("data-separator-pattern", "solid");
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+    await waitFor(() => expect(saveKitchenTemplate).toHaveBeenCalled());
+    expect(saveKitchenTemplate.mock.calls.at(-1)[0].separator).toEqual({ pattern: "solid", weight: "medium" });
+  });
   it("configures and saves dish text size and weight without hiding kitchen items", async () => {
     const { container } = render(<ChefReceiptSettingsPage />);
     await screen.findByText("Текст позиций");
@@ -102,7 +127,7 @@ describe("ChefReceiptSettingsPage (kitchen)", () => {
     expect(titles).toEqual(["Информация о заказе", "Позиции блюд", "Суммы", "Комментарий"]);
     const inGroup = (key) => container.querySelector(`[data-block-group="${key}"]`);
     const rowsIn = (key) => [...inGroup(key).querySelectorAll("[data-block-row]")].map((r) => r.dataset.blockRow);
-    expect(rowsIn("order")).toEqual(["orderNumber", "orderType", "table", "waiter", "date"]);
+    expect(rowsIn("order")).toEqual(["orderType", "orderNumber", "table", "waiter", "date"]);
     expect(rowsIn("sums")).toEqual(["showOrderSum"]);
     expect(rowsIn("notes")).toEqual(["comment"]);
   });
@@ -137,7 +162,7 @@ describe("ChefReceiptSettingsPage (kitchen)", () => {
     const row = (block) => container.querySelector(`[data-block-row="${block}"]`);
     const groupLabels = (block) => [...row(block).querySelectorAll(".receipt-segment-group > span")].map((s) => s.textContent);
     expect(groupLabels("orderNumber")).toEqual(["Размер текста", "Выравнивание", "Жирность"]);
-    expect(groupLabels("showOrderSum")).toEqual(["Размер текста", "Жирность"]);
+    expect(groupLabels("showOrderSum")).toEqual([]);
     expect(groupLabels("orderType")).toEqual(["Размер текста", "Жирность"]);
     expect(groupLabels("table")).toEqual(["Размер текста", "Жирность"]);
     expect(groupLabels("waiter")).toEqual(["Размер текста", "Жирность"]);
@@ -145,7 +170,7 @@ describe("ChefReceiptSettingsPage (kitchen)", () => {
     expect(groupLabels("comment")).toEqual(["Размер текста", "Жирность"]);
     const sizeButtons = (block) => [...row(block).querySelectorAll(".receipt-segment-group")[0].querySelectorAll("button")].map((b) => b.textContent);
     expect(sizeButtons("orderNumber")).toEqual(["Стандартный", "Большой", "Очень большой"]);
-    expect(sizeButtons("showOrderSum")).toEqual(["Стандартный", "Большой", "Очень большой"]);
+    expect(row("showOrderSum").querySelector(".receipt-segment-group")).toBeNull();
     expect(sizeButtons("orderType")).toEqual(["Стандартный", "Большой", "Очень большой"]);
   });
 
@@ -158,7 +183,7 @@ describe("ChefReceiptSettingsPage (kitchen)", () => {
   it("collapses details OFF without erasing stored style state", async () => {
     const { container } = render(<ChefReceiptSettingsPage />);
     await screen.findByRole("heading", { name: "Настройка чека повара" });
-    fireEvent.click(screen.getAllByRole("button", { name: "Очень большой", exact: true })[0]);
+    fireEvent.click(within(container.querySelector('[data-block-row="orderNumber"]')).getByRole("button", { name: "Очень большой", exact: true }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Номер заказа", exact: true }));
     const row = container.querySelector('[data-block-row="orderNumber"]');
     expect(row.querySelector(".receipt-section-row__details")).not.toHaveClass("is-open");
@@ -222,7 +247,7 @@ describe("ChefReceiptSettingsPage (kitchen)", () => {
     expect(screen.queryByText("ИТОГО:")).toBeNull();
     // The sample order carries a type, so the preview shows the same
     // «Тип заказа» line the physical ticket prints.
-    expect(screen.getByText("Тип заказа:")).toBeInTheDocument();
+    expect(screen.queryByText("Тип заказа:")).toBeNull();
     expect(screen.getByText("На стол")).toBeInTheDocument();
   });
 
@@ -254,10 +279,17 @@ describe("ChefReceiptSettingsPage (kitchen)", () => {
 });
 
 describe("migrateKitchenTemplate", () => {
+  it("defaults kitchen spacing to medium and preserves saved presets", () => {
+    expect(migrateKitchenTemplate({}).lineSpacing).toBe("medium");
+    expect(migrateKitchenTemplate({ lineSpacing: "invalid" }).lineSpacing).toBe("medium");
+    for (const lineSpacing of ["small", "medium", "large"]) {
+      expect(migrateKitchenTemplate({ lineSpacing }).lineSpacing).toBe(lineSpacing);
+    }
+  });
   it("builds the 7-row model with showOrderSum ON by default", () => {
     const tpl = migrateKitchenTemplate({}, buildKitchenTemplate());
     expect(tpl.blocks).toEqual([
-      "orderNumber", "orderType", "table",
+      "orderType", "orderNumber", "table",
       "waiter", "date", "showOrderSum", "comment",
     ]);
     expect(tpl.enabled.showOrderSum).toBe(true);

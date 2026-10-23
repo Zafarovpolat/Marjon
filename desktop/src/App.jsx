@@ -81,8 +81,8 @@ export default function App() {
   useEffect(() => {
     if (!staffToken || !mode) return
     const serverUrl = localStorage.getItem('marjon_server_url') || DEFAULT_SERVER_URL
-    // Принтерный WS: scoped по company, не по филиалу (сотрудник может не иметь branch_id)
-    connectPrinterWS(serverUrl, staffToken)
+    // Задания печати получает только терминал филиала текущей сессии.
+    connectPrinterWS(serverUrl, staffToken, effectiveBranchId)
     if (effectiveBranchId) {
       kitchenWS.connect(serverUrl, staffToken, effectiveBranchId)
     }

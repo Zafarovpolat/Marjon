@@ -359,12 +359,36 @@ export default function StaffFormModal({
                 <small className="muted">Оставьте пустым, чтобы не менять пароль.</small>
               ) : null}
             </label>
-            {/* PIN-поле убрано по просьбе владельца: у сотрудника один
-                секрет — пароль. Бэкенд сам ставит PIN = пароль (если пароль
-                из 4–8 цифр), поэтому вводить его дважды больше не нужно.
-                Поле «Филиал» тоже убрано: единственный филиал сети
-                подставляется автоматически, у существующих сотрудников
-                значение сохраняется. */}
+            {/* PIN для терминала. Поле вернули: «PIN = пароль» работает только
+                когда пароль целиком из 4–8 цифр, и только на бэкенде из
+                репозитория — у сотрудников со старым паролем PIN оставался
+                пустым, а задать его было негде (вход на кассе падал с
+                «Неверный PIN» при любом коде). Моноблоку PIN не нужен: он
+                входит по телефону и паролю. */}
+            {isMonoblock ? null : (
+            <label>
+              <span>PIN для кассы</span>
+              <input
+                autoComplete="off"
+                inputMode="numeric"
+                maxLength={4}
+                value={form.pin}
+                onChange={(event) => updateForm("pin", event.target.value.replace(/\D/g, "").slice(0, 4))}
+                placeholder="4 цифры"
+                aria-invalid={saveErrorField === "pin" && saveError ? true : undefined}
+                aria-describedby="staff-pin-hint"
+              />
+              <small className="muted" id="staff-pin-hint">
+                {editingId
+                  ? "Пусто — оставить прежний PIN. Забыли код — введите новый."
+                  : "Код для входа на кассе. Можно оставить пустым."}
+              </small>
+              {saveErrorField === "pin" && saveError ? (
+                <small className="staff-field-error" role="alert">{saveError}</small>
+              ) : null}
+            </label>
+            )}            {/* Поле «Филиал» убрано: единственный филиал сети подставляется
+                автоматически, у существующих сотрудников значение сохраняется. */}
             {isCuratedView ? null : (
             <label>
               <span>Принтер</span>

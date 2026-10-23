@@ -1,6 +1,23 @@
 from __future__ import annotations
 
 from tests.conftest import register_company
+import pytest
+
+
+@pytest.mark.parametrize("spacing", ["small", "medium", "large"])
+async def test_kitchen_spacing_round_trips_without_changing_customer_template(client, spacing):
+    headers, _ = await register_company(client, slug="spacing", email="owner@spacing.example.com")
+    baseline = await client.patch("/settings/receipt-template", headers=headers,
+                                  json={"lineSpacing": "large", "restaurantName": "Marjon"})
+    assert baseline.status_code == 200, baseline.text
+    response = await client.patch("/settings/kitchen-receipt-template", headers=headers,
+                                  json={"lineSpacing": spacing})
+    assert response.status_code == 200, response.text
+    assert response.json()["lineSpacing"] == spacing
+    loaded = await client.get("/settings/kitchen-receipt-template", headers=headers)
+    assert loaded.json()["lineSpacing"] == spacing
+    customer = await client.get("/settings/receipt-template", headers=headers)
+    assert customer.json() == baseline.json()
 
 
 async def test_template_starts_empty(client):
@@ -98,3 +115,17 @@ async def test_template_scoped_per_company(client):
     await client.patch("/settings/receipt-template", headers=a_headers, json={"paperSize": "80mm"})
     b_template = await client.get("/settings/receipt-template", headers=b_headers)
     assert b_template.json() == {}
+
+
+async def test_separator_choices_round_trip_for_both_templates(client):
+    headers, _ = await register_company(client, slug="rules", email="owner@rules.example.com")
+    for path in ("/settings/receipt-template", "/settings/kitchen-receipt-template"):
+        for pattern in ("dashed", "solid", "stars"):
+            for weight in ("thin", "medium", "bold"):
+                separator = {"pattern": pattern, "weight": weight}
+                saved = await client.patch(path, headers=headers, json={"separator": separator})
+                assert saved.status_code == 200, saved.text
+                assert saved.json()["separator"] == separator
+                assert (await client.get(path, headers=headers)).json()["separator"] == separator
+        invalid = await client.patch(path, headers=headers, json={"separator": {"pattern": "unknown"}})
+        assert invalid.status_code == 422

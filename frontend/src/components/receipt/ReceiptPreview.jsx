@@ -1,4 +1,5 @@
-import { Fragment, useLayoutEffect, useRef, useState } from "react";
+import { createContext, Fragment, useContext, useLayoutEffect, useRef, useState } from "react";
+import { groupReceiptItems, normalizeSeparator, receiptStaffLabel } from "./receiptLayout";
 import { webFormat } from "../../utils/webTime";
 import { CHEF_DEFAULT_BLOCK_STYLES, CUSTOMER_BLOCKS, KITCHEN_BLOCKS, normalizeLineSpacing } from "../../api/receipt";
 import { orderedBlocks, customerReceiptBlocks } from "../../pages/settings/receiptBlockOrder";
@@ -7,6 +8,7 @@ export const customerSampleOrder = {
   order_number: "3",
   table_number: "1 (Divanli Kabina)",
   waiter: "Kassir",
+  waiter_role: "cashier",
   order_type: "На стол",
   payment_method: "Смешанная оплата",
   discount: 0,
@@ -80,7 +82,7 @@ function formatCustomerDate(value) {
   return webFormat(value || new Date(), {
     day: "2-digit",
     month: "2-digit",
-    year: "numeric",
+    year: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   }).replace(",", "");
@@ -90,7 +92,7 @@ function formatKitchenDate(value) {
   return webFormat(value || new Date(), {
     day: "2-digit",
     month: "2-digit",
-    year: "numeric",
+    year: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -157,6 +159,10 @@ export function formatReceiptOrderType(value) {
   return RECEIPT_ORDER_TYPE_LABELS[raw] || raw;
 }
 
+export function formatKitchenOrderType(value) {
+  return ["takeaway", "На вынос", "НА ВЫНОС"].includes(value) ? "С собой" : formatReceiptOrderType(value);
+}
+
 // Blocks whose per-block style (size/align/weight) is user-configurable — must
 // stay in sync with CUSTOMER_STYLE_BLOCKS in api/receipt.js. A block is visible
 // unless its template.enabled entry is explicitly false (default = shown).
@@ -182,14 +188,28 @@ function blockClass(block, styles) {
   return classes.join(" ");
 }
 
+const SeparatorContext = createContext({ pattern: "dashed", weight: "thin" });
 function ReceiptRule({ solid = false }) {
-  return <div className={`receipt-preview__rule ${solid ? "is-solid" : ""}`} aria-hidden="true" />;
+  const separator = useContext(SeparatorContext);
+  return <div className={`receipt-preview__rule ${solid ? "is-solid" : ""}`} data-separator-pattern={separator.pattern}
+    data-separator-weight={separator.weight} aria-hidden="true">{separator.pattern === "stars" ? "* ".repeat(50) : null}</div>;
 }
 
-function CustomerItems({ items = [] }) {
+function tableColumnStyle(fontSize, items, showSums = true) {
+  const qtyChars = Math.max(0, ...items.map(item => String(itemQuantity(item)).length));
+  const amountChars = Math.max(0, ...items.map(item => money(itemTotal(item)).length));
+  return {
+    "--receipt-qty-width": `${Math.ceil(Math.max(56, fontSize * 3.8, qtyChars * fontSize * 0.65 + 8))}px`,
+    "--receipt-amount-width": `${Math.ceil(Math.max(84, fontSize * 3.3, (showSums ? amountChars : 0) * fontSize * 0.65 + 8))}px`,
+  };
+}
+
+function CustomerItems({ items = [], styles = {} }) {
+  items = groupReceiptItems(items);
+  const fontSize = { standard: 17, large: 19, xlarge: 21.5 }[styles.items?.size || "standard"];
   return (
-    <div className="receipt-preview__items" data-receipt-items>
-      <div className="receipt-preview__items-head">
+    <div className="receipt-preview__items" style={tableColumnStyle(fontSize, items)} data-receipt-items>
+      <div className="receipt-preview__items-head" style={{ fontSize }}>
         <span>Блюдо</span>
         <span>Кол-во</span>
         <span>Сумма</span>
@@ -198,7 +218,7 @@ function CustomerItems({ items = [] }) {
       {items.map((item, index) => (
         <div className="receipt-preview__item-row" key={item.id || `${itemName(item)}-${index}`}>
           <span className="receipt-preview__item-name">{itemName(item)}</span>
-          <span>{money(itemQuantity(item))}</span>
+          <span>{itemQuantity(item)}</span>
           <span>{money(itemTotal(item))}</span>
         </div>
       ))}
@@ -254,7 +274,11 @@ function CustomerReceipt({ template = {}, org, order }) {
   const renderSummary = () => {
     if (totals.subtotal > 0) summaryRow("Сумма блюд", totals.subtotal);
     if (isOn(enabled, "discount") && totals.discount > 0) summaryRow("Скидка", totals.discount);
-    if (isOn(enabled, "serviceFee") && totals.service > 0) summaryRow("Обслуживание %", totals.service);
+    if (isOn(enabled, "serviceFee") && totals.service > 0) {
+      const base = (order.items || []).filter((item) => item.status !== "cancelled" && !item.takeaway).reduce((sum, item) => sum + itemTotal(item), 0);
+      const rate = order.service_fee_rate ?? (base > 0 ? Math.round(totals.service * 10000 / base) / 100 : 0);
+      summaryRow(rate > 0 ? `Обслуга ${rate}%` : "Обслуга", totals.service);
+    }
     if (isOn(enabled, "vat") && totals.tax > 0) summaryRow("Налог", totals.tax);
   };
 
@@ -268,7 +292,7 @@ function CustomerReceipt({ template = {}, org, order }) {
       if (isOn(enabled, "total")) {
         push("total", (
           <div className={`receipt-preview__total ${blockClass("total", styles)}`} key="total">
-            <span>Итого к оплате:</span><b>{money(totals.total)}</b>
+            <span>Итого:</span><b>{money(totals.total)}</b>
           </div>
         ));
       }
@@ -280,12 +304,12 @@ function CustomerReceipt({ template = {}, org, order }) {
     // Company.logo_key). No generic fallback: the physical formatter prints
     // nothing when no logo is uploaded, and the preview must agree.
     if (block === "logo") { if (org?.logo) push("header", <img className="receipt-preview__logo" src={org.logo} alt={restaurantName} key="logo" />); }
-    else if (block === "restaurantName") push("header", <div className={`receipt-preview__brand ${cls}`} key="rn">{restaurantName}</div>);
+    else if (block === "restaurantName") push("header", <div className={`receipt-preview__brand ${cls}`} style={{ fontSize: { standard: 23.33, large: 35, xlarge: 58.33 }[styles.restaurantName?.size || "large"], fontWeight: styles.restaurantName?.weight === "standard" ? 400 : 700 }} key="rn">{restaurantName}</div>);
     else if (block === "orderNumber") { if (!showTopNumber) infoRow("orderNumber", "Номер заказа:", getOrderNumber(order)); infoRow("orderNumber", "Тип заказа:", formatReceiptOrderType(order.order_type)); }
     else if (block === "table") infoRow("table", "Номер стола:", order.table_number);
-    else if (block === "waiter") infoRow("waiter", "Официант:", order.waiter);
+    else if (block === "waiter") infoRow("waiter", `${receiptStaffLabel(order)}:`, order.waiter);
     else if (block === "dateTime") infoRow("dateTime", "Дата:", formatCustomerDate(order.created_at));
-    else if (block === "items") push("items", <div className={cls} key="items"><CustomerItems items={order.items || []} /></div>);
+    else if (block === "items") push("items", <div className={cls} key="items"><CustomerItems items={order.items || []} styles={styles} /></div>);
     else if (block === "paymentMethod") { if (payments.length) push("payment", <div className={cls} key="pay"><PaymentRows rows={payments} /></div>); }
     else if (block === "thankYouText") push("footer", <strong className={cls} key="ty">{template.thankYouText || "XARIDINGIZ UCHUN RAXMAT!"}</strong>);
     else if (block === "bottomOrderNumber") push(numberAtTop ? "header" : "footer", (
@@ -293,7 +317,7 @@ function CustomerReceipt({ template = {}, org, order }) {
         <span className="receipt-preview__bottomnum-caption">НОМЕР ЗАКАЗА</span>
         {/* Same proportions as the raster fonts (48/72/96/180 dots), at the
             preview's 17.5px body / printer's 24-dot body reference scale. */}
-        <b className="receipt-preview__bottomnum-value" style={{ fontSize: { standard: 35, large: 52.5, xlarge: 70, xxlarge: 131.25 }[styles.bottomOrderNumber?.size || "large"], fontWeight: styles.bottomOrderNumber?.weight === "bold" ? 700 : 400 }}>{getOrderNumber(order)}</b>
+        <b className="receipt-preview__bottomnum-value" style={{ fontSize: { standard: 35, large: 70, xlarge: 131.25, xxlarge: 160.42 }[styles.bottomOrderNumber?.size || "large"], fontWeight: styles.bottomOrderNumber?.weight === "bold" ? 700 : 400 }}>{getOrderNumber(order)}</b>
       </div>
     ));
     else if (block === "address") { const v = template.address || org?.address; if (hasValue(v)) push("footer", <b key="addr">{v}</b>); }
@@ -402,27 +426,29 @@ function kitchenBlockStyle(block, styles) {
 }
 
 // Табличный режим позиций кухни (всегда как в чеке оплаты):
-// Блюдо/Кол-во [+ Сумма] + итог "Сумма блюд" при живых деньгах.
+// Блюдо/Кол-во [+ Сумма]. Отдельного итога в кухонном чеке нет.
 // Те же классы таблицы, что у CustomerItems — тот же CSS, без нового.
 // Без сумм колонка Кол-во у правого края, цифры строго по центру шапки;
 // под шапкой одна сплошная линия (пунктир первой строки гасится).
 function KitchenItemsTable({ items = [], comments = true, showSums = false, styles = {} }) {
-  const sum = items.reduce((acc, item) => acc + itemMoneyValue(item), 0);
+  items = groupReceiptItems(items);
   const rowStyle = kitchenBlockStyle("dishItems", styles);
   return (
-    <div className={`receipt-preview__items receipt-preview__items--kitchen${showSums ? "" : " receipt-preview__items--no-sum"}`} data-receipt-items>
-      <div className="receipt-preview__items-head">
+    <div className={`receipt-preview__items receipt-preview__items--kitchen${showSums ? "" : " receipt-preview__items--no-sum"}`} style={tableColumnStyle(rowStyle.fontSize, items, showSums)} data-receipt-items>
+      <div className="receipt-preview__items-head" style={{ fontSize: 15, fontWeight: 700 }}>
         <span>Блюдо</span>
         <span>Кол-во</span>
         {showSums ? <span>Сумма</span> : null}
       </div>
+      <ReceiptRule solid />
       {items.map((item, index) => {
         const notes = itemNotes(item, { modifiers: true, comments });
         return (
           <Fragment key={item.id || `${itemName(item)}-${index}`}>
+            {index > 0 ? <ReceiptRule /> : null}
             <div className={`receipt-preview__item-row${index === 0 ? " receipt-preview__item-row--first" : ""}`} style={rowStyle}>
               <span className="receipt-preview__item-name" style={{ fontSize: "inherit", fontWeight: "inherit" }}>{itemName(item)}</span>
-              <span style={{ fontSize: "inherit", fontWeight: "inherit" }}>{money(itemQuantity(item))}</span>
+              <span style={{ fontSize: "inherit", fontWeight: "inherit" }}>{itemQuantity(item)}</span>
               {showSums ? <span style={{ fontSize: "inherit", fontWeight: "inherit" }}>{hasValue(item.total ?? item.amount ?? item.price) ? money(itemMoneyValue(item)) : ""}</span> : null}
             </div>
             {notes.map((note) => (
@@ -433,11 +459,6 @@ function KitchenItemsTable({ items = [], comments = true, showSums = false, styl
           </Fragment>
         );
       })}
-      {showSums ? (
-        <div className={`receipt-preview__summary-row ${kitchenBlockClass("showOrderSum", styles)}`} style={kitchenBlockStyle("showOrderSum", styles)}>
-          <span>Сумма блюд</span><b>{money(sum)}</b>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -446,11 +467,9 @@ function KitchenReceipt({ template = {}, order }) {
   const enabled = template.enabled || {};
   const styles = template.blockStyles || {};
   const commentOn = enabled.comment !== false;
-  // Позиции — всегда таблицей как в чеке оплаты; колонка сумм и итог
-  // "Сумма блюд" — только при живых деньгах и включённой галочке.
+  // The checkbox controls only the amount column, including real zero amounts.
   const orderItems = Array.isArray(order.items) ? order.items : [];
-  const showSums = enabled.showOrderSum === true
-    && orderItems.some((item) => itemMoneyValue(item) > 0);
+  const showSums = enabled.showOrderSum === true;
   const runs = [];
   const push = (section, node) => {
     const last = runs[runs.length - 1];
@@ -464,13 +483,19 @@ function KitchenReceipt({ template = {}, order }) {
     ));
   };
 
-  for (const block of orderedBlocks(template.blocks, KITCHEN_BLOCKS)) {
+  const blocks = ["orderType", ...orderedBlocks(template.blocks, KITCHEN_BLOCKS).filter((block) => block !== "orderType")];
+  for (const block of blocks) {
     if (!isOn(enabled, block)) continue;
     if (block === "orderNumber") {
       push("number", <h3 className={`receipt-preview__kitchen-number ${kitchenBlockClass(block, styles)}`} style={kitchenBlockStyle(block, styles)} key="num">#{getOrderNumber(order)}</h3>);
-    } else if (block === "orderType") infoRow("orderType", "Тип заказа:", formatReceiptOrderType(order.order_type));
+    } else if (block === "orderType") {
+      const value = formatKitchenOrderType(order.order_type);
+      if (hasValue(value)) push("heading", <div key="type" data-kitchen-order-type
+        className={`receipt-preview__kitchen-type ${kitchenBlockClass(block, styles)}`}
+        style={{ ...kitchenBlockStyle(block, styles), textAlign: styles.orderNumber?.align || "center" }}>{value}</div>);
+    }
     else if (block === "table") infoRow("table", "Стол:", order.table_number);
-    else if (block === "waiter") infoRow("waiter", "Официант:", order.waiter);
+    else if (block === "waiter") infoRow("waiter", `${receiptStaffLabel(order)}:`, order.waiter);
     else if (block === "date") infoRow("date", "Время:", formatKitchenDate(order.created_at));
     else if (block === "showOrderSum") continue; // modifier of items, no own position
     else if (block === "comment") continue; // gates item/order notes, no own position
@@ -494,7 +519,7 @@ function KitchenReceipt({ template = {}, order }) {
     <>
       {runs.map((run, index) => (
         <div key={`${run.section}-${index}`} data-receipt-section={run.section}>
-          {index > 0 && run.section !== "info" ? <ReceiptRule /> : null}
+          {index > 0 && run.section !== "info" && run.section !== "number" ? <ReceiptRule /> : null}
           {wrapRun(run)}
         </div>
       ))}
@@ -548,18 +573,20 @@ export default function ReceiptPreview({ type = "customer", template = {}, org, 
   }, [fitPane, template, type, order, org]);
 
   const receiptNode = (
-    <div
+    <SeparatorContext.Provider value={normalizeSeparator(template.separator)}><div
       className={`receipt-preview receipt-preview--${type} receipt-preview--${paperSize}mm`}
       data-paper-size={paperSize}
-      data-line-spacing={normalizeLineSpacing(template.lineSpacing)}
+      data-line-spacing={normalizeLineSpacing(template.lineSpacing, type === "kitchen" ? "medium" : "large")}
       data-receipt-type={type}
       data-receipt-component="shared"
       data-receipt-print-root
+      data-separator-pattern={normalizeSeparator(template.separator).pattern}
+      data-separator-weight={normalizeSeparator(template.separator).weight}
     >
       {type === "kitchen"
         ? <KitchenReceipt template={template} order={sample} />
         : <CustomerReceipt template={template} org={org} order={sample} />}
-    </div>
+    </div></SeparatorContext.Provider>
   );
 
   if (!fitPane) {

@@ -53,6 +53,19 @@ beforeEach(() => {
   settingsService.deleteCompanyLogo.mockClear();
 });
 
+it("saves separator selection and updates every preview rule without printing", async () => {
+  render(<ReceiptSettingsPage />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "Сохранить" })).not.toBeDisabled());
+  // Разделители — собственный listbox: открываем триггер и жмём вариант.
+  fireEvent.click(screen.getByRole("combobox", { name: "Стиль разделителей" }));
+  fireEvent.click(screen.getAllByRole("option")[8]);
+  expect(document.querySelector("[data-receipt-print-root]")).toHaveAttribute("data-separator-pattern", "stars");
+  fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+  await waitFor(() => expect(saveCustomerTemplate).toHaveBeenCalled());
+  expect(saveCustomerTemplate.mock.calls.at(-1)[0].separator).toEqual({ pattern: "stars", weight: "bold" });
+  expect(testPrintReceipt).not.toHaveBeenCalled();
+});
+
 // PLACEHOLDER_TESTS
 describe("ReceiptSettingsPage (customer)", () => {
   it("saves the selected order-number placement and restores the bottom layout", async () => {
@@ -133,16 +146,16 @@ describe("ReceiptSettingsPage (customer)", () => {
     await screen.findByRole("heading", { name: "Настройка чека" });
     expect(container.querySelector(".receipt-preview-col")).not.toBeNull();
     expect(container.querySelector("[data-receipt-print-root]")).not.toBeNull();
-    expect(screen.getByText("Итого к оплате:")).toBeInTheDocument();
+    expect(screen.getByText("Итого:")).toBeInTheDocument();
   });
 
   it("reflects a block visibility toggle in the preview immediately (local draft)", async () => {
     render(<ReceiptSettingsPage />);
     await screen.findByRole("heading", { name: "Настройка чека" });
-    expect(screen.getByText("Итого к оплате:")).toBeInTheDocument();
+    expect(screen.getByText("Итого:")).toBeInTheDocument();
     // "Итого" is the total block label in the editor.
     fireEvent.click(screen.getByRole("checkbox", { name: "Итого" }));
-    await waitFor(() => expect(screen.queryByText("Итого к оплате:")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Итого:")).toBeNull());
     // Not persisted — no PATCH fired from a draft toggle.
     expect(saveCustomerTemplate).not.toHaveBeenCalled();
   });
@@ -182,8 +195,8 @@ describe("ReceiptSettingsPage (customer)", () => {
     await screen.findByRole("heading", { name: "Настройка чека" });
     await waitFor(() => {
       const text = container.querySelector("[data-receipt-print-root]").textContent;
-      expect(text.indexOf("Итого к оплате:")).toBeGreaterThanOrEqual(0);
-      expect(text.indexOf("Итого к оплате:")).toBeLessThan(text.indexOf("Кол-во"));
+      expect(text.indexOf("Итого:")).toBeGreaterThanOrEqual(0);
+      expect(text.indexOf("Итого:")).toBeLessThan(text.indexOf("Кол-во"));
     });
   });
 
@@ -197,7 +210,7 @@ describe("ReceiptSettingsPage (customer)", () => {
     render(<ReceiptSettingsPage />);
     await screen.findByRole("heading", { name: "Настройка чека" });
     resolveLoad({ template: buildCustomerTemplate({ name: "MARJON", phone: "+998770702101" }), source: "api" });
-    expect(await screen.findByText("Итого к оплате:")).toBeInTheDocument();
+    expect(await screen.findByText("Итого:")).toBeInTheDocument();
     const box = () => screen.getByRole("checkbox", { name: "Название заведения" });
     const nameRow = () => box().closest(".receipt-section-row");
     expect(within(nameRow()).getByRole("button", { name: "Очень большой" })).toBeInTheDocument();
@@ -225,7 +238,7 @@ describe("ReceiptSettingsPage (customer)", () => {
     await screen.findByRole("heading", { name: "Настройка чека" });
     expect(screen.queryByRole("checkbox", { name: "QR" })).toBeNull();
     expect(document.querySelector(".receipt-preview__qr-block")).toBeNull();
-    expect(screen.getByText("Итого к оплате:")).toBeInTheDocument();
+    expect(screen.getByText("Итого:")).toBeInTheDocument();
   });
 
   it("block editor shows visibility (and style) but no reorder controls or «Порядок и видимость» label", async () => {

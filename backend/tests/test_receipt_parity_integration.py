@@ -221,18 +221,91 @@ async def test_paid_order_receipt_shows_real_payment_method_and_amount(client, s
     assert "Оплата:" not in text  # the method name IS the label, not a generic "Оплата:" prefix
 
 
-async def test_receipt_date_time_uses_order_creation_not_print_time(client, session_factory):
-    """ReceiptPreview.jsx: infoRow("dateTime", "Дата:", formatCustomerDate(
-    order.created_at)) — a reprint must show the same timestamp every time,
-    not whatever moment the print button happened to be pressed."""
-    ctx = await _setup(client)
-    order = (await client.get(f"/pos/orders/{ctx['order_id']}", headers=ctx["owner_headers"])).json()
-    created_at = order["created_at"]  # ISO, e.g. "2026-09-29T15:44:47.18..."
-    day_month_year = created_at[8:10] + "." + created_at[5:7] + "." + created_at[0:4]
+async def test_receipt_date_time_uses_print_request_time_and_refreshes_on_reprint(client, session_factory):
+    from datetime import datetime, timedelta, timezone
+    from unittest.mock import patch
+    from zoneinfo import ZoneInfo
+    from app.modules.printers.formatter import EscPosFormatter
+    from app.modules.printers.receipt_raster import _RasterCanvas, render_customer_receipt_raster
 
-    text = await _receipt_payload_text(session_factory, ctx["company_id"], ctx["order_id"], ctx["receipt_printer_id"])
-    assert "Дата: " in text
-    assert day_month_year in text
+    ctx = await _setup(client)
+    tz = ZoneInfo("Asia/Tashkent")
+    moments = [datetime(2026, 10, 23, 23, 59, tzinfo=tz), datetime(2026, 10, 24, 0, 2, tzinfo=tz)]
+    async with session_factory() as db:
+        svc = PrinterService(db)
+        order = await svc._get_order(ctx["company_id"], ctx["order_id"])
+        order.created_at = datetime(2026, 10, 22, 12, 0, tzinfo=timezone.utc)
+        await db.flush()
+        with patch("app.modules.printers.service.datetime", wraps=datetime) as clock:
+            clock.now.side_effect = moments
+            first = await svc._build_receipt_data(ctx["company_id"], order)
+            reprint = await svc._build_receipt_data(ctx["company_id"], order)
+        for receipt, moment in zip([first, reprint], moments):
+            assert receipt.printed_at == moment
+            assert receipt.printed_at.utcoffset() == timedelta(hours=5)
+            expected = moment.strftime("%d.%m.%y %H:%M")
+            assert expected in EscPosFormatter(80).format_receipt(receipt, {}).decode("cp866")
+            with patch.object(_RasterCanvas, "text_row", autospec=True) as rows:
+                render_customer_receipt_raster(receipt, {}, 80)
+            assert any(call.args[1:3] == ("Дата:", expected) for call in rows.call_args_list)
+        assert first.printed_at != reprint.printed_at
+        kitchen = await svc._build_kitchen_data(ctx["company_id"], order)
+        assert kitchen.printed_at == order.created_at.astimezone(tz)
+
+
+async def test_cashier_role_changes_staff_label_in_both_receipts(client, session_factory):
+    from app.modules.pos.models import Order
+    ctx = await _setup(client)
+    cashier_headers = await create_staff_headers(client, ctx["owner_headers"], email="cashier@acme.example.com", role_slug="cashier")
+    cashier = (await client.get("/auth/me", headers=cashier_headers)).json()
+    async with session_factory() as db:
+        svc = PrinterService(db)
+        order = await svc._get_order(ctx["company_id"], ctx["order_id"])
+        order.waiter_id = UUID(cashier["id"])
+        await db.flush()
+        receipt = await svc._build_receipt_data(ctx["company_id"], order)
+        kitchen = await svc._build_kitchen_data(ctx["company_id"], order)
+        assert receipt.staff_label == kitchen.staff_label == "Кассир"
+        assert receipt.waiter_name == kitchen.waiter_name
+
+
+async def test_both_receipts_use_tashkent_when_company_profile_still_says_utc(client, session_factory):
+    from datetime import datetime, timedelta, timezone
+    from unittest.mock import patch
+    from app.modules.companies.models import Company
+    from app.modules.printers.formatter import EscPosFormatter
+    from app.modules.printers.receipt_raster import (
+        _RasterCanvas, render_customer_receipt_raster, render_kitchen_ticket_raster,
+    )
+
+    ctx = await _setup(client)
+    async with session_factory() as db:
+        company = await db.get(Company, ctx["company_id"])
+        company.timezone = "UTC"
+        svc = PrinterService(db)
+        order = await svc._get_order(ctx["company_id"], ctx["order_id"])
+        order.created_at = datetime(2026, 10, 23, 22, 10, tzinfo=timezone.utc)
+        await db.flush()
+        with patch("app.modules.printers.service.datetime", wraps=datetime) as clock:
+            from zoneinfo import ZoneInfo
+            clock.now.return_value = order.created_at.astimezone(ZoneInfo("Asia/Tashkent"))
+            receipt = await svc._build_receipt_data(ctx["company_id"], order)
+        kitchen = await svc._build_kitchen_data(ctx["company_id"], order)
+        assert company.timezone == "UTC"  # Printing must not alter the business calendar.
+        expected = "24.10.26 03:10"
+        assert receipt.printed_at == kitchen.printed_at
+        for data, renderer, formatter in [
+            (receipt, render_customer_receipt_raster, EscPosFormatter(80).format_receipt),
+            (kitchen, render_kitchen_ticket_raster, EscPosFormatter(80).format_kitchen_ticket),
+        ]:
+            assert data.printed_at.utcoffset() == timedelta(hours=5)
+            assert data.printed_at.strftime("%d.%m.%y %H:%M") == expected
+            assert expected in formatter(data, {}).decode("cp866")
+            with patch.object(_RasterCanvas, "text_row", autospec=True) as rows:
+                renderer(data, {}, 80)
+            assert any(call.args[2] == expected for call in rows.call_args_list)
+        reprint = await svc._build_receipt_data(ctx["company_id"], order)
+        assert reprint.printed_at.utcoffset() == timedelta(hours=5)
 
 
 async def test_real_print_receipt_path_uses_raster_by_default(client, session_factory):

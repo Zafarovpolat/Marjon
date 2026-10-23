@@ -386,10 +386,14 @@ function StaffRolePage({ role = "all" }) {
         mutationLocks.release("staff-save");
         return;
       }
-      // PIN отдельным полем больше не вводится: у сотрудника один секрет —
-      // пароль. Бэкенд сам ставит pin = пароль, если тот из 4–8 цифр
-      // (create_company_user / update_company_user). Моноблоку PIN не нужен:
-      // он входит в десктоп по телефону и паролю.
+      // PIN для терминала: ровно 4 цифры (пад на кассе принимает только 4).
+      // Пустое поле — не трогаем: у сотрудника остаётся прежний код.
+      if (form.pin && !/^\d{4}$/.test(form.pin)) {
+        setSaveErrorField("pin");
+        setSaveError("PIN — ровно 4 цифры.");
+        mutationLocks.release("staff-save");
+        return;
+      }
       setSaveError("");
       setSaveErrorField("");
       setSaving(true);
@@ -452,6 +456,8 @@ function StaffRolePage({ role = "all" }) {
             // Тумблеры карточки + матрица доступов (User.permissions).
             permissions: permissionsPayload,
             ...(needsBranch ? { branch_id: resolvedBranchId } : {}),
+            // PIN для входа на кассе. Моноблоку он не нужен — ключ не шлём.
+            ...(!isMonoblockView && form.pin ? { pin: form.pin } : {}),
           };
           const { data: createdUser } = await staffService.createCompanyUser(createPayload);
           confirmedUser = createdUser;
@@ -489,8 +495,12 @@ function StaffRolePage({ role = "all" }) {
           };
           const { data: updatedUser } = await staffService.updateCompanyUser(editingId, updatePayload);
           confirmedUser = updatedUser;
-          // PIN больше не передаём: при смене пароля бэкенд синхронизирует
-          // PIN = пароль (если пароль из 4–8 цифр) в том же PATCH.
+          // PIN ставится отдельным эндпоинтом — в PATCH карточки такого поля
+          // нет. И строго ПОСЛЕ смены пароля: при пароле из 4–8 цифр бэкенд
+          // синхронизирует PIN = пароль и перетёр бы введённый код.
+          if (form.pin) {
+            await staffService.updateUserPin(confirmedUser.id, form.pin);
+          }
           confirmedUser = await uploadPendingPhoto(updatedUser);
         }
         setStaff((current) => {
@@ -536,7 +546,13 @@ function StaffRolePage({ role = "all" }) {
       mutationLocks.release("staff-save");
       return;
     }
-    // PIN отдельным полем не вводится — бэкенд ставит pin = пароль.
+    // PIN отдельным полем: 4 цифры, пусто — прежний код не трогаем.
+    if (form.pin && !/^\d{4}$/.test(form.pin)) {
+      setSaveErrorField("pin");
+      setSaveError("PIN — ровно 4 цифры.");
+      mutationLocks.release("staff-save");
+      return;
+    }
     setSaveError("");
     setSaveErrorField("");
     setSaving(true);
@@ -548,6 +564,7 @@ function StaffRolePage({ role = "all" }) {
           password: form.password,
           phone: phone || null,
           role_slug: roleKey,
+          ...(form.pin ? { pin: form.pin } : {}),
         });
         setEditingId(createdUser.id);
         setStaff((current) => [mapStaffUser(createdUser), ...current.filter((item) => item.id !== createdUser.id)]);
@@ -569,6 +586,11 @@ function StaffRolePage({ role = "all" }) {
           role_slug: roleKey,
           is_active: form.status !== "archived",
         });
+        // PIN — отдельным эндпоинтом и после смены пароля (см. комментарий в
+        // продуктовой ветке выше).
+        if (form.pin) {
+          await staffService.updateUserPin(updatedUser.id, form.pin);
+        }
         setStaff((current) => current.map((emp) =>
           emp.id === editingId ? mapStaffUser(updatedUser) : emp
         ));

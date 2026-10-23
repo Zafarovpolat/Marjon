@@ -23,8 +23,8 @@ export const CUSTOMER_BLOCKS = [
 ];
 
 export const KITCHEN_BLOCKS = [
-  "orderNumber",
   "orderType",
+  "orderNumber",
   "table",
   "waiter",
   "date",
@@ -110,11 +110,11 @@ export const LINE_SPACING_OPTIONS = [
 // "large" so templates saved before this setting existed render exactly the
 // approved baseline. Round-trips through the flexible receipt-template blob
 // (PATCH accepts unknown keys), so no backend change is required.
-export function normalizeLineSpacing(value) {
+export function normalizeLineSpacing(value, fallback = LINE_SPACING_LARGE) {
   if (value === LINE_SPACING_SMALL || value === LINE_SPACING_MEDIUM || value === LINE_SPACING_LARGE) {
     return value;
   }
-  return LINE_SPACING_LARGE;
+  return fallback;
 }
 
 export const KITCHEN_BLOCK_LABELS = {
@@ -157,7 +157,8 @@ export const CHEF_STYLE_CONTROLS = {
   table: { sizes: CHEF_SIZE_OPTIONS_3, align: false, weight: true },
   waiter: { sizes: CHEF_SIZE_OPTIONS_3, align: false, weight: true },
   date: { sizes: CHEF_SIZE_OPTIONS_3, align: false, weight: true },
-  showOrderSum: { sizes: CHEF_SIZE_OPTIONS_3, align: false, weight: true },
+  // This switch controls a column, not a separate subtotal text block.
+  showOrderSum: { sizes: [], align: false, weight: false },
   comment: { sizes: CHEF_SIZE_OPTIONS_3, align: false, weight: true },
 };
 
@@ -188,6 +189,7 @@ export function buildCustomerTemplate(org = {}) {
     paperSize: "80mm",
     lineSpacing: LINE_SPACING_LARGE,
     printerConnection: PRINTER_CONNECTION_LAN,
+    separator: { pattern: "dashed", weight: "thin" },
     blocks: [...CUSTOMER_BLOCKS],
     enabled,
     thankYouText: "XARIDINGIZ\nUCHUN RAXMAT!",
@@ -219,7 +221,9 @@ export function buildKitchenTemplate() {
   const enabled = KITCHEN_BLOCKS.reduce((acc, key) => ({ ...acc, [key]: true }), {});
   return {
     paperSize: "80mm",
+    lineSpacing: LINE_SPACING_MEDIUM,
     autoPrint: false,
+    separator: { pattern: "dashed", weight: "thin" },
     blocks: [...KITCHEN_BLOCKS],
     enabled,
     blockStyles: JSON.parse(JSON.stringify(CHEF_DEFAULT_BLOCK_STYLES)),
@@ -251,6 +255,7 @@ export function migrateKitchenTemplate(stored, defaults) {
     ...base,
     ...s,
     paperSize: s.paperSize || base.paperSize,
+    lineSpacing: normalizeLineSpacing(s.lineSpacing, LINE_SPACING_MEDIUM),
     autoPrint: s.autoPrint ?? base.autoPrint,
     blocks: hasNewKey
       ? s.blocks.filter((b) => KITCHEN_BLOCKS.includes(b)).concat(

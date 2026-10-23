@@ -58,7 +58,7 @@ def test_receipt_prints_dine_in_as_na_stol():
     assert "dine_in" not in raw
 
 
-def test_kitchen_ticket_prints_selected_type_uppercase():
+def test_kitchen_ticket_prints_selected_type_heading():
     ticket = KitchenTicketData(
         order_number="A-1042",
         order_type="delivery",
@@ -67,5 +67,7 @@ def test_kitchen_ticket_prints_selected_type_uppercase():
         items=[],
     )
     raw = _text(EscPosFormatter().format_kitchen_ticket(ticket, template=None))
-    assert "ДОСТАВКА" in raw
+    assert "Доставка" in raw
+    assert raw.index("Доставка") < raw.index("#A-1042")
+    assert "Тип заказа:" not in raw
     assert "DELIVERY" not in raw

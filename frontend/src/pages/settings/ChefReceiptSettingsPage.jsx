@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReceiptPreview from "../../components/receipt/ReceiptPreview";
+import ReceiptSeparatorSelect from "../../components/receipt/ReceiptSeparatorSelect";
 import ReceiptSectionEditor from "../../components/receipt/ReceiptSectionEditor";
 import Toast from "../../components/Toast";
 import { InlineLoader } from "../../components/Loader";
@@ -9,9 +10,11 @@ import {
   CHEF_WEIGHT_OPTIONS,
   KITCHEN_BLOCK_LABELS,
   KITCHEN_BLOCKS,
+  LINE_SPACING_OPTIONS,
   buildKitchenTemplate,
   getKitchenTemplate,
   migrateKitchenTemplate,
+  normalizeLineSpacing,
   saveKitchenTemplate,
 } from "../../api/receipt";
 import { isAbortError } from "../../hooks/useAsyncSafety";
@@ -20,7 +23,7 @@ import "./receiptSettings.css";
 // Единый с чеком клиента вид левой колонки: те же сворачиваемые группы.
 // Порядок внутри групп — как в template.blocks; свернутость UI-only.
 export const CHEF_RECEIPT_GROUPS = [
-  { key: "order", title: "Информация о заказе", blocks: ["orderNumber", "orderType", "table", "waiter", "date"] },
+  { key: "order", title: "Информация о заказе", blocks: ["orderType", "orderNumber", "table", "waiter", "date"] },
   { key: "dishItems", title: "Позиции блюд", blocks: ["dishItems"] },
   { key: "sums", title: "Суммы", blocks: ["showOrderSum"] },
   { key: "notes", title: "Комментарий", blocks: ["comment"] },
@@ -124,6 +127,8 @@ export default function ChefReceiptSettingsPage() {
               </div>
             </div>
             <div className="receipt-editor-actions receipt-editor-actions--end">
+              <ReceiptSeparatorSelect value={template.separator} disabled={loading || saving}
+                onChange={(separator) => setTemplate((current) => ({ ...current, separator }))} />
               <button type="button" className="receipt-btn-primary receipt-save" disabled={saving || loading} onClick={handleSave}>
                 {saving ? "Сохранение..." : "Сохранить"}
               </button>
@@ -159,6 +164,23 @@ export default function ChefReceiptSettingsPage() {
                 weightOptionsForBlock={(block) => (CHEF_STYLE_CONTROLS[block]?.weight ? CHEF_WEIGHT_OPTIONS : [])}
                 groups={CHEF_RECEIPT_GROUPS}
               />
+              {/* Плотность чека стоит в самом низу: это «финальная» настройка
+                  внешнего вида, её трогают после разбора блоков, а не до. */}
+              <div className="receipt-section-row receipt-kitchen-spacing">
+                <div className="receipt-segment-group">
+                  <span>Место между строками</span>
+                  <div className="receipt-segments receipt-line-spacing" role="group" aria-label="Место между строками чека повара">
+                    {LINE_SPACING_OPTIONS.map((option) => (
+                      <button key={option.value} type="button"
+                        className={normalizeLineSpacing(template.lineSpacing, "medium") === option.value ? "is-active" : ""}
+                        aria-pressed={normalizeLineSpacing(template.lineSpacing, "medium") === option.value}
+                        onClick={() => setTemplate((current) => ({ ...current, lineSpacing: option.value }))}>
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 

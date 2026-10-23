@@ -20,7 +20,8 @@ from __future__ import annotations
 
 import io
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from app.modules.printers.receipt_layout import grouped_items, separator_style
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
@@ -32,6 +33,7 @@ from app.modules.printers.formatter import (
     ReceiptData,
     format_quantity,
     format_rate_percent,
+    format_kitchen_order_type,
 )
 
 logger = logging.getLogger(__name__)
@@ -108,9 +110,10 @@ class _RasterCanvas:
     image measures total height) so the final bitmap is exactly as tall as
     its content, never padded."""
 
-    def __init__(self, width_px: int):
+    def __init__(self, width_px: int, separator=None):
         self.width = width_px
         self.rows: list = []
+        self.separator = separator
 
     def _append(self, fn) -> None:
         self.rows.append(fn)
@@ -125,8 +128,20 @@ class _RasterCanvas:
     def divider(self, gap_before: int = 4, gap_after: int = 10) -> None:
         def _draw(draw, y):
             yy = y + gap_before
-            draw.line([(_MARGIN, yy), (self.width - _MARGIN, yy)], fill=0, width=1)
-            return yy + 1 + gap_after
+            pattern, weight = self.separator or ("solid", "thin")
+            thickness = {"thin": 1, "medium": 2, "bold": 3}[weight]
+            if pattern == "stars":
+                font = _load_font("regular" if weight == "thin" else "bold", 24)
+                width = self.width - 2 * _MARGIN
+                count = max(1, int(width / max(1, draw.textlength("* ", font=font))))
+                draw.text((_MARGIN, yy), "* " * count, font=font, fill=0, stroke_width=1 if weight == "bold" else 0)
+                return yy + font.size + gap_after
+            if pattern == "solid":
+                draw.line([(_MARGIN, yy), (self.width - _MARGIN, yy)], fill=0, width=thickness)
+            else:
+                for x in range(_MARGIN, self.width - _MARGIN, 18):
+                    draw.line([(x, yy), (min(x + 10, self.width - _MARGIN), yy)], fill=0, width=thickness)
+            return yy + thickness + gap_after
         self._append(_draw)
 
     def text_row(self, label: str, value: str, font: ImageFont.FreeTypeFont, align: str, gap_after: int) -> None:
@@ -267,7 +282,8 @@ def _style(template: dict, helper: EscPosFormatter, key: str) -> dict:
 
 def _font_for(template: dict, helper: EscPosFormatter, key: str) -> tuple[ImageFont.FreeTypeFont, str]:
     style = _style(template, helper, key)
-    sizes = {"standard": 48, "large": 72, "xlarge": 96, "xxlarge": 180} if key == "bottomOrderNumber" else _SIZE_PT
+    sizes = ({"standard": 48, "large": 96, "xlarge": 180, "xxlarge": 220} if key == "bottomOrderNumber"
+             else {"standard": 32, "large": 48, "xlarge": 80} if key == "restaurantName" else _SIZE_PT)
     size = sizes.get(style.get("size", "standard"), sizes["standard"])
     weight = "bold" if style.get("weight") == "bold" else "regular"
     return _load_font(weight, size), style.get("align", "left")
@@ -312,6 +328,7 @@ def render_customer_receipt_raster(data: ReceiptData, template: dict | None, pap
     text-mode, and only when nothing has been sent to the printer yet."""
     try:
         template = template or {}
+        data = replace(data, items=grouped_items(data.items))
         helper = EscPosFormatter(paper_width_mm)
         width_px = _WIDTH_BY_MM.get(paper_width_mm, _DEFAULT_WIDTH)
         spacing_mult = {"small": 0.7, "medium": 1.0, "large": 1.3}.get(
@@ -324,7 +341,7 @@ def render_customer_receipt_raster(data: ReceiptData, template: dict | None, pap
         order_type_label = ORDER_TYPE_LABELS.get(data.order_type, data.order_type)
         payment_label = PAYMENT_METHOD_LABELS.get(data.payment_method, data.payment_method)
 
-        canvas = _RasterCanvas(width_px)
+        canvas = _RasterCanvas(width_px, separator_style(template))
         ordered_blocks = helper._customer_blocks(template)
         number_at_top = helper._number_at_top(template)
 
@@ -355,7 +372,7 @@ def render_customer_receipt_raster(data: ReceiptData, template: dict | None, pap
                 # форматтере): 0% обслуживания не печатается вообще, а при
                 # ненулевой сумме гость видит и процент, и сумму.
                 rate_label = format_rate_percent(data.service_fee_rate) if getattr(data, "service_fee_rate", None) else ""
-                service_label = f"Обслуживание {rate_label}%:" if rate_label else "Обслуживание:"
+                service_label = f"Обслуга {rate_label}%" if rate_label else "Обслуга"
                 canvas.text_row(service_label, f"{data.service_fee:,.0f}", font, "left", gap(8))
             if en("vat") and data.tax > 0:
                 boundary("financial")
@@ -370,7 +387,7 @@ def render_customer_receipt_raster(data: ReceiptData, template: dict | None, pap
                 if en("total"):
                     boundary("financial")
                     font, align = _font_for(template, helper, "total")
-                    canvas.text_row("Итого к оплате:", f"{data.total:,.0f}", font, align, gap(16))
+                    canvas.text_row("Итого:", f"{data.total:,.0f}", font, align, gap(16))
                 continue
             if not en(block):
                 continue
@@ -397,11 +414,11 @@ def render_customer_receipt_raster(data: ReceiptData, template: dict | None, pap
             elif block == "waiter" and (data.waiter_name or data.cashier_name):
                 boundary("info")
                 font, align = _font_for(template, helper, "waiter")
-                canvas.text_row("Официант:", data.waiter_name or data.cashier_name, font, align, gap(8))
+                canvas.text_row(f"{data.staff_label}:", data.waiter_name or data.cashier_name, font, align, gap(8))
             elif block == "dateTime":
                 boundary("info")
                 font, align = _font_for(template, helper, "dateTime")
-                canvas.text_row("Дата:", data.printed_at.strftime("%d.%m.%Y %H:%M"), font, align, gap(8))
+                canvas.text_row("Дата:", data.printed_at.strftime("%d.%m.%y %H:%M"), font, align, gap(8))
                 if data.customer_name:
                     canvas.text_row("Клиент:", data.customer_name, font, align, gap(8))
             elif block == "items":
@@ -487,6 +504,7 @@ def render_kitchen_ticket_raster(data: KitchenTicketData, template: dict | None,
     text-mode fallback covers kitchen too."""
     try:
         template = template or {}
+        data = replace(data, items=grouped_items(data.items))
         helper = EscPosFormatter(paper_width_mm)
         width_px = _WIDTH_BY_MM.get(paper_width_mm, _DEFAULT_WIDTH)
         spacing_mult = {"small": 0.7, "medium": 1.0, "large": 1.3}.get(
@@ -504,12 +522,10 @@ def render_kitchen_ticket_raster(data: KitchenTicketData, template: dict | None,
         show_normal_number = (not show_cancel) and en("orderNumber", True)
         item_comment_on = en("comment", en("itemComments", True))
         order_comment_on = en("comment", en("orderNote", True))
-        show_money = en("showOrderSum", False) and any(
-            item.total is not None and item.total > 0 for item in data.items
-        )
-        order_type_label = ORDER_TYPE_LABELS.get(data.order_type, str(data.order_type).upper())
+        show_money = en("showOrderSum", False)
+        order_type_label = format_kitchen_order_type(data.order_type)
 
-        canvas = _RasterCanvas(width_px)
+        canvas = _RasterCanvas(width_px, separator_style(template))
         any_info = False
 
         def render_number_block() -> None:
@@ -528,20 +544,24 @@ def render_kitchen_ticket_raster(data: KitchenTicketData, template: dict | None,
             canvas.text_row(label, value, font, align, gap(6))
             any_info = True
 
-        for block in EscPosFormatter._ordered(template.get("blocks"), EscPosFormatter.KITCHEN_BLOCKS):
+        for block in EscPosFormatter._ordered_kitchen(template.get("blocks")):
             if block in ("orderNumber", "cancelOrderNumber"):
                 if block == "cancelOrderNumber" and show_cancel:
                     render_number_block()
                 elif block == "orderNumber" and show_normal_number:
                     render_number_block()
             elif block == "orderType" and en("orderType", True):
-                render_row("orderType", "Тип заказа:", order_type_label)
+                if order_type_label:
+                    font, _ = _kitchen_font_for(template, helper, "orderType")
+                    _, align = _kitchen_font_for(template, helper, "orderNumber")
+                    canvas.line_of_text(order_type_label, font, align, gap(6))
+                    any_info = True
             elif block == "table" and en("table", True):
                 render_row("table", "Стол:", data.table_number)
             elif block == "waiter" and en("waiter", True):
-                render_row("waiter", "Официант:", data.waiter_name)
+                render_row("waiter", f"{data.staff_label}:", data.waiter_name)
             elif block == "date" and en("date", en("createdAt", True)):
-                render_row("date", "Время:", data.printed_at.strftime("%d.%m.%Y %H:%M"))
+                render_row("date", "Время:", data.printed_at.strftime("%d.%m.%y %H:%M"))
             # showOrderSum / comment are gates with no own printed position.
 
         if any_info:
@@ -578,7 +598,6 @@ def render_kitchen_ticket_raster(data: KitchenTicketData, template: dict | None,
         canvas.item_row("" if stacked_names else "Блюдо", "Кол-во", "Сумма" if show_money else "", header_font, qty_w, total_w, gap(6))
         canvas.divider(gap_before=0, gap_after=gap(8))
 
-        subtotal = sum((item.total for item in data.items if item.total is not None), 0)
         for course_num in sorted(courses):
             if len(courses) > 1:
                 canvas.line_of_text(f"--- Подача {course_num} ---", _load_font("bold", item_font.size), "left", gap(6))
@@ -592,11 +611,6 @@ def render_kitchen_ticket_raster(data: KitchenTicketData, template: dict | None,
                 if item_comment_on and item.note:
                     canvas.line_of_text(f"  ! {item.note}", note_font, "left", gap(2))
 
-        if show_money:
-            canvas.divider(gap_before=0, gap_after=gap(8))
-            sum_font, align = _kitchen_font_for(template, helper, "showOrderSum")
-            canvas.text_row("Сумма блюд", f"{subtotal:,.0f}", sum_font, align, gap(4))
-
         if order_comment_on and data.note:
             canvas.divider(gap_before=0, gap_after=gap(8))
             comment_font, align = _kitchen_font_for(template, helper, "comment")
@@ -605,13 +619,19 @@ def render_kitchen_ticket_raster(data: KitchenTicketData, template: dict | None,
 
         canvas.divider(gap_before=0, gap_after=0)
 
-        img = canvas.render()
+        img = canvas.render().convert("1")
+        # Trim the final printable bitmap (not its faint antialiasing pixels),
+        # removing all blank rows above the first ink and leaving only a small
+        # bottom safety margin. Customer/side margins and all ink stay intact.
+        ink_bounds = ImageOps.invert(img.convert("L")).getbbox()
+        if ink_bounds:
+            img = img.crop((0, ink_bounds[1], img.width, min(img.height, ink_bounds[3] + 4)))
         raster = _to_gs_v0(img)
 
         ESC = b"\x1b"
-        GS = b"\x1d"
         init = ESC + b"\x40"
-        feed_cut = b"\n\n\n" + GS + b"\x56\x41\x03"
+        # Keep a calibrated small footer instead of restoring three blank lines.
+        feed_cut = helper.KITCHEN_CUT
         return init + raster + feed_cut
     except RasterRenderError:
         raise

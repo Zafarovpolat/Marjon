@@ -700,7 +700,7 @@ describe("Warehouse stock summary (V36 dishes family)", () => {
       { key: "m4", name: "Соль", unit: "кг", category: "Специи", qty: "0.04", sum: "320", dishes: [] },
       // продажа, у которой блюдо не восстановить (заказ удалён) — не ручной расход
       { key: "m5", name: "Соль", unit: "кг", category: "Специи", qty: "0.06", sum: "480",
-        dishes: [], source: "sale", registeredAt: "22.10.2026 / 10:00" },
+        dishes: [], source: "sale", dishesReason: "order_deleted", registeredAt: "22.10.2026 / 10:00" },
     ]);
     expect(merged).toHaveLength(2);
     const meat = merged.find((item) => item.name === "Мясо");
@@ -715,21 +715,55 @@ describe("Warehouse stock summary (V36 dishes family)", () => {
     const salt = merged.find((item) => item.name === "Соль");
     expect(salt.dishes).toEqual([]);
     expect(salt.manual).toHaveLength(1);
-    // Продажа без блюд отделена от ручного документа.
+    // Продажа без блюд отделена от ручного документа, причина — от бэкенда.
     expect(salt.unlinked).toHaveLength(1);
     expect(salt.unlinkedQty).toBeCloseTo(0.06, 6);
+    expect(salt.unlinkedReasons.order_deleted).toMatchObject({ count: 1, qty: 0.06, sum: 480 });
+    expect(salt.unlinkedReasons.order_deleted.candidates).toEqual([]);
+  });
+
+  it("8m2. recipe rewrite keeps the sold dishes of the order as candidates", () => {
+    // Техкарту переписали (мясо убрали из Плова), заказ жив — бэкенд отдаёт
+    // проданные блюда, и расход всё равно подписан блюдом.
+    const merged = aggregateExpenseProducts([
+      // Один заказ, два движения (дозаказ): состав заказа в обоих одинаковый,
+      // поэтому порции считаются один раз, а не дважды.
+      { key: "s1", orderId: "o1", name: "Мясо", unit: "кг", category: "Мясо и птица", qty: "0.5", sum: "20000",
+        dishes: [], source: "sale", dishesReason: "not_in_recipe",
+        dishesCandidates: [{ name: "Плов", qty: "2" }, { name: "Шашлык", qty: "1" }],
+        dishesCandidatesTotal: 2 },
+      { key: "s2", orderId: "o1", name: "Мясо", unit: "кг", category: "Мясо и птица", qty: "0.3", sum: "12000",
+        dishes: [], source: "sale", dishesReason: "not_in_recipe",
+        dishesCandidates: [{ name: "Плов", qty: "2" }, { name: "Шашлык", qty: "1" }],
+        dishesCandidatesTotal: 2 },
+      { key: "s3", orderId: "o2", name: "Мясо", unit: "кг", category: "Мясо и птица", qty: "0.2", sum: "8000",
+        dishes: [], source: "sale", dishesReason: "not_in_recipe",
+        dishesCandidates: [{ name: "Плов", qty: "1" }], dishesCandidatesTotal: 1 },
+    ]);
+    const meat = merged[0];
+    expect(meat.dishes).toEqual([]);
+    // Блюда складываются по имени, количества — в порциях проданного,
+    // по разным заказам: Плов 2 (o1) + 1 (o2), Шашлык 1 (o1).
+    expect(meat.unlinkedReasons.not_in_recipe.candidates).toEqual([
+      { name: "Плов", portions: 3 },
+      { name: "Шашлык", portions: 1 },
+    ]);
+    expect(meat.unlinkedReasons.not_in_recipe.candidatesTotal).toBe(2);
   });
 
   it("8n. outgoing detail renders one row per product and reveals its dishes", async () => {
     warehouseService.listOutgoingReport.mockResolvedValue({ data: {
-      rows: [{ key: "wh-1", id: "wh-1", name: "Главный склад", product: 30000, tovar: 0, raw: 30000 }],
-      total: 30000,
+      rows: [{ key: "wh-1", id: "wh-1", name: "Главный склад", product: 35000, tovar: 0, raw: 35000 }],
+      total: 35000,
       lines: [
         { key: "m1", warehouseKey: "wh-1", ingredientId: "ing-1", name: "kartoshka", category: "sabzavotlar",
           qty: "0.5", unit: "кг", sum: "20000", isTovar: false, source: "sale",
           dishes: [{ name: "Плов", qty: "0.3" }, { name: "Шашлык", qty: "0.2" }] },
         { key: "m2", warehouseKey: "wh-1", ingredientId: "ing-1", name: "kartoshka", category: "sabzavotlar",
           qty: "0.1", unit: "кг", sum: "10000", isTovar: false, source: "expense", dishes: [] },
+        { key: "m3", warehouseKey: "wh-1", ingredientId: "ing-1", name: "kartoshka", category: "sabzavotlar",
+          qty: "0.2", unit: "кг", sum: "5000", isTovar: false, source: "sale", dishes: [],
+          dishesReason: "order_deleted" },
       ],
     } });
     warehouseService.listWarehouses.mockResolvedValue({ data: warehouses });
@@ -745,16 +779,52 @@ describe("Warehouse stock summary (V36 dishes family)", () => {
     // Два движения — одна строка продукта со суммарными кол-вом и суммой.
     const rows = await within(detail).findAllByText("kartoshka");
     expect(rows).toHaveLength(1);
-    expect(rows[0].closest("tr").textContent).toMatch(/0,6/);
-    expect(rows[0].closest("tr").textContent).toMatch(/30[\s\u00a0\u202f]*000 UZS/);
+    expect(rows[0].closest("tr").textContent).toMatch(/0,8/);
+    expect(rows[0].closest("tr").textContent).toMatch(/35[\s\u00a0\u202f]*000 UZS/);
     expect(within(detail).queryByText("Плов")).toBeNull();
     fireEvent.click(within(detail).getByRole("button", { name: "Развернуть расход продукта kartoshka" }));
     expect(await within(detail).findByText("Плов")).toBeInTheDocument();
     expect(within(detail).getByText("Шашлык")).toBeInTheDocument();
     expect(within(detail).getByText("Ручной расход")).toBeInTheDocument();
+    // Причина потери блюда подписана, а не спрятана за «без разбивки».
+    expect(within(detail).getByText("Заказ удалён")).toBeInTheDocument();
     // Стрелка сворачивает разбивку обратно.
     fireEvent.click(within(detail).getByRole("button", { name: "Свернуть расход продукта kartoshka" }));
     await waitFor(() => expect(within(detail).queryByText("Плов")).toBeNull());
+  });
+
+  it("8n2. recipe rewrite still names the dishes under the reason row", async () => {
+    // Мясо месяц был в техкарте Плова, потом его оттуда убрали. Заказ жив —
+    // значит под «Нет в техкарте» обязаны стоять проданные блюда.
+    warehouseService.listOutgoingReport.mockResolvedValue({ data: {
+      rows: [{ key: "wh-1", id: "wh-1", name: "Главный склад", product: 20000, tovar: 0, raw: 20000 }],
+      total: 20000,
+      lines: [
+        { key: "s1", warehouseKey: "wh-1", ingredientId: "ing-1", name: "myaso", category: "go'sht",
+          qty: "0.5", unit: "кг", sum: "20000", isTovar: false, source: "sale", dishes: [],
+          dishesReason: "not_in_recipe",
+          dishesCandidates: [{ name: "Плов", qty: "2" }, { name: "Шашлык", qty: "1" }],
+          dishesCandidatesTotal: 2 },
+      ],
+    } });
+    warehouseService.listWarehouses.mockResolvedValue({ data: warehouses });
+    warehouseService.listIngredients.mockResolvedValue({
+      data: [{ id: "ing-1", name: "myaso", category: "go'sht", unit: "кг" }],
+    });
+    catalogService.listProducts.mockResolvedValue({ data: [] });
+    warehouseService.list.mockResolvedValue({ data: [] });
+    render(<WarehousePage initialSection="outgoing" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Открыть расходы склада Главный склад" }));
+    const detail = await screen.findByRole("table", { name: "Расход склада Главный склад" });
+    fireEvent.click(within(detail).getByRole("button", { name: "Развернуть категорию продуктов go'sht" }));
+    fireEvent.click(await within(detail).findByRole("button", { name: "Развернуть расход продукта myaso" }));
+    expect(await within(detail).findByText("Нет в техкарте")).toBeInTheDocument();
+    // Блюда заказа — отдельными строками с числом проданных порций.
+    const plov = await within(detail).findByText("Плов");
+    expect(plov.closest("tr").textContent).toMatch(/продано 2/);
+    const shashlik = within(detail).getByText("Шашлык");
+    expect(shashlik.closest("tr").textContent).toMatch(/продано 1/);
+    expect(plov.closest("tr").className).toMatch(/wh-detail-dish-row--candidate/);
   });
 
   it("8e2. docDateToISO normalizes doc dates for range compare", async () => {

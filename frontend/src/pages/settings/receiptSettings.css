@@ -150,9 +150,12 @@
   flex-wrap: wrap;
 }
 /* Secondary actions belong to the LEFT settings area: right-aligned to the
-   left pane's right edge, never over the receipt. */
+   left pane's right edge, never over the receipt. Bottom-aligned so the Save
+   button (42px) sits exactly level with the separator trigger above its
+   caption — the caption must not lift the button. */
 .receipt-settings-page .receipt-editor-actions--end {
   justify-content: flex-end;
+  align-items: flex-end;
 }
 /* Header paper-size selector: same height/language as the secondary action
    buttons, compact auto width, no visible text label (the value says it). */
@@ -1188,6 +1191,61 @@
 /* -- Density control UI -------------------------------------------- */
 .receipt-settings-page .receipt-line-spacing-hint { margin: 0 0 10px; }
 .receipt-settings-page .receipt-line-spacing { display: flex; }
+/* Узел плотности (Место между строками) — единственный на строке, поэтому
+   задняя панель может быть шире: padding увеличен, чтобы переключатели не
+   сидели вплотную к краю. */
+.receipt-settings-page .receipt-kitchen-spacing .receipt-section-row {
+  padding: 14px 16px;
+}
+.receipt-settings-page .receipt-kitchen-spacing .receipt-segment-group {
+  gap: 8px;
+}
+.receipt-settings-page .receipt-kitchen-spacing .receipt-segments {
+  min-height: 38px;
+  padding: 2px;
+  border-radius: 12px;
+}
+.receipt-settings-page .receipt-kitchen-spacing .receipt-segments button {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 9px;
+  font-size: 13px;
+}
+.receipt-settings-page .receipt-preview--kitchen {
+  --kitchen-row-gap: 4px;
+  --kitchen-info-gap: 6px;
+  --kitchen-heading-gap: 10px;
+}
+.receipt-settings-page .receipt-preview--kitchen[data-line-spacing="small"] {
+  --kitchen-row-gap: 2px;
+  --kitchen-info-gap: 4px;
+  --kitchen-heading-gap: 6px;
+}
+.receipt-settings-page .receipt-preview--kitchen[data-line-spacing="large"] {
+  --kitchen-row-gap: 6px;
+  --kitchen-info-gap: 8px;
+  --kitchen-heading-gap: 13px;
+}
+.receipt-settings-page .receipt-preview--kitchen .receipt-preview__kitchen-type {
+  margin: 0 0 var(--kitchen-info-gap);
+  line-height: 1.2;
+}
+.receipt-settings-page .receipt-preview--kitchen .receipt-preview__kitchen-number {
+  margin: 0 0 var(--kitchen-heading-gap);
+  line-height: 1.2;
+}
+.receipt-settings-page .receipt-preview--kitchen .receipt-preview__info { gap: var(--kitchen-info-gap); }
+.receipt-settings-page .receipt-preview--kitchen .receipt-preview__info-row { line-height: 1.2; }
+.receipt-settings-page .receipt-preview--kitchen .receipt-preview__item-row {
+  padding: var(--kitchen-row-gap) 0;
+  line-height: 1.2;
+}
+.receipt-settings-page .receipt-preview--kitchen .receipt-preview__items-head { padding-bottom: var(--kitchen-info-gap); }
+.receipt-settings-page .receipt-preview--kitchen .receipt-preview__item-note-row {
+  margin: var(--kitchen-row-gap) 0;
+  line-height: 1.2;
+}
+.receipt-settings-page .receipt-preview--kitchen .receipt-preview__rule { margin: var(--kitchen-row-gap) 0; }
 /* Framed box reuses the block-group card language (border/radius/fill) so
    standalone setting cards read as the same family as Блоки чека. */
 .receipt-settings-page .receipt-framed-box {
@@ -1267,5 +1325,108 @@
 .receipt-settings-page .receipt-preview--customer[data-line-spacing="small"] .receipt-preview__customer-footer {
   gap: 3px;
   margin: 12px 0 10px;
+}
+
+/* The same global separator preset drives every visible rule on both papers. */
+/* -- Separator picker: custom listbox (no native <select>) --------- */
+/* Trigger is exactly as tall as the Save button (42px) and the two are
+   bottom-aligned in the header row, so the pair reads as one control line. */
+.receipt-separator-select { display: grid; gap: 4px; width: 208px; max-width: 100%; }
+.receipt-separator-select > span { font-size: 10px; line-height: 12px; color: #64748b; }
+.receipt-separator-select__trigger {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  width: 100%; height: 42px; padding: 0 10px 0 12px;
+  border: 1px solid rgba(15, 35, 60, 0.16); border-radius: 12px;
+  background: #fff; color: #174e60;
+  font: inherit; font-size: 12px; font-weight: 700; text-align: left;
+  cursor: pointer;
+}
+.receipt-separator-select__trigger:hover:not(:disabled) { border-color: rgba(31, 201, 201, 0.7); }
+.receipt-separator-select__trigger:focus-visible {
+  outline: 0; border-color: #1fc9c9; box-shadow: 0 0 0 3px rgba(31, 201, 201, 0.15);
+}
+.receipt-separator-select__trigger:disabled { opacity: 0.55; cursor: not-allowed; }
+.receipt-separator-select__value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.receipt-separator-select__chevron { flex: none; color: #0f99b8; transition: transform 0.16s ease; }
+.receipt-separator-select.is-open .receipt-separator-select__chevron { transform: rotate(180deg); }
+
+/* Menu is portaled + fixed: the settings card clips nothing, and the list
+   never stretches the header when it opens. */
+.receipt-separator-select__menu {
+  position: fixed; z-index: 10050; overflow: auto;
+  margin: 0; padding: 6px;
+  border: 1px solid rgba(15, 35, 60, 0.12); border-radius: 12px;
+  background: #fff; box-shadow: 0 18px 42px rgba(15, 35, 60, 0.18);
+  animation: receipt-separator-menu-in 0.12s ease-out;
+}
+@keyframes receipt-separator-menu-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.receipt-separator-select__group + .receipt-separator-select__group {
+  margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(15, 35, 60, 0.07);
+}
+.receipt-separator-select__group-label {
+  margin: 0; padding: 5px 8px 3px;
+  font-size: 9px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  color: #94a3b8;
+}
+.receipt-separator-select__option {
+  display: grid; grid-template-columns: 1fr 74px 16px; align-items: center; gap: 8px;
+  width: 100%; height: 30px; padding: 0 8px;
+  border: 0; border-radius: 8px; background: transparent;
+  color: #174e60; font: inherit; font-size: 12px; font-weight: 600; text-align: left;
+  cursor: pointer;
+}
+.receipt-separator-select__option.is-active { background: rgba(31, 201, 201, 0.10); }
+.receipt-separator-select__option.is-selected { color: #0d8f8f; font-weight: 700; }
+.receipt-separator-select__option-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.receipt-separator-select__check { display: grid; place-items: center; color: #1fc9c9; }
+/* Live sample of the actual rule, so the choice is made by eye. */
+.receipt-separator-select__sample { display: block; width: 100%; }
+.receipt-separator-select__sample--dashed,
+.receipt-separator-select__sample--solid { height: 0; border-top: 1px dashed #161616; }
+.receipt-separator-select__sample--solid { border-top-style: solid; }
+.receipt-separator-select__sample[data-weight="medium"] { border-top-width: 2px; }
+.receipt-separator-select__sample[data-weight="bold"] { border-top-width: 3px; }
+.receipt-separator-select__sample--stars {
+  height: 12px; overflow: hidden; white-space: nowrap;
+  font-family: Arial, sans-serif; font-size: 12px; line-height: 12px;
+  letter-spacing: 0.5px; color: #161616;
+}
+.receipt-separator-select__sample--stars[data-weight="medium"] { -webkit-text-stroke: 0.35px currentColor; }
+.receipt-separator-select__sample--stars[data-weight="bold"] { font-weight: 700; -webkit-text-stroke: 0.7px currentColor; }
+.receipt-settings-page .receipt-preview[data-separator-weight="thin"] { --receipt-rule-width: 1px; --receipt-star-stroke: 0px; }
+.receipt-settings-page .receipt-preview[data-separator-weight="medium"] { --receipt-rule-width: 2px; --receipt-star-stroke: 0.35px; }
+.receipt-settings-page .receipt-preview[data-separator-weight="bold"] { --receipt-rule-width: 3px; --receipt-star-stroke: 0.7px; }
+.receipt-settings-page .receipt-preview[data-separator-pattern] .receipt-preview__items-head { border-bottom: 0; }
+.receipt-settings-page .receipt-preview[data-separator-pattern] .receipt-preview__item-row,
+.receipt-settings-page .receipt-preview[data-separator-pattern] .receipt-preview__summary-row { border-top: 0; }
+.receipt-settings-page .receipt-preview[data-separator-pattern] .receipt-preview__rule {
+  border-top: var(--receipt-rule-width) dashed #161616;
+}
+.receipt-settings-page .receipt-preview[data-separator-pattern="solid"] .receipt-preview__rule {
+  border-top-style: solid;
+}
+.receipt-settings-page .receipt-preview[data-separator-pattern="stars"] .receipt-preview__rule {
+  height: 14px; margin: 4px 0; border: 0; overflow: hidden; white-space: nowrap;
+  font-family: Arial, sans-serif; font-size: 16px; line-height: 14px;
+  -webkit-text-stroke: var(--receipt-star-stroke) currentColor;
+}
+.receipt-settings-page .receipt-preview[data-separator-weight="bold"] .receipt-preview__rule { font-weight: 700; }
+.receipt-settings-page .receipt-preview .receipt-preview__items-head > span { font-size: inherit; }
+.receipt-settings-page .receipt-preview .receipt-preview__brand { overflow-wrap: anywhere; }
+.receipt-settings-page .receipt-preview[data-paper-size="80"] .receipt-preview__items-head,
+.receipt-settings-page .receipt-preview[data-paper-size="80"] .receipt-preview__item-row {
+  grid-template-columns: minmax(0, 1fr) var(--receipt-qty-width, 56px) var(--receipt-amount-width, 84px);
+}
+.receipt-settings-page .receipt-preview[data-paper-size="80"] .receipt-preview__items--no-sum .receipt-preview__items-head,
+.receipt-settings-page .receipt-preview[data-paper-size="80"] .receipt-preview__items--no-sum .receipt-preview__item-row {
+  grid-template-columns: minmax(0, 1fr) var(--receipt-qty-width, 56px);
+}
+
+@media (max-width: 900px) {
+  .receipt-settings-page .receipt-header-left { flex-wrap: wrap; }
+  .receipt-settings-page .receipt-editor-actions { flex-wrap: wrap; align-items: end; }
 }
 

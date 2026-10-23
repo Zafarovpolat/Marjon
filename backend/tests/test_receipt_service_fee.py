@@ -59,7 +59,7 @@ def test_receipt_prints_service_with_hall_percent():
     raw = _text(EscPosFormatter().format_receipt(
         _receipt(service_fee=Decimal("20000"), service_fee_rate=Decimal("20")),
     ))
-    assert "Обслуживание 20%:" in raw
+    assert "Обслуга 20%" in raw
     assert "20,000" in raw
 
 
@@ -67,10 +67,10 @@ def test_receipt_without_known_rate_keeps_plain_label():
     raw = _text(EscPosFormatter().format_receipt(
         _receipt(service_fee=Decimal("20000")),
     ))
-    assert "Обслуживание:" in raw
-    assert "%" not in [ln for ln in raw.splitlines() if "Обслуживание" in ln][0]
+    assert "Обслуга" in raw
+    assert "%" not in [ln for ln in raw.splitlines() if "Обслуга" in ln][0]
 
 
 def test_receipt_hides_zero_service():
     raw = _text(EscPosFormatter().format_receipt(_receipt(service_fee=Decimal("0"))))
-    assert "Обслуживание" not in raw
+    assert "Обслуга" not in raw

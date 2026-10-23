@@ -201,7 +201,7 @@ class TestKitchenRasterRendererBasics:
         raw = render_kitchen_ticket_raster(_ticket(), {}, 80)
         assert raw.startswith(b"\x1b\x40")  # ESC @ init
         assert b"\x1dv0\x00" in raw  # GS v 0 — same raster technology as the customer receipt
-        assert raw.endswith(b"\x1dVA\x03")
+        assert raw.endswith(b"\x1dVA\x49")
 
     def test_80mm_and_58mm_both_render(self):
         for width in (80, 58):

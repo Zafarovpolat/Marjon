@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
 from app.infrastructure.database.session import get_db
 from app.modules.auth.dependencies import (
+    effective_branch_filter,
     ensure_company_app_identity,
     require_company_admin,
     require_company_app_user,
@@ -68,6 +69,9 @@ async def list_printers(
     db: AsyncSession = Depends(get_db),
 ):
     printers = await PrinterService(db).list(user.company_id)
+    branch_scope = effective_branch_filter(user)
+    if branch_scope is not None:
+        printers = [pr for pr in printers if getattr(pr, "branch_id", None) == branch_scope]
     return printers
 
 
@@ -235,15 +239,16 @@ async def mark_failed(
 
 # ── WebSocket (desktop terminal push) ─────────────────────────────────────────
 
-@router.websocket("/ws")
+@router.websocket("/ws/{branch_id}")
 async def printer_ws_endpoint(
     ws: WebSocket,
+    branch_id: UUID,
     token: str = Query(..., description="JWT access token"),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Desktop terminal connects here to receive print jobs in real time.
-    URL: ws://host/api/v1/printers/ws?token=<jwt>
+    URL: ws://host/api/v1/printers/ws/{branch_id}?token=<jwt>
     """
     try:
         from jose import JWTError
@@ -257,15 +262,18 @@ async def printer_ws_endpoint(
         await ensure_company_app_identity(
             user, db, auth_scope=payload.get("auth_scope", "app")
         )
+        await require_company_resource(
+            db, Branch, branch_id, user.company_id, detail="Branch not found"
+        )
     except Exception:
         await ws.close(code=4001, reason="Unauthorized")
         return
 
-    await printer_ws_manager.connect(ws, user.company_id)
+    await printer_ws_manager.connect(ws, user.company_id, branch_id)
     try:
         while True:
             msg = await ws.receive_text()
             if msg == "ping":
                 await ws.send_text("pong")
     except WebSocketDisconnect:
-        printer_ws_manager.disconnect(ws, user.company_id)
+        printer_ws_manager.disconnect(ws, user.company_id, branch_id)

@@ -1042,6 +1042,17 @@ body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .w
   color: var(--neutral-500, #64748b);
 }
 
+/* Проданные блюда заказа под причиной «Нет в техкарте»: третий уровень
+   вложенности — глубже строк-блюд, чтобы не путались с реальной разбивкой. */
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-detail-table tbody tr.wh-detail-dish-row--candidate td:first-child {
+  padding-left: 168px;
+}
+
+body.dashboard-body .dish-catalog-page.owner-report-view.warehouse-stock-page .wh-detail-table tbody tr.wh-detail-dish-row--candidate td {
+  font-weight: 400;
+  font-size: 12.5px;
+}
+
 /* Появление позиций при раскрытии: каскад сверху вниз — каждая строка
    чуть позже предыдущей (задержка инлайном из JSX). Закрытие мгновенное:
    высоту строк таблицы анимировать нельзя. */

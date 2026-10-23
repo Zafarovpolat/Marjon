@@ -5,12 +5,13 @@ let printerSocket = null
 let printerHandle = null
 const printerListeners = new Set()
 
-export function connectPrinterWS(serverUrl, token) {
+export function connectPrinterWS(serverUrl, token, branchId) {
   if (printerSocket) { printerSocket.close(); printerSocket = null }
 
   const wsBase = serverUrl.replace(/^http/, 'ws').replace(/\/api\/v1\/?$/, '')
-  const url = `${wsBase}/api/v1/printers/ws?token=${token}`
-  console.log('[printer-ws] connecting to', url)
+  if (!branchId) return
+  const url = `${wsBase}/api/v1/printers/ws/${branchId}?token=${token}`
+  console.log('[printer-ws] connecting to branch', branchId)
 
   function open() {
     printerSocket = new WebSocket(url)

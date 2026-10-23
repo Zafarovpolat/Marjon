@@ -180,7 +180,7 @@ class TestCustomerBlocksAndStyles:
         prefix, _, _ = _fmt(80)._style_bytes({"size": "xlarge", "weight": "standard"})
         assert EscPosFormatter.BOLD_ON not in prefix
         t = dec(raw)
-        assert "Итого к оплате:" in t and "94,080" in t  # full-width line, nothing truncated
+        assert "Итого:" in t and "94,080" in t  # full-width line, nothing truncated
 
     def test_11_left_align(self):
         raw = _fmt(80).format_receipt(_order(), template={"blockStyles": {"orderNumber": {"align": "left"}}})
@@ -377,7 +377,7 @@ class TestHeaderDividerAndDiscountVat:
         )
         t = dec(raw)
         assert "Скидка" in t and "5,000" in t
-        assert "Обслуживание" in t and "7,800" in t
+        assert "Обслуга" in t and "7,800" in t
         assert "Налог" in t and "9,360" in t
         assert "НДС" not in t
 
@@ -452,7 +452,7 @@ class TestPhysicalReceiptParityV1:
         order_data = _order(printed_at=datetime(2026, 9, 29, 20, 51, 34))
         raw = _fmt(80).format_receipt(order_data, template={})
         t = dec(raw)
-        assert row_value(t, "Дата:") == "29.09.2026 20:51"
+        assert row_value(t, "Дата:") == "29.09.26 20:51"
         assert "20:51:34" not in t
 
     def test_total_enabled_false_hides_grand_total_but_keeps_summary(self):
@@ -462,11 +462,11 @@ class TestPhysicalReceiptParityV1:
         )
         t = dec(raw)
         assert "Сумма блюд" in t  # summary line is not gated by enabled.total
-        assert "Итого к оплате:" not in t
+        assert "Итого:" not in t
 
     def test_total_enabled_true_still_prints_by_default(self):
         raw = _fmt(80).format_receipt(_order(), template={})
-        assert "Итого к оплате:" in dec(raw)
+        assert "Итого:" in dec(raw)
 
     def test_payment_row_shows_method_and_amount_not_a_bare_label(self):
         raw = _fmt(80).format_receipt(_order(payment_method="cash", total=Decimal(94080)), template={})

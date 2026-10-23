@@ -839,8 +839,21 @@ export function buildSaleExpenseLines(dishItems, products, ingById, mainWarehous
 // разбивку под стрелкой.
 //
 // Списание продажи без блюд — это не ручной документ: заказ мог быть удалён
-// или у блюда нет техкарты, поэтому такие строки идут отдельно
-// («Без разбивки»), а ручной расходный документ — своим «Ручным расходом».
+// или техкарту переписали и ингредиента в ней больше нет. Причину отдаёт
+// бэкенд (dishesReason), и такие строки идут отдельными подписями
+// («Заказ удалён» / «Нет в техкарте»), а ручной документ — «Ручным расходом».
+// Если техкарту переписали, но заказ жив, бэкенд присылает проданные блюда
+// (dishesCandidates) — показываем их третьим уровнем: блюдо видно даже
+// спустя месяц после правки рецепта.
+const UNLINKED_REASONS = ["order_deleted", "not_in_recipe"];
+
+// Подписи причин, почему у списания продажи нет блюда.
+const UNLINKED_REASON_LABEL = {
+  order_deleted: "Заказ удалён",
+  not_in_recipe: "Нет в техкарте",
+  other: "Без разбивки",
+};
+
 export function aggregateExpenseProducts(lines) {
   const map = new Map();
   (Array.isArray(lines) ? lines : []).forEach((line) => {
@@ -861,6 +874,8 @@ export function aggregateExpenseProducts(lines) {
       unlinked: [],
       unlinkedQty: 0,
       unlinkedSum: 0,
+      // Причина → {count, qty, sum}. Без причины — "other" (старый бэкенд).
+      unlinkedReasons: {},
     };
     const qty = Number(line?.qty) || 0;
     const sum = Number(line?.sum) || 0;
@@ -879,6 +894,30 @@ export function aggregateExpenseProducts(lines) {
       acc.unlinked.push({ ...line, qty, sum });
       acc.unlinkedQty += qty;
       acc.unlinkedSum += sum;
+      const reason = UNLINKED_REASONS.includes(line?.dishesReason) ? line.dishesReason : "other";
+      const bucket = acc.unlinkedReasons[reason] || { count: 0, qty: 0, sum: 0, candidates: [], candidatesTotal: 0 };
+      bucket.count += 1;
+      bucket.qty += qty;
+      bucket.sum += sum;
+      // Техкарту переписали, но заказ жив: бэкенд присылает проданные блюда
+      // заказа. Долю на блюдо уже не восстановить, поэтому показываем только
+      // состав заказа («Плов — продано 2»), без выдуманных килограммов.
+      // Порции считаем по заказам, а не по движениям: у одного заказа бывает
+      // несколько списаний (дозаказ), и в каждом лежит весь состав заказа —
+      // иначе «Шашлык» задвоился бы вместе с числом движений.
+      const orderKey = String(line?.orderId || line?.key || "");
+      (Array.isArray(line?.dishesCandidates) ? line.dishesCandidates : []).forEach((candidate) => {
+        const candidateName = String(candidate?.name || "—");
+        const portions = Number(candidate?.qty) || 0;
+        let known = bucket.candidates.find((item) => item.name === candidateName);
+        if (!known) {
+          known = { name: candidateName, orders: {} };
+          bucket.candidates.push(known);
+        }
+        if (known.orders[orderKey] === undefined) known.orders[orderKey] = portions;
+      });
+      bucket.candidatesTotal = Math.max(bucket.candidatesTotal, Number(line?.dishesCandidatesTotal) || 0);
+      acc.unlinkedReasons[reason] = bucket;
     } else {
       acc.manual.push({ ...line, qty, sum });
       acc.manualQty += qty;
@@ -887,7 +926,24 @@ export function aggregateExpenseProducts(lines) {
     map.set(key, acc);
   });
   return Array.from(map.values())
-    .map((item) => ({ ...item, isProduct: true, dishes: item.dishes.sort((a, b) => b.qty - a.qty) }))
+    .map((item) => ({
+      ...item,
+      isProduct: true,
+      dishes: item.dishes.sort((a, b) => b.qty - a.qty),
+      // Порции по заказам → к показу: сумма по разным заказам.
+      unlinkedReasons: Object.fromEntries(Object.entries(item.unlinkedReasons).map(([reason, bucket]) => [
+        reason,
+        {
+          ...bucket,
+          candidates: (bucket.candidates || [])
+            .map((candidate) => ({
+              name: candidate.name,
+              portions: Object.values(candidate.orders || {}).reduce((total, portions) => total + portions, 0),
+            }))
+            .sort((a, b) => b.portions - a.portions),
+        },
+      ])),
+    }))
     .sort((a, b) => a.name.localeCompare(b.name, "ru"));
 }
 
@@ -3456,14 +3512,44 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
           </tr>,
         ));
         if (unlinkedCount > 0) {
-          rows.push(
-            <tr key={`${itemKey}:unlinked`} className="wh-detail-line-row wh-detail-dish-row wh-detail-dish-row--muted">
-              <td>Без разбивки</td>
-              <td style={metaStyle(0)}>{unlinkedCount > 1 ? `${unlinkedCount} док.` : (item.unlinked[0]?.registeredAt || "продажа")}</td>
-              <td>{`${formatQty(item.unlinkedQty)} ${item.unit}`}</td>
-              <td>{formatAmount(item.unlinkedSum)}</td>
-            </tr>,
-          );
+          // Причина от бэкенда: «Заказ удалён» / «Нет в техкарте». Если старый
+          // ответ без причины — прежнее «Без разбивки».
+          const buckets = item.unlinkedReasons || {};
+          Object.entries(buckets).forEach(([reason, bucket]) => {
+            rows.push(
+              <tr key={`${itemKey}:unlinked:${reason}`} className="wh-detail-line-row wh-detail-dish-row wh-detail-dish-row--muted">
+                <td>{UNLINKED_REASON_LABEL[reason] || "Без разбивки"}</td>
+                <td style={metaStyle(0)}>{bucket.count > 1 ? `${bucket.count} док.` : (item.unlinked[0]?.registeredAt || "продажа")}</td>
+                <td>{`${formatQty(bucket.qty)} ${item.unit}`}</td>
+                <td>{formatAmount(bucket.sum)}</td>
+              </tr>,
+            );
+            // Проданные блюда заказа: техкарту переписали, но на какое блюдо
+            // ушёл расход — видно. Количества на блюдо здесь нет намеренно:
+            // после правки техкарты его не из чего посчитать.
+            const candidates = Array.isArray(bucket.candidates) ? bucket.candidates : [];
+            candidates.forEach((candidate, candidateIdx) => {
+              rows.push(
+                <tr key={`${itemKey}:unlinked:${reason}:dish:${candidateIdx}`} className="wh-detail-line-row wh-detail-dish-row wh-detail-dish-row--muted wh-detail-dish-row--candidate">
+                  <td>{candidate.name}</td>
+                  <td style={metaStyle(0)}>{`продано ${formatQty(candidate.portions)}`}</td>
+                  <td />
+                  <td />
+                </tr>,
+              );
+            });
+            const hidden = (bucket.candidatesTotal || 0) - candidates.length;
+            if (hidden > 0) {
+              rows.push(
+                <tr key={`${itemKey}:unlinked:${reason}:more`} className="wh-detail-line-row wh-detail-dish-row wh-detail-dish-row--muted wh-detail-dish-row--candidate">
+                  <td>{`…и ещё ${dishCountLabel(hidden)}`}</td>
+                  <td />
+                  <td />
+                  <td />
+                </tr>,
+              );
+            }
+          });
         }
         if (manualCount > 0) {
           rows.push(

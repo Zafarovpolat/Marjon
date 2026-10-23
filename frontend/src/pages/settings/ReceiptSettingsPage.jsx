@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReceiptPreview from "../../components/receipt/ReceiptPreview";
+import ReceiptSeparatorSelect from "../../components/receipt/ReceiptSeparatorSelect";
 import ReceiptSectionEditor from "../../components/receipt/ReceiptSectionEditor";
 import { isActiveConstructorBlock } from "../../components/receipt/receiptBlockCapabilities";
 import { useOrg } from "../../context/OrgContext";
@@ -286,6 +287,8 @@ export default function ReceiptSettingsPage() {
               </div>
             </div>
             <div className="receipt-editor-actions receipt-editor-actions--end">
+              <ReceiptSeparatorSelect value={template.separator} disabled={loading || saving}
+                onChange={(separator) => patchTemplate({ separator })} />
               <button type="button" className="receipt-btn-primary receipt-save" disabled={saving || loading} onClick={handleSave}>
                 {saving ? "Сохранение..." : "Сохранить"}
               </button>

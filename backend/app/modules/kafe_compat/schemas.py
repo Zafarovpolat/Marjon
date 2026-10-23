@@ -1,6 +1,12 @@
 from __future__ import annotations
 from pydantic import field_validator
+from typing import Literal
 from app.shared.base_schema import BaseSchema
+
+
+class ReceiptSeparatorStyle(BaseSchema):
+    pattern: Literal["dashed", "solid", "stars"] = "dashed"
+    weight: Literal["thin", "medium", "bold"] = "thin"
 
 
 class ReceiptTemplateUpdate(BaseSchema):
@@ -19,10 +25,12 @@ class ReceiptTemplateUpdate(BaseSchema):
 
     version: int | None = None
     paperSize: str | None = None
+    lineSpacing: Literal["small", "medium", "large"] | None = None
     blocks: list[str] | None = None
     enabled: dict[str, bool] | None = None
     blockStyles: dict[str, dict] | None = None
     positions: dict[str, dict] | None = None
+    separator: ReceiptSeparatorStyle | None = None
 
     @field_validator("paperSize")
     @classmethod
