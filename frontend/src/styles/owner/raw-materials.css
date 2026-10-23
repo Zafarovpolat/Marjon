@@ -39,19 +39,19 @@
 }
 
 .raw-materials-page .raw-col-name {
-  width: 30%;
+  width: 26%;
 }
 
 .raw-materials-page .raw-col-category {
-  width: 17%;
+  width: 15%;
 }
 
 .raw-materials-page .raw-col-unit {
-  width: 13%;
+  width: 11%;
 }
 
 .raw-materials-page .raw-col-dishes {
-  width: 17%;
+  width: 14%;
 }
 
 /* Все колонки по центру (V27-паритет с блюдами), КРОМЕ «Название». */
@@ -88,12 +88,27 @@ body.dashboard-body .dish-catalog-page.owner-report-view.raw-materials-page .raw
   text-align: left;
 }
 
+.raw-materials-page .raw-col-loss {
+  width: 12%;
+}
+
+/* Норма потерь: число не рвётся по пробелу/точке, прочерк — приглушённый. */
+.raw-materials-page .raw-col-loss {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.raw-materials-page .raw-loss-empty {
+  color: #94a3b8;
+  font-weight: 700;
+}
+
 .raw-materials-page .raw-col-status {
   width: 10%;
 }
 
 .raw-materials-page .raw-col-actions {
-  width: 8%;
+  width: 7%;
 }
 
 .raw-materials-page .raw-name-text {

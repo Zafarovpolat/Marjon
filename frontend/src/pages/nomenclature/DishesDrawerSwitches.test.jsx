@@ -203,6 +203,32 @@ describe("Dishes drawer switches", () => {
     expect(onChange).toHaveBeenCalledWith("");
   });
 
+  it("searchable select filters categories by typed text", () => {
+    const onChange = vi.fn();
+    render(<DishSingleSelect label="Категория" value="" onChange={onChange} searchable
+      options={[
+        { value: "c1", label: "Горячие блюда" },
+        { value: "c2", label: "Салаты" },
+        { value: "c3", label: "Напитки" },
+      ]} />);
+    fireEvent.click(screen.getByRole("combobox", { name: "Категория" }));
+    const search = screen.getByRole("searchbox", { name: "Категория: поиск" });
+    fireEvent.change(search, { target: { value: "сал" } });
+    // Регистр не важен, лишние категории скрыты.
+    expect(screen.getByRole("option", { name: "Салаты" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Напитки" })).toBeNull();
+    fireEvent.click(screen.getByRole("option", { name: "Салаты" }));
+    expect(onChange).toHaveBeenCalledWith("c2");
+  });
+
+  it("searchable select shows an honest empty state for a miss", () => {
+    render(<DishSingleSelect label="Категория" value="" onChange={vi.fn()} searchable
+      options={[{ value: "c1", label: "Салаты" }]} />);
+    fireEvent.click(screen.getByRole("combobox", { name: "Категория" }));
+    fireEvent.change(screen.getByRole("searchbox", { name: "Категория: поиск" }), { target: { value: "суп" } });
+    expect(screen.getByText("Ничего не найдено")).toBeInTheDocument();
+  });
+
   it("opens centered enlarged photo on table photo click", async () => {
     render(
       <DishesTable

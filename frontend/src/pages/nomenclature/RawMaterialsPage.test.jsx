@@ -238,7 +238,7 @@ describe("RAW V2 Dishes visual family", () => {
     expect(footerButtons).toEqual(expect.arrayContaining(["Отменить", "Добавить"]));
   });
 
-  it("9m. norms are required and sent with the create payload", async () => {
+  it("9m. norms are optional, filled ones are sent with the create payload", async () => {
     mockRawApis({
       ingredients: [],
       units: [{ id: "u1", short_name: "кг", status: true }],
@@ -252,17 +252,31 @@ describe("RAW V2 Dishes visual family", () => {
     fireEvent.change(screen.getByPlaceholderText("Напр. Помидор"), { target: { value: "Мука" } });
     fireEvent.click(within(drawer).getByRole("combobox", { name: "Ед. изм" }));
     fireEvent.click(await screen.findByRole("option", { name: "кг" }));
+    // Нормы справочные: пустые поля не блокируют карточку и уходят как null.
     const submit = within(drawer).getByRole("button", { name: "Добавить" });
-    // Обе нормы обязательны: пустые → честная ошибка, без POST.
     fireEvent.click(submit);
-    expect(await within(drawer).findByText("Укажите среднее количество.")).toBeInTheDocument();
-    expect(api.post).not.toHaveBeenCalled();
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith(
+      "/inventory/ingredients",
+      expect.objectContaining({ name: "Мука", unit: "кг", avg_quantity: null, deficit_threshold: null }),
+    ));
+  });
+
+  it("9m2. filled norms go to the create payload", async () => {
+    mockRawApis({
+      ingredients: [],
+      units: [{ id: "u1", short_name: "кг", status: true }],
+    });
+    render(<NomenclaturePage type="raw" />);
+    await screen.findByText("Продукты пока не добавлены.");
+    fireEvent.click(screen.getByRole("button", { name: "Добавить" }));
+    await screen.findByText("Добавить продукты");
+    const drawer = document.body.querySelector(".staff-modal.dish-drawer");
+    fireEvent.change(screen.getByPlaceholderText("Напр. Помидор"), { target: { value: "Мука" } });
+    fireEvent.click(within(drawer).getByRole("combobox", { name: "Ед. изм" }));
+    fireEvent.click(await screen.findByRole("option", { name: "кг" }));
     fireEvent.change(screen.getByPlaceholderText("Среднее количество"), { target: { value: "100" } });
-    fireEvent.click(submit);
-    expect(await within(drawer).findByText("Укажите порог дефицита.")).toBeInTheDocument();
-    expect(api.post).not.toHaveBeenCalled();
     fireEvent.change(screen.getByPlaceholderText("Порог дефицита"), { target: { value: "20" } });
-    fireEvent.click(submit);
+    fireEvent.click(within(drawer).getByRole("button", { name: "Добавить" }));
     await waitFor(() => expect(api.post).toHaveBeenCalledWith(
       "/inventory/ingredients",
       expect.objectContaining({ name: "Мука", unit: "кг", avg_quantity: 100, deficit_threshold: 20 }),
@@ -274,12 +288,27 @@ describe("RAW V2 Dishes visual family", () => {
     const { container } = render(<NomenclaturePage type="raw" />);
     await screen.findByText("Мука");
     const headers = [...container.querySelectorAll(".raw-grid-table thead th")].map((th) => th.textContent);
-    expect(headers).toEqual(["№", "Название", "Категория", "Ед. изм", "Блюда", "Статус", "Действия"]);
+    expect(headers).toEqual(["№", "Название", "Категория", "Ед. изм", "Блюда", "Потери", "Статус", "Действия"]);
     const tableText = container.querySelector(".raw-grid-table").textContent;
     for (const absent of ["Остаток", "Цена закупки", "Поставщик", "Фото"]) {
       expect(tableText).not.toContain(absent);
     }
     expect(container.querySelector(".raw-grid-table tbody tr td")).toHaveTextContent("1");
+  });
+
+  it("10a. loss column shows percent and amount, dash when the norm is empty", async () => {
+    mockRawApis({
+      ingredients: [
+        ingredient({ id: "a1", name: "Мука", loss_type: "percent", loss_value: 10 }),
+        ingredient({ id: "a2", name: "Сахар", unit: "кг", loss_type: "amount", loss_value: "0.2000" }),
+        ingredient({ id: "a3", name: "Соль", loss_type: null, loss_value: null }),
+      ],
+    });
+    const { container } = render(<NomenclaturePage type="raw" />);
+    await screen.findByText("Мука");
+    const lossCells = [...container.querySelectorAll(".raw-grid-table tbody .raw-col-loss")]
+      .map((cell) => cell.textContent.trim());
+    expect(lossCells).toEqual(["10%", "0,2 кг", "—"]);
   });
 
   it("10b. edit drawer has no stock summary — template card only", async () => {

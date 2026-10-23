@@ -385,6 +385,8 @@ export default function DishesDialogs({
         disabledLabel="Категории недоступны"
         onCreateNew={onCreateCategory ? handleCreateCategory : null}
         createLabel="+ Новая категория"
+        searchable
+        searchPlaceholder="Поиск категории"
       />
     </div>
   );

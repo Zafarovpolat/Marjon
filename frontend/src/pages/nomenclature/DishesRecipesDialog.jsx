@@ -325,6 +325,24 @@ export default function DishesRecipesDialog({ dish, onClose, returnFocusRef, onS
     const found = warehouses.find((item) => String(item?.id) === String(warehouseId));
     return found?.name || "—";
   };
+  // Итог «граммажности»: суммы по каждой единице отдельно (кг и л не
+  // складываются в одно число — это была бы выдумка). Одна единица в составе —
+  // один итог, разные — перечисление через « · ».
+  const recipeTotals = (() => {
+    const byUnit = new Map();
+    lines.forEach((line) => {
+      const unit = unitOf(line.ingredient_id) || "—";
+      byUnit.set(unit, (byUnit.get(unit) || 0) + (Number(line.quantity) || 0));
+    });
+    return Array.from(byUnit.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([unit, total]) => {
+        const rounded = Math.round(total * 1000) / 1000;
+        const text = formatQuantity(rounded);
+        return unit && unit !== "—" ? `${text} ${unit}` : text;
+      })
+      .join(" · ");
+  })();
 
   return createPortal(
     <div className={`kpi-info-backdrop owner-modal-backdrop dish-recipes-backdrop ${motionClassName}`}
@@ -432,6 +450,15 @@ export default function DishesRecipesDialog({ dish, onClose, returnFocusRef, onS
                     <ReportEmptyState title="Состав рецепта пока пуст" />
                   </td></tr>}
                 </tbody>
+                {lines.length > 0 ? (
+                  <tfoot>
+                    <tr className="dish-recipes-total-row">
+                      <td colSpan={3} className="dish-recipes-total-label">Итого</td>
+                      <td className="dish-recipes-total-value" aria-label="Сумма по составу">{recipeTotals || "—"}</td>
+                      <td aria-hidden="true" />
+                    </tr>
+                  </tfoot>
+                ) : null}
               </table>
             </div>
           </div>

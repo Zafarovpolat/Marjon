@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../../components/Icon";
 import Toast from "../../components/Toast";
 
@@ -9,6 +9,8 @@ import Toast from "../../components/Toast";
 // закрытие по outside-click). Отличия от фильтра-мультиселекта: одиночный
 // выбор canonical ID (пусто = null, плейсхолдер вместо catch-all опции),
 // клик сразу фиксирует значение и закрывает панель.
+// searchable: длинные справочники (категории) получают строку поиска в панели —
+// без неё нужную категорию приходится искать прокруткой.
 export default function DishSingleSelect({
   label = "",
   placeholder = "",
@@ -23,6 +25,8 @@ export default function DishSingleSelect({
   emptyLabel = "",
   onCreateNew = null,
   createLabel = "+ Новая категория",
+  searchable = false,
+  searchPlaceholder = "Поиск…",
 }) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -31,6 +35,8 @@ export default function DishSingleSelect({
   const [newName, setNewName] = useState("");
   const [createError, setCreateError] = useState("");
   const [createSaving, setCreateSaving] = useState(false);
+  const [query, setQuery] = useState("");
+  const searchRef = useRef(null);
   const rootRef = useRef(null);
   const triggerRef = useRef(null);
   // Откреплённая панель: внутри .dish-recipes-dialog и .wh-inv-modal — их окна
@@ -70,14 +76,29 @@ export default function DishSingleSelect({
   const selected = (options || []).find((item) => item.value === value) || null;
   const shownPlaceholder = loading ? "Загрузка…" : (disabled && disabledLabel ? disabledLabel : placeholder);
 
+  // Поиск по подписи опции: регистр и раскладка не важны, обрезка пробелов
+  // снимает «случайный» пробел в начале. Пустой запрос = весь список.
+  const visibleOptions = useMemo(() => {
+    const term = String(query || "").trim().toLowerCase();
+    if (!searchable || !term) return options;
+    return options.filter((option) => String(option?.label ?? "").toLowerCase().includes(term));
+  }, [options, query, searchable]);
+
   useEffect(() => {
     if (open) {
       setActiveIndex(-1);
       setIsCreating(false);
       setNewName("");
       setCreateError("");
+      setQuery("");
     }
   }, [open ]);
+
+  // Панель с поиском открывается с фокусом в строке поиска — можно сразу
+  // печатать, не наводя мышь на список.
+  useEffect(() => {
+    if (open && searchable) searchRef.current?.focus({ preventScroll: true });
+  }, [open, searchable]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -130,6 +151,8 @@ export default function DishSingleSelect({
 
   function onKeyDown(event) {
     if (disabled || loading) return;
+    // Ввод в строке поиска/создания — это текст, а не хоткеи селекта.
+    if (event.target?.tagName === "INPUT") return;
     if (event.key === "Escape") {
       if (open) { event.preventDefault(); event.stopPropagation(); requestClose(); triggerRef.current?.focus(); }
       return;
@@ -138,7 +161,7 @@ export default function DishSingleSelect({
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       if (!open) { setOpen(true); return; }
-      const total = options.length + (onCreateNew && !isCreating ? 1 : 0);
+      const total = visibleOptions.length + (onCreateNew && !isCreating ? 1 : 0);
       if (total === 0) return;
       const step = event.key === "ArrowDown" ? 1 : -1;
       setActiveIndex((i) => {
@@ -152,8 +175,8 @@ export default function DishSingleSelect({
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       if (!open) { setOpen(true); return; }
-      if (activeIndex >= 0 && options[activeIndex]) pick(options[activeIndex].value);
-      else if (onCreateNew && !isCreating && activeIndex === options.length) {
+      if (activeIndex >= 0 && visibleOptions[activeIndex]) pick(visibleOptions[activeIndex].value);
+      else if (onCreateNew && !isCreating && activeIndex === visibleOptions.length) {
         setIsCreating(true);
         setNewName("");
         setCreateError("");
@@ -190,7 +213,71 @@ export default function DishSingleSelect({
           onAnimationEnd={handlePanelAnimationEnd}
         >
           <ul className="orders-filter-select__menu" id={listId} role="listbox" aria-label={label}>
-            {options.map((option, index) => {
+            {searchable ? (
+              <li className="orders-filter-select__search-row" role="presentation">
+                <div className="orders-filter-select__search">
+                  <Icon name="bi-search" size={14} />
+                  <input
+                    ref={searchRef}
+                    type="search"
+                    className="orders-filter-select__search-input"
+                    value={query}
+                    placeholder={searchPlaceholder}
+                    aria-label={`${label}: поиск`}
+                    autoComplete="off"
+                    spellCheck="false"
+                    onChange={(event) => {
+                      setQuery(event.target.value);
+                      setActiveIndex(-1);
+                    }}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        requestClose();
+                        triggerRef.current?.focus();
+                        return;
+                      }
+                      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        const total = visibleOptions.length;
+                        if (!total) return;
+                        const step = event.key === "ArrowDown" ? 1 : -1;
+                        setActiveIndex((i) => {
+                          const next = i + step;
+                          if (next < 0) return total - 1;
+                          if (next >= total) return 0;
+                          return next;
+                        });
+                        return;
+                      }
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (activeIndex >= 0 && visibleOptions[activeIndex]) pick(visibleOptions[activeIndex].value);
+                        else if (visibleOptions.length === 1) pick(visibleOptions[0].value);
+                        return;
+                      }
+                      event.stopPropagation();
+                    }}
+                  />
+                  {query ? (
+                    <button
+                      type="button"
+                      className="orders-filter-select__search-clear"
+                      aria-label="Очистить поиск"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => { setQuery(""); setActiveIndex(-1); searchRef.current?.focus(); }}
+                    >
+                      <Icon name="bi-x-lg" size={12} />
+                    </button>
+                  ) : null}
+                </div>
+              </li>
+            ) : null}
+            {visibleOptions.map((option, index) => {
               const isSelected = option.value === value;
               return (
                 <li key={option.value}>
@@ -215,9 +302,9 @@ export default function DishSingleSelect({
                 </li>
               );
             })}
-            {options.length === 0 && !onCreateNew ? (
+            {visibleOptions.length === 0 && !onCreateNew ? (
               <li key="__empty" className="orders-filter-select__empty" role="presentation">
-                {emptyLabel || "Нет данных"}
+                {query.trim() ? "Ничего не найдено" : (emptyLabel || "Нет данных")}
               </li>
             ) : null}
             {onCreateNew && !isCreating ? (
@@ -226,8 +313,8 @@ export default function DishSingleSelect({
                   type="button"
                   role="option"
                   aria-selected="false"
-                  className={`orders-filter-select__option owner-msel__option orders-filter-select__create-row${activeIndex === options.length ? " is-active" : ""}`}
-                  onMouseEnter={() => setActiveIndex(options.length)}
+                  className={`orders-filter-select__option owner-msel__option orders-filter-select__create-row${activeIndex === visibleOptions.length ? " is-active" : ""}`}
+                  onMouseEnter={() => setActiveIndex(visibleOptions.length)}
                   onClick={() => {
                     setIsCreating(true);
                     setNewName("");

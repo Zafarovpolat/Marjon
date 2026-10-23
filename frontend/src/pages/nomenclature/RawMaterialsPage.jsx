@@ -31,6 +31,16 @@ function formatLossValue(value) {
   if (!Number.isFinite(num)) return text;
   return String(num);
 }
+
+// Норма потерь в таблице: «10%» для процента, «0,1 кг» для количества.
+// Нет пары (тип+значение) — пусто, колонка показывает честный прочерк.
+function lossLabelOf(row) {
+  const type = String(row?.loss_type || "").trim();
+  const value = formatLossValue(row?.loss_value);
+  if (!type || value === "") return "";
+  const text = value.replace(".", ",");
+  return type === "percent" ? `${text}%` : `${text}${row?.unit ? ` ${row.unit}` : ""}`;
+}
 const EMPTY_FILTERS = { search: "", category: "" };
 
 // Продукты — это ШАБЛОНЫ продуктов (карточка: название, категория, ед. изм).
@@ -317,7 +327,8 @@ export default function RawMaterialsPage() {
       setActionError("Выберите единицу измерения.");
       return;
     }
-    // V47: нормы остатка — обязательны (обе со звёздочкой в макете).
+    // Нормы остатка — справочные: пустое поле сохраняется как NULL, а не
+    // блокирует карточку (порог дефицита есть не у каждого продукта).
     const parseNorm = (raw) => {
       const text = String(raw ?? "").trim().replace(",", ".");
       if (text === "") return { empty: true };
@@ -326,25 +337,19 @@ export default function RawMaterialsPage() {
       return { value: parsed };
     };
     const avgNorm = parseNorm(form.avg_quantity);
-    if (avgNorm.empty) {
-      setActionError("Укажите среднее количество.");
-      return;
-    }
     if (avgNorm.invalid) {
       setActionError("Среднее количество — неотрицательное число.");
       return;
     }
     const deficitNorm = parseNorm(form.deficit_threshold);
-    if (deficitNorm.empty) {
-      setActionError("Укажите порог дефицита.");
-      return;
-    }
     if (deficitNorm.invalid) {
       setActionError("Порог дефицита — неотрицательное число.");
       return;
     }
     if (!acquire("ingredient-save")) return;
     // Норма потерь для отчётного авто-отхода: тип + значение только парой.
+    // Пустое значение при выбранном типе — это «нормы нет», а не ошибка:
+    // иначе карточку нельзя сохранить, не выдумав число.
     const lossType = form.loss_type || null;
     let lossValue = null;
     const rawLoss = String(form.loss_value ?? "").trim().replace(",", ".");
@@ -362,11 +367,15 @@ export default function RawMaterialsPage() {
       }
       lossValue = parsed;
     }
+    // Значение без типа — потерять его молча нельзя: норма хранится парой
+    // (тип, значение), а «0.3» само по себе не говорит, проценты это или кг.
+    // Пустое значение при выбранном типе — наоборот, законное «нормы нет».
     if (lossValue !== null && !lossType) {
       setActionError("Выберите тип потери.");
       release("ingredient-save");
       return;
     }
+    const hasLossNorm = Boolean(lossType) && lossValue !== null;
     // Только карточка шаблона: название, категория, ед. изм. Остаток и цена
     // закупки здесь не задаются — они появляются из складских движений
     // после прихода («Добавить продуктов»).
@@ -374,10 +383,10 @@ export default function RawMaterialsPage() {
       name: form.name.trim(),
       unit: form.unit,
       category: form.category.trim() || null,
-      avg_quantity: avgNorm.value,
-      deficit_threshold: deficitNorm.value,
-      loss_type: lossType,
-      loss_value: lossValue,
+      avg_quantity: avgNorm.empty ? null : avgNorm.value,
+      deficit_threshold: deficitNorm.empty ? null : deficitNorm.value,
+      loss_type: hasLossNorm ? lossType : null,
+      loss_value: hasLossNorm ? lossValue : null,
     };
     setSaving(true);
     setActionError("");
@@ -604,13 +613,14 @@ export default function RawMaterialsPage() {
                     <th className="raw-col-category">Категория</th>
                     <th className="raw-col-unit">Ед. изм</th>
                     <th className="raw-col-dishes">Блюда</th>
+                    <th className="raw-col-loss">Потери</th>
                     <th className="raw-col-status">Статус</th>
                     <th className="raw-col-actions">Действия</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td className="raw-empty-cell" colSpan={7} role="status" aria-busy="true">Загрузка…</td></tr>
+                    <tr><td className="raw-empty-cell" colSpan={8} role="status" aria-busy="true">Загрузка…</td></tr>
                   ) : (
                     visible.map((row, index) => (
                       <tr key={row.id}>
@@ -627,6 +637,7 @@ export default function RawMaterialsPage() {
                             }}
                           />
                         </td>
+                        <td className="raw-col-loss">{lossLabelOf(row) || <span className="raw-loss-empty">—</span>}</td>
                         <td className="raw-col-status"><span className={`raw-status-badge ${row.is_active === false ? "is-archived" : ""}`}>{row.is_active === false ? "Архив" : "Активно"}</span></td>
                         <td className="raw-col-actions">
                           <div className="dish-row-actions">
@@ -710,7 +721,7 @@ export default function RawMaterialsPage() {
                   />
                 </div>
                 <div className="dish-form-field">
-                  <span className="dish-form-field__label" aria-hidden="true">Среднее количество *</span>
+                  <span className="dish-form-field__label" aria-hidden="true">Среднее количество</span>
                   <div className="dish-form-field__wrap">
                     <input
                       className="dish-form-field__input"
@@ -724,7 +735,7 @@ export default function RawMaterialsPage() {
                   </div>
                 </div>
                 <div className="dish-form-field">
-                  <span className="dish-form-field__label" aria-hidden="true">Порог дефицита *</span>
+                  <span className="dish-form-field__label" aria-hidden="true">Порог дефицита</span>
                   <div className="dish-form-field__wrap">
                     <input
                       className="dish-form-field__input"

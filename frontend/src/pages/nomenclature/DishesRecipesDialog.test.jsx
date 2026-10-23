@@ -193,6 +193,21 @@ describe("Dishes recipes composition", () => {
     expect(within(table).getByRole("button", { name: "Удалить ингредиент" })).toBeInTheDocument();
   });
 
+  it("sums the composition weight per unit in the table footer", async () => {
+    renderDialog({
+      dish: dish({
+        recipeIngredients: [
+          { ingredient_id: "ing-meat", ingredient_name: "Мясо", quantity: 0.2, unit: "кг" },
+          { ingredient_id: "ing-onion", ingredient_name: "Лук", quantity: 0.05, unit: "кг" },
+        ],
+      }),
+    });
+    const table = await screen.findByRole("table", { name: "Состав рецепта" });
+    expect(within(table).getByText("Итого")).toBeInTheDocument();
+    // 0.2 + 0.05 кг = 0,25 кг — сумма только по одной единице, без «сложения» кг с л.
+    expect(table.querySelector(".dish-recipes-total-value")).toHaveTextContent("0,25 кг");
+  });
+
   it("rejects zero quantity without API call", async () => {
     renderDialog();
     await screen.findByText("Состав рецепта пока пуст");

@@ -3100,6 +3100,63 @@
   cursor: default;
   user-select: none;
 }
+/* Строка поиска внутри панели селекта (searchable): липнет к верху списка,
+   чтобы фильтр был доступен при прокрутке длинного справочника. */
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__search-row {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 8px 8px 6px;
+  background: #fff;
+  list-style: none;
+}
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid rgba(15, 35, 60, 0.14);
+  border-radius: 10px;
+  background: #f7f9fc;
+  color: var(--neutral-500, #64748b);
+}
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__search:focus-within {
+  border-color: var(--owner-accent, #1fc9c9);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(31, 201, 201, 0.15);
+}
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--neutral-900, #0b1f3f);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__search-input::placeholder {
+  color: var(--neutral-400, #7a94b4);
+}
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__search-input::-webkit-search-cancel-button {
+  display: none;
+}
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__search-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--neutral-400, #94a3b8);
+  cursor: pointer;
+}
+:is(.dish-catalog-page, .dish-drawer, .dish-recipes-dialog, .staff-modal--cashier-full) .orders-filter-select__search-clear:hover {
+  color: var(--neutral-700, #334155);
+}
 /* Inline-создание справочника из селекта (Категория / Поставщик):
    строка "+ Новая" — обычный ряд списка, форма — инпут + две кнопки
    в стиле дровера (teal submit / белая отмена), без браузерного gray. */
@@ -4377,6 +4434,40 @@ body.dashboard-body .dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-hea
   overflow-wrap: anywhere;
 }
 .dish-recipes-dialog .dish-recipes-table .dish-recipes-empty-cell { padding: 24px; }
+/* Итог состава (граммажность): отдельная полоса под строками — без рамки
+   сверху не «прилипает» к последнему ингредиенту, но и не спорит с ним. */
+.dish-recipes-dialog .dish-recipes-table tfoot .dish-recipes-total-row td {
+  padding: 12px 16px;
+  border-top: 1px solid var(--neutral-200, #e2e8f0);
+  background: var(--blue-50, #f4f7fc);
+  color: var(--neutral-900, #0f172a);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+.dish-recipes-dialog .dish-recipes-table tfoot .dish-recipes-total-label {
+  text-align: right;
+  color: var(--neutral-500, #64748b);
+  font-weight: 600;
+}
+.dish-recipes-dialog .dish-recipes-table tfoot .dish-recipes-total-value {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* Рецепты (не сет): типографика на шаг плотнее — в окне 7+ строк состава,
+   крупный текст заставлял прокручивать таблицу почти на каждой строке.
+   Сет не затронут: у него своя, уже компактная сетка. */
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-head p { font-size: 12px; }
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-metric dt,
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-field-label { font-size: 11px; }
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-metric dd { font-size: 13px; }
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-field input { font-size: 12.5px; }
+.dish-recipes-dialog:not(.dish-set-dialog) .orders-filter-select__value { font-size: 12.5px; }
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-table th { font-size: 11px; }
+.dish-recipes-dialog:not(.dish-set-dialog) .dish-recipes-table td {
+  padding: 12px 16px;
+  font-size: 13px;
+}
 /* Сет: заголовки столбцов чёрные; пустая таблица ниже по высоте. */
 .dish-set-dialog .dish-recipes-table th {
   color: var(--neutral-900, #0f172a);
