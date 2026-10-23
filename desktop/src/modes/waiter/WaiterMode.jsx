@@ -296,9 +296,19 @@ export default function WaiterMode({ user = {}, branch = {}, onBack, onLogout })
     if (search && !(p.name || '').toLowerCase().includes(search.toLowerCase())) return false
     return true
   })
+  // Повторный клик по тому же блюду увеличивает количество в уже существующей
+  // строке, а не добавляет вторую (раньше двойной клик оставлял в корзине две
+  // строки одного блюда). Строку с комментарием, добавками или другим
+  // «с собой» не трогаем — там клик означает новую порцию со своими
+  // пожеланиями, а не удвоение прежней.
   function addToCart(product) {
     if (product.is_available === false || product.in_stop_list) return // в стоп-листе
-    setCart((prev) => [...prev, { lineId: `${Date.now()}-${Math.random()}`, product, qty: 1, price: Number(product.price) || 0, note: '' }])
+    setCart((prev) => {
+      const same = prev.find((i) => i.product?.id === product.id
+        && !i.note && !(i.modifiers?.length) && !i.takeaway)
+      if (same) return prev.map((i) => i.lineId === same.lineId ? { ...i, qty: i.qty + 1 } : i)
+      return [...prev, { lineId: `${Date.now()}-${Math.random()}`, product, qty: 1, price: Number(product.price) || 0, note: '' }]
+    })
   }
   function saveEdit({ quantity, price, note, takeaway, modifiers }) {
     setCart((prev) => prev.map((i) => i.lineId === editLine.lineId ? { ...i, qty: quantity, price, note, takeaway, modifiers: modifiers || [] } : i))

@@ -5,7 +5,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,6 +28,10 @@ from app.shared.exceptions import NotFoundError
 from app.shared.storage import storage
 
 logger = logging.getLogger(__name__)
+
+# Компания без явно заданного пояса печатает по Ташкенту — тот же дефолт, что
+# в pos/service.py для «операционного дня».
+DEFAULT_COMPANY_TZ = "Asia/Tashkent"
 
 
 # ── PRINT-LAT-01: попытка прямой печати с сервера ────────────────────────────
@@ -195,7 +199,12 @@ class PrinterService:
         """Summary receipt (History/Reports): the client builds the lines."""
         printer = await self.get(company_id, printer_id)
         fmt = EscPosFormatter(printer.paper_width, encoding=self._printer_encoding(printer))
-        raw = fmt.format_summary(title, lines, footer)
+        tz_name = (
+            await self.db.execute(select(Company.timezone).where(Company.id == company_id))
+        ).scalar_one_or_none()
+        raw = fmt.format_summary(
+            title, lines, footer, printed_at=self._local_time(datetime.now(timezone.utc), self._zone(tz_name))
+        )
         return await self._enqueue_and_send(
             company_id, printer, "summary", None, raw, copies, skip_server_print=local_print
         )
@@ -505,6 +514,32 @@ class PrinterService:
                    (UserRole.branch_id == order.branch_id) | UserRole.branch_id.is_(None))
         )).scalars().all()
         return "Кассир" if "cashier" in roles else "Официант"
+
+    @staticmethod
+    def _zone(tz_name: str | None) -> ZoneInfo:
+        """Company timezone for printed timestamps.
+
+        TZ-01 (migration tz01 + the model default) backfills every company
+        still on the old "UTC" default to Asia/Tashkent, so a stored "UTC"
+        now means the company really is on UTC and must not be overridden.
+        The fallback here only covers a missing or unknown zone name.
+        """
+        try:
+            return ZoneInfo((tz_name or "").strip() or DEFAULT_COMPANY_TZ)
+        except (ZoneInfoNotFoundError, KeyError, ValueError):
+            return ZoneInfo(DEFAULT_COMPANY_TZ)
+
+    @staticmethod
+    def _local_time(value: datetime, tz: ZoneInfo) -> datetime:
+        """UTC (or naive-as-UTC) timestamp → company-local wall clock.
+
+        Naive values come back naive from Postgres when the column has no
+        timezone; they are stored as UTC, so tagging them as UTC before the
+        conversion is the correct reading, not a guess.
+        """
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(tz)
 
     async def _build_receipt_data(self, company_id: UUID, order: Order) -> ReceiptData:
         # The product contract is one-payment-only (PaymentService.process

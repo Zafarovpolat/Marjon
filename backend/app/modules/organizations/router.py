@@ -54,6 +54,19 @@ async def list_organizations_directory(
     )
 
 
+# ORG-BRIDGE-01: crud_router's own POST "" is suppressed below via
+# include_create=False — a plain crud_router create is a bare INSERT and
+# can't also stand up a Company/Branch/owner User when the HQ admin asks to
+# provision one.
+@organizations.post("", response_model=schemas.OrganizationResponse, status_code=status.HTTP_201_CREATED)
+async def create_organization(
+    data: schemas.OrganizationCreate,
+    user: User = Depends(require_hq_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    return await OrganizationService(db).create(data)
+
+
 router.include_router(crud_router(
     prefix="/organizations", tags=["organizations"],
     model=models.Organization,
@@ -69,6 +82,7 @@ router.include_router(crud_router(
     scope_dep=get_org_scope,
     router=organizations,
     include_list=False,
+    include_create=False,
 ))
 
 router.include_router(crud_router(

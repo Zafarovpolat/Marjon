@@ -19,7 +19,11 @@ class Company(TimeStampedModel):
     slug: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     country_code: Mapped[str | None] = mapped_column(String(2))
-    timezone: Mapped[str] = mapped_column(String(50), default="UTC")
+    # TZ-01: платформа только для рынка Узбекистана (см. CLAUDE.md) — "UTC"
+    # как дефолт был тихим багом: ничто его никогда не переопределяло при
+    # создании компании, поэтому чеки печатались на 5 часов позади
+    # реального времени Ташкента (см. printers/service.py's astimezone).
+    timezone: Mapped[str] = mapped_column(String(50), default="Asia/Tashkent")
     currency: Mapped[str] = mapped_column(String(3), default="UZS")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     # Реквизиты для профиля/чека (SettingsProfilePage, ReceiptSettingsPage)

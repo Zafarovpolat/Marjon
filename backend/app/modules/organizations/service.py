@@ -7,9 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.models import User
 from app.modules.auth.security import hash_password
+from app.modules.companies.models import Branch, Company
 from app.modules.organizations.models import Organization, OfflineJob, user_organizations
-from app.modules.organizations.schemas import AccountCreate, AccountResponse, AccountUpdate
+from app.modules.organizations.schemas import AccountCreate, AccountResponse, AccountUpdate, OrganizationCreate
 from app.modules.rbac.models import Role, UserRole
+from app.modules.rbac.permissions import reconcile_frozen_owner_permissions
 from app.shared.admin_crud import OrgScope, _coerce
 from app.shared.exceptions import ConflictError, NotFoundError, ValidationError
 from app.shared.pagination import PageParams
@@ -149,10 +151,57 @@ class AccountService:
 
 
 class OrganizationService:
-    """BE-15: aggregate list view for the admin org-directory table."""
+    """BE-15: aggregate list view for the admin org-directory table.
+
+    ORG-BRIDGE-01: also owns organization creation, since provisioning a
+    real client (Company + Branch + owner User) alongside the directory row
+    is more than a plain INSERT — a plain crud_router create endpoint can't
+    express it (see router.py's custom POST "" for why).
+    """
 
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    async def create(self, data: OrganizationCreate) -> Organization:
+        payload = data.model_dump(exclude={"provision_owner", "company_slug", "owner_phone", "owner_email", "owner_password"})
+        org = Organization(**payload)
+        self.db.add(org)
+        await self.db.flush()
+
+        if data.provision_owner:
+            if (await self.db.execute(select(Company).where(Company.slug == data.company_slug))).scalar_one_or_none():
+                raise ConflictError("Company slug already taken")
+            if (await self.db.execute(select(User).where(User.phone == data.owner_phone))).scalar_one_or_none():
+                raise ConflictError("Phone already registered")
+            if data.owner_email and (await self.db.execute(select(User).where(User.email == data.owner_email))).scalar_one_or_none():
+                raise ConflictError("Email already registered")
+
+            company = Company(name=org.name, slug=data.company_slug)
+            self.db.add(company)
+            await self.db.flush()
+
+            self.db.add(Branch(company_id=company.id, name="Основной филиал"))
+
+            owner = User(
+                company_id=company.id,
+                phone=data.owner_phone,
+                email=data.owner_email,
+                password_hash=await hash_password(data.owner_password),
+            )
+            self.db.add(owner)
+            await self.db.flush()
+
+            owner_role = Role(company_id=company.id, slug="owner", name="Owner", is_system=False)
+            self.db.add(owner_role)
+            await self.db.flush()
+            await reconcile_frozen_owner_permissions(self.db, owner_role)
+            self.db.add(UserRole(user_id=owner.id, role_id=owner_role.id))
+
+            org.company_id = company.id
+
+        await self.db.commit()
+        await self.db.refresh(org)
+        return org
 
     async def list_directory(
         self, params: PageParams, *, search: str | None, org_scope: OrgScope,
@@ -221,6 +270,7 @@ class OrganizationService:
                 "is_face_detection_required": o.is_face_detection_required,
                 "organization_status_id": o.organization_status_id,
                 "cash_balance": o.cash_balance,
+                "company_id": o.company_id,
                 "owner_name": names_by_org.get(o.id, {}).get("owner"),
                 "admin_name": names_by_org.get(o.id, {}).get("admin"),
                 "branches_count": None,

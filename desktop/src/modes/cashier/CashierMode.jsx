@@ -406,9 +406,19 @@ export default function CashierMode({ user = {}, onBack, courier = false }) {
     return activeCat ? p.category_id === activeCat : true
   })
   // Клик по блюду в меню — сразу в заказ (без модалки). У курьера всё «с собой» по умолчанию.
+  // Повторный клик по тому же блюду увеличивает количество в уже существующей
+  // строке, а не добавляет вторую: раньше двойной клик оставлял в корзине две
+  // строки одного блюда, и кассир правил количество дважды. Строку с
+  // комментарием, добавками или другим «с собой» не трогаем — там клик
+  // означает новую порцию со своими пожеланиями, а не удвоение прежней.
   function addToCart(product) {
     if (product.is_available === false || product.in_stop_list) return // в стоп-листе
-    setCart((prev) => [...prev, { lineId: `${Date.now()}-${Math.random()}`, product, name: product.name, price: Number(product.price) || 0, qty: 1, note: '', takeaway: courier }])
+    setCart((prev) => {
+      const same = prev.find((i) => i.product?.id === product.id
+        && !i.note && !(i.modifiers?.length) && Boolean(i.takeaway) === Boolean(courier))
+      if (same) return prev.map((i) => i.lineId === same.lineId ? { ...i, qty: i.qty + 1 } : i)
+      return [...prev, { lineId: `${Date.now()}-${Math.random()}`, product, name: product.name, price: Number(product.price) || 0, qty: 1, note: '', takeaway: courier }]
+    })
   }
   // Правка позиции В ЗАКАЗЕ (кол-во/цена/комментарий/добавки)
   function saveEdit({ quantity, price, note, takeaway, modifiers }) {

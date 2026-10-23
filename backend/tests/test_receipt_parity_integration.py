@@ -11,6 +11,7 @@ the same test database to inspect the formatted bytes.
 from __future__ import annotations
 
 import base64
+from datetime import datetime, timedelta
 from uuid import UUID
 
 import pytest_asyncio
@@ -306,6 +307,25 @@ async def test_both_receipts_use_tashkent_when_company_profile_still_says_utc(cl
             assert any(call.args[2] == expected for call in rows.call_args_list)
         reprint = await svc._build_receipt_data(ctx["company_id"], order)
         assert reprint.printed_at.utcoffset() == timedelta(hours=5)
+
+
+async def test_kitchen_ticket_time_is_order_creation_in_company_timezone(client, session_factory):
+    """ReceiptPreview.jsx: infoRow("date", "Время:", formatKitchenDate(
+    order.created_at)). KitchenTicketData.printed_at used to fall back to its
+    datetime.now() default — the server clock, i.e. UTC inside Docker — so a
+    physical kitchen ticket read five hours behind the preview."""
+    ctx = await _setup(client)
+    order = (await client.get(f"/pos/orders/{ctx['order_id']}", headers=ctx["owner_headers"])).json()
+    created = datetime.fromisoformat(order["created_at"].replace("Z", "+00:00"))
+    # Asia/Tashkent is a fixed +05:00 with no DST — the default company zone.
+    expected = (created + timedelta(hours=5)).strftime("%d.%m.%Y %H:%M")
+
+    async with session_factory() as session:
+        svc = PrinterService(session)
+        ticket = await svc._build_kitchen_data(ctx["company_id"], await svc._get_order(ctx["company_id"], ctx["order_id"]))
+
+    assert ticket.printed_at.utcoffset() == timedelta(hours=5)
+    assert ticket.printed_at.strftime("%d.%m.%Y %H:%M") == expected
 
 
 async def test_real_print_receipt_path_uses_raster_by_default(client, session_factory):

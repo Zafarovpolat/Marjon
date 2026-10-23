@@ -62,6 +62,13 @@ class Organization(TimeStampedModel, SoftDeleteMixin):
     )
     # Касса организации — баланс для финансовых операций (ТЗ §6)
     cash_balance: Mapped[float] = mapped_column(Numeric(16, 2), default=0)
+    # ORG-BRIDGE-01: when HQ provisions a real client along with this
+    # directory row, this points at the Company (owner/kafe app's tenant)
+    # created for them — null for an org that's purely an HQ record with no
+    # working POS login yet.
+    company_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("companies.id", ondelete="SET NULL"), unique=True
+    )
 
     organization_status: Mapped[OrganizationStatus | None] = relationship()
 

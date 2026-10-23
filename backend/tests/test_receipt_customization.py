@@ -14,6 +14,23 @@ from tests.test_receipt_block_styles import _receipt
 from tests.test_kitchen_ticket_sums import _ticket
 
 
+def test_merged_summary_supports_explicit_print_time_and_resets_separator():
+    from zoneinfo import ZoneInfo
+    moment = datetime(2026, 10, 24, 0, 5, tzinfo=ZoneInfo("Asia/Tashkent"))
+    formatter = EscPosFormatter(80)
+    formatter.format_kitchen_ticket(_ticket(), {"separator": {"pattern": "stars", "weight": "bold"}})
+    summary = formatter.format_summary("Z", ["Total: 1"], printed_at=moment).decode("cp866")
+    assert "24.10.2026 00:05:00" in summary
+    assert "*" * 20 not in summary
+
+
+def test_merged_company_zone_helper_preserves_explicit_utc():
+    from app.modules.printers.service import PrinterService
+    assert str(PrinterService._zone("UTC")) == "UTC"
+    assert str(PrinterService._zone(None)) == "Asia/Tashkent"
+    assert str(PrinterService._zone("missing/zone")) == "Asia/Tashkent"
+
+
 @pytest.mark.parametrize("kitchen", [False, True])
 def test_three_identical_lines_become_one_without_mutating_order(kitchen):
     item = KitchenItem("Хот дог", "1", total=Decimal(14000), product_id="hotdog") if kitchen else ReceiptLine("Хот дог", Decimal(1), Decimal(14000), Decimal(14000), product_id="hotdog")

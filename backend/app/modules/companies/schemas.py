@@ -56,7 +56,7 @@ class CompanyCreate(BaseSchema):
     name: str
     slug: str
     country_code: str | None = None
-    timezone: str = "UTC"
+    timezone: str = "Asia/Tashkent"
     currency: str = "UZS"
 
     @field_validator("currency")
