@@ -33,7 +33,12 @@ VERSIONS_DIR = BACKEND_ROOT / "migrations" / "versions"
 # ассерте. Граф линейный: pwlock01 → mg02merge → (mg01merge, tsdef01).
 # Обе независимые миграции поверх pwlock01 сохраняются без переписывания:
 # порядок единиц un03sort01 и IP смен att01ip сведены пустым merge.
-EXPECTED_HEAD = "mg03merge"
+# ORG-BRIDGE-01 / TZ-01 (2026-10-23): org01 и tz01 приехали с прод-сервера,
+# где были навешены прямо на pwlock01 — то есть второй головой рядом с
+# mg03merge. Здесь org01 перевешен на mg03merge (см. её down_revision), иначе
+# у графа было бы две головы, а на сервере, чья БД уже стояла на tz01,
+# миграции att01ip/un03sort01 так и остались бы непримененными.
+EXPECTED_HEAD = "tz01"
 # Считается по статическому списку _COLUMNS в файлах миграций *bi02* (см.
 # _bi02_nullable_columns), а не по текущей схеме — новые миграции его не меняют.
 EXPECTED_NULLABLE_COLUMN_COUNT = 262
@@ -177,8 +182,10 @@ def test_revision_graph_is_complete_and_has_one_head() -> None:
     # mg01merge сводит обе линии (att01status + emp01printer) в один head.
     # MERGE-HEAD-01: mg02merge сводит (mg01merge, tsdef01), после него идёт
     # pwlock01 (блокировка входа после 10 неудач), затем независимые
-    # un03sort01 (порядок единиц) и att01ip (IP смен), сведённые mg03merge.
-    assert len(revisions) == 93
+    # un03sort01 (порядок единиц) и att01ip (IP смен), сведённые mg03merge,
+    # затем org01 (ORG-BRIDGE-01: organizations.company_id) и tz01 (TZ-01:
+    # backfill companies.timezone с дефолтного "UTC" на Asia/Tashkent).
+    assert len(revisions) == 95
 
     nullable_columns = _bi02_nullable_columns()
     assert len(nullable_columns) == EXPECTED_NULLABLE_COLUMN_COUNT

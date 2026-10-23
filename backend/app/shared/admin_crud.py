@@ -263,6 +263,7 @@ def crud_router(
     write_dep: Callable[..., Any] | None = None,
     router: APIRouter | None = None,
     include_list: bool = True,
+    include_create: bool = True,
 ) -> APIRouter:
     """Build a standard CRUD router for one resource.
 
@@ -338,6 +339,13 @@ def crud_router(
         return await CRUDService(model, db).create(
             data, org_scope=org_scope, org_field=org_field
         )
+
+    if not include_create:
+        r.routes = [
+            route
+            for route in r.routes
+            if getattr(route, "endpoint", None) is not create_item
+        ]
 
     @r.get("/{item_id}", response_model=response_schema, summary=f"Get {model.__name__}")
     async def get_item(

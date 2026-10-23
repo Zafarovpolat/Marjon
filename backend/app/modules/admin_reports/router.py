@@ -374,10 +374,17 @@ async def dashboard_kpis(
     db: AsyncSession = Depends(get_db),
 ):
     """BE-02: was completely unauthenticated — leaked platform-wide revenue/
-    org/branch/employee counts across every tenant to anyone with the URL."""
+    org/branch/employee counts across every tenant to anyone with the URL.
+
+    ORG-BRIDGE-01: the four *_this_month fields back the HQ dashboard's
+    "Оборот за месяц"/"Выполненная работа"/"Оплаченная сумма"/"Не оплачено"
+    metric cards — real cross-tenant aggregates, scoped to the current UTC
+    calendar month (a platform KPI snapshot, not a per-company financial
+    statement, so UTC months rather than each company's own timezone)."""
     from sqlalchemy import func, select
     from app.modules.companies.models import Company, Branch
     from app.modules.hr.models import Employee
+    from app.modules.payments.models import Payment
     from app.modules.pos.models import Order
 
     orgs = (await db.execute(select(func.count(Company.id)))).scalar_one()
@@ -386,6 +393,28 @@ async def dashboard_kpis(
         select(func.coalesce(func.sum(Order.total_amount), 0)).where(Order.status == "completed")
     )).scalar_one()
     employees = (await db.execute(select(func.count(Employee.id)))).scalar_one()
+
+    month_start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    turnover_this_month = (await db.execute(
+        select(func.coalesce(func.sum(Order.total_amount), 0)).where(
+            Order.status == "completed", Order.created_at >= month_start,
+        )
+    )).scalar_one()
+    completed_orders_this_month = (await db.execute(
+        select(func.count(Order.id)).where(
+            Order.status == "completed", Order.created_at >= month_start,
+        )
+    )).scalar_one()
+    paid_amount_this_month = (await db.execute(
+        select(func.coalesce(func.sum(Payment.amount), 0)).where(
+            Payment.status == "completed", Payment.created_at >= month_start,
+        )
+    )).scalar_one()
+    # Один платёж на заказ (см. PaymentService.process) — поэтому "не
+    # оплачено" это просто оборот завершённых заказов за месяц минус то, что
+    # по ним реально поступило, без риска задвоения по нескольким платежам.
+    unpaid_amount_this_month = max(Decimal(turnover_this_month) - Decimal(paid_amount_this_month), Decimal(0))
+
     return {
         "organizations": orgs,
         "branches": branches,
@@ -393,4 +422,8 @@ async def dashboard_kpis(
         "subscriptions": 0,
         "employees": employees,
         "cashboxes": 0,
+        "turnover_this_month": float(turnover_this_month),
+        "completed_orders_this_month": completed_orders_this_month,
+        "paid_amount_this_month": float(paid_amount_this_month),
+        "unpaid_amount_this_month": float(unpaid_amount_this_month),
     }

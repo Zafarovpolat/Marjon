@@ -2,8 +2,9 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 from uuid import UUID
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from app.shared.base_schema import BaseResponseSchema
+from app.shared.phone import normalize_branch_login
 from app.modules.auth.schemas import _validate_password
 
 
@@ -49,7 +50,41 @@ class OrganizationBase(BaseModel):
 
 
 class OrganizationCreate(OrganizationBase):
-    pass
+    # ORG-BRIDGE-01: optional real-client provisioning alongside the
+    # directory row. When provision_owner is set, company_slug/owner_phone/
+    # owner_password are required — the same Company+Branch+owner-User
+    # onboarding as the public self-registration flow (AuthService.register),
+    # just triggered from the HQ panel instead of the client signing up
+    # themselves. owner_phone (not email) is the login credential: the
+    # owner-facing web app's login screen (LoginPage.jsx) only has a phone
+    # field — a user provisioned with email only could never actually sign
+    # in. owner_email stays optional (contact info only).
+    provision_owner: bool = False
+    company_slug: str | None = Field(None, min_length=1, max_length=100, pattern=r"^[a-z0-9_-]+$")
+    owner_phone: str | None = None
+    owner_email: EmailStr | None = None
+    owner_password: str | None = None
+
+    @field_validator("owner_phone")
+    @classmethod
+    def normalize_owner_phone(cls, v: str | None) -> str | None:
+        if not v:
+            return v
+        normalized = normalize_branch_login(v)
+        if not normalized.startswith("+998"):
+            raise ValueError("Укажите номер телефона в формате +998XXXXXXXXX (9 цифр после кода страны)")
+        return normalized
+
+    @field_validator("owner_password")
+    @classmethod
+    def check_owner_password(cls, v: str | None) -> str | None:
+        return _validate_password(v) if v else v
+
+    @model_validator(mode="after")
+    def check_provisioning_fields(self) -> "OrganizationCreate":
+        if self.provision_owner and not (self.company_slug and self.owner_phone and self.owner_password):
+            raise ValueError("provision_owner requires company_slug, owner_phone and owner_password")
+        return self
 
 
 class OrganizationUpdate(BaseModel):
@@ -77,6 +112,7 @@ class OrganizationUpdate(BaseModel):
 
 class OrganizationResponse(OrganizationBase, BaseResponseSchema):
     cash_balance: Decimal
+    company_id: UUID | None = None
 
 
 class OrganizationDirectoryResponse(OrganizationResponse):
