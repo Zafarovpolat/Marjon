@@ -43,7 +43,9 @@ async def active_orders(
 
 @router.patch("/orders/items/status")
 async def update_item_status(data: KitchenItemStatusUpdate, user: User = Depends(require_kitchen_access), db: AsyncSession = Depends(get_db)):
-    return await KitchenService(db).update_item_status(user.company_id, data, actor_id=user.id)
+    return await KitchenService(db).update_item_status(
+        user.company_id, data, actor_id=user.id, branch_id=effective_branch_filter(user)
+    )
 
 
 @router.patch("/orders/{order_id}/ready", response_model=OrderResponse)

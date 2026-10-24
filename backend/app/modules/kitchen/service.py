@@ -58,10 +58,11 @@ class KitchenService:
 
     async def update_item_status(
         self, company_id: UUID, data: KitchenItemStatusUpdate,
-        actor_id: UUID | None = None,
+        actor_id: UUID | None = None, branch_id: UUID | None = None,
     ) -> OrderItem:
-        # Join through Order to validate company_id
-        result = await self.db.execute(
+        # Join through Order to validate company_id (и филиал, если сессия
+        # привязана к филиалу: кухня одного филиала не правит чужой заказ).
+        query = (
             select(OrderItem)
             .join(Order, Order.id == OrderItem.order_id)
             .where(
@@ -69,6 +70,9 @@ class KitchenService:
                 Order.company_id == company_id,
             )
         )
+        if branch_id is not None:
+            query = query.where(Order.branch_id == branch_id)
+        result = await self.db.execute(query)
         item = result.scalar_one_or_none()
         if not item:
             raise NotFoundError("Order item not found")
