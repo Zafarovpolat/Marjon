@@ -5,7 +5,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -285,7 +285,7 @@ class AuthService:
         return user, access_token, refresh_token
 
     async def login_by_branch(
-        self, login: str, password: str, *, device_id: str | None = None
+        self, login: str, password: str, *, device_id: str | None = None, auth_scope: str = "app"
     ) -> tuple[User, "Branch", "Company", str, str]:
         """Десктоп, шаг 1: вход по филиалу. У каждого филиала сети свой
         логин+пароль (один веб-аккаунт владельца на всю сеть). Возвращает
@@ -312,8 +312,8 @@ class AuthService:
         company = await self.db.get(Company, branch.company_id)
         terminal = await self._get_or_create_terminal_user(branch)
 
-        access_token = create_access_token(terminal.id, terminal.company_id)
-        refresh_token = create_refresh_token()
+        access_token = create_access_token(terminal.id, terminal.company_id, auth_scope=auth_scope)
+        refresh_token = create_refresh_token(auth_scope=auth_scope)
         await self._save_refresh_token(terminal.id, refresh_token, device_id=device_id)
 
         return terminal, branch, company, access_token, refresh_token
@@ -434,7 +434,9 @@ class AuthService:
                 self.db.add(UserRole(user_id=user.id, role_id=owner_role.id))
         return user
 
-    async def login_by_branch(self, login: str, password: str, *, device_id: str | None = None):
+    async def login_by_branch(
+        self, login: str, password: str, *, device_id: str | None = None, auth_scope: str = "app"
+    ):
         """Вход «как филиал» с начального экрана: логин+пароль филиала (Branch),
         не владельца. Выдаёт сессию служебного принципала филиала."""
         from app.shared.phone import normalize_branch_login
@@ -468,8 +470,10 @@ class AuthService:
             raise UnauthorizedError("Филиал неактивен")
         user = await self._ensure_branch_principal(branch)
         company = await self.db.get(Company, branch.company_id)
-        access_token = create_access_token(user.id, user.company_id)
-        refresh_token = create_refresh_token()
+        access_token = create_access_token(
+            user.id, user.company_id, auth_scope=auth_scope, branch_id=branch.id
+        )
+        refresh_token = create_refresh_token(auth_scope=auth_scope)
         await self._save_refresh_token(user.id, refresh_token, device_id=device_id)
         return user, branch, company, access_token, refresh_token
 
@@ -750,11 +754,14 @@ class AuthService:
             # come from the database; removal of superadmin rights therefore
             # downgrades an HQ session instead of copying stale authority.
             requested_scope = get_refresh_token_auth_scope(refresh_token)
-            auth_scope = (
-                "hq_admin"
-                if requested_scope == "hq_admin" and user.is_superadmin
-                else "app"
-            )
+            if requested_scope == "hq_admin" and user.is_superadmin:
+                auth_scope = "hq_admin"
+            elif requested_scope == "kitchen":
+                # Кухонная сессия остаётся кухонной: продление не должно
+                # превращать её в полный доступ к API компании.
+                auth_scope = "kitchen"
+            else:
+                auth_scope = "app"
             new_access = create_access_token(
                 user.id, user.company_id, auth_scope=auth_scope, auth_version=user.auth_version
             )
@@ -934,7 +941,9 @@ class AuthService:
         target.is_active = False
         await self.db.commit()
 
-    async def pin_login(self, employee_id: UUID, pin: str) -> tuple[User, str, str]:
+    async def pin_login(
+        self, employee_id: UUID, pin: str, *, auth_scope: str = "app", branch_id: UUID | None = None
+    ) -> tuple[User, str, str]:
         """BE-08: PIN identifies the SESSION (via employee_id), the PIN
         value only proves it — this is what makes "нельзя найти сотрудника
         другой организации по PIN" true by construction: there is no
@@ -970,40 +979,99 @@ class AuthService:
         user.pin_locked_until = None
         await self.db.commit()
 
-        access_token = create_access_token(user.id, user.company_id, auth_version=user.auth_version)
-        refresh_token = create_refresh_token()
+        access_token = create_access_token(
+            user.id,
+            user.company_id,
+            auth_scope=auth_scope,
+            auth_version=user.auth_version,
+            branch_id=branch_id,
+        )
+        refresh_token = create_refresh_token(auth_scope=auth_scope)
         await self._save_refresh_token(user.id, refresh_token)
 
         return user, access_token, refresh_token
 
     async def login_by_pin(
-        self, company_id: UUID, pin: str, user_id: UUID | None = None
+        self,
+        company_id: UUID,
+        pin: str,
+        user_id: UUID | None = None,
+        *,
+        branch_id: UUID | None = None,
+        allowed_role_slugs: frozenset[str] | None = None,
+        auth_scope: str = "app",
     ) -> tuple[User, str, str]:
         """Branch-terminal PIN sign-in, scoped to the terminal's company.
         With user_id (employee picked on screen) the PIN is checked only against
         that account and goes through the normal per-account lockout; without it
-        the company's active staff are scanned for a matching PIN."""
+        the company's active staff are scanned for a matching PIN.
+
+        KDS-режим (кухонный экран): branch_id сужает поиск до сотрудников
+        филиала, allowed_role_slugs — до кухонных ролей, чтобы PIN кассира не
+        открывал кухонную сессию."""
         if user_id is not None:
             target = await self.user_repo.get_by_id(user_id)
             if not target or target.company_id != company_id:
                 raise UnauthorizedError("Invalid PIN")
-            return await self.pin_login(user_id, pin)
-
-        result = await self.db.execute(
-            select(User).where(
-                User.company_id == company_id,
-                User.is_active.is_(True),
-                User.pin_hash.is_not(None),
+            if not await self._pin_candidate_allowed(target, branch_id, allowed_role_slugs):
+                raise UnauthorizedError("Invalid PIN")
+            return await self.pin_login(
+                user_id, pin, auth_scope=auth_scope, branch_id=branch_id or target.branch_id
             )
+
+        stmt = select(User).where(
+            User.company_id == company_id,
+            User.is_active.is_(True),
+            User.pin_hash.is_not(None),
+        )
+        if branch_id is not None:
+            # Сотрудник филиала либо «сетевой» без привязки (как в staff-users)
+            stmt = stmt.where(or_(User.branch_id == branch_id, User.branch_id.is_(None)))
+        result = await self.db.execute(
             # PIN-SHARED-01: одинаковые PIN разрешены, поэтому без user_id
             # результат должен быть хотя бы детерминированным — иначе один и
             # тот же код входил бы то одним, то другим сотрудником.
-            .order_by(User.created_at, User.id)
+            stmt.order_by(User.created_at, User.id)
         )
         for candidate in result.scalars().all():
+            if not await self._pin_candidate_allowed(candidate, branch_id, allowed_role_slugs):
+                continue
             if await verify_password(pin, candidate.pin_hash):
-                return await self.pin_login(candidate.id, pin)
+                return await self.pin_login(
+                    candidate.id,
+                    pin,
+                    auth_scope=auth_scope,
+                    branch_id=branch_id or candidate.branch_id,
+                )
         raise UnauthorizedError("Invalid PIN")
+
+    async def _pin_candidate_allowed(
+        self,
+        user: User,
+        branch_id: UUID | None,
+        allowed_role_slugs: frozenset[str] | None,
+    ) -> bool:
+        if allowed_role_slugs is None and branch_id is None:
+            return True
+        if branch_id is not None:
+            # Филиал сотрудника: User.branch_id (моноблок/терминал) либо
+            # HR-запись — реальный редактор сотрудников пишет филиал туда.
+            employee_branch = user.branch_id
+            if employee_branch is None:
+                from app.modules.hr.models import Employee
+                employee_branch = (await self.db.execute(
+                    select(Employee.branch_id).where(Employee.user_id == user.id).limit(1)
+                )).scalar_one_or_none()
+            if employee_branch not in (None, branch_id):
+                return False
+        if allowed_role_slugs is None:
+            return True
+        slugs = set((await self.db.execute(
+            select(Role.slug)
+            .join(UserRole, UserRole.role_id == Role.id)
+            .where(UserRole.user_id == user.id)
+        )).scalars().all())
+        return bool(slugs & allowed_role_slugs)
 
     async def _save_refresh_token(
         self, user_id: UUID, token: str, *, device_id: str | None = None

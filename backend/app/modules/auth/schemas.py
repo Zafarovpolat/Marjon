@@ -215,6 +215,32 @@ class BranchSessionResponse(BaseSchema):
     company: CompanyInfo
 
 
+class KitchenPinRequest(BaseSchema):
+    """Вход повара на кухонном экране: только PIN.
+
+    Заведение и филиал уже известны из сессии терминала (кухонный экран
+    привязывается один раз при настройке), поэтому повару остаётся 4 цифры."""
+
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
+    pin: str = Field(..., min_length=4, max_length=8)
+
+    @field_validator("pin")
+    @classmethod
+    def check_pin(cls, v: str) -> str:
+        if not re.fullmatch(r"\d{4,8}", v):
+            raise ValueError("PIN должен состоять из 4-8 цифр")
+        return v
+
+
+class KitchenPinResponse(TokenResponse):
+    """Ответ PIN-входа: сессия повара + подпись экрана (кто на смене)."""
+
+    user_name: str | None = None
+    branch: BranchInfo
+    company: CompanyInfo
+
+
 class UserResponse(BaseResponseSchema):
     # CASHIER-EMAIL-OPTIONAL-01: staff accounts may carry email None.
     email: str | None

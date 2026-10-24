@@ -54,12 +54,21 @@ verify_password_async = verify_password
 
 
 def create_access_token(
-    user_id: UUID, company_id: UUID | None = None, auth_scope: str = "app", *, auth_version: int = 0
+    user_id: UUID,
+    company_id: UUID | None = None,
+    auth_scope: str = "app",
+    *,
+    auth_version: int = 0,
+    branch_id: UUID | None = None,
 ) -> str:
     """auth_scope marks what this SESSION is authorized for, independent of the
     user's static is_superadmin flag — a superadmin who logs in through the
     regular /auth/login never gets an "hq_admin"-scoped token; only
-    /auth/admin/login issues one (BE-01)."""
+    /auth/admin/login issues one (BE-01).
+
+    branch_id — привязка сессии к филиалу (кухонный экран, терминал). Нужна,
+    когда у сотрудника нет User.branch_id: реальный редактор сотрудников
+    хранит филиал в HR-записи, а не в пользователе."""
     payload = {
         "sub": str(user_id),
         "company_id": str(company_id) if company_id else None,
@@ -69,6 +78,8 @@ def create_access_token(
         "auth_version": auth_version,
         "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes),
     }
+    if branch_id:
+        payload["branch_id"] = str(branch_id)
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 
 
@@ -80,7 +91,7 @@ def create_refresh_token(auth_scope: str = "app") -> str:
     caller cannot alter ``app`` to ``hq_admin`` without invalidating the token.
     Legacy unmarked tokens are treated as ordinary app sessions.
     """
-    if auth_scope not in {"app", "hq_admin"}:
+    if auth_scope not in {"app", "hq_admin", "kitchen"}:
         raise ValueError("Unsupported auth scope")
     return f"v1.{auth_scope}.{secrets.token_urlsafe(64)}"
 
@@ -98,7 +109,7 @@ def get_refresh_token_auth_scope(token: str) -> str:
         and separator
         and scope_separator
         and secret
-        and scope in {"app", "hq_admin"}
+        and scope in {"app", "hq_admin", "kitchen"}
     ):
         return scope
     return "app"

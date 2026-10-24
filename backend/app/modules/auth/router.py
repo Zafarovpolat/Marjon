@@ -15,6 +15,7 @@ from app.modules.auth.dependencies import (
     get_current_user_optional,
     require_company_admin,
     require_company_app_user,
+    require_kitchen_device,
     require_staff_lister,
     require_terminal_or_web_owner,
     require_web_owner,
@@ -30,6 +31,8 @@ from app.modules.auth.schemas import (
     CompanyUserResponse,
     CompanyUserUpdate,
     ChangePasswordRequest,
+    KitchenPinRequest,
+    KitchenPinResponse,
     LoginRequest,
     LogoutRequest,
     MonoblockLoginRequest,
@@ -43,8 +46,9 @@ from app.modules.auth.schemas import (
 )
 from app.modules.auth.security import TERMINAL_EMAIL_LIKE, is_terminal_email
 from app.modules.auth.service import AuthService, device_label
+from app.modules.companies.models import Branch, Company
 from app.modules.rbac.models import Role, UserRole
-from app.modules.rbac.constants import OWNER_ASSIGNABLE_ROLE_SLUGS
+from app.modules.rbac.constants import KITCHEN_ROLE_SLUGS, OWNER_ASSIGNABLE_ROLE_SLUGS
 from app.shared.rate_limit import limiter
 from app.shared.storage import storage
 
@@ -490,6 +494,62 @@ async def pin_login(
     else:
         raise HTTPException(status_code=422, detail="employee_id or a terminal session is required")
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+
+
+@router.post("/kitchen/session", response_model=BranchSessionResponse)
+@limiter.limit("10/minute")
+async def kitchen_session(
+    request: Request, data: BranchLoginRequest, db: AsyncSession = Depends(get_db)
+):
+    """Настройка кухонного экрана (KDS): логин+пароль филиала → кухонная
+    сессия терминала. Вводится один раз на устройстве, дальше повара входят
+    по PIN. Токен ограничен кухонными эндпоинтами (auth_scope="kitchen")."""
+    _, branch, company, access_token, refresh_token = await AuthService(db).login_by_branch(
+        data.login,
+        data.password,
+        device_id=device_label(request.headers.get("user-agent")),
+        auth_scope="kitchen",
+    )
+    return BranchSessionResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        branch=BranchInfo(id=branch.id, name=branch.name, company_id=branch.company_id),
+        company=CompanyInfo(
+            id=company.id, name=company.name, slug=company.slug, currency=company.currency
+        ),
+    )
+
+
+@router.post("/kitchen/pin", response_model=KitchenPinResponse)
+@limiter.limit("10/minute")
+async def kitchen_pin(
+    request: Request,
+    data: KitchenPinRequest,
+    terminal: User = Depends(require_kitchen_device),
+    db: AsyncSession = Depends(get_db),
+):
+    """Вход повара на кухонном экране: 4 цифры вместо пароля.
+
+    Ищем сотрудника только внутри филиала терминала и только с кухонной
+    ролью — PIN кассира или официанта кухонную сессию не открывает."""
+    user, access_token, refresh_token = await AuthService(db).login_by_pin(
+        terminal.company_id,
+        data.pin,
+        branch_id=terminal.branch_id,
+        allowed_role_slugs=KITCHEN_ROLE_SLUGS,
+        auth_scope="kitchen",
+    )
+    branch = await db.get(Branch, terminal.branch_id)
+    company = await db.get(Company, terminal.company_id)
+    return KitchenPinResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user_name=user.name,
+        branch=BranchInfo(id=branch.id, name=branch.name, company_id=branch.company_id),
+        company=CompanyInfo(
+            id=company.id, name=company.name, slug=company.slug, currency=company.currency
+        ),
+    )
 
 
 @router.get("/staff-users", response_model=list[CompanyUserResponse])

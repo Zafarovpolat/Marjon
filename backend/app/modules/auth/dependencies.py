@@ -1,6 +1,6 @@
 from __future__ import annotations
 from uuid import UUID
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from sqlalchemy import select
@@ -17,16 +17,35 @@ from app.shared.exceptions import UnauthorizedError
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login/form")
 _optional_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login/form", auto_error=False)
 
+# Кухонная сессия (KDS-экран повара) — урезанный скоуп: только кухонные
+# эндпоинты и минимум auth-ручек для продления/выхода. Всё остальное
+# (касса, склад, финансы, сотрудники) для такого токена закрыто, даже если
+# роль сотрудника формально что-то разрешает.
+KITCHEN_SCOPE = "kitchen"
+KITCHEN_ALLOWED_PATHS: tuple[str, ...] = (
+    "/api/v1/kitchen",
+    "/api/v1/auth/me",
+    "/api/v1/auth/refresh",
+    "/api/v1/auth/logout",
+    "/api/v1/auth/kitchen/pin",
+)
+
+
+def _kitchen_path_allowed(path: str) -> bool:
+    return any(path == allowed or path.startswith(f"{allowed}/") for allowed in KITCHEN_ALLOWED_PATHS)
+
 
 async def ensure_company_app_identity(
     current_user: User,
     db: AsyncSession,
     *,
     auth_scope: str,
+    allowed_scopes: tuple[str, ...] = ("app",),
 ) -> User:
     """Validate authoritative APP identity, including manual WS auth."""
-    if auth_scope != "app":
+    if auth_scope not in allowed_scopes:
         raise ForbiddenError("Company app session required")
+
     if current_user.company_id is None or current_user.is_superadmin:
         raise ForbiddenError("Company app identity required")
     roles = list((await db.execute(
@@ -46,6 +65,7 @@ async def ensure_company_app_identity(
 
 
 async def get_current_user(
+    request: Request,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
@@ -72,17 +92,31 @@ async def get_current_user(
     # to (BE-01), so guards can tell an hq_admin session from a regular one
     # even for the same superadmin user.
     user.auth_scope = payload.get("auth_scope", "app")
+    # Привязка сессии к филиалу (кухонный экран). Отдельный атрибут, а не
+    # user.branch_id: у повара филиал живёт в HR-записи, и перезаписывать
+    # колонку из токена нельзя.
+    raw_branch = payload.get("branch_id")
+    try:
+        user.token_branch_id = UUID(raw_branch) if raw_branch else None
+    except (ValueError, AttributeError, TypeError):
+        user.token_branch_id = None
+    # Кухонный токен живёт только на кухонном экране: даже если роль повара
+    # формально имеет доступ к модулю, сессия KDS не должна открывать кассу,
+    # склад или финансы.
+    if user.auth_scope == KITCHEN_SCOPE and not _kitchen_path_allowed(request.url.path):
+        raise ForbiddenError("Kitchen session is limited to the kitchen screen")
     return user
 
 
 async def get_current_user_optional(
+    request: Request,
     token: str | None = Depends(_optional_oauth2_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User | None:
     """Like get_current_user, but anonymous callers get None instead of a 401."""
     if not token:
         return None
-    return await get_current_user(token=token, db=db)
+    return await get_current_user(request=request, token=token, db=db)
 
 
 async def get_current_active_user(
@@ -100,7 +134,7 @@ def effective_branch_filter(user: User, requested_branch_id: UUID | None = None)
     скоупится на его филиал, а запрошенный ``branch_id`` игнорируется (филиал не
     может смотреть чужой филиал). Для владельца сети (``branch_id = NULL``)
     поведение прежнее: что запросил, то и фильтруем (``None`` = вся сеть)."""
-    user_branch = getattr(user, "branch_id", None)
+    user_branch = getattr(user, "token_branch_id", None) or getattr(user, "branch_id", None)
     return user_branch if user_branch else requested_branch_id
 
 
@@ -114,6 +148,37 @@ async def require_company_app_user(
         db,
         auth_scope=getattr(current_user, "auth_scope", "app"),
     )
+
+
+async def require_kitchen_access(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Кухонный экран: либо обычная app-сессия (владелец/менеджер открыл
+    кухню в браузере), либо кухонная сессия повара. В обоих случаях нужна
+    однозначная роль компании — иначе непонятно, чьи заказы отдавать."""
+    return await ensure_company_app_identity(
+        current_user,
+        db,
+        auth_scope=getattr(current_user, "auth_scope", "app"),
+        allowed_scopes=("app", KITCHEN_SCOPE),
+    )
+
+
+async def require_kitchen_device(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Терминал кухни — служебный пользователь филиала с кухонной сессией.
+    Нужен ровно для одного: обменять PIN повара на его собственную сессию.
+    Роль не проверяем: у терминала её нет по конструкции."""
+    if getattr(current_user, "auth_scope", "app") != KITCHEN_SCOPE:
+        raise ForbiddenError("Kitchen terminal session required")
+    if current_user.company_id is None or current_user.is_superadmin:
+        raise ForbiddenError("Company app identity required")
+    if not getattr(current_user, "branch_id", None):
+        raise ForbiddenError("Kitchen terminal must be bound to a branch")
+    return current_user
 
 
 async def require_web_owner(

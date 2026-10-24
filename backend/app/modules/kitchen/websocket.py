@@ -212,8 +212,13 @@ async def kitchen_ws_endpoint(
         return
     try:
         await ensure_company_app_identity(
-            user, db, auth_scope=payload.get("auth_scope", "app")
+            user, db, auth_scope=payload.get("auth_scope", "app"),
+            allowed_scopes=("app", "kitchen"),
         )
+        # Кухонная сессия привязана к филиалу: подписаться на чужой канал нельзя.
+        session_branch = getattr(user, "token_branch_id", None) or getattr(user, "branch_id", None)
+        if session_branch and session_branch != branch_id:
+            raise ValueError("branch mismatch")
         await require_company_resource(
             db, Branch, branch_id, user.company_id, detail="Branch not found"
         )

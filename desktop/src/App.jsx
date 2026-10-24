@@ -28,13 +28,18 @@ const MODES = {
 const ROLE_TO_MODE = {
   waiter: 'waiter', cashier: 'cashier', courier: 'courier',
 }
+// Повар на десктопе не работает: у него отдельный веб-экран кухни (KDS).
+// Раньше он молча проваливался в кассу — это ломало и права, и сценарий смены.
+const KITCHEN_ROLES = new Set(['kitchen', 'cook', 'chef'])
 function roleToMode(user, employee) {
   const slugs = [...(user?.role_slugs || [])]
   if (employee?.role_slug) slugs.push(employee.role_slug)
-  for (const s of slugs) {
-    const m = ROLE_TO_MODE[String(s || '').toLowerCase()]
+  const normalized = slugs.map((s) => String(s || '').toLowerCase())
+  for (const s of normalized) {
+    const m = ROLE_TO_MODE[s]
     if (m) return m
   }
+  if (normalized.some((s) => KITCHEN_ROLES.has(s))) return null   // только кухня
   return 'cashier'   // дефолт — касса
 }
 
@@ -169,13 +174,18 @@ export default function App() {
       localStorage.removeItem('marjon_token')
       throw new Error('PIN не соответствует выбранному сотруднику')
     }
-    setStaffToken(data.access_token)
     const user = me || pinEmployee || {}
+    const m = roleToMode(user, pinEmployee)
+    if (!m) {
+      // Кухня — только на отдельном экране, касса повару недоступна.
+      localStorage.removeItem('marjon_token')
+      throw new Error('Повар работает на кухонном экране: откройте kitchen.marjon.tech')
+    }
+    setStaffToken(data.access_token)
     localStorage.setItem('marjon_user', JSON.stringify(user))
     setStaffUser(user)
     setSessionPin(pin)   // запомнили PIN входа — им же разблокируется экран
 
-    const m = roleToMode(user, pinEmployee)   // всегда вернёт режим (дефолт — касса)
     localStorage.setItem('marjon_mode', m); setMode(m)
     setStaffView('org')
     setPinEmployee(null)

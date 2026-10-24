@@ -26,7 +26,8 @@ export default function EmployeeSelector({ branch, onSelect, onBack }) {
       .then((data) => {
         // Моноблок — первый экран логина десктопа (телефон+пароль), не сотрудник
         // для PIN-входа. Владелец/менеджер/кладовщик тоже не работают на кассе.
-        const HIDDEN_ROLES = ['owner', 'manager', 'warehouse', 'monoblock']
+        // Повара — отдельный веб-экран кухни, на десктопе им делать нечего.
+        const HIDDEN_ROLES = ['owner', 'manager', 'warehouse', 'monoblock', 'kitchen', 'cook', 'chef']
         const empRole = (u) => String(u.role_slug || u.role_slugs?.[0] || '').toLowerCase()
         const list = (Array.isArray(data) ? data : data?.items || [])
           .filter((u) => u.is_active !== false && !HIDDEN_ROLES.includes(empRole(u)))
@@ -91,6 +92,11 @@ export default function EmployeeSelector({ branch, onSelect, onBack }) {
           </div>
         )}
         {error && <p className="emp-screen__note">{t('emp_demo_note')}</p>}
+        {!loading && !error && (
+          <p className="emp-screen__note">
+            Повара работают на отдельном экране кухни — kitchen.marjon.tech
+          </p>
+        )}
       </div>
     </div>
   )

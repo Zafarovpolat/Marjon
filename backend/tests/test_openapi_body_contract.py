@@ -23,6 +23,10 @@ REQUIRED_BODY_ROUTES = {
     # toast-notifications: смена пароля с инвалидацией выданных токенов
     # (users.auth_version) — тоже rate-limited POST с моделью тела.
     "/api/v1/auth/change-password": "ChangePasswordRequest",
+    # KDS: настройка кухонного экрана и вход повара по PIN — тоже
+    # rate-limited POST'ы с конкретными моделями тела.
+    "/api/v1/auth/kitchen/session": "BranchLoginRequest",
+    "/api/v1/auth/kitchen/pin": "KitchenPinRequest",
     "/api/v1/pos/orders": "OrderCreate",
 }
 

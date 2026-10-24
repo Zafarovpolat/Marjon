@@ -1,12 +1,22 @@
 // KDS-клиент кухни: отдельный лёгкий Axios-клиент вне админки.
-// Токены хранятся отдельно (marjon_kds_*), чтобы не пересекаться с веб-админкой.
+//
+// Две сессии, обе с серверным скоупом "kitchen" (доступ только к /kitchen/*):
+// 1) сессия терминала — логин+пароль филиала, вводится один раз при настройке
+//    экрана и хранится на устройстве (marjon_kds_device_*);
+// 2) сессия повара — 4-значный PIN, живёт до конца смены (marjon_kds_token).
+// Токены лежат отдельно от веб-админки, чтобы сессии не пересекались.
 import axios from "axios";
 
 export const KDS_API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
 
-const ACCESS_KEY = "marjon_kds_token";
-const REFRESH_KEY = "marjon_kds_refresh";
+const COOK_TOKEN = "marjon_kds_token";
+const COOK_REFRESH = "marjon_kds_refresh";
+const COOK_NAME = "marjon_kds_cook";
+const DEVICE_TOKEN = "marjon_kds_device_token";
+const DEVICE_REFRESH = "marjon_kds_device_refresh";
+const DEVICE_BRANCH = "marjon_kds_branch";
+const DEVICE_COMPANY = "marjon_kds_company";
 
 function read(key) {
   try {
@@ -25,21 +35,62 @@ function write(key, value) {
   }
 }
 
-export function getKdsToken() {
-  return read(ACCESS_KEY);
-}
-
-export function isKdsAuthenticated() {
-  return Boolean(getKdsToken());
-}
-
-export function clearKdsSession() {
+function drop(...keys) {
   try {
-    localStorage.removeItem(ACCESS_KEY);
-    localStorage.removeItem(REFRESH_KEY);
+    keys.forEach((key) => localStorage.removeItem(key));
   } catch {
     // ignore
   }
+}
+
+function readJson(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Активная сессия: повар, если он вошёл, иначе сам терминал.
+export function getKdsToken() {
+  return read(COOK_TOKEN) || read(DEVICE_TOKEN);
+}
+
+export function isKdsAuthenticated() {
+  return Boolean(read(COOK_TOKEN));
+}
+
+export function hasKdsDevice() {
+  return Boolean(read(DEVICE_TOKEN) && read(DEVICE_BRANCH));
+}
+
+export function getKdsBranch() {
+  return readJson(DEVICE_BRANCH);
+}
+
+export function getKdsCompany() {
+  return readJson(DEVICE_COMPANY);
+}
+
+export function getKdsCookName() {
+  return read(COOK_NAME);
+}
+
+export function clearKdsSession() {
+  drop(COOK_TOKEN, COOK_REFRESH, COOK_NAME);
+}
+
+export function forgetKdsDevice() {
+  drop(
+    COOK_TOKEN,
+    COOK_REFRESH,
+    COOK_NAME,
+    DEVICE_TOKEN,
+    DEVICE_REFRESH,
+    DEVICE_BRANCH,
+    DEVICE_COMPANY,
+  );
 }
 
 export const kdsApi = axios.create({
@@ -57,55 +108,79 @@ kdsApi.interceptors.request.use((config) => {
   return config;
 });
 
-// При 401 один раз пробуем refresh, иначе чистим сессию
+// При 401 один раз пробуем refresh, иначе чистим сессию.
+// Продление идёт в тот же слот, из которого взят refresh-токен: сессия повара
+// не должна «перезаписывать» привязку терминала и наоборот.
 kdsApi.interceptors.response.use(
   (r) => r,
   async (error) => {
     const original = error?.config;
     const status = error?.response?.status;
     const url = original?.url || "";
-    // Эндпоинты входа не восстанавливаем — это неверные креды, а не протухшая сессия
-    if (status !== 401 || original?._kdsRetry || url.includes("/auth/login") || url.includes("/auth/refresh")) {
+    if (status !== 401 || original?._kdsRetry || url.includes("/auth/")) {
       return Promise.reject(error);
     }
     original._kdsRetry = true;
-    const refreshToken = read(REFRESH_KEY);
-    if (!refreshToken) {
-      clearKdsSession();
-      return Promise.reject(error);
+
+    const slots = [
+      { refresh: read(COOK_REFRESH), tokenKey: COOK_TOKEN, refreshKey: COOK_REFRESH },
+      { refresh: read(DEVICE_REFRESH), tokenKey: DEVICE_TOKEN, refreshKey: DEVICE_REFRESH },
+    ].filter((slot) => slot.refresh);
+
+    for (const slot of slots) {
+      try {
+        const { data } = await axios.post(`${KDS_API_BASE_URL}/auth/refresh`, {
+          refresh_token: slot.refresh,
+        });
+        write(slot.tokenKey, data.access_token);
+        if (data.refresh_token) write(slot.refreshKey, data.refresh_token);
+        original.headers = original.headers || {};
+        original.headers.Authorization = `Bearer ${data.access_token}`;
+        return kdsApi(original);
+      } catch {
+        // Пробуем следующий слот; если не осталось — сессия мертва
+        drop(slot.tokenKey, slot.refreshKey);
+      }
     }
-    try {
-      const { data } = await axios.post(`${KDS_API_BASE_URL}/auth/refresh`, {
-        refresh_token: refreshToken,
-      });
-      write(ACCESS_KEY, data.access_token);
-      if (data.refresh_token) write(REFRESH_KEY, data.refresh_token);
-      original.headers = original.headers || {};
-      original.headers.Authorization = `Bearer ${data.access_token}`;
-      return kdsApi(original);
-    } catch (e) {
-      clearKdsSession();
-      return Promise.reject(e);
-    }
+    clearKdsSession();
+    return Promise.reject(error);
   },
 );
 
-// Вход повара: телефон или email + пароль (бэкенд принимает оба поля)
-export async function kdsLogin(identifier, password) {
-  const id = String(identifier || "").trim();
-  const isPhone = !id.includes("@") && /^\+?[\d\s()\-]{5,}$/.test(id);
-  const body = isPhone
-    ? { phone: id.replace(/[\s()\-]/g, ""), password }
-    : { email: id, password };
-  const { data } = await kdsApi.post("/auth/login", body);
-  write(ACCESS_KEY, data.access_token);
-  if (data.refresh_token) write(REFRESH_KEY, data.refresh_token);
+function storeSession(data) {
+  if (data?.branch) write(DEVICE_BRANCH, JSON.stringify(data.branch));
+  if (data?.company) write(DEVICE_COMPANY, JSON.stringify(data.company));
+}
+
+// Настройка кухонного экрана: логин+пароль филиала (как у десктопа).
+// Вызывается один раз на устройстве; после этого повара входят по PIN.
+export async function kdsConnectDevice(login, password) {
+  const { data } = await kdsApi.post("/auth/kitchen/session", {
+    login: String(login || "").trim(),
+    password,
+  });
+  write(DEVICE_TOKEN, data.access_token);
+  write(DEVICE_REFRESH, data.refresh_token);
+  storeSession(data);
+  clearKdsSession();
   return data;
 }
 
-export async function kdsLogout() {
-  const refreshToken = read(REFRESH_KEY);
-  const accessToken = read(ACCESS_KEY);
+// Вход повара по PIN. Терминал уже привязан к филиалу, поэтому больше ничего
+// вводить не нужно.
+export async function kdsPinLogin(pin) {
+  const { data } = await kdsApi.post("/auth/kitchen/pin", { pin: String(pin || "") });
+  write(COOK_TOKEN, data.access_token);
+  write(COOK_REFRESH, data.refresh_token);
+  write(COOK_NAME, data.user_name || "");
+  storeSession(data);
+  return data;
+}
+
+// Выход повара: терминал остаётся привязанным, следующий повар вводит свой PIN.
+export async function kdsCookLogout() {
+  const refreshToken = read(COOK_REFRESH);
+  const accessToken = read(COOK_TOKEN);
   clearKdsSession();
   if (!refreshToken) return;
   try {
@@ -115,33 +190,31 @@ export async function kdsLogout() {
       accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : undefined,
     );
   } catch {
-    // Выход локально уже выполнен — ошибку сервера игнорируем
+    // Локально уже вышли — ошибку сервера игнорируем
   }
 }
 
-export const kdsGetMe = () => kdsApi.get("/auth/me").then((r) => r.data);
-
-export const kdsGetBranches = () => kdsApi.get("/companies/me/branches").then((r) => r.data);
-
-export const kdsGetOrders = (branchId) =>
-  kdsApi.get("/kitchen/orders", { params: { branch_id: branchId } }).then((r) => r.data);
+export const kdsGetOrders = () => kdsApi.get("/kitchen/orders").then((r) => r.data);
 
 // Перевод позиции: pending -> cooking -> ready (цепочку проверяет бэкенд)
 export const kdsSetItemStatus = (orderItemId, status) =>
   kdsApi.patch("/kitchen/orders/items/status", { order_item_id: orderItemId, status }).then((r) => r.data);
 
-// Весь заказ готов (уведомляет официанта)
+// Весь заказ готов (уведомляет официанта). Кухонный скоуп не пускает в /pos,
+// поэтому у кухни своя ручка.
 export const kdsSetOrderReady = (orderId) =>
-  kdsApi.patch(`/pos/orders/${orderId}/status`, { status: "ready" }).then((r) => r.data);
+  kdsApi.patch(`/kitchen/orders/${orderId}/ready`).then((r) => r.data);
 
 // WS-URL кухни из REST-базы (http -> ws, https -> wss)
 export function kdsWsUrl(branchId) {
   const token = getKdsToken();
+  const branch = branchId || getKdsBranch()?.id;
+  if (!token || !branch) return null;
   try {
     const url = new URL(KDS_API_BASE_URL);
     const proto = url.protocol === "https:" ? "wss:" : "ws:";
     // KDS_API_BASE_URL заканчивается на /api/v1 — путь WS идёт от корня хоста
-    return `${proto}//${url.host}/ws/kitchen?token=${encodeURIComponent(token)}&branch_id=${encodeURIComponent(branchId)}`;
+    return `${proto}//${url.host}/ws/kitchen?token=${encodeURIComponent(token)}&branch_id=${encodeURIComponent(branch)}`;
   } catch {
     return null;
   }

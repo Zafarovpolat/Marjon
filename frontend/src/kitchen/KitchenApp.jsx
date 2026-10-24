@@ -2,13 +2,15 @@
 // Не входит в админку (/), десктоп и мобилу: свой entry kitchen.html -> src/kitchen/main.jsx.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  clearKdsSession,
+  forgetKdsDevice,
+  getKdsBranch,
+  getKdsCookName,
+  hasKdsDevice,
   isKdsAuthenticated,
-  kdsGetBranches,
-  kdsGetMe,
+  kdsConnectDevice,
+  kdsCookLogout,
   kdsGetOrders,
-  kdsLogin,
-  kdsLogout,
+  kdsPinLogin,
   kdsSetItemStatus,
   kdsSetOrderReady,
   kdsWsUrl,
@@ -134,13 +136,19 @@ function KdsOrderCard({ order, now, onItemStatus, onOrderReady, busyId }) {
 }
 
 export default function KitchenApp() {
+  // Экран настраивается один раз (логин+пароль филиала), дальше повара
+  // входят только по PIN — это главный сценарий у плиты.
+  const [deviceReady, setDeviceReady] = useState(() => hasKdsDevice());
   const [authed, setAuthed] = useState(() => isKdsAuthenticated());
+  const [branch, setBranch] = useState(() => getKdsBranch());
+  const [cookName, setCookName] = useState(() => getKdsCookName());
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
-  const [loginError, setLoginError] = useState("");
-  const [loginBusy, setLoginBusy] = useState(false);
-  const [branches, setBranches] = useState([]);
-  const [branch, setBranch] = useState(null);
+  const [setupError, setSetupError] = useState("");
+  const [setupBusy, setSetupBusy] = useState(false);
+  const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [pinBusy, setPinBusy] = useState(false);
   const [orders, setOrders] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -165,15 +173,15 @@ export default function KitchenApp() {
     return () => clearInterval(id);
   }, []);
 
-  const loadOrders = useCallback(async (branchId) => {
-    if (!branchId) return;
-    const data = await kdsGetOrders(branchId);
+  const loadOrders = useCallback(async () => {
+    const data = await kdsGetOrders();
     const list = data?.items ?? data ?? [];
     setOrders(Array.isArray(list) ? list : []);
     return Array.isArray(list) ? list : [];
   }, []);
 
-  // Первичная загрузка после входа: профиль -> филиал -> заказы
+  // Первичная загрузка после входа повара: филиал уже известен из настройки
+  // экрана, поэтому сразу тянем заказы.
   useEffect(() => {
     if (!authed) {
       setLoading(false);
@@ -184,28 +192,11 @@ export default function KitchenApp() {
       setLoading(true);
       setError(null);
       try {
-        const me = await kdsGetMe();
-        // У повара филиал уже зашит в токене — берём его сразу
-        const myBranchId = me?.branch_id || null;
-        let active = null;
-        if (myBranchId) {
-          active = { id: myBranchId, name: me?.branch_name || "" };
-        } else {
-          const list = await kdsGetBranches();
-          if (cancelled) return;
-          setBranches(Array.isArray(list) ? list : []);
-          if (list?.length === 1) active = list[0];
-        }
-        if (cancelled) return;
-        setBranch(active);
-        if (active?.id) {
-          const list = await loadOrders(active.id);
-          if (!cancelled) seenIdsRef.current = new Set(list.map((o) => String(o.id)));
-        }
+        const list = await loadOrders();
+        if (!cancelled) seenIdsRef.current = new Set(list.map((o) => String(o.id)));
       } catch (e) {
         if (!cancelled) {
           if (e?.response?.status === 401) {
-            clearKdsSession();
             setAuthed(false);
           } else {
             setError(e);
@@ -229,7 +220,7 @@ export default function KitchenApp() {
 
     const refresh = async (announce = false) => {
       try {
-        const list = await loadOrders(branch.id);
+        const list = await loadOrders();
         if (stopped) return;
         const prev = seenIdsRef.current;
         if (prev.size > 0) {
@@ -287,34 +278,87 @@ export default function KitchenApp() {
     };
   }, [authed, branch?.id, loadOrders, soundOn]);
 
-  async function handleLoginSubmit(event) {
+  // Первичная настройка экрана: логин+пароль филиала (как у десктопа).
+  async function handleSetupSubmit(event) {
     event.preventDefault();
-    if (loginBusy) return;
+    if (setupBusy) return;
     if (!login.trim() || !password) {
-      setLoginError("Укажите логин и пароль.");
+      setSetupError("Укажите логин и пароль филиала.");
       return;
     }
-    setLoginError("");
-    setLoginBusy(true);
+    setSetupError("");
+    setSetupBusy(true);
     try {
-      await kdsLogin(login.trim(), password);
+      await kdsConnectDevice(login, password);
       setPassword("");
-      setAuthed(true);
+      setBranch(getKdsBranch());
+      setDeviceReady(true);
+      setPin("");
+      setPinError("");
     } catch (err) {
-      setLoginError(err?.response?.data?.detail || "Неверный логин или пароль.");
+      setSetupError(err?.response?.data?.detail || "Неверный логин или пароль филиала.");
     } finally {
-      setLoginBusy(false);
+      setSetupBusy(false);
     }
   }
 
-  async function handleLogout() {
-    await kdsLogout();
+  async function submitPin(code) {
+    if (pinBusy) return;
+    setPinBusy(true);
+    setPinError("");
+    try {
+      const data = await kdsPinLogin(code);
+      setCookName(data?.user_name || getKdsCookName());
+      if (data?.branch) setBranch(data.branch);
+      setPin("");
+      setAuthed(true);
+    } catch (err) {
+      setPin("");
+      setPinError(err?.response?.data?.detail || "Неверный PIN.");
+    } finally {
+      setPinBusy(false);
+    }
+  }
+
+  // PIN набирается цифрами и отправляется сам на 4-м символе — повару не
+  // нужно искать кнопку «Войти» мокрыми руками.
+  function pressDigit(digit) {
+    if (pinBusy || pin.length >= 4) return;
+    setPinError("");
+    const next = `${pin}${digit}`;
+    setPin(next);
+    if (next.length === 4) submitPin(next);
+  }
+
+  function pressBackspace() {
+    if (pinBusy) return;
+    setPin((prev) => prev.slice(0, -1));
+  }
+
+  // Выход повара: экран остаётся привязан к филиалу, следующий вводит свой PIN.
+  async function handleCookLogout() {
+    await kdsCookLogout();
     setAuthed(false);
-    setBranch(null);
-    setBranches([]);
+    setCookName("");
+    setPin("");
+    setPinError("");
     setOrders([]);
     setError(null);
     seenIdsRef.current = new Set();
+  }
+
+  // Полный сброс устройства: сменить филиал или отдать экран другому заведению.
+  function handleForgetDevice() {
+    const ok = window.confirm("Отвязать экран от филиала? Понадобится логин и пароль филиала.");
+    if (!ok) return;
+    forgetKdsDevice();
+    setDeviceReady(false);
+    setAuthed(false);
+    setBranch(null);
+    setCookName("");
+    setOrders([]);
+    setPin("");
+    setLogin("");
   }
 
   // Оптимистичный перевод позиции: интерфейс отвечает мгновенно
@@ -328,10 +372,10 @@ export default function KitchenApp() {
     );
     try {
       await kdsSetItemStatus(item.id, status);
-      if (branch?.id) await loadOrders(branch.id);
+      await loadOrders();
     } catch {
       // Откатываемся к серверному состоянию
-      if (branch?.id) loadOrders(branch.id).catch(() => {});
+      loadOrders().catch(() => {});
     } finally {
       setBusyId(null);
     }
@@ -343,7 +387,7 @@ export default function KitchenApp() {
       await kdsSetOrderReady(order.id);
       setOrders((prev) => prev.filter((o) => o.id !== order.id));
     } catch {
-      if (branch?.id) loadOrders(branch.id).catch(() => {});
+      loadOrders().catch(() => {});
     } finally {
       setBusyId(null);
     }
@@ -357,42 +401,106 @@ export default function KitchenApp() {
     [orders],
   );
 
-  // Экран входа повара
-  if (!authed) {
+  // Настройка экрана (один раз на устройстве): логин+пароль филиала
+  if (!deviceReady) {
     return (
       <div className="kds-login">
-        <form className="kds-login__card" onSubmit={handleLoginSubmit}>
+        <form className="kds-login__card" onSubmit={handleSetupSubmit}>
           <h1 className="kds-login__title">MARJON · Кухня</h1>
-          <p className="kds-login__hint">Войдите под логином повара — откроются заказы вашего филиала.</p>
-          {loginError ? (
+          <p className="kds-login__hint">
+            Подключите экран один раз: логин и пароль филиала. Дальше повара входят по PIN.
+          </p>
+          {setupError ? (
             <div className="kds-login__alert" role="alert">
-              {loginError}
+              {setupError}
             </div>
           ) : null}
           <label className="kds-login__field">
-            <span>Телефон или email</span>
+            <span>Логин филиала</span>
             <input
               type="text"
               value={login}
               onChange={(e) => setLogin(e.target.value)}
-              placeholder="+998 90 123-45-67"
+              placeholder="+998 90 111-22-33"
               autoComplete="username"
             />
           </label>
           <label className="kds-login__field">
-            <span>Пароль</span>
+            <span>Пароль филиала</span>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Пароль"
+              placeholder="Пароль филиала"
               autoComplete="current-password"
             />
           </label>
-          <button className="kds-btn kds-btn--order" type="submit" disabled={loginBusy}>
-            {loginBusy ? "Вход…" : "Войти"}
+          <button className="kds-btn kds-btn--order" type="submit" disabled={setupBusy}>
+            {setupBusy ? "Подключение…" : "Подключить экран"}
           </button>
         </form>
+      </div>
+    );
+  }
+
+  // Вход повара: четыре цифры, крупные кнопки
+  if (!authed) {
+    return (
+      <div className="kds-login">
+        <div className="kds-login__card">
+          <h1 className="kds-login__title">MARJON · Кухня</h1>
+          <p className="kds-login__hint">
+            {branch?.name ? `${branch.name} · ` : ""}Введите PIN повара
+          </p>
+          <div className="kds-pin__dots" aria-label={`Введено ${pin.length} из 4 цифр`}>
+            {[0, 1, 2, 3].map((i) => (
+              <span key={i} className={`kds-pin__dot ${pin.length > i ? "is-filled" : ""}`} />
+            ))}
+          </div>
+          {pinError ? (
+            <div className="kds-login__alert" role="alert">
+              {pinError}
+            </div>
+          ) : null}
+          <div className="kds-keypad">
+            {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((digit) => (
+              <button
+                key={digit}
+                className="kds-keypad__key"
+                type="button"
+                disabled={pinBusy}
+                onClick={() => pressDigit(digit)}
+              >
+                {digit}
+              </button>
+            ))}
+            <button
+              className="kds-keypad__key kds-keypad__key--ghost"
+              type="button"
+              onClick={handleForgetDevice}
+            >
+              Сброс
+            </button>
+            <button
+              className="kds-keypad__key"
+              type="button"
+              disabled={pinBusy}
+              onClick={() => pressDigit("0")}
+            >
+              0
+            </button>
+            <button
+              className="kds-keypad__key"
+              type="button"
+              disabled={pinBusy || !pin.length}
+              onClick={pressBackspace}
+              aria-label="Стереть"
+            >
+              ⌫
+            </button>
+          </div>
+          {pinBusy ? <p className="kds-login__hint">Проверяем PIN…</p> : null}
+        </div>
       </div>
     );
   }
@@ -405,6 +513,7 @@ export default function KitchenApp() {
           <div className="kds-topbar__sub">
             MARJON · {summary.total} заказов · {summary.items} блюд
             {branch?.name ? ` · ${branch.name}` : ""}
+            {cookName ? ` · ${cookName}` : ""}
           </div>
         </div>
         <div className="kds-topbar__controls">
@@ -423,29 +532,11 @@ export default function KitchenApp() {
           >
             Во весь экран
           </button>
-          <button className="kds-chip" type="button" onClick={handleLogout}>
-            Выйти
+          <button className="kds-chip" type="button" onClick={handleCookLogout}>
+            Сменить повара
           </button>
         </div>
       </header>
-
-      {branches.length > 1 && !branch?.id ? (
-        <div className="kds-branches">
-          <p>Выберите филиал:</p>
-          <div className="kds-branches__list">
-            {branches.map((b) => (
-              <button
-                key={b.id}
-                className="kds-btn kds-btn--cook"
-                type="button"
-                onClick={() => setBranch(b)}
-              >
-                {b.name || b.id}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
 
       {error ? (
         <div className="kds-empty" role="alert">
@@ -457,7 +548,7 @@ export default function KitchenApp() {
               onClick={() => {
                 setError(null);
                 setLoading(true);
-                loadOrders(branch?.id)
+                loadOrders()
                   .then((list) => {
                     seenIdsRef.current = new Set(list.map((o) => String(o.id)));
                   })

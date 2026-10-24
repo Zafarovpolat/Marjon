@@ -40,3 +40,7 @@ APP_COMPANY_ROLE_SLUGS: frozenset[str] = (
 OWNER_ASSIGNABLE_ROLE_SLUGS: frozenset[str] = frozenset({
     "manager", "cashier", "waiter", "kitchen", "monoblock", "courier", "warehouse",
 })
+
+# Роли, которым разрешён вход на кухонный экран по PIN (KDS). Повар — это
+# канонический slug "kitchen" («Повар» в веб-редакторе сотрудников).
+KITCHEN_ROLE_SLUGS: frozenset[str] = frozenset({"kitchen"})
