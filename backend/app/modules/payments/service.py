@@ -107,18 +107,30 @@ class PaymentService:
 
             if order.status == "cancelled":
                 raise ValidationError("Cannot pay a cancelled order")
+            # DEBT-ROLE-01 (закрытие дыры): «в долг» — это НЕ оплата, денег по нему
+            # не приходило. Через /payments его проводить нельзя никому: иначе
+            # официант обходил бы запрет на долг (PATCH /pos/orders/{id}/status его
+            # блокирует), записывая полную сумму с method="debt" — заказ закрыт,
+            # выручка в отчётах есть, а денег в кассе нет. Долг закрывается только
+            # сменой статуса заказа, где проверяются роль и фактический недобор.
+            if str(data.method or "").strip().lower() == "debt":
+                raise ValidationError(
+                    "«В долг» — не оплата. Долг оформляется закрытием заказа, а не платежом"
+                )
             if order.status == "completed":
                 raise ValidationError("Order is already paid")
-            completed_payment_id = await self.db.scalar(
-                select(Payment.id)
-                .where(
+            # REOPEN-01: у возвращённого в работу заказа оплата уже была. Повторное
+            # закрытие разрешено — прежние completed-платежи станут refunded, а
+            # оплатой по новому (уменьшенному) итогу станет новая запись. Для
+            # обычного заказа «уже оплачен» остаётся ошибкой.
+            previous_payments = list((await self.db.execute(
+                select(Payment).where(
                     Payment.company_id == company_id,
                     Payment.order_id == order.id,
                     Payment.status == "completed",
                 )
-                .limit(1)
-            )
-            if completed_payment_id is not None:
+            )).scalars().all())
+            if previous_payments and order.reopened_at is None:
                 raise ValidationError("Order is already paid")
             if data.amount != order.total_amount:
                 raise ValidationError(
@@ -151,6 +163,16 @@ class PaymentService:
             )
             self.db.add(payment)
             await self.db.flush()
+            # Возврат в закрытый заказ: прежняя оплата больше не действует —
+            # отчёты должны видеть только новый итог, поэтому старые платежи
+            # помечаем refunded (остаются в истории, но не в выручке).
+            for prev in previous_payments:
+                prev.status = "refunded"
+                prev.provider_data = {
+                    **(prev.provider_data or {}),
+                    "refunded_by_payment_id": str(payment.id),
+                }
+                self.db.add(prev)
             await self._checkpoint("after_payment")
 
             order.status = "completed"

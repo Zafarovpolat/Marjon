@@ -71,6 +71,32 @@ export default function App() {
 
   const isStaffLoggedIn = !!(staffToken && staffUser)
 
+  // IDLE-LOCK-01: принудительного выхода по таймеру больше НЕТ. Раньше кассира
+  // «выкидывало в логин каждые 15 минут» — это был протухший access-токен без
+  // refresh (см. shared/api.js). Теперь сессия продлевается тихо, а терминал
+  // блокируется ТОЛЬКО если им реально не пользовались: ни клика, ни касания,
+  // ни клавиши. Разблокировка — PIN текущего сотрудника.
+  const IDLE_LOCK_MS = 15 * 60 * 1000
+  useEffect(() => {
+    if (!isStaffLoggedIn) return undefined
+    let timer = null
+    const lock = () => {
+      setIsLocked(true)
+      try { window.electron?.setLocked?.(true) } catch { /* не в Electron */ }
+    }
+    const reset = () => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(lock, IDLE_LOCK_MS)
+    }
+    const events = ['mousedown', 'pointerdown', 'touchstart', 'keydown', 'wheel']
+    events.forEach((name) => window.addEventListener(name, reset, { passive: true }))
+    reset()
+    return () => {
+      events.forEach((name) => window.removeEventListener(name, reset))
+      if (timer) clearTimeout(timer)
+    }
+  }, [isStaffLoggedIn])
+
   // Единый филиал сессии. При входе моноблока бэкенд присылает branch только в
   // легаси-режиме, поэтому marjon_branch часто пуст — раньше из-за этого
   // branch_id уходил null, и ломалось всё, что от него зависит:
@@ -166,12 +192,16 @@ export default function App() {
     // одинаковых PIN у двоих токен приходил чужой и вход отклонялся ниже.
     const data = await auth.loginByPin(pin, isRealEmp ? pinEmployee.id : undefined)
     localStorage.setItem('marjon_token', data.access_token)
+    // SESSION-15M-01: refresh-токен сотрудника храним рядом — без него каждый
+    // 401 через 15 минут выбрасывал кассира на экран входа.
+    if (data.refresh_token) localStorage.setItem('marjon_staff_refresh', data.refresh_token)
 
     let me = null
     try { me = await auth.me() } catch { /* ignore — используем выбранного сотрудника */ }
 
     if (isRealEmp && me?.id && String(me.id) !== String(pinEmployee.id)) {
       localStorage.removeItem('marjon_token')
+      localStorage.removeItem('marjon_staff_refresh')
       throw new Error('PIN не соответствует выбранному сотруднику')
     }
     const user = me || pinEmployee || {}
@@ -179,6 +209,7 @@ export default function App() {
     if (!m) {
       // Кухня — только на отдельном экране, касса повару недоступна.
       localStorage.removeItem('marjon_token')
+      localStorage.removeItem('marjon_staff_refresh')
       throw new Error('Повар работает на кухонном экране: откройте kitchen.marjon.tech')
     }
     setStaffToken(data.access_token)
@@ -194,6 +225,7 @@ export default function App() {
   // Выход сотрудника (не отвязывает терминал). toEmployees=true → сразу к выбору сотрудника
   const handleStaffLogout = useCallback((toEmployees = false) => {
     localStorage.removeItem('marjon_token')
+    localStorage.removeItem('marjon_staff_refresh')
     localStorage.removeItem('marjon_user')
     localStorage.removeItem('marjon_mode')
     setStaffToken(null)
@@ -217,7 +249,7 @@ export default function App() {
 
   // Полный сброс терминала (отвязка от организации)
   const handleFullReset = useCallback(() => {
-    ['marjon_org_token', 'marjon_org_refresh', 'marjon_org_user', 'marjon_branch', 'marjon_token', 'marjon_user', 'marjon_mode']
+    ['marjon_org_token', 'marjon_org_refresh', 'marjon_org_user', 'marjon_branch', 'marjon_token', 'marjon_staff_refresh', 'marjon_user', 'marjon_mode']
       .forEach((k) => localStorage.removeItem(k))
     setOrgToken(null); setOrgUser(null); setBranch(null)
     setStaffToken(null); setStaffUser(null); setMode(null)

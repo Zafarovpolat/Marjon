@@ -119,6 +119,16 @@ class Order(TimeStampedModel):
     cancelled_by_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # REOPEN-01: возврат закрытого заказа в работу. Гость вернул блюдо/не получил
+    # его — кассир открывает заказ, отменяет позицию с причиной, отдаёт сдачу и
+    # закрывает снова. NULL = заказ ни разу не возвращали. Именно этот признак
+    # разрешает повторное закрытие (PaymentService.process): старые completed-
+    # платежи помечаются refunded, новым становится оплата по новому итогу.
+    reopened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reopened_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    reopen_comment: Mapped[str | None] = mapped_column(Text)
 
     items: Mapped[list[OrderItem]] = relationship(back_populates="order", cascade="all, delete-orphan")
 
@@ -161,6 +171,10 @@ class OrderItem(TimeStampedModel):
     cancelled_by_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # CANCEL-COMMENT-01: причина отмены позиции. Обязательна при отмене блюда с
+    # кассы и ВСЕГДА печатается в чеке — иначе гость не понимает, за что с него
+    # взяли/вернули деньги.
+    cancel_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     order: Mapped[Order] = relationship(back_populates="items")
 

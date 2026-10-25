@@ -589,6 +589,22 @@ export default function DishesDialogs({
                     {categoryField}
                     {unitField}
                     {printerField(false)}
+                    <div className="dish-form-field">
+                      <span className="dish-form-field__label" aria-hidden="true">Шаг порции</span>
+                      <DishSingleSelect
+                        label="Шаг порции"
+                        placeholder="Целые"
+                        options={[
+                          { value: "", label: "Целые (1)" },
+                          { value: "0.1", label: "0.1" },
+                          { value: "0.25", label: "0.25" },
+                          { value: "0.5", label: "0.5" },
+                        ]}
+                        value={String(form.portionStep ?? "")}
+                        onChange={(value) => setForm((prev) => ({ ...prev, portionStep: value }))}
+                        disabled={saving}
+                      />
+                    </div>
                   </>
                 ) : (
                   <>
@@ -605,6 +621,22 @@ export default function DishesDialogs({
                     {categoryField}
                     {unitField}
                     {printerField(false)}
+                    <div className="dish-form-field">
+                      <span className="dish-form-field__label" aria-hidden="true">Шаг порции</span>
+                      <DishSingleSelect
+                        label="Шаг порции"
+                        placeholder="Целые"
+                        options={[
+                          { value: "", label: "Целые (1)" },
+                          { value: "0.1", label: "0.1" },
+                          { value: "0.25", label: "0.25" },
+                          { value: "0.5", label: "0.5" },
+                        ]}
+                        value={String(form.portionStep ?? "")}
+                        onChange={(value) => setForm((prev) => ({ ...prev, portionStep: value }))}
+                        disabled={saving}
+                      />
+                    </div>
                   </>
                 )}
               </div>

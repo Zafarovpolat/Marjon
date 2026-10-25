@@ -106,6 +106,9 @@ class ReceiptLine:
     note: str | None = None
     course: int = 1
     takeaway: bool = False
+    # CANCEL-COMMENT-01: причина отмены блюда. Печатается в чеке ВСЕГДА —
+    # отдельной строкой «Отменено: <блюдо> — <причина>».
+    cancel_reason: str | None = None
 
 
 @dataclass
@@ -134,6 +137,9 @@ class ReceiptData:
     waiter_name: str | None = None
     printed_at: datetime = field(default_factory=datetime.now)
     staff_label: str = "Официант"
+    # Отменённые позиции с причиной: печатаются в чеке всегда (гость должен
+    # видеть, что блюдо отменено и почему). Пустой список — ничего не печатаем.
+    cancelled: list[ReceiptLine] = field(default_factory=list)
 
 
 @dataclass
@@ -783,6 +789,15 @@ class EscPosFormatter:
                     chunk.extend(self._item_row(item.name, format_quantity(item.qty), f"{item.total:,.0f}", cols=cols))
                     for mod in item.modifiers:
                         chunk.extend(self._wrapped_line(f"  + {mod}", cols))
+                    # Комментарий к блюду печатаем ВСЕГДА (а не только когда в
+                    # шаблоне включён блок «Комментарий»): пожелание гостя —
+                    # часть заказа, без него чек не читается.
+                    if getattr(item, "note", None):
+                        chunk.extend(self._wrapped_line(f"  * {item.note}", cols))
+                # Отменённые блюда — с причиной отмены (возврат денег гостю).
+                for item in (getattr(data, "cancelled", None) or []):
+                    reason = f" — {item.cancel_reason}" if item.cancel_reason else ""
+                    chunk.extend(self._wrapped_line(f"  x {item.name}{reason}", cols))
                 if block_bold:
                     chunk.extend(self.BOLD_OFF)
                 chunk.extend(suffix)

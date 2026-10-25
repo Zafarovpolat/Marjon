@@ -59,6 +59,11 @@ class OrderStatusUpdate(BaseSchema):
     status: Literal["new", "accepted", "cooking", "ready", "completed", "cancelled"]
 
 
+class OrderReopen(BaseSchema):
+    """REOPEN-01: вернуть ЗАКРЫТЫЙ заказ в работу (гость вернул блюдо)."""
+    reason: str | None = None
+
+
 class OrderItemWaiterUpdate(BaseSchema):
     """Смена ответственного официанта у ОТДЕЛЬНОЙ позиции заказа (decision A).
     Кассир исправляет путаницу, когда блюдо внёс не тот официант
@@ -66,6 +71,16 @@ class OrderItemWaiterUpdate(BaseSchema):
     waiter_id: UUID
     reason: str | None = None       # причина (пишется в audit)
     action_pin: str | None = None   # PIN подтверждения (для официанта; кассир — без PIN)
+
+
+class OrderItemQuantityUpdate(BaseSchema):
+    """Количество уже внесённой в заказ позиции (плюс/минус в корзине кассы).
+
+    Меняется до оплаты, поэтому склад не задет: сток списывается в
+    `/payments` (deduct_for_order), а кухонный чек при дозаказе не печатается.
+    Дневной лимит двигается на дельту, а не пересчитывается целиком.
+    """
+    quantity: Decimal = Field(..., gt=0)
 
 
 class OrderItemResponse(BaseResponseSchema):

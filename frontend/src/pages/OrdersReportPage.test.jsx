@@ -598,10 +598,12 @@ describe("OrdersReportPage filters", () => {
     render(<OrdersReportPage />);
     const row = (await screen.findByText("77")).closest("tr");
     const cells = row.querySelectorAll("td");
-    expect(cells).toHaveLength(8);
+    // Колонки: номер | тип | дата | место | цена | тип оплаты | официант | кассир | статус
+    expect(cells).toHaveLength(9);
     expect(cells[3]).toHaveTextContent("—");
     expect(cells[5]).toHaveTextContent("—");
     expect(cells[6]).toHaveTextContent("—");
+    expect(cells[7]).toHaveTextContent("—");
   });
 
   it("opens the internal detail page by keyboard and returns using topbar Back", async () => {
@@ -644,27 +646,26 @@ describe("OrdersReportPage filters", () => {
   // EXACTLY eight business columns in requested order. ID, service_fee and
   // payment_methods stay out of the visible table (Excel-only richness);
   // the row itself remains the clickable/keyboard details action.
-  it("renders exactly the eight final business columns", async () => {
+  it("renders exactly the nine final business columns", async () => {
     render(<OrdersReportPage />);
     await screen.findByText("42");
     expect(screen.getAllByRole("columnheader").map((th) => th.textContent)).toEqual([
-      "Номер заказа", "Тип", "Дата", "Место", "Цена всего", "Официант", "Кассир", "Статус",
+      "Номер заказа", "Тип", "Дата", "Место", "Цена всего", "Тип оплаты", "Официант", "Кассир", "Статус",
     ]);
     expect(screen.queryByRole("columnheader", { name: "ID" })).toBeNull();
     expect(screen.queryByRole("columnheader", { name: "ID заказа" })).toBeNull();
     expect(screen.queryByRole("columnheader", { name: "Количество позиций" })).toBeNull();
     expect(screen.queryByRole("columnheader", { name: "Цена обслуживания" })).toBeNull();
-    expect(screen.queryByRole("columnheader", { name: "Тип оплаты" })).toBeNull();
     const row = screen.getByText("42").closest("tr");
     const cells = row.querySelectorAll("td");
-    expect(cells).toHaveLength(8);
+    expect(cells).toHaveLength(9);
     expect(cells[0]).toHaveTextContent("42");
     expect(cells[1]).toHaveTextContent("На стол");
     expect(cells[3]).toHaveTextContent("7");
     expect(cells[4]).toHaveTextContent("UZS");
-    expect(cells[5]).toHaveTextContent("Официант 1");
-    expect(cells[6]).toHaveTextContent("Кассир 1");
-    expect(cells[7]).toHaveTextContent("Завершён");
+    expect(cells[6]).toHaveTextContent("Официант 1");
+    expect(cells[7]).toHaveTextContent("Кассир 1");
+    expect(cells[8]).toHaveTextContent("Завершён");
   });
 
   it("labels order_type via the existing map and falls back to raw values", async () => {
@@ -701,8 +702,8 @@ describe("OrdersReportPage filters", () => {
     });
     render(<OrdersReportPage />);
     const cells = (await screen.findByText("C1")).closest("tr").querySelectorAll("td");
-    expect(cells[5]).toHaveTextContent("Официант 1");
-    expect(cells[6]).toHaveTextContent("Яков, Алишер");
+    expect(cells[6]).toHaveTextContent("Официант 1");
+    expect(cells[7]).toHaveTextContent("Яков, Алишер");
   });
 
   it("keeps row-click details working on internal order identity", async () => {

@@ -8,7 +8,10 @@ from pydantic import Field, model_serializer, model_validator
 class PaymentCreate(BaseSchema):
     order_id: UUID
     amount: Decimal
-    method: str
+    # cash | card | mixed | debt | название способа из веб-админки (Uzum, Yandex…).
+    # Колонка payments.method — String(30), поэтому длину ограничиваем здесь,
+    # а не ловим ошибку БД.
+    method: str = Field(min_length=1, max_length=30)
     cash_received: Decimal | None = None
     cash_amount: Decimal | None = Field(None, ge=0)
     card_amount: Decimal | None = Field(None, ge=0)

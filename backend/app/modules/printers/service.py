@@ -572,6 +572,20 @@ class PrinterService:
                 takeaway=item.takeaway,
             )
             for item in order.items
+            if getattr(item, "status", None) != "cancelled"
+        ]
+        # CANCEL-COMMENT-01: отменённые блюда печатаем отдельным блоком с причиной —
+        # гость должен видеть, что позиция снята и почему (возврат денег).
+        cancelled_lines = [
+            ReceiptLine(
+                name=item.name,
+                qty=item.quantity,
+                price=item.price,
+                total=Decimal("0"),
+                cancel_reason=getattr(item, "cancel_reason", None),
+            )
+            for item in order.items
+            if getattr(item, "status", None) == "cancelled"
         ]
 
         # Названия компании/филиала/официанта для «подробного» чека
@@ -620,6 +634,7 @@ class PrinterService:
             waiter_name=waiter_name,
             printed_at=print_local_time,
             staff_label=await self._resolve_staff_label(company_id, order),
+            cancelled=cancelled_lines,
         )
 
     async def _build_kitchen_data(self, company_id: UUID, order: Order) -> KitchenTicketData:

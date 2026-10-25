@@ -51,6 +51,9 @@ export default function VirtualKeyboard({ onVisibilityChange }) {
         setActiveInput(el)
         const kb = el.dataset.keyboard
         if (kb && LAYOUTS[kb]) { setLayout(kb); if (kb === 'ru' || kb === 'en') lastAlpha.current = kb }
+        // Поле без своей раскладки (комментарий, причина отмены) открываем
+        // буквами, а не тем num/sym, что остались от предыдущего поля.
+        else setLayout(lastAlpha.current || 'ru')
         // Держим фокусное поле в зоне видимости над клавиатурой
         setTimeout(() => { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }) } catch { /* ignore */ } }, 60)
       }
@@ -73,9 +76,9 @@ export default function VirtualKeyboard({ onVisibilityChange }) {
       document.body.classList.toggle('vkb-open', !!activeInput)
       // Вне модалок рабочий экран поднимается целиком (vkb-lift);
       // внутри модалок оверлей сам сжимается на высоту клавиатуры.
-      // .pay-screen — полноэкранный оверлей (position: fixed), сжимается сам:
+      // .pay-dialog-overlay — оверлей оплаты (position: fixed), сжимается сам:
       // поднимать под ним .app-shell бессмысленно, поэтому он тоже в списке.
-      document.body.classList.toggle('vkb-lift', !!activeInput && !activeInput.closest('.modal-overlay, .pay-screen, .attn-screen'))
+      document.body.classList.toggle('vkb-lift', !!activeInput && !activeInput.closest('.modal-overlay, .pay-dialog-overlay, .attn-screen'))
     } catch { /* no body */ }
   }, [activeInput, onVisibilityChange])
 
@@ -109,12 +112,24 @@ export default function VirtualKeyboard({ onVisibilityChange }) {
 
   const handleKey = useCallback((key) => {
     if (!activeInput) return
-    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
     const el = activeInput
+    // Сеттер значения берём с ПРАВИЛЬНОГО прототипа: у <textarea> это
+    // HTMLTextAreaElement, иначе setter от input бросает «Illegal invocation»
+    // и в поле комментария (блюдо, причина отмены) не набирается ни буквы.
+    const proto = el.tagName === 'TEXTAREA'
+      ? window.HTMLTextAreaElement?.prototype
+      : window.HTMLInputElement?.prototype
+    const setter = proto ? Object.getOwnPropertyDescriptor(proto, 'value')?.set : null
     const start = el.selectionStart ?? el.value.length
     const end = el.selectionEnd ?? el.value.length
     const val = el.value
-    const put = (next, caret) => { setter?.call(el, next); el.dispatchEvent(new Event('input', { bubbles: true })); if (caret != null) el.setSelectionRange(caret, caret) }
+    const put = (next, caret) => {
+      setter?.call(el, next)
+      el.dispatchEvent(new Event('input', { bubbles: true }))
+      // number/email не поддерживают выделение — там setSelectionRange бросает
+      // InvalidStateError и обрывает обработчик (клавиатура «залипала»).
+      if (caret != null) { try { el.setSelectionRange(caret, caret) } catch { /* не поддерживается */ } }
+    }
 
     switch (key) {
       case 'backspace':

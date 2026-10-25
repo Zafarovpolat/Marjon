@@ -21,23 +21,51 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+// ── Сессия сотрудника: access живёт 15 минут, refresh — долго ───────────────
+// SESSION-15M-01: раньше десктоп сохранял только access-токен сотрудника, а на
+// первый же 401 сносил его и перезагружал окно → кассира «выкидывало в логин
+// каждые 15 минут» посреди смены. Теперь refresh-токен сохраняется при входе,
+// и 401 сначала пытается ТИХО обновить сессию, и только если refresh не сработал
+// (сотрудника отключили, токен отозван) — выходим на экран входа.
+let staffRefreshPromise = null
+async function refreshStaffToken() {
+  if (staffRefreshPromise) return staffRefreshPromise
+  staffRefreshPromise = (async () => {
+    const rt = localStorage.getItem('marjon_staff_refresh')
+    if (!rt) throw new Error('no staff refresh token')
+    const { data } = await axios.post(`${baseURL()}/auth/refresh`, { refresh_token: rt })
+    localStorage.setItem('marjon_token', data.access_token)
+    if (data.refresh_token) localStorage.setItem('marjon_staff_refresh', data.refresh_token)
+    return data.access_token
+  })()
+  try { return await staffRefreshPromise } finally { staffRefreshPromise = null }
+}
+
 api.interceptors.response.use(
   (r) => r,
-  (err) => {
+  async (err) => {
     // На эндпоинтах авторизации 401 — это неверные креды, а не протухшая сессия.
     // Не сносим токен и не перезагружаем — даём странице показать ошибку.
     const url = err.config?.url || ''
-    // Не перезагружаем на эндпоинтах входа и подбора сотрудников (у них свои фолбэки),
-    // и только если реально есть сессия сотрудника (marjon_token) — иначе на экране
-    // выбора сотрудника 401 сбрасывал бы экран (баг «окно закрывается»).
     const skipReload =
       url.includes('/auth/login') ||
       url.includes('/auth/monoblock-login') ||
       url.includes('/auth/pin-login') ||
-      url.includes('/auth/staff-users')
+      url.includes('/auth/staff-users') ||
+      url.includes('/auth/refresh')
     const hasStaffSession = !!localStorage.getItem('marjon_token')
     if (err.response?.status === 401 && !skipReload && hasStaffSession) {
+      // Первая попытка — тихое обновление сессии и повтор запроса.
+      if (!err.config?.__retriedAfterRefresh) {
+        try {
+          const fresh = await refreshStaffToken()
+          const cfg = { ...err.config, __retriedAfterRefresh: true }
+          cfg.headers = { ...(cfg.headers || {}), Authorization: `Bearer ${fresh}` }
+          return api.request(cfg)
+        } catch { /* refresh не сработал — выходим ниже */ }
+      }
       localStorage.removeItem('marjon_token')
+      localStorage.removeItem('marjon_staff_refresh')
       window.location.reload()
     }
     return Promise.reject(err)
@@ -280,6 +308,10 @@ export const orders = {
     params: reason ? { reason } : {},
   }).then((r) => r.data),
   moveItem: (orderId, itemId, table) => api.post(`/pos/orders/${orderId}/items/${itemId}/move`, null, { params: { table } }).then((r) => r.data),
+  // Плюс/минус на уже внесённой позиции: количество меняется до оплаты,
+  // поэтому склад не задет (сток списывается в /payments).
+  setItemQuantity: (orderId, itemId, quantity) =>
+    api.patch(`/pos/orders/${orderId}/items/${itemId}`, { quantity }).then((r) => r.data),
   // Смена ответственного официанта у ОДНОЙ позиции (кассир исправляет путаницу: доля обслуги идёт по ответственному)
   setItemWaiter: (orderId, itemId, waiterId, reason) =>
     api.patch(`/pos/orders/${orderId}/items/${itemId}/waiter`, {
@@ -289,6 +321,9 @@ export const orders = {
   cancel: (id, password, comment) => api.delete(`/pos/orders/${id}`, {
     params: { ...(password ? { password } : {}), ...(comment ? { comment } : {}) },
   }).then((r) => r.data),
+  // Возврат закрытого заказа в работу: гость вернул блюдо/пожаловался — кассир
+  // открывает заказ, отменяет позицию с причиной и закрывает снова (со сдачей).
+  reopen: (id, reason) => api.post(`/pos/orders/${id}/reopen`, { reason: reason || null }).then((r) => r.data),
 }
 
 export const payments = {
@@ -373,6 +408,15 @@ export const finance = {
   incomeExpense: (params) => api.get('/finance/transactions', { params }).then((r) => r.data),
   addIncome: (data) => api.post('/finance/transactions', { ...data, direction: 'income' }).then((r) => r.data),
   addExpense: (data) => api.post('/finance/transactions', { ...data, direction: 'expense' }).then((r) => r.data),
+  // Способы оплаты из веб-админки (Настройки → «Способ оплаты»): владелец вводит
+  // Uzum, Yandex и т.п. руками — интеграции нет, но на кассе их можно выбрать,
+  // и в отчётах видно, через что клиент заплатил.
+  paymentTypes: () => api.get('/finance/payment-types', { params: { size: 200 } })
+    .then((r) => {
+      const data = r.data
+      const list = Array.isArray(data) ? data : (data?.items || data?.results || [])
+      return list.filter((p) => p && p.status !== false && p.is_active !== false && p.name)
+    }),
 }
 
 // Клиенты (автокомплит по номеру в доставке)
@@ -385,11 +429,16 @@ export const reports = {
   products: (params) => api.get('/reports/dishes', { params }).then((r) => r.data),
   staff: (params) => api.get('/reports/waiters', { params }).then((r) => r.data),
   // Z-отчёт за день (как в веб-админке): показатели смены + разбивка по оплатам
-  // Z-отчёт за день (from) или за период [from, to]. date дублируем для старых бэкендов,
-  // где обязателен Query date (лишние query-параметры FastAPI игнорирует).
-  zReport: (from, to) => api.get('/analytics/z-report', {
-    params: { date: from, date_from: from, ...(to ? { date_to: to } : {}) },
-  }).then((r) => r.data),
+  // Z-отчёт: за один день (date) ИЛИ за период (date_from + date_to).
+  // Раньше отправляли date и date_from разом «для совместимости» — текущий
+  // бэкенд такой запрос отклоняет (422 «либо date, либо date_from и date_to»),
+  // и отчёт не открывался вообще. Режим выбираем сами.
+  zReport: (from, to) => {
+    const period = to && to !== from
+    return api.get('/analytics/z-report', {
+      params: period ? { date_from: from, date_to: to } : { date: from },
+    }).then((r) => r.data)
+  },
 }
 
 export const stopList = {
