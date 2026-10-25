@@ -1,23 +1,11 @@
 // Отдельный KDS-экран поваров: заказы, блюда, «Готово» в одно касание.
 // Не входит в админку (/), десктоп и мобилу: свой entry kitchen.html -> src/kitchen/main.jsx.
+//
+// Дизайн: тёмная доска (navy) с «чеками» заказов. Тёмный фон выбран не ради
+// моды — экран висит на кухне весь день, а светлая доска слепит и теряет
+// контраст под бликами. Возраст заказа читается по цвету каймы и таймера:
+// teal → янтарь (10 мин) → красный (20 мин).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  AlertTriangle,
-  CheckCheck,
-  ChefHat,
-  Clock,
-  Delete,
-  Loader2,
-  LogOut,
-  Maximize,
-  RefreshCw,
-  ShieldCheck,
-  UtensilsCrossed,
-  Volume2,
-  VolumeX,
-  Wifi,
-  WifiOff,
-} from "lucide-react";
 import {
   forgetKdsDevice,
   getKdsBranch,
@@ -32,6 +20,20 @@ import {
   kdsSetOrderReady,
   kdsWsUrl,
 } from "./api";
+import {
+  IconAlert,
+  IconArrow,
+  IconBackspace,
+  IconCheck,
+  IconExpand,
+  IconLogout,
+  IconRefresh,
+  IconSound,
+  IconSoundOff,
+  IconSpinner,
+  IconWifi,
+  IconWifiOff,
+} from "./icons.jsx";
 
 // Бэкенд отдаёт наивный UTC без таймзоны — считаем его UTC, иначе таймеры врут
 function parseTs(ts) {
@@ -78,13 +80,33 @@ function itemState(item) {
   return "pending";
 }
 
+function isAllReady(order) {
+  const items = order.items ?? [];
+  return items.length > 0 && items.every((i) => itemState(i) === "ready");
+}
+
 function orderNumber(order) {
   return order.order_number || order.public_id || String(order.id).slice(0, 8);
 }
 
-function orderPlace(order) {
-  if (order.table_number) return `Стол ${order.table_number}`;
-  return order.hall_name || "Зал";
+// Тип заказа приходит кодом — на кухне читаем по-человечески.
+const ORDER_TYPES = {
+  dine_in: "В зале",
+  takeaway: "С собой",
+  delivery: "Доставка",
+  qr: "QR-меню",
+};
+
+function typeLabel(order) {
+  const raw = String(order?.order_type || "");
+  return ORDER_TYPES[raw] || raw;
+}
+
+// Количество бывает дробным (0.5 порции) — хвостовые нули не показываем.
+function formatQty(value) {
+  const n = Number(value ?? 1);
+  if (!Number.isFinite(n)) return "1";
+  return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(3)));
 }
 
 // Русское склонение числительных: 1 заказ, 2 заказа, 5 заказов.
@@ -97,109 +119,256 @@ function plural(n, one, few, many) {
   return many;
 }
 
-/**
- * Карточка заказа.
- *
- * Порог тревоги — по времени ожидания: до 10 минут спокойная, 10–20 минут
- * янтарная, дольше — красная. Цвет ведёт кайма сверху и таймер, чтобы повар
- * видел «горит» ещё до того, как прочитает цифры.
- */
-function KdsOrderCard({ order, now, onItemStatus, onOrderReady, busyId }) {
-  const items = order.items ?? [];
-  const readyCount = items.filter((i) => itemState(i) === "ready").length;
-  const allReady = items.length > 0 && readyCount === items.length;
-  const waitingMin = Math.floor(Math.max(0, now - parseTs(order.created_at)) / 60000);
-  const tone = waitingMin > 20 ? "urgent" : waitingMin > 10 ? "waiting" : "fresh";
-  const isNew = now - parseTs(order.created_at) < 60000;
-  const progress = items.length ? Math.round((readyCount / items.length) * 100) : 0;
+const DATE_FMT = new Intl.DateTimeFormat("ru-RU", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+});
+
+function clockParts(now) {
+  const d = new Date(now);
+  return {
+    hh: String(d.getHours()).padStart(2, "0"),
+    mm: String(d.getMinutes()).padStart(2, "0"),
+    ss: String(d.getSeconds()).padStart(2, "0"),
+    date: DATE_FMT.format(d),
+  };
+}
+
+// ── Позиция заказа ────────────────────────────────────────────────────────
+
+function DishRow({ item, busy, onStatus }) {
+  const st = itemState(item);
+  const modifiers = Array.isArray(item.modifiers)
+    ? item.modifiers
+        .map((m) => (typeof m === "string" ? m : m?.name))
+        .filter(Boolean)
+        .join(" · ")
+    : "";
 
   return (
-    <article className={`kds-card kds-card--${tone} ${isNew ? "is-new" : ""}`}>
-      <header className="kds-card__head">
-        <div className="kds-card__id">
-          <span className="kds-card__num">#{orderNumber(order)}</span>
-          <span className="kds-card__where">
-            <UtensilsCrossed size={14} aria-hidden="true" />
-            {orderPlace(order)}
-            {order.order_type ? ` · ${order.order_type}` : ""}
+    <li className={`dish is-${st}`}>
+      <span className="dish__qty">
+        {formatQty(item.quantity)}
+        <i>×</i>
+      </span>
+
+      <span className="dish__text">
+        <span className="dish__name">{item.name || "Блюдо"}</span>
+        {modifiers ? <span className="dish__mods">{modifiers}</span> : null}
+        {item.note ? <span className="dish__note">{item.note}</span> : null}
+        {item.takeaway ? <span className="dish__tag">с собой</span> : null}
+      </span>
+
+      {st === "ready" ? (
+        <span className="dish__done">
+          <IconCheck size={18} />
+          <span>Готово</span>
+        </span>
+      ) : (
+        <button
+          className={`dish__act ${st === "cooking" ? "is-ready" : ""}`}
+          type="button"
+          disabled={busy}
+          onClick={() => onStatus(item, st === "cooking" ? "ready" : "cooking")}
+        >
+          {busy ? <IconSpinner size={16} /> : st === "cooking" ? <IconCheck size={16} /> : null}
+          {st === "cooking" ? "Готово" : "Готовить"}
+        </button>
+      )}
+    </li>
+  );
+}
+
+// ── Чек заказа ────────────────────────────────────────────────────────────
+//
+// Левая «корешок»-колонка держит стол и таймер: повар смотрит туда, а не
+// вычитывает номер в строке. Правка блюд — в теле чека, отдача заказа —
+// отдельной строкой внизу, чтобы её нельзя было нажать случайно.
+
+function Ticket({ order, now, busyId, onItemStatus, onOrderReady }) {
+  const items = order.items ?? [];
+  const readyCount = items.filter((i) => itemState(i) === "ready").length;
+  const allReady = isAllReady(order);
+  const mins = Math.floor(Math.max(0, now - parseTs(order.created_at)) / 60000);
+  const tone = mins >= 20 ? "urgent" : mins >= 10 ? "late" : "fresh";
+  const type = typeLabel(order);
+  const left = items.length - readyCount;
+
+  return (
+    <article className={`ticket ticket--${tone}`} aria-label={`Заказ ${orderNumber(order)}`}>
+      <header className="ticket__head">
+        <div className="ticket__id">
+          <span className="ticket__label">{order.table_number ? "Стол" : type || "Заказ"}</span>
+          <span className={order.table_number ? "ticket__table" : "ticket__type"}>
+            {order.table_number || type || "—"}
+          </span>
+          <span className="ticket__num">
+            № {orderNumber(order)}
+            {order.table_number && type ? ` · ${type}` : ""}
           </span>
         </div>
-        <span className="kds-card__timer" title="Время с момента заказа">
-          <Clock size={16} aria-hidden="true" />
+
+        <span className="ticket__timer" title="Время с момента заказа">
+          <i className={`ticket__dot is-${tone}`} aria-hidden="true" />
           {formatElapsed(order.created_at, now)}
         </span>
       </header>
 
-      {order.note ? (
-        <p className="kds-card__note">
-          <AlertTriangle size={16} aria-hidden="true" />
-          <span>{order.note}</span>
-        </p>
-      ) : null}
+      <div className="ticket__body">
+        {order.note ? (
+          <p className="ticket__note">
+            <IconAlert size={15} />
+            <span>{order.note}</span>
+          </p>
+        ) : null}
 
-      <ul className="kds-card__items">
-        {items.map((item) => {
-          const st = itemState(item);
-          const busy = busyId === item.id;
-          return (
-            <li key={item.id} className={`kds-item is-${st}`}>
-              <span className="kds-item__qty">{Number(item.quantity || 1)}×</span>
-              <span className="kds-item__text">
-                <span className="kds-item__name">{item.name || item.product_name || "Блюдо"}</span>
-                {item.note ? <span className="kds-item__note">{item.note}</span> : null}
-              </span>
-              {st === "ready" ? (
-                <span className="kds-item__check" aria-label="Готово">
-                  <CheckCheck size={20} aria-hidden="true" />
-                </span>
-              ) : st === "cooking" ? (
-                <button
-                  className="kds-btn kds-btn--ready"
-                  type="button"
-                  disabled={busy}
-                  onClick={() => onItemStatus(item, "ready")}
-                >
-                  {busy ? <Loader2 className="kds-spin" size={16} aria-hidden="true" /> : null}
-                  Готово
-                </button>
-              ) : (
-                <button
-                  className="kds-btn kds-btn--cook"
-                  type="button"
-                  disabled={busy}
-                  onClick={() => onItemStatus(item, "cooking")}
-                >
-                  Готовить
-                </button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+        <ul className="ticket__dishes">
+          {items.map((item) => (
+            <DishRow
+              key={item.id}
+              item={item}
+              busy={busyId === item.id}
+              onStatus={onItemStatus}
+            />
+          ))}
+        </ul>
+      </div>
 
-      <footer className="kds-card__foot">
-        <div className="kds-progress">
-          <div className="kds-progress__head">
-            <span>Готово {readyCount} из {items.length}</span>
-            <span>{progress}%</span>
-          </div>
-          <div className="kds-progress__track">
-            <span className="kds-progress__bar" style={{ width: `${progress}%` }} />
-          </div>
-        </div>
+      <footer className="ticket__foot">
+        <span className="ticket__ratio">
+          <b>{readyCount}</b>
+          <span>/{items.length}</span>
+        </span>
+
+        <span className="ticket__ticks" aria-hidden="true">
+          {items.map((item) => (
+            <i key={item.id} className={itemState(item) === "ready" ? "is-on" : ""} />
+          ))}
+        </span>
+
         <button
-          className="kds-btn kds-btn--serve"
+          className="ticket__serve"
           type="button"
           disabled={!allReady || busyId === order.id}
           onClick={() => onOrderReady(order)}
+          aria-label={
+            allReady
+              ? "Отдать заказ"
+              : `Заказ не готов: осталось ${left} ${plural(left, "блюдо", "блюда", "блюд")}`
+          }
         >
-          {busyId === order.id ? <Loader2 className="kds-spin" size={18} aria-hidden="true" /> : null}
-          {allReady ? "Заказ готов" : "Заказ не готов"}
+          {busyId === order.id ? (
+            <IconSpinner size={16} />
+          ) : allReady ? (
+            <>
+              Отдать
+              <IconArrow size={16} />
+            </>
+          ) : (
+            `Ждём ${left}`
+          )}
         </button>
       </footer>
     </article>
   );
 }
+
+// ── Левая стойка с инструментами ──────────────────────────────────────────
+
+function Rail({ online, soundOn, onSound, onRefresh, onFullscreen, onLogout }) {
+  return (
+    <aside className="rail">
+      <div className="rail__mark" aria-label="MARJON">
+        M
+      </div>
+
+      <div
+        className={`rail__conn ${online ? "is-on" : "is-off"}`}
+        title={online ? "Связь с сервером есть" : "Нет связи с сервером"}
+      >
+        {online ? <IconWifi size={16} /> : <IconWifiOff size={16} />}
+        <span className="rail__conn-text">{online ? "онлайн" : "офлайн"}</span>
+      </div>
+
+      <div className="rail__tools">
+        <button
+          className={`rail__btn ${soundOn ? "is-on" : ""}`}
+          type="button"
+          onClick={onSound}
+          title={soundOn ? "Звук включён" : "Звук выключен"}
+          aria-pressed={soundOn}
+          aria-label={soundOn ? "Выключить звук" : "Включить звук"}
+        >
+          {soundOn ? <IconSound size={19} /> : <IconSoundOff size={19} />}
+        </button>
+
+        <button
+          className="rail__btn"
+          type="button"
+          onClick={onRefresh}
+          title="Обновить заказы"
+          aria-label="Обновить заказы"
+        >
+          <IconRefresh size={19} />
+        </button>
+
+        <button
+          className="rail__btn"
+          type="button"
+          onClick={onFullscreen}
+          title="Во весь экран"
+          aria-label="Во весь экран"
+        >
+          <IconExpand size={19} />
+        </button>
+      </div>
+
+      <button
+        className="rail__btn rail__btn--out"
+        type="button"
+        onClick={onLogout}
+        title="Сменить повара"
+        aria-label="Сменить повара"
+      >
+        <IconLogout size={19} />
+      </button>
+    </aside>
+  );
+}
+
+// ── Общая оболочка экранов входа ──────────────────────────────────────────
+
+function GateAside({ eyebrow, title, facts, footer }) {
+  return (
+    <aside className="gate__aside">
+      <div className="gate__brand">
+        <span className="monogram">M</span>
+        <span className="gate__wordmark">
+          MARJON
+          <small>кухонный экран</small>
+        </span>
+      </div>
+
+      <div className="gate__pitch">
+        <p className="eyebrow">{eyebrow}</p>
+        <h1 className="gate__title">{title}</h1>
+      </div>
+
+      <div className="gate__tail">
+        <ol className="gate__facts">
+          {facts.map((fact) => (
+            <li key={fact}>{fact}</li>
+          ))}
+        </ol>
+
+        <div className="gate__foot">{footer}</div>
+      </div>
+    </aside>
+  );
+}
+
+// ── Экран ─────────────────────────────────────────────────────────────────
 
 export default function KitchenApp() {
   // Экран настраивается один раз (логин+пароль филиала), дальше повара
@@ -223,6 +392,7 @@ export default function KitchenApp() {
   const [online, setOnline] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [toast, setToast] = useState("");
+  const [filter, setFilter] = useState("all");
   const seenIdsRef = useRef(new Set());
   const toastTimerRef = useRef(null);
   const pinInputRef = useRef(null);
@@ -235,7 +405,7 @@ export default function KitchenApp() {
   function flashToast(text) {
     setToast(text);
     clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setToast(""), 3000);
+    toastTimerRef.current = setTimeout(() => setToast(""), 3200);
   }
 
   // Тикающий таймер карточек (раз в секунду)
@@ -441,6 +611,7 @@ export default function KitchenApp() {
     setPinError("");
     setOrders([]);
     setError(null);
+    setFilter("all");
     seenIdsRef.current = new Set();
   }
 
@@ -508,18 +679,11 @@ export default function KitchenApp() {
   const summary = useMemo(
     () => ({
       total: orders.length,
-      items: orders.reduce((sum, o) => sum + (o.items?.length || 0), 0),
-      ready: orders.reduce(
-        (sum, o) => sum + (o.items ?? []).filter((i) => itemState(i) === "ready").length,
-        0,
-      ),
       // Заказы, которые горят: ждут больше 20 минут и ещё не готовы целиком.
-      urgent: orders.filter((o) => {
-        const mins = Math.floor((now - parseTs(o.created_at)) / 60000);
-        const items = o.items ?? [];
-        const allReady = items.length > 0 && items.every((i) => itemState(i) === "ready");
-        return mins > 20 && !allReady;
-      }).length,
+      urgent: orders.filter(
+        (o) => Math.floor((now - parseTs(o.created_at)) / 60000) > 20 && !isAllReady(o),
+      ).length,
+      readyToServe: orders.filter(isAllReady).length,
     }),
     [orders, now],
   );
@@ -530,67 +694,82 @@ export default function KitchenApp() {
     [orders],
   );
 
+  const visibleOrders = useMemo(() => {
+    if (filter === "ready") return sortedOrders.filter(isAllReady);
+    if (filter === "cooking") return sortedOrders.filter((o) => !isAllReady(o));
+    return sortedOrders;
+  }, [sortedOrders, filter]);
+
+  const clock = clockParts(now);
+
   // Настройка экрана (один раз на устройстве): логин+пароль филиала
   if (!deviceReady) {
     return (
-      <div className="kds-auth">
-        <form className="kds-auth__card" onSubmit={handleSetupSubmit}>
-          <div className="kds-auth__brand">
-            <span className="kds-auth__logo">
-              <ChefHat size={24} aria-hidden="true" />
-            </span>
-            <span className="kds-auth__wordmark">
-              <strong>MARJON</strong>
-              <small>Кухонный экран</small>
-            </span>
-          </div>
+      <div className="gate">
+        <GateAside
+          eyebrow="Первый запуск"
+          title={
+            <>
+              Один раз настроить,
+              <br />
+              дальше — только PIN
+            </>
+          }
+          facts={[
+            "Логин и пароль филиала вводятся один раз",
+            "PIN повара — четыре цифры на смену",
+            "Экран запоминает филиал сам",
+          ]}
+          footer={<span className="gate__note">MARJON POS · кухня</span>}
+        />
 
-          <div className="kds-auth__intro">
-            <h1 className="kds-auth__title">Подключение экрана</h1>
-            <p className="kds-auth__sub">
-              Введите логин и пароль филиала — один раз на этом устройстве. Дальше повара
-              входят по PIN.
+        <section className="gate__panel">
+          <header className="gate__head">
+            <p className="eyebrow">Подключение</p>
+            <h2 className="gate__panel-title">Экран кухни</h2>
+            <p className="gate__hint">
+              Данные филиала нужны, чтобы заказы приходили именно на эту кухню.
             </p>
-          </div>
+          </header>
 
-          {setupError ? (
-            <div className="kds-alert" role="alert">
-              <AlertTriangle size={18} aria-hidden="true" />
-              <span>{setupError}</span>
-            </div>
-          ) : null}
+          <form className="form" onSubmit={handleSetupSubmit} noValidate>
+            {setupError ? (
+              <div className="alert" role="alert">
+                <IconAlert size={17} />
+                <span>{setupError}</span>
+              </div>
+            ) : null}
 
-          <label className="kds-field">
-            <span className="kds-field__label">Логин филиала</span>
-            <input
-              className="kds-field__input"
-              type="text"
-              value={login}
-              onChange={(e) => setLogin(e.target.value)}
-              placeholder="+998 90 111-22-33"
-              autoComplete="username"
-            />
-          </label>
+            <label className="field">
+              <span className="field__label">Логин филиала</span>
+              <input
+                className="field__input"
+                type="text"
+                value={login}
+                onChange={(e) => setLogin(e.target.value)}
+                placeholder="+998 90 111-22-33"
+                autoComplete="username"
+              />
+            </label>
 
-          <label className="kds-field">
-            <span className="kds-field__label">Пароль филиала</span>
-            <input
-              className="kds-field__input"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              autoComplete="current-password"
-            />
-          </label>
+            <label className="field">
+              <span className="field__label">Пароль филиала</span>
+              <input
+                className="field__input"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                autoComplete="current-password"
+              />
+            </label>
 
-          <button className="kds-btn kds-btn--primary kds-btn--block" type="submit" disabled={setupBusy}>
-            {setupBusy ? <Loader2 className="kds-spin" size={18} aria-hidden="true" /> : <ShieldCheck size={18} aria-hidden="true" />}
-            {setupBusy ? "Подключение…" : "Подключить экран"}
-          </button>
-
-          <p className="kds-auth__foot">MARJON POS · кухня</p>
-        </form>
+            <button className="btn btn--primary btn--block" type="submit" disabled={setupBusy}>
+              {setupBusy ? <IconSpinner size={18} /> : null}
+              {setupBusy ? "Подключаем…" : "Подключить экран"}
+            </button>
+          </form>
+        </section>
       </div>
     );
   }
@@ -598,29 +777,41 @@ export default function KitchenApp() {
   // Вход повара: четыре цифры, крупные кнопки, маска в поле
   if (!authed) {
     return (
-      <div className="kds-auth">
-        <div className="kds-auth__card kds-auth__card--pin">
-          <div className="kds-auth__brand">
-            <span className="kds-auth__logo">
-              <ChefHat size={24} aria-hidden="true" />
-            </span>
-            <span className="kds-auth__wordmark">
-              <strong>MARJON</strong>
-              <small>Кухонный экран</small>
-            </span>
-          </div>
+      <div className="gate">
+        <GateAside
+          eyebrow="Смена"
+          title={
+            <>
+              Четыре цифры —
+              <br />
+              и кухня под контролем
+            </>
+          }
+          facts={[
+            "Заказы приходят сами, без обновления страницы",
+            "Готовность блюда — одно касание",
+            "Экран помнит филиал между сменами",
+          ]}
+          footer={
+            <button className="linkbtn" type="button" onClick={handleForgetDevice}>
+              Сбросить привязку экрана
+            </button>
+          }
+        />
 
-          <div className="kds-auth__intro">
-            <h1 className="kds-auth__title">Вход повара</h1>
-            <p className="kds-auth__sub">{branch?.name || "Введите PIN из 4 цифр"}</p>
-          </div>
+        <section className="gate__panel">
+          <header className="gate__head">
+            <p className="eyebrow">{branch?.name || "Филиал"}</p>
+            <h2 className="gate__panel-title">Вход повара</h2>
+            <p className="gate__hint">Введите PIN из четырёх цифр — вход произойдёт сам.</p>
+          </header>
 
-          <div className={`kds-pin ${pinError ? "is-error" : ""} ${pinBusy ? "is-busy" : ""}`}>
+          <div className={`pin ${pinError ? "is-error" : ""} ${pinBusy ? "is-busy" : ""}`}>
             {/* Настоящее поле: держит фокус, принимает и экранную, и физическую
                 клавиатуру. Само скрыто — рисуем маску из четырёх ячеек. */}
             <input
               ref={pinInputRef}
-              className="kds-pin__input"
+              className="pin__input"
               type="text"
               inputMode="none"
               autoComplete="off"
@@ -631,29 +822,33 @@ export default function KitchenApp() {
               onChange={handlePinChange}
               aria-label="PIN повара, 4 цифры"
             />
-            <div className="kds-pin__slots" aria-hidden="true">
+            <div
+              className="pin__slots"
+              aria-hidden="true"
+              onClick={() => pinInputRef.current?.focus()}
+            >
               {[0, 1, 2, 3].map((i) => (
-                <span key={i} className={`kds-pin__slot ${pin.length > i ? "is-filled" : ""}`} />
+                <span key={i} className={`pin__slot ${pin.length > i ? "is-filled" : ""}`} />
               ))}
             </div>
-            <div className="kds-pin__hint" role={pinError ? "alert" : undefined}>
+            <p className="pin__msg" role={pinError ? "alert" : undefined}>
               {pinBusy ? (
                 <>
-                  <Loader2 className="kds-spin" size={14} aria-hidden="true" /> Проверяем PIN…
+                  <IconSpinner size={14} /> Проверяем PIN
                 </>
               ) : pinError ? (
                 pinError
               ) : (
-                "Введите 4 цифры"
+                "Можно набирать на клавиатуре экрана"
               )}
-            </div>
+            </p>
           </div>
 
-          <div className="kds-keypad">
+          <div className="keypad">
             {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((digit) => (
               <button
                 key={digit}
-                className="kds-keypad__key"
+                className="keypad__key"
                 type="button"
                 disabled={pinBusy}
                 onClick={() => pressDigit(digit)}
@@ -661,142 +856,174 @@ export default function KitchenApp() {
                 {digit}
               </button>
             ))}
-            <button className="kds-keypad__key kds-keypad__key--ghost" type="button" onClick={handleForgetDevice}>
-              Сброс
-            </button>
-            <button className="kds-keypad__key" type="button" disabled={pinBusy} onClick={() => pressDigit("0")}>
+            <span className="keypad__gap" aria-hidden="true" />
+            <button
+              className="keypad__key"
+              type="button"
+              disabled={pinBusy}
+              onClick={() => pressDigit("0")}
+            >
               0
             </button>
             <button
-              className="kds-keypad__key kds-keypad__key--ghost"
+              className="keypad__key keypad__key--ghost"
               type="button"
               disabled={pinBusy || !pin.length}
               onClick={pressBackspace}
               aria-label="Стереть последнюю цифру"
             >
-              <Delete size={22} aria-hidden="true" />
+              <IconBackspace size={22} />
             </button>
           </div>
-        </div>
+        </section>
       </div>
     );
   }
 
+  const tabs = [
+    { key: "all", label: "Все", count: summary.total },
+    { key: "cooking", label: "Готовим", count: summary.total - summary.readyToServe },
+    { key: "ready", label: "К отдаче", count: summary.readyToServe },
+  ];
+
   return (
     <div className="kds">
-      <header className="kds-bar">
-        <div className="kds-bar__brand">
-          <span className="kds-auth__logo kds-auth__logo--sm">
-            <ChefHat size={20} aria-hidden="true" />
-          </span>
-          <div className="kds-bar__names">
-            <span className="kds-bar__title">Кухня</span>
-            <span className="kds-bar__meta">
-              {branch?.name || "Филиал"}
-              {cookName ? ` · ${cookName}` : ""}
-            </span>
-          </div>
-        </div>
+      <Rail
+        online={online}
+        soundOn={soundOn}
+        onSound={() => setSoundOn((v) => !v)}
+        onRefresh={refreshNow}
+        onFullscreen={() => document.documentElement.requestFullscreen?.()}
+        onLogout={handleCookLogout}
+      />
 
-        <div className="kds-bar__stats">
-          <span className="kds-stat">
-            <b>{summary.total}</b> {plural(summary.total, "заказ", "заказа", "заказов")}
-          </span>
-          <span className="kds-stat">
-            <b>{summary.items}</b> {plural(summary.items, "блюдо", "блюда", "блюд")}
-          </span>
-          {summary.urgent > 0 ? (
-            <span className="kds-stat kds-stat--alert">
-              <b>{summary.urgent}</b> {plural(summary.urgent, "горит", "горят", "горят")}
-            </span>
-          ) : null}
-          <span className={`kds-conn ${online ? "is-on" : "is-off"}`}>
-            {online ? <Wifi size={14} aria-hidden="true" /> : <WifiOff size={14} aria-hidden="true" />}
-            {online ? "на связи" : "нет связи"}
-          </span>
-        </div>
-
-        <div className="kds-bar__actions">
-          <button
-            className={`kds-icon-btn ${soundOn ? "is-on" : ""}`}
-            type="button"
-            onClick={() => setSoundOn((v) => !v)}
-            title={soundOn ? "Звук включён" : "Звук выключен"}
-            aria-pressed={soundOn}
-          >
-            {soundOn ? <Volume2 size={20} aria-hidden="true" /> : <VolumeX size={20} aria-hidden="true" />}
-          </button>
-          <button className="kds-icon-btn" type="button" onClick={refreshNow} title="Обновить заказы">
-            <RefreshCw size={20} aria-hidden="true" />
-          </button>
-          <button
-            className="kds-icon-btn"
-            type="button"
-            onClick={() => document.documentElement.requestFullscreen?.()}
-            title="Во весь экран"
-          >
-            <Maximize size={20} aria-hidden="true" />
-          </button>
-          <button className="kds-btn kds-btn--ghost" type="button" onClick={handleCookLogout}>
-            <LogOut size={18} aria-hidden="true" />
-            Сменить повара
-          </button>
-        </div>
-      </header>
-
-      {error ? (
-        <main className="kds-board kds-board--state">
-          <div className="kds-state">
-            <span className="kds-state__icon kds-state__icon--danger">
-              <WifiOff size={28} aria-hidden="true" />
-            </span>
-            <h2 className="kds-state__title">Нет связи с сервером</h2>
-            <p className="kds-state__text">
-              Заказы не загрузились. Проверьте интернет и попробуйте снова — экран сам
-              подхватит новые заказы, как только связь вернётся.
+      <div className="kds__main">
+        <header className="head">
+          <div className="head__id">
+            <p className="eyebrow">
+              Кухня · {branch?.name || "филиал"}
             </p>
-            <button className="kds-btn kds-btn--primary" type="button" onClick={refreshNow}>
-              <RefreshCw size={18} aria-hidden="true" />
-              Обновить
-            </button>
+            <h1 className="head__title">{cookName || "Повар"}</h1>
           </div>
-        </main>
-      ) : loading ? (
-        <main className="kds-board kds-board--state">
-          <div className="kds-state">
-            <Loader2 className="kds-spin kds-state__spinner" size={32} aria-hidden="true" />
-            <p className="kds-state__text">Загружаем заказы…</p>
+
+          <div className="head__tabs" role="group" aria-label="Фильтр заказов">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                className={`tab ${filter === tab.key ? "is-active" : ""}`}
+                type="button"
+                aria-pressed={filter === tab.key}
+                onClick={() => setFilter(tab.key)}
+              >
+                {tab.label}
+                <span className="tab__count">{tab.count}</span>
+              </button>
+            ))}
           </div>
-        </main>
-      ) : (
-        <main className="kds-board">
-          {sortedOrders.map((order) => (
-            <KdsOrderCard
-              key={order.id}
-              order={order}
-              now={now}
-              busyId={busyId}
-              onItemStatus={handleItemStatus}
-              onOrderReady={handleOrderReady}
-            />
-          ))}
-          {!sortedOrders.length ? (
-            <div className="kds-state">
-              <span className="kds-state__icon kds-state__icon--ok">
-                <CheckCheck size={28} aria-hidden="true" />
-              </span>
-              <h2 className="kds-state__title">Все заказы готовы</h2>
-              <p className="kds-state__text">
-                Новые заказы появятся здесь автоматически — экран обновляется сам.
-              </p>
-            </div>
+
+          {summary.urgent > 0 ? (
+            <p className="head__alarm">
+              <IconAlert size={15} />
+              {summary.urgent} {plural(summary.urgent, "заказ", "заказа", "заказов")}{" "}
+              {plural(summary.urgent, "горит", "горят", "горят")}
+            </p>
           ) : null}
+
+          <div className="head__clock" aria-label="Текущее время">
+            <span className="clock">
+              <b>
+                {clock.hh}:{clock.mm}
+              </b>
+              <i>{clock.ss}</i>
+            </span>
+            <span className="head__date">{clock.date}</span>
+          </div>
+        </header>
+
+        <main className="board" aria-busy={loading ? "true" : "false"}>
+          {error ? (
+            <section className="state">
+              <p className="eyebrow">Нет связи</p>
+              <h2 className="state__title">Сервер не отвечает</h2>
+              <p className="state__text">
+                Заказы не загрузились. Проверьте интернет — экран сам подхватит очередь, как
+                только связь вернётся.
+              </p>
+              <button className="btn btn--primary" type="button" onClick={refreshNow}>
+                <IconRefresh size={17} />
+                Обновить
+              </button>
+            </section>
+          ) : loading ? (
+            <>
+              {[0, 1, 2, 3].map((i) => (
+                <div className="sk-ticket" key={i} aria-hidden="true">
+                  <div className="sk sk--stub" />
+                  <div className="sk sk--body" />
+                </div>
+              ))}
+              <p className="board__loading">
+                <IconSpinner size={15} /> Загружаем заказы
+              </p>
+            </>
+          ) : visibleOrders.length ? (
+            visibleOrders.map((order) => (
+              <Ticket
+                key={order.id}
+                order={order}
+                now={now}
+                busyId={busyId}
+                onItemStatus={handleItemStatus}
+                onOrderReady={handleOrderReady}
+              />
+            ))
+          ) : orders.length ? (
+            <section className="state">
+              <p className="eyebrow">Фильтр</p>
+              <h2 className="state__title">Здесь пока пусто</h2>
+              <p className="state__text">
+                {filter === "ready"
+                  ? "Все заказы ещё в работе. Как только блюда будут готовы, они появятся здесь."
+                  : "В работе нет заказов — все блюда уже отданы."}
+              </p>
+              <button className="btn" type="button" onClick={() => setFilter("all")}>
+                Показать все заказы
+              </button>
+            </section>
+          ) : (
+            <section className="state state--empty">
+              <div className="state__intro">
+                <p className="eyebrow">Очередь пуста</p>
+                <h2 className="state__title">Кухня свободна</h2>
+                <p className="state__text">
+                  Новые заказы появятся здесь сами: экран слушает очередь и обновляется
+                  каждые пять секунд.
+                </p>
+                <p className="state__sync">
+                  последняя синхронизация <b>{clock.hh}:{clock.mm}:{clock.ss}</b>
+                </p>
+              </div>
+
+              {/* Пустые места под чеки: объясняют, что сюда приедут заказы,
+                  и не оставляют экран пустым пятном. */}
+              <div className="state__slots" aria-hidden="true">
+                {[0, 1, 2].map((slot) => (
+                  <span className="state__slot" key={slot}>
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                ))}
+              </div>
+            </section>
+          )}
         </main>
-      )}
+      </div>
 
       {toast ? (
-        <div className="kds-toast" role="status">
-          {toast}
+        <div className="toast" role="status" aria-live="polite">
+          <span className="toast__rail" aria-hidden="true" />
+          <span className="toast__text">{toast}</span>
         </div>
       ) : null}
     </div>
