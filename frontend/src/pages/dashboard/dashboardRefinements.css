@@ -1,0 +1,56 @@
+/* Smaller chart summaries leave more space for the plot, not a taller card. */
+body.dashboard-body .dashboard-shell .owner-main-grid .premium-chart .revenue-stat-grid > div {
+  box-sizing: border-box;
+  min-height: 50px;
+  height: 50px;
+  padding: 7px 12px;
+  gap: 4px;
+}
+@media (min-width: 1281px) {
+  body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content .owner-main-grid .premium-chart .chart-wrap {
+    height: 310px;
+    margin-top: 16px;
+  }
+}
+
+/* The clear hover outline is now present at rest as well. */
+body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content .owner-main-grid .premium-chart .owner-revenue-switcher .report-period-button.owner-dashboard-period__trigger,
+body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content .owner-main-grid .premium-chart .owner-revenue-switcher .report-period-button.owner-dashboard-period__trigger:hover {
+  border-color: rgba(31, 201, 201, .7);
+  box-shadow: none;
+}
+body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content .owner-main-grid .premium-chart .owner-revenue-switcher .report-period-button.owner-dashboard-period__trigger:hover {
+  box-shadow: 0 0 0 3px rgba(29, 181, 181, .10);
+}
+
+/* This floating panel needs separation from the plot even while the pointer
+   is elsewhere. Beat the dashboard-wide flat resting-surface selector. */
+body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content .owner-main-grid .premium-chart .owner-revenue-switcher .report-period-picker .report-date-menu {
+  box-shadow:
+    0 0 0 1px rgba(29, 181, 181, .05),
+    0 4px 16px rgba(15, 23, 42, .08),
+    0 20px 50px rgba(15, 23, 42, .13);
+}
+
+body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band .kpi-grid--premium .premium-kpi.dashboard-kpi-card--visual,
+body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band .kpi-grid--premium .premium-kpi.dashboard-kpi-card--visual:hover {
+  border-color: rgba(29, 181, 181, .32);
+  transform: none;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band .kpi-grid--premium .premium-kpi.dashboard-kpi-card--visual:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(13, 39, 72, .12);
+}
+@media (prefers-reduced-motion: reduce) {
+  body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content > .owner-kpi-band .kpi-grid--premium .premium-kpi.dashboard-kpi-card--visual:hover {
+    transform: none;
+    transition: none;
+  }
+}
+body.dashboard-body .dashboard-shell .owner-kpi-band .premium-kpi.dashboard-kpi-card--income,
+body.dashboard-body .dashboard-shell .owner-kpi-band .premium-kpi.dashboard-kpi-card--income:hover {
+  background-image:
+    radial-gradient(120px 120px at 90% 95%, rgba(245, 158, 11, .15), transparent 70%),
+    linear-gradient(115deg, transparent 45%, rgba(245, 158, 11, .09));
+}

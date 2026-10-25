@@ -10,7 +10,10 @@ vi.mock("../../api/dashboard", () => ({ dashboardService: { loadOwnerOverview: v
 vi.mock("../../components/Icon", () => ({ default: () => <span aria-hidden="true" /> }));
 vi.mock("../../components/Loader", () => ({ PageLoader: () => <div>loading</div> }));
 vi.mock("./RevenueChart", () => ({
-  default: ({ sales }) => <div data-testid="normal-chart">{JSON.stringify(sales)}</div>,
+  // Пробрасываем valueKey: тест обязан видеть, ЧТО именно рисует график.
+  default: ({ sales, valueKey }) => (
+    <div data-testid="normal-chart" data-value-key={valueKey}>{JSON.stringify(sales)}</div>
+  ),
 }));
 vi.mock("./DashboardCards", () => ({
   EmptyState: ({ title }) => <div>{title}</div>,
@@ -32,7 +35,7 @@ describe("Dashboard KPI dialog tables share the Recipes skin", () => {
 
   it("removes badges only from the five upper cards, preserving dialog badges", async () => {
     const { container } = render(<OwnerDashboard />);
-    const button = await screen.findByRole("button", { name: /Выручка за день/ });
+    const button = await screen.findByRole("button", { name: /Чистая прибыль/ });
     expect(container.querySelectorAll(".premium-kpi")).toHaveLength(5);
     expect(container.querySelectorAll(".premium-kpi .trend")).toHaveLength(0);
     expect(container.querySelectorAll(".premium-kpi__icon")).toHaveLength(5);

@@ -707,7 +707,7 @@ describe("Warehouse stock summary (V36 dishes family)", () => {
     expect(meat.qty).toBeCloseTo(1, 6);
     expect(meat.sum).toBeCloseTo(40000, 6);
     // Блюда складываются по имени и сортируются по расходу (Плов 0.3 + 0.4).
-    expect(meat.dishes).toEqual([{ name: "Плов", qty: 0.7 }, { name: "Шашлык", qty: 0.2 }]);
+    expect(meat.dishes).toEqual([{ name: "Плов", qty: 0.7, sum: 28000 }, { name: "Шашлык", qty: 0.2, sum: 8000 }]);
     // Документ без блюд уходит в «Ручной расход», а не в разбивку.
     expect(meat.manual).toHaveLength(1);
     expect(meat.manualQty).toBeCloseTo(0.1, 6);
@@ -720,6 +720,18 @@ describe("Warehouse stock summary (V36 dishes family)", () => {
     expect(salt.unlinkedQty).toBeCloseTo(0.06, 6);
     expect(salt.unlinkedReasons.order_deleted).toMatchObject({ count: 1, qty: 0.06, sum: 480 });
     expect(salt.unlinkedReasons.order_deleted.candidates).toEqual([]);
+  });
+
+  it("allocates actual expense amounts to dishes and preserves rounding totals", () => {
+    const [tomato] = aggregateExpenseProducts([
+      { name: "Помидор", qty: 8, sum: 28000, dishes: [{ name: "Борщ", qty: 7 }, { name: "Плов", qty: 1 }] },
+    ]);
+    expect(tomato.dishes).toEqual([{ name: "Борщ", qty: 7, sum: 24500 }, { name: "Плов", qty: 1, sum: 3500 }]);
+    const [rounded] = aggregateExpenseProducts([
+      { name: "Соль", qty: 3, sum: 1, dishes: [{ name: "A", qty: 1 }, { name: "B", qty: 1 }, { name: "C", qty: 1 }] },
+    ]);
+    expect(rounded.dishes.map((dish) => dish.sum)).toEqual([0.33, 0.34, 0.33]);
+    expect(rounded.dishes.reduce((total, dish) => total + dish.sum, 0)).toBe(rounded.sum);
   });
 
   it("8m2. recipe rewrite keeps the sold dishes of the order as candidates", () => {
@@ -784,6 +796,7 @@ describe("Warehouse stock summary (V36 dishes family)", () => {
     expect(within(detail).queryByText("Плов")).toBeNull();
     fireEvent.click(within(detail).getByRole("button", { name: "Развернуть расход продукта kartoshka" }));
     expect(await within(detail).findByText("Плов")).toBeInTheDocument();
+    expect(within(detail).getByText("Плов").closest("tr").textContent).toMatch(/12[\s\u00a0\u202f]*000 UZS/);
     expect(within(detail).getByText("Шашлык")).toBeInTheDocument();
     expect(within(detail).getByText("Ручной расход")).toBeInTheDocument();
     // Причина потери блюда подписана, а не спрятана за «без разбивки».

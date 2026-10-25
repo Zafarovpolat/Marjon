@@ -945,17 +945,36 @@
   align-items: baseline;
   line-height: 1.4;
 }
-/* Info-row weight: labels are pinned regular by the base rule, so an
-   explicit winning rule is required — otherwise the Bold control is dead.
-   Note: default orderNumber/dateTime templates use weight=bold, therefore
+/* Info-row weight: подпись И значение слушают «Жирность» — как в кухонном
+   чеке. Раньше значение справа было жёстко 700 (базовое правило выше),
+   поэтому переключатель двигал только левую сторону.
+   Блоки без контролов («Тип заказа») класса веса не получают и остаются
+   такими, как были. */
+.receipt-settings-page .receipt-preview--customer .receipt-preview__info-row.receipt-preview__block--weight-standard b,
+.receipt-settings-page .receipt-preview--customer .receipt-preview__info-row.receipt-preview__block--weight-standard span {
+  font-weight: 400;
+}
+/* Note: default orderNumber/dateTime templates use weight=bold, therefore
    their labels now render bold in preview — converging with the physical
    ESC/POS formatter, which already applies BOLD_ON for these blocks. */
-.receipt-settings-page .receipt-preview--customer .receipt-preview__info-row.receipt-preview__block--weight-bold b {
+.receipt-settings-page .receipt-preview--customer .receipt-preview__info-row.receipt-preview__block--weight-bold b,
+.receipt-settings-page .receipt-preview--customer .receipt-preview__info-row.receipt-preview__block--weight-bold span {
   font-weight: 700;
 }
 .receipt-settings-page .receipt-preview--customer .receipt-preview__info-row span {
   border-left: 0;
   padding-left: 0;
+}
+/* Оплаты — тот же принцип: «Жирность» блока «Способ оплаты» двигает и
+   подпись, и сумму. Раньше сумма была прибита к 700 и переключатель
+   не делал ничего. */
+.receipt-settings-page .receipt-preview--customer .receipt-preview__block--weight-standard .receipt-preview__payment-row span,
+.receipt-settings-page .receipt-preview--customer .receipt-preview__block--weight-standard .receipt-preview__payment-row b {
+  font-weight: 400;
+}
+.receipt-settings-page .receipt-preview--customer .receipt-preview__block--weight-bold .receipt-preview__payment-row span,
+.receipt-settings-page .receipt-preview--customer .receipt-preview__block--weight-bold .receipt-preview__payment-row b {
+  font-weight: 700;
 }
 /* Items: bold header, readable rows, air between rows, NO divider after
    every dish (fixed reference rules separate sections instead). Long names
@@ -984,6 +1003,9 @@
   padding-bottom: 5px;
   font-size: 15px;
   line-height: 1.35;
+  /* Шапка таблицы — обычный bold, не extra bold: на печати 800 читалась
+     тяжелее строк блюд и спорила с «Итого». */
+  font-weight: 700;
 }
 .receipt-settings-page .receipt-preview--customer .receipt-preview__items-head span:nth-child(2),
 .receipt-settings-page .receipt-preview--customer .receipt-preview__item-row span:nth-child(2) {
@@ -1014,7 +1036,7 @@
   margin: 14px 0 8px;
   font-size: 21px;
   line-height: 1.2;
-  font-weight: 800;
+  font-weight: 700;
 }
 .receipt-settings-page .receipt-preview--customer .receipt-preview__total.receipt-preview__block--size-large {
   font-size: 23px;
@@ -1023,16 +1045,17 @@
   font-size: 25px;
 }
 .receipt-settings-page .receipt-preview--customer .receipt-preview__total.receipt-preview__block--weight-bold {
-  font-weight: 900;
+  font-weight: 700;
 }
 /* Total amount follows the container weight: the shared base pins `b` at a
    fixed weight, which made the Bold control nearly invisible (label moved,
-   amount never did). Standard renders the calm approved amount. */
+   amount never did). Стандартный — спокойная сумма, «Жирный» — та же 700,
+   что и подпись: 800/900 на этом шрифте читались тяжелее всего чека. */
 .receipt-settings-page .receipt-preview--customer .receipt-preview__total b {
   font-weight: 500;
 }
 .receipt-settings-page .receipt-preview--customer .receipt-preview__total.receipt-preview__block--weight-bold b {
-  font-weight: 900;
+  font-weight: 700;
 }
 /* Payment block sits right after the total rule: the shared base adds a
    tall top margin that reads as an empty gap above Наличные. */
@@ -1370,6 +1393,7 @@
   margin: 0; padding: 5px 8px 3px;
   font-size: 9px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
   color: #94a3b8;
+  text-align: center;
 }
 .receipt-separator-select__option {
   display: grid; grid-template-columns: 1fr 74px 16px; align-items: center; gap: 8px;

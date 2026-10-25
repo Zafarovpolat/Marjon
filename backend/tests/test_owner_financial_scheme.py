@@ -24,6 +24,8 @@ async def test_income_minus_historical_cost_for_same_paid_orders_no_payment_join
     async with AsyncSession(report_engine, expire_on_commit=False) as db:
         company, branch, product, _, _ = await seed(db)
         paid = await add_order(db, company, branch, product, payments=(("completed", 100), ("completed", 120)), cancelled=True)
+        paid.service_fee = Decimal("33.50")
+        await db.flush()
         await cost(db, paid, 20)
         for payments in [(("pending", 220),), (("failed", 220),), (("refunded", 220),), (("completed", 100),)]:
             await add_order(db, company, branch, product, payments=payments)
@@ -33,6 +35,7 @@ async def test_income_minus_historical_cost_for_same_paid_orders_no_payment_join
         await cost(db, await add_order(db, other, ob, op), 1)
         result = await owner_financials(db, company.id, DAY, DAY)
         assert Decimal(result["income_total"]) == 220
+        assert Decimal(result["service_fee_total"]) == Decimal("33.50")
         assert Decimal(result["cogs_total"]) == 40
         assert Decimal(result["today_revenue"]) == 180
         assert result["today_orders"] == 1

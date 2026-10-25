@@ -3256,3 +3256,66 @@
     font-size: clamp(24px, 2.4vw, 28px);
   }
 }
+
+/* ORDERS-SCROLL-01: «Отчёт по заказам» не прокручивает страницу — прокручивается
+   только таблица. Шапка, период, кнопки и фильтры остаются на месте, а список
+   заказов едет внутри своей рамки, и его шапка колонок прилипает к верху.
+   Только desktop: на узких экранах оставляем обычную прокрутку страницы,
+   иначе таблица и открытая панель фильтров не помещаются вместе. */
+@media (min-width: 900px) {
+  body.dashboard-body .dashboard-main:has(.orders-report-page) {
+    overflow: hidden;
+  }
+
+  body.dashboard-body .dashboard-content:has(.orders-report-page) {
+    min-height: 0;
+  }
+
+  .orders-report-page {
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .orders-report-page .report-page-card {
+    /* Карточка = высота содержимого: на двух строках она не растягивается на
+       весь экран и не оставляет пустого места. Как только строк много, карточка
+       упирается в max-height и прокручивается уже таблица. */
+    flex: 0 1 auto;
+    max-height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Шапка, фильтры и чипы активных фильтров не сжимаются — уступает таблица. */
+  .orders-report-page .report-page-header,
+  .orders-report-page .orders-filter-collapse,
+  .orders-report-page .report-active-filters {
+    flex: none;
+  }
+
+  .orders-report-page .owner-report-table-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    /* Полоса прокрутки видна: она и есть граница «прокручивается только таблица». */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(15, 35, 60, 0.28) transparent;
+  }
+
+  .orders-report-page .owner-report-table-scroll::-webkit-scrollbar { width: 10px; height: 0; }
+  .orders-report-page .owner-report-table-scroll::-webkit-scrollbar-track { background: transparent; }
+  .orders-report-page .owner-report-table-scroll::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 10px;
+    background: rgba(15, 35, 60, 0.24) padding-box;
+  }
+
+  .orders-report-page .owner-report-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+}

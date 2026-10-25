@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRealKpis } from "./analyticsData";
+import { buildRealKpis, bucketIncome } from "./analyticsData";
 import { formatRevenueAxisTick } from "./RevenueChart";
 
 const summary = {
@@ -10,29 +10,46 @@ const summary = {
 const finance = [{ direction: "income", amount: 999999, category_name: "Ручной приход" }, { direction: "expense", amount: 50 }];
 const build = (data) => buildRealKpis(data, [], "2026-10-17", [], finance);
 
+// Порядок карточек на дашборде — требование владельца, а не деталь вёрстки:
+// денежный приход → чистая прибыль → заказы → средний чек → расходы.
+const CARD_ORDER = ["Денежный приход", "Чистая прибыль", "Заказы", "Средний чек", "Денежные расходы"];
+const income = (kpis) => kpis[0];
+const profit = (kpis) => kpis[1];
+const expense = (kpis) => kpis[4];
+
 describe("OWNER agreed financial scheme", () => {
+  it("keeps the owner's card order and the agreed labels", () => {
+    const kpis = build(summary);
+    expect(kpis.map((kpi) => kpi.label)).toEqual(CARD_ORDER);
+    // Класс карточки едет вместе с метрикой: перестановка не должна
+    // переназначить иллюстрацию/цвет соседней карточке.
+    expect(kpis.map((kpi) => kpi.className)).toEqual([
+      "premium-kpi--tables", "premium-kpi--revenue", "premium-kpi--orders",
+      "premium-kpi--avg", "premium-kpi--expense",
+    ]);
+  });
+
   it("shows income minus historical COGS without adding Finance again", () => {
     const kpis = build(summary);
-    expect(kpis[0].value).toBe("180");
-    expect(kpis[0].label).toBe("Выручка за период");
-    expect(kpis[3].value).toBe("220");
-    expect(kpis[3].table.rows).toEqual([{ name: "Наличные", amount: 220, percent: 100 }]);
-    expect(kpis[4].value).toBe("Скоро"); // Finance is not ready for this dashboard card.
-    expect(kpis[4].comingSoon).toBe(true);
-    expect(kpis[0].table.showShare).toBe(false);
-    expect(kpis[0].table.rows.map((r) => r.amount)).toEqual(["220.00", "40.00", "180.00"]);
+    expect(income(kpis).value).toBe("220");
+    expect(profit(kpis).value).toBe("180");
+    expect(income(kpis).table.rows).toEqual([{ name: "Наличные", amount: 220, percent: 100 }]);
+    expect(expense(kpis).value).toBe("Скоро"); // Finance is not ready for this dashboard card.
+    expect(expense(kpis).comingSoon).toBe(true);
+    expect(profit(kpis).table.showShare).toBe(false);
+    expect(profit(kpis).table.rows.map((r) => r.amount)).toEqual(["220.00", "40.00", "180.00"]);
   });
 
   it("does not invent profit when historical cost is missing, but keeps known income", () => {
     const kpis = build({ ...summary, today_revenue: null, cogs_total: null });
-    expect(kpis[0].value).toBe("Недоступно");
-    expect(kpis[3].value).toBe("220");
-    expect(kpis[0].table.formatValue(null)).toBe("Неизвестно");
+    expect(profit(kpis).value).toBe("Недоступно");
+    expect(income(kpis).value).toBe("220");
+    expect(profit(kpis).table.formatValue(null)).toBe("Неизвестно");
   });
 
   it("preserves a negative result rather than clamping it to zero", () => {
     const kpis = build({ ...summary, today_revenue: "-180.00", cogs_total: "400.00" });
-    expect(kpis[0].value).toMatch(/[-−]180/);
+    expect(profit(kpis).value).toMatch(/[-−]180/);
     expect(formatRevenueAxisTick(-50000, true)).toBe("−50K");
     expect(formatRevenueAxisTick(-200, true)).toBe("−200");
     expect(formatRevenueAxisTick(200, true)).toBe("200");
@@ -40,10 +57,22 @@ describe("OWNER agreed financial scheme", () => {
 
   it("distinguishes a failed financial report from a successful empty period", () => {
     const failed = build({ ...summary, income_total: null, cogs_total: null, today_revenue: null, financial_unavailable: true });
-    expect(failed[0].value).toBe("Недоступно");
-    expect(failed[3].value).toBe("Недоступно");
+    expect(profit(failed).value).toBe("Недоступно");
+    expect(income(failed).value).toBe("Недоступно");
     const empty = build({ ...summary, income_total: "0.00", cogs_total: "0.00", today_revenue: "0.00", today_orders: 0, avg_check: 0, payment_methods: [] });
-    expect(empty[0].value).toBe("0");
-    expect(empty[3].value).toBe("0");
+    expect(profit(empty).value).toBe("0");
+    expect(income(empty).value).toBe("0");
+  });
+});
+
+describe("bucketIncome (график денежного прихода)", () => {
+  it("prefers the gross income of the bucket over the net revenue", () => {
+    expect(bucketIncome({ income: "220.00", revenue: "180.00" })).toBe(220);
+  });
+
+  it("falls back to revenue when an older response has no income field", () => {
+    expect(bucketIncome({ revenue: "180.00" })).toBe(180);
+    expect(bucketIncome({ revenue: null })).toBe(0);
+    expect(bucketIncome(null)).toBe(0);
   });
 });

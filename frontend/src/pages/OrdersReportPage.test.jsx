@@ -19,6 +19,17 @@ vi.mock("../api/reports", () => ({
 
 vi.mock("../utils/excel", () => ({ exportToExcel: vi.fn() }));
 
+// Сам чек — отдельный компонент со своим тестом. Здесь проверяем только
+// контракт страницы: какую строку и в какой слой она открывает.
+vi.mock("./dashboard/OrderReceiptDialog", () => ({
+  default: ({ orderId, orderNumber, onOpenDetails }) => (
+    <div data-testid="receipt-dialog" data-order-id={orderId}>
+      {orderNumber}
+      <button type="button" onClick={onOpenDetails}>Детали заказа</button>
+    </div>
+  ),
+}));
+
 const options = {
   waiters: [
     { value: "waiter-1", label: "Официант 1" },
@@ -606,14 +617,18 @@ describe("OrdersReportPage filters", () => {
     expect(cells[7]).toHaveTextContent("—");
   });
 
-  it("opens the internal detail page by keyboard and returns using topbar Back", async () => {
+  it("opens the receipt of the clicked order by keyboard and reaches details from it", async () => {
     render(<OrdersReportPage />);
     await screen.findByText("42");
-    const row = screen.getByRole("button", { name: "Детали заказа 42" });
+    const row = screen.getByRole("button", { name: "Открыть чек заказа 42" });
     expect(row).toHaveAttribute("tabindex", "0");
     fireEvent.keyDown(row, { key: "Enter" });
+    // Строка открывает ЧЕК, а не страницу деталей.
+    expect(await screen.findByTestId("receipt-dialog")).toHaveTextContent("42");
+    expect(screen.queryByRole("heading", { name: "Заказ №42" })).toBeNull();
+    // Подробности по-прежнему доступны — кнопкой внутри чека.
+    fireEvent.click(screen.getByRole("button", { name: "Детали заказа" }));
     expect(await screen.findByRole("heading", { name: "Заказ №42" })).toBeInTheDocument();
-    expect(screen.queryByRole("dialog")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Назад" }));
     expect(await screen.findByRole("table", { name: "Отчёт по заказам" })).toBeInTheDocument();
   });
@@ -706,10 +721,11 @@ describe("OrdersReportPage filters", () => {
     expect(cells[7]).toHaveTextContent("Яков, Алишер");
   });
 
-  it("keeps row-click details working on internal order identity", async () => {
+  it("keeps row-click details reachable on internal order identity", async () => {
     render(<OrdersReportPage />);
     await screen.findByText("42");
-    fireEvent.click(screen.getByRole("button", { name: "Детали заказа 42" }));
+    fireEvent.click(screen.getByRole("button", { name: "Открыть чек заказа 42" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Детали заказа" }));
     expect(await screen.findByRole("heading", { name: "Заказ №42" })).toBeInTheDocument();
     expect(loadOrder).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111", expect.any(AbortSignal));
   });

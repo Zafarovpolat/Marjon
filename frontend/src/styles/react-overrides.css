@@ -20352,7 +20352,6 @@ body,#root {
   .card:hover,
   .premium-kpi:hover,
   .quick-actions__grid a:hover,
-  .recent-order:hover,
   .top-dish:hover {
     transform: translateY(-3px);
     box-shadow: 0 14px 35px rgba(15, 35, 70, 0.126);
@@ -20990,23 +20989,12 @@ body,#root {
     font-weight: 500;
   }
 
-  .recent-order small {
+  /* Статус последнего заказа — общий OrderStatus (точка + подпись), как в
+     «Отчёте по заказам». Плашек больше нет: только выравнивание в конце строки. */
+  .recent-order .report-order-status {
     justify-self: end;
-    min-height: 28px;
-    display: inline-flex;
-    align-items: center;
-
-    
-  }
-
-  .recent-order small.is-ready {
-    color: var(--color-success);
-    background: var(--color-success-bg);
-  }
-
-  .recent-order small.is-progress {
-    color: var(--color-warning);
-    background: var(--neutral-50);
+    font-size: 13px;
+    font-weight: 600;
   }
 
   .shift-summary-card__header {
@@ -25624,7 +25612,12 @@ body,#root {
   .owner-widgets .recent-orders-card {
     grid-column: auto;
     grid-row: auto;
-    min-height: 462px;
+    /* Раньше здесь стоял min-height: 462px — обе нижние карточки растягивались
+       до этой высоты независимо от содержимого, и под тремя заказами оставалось
+       ~270px пустоты. Теперь высоту задаёт содержимое, а align-items: stretch
+       на .owner-widgets всё равно выравнивает пару по более высокой карточке.
+       Небольшой floor оставлен только на случай пустого состояния. */
+    min-height: 260px;
   }
 
 .owner-widgets .recent-orders-list {
@@ -27650,8 +27643,7 @@ body,#root {
 
   /* unified hover for both */
   .dashboard-shell .top-dish:hover,
-  .dashboard-shell .top-dish--compact:hover,
-  .dashboard-shell .recent-order:hover {
+  .dashboard-shell .top-dish--compact:hover {
     background: #edf1f8;
     border-color: rgba(15,35,70,0.16);
     box-shadow: 0 2px 8px rgba(11,31,63,0.07);
@@ -35325,4 +35317,36 @@ body.dashboard-body .dashboard-shell .dashboard-sidebar .sidebar-brand__identity
   .login-pro-hero-copy li svg {
     color: var(--color-brand-hover);
   }
+}
+
+/* RECENT-ORDERS-GRID-01: «Последние заказы» — фиксированные колонки вместо
+   flex-потока. Раньше сумма прижималась к правому краю (margin-left: auto), а
+   статус шёл сразу за ней и наезжал на цифры. Теперь у каждой колонки своя
+   ширина: сумма стоит по центру своей колонки, статус — слева, поэтому цветные
+   точки у всех строк стоят на одной вертикали (как в «Отчёте по заказам»). */
+.dashboard-shell .recent-orders-list .recent-order {
+  display: grid;
+  /* Ширины подобраны под реальную карточку (~368px внутри): сумма не переносится
+     на вторую строку, а все колонки остаются на своих местах.
+     Последняя колонка — ФИКСИРОВАННАЯ, а не auto: при auto её ширина следовала
+     за подписью статуса («Новый» уже, чем «Завершён»), из-за чего fr-колонки
+     пересчитывались и точка статуса уезжала на 1px от строки к строке. */
+  grid-template-columns: 44px minmax(76px, auto) minmax(48px, 1fr) minmax(92px, 1fr) 84px;
+  align-items: center;
+  gap: 6px;
+}
+.dashboard-shell .recent-orders-list .recent-order em {
+  margin-left: 0;
+  text-align: center;
+  white-space: nowrap;
+}
+.dashboard-shell .recent-orders-list .recent-order span { white-space: nowrap; }
+.dashboard-shell .recent-order .report-order-status { white-space: nowrap; }
+.dashboard-shell .recent-order .report-order-status {
+  justify-self: start;
+}
+
+/* Compact end-of-page spacing; the five-row cards keep their own sizing. */
+body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) {
+  padding-bottom: 12px;
 }

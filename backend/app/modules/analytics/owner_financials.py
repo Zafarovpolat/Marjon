@@ -52,7 +52,7 @@ async def owner_financials(db, company_id, date_from: date, date_to: date, *, we
     orders = (await db.execute(
         select(Order.id, Order.order_number, Order.created_at, Order.table_number,
                Order.branch_id, Order.table_id, Order.hall_name_snapshot, Branch.name.label("branch_name"),
-               Order.order_type, Order.status, Order.total_amount, paid.c.income, paid.c.confirmed_at)
+               Order.order_type, Order.status, Order.total_amount, Order.service_fee, paid.c.income, paid.c.confirmed_at)
         .join(paid, paid.c.order_id == Order.id)
         .outerjoin(Branch, (Branch.id == Order.branch_id) & (Branch.company_id == company_id))
         .where(Order.company_id == company_id, Order.status == "completed",
@@ -173,6 +173,7 @@ async def owner_financials(db, company_id, date_from: date, date_to: date, *, we
               **({"chart_label": b["chart_label"]} if hourly else {})} for b in buckets.values()]
     return {"metric_basis": BASIS, "date_from": date_from.isoformat(), "date_to": date_to.isoformat(),
             "income_total": money(income), "cogs_total": None if missing else money(cogs),
+            "service_fee_total": money(sum((Decimal(str(order.service_fee or 0)) for order in orders), ZERO)),
             "today_revenue": None if missing else money(income - cogs),
             "today_orders": len(orders), "avg_check": money(income / len(orders)) if orders else "0.00",
             "active_orders": active or 0, "payment_methods": methods, "missing_cost_items": missing,

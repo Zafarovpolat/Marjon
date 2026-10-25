@@ -2,7 +2,16 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { describe, expect, it, vi } from "vitest";
 import { api } from "../../api/client";
 import { buildCustomerTemplate, buildKitchenTemplate, testPrintReceipt } from "../../api/receipt";
-import ReceiptPreview, { computeFitScale, FIT_MIN_SCALE, formatReceiptOrderType, getCustomerReceiptTotals } from "./ReceiptPreview";
+import ReceiptPreview, {
+  computeFitHeightScale,
+  computeFitScale,
+  FIT_MIN_HEIGHT_SCALE,
+  FIT_MIN_SCALE,
+  FIT_PAD_BOTTOM,
+  FIT_PAD_TOP,
+  formatReceiptOrderType,
+  getCustomerReceiptTotals,
+} from "./ReceiptPreview";
 import { LINE_SPACING_LARGE, normalizeLineSpacing } from "../../api/receipt";
 
 const customerOrder = {
@@ -643,6 +652,44 @@ describe("computeFitScale contract", () => {
   it("falls back to 1.0 when nothing is measurable", () => {
     expect(computeFitScale(0, 0)).toBe(1);
     expect(computeFitScale(430, 0)).toBe(1);
+  });
+});
+
+// Модалка «чек заказа» показывает бумагу целиком, поэтому там к ширине
+// добавляется высота. Функция отдельная: страница настроек продолжает жить
+// на computeFitScale и не зависит от высоты панели.
+describe("computeFitHeightScale contract (modal receipt only)", () => {
+  const PAPER_W = 302;
+  const PAPER_H = 742;
+  const PAD = FIT_PAD_TOP + FIT_PAD_BOTTOM;
+
+  it("scales down so the whole paper fits the available height", () => {
+    const scale = computeFitHeightScale(PAPER_W, 500, PAPER_H, 701);
+    // Рамка не масштабируется: (701 - 48) / 742.
+    expect(scale).toBeCloseTo((701 - PAD) / PAPER_H, 5);
+    expect(scale).toBeLessThan(1);
+    // В отмасштабированном виде бумага с рамкой ровно влезает в панель.
+    expect(PAPER_H * scale + PAD).toBeCloseTo(701, 5);
+  });
+
+  it("never upscales past the width scale on a tall pane", () => {
+    expect(computeFitHeightScale(PAPER_W, 500, PAPER_H, 5000)).toBe(1);
+    // Узкая панель всё равно решает по ширине — высота не «растягивает» чек.
+    expect(computeFitHeightScale(430, 215, PAPER_H, 5000)).toBeCloseTo(0.5, 5);
+  });
+
+  it("stops shrinking at the readable floor and scrolls instead", () => {
+    expect(computeFitHeightScale(PAPER_W, 500, PAPER_H, 200)).toBe(FIT_MIN_HEIGHT_SCALE);
+    expect(FIT_MIN_HEIGHT_SCALE).toBe(0.72);
+    // Даже на крошечной панели пол масштаба не поднимает его выше ширины.
+    expect(computeFitHeightScale(430, 215, PAPER_H, 10)).toBeCloseTo(0.5, 5);
+  });
+
+  it("falls back to the width scale when the height is not measurable", () => {
+    expect(computeFitHeightScale(PAPER_W, 500, PAPER_H, 0)).toBe(1);
+    expect(computeFitHeightScale(PAPER_W, 500, 0, 701)).toBe(1);
+    // Панель ниже собственных отступов — высота ничего не решает.
+    expect(computeFitHeightScale(PAPER_W, 500, PAPER_H, PAD - 1)).toBe(1);
   });
 });
 

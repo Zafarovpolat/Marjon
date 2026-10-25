@@ -77,23 +77,41 @@ describe("OWNER dashboard empty content", () => {
   });
 
   it("keeps real order rows when orders exist (FULL preserved)", () => {
-    render(<RecentOrdersCard orders={[{ id: "#42", date: "12.08 10:00", place: "Стол 7", amount: "900 UZS", status: "Готов", ready: true }]} />);
+    render(<RecentOrdersCard orders={[{ id: "#42", date: "12.08 10:00", place: "Стол 7", amount: "900 UZS", status: "Готов", statusCode: "ready", ready: true }]} />);
 
     expect(screen.getByText("#42")).toBeInTheDocument();
     expect(screen.getByText("900 UZS")).toBeInTheDocument();
+    // Статус — общий OrderStatus (точка + подпись), как в «Отчёте по заказам»,
+    // а не отдельная плашка.
+    const status = document.querySelector(".recent-order .report-order-status");
+    expect(status).not.toBeNull();
+    expect(status).toHaveTextContent("Готов");
+    expect(status.querySelector(".report-order-status__dot")).not.toBeNull();
+    expect(document.querySelector(".recent-order small")).toBeNull();
     expect(screen.queryByText("Заказов пока нет")).not.toBeInTheDocument();
+  });
+
+  it("keeps distinct tones for recent order statuses", () => {
+    render(<RecentOrdersCard orders={[
+      { id: "#3", date: "25.10 20:40", place: "Стол 3", amount: "167 400 UZS", statusCode: "new" },
+      { id: "#1", date: "25.10 17:10", place: "Стол 2", amount: "146 000 UZS", statusCode: "completed" },
+    ]} />);
+    expect(screen.getByText("Новый")).toHaveClass("report-order-status--new");
+    expect(screen.getByText("Завершён")).toHaveClass("report-order-status--completed");
+    expect(screen.getByText("Новый").querySelector(".report-order-status__dot")).not.toBeNull();
+    expect(screen.getByText("Завершён").querySelector(".report-order-status__dot")).not.toBeNull();
   });
 
   it("does not fabricate a day-over-day comparison without sales history", () => {
     const kpis = buildRealKpis({ today_revenue: 0, today_orders: 0, avg_check: 0 }, [], "2026-08-12");
     const notes = Object.fromEntries(kpis.map((kpi) => [kpi.label, kpi.note]));
 
-    expect(notes["Выручка за день"]).toBe("Нет данных для сравнения");
-    expect(notes["Заказов"]).toBe("Заказов пока нет");
+    expect(notes["Чистая прибыль"]).toBe("Нет данных для сравнения");
+    expect(notes["Заказы"]).toBe("Заказов пока нет");
     expect(notes["Средний чек"]).toBe("Появится после первых заказов");
-    expect(notes["Выручка за день"]).not.toMatch(/к вчерашнему дню/);
+    expect(notes["Чистая прибыль"]).not.toMatch(/к вчерашнему дню/);
 
-    const revenueInsight = kpis.find((kpi) => kpi.label === "Выручка за день").insight;
+    const revenueInsight = kpis.find((kpi) => kpi.label === "Чистая прибыль").insight;
     expect(revenueInsight).toBe("Пока нет данных за предыдущий день для сравнения.");
     expect(revenueInsight).not.toMatch(/Темп/);
   });
@@ -104,7 +122,7 @@ describe("OWNER dashboard empty content", () => {
       { revenue: 1000, orders_count: 3, avg_check: 500 },
     ];
     const kpis = buildRealKpis({ today_revenue: 1000, today_orders: 3, avg_check: 500 }, sales, "2026-08-12");
-    const revenueNote = kpis.find((kpi) => kpi.label === "Выручка за день").note;
+    const revenueNote = kpis.find((kpi) => kpi.label === "Чистая прибыль").note;
 
     expect(revenueNote).toMatch(/к вчерашнему дню/);
   });
@@ -120,7 +138,7 @@ describe("OWNER dashboard empty content", () => {
     const kpis = buildRealKpis({ today_revenue: 67200, today_orders: 2, avg_check: 33600 }, hourly, "2026-10-16");
     const notes = Object.fromEntries(kpis.map((kpi) => [kpi.label, kpi.note]));
 
-    expect(notes["Выручка за день"]).toBe("Нет данных для сравнения");
-    expect(notes["Выручка за день"]).not.toMatch(/к вчерашнему дню/);
+    expect(notes["Чистая прибыль"]).toBe("Нет данных для сравнения");
+    expect(notes["Чистая прибыль"]).not.toMatch(/к вчерашнему дню/);
   });
 });

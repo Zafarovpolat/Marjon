@@ -27,6 +27,7 @@ import {
   toFiniteNumber,
   buildRealKpis,
   buildRevenueChartSales,
+  bucketIncome,
   buildUnavailableWarehouseSummary,
   buildZeroRevenueBuckets,
 } from "./dashboard/analyticsData";
@@ -39,6 +40,7 @@ import {
   hasBalanceRows,
 } from "./dashboard/simulation";
 import RevenueChart from "./dashboard/RevenueChart";
+import "./dashboard/dashboardRefinements.css";
 import { KpiInfoDialog, WarehouseReportDialog } from "./dashboard/DashboardDialogs";
 import { EmptyState, TopSalesCard, RecentOrdersCard } from "./dashboard/DashboardCards";
 import { prepareKpiDialogTrigger } from "./dashboard/kpiFocusOrigin";
@@ -344,8 +346,13 @@ export default function OwnerDashboard() {
   const displayPlaceSettings = useMemo(() => placeSettings, [placeSettings]);
   const displayFinanceTransactions = useMemo(() => financeTransactions, [financeTransactions]);
   const displayDashboard = useMemo(() => dashboard || EMPTY_DASHBOARD, [dashboard]);
-  const revenueUnavailable = !previewEnabled && dashboard?.metric_basis === "completed_income_minus_snapshot_cogs"
-    && (dashboard.financial_unavailable || dashboard.today_revenue == null);
+  // График показывает ДЕНЕЖНЫЙ ПРИХОД (gross, до вычитания себестоимости), как
+  // и первая карточка. Он не зависит от исторической себестоимости, поэтому
+  // недоступен только когда недоступен сам приход. «Чистая прибыль» на второй
+  // карточке по-прежнему честно уходит в «Недоступно», если себестоимость
+  // не сохранена — но это уже не повод скрывать график прихода.
+  const chartUnavailable = !previewEnabled && dashboard?.metric_basis === "completed_income_minus_snapshot_cogs"
+    && (dashboard.financial_unavailable || dashboard.income_total == null);
   const kpis = useMemo(() => {
     if (previewEnabled && previewKpis) return previewKpis;
     return buildRealKpis(displayDashboard, revenueChartSales, dashboardReferenceDate, displayPlaceSettings, displayFinanceTransactions);
@@ -396,6 +403,9 @@ export default function OwnerDashboard() {
           place: order.table_number ? `Стол ${order.table_number}` : order.order_type || "—",
           amount: formatMoney(order.total_amount || 0),
           status: ready ? "Готов" : order.status === "cancelled" ? "Отменён" : "В работе",
+          // Канонический код статуса: карточка рисует его общим OrderStatus
+          // (как в «Отчёте по заказам»), а не собственной плашкой.
+          statusCode: order.status || null,
           ready,
         };
       });
@@ -403,7 +413,8 @@ export default function OwnerDashboard() {
     return [];
   }, [displayRecentOrders]);
   const revenueStats = useMemo(() => {
-    const revenues = revenueChartSales.map((item) => Number(item.revenue || 0));
+    // Статистика считается по той же серии, что нарисована на графике.
+    const revenues = revenueChartSales.map(bucketIncome);
     const total = revenues.reduce((acc, value) => acc + value, 0);
     return {
       max: revenues.length ? Math.max(...revenues) : 0,
@@ -475,8 +486,8 @@ export default function OwnerDashboard() {
       <section className="owner-main-grid">
         <div className="card card-pad chart-card premium-chart">
           <div className="section-header section-header--stack">
-            <div><span className="eyebrow">Revenue analytics</span><h2>Выручка за {formatDaysLabel(dashboardPeriodDays)}</h2></div>
-            <div className="owner-revenue-switcher" aria-label="Период выручки">
+            <div><span className="eyebrow">Money income</span><h2>Денежный приход за {formatDaysLabel(dashboardPeriodDays)}</h2></div>
+            <div className="owner-revenue-switcher" aria-label="Период денежного прихода">
               <ReportDateRangePicker
                 variant="canonical"
                 animateExit
@@ -485,18 +496,20 @@ export default function OwnerDashboard() {
                 open={periodPanelState.active === "period"}
                 onOpenChange={(nextOpen) => requestPeriodPanel(nextOpen ? "period" : "")}
                 onExitComplete={() => completePeriodPanelExit("period")}
-                buttonAriaLabel="Период выручки"
+                buttonAriaLabel="Период денежного прихода"
                 buttonClassName="owner-dashboard-period__trigger"
               />
             </div>
           </div>
           <div className="revenue-stat-grid">
-            <div><span>Максимум</span><strong>{revenueUnavailable ? "Недоступно" : formatMoney(revenueStats.max)}</strong></div>
-            <div><span>Минимум</span><strong>{revenueUnavailable ? "Недоступно" : formatMoney(revenueStats.min)}</strong></div>
-            <div><span>Среднее</span><strong>{revenueUnavailable ? "Недоступно" : formatMoney(revenueStats.avg)}</strong></div>
+            <div><span>Максимум</span><strong>{chartUnavailable ? "Недоступно" : formatMoney(revenueStats.max)}</strong></div>
+            <div><span>Среднее</span><strong>{chartUnavailable ? "Недоступно" : formatMoney(revenueStats.avg)}</strong></div>
+            <div><span>Обслуживание</span><strong>{chartUnavailable || displayDashboard.service_fee_total == null ? "Недоступно" : formatMoney(displayDashboard.service_fee_total)}</strong></div>
           </div>
           <div className="chart-wrap">
-            {revenueUnavailable ? <div role="status">{dashboard.profit_unavailable_reason || "Недостаточно данных для расчёта выручки."}</div> : <RevenueChart sales={revenueChartDisplaySales} />}
+            {chartUnavailable
+              ? <div role="status">{dashboard.profit_unavailable_reason || "Не удалось загрузить денежный приход."}</div>
+              : <RevenueChart sales={revenueChartDisplaySales} valueKey="income" />}
           </div>
         </div>
 

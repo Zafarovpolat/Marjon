@@ -68,34 +68,56 @@ export function buildDashboardPreviewKpis() {
     income_total: data.income.total,
     expense_total: data.expense.total,
   }, [], data.date);
-  const tables = [
-    { rows: data.revenue.top, labelColumn: "Категория", valueColumn: "Выручка" },
-    { rows: data.orders.top, labelColumn: "Блюдо", valueColumn: "Заказы", formatValue: formatNumber },
-    {
-      // Reuse the existing average-check index definition (amount / average).
-      rows: normalizeMetricRows(data.average.top, data.average.total),
-      labelColumn: "Стол", valueColumn: "Средний чек", shareColumn: "Индекс",
+  // Наборы данных привязаны к КАРТОЧКЕ (по её классу), а не к позиции в
+  // массиве: порядок карточек на дашборде задаёт владелец, и его изменение
+  // не должно переносить чужие таблицы на соседнюю карточку.
+  const byCard = {
+    "premium-kpi--revenue": {
+      value: formatNumber(data.revenue.total),
+      suffix: "UZS",
+      description: `${previewLabel} Заказов: ${formatNumber(data.revenue.orders)}. Средний чек: ${formatMoney(data.revenue.averageCheck)}.`,
+      table: { rows: data.revenue.top, labelColumn: "Категория", valueColumn: "Выручка" },
     },
-    { rows: data.income.breakdown, labelColumn: "Источник", valueColumn: "Приход" },
-    { rows: data.expense.top, labelColumn: "Статья расходов", valueColumn: "Сумма" },
-  ];
-  const descriptions = [
-    `${previewLabel} Заказов: ${formatNumber(data.revenue.orders)}. Средний чек: ${formatMoney(data.revenue.averageCheck)}.`,
-    `${previewLabel} Среднее время заказа: ${data.orders.averageMinutes} мин. Отменённые: ${data.orders.cancelled}.`,
-    `${previewLabel} Максимальный: ${formatMoney(data.average.max)}. Минимальный: ${formatMoney(data.average.min)}.`,
-    `${previewLabel} Поступления по способам оплаты.`,
-    `${previewLabel} ${data.expense.breakdown.map((row) => `${row.name}: ${formatMoney(row.amount)} (${row.percent}%)`).join(". ")}.`,
-  ];
-  const values = [data.revenue.total, data.orders.total, data.average.total, data.income.total, data.expense.total];
+    "premium-kpi--orders": {
+      value: formatNumber(data.orders.total),
+      suffix: "",
+      description: `${previewLabel} Среднее время заказа: ${data.orders.averageMinutes} мин. Отменённые: ${data.orders.cancelled}.`,
+      table: { rows: data.orders.top, labelColumn: "Блюдо", valueColumn: "Заказы", formatValue: formatNumber },
+    },
+    "premium-kpi--avg": {
+      value: formatNumber(data.average.total),
+      suffix: "UZS",
+      description: `${previewLabel} Максимальный: ${formatMoney(data.average.max)}. Минимальный: ${formatMoney(data.average.min)}.`,
+      table: {
+        // Reuse the existing average-check index definition (amount / average).
+        rows: normalizeMetricRows(data.average.top, data.average.total),
+        labelColumn: "Стол", valueColumn: "Средний чек", shareColumn: "Индекс",
+      },
+    },
+    "premium-kpi--tables": {
+      value: formatNumber(data.income.total),
+      suffix: "UZS",
+      description: `${previewLabel} Поступления по способам оплаты.`,
+      table: { rows: data.income.breakdown, labelColumn: "Источник", valueColumn: "Приход" },
+    },
+    "premium-kpi--expense": {
+      value: formatNumber(data.expense.total),
+      suffix: "UZS",
+      description: `${previewLabel} ${data.expense.breakdown.map((row) => `${row.name}: ${formatMoney(row.amount)} (${row.percent}%)`).join(". ")}.`,
+      table: { rows: data.expense.top, labelColumn: "Статья расходов", valueColumn: "Сумма" },
+    },
+  };
 
-  return kpis.map((kpi, index) => ({
-    ...kpi,
-    // DEV-only fixture keeps its populated design examples, not live Finance state.
-    comingSoon: false,
-    hideDescription: false,
-    suffix: index === 1 ? "" : "UZS",
-    value: formatNumber(values[index]),
-    description: descriptions[index],
-    table: { formatValue: formatMoney, shareColumn: "Доля", ...tables[index] },
-  }));
+  return kpis.map((kpi) => {
+    const card = byCard[kpi.className] || {};
+    return {
+      ...kpi,
+      // DEV-only fixture keeps its populated design examples, not live Finance state.
+      comingSoon: false,
+      hideDescription: false,
+      suffix: "UZS",
+      ...card,
+      table: { formatValue: formatMoney, shareColumn: "Доля", ...(card.table || {}) },
+    };
+  });
 }

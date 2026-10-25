@@ -57,7 +57,7 @@ function reportDate(value) {
 async function renderDashboard() {
   dashboardService.loadOwnerOverview.mockResolvedValue(EMPTY_OVERVIEW);
   render(<OwnerDashboard />);
-  return screen.findByRole("button", { name: "Период выручки" });
+  return screen.findByRole("button", { name: "Период денежного прихода" });
 }
 
 describe("OWNER Dashboard global period V2", () => {
@@ -80,7 +80,7 @@ describe("OWNER Dashboard global period V2", () => {
 
     fireEvent.click(trigger);
     expect(trigger).toHaveAttribute("aria-expanded", "true");
-    fireEvent.mouseDown(screen.getByRole("heading", { name: "Выручка за 1 день" }));
+    fireEvent.mouseDown(screen.getByRole("heading", { name: "Денежный приход за 1 день" }));
     expect(trigger).toHaveAttribute("aria-expanded", "false");
 
     fireEvent.click(trigger);
@@ -225,7 +225,7 @@ describe("OWNER Dashboard global period V2", () => {
 
   it("keeps inside pointer activity open and completes 20 outside and 20 Escape cycles", async () => {
     const trigger = await renderDashboard();
-    const outside = screen.getByRole("heading", { name: "Выручка за 1 день" });
+    const outside = screen.getByRole("heading", { name: "Денежный приход за 1 день" });
 
     fireEvent.click(trigger);
     fireEvent.mouseDown(screen.getByRole("button", { name: "Сегодня" }));

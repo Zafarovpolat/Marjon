@@ -96,6 +96,15 @@ describe("V3.1 chart formatting (line design untouched)", () => {
     expect(source).toContain("'Golos Text', Manrope, sans-serif");
   });
 
+  it("always requests five money lines including the zero baseline", () => {
+    const source = readFileSync(`${process.cwd()}/src/pages/dashboard/RevenueChart.jsx`, "utf8");
+    expect(source).toContain("beginAtZero: true");
+    expect(source).toContain("count: 5");
+    expect(source).toContain("autoSkip: false");
+    expect(source).toContain("maxTicksLimit: 5");
+    expect(formatRevenueAxisTick(0.25, true)).toBe("0,25");
+  });
+
   it("keeps the chart line design with a right-anchored single resize owner", () => {
     const source = readFileSync(`${process.cwd()}/src/pages/dashboard/RevenueChart.jsx`, "utf8");
     // Line visual design frozen.
@@ -128,7 +137,9 @@ describe("V3.1 chart formatting (line design untouched)", () => {
     expect(source).not.toMatch(/resizeDelay/);
     expect(source).not.toMatch(/setTimeout/);
     // One mounted instance: stable effect deps, canvas never keyed.
-    expect(source).toMatch(/\}, \[sales\]\);/);
+    // valueKey — стабильная строка ("revenue"/"income"), а не размер и не объект,
+    // поэтому пересоздание чарта по-прежнему вызывает только смена данных.
+    expect(source).toMatch(/\}, \[sales, valueKey\]\);/);
     expect(source).not.toMatch(/<canvas[^>]*key=/);
   });
 

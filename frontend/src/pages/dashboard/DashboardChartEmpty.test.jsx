@@ -89,6 +89,18 @@ describe("OWNER Revenue Analytics no-data zero line", () => {
     expect(probe.getAttribute("data-revenues").split(",").every((v) => v === "0")).toBe(true);
   });
 
+  it("replaces minimum with average and shows actual period service fees", async () => {
+    const result = overviewWith([]);
+    result[0].data.service_fee_total = "16300.00";
+    dashboardService.loadOwnerOverview.mockResolvedValue(result);
+    render(<OwnerDashboard />);
+    await screen.findByTestId("revenue-chart-probe");
+    const stats = document.querySelector(".revenue-stat-grid");
+    expect([...stats.querySelectorAll("span")].map((node) => node.textContent)).toEqual(["Максимум", "Среднее", "Обслуживание"]);
+    expect(stats.lastElementChild.textContent.replace(/[\s\u00a0\u202f]/g, "")).toContain("16300UZS");
+    expect(screen.queryByText("Минимум")).toBeNull();
+  });
+
   it("keeps actual values untouched when real sales exist", async () => {
     const today = todayInputValue();
     dashboardService.loadOwnerOverview.mockResolvedValue(overviewWith([
