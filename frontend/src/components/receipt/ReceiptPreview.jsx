@@ -1,28 +1,32 @@
-import { createContext, Fragment, useContext, useLayoutEffect, useRef, useState } from "react";
+import { createContext, Fragment, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { groupReceiptItems, normalizeSeparator, receiptStaffLabel } from "./receiptLayout";
 import { webFormat } from "../../utils/webTime";
 import { CHEF_DEFAULT_BLOCK_STYLES, CUSTOMER_BLOCKS, KITCHEN_BLOCKS, normalizeLineSpacing } from "../../api/receipt";
 import { orderedBlocks, customerReceiptBlocks } from "../../pages/settings/receiptBlockOrder";
 
+// Демо-заказ превью. Дату/время намеренно НЕ храним константой: превью всегда
+// показывает сегодняшний момент (подставляется в ReceiptPreview при рендере),
+// иначе оно «замерзало» бы на дате, когда этот файл написали.
 export const customerSampleOrder = {
   order_number: "3",
-  table_number: "1 (Divanli Kabina)",
-  waiter: "Kassir",
+  table_number: "27",
+  waiter: "Abdulaziz",
   waiter_role: "cashier",
   order_type: "На стол",
   payment_method: "Смешанная оплата",
   discount: 0,
-  service_fee: 8000,
+  // Сумма блюд 240 000, обслуга 12% = 28 800, итого 268 800.
+  service_fee: 28800,
   vat: 0,
-  total_amount: 108640,
-  created_at: "2025-07-31T18:17:00",
+  total_amount: 268800,
   payments: [
-    { label: "Наличные", amount: 108000 },
-    { label: "Карта", amount: 600 },
+    { label: "Наличные", amount: 200000 },
+    { label: "Карта", amount: 68800 },
   ],
   items: [
-    { id: 1, name: "Somsa", quantity: 10, price: 8000, total: 80000 },
-    { id: 2, name: "Shashlik tovuqli 200g", quantity: 2, price: 32000, total: 64000 },
+    { id: 1, name: "Qozon kabob", quantity: 2, price: 72000, total: 144000 },
+    { id: 2, name: "Aysberg salati", quantity: 3, price: 28000, total: 84000 },
+    { id: 3, name: "Olchali kompot", quantity: 1, price: 12000, total: 12000 },
   ],
 };
 
@@ -184,6 +188,10 @@ function blockClass(block, styles) {
       classes.push(`receipt-preview__block--size-${style.size}`);
     }
     if (style.weight === "bold") classes.push("receipt-preview__block--weight-bold");
+    // Явный класс «стандартного» веса: по нему правила «оба края строки
+    // слушают Жирность» отличают стилизуемый блок от контейнера, у которого
+    // контролов нет вовсе (шапка, подвал, «Сумма блюд»/«Обслуга»).
+    else classes.push("receipt-preview__block--weight-standard");
   }
   return classes.join(" ");
 }
@@ -395,6 +403,25 @@ export function computeFitScale(natW, availW) {
   return raw < 1 ? Math.max(raw, FIT_MIN_SCALE) : 1;
 }
 
+// Оконный (модальный) режим: чек показывается целиком, поэтому к ширине
+// добавляется высота. Это ОПЦИЯ (fitToHeight), а не изменение общего
+// контракта: страница настроек по-прежнему масштабирует только по ширине и
+// не «схлопывается» при зуме браузера. Ниже 0.72 текст чека уже нечитаем —
+// там лучше прокрутка, чем крошечная бумажка.
+export const FIT_MIN_HEIGHT_SCALE = 0.72;
+
+export function computeFitHeightScale(natW, availW, natH, availH) {
+  const widthScale = computeFitScale(natW, availW);
+  if (!natH || !availH || availH <= 0) return widthScale;
+  // Рамку (FIT_PAD_*) масштаб не трогает — она входит в высоту как есть,
+  // поэтому вычитаем её из доступной высоты, а не прибавляем к бумаге.
+  const usableH = availH - FIT_PAD_TOP - FIT_PAD_BOTTOM;
+  if (usableH <= 0) return widthScale;
+  const heightScale = usableH / natH;
+  if (heightScale >= widthScale) return widthScale;
+  return Math.max(heightScale, Math.min(widthScale, FIT_MIN_HEIGHT_SCALE));
+}
+
 function itemMoneyValue(item) {
   if (hasValue(item.total ?? item.amount)) return toNumber(item.total ?? item.amount);
   const computed = toNumber(item.price) * toNumber(item.quantity ?? item.qty ?? 1);
@@ -527,9 +554,20 @@ function KitchenReceipt({ template = {}, order }) {
   );
 }
 
-export default function ReceiptPreview({ type = "customer", template = {}, org, order, fitPane = false }) {
+export default function ReceiptPreview({ type = "customer", template = {}, org, order, fitPane = false, fitToHeight = false }) {
   const paperSize = normalizePaperSize(template.paperSize);
-  const sample = order || (type === "kitchen" ? kitchenSampleOrder : customerSampleOrder);
+  // Демо-превью показывает СЕГОДНЯШНИЕ дату и время: тикаем раз в 30 секунд,
+  // чтобы вкладка, открытая на ночь, к утру не показывала вчерашний день.
+  // Для реального заказа (order) время берётся из самого заказа.
+  const [sampleNow, setSampleNow] = useState(() => new Date());
+  useEffect(() => {
+    if (order) return undefined;
+    const timer = setInterval(() => setSampleNow(new Date()), 30000);
+    return () => clearInterval(timer);
+  }, [order]);
+  const sample = order || (type === "kitchen"
+    ? kitchenSampleOrder
+    : { ...customerSampleOrder, created_at: sampleNow });
 
   // Fit-to-pane (settings preview only): scale the receipt to the preview
   // pane WIDTH. Preview-only presentation — the logical receipt (widths,
@@ -557,10 +595,13 @@ export default function ReceiptPreview({ type = "customer", template = {}, org, 
       // layout metrics, so this is always the natural (zoom-included) size.
       const inner = content.querySelector("[data-receipt-print-root]");
       const availW = avail.clientWidth - FIT_PAD_SIDE * 2;
+      const availH = avail.clientHeight;
       const natH = inner ? inner.offsetHeight : content.offsetHeight;
       const natW = inner ? inner.offsetWidth : content.offsetWidth;
       if (!natH || !natW || availW <= 0) return;
-      const scale = computeFitScale(natW, availW);
+      const scale = fitToHeight
+        ? computeFitHeightScale(natW, availW, natH, availH)
+        : computeFitScale(natW, availW);
       setFit((prev) => (Math.abs(prev.scale - scale) < 0.004 && prev.width === natW && prev.height === natH)
         ? prev
         : { scale, width: natW, height: natH });
@@ -570,7 +611,7 @@ export default function ReceiptPreview({ type = "customer", template = {}, org, 
     observer.observe(avail);
     observer.observe(content);
     return () => observer.disconnect();
-  }, [fitPane, template, type, order, org]);
+  }, [fitPane, fitToHeight, template, type, order, org]);
 
   const receiptNode = (
     <SeparatorContext.Provider value={normalizeSeparator(template.separator)}><div

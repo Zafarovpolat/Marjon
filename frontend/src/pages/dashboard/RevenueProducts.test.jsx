@@ -9,62 +9,71 @@ const summary = {
   product_rows: [{ product_id: "1", name: "Плов", category: "Горячее", quantity: "0.333",
     income: "220.01", cogs: "40.00", revenue: "180.01" }],
 };
-function show(data, index = 0) {
-  const kpi = buildRealKpis(data, [], "2026-10-17", [], [])[index];
+// Карточки ищем по классу, а не по позиции: порядок задаёт владелец.
+const CARD = {
+  revenue: "premium-kpi--revenue",
+  orders: "premium-kpi--orders",
+  income: "premium-kpi--tables",
+};
+function show(data, card = CARD.revenue) {
+  const kpi = buildRealKpis(data, [], "2026-10-17", [], [])
+    .find((item) => item.className === card);
   render(<KpiInfoDialog kpi={kpi} onClose={() => {}} />);
   return screen.getByRole("table");
 }
 describe("Revenue product detail", () => {
   it("reverses both money columns, row values and totals only for income", () => {
-    const table = show(summary, 3);
+    const table = show(summary, CARD.income);
     expect(within(table).getAllByRole("columnheader").map(el => el.textContent)).toEqual([
-      "№", "Блюдо / товар", "Категория", "Продано", "Выручка", "Денежный приход",
+      "№", "Блюдо / товар", "Категория", "Продано", "Чистая прибыль", "Денежный приход",
     ]);
-    const cells = table.querySelectorAll("tbody tr td");
+    const cells = table.querySelectorAll("tbody tr:not(.revenue-products__total) td");
     expect(cells[4].textContent).toBe("180,01 UZS");
     expect(cells[5].textContent).toBe("220,01 UZS");
-    const totals = table.querySelectorAll("tfoot td");
+    const totals = table.querySelectorAll("tbody tr:first-child.revenue-products__total td");
     expect(totals[0].textContent).toBe("180,01 UZS");
     expect(totals[1].textContent).toBe("220,01 UZS");
     expect(screen.queryByText(/Подтверждённые оплаты полностью/)).toBeNull();
   });
   it("removes the orders explanation without changing its count", () => {
-    show(summary, 1);
+    show(summary, CARD.orders);
     expect(screen.getByText("шт")).toBeTruthy();
     expect(screen.queryByText("Полностью оплаченные завершённые заказы за выбранный период.")).toBeNull();
   });
-  it("keeps all five order columns, no-data row and zero footer when empty", () => {
-    const table = show({ ...summary, today_orders: 0, order_rows: [], orders_total: "0" }, 1);
+  it("keeps all five order columns and no-data row without a total when empty", () => {
+    const table = show({ ...summary, today_orders: 0, order_rows: [], orders_total: "0" }, CARD.orders);
     expect(within(table).getAllByRole("columnheader").map(el => el.textContent)).toEqual([
       "№ заказа", "Дата и время", "Место", "Сумма", "Статус",
     ]);
     expect(within(table).getByText("Нет данных")).toBeTruthy();
-    expect(within(table).getByText("Итого")).toBeTruthy();
-    expect(within(table).getByText("0 UZS")).toBeTruthy();
+    expect(within(table).queryByText("Итого")).toBeNull();
+    expect(within(table).queryByText("0 UZS")).toBeNull();
     expect(within(table).queryByText("Доля")).toBeNull();
     expect(screen.getByRole("dialog").className).toContain("kpi-info-window--revenue-products");
   });
   it("renders genuine order fields and their total without mapping completed to ready", () => {
     const table = show({ ...summary, order_rows: [{ id: "order-1", number: "5", date_label: "17.10 19:57",
-      place: "Стол 5", amount: "220.01", status: "completed" }], orders_total: "220.01" }, 1);
+      place: "Стол 5", amount: "220.01", status: "completed" }], orders_total: "220.01" }, CARD.orders);
     for (const text of ["#5", "17.10 19:57", "Стол 5", "Завершён"]) expect(within(table).getByText(text)).toBeTruthy();
     expect(within(table).getAllByText("220,01 UZS")).toHaveLength(2);
   });
   it("does not present a failed order report as empty or show a fake total", () => {
-    const table = show({ ...summary, financial_unavailable: true }, 1);
+    const table = show({ ...summary, financial_unavailable: true }, CARD.orders);
     expect(within(table).getByText("Не удалось загрузить заказы")).toBeTruthy();
     expect(within(table).queryByText("Итого")).toBeNull();
   });
   it("uses the six sales columns, real rows and reconciled totals", () => {
     const table = show(summary);
     expect(within(table).getAllByRole("columnheader").map(el => el.textContent)).toEqual([
-      "№", "Блюдо / товар", "Категория", "Продано", "Денежный приход", "Выручка",
+      "№", "Блюдо / товар", "Категория", "Продано", "Денежный приход", "Чистая прибыль",
     ]);
     expect(within(table).getByText("Плов")).toBeTruthy();
     expect(within(table).getByText("Горячее")).toBeTruthy();
     expect(within(table).getByText(/0[.,]333/)).toBeTruthy();
     expect(within(table).getAllByText("220,01 UZS")).toHaveLength(2);
     expect(within(table).getByText("Итого")).toBeTruthy();
+    expect(table.querySelector("tbody tr:first-child")).toHaveClass("revenue-products__total");
+    expect(table.querySelector("tfoot")).toBeNull();
     expect(within(table).queryByText("Средняя цена")).toBeNull();
     expect(screen.getByText("12.10.2026 – 17.10.2026")).toBeTruthy();
     expect(screen.queryByText(/Денежный приход минус историческая/)).toBeNull();
@@ -76,10 +85,10 @@ describe("Revenue product detail", () => {
       product_rows: [{ ...summary.product_rows[0], cogs: null, revenue: null }] });
     expect(within(table).getAllByText("Неизвестно")).toHaveLength(2);
   });
-  it("shows a compact empty state and zero totals", () => {
+  it("shows a compact empty state without totals", () => {
     const table = show({ ...summary, income_total: "0", cogs_total: "0", today_revenue: "0", product_rows: [] });
     expect(within(table).getByText("Нет данных")).toBeTruthy();
-    expect(within(table).getByText("Итого")).toBeTruthy();
+    expect(within(table).queryByText("Итого")).toBeNull();
   });
   it("does not show invented zero totals on request failure", () => {
     const table = show({ ...summary, financial_unavailable: true, income_total: null,

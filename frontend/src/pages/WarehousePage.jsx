@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Children, cloneElement, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { warehouseService } from "../api/warehouse";
 import { nomenclatureService } from "../api/nomenclature";
@@ -883,12 +883,25 @@ export function aggregateExpenseProducts(lines) {
     acc.sum += sum;
     const dishes = Array.isArray(line?.dishes) ? line.dishes : [];
     if (dishes.length > 0) {
-      dishes.forEach((dish) => {
+      const totalDishQty = dishes.reduce((total, dish) => total + (Number(dish?.qty) || 0), 0);
+      const totalCents = Math.round(sum * 100);
+      let allocatedCents = 0;
+      let allocatedQty = 0;
+      dishes.forEach((dish, index) => {
         const dishName = String(dish?.name || "—");
         const dishQty = Number(dish?.qty) || 0;
+        // Split each movement at its actual cost before merging different costs.
+        // The final share absorbs rounding pennies, preserving the total.
+        allocatedQty += dishQty;
+        const cents = totalDishQty > 0
+          ? (index === dishes.length - 1 ? totalCents : Math.round(totalCents * allocatedQty / totalDishQty)) - allocatedCents
+          : 0;
+        allocatedCents += cents;
         const found = acc.dishes.find((item) => item.name === dishName);
-        if (found) found.qty += dishQty;
-        else acc.dishes.push({ name: dishName, qty: dishQty });
+        if (found) {
+          found.qty += dishQty;
+          found.sum = Math.round(found.sum * 100 + cents) / 100;
+        } else acc.dishes.push({ name: dishName, qty: dishQty, sum: cents / 100 });
       });
     } else if (String(line?.source || "") === "sale") {
       acc.unlinked.push({ ...line, qty, sum });
@@ -954,6 +967,39 @@ function dishCountLabel(count) {
   if (mod10 === 1 && mod100 !== 11) return `${count} блюдо`;
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} блюда`;
   return `${count} блюд`;
+}
+
+// Keep rows mounted through both transition directions. Grid tracks interpolate
+// content height without measuring the whole table on every animation frame.
+export function ExpenseDisclosureRow({ visible, children, className = "" }) {
+  const [expanded, setExpanded] = useState(false);
+  const [present, setPresent] = useState(visible);
+  useEffect(() => {
+    let frame;
+    let nextFrame;
+    let timer;
+    if (visible) {
+      setPresent(true);
+      frame = requestAnimationFrame(() => {
+        nextFrame = requestAnimationFrame(() => setExpanded(true));
+      });
+    } else {
+      setExpanded(false);
+      timer = setTimeout(() => setPresent(false), 280);
+    }
+    return () => { cancelAnimationFrame(frame); cancelAnimationFrame(nextFrame); clearTimeout(timer); };
+  }, [visible]);
+  if (!present) return null;
+  return (
+    <tr hidden={!present} aria-hidden={!visible} inert={!visible ? true : undefined}
+      className={`${className} wh-expense-reveal${expanded ? " is-open" : ""}`}>
+      {Children.map(children, (cell) => cloneElement(cell, {},
+        <div className="wh-expense-reveal__track"><div className="wh-expense-reveal__clip">
+          <div className="wh-expense-reveal__content">{cell.props.children}</div>
+        </div></div>,
+      ))}
+    </tr>
+  );
 }
 
 function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehouse, startCreating = false, onOpenCreate, onCloseCreate, detailDocId = "", onOpenDocDetail, focusIngredientId = "" }) {
@@ -3457,7 +3503,6 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
     const key = `${kind}:${group.name}`;
     const expanded = expandedCats[key] === true;
     const closing = closingCats[key] === true;
-    const visible = expanded || closing;
     const label = kind === "tovar" ? `товаров ${group.name}` : `продуктов ${group.name}`;
     const delay = (idx) => ({ animationDelay: closing ? "0ms" : `${idx * 45}ms` });
     const metaStyle = (idx) => ({
@@ -3480,7 +3525,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
       const docCount = manualCount + unlinkedCount;
       const hasBreakdown = dishes.length > 0 || docCount > 0;
       const rows = [
-        <tr key={itemKey} className={`wh-detail-line-row${closing ? " is-closing" : ""}`}>
+        <ExpenseDisclosureRow key={itemKey} visible={expanded && !closing} className="wh-detail-line-row">
           <td style={delay(idx)}>
             {hasBreakdown ? (
               <button
@@ -3500,16 +3545,16 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
           </td>
           <td style={delay(idx)}>{`${formatQty(item.qty)} ${item.unit}`}</td>
           <td style={delay(idx)}>{formatAmount(item.sum)}</td>
-        </tr>,
+        </ExpenseDisclosureRow>,
       ];
-      if (open) {
+      if (hasBreakdown) {
         dishes.forEach((dish, dishIdx) => rows.push(
-          <tr key={`${itemKey}:dish:${dishIdx}`} className="wh-detail-line-row wh-detail-dish-row">
+          <ExpenseDisclosureRow visible={expanded && !closing && open} key={`${itemKey}:dish:${dishIdx}`} className="wh-detail-line-row wh-detail-dish-row">
             <td>{dish.name}</td>
             <td />
             <td>{`${formatQty(dish.qty)} ${item.unit}`}</td>
-            <td />
-          </tr>,
+            <td>{formatAmount(dish.sum)}</td>
+          </ExpenseDisclosureRow>,
         ));
         if (unlinkedCount > 0) {
           // Причина от бэкенда: «Заказ удалён» / «Нет в техкарте». Если старый
@@ -3517,12 +3562,12 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
           const buckets = item.unlinkedReasons || {};
           Object.entries(buckets).forEach(([reason, bucket]) => {
             rows.push(
-              <tr key={`${itemKey}:unlinked:${reason}`} className="wh-detail-line-row wh-detail-dish-row wh-detail-dish-row--muted">
+              <ExpenseDisclosureRow visible={expanded && !closing && open} key={`${itemKey}:unlinked:${reason}`} className="wh-detail-line-row wh-detail-dish-row wh-detail-dish-row--muted">
                 <td>{UNLINKED_REASON_LABEL[reason] || "Без разбивки"}</td>
                 <td style={metaStyle(0)}>{bucket.count > 1 ? `${bucket.count} док.` : (item.unlinked[0]?.registeredAt || "продажа")}</td>
                 <td>{`${formatQty(bucket.qty)} ${item.unit}`}</td>
                 <td>{formatAmount(bucket.sum)}</td>
-              </tr>,
+              </ExpenseDisclosureRow>,
             );
             // Проданные блюда заказа: техкарту переписали, но на какое блюдо
             // ушёл расход — видно. Количества на блюдо здесь нет намеренно:
@@ -3530,35 +3575,35 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
             const candidates = Array.isArray(bucket.candidates) ? bucket.candidates : [];
             candidates.forEach((candidate, candidateIdx) => {
               rows.push(
-                <tr key={`${itemKey}:unlinked:${reason}:dish:${candidateIdx}`} className="wh-detail-line-row wh-detail-dish-row wh-detail-dish-row--muted wh-detail-dish-row--candidate">
+                <ExpenseDisclosureRow visible={expanded && !closing && open} key={`${itemKey}:unlinked:${reason}:dish:${candidateIdx}`} className="wh-detail-line-row wh-detail-dish-row wh-detail-dish-row--muted wh-detail-dish-row--candidate">
                   <td>{candidate.name}</td>
                   <td style={metaStyle(0)}>{`продано ${formatQty(candidate.portions)}`}</td>
                   <td />
                   <td />
-                </tr>,
+                </ExpenseDisclosureRow>,
               );
             });
             const hidden = (bucket.candidatesTotal || 0) - candidates.length;
             if (hidden > 0) {
               rows.push(
-                <tr key={`${itemKey}:unlinked:${reason}:more`} className="wh-detail-line-row wh-detail-dish-row wh-detail-dish-row--muted wh-detail-dish-row--candidate">
+                <ExpenseDisclosureRow visible={expanded && !closing && open} key={`${itemKey}:unlinked:${reason}:more`} className="wh-detail-line-row wh-detail-dish-row wh-detail-dish-row--muted wh-detail-dish-row--candidate">
                   <td>{`…и ещё ${dishCountLabel(hidden)}`}</td>
                   <td />
                   <td />
                   <td />
-                </tr>,
+                </ExpenseDisclosureRow>,
               );
             }
           });
         }
         if (manualCount > 0) {
           rows.push(
-            <tr key={`${itemKey}:manual`} className="wh-detail-line-row wh-detail-dish-row wh-detail-dish-row--manual">
+            <ExpenseDisclosureRow visible={expanded && !closing && open} key={`${itemKey}:manual`} className="wh-detail-line-row wh-detail-dish-row wh-detail-dish-row--manual">
               <td>Ручной расход</td>
               <td style={metaStyle(0)}>{manualCount > 1 ? `${manualCount} док.` : (item.manual[0]?.registeredAt || "документ")}</td>
               <td>{`${formatQty(item.manualQty)} ${item.unit}`}</td>
               <td>{formatAmount(item.manualSum)}</td>
-            </tr>,
+            </ExpenseDisclosureRow>,
           );
         }
       }
@@ -3566,12 +3611,12 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
     };
 
     const renderDocRow = (line, idx) => (
-      <tr key={line.key} className={`wh-detail-line-row${closing ? " is-closing" : ""}`}>
+      <ExpenseDisclosureRow visible={expanded && !closing} key={line.key} className="wh-detail-line-row">
         <td style={delay(idx)}>{line.name}</td>
         <td style={metaStyle(idx)}>{line.registeredAt || "—"}</td>
         <td style={delay(idx)}>{`${formatQty(line.qty)} ${line.unit}`}</td>
         <td style={delay(idx)}>{formatAmount(line.sum)}</td>
-      </tr>
+      </ExpenseDisclosureRow>
     );
 
     return [
@@ -3580,7 +3625,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
           <button
             type="button"
             className="wh-detail-toggle"
-            onClick={() => toggleWhCat(key)}
+            onClick={() => setExpandedCats((current) => ({ ...current, [key]: current[key] !== true }))}
             aria-expanded={expanded}
             aria-label={`${expanded ? "Свернуть" : "Развернуть"} категорию ${label}`}
           >
@@ -3592,9 +3637,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
         <td>{formatQty(group.qty)}</td>
         <td>{formatAmount(group.sum)}</td>
       </tr>,
-      ...(visible
-        ? group.lines.flatMap((line, idx) => (line.isProduct ? renderProductRow(line, idx) : renderDocRow(line, idx)))
-        : []),
+      ...group.lines.flatMap((line, idx) => (line.isProduct ? renderProductRow(line, idx) : renderDocRow(line, idx))),
     ];
   };
 
@@ -3627,7 +3670,7 @@ function WarehousePage({ initialSection = "incoming", warehouseId, onOpenWarehou
         {!loading && !error && detail ? (
           <div className="settings-table-wrapper dish-grid-wrap">
             <div className="dish-grid-scroll" role="region" aria-label={regionLabel} tabIndex={0}>
-              <table className="settings-table dish-grid-table warehouse-stock-table wh-detail-table" aria-label={tableLabel}>
+              <table className="settings-table dish-grid-table warehouse-stock-table wh-detail-table wh-expense-detail-table" aria-label={tableLabel}>
                 <thead>
                   <tr>
                     <th className="wh-detail-col-name">Названия</th>

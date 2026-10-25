@@ -54,21 +54,36 @@
   text-align: right;
   white-space: nowrap;
 }
-.revenue-products td:last-child { font-weight: 700; }
+.revenue-products td:nth-child(5), .revenue-products td:nth-child(6) { font-weight: 400; }
 .revenue-products__category {
   display: inline-block;
   border-radius: 12px;
   padding: 4px 9px;
-  color: #078e91;
+  color: #000;
   background: #dff8f6;
 }
-.revenue-products tfoot { background: #f4f7fc; font-weight: 700; }
-.revenue-products tfoot td { white-space: nowrap; text-align: right; }
-.revenue-products tfoot th, .revenue-products tfoot td { border-bottom: 0; }
+.revenue-products .revenue-products__total { background: #f4f7fc; }
+.revenue-products .revenue-products__total th,
+.revenue-products .revenue-products__total td { font-weight: 700; }
+.revenue-products .revenue-products__total td { white-space: nowrap; text-align: right; }
 .revenue-products .revenue-products__empty { text-align: center; padding: 24px; }
 .owner-orders-report td:nth-child(4) { font-weight: 700; }
-.owner-orders-report__status { display: inline-block; padding: 5px 10px; border-radius: 14px; font-size: 12px; font-weight: 600; color: #cd6706; background: #fff0d7; }
-.owner-orders-report__status--completed, .owner-orders-report__status--ready { color: #079ca5; background: #dff7f7; }
-.owner-orders-report__status--cancelled { color: #cb3e4e; background: #fff0f1; }
+/* Строка заказа открывает чек: подсветка + курсор, чтобы это читалось
+   как действие, а не как обычная строка таблицы. */
+/* Строка открывает чек, но наведение ничего не подсвечивает: по просьбе
+   владельца у таблицы нет hover-эффекта вообще. Доступность с клавиатуры
+   остаётся — подчёркивание номера при фокусе ниже. */
+.owner-orders-report tbody tr.owner-orders-report__row { cursor: pointer; }
+.owner-orders-report tbody tr.owner-orders-report__row:focus-visible {
+  outline: none;
+}
+/* A discrete keyboard cue, without outlining the entire row after Escape. */
+.owner-orders-report tbody tr.owner-orders-report__row:focus-visible td:first-child {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* Статус в таблице заказов — общий OrderStatus (точка + подпись), как в
+   «Отчёте по заказам». Плашки удалены: они были третьим вариантом статуса. */
+.owner-orders-report .report-order-status { font-size: 13px; font-weight: 600; }
 .owner-average-report th:nth-child(n+2), .owner-average-report td:nth-child(n+2) { text-align: right; white-space: nowrap; }
 .owner-average-report td:nth-child(2) { font-weight: 400; }

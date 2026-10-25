@@ -15,6 +15,7 @@ import { formatMoney } from "./reports/reportMoney";
 import { paymentMethodLabel } from "./dashboard/analyticsData";
 import { webFormat } from "../utils/webTime";
 import OrderStatus from "./reports/OrderStatus";
+import OrderReceiptDialog from "./dashboard/OrderReceiptDialog";
 
 function formatDate(value) {
   if (!value) return "—";
@@ -303,6 +304,11 @@ export default function OrdersReportPage() {
   function openOrder(row) {
     setSearchParams(current => { const next = new URLSearchParams(current); next.set("order", row.id); return next; });
   }
+  // Клик по заказу открывает ЧЕК (тот же, что на дашборде), а не страницу
+  // деталей: владелец смотрит чек, а подробный разбор открывается из него
+  // кнопкой «Детали заказа» — deep-link ?order=<id> продолжает работать.
+  const [receiptOrder, setReceiptOrder] = useState(null);
+  const openReceipt = (row) => setReceiptOrder({ id: row.id, number: row.orderNumber });
   const [loading, setLoading] = useState(true);
   const [requestVersion, setRequestVersion] = useState(0);
   const [error, setError] = useState("");
@@ -618,12 +624,12 @@ export default function OrdersReportPage() {
                   className="owner-report-row-click"
                   role="button"
                   tabIndex={0}
-                  aria-label={`Детали заказа ${row.orderNumber}`}
-                  onClick={() => openOrder(row)}
+                  aria-label={`Открыть чек заказа ${row.orderNumber}`}
+                  onClick={() => openReceipt(row)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      openOrder(row);
+                      openReceipt(row);
                     }
                   }}
                 >
@@ -636,6 +642,19 @@ export default function OrdersReportPage() {
         </div>
       </article>
 
+      {/* Тот же чек, что на дашборде: читает заказ, платежи и шаблон компании. */}
+      {receiptOrder ? (
+        <OrderReceiptDialog
+          orderId={receiptOrder.id}
+          orderNumber={receiptOrder.number}
+          onClose={() => setReceiptOrder(null)}
+          onOpenDetails={() => {
+            const row = rows.find((item) => item.id === receiptOrder.id);
+            setReceiptOrder(null);
+            if (row) openOrder(row);
+          }}
+        />
+      ) : null}
     </section>
   );
 }

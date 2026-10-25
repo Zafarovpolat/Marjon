@@ -298,6 +298,18 @@ export function buildRevenueChartSales(rows) {
   return Array.isArray(rows) ? rows : [];
 }
 
+// Денежный приход одного бакета. Бэкенд с базой
+// `completed_income_minus_snapshot_cogs` отдаёт рядом с `revenue` ещё и
+// `income` (приход) и `cogs` (себестоимость), где revenue = income − cogs.
+// График на дашборде показывает именно приход, поэтому берём `income`.
+// Старые ответы поля не несут — тогда честно падаем обратно на `revenue`,
+// чтобы график не превратился в нули.
+export function bucketIncome(item) {
+  const value = item?.income ?? item?.revenue;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
 // Display-only zero buckets for the Revenue Analytics no-data state.
 // NOT business data: every value is exactly 0 ("no sales occurred in these
 // buckets"). Derived in render from the selected period, never stored/sent.
@@ -368,12 +380,16 @@ export function buildRealKpis(dash, sales, selectedDate, placeSettings = [], fin
   const income = dash.income_total ?? financeIncomeTotal;
   const expense = dash.expense_total ?? financeExpenseTotal;
 
-  const kpis = [
+  // Карточки собираются по ИМЕНИ в порядке определения (revenue, orders, avg,
+  // income, expense) — на этот порядок опираются финансовые расчёты ниже.
+  // Порядок на экране задаётся отдельно (`kpis`), поэтому перестановка карточек
+  // не может переназначить значение чужой карточке.
+  const [revenueKpi, ordersKpi, avgKpi, incomeKpi, expenseKpi] = [
     {
       className: "premium-kpi--revenue",
       icon: "bi-wallet2",
       badge: formatDateLabel(selectedDate),
-      label: "Выручка за день",
+      label: "Чистая прибыль",
       value: formatNumber(revenue),
       suffix: "UZS",
       note: hasHistory ? `${signed(revChange)}% к вчерашнему дню` : "Нет данных для сравнения",
@@ -396,7 +412,7 @@ export function buildRealKpis(dash, sales, selectedDate, placeSettings = [], fin
       className: "premium-kpi--orders",
       icon: "bi-receipt",
       badge: "Live",
-      label: "Заказов",
+      label: "Заказы",
       value: formatNumber(orders),
       dialogSuffix: "шт",
       note: hasHistory ? `${signed(ordChange)} к вчерашнему дню` : "Заказов пока нет",
@@ -474,13 +490,18 @@ export function buildRealKpis(dash, sales, selectedDate, placeSettings = [], fin
       insight: "",
     },
   ];
+  // Порядок карточек на дашборде (задан владельцем): денежный приход →
+  // чистая прибыль → заказы → средний чек → денежные расходы.
+  const kpis = [incomeKpi, revenueKpi, ordersKpi, avgKpi, expenseKpi];
   if (dash.metric_basis === "completed_income_minus_snapshot_cogs") {
     const unavailable = Boolean(dash.financial_unavailable);
     const unknownCost = dash.today_revenue == null;
     const moneyOrUnknown = (amount) => amount == null ? "Неизвестно" : formatMoney(amount);
     const reason = dash.profit_unavailable_reason || "Денежный приход минус историческая себестоимость оплаченных позиций.";
-    Object.assign(kpis[0], {
-      label: dash.date_from && dash.date_from !== dash.date_to ? "Выручка за период" : "Выручка за день",
+    Object.assign(revenueKpi, {
+      // Под этой базой расчёта today_revenue — это приход минус себестоимость,
+      // то есть чистая прибыль, а не выручка. Ярлык обязан совпадать с числом.
+      label: "Чистая прибыль",
       badge: dash.date_from && dash.date_to && dash.date_from !== dash.date_to
         ? `${formatDateLabel(dash.date_from)} – ${formatDateLabel(dash.date_to)}`
         : formatDateLabel(dash.date_to || selectedDate),
@@ -496,7 +517,7 @@ export function buildRealKpis(dash, sales, selectedDate, placeSettings = [], fin
         { name: "Выручка = приход − себестоимость", amount: dash.today_revenue },
       ], labelColumn: "Расчёт", valueColumn: "Сумма", showShare: false, formatValue: moneyOrUnknown },
     });
-    Object.assign(kpis[1], { value: unavailable ? "Недоступно" : formatNumber(dash.today_orders),
+    Object.assign(ordersKpi, { value: unavailable ? "Недоступно" : formatNumber(dash.today_orders),
       dialogSuffix: unavailable ? "" : "шт",
       orderReport: {
         rows: dash.order_rows || [], total: dash.orders_total ?? (Number(dash.today_orders) === 0 ? "0" : null),
@@ -505,17 +526,17 @@ export function buildRealKpis(dash, sales, selectedDate, placeSettings = [], fin
       hideDescription: true,
       description: "Полностью оплаченные завершённые заказы за выбранный период.",
       details: [["Завершённых и оплаченных", unavailable ? "Недоступно" : String(dash.today_orders)]], note: "" });
-    Object.assign(kpis[2], { value: unavailable ? "Недоступно" : new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(Number(dash.avg_check)),
+    Object.assign(avgKpi, { value: unavailable ? "Недоступно" : new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(Number(dash.avg_check)),
       averageReport: {
         rows: dash.average_check_rows || [], count: dash.today_orders, income: dash.income_total, average: dash.avg_check,
         unavailable: unavailable || (!Array.isArray(dash.average_check_rows) && Number(dash.today_orders) > 0),
       },
       hideDescription: true,
       suffix: unavailable ? "" : "UZS", note: "", description: "Денежный приход / количество оплаченных завершённых заказов за период." });
-    Object.assign(kpis[3], { value: unavailable ? "Недоступно" : formatNumber(dash.income_total),
-      productReport: kpis[0].productReport ? { ...kpis[0].productReport, incomeLast: true } : null,
+    Object.assign(incomeKpi, { value: unavailable ? "Недоступно" : formatNumber(dash.income_total),
+      productReport: revenueKpi.productReport ? { ...revenueKpi.productReport, incomeLast: true } : null,
       suffix: unavailable ? "" : "UZS", description: "Подтверждённые оплаты полностью завершённых заказов за выбранный период. Финансовые операции повторно не прибавляются.",
-      table: { ...kpis[3].table, rows: unavailable ? [] : realPaymentRows(dash, dash.income_total),
+      table: { ...incomeKpi.table, rows: unavailable ? [] : realPaymentRows(dash, dash.income_total),
         emptyText: unavailable ? "Не удалось загрузить подтверждённые оплаты" : "Нет оплат завершённых заказов за выбранный период" },
     });
   }

@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Chart, Filler, LineController, LineElement, LinearScale, PointElement, CategoryScale, Tooltip } from "chart.js";
-import { formatNumber } from "../../api/client";
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler);
 
@@ -34,7 +33,7 @@ export function formatRevenueAxisTick(value, hasRevenue) {
   if (amount >= 1_000_000_000) return `${formatAxisValue(amount / 1_000_000_000)}B`;
   if (amount >= 1_000_000) return `${formatAxisValue(amount / 1_000_000)}M`;
   if (amount >= 1_000) return `${formatAxisValue(amount / 1_000)}K`;
-  return formatNumber(amount);
+  return amount.toLocaleString("ru-RU", { maximumFractionDigits: 8 });
 }
 
 // Tooltip always shows the full sum ("3 000 000 UZS"), never a shortened tick.
@@ -72,7 +71,11 @@ export function revenueTooltipPosition({ width, height, tooltipWidth, tooltipHei
   return { x, y };
 }
 
-export default function RevenueChart({ sales }) {
+// `valueKey` выбирает серию бакета. По умолчанию — `revenue` (историческое
+// поведение); дашборд рисует денежный приход, передавая valueKey="income".
+// Если бакет не несёт выбранного поля (старый ответ), берём `revenue`, чтобы
+// график не обнулился молча.
+export default function RevenueChart({ sales, valueKey = "revenue" }) {
   const canvasRef = useRef(null);
   const tooltipRef = useRef(null);
 
@@ -104,7 +107,11 @@ export default function RevenueChart({ sales }) {
     gradient.addColorStop(0, "rgba(29, 181, 181, 0.28)");
     gradient.addColorStop(0.55, "rgba(31, 202, 194, 0.10)");
     gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
-    const revenueValues = sales.map((item) => Number(item.revenue || 0));
+    const revenueValues = sales.map((item) => {
+      const raw = item?.[valueKey] ?? item?.revenue ?? 0;
+      const number = Number(raw);
+      return Number.isFinite(number) ? number : 0;
+    });
     const hasRevenue = revenueValues.some((amount) => amount !== 0);
 
     const chart = new Chart(canvasRef.current, {
@@ -174,14 +181,17 @@ export default function RevenueChart({ sales }) {
           x: { grid: { display: false }, ticks: { color: "#667085", font: { size: 13, weight: "600", family: "'Golos Text', Manrope, sans-serif" } }, border: { display: false } },
           y: {
             beginAtZero: true,
-            suggestedMax: hasRevenue ? undefined : 1000,
+            // Empty plots use real money units too, so five evenly spaced
+            // ticks do not mix legacy placeholder labels with raw numbers.
+            suggestedMax: hasRevenue ? undefined : 30_000_000,
             grid: { color: "rgba(16, 24, 40, 0.08)", drawTicks: false },
             ticks: {
               color: "#667085",
               font: { size: 13, weight: "600", family: "'Golos Text', Manrope, sans-serif" },
-              maxTicksLimit: 6,
-              precision: 0,
-              callback: (value) => formatRevenueAxisTick(value, hasRevenue),
+              count: 5,
+              autoSkip: false,
+              maxTicksLimit: 5,
+              callback: (value) => formatRevenueAxisTick(value, true),
             },
             border: { display: false },
           },
@@ -256,7 +266,7 @@ export default function RevenueChart({ sales }) {
       chart.destroy();
     };
 
-  }, [sales]);
+  }, [sales, valueKey]);
 
   return (
     <div className="revenue-chart-stage">

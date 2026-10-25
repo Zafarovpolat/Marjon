@@ -98,9 +98,9 @@
   }
 
   body.dashboard-body .dashboard-shell .dashboard-main .dashboard-content:has(.owner-widgets) .owner-main-grid .premium-chart .chart-wrap {
-    height: auto;
-    min-height: 276px;
-    flex: 1 1 auto;
+    height: 310px;
+    min-height: 310px;
+    flex: 0 0 310px;
   }
 
   body.dashboard-body .dashboard-shell .dashboard-content:has(.owner-widgets) .warehouse-summary-card,

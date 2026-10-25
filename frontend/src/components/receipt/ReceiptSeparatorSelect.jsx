@@ -31,7 +31,10 @@ const GROUPS = PATTERNS.map((pattern) => ({
 }));
 
 const MENU_WIDTH = 232;
-const MENU_MAX_HEIGHT = 344;
+// Все девять вариантов + три заголовка = ~360px: панель открывается целиком,
+// без внутренней прокрутки и «крутилки». max-height остаётся страховкой для
+// низких окон, где список физически не помещается.
+const MENU_MAX_HEIGHT = 432;
 
 export default function ReceiptSeparatorSelect({ value, onChange, disabled = false }) {
   const current = normalizeSeparator(value);

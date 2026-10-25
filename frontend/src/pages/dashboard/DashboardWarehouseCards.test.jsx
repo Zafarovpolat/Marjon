@@ -73,7 +73,7 @@ describe("dashboard persisted outgoing report", () => {
     warehouseService.listOutgoingReport.mockImplementation((from) => from === "2026-10-12"
       ? new Promise((resolve) => { resolveOld = resolve; }) : Promise.resolve(report(0)));
     render(<OwnerDashboard />);
-    fireEvent.click(await screen.findByRole("button", { name: "Период выручки" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Период денежного прихода" }));
     fireEvent.change(screen.getByLabelText("Начало периода"), { target: { value: "18.10.2026 | 00:00" } });
     fireEvent.change(screen.getByLabelText("Конец периода"), { target: { value: "18.10.2026 | 00:00" } });
     fireEvent.click(document.querySelector(".report-date-ok"));

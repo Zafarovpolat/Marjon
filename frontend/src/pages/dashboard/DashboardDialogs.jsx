@@ -1,9 +1,11 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { formatMoney, formatNumber } from "../../api/client";
 import { formatDateLabel } from "../../utils/date";
 import Icon from "../../components/Icon";
 import { useAnchoredDialogMotion } from "../../hooks/useAnchoredDialogMotion";
+import OrderStatus from "../reports/OrderStatus";
+import OrderReceiptDialog from "./OrderReceiptDialog";
 import "./revenueProducts.css";
 
 // Модальные окна OWNER-дашборда: детализация KPI (с таблицей оплат/мест) и
@@ -70,8 +72,8 @@ function KpiPaymentTable({
 
 function RevenueProductsTable({ report }) {
   const amounts = report.incomeLast
-    ? [["revenue", "Выручка"], ["income", "Денежный приход"]]
-    : [["income", "Денежный приход"], ["revenue", "Выручка"]];
+    ? [["revenue", "Чистая прибыль"], ["income", "Денежный приход"]]
+    : [["income", "Денежный приход"], ["revenue", "Чистая прибыль"]];
   const money = (value) => value == null ? "Неизвестно" : `${new Intl.NumberFormat("ru-RU", {
     maximumFractionDigits: 2,
   }).format(Number(value))} UZS`;
@@ -84,36 +86,47 @@ function RevenueProductsTable({ report }) {
             <th scope="col">№</th><th scope="col">Блюдо / товар</th><th scope="col">Категория</th>
             <th scope="col">Продано</th>{amounts.map(([key, label]) => <th key={key} scope="col">{label}</th>)}
           </tr></thead>
-          <tbody>{report.rows.length ? report.rows.map((row, index) => (
+          <tbody>
+          {report.rows.length > 0 && !report.unavailable ? <tr className="revenue-products__total"><th scope="row" colSpan={4}>Итого</th>
+            {amounts.map(([key]) => <td key={key}>{money(report[key])}</td>)}</tr> : null}
+          {report.rows.length ? report.rows.map((row, index) => (
             <tr key={row.product_id}>
               <td>{index + 1}</td><td>{row.name}</td><td><span className="revenue-products__category">{row.category}</span></td>
               <td>{quantity(row.quantity)}</td>{amounts.map(([key]) => <td key={key}>{money(row[key])}</td>)}
             </tr>
           )) : <tr><td colSpan={6} className="revenue-products__empty">{report.unavailable
             ? "Не удалось загрузить продажи" : "Нет данных"}</td></tr>}</tbody>
-          {!report.unavailable ? <tfoot><tr><th scope="row" colSpan={4}>Итого</th>
-            {amounts.map(([key]) => <td key={key}>{money(report[key])}</td>)}</tr></tfoot> : null}
         </table>
       </div>
     </div>
   );
 }
 
-function OrdersTable({ report }) {
+function OrdersTable({ report, onOpenOrder }) {
   const money = value => value == null ? "Неизвестно" : `${new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(Number(value))} UZS`;
-  const statuses = { completed: "Завершён", ready: "Готов", cancelled: "Отменён",
-    new: "В работе", accepted: "В работе", cooking: "В работе", served: "Подан" };
+  // Строка заказа открывает чек: клик мышью и Enter/Space с клавиатуры.
+  const rowProps = (row) => (onOpenOrder ? {
+    className: "owner-orders-report__row",
+    tabIndex: 0,
+    "aria-label": `Открыть чек заказа №${row.number || String(row.id).slice(0, 6)}`,
+    onClick: () => onOpenOrder(row),
+    onKeyDown: (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      onOpenOrder(row);
+    },
+  } : {});
   return <div className="revenue-products owner-orders-report">
     <div className="revenue-products__scroll" tabIndex={0} role="region" aria-label="Таблица заказов">
       <table><thead><tr>{["№ заказа", "Дата и время", "Место", "Сумма", "Статус"].map(label =>
         <th key={label} scope="col">{label}</th>)}</tr></thead>
-        <tbody>{report.rows.length ? report.rows.map(row => <tr key={row.id}>
+        <tbody>
+        {report.rows.length > 0 && !report.unavailable ? <tr className="revenue-products__total"><th scope="row" colSpan={3}>Итого</th><td>{money(report.total)}</td><td /></tr> : null}
+        {report.rows.length ? report.rows.map(row => <tr key={row.id} {...rowProps(row)}>
           <td>#{row.number || row.id.slice(0, 6)}</td><td>{row.date_label}</td><td>{row.place}</td>
-          <td>{money(row.amount)}</td><td><span className={`owner-orders-report__status owner-orders-report__status--${row.status}`}>
-            {statuses[row.status] || "Неизвестно"}</span></td>
+          <td>{money(row.amount)}</td><td><OrderStatus value={row.status} /></td>
         </tr>) : <tr><td className="revenue-products__empty" colSpan={5}>
           {report.unavailable ? "Не удалось загрузить заказы" : "Нет данных"}</td></tr>}</tbody>
-        {!report.unavailable ? <tfoot><tr><th scope="row" colSpan={3}>Итого</th><td>{money(report.total)}</td><td /></tr></tfoot> : null}
       </table>
     </div>
   </div>;
@@ -126,12 +139,13 @@ function AverageCheckTable({ report }) {
     <div className="revenue-products__scroll" tabIndex={0} role="region" aria-label="Средний чек по местам">
       <table><thead><tr>{["Место", "Оплачено заказов", "Денежный приход", "Средний чек"].map(label =>
         <th key={label} scope="col">{label}</th>)}</tr></thead>
-        <tbody>{report.rows.length ? report.rows.map(row => <tr key={row.id}>
+        <tbody>
+        {report.rows.length > 0 && !report.unavailable ? <tr className="revenue-products__total"><th scope="row">Итого</th><td>{count(report.count)}</td>
+          <td>{money(report.income)}</td><td>{money(report.average)}</td></tr> : null}
+        {report.rows.length ? report.rows.map(row => <tr key={row.id}>
           <td>{row.place}</td><td>{count(row.orders_count)}</td><td>{money(row.income)}</td><td>{money(row.avg_check)}</td>
         </tr>) : <tr><td className="revenue-products__empty" colSpan={4}>
           {report.unavailable ? "Не удалось загрузить средний чек" : "Нет данных"}</td></tr>}</tbody>
-        {!report.unavailable ? <tfoot><tr><th scope="row">Итого</th><td>{count(report.count)}</td>
-          <td>{money(report.income)}</td><td>{money(report.average)}</td></tr></tfoot> : null}
       </table>
     </div>
   </div>;
@@ -158,6 +172,13 @@ export function KpiInfoDialog({ kpi, onClose, sourceRect, returnFocusRef }) {
     };
   const hasTable = isComingSoon || hasAverageTable || hasOrdersTable || hasProductTable || hasCustomTable || Array.isArray(tableRows);
 
+  // Чек конкретного заказа поверх таблицы: { id, number } или null.
+  const [receiptOrder, setReceiptOrder] = useState(null);
+  // Окно KPI закрыли — чек следующего окна не должен открываться сам.
+  useEffect(() => {
+    if (!kpi) setReceiptOrder(null);
+  }, [kpi]);
+
   const {
     dialogRef,
     motionClassName,
@@ -170,6 +191,8 @@ export function KpiInfoDialog({ kpi, onClose, sourceRect, returnFocusRef }) {
     motionMode: "anchored",
     sourceRect,
     returnFocusRef,
+    // Пока открыт чек, Escape закрывает чек, а не таблицу под ним.
+    escapeDisabled: Boolean(receiptOrder),
   });
 
   if (!kpi) return null;
@@ -181,6 +204,7 @@ export function KpiInfoDialog({ kpi, onClose, sourceRect, returnFocusRef }) {
   const container = document.body;
 
   return createPortal(
+    <>
     <div
       className={`kpi-info-backdrop owner-modal-backdrop ${motionClassName}`}
       style={motionStyle}
@@ -214,7 +238,7 @@ export function KpiInfoDialog({ kpi, onClose, sourceRect, returnFocusRef }) {
         {!isComingSoon && ((!hasProductTable && !kpi.hideDescription) || (hasProductTable && (kpi.productReport.unavailable || kpi.productReport.revenue == null)))
           ? <p>{kpi.description}</p> : null}
 
-        {isComingSoon ? <div className="kpi-coming-soon" role="status">Скоро, эта категория в разработке</div> : hasAverageTable ? <AverageCheckTable report={kpi.averageReport} /> : hasOrdersTable ? <OrdersTable report={kpi.orderReport} /> : hasProductTable ? <RevenueProductsTable report={kpi.productReport} /> : hasTable ? (
+        {isComingSoon ? <div className="kpi-coming-soon" role="status">Скоро, эта категория в разработке</div> : hasAverageTable ? <AverageCheckTable report={kpi.averageReport} /> : hasOrdersTable ? <OrdersTable report={kpi.orderReport} onOpenOrder={(row) => setReceiptOrder({ id: row.id, number: row.number })} /> : hasProductTable ? <RevenueProductsTable report={kpi.productReport} /> : hasTable ? (
           <KpiPaymentTable {...tableProps} />
         ) : (
           <div className="kpi-info-window__details">
@@ -234,7 +258,18 @@ export function KpiInfoDialog({ kpi, onClose, sourceRect, returnFocusRef }) {
           </div>
         )}
       </section>
-    </div>,
+    </div>
+    {/* Монтируем только по клику: диалог читает профиль компании (useOrg),
+        а таблица заказов должна работать и без него. Уход анимируется
+        внутри самого диалога — он живёт до конца анимации. */}
+    {receiptOrder ? (
+      <OrderReceiptDialog
+        orderId={receiptOrder.id}
+        orderNumber={receiptOrder.number}
+        onClose={() => setReceiptOrder(null)}
+      />
+    ) : null}
+    </>,
     container
   );
 }

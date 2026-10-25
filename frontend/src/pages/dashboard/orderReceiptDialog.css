@@ -1,0 +1,222 @@
+/* Чек заказа из таблицы «Заказов» на дашборде.
+   Появление/уход — те же классы и переменные, что у остальных модалок
+   (owner-modal-motion), поэтому длительность и кривая совпадают с KPI-окнами,
+   а prefers-reduced-motion учитывается общими правилами движения. */
+
+.receipt-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  /* Выше kpi-info-backdrop (99999): чек открывается ПОВЕРХ таблицы заказов. */
+  z-index: 100050;
+  display: grid;
+  place-items: center;
+  /* Чек высокий: узкие поля по краям отдают окну почти всю высоту экрана —
+     чем выше окно, тем крупнее чек в нём (масштаб считается по высоте). */
+  padding: 12px;
+  background: rgba(2, 8, 23, 0.54);
+  backdrop-filter: blur(5px);
+}
+/* Затемнение анимирует ОБЩЕЕ семейство owner-modal-motion (220ms,
+   body.dashboard-body .owner-modal-motion.is-motion-ready…): свои правила для
+   backdrop здесь были бы перебиты и просто дублировали бы длительность.
+   Собственная анимация ниже нужна только самому окну чека — для нового класса
+   .receipt-dialog общих правил нет. */
+
+.receipt-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(540px, 100%);
+  /* Фиксированная высота: превью считает масштаб чека от неё (fitToHeight),
+     и «резиновое» окно дало бы петлю «чек меньше → окно меньше → чек ещё
+     меньше». Чек вписывается по высоте, очень длинный — прокручивается. */
+  height: min(88dvh, 900px);
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: none;
+  overflow: hidden;
+  transform-origin: 50% 50%;
+}
+.receipt-dialog-backdrop.is-motion-ready:not(.is-motion-closing) .receipt-dialog {
+  animation: receipt-dialog-surface-in 240ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.receipt-dialog-backdrop.is-motion-closing .receipt-dialog {
+  animation: receipt-dialog-surface-out 180ms ease-in both;
+}
+
+@keyframes receipt-dialog-surface-in {
+  from {
+    opacity: 0;
+    transform: translate(var(--owner-modal-shift-x, 0px), var(--owner-modal-shift-y, 12px))
+      scale(var(--owner-modal-source-scale, 0.88));
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+@keyframes receipt-dialog-surface-out {
+  from {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(0, 6px) scale(var(--owner-modal-close-scale, 0.9));
+  }
+}
+/* Reduced motion: затемнение остаётся на общем fade (его гасит dashboard.css),
+   окно чека перестаёт масштабироваться и просто проявляется. */
+@media (prefers-reduced-motion: reduce) {
+  .receipt-dialog-backdrop.is-motion-ready:not(.is-motion-closing) .receipt-dialog,
+  .receipt-dialog-backdrop.is-motion-closing .receipt-dialog {
+    animation-name: owner-modal-surface-fade-in;
+    animation-duration: 80ms;
+  }
+  .receipt-dialog-backdrop.is-motion-closing .receipt-dialog {
+    animation-name: owner-modal-surface-fade-out;
+  }
+}
+
+.receipt-dialog__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px 12px;
+  border-bottom: 0;
+}
+.receipt-dialog__head > div { min-width: 0; }
+.receipt-dialog__actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.receipt-dialog__details {
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid #d8e3f2;
+  border-radius: 12px;
+  background: #fff;
+  color: #174e60;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.receipt-dialog__details:hover { border-color: #1fc9c9; color: #0f99b8; }
+.receipt-dialog__details:focus-visible { outline: 0; border-color: #1fc9c9; box-shadow: 0 0 0 3px rgba(31, 201, 201, 0.18); }
+.receipt-dialog__head span {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6b87a8;
+}
+.receipt-dialog__head h2 {
+  margin: 2px 0 0;
+  font-size: 23px;
+  line-height: 24px;
+  font-weight: 700;
+  color: #0b1f3f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.receipt-dialog__close {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d8e3f2;
+  border-radius: 12px;
+  background: #fff;
+  color: #0b1f3f;
+  cursor: pointer;
+}
+.receipt-dialog__close:hover:not(:disabled) { border-color: #1fc9c9; color: #0f99b8; }
+.receipt-dialog__close:focus-visible { outline: 0; border-color: #1fc9c9; box-shadow: 0 0 0 3px rgba(31, 201, 201, 0.18); }
+
+.receipt-dialog__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #f4f8fd;
+}
+/* Fit-оболочка чека тянется на всю высоту тела, внутри скроллится сам чек. */
+.receipt-dialog__body > .receipt-preview-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  /* В модалке внешние отступы оболочки (22px на странице настроек) съедали
+     высоту и заставляли чек прокручиваться. Здесь хватает узкой рамки. */
+  padding: 6px 10px;
+  gap: 0;
+}
+/* Короткий чек стоит по центру окна, а не липнет к верхнему краю. Auto-margin,
+   а не justify-content: center — он не обрезает начало длинного чека. */
+.receipt-dialog__body .receipt-fit-frame {
+  margin-block: auto;
+}
+/* Плоская бумага: в окне чек лежит на ровном фоне, без тени, которая
+   проявлялась при наведении на панель. На странице настроек тень остаётся.
+   Селектор намеренно длиннее, чем `.receipt-settings-page .receipt-preview-shell
+   .receipt-preview` из receiptSettings.css — иначе его drop-shadow побеждает. */
+.receipt-dialog .receipt-dialog__body.receipt-settings-page .receipt-preview {
+  filter: none;
+}
+/* Страница настроек прячет полосу прокрутки (там чек виден целиком), но в
+   модалке чек может не влезть — без видимой полосы низ чека выглядел обрезанным.
+   Возвращаем тонкую полосу только здесь. */
+.receipt-dialog .receipt-dialog__body .receipt-fit-viewport {
+  /* На узких экранах receiptSettings.css снимает прокрутку (overflow: visible):
+     в модалке это обернулось бы обрезанным чеком без возможности долистать,
+     поэтому здесь прокрутка закреплена явно. */
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(15, 35, 60, 0.28) transparent;
+  padding-right: 2px;
+}
+.receipt-dialog__body .receipt-fit-viewport::-webkit-scrollbar { width: 8px; height: 0; }
+.receipt-dialog__body .receipt-fit-viewport::-webkit-scrollbar-track { background: transparent; }
+.receipt-dialog__body .receipt-fit-viewport::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: rgba(15, 35, 60, 0.26) padding-box;
+}
+.receipt-dialog__body .receipt-fit-viewport::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 35, 60, 0.4) padding-box;
+}
+.receipt-dialog__state {
+  flex: 1 1 auto;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  color: #536d8e;
+  font-size: 14px;
+  text-align: center;
+}
+.receipt-dialog__state--error { color: #b42318; font-weight: 600; }
+
+/* No hover elevation or seam between header and preview background. */
+.receipt-dialog:hover,
+.receipt-dialog:focus-within,
+.receipt-dialog .receipt-dialog__body .receipt-preview-shell,
+.receipt-dialog .receipt-dialog__body .receipt-preview-shell:hover,
+.receipt-dialog .receipt-dialog__body .receipt-preview,
+.receipt-dialog .receipt-dialog__body .receipt-preview:hover {
+  box-shadow: none;
+  filter: none;
+}
+.receipt-dialog .receipt-dialog__body .receipt-preview-shell {
+  border: 0;
+  border-radius: 0;
+}
+
+@media (max-width: 560px) {
+  .receipt-dialog-backdrop { padding: 12px; }
+  .receipt-dialog { height: min(92dvh, 900px); border-radius: 18px; }
+}

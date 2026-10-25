@@ -2,8 +2,10 @@ import { Link } from "react-router-dom";
 import { useCallback, useState } from "react";
 import DishPhotoViewer from "../../components/DishPhotoViewer";
 import "./topSalesPhotos.css";
+import "./recentOrders.css";
 import { formatMoney, formatNumber } from "../../api/client";
 import Icon from "../../components/Icon";
+import OrderStatus from "../reports/OrderStatus";
 
 // Презентационные секции OWNER-дашборда: пустое состояние, сводка смены,
 // быстрые действия, последние заказы, топ продаж. Вынесено из OwnerDashboard.jsx
@@ -187,7 +189,9 @@ export function RecentOrdersCard({ orders }) {
             <span>{order.date}</span>
             <span>{order.place}</span>
             <em>{order.amount}</em>
-            <small className={order.ready ? "is-ready" : "is-progress"}>{order.status}</small>
+            {/* Статус — тот же компонент, что в «Отчёте по заказам»: цветная
+                точка + подпись, без плашки. Один источник правды для статусов. */}
+            <OrderStatus value={order.statusCode} />
           </div>
         )) : (
           <SectionEmpty

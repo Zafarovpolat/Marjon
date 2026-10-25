@@ -1,0 +1,65 @@
+/* Both dashboard lists reserve exactly five recent-order-sized row slots,
+   including when there are fewer records or only an empty-state message. */
+body.dashboard-body .dashboard-shell .owner-widgets .recent-orders-card,
+body.dashboard-body .dashboard-shell .owner-widgets .owner-top-sales-card {
+  --dashboard-list-row-height: 58px;
+  --dashboard-list-row-gap: 10px;
+  display: flex;
+  flex-direction: column;
+  align-self: start;
+  height: auto;
+  min-height: 0;
+  padding: 22px 20px 16px;
+}
+
+body.dashboard-body .dashboard-shell .owner-widgets .recent-orders-card .section-header,
+body.dashboard-body .dashboard-shell .owner-widgets .owner-top-sales-card .section-header {
+  box-sizing: border-box;
+  flex: 0 0 44px;
+  height: 44px;
+  min-height: 44px;
+  padding-block: 0;
+  margin: 0 0 16px;
+}
+
+body.dashboard-body .dashboard-shell .owner-widgets .recent-orders-list,
+body.dashboard-body .dashboard-shell .owner-widgets .top-dishes-list {
+  display: grid;
+  grid-auto-rows: var(--dashboard-list-row-height);
+  align-content: start;
+  gap: var(--dashboard-list-row-gap);
+  height: calc(5 * var(--dashboard-list-row-height) + 4 * var(--dashboard-list-row-gap));
+  min-height: calc(5 * var(--dashboard-list-row-height) + 4 * var(--dashboard-list-row-gap));
+  flex: 0 0 auto;
+  margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+body.dashboard-body .dashboard-shell .owner-widgets .recent-order,
+body.dashboard-body .dashboard-shell .owner-widgets .owner-top-sales-card .top-dish.top-dish--compact {
+  box-sizing: border-box;
+  height: var(--dashboard-list-row-height);
+  min-height: var(--dashboard-list-row-height);
+  margin: 0;
+  padding-block: 8px;
+  border-radius: 28px;
+}
+
+body.dashboard-body .dashboard-shell .owner-widgets .recent-orders-list:has(.owner-empty),
+body.dashboard-body .dashboard-shell .owner-widgets .top-dishes-list:has(.owner-empty) {
+  grid-template-rows: 1fr;
+  grid-auto-rows: auto;
+  place-items: center;
+}
+
+body.dashboard-body .dashboard-shell .owner-widgets .owner-empty {
+  min-height: 0;
+  margin: 0;
+}
+
+/* The generic `.recent-order span` colour must not replace the status tone. */
+body.dashboard-body .dashboard-shell .recent-order .report-order-status__dot {
+  color: inherit;
+  background-color: currentColor;
+}
